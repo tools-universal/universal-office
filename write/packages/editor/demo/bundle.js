@@ -8,13 +8,21 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-WO4O3KWW.js";
+} from "./chunks/chunk-BNKIUIN4.js";
 import {
+  BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
   DEFAULT_RUN_PROPS,
   DocxPackage,
   applyParaProps,
   applyRunProps,
+  blankDocxPackage,
+  builtinDisplayName,
+  builtinStyles,
+  builtinXml,
+  clearPara,
+  clearParaFormatting,
+  clearRunFormatting,
   columnWidths,
   columnsFor,
   columnsPresetOf,
@@ -22,7 +30,10 @@ import {
   contentWidth,
   convertDocToDocx,
   deleteRange,
+  dropStyle,
   editBaseProps,
+  hasParaChanges,
+  hasRunChanges,
   insertRun,
   insertSectionBreak,
   insertText,
@@ -30,28 +41,40 @@ import {
   markSectionBreaks,
   maxColumns,
   mergeWithPrevious,
+  newStyleXml,
   normalizeRange,
   onBrowserLangChange,
   paraLength,
   paraPropsFromPPr,
   paraText,
+  patchStylePPr,
+  patchStyleRPr,
+  patchStyleXml,
   pickLabels,
   presetColumns,
   propsAt,
+  putStyle,
   readEmbeddedFonts,
   readFullDocument,
+  readStyleIndex,
+  readStyleSheet,
+  readStylesXml,
   runPropsFromRPr,
   sectionIndexAt,
   sectionRanges,
   sectionSectPr,
+  setLatentQFormat,
   setOrientation,
   splitParagraph,
+  styleIdFromName,
+  styleKid,
+  styleRaw,
   uiLang,
   unzlibSync,
   writeDocument,
   zipSync,
   zlibSync
-} from "./chunks/chunk-3WJOR5B3.js";
+} from "./chunks/chunk-3EKOH2QB.js";
 
 // ../docx-core/src/export/model.ts
 function orderedBlocks(doc) {
@@ -3018,6 +3041,7 @@ function directRPr(run) {
     if (p.highlight) base.highlight = p.highlight;
     if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
+    if (p.charStyle) base.rStyle = p.charStyle;
     return base;
   }
   if (p.bold !== orig.bold) base.b = p.bold;
@@ -3049,6 +3073,10 @@ function directRPr(run) {
   if (p.charSpacingTwips !== orig.charSpacingTwips) {
     if (!p.charSpacingTwips) delete base.spacing;
     else base.spacing = p.charSpacingTwips;
+  }
+  if (p.charStyle !== orig.charStyle) {
+    if (p.charStyle === void 0) delete base.rStyle;
+    else base.rStyle = p.charStyle;
   }
   return base;
 }
@@ -11629,6 +11657,460 @@ function paragraphAtPath(blocks, path) {
   return null;
 }
 
+// src/styles.ts
+var W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+var EMPTY_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="${W_NS}"></w:styles>`;
+var blankLatent = null;
+function blankLatentOf(name) {
+  blankLatent ??= new Map(readStyleIndex(BLANK_STYLES_XML).latent.items.map((l) => [l.name.toLowerCase(), l]));
+  return blankLatent.get(name.toLowerCase());
+}
+var DocStyles = class {
+  versions;
+  v = 0;
+  memo = null;
+  constructor(xml) {
+    this.versions = [xml];
+  }
+  get xml() {
+    return this.versions[this.v] ?? null;
+  }
+  get version() {
+    return this.v;
+  }
+  /** mudou desde a carga (o salvar regrava a parte) */
+  get dirty() {
+    return this.xml !== this.versions[0];
+  }
+  commit(xml) {
+    if (xml === this.xml) return;
+    this.versions.push(xml);
+    this.v = this.versions.length - 1;
+  }
+  /** volta a uma versão (desfazer/refazer); true se mudou */
+  restore(v) {
+    if (v === this.v || v < 0 || v >= this.versions.length) return false;
+    this.v = v;
+    return true;
+  }
+  get m() {
+    const xml = this.xml;
+    if (!this.memo || this.memo.xml !== xml) {
+      this.memo = {
+        xml,
+        index: xml ? readStyleIndex(xml) : { styles: [], latent: { defaults: { uiPriority: 99, semiHidden: false, unhideWhenUsed: false, qFormat: false }, items: [] } },
+        sheet: readStyleSheet(xml ?? void 0)
+      };
+    }
+    return this.memo;
+  }
+  index() {
+    return this.m.index;
+  }
+  sheet() {
+    return this.m.sheet;
+  }
+  /** base para editar (documento sem styles.xml ganha uma parte mínima) */
+  base() {
+    return this.xml ?? EMPTY_STYLES;
+  }
+  meta(id) {
+    return id === void 0 ? void 0 : this.index().styles.find((s) => s.id === id);
+  }
+  /** estilo definido pelo w:name (sem diferenciar maiúsculas) */
+  byName(name) {
+    const k = name.toLowerCase();
+    return this.index().styles.find((s) => s.name.toLowerCase() === k);
+  }
+  /** estilo de parágrafo padrão (w:default) — "Normal" */
+  defaultParagraph() {
+    return this.index().styles.find((s) => s.type === "paragraph" && s.isDefault)?.id ?? "Normal";
+  }
+  defaultCharacter() {
+    return this.index().styles.find((s) => s.type === "character" && s.isDefault)?.id ?? "Fontepargpadro";
+  }
+  ids() {
+    return new Set(this.index().styles.map((s) => s.id));
+  }
+};
+function isTwin(ds, m) {
+  if (m.type !== "character" || !m.link) return false;
+  return ds.meta(m.link)?.type === "paragraph";
+}
+function displayName(m, lang) {
+  const base = m.custom ? m.name : builtinDisplayName(m.name, lang) ?? m.name;
+  return m.aliases ? `${base},${m.aliases}` : base;
+}
+function kindOf(ds, m) {
+  if (m.type === "character") return "character";
+  return m.link && ds.meta(m.link)?.type === "character" ? "linked" : "paragraph";
+}
+var latentOf = (ds, name) => {
+  const k = name.toLowerCase();
+  return ds.index().latent.items.find((l) => l.name.toLowerCase() === k) ?? blankLatentOf(name);
+};
+function listStyles(ds, lang, inUse, filter = "recommended") {
+  const out = [];
+  const names = /* @__PURE__ */ new Set();
+  const defPara = ds.defaultParagraph();
+  for (const m of ds.index().styles) {
+    if (m.type !== "paragraph" && m.type !== "character") continue;
+    names.add(m.name.toLowerCase());
+    if (isTwin(ds, m)) continue;
+    if (m.type === "character" && m.isDefault) continue;
+    const kind = kindOf(ds, m);
+    out.push({
+      id: m.id,
+      name: displayName(m, lang),
+      rawName: m.name,
+      kind,
+      builtIn: !m.custom,
+      defined: true,
+      quick: m.qFormat,
+      hidden: m.semiHidden || m.hidden,
+      priority: m.uiPriority,
+      inUse: inUse.has(m.id) || m.id === defPara || !!m.link && inUse.has(m.link),
+      isDefault: m.isDefault,
+      basedOn: m.basedOn,
+      next: m.next,
+      link: kind === "linked" ? m.link : void 0,
+      autoUpdate: m.autoRedefine
+    });
+  }
+  const taken = ds.ids();
+  for (const b of builtinStyles()) {
+    if (names.has(b.name.toLowerCase())) continue;
+    const id = b.xml.match(/w:styleId="([^"]*)"/)[1];
+    if (taken.has(id)) continue;
+    const l = latentOf(ds, b.name);
+    const type = /w:type="character"/.test(b.xml) ? "character" : "paragraph";
+    const link = b.twin?.match(/w:styleId="([^"]*)"/)?.[1];
+    out.push({
+      id,
+      name: builtinDisplayName(b.name, lang) ?? b.name,
+      rawName: b.name,
+      kind: type === "character" ? "character" : link ? "linked" : "paragraph",
+      builtIn: true,
+      defined: false,
+      quick: l?.qFormat ?? false,
+      hidden: l?.semiHidden ?? false,
+      priority: l?.uiPriority ?? 99,
+      inUse: false,
+      isDefault: false,
+      basedOn: b.xml.match(/<w:basedOn w:val="([^"]*)"/)?.[1],
+      next: b.xml.match(/<w:next w:val="([^"]*)"/)?.[1],
+      link,
+      autoUpdate: false
+    });
+  }
+  const headingInUse = (n) => out.some((s) => s.rawName.toLowerCase() === `heading ${n}` && s.inUse);
+  const nextHeading = (s) => {
+    const h = /^heading (\d)$/.exec(s.rawName.toLowerCase());
+    return !!h && +h[1] > 1 && headingInUse(+h[1] - 1);
+  };
+  const keep = (s) => {
+    switch (filter) {
+      case "gallery":
+        return s.quick && (!s.hidden || nextHeading(s));
+      case "recommended":
+        return !s.hidden || s.inUse || nextHeading(s);
+      case "inUse":
+        return s.inUse;
+      case "document":
+        return s.defined;
+      case "all":
+        return true;
+    }
+  };
+  const coll = new Intl.Collator(lang === "pt" ? "pt-BR" : "en");
+  return out.filter(keep).sort((a, b) => a.priority - b.priority || coll.compare(a.name, b.name));
+}
+function withLatent(ds, id) {
+  const sheet = ds.sheet();
+  if (sheet.styles[id]) return sheet;
+  const extra = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (sid) => {
+    if (!sid || seen.has(sid) || sheet.styles[sid]) return;
+    seen.add(sid);
+    const b = builtinStyles().find((x) => x.xml.includes(`w:styleId="${sid}"`) || x.twin?.includes(`w:styleId="${sid}"`));
+    if (!b) return;
+    extra.push(b.xml, b.twin ?? "");
+    add(b.xml.match(/<w:basedOn w:val="([^"]*)"/)?.[1]);
+  };
+  add(id);
+  if (!extra.length) return sheet;
+  const more = readStyleSheet(`<w:styles xmlns:w="${W_NS}">${extra.join("")}</w:styles>`);
+  return { ...sheet, styles: { ...more.styles, ...sheet.styles } };
+}
+var borderCss = (b, theme) => {
+  if (!b || b.val === "nil" || b.val === "none") return void 0;
+  const c = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, theme) ?? "000000";
+  return `${Math.max(1, Math.round((b.sz ?? 4) / 8 * 4 / 3))}px ${b.val === "double" ? "double" : b.val === "dotted" ? "dotted" : b.val === "dashed" ? "dashed" : "solid"} #${c}`;
+};
+function styleProps(ds, theme, id) {
+  const sheet = withLatent(ds, id);
+  const res = new StyleResolver({ ...emptyFormatting(), styles: sheet, theme });
+  const def = sheet.styles[id];
+  const dd = sheet.docDefaults;
+  if (def?.type === "character") {
+    const para = res.paraStyle(void 0);
+    return { pPr: mergePPr(dd.pPr, para.pPr), rPr: cascadeRPr(dd.rPr, [para.rPr, res.charStyle(id)], void 0), kind: "character" };
+  }
+  const ps = res.paraStyle(id);
+  const kind = def?.link && sheet.styles[def.link]?.type === "character" ? "linked" : "paragraph";
+  return { pPr: mergePPr(dd.pPr, ps.pPr), rPr: cascadeRPr(dd.rPr, [ps.rPr], void 0), kind };
+}
+function lookOf(pPr, rPr, theme, dd) {
+  const jc = pPr.jc;
+  const sp = pPr.spacing ?? {};
+  const ind = pPr.ind ?? {};
+  return {
+    fontFamily: fontOfSlot(rPr.rFonts, "ascii", theme) ?? fontOfSlot(rPr.rFonts, "hAnsi", theme) ?? fontOfSlot(dd?.rFonts, "ascii", theme) ?? theme.minor.latin ?? "Times New Roman",
+    sizePt: (rPr.sz ?? 20) / 2,
+    bold: !!rPr.b,
+    italic: !!rPr.i,
+    underline: !!rPr.u && rPr.u.val !== "none",
+    strike: !!rPr.strike,
+    allCaps: !!rPr.caps,
+    smallCaps: !!rPr.smallCaps,
+    color: resolveColor(rPr.color, theme),
+    charSpacingTwips: rPr.spacing ?? 0,
+    alignment: jc === "center" ? "center" : jc === "right" || jc === "end" ? "right" : jc === "both" || jc === "distribute" ? "both" : "left",
+    spaceBeforeTwips: sp.before ?? 0,
+    spaceAfterTwips: sp.after ?? 0,
+    lineTwentieths: sp.lineRule === "exact" || sp.lineRule === "atLeast" ? void 0 : sp.line ?? 240,
+    indentLeftTwips: ind.left ?? 0,
+    indentRightTwips: ind.right ?? 0,
+    indentFirstLineTwips: ind.hanging ? -ind.hanging : ind.firstLine ?? 0,
+    shadingHex: pPr.shd?.fill && pPr.shd.fill !== "auto" ? pPr.shd.fill : void 0,
+    borderTop: borderCss(pPr.pBdr?.top, theme),
+    borderBottom: borderCss(pPr.pBdr?.bottom, theme)
+  };
+}
+function styleLook(ds, theme, id) {
+  const { pPr, rPr } = styleProps(ds, theme, id);
+  return lookOf(pPr, rPr, theme, ds.sheet().docDefaults.rPr);
+}
+var idOf = (xml) => xml.match(/w:styleId="([^"]*)"/)[1];
+var refsIn = (xml) => [...xml.matchAll(/<w:(?:basedOn|next|link) w:val="([^"]*)"\/>/g)].map((m) => m[1]);
+function resolveStyleId(xml, id) {
+  if (!xml) return id;
+  const idx = readStyleIndex(xml);
+  if (idx.styles.some((s) => s.id === id)) return id;
+  const b = builtinStyles().find((x) => idOf(x.xml) === id || x.twin && idOf(x.twin) === id);
+  if (!b) return id;
+  const twin = b.twin && idOf(b.twin) === id;
+  const para = idx.styles.find((s) => s.name.toLowerCase() === b.name.toLowerCase());
+  if (!para) return id;
+  return twin ? para.link ?? id : para.id;
+}
+function ensureDefined(ds, xml, id, used) {
+  const idx = readStyleIndex(xml);
+  const has = (sid) => idx.styles.find((s) => s.id === sid);
+  const cur = has(id);
+  if (cur) {
+    if (used && cur.semiHidden && cur.unhideWhenUsed) {
+      let out2 = putStyle(xml, id, patchStyleXml(styleRaw(xml, id), { semiHidden: false }));
+      const tw = cur.link ? has(cur.link) : void 0;
+      if (tw?.semiHidden) out2 = putStyle(out2, tw.id, patchStyleXml(styleRaw(out2, tw.id), { semiHidden: false }));
+      return out2;
+    }
+    return xml;
+  }
+  const b = builtinStyles().find((x) => idOf(x.xml) === id || x.twin && idOf(x.twin) === id);
+  if (!b) return xml;
+  const refs = {};
+  let out = xml;
+  for (const r of [...refsIn(b.xml), ...b.twin ? refsIn(b.twin) : []]) {
+    if (r === idOf(b.xml) || b.twin && r === idOf(b.twin)) continue;
+    const rb = builtinStyles().find((x) => idOf(x.xml) === r || x.twin && idOf(x.twin) === r);
+    const named = rb ? readStyleIndex(out).styles.find((s) => s.name.toLowerCase() === (idOf(rb.xml) === r ? rb.name : `${rb.pt} Char`).toLowerCase()) : void 0;
+    if (named) {
+      if (named.id !== r) refs[r] = named.id;
+      continue;
+    }
+    if (readStyleIndex(out).styles.some((s) => s.id === r)) continue;
+    if (r === "Fontepargpadro" || r === "Normal") {
+      const dflt = readStyleIndex(out).styles.find((s) => s.isDefault && s.type === (r === "Normal" ? "paragraph" : "character"));
+      if (dflt) {
+        refs[r] = dflt.id;
+        continue;
+      }
+    }
+    out = ensureDefined(ds, out, r, false);
+  }
+  out = putStyle(out, idOf(b.xml), builtinXml(b.xml, { used, refs }));
+  if (b.twin && !readStyleIndex(out).styles.some((s) => s.id === idOf(b.twin))) out = putStyle(out, idOf(b.twin), builtinXml(b.twin, { used, refs }));
+  return out;
+}
+function createStyleXml(ds, xml, o) {
+  const type = o.type ?? "linked";
+  const taken = new Set(readStyleIndex(xml).styles.map((s) => s.id));
+  const id = styleIdFromName(o.name, taken);
+  taken.add(id);
+  const f = o.format ?? {};
+  const rPr = hasRunChanges(f) ? patchStyleRPr(void 0, f) : "";
+  const pPr = type !== "character" && hasParaChanges(f) ? patchStylePPr(void 0, f) : "";
+  let out = xml;
+  if (type === "character") {
+    const base2 = o.basedOn ?? ds.defaultCharacter();
+    out = ensureDefined(ds, out, base2, false);
+    out = putStyle(out, id, newStyleXml({ type: "character", custom: true, id, name: o.name, basedOn: base2, qFormat: o.quick ?? true, rPr }));
+    return { xml: out, id };
+  }
+  const base = o.basedOn ?? ds.defaultParagraph();
+  out = ensureDefined(ds, out, base, false);
+  const twinId = type === "linked" ? styleIdFromName(`${id}Char`, taken) : void 0;
+  out = putStyle(out, id, newStyleXml({
+    type: "paragraph",
+    custom: true,
+    id,
+    name: o.name,
+    basedOn: base,
+    next: o.next && o.next !== id ? o.next : void 0,
+    link: twinId,
+    autoRedefine: o.autoUpdate,
+    qFormat: o.quick ?? true,
+    pPr,
+    rPr
+  }));
+  if (twinId) {
+    const baseTwin = readStyleIndex(out).styles.find((s) => s.id === base)?.link;
+    out = putStyle(out, twinId, newStyleXml({
+      type: "character",
+      custom: true,
+      id: twinId,
+      name: `${o.name} Char`,
+      basedOn: baseTwin ?? defaultCharOf(out),
+      link: id,
+      rPr
+    }));
+  }
+  return { xml: out, id };
+}
+var defaultCharOf = (xml) => readStyleIndex(xml).styles.find((s) => s.type === "character" && s.isDefault)?.id ?? "Fontepargpadro";
+function modifyStyleXml(ds, xml, id, o) {
+  let out = ensureDefined(ds, xml, id, false);
+  const meta = readStyleIndex(out).styles.find((s) => s.id === id);
+  if (!meta) return { xml, renamed: {} };
+  let raw = styleRaw(out, id);
+  const f = o.format ?? {};
+  const head = {};
+  if (o.basedOn !== void 0 && o.basedOn !== meta.basedOn && o.basedOn !== id) {
+    out = ensureDefined(ds, out, o.basedOn, false);
+    head.basedOn = o.basedOn;
+  }
+  if (o.next !== void 0) head.next = o.next === null || o.next === id ? null : o.next;
+  if (o.autoUpdate !== void 0) head.autoRedefine = o.autoUpdate;
+  if (o.quick !== void 0) head.qFormat = o.quick;
+  if (hasRunChanges(f)) head.rPr = patchStyleRPr(styleKid(raw, "w:rPr"), f);
+  if (meta.type === "paragraph" && hasParaChanges(f)) head.pPr = patchStylePPr(styleKid(raw, "w:pPr"), f);
+  raw = patchStyleXml(styleRaw(out, id), head);
+  out = putStyle(out, id, raw);
+  if (o.quick !== void 0 && !meta.custom) out = setLatentQFormat(out, meta.name, o.quick);
+  const twin = meta.link ? readStyleIndex(out).styles.find((s) => s.id === meta.link && s.type === "character") : void 0;
+  if (twin) {
+    const th = {};
+    if (head.rPr !== void 0) th.rPr = head.rPr;
+    if (head.basedOn) th.basedOn = readStyleIndex(out).styles.find((s) => s.id === head.basedOn)?.link ?? defaultCharOf(out);
+    if (Object.keys(th).length) out = putStyle(out, twin.id, patchStyleXml(styleRaw(out, twin.id), th));
+  }
+  let renamed = {};
+  if (o.name !== void 0 && o.name.trim() && o.name !== displayName(meta, "pt") && o.name !== displayName(meta, "en") && o.name !== meta.name) {
+    const r = renameStyleXml(ds, out, id, o.name.trim());
+    out = r.xml;
+    renamed = r.renamed;
+  }
+  return { xml: out, renamed };
+}
+function renameStyleXml(ds, xml, id, name) {
+  let out = ensureDefined(ds, xml, id, false);
+  const idx = readStyleIndex(out);
+  const meta = idx.styles.find((s) => s.id === id);
+  if (!meta || !name) return { xml, renamed: {} };
+  const twin = meta.link ? idx.styles.find((s) => s.id === meta.link && s.type === "character" && s.custom) : void 0;
+  if (!meta.custom) {
+    out = putStyle(out, id, patchStyleXml(styleRaw(out, id), { aliases: name }));
+    if (twin) out = putStyle(out, twin.id, patchStyleXml(styleRaw(out, twin.id), { aliases: `${name} Char` }));
+    return { xml: out, renamed: {} };
+  }
+  if (idx.styles.some((s) => s.id !== id && s.name.toLowerCase() === name.toLowerCase())) throw new Error(`style name in use: ${name}`);
+  const taken = new Set(idx.styles.filter((s) => s.id !== id && s.id !== twin?.id).map((s) => s.id));
+  const newId = styleIdFromName(name, taken);
+  taken.add(newId);
+  const renamed = {};
+  if (newId !== id) renamed[id] = newId;
+  const newTwin = twin ? styleIdFromName(`${newId}Char`, taken) : void 0;
+  if (twin && newTwin !== twin.id) renamed[twin.id] = newTwin;
+  out = putStyle(out, id, patchStyleXml(styleRaw(out, id), { styleId: newId, name, ...twin ? { link: newTwin } : {} }));
+  if (twin) out = putStyle(out, twin.id, patchStyleXml(styleRaw(out, twin.id), { styleId: newTwin, name: `${name} Char`, link: newId }));
+  return { xml: retarget(out, renamed), renamed };
+}
+function retarget(xml, renamed) {
+  if (!Object.keys(renamed).length) return xml;
+  return xml.replace(/(<w:(?:basedOn|next|link) w:val=")([^"]*)("\/>)/g, (m, a, v, b) => renamed[v] ? a + renamed[v] + b : m);
+}
+function deleteStyleXml(xml, id) {
+  const idx = readStyleIndex(xml);
+  const meta = idx.styles.find((s) => s.id === id);
+  if (!meta || !meta.custom || meta.isDefault) return null;
+  const twin = meta.link ? idx.styles.find((s) => s.id === meta.link && s.custom) : void 0;
+  const removed = [id, ...twin ? [twin.id] : []];
+  let out = xml;
+  for (const r of removed) out = dropStyle(out, r);
+  const gone = new Set(removed);
+  out = out.replace(/<w:basedOn w:val="([^"]*)"\/>/g, (m, v) => gone.has(v) ? v === id && meta.basedOn ? `<w:basedOn w:val="${meta.basedOn}"/>` : v === twin?.id && twin.basedOn ? `<w:basedOn w:val="${twin.basedOn}"/>` : "" : m);
+  out = out.replace(/<w:(?:next|link) w:val="([^"]*)"\/>/g, (m, v) => gone.has(v) ? "" : m);
+  return { xml: out, removed };
+}
+function setQuickXml(ds, xml, id, on) {
+  const meta = readStyleIndex(xml).styles.find((s) => s.id === id);
+  if (!meta) {
+    const b = builtinStyles().find((x) => idOf(x.xml) === id);
+    if (!b) return xml;
+    if (!on) return setLatentQFormat(xml, b.name, false);
+    const out2 = ensureDefined(ds, xml, id, false);
+    return out2 === xml ? xml : setQuickXml(ds, out2, id, true);
+  }
+  let out = putStyle(xml, id, patchStyleXml(styleRaw(xml, id), { qFormat: on }));
+  if (!meta.custom) out = setLatentQFormat(out, meta.name, on);
+  return out;
+}
+function stylesPartPath(pkg) {
+  const rels = pkg.getPartText("word/_rels/document.xml.rels") ?? "";
+  for (const m of rels.matchAll(/<Relationship\b[^>]*>/g)) {
+    const tag = m[0];
+    if (!/Type="[^"]*\/styles"/.test(tag) || /TargetMode="External"/.test(tag)) continue;
+    const t = tag.match(/Target="([^"]*)"/)?.[1];
+    if (t) return t.startsWith("/") ? t.slice(1) : `word/${t.replace(/^\.\//, "")}`;
+  }
+  return "word/styles.xml";
+}
+function writeStylesPart(pkg, xml) {
+  const path = stylesPartPath(pkg);
+  const existed = pkg.getPartText(path) !== void 0;
+  pkg.setPartText(path, xml);
+  if (existed) return;
+  const relsPath = "word/_rels/document.xml.rels";
+  let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  if (!/Type="[^"]*\/styles"/.test(rels)) {
+    const ids = new Set([...rels.matchAll(/Id="([^"]*)"/g)].map((m) => m[1]));
+    let n = 1;
+    while (ids.has(`rId${n}`)) n++;
+    rels = rels.replace("</Relationships>", `<Relationship Id="rId${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+    pkg.setPartText(relsPath, rels);
+  }
+  const ct = pkg.getPartText("[Content_Types].xml");
+  if (ct && !ct.includes("/word/styles.xml")) {
+    pkg.setPartText("[Content_Types].xml", ct.replace(
+      "</Types>",
+      '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'
+    ));
+  }
+}
+
 // src/xps.ts
 var PT_TO_PX = 96 / 72;
 var TWIP_TO_PX = 96 / 1440;
@@ -12310,6 +12792,7 @@ var refsOfSection = (s) => ({
   footerRefs: s.footerRefs.map((r) => ({ kind: "footer", type: r.type, rid: r.rid }))
 });
 var RPR_REF = /* @__PURE__ */ Symbol("uw-rpr");
+var RPR_EDITED = /* @__PURE__ */ Symbol("uw-rpr-edited");
 var insertText2 = (m, pos, text, props) => guardRuns(m, pos.para, pos.para, () => insertText(m, pos, text, props));
 var insertRun2 = (m, pos, run) => guardRuns(m, pos.para, pos.para, () => insertRun(m, pos, run));
 var deleteRange2 = (m, range) => {
@@ -12393,6 +12876,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   model = null;
   pkg = null;
   fullDoc = null;
+  /** word/styles.xml editável — fonte única da galeria, do painel e do salvar */
+  docStyles = new DocStyles(null);
   /** Tabelas ancoradas antes do parágrafo de índice beforePara. */
   tableAnchors = [];
   /** Seções: a partir de qual parágrafo cada uma vale — DERIVADAS do modelo
@@ -12635,7 +13120,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-NRD2PJTC.js");
+    const { setupChrome } = await import("./chunks/chrome-TY5VVZXD.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -12672,7 +13157,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-NRD2PJTC.js").then((m) => {
+      void import("./chunks/chrome-TY5VVZXD.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -12906,6 +13391,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.loadedBytes = bytes;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
+    this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
     this.loadedFormat = "docx";
     this.installFullDoc();
     void this.registerEmbeddedFonts(this.pkg);
@@ -12955,6 +13441,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.pkg = null;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readOdt(bytes);
+    this.docStyles = new DocStyles(null);
     this.loadedBytes = null;
     this.loadedFormat = "odt";
     this.installFullDoc();
@@ -13118,34 +13605,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() }
     }));
   }
+  /** Documento novo como o Word grava um em branco: estilos (Normal, títulos,
+   *  citações… e os latentes), tema do Office, configurações e A4 com margens
+   *  3/2,5 cm (docx-core/blank.ts, medido no oráculo). */
   newDocument() {
-    this.resetEngineState();
     this.protectedMode = false;
     this.loadedBytes = null;
-    this.editsSinceLoad = 0;
     this.loadedFormat = "docx";
-    this.pkg = null;
+    this.pkg = blankDocxPackage();
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
-    this.fullDoc = null;
-    this.tableAnchors = [];
-    this.resetSections();
-    this.floatImages = [];
-    this.model = {
-      paragraphs: [{ runs: [], props: {} }],
-      sectPr: {
-        pageWidthTwips: 11906,
-        pageHeightTwips: 16838,
-        marginLeftTwips: 1701,
-        marginRightTwips: 1701,
-        marginTopTwips: 1417,
-        marginBottomTwips: 1417
-      }
-    };
-    this.syncSections();
-    this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
-    this.undoStack = [];
-    this.redoStack = [];
-    this.refresh();
+    this.fullDoc = readFullDocument(this.pkg, { sources: true });
+    this.docStyles = new DocStyles(this.pkg.getPartText("word/styles.xml") ?? null);
+    this.installFullDoc();
   }
   setDarkPage(dark) {
     this.pageDark = dark;
@@ -13517,9 +13988,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const dd = this.docDefaults();
     const para = { ...p?.props ?? {} };
     if (para.alignment === void 0) para.alignment = st?.alignment;
-    if (run.fontAscii === void 0) run.fontAscii = st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
+    const look = this.docStyles.xml && (run.fontAscii === void 0 || run.szHalfPt === void 0) ? styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, run.charStyle ?? p?.props.styleId ?? this.docStyles.defaultParagraph()) : null;
+    if (run.fontAscii === void 0) run.fontAscii = look?.fontFamily ?? st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
     if (run.szHalfPt === void 0) {
-      run.szHalfPt = st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
+      run.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
     return { run, para, view: this.view, marks: this.showMarks };
   }
@@ -13711,27 +14183,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   setHighlight(name) {
     this.formatRuns({ highlight: name });
   }
+  /** Limpar Toda a Formatação (Word: Selection.ClearFormatting): o trecho perde
+   *  a formatação direta e o estilo de caractere; os parágrafos tocados voltam ao
+   *  Normal sem formatação direta. No cursor: o parágrafo. */
   clearFormatting() {
+    if (!this.model || this.locked()) return;
     this.snapshot();
-    if (this.hasSelection()) {
-      applyRunProps2(this.model, this.range(), { ...DEFAULT_RUN_PROPS, szHalfPt: void 0, color: void 0, highlight: void 0, fontAscii: void 0, vertAlign: void 0 });
-      applyParaProps(this.model, this.range(), { styleId: void 0, alignment: void 0 });
-      const { start, end } = normalizeRange(this.range());
-      for (let pi = start.para; pi <= end.para; pi++) {
-        let acc = 0;
-        for (const r of this.model.paragraphs[pi].runs) {
-          const a = acc;
-          acc += r.text.length;
-          const from = pi === start.para ? start.offset : 0;
-          const to = pi === end.para ? end.offset : Infinity;
-          if (a < from || acc > to) continue;
-          delete r.rpr;
-          r.props = { ...r.props };
-          delete r.props[RPR_REF];
-        }
-      }
-    }
+    if (this.hasSelection()) clearRunFormatting(this.model, this.range(), { charStyle: void 0 });
+    else this.pendingProps = { ...DEFAULT_RUN_PROPS };
+    clearParaFormatting(this.model, this.range());
+    const { start, end } = normalizeRange(this.range());
+    for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi].props.styleId;
     this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   changeCase(mode) {
     if (!this.model || !this.hasSelection() || this.locked()) return;
@@ -13786,18 +14251,108 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   setLineSpacing(line) {
     this.formatPara({ lineTwentieths: line });
   }
-  /** Aplica um estilo de parágrafo replicando o Word: além de setar o styleId,
-   *  LIMPA a formatação direta que impediria o estilo de aparecer — props de
-   *  parágrafo (numeração/bullet, alinhamento, espaçamento, recuos, bordas) e
-   *  props de run UNIFORMES no parágrafo (tamanho/fonte/cor/negrito iguais em
-   *  todos os runs). Formatação de run PARCIAL (ex.: uma palavra em negrito) é
-   *  preservada — exatamente como o Word faz. */
+  // ───────────────────────── estilos ─────────────────────────
+  // A folha (word/styles.xml) é editada sem perdas por DocStyles/styles.ts; o
+  // modelo só leva styleId (parágrafo) e charStyle (run). Regras do Word medidas
+  // no oráculo (write/tools/styles-oracle; memória word-styles-oracle-facts).
+  /** Estilos da galeria/painel: definidos + latentes built-in, na ordem do Word
+   *  (prioridade, nome). `filter`: 'gallery' (galeria), 'recommended' (padrão),
+   *  'inUse', 'document' (definidos no arquivo) ou 'all'. */
+  listStyles(filter = "recommended") {
+    const lang = uiLang(this);
+    if (!this.docStyles.xml && this.loadedFormat === "odt") {
+      const out = [];
+      this.fullDoc?.styles.forEach((v, id) => {
+        if (id === "docDefaults" || v.type && v.type !== "paragraph") return;
+        out.push({
+          id,
+          name: v.name ?? id,
+          rawName: v.name ?? id,
+          kind: "paragraph",
+          builtIn: false,
+          defined: true,
+          quick: true,
+          hidden: false,
+          priority: 0,
+          inUse: false,
+          isDefault: false,
+          autoUpdate: false
+        });
+      });
+      return out.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return listStyles(this.docStyles, lang, this.stylesInUse(), filter);
+  }
+  /** Formatação EFETIVA de um estilo (cascata docDefaults → basedOn → estilo):
+   *  fonte, tamanho, cor, alinhamento, espaçamentos… — miniaturas e diálogos. */
+  styleFormatting(id) {
+    if (!this.docStyles.xml && !this.stylesEditable()) return null;
+    return styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, resolveStyleId(this.docStyles.xml, id));
+  }
+  /** Formatação DIRETA da seleção (1º caractere + 1º parágrafo) no formato do
+   *  diálogo de estilo — o ponto de partida de "Criar estilo". */
+  selectionStyleFormat() {
+    if (!this.model) return {};
+    return this.selectionFormat("linked");
+  }
+  /** Fonte CSS com que a TELA desenha uma família (a mesma face do canvas: o
+   *  arquivo da fonte ou a substituta métrico-compatível) — miniaturas de
+   *  estilo e prévias. Família ainda não carregada é pedida ao resolvedor. */
+  canvasFont(family, bold = false, italic = false) {
+    const face = this.fonts ? this.liveFontProvider().face(family, bold, italic) : null;
+    const css = face ? this.engFaceCss.get(face) : void 0;
+    if (!css) void this.ensureFontLoaded(family);
+    return css ?? { family: DEFAULT_FONT_CSS, weight: bold ? 700 : 400, italic };
+  }
+  /** Versão da folha de estilos (muda a cada criar/modificar/excluir/desfazer). */
+  stylesVersion() {
+    return this.docStyles.version;
+  }
+  /** Muda quando a lista de estilos pode ter mudado (folha, uso no documento, idioma). */
+  stylesKey() {
+    return `${this.docStyles.version}:${this.editsSinceLoad}:${this.undoStack.length}:${this.redoStack.length}:${this.hfEdit ? 1 : 0}:${uiLang(this)}`;
+  }
+  /** Estilo de parágrafo e de caractere no cursor (ids). */
+  currentStyles() {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const run = this.pendingProps ?? this.currentProps();
+    return { paragraph: p?.props.styleId ?? this.docStyles.defaultParagraph(), character: run.charStyle };
+  }
+  /** Aplica um estilo como o Word (oráculo):
+   *  - PARÁGRAFO: troca o estilo dos parágrafos da seleção, LIMPA a formatação
+   *    direta de parágrafo e a de caractere UNIFORME no parágrafo; a parcial
+   *    (uma palavra em negrito) fica;
+   *  - CARACTERE: no trecho selecionado (no cursor, a palavra), tirando toda a
+   *    formatação direta dele;
+   *  - VINCULADO em parte de UM parágrafo: vale o par de caractere ("… Char").
+   *  Estilo latente built-in entra no styles.xml com a definição do Word.
+   *  `undefined` = Normal. */
   applyStyle(styleId) {
     if (!this.model || this.locked()) return;
     this.snapshot();
-    const r = this.range();
-    const lo = Math.min(r.start.para, r.end.para);
-    const hi = Math.max(r.start.para, r.end.para);
+    this.applyStyleCore(styleId);
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  applyStyleCore(styleId) {
+    const ds = this.docStyles;
+    const defPara = ds.defaultParagraph();
+    const sid = styleId === void 0 ? void 0 : resolveStyleId(ds.xml, styleId);
+    const id = sid === void 0 || sid === defPara ? void 0 : sid;
+    if (id && this.stylesEditable()) this.commitStyles(ensureDefined(ds, ds.base(), id, true));
+    const meta = id ? ds.meta(id) : void 0;
+    const { start, end } = normalizeRange(this.range());
+    if (meta?.type === "character") {
+      this.applyCharStyle(id);
+      return;
+    }
+    const twin = meta?.link ? ds.meta(meta.link) : void 0;
+    if (twin?.type === "character" && this.hasSelection() && start.para === end.para && !(start.offset === 0 && end.offset >= paraLength(this.model.paragraphs[start.para]))) {
+      this.applyCharStyle(twin.id);
+      return;
+    }
     const RUN_KEYS = [
       "szHalfPt",
       "fontAscii",
@@ -13815,35 +14370,388 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       "highlight",
       "charSpacingTwips"
     ];
-    for (let pi = lo; pi <= hi; pi++) {
+    for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi];
       if (!p) continue;
-      p.props.styleId = styleId;
-      p.props.numbering = void 0;
-      p.props.alignment = void 0;
-      p.props.spaceBeforeTwips = void 0;
-      p.props.spaceAfterTwips = void 0;
-      p.props.lineTwentieths = void 0;
-      p.props.indentLeftTwips = void 0;
-      p.props.indentRightTwips = void 0;
-      p.props.indentFirstLineTwips = void 0;
-      p.props.borders = void 0;
-      p.props.shadingHex = void 0;
+      clearPara(p);
+      p.props.styleId = id;
       const runs = p.runs;
       if (runs.length) {
-        for (const key of RUN_KEYS) {
+        const uniform = RUN_KEYS.filter((key) => {
           const first = runs[0].props[key];
-          if (first === void 0) continue;
-          if (runs.every((rn) => rn.props[key] === first)) {
-            for (const rn of runs) delete rn.props[key];
-          }
-        }
+          return first !== void 0 && first !== false && runs.every((rn) => rn.props[key] === first);
+        });
+        if (uniform.length) clearRunFormatting(this.model, { start: { para: pi, offset: 0 }, end: { para: pi, offset: paraLength(p) } }, { fields: uniform, charStyle: null });
       }
     }
+  }
+  /** Estilo de caractere no trecho (no cursor: a palavra; fora de palavra: o
+   *  texto que for digitado). Tira a formatação direta do trecho (Word). */
+  applyCharStyle(id) {
+    const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, false);
+    if (!r) {
+      this.pendingProps = { ...DEFAULT_RUN_PROPS, ...id ? { charStyle: id } : {} };
+      return;
+    }
+    clearRunFormatting(this.model, r, { charStyle: id });
+    this.ensureStyleUsed(id);
+  }
+  /** Palavra sob o cursor ([letras/dígitos]); `space` inclui os espaços depois
+   *  (é o que o Word limpa no cursor). null = cursor fora de palavra. */
+  wordRangeAt(pos, space) {
+    const p = this.model?.paragraphs[pos.para];
+    if (!p) return null;
+    const t = paraText(p);
+    const w = (i) => i >= 0 && i < t.length && /[\p{L}\p{N}_]/u.test(t[i]);
+    if (!w(pos.offset) && !w(pos.offset - 1)) return null;
+    let a = pos.offset, b = pos.offset;
+    while (w(a - 1)) a--;
+    while (w(b)) b++;
+    if (space) while (b < t.length && t[b] === " ") b++;
+    return { start: { para: pos.para, offset: a }, end: { para: pos.para, offset: b } };
+  }
+  /** Usar um estilo tira o semiHidden (unhideWhenUsed), como o Word. */
+  ensureStyleUsed(id) {
+    if (id && this.stylesEditable()) this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), id, true));
+  }
+  /** Formatação do 1º caractere e do 1º parágrafo da seleção (criar estilo). */
+  selectionFormat(type) {
+    const { start } = normalizeRange(this.range());
+    const run = this.hasSelection() ? propsAt(this.model, { para: start.para, offset: start.offset + 1 }) : this.pendingProps ?? this.currentProps();
+    const f = {};
+    if (run.fontAscii) f.fontAscii = run.fontAscii;
+    if (run.szHalfPt !== void 0) f.szHalfPt = run.szHalfPt;
+    if (run.bold) f.bold = true;
+    if (run.italic) f.italic = true;
+    if (run.underline && !run.link) f.underline = true;
+    if (run.strike) f.strike = true;
+    if (run.allCaps) f.allCaps = true;
+    if (run.smallCaps) f.smallCaps = true;
+    if (run.color && !(run.link && run.color === "0563C1")) f.color = run.color;
+    if (run.charSpacingTwips) f.charSpacingTwips = run.charSpacingTwips;
+    if (type === "character") return f;
+    const pp = this.model.paragraphs[start.para].props;
+    if (pp.alignment && pp.alignment !== "left") f.alignment = pp.alignment;
+    if (pp.spaceBeforeTwips !== void 0) f.spaceBeforeTwips = pp.spaceBeforeTwips;
+    if (pp.spaceAfterTwips !== void 0) f.spaceAfterTwips = pp.spaceAfterTwips;
+    if (pp.lineTwentieths !== void 0) f.lineTwentieths = pp.lineTwentieths;
+    if (pp.indentLeftTwips) f.indentLeftTwips = pp.indentLeftTwips;
+    if (pp.indentRightTwips) f.indentRightTwips = pp.indentRightTwips;
+    if (pp.indentFirstLineTwips) f.indentFirstLineTwips = pp.indentFirstLineTwips;
+    return f;
+  }
+  /** Cria um estilo (padrão: VINCULADO, na galeria, baseado no estilo do
+   *  parágrafo atual, com a formatação do 1º caractere/parágrafo da seleção —
+   *  como "Criar um Estilo") e o aplica à seleção. Devolve o styleId (como o Word
+   *  gera: o nome sem acentos/espaços) ou null se o nome já existe. */
+  createStyle(opts) {
+    if (!this.model || this.locked() || !this.stylesEditable()) return null;
+    const name = opts.name.trim();
+    if (!name || this.styleNameTaken(name)) return null;
+    const type = opts.type ?? "linked";
+    const format = opts.format ?? (opts.fromSelection !== false ? this.selectionFormat(type) : {});
+    const basedOn = opts.basedOn ?? (type === "character" ? void 0 : this.model.paragraphs[this.selection.focus.para]?.props.styleId ?? this.docStyles.defaultParagraph());
+    this.snapshot();
+    const { xml, id } = createStyleXml(this.docStyles, this.docStyles.base(), { ...opts, name, type, basedOn, format });
+    this.commitStyles(xml);
+    if (opts.apply !== false) this.applyStyleCore(id);
     this.pendingProps = null;
     this.refresh();
     this.onSelectionChange?.();
     this.chromeSync?.();
+    return id;
+  }
+  /** Modifica um estilo — nome, baseado em, próximo, galeria, atualizar
+   *  automaticamente e a formatação (`format`: valor = definir no estilo, null =
+   *  herdar). O documento inteiro refaz o layout; um passo de desfazer. */
+  modifyStyle(id, opts) {
+    if (!this.model || this.locked() || !this.stylesEditable()) return false;
+    if (opts.name !== void 0 && opts.name.trim() && this.styleNameTaken(opts.name.trim(), id)) return false;
+    id = resolveStyleId(this.docStyles.xml, id);
+    this.snapshot();
+    const { xml, renamed } = modifyStyleXml(this.docStyles, this.docStyles.base(), id, opts);
+    if (xml === this.docStyles.xml) {
+      this.undoStack.pop();
+      return false;
+    }
+    this.commitStyles(xml);
+    this.retargetStyles(renamed, []);
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** "Atualizar <estilo> para Corresponder à Seleção": a formatação direta do
+   *  parágrafo atual (a de parágrafo e a de caractere uniforme) entra no estilo
+   *  e sai do parágrafo. Padrão: o estilo do parágrafo atual. */
+  updateStyleFromSelection(id) {
+    if (!this.model || this.locked() || !this.stylesEditable()) return false;
+    const pi = this.selection.focus.para;
+    const p = this.model.paragraphs[pi];
+    const target = resolveStyleId(this.docStyles.xml, id ?? p.props.styleId ?? this.docStyles.defaultParagraph());
+    const pp = p.props;
+    const format = {};
+    if (pp.alignment) format.alignment = pp.alignment;
+    if (pp.spaceBeforeTwips !== void 0) format.spaceBeforeTwips = pp.spaceBeforeTwips;
+    if (pp.spaceAfterTwips !== void 0) format.spaceAfterTwips = pp.spaceAfterTwips;
+    if (pp.lineTwentieths !== void 0) format.lineTwentieths = pp.lineTwentieths;
+    if (pp.indentLeftTwips !== void 0) format.indentLeftTwips = pp.indentLeftTwips;
+    if (pp.indentRightTwips !== void 0) format.indentRightTwips = pp.indentRightTwips;
+    if (pp.indentFirstLineTwips !== void 0) format.indentFirstLineTwips = pp.indentFirstLineTwips;
+    const runs = p.runs;
+    const uniform = (k) => {
+      const v = runs[0]?.props[k];
+      return v !== void 0 && runs.every((r) => r.props[k] === v) ? v : void 0;
+    };
+    const fields = [];
+    const take = (k, onlyTrue = false) => {
+      const v = uniform(k);
+      if (v === void 0 || onlyTrue && v === false) return;
+      format[k] = v;
+      fields.push(k);
+    };
+    take("fontAscii");
+    take("szHalfPt");
+    take("color");
+    take("charSpacingTwips");
+    take("bold", true);
+    take("italic", true);
+    take("underline", true);
+    take("strike", true);
+    take("allCaps", true);
+    take("smallCaps", true);
+    this.snapshot();
+    const { xml } = modifyStyleXml(this.docStyles, this.docStyles.base(), target, { format });
+    this.commitStyles(xml);
+    clearPara(p);
+    if (target !== this.docStyles.defaultParagraph()) p.props.styleId = target;
+    if (fields.length && runs.length) clearRunFormatting(this.model, { start: { para: pi, offset: 0 }, end: { para: pi, offset: paraLength(p) } }, { fields, charStyle: null });
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Renomeia. Personalizado troca nome E styleId (o documento acompanha);
+   *  built-in ganha um alias (w:aliases), como o Word. */
+  renameStyle(id, name) {
+    if (!this.model || this.locked() || !this.stylesEditable() || !name.trim() || this.styleNameTaken(name.trim(), id)) return false;
+    id = resolveStyleId(this.docStyles.xml, id);
+    this.snapshot();
+    const { xml, renamed } = renameStyleXml(this.docStyles, this.docStyles.base(), id, name.trim());
+    if (xml === this.docStyles.xml) {
+      this.undoStack.pop();
+      return false;
+    }
+    this.commitStyles(xml);
+    this.retargetStyles(renamed, []);
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Exclui um estilo PERSONALIZADO: os parágrafos voltam ao Normal e os runs
+   *  perdem o estilo de caractere (Word). Built-in não se exclui → false. */
+  deleteStyle(id) {
+    if (!this.model || this.locked() || !this.stylesEditable() || !this.docStyles.xml) return false;
+    const r = deleteStyleXml(this.docStyles.xml, id);
+    if (!r) return false;
+    this.snapshot();
+    this.commitStyles(r.xml);
+    this.retargetStyles({}, r.removed);
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Mostra (true) ou tira (false) o estilo da galeria (w:qFormat). */
+  setStyleInGallery(id, on) {
+    if (!this.model || this.locked() || !this.stylesEditable()) return;
+    const xml = setQuickXml(this.docStyles, this.docStyles.base(), resolveStyleId(this.docStyles.xml, id), on);
+    if (xml === this.docStyles.xml) return;
+    this.snapshot();
+    this.commitStyles(xml);
+    this.refresh();
+    this.chromeSync?.();
+  }
+  /** Inspetor de Estilo: o estilo e a formatação DIRETA de parágrafo e de texto
+   *  no cursor (só as propriedades presentes). */
+  inspectStyle() {
+    const lang = uiLang(this);
+    const ds = this.docStyles;
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const run = this.hasSelection() ? propsAt(this.model, { para: normalizeRange(this.range()).start.para, offset: normalizeRange(this.range()).start.offset + 1 }) : this.pendingProps ?? this.currentProps();
+    const nameOf = (id) => {
+      const m = ds.meta(id);
+      return m ? displayName(m, lang) : this.listStyles("all").find((s) => s.id === id)?.name ?? id;
+    };
+    const pid = p?.props.styleId ?? ds.defaultParagraph();
+    const cid = run.charStyle ?? ds.defaultCharacter();
+    const pd = {};
+    for (const k of [
+      "alignment",
+      "spaceBeforeTwips",
+      "spaceAfterTwips",
+      "lineTwentieths",
+      "indentLeftTwips",
+      "indentRightTwips",
+      "indentFirstLineTwips",
+      "numbering",
+      "borders",
+      "shadingHex",
+      "tabStops",
+      "pageBreakBefore"
+    ]) {
+      const v = p?.props[k];
+      if (v !== void 0 && v !== false) pd[k] = v;
+    }
+    const rd = {};
+    for (const k of [
+      "fontAscii",
+      "szHalfPt",
+      "bold",
+      "italic",
+      "underline",
+      "strike",
+      "doubleStrike",
+      "allCaps",
+      "smallCaps",
+      "color",
+      "highlight",
+      "vertAlign",
+      "charSpacingTwips"
+    ]) {
+      const v = run[k];
+      if (v === void 0 || v === false) continue;
+      if (run.link && (k === "underline" && !run.underlineStyle || k === "color" && v === "0563C1")) continue;
+      rd[k] = v;
+    }
+    return { paragraph: { id: pid, name: nameOf(pid), direct: pd }, text: { id: cid, name: nameOf(cid), direct: rd } };
+  }
+  /** Inspetor: "Redefinir para o estilo Normal de parágrafo" (mantém o direto). */
+  clearParagraphStyle() {
+    this.styleEdit(() => {
+      const { start, end } = normalizeRange(this.range());
+      for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi].props.styleId;
+    });
+  }
+  /** Inspetor: limpar a formatação DIRETA de parágrafo (mantém o estilo). */
+  clearParagraphFormatting() {
+    this.styleEdit(() => clearParaFormatting(this.model, this.range()));
+  }
+  /** Inspetor: limpar o estilo de CARACTERE (mantém o direto). No cursor: a palavra. */
+  clearCharacterStyle() {
+    this.styleEdit(() => {
+      const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, false);
+      if (r) applyRunProps(this.model, r, { charStyle: void 0 });
+      else if (this.pendingProps) delete this.pendingProps.charStyle;
+    });
+  }
+  /** Inspetor: limpar a formatação DIRETA de caractere (mantém o estilo de
+   *  caractere). No cursor: a palavra e o espaço depois (Word). */
+  clearCharacterFormatting() {
+    this.styleEdit(() => {
+      const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, true);
+      if (r) clearRunFormatting(this.model, r, { charStyle: null });
+      else this.pendingProps = { ...DEFAULT_RUN_PROPS, ...this.currentProps().charStyle ? { charStyle: this.currentProps().charStyle } : {} };
+    });
+  }
+  styleEdit(fn) {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    fn();
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Enter no fim do parágrafo: o novo leva o "próximo estilo" (w:next), sem
+   *  formatação direta — se o estilo tem um próximo diferente dele mesmo. */
+  applyNextStyle(prev, next) {
+    const ds = this.docStyles;
+    const sid = prev.props.styleId ?? ds.defaultParagraph();
+    const meta = ds.meta(sid);
+    if (!meta?.next || meta.next === sid) return;
+    clearPara(next);
+    next.props.styleId = meta.next === ds.defaultParagraph() ? void 0 : meta.next;
+    this.ensureStyleUsed(next.props.styleId);
+    this.pendingProps = { ...DEFAULT_RUN_PROPS };
+  }
+  /** Há folha de estilos editável (docx; .odt não). */
+  stylesEditable() {
+    return this.loadedFormat !== "odt";
+  }
+  styleNameTaken(name, except) {
+    const k = name.toLowerCase();
+    return this.listStyles("all").some((s) => s.id !== except && (s.name.toLowerCase() === k || s.rawName.toLowerCase() === k));
+  }
+  /** Nova versão do styles.xml: relê a folha (motor + editor) e refaz o layout. */
+  commitStyles(xml) {
+    if (xml === this.docStyles.xml) return;
+    this.docStyles.commit(xml);
+    this.syncStyleSheet();
+  }
+  syncStyleSheet() {
+    const xml = this.docStyles.xml ?? void 0;
+    if (this.fullDoc) {
+      this.fullDoc.styles = readStylesXml(xml);
+      this.fullDoc.formatting = { ...this.fullDoc.formatting ?? emptyFormatting(), styles: this.docStyles.sheet() };
+    }
+    this.engPageCache.clear();
+    this.dispatchEvent(new CustomEvent("uw-styles-change"));
+  }
+  /** Todos os parágrafos do documento (corpo, tabelas, cabeçalhos/rodapés, notas, caixas). */
+  allParagraphs() {
+    const out = [];
+    const visit = (ps) => {
+      for (const p of ps) {
+        out.push(p);
+        for (const r of p.runs) if (r.textbox) visit(r.textbox.paras);
+      }
+    };
+    const table = (t) => {
+      for (const row of t.rows) for (const c of row.cells) {
+        visit(c.paragraphs);
+        c.tables.forEach(table);
+      }
+    };
+    const body = this.bodyState();
+    visit(body.model.paragraphs);
+    body.tableAnchors.forEach((a) => table(a.table));
+    for (const s of this.fullDoc?.sections ?? []) {
+      for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) visit(ps);
+    }
+    for (const m of [this.fullDoc?.footnotes, this.fullDoc?.endnotes]) m?.forEach((ps) => visit(ps));
+    return [...new Set(out)];
+  }
+  inUseCache = null;
+  /** Ids de estilo em uso (styleId dos parágrafos, charStyle dos runs). */
+  stylesInUse() {
+    const key = this.stylesKey();
+    if (this.inUseCache?.key === key) return this.inUseCache.set;
+    const used = /* @__PURE__ */ new Set();
+    this.inUseCache = { key, set: used };
+    for (const p of this.allParagraphs()) {
+      if (p.props.styleId) used.add(p.props.styleId);
+      for (const r of p.runs) if (r.props.charStyle) used.add(r.props.charStyle);
+    }
+    return used;
+  }
+  /** Renomeados/excluídos: os parágrafos e runs acompanham. */
+  retargetStyles(renamed, removed) {
+    if (!Object.keys(renamed).length && !removed.length) return;
+    const gone = new Set(removed);
+    for (const p of this.allParagraphs()) {
+      const s = p.props.styleId;
+      if (s && renamed[s]) p.props.styleId = renamed[s];
+      else if (s && gone.has(s)) delete p.props.styleId;
+      for (const r of p.runs) {
+        const c = r.props.charStyle;
+        if (c && renamed[c]) r.props = { ...r.props, charStyle: renamed[c] };
+        else if (c && gone.has(c)) {
+          r.props = { ...r.props };
+          delete r.props.charStyle;
+        }
+      }
+    }
   }
   setShading(hex) {
     this.formatPara({ shadingHex: hex });
@@ -14724,6 +15632,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : void 0,
       sources: this.fullDoc?.sources
     });
+    if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
     return pkg.save();
   }
   /** Monta o documento de exportação a partir do estado VIVO do editor. */
@@ -15008,6 +15917,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return JSON.stringify({
       m: this.model,
       s: this.selection,
+      // versão da folha de estilos (as versões ficam em DocStyles)
+      sv: this.docStyles.version,
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: this.cellEdit || this.hfEdit || this.tbEdit ? void 0 : {
@@ -15068,6 +15979,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
       this.bookmarkParas = new Map(state.anc.b);
     }
+    if (state.sv !== void 0 && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     this.refresh();
   }
   /** deleteRange com ajuste de âncoras de tabela/seção. */
@@ -15107,8 +16019,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos2, focus: pos2 };
     }
     const at = this.selection.focus.para;
+    const atEnd = this.selection.focus.offset >= paraLength(this.model.paragraphs[at]);
     const pos = splitParagraph2(this.model, this.selection.focus);
     this.shiftAnchors(at, 1);
+    if (atEnd) this.applyNextStyle(this.model.paragraphs[at], this.model.paragraphs[at + 1]);
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
     this.scrollCaretIntoView();
@@ -15749,19 +16663,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   hasDocStyles() {
     return (this.fullDoc?.styles.size ?? 0) > 0;
   }
-  /** Estilos de PARÁGRAFO do documento (id + nome de exibição), para a lista
-   *  de estilos da barra. Vazio se não há styles.xml (documento novo). */
+  /** Estilos de PARÁGRAFO recomendados do documento (id + nome na língua da
+   *  interface), na ordem do Word — a lista de estilos da barra compacta. */
   paragraphStyles() {
-    const styles = this.fullDoc?.styles;
-    if (!styles) return [];
-    const out = [];
-    styles.forEach((v, id) => {
-      if (id === "docDefaults") return;
-      if (v.type && v.type !== "paragraph") return;
-      out.push({ id, name: v.name ?? id });
-    });
-    out.sort((a, b) => a.name.localeCompare(b.name));
-    return out;
+    return this.listStyles("recommended").filter((s) => s.kind !== "character").map((s) => ({ id: s.id, name: s.name }));
   }
   styleOf(p) {
     if (!p.props.styleId) return void 0;
@@ -17544,7 +18449,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const props = r.props;
         if (r.rpr) {
           if (props[RPR_REF] !== r.rpr) props[RPR_REF] = r.rpr;
-        } else if (props[RPR_REF]) r.rpr = props[RPR_REF];
+          if (r.rprEdited) props[RPR_EDITED] = true;
+          else if (props[RPR_EDITED]) r.rprEdited = true;
+        } else if (props[RPR_REF]) {
+          r.rpr = props[RPR_REF];
+          if (props[RPR_EDITED]) r.rprEdited = true;
+        }
         if (r.textbox) this.syncRunRPr(r.textbox.paras);
       }
     }
@@ -20406,7 +21316,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-KKXTNAWX.js");
+  const { appFor } = await import("./chunks/chrome-app-H5KMBRXK.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

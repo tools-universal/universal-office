@@ -70,7 +70,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | em curso |
 | Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | — |
 | Seções e colunas | ◐ quebra de seção e de coluna; Colunas | feito |
-| Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | em curso |
+| Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | feito |
 | Navegação | Painel de Navegação; Régua; Linhas de Grade | — |
 
 ### Fase B — documento

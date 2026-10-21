@@ -2412,6 +2412,7 @@ function runPropsFromRPr(rpr) {
   if (rpr.highlight && rpr.highlight !== "none") p.highlight = rpr.highlight;
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
+  if (rpr.rStyle) p.charStyle = rpr.rStyle;
   return p;
 }
 function paraPropsFromPPr(ppr) {
@@ -3937,8 +3938,10 @@ function readStyleParaProps(pPr) {
   return p;
 }
 function readStyles(pkg) {
+  return readStylesXml(pkg.getPartText("word/styles.xml"));
+}
+function readStylesXml(xml) {
   const out = /* @__PURE__ */ new Map();
-  const xml = pkg.getPartText("word/styles.xml");
   if (!xml) return out;
   const root = parseXml(xml);
   const docDefaults = firstChild(root, "w:docDefaults");

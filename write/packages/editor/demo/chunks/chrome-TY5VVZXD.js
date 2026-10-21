@@ -18,17 +18,18 @@ import {
   isMenuOpen,
   openDialog,
   openMenu,
+  openPane,
   promptDialog,
   renderItem,
   ripple,
   showToast,
   symbol,
   toggleMenu
-} from "./chunk-4IXP7PHD.js";
-import "./chunk-WO4O3KWW.js";
+} from "./chunk-JDSZHMAV.js";
+import "./chunk-BNKIUIN4.js";
 import {
   pickLabels
-} from "./chunk-3WJOR5B3.js";
+} from "./chunk-3EKOH2QB.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
 function __decorate(decorators, target, key, desc) {
@@ -849,12 +850,12 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const api = ed;
   const has = (m2) => () => typeof api[m2] === "function";
   const call = (m2, ...args) => api[m2].apply(ed, args);
-  const canEdit2 = () => !app.comparing && !ed.isProtected();
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
   const notComparing = () => !app.comparing;
   const run = () => ctl.state().run;
   const para = () => ctl.state().para;
   const L3 = app.ui.L;
-  const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit2() && c4.isEnabled() : canEdit2 });
+  const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
   const section = () => typeof api["getSection"] === "function" ? call("getSection") : null;
   const cmds = [
@@ -880,7 +881,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "pastePlain", label: { en: "Paste without formatting", pt: "Colar sem formata\xE7\xE3o" }, icon: "content_paste_go", shortcut: "Ctrl+Shift+V", run: () => ed.pastePlain() }),
     { id: "selectAll", label: { en: "Select all", pt: "Selecionar tudo" }, icon: "select_all", shortcut: "Ctrl+A", run: () => ed.selectAll(), isEnabled: notComparing },
     { id: "find", label: { en: "Find", pt: "Localizar" }, icon: "search", shortcut: "Ctrl+F", run: () => ctl.find(false), isEnabled: notComparing },
-    { id: "replace", label: { en: "Replace", pt: "Substituir" }, icon: "find_replace", shortcut: "Ctrl+H", run: () => ctl.find(true), isEnabled: canEdit2 },
+    { id: "replace", label: { en: "Replace", pt: "Substituir" }, icon: "find_replace", shortcut: "Ctrl+H", run: () => ctl.find(true), isEnabled: canEdit3 },
     edit({ id: "painter", label: { en: "Format Painter", pt: "Pincel de Formata\xE7\xE3o" }, icon: "format_paint", run: () => ed.copyFormat(), isChecked: () => ed.painterActive() }),
     // ── Exibir ──
     ...["print", "web", "read"].map((v2) => ({
@@ -967,8 +968,25 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "shrink", label: { en: "Decrease font size", pt: "Diminuir Fonte" }, icon: "text_decrease", shortcut: "Ctrl+[", run: () => ed.growFont(-1) }),
     edit({ id: "color", label: { en: "Font color", pt: "Cor da Fonte" }, icon: "format_color_text", run: () => ed.setColor(app.lastColor), color: () => `#${app.lastColor}` }),
     edit({ id: "highlight", label: { en: "Text highlight color", pt: "Cor do Realce do Texto" }, icon: "format_ink_highlighter", run: () => ed.setHighlight(app.lastHighlight), color: () => HL_CSS[app.lastHighlight] }),
-    edit({ id: "clear", label: { en: "Clear formatting", pt: "Limpar Toda a Formata\xE7\xE3o" }, icon: "format_clear", shortcut: "Ctrl+Space", run: () => ed.clearFormatting() }),
+    edit({ id: "clear", label: { en: "Clear All Formatting", pt: "Limpar Toda a Formata\xE7\xE3o" }, icon: "format_clear", run: () => ed.clearFormatting() }),
     edit({ id: "dlg:font", label: { en: "Font\u2026", pt: "Fonte\u2026" }, tip: { en: "Font settings", pt: "Configura\xE7\xF5es de fonte" }, icon: "text_format", shortcut: "Ctrl+D", run: () => ctl.fontDialog() }),
+    // ── Estilos (chrome-styles.ts) ──
+    { id: "styles:pane", label: { en: "Styles pane", pt: "Painel de Estilos" }, tip: { en: "Styles (Ctrl+Alt+Shift+S)", pt: "Estilos (Ctrl+Alt+Shift+S)" }, icon: "view_sidebar", shortcut: "Ctrl+Alt+Shift+S", supports: has("listStyles"), run: () => ctl.stylesPane(), isChecked: () => ctl.stylesPaneOpen() },
+    { id: "style:inspector", label: { en: "Style Inspector", pt: "Inspetor de Estilo" }, icon: "manage_search", supports: has("inspectStyle"), run: () => ctl.styleInspector(), isChecked: () => ctl.inspectorOpen() },
+    edit({ id: "style:new", label: { en: "New style\u2026", pt: "Novo estilo\u2026" }, tip: { en: "Create a style from the formatting of the selection", pt: "Cria um estilo com a formata\xE7\xE3o da sele\xE7\xE3o" }, icon: "add", supports: has("createStyle"), run: () => ctl.newStyle() }),
+    edit({ id: "style:modifyCurrent", label: { en: "Modify style\u2026", pt: "Modificar estilo\u2026" }, tip: { en: "Modify the style of the current paragraph", pt: "Modifica o estilo do par\xE1grafo atual" }, icon: "edit", supports: has("modifyStyle"), run: () => ctl.modifyStyle() }),
+    edit({ id: "style:updateCurrent", label: { en: "Update style to match selection", pt: "Atualizar estilo para corresponder \xE0 sele\xE7\xE3o" }, icon: "refresh", supports: has("updateStyleFromSelection"), run: () => ed.updateStyleFromSelection() }),
+    edit({ id: "style:normal", label: { en: "Normal style", pt: "Estilo Normal" }, icon: "format_paragraph", shortcut: "Ctrl+Shift+N", supports: has("applyStyle"), run: () => ed.applyStyle(void 0) }),
+    ...[1, 2, 3].map((n5) => edit({
+      id: `style:h${n5}`,
+      label: { en: `Heading ${n5}`, pt: `T\xEDtulo ${n5}` },
+      icon: `format_h${n5}`,
+      shortcut: `Ctrl+Alt+${n5}`,
+      supports: has("listStyles"),
+      run: () => ed.applyStyle(ed.listStyles("all").find((s4) => s4.rawName.toLowerCase() === `heading ${n5}`)?.id)
+    })),
+    edit({ id: "style:clearChar", label: { en: "Clear character formatting", pt: "Limpar formata\xE7\xE3o de caractere" }, icon: "format_clear", shortcut: "Ctrl+Space", supports: has("clearCharacterFormatting"), run: () => ed.clearCharacterFormatting() }),
+    edit({ id: "style:clearPara", label: { en: "Clear paragraph formatting", pt: "Limpar formata\xE7\xE3o de par\xE1grafo" }, icon: "format_clear", shortcut: "Ctrl+Q", supports: has("clearParagraphFormatting"), run: () => ed.clearParagraphFormatting() }),
     // ── Formatar: parágrafo ──
     ...[
       ["left", "Align left", "Alinhar \xE0 Esquerda", "Ctrl+L"],
@@ -1006,7 +1024,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     }, isEnabled: () => ed.getComments().length > 0 }),
     { id: "enableEditing", label: { en: "Enable Editing", pt: "Habilitar Edi\xE7\xE3o" }, icon: "edit_document", run: () => app.enableEditing(), isEnabled: () => ed.isProtected(), supports: () => true },
     { id: "wordCount", label: { en: "Word count", pt: "Contar Palavras" }, icon: "numbers", shortcut: "Ctrl+Shift+G", run: () => ctl.wordCount() },
-    { id: "spelling", label: { en: "Spelling & grammar", pt: "Ortografia e gram\xE1tica" }, icon: "spellcheck", shortcut: "F7", supports: has("nextMisspelling"), run: () => ctl.spelling(), isEnabled: canEdit2 },
+    { id: "spelling", label: { en: "Spelling & grammar", pt: "Ortografia e gram\xE1tica" }, icon: "spellcheck", shortcut: "F7", supports: has("nextMisspelling"), run: () => ctl.spelling(), isEnabled: canEdit3 },
     { id: "spellAsYouType", label: { en: "Check spelling as you type", pt: "Verificar ortografia ao digitar" }, icon: "spellcheck", supports: has("toggleSpellCheck"), run: () => call("toggleSpellCheck"), isChecked: () => typeof api["spellCheckEnabled"] === "function" && !!call("spellCheckEnabled") },
     edit({ id: "trackChanges", label: { en: "Track changes", pt: "Controlar altera\xE7\xF5es" }, icon: "track_changes", shortcut: "Ctrl+Shift+E", supports: has("toggleTrackChanges"), run: () => call("toggleTrackChanges"), isChecked: () => typeof api["isTrackingChanges"] === "function" && !!call("isTrackingChanges") }),
     edit({ id: "change:accept", label: { en: "Accept", pt: "Aceitar" }, icon: "check_circle", supports: has("acceptChange"), run: () => call("acceptChange") }),
@@ -1941,7 +1959,7 @@ var sizeWidget = (env, variant) => ({
         const half = env.ctl.state().run.szHalfPt;
         if (half && env.root.activeElement !== input) input.value = fmt(half / 2);
         const ok = canEdit(env);
-        for (const el2 of wrap.querySelectorAll("input,button")) el2.disabled = !ok;
+        for (const el3 of wrap.querySelectorAll("input,button")) el3.disabled = !ok;
       }
     };
   }
@@ -2314,6 +2332,7 @@ function menus(env, ctx) {
         }
       }));
     }, "styles"),
+    styleTools: sub({ en: "Styles", pt: "Estilos" }, "view_sidebar", () => ["styles:pane", "style:inspector", "-", "style:new", "style:modifyCurrent", "style:updateCurrent", "-", "style:normal", "style:h1", "style:h2", "style:h3"], "styleTools"),
     align: sub({ en: "Align & indent", pt: "Alinhar e recuar" }, "format_align_left", () => [
       "align:left",
       "align:center",
@@ -2366,7 +2385,7 @@ function compactLayout(env, ctx) {
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "focus", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", "table", "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", "bookmark", "textbox", m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "-", "clear"] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -2433,7 +2452,7 @@ function ribbonLayout(env, ctx) {
           ] },
           { id: "font", label: L2("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L2("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L2("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
@@ -2451,9 +2470,8 @@ function ribbonLayout(env, ctx) {
               ]
             ] }
           ] },
-          { id: "styles", label: L2("Styles", "Estilos"), icon: "style", prio: 5, cells: [
-            { rows: [[styleWidget(env, 150)], [{ cmd: "clear", label: true }]] }
-          ] },
+          // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
+          { id: "styles", label: L2("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
           { id: "editing", label: L2("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
           ] }
@@ -2596,13 +2614,13 @@ var FindPanel = class {
     this.ed = ed;
     this.app = app;
     const L3 = app.ui.L;
-    const el2 = document.createElement("div");
-    el2.className = "uw-find";
-    el2.setAttribute("role", "dialog");
-    el2.setAttribute("aria-label", L3.findTitle);
-    el2.setAttribute("part", "find");
-    el2.hidden = true;
-    el2.innerHTML = `
+    const el3 = document.createElement("div");
+    el3.className = "uw-find";
+    el3.setAttribute("role", "dialog");
+    el3.setAttribute("aria-label", L3.findTitle);
+    el3.setAttribute("part", "find");
+    el3.hidden = true;
+    el3.innerHTML = `
       <div class="uw-find-head"><strong></strong>
         <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
       <input type="text" data-a="find:text" />
@@ -2611,21 +2629,21 @@ var FindPanel = class {
         <button type="button" class="uo-pill" data-a="find:next"></button>
         <button type="button" class="uo-pill" data-a="find:one"></button>
         <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-    el2.querySelector("strong").textContent = L3.findTitle;
-    this.find = el2.querySelector('[data-a="find:text"]');
-    this.repl = el2.querySelector('[data-a="find:replace"]');
-    this.msg = el2.querySelector(".uw-find-msg");
+    el3.querySelector("strong").textContent = L3.findTitle;
+    this.find = el3.querySelector('[data-a="find:text"]');
+    this.repl = el3.querySelector('[data-a="find:replace"]');
+    this.msg = el3.querySelector(".uw-find-msg");
     this.find.placeholder = L3.find;
     this.repl.placeholder = L3.replaceWith;
     const b3 = (id, label, fn) => {
-      const x2 = el2.querySelector(`[data-a="find:${id}"]`);
+      const x2 = el3.querySelector(`[data-a="find:${id}"]`);
       x2.textContent = label;
       x2.addEventListener("click", fn);
     };
     b3("next", L3.findNext, () => this.next());
     b3("one", L3.replace, () => this.replaceOne());
     b3("all", L3.replaceAll, () => this.replaceAll());
-    el2.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
+    el3.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
     for (const i5 of [this.find, this.repl]) {
       i5.addEventListener("keydown", (e6) => {
         if (e6.key === "Escape") {
@@ -2643,8 +2661,8 @@ var FindPanel = class {
       this.msg.textContent = "";
       this.find.classList.remove("uw-miss");
     });
-    layer.appendChild(el2);
-    this.el = el2;
+    layer.appendChild(el3);
+    this.el = el3;
   }
   ed;
   app;
@@ -2693,16 +2711,16 @@ var CommentCards = class {
     this.ed = ed;
     this.app = app;
     this.after = after;
-    const el2 = document.createElement("div");
-    el2.className = "uw-comments";
-    el2.setAttribute("part", "comments");
+    const el3 = document.createElement("div");
+    el3.className = "uw-comments";
+    el3.setAttribute("part", "comments");
     for (const t5 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-      el2.addEventListener(t5, (e6) => {
+      el3.addEventListener(t5, (e6) => {
         if (t5 !== "wheel") e6.stopPropagation();
       }, { passive: t5 === "wheel" });
     }
-    root.appendChild(el2);
-    this.el = el2;
+    root.appendChild(el3);
+    this.el = el3;
   }
   ed;
   app;
@@ -2858,6 +2876,1173 @@ var StatusBar = class {
   }
 };
 
+// src/chrome-styles.ts
+var T2 = {
+  en: {
+    gallery: "Styles",
+    pane: "Styles",
+    inspector: "Style Inspector",
+    createStyle: "Create a Style",
+    newStyle: "New Style",
+    newStyleTitle: "Create New Style from Formatting",
+    modifyTitle: "Modify Style",
+    name: "Name",
+    type: "Style type",
+    basedOn: "Style based on",
+    next: "Style for following paragraph",
+    properties: "Properties",
+    formatting: "Formatting",
+    linked: "Linked (paragraph and character)",
+    paragraph: "Paragraph",
+    character: "Character",
+    addToGallery: "Add to the Styles gallery",
+    autoUpdate: "Automatically update",
+    modify: "Modify\u2026",
+    format: "Format",
+    fontDots: "Font\u2026",
+    paraDots: "Paragraph\u2026",
+    ok: "OK",
+    cancel: "Cancel",
+    update: (n5) => `Update ${n5} to Match Selection`,
+    modifyDots: "Modify\u2026",
+    rename: "Rename\u2026",
+    renameTitle: "Rename Style",
+    removeFromGallery: "Remove from Style Gallery",
+    addGallery: "Add to Style Gallery",
+    del: (n5) => `Delete "${n5}"\u2026`,
+    delConfirm: (n5) => `Delete all instances of the style "${n5}" from the document? Its text will be formatted as Normal.`,
+    delete: "Delete",
+    clearAll: "Clear All",
+    show: "Show",
+    recommended: "Recommended",
+    inUse: "In use",
+    inDoc: "In current document",
+    all: "All styles",
+    sort: "Sort",
+    asRecommended: "As Recommended",
+    alphabetical: "Alphabetical",
+    preview: "Show Preview",
+    paraFmt: "Paragraph formatting",
+    textFmt: "Text level formatting",
+    plus: "Plus:",
+    noDirect: "<none>",
+    resetPara: "Reset to Normal Paragraph Style",
+    clearParaFmt: "Clear Paragraph Formatting",
+    clearCharStyle: "Clear Character Style",
+    clearCharFmt: "Clear Character Formatting",
+    nameTaken: "There is already a style with this name",
+    empty: "Type a name for the style",
+    kind: { paragraph: "Paragraph style", character: "Character style", linked: "Linked style" },
+    sample: "Sample Text Sample Text Sample Text Sample Text Sample Text Sample Text Sample Text",
+    prevPara: "Previous Paragraph Previous Paragraph Previous Paragraph Previous Paragraph",
+    font: "Font",
+    size: "Size",
+    bold: "Bold",
+    italic: "Italic",
+    underline: "Underline",
+    strike: "Strikethrough",
+    caps: "All caps",
+    smallCaps: "Small caps",
+    color: "Font color",
+    auto: "Automatic",
+    charSpacing: "Character spacing",
+    left: "Left",
+    center: "Centered",
+    right: "Right",
+    justify: "Justified",
+    lineSpacing: "Line spacing",
+    before: "Space before (pt)",
+    after: "Space after (pt)",
+    indentLeft: "Left indent (cm)",
+    indentRight: "Right indent (cm)",
+    special: "Special indent",
+    firstLine: "First line",
+    hanging: "Hanging",
+    none: "(none)",
+    by: "By (cm)",
+    lines: { 240: "Single", 259: "1.08", 276: "1.15", 360: "1.5 lines", 480: "Double" },
+    d: {
+      font: (v2) => `Font: ${v2}`,
+      pt: (v2) => `${v2} pt`,
+      bold: "Bold",
+      italic: "Italic",
+      underline: "Underline",
+      strike: "Strikethrough",
+      caps: "All caps",
+      smallCaps: "Small caps",
+      color: (v2) => `Font color: ${v2}`,
+      align: (v2) => v2,
+      before: (v2) => `Space Before: ${v2} pt`,
+      after: (v2) => `After: ${v2} pt`,
+      line: (v2) => `Line spacing: ${v2}`,
+      indent: (v2) => `Indent: Left ${v2}`,
+      gallery: "Show in the Styles gallery",
+      basedOn: (v2) => `Based on: ${v2}`,
+      next: (v2) => `Following Style: ${v2}`,
+      priority: (v2) => `Priority: ${v2}`,
+      style: (v2) => `Style: ${v2}`,
+      highlight: "Highlight",
+      sup: "Superscript",
+      sub: "Subscript",
+      numbering: "Numbered or bulleted",
+      borders: "Borders",
+      shading: "Shading",
+      tabs: "Tab stops",
+      pageBreak: "Page break before",
+      spacing: (v2) => `Spacing: ${v2}`
+    }
+  },
+  pt: {
+    gallery: "Estilos",
+    pane: "Estilos",
+    inspector: "Inspetor de Estilo",
+    createStyle: "Criar um Estilo",
+    newStyle: "Novo Estilo",
+    newStyleTitle: "Criar Novo Estilo a Partir da Formata\xE7\xE3o",
+    modifyTitle: "Modificar Estilo",
+    name: "Nome",
+    type: "Tipo de estilo",
+    basedOn: "Estilo baseado em",
+    next: "Estilo do par\xE1grafo seguinte",
+    properties: "Propriedades",
+    formatting: "Formata\xE7\xE3o",
+    linked: "Vinculado (par\xE1grafo e caractere)",
+    paragraph: "Par\xE1grafo",
+    character: "Caractere",
+    addToGallery: "Adicionar \xE0 galeria de Estilos",
+    autoUpdate: "Atualizar automaticamente",
+    modify: "Modificar\u2026",
+    format: "Formatar",
+    fontDots: "Fonte\u2026",
+    paraDots: "Par\xE1grafo\u2026",
+    ok: "OK",
+    cancel: "Cancelar",
+    update: (n5) => `Atualizar ${n5} para Corresponder \xE0 Sele\xE7\xE3o`,
+    modifyDots: "Modificar\u2026",
+    rename: "Renomear\u2026",
+    renameTitle: "Renomear Estilo",
+    removeFromGallery: "Remover da Galeria de Estilos",
+    addGallery: "Adicionar \xE0 Galeria de Estilos",
+    del: (n5) => `Excluir "${n5}"\u2026`,
+    delConfirm: (n5) => `Excluir todas as ocorr\xEAncias do estilo "${n5}" do documento? O texto ficar\xE1 com o estilo Normal.`,
+    delete: "Excluir",
+    clearAll: "Limpar Tudo",
+    show: "Mostrar",
+    recommended: "Recomendados",
+    inUse: "Em uso",
+    inDoc: "No documento atual",
+    all: "Todos os estilos",
+    sort: "Ordenar",
+    asRecommended: "Como recomendado",
+    alphabetical: "Alfab\xE9tica",
+    preview: "Mostrar Visualiza\xE7\xE3o",
+    paraFmt: "Formata\xE7\xE3o de par\xE1grafo",
+    textFmt: "Formata\xE7\xE3o de n\xEDvel de texto",
+    plus: "Mais:",
+    noDirect: "<nenhuma>",
+    resetPara: "Redefinir para o Estilo de Par\xE1grafo Normal",
+    clearParaFmt: "Limpar Formata\xE7\xE3o de Par\xE1grafo",
+    clearCharStyle: "Limpar Estilo de Caractere",
+    clearCharFmt: "Limpar Formata\xE7\xE3o de Caractere",
+    nameTaken: "J\xE1 existe um estilo com esse nome",
+    empty: "Digite um nome para o estilo",
+    kind: { paragraph: "Estilo de par\xE1grafo", character: "Estilo de caractere", linked: "Estilo vinculado" },
+    sample: "Texto de Exemplo Texto de Exemplo Texto de Exemplo Texto de Exemplo Texto de Exemplo Texto de Exemplo",
+    prevPara: "Par\xE1grafo Anterior Par\xE1grafo Anterior Par\xE1grafo Anterior Par\xE1grafo Anterior",
+    font: "Fonte",
+    size: "Tamanho",
+    bold: "Negrito",
+    italic: "It\xE1lico",
+    underline: "Sublinhado",
+    strike: "Tachado",
+    caps: "Todas em mai\xFAsculas",
+    smallCaps: "Versalete",
+    color: "Cor da fonte",
+    auto: "Autom\xE1tica",
+    charSpacing: "Espa\xE7amento entre caracteres",
+    left: "Esquerda",
+    center: "Centralizado",
+    right: "Direita",
+    justify: "Justificado",
+    lineSpacing: "Espa\xE7amento entre linhas",
+    before: "Espa\xE7o antes (pt)",
+    after: "Espa\xE7o depois (pt)",
+    indentLeft: "Recuo \xE0 esquerda (cm)",
+    indentRight: "Recuo \xE0 direita (cm)",
+    special: "Recuo especial",
+    firstLine: "Primeira linha",
+    hanging: "Deslocamento",
+    none: "(nenhum)",
+    by: "Em (cm)",
+    lines: { 240: "Simples", 259: "1,08", 276: "1,15", 360: "1,5 linha", 480: "Duplo" },
+    d: {
+      font: (v2) => `Fonte: ${v2}`,
+      pt: (v2) => `${String(v2).replace(".", ",")} pt`,
+      bold: "Negrito",
+      italic: "It\xE1lico",
+      underline: "Sublinhado",
+      strike: "Tachado",
+      caps: "Todas em mai\xFAsculas",
+      smallCaps: "Versalete",
+      color: (v2) => `Cor da fonte: ${v2}`,
+      align: (v2) => v2,
+      before: (v2) => `Espa\xE7o Antes: ${String(v2).replace(".", ",")} pt`,
+      after: (v2) => `Depois de: ${String(v2).replace(".", ",")} pt`,
+      line: (v2) => `Espa\xE7amento entre linhas: ${v2}`,
+      indent: (v2) => `Recuo: \xC0 esquerda ${v2}`,
+      gallery: "Mostrar na galeria de Estilos",
+      basedOn: (v2) => `Baseado em: ${v2}`,
+      next: (v2) => `Pr\xF3ximo Estilo: ${v2}`,
+      priority: (v2) => `Prioridade: ${v2}`,
+      style: (v2) => `Estilo: ${v2}`,
+      highlight: "Realce",
+      sup: "Sobrescrito",
+      sub: "Subscrito",
+      numbering: "Numera\xE7\xE3o ou marcadores",
+      borders: "Bordas",
+      shading: "Sombreamento",
+      tabs: "Paradas de tabula\xE7\xE3o",
+      pageBreak: "Quebra de p\xE1gina antes",
+      spacing: (v2) => `Espa\xE7amento: ${v2}`
+    }
+  }
+};
+var SAMPLE = "AaBbCcDd";
+var canEdit2 = (env) => !env.app.comparing && !env.ed.isProtected();
+var ptOf = (tw) => Math.round(tw / 2) / 10;
+var cmOf = (tw, dec) => (Math.round(tw / 567 * 100) / 100).toFixed(2).replace(/\.?0+$/, "").replace(".", dec);
+function drawSample(canvas, ed, look, o6) {
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  canvas.width = Math.round(o6.w * dpr);
+  canvas.height = Math.round(o6.h * dpr);
+  canvas.style.width = `${o6.w}px`;
+  canvas.style.height = `${o6.h}px`;
+  const c4 = canvas.getContext("2d");
+  if (!c4) return;
+  c4.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c4.clearRect(0, 0, o6.w, o6.h);
+  if (o6.paper) {
+    c4.fillStyle = "#ffffff";
+    c4.fillRect(0, 0, o6.w, o6.h);
+  }
+  if (look.shadingHex) {
+    c4.fillStyle = `#${look.shadingHex}`;
+    c4.fillRect(2, 3, o6.w - 4, o6.h - 6);
+  }
+  const f3 = ed.canvasFont(look.fontFamily, look.bold, look.italic);
+  const px = Math.max(o6.minPx ?? 8, Math.min(o6.maxPx, look.sizePt * 96 / 72));
+  c4.font = `${f3.italic ? "italic " : ""}${f3.weight} ${px}px ${f3.family}`;
+  c4.fillStyle = look.color ? `#${look.color}` : o6.autoColor ?? "#000000";
+  c4.textBaseline = "alphabetic";
+  let text = look.allCaps ? o6.text.toUpperCase() : o6.text;
+  if (look.smallCaps && !look.allCaps) text = text.toUpperCase();
+  const tw = c4.measureText(text).width;
+  const x2 = o6.align && look.alignment === "center" ? Math.max(4, (o6.w - tw) / 2) : o6.align && look.alignment === "right" ? Math.max(4, o6.w - tw - 4) : 4;
+  const y3 = Math.round(o6.h / 2 + px * 0.33);
+  if (look.borderTop || look.borderBottom) {
+    c4.strokeStyle = (look.borderTop ?? look.borderBottom ?? "").split(" ").pop() ?? "#000";
+    c4.lineWidth = 1;
+    if (look.borderTop) {
+      c4.beginPath();
+      c4.moveTo(3, 3.5);
+      c4.lineTo(o6.w - 3, 3.5);
+      c4.stroke();
+    }
+    if (look.borderBottom) {
+      c4.beginPath();
+      c4.moveTo(3, o6.h - 3.5);
+      c4.lineTo(o6.w - 3, o6.h - 3.5);
+      c4.stroke();
+    }
+  }
+  c4.fillText(text, x2, y3);
+  if (look.underline || look.strike) {
+    c4.fillRect(x2, look.strike ? y3 - px * 0.3 : y3 + Math.max(1, px * 0.08), Math.min(tw, o6.w - x2), Math.max(1, px / 16));
+  }
+}
+function renderTile(env, tile, s4, W, H2) {
+  const look = env.ed.styleFormatting(s4.id);
+  tile.replaceChildren();
+  const cv = document.createElement("canvas");
+  cv.className = "uw-style-sample";
+  const cap = document.createElement("span");
+  cap.className = "uw-style-cap";
+  cap.textContent = s4.name;
+  if (look) drawSample(cv, env.ed, look, { text: SAMPLE, w: W - 4, h: H2 - 22, maxPx: 22, paper: true, align: false });
+  tile.append(cv, cap);
+}
+function styleGalleryItem(env, ui) {
+  const W = 84, H2 = 64;
+  let cache = null;
+  const get = () => {
+    const key = env.ed.stylesKey();
+    if (!cache || cache.key !== key) {
+      const list2 = env.ed.listStyles("gallery");
+      const names = styleNames(env);
+      cache = { key, list: list2, items: list2.map((s4) => ({ id: s4.id, label: s4.name, tip: describeStyle(env, s4, void 0, names) })) };
+    }
+    return cache;
+  };
+  const list = () => get().list;
+  return {
+    gallery: {
+      id: "styles",
+      label: { en: "Styles", pt: "Estilos" },
+      icon: "style",
+      tile: { w: W, h: H2 },
+      rows: 1,
+      maxCols: 7,
+      minCols: 3,
+      expandCols: 7,
+      supports: () => typeof env.ed.listStyles === "function",
+      isEnabled: () => canEdit2(env),
+      items: () => get().items,
+      version: () => `${env.ed.stylesVersion()}|${env.ed.knownFontFamilies().length}|${env.lang}`,
+      selected: () => {
+        const cur = env.ed.currentStyles();
+        return list().some((s4) => s4.id === cur.character) ? cur.character : cur.paragraph;
+      },
+      render: (tile, it) => {
+        const s4 = list().find((x2) => x2.id === it.id) ?? env.ed.listStyles("all").find((x2) => x2.id === it.id);
+        if (s4) renderTile(env, tile, s4, W, H2);
+      },
+      onPick: (id) => env.ed.applyStyle(id),
+      context: (it) => galleryMenu(env, ui, list().find((x2) => x2.id === it.id)),
+      footer: () => [
+        { id: "style:create", icon: "add", label: { en: "Create a Style", pt: "Criar um Estilo" }, onClick: () => {
+          void ui.quickCreate();
+        } },
+        "clear",
+        { id: "styles:paneFoot", icon: "view_sidebar", label: { en: "Styles pane", pt: "Painel de estilos" }, shortcut: "Ctrl+Alt+Shift+S", onClick: () => ui.togglePane() }
+      ]
+    }
+  };
+}
+function styleNames(env) {
+  return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
+}
+function galleryMenu(env, ui, s4) {
+  const L3 = pickLabels(env.lang, T2);
+  const ok = canEdit2(env);
+  const out = [
+    { id: "style:update", icon: "refresh", label: L3.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+      env.ed.updateStyleFromSelection(s4.id);
+      env.after();
+    } },
+    { id: "style:modify", icon: "edit", label: L3.modifyDots, disabled: !ok, onClick: () => {
+      void ui.styleDialog("modify", s4.id);
+    } },
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L3.rename, disabled: !ok, onClick: () => {
+      void ui.rename(s4);
+    } },
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L3.removeFromGallery, disabled: !ok, onClick: () => {
+      env.ed.setStyleInGallery(s4.id, false);
+      env.after();
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L3.addGallery, disabled: !ok, onClick: () => {
+      env.ed.setStyleInGallery(s4.id, true);
+      env.after();
+    } }
+  ];
+  if (!s4.builtIn) {
+    out.push("-", { id: "style:delete", icon: "delete", label: L3.del(s4.name), disabled: !ok, onClick: () => {
+      void ui.remove(s4);
+    } });
+  }
+  return out;
+}
+var colorName = (hex, L3) => hex ? `#${hex}` : L3.auto;
+function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
+  const L3 = pickLabels(env.lang, T2);
+  if (!look) return s4.name;
+  const parts = [];
+  const d3 = L3.d;
+  parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
+  if (look.bold) parts.push(d3.bold);
+  if (look.italic) parts.push(d3.italic);
+  if (look.underline) parts.push(d3.underline);
+  if (look.strike) parts.push(d3.strike);
+  if (look.allCaps) parts.push(d3.caps);
+  if (look.smallCaps) parts.push(d3.smallCaps);
+  if (look.color) parts.push(d3.color(colorName(look.color, L3)));
+  if (s4.kind !== "character") {
+    if (look.alignment !== "left") parts.push({ center: L3.center, right: L3.right, both: L3.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L3.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.spaceBeforeTwips) parts.push(d3.before(ptOf(look.spaceBeforeTwips)));
+    if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf(look.spaceAfterTwips)));
+    if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
+  }
+  parts.push(d3.style(L3.kind[s4.kind]));
+  if (s4.quick) parts.push(d3.gallery);
+  parts.push(d3.priority(s4.priority + 1));
+  const nm = names ?? styleNames(env);
+  const name = (id) => id ? nm.get(id) ?? id : void 0;
+  if (s4.basedOn) parts.push(d3.basedOn(name(s4.basedOn)));
+  if (s4.kind !== "character") parts.push(d3.next(name(s4.next) ?? s4.name));
+  return `${s4.name}
+${parts.join(", ")}`;
+}
+function describeDirect(env, run, para) {
+  const L3 = pickLabels(env.lang, T2);
+  const d3 = L3.d;
+  const parts = [];
+  if (para) {
+    const a3 = para["alignment"];
+    if (a3) parts.push({ left: L3.left, center: L3.center, right: L3.right, both: L3.justify }[a3] ?? a3);
+    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L3.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
+    if (para["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf(para["spaceBeforeTwips"])));
+    if (para["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf(para["spaceAfterTwips"])));
+    if (para["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
+    if (para["numbering"]) parts.push(d3.numbering);
+    if (para["borders"]) parts.push(d3.borders);
+    if (para["shadingHex"]) parts.push(d3.shading);
+    if (para["tabStops"]) parts.push(d3.tabs);
+    if (para["pageBreakBefore"]) parts.push(d3.pageBreak);
+  } else {
+    if (run["fontAscii"]) parts.push(d3.font(run["fontAscii"]));
+    if (run["szHalfPt"] !== void 0) parts.push(d3.pt(run["szHalfPt"] / 2));
+    if (run["bold"]) parts.push(d3.bold);
+    if (run["italic"]) parts.push(d3.italic);
+    if (run["underline"]) parts.push(d3.underline);
+    if (run["strike"] || run["doubleStrike"]) parts.push(d3.strike);
+    if (run["allCaps"]) parts.push(d3.caps);
+    if (run["smallCaps"]) parts.push(d3.smallCaps);
+    if (run["color"]) parts.push(d3.color(colorName(run["color"], L3)));
+    if (run["highlight"]) parts.push(d3.highlight);
+    if (run["vertAlign"]) parts.push(run["vertAlign"] === "superscript" ? d3.sup : d3.sub);
+    if (run["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf(run["charSpacingTwips"]))));
+  }
+  return parts.length ? parts.join(", ") : L3.noDirect;
+}
+var el2 = (tag, props = {}, ...kids) => {
+  const { cls, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (cls) e6.className = cls;
+  e6.append(...kids);
+  return e6;
+};
+var draftOf = (l3) => ({
+  fontAscii: l3.fontFamily,
+  szHalfPt: Math.round(l3.sizePt * 2),
+  bold: l3.bold,
+  italic: l3.italic,
+  underline: l3.underline,
+  strike: l3.strike,
+  allCaps: l3.allCaps,
+  smallCaps: l3.smallCaps,
+  color: l3.color,
+  charSpacingTwips: l3.charSpacingTwips,
+  alignment: l3.alignment,
+  spaceBeforeTwips: l3.spaceBeforeTwips,
+  spaceAfterTwips: l3.spaceAfterTwips,
+  lineTwentieths: l3.lineTwentieths,
+  indentLeftTwips: l3.indentLeftTwips,
+  indentRightTwips: l3.indentRightTwips,
+  indentFirstLineTwips: l3.indentFirstLineTwips
+});
+var lookOfDraft = (d3, base) => ({ ...base, ...d3, fontFamily: d3.fontAscii, sizePt: d3.szHalfPt / 2 });
+function diff(a3, b3, para) {
+  const f3 = {};
+  const keys = [
+    "fontAscii",
+    "szHalfPt",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "allCaps",
+    "smallCaps",
+    "color",
+    "charSpacingTwips",
+    ...para ? ["alignment", "spaceBeforeTwips", "spaceAfterTwips", "lineTwentieths", "indentLeftTwips", "indentRightTwips", "indentFirstLineTwips"] : []
+  ];
+  for (const k2 of keys) {
+    if (a3[k2] === b3[k2]) continue;
+    f3[k2] = b3[k2] === void 0 ? null : b3[k2];
+  }
+  return f3;
+}
+var StylesUI = class {
+  constructor(env) {
+    this.env = env;
+    this.filter = env.app.prefs.get("stylesFilter") ?? "recommended";
+    this.alpha = env.app.prefs.get("stylesSort") === "alpha";
+    this.preview = env.app.prefs.get("stylesPreview") === "1";
+  }
+  env;
+  pane = null;
+  inspector = null;
+  filter = "recommended";
+  alpha = false;
+  preview = false;
+  listEl = null;
+  lastKey = "";
+  inspRows = null;
+  get L() {
+    return pickLabels(this.env.lang, T2);
+  }
+  /** Galeria da ribbon (Página Inicial › Estilos). */
+  galleryItem() {
+    return styleGalleryItem(this.env, this);
+  }
+  get paneOpen() {
+    return !!this.pane?.open;
+  }
+  get inspectorOpen() {
+    return !!this.inspector?.open;
+  }
+  // ── painel de estilos ──
+  togglePane() {
+    if (this.pane?.open) {
+      this.pane.close();
+      return;
+    }
+    const { env } = this;
+    const L3 = this.L;
+    const body = el2("div", { cls: "uw-styles" });
+    const sel = (name, opts2, v2, on) => {
+      const s4 = el2("select", { name });
+      for (const [k2, t5] of opts2) s4.append(el2("option", { value: k2, textContent: t5 }));
+      s4.value = v2;
+      s4.addEventListener("change", () => {
+        on(s4.value);
+        this.lastKey = "";
+        this.renderList();
+      });
+      return s4;
+    };
+    const opts = el2(
+      "div",
+      { cls: "uw-styles-opts" },
+      sel(
+        "filter",
+        [["recommended", L3.recommended], ["inUse", L3.inUse], ["document", L3.inDoc], ["all", L3.all]],
+        this.filter,
+        (v2) => {
+          this.filter = v2;
+          env.app.prefs.set("stylesFilter", v2);
+        }
+      ),
+      sel(
+        "sort",
+        [["prio", L3.asRecommended], ["alpha", L3.alphabetical]],
+        this.alpha ? "alpha" : "prio",
+        (v2) => {
+          this.alpha = v2 === "alpha";
+          env.app.prefs.set("stylesSort", v2 === "alpha" ? "alpha" : "");
+        }
+      )
+    );
+    const prev = el2("input", { type: "checkbox", checked: this.preview });
+    prev.addEventListener("change", () => {
+      this.preview = prev.checked;
+      env.app.prefs.set("stylesPreview", prev.checked ? "1" : "");
+      this.lastKey = "";
+      this.renderList();
+    });
+    this.listEl = el2("div", { cls: "uw-styles-list" });
+    this.listEl.setAttribute("role", "listbox");
+    body.append(opts, this.listEl, el2("label", { cls: "uo-check uw-styles-prev" }, prev, L3.preview));
+    const foot = el2("div");
+    const btn2 = (icon, label, a3, fn) => {
+      const b3 = el2("button", { type: "button", cls: "uo-btn", title: label });
+      b3.dataset["a"] = a3;
+      b3.setAttribute("aria-label", label);
+      b3.innerHTML = symbol(icon);
+      b3.addEventListener("click", fn);
+      return b3;
+    };
+    foot.append(
+      btn2("add", L3.newStyle, "styles:new", () => {
+        void this.styleDialog("new");
+      }),
+      btn2("manage_search", L3.inspector, "styles:inspector", () => this.toggleInspector())
+    );
+    this.pane = openPane({
+      id: "styles",
+      title: L3.pane,
+      lang: env.lang,
+      layer: env.layer,
+      width: 280,
+      body,
+      footer: foot,
+      frame: env.frame,
+      onClose: () => {
+        this.pane = null;
+        this.listEl = null;
+        env.ed.classList.remove("uw-has-pane");
+        this.placeInspector();
+        env.after();
+      }
+    });
+    env.ed.classList.add("uw-has-pane");
+    this.lastKey = "";
+    this.renderList();
+    this.placeInspector();
+  }
+  renderList() {
+    const box = this.listEl;
+    if (!box) return;
+    const { env } = this;
+    const cur = env.ed.currentStyles();
+    const key = `${env.ed.stylesKey()}|${this.filter}|${this.alpha}|${this.preview}|${cur.paragraph}|${cur.character}|${env.ed.knownFontFamilies().length}|${canEdit2(env)}`;
+    if (key === this.lastKey) return;
+    this.lastKey = key;
+    let list = env.ed.listStyles(this.filter);
+    if (this.alpha) list = [...list].sort((a3, b3) => a3.name.localeCompare(b3.name, env.lang === "pt" ? "pt-BR" : "en"));
+    const ok = canEdit2(env);
+    const names = styleNames(env);
+    box.replaceChildren(...list.map((s4) => {
+      const row = el2("div", { cls: "uw-style-row" });
+      row.dataset["id"] = s4.id;
+      row.setAttribute("role", "option");
+      row.title = describeStyle(env, s4, void 0, names);
+      const on = s4.id === cur.character || s4.id === cur.paragraph && !list.some((x2) => x2.id === cur.character);
+      row.classList.toggle("uo-on", on);
+      row.setAttribute("aria-selected", String(on));
+      const name = el2("span", { cls: "uw-style-name" });
+      if (this.preview) {
+        const look = env.ed.styleFormatting(s4.id);
+        const cv = document.createElement("canvas");
+        if (look) drawSample(cv, env.ed, look, { text: s4.name, w: 190, h: 24, maxPx: 18, minPx: 9, autoColor: getComputedStyle(box).color });
+        name.append(cv);
+      } else name.textContent = s4.name;
+      const mark = el2("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
+      const more = el2("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
+      more.innerHTML = symbol("arrow_drop_down");
+      more.addEventListener("mousedown", (e6) => e6.preventDefault());
+      more.addEventListener("click", (e6) => {
+        e6.stopPropagation();
+        const r5 = more.getBoundingClientRect();
+        openMenu(galleryMenu(env, this, s4), { x: r5.left, y: r5.bottom }, { lang: env.lang, layer: env.layer, onClose: () => env.after() });
+      });
+      row.append(name, mark, more);
+      row.addEventListener("mousedown", (e6) => e6.preventDefault());
+      row.addEventListener("click", () => {
+        if (ok) {
+          env.ed.applyStyle(s4.id);
+          env.after();
+        }
+      });
+      row.addEventListener("contextmenu", (e6) => {
+        e6.preventDefault();
+        openMenu(galleryMenu(env, this, s4), { x: e6.clientX, y: e6.clientY }, { lang: env.lang, layer: env.layer, onClose: () => env.after() });
+      });
+      return row;
+    }));
+  }
+  // ── inspetor ──
+  toggleInspector() {
+    if (this.inspector?.open) {
+      this.inspector.close();
+      return;
+    }
+    const { env } = this;
+    const L3 = this.L;
+    const body = el2("div", { cls: "uw-insp" });
+    const row = (value, icon, tip, a3, fn) => {
+      const b3 = el2("button", { type: "button", cls: "uo-btn", title: tip });
+      b3.dataset["a"] = a3;
+      b3.setAttribute("aria-label", tip);
+      b3.innerHTML = symbol(icon);
+      b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+      b3.addEventListener("click", () => {
+        fn();
+        env.after();
+      });
+      return el2("div", { cls: "uw-insp-row" }, value, b3);
+    };
+    const box = () => el2("div", { cls: "uw-insp-val" });
+    const r5 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
+    body.append(
+      el2("div", { cls: "uw-insp-h", textContent: L3.paraFmt }),
+      row(r5.pStyle, "format_clear", L3.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+      row(r5.pDirect, "format_clear", L3.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+      el2("div", { cls: "uw-insp-h", textContent: L3.textFmt }),
+      row(r5.tStyle, "format_clear", L3.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+      row(r5.tDirect, "format_clear", L3.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+    );
+    this.inspRows = r5;
+    const foot = el2("div");
+    const pill = (label, a3, fn) => {
+      const b3 = el2("button", { type: "button", cls: "uo-pill", textContent: label });
+      b3.dataset["a"] = a3;
+      b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+      b3.addEventListener("click", fn);
+      return b3;
+    };
+    foot.append(
+      pill(L3.newStyle, "insp:new", () => {
+        void this.styleDialog("new");
+      }),
+      pill(L3.clearAll, "insp:clearAll", () => {
+        env.ed.clearFormatting();
+        env.after();
+      })
+    );
+    this.inspector = openPane({
+      id: "styleInspector",
+      title: L3.inspector,
+      lang: env.lang,
+      layer: env.layer,
+      width: 300,
+      body,
+      footer: foot,
+      frame: () => this.inspectorFrame(),
+      onClose: () => {
+        this.inspector = null;
+        this.inspRows = null;
+        env.after();
+      }
+    });
+    this.inspector.el.classList.add("uw-insp-pane");
+    this.syncInspector();
+  }
+  inspectorFrame() {
+    const f3 = this.env.frame();
+    const right = this.pane?.open ? f3.right - 290 : f3.right - 12;
+    return new DOMRect(right - 300, f3.top + 12, 300, Math.min(330, f3.height - 24));
+  }
+  placeInspector() {
+    this.inspector?.place();
+  }
+  syncInspector() {
+    const r5 = this.inspRows;
+    if (!r5) return;
+    const i5 = this.env.ed.inspectStyle();
+    r5.pStyle.textContent = i5.paragraph.name;
+    r5.pDirect.textContent = `${this.L.plus} ${describeDirect(this.env, {}, i5.paragraph.direct)}`;
+    r5.tStyle.textContent = i5.text.name;
+    r5.tDirect.textContent = `${this.L.plus} ${describeDirect(this.env, i5.text.direct, null)}`;
+  }
+  /** Chamado a cada sync da barra. */
+  sync() {
+    if (this.pane?.open) {
+      this.pane.place();
+      this.renderList();
+    }
+    if (this.inspector?.open) {
+      this.inspector.place();
+      this.syncInspector();
+    }
+  }
+  close() {
+    this.pane?.close();
+    this.inspector?.close();
+  }
+  // ── diálogos ──
+  /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
+  async quickCreate() {
+    const { env } = this;
+    const L3 = this.L;
+    if (!canEdit2(env)) return;
+    const input = el2("input", { type: "text", value: this.freeName() });
+    const look = this.selectionLook();
+    const cv = document.createElement("canvas");
+    if (look) drawSample(cv, env.ed, look, { text: SAMPLE, w: 360, h: 56, maxPx: 30, paper: true, align: true });
+    const msg = el2("div", { cls: "uw-style-msg" });
+    const body = el2("div", { cls: "uw-style-quick" }, el2("label", { cls: "uo-field" }, el2("span", { textContent: L3.name }), input), cv, msg);
+    let action = null;
+    const h3 = openDialog({
+      title: L3.newStyleTitle,
+      body,
+      layer: env.layer,
+      lang: env.lang,
+      width: 420,
+      actions: [{ id: "modify", label: L3.modify }, { id: "cancel", label: L3.cancel }, { id: "ok", label: L3.ok, primary: true }],
+      onAction: (id) => {
+        if (id === "cancel") return true;
+        const name = input.value.trim();
+        if (!name) {
+          msg.textContent = L3.empty;
+          return false;
+        }
+        if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
+          msg.textContent = L3.nameTaken;
+          return false;
+        }
+        return true;
+      }
+    });
+    action = await h3.result;
+    if (action === "ok") {
+      env.ed.createStyle({ name: input.value.trim() });
+      env.after();
+    } else if (action === "modify") await this.styleDialog("new", void 0, input.value.trim());
+  }
+  freeName() {
+    const names = new Set(this.env.ed.listStyles("all").map((s4) => s4.name.toLowerCase()));
+    const base = this.env.lang === "pt" ? "Estilo" : "Style";
+    for (let i5 = 1; ; i5++) if (!names.has(`${base}${i5}`.toLowerCase())) return `${base}${i5}`;
+  }
+  /** Formatação efetiva no cursor: o estilo do parágrafo + o direto da seleção. */
+  selectionLook() {
+    const ed = this.env.ed;
+    const base = ed.styleFormatting(ed.currentStyles().paragraph);
+    if (!base) return null;
+    const f3 = ed.selectionStyleFormat();
+    const out = { ...base };
+    for (const [k2, v2] of Object.entries(f3)) if (v2 !== null && v2 !== void 0) out[k2 === "fontAscii" ? "fontFamily" : k2 === "szHalfPt" ? "sizePt" : k2] = k2 === "szHalfPt" ? v2 / 2 : v2;
+    return out;
+  }
+  /** Criar Novo Estilo / Modificar Estilo (diálogo completo). */
+  async styleDialog(mode, id, presetName) {
+    const { env } = this;
+    const ed = env.ed;
+    const L3 = this.L;
+    if (!canEdit2(env)) return;
+    const all = ed.listStyles("all");
+    const info = id ? all.find((s4) => s4.id === id) : void 0;
+    if (mode === "modify" && !info) return;
+    const dec = env.lang === "pt" ? "," : ".";
+    let kind = info?.kind ?? "linked";
+    const cur = ed.currentStyles().paragraph;
+    const startLook = mode === "modify" ? ed.styleFormatting(id) : this.selectionLook();
+    if (!startLook) return;
+    const start = draftOf(startLook);
+    const draft = { ...start };
+    const nameIn = el2("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
+    const typeSel = el2("select", { name: "type" });
+    for (const [k2, t5] of [["linked", L3.linked], ["paragraph", L3.paragraph], ["character", L3.character]]) typeSel.append(el2("option", { value: k2, textContent: t5 }));
+    typeSel.value = kind;
+    typeSel.disabled = mode === "modify";
+    const baseSel = el2("select", { name: "basedOn" });
+    const nextSel = el2("select", { name: "next" });
+    const fillBases = () => {
+      baseSel.replaceChildren();
+      nextSel.replaceChildren();
+      const paraStyles = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
+      const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
+      const opts = kind === "character" ? charStyles : paraStyles;
+      if (kind === "character") baseSel.append(el2("option", { value: "", textContent: L3.none }));
+      for (const s4 of opts) baseSel.append(el2("option", { value: s4.id, textContent: s4.name }));
+      baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
+      if (kind !== "character") {
+        nextSel.append(el2("option", { value: "", textContent: nameIn.value.trim() || L3.none }));
+        for (const s4 of paraStyles) nextSel.append(el2("option", { value: s4.id, textContent: s4.name }));
+        nextSel.value = info?.next && info.next !== id ? info.next : "";
+      }
+      nextSel.disabled = kind === "character";
+    };
+    fillBases();
+    typeSel.addEventListener("change", () => {
+      kind = typeSel.value;
+      fillBases();
+      refresh();
+    });
+    const families = await ed.listAvailableFonts();
+    const fontSel = el2("select", { name: "font" });
+    for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el2("option", { value: f3, textContent: f3 }));
+    fontSel.value = draft.fontAscii;
+    const sizeIn = el2("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
+    sizeIn.style.width = "64px";
+    const tog = (k2, icon, tip) => {
+      const b3 = el2("button", { type: "button", cls: "uo-btn", title: tip });
+      b3.dataset["a"] = `dlg:${k2}`;
+      b3.innerHTML = symbol(icon);
+      const upd = () => {
+        b3.classList.toggle("uo-on", draft[k2]);
+        b3.setAttribute("aria-pressed", String(draft[k2]));
+      };
+      b3.addEventListener("click", () => {
+        draft[k2] = !draft[k2];
+        upd();
+        refresh();
+      });
+      upd();
+      return b3;
+    };
+    const colorIn = el2("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+    colorIn.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
+    const alignBtns = ["left", "center", "right", "both"].map((a3) => {
+      const b3 = el2("button", { type: "button", cls: "uo-btn", title: { left: L3.left, center: L3.center, right: L3.right, both: L3.justify }[a3] });
+      b3.dataset["a"] = `dlg:align:${a3}`;
+      b3.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
+      b3.addEventListener("click", () => {
+        draft.alignment = a3;
+        syncAlign();
+        refresh();
+      });
+      return b3;
+    });
+    const syncAlign = () => alignBtns.forEach((b3, i5) => b3.classList.toggle("uo-on", ["left", "center", "right", "both"][i5] === draft.alignment));
+    syncAlign();
+    const lineSel = el2("select", { name: "line" });
+    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el2("option", { value: String(v2), textContent: L3.lines[v2] }));
+    if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
+      lineSel.append(el2("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
+    }
+    lineSel.value = String(draft.lineTwentieths ?? 240);
+    const num = (v2, step, name2) => {
+      const i5 = el2("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
+      i5.style.width = "72px";
+      return i5;
+    };
+    const beforeIn = num(ptOf(draft.spaceBeforeTwips), "6", "before");
+    const afterIn = num(ptOf(draft.spaceAfterTwips), "6", "after");
+    const indentIn = num(Math.round(draft.indentLeftTwips / 567 * 100) / 100, "0.25", "indentLeft");
+    const read = () => {
+      draft.fontAscii = fontSel.value;
+      const sz = parseFloat(sizeIn.value.replace(",", "."));
+      if (sz > 0) draft.szHalfPt = Math.round(sz * 2);
+      const hex = colorIn.value.slice(1).toUpperCase();
+      if (hex !== (start.color ?? "000000") || draft.color !== start.color) draft.color = hex === "000000" && !start.color ? void 0 : hex;
+      draft.lineTwentieths = Number(lineSel.value);
+      draft.spaceBeforeTwips = Math.round(Number(beforeIn.value.replace(",", ".")) * 20) || 0;
+      draft.spaceAfterTwips = Math.round(Number(afterIn.value.replace(",", ".")) * 20) || 0;
+      draft.indentLeftTwips = Math.round(Number(indentIn.value.replace(",", ".")) * 567) || 0;
+    };
+    for (const i5 of [fontSel, sizeIn, colorIn, lineSel, beforeIn, afterIn, indentIn]) i5.addEventListener("change", () => {
+      read();
+      refresh();
+    });
+    const formatBtn = el2("button", { type: "button", cls: "uo-pill", textContent: `${L3.format} \u25BE` });
+    formatBtn.dataset["a"] = "dlg:format";
+    formatBtn.addEventListener("click", (e6) => {
+      e6.stopPropagation();
+      const r5 = formatBtn.getBoundingClientRect();
+      openMenu([
+        { id: "dlg:format:font", icon: "text_format", label: L3.fontDots, onClick: () => {
+          void this.fontSub(draft).then(refresh);
+        } },
+        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L3.paraDots, disabled: kind === "character", onClick: () => {
+          void this.paraSub(draft).then(() => {
+            syncAlign();
+            beforeIn.value = String(ptOf(draft.spaceBeforeTwips));
+            afterIn.value = String(ptOf(draft.spaceAfterTwips));
+            indentIn.value = String(Math.round(draft.indentLeftTwips / 567 * 100) / 100);
+            lineSel.value = String(draft.lineTwentieths ?? 240);
+            refresh();
+          });
+        } }
+      ], { x: r5.left, y: r5.top - 4 }, { lang: env.lang, layer: env.layer });
+    });
+    const cv = document.createElement("canvas");
+    cv.className = "uw-style-prev";
+    const desc = el2("div", { cls: "uw-style-desc" });
+    const quick = el2("input", { type: "checkbox", checked: info?.quick ?? true });
+    const auto = el2("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
+    const msg = el2("div", { cls: "uw-style-msg" });
+    const refresh = () => {
+      const look = lookOfDraft(draft, startLook);
+      drawPreview(cv, ed, look, L3, kind);
+      const fake = {
+        id: id ?? "",
+        name: nameIn.value.trim() || "\u2026",
+        rawName: "",
+        kind,
+        builtIn: !!info?.builtIn,
+        defined: true,
+        quick: quick.checked,
+        hidden: false,
+        priority: info?.priority ?? 0,
+        inUse: false,
+        isDefault: false,
+        basedOn: baseSel.value || void 0,
+        next: nextSel.value || void 0,
+        autoUpdate: auto.checked
+      };
+      desc.textContent = describeStyle(env, fake, look).split("\n")[1] ?? "";
+      for (const b3 of alignBtns) b3.disabled = kind === "character";
+      for (const i5 of [lineSel, beforeIn, afterIn, indentIn]) i5.disabled = kind === "character";
+    };
+    nameIn.addEventListener("input", () => {
+      fillBases();
+      refresh();
+    });
+    for (const i5 of [baseSel, nextSel, quick, auto]) i5.addEventListener("change", refresh);
+    const grid = el2(
+      "div",
+      { cls: "uo-dialog-grid" },
+      el2("span", { textContent: L3.name }),
+      nameIn,
+      el2("span", { textContent: L3.type }),
+      typeSel,
+      el2("span", { textContent: L3.basedOn }),
+      baseSel,
+      el2("span", { textContent: L3.next }),
+      nextSel
+    );
+    const fmtRow1 = el2(
+      "div",
+      { cls: "uw-style-fmt" },
+      fontSel,
+      sizeIn,
+      tog("bold", "format_bold", L3.bold),
+      tog("italic", "format_italic", L3.italic),
+      tog("underline", "format_underlined", L3.underline),
+      colorIn
+    );
+    const fmtRow2 = el2("div", { cls: "uw-style-fmt" }, ...alignBtns, el2("span", { textContent: L3.lineSpacing }), lineSel);
+    const fmtRow3 = el2(
+      "div",
+      { cls: "uw-style-fmt" },
+      el2("span", { textContent: L3.before }),
+      beforeIn,
+      el2("span", { textContent: L3.after }),
+      afterIn,
+      el2("span", { textContent: L3.indentLeft }),
+      indentIn
+    );
+    const checks = el2(
+      "div",
+      { cls: "uw-style-checks" },
+      el2("label", { cls: "uo-check" }, quick, L3.addToGallery),
+      el2("label", { cls: "uo-check" }, auto, L3.autoUpdate)
+    );
+    const body = el2(
+      "div",
+      { cls: "uw-style-dlg" },
+      el2("strong", { textContent: L3.properties }),
+      grid,
+      el2("strong", { textContent: L3.formatting }),
+      fmtRow1,
+      fmtRow2,
+      fmtRow3,
+      cv,
+      desc,
+      checks,
+      el2("div", {}, formatBtn),
+      msg
+    );
+    refresh();
+    const h3 = openDialog({
+      title: mode === "new" ? L3.newStyleTitle : L3.modifyTitle,
+      body,
+      layer: env.layer,
+      lang: env.lang,
+      width: 560,
+      actions: [{ id: "cancel", label: L3.cancel }, { id: "ok", label: L3.ok, primary: true }],
+      onAction: (a3) => {
+        if (a3 !== "ok") return true;
+        read();
+        const name2 = nameIn.value.trim();
+        if (!name2) {
+          msg.textContent = L3.empty;
+          return false;
+        }
+        if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
+          msg.textContent = L3.nameTaken;
+          return false;
+        }
+        return true;
+      }
+    });
+    if (await h3.result !== "ok") return;
+    const name = nameIn.value.trim();
+    if (mode === "new") {
+      const baseLook = baseSel.value ? ed.styleFormatting(baseSel.value) : ed.styleFormatting(ed.currentStyles().paragraph);
+      const format = baseLook ? diff(draftOf(baseLook), draft, kind !== "character") : {};
+      for (const k2 of Object.keys(format)) if (format[k2] === null) delete format[k2];
+      ed.createStyle({ name, type: kind, basedOn: baseSel.value || void 0, next: nextSel.value || void 0, quick: quick.checked, autoUpdate: auto.checked, format, fromSelection: false });
+    } else {
+      ed.modifyStyle(id, {
+        name: name !== info.name ? name : void 0,
+        basedOn: baseSel.value && baseSel.value !== info.basedOn ? baseSel.value : void 0,
+        next: kind === "character" ? void 0 : (nextSel.value || null) !== (info.next && info.next !== id ? info.next : null) ? nextSel.value || null : void 0,
+        quick: quick.checked !== info.quick ? quick.checked : void 0,
+        autoUpdate: auto.checked !== info.autoUpdate ? auto.checked : void 0,
+        format: diff(start, draft, kind !== "character")
+      });
+    }
+    env.after();
+  }
+  /** Formatar › Fonte… (rascunho do estilo). */
+  async fontSub(d3) {
+    const L3 = this.L;
+    const box = (k2, label) => {
+      const i5 = el2("input", { type: "checkbox", checked: !!d3[k2] });
+      i5.name = k2;
+      return el2("label", { cls: "uo-check" }, i5, label);
+    };
+    const spacing = el2("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf(d3.charSpacingTwips)) });
+    const body = el2(
+      "div",
+      { cls: "uw-style-sub" },
+      el2(
+        "div",
+        { cls: "uw-style-fx" },
+        box("bold", L3.bold),
+        box("italic", L3.italic),
+        box("underline", L3.underline),
+        box("strike", L3.strike),
+        box("allCaps", L3.caps),
+        box("smallCaps", L3.smallCaps)
+      ),
+      el2("label", { cls: "uo-field" }, el2("span", { textContent: `${L3.charSpacing} (pt)` }), spacing)
+    );
+    const h3 = openDialog({ title: L3.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L3.cancel }, { id: "ok", label: L3.ok, primary: true }] });
+    if (await h3.result !== "ok") return;
+    for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
+    d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
+  }
+  /** Formatar › Parágrafo… (recuos à direita e especial). */
+  async paraSub(d3) {
+    const L3 = this.L;
+    const right = el2("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
+    const special = el2("select", { name: "special" });
+    for (const [k2, t5] of [["none", L3.none], ["firstLine", L3.firstLine], ["hanging", L3.hanging]]) special.append(el2("option", { value: k2, textContent: t5 }));
+    special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
+    const by = el2("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
+    const body = el2(
+      "div",
+      { cls: "uo-dialog-grid" },
+      el2("span", { textContent: L3.indentRight }),
+      right,
+      el2("span", { textContent: L3.special }),
+      special,
+      el2("span", { textContent: L3.by }),
+      by
+    );
+    const h3 = openDialog({ title: L3.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L3.cancel }, { id: "ok", label: L3.ok, primary: true }] });
+    if (await h3.result !== "ok") return;
+    d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
+    const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
+    d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
+  }
+  async rename(s4) {
+    const L3 = this.L;
+    const v2 = await promptDialog({ title: L3.renameTitle, label: L3.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+    if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
+    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L3.nameTaken);
+    this.env.after();
+  }
+  async remove(s4) {
+    const L3 = this.L;
+    const h3 = openDialog({
+      title: L3.del(s4.name).replace(/…$/, ""),
+      body: L3.delConfirm(s4.name),
+      layer: this.env.layer,
+      lang: this.env.lang,
+      icon: "delete",
+      actions: [{ id: "cancel", label: L3.cancel }, { id: "ok", label: L3.delete, primary: true }]
+    });
+    if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
+    this.env.after();
+  }
+};
+function drawPreview(cv, ed, look, L3, kind) {
+  const W = 508, H2 = 96;
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  cv.width = W * dpr;
+  cv.height = H2 * dpr;
+  cv.style.width = `${W}px`;
+  cv.style.height = `${H2}px`;
+  const c4 = cv.getContext("2d");
+  if (!c4) return;
+  c4.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c4.fillStyle = "#ffffff";
+  c4.fillRect(0, 0, W, H2);
+  c4.fillStyle = "#a0a0a0";
+  c4.font = "9px sans-serif";
+  c4.fillText(L3.prevPara, 8, 14);
+  const inner = document.createElement("canvas");
+  drawSample(inner, ed, look, { text: kind === "character" ? L3.sample.split(" ").slice(0, 4).join(" ") : L3.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  c4.drawImage(inner, 8, 22, W - 16, 46);
+  c4.fillStyle = "#a0a0a0";
+  c4.font = "9px sans-serif";
+  c4.fillText(L3.prevPara, 8, 84);
+}
+
 // src/chrome.ts
 var CHROME_CSS = (
   /* css */
@@ -2871,6 +4056,56 @@ var CHROME_CSS = (
 :host(.uw-focus) .uw-topbar, :host(.uw-focus) .uw-bottombar { display: none !important; }
 :host(.uw-comparing) .pages { display: none !important; }
 :host(.uw-has-comments) .pages { padding-right: 300px; }
+
+/* estilos: miniaturas da galeria, painel de estilos, inspetor, di\xE1logo */
+:host(.uw-has-pane) .pages { padding-right: 304px; }
+:host(.uw-has-pane.uw-has-comments) .pages { padding-right: 604px; }
+.uo-gal-tile { display: flex; flex-direction: column; align-items: stretch; }
+.uw-style-sample { display: block; margin: 2px 2px 0; border-radius: 4px; flex: none; }
+.uw-style-cap {
+  display: block; padding: 2px 5px 0; font-size: 11px; line-height: 15px; color: var(--u-color-on-surface-variant, #44474f);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+}
+.uw-styles { display: flex; flex-direction: column; gap: 6px; }
+.uw-styles-opts { display: flex; gap: 6px; }
+.uw-styles-opts select, .uw-style-dlg select, .uw-style-dlg input[type="text"], .uw-style-dlg input[type="number"], .uw-style-sub input[type="number"] {
+  height: 30px; border: 1px solid var(--u-color-outline, #74777f); border-radius: 8px; padding: 0 6px;
+  background: transparent; color: inherit; font: inherit; font-size: 13px; min-width: 0;
+}
+.uw-styles-opts select { flex: 1 1 0; }
+.uw-styles-list { display: flex; flex-direction: column; gap: 1px; }
+.uw-style-row {
+  display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 2px 0 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.uw-style-row:hover { background: var(--u-color-surface-container-highest, #e3e2e6); }
+.uw-style-row.uo-on { border-color: var(--u-color-primary, #005bc0); }
+.uw-style-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uw-style-name canvas { display: block; }
+.uw-style-kind { flex: none; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); min-width: 18px; text-align: center; }
+.uw-style-more { height: 26px; min-width: 22px; padding: 0; visibility: hidden; }
+.uw-style-row:hover .uw-style-more, .uw-style-row.uo-on .uw-style-more { visibility: visible; }
+.uw-styles-prev { margin-top: 4px; font-size: 13px; }
+.uw-insp { display: flex; flex-direction: column; gap: 4px; }
+.uw-insp-h { font-size: 12px; font-weight: 600; color: var(--u-color-on-surface-variant, #44474f); margin-top: 6px; }
+.uw-insp-row { display: flex; align-items: center; gap: 4px; }
+.uw-insp-val {
+  flex: 1 1 auto; min-width: 0; min-height: 30px; padding: 5px 8px; border: 1px solid var(--u-color-outline-variant, #c4c6d0);
+  border-radius: 8px; font-size: 12.5px; line-height: 1.35; overflow-wrap: anywhere;
+}
+.uw-insp-pane { border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 16px; }
+.uw-style-dlg { display: flex; flex-direction: column; gap: 10px; }
+.uw-style-dlg .uo-dialog-grid select, .uw-style-dlg .uo-dialog-grid input { width: 100%; }
+.uw-style-fmt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.uw-style-fmt select[name="font"] { width: 180px; }
+.uw-style-prev { display: block; border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 8px; max-width: 100%; }
+.uw-style-desc { font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); line-height: 1.4; }
+.uw-style-checks { display: flex; gap: 18px; flex-wrap: wrap; }
+.uw-style-msg { color: var(--u-color-error, #ba1a1a); font-size: 12.5px; min-height: 16px; }
+.uw-style-quick { display: flex; flex-direction: column; gap: 10px; }
+.uw-style-quick canvas { border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 8px; }
+.uw-style-sub { display: flex; flex-direction: column; gap: 12px; }
+.uw-style-fx { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
 
 /* camada flutuante (menus, popovers, di\xE1logos, localizar, avisos) */
 .uw-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 60; }
@@ -3009,8 +4244,9 @@ var WriteChrome = class {
     this.reg = new CommandRegistry(opts.lang);
     this.reg.afterRun = () => this.after();
     this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
+    this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     registerWriteCommands(this.reg, ed, app, this.ctl());
-    const env = { ed, app, ctl: this.ctl(), root: this.root };
+    const env = { ed, app, ctl: this.ctl(), root: this.root, styles: this.styles };
     topEl.replaceChildren();
     bottomEl.replaceChildren();
     if (opts.topbar) {
@@ -3061,6 +4297,7 @@ var WriteChrome = class {
   status = null;
   cards = null;
   find = null;
+  styles = null;
   protbar = null;
   stateCache = null;
   families = [];
@@ -3126,7 +4363,18 @@ var WriteChrome = class {
       },
       requestFonts: () => this.requestFonts(),
       flash: (m2) => this.flash(m2),
-      applyTheme: () => this.applyTheme()
+      applyTheme: () => this.applyTheme(),
+      stylesPane: () => this.styles?.togglePane(),
+      stylesPaneOpen: () => !!this.styles?.paneOpen,
+      styleInspector: () => this.styles?.toggleInspector(),
+      inspectorOpen: () => !!this.styles?.inspectorOpen,
+      newStyle: () => {
+        void this.styles?.styleDialog("new");
+      },
+      modifyStyle: () => {
+        const c4 = this.ed.currentStyles();
+        void this.styles?.styleDialog("modify", c4.character ?? c4.paragraph);
+      }
     };
   }
   state() {
@@ -3164,6 +4412,16 @@ var WriteChrome = class {
     if (this.protbar) this.protbar.hidden = !this.ed.isProtected();
     this.bar?.sync();
     this.status?.sync();
+    this.styles?.sync();
+  }
+  /** Área do documento entre as barras (o painel lateral acopla à direita, sem cobrir a rolagem). */
+  docFrame() {
+    const r5 = this.ed.getBoundingClientRect();
+    const top = this.topEl.getBoundingClientRect(), bot = this.bottomEl.getBoundingClientRect();
+    const t5 = top.height ? top.bottom : r5.top;
+    const b3 = bot.height ? bot.top : r5.bottom;
+    const right = r5.left + this.ed.clientLeft + this.ed.clientWidth;
+    return new DOMRect(r5.left, t5, right - r5.left, b3 - t5);
   }
   flash(msg) {
     if (this.status) this.status.flash(msg);
@@ -3175,6 +4433,7 @@ var WriteChrome = class {
     closeMenus();
     closePopover();
     closeDialogs(this.layer);
+    this.styles?.close();
     this.bar?.destroy();
     this.cards?.destroy();
     this.layer.replaceChildren();
@@ -3187,22 +4446,22 @@ var WriteChrome = class {
   }
   // ───── Modo Protegido ─────
   makeProtectedBar() {
-    const el2 = document.createElement("div");
-    el2.className = "uw-protbar";
-    el2.setAttribute("part", "protected-bar");
-    el2.setAttribute("role", "alert");
-    el2.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+    const el3 = document.createElement("div");
+    el3.className = "uw-protbar";
+    el3.setAttribute("part", "protected-bar");
+    el3.setAttribute("role", "alert");
+    el3.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
       <span><b></b> \u2014 </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-    el2.querySelector("b").textContent = this.L.protectedTitle;
-    el2.querySelector("span").append(this.L.protectedText);
-    const b3 = el2.querySelector("button");
+    el3.querySelector("b").textContent = this.L.protectedTitle;
+    el3.querySelector("span").append(this.L.protectedText);
+    const b3 = el3.querySelector("button");
     b3.textContent = this.L.enableEditing;
     b3.addEventListener("click", () => {
       this.app.enableEditing();
       this.after();
     });
-    el2.hidden = true;
-    return el2;
+    el3.hidden = true;
+    return el3;
   }
   // ───── localizar ─────
   openFind(replace) {
@@ -3259,7 +4518,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-BJ4FBHBT.js");
+    await import("./src-3DXSSXTY.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");

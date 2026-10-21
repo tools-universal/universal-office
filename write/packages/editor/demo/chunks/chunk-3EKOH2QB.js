@@ -828,14 +828,14 @@ function unzlibSync(data, opts) {
 }
 var fltn = function(d, p, t, o) {
   for (var k in d) {
-    var val = d[k], n = p + k, op = o;
-    if (Array.isArray(val))
-      op = mrg(o, val[1]), val = val[0];
-    if (ArrayBuffer.isView(val))
-      t[n] = [val, op];
+    var val2 = d[k], n = p + k, op = o;
+    if (Array.isArray(val2))
+      op = mrg(o, val2[1]), val2 = val2[0];
+    if (ArrayBuffer.isView(val2))
+      t[n] = [val2, op];
     else {
       t[n += "/"] = [new u8(0), op];
-      fltn(val, n, t, o);
+      fltn(val2, n, t, o);
     }
   }
 };
@@ -1410,10 +1410,10 @@ function readRPr(rPr) {
   if (!rPr) return void 0;
   const p = {};
   for (const el2 of childElements(rPr)) {
-    const val = el2.attrs["w:val"];
+    const val2 = el2.attrs["w:val"];
     switch (el2.name) {
       case "w:rStyle":
-        if (val) p.rStyle = val;
+        if (val2) p.rStyle = val2;
         break;
       case "w:rFonts": {
         const f = {};
@@ -1510,47 +1510,47 @@ function readRPr(rPr) {
         p.textOutline = !firstChild(el2, "w14:noFill") && !!(firstChild(el2, "w14:solidFill") ?? firstChild(el2, "w14:gradFill"));
         break;
       case "w:spacing": {
-        const n = measureTwips(val);
+        const n = measureTwips(val2);
         if (n !== void 0) p.spacing = n;
         break;
       }
       case "w:w": {
-        const n = int(val?.replace("%", ""));
+        const n = int(val2?.replace("%", ""));
         if (n !== void 0) p.w = n;
         break;
       }
       case "w:kern": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.kern = n;
         break;
       }
       case "w:position": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.position = n;
         break;
       }
       case "w:sz": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.sz = n;
         break;
       }
       case "w:szCs": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.szCs = n;
         break;
       }
       case "w:highlight":
-        if (val) p.highlight = val;
+        if (val2) p.highlight = val2;
         break;
       case "w:u": {
-        const u = { val: val ?? "single" };
+        const u = { val: val2 ?? "single" };
         if (el2.attrs["w:color"]) u.color = el2.attrs["w:color"];
         if (el2.attrs["w:themeColor"]) u.themeColor = el2.attrs["w:themeColor"];
         p.u = u;
         break;
       }
       case "w:effect":
-        if (val) p.effect = val;
+        if (val2) p.effect = val2;
         break;
       case "w:bdr":
         p.bdr = readBorder(el2);
@@ -1559,10 +1559,10 @@ function readRPr(rPr) {
         p.shd = readShading(el2);
         break;
       case "w:vertAlign":
-        if (val === "superscript" || val === "subscript" || val === "baseline") p.vertAlign = val;
+        if (val2 === "superscript" || val2 === "subscript" || val2 === "baseline") p.vertAlign = val2;
         break;
       case "w:em":
-        if (val) p.em = val;
+        if (val2) p.em = val2;
         break;
       case "w:lang": {
         const l = {};
@@ -1591,10 +1591,10 @@ function readPPr(pPr) {
   if (!pPr) return void 0;
   const p = {};
   for (const el2 of childElements(pPr)) {
-    const val = el2.attrs["w:val"];
+    const val2 = el2.attrs["w:val"];
     switch (el2.name) {
       case "w:pStyle":
-        if (val) p.pStyle = val;
+        if (val2) p.pStyle = val2;
         break;
       case "w:keepNext":
         p.keepNext = onOffVal(el2);
@@ -1648,13 +1648,13 @@ function readPPr(pPr) {
         p.suppressOverlap = onOffVal(el2);
         break;
       case "w:jc":
-        if (val) p.jc = val;
+        if (val2) p.jc = val2;
         break;
       case "w:textAlignment":
-        if (val) p.textAlignment = val;
+        if (val2) p.textAlignment = val2;
         break;
       case "w:outlineLvl": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.outlineLvl = n;
         break;
       }
@@ -1795,10 +1795,10 @@ function readTblPr(tblPr) {
   if (!tblPr) return void 0;
   const p = {};
   for (const el2 of childElements(tblPr)) {
-    const val = el2.attrs["w:val"];
+    const val2 = el2.attrs["w:val"];
     switch (el2.name) {
       case "w:tblStyle":
-        if (val) p.tblStyle = val;
+        if (val2) p.tblStyle = val2;
         break;
       case "w:tblpPr": {
         const a = el2.attrs;
@@ -1817,18 +1817,18 @@ function readTblPr(tblPr) {
         break;
       }
       case "w:tblOverlap":
-        if (val) p.tblOverlap = val;
+        if (val2) p.tblOverlap = val2;
         break;
       case "w:bidiVisual":
         p.bidiVisual = onOffVal(el2);
         break;
       case "w:tblStyleRowBandSize": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.tblStyleRowBandSize = n;
         break;
       }
       case "w:tblStyleColBandSize": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.tblStyleColBandSize = n;
         break;
       }
@@ -1836,7 +1836,7 @@ function readTblPr(tblPr) {
         p.tblW = readWidth(el2);
         break;
       case "w:jc":
-        if (val) p.jc = val;
+        if (val2) p.jc = val2;
         break;
       case "w:tblCellSpacing":
         p.tblCellSpacing = readWidth(el2);
@@ -1882,18 +1882,18 @@ function readTrPr(trPr) {
   if (!trPr) return void 0;
   const p = {};
   for (const el2 of childElements(trPr)) {
-    const val = el2.attrs["w:val"];
+    const val2 = el2.attrs["w:val"];
     switch (el2.name) {
       case "w:cnfStyle":
-        if (val) p.cnfStyle = val;
+        if (val2) p.cnfStyle = val2;
         break;
       case "w:gridBefore": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.gridBefore = n;
         break;
       }
       case "w:gridAfter": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.gridAfter = n;
         break;
       }
@@ -1907,7 +1907,7 @@ function readTrPr(trPr) {
         p.cantSplit = onOffVal(el2);
         break;
       case "w:trHeight": {
-        const v = measureTwips(val) ?? 0;
+        const v = measureTwips(val2) ?? 0;
         const r = el2.attrs["w:hRule"];
         p.trHeight = { val: v, hRule: r === "exact" || r === "auto" ? r : "atLeast" };
         break;
@@ -1919,7 +1919,7 @@ function readTrPr(trPr) {
         p.tblCellSpacing = readWidth(el2);
         break;
       case "w:jc":
-        if (val) p.jc = val;
+        if (val2) p.jc = val2;
         break;
       case "w:hidden":
         p.hidden = onOffVal(el2);
@@ -1932,24 +1932,24 @@ function readTcPr(tcPr) {
   if (!tcPr) return void 0;
   const p = {};
   for (const el2 of childElements(tcPr)) {
-    const val = el2.attrs["w:val"];
+    const val2 = el2.attrs["w:val"];
     switch (el2.name) {
       case "w:cnfStyle":
-        if (val) p.cnfStyle = val;
+        if (val2) p.cnfStyle = val2;
         break;
       case "w:tcW":
         p.tcW = readWidth(el2);
         break;
       case "w:gridSpan": {
-        const n = int(val);
+        const n = int(val2);
         if (n !== void 0) p.gridSpan = n;
         break;
       }
       case "w:hMerge":
-        p.hMerge = val === "restart" ? "restart" : "continue";
+        p.hMerge = val2 === "restart" ? "restart" : "continue";
         break;
       case "w:vMerge":
-        p.vMerge = val === "restart" ? "restart" : "continue";
+        p.vMerge = val2 === "restart" ? "restart" : "continue";
         break;
       case "w:tcBorders":
         p.tcBorders = readBorders(el2);
@@ -1964,13 +1964,13 @@ function readTcPr(tcPr) {
         p.tcMar = readCellMar(el2);
         break;
       case "w:textDirection":
-        if (val) p.textDirection = val;
+        if (val2) p.textDirection = val2;
         break;
       case "w:tcFitText":
         p.tcFitText = onOffVal(el2);
         break;
       case "w:vAlign":
-        if (val === "top" || val === "center" || val === "bottom" || val === "both") p.vAlign = val;
+        if (val2 === "top" || val2 === "center" || val2 === "bottom" || val2 === "both") p.vAlign = val2;
         break;
       case "w:hideMark":
         p.hideMark = onOffVal(el2);
@@ -2503,9 +2503,9 @@ function runPropsFromRPr(rpr) {
   if (rpr.b !== void 0) p.bold = rpr.b;
   if (rpr.i !== void 0) p.italic = rpr.i;
   if (rpr.u) {
-    const val = rpr.u.val;
-    p.underline = val !== "none" && val !== "";
-    if (val === "double" || val === "dotted" || val === "dash" || val === "wave" || val === "thick") p.underlineStyle = val;
+    const val2 = rpr.u.val;
+    p.underline = val2 !== "none" && val2 !== "";
+    if (val2 === "double" || val2 === "dotted" || val2 === "dash" || val2 === "wave" || val2 === "thick") p.underlineStyle = val2;
     if (rpr.u.color && rpr.u.color !== "auto") p.underlineColor = rpr.u.color;
   }
   if (rpr.strike !== void 0) p.strike = rpr.strike;
@@ -2518,6 +2518,7 @@ function runPropsFromRPr(rpr) {
   if (rpr.highlight && rpr.highlight !== "none") p.highlight = rpr.highlight;
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
+  if (rpr.rStyle) p.charStyle = rpr.rStyle;
   return p;
 }
 function editBaseProps(run, rpr) {
@@ -3217,12 +3218,12 @@ var CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
 function parseCustomInlineTag(tag) {
   if (!tag?.startsWith(CUSTOM_INLINE_TAG_PREFIX)) return void 0;
   const payload = tag.slice(CUSTOM_INLINE_TAG_PREFIX.length);
-  const split = payload.indexOf(":");
-  if (split <= 0) return void 0;
-  const type = payload.slice(0, split);
+  const split2 = payload.indexOf(":");
+  if (split2 <= 0) return void 0;
+  const type = payload.slice(0, split2);
   if (!/^[a-zA-Z0-9._-]+$/.test(type)) return void 0;
   try {
-    return { type, data: JSON.parse(decodeURIComponent(payload.slice(split + 1))) };
+    return { type, data: JSON.parse(decodeURIComponent(payload.slice(split2 + 1))) };
   } catch {
     return void 0;
   }
@@ -3675,7 +3676,7 @@ function readStyleRunProps(rPr) {
   const p = {};
   if (!rPr) return p;
   for (const el2 of childElements(rPr)) {
-    const val = el2.attrs["w:val"];
+    const val2 = el2.attrs["w:val"];
     switch (el2.name) {
       case "w:b":
         p.bold = onOff(el2);
@@ -3693,16 +3694,16 @@ function readStyleRunProps(rPr) {
         p.strike = onOff(el2);
         break;
       case "w:sz":
-        if (val) p.szHalfPt = parseInt(val, 10);
+        if (val2) p.szHalfPt = parseInt(val2, 10);
         break;
       case "w:color":
-        if (val && val !== "auto") p.color = val;
+        if (val2 && val2 !== "auto") p.color = val2;
         break;
       case "w:rFonts":
         if (el2.attrs["w:ascii"]) p.fontAscii = el2.attrs["w:ascii"];
         break;
       case "w:u":
-        p.underline = val !== "none";
+        p.underline = val2 !== "none";
         break;
     }
   }
@@ -3739,8 +3740,10 @@ function readStyleParaProps(pPr) {
   return p;
 }
 function readStyles(pkg) {
+  return readStylesXml(pkg.getPartText("word/styles.xml"));
+}
+function readStylesXml(xml) {
   const out = /* @__PURE__ */ new Map();
-  const xml = pkg.getPartText("word/styles.xml");
   if (!xml) return out;
   const root = parseXml(xml);
   const docDefaults = firstChild(root, "w:docDefaults");
@@ -3801,14 +3804,14 @@ function readStyleSheet(xml) {
     const type = st.attrs["w:type"] ?? "paragraph";
     if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
     const def = { styleId: id, type };
-    const val = (n) => firstChild(st, n)?.attrs["w:val"];
-    const name = val("w:name");
+    const val2 = (n) => firstChild(st, n)?.attrs["w:val"];
+    const name = val2("w:name");
     if (name !== void 0) def.name = name;
-    const basedOn = val("w:basedOn");
+    const basedOn = val2("w:basedOn");
     if (basedOn) def.basedOn = basedOn;
-    const next = val("w:next");
+    const next = val2("w:next");
     if (next) def.next = next;
-    const link = val("w:link");
+    const link = val2("w:link");
     if (link) def.link = link;
     const d = st.attrs["w:default"];
     if (d === "1" || d === "true" || d === "on") {
@@ -4071,7 +4074,7 @@ function readFontTable(xml) {
     const sig = firstChild(f, "w:sig");
     if (sig) {
       info.sig = {};
-      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
+      for (const [k, val2] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val2;
     }
     out[name] = info;
   }
@@ -4254,6 +4257,7 @@ var onOff2 = (name, v) => v ? `<${name}/>` : `<${name} w:val="0"/>`;
 var join = (open, kids, close) => kids.length ? open + kids.map((k) => k.raw).join("") + close : "";
 function rPrFromProps(p, linkAware = true) {
   const rpr = [];
+  if (p.charStyle) rpr.push(`<w:rStyle w:val="${esc(p.charStyle)}"/>`);
   if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p.fontAscii)}" w:hAnsi="${esc(p.fontAscii)}" w:cs="${esc(p.fontAscii)}"/>`);
   if (p.bold) rpr.push("<w:b/>");
   if (p.italic) rpr.push("<w:i/>");
@@ -4272,12 +4276,113 @@ function rPrFromProps(p, linkAware = true) {
   if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
   return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
 }
+var RPR_FIELD = {
+  "w:rStyle": "rStyle",
+  "w:rFonts": "rFonts",
+  "w:b": "b",
+  "w:bCs": "bCs",
+  "w:i": "i",
+  "w:iCs": "iCs",
+  "w:caps": "caps",
+  "w:smallCaps": "smallCaps",
+  "w:strike": "strike",
+  "w:dstrike": "dstrike",
+  "w:outline": "outline",
+  "w:shadow": "shadow",
+  "w:emboss": "emboss",
+  "w:imprint": "imprint",
+  "w:vanish": "vanish",
+  "w:color": "color",
+  "w:spacing": "spacing",
+  "w:w": "w",
+  "w:kern": "kern",
+  "w:position": "position",
+  "w:sz": "sz",
+  "w:szCs": "szCs",
+  "w:highlight": "highlight",
+  "w:u": "u",
+  "w:effect": "effect",
+  "w:bdr": "bdr",
+  "w:shd": "shd",
+  "w:vertAlign": "vertAlign",
+  "w:em": "em"
+};
+var PPR_FIELD = {
+  "w:keepNext": "keepNext",
+  "w:keepLines": "keepLines",
+  "w:pageBreakBefore": "pageBreakBefore",
+  "w:framePr": "framePr",
+  "w:widowControl": "widowControl",
+  "w:numPr": "numPr",
+  "w:suppressLineNumbers": "suppressLineNumbers",
+  "w:pBdr": "pBdr",
+  "w:shd": "shd",
+  "w:tabs": "tabs",
+  "w:suppressAutoHyphens": "suppressAutoHyphens",
+  "w:kinsoku": "kinsoku",
+  "w:wordWrap": "wordWrap",
+  "w:overflowPunct": "overflowPunct",
+  "w:autoSpaceDE": "autoSpaceDE",
+  "w:autoSpaceDN": "autoSpaceDN",
+  "w:bidi": "bidi",
+  "w:adjustRightInd": "adjustRightInd",
+  "w:snapToGrid": "snapToGrid",
+  "w:spacing": "spacing",
+  "w:ind": "ind",
+  "w:contextualSpacing": "contextualSpacing",
+  "w:mirrorIndents": "mirrorIndents",
+  "w:suppressOverlap": "suppressOverlap",
+  "w:jc": "jc",
+  "w:textAlignment": "textAlignment",
+  "w:outlineLvl": "outlineLvl",
+  "w:rPr": "rPr"
+};
+function clearedRPr(rpr, fields) {
+  const out = { ...rpr ?? {} };
+  const drop = fields ? fields.flatMap((k) => PROP_RPR[k] ?? []) : Object.values(RPR_FIELD).filter((f) => f !== "rStyle");
+  for (const f of drop) delete out[f];
+  return out;
+}
+var PROP_RPR = {
+  bold: ["b", "bCs"],
+  italic: ["i", "iCs"],
+  underline: ["u"],
+  underlineStyle: ["u"],
+  underlineColor: ["u"],
+  strike: ["strike"],
+  doubleStrike: ["dstrike"],
+  allCaps: ["caps"],
+  smallCaps: ["smallCaps"],
+  vertAlign: ["vertAlign"],
+  szHalfPt: ["sz", "szCs"],
+  color: ["color"],
+  highlight: ["highlight"],
+  fontAscii: ["rFonts"],
+  charSpacingTwips: ["spacing"]
+};
+function clearedPPr(ppr) {
+  const out = { ...ppr ?? {} };
+  for (const f of Object.values(PPR_FIELD)) if (f !== "rPr") delete out[f];
+  return out;
+}
+function dropCleared(kids, map, cur) {
+  let n = 0;
+  for (let i2 = kids.length - 1; i2 >= 0; i2--) {
+    const f = map[kids[i2].name];
+    if (f && cur[f] === void 0) {
+      kids.splice(i2, 1);
+      n++;
+    }
+  }
+  return n > 0;
+}
 function patchRPr(raw, run) {
   const p = run.props;
   if (raw === void 0) return rPrFromProps(p);
   const { open, close, kids, el: el2 } = splitElement(raw);
-  const base = editBaseProps(run, readRPr(el2));
-  let changed = false;
+  const edited = run.rprEdited && run.rpr ? run.rpr : void 0;
+  const base = editBaseProps(run, edited ?? readRPr(el2));
+  let changed = edited ? dropCleared(kids, RPR_FIELD, edited) : false;
   const set = (name, xml) => {
     changed = true;
     setKid(kids, RPR_ORDER, name, xml);
@@ -4314,6 +4419,7 @@ function patchRPr(raw, run) {
       "w:cstheme": void 0
     }));
   }
+  if (p.charStyle !== base.charStyle) set("w:rStyle", p.charStyle ? `<w:rStyle w:val="${esc(p.charStyle)}"/>` : null);
   if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set("w:spacing", p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
   }
@@ -4377,8 +4483,9 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   const p = para.props;
   if (raw === void 0) return pPrFromProps(p, sect ?? "", ids);
   const { open, close, kids, el: el2 } = splitElement(raw);
-  const base = paraPropsFromPPr(readPPr(el2));
-  let changed = false;
+  const edited = para.pprEdited && para.ppr ? para.ppr : void 0;
+  const base = paraPropsFromPPr(edited ?? readPPr(el2));
+  let changed = edited ? dropCleared(kids, PPR_FIELD, edited) : false;
   let genNumbering = false;
   const set = (name, xml) => {
     changed = true;
@@ -5196,6 +5303,7 @@ function splitParagraph(model, pos) {
   p.runs = p.runs.slice(0, idx);
   const tail = { runs: tailRuns, props: { ...p.props } };
   if (p.ppr) tail.ppr = p.ppr;
+  if (p.pprEdited) tail.pprEdited = true;
   if (p.props.sectionBreak) {
     p.props = { ...p.props };
     delete p.props.sectionBreak;
@@ -5250,6 +5358,8 @@ function mergeWithPrevious(model, para) {
   prev.props = { ...cur.props };
   if (cur.ppr) prev.ppr = cur.ppr;
   else delete prev.ppr;
+  if (cur.pprEdited) prev.pprEdited = true;
+  else delete prev.pprEdited;
   model.paragraphs.splice(para, 1);
   normalizeParagraph(prev);
   return { para: para - 1, offset };
@@ -5279,6 +5389,62 @@ function applyParaProps(model, range, patch) {
   for (let pi = start.para; pi <= end.para; pi++) {
     Object.assign(model.paragraphs[pi].props, patch);
   }
+}
+function clearRunFormatting(model, range, opts = {}) {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = model.paragraphs[pi];
+    const from = pi === start.para ? start.offset : 0;
+    const to = pi === end.para ? end.offset : paraLength(p);
+    if (to <= from) continue;
+    splitAt(p, to);
+    const i1 = splitAt(p, from);
+    let acc = 0;
+    for (let ri = 0; ri < p.runs.length; ri++) {
+      const rs = acc;
+      acc += p.runs[ri].text.length;
+      if (ri < i1) continue;
+      if (rs >= to) break;
+      clearRun(p.runs[ri], opts);
+    }
+    normalizeParagraph(p);
+  }
+}
+function clearRun(run, opts = {}) {
+  const rpr = clearedRPr(run.rpr, opts.fields);
+  const old = run.props;
+  const base = editBaseProps({ ...run, rpr }, rpr);
+  const next = opts.fields ? { ...old } : { ...base };
+  if (opts.fields) for (const k of opts.fields) next[k] = base[k];
+  for (const k of ["src", "link", "isMath", "commentIds"]) {
+    if (old[k] !== void 0) next[k] = old[k];
+  }
+  if (opts.charStyle !== null && opts.charStyle !== void 0) next.charStyle = opts.charStyle;
+  else if (opts.charStyle === void 0 && !opts.fields) delete next.charStyle;
+  else if (opts.charStyle === null) {
+    if (old.charStyle !== void 0) next.charStyle = old.charStyle;
+    else delete next.charStyle;
+  }
+  run.rpr = rpr;
+  run.rprEdited = true;
+  run.props = next;
+}
+function clearParaFormatting(model, range) {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) clearPara(model.paragraphs[pi]);
+}
+function clearPara(p) {
+  const ppr = clearedPPr(p.ppr);
+  const old = p.props;
+  const next = { ...paraPropsFromPPr(ppr) };
+  if (old.styleId !== void 0) next.styleId = old.styleId;
+  else delete next.styleId;
+  for (const k of ["src", "sectionBreak", "tocInstr", "tocEntry"]) {
+    if (old[k] !== void 0) next[k] = old[k];
+  }
+  p.ppr = ppr;
+  p.pprEdited = true;
+  p.props = next;
 }
 
 // ../docx-core/src/section-ops.ts
@@ -5331,11 +5497,11 @@ function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
 var contentWidth = (sp) => sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
 var maxColumns = (sp) => Math.max(1, Math.floor(contentWidth(sp) / COLUMN_MIN_WIDTH));
 function columnsFor(sp, spec) {
-  const W = contentWidth(sp);
+  const W2 = contentWidth(sp);
   const n = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp)));
   if (n < 2) return void 0;
   let space = Math.max(0, Math.round(spec.spaceTwips ?? sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT));
-  if ((W - space * (n - 1)) / n < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W - n * COLUMN_MIN_WIDTH) / (n - 1)));
+  if ((W2 - space * (n - 1)) / n < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W2 - n * COLUMN_MIN_WIDTH) / (n - 1)));
   const cols = { count: n, spaceTwips: space, sep: !!spec.sep };
   if (spec.widths && spec.widths.length >= n) {
     cols.widths = spec.widths.slice(0, n).map((c, i2) => ({
@@ -5351,9 +5517,9 @@ function presetColumns(sp, preset) {
   const space = sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT;
   if (preset === "one") return { count: 1, sep };
   if (preset === "two" || preset === "three") return { count: preset === "two" ? 2 : 3, spaceTwips: space, sep };
-  const W = contentWidth(sp);
-  const narrow = Math.round((W - 2 * space) / 3);
-  const wide = W - narrow - space;
+  const W2 = contentWidth(sp);
+  const narrow = Math.round((W2 - 2 * space) / 3);
+  const wide = W2 - narrow - space;
   const ws = preset === "left" ? [narrow, wide] : [wide, narrow];
   return { count: 2, spaceTwips: space, sep, widths: ws.map((w) => ({ widthTwips: w, spaceTwips: space })) };
 }
@@ -5370,10 +5536,10 @@ function columnsPresetOf(sp) {
 }
 function columnWidths(sp) {
   const c = sp.cols;
-  const W = contentWidth(sp);
-  if (!c || c.count < 2) return [{ widthTwips: W, spaceTwips: 0 }];
+  const W2 = contentWidth(sp);
+  if (!c || c.count < 2) return [{ widthTwips: W2, spaceTwips: 0 }];
   if (c.widths) return c.widths.map((w2) => ({ ...w2 }));
-  const w = Math.round((W - c.spaceTwips * (c.count - 1)) / c.count);
+  const w = Math.round((W2 - c.spaceTwips * (c.count - 1)) / c.count);
   return Array.from({ length: c.count }, (_, i2) => ({ widthTwips: w, spaceTwips: i2 < c.count - 1 ? c.spaceTwips : 0 }));
 }
 function setOrientation(sp, orientation) {
@@ -6226,6 +6392,493 @@ function writeParts(pkg, model, hfParts, opts, store) {
     );
     pkg.setPartText(ctPath, ct);
   }
+}
+
+// ../docx-core/src/word-styles.ts
+var WORD_BLANK_STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<w:styles xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" mc:Ignorable="w14 w15 w16se w16cid w16 w16cex w16sdtdh w16sdtfl w16du"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:asciiTheme="minorHAnsi" w:eastAsiaTheme="minorHAnsi" w:hAnsiTheme="minorHAnsi" w:cstheme="minorBidi"/><w:kern w:val="2"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="pt-BR" w:eastAsia="en-US" w:bidi="ar-SA"/><w14:ligatures w14:val="standardContextual"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:latentStyles w:defLockedState="0" w:defUIPriority="99" w:defSemiHidden="0" w:defUnhideWhenUsed="0" w:defQFormat="0" w:count="376"><w:lsdException w:name="Normal" w:uiPriority="0" w:qFormat="1"/><w:lsdException w:name="heading 1" w:uiPriority="9" w:qFormat="1"/><w:lsdException w:name="heading 2" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 3" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 4" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 5" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 6" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 7" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 8" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="heading 9" w:semiHidden="1" w:uiPriority="9" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="index 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 6" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 7" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 8" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index 9" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 1" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 2" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 3" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 4" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 5" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 6" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 7" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 8" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="toc 9" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1"/><w:lsdException w:name="Normal Indent" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="footnote text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="annotation text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="header" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="footer" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="index heading" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="caption" w:semiHidden="1" w:uiPriority="35" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="table of figures" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="envelope address" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="envelope return" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="footnote reference" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="annotation reference" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="line number" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="page number" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="endnote reference" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="endnote text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="table of authorities" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="macro" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="toa heading" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Bullet" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Number" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Bullet 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Bullet 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Bullet 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Bullet 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Number 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Number 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Number 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Number 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Title" w:uiPriority="10" w:qFormat="1"/><w:lsdException w:name="Closing" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Signature" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Default Paragraph Font" w:semiHidden="1" w:uiPriority="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text Indent" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Continue" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Continue 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Continue 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Continue 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="List Continue 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Message Header" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Subtitle" w:uiPriority="11" w:qFormat="1"/><w:lsdException w:name="Salutation" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Date" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text First Indent" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text First Indent 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Note Heading" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text Indent 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Body Text Indent 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Block Text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Hyperlink" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="FollowedHyperlink" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Strong" w:uiPriority="22" w:qFormat="1"/><w:lsdException w:name="Emphasis" w:uiPriority="20" w:qFormat="1"/><w:lsdException w:name="Document Map" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Plain Text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="E-mail Signature" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Top of Form" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Bottom of Form" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Normal (Web)" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Acronym" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Address" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Cite" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Code" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Definition" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Keyboard" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Preformatted" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Sample" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Typewriter" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="HTML Variable" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Normal Table" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="annotation subject" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="No List" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Outline List 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Outline List 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Outline List 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Simple 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Simple 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Simple 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Classic 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Classic 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Classic 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Classic 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Colorful 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Colorful 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Colorful 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Columns 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Columns 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Columns 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Columns 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Columns 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 6" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 7" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid 8" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 4" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 5" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 6" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 7" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table List 8" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table 3D effects 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table 3D effects 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table 3D effects 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Contemporary" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Elegant" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Professional" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Subtle 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Subtle 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Web 1" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Web 2" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Web 3" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Balloon Text" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Table Grid" w:uiPriority="39"/><w:lsdException w:name="Table Theme" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Placeholder Text" w:semiHidden="1"/><w:lsdException w:name="No Spacing" w:uiPriority="1" w:qFormat="1"/><w:lsdException w:name="Light Shading" w:uiPriority="60"/><w:lsdException w:name="Light List" w:uiPriority="61"/><w:lsdException w:name="Light Grid" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2" w:uiPriority="64"/><w:lsdException w:name="Medium List 1" w:uiPriority="65"/><w:lsdException w:name="Medium List 2" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3" w:uiPriority="69"/><w:lsdException w:name="Dark List" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading" w:uiPriority="71"/><w:lsdException w:name="Colorful List" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid" w:uiPriority="73"/><w:lsdException w:name="Light Shading Accent 1" w:uiPriority="60"/><w:lsdException w:name="Light List Accent 1" w:uiPriority="61"/><w:lsdException w:name="Light Grid Accent 1" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1 Accent 1" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2 Accent 1" w:uiPriority="64"/><w:lsdException w:name="Medium List 1 Accent 1" w:uiPriority="65"/><w:lsdException w:name="Revision" w:semiHidden="1"/><w:lsdException w:name="List Paragraph" w:uiPriority="34" w:qFormat="1"/><w:lsdException w:name="Quote" w:uiPriority="29" w:qFormat="1"/><w:lsdException w:name="Intense Quote" w:uiPriority="30" w:qFormat="1"/><w:lsdException w:name="Medium List 2 Accent 1" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1 Accent 1" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2 Accent 1" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3 Accent 1" w:uiPriority="69"/><w:lsdException w:name="Dark List Accent 1" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading Accent 1" w:uiPriority="71"/><w:lsdException w:name="Colorful List Accent 1" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid Accent 1" w:uiPriority="73"/><w:lsdException w:name="Light Shading Accent 2" w:uiPriority="60"/><w:lsdException w:name="Light List Accent 2" w:uiPriority="61"/><w:lsdException w:name="Light Grid Accent 2" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1 Accent 2" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2 Accent 2" w:uiPriority="64"/><w:lsdException w:name="Medium List 1 Accent 2" w:uiPriority="65"/><w:lsdException w:name="Medium List 2 Accent 2" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1 Accent 2" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2 Accent 2" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3 Accent 2" w:uiPriority="69"/><w:lsdException w:name="Dark List Accent 2" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading Accent 2" w:uiPriority="71"/><w:lsdException w:name="Colorful List Accent 2" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid Accent 2" w:uiPriority="73"/><w:lsdException w:name="Light Shading Accent 3" w:uiPriority="60"/><w:lsdException w:name="Light List Accent 3" w:uiPriority="61"/><w:lsdException w:name="Light Grid Accent 3" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1 Accent 3" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2 Accent 3" w:uiPriority="64"/><w:lsdException w:name="Medium List 1 Accent 3" w:uiPriority="65"/><w:lsdException w:name="Medium List 2 Accent 3" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1 Accent 3" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2 Accent 3" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3 Accent 3" w:uiPriority="69"/><w:lsdException w:name="Dark List Accent 3" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading Accent 3" w:uiPriority="71"/><w:lsdException w:name="Colorful List Accent 3" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid Accent 3" w:uiPriority="73"/><w:lsdException w:name="Light Shading Accent 4" w:uiPriority="60"/><w:lsdException w:name="Light List Accent 4" w:uiPriority="61"/><w:lsdException w:name="Light Grid Accent 4" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1 Accent 4" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2 Accent 4" w:uiPriority="64"/><w:lsdException w:name="Medium List 1 Accent 4" w:uiPriority="65"/><w:lsdException w:name="Medium List 2 Accent 4" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1 Accent 4" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2 Accent 4" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3 Accent 4" w:uiPriority="69"/><w:lsdException w:name="Dark List Accent 4" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading Accent 4" w:uiPriority="71"/><w:lsdException w:name="Colorful List Accent 4" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid Accent 4" w:uiPriority="73"/><w:lsdException w:name="Light Shading Accent 5" w:uiPriority="60"/><w:lsdException w:name="Light List Accent 5" w:uiPriority="61"/><w:lsdException w:name="Light Grid Accent 5" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1 Accent 5" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2 Accent 5" w:uiPriority="64"/><w:lsdException w:name="Medium List 1 Accent 5" w:uiPriority="65"/><w:lsdException w:name="Medium List 2 Accent 5" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1 Accent 5" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2 Accent 5" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3 Accent 5" w:uiPriority="69"/><w:lsdException w:name="Dark List Accent 5" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading Accent 5" w:uiPriority="71"/><w:lsdException w:name="Colorful List Accent 5" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid Accent 5" w:uiPriority="73"/><w:lsdException w:name="Light Shading Accent 6" w:uiPriority="60"/><w:lsdException w:name="Light List Accent 6" w:uiPriority="61"/><w:lsdException w:name="Light Grid Accent 6" w:uiPriority="62"/><w:lsdException w:name="Medium Shading 1 Accent 6" w:uiPriority="63"/><w:lsdException w:name="Medium Shading 2 Accent 6" w:uiPriority="64"/><w:lsdException w:name="Medium List 1 Accent 6" w:uiPriority="65"/><w:lsdException w:name="Medium List 2 Accent 6" w:uiPriority="66"/><w:lsdException w:name="Medium Grid 1 Accent 6" w:uiPriority="67"/><w:lsdException w:name="Medium Grid 2 Accent 6" w:uiPriority="68"/><w:lsdException w:name="Medium Grid 3 Accent 6" w:uiPriority="69"/><w:lsdException w:name="Dark List Accent 6" w:uiPriority="70"/><w:lsdException w:name="Colorful Shading Accent 6" w:uiPriority="71"/><w:lsdException w:name="Colorful List Accent 6" w:uiPriority="72"/><w:lsdException w:name="Colorful Grid Accent 6" w:uiPriority="73"/><w:lsdException w:name="Subtle Emphasis" w:uiPriority="19" w:qFormat="1"/><w:lsdException w:name="Intense Emphasis" w:uiPriority="21" w:qFormat="1"/><w:lsdException w:name="Subtle Reference" w:uiPriority="31" w:qFormat="1"/><w:lsdException w:name="Intense Reference" w:uiPriority="32" w:qFormat="1"/><w:lsdException w:name="Book Title" w:uiPriority="33" w:qFormat="1"/><w:lsdException w:name="Bibliography" w:semiHidden="1" w:uiPriority="37" w:unhideWhenUsed="1"/><w:lsdException w:name="TOC Heading" w:semiHidden="1" w:uiPriority="39" w:unhideWhenUsed="1" w:qFormat="1"/><w:lsdException w:name="Plain Table 1" w:uiPriority="41"/><w:lsdException w:name="Plain Table 2" w:uiPriority="42"/><w:lsdException w:name="Plain Table 3" w:uiPriority="43"/><w:lsdException w:name="Plain Table 4" w:uiPriority="44"/><w:lsdException w:name="Plain Table 5" w:uiPriority="45"/><w:lsdException w:name="Grid Table Light" w:uiPriority="40"/><w:lsdException w:name="Grid Table 1 Light" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful" w:uiPriority="52"/><w:lsdException w:name="Grid Table 1 Light Accent 1" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2 Accent 1" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3 Accent 1" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4 Accent 1" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark Accent 1" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful Accent 1" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful Accent 1" w:uiPriority="52"/><w:lsdException w:name="Grid Table 1 Light Accent 2" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2 Accent 2" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3 Accent 2" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4 Accent 2" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark Accent 2" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful Accent 2" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful Accent 2" w:uiPriority="52"/><w:lsdException w:name="Grid Table 1 Light Accent 3" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2 Accent 3" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3 Accent 3" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4 Accent 3" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark Accent 3" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful Accent 3" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful Accent 3" w:uiPriority="52"/><w:lsdException w:name="Grid Table 1 Light Accent 4" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2 Accent 4" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3 Accent 4" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4 Accent 4" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark Accent 4" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful Accent 4" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful Accent 4" w:uiPriority="52"/><w:lsdException w:name="Grid Table 1 Light Accent 5" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2 Accent 5" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3 Accent 5" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4 Accent 5" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark Accent 5" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful Accent 5" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful Accent 5" w:uiPriority="52"/><w:lsdException w:name="Grid Table 1 Light Accent 6" w:uiPriority="46"/><w:lsdException w:name="Grid Table 2 Accent 6" w:uiPriority="47"/><w:lsdException w:name="Grid Table 3 Accent 6" w:uiPriority="48"/><w:lsdException w:name="Grid Table 4 Accent 6" w:uiPriority="49"/><w:lsdException w:name="Grid Table 5 Dark Accent 6" w:uiPriority="50"/><w:lsdException w:name="Grid Table 6 Colorful Accent 6" w:uiPriority="51"/><w:lsdException w:name="Grid Table 7 Colorful Accent 6" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light" w:uiPriority="46"/><w:lsdException w:name="List Table 2" w:uiPriority="47"/><w:lsdException w:name="List Table 3" w:uiPriority="48"/><w:lsdException w:name="List Table 4" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light Accent 1" w:uiPriority="46"/><w:lsdException w:name="List Table 2 Accent 1" w:uiPriority="47"/><w:lsdException w:name="List Table 3 Accent 1" w:uiPriority="48"/><w:lsdException w:name="List Table 4 Accent 1" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark Accent 1" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful Accent 1" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful Accent 1" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light Accent 2" w:uiPriority="46"/><w:lsdException w:name="List Table 2 Accent 2" w:uiPriority="47"/><w:lsdException w:name="List Table 3 Accent 2" w:uiPriority="48"/><w:lsdException w:name="List Table 4 Accent 2" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark Accent 2" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful Accent 2" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful Accent 2" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light Accent 3" w:uiPriority="46"/><w:lsdException w:name="List Table 2 Accent 3" w:uiPriority="47"/><w:lsdException w:name="List Table 3 Accent 3" w:uiPriority="48"/><w:lsdException w:name="List Table 4 Accent 3" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark Accent 3" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful Accent 3" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful Accent 3" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light Accent 4" w:uiPriority="46"/><w:lsdException w:name="List Table 2 Accent 4" w:uiPriority="47"/><w:lsdException w:name="List Table 3 Accent 4" w:uiPriority="48"/><w:lsdException w:name="List Table 4 Accent 4" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark Accent 4" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful Accent 4" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful Accent 4" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light Accent 5" w:uiPriority="46"/><w:lsdException w:name="List Table 2 Accent 5" w:uiPriority="47"/><w:lsdException w:name="List Table 3 Accent 5" w:uiPriority="48"/><w:lsdException w:name="List Table 4 Accent 5" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark Accent 5" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful Accent 5" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful Accent 5" w:uiPriority="52"/><w:lsdException w:name="List Table 1 Light Accent 6" w:uiPriority="46"/><w:lsdException w:name="List Table 2 Accent 6" w:uiPriority="47"/><w:lsdException w:name="List Table 3 Accent 6" w:uiPriority="48"/><w:lsdException w:name="List Table 4 Accent 6" w:uiPriority="49"/><w:lsdException w:name="List Table 5 Dark Accent 6" w:uiPriority="50"/><w:lsdException w:name="List Table 6 Colorful Accent 6" w:uiPriority="51"/><w:lsdException w:name="List Table 7 Colorful Accent 6" w:uiPriority="52"/><w:lsdException w:name="Mention" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Smart Hyperlink" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Hashtag" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Unresolved Mention" w:semiHidden="1" w:unhideWhenUsed="1"/><w:lsdException w:name="Smart Link" w:semiHidden="1" w:unhideWhenUsed="1"/></w:latentStyles><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="Ttulo1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo1Char"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="360" w:after="80"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo2Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="160" w:after="80"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo3Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="160" w:after="80"/><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo4Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="80" w:after="40"/><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo5Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="80" w:after="40"/><w:outlineLvl w:val="4"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo6Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="40" w:after="0"/><w:outlineLvl w:val="5"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo7"><w:name w:val="heading 7"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo7Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="40" w:after="0"/><w:outlineLvl w:val="6"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo8"><w:name w:val="heading 8"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo8Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:after="0"/><w:outlineLvl w:val="7"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo9"><w:name w:val="heading 9"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo9Char"/><w:uiPriority w:val="9"/><w:semiHidden/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:after="0"/><w:outlineLvl w:val="8"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style><w:style w:type="character" w:default="1" w:styleId="Fontepargpadro"><w:name w:val="Default Paragraph Font"/><w:uiPriority w:val="1"/><w:semiHidden/><w:unhideWhenUsed/></w:style><w:style w:type="table" w:default="1" w:styleId="Tabelanormal"><w:name w:val="Normal Table"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style><w:style w:type="numbering" w:default="1" w:styleId="Semlista"><w:name w:val="No List"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo1Char"><w:name w:val="T\xEDtulo 1 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo1"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo2Char"><w:name w:val="T\xEDtulo 2 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo2"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo3Char"><w:name w:val="T\xEDtulo 3 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo3"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo4Char"><w:name w:val="T\xEDtulo 4 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo4"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo5Char"><w:name w:val="T\xEDtulo 5 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo5"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo6Char"><w:name w:val="T\xEDtulo 6 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo6"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo7Char"><w:name w:val="T\xEDtulo 7 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo7"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo8Char"><w:name w:val="T\xEDtulo 8 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo8"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="Ttulo9Char"><w:name w:val="T\xEDtulo 9 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo9"/><w:uiPriority w:val="9"/><w:semiHidden/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Ttulo"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="TtuloChar"/><w:uiPriority w:val="10"/><w:qFormat/><w:pPr><w:spacing w:after="80" w:line="240" w:lineRule="auto"/><w:contextualSpacing/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:spacing w:val="-10"/><w:kern w:val="28"/><w:sz w:val="56"/><w:szCs w:val="56"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="TtuloChar"><w:name w:val="T\xEDtulo Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo"/><w:uiPriority w:val="10"/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:spacing w:val="-10"/><w:kern w:val="28"/><w:sz w:val="56"/><w:szCs w:val="56"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Subttulo"><w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="SubttuloChar"/><w:uiPriority w:val="11"/><w:qFormat/><w:pPr><w:numPr><w:ilvl w:val="1"/></w:numPr></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/><w:spacing w:val="15"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="SubttuloChar"><w:name w:val="Subt\xEDtulo Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Subttulo"/><w:uiPriority w:val="11"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/><w:spacing w:val="15"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Citao"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="CitaoChar"/><w:uiPriority w:val="29"/><w:qFormat/><w:pPr><w:spacing w:before="160"/><w:jc w:val="center"/></w:pPr><w:rPr><w:i/><w:iCs/><w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="CitaoChar"><w:name w:val="Cita\xE7\xE3o Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Citao"/><w:uiPriority w:val="29"/><w:rPr><w:i/><w:iCs/><w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="PargrafodaLista"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="34"/><w:qFormat/><w:pPr><w:ind w:left="720"/><w:contextualSpacing/></w:pPr></w:style><w:style w:type="character" w:styleId="nfaseIntensa"><w:name w:val="Intense Emphasis"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="21"/><w:qFormat/><w:rPr><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="CitaoIntensa"><w:name w:val="Intense Quote"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="CitaoIntensaChar"/><w:uiPriority w:val="30"/><w:qFormat/><w:pPr><w:pBdr><w:top w:val="single" w:sz="4" w:space="10" w:color="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:bottom w:val="single" w:sz="4" w:space="10" w:color="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:pBdr><w:spacing w:before="360" w:after="360"/><w:ind w:left="864" w:right="864"/><w:jc w:val="center"/></w:pPr><w:rPr><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="character" w:customStyle="1" w:styleId="CitaoIntensaChar"><w:name w:val="Cita\xE7\xE3o Intensa Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="CitaoIntensa"/><w:uiPriority w:val="30"/><w:rPr><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style><w:style w:type="character" w:styleId="RefernciaIntensa"><w:name w:val="Intense Reference"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="32"/><w:qFormat/><w:rPr><w:b/><w:bCs/><w:smallCaps/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:spacing w:val="5"/></w:rPr></w:style></w:styles>';
+var WORD_BLANK_THEME = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Tema do Office"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="0E2841"/></a:dk2><a:lt2><a:srgbClr val="E8E8E8"/></a:lt2><a:accent1><a:srgbClr val="156082"/></a:accent1><a:accent2><a:srgbClr val="E97132"/></a:accent2><a:accent3><a:srgbClr val="196B24"/></a:accent3><a:accent4><a:srgbClr val="0F9ED5"/></a:accent4><a:accent5><a:srgbClr val="A02B93"/></a:accent5><a:accent6><a:srgbClr val="4EA72E"/></a:accent6><a:hlink><a:srgbClr val="467886"/></a:hlink><a:folHlink><a:srgbClr val="96607D"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Aptos Display" panose="02110004020202020204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="\u6E38\u30B4\u30B7\u30C3\u30AF Light"/><a:font script="Hang" typeface="\uB9D1\uC740 \uACE0\uB515"/><a:font script="Hans" typeface="\u7B49\u7EBF Light"/><a:font script="Hant" typeface="\u65B0\u7D30\u660E\u9AD4"/><a:font script="Arab" typeface="Times New Roman"/><a:font script="Hebr" typeface="Times New Roman"/><a:font script="Thai" typeface="Angsana New"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="MoolBoran"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Times New Roman"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/><a:font script="Armn" typeface="Arial"/><a:font script="Bugi" typeface="Leelawadee UI"/><a:font script="Bopo" typeface="Microsoft JhengHei"/><a:font script="Java" typeface="Javanese Text"/><a:font script="Lisu" typeface="Segoe UI"/><a:font script="Mymr" typeface="Myanmar Text"/><a:font script="Nkoo" typeface="Ebrima"/><a:font script="Olck" typeface="Nirmala UI"/><a:font script="Osma" typeface="Ebrima"/><a:font script="Phag" typeface="Phagspa"/><a:font script="Syrn" typeface="Estrangelo Edessa"/><a:font script="Syrj" typeface="Estrangelo Edessa"/><a:font script="Syre" typeface="Estrangelo Edessa"/><a:font script="Sora" typeface="Nirmala UI"/><a:font script="Tale" typeface="Microsoft Tai Le"/><a:font script="Talu" typeface="Microsoft New Tai Lue"/><a:font script="Tfng" typeface="Ebrima"/></a:majorFont><a:minorFont><a:latin typeface="Aptos" panose="02110004020202020204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="\u6E38\u30B4\u30B7\u30C3\u30AF"/><a:font script="Hang" typeface="\uB9D1\uC740 \uACE0\uB515"/><a:font script="Hans" typeface="\u7B49\u7EBF"/><a:font script="Hant" typeface="\u65B0\u7D30\u660E\u9AD4"/><a:font script="Arab" typeface="Arial"/><a:font script="Hebr" typeface="Arial"/><a:font script="Thai" typeface="Cordia New"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="DaunPenh"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Arial"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/><a:font script="Armn" typeface="Arial"/><a:font script="Bugi" typeface="Leelawadee UI"/><a:font script="Bopo" typeface="Microsoft JhengHei"/><a:font script="Java" typeface="Javanese Text"/><a:font script="Lisu" typeface="Segoe UI"/><a:font script="Mymr" typeface="Myanmar Text"/><a:font script="Nkoo" typeface="Ebrima"/><a:font script="Olck" typeface="Nirmala UI"/><a:font script="Osma" typeface="Ebrima"/><a:font script="Phag" typeface="Phagspa"/><a:font script="Syrn" typeface="Estrangelo Edessa"/><a:font script="Syrj" typeface="Estrangelo Edessa"/><a:font script="Syre" typeface="Estrangelo Edessa"/><a:font script="Sora" typeface="Nirmala UI"/><a:font script="Tale" typeface="Microsoft Tai Le"/><a:font script="Talu" typeface="Microsoft New Tai Lue"/><a:font script="Tfng" typeface="Ebrima"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/><a:extLst><a:ext uri="{05A4C25C-085E-4340-85A3-A5531E510DB2}"><thm15:themeFamily xmlns:thm15="http://schemas.microsoft.com/office/thememl/2012/main" name="Office Theme" id="{62F939B6-93AF-4DB8-9C6B-D6C7DFDC589F}" vid="{4A3C46E8-61CC-4603-A589-7422A47A8E4A}"/></a:ext></a:extLst></a:theme>';
+var WORD_BLANK_SETTINGS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<w:settings xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" xmlns:sl="http://schemas.openxmlformats.org/schemaLibrary/2006/main" mc:Ignorable="w14 w15 w16se w16cid w16 w16cex w16sdtdh w16sdtfl w16du"><w:zoom w:percent="100"/><w:defaultTabStop w:val="708"/><w:hyphenationZone w:val="425"/><w:characterSpacingControl w:val="doNotCompress"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/><w:compatSetting w:name="overrideTableStyleFontSizeAndJustification" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/><w:compatSetting w:name="enableOpenTypeFeatures" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/><w:compatSetting w:name="doNotFlipMirrorIndents" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/><w:compatSetting w:name="differentiateMultirowTableHeaders" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/><w:compatSetting w:name="useWord2013TrackBottomHyphenation" w:uri="http://schemas.microsoft.com/office/word" w:val="0"/></w:compat><m:mathPr><m:mathFont m:val="Cambria Math"/><m:brkBin m:val="before"/><m:brkBinSub m:val="--"/><m:smallFrac m:val="0"/><m:dispDef/><m:lMargin m:val="0"/><m:rMargin m:val="0"/><m:defJc m:val="centerGroup"/><m:wrapIndent m:val="1440"/><m:intLim m:val="subSup"/><m:naryLim m:val="undOvr"/></m:mathPr><w:themeFontLang w:val="pt-BR"/><w:clrSchemeMapping w:bg1="light1" w:t1="dark1" w:bg2="light2" w:t2="dark2" w:accent1="accent1" w:accent2="accent2" w:accent3="accent3" w:accent4="accent4" w:accent5="accent5" w:accent6="accent6" w:hyperlink="hyperlink" w:followedHyperlink="followedHyperlink"/><w:shapeDefaults><o:shapedefaults v:ext="edit" spidmax="1026"/><o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout></w:shapeDefaults><w:decimalSymbol w:val=","/><w:listSeparator w:val=";"/><w15:chartTrackingRefBased/></w:settings>';
+var WORD_BLANK_FONT_TABLE = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<w:fonts xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" mc:Ignorable="w14 w15 w16se w16cid w16 w16cex w16sdtdh w16sdtfl w16du"><w:font w:name="Aptos"><w:charset w:val="00"/><w:family w:val="swiss"/><w:pitch w:val="variable"/><w:sig w:usb0="20000287" w:usb1="00000003" w:usb2="00000000" w:usb3="00000000" w:csb0="0000019F" w:csb1="00000000"/></w:font><w:font w:name="Times New Roman"><w:panose1 w:val="02020603050405020304"/><w:charset w:val="00"/><w:family w:val="roman"/><w:pitch w:val="variable"/><w:sig w:usb0="E0002EFF" w:usb1="C000785B" w:usb2="00000009" w:usb3="00000000" w:csb0="000001FF" w:csb1="00000000"/></w:font><w:font w:name="Aptos Display"><w:charset w:val="00"/><w:family w:val="swiss"/><w:pitch w:val="variable"/><w:sig w:usb0="20000287" w:usb1="00000003" w:usb2="00000000" w:usb3="00000000" w:csb0="0000019F" w:csb1="00000000"/></w:font></w:fonts>';
+var WORD_BLANK_SECTPR = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>';
+var WORD_BUILTIN_STYLES = [
+  ["annotation reference", "Ref. de coment\xE1rio", '<w:style w:type="character" w:styleId="Refdecomentrio"><w:name w:val="annotation reference"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>'],
+  ["annotation subject", "Assunto do coment\xE1rio", '<w:style w:type="paragraph" w:styleId="Assuntodocomentrio"><w:name w:val="annotation subject"/><w:basedOn w:val="Textodecomentrio"/><w:next w:val="Textodecomentrio"/><w:link w:val="AssuntodocomentrioChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:b/><w:bCs/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="AssuntodocomentrioChar"><w:name w:val="Assunto do coment\xE1rio Char"/><w:basedOn w:val="TextodecomentrioChar"/><w:link w:val="Assuntodocomentrio"/><w:uiPriority w:val="99"/><w:rPr><w:b/><w:bCs/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["annotation text", "Texto de coment\xE1rio", '<w:style w:type="paragraph" w:styleId="Textodecomentrio"><w:name w:val="annotation text"/><w:basedOn w:val="Normal"/><w:link w:val="TextodecomentrioChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TextodecomentrioChar"><w:name w:val="Texto de coment\xE1rio Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Textodecomentrio"/><w:uiPriority w:val="99"/><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["Balloon Text", "Texto de bal\xE3o", '<w:style w:type="paragraph" w:styleId="Textodebalo"><w:name w:val="Balloon Text"/><w:basedOn w:val="Normal"/><w:link w:val="TextodebaloChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TextodebaloChar"><w:name w:val="Texto de bal\xE3o Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Textodebalo"/><w:uiPriority w:val="99"/><w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr></w:style>'],
+  ["Bibliography", "Bibliografia", '<w:style w:type="paragraph" w:styleId="Bibliografia"><w:name w:val="Bibliography"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="37"/><w:unhideWhenUsed/></w:style>'],
+  ["Block Text", "Texto em bloco", '<w:style w:type="paragraph" w:styleId="Textoembloco"><w:name w:val="Block Text"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:pBdr><w:top w:val="single" w:sz="2" w:space="10" w:color="156082" w:themeColor="accent1"/><w:left w:val="single" w:sz="2" w:space="10" w:color="156082" w:themeColor="accent1"/><w:bottom w:val="single" w:sz="2" w:space="10" w:color="156082" w:themeColor="accent1"/><w:right w:val="single" w:sz="2" w:space="10" w:color="156082" w:themeColor="accent1"/></w:pBdr><w:ind w:left="1152" w:right="1152"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="minorEastAsia"/><w:i/><w:iCs/><w:color w:val="156082" w:themeColor="accent1"/></w:rPr></w:style>'],
+  ["Body Text", "Corpo de texto", '<w:style w:type="paragraph" w:styleId="Corpodetexto"><w:name w:val="Body Text"/><w:basedOn w:val="Normal"/><w:link w:val="CorpodetextoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="CorpodetextoChar"><w:name w:val="Corpo de texto Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Corpodetexto"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Body Text 2", "Corpo de texto 2", '<w:style w:type="paragraph" w:styleId="Corpodetexto2"><w:name w:val="Body Text 2"/><w:basedOn w:val="Normal"/><w:link w:val="Corpodetexto2Char"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120" w:line="480" w:lineRule="auto"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Corpodetexto2Char"><w:name w:val="Corpo de texto 2 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Corpodetexto2"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Body Text 3", "Corpo de texto 3", '<w:style w:type="paragraph" w:styleId="Corpodetexto3"><w:name w:val="Body Text 3"/><w:basedOn w:val="Normal"/><w:link w:val="Corpodetexto3Char"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/></w:pPr><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Corpodetexto3Char"><w:name w:val="Corpo de texto 3 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Corpodetexto3"/><w:uiPriority w:val="99"/><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>'],
+  ["Body Text First Indent", "Primeiro recuo de corpo de texto", '<w:style w:type="paragraph" w:styleId="Primeirorecuodecorpodetexto"><w:name w:val="Body Text First Indent"/><w:basedOn w:val="Corpodetexto"/><w:link w:val="PrimeirorecuodecorpodetextoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="160"/><w:ind w:firstLine="360"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="PrimeirorecuodecorpodetextoChar"><w:name w:val="Primeiro recuo de corpo de texto Char"/><w:basedOn w:val="CorpodetextoChar"/><w:link w:val="Primeirorecuodecorpodetexto"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Body Text First Indent 2", "Primeiro recuo de corpo de texto 2", '<w:style w:type="paragraph" w:styleId="Primeirorecuodecorpodetexto2"><w:name w:val="Body Text First Indent 2"/><w:basedOn w:val="Recuodecorpodetexto"/><w:link w:val="Primeirorecuodecorpodetexto2Char"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="160"/><w:ind w:left="360" w:firstLine="360"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Primeirorecuodecorpodetexto2Char"><w:name w:val="Primeiro recuo de corpo de texto 2 Char"/><w:basedOn w:val="RecuodecorpodetextoChar"/><w:link w:val="Primeirorecuodecorpodetexto2"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Body Text Indent", "Recuo de corpo de texto", '<w:style w:type="paragraph" w:styleId="Recuodecorpodetexto"><w:name w:val="Body Text Indent"/><w:basedOn w:val="Normal"/><w:link w:val="RecuodecorpodetextoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="283"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="RecuodecorpodetextoChar"><w:name w:val="Recuo de corpo de texto Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Recuodecorpodetexto"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Body Text Indent 2", "Recuo de corpo de texto 2", '<w:style w:type="paragraph" w:styleId="Recuodecorpodetexto2"><w:name w:val="Body Text Indent 2"/><w:basedOn w:val="Normal"/><w:link w:val="Recuodecorpodetexto2Char"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120" w:line="480" w:lineRule="auto"/><w:ind w:left="283"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Recuodecorpodetexto2Char"><w:name w:val="Recuo de corpo de texto 2 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Recuodecorpodetexto2"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Body Text Indent 3", "Recuo de corpo de texto 3", '<w:style w:type="paragraph" w:styleId="Recuodecorpodetexto3"><w:name w:val="Body Text Indent 3"/><w:basedOn w:val="Normal"/><w:link w:val="Recuodecorpodetexto3Char"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="283"/></w:pPr><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Recuodecorpodetexto3Char"><w:name w:val="Recuo de corpo de texto 3 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Recuodecorpodetexto3"/><w:uiPriority w:val="99"/><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>'],
+  ["Book Title", "T\xEDtulo do Livro", '<w:style w:type="character" w:styleId="TtulodoLivro"><w:name w:val="Book Title"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="33"/><w:qFormat/><w:rPr><w:b/><w:bCs/><w:i/><w:iCs/><w:spacing w:val="5"/></w:rPr></w:style>'],
+  ["caption", "Legenda", '<w:style w:type="paragraph" w:styleId="Legenda"><w:name w:val="caption"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="35"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:spacing w:after="200" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:i/><w:iCs/><w:color w:val="0E2841" w:themeColor="text2"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr></w:style>'],
+  ["Closing", "Encerramento", '<w:style w:type="paragraph" w:styleId="Encerramento"><w:name w:val="Closing"/><w:basedOn w:val="Normal"/><w:link w:val="EncerramentoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="4252"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="EncerramentoChar"><w:name w:val="Encerramento Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Encerramento"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Date", "Data", '<w:style w:type="paragraph" w:styleId="Data"><w:name w:val="Date"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="DataChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="DataChar"><w:name w:val="Data Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Data"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Document Map", "Mapa do Documento", '<w:style w:type="paragraph" w:styleId="MapadoDocumento"><w:name w:val="Document Map"/><w:basedOn w:val="Normal"/><w:link w:val="MapadoDocumentoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="MapadoDocumentoChar"><w:name w:val="Mapa do Documento Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="MapadoDocumento"/><w:uiPriority w:val="99"/><w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>'],
+  ["E-mail Signature", "Assinatura de Email", '<w:style w:type="paragraph" w:styleId="AssinaturadeEmail"><w:name w:val="E-mail Signature"/><w:basedOn w:val="Normal"/><w:link w:val="AssinaturadeEmailChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="AssinaturadeEmailChar"><w:name w:val="Assinatura de Email Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="AssinaturadeEmail"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Emphasis", "\xCAnfase", '<w:style w:type="character" w:styleId="nfase"><w:name w:val="Emphasis"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="20"/><w:qFormat/><w:rPr><w:i/><w:iCs/></w:rPr></w:style>'],
+  ["endnote reference", "Ref. de nota de fim", '<w:style w:type="character" w:styleId="Refdenotadefim"><w:name w:val="endnote reference"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>'],
+  ["endnote text", "Texto de nota de fim", '<w:style w:type="paragraph" w:styleId="Textodenotadefim"><w:name w:val="endnote text"/><w:basedOn w:val="Normal"/><w:link w:val="TextodenotadefimChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TextodenotadefimChar"><w:name w:val="Texto de nota de fim Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Textodenotadefim"/><w:uiPriority w:val="99"/><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["envelope address", "Destinat\xE1rio", '<w:style w:type="paragraph" w:styleId="Destinatrio"><w:name w:val="envelope address"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:framePr w:w="7938" w:h="1984" w:hRule="exact" w:hSpace="141" w:wrap="auto" w:hAnchor="page" w:xAlign="center" w:yAlign="bottom"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="2835"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'],
+  ["envelope return", "Remetente", '<w:style w:type="paragraph" w:styleId="Remetente"><w:name w:val="envelope return"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["FollowedHyperlink", "HiperlinkVisitado", '<w:style w:type="character" w:styleId="HiperlinkVisitado"><w:name w:val="FollowedHyperlink"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:color w:val="96607D" w:themeColor="followedHyperlink"/><w:u w:val="single"/></w:rPr></w:style>'],
+  ["footer", "Rodap\xE9", '<w:style w:type="paragraph" w:styleId="Rodap"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:link w:val="RodapChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:tabs><w:tab w:val="center" w:pos="4252"/><w:tab w:val="right" w:pos="8504"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="RodapChar"><w:name w:val="Rodap\xE9 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Rodap"/><w:uiPriority w:val="99"/></w:style>'],
+  ["footnote reference", "Ref. de nota de rodap\xE9", '<w:style w:type="character" w:styleId="Refdenotaderodap"><w:name w:val="footnote reference"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>'],
+  ["footnote text", "Texto de nota de rodap\xE9", '<w:style w:type="paragraph" w:styleId="Textodenotaderodap"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:link w:val="TextodenotaderodapChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TextodenotaderodapChar"><w:name w:val="Texto de nota de rodap\xE9 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Textodenotaderodap"/><w:uiPriority w:val="99"/><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["Hashtag", "Hashtag", '<w:style w:type="character" w:styleId="Hashtag"><w:name w:val="Hashtag"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:color w:val="2B579A"/><w:shd w:val="clear" w:color="auto" w:fill="E1DFDD"/></w:rPr></w:style>'],
+  ["header", "Cabe\xE7alho", '<w:style w:type="paragraph" w:styleId="Cabealho"><w:name w:val="header"/><w:basedOn w:val="Normal"/><w:link w:val="CabealhoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:tabs><w:tab w:val="center" w:pos="4252"/><w:tab w:val="right" w:pos="8504"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="CabealhoChar"><w:name w:val="Cabe\xE7alho Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Cabealho"/><w:uiPriority w:val="99"/></w:style>'],
+  ["heading 1", "T\xEDtulo 1", '<w:style w:type="paragraph" w:styleId="Ttulo1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo1Char"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="360" w:after="80"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo1Char"><w:name w:val="T\xEDtulo 1 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo1"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr></w:style>'],
+  ["heading 2", "T\xEDtulo 2", '<w:style w:type="paragraph" w:styleId="Ttulo2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo2Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="160" w:after="80"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo2Char"><w:name w:val="T\xEDtulo 2 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo2"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>'],
+  ["heading 3", "T\xEDtulo 3", '<w:style w:type="paragraph" w:styleId="Ttulo3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo3Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="160" w:after="80"/><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo3Char"><w:name w:val="T\xEDtulo 3 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo3"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style>'],
+  ["heading 4", "T\xEDtulo 4", '<w:style w:type="paragraph" w:styleId="Ttulo4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo4Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="80" w:after="40"/><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo4Char"><w:name w:val="T\xEDtulo 4 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo4"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>'],
+  ["heading 5", "T\xEDtulo 5", '<w:style w:type="paragraph" w:styleId="Ttulo5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo5Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="80" w:after="40"/><w:outlineLvl w:val="4"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo5Char"><w:name w:val="T\xEDtulo 5 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo5"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>'],
+  ["heading 6", "T\xEDtulo 6", '<w:style w:type="paragraph" w:styleId="Ttulo6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo6Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="40" w:after="0"/><w:outlineLvl w:val="5"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo6Char"><w:name w:val="T\xEDtulo 6 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo6"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style>'],
+  ["heading 7", "T\xEDtulo 7", '<w:style w:type="paragraph" w:styleId="Ttulo7"><w:name w:val="heading 7"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo7Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="40" w:after="0"/><w:outlineLvl w:val="6"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo7Char"><w:name w:val="T\xEDtulo 7 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo7"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/></w:rPr></w:style>'],
+  ["heading 8", "T\xEDtulo 8", '<w:style w:type="paragraph" w:styleId="Ttulo8"><w:name w:val="heading 8"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo8Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:after="0"/><w:outlineLvl w:val="7"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo8Char"><w:name w:val="T\xEDtulo 8 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo8"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:i/><w:iCs/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style>'],
+  ["heading 9", "T\xEDtulo 9", '<w:style w:type="paragraph" w:styleId="Ttulo9"><w:name w:val="heading 9"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="Ttulo9Char"/><w:uiPriority w:val="9"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:after="0"/><w:outlineLvl w:val="8"/></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Ttulo9Char"><w:name w:val="T\xEDtulo 9 Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo9"/><w:uiPriority w:val="9"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/></w:rPr></w:style>'],
+  ["HTML Acronym", "Acr\xF4nimo HTML", '<w:style w:type="character" w:styleId="AcrnimoHTML"><w:name w:val="HTML Acronym"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/></w:style>'],
+  ["HTML Address", "Endere\xE7o HTML", '<w:style w:type="paragraph" w:styleId="EndereoHTML"><w:name w:val="HTML Address"/><w:basedOn w:val="Normal"/><w:link w:val="EndereoHTMLChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:i/><w:iCs/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="EndereoHTMLChar"><w:name w:val="Endere\xE7o HTML Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="EndereoHTML"/><w:uiPriority w:val="99"/><w:rPr><w:i/><w:iCs/></w:rPr></w:style>'],
+  ["HTML Cite", "Cita\xE7\xE3o HTML", '<w:style w:type="character" w:styleId="CitaoHTML"><w:name w:val="HTML Cite"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:i/><w:iCs/></w:rPr></w:style>'],
+  ["HTML Code", "C\xF3digo HTML", '<w:style w:type="character" w:styleId="CdigoHTML"><w:name w:val="HTML Code"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["HTML Definition", "Defini\xE7\xE3o HTML", '<w:style w:type="character" w:styleId="DefinioHTML"><w:name w:val="HTML Definition"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:i/><w:iCs/></w:rPr></w:style>'],
+  ["HTML Keyboard", "Teclado HTML", '<w:style w:type="character" w:styleId="TecladoHTML"><w:name w:val="HTML Keyboard"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["HTML Preformatted", "Pr\xE9-formata\xE7\xE3o HTML", '<w:style w:type="paragraph" w:styleId="Pr-formataoHTML"><w:name w:val="HTML Preformatted"/><w:basedOn w:val="Normal"/><w:link w:val="Pr-formataoHTMLChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="Pr-formataoHTMLChar"><w:name w:val="Pr\xE9-formata\xE7\xE3o HTML Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Pr-formataoHTML"/><w:uiPriority w:val="99"/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["HTML Sample", "Exemplo HTML", '<w:style w:type="character" w:styleId="ExemploHTML"><w:name w:val="HTML Sample"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'],
+  ["HTML Typewriter", "M\xE1quina de escrever HTML", '<w:style w:type="character" w:styleId="MquinadeescreverHTML"><w:name w:val="HTML Typewriter"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["HTML Variable", "Vari\xE1vel HTML", '<w:style w:type="character" w:styleId="VarivelHTML"><w:name w:val="HTML Variable"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:i/><w:iCs/></w:rPr></w:style>'],
+  ["Hyperlink", "Hyperlink", '<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:color w:val="467886" w:themeColor="hyperlink"/><w:u w:val="single"/></w:rPr></w:style>'],
+  ["index 1", "Remissivo 1", '<w:style w:type="paragraph" w:styleId="Remissivo1"><w:name w:val="index 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="220" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 2", "Remissivo 2", '<w:style w:type="paragraph" w:styleId="Remissivo2"><w:name w:val="index 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="440" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 3", "Remissivo 3", '<w:style w:type="paragraph" w:styleId="Remissivo3"><w:name w:val="index 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="660" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 4", "Remissivo 4", '<w:style w:type="paragraph" w:styleId="Remissivo4"><w:name w:val="index 4"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="880" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 5", "Remissivo 5", '<w:style w:type="paragraph" w:styleId="Remissivo5"><w:name w:val="index 5"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1100" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 6", "Remissivo 6", '<w:style w:type="paragraph" w:styleId="Remissivo6"><w:name w:val="index 6"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1320" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 7", "Remissivo 7", '<w:style w:type="paragraph" w:styleId="Remissivo7"><w:name w:val="index 7"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1540" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 8", "Remissivo 8", '<w:style w:type="paragraph" w:styleId="Remissivo8"><w:name w:val="index 8"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1760" w:hanging="220"/></w:pPr></w:style>'],
+  ["index 9", "Remissivo 9", '<w:style w:type="paragraph" w:styleId="Remissivo9"><w:name w:val="index 9"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1980" w:hanging="220"/></w:pPr></w:style>'],
+  ["index heading", "T\xEDtulo de \xEDndice remissivo", '<w:style w:type="paragraph" w:styleId="Ttulodendiceremissivo"><w:name w:val="index heading"/><w:basedOn w:val="Normal"/><w:next w:val="Remissivo1"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:b/><w:bCs/></w:rPr></w:style>'],
+  ["Intense Emphasis", "\xCAnfase Intensa", '<w:style w:type="character" w:styleId="nfaseIntensa"><w:name w:val="Intense Emphasis"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="21"/><w:qFormat/><w:rPr><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>'],
+  ["Intense Quote", "Cita\xE7\xE3o Intensa", '<w:style w:type="paragraph" w:styleId="CitaoIntensa"><w:name w:val="Intense Quote"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="CitaoIntensaChar"/><w:uiPriority w:val="30"/><w:qFormat/><w:pPr><w:pBdr><w:top w:val="single" w:sz="4" w:space="10" w:color="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:bottom w:val="single" w:sz="4" w:space="10" w:color="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:pBdr><w:spacing w:before="360" w:after="360"/><w:ind w:left="864" w:right="864"/><w:jc w:val="center"/></w:pPr><w:rPr><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="CitaoIntensaChar"><w:name w:val="Cita\xE7\xE3o Intensa Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="CitaoIntensa"/><w:uiPriority w:val="30"/><w:rPr><w:i/><w:iCs/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/></w:rPr></w:style>'],
+  ["Intense Reference", "Refer\xEAncia Intensa", '<w:style w:type="character" w:styleId="RefernciaIntensa"><w:name w:val="Intense Reference"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="32"/><w:qFormat/><w:rPr><w:b/><w:bCs/><w:smallCaps/><w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/><w:spacing w:val="5"/></w:rPr></w:style>'],
+  ["line number", "N\xFAmero de linha", '<w:style w:type="character" w:styleId="Nmerodelinha"><w:name w:val="line number"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/></w:style>'],
+  ["List", "Lista", '<w:style w:type="paragraph" w:styleId="Lista"><w:name w:val="List"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:ind w:left="283" w:hanging="283"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List 2", "Lista 2", '<w:style w:type="paragraph" w:styleId="Lista2"><w:name w:val="List 2"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:ind w:left="566" w:hanging="283"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List 3", "Lista 3", '<w:style w:type="paragraph" w:styleId="Lista3"><w:name w:val="List 3"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:ind w:left="849" w:hanging="283"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List 4", "Lista 4", '<w:style w:type="paragraph" w:styleId="Lista4"><w:name w:val="List 4"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:ind w:left="1132" w:hanging="283"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List 5", "Lista 5", '<w:style w:type="paragraph" w:styleId="Lista5"><w:name w:val="List 5"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:ind w:left="1415" w:hanging="283"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Bullet", "Com marcadores", '<w:style w:type="paragraph" w:styleId="Commarcadores"><w:name w:val="List Bullet"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="4"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Bullet 2", "Com marcadores 2", '<w:style w:type="paragraph" w:styleId="Commarcadores2"><w:name w:val="List Bullet 2"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="5"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Bullet 3", "Com marcadores 3", '<w:style w:type="paragraph" w:styleId="Commarcadores3"><w:name w:val="List Bullet 3"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="6"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Bullet 4", "Com marcadores 4", '<w:style w:type="paragraph" w:styleId="Commarcadores4"><w:name w:val="List Bullet 4"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="7"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Bullet 5", "Com marcadores 5", '<w:style w:type="paragraph" w:styleId="Commarcadores5"><w:name w:val="List Bullet 5"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="8"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Continue", "Lista de continua\xE7\xE3o", '<w:style w:type="paragraph" w:styleId="Listadecontinuao"><w:name w:val="List Continue"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="283"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Continue 2", "Lista de continua\xE7\xE3o 2", '<w:style w:type="paragraph" w:styleId="Listadecontinuao2"><w:name w:val="List Continue 2"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="566"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Continue 3", "Lista de continua\xE7\xE3o 3", '<w:style w:type="paragraph" w:styleId="Listadecontinuao3"><w:name w:val="List Continue 3"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="849"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Continue 4", "Lista de continua\xE7\xE3o 4", '<w:style w:type="paragraph" w:styleId="Listadecontinuao4"><w:name w:val="List Continue 4"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="1132"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Continue 5", "Lista de continua\xE7\xE3o 5", '<w:style w:type="paragraph" w:styleId="Listadecontinuao5"><w:name w:val="List Continue 5"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="120"/><w:ind w:left="1415"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Number", "Numerada", '<w:style w:type="paragraph" w:styleId="Numerada"><w:name w:val="List Number"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="9"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Number 2", "Numerada 2", '<w:style w:type="paragraph" w:styleId="Numerada2"><w:name w:val="List Number 2"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="10"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Number 3", "Numerada 3", '<w:style w:type="paragraph" w:styleId="Numerada3"><w:name w:val="List Number 3"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="11"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Number 4", "Numerada 4", '<w:style w:type="paragraph" w:styleId="Numerada4"><w:name w:val="List Number 4"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="12"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Number 5", "Numerada 5", '<w:style w:type="paragraph" w:styleId="Numerada5"><w:name w:val="List Number 5"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:numPr><w:numId w:val="13"/></w:numPr><w:contextualSpacing/></w:pPr></w:style>'],
+  ["List Paragraph", "Par\xE1grafo da Lista", '<w:style w:type="paragraph" w:styleId="PargrafodaLista"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="34"/><w:qFormat/><w:pPr><w:ind w:left="720"/><w:contextualSpacing/></w:pPr></w:style>'],
+  ["macro", "Texto de macro", '<w:style w:type="paragraph" w:styleId="Textodemacro"><w:name w:val="macro"/><w:link w:val="TextodemacroChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:tabs><w:tab w:val="left" w:pos="480"/><w:tab w:val="left" w:pos="960"/><w:tab w:val="left" w:pos="1440"/><w:tab w:val="left" w:pos="1920"/><w:tab w:val="left" w:pos="2400"/><w:tab w:val="left" w:pos="2880"/><w:tab w:val="left" w:pos="3360"/><w:tab w:val="left" w:pos="3840"/><w:tab w:val="left" w:pos="4320"/></w:tabs><w:spacing w:after="0"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TextodemacroChar"><w:name w:val="Texto de macro Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Textodemacro"/><w:uiPriority w:val="99"/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'],
+  ["Mention", "Men\xE7\xE3o", '<w:style w:type="character" w:styleId="Meno"><w:name w:val="Mention"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:color w:val="2B579A"/><w:shd w:val="clear" w:color="auto" w:fill="E1DFDD"/></w:rPr></w:style>'],
+  ["Message Header", "Cabe\xE7alho da mensagem", '<w:style w:type="paragraph" w:styleId="Cabealhodamensagem"><w:name w:val="Message Header"/><w:basedOn w:val="Normal"/><w:link w:val="CabealhodamensagemChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="auto"/><w:left w:val="single" w:sz="6" w:space="1" w:color="auto"/><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/><w:right w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr><w:shd w:val="pct20" w:color="auto" w:fill="auto"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1134" w:hanging="1134"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="CabealhodamensagemChar"><w:name w:val="Cabe\xE7alho da mensagem Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Cabealhodamensagem"/><w:uiPriority w:val="99"/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:shd w:val="pct20" w:color="auto" w:fill="auto"/></w:rPr></w:style>'],
+  ["No Spacing", "Sem Espa\xE7amento", '<w:style w:type="paragraph" w:styleId="SemEspaamento"><w:name w:val="No Spacing"/><w:uiPriority w:val="1"/><w:qFormat/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>'],
+  ["Normal", "Normal", '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'],
+  ["Normal (Web)", "Normal (Web)", '<w:style w:type="paragraph" w:styleId="NormalWeb"><w:name w:val="Normal (Web)"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'],
+  ["Normal Indent", "Recuo normal", '<w:style w:type="paragraph" w:styleId="Recuonormal"><w:name w:val="Normal Indent"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:ind w:left="708"/></w:pPr></w:style>'],
+  ["Note Heading", "T\xEDtulo da nota", '<w:style w:type="paragraph" w:styleId="Ttulodanota"><w:name w:val="Note Heading"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="TtulodanotaChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TtulodanotaChar"><w:name w:val="T\xEDtulo da nota Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulodanota"/><w:uiPriority w:val="99"/></w:style>'],
+  ["page number", "N\xFAmero de p\xE1gina", '<w:style w:type="character" w:styleId="Nmerodepgina"><w:name w:val="page number"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/></w:style>'],
+  ["Placeholder Text", "Texto do Espa\xE7o Reservado", '<w:style w:type="character" w:styleId="TextodoEspaoReservado"><w:name w:val="Placeholder Text"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:semiHidden/><w:rPr><w:color w:val="666666"/></w:rPr></w:style>'],
+  ["Plain Text", "Texto sem Formata\xE7\xE3o", '<w:style w:type="paragraph" w:styleId="TextosemFormatao"><w:name w:val="Plain Text"/><w:basedOn w:val="Normal"/><w:link w:val="TextosemFormataoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="21"/><w:szCs w:val="21"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TextosemFormataoChar"><w:name w:val="Texto sem Formata\xE7\xE3o Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="TextosemFormatao"/><w:uiPriority w:val="99"/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="21"/><w:szCs w:val="21"/></w:rPr></w:style>'],
+  ["Quote", "Cita\xE7\xE3o", '<w:style w:type="paragraph" w:styleId="Citao"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="CitaoChar"/><w:uiPriority w:val="29"/><w:qFormat/><w:pPr><w:spacing w:before="160"/><w:jc w:val="center"/></w:pPr><w:rPr><w:i/><w:iCs/><w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="CitaoChar"><w:name w:val="Cita\xE7\xE3o Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Citao"/><w:uiPriority w:val="29"/><w:rPr><w:i/><w:iCs/><w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/></w:rPr></w:style>'],
+  ["Salutation", "Sauda\xE7\xE3o", '<w:style w:type="paragraph" w:styleId="Saudao"><w:name w:val="Salutation"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="SaudaoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="SaudaoChar"><w:name w:val="Sauda\xE7\xE3o Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Saudao"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Signature", "Assinatura", '<w:style w:type="paragraph" w:styleId="Assinatura"><w:name w:val="Signature"/><w:basedOn w:val="Normal"/><w:link w:val="AssinaturaChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="4252"/></w:pPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="AssinaturaChar"><w:name w:val="Assinatura Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Assinatura"/><w:uiPriority w:val="99"/></w:style>'],
+  ["Smart Hyperlink", "Hiperlink inteligente", '<w:style w:type="character" w:styleId="Hiperlinkinteligente"><w:name w:val="Smart Hyperlink"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:u w:val="dotted"/></w:rPr></w:style>'],
+  ["Smart Link", "Link inteligente", '<w:style w:type="character" w:styleId="Linkinteligente"><w:name w:val="Smart Link"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:color w:val="0000FF"/><w:u w:val="single"/><w:shd w:val="clear" w:color="auto" w:fill="F3F2F1"/></w:rPr></w:style>'],
+  ["Strong", "Forte", '<w:style w:type="character" w:styleId="Forte"><w:name w:val="Strong"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="22"/><w:qFormat/><w:rPr><w:b/><w:bCs/></w:rPr></w:style>'],
+  ["Subtitle", "Subt\xEDtulo", '<w:style w:type="paragraph" w:styleId="Subttulo"><w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="SubttuloChar"/><w:uiPriority w:val="11"/><w:qFormat/><w:pPr><w:numPr><w:ilvl w:val="1"/></w:numPr></w:pPr><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/><w:spacing w:val="15"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="SubttuloChar"><w:name w:val="Subt\xEDtulo Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Subttulo"/><w:uiPriority w:val="11"/><w:rPr><w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/><w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/><w:spacing w:val="15"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style>'],
+  ["Subtle Emphasis", "\xCAnfase Sutil", '<w:style w:type="character" w:styleId="nfaseSutil"><w:name w:val="Subtle Emphasis"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="19"/><w:qFormat/><w:rPr><w:i/><w:iCs/><w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/></w:rPr></w:style>'],
+  ["Subtle Reference", "Refer\xEAncia Sutil", '<w:style w:type="character" w:styleId="RefernciaSutil"><w:name w:val="Subtle Reference"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="31"/><w:qFormat/><w:rPr><w:smallCaps/><w:color w:val="5A5A5A" w:themeColor="text1" w:themeTint="A5"/></w:rPr></w:style>'],
+  ["table of authorities", "\xCDndice de autoridades", '<w:style w:type="paragraph" w:styleId="ndicedeautoridades"><w:name w:val="table of authorities"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0"/><w:ind w:left="220" w:hanging="220"/></w:pPr></w:style>'],
+  ["table of figures", "\xCDndice de ilustra\xE7\xF5es", '<w:style w:type="paragraph" w:styleId="ndicedeilustraes"><w:name w:val="table of figures"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="0"/></w:pPr></w:style>'],
+  ["Title", "T\xEDtulo", '<w:style w:type="paragraph" w:styleId="Ttulo"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:link w:val="TtuloChar"/><w:uiPriority w:val="10"/><w:qFormat/><w:pPr><w:spacing w:after="80" w:line="240" w:lineRule="auto"/><w:contextualSpacing/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:spacing w:val="-10"/><w:kern w:val="28"/><w:sz w:val="56"/><w:szCs w:val="56"/></w:rPr></w:style>', '<w:style w:type="character" w:customStyle="1" w:styleId="TtuloChar"><w:name w:val="T\xEDtulo Char"/><w:basedOn w:val="Fontepargpadro"/><w:link w:val="Ttulo"/><w:uiPriority w:val="10"/><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:spacing w:val="-10"/><w:kern w:val="28"/><w:sz w:val="56"/><w:szCs w:val="56"/></w:rPr></w:style>'],
+  ["toa heading", "T\xEDtulo de \xEDndice de autoridades", '<w:style w:type="paragraph" w:styleId="Ttulodendicedeautoridades"><w:name w:val="toa heading"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:pPr><w:spacing w:before="120"/></w:pPr><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/><w:b/><w:bCs/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'],
+  ["toc 1", "Sum\xE1rio 1", '<w:style w:type="paragraph" w:styleId="Sumrio1"><w:name w:val="toc 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/></w:pPr></w:style>'],
+  ["toc 2", "Sum\xE1rio 2", '<w:style w:type="paragraph" w:styleId="Sumrio2"><w:name w:val="toc 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="220"/></w:pPr></w:style>'],
+  ["toc 3", "Sum\xE1rio 3", '<w:style w:type="paragraph" w:styleId="Sumrio3"><w:name w:val="toc 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="440"/></w:pPr></w:style>'],
+  ["toc 4", "Sum\xE1rio 4", '<w:style w:type="paragraph" w:styleId="Sumrio4"><w:name w:val="toc 4"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="660"/></w:pPr></w:style>'],
+  ["toc 5", "Sum\xE1rio 5", '<w:style w:type="paragraph" w:styleId="Sumrio5"><w:name w:val="toc 5"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="880"/></w:pPr></w:style>'],
+  ["toc 6", "Sum\xE1rio 6", '<w:style w:type="paragraph" w:styleId="Sumrio6"><w:name w:val="toc 6"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="1100"/></w:pPr></w:style>'],
+  ["toc 7", "Sum\xE1rio 7", '<w:style w:type="paragraph" w:styleId="Sumrio7"><w:name w:val="toc 7"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="1320"/></w:pPr></w:style>'],
+  ["toc 8", "Sum\xE1rio 8", '<w:style w:type="paragraph" w:styleId="Sumrio8"><w:name w:val="toc 8"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="1540"/></w:pPr></w:style>'],
+  ["toc 9", "Sum\xE1rio 9", '<w:style w:type="paragraph" w:styleId="Sumrio9"><w:name w:val="toc 9"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:autoRedefine/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:pPr><w:spacing w:after="100"/><w:ind w:left="1760"/></w:pPr></w:style>'],
+  ["TOC Heading", "Cabe\xE7alho do Sum\xE1rio", '<w:style w:type="paragraph" w:styleId="CabealhodoSumrio"><w:name w:val="TOC Heading"/><w:basedOn w:val="Ttulo1"/><w:next w:val="Normal"/><w:uiPriority w:val="39"/><w:unhideWhenUsed/><w:qFormat/><w:pPr><w:spacing w:before="240" w:after="0"/><w:outlineLvl w:val="9"/></w:pPr><w:rPr><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>'],
+  ["Unresolved Mention", "Men\xE7\xE3o Pendente", '<w:style w:type="character" w:styleId="MenoPendente"><w:name w:val="Unresolved Mention"/><w:basedOn w:val="Fontepargpadro"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rPr><w:color w:val="605E5C"/><w:shd w:val="clear" w:color="auto" w:fill="E1DFDD"/></w:rPr></w:style>']
+];
+
+// ../docx-core/src/blank.ts
+var XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+var W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+var REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+var BLANK_STYLES_XML = WORD_BLANK_STYLES;
+function blankDocxPackage() {
+  const pkg = DocxPackage.empty();
+  const ct = "application/vnd.openxmlformats-officedocument.";
+  pkg.setPartText("[Content_Types].xml", `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="${ct}wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="${ct}wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="${ct}wordprocessingml.settings+xml"/><Override PartName="/word/fontTable.xml" ContentType="${ct}wordprocessingml.fontTable+xml"/><Override PartName="/word/theme/theme1.xml" ContentType="${ct}theme+xml"/></Types>`);
+  pkg.setPartText("word/_rels/document.xml.rels", `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/styles" Target="styles.xml"/><Relationship Id="rId2" Type="${REL}/settings" Target="settings.xml"/><Relationship Id="rId4" Type="${REL}/fontTable" Target="fontTable.xml"/><Relationship Id="rId5" Type="${REL}/theme" Target="theme/theme1.xml"/></Relationships>`);
+  pkg.setPartText("word/document.xml", `${XML}<w:document xmlns:w="${W}" xmlns:r="${REL}"><w:body><w:p/>${WORD_BLANK_SECTPR}</w:body></w:document>`);
+  pkg.setPartText("word/styles.xml", WORD_BLANK_STYLES);
+  pkg.setPartText("word/settings.xml", WORD_BLANK_SETTINGS);
+  pkg.setPartText("word/fontTable.xml", WORD_BLANK_FONT_TABLE);
+  pkg.setPartText("word/theme/theme1.xml", WORD_BLANK_THEME);
+  return pkg;
+}
+
+// ../docx-core/src/style-sheet.ts
+var esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var STYLE_ORDER = [
+  "w:name",
+  "w:aliases",
+  "w:basedOn",
+  "w:next",
+  "w:link",
+  "w:autoRedefine",
+  "w:hidden",
+  "w:uiPriority",
+  "w:semiHidden",
+  "w:unhideWhenUsed",
+  "w:qFormat",
+  "w:locked",
+  "w:personal",
+  "w:personalCompose",
+  "w:personalReply",
+  "w:rsid",
+  "w:pPr",
+  "w:rPr",
+  "w:tblPr",
+  "w:trPr",
+  "w:tcPr",
+  "w:tblStylePr"
+];
+var RPR_ORDER2 = [
+  "w:rStyle",
+  "w:rFonts",
+  "w:b",
+  "w:bCs",
+  "w:i",
+  "w:iCs",
+  "w:caps",
+  "w:smallCaps",
+  "w:strike",
+  "w:dstrike",
+  "w:outline",
+  "w:shadow",
+  "w:emboss",
+  "w:imprint",
+  "w:noProof",
+  "w:snapToGrid",
+  "w:vanish",
+  "w:webHidden",
+  "w:color",
+  "w:spacing",
+  "w:w",
+  "w:kern",
+  "w:position",
+  "w:sz",
+  "w:szCs",
+  "w:highlight",
+  "w:u",
+  "w:effect",
+  "w:bdr",
+  "w:shd",
+  "w:fitText",
+  "w:vertAlign",
+  "w:rtl",
+  "w:cs",
+  "w:em",
+  "w:lang",
+  "w:eastAsianLayout",
+  "w:specVanish",
+  "w:oMath",
+  "w:rPrChange"
+];
+var PPR_ORDER2 = [
+  "w:pStyle",
+  "w:keepNext",
+  "w:keepLines",
+  "w:pageBreakBefore",
+  "w:framePr",
+  "w:widowControl",
+  "w:numPr",
+  "w:suppressLineNumbers",
+  "w:pBdr",
+  "w:shd",
+  "w:tabs",
+  "w:suppressAutoHyphens",
+  "w:kinsoku",
+  "w:wordWrap",
+  "w:overflowPunct",
+  "w:topLinePunct",
+  "w:autoSpaceDE",
+  "w:autoSpaceDN",
+  "w:bidi",
+  "w:adjustRightInd",
+  "w:snapToGrid",
+  "w:spacing",
+  "w:ind",
+  "w:contextualSpacing",
+  "w:mirrorIndents",
+  "w:suppressOverlap",
+  "w:jc",
+  "w:textDirection",
+  "w:textAlignment",
+  "w:textboxTightWrap",
+  "w:outlineLvl",
+  "w:divId",
+  "w:cnfStyle",
+  "w:rPr",
+  "w:sectPr",
+  "w:pPrChange"
+];
+var val = (el2, n) => firstChild(el2, n)?.attrs["w:val"];
+var onOff3 = (el2, n) => {
+  const k = firstChild(el2, n);
+  if (!k) return false;
+  const v = k.attrs["w:val"];
+  return v === void 0 || v !== "0" && v !== "false" && v !== "off";
+};
+var truthy = (v) => v === "1" || v === "true" || v === "on";
+function readStyleIndex(xml) {
+  const root = parseXml(xml, { positions: true });
+  const styles = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const st of childElements(root, "w:style")) {
+    const id = st.attrs["w:styleId"];
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const type = st.attrs["w:type"] ?? "paragraph";
+    const prio = val(st, "w:uiPriority");
+    styles.push({
+      id,
+      type,
+      name: val(st, "w:name") ?? id,
+      aliases: val(st, "w:aliases"),
+      custom: truthy(st.attrs["w:customStyle"]),
+      isDefault: truthy(st.attrs["w:default"]),
+      basedOn: val(st, "w:basedOn"),
+      next: val(st, "w:next"),
+      link: val(st, "w:link"),
+      autoRedefine: onOff3(st, "w:autoRedefine"),
+      hidden: onOff3(st, "w:hidden"),
+      uiPriority: prio !== void 0 ? parseInt(prio, 10) || 0 : 0,
+      semiHidden: onOff3(st, "w:semiHidden"),
+      unhideWhenUsed: onOff3(st, "w:unhideWhenUsed"),
+      qFormat: onOff3(st, "w:qFormat"),
+      start: st.s,
+      end: st.e
+    });
+  }
+  const ls = firstChild(root, "w:latentStyles");
+  const a = ls?.attrs ?? {};
+  const defaults = {
+    uiPriority: a["w:defUIPriority"] !== void 0 ? parseInt(a["w:defUIPriority"], 10) || 0 : 99,
+    semiHidden: truthy(a["w:defSemiHidden"]),
+    unhideWhenUsed: truthy(a["w:defUnhideWhenUsed"]),
+    qFormat: truthy(a["w:defQFormat"])
+  };
+  const items = [];
+  for (const e of ls ? childElements(ls, "w:lsdException") : []) {
+    const n = e.attrs["w:name"];
+    if (!n) continue;
+    const g = (k, d) => e.attrs[k] === void 0 ? d : truthy(e.attrs[k]);
+    items.push({
+      name: n,
+      uiPriority: e.attrs["w:uiPriority"] !== void 0 ? parseInt(e.attrs["w:uiPriority"], 10) || 0 : defaults.uiPriority,
+      semiHidden: g("w:semiHidden", defaults.semiHidden),
+      unhideWhenUsed: g("w:unhideWhenUsed", defaults.unhideWhenUsed),
+      qFormat: g("w:qFormat", defaults.qFormat)
+    });
+  }
+  return { styles, latent: { defaults, items } };
+}
+function styleRaw(xml, id) {
+  const s = readStyleIndex(xml).styles.find((x2) => x2.id === id);
+  return s ? xml.slice(s.start, s.end) : void 0;
+}
+function putStyle(xml, id, styleXml2) {
+  const s = readStyleIndex(xml).styles.find((x2) => x2.id === id);
+  if (s) return xml.slice(0, s.start) + styleXml2 + xml.slice(s.end);
+  const at = xml.lastIndexOf("</w:styles>");
+  if (at < 0) throw new Error("styles.xml sem </w:styles>");
+  return xml.slice(0, at) + styleXml2 + xml.slice(at);
+}
+function dropStyle(xml, id) {
+  const s = readStyleIndex(xml).styles.find((x2) => x2.id === id);
+  return s ? xml.slice(0, s.start) + xml.slice(s.end) : xml;
+}
+function setLatentQFormat(xml, name, on) {
+  const re = new RegExp(`<w:lsdException\\b[^>]*\\bw:name="${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/"/g, "&quot;")}"[^>]*/>`);
+  const m = re.exec(xml);
+  if (!m) return xml;
+  const tag = m[0];
+  let out = tag.replace(/\s+w:qFormat="[^"]*"/, "");
+  if (on) out = out.replace(/\s*\/>$/, ' w:qFormat="1"/>');
+  return out === tag ? xml : xml.slice(0, m.index) + out + xml.slice(m.index + tag.length);
+}
+function styleIdFromName(name, taken) {
+  const base = name.replace(/[^A-Za-z0-9-]/g, "") || "Estilo";
+  if (!taken.has(base)) return base;
+  for (let i2 = 0; ; i2++) if (!taken.has(`${base}${i2}`)) return `${base}${i2}`;
+}
+function newStyleXml(o) {
+  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc3(o.id)}"><w:name w:val="${esc3(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc3(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc3(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc3(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
+}
+function patchStyleXml(raw, h) {
+  const { open, close, kids } = splitElement(raw);
+  let head = open;
+  if (h.styleId !== void 0) head = withAttrs(head, "w:style", { "w:styleId": h.styleId });
+  const set = (n, xml) => setKid(kids, STYLE_ORDER, n, xml);
+  const v = (n, x2) => {
+    if (x2 === void 0) return;
+    set(n, x2 === null ? null : `<${n} w:val="${esc3(x2)}"/>`);
+  };
+  if (h.name !== void 0) v("w:name", h.name);
+  v("w:aliases", h.aliases);
+  v("w:basedOn", h.basedOn);
+  v("w:next", h.next);
+  v("w:link", h.link);
+  const flag = (n, on) => {
+    if (on !== void 0) set(n, on ? `<${n}/>` : null);
+  };
+  flag("w:autoRedefine", h.autoRedefine);
+  flag("w:semiHidden", h.semiHidden);
+  flag("w:qFormat", h.qFormat);
+  if (h.pPr !== void 0) set("w:pPr", h.pPr || null);
+  if (h.rPr !== void 0) set("w:rPr", h.rPr || null);
+  return head + kids.map((k) => k.raw).join("") + close;
+}
+function styleKid(raw, name) {
+  return splitElement(raw).kids.find((k) => k.name === name)?.raw;
+}
+var RUN_KEYS = ["fontAscii", "szHalfPt", "bold", "italic", "underline", "strike", "allCaps", "smallCaps", "color", "charSpacingTwips"];
+var PARA_KEYS = ["alignment", "spaceBeforeTwips", "spaceAfterTwips", "lineTwentieths", "indentLeftTwips", "indentRightTwips", "indentFirstLineTwips"];
+var hasRunChanges = (f) => RUN_KEYS.some((k) => f[k] !== void 0);
+var hasParaChanges = (f) => PARA_KEYS.some((k) => f[k] !== void 0);
+function split(raw, tag) {
+  return raw ? splitElement(raw) : { open: `<${tag}>`, close: `</${tag}>`, kids: [] };
+}
+var joinKids = (o) => o.kids.length ? o.open + o.kids.map((k) => k.raw).join("") + o.close : "";
+var kidRaw2 = (kids, n) => kids.find((k) => k.name === n)?.raw ?? "";
+function patchStyleRPr(raw, f) {
+  const o = split(raw, "w:rPr");
+  const set = (n, xml) => setKid(o.kids, RPR_ORDER2, n, xml);
+  const tog = (n, v) => {
+    if (v === void 0) return;
+    set(n, v === null ? null : v ? `<${n}/>` : `<${n} w:val="0"/>`);
+  };
+  if (f.fontAscii !== void 0) {
+    const cur = kidRaw2(o.kids, "w:rFonts");
+    if (f.fontAscii === null) {
+      const x2 = cur ? withAttrs(cur, "w:rFonts", { "w:ascii": void 0, "w:hAnsi": void 0 }) : "";
+      set("w:rFonts", /\sw:/.test(x2) ? x2 : null);
+    } else {
+      let x2 = cur;
+      for (const [theme, plain] of [["w:asciiTheme", "w:ascii"], ["w:hAnsiTheme", "w:hAnsi"]]) {
+        const re = new RegExp(`\\s${theme}="[^"]*"`);
+        if (re.test(x2) && !new RegExp(`\\s${plain}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain}="${esc3(f.fontAscii)}"`);
+      }
+      set("w:rFonts", withAttrs(x2, "w:rFonts", {
+        "w:ascii": f.fontAscii,
+        "w:hAnsi": f.fontAscii,
+        "w:asciiTheme": void 0,
+        "w:hAnsiTheme": void 0
+      }));
+    }
+  }
+  tog("w:b", f.bold);
+  tog("w:i", f.italic);
+  tog("w:caps", f.allCaps);
+  tog("w:smallCaps", f.smallCaps);
+  tog("w:strike", f.strike);
+  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc3(f.color)}"/>`);
+  if (f.charSpacingTwips !== void 0) set("w:spacing", f.charSpacingTwips === null ? null : `<w:spacing w:val="${f.charSpacingTwips}"/>`);
+  if (f.szHalfPt !== void 0) set("w:sz", f.szHalfPt === null ? null : `<w:sz w:val="${f.szHalfPt}"/>`);
+  if (f.underline !== void 0) set("w:u", f.underline === null ? null : `<w:u w:val="${f.underline ? "single" : "none"}"/>`);
+  return joinKids(o);
+}
+function patchStylePPr(raw, f) {
+  const o = split(raw, "w:pPr");
+  const set = (n, xml) => setKid(o.kids, PPR_ORDER2, n, xml);
+  if (f.alignment !== void 0) set("w:jc", f.alignment === null ? null : `<w:jc w:val="${f.alignment}"/>`);
+  if (f.spaceBeforeTwips !== void 0 || f.spaceAfterTwips !== void 0 || f.lineTwentieths !== void 0) {
+    const n = (v) => v === null ? void 0 : v;
+    const ch = {};
+    if (f.spaceBeforeTwips !== void 0) ch["w:before"] = n(f.spaceBeforeTwips);
+    if (f.spaceAfterTwips !== void 0) ch["w:after"] = n(f.spaceAfterTwips);
+    if (f.lineTwentieths !== void 0) {
+      ch["w:line"] = n(f.lineTwentieths);
+      ch["w:lineRule"] = f.lineTwentieths === null ? void 0 : "auto";
+    }
+    const x2 = withAttrs(kidRaw2(o.kids, "w:spacing"), "w:spacing", ch);
+    set("w:spacing", /\sw:/.test(x2) ? x2 : null);
+  }
+  if (f.indentLeftTwips !== void 0 || f.indentRightTwips !== void 0 || f.indentFirstLineTwips !== void 0) {
+    const ch = {};
+    if (f.indentLeftTwips !== void 0) ch["w:left"] = f.indentLeftTwips ?? void 0;
+    if (f.indentRightTwips !== void 0) ch["w:right"] = f.indentRightTwips ?? void 0;
+    if (f.indentFirstLineTwips !== void 0) {
+      const v = f.indentFirstLineTwips;
+      ch["w:firstLine"] = v !== null && v > 0 ? v : void 0;
+      ch["w:hanging"] = v !== null && v < 0 ? -v : void 0;
+    }
+    const x2 = withAttrs(kidRaw2(o.kids, "w:ind"), "w:ind", ch);
+    set("w:ind", /\sw:/.test(x2) ? x2 : null);
+  }
+  return joinKids(o);
+}
+var byName = null;
+function builtins() {
+  if (!byName) {
+    byName = /* @__PURE__ */ new Map();
+    for (const [name, pt, xml, twin] of WORD_BUILTIN_STYLES) byName.set(name.toLowerCase(), { name, pt, xml, twin });
+  }
+  return byName;
+}
+function builtinStyles() {
+  return [...builtins().values()];
+}
+var EXTRA_PT = {
+  "default paragraph font": "Fonte par\xE1g. padr\xE3o",
+  "normal table": "Tabela normal",
+  "no list": "Sem lista",
+  "table grid": "Tabela com grade"
+};
+var EN_WORDS = { toc: "TOC", toa: "TOA", html: "HTML", of: "of", annotation: "Comment" };
+var EN_WHOLE = { macro: "Macro Text", "annotation text": "Comment Text", "annotation reference": "Comment Reference", "annotation subject": "Comment Subject" };
+function builtinDisplayName(name, lang) {
+  const k = name.toLowerCase();
+  const b = builtins().get(k);
+  if (lang === "pt") return b?.pt ?? EXTRA_PT[k];
+  if (!b && !EXTRA_PT[k]) return void 0;
+  if (EN_WHOLE[k]) return EN_WHOLE[k];
+  return name.split(" ").map((w, i2) => EN_WORDS[w.toLowerCase()] && (i2 > 0 || w.toLowerCase() !== "of") ? EN_WORDS[w.toLowerCase()] : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+function builtinXml(xml, opts = {}) {
+  let out = xml;
+  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc3(opts.id)}"`);
+  for (const [from, to] of Object.entries(opts.refs ?? {})) {
+    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc3(to) + b);
+  }
+  if (opts.used && /<w:unhideWhenUsed\/>/.test(out)) out = out.replace("<w:semiHidden/>", "");
+  return out;
 }
 
 // ../docx-core/src/doc/cfb.ts
@@ -9293,10 +9946,10 @@ var BRC_TYPE = {
 };
 function brcXml(name, b) {
   if (!b) return el(name, { "w:val": "nil" });
-  const val = BRC_TYPE[b.type] ?? "single";
-  if (val === "none" || val === "nil") return el(name, { "w:val": val === "none" && b.width === 0 ? "nil" : val });
+  const val2 = BRC_TYPE[b.type] ?? "single";
+  if (val2 === "none" || val2 === "nil") return el(name, { "w:val": val2 === "none" && b.width === 0 ? "nil" : val2 });
   return el(name, {
-    "w:val": val,
+    "w:val": val2,
     "w:sz": b.width,
     "w:space": b.space,
     "w:color": hex(b.color),
@@ -9346,9 +9999,9 @@ var SHD_PAT = {
 };
 function shdXml(s) {
   if (!s) return "";
-  const val = SHD_PAT[s.pat] ?? "clear";
-  if (val === "nil") return el("w:shd", { "w:val": "nil" });
-  return el("w:shd", { "w:val": val, "w:color": hex(s.fore), "w:fill": hex(s.back) });
+  const val2 = SHD_PAT[s.pat] ?? "clear";
+  if (val2 === "nil") return el("w:shd", { "w:val": "nil" });
+  return el("w:shd", { "w:val": val2, "w:color": hex(s.fore), "w:fill": hex(s.back) });
 }
 var KUL = {
   0: "none",
@@ -9477,7 +10130,7 @@ function fontName(ctx, ftc) {
   if (ftc === void 0) return void 0;
   return ctx.fonts[ftc]?.name;
 }
-var onOff3 = (name, v) => v === void 0 ? "" : v ? `<${name}/>` : `<${name} w:val="0"/>`;
+var onOff4 = (name, v) => v === void 0 ? "" : v ? `<${name}/>` : `<${name} w:val="0"/>`;
 function rPrInner(chp, touched, ctx, withStyle = true) {
   const t = (k) => touched.has(k);
   let x2 = "";
@@ -9494,21 +10147,21 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
       "w:hint": t("idctHint") ? chp.idctHint === 1 ? "eastAsia" : chp.idctHint === 2 ? "cs" : void 0 : void 0
     });
   }
-  if (t("bold")) x2 += onOff3("w:b", chp.bold);
-  if (t("boldBi")) x2 += onOff3("w:bCs", chp.boldBi);
-  if (t("italic")) x2 += onOff3("w:i", chp.italic);
-  if (t("italicBi")) x2 += onOff3("w:iCs", chp.italicBi);
-  if (t("caps")) x2 += onOff3("w:caps", chp.caps);
-  if (t("smallCaps")) x2 += onOff3("w:smallCaps", chp.smallCaps);
-  if (t("strike")) x2 += onOff3("w:strike", chp.strike);
-  if (t("dstrike")) x2 += onOff3("w:dstrike", chp.dstrike);
-  if (t("outline")) x2 += onOff3("w:outline", chp.outline);
-  if (t("shadow")) x2 += onOff3("w:shadow", chp.shadow);
-  if (t("emboss")) x2 += onOff3("w:emboss", chp.emboss);
-  if (t("imprint")) x2 += onOff3("w:imprint", chp.imprint);
-  if (t("noProof")) x2 += onOff3("w:noProof", chp.noProof);
-  if (t("vanish")) x2 += onOff3("w:vanish", chp.vanish);
-  if (t("webHidden")) x2 += onOff3("w:webHidden", chp.webHidden);
+  if (t("bold")) x2 += onOff4("w:b", chp.bold);
+  if (t("boldBi")) x2 += onOff4("w:bCs", chp.boldBi);
+  if (t("italic")) x2 += onOff4("w:i", chp.italic);
+  if (t("italicBi")) x2 += onOff4("w:iCs", chp.italicBi);
+  if (t("caps")) x2 += onOff4("w:caps", chp.caps);
+  if (t("smallCaps")) x2 += onOff4("w:smallCaps", chp.smallCaps);
+  if (t("strike")) x2 += onOff4("w:strike", chp.strike);
+  if (t("dstrike")) x2 += onOff4("w:dstrike", chp.dstrike);
+  if (t("outline")) x2 += onOff4("w:outline", chp.outline);
+  if (t("shadow")) x2 += onOff4("w:shadow", chp.shadow);
+  if (t("emboss")) x2 += onOff4("w:emboss", chp.emboss);
+  if (t("imprint")) x2 += onOff4("w:imprint", chp.imprint);
+  if (t("noProof")) x2 += onOff4("w:noProof", chp.noProof);
+  if (t("vanish")) x2 += onOff4("w:vanish", chp.vanish);
+  if (t("webHidden")) x2 += onOff4("w:webHidden", chp.webHidden);
   if (t("cv") || t("ico")) {
     const c = t("cv") && chp.cv !== void 0 ? chp.cv : icoColor(chp.ico ?? 0);
     x2 += el("w:color", { "w:val": hex(c) });
@@ -9528,8 +10181,8 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
   if (t("brc")) x2 += brcXml("w:bdr", chp.brc);
   if (t("shd")) x2 += shdXml(chp.shd);
   if (t("iss")) x2 += el("w:vertAlign", { "w:val": chp.iss === 1 ? "superscript" : chp.iss === 2 ? "subscript" : "baseline" });
-  if (t("rtl")) x2 += onOff3("w:rtl", chp.rtl);
-  if (t("cs")) x2 += onOff3("w:cs", chp.cs);
+  if (t("rtl")) x2 += onOff4("w:rtl", chp.rtl);
+  if (t("cs")) x2 += onOff4("w:cs", chp.cs);
   if (t("kcd")) x2 += el("w:em", { "w:val": ["none", "dot", "comma", "circle", "underDot"][chp.kcd ?? 0] ?? "none" });
   if (t("lid") || t("lidFE") || t("lidBi")) {
     const a = {
@@ -9539,7 +10192,7 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
     };
     if (a["w:val"] || a["w:eastAsia"] || a["w:bidi"]) x2 += el("w:lang", a);
   }
-  if (t("specVanish")) x2 += onOff3("w:specVanish", chp.specVanish);
+  if (t("specVanish")) x2 += onOff4("w:specVanish", chp.specVanish);
   return x2;
 }
 var JC = ["left", "center", "right", "both", "distribute", "mediumKashida", "both", "highKashida", "lowKashida", "thaiDistribute"];
@@ -9569,11 +10222,11 @@ function pPrInner(pap, touched, ctx, o = {}) {
     const id = ctx.styleId(pap.istd);
     if (id) x2 += el("w:pStyle", { "w:val": id });
   }
-  if (t("keepFollow")) x2 += onOff3("w:keepNext", pap.keepFollow);
-  if (t("keep")) x2 += onOff3("w:keepLines", pap.keep);
-  if (t("pageBreakBefore")) x2 += onOff3("w:pageBreakBefore", pap.pageBreakBefore);
+  if (t("keepFollow")) x2 += onOff4("w:keepNext", pap.keepFollow);
+  if (t("keep")) x2 += onOff4("w:keepLines", pap.keep);
+  if (t("pageBreakBefore")) x2 += onOff4("w:pageBreakBefore", pap.pageBreakBefore);
   x2 += framePrXml(pap, touched);
-  if (t("widowControl")) x2 += onOff3("w:widowControl", pap.widowControl);
+  if (t("widowControl")) x2 += onOff4("w:widowControl", pap.widowControl);
   if (t("ilfo") || t("ilvl")) {
     const ilfo = pap.ilfo ?? 0;
     const numId = ilfo === 0 || ilfo === -2047 ? 0 : o.numId ? o.numId(Math.abs(ilfo)) : Math.abs(ilfo);
@@ -9582,21 +10235,21 @@ function pPrInner(pap, touched, ctx, o = {}) {
     n += el("w:numId", { "w:val": numId });
     x2 += `<w:numPr>${n}</w:numPr>`;
   }
-  if (t("noLineNumb")) x2 += onOff3("w:suppressLineNumbers", pap.noLineNumb);
+  if (t("noLineNumb")) x2 += onOff4("w:suppressLineNumbers", pap.noLineNumb);
   const bdr = ["brcTop", "brcLeft", "brcBottom", "brcRight", "brcBetween", "brcBar"].filter((k) => t(k)).map((k) => brcXml(`w:${{ brcTop: "top", brcLeft: "left", brcBottom: "bottom", brcRight: "right", brcBetween: "between", brcBar: "bar" }[k]}`, pap[k])).join("");
   if (bdr) x2 += `<w:pBdr>${bdr}</w:pBdr>`;
   if (t("shd")) x2 += shdXml(pap.shd);
   if (t("tabs")) x2 += tabsXml(o.baseTabs, pap.tabs, pap.tabsCleared);
-  if (t("noAutoHyph")) x2 += onOff3("w:suppressAutoHyphens", pap.noAutoHyph);
-  if (t("kinsoku")) x2 += onOff3("w:kinsoku", pap.kinsoku);
-  if (t("wordWrap")) x2 += onOff3("w:wordWrap", pap.wordWrap);
-  if (t("overflowPunct")) x2 += onOff3("w:overflowPunct", pap.overflowPunct);
-  if (t("topLinePunct")) x2 += onOff3("w:topLinePunct", pap.topLinePunct);
-  if (t("autoSpaceDE")) x2 += onOff3("w:autoSpaceDE", pap.autoSpaceDE);
-  if (t("autoSpaceDN")) x2 += onOff3("w:autoSpaceDN", pap.autoSpaceDN);
-  if (t("bidi")) x2 += onOff3("w:bidi", pap.bidi);
-  if (t("adjustRight")) x2 += onOff3("w:adjustRightInd", pap.adjustRight);
-  if (t("usePgsuSettings")) x2 += onOff3("w:snapToGrid", pap.usePgsuSettings);
+  if (t("noAutoHyph")) x2 += onOff4("w:suppressAutoHyphens", pap.noAutoHyph);
+  if (t("kinsoku")) x2 += onOff4("w:kinsoku", pap.kinsoku);
+  if (t("wordWrap")) x2 += onOff4("w:wordWrap", pap.wordWrap);
+  if (t("overflowPunct")) x2 += onOff4("w:overflowPunct", pap.overflowPunct);
+  if (t("topLinePunct")) x2 += onOff4("w:topLinePunct", pap.topLinePunct);
+  if (t("autoSpaceDE")) x2 += onOff4("w:autoSpaceDE", pap.autoSpaceDE);
+  if (t("autoSpaceDN")) x2 += onOff4("w:autoSpaceDN", pap.autoSpaceDN);
+  if (t("bidi")) x2 += onOff4("w:bidi", pap.bidi);
+  if (t("adjustRight")) x2 += onOff4("w:adjustRightInd", pap.adjustRight);
+  if (t("usePgsuSettings")) x2 += onOff4("w:snapToGrid", pap.usePgsuSettings);
   if (t("dyaBefore") || t("dyaAfter") || t("lineSpacing") || t("beforeAuto") || t("afterAuto") || t("dylBefore") || t("dylAfter")) {
     const ls = pap.lineSpacing;
     x2 += el("w:spacing", {
@@ -9628,8 +10281,8 @@ function pPrInner(pap, touched, ctx, o = {}) {
     }
     x2 += el("w:ind", a);
   }
-  if (t("contextualSpacing")) x2 += onOff3("w:contextualSpacing", pap.contextualSpacing);
-  if (t("mirrorIndents")) x2 += onOff3("w:mirrorIndents", pap.mirrorIndents);
+  if (t("contextualSpacing")) x2 += onOff4("w:contextualSpacing", pap.contextualSpacing);
+  if (t("mirrorIndents")) x2 += onOff4("w:mirrorIndents", pap.mirrorIndents);
   if (t("jc")) x2 += el("w:jc", { "w:val": jcVal(pap.jc) });
   if (t("wAlignFont")) x2 += el("w:textAlignment", { "w:val": ["top", "center", "baseline", "bottom", "auto"][pap.wAlignFont ?? 4] ?? "auto" });
   if (t("outLvl") && pap.outLvl !== void 0 && pap.outLvl <= 9) x2 += el("w:outlineLvl", { "w:val": pap.outLvl });
@@ -10741,9 +11394,9 @@ function presetFor(spt, adjust, w, h) {
     if (any) {
       const dflt2 = DML_DEFAULTS[def.prst] ?? [];
       vals.forEach((v, i2) => {
-        const val = v ?? dflt2[i2];
-        if (val === void 0) return;
-        out.av.push({ name: vals.length === 1 ? "adj" : `adj${i2 + 1}`, val: Math.round(val) });
+        const val2 = v ?? dflt2[i2];
+        if (val2 === void 0) return;
+        out.av.push({ name: vals.length === 1 ? "adj" : `adj${i2 + 1}`, val: Math.round(val2) });
       });
     }
   }
@@ -12336,6 +12989,8 @@ export {
   runPropsFromRPr,
   editBaseProps,
   paraPropsFromPPr,
+  readStyleSheet,
+  readStylesXml,
   markSectionBreaks,
   readFullDocument,
   paraText,
@@ -12350,6 +13005,9 @@ export {
   mergeWithPrevious,
   applyRunProps,
   applyParaProps,
+  clearRunFormatting,
+  clearParaFormatting,
+  clearPara,
   COLUMN_SPACE_DEFAULT,
   sectionRanges,
   sectionIndexAt,
@@ -12363,6 +13021,24 @@ export {
   columnWidths,
   setOrientation,
   writeDocument,
+  BLANK_STYLES_XML,
+  blankDocxPackage,
+  readStyleIndex,
+  styleRaw,
+  putStyle,
+  dropStyle,
+  setLatentQFormat,
+  styleIdFromName,
+  newStyleXml,
+  patchStyleXml,
+  styleKid,
+  hasRunChanges,
+  hasParaChanges,
+  patchStyleRPr,
+  patchStylePPr,
+  builtinStyles,
+  builtinDisplayName,
+  builtinXml,
   isWordBinary,
   convertDocToDocx,
   DEFAULT_UI_LANG,

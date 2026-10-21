@@ -2683,6 +2683,7 @@ function runPropsFromRPr(rpr) {
   if (rpr.highlight && rpr.highlight !== "none") p.highlight = rpr.highlight;
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
+  if (rpr.rStyle) p.charStyle = rpr.rStyle;
   return p;
 }
 function editBaseProps(run, rpr) {
@@ -4219,8 +4220,10 @@ function readStyleParaProps(pPr) {
   return p;
 }
 function readStyles(pkg) {
+  return readStylesXml(pkg.getPartText("word/styles.xml"));
+}
+function readStylesXml(xml) {
   const out = /* @__PURE__ */ new Map();
-  const xml = pkg.getPartText("word/styles.xml");
   if (!xml) return out;
   const root = parseXml(xml);
   const docDefaults = firstChild(root, "w:docDefaults");
@@ -14212,6 +14215,7 @@ function directRPr(run) {
     if (p.highlight) base.highlight = p.highlight;
     if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
+    if (p.charStyle) base.rStyle = p.charStyle;
     return base;
   }
   if (p.bold !== orig.bold) base.b = p.bold;
@@ -14243,6 +14247,10 @@ function directRPr(run) {
   if (p.charSpacingTwips !== orig.charSpacingTwips) {
     if (!p.charSpacingTwips) delete base.spacing;
     else base.spacing = p.charSpacingTwips;
+  }
+  if (p.charStyle !== orig.charStyle) {
+    if (p.charStyle === void 0) delete base.rStyle;
+    else base.rStyle = p.charStyle;
   }
   return base;
 }
