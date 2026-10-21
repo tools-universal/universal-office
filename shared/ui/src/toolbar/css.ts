@@ -246,6 +246,15 @@ export const BAR_CSS = /* css */ `
 .uo-dialog-body { display: flex; flex-direction: column; gap: 12px; line-height: 1.45; }
 .uo-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
 .uo-dialog-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; }
+.uo-dtabs { display: flex; flex-direction: column; gap: 14px; }
+.uo-dtabs-strip { display: flex; gap: 2px; border-bottom: 1px solid ${OUTLINE_VAR}; overflow-x: auto; scrollbar-width: none; }
+.uo-dtab { border: 0; background: transparent; color: inherit; font: inherit; padding: 8px 12px; cursor: pointer; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; white-space: nowrap; }
+.uo-dtab:hover { background: ${HIGHEST}; }
+.uo-dtab.uo-on { border-bottom-color: ${PRIMARY}; color: ${PRIMARY}; font-weight: 500; }
+.uo-dtab:focus-visible { outline: 2px solid ${PRIMARY}; outline-offset: -2px; }
+.uo-dtabs-panes { display: grid; }
+.uo-dtab-pane { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.uo-dtab-pane.uo-off { visibility: hidden; }
 
 /* ── galeria (estilos, temas…) ── */
 .uo-gal {

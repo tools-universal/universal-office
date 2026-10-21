@@ -6,7 +6,7 @@ export { CommandRegistry } from './commands.js';
 export { planCollapse, type CollapseInput, type CollapsePlan } from './collapse.js';
 export { symbol, hasSymbol } from './icons.js';
 export { openMenu, closeMenus, isMenuOpen, isMenuOpenFor, type MenuAt, type MenuOptions } from './menu.js';
-export { openDialog, promptDialog, closeDialogs, showToast, type DialogAction, type DialogHandle, type DialogOptions, type PromptOptions } from './dialog.js';
+export { openDialog, promptDialog, closeDialogs, showToast, dialogTabs, type DialogAction, type DialogHandle, type DialogOptions, type PromptOptions } from './dialog.js';
 export { renderItem, toggleMenu, ripple, esc, type RenderedItem } from './items.js';
 export { openPopover, closePopover } from './popover.js';
 export { createCompactBar } from './compact.js';

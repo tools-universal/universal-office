@@ -88,6 +88,8 @@ export class WriteApp {
     this.chosenMode = isColorMode(m) ? m : null;
     this.chosenAccent = this.prefs.get('accent');
     this.commentsVisible = this.prefs.get('comments') !== '0';
+    // Exibir Linhas de Grade das tabelas: preferência da interface (não do documento)
+    if (this.prefs.get('tableGridlines') === '1') ed.showTableGridlines?.(true);
   }
 
   /** Modo efetivo: o atributo `theme` manda; senão a escolha no menu; senão nenhum (herda a página). */

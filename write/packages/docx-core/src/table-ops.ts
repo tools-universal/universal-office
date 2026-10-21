@@ -798,6 +798,43 @@ export function setColumnWidth(t: TableBlock, c1: number, c2: number, twips: num
   if (t.tblPr?.tblW?.type === 'dxa') widenTblW(t, widths);
 }
 
+/** Largura de CÉLULAS (só as do retângulo, as outras linhas ficam): a grade é refeita pelas divisas. */
+export function setCellWidth(t: TableBlock, rect: CellRect, twips: number): void {
+  const m = mapTable(t);
+  const r = normRect(m, rect);
+  const widths = currentWidths(t);
+  for (const g of cellsIn(m, r)) {
+    const c = widths[g.ri]!.cells.find((x) => x.cell === g.cell);
+    if (c) c.w = Math.round(twips);
+  }
+  rebuildGrid(t, widths);
+  if (t.tblPr?.tblW?.type === 'dxa') widenTblW(t, widths);
+}
+
+/**
+ * Largura preferencial da tabela (Propriedades da Tabela): tblW e a grade
+ * escalada para ela — em porcentagem, sobre a largura disponível − 10 tw
+ * (medido: 80% de 8504 → grade de 6795). null = automática.
+ */
+export function setPreferredWidth(t: TableBlock, w: WidthSpec | null, availTwips: number): void {
+  if (!w || w.type === 'auto' || w.type === 'nil' || !(w.w > 0)) { setTableProps(t, { tblW: { w: 0, type: 'auto' } }); return; }
+  setTableProps(t, { tblW: { w: Math.round(w.w), type: w.type } });
+  const total = sum(t.gridColsTwips) || 1;
+  const target = w.type === 'pct' ? ((availTwips - 10) * w.w) / 5000 : w.w;
+  t.gridColsTwips = t.gridColsTwips.map((x) => Math.round((x / total) * target));
+}
+
+/** Largura preferencial em PORCENTAGEM das células das colunas c1..c2 (tcW pct, 50 = 1%). */
+export function setColumnPct(t: TableBlock, c1: number, c2: number, pct50: number): void {
+  const m = mapTable(t);
+  for (const g of cellsIn(m, { r1: 0, c1, r2: t.rows.length - 1, c2 })) {
+    (g.cell.tcPr ??= {}).tcW = { w: Math.round(pct50), type: 'pct' };
+    syncLegacyCell(g.cell);
+  }
+  const total = sum(t.gridColsTwips) || 1;
+  for (let c = c1; c <= c2 && c < t.gridColsTwips.length; c++) t.gridColsTwips[c] = Math.round((total * pct50) / 5000 / (c2 - c1 + 1));
+}
+
 /** Distribuir colunas: as colunas da grade c1..c2 com a média das larguras. */
 export function distributeColumns(t: TableBlock, c1: number, c2: number): void {
   const n = c2 - c1 + 1;

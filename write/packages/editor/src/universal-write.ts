@@ -101,7 +101,7 @@ import { readOdt, writeOdt } from '@universal-office/docx-core';
 import {
   tableOps as TOps,
   type CellRect as TableRect, type TableCell, type TextSeparator, type BorderKind, type BorderSpec, type ShadingSpec,
-  type TblLook, type TblPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
+  type TblLook, type TblPr, type TblpPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
   ensureTableStyle, addStylesXml, loadBuiltinTableStyles, styleIdByName, themeHex, putStyle, type BuiltinTableStyle,
   defaultFormula, formulaInstr, formulaResultText, type FormulaEnv,
 } from '@universal-office/docx-core';
@@ -344,6 +344,50 @@ export interface TableState {
   colWidth: number;
   shading?: string;
   tblPr: TblPr;
+  /** trPr da 1ª linha e tcPr da 1ª célula do alvo (Propriedades da Tabela) */
+  trPr: TrPr;
+  tcPr: TcPr;
+  /** largura disponível para a tabela (coluna de texto menos o recuo), twips */
+  availTwips: number;
+}
+
+/** Propriedades da Tabela (diálogo): cada grupo é opcional; o que vier é aplicado num passo de desfazer. */
+export interface TablePropertiesInput {
+  table?: {
+    /** largura preferencial (dxa ou pct, 50 = 1%); null = automática */
+    width?: WidthSpec | null;
+    align?: 'left' | 'center' | 'right';
+    /** recuo à esquerda (alinhamento à esquerda), twips */
+    indentTwips?: number;
+    /** quebra automática de texto: nenhuma ou ao redor (tabela flutuante) */
+    wrap?: 'none' | 'around';
+    /** posicionamento da tabela flutuante (tblpPr) */
+    position?: TblpPr;
+    /** permitir sobreposição */
+    overlap?: boolean;
+    /** Texto Alt */
+    title?: string;
+    description?: string;
+  };
+  row?: {
+    /** altura; null = automática */
+    height?: { twips: number; rule: 'atLeast' | 'exact' } | null;
+    /** permitir quebra da linha entre páginas */
+    allowBreak?: boolean;
+    /** repetir como linha de cabeçalho */
+    header?: boolean;
+  };
+  column?: { width?: WidthSpec | null };
+  cell?: {
+    width?: WidthSpec | null;
+    vAlign?: 'top' | 'center' | 'bottom';
+    /** margens próprias da célula (twips); null = as da tabela */
+    margins?: { top?: number; left?: number; bottom?: number; right?: number } | null;
+    /** quebra automática de texto (false = noWrap) */
+    wrap?: boolean;
+    /** ajustar texto (tcFitText) */
+    fitText?: boolean;
+  };
 }
 
 /** Referência ao w:rPr original guardada nas props do run (ver syncRunRPr):
@@ -6890,7 +6934,7 @@ export class UniversalWriteElement extends HTMLElement {
     const sup = this.tbSnapshotSuppress;
     const hfMode = !!this.hfEdit;
     const key = `${this.eng!.version}.${this.eng!.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|`
-      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}`;
+      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}`;
     const hit = this.engPageCache.get(pg);
     if (hit && hit.key === key) return hit.canvas;
     const off = hit?.canvas ?? document.createElement('canvas');
@@ -6905,6 +6949,8 @@ export class UniversalWriteElement extends HTMLElement {
       ctx.fillRect(0, 0, w, h);
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    // linhas de grade das tabelas (Exibir Linhas de Grade): só na tela, sob o conteúdo
+    if (this.gridlines && !this.printRender && !this.hfCapturing && page.cells?.length) this.paintGridlines(ctx, page.cells, scale);
     const env = this.enginePaintEnv();
     const n = page.items.length;
     const hf = Math.min(this.eng!.hfItems[pg] ?? 0, n);
@@ -7299,6 +7345,29 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Fundo das células selecionadas (caixas do motor dentro do retângulo). */
+  /** Linhas de grade: o contorno de cada célula tracejado em azul-claro (o Word as mostra onde não há borda). */
+  private paintGridlines(ctx: CanvasRenderingContext2D, cells: readonly PlacedCell[], scale: number): void {
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? 'rgba(120,170,230,0.75)' : 'rgba(80,140,210,0.75)';
+    ctx.lineWidth = 1 / scale;
+    ctx.setLineDash([2 / scale, 2 / scale]);
+    ctx.beginPath();
+    for (const c of cells) ctx.rect(c.x, c.y, c.w, c.h);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Exibir Linhas de Grade das tabelas (só na tela; não vai para o arquivo nem para o PDF). */
+  private gridlines = false;
+  showTableGridlines(on: boolean): void {
+    if (this.gridlines === on) return;
+    this.gridlines = on;
+    this.engPageCache.clear();
+    this.paint();
+    this.chromeSync?.();
+  }
+  tableGridlinesShown(): boolean { return this.gridlines; }
+
   private paintTableSel(ctx: CanvasRenderingContext2D, pg: number): void {
     const ts = this.tableSel;
     if (!ts) return;
@@ -8587,7 +8656,77 @@ export class UniversalWriteElement extends HTMLElement {
       colWidth: TOps.gridWidth(t, tg.rect.c1, tg.rect.c2 - tg.rect.c1 + 1),
       shading: tcPr.shd?.fill && tcPr.shd.fill !== 'auto' ? tcPr.shd.fill : undefined,
       tblPr: t.tblPr ? JSON.parse(JSON.stringify(t.tblPr)) as TblPr : {},
+      trPr: rows[0]?.trPr ? JSON.parse(JSON.stringify(rows[0].trPr)) as TrPr : {},
+      tcPr: JSON.parse(JSON.stringify(tcPr)) as TcPr,
+      availTwips: this.tableAvail(tg),
     };
+  }
+
+  /** Largura disponível para a tabela: coluna de texto (ou a célula de fora) menos o recuo. */
+  private tableAvail(tg: { anchor: number; path: CellHop[]; table: TableBlock }): number {
+    const ind = tg.table.tblPr?.tblInd?.type === 'dxa' ? tg.table.tblPr.tblInd.w : 0;
+    if (tg.path.length) {
+      const h = tg.path[tg.path.length - 1]!;
+      const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
+      const g = outer ? TOps.cellAt(TOps.mapTable(outer), h.r, h.c) : undefined;
+      if (outer && g) return TOps.gridWidth(outer, g.col, g.span) - 216 - ind;
+    }
+    return this.contentWidthTwips() - ind;
+  }
+
+  /** Propriedades da Tabela (guias Tabela, Linha, Coluna, Célula e Texto Alt) num passo de desfazer. */
+  setTableProperties(p: TablePropertiesInput): void {
+    this.editTable((tg) => {
+      const t = tg.table, r = tg.rect;
+      const tb = p.table;
+      if (tb) {
+        if (tb.width !== undefined) TOps.setPreferredWidth(t, tb.width, this.tableAvail(tg));
+        if (tb.align !== undefined) TOps.setTableAlign(t, tb.align);
+        if (tb.indentTwips !== undefined) TOps.setTableProps(t, { tblInd: tb.align && tb.align !== 'left' ? undefined : tb.indentTwips ? { w: Math.round(tb.indentTwips), type: 'dxa' } : undefined });
+        if (tb.wrap === 'none') TOps.setTableProps(t, { tblpPr: undefined, tblOverlap: undefined });
+        else if (tb.wrap === 'around' || tb.position) {
+          const cur = t.tblPr?.tblpPr;
+          TOps.setTableProps(t, {
+            // o Word liga "ao redor" com 0,25 cm dos lados e ancorado no texto
+            tblpPr: tb.position ?? cur ?? { leftFromText: 141, rightFromText: 141, vertAnchor: 'text', tblpY: 1 },
+            tblOverlap: tb.overlap === true ? undefined : tb.overlap === false || !cur ? 'never' : t.tblPr?.tblOverlap,
+          });
+        }
+        if (tb.overlap !== undefined && t.tblPr?.tblpPr) TOps.setTableProps(t, { tblOverlap: tb.overlap ? undefined : 'never' });
+        if (tb.title !== undefined) TOps.setTableProps(t, { tblCaption: tb.title || undefined });
+        if (tb.description !== undefined) TOps.setTableProps(t, { tblDescription: tb.description || undefined });
+      }
+      const rw = p.row;
+      if (rw) {
+        if (rw.height !== undefined) TOps.setRowHeight(t, r.r1, r.r2, rw.height?.twips ?? 0, rw.height?.rule ?? 'atLeast');
+        if (rw.allowBreak !== undefined) TOps.setRowProps(t, r.r1, r.r2, { cantSplit: rw.allowBreak ? undefined : true });
+        // cabeçalho: só as linhas do topo (o Word repete o bloco contínuo do início)
+        if (rw.header !== undefined) TOps.setRowProps(t, 0, r.r2, { tblHeader: rw.header ? true : undefined });
+      }
+      const cw = p.column?.width;
+      if (cw !== undefined) {
+        if (cw?.type === 'pct') TOps.setColumnPct(t, r.c1, r.c2, cw.w);
+        else if (cw?.type === 'dxa') TOps.setColumnWidth(t, r.c1, r.c2, cw.w);
+        else TOps.setCellProps(t, { r1: 0, c1: r.c1, r2: t.rows.length - 1, c2: r.c2 }, { tcW: { w: 0, type: 'auto' } });
+      }
+      const cl = p.cell;
+      if (cl) {
+        if (cl.width !== undefined) {
+          if (cl.width?.type === 'dxa') {
+            // só o cursor numa célula: o Word muda a coluna inteira (medido)
+            if (this.tableSel) TOps.setCellWidth(t, r, cl.width.w); else TOps.setColumnWidth(t, r.c1, r.c2, cl.width.w);
+          } else TOps.setCellProps(t, r, { tcW: cl.width ?? { w: 0, type: 'auto' } });
+        }
+        if (cl.vAlign !== undefined) TOps.setCellProps(t, r, { vAlign: cl.vAlign === 'top' ? undefined : cl.vAlign });
+        if (cl.margins !== undefined) {
+          const mm = cl.margins;
+          TOps.setCellProps(t, r, { tcMar: mm ? Object.fromEntries(Object.entries(mm).filter(([, v]) => v !== undefined).map(([k, v]) => [k, { w: Math.round(v as number), type: 'dxa' }])) : undefined });
+        }
+        if (cl.wrap !== undefined) TOps.setCellProps(t, r, { noWrap: cl.wrap ? undefined : true });
+        if (cl.fitText !== undefined) TOps.setCellProps(t, r, { tcFitText: cl.fitText ? true : undefined });
+      }
+      return this.keepTableSel(tg);
+    });
   }
 
   /** Mudou só a apresentação (zoom, tema, marcas, proteção): com o motor o

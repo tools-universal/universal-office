@@ -46,6 +46,11 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     t({ id: 'table:select:column', label: L('Select Column', 'Selecionar Coluna'), icon: 'view_column', supports: has('selectColumn'), run: () => ed.selectColumn() }),
     t({ id: 'table:select:row', label: L('Select Row', 'Selecionar Linha'), icon: 'table_rows', supports: has('selectRow'), run: () => ed.selectRow() }),
     t({ id: 'table:select:table', label: L('Select Table', 'Selecionar Tabela'), icon: 'select_all', supports: has('selectTable'), run: () => ed.selectTable() }),
+    { id: 'table:gridlines', label: L('View Gridlines', 'Exibir Linhas de Grade'), icon: 'grid_on', supports: has('showTableGridlines'),
+      run: () => { const on = !ed.tableGridlinesShown(); ed.showTableGridlines(on); app.prefs.set('tableGridlines', on ? '1' : ''); },
+      isChecked: () => ed.tableGridlinesShown() },
+    t({ id: 'table:properties', label: L('Properties', 'Propriedades'), tip: L('Table Properties', 'Propriedades da Tabela'), icon: 'tune', supports: has('setTableProperties'), run: () => ctl.tableDialog('properties') }),
+    t({ id: 'table:propertiesDlg', label: L('Table Properties…', 'Propriedades da Tabela…'), icon: 'tune', supports: has('setTableProperties'), run: () => ctl.tableDialog('properties') }),
     // ── Linhas e Colunas ──
     t({ id: 'row:above', label: L('Insert Above', 'Inserir Acima'), icon: 'add_row_above', supports: has('insertRowAbove'), run: () => ed.insertRowAbove() }),
     t({ id: 'row:below', label: L('Insert Below', 'Inserir Abaixo'), icon: 'add_row_below', supports: has('insertRowBelow'), run: () => ed.insertRowBelow() }),
@@ -380,7 +385,11 @@ export function tableLayoutGroups(env: WidgetEnv): BarGroup[] {
   const alignGrid: RibbonCell = { rows: [['cell:align:tl', 'cell:align:tc', 'cell:align:tr'], ['cell:align:cl', 'cell:align:cc', 'cell:align:cr'], ['cell:align:bl', 'cell:align:bc', 'cell:align:br']] };
   return [
     { id: 'tl-table', label: L('Table', 'Tabela'), icon: 'table', prio: 3, cells: [
-      { rows: [[{ menu: selectMenu, id: 'table:select', label: L('Select', 'Selecionar'), icon: 'select_all', showLabel: true, supports: has('selectTable') }]] },
+      { rows: [
+        [{ menu: selectMenu, id: 'table:select', label: L('Select', 'Selecionar'), icon: 'select_all', showLabel: true, supports: has('selectTable') }],
+        [{ cmd: 'table:gridlines', label: true }],
+        [{ cmd: 'table:properties', label: true }],
+      ] },
     ] },
     { id: 'tl-rows', label: L('Rows & Columns', 'Linhas e Colunas'), icon: 'table_rows', prio: 6, launcher: 'cells:insertDlg', cells: [
       { menu: deleteMenu, id: 'table:deleteMenu', label: L('Delete', 'Excluir'), icon: 'delete', size: 'large', supports: has('deleteRow') },
@@ -414,7 +423,7 @@ export const tableFormatMenu = (): MenuItem => ({
     { id: 'tableFmt:autofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', submenu: autofitMenu },
     'rows:distribute', 'cols:distribute', '-',
     { id: 'tableFmt:align', label: L('Cell alignment', 'Alinhamento da célula'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
-    'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText', 'table:formula',
+    'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText', 'table:formula', '-', 'table:gridlines', 'table:propertiesDlg',
   ],
 });
 
@@ -425,6 +434,6 @@ export const tableContextItems = (): MenuEntry[] => [
   'cells:merge', 'cells:split', '-',
   { id: 'ctxTableAlign', label: L('Cell alignment', 'Alinhamento da célula'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
   'cell:textdir', { id: 'ctxTableAutofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', submenu: autofitMenu },
-  'rows:distribute', 'cols:distribute', '-',
+  'rows:distribute', 'cols:distribute', '-', 'table:propertiesDlg',
 ];
 

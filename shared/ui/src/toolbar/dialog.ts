@@ -161,6 +161,56 @@ export async function promptDialog(opts: PromptOptions): Promise<string | null> 
   return (await h.result) === 'ok' ? input.value : null;
 }
 
+/** Guias dentro de um diálogo (Propriedades da Tabela, Bordas e Sombreamento…):
+ *  uma linha de abas e um painel por aba; setas trocam de aba. */
+export function dialogTabs(tabs: { id: string; label: string; body: HTMLElement }[], selected?: string): { el: HTMLElement; select(id: string): void; current(): string } {
+  const el = document.createElement('div');
+  el.className = 'uo-dtabs';
+  const strip = document.createElement('div');
+  strip.className = 'uo-dtabs-strip';
+  strip.setAttribute('role', 'tablist');
+  const panes = document.createElement('div');
+  panes.className = 'uo-dtabs-panes';
+  let cur = selected && tabs.some((t) => t.id === selected) ? selected : tabs[0]?.id ?? '';
+  const buttons = tabs.map((t) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'uo-dtab';
+    b.setAttribute('role', 'tab');
+    b.textContent = t.label;
+    b.addEventListener('click', () => select(t.id));
+    b.addEventListener('keydown', (e) => {
+      const i = tabs.findIndex((x) => x.id === cur);
+      const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!d) return;
+      e.preventDefault();
+      const n = tabs[(i + d + tabs.length) % tabs.length]!;
+      select(n.id);
+      buttons[tabs.indexOf(n)]!.focus();
+    });
+    strip.append(b);
+    t.body.classList.add('uo-dtab-pane');
+    t.body.setAttribute('role', 'tabpanel');
+    panes.append(t.body);
+    return b;
+  });
+  function select(id: string): void {
+    cur = id;
+    tabs.forEach((t, i) => {
+      const on = t.id === id;
+      buttons[i]!.classList.toggle('uo-on', on);
+      buttons[i]!.setAttribute('aria-selected', String(on));
+      buttons[i]!.tabIndex = on ? 0 : -1;
+      // as guias ocupam a mesma célula da grade: o diálogo fica do tamanho da maior (não pula ao trocar)
+      t.body.classList.toggle('uo-off', !on);
+      t.body.inert = !on;
+    });
+  }
+  select(cur);
+  el.append(strip, panes);
+  return { el, select, current: () => cur };
+}
+
 /** Aviso curto no rodapé (snackbar). */
 export function showToast(layer: HTMLElement, message: string, ms = 2600): void {
   layer.querySelector(':scope > .uo-toast')?.remove();
