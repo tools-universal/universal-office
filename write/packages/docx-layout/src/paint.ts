@@ -4,7 +4,7 @@ import type { PreparedPara, Glyph } from './para.js';
 import { WORD_UNIT } from './para.js';
 import type { PageItem, GlyphRunItem } from './tree.js';
 import { faceMetrics } from './fonts.js';
-import { resolveColor, fontOfSlot } from './resolve.js';
+import { resolveColor, shadingFill, fontOfSlot } from './resolve.js';
 import type { DocContext } from './context.js';
 import { isEmf, renderEmf } from './emf.js';
 import { isWmf, renderWmf } from './wmf.js';
@@ -411,8 +411,7 @@ export function paintParaBox(
   /** parágrafo do meio de um grupo: desenha a borda "between" no topo (após o espaço) */
   between = false,
 ): void {
-  const fill = p.ppr.shd?.fill && p.ppr.shd.fill !== 'auto' ? p.ppr.shd.fill
-    : p.ppr.shd?.themeFill ? resolveColor({ themeColor: p.ppr.shd.themeFill, themeTint: p.ppr.shd.themeFillTint, themeShade: p.ppr.shd.themeFillShade }, ctx.fmt.theme) : undefined;
+  const fill = shadingFill(p.ppr.shd, ctx.fmt.theme);
   const EXT = 29;
   const bl = pBdr?.left, br = pBdr?.right;
   const padL = bl && bl.val !== 'none' && bl.val !== 'nil' ? (bl.space ?? 0) * 20 : 0;

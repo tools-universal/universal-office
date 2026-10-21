@@ -7,6 +7,7 @@ import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import type { ChromeCtl } from './chrome-commands.js';
 import type { WidgetEnv } from './chrome-widgets.js';
+import { BORDER_STYLES, BORDER_WIDTHS, borderSampleSvg } from './chrome-borders.js';
 
 const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
 
@@ -107,6 +108,8 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     })),
     t({ id: 'table:borders', label: L('Borders', 'Bordas'), icon: 'border_all', supports: has('setCellBorders'),
       run: () => ed.setCellBorders(app.lastTableBorder) }),
+    { id: 'dlg:borders', label: L('Borders and Shading…', 'Bordas e Sombreamento…'), icon: 'border_style', supports: has('setParagraphBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('borders') },
+    { id: 'dlg:pageBorders', label: L('Page Borders', 'Bordas de Página'), tip: L('Page Borders (Borders and Shading)', 'Bordas de Página (Bordas e Sombreamento)'), icon: 'border_outer', supports: has('setPageBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('pageBorders') },
   ];
   reg.add(...cmds);
 }
@@ -225,24 +228,29 @@ export const tableShadingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =
 }, '-', { id: 'table:shading:none', label: L('No Color', 'Sem Cor'), icon: 'format_color_reset', onClick: () => { env.ed.setCellShading(null); ctx.after(); } }];
 
 /** Menu Bordas. */
-const bordersMenu = (): MenuEntry[] => BORDERS.map(([k]) => `table:border:${k}`);
+const bordersMenu = (): MenuEntry[] => [...BORDERS.map(([k]) => `table:border:${k}`), '-', 'dlg:borders'];
 
-/** Caneta: estilo, espessura e cor (aplicada pelo menu Bordas). */
-const PEN_STYLES: [string, string, string][] = [
-  ['single', 'Single', 'Simples'], ['dotted', 'Dotted', 'Pontilhada'], ['dashSmallGap', 'Dashed (small gap)', 'Tracejada (intervalo curto)'],
-  ['dashed', 'Dashed', 'Tracejada'], ['dotDash', 'Dash dot', 'Traço e ponto'], ['dotDotDash', 'Dash dot dot', 'Traço e dois pontos'],
-  ['double', 'Double', 'Dupla'], ['triple', 'Triple', 'Tripla'], ['thinThickSmallGap', 'Thin-thick', 'Fina-grossa'],
-  ['thickThinSmallGap', 'Thick-thin', 'Grossa-fina'], ['thinThickThinSmallGap', 'Thin-thick-thin', 'Fina-grossa-fina'],
-  ['wave', 'Wave', 'Ondulada'], ['doubleWave', 'Double wave', 'Ondulada dupla'], ['dashDotStroked', 'Dash dot stroked', 'Traço e ponto inclinado'],
-  ['threeDEmboss', '3-D emboss', 'Relevo 3D'], ['threeDEngrave', '3-D engrave', 'Baixo relevo 3D'], ['outset', 'Outset', 'Alto relevo'], ['inset', 'Inset', 'Baixo relevo'],
-];
-const PEN_WIDTHS: [number, string][] = [[2, '¼'], [4, '½'], [6, '¾'], [8, '1'], [12, '1½'], [18, '2¼'], [24, '3'], [36, '4½'], [48, '6']];
 
-export const penStyleMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => PEN_STYLES.map(([v, en, pt]): MenuItem => ({
-  id: `pen:${v}`, label: L(en, pt), checked: env.ed.getBorderPen().val === v,
-  onClick: () => { env.ed.setBorderPen({ val: v }); ctx.after(); },
-}));
-export const penWidthMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => PEN_WIDTHS.map(([sz, t]): MenuItem => ({
+export const penStyleMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
+  content: (close) => {
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;max-height:min(420px,60vh);overflow:auto;min-width:150px';
+    const cur = env.ed.getBorderPen().val;
+    for (const [v, en, pt] of BORDER_STYLES) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'uo-mi';
+      b.title = ctx.registry.text(L(en, pt));
+      b.style.cssText = `display:flex;align-items:center;padding:6px 10px;border:0;background:${v === cur ? 'color-mix(in srgb, var(--u-color-primary,#005bc0) 18%, transparent)' : 'transparent'};color:inherit;cursor:pointer`;
+      b.innerHTML = borderSampleSvg(v);
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => { close(); env.ed.setBorderPen({ val: v }); ctx.after(); });
+      box.append(b);
+    }
+    return box;
+  },
+}];
+export const penWidthMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => BORDER_WIDTHS.map(([sz, t]): MenuItem => ({
   id: `penw:${sz}`, label: `${t} pt`, checked: env.ed.getBorderPen().sz === sz,
   onClick: () => { env.ed.setBorderPen({ sz }); ctx.after(); },
 }));

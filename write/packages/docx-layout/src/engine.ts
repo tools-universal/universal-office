@@ -10,7 +10,7 @@ import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.j
 import { dateFieldValue } from './datefmt.js';
 import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, LATE_ITEMS, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
 import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, PlacedObject } from './tree.js';
-import { resolveColor, resolveDrawingColor } from './resolve.js';
+import { resolveColor, resolveDrawingColor, shadingFill } from './resolve.js';
 import { formatNumber } from './numbering.js';
 import { NumberingState } from './numbering.js';
 import { isEmf, renderEmf } from './emf.js';
@@ -1289,7 +1289,7 @@ class Engine {
 
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
   private paintBox(out: PageItem[], p: PreparedPara, x: number, width: number, top: number, bottom: number, prev: PrevPara | null, at = out.length, groupedNext = false): void {
-    const hasFill = !!(p.ppr.shd && ((p.ppr.shd.fill && p.ppr.shd.fill !== 'auto') || p.ppr.shd.themeFill));
+    const hasFill = !!shadingFill(p.ppr.shd, this.ctx.fmt.theme);
     if (!p.ppr.pBdr && !hasFill) return;
     const grouped = !!prev?.pBdrKey && prev.pBdrKey === bdrKey(p.ppr);
     const left = x + p.indLeft + Math.min(0, p.firstLine);

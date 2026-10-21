@@ -9,6 +9,7 @@ import { applyImageEffects, effectDecode, effectLine } from '../src/images.js';
 import { gradientGeometry, gradientSamples, groupChild, presetPath, presetPathLocal } from '../src/geometry.js';
 import { borderPaintWidth, pageBorderItems, paintBorder, paintParaBox } from '../src/paint.js';
 import { renderEmf } from '../src/emf.js';
+import { shadingFill } from '../src/resolve.js';
 import type { DocContext } from '../src/context.js';
 import type { PageItem, PathCmdTw } from '../src/tree.js';
 import type { PreparedPara } from '../src/para.js';
@@ -319,5 +320,29 @@ describe('a:custGeom (oráculo cust)', async () => {
     const m = parts[0]!.cmds[5] as { x: number; y: number };
     expect([m.x, m.y]).toEqual([1100, 2050]); // (25,25) de 100×100 → 400×200
     expect(parts[1]!.cmds[1]).toEqual({ op: 'L', x: 1200, y: 2200 });
+  });
+});
+
+describe('sombreamento com padrão (w:shd) — sonda gen-shading-probe', () => {
+  const theme = { colors: {}, fonts: { major: {}, minor: {} } } as unknown as Parameters<typeof shadingFill>[1];
+  it('percentuais: mistura exata (12/37/62/87 = 12,5%…) como o PDF do Word', () => {
+    const got = (val: string, color: string, fill: string): string | undefined => shadingFill({ val, color, fill }, theme);
+    expect(got('pct5', '000000', 'FFFFFF')).toBe('F2F2F2');
+    expect(got('pct12', '000000', 'FFFFFF')).toBe('DFDFDF');
+    expect(got('pct37', '000000', 'FFFFFF')).toBe('9F9F9F');
+    expect(got('pct62', '000000', 'FFFFFF')).toBe('606060');
+    expect(got('pct87', '000000', 'FFFFFF')).toBe('202020');
+    expect(got('pct5', 'C00000', 'FFFF00')).toBe('FCF200');
+    expect(got('pct95', 'C00000', 'FFFF00')).toBe('C30D00');
+  });
+  it('listras: a cobertura do ladrilho 8×8 (fino demais para se ver)', () => {
+    expect(shadingFill({ val: 'vertStripe', color: '000000', fill: 'FFFFFF' }, theme)).toBe('808080');
+    expect(shadingFill({ val: 'thinVertStripe', color: '000000', fill: 'FFFFFF' }, theme)).toBe('BFBFBF');
+    expect(shadingFill({ val: 'diagCross', color: '000000', fill: 'FFFFFF' }, theme)).toBe('404040');
+  });
+  it('sólido, limpo e nil', () => {
+    expect(shadingFill({ val: 'solid', color: 'C00000', fill: 'FFFF00' }, theme)).toBe('C00000');
+    expect(shadingFill({ val: 'clear', color: 'auto', fill: 'FFFF00' }, theme)).toBe('FFFF00');
+    expect(shadingFill({ val: 'nil', fill: 'FFFF00' }, theme)).toBeUndefined();
   });
 });

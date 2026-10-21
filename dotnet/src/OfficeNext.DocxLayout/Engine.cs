@@ -1644,8 +1644,7 @@ internal sealed class Engine
     /// <summary>Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado).</summary>
     private void PaintBox(List<PageItem> outp, PreparedPara p, double x, double width, double top, double bottom, PrevPara? prev, int at, bool groupedNext = false)
     {
-        var shd = p.Ppr.Shd;
-        bool hasFill = shd is not null && ((Js.Truthy(shd.Fill) && shd.Fill != "auto") || Js.Truthy(shd.ThemeFill));
+        bool hasFill = Resolve.ShadingFill(p.Ppr.Shd, _ctx.Fmt.Theme) is not null;
         if (p.Ppr.PBdr is null && !hasFill) return;
         bool grouped = prev?.PBdrKey is not null && prev.PBdrKey == BdrKey(p.Ppr);
         double left = x + p.IndLeft + Math.Min(0, p.FirstLine);

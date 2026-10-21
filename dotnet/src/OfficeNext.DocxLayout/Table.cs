@@ -1512,7 +1512,6 @@ public static class TableEngine
         return new TableLayout { X = x, Width = width, Rows = rows, BorderLeft = borderLeft, EffR = legacy ? effR : null, TblpPr = tblPr.TblpPr };
     }
 
-    private static readonly Regex PctRe = new(@"^pct(\d+)\z", RegexOptions.CultureInvariant);
 
     /// <summary>Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo,
     /// inclusive o condicional); o w:shd da tabela (w:tblPr, direto, do estilo ou do
@@ -1520,32 +1519,7 @@ public static class TableEngine
     /// (oráculo tblshd).</summary>
     private static string? CellFill(TcPr tcPr, Theme theme) => ShdFill(tcPr.Shd, theme);
 
-    private static string? ShdFill(ShadingSpec? shd, Theme theme)
-    {
-        if (shd is null) return null;
-        if (shd.Val == "solid") return Resolve.ResolveColor(shd.Color, shd.ThemeColor, null, null, theme) ?? "000000";
-        string? fill = Js.Truthy(shd.ThemeFill)
-            ? Resolve.ResolveColor(null, shd.ThemeFill, shd.ThemeFillTint, shd.ThemeFillShade, theme)
-            : Js.Truthy(shd.Fill) && shd.Fill != "auto" ? Js.ToUpper(shd.Fill!) : null;
-        if (Js.Truthy(shd.Val) && PctRe.IsMatch(shd.Val!))
-        {
-            // padrão percentual: mistura a cor do padrão sobre o preenchimento
-            double pct = Js.ParseInt(shd.Val![3..]) / 100;
-            string fg = Resolve.ResolveColor(shd.Color, shd.ThemeColor, null, null, theme) ?? "000000";
-            string bg = fill ?? "FFFFFF";
-            double Hex2(string s, int i) => OfficeNext.Core.JsNumber.ParseInt(i < s.Length ? s.Substring(i, Math.Min(2, s.Length - i)) : "", 16);
-            double Mix(int i) => Js.Round(Hex2(bg, i) * (1 - pct) + Hex2(fg, i) * pct);
-            string Part(int i)
-            {
-                double v = Mix(i);
-                if (double.IsNaN(v)) return "NaN";
-                string s = ((long)v).ToString("x", CultureInfo.InvariantCulture);
-                return s.Length < 2 ? "0" + s : s;
-            }
-            return (Part(0) + Part(2) + Part(4)).ToUpperInvariant();
-        }
-        return fill;
-    }
+    private static string? ShdFill(ShadingSpec? shd, Theme theme) => Resolve.ShadingFill(shd, theme);
 
     /// <summary>
     /// Pinta o conteúdo de uma célula de texto vertical: o conteúdo foi diagramado

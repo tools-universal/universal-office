@@ -1,6 +1,6 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
-import { readRPr, readPPr, type RPr, type PPr } from './ooxml/props.js';
+import { readRPr, readPPr, readBorder, type RPr, type PPr, type BorderSpec } from './ooxml/props.js';
 import type { SourceStore, SegSource } from './source.js';
 import {
   readWpAnchor, readSpPr, parseVmlStyle, vmlAnchor, vmlLenTwips, vmlShapeStyle,
@@ -401,6 +401,20 @@ export interface Paragraph {
 /** w:type — como a seção começa em relação à anterior (ausente = próxima página). */
 export type SectionType = 'nextPage' | 'continuous' | 'evenPage' | 'oddPage' | 'nextColumn';
 
+/** w:pgBorders — bordas de página da seção (Bordas e Sombreamento › Borda da Página). */
+export interface PageBorders {
+  /** medir a partir da borda da página ("page", o que o Word grava) ou do texto (ausente = text) */
+  offsetFrom?: 'page' | 'text';
+  /** em que páginas da seção (ausente = todas) */
+  display?: 'allPages' | 'firstPage' | 'notFirstPage';
+  /** atrás do texto ("back"); ausente = na frente */
+  zOrder?: 'front' | 'back';
+  top?: BorderSpec;
+  left?: BorderSpec;
+  bottom?: BorderSpec;
+  right?: BorderSpec;
+}
+
 export interface SectPr {
   pageWidthTwips: number;
   pageHeightTwips: number;
@@ -431,6 +445,8 @@ export interface SectPr {
   /** w:pgNumType/@w:start — número inicial de página da seção (campo PAGE).
    *  Ausente = 1 (padrão do Word). start=0 → 1ª página é "0". */
   pgNumStart?: number;
+  /** w:pgBorders (null = o editor tirou; ausente = como no arquivo) */
+  pgBorders?: PageBorders | null;
 }
 
 export interface DocumentModel {
@@ -1747,6 +1763,19 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
   const titlePg = sectEl && firstChild(sectEl, 'w:titlePg');
   if (titlePg && titlePg.attrs['w:val'] !== '0' && titlePg.attrs['w:val'] !== 'false') {
     sect.titlePg = true;
+  }
+  const pb = sectEl && firstChild(sectEl, 'w:pgBorders');
+  if (pb) {
+    const out: PageBorders = {};
+    const of = pb.attrs['w:offsetFrom'], dp = pb.attrs['w:display'], z = pb.attrs['w:zOrder'];
+    if (of === 'page' || of === 'text') out.offsetFrom = of;
+    if (dp === 'allPages' || dp === 'firstPage' || dp === 'notFirstPage') out.display = dp;
+    if (z === 'front' || z === 'back') out.zOrder = z;
+    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+      const b = readBorder(firstChild(pb, `w:${side}`));
+      if (b) out[side] = b;
+    }
+    sect.pgBorders = out;
   }
   const pgNumType = sectEl && firstChild(sectEl, 'w:pgNumType');
   const startAttr = pgNumType?.attrs['w:start'];

@@ -663,6 +663,31 @@ $E['sort-partial'] = @{
   Op = { param($app, $doc) $app.Selection.Sort($false, 1, 0, 0) }
 }
 
+# ---- lote 5: bordas de pagina (Bordas e Sombreamento > Borda da Pagina) e sombreamento ----
+$E['pgbdr-box'] = @{ Op = { param($app, $doc) $doc.Sections.Item(1).Borders.Enable = -1 } }
+$E['pgbdr-shadow'] = @{ Op = { param($app, $doc) $b = $doc.Sections.Item(1).Borders; $b.Enable = -1; $b.Shadow = -1 } }
+$E['pgbdr-text'] = @{ Op = { param($app, $doc) $b = $doc.Sections.Item(1).Borders; $b.Enable = -1; $b.DistanceFrom = 1 } }
+$E['pgbdr-first'] = @{ Op = { param($app, $doc) $b = $doc.Sections.Item(1).Borders; $b.Enable = -1; $b.EnableOtherPagesInSection = 0 } }
+$E['pgbdr-notfirst'] = @{ Op = { param($app, $doc) $b = $doc.Sections.Item(1).Borders; $b.Enable = -1; $b.EnableFirstPageInSection = 0 } }
+$E['pgbdr-style'] = @{ Op = { param($app, $doc)
+  $b = $doc.Sections.Item(1).Borders
+  foreach ($i in @(-1, -2, -3, -4)) { $x = $b.Item($i); $x.LineStyle = 7; $x.LineWidth = 18; $x.Color = 255 }
+} }
+$E['pgbdr-back'] = @{ Op = { param($app, $doc) $b = $doc.Sections.Item(1).Borders; $b.Enable = -1; $b.AlwaysInFront = 0 } }
+$E['pgbdr-none'] = @{
+  Setup = { param($app, $doc) $doc.Sections.Item(1).Borders.Enable = -1 }
+  Op = { param($app, $doc) $doc.Sections.Item(1).Borders.Enable = 0 }
+}
+# sombreamento de paragrafo com padrao (o que o Word grava)
+$E['shd-para-pattern'] = @{
+  Setup = { param($app, $doc) $doc.Content.Text = 'abc' }
+  Op = { param($app, $doc) $s = $doc.Paragraphs.Item(1).Shading; $s.Texture = 250; $s.ForegroundPatternColor = 255; $s.BackgroundPatternColor = 65535 }
+}
+$E['shd-cell-pattern'] = @{
+  Setup = { param($app, $doc) New-BaseTable $app $doc 2 2 | Out-Null }
+  Op = { param($app, $doc) $s = $doc.Tables.Item(1).Cell(1, 1).Shading; $s.Texture = -4; $s.ForegroundPatternColor = 255; $s.BackgroundPatternColor = 65535 }
+}
+
 # ---- execucao ----
 $w = New-WordApp
 $prevSec = $null

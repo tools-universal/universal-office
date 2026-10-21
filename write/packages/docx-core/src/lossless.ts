@@ -12,6 +12,7 @@ import {
   editBaseProps, paraPropsFromPPr, readSectPr,
   type Run, type Paragraph, type RunProps, type ParaProps, type SectPr,
 } from './document.js';
+import { pgBordersXml } from './table-xml.js';
 
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -392,6 +393,8 @@ export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefin
   }
   if (!eq(cur.cols, base.cols)) set('w:cols', colsXml(cur.cols, kidRaw(kids, 'w:cols') || undefined));
   if (!!cur.titlePg !== !!base.titlePg) set('w:titlePg', cur.titlePg ? '<w:titlePg/>' : null);
+  // bordas de página: só quando o editor as definiu (ausente = como no arquivo)
+  if (cur.pgBorders !== undefined && !eq(cur.pgBorders ?? undefined, base.pgBorders ?? undefined)) set('w:pgBorders', pgBordersXml(cur.pgBorders));
   if (cur.pgNumStart !== base.pgNumStart) {
     set('w:pgNumType', withAttrs(kidRaw(kids, 'w:pgNumType'), 'w:pgNumType', { 'w:start': cur.pgNumStart }));
   }

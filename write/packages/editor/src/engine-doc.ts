@@ -96,6 +96,7 @@ export function buildEngineDoc(input: EngineDocInput): EngineDoc {
       const s = starts[i]!.section;
       secs.push({
         ...s,
+        ...withPgBorders(s),
         blockStart: a,
         blockEnd: Math.max(a - 1, b),
         headerBlocks: reconcileSet(s.headerBlocks, s.headers),
@@ -124,6 +125,15 @@ export function buildEngineDoc(input: EngineDocInput): EngineDoc {
     bookmarks,
   } as FullDocument;
   return { full, origins, paraBlock, sectionMap };
+}
+
+/** Bordas de página editadas (SectPr.pgBorders) valem sobre as lidas do arquivo (sect.pgBorders, que o motor pinta). */
+function withPgBorders(s: Section): Partial<Section> {
+  const pb = s.sectPr.pgBorders;
+  if (pb === undefined) return {};
+  const sect = { ...(s.sect ?? {}) } as NonNullable<Section['sect']>;
+  if (pb) sect.pgBorders = pb; else delete sect.pgBorders;
+  return { sect };
 }
 
 function reconcileSet(

@@ -359,6 +359,37 @@ export function resolveColor(
   return /^[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : undefined;
 }
 
+/**
+ * Cobertura da cor do padrão em cada w:shd (fração dos pixels do ladrilho 8×8
+ * de 0,96 pt que o Word usa no PDF — sonda gen-shading-probe/shading-probe.py).
+ * O ladrilho é fino demais para se ver: o padrão sai como a MISTURA da cor do
+ * padrão sobre o preenchimento, como nos percentuais (pct12/37/62/87 = 12,5%…).
+ */
+const SHD_COVER: Record<string, number> = {
+  horzStripe: 0.5, vertStripe: 0.5, reverseDiagStripe: 0.5, diagStripe: 0.5, horzCross: 0.5, diagCross: 0.75,
+  thinHorzStripe: 0.25, thinVertStripe: 0.25, thinReverseDiagStripe: 0.25, thinDiagStripe: 0.25,
+  thinHorzCross: 0.4375, thinDiagCross: 0.4375, pct12: 0.125, pct37: 0.375, pct62: 0.625, pct87: 0.875,
+};
+
+/** Cor efetiva de um w:shd (célula, parágrafo, run): preenchimento, sólido ou a mistura do padrão; undefined = nenhum. */
+export function shadingFill(
+  shd: { val?: string; color?: string; themeColor?: string; fill?: string; themeFill?: string; themeFillTint?: string; themeFillShade?: string } | undefined,
+  theme: Theme,
+): string | undefined {
+  if (!shd || shd.val === 'nil') return undefined;
+  const fg = (): string => resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? '000000';
+  if (shd.val === 'solid') return fg();
+  const fill = shd.themeFill
+    ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme)
+    : shd.fill && shd.fill !== 'auto' ? shd.fill.toUpperCase() : undefined;
+  const v = shd.val ?? 'clear';
+  const cover = own(SHD_COVER, v) ?? (/^pct\d+$/.test(v) ? parseInt(v.slice(3), 10) / 100 : undefined);
+  if (cover === undefined) return fill;
+  const f = fg(), bg = fill ?? 'FFFFFF';
+  const mix = (i: number): number => Math.round(parseInt(bg.slice(i, i + 2), 16) * (1 - cover) + parseInt(f.slice(i, i + 2), 16) * cover);
+  return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
 /** Cor de DrawingML com modificadores ("RRGGBB|lumMod=75000,lumOff=…" ou "@accent1|…"). */
 export function resolveDrawingColor(spec: string | undefined, theme: Theme): string | undefined {
   if (!spec) return undefined;

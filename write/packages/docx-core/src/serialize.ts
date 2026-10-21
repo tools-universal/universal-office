@@ -5,7 +5,7 @@ import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaS
 import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 import {
   patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
-  tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped,
+  tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped, pgBordersXml,
 } from './table-xml.js';
 
 /**
@@ -633,11 +633,12 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
   const cols = s.cols ? colsXml(s.cols) : '';
   const titlePg = s.titlePg ? '<w:titlePg/>' : '';
   const pgNumType = s.pgNumStart !== undefined ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : '';
+  const pgBorders = pgBordersXml(s.pgBorders) ?? '';
   return (
     `${refsXml}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
     `<w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" ` +
     `w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" ` +
-    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgNumType}${cols}${titlePg}`
+    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}`
   );
 }
 

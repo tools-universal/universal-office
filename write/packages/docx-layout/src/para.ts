@@ -2,7 +2,7 @@ import type {
   Paragraph, Run, RPr, PPr, TabSpec, InlineImage, NumLevel, ResolvedStyle,
 } from '@universal-office/docx-core';
 import { DocContext, directPPr, directRPr } from './context.js';
-import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, highlightHex, resolveDrawingColor, own } from './resolve.js';
+import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, shadingFill, highlightHex, resolveDrawingColor, own } from './resolve.js';
 import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbolFont, type FontFace } from './fonts.js';
 import type { NumberMarker } from './numbering.js';
 import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
@@ -198,7 +198,7 @@ export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: 
   const tf = rpr.textFill;
   const color = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : undefined))) ?? resolveColor(rpr.color, theme);
   const u = rpr.u && rpr.u.val !== 'none' && rpr.u.val !== '' ? { val: rpr.u.val, ...(rpr.u.color && rpr.u.color !== 'auto' ? { color: rpr.u.color } : {}) } : undefined;
-  const shd = rpr.shd?.fill && rpr.shd.fill !== 'auto' ? rpr.shd.fill : undefined;
+  const shd = shadingFill(rpr.shd, theme);
   const style: RunStyle = {
     rpr,
     sizePt,
@@ -658,8 +658,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
   const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
   // sombreamento escuro no parágrafo: o texto de cor automática vira branco
   const shd = ppr.shd;
-  const paraFill = shd?.fill && shd.fill !== 'auto' ? shd.fill
-    : shd?.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, ctx.fmt.theme) : undefined;
+  const paraFill = shadingFill(shd, ctx.fmt.theme);
   const env: ParaEnv = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
   const dd = ctx.resolver.docDefaults;
   const settings = ctx.fmt.settings;

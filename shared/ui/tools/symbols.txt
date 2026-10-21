@@ -196,3 +196,5 @@ refresh
 edit
 warning
 sort_by_alpha
+format_color_reset
+view_in_ar

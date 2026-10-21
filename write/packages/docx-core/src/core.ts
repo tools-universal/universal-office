@@ -11,6 +11,7 @@ export {
   type ParaProps,
   type NumberingProps,
   type SectPr,
+  type PageBorders,
   type SectionType,
   type InlineImage,
   type DrawingTextbox,

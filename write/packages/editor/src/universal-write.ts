@@ -22,6 +22,7 @@ import {
   type ParaProps,
   type Paragraph,
   type SectPr,
+  type PageBorders,
   readFullDocument,
   markSectionBreaks,
   sectionRanges,
@@ -378,6 +379,8 @@ export interface TableState {
   /** trPr da 1ª linha e tcPr da 1ª célula do alvo (Propriedades da Tabela) */
   trPr: TrPr;
   tcPr: TcPr;
+  /** bordas da tabela vindas do estilo (Bordas e Sombreamento mostra as efetivas) */
+  styleBorders?: TblPr['tblBorders'];
   /** largura disponível para a tabela (coluna de texto menos o recuo), twips */
   availTwips: number;
 }
@@ -2794,6 +2797,38 @@ export class UniversalWriteElement extends HTMLElement {
         s.marginLeftTwips = opts.customMargins.left;
       }
     }
+    this.refresh();
+  }
+
+  // ───────────────── bordas de página ─────────────────
+
+  /** Seções-alvo das bordas de página: a do cursor (na célula, a da tabela) ou todas. */
+  private pageBorderTargets(applyTo: 'section' | 'document'): SectPr[] {
+    const m = this.bodyModel();
+    if (applyTo === 'document') return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
+    const para = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0
+      : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
+    return [sectionSectPr(m, sectionIndexAt(m, Math.min(para, m.paragraphs.length - 1)))];
+  }
+
+  /** Bordas de página da seção do cursor (Bordas e Sombreamento › Borda da Página); null = nenhuma. */
+  getPageBorders(): PageBorders | null {
+    if (!this.model) return null;
+    const s = this.pageBorderTargets('section')[0];
+    const pb = s?.pgBorders === undefined ? this.fullDoc?.sections[0]?.sect?.pgBorders : s.pgBorders;
+    return pb ? JSON.parse(JSON.stringify(pb)) as PageBorders : null;
+  }
+
+  /**
+   * Bordas de página (Caixa, Sombra, 3D, Personalizado): `null` = Nenhuma.
+   * O Word grava a Caixa como `offsetFrom="page"` com 24 pt de cada lado e
+   * linha simples de ½ pt; Sombra = `shadow` nos quatro lados.
+   */
+  setPageBorders(pb: PageBorders | null, applyTo: 'section' | 'document' = 'document'): void {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    for (const s of this.pageBorderTargets(applyTo)) s.pgBorders = pb ? JSON.parse(JSON.stringify(pb)) as PageBorders : null;
+    this.engPageCache.clear();
     this.refresh();
   }
 
@@ -8314,21 +8349,72 @@ export class UniversalWriteElement extends HTMLElement {
    * ({ themeColor: 'accent1', tint?: '33', shade?: 'BF' } — grava themeFill como
    * o Word) ou null (Sem Cor). Tabela inteira selecionada: também o tblPr.
    */
-  setCellShading(color: string | { themeColor: string; tint?: string; shade?: string } | null): void {
+  setCellShading(
+    color: string | { themeColor: string; tint?: string; shade?: string } | null,
+    /** padrão (Bordas e Sombreamento › Sombreamento): w:val (pct10, horzStripe…) e a cor dele */
+    pattern?: { val: string; color?: string } | null,
+    /** 'table' = a tabela toda (como a seleção da tabela inteira); padrão: a seleção */
+    applyTo?: 'cell' | 'table',
+  ): void {
     this.editTable((tg) => {
       let shd: ShadingSpec | null = null;
-      if (typeof color === 'string') shd = { val: 'clear', color: 'auto', fill: color.replace(/^#/, '').toUpperCase() };
+      const pv = pattern && pattern.val !== 'clear' ? pattern : null;
+      const pat = { val: pv?.val ?? 'clear', color: pv?.color && pv.color !== 'auto' ? pv.color.replace(/^#/, '').toUpperCase() : 'auto' };
+      if (typeof color === 'string') shd = { ...pat, fill: color.replace(/^#/, '').toUpperCase() };
       else if (color) {
         const f = this.formattingForTables();
         shd = {
-          val: 'clear', color: 'auto', fill: themeHex(f.theme?.colors ?? {}, color.themeColor, color.tint, color.shade), themeFill: color.themeColor,
+          ...pat, fill: themeHex(f.theme?.colors ?? {}, color.themeColor, color.tint, color.shade), themeFill: color.themeColor,
           ...(color.tint ? { themeFillTint: color.tint } : {}), ...(color.shade ? { themeFillShade: color.shade } : {}),
         };
-      }
-      const whole = this.isWholeTable(tg);
-      TOps.setShading(tg.table, tg.rect, shd, whole);
+      } else if (pv) shd = { ...pat, fill: 'auto' };
+      const whole = applyTo === 'table' || (applyTo === undefined && this.isWholeTable(tg));
+      TOps.setShading(tg.table, whole ? TOps.wholeRect(tg.table) : tg.rect, shd, whole);
       return this.keepTableSel(tg);
     });
+  }
+
+  /**
+   * Bordas lado a lado (Bordas e Sombreamento): cada lado com a sua linha
+   * (null = sem borda; ausente = como está), num passo de desfazer. 'table' =
+   * a tabela toda (w:tblBorders), 'cell' = as células selecionadas.
+   */
+  setTableBorderSides(sides: Partial<Record<'top' | 'left' | 'bottom' | 'right' | 'insideH' | 'insideV', BorderSpec | null>>, applyTo: 'cell' | 'table' = 'cell'): void {
+    this.editTable((tg) => {
+      const whole = applyTo === 'table';
+      const rect = whole ? TOps.wholeRect(tg.table) : tg.rect;
+      const style = tg.table.tblPr?.tblStyle ? this.formattingForTables().styles.styles[tg.table.tblPr.tblStyle] : undefined;
+      for (const [side, spec] of Object.entries(sides) as [BorderKind, BorderSpec | null | undefined][]) {
+        if (spec === undefined) continue;
+        TOps.setBorders(tg.table, rect, side, spec, { wholeTable: whole, styleBorders: style?.tblPr?.tblBorders });
+      }
+      return this.keepTableSel(tg);
+    });
+  }
+
+  /** Bordas do parágrafo (Bordas e Sombreamento, Aplicar a: Parágrafo); null = nenhuma. */
+  setParagraphBorders(sides: Partial<Record<'top' | 'left' | 'bottom' | 'right', BorderSpec | null>> | null): void {
+    if (!sides) { this.formatPara({ borders: undefined, boxBorder: undefined }); return; }
+    const cur = this.model?.paragraphs[this.selection.focus.para]?.props.borders ?? {};
+    const out: NonNullable<ParaProps['borders']> = { ...cur };
+    for (const [side, b] of Object.entries(sides) as ['top' | 'left' | 'bottom' | 'right', BorderSpec | null | undefined][]) {
+      if (b === undefined) continue;
+      if (!b || b.val === 'none' || b.val === 'nil') delete out[side];
+      // espaço até o texto: o do Word (1 pt em cima/embaixo, 4 pt dos lados)
+      else out[side] = { style: b.val, sizeEighthPt: b.sz ?? 4, spacePt: b.space ?? (side === 'top' || side === 'bottom' ? 1 : 4), ...(b.color && b.color !== 'auto' ? { color: b.color } : {}) };
+    }
+    this.formatPara({ borders: Object.keys(out).length ? out : undefined, boxBorder: undefined });
+  }
+
+  /** Bordas do parágrafo do cursor como specs (diálogo). */
+  getParagraphBorders(): Partial<Record<'top' | 'left' | 'bottom' | 'right', BorderSpec>> {
+    const b = this.model?.paragraphs[this.selection.focus.para]?.props.borders;
+    const out: Partial<Record<'top' | 'left' | 'bottom' | 'right', BorderSpec>> = {};
+    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+      const e = b?.[side];
+      if (e) out[side] = { val: e.style, sz: e.sizeEighthPt, space: e.spacePt, color: e.color ?? 'auto' };
+    }
+    return out;
   }
 
   /** A seleção cobre a tabela inteira? */
@@ -8767,6 +8853,7 @@ export class UniversalWriteElement extends HTMLElement {
       tblPr: t.tblPr ? JSON.parse(JSON.stringify(t.tblPr)) as TblPr : {},
       trPr: rows[0]?.trPr ? JSON.parse(JSON.stringify(rows[0].trPr)) as TrPr : {},
       tcPr: JSON.parse(JSON.stringify(tcPr)) as TcPr,
+      styleBorders: style ? JSON.parse(JSON.stringify(this.formattingForTables().styles.styles[style]?.tblPr?.tblBorders ?? {})) as TblPr['tblBorders'] : undefined,
       availTwips: this.tableAvail(tg),
     };
   }

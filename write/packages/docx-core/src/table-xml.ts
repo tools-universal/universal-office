@@ -7,6 +7,7 @@
  */
 import { parseXml } from './xml.js';
 import { splitElement } from './lossless.js';
+import type { PageBorders } from './document.js';
 import {
   readTblPr, readTrPr, readTcPr,
   type TblPr, type TrPr, type TcPr, type BorderSpec, type ShadingSpec, type WidthSpec,
@@ -51,6 +52,14 @@ export function borderXml(tag: string, b: BorderSpec): string {
     ['themeColor', b.themeColor], ['themeTint', b.themeTint], ['themeShade', b.themeShade],
     ['shadow', b.shadow === undefined ? undefined : b.shadow ? 1 : 0], ['frame', b.frame === undefined ? undefined : b.frame ? 1 : 0],
   ])}/>`;
+}
+
+/** w:pgBorders como o Word grava (atributos zOrder, display, offsetFrom; lados top, left, bottom, right); null = nenhuma. */
+export function pgBordersXml(pb: PageBorders | null | undefined): string | null {
+  if (!pb) return null;
+  const inner = (['top', 'left', 'bottom', 'right'] as const).map((s) => (pb[s] ? borderXml(s, pb[s]!) : '')).join('');
+  if (!inner) return null;
+  return `<w:pgBorders${attrs([['zOrder', pb.zOrder], ['display', pb.display], ['offsetFrom', pb.offsetFrom]])}>${inner}</w:pgBorders>`;
 }
 
 const SIDES = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV', 'tl2br', 'tr2bl'] as const;

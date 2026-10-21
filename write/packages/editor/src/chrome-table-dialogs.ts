@@ -6,10 +6,12 @@
 import { dialogTabs, openDialog, pickLabels, type UiLang } from '@universal-office/ui';
 import { FORMULA_FUNCTIONS, type TblPr, type TblpPr, type TcPr, type TextSeparator, type WidthSpec } from '@universal-office/docx-core';
 import type { SortRequest, TablePropertiesInput } from './universal-write.js';
+import { bordersShadingDialog } from './chrome-borders.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 
 export type TableDialogKind = 'insert' | 'fromText' | 'toText' | 'insertCells' | 'deleteCells' | 'split' | 'margins' | 'formula'
-  | 'properties' | 'properties:row' | 'properties:column' | 'properties:cell' | 'properties:alt' | 'sort';
+  | 'properties' | 'properties:row' | 'properties:column' | 'properties:cell' | 'properties:alt' | 'sort'
+  | 'borders' | 'pageBorders' | 'shading';
 
 /** Formatos numéricos da lista do diálogo Fórmula (os do Word pt-BR; os dados seguem o pt-BR). */
 const NUMBER_FORMATS = ['#.##0', '#.##0,00', 'R$ #.##0,00;(R$ #.##0,00)', '0', '0%', '0,00', '0,00%'];
@@ -206,6 +208,9 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind): Promis
     }
     case 'sort':
       return sortDialog(env);
+    case 'borders': return bordersShadingDialog(env, 'borders');
+    case 'pageBorders': return bordersShadingDialog(env, 'page');
+    case 'shading': return bordersShadingDialog(env, 'shading');
     case 'properties': case 'properties:row': case 'properties:column': case 'properties:cell': case 'properties:alt':
       return propertiesDialog(env, kind === 'properties' ? 'table' : kind.slice(11));
     case 'formula': {

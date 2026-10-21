@@ -1,7 +1,7 @@
 import type {
   TableBlock, TableCell, TblPr, TcPr, BorderSpec, WidthSpec, PPr, RPr, TblStyleType, TblLook,
 } from '@universal-office/docx-core';
-import { mergeTblPr, mergeTcPr, mergePPr, mergeRPr, resolveColor, COND_ORDER } from './resolve.js';
+import { mergeTblPr, mergeTcPr, mergePPr, mergeRPr, resolveColor, shadingFill, COND_ORDER } from './resolve.js';
 import type { DocContext } from './context.js';
 import type { PageItem, LaidOutLine } from './tree.js';
 import { paintBorder, borderWidth } from './paint.js';
@@ -1228,22 +1228,7 @@ function cellFill(tcPr: TcPr, theme: DocContext['fmt']['theme']): string | undef
   return shdFill(tcPr.shd, theme);
 }
 
-function shdFill(shd: TcPr['shd'], theme: DocContext['fmt']['theme']): string | undefined {
-  if (!shd) return undefined;
-  if (shd.val === 'solid') return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? '000000';
-  const fill = shd.themeFill
-    ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme)
-    : shd.fill && shd.fill !== 'auto' ? shd.fill.toUpperCase() : undefined;
-  if (shd.val && /^pct(\d+)$/.test(shd.val)) {
-    // padrão percentual: mistura a cor do padrão sobre o preenchimento
-    const pct = parseInt(shd.val.slice(3), 10) / 100;
-    const fg = resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? '000000';
-    const bg = fill ?? 'FFFFFF';
-    const mix = (i: number) => Math.round(parseInt(bg.slice(i, i + 2), 16) * (1 - pct) + parseInt(fg.slice(i, i + 2), 16) * pct);
-    return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase();
-  }
-  return fill;
-}
+const shdFill = (shd: TcPr['shd'], theme: DocContext['fmt']['theme']): string | undefined => shadingFill(shd, theme);
 
 /**
  * Pinta o conteúdo de uma célula de texto vertical: o conteúdo foi diagramado

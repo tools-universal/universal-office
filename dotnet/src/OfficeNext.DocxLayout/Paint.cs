@@ -464,9 +464,7 @@ public static class Paint
         /* parágrafo do meio de um grupo: desenha a borda "between" no topo (após o espaço) */
         bool between = false)
     {
-        var shd = p.Ppr.Shd;
-        string? fill = Js.Truthy(shd?.Fill) && shd!.Fill != "auto" ? shd.Fill
-            : Js.Truthy(shd?.ThemeFill) ? Resolve.ResolveColor(null, shd!.ThemeFill, shd.ThemeFillTint, shd.ThemeFillShade, ctx.Fmt.Theme) : null;
+        string? fill = Resolve.ShadingFill(p.Ppr.Shd, ctx.Fmt.Theme);
         const double EXT = 29;
         var bl = pBdr?.Left;
         var br = pBdr?.Right;

@@ -222,7 +222,7 @@ public static class Para
         UnderlineStyle? u = rpr.U is not null && rpr.U.Val != "none" && rpr.U.Val != ""
             ? new UnderlineStyle { Val = rpr.U.Val, Color = Js.Truthy(rpr.U.Color) && rpr.U.Color != "auto" ? rpr.U.Color : null }
             : null;
-        string? shd = Js.Truthy(rpr.Shd?.Fill) && rpr.Shd!.Fill != "auto" ? rpr.Shd.Fill : null;
+        string? shd = Resolve.ShadingFill(rpr.Shd, theme);
         var style = new RunStyle
         {
             Rpr = rpr,
@@ -788,8 +788,7 @@ public static class Para
         var (ppr, styleId, styleRPr) = ResolvePPr(ctx, para, env0);
         // sombreamento escuro no parágrafo: o texto de cor automática vira branco
         var pshd = ppr.Shd;
-        string? paraFill = Js.Truthy(pshd?.Fill) && pshd!.Fill != "auto" ? pshd.Fill
-            : Js.Truthy(pshd?.ThemeFill) ? Resolve.ResolveColor(null, pshd!.ThemeFill, pshd.ThemeFillTint, pshd.ThemeFillShade, ctx.Fmt.Theme) : null;
+        string? paraFill = Resolve.ShadingFill(pshd, ctx.Fmt.Theme);
         ParaEnv env = env0;
         if (paraFill is not null && IsDark(paraFill) && !env0.DarkBackground) { env = env0.Clone(); env.DarkBackground = true; }
         var dd = ctx.Resolver.DocDefaults;

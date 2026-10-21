@@ -279,6 +279,42 @@ public static class Resolve
     public static string? ResolveColor(ColorSpec? spec, Theme theme) =>
         spec is null ? null : ResolveColor(spec.Val, spec.ThemeColor, spec.ThemeTint, spec.ThemeShade, theme);
 
+    /// <summary>Cobertura da cor do padrão em cada w:shd (ladrilho 8×8 de 0,96 pt do PDF do Word): o padrão sai
+    /// como a MISTURA da cor do padrão sobre o preenchimento — porta de resolve.ts SHD_COVER.</summary>
+    private static readonly Dictionary<string, double> ShdCover = new()
+    {
+        ["horzStripe"] = 0.5, ["vertStripe"] = 0.5, ["reverseDiagStripe"] = 0.5, ["diagStripe"] = 0.5, ["horzCross"] = 0.5, ["diagCross"] = 0.75,
+        ["thinHorzStripe"] = 0.25, ["thinVertStripe"] = 0.25, ["thinReverseDiagStripe"] = 0.25, ["thinDiagStripe"] = 0.25,
+        ["thinHorzCross"] = 0.4375, ["thinDiagCross"] = 0.4375, ["pct12"] = 0.125, ["pct37"] = 0.375, ["pct62"] = 0.625, ["pct87"] = 0.875,
+    };
+    private static readonly Regex PctShd = new(@"^pct\d+\z", RegexOptions.CultureInvariant);
+
+    /// <summary>Cor efetiva de um w:shd (célula, parágrafo, run): preenchimento, sólido ou a mistura do padrão; nulo = nenhum.</summary>
+    public static string? ShadingFill(ShadingSpec? shd, Theme theme)
+    {
+        if (shd is null || shd.Val == "nil") return null;
+        string Fg() => ResolveColor(shd.Color, shd.ThemeColor, null, null, theme) ?? "000000";
+        if (shd.Val == "solid") return Fg();
+        string? fill = Js.Truthy(shd.ThemeFill)
+            ? ResolveColor(null, shd.ThemeFill, shd.ThemeFillTint, shd.ThemeFillShade, theme)
+            : Js.Truthy(shd.Fill) && shd.Fill != "auto" ? Js.ToUpper(shd.Fill!) : null;
+        string v = shd.Val ?? "clear";
+        double cover;
+        if (ShdCover.TryGetValue(v, out var cv)) cover = cv;
+        else if (PctShd.IsMatch(v)) cover = Js.ParseInt(v[3..]) / 100;
+        else return fill;
+        string f = Fg(), bg = fill ?? "FFFFFF";
+        double Hex2(string s, int i) => OfficeNext.Core.JsNumber.ParseInt(i < s.Length ? s.Substring(i, Math.Min(2, s.Length - i)) : "", 16);
+        string Part(int i)
+        {
+            double x = Js.Round(Hex2(bg, i) * (1 - cover) + Hex2(f, i) * cover);
+            if (double.IsNaN(x)) return "NaN";
+            string s = ((long)x).ToString("x", CultureInfo.InvariantCulture);
+            return s.Length < 2 ? "0" + s : s;
+        }
+        return (Part(0) + Part(2) + Part(4)).ToUpperInvariant();
+    }
+
     /// <summary>Cor de DrawingML com modificadores ("RRGGBB|lumMod=75000,lumOff=…" ou "@accent1|…").</summary>
     public static string? ResolveDrawingColor(string? spec, Theme theme)
     {
