@@ -7,7 +7,7 @@
  * fica byte a byte, na ordem do schema.
  */
 import { parseXml, childElements, type XmlElement } from './xml.js';
-import { readRPr, readPPr } from './ooxml/props.js';
+import { readRPr, readPPr, type RPr, type PPr } from './ooxml/props.js';
 import {
   editBaseProps, paraPropsFromPPr, readSectPr,
   type Run, type Paragraph, type RunProps, type ParaProps, type SectPr,
@@ -42,7 +42,7 @@ const SECT_ORDER = [
   'w:titlePg', 'w:textDirection', 'w:bidi', 'w:rtlGutter', 'w:docGrid', 'w:printerSettings', 'w:sectPrChange',
 ];
 
-interface Kid { name: string; raw: string; el: XmlElement }
+export interface Kid { name: string; raw: string; el: XmlElement }
 
 /** Elemento cru → tag de abertura, filhos crus e fechamento. */
 export function splitElement(raw: string): { open: string; close: string; kids: Kid[]; el: XmlElement } {
@@ -56,7 +56,7 @@ export function splitElement(raw: string): { open: string; close: string; kids: 
 }
 
 /** Troca (ou remove, com xml null) os filhos `name`; insere na ordem do schema. */
-function setKid(kids: Kid[], order: string[], name: string, xml: string | null): void {
+export function setKid(kids: Kid[], order: string[], name: string, xml: string | null): void {
   const at = kids.findIndex((k) => k.name === name);
   for (let i = kids.length - 1; i >= 0; i--) if (kids[i]!.name === name && i !== at) kids.splice(i, 1);
   if (at >= 0) {
@@ -75,7 +75,7 @@ function setKid(kids: Kid[], order: string[], name: string, xml: string | null):
 }
 
 /** Tag com atributos trocados/removidos, mantendo os filhos (só a abertura muda). */
-function withAttrs(raw: string, name: string, changes: Record<string, string | number | undefined>): string {
+export function withAttrs(raw: string, name: string, changes: Record<string, string | number | undefined>): string {
   if (!raw) {
     const attrs = Object.entries(changes).filter(([, v]) => v !== undefined).map(([k, v]) => ` ${k}="${esc(String(v))}"`).join('');
     return `<${name}${attrs}/>`;
@@ -100,6 +100,7 @@ const join = (open: string, kids: Kid[], close: string): string => (kids.length 
  *  (o caminho antigo, sem fonte original, gravava as duas). */
 export function rPrFromProps(p: RunProps, linkAware = true): string {
   const rpr: string[] = [];
+  if (p.charStyle) rpr.push(`<w:rStyle w:val="${esc(p.charStyle)}"/>`);
   if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p.fontAscii)}" w:hAnsi="${esc(p.fontAscii)}" w:cs="${esc(p.fontAscii)}"/>`);
   if (p.bold) rpr.push('<w:b/>');
   if (p.italic) rpr.push('<w:i/>');
@@ -120,13 +121,64 @@ export function rPrFromProps(p: RunProps, linkAware = true): string {
   return rpr.length ? `<w:rPr>${rpr.join('')}</w:rPr>` : '';
 }
 
+/** Elemento do w:rPr ↔ campo do RPr tipado (limpar formatação: o que saiu do rpr sai do XML). */
+const RPR_FIELD: Record<string, string> = {
+  'w:rStyle': 'rStyle', 'w:rFonts': 'rFonts', 'w:b': 'b', 'w:bCs': 'bCs', 'w:i': 'i', 'w:iCs': 'iCs', 'w:caps': 'caps',
+  'w:smallCaps': 'smallCaps', 'w:strike': 'strike', 'w:dstrike': 'dstrike', 'w:outline': 'outline', 'w:shadow': 'shadow',
+  'w:emboss': 'emboss', 'w:imprint': 'imprint', 'w:vanish': 'vanish', 'w:color': 'color', 'w:spacing': 'spacing', 'w:w': 'w',
+  'w:kern': 'kern', 'w:position': 'position', 'w:sz': 'sz', 'w:szCs': 'szCs', 'w:highlight': 'highlight', 'w:u': 'u',
+  'w:effect': 'effect', 'w:bdr': 'bdr', 'w:shd': 'shd', 'w:vertAlign': 'vertAlign', 'w:em': 'em',
+};
+/** Elemento do w:pPr ↔ campo do PPr tipado (w:pStyle/w:sectPr/w:pPrChange seguem as props). */
+const PPR_FIELD: Record<string, string> = {
+  'w:keepNext': 'keepNext', 'w:keepLines': 'keepLines', 'w:pageBreakBefore': 'pageBreakBefore', 'w:framePr': 'framePr',
+  'w:widowControl': 'widowControl', 'w:numPr': 'numPr', 'w:suppressLineNumbers': 'suppressLineNumbers', 'w:pBdr': 'pBdr',
+  'w:shd': 'shd', 'w:tabs': 'tabs', 'w:suppressAutoHyphens': 'suppressAutoHyphens', 'w:kinsoku': 'kinsoku', 'w:wordWrap': 'wordWrap',
+  'w:overflowPunct': 'overflowPunct', 'w:autoSpaceDE': 'autoSpaceDE', 'w:autoSpaceDN': 'autoSpaceDN', 'w:bidi': 'bidi',
+  'w:adjustRightInd': 'adjustRightInd', 'w:snapToGrid': 'snapToGrid', 'w:spacing': 'spacing', 'w:ind': 'ind',
+  'w:contextualSpacing': 'contextualSpacing', 'w:mirrorIndents': 'mirrorIndents', 'w:suppressOverlap': 'suppressOverlap', 'w:jc': 'jc',
+  'w:textAlignment': 'textAlignment', 'w:outlineLvl': 'outlineLvl', 'w:rPr': 'rPr',
+};
+/** rpr sem a formatação direta (fica o que não é formatação: idioma, noProof…;
+ *  o rStyle fica o de origem — a troca do estilo de caractere vai pelas props). */
+export function clearedRPr(rpr: RPr | undefined, fields?: readonly (keyof RunProps)[]): RPr {
+  const out: Record<string, unknown> = { ...(rpr ?? {}) };
+  const drop = fields ? fields.flatMap((k) => PROP_RPR[k] ?? []) : Object.values(RPR_FIELD).filter((f) => f !== 'rStyle');
+  for (const f of drop) delete out[f];
+  return out as RPr;
+}
+/** Prop de edição do run ↔ campos do RPr. */
+const PROP_RPR: Partial<Record<keyof RunProps, string[]>> = {
+  bold: ['b', 'bCs'], italic: ['i', 'iCs'], underline: ['u'], underlineStyle: ['u'], underlineColor: ['u'], strike: ['strike'],
+  doubleStrike: ['dstrike'], allCaps: ['caps'], smallCaps: ['smallCaps'], vertAlign: ['vertAlign'], szHalfPt: ['sz', 'szCs'],
+  color: ['color'], highlight: ['highlight'], fontAscii: ['rFonts'], charSpacingTwips: ['spacing'],
+};
+/** ppr sem a formatação direta de parágrafo (ficam pStyle, marca ¶ e revisão). */
+export function clearedPPr(ppr: PPr | undefined): PPr {
+  const out: Record<string, unknown> = { ...(ppr ?? {}) };
+  for (const f of Object.values(PPR_FIELD)) if (f !== 'rPr') delete out[f];
+  return out as PPr;
+}
+
+/** Tira os filhos cujo campo tipado saiu do objeto atual (o editor limpou). */
+function dropCleared(kids: Kid[], map: Record<string, string>, cur: object): boolean {
+  let n = 0;
+  for (let i = kids.length - 1; i >= 0; i--) {
+    const f = map[kids[i]!.name];
+    if (f && (cur as Record<string, unknown>)[f] === undefined) { kids.splice(i, 1); n++; }
+  }
+  return n > 0;
+}
+
 /** w:rPr do run: o cru de origem com as diferenças das props aplicadas. */
 export function patchRPr(raw: string | undefined, run: Run): string {
   const p = run.props;
   if (raw === undefined) return rPrFromProps(p);
   const { open, close, kids, el } = splitElement(raw);
-  const base = editBaseProps(run, readRPr(el));
-  let changed = false;
+  // rpr trocado pelo editor (limpar formatação): ele é a base, e o que saiu dele sai do XML
+  const edited = run.rprEdited && run.rpr ? run.rpr : undefined;
+  const base = editBaseProps(run, edited ?? readRPr(el));
+  let changed = edited ? dropCleared(kids, RPR_FIELD, edited) : false;
   const set = (name: string, xml: string | null): void => { changed = true; setKid(kids, RPR_ORDER, name, xml); };
   if (p.bold !== base.bold) { set('w:b', onOff('w:b', p.bold)); set('w:bCs', onOff('w:bCs', p.bold)); }
   if (p.italic !== base.italic) { set('w:i', onOff('w:i', p.italic)); set('w:iCs', onOff('w:iCs', p.italic)); }
@@ -152,6 +204,7 @@ export function patchRPr(raw: string | undefined, run: Run): string {
       'w:asciiTheme': undefined, 'w:hAnsiTheme': undefined, 'w:cstheme': undefined,
     }));
   }
+  if (p.charStyle !== base.charStyle) set('w:rStyle', p.charStyle ? `<w:rStyle w:val="${esc(p.charStyle)}"/>` : null);
   if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set('w:spacing', p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
   }
@@ -233,8 +286,9 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   const p = para.props;
   if (raw === undefined) return pPrFromProps(p, sect ?? '', ids);
   const { open, close, kids, el } = splitElement(raw);
-  const base = paraPropsFromPPr(readPPr(el));
-  let changed = false;
+  const edited = para.pprEdited && para.ppr ? para.ppr : undefined;
+  const base = paraPropsFromPPr(edited ?? readPPr(el));
+  let changed = edited ? dropCleared(kids, PPR_FIELD, edited) : false;
   let genNumbering = false;
   const set = (name: string, xml: string | null): void => { changed = true; setKid(kids, PPR_ORDER, name, xml); };
   const bits = pprBits(p, ids);

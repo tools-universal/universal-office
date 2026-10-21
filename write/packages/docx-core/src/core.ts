@@ -62,6 +62,10 @@ export {
   propsAt,
   selectionRunProps,
   normalizeParagraph,
+  clearRunFormatting,
+  clearRun,
+  clearParaFormatting,
+  clearPara,
   paraText,
   paraLength,
   comparePos,
@@ -84,5 +88,11 @@ export {
   type WriteOptions,
   type CommentOut,
 } from './serialize.js';
-export { readStyles, type StylesMap, type ResolvedStyle } from './styles.js';
+export { readStyles, readStylesXml, type StylesMap, type ResolvedStyle } from './styles.js';
+export { blankDocxPackage, BLANK_STYLES_XML } from './blank.js';
+export {
+  readStyleIndex, styleRaw, putStyle, dropStyle, setLatentQFormat, styleIdFromName, newStyleXml, patchStyleXml, styleKid,
+  patchStyleRPr, patchStylePPr, hasRunChanges, hasParaChanges, builtinStyle, builtinStyles, builtinDisplayName, builtinXml, STYLE_ORDER,
+  type StyleMeta, type LatentMeta, type StyleType, type NewStyle, type StyleHead, type StyleFormat, type Change, type BuiltinStyle,
+} from './style-sheet.js';
 export { isWordBinary, convertDocToDocx, DocFormatError } from './doc/index.js';

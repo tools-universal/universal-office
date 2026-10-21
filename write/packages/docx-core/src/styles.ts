@@ -79,8 +79,12 @@ function readStyleParaProps(pPr: XmlElement | undefined): Partial<ParaProps> {
 }
 
 export function readStyles(pkg: DocxPackage): StylesMap {
+  return readStylesXml(pkg.getPartText('word/styles.xml'));
+}
+
+/** Mesmo que readStyles, sobre o XML (o editor relê a folha depois de cada edição). */
+export function readStylesXml(xml: string | undefined): StylesMap {
   const out: StylesMap = new Map();
-  const xml = pkg.getPartText('word/styles.xml');
   if (!xml) return out;
   const root = parseXml(xml);
 

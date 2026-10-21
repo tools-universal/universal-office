@@ -39,6 +39,8 @@ export interface RunProps {
   charSpacingTwips?: number;
   /** URL do w:hyperlink que envolve o run. */
   link?: string;
+  /** Estilo de caractere (w:rStyle) — vinculado aplicado em parte do parágrafo usa o par "…Char". */
+  charStyle?: string;
   /** Run veio de m:oMath (render fallback em itálico). */
   isMath?: boolean;
   /** Comentários cujo intervalo cobre este run. */
@@ -256,6 +258,9 @@ export interface Run {
   custom?: CustomInline;
   /** Formatação DIRETA completa do w:rPr (tri-estado) — motor de layout. */
   rpr?: RPr;
+  /** O editor trocou o rpr (limpar formatação/estilo de caractere): o salvar
+   *  tira do XML de origem os elementos que saíram dele. */
+  rprEdited?: boolean;
   /** Campo complexo: os runs FORMATADOS do resultado em cache (o run em si
    *  guarda o texto achatado, usado pela edição/salvamento). */
   fieldResult?: Run[];
@@ -384,6 +389,9 @@ export interface Paragraph {
   props: ParaProps;
   /** Formatação DIRETA completa do w:pPr (tri-estado) — motor de layout. */
   ppr?: PPr;
+  /** O editor trocou o ppr (limpar formatação de parágrafo): o salvar tira do
+   *  XML de origem os elementos que saíram dele. */
+  pprEdited?: boolean;
 }
 
 /** w:type — como a seção começa em relação à anterior (ausente = próxima página). */
@@ -458,6 +466,7 @@ export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   if (rpr.highlight && rpr.highlight !== 'none') p.highlight = rpr.highlight;
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== undefined && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
+  if (rpr.rStyle) p.charStyle = rpr.rStyle;
   return p;
 }
 

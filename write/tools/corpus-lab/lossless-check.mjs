@@ -8,7 +8,10 @@
 //   2. edita (digita no meio de um parágrafo, negrito num trecho de outro,
 //      Enter num terceiro) e salva → o XML tem de reler, só os filhos do
 //      corpo editados podem mudar e as contagens de hyperlinks/indicadores/
-//      campos/notas/sdt/equações/desenhos não podem cair.
+//      campos/notas/sdt/equações/desenhos não podem cair;
+//   3. estilos: modifica o estilo do 1º parágrafo editado (tamanho) e cria um
+//      vinculado (par Char) aplicado a outro → o styles.xml relê, os outros
+//      w:style saem byte a byte e o novo estilo chega ao parágrafo.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -16,7 +19,8 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'n
 import { join, extname, basename } from 'node:path';
 
 const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
-const { DocxPackage, readFullDocument, markSectionBreaks, writeDocument, insertText, applyRunProps, splitParagraph, parseXml, childElements, firstChild } = core;
+const { DocxPackage, readFullDocument, markSectionBreaks, writeDocument, insertText, applyRunProps, splitParagraph, parseXml, childElements, firstChild,
+  readStyleIndex, styleRaw, putStyle, patchStyleXml, patchStyleRPr, styleKid, newStyleXml, styleIdFromName } = core;
 
 const CORPUS_ROOT = process.env.CORPUS_ROOT ?? 'E:/UniversalWriteTest';
 const LAB_DIR = process.env.LAB_DIR ?? join(CORPUS_ROOT, '_lab');
@@ -184,6 +188,31 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       core.setOrientation(model.sectPr, 'landscape');
     }
+    // 3. estilos
+    const stylesPath = 'word/styles.xml';
+    const sx0 = b.pkg.getPartText(stylesPath);
+    let styleEdit = null;
+    // (--sections usa o 4º e o 5º candidatos: os estilos vão no 6º)
+    const sc = sectionsMode ? cands[5] : cands[3];
+    if (sx0 && sc) {
+      const idx = readStyleIndex(sx0);
+      const dPara = idx.styles.find((x) => x.type === 'paragraph' && x.isDefault)?.id;
+      const dChar = idx.styles.find((x) => x.type === 'character' && x.isDefault)?.id;
+      const target = cands[0]?.[0].props.styleId && idx.styles.some((x) => x.id === cands[0][0].props.styleId) ? cands[0][0].props.styleId : dPara;
+      let sx = sx0;
+      const raw = target ? styleRaw(sx, target) : undefined;
+      if (raw) sx = putStyle(sx, target, patchStyleXml(raw, { rPr: patchStyleRPr(styleKid(raw, 'w:rPr'), { szHalfPt: 26 }) }));
+      const taken = new Set(idx.styles.map((x) => x.id));
+      const id = styleIdFromName('Estilo Lossless', taken); taken.add(id);
+      const tw = styleIdFromName(id + 'Char', taken);
+      const rPr = patchStyleRPr(undefined, { bold: true, color: 'C00000' });
+      sx = putStyle(sx, id, newStyleXml({ type: 'paragraph', custom: true, id, name: 'Estilo Lossless', basedOn: dPara, link: tw, qFormat: true, rPr }));
+      sx = putStyle(sx, tw, newStyleXml({ type: 'character', custom: true, id: tw, name: 'Estilo Lossless Char', basedOn: dChar, link: id, rPr }));
+      b.pkg.setPartText(stylesPath, sx);
+      sc[0].props.styleId = id;
+      edited.push(sc[0]);
+      styleEdit = { target: raw ? target : null, id, tw, ids: idx.styles.map((x) => x.id) };
+    }
     const out = sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
@@ -199,6 +228,17 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits;
     if (changed > allowed) res.issues.push(`changed:${changed}>${allowed}`);
     if (!xml.includes('XYZ') && cands[0]) res.issues.push('missing-edit');
+    if (styleEdit) {
+      const sa = orig.getPartText(stylesPath), sb = re.getPartText(stylesPath);
+      const map = (x) => new Map(readStyleIndex(x).styles.map((s) => [s.id, x.slice(s.start, s.end)]));
+      const ma = map(sa), mb = map(sb);
+      const moved = styleEdit.ids.filter((i) => i !== styleEdit.target && ma.get(i) !== mb.get(i));
+      if (moved.length) res.issues.push(`styles-changed:${moved.slice(0, 3).join(',')}`);
+      if (!mb.get(styleEdit.id) || !mb.get(styleEdit.tw)) res.issues.push('styles-missing-new');
+      if (!xml.includes(`<w:pStyle w:val="${styleEdit.id}"/>`)) res.issues.push('styles-not-applied');
+      if (!readFullDocument(re).formatting.styles.styles[styleEdit.id]) res.issues.push('styles-unread');
+      res.styles = true;
+    }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
     if (outDir && cands[0] && (!sectionsMode || secEdits > 0)) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
   } catch (e) {

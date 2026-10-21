@@ -79,6 +79,7 @@ public static class DocumentReader
         if (Js.Truthy(rpr.Highlight) && rpr.Highlight != "none") p.Highlight = rpr.Highlight;
         if (rpr.RFonts is not null) p.FontAscii = rpr.RFonts.Ascii;
         if (rpr.Spacing is { } sp && sp != 0) p.CharSpacingTwips = double.IsFinite(sp) ? (int)sp : null;
+        if (Js.Truthy(rpr.RStyle)) p.CharStyle = rpr.RStyle;
         return p;
     }
 

@@ -1,5 +1,8 @@
+import { clearedRPr, clearedPPr } from './lossless.js';
 import {
   DEFAULT_RUN_PROPS,
+  editBaseProps,
+  paraPropsFromPPr,
   type DocumentModel,
   type Paragraph,
   type ParaProps,
@@ -167,6 +170,7 @@ export function splitParagraph(model: DocumentModel, pos: DocPosition): DocPosit
   // o pPr tipado vai junto (o motor lê dele o que as props não representam);
   // a quebra de seção é da marca de parágrafo final — só a segunda metade a leva
   if (p.ppr) tail.ppr = p.ppr;
+  if (p.pprEdited) tail.pprEdited = true;
   if (p.props.sectionBreak) { p.props = { ...p.props }; delete p.props.sectionBreak; }
   model.paragraphs.splice(pos.para + 1, 0, tail);
   normalizeParagraph(p);
@@ -225,6 +229,7 @@ export function mergeWithPrevious(model: DocumentModel, para: number): DocPositi
   // sobrevive a identidade do SEGUNDO (FINDINGS 009)
   prev.props = { ...cur.props };
   if (cur.ppr) prev.ppr = cur.ppr; else delete prev.ppr;
+  if (cur.pprEdited) prev.pprEdited = true; else delete prev.pprEdited;
   model.paragraphs.splice(para, 1);
   normalizeParagraph(prev);
   return { para: para - 1, offset };
@@ -270,4 +275,71 @@ export function applyParaProps(
 export function selectionRunProps(model: DocumentModel, range: DocRange): RunProps {
   const { start } = normalizeRange(range);
   return propsAt(model, { para: start.para, offset: start.offset + 1 });
+}
+
+/**
+ * Tira a formatação DIRETA dos runs do intervalo (ou só os campos `fields`),
+ * como o Word: o rpr tipado perde os elementos (o salvar os tira do XML — ver
+ * rprEdited) e as props voltam ao que o rpr restante implica. `charStyle`:
+ * string/undefined = novo estilo de caractere (undefined tira); null = mantém.
+ */
+export function clearRunFormatting(
+  model: DocumentModel, range: DocRange,
+  opts: { fields?: readonly (keyof RunProps)[]; charStyle?: string | null } = {},
+): void {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = model.paragraphs[pi]!;
+    const from = pi === start.para ? start.offset : 0;
+    const to = pi === end.para ? end.offset : paraLength(p);
+    if (to <= from) continue;
+    splitAt(p, to);
+    const i1 = splitAt(p, from);
+    let acc = 0;
+    for (let ri = 0; ri < p.runs.length; ri++) {
+      const rs = acc;
+      acc += p.runs[ri]!.text.length;
+      if (ri < i1) continue;
+      if (rs >= to) break;
+      clearRun(p.runs[ri]!, opts);
+    }
+    normalizeParagraph(p);
+  }
+}
+
+/** clearRunFormatting de um run só. */
+export function clearRun(run: Run, opts: { fields?: readonly (keyof RunProps)[]; charStyle?: string | null } = {}): void {
+  const rpr = clearedRPr(run.rpr, opts.fields);
+  const old = run.props;
+  const base = editBaseProps({ ...run, rpr }, rpr);
+  const next: RunProps = opts.fields ? { ...old } : { ...base };
+  if (opts.fields) for (const k of opts.fields) (next as unknown as Record<string, unknown>)[k] = (base as unknown as Record<string, unknown>)[k];
+  for (const k of ['src', 'link', 'isMath', 'commentIds'] as const) {
+    if (old[k] !== undefined) (next as unknown as Record<string, unknown>)[k] = old[k];
+  }
+  if (opts.charStyle !== null && opts.charStyle !== undefined) next.charStyle = opts.charStyle;
+  else if (opts.charStyle === undefined && !opts.fields) delete next.charStyle;
+  else if (opts.charStyle === null) { if (old.charStyle !== undefined) next.charStyle = old.charStyle; else delete next.charStyle; }
+  run.rpr = rpr;
+  run.rprEdited = true;
+  run.props = next;
+}
+
+/** Tira a formatação direta de PARÁGRAFO (mantém o estilo, a marca ¶, a seção). */
+export function clearParaFormatting(model: DocumentModel, range: DocRange): void {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) clearPara(model.paragraphs[pi]!);
+}
+
+export function clearPara(p: Paragraph): void {
+  const ppr = clearedPPr(p.ppr);
+  const old = p.props;
+  const next: ParaProps = { ...paraPropsFromPPr(ppr) };
+  if (old.styleId !== undefined) next.styleId = old.styleId; else delete next.styleId;
+  for (const k of ['src', 'sectionBreak', 'tocInstr', 'tocEntry'] as const) {
+    if (old[k] !== undefined) (next as Record<string, unknown>)[k] = old[k];
+  }
+  p.ppr = ppr;
+  p.pprEdited = true;
+  p.props = next;
 }

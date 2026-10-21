@@ -161,6 +161,7 @@ export function directRPr(run: Run): RPr {
     if (p.highlight) base.highlight = p.highlight;
     if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
+    if (p.charStyle) base.rStyle = p.charStyle;
     return base;
   }
   if (p.bold !== orig.bold) base.b = p.bold;
@@ -181,6 +182,7 @@ export function directRPr(run: Run): RPr {
     else base.rFonts = { ...base.rFonts, ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii, asciiTheme: undefined, hAnsiTheme: undefined, cstheme: undefined };
   }
   if (p.charSpacingTwips !== orig.charSpacingTwips) { if (!p.charSpacingTwips) delete base.spacing; else base.spacing = p.charSpacingTwips; }
+  if (p.charStyle !== orig.charStyle) { if (p.charStyle === undefined) delete base.rStyle; else base.rStyle = p.charStyle; }
   return base;
 }
 

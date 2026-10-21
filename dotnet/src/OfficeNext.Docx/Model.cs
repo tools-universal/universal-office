@@ -28,6 +28,8 @@ public sealed class RunProps
     public int? CharSpacingTwips;
     /// <summary>URL do w:hyperlink que envolve o run.</summary>
     public string? Link;
+    /// <summary>Estilo de caractere (w:rStyle) — vinculado em parte do parágrafo usa o par "…Char".</summary>
+    public string? CharStyle;
     public bool IsMath;
     /// <summary>Comentários cujo intervalo cobre este run.</summary>
     public List<int>? CommentIds;
@@ -39,7 +41,7 @@ public sealed class RunProps
         Strike = Strike, DoubleStrike = DoubleStrike, VertAlign = VertAlign,
         SzHalfPt = SzHalfPt, Color = Color, Highlight = Highlight, FontAscii = FontAscii,
         AllCaps = AllCaps, SmallCaps = SmallCaps, CharSpacingTwips = CharSpacingTwips,
-        Link = Link, IsMath = IsMath,
+        Link = Link, CharStyle = CharStyle, IsMath = IsMath,
         CommentIds = CommentIds is null ? null : new List<int>(CommentIds),
     };
 }

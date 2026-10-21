@@ -208,6 +208,7 @@ public sealed class DocContext
             if (Js.Truthy(p.Highlight)) b.Highlight = p.Highlight;
             if (Js.Truthy(p.FontAscii)) b.RFonts = new RFonts { Ascii = p.FontAscii, HAnsi = p.FontAscii, Cs = p.FontAscii };
             if (p.CharSpacingTwips is { } cs && cs != 0) b.Spacing = cs;
+            if (Js.Truthy(p.CharStyle)) b.RStyle = p.CharStyle;
             return b;
         }
         if (p.Bold != orig.Bold) b.B = p.Bold;
@@ -241,6 +242,7 @@ public sealed class DocContext
         {
             if (p.CharSpacingTwips is null or 0) b.Spacing = null; else b.Spacing = p.CharSpacingTwips;
         }
+        if (p.CharStyle != orig.CharStyle) b.RStyle = p.CharStyle;
         return b;
     }
 

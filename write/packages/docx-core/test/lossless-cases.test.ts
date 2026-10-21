@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DocxPackage, readFullDocument, writeDocument, markSectionBreaks, insertText, applyRunProps, insertRun,
+  clearRunFormatting, clearParaFormatting,
   type FullDocument, type Paragraph, type Block, type HfPartInfo,
 } from '../src/index.js';
 
@@ -151,5 +152,42 @@ describe('gravação sem perdas — casos', () => {
     expect(num).toContain('<w:numFmt w:val="upperRoman"/>');
     save(pkg, full);
     expect(pkg.getPartText('word/numbering.xml')).toBe(num);
+  });
+
+  it('limpar formatação direta de caractere: os elementos saem do XML, idioma e estilo ficam', () => {
+    const pkg = make('<w:p><w:r><w:rPr><w:rStyle w:val="nfase"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="28"/><w:lang w:val="pt-BR"/></w:rPr><w:t>alfa</w:t></w:r><w:r><w:t> beta</w:t></w:r></w:p>');
+    const full = open(pkg);
+    const m = model(full);
+    clearRunFormatting(m, { start: { para: 0, offset: 0 }, end: { para: 0, offset: 4 } }, { charStyle: null });
+    expect(m.paragraphs[0]!.runs[0]!.props).toMatchObject({ bold: false, charStyle: 'nfase' });
+    const xml = save(pkg, full);
+    expect(xml).toContain('<w:rPr><w:rStyle w:val="nfase"/><w:lang w:val="pt-BR"/></w:rPr><w:t>alfa</w:t>');
+    expect(xml).not.toContain('w:val="0"');
+  });
+
+  it('aplicar estilo de caractere tira o direto e troca o rStyle', () => {
+    const pkg = make('<w:p><w:r><w:rPr><w:rStyle w:val="nfase"/><w:i/></w:rPr><w:t>alfa</w:t></w:r></w:p>');
+    const full = open(pkg);
+    clearRunFormatting(model(full), { start: { para: 0, offset: 0 }, end: { para: 0, offset: 4 } }, { charStyle: 'Forte' });
+    expect(save(pkg, full)).toContain('<w:r><w:rPr><w:rStyle w:val="Forte"/></w:rPr><w:t>alfa</w:t></w:r>');
+  });
+
+  it('só os campos uniformes (aplicar estilo de parágrafo): b sai sem virar b=0', () => {
+    const pkg = make('<w:p><w:r><w:rPr><w:b/><w:color w:val="FF0000"/></w:rPr><w:t>alfa</w:t></w:r></w:p>');
+    const full = open(pkg);
+    clearRunFormatting(model(full), { start: { para: 0, offset: 0 }, end: { para: 0, offset: 4 } }, { fields: ['bold'], charStyle: null });
+    const xml = save(pkg, full);
+    expect(xml).toContain('<w:rPr><w:color w:val="FF0000"/></w:rPr>');
+    expect(xml).not.toMatch(/<w:b[ /]/);
+  });
+
+  it('limpar formatação de parágrafo: jc/spacing/ind saem; pStyle e marca ¶ ficam', () => {
+    const pkg = make('<w:p><w:pPr><w:pStyle w:val="Ttulo1"/><w:keepNext/><w:spacing w:after="480"/><w:ind w:left="720"/><w:jc w:val="center"/><w:rPr><w:color w:val="FF0000"/></w:rPr></w:pPr><w:r><w:t>alfa</w:t></w:r></w:p>');
+    const full = open(pkg);
+    const m = model(full);
+    clearParaFormatting(m, { start: { para: 0, offset: 0 }, end: { para: 0, offset: 0 } });
+    expect(m.paragraphs[0]!.props).toMatchObject({ styleId: 'Ttulo1' });
+    expect(m.paragraphs[0]!.props.alignment).toBeUndefined();
+    expect(save(pkg, full)).toContain('<w:pPr><w:pStyle w:val="Ttulo1"/><w:rPr><w:color w:val="FF0000"/></w:rPr></w:pPr>');
   });
 });
