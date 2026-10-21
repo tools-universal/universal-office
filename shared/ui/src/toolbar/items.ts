@@ -4,11 +4,15 @@
 import { symbol } from './icons.js';
 import { isMenuOpenFor, openMenu, closeMenus } from './menu.js';
 import type { BarContext, BarItem, MenuSource } from './types.js';
+import { renderGallery } from './gallery.js';
 
 export interface RenderedItem {
   el: HTMLElement;
   sync(): void;
   visible(): boolean;
+  /** px que o item pode ceder (galeria) e ceder (0 = cheio) — ribbon elástica */
+  shrink?(): number;
+  fit?(px: number): void;
 }
 
 export function ripple(el: HTMLElement): void {
@@ -41,6 +45,8 @@ const CHEV = (): string => `<span class="uo-chev">${symbol('arrow_drop_down')}</
 export function renderItem(item: BarItem, ctx: BarContext, defSize: 'small' | 'large' = 'small'): RenderedItem {
   const reg = ctx.registry;
   if (typeof item === 'string') item = { cmd: item };
+
+  if ('gallery' in item) return renderGallery(item.gallery, ctx, defSize === 'large');
 
   if ('widget' in item) {
     const w = item.widget(ctx);

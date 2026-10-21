@@ -238,6 +238,7 @@ export function createRibbon(container: HTMLElement, cfg: RibbonConfig, ctx: Bar
     if (!t || !root.isConnected || collapsed || t.panel.clientWidth === 0) return;
     closePopover();
     const vis = t.groups.filter((g) => g.visible);
+    for (const g of t.groups) for (const r of g.items) r.fit?.(0);
     if (!t.measured || vis.some((g) => g.width === 0)) {
       for (const g of vis) t.panel.appendChild(g.el);
       t.panel.querySelectorAll(':scope > .uo-rtrig').forEach((e) => e.remove());
@@ -245,7 +246,8 @@ export function createRibbon(container: HTMLElement, cfg: RibbonConfig, ctx: Bar
       t.measured = true;
     }
     t.panel.querySelectorAll(':scope > .uo-rtrig').forEach((e) => e.remove());
-    const plan = planCollapse(vis.map((g) => ({ prio: g.def.prio ?? 5, width: g.width })),
+    const shrinkOf = (g: GroupState): number => g.items.reduce((s, r) => s + (r.shrink?.() ?? 0), 0);
+    const plan = planCollapse(vis.map((g) => ({ prio: g.def.prio ?? 5, width: g.width, shrink: shrinkOf(g) })),
       t.panel.clientWidth - PAD, { trigW: TRIG_W, moreW: MORE_W });
     for (const g of t.groups) t.stash.appendChild(g.el);
     // ordem original: grupos inline e gatilhos intercalados como no Word
@@ -255,6 +257,16 @@ export function createRibbon(container: HTMLElement, cfg: RibbonConfig, ctx: Bar
       else if (trig.has(i)) t.panel.appendChild(makeTrigger(t, g));
     });
     if (plan.more.length) t.panel.appendChild(makeMore(t, plan.more.map((i) => vis[i]!)));
+    // grupos elásticos (galeria) cedem o que falta
+    plan.give?.forEach((px, i) => {
+      let left = px;
+      for (const r of vis[i]!.items) {
+        if (!r.fit || left <= 0) continue;
+        const s = Math.min(r.shrink!(), left);
+        r.fit(s);
+        left -= s;
+      }
+    });
   };
 
   let raf = 0;

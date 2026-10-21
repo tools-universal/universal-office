@@ -39,6 +39,20 @@ describe('planCollapse (escada de prioridade)', () => {
     expect(p.inline).toEqual([0]);
   });
 
+  it('grupo elástico (galeria) cede largura antes de qualquer grupo recolher', () => {
+    const p = planCollapse([{ prio: 5, width: 300 }, { prio: 8, width: 600, shrink: 300 }], 700, opts);
+    expect(p.inline).toEqual([0, 1]);
+    expect(p.triggers).toEqual([]);
+    expect(p.give).toEqual([0, 200]);
+  });
+
+  it('nem o elástico no mínimo cabe: recolhe e o elástico cede só o que falta', () => {
+    const p = planCollapse([{ prio: 5, width: 300 }, { prio: 8, width: 600, shrink: 300 }], 500, opts);
+    expect(p.inline).toEqual([1]);
+    expect(p.triggers).toEqual([0]);
+    expect(p.give).toEqual([0, 150]);
+  });
+
   it('empate de prioridade: recolhe o da direita primeiro', () => {
     const p = planCollapse([{ prio: 8, width: 200 }, { prio: 8, width: 200 }], 300, opts);
     expect(p.inline).toEqual([0]);

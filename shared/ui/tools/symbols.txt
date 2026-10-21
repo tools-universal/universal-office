@@ -139,3 +139,14 @@ horizontal_split
 looks_one
 looks_two
 view_week
+view_sidebar
+manage_search
+format_h1
+format_h2
+format_h3
+expand_more
+bookmark_remove
+bookmark_add
+drive_file_rename_outline
+refresh
+edit

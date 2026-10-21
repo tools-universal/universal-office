@@ -247,6 +247,43 @@ export const BAR_CSS = /* css */ `
 .uo-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
 .uo-dialog-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; }
 
+/* ── galeria (estilos, temas…) ── */
+.uo-gal {
+  display: inline-flex; align-items: stretch; flex: none; margin: 2px 2px 0;
+  border: 1px solid ${OUTLINE_VAR}; border-radius: 10px; background: ${LOWEST}; overflow: hidden;
+}
+.uo-gal.uo-disabled { opacity: .5; }
+.uo-gal-view { overflow: hidden; padding: 3px; flex: none; }
+.uo-gal-grid { display: grid; gap: 2px; transition: transform .12s ease-out; }
+.uo-gal-tile {
+  position: relative; display: block; padding: 0; margin: 0; overflow: hidden; cursor: pointer;
+  border: 1px solid transparent; border-radius: 7px; background: transparent; color: ${ON}; font: inherit; text-align: left;
+}
+.uo-gal-tile:hover:not(:disabled) { background: ${HIGHEST}; border-color: ${OUTLINE_VAR}; }
+.uo-gal-tile.uo-on { border-color: ${PRIMARY}; background: ${ACTIVE}; }
+.uo-gal-tile:focus-visible { outline: 2px solid ${PRIMARY}; outline-offset: -2px; }
+.uo-gal-tile:disabled { cursor: default; }
+.uo-gal-nav { display: flex; flex-direction: column; border-left: 1px solid ${OUTLINE_VAR}; flex: none; }
+.uo-gal-nav-btn { flex: 1 1 0; height: auto; min-height: 0; width: 22px; min-width: 22px; padding: 0; border-radius: 0; }
+.uo-gal-nav-btn .uo-ic { width: 16px; height: 16px; }
+.uo-gal-pop { padding: 8px; max-height: min(80vh, 640px); overflow: auto; }
+.uo-gal-pop .uo-gal-grid { margin: 0 0 6px; }
+.uo-gal-foot { border-top: 1px solid ${OUTLINE_VAR}; padding-top: 4px; }
+.uo-gal-trigger { min-width: 120px; }
+
+/* ── painel lateral ── */
+.uo-pane {
+  position: fixed; z-index: 940; display: flex; flex-direction: column;
+  font-family: var(--uo-font, "Segoe UI", system-ui, -apple-system, sans-serif); font-size: 13.5px; color: ${ON};
+  background: ${SURFACE}; border-left: 1px solid ${OUTLINE_VAR}; box-shadow: -4px 0 16px ${SHADOW}; box-sizing: border-box;
+}
+.uo-pane * { box-sizing: border-box; }
+.uo-pane [hidden] { display: none !important; }
+.uo-pane-head { display: flex; align-items: center; gap: 8px; padding: 10px 6px 6px 16px; flex: none; }
+.uo-pane-title { flex: 1 1 auto; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uo-pane-body { flex: 1 1 auto; overflow: auto; padding: 2px 8px 8px; min-height: 0; }
+.uo-pane-foot { flex: none; display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid ${OUTLINE_VAR}; }
+
 /* ── aviso (snackbar) ── */
 .uo-toast {
   position: fixed; z-index: 1100; left: 50%; bottom: 28px; transform: translateX(-50%);

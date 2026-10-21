@@ -68,7 +68,9 @@ export type BarItem =
     }
   /** botão dividido: a parte principal roda o comando, a seta abre o menu */
   | { split: string; menu: MenuSource; size?: 'small' | 'large' }
-  | { widget: (ctx: BarContext) => BarWidget };
+  | { widget: (ctx: BarContext) => BarWidget }
+  /** galeria de miniaturas (ribbon: faixa elástica com ▲ ▼ ⌄; compacta: botão que abre a grade) */
+  | { gallery: import('./gallery.js').GalleryConfig };
 
 /** Célula da ribbon: um item grande, ou até 3 linhas de itens pequenos. */
 export type RibbonCell = BarItem | { rows: BarItem[][] };
