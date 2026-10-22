@@ -28,7 +28,7 @@ export const EMU_PER_TW = 635;
 
 /** Trocas por posição no XML cru (parseXml com positions). Aplicadas do fim
  *  para o começo — as posições lidas continuam válidas até o apply(). */
-class XmlPatch {
+export class XmlPatch {
   private edits: { s: number; e: number; text: string }[] = [];
   constructor(readonly src: string) {}
   /** fim da tag de abertura (posição logo depois do '>'). */
@@ -82,14 +82,14 @@ class XmlPatch {
   }
 }
 
-function escAttr(s: string): string {
+export function escAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** Ordens do esquema (CT_Anchor, CT_Inline, CT_ShapeProperties, …). */
-const ANCHOR_ORDER = ['wp:simplePos', 'wp:positionH', 'wp:positionV', 'wp:extent', 'wp:effectExtent', 'wp:wrapNone', 'wp:wrapSquare', 'wp:wrapTight', 'wp:wrapThrough', 'wp:wrapTopAndBottom', 'wp:docPr', 'wp:cNvGraphicFramePr', 'a:graphic', 'wp14:sizeRelH', 'wp14:sizeRelV'] as const;
+export const ANCHOR_ORDER = ['wp:simplePos', 'wp:positionH', 'wp:positionV', 'wp:extent', 'wp:effectExtent', 'wp:wrapNone', 'wp:wrapSquare', 'wp:wrapTight', 'wp:wrapThrough', 'wp:wrapTopAndBottom', 'wp:docPr', 'wp:cNvGraphicFramePr', 'a:graphic', 'wp14:sizeRelH', 'wp14:sizeRelV'] as const;
 const INLINE_ORDER = ['wp:extent', 'wp:effectExtent', 'wp:docPr', 'wp:cNvGraphicFramePr', 'a:graphic'] as const;
-const SPPR_ORDER = ['a:xfrm', 'a:custGeom', 'a:prstGeom', 'a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill', 'a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst'] as const;
+export const SPPR_ORDER = ['a:xfrm', 'a:custGeom', 'a:prstGeom', 'a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill', 'a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst'] as const;
 const EFFECT_ORDER = ['a:blur', 'a:fillOverlay', 'a:glow', 'a:innerShdw', 'a:outerShdw', 'a:prstShdw', 'a:reflection', 'a:softEdge'] as const;
 const BLIPFILL_ORDER = ['a:blip', 'a:srcRect', 'a:tile', 'a:stretch'] as const;
 const WRAP_NAMES = ['wp:wrapNone', 'wp:wrapSquare', 'wp:wrapTight', 'wp:wrapThrough', 'wp:wrapTopAndBottom'];
@@ -281,7 +281,7 @@ const int = (v: string | undefined, d = 0): number => {
 };
 const bool = (v: string | undefined, d = false): boolean => (v === undefined ? d : v === '1' || v === 'true' || v === 'on');
 
-function findDeep(el: XmlElement, name: string): XmlElement | undefined {
+export function findDeep(el: XmlElement, name: string): XmlElement | undefined {
   for (const c of childElements(el)) {
     if (c.name === name) return c;
     const f = findDeep(c, name);
@@ -290,25 +290,29 @@ function findDeep(el: XmlElement, name: string): XmlElement | undefined {
   return undefined;
 }
 
-interface Parts {
+export interface Parts {
   root: XmlElement;
   container: XmlElement;
   pic: XmlElement | undefined;
+  /** forma/caixa de texto (wps:wsp) — o spPr dela faz o papel do pic:spPr */
+  wsp: XmlElement | undefined;
   spPr: XmlElement | undefined;
   blipFill: XmlElement | undefined;
   blip: XmlElement | undefined;
 }
 
-function partsOf(raw: string): Parts {
+/** Partes de um w:drawing cru (lido com posições — XmlPatch). */
+export function partsOf(raw: string): Parts {
   const root = parseXml(raw, { positions: true });
   const container = firstChild(root, 'wp:anchor') ?? firstChild(root, 'wp:inline');
   if (!container) throw new Error('w:drawing sem wp:inline/wp:anchor');
   const gd = findDeep(container, 'a:graphicData');
   const pic = gd && firstChild(gd, 'pic:pic');
-  const spPr = pic && firstChild(pic, 'pic:spPr');
+  const wsp = !pic && gd ? firstChild(gd, 'wps:wsp') : undefined;
+  const spPr = pic ? firstChild(pic, 'pic:spPr') : wsp && firstChild(wsp, 'wps:spPr');
   const blipFill = pic && firstChild(pic, 'pic:blipFill');
   const blip = blipFill && firstChild(blipFill, 'a:blip');
-  return { root, container, pic, spPr, blipFill, blip };
+  return { root, container, pic, wsp, spPr, blipFill, blip };
 }
 
 function readPos(el: XmlElement | undefined): PicPos | undefined {
@@ -459,10 +463,11 @@ function readBlip(blip: XmlElement | undefined): PicBlipFx {
 }
 
 /** Formatação da imagem de um w:drawing cru (undefined se não for imagem). */
-export function readPictureFormat(raw: string): PictureFormat | undefined {
+export function readPictureFormat(raw: string, opts: { anyShape?: boolean } = {}): PictureFormat | undefined {
   let p: Parts;
   try { p = partsOf(raw); } catch { return undefined; }
-  if (!p.pic) return undefined;
+  // (anyShape: as partes comuns de uma forma wps — âncora, docPr, xfrm, contorno, efeitos)
+  if (!p.pic && !(opts.anyShape && p.wsp)) return undefined;
   rawSrc = raw;
   const c = p.container;
   const inline = c.name === 'wp:inline';
@@ -853,6 +858,19 @@ function patchLocks(raw: string, on: boolean): string {
     if (fp) patch.setContent(fp, lx);
     else patch.insertChild(c, 'wp:cNvGraphicFramePr', `<wp:cNvGraphicFramePr>${lx}</wp:cNvGraphicFramePr>`, c.name === 'wp:inline' ? INLINE_ORDER : ANCHOR_ORDER);
   }
+  // forma (wps): o Word grava também a:spLocks no wps:cNvSpPr (oráculo textbox-lab lock-aspect)
+  const nv = p.wsp && firstChild(p.wsp, 'wps:cNvSpPr');
+  if (nv) {
+    const sl = firstChild(nv, 'a:spLocks');
+    if (sl) {
+      const others = Object.keys(sl.attrs).filter((k) => k !== 'noChangeAspect');
+      if (!on && !others.length && sl.cs === sl.e) patch.remove(sl);
+      else patch.setAttrs(sl, { noChangeAspect: on ? 1 : undefined });
+    } else if (on) {
+      if (nv.cs === nv.e) patch.setContent(nv, '<a:spLocks noChangeAspect="1"/>');
+      else patch.insertAt(nv.cs!, '<a:spLocks noChangeAspect="1"/>');
+    }
+  }
   return patch.apply();
 }
 
@@ -926,7 +944,7 @@ function patchDecorative(raw: string, on: boolean): string {
 
 function patchPic(raw: string, ch: PictureChange): string {
   const p = partsOf(raw);
-  if (!p.pic) return raw;
+  if (!p.pic && !p.wsp) return raw;
   const patch = new XmlPatch(raw);
   const sp = p.spPr;
   if (sp) {

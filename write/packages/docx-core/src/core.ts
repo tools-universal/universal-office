@@ -164,6 +164,11 @@ export {
   type PictureFormat, type PictureChange, type PicWrapKind, type PicPos, type PicLine, type PicShadow, type PicReflection,
   type PicEffects, type Pic3D, type PicBlipFx, type DmlColor,
 } from './picture-xml.js';
+export {
+  readShapeFormat, patchShape, newTextboxDrawingXml, vmlFallback, textboxAlternateContent, txbxContentOf, shapeFillXml, styleRefsXml, bodyPrXml,
+  hiddenLineXml, vmlPt, vmlColorOf, DEFAULT_TEXTBOX_BODY, NEW_TEXTBOX_LINE, NEW_TEXTBOX_FILL,
+  type ShapeFormat, type ShapeChange, type ShapeFill, type ShapeStyleRefs, type TextboxBody, type NewTextboxOptions,
+} from './shape-xml.js';
 export * as tableOps from './table-ops.js';
 export type { CellRect, GridCell, TableMap, NewTableOptions, BorderKind, TextSeparator, MergeOptions, SplitOptions } from './table-ops.js';
 export { tblPrXml, trPrXml, tcPrXml as tcPrTypedXml, patchTblPr, patchTrPr, patchTcPr, deepEq } from './table-xml.js';
