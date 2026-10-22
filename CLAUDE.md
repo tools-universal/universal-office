@@ -68,6 +68,19 @@ transparente no PowerPoint; linha sem `c:smooth` sai SUAVE; série além da 6ª 
 estilos monocromáticos variam em RGB linear; data curta "m/d/yyyy" segue o
 locale.
 
+## Formas e efeitos DrawingML: um lugar só
+
+As formas predefinidas (as definições oficiais, `preset-defs.ts`), os modificadores
+de cor (`applyColorMods`: shade/tint em RGB linear — vale no Word também), os
+efeitos em raster (sombra, brilho, bordas suaves, reflexo), o chanfro 3D (luz
+medida no PowerPoint e, para imagens, no Word), os ajustes de imagem do Office
+2010 e o contorno de quebra ficam em `shared/drawingml`
+(`@universal-office/drawingml`) — Slides e Write usam o mesmo; não reimplementar
+nos apps. O .NET (`OfficeNext.DrawingML`) lê as MESMAS tabelas dos arquivos TS
+como recurso embutido. Charts e slides-core ainda têm cópias próprias da
+matemática de cor (migrar para cá é sequência).
+
+
 ## Controles dos viewers: um lugar só
 
 A barra de controles dos viewers (`<universal-presentation-viewer>`,
@@ -131,10 +144,10 @@ números estão no README do pacote.
 
 ## Pacotes: fronteira só com motivo
 
-São 15 pacotes (consolidados em 2026-10-19 a partir de 21; `spell` entrou depois). Pacote novo só
+São 16 pacotes (consolidados em 2026-10-19 a partir de 21; `spell` e `drawingml` entraram depois). Pacote novo só
 entra com um motivo real: (1) é um PRODUTO separado — um web component com
 licença própria (gratuito × `-pro`); ou (2) é um motor usado por mais de um
-app ou sem DOM fora dos apps (`fonts`, `charts`, `ui`, `spell`, `sheet-calc`). O resto
+app ou sem DOM fora dos apps (`fonts`, `charts`, `ui`, `spell`, `sheet-calc`, `drawingml`). O resto
 fica como pasta dentro do pacote dono: conversões de formato em
 `<app>-core/src/export` (e `docx-core/src/odf`), base tipográfica e PDF do
 Write em `docx-layout/src/typography` e `src/pdf-writer`. Módulos movidos para
@@ -148,7 +161,7 @@ Publicação: só os 6 PRODUTOS vão para o registro (`write`, `document-viewer`
 — `npm run build:pkg` (`tools/build-pkg.mjs`) gera `<pacote>/publish/` (fora
 do git) com tudo dentro: pacotes internos pelo src, dependências npm, partes
 sob demanda em `chunks/`, `index.d.ts` único e package.json sem dependências.
-Publicar de dentro de `publish/`. Os 9 internos são `private` e nunca são
+Publicar de dentro de `publish/`. Os 10 internos são `private` e nunca são
 publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
 consomem entre si (ordem de build: write → slides → sheet; o Sheet usa o
 `dist/` do slides-core).
