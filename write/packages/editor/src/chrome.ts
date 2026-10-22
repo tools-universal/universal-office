@@ -31,6 +31,7 @@ import { shapeContextItems } from './chrome-shape.js';
 import { tableContextItems } from './chrome-table.js';
 import { alignTabDialog, dateTimeDialog, hfOptionsDialog, pageNumberFormatDialog } from './chrome-hf.js';
 import { pageFillDialog, watermarkDialog } from './chrome-page.js';
+import { hyphenationDialog, manualHyphenationDialog } from './chrome-textlayout.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
 import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
@@ -487,7 +488,11 @@ class WriteChrome {
       image: () => this.pickImage(),
       fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
-      pageDialog: () => { void pageDialog(d()).then(() => this.after()); },
+      pageDialog: (tab) => { void pageDialog(d(), tab).then(() => this.after()); },
+      textLayoutDialog: (kind) => {
+        const dlg = kind === 'hyphenation' ? hyphenationDialog : manualHyphenationDialog;
+        void dlg(d()).then(() => this.after());
+      },
       columnsDialog: () => { void columnsDialog(d()).then(() => this.after()); },
       notesDialog: () => { void notesDialog(d()).then(() => this.after()); },
       convertNotesDialog: () => { void convertNotesDialog(d()).then(() => this.after()); },

@@ -2,8 +2,11 @@
 // Fonte, Parágrafo, Configurar Página, link, comentário, contar palavras,
 // atalhos e sobre. Todos sobre o openDialog de @universal-office/ui (<dialog>
 // nativo — sem a trava de animação do u-dialog).
-import { openDialog, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
-import type { SectionApplyTo, UniversalWriteElement } from './universal-write.js';
+import { dialogTabs, formatMeasure, openDialog, parseMeasure, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
+import type { SectionType } from '@universal-office/docx-core';
+import type { LineNumberingOptions, SectionApplyTo, UniversalWriteElement } from './universal-write.js';
+import { lineNumbersDialog } from './chrome-textlayout.js';
+import { tableDialog } from './chrome-table-dialogs.js';
 import type { WriteApp } from './chrome-app.js';
 import { originStore } from './chrome-store.js';
 
@@ -115,11 +118,12 @@ const parseUnit = (v: string, u: { tw: number }): number => {
 const unitInput = (name: string, tw: number, u: { tw: number; step: string }, lang: UiLang, min?: number): HTMLInputElement =>
   el('input', { type: 'text', name, value: fmtUnit(tw, u, lang), inputMode: 'decimal', style: 'width:96px', ...(min !== undefined ? { dataset: { min: String(min) } } as never : {}) });
 
-export async function paragraphDialog(env: Env): Promise<void> {
+export async function paragraphDialog(env: Env, tab: 'indents' | 'breaks' = 'indents'): Promise<void> {
   const L = env.app.ui!.L, lang = env.lang;
   const p = env.state().para;
   const u = unitOf(lang);
   const ind = env.ed.getParagraphIndents();
+  const lay = typeof env.ed.getParagraphLayout === 'function' ? env.ed.getParagraphLayout() : null;
   const align = select('align', [['left', tr(lang, 'Left', 'Esquerda')], ['center', tr(lang, 'Centered', 'Centralizada')],
     ['right', tr(lang, 'Right', 'Direita')], ['both', tr(lang, 'Justified', 'Justificada')]], (p.alignment as string | undefined) ?? 'left');
   // Recuo: esquerdo, direito, especial (primeira linha / deslocamento) e "Por"
@@ -135,9 +139,13 @@ export async function paragraphDialog(env: Env): Promise<void> {
   };
   special.addEventListener('change', syncBy);
   if (special.value === 'none') { by.value = ''; by.disabled = true; }
-  const pt = (tw: number | undefined): string => String(Math.round((tw ?? 0) / 2) / 10);
-  const before = el('input', { type: 'number', name: 'before', min: '0', step: '6', value: pt(p.spaceBeforeTwips as number | undefined) });
-  const after = el('input', { type: 'number', name: 'after', min: '0', step: '6', value: pt(p.spaceAfterTwips as number | undefined) });
+  // Espaçamento antes/depois em pt, com "Automático" (w:beforeAutospacing — oráculo textlayout-lab sp-*);
+  // vazio = os parágrafos selecionados diferem (fica como está)
+  const autoTxt = tr(lang, 'Auto', 'Automático');
+  const spText = (v: number | 'auto' | null | undefined): string => (v === null || v === undefined ? '' : v === 'auto' ? autoTxt : formatMeasure(v, 'pt', lang));
+  const before = el('input', { type: 'text', name: 'before', inputMode: 'decimal', style: 'width:96px', value: spText(lay ? lay.before : (p.spaceBeforeTwips as number | undefined) ?? 0) });
+  const after = el('input', { type: 'text', name: 'after', inputMode: 'decimal', style: 'width:96px', value: spText(lay ? lay.after : (p.spaceAfterTwips as number | undefined) ?? 0) });
+  const spStart = { before: before.value, after: after.value };
   const dec = tr(lang, '.', ',');
   const line = select('line', [['240', `1${dec}0`], ['259', `1${dec}08`], ['276', `1${dec}15`], ['360', `1${dec}5`], ['480', `2${dec}0`]],
     String((p.lineTwentieths as number | undefined) ?? 259));
@@ -148,7 +156,36 @@ export async function paragraphDialog(env: Env): Promise<void> {
     el('span', {}, tr(lang, 'Right indent', 'Recuo à direita')), withUnit(right),
     el('span', {}, L.specialIndent), el('span', { style: 'display:flex;gap:6px;align-items:center' }, special, withUnit(by)),
     el('span', {}, L.before), before, el('span', {}, L.after), after, el('span', {}, L.lineSpacing), line);
-  const h = openDialog({ title: L.paraDlg, body: grid, layer: env.layer, lang, width: 460,
+  // Quebras de linha e de página: paginação, exceções de formatação e ajuste rígido
+  // (valores efetivos; misto = indeterminado e fica como está — getParagraphFlow)
+  const flow = typeof env.ed.getParagraphFlow === 'function' ? env.ed.getParagraphFlow() : null;
+  const flag = (name: keyof NonNullable<typeof flow>, label: string): HTMLLabelElement => {
+    const v = flow?.[name] as boolean | null | undefined;
+    const i = el('input', { type: 'checkbox', name, checked: !!v });
+    if (v === null) i.indeterminate = true;
+    i.addEventListener('change', () => { i.dataset['touched'] = '1'; });
+    return el('label', { className: 'uo-check' }, i, label);
+  };
+  const tight = select('tight', [['none', tr(lang, 'None', 'Nenhum')], ['allLines', tr(lang, 'All', 'Todas')],
+    ['firstAndLastLine', tr(lang, 'First and last lines', 'Primeira e última linhas')], ['firstLineOnly', tr(lang, 'First line only', 'Somente primeira linha')],
+    ['lastLineOnly', tr(lang, 'Last line only', 'Somente última linha')]], flow?.textboxTightWrap ?? '');
+  if (!flow?.textboxTightWrap) tight.selectedIndex = -1;
+  const breaks = el('div', { style: 'display:flex;flex-direction:column;gap:8px' },
+    el('strong', {}, tr(lang, 'Pagination', 'Paginação')),
+    flag('widowControl', tr(lang, 'Widow/Orphan control', 'Controle de linhas órfãs/viúvas')),
+    flag('keepNext', tr(lang, 'Keep with next', 'Manter com o próximo')),
+    flag('keepLines', tr(lang, 'Keep lines together', 'Manter linhas juntas')),
+    flag('pageBreakBefore', tr(lang, 'Page break before', 'Quebrar página antes')),
+    el('strong', { style: 'margin-top:6px' }, tr(lang, 'Formatting exceptions', 'Exceções de formatação')),
+    flag('suppressLineNumbers', tr(lang, 'Suppress line numbers', 'Suprimir números de linha')),
+    flag('suppressAutoHyphens', tr(lang, "Don't hyphenate", 'Não hifenizar')),
+    el('strong', { style: 'margin-top:6px' }, tr(lang, 'Textbox options', 'Opções de caixa de texto')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Tight wrap:', 'Ajuste rígido:')), tight));
+  const tabs = dialogTabs([
+    { id: 'indents', label: tr(lang, 'Indents and Spacing', 'Recuos e espaçamento'), body: grid },
+    { id: 'breaks', label: tr(lang, 'Line and Page Breaks', 'Quebras de linha e de página'), body: breaks },
+  ], tab);
+  const h = openDialog({ title: L.paraDlg, body: tabs.el, layer: env.layer, lang, width: 480,
     actions: [{ id: 'tabs', label: tr(lang, 'Tabs…', 'Tabulação…') }, { id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   const res = await h.result;
   if (res !== 'ok' && res !== 'tabs') return;
@@ -162,9 +199,26 @@ export async function paragraphDialog(env: Env): Promise<void> {
   if (Number.isFinite(nr) && nr !== ind.right) patch.right = nr;
   if (Number.isFinite(nf) && nf !== ind.firstLine) patch.firstLine = nf;
   if (Object.keys(patch).length) ed.setParagraphIndents(patch);
-  ed.setSpaceBefore(Math.round(Number(before.value) * 20));
-  ed.setSpaceAfter(Math.round(Number(after.value) * 20));
+  // espaçamento: só o que mudou (o valor vale para todos os parágrafos; igual ao herdado não é gravado)
+  const spVal = (s: string): number | 'auto' | null => (s.trim().toLowerCase() === autoTxt.toLowerCase() ? 'auto' : parseMeasure(s, 'pt'));
+  const sp: { before?: number | 'auto'; after?: number | 'auto' } = {};
+  if (before.value !== spStart.before) { const v = spVal(before.value); if (v !== null) sp.before = v; }
+  if (after.value !== spStart.after) { const v = spVal(after.value); if (v !== null) sp.after = v; }
+  if (Object.keys(sp).length) {
+    if (typeof ed.setParagraphLayout === 'function') ed.setParagraphLayout(sp);
+    else {
+      if (typeof sp.before === 'number') ed.setSpaceBefore(sp.before);
+      if (typeof sp.after === 'number') ed.setSpaceAfter(sp.after);
+    }
+  }
   ed.setLineSpacing(Number(line.value));
+  // quebras de linha e de página: só as caixas que o usuário mexeu
+  if (flow && typeof ed.setParagraphFlow === 'function') {
+    const f: Parameters<UniversalWriteElement['setParagraphFlow']>[0] = {};
+    for (const i of breaks.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-touched]')) (f as Record<string, boolean>)[i.name] = i.checked;
+    if (tight.value && tight.value !== (flow.textboxTightWrap ?? '')) f.textboxTightWrap = tight.value as NonNullable<typeof flow.textboxTightWrap>;
+    if (Object.keys(f).length) ed.setParagraphFlow(f);
+  }
   // Tabulação…: o diálogo de tabulação abre depois de aplicar este, como no Word
   if (res === 'tabs') await tabsDialog(env);
 }
@@ -273,14 +327,20 @@ const applyToSelect = (lang: UiLang, hasSel: boolean, value: SectionApplyTo): HT
   ...(hasSel ? [['selection', tr(lang, 'Selected text', 'Texto selecionado')] as const] : []),
 ], value);
 
-export async function pageDialog(env: Env): Promise<void> {
-  const L = env.app.ui!.L, lang = env.lang;
+/**
+ * Configurar Página com as guias do Word: Margens (margens, orientação), Papel
+ * (tamanho) e Layout (início da seção, cabeçalhos e rodapés, alinhamento vertical,
+ * Números de Linha…, Bordas…); "Aplicar a" vale para as três. As opções de seção
+ * vão num passo só (setPageSetup); as de cabeçalho/rodapé pelos métodos delas.
+ */
+export async function pageDialog(env: Env, tab: 'margins' | 'paper' | 'layout' = 'margins'): Promise<void> {
+  const L = env.app.ui!.L, lang = env.lang, ed = env.ed;
   const u = unitOf(lang);
   const orient = select('orientation', [['portrait', tr(lang, 'Portrait', 'Retrato')], ['landscape', tr(lang, 'Landscape', 'Paisagem')]], 'portrait');
   const size = select('size', [['A4', 'A4'], ['Letter', tr(lang, 'Letter', 'Carta')]], 'A4');
   const margins = select('margins', [['normal', 'Normal'], ['narrow', tr(lang, 'Narrow', 'Estreita')], ['wide', tr(lang, 'Wide', 'Larga')], ['custom', tr(lang, 'Custom', 'Personalizadas')]], 'normal');
   // estado atual pela seção do cursor; margens pelo preset mais próximo
-  const s = env.ed.getSection();
+  const s = ed.getSection();
   const cm = s ? { ...s.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s) {
     orient.value = s.orientation;
@@ -294,14 +354,58 @@ export async function pageDialog(env: Env): Promise<void> {
   const marginInputs = [mt, mb, ml, mr];
   for (const i of marginInputs) i.addEventListener('input', () => { margins.value = 'custom'; });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
-  const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, 'section');
+  const applyTo = applyToSelect(lang, ed.selectedText().length > 0, 'section');
   const withUnit = (i: HTMLInputElement): HTMLElement => el('span', { style: 'display:flex;gap:4px;align-items:center' }, i, u.name);
-  const grid = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, L.orientation), orient, el('span', {}, L.paper), size, el('span', {}, L.margins), margins,
+  const marginsTab = el('div', { className: 'uo-dialog-grid' },
+    el('span', {}, L.margins), margins,
     el('span', {}, tr(lang, 'Top', 'Superior')), withUnit(mt), el('span', {}, tr(lang, 'Bottom', 'Inferior')), withUnit(mb),
     el('span', {}, tr(lang, 'Left', 'Esquerda')), withUnit(ml), el('span', {}, tr(lang, 'Right', 'Direita')), withUnit(mr),
-    el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo);
-  const h = openDialog({ title: L.pageDlg, body: grid, layer: env.layer, lang, width: 420,
+    el('span', {}, L.orientation), orient);
+  const paperTab = el('div', { className: 'uo-dialog-grid' }, el('span', {}, L.paper), size);
+  // Layout: início da seção, cabeçalhos e rodapés, alinhamento vertical, números de linha, bordas
+  const startType = s?.type ?? 'nextPage';
+  const sectStart = select('sectionStart', [['continuous', tr(lang, 'Continuous', 'Contínuo')], ['nextColumn', tr(lang, 'New column', 'Nova coluna')],
+    ['nextPage', tr(lang, 'New page', 'Nova página')], ['evenPage', tr(lang, 'Even page', 'Página par')], ['oddPage', tr(lang, 'Odd page', 'Página ímpar')]], startType);
+  const hf = typeof ed.getHeaderFooterOptions === 'function' ? ed.getHeaderFooterOptions() : null;
+  const oddEven = check('oddEven', tr(lang, 'Different odd and even', 'Diferentes em páginas pares e ímpares'), !!hf?.differentOddEven);
+  const firstPage = check('firstPage', tr(lang, 'Different first page', 'Diferente na primeira página'), !!hf?.differentFirstPage);
+  const hdr = unitInput('header', hf?.headerDistance ?? 708, u, lang), ftr = unitInput('footer', hf?.footerDistance ?? 708, u, lang);
+  const hfStart = { header: hdr.value, footer: ftr.value };
+  const vStart = s?.verticalAlignment ?? 'top';
+  const valign = select('valign', [['top', tr(lang, 'Top', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado')],
+    ['both', tr(lang, 'Justified', 'Justificado')], ['bottom', tr(lang, 'Bottom', 'Inferior')]], vStart);
+  const lnInfo = s?.lineNumbering;
+  let lnOpts: LineNumberingOptions = {
+    on: !!lnInfo && lnInfo.mode !== 'none', startAt: lnInfo?.startAt ?? 1, countBy: lnInfo?.countBy ?? 1, distanceTwips: lnInfo?.distanceTwips ?? 0,
+    restart: lnInfo?.mode === 'continuous' ? 'continuous' : lnInfo?.mode === 'section' ? 'section' : 'page',
+  };
+  let lnChanged = false;
+  const lnBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Line Numbers…', 'Números de Linha…') });
+  lnBtn.addEventListener('click', () => { void lineNumbersDialog(env, lnOpts).then((r) => { if (r) { lnOpts = r; lnChanged = true; } }); });
+  const bordersBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Borders…', 'Bordas…') });
+  bordersBtn.addEventListener('click', () => { void tableDialog(env, 'pageBorders'); });
+  const layoutTab = el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
+    el('strong', {}, tr(lang, 'Section', 'Seção')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Section start:', 'Início da seção:')), sectStart),
+    el('strong', {}, tr(lang, 'Headers and footers', 'Cabeçalhos e rodapés')),
+    oddEven, firstPage,
+    el('div', { className: 'uo-dialog-grid' },
+      el('span', {}, tr(lang, 'From edge: Header:', 'Da borda: Cabeçalho:')), withUnit(hdr),
+      el('span', {}, tr(lang, 'Footer:', 'Rodapé:')), withUnit(ftr)),
+    el('strong', {}, tr(lang, 'Page', 'Página')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Vertical alignment:', 'Alinhamento vertical:')), valign),
+    el('div', { style: 'display:flex;gap:8px;justify-content:flex-end' }, lnBtn, bordersBtn));
+  // sem as opções de cabeçalho/rodapé (API ausente) os campos ficam desabilitados
+  for (const i of [hdr, ftr]) i.disabled = !hf;
+  oddEven.querySelector('input')!.disabled = firstPage.querySelector('input')!.disabled = !hf;
+  const tabs = dialogTabs([
+    { id: 'margins', label: tr(lang, 'Margins', 'Margens'), body: marginsTab },
+    { id: 'paper', label: tr(lang, 'Paper', 'Papel'), body: paperTab },
+    { id: 'layout', label: tr(lang, 'Layout', 'Layout'), body: layoutTab },
+  ], tab);
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, tabs.el,
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo));
+  const h = openDialog({ title: L.pageDlg, body, layer: env.layer, lang, width: 480,
     actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   if ((await h.result) !== 'ok') return;
   // na seção do cursor só o que mudou; fora dela (deste ponto, documento, seleção) tudo vale
@@ -310,12 +414,23 @@ export async function pageDialog(env: Env): Promise<void> {
     ? { top: parseUnit(mt.value, u), bottom: parseUnit(mb.value, u), left: parseUnit(ml.value, u), right: parseUnit(mr.value, u) }
     : null;
   const customOk = !!custom && Object.values(custom).every((v) => Number.isFinite(v) && v >= 0);
-  env.ed.setPageSetup({
+  ed.setPageSetup({
     ...(all || orient.value !== start.orientation ? { orientation: orient.value as 'portrait' | 'landscape' } : {}),
     ...(all || size.value !== start.size ? { size: size.value as 'A4' | 'Letter' } : {}),
     ...(customOk ? { customMargins: custom! } : all || margins.value !== start.margins ? { margins: margins.value as 'normal' | 'narrow' | 'wide' } : {}),
+    ...(all || sectStart.value !== startType ? { sectionStart: sectStart.value as SectionType } : {}),
+    ...(all || valign.value !== vStart ? { verticalAlignment: valign.value as 'top' | 'center' | 'both' | 'bottom' } : {}),
+    ...(all || lnChanged ? { lineNumbering: lnOpts } : {}),
     applyTo: applyTo.value as SectionApplyTo,
   });
+  // cabeçalhos e rodapés (os métodos da frente Cabeçalho e rodapé)
+  if (hf) {
+    const oe = oddEven.querySelector('input')!.checked, fp = firstPage.querySelector('input')!.checked;
+    if (oe !== hf.differentOddEven) ed.setDifferentOddEven(oe);
+    if (fp !== hf.differentFirstPage) ed.setDifferentFirstPage(fp);
+    const hd = hdr.value !== hfStart.header ? parseUnit(hdr.value, u) : NaN, fd = ftr.value !== hfStart.footer ? parseUnit(ftr.value, u) : NaN;
+    if (Number.isFinite(hd) || Number.isFinite(fd)) ed.setHeaderFooterDistance({ ...(Number.isFinite(hd) ? { header: hd } : {}), ...(Number.isFinite(fd) ? { footer: fd } : {}) });
+  }
 }
 
 /**

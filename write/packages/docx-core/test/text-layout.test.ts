@@ -160,14 +160,20 @@ describe('hifenização no settings.xml', () => {
 
   it('Automática grava w:autoHyphenation depois da tabulação padrão (hy-auto)', () => {
     const pkg = SET('<w:hyphenationZone w:val="425"/>');
-    writeHyphenationSettings(pkg, { auto: true, caps: true, limit: 0 });
+    writeHyphenationSettings(pkg, { auto: true, caps: true, limit: 0, zone: 425 });
     expect(settings(pkg)).toContain('<w:defaultTabStop w:val="708"/><w:autoHyphenation/><w:hyphenationZone w:val="425"/><w:characterSpacingControl');
   });
 
   it('Nenhuma TIRA o elemento (hy-none); MAIÚSCULAS e limite de volta tiram os deles', () => {
     const pkg = SET('<w:autoHyphenation/><w:consecutiveHyphenLimit w:val="2"/><w:hyphenationZone w:val="425"/><w:doNotHyphenateCaps/>');
-    writeHyphenationSettings(pkg, { auto: false, caps: true, limit: 0 });
+    writeHyphenationSettings(pkg, { auto: false, caps: true, limit: 0, zone: 425 });
     expect(settings(pkg)).toContain('<w:defaultTabStop w:val="708"/><w:hyphenationZone w:val="425"/><w:characterSpacingControl');
+  });
+
+  it('zona ausente no estado (o arquivo não tinha) sai — o desfazer volta a "sem zona"', () => {
+    const pkg = SET('<w:autoHyphenation/><w:hyphenationZone w:val="567"/>');
+    writeHyphenationSettings(pkg, { auto: true, caps: true, limit: 0 });
+    expect(settings(pkg)).toContain('<w:defaultTabStop w:val="708"/><w:autoHyphenation/><w:characterSpacingControl');
   });
 
   it('todas as opções na ordem do schema (hy-all)', () => {

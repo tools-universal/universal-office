@@ -476,6 +476,37 @@ editor.host = {
         </tbody>
       </table>
 
+      <h2 id="text-layout">Text layout (hyphenation, line numbers, indent and spacing)</h2>
+      <p>
+        With <code>topbar</code>, the ribbon's <strong>Layout</strong> tab has the <strong>Line Numbers</strong> and
+        <strong>Hyphenation</strong> menus (Page Setup group) and the <strong>Indent</strong> / <strong>Spacing</strong> boxes
+        (Paragraph group: left/right indent in cm with <code>lang="pt"</code> or inches, spacing before/after in pt with
+        <em>Auto</em> below 0; type any unit, Enter applies, Esc restores); the compact bar has both menus under Tools.
+        Hyphenation: None, Automatic, Manual (word by word, inserting optional hyphens) and Hyphenation Options (hyphenate
+        automatically, words in CAPS, zone, consecutive hyphens limit). Line Numbers: None, Continuous, Restart Each Page,
+        Restart Each Section, Suppress for Current Paragraph and Line Numbering Options (Page Setup &rsaquo; Layout &rsaquo;
+        Line Numbers: start at, from text, count by, numbering). The Paragraph dialog has a <em>Line and Page Breaks</em> tab
+        and Page Setup has <em>Margins</em>, <em>Paper</em> and <em>Layout</em> tabs. Ctrl+- types an optional hyphen and
+        Ctrl+Shift+- a nonbreaking hyphen. Everything is written the way Word writes it; line numbers are drawn on screen, in
+        the PDF and in print with the <em>Line Number</em> style.
+      </p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>getHyphenation(): HyphenationInfo</code></td><td><code>{ auto, caps, zoneTwips, limit }</code> (<code>limit</code> 0 = no limit).</td></tr>
+          <tr><td><code>setHyphenation(mode: 'none' | 'auto')</code> / <code>setHyphenationOptions(o: Partial&lt;HyphenationInfo&gt;)</code></td><td>The menu / the Hyphenation Options dialog; one undo step. <code>w:autoHyphenation</code>, <code>w:consecutiveHyphenLimit</code>, <code>w:hyphenationZone</code>, <code>w:doNotHyphenateCaps</code> in <code>settings.xml</code> (None removes the element; optional hyphens stay).</td></tr>
+          <tr><td><code>nextManualHyphenation(): Promise&lt;ManualHyphenation | null&gt;</code></td><td>Next word that automatic hyphenation would break at the end of a line (in the selection, or the whole document), selected: <code>{ word, lang, points, suggested, limit }</code> — break points as letters before the hyphen; <code>limit</code> is the last one before the margin. <code>null</code> when done.</td></tr>
+          <tr><td><code>applyManualHyphenation(letters)</code> / <code>skipManualHyphenation()</code> / <code>endManualHyphenation()</code></td><td>Yes (an optional hyphen, <code>w:softHyphen</code>; one undo step), No, and end.</td></tr>
+          <tr><td><code>getLineNumbering()</code></td><td><code>{ mode: 'none' | 'continuous' | 'page' | 'section', startAt, countBy, distanceTwips, mixed }</code> for the sections the selection touches (<code>distanceTwips</code> 0 = Auto).</td></tr>
+          <tr><td><code>setLineNumbering(mode)</code></td><td>The Line Numbers menu, on the sections the selection touches (start, count by and distance stay).</td></tr>
+          <tr><td><code>setLineNumberingOptions(o: LineNumberingOptions, applyTo?)</code></td><td>The Line Numbers dialog: <code>{ on, startAt, countBy, distanceTwips, restart: 'page' | 'section' | 'continuous' }</code>; <code>applyTo</code> as in <code>setPageSetup</code>. Writes <code>w:lnNumType</code> like Word (<code>w:start</code> = start at &minus; 1).</td></tr>
+          <tr><td><code>toggleLineNumberSuppression()</code> / <code>lineNumbersSuppressed(): boolean</code></td><td>Suppress for Current Paragraph (<code>w:suppressLineNumbers</code>).</td></tr>
+          <tr><td><code>getParagraphFlow(): ParagraphFlow | null</code> / <code>setParagraphFlow(f)</code></td><td>Line and Page Breaks: <code>widowControl</code>, <code>keepNext</code>, <code>keepLines</code>, <code>pageBreakBefore</code>, <code>suppressLineNumbers</code>, <code>suppressAutoHyphens</code>, <code>textboxTightWrap</code> (effective values, <code>null</code> = mixed). Only what differs from the style is written; turning off what the style turns on writes <code>w:val="0"</code>.</td></tr>
+          <tr><td><code>getParagraphLayout(): ParagraphLayoutInfo | null</code> / <code>setParagraphLayout(v)</code></td><td>The Indent/Spacing boxes: <code>{ left, right, before, after }</code> in twips (<code>before</code>/<code>after</code> may be <code>'auto'</code>, <code>null</code> = mixed); a value equal to the style's is not written.</td></tr>
+          <tr><td><code>setSectionStart(type, applyTo?)</code> / <code>setVerticalAlignment(v, applyTo?)</code></td><td>Section start (<code>w:type</code>) and vertical alignment <code>'top' | 'center' | 'both' | 'bottom'</code> (<code>w:vAlign</code>).</td></tr>
+        </tbody>
+      </table>
+
       <h2 id="notes">Footnotes and endnotes</h2>
       <p>Notes are edited in place: clicking the note area (bottom of the page, or the endnotes after the text) enters the note; Esc or a click in the text goes back. Text and notes share one undo history. Deleting a reference deletes its note; the first Backspace right after a reference only selects it; pasting a copied reference creates a new note with a copy of the text. With Track Changes on, a new note is an insertion and a deleted reference keeps its note until the deletion is accepted; revisions inside notes appear in <code>getRevisions()</code> (<code>story: 'footnote' | 'endnote'</code>) and in Accept/Reject All. Ctrl+Alt+F / Ctrl+Alt+D insert a footnote / endnote.</p>
       <table>
@@ -576,9 +607,9 @@ editor.host = {
         <tbody>
           <tr><td><code>updateToc(mode = 'all'): boolean</code></td><td>Updates the table of contents at the caret (or every <code>TOC</code> field) the way Word does — see <a href="#toc">Table of contents</a>; <code>true</code> if the document had a TOC.</td></tr>
           <tr><td><code>navigateTo(link): boolean</code></td><td>Navigates to <code>'#bookmarkName'</code> or <code>'#para:N'</code>; <code>true</code> if found.</td></tr>
-          <tr><td><code>setPageSetup(opts)</code></td><td><code>{ orientation?: 'portrait' | 'landscape', size?: 'A4' | 'Letter', margins?: 'normal' | 'narrow' | 'wide', customMargins?: { top, right, bottom, left }, applyTo?: 'section' | 'document' | 'forward' | 'selection' }</code> (custom margins in twips). Applies to the section(s) the selection touches; <code>'forward'</code> inserts a next-page section break at the caret and <code>'selection'</code> one before and one after the selection. Changing the orientation rotates the margins.</td></tr>
+          <tr><td><code>setPageSetup(opts)</code></td><td><code>{ orientation?: 'portrait' | 'landscape', size?: 'A4' | 'Letter', margins?: 'normal' | 'narrow' | 'wide', customMargins?: { top, right, bottom, left }, sectionStart?, verticalAlignment?, lineNumbering?, applyTo?: 'section' | 'document' | 'forward' | 'selection' }</code> (custom margins in twips; the Layout tab's section start, vertical alignment and line numbers in the same undo step). Applies to the section(s) the selection touches; <code>'forward'</code> inserts a next-page section break at the caret and <code>'selection'</code> one before and one after the selection. Changing the orientation rotates the margins.</td></tr>
           <tr><td><code>setColumns(spec)</code></td><td>Columns of the caret's section. A preset — <code>'one' | 'two' | 'three' | 'left' | 'right'</code> — applies only to the selected text when there is a selection (continuous breaks before and after it). Or <code>{ count, spaceTwips?, widths?: { widthTwips, spaceTwips }[], sep?, applyTo?, startNewColumn? }</code>: <code>widths</code> for unequal columns, <code>sep</code> for a line between them, <code>applyTo</code> as in <code>setPageSetup</code> (<code>'forward'</code> and <code>'selection'</code> insert continuous breaks; <code>startNewColumn</code> with <code>'forward'</code> starts the new section in the next column). Columns are at least 720 twips wide; the spacing shrinks when they would not fit.</td></tr>
-          <tr><td><code>getSection()</code></td><td>The caret's section: <code>{ index, count, type, orientation, pageWidthTwips, pageHeightTwips, margins, columns: { count, spaceTwips, sep, equalWidth, widths, preset, max, contentWidthTwips } }</code>.</td></tr>
+          <tr><td><code>getSection()</code></td><td>The caret's section: <code>{ index, count, type, orientation, pageWidthTwips, pageHeightTwips, margins, columns: { count, spaceTwips, sep, equalWidth, widths, preset, max, contentWidthTwips }, verticalAlignment, lineNumbering }</code>.</td></tr>
         </tbody>
       </table>
 

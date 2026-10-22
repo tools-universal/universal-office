@@ -60,7 +60,7 @@ const HYPH_ORDER = ['w:autoHyphenation', 'w:consecutiveHyphenLimit', 'w:hyphenat
  * Grava as opções de hifenização no settings.xml como o Word (oráculo
  * write/tools/textlayout-lab hy-*): Automática = `<w:autoHyphenation/>` e Nenhuma
  * TIRA o elemento; MAIÚSCULAS desligadas = `<w:doNotHyphenateCaps/>` (ligar tira);
- * limite 0 = sem elemento; a zona só muda se veio definida. Na ordem do schema.
+ * limite 0 = sem elemento; zona ausente = sem elemento. Na ordem do schema.
  */
 export function writeHyphenationSettings(pkg: DocxPackage, s: HyphenationSettings): void {
   const path = partByRelType(pkg, 'settings', 'word/settings.xml');
@@ -71,14 +71,15 @@ export function writeHyphenationSettings(pkg: DocxPackage, s: HyphenationSetting
     xml = pkg.getPartText('word/settings.xml');
     if (!xml) return;
   }
+  // (zona ausente = o arquivo não tinha: sai — o pacote é o mesmo entre gravações e o
+  // desfazer pode voltar a "sem zona")
   const want: Record<string, string | null> = {
     'w:autoHyphenation': s.auto ? '<w:autoHyphenation/>' : null,
     'w:consecutiveHyphenLimit': s.limit > 0 ? `<w:consecutiveHyphenLimit w:val="${Math.round(s.limit)}"/>` : null,
+    'w:hyphenationZone': s.zone !== undefined ? `<w:hyphenationZone w:val="${Math.round(s.zone)}"/>` : null,
     'w:doNotHyphenateCaps': s.caps ? null : '<w:doNotHyphenateCaps/>',
   };
-  if (s.zone !== undefined) want['w:hyphenationZone'] = `<w:hyphenationZone w:val="${Math.round(s.zone)}"/>`;
   for (const name of HYPH_ORDER) {
-    if (!(name in want)) continue;
     const el = want[name]!;
     const cur = new RegExp(`<${name}\\b[^>]*?(?:/>|>[\\s\\S]*?</${name}>)`).exec(xml);
     if (cur) {

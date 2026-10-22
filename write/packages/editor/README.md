@@ -202,8 +202,8 @@ and moves created by editing (cut and paste becomes a deletion plus an insertion
 | Paragraphs | `applyStyle(styleId)`, `paragraphStyles()`, `setAlignment('left' \| 'center' \| 'right' \| 'both')`, `toggleList('bullet' \| 'decimal')`, `indent(±1)`, `setLineSpacing(line)`, `setSpaceBefore(twips)`, `setSpaceAfter(twips)`, `setSpecialIndent(...)`, `setIndentRight(twips)`, `setShading(hex)`, `toggleBorder()`; indents and tabs: see [Navigation](#navigation) |
 | Format painter | `copyFormat()`, `painterActive()` |
 | Insert | `insertImage(bytes, ext)`, `insertPageBreak()`, `insertField('PAGE' \| 'NUMPAGES' \| 'DATE')`, `updateToc()` (see [Table of contents](#table-of-contents)) |
-| Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins, applyTo })` — for the section(s) the selection touches; `applyTo`: `'section'` (default) · `'document'` · `'forward'` (next-page section break at the caret) · `'selection'` (breaks before and after the selection). Changing the orientation rotates the margins. |
-| Sections and columns | `insertSectionBreak('nextPage' \| 'continuous' \| 'evenPage' \| 'oddPage' \| 'nextColumn')` (splits the paragraph; the new section before the caret copies the current one and takes its headers/footers), `insertColumnBreak()`, `setColumns('one' \| 'two' \| 'three' \| 'left' \| 'right')` (with selected text, only for it) or `setColumns({ count, spaceTwips, widths, sep, applyTo, startNewColumn })`, `getSection()` → `{ index, count, type, orientation, margins, columns }` |
+| Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins, sectionStart, verticalAlignment, lineNumbering, applyTo })` — for the section(s) the selection touches (see Text layout for the Layout tab's options); `applyTo`: `'section'` (default) · `'document'` · `'forward'` (next-page section break at the caret) · `'selection'` (breaks before and after the selection). Changing the orientation rotates the margins. |
+| Sections and columns | `insertSectionBreak('nextPage' \| 'continuous' \| 'evenPage' \| 'oddPage' \| 'nextColumn')` (splits the paragraph; the new section before the caret copies the current one and takes its headers/footers), `insertColumnBreak()`, `setColumns('one' \| 'two' \| 'three' \| 'left' \| 'right')` (with selected text, only for it) or `setColumns({ count, spaceTwips, widths, sep, applyTo, startNewColumn })`, `getSection()` → `{ index, count, type, orientation, margins, columns, verticalAlignment, lineNumbering }` |
 | Edit | `undo()`, `redo()`, `cut()`, `copy()`, `paste()`, `pastePlain()`, `pasteText(text)`, `selectAll()`, `selectedText()` |
 | Find | `findNext(text)`, `replaceAll(text, replacement)` (case-insensitive); the Navigation Pane search: `search()` (see [Navigation](#navigation)) |
 | Spelling | `spellCheckEnabled()`, `toggleSpellCheck(on?)`, `spellingAtCaret()`, `spellingSuggestions(m)`, `replaceSpelling(m, text)`, `ignoreSpelling(word)`, `addToDictionary(word)`, `nextMisspelling()` |
@@ -482,6 +482,56 @@ and stay out of printing.
 | `paintWatermarkTemplate(id, canvas, cssWidth)` · `paintCoverTemplate(id, canvas, cssWidth)` | Draw a gallery thumbnail (a whole page) with the layout engine. |
 | `insertBlankPage()` | Blank Page at the caret. |
 
+## Text layout
+
+The ribbon's **Layout** tab has Word's **Line Numbers** and **Hyphenation**
+menus in Page Setup and the **Indent** / **Spacing** boxes in Paragraph; the
+compact bar has both menus under Tools. Everything is written the way Word
+writes it (measured against Word with `write/tools/textlayout-lab`).
+
+- **Hyphenation**: None, Automatic, **Manual…** and **Hyphenation Options…**
+  (hyphenate automatically, hyphenate words in CAPS, hyphenation zone, limit
+  consecutive hyphens). The layout engine hyphenates pt-BR, English and Spanish
+  with Word's rules (minimum letters, the gap that triggers a break, the
+  justified-line comparison, the consecutive limit). **Manual** walks through the
+  words that automatic hyphenation would break at the end of a line — in the
+  selection, or the whole document —, shows the possible breaks with the
+  suggested one (breaks past the margin can't be chosen) and **Yes** inserts an
+  optional hyphen (`w:softHyphen`); **No** skips the word. Per paragraph, *Don't
+  hyphenate* is in the Paragraph dialog. Ctrl+- types an optional hyphen and
+  Ctrl+Shift+- a nonbreaking hyphen.
+- **Line Numbers**: None, Continuous, Restart Each Page, Restart Each Section
+  (the sections the selection touches), **Suppress for Current Paragraph** and
+  **Line Numbering Options…**, which opens Page Setup on its **Layout** tab —
+  its *Line Numbers…* button has start at, from text (Auto = ¼" with one column,
+  ⅛" with more), count by and numbering. The numbers are drawn on the page, in
+  the PDF and in print with the document's *Line Number* style (added to the
+  styles the first time, like Word), counting only body lines (not tables, text
+  boxes, frames or notes) and restarting like Word between sections on the same
+  page.
+- **Indent / Spacing** boxes: left and right indent (cm with `lang="pt"`,
+  inches otherwise; steps of 0.1) and spacing before and after (pt, steps of 6;
+  below 0 is *Auto*). Type any unit (`1,5`, `2 cm`, `12 pt`, `0.5"`); Enter
+  applies, Esc restores. A value equal to the style's is not written. They are
+  empty when the selected paragraphs differ.
+- The **Paragraph** dialog has a *Line and Page Breaks* tab (widow/orphan
+  control, keep with next, keep lines together, page break before, suppress
+  line numbers, don't hyphenate, text box tight wrap) and **Page Setup** has
+  *Margins*, *Paper* and *Layout* tabs (section start, different odd and even,
+  different first page, header/footer distance, vertical alignment, Line
+  Numbers…, Borders…), with *Apply to* for all of them.
+
+| Method | Description |
+|---|---|
+| `getHyphenation()` · `setHyphenation('none' \| 'auto')` · `setHyphenationOptions(o)` | `HyphenationInfo`: `{ auto, caps, zoneTwips, limit }` (`limit` 0 = no limit). One undo step; `settings.xml` gets `w:autoHyphenation`, `w:consecutiveHyphenLimit`, `w:hyphenationZone`, `w:doNotHyphenateCaps` (None removes the element). |
+| `nextManualHyphenation()` · `applyManualHyphenation(letters)` · `skipManualHyphenation()` · `endManualHyphenation()` | Manual hyphenation: `nextManualHyphenation()` resolves to `{ word, lang, points, suggested, limit }` (break points as the number of letters before the hyphen) or `null` when done, and selects the word; `applyManualHyphenation(n)` inserts the optional hyphen (one undo step each). |
+| `getLineNumbering()` · `setLineNumbering(mode)` | `{ mode: 'none' \| 'continuous' \| 'page' \| 'section', startAt, countBy, distanceTwips (0 = Auto), mixed }`; `setLineNumbering` is the menu (keeps start, count by and distance). |
+| `setLineNumberingOptions(o, applyTo?)` | The Line Numbers dialog: `{ on, startAt, countBy, distanceTwips, restart: 'page' \| 'section' \| 'continuous' }`; `applyTo` as in Page Setup. `w:lnNumType` with `w:start` = start at − 1, no `w:distance` for Auto, no `w:restart` for each page. |
+| `toggleLineNumberSuppression()` · `lineNumbersSuppressed()` | Suppress for Current Paragraph (`w:suppressLineNumbers`): toggles, and clears every paragraph when some of the selection is suppressed. |
+| `getParagraphFlow()` · `setParagraphFlow(f)` | `ParagraphFlow`: `widowControl`, `keepNext`, `keepLines`, `pageBreakBefore`, `suppressLineNumbers`, `suppressAutoHyphens` (effective values; `null` = mixed) and `textboxTightWrap`. Only what differs from the style is written; turning off what the style turns on writes `w:val="0"`. |
+| `getParagraphLayout()` · `setParagraphLayout(v)` | The Indent/Spacing boxes: `{ left, right, before, after }` in twips (`before`/`after` may be `'auto'`; `null` = mixed). |
+| `setSectionStart(type, applyTo?)` · `setVerticalAlignment(v, applyTo?)` | Section start (`w:type`) and vertical alignment `'top' \| 'center' \| 'both' \| 'bottom'` (`w:vAlign`). `getSection()` also reports `verticalAlignment` and `lineNumbering`; `setPageSetup()` takes `sectionStart`, `verticalAlignment` and `lineNumbering` in the same undo step. |
+
 ## Navigation
 
 **View › Show** has Word's three switches, remembered per instance:
@@ -698,7 +748,8 @@ Type `@` to open the suggestions (only when `source` is given).
 Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · R · J
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
 break), Shift+Enter (column break), ← → (word), Home · End (document, also from a table cell), Alt+F ·
-Alt+D (footnote, endnote; Esc inside a note goes back to its reference). F9 updates the fields in the selection (Ctrl+A, F9: all; with a table of contents it asks how — `uw-toc-update`). With `topbar`, also Alt+Shift+O (Mark Table of Contents Entry — Option+Shift+O on a Mac), O (open), S ·
+Alt+D (footnote, endnote; Esc inside a note goes back to its reference), - · Shift+- (optional and
+nonbreaking hyphen). F9 updates the fields in the selection (Ctrl+A, F9: all; with a table of contents it asks how — `uw-toc-update`). With `topbar`, also Alt+Shift+O (Mark Table of Contents Entry — Option+Shift+O on a Mac), O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
 dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts),
 Alt+1 · 2 · 3 (Heading 1–3), Shift+N (Normal), Space (clear character

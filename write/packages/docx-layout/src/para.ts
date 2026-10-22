@@ -1030,7 +1030,7 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
   }
 
   // hifenização automática (w:autoHyphenation): pontos de quebra nas palavras
-  markHyphenation(ctx, ppr, glyphs, mathRuns);
+  markHyphenation(ctx, ppr, glyphs, mathRuns, para0);
 
   // marcador de numeração
   let marker: ParaMarker | undefined;

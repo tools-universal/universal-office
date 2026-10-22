@@ -241,7 +241,13 @@ import {
   type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
 } from './navigation.js';
 import { guardRuns } from './edit-guard.js';
-import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop } from '@universal-office/docx-core';
+import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, type HyphenationSettings } from '@universal-office/docx-core';
+import {
+  lineNumberingInfo, lineNumberingOn, withLineNumberMode, lineNumberingFromOptions, flowValue, flowDirect, spacingDirect, common,
+  wordAround, manualPoints, offsetAfterLetters, FLOW_FLAGS, HYPHENATION_LIMITS, PARAGRAPH_LAYOUT_LIMITS,
+  type LineNumberMode, type LineNumberingInfo, type LineNumberingOptions, type LineNumberMemory, type ParagraphFlow, type TightWrap,
+  type ParagraphLayoutInfo, type HyphenationInfo, type ManualHyphenation,
+} from './text-layout.js';
 import { blankXlsx, editSpreadsheet, sheetAvailable } from './ole-sheet.js';
 import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
 import {
@@ -330,9 +336,16 @@ export interface SectionInfo {
     /** largura útil entre as margens */
     contentWidthTwips: number;
   };
+  /** alinhamento vertical do texto na página (w:vAlign) */
+  verticalAlignment: 'top' | 'center' | 'both' | 'bottom';
+  /** números de linha (w:lnNumType) */
+  lineNumbering: LineNumberingInfo;
 }
 
 export type { TabStopInfo, IndentInfo, FindOptions } from './navigation.js';
+export type {
+  LineNumberMode, LineNumberingInfo, LineNumberingOptions, ParagraphFlow, TightWrap, ParagraphLayoutInfo, HyphenationInfo, ManualHyphenation,
+} from './text-layout.js';
 export type { HfGallery } from './hf-templates.js';
 
 /** Opções de cabeçalho/rodapé da seção do cursor (getHeaderFooterOptions). Twips. */
@@ -3454,8 +3467,8 @@ export class UniversalWriteElement extends HTMLElement {
       borders: has ? undefined : { top: { ...edge }, left: { ...edge }, bottom: { ...edge }, right: { ...edge } },
     });
   }
-  setSpaceAfter(twips: number | undefined): void { this.formatPara({ spaceAfterTwips: twips }); }
-  setSpaceBefore(twips: number | undefined): void { this.formatPara({ spaceBeforeTwips: twips }); }
+  setSpaceAfter(twips: number | undefined): void { this.formatPara({ spaceAfterTwips: twips, spaceAfterAuto: undefined }); }
+  setSpaceBefore(twips: number | undefined): void { this.formatPara({ spaceBeforeTwips: twips, spaceBeforeAuto: undefined }); }
 
   /**
    * Configurar Página da seção do cursor (ou das seções que a seleção toca),
@@ -3470,11 +3483,22 @@ export class UniversalWriteElement extends HTMLElement {
     margins?: 'normal' | 'narrow' | 'wide';
     /** margens personalizadas em twips (sobrepõe o preset). */
     customMargins?: { top: number; right: number; bottom: number; left: number };
+    /** Layout: início da seção (w:type) */
+    sectionStart?: SectionType;
+    /** Layout: alinhamento vertical (w:vAlign) */
+    verticalAlignment?: 'top' | 'center' | 'both' | 'bottom';
+    /** Layout › Números de Linha (diálogo) */
+    lineNumbering?: LineNumberingOptions;
     applyTo?: SectionApplyTo;
   }): void {
     if (!this.model || this.locked() || (opts.applyTo && opts.applyTo !== 'section' && opts.applyTo !== 'document' && !this.canInsertSectionBreak())) return;
+    if (opts.lineNumbering?.on) this.ensureLineNumberStyle();
     this.snapshot();
+    const ln = opts.lineNumbering ? lineNumberingFromOptions(opts.lineNumbering) : undefined;
     for (const s of this.sectionTargets(opts.applyTo ?? 'section', 'nextPage')) {
+      if (opts.sectionStart) { if (opts.sectionStart === 'nextPage') delete s.type; else s.type = opts.sectionStart; }
+      if (opts.verticalAlignment) { if (opts.verticalAlignment === 'top') delete s.vAlign; else s.vAlign = opts.verticalAlignment; }
+      if (opts.lineNumbering) this.setSectionLineNumbering(s, ln ? { ...ln } : undefined);
       if (opts.size) {
         const [w, h] = opts.size === 'A4' ? [11906, 16838] : [12240, 15840];
         const landscape = s.pageWidthTwips > s.pageHeightTwips;
@@ -3644,8 +3668,7 @@ export class UniversalWriteElement extends HTMLElement {
   getSection(): SectionInfo | null {
     const m = this.bodyModel();
     if (!m) return null;
-    const para = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
-    const k = sectionIndexAt(m, para);
+    const k = this.bodySectionRange()[0];
     const sp = sectionSectPr(m, k);
     return {
       index: k,
@@ -3664,7 +3687,22 @@ export class UniversalWriteElement extends HTMLElement {
         max: maxColumns(sp),
         contentWidthTwips: contentWidth(sp),
       },
+      verticalAlignment: sp.vAlign ?? 'top',
+      lineNumbering: lineNumberingInfo(sp),
     };
+  }
+
+  /** Seções do CORPO que o cursor/seleção toca [primeira, última] — na célula, a da
+   *  tabela; na nota e na caixa de texto, a do ponto do corpo; no cabeçalho/rodapé, a
+   *  da página em edição. */
+  private bodySectionRange(): [number, number] {
+    const m = this.bodyModel();
+    const at = (p: number): number => sectionIndexAt(m, Math.max(0, Math.min(p, m.paragraphs.length - 1)));
+    if (this.hfEdit) { const k = this.pageSections[this.hfActivePage] ?? 0; return [k, k]; }
+    const sel = this.noteEdit ? this.noteEdit.saved.selection : this.savedForTb ? this.savedForTb.selection : this.cellEdit ? null : this.selection;
+    if (!sel) { const k = at(this.tableAnchors[this.cellEdit!.anchor]?.beforePara ?? 0); return [k, k]; }
+    const { start, end } = normalizeRange({ start: sel.anchor, end: sel.focus });
+    return [at(start.para), at(end.para)];
   }
 
   undo(): void { this.popHistory(this.undoStack, this.redoStack); }
@@ -6292,6 +6330,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
     // tabulação padrão mudada no diálogo Tabulação (w:defaultTabStop)
     if (this.defaultTab !== null) writeDefaultTabStop(pkg, this.defaultTab);
+    // opções de hifenização mudadas (Nenhuma/Automática, diálogo Opções de Hifenização)
+    if (this.hyph) writeHyphenationSettings(pkg, this.hyph);
     // estilos de tabela internos que as tabelas passaram a usar
     addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
@@ -6678,6 +6718,8 @@ export class UniversalWriteElement extends HTMLElement {
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
+      // opções de hifenização (settings)
+      hy: this.hyphenationSettings(),
       // Cor da Página (w:background) e a exibição do fundo (w:displayBackgroundShape)
       bg: this.fullDoc?.background ?? null,
       bgd: !!this.fullDoc?.formatting?.settings.displayBackgroundShape,
@@ -6723,6 +6765,7 @@ export class UniversalWriteElement extends HTMLElement {
     anc?: { t: number[]; b: [string, number][] };
     sv?: number;
     dt?: number;
+    hy?: HyphenationSettings;
     tb?: TableBlock[];
     ce?: { a: number; h: CellHop[]; s: { anchor: DocPosition; focus: DocPosition } };
     ts?: TableSel;
@@ -6849,6 +6892,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== undefined && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
+    if (state.hy && JSON.stringify(state.hy) !== JSON.stringify(this.hyphenationSettings())) this.applyHyphenation(state.hy);
     this.restorePageBackground(state.bg, state.bgd);
     // cabeçalhos/rodapés que o passo mudou (a parte em edição e as outras)
     for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
@@ -7788,6 +7832,14 @@ export class UniversalWriteElement extends HTMLElement {
         this.refreshSelection();
         return;
       }
+      // Ctrl+Hífen = hífen opcional (w:softHyphen); Ctrl+Shift+Hífen = hífen incondicional
+      // (w:noBreakHyphen), como no Word — pelo código da tecla (vale em qualquer layout)
+      if (ctrl && !e.altKey && (e.code === 'Minus' || e.code === 'NumpadSubtract')) {
+        e.preventDefault();
+        if (!this.locked()) this.pasteText(e.shiftKey ? '\u2011' : '\u00AD');
+        this.onSelectionChange?.(); this.chromeSync?.();
+        return;
+      }
       const nav: Record<string, () => void> = {
         ArrowLeft: () => this.moveCaret('left', e.shiftKey),
         ArrowRight: () => this.moveCaret('right', e.shiftKey),
@@ -8102,10 +8154,13 @@ export class UniversalWriteElement extends HTMLElement {
    *  refs da seção no modelo. */
   private effectiveSection(id: number, sp: SectPr, refs: SectionRefs | undefined): Section {
     const props = this.sectionProps.get(id);
-    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp.type ?? '', sp.cols ?? null]);
+    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp.type ?? '', sp.cols ?? null, sp.lnNumType ?? null, sp.vAlign ?? '']);
     const c = this.sectionEff.get(id);
     if (c && c.sp === sp && c.key === key && c.props === props) return c.sec;
     const sect: import('@universal-office/docx-core').SectionProps = { ...(props ?? { type: 'nextPage' }), type: sp.type ?? 'nextPage' };
+    // números de linha e alinhamento vertical moram no modelo (editáveis)
+    if (sp.lnNumType) sect.lnNumType = { ...sp.lnNumType }; else delete sect.lnNumType;
+    if (sp.vAlign) sect.vAlign = sp.vAlign; else delete sect.vAlign;
     if (sp.cols?.widths) {
       sect.colDefs = sp.cols.widths.map((w) => ({ w: w.widthTwips, space: w.spaceTwips }));
       sect.equalWidth = false;
@@ -14183,6 +14238,368 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.fullDoc?.formatting) this.fullDoc.formatting = set(this.fullDoc.formatting);
     if (this.newFormatting) this.newFormatting = set(this.newFormatting) ?? null;
     this.engPageCache.clear();
+  }
+
+  // ─────────── layout do texto: hifenização, números de linha, quebras do parágrafo, Recuar/Espaçamento ───────────
+  // Regras do Word medidas em write/tools/textlayout-lab (memória word-textlayout-oracle-facts).
+
+  /** Hifenização como o editor a deixou (null = a do arquivo). */
+  private hyph: HyphenationSettings | null = null;
+  private hyphenationSettings(): HyphenationSettings {
+    if (this.hyph) return this.hyph;
+    const s = (this.fullDoc?.formatting ?? this.newFormatting)?.settings;
+    return { auto: !!s?.autoHyphenation, caps: !s?.doNotHyphenateCaps, ...(s?.hyphenationZone !== undefined ? { zone: s.hyphenationZone } : {}), limit: s?.consecutiveHyphenLimit ?? 0 };
+  }
+  private applyHyphenation(h: HyphenationSettings): void {
+    this.hyph = h;
+    const set = (f: DocFormatting): DocFormatting => {
+      const settings = { ...f.settings, autoHyphenation: h.auto, doNotHyphenateCaps: !h.caps };
+      if (h.zone !== undefined) settings.hyphenationZone = h.zone; else delete settings.hyphenationZone;
+      if (h.limit > 0) settings.consecutiveHyphenLimit = h.limit; else delete settings.consecutiveHyphenLimit;
+      return { ...f, settings };
+    };
+    if (this.fullDoc?.formatting) this.fullDoc.formatting = set(this.fullDoc.formatting);
+    else this.newFormatting = set(this.newFormatting ?? emptyFormatting());
+    this.engPageCache.clear();
+  }
+
+  /** Opções de Hifenização do documento (a zona sem o elemento é a do Word pt-BR). */
+  getHyphenation(): HyphenationInfo {
+    const h = this.hyphenationSettings();
+    return { auto: h.auto, caps: h.caps, zoneTwips: h.zone ?? 425, limit: h.limit };
+  }
+  /** Hifenização › Nenhuma / Automática (w:autoHyphenation; os hífens opcionais do
+   *  texto ficam — oráculo hy-none-shy). Um passo de desfazer. */
+  setHyphenation(mode: 'none' | 'auto'): void {
+    this.setHyphenationOptions({ auto: mode === 'auto' });
+  }
+  /** Opções de Hifenização: automática, MAIÚSCULAS, zona (twips) e limite de hifens
+   *  consecutivos (0 = sem limite). Um passo de desfazer; grava no settings.xml. */
+  setHyphenationOptions(o: Partial<HyphenationInfo>): void {
+    if (!this.model || this.locked()) return;
+    const cur = this.hyphenationSettings();
+    const lim = (v: number, [lo, hi]: readonly [number, number]): number => Math.min(hi, Math.max(lo, Math.round(v)));
+    const next: HyphenationSettings = {
+      auto: o.auto ?? cur.auto,
+      caps: o.caps ?? cur.caps,
+      limit: o.limit !== undefined ? lim(o.limit, HYPHENATION_LIMITS.limit) : cur.limit,
+      ...(o.zoneTwips !== undefined ? { zone: lim(o.zoneTwips, HYPHENATION_LIMITS.zoneTwips) } : cur.zone !== undefined ? { zone: cur.zone } : {}),
+    };
+    if (JSON.stringify(next) === JSON.stringify(cur)) return;
+    this.snapshot();
+    this.applyHyphenation(next);
+    this.refresh();
+  }
+
+  /** Hifenização Manual em curso: de onde procurar (até `to`, com seleção), a palavra
+   *  proposta e as recusadas (não hifenizam na procura seguinte). */
+  private manualHyph: {
+    from: DocPosition; to?: DocPosition;
+    skip: Map<Paragraph, Set<number>>;
+    cur?: { para: number; start: number; end: number; raw: string; points: number[]; limit: number };
+  } | null = null;
+
+  /**
+   * Hifenização Manual: a próxima palavra a hifenizar (null = acabou) — as que a
+   * hifenização automática partiria no fim da linha, na ordem do texto, dentro da
+   * seleção (sem seleção, o documento todo). A palavra fica selecionada. Depois:
+   * `applyManualHyphenation(ponto)` (Sim: hífen opcional, w:softHyphen) ou
+   * `skipManualHyphenation()` (Não); `endManualHyphenation()` encerra.
+   */
+  async nextManualHyphenation(): Promise<ManualHyphenation | null> {
+    if (!this.model || this.locked() || this.cellEdit || this.hfEdit || this.noteEdit || this.tbEdit) return null;
+    if (!this.manualHyph) {
+      const r = normalizeRange(this.range());
+      this.manualHyph = this.hasSelection() ? { from: r.start, to: r.end, skip: new Map() } : { from: { para: 0, offset: 0 }, skip: new Map() };
+    }
+    const mh = this.manualHyph;
+    mh.cur = undefined;
+    this.syncRunRPr(this.model.paragraphs);
+    const doc = this.liveEngineDoc();
+    const langs = documentHyphenationLanguages(doc.full, 'pt-BR', true).filter((l) => {
+      const x = l.toLowerCase();
+      return ENGINE_LAYOUT_OPTS.hyphenationLanguages!.some((y) => { const z = y.toLowerCase(); return x === z || x.startsWith(`${z}-`); });
+    });
+    try { await loadHyphenation(langs); } catch { /* sem padrões: só os hífens opcionais */ }
+    if (this.manualHyph !== mh || !this.model) return null;
+    const res = layoutDocument(doc.full, this.liveFontProvider(), {
+      ...this.layoutOpts(), hyphenation: 'force',
+      hyphenationSkip: (p, off) => mh.skip.get(p)?.has(off) ?? false,
+    });
+    for (const page of res.pages) {
+      for (const ln of page.lines) {
+        if (ln.hyph === undefined) continue;
+        const loc = locateRef(ln.ref, doc.origins);
+        if (loc.kind !== 'body') continue;
+        const at: DocPosition = { para: loc.para, offset: ln.hyph };
+        if (comparePos(at, mh.from) < 0 || (mh.to && comparePos(at, mh.to) > 0)) continue;
+        const para = this.model.paragraphs[loc.para]!;
+        const text = paraText(para);
+        const [a, b] = wordAround(text, ln.hyph);
+        if (b - a < 2) continue;
+        const raw = text.slice(a, b);
+        const lang = this.langAt(para, a);
+        const letters = [...raw].filter((c) => c !== '\u00AD').join('');
+        const h = hyphenatorFor(lang);
+        const [l0, r0] = [2, ((this.fullDoc?.formatting ?? this.newFormatting)?.settings.compatibilityMode ?? 15) >= 15 ? 3 : 2];
+        const { word, points } = manualPoints(raw, h ? h.hyphenate(letters, l0, r0) : []);
+        const suggested = [...text.slice(a, ln.hyph)].filter((c) => c !== '\u00AD').length;
+        if (!points.includes(suggested)) { points.push(suggested); points.sort((x, y) => x - y); }
+        mh.cur = { para: loc.para, start: a, end: b, raw, points, limit: suggested };
+        this.selection = { anchor: { para: loc.para, offset: a }, focus: { para: loc.para, offset: b } };
+        this.refreshSelection();
+        this.scrollCaretIntoView();
+        return { word, lang, points, suggested, limit: suggested };
+      }
+    }
+    this.manualHyph = null;
+    return null;
+  }
+  /** Sim: hífen opcional depois de `letters` letras da palavra proposta (um dos
+   *  pontos, até o limite da linha). Um passo de desfazer. */
+  applyManualHyphenation(letters: number): void {
+    const mh = this.manualHyph, c = mh?.cur;
+    if (!mh || !c || !this.model || this.locked() || !c.points.includes(letters) || letters > c.limit) return;
+    const off = offsetAfterLetters(c.raw, c.start, letters);
+    const text = paraText(this.model.paragraphs[c.para]!);
+    let grow = 0;
+    // o ponto já é um hífen opcional da palavra: nada a inserir
+    if (text[off - 1] !== '\u00AD' && text[off] !== '\u00AD') {
+      this.snapshot();
+      const props = this.runPropsAt(c.para, Math.max(c.start, off - 1));
+      const pos = this.insertTyped({ para: c.para, offset: off }, '\u00AD', props);
+      this.selection = { anchor: pos, focus: pos };
+      grow = 1;
+      this.refresh();
+    }
+    mh.from = { para: c.para, offset: c.end + grow };
+    mh.cur = undefined;
+  }
+  /** Não: a palavra fica sem hífen e a procura segue depois dela. */
+  skipManualHyphenation(): void {
+    const mh = this.manualHyph, c = mh?.cur;
+    if (!mh || !c || !this.model) return;
+    const p = this.model.paragraphs[c.para]!;
+    let s = mh.skip.get(p);
+    if (!s) mh.skip.set(p, (s = new Set()));
+    s.add(c.start);
+    mh.from = { para: c.para, offset: c.end };
+    mh.cur = undefined;
+  }
+  /** Encerra a Hifenização Manual (Cancelar ou fim). */
+  endManualHyphenation(): void { this.manualHyph = null; }
+
+  /** Idioma (w:lang) do texto num ponto do parágrafo (run, estilo, padrão do documento). */
+  private langAt(p: Paragraph, offset: number): string {
+    let acc = 0;
+    let run: Run | undefined;
+    for (const r of p.runs) { if (offset < acc + r.text.length) { run = r; break; } acc += r.text.length; }
+    const direct = run?.rpr?.lang?.val;
+    if (direct) return direct;
+    const fmt = this.fullDoc?.formatting ?? this.newFormatting;
+    return fmt?.styles.docDefaults.rPr?.lang?.val ?? 'pt-BR';
+  }
+  /** Props do run num ponto do parágrafo (o caractere inserido herda). */
+  private runPropsAt(para: number, offset: number): RunProps | undefined {
+    let acc = 0;
+    for (const r of this.model!.paragraphs[para]!.runs) {
+      if (offset < acc + r.text.length) return withoutRevisions(r.props);
+      acc += r.text.length;
+    }
+    return undefined;
+  }
+
+  // ── números de linha (Layout › Números de Linha; Configurar Página › Layout)
+
+  /** O que a sessão lembra das seções com a numeração desligada (oráculo ln-off-on). */
+  private lnMemory = new WeakMap<SectPr, LineNumberMemory>();
+
+  /** Seções-alvo dos números de linha: as que a seleção toca (oráculo ln-scope-*) ou,
+   *  pelo diálogo, o "Aplicar a" (só no corpo abre quebras). */
+  private lineNumberTargets(applyTo: SectionApplyTo): SectPr[] {
+    const m = this.bodyModel();
+    const inBody = !this.cellEdit && !this.hfEdit && !this.noteEdit && !this.tbEdit;
+    if (applyTo === 'document') return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
+    if (inBody && applyTo !== 'section') return this.sectionTargets(applyTo, 'nextPage');
+    const [k0, k1] = this.bodySectionRange();
+    const out: SectPr[] = [];
+    for (let k = k0; k <= k1; k++) out.push(sectionSectPr(m, k));
+    return out;
+  }
+
+  /** O estilo "Número de linha" (line number) entra no styles.xml ao ligar a numeração,
+   *  como o Word (e fica mesmo depois de desfazer — oráculo ln-cont-undo). */
+  private ensureLineNumberStyle(): void {
+    if (this.docStyles.byName('line number')) return;
+    this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), 'Nmerodelinha', false));
+  }
+
+  /** Números de linha das seções da seleção (a 1ª; `mixed` = as seções diferem). */
+  getLineNumbering(): (LineNumberingInfo & { mixed: boolean }) | null {
+    if (!this.model) return null;
+    const m = this.bodyModel();
+    const [k0, k1] = this.bodySectionRange();
+    const infos: LineNumberingInfo[] = [];
+    for (let k = k0; k <= k1; k++) infos.push(lineNumberingInfo(sectionSectPr(m, k)));
+    return { ...infos[0]!, mixed: infos.some((i) => i.mode !== infos[0]!.mode) };
+  }
+  /** Menu Números de Linha: Nenhum, Contínuo, Reiniciar a Cada Página/Seção — nas
+   *  seções que a seleção toca; os outros valores ficam. Um passo de desfazer. */
+  setLineNumbering(mode: LineNumberMode): void {
+    if (!this.model || this.locked()) return;
+    if (mode !== 'none') this.ensureLineNumberStyle();
+    this.snapshot();
+    for (const sp of this.lineNumberTargets('section')) this.setSectionLineNumbering(sp, withLineNumberMode(sp, mode, this.lnMemory.get(sp)));
+    this.refresh();
+  }
+  /** Diálogo Números de Linha: ligar, Iniciar em, Do texto (0 = Automático), Contar
+   *  por e Numeração; `applyTo` como em Configurar Página. Um passo de desfazer. */
+  setLineNumberingOptions(o: LineNumberingOptions, applyTo: SectionApplyTo = 'section'): void {
+    if (!this.model || this.locked()) return;
+    if ((applyTo === 'forward' || applyTo === 'selection') && !this.canInsertSectionBreak()) return;
+    if (o.on) this.ensureLineNumberStyle();
+    this.snapshot();
+    const ln = lineNumberingFromOptions(o);
+    for (const sp of this.lineNumberTargets(applyTo)) this.setSectionLineNumbering(sp, ln ? { ...ln } : undefined);
+    this.refresh();
+  }
+  private setSectionLineNumbering(sp: SectPr, ln: SectPr['lnNumType']): void {
+    const cur = sp.lnNumType;
+    if (!ln && lineNumberingOn(cur)) this.lnMemory.set(sp, { ...(cur.start ? { start: cur.start } : {}), ...(cur.distance ? { distance: cur.distance } : {}) });
+    if (ln) sp.lnNumType = ln; else delete sp.lnNumType;
+  }
+  /** Algum parágrafo da seleção suprime os números de linha? (o item do menu fica marcado) */
+  lineNumbersSuppressed(): boolean {
+    if (!this.model) return false;
+    const { start, end } = normalizeRange(this.range());
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (p && flowValue(this.effectivePPrOf(p), 'suppressLineNumbers')) return true;
+    }
+    return false;
+  }
+  /** Suprimir no Parágrafo Atual: alterna; com algum já suprimido, tira de todos
+   *  (oráculo ln-suppress-mso-mixed). Funciona com a numeração desligada. */
+  toggleLineNumberSuppression(): void {
+    this.setParagraphFlow({ suppressLineNumbers: !this.lineNumbersSuppressed() });
+  }
+
+  // ── Parágrafo › Quebras de linha e de página
+
+  /** Valores EFETIVOS da aba Quebras de linha e de página (null = parágrafos diferentes). */
+  getParagraphFlow(): ParagraphFlow | null {
+    if (!this.model) return null;
+    const { start, end } = normalizeRange(this.range());
+    const ps = this.model.paragraphs.slice(start.para, end.para + 1);
+    const eff = ps.map((p) => this.effectivePPrOf(p));
+    const out = {} as ParagraphFlow;
+    for (const k of FLOW_FLAGS) out[k] = common(eff.map((e) => flowValue(e, k)));
+    out.textboxTightWrap = common(eff.map((e) => (e.textboxTightWrap ?? 'none') as TightWrap));
+    return out;
+  }
+  /** Aplica a aba Quebras de linha e de página aos parágrafos selecionados: grava só o
+   *  que difere do herdado (desligar contra o estilo = w:val="0"). Um passo de desfazer. */
+  setParagraphFlow(f: Partial<{ [K in keyof ParagraphFlow]: NonNullable<ParagraphFlow[K]> }>): void {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    const patches: [number, Partial<ParaProps>][] = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      const inh = this.inheritedPPrOf(p);
+      const patch: Partial<ParaProps> = {};
+      for (const k of FLOW_FLAGS) {
+        const want = f[k];
+        if (want === undefined) continue;
+        const d = flowDirect(flowValue(inh, k), want);
+        if (d !== p.props[k]) patch[k] = d;
+      }
+      if (f.textboxTightWrap !== undefined) {
+        const d = f.textboxTightWrap === ((inh.textboxTightWrap ?? 'none') as TightWrap) ? undefined : f.textboxTightWrap;
+        if (d !== p.props.textboxTightWrap) patch.textboxTightWrap = d;
+      }
+      if (Object.keys(patch).length) patches.push([pi, patch]);
+    }
+    if (!patches.length) return;
+    this.snapshot();
+    for (const [pi, patch] of patches) this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, patch);
+    this.refresh();
+  }
+
+  // ── Layout › Parágrafo: caixas Recuar (Esquerda/Direita) e Espaçamento (Antes/Depois)
+
+  /** Valores EFETIVOS das caixas (twips; 'auto' = Automático; null = parágrafos diferentes). */
+  getParagraphLayout(): ParagraphLayoutInfo | null {
+    if (!this.model) return null;
+    const { start, end } = normalizeRange(this.range());
+    const eff = this.model.paragraphs.slice(start.para, end.para + 1).map((p) => this.effectivePPrOf(p));
+    return {
+      left: common(eff.map((e) => e.ind?.left ?? 0)),
+      right: common(eff.map((e) => e.ind?.right ?? 0)),
+      before: common(eff.map((e) => (e.spacing?.beforeAutospacing ? 'auto' as const : e.spacing?.before ?? 0))),
+      after: common(eff.map((e) => (e.spacing?.afterAutospacing ? 'auto' as const : e.spacing?.after ?? 0))),
+    };
+  }
+  /** Aplica as caixas aos parágrafos selecionados (o valor vale para todos; igual ao
+   *  herdado não é gravado — oráculos nav-lab ind-* e textlayout-lab sp-*). Um passo
+   *  de desfazer. */
+  setParagraphLayout(v: Partial<{ left: number; right: number; before: number | 'auto'; after: number | 'auto' }>): void {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    const ind = PARAGRAPH_LAYOUT_LIMITS.indent;
+    const clampInd = (x: number | undefined): number | undefined => (x === undefined ? undefined : Math.min(ind[1], Math.max(ind[0], Math.round(x))));
+    const left = clampInd(v.left), right = clampInd(v.right);
+    const patches: [number, Partial<ParaProps>][] = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      const inh = this.inheritedPPrOf(p);
+      let patch: Partial<ParaProps> = {};
+      if (left !== undefined || right !== undefined) {
+        const eff = this.effectivePPrOf(p).ind ?? {};
+        const d = indentsDirect(inh.ind, {
+          left: left ?? eff.left ?? 0, right: right ?? eff.right ?? 0,
+          firstLine: eff.hanging !== undefined ? -eff.hanging : (eff.firstLine ?? 0),
+        });
+        patch = { ...d };
+      }
+      for (const side of ['before', 'after'] as const) {
+        const want = v[side];
+        if (want === undefined) continue;
+        const sp = inh.spacing;
+        patch = { ...patch, ...spacingDirect({ twips: (side === 'before' ? sp?.before : sp?.after) ?? 0, auto: !!(side === 'before' ? sp?.beforeAutospacing : sp?.afterAutospacing) }, want, side) };
+      }
+      const changed = (Object.keys(patch) as (keyof ParaProps)[]).some((k) => patch[k] !== p.props[k]);
+      if (changed) patches.push([pi, patch]);
+    }
+    if (!patches.length) return;
+    this.snapshot();
+    for (const [pi, patch] of patches) this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, patch);
+    this.refresh();
+  }
+
+  // ── Configurar Página › Layout: início da seção e alinhamento vertical
+
+  /** Início da seção (w:type) — "Aplicar a" como em Configurar Página. Um passo de desfazer. */
+  setSectionStart(type: SectionType, applyTo: SectionApplyTo = 'section'): void {
+    if (!this.model || this.locked()) return;
+    if ((applyTo === 'forward' || applyTo === 'selection') && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    for (const sp of this.lineNumberTargets(applyTo)) {
+      if (type === 'nextPage') delete sp.type; else sp.type = type;
+    }
+    this.refresh();
+  }
+  /** Alinhamento vertical do texto na página (w:vAlign: superior = sem elemento —
+   *  oráculo sec-valign-*). Um passo de desfazer. */
+  setVerticalAlignment(v: 'top' | 'center' | 'both' | 'bottom', applyTo: SectionApplyTo = 'section'): void {
+    if (!this.model || this.locked()) return;
+    if ((applyTo === 'forward' || applyTo === 'selection') && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    for (const sp of this.lineNumberTargets(applyTo)) {
+      if (v === 'top') delete sp.vAlign; else sp.vAlign = v;
+    }
+    this.refresh();
   }
 
   /** Arrasta uma divisa de COLUNA da tabela do cursor (régua): `boundary` é a

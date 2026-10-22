@@ -11,6 +11,7 @@ import { registerHfCommands } from './chrome-hf.js';
 import { registerPictureCommands } from './chrome-picture.js';
 import { registerPageCommands } from './chrome-page.js';
 import { registerTocCommands, type TocDialogKind } from './chrome-toc.js';
+import { registerTextLayoutCommands, type TextLayoutDialogKind } from './chrome-textlayout.js';
 import { registerShapeCommands } from './chrome-shape.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 
@@ -25,7 +26,10 @@ export interface ChromeCtl {
   image(): void;
   fontDialog(): void;
   paragraphDialog(): void;
-  pageDialog(): void;
+  /** Configurar Página (guia: Margens, Papel ou Layout) */
+  pageDialog(tab?: 'margins' | 'paper' | 'layout'): void;
+  /** diálogos da frente Layout do texto (Opções de Hifenização, Hifenização Manual) */
+  textLayoutDialog(kind: TextLayoutDialogKind): void;
   /** diálogo Mais Colunas */
   columnsDialog(): void;
   /** diálogo Notas de Rodapé e de Fim, Converter Notas e Mostrar Notas (que pergunta a área) */
@@ -258,7 +262,6 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'dlg:paragraph', label: { en: 'Paragraph…', pt: 'Parágrafo…' }, tip: { en: 'Paragraph settings', pt: 'Configurações de parágrafo' }, icon: 'format_textdirection_l_to_r', run: () => ctl.paragraphDialog() }),
     edit({ id: 'dlg:tabs', label: { en: 'Tabs…', pt: 'Tabulação…' }, tip: { en: 'Tab stops of the paragraph and the default tab stop', pt: 'Tabulações do parágrafo e a tabulação padrão' }, icon: 'keyboard_tab', supports: has('setTabStops'), run: () => ctl.tabsDialog() }),
     edit({ id: 'dlg:page', label: { en: 'Page setup…', pt: 'Configurar página…' }, icon: 'settings', run: () => ctl.pageDialog() }),
-    edit({ id: 'hyphenation', label: { en: 'Hyphenation', pt: 'Hifenização' }, icon: 'horizontal_rule', supports: has('setHyphenation'), run: () => call('setHyphenation') }),
 
     // ── Revisão ──
     { id: 'comment:prev', label: { en: 'Previous', pt: 'Anterior' }, tip: { en: 'Previous comment', pt: 'Comentário anterior' }, icon: 'navigate_before', run: () => stepComment(-1), isEnabled: () => ed.getComments().length > 0 },
@@ -312,6 +315,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
+  registerTextLayoutCommands(reg, ed, app, ctl);
 
   function stepComment(dir: 1 | -1): void {
     const cs = ed.getComments();

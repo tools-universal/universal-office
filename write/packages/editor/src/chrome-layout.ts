@@ -15,6 +15,7 @@ import { pictureCompactGroup, pictureFormatGroups, pictureMenu } from './chrome-
 import { coverPageMenu, pageColorMenu, watermarkMenu } from './chrome-page.js';
 import { addTextMenu, tocGalleryMenu } from './chrome-toc.js';
 import { shapeCompactGroup, shapeFormatGroups, shapeMenu, textboxMenu } from './chrome-shape.js';
+import { hyphenationMenu, lineNumbersMenu, paragraphLayoutCells } from './chrome-textlayout.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -49,6 +50,9 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     symbols: sub({ en: 'Special characters', pt: 'Caracteres especiais' }, 'special_character', () => symbolMenu(env, ctx), 'symbols'),
     breaks: sub({ en: 'Break', pt: 'Quebra' }, 'insert_page_break', breaksMenu, 'breaks'),
     columns: sub({ en: 'Columns', pt: 'Colunas' }, 'view_column_2', columnsMenu, 'columns'),
+    // Layout do texto: Hifenização e Números de Linha (guia Layout da ribbon)
+    hyphenation: { ...sub({ en: 'Hyphenation', pt: 'Hifenização' }, 'horizontal_rule', hyphenationMenu, 'hyphenation'), hidden: typeof (env.ed as unknown as { setHyphenation?: unknown }).setHyphenation !== 'function' },
+    lineNumbers: { ...sub({ en: 'Line numbers', pt: 'Números de linha' }, 'format_list_numbered', lineNumbersMenu, 'lineNumbers'), hidden: typeof (env.ed as unknown as { setLineNumbering?: unknown }).setLineNumbering !== 'function' },
     cover: { ...sub({ en: 'Cover page', pt: 'Folha de rosto' }, 'auto_stories', () => coverPageMenu(env, ctx), 'cover:menu'), hidden: typeof (env.ed as unknown as { insertCoverPage?: unknown }).insertCoverPage !== 'function' },
     // Plano de Fundo da Página (guia Design da ribbon)
     background: { ...sub({ en: 'Page background', pt: 'Plano de fundo da página' }, 'format_color_fill', () => [
@@ -153,7 +157,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, m.toc, '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
-      { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
+      { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', m.hyphenation, m.lineNumbers, '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
     groups: [
@@ -259,6 +263,9 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
         // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
         // Documento (temas, conjuntos de estilos) entra quando chegar
         id: 'design', label: L('Design', 'Design'), groups: [
+          { id: 'docformat', label: L('Document Formatting', 'Formatação do Documento'), icon: 'format_line_spacing', prio: 3, cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: 'pspacing', label: L('Paragraph Spacing', 'Espaçamento entre Parágrafos'), icon: 'format_line_spacing', size: 'large' },
+          ] },
           { id: 'background', label: L('Page Background', 'Plano de Fundo da Página'), icon: 'format_color_fill', prio: 4, cells: [
             { menu: () => watermarkMenu(env, ctx), id: 'watermark:menu', label: L('Watermark', 'Marca-d\'Água'), icon: 'branding_watermark', size: 'large', supports: has('setWatermark') },
             { menu: () => pageColorMenu(env, ctx), id: 'pageColor:menu', label: L('Page Color', 'Cor da Página'), icon: 'format_color_fill', size: 'large', supports: has('setPageColor') },
@@ -273,16 +280,14 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             { menu: () => orientationMenu(env, ctx), id: 'orientation', label: L('Orientation', 'Orientação'), icon: 'crop_rotate', size: 'large' },
             { menu: () => sizeMenu(env, ctx), id: 'pageSize', label: L('Size', 'Tamanho'), icon: 'aspect_ratio', size: 'large' },
             { menu: columnsMenu, id: 'columns', label: L('Columns', 'Colunas'), icon: 'view_column_2', size: 'large', supports: has('setColumns') },
-            { rows: [[{ menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', showLabel: true }], ['hyphenation']] },
-          ] },
-          { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_indent_increase', prio: 5, launcher: 'dlg:paragraph', cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: 'pspacing', label: L('Paragraph Spacing', 'Espaçamento entre Parágrafos'), icon: 'format_line_spacing', size: 'large' },
             { rows: [
-              [{ cmd: 'outdent', label: true }, { cmd: 'indent', label: true }],
-              [{ menu: () => specialIndentMenu(env, ctx), id: 'specialIndent', label: L('Special indent', 'Recuo especial'), icon: 'format_indent_increase', showLabel: true }],
-              [{ menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: L('Spacing', 'Espaçamento'), icon: 'format_line_spacing', showLabel: true }],
+              [{ menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', showLabel: true }],
+              [{ menu: lineNumbersMenu, id: 'lineNumbers', label: L('Line Numbers', 'Números de Linha'), icon: 'format_list_numbered', showLabel: true, supports: has('setLineNumbering') }],
+              [{ menu: hyphenationMenu, id: 'hyphenation', label: L('Hyphenation', 'Hifenização'), icon: 'horizontal_rule', showLabel: true, supports: has('setHyphenation') }],
             ] },
           ] },
+          // Recuar (À Esquerda/À Direita) e Espaçamento (Antes/Depois) em caixas numéricas, como no Word
+          { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_indent_increase', prio: 5, launcher: 'dlg:paragraph', cells: paragraphLayoutCells(env) },
         ],
       },
       {

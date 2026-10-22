@@ -1,4 +1,4 @@
-import type { FullDocument, PPr } from '@universal-office/docx-core';
+import type { FullDocument, PPr, Paragraph } from '@universal-office/docx-core';
 import { hyphenatorFor } from './typography/index.js';
 import type { DocContext } from './context.js';
 import type { Glyph } from './para.js';
@@ -87,7 +87,7 @@ export function documentHyphenationLanguages(full: FullDocument, fallback = 'pt-
  * Marca os pontos de hifenização automática (`hyph` = pode quebrar com hífen DEPOIS
  * deste glifo) nos trechos de letras do parágrafo.
  */
-export function markHyphenation(ctx: DocContext, ppr: PPr, glyphs: Glyph[], skipRuns?: Set<number>): void {
+export function markHyphenation(ctx: DocContext, ppr: PPr, glyphs: Glyph[], skipRuns?: Set<number>, para?: Paragraph): void {
   const s = ctx.fmt.settings;
   if ((!s.autoHyphenation && ctx.opts.hyphenation !== 'force') || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
   const [left, right] = hyphenMins(s.compatibilityMode);
@@ -109,6 +109,8 @@ export function markHyphenation(ctx: DocContext, ppr: PPr, glyphs: Glyph[], skip
     k = e;
     const rpr = g.style.rpr;
     if (rpr.noProof || rpr.cs || rpr.rtl || !langAllowed(ctx, lang)) continue;
+    // recusada na Hifenização Manual (o editor procura as palavras com 'force')
+    if (para && ctx.opts.hyphenationSkip?.(para, g.offset)) continue;
     if (s.doNotHyphenateCaps && idx.every((j) => { const c = glyphs[j]!.ch; return c.toLowerCase() === c.toUpperCase() || c === c.toUpperCase(); })) continue;
     const h = hyphenatorFor(lang);
     if (!h) continue;

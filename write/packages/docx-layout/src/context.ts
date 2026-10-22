@@ -29,6 +29,9 @@ export interface LayoutOptions {
    *  documento tivesse w:autoHyphenation (a Hifenização Manual do editor procura
    *  as palavras assim) */
   hyphenation?: boolean | 'force';
+  /** palavra que NÃO hifeniza automaticamente (o parágrafo e o offset da 1ª letra) —
+   *  as recusadas na Hifenização Manual */
+  hyphenationSkip?: (para: Paragraph, offset: number) => boolean;
   /** só hifeniza estes idiomas (etiquetas BCP 47 ou prefixos: 'pt-BR', 'en'…): o Word
    *  só hifeniza os idiomas com revisores instalados — padrão: todos com padrões */
   hyphenationLanguages?: string[];
@@ -99,7 +102,7 @@ export class DocContext {
   readonly faces: FaceResolver;
   numbering: NumberingState;
   readonly warnings = new Set<string>();
-  readonly opts: Required<Omit<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'revisions' | 'onField'>> & Pick<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'onField'>;
+  readonly opts: Required<Omit<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'revisions' | 'onField' | 'hyphenationSkip'>> & Pick<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'onField' | 'hyphenationSkip'>;
   /** como as revisões aparecem (modo, filtros, cores) */
   readonly rev: RevisionDisplay;
 
@@ -107,7 +110,7 @@ export class DocContext {
     this.resolver = new StyleResolver(fmt);
     const ddFonts = fmt.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt.fontTable, undefined, fontOfSlot(ddFonts, 'ascii', fmt.theme) ?? fmt.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'word', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}), ...(opts.onField ? { onField: opts.onField } : {}) };
+    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'word', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}), ...(opts.onField ? { onField: opts.onField } : {}), ...(opts.hyphenationSkip ? { hyphenationSkip: opts.hyphenationSkip } : {}) };
     this.numbering = new NumberingState(fmt.numbering, fmt.styles.styles, this.opts.lang);
     this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
