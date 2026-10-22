@@ -23,14 +23,83 @@ export function normChar(cp: number): string {
   return String.fromCodePoint(cp);
 }
 
-/** Linhas da árvore de layout (pt), agrupando glifos por baseline na ordem dos itens. */
-export function engineLines(res: LayoutResult): OracleDoc {
+/** Linha de texto GIRADO (caixa vertical) como a extração do PDF (pdftext.page_vlines):
+ *  x = linha de base na página, y0/y1 = origem do 1º e do último caractere, ângulo. */
+export interface OracleVLine { x: number; y0: number; y1: number; angle: number; size: number; text: string }
+
+type M6 = [number, number, number, number, number, number];
+const mul = (m: M6, n: M6): M6 => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+
+/** Linhas giradas da árvore de layout (pt): glifos dentro de xform com giro de 90/270°. */
+export function engineVLines(res: LayoutResult): OracleVLine[][] {
+  return res.pages.map((p) => {
+    const out: OracleVLine[] = [];
+    const stack: M6[] = [];
+    let m: M6 = [1, 0, 0, 1, 0, 0];
+    let cur: OracleVLine | null = null;
+    for (const it of p.items) {
+      if (it.t === 'xform') {
+        if (it.op === 'push') { stack.push(m); m = mul(m, it.m ?? [1, 0, 0, 1, 0, 0]); } else m = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+        continue;
+      }
+      if (it.t !== 'glyphs' || it.asPath) continue;
+      const ang = Math.round((Math.atan2(m[1], m[0]) * 180) / Math.PI + 360) % 360;
+      if (ang === 0) continue;
+      for (const g of it.glyphs) {
+        const ch = normChar(g.cp);
+        if (!ch || /\s/.test(ch) || g.cp > 0xffff) continue;
+        const px = (m[0] * g.x + m[2] * it.y + m[4]) / 20, py = (m[1] * g.x + m[3] * it.y + m[5]) / 20;
+        const size = Math.round(it.sizePt / 0.12) * 0.12;
+        if (cur && cur.angle === ang && Math.abs(px - cur.x) <= Math.max(1, 0.3 * size)) {
+          cur.text += ch;
+          cur.y0 = Math.min(cur.y0, py); cur.y1 = Math.max(cur.y1, py);
+        } else {
+          cur = { x: px, y0: py, y1: py, angle: ang, size, text: ch };
+          out.push(cur);
+        }
+      }
+    }
+    return out;
+  });
+}
+
+/** Casa as linhas giradas por texto (na ordem) e mede Δx (linha de base) e Δy0 (início). */
+export function compareVLines(word: OracleVLine[][], ours: OracleVLine[][]): { n: number; matched: number; maxDx: number; maxDy: number; firstDiff?: string } {
+  let n = 0, matched = 0, maxDx = 0, maxDy = 0;
+  let firstDiff: string | undefined;
+  word.forEach((wl, pi) => {
+    const ol = [...(ours[pi] ?? [])];
+    for (const w of wl) {
+      n++;
+      const k = ol.findIndex((o) => o.text === w.text && o.angle === w.angle && Math.abs(o.x - w.x) < 6 && Math.abs(o.y0 - w.y0) < 6);
+      const o = k >= 0 ? ol.splice(k, 1)[0]! : undefined;
+      if (!o) { firstDiff ??= `p${pi + 1} x=${w.x.toFixed(1)} ${w.angle}° "${w.text.slice(0, 30)}"`; continue; }
+      matched++;
+      // y0 = o início da linha (a origem mais alta para 90°, a mais baixa para 270°)
+      const ws = w.angle === 270 ? w.y1 : w.y0, os = o.angle === 270 ? o.y1 : o.y0;
+      maxDx = Math.max(maxDx, Math.abs(o.x - w.x));
+      maxDy = Math.max(maxDy, Math.abs(os - ws));
+    }
+  });
+  return { n, matched, maxDx, maxDy, ...(firstDiff ? { firstDiff } : {}) };
+}
+
+/** Linhas da árvore de layout (pt), agrupando glifos por baseline na ordem dos itens.
+ *  `skipRotated`: glifos em xform girado ficam de fora (vão em engineVLines). */
+export function engineLines(res: LayoutResult, skipRotated = false): OracleDoc {
   return {
     pages: res.pages.map((p) => {
       const lines: OracleLine[] = [];
       const lastCp: number[] = [];
       let cur: OracleLine | null = null;
+      const rotStack: boolean[] = [];
+      let rotated = false;
       for (const it of p.items) {
+        if (skipRotated && it.t === 'xform') {
+          if (it.op === 'push') { rotStack.push(rotated); rotated = rotated || (!!it.m && Math.abs(it.m[1]) > 0.5); } else rotated = rotStack.pop() ?? false;
+          continue;
+        }
+        if (rotated) continue;
         // curvas (WordArt, texto semitransparente, emoji colorido, caixa girada):
         // não é texto no PDF — nem no do Word
         if (it.t !== 'glyphs' || it.asPath) continue;

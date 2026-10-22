@@ -47,6 +47,8 @@ export {
   readFullDocument,
   readHeaderFooterPart,
   readBodyFragment,
+  forEachTextbox,
+  linkVmlTextboxes,
   type FullDocument,
   type Block,
   type ParagraphBlock,

@@ -210,6 +210,8 @@ export interface DrawingShape {
   line?: { x1: number; y1: number; x2: number; y2: number };
   /** linha horizontal VML (v:rect o:hr="t", "Inserir linha horizontal") */
   hr?: boolean;
+  /** wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto */
+  hidden?: boolean;
 }
 
 /** Caixa de texto de DrawingML (wps:txbx / VML v:textbox) — usada em
@@ -255,6 +257,25 @@ export interface DrawingTextbox {
   /** Blocos em ordem (parágrafos + tabelas) do txbxContent. */
   blocks?: import('./fulldoc.js').Block[];
   vml?: boolean;
+  /** wps:txbx@id — 1ª caixa de uma cadeia de caixas vinculadas (a história) */
+  story?: number;
+  /** wps:linkedTxbx — caixa seguinte de uma cadeia (sem conteúdo próprio): o id da
+   *  história e a posição na cadeia (1, 2…) */
+  link?: { id: number; seq: number };
+  /** VML: id do v:shape e o da caixa seguinte (mso-next-textbox) — viram story/link
+   *  na leitura da parte (linkVmlTextboxes) */
+  vmlId?: string;
+  vmlNext?: string;
+  /** direção do texto (wps:bodyPr vert ≠ horz; VML layout-flow): vert, vert270,
+   *  eaVert, mongolianVert, wordArtVert, wordArtVertRtl */
+  vert?: string;
+  /** wps:bodyPr upright — o texto não gira com a forma */
+  upright?: boolean;
+  /** wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto */
+  hidden?: boolean;
+  /** cor do texto sem cor própria: a do wps:style/a:fontRef (medido: estilo de forma
+   *  com fontRef lt1 deixa o texto branco) — RRGGBB ou @esquema|mods */
+  fontColor?: string;
 }
 
 export interface NoteRef {
@@ -367,6 +388,8 @@ export interface DrawingGroup {
   floating?: boolean;
   anchor?: DrawingAnchor;
   items: { x: number; y: number; w: number; h: number; run: Run }[];
+  /** wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto */
+  hidden?: boolean;
 }
 
 export const EMU_PER_TWIP = 635;
@@ -798,6 +821,9 @@ function bodyPrOf(tb: DrawingTextbox, bodyPr: XmlElement | undefined): void {
   tb.insets = { l: insTw('lIns', 144), t: insTw('tIns', 72), r: insTw('rIns', 144), b: insTw('bIns', 72) };
   const anc = bodyPr.attrs['anchor'];
   if (anc === 't' || anc === 'ctr' || anc === 'b') tb.vAnchor = anc;
+  const vert = bodyPr.attrs['vert'];
+  if (vert && vert !== 'horz') tb.vert = vert;
+  if (bodyPr.attrs['upright'] === '1' || bodyPr.attrs['upright'] === 'true') tb.upright = true;
   if (bodyPr.attrs['fromWordArt'] === '1' || bodyPr.attrs['fromWordArt'] === 'true') {
     tb.wordArt = firstChild(bodyPr, 'a:prstTxWarp')?.attrs['prst'] ?? 'textPlain';
   }
@@ -835,10 +861,23 @@ function readGraphicObject(
     const style = readSpPr(spPr, firstChild(obj, 'wps:style'));
     const txbx = firstChild(obj, 'wps:txbx');
     const content = txbx && firstChild(txbx, 'w:txbxContent');
-    if (content) {
+    // caixa seguinte de uma cadeia vinculada: sem conteúdo próprio (o da 1ª flui nela)
+    const linked = !content ? firstChild(obj, 'wps:linkedTxbx') : undefined;
+    if (content || linked) {
       const tb: DrawingTextbox = { paras: [], widthTwips: wTw, heightTwips: hTw };
-      textboxBlocks(content, ctx, tb);
+      if (content) {
+        textboxBlocks(content, ctx, tb);
+        const sid = parseInt(txbx!.attrs['id'] ?? '', 10);
+        if (Number.isFinite(sid)) tb.story = sid;
+      } else {
+        tb.paras = [];
+        tb.blocks = [];
+        tb.link = { id: parseInt(linked!.attrs['id'] ?? '0', 10) || 0, seq: parseInt(linked!.attrs['seq'] ?? '1', 10) || 1 };
+      }
       bodyPrOf(tb, firstChild(obj, 'wps:bodyPr'));
+      const fontRef = firstChild(firstChild(obj, 'wps:style') ?? obj, 'a:fontRef');
+      const fc = fontRef ? readSpPr({ name: 'wps:spPr', attrs: {}, children: [{ name: 'a:solidFill', attrs: {}, children: childElements(fontRef) }] }).fill : undefined;
+      if (fc) tb.fontColor = fc;
       if (style.fill || style.line || style.gradient) tb.shape = style;
       tb.lineInset = style.lineInset ?? {};
       if (style.geom && style.geom !== 'rect' && style.geom !== 'custom') tb.geom = { prst: style.geom, ...(style.adj ? { adj: style.adj } : {}) };
@@ -1081,6 +1120,9 @@ function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props
     target.anchor = anchor;
     if (anchor.behindDoc && (run.image || run.textbox)) (run.image ?? run.textbox)!.behindDoc = true;
   }
+  // oculto (Painel de Seleção) — a imagem leva no format.docPr
+  const docPr = firstChild(container, 'wp:docPr');
+  if (docPr && /^(1|true)$/.test(docPr.attrs['hidden'] ?? '') && (run.textbox || run.shape || run.group)) (run.textbox ?? run.shape ?? run.group)!.hidden = true;
   // campos legados usados pelo editor (relH/relV/offsets + XML cru p/ o save)
   for (const t of [run.image, run.textbox]) {
     if (!t) continue;
@@ -1201,6 +1243,17 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
         const tbStyle = parseVmlStyle(txb!.attrs['style']);
         if (tbStyle['mso-fit-shape-to-text'] === 't') tb.autoFit = true;
         if (parseVmlStyle(el.attrs['style'])['mso-wrap-style'] === 'none') tb.noWrap = true;
+        // direção (layout-flow) e alinhamento vertical (v-text-anchor) — oráculo textbox-lab
+        const flow = tbStyle['layout-flow'], alt = tbStyle['mso-layout-flow-alt'];
+        if (flow === 'vertical') tb.vert = alt === 'bottom-to-top' ? 'vert270' : alt === 'top-to-bottom' ? 'mongolianVert' : 'vert';
+        else if (flow === 'vertical-ideographic') tb.vert = 'eaVert';
+        const va = st['v-text-anchor'];
+        if (va === 'middle' || va === 'middle-center' || va === 'middle-baseline') tb.vAnchor = 'ctr';
+        else if (va === 'bottom' || va === 'bottom-center' || va === 'bottom-baseline') tb.vAnchor = 'b';
+        // cadeia de caixas vinculadas (mso-next-textbox:#id): resolvida na leitura da parte
+        if (el.attrs['id']) tb.vmlId = el.attrs['id'];
+        const next = tbStyle['mso-next-textbox'];
+        if (next) tb.vmlNext = next.replace(/^#/, '');
         const sh = vmlShapeStyle(el, 'rect');
         if (sh.fill || sh.line) tb.shape = sh;
         run = { text: OBJ, textbox: tb };

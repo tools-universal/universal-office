@@ -9,6 +9,8 @@ import {
   type SectPr,
   type ReadContext,
   type BorderEdge,
+  type DrawingTextbox,
+  type Run,
 } from './document.js';
 import { readStyles, type StylesMap } from './styles.js';
 import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
@@ -394,6 +396,60 @@ function groupOf(xml: string, child: XmlElement, produced: Block[], store: Sourc
  * no lugar do que está no pacote — parte nova do editor (cópia ao desvincular,
  * modelo da galeria), lida como se viesse do arquivo; as rels são as de `path`.
  */
+/**
+ * Cada caixa de texto dos blocos (parágrafos do topo, células, itens de grupo e
+ * caixas dentro de caixas), na ordem do documento, com o run que a carrega.
+ */
+export function forEachTextbox(blocks: readonly Block[], fn: (tb: DrawingTextbox, run: Run) => void): void {
+  const runs = (rs: readonly Run[]): void => {
+    for (const r of rs) {
+      if (r.textbox) {
+        fn(r.textbox, r);
+        walk(r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
+      }
+      for (const it of r.group?.items ?? []) runs([it.run]);
+    }
+  };
+  const walk = (bs: readonly Block[]): void => {
+    for (const b of bs) {
+      if (b.type === 'paragraph') runs(b.paragraph.runs);
+      else for (const row of b.rows) for (const c of row.cells) walk(c.blocks ?? c.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
+    }
+  };
+  walk(blocks);
+}
+
+/**
+ * Cadeias de caixas VML (v:textbox style="mso-next-textbox:#id"): viram a forma do
+ * DrawingML — a 1ª ganha `story` e as seguintes `link` {id, seq} (sem conteúdo).
+ * Ids de história livres a partir do maior wps:txbx@id da parte.
+ */
+export function linkVmlTextboxes(blocks: readonly Block[]): void {
+  const byId = new Map<string, DrawingTextbox>();
+  const targets = new Set<string>();
+  let maxStory = 0;
+  forEachTextbox(blocks, (tb) => {
+    if (tb.vmlId) byId.set(tb.vmlId, tb);
+    if (tb.vmlNext) targets.add(tb.vmlNext);
+    if (tb.story !== undefined) maxStory = Math.max(maxStory, tb.story);
+  });
+  if (!targets.size) return;
+  forEachTextbox(blocks, (tb) => {
+    // cabeça: tem próxima e ninguém aponta para ela
+    if (!tb.vmlNext || (tb.vmlId && targets.has(tb.vmlId)) || tb.story !== undefined) return;
+    const id = ++maxStory;
+    tb.story = id;
+    let seq = 0;
+    const seen = new Set<DrawingTextbox>([tb]);
+    for (let cur = byId.get(tb.vmlNext); cur && !seen.has(cur); cur = cur.vmlNext ? byId.get(cur.vmlNext) : undefined) {
+      seen.add(cur);
+      cur.link = { id, seq: ++seq };
+      cur.paras = [];
+      cur.blocks = [];
+    }
+  });
+}
+
 export function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: SourceStore, xml0?: string): { paras: Paragraph[]; blocks: Block[] } | undefined {
   const xml = xml0 ?? pkg.getPartText(path);
   if (!xml) return undefined;
@@ -415,6 +471,7 @@ export function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: Sou
     }
     store.stories.set(path, story);
   }
+  linkVmlTextboxes(blocks);
   // modelo de edição (achatado): parágrafos do topo + os das células
   const paras: Paragraph[] = [];
   const walk = (bs: Block[]) => {
@@ -658,6 +715,7 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
     closeSection(firstChild(body, 'w:sectPr') ?? { name: 'w:sectPr', attrs: {}, children: [] }, blocks.length - 1);
   }
   if (blocks.length === 0) blocks.push({ type: 'paragraph', paragraph: { runs: [], props: {} } });
+  linkVmlTextboxes(blocks);
 
   const comments = readComments(pkg);
   if (store) {

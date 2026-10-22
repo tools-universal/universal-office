@@ -83,9 +83,11 @@ for (const f of readdirSync(outDir).filter((x) => x.endsWith('.docx'))) {
     const od = /<a:objectDefaults\/>|<a:objectDefaults>[\s\S]*?<\/a:objectDefaults>/.exec(theme)?.[0] ?? '(sem objectDefaults)';
     out += `\n<!-- theme1.xml objectDefaults -->\n${pretty(od)}\n`;
   }
-  writeFileSync(join(resDir, `${name}.xml`), out);
+  // bb-*: o conteúdo da galeria é da Microsoft — fica fora do git (.out/)
+  const dest = name.startsWith('bb-') ? outDir : resDir;
+  writeFileSync(join(dest, `${name}.xml`), out);
   const js = join(outDir, `${name}.json`);
-  if (existsSync(js)) copyFileSync(js, join(resDir, `${name}.json`));
+  if (existsSync(js) && dest === resDir) copyFileSync(js, join(resDir, `${name}.json`));
 }
 // experimentos sem .docx (NoSave): só o json
 for (const f of readdirSync(outDir).filter((x) => x.endsWith('.json'))) {

@@ -1,6 +1,8 @@
 import type {
-  FullDocument, Block, Paragraph, TableBlock, Section, SectPr, Run, PBdr, DrawingAnchor, TableCell,
+  FullDocument, Block, Paragraph, TableBlock, Section, SectPr, Run, PBdr, DrawingAnchor, TableCell, DrawingTextbox,
 } from '@universal-office/docx-core';
+import { presetTextRect } from '@universal-office/drawingml';
+import { indexChains, sliceParagraphFrom, remapLines, topBlockOf, CONTINUATION, type TextboxChain } from './chain.js';
 import { runPropsFromRPr, paraPropsFromPPr, revisionAuthors } from '@universal-office/docx-core';
 import { DocContext, emptyFormatting, directPPr, type LayoutOptions, type FlowState, type NoteNumbering } from './context.js';
 import { faceMetrics, type FontProvider } from './fonts.js';
@@ -1195,7 +1197,7 @@ class Engine {
         const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
         const para = join ? this.joinHidden(join, merged, env) : merged;
-        const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...(join ? { numbering: false } : {}) });
+        const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...(join ? { numbering: false } : {}), ...(CONTINUATION.has(para) ? { continuation: true } : {}) });
         if (join) p.marker = join.marker;
         join = null;
         // marca oculta (fora o último bloco): sem conteúdo visível não ocupa nada;
@@ -3147,6 +3149,84 @@ class Engine {
     return last;
   }
 
+  /** Ambiente do texto da caixa: fundo escuro (cor automática branca) e a cor do
+   *  wps:style/a:fontRef para o texto sem cor (medido: estilo de forma "preenchido"). */
+  private tbEnv(tb: DrawingTextbox): Pick<ParaEnv, 'darkBackground' | 'defaultColor'> {
+    const theme = this.ctx.fmt.theme;
+    const fc = tb.fontColor ? resolveDrawingColor(tb.fontColor, theme) : undefined;
+    return { darkBackground: isDark(resolveDrawingColor(tb.shape?.fill, theme)), ...(fc ? { defaultColor: fc } : {}) };
+  }
+
+  /** cadeias de caixas vinculadas (montadas na 1ª caixa que precisa) */
+  private chains: Map<DrawingTextbox, TextboxChain> | null = null;
+  /** conteúdo de cada caixa de uma cadeia (diagramado uma vez por passada) */
+  private chainSlices = new Map<TextboxChain, Map<DrawingTextbox, CellContent>>();
+
+  private chainOf(tb: DrawingTextbox): TextboxChain | undefined {
+    if (!tb.story && !tb.link) return undefined;
+    this.chains ??= indexChains(this.full);
+    return this.chains.get(tb);
+  }
+
+  /**
+   * Pedaço do conteúdo da cadeia que cabe na caixa `tb`: o conteúdo da 1ª caixa é
+   * diagramado na largura de cada caixa, em ordem; o corte (o mesmo da linha de tabela
+   * partida: viúvas/órfãs, espaço depois) manda o resto para a seguinte, que quebra de
+   * novo na largura dela — o parágrafo partido continua sem recuo da 1ª linha e sem
+   * espaço antes. A última fica com tudo o que sobra (transborda). Oráculo txbxlink.
+   */
+  private chainSlice(chain: TextboxChain, tb: DrawingTextbox, env0: ParaEnv): CellContent {
+    let slices = this.chainSlices.get(chain);
+    if (!slices) {
+      const out = new Map<DrawingTextbox, CellContent>();
+      slices = out;
+      this.chainSlices.set(chain, out);
+      const theme = this.ctx.fmt.theme;
+      const head = chain.members[0]!;
+      let rem: Block[] = head.blocks ?? head.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
+      let map = rem.map((_, i) => i);
+      let cont = 0;
+      const empty = (): CellContent => ({ items: [], lines: [], height: 0 });
+      chain.members.forEach((m, k) => {
+        if (!rem.length) { out.set(m, empty()); return; }
+        const fr = tbFrame(m, theme, m.widthTwips, m.heightTwips);
+        const env: ParaEnv = { ...env0, ...this.tbEnv(m) };
+        const blocks = rem, curMap = map, curCont = cont;
+        const c = this.ctx.pure(() => this.layoutStatic(blocks, 0, Math.max(1, fr.iw), env, 'txbx'));
+        // a 1ª linha da continuação não é a 1ª do parágrafo (viúvas/órfãs)
+        const ci = curCont ? c.paras?.get('txbx/b0') : undefined;
+        if (ci) c.paras!.set('txbx/b0', { ...ci, lines: ci.lines + 1 });
+        let slice = c;
+        rem = [];
+        if (k < chain.members.length - 1) {
+          const parts = splitContent(c, fr.ih);
+          // nem a 1ª linha coube: a caixa fica vazia e tudo segue
+          if (!parts) { out.set(m, empty()); rem = blocks; return; }
+          const cut = parts[0].height;
+          const moved = c.lines.filter((l) => l.y >= cut - 0.01);
+          if (moved.length) {
+            slice = { ...parts[0], height: cut };
+            const first = moved.reduce((a, b) => (b.y < a.y ? b : a));
+            const j = Math.max(0, topBlockOf(first.ref));
+            // linha numa tabela: a tabela inteira vai para a próxima caixa
+            const off = /^[^/]+\/b\d+$/.test(first.ref) ? first.start : 0;
+            map = curMap.slice(j);
+            const pb = blocks[j];
+            if (off > 0 && pb?.type === 'paragraph') {
+              cont = (j === 0 ? curCont : 0) + off;
+              rem = [{ type: 'paragraph', paragraph: sliceParagraphFrom(pb.paragraph, off) }, ...blocks.slice(j + 1)];
+            } else {
+              cont = 0;
+              rem = blocks.slice(j);
+            }
+          }
+        }
+        out.set(m, { ...slice, lines: remapLines(slice.lines, curMap, curCont) });
+      });
+    }
+    return slices.get(tb) ?? { items: [], lines: [], height: 0 };
+  }
+
   private placeFloats(p: PreparedPara, ps: PageState, colX: number, colW: number, paraTop: number, flowItems: PageItem[], yOrigin: number, paraRef?: number): void {
     for (const g of p.glyphs) {
       const run = g.obj;
@@ -3165,7 +3245,8 @@ class Engine {
     const g = ps.geom;
     // imagem flutuante oculta (Painel de Seleção, docPr hidden): não desenha nem
     // afasta o texto; a em linha continua (oráculo pichidden)
-    if (run.image?.floating && run.image.format?.docPr.hidden) {
+    // caixa de texto, forma ou grupo oculto: idem (oráculo txbxhide)
+    if ((run.image?.floating && run.image.format?.docPr.hidden) || run.textbox?.hidden || run.shape?.hidden || run.group?.hidden) {
       return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: [] }, obj: { run, x: 0, y: 0, w: 0, h: 0, layer: 'front', hf: this.inHf } };
     }
     const anchor: DrawingAnchor | undefined = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
@@ -3181,12 +3262,18 @@ class Engine {
     /** diagramação final do conteúdo da caixa já no lugar: flutuantes DENTRO dela
      *  ficam relativos à caixa (antes iam para a origem da página) */
     let tbFinal: ((bx: number, by: number) => CellContent) | null = null;
-    if (run.textbox) {
+    const chain = run.textbox ? this.chainOf(run.textbox) : undefined;
+    if (run.textbox && chain) {
+      // caixa de uma cadeia vinculada: o pedaço do conteúdo que cabe nela (oráculo txbxlink)
+      tbContent = this.chainSlice(chain, run.textbox, { field: this.fieldValue(ps), ...(this.inHf ? { hf: true } : {}) });
+    } else if (run.textbox) {
       const tb = run.textbox;
-      const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
+      // margens e largura no referencial do TEXTO (direção vertical gira as margens)
+      const fr = tbFrame(tb, this.ctx.fmt.theme, w, h);
+      const ins = fr.ins;
       const blocks: Block[] = tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
-      const env: ParaEnv = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...(this.inHf ? { hf: true } : {}) };
-      let inner = w - ins.l - ins.r;
+      const env: ParaEnv = { field: this.fieldValue(ps), ...this.tbEnv(tb), ...(this.inHf ? { hf: true } : {}) };
+      let inner = fr.iw;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
         // moldura sem largura: a da linha mais longa, quebrando na largura da coluna
@@ -3210,13 +3297,18 @@ class Engine {
       }
       const iw = Math.max(1, inner);
       tbContent = this.ctx.pure(() => this.layoutStatic(blocks, 0, iw, env, 'txbx'));
-      tbFinal = (bx, by) => {
-        const prevDx = this.staticDx;
-        this.staticDx = bx + ins.l;
-        try { return this.layoutStatic(blocks, 0, iw, env, 'txbx', ps, by + ins.t); } finally { this.staticDx = prevDx; }
-      };
-      // ajuste automático: a altura é a do texto (o cy gravado pode estar desatualizado)
-      if (tb.autoFit) h = tbContent.height + ins.t + ins.b;
+      // (texto vertical: girado na pintura; flutuantes dentro dele ficam na origem)
+      if (!fr.rot) {
+        tbFinal = (bx, by) => {
+          const prevDx = this.staticDx;
+          this.staticDx = bx + ins.l;
+          try { return this.layoutStatic(blocks, 0, iw, env, 'txbx', ps, by + ins.t); } finally { this.staticDx = prevDx; }
+        };
+      }
+      // ajuste automático: a altura do texto vira a altura da caixa (o cy gravado pode estar
+      // desatualizado); no texto vertical, a LARGURA (oráculo txbxvert)
+      if (tb.autoFit && fr.rot) w = verticalHeight(tbContent) + ins.t + ins.b;
+      else if (tb.autoFit) h = tbContent.height + ins.t + ins.b;
       if (fi) h = fi.hRule === 'exact' ? fi.h : fi.hRule === 'atLeast' ? Math.max(fi.h, tbContent.height) : tbContent.height;
     }
     let x: number, y: number;
@@ -3416,7 +3508,9 @@ class Engine {
         out.push({ t: 'shape', x, y, w, h, style: s, ...(fill ? { fill } : {}), ...(stroke ? { stroke } : {}), ...shapeExtras(s, theme) });
       }
       if (tbContent) {
-        const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
+        // margens no referencial do texto (texto vertical: giradas com os lados da forma)
+        const fr = tbFrame(tb, this.ctx.fmt.theme, w, h);
+        const ins = fr.ins;
         // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
         const rot = tb.rot ?? s?.rot ?? 0;
         // WordArt (textPlain): o texto estica para preencher a caixa interna
@@ -3451,6 +3545,11 @@ class Engine {
           // o Word grava o texto do WordArt como CURVAS no PDF (não é texto extraível)
           for (const it of tbContent.items) out.push(it.t === 'glyphs' ? { ...it, asPath: true } : it);
           out.push({ t: 'xform', op: 'pop' });
+        } else if (fr.rot) {
+          // texto vertical: o conteúdo girado no quadro (margens giradas com os lados)
+          out.push({ t: 'clip', op: 'push', x, y, w, h });
+          out.push(...verticalContent(tbContent, fr, tb.vAnchor, x, y, w, h));
+          out.push({ t: 'clip', op: 'pop' });
         } else {
           let dy = y + ins.t;
           const free = h - ins.t - ins.b - tbContent.height;
@@ -3551,9 +3650,92 @@ function tbInsets(
   return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
 }
 
+/** Direção do texto da caixa: 0 horizontal; 90 girado no sentido horário (vert, eaVert);
+ *  270 anti-horário (vert270); −90 girado no horário com as linhas da esquerda para a
+ *  direita (mongolianVert, wordArtVert, wordArtVertRtl) — oráculo txbxvert. */
+export type TbRot = 0 | 90 | 270 | -90;
+function vertKind(v: string | undefined): TbRot {
+  switch (v) {
+    case 'vert': case 'eaVert': return 90;
+    case 'vert270': return 270;
+    case 'mongolianVert': case 'wordArtVert': case 'wordArtVertRtl': return -90;
+    default: return 0;
+  }
+}
+
+export interface TbFrame { ins: { l: number; t: number; r: number; b: number }; iw: number; ih: number; rot: TbRot }
+
+/** Quadro do texto da caixa w × h no referencial do TEXTO: as margens (a direção vertical as
+ *  gira com os lados da forma: em vert, a margem de cima vira a da esquerda do texto e a da
+ *  direita a de cima — oráculo txbxvert), a largura e a altura disponíveis. */
+export function tbFrame(
+  tb: Parameters<typeof tbInsets>[0] & { vert?: string }, theme: { lineWidthsPt?: number[] } | undefined, w: number, h: number,
+): TbFrame {
+  const p = tbInsets(tb, theme, w, h);
+  const rot = vertKind(tb.vert);
+  if (rot === 90) return { ins: { l: p.t, t: p.r, r: p.b, b: p.l }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  if (rot === 270) return { ins: { l: p.b, t: p.l, r: p.t, b: p.r }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  if (rot === -90) return { ins: { l: p.t, t: p.l, r: p.b, b: p.r }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  return { ins: p, iw: w - p.l - p.r, ih: h - p.t - p.b, rot };
+}
+
+/** Matriz texto → página da caixa de texto vertical em (x, y, w, h). */
+export function verticalMatrix(rot: TbRot, x: number, y: number, w: number, h: number): [number, number, number, number, number, number] {
+  return rot === 270 ? [0, -1, 1, 0, x, y + h] : [0, 1, -1, 0, x + w, y];
+}
+
+/** Conteúdo de caixa com texto vertical: girado para a página e alinhado (t/ctr/b) no
+ *  referencial do texto; em −90 (mongolianVert…) cada linha vai para o lado oposto (as
+ *  linhas correm da esquerda para a direita com os caracteres girados no horário). */
+/** Passo das linhas do texto vertical: o Word as afasta 1/32 do corpo a mais que na
+ *  horizontal (medido 8–24 pt, Arial/Times/Courier: ≈ altura da linha / 36,8) — oráculo txbxvert tp-*. */
+const VERT_PITCH = 1 / 36.8;
+
+/** Linhas do conteúdo na vertical: deslocamento acumulado (o passo maior) por faixa. */
+function verticalBands(c: CellContent): { y0: number; y1: number; add: number }[] {
+  const ls = [...c.lines].sort((a, b) => a.y - b.y);
+  let acc = 0;
+  return ls.map((l) => { const b = { y0: l.y, y1: l.y + l.height, add: acc }; acc += l.height * VERT_PITCH; return b; });
+}
+
+/** Altura do conteúdo vertical com o passo maior das linhas. */
+export function verticalHeight(c: CellContent): number {
+  return c.height + c.lines.reduce((a, l) => a + l.height * VERT_PITCH, 0);
+}
+
+function verticalContent(c: CellContent, fr: TbFrame, vAnchor: string | undefined, x: number, y: number, w: number, h: number): PageItem[] {
+  const lh = w;
+  let dy = fr.ins.t;
+  const free = lh - fr.ins.t - fr.ins.b - verticalHeight(c);
+  if (vAnchor === 'ctr' && free > 0) dy += free / 2;
+  else if (vAnchor === 'b' && free > 0) dy += free;
+  const out: PageItem[] = [{ t: 'xform', op: 'push', m: verticalMatrix(fr.rot, x, y, w, h) }];
+  const bands = verticalBands(c);
+  const shiftOf = (y0: number, y1: number): number => {
+    const mid = (y0 + y1) / 2;
+    const b = bands.find((q) => mid >= q.y0 - 0.5 && mid <= q.y1 + 0.5) ?? [...bands].reverse().find((q) => q.y0 <= mid);
+    const add = b?.add ?? 0;
+    if (fr.rot !== -90) return dy + add;
+    const a0 = (b ? b.y0 : y0) + add, a1 = (b ? b.y1 : y1) + add;
+    // faixa [dy + a0, dy + a1] espelhada no quadro: começa em lh − (dy + a1)
+    return lh - (dy + a1) - a0 + add;
+  };
+  for (const it of c.items) {
+    const r = it as { y?: number; h?: number };
+    const d = it.t === 'glyphs' ? shiftOf(it.y, it.y) : it.t === 'line' ? shiftOf(Math.min(it.y1, it.y2), Math.max(it.y1, it.y2))
+      : r.y !== undefined ? shiftOf(r.y, r.y + (r.h ?? 0)) : dy;
+    out.push(shiftItem(it, d, fr.ins.l));
+  }
+  out.push({ t: 'xform', op: 'pop' });
+  return out;
+}
+
 /** Retângulo de texto da forma predefinida (txRect das definições do DrawingML), como recuo
- *  de cada lado da caixa w × h — o Word põe o texto nele (oráculo txrect) */
+ *  de cada lado da caixa w × h — o Word põe o texto nele (oráculos txrect, txgeom) */
 function textRectInsets(g: { prst: string; adj?: Record<string, number> }, w: number, h: number): { l: number; t: number; r: number; b: number } | null {
+  const names = g.adj ? Object.keys(g.adj) : undefined;
+  const tr = presetTextRect(g.prst, w, h, names?.map((n) => g.adj![n]!), names);
+  if (tr) return { l: tr.l, t: tr.t, r: w - tr.r, b: h - tr.b };
   switch (g.prst) {
     case 'roundRect': {
       const i = ((Math.min(w, h) * (g.adj?.['adj'] ?? 16667)) / 100000) * 0.29289;

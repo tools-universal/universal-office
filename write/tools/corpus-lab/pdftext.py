@@ -47,8 +47,55 @@ def _norm_char(cp):
         return ''
 
 
-def page_lines(page):
-    """Linhas de uma página: [{y, x0, x1, size, text}] em pontos, origem no TOPO."""
+def page_vlines(page):
+    """Linhas de texto GIRADO (ângulo do caractere ≠ 0 — caixa com texto vertical):
+    [{x, y0, y1, angle, size, text}] em pontos, origem no TOPO; x = linha de base
+    (vertical), y0/y1 = origem do 1º e do último caractere. Caracteres em pé numa
+    coluna (empilhado) também: mesmo x de origem, y crescente."""
+    tp = page.get_textpage()
+    try:
+        n = tp.count_chars()
+        h = page.get_height()
+        out = []
+        cur = None
+        ox, oy = ctypes.c_double(), ctypes.c_double()
+        for i in range(n):
+            if raw.FPDFText_IsGenerated(tp.raw, i) == 1:
+                continue
+            cp = raw.FPDFText_GetUnicode(tp.raw, i)
+            ch = _norm_char(cp)
+            if not ch or ch.isspace() or cp < 32:
+                continue
+            ang = raw.FPDFText_GetCharAngle(tp.raw, i)
+            deg = round(ang * 180 / 3.141592653589793) % 360 if ang >= 0 else 0
+            raw.FPDFText_GetCharOrigin(tp.raw, i, ox, oy)
+            size = raw.FPDFText_GetFontSize(tp.raw, i)
+            x, y = ox.value, h - oy.value
+            if deg == 0 and not (cur is not None and abs(x - cur['x']) < 0.5 and y > cur['y1']):
+                cur = None
+                continue
+            tol = max(1.0, 0.3 * (size or 10))
+            if cur is not None and cur['angle'] == deg and abs(x - cur['x']) <= tol:
+                cur['text'] += ch
+                cur['y0'] = min(cur['y0'], y)
+                cur['y1'] = max(cur['y1'], y)
+            else:
+                cur = {'x': x, 'y0': y, 'y1': y, 'angle': deg, 'size': size, 'text': ch}
+                out.append(cur)
+        res = []
+        for ln in out:
+            if ln['angle'] == 0 and len(ln['text']) < 2:
+                continue
+            res.append({'x': round(ln['x'], 2), 'y0': round(ln['y0'], 2), 'y1': round(ln['y1'], 2), 'angle': ln['angle'],
+                        'size': round(ln['size'], 2), 'text': unicodedata.normalize('NFC', ln['text'])})
+        return res
+    finally:
+        tp.close()
+
+
+def page_lines(page, skip_rotated=False):
+    """Linhas de uma página: [{y, x0, x1, size, text}] em pontos, origem no TOPO.
+    skip_rotated: caracteres girados ficam de fora (vão em page_vlines)."""
     tp = page.get_textpage()
     try:
         n = tp.count_chars()
@@ -66,6 +113,8 @@ def page_lines(page):
                 continue
             ch = _norm_char(cp)
             if not ch or ch.isspace() or cp < 32:
+                continue
+            if skip_rotated and abs(raw.FPDFText_GetCharAngle(tp.raw, i)) > 0.01:
                 continue
             raw.FPDFText_GetCharOrigin(tp.raw, i, ox, oy)
             raw.FPDFText_GetCharBox(tp.raw, i, l, r, b, t)
@@ -117,7 +166,7 @@ def page_objects(page):
     return out
 
 
-def extract(pdf_path, objects=False):
+def extract(pdf_path, objects=False, vlines=False):
     pdf = pdfium.PdfDocument(pdf_path)
     try:
         pages = []
@@ -125,7 +174,9 @@ def extract(pdf_path, objects=False):
             page = pdf[i]
             try:
                 w, h = page.get_size()
-                pg = {'w': round(w, 2), 'h': round(h, 2), 'lines': page_lines(page)}
+                pg = {'w': round(w, 2), 'h': round(h, 2), 'lines': page_lines(page, skip_rotated=vlines)}
+                if vlines:
+                    pg['vlines'] = page_vlines(page)
                 if objects:
                     pg['objs'] = page_objects(page)
                 pages.append(pg)

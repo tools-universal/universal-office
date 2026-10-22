@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { DocxPackage, readFullDocument, readEmbeddedFonts } from '@universal-office/docx-core';
 import { layoutDocument, withEmbeddedFonts } from '../src/index.js';
 import { loadHyphenation, HYPHENATION_PATTERN_IDS, SfntFont } from '../src/typography/index.js';
-import { engineLines, compareLines, type OracleDoc } from './oracle-compare.js';
+import { engineLines, compareLines, engineVLines, compareVLines, type OracleDoc, type OracleVLine } from './oracle-compare.js';
 
 const oracleDir = join(__dirname, 'oracle');
 // @ts-expect-error módulo JS das ferramentas do lab (sem tipos)
@@ -64,7 +64,15 @@ for (const g of groups) {
         const opts = f.startsWith('mk-') ? { revisions: { mode: 'all' as const } } : {};
         const res = layoutDocument(full, withEmbeddedFonts(provider, readEmbeddedFonts(pkg), (b) => new SfntFont(b)), opts);
         const orderless = ORDERLESS.has(f.replace(/\.docx$/, ''));
-        const r = orderless ? compareLines(byColumn(word), byColumn(engineLines(res))) : compareLines(word, engineLines(res), EXACT_LEADERS.has(g));
+        // texto girado (caixa vertical): a extração separa as linhas giradas (vlines)
+        const vw = word.pages.some((p) => (p as { vlines?: unknown }).vlines);
+        const r = orderless ? compareLines(byColumn(word), byColumn(engineLines(res))) : compareLines(word, engineLines(res, vw), EXACT_LEADERS.has(g));
+        if (vw) {
+          const vr = compareVLines(word.pages.map((p) => (p as { vlines?: OracleVLine[] }).vlines ?? []), engineVLines(res));
+          expect(vr.matched, `linhas giradas casadas (1ª diferença: ${vr.firstDiff})`).toBe(vr.n);
+          expect(vr.maxDx, 'Δx da linha de base girada (pt)').toBeLessThanOrEqual(0.6);
+          expect(vr.maxDy, 'Δ início da linha girada (pt)').toBeLessThanOrEqual(0.6);
+        }
         if (SWEEPS.has(g) || g === 'vertalign') {
           // vertalign: o deslocamento do sobrescrito muda o agrupamento em linhas da extração
           expect(r.matched / r.linesW, r.firstDiff).toBeGreaterThanOrEqual(g === 'vertalign' ? 0.9 : 0.98);

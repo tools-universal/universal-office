@@ -1,0 +1,206 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 141.99,
+"size": 11.04,
+"text": "AncoraHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 141.25,
+"size": 11.04,
+"text": "DepoisHxg"
+}
+],
+"vlines": [
+{
+"x": 195.41,
+"y0": 103.82,
+"y1": 203.44,
+"angle": 90,
+"size": 8.04,
+"text": "mediropassoentreelasHxg"
+},
+{
+"x": 205.01,
+"y0": 103.82,
+"y1": 373.93,
+"angle": 90,
+"size": 8.04,
+"text": "Umtextocompridoquequebraemmuitaslinhasdentrodacaixaverticalpara"
+},
+{
+"x": 359.23,
+"y0": 103.82,
+"y1": 332.6,
+"angle": 90,
+"size": 11.04,
+"text": "caixaverticalparamediropassoentreelasHxg"
+},
+{
+"x": 372.19,
+"y0": 103.82,
+"y1": 383.9,
+"angle": 90,
+"size": 11.04,
+"text": "Umtextocompridoquequebraemmuitaslinhasdentroda"
+},
+{
+"x": 499.54,
+"y0": 103.82,
+"y1": 339.41,
+"angle": 90,
+"size": 15.96,
+"text": "paramediropassoentreelasHxg"
+},
+{
+"x": 518.62,
+"y0": 103.82,
+"y1": 362.61,
+"angle": 90,
+"size": 15.96,
+"text": "muitaslinhasdentrodacaixavertical"
+},
+{
+"x": 537.34,
+"y0": 103.82,
+"y1": 336.77,
+"angle": 90,
+"size": 15.96,
+"text": "Umtextocompridoquequebraem"
+},
+{
+"x": 76.34,
+"y0": 433.85,
+"y1": 513.79,
+"angle": 90,
+"size": 24.0,
+"text": "elasHxg"
+},
+{
+"x": 104.54,
+"y0": 433.85,
+"y1": 687.41,
+"angle": 90,
+"size": 24.0,
+"text": "paramediropassoentre"
+},
+{
+"x": 132.98,
+"y0": 433.85,
+"y1": 675.36,
+"angle": 90,
+"size": 24.0,
+"text": "dentrodacaixavertical"
+},
+{
+"x": 161.3,
+"y0": 433.85,
+"y1": 683.26,
+"angle": 90,
+"size": 24.0,
+"text": "quebraemmuitaslinhas"
+},
+{
+"x": 189.65,
+"y0": 433.85,
+"y1": 668.64,
+"angle": 90,
+"size": 24.0,
+"text": "Umtextocompridoque"
+},
+{
+"x": 359.23,
+"y0": 433.85,
+"y1": 613.15,
+"angle": 90,
+"size": 11.04,
+"text": "verticalparamediropassoentreelasHxg"
+},
+{
+"x": 372.19,
+"y0": 433.85,
+"y1": 713.68,
+"angle": 90,
+"size": 11.04,
+"text": "Umtextocompridoquequebraemmuitaslinhasdentrodacaixa"
+},
+{
+"x": 517.66,
+"y0": 433.85,
+"y1": 559.25,
+"angle": 90,
+"size": 11.04,
+"text": "passoentreelasHxg"
+},
+{
+"x": 530.5,
+"y0": 433.85,
+"y1": 717.65,
+"angle": 90,
+"size": 11.04,
+"text": "linhasdentrodacaixaverticalparamediro"
+},
+{
+"x": 543.34,
+"y0": 433.85,
+"y1": 678.05,
+"angle": 90,
+"size": 11.04,
+"text": "Umtextocompridoquequebraemmuitas"
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 59.5,
+"y0": 99.5,
+"x1": 220.5,
+"y1": 400.5
+},
+{
+"t": "path",
+"x0": 229.5,
+"y0": 99.5,
+"x1": 390.5,
+"y1": 400.5
+},
+{
+"t": "path",
+"x0": 399.5,
+"y0": 99.5,
+"x1": 560.5,
+"y1": 400.5
+},
+{
+"t": "path",
+"x0": 59.5,
+"y0": 429.5,
+"x1": 220.5,
+"y1": 730.5
+},
+{
+"t": "path",
+"x0": 229.5,
+"y0": 429.5,
+"x1": 390.5,
+"y1": 730.5
+},
+{
+"t": "path",
+"x0": 399.5,
+"y0": 429.5,
+"x1": 560.5,
+"y1": 730.5
+}
+]
+}
+]
+}

@@ -24,7 +24,7 @@ const force = argv.includes('--force');
 const onlyIdx = argv.indexOf('--only');
 const only = onlyIdx >= 0 ? new Set(argv[onlyIdx + 1].split(',')) : null;
 
-const { cases } = await import(pathToFileURL(join(here, 'cases', `${group}.mjs`)).href);
+const { cases, vlines } = await import(pathToFileURL(join(here, 'cases', `${group}.mjs`)).href);
 const fixDir = join(writeRoot, 'packages', 'docx-layout', 'test', 'oracle', group);
 const docxTmp = join(here, '.out', group, 'docx');
 const pdfDir = join(here, '.out', group, 'pdf');
@@ -67,7 +67,8 @@ if (n > 0 && !fresh) {
 } finally { if (n > 0) releaseWordLock(); }
 // extração (python/pdfium) de todos os PDFs presentes do grupo
 const py = join(writeRoot, 'tools', 'corpus-lab', 'oracle_extract.py');
-execFileSync('python', ['-I', py, pdfDir, fixDir], { stdio: 'inherit', windowsHide: true });
+// (grupo com texto girado — caixa vertical: as linhas giradas vão em `vlines`)
+execFileSync('python', ['-I', py, pdfDir, fixDir, ...(vlines ? ['--vlines'] : [])], { stdio: 'inherit', windowsHide: true });
 // limpa os docx temporários já exportados
 for (const f of readdirSync(docxTmp)) {
   if (existsSync(join(pdfDir, f.replace(/\.docx$/, '.pdf')))) {

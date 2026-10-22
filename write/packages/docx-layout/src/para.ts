@@ -157,6 +157,11 @@ export interface ParaEnv {
   noPageBreaks?: boolean;
   /** dentro do cabeçalho/rodapé (inclusive caixas e células dele) */
   hf?: boolean;
+  /** cor do texto de cor automática (caixa de texto com wps:style/a:fontRef — RRGGBB) */
+  defaultColor?: string;
+  /** continuação de um parágrafo partido (caixa vinculada seguinte): sem marcador, sem
+   *  recuo da 1ª linha e sem espaço antes */
+  continuation?: boolean;
 }
 
 /** resultado do PAGE no cabeçalho/rodapé: o Word não o parte por caractere numa
@@ -208,8 +213,8 @@ export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: 
   const style: RunStyle = {
     rpr,
     sizePt,
-    color: color ?? (env.darkBackground ? 'FFFFFF' : '000000'),
-    autoColor: !color,
+    color: color ?? env.defaultColor ?? (env.darkBackground ? 'FFFFFF' : '000000'),
+    autoColor: !color && !env.defaultColor,
     bold: !!rpr.b,
     italic: !!rpr.i,
     underline: u,
@@ -1030,7 +1035,7 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
   // marcador de numeração
   let marker: ParaMarker | undefined;
   const numId = ppr.numPr?.numId;
-  if (numId && env.numbering !== false) {
+  if (numId && env.numbering !== false && !env.continuation) {
     let nm: NumberMarker | null = ctx.numbering.next(numId, ppr.numPr?.ilvl ?? 0);
     if (!nm && (numId === 1001 || numId === 1002)) {
       // lista criada pelo editor (numId sintético): marcador padrão
@@ -1063,7 +1068,7 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
   let jc = ppr.jc ?? 'left';
   if (jc === 'start') jc = 'left';
   if (jc === 'end') jc = 'right';
-  let firstLine = ind.hanging !== undefined ? -ind.hanging : (ind.firstLine ?? 0);
+  let firstLine = env.continuation ? 0 : ind.hanging !== undefined ? -ind.hanging : (ind.firstLine ?? 0);
   // equação de exibição sozinha no parágrafo: alinhada pelo m:jc (centerGroup: no
   // centro) entre os recuos, sem o da 1ª linha — o w:jc do parágrafo não vale (oráculo omath)
   if (mathJc && !glyphs.some((g) => !mathRuns.has(g.runIdx) && g.kind !== 'lb' && g.kind !== 'pb' && g.kind !== 'space' && !(g.kind === 'obj' && g.adv === 0))) {
@@ -1079,11 +1084,11 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
     firstLine,
     jc,
     tabs: (ppr.tabs ?? []).filter((t) => t.val !== 'clear'),
-    spaceBefore: sp.before ?? 0,
+    spaceBefore: env.continuation ? 0 : sp.before ?? 0,
     spaceAfter: sp.after ?? 0,
     // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
     // w:before/w:after explícitos (oráculo autosphtml)
-    beforeAuto: !!sp.beforeAutospacing && !settings.compat['doNotUseHTMLParagraphAutoSpacing'],
+    beforeAuto: !env.continuation && !!sp.beforeAutospacing && !settings.compat['doNotUseHTMLParagraphAutoSpacing'],
     afterAuto: !!sp.afterAutospacing && !settings.compat['doNotUseHTMLParagraphAutoSpacing'],
     lineRule: sp.lineRule ?? 'auto',
     line: sp.line ?? 240,
@@ -1091,7 +1096,7 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
     keepNext: !!ppr.keepNext,
     keepLines: !!ppr.keepLines,
     widowControl: ppr.widowControl ?? false,
-    pageBreakBefore: !!ppr.pageBreakBefore,
+    pageBreakBefore: !env.continuation && !!ppr.pageBreakBefore,
     empty: glyphs.every((g) => g.kind === 'pb' || g.kind === 'obj' && !!(g.obj?.image?.floating || g.obj?.shape?.floating || g.obj?.group?.floating || g.obj?.textbox?.floating)),
   };
   void settings;

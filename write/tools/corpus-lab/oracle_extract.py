@@ -14,6 +14,7 @@ import pdftext  # noqa: E402
 
 def main():
     src, dst = sys.argv[1], sys.argv[2]
+    vlines = '--vlines' in sys.argv[3:]
     if not os.path.isdir(src):
         return
     for f in sorted(os.listdir(src)):
@@ -23,7 +24,7 @@ def main():
         pdf = os.path.join(src, f)
         if os.path.exists(out) and os.path.getmtime(out) >= os.path.getmtime(pdf):
             continue
-        data = pdftext.extract(pdf, objects=True)
+        data = pdftext.extract(pdf, objects=True, vlines=vlines)
         with open(out, 'w', encoding='utf8', newline='\n') as fh:
             json.dump(data, fh, ensure_ascii=False, indent=0)
         print('extraído', f)
