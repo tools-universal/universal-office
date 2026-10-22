@@ -301,7 +301,8 @@ export function paintShapeEffects(ctx: CanvasRenderingContext2D, it: ShapeItem, 
     }
     const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
     const s = fx.shadow;
-    if (s?.kind === 'inner') {
+    // sombra interna: dentro do preenchimento (sem preenchimento o Word não a mostra)
+    if (s?.kind === 'inner' && (it.fill || it.grad || it.pattern || it.blip)) {
       const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
       bc.globalCompositeOperation = 'source-atop';
       bc.drawImage(maskToCanvas(m, s.color, s.alpha) as CanvasImageSource, 0, 0);

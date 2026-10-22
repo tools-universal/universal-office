@@ -155,7 +155,8 @@ export function paintShapeEffectsPdf(page: PdfPage, it: ShapeItem, embedRgba: (d
   }
   if (soft) draw(embedRgba(colored(soft, fillHex, st.fillAlpha ?? 1), W, H), layerMatrix);
   else drawBody();
-  if (s?.kind === 'inner') {
+  // sombra interna: dentro do preenchimento (sem preenchimento o Word não a mostra)
+  if (s?.kind === 'inner' && filled) {
     const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
     draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
   }
