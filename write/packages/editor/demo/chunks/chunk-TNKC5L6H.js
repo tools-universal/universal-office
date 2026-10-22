@@ -1,6 +1,6 @@
 import {
   subsetTrueType
-} from "./chunk-4FTRJ73Y.js";
+} from "./chunk-HQOG44SJ.js";
 import {
   DEFAULT_RUN_PROPS,
   WORD_PATTERNS,
@@ -15,7 +15,7 @@ import {
   runPropsFromRPr,
   unzlibSync,
   zlibSync
-} from "./chunk-NPDEUMTK.js";
+} from "./chunk-FUFLN7IJ.js";
 
 // ../../../shared/drawingml/src/preset-defs.ts
 var PRESET_DEFS = {
@@ -4707,7 +4707,7 @@ var DocContext = class {
     this.resolver = new StyleResolver(fmt2);
     const ddFonts = fmt2.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt2.fontTable, void 0, fontOfSlot(ddFonts, "ascii", fmt2.theme) ?? fmt2.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {} };
+    this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {}, ...opts.hyphenationSkip ? { hyphenationSkip: opts.hyphenationSkip } : {} };
     this.numbering = new NumberingState(fmt2.numbering, fmt2.styles.styles, this.opts.lang);
     this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
@@ -4907,8 +4907,16 @@ function directPPr(para2) {
     }
     base.ind = ind2;
   }
-  if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips) {
+  if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips || p.spaceBeforeAuto !== orig.spaceBeforeAuto || p.spaceAfterAuto !== orig.spaceAfterAuto) {
     const sp2 = { ...base.spacing };
+    if (p.spaceBeforeAuto !== orig.spaceBeforeAuto) {
+      if (p.spaceBeforeAuto === void 0) delete sp2.beforeAutospacing;
+      else sp2.beforeAutospacing = p.spaceBeforeAuto;
+    }
+    if (p.spaceAfterAuto !== orig.spaceAfterAuto) {
+      if (p.spaceAfterAuto === void 0) delete sp2.afterAutospacing;
+      else sp2.afterAutospacing = p.spaceAfterAuto;
+    }
     if (p.lineTwentieths !== orig.lineTwentieths) {
       if (p.lineTwentieths !== void 0) {
         sp2.line = p.lineTwentieths;
@@ -4945,8 +4953,16 @@ function directPPr(para2) {
   if (!eq(p.tabStops, orig.tabStops)) {
     base.tabs = (p.tabStops ?? []).map((t) => ({ val: t.align, pos: t.posTwips, ...t.leader ? { leader: t.leader } : {} }));
   }
-  if (!!p.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p.pageBreakBefore;
-  if (!!p.keepNext !== !!orig.keepNext) base.keepNext = !!p.keepNext;
+  for (const k of ["pageBreakBefore", "keepNext", "keepLines", "widowControl", "suppressLineNumbers", "suppressAutoHyphens"]) {
+    if (p[k] !== orig[k]) {
+      if (p[k] === void 0) delete base[k];
+      else base[k] = p[k];
+    }
+  }
+  if (p.textboxTightWrap !== orig.textboxTightWrap) {
+    if (p.textboxTightWrap) base.textboxTightWrap = p.textboxTightWrap;
+    else delete base.textboxTightWrap;
+  }
   return base;
 }
 
@@ -6017,7 +6033,7 @@ function prepareParagraph(ctx, para0, env0) {
       } else if (g.kind === "char" && ppr.overflowPunct !== false && isCjkLang(g.style.rpr) && hangPunct(g.style.rpr, altKinsoku).includes(g.ch)) g.hang = true;
     }
   }
-  markHyphenation(ctx, ppr, glyphs, mathRuns);
+  markHyphenation(ctx, ppr, glyphs, mathRuns, para0);
   let marker;
   const numId = ppr.numPr?.numId;
   if (numId && env.numbering !== false && !env.continuation) {
@@ -6107,9 +6123,9 @@ function langAllowed(ctx, lang) {
     return l === y || l.startsWith(`${y}-`);
   });
 }
-function documentHyphenationLanguages(full, fallback = "pt-BR") {
+function documentHyphenationLanguages(full, fallback = "pt-BR", force = false) {
   const fmt2 = full.formatting;
-  if (!fmt2?.settings.autoHyphenation) return [];
+  if (!fmt2 || !fmt2.settings.autoHyphenation && !force) return [];
   const out = /* @__PURE__ */ new Set([fmt2.styles.docDefaults.rPr?.lang?.val ?? fallback]);
   const visit = (x) => {
     if (!x || typeof x !== "object") return;
@@ -6133,9 +6149,9 @@ function documentHyphenationLanguages(full, fallback = "pt-BR") {
   visit(full.endnoteBlocks);
   return [...out];
 }
-function markHyphenation(ctx, ppr, glyphs, skipRuns) {
+function markHyphenation(ctx, ppr, glyphs, skipRuns, para2) {
   const s = ctx.fmt.settings;
-  if (!s.autoHyphenation || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
+  if (!s.autoHyphenation && ctx.opts.hyphenation !== "force" || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
   const [left, right] = hyphenMins(s.compatibilityMode);
   for (let k = 0; k < glyphs.length; ) {
     const g = glyphs[k];
@@ -6155,6 +6171,7 @@ function markHyphenation(ctx, ppr, glyphs, skipRuns) {
     k = e;
     const rpr = g.style.rpr;
     if (rpr.noProof || rpr.cs || rpr.rtl || !langAllowed(ctx, lang)) continue;
+    if (para2 && ctx.opts.hyphenationSkip?.(para2, g.offset)) continue;
     if (s.doNotHyphenateCaps && idx.every((j) => {
       const c = glyphs[j].ch;
       return c.toLowerCase() === c.toUpperCase() || c === c.toUpperCase();
@@ -11507,11 +11524,13 @@ var Engine = class {
       footers: pick(fb, prev?.footers),
       blocks: [s.blockStart, s.blockEnd],
       ...s.sect?.docGrid && (s.sect.docGrid.type === "lines" || s.sect.docGrid.type === "linesAndChars") && (s.sect.docGrid.linePitch ?? 0) > 0 ? { linePitch: s.sect.docGrid.linePitch } : {},
-      ...s.sect?.lnNumType ? { lnNum: {
-        countBy: Math.max(1, s.sect.lnNumType.countBy ?? 1),
+      // (sem w:countBy, ou 0, o Word não numera — oráculo lnnum3/s-nocountby, s-countby0)
+      ...s.sect?.lnNumType && (s.sect.lnNumType.countBy ?? 0) >= 1 ? { lnNum: {
+        countBy: s.sect.lnNumType.countBy,
         start: s.sect.lnNumType.start ?? 0,
         restart: s.sect.lnNumType.restart ?? "newPage",
-        distance: s.sect.lnNumType.distance ?? 360
+        // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
+        distance: (s.sect.lnNumType.distance ?? 0) > 0 ? s.sect.lnNumType.distance : cols.length > 1 ? 180 : 360
       } } : {}
     };
   }
@@ -12221,14 +12240,22 @@ var Engine = class {
     return bdrKey(resolvePPr(this.ctx, next.paragraph, env).ppr) === bdrKey(p.ppr);
   }
   /**
-   * Número da linha (w:lnNumType) — medido no Word (oráculo lnnum): só linhas
-   * do corpo (tabela e parágrafo com suppressLineNumbers não contam), vazio
-   * conta; o 1º número é start+1; alinhado à direita em (coluna − distância,
-   * auto = 360tw), mesma baseline, estilo Normal + "Line Number".
+   * Número da linha (w:lnNumType) — medido no Word (oráculos lnnum, lnnum2, lnnum3):
+   * só linhas do corpo (tabela, caixa de texto, quadro, nota e parágrafo com
+   * suppressLineNumbers não contam), vazio conta; alinhado à direita em (coluna −
+   * distância), mesma baseline, estilo Normal + "Line Number"; fora da página também
+   * vai para o PDF. A contagem recomeça (1º número = start+1) na 1ª linha numerada
+   * depois de uma seção SEM numeração (ou do início), na 1ª linha de uma seção
+   * newSection e na 1ª linha de uma página nova numa seção newPage; senão continua a
+   * da seção anterior (o start da seção que continua é ignorado), mesmo de uma seção
+   * newPage na mesma página.
    */
   paintLineNumber(colX, baseline) {
     const ln = this.cur.geom.lnNum;
-    const restart = ln.restart === "continuous" ? this.lnSect < 0 : ln.restart === "newSection" ? this.lnSect !== this.cur.geom.index : this.lnPage !== this.cur;
+    const idx = this.cur.geom.index;
+    const newSect = this.lnSect !== idx;
+    const fresh = this.lnSect < 0 || newSect && !this.geoms[idx - 1]?.lnNum;
+    const restart = fresh || ln.restart === "newSection" && newSect || ln.restart === "newPage" && this.lnPage !== this.cur;
     if (restart) this.lnCount = ln.start;
     this.lnPage = this.cur;
     this.lnSect = this.cur.geom.index;
@@ -12241,7 +12268,12 @@ var Engine = class {
     const np = prepareParagraph(this.ctx, para2, { numbering: false });
     const line = new LineBreaker(this.ctx, np).next({ left: 0, right: 2e4 });
     const x = colX - ln.distance - line.width;
+    const at = this.cur.body.length;
     paintLine(this.ctx, this.cur.body, line, x, baseline - line.baseline);
+    for (let k = at; k < this.cur.body.length; k++) {
+      const it = this.cur.body[k];
+      if (it.t === "glyphs") it.lineNum = true;
+    }
   }
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
   paintBox(out, p, x, width, top, bottom, prev, at = out.length, groupedNext = false) {
@@ -14214,6 +14246,7 @@ function lineRecord(ref, p, line, frameX, top, frameW) {
   const firstLine = line.start === 0, lastLine = line.end >= gs.length;
   const rev = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a, b, hidden]) => hidden ? a <= end && b >= start : a < end && b > start));
   const x = frameX + line.xStart;
+  const tail = line.placed[line.placed.length - 1];
   return {
     ref,
     start,
@@ -14224,6 +14257,7 @@ function lineRecord(ref, p, line, frameX, top, frameW) {
     baseline: top + line.baseline,
     width: line.width,
     chars,
+    ...tail?.g.autoHyphen ? { hyph: tail.g.offset } : {},
     ...rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {},
     // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
     ...frameW !== void 0 ? { frame: { l: frameX - x, r: frameX + frameW - x }, pfmt: pfmtOf(p) } : {}
@@ -14265,7 +14299,7 @@ function cullOffPage(items, pageW, pageH) {
       } else if (it.op === "pop") m = stack.pop() ?? null;
       continue;
     }
-    if (it.t !== "glyphs" || !it.glyphs.length) continue;
+    if (it.t !== "glyphs" || !it.glyphs.length || it.lineNum) continue;
     const em = it.sizePt * 20;
     const box = it.lineBox ?? { asc: em, desc: em * 0.3, lead: 0 };
     let x0 = Infinity, x1 = -Infinity;
@@ -16071,6 +16105,92 @@ function effectivePPr(fmt2, para2) {
   return resolvePPr(ctxOf(fmt2), para2, {}).ppr;
 }
 
+// src/text-layout.ts
+var LINE_NUMBER_LIMITS = { startAt: [1, 32767], countBy: [1, 100], distanceTwips: [0, 31680] };
+var clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(v)));
+var lineNumberingOn = (ln) => !!ln && (ln.countBy ?? 0) >= 1;
+function lineNumberingInfo(sp2) {
+  const ln = sp2.lnNumType;
+  const on = lineNumberingOn(ln);
+  return {
+    mode: !on ? "none" : ln.restart === "continuous" ? "continuous" : ln.restart === "newSection" ? "section" : "page",
+    startAt: (ln?.start ?? 0) + 1,
+    countBy: on ? ln.countBy : 1,
+    distanceTwips: ln?.distance ?? 0
+  };
+}
+function withLineNumberMode(sp2, mode, memory) {
+  if (mode === "none") return void 0;
+  const cur = lineNumberingOn(sp2.lnNumType) ? sp2.lnNumType : void 0;
+  const out = cur ? { ...cur } : {
+    countBy: 1,
+    ...memory?.start ? { start: memory.start } : {},
+    ...memory?.distance ? { distance: memory.distance } : {}
+  };
+  delete out.restart;
+  if (mode === "continuous") out.restart = "continuous";
+  else if (mode === "section") out.restart = "newSection";
+  return out;
+}
+function lineNumberingFromOptions(o) {
+  if (!o.on) return void 0;
+  const start = clamp(o.startAt, LINE_NUMBER_LIMITS.startAt) - 1;
+  const distance = clamp(o.distanceTwips, LINE_NUMBER_LIMITS.distanceTwips);
+  return {
+    countBy: clamp(o.countBy, LINE_NUMBER_LIMITS.countBy),
+    ...start ? { start } : {},
+    ...distance ? { distance } : {},
+    ...o.restart === "continuous" ? { restart: "continuous" } : o.restart === "section" ? { restart: "newSection" } : {}
+  };
+}
+var FLOW_FLAGS = ["widowControl", "keepNext", "keepLines", "pageBreakBefore", "suppressLineNumbers", "suppressAutoHyphens"];
+function flowValue(ppr, k) {
+  return k === "widowControl" ? ppr.widowControl !== false : !!ppr[k];
+}
+var flowDirect = (inherited, want) => want === inherited ? void 0 : want;
+var PARAGRAPH_LAYOUT_LIMITS = { indent: [-31680, 31680], spacing: [0, 31680] };
+function spacingDirect(inherited, want, side) {
+  const tw = side === "before" ? "spaceBeforeTwips" : "spaceAfterTwips";
+  const au = side === "before" ? "spaceBeforeAuto" : "spaceAfterAuto";
+  if (want === "auto") return { [au]: inherited.auto ? void 0 : true };
+  const v = clamp(want, PARAGRAPH_LAYOUT_LIMITS.spacing);
+  return { [au]: inherited.auto ? false : void 0, [tw]: !inherited.auto && v === inherited.twips ? void 0 : v };
+}
+function common(vals) {
+  if (!vals.length) return null;
+  const k = JSON.stringify(vals[0]);
+  return vals.every((v) => JSON.stringify(v) === k) ? vals[0] : null;
+}
+var HYPHENATION_LIMITS = { limit: [0, 32767], zoneTwips: [1, 31680] };
+var LETTER2 = /^[\p{L}\p{M}]$/u;
+function wordAround(text, at) {
+  const isW = (c) => c !== void 0 && (LETTER2.test(c) || c === "\xAD");
+  let a = Math.min(at, text.length), b = a;
+  while (a > 0 && isW(text[a - 1])) a--;
+  while (b < text.length && isW(text[b])) b++;
+  return [a, b];
+}
+function manualPoints(raw, patternPoints) {
+  const word = raw.replace(/\u00AD/g, "");
+  const shy = [];
+  let n = 0;
+  for (const c of raw) {
+    if (c === "\xAD") shy.push(n);
+    else n++;
+  }
+  const points = [.../* @__PURE__ */ new Set([...patternPoints, ...shy])].filter((p) => p > 0 && p < word.length).sort((x, y) => x - y);
+  return { word, points };
+}
+function offsetAfterLetters(raw, start, letters2) {
+  let n = 0;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] === "\xAD") continue;
+    if (n === letters2) return start + i;
+    n++;
+  }
+  return start + raw.length;
+}
+
 export {
   presetOutline,
   adjustSaturation,
@@ -16169,5 +16289,20 @@ export {
   numberedItems,
   outlineParagraphs,
   inheritedPPr,
-  effectivePPr
+  effectivePPr,
+  LINE_NUMBER_LIMITS,
+  lineNumberingOn,
+  lineNumberingInfo,
+  withLineNumberMode,
+  lineNumberingFromOptions,
+  FLOW_FLAGS,
+  flowValue,
+  flowDirect,
+  PARAGRAPH_LAYOUT_LIMITS,
+  spacingDirect,
+  common,
+  HYPHENATION_LIMITS,
+  wordAround,
+  manualPoints,
+  offsetAfterLetters
 };

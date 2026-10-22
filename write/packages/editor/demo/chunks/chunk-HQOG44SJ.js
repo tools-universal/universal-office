@@ -8,7 +8,7 @@ import {
   pickLabels,
   unzipSync,
   zipSync
-} from "./chunk-NPDEUMTK.js";
+} from "./chunk-FUFLN7IJ.js";
 
 // ../docx-core/src/odf/zip.ts
 var OdfPackage = class _OdfPackage {
@@ -2773,6 +2773,7 @@ var SYMBOLS = {
   "anchor": "M120-360V-440Q120-452 131-458Q142-464 152-456L243-388Q257-377 258.5-358.5Q260-340 247-327L218-298Q247-247 310-210Q373-173 440-163V-520H360Q343-520 331.5-531.5Q320-543 320-560Q320-577 331.5-588.5Q343-600 360-600H440V-647Q405-660 382.5-690.5Q360-721 360-760Q360-810 395-845Q430-880 480-880Q530-880 565-845Q600-810 600-760Q600-721 577.5-690.5Q555-660 520-647V-600H600Q617-600 628.5-588.5Q640-577 640-560Q640-543 628.5-531.5Q617-520 600-520H520V-163Q587-173 650-210Q713-247 742-298L713-327Q700-340 701.5-358.5Q703-377 717-388L808-456Q818-464 829-458Q840-452 840-440V-360Q840-302 806.5-251Q773-200 721-162Q669-124 605-102Q541-80 480-80Q419-80 355-102Q291-124 239-162Q187-200 153.5-251Q120-302 120-360ZM480-720Q497-720 508.5-731.5Q520-743 520-760Q520-777 508.5-788.5Q497-800 480-800Q463-800 451.5-788.5Q440-777 440-760Q440-743 451.5-731.5Q463-720 480-720Z",
   "arrow_back": "M313-440 509-244Q521-232 520.5-216Q520-200 508-188Q496-177 480-176.5Q464-176 452-188L188-452Q182-458 179.5-465Q177-472 177-480Q177-488 179.5-495Q182-502 188-508L452-772Q463-783 479.5-783Q496-783 508-772Q520-760 520-743.5Q520-727 508-715L313-520H760Q777-520 788.5-508.5Q800-497 800-480Q800-463 788.5-451.5Q777-440 760-440Z",
   "arrow_drop_down": "M459-381 314-526Q311-529 309.5-532.5Q308-536 308-540Q308-548 313.5-554Q319-560 328-560H632Q641-560 646.5-554Q652-548 652-540Q652-538 646-526L501-381Q496-376 491-374Q486-372 480-372Q474-372 469-374Q464-376 459-381Z",
+  "arrow_drop_up": "M328-400Q319-400 313.5-406Q308-412 308-420Q308-422 314-434L459-579Q464-584 469-586Q474-588 480-588Q486-588 491-586Q496-584 501-579L646-434Q649-431 650.5-427.5Q652-424 652-420Q652-412 646.5-406Q641-400 632-400Z",
   "arrow_forward": "M647-440H200Q183-440 171.5-451.5Q160-463 160-480Q160-497 171.5-508.5Q183-520 200-520H647L451-716Q439-728 439.5-744Q440-760 452-772Q464-783 480-783.5Q496-784 508-772L772-508Q778-502 780.5-495Q783-488 783-480Q783-472 780.5-465Q778-458 772-452L508-188Q497-177 480.5-177Q464-177 452-188Q440-200 440-216.5Q440-233 452-245Z",
   "arrow_outward": "M640-624 284-268Q273-257 256-257Q239-257 228-268Q217-279 217-296Q217-313 228-324L584-680H280Q263-680 251.5-691.5Q240-703 240-720Q240-737 251.5-748.5Q263-760 280-760H680Q697-760 708.5-748.5Q720-737 720-720V-320Q720-303 708.5-291.5Q697-280 680-280Q663-280 651.5-291.5Q640-303 640-320Z",
   "article": "M200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760ZM320-280H520Q537-280 548.5-291.5Q560-303 560-320Q560-337 548.5-348.5Q537-360 520-360H320Q303-360 291.5-348.5Q280-337 280-320Q280-303 291.5-291.5Q303-280 320-280ZM320-440H640Q657-440 668.5-451.5Q680-463 680-480Q680-497 668.5-508.5Q657-520 640-520H320Q303-520 291.5-508.5Q280-497 280-480Q280-463 291.5-451.5Q303-440 320-440ZM320-600H640Q657-600 668.5-611.5Q680-623 680-640Q680-657 668.5-668.5Q657-680 640-680H320Q303-680 291.5-668.5Q280-657 280-640Q280-623 291.5-611.5Q303-600 320-600Z",
@@ -3332,6 +3333,9 @@ function openDialog(opts) {
       if (dlg.open) dlg.close();
       dlg.remove();
       resolve(value);
+    },
+    setTitle(t) {
+      head.querySelector(".uo-dialog-title").textContent = txt(t, lang);
     }
   };
   head.querySelector(".uo-dialog-x").addEventListener("click", () => handle.close(null));
@@ -4689,6 +4693,28 @@ var BAR_CSS = (
   border: 1px solid ${OUTLINE_VAR}; border-radius: 6px; background: ${LOWEST}; color: ${ON}; flex: none;
 }
 .uo-num:focus { outline: none; border-color: ${PRIMARY}; }
+/* caixa num\xE9rica com setas (spin.ts): r\xF3tulo, caixa e as duas setas empilhadas */
+.uo-spin { display: inline-flex; align-items: center; gap: 6px; height: 28px; font-size: 13px; color: ${ON}; white-space: nowrap; }
+.uo-spin-lbl { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: ${ON}; cursor: default; }
+.uo-spin-lbl .uo-ic { width: 18px; height: 18px; color: ${ON_VAR}; }
+.uo-spin-box {
+  display: inline-flex; align-items: stretch; height: 24px; border: 1px solid ${OUTLINE_VAR}; border-radius: 6px;
+  background: ${LOWEST}; overflow: hidden; margin-left: auto;
+}
+.uo-spin-box:focus-within { border-color: ${PRIMARY}; }
+.uo-spin-in { width: 64px; min-width: 0; border: 0; padding: 0 4px 0 8px; font: inherit; font-size: 13px; background: transparent; color: ${ON}; outline: none; }
+.uo-spin-in[aria-invalid=true] { color: var(--u-color-error, #ba1a1a); }
+.uo-spin-arrows { display: flex; flex-direction: column; border-left: 1px solid ${OUTLINE_VAR}; }
+.uo-spin-arrow {
+  flex: 1 1 0; width: 18px; display: flex; align-items: center; justify-content: center; padding: 0;
+  border: 0; background: transparent; color: ${ON_VAR}; cursor: pointer; overflow: hidden;
+}
+.uo-spin-arrow .uo-ic { width: 18px; height: 18px; margin: -4px 0; }
+.uo-spin-arrow:hover { background: ${HIGHEST}; color: ${ON}; }
+.uo-spin-arrow:disabled, .uo-spin.uo-off .uo-spin-in { opacity: .38; cursor: default; }
+.uo-caption { display: inline-flex; align-items: center; height: 24px; font-size: 12px; color: ${ON_VAR}; padding: 0 2px; }
+/* na coluna da ribbon as caixas se alinham \xE0 direita (r\xF3tulos de larguras diferentes) */
+.uo-rrow > .uo-spin { flex: 1 1 auto; padding: 0 4px; }
 .uo-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: ${ON_VAR}; }
 .uo-field input, .uo-field textarea, .uo-field select, .uo-dialog input[type=text], .uo-dialog input[type=number], .uo-dialog select {
   height: 38px; border: 1px solid ${OUTLINE}; border-radius: 8px; padding: 0 12px;
@@ -5596,6 +5622,190 @@ function createRuler(opts) {
   };
 }
 
+// ../../../shared/ui/src/toolbar/spin.ts
+var PER = { cm: 1440 / 2.54, mm: 144 / 2.54, in: 1440, pt: 20 };
+var SUFFIX = [
+  [/^(cm|cent[ií]metros?)$/i, "cm"],
+  [/^(mm|mil[ií]metros?)$/i, "mm"],
+  [/^("|''|in|inch(es)?|pol(egadas?)?|pol\.)$/i, "in"],
+  [/^(pt|pts|pontos?|points?)$/i, "pt"]
+];
+function parseMeasure(text, unit) {
+  const m = /^\s*([+-]?\d*[.,]?\d+)\s*(.*?)\s*$/.exec(text);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(",", "."));
+  if (!Number.isFinite(n)) return null;
+  let u = unit;
+  if (m[2]) {
+    const s = SUFFIX.find(([re]) => re.test(m[2]));
+    if (!s) return null;
+    u = s[1];
+  }
+  return Math.round(n * PER[u]);
+}
+function formatMeasure(twips, unit, lang) {
+  const v = Math.round(twips / PER[unit] * 100) / 100;
+  const n = v.toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2, useGrouping: false });
+  return unit === "in" ? `${n}"` : `${n} ${unit}`;
+}
+var AUTO = { en: "Auto", pt: "Autom\xE1tico" };
+function spinField(cfg) {
+  return {
+    widget: (ctx) => {
+      const lang = ctx.lang;
+      const unit = typeof cfg.unit === "function" ? cfg.unit(lang) : cfg.unit;
+      const step = typeof cfg.step === "function" ? cfg.step(lang) : cfg.step;
+      const text = (l) => l === void 0 ? "" : ctx.registry.text(l);
+      const wrap = document.createElement("span");
+      wrap.className = "uo-spin";
+      wrap.dataset["a"] = cfg.id;
+      const label = document.createElement("label");
+      label.className = "uo-spin-lbl";
+      label.innerHTML = (cfg.icon ? symbol(cfg.icon) : "") + `<span>${esc(text(cfg.label))}</span>`;
+      const box = document.createElement("span");
+      box.className = "uo-spin-box";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "uo-spin-in";
+      input.inputMode = "decimal";
+      input.spellcheck = false;
+      input.autocomplete = "off";
+      if (cfg.width) input.style.width = `${cfg.width}px`;
+      const tip = text(cfg.tip ?? cfg.label);
+      input.title = tip;
+      input.setAttribute("aria-label", tip);
+      input.setAttribute("role", "spinbutton");
+      const id = `uo-spin-${cfg.id.replace(/\W/g, "-")}-${Math.random().toString(36).slice(2, 8)}`;
+      input.id = id;
+      label.htmlFor = id;
+      const arrows = document.createElement("span");
+      arrows.className = "uo-spin-arrows";
+      const arrow = (dir) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "uo-spin-arrow";
+        b.tabIndex = -1;
+        b.innerHTML = symbol(dir > 0 ? "arrow_drop_up" : "arrow_drop_down");
+        b.setAttribute("aria-label", `${tip} ${dir > 0 ? "+" : "\u2212"}`);
+        b.addEventListener("mousedown", (e) => e.preventDefault());
+        b.addEventListener("click", () => {
+          bump(dir);
+          ctx.after();
+        });
+        ripple(b);
+        return b;
+      };
+      arrows.append(arrow(1), arrow(-1));
+      box.append(input, arrows);
+      wrap.append(label, box);
+      const show = (v) => v === null ? "" : v === "auto" ? AUTO[lang] : formatMeasure(v, unit, lang);
+      let shown = "";
+      const sync = () => {
+        if (document.activeElement === input || input.getRootNode().activeElement === input) return;
+        shown = show(cfg.get());
+        input.value = shown;
+        const v = cfg.get();
+        if (typeof v === "number") input.setAttribute("aria-valuenow", String(v));
+        else input.removeAttribute("aria-valuenow");
+      };
+      const clamp = (v) => Math.min(cfg.max, Math.max(cfg.min, v));
+      const bump = (dir) => {
+        if (input.disabled) return;
+        const cur = cfg.get();
+        let next;
+        if (cur === "auto") {
+          if (dir < 0) return;
+          next = cfg.min;
+        } else {
+          const base = cur ?? 0;
+          const snapped = dir > 0 ? Math.floor(base / step + 1e-9) * step + step : Math.ceil(base / step - 1e-9) * step - step;
+          if (snapped < cfg.min && cfg.auto && dir < 0) next = "auto";
+          else next = clamp(snapped);
+        }
+        if (next === cur) return;
+        cfg.set(next);
+        shown = show(next);
+        input.value = shown;
+      };
+      const commit = () => {
+        const s = input.value.trim();
+        if (s === shown) return true;
+        if (cfg.auto && s.toLowerCase() === AUTO[lang].toLowerCase()) {
+          cfg.set("auto");
+          return true;
+        }
+        const v = parseMeasure(s, unit);
+        if (v === null) {
+          input.setAttribute("aria-invalid", "true");
+          input.value = shown;
+          return false;
+        }
+        input.removeAttribute("aria-invalid");
+        cfg.set(clamp(v));
+        return true;
+      };
+      input.addEventListener("focus", () => input.select());
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+          input.blur();
+          ctx.after();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          input.value = shown;
+          input.blur();
+          ctx.after();
+        } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          if (input.value.trim() !== shown) commit();
+          bump(e.key === "ArrowUp" ? 1 : -1);
+          input.select();
+        }
+      });
+      input.addEventListener("wheel", (e) => {
+        if (document.activeElement !== input && input.getRootNode().activeElement !== input) return;
+        e.preventDefault();
+        bump(e.deltaY < 0 ? 1 : -1);
+        input.select();
+      }, { passive: false });
+      input.addEventListener("blur", () => {
+        if (input.value.trim() !== shown) commit();
+        queueMicrotask(sync);
+      });
+      const visible = () => {
+        try {
+          return cfg.supports?.() ?? true;
+        } catch {
+          return false;
+        }
+      };
+      return {
+        el: wrap,
+        visible,
+        sync: () => {
+          const off = cfg.isEnabled ? !cfg.isEnabled() : false;
+          input.disabled = off;
+          for (const b of arrows.querySelectorAll("button")) b.disabled = off;
+          wrap.classList.toggle("uo-off", off);
+          sync();
+        }
+      };
+    }
+  };
+}
+function barCaption(text, id) {
+  return {
+    widget: (ctx) => {
+      const s = document.createElement("span");
+      s.className = "uo-caption";
+      if (id) s.dataset["a"] = id;
+      s.textContent = ctx.registry.text(text);
+      return { el: s };
+    }
+  };
+}
+
 export {
   writeOdt,
   isOdt,
@@ -5634,5 +5844,9 @@ export {
   paneOpen,
   openPane,
   createRuler,
-  ensureBarStyles
+  ensureBarStyles,
+  parseMeasure,
+  formatMeasure,
+  spinField,
+  barCaption
 };

@@ -3554,6 +3554,9 @@ function readPPr(pPr) {
       case "w:jc":
         if (val3) p.jc = val3;
         break;
+      case "w:textboxTightWrap":
+        if (val3) p.textboxTightWrap = val3;
+        break;
       case "w:textAlignment":
         if (val3) p.textAlignment = val3;
         break;
@@ -4342,6 +4345,7 @@ function editBaseProps(run, rpr) {
   if (run.symFont) base.fontAscii = run.symFont;
   return base;
 }
+var TIGHT_WRAP = /* @__PURE__ */ new Set(["none", "allLines", "firstAndLastLine", "firstLineOnly", "lastLineOnly"]);
 function paraPropsFromPPr(ppr) {
   const props = {};
   if (!ppr) return props;
@@ -4365,6 +4369,8 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.line !== void 0 && ppr.spacing.lineRule === "auto") props.lineTwentieths = ppr.spacing.line;
     if (ppr.spacing.after !== void 0) props.spaceAfterTwips = ppr.spacing.after;
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
+    if (ppr.spacing.beforeAutospacing !== void 0) props.spaceBeforeAuto = ppr.spacing.beforeAutospacing;
+    if (ppr.spacing.afterAutospacing !== void 0) props.spaceAfterAuto = ppr.spacing.afterAutospacing;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
   if (ppr.tabs?.length) {
@@ -4389,8 +4395,13 @@ function paraPropsFromPPr(ppr) {
     }
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
-  if (ppr.pageBreakBefore) props.pageBreakBefore = true;
-  if (ppr.keepNext) props.keepNext = true;
+  if (ppr.pageBreakBefore !== void 0) props.pageBreakBefore = ppr.pageBreakBefore;
+  if (ppr.keepNext !== void 0) props.keepNext = ppr.keepNext;
+  if (ppr.keepLines !== void 0) props.keepLines = ppr.keepLines;
+  if (ppr.widowControl !== void 0) props.widowControl = ppr.widowControl;
+  if (ppr.suppressLineNumbers !== void 0) props.suppressLineNumbers = ppr.suppressLineNumbers;
+  if (ppr.suppressAutoHyphens !== void 0) props.suppressAutoHyphens = ppr.suppressAutoHyphens;
+  if (ppr.textboxTightWrap && TIGHT_WRAP.has(ppr.textboxTightWrap)) props.textboxTightWrap = ppr.textboxTightWrap;
   if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
@@ -5688,6 +5699,23 @@ function readSectPr(sectEl) {
   if (enPr) sect.endnotePr = enPr;
   const fnCols = sectEl && firstChild(sectEl, "w15:footnoteColumns")?.attrs["w:val"];
   if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
+  const ln2 = sectEl && firstChild(sectEl, "w:lnNumType");
+  if (ln2) {
+    const num3 = (k) => {
+      const n = parseInt(ln2.attrs[k] ?? "", 10);
+      return Number.isNaN(n) ? void 0 : n;
+    };
+    const out = {};
+    const cb = num3("w:countBy"), st = num3("w:start"), di = num3("w:distance");
+    if (cb !== void 0) out.countBy = cb;
+    if (st !== void 0) out.start = st;
+    if (di !== void 0) out.distance = di;
+    const rs = ln2.attrs["w:restart"];
+    if (rs === "newSection" || rs === "continuous") out.restart = rs;
+    sect.lnNumType = out;
+  }
+  const va = sectEl && firstChild(sectEl, "w:vAlign")?.attrs["w:val"];
+  if (va === "center" || va === "both" || va === "bottom") sect.vAlign = va;
   return sect;
 }
 
@@ -7355,6 +7383,7 @@ var PPR_FIELD = {
   "w:suppressOverlap": "suppressOverlap",
   "w:jc": "jc",
   "w:textAlignment": "textAlignment",
+  "w:textboxTightWrap": "textboxTightWrap",
   "w:outlineLvl": "outlineLvl",
   "w:rPr": "rPr"
 };
@@ -7474,11 +7503,19 @@ function patchRPr(raw, run) {
 var sameJson2 = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 var eq = sameJson2;
 var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
+var FLOW_FLAGS = (pp) => [
+  ["w:keepNext", pp.keepNext],
+  ["w:keepLines", pp.keepLines],
+  ["w:pageBreakBefore", pp.pageBreakBefore],
+  ["w:widowControl", pp.widowControl],
+  ["w:suppressLineNumbers", pp.suppressLineNumbers],
+  ["w:suppressAutoHyphens", pp.suppressAutoHyphens]
+];
 function pprBits(pp, ids) {
   const out = {};
   out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc3(pp.styleId)}"/>` : null;
-  out["w:keepNext"] = pp.keepNext ? "<w:keepNext/>" : null;
-  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
+  for (const [name, v] of FLOW_FLAGS(pp)) out[name] = v === void 0 ? null : v ? `<${name}/>` : `<${name} w:val="0"/>`;
+  out["w:textboxTightWrap"] = pp.textboxTightWrap ? `<w:textboxTightWrap w:val="${pp.textboxTightWrap}"/>` : null;
   out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`).join("") + "</w:tabs>" : null;
   out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
   if (pp.borders) {
@@ -7504,15 +7541,19 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
   };
   add("w:pStyle");
   add("w:keepNext");
+  add("w:keepLines");
   add("w:pageBreakBefore");
+  add("w:widowControl");
   add("w:numPr");
+  add("w:suppressLineNumbers");
   add("w:pBdr");
   add("w:shd");
   add("w:tabs");
-  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+  add("w:suppressAutoHyphens");
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0 || pp.spaceBeforeAuto !== void 0 || pp.spaceAfterAuto !== void 0) {
     const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
-    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
-    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    const before = (pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "") + (pp.spaceBeforeAuto !== void 0 ? ` w:beforeAutospacing="${pp.spaceBeforeAuto ? 1 : 0}"` : "");
+    const after = (pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "") + (pp.spaceAfterAuto !== void 0 ? ` w:afterAutospacing="${pp.spaceAfterAuto ? 1 : 0}"` : "");
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
   if (pp.indentLeftTwips !== void 0 || pp.indentRightTwips !== void 0 || pp.indentFirstLineTwips !== void 0) {
@@ -7525,6 +7566,7 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  add("w:textboxTightWrap");
   if (pp.outlineLvl !== void 0) ppr.push(`<w:outlineLvl w:val="${pp.outlineLvl}"/>`);
   const mark = markXml(pp);
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
@@ -7572,8 +7614,9 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   };
   const bits2 = pprBits(p, ids);
   if (p.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
-  if (!!p.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
-  if (!!p.keepNext !== !!base.keepNext) set("w:keepNext", p.keepNext ? "<w:keepNext/>" : '<w:keepNext w:val="0"/>');
+  const baseFlags = new Map(FLOW_FLAGS(base));
+  for (const [name, v] of FLOW_FLAGS(p)) if (v !== baseFlags.get(name)) set(name, bits2[name]);
+  if (p.textboxTightWrap !== base.textboxTightWrap) set("w:textboxTightWrap", bits2["w:textboxTightWrap"]);
   if (!eq(p.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
   if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
   if (p.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
@@ -7604,23 +7647,27 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
     });
     set("w:ind", /^<w:ind\s*\/>$/.test(ind) ? null : ind);
   }
-  if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips) {
+  if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips || p.spaceBeforeAuto !== base.spaceBeforeAuto || p.spaceAfterAuto !== base.spaceAfterAuto) {
     const ch = {};
     if (p.lineTwentieths !== base.lineTwentieths) {
       ch["w:line"] = p.lineTwentieths;
       ch["w:lineRule"] = p.lineTwentieths !== void 0 ? "auto" : void 0;
     }
+    const auto = (v) => v === void 0 ? void 0 : v ? "1" : "0";
     if (p.spaceAfterTwips !== base.spaceAfterTwips) {
       ch["w:after"] = p.spaceAfterTwips;
       ch["w:afterLines"] = void 0;
-      ch["w:afterAutospacing"] = void 0;
+      ch["w:afterAutospacing"] = auto(p.spaceAfterAuto);
     }
     if (p.spaceBeforeTwips !== base.spaceBeforeTwips) {
       ch["w:before"] = p.spaceBeforeTwips;
       ch["w:beforeLines"] = void 0;
-      ch["w:beforeAutospacing"] = void 0;
+      ch["w:beforeAutospacing"] = auto(p.spaceBeforeAuto);
     }
-    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
+    if (p.spaceBeforeAuto !== base.spaceBeforeAuto) ch["w:beforeAutospacing"] = auto(p.spaceBeforeAuto);
+    if (p.spaceAfterAuto !== base.spaceAfterAuto) ch["w:afterAutospacing"] = auto(p.spaceAfterAuto);
+    const sp = withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch);
+    set("w:spacing", /^<w:spacing\s*\/>$/.test(sp) ? null : sp);
   }
   if (p.alignment !== base.alignment) set("w:jc", p.alignment ? `<w:jc w:val="${p.alignment}"/>` : null);
   if (p.outlineLvl !== base.outlineLvl) set("w:outlineLvl", p.outlineLvl !== void 0 ? `<w:outlineLvl w:val="${p.outlineLvl}"/>` : null);
@@ -7660,6 +7707,9 @@ function pgNumTypeXml(s, raw = "") {
     "w:chapSep": chap && s.pgNumChapSep && s.pgNumChapSep !== "hyphen" ? s.pgNumChapSep : void 0
   });
   return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
+}
+function lnNumTypeXml(ln2) {
+  return `<w:lnNumType w:countBy="${ln2.countBy ?? 1}"${ln2.start ? ` w:start="${ln2.start}"` : ""}${ln2.distance ? ` w:distance="${ln2.distance}"` : ""}${ln2.restart ? ` w:restart="${ln2.restart}"` : ""}/>`;
 }
 function patchSectPr(raw, cur, refs) {
   const { open, close, kids, el: el3 } = splitElement(raw);
@@ -7714,6 +7764,8 @@ function patchSectPr(raw, cur, refs) {
   if ((cur.footnoteColumns ?? 0) !== (base.footnoteColumns ?? 0)) {
     set("w15:footnoteColumns", cur.footnoteColumns ? `<w15:footnoteColumns w:val="${cur.footnoteColumns}"/>` : null);
   }
+  if (!eq(cur.lnNumType, base.lnNumType)) set("w:lnNumType", cur.lnNumType ? lnNumTypeXml(cur.lnNumType) : null);
+  if (cur.vAlign !== base.vAlign) set("w:vAlign", cur.vAlign ? `<w:vAlign w:val="${cur.vAlign}"/>` : null);
   return changed ? join(open, kids, close) || `${open}${close}` : raw;
 }
 
@@ -9059,6 +9111,40 @@ function writeDefaultTabStop(pkg, twips) {
   }
   pkg.setPartText(path, xml);
 }
+var HYPH_ORDER = ["w:autoHyphenation", "w:consecutiveHyphenLimit", "w:hyphenationZone", "w:doNotHyphenateCaps"];
+function writeHyphenationSettings(pkg, s) {
+  const path = partByRelType(pkg, "settings", "word/settings.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!s.auto && s.caps && !s.limit && s.zone === void 0) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText("word/settings.xml");
+    if (!xml) return;
+  }
+  const want = {
+    "w:autoHyphenation": s.auto ? "<w:autoHyphenation/>" : null,
+    "w:consecutiveHyphenLimit": s.limit > 0 ? `<w:consecutiveHyphenLimit w:val="${Math.round(s.limit)}"/>` : null,
+    "w:hyphenationZone": s.zone !== void 0 ? `<w:hyphenationZone w:val="${Math.round(s.zone)}"/>` : null,
+    "w:doNotHyphenateCaps": s.caps ? null : "<w:doNotHyphenateCaps/>"
+  };
+  for (const name of HYPH_ORDER) {
+    const el3 = want[name];
+    const cur = new RegExp(`<${name}\\b[^>]*?(?:/>|>[\\s\\S]*?</${name}>)`).exec(xml);
+    if (cur) {
+      if (cur[0] === el3) continue;
+      xml = xml.slice(0, cur.index) + (el3 ?? "") + xml.slice(cur.index + cur[0].length);
+      continue;
+    }
+    if (el3 === null) continue;
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) continue;
+    const before = /* @__PURE__ */ new Set([...BEFORE_DEFAULT_TAB, "w:defaultTabStop", ...HYPH_ORDER.slice(0, HYPH_ORDER.indexOf(name))]);
+    let at = root.cs;
+    for (const k of childElements(root)) if (before.has(k.name)) at = Math.max(at, k.e);
+    xml = xml.slice(0, at) + el3 + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
 var BEFORE_EVEN_ODD = /* @__PURE__ */ new Set([
   ...BEFORE_DEFAULT_TAB,
   "w:defaultTabStop",
@@ -9921,12 +10007,17 @@ function paraXmlInner(para, runsXml) {
   const pp = para.props;
   const ppr = [];
   if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr3(pp.styleId)}"/>`);
-  if (pp.keepNext) ppr.push("<w:keepNext/>");
+  const flag = (name, v) => {
+    if (v !== void 0) ppr.push(v ? `<${name}/>` : `<${name} w:val="0"/>`);
+  };
+  flag("w:keepNext", pp.keepNext);
+  flag("w:keepLines", pp.keepLines);
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];
     ppr.push(`<w:sectPr>${sectPrInner(pp.sectionBreak.sectPr, refs)}</w:sectPr>`);
   }
-  if (pp.pageBreakBefore) ppr.push("<w:pageBreakBefore/>");
+  flag("w:pageBreakBefore", pp.pageBreakBefore);
+  flag("w:widowControl", pp.widowControl);
   if (pp.tabStops?.length) {
     ppr.push("<w:tabs>" + pp.tabStops.map(
       (t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`
@@ -9936,6 +10027,7 @@ function paraXmlInner(para, runsXml) {
     const numId = pp.numbering.kind === "decimal" ? 1002 : 1001;
     ppr.push(`<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
   }
+  flag("w:suppressLineNumbers", pp.suppressLineNumbers);
   if (pp.borders) {
     let inner2 = "";
     for (const side of ["top", "left", "bottom", "right"]) {
@@ -9953,10 +10045,11 @@ function paraXmlInner(para, runsXml) {
   if (pp.shadingHex) {
     ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(pp.shadingHex)}"/>`);
   }
-  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+  flag("w:suppressAutoHyphens", pp.suppressAutoHyphens);
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0 || pp.spaceBeforeAuto !== void 0 || pp.spaceAfterAuto !== void 0) {
     const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
-    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
-    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    const before = (pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "") + (pp.spaceBeforeAuto !== void 0 ? ` w:beforeAutospacing="${pp.spaceBeforeAuto ? 1 : 0}"` : "");
+    const after = (pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "") + (pp.spaceAfterAuto !== void 0 ? ` w:afterAutospacing="${pp.spaceAfterAuto ? 1 : 0}"` : "");
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
   if (pp.indentLeftTwips !== void 0 || pp.indentRightTwips !== void 0 || pp.indentFirstLineTwips !== void 0) {
@@ -9969,6 +10062,7 @@ function paraXmlInner(para, runsXml) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (pp.textboxTightWrap) ppr.push(`<w:textboxTightWrap w:val="${pp.textboxTightWrap}"/>`);
   const mark = (pp.markIns ? markRevisionXml("ins", pp.markIns) : "") + (pp.markDel ? markRevisionXml("del", pp.markDel) : "");
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
   if (pp.pfmt) {
@@ -9991,7 +10085,9 @@ function sectPrInner(s, refs = []) {
   const pgBorders = pgBordersXml(s.pgBorders) ?? "";
   const notes = notePropsXml("footnote", s.footnotePr) + notePropsXml("endnote", s.endnotePr);
   const fnCols = s.footnoteColumns ? `<w15:footnoteColumns w:val="${s.footnoteColumns}"/>` : "";
-  return `${refsXml}${notes}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}${fnCols}`;
+  const lnNum = s.lnNumType ? lnNumTypeXml(s.lnNumType) : "";
+  const vAlign = s.vAlign ? `<w:vAlign w:val="${s.vAlign}"/>` : "";
+  return `${refsXml}${notes}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${lnNum}${pgNumType}${cols}${vAlign}${titlePg}${fnCols}`;
 }
 function borderXml2(tag, e) {
   return `<w:${tag} w:val="${escAttr3(e.style)}" w:sz="${e.sizeEighthPt}" w:space="0" w:color="${e.color ? escAttr3(e.color) : "auto"}"/>`;
@@ -18975,6 +19071,7 @@ export {
   columnWidths,
   setOrientation,
   writeDefaultTabStop,
+  writeHyphenationSettings,
   writeEvenAndOddHeaders,
   writeDisplayBackgroundShape,
   watermarkRunXml,

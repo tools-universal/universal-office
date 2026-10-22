@@ -3511,6 +3511,9 @@ function readPPr(pPr) {
       case "w:jc":
         if (val) p.jc = val;
         break;
+      case "w:textboxTightWrap":
+        if (val) p.textboxTightWrap = val;
+        break;
       case "w:textAlignment":
         if (val) p.textAlignment = val;
         break;
@@ -4298,6 +4301,7 @@ function editBaseProps(run, rpr) {
   if (run.symFont) base.fontAscii = run.symFont;
   return base;
 }
+var TIGHT_WRAP = /* @__PURE__ */ new Set(["none", "allLines", "firstAndLastLine", "firstLineOnly", "lastLineOnly"]);
 function paraPropsFromPPr(ppr) {
   const props = {};
   if (!ppr) return props;
@@ -4321,6 +4325,8 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.line !== void 0 && ppr.spacing.lineRule === "auto") props.lineTwentieths = ppr.spacing.line;
     if (ppr.spacing.after !== void 0) props.spaceAfterTwips = ppr.spacing.after;
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
+    if (ppr.spacing.beforeAutospacing !== void 0) props.spaceBeforeAuto = ppr.spacing.beforeAutospacing;
+    if (ppr.spacing.afterAutospacing !== void 0) props.spaceAfterAuto = ppr.spacing.afterAutospacing;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
   if (ppr.tabs?.length) {
@@ -4345,8 +4351,13 @@ function paraPropsFromPPr(ppr) {
     }
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
-  if (ppr.pageBreakBefore) props.pageBreakBefore = true;
-  if (ppr.keepNext) props.keepNext = true;
+  if (ppr.pageBreakBefore !== void 0) props.pageBreakBefore = ppr.pageBreakBefore;
+  if (ppr.keepNext !== void 0) props.keepNext = ppr.keepNext;
+  if (ppr.keepLines !== void 0) props.keepLines = ppr.keepLines;
+  if (ppr.widowControl !== void 0) props.widowControl = ppr.widowControl;
+  if (ppr.suppressLineNumbers !== void 0) props.suppressLineNumbers = ppr.suppressLineNumbers;
+  if (ppr.suppressAutoHyphens !== void 0) props.suppressAutoHyphens = ppr.suppressAutoHyphens;
+  if (ppr.textboxTightWrap && TIGHT_WRAP.has(ppr.textboxTightWrap)) props.textboxTightWrap = ppr.textboxTightWrap;
   if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
@@ -5558,6 +5569,23 @@ function readSectPr(sectEl) {
   if (enPr) sect.endnotePr = enPr;
   const fnCols = sectEl && firstChild(sectEl, "w15:footnoteColumns")?.attrs["w:val"];
   if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
+  const ln2 = sectEl && firstChild(sectEl, "w:lnNumType");
+  if (ln2) {
+    const num3 = (k) => {
+      const n = parseInt(ln2.attrs[k] ?? "", 10);
+      return Number.isNaN(n) ? void 0 : n;
+    };
+    const out = {};
+    const cb = num3("w:countBy"), st = num3("w:start"), di = num3("w:distance");
+    if (cb !== void 0) out.countBy = cb;
+    if (st !== void 0) out.start = st;
+    if (di !== void 0) out.distance = di;
+    const rs = ln2.attrs["w:restart"];
+    if (rs === "newSection" || rs === "continuous") out.restart = rs;
+    sect.lnNumType = out;
+  }
+  const va = sectEl && firstChild(sectEl, "w:vAlign")?.attrs["w:val"];
+  if (va === "center" || va === "both" || va === "bottom") sect.vAlign = va;
   return sect;
 }
 
@@ -17179,7 +17207,7 @@ var DocContext = class {
     this.resolver = new StyleResolver2(fmt2);
     const ddFonts = fmt2.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt2.fontTable, void 0, fontOfSlot(ddFonts, "ascii", fmt2.theme) ?? fmt2.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {} };
+    this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {}, ...opts.hyphenationSkip ? { hyphenationSkip: opts.hyphenationSkip } : {} };
     this.numbering = new NumberingState(fmt2.numbering, fmt2.styles.styles, this.opts.lang);
     this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
@@ -17379,8 +17407,16 @@ function directPPr(para) {
     }
     base.ind = ind;
   }
-  if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips) {
+  if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips || p.spaceBeforeAuto !== orig.spaceBeforeAuto || p.spaceAfterAuto !== orig.spaceAfterAuto) {
     const sp = { ...base.spacing };
+    if (p.spaceBeforeAuto !== orig.spaceBeforeAuto) {
+      if (p.spaceBeforeAuto === void 0) delete sp.beforeAutospacing;
+      else sp.beforeAutospacing = p.spaceBeforeAuto;
+    }
+    if (p.spaceAfterAuto !== orig.spaceAfterAuto) {
+      if (p.spaceAfterAuto === void 0) delete sp.afterAutospacing;
+      else sp.afterAutospacing = p.spaceAfterAuto;
+    }
     if (p.lineTwentieths !== orig.lineTwentieths) {
       if (p.lineTwentieths !== void 0) {
         sp.line = p.lineTwentieths;
@@ -17417,8 +17453,16 @@ function directPPr(para) {
   if (!eq(p.tabStops, orig.tabStops)) {
     base.tabs = (p.tabStops ?? []).map((t) => ({ val: t.align, pos: t.posTwips, ...t.leader ? { leader: t.leader } : {} }));
   }
-  if (!!p.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p.pageBreakBefore;
-  if (!!p.keepNext !== !!orig.keepNext) base.keepNext = !!p.keepNext;
+  for (const k of ["pageBreakBefore", "keepNext", "keepLines", "widowControl", "suppressLineNumbers", "suppressAutoHyphens"]) {
+    if (p[k] !== orig[k]) {
+      if (p[k] === void 0) delete base[k];
+      else base[k] = p[k];
+    }
+  }
+  if (p.textboxTightWrap !== orig.textboxTightWrap) {
+    if (p.textboxTightWrap) base.textboxTightWrap = p.textboxTightWrap;
+    else delete base.textboxTightWrap;
+  }
   return base;
 }
 
@@ -17670,9 +17714,9 @@ function langAllowed(ctx, lang) {
     return l === y || l.startsWith(`${y}-`);
   });
 }
-function documentHyphenationLanguages(full, fallback = "pt-BR") {
+function documentHyphenationLanguages(full, fallback = "pt-BR", force = false) {
   const fmt2 = full.formatting;
-  if (!fmt2?.settings.autoHyphenation) return [];
+  if (!fmt2 || !fmt2.settings.autoHyphenation && !force) return [];
   const out = /* @__PURE__ */ new Set([fmt2.styles.docDefaults.rPr?.lang?.val ?? fallback]);
   const visit = (x2) => {
     if (!x2 || typeof x2 !== "object") return;
@@ -17696,9 +17740,9 @@ function documentHyphenationLanguages(full, fallback = "pt-BR") {
   visit(full.endnoteBlocks);
   return [...out];
 }
-function markHyphenation(ctx, ppr, glyphs, skipRuns) {
+function markHyphenation(ctx, ppr, glyphs, skipRuns, para) {
   const s = ctx.fmt.settings;
-  if (!s.autoHyphenation || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
+  if (!s.autoHyphenation && ctx.opts.hyphenation !== "force" || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
   const [left, right] = hyphenMins(s.compatibilityMode);
   for (let k = 0; k < glyphs.length; ) {
     const g = glyphs[k];
@@ -17718,6 +17762,7 @@ function markHyphenation(ctx, ppr, glyphs, skipRuns) {
     k = e;
     const rpr = g.style.rpr;
     if (rpr.noProof || rpr.cs || rpr.rtl || !langAllowed(ctx, lang)) continue;
+    if (para && ctx.opts.hyphenationSkip?.(para, g.offset)) continue;
     if (s.doNotHyphenateCaps && idx.every((j) => {
       const c = glyphs[j].ch;
       return c.toLowerCase() === c.toUpperCase() || c === c.toUpperCase();
@@ -18524,7 +18569,7 @@ function prepareParagraph(ctx, para0, env0) {
       } else if (g.kind === "char" && ppr.overflowPunct !== false && isCjkLang(g.style.rpr) && hangPunct(g.style.rpr, altKinsoku).includes(g.ch)) g.hang = true;
     }
   }
-  markHyphenation(ctx, ppr, glyphs, mathRuns);
+  markHyphenation(ctx, ppr, glyphs, mathRuns, para0);
   let marker;
   const numId = ppr.numPr?.numId;
   if (numId && env.numbering !== false && !env.continuation) {
@@ -23773,11 +23818,13 @@ var Engine = class {
       footers: pick(fb, prev?.footers),
       blocks: [s.blockStart, s.blockEnd],
       ...s.sect?.docGrid && (s.sect.docGrid.type === "lines" || s.sect.docGrid.type === "linesAndChars") && (s.sect.docGrid.linePitch ?? 0) > 0 ? { linePitch: s.sect.docGrid.linePitch } : {},
-      ...s.sect?.lnNumType ? { lnNum: {
-        countBy: Math.max(1, s.sect.lnNumType.countBy ?? 1),
+      // (sem w:countBy, ou 0, o Word não numera — oráculo lnnum3/s-nocountby, s-countby0)
+      ...s.sect?.lnNumType && (s.sect.lnNumType.countBy ?? 0) >= 1 ? { lnNum: {
+        countBy: s.sect.lnNumType.countBy,
         start: s.sect.lnNumType.start ?? 0,
         restart: s.sect.lnNumType.restart ?? "newPage",
-        distance: s.sect.lnNumType.distance ?? 360
+        // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
+        distance: (s.sect.lnNumType.distance ?? 0) > 0 ? s.sect.lnNumType.distance : cols.length > 1 ? 180 : 360
       } } : {}
     };
   }
@@ -24487,14 +24534,22 @@ var Engine = class {
     return bdrKey(resolvePPr(this.ctx, next.paragraph, env).ppr) === bdrKey(p.ppr);
   }
   /**
-   * Número da linha (w:lnNumType) — medido no Word (oráculo lnnum): só linhas
-   * do corpo (tabela e parágrafo com suppressLineNumbers não contam), vazio
-   * conta; o 1º número é start+1; alinhado à direita em (coluna − distância,
-   * auto = 360tw), mesma baseline, estilo Normal + "Line Number".
+   * Número da linha (w:lnNumType) — medido no Word (oráculos lnnum, lnnum2, lnnum3):
+   * só linhas do corpo (tabela, caixa de texto, quadro, nota e parágrafo com
+   * suppressLineNumbers não contam), vazio conta; alinhado à direita em (coluna −
+   * distância), mesma baseline, estilo Normal + "Line Number"; fora da página também
+   * vai para o PDF. A contagem recomeça (1º número = start+1) na 1ª linha numerada
+   * depois de uma seção SEM numeração (ou do início), na 1ª linha de uma seção
+   * newSection e na 1ª linha de uma página nova numa seção newPage; senão continua a
+   * da seção anterior (o start da seção que continua é ignorado), mesmo de uma seção
+   * newPage na mesma página.
    */
   paintLineNumber(colX, baseline) {
     const ln2 = this.cur.geom.lnNum;
-    const restart = ln2.restart === "continuous" ? this.lnSect < 0 : ln2.restart === "newSection" ? this.lnSect !== this.cur.geom.index : this.lnPage !== this.cur;
+    const idx = this.cur.geom.index;
+    const newSect = this.lnSect !== idx;
+    const fresh = this.lnSect < 0 || newSect && !this.geoms[idx - 1]?.lnNum;
+    const restart = fresh || ln2.restart === "newSection" && newSect || ln2.restart === "newPage" && this.lnPage !== this.cur;
     if (restart) this.lnCount = ln2.start;
     this.lnPage = this.cur;
     this.lnSect = this.cur.geom.index;
@@ -24507,7 +24562,12 @@ var Engine = class {
     const np = prepareParagraph(this.ctx, para, { numbering: false });
     const line = new LineBreaker(this.ctx, np).next({ left: 0, right: 2e4 });
     const x2 = colX - ln2.distance - line.width;
+    const at = this.cur.body.length;
     paintLine(this.ctx, this.cur.body, line, x2, baseline - line.baseline);
+    for (let k = at; k < this.cur.body.length; k++) {
+      const it = this.cur.body[k];
+      if (it.t === "glyphs") it.lineNum = true;
+    }
   }
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
   paintBox(out, p, x2, width, top, bottom, prev, at = out.length, groupedNext = false) {
@@ -26480,6 +26540,7 @@ function lineRecord(ref, p, line, frameX, top, frameW) {
   const firstLine = line.start === 0, lastLine = line.end >= gs.length;
   const rev2 = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a, b, hidden]) => hidden ? a <= end && b >= start : a < end && b > start));
   const x2 = frameX + line.xStart;
+  const tail = line.placed[line.placed.length - 1];
   return {
     ref,
     start,
@@ -26490,6 +26551,7 @@ function lineRecord(ref, p, line, frameX, top, frameW) {
     baseline: top + line.baseline,
     width: line.width,
     chars,
+    ...tail?.g.autoHyphen ? { hyph: tail.g.offset } : {},
     ...rev2 ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {},
     // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
     ...frameW !== void 0 ? { frame: { l: frameX - x2, r: frameX + frameW - x2 }, pfmt: pfmtOf(p) } : {}
@@ -26531,7 +26593,7 @@ function cullOffPage(items, pageW, pageH) {
       } else if (it.op === "pop") m = stack.pop() ?? null;
       continue;
     }
-    if (it.t !== "glyphs" || !it.glyphs.length) continue;
+    if (it.t !== "glyphs" || !it.glyphs.length || it.lineNum) continue;
     const em = it.sizePt * 20;
     const box = it.lineBox ?? { asc: em, desc: em * 0.3, lead: 0 };
     let x0 = Infinity, x1 = -Infinity;

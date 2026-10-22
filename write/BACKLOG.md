@@ -89,7 +89,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | feito |
 | Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | feito |
-| Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | em curso |
+| Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | feito |
 | Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | em curso |
 | Exibir | Estrutura de Tópicos e Rascunho no ribbon (os modos já existem); Lado a Lado; Uma Página/Várias Páginas/Largura da Página; Dividir; Nova Janela/Organizar Tudo/Rolagem Sincronizada | — |
 | Revisão | Dicionário de Sinônimos; Ler em Voz Alta; Verificar Acessibilidade; Definir Idioma; Excluir Todos/Resolver comentários | — |
@@ -149,6 +149,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Verificação | Letra Capitular (`w:framePr w:dropCap`) não é desenhada: é o maior defeito visível no demo (demo.docx pág. 6, Catalogo pág. 3) — adiantar da frente Texto decorativo |
 | Verificação | 45 documentos com o canvas abaixo do PDF (rasterização de serifadas pequenas, cores de formas) |
 | Verificação | PDF do Atlas (500 MB) sai com 655 MB contra 29 MB do Word: imagens não são reamostradas |
+| Layout do texto | Digitar dentro de controle de conteúdo ANINHADO perde o sdt interno ao salvar (a SegSource guarda um nível só de envoltório) — anterior às frentes |
 
 ### Fora do escopo
 

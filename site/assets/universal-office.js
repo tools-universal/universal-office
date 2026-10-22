@@ -558,40 +558,40 @@ var init_browser = __esm({
         if (t22[i7].s > maxSym)
           maxSym = t22[i7].s;
       }
-      var tr8 = new u16(maxSym + 1);
-      var mbt = ln(t6[i1 - 1], tr8, 0);
+      var tr9 = new u16(maxSym + 1);
+      var mbt = ln(t6[i1 - 1], tr9, 0);
       if (mbt > mb) {
         var i7 = 0, dt = 0;
         var lft = mbt - mb, cst = 1 << lft;
         t22.sort(function(a3, b5) {
-          return tr8[b5.s] - tr8[a3.s] || a3.f - b5.f;
+          return tr9[b5.s] - tr9[a3.s] || a3.f - b5.f;
         });
         for (; i7 < s4; ++i7) {
           var i2_1 = t22[i7].s;
-          if (tr8[i2_1] > mb) {
-            dt += cst - (1 << mbt - tr8[i2_1]);
-            tr8[i2_1] = mb;
+          if (tr9[i2_1] > mb) {
+            dt += cst - (1 << mbt - tr9[i2_1]);
+            tr9[i2_1] = mb;
           } else
             break;
         }
         dt >>= lft;
         while (dt > 0) {
           var i2_2 = t22[i7].s;
-          if (tr8[i2_2] < mb)
-            dt -= 1 << mb - tr8[i2_2]++ - 1;
+          if (tr9[i2_2] < mb)
+            dt -= 1 << mb - tr9[i2_2]++ - 1;
           else
             ++i7;
         }
         for (; i7 >= 0 && dt; --i7) {
           var i2_3 = t22[i7].s;
-          if (tr8[i2_3] == mb) {
-            --tr8[i2_3];
+          if (tr9[i2_3] == mb) {
+            --tr9[i2_3];
             ++dt;
           }
         }
         mbt = mb;
       }
-      return { t: new u8(tr8), l: mbt };
+      return { t: new u8(tr9), l: mbt };
     };
     ln = function(n5, l3, d3) {
       return n5.s == -1 ? Math.max(ln(n5.l, l3, d3 + 1), ln(n5.r, l3, d3 + 1)) : l3[n5.s] = d3;
@@ -1243,15 +1243,15 @@ function parseXml(xml, opts = {}) {
         if (xml[i7 + 1] !== ">") error("esperava />");
         i7 += 2;
         scope();
-        const el15 = { name, attrs: attrs3, children: [] };
-        if (RAW_CAPTURE.has(name)) el15.raw = xml.slice(elStart, i7);
+        const el16 = { name, attrs: attrs3, children: [] };
+        if (RAW_CAPTURE.has(name)) el16.raw = xml.slice(elStart, i7);
         if (pos) {
-          el15.s = elStart;
-          el15.cs = i7;
-          el15.ce = i7;
-          el15.e = i7;
+          el16.s = elStart;
+          el16.cs = i7;
+          el16.ce = i7;
+          el16.e = i7;
         }
-        return el15;
+        return el16;
       }
       if (xml[i7] === ">") {
         i7++;
@@ -1283,15 +1283,15 @@ function parseXml(xml, opts = {}) {
         const contentEnd = i7;
         const close = xml.indexOf(">", i7);
         i7 = close + 1;
-        const el15 = { name, attrs: attrs3, children: children2 };
-        if (RAW_CAPTURE.has(name)) el15.raw = xml.slice(elStart, i7);
+        const el16 = { name, attrs: attrs3, children: children2 };
+        if (RAW_CAPTURE.has(name)) el16.raw = xml.slice(elStart, i7);
         if (pos) {
-          el15.s = elStart;
-          el15.cs = contentStart;
-          el15.ce = contentEnd;
-          el15.e = i7;
+          el16.s = elStart;
+          el16.cs = contentStart;
+          el16.ce = contentEnd;
+          el16.e = i7;
         }
-        return el15;
+        return el16;
       }
       if (xml.startsWith("<!--", i7)) {
         i7 = xml.indexOf("-->", i7) + 3;
@@ -1317,17 +1317,17 @@ function parseXml(xml, opts = {}) {
   const root = parseElement(NO_RENAMES);
   return root;
 }
-function childElements(el15, name) {
-  return el15.children.filter(
+function childElements(el16, name) {
+  return el16.children.filter(
     (c5) => typeof c5 !== "string" && (name === void 0 || c5.name === name)
   );
 }
-function firstChild(el15, name) {
-  return childElements(el15, name)[0];
+function firstChild(el16, name) {
+  return childElements(el16, name)[0];
 }
-function textContent(el15) {
+function textContent(el16) {
   let out = "";
-  for (const c5 of el15.children) {
+  for (const c5 of el16.children) {
     out += typeof c5 === "string" ? c5 : textContent(c5);
   }
   return out;
@@ -1481,27 +1481,27 @@ function readShapeFx(eff) {
   }
   return Object.keys(fx).length ? fx : void 0;
 }
-function findDeep(el15, name) {
-  for (const c5 of childElements(el15)) {
+function findDeep(el16, name) {
+  for (const c5 of childElements(el16)) {
     if (c5.name === name) return c5;
     const f3 = findDeep(c5, name);
     if (f3) return f3;
   }
   return void 0;
 }
-function textOf(el15) {
+function textOf(el16) {
   let s4 = "";
-  for (const c5 of el15.children) s4 += typeof c5 === "string" ? c5 : textOf(c5);
+  for (const c5 of el16.children) s4 += typeof c5 === "string" ? c5 : textOf(c5);
   return s4;
 }
-function readPos(el15, defFrom) {
-  const pos = { relativeFrom: el15?.attrs["relativeFrom"] ?? defFrom };
-  if (!el15) return pos;
-  const align = firstChild(el15, "wp:align");
+function readPos(el16, defFrom) {
+  const pos = { relativeFrom: el16?.attrs["relativeFrom"] ?? defFrom };
+  if (!el16) return pos;
+  const align = firstChild(el16, "wp:align");
   if (align) pos.align = textOf(align).trim();
-  const off = firstChild(el15, "wp:posOffset");
+  const off = firstChild(el16, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct2 = firstChild(el15, "wp14:pctPosHOffset") ?? firstChild(el15, "wp14:pctPosVOffset");
+  const pct2 = firstChild(el16, "wp14:pctPosHOffset") ?? firstChild(el16, "wp14:pctPosVOffset");
   if (pct2) pos.pct = parseInt(textOf(pct2).trim(), 10) || 0;
   return pos;
 }
@@ -1510,11 +1510,11 @@ function anchorChild(anchor, name) {
   if (direct) return direct;
   for (const ac of childElements(anchor, "mc:AlternateContent")) {
     const choice = firstChild(ac, "mc:Choice");
-    const el15 = (choice && firstChild(choice, name)) ?? (() => {
+    const el16 = (choice && firstChild(choice, name)) ?? (() => {
       const fb = firstChild(ac, "mc:Fallback");
       return fb && firstChild(fb, name);
     })();
-    if (el15) return el15;
+    if (el16) return el16;
   }
   return void 0;
 }
@@ -1595,9 +1595,9 @@ function readWpAnchor(anchor) {
   }
   return out;
 }
-function srgbOf(el15, theme) {
-  if (!el15) return void 0;
-  const c5 = firstChild(el15, "a:srgbClr") ?? firstChild(el15, "a:schemeClr") ?? firstChild(el15, "a:sysClr") ?? firstChild(el15, "a:prstClr");
+function srgbOf(el16, theme) {
+  if (!el16) return void 0;
+  const c5 = firstChild(el16, "a:srgbClr") ?? firstChild(el16, "a:schemeClr") ?? firstChild(el16, "a:sysClr") ?? firstChild(el16, "a:prstClr");
   if (!c5) return void 0;
   let hex3;
   if (c5.name === "a:srgbClr") hex3 = c5.attrs["val"];
@@ -1811,11 +1811,11 @@ function vmlColor(v2) {
   }
   return own(VML_COLORS, s4);
 }
-function vmlShapeStyle(el15, geom) {
+function vmlShapeStyle(el16, geom) {
   const st = { geom };
-  const a3 = el15.attrs;
-  const fillEl = firstChild(el15, "v:fill");
-  const strokeEl = firstChild(el15, "v:stroke");
+  const a3 = el16.attrs;
+  const fillEl = firstChild(el16, "v:fill");
+  const strokeEl = firstChild(el16, "v:stroke");
   const filled = a3["filled"] ?? fillEl?.attrs["on"];
   if (filled !== "f" && filled !== "false") {
     const fc = vmlColor(fillEl?.attrs["color"] ?? a3["fillcolor"]) ?? (a3["fillcolor"] === void 0 && !fillEl ? "FFFFFF" : void 0);
@@ -1913,8 +1913,8 @@ function readCustGeom(cg, cx, cy) {
     }
   };
   for (const lst of ["a:avLst", "a:gdLst"]) {
-    const el15 = firstChild(cg, lst);
-    for (const gd of el15 ? childElements(el15, "a:gd") : []) {
+    const el16 = firstChild(cg, lst);
+    for (const gd of el16 ? childElements(el16, "a:gd") : []) {
       const name = gd.attrs["name"];
       if (name) v2[name] = evalGd(gd.attrs["fmla"] ?? "val 0");
     }
@@ -1929,7 +1929,7 @@ function readCustGeom(cg, cx, cy) {
       stroke: p3.attrs["stroke"] !== "0" && p3.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el15) => childElements(el15, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
+    const pts = (el16) => childElements(el16, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
     for (const c5 of childElements(p3)) {
       switch (c5.name) {
         case "a:moveTo":
@@ -2023,8 +2023,8 @@ function dmlColorSpec(c5) {
   if (mods.length) head += `|${mods.join(",")}`;
   return { spec: head, alpha };
 }
-function findDeep2(el15, name) {
-  for (const c5 of childElements(el15)) {
+function findDeep2(el16, name) {
+  for (const c5 of childElements(el16)) {
     if (c5.name === name) return c5;
     const f3 = findDeep2(c5, name);
     if (f3) return f3;
@@ -2044,14 +2044,14 @@ function partsOf(raw) {
   const blip = blipFill && firstChild(blipFill, "a:blip");
   return { root, container, pic, wsp, wgp, spPr, blipFill, blip };
 }
-function readPos2(el15) {
-  if (!el15) return void 0;
-  const p3 = { relativeFrom: el15.attrs["relativeFrom"] ?? "column" };
-  const al = firstChild(el15, "wp:align");
+function readPos2(el16) {
+  if (!el16) return void 0;
+  const p3 = { relativeFrom: el16.attrs["relativeFrom"] ?? "column" };
+  const al = firstChild(el16, "wp:align");
   if (al) p3.align = textContent(al).trim();
-  const off = firstChild(el15, "wp:posOffset");
+  const off = firstChild(el16, "wp:posOffset");
   if (off) p3.offset = int(textContent(off).trim());
-  const pct2 = firstChild(el15, "wp14:pctPosHOffset") ?? firstChild(el15, "wp14:pctPosVOffset");
+  const pct2 = firstChild(el16, "wp14:pctPosHOffset") ?? firstChild(el16, "wp14:pctPosVOffset");
   if (pct2) p3.pct = int(textContent(pct2).trim());
   return p3;
 }
@@ -2075,8 +2075,8 @@ function readPicLine(ln2) {
   }
   return out;
 }
-function rawOf(_parent, el15) {
-  return rawSrc.slice(el15.s, el15.e);
+function rawOf(_parent, el16) {
+  return rawSrc.slice(el16.s, el16.e);
 }
 function readShadow(k2) {
   const kind = k2.name === "a:outerShdw" ? "outer" : k2.name === "a:innerShdw" ? "inner" : "prst";
@@ -2091,10 +2091,10 @@ function readShadow(k2) {
   if (a3["prst"]) s4.prst = a3["prst"];
   return s4;
 }
-function readEffects(el15) {
+function readEffects(el16) {
   const fx = {};
-  if (!el15) return fx;
-  for (const k2 of childElements(el15)) {
+  if (!el16) return fx;
+  for (const k2 of childElements(el16)) {
     if (k2.name === "a:outerShdw" || k2.name === "a:innerShdw" || k2.name === "a:prstShdw") fx.shadow = readShadow(k2);
     else if (k2.name === "a:glow") fx.glow = { rad: int(k2.attrs["rad"]), color: readDmlColor(k2) ?? { kind: "srgbClr", val: "000000" } };
     else if (k2.name === "a:softEdge") fx.softEdge = int(k2.attrs["rad"]);
@@ -2105,12 +2105,12 @@ function readEffects(el15) {
       if (a3["algn"]) r6.algn = a3["algn"];
       if (a3["rotWithShape"] !== void 0) r6.rotWithShape = bool(a3["rotWithShape"]);
       fx.reflection = r6;
-    } else (fx.otherRaw ??= []).push(rawOf(el15, k2));
+    } else (fx.otherRaw ??= []).push(rawOf(el16, k2));
   }
   return fx;
 }
-function readRot(el15) {
-  return el15 ? { lat: int(el15.attrs["lat"]), lon: int(el15.attrs["lon"]), rev: int(el15.attrs["rev"]) } : void 0;
+function readRot(el16) {
+  return el16 ? { lat: int(el16.attrs["lat"]), lon: int(el16.attrs["lon"]), rev: int(el16.attrs["rev"]) } : void 0;
 }
 function read3D(scene, sp3d) {
   if (!scene && !sp3d) return void 0;
@@ -2211,10 +2211,10 @@ function readPictureFormat(raw, opts = {}) {
   }
   const poly2 = wrapEl && firstChild(wrapEl, "wp:wrapPolygon");
   const sizeRel = (n5, k2) => {
-    const el15 = firstChild(c5, n5);
-    if (!el15) return void 0;
-    const v2 = firstChild(el15, k2);
-    return { relativeFrom: el15.attrs["relativeFrom"] ?? "page", pct: v2 ? int(textContent(v2).trim()) : 0 };
+    const el16 = firstChild(c5, n5);
+    if (!el16) return void 0;
+    const v2 = firstChild(el16, k2);
+    return { relativeFrom: el16.attrs["relativeFrom"] ?? "page", pct: v2 ? int(textContent(v2).trim()) : 0 };
   };
   const spPr = p3.spPr;
   const xfrm = spPr && firstChild(spPr, "a:xfrm");
@@ -2371,8 +2371,8 @@ function convertContainer(raw, ch) {
   const p3 = partsOf(raw);
   const c5 = p3.container;
   const slice = (n5) => {
-    const el15 = firstChild(c5, n5);
-    return el15 ? raw.slice(el15.s, el15.e) : "";
+    const el16 = firstChild(c5, n5);
+    return el16 ? raw.slice(el16.s, el16.e) : "";
   };
   const keep = slice("wp:extent") + slice("wp:effectExtent");
   const tail = slice("wp:docPr") + slice("wp:cNvGraphicFramePr") + slice("a:graphic");
@@ -2535,21 +2535,21 @@ function patchDecorative(raw, on) {
   for (const which of ["docPr", "cNvPr"]) {
     const p3 = partsOf(xml);
     const nv = p3.pic && firstChild(p3.pic, "pic:nvPicPr");
-    const el15 = which === "docPr" ? firstChild(p3.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
-    if (!el15) continue;
+    const el16 = which === "docPr" ? firstChild(p3.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
+    if (!el16) continue;
     const patch2 = new XmlPatch(xml);
-    const ext = firstChild(el15, "a:extLst");
+    const ext = firstChild(el16, "a:extLst");
     const decExt = ext && childElements(ext, "a:ext").find((e8) => e8.attrs["uri"] === "{C183D7F6-B498-43B3-948B-1728B52AA6E4}");
     if (on) {
       if (decExt) continue;
       const nsA = which === "docPr" ? ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' : "";
       if (ext) patch2.insertAt(ext.ce, ADEC_EXT);
       else {
-        const hl = childElements(el15).filter((k2) => k2.name === "a:hlinkClick" || k2.name === "a:hlinkHover").pop();
+        const hl = childElements(el16).filter((k2) => k2.name === "a:hlinkClick" || k2.name === "a:hlinkHover").pop();
         const lst = `<a:extLst${nsA}>${ADEC_EXT}</a:extLst>`;
         if (hl) patch2.insertAt(hl.e, lst);
-        else if (el15.cs === el15.e) patch2.setContent(el15, lst);
-        else patch2.insertAt(el15.ce, lst);
+        else if (el16.cs === el16.e) patch2.setContent(el16, lst);
+        else patch2.insertAt(el16.ce, lst);
       }
     } else if (decExt) {
       if (childElements(ext).length === 1) patch2.remove(ext);
@@ -2585,8 +2585,8 @@ function patchPic(raw, ch) {
     }
     if (ch.line !== void 0) patch2.putChild(sp2, "a:ln", ch.line ? picLineXml(ch.line) : "", SPPR_ORDER);
     if (ch.shadow !== void 0 || ch.reflection !== void 0 || ch.glow !== void 0 || ch.softEdge !== void 0) {
-      const el15 = firstChild(sp2, "a:effectLst");
-      const fx = readEffects(el15);
+      const el16 = firstChild(sp2, "a:effectLst");
+      const fx = readEffects(el16);
       if (ch.shadow !== void 0) {
         if (ch.shadow) fx.shadow = ch.shadow;
         else delete fx.shadow;
@@ -2675,23 +2675,23 @@ var init_picture_xml = __esm({
       src;
       edits = [];
       /** fim da tag de abertura (posição logo depois do '>'). */
-      static openEnd(el15) {
-        return el15.cs ?? el15.e;
+      static openEnd(el16) {
+        return el16.cs ?? el16.e;
       }
-      replace(el15, text) {
-        this.edits.push({ s: el15.s, e: el15.e, text });
+      replace(el16, text) {
+        this.edits.push({ s: el16.s, e: el16.e, text });
       }
-      remove(el15) {
-        this.replace(el15, "");
+      remove(el16) {
+        this.replace(el16, "");
       }
       insertAt(at, text) {
         this.edits.push({ s: at, e: at, text });
       }
       /** troca a tag de abertura (atributos novos, valores escapados). */
-      setAttrs(el15, set) {
-        const end = _XmlPatch.openEnd(el15);
-        const selfClose = el15.cs === el15.e;
-        let tag2 = this.src.slice(el15.s, end);
+      setAttrs(el16, set) {
+        const end = _XmlPatch.openEnd(el16);
+        const selfClose = el16.cs === el16.e;
+        let tag2 = this.src.slice(el16.s, end);
         for (const [k2, v2] of Object.entries(set)) {
           const re = new RegExp(`\\s${k2.replace(/[:.]/g, "\\$&")}="[^"]*"`);
           if (v2 === void 0) {
@@ -2702,15 +2702,15 @@ var init_picture_xml = __esm({
           if (re.test(tag2)) tag2 = tag2.replace(re, () => a3);
           else tag2 = tag2.replace(selfClose ? /\s*\/>$/ : />$/, (m2) => `${a3}${m2.trim() === "/>" ? "/>" : ">"}`);
         }
-        this.edits.push({ s: el15.s, e: end, text: tag2 });
+        this.edits.push({ s: el16.s, e: end, text: tag2 });
       }
       /** conteúdo inteiro de um elemento (vira <x ...>conteúdo</x>). */
-      setContent(el15, inner) {
-        if (el15.cs === el15.e) {
-          const tag2 = this.src.slice(el15.s, el15.e).replace(/\s*\/>$/, ">");
+      setContent(el16, inner) {
+        if (el16.cs === el16.e) {
+          const tag2 = this.src.slice(el16.s, el16.e).replace(/\s*\/>$/, ">");
           const name = /^<([^\s/>]+)/.exec(tag2)[1];
-          this.edits.push({ s: el15.s, e: el15.e, text: `${tag2}${inner}</${name}>` });
-        } else this.edits.push({ s: el15.cs, e: el15.ce, text: inner });
+          this.edits.push({ s: el16.s, e: el16.e, text: `${tag2}${inner}</${name}>` });
+        } else this.edits.push({ s: el16.cs, e: el16.ce, text: inner });
       }
       /** insere `xml` como filho de `parent` na posição da ordem do esquema. */
       insertChild(parent, name, xml, order2) {
@@ -2962,11 +2962,11 @@ function patchStyle(raw, s4) {
 function patchBody(raw, b5) {
   const p3 = partsOf(raw);
   if (!p3.wsp) return raw;
-  const el15 = firstChild(p3.wsp, "wps:bodyPr");
-  const cur = readBody(el15) ?? { ...DEFAULT_TEXTBOX_BODY };
+  const el16 = firstChild(p3.wsp, "wps:bodyPr");
+  const cur = readBody(el16) ?? { ...DEFAULT_TEXTBOX_BODY };
   const next = { ...cur, ...b5 };
   const patch2 = new XmlPatch(raw);
-  if (!el15) {
+  if (!el16) {
     patch2.insertChild(p3.wsp, "wps:bodyPr", bodyPrXml(next), WSP_ORDER);
     return patch2.apply();
   }
@@ -2984,13 +2984,13 @@ function patchBody(raw, b5) {
     ["rot", "rot", (v2) => v2]
   ];
   for (const [k2, attr2, f3] of map) if (b5[k2] !== void 0 && b5[k2] !== cur[k2]) set[attr2] = f3(b5[k2]);
-  if (Object.keys(set).length) patch2.setAttrs(el15, set);
+  if (Object.keys(set).length) patch2.setAttrs(el16, set);
   if (b5.autofit !== void 0 && b5.autofit !== cur.autofit) {
     const fitXml = b5.autofit === "shape" ? "<a:spAutoFit/>" : b5.autofit === "norm" ? "<a:normAutofit/>" : "<a:noAutofit/>";
-    const old = childElements(el15).find((k2) => k2.name === "a:spAutoFit" || k2.name === "a:noAutofit" || k2.name === "a:normAutofit");
+    const old = childElements(el16).find((k2) => k2.name === "a:spAutoFit" || k2.name === "a:noAutofit" || k2.name === "a:normAutofit");
     if (old) patch2.replace(old, fitXml);
-    else if (el15.cs === el15.e) patch2.setContent(el15, fitXml);
-    else patch2.insertAt(el15.ce, fitXml);
+    else if (el16.cs === el16.e) patch2.setContent(el16, fitXml);
+    else patch2.insertAt(el16.ce, fitXml);
   }
   return patch2.apply();
 }
@@ -3216,11 +3216,11 @@ var init_shape_xml = __esm({
 });
 
 // ../docx-core/src/vml-shape.ts
-function vmlTextboxToDrawing(el15, id, lang = "pt") {
-  const a3 = el15.attrs;
+function vmlTextboxToDrawing(el16, id, lang = "pt") {
+  const a3 = el16.attrs;
   const st = parseVmlStyle(a3["style"]);
   if (st["position"] !== "absolute") return void 0;
-  const txb = firstChild(el15, "v:textbox");
+  const txb = firstChild(el16, "v:textbox");
   if (!txb) return void 0;
   const cx = emu(st["width"]) ?? 0, cy = emu(st["height"]) ?? 0;
   if (!(cx > 0) || !(cy > 0)) return void 0;
@@ -3233,10 +3233,10 @@ function vmlTextboxToDrawing(el15, id, lang = "pt") {
     return { relativeFrom, offset: off };
   };
   const z2 = parseInt(st["z-index"] ?? "0", 10) || 0;
-  const wrapEl = firstChild(el15, "w10:wrap");
+  const wrapEl = firstChild(el16, "w10:wrap");
   const wt = wrapEl?.attrs["type"];
   const dist = (k2) => emu(st[`mso-wrap-distance-${k2}`]) ?? (k2 === "left" || k2 === "right" ? 114300 : 0);
-  const fillEl = firstChild(el15, "v:fill");
+  const fillEl = firstChild(el16, "v:fill");
   const filled = a3["filled"] ?? fillEl?.attrs["on"];
   let fill;
   if (filled === "f" || filled === "false") fill = { kind: "none" };
@@ -3249,7 +3249,7 @@ function vmlTextboxToDrawing(el15, id, lang = "pt") {
       fill = { kind: "gradient", stops: [{ pos: 0, color: rgb(c1, op) }, { pos: 1e5, color: rgb(c22, op) }], lin: { ang: Math.round(((90 - ang) % 360 + 360) % 360 * 6e4), scaled: true }, rotWithShape: true };
     } else fill = { kind: "solid", color: rgb(c1, op) };
   }
-  const strokeEl = firstChild(el15, "v:stroke");
+  const strokeEl = firstChild(el16, "v:stroke");
   const stroked = a3["stroked"] ?? strokeEl?.attrs["on"];
   const sw = a3["strokeweight"] ?? strokeEl?.attrs["weight"];
   const w2 = sw ? emu(/[a-z]$/.test(sw) ? sw : `${sw}pt`) ?? 9525 : 9525;
@@ -3270,7 +3270,7 @@ function vmlTextboxToDrawing(el15, id, lang = "pt") {
   };
   const va = st["v-text-anchor"] ?? "";
   const vert = ts["layout-flow"] ? FLOW2[`${ts["layout-flow"]}|${ts["mso-layout-flow-alt"] ?? ""}`] ?? FLOW2[`${ts["layout-flow"]}|`] : void 0;
-  const geom = el15.name === "v:roundrect" ? { prst: "roundRect", adj: { adj: Math.round((frac(a3["arcsize"]) ?? 0.1667) * 1e5) } } : el15.name === "v:oval" ? { prst: "ellipse" } : { prst: "rect" };
+  const geom = el16.name === "v:roundrect" ? { prst: "roundRect", adj: { adj: Math.round((frac(a3["arcsize"]) ?? 0.1667) * 1e5) } } : el16.name === "v:oval" ? { prst: "ellipse" } : { prst: "rect" };
   const vmlName = a3["id"] && !/^_x0000_/.test(a3["id"]) ? a3["id"] : void 0;
   let xml = newTextboxDrawingXml({
     id,
@@ -3341,11 +3341,11 @@ var init_vml_shape = __esm({
 });
 
 // ../docx-core/src/ooxml/props.ts
-function readRevisionInfo(el15) {
-  const info = { author: el15.attrs["w:author"] ?? "" };
-  if (el15.attrs["w:date"]) info.date = el15.attrs["w:date"];
-  if (el15.attrs["w16du:dateUtc"]) info.dateUtc = el15.attrs["w16du:dateUtc"];
-  if (el15.name === "w:moveFrom" || el15.name === "w:moveTo") info.move = true;
+function readRevisionInfo(el16) {
+  const info = { author: el16.attrs["w:author"] ?? "" };
+  if (el16.attrs["w:date"]) info.date = el16.attrs["w:date"];
+  if (el16.attrs["w16du:dateUtc"]) info.dateUtc = el16.attrs["w16du:dateUtc"];
+  if (el16.name === "w:moveFrom" || el16.name === "w:moveTo") info.move = true;
   return info;
 }
 function measureTwips(v2) {
@@ -3369,46 +3369,46 @@ function measureTwips(v2) {
       return Math.round(n5);
   }
 }
-function onOffVal(el15) {
-  const v2 = el15.attrs["w:val"];
+function onOffVal(el16) {
+  const v2 = el16.attrs["w:val"];
   return !(v2 === "0" || v2 === "false" || v2 === "off" || v2 === "none");
 }
-function colorOf(el15) {
+function colorOf(el16) {
   const c5 = {};
-  if (el15.attrs["w:val"] !== void 0) c5.val = el15.attrs["w:val"];
-  if (el15.attrs["w:themeColor"]) c5.themeColor = el15.attrs["w:themeColor"];
-  if (el15.attrs["w:themeTint"]) c5.themeTint = el15.attrs["w:themeTint"];
-  if (el15.attrs["w:themeShade"]) c5.themeShade = el15.attrs["w:themeShade"];
+  if (el16.attrs["w:val"] !== void 0) c5.val = el16.attrs["w:val"];
+  if (el16.attrs["w:themeColor"]) c5.themeColor = el16.attrs["w:themeColor"];
+  if (el16.attrs["w:themeTint"]) c5.themeTint = el16.attrs["w:themeTint"];
+  if (el16.attrs["w:themeShade"]) c5.themeShade = el16.attrs["w:themeShade"];
   return c5;
 }
-function readBorder(el15) {
-  if (!el15) return void 0;
-  const b5 = { val: el15.attrs["w:val"] ?? "single" };
-  const sz3 = int3(el15.attrs["w:sz"]);
+function readBorder(el16) {
+  if (!el16) return void 0;
+  const b5 = { val: el16.attrs["w:val"] ?? "single" };
+  const sz3 = int3(el16.attrs["w:sz"]);
   if (sz3 !== void 0) b5.sz = sz3;
-  const space = int3(el15.attrs["w:space"]);
+  const space = int3(el16.attrs["w:space"]);
   if (space !== void 0) b5.space = space;
-  if (el15.attrs["w:color"]) b5.color = el15.attrs["w:color"];
-  if (el15.attrs["w:themeColor"]) b5.themeColor = el15.attrs["w:themeColor"];
-  if (el15.attrs["w:themeTint"]) b5.themeTint = el15.attrs["w:themeTint"];
-  if (el15.attrs["w:themeShade"]) b5.themeShade = el15.attrs["w:themeShade"];
-  if (el15.attrs["w:shadow"] !== void 0) b5.shadow = onOffAttr(el15.attrs["w:shadow"]);
-  if (el15.attrs["w:frame"] !== void 0) b5.frame = onOffAttr(el15.attrs["w:frame"]);
+  if (el16.attrs["w:color"]) b5.color = el16.attrs["w:color"];
+  if (el16.attrs["w:themeColor"]) b5.themeColor = el16.attrs["w:themeColor"];
+  if (el16.attrs["w:themeTint"]) b5.themeTint = el16.attrs["w:themeTint"];
+  if (el16.attrs["w:themeShade"]) b5.themeShade = el16.attrs["w:themeShade"];
+  if (el16.attrs["w:shadow"] !== void 0) b5.shadow = onOffAttr(el16.attrs["w:shadow"]);
+  if (el16.attrs["w:frame"] !== void 0) b5.frame = onOffAttr(el16.attrs["w:frame"]);
   return b5;
 }
-function readShading(el15) {
-  if (!el15) return void 0;
+function readShading(el16) {
+  if (!el16) return void 0;
   const s4 = {};
   for (const k2 of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
-    const v2 = el15.attrs[`w:${k2}`];
+    const v2 = el16.attrs[`w:${k2}`];
     if (v2 !== void 0) s4[k2] = v2;
   }
   return s4;
 }
-function readWidth(el15) {
-  if (!el15) return void 0;
-  const type = el15.attrs["w:type"] ?? "dxa";
-  const raw = el15.attrs["w:w"] ?? "0";
+function readWidth(el16) {
+  if (!el16) return void 0;
+  const type = el16.attrs["w:type"] ?? "dxa";
+  const raw = el16.attrs["w:w"] ?? "0";
   let w2;
   if (raw.endsWith("%")) w2 = Math.round(parseFloat(raw) * 50);
   else w2 = type === "dxa" ? measureTwips(raw) ?? 0 : int3(raw) ?? 0;
@@ -3417,83 +3417,83 @@ function readWidth(el15) {
 function readRPr(rPr) {
   if (!rPr) return void 0;
   const p3 = {};
-  for (const el15 of childElements(rPr)) {
-    const val3 = el15.attrs["w:val"];
-    switch (el15.name) {
+  for (const el16 of childElements(rPr)) {
+    const val3 = el16.attrs["w:val"];
+    switch (el16.name) {
       case "w:rStyle":
         if (val3) p3.rStyle = val3;
         break;
       case "w:rFonts": {
         const f3 = {};
         for (const k2 of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
-          const v2 = el15.attrs[`w:${k2}`];
+          const v2 = el16.attrs[`w:${k2}`];
           if (v2 !== void 0) f3[k2] = v2;
         }
         p3.rFonts = f3;
         break;
       }
       case "w:b":
-        p3.b = onOffVal(el15);
+        p3.b = onOffVal(el16);
         break;
       case "w:bCs":
-        p3.bCs = onOffVal(el15);
+        p3.bCs = onOffVal(el16);
         break;
       case "w:i":
-        p3.i = onOffVal(el15);
+        p3.i = onOffVal(el16);
         break;
       case "w:iCs":
-        p3.iCs = onOffVal(el15);
+        p3.iCs = onOffVal(el16);
         break;
       case "w:caps":
-        p3.caps = onOffVal(el15);
+        p3.caps = onOffVal(el16);
         break;
       case "w:smallCaps":
-        p3.smallCaps = onOffVal(el15);
+        p3.smallCaps = onOffVal(el16);
         break;
       case "w:strike":
-        p3.strike = onOffVal(el15);
+        p3.strike = onOffVal(el16);
         break;
       case "w:dstrike":
-        p3.dstrike = onOffVal(el15);
+        p3.dstrike = onOffVal(el16);
         break;
       case "w:outline":
-        p3.outline = onOffVal(el15);
+        p3.outline = onOffVal(el16);
         break;
       case "w:shadow":
-        p3.shadow = onOffVal(el15);
+        p3.shadow = onOffVal(el16);
         break;
       case "w:emboss":
-        p3.emboss = onOffVal(el15);
+        p3.emboss = onOffVal(el16);
         break;
       case "w:imprint":
-        p3.imprint = onOffVal(el15);
+        p3.imprint = onOffVal(el16);
         break;
       case "w:vanish":
-        p3.vanish = onOffVal(el15);
+        p3.vanish = onOffVal(el16);
         break;
       case "w:specVanish":
-        p3.specVanish = onOffVal(el15);
+        p3.specVanish = onOffVal(el16);
         break;
       case "w:webHidden":
-        p3.webHidden = onOffVal(el15);
+        p3.webHidden = onOffVal(el16);
         break;
       case "w:noProof":
-        p3.noProof = onOffVal(el15);
+        p3.noProof = onOffVal(el16);
         break;
       case "w:snapToGrid":
-        p3.snapToGrid = onOffVal(el15);
+        p3.snapToGrid = onOffVal(el16);
         break;
       case "w:rtl":
-        p3.rtl = onOffVal(el15);
+        p3.rtl = onOffVal(el16);
         break;
       case "w:cs":
-        p3.cs = onOffVal(el15);
+        p3.cs = onOffVal(el16);
         break;
       case "w:color":
-        p3.color = colorOf(el15);
+        p3.color = colorOf(el16);
         break;
       case "w14:textFill": {
-        const solid = firstChild(el15, "w14:solidFill");
+        const solid = firstChild(el16, "w14:solidFill");
         const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
         if (clr) {
           const tf = {};
@@ -3503,22 +3503,22 @@ function readRPr(rPr) {
           const a3 = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
           if (a3 !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a3, 10) || 0) / 1e5);
           p3.textFill = tf;
-        } else if (firstChild(el15, "w14:noFill")) p3.textFill = { alpha: 0 };
+        } else if (firstChild(el16, "w14:noFill")) p3.textFill = { alpha: 0 };
         break;
       }
       case "w14:ligatures":
-        p3.ligatures = el15.attrs["w14:val"] ?? "standard";
+        p3.ligatures = el16.attrs["w14:val"] ?? "standard";
         break;
       case "w:rPrChange":
-        p3.change = { ...readRevisionInfo(el15), rPr: readRPr(firstChild(el15, "w:rPr")) ?? {} };
+        p3.change = { ...readRevisionInfo(el16), rPr: readRPr(firstChild(el16, "w:rPr")) ?? {} };
         break;
       case "w14:shadow": {
-        const emu2 = (k2) => (parseInt(el15.attrs[k2] ?? "0", 10) || 0) / 12700;
-        p3.textShadow = { blur: emu2("w14:blurRad"), dist: emu2("w14:dist"), dir: (parseInt(el15.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
+        const emu2 = (k2) => (parseInt(el16.attrs[k2] ?? "0", 10) || 0) / 12700;
+        p3.textShadow = { blur: emu2("w14:blurRad"), dist: emu2("w14:dist"), dir: (parseInt(el16.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
         break;
       }
       case "w14:textOutline":
-        p3.textOutline = !firstChild(el15, "w14:noFill") && !!(firstChild(el15, "w14:solidFill") ?? firstChild(el15, "w14:gradFill"));
+        p3.textOutline = !firstChild(el16, "w14:noFill") && !!(firstChild(el16, "w14:solidFill") ?? firstChild(el16, "w14:gradFill"));
         break;
       case "w:spacing": {
         const n5 = measureTwips(val3);
@@ -3555,8 +3555,8 @@ function readRPr(rPr) {
         break;
       case "w:u": {
         const u3 = { val: val3 ?? "single" };
-        if (el15.attrs["w:color"]) u3.color = el15.attrs["w:color"];
-        if (el15.attrs["w:themeColor"]) u3.themeColor = el15.attrs["w:themeColor"];
+        if (el16.attrs["w:color"]) u3.color = el16.attrs["w:color"];
+        if (el16.attrs["w:themeColor"]) u3.themeColor = el16.attrs["w:themeColor"];
         p3.u = u3;
         break;
       }
@@ -3564,10 +3564,10 @@ function readRPr(rPr) {
         if (val3) p3.effect = val3;
         break;
       case "w:bdr":
-        p3.bdr = readBorder(el15);
+        p3.bdr = readBorder(el16);
         break;
       case "w:shd":
-        p3.shd = readShading(el15);
+        p3.shd = readShading(el16);
         break;
       case "w:vertAlign":
         if (val3 === "superscript" || val3 === "subscript" || val3 === "baseline") p3.vertAlign = val3;
@@ -3577,9 +3577,9 @@ function readRPr(rPr) {
         break;
       case "w:lang": {
         const l3 = {};
-        if (el15.attrs["w:val"]) l3.val = el15.attrs["w:val"];
-        if (el15.attrs["w:eastAsia"]) l3.eastAsia = el15.attrs["w:eastAsia"];
-        if (el15.attrs["w:bidi"]) l3.bidi = el15.attrs["w:bidi"];
+        if (el16.attrs["w:val"]) l3.val = el16.attrs["w:val"];
+        if (el16.attrs["w:eastAsia"]) l3.eastAsia = el16.attrs["w:eastAsia"];
+        if (el16.attrs["w:bidi"]) l3.bidi = el16.attrs["w:bidi"];
         p3.lang = l3;
         break;
       }
@@ -3587,11 +3587,11 @@ function readRPr(rPr) {
   }
   return p3;
 }
-function readPBdr(el15) {
-  if (!el15) return void 0;
+function readPBdr(el16) {
+  if (!el16) return void 0;
   const b5 = {};
   for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
-    const e8 = readBorder(firstChild(el15, `w:${side}`) ?? (side === "left" ? firstChild(el15, "w:start") : side === "right" ? firstChild(el15, "w:end") : void 0));
+    const e8 = readBorder(firstChild(el16, `w:${side}`) ?? (side === "left" ? firstChild(el16, "w:start") : side === "right" ? firstChild(el16, "w:end") : void 0));
     if (e8) b5[side] = e8;
   }
   return b5;
@@ -3599,65 +3599,68 @@ function readPBdr(el15) {
 function readPPr(pPr) {
   if (!pPr) return void 0;
   const p3 = {};
-  for (const el15 of childElements(pPr)) {
-    const val3 = el15.attrs["w:val"];
-    switch (el15.name) {
+  for (const el16 of childElements(pPr)) {
+    const val3 = el16.attrs["w:val"];
+    switch (el16.name) {
       case "w:pStyle":
         if (val3) p3.pStyle = val3;
         break;
       case "w:keepNext":
-        p3.keepNext = onOffVal(el15);
+        p3.keepNext = onOffVal(el16);
         break;
       case "w:keepLines":
-        p3.keepLines = onOffVal(el15);
+        p3.keepLines = onOffVal(el16);
         break;
       case "w:pageBreakBefore":
-        p3.pageBreakBefore = onOffVal(el15);
+        p3.pageBreakBefore = onOffVal(el16);
         break;
       case "w:widowControl":
-        p3.widowControl = onOffVal(el15);
+        p3.widowControl = onOffVal(el16);
         break;
       case "w:suppressLineNumbers":
-        p3.suppressLineNumbers = onOffVal(el15);
+        p3.suppressLineNumbers = onOffVal(el16);
         break;
       case "w:suppressAutoHyphens":
-        p3.suppressAutoHyphens = onOffVal(el15);
+        p3.suppressAutoHyphens = onOffVal(el16);
         break;
       case "w:kinsoku":
-        p3.kinsoku = onOffVal(el15);
+        p3.kinsoku = onOffVal(el16);
         break;
       case "w:wordWrap":
-        p3.wordWrap = onOffVal(el15);
+        p3.wordWrap = onOffVal(el16);
         break;
       case "w:overflowPunct":
-        p3.overflowPunct = onOffVal(el15);
+        p3.overflowPunct = onOffVal(el16);
         break;
       case "w:autoSpaceDE":
-        p3.autoSpaceDE = onOffVal(el15);
+        p3.autoSpaceDE = onOffVal(el16);
         break;
       case "w:autoSpaceDN":
-        p3.autoSpaceDN = onOffVal(el15);
+        p3.autoSpaceDN = onOffVal(el16);
         break;
       case "w:bidi":
-        p3.bidi = onOffVal(el15);
+        p3.bidi = onOffVal(el16);
         break;
       case "w:adjustRightInd":
-        p3.adjustRightInd = onOffVal(el15);
+        p3.adjustRightInd = onOffVal(el16);
         break;
       case "w:snapToGrid":
-        p3.snapToGrid = onOffVal(el15);
+        p3.snapToGrid = onOffVal(el16);
         break;
       case "w:contextualSpacing":
-        p3.contextualSpacing = onOffVal(el15);
+        p3.contextualSpacing = onOffVal(el16);
         break;
       case "w:mirrorIndents":
-        p3.mirrorIndents = onOffVal(el15);
+        p3.mirrorIndents = onOffVal(el16);
         break;
       case "w:suppressOverlap":
-        p3.suppressOverlap = onOffVal(el15);
+        p3.suppressOverlap = onOffVal(el16);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
+        break;
+      case "w:textboxTightWrap":
+        if (val3) p3.textboxTightWrap = val3;
         break;
       case "w:textAlignment":
         if (val3) p3.textAlignment = val3;
@@ -3669,22 +3672,22 @@ function readPPr(pPr) {
       }
       case "w:numPr": {
         const numPr = {};
-        const numId = int3(firstChild(el15, "w:numId")?.attrs["w:val"]);
-        const ilvl = int3(firstChild(el15, "w:ilvl")?.attrs["w:val"]);
+        const numId = int3(firstChild(el16, "w:numId")?.attrs["w:val"]);
+        const ilvl = int3(firstChild(el16, "w:ilvl")?.attrs["w:val"]);
         if (numId !== void 0) numPr.numId = numId;
         if (ilvl !== void 0) numPr.ilvl = ilvl;
         p3.numPr = numPr;
         break;
       }
       case "w:pBdr":
-        p3.pBdr = readPBdr(el15);
+        p3.pBdr = readPBdr(el16);
         break;
       case "w:shd":
-        p3.shd = readShading(el15);
+        p3.shd = readShading(el16);
         break;
       case "w:tabs": {
         const tabs = [];
-        for (const t6 of childElements(el15, "w:tab")) {
+        for (const t6 of childElements(el16, "w:tab")) {
           let v2 = t6.attrs["w:val"] ?? "left";
           if (v2 === "start") v2 = "left";
           if (v2 === "end") v2 = "right";
@@ -3701,7 +3704,7 @@ function readPPr(pPr) {
       }
       case "w:spacing": {
         const s4 = {};
-        const a3 = el15.attrs;
+        const a3 = el16.attrs;
         const before = measureTwips(a3["w:before"]);
         if (before !== void 0) s4.before = before;
         const after = measureTwips(a3["w:after"]);
@@ -3721,7 +3724,7 @@ function readPPr(pPr) {
       }
       case "w:ind": {
         const s4 = {};
-        const a3 = el15.attrs;
+        const a3 = el16.attrs;
         const left = measureTwips(a3["w:left"] ?? a3["w:start"]);
         if (left !== void 0) s4.left = left;
         const right = measureTwips(a3["w:right"] ?? a3["w:end"]);
@@ -3738,7 +3741,7 @@ function readPPr(pPr) {
         break;
       }
       case "w:framePr": {
-        const a3 = el15.attrs;
+        const a3 = el16.attrs;
         const f3 = {};
         const dc = a3["w:dropCap"];
         if (dc === "none" || dc === "drop" || dc === "margin") f3.dropCap = dc;
@@ -3756,8 +3759,8 @@ function readPPr(pPr) {
         break;
       }
       case "w:rPr":
-        p3.rPr = readRPr(el15);
-        for (const c5 of childElements(el15)) {
+        p3.rPr = readRPr(el16);
+        for (const c5 of childElements(el16)) {
           if (c5.name === "w:del" || c5.name === "w:moveFrom") {
             p3.markDeleted = true;
             p3.markDel = readRevisionInfo(c5);
@@ -3765,14 +3768,14 @@ function readPPr(pPr) {
         }
         break;
       case "w:pPrChange":
-        p3.change = { ...readRevisionInfo(el15), pPr: readPPr(firstChild(el15, "w:pPr")) ?? {} };
+        p3.change = { ...readRevisionInfo(el16), pPr: readPPr(firstChild(el16, "w:pPr")) ?? {} };
         break;
     }
   }
   return p3;
 }
-function readBorders(el15) {
-  if (!el15) return void 0;
+function readBorders(el16) {
+  if (!el16) return void 0;
   const b5 = {};
   const map = [
     ["top", ["w:top"]],
@@ -3786,7 +3789,7 @@ function readBorders(el15) {
   ];
   for (const [k2, names] of map) {
     for (const n5 of names) {
-      const e8 = readBorder(firstChild(el15, n5));
+      const e8 = readBorder(firstChild(el16, n5));
       if (e8) {
         b5[k2] = e8;
         break;
@@ -3795,30 +3798,30 @@ function readBorders(el15) {
   }
   return b5;
 }
-function readCellMar(el15) {
-  if (!el15) return void 0;
+function readCellMar(el16) {
+  if (!el16) return void 0;
   const m2 = {};
-  const t6 = readWidth(firstChild(el15, "w:top"));
+  const t6 = readWidth(firstChild(el16, "w:top"));
   if (t6) m2.top = t6;
-  const l3 = readWidth(firstChild(el15, "w:left") ?? firstChild(el15, "w:start"));
+  const l3 = readWidth(firstChild(el16, "w:left") ?? firstChild(el16, "w:start"));
   if (l3) m2.left = l3;
-  const b5 = readWidth(firstChild(el15, "w:bottom"));
+  const b5 = readWidth(firstChild(el16, "w:bottom"));
   if (b5) m2.bottom = b5;
-  const r6 = readWidth(firstChild(el15, "w:right") ?? firstChild(el15, "w:end"));
+  const r6 = readWidth(firstChild(el16, "w:right") ?? firstChild(el16, "w:end"));
   if (r6) m2.right = r6;
   return m2;
 }
 function readTblPr(tblPr) {
   if (!tblPr) return void 0;
   const p3 = {};
-  for (const el15 of childElements(tblPr)) {
-    const val3 = el15.attrs["w:val"];
-    switch (el15.name) {
+  for (const el16 of childElements(tblPr)) {
+    const val3 = el16.attrs["w:val"];
+    switch (el16.name) {
       case "w:tblStyle":
         if (val3) p3.tblStyle = val3;
         break;
       case "w:tblpPr": {
-        const a3 = el15.attrs;
+        const a3 = el16.attrs;
         const t6 = {};
         for (const k2 of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
           const n5 = measureTwips(a3[`w:${k2}`]);
@@ -3837,7 +3840,7 @@ function readTblPr(tblPr) {
         if (val3) p3.tblOverlap = val3;
         break;
       case "w:bidiVisual":
-        p3.bidiVisual = onOffVal(el15);
+        p3.bidiVisual = onOffVal(el16);
         break;
       case "w:tblStyleRowBandSize": {
         const n5 = int3(val3);
@@ -3850,25 +3853,25 @@ function readTblPr(tblPr) {
         break;
       }
       case "w:tblW":
-        p3.tblW = readWidth(el15);
+        p3.tblW = readWidth(el16);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
         break;
       case "w:tblCellSpacing":
-        p3.tblCellSpacing = readWidth(el15);
+        p3.tblCellSpacing = readWidth(el16);
         break;
       case "w:tblInd":
-        p3.tblInd = readWidth(el15);
+        p3.tblInd = readWidth(el16);
         break;
       case "w:tblBorders":
-        p3.tblBorders = readBorders(el15);
+        p3.tblBorders = readBorders(el16);
         break;
       case "w:shd":
-        p3.shd = readShading(el15);
+        p3.shd = readShading(el16);
         break;
       case "w:tblLayout":
-        p3.tblLayout = el15.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        p3.tblLayout = el16.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
         break;
       case "w:tblCaption":
         if (val3 !== void 0) p3.tblCaption = val3;
@@ -3877,10 +3880,10 @@ function readTblPr(tblPr) {
         if (val3 !== void 0) p3.tblDescription = val3;
         break;
       case "w:tblCellMar":
-        p3.tblCellMar = readCellMar(el15);
+        p3.tblCellMar = readCellMar(el16);
         break;
       case "w:tblLook": {
-        const a3 = el15.attrs;
+        const a3 = el16.attrs;
         const look = {};
         const hex3 = parseInt(a3["w:val"] ?? "", 16);
         if (Number.isFinite(hex3)) {
@@ -3904,9 +3907,9 @@ function readTblPr(tblPr) {
 function readTrPr(trPr) {
   if (!trPr) return void 0;
   const p3 = {};
-  for (const el15 of childElements(trPr)) {
-    const val3 = el15.attrs["w:val"];
-    switch (el15.name) {
+  for (const el16 of childElements(trPr)) {
+    const val3 = el16.attrs["w:val"];
+    switch (el16.name) {
       case "w:cnfStyle":
         if (val3) p3.cnfStyle = val3;
         break;
@@ -3921,31 +3924,31 @@ function readTrPr(trPr) {
         break;
       }
       case "w:wBefore":
-        p3.wBefore = readWidth(el15);
+        p3.wBefore = readWidth(el16);
         break;
       case "w:wAfter":
-        p3.wAfter = readWidth(el15);
+        p3.wAfter = readWidth(el16);
         break;
       case "w:cantSplit":
-        p3.cantSplit = onOffVal(el15);
+        p3.cantSplit = onOffVal(el16);
         break;
       case "w:trHeight": {
         const v2 = measureTwips(val3) ?? 0;
-        const r6 = el15.attrs["w:hRule"];
+        const r6 = el16.attrs["w:hRule"];
         p3.trHeight = { val: v2, hRule: r6 === "exact" || r6 === "auto" ? r6 : "atLeast" };
         break;
       }
       case "w:tblHeader":
-        p3.tblHeader = onOffVal(el15);
+        p3.tblHeader = onOffVal(el16);
         break;
       case "w:tblCellSpacing":
-        p3.tblCellSpacing = readWidth(el15);
+        p3.tblCellSpacing = readWidth(el16);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
         break;
       case "w:hidden":
-        p3.hidden = onOffVal(el15);
+        p3.hidden = onOffVal(el16);
         break;
     }
   }
@@ -3954,14 +3957,14 @@ function readTrPr(trPr) {
 function readTcPr(tcPr) {
   if (!tcPr) return void 0;
   const p3 = {};
-  for (const el15 of childElements(tcPr)) {
-    const val3 = el15.attrs["w:val"];
-    switch (el15.name) {
+  for (const el16 of childElements(tcPr)) {
+    const val3 = el16.attrs["w:val"];
+    switch (el16.name) {
       case "w:cnfStyle":
         if (val3) p3.cnfStyle = val3;
         break;
       case "w:tcW":
-        p3.tcW = readWidth(el15);
+        p3.tcW = readWidth(el16);
         break;
       case "w:gridSpan": {
         const n5 = int3(val3);
@@ -3975,28 +3978,28 @@ function readTcPr(tcPr) {
         p3.vMerge = val3 === "restart" ? "restart" : "continue";
         break;
       case "w:tcBorders":
-        p3.tcBorders = readBorders(el15);
+        p3.tcBorders = readBorders(el16);
         break;
       case "w:shd":
-        p3.shd = readShading(el15);
+        p3.shd = readShading(el16);
         break;
       case "w:noWrap":
-        p3.noWrap = onOffVal(el15);
+        p3.noWrap = onOffVal(el16);
         break;
       case "w:tcMar":
-        p3.tcMar = readCellMar(el15);
+        p3.tcMar = readCellMar(el16);
         break;
       case "w:textDirection":
         if (val3) p3.textDirection = val3;
         break;
       case "w:tcFitText":
-        p3.tcFitText = onOffVal(el15);
+        p3.tcFitText = onOffVal(el16);
         break;
       case "w:vAlign":
         if (val3 === "top" || val3 === "center" || val3 === "bottom" || val3 === "both") p3.vAlign = val3;
         break;
       case "w:hideMark":
-        p3.hideMark = onOffVal(el15);
+        p3.hideMark = onOffVal(el16);
         break;
     }
   }
@@ -4079,24 +4082,24 @@ function readStyleSheet(xml) {
   }
   return sheet;
 }
-function readLevel(el15) {
-  const ilvl = parseInt(el15.attrs["w:ilvl"] ?? "0", 10) || 0;
+function readLevel(el16) {
+  const ilvl = parseInt(el16.attrs["w:ilvl"] ?? "0", 10) || 0;
   const lvl = { ilvl };
-  const v2 = (n5) => firstChild(el15, n5)?.attrs["w:val"];
+  const v2 = (n5) => firstChild(el16, n5)?.attrs["w:val"];
   const start = v2("w:start");
   if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el15, "w:numFmt");
+  const fmtEl = firstChild(el16, "w:numFmt");
   if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
   if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
   const restart = v2("w:lvlRestart");
   if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
   const ps = v2("w:pStyle");
   if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el15, "w:isLgl");
+  const isLgl = firstChild(el16, "w:isLgl");
   if (isLgl) lvl.isLgl = onOffVal(isLgl);
   const suff = v2("w:suff");
   if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el15, "w:lvlText");
+  const lt = firstChild(el16, "w:lvlText");
   if (lt) {
     if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
     if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
@@ -4105,9 +4108,9 @@ function readLevel(el15) {
   if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
   const jc = v2("w:lvlJc");
   if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el15, "w:pPr"));
+  const pPr = readPPr(firstChild(el16, "w:pPr"));
   if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el15, "w:rPr"));
+  const rPr = readRPr(firstChild(el16, "w:rPr"));
   if (rPr) lvl.rPr = rPr;
   return lvl;
 }
@@ -4184,16 +4187,16 @@ function readTheme(xml) {
   };
   const fontScheme = find(root, "a:fontScheme");
   for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el15 = fontScheme && firstChild(fontScheme, tag2);
-    if (!el15) continue;
+    const el16 = fontScheme && firstChild(fontScheme, tag2);
+    if (!el16) continue;
     const set = theme[key];
-    const latin = firstChild(el15, "a:latin")?.attrs["typeface"];
+    const latin = firstChild(el16, "a:latin")?.attrs["typeface"];
     if (latin) set.latin = latin;
-    const ea = firstChild(el15, "a:ea")?.attrs["typeface"];
+    const ea = firstChild(el16, "a:ea")?.attrs["typeface"];
     if (ea) set.ea = ea;
-    const cs = firstChild(el15, "a:cs")?.attrs["typeface"];
+    const cs = firstChild(el16, "a:cs")?.attrs["typeface"];
     if (cs) set.cs = cs;
-    for (const f3 of childElements(el15, "a:font")) {
+    for (const f3 of childElements(el16, "a:font")) {
       if (f3.attrs["script"] && f3.attrs["typeface"]) set.scripts[f3.attrs["script"]] = f3.attrs["typeface"];
     }
   }
@@ -4218,10 +4221,10 @@ function readTheme(xml) {
   }
   return theme;
 }
-function readNoteProps(el15) {
-  if (!el15) return void 0;
+function readNoteProps(el16) {
+  if (!el16) return void 0;
   const out = {};
-  const v2 = (n5) => firstChild(el15, n5)?.attrs["w:val"];
+  const v2 = (n5) => firstChild(el16, n5)?.attrs["w:val"];
   const pos = v2("w:pos");
   if (pos) out.pos = pos;
   const fmt2 = v2("w:numFmt");
@@ -4373,8 +4376,8 @@ function vmlFixed(v2) {
   const n5 = v2.endsWith("f") ? parseInt(v2, 10) / 65536 : parseFloat(v2);
   return Number.isFinite(n5) ? n5 : void 0;
 }
-function vmlImageEffects(el15) {
-  const a3 = el15.attrs;
+function vmlImageEffects(el16) {
+  const a3 = el16.attrs;
   const fx = {};
   const gain = vmlFixed(a3["gain"]), bl = vmlFixed(a3["blacklevel"]);
   if (gain !== void 0 && gain !== 1) fx.gain = gain;
@@ -4405,16 +4408,16 @@ function blipImageEffects(blip) {
     ...bi ? { biLevel: int4(bi.attrs["thresh"], "50000") } : {}
   });
 }
-function readBorderEdge(el15) {
-  if (!el15) return void 0;
-  const style = el15.attrs["w:val"];
+function readBorderEdge(el16) {
+  if (!el16) return void 0;
+  const style = el16.attrs["w:val"];
   if (!style || style === "none" || style === "nil") return void 0;
-  const color3 = el15.attrs["w:color"];
+  const color3 = el16.attrs["w:color"];
   return {
     style,
-    sizeEighthPt: parseInt(el15.attrs["w:sz"] ?? "4", 10),
+    sizeEighthPt: parseInt(el16.attrs["w:sz"] ?? "4", 10),
     color: color3 && color3 !== "auto" ? color3 : void 0,
-    spacePt: parseInt(el15.attrs["w:space"] ?? "0", 10)
+    spacePt: parseInt(el16.attrs["w:space"] ?? "0", 10)
   };
 }
 function runPropsFromRPr(rpr) {
@@ -4484,6 +4487,8 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.line !== void 0 && ppr.spacing.lineRule === "auto") props.lineTwentieths = ppr.spacing.line;
     if (ppr.spacing.after !== void 0) props.spaceAfterTwips = ppr.spacing.after;
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
+    if (ppr.spacing.beforeAutospacing !== void 0) props.spaceBeforeAuto = ppr.spacing.beforeAutospacing;
+    if (ppr.spacing.afterAutospacing !== void 0) props.spaceAfterAuto = ppr.spacing.afterAutospacing;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
   if (ppr.tabs?.length) {
@@ -4508,8 +4513,13 @@ function paraPropsFromPPr(ppr) {
     }
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
-  if (ppr.pageBreakBefore) props.pageBreakBefore = true;
-  if (ppr.keepNext) props.keepNext = true;
+  if (ppr.pageBreakBefore !== void 0) props.pageBreakBefore = ppr.pageBreakBefore;
+  if (ppr.keepNext !== void 0) props.keepNext = ppr.keepNext;
+  if (ppr.keepLines !== void 0) props.keepLines = ppr.keepLines;
+  if (ppr.widowControl !== void 0) props.widowControl = ppr.widowControl;
+  if (ppr.suppressLineNumbers !== void 0) props.suppressLineNumbers = ppr.suppressLineNumbers;
+  if (ppr.suppressAutoHyphens !== void 0) props.suppressAutoHyphens = ppr.suppressAutoHyphens;
+  if (ppr.textboxTightWrap && TIGHT_WRAP.has(ppr.textboxTightWrap)) props.textboxTightWrap = ppr.textboxTightWrap;
   if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
@@ -4517,17 +4527,17 @@ function paraPropsFromPPr(ppr) {
   if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
-function findDeep3(el15, name) {
-  for (const c5 of childElements(el15)) {
+function findDeep3(el16, name) {
+  for (const c5 of childElements(el16)) {
     if (c5.name === name) return c5;
     const found = findDeep3(c5, name);
     if (found) return found;
   }
   return void 0;
 }
-function tagObjectRuns(list, from, el15) {
+function tagObjectRuns(list, from, el16) {
   if (!list) return;
-  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el15 : true;
+  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el16 : true;
 }
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep3(pic, "a:blip");
@@ -4649,7 +4659,7 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   if (obj.name === "wpg:wgp" || obj.name === "wpg:grpSp" || obj.name === "wpc:wpc") {
     const grpSpPr = firstChild(obj, "wpg:grpSpPr");
     const xfrm = grpSpPr && firstChild(grpSpPr, "a:xfrm");
-    const n5 = (el15, k2) => parseInt(el15?.attrs[k2] ?? "0", 10) || 0;
+    const n5 = (el16, k2) => parseInt(el16?.attrs[k2] ?? "0", 10) || 0;
     const chOff = xfrm && firstChild(xfrm, "a:chOff");
     const chExt = xfrm && firstChild(xfrm, "a:chExt");
     const ext = xfrm && firstChild(xfrm, "a:ext");
@@ -4681,8 +4691,8 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   }
   return void 0;
 }
-function dmlRunColor(el15) {
-  const c5 = el15 && (firstChild(el15, "a:srgbClr") ?? firstChild(el15, "a:sysClr") ?? firstChild(el15, "a:schemeClr") ?? firstChild(el15, "a:prstClr"));
+function dmlRunColor(el16) {
+  const c5 = el16 && (firstChild(el16, "a:srgbClr") ?? firstChild(el16, "a:sysClr") ?? firstChild(el16, "a:schemeClr") ?? firstChild(el16, "a:prstClr"));
   if (!c5) return void 0;
   if (c5.name === "a:srgbClr") return { val: (c5.attrs["val"] ?? "000000").toUpperCase() };
   if (c5.name === "a:sysClr") return { val: (c5.attrs["lastClr"] ?? (c5.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
@@ -4732,7 +4742,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u3 && u3 !== "none" ? { u: { val: u3 === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num3 = (el15) => parseInt(el15?.attrs["val"] ?? "0", 10) || 0;
+  const num3 = (el16) => parseInt(el16?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -4797,7 +4807,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
     const c5 = fills.attrs["meth"] === "cycle" ? cs[i7 % cs.length] : cs[Math.min(i7, cs.length - 1)];
     txFill.set(pt2.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c5] }));
   }
-  const n5 = (el15, k2) => (parseInt(el15?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP2;
+  const n5 = (el16, k2) => (parseInt(el16?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP2;
   const rect2 = (xf) => {
     const off = firstChild(xf, "a:off"), e8 = firstChild(xf, "a:ext");
     return { x: n5(off, "x"), y: n5(off, "y"), w: n5(e8, "cx"), h: n5(e8, "cy") };
@@ -4976,23 +4986,23 @@ function syncGroupFromXml(g2) {
 }
 function readVmlRuns(container, ctx, inline) {
   const out = [];
-  const shapeOf = (el15, inGroup) => {
-    const st = parseVmlStyle(el15.attrs["style"]);
+  const shapeOf = (el16, inGroup) => {
+    const st = parseVmlStyle(el16.attrs["style"]);
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w2 = vmlLenTwips(st["width"]) ?? 0;
     let h3 = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el15, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el16, "w10:wrap"));
     if (inGroup) {
       w2 = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h3 = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep3(el15, "v:textpath");
+    const textpath = findDeep3(el16, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
-      const sh = vmlShapeStyle(el15, "rect");
+      const sh = vmlShapeStyle(el16, "rect");
       const color3 = sh.fill ?? "000000";
       const a3 = sh.fillAlpha;
       const rpr = {
@@ -5020,7 +5030,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       return run4;
     }
-    const imagedata = firstChild(el15, "v:imagedata");
+    const imagedata = firstChild(el16, "v:imagedata");
     const rid = imagedata?.attrs["r:id"] ?? imagedata?.attrs["r:pict"];
     let run3;
     if (rid) {
@@ -5038,7 +5048,7 @@ function readVmlRuns(container, ctx, inline) {
       if (fx) image.effects = fx;
       run3 = { text: OBJ, image };
     } else {
-      const txb = firstChild(el15, "v:textbox");
+      const txb = firstChild(el16, "v:textbox");
       const content = txb && firstChild(txb, "w:txbxContent");
       if (content) {
         const tb = { paras: [], widthTwips: w2, heightTwips: h3, vml: true };
@@ -5048,39 +5058,39 @@ function readVmlRuns(container, ctx, inline) {
         tb.insets = { l: ins(0, 144), t: ins(1, 72), r: ins(2, 144), b: ins(3, 72) };
         const tbStyle = parseVmlStyle(txb.attrs["style"]);
         if (tbStyle["mso-fit-shape-to-text"] === "t") tb.autoFit = true;
-        if (parseVmlStyle(el15.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
+        if (parseVmlStyle(el16.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
         const flow = tbStyle["layout-flow"], alt = tbStyle["mso-layout-flow-alt"];
         if (flow === "vertical") tb.vert = alt === "bottom-to-top" ? "vert270" : alt === "top-to-bottom" ? "mongolianVert" : "vert";
         else if (flow === "vertical-ideographic") tb.vert = "eaVert";
         const va = st["v-text-anchor"];
         if (va === "middle" || va === "middle-center" || va === "middle-baseline") tb.vAnchor = "ctr";
         else if (va === "bottom" || va === "bottom-center" || va === "bottom-baseline") tb.vAnchor = "b";
-        if (el15.attrs["id"]) tb.vmlId = el15.attrs["id"];
+        if (el16.attrs["id"]) tb.vmlId = el16.attrs["id"];
         const next = tbStyle["mso-next-textbox"];
         if (next) tb.vmlNext = next.replace(/^#/, "");
-        const sh = vmlShapeStyle(el15, "rect");
+        const sh = vmlShapeStyle(el16, "rect");
         if (sh.fill || sh.line) tb.shape = sh;
-        if (!inGroup && vmlSingleTextbox(container) === el15) {
-          const raw = vmlTextboxToDrawing(el15, 1 + (parseInt((el15.attrs["o:spid"] ?? "").replace(/\D/g, ""), 10) || 0));
+        if (!inGroup && vmlSingleTextbox(container) === el16) {
+          const raw = vmlTextboxToDrawing(el16, 1 + (parseInt((el16.attrs["o:spid"] ?? "").replace(/\D/g, ""), 10) || 0));
           if (raw) tb.rawDrawingXml = raw;
         }
         run3 = { text: OBJ, textbox: tb };
       } else {
-        const tag2 = el15.name.replace(/^v:/, "");
-        const type = el15.attrs["type"] ?? "";
-        const declared = el15.attrs["fillcolor"] || el15.attrs["strokecolor"] || el15.attrs["filled"] || el15.attrs["stroked"] || firstChild(el15, "v:fill") || firstChild(el15, "v:stroke");
+        const tag2 = el16.name.replace(/^v:/, "");
+        const type = el16.attrs["type"] ?? "";
+        const declared = el16.attrs["fillcolor"] || el16.attrs["strokecolor"] || el16.attrs["filled"] || el16.attrs["stroked"] || firstChild(el16, "v:fill") || firstChild(el16, "v:stroke");
         if (tag2 === "shape" && (type.includes("_x0000_t75") || !declared)) {
           return void 0;
         }
         const geom = tag2 === "oval" ? "ellipse" : tag2 === "roundrect" ? "roundRect" : tag2 === "line" || type.includes("_x0000_t32") ? "line" : "rect";
-        const style = vmlShapeStyle(el15, geom);
+        const style = vmlShapeStyle(el16, geom);
         if (geom === "line") delete style.fill;
         const shape2 = { style, widthTwips: w2, heightTwips: h3 };
-        if (el15.attrs["o:hr"] === "t") shape2.hr = true;
+        if (el16.attrs["o:hr"] === "t") shape2.hr = true;
         if (tag2 === "line") {
           const pt2 = (s4) => (s4 ?? "0,0").split(",").map((v2) => vmlLenTwips(v2.trim()) ?? 0);
-          const [x1 = 0, y1 = 0] = pt2(el15.attrs["from"]);
-          const [x22 = 0, y22 = 0] = pt2(el15.attrs["to"]);
+          const [x1 = 0, y1 = 0] = pt2(el16.attrs["from"]);
+          const [x22 = 0, y22 = 0] = pt2(el16.attrs["to"]);
           shape2.line = { x1, y1, x2: x22, y2: y22 };
           shape2.widthTwips = Math.abs(x22 - x1);
           shape2.heightTwips = Math.abs(y22 - y1);
@@ -5104,17 +5114,17 @@ function readVmlRuns(container, ctx, inline) {
     }
     return run3;
   };
-  for (const el15 of childElements(container)) {
-    if (el15.name === "v:shapetype" || el15.name.startsWith("o:") || el15.name.startsWith("w10:")) continue;
-    if (el15.name === "v:group") {
-      const st = parseVmlStyle(el15.attrs["style"]);
+  for (const el16 of childElements(container)) {
+    if (el16.name === "v:shapetype" || el16.name.startsWith("o:") || el16.name.startsWith("w10:")) continue;
+    if (el16.name === "v:group") {
+      const st = parseVmlStyle(el16.attrs["style"]);
       const w2 = vmlLenTwips(st["width"]) ?? 0;
       const h3 = vmlLenTwips(st["height"]) ?? 0;
-      const cs = (el15.attrs["coordsize"] ?? "1000,1000").split(",").map((v2) => parseFloat(v2) || 1e3);
-      const co = (el15.attrs["coordorigin"] ?? "0,0").split(",").map((v2) => parseFloat(v2) || 0);
+      const cs = (el16.attrs["coordsize"] ?? "1000,1000").split(",").map((v2) => parseFloat(v2) || 1e3);
+      const co = (el16.attrs["coordorigin"] ?? "0,0").split(",").map((v2) => parseFloat(v2) || 0);
       const sx = w2 / (cs[0] || 1), sy = h3 / (cs[1] || 1);
       const items = [];
-      for (const c5 of childElements(el15)) {
+      for (const c5 of childElements(el16)) {
         if (!c5.name.startsWith("v:") || c5.name === "v:shapetype") continue;
         const cst = parseVmlStyle(c5.attrs["style"]);
         const r6 = shapeOf(c5, { sx, sy });
@@ -5126,7 +5136,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       if (!items.length) continue;
       const group2 = { widthTwips: w2, heightTwips: h3, items };
-      const anchor = vmlAnchor(st, findDeep3(el15, "w10:wrap"));
+      const anchor = vmlAnchor(st, findDeep3(el16, "w10:wrap"));
       if (anchor) {
         group2.floating = true;
         group2.anchor = anchor;
@@ -5134,8 +5144,8 @@ function readVmlRuns(container, ctx, inline) {
       out.push({ text: OBJ, group: group2 });
       continue;
     }
-    if (el15.name.startsWith("v:")) {
-      const r6 = shapeOf(el15);
+    if (el16.name.startsWith("v:")) {
+      const r6 = shapeOf(el16);
       if (r6) {
         if (inline && r6.image) {
           delete r6.image.floating;
@@ -5153,9 +5163,9 @@ function readVmlRuns(container, ctx, inline) {
   }
   return out;
 }
-function textContentOf(el15) {
+function textContentOf(el16) {
   let out = "";
-  for (const c5 of el15.children) out += typeof c5 === "string" ? c5 : textContentOf(c5);
+  for (const c5 of el16.children) out += typeof c5 === "string" ? c5 : textContentOf(c5);
   return out;
 }
 function runTarget(ctx, runs) {
@@ -5319,8 +5329,8 @@ function parseCustomInlineTag(tag2) {
     return void 0;
   }
 }
-function readMathNodes(el15, out = []) {
-  for (const c5 of childElements(el15)) {
+function readMathNodes(el16, out = []) {
+  for (const c5 of childElements(el16)) {
     switch (c5.name) {
       case "m:r":
       case "w:r": {
@@ -5371,9 +5381,9 @@ function readMathNodes(el15, out = []) {
   }
   return out;
 }
-function collectMathText(el15) {
+function collectMathText(el16) {
   let out = "";
-  for (const c5 of el15.children) {
+  for (const c5 of el16.children) {
     if (typeof c5 === "string") continue;
     if (c5.name === "m:t") out += textContentOf(c5);
     else out += collectMathText(c5);
@@ -5654,10 +5664,10 @@ function captureParagraph(para4, pEl, pPrEl, segs, store, xml) {
     for (let i7 = from; i7 < to; i7++) {
       const run3 = para4.runs[i7];
       const sid = store.id();
-      const el15 = rPrElOf(run3);
+      const el16 = rPrElOf(run3);
       const obj = objElOf(run3);
       store.runs.set(sid, {
-        ...el15 ? { rPr: xml.slice(el15.s, el15.e) } : {},
+        ...el16 ? { rPr: xml.slice(el16.s, el16.e) } : {},
         ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
       });
       if (obj && obj !== true) objHead = sid;
@@ -5674,9 +5684,9 @@ function captureParagraph(para4, pEl, pPrEl, segs, store, xml) {
     segs: segs.map((x3) => x3.seg)
   });
 }
-function collectInstrText(el15) {
+function collectInstrText(el16) {
   let out = "";
-  for (const c5 of el15.children) {
+  for (const c5 of el16.children) {
     if (typeof c5 === "string") continue;
     if (c5.name === "w:instrText") out += textContentOf(c5);
     else out += collectInstrText(c5);
@@ -5792,9 +5802,26 @@ function readSectPr(sectEl) {
   if (enPr) sect.endnotePr = enPr;
   const fnCols = sectEl && firstChild(sectEl, "w15:footnoteColumns")?.attrs["w:val"];
   if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
+  const ln2 = sectEl && firstChild(sectEl, "w:lnNumType");
+  if (ln2) {
+    const num4 = (k2) => {
+      const n5 = parseInt(ln2.attrs[k2] ?? "", 10);
+      return Number.isNaN(n5) ? void 0 : n5;
+    };
+    const out = {};
+    const cb = num4("w:countBy"), st = num4("w:start"), di = num4("w:distance");
+    if (cb !== void 0) out.countBy = cb;
+    if (st !== void 0) out.start = st;
+    if (di !== void 0) out.distance = di;
+    const rs = ln2.attrs["w:restart"];
+    if (rs === "newSection" || rs === "continuous") out.restart = rs;
+    sect.lnNumType = out;
+  }
+  const va = sectEl && firstChild(sectEl, "w:vAlign")?.attrs["w:val"];
+  if (va === "center" || va === "both" || va === "bottom") sect.vAlign = va;
   return sect;
 }
-var DEFAULT_RUN_PROPS, isMarkRun, EMU_PER_TWIP2, RPR_EL, rPrElOf, setRPrEl, OBJ_EL, objElOf, INLINE_WRAPPERS, OBJ, isObjectRun, CUSTOM_INLINE_TAG_PREFIX, tw;
+var DEFAULT_RUN_PROPS, isMarkRun, EMU_PER_TWIP2, TIGHT_WRAP, RPR_EL, rPrElOf, setRPrEl, OBJ_EL, objElOf, INLINE_WRAPPERS, OBJ, isObjectRun, CUSTOM_INLINE_TAG_PREFIX, tw;
 var init_document = __esm({
   "../docx-core/src/document.ts"() {
     "use strict";
@@ -5814,10 +5841,11 @@ var init_document = __esm({
     };
     isMarkRun = (r6) => !!(r6.bookmark || r6.fieldBegin !== void 0 || r6.fieldEnd);
     EMU_PER_TWIP2 = 635;
+    TIGHT_WRAP = /* @__PURE__ */ new Set(["none", "allLines", "firstAndLastLine", "firstLineOnly", "lastLineOnly"]);
     RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
     rPrElOf = (r6) => r6?.[RPR_EL];
-    setRPrEl = (r6, el15) => {
-      if (el15) r6[RPR_EL] = el15;
+    setRPrEl = (r6, el16) => {
+      if (el16) r6[RPR_EL] = el16;
     };
     OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
     objElOf = (r6) => r6[OBJ_EL];
@@ -5825,8 +5853,8 @@ var init_document = __esm({
     OBJ = "\uFFFC";
     isObjectRun = (r6) => !!(r6.image || r6.textbox || r6.shape || r6.group);
     CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
-    tw = (el15, attr2, fallback) => {
-      const v2 = el15?.attrs[attr2];
+    tw = (el16, attr2, fallback) => {
+      const v2 = el16?.attrs[attr2];
       return v2 === void 0 ? fallback : parseInt(v2, 10);
     };
   }
@@ -5836,23 +5864,23 @@ var init_document = __esm({
 function readStyleRunProps(rPr) {
   const p3 = {};
   if (!rPr) return p3;
-  for (const el15 of childElements(rPr)) {
-    const val3 = el15.attrs["w:val"];
-    switch (el15.name) {
+  for (const el16 of childElements(rPr)) {
+    const val3 = el16.attrs["w:val"];
+    switch (el16.name) {
       case "w:b":
-        p3.bold = onOff(el15);
+        p3.bold = onOff(el16);
         break;
       case "w:i":
-        p3.italic = onOff(el15);
+        p3.italic = onOff(el16);
         break;
       case "w:caps":
-        p3.allCaps = onOff(el15);
+        p3.allCaps = onOff(el16);
         break;
       case "w:smallCaps":
-        p3.smallCaps = onOff(el15);
+        p3.smallCaps = onOff(el16);
         break;
       case "w:strike":
-        p3.strike = onOff(el15);
+        p3.strike = onOff(el16);
         break;
       case "w:sz":
         if (val3) p3.szHalfPt = parseInt(val3, 10);
@@ -5861,7 +5889,7 @@ function readStyleRunProps(rPr) {
         if (val3 && val3 !== "auto") p3.color = val3;
         break;
       case "w:rFonts":
-        if (el15.attrs["w:ascii"]) p3.fontAscii = el15.attrs["w:ascii"];
+        if (el16.attrs["w:ascii"]) p3.fontAscii = el16.attrs["w:ascii"];
         break;
       case "w:u":
         p3.underline = val3 !== "none";
@@ -5953,9 +5981,9 @@ var init_styles = __esm({
     "use strict";
     init_xml();
     init_document();
-    onOff = (el15) => {
-      if (!el15) return void 0;
-      const v2 = el15.attrs["w:val"];
+    onOff = (el16) => {
+      if (!el16) return void 0;
+      const v2 = el16.attrs["w:val"];
       return v2 !== "0" && v2 !== "false" && v2 !== "none";
     };
   }
@@ -6061,8 +6089,8 @@ function setKid(kids, order2, name, xml) {
   kids.splice(pos, 0, { name, raw: xml });
 }
 function patch(raw, cur, read, gen, order2, keys, emptyOk = false) {
-  const { open: open2, close, kids: k0, el: el15 } = splitElement(raw);
-  const base = read(el15) ?? {};
+  const { open: open2, close, kids: k0, el: el16 } = splitElement(raw);
+  const base = read(el16) ?? {};
   const now = cur ?? {};
   const kids = k0.map((k2) => ({ name: k2.name, raw: k2.raw }));
   let changed = false;
@@ -7232,7 +7260,7 @@ function patchSettingsNotes(xml, props) {
       const next = `<${tag2}>${p3}${refs || seps}</${tag2}>`;
       if (next !== whole) out = out.slice(0, m2.index) + next + out.slice(m2.index + whole.length);
     } else {
-      const el15 = `<${tag2}>${notePropsInner(want ?? void 0)}${seps}</${tag2}>`;
+      const el16 = `<${tag2}>${notePropsInner(want ?? void 0)}${seps}</${tag2}>`;
       const enAt = kind === "footnote" ? out.indexOf("<w:endnotePr") : -1;
       let at = enAt;
       if (at < 0) {
@@ -7242,7 +7270,7 @@ function patchSettingsNotes(xml, props) {
         }
       }
       if (at < 0) at = out.lastIndexOf("</w:settings>");
-      out = out.slice(0, at) + el15 + out.slice(at);
+      out = out.slice(0, at) + el16 + out.slice(at);
     }
   }
   return out;
@@ -7308,13 +7336,13 @@ var init_notes = __esm({
 
 // ../docx-core/src/lossless.ts
 function splitElement(raw) {
-  const el15 = parseXml(raw, { positions: true });
-  if (el15.cs === el15.e) {
+  const el16 = parseXml(raw, { positions: true });
+  if (el16.cs === el16.e) {
     const open2 = raw.replace(/\s*\/>\s*$/, ">");
-    return { open: open2, close: `</${el15.name}>`, kids: [], el: el15 };
+    return { open: open2, close: `</${el16.name}>`, kids: [], el: el16 };
   }
-  const kids = childElements(el15).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
-  return { open: raw.slice(0, el15.cs), close: raw.slice(el15.ce), kids, el: el15 };
+  const kids = childElements(el16).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
+  return { open: raw.slice(0, el16.cs), close: raw.slice(el16.ce), kids, el: el16 };
 }
 function setKid2(kids, order2, name, xml) {
   const at = kids.findIndex((k2) => k2.name === name);
@@ -7412,9 +7440,9 @@ function changeRPrRaw(kids) {
 function patchRPr(raw, run3) {
   const p3 = run3.props;
   if (raw === void 0) return rPrFromProps(p3);
-  const { open: open2, close, kids, el: el15 } = splitElement(raw);
+  const { open: open2, close, kids, el: el16 } = splitElement(raw);
   const edited = run3.rprEdited && run3.rpr ? run3.rpr : void 0;
-  const base = editBaseProps(run3, edited ?? readRPr(el15));
+  const base = editBaseProps(run3, edited ?? readRPr(el16));
   if (base.fmt && !p3.fmt) {
     const old = changeRPrRaw(kids);
     if (old && sameJson2(runFormatting(p3), runFormatting(editBaseProps(run3, readRPr(old.el))))) return patchRPr(old.raw, run3);
@@ -7473,8 +7501,8 @@ function patchRPr(raw, run3) {
 function pprBits(pp, ids) {
   const out = {};
   out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc3(pp.styleId)}"/>` : null;
-  out["w:keepNext"] = pp.keepNext ? "<w:keepNext/>" : null;
-  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
+  for (const [name, v2] of FLOW_FLAGS(pp)) out[name] = v2 === void 0 ? null : v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
+  out["w:textboxTightWrap"] = pp.textboxTightWrap ? `<w:textboxTightWrap w:val="${pp.textboxTightWrap}"/>` : null;
   out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t6) => `<w:tab w:val="${t6.align}"${t6.leader ? ` w:leader="${t6.leader}"` : ""} w:pos="${t6.posTwips}"/>`).join("") + "</w:tabs>" : null;
   out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
   if (pp.borders) {
@@ -7500,15 +7528,19 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
   };
   add("w:pStyle");
   add("w:keepNext");
+  add("w:keepLines");
   add("w:pageBreakBefore");
+  add("w:widowControl");
   add("w:numPr");
+  add("w:suppressLineNumbers");
   add("w:pBdr");
   add("w:shd");
   add("w:tabs");
-  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+  add("w:suppressAutoHyphens");
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0 || pp.spaceBeforeAuto !== void 0 || pp.spaceAfterAuto !== void 0) {
     const line2 = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
-    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
-    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    const before = (pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "") + (pp.spaceBeforeAuto !== void 0 ? ` w:beforeAutospacing="${pp.spaceBeforeAuto ? 1 : 0}"` : "");
+    const after = (pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "") + (pp.spaceAfterAuto !== void 0 ? ` w:afterAutospacing="${pp.spaceAfterAuto ? 1 : 0}"` : "");
     ppr.push(`<w:spacing${before}${after}${line2}/>`);
   }
   if (pp.indentLeftTwips !== void 0 || pp.indentRightTwips !== void 0 || pp.indentFirstLineTwips !== void 0) {
@@ -7521,6 +7553,7 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  add("w:textboxTightWrap");
   if (pp.outlineLvl !== void 0) ppr.push(`<w:outlineLvl w:val="${pp.outlineLvl}"/>`);
   const mark2 = markXml(pp);
   if (mark2) ppr.push(`<w:rPr>${mark2}</w:rPr>`);
@@ -7544,9 +7577,9 @@ function markRPr(raw, pp) {
 function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
   const p3 = para4.props;
   if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
-  const { open: open2, close, kids, el: el15 } = splitElement(raw);
+  const { open: open2, close, kids, el: el16 } = splitElement(raw);
   const edited = para4.pprEdited && para4.ppr ? para4.ppr : void 0;
-  const base = paraPropsFromPPr(edited ?? readPPr(el15));
+  const base = paraPropsFromPPr(edited ?? readPPr(el16));
   if (base.pfmt && !p3.pfmt) {
     const ch = kids.find((k2) => k2.name === "w:pPrChange");
     const old = ch && splitElement(ch.raw).kids.find((k2) => k2.name === "w:pPr");
@@ -7567,13 +7600,14 @@ function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
   };
   const bits2 = pprBits(p3, ids);
   if (p3.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
-  if (!!p3.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p3.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
-  if (!!p3.keepNext !== !!base.keepNext) set("w:keepNext", p3.keepNext ? "<w:keepNext/>" : '<w:keepNext w:val="0"/>');
+  const baseFlags = new Map(FLOW_FLAGS(base));
+  for (const [name, v2] of FLOW_FLAGS(p3)) if (v2 !== baseFlags.get(name)) set(name, bits2[name]);
+  if (p3.textboxTightWrap !== base.textboxTightWrap) set("w:textboxTightWrap", bits2["w:textboxTightWrap"]);
   if (!eq(p3.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
   if (!eq(p3.borders, base.borders) || !!p3.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
   if (p3.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
   if (!eq(p3.numbering, base.numbering)) {
-    const numPr = el15.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
+    const numPr = el16.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
     const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
     if (!p3.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
     else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p3.numbering.kind) {
@@ -7599,23 +7633,27 @@ function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
     });
     set("w:ind", /^<w:ind\s*\/>$/.test(ind2) ? null : ind2);
   }
-  if (p3.lineTwentieths !== base.lineTwentieths || p3.spaceAfterTwips !== base.spaceAfterTwips || p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
+  if (p3.lineTwentieths !== base.lineTwentieths || p3.spaceAfterTwips !== base.spaceAfterTwips || p3.spaceBeforeTwips !== base.spaceBeforeTwips || p3.spaceBeforeAuto !== base.spaceBeforeAuto || p3.spaceAfterAuto !== base.spaceAfterAuto) {
     const ch = {};
     if (p3.lineTwentieths !== base.lineTwentieths) {
       ch["w:line"] = p3.lineTwentieths;
       ch["w:lineRule"] = p3.lineTwentieths !== void 0 ? "auto" : void 0;
     }
+    const auto = (v2) => v2 === void 0 ? void 0 : v2 ? "1" : "0";
     if (p3.spaceAfterTwips !== base.spaceAfterTwips) {
       ch["w:after"] = p3.spaceAfterTwips;
       ch["w:afterLines"] = void 0;
-      ch["w:afterAutospacing"] = void 0;
+      ch["w:afterAutospacing"] = auto(p3.spaceAfterAuto);
     }
     if (p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
       ch["w:before"] = p3.spaceBeforeTwips;
       ch["w:beforeLines"] = void 0;
-      ch["w:beforeAutospacing"] = void 0;
+      ch["w:beforeAutospacing"] = auto(p3.spaceBeforeAuto);
     }
-    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
+    if (p3.spaceBeforeAuto !== base.spaceBeforeAuto) ch["w:beforeAutospacing"] = auto(p3.spaceBeforeAuto);
+    if (p3.spaceAfterAuto !== base.spaceAfterAuto) ch["w:afterAutospacing"] = auto(p3.spaceAfterAuto);
+    const sp2 = withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch);
+    set("w:spacing", /^<w:spacing\s*\/>$/.test(sp2) ? null : sp2);
   }
   if (p3.alignment !== base.alignment) set("w:jc", p3.alignment ? `<w:jc w:val="${p3.alignment}"/>` : null);
   if (p3.outlineLvl !== base.outlineLvl) set("w:outlineLvl", p3.outlineLvl !== void 0 ? `<w:outlineLvl w:val="${p3.outlineLvl}"/>` : null);
@@ -7641,9 +7679,9 @@ function colsXml(cols, raw) {
     if (!cols.widths?.length) return `${head}/>`;
     return `${head} w:equalWidth="0">${cols.widths.map((c5) => `<w:col w:w="${c5.widthTwips}" w:space="${c5.spaceTwips}"/>`).join("")}</w:cols>`;
   }
-  const el15 = raw ? splitElement(raw).el : void 0;
-  const sep = el15?.attrs["w:sep"];
-  const space = el15?.attrs["w:space"] ?? "708";
+  const el16 = raw ? splitElement(raw).el : void 0;
+  const sep = el16?.attrs["w:sep"];
+  const space = el16?.attrs["w:space"] ?? "708";
   return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc3(space)}"/>`;
 }
 function pgNumTypeXml(s4, raw = "") {
@@ -7656,9 +7694,12 @@ function pgNumTypeXml(s4, raw = "") {
   });
   return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
 }
+function lnNumTypeXml(ln2) {
+  return `<w:lnNumType w:countBy="${ln2.countBy ?? 1}"${ln2.start ? ` w:start="${ln2.start}"` : ""}${ln2.distance ? ` w:distance="${ln2.distance}"` : ""}${ln2.restart ? ` w:restart="${ln2.restart}"` : ""}/>`;
+}
 function patchSectPr(raw, cur, refs) {
-  const { open: open2, close, kids, el: el15 } = splitElement(raw);
-  const base = readSectPr(el15);
+  const { open: open2, close, kids, el: el16 } = splitElement(raw);
+  const base = readSectPr(el16);
   let changed = false;
   const set = (name, xml) => {
     changed = true;
@@ -7709,9 +7750,11 @@ function patchSectPr(raw, cur, refs) {
   if ((cur.footnoteColumns ?? 0) !== (base.footnoteColumns ?? 0)) {
     set("w15:footnoteColumns", cur.footnoteColumns ? `<w15:footnoteColumns w:val="${cur.footnoteColumns}"/>` : null);
   }
+  if (!eq(cur.lnNumType, base.lnNumType)) set("w:lnNumType", cur.lnNumType ? lnNumTypeXml(cur.lnNumType) : null);
+  if (cur.vAlign !== base.vAlign) set("w:vAlign", cur.vAlign ? `<w:vAlign w:val="${cur.vAlign}"/>` : null);
   return changed ? join(open2, kids, close) || `${open2}${close}` : raw;
 }
-var esc3, RPR_ORDER, PPR_ORDER, SECT_ORDER, kidRaw, onOff3, join, RPR_FIELD, PPR_FIELD, PROP_RPR, wrapIn, sameJson2, eq, DEFAULT_NUM_IDS, MARK_REVS;
+var esc3, RPR_ORDER, PPR_ORDER, SECT_ORDER, kidRaw, onOff3, join, RPR_FIELD, PPR_FIELD, PROP_RPR, wrapIn, sameJson2, eq, DEFAULT_NUM_IDS, FLOW_FLAGS, MARK_REVS;
 var init_lossless = __esm({
   "../docx-core/src/lossless.ts"() {
     "use strict";
@@ -7890,6 +7933,7 @@ var init_lossless = __esm({
       "w:suppressOverlap": "suppressOverlap",
       "w:jc": "jc",
       "w:textAlignment": "textAlignment",
+      "w:textboxTightWrap": "textboxTightWrap",
       "w:outlineLvl": "outlineLvl",
       "w:rPr": "rPr"
     };
@@ -7914,6 +7958,14 @@ var init_lossless = __esm({
     sameJson2 = (a3, b5) => JSON.stringify(a3 ?? null) === JSON.stringify(b5 ?? null);
     eq = sameJson2;
     DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
+    FLOW_FLAGS = (pp) => [
+      ["w:keepNext", pp.keepNext],
+      ["w:keepLines", pp.keepLines],
+      ["w:pageBreakBefore", pp.pageBreakBefore],
+      ["w:widowControl", pp.widowControl],
+      ["w:suppressLineNumbers", pp.suppressLineNumbers],
+      ["w:suppressAutoHyphens", pp.suppressAutoHyphens]
+    ];
     MARK_REVS = /* @__PURE__ */ new Set(["w:ins", "w:del", "w:moveFrom", "w:moveTo"]);
   }
 });
@@ -8203,14 +8255,14 @@ function writePageBackground(pkg, bg, prev) {
     }
   }
   if (bg) {
-    const el15 = pageBackgroundXml(bg, rid);
+    const el16 = pageBackgroundXml(bg, rid);
     const m2 = /<w:document\b[^>]*>/.exec(xml);
     if (m2) {
       let tag2 = m2[0];
       if (bg.fill) {
         for (const [p3, uri] of NS) if (!new RegExp(`\\sxmlns:${p3}=`).test(tag2)) tag2 = tag2.replace(/>$/, ` xmlns:${p3}="${uri}">`);
       }
-      xml = xml.slice(0, m2.index) + tag2 + el15 + xml.slice(m2.index + m2[0].length);
+      xml = xml.slice(0, m2.index) + tag2 + el16 + xml.slice(m2.index + m2[0].length);
     }
   }
   if (oldRid && !new RegExp(`"${oldRid}"`).test(xml)) {
@@ -8432,13 +8484,13 @@ var init_page_background = __esm({
 });
 
 // ../docx-core/src/fulldoc.ts
-function readBorderSet(el15, inside) {
-  if (!el15) return void 0;
+function readBorderSet(el16, inside) {
+  if (!el16) return void 0;
   const out = {};
   const sides = inside ? ["top", "left", "bottom", "right", "insideH", "insideV"] : ["top", "left", "bottom", "right"];
   let any = false;
   for (const side of sides) {
-    const edge = readBorderEdge(firstChild(el15, `w:${side}`));
+    const edge = readBorderEdge(firstChild(el16, `w:${side}`));
     if (edge) {
       out[side] = edge;
       any = true;
@@ -8446,9 +8498,9 @@ function readBorderSet(el15, inside) {
   }
   return any ? out : void 0;
 }
-function unwrap(el15, name) {
+function unwrap(el16, name) {
   const out = [];
-  for (const c5 of childElements(el15)) {
+  for (const c5 of childElements(el16)) {
     if (c5.name === name) out.push(c5);
     else if (c5.name === "w:sdt") {
       const content = firstChild(c5, "w:sdtContent");
@@ -8457,7 +8509,7 @@ function unwrap(el15, name) {
   }
   return out;
 }
-function unwrapRaw(el15, name, skip, xml) {
+function unwrapRaw(el16, name, skip, xml) {
   const out = [];
   let pending2 = [];
   const walk = (container, top) => {
@@ -8488,7 +8540,7 @@ function unwrapRaw(el15, name, skip, xml) {
       pending2.push({ raw: xml.slice(c5.s, c5.e) });
     }
   };
-  walk(el15, true);
+  walk(el16, true);
   if (pending2.length && out.length) out[out.length - 1].post.push(...pending2);
   return out;
 }
@@ -8518,14 +8570,14 @@ function readBlocksOf(container, ctx) {
 }
 function readTable(tblEl, ctx) {
   const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
-  const slice = (el15) => el15 && xml !== void 0 ? xml.slice(el15.s, el15.e) : void 0;
-  const openOf = (el15) => xml.slice(el15.s, el15.cs === el15.e ? el15.e : el15.cs).replace(/\s*\/>$/, ">");
+  const slice = (el16) => el16 && xml !== void 0 ? xml.slice(el16.s, el16.e) : void 0;
+  const openOf = (el16) => xml.slice(el16.s, el16.cs === el16.e ? el16.e : el16.cs).replace(/\s*\/>$/, ">");
   const grid2 = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid2 ? childElements(grid2, "w:gridCol").map((c5) => parseInt(c5.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, "w:tblBorders"), true);
   const rows = [];
-  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el15) => ({ el: el15, pre: [], post: [] }));
+  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el16) => ({ el: el16, pre: [], post: [] }));
   for (const trW of wrapped(tblEl, "w:tr", ["w:tblPr", "w:tblGrid"])) {
     const trEl = trW.el;
     const cells = [];
@@ -9205,6 +9257,39 @@ function writeDefaultTabStop(pkg, twips) {
   }
   pkg.setPartText(path, xml);
 }
+function writeHyphenationSettings(pkg, s4) {
+  const path = partByRelType(pkg, "settings", "word/settings.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!s4.auto && s4.caps && !s4.limit && s4.zone === void 0) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText("word/settings.xml");
+    if (!xml) return;
+  }
+  const want = {
+    "w:autoHyphenation": s4.auto ? "<w:autoHyphenation/>" : null,
+    "w:consecutiveHyphenLimit": s4.limit > 0 ? `<w:consecutiveHyphenLimit w:val="${Math.round(s4.limit)}"/>` : null,
+    "w:hyphenationZone": s4.zone !== void 0 ? `<w:hyphenationZone w:val="${Math.round(s4.zone)}"/>` : null,
+    "w:doNotHyphenateCaps": s4.caps ? null : "<w:doNotHyphenateCaps/>"
+  };
+  for (const name of HYPH_ORDER) {
+    const el16 = want[name];
+    const cur = new RegExp(`<${name}\\b[^>]*?(?:/>|>[\\s\\S]*?</${name}>)`).exec(xml);
+    if (cur) {
+      if (cur[0] === el16) continue;
+      xml = xml.slice(0, cur.index) + (el16 ?? "") + xml.slice(cur.index + cur[0].length);
+      continue;
+    }
+    if (el16 === null) continue;
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) continue;
+    const before = /* @__PURE__ */ new Set([...BEFORE_DEFAULT_TAB, "w:defaultTabStop", ...HYPH_ORDER.slice(0, HYPH_ORDER.indexOf(name))]);
+    let at = root.cs;
+    for (const k2 of childElements(root)) if (before.has(k2.name)) at = Math.max(at, k2.e);
+    xml = xml.slice(0, at) + el16 + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
 function writeEvenAndOddHeaders(pkg, on) {
   const path = partByRelType(pkg, "settings", "word/settings.xml");
   let xml = pkg.getPartText(path);
@@ -9268,7 +9353,7 @@ function ensureSettingsPart(pkg) {
     ));
   }
 }
-var BEFORE_DEFAULT_TAB, BEFORE_EVEN_ODD, BEFORE_DISPLAY_BG;
+var BEFORE_DEFAULT_TAB, HYPH_ORDER, BEFORE_EVEN_ODD, BEFORE_DISPLAY_BG;
 var init_settings_xml = __esm({
   "../docx-core/src/settings-xml.ts"() {
     "use strict";
@@ -9314,6 +9399,7 @@ var init_settings_xml = __esm({
       "w:styleLockTheme",
       "w:styleLockQFSet"
     ]);
+    HYPH_ORDER = ["w:autoHyphenation", "w:consecutiveHyphenLimit", "w:hyphenationZone", "w:doNotHyphenateCaps"];
     BEFORE_EVEN_ODD = /* @__PURE__ */ new Set([
       ...BEFORE_DEFAULT_TAB,
       "w:defaultTabStop",
@@ -9559,8 +9645,8 @@ function pictureXml(img, source) {
   let xml = patchDrawingGeometry(!img.edited && source ? source : img.rawDrawingXml, img);
   if (xml.includes('r:embed="uw:media"')) xml = xml.replace(/r:embed="uw:media"/g, () => `r:embed="${mediaRelId(img.data, img.ext)}"`);
   if (xml.includes('r:embed="uw:layer"') && img.layer) {
-    const L11 = img.layer;
-    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L11.data, L11.ext, L11.ext === "wdp" ? REL_HDPHOTO : REL_IMAGE)}"`);
+    const L12 = img.layer;
+    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L12.data, L12.ext, L12.ext === "wdp" ? REL_HDPHOTO : REL_IMAGE)}"`);
   }
   return xml;
 }
@@ -10102,12 +10188,17 @@ function paraXmlInner(para4, runsXml) {
   const pp = para4.props;
   const ppr = [];
   if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr3(pp.styleId)}"/>`);
-  if (pp.keepNext) ppr.push("<w:keepNext/>");
+  const flag = (name, v2) => {
+    if (v2 !== void 0) ppr.push(v2 ? `<${name}/>` : `<${name} w:val="0"/>`);
+  };
+  flag("w:keepNext", pp.keepNext);
+  flag("w:keepLines", pp.keepLines);
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];
     ppr.push(`<w:sectPr>${sectPrInner(pp.sectionBreak.sectPr, refs)}</w:sectPr>`);
   }
-  if (pp.pageBreakBefore) ppr.push("<w:pageBreakBefore/>");
+  flag("w:pageBreakBefore", pp.pageBreakBefore);
+  flag("w:widowControl", pp.widowControl);
   if (pp.tabStops?.length) {
     ppr.push("<w:tabs>" + pp.tabStops.map(
       (t6) => `<w:tab w:val="${t6.align}"${t6.leader ? ` w:leader="${t6.leader}"` : ""} w:pos="${t6.posTwips}"/>`
@@ -10117,6 +10208,7 @@ function paraXmlInner(para4, runsXml) {
     const numId = pp.numbering.kind === "decimal" ? 1002 : 1001;
     ppr.push(`<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
   }
+  flag("w:suppressLineNumbers", pp.suppressLineNumbers);
   if (pp.borders) {
     let inner2 = "";
     for (const side of ["top", "left", "bottom", "right"]) {
@@ -10134,10 +10226,11 @@ function paraXmlInner(para4, runsXml) {
   if (pp.shadingHex) {
     ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(pp.shadingHex)}"/>`);
   }
-  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+  flag("w:suppressAutoHyphens", pp.suppressAutoHyphens);
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0 || pp.spaceBeforeAuto !== void 0 || pp.spaceAfterAuto !== void 0) {
     const line2 = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
-    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
-    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    const before = (pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "") + (pp.spaceBeforeAuto !== void 0 ? ` w:beforeAutospacing="${pp.spaceBeforeAuto ? 1 : 0}"` : "");
+    const after = (pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "") + (pp.spaceAfterAuto !== void 0 ? ` w:afterAutospacing="${pp.spaceAfterAuto ? 1 : 0}"` : "");
     ppr.push(`<w:spacing${before}${after}${line2}/>`);
   }
   if (pp.indentLeftTwips !== void 0 || pp.indentRightTwips !== void 0 || pp.indentFirstLineTwips !== void 0) {
@@ -10150,6 +10243,7 @@ function paraXmlInner(para4, runsXml) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (pp.textboxTightWrap) ppr.push(`<w:textboxTightWrap w:val="${pp.textboxTightWrap}"/>`);
   const mark2 = (pp.markIns ? markRevisionXml("ins", pp.markIns) : "") + (pp.markDel ? markRevisionXml("del", pp.markDel) : "");
   if (mark2) ppr.push(`<w:rPr>${mark2}</w:rPr>`);
   if (pp.pfmt) {
@@ -10170,7 +10264,9 @@ function sectPrInner(s4, refs = []) {
   const pgBorders = pgBordersXml(s4.pgBorders) ?? "";
   const notes = notePropsXml("footnote", s4.footnotePr) + notePropsXml("endnote", s4.endnotePr);
   const fnCols = s4.footnoteColumns ? `<w15:footnoteColumns w:val="${s4.footnoteColumns}"/>` : "";
-  return `${refsXml}${notes}${type}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}${fnCols}`;
+  const lnNum = s4.lnNumType ? lnNumTypeXml(s4.lnNumType) : "";
+  const vAlign = s4.vAlign ? `<w:vAlign w:val="${s4.vAlign}"/>` : "";
+  return `${refsXml}${notes}${type}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${lnNum}${pgNumType}${cols}${vAlign}${titlePg}${fnCols}`;
 }
 function borderXml2(tag2, e8) {
   return `<w:${tag2} w:val="${escAttr3(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr3(e8.color) : "auto"}"/>`;
@@ -11298,9 +11394,9 @@ var init_style_sheet = __esm({
       "w:sectPr",
       "w:pPrChange"
     ];
-    val2 = (el15, n5) => firstChild(el15, n5)?.attrs["w:val"];
-    onOff4 = (el15, n5) => {
-      const k2 = firstChild(el15, n5);
+    val2 = (el16, n5) => firstChild(el16, n5)?.attrs["w:val"];
+    onOff4 = (el16, n5) => {
+      const k2 = firstChild(el16, n5);
       if (!k2) return false;
       const v2 = k2.attrs["w:val"];
       return v2 === void 0 || v2 !== "0" && v2 !== "false" && v2 !== "off";
@@ -20066,16 +20162,16 @@ function readListStyle(ls2) {
 }
 function collectStyles(container, index) {
   if (!container) return;
-  for (const el15 of childElements(container)) {
-    if (el15.name === "style:style") {
-      const name = el15.attrs["style:name"];
-      if (name) index.styles.set(name, readRawStyle(el15));
-    } else if (el15.name === "style:default-style") {
-      const family = el15.attrs["style:family"];
-      if (family) index.defaults.set(family, readRawStyle(el15));
-    } else if (el15.name === "text:list-style") {
-      const name = el15.attrs["style:name"];
-      if (name) index.listStyles.set(name, readListStyle(el15));
+  for (const el16 of childElements(container)) {
+    if (el16.name === "style:style") {
+      const name = el16.attrs["style:name"];
+      if (name) index.styles.set(name, readRawStyle(el16));
+    } else if (el16.name === "style:default-style") {
+      const family = el16.attrs["style:family"];
+      if (family) index.defaults.set(family, readRawStyle(el16));
+    } else if (el16.name === "text:list-style") {
+      const name = el16.attrs["style:name"];
+      if (name) index.listStyles.set(name, readListStyle(el16));
     }
   }
 }
@@ -20092,10 +20188,10 @@ function buildStyleIndex(contentRoot, stylesRoot) {
   collectStyles(firstChild(contentRoot, "office:automatic-styles"), index);
   return index;
 }
-function readTextProps(el15) {
+function readTextProps(el16) {
   const p3 = {};
-  if (!el15) return p3;
-  const a3 = el15.attrs;
+  if (!el16) return p3;
+  const a3 = el16.attrs;
   if (a3["fo:font-weight"] !== void 0) p3.bold = isTrue(a3["fo:font-weight"]);
   if (a3["fo:font-style"] !== void 0) p3.italic = a3["fo:font-style"] === "italic" || a3["fo:font-style"] === "oblique";
   const uStyle = a3["style:text-underline-style"];
@@ -20119,10 +20215,10 @@ function readTextProps(el15) {
   }
   return p3;
 }
-function readParaPropsStyle(el15) {
+function readParaPropsStyle(el16) {
   const p3 = {};
-  if (!el15) return p3;
-  const a3 = el15.attrs;
+  if (!el16) return p3;
+  const a3 = el16.attrs;
   switch (a3["fo:text-align"]) {
     case "start":
     case "left":
@@ -20693,22 +20789,22 @@ function readOdt(bytes) {
     bookmarks: /* @__PURE__ */ new Map()
   };
 }
-function readBodyChild(el15, blocks, ctx, listDepth) {
-  switch (el15.name) {
+function readBodyChild(el16, blocks, ctx, listDepth) {
+  switch (el16.name) {
     case "text:p":
-      blocks.push({ type: "paragraph", paragraph: readParagraph2(el15, ctx, void 0) });
+      blocks.push({ type: "paragraph", paragraph: readParagraph2(el16, ctx, void 0) });
       break;
     case "text:h":
-      blocks.push({ type: "paragraph", paragraph: readHeading(el15, ctx) });
+      blocks.push({ type: "paragraph", paragraph: readHeading(el16, ctx) });
       break;
     case "text:list":
-      readList(el15, blocks, ctx, listDepth);
+      readList(el16, blocks, ctx, listDepth);
       break;
     case "table:table":
-      blocks.push(readTable2(el15, ctx));
+      blocks.push(readTable2(el16, ctx));
       break;
     case "text:section":
-      for (const c5 of childElements(el15)) readBodyChild(c5, blocks, ctx, listDepth);
+      for (const c5 of childElements(el16)) readBodyChild(c5, blocks, ctx, listDepth);
       break;
     case "text:soft-page-break":
     case "text:sequence-decls":
@@ -20870,9 +20966,9 @@ function flattenNoteBody(noteBody) {
   }
   return { name: "span", attrs: {}, children: children2 };
 }
-function readAnnotation(el15, ctx) {
-  const author = firstChild(el15, "dc:creator");
-  const paras = childElements(el15, "text:p");
+function readAnnotation(el16, ctx) {
+  const author = firstChild(el16, "dc:creator");
+  const paras = childElements(el16, "text:p");
   const text = paras.map((p3) => {
     const r6 = [];
     collectRuns(p3, r6, ctx, { ...DEFAULT_RUN_PROPS }, void 0);
@@ -20882,9 +20978,9 @@ function readAnnotation(el15, ctx) {
   if (author) info.author = textOf2(author);
   ctx.comments.push(info);
 }
-function textOf2(el15) {
+function textOf2(el16) {
   let out = "";
-  for (const c5 of el15.children) out += typeof c5 === "string" ? c5 : textOf2(c5);
+  for (const c5 of el16.children) out += typeof c5 === "string" ? c5 : textOf2(c5);
   return out;
 }
 function readList(listEl, blocks, ctx, depth) {
@@ -20962,8 +21058,8 @@ function collectRows(tblEl) {
 }
 function readColumns(tblEl, ctx) {
   const widths = [];
-  const visit = (el15) => {
-    for (const c5 of childElements(el15)) {
+  const visit = (el16) => {
+    for (const c5 of childElements(el16)) {
       if (c5.name === "table:table-column") {
         const repeat = parseInt(c5.attrs["table:number-columns-repeated"] ?? "1", 10);
         const w2 = columnWidth(c5, ctx.styleIndex);
@@ -21178,15 +21274,15 @@ function cellPropsEl(index, styleName2, seen = /* @__PURE__ */ new Set()) {
   return raw.cell ?? cellPropsEl(index, raw.parent, seen);
 }
 function cellShading(index, styleName2) {
-  const el15 = cellPropsEl(index, styleName2);
-  const bg = el15?.attrs["fo:background-color"];
+  const el16 = cellPropsEl(index, styleName2);
+  const bg = el16?.attrs["fo:background-color"];
   if (bg && bg !== "transparent") return bg.replace(/^#/, "").toUpperCase();
   return void 0;
 }
 function cellBorders(index, styleName2) {
-  const el15 = cellPropsEl(index, styleName2);
-  if (!el15) return void 0;
-  const a3 = el15.attrs;
+  const el16 = cellPropsEl(index, styleName2);
+  if (!el16) return void 0;
+  const a3 = el16.attrs;
   const all = parseBorder(a3["fo:border"]);
   const out = {};
   let any = false;
@@ -22644,7 +22740,7 @@ function shadeBevel(rgba, sil, b5) {
   for (let r6 = 0; r6 < H2; r6++) for (let c5 = 0; c5 < W3; c5++) dist[r6 * W3 + c5] = pd[(r6 + 1) * (W3 + 2) + c5 + 1];
   const sm = gaussianBlur({ w: W3, h: H2, a: dist }, 1.2).a;
   const hw = b5.h / b5.w;
-  const L11 = new Float32Array(4), face = new Float32Array(4);
+  const L12 = new Float32Array(4), face = new Float32Array(4);
   if (wt) {
     const o7 = 24 * 25 * 2 - 2;
     face[0] = face[1] = face[2] = wt[o7] * 0.02;
@@ -22661,12 +22757,12 @@ function shadeBevel(rgba, sil, b5) {
         const gx = g2(c5 + 1, r6 - 1) + 2 * g2(c5 + 1, r6) + g2(c5 + 1, r6 + 1) - g2(c5 - 1, r6 - 1) - 2 * g2(c5 - 1, r6) - g2(c5 - 1, r6 + 1);
         const gy = g2(c5 - 1, r6 + 1) + 2 * g2(c5, r6 + 1) + g2(c5 + 1, r6 + 1) - g2(c5 - 1, r6 - 1) - 2 * g2(c5, r6 - 1) - g2(c5 + 1, r6 - 1);
         const th = Math.atan2(-gy, -gx) * 180 / Math.PI;
-        if (wt) wordLight(wt, th, d3 / b5.w, L11);
+        if (wt) wordLight(wt, th, d3 / b5.w, L12);
         else {
           const ph = bevelPhi(b5.prst, d3 / b5.w, hw);
-          lightAt(tab, b5.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L11);
+          lightAt(tab, b5.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L12);
         }
-        lt = L11;
+        lt = L12;
       }
       const o7 = i7 * 4;
       for (let k2 = 0; k2 < 3; k2++) {
@@ -22882,8 +22978,8 @@ var init_page_design = __esm({
 function effectExtentOf(f3) {
   const { cx, cy } = f3;
   let l3 = 0, t6 = 0, r6 = 0, b5 = 0;
-  const grow = (L11, T9, R2, B3) => {
-    l3 = Math.max(l3, L11);
+  const grow = (L12, T9, R2, B3) => {
+    l3 = Math.max(l3, L12);
     t6 = Math.max(t6, T9);
     r6 = Math.max(r6, R2);
     b5 = Math.max(b5, B3);
@@ -26070,7 +26166,7 @@ async function planFontEmbedding(resolver, usage, settings2, app, opts = {}) {
     for (const ch of u3.text) e8.chars.add(ch.codePointAt(0));
     byFamily.set(key, e8);
   }
-  const common = new Set(COMMON_FONTS[app].map((f3) => f3.toLowerCase()));
+  const common2 = new Set(COMMON_FONTS[app].map((f3) => f3.toLowerCase()));
   const skipCommon = app === "slides" || settings2.skipCommonFonts;
   const resolved = new Map((await resolver.resolve([...byFamily.values()].map((e8) => e8.family))).map((r6) => [r6.family.toLowerCase(), r6]));
   for (const [key, use] of byFamily) {
@@ -26078,7 +26174,7 @@ async function planFontEmbedding(resolver, usage, settings2, app, opts = {}) {
       plan.skipped.push({ family: use.family, reason: "already-embedded" });
       continue;
     }
-    if (skipCommon && common.has(key)) {
+    if (skipCommon && common2.has(key)) {
       plan.skipped.push({ family: use.family, reason: "common" });
       continue;
     }
@@ -26257,14 +26353,14 @@ function writeDocxSettings(pkg, settings2) {
     ensureOverride(pkg, path, "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml");
   }
   for (const name of ["w:embedTrueTypeFonts", "w:embedSystemFonts", "w:saveSubsetFonts"]) {
-    for (let el15 = findElement(xml, name); el15; el15 = findElement(xml, name)) xml = xml.slice(0, el15.start) + xml.slice(el15.end);
+    for (let el16 = findElement(xml, name); el16; el16 = findElement(xml, name)) xml = xml.slice(0, el16.start) + xml.slice(el16.end);
   }
   if (settings2.embed) {
     const flags = "<w:embedTrueTypeFonts/>" + (settings2.skipCommonFonts ? "" : "<w:embedSystemFonts/>") + (settings2.subset ? "<w:saveSubsetFonts/>" : "");
     let at = -1;
     for (const n5 of SETTINGS_BEFORE) {
-      const el15 = findElement(xml, `w:${n5}`);
-      if (el15) at = Math.max(at, el15.end);
+      const el16 = findElement(xml, `w:${n5}`);
+      if (el16) at = Math.max(at, el16.end);
     }
     if (at < 0) {
       const root = /<w:settings\b[^>]*>/.exec(xml);
@@ -26309,9 +26405,9 @@ function writeDocxEmbedding(pkg, plan, settings2) {
     const re = new RegExp(`<w:font\\b[^>]*w:name="${escRe(escAttr5(family))}"[^>]*?(\\/>|>[\\s\\S]*?<\\/w:font>)`, "i");
     const m2 = re.exec(table2);
     if (m2) {
-      const el15 = m2[0];
-      const merged = el15.endsWith("/>") ? `${el15.slice(0, -2)}>${embeds}</w:font>` : el15.replace(/<\/w:font>$/, `${embeds}</w:font>`);
-      table2 = table2.replace(el15, merged);
+      const el16 = m2[0];
+      const merged = el16.endsWith("/>") ? `${el16.slice(0, -2)}>${embeds}</w:font>` : el16.replace(/<\/w:font>$/, `${embeds}</w:font>`);
+      table2 = table2.replace(el16, merged);
     } else {
       const panose = faces[0].info.panose;
       table2 = table2.replace(
@@ -28068,8 +28164,16 @@ function directPPr(para4) {
     }
     base.ind = ind2;
   }
-  if (p3.lineTwentieths !== orig.lineTwentieths || p3.spaceAfterTwips !== orig.spaceAfterTwips || p3.spaceBeforeTwips !== orig.spaceBeforeTwips) {
+  if (p3.lineTwentieths !== orig.lineTwentieths || p3.spaceAfterTwips !== orig.spaceAfterTwips || p3.spaceBeforeTwips !== orig.spaceBeforeTwips || p3.spaceBeforeAuto !== orig.spaceBeforeAuto || p3.spaceAfterAuto !== orig.spaceAfterAuto) {
     const sp2 = { ...base.spacing };
+    if (p3.spaceBeforeAuto !== orig.spaceBeforeAuto) {
+      if (p3.spaceBeforeAuto === void 0) delete sp2.beforeAutospacing;
+      else sp2.beforeAutospacing = p3.spaceBeforeAuto;
+    }
+    if (p3.spaceAfterAuto !== orig.spaceAfterAuto) {
+      if (p3.spaceAfterAuto === void 0) delete sp2.afterAutospacing;
+      else sp2.afterAutospacing = p3.spaceAfterAuto;
+    }
     if (p3.lineTwentieths !== orig.lineTwentieths) {
       if (p3.lineTwentieths !== void 0) {
         sp2.line = p3.lineTwentieths;
@@ -28106,8 +28210,16 @@ function directPPr(para4) {
   if (!eq2(p3.tabStops, orig.tabStops)) {
     base.tabs = (p3.tabStops ?? []).map((t6) => ({ val: t6.align, pos: t6.posTwips, ...t6.leader ? { leader: t6.leader } : {} }));
   }
-  if (!!p3.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p3.pageBreakBefore;
-  if (!!p3.keepNext !== !!orig.keepNext) base.keepNext = !!p3.keepNext;
+  for (const k2 of ["pageBreakBefore", "keepNext", "keepLines", "widowControl", "suppressLineNumbers", "suppressAutoHyphens"]) {
+    if (p3[k2] !== orig[k2]) {
+      if (p3[k2] === void 0) delete base[k2];
+      else base[k2] = p3[k2];
+    }
+  }
+  if (p3.textboxTightWrap !== orig.textboxTightWrap) {
+    if (p3.textboxTightWrap) base.textboxTightWrap = p3.textboxTightWrap;
+    else delete base.textboxTightWrap;
+  }
   return base;
 }
 var cloneNotes, DocContext, eq2;
@@ -28130,7 +28242,7 @@ var init_context = __esm({
         this.resolver = new StyleResolver2(fmt2);
         const ddFonts = fmt2.styles.docDefaults.rPr?.rFonts;
         this.faces = new FaceResolver(provider, fmt2.fontTable, void 0, fontOfSlot(ddFonts, "ascii", fmt2.theme) ?? fmt2.theme.minor.latin);
-        this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {} };
+        this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {}, ...opts.hyphenationSkip ? { hyphenationSkip: opts.hyphenationSkip } : {} };
         this.numbering = new NumberingState(fmt2.numbering, fmt2.styles.styles, this.opts.lang);
         this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
       }
@@ -28477,9 +28589,9 @@ function langAllowed(ctx, lang) {
     return l3 === y3 || l3.startsWith(`${y3}-`);
   });
 }
-function documentHyphenationLanguages(full, fallback = "pt-BR") {
+function documentHyphenationLanguages(full, fallback = "pt-BR", force = false) {
   const fmt2 = full.formatting;
-  if (!fmt2?.settings.autoHyphenation) return [];
+  if (!fmt2 || !fmt2.settings.autoHyphenation && !force) return [];
   const out = /* @__PURE__ */ new Set([fmt2.styles.docDefaults.rPr?.lang?.val ?? fallback]);
   const visit = (x3) => {
     if (!x3 || typeof x3 !== "object") return;
@@ -28503,9 +28615,9 @@ function documentHyphenationLanguages(full, fallback = "pt-BR") {
   visit(full.endnoteBlocks);
   return [...out];
 }
-function markHyphenation(ctx, ppr, glyphs, skipRuns) {
+function markHyphenation(ctx, ppr, glyphs, skipRuns, para4) {
   const s4 = ctx.fmt.settings;
-  if (!s4.autoHyphenation || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
+  if (!s4.autoHyphenation && ctx.opts.hyphenation !== "force" || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
   const [left, right] = hyphenMins(s4.compatibilityMode);
   for (let k2 = 0; k2 < glyphs.length; ) {
     const g2 = glyphs[k2];
@@ -28525,6 +28637,7 @@ function markHyphenation(ctx, ppr, glyphs, skipRuns) {
     k2 = e8;
     const rpr = g2.style.rpr;
     if (rpr.noProof || rpr.cs || rpr.rtl || !langAllowed(ctx, lang)) continue;
+    if (para4 && ctx.opts.hyphenationSkip?.(para4, g2.offset)) continue;
     if (s4.doNotHyphenateCaps && idx.every((j) => {
       const c5 = glyphs[j].ch;
       return c5.toLowerCase() === c5.toUpperCase() || c5 === c5.toUpperCase();
@@ -29304,7 +29417,7 @@ function prepareParagraph(ctx, para0, env0) {
       } else if (g2.kind === "char" && ppr.overflowPunct !== false && isCjkLang(g2.style.rpr) && hangPunct(g2.style.rpr, altKinsoku).includes(g2.ch)) g2.hang = true;
     }
   }
-  markHyphenation(ctx, ppr, glyphs, mathRuns);
+  markHyphenation(ctx, ppr, glyphs, mathRuns, para0);
   let marker;
   const numId = ppr.numPr?.numId;
   if (numId && env.numbering !== false && !env.continuation) {
@@ -30608,11 +30721,11 @@ function effectDecode(fx, components) {
 function applyPictureAdjust(d3, o7) {
   const hex3 = (s4) => [parseInt(s4.slice(0, 2), 16), parseInt(s4.slice(2, 4), 16), parseInt(s4.slice(4, 6), 16)];
   if (o7.clrChange) {
-    const [fr, fg, fb] = hex3(o7.clrChange.from), [tr8, tg, tb] = hex3(o7.clrChange.to);
+    const [fr, fg, fb] = hex3(o7.clrChange.from), [tr9, tg, tb] = hex3(o7.clrChange.to);
     const ta = Math.round(o7.clrChange.toAlpha * 255);
     for (let i7 = 0; i7 < d3.length; i7 += 4) {
       if (Math.abs(d3[i7] - fr) <= 2 && Math.abs(d3[i7 + 1] - fg) <= 2 && Math.abs(d3[i7 + 2] - fb) <= 2) {
-        d3[i7] = tr8;
+        d3[i7] = tr9;
         d3[i7 + 1] = tg;
         d3[i7 + 2] = tb;
         d3[i7 + 3] = Math.round(d3[i7 + 3] * ta / 255);
@@ -32121,7 +32234,7 @@ var init_paint = __esm({
 
 // ../docx-layout/src/datefmt.ts
 function formatWordDate(d3, picture, lang = "pt-BR") {
-  const L11 = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L12 = lang.toLowerCase().startsWith("en") ? EN : PT;
   let out = "";
   let i7 = 0;
   const run3 = (ch) => {
@@ -32139,19 +32252,19 @@ function formatWordDate(d3, picture, lang = "pt-BR") {
     }
     const lower = picture.slice(i7, i7 + 5).toLowerCase();
     if (lower === "am/pm") {
-      out += L11 === EN ? d3.getHours() >= 12 ? "PM" : "AM" : "";
+      out += L12 === EN ? d3.getHours() >= 12 ? "PM" : "AM" : "";
       i7 += 5;
       continue;
     }
     if (c5 === "d" || c5 === "D") {
       const n5 = run3(c5);
-      out += n5 >= 4 ? L11.days[d3.getDay()] : n5 === 3 ? L11.daysShort[d3.getDay()] : n5 === 2 ? pad(d3.getDate(), 2) : String(d3.getDate());
+      out += n5 >= 4 ? L12.days[d3.getDay()] : n5 === 3 ? L12.daysShort[d3.getDay()] : n5 === 2 ? pad(d3.getDate(), 2) : String(d3.getDate());
       i7 += n5;
       continue;
     }
     if (c5 === "M") {
       const n5 = run3(c5);
-      out += n5 >= 4 ? L11.months[d3.getMonth()] : n5 === 3 ? L11.monthsShort[d3.getMonth()] : n5 === 2 ? pad(d3.getMonth() + 1, 2) : String(d3.getMonth() + 1);
+      out += n5 >= 4 ? L12.months[d3.getMonth()] : n5 === 3 ? L12.monthsShort[d3.getMonth()] : n5 === 2 ? pad(d3.getMonth() + 1, 2) : String(d3.getMonth() + 1);
       i7 += n5;
       continue;
     }
@@ -32193,9 +32306,9 @@ function formatWordDate(d3, picture, lang = "pt-BR") {
 }
 function dateFieldValue(instr, now, lang = "pt-BR") {
   const name = instr.trim().split(/\s+/)[0].toUpperCase();
-  const L11 = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L12 = lang.toLowerCase().startsWith("en") ? EN : PT;
   const m2 = /\\@\s*(?:"([^"]*)"|(\S+))/.exec(instr);
-  const picture = m2 ? m2[1] ?? m2[2] ?? "" : name === "TIME" ? L11.time : L11.date;
+  const picture = m2 ? m2[1] ?? m2[2] ?? "" : name === "TIME" ? L12.time : L12.date;
   let v2 = formatWordDate(now, picture, lang);
   const fmt2 = /\\\*\s*(\w+)/g;
   let f3;
@@ -32861,10 +32974,10 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       };
       return { col: s4.col, span: s4.span, ...tcW ? { tcW } : {}, measure, ...floorW ? { floor: true } : {}, pad: padOf(s4) + ex };
     });
-    const tr8 = table2.rows[ri]?.trPr;
-    if (tr8?.gridBefore && tr8.wBefore?.type === "dxa" && tr8.wBefore.w > 0) out.unshift({ col: 0, span: tr8.gridBefore, tcW: tr8.wBefore, measure: () => ({ min: 0, max: 0 }) });
+    const tr9 = table2.rows[ri]?.trPr;
+    if (tr9?.gridBefore && tr9.wBefore?.type === "dxa" && tr9.wBefore.w > 0) out.unshift({ col: 0, span: tr9.gridBefore, tcW: tr9.wBefore, measure: () => ({ min: 0, max: 0 }) });
     const end = rs.length ? rs[rs.length - 1].col + rs[rs.length - 1].span : 0;
-    if (tr8?.gridAfter && tr8.wAfter?.type === "dxa" && tr8.wAfter.w > 0) out.push({ col: end, span: tr8.gridAfter, tcW: tr8.wAfter, measure: () => ({ min: 0, max: 0 }) });
+    if (tr9?.gridAfter && tr9.wAfter?.type === "dxa" && tr9.wAfter.w > 0) out.push({ col: end, span: tr9.gridAfter, tcW: tr9.wAfter, measure: () => ({ min: 0, max: 0 }) });
     return out;
   });
   const floating = !!tblPr.tblpPr && tblPr.tblpPr.tblpYSpec !== "inline";
@@ -33740,8 +33853,8 @@ function groupChild(gr, item, x3, y3, w2, h3) {
   if (r0.textbox) {
     const tb = { ...r0.textbox };
     if (tb.shape) tb.shape = xf(tb.shape);
-    const tr8 = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
-    if (tr8) tb.rot = tr8;
+    const tr9 = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
+    if (tr9) tb.rot = tr9;
     run3.textbox = tb;
   }
   if (r0.group) run3.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
@@ -34254,8 +34367,8 @@ function vertRef(from, g2, ps, paraTop) {
 }
 function tbInsets(tb, theme, w2, h3) {
   const ins0 = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
-  const tr8 = tb.geom && w2 !== void 0 && h3 !== void 0 ? textRectInsets(tb.geom, w2, h3) : null;
-  const ins = tr8 ? { l: ins0.l + tr8.l, t: ins0.t + tr8.t, r: ins0.r + tr8.r, b: ins0.b + tr8.b } : ins0;
+  const tr9 = tb.geom && w2 !== void 0 && h3 !== void 0 ? textRectInsets(tb.geom, w2, h3) : null;
+  const ins = tr9 ? { l: ins0.l + tr9.l, t: ins0.t + tr9.t, r: ins0.r + tr9.r, b: ins0.b + tr9.b } : ins0;
   const li = tb.lineInset;
   const lw = li ? li.w ?? (li.ref ? theme?.lineWidthsPt?.[li.ref - 1] ?? [1, 1.5, 2][li.ref - 1] ?? 0.75 : 0) : tb.shape?.line?.widthPt ?? 0;
   const half = lw * 10;
@@ -34325,8 +34438,8 @@ function verticalContent(c5, fr, vAnchor, x3, y3, w2, h3) {
 }
 function textRectInsets(g2, w2, h3) {
   const names = g2.adj ? Object.keys(g2.adj) : void 0;
-  const tr8 = presetTextRect(g2.prst, w2, h3, names?.map((n5) => g2.adj[n5]), names);
-  if (tr8) return { l: tr8.l, t: tr8.t, r: w2 - tr8.r, b: h3 - tr8.b };
+  const tr9 = presetTextRect(g2.prst, w2, h3, names?.map((n5) => g2.adj[n5]), names);
+  if (tr9) return { l: tr9.l, t: tr9.t, r: w2 - tr9.r, b: h3 - tr9.b };
   switch (g2.prst) {
     case "roundRect": {
       const i7 = Math.min(w2, h3) * (g2.adj?.["adj"] ?? 16667) / 1e5 * 0.29289;
@@ -34374,6 +34487,7 @@ function lineRecord(ref, p3, line2, frameX, top, frameW) {
   const firstLine = line2.start === 0, lastLine = line2.end >= gs.length;
   const rev2 = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a3, b5, hidden]) => hidden ? a3 <= end && b5 >= start : a3 < end && b5 > start));
   const x3 = frameX + line2.xStart;
+  const tail = line2.placed[line2.placed.length - 1];
   return {
     ref,
     start,
@@ -34384,6 +34498,7 @@ function lineRecord(ref, p3, line2, frameX, top, frameW) {
     baseline: top + line2.baseline,
     width: line2.width,
     chars,
+    ...tail?.g.autoHyphen ? { hyph: tail.g.offset } : {},
     ...rev2 ? { rev: { before: firstLine ? p3.spaceBefore : 0, after: lastLine ? p3.spaceAfter : 0 } } : {},
     // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
     ...frameW !== void 0 ? { frame: { l: frameX - x3, r: frameX + frameW - x3 }, pfmt: pfmtOf(p3) } : {}
@@ -34425,7 +34540,7 @@ function cullOffPage(items, pageW, pageH) {
       } else if (it.op === "pop") m2 = stack2.pop() ?? null;
       continue;
     }
-    if (it.t !== "glyphs" || !it.glyphs.length) continue;
+    if (it.t !== "glyphs" || !it.glyphs.length || it.lineNum) continue;
     const em = it.sizePt * 20;
     const box = it.lineBox ?? { asc: em, desc: em * 0.3, lead: 0 };
     let x0 = Infinity, x1 = -Infinity;
@@ -35060,11 +35175,13 @@ var init_engine = __esm({
           footers: pick(fb, prev?.footers),
           blocks: [s4.blockStart, s4.blockEnd],
           ...s4.sect?.docGrid && (s4.sect.docGrid.type === "lines" || s4.sect.docGrid.type === "linesAndChars") && (s4.sect.docGrid.linePitch ?? 0) > 0 ? { linePitch: s4.sect.docGrid.linePitch } : {},
-          ...s4.sect?.lnNumType ? { lnNum: {
-            countBy: Math.max(1, s4.sect.lnNumType.countBy ?? 1),
+          // (sem w:countBy, ou 0, o Word não numera — oráculo lnnum3/s-nocountby, s-countby0)
+          ...s4.sect?.lnNumType && (s4.sect.lnNumType.countBy ?? 0) >= 1 ? { lnNum: {
+            countBy: s4.sect.lnNumType.countBy,
             start: s4.sect.lnNumType.start ?? 0,
             restart: s4.sect.lnNumType.restart ?? "newPage",
-            distance: s4.sect.lnNumType.distance ?? 360
+            // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
+            distance: (s4.sect.lnNumType.distance ?? 0) > 0 ? s4.sect.lnNumType.distance : cols.length > 1 ? 180 : 360
           } } : {}
         };
       }
@@ -35774,14 +35891,22 @@ var init_engine = __esm({
         return bdrKey(resolvePPr(this.ctx, next.paragraph, env).ppr) === bdrKey(p3.ppr);
       }
       /**
-       * Número da linha (w:lnNumType) — medido no Word (oráculo lnnum): só linhas
-       * do corpo (tabela e parágrafo com suppressLineNumbers não contam), vazio
-       * conta; o 1º número é start+1; alinhado à direita em (coluna − distância,
-       * auto = 360tw), mesma baseline, estilo Normal + "Line Number".
+       * Número da linha (w:lnNumType) — medido no Word (oráculos lnnum, lnnum2, lnnum3):
+       * só linhas do corpo (tabela, caixa de texto, quadro, nota e parágrafo com
+       * suppressLineNumbers não contam), vazio conta; alinhado à direita em (coluna −
+       * distância), mesma baseline, estilo Normal + "Line Number"; fora da página também
+       * vai para o PDF. A contagem recomeça (1º número = start+1) na 1ª linha numerada
+       * depois de uma seção SEM numeração (ou do início), na 1ª linha de uma seção
+       * newSection e na 1ª linha de uma página nova numa seção newPage; senão continua a
+       * da seção anterior (o start da seção que continua é ignorado), mesmo de uma seção
+       * newPage na mesma página.
        */
       paintLineNumber(colX, baseline) {
         const ln2 = this.cur.geom.lnNum;
-        const restart = ln2.restart === "continuous" ? this.lnSect < 0 : ln2.restart === "newSection" ? this.lnSect !== this.cur.geom.index : this.lnPage !== this.cur;
+        const idx = this.cur.geom.index;
+        const newSect = this.lnSect !== idx;
+        const fresh = this.lnSect < 0 || newSect && !this.geoms[idx - 1]?.lnNum;
+        const restart = fresh || ln2.restart === "newSection" && newSect || ln2.restart === "newPage" && this.lnPage !== this.cur;
         if (restart) this.lnCount = ln2.start;
         this.lnPage = this.cur;
         this.lnSect = this.cur.geom.index;
@@ -35794,7 +35919,12 @@ var init_engine = __esm({
         const np = prepareParagraph(this.ctx, para4, { numbering: false });
         const line2 = new LineBreaker(this.ctx, np).next({ left: 0, right: 2e4 });
         const x3 = colX - ln2.distance - line2.width;
+        const at = this.cur.body.length;
         paintLine(this.ctx, this.cur.body, line2, x3, baseline - line2.baseline);
+        for (let k2 = at; k2 < this.cur.body.length; k2++) {
+          const it = this.cur.body[k2];
+          if (it.t === "glyphs") it.lineNum = true;
+        }
       }
       /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
       paintBox(out, p3, x3, width, top, bottom, prev, at = out.length, groupedNext = false) {
@@ -37073,16 +37203,16 @@ var init_engine = __esm({
         if (!floats.length) return frame2;
         const { left, right } = frame2;
         const crossed = right < left;
-        let tl = left, tr8 = right;
+        let tl = left, tr9 = right;
         if (crossed) {
           const col = this.colFrame();
           if (Math.abs(frameX - col.x) < 0.5) {
             tl = Math.min(left, 0);
-            tr8 = Math.max(left, col.w);
-          } else tr8 = left;
+            tr9 = Math.max(left, col.w);
+          } else tr9 = left;
         }
         let skipTo;
-        let free = [[tl, tr8]];
+        let free = [[tl, tr9]];
         let hit = false;
         let minBottom = Infinity;
         for (const f3 of floats) {
@@ -37098,7 +37228,7 @@ var init_engine = __esm({
             parts = (f3.wrap === "through" ? band : hull).map(([a3, b5]) => [a3 - f3.distL - frameX, b5 + f3.distR - frameX]);
           }
           const fl2 = parts ? parts[0][0] : f3.x - f3.distL - frameX, fr = parts ? parts[parts.length - 1][1] : f3.x + f3.w + f3.distR - frameX;
-          if (fr <= tl || fl2 >= tr8) continue;
+          if (fr <= tl || fl2 >= tr9) continue;
           if (f3.wrap === "topAndBottom") {
             skipTo = Math.max(skipTo ?? 0, bottom);
             continue;
@@ -37109,7 +37239,7 @@ var init_engine = __esm({
           let blocks = parts && side === "bothSides" ? parts : [[fl2, fr]];
           if (side === "left") blocks = [[fl2, Infinity]];
           else if (side === "right") blocks = [[-Infinity, fr]];
-          else if (side === "largest") blocks = [fl2 - tl >= tr8 - fr ? [fl2, Infinity] : [-Infinity, fr]];
+          else if (side === "largest") blocks = [fl2 - tl >= tr9 - fr ? [fl2, Infinity] : [-Infinity, fr]];
           for (const [bl, bh] of blocks) {
             const next = [];
             for (const [a3, b5] of free) {
@@ -37126,7 +37256,7 @@ var init_engine = __esm({
         if (hit) {
           const col = this.colFrame();
           const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
-          const ext = (a3, b5) => cR === Infinity ? [a3, b5] : [a3 <= tl + 0.5 ? Math.min(a3, cL) : a3, b5 >= tr8 - 0.5 ? Math.max(b5, cR) : b5];
+          const ext = (a3, b5) => cR === Infinity ? [a3, b5] : [a3 <= tl + 0.5 ? Math.min(a3, cL) : a3, b5 >= tr9 - 0.5 ? Math.max(b5, cR) : b5];
           free = free.filter(([a3, b5]) => {
             const [ea, eb] = ext(a3, b5);
             return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP;
@@ -38082,12 +38212,12 @@ function glyphsAsPath(page2, it) {
     const gid = g2.gid ?? font.glyphId(g2.cp);
     const layers = it.colr ? font.colorLayers?.(gid) : null;
     if (layers) {
-      for (const L11 of layers) {
+      for (const L12 of layers) {
         const lc2 = [];
-        if (!outlineInto(lc2, font, L11.glyphId, g2.x / T3, base, sx, s4, skew)) continue;
+        if (!outlineInto(lc2, font, L12.glyphId, g2.x / T3, base, sx, s4, skew)) continue;
         if (!lc2.length) continue;
-        const a3 = L11.alpha * (it.alpha ?? 1);
-        page2.withAlpha(a3 < 1 ? a3 : void 0, void 0, () => page2.path(lc2, hexColor(L11.color ?? it.color)));
+        const a3 = L12.alpha * (it.alpha ?? 1);
+        page2.withAlpha(a3 < 1 ? a3 : void 0, void 0, () => page2.path(lc2, hexColor(L12.color ?? it.color)));
       }
       continue;
     }
@@ -38282,16 +38412,16 @@ function paintItem(page2, it, fontFor, imageFor, shade, pictureEnv, embedRgba) {
 }
 function rotatePath(cmds, cx, cy, deg) {
   const r6 = deg * Math.PI / 180, c5 = Math.cos(r6), s4 = Math.sin(r6);
-  const tr8 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
+  const tr9 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
   return cmds.map((m2) => {
     if (m2.op === "M" || m2.op === "L") {
-      const [x3, y3] = tr8(m2.x, m2.y);
+      const [x3, y3] = tr9(m2.x, m2.y);
       return { op: m2.op, x: x3, y: y3 };
     }
     if (m2.op === "C") {
-      const [x1, y1] = tr8(m2.x1, m2.y1);
-      const [x22, y22] = tr8(m2.x2, m2.y2);
-      const [x3, y3] = tr8(m2.x, m2.y);
+      const [x1, y1] = tr9(m2.x1, m2.y1);
+      const [x22, y22] = tr9(m2.x2, m2.y2);
+      const [x3, y3] = tr9(m2.x, m2.y);
       return { op: "C", x1, y1, x2: x22, y2: y22, x: x3, y: y3 };
     }
     return m2;
@@ -39126,16 +39256,16 @@ function tracePath2(ctx, cmds) {
 }
 function rotatePath2(cmds, cx, cy, deg) {
   const r6 = deg * Math.PI / 180, c5 = Math.cos(r6), s4 = Math.sin(r6);
-  const tr8 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
+  const tr9 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
   return cmds.map((m2) => {
     if (m2.op === "M" || m2.op === "L") {
-      const [x3, y3] = tr8(m2.x, m2.y);
+      const [x3, y3] = tr9(m2.x, m2.y);
       return { op: m2.op, x: x3, y: y3 };
     }
     if (m2.op === "C") {
-      const [x1, y1] = tr8(m2.x1, m2.y1);
-      const [x22, y22] = tr8(m2.x2, m2.y2);
-      const [x3, y3] = tr8(m2.x, m2.y);
+      const [x1, y1] = tr9(m2.x1, m2.y1);
+      const [x22, y22] = tr9(m2.x2, m2.y2);
+      const [x3, y3] = tr9(m2.x, m2.y);
       return { op: "C", x1, y1, x2: x22, y2: y22, x: x3, y: y3 };
     }
     return m2;
@@ -39398,8 +39528,8 @@ function browserUiLang() {
   }
   return DEFAULT_UI_LANG;
 }
-function uiLang(el15) {
-  const forced = el15?.getAttribute("lang");
+function uiLang(el16) {
+  const forced = el16?.getAttribute("lang");
   if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
   return browserUiLang();
 }
@@ -39431,25 +39561,25 @@ var init_viewer_controls = __esm({
 // ../../../shared/ui/src/font-embedding-dialog.ts
 function openFontEmbeddingDialog(opts) {
   const { app, settings: settings2 } = opts;
-  const L11 = pickLabels(opts.lang, LABELS);
+  const L12 = pickLabels(opts.lang, LABELS);
   const dlg = document.createElement("dialog");
   dlg.className = "uo-font-embedding";
   dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
-  const common = join3(COMMON_FONTS[app], L11);
+  const common2 = join3(COMMON_FONTS[app], L12);
   dlg.innerHTML = `
     <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
-      <strong style="font-size:1.1em">${L11.title}</strong>
-      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L11.embed}</span></label>
+      <strong style="font-size:1.1em">${L12.title}</strong>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L12.embed}</span></label>
       <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
         <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
-          <span>${L11.subset} <small style="opacity:.7">${L11.subsetNote}</small></span></label>
+          <span>${L12.subset} <small style="opacity:.7">${L12.subsetNote}</small></span></label>
         ${app === "write" ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
-               <span>${L11.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L11.neverEmbedded(common)}</small>`}
+               <span>${L12.skipCommon} <small style="opacity:.7">(${common2})</small></span></label>` : `<small style="opacity:.7">${L12.neverEmbedded(common2)}</small>`}
       </div>
-      <small style="opacity:.7">${L11.note}</small>
+      <small style="opacity:.7">${L12.note}</small>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-        <button value="cancel" type="submit">${L11.cancel}</button>
-        <button value="ok" type="submit">${L11.ok}</button>
+        <button value="cancel" type="submit">${L12.cancel}</button>
+        <button value="ok" type="submit">${L12.ok}</button>
       </div>
     </form>`;
   const box = (n5) => dlg.querySelector(`input[name="${n5}"]`);
@@ -39458,7 +39588,7 @@ function openFontEmbeddingDialog(opts) {
   subset.checked = settings2.subset;
   if (skipCommon) skipCommon.checked = settings2.skipCommonFonts;
   const sync = () => {
-    for (const el15 of dlg.querySelectorAll("[data-sub] input")) el15.disabled = !embed.checked;
+    for (const el16 of dlg.querySelectorAll("[data-sub] input")) el16.disabled = !embed.checked;
     dlg.querySelector("[data-sub]").style.opacity = embed.checked ? "1" : ".5";
   };
   embed.addEventListener("change", sync);
@@ -39478,16 +39608,16 @@ function openFontEmbeddingDialog(opts) {
   });
 }
 function describeFontEmbedding(detail, lang) {
-  const L11 = pickLabels(lang, LABELS);
+  const L12 = pickLabels(lang, LABELS);
   const parts = [];
-  if (detail.embedded.length) parts.push(`${L11.embedded}: ${join3(detail.embedded, L11)}`);
+  if (detail.embedded.length) parts.push(`${L12.embedded}: ${join3(detail.embedded, L12)}`);
   const by = /* @__PURE__ */ new Map();
   for (const s4 of detail.skipped) {
     if (s4.reason === "already-embedded") continue;
-    const r6 = L11.reasons[s4.reason];
+    const r6 = L12.reasons[s4.reason];
     by.set(r6, [...by.get(r6) ?? [], s4.family]);
   }
-  if (by.size) parts.push(`${L11.notEmbedded}: ${[...by].map(([r6, fs]) => `${join3(fs, L11)} (${r6})`).join("; ")}`);
+  if (by.size) parts.push(`${L12.notEmbedded}: ${[...by].map(([r6, fs]) => `${join3(fs, L12)} (${r6})`).join("; ")}`);
   return parts.join(" \xB7 ");
 }
 var LABELS, join3;
@@ -39504,7 +39634,7 @@ var init_font_embedding_dialog = __esm({
         subset: "Embed only the characters used",
         subsetNote: "(smaller file; editing with other characters on another computer uses another font)",
         skipCommon: "Do not embed common system fonts",
-        neverEmbedded: (common) => `${common} are never embedded.`,
+        neverEmbedded: (common2) => `${common2} are never embedded.`,
         note: "Only fonts whose file is available and whose license allows embedding are included; the ones left out are reported when saving.",
         cancel: "Cancel",
         ok: "OK",
@@ -39519,7 +39649,7 @@ var init_font_embedding_dialog = __esm({
         subset: "Incorporar s\xF3 os caracteres usados",
         subsetNote: "(arquivo menor; editar com outros caracteres em outra m\xE1quina usa outra fonte)",
         skipCommon: "N\xE3o incorporar fontes comuns do sistema",
-        neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas.`,
+        neverEmbedded: (common2) => `${common2} nunca s\xE3o incorporadas.`,
         note: "S\xF3 entram fontes cujo arquivo est\xE1 dispon\xEDvel e cuja licen\xE7a permite incorporar; as que ficarem de fora s\xE3o avisadas ao salvar.",
         cancel: "Cancelar",
         ok: "OK",
@@ -39528,7 +39658,7 @@ var init_font_embedding_dialog = __esm({
         notEmbedded: "n\xE3o incorporadas"
       }
     };
-    join3 = (xs, L11) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L11.and} ${xs[xs.length - 1]}`;
+    join3 = (xs, L12) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L12.and} ${xs[xs.length - 1]}`;
   }
 });
 
@@ -39726,6 +39856,7 @@ var init_symbols = __esm({
       "anchor": "M120-360V-440Q120-452 131-458Q142-464 152-456L243-388Q257-377 258.5-358.5Q260-340 247-327L218-298Q247-247 310-210Q373-173 440-163V-520H360Q343-520 331.5-531.5Q320-543 320-560Q320-577 331.5-588.5Q343-600 360-600H440V-647Q405-660 382.5-690.5Q360-721 360-760Q360-810 395-845Q430-880 480-880Q530-880 565-845Q600-810 600-760Q600-721 577.5-690.5Q555-660 520-647V-600H600Q617-600 628.5-588.5Q640-577 640-560Q640-543 628.5-531.5Q617-520 600-520H520V-163Q587-173 650-210Q713-247 742-298L713-327Q700-340 701.5-358.5Q703-377 717-388L808-456Q818-464 829-458Q840-452 840-440V-360Q840-302 806.5-251Q773-200 721-162Q669-124 605-102Q541-80 480-80Q419-80 355-102Q291-124 239-162Q187-200 153.5-251Q120-302 120-360ZM480-720Q497-720 508.5-731.5Q520-743 520-760Q520-777 508.5-788.5Q497-800 480-800Q463-800 451.5-788.5Q440-777 440-760Q440-743 451.5-731.5Q463-720 480-720Z",
       "arrow_back": "M313-440 509-244Q521-232 520.5-216Q520-200 508-188Q496-177 480-176.5Q464-176 452-188L188-452Q182-458 179.5-465Q177-472 177-480Q177-488 179.5-495Q182-502 188-508L452-772Q463-783 479.5-783Q496-783 508-772Q520-760 520-743.5Q520-727 508-715L313-520H760Q777-520 788.5-508.5Q800-497 800-480Q800-463 788.5-451.5Q777-440 760-440Z",
       "arrow_drop_down": "M459-381 314-526Q311-529 309.5-532.5Q308-536 308-540Q308-548 313.5-554Q319-560 328-560H632Q641-560 646.5-554Q652-548 652-540Q652-538 646-526L501-381Q496-376 491-374Q486-372 480-372Q474-372 469-374Q464-376 459-381Z",
+      "arrow_drop_up": "M328-400Q319-400 313.5-406Q308-412 308-420Q308-422 314-434L459-579Q464-584 469-586Q474-588 480-588Q486-588 491-586Q496-584 501-579L646-434Q649-431 650.5-427.5Q652-424 652-420Q652-412 646.5-406Q641-400 632-400Z",
       "arrow_forward": "M647-440H200Q183-440 171.5-451.5Q160-463 160-480Q160-497 171.5-508.5Q183-520 200-520H647L451-716Q439-728 439.5-744Q440-760 452-772Q464-783 480-783.5Q496-784 508-772L772-508Q778-502 780.5-495Q783-488 783-480Q783-472 780.5-465Q778-458 772-452L508-188Q497-177 480.5-177Q464-177 452-188Q440-200 440-216.5Q440-233 452-245Z",
       "arrow_outward": "M640-624 284-268Q273-257 256-257Q239-257 228-268Q217-279 217-296Q217-313 228-324L584-680H280Q263-680 251.5-691.5Q240-703 240-720Q240-737 251.5-748.5Q263-760 280-760H680Q697-760 708.5-748.5Q720-737 720-720V-320Q720-303 708.5-291.5Q697-280 680-280Q663-280 651.5-291.5Q640-303 640-320Z",
       "article": "M200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760ZM320-280H520Q537-280 548.5-291.5Q560-303 560-320Q560-337 548.5-348.5Q537-360 520-360H320Q303-360 291.5-348.5Q280-337 280-320Q280-303 291.5-291.5Q303-280 320-280ZM320-440H640Q657-440 668.5-451.5Q680-463 680-480Q680-497 668.5-508.5Q657-520 640-520H320Q303-520 291.5-508.5Q280-497 280-480Q280-463 291.5-451.5Q303-440 320-440ZM320-600H640Q657-600 668.5-611.5Q680-623 680-640Q680-657 668.5-668.5Q657-680 640-680H320Q303-680 291.5-668.5Q280-657 280-640Q280-623 291.5-611.5Q303-600 320-600Z",
@@ -40036,8 +40167,8 @@ function place(menu, at) {
   menu.style.left = `${Math.max(8, x3)}px`;
   menu.style.top = `${Math.max(8, y3)}px`;
 }
-function focusables(el15) {
-  return [...el15.querySelectorAll(":scope > .uo-menu-item:not([disabled])")];
+function focusables(el16) {
+  return [...el16.querySelectorAll(":scope > .uo-menu-item:not([disabled])")];
 }
 function build(items, level, opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
@@ -40102,11 +40233,11 @@ function build(items, level, opts) {
       closeFrom(level + 1);
       const sub = resolveItems(it.submenu, opts);
       if (!sub.length) return;
-      const el15 = build(sub, level + 1, opts);
-      (opts.layer ?? document.body).appendChild(el15);
-      place(el15, { anchor: b5, side: "right" });
-      stack.push({ el: el15, items: sub, parentBtn: b5 });
-      if (focus) focusables(el15)[0]?.focus();
+      const el16 = build(sub, level + 1, opts);
+      (opts.layer ?? document.body).appendChild(el16);
+      place(el16, { anchor: b5, side: "right" });
+      stack.push({ el: el16, items: sub, parentBtn: b5 });
+      if (focus) focusables(el16)[0]?.focus();
     };
     b5.addEventListener("click", (e8) => {
       e8.stopPropagation();
@@ -40131,13 +40262,13 @@ function openMenu(src, at, opts = {}) {
   closeMenus();
   const items = resolveItems(src, opts);
   if (!items.length) return null;
-  const el15 = build(items, 0, opts);
-  (opts.layer ?? document.body).appendChild(el15);
-  place(el15, at);
-  stack = [{ el: el15, items }];
+  const el16 = build(items, 0, opts);
+  (opts.layer ?? document.body).appendChild(el16);
+  place(el16, at);
+  stack = [{ el: el16, items }];
   rootOpts = opts;
   rootAnchor = "anchor" in at ? at.anchor : null;
-  if (opts.focus) focusables(el15)[0]?.focus();
+  if (opts.focus) focusables(el16)[0]?.focus();
   const inMenus = (e8) => {
     const path = e8.composedPath();
     return stack.some((l3) => path.includes(l3.el)) || !!rootAnchor && path.includes(rootAnchor);
@@ -40224,7 +40355,7 @@ function openMenu(src, at, opts = {}) {
     window.removeEventListener("resize", onBlur);
     window.removeEventListener("blur", onBlur);
   };
-  return el15;
+  return el16;
 }
 var stack, rootOpts, rootAnchor, detach, hoverTimer, labelText;
 var init_menu = __esm({
@@ -40248,21 +40379,21 @@ function closeDialogs(layer) {
 }
 function openDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
-  const L11 = pickLabels(lang, LABELS2);
+  const L12 = pickLabels(lang, LABELS2);
   const dlg = document.createElement("dialog");
   dlg.className = "uo-dialog";
   dlg.setAttribute("part", "dialog");
   if (opts.width) dlg.style.width = `${opts.width}px`;
   const head = document.createElement("div");
   head.className = "uo-dialog-head";
-  head.innerHTML = `${opts.icon ? `<span class="uo-dialog-icon">${symbol(opts.icon)}</span>` : ""}<span class="uo-dialog-title"></span><button type="button" class="uo-btn uo-dialog-x" title="${L11.close}">${symbol("close")}</button>`;
+  head.innerHTML = `${opts.icon ? `<span class="uo-dialog-icon">${symbol(opts.icon)}</span>` : ""}<span class="uo-dialog-title"></span><button type="button" class="uo-btn uo-dialog-x" title="${L12.close}">${symbol("close")}</button>`;
   head.querySelector(".uo-dialog-title").textContent = txt(opts.title, lang);
   const body = document.createElement("div");
   body.className = "uo-dialog-body";
   if (typeof opts.body === "string") body.textContent = opts.body;
   else body.appendChild(opts.body);
   dlg.append(head, body);
-  const actions = opts.actions ?? [{ id: "ok", label: L11.ok, primary: true }];
+  const actions = opts.actions ?? [{ id: "ok", label: L12.ok, primary: true }];
   if (actions.length) {
     const bar = document.createElement("div");
     bar.className = "uo-dialog-actions";
@@ -40295,6 +40426,9 @@ function openDialog(opts) {
       if (dlg.open) dlg.close();
       dlg.remove();
       resolve(value);
+    },
+    setTitle(t6) {
+      head.querySelector(".uo-dialog-title").textContent = txt(t6, lang);
     }
   };
   head.querySelector(".uo-dialog-x").addEventListener("click", () => handle.close(null));
@@ -40329,7 +40463,7 @@ function openDialog(opts) {
 }
 async function promptDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
-  const L11 = pickLabels(lang, LABELS2);
+  const L12 = pickLabels(lang, LABELS2);
   const box = document.createElement("label");
   box.className = "uo-field";
   if (opts.label) {
@@ -40346,13 +40480,13 @@ async function promptDialog(opts) {
     body: box,
     layer: opts.layer,
     lang,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: opts.ok ?? L11.ok, primary: true }]
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: opts.ok ?? L12.ok, primary: true }]
   });
   return await h3.result === "ok" ? input.value : null;
 }
 function dialogTabs(tabs, selected) {
-  const el15 = document.createElement("div");
-  el15.className = "uo-dtabs";
+  const el16 = document.createElement("div");
+  el16.className = "uo-dtabs";
   const strip = document.createElement("div");
   strip.className = "uo-dtabs-strip";
   strip.setAttribute("role", "tablist");
@@ -40393,8 +40527,8 @@ function dialogTabs(tabs, selected) {
     });
   }
   select6(cur);
-  el15.append(strip, panes2);
-  return { el: el15, select: select6, current: () => cur };
+  el16.append(strip, panes2);
+  return { el: el16, select: select6, current: () => cur };
 }
 function showToast(layer, message, ms = 2600) {
   layer.querySelector(":scope > .uo-toast")?.remove();
@@ -40792,9 +40926,9 @@ var init_gallery = __esm({
 });
 
 // ../../../shared/ui/src/toolbar/items.ts
-function ripple(el15) {
-  if (customElements.get("u-ripple") && !el15.querySelector(":scope > u-ripple")) {
-    el15.appendChild(document.createElement("u-ripple"));
+function ripple(el16) {
+  if (customElements.get("u-ripple") && !el16.querySelector(":scope > u-ripple")) {
+    el16.appendChild(document.createElement("u-ripple"));
   }
 }
 function button(cls) {
@@ -41108,12 +41242,12 @@ function createCompactBar(container, cfg, ctx) {
   root.append(titlebar, row2);
   container.appendChild(root);
   const groups = cfg.groups.map((def) => {
-    const el15 = document.createElement("div");
-    el15.className = "uo-g";
-    el15.dataset["g"] = def.id;
+    const el16 = document.createElement("div");
+    el16.className = "uo-g";
+    el16.dataset["g"] = def.id;
     const items = (def.items ?? []).map((it) => renderItem(it, ctx));
-    for (const r6 of items) el15.appendChild(r6.el);
-    return { def, el: el15, items, width: 0, visible: true };
+    for (const r6 of items) el16.appendChild(r6.el);
+    return { def, el: el16, items, width: 0, visible: true };
   });
   const syncGroups = () => {
     let changed = false;
@@ -41257,11 +41391,11 @@ var init_compact = __esm({
 // ../../../shared/ui/src/toolbar/ribbon.ts
 function renderGroup(def, ctx) {
   const reg = ctx.registry;
-  const el15 = document.createElement("div");
-  el15.className = "uo-rgroup";
-  el15.dataset["g"] = def.id;
-  el15.setAttribute("role", "group");
-  el15.setAttribute("aria-label", reg.text(def.label));
+  const el16 = document.createElement("div");
+  el16.className = "uo-rgroup";
+  el16.dataset["g"] = def.id;
+  el16.setAttribute("role", "group");
+  el16.setAttribute("aria-label", reg.text(def.label));
   const body = document.createElement("div");
   body.className = "uo-rgroup-body";
   const items = [];
@@ -41313,8 +41447,8 @@ function renderGroup(def, ctx) {
       }
     });
   }
-  el15.append(body, foot);
-  return { def, el: el15, items, width: 0, visible: true };
+  el16.append(body, foot);
+  return { def, el: el16, items, width: 0, visible: true };
 }
 function createRibbon(container, cfg, ctx) {
   const reg = ctx.registry;
@@ -41706,18 +41840,18 @@ function openPane(o7) {
     return cur;
   }
   const lang = o7.lang ?? DEFAULT_UI_LANG;
-  const L11 = pickLabels(lang, LABELS3);
+  const L12 = pickLabels(lang, LABELS3);
   const txt2 = (l3) => typeof l3 === "string" ? l3 : pickLabels(lang, l3);
   const width = o7.width ?? 300;
   const height = o7.height ?? 220;
   const dock = o7.dock ?? "right";
-  const el15 = document.createElement("aside");
-  el15.className = "uo-pane";
-  el15.dataset["pane"] = o7.id;
-  el15.dataset["dock"] = dock;
-  el15.setAttribute("part", "pane");
-  el15.setAttribute("role", "complementary");
-  if (dock !== "bottom") el15.style.width = `${width}px`;
+  const el16 = document.createElement("aside");
+  el16.className = "uo-pane";
+  el16.dataset["pane"] = o7.id;
+  el16.dataset["dock"] = dock;
+  el16.setAttribute("part", "pane");
+  el16.setAttribute("role", "complementary");
+  if (dock !== "bottom") el16.style.width = `${width}px`;
   const head = document.createElement("div");
   head.className = "uo-pane-head";
   const title = document.createElement("span");
@@ -41727,40 +41861,40 @@ function openPane(o7) {
   x3.type = "button";
   x3.className = "uo-btn uo-pane-x";
   x3.dataset["a"] = `pane:${o7.id}:close`;
-  x3.title = L11.close;
-  x3.setAttribute("aria-label", L11.close);
+  x3.title = L12.close;
+  x3.setAttribute("aria-label", L12.close);
   x3.innerHTML = symbol("close");
   head.append(title, x3);
   const body = o7.body;
   body.classList.add("uo-pane-body");
-  el15.append(head, body);
+  el16.append(head, body);
   if (o7.footer) {
     o7.footer.classList.add("uo-pane-foot");
-    el15.appendChild(o7.footer);
+    el16.appendChild(o7.footer);
   }
-  el15.setAttribute("aria-label", txt2(o7.title));
-  o7.layer.appendChild(el15);
+  el16.setAttribute("aria-label", txt2(o7.title));
+  o7.layer.appendChild(el16);
   const place2 = () => {
     const r6 = o7.frame();
     const top = Math.max(0, r6.top), bottom = Math.min(r6.bottom, window.innerHeight);
     if (dock === "bottom") {
       const h3 = Math.min(height, Math.max(120, bottom - top));
-      el15.style.top = `${bottom - h3}px`;
-      el15.style.height = `${h3}px`;
-      el15.style.left = `${Math.max(0, r6.left)}px`;
-      el15.style.width = `${r6.width}px`;
+      el16.style.top = `${bottom - h3}px`;
+      el16.style.height = `${h3}px`;
+      el16.style.left = `${Math.max(0, r6.left)}px`;
+      el16.style.width = `${r6.width}px`;
       return;
     }
-    el15.style.top = `${top}px`;
-    el15.style.height = `${Math.max(120, bottom - top)}px`;
-    el15.style.left = `${Math.max(0, dock === "left" ? r6.left : r6.right - width)}px`;
+    el16.style.top = `${top}px`;
+    el16.style.height = `${Math.max(120, bottom - top)}px`;
+    el16.style.left = `${Math.max(0, dock === "left" ? r6.left : r6.right - width)}px`;
   };
   let open2 = true;
   const onWin = () => place2();
   window.addEventListener("resize", onWin);
   window.addEventListener("scroll", onWin, true);
   const handle = {
-    el: el15,
+    el: el16,
     body,
     get open() {
       return open2;
@@ -41768,7 +41902,7 @@ function openPane(o7) {
     place: place2,
     setTitle: (t6) => {
       title.textContent = txt2(t6);
-      el15.setAttribute("aria-label", txt2(t6));
+      el16.setAttribute("aria-label", txt2(t6));
     },
     close: () => {
       if (!open2) return;
@@ -41776,13 +41910,13 @@ function openPane(o7) {
       panes.delete(o7.id);
       window.removeEventListener("resize", onWin);
       window.removeEventListener("scroll", onWin, true);
-      el15.remove();
+      el16.remove();
       o7.onClose?.();
     }
   };
   x3.addEventListener("click", () => handle.close());
-  el15.addEventListener("keydown", (e8) => {
-    if (e8.key === "Escape" && e8.target === el15) handle.close();
+  el16.addEventListener("keydown", (e8) => {
+    if (e8.key === "Escape" && e8.target === el16) handle.close();
   });
   panes.set(o7.id, handle);
   place2();
@@ -41802,12 +41936,12 @@ var init_pane = __esm({
 // ../../../shared/ui/src/toolbar/ruler.ts
 function createRuler(opts) {
   const horiz = opts.orientation === "horizontal";
-  const L11 = pickLabels(opts.lang ?? DEFAULT_UI_LANG, LABELS4);
+  const L12 = pickLabels(opts.lang ?? DEFAULT_UI_LANG, LABELS4);
   const txt2 = (l3) => l3 === void 0 ? "" : typeof l3 === "string" ? l3 : pickLabels(opts.lang ?? DEFAULT_UI_LANG, l3);
-  const el15 = document.createElement("div");
-  el15.className = `uo-ruler uo-ruler-${horiz ? "h" : "v"}`;
-  el15.setAttribute("part", `ruler ruler-${horiz ? "h" : "v"}`);
-  el15.setAttribute("role", "presentation");
+  const el16 = document.createElement("div");
+  el16.className = `uo-ruler uo-ruler-${horiz ? "h" : "v"}`;
+  el16.setAttribute("part", `ruler ruler-${horiz ? "h" : "v"}`);
+  el16.setAttribute("role", "presentation");
   const canvas2 = document.createElement("canvas");
   canvas2.className = "uo-ruler-canvas";
   let selBtn = null;
@@ -41821,9 +41955,9 @@ function createRuler(opts) {
       selector = SELECTOR_ORDER[(SELECTOR_ORDER.indexOf(selector) + 1) % SELECTOR_ORDER.length];
       paintSelector();
     });
-    el15.appendChild(selBtn);
+    el16.appendChild(selBtn);
   }
-  el15.appendChild(canvas2);
+  el16.appendChild(canvas2);
   let model = null;
   let pending2;
   let drag = null;
@@ -41831,7 +41965,7 @@ function createRuler(opts) {
   let dpr = 1;
   const probe = document.createElement("span");
   probe.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden";
-  el15.appendChild(probe);
+  el16.appendChild(probe);
   const colors = () => {
     const v2 = (n5, d3) => {
       probe.style.color = `var(${n5}, ${d3})`;
@@ -41862,7 +41996,7 @@ function createRuler(opts) {
   };
   function paintSelector() {
     if (!selBtn) return;
-    selBtn.title = `${L11[selector]} \u2014 ${L11.selector}`;
+    selBtn.title = `${L12[selector]} \u2014 ${L12.selector}`;
     selBtn.setAttribute("aria-label", selBtn.title);
     const c5 = document.createElement("canvas");
     const s4 = 16, r6 = window.devicePixelRatio || 1;
@@ -42122,7 +42256,7 @@ function createRuler(opts) {
     const st = rulerStep(model.unit);
     return Math.round(model.zero + Math.round((tw3 - model.zero) / st) * st);
   };
-  const clamp = (m2, v2) => Math.max(m2.min ?? -Infinity, Math.min(m2.max ?? Infinity, v2));
+  const clamp2 = (m2, v2) => Math.max(m2.min ?? -Infinity, Math.min(m2.max ?? Infinity, v2));
   canvas2.addEventListener("pointerdown", (e8) => {
     if (e8.button !== 0 || !model || model.readOnly) return;
     e8.preventDefault();
@@ -42148,7 +42282,7 @@ function createRuler(opts) {
       if (g2) base.set(id, g2.pos);
     }
     const startPos = provisional ? m2.pos : m2.pos;
-    drag = { m: m2, start: startPos, pos: provisional || m2.kind === "first-line" || m2.kind === "hanging" ? clamp(m2, snap(tw3, e8.altKey)) : m2.pos, off: false, moved: !!provisional, base, provisional };
+    drag = { m: m2, start: startPos, pos: provisional || m2.kind === "first-line" || m2.kind === "hanging" ? clamp2(m2, snap(tw3, e8.altKey)) : m2.pos, off: false, moved: !!provisional, base, provisional };
     if (!provisional && (m2.kind === "first-line" || m2.kind === "hanging") && Math.abs(drag.pos - m2.pos) > 1) drag.moved = true;
     canvas2.setPointerCapture(e8.pointerId);
     opts.onDrag?.(m2, drag.pos);
@@ -42157,7 +42291,7 @@ function createRuler(opts) {
   canvas2.addEventListener("pointermove", (e8) => {
     if (!drag || !model) return;
     const { a: a3, c: c5 } = axis(e8);
-    const v2 = clamp(drag.m, snap(toTw(a3), e8.altKey));
+    const v2 = clamp2(drag.m, snap(toTw(a3), e8.altKey));
     drag.off = !!drag.m.removable && (c5 < -OFF || c5 > thick() + OFF);
     if (v2 !== drag.pos) drag.moved = true;
     drag.pos = v2;
@@ -42170,7 +42304,7 @@ function createRuler(opts) {
     if (pending2 !== void 0) {
       model = pending2;
       pending2 = void 0;
-      el15.hidden = !model;
+      el16.hidden = !model;
     }
     if (!d3) return;
     try {
@@ -42212,7 +42346,7 @@ function createRuler(opts) {
   ro?.observe(canvas2);
   paintSelector();
   return {
-    el: el15,
+    el: el16,
     get selector() {
       return selector;
     },
@@ -42222,12 +42356,12 @@ function createRuler(opts) {
         return;
       }
       model = m2;
-      el15.hidden = !m2;
+      el16.hidden = !m2;
       paint();
     },
     destroy() {
       ro?.disconnect();
-      el15.remove();
+      el16.remove();
     }
   };
 }
@@ -42376,6 +42510,28 @@ var init_css = __esm({
   border: 1px solid ${OUTLINE_VAR}; border-radius: 6px; background: ${LOWEST}; color: ${ON}; flex: none;
 }
 .uo-num:focus { outline: none; border-color: ${PRIMARY}; }
+/* caixa num\xE9rica com setas (spin.ts): r\xF3tulo, caixa e as duas setas empilhadas */
+.uo-spin { display: inline-flex; align-items: center; gap: 6px; height: 28px; font-size: 13px; color: ${ON}; white-space: nowrap; }
+.uo-spin-lbl { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: ${ON}; cursor: default; }
+.uo-spin-lbl .uo-ic { width: 18px; height: 18px; color: ${ON_VAR}; }
+.uo-spin-box {
+  display: inline-flex; align-items: stretch; height: 24px; border: 1px solid ${OUTLINE_VAR}; border-radius: 6px;
+  background: ${LOWEST}; overflow: hidden; margin-left: auto;
+}
+.uo-spin-box:focus-within { border-color: ${PRIMARY}; }
+.uo-spin-in { width: 64px; min-width: 0; border: 0; padding: 0 4px 0 8px; font: inherit; font-size: 13px; background: transparent; color: ${ON}; outline: none; }
+.uo-spin-in[aria-invalid=true] { color: var(--u-color-error, #ba1a1a); }
+.uo-spin-arrows { display: flex; flex-direction: column; border-left: 1px solid ${OUTLINE_VAR}; }
+.uo-spin-arrow {
+  flex: 1 1 0; width: 18px; display: flex; align-items: center; justify-content: center; padding: 0;
+  border: 0; background: transparent; color: ${ON_VAR}; cursor: pointer; overflow: hidden;
+}
+.uo-spin-arrow .uo-ic { width: 18px; height: 18px; margin: -4px 0; }
+.uo-spin-arrow:hover { background: ${HIGHEST}; color: ${ON}; }
+.uo-spin-arrow:disabled, .uo-spin.uo-off .uo-spin-in { opacity: .38; cursor: default; }
+.uo-caption { display: inline-flex; align-items: center; height: 24px; font-size: 12px; color: ${ON_VAR}; padding: 0 2px; }
+/* na coluna da ribbon as caixas se alinham \xE0 direita (r\xF3tulos de larguras diferentes) */
+.uo-rrow > .uo-spin { flex: 1 1 auto; padding: 0 4px; }
 .uo-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: ${ON_VAR}; }
 .uo-field input, .uo-field textarea, .uo-field select, .uo-dialog input[type=text], .uo-dialog input[type=number], .uo-dialog select {
   height: 38px; border: 1px solid ${OUTLINE}; border-radius: 8px; padding: 0 12px;
@@ -42604,6 +42760,198 @@ var init_css = __esm({
   }
 });
 
+// ../../../shared/ui/src/toolbar/spin.ts
+function parseMeasure(text, unit) {
+  const m2 = /^\s*([+-]?\d*[.,]?\d+)\s*(.*?)\s*$/.exec(text);
+  if (!m2) return null;
+  const n5 = parseFloat(m2[1].replace(",", "."));
+  if (!Number.isFinite(n5)) return null;
+  let u3 = unit;
+  if (m2[2]) {
+    const s4 = SUFFIX.find(([re]) => re.test(m2[2]));
+    if (!s4) return null;
+    u3 = s4[1];
+  }
+  return Math.round(n5 * PER[u3]);
+}
+function formatMeasure(twips, unit, lang) {
+  const v2 = Math.round(twips / PER[unit] * 100) / 100;
+  const n5 = v2.toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2, useGrouping: false });
+  return unit === "in" ? `${n5}"` : `${n5} ${unit}`;
+}
+function spinField(cfg) {
+  return {
+    widget: (ctx) => {
+      const lang = ctx.lang;
+      const unit = typeof cfg.unit === "function" ? cfg.unit(lang) : cfg.unit;
+      const step = typeof cfg.step === "function" ? cfg.step(lang) : cfg.step;
+      const text = (l3) => l3 === void 0 ? "" : ctx.registry.text(l3);
+      const wrap = document.createElement("span");
+      wrap.className = "uo-spin";
+      wrap.dataset["a"] = cfg.id;
+      const label = document.createElement("label");
+      label.className = "uo-spin-lbl";
+      label.innerHTML = (cfg.icon ? symbol(cfg.icon) : "") + `<span>${esc10(text(cfg.label))}</span>`;
+      const box = document.createElement("span");
+      box.className = "uo-spin-box";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "uo-spin-in";
+      input.inputMode = "decimal";
+      input.spellcheck = false;
+      input.autocomplete = "off";
+      if (cfg.width) input.style.width = `${cfg.width}px`;
+      const tip = text(cfg.tip ?? cfg.label);
+      input.title = tip;
+      input.setAttribute("aria-label", tip);
+      input.setAttribute("role", "spinbutton");
+      const id = `uo-spin-${cfg.id.replace(/\W/g, "-")}-${Math.random().toString(36).slice(2, 8)}`;
+      input.id = id;
+      label.htmlFor = id;
+      const arrows = document.createElement("span");
+      arrows.className = "uo-spin-arrows";
+      const arrow = (dir) => {
+        const b5 = document.createElement("button");
+        b5.type = "button";
+        b5.className = "uo-spin-arrow";
+        b5.tabIndex = -1;
+        b5.innerHTML = symbol(dir > 0 ? "arrow_drop_up" : "arrow_drop_down");
+        b5.setAttribute("aria-label", `${tip} ${dir > 0 ? "+" : "\u2212"}`);
+        b5.addEventListener("mousedown", (e8) => e8.preventDefault());
+        b5.addEventListener("click", () => {
+          bump(dir);
+          ctx.after();
+        });
+        ripple(b5);
+        return b5;
+      };
+      arrows.append(arrow(1), arrow(-1));
+      box.append(input, arrows);
+      wrap.append(label, box);
+      const show = (v2) => v2 === null ? "" : v2 === "auto" ? AUTO2[lang] : formatMeasure(v2, unit, lang);
+      let shown = "";
+      const sync = () => {
+        if (document.activeElement === input || input.getRootNode().activeElement === input) return;
+        shown = show(cfg.get());
+        input.value = shown;
+        const v2 = cfg.get();
+        if (typeof v2 === "number") input.setAttribute("aria-valuenow", String(v2));
+        else input.removeAttribute("aria-valuenow");
+      };
+      const clamp2 = (v2) => Math.min(cfg.max, Math.max(cfg.min, v2));
+      const bump = (dir) => {
+        if (input.disabled) return;
+        const cur = cfg.get();
+        let next;
+        if (cur === "auto") {
+          if (dir < 0) return;
+          next = cfg.min;
+        } else {
+          const base = cur ?? 0;
+          const snapped = dir > 0 ? Math.floor(base / step + 1e-9) * step + step : Math.ceil(base / step - 1e-9) * step - step;
+          if (snapped < cfg.min && cfg.auto && dir < 0) next = "auto";
+          else next = clamp2(snapped);
+        }
+        if (next === cur) return;
+        cfg.set(next);
+        shown = show(next);
+        input.value = shown;
+      };
+      const commit = () => {
+        const s4 = input.value.trim();
+        if (s4 === shown) return true;
+        if (cfg.auto && s4.toLowerCase() === AUTO2[lang].toLowerCase()) {
+          cfg.set("auto");
+          return true;
+        }
+        const v2 = parseMeasure(s4, unit);
+        if (v2 === null) {
+          input.setAttribute("aria-invalid", "true");
+          input.value = shown;
+          return false;
+        }
+        input.removeAttribute("aria-invalid");
+        cfg.set(clamp2(v2));
+        return true;
+      };
+      input.addEventListener("focus", () => input.select());
+      input.addEventListener("keydown", (e8) => {
+        if (e8.key === "Enter") {
+          e8.preventDefault();
+          commit();
+          input.blur();
+          ctx.after();
+        } else if (e8.key === "Escape") {
+          e8.preventDefault();
+          input.value = shown;
+          input.blur();
+          ctx.after();
+        } else if (e8.key === "ArrowUp" || e8.key === "ArrowDown") {
+          e8.preventDefault();
+          if (input.value.trim() !== shown) commit();
+          bump(e8.key === "ArrowUp" ? 1 : -1);
+          input.select();
+        }
+      });
+      input.addEventListener("wheel", (e8) => {
+        if (document.activeElement !== input && input.getRootNode().activeElement !== input) return;
+        e8.preventDefault();
+        bump(e8.deltaY < 0 ? 1 : -1);
+        input.select();
+      }, { passive: false });
+      input.addEventListener("blur", () => {
+        if (input.value.trim() !== shown) commit();
+        queueMicrotask(sync);
+      });
+      const visible = () => {
+        try {
+          return cfg.supports?.() ?? true;
+        } catch {
+          return false;
+        }
+      };
+      return {
+        el: wrap,
+        visible,
+        sync: () => {
+          const off = cfg.isEnabled ? !cfg.isEnabled() : false;
+          input.disabled = off;
+          for (const b5 of arrows.querySelectorAll("button")) b5.disabled = off;
+          wrap.classList.toggle("uo-off", off);
+          sync();
+        }
+      };
+    }
+  };
+}
+function barCaption(text, id) {
+  return {
+    widget: (ctx) => {
+      const s4 = document.createElement("span");
+      s4.className = "uo-caption";
+      if (id) s4.dataset["a"] = id;
+      s4.textContent = ctx.registry.text(text);
+      return { el: s4 };
+    }
+  };
+}
+var PER, SUFFIX, AUTO2;
+var init_spin = __esm({
+  "../../../shared/ui/src/toolbar/spin.ts"() {
+    "use strict";
+    init_icons();
+    init_items();
+    PER = { cm: 1440 / 2.54, mm: 144 / 2.54, in: 1440, pt: 20 };
+    SUFFIX = [
+      [/^(cm|cent[ií]metros?)$/i, "cm"],
+      [/^(mm|mil[ií]metros?)$/i, "mm"],
+      [/^("|''|in|inch(es)?|pol(egadas?)?|pol\.)$/i, "in"],
+      [/^(pt|pts|pontos?|points?)$/i, "pt"]
+    ];
+    AUTO2 = { en: "Auto", pt: "Autom\xE1tico" };
+  }
+});
+
 // ../../../shared/ui/src/toolbar/index.ts
 var init_toolbar = __esm({
   "../../../shared/ui/src/toolbar/index.ts"() {
@@ -42622,6 +42970,7 @@ var init_toolbar = __esm({
     init_pane();
     init_ruler();
     init_css();
+    init_spin();
   }
 });
 
@@ -42633,6 +42982,98 @@ var init_src5 = __esm({
     init_viewer_controls();
     init_font_embedding_dialog();
     init_toolbar();
+  }
+});
+
+// src/text-layout.ts
+function lineNumberingInfo(sp2) {
+  const ln2 = sp2.lnNumType;
+  const on = lineNumberingOn(ln2);
+  return {
+    mode: !on ? "none" : ln2.restart === "continuous" ? "continuous" : ln2.restart === "newSection" ? "section" : "page",
+    startAt: (ln2?.start ?? 0) + 1,
+    countBy: on ? ln2.countBy : 1,
+    distanceTwips: ln2?.distance ?? 0
+  };
+}
+function withLineNumberMode(sp2, mode, memory) {
+  if (mode === "none") return void 0;
+  const cur = lineNumberingOn(sp2.lnNumType) ? sp2.lnNumType : void 0;
+  const out = cur ? { ...cur } : {
+    countBy: 1,
+    ...memory?.start ? { start: memory.start } : {},
+    ...memory?.distance ? { distance: memory.distance } : {}
+  };
+  delete out.restart;
+  if (mode === "continuous") out.restart = "continuous";
+  else if (mode === "section") out.restart = "newSection";
+  return out;
+}
+function lineNumberingFromOptions(o7) {
+  if (!o7.on) return void 0;
+  const start = clamp(o7.startAt, LINE_NUMBER_LIMITS.startAt) - 1;
+  const distance = clamp(o7.distanceTwips, LINE_NUMBER_LIMITS.distanceTwips);
+  return {
+    countBy: clamp(o7.countBy, LINE_NUMBER_LIMITS.countBy),
+    ...start ? { start } : {},
+    ...distance ? { distance } : {},
+    ...o7.restart === "continuous" ? { restart: "continuous" } : o7.restart === "section" ? { restart: "newSection" } : {}
+  };
+}
+function flowValue(ppr, k2) {
+  return k2 === "widowControl" ? ppr.widowControl !== false : !!ppr[k2];
+}
+function spacingDirect(inherited, want, side) {
+  const tw3 = side === "before" ? "spaceBeforeTwips" : "spaceAfterTwips";
+  const au = side === "before" ? "spaceBeforeAuto" : "spaceAfterAuto";
+  if (want === "auto") return { [au]: inherited.auto ? void 0 : true };
+  const v2 = clamp(want, PARAGRAPH_LAYOUT_LIMITS.spacing);
+  return { [au]: inherited.auto ? false : void 0, [tw3]: !inherited.auto && v2 === inherited.twips ? void 0 : v2 };
+}
+function common(vals) {
+  if (!vals.length) return null;
+  const k2 = JSON.stringify(vals[0]);
+  return vals.every((v2) => JSON.stringify(v2) === k2) ? vals[0] : null;
+}
+function wordAround(text, at) {
+  const isW = (c5) => c5 !== void 0 && (LETTER2.test(c5) || c5 === "\xAD");
+  let a3 = Math.min(at, text.length), b5 = a3;
+  while (a3 > 0 && isW(text[a3 - 1])) a3--;
+  while (b5 < text.length && isW(text[b5])) b5++;
+  return [a3, b5];
+}
+function manualPoints(raw, patternPoints) {
+  const word = raw.replace(/\u00AD/g, "");
+  const shy = [];
+  let n5 = 0;
+  for (const c5 of raw) {
+    if (c5 === "\xAD") shy.push(n5);
+    else n5++;
+  }
+  const points = [.../* @__PURE__ */ new Set([...patternPoints, ...shy])].filter((p3) => p3 > 0 && p3 < word.length).sort((x3, y3) => x3 - y3);
+  return { word, points };
+}
+function offsetAfterLetters(raw, start, letters2) {
+  let n5 = 0;
+  for (let i7 = 0; i7 < raw.length; i7++) {
+    if (raw[i7] === "\xAD") continue;
+    if (n5 === letters2) return start + i7;
+    n5++;
+  }
+  return start + raw.length;
+}
+var LINE_NUMBER_LIMITS, clamp, lineNumberingOn, FLOW_FLAGS2, flowDirect, PARAGRAPH_LAYOUT_LIMITS, HYPHENATION_LIMITS, LETTER2;
+var init_text_layout = __esm({
+  "src/text-layout.ts"() {
+    "use strict";
+    LINE_NUMBER_LIMITS = { startAt: [1, 32767], countBy: [1, 100], distanceTwips: [0, 31680] };
+    clamp = (v2, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(v2)));
+    lineNumberingOn = (ln2) => !!ln2 && (ln2.countBy ?? 0) >= 1;
+    FLOW_FLAGS2 = ["widowControl", "keepNext", "keepLines", "pageBreakBefore", "suppressLineNumbers", "suppressAutoHyphens"];
+    flowDirect = (inherited, want) => want === inherited ? void 0 : want;
+    PARAGRAPH_LAYOUT_LIMITS = { indent: [-31680, 31680], spacing: [0, 31680] };
+    HYPHENATION_LIMITS = { limit: [0, 32767], zoneTwips: [1, 31680] };
+    LETTER2 = /^[\p{L}\p{M}]$/u;
   }
 });
 
@@ -43590,8 +44031,8 @@ var init_ripple = __esm({
 });
 
 // src/chrome-host.ts
-function hostOf(el15) {
-  return el15.host ?? null;
+function hostOf(el16) {
+  return el16.host ?? null;
 }
 function bindHostFonts(host) {
   if (!host?.listFonts || !host.resolveFonts) return;
@@ -47165,8 +47606,8 @@ var init_chrome_theme = __esm({
 });
 
 // src/chrome-store.ts
-function instanceStore(el15) {
-  const key = () => el15.getAttribute("storage-key") || el15.id || null;
+function instanceStore(el16) {
+  const key = () => el16.getAttribute("storage-key") || el16.id || null;
   return {
     get: (name) => {
       const k2 = key();
@@ -47504,7 +47945,7 @@ var init_chrome_app = __esm({
       /** Salva; true = gravado (cancelado/falhou: false, segue pendente). */
       async save(saveAs) {
         if (this.requestFromHost("save", { saveAs, format: this.format })) return true;
-        const L11 = this.ui?.L;
+        const L12 = this.ui?.L;
         let fmt2 = this.format;
         const host = hostOf(this.ed);
         const seq = this.changeSeq;
@@ -47524,7 +47965,7 @@ var init_chrome_app = __esm({
             this.setTitle(name);
             this.setDirty(this.changeSeq !== seq);
             this.lastAutosave = Date.now();
-            if (L11) this.ui?.flash(L11.saved(fmt2) + this.takeFontNote());
+            if (L12) this.ui?.flash(L12.saved(fmt2) + this.takeFontNote());
             return true;
           } catch {
             return false;
@@ -47559,7 +48000,7 @@ var init_chrome_app = __esm({
             }
             this.setDirty(this.changeSeq !== seq);
             this.lastAutosave = Date.now();
-            if (L11) this.ui?.flash(L11.saved(fmt2) + this.takeFontNote());
+            if (L12) this.ui?.flash(L12.saved(fmt2) + this.takeFontNote());
             return true;
           } catch {
             return false;
@@ -47577,8 +48018,8 @@ var init_chrome_app = __esm({
       set autosaveMinutes(n5) {
         this.autosaveSession = String(n5);
         this.prefs.set("autosave", String(n5));
-        const L11 = this.ui?.L;
-        if (L11) this.ui?.flash(n5 <= 0 ? L11.autosaveOff : L11.autosaveEvery(String(n5)));
+        const L12 = this.ui?.L;
+        if (L12) this.ui?.flash(n5 <= 0 ? L12.autosaveOff : L12.autosaveEvery(String(n5)));
       }
       /** Salvamento automático (AutoRecuperação do Word: 10 min por padrão). */
       autosaveSession = null;
@@ -47666,16 +48107,16 @@ var init_chrome_app = __esm({
       async askUpdateFields() {
         const ui = this.ui;
         if (!ui) return;
-        const L11 = ui.L;
+        const L12 = ui.L;
         const r6 = await openDialog({
-          title: L11.fieldsTitle,
+          title: L12.fieldsTitle,
           icon: "gpp_maybe",
-          body: L11.fieldsText,
+          body: L12.fieldsText,
           layer: ui.layer,
           lang: this.lang,
-          actions: [{ id: "no", label: L11.notNow }, { id: "update", label: L11.updateFields, primary: true }]
+          actions: [{ id: "no", label: L12.notNow }, { id: "update", label: L12.updateFields, primary: true }]
         }).result;
-        if (r6 === "update") ui.flash(this.ed.updateToc() ? L11.fieldsUpdated : L11.noFields);
+        if (r6 === "update") ui.flash(this.ed.updateToc() ? L12.fieldsUpdated : L12.noFields);
         this.ed.focusEditor();
       }
       get lang() {
@@ -47683,14 +48124,14 @@ var init_chrome_app = __esm({
       }
       // ───── comparar ─────
       async pickForCompare() {
-        const L11 = this.ui?.L;
+        const L12 = this.ui?.L;
         const host = hostOf(this.ed);
         if (host?.openFileForCompare || host?.openFile) {
           try {
-            const r6 = host.openFileForCompare ? await host.openFileForCompare(L11?.compareWith ?? "Compare with\u2026") : await host.openFile();
+            const r6 = host.openFileForCompare ? await host.openFileForCompare(L12?.compareWith ?? "Compare with\u2026") : await host.openFile();
             return r6 ? { name: r6.name, bytes: r6.bytes instanceof Uint8Array ? r6.bytes : new Uint8Array(r6.bytes) } : null;
           } catch {
-            if (L11) this.ui?.flash(`\u26A0 ${L11.readFailed}`);
+            if (L12) this.ui?.flash(`\u26A0 ${L12.readFailed}`);
             return null;
           }
         }
@@ -51075,6 +51516,343 @@ var init_chrome_toc = __esm({
   }
 });
 
+// src/chrome-textlayout.ts
+function registerTextLayoutCommands(reg, ed, app, ctl) {
+  const api = ed;
+  const has = (m2) => () => typeof api[m2] === "function";
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit3() && c5.isEnabled() : canEdit3 });
+  const auto = () => has("getHyphenation")() ? ed.getHyphenation().auto : false;
+  const lnMode = () => {
+    const i7 = has("getLineNumbering")() ? ed.getLineNumbering() : null;
+    return !i7 || i7.mixed ? null : i7.mode;
+  };
+  const ln2 = (id, label) => edit({ id: `ln:${id}`, label, supports: has("setLineNumbering"), isChecked: () => lnMode() === id, run: () => ed.setLineNumbering(id) });
+  reg.add(
+    edit({ id: "hyph:none", label: L8("None", "Nenhuma"), tip: L8("Turn off automatic hyphenation", "Desativa a hifeniza\xE7\xE3o autom\xE1tica"), supports: has("setHyphenation"), isChecked: () => !auto(), run: () => ed.setHyphenation("none") }),
+    edit({ id: "hyph:auto", label: L8("Automatic", "Autom\xE1tico"), tip: L8("Turn on automatic hyphenation", "Ativa a hifeniza\xE7\xE3o autom\xE1tica"), supports: has("setHyphenation"), isChecked: auto, run: () => ed.setHyphenation("auto") }),
+    edit({ id: "hyph:manual", label: L8("Manual", "Manual"), tip: L8("Manual hyphenation", "Hifeniza\xE7\xE3o manual"), supports: has("nextManualHyphenation"), run: () => ctl.textLayoutDialog("manualHyphenation") }),
+    edit({ id: "dlg:hyphenation", label: L8("Hyphenation Options\u2026", "Op\xE7\xF5es de Hifeniza\xE7\xE3o\u2026"), icon: "settings", supports: has("setHyphenationOptions"), run: () => ctl.textLayoutDialog("hyphenation") }),
+    ln2("none", L8("None", "Nenhum")),
+    ln2("continuous", L8("Continuous", "Cont\xEDnuo")),
+    ln2("page", L8("Restart Each Page", "Reiniciar Cada P\xE1gina")),
+    ln2("section", L8("Restart Each Section", "Reiniciar Cada Se\xE7\xE3o")),
+    edit({ id: "ln:suppress", label: L8("Suppress for Current Paragraph", "Suprimir no Par\xE1grafo Atual"), supports: has("toggleLineNumberSuppression"), isChecked: () => ed.lineNumbersSuppressed(), run: () => ed.toggleLineNumberSuppression() }),
+    edit({ id: "dlg:lineNumbers", label: L8("Line Numbering Options\u2026", "Op\xE7\xF5es de Numera\xE7\xE3o de Linhas\u2026"), icon: "settings", supports: has("setPageSetup"), run: () => ctl.pageDialog("layout") }),
+    // hífens (Inserir › Símbolo › Caracteres Especiais no Word; aqui só pelos atalhos)
+    edit({ id: "hyphen:optional", label: L8("Optional Hyphen", "H\xEDfen Opcional"), shortcut: "Ctrl+-", supports: has("pasteText"), run: () => ed.pasteText("\xAD") }),
+    edit({ id: "hyphen:nonBreaking", label: L8("Nonbreaking Hyphen", "H\xEDfen Incondicional"), shortcut: "Ctrl+Shift+-", supports: has("pasteText"), run: () => ed.pasteText("\u2011") })
+  );
+}
+function paragraphLayoutCells(env) {
+  const ed = env.ed;
+  const has = () => typeof ed["setParagraphLayout"] === "function";
+  const editable = () => !env.app.comparing && !ed.isProtected() && !!ed.getParagraphLayout();
+  const cur = (k2) => () => ed.getParagraphLayout()?.[k2] ?? null;
+  const [imin, imax] = PARAGRAPH_LAYOUT_LIMITS.indent;
+  const [smin, smax] = PARAGRAPH_LAYOUT_LIMITS.spacing;
+  return [
+    { rows: [
+      [barCaption(L8("Indent", "Recuar"), "indent:caption")],
+      [spinField({
+        id: "indent:left",
+        label: L8("Left:", "\xC0 Esquerda:"),
+        tip: L8("Indent Left", "Recuar \xE0 Esquerda"),
+        icon: "format_indent_increase",
+        unit: indentUnit,
+        step: indentStep,
+        min: imin,
+        max: imax,
+        supports: has,
+        isEnabled: editable,
+        get: cur("left"),
+        set: (v2) => {
+          if (v2 !== "auto") ed.setParagraphLayout({ left: v2 });
+        }
+      })],
+      [spinField({
+        id: "indent:right",
+        label: L8("Right:", "\xC0 Direita:"),
+        tip: L8("Indent Right", "Recuar \xE0 Direita"),
+        icon: "format_indent_decrease",
+        unit: indentUnit,
+        step: indentStep,
+        min: imin,
+        max: imax,
+        supports: has,
+        isEnabled: editable,
+        get: cur("right"),
+        set: (v2) => {
+          if (v2 !== "auto") ed.setParagraphLayout({ right: v2 });
+        }
+      })]
+    ] },
+    { rows: [
+      [barCaption(L8("Spacing", "Espa\xE7amento"), "spacing:caption")],
+      [spinField({
+        id: "spacing:before",
+        label: L8("Before:", "Antes:"),
+        tip: L8("Spacing Before", "Espa\xE7amento Antes"),
+        icon: "vertical_align_top",
+        unit: "pt",
+        step: 120,
+        min: smin,
+        max: smax,
+        auto: true,
+        supports: has,
+        isEnabled: editable,
+        get: cur("before"),
+        set: (v2) => ed.setParagraphLayout({ before: v2 })
+      })],
+      [spinField({
+        id: "spacing:after",
+        label: L8("After:", "Depois:"),
+        tip: L8("Spacing After", "Espa\xE7amento Depois"),
+        icon: "vertical_align_bottom",
+        unit: "pt",
+        step: 120,
+        min: smin,
+        max: smax,
+        auto: true,
+        supports: has,
+        isEnabled: editable,
+        get: cur("after"),
+        set: (v2) => ed.setParagraphLayout({ after: v2 })
+      })]
+    ] }
+  ];
+}
+function languageName(tag2, lang) {
+  try {
+    const n5 = new Intl.DisplayNames([lang === "pt" ? "pt-BR" : "en"], { type: "language" }).of(tag2) ?? tag2;
+    return n5.charAt(0).toLocaleUpperCase() + n5.slice(1);
+  } catch {
+    return tag2;
+  }
+}
+async function hyphenationDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const h3 = ed.getHyphenation();
+  const unit = indentUnit(lang);
+  const noLimit = tr4(lang, "No limit", "Sem limite");
+  const [autoL, autoI] = check4("auto", tr4(lang, "Automatically hyphenate document", "Hifenizar documento automaticamente"), h3.auto);
+  const [capsL, capsI] = check4("caps", tr4(lang, "Hyphenate words in CAPS", "Hifenizar palavras em MAI\xDASCULAS"), h3.caps);
+  const zone = el7("input", { type: "text", name: "zone", inputMode: "decimal", value: formatMeasure(h3.zoneTwips, unit, lang), style: "width:120px" });
+  const limit = el7("input", { type: "text", name: "limit", inputMode: "numeric", value: h3.limit ? String(h3.limit) : noLimit, style: "width:120px" });
+  limit.addEventListener("focus", () => limit.select());
+  zone.addEventListener("focus", () => zone.select());
+  const grid2 = el7(
+    "div",
+    { className: "uo-dialog-grid" },
+    el7("span", {}, tr4(lang, "Hyphenation zone:", "Zona de hifeniza\xE7\xE3o:")),
+    zone,
+    el7("span", {}, tr4(lang, "Limit consecutive hyphens to:", "Limitar hifens consecutivos a:")),
+    limit
+  );
+  const body = el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, autoL, capsL, grid2);
+  const dlg = openDialog({
+    title: tr4(lang, "Hyphenation", "Hifeniza\xE7\xE3o"),
+    icon: "horizontal_rule",
+    body,
+    layer: env.layer,
+    lang,
+    width: 420,
+    actions: [{ id: "manual", label: L8("Manual\u2026", "Manual\u2026") }, { id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  const res = await dlg.result;
+  if (res !== "ok" && res !== "manual") return;
+  const z2 = parseMeasure(zone.value, unit);
+  const ls2 = limit.value.trim();
+  const lv = ls2 === "" || ls2.toLowerCase() === noLimit.toLowerCase() ? 0 : parseInt(ls2, 10);
+  ed.setHyphenationOptions({
+    auto: autoI.checked,
+    caps: capsI.checked,
+    ...z2 !== null && z2 !== h3.zoneTwips ? { zoneTwips: Math.min(HYPHENATION_LIMITS.zoneTwips[1], Math.max(HYPHENATION_LIMITS.zoneTwips[0], z2)) } : {},
+    ...Number.isFinite(lv) ? { limit: lv } : {}
+  });
+  if (res === "manual") await manualHyphenationDialog(env);
+}
+async function manualHyphenationDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const done = tr4(lang, "Hyphenation is complete.", "A hifeniza\xE7\xE3o foi conclu\xEDda.");
+  let cur = await ed.nextManualHyphenation();
+  if (!cur) {
+    ed.endManualHyphenation();
+    env.app.ui.flash(done);
+    return;
+  }
+  let pick = cur.suggested;
+  const wordEl = el7("div", { className: "uw-hyph-word", style: "font-size:20px;letter-spacing:.5px;padding:8px 10px;border:1px solid var(--u-color-outline-variant,#c4c6d0);border-radius:8px;font-family:inherit;user-select:none" });
+  wordEl.setAttribute("role", "listbox");
+  wordEl.tabIndex = 0;
+  const hint = el7("div", { style: "font-size:12px;opacity:.75;margin-top:6px" }, tr4(lang, "Click a hyphen (or use \u2190 \u2192) to choose where the word breaks.", "Clique num h\xEDfen (ou use \u2190 \u2192) para escolher onde a palavra quebra."));
+  const label = el7("div", { style: "margin-bottom:6px" }, tr4(lang, "Hyphenate at:", "Hifenizar em:"));
+  const render = () => {
+    const m2 = cur;
+    const kids = [];
+    let k2 = 0;
+    for (const ch of m2.word) {
+      kids.push(document.createTextNode(ch));
+      k2++;
+      if (!m2.points.includes(k2)) continue;
+      const on = k2 === pick;
+      const beyond = k2 > m2.limit;
+      const b5 = el7("span", { className: "uw-hyph-pt", textContent: "-", style: `cursor:${beyond ? "default" : "pointer"};padding:0 1px;border-radius:3px;${on ? "background:var(--u-color-primary,#005bc0);color:var(--u-color-on-primary,#fff);" : ""}${beyond ? "opacity:.4;" : ""}` });
+      b5.setAttribute("role", "option");
+      b5.setAttribute("aria-selected", String(on));
+      const at = k2;
+      if (!beyond) b5.addEventListener("click", () => {
+        pick = at;
+        render();
+      });
+      kids.push(b5);
+      if (k2 === m2.limit) kids.push(el7("span", { textContent: "|", style: "opacity:.6;margin:0 1px" }));
+    }
+    wordEl.replaceChildren(...kids);
+  };
+  wordEl.addEventListener("keydown", (e8) => {
+    const m2 = cur;
+    if (!m2) return;
+    const ok = m2.points.filter((p3) => p3 <= m2.limit);
+    const i7 = ok.indexOf(pick);
+    if (e8.key === "ArrowLeft" && i7 > 0) {
+      pick = ok[i7 - 1];
+      render();
+      e8.preventDefault();
+    }
+    if (e8.key === "ArrowRight" && i7 >= 0 && i7 < ok.length - 1) {
+      pick = ok[i7 + 1];
+      render();
+      e8.preventDefault();
+    }
+  });
+  render();
+  const title = (m2) => `${tr4(lang, "Manual Hyphenation", "Hifeniza\xE7\xE3o Manual")}: ${languageName(m2.lang, lang)}`;
+  let busy = false;
+  const step = async (id) => {
+    if (!cur || busy) return;
+    busy = true;
+    try {
+      if (id === "cancel") {
+        ed.endManualHyphenation();
+        dlg.close();
+        return;
+      }
+      if (id === "yes") ed.applyManualHyphenation(pick);
+      else ed.skipManualHyphenation();
+      cur = await ed.nextManualHyphenation();
+      if (!cur) {
+        ed.endManualHyphenation();
+        dlg.close();
+        env.app.ui.flash(done);
+        return;
+      }
+      pick = cur.suggested;
+      dlg.setTitle(title(cur));
+      render();
+    } finally {
+      busy = false;
+    }
+  };
+  const dlg = openDialog({
+    title: title(cur),
+    icon: "horizontal_rule",
+    body: el7("div", {}, label, wordEl, hint),
+    layer: env.layer,
+    lang,
+    width: 480,
+    actions: [{ id: "yes", label: L8("Yes", "Sim"), primary: true }, { id: "no", label: L8("No", "N\xE3o") }, { id: "cancel", label: env.app.ui.L.cancel }],
+    onAction: (id) => {
+      void step(id);
+      return false;
+    }
+  });
+  setTimeout(() => wordEl.focus(), 0);
+  await dlg.result;
+  ed.endManualHyphenation();
+}
+async function lineNumbersDialog(env, cur) {
+  const lang = env.lang;
+  const unit = indentUnit(lang);
+  const autoTxt = tr4(lang, "Auto", "Autom\xE1tico");
+  const [onL, onI] = check4("on", tr4(lang, "Add line numbering", "Adicionar numera\xE7\xE3o de linha"), cur.on);
+  const num3 = (name, v2, [lo, hi]) => el7("input", { type: "number", name, value: String(v2), min: String(lo), max: String(hi), step: "1", style: "width:110px" });
+  const start = num3("start", cur.startAt, LINE_NUMBER_LIMITS.startAt);
+  const count = num3("count", cur.countBy, LINE_NUMBER_LIMITS.countBy);
+  const dist = el7("input", { type: "text", name: "distance", inputMode: "decimal", value: cur.distanceTwips ? formatMeasure(cur.distanceTwips, unit, lang) : autoTxt, style: "width:110px" });
+  dist.addEventListener("focus", () => dist.select());
+  const restart = el7(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:4px;margin-left:8px" },
+    radio3("restart", "page", tr4(lang, "Restart each page", "Reiniciar cada p\xE1gina"), cur.restart === "page"),
+    radio3("restart", "section", tr4(lang, "Restart each section", "Reiniciar cada se\xE7\xE3o"), cur.restart === "section"),
+    radio3("restart", "continuous", tr4(lang, "Continuous", "Cont\xEDnua"), cur.restart === "continuous")
+  );
+  const grid2 = el7(
+    "div",
+    { className: "uo-dialog-grid" },
+    el7("span", {}, tr4(lang, "Start at:", "Iniciar em:")),
+    start,
+    el7("span", {}, tr4(lang, "From text:", "Do texto:")),
+    dist,
+    el7("span", {}, tr4(lang, "Count by:", "Contar por:")),
+    count
+  );
+  const opts = el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, grid2, el7("strong", {}, tr4(lang, "Numbering:", "Numera\xE7\xE3o:")), restart);
+  const sync = () => {
+    for (const i7 of opts.querySelectorAll("input")) i7.disabled = !onI.checked;
+  };
+  onI.addEventListener("change", sync);
+  sync();
+  const body = el7("div", { style: "display:flex;flex-direction:column;gap:12px" }, onL, opts);
+  const dlg = openDialog({
+    title: tr4(lang, "Line Numbers", "N\xFAmeros de Linha"),
+    icon: "format_list_numbered",
+    body,
+    layer: env.layer,
+    lang,
+    width: 380,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await dlg.result !== "ok") return null;
+  const ds = dist.value.trim();
+  const d3 = ds === "" || ds.toLowerCase() === autoTxt.toLowerCase() ? 0 : parseMeasure(ds, unit);
+  return {
+    on: onI.checked,
+    startAt: Number(start.value) || 1,
+    countBy: Number(count.value) || 1,
+    distanceTwips: d3 ?? cur.distanceTwips,
+    restart: radioValue(restart, "restart") || "page"
+  };
+}
+var L8, tr4, hyphenationMenu, lineNumbersMenu, indentUnit, indentStep, el7, check4, radio3, radioValue;
+var init_chrome_textlayout = __esm({
+  "src/chrome-textlayout.ts"() {
+    "use strict";
+    init_src5();
+    init_text_layout();
+    L8 = (en, pt2) => ({ en, pt: pt2 });
+    tr4 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    hyphenationMenu = () => ["hyph:none", "hyph:auto", "hyph:manual", "-", "dlg:hyphenation"];
+    lineNumbersMenu = () => ["ln:none", "ln:continuous", "ln:page", "ln:section", "ln:suppress", "-", "dlg:lineNumbers"];
+    indentUnit = (lang) => lang === "pt" ? "cm" : "in";
+    indentStep = (lang) => lang === "pt" ? 1440 / 2.54 / 10 : 144;
+    el7 = (tag2, props = {}, ...kids) => {
+      const { style, ...rest } = props;
+      const e8 = Object.assign(document.createElement(tag2), rest);
+      if (style) e8.style.cssText = style;
+      e8.append(...kids);
+      return e8;
+    };
+    check4 = (name, label, on) => {
+      const i7 = el7("input", { type: "checkbox", name, checked: on });
+      return [el7("label", { className: "uo-check" }, i7, label), i7];
+    };
+    radio3 = (name, value, label, on) => el7("label", { className: "uo-check" }, el7("input", { type: "radio", name, value, checked: on }), label);
+    radioValue = (box, name) => box.querySelector(`input[name="${name}"]:checked`)?.value ?? "";
+  }
+});
+
 // src/chrome-shape.ts
 function pickImage2(cb) {
   const inp = document.createElement("input");
@@ -51100,20 +51878,20 @@ function registerShapeCommands(reg, ed, app, ctl) {
     // ── Inserir › Caixa de Texto: desenhar ──
     {
       id: "textbox:draw",
-      label: L8("Draw Text Box", "Desenhar Caixa de Texto"),
+      label: L9("Draw Text Box", "Desenhar Caixa de Texto"),
       icon: "draw",
       supports: has("drawTextbox"),
       isEnabled: canEdit3,
       isChecked: () => typeof api["drawingTextbox"] === "function" && ed.drawingTextbox(),
       run: () => ed.drawingTextbox() ? ed.cancelDrawTextbox() : ed.drawTextbox(false)
     },
-    { id: "textbox:drawVertical", label: L8("Draw Vertical Text Box", "Desenhar Caixa de Texto Vertical"), icon: "text_rotate_vertical", supports: has("drawTextbox"), isEnabled: canEdit3, run: () => ed.drawTextbox(true) },
+    { id: "textbox:drawVertical", label: L9("Draw Vertical Text Box", "Desenhar Caixa de Texto Vertical"), icon: "text_rotate_vertical", supports: has("drawTextbox"), isEnabled: canEdit3, run: () => ed.drawTextbox(true) },
     // ── Organizar ──
-    ...WRAPS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:wrap:${k2}`, label: L8(en, pt2), icon, supports: has("setShapeWrap"), run: () => ed.setShapeWrap(k2), isChecked: () => shp()?.wrap === k2 })),
-    s4({ id: "shp:wrap:moveWithText", label: L8("Move with Text", "Mover com o Texto"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
-    s4({ id: "shp:wrap:fixOnPage", label: L8("Fix Position on Page", "Corrigir Posi\xE7\xE3o na P\xE1gina"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp().inline && !shp().moveWithText }),
-    s4({ id: "shp:wrap:more", label: L8("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:wrap") }),
-    s4({ id: "shp:pos:inline", label: L8("In Line with Text", "Alinhado ao Texto"), icon: "format_align_left", supports: has("setShapePosition"), run: () => ed.setShapePosition("inline"), isChecked: () => !!shp()?.inline }),
+    ...WRAPS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:wrap:${k2}`, label: L9(en, pt2), icon, supports: has("setShapeWrap"), run: () => ed.setShapeWrap(k2), isChecked: () => shp()?.wrap === k2 })),
+    s4({ id: "shp:wrap:moveWithText", label: L9("Move with Text", "Mover com o Texto"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
+    s4({ id: "shp:wrap:fixOnPage", label: L9("Fix Position on Page", "Corrigir Posi\xE7\xE3o na P\xE1gina"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp().inline && !shp().moveWithText }),
+    s4({ id: "shp:wrap:more", label: L9("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:wrap") }),
+    s4({ id: "shp:pos:inline", label: L9("In Line with Text", "Alinhado ao Texto"), icon: "format_align_left", supports: has("setShapePosition"), run: () => ed.setShapePosition("inline"), isChecked: () => !!shp()?.inline }),
     ...POSITION_PRESETS.map((q) => s4({
       id: `shp:pos:${q.id}`,
       label: q.label,
@@ -51125,44 +51903,44 @@ function registerShapeCommands(reg, ed, app, ctl) {
         return !!f3 && f3.wrap === "square" && f3.posH?.relativeFrom === "margin" && f3.posH.align === q.h && f3.posV?.relativeFrom === "margin" && f3.posV.align === q.v;
       }
     })),
-    s4({ id: "shp:pos:more", label: L8("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:position") }),
-    s4({ id: "shp:forward", label: L8("Bring Forward", "Avan\xE7ar"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("forward") }),
-    s4({ id: "shp:front", label: L8("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("front") }),
-    s4({ id: "shp:frontOfText", label: L8("Bring in Front of Text", "Trazer para a Frente do Texto"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("frontOfText") }),
-    s4({ id: "shp:backward", label: L8("Send Backward", "Recuar"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("backward") }),
-    s4({ id: "shp:back", label: L8("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("back") }),
-    s4({ id: "shp:behindText", label: L8("Send Behind Text", "Enviar para Tr\xE1s do Texto"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("behindText") }),
-    s4({ id: "shp:rotate:right", label: L8("Rotate Right 90\xB0", "Girar 90\xB0 para a Direita"), icon: "rotate_right", supports: has("rotateShape"), run: () => ed.rotateShape(90) }),
-    s4({ id: "shp:rotate:left", label: L8("Rotate Left 90\xB0", "Girar 90\xB0 para a Esquerda"), icon: "rotate_left", supports: has("rotateShape"), run: () => ed.rotateShape(-90) }),
-    s4({ id: "shp:flip:v", label: L8("Flip Vertical", "Inverter Verticalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("v") }),
-    s4({ id: "shp:flip:h", label: L8("Flip Horizontal", "Inverter Horizontalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("h") }),
-    s4({ id: "shp:rotate:more", label: L8("More Rotation Options\u2026", "Mais Op\xE7\xF5es de Rota\xE7\xE3o..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
-    ...ALIGNS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:align:${k2}`, label: L8(en, pt2), icon, supports: has("alignShape"), isEnabled: floating, run: () => ed.alignShape(k2) })),
-    s4({ id: "shp:layout", label: L8("Layout Options\u2026", "Layout..."), icon: "aspect_ratio", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
+    s4({ id: "shp:pos:more", label: L9("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:position") }),
+    s4({ id: "shp:forward", label: L9("Bring Forward", "Avan\xE7ar"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("forward") }),
+    s4({ id: "shp:front", label: L9("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("front") }),
+    s4({ id: "shp:frontOfText", label: L9("Bring in Front of Text", "Trazer para a Frente do Texto"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("frontOfText") }),
+    s4({ id: "shp:backward", label: L9("Send Backward", "Recuar"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("backward") }),
+    s4({ id: "shp:back", label: L9("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("back") }),
+    s4({ id: "shp:behindText", label: L9("Send Behind Text", "Enviar para Tr\xE1s do Texto"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("behindText") }),
+    s4({ id: "shp:rotate:right", label: L9("Rotate Right 90\xB0", "Girar 90\xB0 para a Direita"), icon: "rotate_right", supports: has("rotateShape"), run: () => ed.rotateShape(90) }),
+    s4({ id: "shp:rotate:left", label: L9("Rotate Left 90\xB0", "Girar 90\xB0 para a Esquerda"), icon: "rotate_left", supports: has("rotateShape"), run: () => ed.rotateShape(-90) }),
+    s4({ id: "shp:flip:v", label: L9("Flip Vertical", "Inverter Verticalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("v") }),
+    s4({ id: "shp:flip:h", label: L9("Flip Horizontal", "Inverter Horizontalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("h") }),
+    s4({ id: "shp:rotate:more", label: L9("More Rotation Options\u2026", "Mais Op\xE7\xF5es de Rota\xE7\xE3o..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
+    ...ALIGNS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:align:${k2}`, label: L9(en, pt2), icon, supports: has("alignShape"), isEnabled: floating, run: () => ed.alignShape(k2) })),
+    s4({ id: "shp:layout", label: L9("Layout Options\u2026", "Layout..."), icon: "aspect_ratio", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
     // ── Texto ──
-    ...DIRS.map(([k2, en, pt2, icon]) => s4({ id: `shp:dir:${k2}`, label: L8(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k2 }), isChecked: () => shp()?.text?.direction === k2 })),
-    ...ANCHORS.map(([k2, en, pt2, icon]) => s4({ id: `shp:anchor:${k2}`, label: L8(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k2 }), isChecked: () => shp()?.text?.anchor === k2 })),
-    s4({ id: "shp:textOptions", label: L8("Text Box Options\u2026", "Op\xE7\xF5es da Caixa de Texto..."), icon: "tune", supports: has("setTextboxOptions"), isEnabled: box, run: () => ctl.pictureDialog("format:layout") }),
+    ...DIRS.map(([k2, en, pt2, icon]) => s4({ id: `shp:dir:${k2}`, label: L9(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k2 }), isChecked: () => shp()?.text?.direction === k2 })),
+    ...ANCHORS.map(([k2, en, pt2, icon]) => s4({ id: `shp:anchor:${k2}`, label: L9(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k2 }), isChecked: () => shp()?.text?.anchor === k2 })),
+    s4({ id: "shp:textOptions", label: L9("Text Box Options\u2026", "Op\xE7\xF5es da Caixa de Texto..."), icon: "tune", supports: has("setTextboxOptions"), isEnabled: box, run: () => ctl.pictureDialog("format:layout") }),
     s4({
       id: "shp:link",
-      label: L8("Create Link", "Criar V\xEDnculo"),
-      tip: L8("Create Link: the text continues in the next text box you click (it must be empty)", "Criar V\xEDnculo: o texto continua na pr\xF3xima caixa de texto que voc\xEA clicar (ela precisa estar vazia)"),
+      label: L9("Create Link", "Criar V\xEDnculo"),
+      tip: L9("Create Link: the text continues in the next text box you click (it must be empty)", "Criar V\xEDnculo: o texto continua na pr\xF3xima caixa de texto que voc\xEA clicar (ela precisa estar vazia)"),
       icon: "link",
       supports: has("createTextboxLink"),
       isEnabled: () => box() && !shp().link?.next,
       isChecked: () => typeof api["linkingTextbox"] === "function" && ed.linkingTextbox(),
       run: () => ed.linkingTextbox() ? ed.cancelTextboxLink() : ed.createTextboxLink()
     }),
-    s4({ id: "shp:unlink", label: L8("Break Link", "Quebrar V\xEDnculo"), icon: "link_off", supports: has("breakTextboxLink"), isEnabled: () => box() && !!shp().link?.next, run: () => ed.breakTextboxLink() }),
-    s4({ id: "shp:setDefault", label: L8("Set as Default Text Box", "Definir como Caixa de Texto Padr\xE3o"), icon: "check", supports: has("setAsDefaultTextbox"), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
+    s4({ id: "shp:unlink", label: L9("Break Link", "Quebrar V\xEDnculo"), icon: "link_off", supports: has("breakTextboxLink"), isEnabled: () => box() && !!shp().link?.next, run: () => ed.breakTextboxLink() }),
+    s4({ id: "shp:setDefault", label: L9("Set as Default Text Box", "Definir como Caixa de Texto Padr\xE3o"), icon: "check", supports: has("setAsDefaultTextbox"), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
     // ── Estilos de Forma ──
-    s4({ id: "shp:fill:none", label: L8("No Fill", "Sem Preenchimento"), icon: "format_color_reset", supports: has("setShapeFill"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && "fill" in shp().format ? shp().format.fill.kind === "none" : false }),
-    s4({ id: "shp:outline:none", label: L8("No Outline", "Sem Contorno"), icon: "border_clear", supports: has("setShapeOutline"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
-    { id: "shp:format", label: L8("Format Shape\u2026", "Formatar Forma..."), icon: "tune", supports: has("setShapeFormat"), isEnabled: on, run: () => ctl.pictureDialog("format:line") },
-    s4({ id: "shp:editText", label: L8("Edit Text", "Editar Texto"), icon: "edit", supports: has("editSelectedTextbox"), isEnabled: () => box() && !shp().editingText, run: () => ed.editSelectedTextbox() }),
-    s4({ id: "shp:delete", label: L8("Delete", "Excluir"), icon: "delete", supports: has("deleteSelectedShape"), run: () => ed.deleteSelectedShape() }),
+    s4({ id: "shp:fill:none", label: L9("No Fill", "Sem Preenchimento"), icon: "format_color_reset", supports: has("setShapeFill"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && "fill" in shp().format ? shp().format.fill.kind === "none" : false }),
+    s4({ id: "shp:outline:none", label: L9("No Outline", "Sem Contorno"), icon: "border_clear", supports: has("setShapeOutline"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
+    { id: "shp:format", label: L9("Format Shape\u2026", "Formatar Forma..."), icon: "tune", supports: has("setShapeFormat"), isEnabled: on, run: () => ctl.pictureDialog("format:line") },
+    s4({ id: "shp:editText", label: L9("Edit Text", "Editar Texto"), icon: "edit", supports: has("editSelectedTextbox"), isEnabled: () => box() && !shp().editingText, run: () => ed.editSelectedTextbox() }),
+    s4({ id: "shp:delete", label: L9("Delete", "Excluir"), icon: "delete", supports: has("deleteSelectedShape"), run: () => ed.deleteSelectedShape() }),
     // ── Acessibilidade ──
-    s4({ id: "shp:alt", label: L8("Alt Text", "Texto Alt"), tip: L8("Alt Text: describe the shape for people who use screen readers", "Texto Alt: descreva a forma para quem usa leitor de tela"), icon: "accessibility_new", supports: has("setShapeAltText"), run: () => ctl.pictureDialog("alt") })
+    s4({ id: "shp:alt", label: L9("Alt Text", "Texto Alt"), tip: L9("Alt Text: describe the shape for people who use screen readers", "Texto Alt: descreva a forma para quem usa leitor de tela"), icon: "accessibility_new", supports: has("setShapeAltText"), run: () => ctl.pictureDialog("alt") })
   ];
   reg.add(...cmds);
 }
@@ -51303,8 +52081,8 @@ function textboxMenu(env, ctx) {
     {
       content: (close) => tileGrid({
         sections: [
-          { label: L8("Built-In", "Internos"), items: all.filter((t6) => !t6.user).map((t6) => ({ id: t6.id, label: t6.name })) },
-          { label: L8("General", "Geral"), items: mine.map((t6) => ({ id: t6.id, label: t6.name })) }
+          { label: L9("Built-In", "Internos"), items: all.filter((t6) => !t6.user).map((t6) => ({ id: t6.id, label: t6.name })) },
+          { label: L9("General", "Geral"), items: mine.map((t6) => ({ id: t6.id, label: t6.name })) }
         ],
         tile: { w: 92, h: 116 },
         cols: 3,
@@ -51322,11 +52100,11 @@ function textboxMenu(env, ctx) {
     "textbox:drawVertical",
     {
       id: "textbox:save",
-      label: L8("Save Selection to Text Box Gallery\u2026", "Salvar Sele\xE7\xE3o na Galeria de Caixas de Texto..."),
+      label: L9("Save Selection to Text Box Gallery\u2026", "Salvar Sele\xE7\xE3o na Galeria de Caixas de Texto..."),
       icon: "save",
       disabled: !isBox(),
       onClick: () => {
-        void promptDialog({ title: L8("Create New Building Block", "Criar Novo Bloco de Constru\xE7\xE3o"), label: L8("Name", "Nome"), value: ed.selectedShape()?.name ?? "", layer: env.root.querySelector(".uw-layer") ?? void 0, lang }).then((n5) => {
+        void promptDialog({ title: L9("Create New Building Block", "Criar Novo Bloco de Constru\xE7\xE3o"), label: L9("Name", "Nome"), value: ed.selectedShape()?.name ?? "", layer: env.root.querySelector(".uw-layer") ?? void 0, lang }).then((n5) => {
           if (n5 !== null) ed.saveSelectionToTextboxGallery(n5);
           ctx.after();
         });
@@ -51334,7 +52112,7 @@ function textboxMenu(env, ctx) {
     },
     ...mine.length ? [{
       id: "textbox:remove",
-      label: L8("Remove from Gallery", "Remover da Galeria"),
+      label: L9("Remove from Gallery", "Remover da Galeria"),
       icon: "delete",
       submenu: () => mine.map((t6) => ({ id: `textbox:rm:${t6.id}`, label: t6.name, onClick: () => {
         ed.removeTextboxGalleryItem(t6.id);
@@ -51366,7 +52144,7 @@ function fillMenu(env, ctx) {
     "shp:fill:none",
     {
       id: "shp:fill:more",
-      label: L8("More Fill Colors\u2026", "Mais Cores de Preenchimento..."),
+      label: L9("More Fill Colors\u2026", "Mais Cores de Preenchimento..."),
       icon: "palette",
       onClick: () => {
         const inp = document.createElement("input");
@@ -51378,20 +52156,20 @@ function fillMenu(env, ctx) {
         inp.click();
       }
     },
-    { id: "shp:fill:picture", label: L8("Picture\u2026", "Imagem..."), icon: "image", onClick: () => pickImage2((d3, ext) => {
+    { id: "shp:fill:picture", label: L9("Picture\u2026", "Imagem..."), icon: "image", onClick: () => pickImage2((d3, ext) => {
       void ed.setShapePictureFill(d3, ext, false).then(() => ctx.after());
     }) },
     {
       id: "shp:fill:gradient",
-      label: L8("Gradient", "Gradiente"),
+      label: L9("Gradient", "Gradiente"),
       icon: "format_color_fill",
       submenu: () => [{
         content: (close) => {
           const vars = ed.shapeGradientVariations();
           return tileGrid({
             sections: [
-              { label: L8("Light Variations", "Varia\xE7\xF5es Claras"), items: vars.filter((v2) => !v2.dark).map((v2) => ({ id: v2.id, label: L8(v2.id, v2.id) })) },
-              { label: L8("Dark Variations", "Varia\xE7\xF5es Escuras"), items: vars.filter((v2) => v2.dark).map((v2) => ({ id: v2.id, label: L8(v2.id, v2.id) })) }
+              { label: L9("Light Variations", "Varia\xE7\xF5es Claras"), items: vars.filter((v2) => !v2.dark).map((v2) => ({ id: v2.id, label: L9(v2.id, v2.id) })) },
+              { label: L9("Dark Variations", "Varia\xE7\xF5es Escuras"), items: vars.filter((v2) => v2.dark).map((v2) => ({ id: v2.id, label: L9(v2.id, v2.id) })) }
             ],
             tile: { w: 40, h: 40 },
             cols: 4,
@@ -51411,9 +52189,9 @@ function fillMenu(env, ctx) {
             }
           });
         }
-      }, "-", { id: "shp:fill:gradOptions", label: L8("More Gradients\u2026", "Mais Gradientes..."), icon: "tune", onClick: () => env.ctl.pictureDialog("format:line") }]
+      }, "-", { id: "shp:fill:gradOptions", label: L9("More Gradients\u2026", "Mais Gradientes..."), icon: "tune", onClick: () => env.ctl.pictureDialog("format:line") }]
     },
-    { id: "shp:fill:texture", label: L8("Texture\u2026", "Textura..."), icon: "grid_on", onClick: () => pickImage2((d3, ext) => {
+    { id: "shp:fill:texture", label: L9("Texture\u2026", "Textura..."), icon: "grid_on", onClick: () => pickImage2((d3, ext) => {
       void ed.setShapePictureFill(d3, ext, true).then(() => ctx.after());
     }) }
   ];
@@ -51439,7 +52217,7 @@ function outlineMenu(env, ctx) {
     "shp:outline:none",
     {
       id: "shp:outline:more",
-      label: L8("More Outline Colors\u2026", "Mais Cores de Contorno..."),
+      label: L9("More Outline Colors\u2026", "Mais Cores de Contorno..."),
       icon: "palette",
       onClick: () => {
         const inp = document.createElement("input");
@@ -51454,11 +52232,11 @@ function outlineMenu(env, ctx) {
     "-",
     {
       id: "shp:outline:weight",
-      label: L8("Weight", "Espessura"),
+      label: L9("Weight", "Espessura"),
       icon: "line_weight",
       submenu: () => LINE_WEIGHTS_PT.map((w2) => ({
         id: `shp:outline:w:${w2}`,
-        label: `${String(w2).replace(".", ctx.registry.text(L8(".", ",")))} pt`,
+        label: `${String(w2).replace(".", ctx.registry.text(L9(".", ",")))} pt`,
         checked: !!st()?.format.line?.fill && Math.abs((st().format.line.w ?? 9525) / 12700 - w2) < 0.01,
         onClick: () => {
           ed.setShapeOutline({ weightPt: w2 });
@@ -51468,7 +52246,7 @@ function outlineMenu(env, ctx) {
     },
     {
       id: "shp:outline:dash",
-      label: L8("Dashes", "Tracejados"),
+      label: L9("Dashes", "Tracejados"),
       icon: "line_style",
       submenu: () => LINE_DASHES.map((d3) => ({
         id: `shp:outline:d:${d3.val}`,
@@ -51485,11 +52263,11 @@ function outlineMenu(env, ctx) {
 function changeShapeMenu(env, ctx) {
   return [{
     id: "shp:change",
-    label: L8("Change Shape", "Alterar Forma"),
+    label: L9("Change Shape", "Alterar Forma"),
     icon: "shapes",
     submenu: () => [{
       content: (close) => tileGrid({
-        sections: CROP_SHAPES.map((g2) => ({ label: g2.label, items: g2.shapes.map(([prst, en, pt2]) => ({ id: prst, label: L8(en, pt2) })) })),
+        sections: CROP_SHAPES.map((g2) => ({ label: g2.label, items: g2.shapes.map(([prst, en, pt2]) => ({ id: prst, label: L9(en, pt2) })) })),
         tile: { w: 30, h: 26 },
         cols: 10,
         close,
@@ -51505,18 +52283,18 @@ function changeShapeMenu(env, ctx) {
 }
 function shapeStylesGallery(env) {
   const ed = env.ed;
-  const items = () => SHAPE_STYLE_PRESETS.map((_2, i7) => ({ id: String(i7 + 1), label: L8(`Style ${i7 + 1}`, `Estilo ${i7 + 1}`), section: i7 < 42 ? "theme" : "presets" }));
+  const items = () => SHAPE_STYLE_PRESETS.map((_2, i7) => ({ id: String(i7 + 1), label: L9(`Style ${i7 + 1}`, `Estilo ${i7 + 1}`), section: i7 < 42 ? "theme" : "presets" }));
   return {
     gallery: {
       id: "shp:styles",
-      label: L8("Shape Styles", "Estilos de Forma"),
+      label: L9("Shape Styles", "Estilos de Forma"),
       icon: "style",
       tile: { w: 60, h: 44 },
       rows: 1,
       maxCols: 6,
       minCols: 3,
       expandCols: 7,
-      sections: [{ id: "theme", label: L8("Theme Styles", "Estilos do Tema") }, { id: "presets", label: L8("Presets", "Predefini\xE7\xF5es") }],
+      sections: [{ id: "theme", label: L9("Theme Styles", "Estilos do Tema") }, { id: "presets", label: L9("Presets", "Predefini\xE7\xF5es") }],
       supports: () => typeof ed.setShapeStyle === "function",
       isEnabled: () => !ed.isProtected() && !!ed.selectedShape() && ed.selectedShape().kind !== "group",
       items,
@@ -51534,42 +52312,42 @@ function shapeStylesGallery(env) {
 function shapeFormatGroups(env, ctx) {
   const has = (m2) => () => typeof env.ed[m2] === "function";
   return [
-    { id: "shp-insert", label: L8("Insert Shapes", "Inserir Formas"), icon: "shapes", prio: 4, cells: [
+    { id: "shp-insert", label: L9("Insert Shapes", "Inserir Formas"), icon: "shapes", prio: 4, cells: [
       { rows: [
-        [{ menu: () => changeShapeMenu(env, ctx), id: "shp:edit", label: L8("Edit Shape", "Editar Forma"), icon: "format_shapes", showLabel: true, supports: has("changeShape") }],
+        [{ menu: () => changeShapeMenu(env, ctx), id: "shp:edit", label: L9("Edit Shape", "Editar Forma"), icon: "format_shapes", showLabel: true, supports: has("changeShape") }],
         [{ split: "textbox:draw", menu: ["textbox:draw", "textbox:drawVertical"], label: true }]
       ] }
     ] },
-    { id: "shp-styles", label: L8("Shape Styles", "Estilos de Forma"), icon: "style", prio: 6, launcher: "shp:format", cells: [
+    { id: "shp-styles", label: L9("Shape Styles", "Estilos de Forma"), icon: "style", prio: 6, launcher: "shp:format", cells: [
       shapeStylesGallery(env),
       { rows: [
-        [{ menu: () => fillMenu(env, ctx), id: "shp:fill", label: L8("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", showLabel: true, supports: has("setShapeFill") }],
-        [{ menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L8("Shape Outline", "Contorno da Forma"), icon: "border_color", showLabel: true, supports: has("setShapeOutline") }],
-        [{ menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L8("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", showLabel: true, supports: has("setShapeEffect") }]
+        [{ menu: () => fillMenu(env, ctx), id: "shp:fill", label: L9("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", showLabel: true, supports: has("setShapeFill") }],
+        [{ menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L9("Shape Outline", "Contorno da Forma"), icon: "border_color", showLabel: true, supports: has("setShapeOutline") }],
+        [{ menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L9("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", showLabel: true, supports: has("setShapeEffect") }]
       ] }
     ] },
-    { id: "shp-text", label: L8("Text", "Texto"), icon: "text_fields", prio: 5, cells: [
+    { id: "shp-text", label: L9("Text", "Texto"), icon: "text_fields", prio: 5, cells: [
       { rows: [
-        [{ menu: dirMenu, id: "shp:dir", label: L8("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", showLabel: true, supports: has("setTextboxOptions") }],
-        [{ menu: anchorMenu, id: "shp:anchor", label: L8("Align Text", "Alinhar Texto"), icon: "vertical_align_center", showLabel: true, supports: has("setTextboxOptions") }],
+        [{ menu: dirMenu, id: "shp:dir", label: L9("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", showLabel: true, supports: has("setTextboxOptions") }],
+        [{ menu: anchorMenu, id: "shp:anchor", label: L9("Align Text", "Alinhar Texto"), icon: "vertical_align_center", showLabel: true, supports: has("setTextboxOptions") }],
         [{ cmd: "shp:link", label: true }, { cmd: "shp:unlink" }]
       ] }
     ] },
-    { id: "shp-access", label: L8("Accessibility", "Acessibilidade"), icon: "accessibility_new", prio: 3, cells: [large2("shp:alt")] },
-    { id: "shp-arrange", label: L8("Arrange", "Organizar"), icon: "layers", prio: 6, cells: [
-      { menu: shapePositionMenu, id: "shp:position", label: L8("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", size: "large", supports: has("setShapePosition") },
-      { menu: shapeWrapMenu, id: "shp:wrap", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", size: "large", supports: has("setShapeWrap") },
+    { id: "shp-access", label: L9("Accessibility", "Acessibilidade"), icon: "accessibility_new", prio: 3, cells: [large2("shp:alt")] },
+    { id: "shp-arrange", label: L9("Arrange", "Organizar"), icon: "layers", prio: 6, cells: [
+      { menu: shapePositionMenu, id: "shp:position", label: L9("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", size: "large", supports: has("setShapePosition") },
+      { menu: shapeWrapMenu, id: "shp:wrap", label: L9("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", size: "large", supports: has("setShapeWrap") },
       { rows: [
         [{ split: "shp:forward", menu: ["shp:forward", "shp:front", "shp:frontOfText"], label: true }],
         [{ split: "shp:backward", menu: ["shp:backward", "shp:back", "shp:behindText"], label: true }]
       ] },
       { rows: [
         [{ cmd: "pic:selectionPane", label: true }],
-        [{ menu: shapeAlignMenu, id: "shp:align", label: L8("Align", "Alinhar"), icon: "align_horizontal_left", showLabel: true, supports: has("alignShape") }],
-        [{ menu: shapeRotateMenu, id: "shp:rotate", label: L8("Rotate", "Girar"), icon: "rotate_90_degrees_cw", showLabel: true, supports: has("rotateShape") }]
+        [{ menu: shapeAlignMenu, id: "shp:align", label: L9("Align", "Alinhar"), icon: "align_horizontal_left", showLabel: true, supports: has("alignShape") }],
+        [{ menu: shapeRotateMenu, id: "shp:rotate", label: L9("Rotate", "Girar"), icon: "rotate_90_degrees_cw", showLabel: true, supports: has("rotateShape") }]
       ] }
     ] },
-    { id: "shp-size", label: L8("Size", "Tamanho"), icon: "aspect_ratio", prio: 5, launcher: "shp:layout", cells: [
+    { id: "shp-size", label: L9("Size", "Tamanho"), icon: "aspect_ratio", prio: 5, launcher: "shp:layout", cells: [
       { rows: [[measureWidget3(env, "height")], [measureWidget3(env, "width")]] }
     ] }
   ];
@@ -51578,17 +52356,17 @@ function shapeCompactGroup(env, ctx) {
   const sel4 = () => typeof env.ed.selectedShape === "function" && !!env.ed.selectedShape();
   return {
     id: "shape",
-    label: L8("Shape", "Forma"),
+    label: L9("Shape", "Forma"),
     icon: "format_shapes",
     prio: 7,
     items: [
-      { menu: () => fillMenu(env, ctx), id: "shp:fill", label: L8("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", supports: sel4 },
-      { menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L8("Shape Outline", "Contorno da Forma"), icon: "border_color", supports: sel4 },
-      { menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L8("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", supports: sel4 },
-      { menu: () => [...dirMenu(), "-", ...anchorMenu(), "-", "shp:link", "shp:unlink"], id: "shp:text", label: L8("Text", "Texto"), icon: "text_fields", supports: sel4 },
-      { menu: shapeWrapMenu, id: "shp:wrap", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", supports: sel4 },
-      { menu: shapePositionMenu, id: "shp:position", label: L8("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", supports: sel4 },
-      { menu: () => ["shp:forward", "shp:front", "shp:frontOfText", "-", "shp:backward", "shp:back", "shp:behindText"], id: "shp:order", label: L8("Arrange", "Organizar"), icon: "layers", supports: sel4 },
+      { menu: () => fillMenu(env, ctx), id: "shp:fill", label: L9("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", supports: sel4 },
+      { menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L9("Shape Outline", "Contorno da Forma"), icon: "border_color", supports: sel4 },
+      { menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L9("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", supports: sel4 },
+      { menu: () => [...dirMenu(), "-", ...anchorMenu(), "-", "shp:link", "shp:unlink"], id: "shp:text", label: L9("Text", "Texto"), icon: "text_fields", supports: sel4 },
+      { menu: shapeWrapMenu, id: "shp:wrap", label: L9("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", supports: sel4 },
+      { menu: shapePositionMenu, id: "shp:position", label: L9("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", supports: sel4 },
+      { menu: () => ["shp:forward", "shp:front", "shp:frontOfText", "-", "shp:backward", "shp:back", "shp:behindText"], id: "shp:order", label: L9("Arrange", "Organizar"), icon: "layers", supports: sel4 },
       { cmd: "shp:format" }
     ]
   };
@@ -51596,22 +52374,22 @@ function shapeCompactGroup(env, ctx) {
 function shapeMenu(env, ctx) {
   return {
     id: "shp:menu",
-    label: L8("Shape", "Forma"),
+    label: L9("Shape", "Forma"),
     icon: "format_shapes",
     submenu: () => [
-      { id: "shp:fillSub", label: L8("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", submenu: () => fillMenu(env, ctx) },
-      { id: "shp:outlineSub", label: L8("Shape Outline", "Contorno da Forma"), icon: "border_color", submenu: () => outlineMenu(env, ctx) },
-      { id: "shp:effectsSub", label: L8("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", submenu: () => effectsMenu(env, ctx, true) },
+      { id: "shp:fillSub", label: L9("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", submenu: () => fillMenu(env, ctx) },
+      { id: "shp:outlineSub", label: L9("Shape Outline", "Contorno da Forma"), icon: "border_color", submenu: () => outlineMenu(env, ctx) },
+      { id: "shp:effectsSub", label: L9("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", submenu: () => effectsMenu(env, ctx, true) },
       ...changeShapeMenu(env, ctx),
       "-",
-      { id: "shp:dirSub", label: L8("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", submenu: dirMenu },
-      { id: "shp:anchorSub", label: L8("Align Text", "Alinhar Texto"), icon: "vertical_align_center", submenu: anchorMenu },
+      { id: "shp:dirSub", label: L9("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", submenu: dirMenu },
+      { id: "shp:anchorSub", label: L9("Align Text", "Alinhar Texto"), icon: "vertical_align_center", submenu: anchorMenu },
       "shp:link",
       "shp:unlink",
       "-",
-      { id: "shp:wrapSub", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
-      { id: "shp:posSub", label: L8("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", submenu: shapePositionMenu },
-      { id: "shp:rotSub", label: L8("Rotate", "Girar"), icon: "rotate_90_degrees_cw", submenu: shapeRotateMenu },
+      { id: "shp:wrapSub", label: L9("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
+      { id: "shp:posSub", label: L9("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", submenu: shapePositionMenu },
+      { id: "shp:rotSub", label: L9("Rotate", "Girar"), icon: "rotate_90_degrees_cw", submenu: shapeRotateMenu },
       "-",
       "shp:alt",
       "shp:layout",
@@ -51628,12 +52406,12 @@ function shapeContextItems() {
     "paste",
     "-",
     "shp:editText",
-    { id: "shp:ctx:front", label: L8("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", submenu: ["shp:front", "shp:forward", "shp:frontOfText"] },
-    { id: "shp:ctx:back", label: L8("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", submenu: ["shp:back", "shp:backward", "shp:behindText"] },
+    { id: "shp:ctx:front", label: L9("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", submenu: ["shp:front", "shp:forward", "shp:frontOfText"] },
+    { id: "shp:ctx:back", label: L9("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", submenu: ["shp:back", "shp:backward", "shp:behindText"] },
     "-",
     "shp:link",
     "shp:unlink",
-    { id: "shp:ctx:wrap", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
+    { id: "shp:ctx:wrap", label: L9("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
     "shp:alt",
     "shp:setDefault",
     "shp:layout",
@@ -51642,7 +52420,7 @@ function shapeContextItems() {
     "shp:delete"
   ];
 }
-var L8, WRAPS2, ALIGNS2, DIRS, ANCHORS, shapeWrapMenu, shapePositionMenu, shapeRotateMenu, shapeAlignMenu, dirMenu, anchorMenu, measureWidget3, large2;
+var L9, WRAPS2, ALIGNS2, DIRS, ANCHORS, shapeWrapMenu, shapePositionMenu, shapeRotateMenu, shapeAlignMenu, dirMenu, anchorMenu, measureWidget3, large2;
 var init_chrome_shape = __esm({
   "src/chrome-shape.ts"() {
     "use strict";
@@ -51651,7 +52429,7 @@ var init_chrome_shape = __esm({
     init_chrome_picture();
     init_picture_ops();
     init_shape_ops();
-    L8 = (en, pt2) => ({ en, pt: pt2 });
+    L9 = (en, pt2) => ({ en, pt: pt2 });
     WRAPS2 = [
       ["inline", "In Line with Text", "Alinhado ao Texto", "format_align_left"],
       ["square", "Square", "Quadrado", "wrap_text"],
@@ -51696,9 +52474,9 @@ var init_chrome_shape = __esm({
         input.className = "uo-num";
         input.inputMode = "decimal";
         input.style.width = "64px";
-        input.title = ctx.registry.text(which === "height" ? L8("Shape Height", "Altura da Forma") : L8("Shape Width", "Largura da Forma"));
+        input.title = ctx.registry.text(which === "height" ? L9("Shape Height", "Altura da Forma") : L9("Shape Width", "Largura da Forma"));
         input.setAttribute("aria-label", input.title);
-        const dec = ctx.registry.text(L8(".", ","));
+        const dec = ctx.registry.text(L9(".", ","));
         const cm = (pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", dec)} cm`;
         const ptOf4 = (v2) => {
           const n5 = parseFloat(v2.replace(",", ".").replace(/[^0-9.]/g, ""));
@@ -51760,11 +52538,11 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const notComparing = () => !app.comparing;
   const run3 = () => ctl.state().run;
   const para4 = () => ctl.state().para;
-  const L11 = app.ui.L;
+  const L12 = app.ui.L;
   const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
   const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
   const resolved = (n5, accept) => {
-    ctl.flash(accept ? L11.revAccepted(Number(n5) || 0) : L11.revRejected(Number(n5) || 0));
+    ctl.flash(accept ? L12.revAccepted(Number(n5) || 0) : L12.revRejected(Number(n5) || 0));
   };
   const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit3() && c5.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
@@ -51875,7 +52653,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "caption", label: { en: "Insert Caption", pt: "Inserir Legenda" }, tip: { en: "Add a numbered caption to a picture, table or equation", pt: "Adicionar uma legenda numerada a imagem, tabela ou equa\xE7\xE3o" }, icon: "subtitles", supports: has("insertCaption"), isEnabled: () => !!ed.captionTarget() || ed.canInsertField(), run: () => ctl.refsDialog("caption") }),
     edit({ id: "tof", label: { en: "Insert Table of Figures", pt: "Inserir \xCDndice de Ilustra\xE7\xF5es" }, tip: { en: "List of the captions of a label", pt: "Lista das legendas de um r\xF3tulo" }, icon: "list_alt", supports: has("insertTableOfFigures"), isEnabled: () => ed.canInsertField(), run: () => ctl.refsDialog("tof") }),
     edit({ id: "tof:update", label: { en: "Update Table", pt: "Atualizar Tabela" }, tip: { en: "Update the table of figures", pt: "Atualizar o \xEDndice de ilustra\xE7\xF5es" }, icon: "autorenew", supports: has("updateTableOfFigures"), run: () => {
-      if (!ed.updateTableOfFigures()) ctl.flash(L11.noTof);
+      if (!ed.updateTableOfFigures()) ctl.flash(L12.noTof);
     } }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -51967,7 +52745,6 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "dlg:paragraph", label: { en: "Paragraph\u2026", pt: "Par\xE1grafo\u2026" }, tip: { en: "Paragraph settings", pt: "Configura\xE7\xF5es de par\xE1grafo" }, icon: "format_textdirection_l_to_r", run: () => ctl.paragraphDialog() }),
     edit({ id: "dlg:tabs", label: { en: "Tabs\u2026", pt: "Tabula\xE7\xE3o\u2026" }, tip: { en: "Tab stops of the paragraph and the default tab stop", pt: "Tabula\xE7\xF5es do par\xE1grafo e a tabula\xE7\xE3o padr\xE3o" }, icon: "keyboard_tab", supports: has("setTabStops"), run: () => ctl.tabsDialog() }),
     edit({ id: "dlg:page", label: { en: "Page setup\u2026", pt: "Configurar p\xE1gina\u2026" }, icon: "settings", run: () => ctl.pageDialog() }),
-    edit({ id: "hyphenation", label: { en: "Hyphenation", pt: "Hifeniza\xE7\xE3o" }, icon: "horizontal_rule", supports: has("setHyphenation"), run: () => call("setHyphenation") }),
     // ── Revisão ──
     { id: "comment:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous comment", pt: "Coment\xE1rio anterior" }, icon: "navigate_before", run: () => stepComment(-1), isEnabled: () => ed.getComments().length > 0 },
     { id: "comment:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next comment", pt: "Pr\xF3ximo coment\xE1rio" }, icon: "navigate_next", run: () => stepComment(1), isEnabled: () => ed.getComments().length > 0 },
@@ -52004,10 +52781,10 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
     edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
     { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
-      if (!call("previousChange")) ctl.flash(L11.noMoreRevisions);
+      if (!call("previousChange")) ctl.flash(L12.noMoreRevisions);
     }, isEnabled: hasRevisions },
     { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
-      if (!call("nextChange")) ctl.flash(L11.noMoreRevisions);
+      if (!call("nextChange")) ctl.flash(L12.noMoreRevisions);
     }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
@@ -52025,6 +52802,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
+  registerTextLayoutCommands(reg, ed, app, ctl);
   function stepComment(dir) {
     const cs = ed.getComments();
     if (!cs.length) return;
@@ -52044,6 +52822,7 @@ var init_chrome_commands = __esm({
     init_chrome_picture();
     init_chrome_page();
     init_chrome_toc();
+    init_chrome_textlayout();
     init_chrome_shape();
     init_chrome_picture_adjust();
     ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -52053,7 +52832,7 @@ var init_chrome_commands = __esm({
 
 // src/chrome-refs.ts
 function listBox(height = 180) {
-  const box = el7("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
+  const box = el8("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
   box.setAttribute("role", "listbox");
   let items = [];
   let cur;
@@ -52091,7 +52870,7 @@ function listBox(height = 180) {
       rows.length = 0;
       box.replaceChildren(...list.map((it) => {
         const head = it.id.startsWith("#");
-        const r6 = el7("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
+        const r6 = el8("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
         r6.setAttribute("role", head ? "presentation" : "option");
         if (!head) {
           r6.addEventListener("click", () => {
@@ -52121,28 +52900,28 @@ function listBox(height = 180) {
 }
 async function bookmarkDialog(env) {
   const t6 = T7(env), ed = env.ed;
-  const name = el7("input", { type: "text", maxLength: 40, spellcheck: false });
+  const name = el8("input", { type: "text", maxLength: 40, spellcheck: false });
   const list = listBox(170);
-  const byName2 = el7("input", { type: "radio", name: "bmsort", checked: true });
-  const byLoc = el7("input", { type: "radio", name: "bmsort" });
-  const hidden = check4(t6("Hidden bookmarks", "Indicadores ocultos"), false);
-  const show = check4(t6("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
+  const byName2 = el8("input", { type: "radio", name: "bmsort", checked: true });
+  const byLoc = el8("input", { type: "radio", name: "bmsort" });
+  const hidden = check5(t6("Hidden bookmarks", "Indicadores ocultos"), false);
+  const show = check5(t6("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
   const fill = (keep) => {
     const bms = ed.getBookmarks({ hidden: hidden.input.checked, sort: byLoc.checked ? "location" : "name" });
     list.set(bms.map((b5) => ({ id: b5.name, text: b5.name })), keep ?? null);
     sync();
   };
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:340px" },
     field2(t6("Bookmark name:", "Nome do indicador:"), name),
     list.el,
-    el7(
+    el8(
       "div",
       { style: "display:flex;gap:14px;align-items:center;font-size:13px" },
       t6("Sort by:", "Classificar por:"),
-      el7("label", { className: "uo-check" }, byName2, t6("Name", "Nome")),
-      el7("label", { className: "uo-check" }, byLoc, t6("Location", "Local"))
+      el8("label", { className: "uo-check" }, byName2, t6("Name", "Nome")),
+      el8("label", { className: "uo-check" }, byLoc, t6("Location", "Local"))
     ),
     hidden.box,
     show.box
@@ -52214,13 +52993,13 @@ async function crossRefDialog(env) {
     ...labels.map((l3) => [`caption:${l3}`, l3])
   ];
   const type = select3(types, "heading");
-  const kind = el7("select");
-  const link = check4(t6("Insert as hyperlink", "Inserir como hiperlink"), true);
-  const pos = check4(t6("Include above/below", "Incluir acima/abaixo"), false);
-  const sep = el7("input", { type: "text", maxLength: 5, style: "width:60px" });
-  const sepBox = check4(t6("Separate numbers with", "Separar n\xFAmeros com"), false);
+  const kind = el8("select");
+  const link = check5(t6("Insert as hyperlink", "Inserir como hiperlink"), true);
+  const pos = check5(t6("Include above/below", "Incluir acima/abaixo"), false);
+  const sep = el8("input", { type: "text", maxLength: 5, style: "width:60px" });
+  const sepBox = check5(t6("Separate numbers with", "Separar n\xFAmeros com"), false);
   const list = listBox(200);
-  const forWhich = el7("span");
+  const forWhich = el8("span");
   const cur = () => {
     const v2 = type.value;
     return v2.startsWith("caption:") ? { type: "caption", label: v2.slice(8) } : { type: v2 };
@@ -52245,7 +53024,7 @@ async function crossRefDialog(env) {
     const c5 = cur();
     const kinds = ed.crossReferenceKinds(c5.type);
     const keep = kinds.includes(kind.value) ? kind.value : kinds[0];
-    kind.replaceChildren(...kinds.map((k2) => el7("option", { value: k2, textContent: KIND_LABEL(t6, c5.type, k2) })));
+    kind.replaceChildren(...kinds.map((k2) => el8("option", { value: k2, textContent: KIND_LABEL(t6, c5.type, k2) })));
     kind.value = keep;
     forWhich.textContent = forLabel(c5);
     list.set(ed.getCrossReferenceItems(c5.type, c5.label));
@@ -52261,18 +53040,18 @@ async function crossRefDialog(env) {
   type.addEventListener("change", refill);
   kind.addEventListener("change", syncOpts);
   sepBox.input.addEventListener("change", syncOpts);
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:420px" },
-    el7(
+    el8(
       "div",
       { style: "display:grid;grid-template-columns:1fr 1fr;gap:10px" },
       field2(t6("Reference type:", "Tipo de refer\xEAncia:"), type),
       field2(t6("Insert reference to:", "Inserir refer\xEAncia para:"), kind)
     ),
-    el7("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
-    el7("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
-    el7("div", { style: "font-size:13px" }, forWhich),
+    el8("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
+    el8("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
+    el8("div", { style: "font-size:13px" }, forWhich),
     list.el
   );
   const insert = () => {
@@ -52316,7 +53095,7 @@ async function numberingDialog(env, label) {
   const t6 = T7(env), ed = env.ed;
   const cur = ed.getCaptionNumbering(label);
   const fmt2 = select3(FORMATS, cur.format);
-  const chap = check4(t6("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
+  const chap = check5(t6("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
   const levels = select3(Array.from({ length: 9 }, (_2, i7) => [String(i7 + 1), t6(`Heading ${i7 + 1}`, `T\xEDtulo ${i7 + 1}`)]), String(cur.chapter?.level ?? 1));
   const seps = select3([
     ["hyphen", t6("- (hyphen)", "- (h\xEDfen)")],
@@ -52331,14 +53110,14 @@ async function numberingDialog(env, label) {
   };
   chap.input.addEventListener("change", sync);
   sync();
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
     field2(t6("Format:", "Formato:"), fmt2),
     chap.box,
     field2(t6("Chapter starts with style:", "Cap\xEDtulo come\xE7a com estilo:"), levels),
     field2(t6("Use separator:", "Usar separador:"), seps),
-    el7("div", { style: "font-size:12px;opacity:.75" }, t6("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
+    el8("div", { style: "font-size:12px;opacity:.75" }, t6("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
   );
   const h3 = openDialog({
     title: t6("Caption Numbering", "Numera\xE7\xE3o de Legenda"),
@@ -52357,7 +53136,7 @@ async function autoCaptionDialog(env) {
   const t6 = T7(env), ed = env.ed;
   const cur = ed.getAutoCaption()?.table;
   const labels = ed.getCaptionLabels();
-  const on = check4(t6("Table", "Tabela"), !!cur);
+  const on = check5(t6("Table", "Tabela"), !!cur);
   const label = select3(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
   const pos = select3([["above", t6("Above item", "Acima do item")], ["below", t6("Below item", "Abaixo do item")]], cur?.position ?? "above");
   const sync = () => {
@@ -52366,10 +53145,10 @@ async function autoCaptionDialog(env) {
   };
   on.input.addEventListener("change", sync);
   sync();
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
-    el7("div", { style: "font-size:13px" }, t6("Add caption when inserting:", "Adicionar legenda ao inserir:")),
+    el8("div", { style: "font-size:13px" }, t6("Add caption when inserting:", "Adicionar legenda ao inserir:")),
     on.box,
     field2(t6("Use label:", "Usar r\xF3tulo:"), label),
     field2(t6("Position:", "Posi\xE7\xE3o:"), pos)
@@ -52390,16 +53169,16 @@ async function captionDialog(env) {
   const t6 = T7(env), ed = env.ed;
   const target = ed.captionTarget();
   const labels = () => ed.getCaptionLabels();
-  const labelSel = el7("select");
+  const labelSel = el8("select");
   const fillLabels = (keep) => {
-    labelSel.replaceChildren(...labels().map((l3) => el7("option", { value: l3.name, textContent: l3.name })));
+    labelSel.replaceChildren(...labels().map((l3) => el8("option", { value: l3.name, textContent: l3.name })));
     labelSel.value = keep && labels().some((l3) => l3.name === keep) ? keep : (target === "table" ? labels().find((l3) => l3.position === "above")?.name : void 0) ?? labels()[0].name;
   };
   fillLabels();
   const pos = select3([["above", t6("Above selected item", "Acima do item selecionado")], ["below", t6("Below selected item", "Abaixo do item selecionado")]], "below");
   pos.disabled = !target;
-  const excl = check4(t6("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
-  const caption = el7("input", { type: "text" });
+  const excl = check5(t6("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
+  const caption = el8("input", { type: "text" });
   let prefix = "";
   const syncPrefix = () => {
     const l3 = labelSel.value;
@@ -52442,14 +53221,14 @@ async function captionDialog(env) {
   autoBtn.addEventListener("click", () => {
     void autoCaptionDialog(env);
   });
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:400px" },
     field2(t6("Caption:", "Legenda:"), caption),
-    el7("strong", { style: "font-size:13px" }, t6("Options", "Op\xE7\xF5es")),
-    el7("div", { className: "uo-dialog-grid" }, el7("span", {}, t6("Label:", "R\xF3tulo:")), labelSel, el7("span", {}, t6("Position:", "Posi\xE7\xE3o:")), pos),
+    el8("strong", { style: "font-size:13px" }, t6("Options", "Op\xE7\xF5es")),
+    el8("div", { className: "uo-dialog-grid" }, el8("span", {}, t6("Label:", "R\xF3tulo:")), labelSel, el8("span", {}, t6("Position:", "Posi\xE7\xE3o:")), pos),
     excl.box,
-    el7("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
+    el8("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
   );
   syncPrefix();
   const h3 = openDialog({
@@ -52472,10 +53251,10 @@ async function tofDialog(env) {
   const t6 = T7(env), ed = env.ed;
   const cur = ed.getTableOfFiguresOptions();
   const labels = ed.getCaptionLabels();
-  const pages2 = check4(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
-  const right = check4(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
+  const pages2 = check5(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
+  const right = check5(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
   const leader = select3([["none", t6("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
-  const links = check4(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
+  const links = check5(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
   const format = select3([
     ["template", t6("From template", "Do modelo")],
     ["classic", t6("Classic", "Cl\xE1ssico")],
@@ -52485,16 +53264,16 @@ async function tofDialog(env) {
     ["simple", t6("Simple", "Simples")]
   ], "template");
   const label = select3([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
-  const incl = check4(t6("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
-  const preview2 = el7("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
+  const incl = check5(t6("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
+  const preview2 = el8("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
   const paint = () => {
     const lab = label.value;
     const lead = { none: " ", dot: ".", hyphen: "-", underscore: "_" }[leader.value] ?? ".";
     preview2.replaceChildren(...[1, 2, 3, 4].map((n5) => {
       const txt2 = `${incl.input.checked ? `${lab} ${n5}: ` : ""}${t6("Text", "Texto")}`;
-      const row2 = el7("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el7("span", {}, txt2));
-      if (pages2.input.checked && right.input.checked) row2.append(el7("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el7("span", {}, String(n5 * 2 - 1)));
-      else if (pages2.input.checked) row2.append(el7("span", {}, String(n5 * 2 - 1)));
+      const row2 = el8("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el8("span", {}, txt2));
+      if (pages2.input.checked && right.input.checked) row2.append(el8("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el8("span", {}, String(n5 * 2 - 1)));
+      else if (pages2.input.checked) row2.append(el8("span", {}, String(n5 * 2 - 1)));
       return row2;
     }));
     right.input.disabled = !pages2.input.checked;
@@ -52505,19 +53284,19 @@ async function tofDialog(env) {
   paint();
   const modify = button3(t6("Modify\u2026", "Modificar\u2026"));
   modify.addEventListener("click", () => env.modifyStyle?.(ed.ensureBuiltinStyle("table of figures")));
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:440px" },
-    el7("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
+    el8("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
     preview2,
     pages2.box,
     right.box,
     field2(t6("Tab leader:", "Preenchimento de tabula\xE7\xE3o:"), leader),
     links.box,
-    el7("strong", { style: "font-size:13px" }, t6("General", "Geral")),
-    el7("div", { className: "uo-dialog-grid" }, el7("span", {}, t6("Formats:", "Formatos:")), format, el7("span", {}, t6("Caption label:", "Nome da legenda:")), label),
+    el8("strong", { style: "font-size:13px" }, t6("General", "Geral")),
+    el8("div", { className: "uo-dialog-grid" }, el8("span", {}, t6("Formats:", "Formatos:")), format, el8("span", {}, t6("Caption label:", "Nome da legenda:")), label),
     incl.box,
-    el7("div", {}, modify)
+    el8("div", {}, modify)
   );
   const h3 = openDialog({
     title: t6("Table of Figures", "\xCDndice de Ilustra\xE7\xF5es"),
@@ -52544,12 +53323,12 @@ async function hyperlinkDialog(env) {
   const t6 = T7(env), ed = env.ed;
   const cur = ed.getLink();
   const sel4 = ed.selectedText();
-  const display = el7("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
-  const tip = el7("input", { type: "text", value: cur?.tip ?? "" });
+  const display = el8("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
+  const tip = el8("input", { type: "text", value: cur?.tip ?? "" });
   const isMail = !!cur?.address?.startsWith("mailto:");
-  const address = el7("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
-  const mail = el7("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
-  const subject = el7("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
+  const address = el8("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
+  const mail = el8("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
+  const subject = el8("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
   const targets = ed.getLinkTargets();
   const place2 = listBox(220);
   const items = [
@@ -52561,16 +53340,16 @@ async function hyperlinkDialog(env) {
   ];
   place2.set(items.map((x3, i7) => ({ id: x3.id || `#sec${i7}`, text: x3.text })), cur?.anchor && items.some((x3) => x3.id === cur.anchor) ? cur.anchor : "_top");
   const panes2 = {
-    web: el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("Address:", "Endere\xE7o:"), address)),
-    place: el7("div", { style: "display:flex;flex-direction:column;gap:6px" }, el7("span", { style: "font-size:13px" }, t6("Select a place in this document:", "Selecione um local neste documento:")), place2.el),
-    mail: el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("E-mail address:", "Endere\xE7o de email:"), mail), field2(t6("Subject:", "Assunto:"), subject))
+    web: el8("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("Address:", "Endere\xE7o:"), address)),
+    place: el8("div", { style: "display:flex;flex-direction:column;gap:6px" }, el8("span", { style: "font-size:13px" }, t6("Select a place in this document:", "Selecione um local neste documento:")), place2.el),
+    mail: el8("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("E-mail address:", "Endere\xE7o de email:"), mail), field2(t6("Subject:", "Assunto:"), subject))
   };
   const tabs = dialogTabs([
     { id: "web", label: t6("Existing File or Web Page", "P\xE1gina da Web ou arquivo"), body: panes2.web },
     { id: "place", label: t6("Place in This Document", "Colocar neste documento"), body: panes2.place },
     { id: "mail", label: t6("E-mail Address", "Endere\xE7o de email"), body: panes2.mail }
   ], cur?.anchor ? "place" : isMail ? "mail" : "web");
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:460px" },
     field2(t6("Text to display:", "Texto para exibi\xE7\xE3o:"), display),
@@ -52627,12 +53406,12 @@ function refsDialog(env, kind) {
       return hyperlinkDialog(env);
   }
 }
-var el7, select3, check4, field2, button3, T7, KIND_LABEL, FORMATS;
+var el8, select3, check5, field2, button3, T7, KIND_LABEL, FORMATS;
 var init_chrome_refs = __esm({
   "src/chrome-refs.ts"() {
     "use strict";
     init_src5();
-    el7 = (tag2, props = {}, ...kids) => {
+    el8 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -52640,17 +53419,17 @@ var init_chrome_refs = __esm({
       return e8;
     };
     select3 = (opts, value) => {
-      const s4 = el7("select");
-      for (const [v2, t6] of opts) s4.append(el7("option", { value: v2, textContent: t6 }));
+      const s4 = el8("select");
+      for (const [v2, t6] of opts) s4.append(el8("option", { value: v2, textContent: t6 }));
       s4.value = value;
       return s4;
     };
-    check4 = (label, on) => {
-      const input = el7("input", { type: "checkbox", checked: on });
-      return { box: el7("label", { className: "uo-check" }, input, label), input };
+    check5 = (label, on) => {
+      const input = el8("input", { type: "checkbox", checked: on });
+      return { box: el8("label", { className: "uo-check" }, input, label), input };
     };
-    field2 = (label, ...kids) => el7("label", { className: "uo-field" }, el7("span", {}, label), ...kids);
-    button3 = (label) => el7("button", { type: "button", className: "uo-pill", textContent: label });
+    field2 = (label, ...kids) => el8("label", { className: "uo-field" }, el8("span", {}, label), ...kids);
+    button3 = (label) => el8("button", { type: "button", className: "uo-pill", textContent: label });
     T7 = (env) => (en, pt2) => pickLabels(env.lang, { en, pt: pt2 });
     KIND_LABEL = (t6, type, k2) => {
       const what = type === "heading" ? t6("Heading", "t\xEDtulo") : type === "bookmark" ? t6("Bookmark", "indicador") : t6("Paragraph", "par\xE1grafo");
@@ -52684,75 +53463,982 @@ var init_chrome_refs = __esm({
   }
 });
 
+// src/chrome-table-style.ts
+function condState(xml, cond) {
+  const sheet = readStyleSheet('<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' + xml + "</w:styles>");
+  const st = Object.values(sheet.styles)[0];
+  const part = cond === "wholeTable" ? st : st?.tblStylePr?.[cond];
+  const rPr = part?.rPr, pPr = part?.pPr, tcPr = part?.tcPr;
+  return {
+    bold: !!rPr?.b,
+    italic: !!rPr?.i,
+    underline: !!rPr?.u && rPr.u.val !== "none",
+    color: rPr?.color?.val && rPr.color.val !== "auto" ? rPr.color.val : void 0,
+    sz: rPr?.sz,
+    font: rPr?.rFonts?.ascii,
+    fill: tcPr?.shd?.fill && tcPr.shd.fill !== "auto" ? tcPr.shd.fill : void 0,
+    jc: pPr?.jc,
+    vAlign: tcPr?.vAlign
+  };
+}
+async function tableStyleDialog(env, mode, nameOrId) {
+  const lang = env.lang, ed = env.ed;
+  let draft;
+  let basedOnName;
+  const bases = ed.tableStyleBases();
+  const normalId = bases.find((b5) => b5.name === "Normal Table")?.id ?? "TableNormal";
+  if (mode === "modify") {
+    const cur = await ed.tableStyleXml(nameOrId ?? ed.getTableState()?.style ?? "Table Grid");
+    if (!cur) return;
+    draft = cur.xml;
+  } else {
+    const name2 = tr5(lang, "Style1", "Estilo1");
+    draft = newTableStyleXml({ id: ed.newTableStyleId(name2), name: name2, basedOn: normalId });
+  }
+  const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
+  const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
+  const name = el9("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
+  const base = sel2("ts-base", [["", tr5(lang, "(no style)", "(sem estilo)")], ...bases.map((b5) => [b5.id, b5.name])], headBase, "width:100%");
+  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c6) => [c6, tr5(lang, ...COND_LABELS[c6])]), "wholeTable", "width:100%");
+  const font = el9("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
+  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr5(lang, ".", ","))])], "", "width:70px");
+  const tog = (label, title) => el9("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
+  const bBtn = tog("B", tr5(lang, "Bold", "Negrito")), iBtn = tog("I", tr5(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr5(lang, "Underline", "Sublinhado"));
+  bBtn.style.fontWeight = "700";
+  iBtn.style.fontStyle = "italic";
+  uBtn.style.textDecoration = "underline";
+  const color3 = el9("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt2]) => [v2, tr5(lang, en, pt2)]), "single");
+  const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz3, t6]) => [String(sz3), `${t6} pt`]), "4");
+  const bColor = el9("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const sideBtns = [
+    ["top", "Top", "Superior"],
+    ["bottom", "Bottom", "Inferior"],
+    ["left", "Left", "Esquerda"],
+    ["right", "Right", "Direita"],
+    ["insideH", "Inside H", "Interna H"],
+    ["insideV", "Inside V", "Interna V"],
+    ["none", "None", "Nenhuma"],
+    ["all", "All", "Todas"]
+  ].map(([s4, en, pt2]) => {
+    const b5 = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt2), style: "padding:3px 9px" });
+    b5.dataset["side"] = s4;
+    return b5;
+  });
+  const fillOn = el9("input", { type: "checkbox", name: "ts-fill-on" });
+  const fill = el9("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const align = sel2("ts-align", [
+    ["", "\u2014"],
+    ["left|top", tr5(lang, "Top left", "Em cima, \xE0 esquerda")],
+    ["center|top", tr5(lang, "Top center", "Em cima, centralizado")],
+    ["right|top", tr5(lang, "Top right", "Em cima, \xE0 direita")],
+    ["left|center", tr5(lang, "Center left", "No centro, \xE0 esquerda")],
+    ["center|center", tr5(lang, "Center", "No centro")],
+    ["right|center", tr5(lang, "Center right", "No centro, \xE0 direita")],
+    ["left|bottom", tr5(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
+    ["center|bottom", tr5(lang, "Bottom center", "Embaixo, centralizado")],
+    ["right|bottom", tr5(lang, "Bottom right", "Embaixo, \xE0 direita")]
+  ], "");
+  const dpr = window.devicePixelRatio || 1;
+  const cv = el9("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
+  const c5 = () => cond.value;
+  const sync = () => {
+    const st = condState(draft, c5());
+    bBtn.classList.toggle("uo-on", st.bold);
+    iBtn.classList.toggle("uo-on", st.italic);
+    uBtn.classList.toggle("uo-on", st.underline);
+    font.value = st.font ?? "";
+    size.value = st.sz ? String(st.sz) : "";
+    color3.value = `#${(st.color ?? "000000").toLowerCase()}`;
+    fillOn.checked = !!st.fill;
+    fill.value = `#${(st.fill ?? "ffffff").toLowerCase()}`;
+    align.value = st.jc || st.vAlign ? `${st.jc ?? "left"}|${st.vAlign ?? "top"}` : "";
+    ed.renderTableStyleXmlThumb(cv, draft);
+  };
+  const apply2 = (f3) => {
+    draft = patchTableStyleXml(draft, c5(), f3);
+    sync();
+  };
+  const hex3 = (i7) => i7.value.replace("#", "").toUpperCase();
+  bBtn.addEventListener("click", () => apply2({ bold: !condState(draft, c5()).bold }));
+  iBtn.addEventListener("click", () => apply2({ italic: !condState(draft, c5()).italic }));
+  uBtn.addEventListener("click", () => apply2({ underline: !condState(draft, c5()).underline }));
+  font.addEventListener("change", () => apply2({ fontAscii: font.value.trim() || null }));
+  size.addEventListener("change", () => apply2({ szHalfPt: size.value ? +size.value : null }));
+  color3.addEventListener("change", () => apply2({ color: hex3(color3) }));
+  fillOn.addEventListener("change", () => apply2({ fill: fillOn.checked ? hex3(fill) : null }));
+  fill.addEventListener("change", () => {
+    fillOn.checked = true;
+    apply2({ fill: hex3(fill) });
+  });
+  align.addEventListener("change", () => {
+    if (!align.value) {
+      apply2({ alignment: null, vAlign: null });
+      return;
+    }
+    const [h4, v2] = align.value.split("|");
+    apply2({ alignment: h4 === "left" ? null : h4, vAlign: v2 === "top" ? null : v2 });
+  });
+  for (const b5 of sideBtns) b5.addEventListener("click", () => {
+    const s4 = b5.dataset["side"];
+    const pen = { val: bStyle.value, sz: +bWidth.value, color: hex3(bColor) };
+    const sides = s4 === "all" || s4 === "none" ? ["top", "left", "bottom", "right", "insideH", "insideV"] : [s4];
+    apply2({ borders: Object.fromEntries(sides.map((x3) => [x3, s4 === "none" ? null : pen])) });
+  });
+  cond.addEventListener("change", sync);
+  base.addEventListener("change", () => {
+    draft = retitleTableStyleXml(draft, { basedOn: base.value || null });
+    sync();
+  });
+  const row2 = (...kids) => el9("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+  const lbl = (t6, ctl) => el9("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t6, ctl);
+  const body = el9(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:12px" },
+    el9("strong", {}, tr5(lang, "Properties", "Propriedades")),
+    row2(lbl(tr5(lang, "Name:", "Nome:"), name), lbl(tr5(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr5(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr5(lang, "Style based on:", "Estilo baseado em:"), base)),
+    el9("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
+    lbl(tr5(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
+    row2(font, size, bBtn, iBtn, uBtn, el9("span", {}, tr5(lang, "Color", "Cor")), color3),
+    row2(bStyle, bWidth, bColor, ...sideBtns),
+    row2(el9("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el9("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
+    cv,
+    el9("label", { className: "uo-check" }, el9("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
+  );
+  sync();
+  const h3 = openDialog({
+    title: mode === "new" ? tr5(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr5(lang, "Modify Style", "Modificar Estilo"),
+    body,
+    layer: env.layer,
+    lang,
+    width: 640,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await h3.result !== "ok") return;
+  const nm = name.value.trim() || headName;
+  draft = retitleTableStyleXml(draft, { name: nm });
+  if (mode === "new") {
+    const id = ed.newTableStyleId(nm);
+    draft = draft.replace(/w:styleId="[^"]*"/, () => `w:styleId="${id.replace(/"/g, "")}"`);
+  }
+  const baseName = bases.find((b5) => b5.id === base.value)?.name;
+  ed.saveTableStyle(draft, { apply: false, basedOnName: baseName });
+}
+var tr5, el9, sel2, COND_LABELS;
+var init_chrome_table_style = __esm({
+  "src/chrome-table-style.ts"() {
+    "use strict";
+    init_src5();
+    init_src();
+    init_chrome_borders();
+    tr5 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    el9 = (tag2, props = {}, ...kids) => {
+      const { style, ...rest } = props;
+      const e8 = Object.assign(document.createElement(tag2), rest);
+      if (style) e8.style.cssText = style;
+      e8.append(...kids);
+      return e8;
+    };
+    sel2 = (name, opts, value, style = "") => {
+      const s4 = el9("select", { name, style });
+      for (const [v2, t6] of opts) s4.append(el9("option", { value: v2, selected: v2 === value }, t6));
+      return s4;
+    };
+    COND_LABELS = {
+      wholeTable: ["Whole table", "Tabela inteira"],
+      firstRow: ["Header row", "Linha de cabe\xE7alho"],
+      lastRow: ["Total row", "Linha de total"],
+      firstCol: ["First column", "Primeira coluna"],
+      lastCol: ["Last column", "\xDAltima coluna"],
+      band1Horz: ["Odd banded rows", "Linhas em tiras \xEDmpares"],
+      band2Horz: ["Even banded rows", "Linhas em tiras pares"],
+      band1Vert: ["Odd banded columns", "Colunas em tiras \xEDmpares"],
+      band2Vert: ["Even banded columns", "Colunas em tiras pares"],
+      nwCell: ["Top left cell", "C\xE9lula superior esquerda"],
+      neCell: ["Top right cell", "C\xE9lula superior direita"],
+      swCell: ["Bottom left cell", "C\xE9lula inferior esquerda"],
+      seCell: ["Bottom right cell", "C\xE9lula inferior direita"]
+    };
+  }
+});
+
+// src/chrome-table-dialogs.ts
+function radios(name, opts, value) {
+  const box = el10("div", { style: "display:flex;flex-direction:column;gap:6px" });
+  for (const [v2, t6] of opts) {
+    const i7 = el10("input", { type: "radio", name, value: v2, checked: v2 === value });
+    box.append(el10("label", { className: "uo-check" }, i7, t6));
+  }
+  return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
+}
+async function ask(env, title, body, width = 400) {
+  const L12 = env.app.ui.L;
+  const h3 = openDialog({
+    title,
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width,
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  return await h3.result === "ok";
+}
+function separatorPicker(lang, name, value, other, paraLabel) {
+  const opts = [["paragraph", paraLabel], ["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr6(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr6(lang, "Other:", "Outro:")]];
+  const r6 = radios(name, opts, value);
+  const otherIn = el10("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
+  r6.el.lastElementChild.append(otherIn);
+  otherIn.addEventListener("input", () => {
+    r6.el.querySelector('input[value="other"]').checked = true;
+  });
+  const read = () => {
+    const v2 = r6.value();
+    return v2 === "other" ? { char: otherIn.value || "-" } : v2;
+  };
+  return { el: r6.el, read, radios: r6.el };
+}
+function autofitPicker(lang, value, colTw) {
+  const r6 = radios("autofit", [
+    ["fixed", tr6(lang, "Fixed column width:", "Largura fixa da coluna:")],
+    ["content", tr6(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
+    ["window", tr6(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
+  ], value);
+  const auto = tr6(lang, "Auto", "Autom\xE1tico");
+  const w2 = el10("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
+  r6.el.firstElementChild.append(w2);
+  const read = () => {
+    const a3 = r6.value();
+    const tw3 = a3 === "fixed" && w2.value.trim() !== auto ? twOf(w2.value) : void 0;
+    return { autofit: a3, ...tw3 && tw3 > 0 ? { colWidthTwips: tw3 } : {} };
+  };
+  return { el: r6.el, read };
+}
+async function tableDialog(env, kind, arg) {
+  const lang = env.lang, ed = env.ed;
+  switch (kind) {
+    case "insert": {
+      const mem = env.app.prefs.get("tableDims")?.split("x").map(Number);
+      const cols = num2("cols", mem?.[0] || 5), rows = num2("rows", mem?.[1] || 2, 1, 32767);
+      const af = autofitPicker(lang, "fixed");
+      const remember = el10("input", { type: "checkbox", name: "remember", checked: !!mem });
+      const body = el10(
+        "div",
+        { style: "display:flex;flex-direction:column;gap:14px" },
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el10(
+          "div",
+          { className: "uo-dialog-grid" },
+          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          cols,
+          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          rows
+        )),
+        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        el10("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
+      );
+      if (!await ask(env, tr6(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
+      const c5 = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r6 = Math.max(1, parseInt(rows.value, 10) || 1);
+      env.app.prefs.set("tableDims", remember.checked ? `${c5}x${r6}` : "");
+      ed.insertTable(r6, c5, af.read());
+      return;
+    }
+    case "fromText": {
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraphs", "Par\xE1grafos"));
+      const cols = num2("cols", 2);
+      const rowsOut = el10("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
+      const af = autofitPicker(lang, "fixed");
+      const guess = ed.textToTableGuess();
+      if (guess) {
+        sep.radios.querySelector(`input[value="${typeof guess.separator === "string" ? guess.separator : "other"}"]`).checked = true;
+        cols.value = String(guess.cols);
+        rowsOut.value = String(guess.rows);
+      }
+      const recount = () => {
+        const g2 = ed.textToTableGuess(sep.read(), parseInt(cols.value, 10) || 1);
+        if (g2) {
+          if (document.activeElement !== cols) cols.value = String(g2.cols);
+          rowsOut.value = String(g2.rows);
+        }
+      };
+      sep.el.addEventListener("change", recount);
+      cols.addEventListener("input", recount);
+      const body = el10(
+        "div",
+        { style: "display:flex;flex-direction:column;gap:14px" },
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el10(
+          "div",
+          { className: "uo-dialog-grid" },
+          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          cols,
+          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          rowsOut
+        )),
+        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        section2(tr6(lang, "Separate text at", "Separar texto em"), sep.el)
+      );
+      if (!await ask(env, tr6(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
+      ed.convertTextToTable({ separator: sep.read(), cols: parseInt(cols.value, 10) || 1, ...af.read() });
+      return;
+    }
+    case "toText": {
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
+      const body = section2(tr6(lang, "Separate text with", "Separar texto com"), sep.el);
+      if (!await ask(env, tr6(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
+      ed.convertTableToText(sep.read());
+      return;
+    }
+    case "insertCells": {
+      const r6 = radios("shift", [
+        ["right", tr6(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
+        ["down", tr6(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
+        ["row", tr6(lang, "Insert entire row", "Inserir linha inteira")],
+        ["column", tr6(lang, "Insert entire column", "Inserir coluna inteira")]
+      ], "down");
+      if (!await ask(env, tr6(lang, "Insert Cells", "Inserir C\xE9lulas"), r6.el, 340)) return;
+      ed.insertCells(r6.value());
+      return;
+    }
+    case "deleteCells": {
+      const r6 = radios("shift", [
+        ["left", tr6(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
+        ["up", tr6(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
+        ["row", tr6(lang, "Delete entire row", "Excluir linha inteira")],
+        ["column", tr6(lang, "Delete entire column", "Excluir coluna inteira")]
+      ], "left");
+      if (!await ask(env, tr6(lang, "Delete Cells", "Excluir C\xE9lulas"), r6.el, 340)) return;
+      ed.deleteCells(r6.value());
+      return;
+    }
+    case "split": {
+      const s4 = ed.getTableState();
+      const cols = num2("cols", 2), rows = num2("rows", 1, 1, 32767);
+      const merge = el10("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
+      const body = el10(
+        "div",
+        { style: "display:flex;flex-direction:column;gap:14px" },
+        el10(
+          "div",
+          { className: "uo-dialog-grid" },
+          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          cols,
+          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          rows
+        ),
+        el10("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
+      );
+      if (!await ask(env, tr6(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
+      ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
+      return;
+    }
+    case "margins": {
+      const s4 = ed.getTableState();
+      const mar = s4?.tblPr.tblCellMar ?? {};
+      const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
+      const top = cmInput(lang, "top", w2(mar.top)), bottom = cmInput(lang, "bottom", w2(mar.bottom));
+      const left = cmInput(lang, "left", w2(mar.left, 108)), right = cmInput(lang, "right", w2(mar.right, 108));
+      const spTw = s4?.tblPr.tblCellSpacing?.type === "dxa" ? s4.tblPr.tblCellSpacing.w * 2 : 0;
+      const allow = el10("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
+      const spacing = cmInput(lang, "spacing", spTw);
+      const resize = el10("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
+      const body = el10(
+        "div",
+        { style: "display:flex;flex-direction:column;gap:14px" },
+        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el10(
+          "div",
+          { className: "uo-dialog-grid" },
+          el10("span", {}, tr6(lang, "Top:", "Superior:")),
+          top,
+          el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
+          left,
+          el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+          bottom,
+          el10("span", {}, tr6(lang, "Right:", "Direita:")),
+          right
+        )),
+        section2(
+          tr6(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
+          el10("div", { style: "display:flex;align-items:center;gap:8px" }, el10("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
+        ),
+        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el10("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
+      );
+      if (!await ask(env, tr6(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
+      ed.setTableCellMargins(
+        { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
+        allow.checked ? twOf(spacing.value) ?? 0 : 0,
+        resize.checked
+      );
+      return;
+    }
+    case "sort":
+      return sortDialog(env);
+    case "borders":
+      return bordersShadingDialog(env, "borders");
+    case "pageBorders":
+      return bordersShadingDialog(env, "page");
+    case "shading":
+      return bordersShadingDialog(env, "shading");
+    case "tableStyle:new":
+      return tableStyleDialog(env, "new");
+    case "tableStyle:modify":
+      return tableStyleDialog(env, "modify", arg);
+    case "properties":
+    case "properties:row":
+    case "properties:column":
+    case "properties:cell":
+    case "properties:alt":
+      return propertiesDialog(env, kind === "properties" ? "table" : kind.slice(11));
+    case "formula": {
+      const formula = el10("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
+      const fmt2 = el10("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
+      const fmtList = el10(
+        "select",
+        { name: "format-list", style: "width:28px" },
+        el10("option", { value: "" }, ""),
+        ...NUMBER_FORMATS.map((f3) => el10("option", { value: f3 }, f3))
+      );
+      fmtList.addEventListener("change", () => {
+        fmt2.value = fmtList.value;
+        fmtList.value = "";
+      });
+      const fn = el10(
+        "select",
+        { name: "function" },
+        el10("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
+        ...FORMULA_FUNCTIONS.map((f3) => el10("option", { value: f3 }, f3))
+      );
+      fn.addEventListener("change", () => {
+        if (!fn.value) return;
+        const a3 = formula.selectionStart ?? formula.value.length, b5 = formula.selectionEnd ?? a3;
+        const ins = `${fn.value}()`;
+        formula.value = formula.value.slice(0, a3) + ins + formula.value.slice(b5);
+        formula.focus();
+        formula.setSelectionRange(a3 + ins.length - 1, a3 + ins.length - 1);
+        fn.value = "";
+      });
+      const body = el10(
+        "div",
+        { style: "display:flex;flex-direction:column;gap:12px" },
+        el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
+        el10(
+          "label",
+          { style: "display:flex;flex-direction:column;gap:4px" },
+          tr6(lang, "Number format:", "Formato do n\xFAmero:"),
+          el10("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
+        ),
+        el10("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
+      );
+      queueMicrotask(() => {
+        formula.focus();
+        formula.setSelectionRange(formula.value.length, formula.value.length);
+      });
+      if (!await ask(env, tr6(lang, "Formula", "F\xF3rmula"), body, 380)) return;
+      ed.insertFormula(formula.value, fmt2.value.trim() || void 0);
+      return;
+    }
+  }
+}
+function radiosRow(name, opts, value) {
+  const box = el10("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
+  for (const [v2, t6] of opts) box.append(el10("label", { className: "uo-check" }, el10("input", { type: "radio", name, value: v2, checked: v2 === value }), t6));
+  return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
+}
+function widthField(lang, name, w2, defTw) {
+  const on = !!w2 && (w2.type === "dxa" || w2.type === "pct") && w2.w > 0;
+  const c5 = check6(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
+  const unit = sel3(`${name}-unit`, [["dxa", tr6(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr6(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
+  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr6(lang, ".", ","));
+  const val3 = el10("input", {
+    type: "text",
+    name,
+    inputMode: "decimal",
+    style: "width:96px",
+    value: w2?.type === "pct" ? pctText2(w2.w) : `${cmText(lang, on && w2 ? w2.w : defTw)} cm`
+  });
+  unit.addEventListener("change", () => {
+    val3.value = unit.value === "pct" ? "100%" : `${cmText(lang, defTw)} cm`;
+  });
+  const sync = () => {
+    val3.disabled = unit.disabled = !c5.box.checked;
+  };
+  c5.box.addEventListener("change", sync);
+  sync();
+  const read = () => {
+    if (!c5.box.checked) return null;
+    if (unit.value === "pct") {
+      const n5 = parseFloat(val3.value.replace(",", ".").replace(/[^0-9.]/g, ""));
+      return Number.isFinite(n5) && n5 > 0 ? { w: Math.round(n5 * 50), type: "pct" } : null;
+    }
+    const tw3 = twOf(val3.value);
+    return tw3 && tw3 > 0 ? { w: tw3, type: "dxa" } : null;
+  };
+  return { el: line(c5.el, val3, el10("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
+}
+async function propertiesDialog(env, tab) {
+  const lang = env.lang, ed = env.ed;
+  const s4 = ed.getTableState();
+  if (!s4) return;
+  const t6 = s4.tblPr, rp = s4.trPr, cp = s4.tcPr;
+  const tWidth = widthField(lang, "tw", t6.tblW, s4.availTwips);
+  const curAlign = t6.jc === "center" || t6.jc === "right" ? t6.jc : "left";
+  const align = radiosRow("talign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Center", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], curAlign);
+  const indent = cmInput(lang, "tind", t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0);
+  const syncInd = () => {
+    indent.disabled = align.value() !== "left";
+  };
+  align.el.addEventListener("change", syncInd);
+  syncInd();
+  const wrap = radiosRow("twrap", [["none", tr6(lang, "None", "Nenhuma")], ["around", tr6(lang, "Around", "Ao redor")]], t6.tblpPr ? "around" : "none");
+  let position = t6.tblpPr ? { ...t6.tblpPr } : void 0;
+  let overlap;
+  const posBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
+  const syncWrap = () => {
+    posBtn.disabled = wrap.value() !== "around";
+  };
+  wrap.el.addEventListener("change", syncWrap);
+  syncWrap();
+  posBtn.addEventListener("click", () => {
+    const p0 = position ?? { leftFromText: 141, rightFromText: 141, vertAnchor: "text", tblpY: 1 };
+    void positioningDialog(env, p0, overlap ?? (!!t6.tblpPr && t6.tblOverlap !== "never")).then((r6) => {
+      if (r6) {
+        position = r6.pos;
+        overlap = r6.overlap;
+      }
+    });
+  });
+  const optBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  optBtn.addEventListener("click", () => {
+    void tableDialog(env, "margins");
+  });
+  const tableTab = el10(
+    "div",
+    {},
+    section2(tr6(lang, "Size", "Tamanho"), tWidth.el),
+    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el10("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
+    section2(tr6(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
+    el10("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
+  );
+  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr6(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr6(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
+  const hOn = check6("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
+  const hVal = cmInput(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
+  const hRule = sel3("rh-rule", [["atLeast", tr6(lang, "At least", "Pelo menos")], ["exact", tr6(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
+  const syncH = () => {
+    hVal.disabled = hRule.disabled = !hOn.box.checked;
+  };
+  hOn.box.addEventListener("change", syncH);
+  syncH();
+  const brk = check6("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
+  const hdr = check6("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
+  const rowTab = el10(
+    "div",
+    {},
+    el10("strong", {}, rowsLabel),
+    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el10("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
+  );
+  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr6(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr6(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
+  const tcW = cp.tcW?.type === "dxa" || cp.tcW?.type === "pct" ? cp.tcW : void 0;
+  const cWidth = widthField(lang, "cw", tcW, s4.colWidth);
+  const colTab = el10("div", {}, el10("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
+  const kWidth = widthField(lang, "kw", tcW, s4.colWidth);
+  const curV = cp.vAlign === "center" || cp.vAlign === "bottom" ? cp.vAlign : "top";
+  const vAlign = radiosRow("kva", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Center", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")]], curV);
+  let cellOpts;
+  const cellBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  cellBtn.addEventListener("click", () => {
+    void cellOptionsDialog(env, cp, t6).then((r6) => {
+      if (r6) cellOpts = r6;
+    });
+  });
+  const cellTab = el10(
+    "div",
+    {},
+    section2(tr6(lang, "Size", "Tamanho"), kWidth.el),
+    section2(tr6(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
+    el10("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
+  );
+  const title = el10("input", { type: "text", name: "alt-title", value: t6.tblCaption ?? "", style: "width:100%" });
+  const descr = el10("textarea", { name: "alt-descr", value: t6.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
+  const altTab = el10(
+    "div",
+    {},
+    el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
+    el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
+  );
+  const tabs = dialogTabs([
+    { id: "table", label: tr6(lang, "Table", "Tabela"), body: tableTab },
+    { id: "row", label: tr6(lang, "Row", "Linha"), body: rowTab },
+    { id: "column", label: tr6(lang, "Column", "Coluna"), body: colTab },
+    { id: "cell", label: tr6(lang, "Cell", "C\xE9lula"), body: cellTab },
+    { id: "alt", label: tr6(lang, "Alt Text", "Texto Alt"), body: altTab }
+  ], tab);
+  if (!await ask(env, tr6(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
+  const sameW = (a3, b5) => a3 === null ? !b5 || b5.type === "auto" || b5.type === "nil" || !b5.w : !!b5 && a3.type === b5.type && a3.w === b5.w;
+  const out = {};
+  const tb = {};
+  const tw3 = tWidth.read();
+  if (!sameW(tw3, t6.tblW)) tb.width = tw3;
+  const al = align.value();
+  if (al !== curAlign) tb.align = al;
+  const ind2 = twOf(indent.value) ?? 0;
+  if (al === "left" && ind2 !== (t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0)) tb.indentTwips = ind2;
+  const wr = wrap.value();
+  if (wr !== (t6.tblpPr ? "around" : "none")) tb.wrap = wr;
+  if (wr === "around" && position && JSON.stringify(position) !== JSON.stringify(t6.tblpPr ?? null)) tb.position = position;
+  if (wr === "around" && overlap !== void 0) tb.overlap = overlap;
+  if (title.value !== (t6.tblCaption ?? "")) tb.title = title.value;
+  if (descr.value !== (t6.tblDescription ?? "")) tb.description = descr.value;
+  if (Object.keys(tb).length) out.table = tb;
+  const rw = {};
+  const hTw = twOf(hVal.value) ?? 0;
+  const hNew = hOn.box.checked && hTw > 0 ? { twips: hTw, rule: hRule.value } : null;
+  const hOld = rp.trHeight ? { twips: rp.trHeight.val, rule: rp.trHeight.hRule === "exact" ? "exact" : "atLeast" } : null;
+  if (JSON.stringify(hNew) !== JSON.stringify(hOld)) rw.height = hNew;
+  if (brk.box.checked !== !rp.cantSplit) rw.allowBreak = brk.box.checked;
+  if (hdr.box.checked !== !!rp.tblHeader) rw.header = hdr.box.checked;
+  if (Object.keys(rw).length) out.row = rw;
+  const cw = cWidth.read();
+  if (!sameW(cw, tcW)) out.column = { width: cw };
+  const cl = {};
+  const kw = kWidth.read();
+  if (!out.column && !sameW(kw, tcW)) cl.width = kw;
+  const va = vAlign.value();
+  if (va !== curV) cl.vAlign = va;
+  if (cellOpts) {
+    cl.margins = cellOpts.margins;
+    cl.wrap = cellOpts.wrap;
+    cl.fitText = cellOpts.fitText;
+  }
+  if (Object.keys(cl).length) out.cell = cl;
+  if (Object.keys(out).length) ed.setTableProperties(out);
+}
+async function positioningDialog(env, pos, overlap) {
+  const lang = env.lang;
+  const hSpecs = [
+    ["left", tr6(lang, "Left", "Esquerda")],
+    ["center", tr6(lang, "Center", "Centralizado")],
+    ["right", tr6(lang, "Right", "Direita")],
+    ["inside", tr6(lang, "Inside", "Interna")],
+    ["outside", tr6(lang, "Outside", "Externa")]
+  ];
+  const vSpecs = [
+    ["top", tr6(lang, "Top", "Superior")],
+    ["center", tr6(lang, "Center", "Centralizado")],
+    ["bottom", tr6(lang, "Bottom", "Inferior")],
+    ["inside", tr6(lang, "Inside", "Interna")],
+    ["outside", tr6(lang, "Outside", "Externa")]
+  ];
+  const combo = (name, specs, spec, tw3) => {
+    const input = el10("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw3 ?? 0)} cm` });
+    const list = el10("select", { name: `${name}-list`, style: "width:28px" }, el10("option", { value: "" }, ""), ...specs.map(([v3, x3]) => el10("option", { value: v3 }, x3)));
+    list.addEventListener("change", () => {
+      if (list.value) input.value = specs.find(([v3]) => v3 === list.value)[1];
+      list.value = "";
+    });
+    const read = () => {
+      const hit = specs.find(([, x3]) => x3.toLowerCase() === input.value.trim().toLowerCase());
+      return hit ? { spec: hit[0] } : { tw: twOf(input.value) ?? 0 };
+    };
+    return { el: el10("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
+  };
+  const hPos = combo("hpos", hSpecs, pos.tblpXSpec, pos.tblpX);
+  const hRel = sel3("hrel", [["text", tr6(lang, "Column", "Coluna")], ["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
+  const vPos = combo("vpos", vSpecs, pos.tblpYSpec, pos.tblpY);
+  const vRel = sel3("vrel", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["text", tr6(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
+  const top = cmInput(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput(lang, "dbottom", pos.bottomFromText ?? 0);
+  const left = cmInput(lang, "dleft", pos.leftFromText ?? 0), right = cmInput(lang, "dright", pos.rightFromText ?? 0);
+  const move = check6("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
+  move.box.addEventListener("change", () => {
+    vRel.value = move.box.checked ? "text" : "margin";
+  });
+  vRel.addEventListener("change", () => {
+    move.box.checked = vRel.value === "text";
+  });
+  const ov = check6("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
+  const grid2 = (...kids) => el10("div", { className: "uo-dialog-grid" }, ...kids);
+  const body = el10(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el10("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el10("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
+    section2(tr6(lang, "Vertical", "Vertical"), grid2(el10("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el10("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
+    section2(tr6(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
+      el10("span", {}, tr6(lang, "Top:", "Superior:")),
+      top,
+      el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
+      left,
+      el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+      bottom,
+      el10("span", {}, tr6(lang, "Right:", "Direita:")),
+      right
+    )),
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
+  );
+  if (!await ask(env, tr6(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
+  const h3 = hPos.read(), v2 = vPos.read();
+  const nz = (x3) => x3 ? x3 : void 0;
+  const out = {
+    leftFromText: nz(twOf(left.value)),
+    rightFromText: nz(twOf(right.value)),
+    topFromText: nz(twOf(top.value)),
+    bottomFromText: nz(twOf(bottom.value)),
+    vertAnchor: vRel.value,
+    horzAnchor: hRel.value === "text" ? void 0 : hRel.value,
+    tblpXSpec: h3.spec,
+    tblpX: h3.spec ? void 0 : nz(h3.tw),
+    tblpYSpec: v2.spec,
+    tblpY: v2.spec ? void 0 : nz(v2.tw)
+  };
+  for (const k2 of Object.keys(out)) if (out[k2] === void 0) delete out[k2];
+  return { pos: out, overlap: ov.box.checked };
+}
+async function cellOptionsDialog(env, cp, t6) {
+  const lang = env.lang;
+  const tm = t6.tblCellMar ?? {};
+  const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
+  const own4 = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
+  const same2 = check6("same", !own4, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
+  const m2 = cp.tcMar ?? {};
+  const top = cmInput(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
+  const left = cmInput(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput(lang, "right", w2(m2.right, w2(tm.right, 108)));
+  const syncM = () => {
+    for (const i7 of [top, bottom, left, right]) i7.disabled = same2.box.checked;
+  };
+  same2.box.addEventListener("change", syncM);
+  syncM();
+  const wrap = check6("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
+  const fit = check6("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
+  const body = el10(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same2.el, el10(
+      "div",
+      { className: "uo-dialog-grid" },
+      el10("span", {}, tr6(lang, "Top:", "Superior:")),
+      top,
+      el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
+      left,
+      el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+      bottom,
+      el10("span", {}, tr6(lang, "Right:", "Direita:")),
+      right
+    )),
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
+  );
+  if (!await ask(env, tr6(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
+  return {
+    margins: same2.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
+    wrap: wrap.box.checked,
+    fitText: fit.box.checked
+  };
+}
+async function sortDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  let separator = void 0;
+  let caseSensitive = false;
+  let info = ed.sortInfo();
+  if (!info) return;
+  if (info.mergeError) {
+    const h3 = openDialog({
+      title: tr6(lang, "Sort", "Classificar"),
+      icon: "warning",
+      layer: env.layer,
+      lang,
+      body: tr6(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
+    });
+    await h3.result;
+    return;
+  }
+  const types = [["text", tr6(lang, "Text", "Texto")], ["number", tr6(lang, "Number", "N\xFAmero")], ["date", tr6(lang, "Date", "Data")]];
+  const none = tr6(lang, "(none)", "(nenhum)");
+  const header = radiosRow("hdr", [["yes", tr6(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr6(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
+  const isHeader = () => header.value() === "yes";
+  const labels = () => info.columns.map((c5, i7) => {
+    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr6(lang, "Paragraphs", "Par\xE1grafos") : tr6(lang, `Field ${i7 + 1}`, `Campo ${i7 + 1}`);
+    return isHeader() && c5.text ? c5.text : tr6(lang, `Column ${i7 + 1}`, `Coluna ${i7 + 1}`);
+  });
+  const keyRow = (n5) => {
+    const col = el10("select", { name: `k${n5}-col`, style: "min-width:160px" });
+    const type = sel3(`k${n5}-type`, types, "text");
+    const dir = radiosRow(`k${n5}-dir`, [["asc", tr6(lang, "Ascending", "Crescente")], ["desc", tr6(lang, "Descending", "Decrescente")]], "asc");
+    const fill = () => {
+      const cur = col.value;
+      col.replaceChildren(...n5 > 0 ? [el10("option", { value: "" }, none)] : [], ...labels().map((l3, i7) => el10("option", { value: String(i7) }, l3)));
+      col.value = cur && [...col.options].some((o7) => o7.value === cur) ? cur : n5 > 0 ? "" : "0";
+    };
+    const sync = () => {
+      type.disabled = col.value === "";
+      for (const i7 of dir.el.querySelectorAll("input")) i7.disabled = col.value === "";
+    };
+    const guess = () => {
+      const c5 = info.columns[+col.value];
+      if (col.value !== "" && c5) type.value = c5.guess;
+    };
+    fill();
+    guess();
+    sync();
+    col.addEventListener("change", () => {
+      guess();
+      sync();
+    });
+    const title = n5 === 0 ? tr6(lang, "Sort by", "Classificar por") : tr6(lang, "Then by", "E depois por");
+    return {
+      el: section2(title, line(col, el10("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
+      fill: () => {
+        fill();
+        sync();
+      },
+      read: () => col.value === "" ? null : { column: +col.value, type: type.value, desc: dir.value() === "desc" }
+    };
+  };
+  const keys = [keyRow(0), keyRow(1), keyRow(2)];
+  header.el.addEventListener("change", () => keys.forEach((k2) => k2.fill()));
+  const opts = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  opts.addEventListener("click", () => {
+    void sortOptionsDialog(env, info.kind === "paragraphs", separator, caseSensitive).then((r6) => {
+      if (!r6) return;
+      separator = r6.separator;
+      caseSensitive = r6.caseSensitive;
+      info = ed.sortInfo(separator) ?? info;
+      keys.forEach((k2) => k2.fill());
+    });
+  });
+  const body = el10(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    ...keys.map((k2) => k2.el),
+    section2(tr6(lang, "My list has", "Minha lista tem"), header.el),
+    el10("div", { style: "display:flex;justify-content:flex-end" }, opts)
+  );
+  if (!await ask(env, tr6(lang, "Sort", "Classificar"), body, 460)) return;
+  const ks = keys.map((k2) => k2.read()).filter((k2) => !!k2);
+  if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
+}
+async function sortOptionsDialog(env, paragraphs, sep, cs) {
+  const lang = env.lang;
+  const cur = sep === void 0 ? "tab" : typeof sep === "string" ? sep : "other";
+  const r6 = radiosRow("ssep", [["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr6(lang, "Commas", "V\xEDrgulas")], ["other", tr6(lang, "Other:", "Outro:")]], cur);
+  const other = el10("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
+  other.addEventListener("input", () => {
+    r6.el.querySelector('input[value="other"]').checked = true;
+  });
+  const use = check6("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
+  const csBox = check6("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
+  const body = el10(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    ...paragraphs ? [section2(tr6(lang, "Separate fields at", "Separar campos em"), use.el, line(r6.el, other))] : [],
+    section2(tr6(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
+  );
+  if (!await ask(env, tr6(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
+  const v2 = r6.value();
+  const separator = !paragraphs || !use.box.checked ? void 0 : v2 === "other" ? { char: other.value || "-" } : v2;
+  return { separator, caseSensitive: csBox.box.checked };
+}
+var NUMBER_FORMATS, el10, tr6, num2, cmText, cmInput, twOf, section2, sel3, line, check6;
+var init_chrome_table_dialogs = __esm({
+  "src/chrome-table-dialogs.ts"() {
+    "use strict";
+    init_src5();
+    init_src();
+    init_chrome_borders();
+    init_chrome_table_style();
+    NUMBER_FORMATS = ["#.##0", "#.##0,00", "R$ #.##0,00;(R$ #.##0,00)", "0", "0%", "0,00", "0,00%"];
+    el10 = (tag2, props = {}, ...kids) => {
+      const { style, ...rest } = props;
+      const e8 = Object.assign(document.createElement(tag2), rest);
+      if (style) e8.style.cssText = style;
+      e8.append(...kids);
+      return e8;
+    };
+    tr6 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    num2 = (name, value, min = 1, max2 = 63) => el10("input", { type: "number", name, min: String(min), max: String(max2), step: "1", value: String(value) });
+    cmText = (lang, tw3) => (Math.round(tw3 / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
+    cmInput = (lang, name, tw3) => el10("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw3)} cm`, style: "width:96px" });
+    twOf = (s4) => {
+      const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
+    };
+    section2 = (title, ...kids) => el10("div", { style: "display:flex;flex-direction:column;gap:8px" }, el10("strong", {}, title), ...kids);
+    sel3 = (name, opts, value) => {
+      const s4 = el10("select", { name });
+      for (const [v2, t6] of opts) s4.append(el10("option", { value: v2, selected: v2 === value }, t6));
+      return s4;
+    };
+    line = (...kids) => el10("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+    check6 = (name, on, label) => {
+      const box = el10("input", { type: "checkbox", name, checked: on });
+      return { el: el10("label", { className: "uo-check" }, box, label), box };
+    };
+  }
+});
+
 // src/chrome-dialogs.ts
 async function authorDialog(env) {
   if (env.ed.hasAuthor()) return true;
-  const L11 = env.app.ui.L;
-  const name = await promptDialog({ title: L11.authorTitle, label: L11.authorText, ok: L11.authorOk, layer: env.layer, lang: env.lang });
+  const L12 = env.app.ui.L;
+  const name = await promptDialog({ title: L12.authorTitle, label: L12.authorText, ok: L12.authorOk, layer: env.layer, lang: env.lang });
   if (!name?.trim()) return false;
   env.ed.author = name.trim();
   originStore.set("uw-author", env.ed.author);
   return true;
 }
 async function commentDialog(env) {
-  const L11 = env.app.ui.L;
+  const L12 = env.app.ui.L;
   if (!env.ed.selectedText()) {
-    env.app.ui.flash(L11.selectToComment);
+    env.app.ui.flash(L12.selectToComment);
     return;
   }
   if (!await authorDialog(env)) return;
-  const text = await promptDialog({ title: L11.commentTitle, label: L11.commentText, multiline: true, ok: L11.commentAdd, layer: env.layer, lang: env.lang });
+  const text = await promptDialog({ title: L12.commentTitle, label: L12.commentText, multiline: true, ok: L12.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
-  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L11.selectToComment : L11.commentAdded);
+  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L12.selectToComment : L12.commentAdded);
 }
 async function fontDialog(env, families) {
-  const L11 = env.app.ui.L, lang = env.lang;
+  const L12 = env.app.ui.L, lang = env.lang;
   const r6 = env.state().run;
   const cur = r6.fontAscii ?? "";
   const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
   const font = select4("font", fams.map((f3) => [f3, f3]), cur);
-  const size = el8("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r6.szHalfPt ?? 22) / 2) });
-  const color3 = el8("input", { type: "color", name: "color", value: `#${r6.color && /^[0-9a-f]{6}$/i.test(r6.color) ? r6.color : "000000"}` });
+  const size = el11("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r6.szHalfPt ?? 22) / 2) });
+  const color3 = el11("input", { type: "color", name: "color", value: `#${r6.color && /^[0-9a-f]{6}$/i.test(r6.color) ? r6.color : "000000"}` });
   color3.style.cssText = "width:48px;height:32px;padding:2px;border-radius:8px";
   const spacing = select4("spacing", [
     ["0", "Normal"],
-    ["20", tr4(lang, "Expanded 1 pt", "Expandido 1 pt")],
-    ["40", tr4(lang, "Expanded 2 pt", "Expandido 2 pt")],
-    ["-10", tr4(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
-    ["-20", tr4(lang, "Condensed 1 pt", "Condensado 1 pt")]
+    ["20", tr7(lang, "Expanded 1 pt", "Expandido 1 pt")],
+    ["40", tr7(lang, "Expanded 2 pt", "Expandido 2 pt")],
+    ["-10", tr7(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
+    ["-20", tr7(lang, "Condensed 1 pt", "Condensado 1 pt")]
   ], String(r6.charSpacingTwips ?? 0));
   const flags = {
-    bold: [tr4(lang, "Bold", "Negrito"), !!r6.bold],
-    italic: [tr4(lang, "Italic", "It\xE1lico"), !!r6.italic],
-    underline: [tr4(lang, "Underline", "Sublinhado"), !!r6.underline],
-    strike: [tr4(lang, "Strikethrough", "Tachado"), !!r6.strike],
-    sup: [tr4(lang, "Superscript", "Sobrescrito"), r6.vertAlign === "superscript"],
-    sub: [tr4(lang, "Subscript", "Subscrito"), r6.vertAlign === "subscript"],
-    allCaps: [tr4(lang, "All caps", "Todas em mai\xFAsculas"), !!r6.allCaps],
-    smallCaps: [tr4(lang, "Small caps", "Versalete"), !!r6.smallCaps]
+    bold: [tr7(lang, "Bold", "Negrito"), !!r6.bold],
+    italic: [tr7(lang, "Italic", "It\xE1lico"), !!r6.italic],
+    underline: [tr7(lang, "Underline", "Sublinhado"), !!r6.underline],
+    strike: [tr7(lang, "Strikethrough", "Tachado"), !!r6.strike],
+    sup: [tr7(lang, "Superscript", "Sobrescrito"), r6.vertAlign === "superscript"],
+    sub: [tr7(lang, "Subscript", "Subscrito"), r6.vertAlign === "subscript"],
+    allCaps: [tr7(lang, "All caps", "Todas em mai\xFAsculas"), !!r6.allCaps],
+    smallCaps: [tr7(lang, "Small caps", "Versalete"), !!r6.smallCaps]
   };
-  const grid2 = el8(
+  const grid2 = el11(
     "div",
     { className: "uo-dialog-grid" },
-    el8("span", {}, L11.fontDlg),
+    el11("span", {}, L12.fontDlg),
     font,
-    el8("span", {}, L11.size),
+    el11("span", {}, L12.size),
     size,
-    el8("span", {}, L11.color),
+    el11("span", {}, L12.color),
     color3,
-    el8("span", {}, L11.charSpacing),
+    el11("span", {}, L12.charSpacing),
     spacing
   );
-  const fx = el8("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
-  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check5(k2, label, on));
-  const body = el8("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el8("strong", {}, L11.effects), fx);
+  const fx = el11("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
+  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check7(k2, label, on));
+  const body = el11("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el11("strong", {}, L12.effects), fx);
   const h3 = openDialog({
-    title: L11.fontDlg,
+    title: L12.fontDlg,
     body,
     layer: env.layer,
     lang,
     width: 440,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ed = env.ed;
@@ -52770,23 +54456,24 @@ async function fontDialog(env, families) {
   const cs = Number(spacing.value);
   if (cs !== (r6.charSpacingTwips ?? 0)) ed.setCharSpacing(cs || void 0);
 }
-async function paragraphDialog(env) {
-  const L11 = env.app.ui.L, lang = env.lang;
+async function paragraphDialog(env, tab = "indents") {
+  const L12 = env.app.ui.L, lang = env.lang;
   const p3 = env.state().para;
   const u3 = unitOf(lang);
   const ind2 = env.ed.getParagraphIndents();
+  const lay = typeof env.ed.getParagraphLayout === "function" ? env.ed.getParagraphLayout() : null;
   const align = select4("align", [
-    ["left", tr4(lang, "Left", "Esquerda")],
-    ["center", tr4(lang, "Centered", "Centralizada")],
-    ["right", tr4(lang, "Right", "Direita")],
-    ["both", tr4(lang, "Justified", "Justificada")]
+    ["left", tr7(lang, "Left", "Esquerda")],
+    ["center", tr7(lang, "Centered", "Centralizada")],
+    ["right", tr7(lang, "Right", "Direita")],
+    ["both", tr7(lang, "Justified", "Justificada")]
   ], p3.alignment ?? "left");
   const left = unitInput("left", ind2.left, u3, lang);
   const right = unitInput("right", ind2.right, u3, lang);
   const special = select4("special", [
-    ["none", tr4(lang, "(none)", "(nenhum)")],
-    ["firstLine", tr4(lang, "First line", "Primeira linha")],
-    ["hanging", tr4(lang, "Hanging", "Deslocamento")]
+    ["none", tr7(lang, "(none)", "(nenhum)")],
+    ["firstLine", tr7(lang, "First line", "Primeira linha")],
+    ["hanging", tr7(lang, "Hanging", "Deslocamento")]
   ], !ind2.firstLine ? "none" : ind2.firstLine > 0 ? "firstLine" : "hanging");
   const by = unitInput("by", Math.abs(ind2.firstLine), u3, lang);
   const syncBy = () => {
@@ -52799,41 +54486,79 @@ async function paragraphDialog(env) {
     by.value = "";
     by.disabled = true;
   }
-  const pt2 = (tw3) => String(Math.round((tw3 ?? 0) / 2) / 10);
-  const before = el8("input", { type: "number", name: "before", min: "0", step: "6", value: pt2(p3.spaceBeforeTwips) });
-  const after = el8("input", { type: "number", name: "after", min: "0", step: "6", value: pt2(p3.spaceAfterTwips) });
-  const dec = tr4(lang, ".", ",");
+  const autoTxt = tr7(lang, "Auto", "Autom\xE1tico");
+  const spText = (v2) => v2 === null || v2 === void 0 ? "" : v2 === "auto" ? autoTxt : formatMeasure(v2, "pt", lang);
+  const before = el11("input", { type: "text", name: "before", inputMode: "decimal", style: "width:96px", value: spText(lay ? lay.before : p3.spaceBeforeTwips ?? 0) });
+  const after = el11("input", { type: "text", name: "after", inputMode: "decimal", style: "width:96px", value: spText(lay ? lay.after : p3.spaceAfterTwips ?? 0) });
+  const spStart = { before: before.value, after: after.value };
+  const dec = tr7(lang, ".", ",");
   const line2 = select4(
     "line",
     [["240", `1${dec}0`], ["259", `1${dec}08`], ["276", `1${dec}15`], ["360", `1${dec}5`], ["480", `2${dec}0`]],
     String(p3.lineTwentieths ?? 259)
   );
-  const withUnit = (i7) => el8("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
-  const grid2 = el8(
+  const withUnit = (i7) => el11("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
+  const grid2 = el11(
     "div",
     { className: "uo-dialog-grid" },
-    el8("span", {}, L11.alignment),
+    el11("span", {}, L12.alignment),
     align,
-    el8("span", {}, tr4(lang, "Left indent", "Recuo \xE0 esquerda")),
+    el11("span", {}, tr7(lang, "Left indent", "Recuo \xE0 esquerda")),
     withUnit(left),
-    el8("span", {}, tr4(lang, "Right indent", "Recuo \xE0 direita")),
+    el11("span", {}, tr7(lang, "Right indent", "Recuo \xE0 direita")),
     withUnit(right),
-    el8("span", {}, L11.specialIndent),
-    el8("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
-    el8("span", {}, L11.before),
+    el11("span", {}, L12.specialIndent),
+    el11("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
+    el11("span", {}, L12.before),
     before,
-    el8("span", {}, L11.after),
+    el11("span", {}, L12.after),
     after,
-    el8("span", {}, L11.lineSpacing),
+    el11("span", {}, L12.lineSpacing),
     line2
   );
+  const flow = typeof env.ed.getParagraphFlow === "function" ? env.ed.getParagraphFlow() : null;
+  const flag = (name, label) => {
+    const v2 = flow?.[name];
+    const i7 = el11("input", { type: "checkbox", name, checked: !!v2 });
+    if (v2 === null) i7.indeterminate = true;
+    i7.addEventListener("change", () => {
+      i7.dataset["touched"] = "1";
+    });
+    return el11("label", { className: "uo-check" }, i7, label);
+  };
+  const tight = select4("tight", [
+    ["none", tr7(lang, "None", "Nenhum")],
+    ["allLines", tr7(lang, "All", "Todas")],
+    ["firstAndLastLine", tr7(lang, "First and last lines", "Primeira e \xFAltima linhas")],
+    ["firstLineOnly", tr7(lang, "First line only", "Somente primeira linha")],
+    ["lastLineOnly", tr7(lang, "Last line only", "Somente \xFAltima linha")]
+  ], flow?.textboxTightWrap ?? "");
+  if (!flow?.textboxTightWrap) tight.selectedIndex = -1;
+  const breaks = el11(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:8px" },
+    el11("strong", {}, tr7(lang, "Pagination", "Pagina\xE7\xE3o")),
+    flag("widowControl", tr7(lang, "Widow/Orphan control", "Controle de linhas \xF3rf\xE3s/vi\xFAvas")),
+    flag("keepNext", tr7(lang, "Keep with next", "Manter com o pr\xF3ximo")),
+    flag("keepLines", tr7(lang, "Keep lines together", "Manter linhas juntas")),
+    flag("pageBreakBefore", tr7(lang, "Page break before", "Quebrar p\xE1gina antes")),
+    el11("strong", { style: "margin-top:6px" }, tr7(lang, "Formatting exceptions", "Exce\xE7\xF5es de formata\xE7\xE3o")),
+    flag("suppressLineNumbers", tr7(lang, "Suppress line numbers", "Suprimir n\xFAmeros de linha")),
+    flag("suppressAutoHyphens", tr7(lang, "Don't hyphenate", "N\xE3o hifenizar")),
+    el11("strong", { style: "margin-top:6px" }, tr7(lang, "Textbox options", "Op\xE7\xF5es de caixa de texto")),
+    el11("div", { className: "uo-dialog-grid" }, el11("span", {}, tr7(lang, "Tight wrap:", "Ajuste r\xEDgido:")), tight)
+  );
+  const tabs = dialogTabs([
+    { id: "indents", label: tr7(lang, "Indents and Spacing", "Recuos e espa\xE7amento"), body: grid2 },
+    { id: "breaks", label: tr7(lang, "Line and Page Breaks", "Quebras de linha e de p\xE1gina"), body: breaks }
+  ], tab);
   const h3 = openDialog({
-    title: L11.paraDlg,
-    body: grid2,
+    title: L12.paraDlg,
+    body: tabs.el,
     layer: env.layer,
     lang,
-    width: 460,
-    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
+    width: 480,
+    actions: [{ id: "tabs", label: tr7(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
   });
   const res = await h3.result;
   if (res !== "ok" && res !== "tabs") return;
@@ -52847,47 +54572,68 @@ async function paragraphDialog(env) {
   if (Number.isFinite(nr) && nr !== ind2.right) patch2.right = nr;
   if (Number.isFinite(nf) && nf !== ind2.firstLine) patch2.firstLine = nf;
   if (Object.keys(patch2).length) ed.setParagraphIndents(patch2);
-  ed.setSpaceBefore(Math.round(Number(before.value) * 20));
-  ed.setSpaceAfter(Math.round(Number(after.value) * 20));
+  const spVal = (s4) => s4.trim().toLowerCase() === autoTxt.toLowerCase() ? "auto" : parseMeasure(s4, "pt");
+  const sp2 = {};
+  if (before.value !== spStart.before) {
+    const v2 = spVal(before.value);
+    if (v2 !== null) sp2.before = v2;
+  }
+  if (after.value !== spStart.after) {
+    const v2 = spVal(after.value);
+    if (v2 !== null) sp2.after = v2;
+  }
+  if (Object.keys(sp2).length) {
+    if (typeof ed.setParagraphLayout === "function") ed.setParagraphLayout(sp2);
+    else {
+      if (typeof sp2.before === "number") ed.setSpaceBefore(sp2.before);
+      if (typeof sp2.after === "number") ed.setSpaceAfter(sp2.after);
+    }
+  }
   ed.setLineSpacing(Number(line2.value));
+  if (flow && typeof ed.setParagraphFlow === "function") {
+    const f3 = {};
+    for (const i7 of breaks.querySelectorAll("input[type=checkbox][data-touched]")) f3[i7.name] = i7.checked;
+    if (tight.value && tight.value !== (flow.textboxTightWrap ?? "")) f3.textboxTightWrap = tight.value;
+    if (Object.keys(f3).length) ed.setParagraphFlow(f3);
+  }
   if (res === "tabs") await tabsDialog(env);
 }
 async function tabsDialog(env) {
-  const lang = env.lang, ed = env.ed, L11 = env.app.ui.L;
+  const lang = env.lang, ed = env.ed, L12 = env.app.ui.L;
   const u3 = unitOf(lang);
   const cur = ed.getTabStops();
   let tabs = cur.tabs.map((t6) => ({ ...t6 }));
   const cleared = [];
-  const pos = el8("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
-  pos.setAttribute("aria-label", tr4(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
-  const list = el8("select", { name: "list", size: 6, style: "width:100%;height:132px" });
+  const pos = el11("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
+  pos.setAttribute("aria-label", tr7(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
+  const list = el11("select", { name: "list", size: 6, style: "width:100%;height:132px" });
   const def = unitInput("default", cur.defaultTabTwips, u3, lang);
-  const clearedEl = el8("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
+  const clearedEl = el11("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
   const radios2 = (name, opts, value) => {
-    const box = el8("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
+    const box = el11("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
     for (const [v2, t6] of opts) {
-      const i7 = el8("input", { type: "radio", name, value: v2, checked: v2 === value });
-      box.append(el8("label", { className: "uo-check" }, i7, t6));
+      const i7 = el11("input", { type: "radio", name, value: v2, checked: v2 === value });
+      box.append(el11("label", { className: "uo-check" }, i7, t6));
     }
     return box;
   };
   const alignBox = radios2("align", [
-    ["left", tr4(lang, "Left", "Esquerdo")],
-    ["center", tr4(lang, "Center", "Centralizado")],
-    ["right", tr4(lang, "Right", "Direito")],
-    ["decimal", tr4(lang, "Decimal", "Decimal")],
-    ["bar", tr4(lang, "Bar", "Barra")]
+    ["left", tr7(lang, "Left", "Esquerdo")],
+    ["center", tr7(lang, "Center", "Centralizado")],
+    ["right", tr7(lang, "Right", "Direito")],
+    ["decimal", tr7(lang, "Decimal", "Decimal")],
+    ["bar", tr7(lang, "Bar", "Barra")]
   ], "left");
-  const leaderBox = radios2("leader", [["", tr4(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
+  const leaderBox = radios2("leader", [["", tr7(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
   const val3 = (name) => alignBox.parentElement?.querySelector(`input[name="${name}"]:checked`)?.value ?? body.querySelector(`input[name="${name}"]:checked`)?.value ?? "";
   const setRadio = (name, v2) => {
     for (const i7 of body.querySelectorAll(`input[name="${name}"]`)) i7.checked = i7.value === v2;
   };
   const render = (keep) => {
     tabs.sort((a3, b5) => a3.pos - b5.pos);
-    list.replaceChildren(...tabs.map((t6) => el8("option", { value: String(t6.pos), textContent: `${fmtUnit(t6.pos, u3, lang)} ${u3.name}` })));
+    list.replaceChildren(...tabs.map((t6) => el11("option", { value: String(t6.pos), textContent: `${fmtUnit(t6.pos, u3, lang)} ${u3.name}` })));
     if (keep !== void 0) list.value = String(keep);
-    clearedEl.textContent = cleared.length ? `${tr4(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x3) => `${fmtUnit(x3, u3, lang)} ${u3.name}`).join("; ")}` : "";
+    clearedEl.textContent = cleared.length ? `${tr7(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x3) => `${fmtUnit(x3, u3, lang)} ${u3.name}`).join("; ")}` : "";
   };
   list.addEventListener("change", () => {
     const t6 = tabs.find((x3) => String(x3.pos) === list.value);
@@ -52896,9 +54642,9 @@ async function tabsDialog(env) {
     setRadio("align", t6.align);
     setRadio("leader", t6.leader === "dot" || t6.leader === "hyphen" || t6.leader === "underscore" ? t6.leader : "");
   });
-  const setBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Set", "Definir") });
-  const clrBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear", "Limpar") });
-  const allBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear All", "Limpar Tudo") });
+  const setBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Set", "Definir") });
+  const clrBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Clear", "Limpar") });
+  const allBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Clear All", "Limpar Tudo") });
   const define = () => {
     const p3 = parseUnit(pos.value, u3);
     if (!Number.isFinite(p3)) return false;
@@ -52935,29 +54681,29 @@ async function tabsDialog(env) {
       define();
     }
   });
-  const left = el8(
+  const left = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0" },
-    el8("span", {}, tr4(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
+    el11("span", {}, tr7(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
     pos,
     list
   );
-  const right = el8(
+  const right = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;flex:1 1 0" },
-    el8("span", {}, tr4(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
-    el8("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
+    el11("span", {}, tr7(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
+    el11("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
     clearedEl
   );
-  const body = el8(
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el8("div", { style: "display:flex;gap:16px" }, left, right),
-    el8("strong", {}, tr4(lang, "Alignment", "Alinhamento")),
+    el11("div", { style: "display:flex;gap:16px" }, left, right),
+    el11("strong", {}, tr7(lang, "Alignment", "Alinhamento")),
     alignBox,
-    el8("strong", {}, tr4(lang, "Leader", "Preenchimento")),
+    el11("strong", {}, tr7(lang, "Leader", "Preenchimento")),
     leaderBox,
-    el8("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
+    el11("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
   );
   render();
   if (tabs[0]) {
@@ -52965,12 +54711,12 @@ async function tabsDialog(env) {
     list.dispatchEvent(new Event("change"));
   }
   const h3 = openDialog({
-    title: tr4(lang, "Tabs", "Tabula\xE7\xE3o"),
+    title: tr7(lang, "Tabs", "Tabula\xE7\xE3o"),
     body,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
   });
   setTimeout(() => pos.focus(), 0);
   if (await h3.result !== "ok") return;
@@ -52980,13 +54726,13 @@ async function tabsDialog(env) {
   const same2 = JSON.stringify(tabs) === JSON.stringify(cur.tabs.map((t6) => ({ ...t6 })).sort((a3, b5) => a3.pos - b5.pos));
   if (!same2) ed.setTabStops(tabs);
 }
-async function pageDialog(env) {
-  const L11 = env.app.ui.L, lang = env.lang;
+async function pageDialog(env, tab = "margins") {
+  const L12 = env.app.ui.L, lang = env.lang, ed = env.ed;
   const u3 = unitOf(lang);
-  const orient = select4("orientation", [["portrait", tr4(lang, "Portrait", "Retrato")], ["landscape", tr4(lang, "Landscape", "Paisagem")]], "portrait");
-  const size = select4("size", [["A4", "A4"], ["Letter", tr4(lang, "Letter", "Carta")]], "A4");
-  const margins = select4("margins", [["normal", "Normal"], ["narrow", tr4(lang, "Narrow", "Estreita")], ["wide", tr4(lang, "Wide", "Larga")], ["custom", tr4(lang, "Custom", "Personalizadas")]], "normal");
-  const s4 = env.ed.getSection();
+  const orient = select4("orientation", [["portrait", tr7(lang, "Portrait", "Retrato")], ["landscape", tr7(lang, "Landscape", "Paisagem")]], "portrait");
+  const size = select4("size", [["A4", "A4"], ["Letter", tr7(lang, "Letter", "Carta")]], "A4");
+  const margins = select4("margins", [["normal", "Normal"], ["narrow", tr7(lang, "Narrow", "Estreita")], ["wide", tr7(lang, "Wide", "Larga")], ["custom", tr7(lang, "Custom", "Personalizadas")]], "normal");
+  const s4 = ed.getSection();
   const cm = s4 ? { ...s4.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s4) {
     orient.value = s4.orientation;
@@ -53001,46 +54747,128 @@ async function pageDialog(env) {
     margins.value = "custom";
   });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
-  const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, "section");
-  const withUnit = (i7) => el8("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
-  const grid2 = el8(
+  const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
+  const withUnit = (i7) => el11("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
+  const marginsTab = el11(
     "div",
     { className: "uo-dialog-grid" },
-    el8("span", {}, L11.orientation),
-    orient,
-    el8("span", {}, L11.paper),
-    size,
-    el8("span", {}, L11.margins),
+    el11("span", {}, L12.margins),
     margins,
-    el8("span", {}, tr4(lang, "Top", "Superior")),
+    el11("span", {}, tr7(lang, "Top", "Superior")),
     withUnit(mt),
-    el8("span", {}, tr4(lang, "Bottom", "Inferior")),
+    el11("span", {}, tr7(lang, "Bottom", "Inferior")),
     withUnit(mb),
-    el8("span", {}, tr4(lang, "Left", "Esquerda")),
+    el11("span", {}, tr7(lang, "Left", "Esquerda")),
     withUnit(ml),
-    el8("span", {}, tr4(lang, "Right", "Direita")),
+    el11("span", {}, tr7(lang, "Right", "Direita")),
     withUnit(mr),
-    el8("span", {}, tr4(lang, "Apply to", "Aplicar a")),
-    applyTo
+    el11("span", {}, L12.orientation),
+    orient
+  );
+  const paperTab = el11("div", { className: "uo-dialog-grid" }, el11("span", {}, L12.paper), size);
+  const startType = s4?.type ?? "nextPage";
+  const sectStart = select4("sectionStart", [
+    ["continuous", tr7(lang, "Continuous", "Cont\xEDnuo")],
+    ["nextColumn", tr7(lang, "New column", "Nova coluna")],
+    ["nextPage", tr7(lang, "New page", "Nova p\xE1gina")],
+    ["evenPage", tr7(lang, "Even page", "P\xE1gina par")],
+    ["oddPage", tr7(lang, "Odd page", "P\xE1gina \xEDmpar")]
+  ], startType);
+  const hf = typeof ed.getHeaderFooterOptions === "function" ? ed.getHeaderFooterOptions() : null;
+  const oddEven = check7("oddEven", tr7(lang, "Different odd and even", "Diferentes em p\xE1ginas pares e \xEDmpares"), !!hf?.differentOddEven);
+  const firstPage = check7("firstPage", tr7(lang, "Different first page", "Diferente na primeira p\xE1gina"), !!hf?.differentFirstPage);
+  const hdr = unitInput("header", hf?.headerDistance ?? 708, u3, lang), ftr = unitInput("footer", hf?.footerDistance ?? 708, u3, lang);
+  const hfStart = { header: hdr.value, footer: ftr.value };
+  const vStart = s4?.verticalAlignment ?? "top";
+  const valign = select4("valign", [
+    ["top", tr7(lang, "Top", "Superior")],
+    ["center", tr7(lang, "Center", "Centralizado")],
+    ["both", tr7(lang, "Justified", "Justificado")],
+    ["bottom", tr7(lang, "Bottom", "Inferior")]
+  ], vStart);
+  const lnInfo = s4?.lineNumbering;
+  let lnOpts = {
+    on: !!lnInfo && lnInfo.mode !== "none",
+    startAt: lnInfo?.startAt ?? 1,
+    countBy: lnInfo?.countBy ?? 1,
+    distanceTwips: lnInfo?.distanceTwips ?? 0,
+    restart: lnInfo?.mode === "continuous" ? "continuous" : lnInfo?.mode === "section" ? "section" : "page"
+  };
+  let lnChanged = false;
+  const lnBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Line Numbers\u2026", "N\xFAmeros de Linha\u2026") });
+  lnBtn.addEventListener("click", () => {
+    void lineNumbersDialog(env, lnOpts).then((r6) => {
+      if (r6) {
+        lnOpts = r6;
+        lnChanged = true;
+      }
+    });
+  });
+  const bordersBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Borders\u2026", "Bordas\u2026") });
+  bordersBtn.addEventListener("click", () => {
+    void tableDialog(env, "pageBorders");
+  });
+  const layoutTab = el11(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px" },
+    el11("strong", {}, tr7(lang, "Section", "Se\xE7\xE3o")),
+    el11("div", { className: "uo-dialog-grid" }, el11("span", {}, tr7(lang, "Section start:", "In\xEDcio da se\xE7\xE3o:")), sectStart),
+    el11("strong", {}, tr7(lang, "Headers and footers", "Cabe\xE7alhos e rodap\xE9s")),
+    oddEven,
+    firstPage,
+    el11(
+      "div",
+      { className: "uo-dialog-grid" },
+      el11("span", {}, tr7(lang, "From edge: Header:", "Da borda: Cabe\xE7alho:")),
+      withUnit(hdr),
+      el11("span", {}, tr7(lang, "Footer:", "Rodap\xE9:")),
+      withUnit(ftr)
+    ),
+    el11("strong", {}, tr7(lang, "Page", "P\xE1gina")),
+    el11("div", { className: "uo-dialog-grid" }, el11("span", {}, tr7(lang, "Vertical alignment:", "Alinhamento vertical:")), valign),
+    el11("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, lnBtn, bordersBtn)
+  );
+  for (const i7 of [hdr, ftr]) i7.disabled = !hf;
+  oddEven.querySelector("input").disabled = firstPage.querySelector("input").disabled = !hf;
+  const tabs = dialogTabs([
+    { id: "margins", label: tr7(lang, "Margins", "Margens"), body: marginsTab },
+    { id: "paper", label: tr7(lang, "Paper", "Papel"), body: paperTab },
+    { id: "layout", label: tr7(lang, "Layout", "Layout"), body: layoutTab }
+  ], tab);
+  const body = el11(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:12px" },
+    tabs.el,
+    el11("div", { className: "uo-dialog-grid" }, el11("span", {}, tr7(lang, "Apply to", "Aplicar a")), applyTo)
   );
   const h3 = openDialog({
-    title: L11.pageDlg,
-    body: grid2,
+    title: L12.pageDlg,
+    body,
     layer: env.layer,
     lang,
-    width: 420,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
+    width: 480,
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const all = applyTo.value !== "section";
   const custom = margins.value === "custom" ? { top: parseUnit(mt.value, u3), bottom: parseUnit(mb.value, u3), left: parseUnit(ml.value, u3), right: parseUnit(mr.value, u3) } : null;
   const customOk = !!custom && Object.values(custom).every((v2) => Number.isFinite(v2) && v2 >= 0);
-  env.ed.setPageSetup({
+  ed.setPageSetup({
     ...all || orient.value !== start.orientation ? { orientation: orient.value } : {},
     ...all || size.value !== start.size ? { size: size.value } : {},
     ...customOk ? { customMargins: custom } : all || margins.value !== start.margins ? { margins: margins.value } : {},
+    ...all || sectStart.value !== startType ? { sectionStart: sectStart.value } : {},
+    ...all || valign.value !== vStart ? { verticalAlignment: valign.value } : {},
+    ...all || lnChanged ? { lineNumbering: lnOpts } : {},
     applyTo: applyTo.value
   });
+  if (hf) {
+    const oe = oddEven.querySelector("input").checked, fp = firstPage.querySelector("input").checked;
+    if (oe !== hf.differentOddEven) ed.setDifferentOddEven(oe);
+    if (fp !== hf.differentFirstPage) ed.setDifferentFirstPage(fp);
+    const hd = hdr.value !== hfStart.header ? parseUnit(hdr.value, u3) : NaN, fd2 = ftr.value !== hfStart.footer ? parseUnit(ftr.value, u3) : NaN;
+    if (Number.isFinite(hd) || Number.isFinite(fd2)) ed.setHeaderFooterDistance({ ...Number.isFinite(hd) ? { header: hd } : {}, ...Number.isFinite(fd2) ? { footer: fd2 } : {} });
+  }
 }
 async function columnsDialog(env) {
   const lang = env.lang, ed = env.ed;
@@ -53064,10 +54892,10 @@ async function columnsDialog(env) {
     const w2 = Math.round((W3 - st.space * (n5 - 1)) / n5);
     st.widths = Array.from({ length: n5 }, (_2, i7) => ({ widthTwips: w2, spaceTwips: i7 < n5 - 1 ? st.space : 0 }));
   };
-  const presets = el8("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const presets = el11("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
   const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
   const presetBtns = PRESETS.map(([id, en, pt2, n5]) => {
-    const b5 = el8("button", { type: "button", textContent: tr4(lang, en, pt2), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    const b5 = el11("button", { type: "button", textContent: tr7(lang, en, pt2), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
     b5.addEventListener("click", () => {
       st.count = n5;
       if (id === "left" || id === "right") {
@@ -53084,13 +54912,13 @@ async function columnsDialog(env) {
     presets.append(b5);
     return [id, b5];
   });
-  const count = el8("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
-  const sep = check5("sep", tr4(lang, "Line between", "Linha entre colunas"), st.sep);
-  const equal = check5("equal", tr4(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
-  const rows = el8("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const count = el11("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check7("sep", tr7(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check7("equal", tr7(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el11("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
-  const newCol = check5("newCol", tr4(lang, "Start new column", "Iniciar nova coluna"), false);
-  const preview2 = el8("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const newCol = check7("newCol", tr7(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview2 = el11("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
   const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
   function render() {
     count.value = String(st.count);
@@ -53104,22 +54932,22 @@ async function columnsDialog(env) {
       b5.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
       b5.setAttribute("aria-pressed", String(on));
     }
-    rows.replaceChildren(el8("strong", {}, "#"), el8("strong", {}, tr4(lang, "Width", "Largura")), el8("strong", {}, tr4(lang, "Spacing", "Espa\xE7amento")));
+    rows.replaceChildren(el11("strong", {}, "#"), el11("strong", {}, tr7(lang, "Width", "Largura")), el11("strong", {}, tr7(lang, "Spacing", "Espa\xE7amento")));
     st.widths.slice(0, Math.max(1, st.count)).forEach((c5, i7) => {
       const last = i7 === st.count - 1;
-      const wIn = el8("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
-      const sIn = el8("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
-      wIn.setAttribute("aria-label", `${tr4(lang, "Width", "Largura")} ${i7 + 1}`);
-      sIn.setAttribute("aria-label", `${tr4(lang, "Spacing", "Espa\xE7amento")} ${i7 + 1}`);
+      const wIn = el11("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      const sIn = el11("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      wIn.setAttribute("aria-label", `${tr7(lang, "Width", "Largura")} ${i7 + 1}`);
+      sIn.setAttribute("aria-label", `${tr7(lang, "Spacing", "Espa\xE7amento")} ${i7 + 1}`);
       wIn.addEventListener("change", () => setWidth(i7, parse(wIn.value)));
       sIn.addEventListener("change", () => setSpace(i7, parse(sIn.value)));
-      rows.append(el8("span", {}, `${i7 + 1}:`), el8("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el8("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+      rows.append(el11("span", {}, `${i7 + 1}:`), el11("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el11("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
     });
     preview2.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c5, i7) => {
-      const col = el8("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      const col = el11("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
       if (i7 === st.count - 1) return [col];
-      const gap = el8("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
-      if (box("sep").checked) gap.append(el8("div", { style: "width:1px;background:currentColor" }));
+      const gap = el11("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el11("div", { style: "width:1px;background:currentColor" }));
       return [col, gap];
     }));
   }
@@ -53188,27 +55016,27 @@ async function columnsDialog(env) {
     equalize();
   }
   render();
-  const body = el8(
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el8("strong", {}, tr4(lang, "Presets", "Predefini\xE7\xF5es")),
+    el11("strong", {}, tr7(lang, "Presets", "Predefini\xE7\xF5es")),
     presets,
-    el8(
+    el11(
       "div",
       { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
-      el8("label", { style: "display:flex;gap:8px;align-items:center" }, tr4(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      el11("label", { style: "display:flex;gap:8px;align-items:center" }, tr7(lang, "Number of columns", "N\xFAmero de colunas"), count),
       sep
     ),
-    el8("strong", {}, tr4(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    el11("strong", {}, tr7(lang, "Width and spacing", "Largura e espa\xE7amento")),
     rows,
     equal,
-    el8("div", { className: "uo-dialog-grid" }, el8("span", {}, tr4(lang, "Apply to", "Aplicar a")), applyTo),
+    el11("div", { className: "uo-dialog-grid" }, el11("span", {}, tr7(lang, "Apply to", "Aplicar a")), applyTo),
     newCol,
-    el8("strong", {}, tr4(lang, "Preview", "Visualiza\xE7\xE3o")),
+    el11("strong", {}, tr7(lang, "Preview", "Visualiza\xE7\xE3o")),
     preview2
   );
   const h3 = openDialog({
-    title: tr4(lang, "Columns", "Colunas"),
+    title: tr7(lang, "Columns", "Colunas"),
     icon: "view_column_2",
     body,
     layer: env.layer,
@@ -53227,36 +55055,36 @@ async function columnsDialog(env) {
   });
 }
 function wordCountDialog(env) {
-  const L11 = env.app.ui.L;
+  const L12 = env.app.ui.L;
   const s4 = env.ed.stats();
-  const fmt2 = (n5) => n5.toLocaleString(tr4(env.lang, "en-US", "pt-BR"));
-  const grid2 = el8(
+  const fmt2 = (n5) => n5.toLocaleString(tr7(env.lang, "en-US", "pt-BR"));
+  const grid2 = el11(
     "div",
     { className: "uo-dialog-grid" },
-    el8("span", {}, L11.pages),
-    el8("strong", {}, fmt2(s4.pages)),
-    el8("span", {}, L11.words),
-    el8("strong", {}, fmt2(s4.words)),
-    el8("span", {}, L11.chars),
-    el8("strong", {}, fmt2(s4.chars))
+    el11("span", {}, L12.pages),
+    el11("strong", {}, fmt2(s4.pages)),
+    el11("span", {}, L12.words),
+    el11("strong", {}, fmt2(s4.words)),
+    el11("span", {}, L12.chars),
+    el11("strong", {}, fmt2(s4.chars))
   );
-  openDialog({ title: L11.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
+  openDialog({ title: L12.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
 }
 function shortcutsDialog(env) {
-  const grid2 = el8("div", { className: "uo-dialog-grid" });
+  const grid2 = el11("div", { className: "uo-dialog-grid" });
   grid2.style.gridTemplateColumns = "auto 1fr";
   for (const [k2, en, pt2] of SHORTCUTS) {
-    grid2.append(el8("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el8("span", {}, tr4(env.lang, en, pt2)));
+    grid2.append(el11("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el11("span", {}, tr7(env.lang, en, pt2)));
   }
   openDialog({ title: env.app.ui.L.shortcutsTitle, body: grid2, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
-  const L11 = env.app.ui.L;
-  openDialog({ title: L11.aboutTitle, icon: "info", body: L11.aboutText, layer: env.layer, lang: env.lang, width: 400 });
+  const L12 = env.app.ui.L;
+  openDialog({ title: L12.aboutTitle, icon: "info", body: L12.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
 async function spellingDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const done = tr4(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
+  const done = tr7(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
   const skip = /* @__PURE__ */ new Set();
   const always = /* @__PURE__ */ new Map();
   let cur = await ed.nextMisspelling(skip);
@@ -53264,18 +55092,18 @@ async function spellingDialog(env) {
     env.app.ui.flash(done);
     return;
   }
-  const word = el8("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
-  const info = el8("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
-  const list = el8("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
+  const word = el11("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
+  const info = el11("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
+  const list = el11("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
   const show = async (m2) => {
     word.textContent = m2.word;
-    info.textContent = tr4(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
+    info.textContent = tr7(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
     const sug = await ed.spellingSuggestions(m2, 8);
-    list.replaceChildren(...sug.length ? sug.map((x3) => el8("option", { value: x3, textContent: x3 })) : [el8("option", { value: "", disabled: true, textContent: tr4(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
+    list.replaceChildren(...sug.length ? sug.map((x3) => el11("option", { value: x3, textContent: x3 })) : [el11("option", { value: "", disabled: true, textContent: tr7(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
     list.selectedIndex = sug.length ? 0 : -1;
   };
   await show(cur);
-  const body = el8("div", {}, word, info, el8("div", { style: "font-size:12px;margin-bottom:4px" }, tr4(lang, "Suggestions", "Sugest\xF5es")), list);
+  const body = el11("div", {}, word, info, el11("div", { style: "font-size:12px;margin-bottom:4px" }, tr7(lang, "Suggestions", "Sugest\xF5es")), list);
   const next = async () => {
     cur = await ed.nextMisspelling(skip);
     while (cur && always.has(cur.word)) {
@@ -53312,7 +55140,7 @@ async function spellingDialog(env) {
     void step("change");
   });
   const h3 = openDialog({
-    title: tr4(lang, "Spelling", "Ortografia"),
+    title: tr7(lang, "Spelling", "Ortografia"),
     icon: "spellcheck",
     body,
     layer: env.layer,
@@ -53335,14 +55163,14 @@ async function spellingDialog(env) {
 }
 async function notesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T9 = (en, pt2) => tr4(lang, en, pt2);
+  const T9 = (en, pt2) => tr7(lang, en, pt2);
   let kind = ed.editingNote()?.kind ?? "footnote";
   const st = { footnote: ed.getNoteOptions("footnote"), endnote: ed.getNoteOptions("endnote") };
-  const fnRadio = radio3("kind", "footnote", T9("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
-  const enRadio = radio3("kind", "endnote", T9("Endnotes:", "Notas de fim:"), kind === "endnote");
+  const fnRadio = radio4("kind", "footnote", T9("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
+  const enRadio = radio4("kind", "endnote", T9("Endnotes:", "Notas de fim:"), kind === "endnote");
   const fnPos = select4("fnPos", [["pageBottom", T9("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T9("Below text", "Abaixo do texto")]], st.footnote.position);
   const enPos = select4("enPos", [["docEnd", T9("End of document", "Fim do documento")], ["sectEnd", T9("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
-  const convert = el8("button", { type: "button", className: "uo-pill", textContent: T9("Convert\u2026", "Converter\u2026") });
+  const convert = el11("button", { type: "button", className: "uo-pill", textContent: T9("Convert\u2026", "Converter\u2026") });
   const columns = select4("columns", [["0", T9("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T9("1 column", "1 coluna")], ["2", T9("2 columns", "2 colunas")], ["3", T9("3 columns", "3 colunas")], ["4", T9("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
   const format = select4("format", [
     ["decimal", "1, 2, 3, \u2026"],
@@ -53352,18 +55180,18 @@ async function notesDialog(env) {
     ["upperRoman", "I, II, III, \u2026"],
     ["chicago", "*, \u2020, \u2021, \xA7, \u2026"]
   ], st[kind].numberFormat);
-  const mark2 = el8("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
+  const mark2 = el11("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
   mark2.setAttribute("aria-label", T9("Custom mark", "Marca personalizada"));
-  const symbols = el8("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
+  const symbols = el11("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
   for (const ch of ["*", "\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "#", "\u203B", "\xB9", "\xB2", "\xB3"]) {
-    const b5 = el8("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
+    const b5 = el11("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
     b5.addEventListener("click", () => {
       mark2.value += ch;
       mark2.focus();
     });
     symbols.append(b5);
   }
-  const startAt = el8("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
+  const startAt = el11("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
   const restart = select4("restart", [["continuous", T9("Continuous", "Cont\xEDnua")], ["eachSect", T9("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T9("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
   const scope = select4("scope", [["document", T9("Whole document", "Todo o documento")], ["section", T9("This section", "Esta se\xE7\xE3o")]], "document");
   const show = () => {
@@ -53395,18 +55223,18 @@ async function notesDialog(env) {
     startAt.disabled = restart.value !== "continuous";
   });
   show();
-  const grid2 = (...rows) => el8("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el8("span", {}, label), el8("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
-  const body = el8(
+  const grid2 = (...rows) => el11("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el11("span", {}, label), el11("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el8("strong", {}, T9("Location", "Local")),
-    el8("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
-    el8("div", {}, convert),
-    el8("strong", {}, T9("Footnote layout", "Layout de nota de rodap\xE9")),
+    el11("strong", {}, T9("Location", "Local")),
+    el11("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
+    el11("div", {}, convert),
+    el11("strong", {}, T9("Footnote layout", "Layout de nota de rodap\xE9")),
     grid2([T9("Columns:", "Colunas:"), columns]),
-    el8("strong", {}, T9("Format", "Formato")),
+    el11("strong", {}, T9("Format", "Formato")),
     grid2([T9("Number format:", "Formato do n\xFAmero:"), format], [T9("Custom mark:", "Marca personalizada:"), mark2], [T9("Symbol:", "S\xEDmbolo:"), symbols], [T9("Start at:", "Iniciar em:"), startAt], [T9("Numbering:", "Numera\xE7\xE3o:"), restart]),
-    el8("strong", {}, T9("Apply changes", "Aplicar altera\xE7\xF5es")),
+    el11("strong", {}, T9("Apply changes", "Aplicar altera\xE7\xF5es")),
     grid2([T9("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
   );
   convert.addEventListener("click", () => {
@@ -53440,7 +55268,7 @@ async function notesDialog(env) {
 }
 async function convertNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T9 = (en, pt2) => tr4(lang, en, pt2);
+  const T9 = (en, pt2) => tr7(lang, en, pt2);
   const nf = ed.noteCount("footnote"), ne = ed.noteCount("endnote");
   const opts = [
     ["toEndnotes", T9("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
@@ -53448,8 +55276,8 @@ async function convertNotesDialog(env) {
     ["swap", T9("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
   ];
   const first = opts.find((o7) => o7[2])?.[0];
-  const body = el8("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
-    const r6 = radio3("convert", v3, label, v3 === first);
+  const body = el11("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
+    const r6 = radio4("convert", v3, label, v3 === first);
     r6.querySelector("input").disabled = !on;
     return r6;
   }));
@@ -53468,17 +55296,17 @@ async function convertNotesDialog(env) {
 }
 async function showNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T9 = (en, pt2) => tr4(lang, en, pt2);
+  const T9 = (en, pt2) => tr7(lang, en, pt2);
   if (ed.editingNote() || !ed.noteCount("footnote") || !ed.noteCount("endnote")) {
     ed.showNotes();
     return;
   }
-  const body = el8(
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:8px" },
-    el8("span", {}, T9("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
-    radio3("area", "footnote", T9("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
-    radio3("area", "endnote", T9("View endnote area", "Exibir \xE1rea de notas de fim"), false)
+    el11("span", {}, T9("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
+    radio4("area", "footnote", T9("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
+    radio4("area", "endnote", T9("View endnote area", "Exibir \xE1rea de notas de fim"), false)
   );
   const h3 = openDialog({
     title: T9("Show Notes", "Mostrar Notas"),
@@ -53493,13 +55321,15 @@ async function showNotesDialog(env) {
   const v2 = body.querySelector('input[name="area"]:checked')?.value;
   ed.showNotes(v2 ?? "footnote");
 }
-var el8, select4, check5, tr4, unitOf, fmtUnit, parseUnit, unitInput, applyToSelect, SHORTCUTS, radio3;
+var el11, select4, check7, tr7, unitOf, fmtUnit, parseUnit, unitInput, applyToSelect, SHORTCUTS, radio4;
 var init_chrome_dialogs = __esm({
   "src/chrome-dialogs.ts"() {
     "use strict";
     init_src5();
+    init_chrome_textlayout();
+    init_chrome_table_dialogs();
     init_chrome_store();
-    el8 = (tag2, props = {}, ...kids) => {
+    el11 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -53507,28 +55337,28 @@ var init_chrome_dialogs = __esm({
       return e8;
     };
     select4 = (name, opts, value) => {
-      const s4 = el8("select", { name });
-      for (const [v2, t6] of opts) s4.append(el8("option", { value: v2, textContent: t6 }));
+      const s4 = el11("select", { name });
+      for (const [v2, t6] of opts) s4.append(el11("option", { value: v2, textContent: t6 }));
       s4.value = value;
       return s4;
     };
-    check5 = (name, label, on) => {
-      const i7 = el8("input", { type: "checkbox", name, checked: on });
-      return el8("label", { className: "uo-check" }, i7, label);
+    check7 = (name, label, on) => {
+      const i7 = el11("input", { type: "checkbox", name, checked: on });
+      return el11("label", { className: "uo-check" }, i7, label);
     };
-    tr4 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    tr7 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
     unitOf = (lang) => lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
     fmtUnit = (tw3, u3, lang) => (Math.round(tw3 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
     parseUnit = (v2, u3) => {
       const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
       return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
     };
-    unitInput = (name, tw3, u3, lang, min) => el8("input", { type: "text", name, value: fmtUnit(tw3, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
+    unitInput = (name, tw3, u3, lang, min) => el11("input", { type: "text", name, value: fmtUnit(tw3, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
     applyToSelect = (lang, hasSel, value) => select4("applyTo", [
-      ["section", tr4(lang, "This section", "Esta se\xE7\xE3o")],
-      ["forward", tr4(lang, "This point forward", "Deste ponto em diante")],
-      ["document", tr4(lang, "Whole document", "No documento inteiro")],
-      ...hasSel ? [["selection", tr4(lang, "Selected text", "Texto selecionado")]] : []
+      ["section", tr7(lang, "This section", "Esta se\xE7\xE3o")],
+      ["forward", tr7(lang, "This point forward", "Deste ponto em diante")],
+      ["document", tr7(lang, "Whole document", "No documento inteiro")],
+      ...hasSel ? [["selection", tr7(lang, "Selected text", "Texto selecionado")]] : []
     ], value);
     SHORTCUTS = [
       ["Ctrl+O", "Open", "Abrir"],
@@ -53550,12 +55380,12 @@ var init_chrome_dialogs = __esm({
       ["Ctrl+Shift+8", "Formatting marks", "Marcas de formata\xE7\xE3o"],
       ["Ctrl+scroll", "Zoom", "Zoom"]
     ];
-    radio3 = (name, value, label, on) => el8("label", { className: "uo-check" }, el8("input", { type: "radio", name, value, checked: on }), label);
+    radio4 = (name, value, label, on) => el11("label", { className: "uo-check" }, el11("input", { type: "radio", name, value, checked: on }), label);
   }
 });
 
 // src/chrome-nav.ts
-var LABELS5, el9, NavPane;
+var LABELS5, el12, NavPane;
 var init_chrome_nav = __esm({
   "src/chrome-nav.ts"() {
     "use strict";
@@ -53638,7 +55468,7 @@ var init_chrome_nav = __esm({
         expand: "Expandir"
       }
     };
-    el9 = (tag2, cls, text) => {
+    el12 = (tag2, cls, text) => {
       const e8 = document.createElement(tag2);
       if (cls) e8.className = cls;
       if (text !== void 0) e8.textContent = text;
@@ -53732,20 +55562,20 @@ var init_chrome_nav = __esm({
         });
       }
       build() {
-        const L11 = this.L;
-        const body = el9("div", "uw-nav");
-        const box = el9("div", "uw-nav-search");
-        const ic = el9("span", "uw-nav-search-ic");
+        const L12 = this.L;
+        const body = el12("div", "uw-nav");
+        const box = el12("div", "uw-nav-search");
+        const ic = el12("span", "uw-nav-search-ic");
         ic.innerHTML = symbol("search");
-        this.input = el9("input", "uw-nav-input");
+        this.input = el12("input", "uw-nav-input");
         this.input.type = "search";
-        this.input.placeholder = L11.search;
-        this.input.setAttribute("aria-label", L11.search);
+        this.input.placeholder = L12.search;
+        this.input.setAttribute("aria-label", L12.search);
         this.input.dataset["a"] = "nav:search";
-        const optBtn = el9("button", "uo-btn uw-nav-opt");
+        const optBtn = el12("button", "uo-btn uw-nav-opt");
         optBtn.type = "button";
-        optBtn.title = L11.options;
-        optBtn.setAttribute("aria-label", L11.options);
+        optBtn.title = L12.options;
+        optBtn.setAttribute("aria-label", L12.options);
         optBtn.dataset["a"] = "nav:options";
         optBtn.innerHTML = symbol("arrow_drop_down");
         optBtn.addEventListener("click", () => this.optionsMenu(optBtn));
@@ -53767,27 +55597,27 @@ var init_chrome_nav = __esm({
             } else this.env.ed.focusEditor();
           }
         });
-        const st = el9("div", "uw-nav-status");
-        this.status = el9("span", "uw-nav-count");
-        const prev = el9("button", "uo-btn uw-nav-step");
+        const st = el12("div", "uw-nav-status");
+        this.status = el12("span", "uw-nav-count");
+        const prev = el12("button", "uo-btn uw-nav-step");
         prev.type = "button";
-        prev.title = L11.prev;
-        prev.setAttribute("aria-label", L11.prev);
+        prev.title = L12.prev;
+        prev.setAttribute("aria-label", L12.prev);
         prev.innerHTML = symbol("keyboard_arrow_up");
         prev.dataset["a"] = "nav:prev";
         prev.addEventListener("click", () => this.step(-1));
-        const next = el9("button", "uo-btn uw-nav-step");
+        const next = el12("button", "uo-btn uw-nav-step");
         next.type = "button";
-        next.title = L11.next;
-        next.setAttribute("aria-label", L11.next);
+        next.title = L12.next;
+        next.setAttribute("aria-label", L12.next);
         next.innerHTML = symbol("keyboard_arrow_down");
         next.dataset["a"] = "nav:next";
         next.addEventListener("click", () => this.step(1));
         st.append(this.status, prev, next);
-        const tabs = el9("div", "uw-nav-tabs");
+        const tabs = el12("div", "uw-nav-tabs");
         tabs.setAttribute("role", "tablist");
         for (const t6 of ["headings", "pages", "results"]) {
-          const b5 = el9("button", "uw-nav-tab", L11[t6]);
+          const b5 = el12("button", "uw-nav-tab", L12[t6]);
           b5.type = "button";
           b5.setAttribute("role", "tab");
           b5.dataset["a"] = `nav:tab:${t6}`;
@@ -53798,11 +55628,11 @@ var init_chrome_nav = __esm({
           this.tabs.set(t6, b5);
           tabs.appendChild(b5);
         }
-        this.bodyEl = el9("div", "uw-nav-body");
+        this.bodyEl = el12("div", "uw-nav-body");
         body.append(box, st, tabs, this.bodyEl);
         const pane = openPane({
           id: "navigation",
-          title: L11.title,
+          title: L12.title,
           lang: this.env.lang,
           layer: this.env.layer,
           frame: this.env.frame,
@@ -53829,7 +55659,7 @@ var init_chrome_nav = __esm({
         this.env.app.prefs.set("navPane", "1");
       }
       optionsMenu(anchor) {
-        const L11 = this.L;
+        const L12 = this.L;
         const flag = (k2, label) => ({
           id: `nav:${k2}`,
           label,
@@ -53840,13 +55670,13 @@ var init_chrome_nav = __esm({
           }
         });
         openMenu([
-          flag("matchCase", L11.matchCase),
-          flag("wholeWord", L11.wholeWord),
-          flag("highlight", L11.highlight),
-          flag("incremental", L11.incremental),
+          flag("matchCase", L12.matchCase),
+          flag("wholeWord", L12.wholeWord),
+          flag("highlight", L12.highlight),
+          flag("incremental", L12.incremental),
           { sep: true },
-          { id: "nav:replace", label: L11.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
-          { id: "nav:clear", label: L11.clear, icon: "close", onClick: () => {
+          { id: "nav:replace", label: L12.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
+          { id: "nav:clear", label: L12.clear, icon: "close", onClick: () => {
             this.input.value = "";
             this.runSearch(true);
           }, disabled: !this.query }
@@ -53870,7 +55700,7 @@ var init_chrome_nav = __esm({
       }
       refresh() {
         if (!this.pane) return;
-        const L11 = this.L;
+        const L12 = this.L;
         const ed = this.env.ed;
         this.pane.place();
         this.heads = ed.getHeadings();
@@ -53880,7 +55710,7 @@ var init_chrome_nav = __esm({
         }
         const n5 = this.results.length;
         this.status.parentElement.hidden = !this.query;
-        this.status.textContent = !this.query ? "" : !n5 ? L11.results0 : this.current >= 0 ? L11.result(this.current + 1, n5) : L11.resultsN(n5);
+        this.status.textContent = !this.query ? "" : !n5 ? L12.results0 : this.current >= 0 ? L12.result(this.current + 1, n5) : L12.resultsN(n5);
         for (const b5 of this.status.parentElement.querySelectorAll("button")) b5.disabled = !n5;
         if (this.tab === "headings") this.renderHeadings();
         else if (this.tab === "pages") this.renderPages();
@@ -53908,13 +55738,13 @@ var init_chrome_nav = __esm({
         return roots;
       }
       renderHeadings() {
-        const L11 = this.L;
+        const L12 = this.L;
         const ed = this.env.ed;
-        const list = el9("div", "uw-nav-tree");
+        const list = el12("div", "uw-nav-tree");
         list.setAttribute("role", "tree");
         if (!this.heads.length) {
           this.treeSig = "";
-          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noHeadings));
+          this.bodyEl.replaceChildren(el12("p", "uw-nav-empty", L12.noHeadings));
           return;
         }
         const cur = ed.currentHeading(this.heads);
@@ -53934,19 +55764,19 @@ var init_chrome_nav = __esm({
           const kids = node.kids.filter((k2) => k2.h.level <= this.maxLevel);
           const key = this.keyOf(h3);
           const closed = this.collapsed.has(key);
-          const r6 = el9("div", "uw-nav-row");
+          const r6 = el12("div", "uw-nav-row");
           r6.setAttribute("role", "treeitem");
           r6.dataset["index"] = String(h3.index);
           r6.style.paddingLeft = `${4 + depth * 14}px`;
           r6.classList.toggle("uo-on", h3.index === cur);
           r6.classList.toggle("uw-nav-hit", hit.has(h3.index));
           if (kids.length) r6.setAttribute("aria-expanded", String(!closed));
-          const tw3 = el9("button", "uw-nav-twisty");
+          const tw3 = el12("button", "uw-nav-twisty");
           tw3.type = "button";
           tw3.tabIndex = -1;
           if (kids.length) {
             tw3.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
-            tw3.title = closed ? L11.expand : L11.collapse;
+            tw3.title = closed ? L12.expand : L12.collapse;
             tw3.addEventListener("click", (e8) => {
               e8.stopPropagation();
               if (closed) this.collapsed.delete(key);
@@ -53954,7 +55784,7 @@ var init_chrome_nav = __esm({
               this.refresh();
             });
           } else tw3.classList.add("uw-nav-leaf");
-          const label = el9("span", "uw-nav-label", h3.text);
+          const label = el12("span", "uw-nav-label", h3.text);
           label.title = h3.text;
           r6.append(tw3, label);
           r6.addEventListener("click", () => {
@@ -54031,7 +55861,7 @@ var init_chrome_nav = __esm({
         this.bodyEl.querySelector(".uw-nav-tree")?.classList.remove("uw-nav-drop-end");
       }
       headingMenu(h3, x3, y3) {
-        const L11 = this.L;
+        const L12 = this.L;
         const ed = this.env.ed;
         const ro = ed.isProtected();
         const done = (ok) => {
@@ -54039,52 +55869,52 @@ var init_chrome_nav = __esm({
           this.refresh();
         };
         const levels = () => [
-          { id: "nav:levels:all", label: L11.all, checked: this.maxLevel === 9, onClick: () => {
+          { id: "nav:levels:all", label: L12.all, checked: this.maxLevel === 9, onClick: () => {
             this.maxLevel = 9;
             this.refresh();
           } },
-          ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L11.level(n5), checked: this.maxLevel === n5, onClick: () => {
+          ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L12.level(n5), checked: this.maxLevel === n5, onClick: () => {
             this.maxLevel = n5;
             this.refresh();
           } }))
         ];
         openMenu([
-          { id: "nav:promote", label: L11.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
-          { id: "nav:demote", label: L11.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
+          { id: "nav:promote", label: L12.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
+          { id: "nav:demote", label: L12.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
           { sep: true },
-          { id: "nav:newBefore", label: L11.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
-          { id: "nav:newAfter", label: L11.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
-          { id: "nav:newSub", label: L11.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
-          { id: "nav:delete", label: L11.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
+          { id: "nav:newBefore", label: L12.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
+          { id: "nav:newAfter", label: L12.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
+          { id: "nav:newSub", label: L12.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
+          { id: "nav:delete", label: L12.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
           { sep: true },
-          { id: "nav:select", label: L11.select, icon: "select_all", onClick: () => {
+          { id: "nav:select", label: L12.select, icon: "select_all", onClick: () => {
             ed.selectHeading(h3.index);
             this.env.after();
           } },
           { sep: true },
-          { id: "nav:expandAll", label: L11.expandAll, icon: "unfold_more", onClick: () => {
+          { id: "nav:expandAll", label: L12.expandAll, icon: "unfold_more", onClick: () => {
             this.collapsed.clear();
             this.refresh();
           } },
-          { id: "nav:collapseAll", label: L11.collapseAll, icon: "unfold_less", onClick: () => {
+          { id: "nav:collapseAll", label: L12.collapseAll, icon: "unfold_less", onClick: () => {
             for (const x4 of this.heads) this.collapsed.add(this.keyOf(x4));
             this.refresh();
           } },
-          { id: "nav:levels", label: L11.showLevels, submenu: levels }
+          { id: "nav:levels", label: L12.showLevels, submenu: levels }
         ], { x: x3, y: y3 }, { layer: this.env.layer, lang: this.env.lang });
       }
       // ───── Páginas ─────
       renderPages() {
-        const L11 = this.L;
+        const L12 = this.L;
         const ed = this.env.ed;
         const total = ed.layoutPageCount();
         if (!total) {
-          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noPages));
+          this.bodyEl.replaceChildren(el12("p", "uw-nav-empty", L12.noPages));
           return;
         }
         const only = this.query ? new Set(this.results.map((r6) => r6.page).filter((p3) => p3 >= 0)) : null;
         if (only && !only.size) {
-          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noMatch));
+          this.bodyEl.replaceChildren(el12("p", "uw-nav-empty", L12.noMatch));
           return;
         }
         const cur = ed.currentPage() - 1;
@@ -54092,7 +55922,7 @@ var init_chrome_nav = __esm({
         const want = [...Array(total).keys()].filter((i7) => !only || only.has(i7));
         const sig = want.join(",");
         if (!grid2 || grid2.dataset["sig"] !== sig) {
-          grid2 = el9("div", "uw-nav-pages");
+          grid2 = el12("div", "uw-nav-pages");
           grid2.dataset["sig"] = sig;
           this.io?.disconnect();
           this.thumbs.clear();
@@ -54100,13 +55930,13 @@ var init_chrome_nav = __esm({
             for (const e8 of ents) if (e8.isIntersecting) this.paintThumb(+e8.target.dataset["page"]);
           }, { root: this.bodyEl, rootMargin: "200px" });
           for (const i7 of want) {
-            const item = el9("button", "uw-nav-page");
+            const item = el12("button", "uw-nav-page");
             item.type = "button";
             item.dataset["page"] = String(i7);
             item.dataset["a"] = `nav:page:${i7 + 1}`;
-            item.title = L11.page(i7 + 1);
-            const c5 = el9("canvas", "uw-nav-thumb");
-            const num3 = el9("span", "uw-nav-pnum", String(i7 + 1));
+            item.title = L12.page(i7 + 1);
+            const c5 = el12("canvas", "uw-nav-thumb");
+            const num3 = el12("span", "uw-nav-pnum", String(i7 + 1));
             item.append(c5, num3);
             item.addEventListener("click", () => {
               ed.goToPage(i7);
@@ -54132,24 +55962,24 @@ var init_chrome_nav = __esm({
       }
       // ───── Resultados ─────
       renderResults() {
-        const L11 = this.L;
+        const L12 = this.L;
         if (!this.query) {
-          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noSearch));
+          this.bodyEl.replaceChildren(el12("p", "uw-nav-empty", L12.noSearch));
           return;
         }
         if (!this.results.length) {
-          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noMatch));
+          this.bodyEl.replaceChildren(el12("p", "uw-nav-empty", L12.noMatch));
           return;
         }
-        const list = el9("div", "uw-nav-results");
+        const list = el12("div", "uw-nav-results");
         list.setAttribute("role", "list");
         for (const r6 of this.results) {
-          const b5 = el9("button", "uw-nav-result");
+          const b5 = el12("button", "uw-nav-result");
           b5.type = "button";
           b5.setAttribute("role", "listitem");
           b5.dataset["a"] = `nav:result:${r6.index + 1}`;
           b5.classList.toggle("uo-on", r6.index === this.current);
-          b5.append(document.createTextNode(r6.before), el9("strong", void 0, r6.match), document.createTextNode(r6.after));
+          b5.append(document.createTextNode(r6.before), el12("strong", void 0, r6.match), document.createTextNode(r6.after));
           b5.addEventListener("click", () => {
             this.current = r6.index;
             this.env.ed.goToSearchResult(r6.index);
@@ -54165,30 +55995,30 @@ var init_chrome_nav = __esm({
 });
 
 // src/chrome-ruler.ts
-var L9, TIPS, MIN_TEXT, RulerUI;
+var L10, TIPS, MIN_TEXT, RulerUI;
 var init_chrome_ruler = __esm({
   "src/chrome-ruler.ts"() {
     "use strict";
     init_src5();
-    L9 = (en, pt2) => ({ en, pt: pt2 });
+    L10 = (en, pt2) => ({ en, pt: pt2 });
     TIPS = {
-      firstLine: L9("First Line Indent", "Recuo da Primeira Linha"),
-      hanging: L9("Hanging Indent", "Recuo Deslocado"),
-      left: L9("Left Indent", "Recuo \xE0 Esquerda"),
-      right: L9("Right Indent", "Recuo \xE0 Direita"),
-      marginL: L9("Left Margin", "Margem Esquerda"),
-      marginR: L9("Right Margin", "Margem Direita"),
-      marginT: L9("Top Margin", "Margem Superior"),
-      marginB: L9("Bottom Margin", "Margem Inferior"),
-      column: L9("Move Column", "Mover Coluna"),
-      cell: L9("Move Table Column", "Mover Coluna da Tabela"),
-      row: L9("Adjust Table Row", "Ajustar Linha da Tabela"),
+      firstLine: L10("First Line Indent", "Recuo da Primeira Linha"),
+      hanging: L10("Hanging Indent", "Recuo Deslocado"),
+      left: L10("Left Indent", "Recuo \xE0 Esquerda"),
+      right: L10("Right Indent", "Recuo \xE0 Direita"),
+      marginL: L10("Left Margin", "Margem Esquerda"),
+      marginR: L10("Right Margin", "Margem Direita"),
+      marginT: L10("Top Margin", "Margem Superior"),
+      marginB: L10("Bottom Margin", "Margem Inferior"),
+      column: L10("Move Column", "Mover Coluna"),
+      cell: L10("Move Table Column", "Mover Coluna da Tabela"),
+      row: L10("Adjust Table Row", "Ajustar Linha da Tabela"),
       tab: {
-        left: L9("Left Tab", "Tabula\xE7\xE3o Esquerda"),
-        center: L9("Center Tab", "Tabula\xE7\xE3o Centralizada"),
-        right: L9("Right Tab", "Tabula\xE7\xE3o Direita"),
-        decimal: L9("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
-        bar: L9("Bar Tab", "Barra de Tabula\xE7\xE3o")
+        left: L10("Left Tab", "Tabula\xE7\xE3o Esquerda"),
+        center: L10("Center Tab", "Tabula\xE7\xE3o Centralizada"),
+        right: L10("Right Tab", "Tabula\xE7\xE3o Direita"),
+        decimal: L10("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
+        bar: L10("Bar Tab", "Barra de Tabula\xE7\xE3o")
       }
     };
     MIN_TEXT = 720;
@@ -54218,7 +56048,7 @@ var init_chrome_ruler = __esm({
         this.guide = document.createElement("div");
         this.guide.className = "uw-ruler-guide";
         this.guide.hidden = true;
-        for (const el15 of [this.h.el, this.vbox]) el15.addEventListener("mousedown", (e8) => e8.preventDefault());
+        for (const el16 of [this.h.el, this.vbox]) el16.addEventListener("mousedown", (e8) => e8.preventDefault());
       }
       env;
       h;
@@ -54489,14 +56319,14 @@ var init_chrome_panels = __esm({
       constructor(ed, app, layer) {
         this.ed = ed;
         this.app = app;
-        const L11 = app.ui.L;
-        const el15 = document.createElement("div");
-        el15.className = "uw-find";
-        el15.setAttribute("role", "dialog");
-        el15.setAttribute("aria-label", L11.findTitle);
-        el15.setAttribute("part", "find");
-        el15.hidden = true;
-        el15.innerHTML = `
+        const L12 = app.ui.L;
+        const el16 = document.createElement("div");
+        el16.className = "uw-find";
+        el16.setAttribute("role", "dialog");
+        el16.setAttribute("aria-label", L12.findTitle);
+        el16.setAttribute("part", "find");
+        el16.hidden = true;
+        el16.innerHTML = `
       <div class="uw-find-head"><strong></strong>
         <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
       <input type="text" data-a="find:text" />
@@ -54505,21 +56335,21 @@ var init_chrome_panels = __esm({
         <button type="button" class="uo-pill" data-a="find:next"></button>
         <button type="button" class="uo-pill" data-a="find:one"></button>
         <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-        el15.querySelector("strong").textContent = L11.findTitle;
-        this.find = el15.querySelector('[data-a="find:text"]');
-        this.repl = el15.querySelector('[data-a="find:replace"]');
-        this.msg = el15.querySelector(".uw-find-msg");
-        this.find.placeholder = L11.find;
-        this.repl.placeholder = L11.replaceWith;
+        el16.querySelector("strong").textContent = L12.findTitle;
+        this.find = el16.querySelector('[data-a="find:text"]');
+        this.repl = el16.querySelector('[data-a="find:replace"]');
+        this.msg = el16.querySelector(".uw-find-msg");
+        this.find.placeholder = L12.find;
+        this.repl.placeholder = L12.replaceWith;
         const b5 = (id, label, fn) => {
-          const x3 = el15.querySelector(`[data-a="find:${id}"]`);
+          const x3 = el16.querySelector(`[data-a="find:${id}"]`);
           x3.textContent = label;
           x3.addEventListener("click", fn);
         };
-        b5("next", L11.findNext, () => this.next());
-        b5("one", L11.replace, () => this.replaceOne());
-        b5("all", L11.replaceAll, () => this.replaceAll());
-        el15.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
+        b5("next", L12.findNext, () => this.next());
+        b5("one", L12.replace, () => this.replaceOne());
+        b5("all", L12.replaceAll, () => this.replaceAll());
+        el16.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
         for (const i7 of [this.find, this.repl]) {
           i7.addEventListener("keydown", (e8) => {
             if (e8.key === "Escape") {
@@ -54537,8 +56367,8 @@ var init_chrome_panels = __esm({
           this.msg.textContent = "";
           this.find.classList.remove("uw-miss");
         });
-        layer.appendChild(el15);
-        this.el = el15;
+        layer.appendChild(el16);
+        this.el = el16;
       }
       ed;
       app;
@@ -54587,16 +56417,16 @@ var init_chrome_panels = __esm({
         this.ed = ed;
         this.app = app;
         this.after = after;
-        const el15 = document.createElement("div");
-        el15.className = "uw-comments";
-        el15.setAttribute("part", "comments");
+        const el16 = document.createElement("div");
+        el16.className = "uw-comments";
+        el16.setAttribute("part", "comments");
         for (const t6 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-          el15.addEventListener(t6, (e8) => {
+          el16.addEventListener(t6, (e8) => {
             if (t6 !== "wheel") e8.stopPropagation();
           }, { passive: t6 === "wheel" });
         }
-        root.appendChild(el15);
-        this.el = el15;
+        root.appendChild(el16);
+        this.el = el16;
       }
       ed;
       app;
@@ -54618,7 +56448,7 @@ var init_chrome_panels = __esm({
       render() {
         const pages2 = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
         const print = this.ed.getView() === "print";
-        const L11 = this.app.ui.L;
+        const L12 = this.app.ui.L;
         const mode = this.ed.getMarkupMode();
         const mk = this.ed.getMarkupOptions();
         const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
@@ -54650,9 +56480,9 @@ var init_chrome_panels = __esm({
           card.className = `uw-card${active2.has(c5.id) ? " active" : ""}`;
           card.dataset["commentId"] = String(c5.id);
           card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c5.id}" title="${L11.deleteComment}">${symbol("delete")}</button></div>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c5.id}" title="${L12.deleteComment}">${symbol("delete")}</button></div>
         <div class="txt"></div>`;
-          card.querySelector(".who").textContent = c5.author ?? L11.anonymous;
+          card.querySelector(".who").textContent = c5.author ?? L12.anonymous;
           card.querySelector(".txt").textContent = c5.text;
           card.querySelector("button").addEventListener("click", (e8) => {
             e8.stopPropagation();
@@ -54678,8 +56508,8 @@ var init_chrome_panels = __esm({
           card.className = "uw-card uw-rev-card";
           card.style.setProperty("--uw-rev", `#${r6.color}`);
           card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
-        <button type="button" class="uo-btn" data-a="rev:accept" title="${L11.revAccept}">${symbol("check")}</button>
-        <button type="button" class="uo-btn" data-a="rev:reject" title="${L11.revReject}">${symbol("close")}</button></div>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L12.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L12.revReject}">${symbol("close")}</button></div>
         <div class="txt"></div>`;
           card.querySelector(".who").textContent = r6.author;
           card.querySelector(".when").textContent = revisionTime(r6.date, uiLang(this.ed));
@@ -54688,7 +56518,7 @@ var init_chrome_panels = __esm({
             const [head, ...rest] = r6.description.split(": ");
             txt2.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
           } else {
-            txt2.append(Object.assign(document.createElement("b"), { textContent: `${r6.mark ? L11.revParaDeleted : L11.revDeleted}: ` }), r6.text);
+            txt2.append(Object.assign(document.createElement("b"), { textContent: `${r6.mark ? L12.revParaDeleted : L12.revDeleted}: ` }), r6.text);
           }
           const [acc, rej] = card.querySelectorAll("button");
           acc.addEventListener("click", (e8) => {
@@ -54885,7 +56715,7 @@ var init_chrome_review = __esm({
         const pane = this.pane;
         if (!pane) return;
         pane.place();
-        const L11 = this.app.ui.L;
+        const L12 = this.app.ui.L;
         const lang = uiLang(this.ed);
         const revs = this.ed.getRevisions();
         const comments = this.app.commentsVisible ? this.ed.getComments() : [];
@@ -54896,17 +56726,17 @@ var init_chrome_review = __esm({
           else if (r6.kind === "delete") n5.del++;
           else n5.fmt++;
         }
-        pane.setTitle(`${L11.revPane}: ${L11.revCount(revs.length)}`);
+        pane.setTitle(`${L12.revPane}: ${L12.revCount(revs.length)}`);
         const sum2 = document.createElement("div");
         sum2.className = "uw-review-sum";
-        sum2.textContent = [`${L11.revInsertions}: ${n5.ins}`, `${L11.revDeletions}: ${n5.del}`, `${L11.revMoves}: ${n5.move}`, `${L11.revFormatting}: ${n5.fmt}`, `${L11.revComments}: ${comments.length}`].join(" \xB7 ");
+        sum2.textContent = [`${L12.revInsertions}: ${n5.ins}`, `${L12.revDeletions}: ${n5.del}`, `${L12.revMoves}: ${n5.move}`, `${L12.revFormatting}: ${n5.fmt}`, `${L12.revComments}: ${comments.length}`].join(" \xB7 ");
         const list = document.createElement("ul");
         list.className = "uw-review-list";
         revs.forEach((r6, i7) => {
           const li = document.createElement("li");
           li.className = "uw-rev";
           li.style.setProperty("--uw-rev", `#${r6.color}`);
-          const what = r6.move ? r6.kind === "delete" ? L11.revMovedFrom : L11.revMovedTo : r6.kind === "insert" ? r6.mark ? L11.revParaInserted : L11.revInserted : r6.kind === "delete" ? r6.mark ? L11.revParaDeleted : L11.revDeleted : L11.revFormatted;
+          const what = r6.move ? r6.kind === "delete" ? L12.revMovedFrom : L12.revMovedTo : r6.kind === "insert" ? r6.mark ? L12.revParaInserted : L12.revInserted : r6.kind === "delete" ? r6.mark ? L12.revParaDeleted : L12.revDeleted : L12.revFormatted;
           li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
         <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
         <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
@@ -54915,8 +56745,8 @@ var init_chrome_review = __esm({
           li.querySelector(".when").textContent = revisionTime(r6.date, lang);
           li.querySelector(".txt").textContent = r6.description ? r6.description.replace(/^[^:]*:\s*/, "") : r6.text;
           const [acc, rej] = li.querySelectorAll("button");
-          acc.title = L11.revAccept;
-          rej.title = L11.revReject;
+          acc.title = L12.revAccept;
+          rej.title = L12.revReject;
           acc.addEventListener("click", (e8) => {
             e8.stopPropagation();
             if (this.ed.acceptRevisionAt(i7)) this.after();
@@ -54935,8 +56765,8 @@ var init_chrome_review = __esm({
           const li = document.createElement("li");
           li.className = "uw-rev uw-rev-comment";
           li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
-          li.querySelector(".who").textContent = c5.author ?? L11.anonymous;
-          li.querySelector(".what").textContent = L11.revComments;
+          li.querySelector(".who").textContent = c5.author ?? L12.anonymous;
+          li.querySelector(".what").textContent = L12.revComments;
           li.querySelector(".txt").textContent = c5.text;
           li.addEventListener("click", () => {
             this.app.activeCommentIds = [c5.id];
@@ -54948,7 +56778,7 @@ var init_chrome_review = __esm({
         if (!revs.length && !comments.length) {
           const li = document.createElement("li");
           li.className = "uw-rev-empty";
-          li.textContent = L11.revNone;
+          li.textContent = L12.revNone;
           list.appendChild(li);
         }
         pane.body.replaceChildren(sum2, list);
@@ -54957,917 +56787,10 @@ var init_chrome_review = __esm({
   }
 });
 
-// src/chrome-table-style.ts
-function condState(xml, cond) {
-  const sheet = readStyleSheet('<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' + xml + "</w:styles>");
-  const st = Object.values(sheet.styles)[0];
-  const part = cond === "wholeTable" ? st : st?.tblStylePr?.[cond];
-  const rPr = part?.rPr, pPr = part?.pPr, tcPr = part?.tcPr;
-  return {
-    bold: !!rPr?.b,
-    italic: !!rPr?.i,
-    underline: !!rPr?.u && rPr.u.val !== "none",
-    color: rPr?.color?.val && rPr.color.val !== "auto" ? rPr.color.val : void 0,
-    sz: rPr?.sz,
-    font: rPr?.rFonts?.ascii,
-    fill: tcPr?.shd?.fill && tcPr.shd.fill !== "auto" ? tcPr.shd.fill : void 0,
-    jc: pPr?.jc,
-    vAlign: tcPr?.vAlign
-  };
-}
-async function tableStyleDialog(env, mode, nameOrId) {
-  const lang = env.lang, ed = env.ed;
-  let draft;
-  let basedOnName;
-  const bases = ed.tableStyleBases();
-  const normalId = bases.find((b5) => b5.name === "Normal Table")?.id ?? "TableNormal";
-  if (mode === "modify") {
-    const cur = await ed.tableStyleXml(nameOrId ?? ed.getTableState()?.style ?? "Table Grid");
-    if (!cur) return;
-    draft = cur.xml;
-  } else {
-    const name2 = tr5(lang, "Style1", "Estilo1");
-    draft = newTableStyleXml({ id: ed.newTableStyleId(name2), name: name2, basedOn: normalId });
-  }
-  const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
-  const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
-  const name = el10("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
-  const base = sel2("ts-base", [["", tr5(lang, "(no style)", "(sem estilo)")], ...bases.map((b5) => [b5.id, b5.name])], headBase, "width:100%");
-  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c6) => [c6, tr5(lang, ...COND_LABELS[c6])]), "wholeTable", "width:100%");
-  const font = el10("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
-  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr5(lang, ".", ","))])], "", "width:70px");
-  const tog = (label, title) => el10("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
-  const bBtn = tog("B", tr5(lang, "Bold", "Negrito")), iBtn = tog("I", tr5(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr5(lang, "Underline", "Sublinhado"));
-  bBtn.style.fontWeight = "700";
-  iBtn.style.fontStyle = "italic";
-  uBtn.style.textDecoration = "underline";
-  const color3 = el10("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
-  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt2]) => [v2, tr5(lang, en, pt2)]), "single");
-  const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz3, t6]) => [String(sz3), `${t6} pt`]), "4");
-  const bColor = el10("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
-  const sideBtns = [
-    ["top", "Top", "Superior"],
-    ["bottom", "Bottom", "Inferior"],
-    ["left", "Left", "Esquerda"],
-    ["right", "Right", "Direita"],
-    ["insideH", "Inside H", "Interna H"],
-    ["insideV", "Inside V", "Interna V"],
-    ["none", "None", "Nenhuma"],
-    ["all", "All", "Todas"]
-  ].map(([s4, en, pt2]) => {
-    const b5 = el10("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt2), style: "padding:3px 9px" });
-    b5.dataset["side"] = s4;
-    return b5;
-  });
-  const fillOn = el10("input", { type: "checkbox", name: "ts-fill-on" });
-  const fill = el10("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
-  const align = sel2("ts-align", [
-    ["", "\u2014"],
-    ["left|top", tr5(lang, "Top left", "Em cima, \xE0 esquerda")],
-    ["center|top", tr5(lang, "Top center", "Em cima, centralizado")],
-    ["right|top", tr5(lang, "Top right", "Em cima, \xE0 direita")],
-    ["left|center", tr5(lang, "Center left", "No centro, \xE0 esquerda")],
-    ["center|center", tr5(lang, "Center", "No centro")],
-    ["right|center", tr5(lang, "Center right", "No centro, \xE0 direita")],
-    ["left|bottom", tr5(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
-    ["center|bottom", tr5(lang, "Bottom center", "Embaixo, centralizado")],
-    ["right|bottom", tr5(lang, "Bottom right", "Embaixo, \xE0 direita")]
-  ], "");
-  const dpr = window.devicePixelRatio || 1;
-  const cv = el10("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
-  const c5 = () => cond.value;
-  const sync = () => {
-    const st = condState(draft, c5());
-    bBtn.classList.toggle("uo-on", st.bold);
-    iBtn.classList.toggle("uo-on", st.italic);
-    uBtn.classList.toggle("uo-on", st.underline);
-    font.value = st.font ?? "";
-    size.value = st.sz ? String(st.sz) : "";
-    color3.value = `#${(st.color ?? "000000").toLowerCase()}`;
-    fillOn.checked = !!st.fill;
-    fill.value = `#${(st.fill ?? "ffffff").toLowerCase()}`;
-    align.value = st.jc || st.vAlign ? `${st.jc ?? "left"}|${st.vAlign ?? "top"}` : "";
-    ed.renderTableStyleXmlThumb(cv, draft);
-  };
-  const apply2 = (f3) => {
-    draft = patchTableStyleXml(draft, c5(), f3);
-    sync();
-  };
-  const hex3 = (i7) => i7.value.replace("#", "").toUpperCase();
-  bBtn.addEventListener("click", () => apply2({ bold: !condState(draft, c5()).bold }));
-  iBtn.addEventListener("click", () => apply2({ italic: !condState(draft, c5()).italic }));
-  uBtn.addEventListener("click", () => apply2({ underline: !condState(draft, c5()).underline }));
-  font.addEventListener("change", () => apply2({ fontAscii: font.value.trim() || null }));
-  size.addEventListener("change", () => apply2({ szHalfPt: size.value ? +size.value : null }));
-  color3.addEventListener("change", () => apply2({ color: hex3(color3) }));
-  fillOn.addEventListener("change", () => apply2({ fill: fillOn.checked ? hex3(fill) : null }));
-  fill.addEventListener("change", () => {
-    fillOn.checked = true;
-    apply2({ fill: hex3(fill) });
-  });
-  align.addEventListener("change", () => {
-    if (!align.value) {
-      apply2({ alignment: null, vAlign: null });
-      return;
-    }
-    const [h4, v2] = align.value.split("|");
-    apply2({ alignment: h4 === "left" ? null : h4, vAlign: v2 === "top" ? null : v2 });
-  });
-  for (const b5 of sideBtns) b5.addEventListener("click", () => {
-    const s4 = b5.dataset["side"];
-    const pen = { val: bStyle.value, sz: +bWidth.value, color: hex3(bColor) };
-    const sides = s4 === "all" || s4 === "none" ? ["top", "left", "bottom", "right", "insideH", "insideV"] : [s4];
-    apply2({ borders: Object.fromEntries(sides.map((x3) => [x3, s4 === "none" ? null : pen])) });
-  });
-  cond.addEventListener("change", sync);
-  base.addEventListener("change", () => {
-    draft = retitleTableStyleXml(draft, { basedOn: base.value || null });
-    sync();
-  });
-  const row2 = (...kids) => el10("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-  const lbl = (t6, ctl) => el10("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t6, ctl);
-  const body = el10(
-    "div",
-    { style: "display:flex;flex-direction:column;gap:12px" },
-    el10("strong", {}, tr5(lang, "Properties", "Propriedades")),
-    row2(lbl(tr5(lang, "Name:", "Nome:"), name), lbl(tr5(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr5(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr5(lang, "Style based on:", "Estilo baseado em:"), base)),
-    el10("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
-    lbl(tr5(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
-    row2(font, size, bBtn, iBtn, uBtn, el10("span", {}, tr5(lang, "Color", "Cor")), color3),
-    row2(bStyle, bWidth, bColor, ...sideBtns),
-    row2(el10("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el10("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
-    cv,
-    el10("label", { className: "uo-check" }, el10("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
-  );
-  sync();
-  const h3 = openDialog({
-    title: mode === "new" ? tr5(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr5(lang, "Modify Style", "Modificar Estilo"),
-    body,
-    layer: env.layer,
-    lang,
-    width: 640,
-    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
-  });
-  if (await h3.result !== "ok") return;
-  const nm = name.value.trim() || headName;
-  draft = retitleTableStyleXml(draft, { name: nm });
-  if (mode === "new") {
-    const id = ed.newTableStyleId(nm);
-    draft = draft.replace(/w:styleId="[^"]*"/, () => `w:styleId="${id.replace(/"/g, "")}"`);
-  }
-  const baseName = bases.find((b5) => b5.id === base.value)?.name;
-  ed.saveTableStyle(draft, { apply: false, basedOnName: baseName });
-}
-var tr5, el10, sel2, COND_LABELS;
-var init_chrome_table_style = __esm({
-  "src/chrome-table-style.ts"() {
-    "use strict";
-    init_src5();
-    init_src();
-    init_chrome_borders();
-    tr5 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    el10 = (tag2, props = {}, ...kids) => {
-      const { style, ...rest } = props;
-      const e8 = Object.assign(document.createElement(tag2), rest);
-      if (style) e8.style.cssText = style;
-      e8.append(...kids);
-      return e8;
-    };
-    sel2 = (name, opts, value, style = "") => {
-      const s4 = el10("select", { name, style });
-      for (const [v2, t6] of opts) s4.append(el10("option", { value: v2, selected: v2 === value }, t6));
-      return s4;
-    };
-    COND_LABELS = {
-      wholeTable: ["Whole table", "Tabela inteira"],
-      firstRow: ["Header row", "Linha de cabe\xE7alho"],
-      lastRow: ["Total row", "Linha de total"],
-      firstCol: ["First column", "Primeira coluna"],
-      lastCol: ["Last column", "\xDAltima coluna"],
-      band1Horz: ["Odd banded rows", "Linhas em tiras \xEDmpares"],
-      band2Horz: ["Even banded rows", "Linhas em tiras pares"],
-      band1Vert: ["Odd banded columns", "Colunas em tiras \xEDmpares"],
-      band2Vert: ["Even banded columns", "Colunas em tiras pares"],
-      nwCell: ["Top left cell", "C\xE9lula superior esquerda"],
-      neCell: ["Top right cell", "C\xE9lula superior direita"],
-      swCell: ["Bottom left cell", "C\xE9lula inferior esquerda"],
-      seCell: ["Bottom right cell", "C\xE9lula inferior direita"]
-    };
-  }
-});
-
-// src/chrome-table-dialogs.ts
-function radios(name, opts, value) {
-  const box = el11("div", { style: "display:flex;flex-direction:column;gap:6px" });
-  for (const [v2, t6] of opts) {
-    const i7 = el11("input", { type: "radio", name, value: v2, checked: v2 === value });
-    box.append(el11("label", { className: "uo-check" }, i7, t6));
-  }
-  return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
-}
-async function ask(env, title, body, width = 400) {
-  const L11 = env.app.ui.L;
-  const h3 = openDialog({
-    title,
-    body,
-    layer: env.layer,
-    lang: env.lang,
-    width,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: "OK", primary: true }]
-  });
-  return await h3.result === "ok";
-}
-function separatorPicker(lang, name, value, other, paraLabel) {
-  const opts = [["paragraph", paraLabel], ["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr6(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr6(lang, "Other:", "Outro:")]];
-  const r6 = radios(name, opts, value);
-  const otherIn = el11("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
-  r6.el.lastElementChild.append(otherIn);
-  otherIn.addEventListener("input", () => {
-    r6.el.querySelector('input[value="other"]').checked = true;
-  });
-  const read = () => {
-    const v2 = r6.value();
-    return v2 === "other" ? { char: otherIn.value || "-" } : v2;
-  };
-  return { el: r6.el, read, radios: r6.el };
-}
-function autofitPicker(lang, value, colTw) {
-  const r6 = radios("autofit", [
-    ["fixed", tr6(lang, "Fixed column width:", "Largura fixa da coluna:")],
-    ["content", tr6(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
-    ["window", tr6(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
-  ], value);
-  const auto = tr6(lang, "Auto", "Autom\xE1tico");
-  const w2 = el11("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
-  r6.el.firstElementChild.append(w2);
-  const read = () => {
-    const a3 = r6.value();
-    const tw3 = a3 === "fixed" && w2.value.trim() !== auto ? twOf(w2.value) : void 0;
-    return { autofit: a3, ...tw3 && tw3 > 0 ? { colWidthTwips: tw3 } : {} };
-  };
-  return { el: r6.el, read };
-}
-async function tableDialog(env, kind, arg) {
-  const lang = env.lang, ed = env.ed;
-  switch (kind) {
-    case "insert": {
-      const mem = env.app.prefs.get("tableDims")?.split("x").map(Number);
-      const cols = num2("cols", mem?.[0] || 5), rows = num2("rows", mem?.[1] || 2, 1, 32767);
-      const af = autofitPicker(lang, "fixed");
-      const remember = el11("input", { type: "checkbox", name: "remember", checked: !!mem });
-      const body = el11(
-        "div",
-        { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Table size", "Tamanho da tabela"), el11(
-          "div",
-          { className: "uo-dialog-grid" },
-          el11("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
-          cols,
-          el11("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
-          rows
-        )),
-        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        el11("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
-      );
-      if (!await ask(env, tr6(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
-      const c5 = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r6 = Math.max(1, parseInt(rows.value, 10) || 1);
-      env.app.prefs.set("tableDims", remember.checked ? `${c5}x${r6}` : "");
-      ed.insertTable(r6, c5, af.read());
-      return;
-    }
-    case "fromText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraphs", "Par\xE1grafos"));
-      const cols = num2("cols", 2);
-      const rowsOut = el11("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
-      const af = autofitPicker(lang, "fixed");
-      const guess = ed.textToTableGuess();
-      if (guess) {
-        sep.radios.querySelector(`input[value="${typeof guess.separator === "string" ? guess.separator : "other"}"]`).checked = true;
-        cols.value = String(guess.cols);
-        rowsOut.value = String(guess.rows);
-      }
-      const recount = () => {
-        const g2 = ed.textToTableGuess(sep.read(), parseInt(cols.value, 10) || 1);
-        if (g2) {
-          if (document.activeElement !== cols) cols.value = String(g2.cols);
-          rowsOut.value = String(g2.rows);
-        }
-      };
-      sep.el.addEventListener("change", recount);
-      cols.addEventListener("input", recount);
-      const body = el11(
-        "div",
-        { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Table size", "Tamanho da tabela"), el11(
-          "div",
-          { className: "uo-dialog-grid" },
-          el11("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
-          cols,
-          el11("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
-          rowsOut
-        )),
-        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        section2(tr6(lang, "Separate text at", "Separar texto em"), sep.el)
-      );
-      if (!await ask(env, tr6(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
-      ed.convertTextToTable({ separator: sep.read(), cols: parseInt(cols.value, 10) || 1, ...af.read() });
-      return;
-    }
-    case "toText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
-      const body = section2(tr6(lang, "Separate text with", "Separar texto com"), sep.el);
-      if (!await ask(env, tr6(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
-      ed.convertTableToText(sep.read());
-      return;
-    }
-    case "insertCells": {
-      const r6 = radios("shift", [
-        ["right", tr6(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
-        ["down", tr6(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
-        ["row", tr6(lang, "Insert entire row", "Inserir linha inteira")],
-        ["column", tr6(lang, "Insert entire column", "Inserir coluna inteira")]
-      ], "down");
-      if (!await ask(env, tr6(lang, "Insert Cells", "Inserir C\xE9lulas"), r6.el, 340)) return;
-      ed.insertCells(r6.value());
-      return;
-    }
-    case "deleteCells": {
-      const r6 = radios("shift", [
-        ["left", tr6(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
-        ["up", tr6(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
-        ["row", tr6(lang, "Delete entire row", "Excluir linha inteira")],
-        ["column", tr6(lang, "Delete entire column", "Excluir coluna inteira")]
-      ], "left");
-      if (!await ask(env, tr6(lang, "Delete Cells", "Excluir C\xE9lulas"), r6.el, 340)) return;
-      ed.deleteCells(r6.value());
-      return;
-    }
-    case "split": {
-      const s4 = ed.getTableState();
-      const cols = num2("cols", 2), rows = num2("rows", 1, 1, 32767);
-      const merge = el11("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
-      const body = el11(
-        "div",
-        { style: "display:flex;flex-direction:column;gap:14px" },
-        el11(
-          "div",
-          { className: "uo-dialog-grid" },
-          el11("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
-          cols,
-          el11("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
-          rows
-        ),
-        el11("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
-      );
-      if (!await ask(env, tr6(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
-      ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
-      return;
-    }
-    case "margins": {
-      const s4 = ed.getTableState();
-      const mar = s4?.tblPr.tblCellMar ?? {};
-      const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
-      const top = cmInput(lang, "top", w2(mar.top)), bottom = cmInput(lang, "bottom", w2(mar.bottom));
-      const left = cmInput(lang, "left", w2(mar.left, 108)), right = cmInput(lang, "right", w2(mar.right, 108));
-      const spTw = s4?.tblPr.tblCellSpacing?.type === "dxa" ? s4.tblPr.tblCellSpacing.w * 2 : 0;
-      const allow = el11("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
-      const spacing = cmInput(lang, "spacing", spTw);
-      const resize = el11("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
-      const body = el11(
-        "div",
-        { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el11(
-          "div",
-          { className: "uo-dialog-grid" },
-          el11("span", {}, tr6(lang, "Top:", "Superior:")),
-          top,
-          el11("span", {}, tr6(lang, "Left:", "Esquerda:")),
-          left,
-          el11("span", {}, tr6(lang, "Bottom:", "Inferior:")),
-          bottom,
-          el11("span", {}, tr6(lang, "Right:", "Direita:")),
-          right
-        )),
-        section2(
-          tr6(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
-          el11("div", { style: "display:flex;align-items:center;gap:8px" }, el11("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
-        ),
-        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el11("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
-      );
-      if (!await ask(env, tr6(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
-      ed.setTableCellMargins(
-        { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
-        allow.checked ? twOf(spacing.value) ?? 0 : 0,
-        resize.checked
-      );
-      return;
-    }
-    case "sort":
-      return sortDialog(env);
-    case "borders":
-      return bordersShadingDialog(env, "borders");
-    case "pageBorders":
-      return bordersShadingDialog(env, "page");
-    case "shading":
-      return bordersShadingDialog(env, "shading");
-    case "tableStyle:new":
-      return tableStyleDialog(env, "new");
-    case "tableStyle:modify":
-      return tableStyleDialog(env, "modify", arg);
-    case "properties":
-    case "properties:row":
-    case "properties:column":
-    case "properties:cell":
-    case "properties:alt":
-      return propertiesDialog(env, kind === "properties" ? "table" : kind.slice(11));
-    case "formula": {
-      const formula = el11("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
-      const fmt2 = el11("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
-      const fmtList = el11(
-        "select",
-        { name: "format-list", style: "width:28px" },
-        el11("option", { value: "" }, ""),
-        ...NUMBER_FORMATS.map((f3) => el11("option", { value: f3 }, f3))
-      );
-      fmtList.addEventListener("change", () => {
-        fmt2.value = fmtList.value;
-        fmtList.value = "";
-      });
-      const fn = el11(
-        "select",
-        { name: "function" },
-        el11("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
-        ...FORMULA_FUNCTIONS.map((f3) => el11("option", { value: f3 }, f3))
-      );
-      fn.addEventListener("change", () => {
-        if (!fn.value) return;
-        const a3 = formula.selectionStart ?? formula.value.length, b5 = formula.selectionEnd ?? a3;
-        const ins = `${fn.value}()`;
-        formula.value = formula.value.slice(0, a3) + ins + formula.value.slice(b5);
-        formula.focus();
-        formula.setSelectionRange(a3 + ins.length - 1, a3 + ins.length - 1);
-        fn.value = "";
-      });
-      const body = el11(
-        "div",
-        { style: "display:flex;flex-direction:column;gap:12px" },
-        el11("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
-        el11(
-          "label",
-          { style: "display:flex;flex-direction:column;gap:4px" },
-          tr6(lang, "Number format:", "Formato do n\xFAmero:"),
-          el11("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
-        ),
-        el11("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
-      );
-      queueMicrotask(() => {
-        formula.focus();
-        formula.setSelectionRange(formula.value.length, formula.value.length);
-      });
-      if (!await ask(env, tr6(lang, "Formula", "F\xF3rmula"), body, 380)) return;
-      ed.insertFormula(formula.value, fmt2.value.trim() || void 0);
-      return;
-    }
-  }
-}
-function radiosRow(name, opts, value) {
-  const box = el11("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
-  for (const [v2, t6] of opts) box.append(el11("label", { className: "uo-check" }, el11("input", { type: "radio", name, value: v2, checked: v2 === value }), t6));
-  return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
-}
-function widthField(lang, name, w2, defTw) {
-  const on = !!w2 && (w2.type === "dxa" || w2.type === "pct") && w2.w > 0;
-  const c5 = check6(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
-  const unit = sel3(`${name}-unit`, [["dxa", tr6(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr6(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
-  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr6(lang, ".", ","));
-  const val3 = el11("input", {
-    type: "text",
-    name,
-    inputMode: "decimal",
-    style: "width:96px",
-    value: w2?.type === "pct" ? pctText2(w2.w) : `${cmText(lang, on && w2 ? w2.w : defTw)} cm`
-  });
-  unit.addEventListener("change", () => {
-    val3.value = unit.value === "pct" ? "100%" : `${cmText(lang, defTw)} cm`;
-  });
-  const sync = () => {
-    val3.disabled = unit.disabled = !c5.box.checked;
-  };
-  c5.box.addEventListener("change", sync);
-  sync();
-  const read = () => {
-    if (!c5.box.checked) return null;
-    if (unit.value === "pct") {
-      const n5 = parseFloat(val3.value.replace(",", ".").replace(/[^0-9.]/g, ""));
-      return Number.isFinite(n5) && n5 > 0 ? { w: Math.round(n5 * 50), type: "pct" } : null;
-    }
-    const tw3 = twOf(val3.value);
-    return tw3 && tw3 > 0 ? { w: tw3, type: "dxa" } : null;
-  };
-  return { el: line(c5.el, val3, el11("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
-}
-async function propertiesDialog(env, tab) {
-  const lang = env.lang, ed = env.ed;
-  const s4 = ed.getTableState();
-  if (!s4) return;
-  const t6 = s4.tblPr, rp = s4.trPr, cp = s4.tcPr;
-  const tWidth = widthField(lang, "tw", t6.tblW, s4.availTwips);
-  const curAlign = t6.jc === "center" || t6.jc === "right" ? t6.jc : "left";
-  const align = radiosRow("talign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Center", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], curAlign);
-  const indent = cmInput(lang, "tind", t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0);
-  const syncInd = () => {
-    indent.disabled = align.value() !== "left";
-  };
-  align.el.addEventListener("change", syncInd);
-  syncInd();
-  const wrap = radiosRow("twrap", [["none", tr6(lang, "None", "Nenhuma")], ["around", tr6(lang, "Around", "Ao redor")]], t6.tblpPr ? "around" : "none");
-  let position = t6.tblpPr ? { ...t6.tblpPr } : void 0;
-  let overlap;
-  const posBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
-  const syncWrap = () => {
-    posBtn.disabled = wrap.value() !== "around";
-  };
-  wrap.el.addEventListener("change", syncWrap);
-  syncWrap();
-  posBtn.addEventListener("click", () => {
-    const p0 = position ?? { leftFromText: 141, rightFromText: 141, vertAnchor: "text", tblpY: 1 };
-    void positioningDialog(env, p0, overlap ?? (!!t6.tblpPr && t6.tblOverlap !== "never")).then((r6) => {
-      if (r6) {
-        position = r6.pos;
-        overlap = r6.overlap;
-      }
-    });
-  });
-  const optBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
-  optBtn.addEventListener("click", () => {
-    void tableDialog(env, "margins");
-  });
-  const tableTab = el11(
-    "div",
-    {},
-    section2(tr6(lang, "Size", "Tamanho"), tWidth.el),
-    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el11("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
-    section2(tr6(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
-    el11("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
-  );
-  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr6(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr6(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
-  const hOn = check6("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
-  const hVal = cmInput(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
-  const hRule = sel3("rh-rule", [["atLeast", tr6(lang, "At least", "Pelo menos")], ["exact", tr6(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
-  const syncH = () => {
-    hVal.disabled = hRule.disabled = !hOn.box.checked;
-  };
-  hOn.box.addEventListener("change", syncH);
-  syncH();
-  const brk = check6("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
-  const hdr = check6("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
-  const rowTab = el11(
-    "div",
-    {},
-    el11("strong", {}, rowsLabel),
-    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el11("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
-    section2(tr6(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
-  );
-  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr6(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr6(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
-  const tcW = cp.tcW?.type === "dxa" || cp.tcW?.type === "pct" ? cp.tcW : void 0;
-  const cWidth = widthField(lang, "cw", tcW, s4.colWidth);
-  const colTab = el11("div", {}, el11("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
-  const kWidth = widthField(lang, "kw", tcW, s4.colWidth);
-  const curV = cp.vAlign === "center" || cp.vAlign === "bottom" ? cp.vAlign : "top";
-  const vAlign = radiosRow("kva", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Center", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")]], curV);
-  let cellOpts;
-  const cellBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
-  cellBtn.addEventListener("click", () => {
-    void cellOptionsDialog(env, cp, t6).then((r6) => {
-      if (r6) cellOpts = r6;
-    });
-  });
-  const cellTab = el11(
-    "div",
-    {},
-    section2(tr6(lang, "Size", "Tamanho"), kWidth.el),
-    section2(tr6(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
-    el11("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
-  );
-  const title = el11("input", { type: "text", name: "alt-title", value: t6.tblCaption ?? "", style: "width:100%" });
-  const descr = el11("textarea", { name: "alt-descr", value: t6.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
-  const altTab = el11(
-    "div",
-    {},
-    el11("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
-    el11("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
-  );
-  const tabs = dialogTabs([
-    { id: "table", label: tr6(lang, "Table", "Tabela"), body: tableTab },
-    { id: "row", label: tr6(lang, "Row", "Linha"), body: rowTab },
-    { id: "column", label: tr6(lang, "Column", "Coluna"), body: colTab },
-    { id: "cell", label: tr6(lang, "Cell", "C\xE9lula"), body: cellTab },
-    { id: "alt", label: tr6(lang, "Alt Text", "Texto Alt"), body: altTab }
-  ], tab);
-  if (!await ask(env, tr6(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
-  const sameW = (a3, b5) => a3 === null ? !b5 || b5.type === "auto" || b5.type === "nil" || !b5.w : !!b5 && a3.type === b5.type && a3.w === b5.w;
-  const out = {};
-  const tb = {};
-  const tw3 = tWidth.read();
-  if (!sameW(tw3, t6.tblW)) tb.width = tw3;
-  const al = align.value();
-  if (al !== curAlign) tb.align = al;
-  const ind2 = twOf(indent.value) ?? 0;
-  if (al === "left" && ind2 !== (t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0)) tb.indentTwips = ind2;
-  const wr = wrap.value();
-  if (wr !== (t6.tblpPr ? "around" : "none")) tb.wrap = wr;
-  if (wr === "around" && position && JSON.stringify(position) !== JSON.stringify(t6.tblpPr ?? null)) tb.position = position;
-  if (wr === "around" && overlap !== void 0) tb.overlap = overlap;
-  if (title.value !== (t6.tblCaption ?? "")) tb.title = title.value;
-  if (descr.value !== (t6.tblDescription ?? "")) tb.description = descr.value;
-  if (Object.keys(tb).length) out.table = tb;
-  const rw = {};
-  const hTw = twOf(hVal.value) ?? 0;
-  const hNew = hOn.box.checked && hTw > 0 ? { twips: hTw, rule: hRule.value } : null;
-  const hOld = rp.trHeight ? { twips: rp.trHeight.val, rule: rp.trHeight.hRule === "exact" ? "exact" : "atLeast" } : null;
-  if (JSON.stringify(hNew) !== JSON.stringify(hOld)) rw.height = hNew;
-  if (brk.box.checked !== !rp.cantSplit) rw.allowBreak = brk.box.checked;
-  if (hdr.box.checked !== !!rp.tblHeader) rw.header = hdr.box.checked;
-  if (Object.keys(rw).length) out.row = rw;
-  const cw = cWidth.read();
-  if (!sameW(cw, tcW)) out.column = { width: cw };
-  const cl = {};
-  const kw = kWidth.read();
-  if (!out.column && !sameW(kw, tcW)) cl.width = kw;
-  const va = vAlign.value();
-  if (va !== curV) cl.vAlign = va;
-  if (cellOpts) {
-    cl.margins = cellOpts.margins;
-    cl.wrap = cellOpts.wrap;
-    cl.fitText = cellOpts.fitText;
-  }
-  if (Object.keys(cl).length) out.cell = cl;
-  if (Object.keys(out).length) ed.setTableProperties(out);
-}
-async function positioningDialog(env, pos, overlap) {
-  const lang = env.lang;
-  const hSpecs = [
-    ["left", tr6(lang, "Left", "Esquerda")],
-    ["center", tr6(lang, "Center", "Centralizado")],
-    ["right", tr6(lang, "Right", "Direita")],
-    ["inside", tr6(lang, "Inside", "Interna")],
-    ["outside", tr6(lang, "Outside", "Externa")]
-  ];
-  const vSpecs = [
-    ["top", tr6(lang, "Top", "Superior")],
-    ["center", tr6(lang, "Center", "Centralizado")],
-    ["bottom", tr6(lang, "Bottom", "Inferior")],
-    ["inside", tr6(lang, "Inside", "Interna")],
-    ["outside", tr6(lang, "Outside", "Externa")]
-  ];
-  const combo = (name, specs, spec, tw3) => {
-    const input = el11("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw3 ?? 0)} cm` });
-    const list = el11("select", { name: `${name}-list`, style: "width:28px" }, el11("option", { value: "" }, ""), ...specs.map(([v3, x3]) => el11("option", { value: v3 }, x3)));
-    list.addEventListener("change", () => {
-      if (list.value) input.value = specs.find(([v3]) => v3 === list.value)[1];
-      list.value = "";
-    });
-    const read = () => {
-      const hit = specs.find(([, x3]) => x3.toLowerCase() === input.value.trim().toLowerCase());
-      return hit ? { spec: hit[0] } : { tw: twOf(input.value) ?? 0 };
-    };
-    return { el: el11("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
-  };
-  const hPos = combo("hpos", hSpecs, pos.tblpXSpec, pos.tblpX);
-  const hRel = sel3("hrel", [["text", tr6(lang, "Column", "Coluna")], ["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
-  const vPos = combo("vpos", vSpecs, pos.tblpYSpec, pos.tblpY);
-  const vRel = sel3("vrel", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["text", tr6(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
-  const top = cmInput(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput(lang, "dbottom", pos.bottomFromText ?? 0);
-  const left = cmInput(lang, "dleft", pos.leftFromText ?? 0), right = cmInput(lang, "dright", pos.rightFromText ?? 0);
-  const move = check6("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
-  move.box.addEventListener("change", () => {
-    vRel.value = move.box.checked ? "text" : "margin";
-  });
-  vRel.addEventListener("change", () => {
-    move.box.checked = vRel.value === "text";
-  });
-  const ov = check6("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
-  const grid2 = (...kids) => el11("div", { className: "uo-dialog-grid" }, ...kids);
-  const body = el11(
-    "div",
-    { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el11("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el11("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
-    section2(tr6(lang, "Vertical", "Vertical"), grid2(el11("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el11("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
-    section2(tr6(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
-      el11("span", {}, tr6(lang, "Top:", "Superior:")),
-      top,
-      el11("span", {}, tr6(lang, "Left:", "Esquerda:")),
-      left,
-      el11("span", {}, tr6(lang, "Bottom:", "Inferior:")),
-      bottom,
-      el11("span", {}, tr6(lang, "Right:", "Direita:")),
-      right
-    )),
-    section2(tr6(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
-  );
-  if (!await ask(env, tr6(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
-  const h3 = hPos.read(), v2 = vPos.read();
-  const nz = (x3) => x3 ? x3 : void 0;
-  const out = {
-    leftFromText: nz(twOf(left.value)),
-    rightFromText: nz(twOf(right.value)),
-    topFromText: nz(twOf(top.value)),
-    bottomFromText: nz(twOf(bottom.value)),
-    vertAnchor: vRel.value,
-    horzAnchor: hRel.value === "text" ? void 0 : hRel.value,
-    tblpXSpec: h3.spec,
-    tblpX: h3.spec ? void 0 : nz(h3.tw),
-    tblpYSpec: v2.spec,
-    tblpY: v2.spec ? void 0 : nz(v2.tw)
-  };
-  for (const k2 of Object.keys(out)) if (out[k2] === void 0) delete out[k2];
-  return { pos: out, overlap: ov.box.checked };
-}
-async function cellOptionsDialog(env, cp, t6) {
-  const lang = env.lang;
-  const tm = t6.tblCellMar ?? {};
-  const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
-  const own4 = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
-  const same2 = check6("same", !own4, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
-  const m2 = cp.tcMar ?? {};
-  const top = cmInput(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
-  const left = cmInput(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput(lang, "right", w2(m2.right, w2(tm.right, 108)));
-  const syncM = () => {
-    for (const i7 of [top, bottom, left, right]) i7.disabled = same2.box.checked;
-  };
-  same2.box.addEventListener("change", syncM);
-  syncM();
-  const wrap = check6("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
-  const fit = check6("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
-  const body = el11(
-    "div",
-    { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same2.el, el11(
-      "div",
-      { className: "uo-dialog-grid" },
-      el11("span", {}, tr6(lang, "Top:", "Superior:")),
-      top,
-      el11("span", {}, tr6(lang, "Left:", "Esquerda:")),
-      left,
-      el11("span", {}, tr6(lang, "Bottom:", "Inferior:")),
-      bottom,
-      el11("span", {}, tr6(lang, "Right:", "Direita:")),
-      right
-    )),
-    section2(tr6(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
-  );
-  if (!await ask(env, tr6(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
-  return {
-    margins: same2.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
-    wrap: wrap.box.checked,
-    fitText: fit.box.checked
-  };
-}
-async function sortDialog(env) {
-  const lang = env.lang, ed = env.ed;
-  let separator = void 0;
-  let caseSensitive = false;
-  let info = ed.sortInfo();
-  if (!info) return;
-  if (info.mergeError) {
-    const h3 = openDialog({
-      title: tr6(lang, "Sort", "Classificar"),
-      icon: "warning",
-      layer: env.layer,
-      lang,
-      body: tr6(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
-    });
-    await h3.result;
-    return;
-  }
-  const types = [["text", tr6(lang, "Text", "Texto")], ["number", tr6(lang, "Number", "N\xFAmero")], ["date", tr6(lang, "Date", "Data")]];
-  const none = tr6(lang, "(none)", "(nenhum)");
-  const header = radiosRow("hdr", [["yes", tr6(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr6(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
-  const isHeader = () => header.value() === "yes";
-  const labels = () => info.columns.map((c5, i7) => {
-    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr6(lang, "Paragraphs", "Par\xE1grafos") : tr6(lang, `Field ${i7 + 1}`, `Campo ${i7 + 1}`);
-    return isHeader() && c5.text ? c5.text : tr6(lang, `Column ${i7 + 1}`, `Coluna ${i7 + 1}`);
-  });
-  const keyRow = (n5) => {
-    const col = el11("select", { name: `k${n5}-col`, style: "min-width:160px" });
-    const type = sel3(`k${n5}-type`, types, "text");
-    const dir = radiosRow(`k${n5}-dir`, [["asc", tr6(lang, "Ascending", "Crescente")], ["desc", tr6(lang, "Descending", "Decrescente")]], "asc");
-    const fill = () => {
-      const cur = col.value;
-      col.replaceChildren(...n5 > 0 ? [el11("option", { value: "" }, none)] : [], ...labels().map((l3, i7) => el11("option", { value: String(i7) }, l3)));
-      col.value = cur && [...col.options].some((o7) => o7.value === cur) ? cur : n5 > 0 ? "" : "0";
-    };
-    const sync = () => {
-      type.disabled = col.value === "";
-      for (const i7 of dir.el.querySelectorAll("input")) i7.disabled = col.value === "";
-    };
-    const guess = () => {
-      const c5 = info.columns[+col.value];
-      if (col.value !== "" && c5) type.value = c5.guess;
-    };
-    fill();
-    guess();
-    sync();
-    col.addEventListener("change", () => {
-      guess();
-      sync();
-    });
-    const title = n5 === 0 ? tr6(lang, "Sort by", "Classificar por") : tr6(lang, "Then by", "E depois por");
-    return {
-      el: section2(title, line(col, el11("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
-      fill: () => {
-        fill();
-        sync();
-      },
-      read: () => col.value === "" ? null : { column: +col.value, type: type.value, desc: dir.value() === "desc" }
-    };
-  };
-  const keys = [keyRow(0), keyRow(1), keyRow(2)];
-  header.el.addEventListener("change", () => keys.forEach((k2) => k2.fill()));
-  const opts = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
-  opts.addEventListener("click", () => {
-    void sortOptionsDialog(env, info.kind === "paragraphs", separator, caseSensitive).then((r6) => {
-      if (!r6) return;
-      separator = r6.separator;
-      caseSensitive = r6.caseSensitive;
-      info = ed.sortInfo(separator) ?? info;
-      keys.forEach((k2) => k2.fill());
-    });
-  });
-  const body = el11(
-    "div",
-    { style: "display:flex;flex-direction:column;gap:14px" },
-    ...keys.map((k2) => k2.el),
-    section2(tr6(lang, "My list has", "Minha lista tem"), header.el),
-    el11("div", { style: "display:flex;justify-content:flex-end" }, opts)
-  );
-  if (!await ask(env, tr6(lang, "Sort", "Classificar"), body, 460)) return;
-  const ks = keys.map((k2) => k2.read()).filter((k2) => !!k2);
-  if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
-}
-async function sortOptionsDialog(env, paragraphs, sep, cs) {
-  const lang = env.lang;
-  const cur = sep === void 0 ? "tab" : typeof sep === "string" ? sep : "other";
-  const r6 = radiosRow("ssep", [["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr6(lang, "Commas", "V\xEDrgulas")], ["other", tr6(lang, "Other:", "Outro:")]], cur);
-  const other = el11("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
-  other.addEventListener("input", () => {
-    r6.el.querySelector('input[value="other"]').checked = true;
-  });
-  const use = check6("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
-  const csBox = check6("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
-  const body = el11(
-    "div",
-    { style: "display:flex;flex-direction:column;gap:14px" },
-    ...paragraphs ? [section2(tr6(lang, "Separate fields at", "Separar campos em"), use.el, line(r6.el, other))] : [],
-    section2(tr6(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
-  );
-  if (!await ask(env, tr6(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
-  const v2 = r6.value();
-  const separator = !paragraphs || !use.box.checked ? void 0 : v2 === "other" ? { char: other.value || "-" } : v2;
-  return { separator, caseSensitive: csBox.box.checked };
-}
-var NUMBER_FORMATS, el11, tr6, num2, cmText, cmInput, twOf, section2, sel3, line, check6;
-var init_chrome_table_dialogs = __esm({
-  "src/chrome-table-dialogs.ts"() {
-    "use strict";
-    init_src5();
-    init_src();
-    init_chrome_borders();
-    init_chrome_table_style();
-    NUMBER_FORMATS = ["#.##0", "#.##0,00", "R$ #.##0,00;(R$ #.##0,00)", "0", "0%", "0,00", "0,00%"];
-    el11 = (tag2, props = {}, ...kids) => {
-      const { style, ...rest } = props;
-      const e8 = Object.assign(document.createElement(tag2), rest);
-      if (style) e8.style.cssText = style;
-      e8.append(...kids);
-      return e8;
-    };
-    tr6 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    num2 = (name, value, min = 1, max2 = 63) => el11("input", { type: "number", name, min: String(min), max: String(max2), step: "1", value: String(value) });
-    cmText = (lang, tw3) => (Math.round(tw3 / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
-    cmInput = (lang, name, tw3) => el11("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw3)} cm`, style: "width:96px" });
-    twOf = (s4) => {
-      const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
-      return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
-    };
-    section2 = (title, ...kids) => el11("div", { style: "display:flex;flex-direction:column;gap:8px" }, el11("strong", {}, title), ...kids);
-    sel3 = (name, opts, value) => {
-      const s4 = el11("select", { name });
-      for (const [v2, t6] of opts) s4.append(el11("option", { value: v2, selected: v2 === value }, t6));
-      return s4;
-    };
-    line = (...kids) => el11("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-    check6 = (name, on, label) => {
-      const box = el11("input", { type: "checkbox", name, checked: on });
-      return { el: el11("label", { className: "uo-check" }, box, label), box };
-    };
-  }
-});
-
 // src/chrome-picture-pane.ts
 function toggleFormatPane(env, tab, onClose) {
   const { ed, lang } = env;
-  const tr8 = (en, pt3) => pickLabels(lang, { en, pt: pt3 });
+  const tr9 = (en, pt3) => pickLabels(lang, { en, pt: pt3 });
   const cur = paneOpen("pic-format");
   if (cur) {
     cur.close();
@@ -55882,9 +56805,9 @@ function toggleFormatPane(env, tab, onClose) {
   const setEffect = (k2, id) => shape2 ? ed.setShapeEffect(k2, id) : ed.setImageEffect(k2, id);
   const setAlt = (o7) => shape2 ? ed.setShapeAltText(o7) : ed.setImageAltText(o7);
   const syncers = [];
-  const dec = tr8(".", ",");
+  const dec = tr9(".", ",");
   const num3 = (label, unit, get, set, o7 = {}) => {
-    const input = el12("input", { type: "text", inputMode: "decimal", style: "width:76px" });
+    const input = el13("input", { type: "text", inputMode: "decimal", style: "width:76px" });
     input.setAttribute("aria-label", label);
     const digits = o7.digits ?? 1;
     const show2 = () => {
@@ -55893,11 +56816,11 @@ function toggleFormatPane(env, tab, onClose) {
       input.disabled = off();
       up2.disabled = dn.disabled = off();
     };
-    const clamp = (v2) => Math.max(o7.min ?? -Infinity, Math.min(o7.max ?? Infinity, v2));
+    const clamp2 = (v2) => Math.max(o7.min ?? -Infinity, Math.min(o7.max ?? Infinity, v2));
     const apply2 = () => {
       const n5 = parseFloat(input.value.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       if (Number.isFinite(n5)) {
-        set(clamp(n5));
+        set(clamp2(n5));
         env.after();
       }
       sync();
@@ -55911,12 +56834,12 @@ function toggleFormatPane(env, tab, onClose) {
       }
     });
     const step = (d3) => {
-      set(clamp((get() ?? 0) + d3 * (o7.step ?? 1)));
+      set(clamp2((get() ?? 0) + d3 * (o7.step ?? 1)));
       env.after();
       sync();
     };
-    const up2 = el12("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
-    const dn = el12("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const up2 = el13("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const dn = el13("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
     up2.innerHTML = symbol("keyboard_arrow_up");
     dn.innerHTML = symbol("keyboard_arrow_down");
     for (const [b5, d3] of [[up2, 1], [dn, -1]]) {
@@ -55924,12 +56847,12 @@ function toggleFormatPane(env, tab, onClose) {
       b5.addEventListener("click", () => step(d3));
     }
     syncers.push(show2);
-    return row2(label, el12("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el12("span", { style: "display:inline-flex;flex-direction:column" }, up2, dn)));
+    return row2(label, el13("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el13("span", { style: "display:inline-flex;flex-direction:column" }, up2, dn)));
   };
   const choice = (label, opts, get, set) => {
-    const s4 = el12("select", { style: "max-width:150px" });
+    const s4 = el13("select", { style: "max-width:150px" });
     s4.setAttribute("aria-label", label);
-    for (const [v2, t6] of opts) s4.append(el12("option", { value: v2, textContent: t6 }));
+    for (const [v2, t6] of opts) s4.append(el13("option", { value: v2, textContent: t6 }));
     s4.addEventListener("change", () => {
       set(s4.value);
       env.after();
@@ -55943,9 +56866,9 @@ function toggleFormatPane(env, tab, onClose) {
     return row2(label, s4);
   };
   const color3 = (label, get, set) => {
-    const b5 = el12("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+    const b5 = el13("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
     b5.setAttribute("aria-label", label);
-    const chip = el12("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
+    const chip = el13("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
     b5.append(chip);
     b5.insertAdjacentHTML("beforeend", symbol("arrow_drop_down"));
     b5.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -55972,13 +56895,13 @@ function toggleFormatPane(env, tab, onClose) {
     });
     return row2(label, b5);
   };
-  const row2 = (label, ctl) => el12("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el12("span", { textContent: label }), ctl);
+  const row2 = (label, ctl) => el13("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el13("span", { textContent: label }), ctl);
   const section4 = (title2, open2, ...kids) => {
-    const d3 = el12("details", { open: open2, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el12("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
-    d3.append(el12("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
+    const d3 = el13("details", { open: open2, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el13("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
+    d3.append(el13("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
     return d3;
   };
-  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr8("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i7) => [i7.id, i7.label])], () => "", (v2) => {
+  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr9("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i7) => [i7.id, i7.label])], () => "", (v2) => {
     if (v2) set(v2 === "none" ? null : v2);
   });
   const line2 = () => anyFmt()?.line ?? void 0;
@@ -56008,7 +56931,7 @@ function toggleFormatPane(env, tab, onClose) {
     ed.setShapeFill({ ...base, ...ch });
   };
   const pickPicture = (tile) => {
-    const inp = el12("input", { type: "file", accept: "image/*" });
+    const inp = el13("input", { type: "file", accept: "image/*" });
     inp.addEventListener("change", () => {
       const f3 = inp.files?.[0];
       if (f3) void f3.arrayBuffer().then((b5) => ed.setShapePictureFill(new Uint8Array(b5), (f3.name.split(".").pop() || "png").toLowerCase(), tile)).then(() => {
@@ -56019,11 +56942,11 @@ function toggleFormatPane(env, tab, onClose) {
     inp.click();
   };
   const fillSection = section4(
-    tr8("Fill", "Preenchimento"),
+    tr9("Fill", "Preenchimento"),
     true,
     choice(
-      tr8("Fill", "Preenchimento"),
-      [["none", tr8("No fill", "Sem preenchimento")], ["solid", tr8("Solid fill", "Preenchimento s\xF3lido")], ["gradient", tr8("Gradient fill", "Preenchimento gradiente")], ["picture", tr8("Picture or texture fill", "Preenchimento com imagem ou textura")], ["pattern", tr8("Pattern fill", "Preenchimento de padr\xE3o")], ["style", tr8("Automatic", "Autom\xE1tico")]],
+      tr9("Fill", "Preenchimento"),
+      [["none", tr9("No fill", "Sem preenchimento")], ["solid", tr9("Solid fill", "Preenchimento s\xF3lido")], ["gradient", tr9("Gradient fill", "Preenchimento gradiente")], ["picture", tr9("Picture or texture fill", "Preenchimento com imagem ou textura")], ["pattern", tr9("Pattern fill", "Preenchimento de padr\xE3o")], ["style", tr9("Automatic", "Autom\xE1tico")]],
       () => {
         const k2 = fill()?.kind;
         return k2 === "raw" ? "picture" : k2;
@@ -56037,25 +56960,25 @@ function toggleFormatPane(env, tab, onClose) {
         else pickPicture(false);
       }
     ),
-    color3(tr8("Color", "Cor"), () => fillColor(), (c5) => {
+    color3(tr9("Color", "Cor"), () => fillColor(), (c5) => {
       const f3 = fill();
       if (f3?.kind === "pattern") setPatt({ fg: c5 });
       else ed.setShapeFill({ kind: "solid", color: withAlpha(c5, alphaOf(fillColor())) });
     }),
-    num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => {
+    num3(tr9("Transparency", "Transpar\xEAncia"), "%", () => {
       const f3 = fill();
       return f3?.kind === "solid" ? 100 - alphaOf(f3.color) : void 0;
     }, (v2) => {
       const f3 = fill();
       if (f3?.kind === "solid") ed.setShapeFill({ kind: "solid", color: withAlpha(noAlpha(f3.color), 100 - v2) });
     }, { min: 0, max: 100 }),
-    choice(tr8("Preset gradients", "Gradientes predefinidos"), [["", tr8("(choose)", "(escolher)")], ...ed.shapeGradientVariations().map((g2) => [g2.id, g2.id])], () => "", (v2) => {
+    choice(tr9("Preset gradients", "Gradientes predefinidos"), [["", tr9("(choose)", "(escolher)")], ...ed.shapeGradientVariations().map((g2) => [g2.id, g2.id])], () => "", (v2) => {
       const g2 = ed.shapeGradientVariations().find((x3) => x3.id === v2);
       if (g2) ed.setShapeFill(g2.fill);
     }),
     choice(
-      tr8("Gradient type", "Tipo de gradiente"),
-      [["linear", tr8("Linear", "Linear")], ["circle", tr8("Radial", "Radial")], ["rect", tr8("Rectangular", "Retangular")], ["shape", tr8("Path", "Caminho")]],
+      tr9("Gradient type", "Tipo de gradiente"),
+      [["linear", tr9("Linear", "Linear")], ["circle", tr9("Radial", "Radial")], ["rect", tr9("Rectangular", "Retangular")], ["shape", tr9("Path", "Caminho")]],
       () => {
         const g2 = grad();
         return g2 ? g2.path ? g2.path.path : "linear" : void 0;
@@ -56069,45 +56992,45 @@ function toggleFormatPane(env, tab, onClose) {
         setGrad(v2 === "linear" ? { ...rest, lin: { ang: 54e5, scaled: true } } : { ...rest, path: { path: v2, fillToRect: { l: 5e4, t: 5e4, r: 5e4, b: 5e4 } } });
       }
     ),
-    num3(tr8("Angle", "\xC2ngulo"), "\xB0", () => {
+    num3(tr9("Angle", "\xC2ngulo"), "\xB0", () => {
       const g2 = grad();
       return g2?.lin ? g2.lin.ang / ANG : void 0;
     }, (v2) => {
       const g2 = grad();
       if (g2?.lin) setGrad({ lin: { ...g2.lin, ang: Math.round((v2 % 360 + 360) % 360 * ANG) } });
     }, { min: 0, max: 359.9 }),
-    choice(tr8("Pattern", "Padr\xE3o"), Object.keys(PRESET_PATTERNS).map((k2) => [k2, k2]), () => patt()?.prst, (v2) => setPatt({ prst: v2 })),
-    color3(tr8("Background", "Plano de fundo"), () => patt()?.bg, (c5) => setPatt({ bg: c5 })),
-    row2(tr8("Picture source", "Fonte da imagem"), el12(
+    choice(tr9("Pattern", "Padr\xE3o"), Object.keys(PRESET_PATTERNS).map((k2) => [k2, k2]), () => patt()?.prst, (v2) => setPatt({ prst: v2 })),
+    color3(tr9("Background", "Plano de fundo"), () => patt()?.bg, (c5) => setPatt({ bg: c5 })),
+    row2(tr9("Picture source", "Fonte da imagem"), el13(
       "span",
       { style: "display:inline-flex;gap:4px" },
       (() => {
-        const b5 = el12("button", { type: "button", className: "uo-btn", textContent: tr8("Insert\u2026", "Inserir...") });
+        const b5 = el13("button", { type: "button", className: "uo-btn", textContent: tr9("Insert\u2026", "Inserir...") });
         b5.addEventListener("click", () => pickPicture(false));
         return b5;
       })(),
       (() => {
-        const b5 = el12("button", { type: "button", className: "uo-btn", textContent: tr8("Texture\u2026", "Textura...") });
+        const b5 = el13("button", { type: "button", className: "uo-btn", textContent: tr9("Texture\u2026", "Textura...") });
         b5.addEventListener("click", () => pickPicture(true));
         return b5;
       })()
     ))
   );
-  const lineTab = el12(
+  const lineTab = el13(
     "div",
     {},
     ...shape2 ? [fillSection] : [],
     section4(
-      tr8("Line", "Linha"),
+      tr9("Line", "Linha"),
       true,
-      choice(tr8("Line", "Linha"), [["none", tr8("No line", "Sem linha")], ["solid", tr8("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? setFormat({ line: shape2 ? null : { ...line2() ?? {}, fill: null } }) : setLine({})),
-      color3(tr8("Color", "Cor"), () => line2()?.fill ?? void 0, (c5) => setLine({ fill: withAlpha(c5, alphaOf(line2()?.fill ?? void 0)) })),
-      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
-      num3(tr8("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT2 : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
-      choice(tr8("Compound type", "Tipo composto"), [["sng", tr8("Single", "Simples")], ["dbl", tr8("Double", "Duplo")], ["thickThin", tr8("Thick Thin", "Grosso Fino")], ["thinThick", tr8("Thin Thick", "Fino Grosso")], ["tri", tr8("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
-      choice(tr8("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
-      choice(tr8("Cap type", "Tipo de extremidade"), [["sq", tr8("Square", "Quadrado")], ["rnd", tr8("Round", "Arredondado")], ["flat", tr8("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
-      choice(tr8("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr8("Round", "Arredondada")], ["bevel", tr8("Bevel", "Chanfrada")], ["miter", tr8("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
+      choice(tr9("Line", "Linha"), [["none", tr9("No line", "Sem linha")], ["solid", tr9("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? setFormat({ line: shape2 ? null : { ...line2() ?? {}, fill: null } }) : setLine({})),
+      color3(tr9("Color", "Cor"), () => line2()?.fill ?? void 0, (c5) => setLine({ fill: withAlpha(c5, alphaOf(line2()?.fill ?? void 0)) })),
+      num3(tr9("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
+      num3(tr9("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT2 : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
+      choice(tr9("Compound type", "Tipo composto"), [["sng", tr9("Single", "Simples")], ["dbl", tr9("Double", "Duplo")], ["thickThin", tr9("Thick Thin", "Grosso Fino")], ["thinThick", tr9("Thin Thick", "Fino Grosso")], ["tri", tr9("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
+      choice(tr9("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
+      choice(tr9("Cap type", "Tipo de extremidade"), [["sq", tr9("Square", "Quadrado")], ["rnd", tr9("Round", "Arredondado")], ["flat", tr9("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
+      choice(tr9("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr9("Round", "Arredondada")], ["bevel", tr9("Bevel", "Chanfrada")], ["miter", tr9("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
     )
   );
   const fx = () => anyFmt()?.effects;
@@ -56131,77 +57054,77 @@ function toggleFormatPane(env, tab, onClose) {
     const base = td2() ?? { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" } };
     setFormat({ threeD: { ...base, ...ch } });
   };
-  const bevelOpts = [["", tr8("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b5) => [b5.prst, pickLabels(lang, b5.label)])];
+  const bevelOpts = [["", tr9("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b5) => [b5.prst, pickLabels(lang, b5.label)])];
   const bevel = (which, title2) => [
     choice(title2, bevelOpts, () => td2()?.[which] ? td2()[which].prst ?? "circle" : "", (v2) => setTd({ [which]: v2 ? { ...td2()?.[which] ?? {}, prst: v2 === "circle" ? void 0 : v2 } : void 0 })),
-    num3(tr8("Width", "Largura"), "pt", () => td2()?.[which] ? (td2()[which].w ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, w: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 }),
-    num3(tr8("Height", "Altura"), "pt", () => td2()?.[which] ? (td2()[which].h ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, h: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 })
+    num3(tr9("Width", "Largura"), "pt", () => td2()?.[which] ? (td2()[which].w ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, w: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 }),
+    num3(tr9("Height", "Altura"), "pt", () => td2()?.[which] ? (td2()[which].h ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, h: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 })
   ];
   const rot = () => td2()?.camera?.rot ?? { lat: 0, lon: 0, rev: 0 };
   const setRot = (k2, deg) => {
     const cam = td2()?.camera ?? { prst: "orthographicFront" };
     setTd({ camera: { ...cam, rot: { ...rot(), [k2]: Math.round((deg % 360 + 360) % 360 * ANG) } } });
   };
-  const effectsTab = el12(
+  const effectsTab = el13(
     "div",
     {},
     section4(
-      tr8("Shadow", "Sombra"),
+      tr9("Shadow", "Sombra"),
       true,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("shadow", id), tr8("No Shadow", "Sem Sombra")),
-      color3(tr8("Color", "Cor"), () => sh()?.color, (c5) => setSh({ color: withAlpha(c5, alphaOf(sh()?.color)) })),
-      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
-      num3(tr8("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
-      num3(tr8("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
-      num3(tr8("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
-      num3(tr8("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 200 })
+      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("shadow", id), tr9("No Shadow", "Sem Sombra")),
+      color3(tr9("Color", "Cor"), () => sh()?.color, (c5) => setSh({ color: withAlpha(c5, alphaOf(sh()?.color)) })),
+      num3(tr9("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
+      num3(tr9("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
+      num3(tr9("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
+      num3(tr9("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
+      num3(tr9("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 200 })
     ),
     section4(
-      tr8("Reflection", "Reflexo"),
+      tr9("Reflection", "Reflexo"),
       false,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("reflection", id), tr8("No Reflection", "Sem Reflexo")),
-      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
-      num3(tr8("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
-      num3(tr8("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
-      num3(tr8("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 })
+      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("reflection", id), tr9("No Reflection", "Sem Reflexo")),
+      num3(tr9("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
+      num3(tr9("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
+      num3(tr9("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
+      num3(tr9("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 })
     ),
     section4(
-      tr8("Glow", "Brilho"),
+      tr9("Glow", "Brilho"),
       false,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r6, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r6 / EMU_PT2} pt, ${tr8("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => setEffect("glow", id), tr8("No Glow", "Sem Brilho")),
-      color3(tr8("Color", "Cor"), () => gl()?.color, (c5) => setGl({ color: withAlpha(c5, alphaOf(gl()?.color)) })),
-      num3(tr8("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT2 : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 150 }),
-      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
+      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r6, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r6 / EMU_PT2} pt, ${tr9("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => setEffect("glow", id), tr9("No Glow", "Sem Brilho")),
+      color3(tr9("Color", "Cor"), () => gl()?.color, (c5) => setGl({ color: withAlpha(c5, alphaOf(gl()?.color)) })),
+      num3(tr9("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT2 : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 150 }),
+      num3(tr9("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
     ),
     section4(
-      tr8("Soft Edges", "Bordas Suaves"),
+      tr9("Soft Edges", "Bordas Suaves"),
       false,
-      num3(tr8("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT2 : 0, (v2) => setFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT2) : null }), { min: 0, max: 100 })
+      num3(tr9("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT2 : 0, (v2) => setFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT2) : null }), { min: 0, max: 100 })
     ),
     section4(
-      tr8("3-D Format", "Formato 3D"),
+      tr9("3-D Format", "Formato 3D"),
       false,
-      ...bevel("bevelT", tr8("Top bevel", "Bisel superior")),
-      ...bevel("bevelB", tr8("Bottom bevel", "Bisel inferior")),
-      color3(tr8("Depth color", "Cor da profundidade"), () => td2()?.extrusionClr, (c5) => setTd({ extrusionClr: c5 })),
-      num3(tr8("Depth size", "Tamanho da profundidade"), "pt", () => (td2()?.extrusionH ?? 0) / EMU_PT2, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
-      color3(tr8("Contour color", "Cor do contorno"), () => td2()?.contourClr, (c5) => setTd({ contourClr: c5 })),
-      num3(tr8("Contour size", "Tamanho do contorno"), "pt", () => (td2()?.contourW ?? 0) / EMU_PT2, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
-      choice(tr8("Material", "Material"), [["warmMatte", tr8("Warm Matte", "Fosco Quente")], ["matte", tr8("Matte", "Fosco")], ["plastic", tr8("Plastic", "Pl\xE1stico")], ["metal", tr8("Metal", "Metal")], ["dkEdge", tr8("Dark Edge", "Borda Escura")], ["softEdge", tr8("Soft Edge", "Borda Suave")], ["flat", tr8("Flat", "Plano")], ["legacyWireframe", tr8("Wire Frame", "Estrutura de Arame")], ["powder", tr8("Powder", "P\xF3")], ["translucentPowder", tr8("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr8("Clear", "Transparente")], ["softmetal", tr8("Soft Metal", "Metal Suave")]], () => td2()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
-      choice(tr8("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr8("Three Point", "Tr\xEAs Pontos")], ["balanced", tr8("Balanced", "Balanceado")], ["soft", tr8("Soft", "Suave")], ["harsh", tr8("Harsh", "Forte")], ["flood", tr8("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr8("Contrasting", "Contrastante")], ["morning", tr8("Morning", "Manh\xE3")], ["sunrise", tr8("Sunrise", "Nascer do Sol")], ["sunset", tr8("Sunset", "P\xF4r do Sol")], ["chilly", tr8("Chilly", "Frio")], ["freezing", tr8("Freezing", "Congelante")], ["flat", tr8("Flat", "Plano")], ["twoPt", tr8("Two Point", "Dois Pontos")], ["glow", tr8("Glow", "Brilho")], ["brightRoom", tr8("Bright Room", "Sala Iluminada")]], () => td2()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td2()?.lightRig ?? { dir: "t" }, rig: v2 } }))
+      ...bevel("bevelT", tr9("Top bevel", "Bisel superior")),
+      ...bevel("bevelB", tr9("Bottom bevel", "Bisel inferior")),
+      color3(tr9("Depth color", "Cor da profundidade"), () => td2()?.extrusionClr, (c5) => setTd({ extrusionClr: c5 })),
+      num3(tr9("Depth size", "Tamanho da profundidade"), "pt", () => (td2()?.extrusionH ?? 0) / EMU_PT2, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
+      color3(tr9("Contour color", "Cor do contorno"), () => td2()?.contourClr, (c5) => setTd({ contourClr: c5 })),
+      num3(tr9("Contour size", "Tamanho do contorno"), "pt", () => (td2()?.contourW ?? 0) / EMU_PT2, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
+      choice(tr9("Material", "Material"), [["warmMatte", tr9("Warm Matte", "Fosco Quente")], ["matte", tr9("Matte", "Fosco")], ["plastic", tr9("Plastic", "Pl\xE1stico")], ["metal", tr9("Metal", "Metal")], ["dkEdge", tr9("Dark Edge", "Borda Escura")], ["softEdge", tr9("Soft Edge", "Borda Suave")], ["flat", tr9("Flat", "Plano")], ["legacyWireframe", tr9("Wire Frame", "Estrutura de Arame")], ["powder", tr9("Powder", "P\xF3")], ["translucentPowder", tr9("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr9("Clear", "Transparente")], ["softmetal", tr9("Soft Metal", "Metal Suave")]], () => td2()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
+      choice(tr9("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr9("Three Point", "Tr\xEAs Pontos")], ["balanced", tr9("Balanced", "Balanceado")], ["soft", tr9("Soft", "Suave")], ["harsh", tr9("Harsh", "Forte")], ["flood", tr9("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr9("Contrasting", "Contrastante")], ["morning", tr9("Morning", "Manh\xE3")], ["sunrise", tr9("Sunrise", "Nascer do Sol")], ["sunset", tr9("Sunset", "P\xF4r do Sol")], ["chilly", tr9("Chilly", "Frio")], ["freezing", tr9("Freezing", "Congelante")], ["flat", tr9("Flat", "Plano")], ["twoPt", tr9("Two Point", "Dois Pontos")], ["glow", tr9("Glow", "Brilho")], ["brightRoom", tr9("Bright Room", "Sala Iluminada")]], () => td2()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td2()?.lightRig ?? { dir: "t" }, rig: v2 } }))
     ),
     section4(
-      tr8("3-D Rotation", "Rota\xE7\xE3o 3D"),
+      tr9("3-D Rotation", "Rota\xE7\xE3o 3D"),
       false,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => setEffect("rotation", id), tr8("No Rotation", "Sem Rota\xE7\xE3o")),
-      num3(tr8("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
-      num3(tr8("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
-      num3(tr8("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
-      num3(tr8("Perspective", "Perspectiva"), "\xB0", () => (td2()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td2()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
+      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => setEffect("rotation", id), tr9("No Rotation", "Sem Rota\xE7\xE3o")),
+      num3(tr9("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
+      num3(tr9("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
+      num3(tr9("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
+      num3(tr9("Perspective", "Perspectiva"), "\xB0", () => (td2()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td2()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
     )
   );
-  const title = el12("input", { type: "text", style: "width:100%;box-sizing:border-box" });
-  const descr = el12("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
+  const title = el13("input", { type: "text", style: "width:100%;box-sizing:border-box" });
+  const descr = el13("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
   title.addEventListener("change", () => {
     setAlt({ title: title.value });
     env.after();
@@ -56221,8 +57144,8 @@ function toggleFormatPane(env, tab, onClose) {
     title.disabled = descr.disabled = off();
   });
   const tx2 = () => ed.selectedShape()?.text;
-  const check8 = (label, get, set) => {
-    const i7 = el12("input", { type: "checkbox" });
+  const check9 = (label, get, set) => {
+    const i7 = el13("input", { type: "checkbox" });
     i7.addEventListener("change", () => {
       set(i7.checked);
       env.after();
@@ -56232,30 +57155,30 @@ function toggleFormatPane(env, tab, onClose) {
       i7.checked = !!get();
       i7.disabled = off() || !tx2();
     });
-    return el12("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i7, label);
+    return el13("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i7, label);
   };
   const textSection = section4(
-    tr8("Text Box", "Caixa de Texto"),
+    tr9("Text Box", "Caixa de Texto"),
     true,
-    choice(tr8("Vertical alignment", "Alinhamento vertical"), [["t", tr8("Top", "Superior")], ["ctr", tr8("Middle", "Meio")], ["b", tr8("Bottom", "Inferior")]], () => tx2()?.anchor, (v2) => ed.setTextboxOptions({ anchor: v2 })),
-    choice(tr8("Text direction", "Dire\xE7\xE3o do texto"), [["horz", tr8("Horizontal", "Horizontal")], ["vert", tr8("Rotate all text 90\xB0", "Girar todo o texto 90\xB0")], ["vert270", tr8("Rotate all text 270\xB0", "Girar todo o texto 270\xB0")], ["eaVert", tr8("Stacked (East Asian)", "Empilhado (Leste Asi\xE1tico)")], ["wordArtVert", tr8("Stacked", "Empilhado")]], () => tx2()?.direction, (v2) => ed.setTextboxOptions({ direction: v2 })),
-    check8(tr8("Do not rotate text", "N\xE3o girar o texto"), () => tx2()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
-    check8(tr8("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx2()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
-    num3(tr8("Left margin", "Margem esquerda"), "cm", () => tx2() ? tx2().marginsPt.l / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { l: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    num3(tr8("Right margin", "Margem direita"), "cm", () => tx2() ? tx2().marginsPt.r / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { r: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    num3(tr8("Top margin", "Margem superior"), "cm", () => tx2() ? tx2().marginsPt.t / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { t: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    num3(tr8("Bottom margin", "Margem inferior"), "cm", () => tx2() ? tx2().marginsPt.b / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { b: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    check8(tr8("Wrap text in shape", "Quebrar texto na forma"), () => tx2()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
+    choice(tr9("Vertical alignment", "Alinhamento vertical"), [["t", tr9("Top", "Superior")], ["ctr", tr9("Middle", "Meio")], ["b", tr9("Bottom", "Inferior")]], () => tx2()?.anchor, (v2) => ed.setTextboxOptions({ anchor: v2 })),
+    choice(tr9("Text direction", "Dire\xE7\xE3o do texto"), [["horz", tr9("Horizontal", "Horizontal")], ["vert", tr9("Rotate all text 90\xB0", "Girar todo o texto 90\xB0")], ["vert270", tr9("Rotate all text 270\xB0", "Girar todo o texto 270\xB0")], ["eaVert", tr9("Stacked (East Asian)", "Empilhado (Leste Asi\xE1tico)")], ["wordArtVert", tr9("Stacked", "Empilhado")]], () => tx2()?.direction, (v2) => ed.setTextboxOptions({ direction: v2 })),
+    check9(tr9("Do not rotate text", "N\xE3o girar o texto"), () => tx2()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
+    check9(tr9("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx2()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
+    num3(tr9("Left margin", "Margem esquerda"), "cm", () => tx2() ? tx2().marginsPt.l / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { l: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num3(tr9("Right margin", "Margem direita"), "cm", () => tx2() ? tx2().marginsPt.r / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { r: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num3(tr9("Top margin", "Margem superior"), "cm", () => tx2() ? tx2().marginsPt.t / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { t: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num3(tr9("Bottom margin", "Margem inferior"), "cm", () => tx2() ? tx2().marginsPt.b / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { b: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    check9(tr9("Wrap text in shape", "Quebrar texto na forma"), () => tx2()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
   );
-  const layoutTab = el12(
+  const layoutTab = el13(
     "div",
     {},
     ...shape2 ? [textSection] : [],
     section4(
-      tr8("Alt Text", "Texto Alt"),
+      tr9("Alt Text", "Texto Alt"),
       true,
-      el12("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Title", "T\xEDtulo"), title),
-      el12("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Description", "Descri\xE7\xE3o"), descr)
+      el13("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr9("Title", "T\xEDtulo"), title),
+      el13("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr9("Description", "Descri\xE7\xE3o"), descr)
     )
   );
   const a14 = () => fmt2()?.blip.a14;
@@ -56275,95 +57198,95 @@ function toggleFormatPane(env, tab, onClose) {
     const t6 = (o7.fh / 2 - o7.oy - o7.h / 2) / o7.fh, b5 = (o7.fh / 2 + o7.oy - o7.h / 2) / o7.fh;
     ed.setImageCrop({ l: l3, t: t6, r: r6, b: b5 });
   };
-  const pictureTab = el12(
+  const pictureTab = el13(
     "div",
     {},
     section4(
-      tr8("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
+      tr9("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
       true,
-      num3(tr8("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
+      num3(tr9("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num3(tr8("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
+      num3(tr9("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num3(tr8("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
+      num3(tr9("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 })
     ),
     section4(
-      tr8("Picture Color", "Cor da Imagem"),
+      tr9("Picture Color", "Cor da Imagem"),
       false,
-      num3(tr8("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
+      num3(tr9("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: 0, max: 400 }),
-      num3(tr8("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
+      num3(tr9("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
         env.after();
         sync();
       }), { min: 1500, max: 11500, step: 100, digits: 0 })
     ),
     section4(
-      tr8("Picture Transparency", "Transpar\xEAncia da Imagem"),
+      tr9("Picture Transparency", "Transpar\xEAncia da Imagem"),
       false,
-      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt2()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
+      num3(tr9("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt2()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
     ),
     section4(
-      tr8("Crop", "Cortar"),
+      tr9("Crop", "Cortar"),
       false,
-      el12("div", { textContent: tr8("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
-      num3(tr8("Width", "Largura"), "cm", () => {
+      el13("div", { textContent: tr9("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
+      num3(tr9("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fw) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fw: pt2(v2), fh: g2.fh * (pt2(v2) / g2.fw) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num3(tr8("Height", "Altura"), "cm", () => {
+      num3(tr9("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fh) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fh: pt2(v2), fw: g2.fw * (pt2(v2) / g2.fh) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num3(tr8("Offset X", "Deslocamento X"), "cm", () => {
+      num3(tr9("Offset X", "Deslocamento X"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.ox) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, ox: pt2(v2) });
       }, { step: 0.1, digits: 2 }),
-      num3(tr8("Offset Y", "Deslocamento Y"), "cm", () => {
+      num3(tr9("Offset Y", "Deslocamento Y"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.oy) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, oy: pt2(v2) });
       }, { step: 0.1, digits: 2 }),
-      el12("div", { textContent: tr8("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
-      num3(tr8("Width", "Largura"), "cm", () => {
+      el13("div", { textContent: tr9("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
+      num3(tr9("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.w) : void 0;
       }, (v2) => ed.setImageSize({ widthPt: pt2(v2), heightPt: ed.selectedImage().heightPt }), { min: 0.01, step: 0.1, digits: 2 }),
-      num3(tr8("Height", "Altura"), "cm", () => {
+      num3(tr9("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.h) : void 0;
       }, (v2) => ed.setImageSize({ heightPt: pt2(v2), widthPt: ed.selectedImage().widthPt }), { min: 0.01, step: 0.1, digits: 2 })
     )
   );
   const tabs = [
-    ["line", tr8("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
-    ["effects", tr8("Effects", "Efeitos"), "auto_awesome", effectsTab],
-    ["layout", tr8("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
-    ...shape2 ? [] : [["picture", tr8("Picture", "Imagem"), "image", pictureTab]]
+    ["line", tr9("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
+    ["effects", tr9("Effects", "Efeitos"), "auto_awesome", effectsTab],
+    ["layout", tr9("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
+    ...shape2 ? [] : [["picture", tr9("Picture", "Imagem"), "image", pictureTab]]
   ];
-  const head = el12("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
+  const head = el13("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
   head.setAttribute("role", "tablist");
   const btns = tabs.map(([id, label, icon, panel]) => {
-    const b5 = el12("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
+    const b5 = el13("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
     b5.innerHTML = symbol(icon);
     b5.setAttribute("role", "tab");
     b5.setAttribute("aria-label", label);
@@ -56373,8 +57296,8 @@ function toggleFormatPane(env, tab, onClose) {
     panel.setAttribute("role", "tabpanel");
     return b5;
   });
-  const empty = el12("p", { textContent: shape2 ? tr8("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
-  const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t6) => t6[3]));
+  const empty = el13("p", { textContent: shape2 ? tr9("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr9("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
+  const body = el13("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t6) => t6[3]));
   head.append(...btns);
   const show = (id) => {
     tabs.forEach(([tid, , , panel], i7) => {
@@ -56393,7 +57316,7 @@ function toggleFormatPane(env, tab, onClose) {
   sync();
   return { sync, show };
 }
-var el12, EMU_PT2, ANG, alphaOf, withAlpha, noAlpha;
+var el13, EMU_PT2, ANG, alphaOf, withAlpha, noAlpha;
 var init_chrome_picture_pane = __esm({
   "src/chrome-picture-pane.ts"() {
     "use strict";
@@ -56401,7 +57324,7 @@ var init_chrome_picture_pane = __esm({
     init_src2();
     init_chrome_picture();
     init_picture_ops();
-    el12 = (tag2, props = {}, ...kids) => {
+    el13 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -56427,48 +57350,48 @@ async function pictureLayoutDialog(env, tab) {
   const ph = f3.posH, pv = f3.posV;
   const hMode = !ph ? "abs" : ph.align === "inside" || ph.align === "outside" ? "book" : ph.align !== void 0 ? "align" : ph.pct !== void 0 ? "rel" : "abs";
   const vMode = !pv ? "abs" : pv.align !== void 0 ? "align" : pv.pct !== void 0 ? "rel" : "abs";
-  const hAlign = select5("hAlign", [["left", tr7(lang, "Left", "Esquerda")], ["center", tr7(lang, "Centered", "Centralizado")], ["right", tr7(lang, "Right", "Direita")]], ph?.align ?? "left");
+  const hAlign = select5("hAlign", [["left", tr8(lang, "Left", "Esquerda")], ["center", tr8(lang, "Centered", "Centralizado")], ["right", tr8(lang, "Right", "Direita")]], ph?.align ?? "left");
   const hAlignRef = select5("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hBook = select5("hBook", [["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], ph?.align ?? "inside");
-  const hBookRef = select5("hBookRef", [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
+  const hBook = select5("hBook", [["inside", tr8(lang, "Inside", "Interna")], ["outside", tr8(lang, "Outside", "Externa")]], ph?.align ?? "inside");
+  const hBookRef = select5("hBookRef", [["margin", tr8(lang, "Margin", "Margem")], ["page", tr8(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
   const hAbs = cmInput2(lang, "hAbs", pt2(ph?.offset ?? 0));
   const hAbsRef = select5("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hRel = el13("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const hRel = el14("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const hRelRef = select5("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
-  const vAlign = select5("vAlign", [["top", tr7(lang, "Top", "Superior")], ["center", tr7(lang, "Centered", "Centralizado")], ["bottom", tr7(lang, "Bottom", "Inferior")], ["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], pv?.align ?? "top");
+  const vAlign = select5("vAlign", [["top", tr8(lang, "Top", "Superior")], ["center", tr8(lang, "Centered", "Centralizado")], ["bottom", tr8(lang, "Bottom", "Inferior")], ["inside", tr8(lang, "Inside", "Interna")], ["outside", tr8(lang, "Outside", "Externa")]], pv?.align ?? "top");
   const vAlignRef = select5("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
   const vAbs = cmInput2(lang, "vAbs", pt2(pv?.offset ?? 0));
   const vAbsRef = select5("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
-  const vRel = el13("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const vRel = el14("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const vRelRef = select5("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
-  const hR = { align: radio4("h", "align", tr7(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio4("h", "book", tr7(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio4("h", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio4("h", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
-  const vR = { align: radio4("v", "align", tr7(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio4("v", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio4("v", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
-  const moveWith = check7("moveWith", tr7(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
-  const lockAnchor = check7("lockAnchor", tr7(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
-  const overlap = check7("overlap", tr7(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
-  const inCell = check7("inCell", tr7(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
-  const rel = tr7(lang, "relative to", "relativo a");
-  const posBody = el13(
+  const hR = { align: radio5("h", "align", tr8(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio5("h", "book", tr8(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio5("h", "abs", tr8(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio5("h", "rel", tr8(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
+  const vR = { align: radio5("v", "align", tr8(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio5("v", "abs", tr8(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio5("v", "rel", tr8(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
+  const moveWith = check8("moveWith", tr8(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
+  const lockAnchor = check8("lockAnchor", tr8(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
+  const overlap = check8("overlap", tr8(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
+  const inCell = check8("inCell", tr8(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
+  const rel = tr8(lang, "relative to", "relativo a");
+  const posBody = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(
-      tr7(lang, "Horizontal", "Horizontal"),
+      tr8(lang, "Horizontal", "Horizontal"),
       row(hR.align.el, hAlign, rel, hAlignRef),
-      row(hR.book.el, hBook, tr7(lang, "of", "de"), hBookRef),
-      row(hR.abs.el, hAbs, tr7(lang, "to the right of", "\xE0 direita de"), hAbsRef),
+      row(hR.book.el, hBook, tr8(lang, "of", "de"), hBookRef),
+      row(hR.abs.el, hAbs, tr8(lang, "to the right of", "\xE0 direita de"), hAbsRef),
       row(hR.rel.el, hRel, rel, hRelRef)
     ),
     section3(
-      tr7(lang, "Vertical", "Vertical"),
+      tr8(lang, "Vertical", "Vertical"),
       row(vR.align.el, vAlign, rel, vAlignRef),
-      row(vR.abs.el, vAbs, tr7(lang, "below", "abaixo de"), vAbsRef),
+      row(vR.abs.el, vAbs, tr8(lang, "below", "abaixo de"), vAbsRef),
       row(vR.rel.el, vRel, rel, vRelRef)
     ),
-    section3(tr7(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
+    section3(tr8(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
   );
   for (const i7 of posBody.querySelectorAll("input,select")) i7.disabled = !anchored;
-  const wrapR = WRAP_STYLES(lang).map(([k2, t6]) => ({ k: k2, ...radio4("wrap", k2, t6, f3.wrap === k2) }));
-  const sides = [["bothSides", tr7(lang, "Both sides", "Ambos os lados")], ["left", tr7(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr7(lang, "Right only", "Somente \xE0 direita")], ["largest", tr7(lang, "Largest only", "Somente no maior")]].map(([k2, t6]) => ({ k: k2, ...radio4("side", k2, t6, f3.wrapText === k2) }));
+  const wrapR = WRAP_STYLES(lang).map(([k2, t6]) => ({ k: k2, ...radio5("wrap", k2, t6, f3.wrap === k2) }));
+  const sides = [["bothSides", tr8(lang, "Both sides", "Ambos os lados")], ["left", tr8(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr8(lang, "Right only", "Somente \xE0 direita")], ["largest", tr8(lang, "Largest only", "Somente no maior")]].map(([k2, t6]) => ({ k: k2, ...radio5("side", k2, t6, f3.wrapText === k2) }));
   const dT = cmInput2(lang, "dT", pt2(f3.dist.t)), dB = cmInput2(lang, "dB", pt2(f3.dist.b)), dL = cmInput2(lang, "dL", pt2(f3.dist.l)), dR = cmInput2(lang, "dR", pt2(f3.dist.r));
   const syncWrap = () => {
     const w2 = wrapR.find((r6) => r6.input.checked)?.k ?? f3.wrap;
@@ -56479,34 +57402,34 @@ async function pictureLayoutDialog(env, tab) {
   };
   for (const r6 of wrapR) r6.input.addEventListener("change", syncWrap);
   syncWrap();
-  const wrapBody = el13(
+  const wrapBody = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr7(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el13("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r6) => r6.el))),
-    section3(tr7(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
+    section3(tr8(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el14("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r6) => r6.el))),
+    section3(tr8(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
     section3(
-      tr7(lang, "Distance from text", "Dist\xE2ncia do texto"),
-      row(tr7(lang, "Top", "Superior"), dT, tr7(lang, "Left", "Esquerda"), dL),
-      row(tr7(lang, "Bottom", "Inferior"), dB, tr7(lang, "Right", "Direita"), dR)
+      tr8(lang, "Distance from text", "Dist\xE2ncia do texto"),
+      row(tr8(lang, "Top", "Superior"), dT, tr8(lang, "Left", "Esquerda"), dL),
+      row(tr8(lang, "Bottom", "Inferior"), dB, tr8(lang, "Right", "Direita"), dR)
     )
   );
   const nat = st.naturalPt;
   const hAbsSz = cmInput2(lang, "hAbsSz", st.heightPt), wAbsSz = cmInput2(lang, "wAbsSz", st.widthPt);
   const relV = f3.sizeRelV?.pct ? f3.sizeRelV : null, relH = f3.sizeRelH?.pct ? f3.sizeRelH : null;
-  const hRelSz = el13("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const wRelSz = el13("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const sizeRefsV = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["topMargin", tr7(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
-  const sizeRefsH = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
+  const hRelSz = el14("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const wRelSz = el14("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const sizeRefsV = [["margin", tr8(lang, "Margin", "Margem")], ["page", tr8(lang, "Page", "P\xE1gina")], ["topMargin", tr8(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr8(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]];
+  const sizeRefsH = [["margin", tr8(lang, "Margin", "Margem")], ["page", tr8(lang, "Page", "P\xE1gina")], ["leftMargin", tr8(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr8(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]];
   const hRelRefSz = select5("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
   const wRelRefSz = select5("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
-  const szH = { abs: radio4("szh", "abs", tr7(lang, "Absolute", "Absoluta"), !relV), rel: radio4("szh", "rel", tr7(lang, "Relative", "Relativa"), !!relV) };
-  const szW = { abs: radio4("szw", "abs", tr7(lang, "Absolute", "Absoluta"), !relH), rel: radio4("szw", "rel", tr7(lang, "Relative", "Relativa"), !!relH) };
-  const rotIn = el13("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
-  const relOrig = check7("relOrig", tr7(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
-  const lockAsp = check7("lockAsp", tr7(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
+  const szH = { abs: radio5("szh", "abs", tr8(lang, "Absolute", "Absoluta"), !relV), rel: radio5("szh", "rel", tr8(lang, "Relative", "Relativa"), !!relV) };
+  const szW = { abs: radio5("szw", "abs", tr8(lang, "Absolute", "Absoluta"), !relH), rel: radio5("szw", "rel", tr8(lang, "Relative", "Relativa"), !!relH) };
+  const rotIn = el14("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
+  const relOrig = check8("relOrig", tr8(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
+  const lockAsp = check8("lockAsp", tr8(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
   const base = () => relOrig.input.checked && nat ? nat : { w: st.widthPt, h: st.heightPt };
-  const scH = el13("input", { type: "text", name: "scH", value: "", style: "width:72px" });
-  const scW = el13("input", { type: "text", name: "scW", value: "", style: "width:72px" });
+  const scH = el14("input", { type: "text", name: "scH", value: "", style: "width:72px" });
+  const scW = el14("input", { type: "text", name: "scW", value: "", style: "width:72px" });
   const showScale = () => {
     const b5 = base();
     const h4 = ptOf2(hAbsSz.value) ?? st.heightPt, w2 = ptOf2(wAbsSz.value) ?? st.widthPt;
@@ -56535,7 +57458,7 @@ async function pictureLayoutDialog(env, tab) {
   };
   scH.addEventListener("change", () => fromScale("h"));
   scW.addEventListener("change", () => fromScale("w"));
-  const reset = el13("button", { type: "button", className: "uo-btn", textContent: tr7(lang, "Reset", "Redefinir"), disabled: !nat });
+  const reset = el14("button", { type: "button", className: "uo-btn", textContent: tr8(lang, "Reset", "Redefinir"), disabled: !nat });
   reset.addEventListener("click", () => {
     if (!nat) return;
     hAbsSz.value = cmText2(lang, nat.h);
@@ -56545,32 +57468,32 @@ async function pictureLayoutDialog(env, tab) {
     showScale();
   });
   for (const i7 of [hRelSz, hRelRefSz, wRelSz, wRelRefSz, szH.rel.input, szW.rel.input]) i7.disabled = !anchored;
-  const sizeBody = el13(
+  const sizeBody = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr7(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
-    section3(tr7(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
-    section3(tr7(lang, "Rotate", "Girar"), row(tr7(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
-    section3(tr7(lang, "Scale", "Escala"), row(tr7(lang, "Height:", "Altura:"), scH, tr7(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
-    section3(tr7(lang, "Original size", "Tamanho original"), row(
-      el13("span", { textContent: `${tr7(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
-      el13("span", { textContent: `${tr7(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
+    section3(tr8(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
+    section3(tr8(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
+    section3(tr8(lang, "Rotate", "Girar"), row(tr8(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
+    section3(tr8(lang, "Scale", "Escala"), row(tr8(lang, "Height:", "Altura:"), scH, tr8(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
+    section3(tr8(lang, "Original size", "Tamanho original"), row(
+      el14("span", { textContent: `${tr8(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
+      el14("span", { textContent: `${tr8(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
       reset
     ))
   );
   const tabs = dialogTabs([
-    { id: "position", label: tr7(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
-    { id: "wrap", label: tr7(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
-    { id: "size", label: tr7(lang, "Size", "Tamanho"), body: sizeBody }
+    { id: "position", label: tr8(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
+    { id: "wrap", label: tr8(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
+    { id: "size", label: tr8(lang, "Size", "Tamanho"), body: sizeBody }
   ], tab);
-  const L11 = env.app.ui.L;
+  const L12 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr7(lang, "Layout", "Layout"),
+    title: tr8(lang, "Layout", "Layout"),
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 560,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const o7 = {};
@@ -56618,8 +57541,8 @@ async function pictureLayoutDialog(env, tab) {
 async function pictureCompressDialog(env) {
   const { ed, lang } = env;
   if (!ed.selectedImage()) return;
-  const only = check7("only", tr7(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
-  const crop = check7("crop", tr7(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
+  const only = check8("only", tr8(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
+  const crop = check8("crop", tr8(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
   const RES = [
     ["hifi", Infinity, "High fidelity: preserves quality of the original picture", "Alta fidelidade: preserva a qualidade da imagem original"],
     ["hd", 330, "HD (330 ppi): good quality for high-definition (HD) displays", "HD (330 ppi): boa qualidade para monitores de alta defini\xE7\xE3o (HD)"],
@@ -56628,51 +57551,51 @@ async function pictureCompressDialog(env) {
     ["email", 96, "E-mail (96 ppi): minimize document size for sharing", "Email (96 ppi): minimizar o tamanho do documento para compartilhamento"],
     ["default", 220, "Use default resolution", "Usar a resolu\xE7\xE3o padr\xE3o"]
   ];
-  const res = RES.map(([k2, ppi2, en, pt2]) => ({ ppi: ppi2, ...radio4("res", k2, tr7(lang, en, pt2), k2 === "default") }));
-  const body = el13(
+  const res = RES.map(([k2, ppi2, en, pt2]) => ({ ppi: ppi2, ...radio5("res", k2, tr8(lang, en, pt2), k2 === "default") }));
+  const body = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr7(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
-    section3(tr7(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r6) => r6.el))
+    section3(tr8(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
+    section3(tr8(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r6) => r6.el))
   );
-  const L11 = env.app.ui.L;
+  const L12 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr7(lang, "Compress Pictures", "Compactar Imagens"),
+    title: tr8(lang, "Compress Pictures", "Compactar Imagens"),
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ppi = res.find((r6) => r6.input.checked)?.ppi ?? 220;
   await ed.compressImages({ ppi, deleteCropped: crop.input.checked, all: !only.input.checked });
 }
-var el13, tr7, select5, check7, cmText2, ptOf2, numOf, cmInput2, row, section3, radio4, H_REFS, V_REFS, WRAP_STYLES, PictureUI;
+var el14, tr8, select5, check8, cmText2, ptOf2, numOf, cmInput2, row, section3, radio5, H_REFS, V_REFS, WRAP_STYLES, PictureUI;
 var init_chrome_picture_dialogs = __esm({
   "src/chrome-picture-dialogs.ts"() {
     "use strict";
     init_src5();
     init_chrome_picture_pane();
-    el13 = (tag2, props = {}, ...kids) => {
+    el14 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
       e8.append(...kids);
       return e8;
     };
-    tr7 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    tr8 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
     select5 = (name, opts, value) => {
-      const s4 = el13("select", { name });
-      for (const [v2, t6] of opts) s4.append(el13("option", { value: v2, textContent: t6 }));
+      const s4 = el14("select", { name });
+      for (const [v2, t6] of opts) s4.append(el14("option", { value: v2, textContent: t6 }));
       s4.value = opts.some(([v2]) => v2 === value) ? value : opts[0]?.[0] ?? "";
       return s4;
     };
-    check7 = (name, label, on) => {
-      const input = el13("input", { type: "checkbox", name, checked: on });
-      return { el: el13("label", { className: "uo-check" }, input, label), input };
+    check8 = (name, label, on) => {
+      const input = el14("input", { type: "checkbox", name, checked: on });
+      return { el: el14("label", { className: "uo-check" }, input, label), input };
     };
-    cmText2 = (lang, pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", tr7(lang, ".", ","))} cm`;
+    cmText2 = (lang, pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", tr8(lang, ".", ","))} cm`;
     ptOf2 = (s4) => {
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? n5 / 2.54 * 72 : void 0;
@@ -56681,41 +57604,41 @@ var init_chrome_picture_dialogs = __esm({
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? n5 : void 0;
     };
-    cmInput2 = (lang, name, pt2) => el13("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt2), style: "width:92px" });
-    row = (...kids) => el13("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-    section3 = (title, ...kids) => el13("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el13("legend", { textContent: title }), ...kids);
-    radio4 = (name, value, label, on) => {
-      const input = el13("input", { type: "radio", name, value, checked: on });
-      return { el: el13("label", { className: "uo-check" }, input, label), input };
+    cmInput2 = (lang, name, pt2) => el14("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt2), style: "width:92px" });
+    row = (...kids) => el14("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+    section3 = (title, ...kids) => el14("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el14("legend", { textContent: title }), ...kids);
+    radio5 = (name, value, label, on) => {
+      const input = el14("input", { type: "radio", name, value, checked: on });
+      return { el: el14("label", { className: "uo-check" }, input, label), input };
     };
     H_REFS = (lang) => [
-      ["margin", tr7(lang, "Margin", "Margem")],
-      ["page", tr7(lang, "Page", "P\xE1gina")],
-      ["column", tr7(lang, "Column", "Coluna")],
-      ["character", tr7(lang, "Character", "Caractere")],
-      ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")],
-      ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")],
-      ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")],
-      ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]
+      ["margin", tr8(lang, "Margin", "Margem")],
+      ["page", tr8(lang, "Page", "P\xE1gina")],
+      ["column", tr8(lang, "Column", "Coluna")],
+      ["character", tr8(lang, "Character", "Caractere")],
+      ["leftMargin", tr8(lang, "Left Margin", "Margem Esquerda")],
+      ["rightMargin", tr8(lang, "Right Margin", "Margem Direita")],
+      ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")],
+      ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]
     ];
     V_REFS = (lang) => [
-      ["margin", tr7(lang, "Margin", "Margem")],
-      ["page", tr7(lang, "Page", "P\xE1gina")],
-      ["paragraph", tr7(lang, "Paragraph", "Par\xE1grafo")],
-      ["line", tr7(lang, "Line", "Linha")],
-      ["topMargin", tr7(lang, "Top Margin", "Margem Superior")],
-      ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")],
-      ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")],
-      ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]
+      ["margin", tr8(lang, "Margin", "Margem")],
+      ["page", tr8(lang, "Page", "P\xE1gina")],
+      ["paragraph", tr8(lang, "Paragraph", "Par\xE1grafo")],
+      ["line", tr8(lang, "Line", "Linha")],
+      ["topMargin", tr8(lang, "Top Margin", "Margem Superior")],
+      ["bottomMargin", tr8(lang, "Bottom Margin", "Margem Inferior")],
+      ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")],
+      ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]
     ];
     WRAP_STYLES = (lang) => [
-      ["inline", tr7(lang, "In line with text", "Alinhado ao texto")],
-      ["square", tr7(lang, "Square", "Quadrado")],
-      ["tight", tr7(lang, "Tight", "Comprimido")],
-      ["through", tr7(lang, "Through", "Atrav\xE9s")],
-      ["topAndBottom", tr7(lang, "Top and bottom", "Superior e inferior")],
-      ["behind", tr7(lang, "Behind text", "Atr\xE1s do texto")],
-      ["front", tr7(lang, "In front of text", "Na frente do texto")]
+      ["inline", tr8(lang, "In line with text", "Alinhado ao texto")],
+      ["square", tr8(lang, "Square", "Quadrado")],
+      ["tight", tr8(lang, "Tight", "Comprimido")],
+      ["through", tr8(lang, "Through", "Atrav\xE9s")],
+      ["topAndBottom", tr8(lang, "Top and bottom", "Superior e inferior")],
+      ["behind", tr8(lang, "Behind text", "Atr\xE1s do texto")],
+      ["front", tr8(lang, "In front of text", "Na frente do texto")]
     ];
     PictureUI = class {
       constructor(env) {
@@ -56765,7 +57688,7 @@ var init_chrome_picture_dialogs = __esm({
           return;
         }
         const btn2 = (label, icon, run3) => {
-          const b5 = el13("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+          const b5 = el14("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
           b5.innerHTML = symbol(icon) + (icon === "keyboard_arrow_up" || icon === "keyboard_arrow_down" ? "" : `<span>${label}</span>`);
           b5.setAttribute("aria-label", label);
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -56776,15 +57699,15 @@ var init_chrome_picture_dialogs = __esm({
           });
           return b5;
         };
-        const showAll = btn2(tr7(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
-        const hideAll = btn2(tr7(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
-        const up2 = btn2(tr7(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
-        const down = btn2(tr7(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
-        const bar = el13("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el13("span", { style: "flex:1" }), up2, down);
-        const list = el13("div", { style: "display:flex;flex-direction:column;gap:1px" });
+        const showAll = btn2(tr8(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
+        const hideAll = btn2(tr8(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
+        const up2 = btn2(tr8(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
+        const down = btn2(tr8(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
+        const bar = el14("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el14("span", { style: "flex:1" }), up2, down);
+        const list = el14("div", { style: "display:flex;flex-direction:column;gap:1px" });
         list.setAttribute("role", "listbox");
-        const empty = el13("p", { textContent: tr7(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
-        const body = el13("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
+        const empty = el14("p", { textContent: tr8(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
+        const body = el14("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
         let editing = false;
         const sync = () => {
           if (editing) return;
@@ -56795,12 +57718,12 @@ var init_chrome_picture_dialogs = __esm({
           const sel4 = items.find((i7) => i7.selected);
           up2.disabled = down.disabled = off || !sel4;
           list.replaceChildren(...items.map((it) => {
-            const row2 = el13("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
+            const row2 = el14("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
             row2.setAttribute("role", "option");
             row2.setAttribute("aria-selected", String(it.selected));
             row2.dataset["key"] = it.key;
-            const name = el13("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
-            const eye = el13("button", { type: "button", className: "uo-btn", title: it.hidden ? tr7(lang, "Show", "Mostrar") : tr7(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
+            const name = el14("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
+            const eye = el14("button", { type: "button", className: "uo-btn", title: it.hidden ? tr8(lang, "Show", "Mostrar") : tr8(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
             eye.innerHTML = symbol(it.hidden ? "visibility_off" : "visibility");
             eye.disabled = off;
             eye.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -56819,7 +57742,7 @@ var init_chrome_picture_dialogs = __esm({
             row2.addEventListener("dblclick", () => {
               if (off) return;
               editing = true;
-              const input = el13("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
+              const input = el14("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
               const done = (ok) => {
                 if (!editing) return;
                 editing = false;
@@ -56867,13 +57790,13 @@ var init_chrome_picture_dialogs = __esm({
           cur.close();
           return;
         }
-        const intro = el13("p", { textContent: tr7(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
-        const text = el13("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
+        const intro = el14("p", { textContent: tr8(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
+        const text = el14("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
         text.dataset["a"] = "pic:alt:text";
-        const deco = check7("decorative", tr7(lang, "Mark as decorative", "Marcar como decorativa"), false);
-        const note = el13("p", { textContent: tr7(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
-        const empty = el13("p", { textContent: tr7(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
-        const body = el13("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
+        const deco = check8("decorative", tr8(lang, "Mark as decorative", "Marcar como decorativa"), false);
+        const note = el14("p", { textContent: tr8(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
+        const empty = el14("p", { textContent: tr8(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
+        const body = el14("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
         let last = null;
         const sync = () => {
           const st = ed.selectedImage() ?? ed.selectedShape();
@@ -57386,7 +58309,7 @@ var init_chrome_widgets = __esm({
             const half = env.ctl.state().run.szHalfPt;
             if (half && env.root.activeElement !== input) input.value = fmt2(half / 2);
             const ok = canEdit(env);
-            for (const el15 of wrap.querySelectorAll("input,button")) el15.disabled = !ok;
+            for (const el16 of wrap.querySelectorAll("input,button")) el16.disabled = !ok;
           }
         };
       }
@@ -57424,23 +58347,23 @@ var init_chrome_widgets = __esm({
       }
     });
     colorMenu2 = (env, ctx) => {
-      const L11 = env.app.ui.L;
+      const L12 = env.app.ui.L;
       const pick = (hex3) => {
         env.app.lastColor = hex3;
         env.ed.setColor(hex3);
         ctx.after();
       };
       return [
-        { id: "color:auto", label: L11.automatic, swatch: "#000000", onClick: () => {
+        { id: "color:auto", label: L12.automatic, swatch: "#000000", onClick: () => {
           env.ed.setColor(void 0);
           ctx.after();
         } },
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().run.color, onPick: pick, close }) },
-        moreColors(ctx, L11.moreColors, pick)
+        moreColors(ctx, L12.moreColors, pick)
       ];
     };
     highlightMenu = (env, ctx) => {
-      const L11 = env.app.ui.L;
+      const L12 = env.app.ui.L;
       return [
         { content: (close) => colorGrid({
           colors: HIGHLIGHT_COLORS.map((h3) => ({ value: h3.value, css: h3.css, title: ctx.registry.text(h3.label) })),
@@ -57453,14 +58376,14 @@ var init_chrome_widgets = __esm({
           },
           close
         }) },
-        { id: "highlight:none", label: L11.noColor, swatch: "", onClick: () => {
+        { id: "highlight:none", label: L12.noColor, swatch: "", onClick: () => {
           env.ed.setHighlight(void 0);
           ctx.after();
         } }
       ];
     };
     shadingMenu = (env, ctx) => {
-      const L11 = env.app.ui.L;
+      const L12 = env.app.ui.L;
       const pick = (hex3) => {
         env.app.lastShading = hex3;
         env.ed.setShading(hex3);
@@ -57468,11 +58391,11 @@ var init_chrome_widgets = __esm({
       };
       return [
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().para.shadingHex, onPick: pick, close }) },
-        { id: "shading:none", label: L11.noColor, swatch: "", onClick: () => {
+        { id: "shading:none", label: L12.noColor, swatch: "", onClick: () => {
           env.ed.setShading(void 0);
           ctx.after();
         } },
-        moreColors(ctx, L11.moreColors, pick)
+        moreColors(ctx, L12.moreColors, pick)
       ];
     };
     lineSpacingMenu = (env, ctx) => {
@@ -57712,6 +58635,9 @@ function menus(env, ctx) {
     symbols: sub({ en: "Special characters", pt: "Caracteres especiais" }, "special_character", () => symbolMenu(env, ctx), "symbols"),
     breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", breaksMenu, "breaks"),
     columns: sub({ en: "Columns", pt: "Colunas" }, "view_column_2", columnsMenu, "columns"),
+    // Layout do texto: Hifenização e Números de Linha (guia Layout da ribbon)
+    hyphenation: { ...sub({ en: "Hyphenation", pt: "Hifeniza\xE7\xE3o" }, "horizontal_rule", hyphenationMenu, "hyphenation"), hidden: typeof env.ed.setHyphenation !== "function" },
+    lineNumbers: { ...sub({ en: "Line numbers", pt: "N\xFAmeros de linha" }, "format_list_numbered", lineNumbersMenu, "lineNumbers"), hidden: typeof env.ed.setLineNumbering !== "function" },
     cover: { ...sub({ en: "Cover page", pt: "Folha de rosto" }, "auto_stories", () => coverPageMenu(env, ctx), "cover:menu"), hidden: typeof env.ed.insertCoverPage !== "function" },
     // Plano de Fundo da Página (guia Design da ribbon)
     background: { ...sub({ en: "Page background", pt: "Plano de fundo da p\xE1gina" }, "format_color_fill", () => [
@@ -57832,7 +58758,7 @@ function compactLayout(env, ctx) {
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "view:outline", "view:draft", "focus", "-", "view:ruler", "view:gridlines", "view:navpane", "view:bookmarks", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, m2.toc, "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", { id: "textbox:sub", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", submenu: () => textboxMenu(env, ctx) }, m2.symbols] },
       { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
-      { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
+      { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", m2.hyphenation, m2.lineNumbers, "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
     groups: [
@@ -57887,22 +58813,22 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L10("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L11("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L10("Home", "P\xE1gina Inicial"),
+        label: L11("Home", "P\xE1gina Inicial"),
         groups: [
-          { id: "clipboard", label: L10("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
+          { id: "clipboard", label: L11("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
             { split: "paste", size: "large", menu: ["paste", "pastePlain"] },
             { rows: [["cut"], ["copy"], ["painter"]] }
           ] },
-          { id: "font", label: L10("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
+          { id: "font", label: L11("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L10("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L11("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu2(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
-          { id: "paragraph", label: L10("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
+          { id: "paragraph", label: L11("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
             { rows: [
               ["list:bullet", "list:decimal", "outdent", "indent", "sort", "marks"],
               [
@@ -57910,44 +58836,44 @@ function ribbonLayout(env, ctx) {
                 "align:center",
                 "align:right",
                 "align:both",
-                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L10("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
+                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L11("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
                 { split: "shading", menu: () => shadingMenu(env, ctx) },
                 "borders"
               ]
             ] }
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
-          { id: "styles", label: L10("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
-          { id: "editing", label: L10("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
+          { id: "styles", label: L11("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
+          { id: "editing", label: L11("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L10("Insert", "Inserir"),
+        label: L11("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L10("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
-            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L10("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
+          { id: "pages", label: L11("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L11("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
             large3("blankPage"),
             large3("pagebreak"),
-            { menu: breaksMenu, id: "breaks", label: L10("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+            { menu: breaksMenu, id: "breaks", label: L11("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
           ] },
-          { id: "objects", label: L10("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
-            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L10("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+          { id: "objects", label: L11("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L11("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large3("image")
           ] },
           // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
-          { id: "links", label: L10("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
-          { id: "comments", label: L10("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
-          { id: "hf", label: L10("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
-            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L10("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
-            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L10("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
-            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L10("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
+          { id: "links", label: L11("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
+          { id: "comments", label: L11("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
+          { id: "hf", label: L11("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
+            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L11("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
+            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L11("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
+            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L11("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
           ] },
-          { id: "text", label: L10("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
-            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L10("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
-            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L10("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+          { id: "text", label: L11("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
+            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L11("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
+            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L11("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
           ] }
         ]
       },
@@ -57955,59 +58881,60 @@ function ribbonLayout(env, ctx) {
         // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
         // Documento (temas, conjuntos de estilos) entra quando chegar
         id: "design",
-        label: L10("Design", "Design"),
+        label: L11("Design", "Design"),
         groups: [
-          { id: "background", label: L10("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L10("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
-            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L10("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
+          { id: "docformat", label: L11("Document Formatting", "Formata\xE7\xE3o do Documento"), icon: "format_line_spacing", prio: 3, cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L11("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" }
+          ] },
+          { id: "background", label: L11("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L11("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
+            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L11("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
             { cmd: "dlg:pageBorders", size: "large" }
           ] }
         ]
       },
       {
         id: "layout",
-        label: L10("Layout", "Layout"),
+        label: L11("Layout", "Layout"),
         groups: [
-          { id: "pagesetup", label: L10("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
-            { menu: () => marginsMenu(env, ctx), id: "margins", label: L10("Margins", "Margens"), icon: "margin", size: "large" },
-            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L10("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
-            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L10("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: columnsMenu, id: "columns", label: L10("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
-            { rows: [[{ menu: breaksMenu, id: "breaks", label: L10("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
-          ] },
-          { id: "paragraph", label: L10("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L10("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
+          { id: "pagesetup", label: L11("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
+            { menu: () => marginsMenu(env, ctx), id: "margins", label: L11("Margins", "Margens"), icon: "margin", size: "large" },
+            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L11("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
+            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L11("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
+            { menu: columnsMenu, id: "columns", label: L11("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
             { rows: [
-              [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
-              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L10("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
-              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L10("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
+              [{ menu: breaksMenu, id: "breaks", label: L11("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }],
+              [{ menu: lineNumbersMenu, id: "lineNumbers", label: L11("Line Numbers", "N\xFAmeros de Linha"), icon: "format_list_numbered", showLabel: true, supports: has("setLineNumbering") }],
+              [{ menu: hyphenationMenu, id: "hyphenation", label: L11("Hyphenation", "Hifeniza\xE7\xE3o"), icon: "horizontal_rule", showLabel: true, supports: has("setHyphenation") }]
             ] }
-          ] }
+          ] },
+          // Recuar (À Esquerda/À Direita) e Espaçamento (Antes/Depois) em caixas numéricas, como no Word
+          { id: "paragraph", label: L11("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: paragraphLayoutCells(env) }
         ]
       },
       {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: "references",
-        label: L10("References", "Refer\xEAncias"),
+        label: L11("References", "Refer\xEAncias"),
         groups: [
           // Sumário (como no Word): a galeria com Personalizado/Remover, Adicionar Texto e Atualizar
-          { id: "toc", label: L10("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [
-            { menu: () => tocGalleryMenu(env, ctx), id: "toc:menu", label: L10("Table of Contents", "Sum\xE1rio"), icon: "toc", size: "large", supports: has("insertTocTemplate") },
+          { id: "toc", label: L11("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [
+            { menu: () => tocGalleryMenu(env, ctx), id: "toc:menu", label: L11("Table of Contents", "Sum\xE1rio"), icon: "toc", size: "large", supports: has("insertTocTemplate") },
             { rows: [
-              [{ menu: () => addTextMenu(env), id: "toc:addText", label: L10("Add Text", "Adicionar Texto"), icon: "playlist_add", showLabel: true, supports: has("setTocLevel") }],
+              [{ menu: () => addTextMenu(env), id: "toc:addText", label: L11("Add Text", "Adicionar Texto"), icon: "playlist_add", showLabel: true, supports: has("setTocLevel") }],
               [{ cmd: "toc", label: true }]
             ] }
           ] },
-          { id: "footnotes", label: L10("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+          { id: "footnotes", label: L11("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
             large3("footnote"),
             { rows: [
               [{ cmd: "endnote", label: true }],
-              [{ menu: noteNavMenu, id: "note:nav", label: L10("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L11("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
               [{ cmd: "note:show", label: true }]
             ] }
           ] },
-          { id: "captions", label: L10("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
+          { id: "captions", label: L11("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
             large3("caption"),
             { rows: [[{ cmd: "tof", label: true }], [{ cmd: "tof:update", label: true }], [{ cmd: "crossref", label: true }]] }
           ] }
@@ -58015,86 +58942,86 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "mailings",
-        label: L10("Mailings", "Correspond\xEAncias"),
+        label: L11("Mailings", "Correspond\xEAncias"),
         groups: [
-          { id: "merge", label: L10("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
+          { id: "merge", label: L11("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
         ]
       },
       {
         id: "review",
-        label: L10("Review", "Revis\xE3o"),
+        label: L11("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L10("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
-          { id: "comments", label: L10("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
+          { id: "proofing", label: L11("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
+          { id: "comments", label: L11("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large3("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L10("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+          { id: "tracking", label: L11("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
             large3("trackChanges"),
             { rows: [
-              [{ menu: markupModes, id: "markupMode", label: L10("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
-              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L10("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ menu: markupModes, id: "markupMode", label: L11("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L11("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
               [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
             ] }
           ] },
-          { id: "changes", label: L10("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+          { id: "changes", label: L11("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
             { split: "change:accept", menu: acceptItems, size: "large" },
             { split: "change:reject", menu: rejectItems, size: "large" },
             { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
           ] },
-          { id: "document", label: L10("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
+          { id: "document", label: L11("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
         ]
       },
       {
         id: "view",
-        label: L10("View", "Exibir"),
+        label: L11("View", "Exibir"),
         groups: [
-          { id: "views", label: L10("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
+          { id: "views", label: L11("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
             large3("view:read"),
             large3("view:print"),
             large3("view:web"),
             { rows: [[{ cmd: "view:outline", label: true }], [{ cmd: "view:draft", label: true }]] },
             large3("focus")
           ] },
-          { id: "show", label: L10("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
+          { id: "show", label: L11("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
             { rows: [[{ cmd: "view:ruler", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:navpane", label: true }]] },
             { rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] },
             { rows: [[{ cmd: "view:bookmarks", label: true }]] }
           ] },
-          { id: "zoom", label: L10("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
-            { menu: m2.zoomItems, id: "zoom", label: L10("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+          { id: "zoom", label: L11("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
+            { menu: m2.zoomItems, id: "zoom", label: L11("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
             large3("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "appearance", label: L10("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env, ctx), id: "theme", label: L10("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L10("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L10("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L11("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env, ctx), id: "theme", label: L11("Theme", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L11("Accent", "Destaque"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L11("Toolbar", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "hf-tools",
-        label: L10("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
+        label: L11("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
         contextual: () => env.ed.editingHeaderFooter() !== null,
         groups: hfToolsGroups(env, ctx)
       },
       {
         id: "table-design",
-        label: L10("Table Design", "Design da Tabela"),
+        label: L11("Table Design", "Design da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableDesignGroups(env, ctx)
       },
       {
         id: "table-layout",
-        label: L10("Table Layout", "Layout da Tabela"),
+        label: L11("Table Layout", "Layout da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableLayoutGroups(env)
       },
       {
         id: "image-tools",
-        label: L10("Picture Format", "Formato da Imagem"),
+        label: L11("Picture Format", "Formato da Imagem"),
         contextual: () => {
           const f3 = env.ed.selectedImage;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -58103,7 +59030,7 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "shape-tools",
-        label: L10("Shape Format", "Formato da Forma"),
+        label: L11("Shape Format", "Formato da Forma"),
         contextual: () => {
           const f3 = env.ed.selectedShape;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -58113,7 +59040,7 @@ function ribbonLayout(env, ctx) {
     ]
   };
 }
-var breaksMenu, noteNavMenu, columnsMenu, markupModes, acceptItems, rejectItems, MODE_LABELS, fileMenu, L10, large3;
+var breaksMenu, noteNavMenu, columnsMenu, markupModes, acceptItems, rejectItems, MODE_LABELS, fileMenu, L11, large3;
 var init_chrome_layout = __esm({
   "src/chrome-layout.ts"() {
     "use strict";
@@ -58124,6 +59051,7 @@ var init_chrome_layout = __esm({
     init_chrome_page();
     init_chrome_toc();
     init_chrome_shape();
+    init_chrome_textlayout();
     init_chrome_commands();
     breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
     noteNavMenu = () => ["note:next", "note:prev", "note:nextEnd", "note:prevEnd"];
@@ -58153,7 +59081,7 @@ var init_chrome_layout = __esm({
       "-",
       m2.autosave
     ];
-    L10 = (en, pt2) => ({ en, pt: pt2 });
+    L11 = (en, pt2) => ({ en, pt: pt2 });
     large3 = (cmd) => ({ cmd, size: "large" });
   }
 });
@@ -58270,39 +59198,39 @@ function styleNames(env) {
   return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
 }
 function galleryMenu(env, ui, s4) {
-  const L11 = pickLabels(env.lang, T8);
+  const L12 = pickLabels(env.lang, T8);
   const ok = canEdit2(env);
   const out = [
-    { id: "style:update", icon: "refresh", label: L11.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+    { id: "style:update", icon: "refresh", label: L12.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
       env.ed.updateStyleFromSelection(s4.id);
       env.after();
     } },
-    { id: "style:modify", icon: "edit", label: L11.modifyDots, disabled: !ok, onClick: () => {
+    { id: "style:modify", icon: "edit", label: L12.modifyDots, disabled: !ok, onClick: () => {
       void ui.styleDialog("modify", s4.id);
     } },
-    { id: "style:rename", icon: "drive_file_rename_outline", label: L11.rename, disabled: !ok, onClick: () => {
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L12.rename, disabled: !ok, onClick: () => {
       void ui.rename(s4);
     } },
-    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L11.removeFromGallery, disabled: !ok, onClick: () => {
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L12.removeFromGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, false);
       env.after();
-    } } : { id: "style:togallery", icon: "bookmark_add", label: L11.addGallery, disabled: !ok, onClick: () => {
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L12.addGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, true);
       env.after();
     } }
   ];
   if (!s4.builtIn) {
-    out.push("-", { id: "style:delete", icon: "delete", label: L11.del(s4.name), disabled: !ok, onClick: () => {
+    out.push("-", { id: "style:delete", icon: "delete", label: L12.del(s4.name), disabled: !ok, onClick: () => {
       void ui.remove(s4);
     } });
   }
   return out;
 }
 function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
-  const L11 = pickLabels(env.lang, T8);
+  const L12 = pickLabels(env.lang, T8);
   if (!look) return s4.name;
   const parts = [];
-  const d3 = L11.d;
+  const d3 = L12.d;
   parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
   if (look.bold) parts.push(d3.bold);
   if (look.italic) parts.push(d3.italic);
@@ -58310,15 +59238,15 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   if (look.strike) parts.push(d3.strike);
   if (look.allCaps) parts.push(d3.caps);
   if (look.smallCaps) parts.push(d3.smallCaps);
-  if (look.color) parts.push(d3.color(colorName(look.color, L11)));
+  if (look.color) parts.push(d3.color(colorName(look.color, L12)));
   if (s4.kind !== "character") {
-    if (look.alignment !== "left") parts.push({ center: L11.center, right: L11.right, both: L11.justify }[look.alignment]);
-    if (look.lineTwentieths !== void 0) parts.push(d3.line(L11.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.alignment !== "left") parts.push({ center: L12.center, right: L12.right, both: L12.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L12.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
     if (look.spaceBeforeTwips) parts.push(d3.before(ptOf3(look.spaceBeforeTwips)));
     if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf3(look.spaceAfterTwips)));
     if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
   }
-  parts.push(d3.style(L11.kind[s4.kind]));
+  parts.push(d3.style(L12.kind[s4.kind]));
   if (s4.quick) parts.push(d3.gallery);
   parts.push(d3.priority(s4.priority + 1));
   const nm = names ?? styleNames(env);
@@ -58329,13 +59257,13 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
 ${parts.join(", ")}`;
 }
 function describeDirect(env, run3, para4) {
-  const L11 = pickLabels(env.lang, T8);
-  const d3 = L11.d;
+  const L12 = pickLabels(env.lang, T8);
+  const d3 = L12.d;
   const parts = [];
   if (para4) {
     const a3 = para4["alignment"];
-    if (a3) parts.push({ left: L11.left, center: L11.center, right: L11.right, both: L11.justify }[a3] ?? a3);
-    if (para4["lineTwentieths"] !== void 0) parts.push(d3.line(L11.lines[para4["lineTwentieths"]] ?? String(para4["lineTwentieths"])));
+    if (a3) parts.push({ left: L12.left, center: L12.center, right: L12.right, both: L12.justify }[a3] ?? a3);
+    if (para4["lineTwentieths"] !== void 0) parts.push(d3.line(L12.lines[para4["lineTwentieths"]] ?? String(para4["lineTwentieths"])));
     if (para4["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf3(para4["spaceBeforeTwips"])));
     if (para4["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf3(para4["spaceAfterTwips"])));
     if (para4["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para4["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
@@ -58353,12 +59281,12 @@ function describeDirect(env, run3, para4) {
     if (run3["strike"] || run3["doubleStrike"]) parts.push(d3.strike);
     if (run3["allCaps"]) parts.push(d3.caps);
     if (run3["smallCaps"]) parts.push(d3.smallCaps);
-    if (run3["color"]) parts.push(d3.color(colorName(run3["color"], L11)));
+    if (run3["color"]) parts.push(d3.color(colorName(run3["color"], L12)));
     if (run3["highlight"]) parts.push(d3.highlight);
     if (run3["vertAlign"]) parts.push(run3["vertAlign"] === "superscript" ? d3.sup : d3.sub);
     if (run3["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf3(run3["charSpacingTwips"]))));
   }
-  return parts.length ? parts.join(", ") : L11.noDirect;
+  return parts.length ? parts.join(", ") : L12.noDirect;
 }
 function diff(a3, b5, para4) {
   const f3 = {};
@@ -58381,7 +59309,7 @@ function diff(a3, b5, para4) {
   }
   return f3;
 }
-function drawPreview(cv, ed, look, L11, kind) {
+function drawPreview(cv, ed, look, L12, kind) {
   const W3 = 508, H2 = 96;
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   cv.width = W3 * dpr;
@@ -58395,15 +59323,15 @@ function drawPreview(cv, ed, look, L11, kind) {
   c5.fillRect(0, 0, W3, H2);
   c5.fillStyle = "#a0a0a0";
   c5.font = "9px sans-serif";
-  c5.fillText(L11.prevPara, 8, 14);
+  c5.fillText(L12.prevPara, 8, 14);
   const inner = document.createElement("canvas");
-  drawSample(inner, ed, look, { text: kind === "character" ? L11.sample.split(" ").slice(0, 4).join(" ") : L11.sample, w: W3 - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  drawSample(inner, ed, look, { text: kind === "character" ? L12.sample.split(" ").slice(0, 4).join(" ") : L12.sample, w: W3 - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
   c5.drawImage(inner, 8, 22, W3 - 16, 46);
   c5.fillStyle = "#a0a0a0";
   c5.font = "9px sans-serif";
-  c5.fillText(L11.prevPara, 8, 84);
+  c5.fillText(L12.prevPara, 8, 84);
 }
-var T8, SAMPLE2, canEdit2, ptOf3, cmOf, colorName, el14, draftOf, lookOfDraft, StylesUI;
+var T8, SAMPLE2, canEdit2, ptOf3, cmOf, colorName, el15, draftOf, lookOfDraft, StylesUI;
 var init_chrome_styles = __esm({
   "src/chrome-styles.ts"() {
     "use strict";
@@ -58642,8 +59570,8 @@ var init_chrome_styles = __esm({
     canEdit2 = (env) => !env.app.comparing && !env.ed.isProtected();
     ptOf3 = (tw3) => Math.round(tw3 / 2) / 10;
     cmOf = (tw3, dec) => (Math.round(tw3 / 567 * 100) / 100).toFixed(2).replace(/\.?0+$/, "").replace(".", dec);
-    colorName = (hex3, L11) => hex3 ? `#${hex3}` : L11.auto;
-    el14 = (tag2, props = {}, ...kids) => {
+    colorName = (hex3, L12) => hex3 ? `#${hex3}` : L12.auto;
+    el15 = (tag2, props = {}, ...kids) => {
       const { cls, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (cls) e8.className = cls;
@@ -58706,11 +59634,11 @@ var init_chrome_styles = __esm({
           return;
         }
         const { env } = this;
-        const L11 = this.L;
-        const body = el14("div", { cls: "uw-styles" });
+        const L12 = this.L;
+        const body = el15("div", { cls: "uw-styles" });
         const sel4 = (name, opts2, v2, on) => {
-          const s4 = el14("select", { name });
-          for (const [k2, t6] of opts2) s4.append(el14("option", { value: k2, textContent: t6 }));
+          const s4 = el15("select", { name });
+          for (const [k2, t6] of opts2) s4.append(el15("option", { value: k2, textContent: t6 }));
           s4.value = v2;
           s4.addEventListener("change", () => {
             on(s4.value);
@@ -58719,12 +59647,12 @@ var init_chrome_styles = __esm({
           });
           return s4;
         };
-        const opts = el14(
+        const opts = el15(
           "div",
           { cls: "uw-styles-opts" },
           sel4(
             "filter",
-            [["recommended", L11.recommended], ["inUse", L11.inUse], ["document", L11.inDoc], ["all", L11.all]],
+            [["recommended", L12.recommended], ["inUse", L12.inUse], ["document", L12.inDoc], ["all", L12.all]],
             this.filter,
             (v2) => {
               this.filter = v2;
@@ -58733,7 +59661,7 @@ var init_chrome_styles = __esm({
           ),
           sel4(
             "sort",
-            [["prio", L11.asRecommended], ["alpha", L11.alphabetical]],
+            [["prio", L12.asRecommended], ["alpha", L12.alphabetical]],
             this.alpha ? "alpha" : "prio",
             (v2) => {
               this.alpha = v2 === "alpha";
@@ -58741,19 +59669,19 @@ var init_chrome_styles = __esm({
             }
           )
         );
-        const prev = el14("input", { type: "checkbox", checked: this.preview });
+        const prev = el15("input", { type: "checkbox", checked: this.preview });
         prev.addEventListener("change", () => {
           this.preview = prev.checked;
           env.app.prefs.set("stylesPreview", prev.checked ? "1" : "");
           this.lastKey = "";
           this.renderList();
         });
-        this.listEl = el14("div", { cls: "uw-styles-list" });
+        this.listEl = el15("div", { cls: "uw-styles-list" });
         this.listEl.setAttribute("role", "listbox");
-        body.append(opts, this.listEl, el14("label", { cls: "uo-check uw-styles-prev" }, prev, L11.preview));
-        const foot = el14("div");
+        body.append(opts, this.listEl, el15("label", { cls: "uo-check uw-styles-prev" }, prev, L12.preview));
+        const foot = el15("div");
         const btn2 = (icon, label, a3, fn) => {
-          const b5 = el14("button", { type: "button", cls: "uo-btn", title: label });
+          const b5 = el15("button", { type: "button", cls: "uo-btn", title: label });
           b5.dataset["a"] = a3;
           b5.setAttribute("aria-label", label);
           b5.innerHTML = symbol(icon);
@@ -58761,14 +59689,14 @@ var init_chrome_styles = __esm({
           return b5;
         };
         foot.append(
-          btn2("add", L11.newStyle, "styles:new", () => {
+          btn2("add", L12.newStyle, "styles:new", () => {
             void this.styleDialog("new");
           }),
-          btn2("manage_search", L11.inspector, "styles:inspector", () => this.toggleInspector())
+          btn2("manage_search", L12.inspector, "styles:inspector", () => this.toggleInspector())
         );
         this.pane = openPane({
           id: "styles",
-          title: L11.pane,
+          title: L12.pane,
           lang: env.lang,
           layer: env.layer,
           width: 280,
@@ -58801,22 +59729,22 @@ var init_chrome_styles = __esm({
         const ok = canEdit2(env);
         const names = styleNames(env);
         box.replaceChildren(...list.map((s4) => {
-          const row2 = el14("div", { cls: "uw-style-row" });
+          const row2 = el15("div", { cls: "uw-style-row" });
           row2.dataset["id"] = s4.id;
           row2.setAttribute("role", "option");
           row2.title = describeStyle(env, s4, void 0, names);
           const on = s4.id === cur.character || s4.id === cur.paragraph && !list.some((x3) => x3.id === cur.character);
           row2.classList.toggle("uo-on", on);
           row2.setAttribute("aria-selected", String(on));
-          const name = el14("span", { cls: "uw-style-name" });
+          const name = el15("span", { cls: "uw-style-name" });
           if (this.preview) {
             const look = env.ed.styleFormatting(s4.id);
             const cv = document.createElement("canvas");
             if (look) drawSample(cv, env.ed, look, { text: s4.name, w: 190, h: 24, maxPx: 18, minPx: 9, autoColor: getComputedStyle(box).color });
             name.append(cv);
           } else name.textContent = s4.name;
-          const mark2 = el14("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
-          const more = el14("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
+          const mark2 = el15("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
+          const more = el15("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
           more.innerHTML = symbol("arrow_drop_down");
           more.addEventListener("mousedown", (e8) => e8.preventDefault());
           more.addEventListener("click", (e8) => {
@@ -58846,10 +59774,10 @@ var init_chrome_styles = __esm({
           return;
         }
         const { env } = this;
-        const L11 = this.L;
-        const body = el14("div", { cls: "uw-insp" });
+        const L12 = this.L;
+        const body = el15("div", { cls: "uw-insp" });
         const row2 = (value, icon, tip, a3, fn) => {
-          const b5 = el14("button", { type: "button", cls: "uo-btn", title: tip });
+          const b5 = el15("button", { type: "button", cls: "uo-btn", title: tip });
           b5.dataset["a"] = a3;
           b5.setAttribute("aria-label", tip);
           b5.innerHTML = symbol(icon);
@@ -58858,39 +59786,39 @@ var init_chrome_styles = __esm({
             fn();
             env.after();
           });
-          return el14("div", { cls: "uw-insp-row" }, value, b5);
+          return el15("div", { cls: "uw-insp-row" }, value, b5);
         };
-        const box = () => el14("div", { cls: "uw-insp-val" });
+        const box = () => el15("div", { cls: "uw-insp-val" });
         const r6 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
         body.append(
-          el14("div", { cls: "uw-insp-h", textContent: L11.paraFmt }),
-          row2(r6.pStyle, "format_clear", L11.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
-          row2(r6.pDirect, "format_clear", L11.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
-          el14("div", { cls: "uw-insp-h", textContent: L11.textFmt }),
-          row2(r6.tStyle, "format_clear", L11.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
-          row2(r6.tDirect, "format_clear", L11.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+          el15("div", { cls: "uw-insp-h", textContent: L12.paraFmt }),
+          row2(r6.pStyle, "format_clear", L12.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+          row2(r6.pDirect, "format_clear", L12.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+          el15("div", { cls: "uw-insp-h", textContent: L12.textFmt }),
+          row2(r6.tStyle, "format_clear", L12.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+          row2(r6.tDirect, "format_clear", L12.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
         );
         this.inspRows = r6;
-        const foot = el14("div");
+        const foot = el15("div");
         const pill = (label, a3, fn) => {
-          const b5 = el14("button", { type: "button", cls: "uo-pill", textContent: label });
+          const b5 = el15("button", { type: "button", cls: "uo-pill", textContent: label });
           b5.dataset["a"] = a3;
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
           b5.addEventListener("click", fn);
           return b5;
         };
         foot.append(
-          pill(L11.newStyle, "insp:new", () => {
+          pill(L12.newStyle, "insp:new", () => {
             void this.styleDialog("new");
           }),
-          pill(L11.clearAll, "insp:clearAll", () => {
+          pill(L12.clearAll, "insp:clearAll", () => {
             env.ed.clearFormatting();
             env.after();
           })
         );
         this.inspector = openPane({
           id: "styleInspector",
-          title: L11.inspector,
+          title: L12.inspector,
           lang: env.lang,
           layer: env.layer,
           width: 300,
@@ -58942,31 +59870,31 @@ var init_chrome_styles = __esm({
       /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
       async quickCreate() {
         const { env } = this;
-        const L11 = this.L;
+        const L12 = this.L;
         if (!canEdit2(env)) return;
-        const input = el14("input", { type: "text", value: this.freeName() });
+        const input = el15("input", { type: "text", value: this.freeName() });
         const look = this.selectionLook();
         const cv = document.createElement("canvas");
         if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: 360, h: 56, maxPx: 30, paper: true, align: true });
-        const msg = el14("div", { cls: "uw-style-msg" });
-        const body = el14("div", { cls: "uw-style-quick" }, el14("label", { cls: "uo-field" }, el14("span", { textContent: L11.name }), input), cv, msg);
+        const msg = el15("div", { cls: "uw-style-msg" });
+        const body = el15("div", { cls: "uw-style-quick" }, el15("label", { cls: "uo-field" }, el15("span", { textContent: L12.name }), input), cv, msg);
         let action = null;
         const h3 = openDialog({
-          title: L11.newStyleTitle,
+          title: L12.newStyleTitle,
           body,
           layer: env.layer,
           lang: env.lang,
           width: 420,
-          actions: [{ id: "modify", label: L11.modify }, { id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }],
+          actions: [{ id: "modify", label: L12.modify }, { id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }],
           onAction: (id) => {
             if (id === "cancel") return true;
             const name = input.value.trim();
             if (!name) {
-              msg.textContent = L11.empty;
+              msg.textContent = L12.empty;
               return false;
             }
             if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
-              msg.textContent = L11.nameTaken;
+              msg.textContent = L12.nameTaken;
               return false;
             }
             return true;
@@ -58997,7 +59925,7 @@ var init_chrome_styles = __esm({
       async styleDialog(mode, id, presetName) {
         const { env } = this;
         const ed = env.ed;
-        const L11 = this.L;
+        const L12 = this.L;
         if (!canEdit2(env)) return;
         const all = ed.listStyles("all");
         const info = id ? all.find((s4) => s4.id === id) : void 0;
@@ -59009,25 +59937,25 @@ var init_chrome_styles = __esm({
         if (!startLook) return;
         const start = draftOf(startLook);
         const draft = { ...start };
-        const nameIn = el14("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
-        const typeSel = el14("select", { name: "type" });
-        for (const [k2, t6] of [["linked", L11.linked], ["paragraph", L11.paragraph], ["character", L11.character]]) typeSel.append(el14("option", { value: k2, textContent: t6 }));
+        const nameIn = el15("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
+        const typeSel = el15("select", { name: "type" });
+        for (const [k2, t6] of [["linked", L12.linked], ["paragraph", L12.paragraph], ["character", L12.character]]) typeSel.append(el15("option", { value: k2, textContent: t6 }));
         typeSel.value = kind;
         typeSel.disabled = mode === "modify";
-        const baseSel = el14("select", { name: "basedOn" });
-        const nextSel = el14("select", { name: "next" });
+        const baseSel = el15("select", { name: "basedOn" });
+        const nextSel = el15("select", { name: "next" });
         const fillBases = () => {
           baseSel.replaceChildren();
           nextSel.replaceChildren();
           const paraStyles2 = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
           const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
           const opts = kind === "character" ? charStyles : paraStyles2;
-          if (kind === "character") baseSel.append(el14("option", { value: "", textContent: L11.none }));
-          for (const s4 of opts) baseSel.append(el14("option", { value: s4.id, textContent: s4.name }));
+          if (kind === "character") baseSel.append(el15("option", { value: "", textContent: L12.none }));
+          for (const s4 of opts) baseSel.append(el15("option", { value: s4.id, textContent: s4.name }));
           baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
           if (kind !== "character") {
-            nextSel.append(el14("option", { value: "", textContent: nameIn.value.trim() || L11.none }));
-            for (const s4 of paraStyles2) nextSel.append(el14("option", { value: s4.id, textContent: s4.name }));
+            nextSel.append(el15("option", { value: "", textContent: nameIn.value.trim() || L12.none }));
+            for (const s4 of paraStyles2) nextSel.append(el15("option", { value: s4.id, textContent: s4.name }));
             nextSel.value = info?.next && info.next !== id ? info.next : "";
           }
           nextSel.disabled = kind === "character";
@@ -59039,13 +59967,13 @@ var init_chrome_styles = __esm({
           refresh();
         });
         const families = await ed.listAvailableFonts();
-        const fontSel = el14("select", { name: "font" });
-        for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el14("option", { value: f3, textContent: f3 }));
+        const fontSel = el15("select", { name: "font" });
+        for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el15("option", { value: f3, textContent: f3 }));
         fontSel.value = draft.fontAscii;
-        const sizeIn = el14("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
+        const sizeIn = el15("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
         sizeIn.style.width = "64px";
         const tog = (k2, icon, tip) => {
-          const b5 = el14("button", { type: "button", cls: "uo-btn", title: tip });
+          const b5 = el15("button", { type: "button", cls: "uo-btn", title: tip });
           b5.dataset["a"] = `dlg:${k2}`;
           b5.innerHTML = symbol(icon);
           const upd = () => {
@@ -59060,10 +59988,10 @@ var init_chrome_styles = __esm({
           upd();
           return b5;
         };
-        const colorIn2 = el14("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+        const colorIn2 = el15("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
         colorIn2.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
         const alignBtns = ["left", "center", "right", "both"].map((a3) => {
-          const b5 = el14("button", { type: "button", cls: "uo-btn", title: { left: L11.left, center: L11.center, right: L11.right, both: L11.justify }[a3] });
+          const b5 = el15("button", { type: "button", cls: "uo-btn", title: { left: L12.left, center: L12.center, right: L12.right, both: L12.justify }[a3] });
           b5.dataset["a"] = `dlg:align:${a3}`;
           b5.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
           b5.addEventListener("click", () => {
@@ -59075,14 +60003,14 @@ var init_chrome_styles = __esm({
         });
         const syncAlign = () => alignBtns.forEach((b5, i7) => b5.classList.toggle("uo-on", ["left", "center", "right", "both"][i7] === draft.alignment));
         syncAlign();
-        const lineSel = el14("select", { name: "line" });
-        for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el14("option", { value: String(v2), textContent: L11.lines[v2] }));
+        const lineSel = el15("select", { name: "line" });
+        for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el15("option", { value: String(v2), textContent: L12.lines[v2] }));
         if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
-          lineSel.append(el14("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
+          lineSel.append(el15("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
         }
         lineSel.value = String(draft.lineTwentieths ?? 240);
         const num3 = (v2, step, name2) => {
-          const i7 = el14("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
+          const i7 = el15("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
           i7.style.width = "72px";
           return i7;
         };
@@ -59104,16 +60032,16 @@ var init_chrome_styles = __esm({
           read();
           refresh();
         });
-        const formatBtn = el14("button", { type: "button", cls: "uo-pill", textContent: `${L11.format} \u25BE` });
+        const formatBtn = el15("button", { type: "button", cls: "uo-pill", textContent: `${L12.format} \u25BE` });
         formatBtn.dataset["a"] = "dlg:format";
         formatBtn.addEventListener("click", (e8) => {
           e8.stopPropagation();
           const r6 = formatBtn.getBoundingClientRect();
           openMenu([
-            { id: "dlg:format:font", icon: "text_format", label: L11.fontDots, onClick: () => {
+            { id: "dlg:format:font", icon: "text_format", label: L12.fontDots, onClick: () => {
               void this.fontSub(draft).then(refresh);
             } },
-            { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L11.paraDots, disabled: kind === "character", onClick: () => {
+            { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L12.paraDots, disabled: kind === "character", onClick: () => {
               void this.paraSub(draft).then(() => {
                 syncAlign();
                 beforeIn.value = String(ptOf3(draft.spaceBeforeTwips));
@@ -59127,13 +60055,13 @@ var init_chrome_styles = __esm({
         });
         const cv = document.createElement("canvas");
         cv.className = "uw-style-prev";
-        const desc = el14("div", { cls: "uw-style-desc" });
-        const quick = el14("input", { type: "checkbox", checked: info?.quick ?? true });
-        const auto = el14("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
-        const msg = el14("div", { cls: "uw-style-msg" });
+        const desc = el15("div", { cls: "uw-style-desc" });
+        const quick = el15("input", { type: "checkbox", checked: info?.quick ?? true });
+        const auto = el15("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
+        const msg = el15("div", { cls: "uw-style-msg" });
         const refresh = () => {
           const look = lookOfDraft(draft, startLook);
-          drawPreview(cv, ed, look, L11, kind);
+          drawPreview(cv, ed, look, L12, kind);
           const fake = {
             id: id ?? "",
             name: nameIn.value.trim() || "\u2026",
@@ -59159,78 +60087,78 @@ var init_chrome_styles = __esm({
           refresh();
         });
         for (const i7 of [baseSel, nextSel, quick, auto]) i7.addEventListener("change", refresh);
-        const grid2 = el14(
+        const grid2 = el15(
           "div",
           { cls: "uo-dialog-grid" },
-          el14("span", { textContent: L11.name }),
+          el15("span", { textContent: L12.name }),
           nameIn,
-          el14("span", { textContent: L11.type }),
+          el15("span", { textContent: L12.type }),
           typeSel,
-          el14("span", { textContent: L11.basedOn }),
+          el15("span", { textContent: L12.basedOn }),
           baseSel,
-          el14("span", { textContent: L11.next }),
+          el15("span", { textContent: L12.next }),
           nextSel
         );
-        const fmtRow1 = el14(
+        const fmtRow1 = el15(
           "div",
           { cls: "uw-style-fmt" },
           fontSel,
           sizeIn,
-          tog("bold", "format_bold", L11.bold),
-          tog("italic", "format_italic", L11.italic),
-          tog("underline", "format_underlined", L11.underline),
+          tog("bold", "format_bold", L12.bold),
+          tog("italic", "format_italic", L12.italic),
+          tog("underline", "format_underlined", L12.underline),
           colorIn2
         );
-        const fmtRow2 = el14("div", { cls: "uw-style-fmt" }, ...alignBtns, el14("span", { textContent: L11.lineSpacing }), lineSel);
-        const fmtRow3 = el14(
+        const fmtRow2 = el15("div", { cls: "uw-style-fmt" }, ...alignBtns, el15("span", { textContent: L12.lineSpacing }), lineSel);
+        const fmtRow3 = el15(
           "div",
           { cls: "uw-style-fmt" },
-          el14("span", { textContent: L11.before }),
+          el15("span", { textContent: L12.before }),
           beforeIn,
-          el14("span", { textContent: L11.after }),
+          el15("span", { textContent: L12.after }),
           afterIn,
-          el14("span", { textContent: L11.indentLeft }),
+          el15("span", { textContent: L12.indentLeft }),
           indentIn
         );
-        const checks = el14(
+        const checks = el15(
           "div",
           { cls: "uw-style-checks" },
-          el14("label", { cls: "uo-check" }, quick, L11.addToGallery),
-          el14("label", { cls: "uo-check" }, auto, L11.autoUpdate)
+          el15("label", { cls: "uo-check" }, quick, L12.addToGallery),
+          el15("label", { cls: "uo-check" }, auto, L12.autoUpdate)
         );
-        const body = el14(
+        const body = el15(
           "div",
           { cls: "uw-style-dlg" },
-          el14("strong", { textContent: L11.properties }),
+          el15("strong", { textContent: L12.properties }),
           grid2,
-          el14("strong", { textContent: L11.formatting }),
+          el15("strong", { textContent: L12.formatting }),
           fmtRow1,
           fmtRow2,
           fmtRow3,
           cv,
           desc,
           checks,
-          el14("div", {}, formatBtn),
+          el15("div", {}, formatBtn),
           msg
         );
         refresh();
         const h3 = openDialog({
-          title: mode === "new" ? L11.newStyleTitle : L11.modifyTitle,
+          title: mode === "new" ? L12.newStyleTitle : L12.modifyTitle,
           body,
           layer: env.layer,
           lang: env.lang,
           width: 560,
-          actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }],
+          actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }],
           onAction: (a3) => {
             if (a3 !== "ok") return true;
             read();
             const name2 = nameIn.value.trim();
             if (!name2) {
-              msg.textContent = L11.empty;
+              msg.textContent = L12.empty;
               return false;
             }
             if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
-              msg.textContent = L11.nameTaken;
+              msg.textContent = L12.nameTaken;
               return false;
             }
             return true;
@@ -59257,73 +60185,73 @@ var init_chrome_styles = __esm({
       }
       /** Formatar › Fonte… (rascunho do estilo). */
       async fontSub(d3) {
-        const L11 = this.L;
+        const L12 = this.L;
         const box = (k2, label) => {
-          const i7 = el14("input", { type: "checkbox", checked: !!d3[k2] });
+          const i7 = el15("input", { type: "checkbox", checked: !!d3[k2] });
           i7.name = k2;
-          return el14("label", { cls: "uo-check" }, i7, label);
+          return el15("label", { cls: "uo-check" }, i7, label);
         };
-        const spacing = el14("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf3(d3.charSpacingTwips)) });
-        const body = el14(
+        const spacing = el15("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf3(d3.charSpacingTwips)) });
+        const body = el15(
           "div",
           { cls: "uw-style-sub" },
-          el14(
+          el15(
             "div",
             { cls: "uw-style-fx" },
-            box("bold", L11.bold),
-            box("italic", L11.italic),
-            box("underline", L11.underline),
-            box("strike", L11.strike),
-            box("allCaps", L11.caps),
-            box("smallCaps", L11.smallCaps)
+            box("bold", L12.bold),
+            box("italic", L12.italic),
+            box("underline", L12.underline),
+            box("strike", L12.strike),
+            box("allCaps", L12.caps),
+            box("smallCaps", L12.smallCaps)
           ),
-          el14("label", { cls: "uo-field" }, el14("span", { textContent: `${L11.charSpacing} (pt)` }), spacing)
+          el15("label", { cls: "uo-field" }, el15("span", { textContent: `${L12.charSpacing} (pt)` }), spacing)
         );
-        const h3 = openDialog({ title: L11.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }] });
+        const h3 = openDialog({ title: L12.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }] });
         if (await h3.result !== "ok") return;
         for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
         d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
       }
       /** Formatar › Parágrafo… (recuos à direita e especial). */
       async paraSub(d3) {
-        const L11 = this.L;
-        const right = el14("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
-        const special = el14("select", { name: "special" });
-        for (const [k2, t6] of [["none", L11.none], ["firstLine", L11.firstLine], ["hanging", L11.hanging]]) special.append(el14("option", { value: k2, textContent: t6 }));
+        const L12 = this.L;
+        const right = el15("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
+        const special = el15("select", { name: "special" });
+        for (const [k2, t6] of [["none", L12.none], ["firstLine", L12.firstLine], ["hanging", L12.hanging]]) special.append(el15("option", { value: k2, textContent: t6 }));
         special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
-        const by = el14("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
-        const body = el14(
+        const by = el15("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
+        const body = el15(
           "div",
           { cls: "uo-dialog-grid" },
-          el14("span", { textContent: L11.indentRight }),
+          el15("span", { textContent: L12.indentRight }),
           right,
-          el14("span", { textContent: L11.special }),
+          el15("span", { textContent: L12.special }),
           special,
-          el14("span", { textContent: L11.by }),
+          el15("span", { textContent: L12.by }),
           by
         );
-        const h3 = openDialog({ title: L11.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }] });
+        const h3 = openDialog({ title: L12.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }] });
         if (await h3.result !== "ok") return;
         d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
         const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
         d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
       }
       async rename(s4) {
-        const L11 = this.L;
-        const v2 = await promptDialog({ title: L11.renameTitle, label: L11.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+        const L12 = this.L;
+        const v2 = await promptDialog({ title: L12.renameTitle, label: L12.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
         if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
-        if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L11.nameTaken);
+        if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L12.nameTaken);
         this.env.after();
       }
       async remove(s4) {
-        const L11 = this.L;
+        const L12 = this.L;
         const h3 = openDialog({
-          title: L11.del(s4.name).replace(/…$/, ""),
-          body: L11.delConfirm(s4.name),
+          title: L12.del(s4.name).replace(/…$/, ""),
+          body: L12.delConfirm(s4.name),
           layer: this.env.layer,
           lang: this.env.lang,
           icon: "delete",
-          actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.delete, primary: true }]
+          actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.delete, primary: true }]
         });
         if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
         this.env.after();
@@ -60340,7 +61268,7 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         header.className = "uwd-header";
         const statsBox = doc.createElement("div");
         statsBox.className = "uwd-stats";
-        const L11 = this._L;
+        const L12 = this._L;
         const stat = (cls, label, n5) => {
           if (n5 === 0) return;
           const s4 = doc.createElement("span");
@@ -60348,13 +61276,13 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
           s4.textContent = label(n5);
           statsBox.append(s4);
         };
-        stat("ins", L11.inserted, stats.inserted);
-        stat("del", L11.deleted, stats.deleted);
-        stat("chg", L11.changed, stats.changed);
-        stat("fmt", L11.formatOnly, stats.formatOnly);
+        stat("ins", L12.inserted, stats.inserted);
+        stat("del", L12.deleted, stats.deleted);
+        stat("chg", L12.changed, stats.changed);
+        stat("fmt", L12.formatOnly, stats.formatOnly);
         if (statsBox.childElementCount === 0) {
           const s4 = doc.createElement("span");
-          s4.textContent = L11.identical;
+          s4.textContent = L12.identical;
           statsBox.append(s4);
         }
         header.append(statsBox);
@@ -60362,7 +61290,7 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         spacer.className = "uwd-spacer";
         header.append(spacer);
         const toggle = doc.createElement("button");
-        toggle.textContent = L11.onlyChanges;
+        toggle.textContent = L12.onlyChanges;
         toggle.dataset["on"] = this.view === "diffs" ? "1" : "0";
         toggle.addEventListener("click", () => {
           this.view = this.view === "diffs" ? "all" : "diffs";
@@ -60370,8 +61298,8 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         header.append(toggle);
         const close = doc.createElement("button");
         close.className = "uwd-close";
-        close.title = L11.close;
-        close.setAttribute("aria-label", L11.close);
+        close.title = L12.close;
+        close.setAttribute("aria-label", L12.close);
         close.textContent = "\u2715";
         close.addEventListener("click", () => {
           this.dispatchEvent(new CustomEvent("close-request", { bubbles: true, composed: true }));
@@ -60456,24 +61384,24 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
       }
       // ─────────────── blocos ───────────────
       _renderParagraph(doc, p3, marks) {
-        const el15 = doc.createElement("div");
-        el15.className = "uwd-para";
+        const el16 = doc.createElement("div");
+        el16.className = "uwd-para";
         const pr = p3.props;
         if (pr.alignment && pr.alignment !== "left") {
-          el15.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
+          el16.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
         }
-        if (pr.indentLeftTwips) el15.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
-        if (pr.indentRightTwips) el15.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
-        if (pr.indentFirstLineTwips) el15.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
-        if (pr.spaceBeforeTwips) el15.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
-        if (pr.spaceAfterTwips) el15.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
+        if (pr.indentLeftTwips) el16.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
+        if (pr.indentRightTwips) el16.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
+        if (pr.indentFirstLineTwips) el16.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
+        if (pr.spaceBeforeTwips) el16.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
+        if (pr.spaceAfterTwips) el16.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
         const shd = hex6(pr.shadingHex);
-        if (shd) el15.style.background = shd;
+        if (shd) el16.style.background = shd;
         if (pr.numbering) {
           const marker = doc.createElement("span");
           marker.textContent = pr.numbering.kind === "bullet" ? "\u2022 " : "# ";
           marker.style.paddingLeft = `${pr.numbering.ilvl * 18}pt`;
-          el15.append(marker);
+          el16.append(marker);
         }
         let offset = 0;
         for (const r6 of p3.runs) {
@@ -60483,10 +61411,10 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             end: Math.min(len2, m2.endCh - offset),
             kind: m2.kind
           })).sort((x3, y3) => x3.start - y3.start);
-          el15.append(...this._renderRun(doc, r6, runMarks));
+          el16.append(...this._renderRun(doc, r6, runMarks));
           offset += len2;
         }
-        return el15;
+        return el16;
       }
       _renderRun(doc, r6, marks) {
         if (r6.image) {
@@ -60569,12 +61497,12 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             }
           }
         }
-        const el15 = doc.createElement("table");
-        el15.className = "uwd-table";
+        const el16 = doc.createElement("table");
+        el16.className = "uwd-table";
         for (let ri = 0; ri < t6.rows.length; ri++) {
-          const tr8 = doc.createElement("tr");
+          const tr9 = doc.createElement("tr");
           const kind = rowKind.get(ri);
-          if (kind && kind !== "equal") tr8.className = `uwd-row--${kind}`;
+          if (kind && kind !== "equal") tr9.className = `uwd-row--${kind}`;
           for (const c5 of t6.rows[ri].cells) {
             const td2 = doc.createElement("td");
             if (c5.gridSpan > 1) td2.colSpan = c5.gridSpan;
@@ -60582,11 +61510,11 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             if (cellShd2) td2.style.background = cellShd2;
             for (const cp of c5.paragraphs) td2.append(this._renderParagraph(doc, cp, []));
             for (const nested of c5.tables) td2.append(this._renderTable(doc, nested, side, null));
-            tr8.append(td2);
+            tr9.append(td2);
           }
-          el15.append(tr8);
+          el16.append(tr9);
         }
-        return el15;
+        return el16;
       }
     };
     if (typeof customElements !== "undefined" && !customElements.get("universal-write-diff")) {
@@ -60676,6 +61604,7 @@ var init_chrome = __esm({
     init_chrome_table();
     init_chrome_hf();
     init_chrome_page();
+    init_chrome_textlayout();
     init_chrome_labels();
     init_chrome_layout();
     init_chrome_panels();
@@ -61138,8 +62067,12 @@ var init_chrome = __esm({
           paragraphDialog: () => {
             void paragraphDialog(d3()).then(() => this.after());
           },
-          pageDialog: () => {
-            void pageDialog(d3()).then(() => this.after());
+          pageDialog: (tab) => {
+            void pageDialog(d3(), tab).then(() => this.after());
+          },
+          textLayoutDialog: (kind) => {
+            const dlg = kind === "hyphenation" ? hyphenationDialog : manualHyphenationDialog;
+            void dlg(d3()).then(() => this.after());
           },
           columnsDialog: () => {
             void columnsDialog(d3()).then(() => this.after());
@@ -61315,22 +62248,22 @@ var init_chrome = __esm({
       }
       // ───── Modo Protegido ─────
       makeProtectedBar() {
-        const el15 = document.createElement("div");
-        el15.className = "uw-protbar";
-        el15.setAttribute("part", "protected-bar");
-        el15.setAttribute("role", "alert");
-        el15.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+        const el16 = document.createElement("div");
+        el16.className = "uw-protbar";
+        el16.setAttribute("part", "protected-bar");
+        el16.setAttribute("role", "alert");
+        el16.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
       <span><b></b> \u2014 </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-        el15.querySelector("b").textContent = this.L.protectedTitle;
-        el15.querySelector("span").append(this.L.protectedText);
-        const b5 = el15.querySelector("button");
+        el16.querySelector("b").textContent = this.L.protectedTitle;
+        el16.querySelector("span").append(this.L.protectedText);
+        const b5 = el16.querySelector("button");
         b5.textContent = this.L.enableEditing;
         b5.addEventListener("click", () => {
           this.app.enableEditing();
           this.after();
         });
-        el15.hidden = true;
-        return el15;
+        el16.hidden = true;
+        return el16;
       }
       // ───── localizar ─────
       openFind(replace) {
@@ -62805,10 +63738,10 @@ var BAND = {
   pt: { header: "Cabe\xE7alho", footer: "Rodap\xE9", first: "da Primeira P\xE1gina", even: "de P\xE1gina Par", odd: "de P\xE1gina \xCDmpar", section: "Se\xE7\xE3o", same: "Mesmo que o Anterior" }
 };
 function hfBandLabel(kind, type, evenOdd, sec, count, lang) {
-  const L11 = BAND[lang];
-  const variant = type === "first" ? L11.first : type === "even" ? L11.even : evenOdd ? L11.odd : "";
-  const base = lang === "pt" ? `${L11[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L11[kind]}`;
-  return count > 1 ? `${base} -${L11.section} ${sec + 1}-` : base;
+  const L12 = BAND[lang];
+  const variant = type === "first" ? L12.first : type === "even" ? L12.even : evenOdd ? L12.odd : "";
+  const base = lang === "pt" ? `${L12[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L12[kind]}`;
+  return count > 1 ? `${base} -${L12.section} ${sec + 1}-` : base;
 }
 function sameAsPreviousLabel(lang) {
   return BAND[lang].same;
@@ -63388,6 +64321,7 @@ function restore(p3, orig) {
 
 // src/universal-write.ts
 init_src();
+init_text_layout();
 
 // src/ole-sheet.ts
 init_src();
@@ -63417,9 +64351,9 @@ async function sheetAvailable(loader) {
   }
   return !!customElements.get("universal-sheet");
 }
-function usedSize(el15, minCols, minRows) {
+function usedSize(el16, minCols, minRows) {
   let cols = minCols, rows = minRows;
-  for (const c5 of el15.debugCellDisplays(60, 400)) {
+  for (const c5 of el16.debugCellDisplays(60, 400)) {
     if (!c5.display) continue;
     const m2 = /^([A-Z]+)(\d+)$/.exec(c5.ref);
     if (!m2) continue;
@@ -63436,11 +64370,11 @@ async function previewPng(canvas2, w2, h3) {
   return { png, widthTwips: Math.round((w2 || canvas2.width) * 15), heightTwips: Math.round((h3 || canvas2.height) * 15) };
 }
 async function editSpreadsheet(layer, lang, xlsx) {
-  const el15 = document.createElement("universal-sheet");
-  el15.setAttribute("lang", lang);
-  el15.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
+  const el16 = document.createElement("universal-sheet");
+  el16.setAttribute("lang", lang);
+  el16.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
   const body = document.createElement("div");
-  body.append(el15);
+  body.append(el16);
   let saved = null;
   const h3 = openDialog({
     title: pickLabels(lang, { en: "Excel Spreadsheet", pt: "Planilha do Excel" }),
@@ -63452,10 +64386,10 @@ async function editSpreadsheet(layer, lang, xlsx) {
     onAction: (id) => {
       if (id !== "ok") return;
       try {
-        const out = el15.saveXlsx();
-        const { cols, rows } = usedSize(el15, 3, 4);
+        const out = el16.saveXlsx();
+        const { cols, rows } = usedSize(el16, 3, 4);
         const canvas2 = document.createElement("canvas");
-        const d3 = el15.renderRegionToCanvas(0, canvas2, cols, rows);
+        const d3 = el16.renderRegionToCanvas(0, canvas2, cols, rows);
         saved = { xlsx: out, canvas: canvas2, w: d3.w, h: d3.h };
       } catch (err2) {
         console.error(err2);
@@ -63464,7 +64398,7 @@ async function editSpreadsheet(layer, lang, xlsx) {
     }
   });
   await new Promise((r6) => requestAnimationFrame(r6));
-  el15.loadXlsx(xlsx);
+  el16.loadXlsx(xlsx);
   if (await h3.result !== "ok" || !saved) return null;
   const s4 = saved;
   return { xlsx: s4.xlsx, ...await previewPng(s4.canvas, s4.w, s4.h) };
@@ -66586,10 +67520,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     });
   }
   setSpaceAfter(twips) {
-    this.formatPara({ spaceAfterTwips: twips });
+    this.formatPara({ spaceAfterTwips: twips, spaceAfterAuto: void 0 });
   }
   setSpaceBefore(twips) {
-    this.formatPara({ spaceBeforeTwips: twips });
+    this.formatPara({ spaceBeforeTwips: twips, spaceBeforeAuto: void 0 });
   }
   /**
    * Configurar Página da seção do cursor (ou das seções que a seleção toca),
@@ -66600,8 +67534,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    */
   setPageSetup(opts) {
     if (!this.model || this.locked() || opts.applyTo && opts.applyTo !== "section" && opts.applyTo !== "document" && !this.canInsertSectionBreak()) return;
+    if (opts.lineNumbering?.on) this.ensureLineNumberStyle();
     this.snapshot();
+    const ln2 = opts.lineNumbering ? lineNumberingFromOptions(opts.lineNumbering) : void 0;
     for (const s4 of this.sectionTargets(opts.applyTo ?? "section", "nextPage")) {
+      if (opts.sectionStart) {
+        if (opts.sectionStart === "nextPage") delete s4.type;
+        else s4.type = opts.sectionStart;
+      }
+      if (opts.verticalAlignment) {
+        if (opts.verticalAlignment === "top") delete s4.vAlign;
+        else s4.vAlign = opts.verticalAlignment;
+      }
+      if (opts.lineNumbering) this.setSectionLineNumbering(s4, ln2 ? { ...ln2 } : void 0);
       if (opts.size) {
         const [w2, h3] = opts.size === "A4" ? [11906, 16838] : [12240, 15840];
         const landscape = s4.pageWidthTwips > s4.pageHeightTwips;
@@ -66756,8 +67701,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   getSection() {
     const m2 = this.bodyModel();
     if (!m2) return null;
-    const para4 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
-    const k2 = sectionIndexAt(m2, para4);
+    const k2 = this.bodySectionRange()[0];
     const sp2 = sectionSectPr(m2, k2);
     return {
       index: k2,
@@ -66776,8 +67720,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         preset: columnsPresetOf(sp2),
         max: maxColumns(sp2),
         contentWidthTwips: contentWidth(sp2)
-      }
+      },
+      verticalAlignment: sp2.vAlign ?? "top",
+      lineNumbering: lineNumberingInfo(sp2)
     };
+  }
+  /** Seções do CORPO que o cursor/seleção toca [primeira, última] — na célula, a da
+   *  tabela; na nota e na caixa de texto, a do ponto do corpo; no cabeçalho/rodapé, a
+   *  da página em edição. */
+  bodySectionRange() {
+    const m2 = this.bodyModel();
+    const at = (p3) => sectionIndexAt(m2, Math.max(0, Math.min(p3, m2.paragraphs.length - 1)));
+    if (this.hfEdit) {
+      const k2 = this.pageSections[this.hfActivePage] ?? 0;
+      return [k2, k2];
+    }
+    const sel4 = this.noteEdit ? this.noteEdit.saved.selection : this.savedForTb ? this.savedForTb.selection : this.cellEdit ? null : this.selection;
+    if (!sel4) {
+      const k2 = at(this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0);
+      return [k2, k2];
+    }
+    const { start, end } = normalizeRange({ start: sel4.anchor, end: sel4.focus });
+    return [at(start.para), at(end.para)];
   }
   undo() {
     this.popHistory(this.undoStack, this.redoStack);
@@ -67051,18 +68015,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.strokeStyle = this.pageDark ? "#9aa0a6" : "#808080";
     ctx.lineWidth = 14;
-    for (const el15 of this.eng.lines) {
-      if (el15.page !== pg || !el15.para || el15.loc.kind === "other") continue;
+    for (const el16 of this.eng.lines) {
+      if (el16.page !== pg || !el16.para || el16.loc.kind === "other") continue;
       let acc = 0;
-      const runs = el15.para.runs;
+      const runs = el16.para.runs;
       for (let i7 = 0; i7 < runs.length; i7++) {
         const r6 = runs[i7];
         const at = acc;
         acc += r6.text.length;
         if (!r6.bookmark || isHiddenBookmark(r6.bookmark.name)) continue;
-        if (at < el15.line.start || at > el15.line.end || at === el15.line.end && at < paraLength(el15.para) && !r6.bookmark.end) continue;
-        const x3 = caretXIn(el15.line, at);
-        const y0 = el15.line.y + 10, y1 = el15.line.y + el15.line.height - 10, w2 = 50;
+        if (at < el16.line.start || at > el16.line.end || at === el16.line.end && at < paraLength(el16.para) && !r6.bookmark.end) continue;
+        const x3 = caretXIn(el16.line, at);
+        const y0 = el16.line.y + 10, y1 = el16.line.y + el16.line.height - 10, w2 = 50;
         const point = !r6.bookmark.end && runs[i7 + 1]?.bookmark?.end && runs[i7 + 1].bookmark.id === r6.bookmark.id;
         ctx.beginPath();
         ctx.moveTo(x3, y0);
@@ -68610,12 +69574,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       };
     }
     if (this.eng) {
-      for (const el15 of this.eng.lines) {
-        const para4 = el15.para;
+      for (const el16 of this.eng.lines) {
+        const para4 = el16.para;
         if (!para4?.runs.some((r6) => r6.props.commentIds?.includes(id))) continue;
-        const canvas2 = this.canvases[el15.page];
+        const canvas2 = this.canvases[el16.page];
         if (!canvas2) return null;
-        return { topPx: canvas2.offsetTop + el15.line.y * scale, heightPx: el15.line.height * scale, page: el15.page };
+        return { topPx: canvas2.offsetTop + el16.line.y * scale, heightPx: el16.line.height * scale, page: el16.page };
       }
       return null;
     }
@@ -69101,12 +70065,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.eng) return out;
     const scale = PX_PER_TWIP * this.zoom;
     this.revisionSpans().forEach(({ span, para: para4 }, index) => {
-      for (const el15 of this.eng.lines) {
-        if (el15.para !== para4) continue;
-        if (!span.mark && span.kind !== "paraFormat" && (el15.line.end < span.start || el15.line.start > Math.max(span.start, span.end - 1))) continue;
-        const canvas2 = this.canvases[el15.page];
+      for (const el16 of this.eng.lines) {
+        if (el16.para !== para4) continue;
+        if (!span.mark && span.kind !== "paraFormat" && (el16.line.end < span.start || el16.line.start > Math.max(span.start, span.end - 1))) continue;
+        const canvas2 = this.canvases[el16.page];
         if (!canvas2) break;
-        out.push({ index, topPx: canvas2.offsetTop + el15.line.y * scale, heightPx: el15.line.height * scale, page: el15.page });
+        out.push({ index, topPx: canvas2.offsetTop + el16.line.y * scale, heightPx: el16.line.height * scale, page: el16.page });
         break;
       }
     });
@@ -69172,31 +70136,31 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   rasterizeSvg(img) {
     const text = new TextDecoder().decode(img.svg);
     const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
-    const el15 = new Image();
+    const el16 = new Image();
     return new Promise((resolve, reject) => {
-      el15.onload = () => {
+      el16.onload = () => {
         try {
           const SS = 3;
-          const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el15.width) * PX_PER_TWIP * SS)));
-          const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el15.height) * PX_PER_TWIP * SS)));
+          const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el16.width) * PX_PER_TWIP * SS)));
+          const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el16.height) * PX_PER_TWIP * SS)));
           const oc = document.createElement("canvas");
           oc.width = wPx;
           oc.height = hPx;
           const octx = oc.getContext("2d");
           octx.imageSmoothingEnabled = true;
           octx.imageSmoothingQuality = "high";
-          octx.drawImage(el15, 0, 0, wPx, hPx);
+          octx.drawImage(el16, 0, 0, wPx, hPx);
           createImageBitmap(oc).then(resolve, reject);
         } catch (e8) {
           reject(e8);
         }
         URL.revokeObjectURL(url);
       };
-      el15.onerror = (e8) => {
+      el16.onerror = (e8) => {
         URL.revokeObjectURL(url);
         reject(e8);
       };
-      el15.src = url;
+      el16.src = url;
     });
   }
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
@@ -69412,6 +70376,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (settingsXml) pkg.setPartText("word/settings.xml", patchSettingsNotes(settingsXml, { footnote: this.noteSettings.footnote ?? null, endnote: this.noteSettings.endnote ?? null }));
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
     if (this.defaultTab !== null) writeDefaultTabStop(pkg, this.defaultTab);
+    if (this.hyph) writeHyphenationSettings(pkg, this.hyph);
     addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
   }
@@ -69787,6 +70752,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
+      // opções de hifenização (settings)
+      hy: this.hyphenationSettings(),
       // Cor da Página (w:background) e a exibição do fundo (w:displayBackgroundShape)
       bg: this.fullDoc?.background ?? null,
       bgd: !!this.fullDoc?.formatting?.settings.displayBackgroundShape,
@@ -69925,6 +70892,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (state2.sv !== void 0 && this.docStyles.restore(state2.sv)) this.syncStyleSheet();
     if (state2.np) this.noteSettings = state2.np;
     if (state2.dt !== void 0 && state2.dt !== this.defaultTabStop()) this.applyDefaultTab(state2.dt);
+    if (state2.hy && JSON.stringify(state2.hy) !== JSON.stringify(this.hyphenationSettings())) this.applyHyphenation(state2.hy);
     this.restorePageBackground(state2.bg, state2.bgd);
     for (const [k2, b5] of state2.hx ?? []) this.restoreHfPart(k2, b5);
     if (state2.hp) this.restoreHfPart(state2.hp.k, state2.hp.b);
@@ -70943,6 +71911,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.refreshSelection();
         return;
       }
+      if (ctrl && !e8.altKey && (e8.code === "Minus" || e8.code === "NumpadSubtract")) {
+        e8.preventDefault();
+        if (!this.locked()) this.pasteText(e8.shiftKey ? "\u2011" : "\xAD");
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+        return;
+      }
       const nav = {
         ArrowLeft: () => this.moveCaret("left", e8.shiftKey),
         ArrowRight: () => this.moveCaret("right", e8.shiftKey),
@@ -71229,10 +72204,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  refs da seção no modelo. */
   effectiveSection(id, sp2, refs) {
     const props = this.sectionProps.get(id);
-    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp2.type ?? "", sp2.cols ?? null]);
+    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp2.type ?? "", sp2.cols ?? null, sp2.lnNumType ?? null, sp2.vAlign ?? ""]);
     const c5 = this.sectionEff.get(id);
     if (c5 && c5.sp === sp2 && c5.key === key && c5.props === props) return c5.sec;
     const sect = { ...props ?? { type: "nextPage" }, type: sp2.type ?? "nextPage" };
+    if (sp2.lnNumType) sect.lnNumType = { ...sp2.lnNumType };
+    else delete sect.lnNumType;
+    if (sp2.vAlign) sect.vAlign = sp2.vAlign;
+    else delete sect.vAlign;
     if (sp2.cols?.widths) {
       sect.colDefs = sp2.cols.widths.map((w2) => ({ w: w2.widthTwips, space: w2.spaceTwips }));
       sect.equalWidth = false;
@@ -71438,11 +72417,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   setHeaderFooterDistance(d3) {
     const c5 = this.hfContext();
     if (!c5) return;
-    const clamp = (v2) => Math.max(0, Math.min(Math.round(v2), 31680));
+    const clamp2 = (v2) => Math.max(0, Math.min(Math.round(v2), 31680));
     this.hfSectionOp((m2) => {
       const sp2 = sectionSectPr(m2, c5.sec);
-      if (d3.header !== void 0) sp2.headerDistanceTwips = clamp(d3.header);
-      if (d3.footer !== void 0) sp2.footerDistanceTwips = clamp(d3.footer);
+      if (d3.header !== void 0) sp2.headerDistanceTwips = clamp2(d3.header);
+      if (d3.footer !== void 0) sp2.footerDistanceTwips = clamp2(d3.footer);
     });
   }
   /**
@@ -73983,13 +74962,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   applyResize(obj, d3, dxT, dyT, lockAspect, fromCenter = false, rotDeg = 0) {
     const MIN = 120;
     const hn = d3.handle;
-    let L11 = -d3.startW / 2, R2 = d3.startW / 2, T9 = -d3.startH / 2, B3 = d3.startH / 2;
+    let L12 = -d3.startW / 2, R2 = d3.startW / 2, T9 = -d3.startH / 2, B3 = d3.startH / 2;
     if (hn.includes("e")) {
       R2 += dxT;
-      if (fromCenter) L11 -= dxT;
+      if (fromCenter) L12 -= dxT;
     }
     if (hn.includes("w")) {
-      L11 += dxT;
+      L12 += dxT;
       if (fromCenter) R2 -= dxT;
     }
     if (hn.includes("s")) {
@@ -74001,24 +74980,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (fromCenter) B3 -= dyT;
     }
     if (lockAspect && hn.length === 2 && d3.startW > 0 && d3.startH > 0) {
-      const rw = (R2 - L11) / d3.startW, rh = (B3 - T9) / d3.startH;
+      const rw = (R2 - L12) / d3.startW, rh = (B3 - T9) / d3.startH;
       const r6 = Math.abs(rw - 1) >= Math.abs(rh - 1) ? rw : rh;
       const nw = d3.startW * r6, nh = d3.startH * r6;
       if (fromCenter) {
-        L11 = -nw / 2;
+        L12 = -nw / 2;
         R2 = nw / 2;
         T9 = -nh / 2;
         B3 = nh / 2;
       } else {
-        if (hn.includes("w")) L11 = R2 - nw;
-        else R2 = L11 + nw;
+        if (hn.includes("w")) L12 = R2 - nw;
+        else R2 = L12 + nw;
         if (hn.includes("n")) T9 = B3 - nh;
         else B3 = T9 + nh;
       }
     }
-    const w2 = Math.max(MIN, R2 - L11), h3 = Math.max(MIN, B3 - T9);
+    const w2 = Math.max(MIN, R2 - L12), h3 = Math.max(MIN, B3 - T9);
     const a3 = rotDeg * Math.PI / 180;
-    const cxl = (L11 + R2) / 2, cyl = (T9 + B3) / 2;
+    const cxl = (L12 + R2) / 2, cyl = (T9 + B3) / 2;
     const cx = cxl * Math.cos(a3) - cyl * Math.sin(a3), cy = cxl * Math.sin(a3) + cyl * Math.cos(a3);
     obj.widthTwips = Math.round(w2);
     obj.heightTwips = Math.round(h3);
@@ -74110,17 +75089,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const rx = (ev.clientX - sx) / scale, ry = (ev.clientY - sy) / scale;
       const ar = -rot * Math.PI / 180;
       const dx = rx * Math.cos(ar) - ry * Math.sin(ar), dy = rx * Math.sin(ar) + ry * Math.cos(ar);
-      let { L: L11, R: R2, T: T9, B: B3, fL, fT } = g0;
+      let { L: L12, R: R2, T: T9, B: B3, fL, fT } = g0;
       if (handle === "pan") {
         fL += dx;
         fT += dy;
       } else {
-        if (handle.includes("w")) L11 = Math.min(R2 - MIN, L11 + dx);
-        if (handle.includes("e")) R2 = Math.max(L11 + MIN, R2 + dx);
+        if (handle.includes("w")) L12 = Math.min(R2 - MIN, L12 + dx);
+        if (handle.includes("e")) R2 = Math.max(L12 + MIN, R2 + dx);
         if (handle.includes("n")) T9 = Math.min(B3 - MIN, T9 + dy);
         if (handle.includes("s")) B3 = Math.max(T9 + MIN, B3 + dy);
       }
-      const dl = (L11 - fL) / g0.fW, dr = (fL + g0.fW - R2) / g0.fW, dt = (T9 - fT) / g0.fH, db2 = (fT + g0.fH - B3) / g0.fH;
+      const dl = (L12 - fL) / g0.fW, dr = (fL + g0.fW - R2) / g0.fW, dt = (T9 - fT) / g0.fH, db2 = (fT + g0.fH - B3) / g0.fH;
       crop = {
         l: pic.format.flipH ? dr : dl,
         r: pic.format.flipH ? dl : dr,
@@ -74128,8 +75107,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         b: pic.format.flipV ? dt : db2
       };
       pic.crop = crop;
-      const w2 = R2 - L11, hh = B3 - T9;
-      const a3 = rot * Math.PI / 180, cxl = (L11 + R2) / 2, cyl = (T9 + B3) / 2;
+      const w2 = R2 - L12, hh = B3 - T9;
+      const a3 = rot * Math.PI / 180, cxl = (L12 + R2) / 2, cyl = (T9 + B3) / 2;
       const cx = cxl * Math.cos(a3) - cyl * Math.sin(a3), cy = cxl * Math.sin(a3) + cyl * Math.cos(a3);
       pic.widthTwips = Math.round(w2);
       pic.heightTwips = Math.round(hh);
@@ -74198,19 +75177,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.strokeStyle = "#2b579a";
     ctx.strokeRect(s4(g2.L), s4(g2.T), s4(g2.R - g2.L), s4(g2.B - g2.T));
     const len2 = 12 * dpr, th = 4 * dpr;
-    const L11 = s4(g2.L), R2 = s4(g2.R), T9 = s4(g2.T), B3 = s4(g2.B), mx = (L11 + R2) / 2, my = (T9 + B3) / 2;
+    const L12 = s4(g2.L), R2 = s4(g2.R), T9 = s4(g2.T), B3 = s4(g2.B), mx = (L12 + R2) / 2, my = (T9 + B3) / 2;
     const bars = [
-      [L11, T9, len2, th],
-      [L11, T9, th, len2],
+      [L12, T9, len2, th],
+      [L12, T9, th, len2],
       [R2 - len2, T9, len2, th],
       [R2 - th, T9, th, len2],
-      [L11, B3 - th, len2, th],
-      [L11, B3 - len2, th, len2],
+      [L12, B3 - th, len2, th],
+      [L12, B3 - len2, th, len2],
       [R2 - len2, B3 - th, len2, th],
       [R2 - th, B3 - len2, th, len2],
       [mx - len2 / 2, T9, len2, th],
       [mx - len2 / 2, B3 - th, len2, th],
-      [L11, my - len2 / 2, th, len2],
+      [L12, my - len2 / 2, th, len2],
       [R2 - th, my - len2 / 2, th, len2]
     ];
     ctx.fillStyle = "#ffffff";
@@ -76212,10 +77191,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const eng = this.eng;
     const t6 = this.tableAnchors[anchor]?.table;
     if (!t6) return null;
-    const els = eng.lines.filter((el15) => el15.loc.kind === "cell" && el15.loc.anchor === anchor);
+    const els = eng.lines.filter((el16) => el16.loc.kind === "cell" && el16.loc.anchor === anchor);
     if (!els.length) return null;
     const pg = els[0].page;
-    if (els.some((el15) => el15.page !== pg)) return null;
+    if (els.some((el16) => el16.page !== pg)) return null;
     const page2 = eng.result.pages[pg];
     const synth = this.synthLayout(t6, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
@@ -76233,7 +77212,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const want = sp2.items.map((it) => shiftPageItem(it, dx, dy));
     const start = findItems(page2.items, want, eng.hfItems[pg] ?? 0);
     const lineAt = page2.lines.indexOf(els[0].line);
-    if (start < 0 || lineAt < 0 || els.some((el15, i7) => page2.lines[lineAt + i7] !== el15.line)) return null;
+    if (start < 0 || lineAt < 0 || els.some((el16, i7) => page2.lines[lineAt + i7] !== el16.line)) return null;
     return { page: pg, dx, dy, start, count: want.length, lineAt, lineCount: els.length, bottom: itemsBottom(sp2), root: els[0].line.ref.split("/")[0] };
   }
   /** Edição numa célula: troca só os itens/linhas da tabela se a altura dela
@@ -76266,7 +77245,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ...l3.chars ? { chars: l3.chars.map((c5) => ({ o: c5.o, x: c5.x + b5.dx, w: c5.w })) } : {}
     }));
     page2.lines.splice(b5.lineAt, b5.lineCount, ...lines);
-    const k2 = eng.lines.findIndex((el15) => el15.page === b5.page && el15.loc.kind === "cell" && el15.loc.anchor === h3.anchor);
+    const k2 = eng.lines.findIndex((el16) => el16.page === b5.page && el16.loc.kind === "cell" && el16.loc.anchor === h3.anchor);
     if (k2 < 0) return false;
     const sec = eng.result.pages[b5.page].section;
     eng.lines.splice(k2, b5.lineCount, ...lines.map((line2) => {
@@ -76390,7 +77369,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (para4.runs.some((r6) => r6.custom)) for (const l3 of lines) collapseCustomChars(l3, para4);
     page2.lines.splice(b5.lineAt, lines.length, ...lines);
     const loc = { kind: "body", para: h3.para };
-    let k2 = eng.lines.findIndex((el15) => el15.page === b5.page && el15.line.ref === b5.ref);
+    let k2 = eng.lines.findIndex((el16) => el16.page === b5.page && el16.line.ref === b5.ref);
     if (k2 >= 0) eng.lines.splice(k2, lines.length, ...lines.map((line2) => ({ line: line2, page: b5.page, loc, para: para4 })));
     const len2 = paraLength(para4);
     this.layoutCache[h3.para] = {
@@ -76433,35 +77412,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const hfWhich = this.hfEdit ? this.hfEdit.kind === "header" ? "hdr" : "ftr" : null;
     let hfPage = this.hfActivePage;
     if (hfWhich) {
-      const shows = (pg) => this.eng.lines.some((el15) => el15.page === pg && el15.loc.kind === "hf" && el15.loc.which === hfWhich && !!el15.para && paras.includes(el15.para));
+      const shows = (pg) => this.eng.lines.some((el16) => el16.page === pg && el16.loc.kind === "hf" && el16.loc.which === hfWhich && !!el16.para && paras.includes(el16.para));
       if (!shows(hfPage)) {
-        const other = this.eng.lines.find((el15) => el15.loc.kind === "hf" && el15.loc.which === hfWhich && !!el15.para && paras.includes(el15.para));
+        const other = this.eng.lines.find((el16) => el16.loc.kind === "hf" && el16.loc.which === hfWhich && !!el16.para && paras.includes(el16.para));
         if (other) this.hfActivePage = hfPage = other.page;
       }
     }
-    for (const el15 of this.eng.lines) {
+    for (const el16 of this.eng.lines) {
       let pi = -1;
       if (hfWhich) {
-        if (el15.page === hfPage && el15.loc.kind === "hf" && el15.loc.which === hfWhich && el15.para) pi = paras.indexOf(el15.para);
+        if (el16.page === hfPage && el16.loc.kind === "hf" && el16.loc.which === hfWhich && el16.para) pi = paras.indexOf(el16.para);
       } else if (this.noteEdit) {
         const ne = this.noteEdit;
-        if (el15.loc.kind === "note" && el15.loc.note === ne.kind && el15.loc.id === ne.id && el15.para) pi = paras.indexOf(el15.para);
+        if (el16.loc.kind === "note" && el16.loc.note === ne.kind && el16.loc.id === ne.id && el16.para) pi = paras.indexOf(el16.para);
       } else if (!ce) {
-        if (el15.loc.kind === "body") pi = el15.loc.para;
-      } else if (el15.loc.kind === "cell" && el15.loc.anchor === ce.anchor && sameHops(el15.loc.hops, ce.hops)) {
-        const blk = blocksOfCell[el15.loc.block];
+        if (el16.loc.kind === "body") pi = el16.loc.para;
+      } else if (el16.loc.kind === "cell" && el16.loc.anchor === ce.anchor && sameHops(el16.loc.hops, ce.hops)) {
+        const blk = blocksOfCell[el16.loc.block];
         if (blk?.type === "paragraph") pi = paras.indexOf(blk.paragraph);
       }
       const pl = pi >= 0 ? this.layoutCache[pi] : void 0;
       if (!pl) continue;
-      const l3 = el15.line;
+      const l3 = el16.line;
       if (pl.lines.some((x3) => x3.rich.start === l3.start && x3.rich.end === l3.end)) continue;
       const len2 = paraLength(paras[pi]);
-      const clamp = (o7) => Math.max(0, Math.min(len2, o7));
+      const clamp2 = (o7) => Math.max(0, Math.min(len2, o7));
       pl.lines.push({
         para: pi,
-        rich: { start: clamp(l3.start), end: clamp(l3.end), widthTwips: l3.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
-        page: el15.page,
+        rich: { start: clamp2(l3.start), end: clamp2(l3.end), widthTwips: l3.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+        page: el16.page,
         xTwips: l3.x,
         yTwips: l3.y,
         heightTwips: l3.height,
@@ -76507,10 +77486,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const l3 = plain2 ? shiftEngLine(l0, e8, f3) : l0;
           if (pl.lines.some((x3) => x3.rich.start === l3.start && x3.rich.end === l3.end && x3.page === pg)) continue;
           const len2 = paraLength(paras[pi]);
-          const clamp = (v2) => Math.max(0, Math.min(len2, v2));
+          const clamp2 = (v2) => Math.max(0, Math.min(len2, v2));
           pl.lines.push({
             para: pi,
-            rich: { start: clamp(l3.start), end: clamp(l3.end), widthTwips: l3.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+            rich: { start: clamp2(l3.start), end: clamp2(l3.end), widthTwips: l3.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
             page: pg,
             xTwips: l3.x,
             yTwips: l3.y,
@@ -76766,9 +77745,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
       ctx.textAlign = "left";
     }
-    for (const el15 of eng.lines) {
-      if (el15.page !== pg || el15.loc.kind === "other") continue;
-      const para4 = el15.para;
+    for (const el16 of eng.lines) {
+      if (el16.page !== pg || el16.loc.kind === "other") continue;
+      const para4 = el16.para;
       if (!para4) continue;
       let acc = 0;
       for (const run3 of para4.runs) {
@@ -76778,22 +77757,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const comment = !!run3.props.commentIds?.length;
         if (!field3 && !comment) continue;
         let x1 = Infinity, x22 = -Infinity;
-        for (const c5 of el15.line.chars ?? []) {
+        for (const c5 of el16.line.chars ?? []) {
           if (c5.o < a3 || c5.o >= acc) continue;
           x1 = Math.min(x1, c5.x);
           x22 = Math.max(x22, c5.x + c5.w);
         }
         if (!(x22 > x1)) continue;
         ctx.fillStyle = comment ? "rgba(255, 187, 0, 0.28)" : this.pageDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)";
-        ctx.fillRect(x1, el15.line.y, x22 - x1, el15.line.height);
+        ctx.fillRect(x1, el16.line.y, x22 - x1, el16.line.height);
       }
     }
   }
   /** Marca de quebra com "mostrar marcas": linha pontilhada (dupla na de seção)
    *  até o fim da coluna com o nome no meio — adorno de tela (não vai ao PDF). */
   paintBreakMark(ctx, x0, x1, baseline, fs, kind, double) {
-    const L11 = pickLabels(this, BREAK_MARK_LABELS);
-    const label = kind === "page" ? L11.page : kind === "column" ? L11.column : `${L11.section} (${L11[kind]})`;
+    const L12 = pickLabels(this, BREAK_MARK_LABELS);
+    const label = kind === "page" ? L12.page : kind === "column" ? L12.column : `${L12.section} (${L12[kind]})`;
     const right = Math.max(x1, x0 + 600);
     ctx.save();
     ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
@@ -76874,11 +77853,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.strokeStyle = this.pageDark ? "#ff6b6b" : "#e81123";
     ctx.lineWidth = 11;
-    for (const el15 of this.eng.lines) {
-      if (el15.page !== pg || el15.loc.kind === "other" || !el15.para) continue;
-      const list = spell.get(el15.para);
+    for (const el16 of this.eng.lines) {
+      if (el16.page !== pg || el16.loc.kind === "other" || !el16.para) continue;
+      const list = spell.get(el16.para);
       if (!list?.length) continue;
-      const chars = el15.line.chars ?? [];
+      const chars = el16.line.chars ?? [];
       for (const m2 of list) {
         let x1 = Infinity, x22 = -Infinity;
         for (const c5 of chars) {
@@ -76887,7 +77866,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           x22 = Math.max(x22, c5.x + c5.w);
         }
         if (!(x22 > x1)) continue;
-        wavePath(ctx, x1, x22, el15.line.baseline + 50);
+        wavePath(ctx, x1, x22, el16.line.baseline + 50);
         ctx.stroke();
       }
     }
@@ -76999,9 +77978,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  motor diagramou (o motor não conhece a medida do plugin). */
   paintEngineInlines(ctx, pg, scale) {
     const page2 = this.eng.result.pages[pg];
-    for (const el15 of this.eng.lines) {
-      if (el15.page !== pg || el15.loc.kind === "other") continue;
-      const para4 = el15.para;
+    for (const el16 of this.eng.lines) {
+      if (el16.page !== pg || el16.loc.kind === "other") continue;
+      const para4 = el16.para;
       if (!para4?.runs.some((r6) => r6.custom)) continue;
       let acc = 0;
       for (const run3 of para4.runs) {
@@ -77009,9 +77988,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         acc += run3.text.length;
         if (!run3.custom) continue;
         const renderer = this.inlineRenderers.get(run3.custom.type)?.renderer;
-        const c5 = el15.line.chars?.find((k2) => k2.o === a3);
+        const c5 = el16.line.chars?.find((k2) => k2.o === a3);
         if (!renderer?.draw || !c5) continue;
-        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el15.line.baseline) < 400 && it.glyphs.some((g2) => Math.abs(g2.x - c5.x) < 0.5));
+        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el16.line.baseline) < 400 && it.glyphs.some((g2) => Math.abs(g2.x - c5.x) < 0.5));
         const run0 = gr?.t === "glyphs" ? gr : null;
         const sizePt = run0?.sizePt ?? (run3.props.szHalfPt ?? 22) / 2;
         const css2 = run0 ? this.enginePaintEnv().fontOf(run0.face) : { family: DEFAULT_FONT_CSS, weight: 400, italic: false };
@@ -77025,7 +78004,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const ink = this.inkColor(run0?.color ?? run3.props.color);
         ctx.save();
         ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
-        ctx.fillRect(c5.x * scale, el15.line.y * scale, c5.w * scale, el15.line.height * scale);
+        ctx.fillRect(c5.x * scale, el16.line.y * scale, c5.w * scale, el16.line.height * scale);
         ctx.font = `${css2.italic ? "italic " : ""}${css2.weight} ${sizePt * TWIPS_PER_PT * scale}px ${css2.family}`;
         ctx.fillStyle = ink;
         renderer.draw({
@@ -77036,10 +78015,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           measureText,
           ctx,
           xTwips: c5.x,
-          yTwips: el15.line.y,
-          baselineTwips: el15.line.baseline,
+          yTwips: el16.line.y,
+          baselineTwips: el16.line.baseline,
           widthTwips: c5.w,
-          heightTwips: el15.line.height,
+          heightTwips: el16.line.height,
           scale,
           dark: this.pageDark,
           color: ink
@@ -77234,6 +78213,370 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.fullDoc?.formatting) this.fullDoc.formatting = set(this.fullDoc.formatting);
     if (this.newFormatting) this.newFormatting = set(this.newFormatting) ?? null;
     this.engPageCache.clear();
+  }
+  // ─────────── layout do texto: hifenização, números de linha, quebras do parágrafo, Recuar/Espaçamento ───────────
+  // Regras do Word medidas em write/tools/textlayout-lab (memória word-textlayout-oracle-facts).
+  /** Hifenização como o editor a deixou (null = a do arquivo). */
+  hyph = null;
+  hyphenationSettings() {
+    if (this.hyph) return this.hyph;
+    const s4 = (this.fullDoc?.formatting ?? this.newFormatting)?.settings;
+    return { auto: !!s4?.autoHyphenation, caps: !s4?.doNotHyphenateCaps, ...s4?.hyphenationZone !== void 0 ? { zone: s4.hyphenationZone } : {}, limit: s4?.consecutiveHyphenLimit ?? 0 };
+  }
+  applyHyphenation(h3) {
+    this.hyph = h3;
+    const set = (f3) => {
+      const settings2 = { ...f3.settings, autoHyphenation: h3.auto, doNotHyphenateCaps: !h3.caps };
+      if (h3.zone !== void 0) settings2.hyphenationZone = h3.zone;
+      else delete settings2.hyphenationZone;
+      if (h3.limit > 0) settings2.consecutiveHyphenLimit = h3.limit;
+      else delete settings2.consecutiveHyphenLimit;
+      return { ...f3, settings: settings2 };
+    };
+    if (this.fullDoc?.formatting) this.fullDoc.formatting = set(this.fullDoc.formatting);
+    else this.newFormatting = set(this.newFormatting ?? emptyFormatting());
+    this.engPageCache.clear();
+  }
+  /** Opções de Hifenização do documento (a zona sem o elemento é a do Word pt-BR). */
+  getHyphenation() {
+    const h3 = this.hyphenationSettings();
+    return { auto: h3.auto, caps: h3.caps, zoneTwips: h3.zone ?? 425, limit: h3.limit };
+  }
+  /** Hifenização › Nenhuma / Automática (w:autoHyphenation; os hífens opcionais do
+   *  texto ficam — oráculo hy-none-shy). Um passo de desfazer. */
+  setHyphenation(mode) {
+    this.setHyphenationOptions({ auto: mode === "auto" });
+  }
+  /** Opções de Hifenização: automática, MAIÚSCULAS, zona (twips) e limite de hifens
+   *  consecutivos (0 = sem limite). Um passo de desfazer; grava no settings.xml. */
+  setHyphenationOptions(o7) {
+    if (!this.model || this.locked()) return;
+    const cur = this.hyphenationSettings();
+    const lim = (v2, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(v2)));
+    const next = {
+      auto: o7.auto ?? cur.auto,
+      caps: o7.caps ?? cur.caps,
+      limit: o7.limit !== void 0 ? lim(o7.limit, HYPHENATION_LIMITS.limit) : cur.limit,
+      ...o7.zoneTwips !== void 0 ? { zone: lim(o7.zoneTwips, HYPHENATION_LIMITS.zoneTwips) } : cur.zone !== void 0 ? { zone: cur.zone } : {}
+    };
+    if (JSON.stringify(next) === JSON.stringify(cur)) return;
+    this.snapshot();
+    this.applyHyphenation(next);
+    this.refresh();
+  }
+  /** Hifenização Manual em curso: de onde procurar (até `to`, com seleção), a palavra
+   *  proposta e as recusadas (não hifenizam na procura seguinte). */
+  manualHyph = null;
+  /**
+   * Hifenização Manual: a próxima palavra a hifenizar (null = acabou) — as que a
+   * hifenização automática partiria no fim da linha, na ordem do texto, dentro da
+   * seleção (sem seleção, o documento todo). A palavra fica selecionada. Depois:
+   * `applyManualHyphenation(ponto)` (Sim: hífen opcional, w:softHyphen) ou
+   * `skipManualHyphenation()` (Não); `endManualHyphenation()` encerra.
+   */
+  async nextManualHyphenation() {
+    if (!this.model || this.locked() || this.cellEdit || this.hfEdit || this.noteEdit || this.tbEdit) return null;
+    if (!this.manualHyph) {
+      const r6 = normalizeRange(this.range());
+      this.manualHyph = this.hasSelection() ? { from: r6.start, to: r6.end, skip: /* @__PURE__ */ new Map() } : { from: { para: 0, offset: 0 }, skip: /* @__PURE__ */ new Map() };
+    }
+    const mh = this.manualHyph;
+    mh.cur = void 0;
+    this.syncRunRPr(this.model.paragraphs);
+    const doc = this.liveEngineDoc();
+    const langs = documentHyphenationLanguages(doc.full, "pt-BR", true).filter((l3) => {
+      const x3 = l3.toLowerCase();
+      return ENGINE_LAYOUT_OPTS.hyphenationLanguages.some((y3) => {
+        const z2 = y3.toLowerCase();
+        return x3 === z2 || x3.startsWith(`${z2}-`);
+      });
+    });
+    try {
+      await loadHyphenation(langs);
+    } catch {
+    }
+    if (this.manualHyph !== mh || !this.model) return null;
+    const res = layoutDocument(doc.full, this.liveFontProvider(), {
+      ...this.layoutOpts(),
+      hyphenation: "force",
+      hyphenationSkip: (p3, off) => mh.skip.get(p3)?.has(off) ?? false
+    });
+    for (const page2 of res.pages) {
+      for (const ln2 of page2.lines) {
+        if (ln2.hyph === void 0) continue;
+        const loc = locateRef(ln2.ref, doc.origins);
+        if (loc.kind !== "body") continue;
+        const at = { para: loc.para, offset: ln2.hyph };
+        if (comparePos(at, mh.from) < 0 || mh.to && comparePos(at, mh.to) > 0) continue;
+        const para4 = this.model.paragraphs[loc.para];
+        const text = paraText(para4);
+        const [a3, b5] = wordAround(text, ln2.hyph);
+        if (b5 - a3 < 2) continue;
+        const raw = text.slice(a3, b5);
+        const lang = this.langAt(para4, a3);
+        const letters2 = [...raw].filter((c5) => c5 !== "\xAD").join("");
+        const h3 = hyphenatorFor(lang);
+        const [l0, r0] = [2, ((this.fullDoc?.formatting ?? this.newFormatting)?.settings.compatibilityMode ?? 15) >= 15 ? 3 : 2];
+        const { word, points } = manualPoints(raw, h3 ? h3.hyphenate(letters2, l0, r0) : []);
+        const suggested = [...text.slice(a3, ln2.hyph)].filter((c5) => c5 !== "\xAD").length;
+        if (!points.includes(suggested)) {
+          points.push(suggested);
+          points.sort((x3, y3) => x3 - y3);
+        }
+        mh.cur = { para: loc.para, start: a3, end: b5, raw, points, limit: suggested };
+        this.selection = { anchor: { para: loc.para, offset: a3 }, focus: { para: loc.para, offset: b5 } };
+        this.refreshSelection();
+        this.scrollCaretIntoView();
+        return { word, lang, points, suggested, limit: suggested };
+      }
+    }
+    this.manualHyph = null;
+    return null;
+  }
+  /** Sim: hífen opcional depois de `letters` letras da palavra proposta (um dos
+   *  pontos, até o limite da linha). Um passo de desfazer. */
+  applyManualHyphenation(letters2) {
+    const mh = this.manualHyph, c5 = mh?.cur;
+    if (!mh || !c5 || !this.model || this.locked() || !c5.points.includes(letters2) || letters2 > c5.limit) return;
+    const off = offsetAfterLetters(c5.raw, c5.start, letters2);
+    const text = paraText(this.model.paragraphs[c5.para]);
+    let grow = 0;
+    if (text[off - 1] !== "\xAD" && text[off] !== "\xAD") {
+      this.snapshot();
+      const props = this.runPropsAt(c5.para, Math.max(c5.start, off - 1));
+      const pos = this.insertTyped({ para: c5.para, offset: off }, "\xAD", props);
+      this.selection = { anchor: pos, focus: pos };
+      grow = 1;
+      this.refresh();
+    }
+    mh.from = { para: c5.para, offset: c5.end + grow };
+    mh.cur = void 0;
+  }
+  /** Não: a palavra fica sem hífen e a procura segue depois dela. */
+  skipManualHyphenation() {
+    const mh = this.manualHyph, c5 = mh?.cur;
+    if (!mh || !c5 || !this.model) return;
+    const p3 = this.model.paragraphs[c5.para];
+    let s4 = mh.skip.get(p3);
+    if (!s4) mh.skip.set(p3, s4 = /* @__PURE__ */ new Set());
+    s4.add(c5.start);
+    mh.from = { para: c5.para, offset: c5.end };
+    mh.cur = void 0;
+  }
+  /** Encerra a Hifenização Manual (Cancelar ou fim). */
+  endManualHyphenation() {
+    this.manualHyph = null;
+  }
+  /** Idioma (w:lang) do texto num ponto do parágrafo (run, estilo, padrão do documento). */
+  langAt(p3, offset) {
+    let acc = 0;
+    let run3;
+    for (const r6 of p3.runs) {
+      if (offset < acc + r6.text.length) {
+        run3 = r6;
+        break;
+      }
+      acc += r6.text.length;
+    }
+    const direct = run3?.rpr?.lang?.val;
+    if (direct) return direct;
+    const fmt2 = this.fullDoc?.formatting ?? this.newFormatting;
+    return fmt2?.styles.docDefaults.rPr?.lang?.val ?? "pt-BR";
+  }
+  /** Props do run num ponto do parágrafo (o caractere inserido herda). */
+  runPropsAt(para4, offset) {
+    let acc = 0;
+    for (const r6 of this.model.paragraphs[para4].runs) {
+      if (offset < acc + r6.text.length) return withoutRevisions(r6.props);
+      acc += r6.text.length;
+    }
+    return void 0;
+  }
+  // ── números de linha (Layout › Números de Linha; Configurar Página › Layout)
+  /** O que a sessão lembra das seções com a numeração desligada (oráculo ln-off-on). */
+  lnMemory = /* @__PURE__ */ new WeakMap();
+  /** Seções-alvo dos números de linha: as que a seleção toca (oráculo ln-scope-*) ou,
+   *  pelo diálogo, o "Aplicar a" (só no corpo abre quebras). */
+  lineNumberTargets(applyTo) {
+    const m2 = this.bodyModel();
+    const inBody = !this.cellEdit && !this.hfEdit && !this.noteEdit && !this.tbEdit;
+    if (applyTo === "document") return sectionRanges(m2).map((r6) => r6.sb?.sectPr ?? m2.sectPr);
+    if (inBody && applyTo !== "section") return this.sectionTargets(applyTo, "nextPage");
+    const [k0, k1] = this.bodySectionRange();
+    const out = [];
+    for (let k2 = k0; k2 <= k1; k2++) out.push(sectionSectPr(m2, k2));
+    return out;
+  }
+  /** O estilo "Número de linha" (line number) entra no styles.xml ao ligar a numeração,
+   *  como o Word (e fica mesmo depois de desfazer — oráculo ln-cont-undo). */
+  ensureLineNumberStyle() {
+    if (this.docStyles.byName("line number")) return;
+    this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), "Nmerodelinha", false));
+  }
+  /** Números de linha das seções da seleção (a 1ª; `mixed` = as seções diferem). */
+  getLineNumbering() {
+    if (!this.model) return null;
+    const m2 = this.bodyModel();
+    const [k0, k1] = this.bodySectionRange();
+    const infos = [];
+    for (let k2 = k0; k2 <= k1; k2++) infos.push(lineNumberingInfo(sectionSectPr(m2, k2)));
+    return { ...infos[0], mixed: infos.some((i7) => i7.mode !== infos[0].mode) };
+  }
+  /** Menu Números de Linha: Nenhum, Contínuo, Reiniciar a Cada Página/Seção — nas
+   *  seções que a seleção toca; os outros valores ficam. Um passo de desfazer. */
+  setLineNumbering(mode) {
+    if (!this.model || this.locked()) return;
+    if (mode !== "none") this.ensureLineNumberStyle();
+    this.snapshot();
+    for (const sp2 of this.lineNumberTargets("section")) this.setSectionLineNumbering(sp2, withLineNumberMode(sp2, mode, this.lnMemory.get(sp2)));
+    this.refresh();
+  }
+  /** Diálogo Números de Linha: ligar, Iniciar em, Do texto (0 = Automático), Contar
+   *  por e Numeração; `applyTo` como em Configurar Página. Um passo de desfazer. */
+  setLineNumberingOptions(o7, applyTo = "section") {
+    if (!this.model || this.locked()) return;
+    if ((applyTo === "forward" || applyTo === "selection") && !this.canInsertSectionBreak()) return;
+    if (o7.on) this.ensureLineNumberStyle();
+    this.snapshot();
+    const ln2 = lineNumberingFromOptions(o7);
+    for (const sp2 of this.lineNumberTargets(applyTo)) this.setSectionLineNumbering(sp2, ln2 ? { ...ln2 } : void 0);
+    this.refresh();
+  }
+  setSectionLineNumbering(sp2, ln2) {
+    const cur = sp2.lnNumType;
+    if (!ln2 && lineNumberingOn(cur)) this.lnMemory.set(sp2, { ...cur.start ? { start: cur.start } : {}, ...cur.distance ? { distance: cur.distance } : {} });
+    if (ln2) sp2.lnNumType = ln2;
+    else delete sp2.lnNumType;
+  }
+  /** Algum parágrafo da seleção suprime os números de linha? (o item do menu fica marcado) */
+  lineNumbersSuppressed() {
+    if (!this.model) return false;
+    const { start, end } = normalizeRange(this.range());
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p3 = this.model.paragraphs[pi];
+      if (p3 && flowValue(this.effectivePPrOf(p3), "suppressLineNumbers")) return true;
+    }
+    return false;
+  }
+  /** Suprimir no Parágrafo Atual: alterna; com algum já suprimido, tira de todos
+   *  (oráculo ln-suppress-mso-mixed). Funciona com a numeração desligada. */
+  toggleLineNumberSuppression() {
+    this.setParagraphFlow({ suppressLineNumbers: !this.lineNumbersSuppressed() });
+  }
+  // ── Parágrafo › Quebras de linha e de página
+  /** Valores EFETIVOS da aba Quebras de linha e de página (null = parágrafos diferentes). */
+  getParagraphFlow() {
+    if (!this.model) return null;
+    const { start, end } = normalizeRange(this.range());
+    const ps = this.model.paragraphs.slice(start.para, end.para + 1);
+    const eff = ps.map((p3) => this.effectivePPrOf(p3));
+    const out = {};
+    for (const k2 of FLOW_FLAGS2) out[k2] = common(eff.map((e8) => flowValue(e8, k2)));
+    out.textboxTightWrap = common(eff.map((e8) => e8.textboxTightWrap ?? "none"));
+    return out;
+  }
+  /** Aplica a aba Quebras de linha e de página aos parágrafos selecionados: grava só o
+   *  que difere do herdado (desligar contra o estilo = w:val="0"). Um passo de desfazer. */
+  setParagraphFlow(f3) {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    const patches = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p3 = this.model.paragraphs[pi];
+      if (!p3) continue;
+      const inh = this.inheritedPPrOf(p3);
+      const patch2 = {};
+      for (const k2 of FLOW_FLAGS2) {
+        const want = f3[k2];
+        if (want === void 0) continue;
+        const d3 = flowDirect(flowValue(inh, k2), want);
+        if (d3 !== p3.props[k2]) patch2[k2] = d3;
+      }
+      if (f3.textboxTightWrap !== void 0) {
+        const d3 = f3.textboxTightWrap === (inh.textboxTightWrap ?? "none") ? void 0 : f3.textboxTightWrap;
+        if (d3 !== p3.props.textboxTightWrap) patch2.textboxTightWrap = d3;
+      }
+      if (Object.keys(patch2).length) patches.push([pi, patch2]);
+    }
+    if (!patches.length) return;
+    this.snapshot();
+    for (const [pi, patch2] of patches) this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, patch2);
+    this.refresh();
+  }
+  // ── Layout › Parágrafo: caixas Recuar (Esquerda/Direita) e Espaçamento (Antes/Depois)
+  /** Valores EFETIVOS das caixas (twips; 'auto' = Automático; null = parágrafos diferentes). */
+  getParagraphLayout() {
+    if (!this.model) return null;
+    const { start, end } = normalizeRange(this.range());
+    const eff = this.model.paragraphs.slice(start.para, end.para + 1).map((p3) => this.effectivePPrOf(p3));
+    return {
+      left: common(eff.map((e8) => e8.ind?.left ?? 0)),
+      right: common(eff.map((e8) => e8.ind?.right ?? 0)),
+      before: common(eff.map((e8) => e8.spacing?.beforeAutospacing ? "auto" : e8.spacing?.before ?? 0)),
+      after: common(eff.map((e8) => e8.spacing?.afterAutospacing ? "auto" : e8.spacing?.after ?? 0))
+    };
+  }
+  /** Aplica as caixas aos parágrafos selecionados (o valor vale para todos; igual ao
+   *  herdado não é gravado — oráculos nav-lab ind-* e textlayout-lab sp-*). Um passo
+   *  de desfazer. */
+  setParagraphLayout(v2) {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    const ind2 = PARAGRAPH_LAYOUT_LIMITS.indent;
+    const clampInd = (x3) => x3 === void 0 ? void 0 : Math.min(ind2[1], Math.max(ind2[0], Math.round(x3)));
+    const left = clampInd(v2.left), right = clampInd(v2.right);
+    const patches = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p3 = this.model.paragraphs[pi];
+      if (!p3) continue;
+      const inh = this.inheritedPPrOf(p3);
+      let patch2 = {};
+      if (left !== void 0 || right !== void 0) {
+        const eff = this.effectivePPrOf(p3).ind ?? {};
+        const d3 = indentsDirect(inh.ind, {
+          left: left ?? eff.left ?? 0,
+          right: right ?? eff.right ?? 0,
+          firstLine: eff.hanging !== void 0 ? -eff.hanging : eff.firstLine ?? 0
+        });
+        patch2 = { ...d3 };
+      }
+      for (const side of ["before", "after"]) {
+        const want = v2[side];
+        if (want === void 0) continue;
+        const sp2 = inh.spacing;
+        patch2 = { ...patch2, ...spacingDirect({ twips: (side === "before" ? sp2?.before : sp2?.after) ?? 0, auto: !!(side === "before" ? sp2?.beforeAutospacing : sp2?.afterAutospacing) }, want, side) };
+      }
+      const changed = Object.keys(patch2).some((k2) => patch2[k2] !== p3.props[k2]);
+      if (changed) patches.push([pi, patch2]);
+    }
+    if (!patches.length) return;
+    this.snapshot();
+    for (const [pi, patch2] of patches) this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, patch2);
+    this.refresh();
+  }
+  // ── Configurar Página › Layout: início da seção e alinhamento vertical
+  /** Início da seção (w:type) — "Aplicar a" como em Configurar Página. Um passo de desfazer. */
+  setSectionStart(type, applyTo = "section") {
+    if (!this.model || this.locked()) return;
+    if ((applyTo === "forward" || applyTo === "selection") && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    for (const sp2 of this.lineNumberTargets(applyTo)) {
+      if (type === "nextPage") delete sp2.type;
+      else sp2.type = type;
+    }
+    this.refresh();
+  }
+  /** Alinhamento vertical do texto na página (w:vAlign: superior = sem elemento —
+   *  oráculo sec-valign-*). Um passo de desfazer. */
+  setVerticalAlignment(v2, applyTo = "section") {
+    if (!this.model || this.locked()) return;
+    if ((applyTo === "forward" || applyTo === "selection") && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    for (const sp2 of this.lineNumberTargets(applyTo)) {
+      if (v2 === "top") delete sp2.vAlign;
+      else sp2.vAlign = v2;
+    }
+    this.refresh();
   }
   /** Arrasta uma divisa de COLUNA da tabela do cursor (régua): `boundary` é a
    *  fronteira da grade (0 = borda esquerda) e `deltaTwips` o deslocamento —
@@ -77793,8 +79136,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!eng || !page2) return null;
     const which = kind === "header" ? "hdr" : "ftr";
     let type;
-    for (const el15 of eng.lines) if (el15.page === pg && el15.loc.kind === "hf" && el15.loc.which === which) {
-      type = el15.loc.part;
+    for (const el16 of eng.lines) if (el16.page === pg && el16.loc.kind === "hf" && el16.loc.which === which) {
+      type = el16.loc.part;
       break;
     }
     if (!type) {
@@ -77818,10 +79161,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const which = kind === "header" ? "hdr" : "ftr";
     let top = kind === "header" ? 0 : pageH - sp2.marginBottomTwips;
     let bottom = kind === "header" ? sp2.marginTopTwips : pageH;
-    for (const el15 of this.eng?.lines ?? []) {
-      if (el15.page !== pg || el15.loc.kind !== "hf" || el15.loc.which !== which) continue;
-      if (kind === "header") bottom = Math.max(bottom, el15.line.y + el15.line.height);
-      else top = Math.min(top, el15.line.y);
+    for (const el16 of this.eng?.lines ?? []) {
+      if (el16.page !== pg || el16.loc.kind !== "hf" || el16.loc.which !== which) continue;
+      if (kind === "header") bottom = Math.max(bottom, el16.line.y + el16.line.height);
+      else top = Math.min(top, el16.line.y);
     }
     return { top, bottom };
   }
@@ -77838,15 +79181,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const yT = (e8.clientY - rect2.top) / scale;
       let best = null;
       let bestD = Infinity;
-      for (const el15 of eng.lines) {
-        if (el15.page !== pg || el15.loc.kind === "other") continue;
-        const l3 = el15.line;
+      for (const el16 of eng.lines) {
+        if (el16.page !== pg || el16.loc.kind === "other") continue;
+        const l3 = el16.line;
         const dy = yT < l3.y ? l3.y - yT : yT > l3.y + l3.height ? yT - (l3.y + l3.height) : 0;
         const dx = xT < l3.x ? l3.x - xT : xT > l3.x + l3.width ? xT - (l3.x + l3.width) : 0;
         const d3 = dy * 4 + dx;
         if (d3 < bestD) {
           bestD = d3;
-          best = el15;
+          best = el16;
         }
       }
       return best;
@@ -77857,19 +79200,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  clicada (o hitTest depois acha o offset nas linhas do modelo em edição). */
   routeEngineClick(e8) {
     if (!this.eng || this.hfEdit || this.tbEdit || this.locked()) return;
-    const el15 = this.engLineAt(e8);
-    if (!el15) return;
-    if (el15.loc.kind === "note") {
+    const el16 = this.engLineAt(e8);
+    if (!el16) return;
+    if (el16.loc.kind === "note") {
       const ne = this.noteEdit;
-      if (!ne || ne.kind !== el15.loc.note || ne.id !== el15.loc.id) this.enterNote(el15.loc.note, el15.loc.id);
+      if (!ne || ne.kind !== el16.loc.note || ne.id !== el16.loc.id) this.enterNote(el16.loc.note, el16.loc.id);
       return;
     }
     if (this.noteEdit) this.exitNote();
-    if (el15.loc.kind === "cell") {
+    if (el16.loc.kind === "cell") {
       const ce = this.cellEdit;
-      if (ce && ce.anchor === el15.loc.anchor && sameHops(ce.hops, el15.loc.hops)) return;
-      this.enterCell(el15.loc.anchor, el15.loc.hops);
-    } else if (el15.loc.kind === "body" && this.cellEdit) {
+      if (ce && ce.anchor === el16.loc.anchor && sameHops(ce.hops, el16.loc.hops)) return;
+      this.enterCell(el16.loc.anchor, el16.loc.hops);
+    } else if (el16.loc.kind === "body" && this.cellEdit) {
       this.exitCell();
       this.refreshSelection();
     }
@@ -78005,14 +79348,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Texto da nota cuja referência está sob o ponteiro (null = nenhuma). */
   noteTipAt(e8) {
     if (!this.eng || !this.fullDoc || this.view === "read") return null;
-    const el15 = this.engLineAt(e8);
-    const para4 = el15?.para;
-    if (!el15 || !para4 || el15.loc.kind !== "body" && el15.loc.kind !== "cell" || !para4.runs.some((r6) => r6.noteRef)) return null;
-    const rect2 = this.canvases[el15.page]?.getBoundingClientRect();
+    const el16 = this.engLineAt(e8);
+    const para4 = el16?.para;
+    if (!el16 || !para4 || el16.loc.kind !== "body" && el16.loc.kind !== "cell" || !para4.runs.some((r6) => r6.noteRef)) return null;
+    const rect2 = this.canvases[el16.page]?.getBoundingClientRect();
     if (!rect2) return null;
     const scale = PX_PER_TWIP * this.zoom;
     const xT = (e8.clientX - rect2.left) / scale, yT = (e8.clientY - rect2.top) / scale;
-    const l3 = el15.line;
+    const l3 = el16.line;
     if (yT < l3.y || yT > l3.y + l3.height) return null;
     let acc = 0;
     for (const r6 of para4.runs) {
@@ -78391,10 +79734,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!ce || !this.eng) return false;
     const prefix = ce.hops.slice(0, -1);
     const seen = [];
-    for (const el15 of this.eng.lines) {
-      if (el15.loc.kind !== "cell" || el15.loc.anchor !== ce.anchor || el15.loc.hops.length !== ce.hops.length) continue;
-      if (!sameHops(el15.loc.hops.slice(0, -1), prefix)) continue;
-      const h3 = el15.loc.hops[el15.loc.hops.length - 1];
+    for (const el16 of this.eng.lines) {
+      if (el16.loc.kind !== "cell" || el16.loc.anchor !== ce.anchor || el16.loc.hops.length !== ce.hops.length) continue;
+      if (!sameHops(el16.loc.hops.slice(0, -1), prefix)) continue;
+      const h3 = el16.loc.hops[el16.loc.hops.length - 1];
       if (!seen.some((s4) => s4.r === h3.r && s4.c === h3.c)) seen.push(h3);
     }
     seen.sort((a3, b5) => a3.r - b5.r || a3.c - b5.c);
@@ -79435,7 +80778,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   async insertQuickTable(id) {
     if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
     const pt2 = uiLang(this) === "pt";
-    const tr8 = (en, p3) => pt2 ? p3 : en;
+    const tr9 = (en, p3) => pt2 ? p3 : en;
     let rows;
     let style;
     let merge = [];
@@ -79463,41 +80806,41 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       case "tabular":
         rows = [
-          [tr8("Item", "Item"), tr8("Needed", "Necess\xE1rio")],
-          [tr8("Notebooks", "Cadernos"), "12"],
-          [tr8("Pens", "Canetas"), "30"],
-          [tr8("Folders", "Pastas"), "8"],
-          [tr8("Sticky notes", "Blocos adesivos"), "15"],
-          [tr8("Staplers", "Grampeadores"), "3"]
+          [tr9("Item", "Item"), tr9("Needed", "Necess\xE1rio")],
+          [tr9("Notebooks", "Cadernos"), "12"],
+          [tr9("Pens", "Canetas"), "30"],
+          [tr9("Folders", "Pastas"), "8"],
+          [tr9("Sticky notes", "Blocos adesivos"), "15"],
+          [tr9("Staplers", "Grampeadores"), "3"]
         ];
         style = "List Table 4 Accent 1";
         break;
       case "matrix":
         rows = [
-          [tr8("Region", "Regi\xE3o"), "T1", "T2", "T3", "T4"],
-          [tr8("North", "Norte"), "120", "135", "150", "162"],
-          [tr8("South", "Sul"), "98", "104", "117", "125"],
-          [tr8("East", "Leste"), "143", "139", "151", "170"],
-          [tr8("West", "Oeste"), "87", "96", "101", "110"]
+          [tr9("Region", "Regi\xE3o"), "T1", "T2", "T3", "T4"],
+          [tr9("North", "Norte"), "120", "135", "150", "162"],
+          [tr9("South", "Sul"), "98", "104", "117", "125"],
+          [tr9("East", "Leste"), "143", "139", "151", "170"],
+          [tr9("West", "Oeste"), "87", "96", "101", "110"]
         ];
         style = "Grid Table 4 Accent 1";
         break;
       case "subheads":
         rows = [
-          [tr8("Course", "Curso"), tr8("Students", "Alunos"), tr8("Change", "Varia\xE7\xE3o")],
-          [tr8("Undergraduate", "Gradua\xE7\xE3o"), "", ""],
-          [tr8("Engineering", "Engenharia"), "420", "+12"],
-          [tr8("Design", "Design"), "185", "+4"],
-          [tr8("Graduate", "P\xF3s-gradua\xE7\xE3o"), "", ""],
-          [tr8("Data science", "Ci\xEAncia de dados"), "96", "+21"],
-          [tr8("Management", "Gest\xE3o"), "133", "-3"],
-          [tr8("Total", "Total"), "834", "+34"]
+          [tr9("Course", "Curso"), tr9("Students", "Alunos"), tr9("Change", "Varia\xE7\xE3o")],
+          [tr9("Undergraduate", "Gradua\xE7\xE3o"), "", ""],
+          [tr9("Engineering", "Engenharia"), "420", "+12"],
+          [tr9("Design", "Design"), "185", "+4"],
+          [tr9("Graduate", "P\xF3s-gradua\xE7\xE3o"), "", ""],
+          [tr9("Data science", "Ci\xEAncia de dados"), "96", "+21"],
+          [tr9("Management", "Gest\xE3o"), "133", "-3"],
+          [tr9("Total", "Total"), "834", "+34"]
         ];
         style = "Plain Table 2";
         break;
       case "double":
         rows = [
-          [tr8("Team", "Equipe"), tr8("Points", "Pontos"), "", tr8("Team", "Equipe"), tr8("Points", "Pontos")],
+          [tr9("Team", "Equipe"), tr9("Points", "Pontos"), "", tr9("Team", "Equipe"), tr9("Points", "Pontos")],
           ["A", "18", "", "E", "12"],
           ["B", "16", "", "F", "11"],
           ["C", "14", "", "G", "9"],
@@ -79669,10 +81012,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const occ = [];
       let nCols = 0;
       const cells = [];
-      trs.forEach((tr8, r6) => {
+      trs.forEach((tr9, r6) => {
         occ[r6] ??= [];
         let c5 = 0;
-        for (const td2 of [...tr8.children].filter((x3) => x3.tagName === "TD" || x3.tagName === "TH")) {
+        for (const td2 of [...tr9.children].filter((x3) => x3.tagName === "TD" || x3.tagName === "TH")) {
           while (occ[r6][c5]) c5++;
           const cs = Math.max(1, Math.min(63, parseInt(td2.getAttribute("colspan") ?? "1", 10) || 1));
           const rs = Math.max(1, parseInt(td2.getAttribute("rowspan") ?? "1", 10) || 1);
@@ -79880,9 +81223,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const d3 = this.tableDrag;
       const p3 = this.engPoint(ev);
       if (!d3 || !p3 || p3.pg !== d3.pg) return;
-      const clamp = (v2) => Math.max(d3.min ?? -Infinity, Math.min(d3.max ?? Infinity, v2));
-      if (d3.kind === "col") d3.x = clamp(p3.x);
-      else if (d3.kind === "row") d3.y = clamp(p3.y);
+      const clamp2 = (v2) => Math.max(d3.min ?? -Infinity, Math.min(d3.max ?? Infinity, v2));
+      if (d3.kind === "col") d3.x = clamp2(p3.x);
+      else if (d3.kind === "row") d3.y = clamp2(p3.y);
       else {
         d3.x = p3.x;
         d3.y = p3.y;
@@ -82219,10 +83562,10 @@ function setupMentionAutocomplete(editor, options, prefix) {
     popup.replaceChildren();
     popup.hidden = !active2;
     if (!active2) return;
-    const L11 = labels();
-    popup.setAttribute("aria-label", L11.menu);
+    const L12 = labels();
+    popup.setAttribute("aria-label", L12.menu);
     const heading = document.createElement("div");
-    heading.textContent = query ? `${prefix}${query}` : L11.choose;
+    heading.textContent = query ? `${prefix}${query}` : L12.choose;
     Object.assign(heading.style, {
       padding: "6px 10px 8px",
       color: "#5f6368",
@@ -82232,7 +83575,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     popup.append(heading);
     if (items.length === 0) {
       const empty = document.createElement("div");
-      empty.textContent = options.emptyLabel ?? L11.empty;
+      empty.textContent = options.emptyLabel ?? L12.empty;
       Object.assign(empty.style, { padding: "10px", color: "#6b7280" });
       popup.append(empty);
       return;

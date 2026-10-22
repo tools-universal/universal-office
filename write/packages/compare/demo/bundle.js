@@ -3227,6 +3227,9 @@ function readPPr(pPr) {
       case "w:jc":
         if (val) p.jc = val;
         break;
+      case "w:textboxTightWrap":
+        if (val) p.textboxTightWrap = val;
+        break;
       case "w:textAlignment":
         if (val) p.textAlignment = val;
         break;
@@ -4003,6 +4006,7 @@ function revInfo(r) {
     ...r.move ? { move: true } : {}
   };
 }
+var TIGHT_WRAP = /* @__PURE__ */ new Set(["none", "allLines", "firstAndLastLine", "firstLineOnly", "lastLineOnly"]);
 function paraPropsFromPPr(ppr) {
   const props = {};
   if (!ppr) return props;
@@ -4026,6 +4030,8 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.line !== void 0 && ppr.spacing.lineRule === "auto") props.lineTwentieths = ppr.spacing.line;
     if (ppr.spacing.after !== void 0) props.spaceAfterTwips = ppr.spacing.after;
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
+    if (ppr.spacing.beforeAutospacing !== void 0) props.spaceBeforeAuto = ppr.spacing.beforeAutospacing;
+    if (ppr.spacing.afterAutospacing !== void 0) props.spaceAfterAuto = ppr.spacing.afterAutospacing;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
   if (ppr.tabs?.length) {
@@ -4050,8 +4056,13 @@ function paraPropsFromPPr(ppr) {
     }
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
-  if (ppr.pageBreakBefore) props.pageBreakBefore = true;
-  if (ppr.keepNext) props.keepNext = true;
+  if (ppr.pageBreakBefore !== void 0) props.pageBreakBefore = ppr.pageBreakBefore;
+  if (ppr.keepNext !== void 0) props.keepNext = ppr.keepNext;
+  if (ppr.keepLines !== void 0) props.keepLines = ppr.keepLines;
+  if (ppr.widowControl !== void 0) props.widowControl = ppr.widowControl;
+  if (ppr.suppressLineNumbers !== void 0) props.suppressLineNumbers = ppr.suppressLineNumbers;
+  if (ppr.suppressAutoHyphens !== void 0) props.suppressAutoHyphens = ppr.suppressAutoHyphens;
+  if (ppr.textboxTightWrap && TIGHT_WRAP.has(ppr.textboxTightWrap)) props.textboxTightWrap = ppr.textboxTightWrap;
   if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
@@ -5263,6 +5274,23 @@ function readSectPr(sectEl) {
   if (enPr) sect.endnotePr = enPr;
   const fnCols = sectEl && firstChild(sectEl, "w15:footnoteColumns")?.attrs["w:val"];
   if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
+  const ln2 = sectEl && firstChild(sectEl, "w:lnNumType");
+  if (ln2) {
+    const num3 = (k) => {
+      const n = parseInt(ln2.attrs[k] ?? "", 10);
+      return Number.isNaN(n) ? void 0 : n;
+    };
+    const out = {};
+    const cb = num3("w:countBy"), st = num3("w:start"), di = num3("w:distance");
+    if (cb !== void 0) out.countBy = cb;
+    if (st !== void 0) out.start = st;
+    if (di !== void 0) out.distance = di;
+    const rs = ln2.attrs["w:restart"];
+    if (rs === "newSection" || rs === "continuous") out.restart = rs;
+    sect.lnNumType = out;
+  }
+  const va = sectEl && firstChild(sectEl, "w:vAlign")?.attrs["w:val"];
+  if (va === "center" || va === "both" || va === "bottom") sect.vAlign = va;
   return sect;
 }
 
