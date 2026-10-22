@@ -364,9 +364,9 @@ var init_browser = __esm({
       "invalid zip data"
       // determined by unknown compression method
     ];
-    err = function(ind, msg, nt) {
-      var e8 = new Error(msg || ec[ind]);
-      e8.code = ind;
+    err = function(ind2, msg, nt) {
+      var e8 = new Error(msg || ec[ind2]);
+      e8.code = ind2;
       if (Error.captureStackTrace)
         Error.captureStackTrace(e8, err);
       if (!nt)
@@ -1243,15 +1243,15 @@ function parseXml(xml, opts = {}) {
         if (xml[i7 + 1] !== ">") error("esperava />");
         i7 += 2;
         scope();
-        const el14 = { name, attrs: attrs3, children: [] };
-        if (RAW_CAPTURE.has(name)) el14.raw = xml.slice(elStart, i7);
+        const el15 = { name, attrs: attrs3, children: [] };
+        if (RAW_CAPTURE.has(name)) el15.raw = xml.slice(elStart, i7);
         if (pos) {
-          el14.s = elStart;
-          el14.cs = i7;
-          el14.ce = i7;
-          el14.e = i7;
+          el15.s = elStart;
+          el15.cs = i7;
+          el15.ce = i7;
+          el15.e = i7;
         }
-        return el14;
+        return el15;
       }
       if (xml[i7] === ">") {
         i7++;
@@ -1283,15 +1283,15 @@ function parseXml(xml, opts = {}) {
         const contentEnd = i7;
         const close = xml.indexOf(">", i7);
         i7 = close + 1;
-        const el14 = { name, attrs: attrs3, children: children2 };
-        if (RAW_CAPTURE.has(name)) el14.raw = xml.slice(elStart, i7);
+        const el15 = { name, attrs: attrs3, children: children2 };
+        if (RAW_CAPTURE.has(name)) el15.raw = xml.slice(elStart, i7);
         if (pos) {
-          el14.s = elStart;
-          el14.cs = contentStart;
-          el14.ce = contentEnd;
-          el14.e = i7;
+          el15.s = elStart;
+          el15.cs = contentStart;
+          el15.ce = contentEnd;
+          el15.e = i7;
         }
-        return el14;
+        return el15;
       }
       if (xml.startsWith("<!--", i7)) {
         i7 = xml.indexOf("-->", i7) + 3;
@@ -1317,17 +1317,17 @@ function parseXml(xml, opts = {}) {
   const root = parseElement(NO_RENAMES);
   return root;
 }
-function childElements(el14, name) {
-  return el14.children.filter(
+function childElements(el15, name) {
+  return el15.children.filter(
     (c5) => typeof c5 !== "string" && (name === void 0 || c5.name === name)
   );
 }
-function firstChild(el14, name) {
-  return childElements(el14, name)[0];
+function firstChild(el15, name) {
+  return childElements(el15, name)[0];
 }
-function textContent(el14) {
+function textContent(el15) {
   let out = "";
-  for (const c5 of el14.children) {
+  for (const c5 of el15.children) {
     out += typeof c5 === "string" ? c5 : textContent(c5);
   }
   return out;
@@ -1481,27 +1481,27 @@ function readShapeFx(eff) {
   }
   return Object.keys(fx).length ? fx : void 0;
 }
-function findDeep(el14, name) {
-  for (const c5 of childElements(el14)) {
+function findDeep(el15, name) {
+  for (const c5 of childElements(el15)) {
     if (c5.name === name) return c5;
     const f3 = findDeep(c5, name);
     if (f3) return f3;
   }
   return void 0;
 }
-function textOf(el14) {
+function textOf(el15) {
   let s4 = "";
-  for (const c5 of el14.children) s4 += typeof c5 === "string" ? c5 : textOf(c5);
+  for (const c5 of el15.children) s4 += typeof c5 === "string" ? c5 : textOf(c5);
   return s4;
 }
-function readPos(el14, defFrom) {
-  const pos = { relativeFrom: el14?.attrs["relativeFrom"] ?? defFrom };
-  if (!el14) return pos;
-  const align = firstChild(el14, "wp:align");
+function readPos(el15, defFrom) {
+  const pos = { relativeFrom: el15?.attrs["relativeFrom"] ?? defFrom };
+  if (!el15) return pos;
+  const align = firstChild(el15, "wp:align");
   if (align) pos.align = textOf(align).trim();
-  const off = firstChild(el14, "wp:posOffset");
+  const off = firstChild(el15, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct2 = firstChild(el14, "wp14:pctPosHOffset") ?? firstChild(el14, "wp14:pctPosVOffset");
+  const pct2 = firstChild(el15, "wp14:pctPosHOffset") ?? firstChild(el15, "wp14:pctPosVOffset");
   if (pct2) pos.pct = parseInt(textOf(pct2).trim(), 10) || 0;
   return pos;
 }
@@ -1510,11 +1510,11 @@ function anchorChild(anchor, name) {
   if (direct) return direct;
   for (const ac of childElements(anchor, "mc:AlternateContent")) {
     const choice = firstChild(ac, "mc:Choice");
-    const el14 = (choice && firstChild(choice, name)) ?? (() => {
+    const el15 = (choice && firstChild(choice, name)) ?? (() => {
       const fb = firstChild(ac, "mc:Fallback");
       return fb && firstChild(fb, name);
     })();
-    if (el14) return el14;
+    if (el15) return el15;
   }
   return void 0;
 }
@@ -1578,8 +1578,8 @@ function readWpAnchor(anchor) {
     if (v2 !== void 0) out[k2] = v2;
   }
   if (a3["simplePos"] === "1" || a3["simplePos"] === "true") {
-    const sp = firstChild(anchor, "wp:simplePos");
-    out.simplePos = { x: emuTw(sp?.attrs["x"]) ?? 0, y: emuTw(sp?.attrs["y"]) ?? 0 };
+    const sp2 = firstChild(anchor, "wp:simplePos");
+    out.simplePos = { x: emuTw(sp2?.attrs["x"]) ?? 0, y: emuTw(sp2?.attrs["y"]) ?? 0 };
   }
   if (a3["relativeHeight"]) out.relativeHeight = parseInt(a3["relativeHeight"], 10) || 0;
   if (a3["layoutInCell"] !== void 0) out.layoutInCell = a3["layoutInCell"] === "1" || a3["layoutInCell"] === "true";
@@ -1595,9 +1595,9 @@ function readWpAnchor(anchor) {
   }
   return out;
 }
-function srgbOf(el14, theme) {
-  if (!el14) return void 0;
-  const c5 = firstChild(el14, "a:srgbClr") ?? firstChild(el14, "a:schemeClr") ?? firstChild(el14, "a:sysClr") ?? firstChild(el14, "a:prstClr");
+function srgbOf(el15, theme) {
+  if (!el15) return void 0;
+  const c5 = firstChild(el15, "a:srgbClr") ?? firstChild(el15, "a:schemeClr") ?? firstChild(el15, "a:sysClr") ?? firstChild(el15, "a:prstClr");
   if (!c5) return void 0;
   let hex3;
   if (c5.name === "a:srgbClr") hex3 = c5.attrs["val"];
@@ -1811,11 +1811,11 @@ function vmlColor(v2) {
   }
   return own(VML_COLORS, s4);
 }
-function vmlShapeStyle(el14, geom) {
+function vmlShapeStyle(el15, geom) {
   const st = { geom };
-  const a3 = el14.attrs;
-  const fillEl = firstChild(el14, "v:fill");
-  const strokeEl = firstChild(el14, "v:stroke");
+  const a3 = el15.attrs;
+  const fillEl = firstChild(el15, "v:fill");
+  const strokeEl = firstChild(el15, "v:stroke");
   const filled = a3["filled"] ?? fillEl?.attrs["on"];
   if (filled !== "f" && filled !== "false") {
     const fc = vmlColor(fillEl?.attrs["color"] ?? a3["fillcolor"]) ?? (a3["fillcolor"] === void 0 && !fillEl ? "FFFFFF" : void 0);
@@ -1913,8 +1913,8 @@ function readCustGeom(cg, cx, cy) {
     }
   };
   for (const lst of ["a:avLst", "a:gdLst"]) {
-    const el14 = firstChild(cg, lst);
-    for (const gd of el14 ? childElements(el14, "a:gd") : []) {
+    const el15 = firstChild(cg, lst);
+    for (const gd of el15 ? childElements(el15, "a:gd") : []) {
       const name = gd.attrs["name"];
       if (name) v2[name] = evalGd(gd.attrs["fmla"] ?? "val 0");
     }
@@ -1929,7 +1929,7 @@ function readCustGeom(cg, cx, cy) {
       stroke: p3.attrs["stroke"] !== "0" && p3.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el14) => childElements(el14, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
+    const pts = (el15) => childElements(el15, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
     for (const c5 of childElements(p3)) {
       switch (c5.name) {
         case "a:moveTo":
@@ -2023,8 +2023,8 @@ function dmlColorSpec(c5) {
   if (mods.length) head += `|${mods.join(",")}`;
   return { spec: head, alpha };
 }
-function findDeep2(el14, name) {
-  for (const c5 of childElements(el14)) {
+function findDeep2(el15, name) {
+  for (const c5 of childElements(el15)) {
     if (c5.name === name) return c5;
     const f3 = findDeep2(c5, name);
     if (f3) return f3;
@@ -2044,14 +2044,14 @@ function partsOf(raw) {
   const blip = blipFill && firstChild(blipFill, "a:blip");
   return { root, container, pic, wsp, wgp, spPr, blipFill, blip };
 }
-function readPos2(el14) {
-  if (!el14) return void 0;
-  const p3 = { relativeFrom: el14.attrs["relativeFrom"] ?? "column" };
-  const al = firstChild(el14, "wp:align");
+function readPos2(el15) {
+  if (!el15) return void 0;
+  const p3 = { relativeFrom: el15.attrs["relativeFrom"] ?? "column" };
+  const al = firstChild(el15, "wp:align");
   if (al) p3.align = textContent(al).trim();
-  const off = firstChild(el14, "wp:posOffset");
+  const off = firstChild(el15, "wp:posOffset");
   if (off) p3.offset = int(textContent(off).trim());
-  const pct2 = firstChild(el14, "wp14:pctPosHOffset") ?? firstChild(el14, "wp14:pctPosVOffset");
+  const pct2 = firstChild(el15, "wp14:pctPosHOffset") ?? firstChild(el15, "wp14:pctPosVOffset");
   if (pct2) p3.pct = int(textContent(pct2).trim());
   return p3;
 }
@@ -2075,8 +2075,8 @@ function readPicLine(ln2) {
   }
   return out;
 }
-function rawOf(_parent, el14) {
-  return rawSrc.slice(el14.s, el14.e);
+function rawOf(_parent, el15) {
+  return rawSrc.slice(el15.s, el15.e);
 }
 function readShadow(k2) {
   const kind = k2.name === "a:outerShdw" ? "outer" : k2.name === "a:innerShdw" ? "inner" : "prst";
@@ -2091,10 +2091,10 @@ function readShadow(k2) {
   if (a3["prst"]) s4.prst = a3["prst"];
   return s4;
 }
-function readEffects(el14) {
+function readEffects(el15) {
   const fx = {};
-  if (!el14) return fx;
-  for (const k2 of childElements(el14)) {
+  if (!el15) return fx;
+  for (const k2 of childElements(el15)) {
     if (k2.name === "a:outerShdw" || k2.name === "a:innerShdw" || k2.name === "a:prstShdw") fx.shadow = readShadow(k2);
     else if (k2.name === "a:glow") fx.glow = { rad: int(k2.attrs["rad"]), color: readDmlColor(k2) ?? { kind: "srgbClr", val: "000000" } };
     else if (k2.name === "a:softEdge") fx.softEdge = int(k2.attrs["rad"]);
@@ -2105,12 +2105,12 @@ function readEffects(el14) {
       if (a3["algn"]) r6.algn = a3["algn"];
       if (a3["rotWithShape"] !== void 0) r6.rotWithShape = bool(a3["rotWithShape"]);
       fx.reflection = r6;
-    } else (fx.otherRaw ??= []).push(rawOf(el14, k2));
+    } else (fx.otherRaw ??= []).push(rawOf(el15, k2));
   }
   return fx;
 }
-function readRot(el14) {
-  return el14 ? { lat: int(el14.attrs["lat"]), lon: int(el14.attrs["lon"]), rev: int(el14.attrs["rev"]) } : void 0;
+function readRot(el15) {
+  return el15 ? { lat: int(el15.attrs["lat"]), lon: int(el15.attrs["lon"]), rev: int(el15.attrs["rev"]) } : void 0;
 }
 function read3D(scene, sp3d) {
   if (!scene && !sp3d) return void 0;
@@ -2211,10 +2211,10 @@ function readPictureFormat(raw, opts = {}) {
   }
   const poly2 = wrapEl && firstChild(wrapEl, "wp:wrapPolygon");
   const sizeRel = (n5, k2) => {
-    const el14 = firstChild(c5, n5);
-    if (!el14) return void 0;
-    const v2 = firstChild(el14, k2);
-    return { relativeFrom: el14.attrs["relativeFrom"] ?? "page", pct: v2 ? int(textContent(v2).trim()) : 0 };
+    const el15 = firstChild(c5, n5);
+    if (!el15) return void 0;
+    const v2 = firstChild(el15, k2);
+    return { relativeFrom: el15.attrs["relativeFrom"] ?? "page", pct: v2 ? int(textContent(v2).trim()) : 0 };
   };
   const spPr = p3.spPr;
   const xfrm = spPr && firstChild(spPr, "a:xfrm");
@@ -2371,8 +2371,8 @@ function convertContainer(raw, ch) {
   const p3 = partsOf(raw);
   const c5 = p3.container;
   const slice = (n5) => {
-    const el14 = firstChild(c5, n5);
-    return el14 ? raw.slice(el14.s, el14.e) : "";
+    const el15 = firstChild(c5, n5);
+    return el15 ? raw.slice(el15.s, el15.e) : "";
   };
   const keep = slice("wp:extent") + slice("wp:effectExtent");
   const tail = slice("wp:docPr") + slice("wp:cNvGraphicFramePr") + slice("a:graphic");
@@ -2535,21 +2535,21 @@ function patchDecorative(raw, on) {
   for (const which of ["docPr", "cNvPr"]) {
     const p3 = partsOf(xml);
     const nv = p3.pic && firstChild(p3.pic, "pic:nvPicPr");
-    const el14 = which === "docPr" ? firstChild(p3.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
-    if (!el14) continue;
+    const el15 = which === "docPr" ? firstChild(p3.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
+    if (!el15) continue;
     const patch2 = new XmlPatch(xml);
-    const ext = firstChild(el14, "a:extLst");
+    const ext = firstChild(el15, "a:extLst");
     const decExt = ext && childElements(ext, "a:ext").find((e8) => e8.attrs["uri"] === "{C183D7F6-B498-43B3-948B-1728B52AA6E4}");
     if (on) {
       if (decExt) continue;
       const nsA = which === "docPr" ? ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' : "";
       if (ext) patch2.insertAt(ext.ce, ADEC_EXT);
       else {
-        const hl = childElements(el14).filter((k2) => k2.name === "a:hlinkClick" || k2.name === "a:hlinkHover").pop();
+        const hl = childElements(el15).filter((k2) => k2.name === "a:hlinkClick" || k2.name === "a:hlinkHover").pop();
         const lst = `<a:extLst${nsA}>${ADEC_EXT}</a:extLst>`;
         if (hl) patch2.insertAt(hl.e, lst);
-        else if (el14.cs === el14.e) patch2.setContent(el14, lst);
-        else patch2.insertAt(el14.ce, lst);
+        else if (el15.cs === el15.e) patch2.setContent(el15, lst);
+        else patch2.insertAt(el15.ce, lst);
       }
     } else if (decExt) {
       if (childElements(ext).length === 1) patch2.remove(ext);
@@ -2563,10 +2563,10 @@ function patchPic(raw, ch) {
   const p3 = partsOf(raw);
   if (!p3.pic && !p3.wsp && !p3.wgp) return raw;
   const patch2 = new XmlPatch(raw);
-  const sp = p3.spPr;
-  if (sp) {
+  const sp2 = p3.spPr;
+  if (sp2) {
     rawSrc = raw;
-    const xfrm = firstChild(sp, "a:xfrm");
+    const xfrm = firstChild(sp2, "a:xfrm");
     const xa = {};
     if (ch.rot !== void 0) xa["rot"] = ch.rot ? Math.round(ch.rot) : void 0;
     if (ch.flipH !== void 0) xa["flipH"] = ch.flipH ? 1 : void 0;
@@ -2579,14 +2579,14 @@ function patchPic(raw, ch) {
     if (ch.geom) {
       const adj = Object.entries(ch.geom.adj ?? {}).map(([n5, v2]) => `<a:gd name="${n5}" fmla="val ${Math.round(v2)}"/>`).join("");
       const g2 = `<a:prstGeom prst="${ch.geom.prst}"><a:avLst${adj ? `>${adj}</a:avLst>` : "/>"}</a:prstGeom>`;
-      const cust = firstChild(sp, "a:custGeom");
+      const cust = firstChild(sp2, "a:custGeom");
       if (cust) patch2.replace(cust, g2);
-      else patch2.putChild(sp, "a:prstGeom", g2, SPPR_ORDER);
+      else patch2.putChild(sp2, "a:prstGeom", g2, SPPR_ORDER);
     }
-    if (ch.line !== void 0) patch2.putChild(sp, "a:ln", ch.line ? picLineXml(ch.line) : "", SPPR_ORDER);
+    if (ch.line !== void 0) patch2.putChild(sp2, "a:ln", ch.line ? picLineXml(ch.line) : "", SPPR_ORDER);
     if (ch.shadow !== void 0 || ch.reflection !== void 0 || ch.glow !== void 0 || ch.softEdge !== void 0) {
-      const el14 = firstChild(sp, "a:effectLst");
-      const fx = readEffects(el14);
+      const el15 = firstChild(sp2, "a:effectLst");
+      const fx = readEffects(el15);
       if (ch.shadow !== void 0) {
         if (ch.shadow) fx.shadow = ch.shadow;
         else delete fx.shadow;
@@ -2603,11 +2603,11 @@ function patchPic(raw, ch) {
         if (ch.softEdge) fx.softEdge = ch.softEdge;
         else delete fx.softEdge;
       }
-      patch2.putChild(sp, "a:effectLst", effectLstXml(fx), SPPR_ORDER);
+      patch2.putChild(sp2, "a:effectLst", effectLstXml(fx), SPPR_ORDER);
     }
     if (ch.threeD !== void 0) {
-      patch2.putChild(sp, "a:scene3d", ch.threeD ? scene3dXml(ch.threeD) : "", SPPR_ORDER);
-      patch2.putChild(sp, "a:sp3d", ch.threeD ? sp3dXml(ch.threeD) : "", SPPR_ORDER);
+      patch2.putChild(sp2, "a:scene3d", ch.threeD ? scene3dXml(ch.threeD) : "", SPPR_ORDER);
+      patch2.putChild(sp2, "a:sp3d", ch.threeD ? sp3dXml(ch.threeD) : "", SPPR_ORDER);
     }
     rawSrc = "";
   }
@@ -2675,23 +2675,23 @@ var init_picture_xml = __esm({
       src;
       edits = [];
       /** fim da tag de abertura (posição logo depois do '>'). */
-      static openEnd(el14) {
-        return el14.cs ?? el14.e;
+      static openEnd(el15) {
+        return el15.cs ?? el15.e;
       }
-      replace(el14, text) {
-        this.edits.push({ s: el14.s, e: el14.e, text });
+      replace(el15, text) {
+        this.edits.push({ s: el15.s, e: el15.e, text });
       }
-      remove(el14) {
-        this.replace(el14, "");
+      remove(el15) {
+        this.replace(el15, "");
       }
       insertAt(at, text) {
         this.edits.push({ s: at, e: at, text });
       }
       /** troca a tag de abertura (atributos novos, valores escapados). */
-      setAttrs(el14, set) {
-        const end = _XmlPatch.openEnd(el14);
-        const selfClose = el14.cs === el14.e;
-        let tag2 = this.src.slice(el14.s, end);
+      setAttrs(el15, set) {
+        const end = _XmlPatch.openEnd(el15);
+        const selfClose = el15.cs === el15.e;
+        let tag2 = this.src.slice(el15.s, end);
         for (const [k2, v2] of Object.entries(set)) {
           const re = new RegExp(`\\s${k2.replace(/[:.]/g, "\\$&")}="[^"]*"`);
           if (v2 === void 0) {
@@ -2702,15 +2702,15 @@ var init_picture_xml = __esm({
           if (re.test(tag2)) tag2 = tag2.replace(re, () => a3);
           else tag2 = tag2.replace(selfClose ? /\s*\/>$/ : />$/, (m2) => `${a3}${m2.trim() === "/>" ? "/>" : ">"}`);
         }
-        this.edits.push({ s: el14.s, e: end, text: tag2 });
+        this.edits.push({ s: el15.s, e: end, text: tag2 });
       }
       /** conteúdo inteiro de um elemento (vira <x ...>conteúdo</x>). */
-      setContent(el14, inner) {
-        if (el14.cs === el14.e) {
-          const tag2 = this.src.slice(el14.s, el14.e).replace(/\s*\/>$/, ">");
+      setContent(el15, inner) {
+        if (el15.cs === el15.e) {
+          const tag2 = this.src.slice(el15.s, el15.e).replace(/\s*\/>$/, ">");
           const name = /^<([^\s/>]+)/.exec(tag2)[1];
-          this.edits.push({ s: el14.s, e: el14.e, text: `${tag2}${inner}</${name}>` });
-        } else this.edits.push({ s: el14.cs, e: el14.ce, text: inner });
+          this.edits.push({ s: el15.s, e: el15.e, text: `${tag2}${inner}</${name}>` });
+        } else this.edits.push({ s: el15.cs, e: el15.ce, text: inner });
       }
       /** insere `xml` como filho de `parent` na posição da ordem do esquema. */
       insertChild(parent, name, xml, order2) {
@@ -2927,18 +2927,18 @@ function patchShape(raw, ch) {
 }
 function patchFill(raw, f3) {
   const p3 = partsOf(raw);
-  const sp = p3.spPr;
-  if (!sp) return raw;
+  const sp2 = p3.spPr;
+  if (!sp2) return raw;
   const patch2 = new XmlPatch(raw);
-  const cur = childElements(sp).filter((k2) => FILL_NAMES.includes(k2.name));
+  const cur = childElements(sp2).filter((k2) => FILL_NAMES.includes(k2.name));
   const xml = shapeFillXml(f3);
   if (cur.length) {
     patch2.replace(cur[0], xml);
     for (const k2 of cur.slice(1)) patch2.remove(k2);
-  } else if (xml) patch2.insertChild(sp, "a:solidFill", xml, SPPR_ORDER);
+  } else if (xml) patch2.insertChild(sp2, "a:solidFill", xml, SPPR_ORDER);
   return patch2.apply();
 }
-function patchStylePreset(raw, sp) {
+function patchStylePreset(raw, sp2) {
   const p3 = partsOf(raw);
   if (!p3.wsp || !p3.spPr) return raw;
   const patch2 = new XmlPatch(raw);
@@ -2946,10 +2946,10 @@ function patchStylePreset(raw, sp) {
   const old = kids.filter((k2) => FILL_NAMES.includes(k2.name) || k2.name === "a:ln");
   for (const k2 of old) patch2.remove(k2);
   const geom = kids.filter((k2) => k2.name === "a:xfrm" || k2.name === "a:prstGeom" || k2.name === "a:custGeom").pop();
-  if (geom) patch2.insertAt(geom.e, sp.spPr);
-  else if (p3.spPr.cs === p3.spPr.e) patch2.setContent(p3.spPr, sp.spPr);
-  else patch2.insertAt(p3.spPr.cs, sp.spPr);
-  patch2.putChild(p3.wsp, "wps:style", sp.style, WSP_ORDER);
+  if (geom) patch2.insertAt(geom.e, sp2.spPr);
+  else if (p3.spPr.cs === p3.spPr.e) patch2.setContent(p3.spPr, sp2.spPr);
+  else patch2.insertAt(p3.spPr.cs, sp2.spPr);
+  patch2.putChild(p3.wsp, "wps:style", sp2.style, WSP_ORDER);
   return patch2.apply();
 }
 function patchStyle(raw, s4) {
@@ -2962,11 +2962,11 @@ function patchStyle(raw, s4) {
 function patchBody(raw, b5) {
   const p3 = partsOf(raw);
   if (!p3.wsp) return raw;
-  const el14 = firstChild(p3.wsp, "wps:bodyPr");
-  const cur = readBody(el14) ?? { ...DEFAULT_TEXTBOX_BODY };
+  const el15 = firstChild(p3.wsp, "wps:bodyPr");
+  const cur = readBody(el15) ?? { ...DEFAULT_TEXTBOX_BODY };
   const next = { ...cur, ...b5 };
   const patch2 = new XmlPatch(raw);
-  if (!el14) {
+  if (!el15) {
     patch2.insertChild(p3.wsp, "wps:bodyPr", bodyPrXml(next), WSP_ORDER);
     return patch2.apply();
   }
@@ -2984,13 +2984,13 @@ function patchBody(raw, b5) {
     ["rot", "rot", (v2) => v2]
   ];
   for (const [k2, attr2, f3] of map) if (b5[k2] !== void 0 && b5[k2] !== cur[k2]) set[attr2] = f3(b5[k2]);
-  if (Object.keys(set).length) patch2.setAttrs(el14, set);
+  if (Object.keys(set).length) patch2.setAttrs(el15, set);
   if (b5.autofit !== void 0 && b5.autofit !== cur.autofit) {
     const fitXml = b5.autofit === "shape" ? "<a:spAutoFit/>" : b5.autofit === "norm" ? "<a:normAutofit/>" : "<a:noAutofit/>";
-    const old = childElements(el14).find((k2) => k2.name === "a:spAutoFit" || k2.name === "a:noAutofit" || k2.name === "a:normAutofit");
+    const old = childElements(el15).find((k2) => k2.name === "a:spAutoFit" || k2.name === "a:noAutofit" || k2.name === "a:normAutofit");
     if (old) patch2.replace(old, fitXml);
-    else if (el14.cs === el14.e) patch2.setContent(el14, fitXml);
-    else patch2.insertAt(el14.ce, fitXml);
+    else if (el15.cs === el15.e) patch2.setContent(el15, fitXml);
+    else patch2.insertAt(el15.ce, fitXml);
   }
   return patch2.apply();
 }
@@ -3040,19 +3040,19 @@ function hiddenLineXml(prev) {
 }
 function patchOutline(raw, line2, prev) {
   const p3 = partsOf(raw);
-  const sp = p3.spPr;
-  if (!sp) return raw;
+  const sp2 = p3.spPr;
+  if (!sp2) return raw;
   const patch2 = new XmlPatch(raw);
-  const ext = firstChild(sp, "a:extLst");
+  const ext = firstChild(sp2, "a:extLst");
   const hid = ext && childElements(ext, "a:ext").find((e8) => e8.attrs["uri"] === HIDDEN_LINE_URI);
   if (line2 === null) {
     const h3 = hiddenLineXml(prev && prev.fill !== null ? prev : { w: prev?.w ?? 6350 });
-    patch2.putChild(sp, "a:ln", h3.ln, SPPR_ORDER);
+    patch2.putChild(sp2, "a:ln", h3.ln, SPPR_ORDER);
     if (hid) patch2.replace(hid, h3.ext);
     else if (ext) patch2.insertAt(ext.ce, h3.ext);
-    else patch2.insertChild(sp, "a:extLst", `<a:extLst>${h3.ext}</a:extLst>`, SPPR_ORDER);
+    else patch2.insertChild(sp2, "a:extLst", `<a:extLst>${h3.ext}</a:extLst>`, SPPR_ORDER);
   } else {
-    patch2.putChild(sp, "a:ln", picLineXmlLocal(line2), SPPR_ORDER);
+    patch2.putChild(sp2, "a:ln", picLineXmlLocal(line2), SPPR_ORDER);
     if (hid) {
       if (childElements(ext).length === 1) patch2.remove(ext);
       else patch2.remove(hid);
@@ -3216,11 +3216,11 @@ var init_shape_xml = __esm({
 });
 
 // ../docx-core/src/vml-shape.ts
-function vmlTextboxToDrawing(el14, id, lang = "pt") {
-  const a3 = el14.attrs;
+function vmlTextboxToDrawing(el15, id, lang = "pt") {
+  const a3 = el15.attrs;
   const st = parseVmlStyle(a3["style"]);
   if (st["position"] !== "absolute") return void 0;
-  const txb = firstChild(el14, "v:textbox");
+  const txb = firstChild(el15, "v:textbox");
   if (!txb) return void 0;
   const cx = emu(st["width"]) ?? 0, cy = emu(st["height"]) ?? 0;
   if (!(cx > 0) || !(cy > 0)) return void 0;
@@ -3233,10 +3233,10 @@ function vmlTextboxToDrawing(el14, id, lang = "pt") {
     return { relativeFrom, offset: off };
   };
   const z2 = parseInt(st["z-index"] ?? "0", 10) || 0;
-  const wrapEl = firstChild(el14, "w10:wrap");
+  const wrapEl = firstChild(el15, "w10:wrap");
   const wt = wrapEl?.attrs["type"];
   const dist = (k2) => emu(st[`mso-wrap-distance-${k2}`]) ?? (k2 === "left" || k2 === "right" ? 114300 : 0);
-  const fillEl = firstChild(el14, "v:fill");
+  const fillEl = firstChild(el15, "v:fill");
   const filled = a3["filled"] ?? fillEl?.attrs["on"];
   let fill;
   if (filled === "f" || filled === "false") fill = { kind: "none" };
@@ -3249,7 +3249,7 @@ function vmlTextboxToDrawing(el14, id, lang = "pt") {
       fill = { kind: "gradient", stops: [{ pos: 0, color: rgb(c1, op) }, { pos: 1e5, color: rgb(c22, op) }], lin: { ang: Math.round(((90 - ang) % 360 + 360) % 360 * 6e4), scaled: true }, rotWithShape: true };
     } else fill = { kind: "solid", color: rgb(c1, op) };
   }
-  const strokeEl = firstChild(el14, "v:stroke");
+  const strokeEl = firstChild(el15, "v:stroke");
   const stroked = a3["stroked"] ?? strokeEl?.attrs["on"];
   const sw = a3["strokeweight"] ?? strokeEl?.attrs["weight"];
   const w2 = sw ? emu(/[a-z]$/.test(sw) ? sw : `${sw}pt`) ?? 9525 : 9525;
@@ -3270,7 +3270,7 @@ function vmlTextboxToDrawing(el14, id, lang = "pt") {
   };
   const va = st["v-text-anchor"] ?? "";
   const vert = ts["layout-flow"] ? FLOW2[`${ts["layout-flow"]}|${ts["mso-layout-flow-alt"] ?? ""}`] ?? FLOW2[`${ts["layout-flow"]}|`] : void 0;
-  const geom = el14.name === "v:roundrect" ? { prst: "roundRect", adj: { adj: Math.round((frac(a3["arcsize"]) ?? 0.1667) * 1e5) } } : el14.name === "v:oval" ? { prst: "ellipse" } : { prst: "rect" };
+  const geom = el15.name === "v:roundrect" ? { prst: "roundRect", adj: { adj: Math.round((frac(a3["arcsize"]) ?? 0.1667) * 1e5) } } : el15.name === "v:oval" ? { prst: "ellipse" } : { prst: "rect" };
   const vmlName = a3["id"] && !/^_x0000_/.test(a3["id"]) ? a3["id"] : void 0;
   let xml = newTextboxDrawingXml({
     id,
@@ -3341,11 +3341,11 @@ var init_vml_shape = __esm({
 });
 
 // ../docx-core/src/ooxml/props.ts
-function readRevisionInfo(el14) {
-  const info = { author: el14.attrs["w:author"] ?? "" };
-  if (el14.attrs["w:date"]) info.date = el14.attrs["w:date"];
-  if (el14.attrs["w16du:dateUtc"]) info.dateUtc = el14.attrs["w16du:dateUtc"];
-  if (el14.name === "w:moveFrom" || el14.name === "w:moveTo") info.move = true;
+function readRevisionInfo(el15) {
+  const info = { author: el15.attrs["w:author"] ?? "" };
+  if (el15.attrs["w:date"]) info.date = el15.attrs["w:date"];
+  if (el15.attrs["w16du:dateUtc"]) info.dateUtc = el15.attrs["w16du:dateUtc"];
+  if (el15.name === "w:moveFrom" || el15.name === "w:moveTo") info.move = true;
   return info;
 }
 function measureTwips(v2) {
@@ -3369,46 +3369,46 @@ function measureTwips(v2) {
       return Math.round(n5);
   }
 }
-function onOffVal(el14) {
-  const v2 = el14.attrs["w:val"];
+function onOffVal(el15) {
+  const v2 = el15.attrs["w:val"];
   return !(v2 === "0" || v2 === "false" || v2 === "off" || v2 === "none");
 }
-function colorOf(el14) {
+function colorOf(el15) {
   const c5 = {};
-  if (el14.attrs["w:val"] !== void 0) c5.val = el14.attrs["w:val"];
-  if (el14.attrs["w:themeColor"]) c5.themeColor = el14.attrs["w:themeColor"];
-  if (el14.attrs["w:themeTint"]) c5.themeTint = el14.attrs["w:themeTint"];
-  if (el14.attrs["w:themeShade"]) c5.themeShade = el14.attrs["w:themeShade"];
+  if (el15.attrs["w:val"] !== void 0) c5.val = el15.attrs["w:val"];
+  if (el15.attrs["w:themeColor"]) c5.themeColor = el15.attrs["w:themeColor"];
+  if (el15.attrs["w:themeTint"]) c5.themeTint = el15.attrs["w:themeTint"];
+  if (el15.attrs["w:themeShade"]) c5.themeShade = el15.attrs["w:themeShade"];
   return c5;
 }
-function readBorder(el14) {
-  if (!el14) return void 0;
-  const b5 = { val: el14.attrs["w:val"] ?? "single" };
-  const sz2 = int3(el14.attrs["w:sz"]);
-  if (sz2 !== void 0) b5.sz = sz2;
-  const space = int3(el14.attrs["w:space"]);
+function readBorder(el15) {
+  if (!el15) return void 0;
+  const b5 = { val: el15.attrs["w:val"] ?? "single" };
+  const sz3 = int3(el15.attrs["w:sz"]);
+  if (sz3 !== void 0) b5.sz = sz3;
+  const space = int3(el15.attrs["w:space"]);
   if (space !== void 0) b5.space = space;
-  if (el14.attrs["w:color"]) b5.color = el14.attrs["w:color"];
-  if (el14.attrs["w:themeColor"]) b5.themeColor = el14.attrs["w:themeColor"];
-  if (el14.attrs["w:themeTint"]) b5.themeTint = el14.attrs["w:themeTint"];
-  if (el14.attrs["w:themeShade"]) b5.themeShade = el14.attrs["w:themeShade"];
-  if (el14.attrs["w:shadow"] !== void 0) b5.shadow = onOffAttr(el14.attrs["w:shadow"]);
-  if (el14.attrs["w:frame"] !== void 0) b5.frame = onOffAttr(el14.attrs["w:frame"]);
+  if (el15.attrs["w:color"]) b5.color = el15.attrs["w:color"];
+  if (el15.attrs["w:themeColor"]) b5.themeColor = el15.attrs["w:themeColor"];
+  if (el15.attrs["w:themeTint"]) b5.themeTint = el15.attrs["w:themeTint"];
+  if (el15.attrs["w:themeShade"]) b5.themeShade = el15.attrs["w:themeShade"];
+  if (el15.attrs["w:shadow"] !== void 0) b5.shadow = onOffAttr(el15.attrs["w:shadow"]);
+  if (el15.attrs["w:frame"] !== void 0) b5.frame = onOffAttr(el15.attrs["w:frame"]);
   return b5;
 }
-function readShading(el14) {
-  if (!el14) return void 0;
+function readShading(el15) {
+  if (!el15) return void 0;
   const s4 = {};
   for (const k2 of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
-    const v2 = el14.attrs[`w:${k2}`];
+    const v2 = el15.attrs[`w:${k2}`];
     if (v2 !== void 0) s4[k2] = v2;
   }
   return s4;
 }
-function readWidth(el14) {
-  if (!el14) return void 0;
-  const type = el14.attrs["w:type"] ?? "dxa";
-  const raw = el14.attrs["w:w"] ?? "0";
+function readWidth(el15) {
+  if (!el15) return void 0;
+  const type = el15.attrs["w:type"] ?? "dxa";
+  const raw = el15.attrs["w:w"] ?? "0";
   let w2;
   if (raw.endsWith("%")) w2 = Math.round(parseFloat(raw) * 50);
   else w2 = type === "dxa" ? measureTwips(raw) ?? 0 : int3(raw) ?? 0;
@@ -3417,83 +3417,83 @@ function readWidth(el14) {
 function readRPr(rPr) {
   if (!rPr) return void 0;
   const p3 = {};
-  for (const el14 of childElements(rPr)) {
-    const val3 = el14.attrs["w:val"];
-    switch (el14.name) {
+  for (const el15 of childElements(rPr)) {
+    const val3 = el15.attrs["w:val"];
+    switch (el15.name) {
       case "w:rStyle":
         if (val3) p3.rStyle = val3;
         break;
       case "w:rFonts": {
         const f3 = {};
         for (const k2 of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
-          const v2 = el14.attrs[`w:${k2}`];
+          const v2 = el15.attrs[`w:${k2}`];
           if (v2 !== void 0) f3[k2] = v2;
         }
         p3.rFonts = f3;
         break;
       }
       case "w:b":
-        p3.b = onOffVal(el14);
+        p3.b = onOffVal(el15);
         break;
       case "w:bCs":
-        p3.bCs = onOffVal(el14);
+        p3.bCs = onOffVal(el15);
         break;
       case "w:i":
-        p3.i = onOffVal(el14);
+        p3.i = onOffVal(el15);
         break;
       case "w:iCs":
-        p3.iCs = onOffVal(el14);
+        p3.iCs = onOffVal(el15);
         break;
       case "w:caps":
-        p3.caps = onOffVal(el14);
+        p3.caps = onOffVal(el15);
         break;
       case "w:smallCaps":
-        p3.smallCaps = onOffVal(el14);
+        p3.smallCaps = onOffVal(el15);
         break;
       case "w:strike":
-        p3.strike = onOffVal(el14);
+        p3.strike = onOffVal(el15);
         break;
       case "w:dstrike":
-        p3.dstrike = onOffVal(el14);
+        p3.dstrike = onOffVal(el15);
         break;
       case "w:outline":
-        p3.outline = onOffVal(el14);
+        p3.outline = onOffVal(el15);
         break;
       case "w:shadow":
-        p3.shadow = onOffVal(el14);
+        p3.shadow = onOffVal(el15);
         break;
       case "w:emboss":
-        p3.emboss = onOffVal(el14);
+        p3.emboss = onOffVal(el15);
         break;
       case "w:imprint":
-        p3.imprint = onOffVal(el14);
+        p3.imprint = onOffVal(el15);
         break;
       case "w:vanish":
-        p3.vanish = onOffVal(el14);
+        p3.vanish = onOffVal(el15);
         break;
       case "w:specVanish":
-        p3.specVanish = onOffVal(el14);
+        p3.specVanish = onOffVal(el15);
         break;
       case "w:webHidden":
-        p3.webHidden = onOffVal(el14);
+        p3.webHidden = onOffVal(el15);
         break;
       case "w:noProof":
-        p3.noProof = onOffVal(el14);
+        p3.noProof = onOffVal(el15);
         break;
       case "w:snapToGrid":
-        p3.snapToGrid = onOffVal(el14);
+        p3.snapToGrid = onOffVal(el15);
         break;
       case "w:rtl":
-        p3.rtl = onOffVal(el14);
+        p3.rtl = onOffVal(el15);
         break;
       case "w:cs":
-        p3.cs = onOffVal(el14);
+        p3.cs = onOffVal(el15);
         break;
       case "w:color":
-        p3.color = colorOf(el14);
+        p3.color = colorOf(el15);
         break;
       case "w14:textFill": {
-        const solid = firstChild(el14, "w14:solidFill");
+        const solid = firstChild(el15, "w14:solidFill");
         const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
         if (clr) {
           const tf = {};
@@ -3503,22 +3503,22 @@ function readRPr(rPr) {
           const a3 = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
           if (a3 !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a3, 10) || 0) / 1e5);
           p3.textFill = tf;
-        } else if (firstChild(el14, "w14:noFill")) p3.textFill = { alpha: 0 };
+        } else if (firstChild(el15, "w14:noFill")) p3.textFill = { alpha: 0 };
         break;
       }
       case "w14:ligatures":
-        p3.ligatures = el14.attrs["w14:val"] ?? "standard";
+        p3.ligatures = el15.attrs["w14:val"] ?? "standard";
         break;
       case "w:rPrChange":
-        p3.change = { ...readRevisionInfo(el14), rPr: readRPr(firstChild(el14, "w:rPr")) ?? {} };
+        p3.change = { ...readRevisionInfo(el15), rPr: readRPr(firstChild(el15, "w:rPr")) ?? {} };
         break;
       case "w14:shadow": {
-        const emu2 = (k2) => (parseInt(el14.attrs[k2] ?? "0", 10) || 0) / 12700;
-        p3.textShadow = { blur: emu2("w14:blurRad"), dist: emu2("w14:dist"), dir: (parseInt(el14.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
+        const emu2 = (k2) => (parseInt(el15.attrs[k2] ?? "0", 10) || 0) / 12700;
+        p3.textShadow = { blur: emu2("w14:blurRad"), dist: emu2("w14:dist"), dir: (parseInt(el15.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
         break;
       }
       case "w14:textOutline":
-        p3.textOutline = !firstChild(el14, "w14:noFill") && !!(firstChild(el14, "w14:solidFill") ?? firstChild(el14, "w14:gradFill"));
+        p3.textOutline = !firstChild(el15, "w14:noFill") && !!(firstChild(el15, "w14:solidFill") ?? firstChild(el15, "w14:gradFill"));
         break;
       case "w:spacing": {
         const n5 = measureTwips(val3);
@@ -3555,8 +3555,8 @@ function readRPr(rPr) {
         break;
       case "w:u": {
         const u3 = { val: val3 ?? "single" };
-        if (el14.attrs["w:color"]) u3.color = el14.attrs["w:color"];
-        if (el14.attrs["w:themeColor"]) u3.themeColor = el14.attrs["w:themeColor"];
+        if (el15.attrs["w:color"]) u3.color = el15.attrs["w:color"];
+        if (el15.attrs["w:themeColor"]) u3.themeColor = el15.attrs["w:themeColor"];
         p3.u = u3;
         break;
       }
@@ -3564,10 +3564,10 @@ function readRPr(rPr) {
         if (val3) p3.effect = val3;
         break;
       case "w:bdr":
-        p3.bdr = readBorder(el14);
+        p3.bdr = readBorder(el15);
         break;
       case "w:shd":
-        p3.shd = readShading(el14);
+        p3.shd = readShading(el15);
         break;
       case "w:vertAlign":
         if (val3 === "superscript" || val3 === "subscript" || val3 === "baseline") p3.vertAlign = val3;
@@ -3577,9 +3577,9 @@ function readRPr(rPr) {
         break;
       case "w:lang": {
         const l3 = {};
-        if (el14.attrs["w:val"]) l3.val = el14.attrs["w:val"];
-        if (el14.attrs["w:eastAsia"]) l3.eastAsia = el14.attrs["w:eastAsia"];
-        if (el14.attrs["w:bidi"]) l3.bidi = el14.attrs["w:bidi"];
+        if (el15.attrs["w:val"]) l3.val = el15.attrs["w:val"];
+        if (el15.attrs["w:eastAsia"]) l3.eastAsia = el15.attrs["w:eastAsia"];
+        if (el15.attrs["w:bidi"]) l3.bidi = el15.attrs["w:bidi"];
         p3.lang = l3;
         break;
       }
@@ -3587,11 +3587,11 @@ function readRPr(rPr) {
   }
   return p3;
 }
-function readPBdr(el14) {
-  if (!el14) return void 0;
+function readPBdr(el15) {
+  if (!el15) return void 0;
   const b5 = {};
   for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
-    const e8 = readBorder(firstChild(el14, `w:${side}`) ?? (side === "left" ? firstChild(el14, "w:start") : side === "right" ? firstChild(el14, "w:end") : void 0));
+    const e8 = readBorder(firstChild(el15, `w:${side}`) ?? (side === "left" ? firstChild(el15, "w:start") : side === "right" ? firstChild(el15, "w:end") : void 0));
     if (e8) b5[side] = e8;
   }
   return b5;
@@ -3599,62 +3599,62 @@ function readPBdr(el14) {
 function readPPr(pPr) {
   if (!pPr) return void 0;
   const p3 = {};
-  for (const el14 of childElements(pPr)) {
-    const val3 = el14.attrs["w:val"];
-    switch (el14.name) {
+  for (const el15 of childElements(pPr)) {
+    const val3 = el15.attrs["w:val"];
+    switch (el15.name) {
       case "w:pStyle":
         if (val3) p3.pStyle = val3;
         break;
       case "w:keepNext":
-        p3.keepNext = onOffVal(el14);
+        p3.keepNext = onOffVal(el15);
         break;
       case "w:keepLines":
-        p3.keepLines = onOffVal(el14);
+        p3.keepLines = onOffVal(el15);
         break;
       case "w:pageBreakBefore":
-        p3.pageBreakBefore = onOffVal(el14);
+        p3.pageBreakBefore = onOffVal(el15);
         break;
       case "w:widowControl":
-        p3.widowControl = onOffVal(el14);
+        p3.widowControl = onOffVal(el15);
         break;
       case "w:suppressLineNumbers":
-        p3.suppressLineNumbers = onOffVal(el14);
+        p3.suppressLineNumbers = onOffVal(el15);
         break;
       case "w:suppressAutoHyphens":
-        p3.suppressAutoHyphens = onOffVal(el14);
+        p3.suppressAutoHyphens = onOffVal(el15);
         break;
       case "w:kinsoku":
-        p3.kinsoku = onOffVal(el14);
+        p3.kinsoku = onOffVal(el15);
         break;
       case "w:wordWrap":
-        p3.wordWrap = onOffVal(el14);
+        p3.wordWrap = onOffVal(el15);
         break;
       case "w:overflowPunct":
-        p3.overflowPunct = onOffVal(el14);
+        p3.overflowPunct = onOffVal(el15);
         break;
       case "w:autoSpaceDE":
-        p3.autoSpaceDE = onOffVal(el14);
+        p3.autoSpaceDE = onOffVal(el15);
         break;
       case "w:autoSpaceDN":
-        p3.autoSpaceDN = onOffVal(el14);
+        p3.autoSpaceDN = onOffVal(el15);
         break;
       case "w:bidi":
-        p3.bidi = onOffVal(el14);
+        p3.bidi = onOffVal(el15);
         break;
       case "w:adjustRightInd":
-        p3.adjustRightInd = onOffVal(el14);
+        p3.adjustRightInd = onOffVal(el15);
         break;
       case "w:snapToGrid":
-        p3.snapToGrid = onOffVal(el14);
+        p3.snapToGrid = onOffVal(el15);
         break;
       case "w:contextualSpacing":
-        p3.contextualSpacing = onOffVal(el14);
+        p3.contextualSpacing = onOffVal(el15);
         break;
       case "w:mirrorIndents":
-        p3.mirrorIndents = onOffVal(el14);
+        p3.mirrorIndents = onOffVal(el15);
         break;
       case "w:suppressOverlap":
-        p3.suppressOverlap = onOffVal(el14);
+        p3.suppressOverlap = onOffVal(el15);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
@@ -3669,22 +3669,22 @@ function readPPr(pPr) {
       }
       case "w:numPr": {
         const numPr = {};
-        const numId = int3(firstChild(el14, "w:numId")?.attrs["w:val"]);
-        const ilvl = int3(firstChild(el14, "w:ilvl")?.attrs["w:val"]);
+        const numId = int3(firstChild(el15, "w:numId")?.attrs["w:val"]);
+        const ilvl = int3(firstChild(el15, "w:ilvl")?.attrs["w:val"]);
         if (numId !== void 0) numPr.numId = numId;
         if (ilvl !== void 0) numPr.ilvl = ilvl;
         p3.numPr = numPr;
         break;
       }
       case "w:pBdr":
-        p3.pBdr = readPBdr(el14);
+        p3.pBdr = readPBdr(el15);
         break;
       case "w:shd":
-        p3.shd = readShading(el14);
+        p3.shd = readShading(el15);
         break;
       case "w:tabs": {
         const tabs = [];
-        for (const t6 of childElements(el14, "w:tab")) {
+        for (const t6 of childElements(el15, "w:tab")) {
           let v2 = t6.attrs["w:val"] ?? "left";
           if (v2 === "start") v2 = "left";
           if (v2 === "end") v2 = "right";
@@ -3701,7 +3701,7 @@ function readPPr(pPr) {
       }
       case "w:spacing": {
         const s4 = {};
-        const a3 = el14.attrs;
+        const a3 = el15.attrs;
         const before = measureTwips(a3["w:before"]);
         if (before !== void 0) s4.before = before;
         const after = measureTwips(a3["w:after"]);
@@ -3721,7 +3721,7 @@ function readPPr(pPr) {
       }
       case "w:ind": {
         const s4 = {};
-        const a3 = el14.attrs;
+        const a3 = el15.attrs;
         const left = measureTwips(a3["w:left"] ?? a3["w:start"]);
         if (left !== void 0) s4.left = left;
         const right = measureTwips(a3["w:right"] ?? a3["w:end"]);
@@ -3738,7 +3738,7 @@ function readPPr(pPr) {
         break;
       }
       case "w:framePr": {
-        const a3 = el14.attrs;
+        const a3 = el15.attrs;
         const f3 = {};
         const dc = a3["w:dropCap"];
         if (dc === "none" || dc === "drop" || dc === "margin") f3.dropCap = dc;
@@ -3756,8 +3756,8 @@ function readPPr(pPr) {
         break;
       }
       case "w:rPr":
-        p3.rPr = readRPr(el14);
-        for (const c5 of childElements(el14)) {
+        p3.rPr = readRPr(el15);
+        for (const c5 of childElements(el15)) {
           if (c5.name === "w:del" || c5.name === "w:moveFrom") {
             p3.markDeleted = true;
             p3.markDel = readRevisionInfo(c5);
@@ -3765,14 +3765,14 @@ function readPPr(pPr) {
         }
         break;
       case "w:pPrChange":
-        p3.change = { ...readRevisionInfo(el14), pPr: readPPr(firstChild(el14, "w:pPr")) ?? {} };
+        p3.change = { ...readRevisionInfo(el15), pPr: readPPr(firstChild(el15, "w:pPr")) ?? {} };
         break;
     }
   }
   return p3;
 }
-function readBorders(el14) {
-  if (!el14) return void 0;
+function readBorders(el15) {
+  if (!el15) return void 0;
   const b5 = {};
   const map = [
     ["top", ["w:top"]],
@@ -3786,7 +3786,7 @@ function readBorders(el14) {
   ];
   for (const [k2, names] of map) {
     for (const n5 of names) {
-      const e8 = readBorder(firstChild(el14, n5));
+      const e8 = readBorder(firstChild(el15, n5));
       if (e8) {
         b5[k2] = e8;
         break;
@@ -3795,30 +3795,30 @@ function readBorders(el14) {
   }
   return b5;
 }
-function readCellMar(el14) {
-  if (!el14) return void 0;
+function readCellMar(el15) {
+  if (!el15) return void 0;
   const m2 = {};
-  const t6 = readWidth(firstChild(el14, "w:top"));
+  const t6 = readWidth(firstChild(el15, "w:top"));
   if (t6) m2.top = t6;
-  const l3 = readWidth(firstChild(el14, "w:left") ?? firstChild(el14, "w:start"));
+  const l3 = readWidth(firstChild(el15, "w:left") ?? firstChild(el15, "w:start"));
   if (l3) m2.left = l3;
-  const b5 = readWidth(firstChild(el14, "w:bottom"));
+  const b5 = readWidth(firstChild(el15, "w:bottom"));
   if (b5) m2.bottom = b5;
-  const r6 = readWidth(firstChild(el14, "w:right") ?? firstChild(el14, "w:end"));
+  const r6 = readWidth(firstChild(el15, "w:right") ?? firstChild(el15, "w:end"));
   if (r6) m2.right = r6;
   return m2;
 }
 function readTblPr(tblPr) {
   if (!tblPr) return void 0;
   const p3 = {};
-  for (const el14 of childElements(tblPr)) {
-    const val3 = el14.attrs["w:val"];
-    switch (el14.name) {
+  for (const el15 of childElements(tblPr)) {
+    const val3 = el15.attrs["w:val"];
+    switch (el15.name) {
       case "w:tblStyle":
         if (val3) p3.tblStyle = val3;
         break;
       case "w:tblpPr": {
-        const a3 = el14.attrs;
+        const a3 = el15.attrs;
         const t6 = {};
         for (const k2 of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
           const n5 = measureTwips(a3[`w:${k2}`]);
@@ -3837,7 +3837,7 @@ function readTblPr(tblPr) {
         if (val3) p3.tblOverlap = val3;
         break;
       case "w:bidiVisual":
-        p3.bidiVisual = onOffVal(el14);
+        p3.bidiVisual = onOffVal(el15);
         break;
       case "w:tblStyleRowBandSize": {
         const n5 = int3(val3);
@@ -3850,25 +3850,25 @@ function readTblPr(tblPr) {
         break;
       }
       case "w:tblW":
-        p3.tblW = readWidth(el14);
+        p3.tblW = readWidth(el15);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
         break;
       case "w:tblCellSpacing":
-        p3.tblCellSpacing = readWidth(el14);
+        p3.tblCellSpacing = readWidth(el15);
         break;
       case "w:tblInd":
-        p3.tblInd = readWidth(el14);
+        p3.tblInd = readWidth(el15);
         break;
       case "w:tblBorders":
-        p3.tblBorders = readBorders(el14);
+        p3.tblBorders = readBorders(el15);
         break;
       case "w:shd":
-        p3.shd = readShading(el14);
+        p3.shd = readShading(el15);
         break;
       case "w:tblLayout":
-        p3.tblLayout = el14.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        p3.tblLayout = el15.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
         break;
       case "w:tblCaption":
         if (val3 !== void 0) p3.tblCaption = val3;
@@ -3877,10 +3877,10 @@ function readTblPr(tblPr) {
         if (val3 !== void 0) p3.tblDescription = val3;
         break;
       case "w:tblCellMar":
-        p3.tblCellMar = readCellMar(el14);
+        p3.tblCellMar = readCellMar(el15);
         break;
       case "w:tblLook": {
-        const a3 = el14.attrs;
+        const a3 = el15.attrs;
         const look = {};
         const hex3 = parseInt(a3["w:val"] ?? "", 16);
         if (Number.isFinite(hex3)) {
@@ -3904,9 +3904,9 @@ function readTblPr(tblPr) {
 function readTrPr(trPr) {
   if (!trPr) return void 0;
   const p3 = {};
-  for (const el14 of childElements(trPr)) {
-    const val3 = el14.attrs["w:val"];
-    switch (el14.name) {
+  for (const el15 of childElements(trPr)) {
+    const val3 = el15.attrs["w:val"];
+    switch (el15.name) {
       case "w:cnfStyle":
         if (val3) p3.cnfStyle = val3;
         break;
@@ -3921,31 +3921,31 @@ function readTrPr(trPr) {
         break;
       }
       case "w:wBefore":
-        p3.wBefore = readWidth(el14);
+        p3.wBefore = readWidth(el15);
         break;
       case "w:wAfter":
-        p3.wAfter = readWidth(el14);
+        p3.wAfter = readWidth(el15);
         break;
       case "w:cantSplit":
-        p3.cantSplit = onOffVal(el14);
+        p3.cantSplit = onOffVal(el15);
         break;
       case "w:trHeight": {
         const v2 = measureTwips(val3) ?? 0;
-        const r6 = el14.attrs["w:hRule"];
+        const r6 = el15.attrs["w:hRule"];
         p3.trHeight = { val: v2, hRule: r6 === "exact" || r6 === "auto" ? r6 : "atLeast" };
         break;
       }
       case "w:tblHeader":
-        p3.tblHeader = onOffVal(el14);
+        p3.tblHeader = onOffVal(el15);
         break;
       case "w:tblCellSpacing":
-        p3.tblCellSpacing = readWidth(el14);
+        p3.tblCellSpacing = readWidth(el15);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
         break;
       case "w:hidden":
-        p3.hidden = onOffVal(el14);
+        p3.hidden = onOffVal(el15);
         break;
     }
   }
@@ -3954,14 +3954,14 @@ function readTrPr(trPr) {
 function readTcPr(tcPr) {
   if (!tcPr) return void 0;
   const p3 = {};
-  for (const el14 of childElements(tcPr)) {
-    const val3 = el14.attrs["w:val"];
-    switch (el14.name) {
+  for (const el15 of childElements(tcPr)) {
+    const val3 = el15.attrs["w:val"];
+    switch (el15.name) {
       case "w:cnfStyle":
         if (val3) p3.cnfStyle = val3;
         break;
       case "w:tcW":
-        p3.tcW = readWidth(el14);
+        p3.tcW = readWidth(el15);
         break;
       case "w:gridSpan": {
         const n5 = int3(val3);
@@ -3975,28 +3975,28 @@ function readTcPr(tcPr) {
         p3.vMerge = val3 === "restart" ? "restart" : "continue";
         break;
       case "w:tcBorders":
-        p3.tcBorders = readBorders(el14);
+        p3.tcBorders = readBorders(el15);
         break;
       case "w:shd":
-        p3.shd = readShading(el14);
+        p3.shd = readShading(el15);
         break;
       case "w:noWrap":
-        p3.noWrap = onOffVal(el14);
+        p3.noWrap = onOffVal(el15);
         break;
       case "w:tcMar":
-        p3.tcMar = readCellMar(el14);
+        p3.tcMar = readCellMar(el15);
         break;
       case "w:textDirection":
         if (val3) p3.textDirection = val3;
         break;
       case "w:tcFitText":
-        p3.tcFitText = onOffVal(el14);
+        p3.tcFitText = onOffVal(el15);
         break;
       case "w:vAlign":
         if (val3 === "top" || val3 === "center" || val3 === "bottom" || val3 === "both") p3.vAlign = val3;
         break;
       case "w:hideMark":
-        p3.hideMark = onOffVal(el14);
+        p3.hideMark = onOffVal(el15);
         break;
     }
   }
@@ -4079,24 +4079,24 @@ function readStyleSheet(xml) {
   }
   return sheet;
 }
-function readLevel(el14) {
-  const ilvl = parseInt(el14.attrs["w:ilvl"] ?? "0", 10) || 0;
+function readLevel(el15) {
+  const ilvl = parseInt(el15.attrs["w:ilvl"] ?? "0", 10) || 0;
   const lvl = { ilvl };
-  const v2 = (n5) => firstChild(el14, n5)?.attrs["w:val"];
+  const v2 = (n5) => firstChild(el15, n5)?.attrs["w:val"];
   const start = v2("w:start");
   if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el14, "w:numFmt");
+  const fmtEl = firstChild(el15, "w:numFmt");
   if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
   if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
   const restart = v2("w:lvlRestart");
   if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
   const ps = v2("w:pStyle");
   if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el14, "w:isLgl");
+  const isLgl = firstChild(el15, "w:isLgl");
   if (isLgl) lvl.isLgl = onOffVal(isLgl);
   const suff = v2("w:suff");
   if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el14, "w:lvlText");
+  const lt = firstChild(el15, "w:lvlText");
   if (lt) {
     if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
     if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
@@ -4105,9 +4105,9 @@ function readLevel(el14) {
   if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
   const jc = v2("w:lvlJc");
   if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el14, "w:pPr"));
+  const pPr = readPPr(firstChild(el15, "w:pPr"));
   if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el14, "w:rPr"));
+  const rPr = readRPr(firstChild(el15, "w:rPr"));
   if (rPr) lvl.rPr = rPr;
   return lvl;
 }
@@ -4184,16 +4184,16 @@ function readTheme(xml) {
   };
   const fontScheme = find(root, "a:fontScheme");
   for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el14 = fontScheme && firstChild(fontScheme, tag2);
-    if (!el14) continue;
+    const el15 = fontScheme && firstChild(fontScheme, tag2);
+    if (!el15) continue;
     const set = theme[key];
-    const latin = firstChild(el14, "a:latin")?.attrs["typeface"];
+    const latin = firstChild(el15, "a:latin")?.attrs["typeface"];
     if (latin) set.latin = latin;
-    const ea = firstChild(el14, "a:ea")?.attrs["typeface"];
+    const ea = firstChild(el15, "a:ea")?.attrs["typeface"];
     if (ea) set.ea = ea;
-    const cs = firstChild(el14, "a:cs")?.attrs["typeface"];
+    const cs = firstChild(el15, "a:cs")?.attrs["typeface"];
     if (cs) set.cs = cs;
-    for (const f3 of childElements(el14, "a:font")) {
+    for (const f3 of childElements(el15, "a:font")) {
       if (f3.attrs["script"] && f3.attrs["typeface"]) set.scripts[f3.attrs["script"]] = f3.attrs["typeface"];
     }
   }
@@ -4218,10 +4218,10 @@ function readTheme(xml) {
   }
   return theme;
 }
-function readNoteProps(el14) {
-  if (!el14) return void 0;
+function readNoteProps(el15) {
+  if (!el15) return void 0;
   const out = {};
-  const v2 = (n5) => firstChild(el14, n5)?.attrs["w:val"];
+  const v2 = (n5) => firstChild(el15, n5)?.attrs["w:val"];
   const pos = v2("w:pos");
   if (pos) out.pos = pos;
   const fmt2 = v2("w:numFmt");
@@ -4373,8 +4373,8 @@ function vmlFixed(v2) {
   const n5 = v2.endsWith("f") ? parseInt(v2, 10) / 65536 : parseFloat(v2);
   return Number.isFinite(n5) ? n5 : void 0;
 }
-function vmlImageEffects(el14) {
-  const a3 = el14.attrs;
+function vmlImageEffects(el15) {
+  const a3 = el15.attrs;
   const fx = {};
   const gain = vmlFixed(a3["gain"]), bl = vmlFixed(a3["blacklevel"]);
   if (gain !== void 0 && gain !== 1) fx.gain = gain;
@@ -4405,16 +4405,16 @@ function blipImageEffects(blip) {
     ...bi ? { biLevel: int4(bi.attrs["thresh"], "50000") } : {}
   });
 }
-function readBorderEdge(el14) {
-  if (!el14) return void 0;
-  const style = el14.attrs["w:val"];
+function readBorderEdge(el15) {
+  if (!el15) return void 0;
+  const style = el15.attrs["w:val"];
   if (!style || style === "none" || style === "nil") return void 0;
-  const color3 = el14.attrs["w:color"];
+  const color3 = el15.attrs["w:color"];
   return {
     style,
-    sizeEighthPt: parseInt(el14.attrs["w:sz"] ?? "4", 10),
+    sizeEighthPt: parseInt(el15.attrs["w:sz"] ?? "4", 10),
     color: color3 && color3 !== "auto" ? color3 : void 0,
-    spacePt: parseInt(el14.attrs["w:space"] ?? "0", 10)
+    spacePt: parseInt(el15.attrs["w:space"] ?? "0", 10)
   };
 }
 function runPropsFromRPr(rpr) {
@@ -4510,23 +4510,24 @@ function paraPropsFromPPr(ppr) {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.keepNext) props.keepNext = true;
+  if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
   if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
-function findDeep3(el14, name) {
-  for (const c5 of childElements(el14)) {
+function findDeep3(el15, name) {
+  for (const c5 of childElements(el15)) {
     if (c5.name === name) return c5;
     const found = findDeep3(c5, name);
     if (found) return found;
   }
   return void 0;
 }
-function tagObjectRuns(list, from, el14) {
+function tagObjectRuns(list, from, el15) {
   if (!list) return;
-  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el14 : true;
+  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el15 : true;
 }
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep3(pic, "a:blip");
@@ -4648,7 +4649,7 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   if (obj.name === "wpg:wgp" || obj.name === "wpg:grpSp" || obj.name === "wpc:wpc") {
     const grpSpPr = firstChild(obj, "wpg:grpSpPr");
     const xfrm = grpSpPr && firstChild(grpSpPr, "a:xfrm");
-    const n5 = (el14, k2) => parseInt(el14?.attrs[k2] ?? "0", 10) || 0;
+    const n5 = (el15, k2) => parseInt(el15?.attrs[k2] ?? "0", 10) || 0;
     const chOff = xfrm && firstChild(xfrm, "a:chOff");
     const chExt = xfrm && firstChild(xfrm, "a:chExt");
     const ext = xfrm && firstChild(xfrm, "a:ext");
@@ -4680,8 +4681,8 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   }
   return void 0;
 }
-function dmlRunColor(el14) {
-  const c5 = el14 && (firstChild(el14, "a:srgbClr") ?? firstChild(el14, "a:sysClr") ?? firstChild(el14, "a:schemeClr") ?? firstChild(el14, "a:prstClr"));
+function dmlRunColor(el15) {
+  const c5 = el15 && (firstChild(el15, "a:srgbClr") ?? firstChild(el15, "a:sysClr") ?? firstChild(el15, "a:schemeClr") ?? firstChild(el15, "a:prstClr"));
   if (!c5) return void 0;
   if (c5.name === "a:srgbClr") return { val: (c5.attrs["val"] ?? "000000").toUpperCase() };
   if (c5.name === "a:sysClr") return { val: (c5.attrs["lastClr"] ?? (c5.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
@@ -4701,7 +4702,7 @@ function dmlParagraphs(body, styleEl, txFill) {
   const refColor = txFill ?? dmlRunColor(fontRef);
   const refKind = fontRef?.attrs["idx"] === "major" ? "major" : "minor";
   const rprOf = (rPr) => {
-    const sz2 = Math.round((parseInt(rPr?.attrs["sz"] ?? "1800", 10) || 1800) / 50);
+    const sz3 = Math.round((parseInt(rPr?.attrs["sz"] ?? "1800", 10) || 1800) / 50);
     const face = (tag2) => rPr && firstChild(rPr, tag2)?.attrs["typeface"] || void 0;
     const kind = (f3) => f3 ? f3.startsWith("+mj") ? "major" : "minor" : refKind;
     const lt = face("a:latin"), ea = face("a:ea"), cs = face("a:cs");
@@ -4721,8 +4722,8 @@ function dmlParagraphs(body, styleEl, txFill) {
     const u3 = rPr?.attrs["u"];
     return {
       rFonts,
-      sz: sz2,
-      szCs: sz2,
+      sz: sz3,
+      szCs: sz3,
       b: on("b"),
       bCs: on("b"),
       i: on("i"),
@@ -4731,7 +4732,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u3 && u3 !== "none" ? { u: { val: u3 === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num3 = (el14) => parseInt(el14?.attrs["val"] ?? "0", 10) || 0;
+  const num3 = (el15) => parseInt(el15?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -4796,31 +4797,31 @@ function readDiagram(gd, ctx, wTw, hTw) {
     const c5 = fills.attrs["meth"] === "cycle" ? cs[i7 % cs.length] : cs[Math.min(i7, cs.length - 1)];
     txFill.set(pt2.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c5] }));
   }
-  const n5 = (el14, k2) => (parseInt(el14?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP2;
+  const n5 = (el15, k2) => (parseInt(el15?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP2;
   const rect2 = (xf) => {
     const off = firstChild(xf, "a:off"), e8 = firstChild(xf, "a:ext");
     return { x: n5(off, "x"), y: n5(off, "y"), w: n5(e8, "cx"), h: n5(e8, "cy") };
   };
   const items = [];
   const walk = (parent) => {
-    for (const sp of childElements(parent)) {
-      if (sp.name === "dsp:grpSp") {
-        walk(sp);
+    for (const sp2 of childElements(parent)) {
+      if (sp2.name === "dsp:grpSp") {
+        walk(sp2);
         continue;
       }
-      const spPr = sp.name === "dsp:sp" ? firstChild(sp, "dsp:spPr") : void 0;
+      const spPr = sp2.name === "dsp:sp" ? firstChild(sp2, "dsp:spPr") : void 0;
       const xf = spPr && firstChild(spPr, "a:xfrm");
       if (!xf) continue;
       const box = rect2(xf);
-      const styleEl = firstChild(sp, "dsp:style");
+      const styleEl = firstChild(sp2, "dsp:style");
       const style = readSpPr(spPr, styleEl);
       if (style.fill || style.line || style.gradient) {
         items.push({ ...box, run: { text: OBJ, shape: { style, widthTwips: box.w, heightTwips: box.h }, props: { ...DEFAULT_RUN_PROPS } } });
       }
-      const body = firstChild(sp, "dsp:txBody");
-      const paras = body ? dmlParagraphs(body, styleEl, txFill.get(sp.attrs["modelId"] ?? "")) : [];
+      const body = firstChild(sp2, "dsp:txBody");
+      const paras = body ? dmlParagraphs(body, styleEl, txFill.get(sp2.attrs["modelId"] ?? "")) : [];
       if (!body || !paras.some((p3) => p3.runs.length)) continue;
-      const txf = firstChild(sp, "dsp:txXfrm");
+      const txf = firstChild(sp2, "dsp:txXfrm");
       const tbox = txf ? rect2(txf) : box;
       const tb = { paras, blocks: paras.map((paragraph) => ({ type: "paragraph", paragraph })), widthTwips: tbox.w, heightTwips: tbox.h };
       bodyPrOf(tb, firstChild(body, "a:bodyPr"));
@@ -4975,23 +4976,23 @@ function syncGroupFromXml(g2) {
 }
 function readVmlRuns(container, ctx, inline) {
   const out = [];
-  const shapeOf = (el14, inGroup) => {
-    const st = parseVmlStyle(el14.attrs["style"]);
+  const shapeOf = (el15, inGroup) => {
+    const st = parseVmlStyle(el15.attrs["style"]);
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w2 = vmlLenTwips(st["width"]) ?? 0;
     let h3 = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el14, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el15, "w10:wrap"));
     if (inGroup) {
       w2 = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h3 = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep3(el14, "v:textpath");
+    const textpath = findDeep3(el15, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
-      const sh = vmlShapeStyle(el14, "rect");
+      const sh = vmlShapeStyle(el15, "rect");
       const color3 = sh.fill ?? "000000";
       const a3 = sh.fillAlpha;
       const rpr = {
@@ -5019,7 +5020,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       return run4;
     }
-    const imagedata = firstChild(el14, "v:imagedata");
+    const imagedata = firstChild(el15, "v:imagedata");
     const rid = imagedata?.attrs["r:id"] ?? imagedata?.attrs["r:pict"];
     let run3;
     if (rid) {
@@ -5037,7 +5038,7 @@ function readVmlRuns(container, ctx, inline) {
       if (fx) image.effects = fx;
       run3 = { text: OBJ, image };
     } else {
-      const txb = firstChild(el14, "v:textbox");
+      const txb = firstChild(el15, "v:textbox");
       const content = txb && firstChild(txb, "w:txbxContent");
       if (content) {
         const tb = { paras: [], widthTwips: w2, heightTwips: h3, vml: true };
@@ -5047,39 +5048,39 @@ function readVmlRuns(container, ctx, inline) {
         tb.insets = { l: ins(0, 144), t: ins(1, 72), r: ins(2, 144), b: ins(3, 72) };
         const tbStyle = parseVmlStyle(txb.attrs["style"]);
         if (tbStyle["mso-fit-shape-to-text"] === "t") tb.autoFit = true;
-        if (parseVmlStyle(el14.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
+        if (parseVmlStyle(el15.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
         const flow = tbStyle["layout-flow"], alt = tbStyle["mso-layout-flow-alt"];
         if (flow === "vertical") tb.vert = alt === "bottom-to-top" ? "vert270" : alt === "top-to-bottom" ? "mongolianVert" : "vert";
         else if (flow === "vertical-ideographic") tb.vert = "eaVert";
         const va = st["v-text-anchor"];
         if (va === "middle" || va === "middle-center" || va === "middle-baseline") tb.vAnchor = "ctr";
         else if (va === "bottom" || va === "bottom-center" || va === "bottom-baseline") tb.vAnchor = "b";
-        if (el14.attrs["id"]) tb.vmlId = el14.attrs["id"];
+        if (el15.attrs["id"]) tb.vmlId = el15.attrs["id"];
         const next = tbStyle["mso-next-textbox"];
         if (next) tb.vmlNext = next.replace(/^#/, "");
-        const sh = vmlShapeStyle(el14, "rect");
+        const sh = vmlShapeStyle(el15, "rect");
         if (sh.fill || sh.line) tb.shape = sh;
-        if (!inGroup && vmlSingleTextbox(container) === el14) {
-          const raw = vmlTextboxToDrawing(el14, 1 + (parseInt((el14.attrs["o:spid"] ?? "").replace(/\D/g, ""), 10) || 0));
+        if (!inGroup && vmlSingleTextbox(container) === el15) {
+          const raw = vmlTextboxToDrawing(el15, 1 + (parseInt((el15.attrs["o:spid"] ?? "").replace(/\D/g, ""), 10) || 0));
           if (raw) tb.rawDrawingXml = raw;
         }
         run3 = { text: OBJ, textbox: tb };
       } else {
-        const tag2 = el14.name.replace(/^v:/, "");
-        const type = el14.attrs["type"] ?? "";
-        const declared = el14.attrs["fillcolor"] || el14.attrs["strokecolor"] || el14.attrs["filled"] || el14.attrs["stroked"] || firstChild(el14, "v:fill") || firstChild(el14, "v:stroke");
+        const tag2 = el15.name.replace(/^v:/, "");
+        const type = el15.attrs["type"] ?? "";
+        const declared = el15.attrs["fillcolor"] || el15.attrs["strokecolor"] || el15.attrs["filled"] || el15.attrs["stroked"] || firstChild(el15, "v:fill") || firstChild(el15, "v:stroke");
         if (tag2 === "shape" && (type.includes("_x0000_t75") || !declared)) {
           return void 0;
         }
         const geom = tag2 === "oval" ? "ellipse" : tag2 === "roundrect" ? "roundRect" : tag2 === "line" || type.includes("_x0000_t32") ? "line" : "rect";
-        const style = vmlShapeStyle(el14, geom);
+        const style = vmlShapeStyle(el15, geom);
         if (geom === "line") delete style.fill;
         const shape2 = { style, widthTwips: w2, heightTwips: h3 };
-        if (el14.attrs["o:hr"] === "t") shape2.hr = true;
+        if (el15.attrs["o:hr"] === "t") shape2.hr = true;
         if (tag2 === "line") {
           const pt2 = (s4) => (s4 ?? "0,0").split(",").map((v2) => vmlLenTwips(v2.trim()) ?? 0);
-          const [x1 = 0, y1 = 0] = pt2(el14.attrs["from"]);
-          const [x22 = 0, y22 = 0] = pt2(el14.attrs["to"]);
+          const [x1 = 0, y1 = 0] = pt2(el15.attrs["from"]);
+          const [x22 = 0, y22 = 0] = pt2(el15.attrs["to"]);
           shape2.line = { x1, y1, x2: x22, y2: y22 };
           shape2.widthTwips = Math.abs(x22 - x1);
           shape2.heightTwips = Math.abs(y22 - y1);
@@ -5103,17 +5104,17 @@ function readVmlRuns(container, ctx, inline) {
     }
     return run3;
   };
-  for (const el14 of childElements(container)) {
-    if (el14.name === "v:shapetype" || el14.name.startsWith("o:") || el14.name.startsWith("w10:")) continue;
-    if (el14.name === "v:group") {
-      const st = parseVmlStyle(el14.attrs["style"]);
+  for (const el15 of childElements(container)) {
+    if (el15.name === "v:shapetype" || el15.name.startsWith("o:") || el15.name.startsWith("w10:")) continue;
+    if (el15.name === "v:group") {
+      const st = parseVmlStyle(el15.attrs["style"]);
       const w2 = vmlLenTwips(st["width"]) ?? 0;
       const h3 = vmlLenTwips(st["height"]) ?? 0;
-      const cs = (el14.attrs["coordsize"] ?? "1000,1000").split(",").map((v2) => parseFloat(v2) || 1e3);
-      const co = (el14.attrs["coordorigin"] ?? "0,0").split(",").map((v2) => parseFloat(v2) || 0);
+      const cs = (el15.attrs["coordsize"] ?? "1000,1000").split(",").map((v2) => parseFloat(v2) || 1e3);
+      const co = (el15.attrs["coordorigin"] ?? "0,0").split(",").map((v2) => parseFloat(v2) || 0);
       const sx = w2 / (cs[0] || 1), sy = h3 / (cs[1] || 1);
       const items = [];
-      for (const c5 of childElements(el14)) {
+      for (const c5 of childElements(el15)) {
         if (!c5.name.startsWith("v:") || c5.name === "v:shapetype") continue;
         const cst = parseVmlStyle(c5.attrs["style"]);
         const r6 = shapeOf(c5, { sx, sy });
@@ -5125,7 +5126,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       if (!items.length) continue;
       const group2 = { widthTwips: w2, heightTwips: h3, items };
-      const anchor = vmlAnchor(st, findDeep3(el14, "w10:wrap"));
+      const anchor = vmlAnchor(st, findDeep3(el15, "w10:wrap"));
       if (anchor) {
         group2.floating = true;
         group2.anchor = anchor;
@@ -5133,8 +5134,8 @@ function readVmlRuns(container, ctx, inline) {
       out.push({ text: OBJ, group: group2 });
       continue;
     }
-    if (el14.name.startsWith("v:")) {
-      const r6 = shapeOf(el14);
+    if (el15.name.startsWith("v:")) {
+      const r6 = shapeOf(el15);
       if (r6) {
         if (inline && r6.image) {
           delete r6.image.floating;
@@ -5152,9 +5153,9 @@ function readVmlRuns(container, ctx, inline) {
   }
   return out;
 }
-function textContentOf(el14) {
+function textContentOf(el15) {
   let out = "";
-  for (const c5 of el14.children) out += typeof c5 === "string" ? c5 : textContentOf(c5);
+  for (const c5 of el15.children) out += typeof c5 === "string" ? c5 : textContentOf(c5);
   return out;
 }
 function runTarget(ctx, runs) {
@@ -5318,8 +5319,8 @@ function parseCustomInlineTag(tag2) {
     return void 0;
   }
 }
-function readMathNodes(el14, out = []) {
-  for (const c5 of childElements(el14)) {
+function readMathNodes(el15, out = []) {
+  for (const c5 of childElements(el15)) {
     switch (c5.name) {
       case "m:r":
       case "w:r": {
@@ -5370,9 +5371,9 @@ function readMathNodes(el14, out = []) {
   }
   return out;
 }
-function collectMathText(el14) {
+function collectMathText(el15) {
   let out = "";
-  for (const c5 of el14.children) {
+  for (const c5 of el15.children) {
     if (typeof c5 === "string") continue;
     if (c5.name === "m:t") out += textContentOf(c5);
     else out += collectMathText(c5);
@@ -5653,10 +5654,10 @@ function captureParagraph(para4, pEl, pPrEl, segs, store, xml) {
     for (let i7 = from; i7 < to; i7++) {
       const run3 = para4.runs[i7];
       const sid = store.id();
-      const el14 = rPrElOf(run3);
+      const el15 = rPrElOf(run3);
       const obj = objElOf(run3);
       store.runs.set(sid, {
-        ...el14 ? { rPr: xml.slice(el14.s, el14.e) } : {},
+        ...el15 ? { rPr: xml.slice(el15.s, el15.e) } : {},
         ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
       });
       if (obj && obj !== true) objHead = sid;
@@ -5673,9 +5674,9 @@ function captureParagraph(para4, pEl, pPrEl, segs, store, xml) {
     segs: segs.map((x3) => x3.seg)
   });
 }
-function collectInstrText(el14) {
+function collectInstrText(el15) {
   let out = "";
-  for (const c5 of el14.children) {
+  for (const c5 of el15.children) {
     if (typeof c5 === "string") continue;
     if (c5.name === "w:instrText") out += textContentOf(c5);
     else out += collectInstrText(c5);
@@ -5815,8 +5816,8 @@ var init_document = __esm({
     EMU_PER_TWIP2 = 635;
     RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
     rPrElOf = (r6) => r6?.[RPR_EL];
-    setRPrEl = (r6, el14) => {
-      if (el14) r6[RPR_EL] = el14;
+    setRPrEl = (r6, el15) => {
+      if (el15) r6[RPR_EL] = el15;
     };
     OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
     objElOf = (r6) => r6[OBJ_EL];
@@ -5824,8 +5825,8 @@ var init_document = __esm({
     OBJ = "\uFFFC";
     isObjectRun = (r6) => !!(r6.image || r6.textbox || r6.shape || r6.group);
     CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
-    tw = (el14, attr2, fallback) => {
-      const v2 = el14?.attrs[attr2];
+    tw = (el15, attr2, fallback) => {
+      const v2 = el15?.attrs[attr2];
       return v2 === void 0 ? fallback : parseInt(v2, 10);
     };
   }
@@ -5835,23 +5836,23 @@ var init_document = __esm({
 function readStyleRunProps(rPr) {
   const p3 = {};
   if (!rPr) return p3;
-  for (const el14 of childElements(rPr)) {
-    const val3 = el14.attrs["w:val"];
-    switch (el14.name) {
+  for (const el15 of childElements(rPr)) {
+    const val3 = el15.attrs["w:val"];
+    switch (el15.name) {
       case "w:b":
-        p3.bold = onOff(el14);
+        p3.bold = onOff(el15);
         break;
       case "w:i":
-        p3.italic = onOff(el14);
+        p3.italic = onOff(el15);
         break;
       case "w:caps":
-        p3.allCaps = onOff(el14);
+        p3.allCaps = onOff(el15);
         break;
       case "w:smallCaps":
-        p3.smallCaps = onOff(el14);
+        p3.smallCaps = onOff(el15);
         break;
       case "w:strike":
-        p3.strike = onOff(el14);
+        p3.strike = onOff(el15);
         break;
       case "w:sz":
         if (val3) p3.szHalfPt = parseInt(val3, 10);
@@ -5860,7 +5861,7 @@ function readStyleRunProps(rPr) {
         if (val3 && val3 !== "auto") p3.color = val3;
         break;
       case "w:rFonts":
-        if (el14.attrs["w:ascii"]) p3.fontAscii = el14.attrs["w:ascii"];
+        if (el15.attrs["w:ascii"]) p3.fontAscii = el15.attrs["w:ascii"];
         break;
       case "w:u":
         p3.underline = val3 !== "none";
@@ -5882,9 +5883,9 @@ function readStyleParaProps(pPr) {
     if (spacing.attrs["w:after"]) p3.spaceAfterTwips = parseInt(spacing.attrs["w:after"], 10);
     if (spacing.attrs["w:before"]) p3.spaceBeforeTwips = parseInt(spacing.attrs["w:before"], 10);
   }
-  const ind = firstChild(pPr, "w:ind");
-  if (ind?.attrs["w:left"]) p3.indentLeftTwips = parseInt(ind.attrs["w:left"], 10);
-  if (ind?.attrs["w:right"]) p3.indentRightTwips = parseInt(ind.attrs["w:right"], 10);
+  const ind2 = firstChild(pPr, "w:ind");
+  if (ind2?.attrs["w:left"]) p3.indentLeftTwips = parseInt(ind2.attrs["w:left"], 10);
+  if (ind2?.attrs["w:right"]) p3.indentRightTwips = parseInt(ind2.attrs["w:right"], 10);
   if (firstChild(pPr, "w:pageBreakBefore")) p3.pageBreakBefore = true;
   const pBdr = firstChild(pPr, "w:pBdr");
   if (pBdr) {
@@ -5952,9 +5953,9 @@ var init_styles = __esm({
     "use strict";
     init_xml();
     init_document();
-    onOff = (el14) => {
-      if (!el14) return void 0;
-      const v2 = el14.attrs["w:val"];
+    onOff = (el15) => {
+      if (!el15) return void 0;
+      const v2 = el15.attrs["w:val"];
       return v2 !== "0" && v2 !== "false" && v2 !== "none";
     };
   }
@@ -6060,8 +6061,8 @@ function setKid(kids, order2, name, xml) {
   kids.splice(pos, 0, { name, raw: xml });
 }
 function patch(raw, cur, read, gen, order2, keys, emptyOk = false) {
-  const { open: open2, close, kids: k0, el: el14 } = splitElement(raw);
-  const base = read(el14) ?? {};
+  const { open: open2, close, kids: k0, el: el15 } = splitElement(raw);
+  const base = read(el15) ?? {};
   const now = cur ?? {};
   const kids = k0.map((k2) => ({ name: k2.name, raw: k2.raw }));
   let changed = false;
@@ -6518,7 +6519,7 @@ function clearPara(p3) {
   const next = { ...paraPropsFromPPr(ppr) };
   if (old.styleId !== void 0) next.styleId = old.styleId;
   else delete next.styleId;
-  for (const k2 of ["src", "sectionBreak", "tocInstr", "tocEntry"]) {
+  for (const k2 of ["src", "sectionBreak", "tocInstr", "tocEntry", "blockSdt"]) {
     if (old[k2] !== void 0) next[k2] = old[k2];
   }
   p3.ppr = ppr;
@@ -7016,7 +7017,7 @@ var init_revisions = __esm({
     json = (v2) => JSON.stringify(v2 ?? null);
     same = (a3, b5) => a3 === b5 || json(a3) === json(b5);
     RUN_META = ["src", "link", "commentIds", "isMath", "ins", "del", "fmt"];
-    PARA_META = ["src", "fmtSrc", "sectionBreak", "markIns", "markDel", "pfmt", "tocInstr", "tocEntry"];
+    PARA_META = ["src", "fmtSrc", "sectionBreak", "markIns", "markDel", "pfmt", "tocInstr", "tocEntry", "blockSdt"];
     runMeta = (p3) => {
       const out = {};
       for (const k2 of RUN_META) if (p3[k2] !== void 0) out[k2] = p3[k2];
@@ -7231,7 +7232,7 @@ function patchSettingsNotes(xml, props) {
       const next = `<${tag2}>${p3}${refs || seps}</${tag2}>`;
       if (next !== whole) out = out.slice(0, m2.index) + next + out.slice(m2.index + whole.length);
     } else {
-      const el14 = `<${tag2}>${notePropsInner(want ?? void 0)}${seps}</${tag2}>`;
+      const el15 = `<${tag2}>${notePropsInner(want ?? void 0)}${seps}</${tag2}>`;
       const enAt = kind === "footnote" ? out.indexOf("<w:endnotePr") : -1;
       let at = enAt;
       if (at < 0) {
@@ -7241,7 +7242,7 @@ function patchSettingsNotes(xml, props) {
         }
       }
       if (at < 0) at = out.lastIndexOf("</w:settings>");
-      out = out.slice(0, at) + el14 + out.slice(at);
+      out = out.slice(0, at) + el15 + out.slice(at);
     }
   }
   return out;
@@ -7307,13 +7308,13 @@ var init_notes = __esm({
 
 // ../docx-core/src/lossless.ts
 function splitElement(raw) {
-  const el14 = parseXml(raw, { positions: true });
-  if (el14.cs === el14.e) {
+  const el15 = parseXml(raw, { positions: true });
+  if (el15.cs === el15.e) {
     const open2 = raw.replace(/\s*\/>\s*$/, ">");
-    return { open: open2, close: `</${el14.name}>`, kids: [], el: el14 };
+    return { open: open2, close: `</${el15.name}>`, kids: [], el: el15 };
   }
-  const kids = childElements(el14).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
-  return { open: raw.slice(0, el14.cs), close: raw.slice(el14.ce), kids, el: el14 };
+  const kids = childElements(el15).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
+  return { open: raw.slice(0, el15.cs), close: raw.slice(el15.ce), kids, el: el15 };
 }
 function setKid2(kids, order2, name, xml) {
   const at = kids.findIndex((k2) => k2.name === name);
@@ -7411,9 +7412,9 @@ function changeRPrRaw(kids) {
 function patchRPr(raw, run3) {
   const p3 = run3.props;
   if (raw === void 0) return rPrFromProps(p3);
-  const { open: open2, close, kids, el: el14 } = splitElement(raw);
+  const { open: open2, close, kids, el: el15 } = splitElement(raw);
   const edited = run3.rprEdited && run3.rpr ? run3.rpr : void 0;
-  const base = editBaseProps(run3, edited ?? readRPr(el14));
+  const base = editBaseProps(run3, edited ?? readRPr(el15));
   if (base.fmt && !p3.fmt) {
     const old = changeRPrRaw(kids);
     if (old && sameJson2(runFormatting(p3), runFormatting(editBaseProps(run3, readRPr(old.el))))) return patchRPr(old.raw, run3);
@@ -7520,6 +7521,7 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (pp.outlineLvl !== void 0) ppr.push(`<w:outlineLvl w:val="${pp.outlineLvl}"/>`);
   const mark2 = markXml(pp);
   if (mark2) ppr.push(`<w:rPr>${mark2}</w:rPr>`);
   if (sectPrXml) ppr.push(sectPrXml);
@@ -7542,9 +7544,9 @@ function markRPr(raw, pp) {
 function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
   const p3 = para4.props;
   if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
-  const { open: open2, close, kids, el: el14 } = splitElement(raw);
+  const { open: open2, close, kids, el: el15 } = splitElement(raw);
   const edited = para4.pprEdited && para4.ppr ? para4.ppr : void 0;
-  const base = paraPropsFromPPr(edited ?? readPPr(el14));
+  const base = paraPropsFromPPr(edited ?? readPPr(el15));
   if (base.pfmt && !p3.pfmt) {
     const ch = kids.find((k2) => k2.name === "w:pPrChange");
     const old = ch && splitElement(ch.raw).kids.find((k2) => k2.name === "w:pPr");
@@ -7571,7 +7573,7 @@ function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
   if (!eq(p3.borders, base.borders) || !!p3.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
   if (p3.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
   if (!eq(p3.numbering, base.numbering)) {
-    const numPr = el14.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
+    const numPr = el15.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
     const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
     if (!p3.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
     else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p3.numbering.kind) {
@@ -7583,7 +7585,7 @@ function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
   }
   if (p3.indentLeftTwips !== base.indentLeftTwips || p3.indentRightTwips !== base.indentRightTwips || p3.indentFirstLineTwips !== base.indentFirstLineTwips) {
     const f3 = p3.indentFirstLineTwips;
-    const ind = withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
+    const ind2 = withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
       "w:left": p3.indentLeftTwips,
       "w:start": void 0,
       "w:right": p3.indentRightTwips,
@@ -7595,7 +7597,7 @@ function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
       "w:leftChars": void 0,
       "w:rightChars": void 0
     });
-    set("w:ind", /^<w:ind\s*\/>$/.test(ind) ? null : ind);
+    set("w:ind", /^<w:ind\s*\/>$/.test(ind2) ? null : ind2);
   }
   if (p3.lineTwentieths !== base.lineTwentieths || p3.spaceAfterTwips !== base.spaceAfterTwips || p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
     const ch = {};
@@ -7616,6 +7618,7 @@ function patchPPr(raw, para4, sect, ids = DEFAULT_NUM_IDS) {
     set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
   }
   if (p3.alignment !== base.alignment) set("w:jc", p3.alignment ? `<w:jc w:val="${p3.alignment}"/>` : null);
+  if (p3.outlineLvl !== base.outlineLvl) set("w:outlineLvl", p3.outlineLvl !== void 0 ? `<w:outlineLvl w:val="${p3.outlineLvl}"/>` : null);
   if (sect !== void 0) {
     const cur = kidRaw(kids, "w:sectPr");
     if ((sect ?? "") !== cur) set("w:sectPr", sect);
@@ -7638,9 +7641,9 @@ function colsXml(cols, raw) {
     if (!cols.widths?.length) return `${head}/>`;
     return `${head} w:equalWidth="0">${cols.widths.map((c5) => `<w:col w:w="${c5.widthTwips}" w:space="${c5.spaceTwips}"/>`).join("")}</w:cols>`;
   }
-  const el14 = raw ? splitElement(raw).el : void 0;
-  const sep = el14?.attrs["w:sep"];
-  const space = el14?.attrs["w:space"] ?? "708";
+  const el15 = raw ? splitElement(raw).el : void 0;
+  const sep = el15?.attrs["w:sep"];
+  const space = el15?.attrs["w:space"] ?? "708";
   return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc3(space)}"/>`;
 }
 function pgNumTypeXml(s4, raw = "") {
@@ -7654,8 +7657,8 @@ function pgNumTypeXml(s4, raw = "") {
   return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
 }
 function patchSectPr(raw, cur, refs) {
-  const { open: open2, close, kids, el: el14 } = splitElement(raw);
-  const base = readSectPr(el14);
+  const { open: open2, close, kids, el: el15 } = splitElement(raw);
+  const base = readSectPr(el15);
   let changed = false;
   const set = (name, xml) => {
     changed = true;
@@ -8200,14 +8203,14 @@ function writePageBackground(pkg, bg, prev) {
     }
   }
   if (bg) {
-    const el14 = pageBackgroundXml(bg, rid);
+    const el15 = pageBackgroundXml(bg, rid);
     const m2 = /<w:document\b[^>]*>/.exec(xml);
     if (m2) {
       let tag2 = m2[0];
       if (bg.fill) {
         for (const [p3, uri] of NS) if (!new RegExp(`\\sxmlns:${p3}=`).test(tag2)) tag2 = tag2.replace(/>$/, ` xmlns:${p3}="${uri}">`);
       }
-      xml = xml.slice(0, m2.index) + tag2 + el14 + xml.slice(m2.index + m2[0].length);
+      xml = xml.slice(0, m2.index) + tag2 + el15 + xml.slice(m2.index + m2[0].length);
     }
   }
   if (oldRid && !new RegExp(`"${oldRid}"`).test(xml)) {
@@ -8429,13 +8432,13 @@ var init_page_background = __esm({
 });
 
 // ../docx-core/src/fulldoc.ts
-function readBorderSet(el14, inside) {
-  if (!el14) return void 0;
+function readBorderSet(el15, inside) {
+  if (!el15) return void 0;
   const out = {};
   const sides = inside ? ["top", "left", "bottom", "right", "insideH", "insideV"] : ["top", "left", "bottom", "right"];
   let any = false;
   for (const side of sides) {
-    const edge = readBorderEdge(firstChild(el14, `w:${side}`));
+    const edge = readBorderEdge(firstChild(el15, `w:${side}`));
     if (edge) {
       out[side] = edge;
       any = true;
@@ -8443,9 +8446,9 @@ function readBorderSet(el14, inside) {
   }
   return any ? out : void 0;
 }
-function unwrap(el14, name) {
+function unwrap(el15, name) {
   const out = [];
-  for (const c5 of childElements(el14)) {
+  for (const c5 of childElements(el15)) {
     if (c5.name === name) out.push(c5);
     else if (c5.name === "w:sdt") {
       const content = firstChild(c5, "w:sdtContent");
@@ -8454,7 +8457,7 @@ function unwrap(el14, name) {
   }
   return out;
 }
-function unwrapRaw(el14, name, skip, xml) {
+function unwrapRaw(el15, name, skip, xml) {
   const out = [];
   let pending2 = [];
   const walk = (container, top) => {
@@ -8485,7 +8488,7 @@ function unwrapRaw(el14, name, skip, xml) {
       pending2.push({ raw: xml.slice(c5.s, c5.e) });
     }
   };
-  walk(el14, true);
+  walk(el15, true);
   if (pending2.length && out.length) out[out.length - 1].post.push(...pending2);
   return out;
 }
@@ -8515,14 +8518,14 @@ function readBlocksOf(container, ctx) {
 }
 function readTable(tblEl, ctx) {
   const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
-  const slice = (el14) => el14 && xml !== void 0 ? xml.slice(el14.s, el14.e) : void 0;
-  const openOf = (el14) => xml.slice(el14.s, el14.cs === el14.e ? el14.e : el14.cs).replace(/\s*\/>$/, ">");
+  const slice = (el15) => el15 && xml !== void 0 ? xml.slice(el15.s, el15.e) : void 0;
+  const openOf = (el15) => xml.slice(el15.s, el15.cs === el15.e ? el15.e : el15.cs).replace(/\s*\/>$/, ">");
   const grid2 = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid2 ? childElements(grid2, "w:gridCol").map((c5) => parseInt(c5.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, "w:tblBorders"), true);
   const rows = [];
-  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el14) => ({ el: el14, pre: [], post: [] }));
+  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el15) => ({ el: el15, pre: [], post: [] }));
   for (const trW of wrapped(tblEl, "w:tr", ["w:tblPr", "w:tblGrid"])) {
     const trEl = trW.el;
     const cells = [];
@@ -8609,6 +8612,19 @@ function markSectionBreaks(full) {
 }
 function blockSrc(b5) {
   return b5.type === "paragraph" ? b5.paragraph.props.src : b5.src;
+}
+function markBlockSdt(child, g2, produced) {
+  const gallery = child.name === "w:sdt" ? docPartGallery(child) : void 0;
+  if (gallery === void 0) return;
+  const sdt = { key: `s${++blockSdtKeys}`, ...gallery ? { gallery } : {} };
+  g2.sdtKey = sdt.key;
+  for (const b5 of produced) if (b5.type === "paragraph") b5.paragraph.props.blockSdt = sdt;
+}
+function docPartGallery(sdt) {
+  const pr = firstChild(sdt, "w:sdtPr");
+  const obj = pr && firstChild(pr, "w:docPartObj");
+  if (!obj) return void 0;
+  return firstChild(obj, "w:docPartGallery")?.attrs["w:val"] ?? "";
 }
 function storyOf(xml, container) {
   return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
@@ -8725,7 +8741,9 @@ function readBodyFragment(pkg, store, inner, ns) {
   const blocks = [];
   for (const c5 of childElements(body)) {
     const produced = readBlocksOf({ name: body.name, attrs: {}, children: [c5] }, ctx);
-    groups.push(groupOf(xml, c5, produced, store));
+    const g2 = groupOf(xml, c5, produced, store);
+    markBlockSdt(c5, g2, produced);
+    groups.push(g2);
     blocks.push(...produced);
   }
   return { blocks, groups };
@@ -8909,7 +8927,11 @@ function readFullDocument(pkg, opts = {}) {
     }
     if (story) {
       if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
-      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
+      else {
+        const g2 = groupOf(docXml, child, blocks.slice(before), store);
+        markBlockSdt(child, g2, blocks.slice(before));
+        story.groups.push(g2);
+      }
     }
   }
   if (sections.length === 0) {
@@ -9016,7 +9038,7 @@ function readSectionProps(sectEl) {
   if (firstChild(sectEl, "w:noEndnote")) out.noEndnote = true;
   return out;
 }
-var wrapIds, wrapOf;
+var wrapIds, wrapOf, blockSdtKeys;
 var init_fulldoc = __esm({
   "../docx-core/src/fulldoc.ts"() {
     "use strict";
@@ -9029,6 +9051,7 @@ var init_fulldoc = __esm({
     init_page_background();
     wrapIds = 0;
     wrapOf = (w2) => ({ ...w2.pre.length ? { pre: w2.pre } : {}, ...w2.post.length ? { post: w2.post } : {} });
+    blockSdtKeys = 0;
   }
 });
 
@@ -9061,10 +9084,10 @@ function sectionRefs(model, k2) {
 function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
   const k2 = sectionIndexAt(model, pos.para);
   const range = sectionRanges(model)[k2];
-  const sp = range.sb ? range.sb.sectPr : model.sectPr;
+  const sp2 = range.sb ? range.sb.sectPr : model.sectPr;
   const refs = range.sb ?? model.bodyRefs ?? { headerRefs: [], footerRefs: [] };
   const sb = {
-    sectPr: cloneSectPr(sp),
+    sectPr: cloneSectPr(sp2),
     headerRefs: refs.headerRefs.map((r6) => ({ ...r6 })),
     footerRefs: refs.footerRefs.map((r6) => ({ ...r6 })),
     ...opts.raw ? { raw: opts.raw } : {},
@@ -9073,8 +9096,8 @@ function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
   const next = (opts.split ?? splitParagraph)(model, pos);
   const first = model.paragraphs[pos.para];
   first.props = { ...first.props, sectionBreak: sb };
-  if (type === "nextPage") delete sp.type;
-  else sp.type = type;
+  if (type === "nextPage") delete sp2.type;
+  else sp2.type = type;
   if (range.sb) {
     range.sb.headerRefs = [];
     range.sb.footerRefs = [];
@@ -9086,11 +9109,11 @@ function insertPageBreakParagraph(model, pos, split2 = splitParagraph) {
   model.paragraphs.splice(at.para, 0, { runs: [{ text: "\f", props: { ...DEFAULT_RUN_PROPS } }], props: {} });
   return { index: at.para, at: { para: at.para + 1, offset: 0 } };
 }
-function columnsFor(sp, spec) {
-  const W3 = contentWidth(sp);
-  const n5 = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp)));
+function columnsFor(sp2, spec) {
+  const W3 = contentWidth(sp2);
+  const n5 = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp2)));
   if (n5 < 2) return void 0;
-  let space = Math.max(0, Math.round(spec.spaceTwips ?? sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT));
+  let space = Math.max(0, Math.round(spec.spaceTwips ?? sp2.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT));
   if ((W3 - space * (n5 - 1)) / n5 < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W3 - n5 * COLUMN_MIN_WIDTH) / (n5 - 1)));
   const cols = { count: n5, spaceTwips: space, sep: !!spec.sep };
   if (spec.widths && spec.widths.length >= n5) {
@@ -9102,51 +9125,51 @@ function columnsFor(sp, spec) {
   }
   return cols;
 }
-function presetColumns(sp, preset) {
-  const sep = !!sp.cols?.sep;
-  const space = sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT;
+function presetColumns(sp2, preset) {
+  const sep = !!sp2.cols?.sep;
+  const space = sp2.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT;
   if (preset === "one") return { count: 1, sep };
   if (preset === "two" || preset === "three") return { count: preset === "two" ? 2 : 3, spaceTwips: space, sep };
-  const W3 = contentWidth(sp);
+  const W3 = contentWidth(sp2);
   const narrow = Math.round((W3 - 2 * space) / 3);
   const wide = W3 - narrow - space;
   const ws = preset === "left" ? [narrow, wide] : [wide, narrow];
   return { count: 2, spaceTwips: space, sep, widths: ws.map((w2) => ({ widthTwips: w2, spaceTwips: space })) };
 }
-function columnsPresetOf(sp) {
-  const c5 = sp.cols;
+function columnsPresetOf(sp2) {
+  const c5 = sp2.cols;
   if (!c5 || c5.count < 2) return "one";
   if (!c5.widths) return c5.count === 2 ? "two" : c5.count === 3 ? "three" : null;
   if (c5.count !== 2) return null;
   for (const p3 of ["left", "right"]) {
-    const ref = presetColumns(sp, p3).widths;
+    const ref = presetColumns(sp2, p3).widths;
     if (ref.every((w2, i7) => Math.abs(w2.widthTwips - c5.widths[i7].widthTwips) <= 20)) return p3;
   }
   return null;
 }
-function columnWidths(sp) {
-  const c5 = sp.cols;
-  const W3 = contentWidth(sp);
+function columnWidths(sp2) {
+  const c5 = sp2.cols;
+  const W3 = contentWidth(sp2);
   if (!c5 || c5.count < 2) return [{ widthTwips: W3, spaceTwips: 0 }];
   if (c5.widths) return c5.widths.map((w3) => ({ ...w3 }));
   const w2 = Math.round((W3 - c5.spaceTwips * (c5.count - 1)) / c5.count);
   return Array.from({ length: c5.count }, (_2, i7) => ({ widthTwips: w2, spaceTwips: i7 < c5.count - 1 ? c5.spaceTwips : 0 }));
 }
-function setOrientation(sp, orientation) {
-  const land = sp.pageWidthTwips > sp.pageHeightTwips;
+function setOrientation(sp2, orientation) {
+  const land = sp2.pageWidthTwips > sp2.pageHeightTwips;
   if (orientation === "landscape" === land) return;
-  [sp.pageWidthTwips, sp.pageHeightTwips] = [sp.pageHeightTwips, sp.pageWidthTwips];
-  const { marginTopTwips: t6, marginRightTwips: r6, marginBottomTwips: b5, marginLeftTwips: l3 } = sp;
+  [sp2.pageWidthTwips, sp2.pageHeightTwips] = [sp2.pageHeightTwips, sp2.pageWidthTwips];
+  const { marginTopTwips: t6, marginRightTwips: r6, marginBottomTwips: b5, marginLeftTwips: l3 } = sp2;
   if (orientation === "landscape") {
-    sp.marginTopTwips = l3;
-    sp.marginRightTwips = t6;
-    sp.marginBottomTwips = r6;
-    sp.marginLeftTwips = b5;
+    sp2.marginTopTwips = l3;
+    sp2.marginRightTwips = t6;
+    sp2.marginBottomTwips = r6;
+    sp2.marginLeftTwips = b5;
   } else {
-    sp.marginTopTwips = r6;
-    sp.marginRightTwips = b5;
-    sp.marginBottomTwips = l3;
-    sp.marginLeftTwips = t6;
+    sp2.marginTopTwips = r6;
+    sp2.marginRightTwips = b5;
+    sp2.marginBottomTwips = l3;
+    sp2.marginLeftTwips = t6;
   }
 }
 var COLUMN_SPACE_DEFAULT, COLUMN_MIN_WIDTH, cloneSectPr, contentWidth, maxColumns;
@@ -9158,8 +9181,8 @@ var init_section_ops = __esm({
     COLUMN_SPACE_DEFAULT = 708;
     COLUMN_MIN_WIDTH = 720;
     cloneSectPr = (s4) => JSON.parse(JSON.stringify(s4));
-    contentWidth = (sp) => sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-    maxColumns = (sp) => Math.max(1, Math.floor(contentWidth(sp) / COLUMN_MIN_WIDTH));
+    contentWidth = (sp2) => sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
+    maxColumns = (sp2) => Math.max(1, Math.floor(contentWidth(sp2) / COLUMN_MIN_WIDTH));
   }
 });
 
@@ -9536,8 +9559,8 @@ function pictureXml(img, source) {
   let xml = patchDrawingGeometry(!img.edited && source ? source : img.rawDrawingXml, img);
   if (xml.includes('r:embed="uw:media"')) xml = xml.replace(/r:embed="uw:media"/g, () => `r:embed="${mediaRelId(img.data, img.ext)}"`);
   if (xml.includes('r:embed="uw:layer"') && img.layer) {
-    const L10 = img.layer;
-    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L10.data, L10.ext, L10.ext === "wdp" ? REL_HDPHOTO : REL_IMAGE)}"`);
+    const L11 = img.layer;
+    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L11.data, L11.ext, L11.ext === "wdp" ? REL_HDPHOTO : REL_IMAGE)}"`);
   }
   return xml;
 }
@@ -9806,6 +9829,10 @@ function fieldOrRunXml(r6) {
   if (!r6.field || active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r6.field)) return runXml(r6);
   if (!r6.props.ins && !r6.props.del) {
     if (/^\s*=/.test(r6.field)) return formulaFieldXml(r6);
+    if (/^\s*(TC|XE|RD)\b/i.test(r6.field) && !r6.text && !r6.fieldResult?.length) {
+      const rpr2 = rPrXml(r6);
+      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc5(r6.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "end");
+    }
     const result = fieldResultXml(r6);
     if (/\\h\b/i.test(r6.field) || r6.props.src === void 0 && (r6.fieldResult?.length ?? 0) > 1) {
       const rpr2 = rPrXml(r6);
@@ -10213,6 +10240,23 @@ function tblPrXml2(t6) {
 function tcPrXml2(cell) {
   return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
 }
+function sdtRunEnd(blocks, from, key) {
+  let j = from;
+  while (j < blocks.length && sdtOf(blocks[j])?.key === key) j++;
+  return j;
+}
+function blocksXml(blocks) {
+  let out = "";
+  for (let i7 = 0; i7 < blocks.length; ) {
+    const s4 = sdtOf(blocks[i7]);
+    if (s4?.pr) {
+      const j = sdtRunEnd(blocks, i7, s4.key);
+      out += newSdtXml(s4.pr, blocks.slice(i7, j).map(blockXml).join(""));
+      i7 = j;
+    } else out += blockXml(blocks[i7++]);
+  }
+  return out;
+}
 function storyBlocksXml(story, blocks, store) {
   countCopies(blocks, active.remaining);
   return groupsXml(story.groups, blocks, store);
@@ -10305,6 +10349,8 @@ function groupsXml(groups, blocks, store) {
       const g2 = groups[gi];
       let ok = g2.blocks[0] === id && i7 + g2.blocks.length <= blocks.length;
       for (let k2 = 0; ok && k2 < g2.blocks.length; k2++) ok = blockId(blocks[i7 + k2]) === g2.blocks[k2] && pristine(blocks[i7 + k2]);
+      const trailing = (k2) => !!g2.sdtKey && k2 < blocks.length && blockId(blocks[k2]) === void 0 && sdtOf(blocks[k2])?.key === g2.sdtKey;
+      if (ok && trailing(i7 + g2.blocks.length)) ok = false;
       flushZero(gi);
       if (ok) {
         for (const bid of g2.blocks) active.claimed.add(bid);
@@ -10330,6 +10376,10 @@ function groupsXml(groups, blocks, store) {
             j = k2;
             continue;
           }
+          if (trailing(j)) {
+            j++;
+            continue;
+          }
           break;
         }
         const inner = blocks.slice(i7, j);
@@ -10338,6 +10388,13 @@ function groupsXml(groups, blocks, store) {
         i7 = j;
         continue;
       }
+    }
+    const s4 = sdtOf(b5);
+    if (s4?.pr) {
+      const j = sdtRunEnd(blocks, i7 + 1, s4.key);
+      out += newSdtXml(s4.pr, blocks.slice(i7, j).map(blockXml).join(""));
+      i7 = j;
+      continue;
     }
     out += blockXml(b5);
     i7++;
@@ -10368,14 +10425,14 @@ function serializeBlocks(blocks, sectPr, hfRefs = []) {
   const bodyRefs = hfRefs.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
   beginShapeContext(blocks);
-  const body = blocks.map(blockXml).join("") + sect;
+  const body = blocksXml(blocks) + sect;
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<w:document ${W_NS}${body.includes("<w15:") ? W15_NS : ""}${drawingNsAttrs(body)}>`, "w:document") + `<w:body>${body}</w:body></w:document>`;
 }
 function serializeDocument(model, hfRefs = []) {
   const bodyRefs = hfRefs.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
   beginShapeContext(model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })));
-  const body = model.paragraphs.map(paraXml).join("") + sect;
+  const body = blocksXml(model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }))) + sect;
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<w:document ${W_NS}${body.includes("<w15:") ? W15_NS : ""}${drawingNsAttrs(body)}>`, "w:document") + `<w:body>${body}</w:body></w:document>`;
 }
 function revRoot(open2, rootName) {
@@ -10681,7 +10738,7 @@ function writeParts(pkg, model, hfParts, opts, store) {
     pkg.setPartText(ctPath, ct);
   }
 }
-var esc5, escAttr3, mediaOut, drawingId, active, REL_PACKAGE, OLE_MIME, REL_IMAGE, REL_HDPHOTO, MEDIA_MIME, isObjectRun2, shapeTheme, chainNext, vmlSpid, vmlOnly, docPrName, emittedShapes, freshId, fldCharXml, revKey, isAtomic, W_NS, W15_NS, TBL_SIDES, CELL_SIDES, legacyOrTypedTblPr, gridOf, gridXml, blockXml, blockId, noteXml, DRAWING_NS, drawingNsAttrs, numberingNums, W_NS_HF, commentXml;
+var esc5, escAttr3, mediaOut, drawingId, active, REL_PACKAGE, OLE_MIME, REL_IMAGE, REL_HDPHOTO, MEDIA_MIME, isObjectRun2, shapeTheme, chainNext, vmlSpid, vmlOnly, docPrName, emittedShapes, freshId, fldCharXml, revKey, isAtomic, W_NS, W15_NS, TBL_SIDES, CELL_SIDES, legacyOrTypedTblPr, gridOf, gridXml, blockXml, blockId, sdtOf, newSdtXml, noteXml, DRAWING_NS, drawingNsAttrs, numberingNums, W_NS_HF, commentXml;
 var init_serialize = __esm({
   "../docx-core/src/serialize.ts"() {
     "use strict";
@@ -10730,6 +10787,8 @@ var init_serialize = __esm({
     gridXml = (t6) => `<w:tblGrid>${t6.gridColsTwips.map((w2) => `<w:gridCol w:w="${w2}"/>`).join("")}</w:tblGrid>`;
     blockXml = (b5) => b5.type === "table" ? tableXml(b5) : paraXml(b5.paragraph);
     blockId = (b5) => b5.type === "table" ? b5.src : b5.paragraph.props.src;
+    sdtOf = (b5) => b5?.type === "paragraph" ? b5.paragraph.props.blockSdt : void 0;
+    newSdtXml = (pr, inner) => `<w:sdt>${pr}<w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
     noteXml = (kind, id, blocks) => `<w:${kind} w:id="${id}">${blocks.length ? blocks.map(blockXml).join("") : "<w:p/>"}</w:${kind}>`;
     DRAWING_NS = [
       ["mc", "http://schemas.openxmlformats.org/markup-compatibility/2006"],
@@ -11239,9 +11298,9 @@ var init_style_sheet = __esm({
       "w:sectPr",
       "w:pPrChange"
     ];
-    val2 = (el14, n5) => firstChild(el14, n5)?.attrs["w:val"];
-    onOff4 = (el14, n5) => {
-      const k2 = firstChild(el14, n5);
+    val2 = (el15, n5) => firstChild(el15, n5)?.attrs["w:val"];
+    onOff4 = (el15, n5) => {
+      const k2 = firstChild(el15, n5);
       if (!k2) return false;
       const v2 = k2.attrs["w:val"];
       return v2 === void 0 || v2 !== "0" && v2 !== "false" && v2 !== "off";
@@ -15271,8 +15330,8 @@ function tableStylePr(st) {
   const tap = newTap();
   for (const p4 of prls(st.tapx)) if (sgcOf(p4.sprm) === 5) applyTap(tap, p4);
   let x3 = "";
-  const ind = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tap.dxaLeft;
-  if (ind !== void 0) x3 += el("w:tblInd", { "w:w": ind, "w:type": "dxa" });
+  const ind2 = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tap.dxaLeft;
+  if (ind2 !== void 0) x3 += el("w:tblInd", { "w:w": ind2, "w:type": "dxa" });
   if (tap.bordersSet) {
     const sides = ["top", "left", "bottom", "right", "insideH", "insideV"];
     x3 += `<w:tblBorders>${sides.map((s4) => brcXml(`w:${s4}`, tap.borders[s4])).join("")}</w:tblBorders>`;
@@ -17323,8 +17382,8 @@ var init_docx_writer = __esm({
         x3 += widthXml2("w:tblW", tw3) || el("w:tblW", { "w:w": 0, "w:type": "auto" });
         if (tap.jc) x3 += el("w:jc", { "w:val": ["left", "center", "right"][tap.jc] ?? "left" });
         if (tap.spacing) x3 += el("w:tblCellSpacing", { "w:w": tap.spacing, "w:type": "dxa" });
-        const ind = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tableIndent(tap);
-        if (ind !== void 0 && ind !== 0 && (!tap.jc || tap.jc === 1)) x3 += el("w:tblInd", { "w:w": ind, "w:type": "dxa" });
+        const ind2 = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tableIndent(tap);
+        if (ind2 !== void 0 && ind2 !== 0 && (!tap.jc || tap.jc === 1)) x3 += el("w:tblInd", { "w:w": ind2, "w:type": "dxa" });
         if (tap.bordersSet && !allNone(tap.borders)) x3 += `<w:tblBorders>${bordersXml2(tap.borders, true)}</w:tblBorders>`;
         if (tap.shdTable) x3 += shdXml2(tap.shdTable);
         if (tap.autofit === false || tap.autofit === void 0) x3 += '<w:tblLayout w:type="fixed"/>';
@@ -17414,8 +17473,8 @@ var init_docx_writer = __esm({
       flushText() {
         if (!this.textBuf) return;
         const tag2 = { t: "w:t", instr: "w:instrText", del: "w:delText", delInstr: "w:delInstrText" }[this.textKind];
-        const sp = /^\s|\s$/.test(this.textBuf) ? ' xml:space="preserve"' : "";
-        this.content += `<${tag2}${sp}>${escText(this.textBuf)}</${tag2}>`;
+        const sp2 = /^\s|\s$/.test(this.textBuf) ? ' xml:space="preserve"' : "";
+        this.content += `<${tag2}${sp2}>${escText(this.textBuf)}</${tag2}>`;
         this.textBuf = "";
       }
       flushRun() {
@@ -20007,16 +20066,16 @@ function readListStyle(ls2) {
 }
 function collectStyles(container, index) {
   if (!container) return;
-  for (const el14 of childElements(container)) {
-    if (el14.name === "style:style") {
-      const name = el14.attrs["style:name"];
-      if (name) index.styles.set(name, readRawStyle(el14));
-    } else if (el14.name === "style:default-style") {
-      const family = el14.attrs["style:family"];
-      if (family) index.defaults.set(family, readRawStyle(el14));
-    } else if (el14.name === "text:list-style") {
-      const name = el14.attrs["style:name"];
-      if (name) index.listStyles.set(name, readListStyle(el14));
+  for (const el15 of childElements(container)) {
+    if (el15.name === "style:style") {
+      const name = el15.attrs["style:name"];
+      if (name) index.styles.set(name, readRawStyle(el15));
+    } else if (el15.name === "style:default-style") {
+      const family = el15.attrs["style:family"];
+      if (family) index.defaults.set(family, readRawStyle(el15));
+    } else if (el15.name === "text:list-style") {
+      const name = el15.attrs["style:name"];
+      if (name) index.listStyles.set(name, readListStyle(el15));
     }
   }
 }
@@ -20033,10 +20092,10 @@ function buildStyleIndex(contentRoot, stylesRoot) {
   collectStyles(firstChild(contentRoot, "office:automatic-styles"), index);
   return index;
 }
-function readTextProps(el14) {
+function readTextProps(el15) {
   const p3 = {};
-  if (!el14) return p3;
-  const a3 = el14.attrs;
+  if (!el15) return p3;
+  const a3 = el15.attrs;
   if (a3["fo:font-weight"] !== void 0) p3.bold = isTrue(a3["fo:font-weight"]);
   if (a3["fo:font-style"] !== void 0) p3.italic = a3["fo:font-style"] === "italic" || a3["fo:font-style"] === "oblique";
   const uStyle = a3["style:text-underline-style"];
@@ -20060,10 +20119,10 @@ function readTextProps(el14) {
   }
   return p3;
 }
-function readParaPropsStyle(el14) {
+function readParaPropsStyle(el15) {
   const p3 = {};
-  if (!el14) return p3;
-  const a3 = el14.attrs;
+  if (!el15) return p3;
+  const a3 = el15.attrs;
   switch (a3["fo:text-align"]) {
     case "start":
     case "left":
@@ -20484,7 +20543,7 @@ function styleStandardXml() {
   ).join("") + `</text:list-style>`;
 }
 function pageLayoutXml(doc) {
-  const sp = doc.sections[0]?.sectPr ?? {
+  const sp2 = doc.sections[0]?.sectPr ?? {
     pageWidthTwips: 11906,
     pageHeightTwips: 16838,
     marginLeftTwips: 1417,
@@ -20492,7 +20551,7 @@ function pageLayoutXml(doc) {
     marginTopTwips: 1417,
     marginBottomTwips: 1417
   };
-  return `<style:page-layout style:name="WNPage"><style:page-layout-properties fo:page-width="${twipsToCm(sp.pageWidthTwips)}" fo:page-height="${twipsToCm(sp.pageHeightTwips)}" fo:margin-left="${twipsToCm(sp.marginLeftTwips)}" fo:margin-right="${twipsToCm(sp.marginRightTwips)}" fo:margin-top="${twipsToCm(sp.marginTopTwips)}" fo:margin-bottom="${twipsToCm(sp.marginBottomTwips)}"/></style:page-layout>`;
+  return `<style:page-layout style:name="WNPage"><style:page-layout-properties fo:page-width="${twipsToCm(sp2.pageWidthTwips)}" fo:page-height="${twipsToCm(sp2.pageHeightTwips)}" fo:margin-left="${twipsToCm(sp2.marginLeftTwips)}" fo:margin-right="${twipsToCm(sp2.marginRightTwips)}" fo:margin-top="${twipsToCm(sp2.marginTopTwips)}" fo:margin-bottom="${twipsToCm(sp2.marginBottomTwips)}"/></style:page-layout>`;
 }
 function masterStyleXml() {
   return `<style:master-page style:name="Standard" style:page-layout-name="WNPage"/>`;
@@ -20634,22 +20693,22 @@ function readOdt(bytes) {
     bookmarks: /* @__PURE__ */ new Map()
   };
 }
-function readBodyChild(el14, blocks, ctx, listDepth) {
-  switch (el14.name) {
+function readBodyChild(el15, blocks, ctx, listDepth) {
+  switch (el15.name) {
     case "text:p":
-      blocks.push({ type: "paragraph", paragraph: readParagraph2(el14, ctx, void 0) });
+      blocks.push({ type: "paragraph", paragraph: readParagraph2(el15, ctx, void 0) });
       break;
     case "text:h":
-      blocks.push({ type: "paragraph", paragraph: readHeading(el14, ctx) });
+      blocks.push({ type: "paragraph", paragraph: readHeading(el15, ctx) });
       break;
     case "text:list":
-      readList(el14, blocks, ctx, listDepth);
+      readList(el15, blocks, ctx, listDepth);
       break;
     case "table:table":
-      blocks.push(readTable2(el14, ctx));
+      blocks.push(readTable2(el15, ctx));
       break;
     case "text:section":
-      for (const c5 of childElements(el14)) readBodyChild(c5, blocks, ctx, listDepth);
+      for (const c5 of childElements(el15)) readBodyChild(c5, blocks, ctx, listDepth);
       break;
     case "text:soft-page-break":
     case "text:sequence-decls":
@@ -20811,9 +20870,9 @@ function flattenNoteBody(noteBody) {
   }
   return { name: "span", attrs: {}, children: children2 };
 }
-function readAnnotation(el14, ctx) {
-  const author = firstChild(el14, "dc:creator");
-  const paras = childElements(el14, "text:p");
+function readAnnotation(el15, ctx) {
+  const author = firstChild(el15, "dc:creator");
+  const paras = childElements(el15, "text:p");
   const text = paras.map((p3) => {
     const r6 = [];
     collectRuns(p3, r6, ctx, { ...DEFAULT_RUN_PROPS }, void 0);
@@ -20823,9 +20882,9 @@ function readAnnotation(el14, ctx) {
   if (author) info.author = textOf2(author);
   ctx.comments.push(info);
 }
-function textOf2(el14) {
+function textOf2(el15) {
   let out = "";
-  for (const c5 of el14.children) out += typeof c5 === "string" ? c5 : textOf2(c5);
+  for (const c5 of el15.children) out += typeof c5 === "string" ? c5 : textOf2(c5);
   return out;
 }
 function readList(listEl, blocks, ctx, depth) {
@@ -20903,8 +20962,8 @@ function collectRows(tblEl) {
 }
 function readColumns(tblEl, ctx) {
   const widths = [];
-  const visit = (el14) => {
-    for (const c5 of childElements(el14)) {
+  const visit = (el15) => {
+    for (const c5 of childElements(el15)) {
       if (c5.name === "table:table-column") {
         const repeat = parseInt(c5.attrs["table:number-columns-repeated"] ?? "1", 10);
         const w2 = columnWidth(c5, ctx.styleIndex);
@@ -21119,15 +21178,15 @@ function cellPropsEl(index, styleName2, seen = /* @__PURE__ */ new Set()) {
   return raw.cell ?? cellPropsEl(index, raw.parent, seen);
 }
 function cellShading(index, styleName2) {
-  const el14 = cellPropsEl(index, styleName2);
-  const bg = el14?.attrs["fo:background-color"];
+  const el15 = cellPropsEl(index, styleName2);
+  const bg = el15?.attrs["fo:background-color"];
   if (bg && bg !== "transparent") return bg.replace(/^#/, "").toUpperCase();
   return void 0;
 }
 function cellBorders(index, styleName2) {
-  const el14 = cellPropsEl(index, styleName2);
-  if (!el14) return void 0;
-  const a3 = el14.attrs;
+  const el15 = cellPropsEl(index, styleName2);
+  if (!el15) return void 0;
+  const a3 = el15.attrs;
   const all = parseBorder(a3["fo:border"]);
   const out = {};
   let any = false;
@@ -22210,10 +22269,10 @@ function adjustSharpen(d3, w2, h3, amount) {
   }
   const n5 = w2 * h3, y3 = new Uint8ClampedArray(n5 * 4);
   for (let i7 = 0; i7 < n5; i7++) y3[i7 * 4] = y3[i7 * 4 + 1] = y3[i7 * 4 + 2] = 0.2126 * d3[i7 * 4] + 0.7152 * d3[i7 * 4 + 1] + 0.0722 * d3[i7 * 4 + 2];
-  const yb = blurRgb(y3, w2, h3, sigma), k2 = 0.65 * Math.exp(1.7 * a3), T8 = 2.5;
+  const yb = blurRgb(y3, w2, h3, sigma), k2 = 0.65 * Math.exp(1.7 * a3), T9 = 2.5;
   for (let i7 = 0; i7 < n5; i7++) {
     const x3 = 0.2126 * d3[i7 * 4] + 0.7152 * d3[i7 * 4 + 1] + 0.0722 * d3[i7 * 4 + 2] - yb[i7 * 3];
-    const dl = Math.abs(x3) <= T8 ? 0 : k2 * (x3 - Math.sign(x3) * T8);
+    const dl = Math.abs(x3) <= T9 ? 0 : k2 * (x3 - Math.sign(x3) * T9);
     if (dl) for (let c5 = 0; c5 < 3; c5++) d3[i7 * 4 + c5] = clamp8(d3[i7 * 4 + c5] + dl);
   }
 }
@@ -22585,7 +22644,7 @@ function shadeBevel(rgba, sil, b5) {
   for (let r6 = 0; r6 < H2; r6++) for (let c5 = 0; c5 < W3; c5++) dist[r6 * W3 + c5] = pd[(r6 + 1) * (W3 + 2) + c5 + 1];
   const sm = gaussianBlur({ w: W3, h: H2, a: dist }, 1.2).a;
   const hw = b5.h / b5.w;
-  const L10 = new Float32Array(4), face = new Float32Array(4);
+  const L11 = new Float32Array(4), face = new Float32Array(4);
   if (wt) {
     const o7 = 24 * 25 * 2 - 2;
     face[0] = face[1] = face[2] = wt[o7] * 0.02;
@@ -22602,12 +22661,12 @@ function shadeBevel(rgba, sil, b5) {
         const gx = g2(c5 + 1, r6 - 1) + 2 * g2(c5 + 1, r6) + g2(c5 + 1, r6 + 1) - g2(c5 - 1, r6 - 1) - 2 * g2(c5 - 1, r6) - g2(c5 - 1, r6 + 1);
         const gy = g2(c5 - 1, r6 + 1) + 2 * g2(c5, r6 + 1) + g2(c5 + 1, r6 + 1) - g2(c5 - 1, r6 - 1) - 2 * g2(c5, r6 - 1) - g2(c5 + 1, r6 - 1);
         const th = Math.atan2(-gy, -gx) * 180 / Math.PI;
-        if (wt) wordLight(wt, th, d3 / b5.w, L10);
+        if (wt) wordLight(wt, th, d3 / b5.w, L11);
         else {
           const ph = bevelPhi(b5.prst, d3 / b5.w, hw);
-          lightAt(tab, b5.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L10);
+          lightAt(tab, b5.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L11);
         }
-        lt = L10;
+        lt = L11;
       }
       const o7 = i7 * 4;
       for (let k2 = 0; k2 < 3; k2++) {
@@ -22823,11 +22882,11 @@ var init_page_design = __esm({
 function effectExtentOf(f3) {
   const { cx, cy } = f3;
   let l3 = 0, t6 = 0, r6 = 0, b5 = 0;
-  const grow = (L10, T8, R2, B2) => {
-    l3 = Math.max(l3, L10);
-    t6 = Math.max(t6, T8);
+  const grow = (L11, T9, R2, B3) => {
+    l3 = Math.max(l3, L11);
+    t6 = Math.max(t6, T9);
     r6 = Math.max(r6, R2);
-    b5 = Math.max(b5, B2);
+    b5 = Math.max(b5, B3);
   };
   let ex = 0, ey = 0;
   if (f3.rot) {
@@ -23257,8 +23316,8 @@ function shapeStyleIndex(raw) {
   const style = /<wps:style>[\s\S]*?<\/wps:style>/.exec(raw)?.[0];
   if (!style) return 0;
   const st = squash(style);
-  const sp = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
-  const fillLn = squash(sp.replace(/^[\s\S]*?(<\/a:prstGeom>|<\/a:custGeom>|<a:prstGeom\b[^>]*\/>)/, "")).replace(/<a:effectLst[\s\S]*$|<a:scene3d[\s\S]*$|<a:sp3d[\s\S]*$|<a:extLst[\s\S]*$/, "");
+  const sp2 = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
+  const fillLn = squash(sp2.replace(/^[\s\S]*?(<\/a:prstGeom>|<\/a:custGeom>|<a:prstGeom\b[^>]*\/>)/, "")).replace(/<a:effectLst[\s\S]*$|<a:scene3d[\s\S]*$|<a:sp3d[\s\S]*$|<a:extLst[\s\S]*$/, "");
   for (let i7 = 0; i7 < SHAPE_STYLE_PRESETS.length; i7++) {
     const [p3, s4] = SHAPE_STYLE_PRESETS[i7];
     if (s4 === st && p3 === fillLn) return i7 + 1;
@@ -23395,6 +23454,129 @@ var init_shape_ops = __esm({
     accent2 = (k2 = 1) => ({ kind: "schemeClr", val: `accent${k2}` });
     WHITE = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
     ACCENT = (hex3) => `<w:color w:val="${hex3}" w:themeColor="accent1"/>`;
+  }
+});
+
+// src/toc.ts
+function tocFormatStyle(f3, level) {
+  const n5 = Math.min(9, Math.max(1, level));
+  switch (f3) {
+    case "classic":
+      if (n5 === 1) return { pPr: sp(360, 0), rPr: `<w:rFonts w:asciiTheme="majorHAnsi" w:hAnsiTheme="majorHAnsi"/>${B}<w:caps/>${sz2(24)}` };
+      if (n5 === 2) return { pPr: sp(240, 0), rPr: B + sz2(20) };
+      return { pPr: sp(null, 0) + ind(220 * (n5 - 2)), rPr: sz2(20) };
+    case "distinctive":
+      if (n5 === 1) return { pPr: sp(120, 0), rPr: B + I + sz2(24) };
+      if (n5 === 2) return { pPr: sp(120, 0) + ind(220), rPr: B };
+      return { pPr: sp(null, 0) + ind(220 * (n5 - 1)), rPr: sz2(20) };
+    case "fancy":
+      if (n5 === 1) return { pPr: sp(360, 360), rPr: `${B}<w:caps/><w:u w:val="single"/>` };
+      if (n5 === 2) return { pPr: sp(null, 0), rPr: `${B}<w:smallCaps/>` };
+      if (n5 === 3) return { pPr: sp(null, 0), rPr: "<w:smallCaps/>" };
+      return { pPr: sp(null, 0), rPr: "" };
+    case "modern": {
+      const bdr = '<w:pBdr><w:between w:val="double" w:sz="6" w:space="0" w:color="auto"/></w:pBdr>';
+      const jc = '<w:jc w:val="center"/>';
+      if (n5 === 1) return { pPr: bdr + sp(120, 120) + jc, rPr: B + I + sz2(24) };
+      if (n5 === 2) return { pPr: bdr + sp(120, 120) + jc, rPr: I + sz2(20) };
+      return { pPr: bdr + sp(120, 120) + ind(220 * (n5 - 2)) + jc, rPr: sz2(20) };
+    }
+    case "formal":
+      if (n5 === 1) return { pPr: sp(120, 120), rPr: `${B}<w:caps/>${sz2(20)}` };
+      if (n5 === 2) return { pPr: sp(null, 0) + ind(220), rPr: `<w:smallCaps/>${sz2(20)}` };
+      if (n5 === 3) return { pPr: sp(null, 0) + ind(440), rPr: I + sz2(20) };
+      return { pPr: sp(null, 0) + ind(220 * (n5 - 1)), rPr: sz2(18) };
+    case "simple":
+      if (n5 === 1) return { pPr: sp(240, 120), rPr: B + sz2(20) };
+      if (n5 === 2) return { pPr: sp(120, 0) + ind(220), rPr: I + sz2(20) };
+      return { pPr: sp(null, 0) + ind(220 * (n5 - 1)), rPr: sz2(20) };
+    default:
+      return { pPr: sp(null, 100) + ind(220 * (n5 - 1)), rPr: "" };
+  }
+}
+function parseTcInstr(instr) {
+  const m2 = /^\s*TC\s+(?:"((?:[^"\\]|\\.)*)"|(\S+))/i.exec(instr ?? "");
+  if (!m2) return null;
+  const text = (m2[1] ?? m2[2] ?? "").replace(/\\(.)/g, "$1");
+  const rest = (instr ?? "").slice(m2.index + m2[0].length);
+  const f3 = /\\f\s+(?:"([^"]*)"|([^\s\\"]+))/i.exec(rest);
+  const l3 = /\\l\s+"?(\d+)/i.exec(rest);
+  return { text, id: f3 ? f3[1] ?? f3[2] ?? "C" : "C", level: l3 ? Math.min(9, Math.max(1, +l3[1])) : 1, noPage: /\\n\b/i.test(rest) };
+}
+function tcInstr(o7) {
+  const id = (o7.id ?? "").trim() || "C";
+  const text = o7.text.replace(/(["\\])/g, "\\$1");
+  return ` TC "${text}" \\f ${/\s/.test(id) ? `"${id}"` : id} \\l "${Math.min(9, Math.max(1, o7.level ?? 1))}" `;
+}
+function tcInToc(o7, tc) {
+  if (!o7.fields) return false;
+  if ((o7.fieldId ?? "C").toLowerCase() !== tc.id.toLowerCase()) return false;
+  const l3 = o7.fieldLevels;
+  return !l3 || tc.level >= l3[0] && tc.level <= l3[1];
+}
+function tocOptionsFrom(d3) {
+  const levels = Math.min(9, Math.max(1, d3.levels ?? 3));
+  const links = d3.hyperlinks !== false;
+  const o7 = { hyperlinks: links, hideInWeb: true };
+  if (d3.useStyles !== false) o7.outline = [1, levels];
+  if (d3.fields) {
+    o7.fields = true;
+    if (d3.fieldId) o7.fieldId = d3.fieldId;
+  }
+  if (d3.pageNumbers === false) o7.noPageNumbers = true;
+  else if (d3.rightAlign === false) o7.separator = " ";
+  if (d3.useStyles !== false && d3.styles?.length) o7.styles = d3.styles.filter((s4) => s4.level >= 1 && s4.level <= 9);
+  if (d3.outlineLevels !== false) o7.outlineLevels = true;
+  if (!links) delete o7.hyperlinks;
+  return o7;
+}
+function dialogOptionsFrom(o7) {
+  return {
+    pageNumbers: !o7.noPageNumbers,
+    rightAlign: o7.separator === void 0,
+    hyperlinks: !!o7.hyperlinks,
+    levels: o7.outline?.[1] ?? o7.fieldLevels?.[1] ?? 3,
+    useStyles: !!o7.outline || !!o7.styles?.length,
+    styles: o7.styles ?? [],
+    outlineLevels: !!o7.outlineLevels,
+    fields: !!o7.fields,
+    ...o7.fieldId ? { fieldId: o7.fieldId } : {}
+  };
+}
+function addTextPlan(level, styleKind) {
+  if (level <= 0) return styleKind === "heading" ? { normal: true } : { outline: null };
+  if (styleKind === "other") return { outline: level };
+  return { heading: level };
+}
+var TOC_TEMPLATES, TOC_AUTO_INSTR, manualPlaceholder, MANUAL_LEVELS, TOC_GALLERY, isTocSdt, tocSdtPr, TOC_FORMATS, sp, ind, sz2, B, I;
+var init_toc = __esm({
+  "src/toc.ts"() {
+    "use strict";
+    TOC_TEMPLATES = [
+      { id: "auto1", name: { en: "Automatic Table 1", pt: "Sum\xE1rio Autom\xE1tico 1" }, heading: { en: "Contents", pt: "Conte\xFAdo" } },
+      { id: "auto2", name: { en: "Automatic Table 2", pt: "Sum\xE1rio Autom\xE1tico 2" }, heading: { en: "Table of Contents", pt: "Sum\xE1rio" } },
+      { id: "manual", name: { en: "Manual Table", pt: "Sum\xE1rio Manual" }, heading: { en: "Table of Contents", pt: "Sum\xE1rio" }, manual: true }
+    ];
+    TOC_AUTO_INSTR = ' TOC \\o "1-3" \\h \\z \\u ';
+    manualPlaceholder = (lang, level) => lang === "pt" ? `Digite o t\xEDtulo do cap\xEDtulo (n\xEDvel ${level})` : `Type chapter title (level ${level})`;
+    MANUAL_LEVELS = [1, 2, 3, 1, 2, 3];
+    TOC_GALLERY = "Table of Contents";
+    isTocSdt = (s4) => s4?.gallery === TOC_GALLERY;
+    tocSdtPr = (id) => `<w:sdtPr><w:id w:val="${id}"/><w:docPartObj><w:docPartGallery w:val="${TOC_GALLERY}"/><w:docPartUnique/></w:docPartObj></w:sdtPr>`;
+    TOC_FORMATS = [
+      { id: "template", label: { en: "From template", pt: "Do modelo" } },
+      { id: "classic", label: { en: "Classic", pt: "Cl\xE1ssico" } },
+      { id: "distinctive", label: { en: "Distinctive", pt: "Elegante" } },
+      { id: "fancy", label: { en: "Fancy", pt: "Sofisticado" } },
+      { id: "modern", label: { en: "Modern", pt: "Moderno" } },
+      { id: "formal", label: { en: "Formal", pt: "Formal" } },
+      { id: "simple", label: { en: "Simple", pt: "Simples" } }
+    ];
+    sp = (before, after) => `<w:spacing${before !== null ? ` w:before="${before}"` : ""} w:after="${after}"/>`;
+    ind = (left) => left > 0 ? `<w:ind w:left="${left}"/>` : "";
+    sz2 = (hp) => `<w:sz w:val="${hp}"/><w:szCs w:val="${hp}"/>`;
+    B = "<w:b/><w:bCs/>";
+    I = "<w:i/><w:iCs/>";
   }
 });
 
@@ -26075,14 +26257,14 @@ function writeDocxSettings(pkg, settings2) {
     ensureOverride(pkg, path, "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml");
   }
   for (const name of ["w:embedTrueTypeFonts", "w:embedSystemFonts", "w:saveSubsetFonts"]) {
-    for (let el14 = findElement(xml, name); el14; el14 = findElement(xml, name)) xml = xml.slice(0, el14.start) + xml.slice(el14.end);
+    for (let el15 = findElement(xml, name); el15; el15 = findElement(xml, name)) xml = xml.slice(0, el15.start) + xml.slice(el15.end);
   }
   if (settings2.embed) {
     const flags = "<w:embedTrueTypeFonts/>" + (settings2.skipCommonFonts ? "" : "<w:embedSystemFonts/>") + (settings2.subset ? "<w:saveSubsetFonts/>" : "");
     let at = -1;
     for (const n5 of SETTINGS_BEFORE) {
-      const el14 = findElement(xml, `w:${n5}`);
-      if (el14) at = Math.max(at, el14.end);
+      const el15 = findElement(xml, `w:${n5}`);
+      if (el15) at = Math.max(at, el15.end);
     }
     if (at < 0) {
       const root = /<w:settings\b[^>]*>/.exec(xml);
@@ -26127,9 +26309,9 @@ function writeDocxEmbedding(pkg, plan, settings2) {
     const re = new RegExp(`<w:font\\b[^>]*w:name="${escRe(escAttr5(family))}"[^>]*?(\\/>|>[\\s\\S]*?<\\/w:font>)`, "i");
     const m2 = re.exec(table2);
     if (m2) {
-      const el14 = m2[0];
-      const merged = el14.endsWith("/>") ? `${el14.slice(0, -2)}>${embeds}</w:font>` : el14.replace(/<\/w:font>$/, `${embeds}</w:font>`);
-      table2 = table2.replace(el14, merged);
+      const el15 = m2[0];
+      const merged = el15.endsWith("/>") ? `${el15.slice(0, -2)}>${embeds}</w:font>` : el15.replace(/<\/w:font>$/, `${embeds}</w:font>`);
+      table2 = table2.replace(el15, merged);
     } else {
       const panose = faces[0].info.panose;
       table2 = table2.replace(
@@ -26812,12 +26994,12 @@ function mergePPr(base, over) {
   const out = { ...base, ...over };
   if (base.spacing || over.spacing) out.spacing = { ...base.spacing, ...over.spacing };
   if (base.ind || over.ind) {
-    const ind = { ...base.ind, ...over.ind };
-    if (over.ind?.hanging !== void 0 && over.ind.firstLine === void 0) delete ind.firstLine;
-    if (over.ind?.firstLine !== void 0 && over.ind.hanging === void 0) delete ind.hanging;
-    if (over.ind?.hangingChars !== void 0) delete ind.firstLineChars;
-    if (over.ind?.firstLineChars !== void 0) delete ind.hangingChars;
-    out.ind = ind;
+    const ind2 = { ...base.ind, ...over.ind };
+    if (over.ind?.hanging !== void 0 && over.ind.firstLine === void 0) delete ind2.firstLine;
+    if (over.ind?.firstLine !== void 0 && over.ind.hanging === void 0) delete ind2.hanging;
+    if (over.ind?.hangingChars !== void 0) delete ind2.firstLineChars;
+    if (over.ind?.firstLineChars !== void 0) delete ind2.hangingChars;
+    out.ind = ind2;
   }
   if (base.pBdr || over.pBdr) out.pBdr = { ...base.pBdr, ...over.pBdr };
   if (base.numPr || over.numPr) out.numPr = { ...base.numPr, ...over.numPr };
@@ -27864,39 +28046,39 @@ function directPPr(para4) {
     else base.numPr = { numId: p3.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p3.numbering.ilvl };
   }
   if (p3.indentLeftTwips !== orig.indentLeftTwips || p3.indentRightTwips !== orig.indentRightTwips || p3.indentFirstLineTwips !== orig.indentFirstLineTwips) {
-    const ind = { ...base.ind };
-    if (p3.indentLeftTwips !== void 0) ind.left = p3.indentLeftTwips;
-    else delete ind.left;
-    if (p3.indentRightTwips !== void 0) ind.right = p3.indentRightTwips;
-    else delete ind.right;
-    delete ind.firstLine;
-    delete ind.hanging;
+    const ind2 = { ...base.ind };
+    if (p3.indentLeftTwips !== void 0) ind2.left = p3.indentLeftTwips;
+    else delete ind2.left;
+    if (p3.indentRightTwips !== void 0) ind2.right = p3.indentRightTwips;
+    else delete ind2.right;
+    delete ind2.firstLine;
+    delete ind2.hanging;
     if (p3.indentFirstLineTwips !== void 0) {
-      if (p3.indentFirstLineTwips < 0) ind.hanging = -p3.indentFirstLineTwips;
-      else ind.firstLine = p3.indentFirstLineTwips;
+      if (p3.indentFirstLineTwips < 0) ind2.hanging = -p3.indentFirstLineTwips;
+      else ind2.firstLine = p3.indentFirstLineTwips;
     }
-    base.ind = ind;
+    base.ind = ind2;
   }
   if (p3.lineTwentieths !== orig.lineTwentieths || p3.spaceAfterTwips !== orig.spaceAfterTwips || p3.spaceBeforeTwips !== orig.spaceBeforeTwips) {
-    const sp = { ...base.spacing };
+    const sp2 = { ...base.spacing };
     if (p3.lineTwentieths !== orig.lineTwentieths) {
       if (p3.lineTwentieths !== void 0) {
-        sp.line = p3.lineTwentieths;
-        sp.lineRule = "auto";
+        sp2.line = p3.lineTwentieths;
+        sp2.lineRule = "auto";
       } else {
-        delete sp.line;
-        delete sp.lineRule;
+        delete sp2.line;
+        delete sp2.lineRule;
       }
     }
     if (p3.spaceAfterTwips !== orig.spaceAfterTwips) {
-      if (p3.spaceAfterTwips !== void 0) sp.after = p3.spaceAfterTwips;
-      else delete sp.after;
+      if (p3.spaceAfterTwips !== void 0) sp2.after = p3.spaceAfterTwips;
+      else delete sp2.after;
     }
     if (p3.spaceBeforeTwips !== orig.spaceBeforeTwips) {
-      if (p3.spaceBeforeTwips !== void 0) sp.before = p3.spaceBeforeTwips;
-      else delete sp.before;
+      if (p3.spaceBeforeTwips !== void 0) sp2.before = p3.spaceBeforeTwips;
+      else delete sp2.before;
     }
-    base.spacing = sp;
+    base.spacing = sp2;
   }
   if (p3.shadingHex !== orig.shadingHex) {
     if (p3.shadingHex) base.shd = { val: "clear", fill: p3.shadingHex };
@@ -28188,10 +28370,10 @@ function mathAtoms(env, nodes, lvl = "D", scale = 1, off = { n: 0 }) {
     if (kern && a3.kind === "char" && b5.kind === "char" && a3.face === b5.face && a3.sizePt === b5.sizePt && a3.sizePt * 2 >= kern) a3.adv += env.kern(a3.face, a3.cp, b5.cp, a3.sizePt);
     if (a3.italic && !b5.italic) a3.adv += a3.ital;
     if (lvl === "S") continue;
-    let sp = 0;
-    if (a3.cls === "rel" !== (b5.cls === "rel") && a3.cls !== "open" && b5.cls !== "close") sp = 5 / 18;
-    else if ((a3.cls === "bin" || b5.cls === "bin") && a3.cls !== "open") sp = 4 / 18;
-    if (sp) a3.adv += sp * emTw(a3.cls === "ord" || a3.cls === "close" ? b5 : a3);
+    let sp2 = 0;
+    if (a3.cls === "rel" !== (b5.cls === "rel") && a3.cls !== "open" && b5.cls !== "close") sp2 = 5 / 18;
+    else if ((a3.cls === "bin" || b5.cls === "bin") && a3.cls !== "open") sp2 = 4 / 18;
+    if (sp2) a3.adv += sp2 * emTw(a3.cls === "ord" || a3.cls === "close" ? b5 : a3);
   }
   return atoms;
 }
@@ -28458,9 +28640,9 @@ function fallbackOrder(cp, font) {
 }
 function resolveRunStyle(ctx, rpr, env, link) {
   const theme = ctx.fmt.theme;
-  const sz2 = (rpr.sz ?? 20) / 2;
+  const sz3 = (rpr.sz ?? 20) / 2;
   const va = rpr.vertAlign;
-  const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz2 * 2 * 1331 / 2048) / 2 : sz2;
+  const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz3 * 2 * 1331 / 2048) / 2 : sz3;
   const shift = (rpr.position ?? 0) * 10;
   const tf = rpr.textFill;
   const color3 = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
@@ -28486,7 +28668,7 @@ function resolveRunStyle(ctx, rpr, env, link) {
   };
   if (va === "superscript" || va === "subscript") {
     const face = faceFor(ctx, rpr, 65, style);
-    style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz2, sizePt) * 20 : -subscriptDropPt(face.family, sz2) * 20;
+    style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz3, sizePt) * 20 : -subscriptDropPt(face.family, sz3) * 20;
   }
   return style;
 }
@@ -28550,8 +28732,8 @@ function scaledUnits(units, font, w2) {
   const lf = Math.floor(avg * w2 / 100 + 1e-9);
   return Math.floor(units * lf / avg + 0.5);
 }
-function spacingTwips(ctx, sp) {
-  return ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device" ? toWordUnit(sp) : sp;
+function spacingTwips(ctx, sp2) {
+  return ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device" ? toWordUnit(sp2) : sp2;
 }
 function advanceTwips(ctx, face, cp, sizePt, w2 = 100) {
   const f3 = face.font;
@@ -29140,12 +29322,12 @@ function prepareParagraph(ctx, para0, env0) {
       marker = { text: nm.text, glyphs: mg, width: w2, level: nm.level, suff: nm.level.suff ?? "tab", jc: nm.level.lvlJc ?? "left", ...nm.chapter !== void 0 ? { chapter: nm.chapter } : {} };
     }
   }
-  const ind = ppr.ind ?? {};
-  const sp = ppr.spacing ?? {};
+  const ind2 = ppr.ind ?? {};
+  const sp2 = ppr.spacing ?? {};
   let jc = ppr.jc ?? "left";
   if (jc === "start") jc = "left";
   if (jc === "end") jc = "right";
-  let firstLine = env.continuation ? 0 : ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0;
+  let firstLine = env.continuation ? 0 : ind2.hanging !== void 0 ? -ind2.hanging : ind2.firstLine ?? 0;
   if (mathJc && !glyphs.some((g2) => !mathRuns.has(g2.runIdx) && g2.kind !== "lb" && g2.kind !== "pb" && g2.kind !== "space" && !(g2.kind === "obj" && g2.adv === 0))) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
@@ -29160,19 +29342,19 @@ function prepareParagraph(ctx, para0, env0) {
     glyphs,
     marker,
     ...revBars ? { revBars } : {},
-    indLeft: ind.left ?? 0,
-    indRight: ind.right ?? 0,
+    indLeft: ind2.left ?? 0,
+    indRight: ind2.right ?? 0,
     firstLine,
     jc,
     tabs: (ppr.tabs ?? []).filter((t6) => t6.val !== "clear"),
-    spaceBefore: env.continuation ? 0 : sp.before ?? 0,
-    spaceAfter: sp.after ?? 0,
+    spaceBefore: env.continuation ? 0 : sp2.before ?? 0,
+    spaceAfter: sp2.after ?? 0,
     // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
     // w:before/w:after explícitos (oráculo autosphtml)
-    beforeAuto: !env.continuation && !!sp.beforeAutospacing && !settings2.compat["doNotUseHTMLParagraphAutoSpacing"],
-    afterAuto: !!sp.afterAutospacing && !settings2.compat["doNotUseHTMLParagraphAutoSpacing"],
-    lineRule: sp.lineRule ?? "auto",
-    line: sp.line ?? 240,
+    beforeAuto: !env.continuation && !!sp2.beforeAutospacing && !settings2.compat["doNotUseHTMLParagraphAutoSpacing"],
+    afterAuto: !!sp2.afterAutospacing && !settings2.compat["doNotUseHTMLParagraphAutoSpacing"],
+    lineRule: sp2.lineRule ?? "auto",
+    line: sp2.line ?? 240,
     contextual: !!ppr.contextualSpacing,
     keepNext: !!ppr.keepNext,
     keepLines: !!ppr.keepLines,
@@ -29701,11 +29883,11 @@ var init_lines = __esm({
         if (emptyLine) {
           const mm = faceMetrics(p3.markFace.font);
           const va = p3.markStyle.rpr.vertAlign;
-          const sz2 = (va === "superscript" || va === "subscript" ? (p3.markStyle.rpr.sz ?? 20) / 2 : p3.markStyle.sizePt) * 20;
+          const sz3 = (va === "superscript" || va === "subscript" ? (p3.markStyle.rpr.sz ?? 20) / 2 : p3.markStyle.sizePt) * 20;
           const sh = va ? 0 : p3.markStyle.shift;
           const [ea, ed] = shadowExtent(p3.markStyle);
-          asc = Math.max(0, mm.ascent * sz2 + ea + sh);
-          desc = Math.max(0, mm.descent * sz2 + ed - sh);
+          asc = Math.max(0, mm.ascent * sz3 + ea + sh);
+          desc = Math.max(0, mm.descent * sz3 + ed - sh);
         }
         if (tAsc + tDesc === 0) {
           const mm = faceMetrics(p3.markFace.font);
@@ -30242,10 +30424,10 @@ function decodeTiff(b5) {
   const coef = tags.get(529) ?? [0.299, 0.587, 0.114];
   const toRgb = (Y, cb, cr) => {
     const lr = coef[0] ?? 0.299, lg = coef[1] ?? 0.587, lb = coef[2] ?? 0.114;
-    const R2 = Y + (cr - 128) * (2 - 2 * lr), B2 = Y + (cb - 128) * (2 - 2 * lb);
-    const G = (Y - lb * B2 - lr * R2) / lg;
+    const R2 = Y + (cr - 128) * (2 - 2 * lr), B3 = Y + (cb - 128) * (2 - 2 * lb);
+    const G = (Y - lb * B3 - lr * R2) / lg;
     const c5 = (v2) => Math.max(0, Math.min(255, Math.round(v2)));
-    return [c5(R2), c5(G), c5(B2)];
+    return [c5(R2), c5(G), c5(B3)];
   };
   if (ycc && (sh > 1 || sv > 1)) {
     if (tags.has(322)) return null;
@@ -30270,11 +30452,11 @@ function decodeTiff(b5) {
           for (let i7 = 0; i7 < sh; i7++) {
             const x3 = bx * sh + i7, y3 = by * sv + j;
             if (x3 >= width || y3 >= height) continue;
-            const [R2, G, B2] = toRgb(data8[u3 + j * sh + i7], cb, cr);
+            const [R2, G, B3] = toRgb(data8[u3 + j * sh + i7], cb, cr);
             const k2 = (y3 * width + x3) * 4;
             out2[k2] = R2;
             out2[k2 + 1] = G;
-            out2[k2 + 2] = B2;
+            out2[k2 + 2] = B3;
             out2[k2 + 3] = 255;
           }
         }
@@ -30347,10 +30529,10 @@ function decodeTiff(b5) {
         return v2;
       };
       if (ycc) {
-        const [R2, G, B2] = toRgb(sample(0), sample(1), sample(2));
+        const [R2, G, B3] = toRgb(sample(0), sample(1), sample(2));
         out[k2] = R2;
         out[k2 + 1] = G;
-        out[k2 + 2] = B2;
+        out[k2 + 2] = B3;
         out[k2 + 3] = 255;
       } else if (photo === 2 || photo === 6) {
         out[k2] = sample(0);
@@ -31712,8 +31894,8 @@ function paintDecorations(out, all, frameX, baseY, line2) {
   for (const s4 of segs((g2) => !!g2.style.underline && g2.style.underline.val !== "none")) {
     const st = s4.g.style;
     const m2 = faceMetrics(s4.g.face.font);
-    const sz2 = st.sizePt * 20;
-    const y3 = baseY - st.shift + m2.underlinePos * sz2;
+    const sz3 = st.sizePt * 20;
+    const y3 = baseY - st.shift + m2.underlinePos * sz3;
     const w2 = Math.max(0.5, m2.underlineThick * st.sizePt);
     const color3 = st.underline.color ?? st.color;
     const val3 = st.underline.val;
@@ -31886,12 +32068,12 @@ function pageBorderItems(ctx, pb, g2, surround) {
   const on = (b5) => !!b5 && b5.val !== "none" && b5.val !== "nil";
   const lw = (b5) => on(b5) ? Math.max(0.25, (b5.sz ?? 4) / 8) * 20 : 0;
   const thick = (b5) => on(b5) && b5.val === "double" ? 3 * lw(b5) : lw(b5);
-  const sp = (b5) => (b5?.space ?? 0) * 20;
+  const sp2 = (b5) => (b5?.space ?? 0) * 20;
   const page2 = pb.offsetFrom === "page";
-  const top = page2 ? sp(pb.top) : (surround.header ? g2.hdr : g2.marT) - sp(pb.top) - thick(pb.top);
-  const bottom = page2 ? g2.pageH - sp(pb.bottom) : g2.pageH - (surround.footer ? g2.ftr : g2.marB) + sp(pb.bottom) + thick(pb.bottom);
-  const left = page2 ? sp(pb.left) : g2.marL - sp(pb.left) - thick(pb.left);
-  const right = page2 ? g2.pageW - sp(pb.right) : g2.pageW - g2.marR + sp(pb.right) + thick(pb.right);
+  const top = page2 ? sp2(pb.top) : (surround.header ? g2.hdr : g2.marT) - sp2(pb.top) - thick(pb.top);
+  const bottom = page2 ? g2.pageH - sp2(pb.bottom) : g2.pageH - (surround.footer ? g2.ftr : g2.marB) + sp2(pb.bottom) + thick(pb.bottom);
+  const left = page2 ? sp2(pb.left) : g2.marL - sp2(pb.left) - thick(pb.left);
+  const right = page2 ? g2.pageW - sp2(pb.right) : g2.pageW - g2.marR + sp2(pb.right) + thick(pb.right);
   const out = [];
   const color3 = (b5) => resolveColor({ val: b5.color, themeColor: b5.themeColor, themeTint: b5.themeTint, themeShade: b5.themeShade }, ctx.fmt.theme) ?? "000000";
   const bands = (b5) => b5.val === "double" ? [[0, lw(b5)], [2 * lw(b5), 3 * lw(b5)]] : [[0, lw(b5)]];
@@ -31930,7 +32112,7 @@ var init_paint = __esm({
 
 // ../docx-layout/src/datefmt.ts
 function formatWordDate(d3, picture, lang = "pt-BR") {
-  const L10 = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L11 = lang.toLowerCase().startsWith("en") ? EN : PT;
   let out = "";
   let i7 = 0;
   const run3 = (ch) => {
@@ -31948,19 +32130,19 @@ function formatWordDate(d3, picture, lang = "pt-BR") {
     }
     const lower = picture.slice(i7, i7 + 5).toLowerCase();
     if (lower === "am/pm") {
-      out += L10 === EN ? d3.getHours() >= 12 ? "PM" : "AM" : "";
+      out += L11 === EN ? d3.getHours() >= 12 ? "PM" : "AM" : "";
       i7 += 5;
       continue;
     }
     if (c5 === "d" || c5 === "D") {
       const n5 = run3(c5);
-      out += n5 >= 4 ? L10.days[d3.getDay()] : n5 === 3 ? L10.daysShort[d3.getDay()] : n5 === 2 ? pad(d3.getDate(), 2) : String(d3.getDate());
+      out += n5 >= 4 ? L11.days[d3.getDay()] : n5 === 3 ? L11.daysShort[d3.getDay()] : n5 === 2 ? pad(d3.getDate(), 2) : String(d3.getDate());
       i7 += n5;
       continue;
     }
     if (c5 === "M") {
       const n5 = run3(c5);
-      out += n5 >= 4 ? L10.months[d3.getMonth()] : n5 === 3 ? L10.monthsShort[d3.getMonth()] : n5 === 2 ? pad(d3.getMonth() + 1, 2) : String(d3.getMonth() + 1);
+      out += n5 >= 4 ? L11.months[d3.getMonth()] : n5 === 3 ? L11.monthsShort[d3.getMonth()] : n5 === 2 ? pad(d3.getMonth() + 1, 2) : String(d3.getMonth() + 1);
       i7 += n5;
       continue;
     }
@@ -32002,9 +32184,9 @@ function formatWordDate(d3, picture, lang = "pt-BR") {
 }
 function dateFieldValue(instr, now, lang = "pt-BR") {
   const name = instr.trim().split(/\s+/)[0].toUpperCase();
-  const L10 = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L11 = lang.toLowerCase().startsWith("en") ? EN : PT;
   const m2 = /\\@\s*(?:"([^"]*)"|(\S+))/.exec(instr);
-  const picture = m2 ? m2[1] ?? m2[2] ?? "" : name === "TIME" ? L10.time : L10.date;
+  const picture = m2 ? m2[1] ?? m2[2] ?? "" : name === "TIME" ? L11.time : L11.date;
   let v2 = formatWordDate(now, picture, lang);
   const fmt2 = /\\\*\s*(\w+)/g;
   let f3;
@@ -32304,18 +32486,18 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const g1 = boundaryWidths(cells, nCols, (c5) => m2.get(c5).min, () => true);
   const minOf = (c5) => m2.get(c5).min;
   if (all.length && all.every((c5) => prefOf(c5.tcW) === "pct")) {
-    const T9 = T0 ?? Math.min(Math.max(...all.map((c5) => m2.get(c5).max * 5e3 / c5.tcW.w)), avail);
-    const p4 = boundaryWidths(cells, nCols, (c5) => T9 * c5.tcW.w / 5e3);
-    let room = T9;
+    const T10 = T0 ?? Math.min(Math.max(...all.map((c5) => m2.get(c5).max * 5e3 / c5.tcW.w)), avail);
+    const p4 = boundaryWidths(cells, nCols, (c5) => T10 * c5.tcW.w / 5e3);
+    let room = T10;
     for (let j = 0; j < nCols; j++) {
       p4[j] = Math.max(0, Math.min(p4[j], room));
       room -= p4[j];
     }
     fitPctMins(p4, all, minOf, g1, () => true);
-    const sp = p4.reduce((a3, b5) => a3 + b5, 0);
-    const cap2 = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T9, base);
-    if (sp > cap2 + 0.5) return p4.map((x3) => x3 * cap2 / sp);
-    return sp > 0 && T9 > sp + 0.5 ? p4.map((x3) => x3 * T9 / sp) : p4;
+    const sp2 = p4.reduce((a3, b5) => a3 + b5, 0);
+    const cap2 = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T10, base);
+    if (sp2 > cap2 + 0.5) return p4.map((x3) => x3 * cap2 / sp2);
+    return sp2 > 0 && T10 > sp2 + 0.5 ? p4.map((x3) => x3 * T10 / sp2) : p4;
   }
   const frac3 = Array.from({ length: nCols }, (_2, j) => {
     const own4 = all.filter((c5) => c5.span === 1 && c5.col === j);
@@ -32323,23 +32505,23 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     return Math.max(...own4.filter((c5) => prefOf(c5.tcW) === "pct").map((c5) => c5.tcW.w / 5e3));
   });
   const isPct = frac3.map((f3) => f3 > 0);
-  const kind = (c5, T9) => {
+  const kind = (c5, T10) => {
     const k2 = prefOf(c5.tcW);
-    if (k2 === "pct") return c5.span === 1 && isPct[c5.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T9 * c5.tcW.w / 5e3 };
+    if (k2 === "pct") return c5.span === 1 && isPct[c5.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T10 * c5.tcW.w / 5e3 };
     return { k: k2, w: k2 === "dxa" ? c5.tcW.w : 0 };
   };
   const sumOf = (v2, pick) => v2.reduce((a3, x3, j) => a3 + (pick(j) ? x3 : 0), 0);
   const gMax = boundaryWidths(cells, nCols, (c5) => m2.get(c5).max, () => true);
-  const g3of = (T9) => boundaryWidths(cells, nCols, (c5) => {
-    const q = kind(c5, T9);
+  const g3of = (T10) => boundaryWidths(cells, nCols, (c5) => {
+    const q = kind(c5, T10);
     return q.k === "dxa" ? Math.max(q.w, m2.get(c5).min) : m2.get(c5).min;
-  }, (c5) => kind(c5, T9).k !== "dxa");
-  const g4of = (T9) => boundaryWidths(cells, nCols, (c5) => {
-    const q = kind(c5, T9), mm = m2.get(c5);
+  }, (c5) => kind(c5, T10).k !== "dxa");
+  const g4of = (T10) => boundaryWidths(cells, nCols, (c5) => {
+    const q = kind(c5, T10), mm = m2.get(c5);
     return q.k === "dxa" ? Math.max(q.w, mm.min) : q.k === "auto" ? mm.max : mm.min;
-  }, (c5) => kind(c5, T9).k !== "dxa");
-  let T8 = T0;
-  if (T8 === void 0) {
+  }, (c5) => kind(c5, T10).k !== "dxa");
+  let T9 = T0;
+  if (T9 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
     const fr = Math.min(1, frac3.reduce((a3, b5) => a3 + b5, 0));
@@ -32348,30 +32530,30 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
       for (let j = 0; j < nCols; j++) if (isPct[j]) t6 = Math.max(t6, gMax[j] / frac3[j]);
       if (fr < 1) t6 = Math.max(t6, rest / (1 - fr));
     }
-    T8 = Math.min(t6, avail);
+    T9 = Math.min(t6, avail);
   }
   const explicit = T0 !== void 0;
   const p3 = new Array(nCols).fill(0);
   if (isPct.some(Boolean)) {
-    let room = T8 - sumOf(g1, (j) => !isPct[j]);
+    let room = T9 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p3[j] = Math.max(0, Math.min(frac3[j] * T8, room));
+      p3[j] = Math.max(0, Math.min(frac3[j] * T9, room));
       room -= p3[j];
     }
     fitPctMins(p3, all.filter((c5) => c5.span === 1), minOf, g1, (k2) => isPct[k2]);
   }
   const np = (j) => !isPct[j];
   if (!isPct.some((x3) => !x3)) {
-    const sp = sumOf(p3, () => true);
-    return sp > 0 && T8 > sp + 0.5 ? p3.map((x3) => x3 * T8 / sp) : p3;
+    const sp2 = sumOf(p3, () => true);
+    return sp2 > 0 && T9 > sp2 + 0.5 ? p3.map((x3) => x3 * T9 / sp2) : p3;
   }
-  let R2 = T8 - sumOf(p3, () => true);
-  const g3 = g3of(T8), g4 = g4of(T8);
+  let R2 = T9 - sumOf(p3, () => true);
+  const g3 = g3of(T9), g4 = g4of(T9);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp2 = (a3, b5, t6) => a3.map((x3, j) => isPct[j] ? p3[j] : x3 + (b5[j] - x3) * t6);
   if (R2 >= S4 - 0.5) {
     const covered = (j) => all.some((c5) => c5.col <= j && c5.col + c5.span > j);
-    const auto = Array.from({ length: nCols }, (_2, j) => np(j) && covered(j) && !all.some((c5) => c5.col <= j && c5.col + c5.span > j && kind(c5, T8).k !== "auto"));
+    const auto = Array.from({ length: nCols }, (_2, j) => np(j) && covered(j) && !all.some((c5) => c5.col <= j && c5.col + c5.span > j && kind(c5, T9).k !== "auto"));
     let grow = auto;
     if (!grow.some(Boolean)) grow = isPct.map((x3, j) => !x3 && covered(j));
     const wsum = sumOf(g4, (j) => grow[j]);
@@ -32380,19 +32562,19 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   }
   if (R2 >= S3) return lerp2(g3, g4, (R2 - S3) / (S4 - S3));
   if (R2 >= S1) return lerp2(g1, g3, S3 > S1 ? (R2 - S1) / (S3 - S1) : 0);
-  if (all.some((c5) => c5.floor) && !isPct.some(Boolean) && !(explicit && T8 > avail) && S1 > avail + 0.5) {
+  if (all.some((c5) => c5.floor) && !isPct.some(Boolean) && !(explicit && T9 > avail) && S1 > avail + 0.5) {
     const pad2 = Array.from({ length: nCols }, (_2, j) => Math.max(0, ...all.filter((c5) => c5.span === 1 && c5.col === j).map((c5) => c5.pad ?? 0)));
     const inner = g1.map((x3, j) => Math.max(0, x3 - pad2[j]));
     const si = inner.reduce((a3, b5) => a3 + b5, 0), cut = S1 - avail;
     return g1.map((x3, j) => x3 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
   if (explicit) {
-    if (!(S1 > avail + 0.5 && (tw3 === "pct" ? T8 <= avail + 0.5 : T8 < avail - 0.5))) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
-    R2 += avail - T8;
-    T8 = avail;
+    if (!(S1 > avail + 0.5 && (tw3 === "pct" ? T9 <= avail + 0.5 : T9 < avail - 0.5))) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
+    R2 += avail - T9;
+    T9 = avail;
   }
   const sg = docGrid.reduce((a3, b5) => a3 + b5, 0);
-  if (!isPct.some(Boolean) && Math.abs(sg - T8) <= Math.max(20, 5e-3 * T8)) return docGrid.map((x3) => x3 * T8 / sg);
+  if (!isPct.some(Boolean) && Math.abs(sg - T9) <= Math.max(20, 5e-3 * T9)) return docGrid.map((x3) => x3 * T9 / sg);
   return g1.map((x3, j) => isPct[j] ? p3[j] : S1 > 0 ? x3 * R2 / S1 : x3);
 }
 function measureCell(ctx, cell, r6, mar) {
@@ -32643,11 +32825,11 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     return mm;
   };
   const geoCells = slots.map((rs, ri) => {
-    const sp = spacingOf(ri);
+    const sp2 = spacingOf(ri);
     const out = rs.map((s4) => {
       const tcW0 = resolved.get(s4)?.tcPr.tcW;
-      const exSp = sp > 0 ? 2 * sp + (s4.col === 0 ? sp : 0) + (s4.col + s4.span >= nCols ? sp : 0) : 0;
-      const ex = sp > 0 ? exSp + borderWidth(edge(s4, "left")) + borderWidth(edge(s4, "right")) : 0;
+      const exSp = sp2 > 0 ? 2 * sp2 + (s4.col === 0 ? sp2 : 0) + (s4.col + s4.span >= nCols ? sp2 : 0) : 0;
+      const ex = sp2 > 0 ? exSp + borderWidth(edge(s4, "left")) + borderWidth(edge(s4, "right")) : 0;
       const tcW = tcW0 && exSp && prefOf(tcW0) === "dxa" ? { ...tcW0, w: tcW0.w + exSp } : tcW0;
       const nw = !!resolved.get(s4)?.tcPr.noWrap;
       const noWrap = nw && prefOf(tcW0) !== "dxa";
@@ -32704,7 +32886,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const sepTop = [], sepBottom = [], sepWT = [], sepWB = [];
   if (separated) {
     for (let ri = 0; ri < nRows; ri++) {
-      const sp = spRow(ri);
+      const sp2 = spRow(ri);
       let wT = 0, wB = 0;
       for (const sl of slots[ri] ?? []) {
         wT = Math.max(wT, borderWidth(edge(sl, "top")));
@@ -32712,8 +32894,8 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       }
       sepWT.push(wT);
       sepWB.push(wB);
-      sepTop.push((ri === 0 ? borderWidth(outerB(0, "top")) + sp : 0) + sp + wT);
-      sepBottom.push(wB + sp + (ri === nRows - 1 ? sp + borderWidth(outerB(ri, "bottom")) : 0));
+      sepTop.push((ri === 0 ? borderWidth(outerB(0, "top")) + sp2 : 0) + sp2 + wT);
+      sepBottom.push(wB + sp2 + (ri === nRows - 1 ? sp2 + borderWidth(outerB(ri, "bottom")) : 0));
     }
   }
   const bandTopOf = (ri) => separated ? sepTop[ri] : band[ri];
@@ -32972,18 +33154,18 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
             a3.set(ci.slot, c5);
             continue;
           }
-          const sp = splitContent(c5, availContent - ci.marT - ci.marB - brkW);
-          if (!sp) {
+          const sp2 = splitContent(c5, availContent - ci.marT - ci.marB - brkW);
+          if (!sp2) {
             if (c5.lines.length) return null;
             rest.set(ci.slot, c5);
             h22 = Math.max(h22, c5.height + ci.marT + ci.marB);
             continue;
           }
           any = true;
-          a3.set(ci.slot, sp[0]);
-          rest.set(ci.slot, sp[1]);
-          h1 = Math.max(h1, sp[0].height + ci.marT + ci.marB);
-          h22 = Math.max(h22, sp[1].height + ci.marT + ci.marB);
+          a3.set(ci.slot, sp2[0]);
+          rest.set(ci.slot, sp2[1]);
+          h1 = Math.max(h1, sp2[0].height + ci.marT + ci.marB);
+          h22 = Math.max(h22, sp2[1].height + ci.marT + ci.marB);
         }
         if (!any) return null;
         const first = paintRow(h1, a3, false, drawTop, bandTop, 0);
@@ -34809,13 +34991,13 @@ var init_engine = __esm({
         });
       }
       geomOf(s4, i7) {
-        const sp = s4.sectPr;
-        const pageW = sp.pageWidthTwips, pageH = sp.pageHeightTwips;
-        const marL = sp.marginLeftTwips, marR = sp.marginRightTwips;
+        const sp2 = s4.sectPr;
+        const pageW = sp2.pageWidthTwips, pageH = sp2.pageHeightTwips;
+        const marL = sp2.marginLeftTwips, marR = sp2.marginRightTwips;
         const contentW = Math.max(720, pageW - marL - marR);
         const cols = [];
         const defs = s4.sect?.colDefs;
-        const n5 = Math.max(1, sp.cols?.count ?? 1);
+        const n5 = Math.max(1, sp2.cols?.count ?? 1);
         if (n5 > 1 && defs && defs.length >= n5 && s4.sect?.equalWidth === false) {
           let x3 = marL;
           for (const d3 of defs.slice(0, n5)) {
@@ -34823,7 +35005,7 @@ var init_engine = __esm({
             x3 += d3.w + d3.space;
           }
         } else if (n5 > 1) {
-          const space = sp.cols?.spaceTwips ?? 720;
+          const space = sp2.cols?.spaceTwips ?? 720;
           const w2 = (contentW - space * (n5 - 1)) / n5;
           for (let k2 = 0; k2 < n5; k2++) cols.push({ x: marL + k2 * (w2 + space), w: w2 });
         } else cols.push({ x: marL, w: contentW });
@@ -34838,13 +35020,13 @@ var init_engine = __esm({
         const hb = s4.headerBlocks ?? blocksOfParas(s4.headers);
         const fb = s4.footerBlocks ?? blocksOfParas(s4.footers);
         const st = this.ctx.fmt.settings;
-        const fnPr = { ...st.footnotePr, ...sp.footnotePr }, enPr = { ...st.endnotePr, ...sp.endnotePr };
+        const fnPr = { ...st.footnotePr, ...sp2.footnotePr }, enPr = { ...st.endnotePr, ...sp2.endnotePr };
         const notes = {
           footnote: { fmt: fnPr.numFmt ?? "decimal", start: fnPr.numStart ?? 1, restart: fnPr.numRestart ?? "continuous" },
           // (nota de fim não reinicia por página)
           endnote: { fmt: enPr.numFmt ?? "lowerRoman", start: enPr.numStart ?? 1, restart: enPr.numRestart === "eachSect" ? "eachSect" : "continuous" },
           fnPos: fnPr.pos ?? "pageBottom",
-          ...sp.footnoteColumns ? { fnCols: sp.footnoteColumns } : {}
+          ...sp2.footnoteColumns ? { fnCols: sp2.footnoteColumns } : {}
         };
         return {
           notes,
@@ -34853,18 +35035,18 @@ var init_engine = __esm({
           pageH,
           marL,
           marR,
-          marT: sp.marginTopTwips,
-          marB: sp.marginBottomTwips,
-          hdr: sp.headerDistanceTwips ?? 720,
-          ftr: sp.footerDistanceTwips ?? 720,
+          marT: sp2.marginTopTwips,
+          marB: sp2.marginBottomTwips,
+          hdr: sp2.headerDistanceTwips ?? 720,
+          ftr: sp2.footerDistanceTwips ?? 720,
           cols,
-          colSep: !!sp.cols?.sep,
-          titlePg: !!sp.titlePg,
+          colSep: !!sp2.cols?.sep,
+          titlePg: !!sp2.titlePg,
           type: s4.sect?.type ?? "nextPage",
           ...s4.sect?.vAlign ? { vAlign: s4.sect.vAlign } : {},
-          ...sp.pgNumStart !== void 0 ? { pgStart: sp.pgNumStart } : {},
-          ...sp.pgNumFmt ?? s4.sect?.pgNumFmt ? { pgFmt: sp.pgNumFmt ?? s4.sect.pgNumFmt } : {},
-          ...sp.pgNumChapStyle ? { chap: { level: sp.pgNumChapStyle, sep: CHAP_SEP[sp.pgNumChapSep ?? "hyphen"] ?? "-" } } : {},
+          ...sp2.pgNumStart !== void 0 ? { pgStart: sp2.pgNumStart } : {},
+          ...sp2.pgNumFmt ?? s4.sect?.pgNumFmt ? { pgFmt: sp2.pgNumFmt ?? s4.sect.pgNumFmt } : {},
+          ...sp2.pgNumChapStyle ? { chap: { level: sp2.pgNumChapStyle, sep: CHAP_SEP[sp2.pgNumChapSep ?? "hyphen"] ?? "-" } } : {},
           headers: pick(hb, prev?.headers),
           footers: pick(fb, prev?.footers),
           blocks: [s4.blockStart, s4.blockEnd],
@@ -34964,10 +35146,10 @@ var init_engine = __esm({
           this.noteCarry = [];
           for (const n5 of carry) {
             const avail = ps.bodyBottomBase - ps.bodyTop - this.noteAreaOf(ps.notes.map((x3) => x3.content), g2) - (ps.notes.length ? 0 : this.separatorHeight());
-            const sp = n5.content.height > avail + 0.05 && !ps.notesFull ? splitContent(n5.content, avail) : null;
-            if (sp && sp[0].lines.length && sp[1].lines.length) {
-              ps.notes.push({ id: n5.id, content: sp[0] });
-              this.noteCarry.push({ id: n5.id, content: sp[1] });
+            const sp2 = n5.content.height > avail + 0.05 && !ps.notesFull ? splitContent(n5.content, avail) : null;
+            if (sp2 && sp2[0].lines.length && sp2[1].lines.length) {
+              ps.notes.push({ id: n5.id, content: sp2[0] });
+              this.noteCarry.push({ id: n5.id, content: sp2[1] });
               ps.notesFull = true;
             } else if (ps.notesFull) this.noteCarry.push(n5);
             else ps.notes.push(n5);
@@ -36224,8 +36406,8 @@ var init_engine = __esm({
         const id = ids[ids.length - 1];
         const avail = ps.bodyBottom - bottom - h3;
         if (avail <= 0) return null;
-        const sp = splitContent(this.noteContent(id), avail);
-        return sp && sp[0].lines.length && sp[1].lines.length ? { id, first: sp[0], rest: sp[1] } : null;
+        const sp2 = splitContent(this.noteContent(id), avail);
+        return sp2 && sp2[0].lines.length && sp2[1].lines.length ? { id, first: sp2[0], rest: sp2[1] } : null;
       }
       /** Separador + notas, alinhados ao fundo do corpo (medido no Word); "abaixo do
        *  texto" (w:pos beneathText): logo depois do conteúdo da página, como as notas de
@@ -36576,8 +36758,8 @@ var init_engine = __esm({
             if (!c5) return;
             let part = c5, rest = null;
             if (k2 < segs.length - 1) {
-              const sp = splitContent(c5, sg.bottom - sg.top - (m2.off - sg.cut));
-              if (sp) [part, rest] = sp;
+              const sp2 = splitContent(c5, sg.bottom - sg.top - (m2.off - sg.cut));
+              if (sp2) [part, rest] = sp2;
               else {
                 part = { items: [], lines: [], height: 0 };
                 rest = c5;
@@ -36818,8 +37000,8 @@ var init_engine = __esm({
             if (!c5) return;
             let part = c5, rest = null;
             if (k2 < segs.length - 1) {
-              const sp = splitContent(c5, sg.bottom - sg.top - (m2.off - sg.cut));
-              if (sp) [part, rest] = sp;
+              const sp2 = splitContent(c5, sg.bottom - sg.top - (m2.off - sg.cut));
+              if (sp2) [part, rest] = sp2;
               else {
                 part = { items: [], lines: [], height: 0 };
                 rest = c5;
@@ -37891,12 +38073,12 @@ function glyphsAsPath(page2, it) {
     const gid = g2.gid ?? font.glyphId(g2.cp);
     const layers = it.colr ? font.colorLayers?.(gid) : null;
     if (layers) {
-      for (const L10 of layers) {
+      for (const L11 of layers) {
         const lc2 = [];
-        if (!outlineInto(lc2, font, L10.glyphId, g2.x / T3, base, sx, s4, skew)) continue;
+        if (!outlineInto(lc2, font, L11.glyphId, g2.x / T3, base, sx, s4, skew)) continue;
         if (!lc2.length) continue;
-        const a3 = L10.alpha * (it.alpha ?? 1);
-        page2.withAlpha(a3 < 1 ? a3 : void 0, void 0, () => page2.path(lc2, hexColor(L10.color ?? it.color)));
+        const a3 = L11.alpha * (it.alpha ?? 1);
+        page2.withAlpha(a3 < 1 ? a3 : void 0, void 0, () => page2.path(lc2, hexColor(L11.color ?? it.color)));
       }
       continue;
     }
@@ -39191,8 +39373,8 @@ function browserUiLang() {
   }
   return DEFAULT_UI_LANG;
 }
-function uiLang(el14) {
-  const forced = el14?.getAttribute("lang");
+function uiLang(el15) {
+  const forced = el15?.getAttribute("lang");
   if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
   return browserUiLang();
 }
@@ -39224,25 +39406,25 @@ var init_viewer_controls = __esm({
 // ../../../shared/ui/src/font-embedding-dialog.ts
 function openFontEmbeddingDialog(opts) {
   const { app, settings: settings2 } = opts;
-  const L10 = pickLabels(opts.lang, LABELS);
+  const L11 = pickLabels(opts.lang, LABELS);
   const dlg = document.createElement("dialog");
   dlg.className = "uo-font-embedding";
   dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
-  const common = join3(COMMON_FONTS[app], L10);
+  const common = join3(COMMON_FONTS[app], L11);
   dlg.innerHTML = `
     <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
-      <strong style="font-size:1.1em">${L10.title}</strong>
-      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L10.embed}</span></label>
+      <strong style="font-size:1.1em">${L11.title}</strong>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L11.embed}</span></label>
       <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
         <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
-          <span>${L10.subset} <small style="opacity:.7">${L10.subsetNote}</small></span></label>
+          <span>${L11.subset} <small style="opacity:.7">${L11.subsetNote}</small></span></label>
         ${app === "write" ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
-               <span>${L10.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L10.neverEmbedded(common)}</small>`}
+               <span>${L11.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L11.neverEmbedded(common)}</small>`}
       </div>
-      <small style="opacity:.7">${L10.note}</small>
+      <small style="opacity:.7">${L11.note}</small>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-        <button value="cancel" type="submit">${L10.cancel}</button>
-        <button value="ok" type="submit">${L10.ok}</button>
+        <button value="cancel" type="submit">${L11.cancel}</button>
+        <button value="ok" type="submit">${L11.ok}</button>
       </div>
     </form>`;
   const box = (n5) => dlg.querySelector(`input[name="${n5}"]`);
@@ -39251,7 +39433,7 @@ function openFontEmbeddingDialog(opts) {
   subset.checked = settings2.subset;
   if (skipCommon) skipCommon.checked = settings2.skipCommonFonts;
   const sync = () => {
-    for (const el14 of dlg.querySelectorAll("[data-sub] input")) el14.disabled = !embed.checked;
+    for (const el15 of dlg.querySelectorAll("[data-sub] input")) el15.disabled = !embed.checked;
     dlg.querySelector("[data-sub]").style.opacity = embed.checked ? "1" : ".5";
   };
   embed.addEventListener("change", sync);
@@ -39271,16 +39453,16 @@ function openFontEmbeddingDialog(opts) {
   });
 }
 function describeFontEmbedding(detail, lang) {
-  const L10 = pickLabels(lang, LABELS);
+  const L11 = pickLabels(lang, LABELS);
   const parts = [];
-  if (detail.embedded.length) parts.push(`${L10.embedded}: ${join3(detail.embedded, L10)}`);
+  if (detail.embedded.length) parts.push(`${L11.embedded}: ${join3(detail.embedded, L11)}`);
   const by = /* @__PURE__ */ new Map();
   for (const s4 of detail.skipped) {
     if (s4.reason === "already-embedded") continue;
-    const r6 = L10.reasons[s4.reason];
+    const r6 = L11.reasons[s4.reason];
     by.set(r6, [...by.get(r6) ?? [], s4.family]);
   }
-  if (by.size) parts.push(`${L10.notEmbedded}: ${[...by].map(([r6, fs]) => `${join3(fs, L10)} (${r6})`).join("; ")}`);
+  if (by.size) parts.push(`${L11.notEmbedded}: ${[...by].map(([r6, fs]) => `${join3(fs, L11)} (${r6})`).join("; ")}`);
   return parts.join(" \xB7 ");
 }
 var LABELS, join3;
@@ -39321,7 +39503,7 @@ var init_font_embedding_dialog = __esm({
         notEmbedded: "n\xE3o incorporadas"
       }
     };
-    join3 = (xs, L10) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L10.and} ${xs[xs.length - 1]}`;
+    join3 = (xs, L11) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L11.and} ${xs[xs.length - 1]}`;
   }
 });
 
@@ -39677,6 +39859,7 @@ var init_symbols = __esm({
       "photo_frame": "M240-120Q223-120 211.5-131.5Q200-143 200-160V-200H120Q87-200 63.5-223.5Q40-247 40-280V-720Q40-753 63.5-776.5Q87-800 120-800H840Q873-800 896.5-776.5Q920-753 920-720V-280Q920-247 896.5-223.5Q873-200 840-200H760V-160Q760-143 748.5-131.5Q737-120 720-120ZM120-280H840Q840-280 840-280Q840-280 840-280V-720Q840-720 840-720Q840-720 840-720H120Q120-720 120-720Q120-720 120-720V-280Q120-280 120-280Q120-280 120-280ZM241-360H720Q732-360 738-371Q744-382 736-392L596-579Q590-587 580-587Q570-587 564-579L440-420L356-521Q350-529 340.5-528.5Q331-528 325-520L225-392Q217-382 222.5-371Q228-360 241-360ZM120-280Q120-280 120-280Q120-280 120-280V-720Q120-720 120-720Q120-720 120-720Q120-720 120-720Q120-720 120-720V-280Q120-280 120-280Q120-280 120-280Z",
       "picture_as_pdf": "M400-540H440Q457-540 468.5-551.5Q480-563 480-580V-620Q480-637 468.5-648.5Q457-660 440-660H380Q372-660 366-654Q360-648 360-640V-480Q360-472 366-466Q372-460 380-460Q388-460 394-466Q400-472 400-480ZM400-580V-620H440V-580ZM600-460Q617-460 628.5-471.5Q640-483 640-500V-620Q640-637 628.5-648.5Q617-660 600-660H540Q532-660 526-654Q520-648 520-640V-480Q520-472 526-466Q532-460 540-460ZM560-500V-620H600V-500ZM720-540H740Q748-540 754-546Q760-552 760-560Q760-568 754-574Q748-580 740-580H720V-620H740Q748-620 754-626Q760-632 760-640Q760-648 754-654Q748-660 740-660H700Q692-660 686-654Q680-648 680-640V-480Q680-472 686-466Q692-460 700-460Q708-460 714-466Q720-472 720-480ZM320-240Q287-240 263.5-263.5Q240-287 240-320V-800Q240-833 263.5-856.5Q287-880 320-880H800Q833-880 856.5-856.5Q880-833 880-800V-320Q880-287 856.5-263.5Q833-240 800-240ZM320-320H800Q800-320 800-320Q800-320 800-320V-800Q800-800 800-800Q800-800 800-800H320Q320-800 320-800Q320-800 320-800V-320Q320-320 320-320Q320-320 320-320ZM160-80Q127-80 103.5-103.5Q80-127 80-160V-680Q80-697 91.5-708.5Q103-720 120-720Q137-720 148.5-708.5Q160-697 160-680V-160Q160-160 160-160Q160-160 160-160H680Q697-160 708.5-148.5Q720-137 720-120Q720-103 708.5-91.5Q697-80 680-80ZM320-800Q320-800 320-800Q320-800 320-800V-320Q320-320 320-320Q320-320 320-320Q320-320 320-320Q320-320 320-320V-800Q320-800 320-800Q320-800 320-800Z",
       "picture_in_picture": "M160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM160-240H800Q800-240 800-240Q800-240 800-240V-720Q800-720 800-720Q800-720 800-720H160Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM160-240Q160-240 160-240Q160-240 160-240V-720Q160-720 160-720Q160-720 160-720Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM480-440H720Q737-440 748.5-451.5Q760-463 760-480V-640Q760-657 748.5-668.5Q737-680 720-680H480Q463-680 451.5-668.5Q440-657 440-640V-480Q440-463 451.5-451.5Q463-440 480-440ZM520-520V-600H680V-520Z",
+      "playlist_add": "M160-320Q143-320 131.5-331.5Q120-343 120-360Q120-377 131.5-388.5Q143-400 160-400H360Q377-400 388.5-388.5Q400-377 400-360Q400-343 388.5-331.5Q377-320 360-320ZM160-480Q143-480 131.5-491.5Q120-503 120-520Q120-537 131.5-548.5Q143-560 160-560H520Q537-560 548.5-548.5Q560-537 560-520Q560-503 548.5-491.5Q537-480 520-480ZM160-640Q143-640 131.5-651.5Q120-663 120-680Q120-697 131.5-708.5Q143-720 160-720H520Q537-720 548.5-708.5Q560-697 560-680Q560-663 548.5-651.5Q537-640 520-640ZM640-200V-320H520Q503-320 491.5-331.5Q480-343 480-360Q480-377 491.5-388.5Q503-400 520-400H640V-520Q640-537 651.5-548.5Q663-560 680-560Q697-560 708.5-548.5Q720-537 720-520V-400H840Q857-400 868.5-388.5Q880-377 880-360Q880-343 868.5-331.5Q857-320 840-320H720V-200Q720-183 708.5-171.5Q697-160 680-160Q663-160 651.5-171.5Q640-183 640-200Z",
       "polyline": "M480-720H560V-800H480ZM200-400H280V-480H200ZM680-160H760V-240H680ZM520-760ZM240-440ZM720-200ZM600-160V-180L320-320H200Q167-320 143.5-343.5Q120-367 120-400V-480Q120-513 143.5-536.5Q167-560 200-560H292L400-684V-800Q400-833 423.5-856.5Q447-880 480-880H560Q593-880 616.5-856.5Q640-833 640-800V-720Q640-687 616.5-663.5Q593-640 560-640H468L360-516V-390L605-268Q613-291 633.5-305.5Q654-320 680-320H760Q793-320 816.5-296.5Q840-273 840-240V-160Q840-127 816.5-103.5Q793-80 760-80H680Q647-80 623.5-103.5Q600-127 600-160Z",
       "print": "M320-120Q287-120 263.5-143.5Q240-167 240-200V-280H160Q127-280 103.5-303.5Q80-327 80-360V-520Q80-571 115-605.5Q150-640 200-640H760Q811-640 845.5-605.5Q880-571 880-520V-360Q880-327 856.5-303.5Q833-280 800-280H720V-200Q720-167 696.5-143.5Q673-120 640-120ZM160-360H240Q240-393 263.5-416.5Q287-440 320-440H640Q673-440 696.5-416.5Q720-393 720-360H800Q800-360 800-360Q800-360 800-360V-520Q800-537 788.5-548.5Q777-560 760-560H200Q183-560 171.5-548.5Q160-537 160-520V-360Q160-360 160-360Q160-360 160-360ZM640-640V-760Q640-760 640-760Q640-760 640-760H320Q320-760 320-760Q320-760 320-760V-640H240V-760Q240-793 263.5-816.5Q287-840 320-840H640Q673-840 696.5-816.5Q720-793 720-760V-640ZM720-460Q737-460 748.5-471.5Q760-483 760-500Q760-517 748.5-528.5Q737-540 720-540Q703-540 691.5-528.5Q680-517 680-500Q680-483 691.5-471.5Q703-460 720-460ZM640-200V-360Q640-360 640-360Q640-360 640-360H320Q320-360 320-360Q320-360 320-360V-200Q320-200 320-200Q320-200 320-200H640Q640-200 640-200Q640-200 640-200ZM160-560Q160-560 160-560Q160-560 160-560Q160-560 171.5-560Q183-560 200-560H760Q777-560 788.5-560Q800-560 800-560Q800-560 800-560Q800-560 800-560H720Q720-560 696.5-560Q673-560 640-560H320Q287-560 263.5-560Q240-560 240-560Z",
       "public": "M480-80Q397-80 324-111.5Q251-143 197-197Q143-251 111.5-324Q80-397 80-480Q80-563 111.5-636Q143-709 197-763Q251-817 324-848.5Q397-880 480-880Q563-880 636-848.5Q709-817 763-763Q817-709 848.5-636Q880-563 880-480Q880-397 848.5-324Q817-251 763-197Q709-143 636-111.5Q563-80 480-80ZM440-162V-240Q407-240 383.5-263.5Q360-287 360-320V-360L168-552Q165-534 162.5-516Q160-498 160-480Q160-359 239.5-268Q319-177 440-162ZM716-264Q757-309 778.5-364.5Q800-420 800-480Q800-578 745.5-659Q691-740 600-776V-760Q600-727 576.5-703.5Q553-680 520-680H440V-600Q440-583 428.5-571.5Q417-560 400-560H320V-480H560Q577-480 588.5-468.5Q600-457 600-440V-320H640Q666-320 687-304.5Q708-289 716-264Z",
@@ -39828,8 +40011,8 @@ function place(menu, at) {
   menu.style.left = `${Math.max(8, x3)}px`;
   menu.style.top = `${Math.max(8, y3)}px`;
 }
-function focusables(el14) {
-  return [...el14.querySelectorAll(":scope > .uo-menu-item:not([disabled])")];
+function focusables(el15) {
+  return [...el15.querySelectorAll(":scope > .uo-menu-item:not([disabled])")];
 }
 function build(items, level, opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
@@ -39894,11 +40077,11 @@ function build(items, level, opts) {
       closeFrom(level + 1);
       const sub = resolveItems(it.submenu, opts);
       if (!sub.length) return;
-      const el14 = build(sub, level + 1, opts);
-      (opts.layer ?? document.body).appendChild(el14);
-      place(el14, { anchor: b5, side: "right" });
-      stack.push({ el: el14, items: sub, parentBtn: b5 });
-      if (focus) focusables(el14)[0]?.focus();
+      const el15 = build(sub, level + 1, opts);
+      (opts.layer ?? document.body).appendChild(el15);
+      place(el15, { anchor: b5, side: "right" });
+      stack.push({ el: el15, items: sub, parentBtn: b5 });
+      if (focus) focusables(el15)[0]?.focus();
     };
     b5.addEventListener("click", (e8) => {
       e8.stopPropagation();
@@ -39923,13 +40106,13 @@ function openMenu(src, at, opts = {}) {
   closeMenus();
   const items = resolveItems(src, opts);
   if (!items.length) return null;
-  const el14 = build(items, 0, opts);
-  (opts.layer ?? document.body).appendChild(el14);
-  place(el14, at);
-  stack = [{ el: el14, items }];
+  const el15 = build(items, 0, opts);
+  (opts.layer ?? document.body).appendChild(el15);
+  place(el15, at);
+  stack = [{ el: el15, items }];
   rootOpts = opts;
   rootAnchor = "anchor" in at ? at.anchor : null;
-  if (opts.focus) focusables(el14)[0]?.focus();
+  if (opts.focus) focusables(el15)[0]?.focus();
   const inMenus = (e8) => {
     const path = e8.composedPath();
     return stack.some((l3) => path.includes(l3.el)) || !!rootAnchor && path.includes(rootAnchor);
@@ -40016,7 +40199,7 @@ function openMenu(src, at, opts = {}) {
     window.removeEventListener("resize", onBlur);
     window.removeEventListener("blur", onBlur);
   };
-  return el14;
+  return el15;
 }
 var stack, rootOpts, rootAnchor, detach, hoverTimer, labelText;
 var init_menu = __esm({
@@ -40040,21 +40223,21 @@ function closeDialogs(layer) {
 }
 function openDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
-  const L10 = pickLabels(lang, LABELS2);
+  const L11 = pickLabels(lang, LABELS2);
   const dlg = document.createElement("dialog");
   dlg.className = "uo-dialog";
   dlg.setAttribute("part", "dialog");
   if (opts.width) dlg.style.width = `${opts.width}px`;
   const head = document.createElement("div");
   head.className = "uo-dialog-head";
-  head.innerHTML = `${opts.icon ? `<span class="uo-dialog-icon">${symbol(opts.icon)}</span>` : ""}<span class="uo-dialog-title"></span><button type="button" class="uo-btn uo-dialog-x" title="${L10.close}">${symbol("close")}</button>`;
+  head.innerHTML = `${opts.icon ? `<span class="uo-dialog-icon">${symbol(opts.icon)}</span>` : ""}<span class="uo-dialog-title"></span><button type="button" class="uo-btn uo-dialog-x" title="${L11.close}">${symbol("close")}</button>`;
   head.querySelector(".uo-dialog-title").textContent = txt(opts.title, lang);
   const body = document.createElement("div");
   body.className = "uo-dialog-body";
   if (typeof opts.body === "string") body.textContent = opts.body;
   else body.appendChild(opts.body);
   dlg.append(head, body);
-  const actions = opts.actions ?? [{ id: "ok", label: L10.ok, primary: true }];
+  const actions = opts.actions ?? [{ id: "ok", label: L11.ok, primary: true }];
   if (actions.length) {
     const bar = document.createElement("div");
     bar.className = "uo-dialog-actions";
@@ -40121,7 +40304,7 @@ function openDialog(opts) {
 }
 async function promptDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
-  const L10 = pickLabels(lang, LABELS2);
+  const L11 = pickLabels(lang, LABELS2);
   const box = document.createElement("label");
   box.className = "uo-field";
   if (opts.label) {
@@ -40138,13 +40321,13 @@ async function promptDialog(opts) {
     body: box,
     layer: opts.layer,
     lang,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: opts.ok ?? L10.ok, primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: opts.ok ?? L11.ok, primary: true }]
   });
   return await h3.result === "ok" ? input.value : null;
 }
 function dialogTabs(tabs, selected) {
-  const el14 = document.createElement("div");
-  el14.className = "uo-dtabs";
+  const el15 = document.createElement("div");
+  el15.className = "uo-dtabs";
   const strip = document.createElement("div");
   strip.className = "uo-dtabs-strip";
   strip.setAttribute("role", "tablist");
@@ -40157,14 +40340,14 @@ function dialogTabs(tabs, selected) {
     b5.className = "uo-dtab";
     b5.setAttribute("role", "tab");
     b5.textContent = t6.label;
-    b5.addEventListener("click", () => select5(t6.id));
+    b5.addEventListener("click", () => select6(t6.id));
     b5.addEventListener("keydown", (e8) => {
       const i7 = tabs.findIndex((x3) => x3.id === cur);
       const d3 = e8.key === "ArrowRight" ? 1 : e8.key === "ArrowLeft" ? -1 : 0;
       if (!d3) return;
       e8.preventDefault();
       const n5 = tabs[(i7 + d3 + tabs.length) % tabs.length];
-      select5(n5.id);
+      select6(n5.id);
       buttons[tabs.indexOf(n5)].focus();
     });
     strip.append(b5);
@@ -40173,7 +40356,7 @@ function dialogTabs(tabs, selected) {
     panes2.append(t6.body);
     return b5;
   });
-  function select5(id) {
+  function select6(id) {
     cur = id;
     tabs.forEach((t6, i7) => {
       const on = t6.id === id;
@@ -40184,9 +40367,9 @@ function dialogTabs(tabs, selected) {
       t6.body.inert = !on;
     });
   }
-  select5(cur);
-  el14.append(strip, panes2);
-  return { el: el14, select: select5, current: () => cur };
+  select6(cur);
+  el15.append(strip, panes2);
+  return { el: el15, select: select6, current: () => cur };
 }
 function showToast(layer, message, ms = 2600) {
   layer.querySelector(":scope > .uo-toast")?.remove();
@@ -40584,9 +40767,9 @@ var init_gallery = __esm({
 });
 
 // ../../../shared/ui/src/toolbar/items.ts
-function ripple(el14) {
-  if (customElements.get("u-ripple") && !el14.querySelector(":scope > u-ripple")) {
-    el14.appendChild(document.createElement("u-ripple"));
+function ripple(el15) {
+  if (customElements.get("u-ripple") && !el15.querySelector(":scope > u-ripple")) {
+    el15.appendChild(document.createElement("u-ripple"));
   }
 }
 function button(cls) {
@@ -40900,12 +41083,12 @@ function createCompactBar(container, cfg, ctx) {
   root.append(titlebar, row2);
   container.appendChild(root);
   const groups = cfg.groups.map((def) => {
-    const el14 = document.createElement("div");
-    el14.className = "uo-g";
-    el14.dataset["g"] = def.id;
+    const el15 = document.createElement("div");
+    el15.className = "uo-g";
+    el15.dataset["g"] = def.id;
     const items = (def.items ?? []).map((it) => renderItem(it, ctx));
-    for (const r6 of items) el14.appendChild(r6.el);
-    return { def, el: el14, items, width: 0, visible: true };
+    for (const r6 of items) el15.appendChild(r6.el);
+    return { def, el: el15, items, width: 0, visible: true };
   });
   const syncGroups = () => {
     let changed = false;
@@ -41049,11 +41232,11 @@ var init_compact = __esm({
 // ../../../shared/ui/src/toolbar/ribbon.ts
 function renderGroup(def, ctx) {
   const reg = ctx.registry;
-  const el14 = document.createElement("div");
-  el14.className = "uo-rgroup";
-  el14.dataset["g"] = def.id;
-  el14.setAttribute("role", "group");
-  el14.setAttribute("aria-label", reg.text(def.label));
+  const el15 = document.createElement("div");
+  el15.className = "uo-rgroup";
+  el15.dataset["g"] = def.id;
+  el15.setAttribute("role", "group");
+  el15.setAttribute("aria-label", reg.text(def.label));
   const body = document.createElement("div");
   body.className = "uo-rgroup-body";
   const items = [];
@@ -41105,8 +41288,8 @@ function renderGroup(def, ctx) {
       }
     });
   }
-  el14.append(body, foot);
-  return { def, el: el14, items, width: 0, visible: true };
+  el15.append(body, foot);
+  return { def, el: el15, items, width: 0, visible: true };
 }
 function createRibbon(container, cfg, ctx) {
   const reg = ctx.registry;
@@ -41131,9 +41314,9 @@ function createRibbon(container, cfg, ctx) {
     titlebar.appendChild(t6.el);
     synced.push(t6);
   }
-  const sp = document.createElement("span");
-  sp.className = "uo-spacer";
-  titlebar.appendChild(sp);
+  const sp2 = document.createElement("span");
+  sp2.className = "uo-spacer";
+  titlebar.appendChild(sp2);
   for (const it of cfg.trailing ?? []) {
     const r6 = renderItem(it, ctx);
     titlebar.appendChild(r6.el);
@@ -41199,11 +41382,11 @@ function createRibbon(container, cfg, ctx) {
         return;
       }
       if (collapsed) setCollapsed(false);
-      select5(st);
+      select6(st);
     });
     return st;
   });
-  const select5 = (t6) => {
+  const select6 = (t6) => {
     if (active2 === t6) return;
     closePopover();
     for (const x3 of tabs) {
@@ -41325,12 +41508,12 @@ function createRibbon(container, cfg, ctx) {
       t6.btn.hidden = !v2;
       if (changed && t6 === active2) schedule();
     }
-    if (surfaced) select5(surfaced);
-    else if (active2 && !active2.visible) select5(tabs.find((t6) => t6.visible && !t6.def.menu && !t6.def.contextual));
+    if (surfaced) select6(surfaced);
+    else if (active2 && !active2.visible) select6(tabs.find((t6) => t6.visible && !t6.def.menu && !t6.def.contextual));
   };
   setCollapsed(false);
   sync();
-  select5(tabs.find((t6) => t6.visible && !t6.def.menu) ?? tabs[0]);
+  select6(tabs.find((t6) => t6.visible && !t6.def.menu) ?? tabs[0]);
   relayout();
   return {
     el: root,
@@ -41498,18 +41681,18 @@ function openPane(o7) {
     return cur;
   }
   const lang = o7.lang ?? DEFAULT_UI_LANG;
-  const L10 = pickLabels(lang, LABELS3);
+  const L11 = pickLabels(lang, LABELS3);
   const txt2 = (l3) => typeof l3 === "string" ? l3 : pickLabels(lang, l3);
   const width = o7.width ?? 300;
   const height = o7.height ?? 220;
   const dock = o7.dock ?? "right";
-  const el14 = document.createElement("aside");
-  el14.className = "uo-pane";
-  el14.dataset["pane"] = o7.id;
-  el14.dataset["dock"] = dock;
-  el14.setAttribute("part", "pane");
-  el14.setAttribute("role", "complementary");
-  if (dock !== "bottom") el14.style.width = `${width}px`;
+  const el15 = document.createElement("aside");
+  el15.className = "uo-pane";
+  el15.dataset["pane"] = o7.id;
+  el15.dataset["dock"] = dock;
+  el15.setAttribute("part", "pane");
+  el15.setAttribute("role", "complementary");
+  if (dock !== "bottom") el15.style.width = `${width}px`;
   const head = document.createElement("div");
   head.className = "uo-pane-head";
   const title = document.createElement("span");
@@ -41519,40 +41702,40 @@ function openPane(o7) {
   x3.type = "button";
   x3.className = "uo-btn uo-pane-x";
   x3.dataset["a"] = `pane:${o7.id}:close`;
-  x3.title = L10.close;
-  x3.setAttribute("aria-label", L10.close);
+  x3.title = L11.close;
+  x3.setAttribute("aria-label", L11.close);
   x3.innerHTML = symbol("close");
   head.append(title, x3);
   const body = o7.body;
   body.classList.add("uo-pane-body");
-  el14.append(head, body);
+  el15.append(head, body);
   if (o7.footer) {
     o7.footer.classList.add("uo-pane-foot");
-    el14.appendChild(o7.footer);
+    el15.appendChild(o7.footer);
   }
-  el14.setAttribute("aria-label", txt2(o7.title));
-  o7.layer.appendChild(el14);
+  el15.setAttribute("aria-label", txt2(o7.title));
+  o7.layer.appendChild(el15);
   const place2 = () => {
     const r6 = o7.frame();
     const top = Math.max(0, r6.top), bottom = Math.min(r6.bottom, window.innerHeight);
     if (dock === "bottom") {
       const h3 = Math.min(height, Math.max(120, bottom - top));
-      el14.style.top = `${bottom - h3}px`;
-      el14.style.height = `${h3}px`;
-      el14.style.left = `${Math.max(0, r6.left)}px`;
-      el14.style.width = `${r6.width}px`;
+      el15.style.top = `${bottom - h3}px`;
+      el15.style.height = `${h3}px`;
+      el15.style.left = `${Math.max(0, r6.left)}px`;
+      el15.style.width = `${r6.width}px`;
       return;
     }
-    el14.style.top = `${top}px`;
-    el14.style.height = `${Math.max(120, bottom - top)}px`;
-    el14.style.left = `${Math.max(0, dock === "left" ? r6.left : r6.right - width)}px`;
+    el15.style.top = `${top}px`;
+    el15.style.height = `${Math.max(120, bottom - top)}px`;
+    el15.style.left = `${Math.max(0, dock === "left" ? r6.left : r6.right - width)}px`;
   };
   let open2 = true;
   const onWin = () => place2();
   window.addEventListener("resize", onWin);
   window.addEventListener("scroll", onWin, true);
   const handle = {
-    el: el14,
+    el: el15,
     body,
     get open() {
       return open2;
@@ -41560,7 +41743,7 @@ function openPane(o7) {
     place: place2,
     setTitle: (t6) => {
       title.textContent = txt2(t6);
-      el14.setAttribute("aria-label", txt2(t6));
+      el15.setAttribute("aria-label", txt2(t6));
     },
     close: () => {
       if (!open2) return;
@@ -41568,13 +41751,13 @@ function openPane(o7) {
       panes.delete(o7.id);
       window.removeEventListener("resize", onWin);
       window.removeEventListener("scroll", onWin, true);
-      el14.remove();
+      el15.remove();
       o7.onClose?.();
     }
   };
   x3.addEventListener("click", () => handle.close());
-  el14.addEventListener("keydown", (e8) => {
-    if (e8.key === "Escape" && e8.target === el14) handle.close();
+  el15.addEventListener("keydown", (e8) => {
+    if (e8.key === "Escape" && e8.target === el15) handle.close();
   });
   panes.set(o7.id, handle);
   place2();
@@ -41594,12 +41777,12 @@ var init_pane = __esm({
 // ../../../shared/ui/src/toolbar/ruler.ts
 function createRuler(opts) {
   const horiz = opts.orientation === "horizontal";
-  const L10 = pickLabels(opts.lang ?? DEFAULT_UI_LANG, LABELS4);
+  const L11 = pickLabels(opts.lang ?? DEFAULT_UI_LANG, LABELS4);
   const txt2 = (l3) => l3 === void 0 ? "" : typeof l3 === "string" ? l3 : pickLabels(opts.lang ?? DEFAULT_UI_LANG, l3);
-  const el14 = document.createElement("div");
-  el14.className = `uo-ruler uo-ruler-${horiz ? "h" : "v"}`;
-  el14.setAttribute("part", `ruler ruler-${horiz ? "h" : "v"}`);
-  el14.setAttribute("role", "presentation");
+  const el15 = document.createElement("div");
+  el15.className = `uo-ruler uo-ruler-${horiz ? "h" : "v"}`;
+  el15.setAttribute("part", `ruler ruler-${horiz ? "h" : "v"}`);
+  el15.setAttribute("role", "presentation");
   const canvas2 = document.createElement("canvas");
   canvas2.className = "uo-ruler-canvas";
   let selBtn = null;
@@ -41613,9 +41796,9 @@ function createRuler(opts) {
       selector = SELECTOR_ORDER[(SELECTOR_ORDER.indexOf(selector) + 1) % SELECTOR_ORDER.length];
       paintSelector();
     });
-    el14.appendChild(selBtn);
+    el15.appendChild(selBtn);
   }
-  el14.appendChild(canvas2);
+  el15.appendChild(canvas2);
   let model = null;
   let pending2;
   let drag = null;
@@ -41623,7 +41806,7 @@ function createRuler(opts) {
   let dpr = 1;
   const probe = document.createElement("span");
   probe.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden";
-  el14.appendChild(probe);
+  el15.appendChild(probe);
   const colors = () => {
     const v2 = (n5, d3) => {
       probe.style.color = `var(${n5}, ${d3})`;
@@ -41654,7 +41837,7 @@ function createRuler(opts) {
   };
   function paintSelector() {
     if (!selBtn) return;
-    selBtn.title = `${L10[selector]} \u2014 ${L10.selector}`;
+    selBtn.title = `${L11[selector]} \u2014 ${L11.selector}`;
     selBtn.setAttribute("aria-label", selBtn.title);
     const c5 = document.createElement("canvas");
     const s4 = 16, r6 = window.devicePixelRatio || 1;
@@ -41751,9 +41934,9 @@ function createRuler(opts) {
       g2.translate(W3, 0);
       g2.rotate(Math.PI / 2);
     }
-    const T8 = thick();
+    const T9 = thick();
     const len2 = horiz ? W3 : H2;
-    const band = { c0: Math.round(T8 * 0.21), c1: Math.round(T8 * 0.71) };
+    const band = { c0: Math.round(T9 * 0.21), c1: Math.round(T9 * 0.71) };
     const p0 = toPx(0), p1 = toPx(model.length);
     g2.fillStyle = col.shade;
     g2.fillRect(Math.max(0, p0), band.c0, Math.min(len2, p1) - Math.max(0, p0), band.c1 - band.c0);
@@ -41773,7 +41956,7 @@ function createRuler(opts) {
     g2.fillStyle = col.ink;
     g2.strokeStyle = col.ink;
     g2.lineWidth = 1;
-    g2.font = `${Math.max(8, Math.round(T8 * 0.42))}px var(--uo-font, "Segoe UI", system-ui, sans-serif)`;
+    g2.font = `${Math.max(8, Math.round(T9 * 0.42))}px var(--uo-font, "Segoe UI", system-ui, sans-serif)`;
     g2.textAlign = "center";
     g2.textBaseline = "middle";
     const kMin = Math.ceil(-model.zero / unitTw * sub), kMax = Math.floor((model.length - model.zero) / unitTw * sub);
@@ -41797,7 +41980,7 @@ function createRuler(opts) {
         }
       } else {
         const half = sub % 2 === 0 && k2 % (sub / 2) === 0;
-        const h3 = half ? T8 * 0.22 : T8 * 0.1;
+        const h3 = half ? T9 * 0.22 : T9 * 0.1;
         g2.moveTo(x3, mid - h3 / 2);
         g2.lineTo(x3, mid + h3 / 2);
       }
@@ -41847,7 +42030,7 @@ function createRuler(opts) {
       const x3 = toPx(drag.pos);
       const v2 = (drag.pos - model.zero) / unitTw;
       const label = `${(Math.round(v2 * 100) / 100).toLocaleString(opts.lang === "pt" ? "pt-BR" : "en-US")} ${model.unit === "cm" ? "cm" : '"'}`;
-      g2.font = `${Math.max(9, Math.round(T8 * 0.45))}px var(--uo-font, "Segoe UI", system-ui, sans-serif)`;
+      g2.font = `${Math.max(9, Math.round(T9 * 0.45))}px var(--uo-font, "Segoe UI", system-ui, sans-serif)`;
       const tw3 = g2.measureText(label).width + 8;
       const lx = Math.min(len2 - tw3 - 2, Math.max(2, x3 + 6));
       g2.fillStyle = col.accent;
@@ -41868,15 +42051,15 @@ function createRuler(opts) {
   const markerAt = (a3, c5) => {
     if (!model) return null;
     let best = null, bd = HIT + 1;
-    const T8 = thick();
+    const T9 = thick();
     for (const m2 of model.markers) {
       if (m2.fixed) continue;
       const d3 = Math.abs(toPx(m2.pos) - a3);
       if (d3 > HIT) continue;
-      if (m2.kind === "first-line" && c5 > T8 * 0.45) continue;
-      if (m2.kind === "hanging" && (c5 < T8 * 0.4 || c5 > T8 * 0.74)) continue;
-      if (m2.kind === "left-indent" && c5 < T8 * 0.72) continue;
-      if (m2.kind === "right-indent" && c5 < T8 * 0.4) continue;
+      if (m2.kind === "first-line" && c5 > T9 * 0.45) continue;
+      if (m2.kind === "hanging" && (c5 < T9 * 0.4 || c5 > T9 * 0.74)) continue;
+      if (m2.kind === "left-indent" && c5 < T9 * 0.72) continue;
+      if (m2.kind === "right-indent" && c5 < T9 * 0.4) continue;
       const rank = m2.kind === "margin" ? 3 : m2.kind === "column" ? 2 : m2.kind === "cell" || m2.kind === "row" ? 1 : 0;
       const score = d3 + rank * 0.1;
       if (score < bd) {
@@ -41962,7 +42145,7 @@ function createRuler(opts) {
     if (pending2 !== void 0) {
       model = pending2;
       pending2 = void 0;
-      el14.hidden = !model;
+      el15.hidden = !model;
     }
     if (!d3) return;
     try {
@@ -42004,7 +42187,7 @@ function createRuler(opts) {
   ro?.observe(canvas2);
   paintSelector();
   return {
-    el: el14,
+    el: el15,
     get selector() {
       return selector;
     },
@@ -42014,12 +42197,12 @@ function createRuler(opts) {
         return;
       }
       model = m2;
-      el14.hidden = !m2;
+      el15.hidden = !m2;
       paint();
     },
     destroy() {
       ro?.disconnect();
-      el14.remove();
+      el15.remove();
     }
   };
 }
@@ -42730,7 +42913,7 @@ function M(t6, i7, s4 = t6, e8) {
   const o7 = a2(i7) ? void 0 : i7._$litDirective$;
   return h3?.constructor !== o7 && (h3?._$AO?.(false), void 0 === o7 ? h3 = void 0 : (h3 = new o7(t6), h3._$AT(t6, s4, e8)), void 0 !== e8 ? (s4._$Co ??= [])[e8] = h3 : s4._$Cl = h3), void 0 !== h3 && (i7 = M(t6, h3._$AS(t6, i7.values), h3, e8)), i7;
 }
-var t2, i4, s2, e3, h2, o3, n3, r3, l2, c4, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T5, E, A, C, P2, N, S2, R, k, H, I, L, z, Z, B, D2;
+var t2, i4, s2, e3, h2, o3, n3, r3, l2, c4, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T5, E, A, C, P2, N, S2, R, k, H, I2, L, z, Z, B2, D2;
 var init_lit_html = __esm({
   "../../node_modules/lit-html/lit-html.js"() {
     t2 = globalThis;
@@ -42789,7 +42972,7 @@ var init_lit_html = __esm({
           if (1 === r6.nodeType) {
             if (r6.hasAttributes()) for (const t7 of r6.getAttributeNames()) if (t7.endsWith(h2)) {
               const i8 = v2[a3++], s4 = r6.getAttribute(t7).split(o3), e9 = /([.?@])?(.*)/.exec(i8);
-              d3.push({ type: 1, index: l3, name: e9[2], strings: s4, ctor: "." === e9[1] ? I : "?" === e9[1] ? L : "@" === e9[1] ? z : H }), r6.removeAttribute(t7);
+              d3.push({ type: 1, index: l3, name: e9[2], strings: s4, ctor: "." === e9[1] ? I2 : "?" === e9[1] ? L : "@" === e9[1] ? z : H }), r6.removeAttribute(t7);
             } else t7.startsWith(o3) && (d3.push({ type: 6, index: l3 }), r6.removeAttribute(t7));
             if (y2.test(r6.tagName)) {
               const t7 = r6.textContent.split(o3), i8 = t7.length - 1;
@@ -42924,7 +43107,7 @@ var init_lit_html = __esm({
         t6 === A ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t6 ?? "");
       }
     };
-    I = class extends H {
+    I2 = class extends H {
       constructor() {
         super(...arguments), this.type = 3;
       }
@@ -42964,8 +43147,8 @@ var init_lit_html = __esm({
         M(this, t6);
       }
     };
-    B = t2.litHtmlPolyfillSupport;
-    B?.(S2, k), (t2.litHtmlVersions ??= []).push("3.3.3");
+    B2 = t2.litHtmlPolyfillSupport;
+    B2?.(S2, k), (t2.litHtmlVersions ??= []).push("3.3.3");
     D2 = (t6, i7, s4) => {
       const e8 = s4?.renderBefore ?? i7;
       let h3 = e8._$litPart$;
@@ -43382,8 +43565,8 @@ var init_ripple = __esm({
 });
 
 // src/chrome-host.ts
-function hostOf(el14) {
-  return el14.host ?? null;
+function hostOf(el15) {
+  return el15.host ?? null;
 }
 function bindHostFonts(host) {
   if (!host?.listFonts || !host.resolveFonts) return;
@@ -46957,8 +47140,8 @@ var init_chrome_theme = __esm({
 });
 
 // src/chrome-store.ts
-function instanceStore(el14) {
-  const key = () => el14.getAttribute("storage-key") || el14.id || null;
+function instanceStore(el15) {
+  const key = () => el15.getAttribute("storage-key") || el15.id || null;
   return {
     get: (name) => {
       const k2 = key();
@@ -47296,7 +47479,7 @@ var init_chrome_app = __esm({
       /** Salva; true = gravado (cancelado/falhou: false, segue pendente). */
       async save(saveAs) {
         if (this.requestFromHost("save", { saveAs, format: this.format })) return true;
-        const L10 = this.ui?.L;
+        const L11 = this.ui?.L;
         let fmt2 = this.format;
         const host = hostOf(this.ed);
         const seq = this.changeSeq;
@@ -47316,7 +47499,7 @@ var init_chrome_app = __esm({
             this.setTitle(name);
             this.setDirty(this.changeSeq !== seq);
             this.lastAutosave = Date.now();
-            if (L10) this.ui?.flash(L10.saved(fmt2) + this.takeFontNote());
+            if (L11) this.ui?.flash(L11.saved(fmt2) + this.takeFontNote());
             return true;
           } catch {
             return false;
@@ -47351,7 +47534,7 @@ var init_chrome_app = __esm({
             }
             this.setDirty(this.changeSeq !== seq);
             this.lastAutosave = Date.now();
-            if (L10) this.ui?.flash(L10.saved(fmt2) + this.takeFontNote());
+            if (L11) this.ui?.flash(L11.saved(fmt2) + this.takeFontNote());
             return true;
           } catch {
             return false;
@@ -47369,8 +47552,8 @@ var init_chrome_app = __esm({
       set autosaveMinutes(n5) {
         this.autosaveSession = String(n5);
         this.prefs.set("autosave", String(n5));
-        const L10 = this.ui?.L;
-        if (L10) this.ui?.flash(n5 <= 0 ? L10.autosaveOff : L10.autosaveEvery(String(n5)));
+        const L11 = this.ui?.L;
+        if (L11) this.ui?.flash(n5 <= 0 ? L11.autosaveOff : L11.autosaveEvery(String(n5)));
       }
       /** Salvamento automático (AutoRecuperação do Word: 10 min por padrão). */
       autosaveSession = null;
@@ -47458,16 +47641,16 @@ var init_chrome_app = __esm({
       async askUpdateFields() {
         const ui = this.ui;
         if (!ui) return;
-        const L10 = ui.L;
+        const L11 = ui.L;
         const r6 = await openDialog({
-          title: L10.fieldsTitle,
+          title: L11.fieldsTitle,
           icon: "gpp_maybe",
-          body: L10.fieldsText,
+          body: L11.fieldsText,
           layer: ui.layer,
           lang: this.lang,
-          actions: [{ id: "no", label: L10.notNow }, { id: "update", label: L10.updateFields, primary: true }]
+          actions: [{ id: "no", label: L11.notNow }, { id: "update", label: L11.updateFields, primary: true }]
         }).result;
-        if (r6 === "update") ui.flash(this.ed.updateToc() ? L10.fieldsUpdated : L10.noFields);
+        if (r6 === "update") ui.flash(this.ed.updateToc() ? L11.fieldsUpdated : L11.noFields);
         this.ed.focusEditor();
       }
       get lang() {
@@ -47475,14 +47658,14 @@ var init_chrome_app = __esm({
       }
       // ───── comparar ─────
       async pickForCompare() {
-        const L10 = this.ui?.L;
+        const L11 = this.ui?.L;
         const host = hostOf(this.ed);
         if (host?.openFileForCompare || host?.openFile) {
           try {
-            const r6 = host.openFileForCompare ? await host.openFileForCompare(L10?.compareWith ?? "Compare with\u2026") : await host.openFile();
+            const r6 = host.openFileForCompare ? await host.openFileForCompare(L11?.compareWith ?? "Compare with\u2026") : await host.openFile();
             return r6 ? { name: r6.name, bytes: r6.bytes instanceof Uint8Array ? r6.bytes : new Uint8Array(r6.bytes) } : null;
           } catch {
-            if (L10) this.ui?.flash(`\u26A0 ${L10.readFailed}`);
+            if (L11) this.ui?.flash(`\u26A0 ${L11.readFailed}`);
             return null;
           }
         }
@@ -47775,7 +47958,7 @@ async function bordersShadingDialog(env, tab = "borders") {
   const bState = /* @__PURE__ */ new Map();
   const bStyle = styleList(lang, pen0.val ?? "single");
   const bColor = colorButton(env, { hex: pen0.color ?? "auto", themeColor: pen0.themeColor, tint: pen0.themeTint, shade: pen0.themeShade }, autoLbl);
-  const bWidth = sel("b-width", BORDER_WIDTHS.map(([sz2, t6]) => [String(sz2), `${t6} pt`]), String(pen0.sz ?? 4));
+  const bWidth = sel("b-width", BORDER_WIDTHS.map(([sz3, t6]) => [String(sz3), `${t6} pt`]), String(pen0.sz ?? 4));
   const pen = () => {
     const v2 = bStyle.value();
     if (v2 === "none") return null;
@@ -47859,7 +48042,7 @@ async function bordersShadingDialog(env, tab = "borders") {
   const firstSide = pb0 ? ["top", "left", "bottom", "right"].map((s4) => pb0[s4]).find(Boolean) : void 0;
   const pStyle = styleList(lang, firstSide?.val ?? "single");
   const pColor = colorButton(env, { hex: firstSide?.color ?? "auto", themeColor: firstSide?.themeColor }, autoLbl);
-  const pWidth = sel("p-width", BORDER_WIDTHS.map(([sz2, t6]) => [String(sz2), `${t6} pt`]), String(firstSide?.sz ?? 4));
+  const pWidth = sel("p-width", BORDER_WIDTHS.map(([sz3, t6]) => [String(sz3), `${t6} pt`]), String(firstSide?.sz ?? 4));
   const pPen = (shadow = false) => {
     const v2 = pStyle.value();
     if (v2 === "none") return null;
@@ -48529,12 +48712,12 @@ var init_chrome_table = __esm({
         return box;
       }
     }];
-    penWidthMenu = (env, ctx) => BORDER_WIDTHS.map(([sz2, t6]) => ({
-      id: `penw:${sz2}`,
+    penWidthMenu = (env, ctx) => BORDER_WIDTHS.map(([sz3, t6]) => ({
+      id: `penw:${sz3}`,
       label: `${t6} pt`,
-      checked: env.ed.getBorderPen().sz === sz2,
+      checked: env.ed.getBorderPen().sz === sz3,
       onClick: () => {
-        env.ed.setBorderPen({ sz: sz2 });
+        env.ed.setBorderPen({ sz: sz3 });
         ctx.after();
       }
     }));
@@ -48604,7 +48787,7 @@ var init_chrome_table = __esm({
         };
         box.append(
           head(L2("Theme Borders", "Bordas do Tema")),
-          grid2(BORDER_STYLE_ROWS.flatMap(([val3, sz2]) => slots.map(([slot, hex3]) => ({ val: val3, sz: sz2, color: hex3, themeColor: slot }))))
+          grid2(BORDER_STYLE_ROWS.flatMap(([val3, sz3]) => slots.map(([slot, hex3]) => ({ val: val3, sz: sz3, color: hex3, themeColor: slot }))))
         );
         if (recentPens.length) box.append(head(L2("Recently Used Borders", "Bordas Usadas Recentemente")), grid2(recentPens));
         return box;
@@ -50501,6 +50684,372 @@ var init_chrome_page = __esm({
   }
 });
 
+// src/chrome-toc.ts
+function registerTocCommands(reg, ed, app, ctl) {
+  const api = ed;
+  const has = (m2) => () => typeof api[m2] === "function";
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit3() && c5.isEnabled() : canEdit3 });
+  const hasToc = () => typeof api["hasTableOfContents"] === "function" && ed.hasTableOfContents();
+  const cmds = [
+    edit({ id: "toc", label: L7("Update Table", "Atualizar Sum\xE1rio"), tip: L7("Update the table of contents so all the entries refer to the correct page numbers", "Atualiza o sum\xE1rio para que todas as entradas indiquem os n\xFAmeros de p\xE1gina corretos"), icon: "autorenew", supports: has("updateToc"), isEnabled: hasToc, run: () => ctl.tocDialog("update") }),
+    edit({ id: "toc:custom", label: L7("Custom Table of Contents\u2026", "Sum\xE1rio Personalizado\u2026"), icon: "tune", supports: has("insertTableOfContents"), isEnabled: () => ed.canInsertField(), run: () => ctl.tocDialog("custom") }),
+    edit({ id: "toc:remove", label: L7("Remove Table of Contents", "Remover Sum\xE1rio"), icon: "delete", supports: has("removeTableOfContents"), isEnabled: hasToc, run: () => {
+      ed.removeTableOfContents();
+    } }),
+    edit({ id: "toc:mark", label: L7("Mark Table of Contents Entry\u2026", "Marcar Entrada de Sum\xE1rio\u2026"), icon: "bookmark_add", shortcut: "Alt+Shift+O", supports: has("markTocEntry"), isEnabled: () => ed.canInsertField(), run: () => ctl.tocDialog("mark") }),
+    ...Array.from({ length: 10 }, (_2, lv) => edit({
+      id: `toc:level${lv}`,
+      label: lv ? L7(`Level ${lv}`, `N\xEDvel ${lv}`) : L7("Do Not Show in Table of Contents", "N\xE3o Mostrar no Sum\xE1rio"),
+      supports: has("setTocLevel"),
+      isChecked: () => ed.getTocLevel() === lv,
+      run: () => ed.setTocLevel(lv)
+    }))
+  ];
+  reg.add(...cmds);
+}
+function tocGalleryMenu(env, ctx) {
+  const tiles = {
+    content: (close) => {
+      const list = document.createElement("div");
+      list.className = "uw-toc-gallery";
+      list.style.cssText = "display:grid;grid-template-columns:1fr;gap:6px;padding:6px;max-height:460px;overflow:auto";
+      for (const t6 of env.ed.tocTemplates()) {
+        const b5 = document.createElement("button");
+        b5.type = "button";
+        b5.dataset["template"] = t6.id;
+        b5.title = t6.name;
+        b5.setAttribute("aria-label", t6.name);
+        b5.style.cssText = "display:flex;flex-direction:column;gap:4px;align-items:stretch;padding:6px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left";
+        const cap2 = document.createElement("span");
+        cap2.textContent = t6.name;
+        cap2.style.cssText = "font-size:12px;opacity:.8";
+        const cv = document.createElement("canvas");
+        cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
+        b5.append(cap2, cv);
+        b5.addEventListener("mousedown", (e8) => e8.preventDefault());
+        b5.addEventListener("click", () => {
+          close();
+          env.ed.insertTocTemplate(t6.id);
+          ctx.after();
+        });
+        list.append(b5);
+        requestAnimationFrame(() => {
+          env.ed.paintTocTemplate(t6.id, cv, 300);
+        });
+      }
+      return list;
+    }
+  };
+  return [tiles, "-", "toc:custom", "toc:remove"];
+}
+function addTextMenu(env) {
+  const shown = Math.max(3, Math.min(9, env.ed.getTableOfContentsOptions()?.levels ?? 3));
+  return [...Array.from({ length: shown + 1 }, (_2, i7) => `toc:level${i7}`), "-", "toc:mark"];
+}
+async function updateTocDialog(env, scope = "caret") {
+  const t6 = T6(env), ed = env.ed;
+  const name = `toc-upd-${Math.random().toString(36).slice(2)}`;
+  const pages2 = el6("input", { type: "radio", name, checked: true });
+  const all = el6("input", { type: "radio", name });
+  const body = el6(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
+    el6("div", { style: "font-size:13px" }, t6("Choose how to update the table of contents:", "Selecione como atualizar o sum\xE1rio:")),
+    el6("label", { className: "uo-check" }, pages2, t6("Update page numbers only", "Atualizar somente os n\xFAmeros de p\xE1gina")),
+    el6("label", { className: "uo-check" }, all, t6("Update entire table", "Atualizar o \xEDndice inteiro"))
+  );
+  const h3 = openDialog({
+    title: t6("Update Table of Contents", "Atualizar Sum\xE1rio"),
+    icon: "autorenew",
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width: 420,
+    actions: [{ id: "cancel", label: t6("Cancel", "Cancelar") }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await h3.result !== "ok") return;
+  const mode = pages2.checked ? "pages" : "all";
+  if (scope === "selection") ed.updateFields("selection", mode);
+  else ed.updateToc(mode);
+}
+async function replaceQuestion(env) {
+  const t6 = T6(env);
+  const h3 = openDialog({
+    title: t6("Table of Contents", "Sum\xE1rio"),
+    body: el6("div", { style: "min-width:300px;font-size:13px" }, t6("Do you want to replace the selected table of contents?", "Deseja substituir o sum\xE1rio selecionado?")),
+    layer: env.layer,
+    lang: env.lang,
+    width: 400,
+    actions: [{ id: "cancel", label: t6("Cancel", "Cancelar") }, { id: "no", label: t6("No", "N\xE3o") }, { id: "yes", label: t6("Yes", "Sim"), primary: true }]
+  });
+  const r6 = await h3.result;
+  return r6 === "yes" || r6 === "no" ? r6 : null;
+}
+async function optionsDialog(env, cur) {
+  const t6 = T6(env), ed = env.ed;
+  const useStyles = check3(t6("Styles", "Estilos"), cur.useStyles !== false);
+  const outline = check3(t6("Outline levels", "N\xEDveis de t\xF3picos"), cur.outlineLevels !== false);
+  const fields = check3(t6("Table entry fields", "Campos de entrada de \xEDndice"), !!cur.fields);
+  const levels = cur.levels ?? 3;
+  const styles9 = ed.listStyles("document").filter((s4) => s4.kind !== "character");
+  const isHeading = (raw) => {
+    const m2 = /^heading ([1-9])$/i.exec(raw);
+    return m2 ? +m2[1] : 0;
+  };
+  const initial = (raw, name) => {
+    const hd = isHeading(raw);
+    if (hd && cur.useStyles !== false && hd <= levels) return String(hd);
+    const s4 = cur.styles?.find((x3) => x3.style.toLowerCase() === name.toLowerCase() || x3.style.toLowerCase() === raw.toLowerCase());
+    return s4 ? String(s4.level) : "";
+  };
+  const rows = styles9.map((s4) => {
+    const input = el6("input", { type: "text", value: initial(s4.rawName, s4.name), maxLength: 1, style: "width:34px;height:22px;padding:0 4px;box-sizing:border-box;text-align:center;font:inherit" });
+    return { s: s4, input, row: el6("div", { style: "display:flex;justify-content:space-between;align-items:center;gap:12px;padding:1px 4px;font-size:13px" }, el6("span", {}, s4.name), input) };
+  });
+  const list = el6("div", { style: "height:200px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px" }, ...rows.map((r6) => r6.row));
+  const reset = button2(t6("Reset", "Redefinir"));
+  reset.addEventListener("click", () => {
+    for (const r6 of rows) {
+      const hd = isHeading(r6.s.rawName);
+      r6.input.value = hd && hd <= 3 ? String(hd) : "";
+    }
+    useStyles.input.checked = true;
+    outline.input.checked = true;
+    fields.input.checked = false;
+  });
+  const body = el6(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:8px;min-width:360px" },
+    el6("strong", { style: "font-size:13px" }, t6("Build table of contents from:", "Construir sum\xE1rio a partir de:")),
+    useStyles.box,
+    el6("div", { style: "display:flex;justify-content:space-between;font-size:12px;opacity:.75;padding:0 4px" }, el6("span", {}, t6("Available styles:", "Estilos dispon\xEDveis:")), el6("span", {}, t6("TOC level:", "N\xEDvel do sum\xE1rio:"))),
+    list,
+    outline.box,
+    fields.box,
+    el6("div", {}, reset)
+  );
+  const h3 = openDialog({
+    title: t6("Table of Contents Options", "Op\xE7\xF5es do Sum\xE1rio"),
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width: 460,
+    actions: [{ id: "cancel", label: t6("Cancel", "Cancelar") }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await h3.result !== "ok") return null;
+  const map = rows.map((r6) => ({ s: r6.s, level: Math.min(9, Math.max(0, parseInt(r6.input.value, 10) || 0)) })).filter((x3) => x3.level > 0);
+  let k2 = 0;
+  while (k2 < 9 && map.some((x3) => isHeading(x3.s.rawName) === k2 + 1 && x3.level === k2 + 1)) k2++;
+  const extra = map.filter((x3) => !(isHeading(x3.s.rawName) && isHeading(x3.s.rawName) <= k2 && x3.level === isHeading(x3.s.rawName)));
+  return {
+    ...cur,
+    useStyles: useStyles.input.checked,
+    outlineLevels: outline.input.checked,
+    fields: fields.input.checked,
+    levels: k2 || levels,
+    styles: extra.map((x3) => ({ style: x3.s.name, level: x3.level }))
+  };
+}
+async function modifyDialog(env) {
+  const t6 = T6(env), ed = env.ed;
+  const names = Array.from({ length: 9 }, (_2, i7) => [`toc ${i7 + 1}`, t6(`TOC ${i7 + 1}`, `Sum\xE1rio ${i7 + 1}`)]);
+  const list = el6("select", { size: 9, style: "width:100%;font:inherit" });
+  for (const [v2, txt2] of names) list.append(el6("option", { value: v2, textContent: txt2 }));
+  list.value = "toc 1";
+  const mod = button2(t6("Modify\u2026", "Modificar\u2026"));
+  mod.addEventListener("click", () => env.modifyStyle?.(ed.ensureBuiltinStyle(list.value)));
+  list.addEventListener("dblclick", () => env.modifyStyle?.(ed.ensureBuiltinStyle(list.value)));
+  const body = el6(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:8px;min-width:280px" },
+    el6("span", { style: "font-size:13px" }, t6("Styles:", "Estilos:")),
+    list,
+    el6("div", {}, mod)
+  );
+  const h3 = openDialog({
+    title: t6("Style", "Estilo"),
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width: 340,
+    actions: [{ id: "ok", label: "OK", primary: true }]
+  });
+  await h3.result;
+}
+async function customTocDialog(env) {
+  const t6 = T6(env), ed = env.ed;
+  let cur = ed.getTableOfContentsOptions() ?? {};
+  const pages2 = check3(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur.pageNumbers !== false);
+  const right = check3(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur.rightAlign !== false);
+  const leader = select2(LEADERS2(t6), cur.leader ?? "dot");
+  const links = check3(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur.hyperlinks !== false);
+  const format = select2(TOC_FORMATS.map((f3) => [f3.id, pickLabels(env.lang, f3.label)]), "template");
+  let formatTouched = false;
+  format.addEventListener("change", () => {
+    formatTouched = true;
+  });
+  const levels = el6("input", { type: "number", min: "1", max: "9", value: String(cur.levels ?? 3), style: "width:56px" });
+  const print = el6("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:96px;display:flex;flex-direction:column;gap:2px;background:#fff;color:#1f1f1f" });
+  const web = el6("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:96px;display:flex;flex-direction:column;gap:2px;background:#fff;color:#1f1f1f" });
+  const paint = () => {
+    const n5 = Math.max(1, Math.min(9, parseInt(levels.value, 10) || 3));
+    const lead = { none: " ", dot: ".", hyphen: "-", underscore: "_" }[leader.value] ?? ".";
+    const f3 = format.value;
+    const show = Math.min(n5, 3);
+    print.replaceChildren(...Array.from({ length: show }, (_2, i7) => {
+      const st = tocFormatStyle(f3, i7 + 1);
+      const css2 = `padding-left:${/w:left="(\d+)"/.exec(st.pPr)?.[1] ? +/w:left="(\d+)"/.exec(st.pPr)[1] / 20 : 0}px;${/<w:b\/>/.test(st.rPr) ? "font-weight:700;" : ""}${/<w:i\/>/.test(st.rPr) ? "font-style:italic;" : ""}${/<w:caps\/>/.test(st.rPr) ? "text-transform:uppercase;" : ""}${/<w:smallCaps\/>/.test(st.rPr) ? "font-variant:small-caps;" : ""}${/w:jc w:val="center"/.test(st.pPr) ? "justify-content:center;" : ""}`;
+      const row2 = el6("div", { style: `display:flex;gap:4px;white-space:nowrap;${css2}` }, el6("span", {}, t6(`Heading ${i7 + 1}`, `T\xEDtulo ${i7 + 1}`)));
+      if (pages2.input.checked && right.input.checked) row2.append(el6("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el6("span", {}, String(i7 * 2 + 1)));
+      else if (pages2.input.checked) row2.append(el6("span", {}, String(i7 * 2 + 1)));
+      return row2;
+    }));
+    web.replaceChildren(...Array.from({ length: show }, (_2, i7) => el6("div", { style: `padding-left:${i7 * 11}px;${links.input.checked ? "color:#0563c1;text-decoration:underline" : ""}` }, t6(`Heading ${i7 + 1}`, `T\xEDtulo ${i7 + 1}`))));
+    right.input.disabled = !pages2.input.checked;
+    leader.disabled = !pages2.input.checked || !right.input.checked;
+  };
+  for (const c5 of [pages2.input, right.input, links.input]) c5.addEventListener("change", paint);
+  for (const s4 of [leader, format]) s4.addEventListener("change", paint);
+  levels.addEventListener("input", paint);
+  paint();
+  const optBtn = button2(t6("Options\u2026", "Op\xE7\xF5es\u2026"));
+  optBtn.addEventListener("click", () => {
+    void optionsDialog(env, { ...cur, levels: parseInt(levels.value, 10) || 3 }).then((o7) => {
+      if (!o7) return;
+      cur = o7;
+      levels.value = String(o7.levels ?? 3);
+      paint();
+    });
+  });
+  const modBtn = button2(t6("Modify\u2026", "Modificar\u2026"));
+  modBtn.addEventListener("click", () => {
+    void modifyDialog(env);
+  });
+  const body = el6(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px;min-width:520px" },
+    el6(
+      "div",
+      { style: "display:grid;grid-template-columns:1fr 1fr;gap:12px" },
+      el6(
+        "div",
+        { style: "display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden" },
+        el6("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
+        print,
+        pages2.box,
+        right.box,
+        el6("label", { className: "uo-field" }, el6("span", {}, t6("Tab leader:", "Preenchimento de tabula\xE7\xE3o:")), leader)
+      ),
+      el6("div", { style: "display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden" }, el6("strong", { style: "font-size:13px" }, t6("Web Preview", "Visualizar da Web")), web, links.box)
+    ),
+    el6("strong", { style: "font-size:13px" }, t6("General", "Geral")),
+    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t6("Formats:", "Formatos:")), format, el6("span", {}, t6("Show levels:", "Mostrar n\xEDveis:")), levels),
+    el6("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, optBtn, modBtn)
+  );
+  const h3 = openDialog({
+    title: t6("Table of Contents", "Sum\xE1rio"),
+    icon: "toc",
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width: 620,
+    actions: [{ id: "cancel", label: t6("Cancel", "Cancelar") }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await h3.result !== "ok") return;
+  const opts = {
+    ...cur,
+    pageNumbers: pages2.input.checked,
+    rightAlign: right.input.checked,
+    leader: leader.value,
+    hyperlinks: links.input.checked,
+    levels: Math.max(1, Math.min(9, parseInt(levels.value, 10) || 3)),
+    ...formatTouched ? { format: format.value } : {}
+  };
+  let replace;
+  if (ed.hasTableOfContents()) {
+    const r6 = await replaceQuestion(env);
+    if (!r6) return;
+    replace = r6 === "yes";
+  }
+  if (!ed.insertTableOfContents(opts, replace)) env.flash(t6("The table of contents could not be inserted here", "N\xE3o foi poss\xEDvel inserir o sum\xE1rio aqui"));
+}
+async function markTocDialog(env) {
+  const t6 = T6(env), ed = env.ed;
+  const entry = el6("input", { type: "text", value: ed.tocEntrySuggestion(), style: "min-width:260px" });
+  const ids = select2("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((c5) => [c5, c5]), "C");
+  const level = el6("input", { type: "number", min: "1", max: "9", value: "1", style: "width:56px" });
+  const body = el6(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px;min-width:340px" },
+    el6("label", { className: "uo-field" }, el6("span", {}, t6("Entry:", "Entrada:")), entry),
+    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t6("Table identifier:", "Identificador do sum\xE1rio:")), ids, el6("span", {}, t6("Level:", "N\xEDvel:")), level)
+  );
+  const h3 = openDialog({
+    title: t6("Mark Table of Contents Entry", "Marcar Entrada de Sum\xE1rio"),
+    icon: "bookmark_add",
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width: 440,
+    modal: false,
+    actions: [{ id: "cancel", label: t6("Close", "Fechar") }, { id: "mark", label: t6("Mark", "Marcar"), primary: true }],
+    onAction: (id) => {
+      if (id !== "mark") return true;
+      const ok = ed.markTocEntry({ text: entry.value, identifier: ids.value, level: parseInt(level.value, 10) || 1 });
+      if (!ok) env.flash(t6("Type the entry text", "Digite o texto da entrada"));
+      return false;
+    }
+  });
+  h3.el.style.cssText += ";position:fixed;inset:0;margin:auto;height:fit-content";
+  queueMicrotask(() => entry.focus());
+  await h3.result;
+}
+function tocDialog(env, kind, scope = "caret") {
+  switch (kind) {
+    case "custom":
+      return customTocDialog(env);
+    case "update":
+      return updateTocDialog(env, scope);
+    case "mark":
+      return markTocDialog(env);
+  }
+}
+var L7, el6, check3, select2, button2, T6, LEADERS2;
+var init_chrome_toc = __esm({
+  "src/chrome-toc.ts"() {
+    "use strict";
+    init_src5();
+    init_toc();
+    L7 = (en, pt2) => ({ en, pt: pt2 });
+    el6 = (tag2, props = {}, ...kids) => {
+      const { style, ...rest } = props;
+      const e8 = Object.assign(document.createElement(tag2), rest);
+      if (style) e8.style.cssText = style;
+      e8.append(...kids);
+      return e8;
+    };
+    check3 = (label, on) => {
+      const input = el6("input", { type: "checkbox", checked: on });
+      return { box: el6("label", { className: "uo-check" }, input, label), input };
+    };
+    select2 = (opts, value) => {
+      const s4 = el6("select");
+      for (const [v2, t6] of opts) s4.append(el6("option", { value: v2, textContent: t6 }));
+      s4.value = value;
+      return s4;
+    };
+    button2 = (label) => el6("button", { type: "button", className: "uo-pill", textContent: label });
+    T6 = (env) => (en, pt2) => pickLabels(env.lang, { en, pt: pt2 });
+    LEADERS2 = (t6) => [
+      ["none", t6("(none)", "(nenhum)")],
+      ["dot", "......."],
+      ["hyphen", "-------"],
+      ["underscore", "_______"]
+    ];
+  }
+});
+
 // src/chrome-shape.ts
 function pickImage2(cb) {
   const inp = document.createElement("input");
@@ -50526,20 +51075,20 @@ function registerShapeCommands(reg, ed, app, ctl) {
     // ── Inserir › Caixa de Texto: desenhar ──
     {
       id: "textbox:draw",
-      label: L7("Draw Text Box", "Desenhar Caixa de Texto"),
+      label: L8("Draw Text Box", "Desenhar Caixa de Texto"),
       icon: "draw",
       supports: has("drawTextbox"),
       isEnabled: canEdit3,
       isChecked: () => typeof api["drawingTextbox"] === "function" && ed.drawingTextbox(),
       run: () => ed.drawingTextbox() ? ed.cancelDrawTextbox() : ed.drawTextbox(false)
     },
-    { id: "textbox:drawVertical", label: L7("Draw Vertical Text Box", "Desenhar Caixa de Texto Vertical"), icon: "text_rotate_vertical", supports: has("drawTextbox"), isEnabled: canEdit3, run: () => ed.drawTextbox(true) },
+    { id: "textbox:drawVertical", label: L8("Draw Vertical Text Box", "Desenhar Caixa de Texto Vertical"), icon: "text_rotate_vertical", supports: has("drawTextbox"), isEnabled: canEdit3, run: () => ed.drawTextbox(true) },
     // ── Organizar ──
-    ...WRAPS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:wrap:${k2}`, label: L7(en, pt2), icon, supports: has("setShapeWrap"), run: () => ed.setShapeWrap(k2), isChecked: () => shp()?.wrap === k2 })),
-    s4({ id: "shp:wrap:moveWithText", label: L7("Move with Text", "Mover com o Texto"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
-    s4({ id: "shp:wrap:fixOnPage", label: L7("Fix Position on Page", "Corrigir Posi\xE7\xE3o na P\xE1gina"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp().inline && !shp().moveWithText }),
-    s4({ id: "shp:wrap:more", label: L7("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:wrap") }),
-    s4({ id: "shp:pos:inline", label: L7("In Line with Text", "Alinhado ao Texto"), icon: "format_align_left", supports: has("setShapePosition"), run: () => ed.setShapePosition("inline"), isChecked: () => !!shp()?.inline }),
+    ...WRAPS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:wrap:${k2}`, label: L8(en, pt2), icon, supports: has("setShapeWrap"), run: () => ed.setShapeWrap(k2), isChecked: () => shp()?.wrap === k2 })),
+    s4({ id: "shp:wrap:moveWithText", label: L8("Move with Text", "Mover com o Texto"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
+    s4({ id: "shp:wrap:fixOnPage", label: L8("Fix Position on Page", "Corrigir Posi\xE7\xE3o na P\xE1gina"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp().inline && !shp().moveWithText }),
+    s4({ id: "shp:wrap:more", label: L8("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:wrap") }),
+    s4({ id: "shp:pos:inline", label: L8("In Line with Text", "Alinhado ao Texto"), icon: "format_align_left", supports: has("setShapePosition"), run: () => ed.setShapePosition("inline"), isChecked: () => !!shp()?.inline }),
     ...POSITION_PRESETS.map((q) => s4({
       id: `shp:pos:${q.id}`,
       label: q.label,
@@ -50551,44 +51100,44 @@ function registerShapeCommands(reg, ed, app, ctl) {
         return !!f3 && f3.wrap === "square" && f3.posH?.relativeFrom === "margin" && f3.posH.align === q.h && f3.posV?.relativeFrom === "margin" && f3.posV.align === q.v;
       }
     })),
-    s4({ id: "shp:pos:more", label: L7("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:position") }),
-    s4({ id: "shp:forward", label: L7("Bring Forward", "Avan\xE7ar"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("forward") }),
-    s4({ id: "shp:front", label: L7("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("front") }),
-    s4({ id: "shp:frontOfText", label: L7("Bring in Front of Text", "Trazer para a Frente do Texto"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("frontOfText") }),
-    s4({ id: "shp:backward", label: L7("Send Backward", "Recuar"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("backward") }),
-    s4({ id: "shp:back", label: L7("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("back") }),
-    s4({ id: "shp:behindText", label: L7("Send Behind Text", "Enviar para Tr\xE1s do Texto"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("behindText") }),
-    s4({ id: "shp:rotate:right", label: L7("Rotate Right 90\xB0", "Girar 90\xB0 para a Direita"), icon: "rotate_right", supports: has("rotateShape"), run: () => ed.rotateShape(90) }),
-    s4({ id: "shp:rotate:left", label: L7("Rotate Left 90\xB0", "Girar 90\xB0 para a Esquerda"), icon: "rotate_left", supports: has("rotateShape"), run: () => ed.rotateShape(-90) }),
-    s4({ id: "shp:flip:v", label: L7("Flip Vertical", "Inverter Verticalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("v") }),
-    s4({ id: "shp:flip:h", label: L7("Flip Horizontal", "Inverter Horizontalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("h") }),
-    s4({ id: "shp:rotate:more", label: L7("More Rotation Options\u2026", "Mais Op\xE7\xF5es de Rota\xE7\xE3o..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
-    ...ALIGNS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:align:${k2}`, label: L7(en, pt2), icon, supports: has("alignShape"), isEnabled: floating, run: () => ed.alignShape(k2) })),
-    s4({ id: "shp:layout", label: L7("Layout Options\u2026", "Layout..."), icon: "aspect_ratio", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
+    s4({ id: "shp:pos:more", label: L8("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:position") }),
+    s4({ id: "shp:forward", label: L8("Bring Forward", "Avan\xE7ar"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("forward") }),
+    s4({ id: "shp:front", label: L8("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("front") }),
+    s4({ id: "shp:frontOfText", label: L8("Bring in Front of Text", "Trazer para a Frente do Texto"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("frontOfText") }),
+    s4({ id: "shp:backward", label: L8("Send Backward", "Recuar"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("backward") }),
+    s4({ id: "shp:back", label: L8("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("back") }),
+    s4({ id: "shp:behindText", label: L8("Send Behind Text", "Enviar para Tr\xE1s do Texto"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("behindText") }),
+    s4({ id: "shp:rotate:right", label: L8("Rotate Right 90\xB0", "Girar 90\xB0 para a Direita"), icon: "rotate_right", supports: has("rotateShape"), run: () => ed.rotateShape(90) }),
+    s4({ id: "shp:rotate:left", label: L8("Rotate Left 90\xB0", "Girar 90\xB0 para a Esquerda"), icon: "rotate_left", supports: has("rotateShape"), run: () => ed.rotateShape(-90) }),
+    s4({ id: "shp:flip:v", label: L8("Flip Vertical", "Inverter Verticalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("v") }),
+    s4({ id: "shp:flip:h", label: L8("Flip Horizontal", "Inverter Horizontalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("h") }),
+    s4({ id: "shp:rotate:more", label: L8("More Rotation Options\u2026", "Mais Op\xE7\xF5es de Rota\xE7\xE3o..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
+    ...ALIGNS2.map(([k2, en, pt2, icon]) => s4({ id: `shp:align:${k2}`, label: L8(en, pt2), icon, supports: has("alignShape"), isEnabled: floating, run: () => ed.alignShape(k2) })),
+    s4({ id: "shp:layout", label: L8("Layout Options\u2026", "Layout..."), icon: "aspect_ratio", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
     // ── Texto ──
-    ...DIRS.map(([k2, en, pt2, icon]) => s4({ id: `shp:dir:${k2}`, label: L7(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k2 }), isChecked: () => shp()?.text?.direction === k2 })),
-    ...ANCHORS.map(([k2, en, pt2, icon]) => s4({ id: `shp:anchor:${k2}`, label: L7(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k2 }), isChecked: () => shp()?.text?.anchor === k2 })),
-    s4({ id: "shp:textOptions", label: L7("Text Box Options\u2026", "Op\xE7\xF5es da Caixa de Texto..."), icon: "tune", supports: has("setTextboxOptions"), isEnabled: box, run: () => ctl.pictureDialog("format:layout") }),
+    ...DIRS.map(([k2, en, pt2, icon]) => s4({ id: `shp:dir:${k2}`, label: L8(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k2 }), isChecked: () => shp()?.text?.direction === k2 })),
+    ...ANCHORS.map(([k2, en, pt2, icon]) => s4({ id: `shp:anchor:${k2}`, label: L8(en, pt2), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k2 }), isChecked: () => shp()?.text?.anchor === k2 })),
+    s4({ id: "shp:textOptions", label: L8("Text Box Options\u2026", "Op\xE7\xF5es da Caixa de Texto..."), icon: "tune", supports: has("setTextboxOptions"), isEnabled: box, run: () => ctl.pictureDialog("format:layout") }),
     s4({
       id: "shp:link",
-      label: L7("Create Link", "Criar V\xEDnculo"),
-      tip: L7("Create Link: the text continues in the next text box you click (it must be empty)", "Criar V\xEDnculo: o texto continua na pr\xF3xima caixa de texto que voc\xEA clicar (ela precisa estar vazia)"),
+      label: L8("Create Link", "Criar V\xEDnculo"),
+      tip: L8("Create Link: the text continues in the next text box you click (it must be empty)", "Criar V\xEDnculo: o texto continua na pr\xF3xima caixa de texto que voc\xEA clicar (ela precisa estar vazia)"),
       icon: "link",
       supports: has("createTextboxLink"),
       isEnabled: () => box() && !shp().link?.next,
       isChecked: () => typeof api["linkingTextbox"] === "function" && ed.linkingTextbox(),
       run: () => ed.linkingTextbox() ? ed.cancelTextboxLink() : ed.createTextboxLink()
     }),
-    s4({ id: "shp:unlink", label: L7("Break Link", "Quebrar V\xEDnculo"), icon: "link_off", supports: has("breakTextboxLink"), isEnabled: () => box() && !!shp().link?.next, run: () => ed.breakTextboxLink() }),
-    s4({ id: "shp:setDefault", label: L7("Set as Default Text Box", "Definir como Caixa de Texto Padr\xE3o"), icon: "check", supports: has("setAsDefaultTextbox"), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
+    s4({ id: "shp:unlink", label: L8("Break Link", "Quebrar V\xEDnculo"), icon: "link_off", supports: has("breakTextboxLink"), isEnabled: () => box() && !!shp().link?.next, run: () => ed.breakTextboxLink() }),
+    s4({ id: "shp:setDefault", label: L8("Set as Default Text Box", "Definir como Caixa de Texto Padr\xE3o"), icon: "check", supports: has("setAsDefaultTextbox"), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
     // ── Estilos de Forma ──
-    s4({ id: "shp:fill:none", label: L7("No Fill", "Sem Preenchimento"), icon: "format_color_reset", supports: has("setShapeFill"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && "fill" in shp().format ? shp().format.fill.kind === "none" : false }),
-    s4({ id: "shp:outline:none", label: L7("No Outline", "Sem Contorno"), icon: "border_clear", supports: has("setShapeOutline"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
-    { id: "shp:format", label: L7("Format Shape\u2026", "Formatar Forma..."), icon: "tune", supports: has("setShapeFormat"), isEnabled: on, run: () => ctl.pictureDialog("format:line") },
-    s4({ id: "shp:editText", label: L7("Edit Text", "Editar Texto"), icon: "edit", supports: has("editSelectedTextbox"), isEnabled: () => box() && !shp().editingText, run: () => ed.editSelectedTextbox() }),
-    s4({ id: "shp:delete", label: L7("Delete", "Excluir"), icon: "delete", supports: has("deleteSelectedShape"), run: () => ed.deleteSelectedShape() }),
+    s4({ id: "shp:fill:none", label: L8("No Fill", "Sem Preenchimento"), icon: "format_color_reset", supports: has("setShapeFill"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && "fill" in shp().format ? shp().format.fill.kind === "none" : false }),
+    s4({ id: "shp:outline:none", label: L8("No Outline", "Sem Contorno"), icon: "border_clear", supports: has("setShapeOutline"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
+    { id: "shp:format", label: L8("Format Shape\u2026", "Formatar Forma..."), icon: "tune", supports: has("setShapeFormat"), isEnabled: on, run: () => ctl.pictureDialog("format:line") },
+    s4({ id: "shp:editText", label: L8("Edit Text", "Editar Texto"), icon: "edit", supports: has("editSelectedTextbox"), isEnabled: () => box() && !shp().editingText, run: () => ed.editSelectedTextbox() }),
+    s4({ id: "shp:delete", label: L8("Delete", "Excluir"), icon: "delete", supports: has("deleteSelectedShape"), run: () => ed.deleteSelectedShape() }),
     // ── Acessibilidade ──
-    s4({ id: "shp:alt", label: L7("Alt Text", "Texto Alt"), tip: L7("Alt Text: describe the shape for people who use screen readers", "Texto Alt: descreva a forma para quem usa leitor de tela"), icon: "accessibility_new", supports: has("setShapeAltText"), run: () => ctl.pictureDialog("alt") })
+    s4({ id: "shp:alt", label: L8("Alt Text", "Texto Alt"), tip: L8("Alt Text: describe the shape for people who use screen readers", "Texto Alt: descreva a forma para quem usa leitor de tela"), icon: "accessibility_new", supports: has("setShapeAltText"), run: () => ctl.pictureDialog("alt") })
   ];
   reg.add(...cmds);
 }
@@ -50604,7 +51153,7 @@ function colorIn(xml) {
   return { kind: m2[1], val: m2[2], ...mods.length ? { mods } : {} };
 }
 function styleLook2(n5, hex3) {
-  const [sp, st] = SHAPE_STYLE_PRESETS[n5 - 1];
+  const [sp2, st] = SHAPE_STYLE_PRESETS[n5 - 1];
   const ref = (tag2) => /<a:(\w+Ref) idx="(\w+)">([\s\S]*?)<\/a:\1>/g;
   const refs = /* @__PURE__ */ new Map();
   for (const m2 of st.matchAll(ref(""))) refs.set(m2[1], { idx: m2[2], color: colorIn(m2[3]) });
@@ -50620,14 +51169,14 @@ function styleLook2(n5, hex3) {
       lw = lr.idx === "3" ? 2 : 1;
     }
   } else {
-    if (/^<a:solidFill>/.test(sp)) {
-      const c5 = colorIn(sp);
+    if (/^<a:solidFill>/.test(sp2)) {
+      const c5 = colorIn(sp2);
       if (c5) fill = [hex3(c5) ?? "FFFFFF"];
-    } else if (/^<a:gradFill/.test(sp)) {
-      const stops = [...sp.matchAll(/<a:gs pos="\d+">([\s\S]*?)<\/a:gs>/g)].map((g2) => colorIn(g2[1]));
+    } else if (/^<a:gradFill/.test(sp2)) {
+      const stops = [...sp2.matchAll(/<a:gs pos="\d+">([\s\S]*?)<\/a:gs>/g)].map((g2) => colorIn(g2[1]));
       fill = stops.filter((c5) => !!c5).map((c5) => hex3(c5) ?? "FFFFFF");
     }
-    const ln2 = /<a:ln\b[^>]*?(?:w="(\d+)")?[^>]*>([\s\S]*?)<\/a:ln>/.exec(sp);
+    const ln2 = /<a:ln\b[^>]*?(?:w="(\d+)")?[^>]*>([\s\S]*?)<\/a:ln>/.exec(sp2);
     if (ln2 && !/<a:noFill\/>/.test(ln2[2])) {
       const c5 = colorIn(ln2[2]);
       if (c5) {
@@ -50686,30 +51235,30 @@ function templateThumb(tile, id, ed, lang) {
   x3.strokeStyle = "#c8c8c8";
   x3.strokeRect(0.5, 0.5, W3 - 1, H2 - 1);
   const accent3 = ed.documentThemeColors()["accent1"] ?? "156082";
-  const sp = textboxTemplateSpec(id, { accent: accent3, lang });
-  if (sp) {
+  const sp2 = textboxTemplateSpec(id, { accent: accent3, lang });
+  if (sp2) {
     const k2 = W3 / (8.5 * 914400);
     const mw = 6.5 * 914400 * k2, ml = 914400 * k2;
-    let w2 = sp.sizeRelH ? sp.sizeRelH.pct / 1e5 * (sp.sizeRelH.relativeFrom === "page" ? W3 : mw) : sp.cx * k2;
-    let h3 = sp.sizeRelV ? sp.sizeRelV.pct / 1e5 * H2 : Math.min(sp.cy * k2, H2 * 0.4);
+    let w2 = sp2.sizeRelH ? sp2.sizeRelH.pct / 1e5 * (sp2.sizeRelH.relativeFrom === "page" ? W3 : mw) : sp2.cx * k2;
+    let h3 = sp2.sizeRelV ? sp2.sizeRelV.pct / 1e5 * H2 : Math.min(sp2.cy * k2, H2 * 0.4);
     w2 = Math.min(w2, W3);
     h3 = Math.min(h3, H2);
-    const bx = sp.posH.relativeFrom === "page" ? sp.posH.align === "right" ? W3 - w2 : 0 : ml + (sp.posH.align === "right" ? mw - w2 : sp.posH.align === "center" ? (mw - w2) / 2 : 0);
-    const by = sp.posV.relativeFrom === "page" ? 0 : 24;
+    const bx = sp2.posH.relativeFrom === "page" ? sp2.posH.align === "right" ? W3 - w2 : 0 : ml + (sp2.posH.align === "right" ? mw - w2 : sp2.posH.align === "center" ? (mw - w2) / 2 : 0);
+    const by = sp2.posV.relativeFrom === "page" ? 0 : 24;
     x3.fillStyle = "#d8d8d8";
     for (let ly = 14; ly < H2 - 10; ly += 7) {
       const inBox = ly >= by - 4 && ly <= by + h3 + 4;
-      if (inBox && sp.wrap !== "none") {
+      if (inBox && sp2.wrap !== "none") {
         if (bx > ml + 8) x3.fillRect(ml, ly, bx - ml - 4, 2);
         if (bx + w2 < ml + mw - 8) x3.fillRect(bx + w2 + 4, ly, ml + mw - bx - w2 - 4, 2);
       } else x3.fillRect(ml, ly, mw, 2);
     }
     const hex3 = (cc) => ed.resolveDmlColor(cc);
-    const f3 = sp.fill;
+    const f3 = sp2.fill;
     x3.fillStyle = f3.kind === "solid" ? `#${hex3(f3.color) ?? "ffffff"}` : "#ffffff";
     x3.fillRect(bx, by, w2, h3);
-    if (sp.line) {
-      x3.strokeStyle = `#${hex3(sp.line.fill) ?? "000000"}`;
+    if (sp2.line) {
+      x3.strokeStyle = `#${hex3(sp2.line.fill) ?? "000000"}`;
       x3.lineWidth = 1;
       x3.strokeRect(bx + 0.5, by + 0.5, w2 - 1, h3 - 1);
     }
@@ -50729,8 +51278,8 @@ function textboxMenu(env, ctx) {
     {
       content: (close) => tileGrid({
         sections: [
-          { label: L7("Built-In", "Internos"), items: all.filter((t6) => !t6.user).map((t6) => ({ id: t6.id, label: t6.name })) },
-          { label: L7("General", "Geral"), items: mine.map((t6) => ({ id: t6.id, label: t6.name })) }
+          { label: L8("Built-In", "Internos"), items: all.filter((t6) => !t6.user).map((t6) => ({ id: t6.id, label: t6.name })) },
+          { label: L8("General", "Geral"), items: mine.map((t6) => ({ id: t6.id, label: t6.name })) }
         ],
         tile: { w: 92, h: 116 },
         cols: 3,
@@ -50748,11 +51297,11 @@ function textboxMenu(env, ctx) {
     "textbox:drawVertical",
     {
       id: "textbox:save",
-      label: L7("Save Selection to Text Box Gallery\u2026", "Salvar Sele\xE7\xE3o na Galeria de Caixas de Texto..."),
+      label: L8("Save Selection to Text Box Gallery\u2026", "Salvar Sele\xE7\xE3o na Galeria de Caixas de Texto..."),
       icon: "save",
       disabled: !isBox(),
       onClick: () => {
-        void promptDialog({ title: L7("Create New Building Block", "Criar Novo Bloco de Constru\xE7\xE3o"), label: L7("Name", "Nome"), value: ed.selectedShape()?.name ?? "", layer: env.root.querySelector(".uw-layer") ?? void 0, lang }).then((n5) => {
+        void promptDialog({ title: L8("Create New Building Block", "Criar Novo Bloco de Constru\xE7\xE3o"), label: L8("Name", "Nome"), value: ed.selectedShape()?.name ?? "", layer: env.root.querySelector(".uw-layer") ?? void 0, lang }).then((n5) => {
           if (n5 !== null) ed.saveSelectionToTextboxGallery(n5);
           ctx.after();
         });
@@ -50760,7 +51309,7 @@ function textboxMenu(env, ctx) {
     },
     ...mine.length ? [{
       id: "textbox:remove",
-      label: L7("Remove from Gallery", "Remover da Galeria"),
+      label: L8("Remove from Gallery", "Remover da Galeria"),
       icon: "delete",
       submenu: () => mine.map((t6) => ({ id: `textbox:rm:${t6.id}`, label: t6.name, onClick: () => {
         ed.removeTextboxGalleryItem(t6.id);
@@ -50792,7 +51341,7 @@ function fillMenu(env, ctx) {
     "shp:fill:none",
     {
       id: "shp:fill:more",
-      label: L7("More Fill Colors\u2026", "Mais Cores de Preenchimento..."),
+      label: L8("More Fill Colors\u2026", "Mais Cores de Preenchimento..."),
       icon: "palette",
       onClick: () => {
         const inp = document.createElement("input");
@@ -50804,20 +51353,20 @@ function fillMenu(env, ctx) {
         inp.click();
       }
     },
-    { id: "shp:fill:picture", label: L7("Picture\u2026", "Imagem..."), icon: "image", onClick: () => pickImage2((d3, ext) => {
+    { id: "shp:fill:picture", label: L8("Picture\u2026", "Imagem..."), icon: "image", onClick: () => pickImage2((d3, ext) => {
       void ed.setShapePictureFill(d3, ext, false).then(() => ctx.after());
     }) },
     {
       id: "shp:fill:gradient",
-      label: L7("Gradient", "Gradiente"),
+      label: L8("Gradient", "Gradiente"),
       icon: "format_color_fill",
       submenu: () => [{
         content: (close) => {
           const vars = ed.shapeGradientVariations();
           return tileGrid({
             sections: [
-              { label: L7("Light Variations", "Varia\xE7\xF5es Claras"), items: vars.filter((v2) => !v2.dark).map((v2) => ({ id: v2.id, label: L7(v2.id, v2.id) })) },
-              { label: L7("Dark Variations", "Varia\xE7\xF5es Escuras"), items: vars.filter((v2) => v2.dark).map((v2) => ({ id: v2.id, label: L7(v2.id, v2.id) })) }
+              { label: L8("Light Variations", "Varia\xE7\xF5es Claras"), items: vars.filter((v2) => !v2.dark).map((v2) => ({ id: v2.id, label: L8(v2.id, v2.id) })) },
+              { label: L8("Dark Variations", "Varia\xE7\xF5es Escuras"), items: vars.filter((v2) => v2.dark).map((v2) => ({ id: v2.id, label: L8(v2.id, v2.id) })) }
             ],
             tile: { w: 40, h: 40 },
             cols: 4,
@@ -50837,9 +51386,9 @@ function fillMenu(env, ctx) {
             }
           });
         }
-      }, "-", { id: "shp:fill:gradOptions", label: L7("More Gradients\u2026", "Mais Gradientes..."), icon: "tune", onClick: () => env.ctl.pictureDialog("format:line") }]
+      }, "-", { id: "shp:fill:gradOptions", label: L8("More Gradients\u2026", "Mais Gradientes..."), icon: "tune", onClick: () => env.ctl.pictureDialog("format:line") }]
     },
-    { id: "shp:fill:texture", label: L7("Texture\u2026", "Textura..."), icon: "grid_on", onClick: () => pickImage2((d3, ext) => {
+    { id: "shp:fill:texture", label: L8("Texture\u2026", "Textura..."), icon: "grid_on", onClick: () => pickImage2((d3, ext) => {
       void ed.setShapePictureFill(d3, ext, true).then(() => ctx.after());
     }) }
   ];
@@ -50865,7 +51414,7 @@ function outlineMenu(env, ctx) {
     "shp:outline:none",
     {
       id: "shp:outline:more",
-      label: L7("More Outline Colors\u2026", "Mais Cores de Contorno..."),
+      label: L8("More Outline Colors\u2026", "Mais Cores de Contorno..."),
       icon: "palette",
       onClick: () => {
         const inp = document.createElement("input");
@@ -50880,11 +51429,11 @@ function outlineMenu(env, ctx) {
     "-",
     {
       id: "shp:outline:weight",
-      label: L7("Weight", "Espessura"),
+      label: L8("Weight", "Espessura"),
       icon: "line_weight",
       submenu: () => LINE_WEIGHTS_PT.map((w2) => ({
         id: `shp:outline:w:${w2}`,
-        label: `${String(w2).replace(".", ctx.registry.text(L7(".", ",")))} pt`,
+        label: `${String(w2).replace(".", ctx.registry.text(L8(".", ",")))} pt`,
         checked: !!st()?.format.line?.fill && Math.abs((st().format.line.w ?? 9525) / 12700 - w2) < 0.01,
         onClick: () => {
           ed.setShapeOutline({ weightPt: w2 });
@@ -50894,7 +51443,7 @@ function outlineMenu(env, ctx) {
     },
     {
       id: "shp:outline:dash",
-      label: L7("Dashes", "Tracejados"),
+      label: L8("Dashes", "Tracejados"),
       icon: "line_style",
       submenu: () => LINE_DASHES.map((d3) => ({
         id: `shp:outline:d:${d3.val}`,
@@ -50911,11 +51460,11 @@ function outlineMenu(env, ctx) {
 function changeShapeMenu(env, ctx) {
   return [{
     id: "shp:change",
-    label: L7("Change Shape", "Alterar Forma"),
+    label: L8("Change Shape", "Alterar Forma"),
     icon: "shapes",
     submenu: () => [{
       content: (close) => tileGrid({
-        sections: CROP_SHAPES.map((g2) => ({ label: g2.label, items: g2.shapes.map(([prst, en, pt2]) => ({ id: prst, label: L7(en, pt2) })) })),
+        sections: CROP_SHAPES.map((g2) => ({ label: g2.label, items: g2.shapes.map(([prst, en, pt2]) => ({ id: prst, label: L8(en, pt2) })) })),
         tile: { w: 30, h: 26 },
         cols: 10,
         close,
@@ -50931,18 +51480,18 @@ function changeShapeMenu(env, ctx) {
 }
 function shapeStylesGallery(env) {
   const ed = env.ed;
-  const items = () => SHAPE_STYLE_PRESETS.map((_2, i7) => ({ id: String(i7 + 1), label: L7(`Style ${i7 + 1}`, `Estilo ${i7 + 1}`), section: i7 < 42 ? "theme" : "presets" }));
+  const items = () => SHAPE_STYLE_PRESETS.map((_2, i7) => ({ id: String(i7 + 1), label: L8(`Style ${i7 + 1}`, `Estilo ${i7 + 1}`), section: i7 < 42 ? "theme" : "presets" }));
   return {
     gallery: {
       id: "shp:styles",
-      label: L7("Shape Styles", "Estilos de Forma"),
+      label: L8("Shape Styles", "Estilos de Forma"),
       icon: "style",
       tile: { w: 60, h: 44 },
       rows: 1,
       maxCols: 6,
       minCols: 3,
       expandCols: 7,
-      sections: [{ id: "theme", label: L7("Theme Styles", "Estilos do Tema") }, { id: "presets", label: L7("Presets", "Predefini\xE7\xF5es") }],
+      sections: [{ id: "theme", label: L8("Theme Styles", "Estilos do Tema") }, { id: "presets", label: L8("Presets", "Predefini\xE7\xF5es") }],
       supports: () => typeof ed.setShapeStyle === "function",
       isEnabled: () => !ed.isProtected() && !!ed.selectedShape() && ed.selectedShape().kind !== "group",
       items,
@@ -50960,42 +51509,42 @@ function shapeStylesGallery(env) {
 function shapeFormatGroups(env, ctx) {
   const has = (m2) => () => typeof env.ed[m2] === "function";
   return [
-    { id: "shp-insert", label: L7("Insert Shapes", "Inserir Formas"), icon: "shapes", prio: 4, cells: [
+    { id: "shp-insert", label: L8("Insert Shapes", "Inserir Formas"), icon: "shapes", prio: 4, cells: [
       { rows: [
-        [{ menu: () => changeShapeMenu(env, ctx), id: "shp:edit", label: L7("Edit Shape", "Editar Forma"), icon: "format_shapes", showLabel: true, supports: has("changeShape") }],
+        [{ menu: () => changeShapeMenu(env, ctx), id: "shp:edit", label: L8("Edit Shape", "Editar Forma"), icon: "format_shapes", showLabel: true, supports: has("changeShape") }],
         [{ split: "textbox:draw", menu: ["textbox:draw", "textbox:drawVertical"], label: true }]
       ] }
     ] },
-    { id: "shp-styles", label: L7("Shape Styles", "Estilos de Forma"), icon: "style", prio: 6, launcher: "shp:format", cells: [
+    { id: "shp-styles", label: L8("Shape Styles", "Estilos de Forma"), icon: "style", prio: 6, launcher: "shp:format", cells: [
       shapeStylesGallery(env),
       { rows: [
-        [{ menu: () => fillMenu(env, ctx), id: "shp:fill", label: L7("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", showLabel: true, supports: has("setShapeFill") }],
-        [{ menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L7("Shape Outline", "Contorno da Forma"), icon: "border_color", showLabel: true, supports: has("setShapeOutline") }],
-        [{ menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L7("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", showLabel: true, supports: has("setShapeEffect") }]
+        [{ menu: () => fillMenu(env, ctx), id: "shp:fill", label: L8("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", showLabel: true, supports: has("setShapeFill") }],
+        [{ menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L8("Shape Outline", "Contorno da Forma"), icon: "border_color", showLabel: true, supports: has("setShapeOutline") }],
+        [{ menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L8("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", showLabel: true, supports: has("setShapeEffect") }]
       ] }
     ] },
-    { id: "shp-text", label: L7("Text", "Texto"), icon: "text_fields", prio: 5, cells: [
+    { id: "shp-text", label: L8("Text", "Texto"), icon: "text_fields", prio: 5, cells: [
       { rows: [
-        [{ menu: dirMenu, id: "shp:dir", label: L7("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", showLabel: true, supports: has("setTextboxOptions") }],
-        [{ menu: anchorMenu, id: "shp:anchor", label: L7("Align Text", "Alinhar Texto"), icon: "vertical_align_center", showLabel: true, supports: has("setTextboxOptions") }],
+        [{ menu: dirMenu, id: "shp:dir", label: L8("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", showLabel: true, supports: has("setTextboxOptions") }],
+        [{ menu: anchorMenu, id: "shp:anchor", label: L8("Align Text", "Alinhar Texto"), icon: "vertical_align_center", showLabel: true, supports: has("setTextboxOptions") }],
         [{ cmd: "shp:link", label: true }, { cmd: "shp:unlink" }]
       ] }
     ] },
-    { id: "shp-access", label: L7("Accessibility", "Acessibilidade"), icon: "accessibility_new", prio: 3, cells: [large2("shp:alt")] },
-    { id: "shp-arrange", label: L7("Arrange", "Organizar"), icon: "layers", prio: 6, cells: [
-      { menu: shapePositionMenu, id: "shp:position", label: L7("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", size: "large", supports: has("setShapePosition") },
-      { menu: shapeWrapMenu, id: "shp:wrap", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", size: "large", supports: has("setShapeWrap") },
+    { id: "shp-access", label: L8("Accessibility", "Acessibilidade"), icon: "accessibility_new", prio: 3, cells: [large2("shp:alt")] },
+    { id: "shp-arrange", label: L8("Arrange", "Organizar"), icon: "layers", prio: 6, cells: [
+      { menu: shapePositionMenu, id: "shp:position", label: L8("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", size: "large", supports: has("setShapePosition") },
+      { menu: shapeWrapMenu, id: "shp:wrap", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", size: "large", supports: has("setShapeWrap") },
       { rows: [
         [{ split: "shp:forward", menu: ["shp:forward", "shp:front", "shp:frontOfText"], label: true }],
         [{ split: "shp:backward", menu: ["shp:backward", "shp:back", "shp:behindText"], label: true }]
       ] },
       { rows: [
         [{ cmd: "pic:selectionPane", label: true }],
-        [{ menu: shapeAlignMenu, id: "shp:align", label: L7("Align", "Alinhar"), icon: "align_horizontal_left", showLabel: true, supports: has("alignShape") }],
-        [{ menu: shapeRotateMenu, id: "shp:rotate", label: L7("Rotate", "Girar"), icon: "rotate_90_degrees_cw", showLabel: true, supports: has("rotateShape") }]
+        [{ menu: shapeAlignMenu, id: "shp:align", label: L8("Align", "Alinhar"), icon: "align_horizontal_left", showLabel: true, supports: has("alignShape") }],
+        [{ menu: shapeRotateMenu, id: "shp:rotate", label: L8("Rotate", "Girar"), icon: "rotate_90_degrees_cw", showLabel: true, supports: has("rotateShape") }]
       ] }
     ] },
-    { id: "shp-size", label: L7("Size", "Tamanho"), icon: "aspect_ratio", prio: 5, launcher: "shp:layout", cells: [
+    { id: "shp-size", label: L8("Size", "Tamanho"), icon: "aspect_ratio", prio: 5, launcher: "shp:layout", cells: [
       { rows: [[measureWidget3(env, "height")], [measureWidget3(env, "width")]] }
     ] }
   ];
@@ -51004,17 +51553,17 @@ function shapeCompactGroup(env, ctx) {
   const sel4 = () => typeof env.ed.selectedShape === "function" && !!env.ed.selectedShape();
   return {
     id: "shape",
-    label: L7("Shape", "Forma"),
+    label: L8("Shape", "Forma"),
     icon: "format_shapes",
     prio: 7,
     items: [
-      { menu: () => fillMenu(env, ctx), id: "shp:fill", label: L7("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", supports: sel4 },
-      { menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L7("Shape Outline", "Contorno da Forma"), icon: "border_color", supports: sel4 },
-      { menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L7("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", supports: sel4 },
-      { menu: () => [...dirMenu(), "-", ...anchorMenu(), "-", "shp:link", "shp:unlink"], id: "shp:text", label: L7("Text", "Texto"), icon: "text_fields", supports: sel4 },
-      { menu: shapeWrapMenu, id: "shp:wrap", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", supports: sel4 },
-      { menu: shapePositionMenu, id: "shp:position", label: L7("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", supports: sel4 },
-      { menu: () => ["shp:forward", "shp:front", "shp:frontOfText", "-", "shp:backward", "shp:back", "shp:behindText"], id: "shp:order", label: L7("Arrange", "Organizar"), icon: "layers", supports: sel4 },
+      { menu: () => fillMenu(env, ctx), id: "shp:fill", label: L8("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", supports: sel4 },
+      { menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L8("Shape Outline", "Contorno da Forma"), icon: "border_color", supports: sel4 },
+      { menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L8("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", supports: sel4 },
+      { menu: () => [...dirMenu(), "-", ...anchorMenu(), "-", "shp:link", "shp:unlink"], id: "shp:text", label: L8("Text", "Texto"), icon: "text_fields", supports: sel4 },
+      { menu: shapeWrapMenu, id: "shp:wrap", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", supports: sel4 },
+      { menu: shapePositionMenu, id: "shp:position", label: L8("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", supports: sel4 },
+      { menu: () => ["shp:forward", "shp:front", "shp:frontOfText", "-", "shp:backward", "shp:back", "shp:behindText"], id: "shp:order", label: L8("Arrange", "Organizar"), icon: "layers", supports: sel4 },
       { cmd: "shp:format" }
     ]
   };
@@ -51022,22 +51571,22 @@ function shapeCompactGroup(env, ctx) {
 function shapeMenu(env, ctx) {
   return {
     id: "shp:menu",
-    label: L7("Shape", "Forma"),
+    label: L8("Shape", "Forma"),
     icon: "format_shapes",
     submenu: () => [
-      { id: "shp:fillSub", label: L7("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", submenu: () => fillMenu(env, ctx) },
-      { id: "shp:outlineSub", label: L7("Shape Outline", "Contorno da Forma"), icon: "border_color", submenu: () => outlineMenu(env, ctx) },
-      { id: "shp:effectsSub", label: L7("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", submenu: () => effectsMenu(env, ctx, true) },
+      { id: "shp:fillSub", label: L8("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", submenu: () => fillMenu(env, ctx) },
+      { id: "shp:outlineSub", label: L8("Shape Outline", "Contorno da Forma"), icon: "border_color", submenu: () => outlineMenu(env, ctx) },
+      { id: "shp:effectsSub", label: L8("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", submenu: () => effectsMenu(env, ctx, true) },
       ...changeShapeMenu(env, ctx),
       "-",
-      { id: "shp:dirSub", label: L7("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", submenu: dirMenu },
-      { id: "shp:anchorSub", label: L7("Align Text", "Alinhar Texto"), icon: "vertical_align_center", submenu: anchorMenu },
+      { id: "shp:dirSub", label: L8("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", submenu: dirMenu },
+      { id: "shp:anchorSub", label: L8("Align Text", "Alinhar Texto"), icon: "vertical_align_center", submenu: anchorMenu },
       "shp:link",
       "shp:unlink",
       "-",
-      { id: "shp:wrapSub", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
-      { id: "shp:posSub", label: L7("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", submenu: shapePositionMenu },
-      { id: "shp:rotSub", label: L7("Rotate", "Girar"), icon: "rotate_90_degrees_cw", submenu: shapeRotateMenu },
+      { id: "shp:wrapSub", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
+      { id: "shp:posSub", label: L8("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", submenu: shapePositionMenu },
+      { id: "shp:rotSub", label: L8("Rotate", "Girar"), icon: "rotate_90_degrees_cw", submenu: shapeRotateMenu },
       "-",
       "shp:alt",
       "shp:layout",
@@ -51054,12 +51603,12 @@ function shapeContextItems() {
     "paste",
     "-",
     "shp:editText",
-    { id: "shp:ctx:front", label: L7("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", submenu: ["shp:front", "shp:forward", "shp:frontOfText"] },
-    { id: "shp:ctx:back", label: L7("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", submenu: ["shp:back", "shp:backward", "shp:behindText"] },
+    { id: "shp:ctx:front", label: L8("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", submenu: ["shp:front", "shp:forward", "shp:frontOfText"] },
+    { id: "shp:ctx:back", label: L8("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", submenu: ["shp:back", "shp:backward", "shp:behindText"] },
     "-",
     "shp:link",
     "shp:unlink",
-    { id: "shp:ctx:wrap", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
+    { id: "shp:ctx:wrap", label: L8("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
     "shp:alt",
     "shp:setDefault",
     "shp:layout",
@@ -51068,7 +51617,7 @@ function shapeContextItems() {
     "shp:delete"
   ];
 }
-var L7, WRAPS2, ALIGNS2, DIRS, ANCHORS, shapeWrapMenu, shapePositionMenu, shapeRotateMenu, shapeAlignMenu, dirMenu, anchorMenu, measureWidget3, large2;
+var L8, WRAPS2, ALIGNS2, DIRS, ANCHORS, shapeWrapMenu, shapePositionMenu, shapeRotateMenu, shapeAlignMenu, dirMenu, anchorMenu, measureWidget3, large2;
 var init_chrome_shape = __esm({
   "src/chrome-shape.ts"() {
     "use strict";
@@ -51077,7 +51626,7 @@ var init_chrome_shape = __esm({
     init_chrome_picture();
     init_picture_ops();
     init_shape_ops();
-    L7 = (en, pt2) => ({ en, pt: pt2 });
+    L8 = (en, pt2) => ({ en, pt: pt2 });
     WRAPS2 = [
       ["inline", "In Line with Text", "Alinhado ao Texto", "format_align_left"],
       ["square", "Square", "Quadrado", "wrap_text"],
@@ -51122,9 +51671,9 @@ var init_chrome_shape = __esm({
         input.className = "uo-num";
         input.inputMode = "decimal";
         input.style.width = "64px";
-        input.title = ctx.registry.text(which === "height" ? L7("Shape Height", "Altura da Forma") : L7("Shape Width", "Largura da Forma"));
+        input.title = ctx.registry.text(which === "height" ? L8("Shape Height", "Altura da Forma") : L8("Shape Width", "Largura da Forma"));
         input.setAttribute("aria-label", input.title);
-        const dec = ctx.registry.text(L7(".", ","));
+        const dec = ctx.registry.text(L8(".", ","));
         const cm = (pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", dec)} cm`;
         const ptOf4 = (v2) => {
           const n5 = parseFloat(v2.replace(",", ".").replace(/[^0-9.]/g, ""));
@@ -51186,11 +51735,11 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const notComparing = () => !app.comparing;
   const run3 = () => ctl.state().run;
   const para4 = () => ctl.state().para;
-  const L10 = app.ui.L;
+  const L11 = app.ui.L;
   const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
   const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
   const resolved = (n5, accept) => {
-    ctl.flash(accept ? L10.revAccepted(Number(n5) || 0) : L10.revRejected(Number(n5) || 0));
+    ctl.flash(accept ? L11.revAccepted(Number(n5) || 0) : L11.revRejected(Number(n5) || 0));
   };
   const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit3() && c5.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
@@ -51264,7 +51813,6 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "header", label: { en: "Header", pt: "Cabe\xE7alho" }, icon: "vertical_align_top", run: () => ed.enterHeaderFooter("header") }),
     edit({ id: "footer", label: { en: "Footer", pt: "Rodap\xE9" }, icon: "vertical_align_bottom", run: () => ed.enterHeaderFooter("footer") }),
     { id: "hf:close", label: { en: "Close Header and Footer", pt: "Fechar Cabe\xE7alho e Rodap\xE9" }, icon: "close", run: () => ed.exitHeaderFooter(), isEnabled: () => ed.editingHeaderFooter() !== null },
-    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L10.tocUpdated : L10.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: "footnote", label: { en: "Footnote", pt: "Nota de rodap\xE9" }, tip: { en: "Insert footnote", pt: "Inserir nota de rodap\xE9" }, icon: "notes", shortcut: "Ctrl+Alt+F", supports: has("insertFootnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertFootnote") }),
     edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertEndnote") }),
@@ -51302,7 +51850,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "caption", label: { en: "Insert Caption", pt: "Inserir Legenda" }, tip: { en: "Add a numbered caption to a picture, table or equation", pt: "Adicionar uma legenda numerada a imagem, tabela ou equa\xE7\xE3o" }, icon: "subtitles", supports: has("insertCaption"), isEnabled: () => !!ed.captionTarget() || ed.canInsertField(), run: () => ctl.refsDialog("caption") }),
     edit({ id: "tof", label: { en: "Insert Table of Figures", pt: "Inserir \xCDndice de Ilustra\xE7\xF5es" }, tip: { en: "List of the captions of a label", pt: "Lista das legendas de um r\xF3tulo" }, icon: "list_alt", supports: has("insertTableOfFigures"), isEnabled: () => ed.canInsertField(), run: () => ctl.refsDialog("tof") }),
     edit({ id: "tof:update", label: { en: "Update Table", pt: "Atualizar Tabela" }, tip: { en: "Update the table of figures", pt: "Atualizar o \xEDndice de ilustra\xE7\xF5es" }, icon: "autorenew", supports: has("updateTableOfFigures"), run: () => {
-      if (!ed.updateTableOfFigures()) ctl.flash(L10.noTof);
+      if (!ed.updateTableOfFigures()) ctl.flash(L11.noTof);
     } }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -51431,10 +51979,10 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
     edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
     { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
-      if (!call("previousChange")) ctl.flash(L10.noMoreRevisions);
+      if (!call("previousChange")) ctl.flash(L11.noMoreRevisions);
     }, isEnabled: hasRevisions },
     { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
-      if (!call("nextChange")) ctl.flash(L10.noMoreRevisions);
+      if (!call("nextChange")) ctl.flash(L11.noMoreRevisions);
     }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
@@ -51451,6 +51999,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
   registerShapeCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
+  registerTocCommands(reg, ed, app, ctl);
   function stepComment(dir) {
     const cs = ed.getComments();
     if (!cs.length) return;
@@ -51469,6 +52018,7 @@ var init_chrome_commands = __esm({
     init_chrome_hf();
     init_chrome_picture();
     init_chrome_page();
+    init_chrome_toc();
     init_chrome_shape();
     init_chrome_picture_adjust();
     ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -51478,7 +52028,7 @@ var init_chrome_commands = __esm({
 
 // src/chrome-refs.ts
 function listBox(height = 180) {
-  const box = el6("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
+  const box = el7("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
   box.setAttribute("role", "listbox");
   let items = [];
   let cur;
@@ -51516,7 +52066,7 @@ function listBox(height = 180) {
       rows.length = 0;
       box.replaceChildren(...list.map((it) => {
         const head = it.id.startsWith("#");
-        const r6 = el6("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
+        const r6 = el7("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
         r6.setAttribute("role", head ? "presentation" : "option");
         if (!head) {
           r6.addEventListener("click", () => {
@@ -51545,29 +52095,29 @@ function listBox(height = 180) {
   };
 }
 async function bookmarkDialog(env) {
-  const t6 = T6(env), ed = env.ed;
-  const name = el6("input", { type: "text", maxLength: 40, spellcheck: false });
+  const t6 = T7(env), ed = env.ed;
+  const name = el7("input", { type: "text", maxLength: 40, spellcheck: false });
   const list = listBox(170);
-  const byName2 = el6("input", { type: "radio", name: "bmsort", checked: true });
-  const byLoc = el6("input", { type: "radio", name: "bmsort" });
-  const hidden = check3(t6("Hidden bookmarks", "Indicadores ocultos"), false);
-  const show = check3(t6("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
+  const byName2 = el7("input", { type: "radio", name: "bmsort", checked: true });
+  const byLoc = el7("input", { type: "radio", name: "bmsort" });
+  const hidden = check4(t6("Hidden bookmarks", "Indicadores ocultos"), false);
+  const show = check4(t6("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
   const fill = (keep) => {
     const bms = ed.getBookmarks({ hidden: hidden.input.checked, sort: byLoc.checked ? "location" : "name" });
     list.set(bms.map((b5) => ({ id: b5.name, text: b5.name })), keep ?? null);
     sync();
   };
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:340px" },
     field2(t6("Bookmark name:", "Nome do indicador:"), name),
     list.el,
-    el6(
+    el7(
       "div",
       { style: "display:flex;gap:14px;align-items:center;font-size:13px" },
       t6("Sort by:", "Classificar por:"),
-      el6("label", { className: "uo-check" }, byName2, t6("Name", "Nome")),
-      el6("label", { className: "uo-check" }, byLoc, t6("Location", "Local"))
+      el7("label", { className: "uo-check" }, byName2, t6("Name", "Nome")),
+      el7("label", { className: "uo-check" }, byLoc, t6("Location", "Local"))
     ),
     hidden.box,
     show.box
@@ -51628,7 +52178,7 @@ async function bookmarkDialog(env) {
   await h3.result;
 }
 async function crossRefDialog(env) {
-  const t6 = T6(env), ed = env.ed;
+  const t6 = T7(env), ed = env.ed;
   const labels = ed.getCaptionLabels().map((l3) => l3.name);
   const types = [
     ["numbered", t6("Numbered item", "Item numerado")],
@@ -51638,14 +52188,14 @@ async function crossRefDialog(env) {
     ["endnote", t6("Endnote", "Nota de fim")],
     ...labels.map((l3) => [`caption:${l3}`, l3])
   ];
-  const type = select2(types, "heading");
-  const kind = el6("select");
-  const link = check3(t6("Insert as hyperlink", "Inserir como hiperlink"), true);
-  const pos = check3(t6("Include above/below", "Incluir acima/abaixo"), false);
-  const sep = el6("input", { type: "text", maxLength: 5, style: "width:60px" });
-  const sepBox = check3(t6("Separate numbers with", "Separar n\xFAmeros com"), false);
+  const type = select3(types, "heading");
+  const kind = el7("select");
+  const link = check4(t6("Insert as hyperlink", "Inserir como hiperlink"), true);
+  const pos = check4(t6("Include above/below", "Incluir acima/abaixo"), false);
+  const sep = el7("input", { type: "text", maxLength: 5, style: "width:60px" });
+  const sepBox = check4(t6("Separate numbers with", "Separar n\xFAmeros com"), false);
   const list = listBox(200);
-  const forWhich = el6("span");
+  const forWhich = el7("span");
   const cur = () => {
     const v2 = type.value;
     return v2.startsWith("caption:") ? { type: "caption", label: v2.slice(8) } : { type: v2 };
@@ -51670,7 +52220,7 @@ async function crossRefDialog(env) {
     const c5 = cur();
     const kinds = ed.crossReferenceKinds(c5.type);
     const keep = kinds.includes(kind.value) ? kind.value : kinds[0];
-    kind.replaceChildren(...kinds.map((k2) => el6("option", { value: k2, textContent: KIND_LABEL(t6, c5.type, k2) })));
+    kind.replaceChildren(...kinds.map((k2) => el7("option", { value: k2, textContent: KIND_LABEL(t6, c5.type, k2) })));
     kind.value = keep;
     forWhich.textContent = forLabel(c5);
     list.set(ed.getCrossReferenceItems(c5.type, c5.label));
@@ -51686,18 +52236,18 @@ async function crossRefDialog(env) {
   type.addEventListener("change", refill);
   kind.addEventListener("change", syncOpts);
   sepBox.input.addEventListener("change", syncOpts);
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:420px" },
-    el6(
+    el7(
       "div",
       { style: "display:grid;grid-template-columns:1fr 1fr;gap:10px" },
       field2(t6("Reference type:", "Tipo de refer\xEAncia:"), type),
       field2(t6("Insert reference to:", "Inserir refer\xEAncia para:"), kind)
     ),
-    el6("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
-    el6("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
-    el6("div", { style: "font-size:13px" }, forWhich),
+    el7("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
+    el7("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
+    el7("div", { style: "font-size:13px" }, forWhich),
     list.el
   );
   const insert = () => {
@@ -51738,12 +52288,12 @@ async function crossRefDialog(env) {
   await h3.result;
 }
 async function numberingDialog(env, label) {
-  const t6 = T6(env), ed = env.ed;
+  const t6 = T7(env), ed = env.ed;
   const cur = ed.getCaptionNumbering(label);
-  const fmt2 = select2(FORMATS, cur.format);
-  const chap = check3(t6("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
-  const levels = select2(Array.from({ length: 9 }, (_2, i7) => [String(i7 + 1), t6(`Heading ${i7 + 1}`, `T\xEDtulo ${i7 + 1}`)]), String(cur.chapter?.level ?? 1));
-  const seps = select2([
+  const fmt2 = select3(FORMATS, cur.format);
+  const chap = check4(t6("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
+  const levels = select3(Array.from({ length: 9 }, (_2, i7) => [String(i7 + 1), t6(`Heading ${i7 + 1}`, `T\xEDtulo ${i7 + 1}`)]), String(cur.chapter?.level ?? 1));
+  const seps = select3([
     ["hyphen", t6("- (hyphen)", "- (h\xEDfen)")],
     ["period", t6(". (period)", ". (ponto)")],
     ["colon", t6(": (colon)", ": (dois-pontos)")],
@@ -51756,14 +52306,14 @@ async function numberingDialog(env, label) {
   };
   chap.input.addEventListener("change", sync);
   sync();
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
     field2(t6("Format:", "Formato:"), fmt2),
     chap.box,
     field2(t6("Chapter starts with style:", "Cap\xEDtulo come\xE7a com estilo:"), levels),
     field2(t6("Use separator:", "Usar separador:"), seps),
-    el6("div", { style: "font-size:12px;opacity:.75" }, t6("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
+    el7("div", { style: "font-size:12px;opacity:.75" }, t6("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
   );
   const h3 = openDialog({
     title: t6("Caption Numbering", "Numera\xE7\xE3o de Legenda"),
@@ -51779,22 +52329,22 @@ async function numberingDialog(env, label) {
   env.saveCaptionSettings?.();
 }
 async function autoCaptionDialog(env) {
-  const t6 = T6(env), ed = env.ed;
+  const t6 = T7(env), ed = env.ed;
   const cur = ed.getAutoCaption()?.table;
   const labels = ed.getCaptionLabels();
-  const on = check3(t6("Table", "Tabela"), !!cur);
-  const label = select2(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
-  const pos = select2([["above", t6("Above item", "Acima do item")], ["below", t6("Below item", "Abaixo do item")]], cur?.position ?? "above");
+  const on = check4(t6("Table", "Tabela"), !!cur);
+  const label = select3(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
+  const pos = select3([["above", t6("Above item", "Acima do item")], ["below", t6("Below item", "Abaixo do item")]], cur?.position ?? "above");
   const sync = () => {
     label.disabled = !on.input.checked;
     pos.disabled = !on.input.checked;
   };
   on.input.addEventListener("change", sync);
   sync();
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
-    el6("div", { style: "font-size:13px" }, t6("Add caption when inserting:", "Adicionar legenda ao inserir:")),
+    el7("div", { style: "font-size:13px" }, t6("Add caption when inserting:", "Adicionar legenda ao inserir:")),
     on.box,
     field2(t6("Use label:", "Usar r\xF3tulo:"), label),
     field2(t6("Position:", "Posi\xE7\xE3o:"), pos)
@@ -51812,19 +52362,19 @@ async function autoCaptionDialog(env) {
   env.saveCaptionSettings?.();
 }
 async function captionDialog(env) {
-  const t6 = T6(env), ed = env.ed;
+  const t6 = T7(env), ed = env.ed;
   const target = ed.captionTarget();
   const labels = () => ed.getCaptionLabels();
-  const labelSel = el6("select");
+  const labelSel = el7("select");
   const fillLabels = (keep) => {
-    labelSel.replaceChildren(...labels().map((l3) => el6("option", { value: l3.name, textContent: l3.name })));
+    labelSel.replaceChildren(...labels().map((l3) => el7("option", { value: l3.name, textContent: l3.name })));
     labelSel.value = keep && labels().some((l3) => l3.name === keep) ? keep : (target === "table" ? labels().find((l3) => l3.position === "above")?.name : void 0) ?? labels()[0].name;
   };
   fillLabels();
-  const pos = select2([["above", t6("Above selected item", "Acima do item selecionado")], ["below", t6("Below selected item", "Abaixo do item selecionado")]], "below");
+  const pos = select3([["above", t6("Above selected item", "Acima do item selecionado")], ["below", t6("Below selected item", "Abaixo do item selecionado")]], "below");
   pos.disabled = !target;
-  const excl = check3(t6("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
-  const caption = el6("input", { type: "text" });
+  const excl = check4(t6("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
+  const caption = el7("input", { type: "text" });
   let prefix = "";
   const syncPrefix = () => {
     const l3 = labelSel.value;
@@ -51838,10 +52388,10 @@ async function captionDialog(env) {
   caption.addEventListener("input", () => {
     if (!caption.value.startsWith(prefix)) caption.value = prefix + caption.value.slice(Math.min(prefix.length, caption.value.length));
   });
-  const newBtn = button2(t6("New Label\u2026", "Novo R\xF3tulo\u2026"));
-  const delBtn = button2(t6("Delete Label", "Excluir R\xF3tulo"));
-  const numBtn = button2(t6("Numbering\u2026", "Numera\xE7\xE3o\u2026"));
-  const autoBtn = button2(t6("AutoCaption\u2026", "AutoLegenda\u2026"));
+  const newBtn = button3(t6("New Label\u2026", "Novo R\xF3tulo\u2026"));
+  const delBtn = button3(t6("Delete Label", "Excluir R\xF3tulo"));
+  const numBtn = button3(t6("Numbering\u2026", "Numera\xE7\xE3o\u2026"));
+  const autoBtn = button3(t6("AutoCaption\u2026", "AutoLegenda\u2026"));
   labelSel.addEventListener("change", syncPrefix);
   excl.input.addEventListener("change", syncPrefix);
   newBtn.addEventListener("click", () => {
@@ -51867,14 +52417,14 @@ async function captionDialog(env) {
   autoBtn.addEventListener("click", () => {
     void autoCaptionDialog(env);
   });
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:400px" },
     field2(t6("Caption:", "Legenda:"), caption),
-    el6("strong", { style: "font-size:13px" }, t6("Options", "Op\xE7\xF5es")),
-    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t6("Label:", "R\xF3tulo:")), labelSel, el6("span", {}, t6("Position:", "Posi\xE7\xE3o:")), pos),
+    el7("strong", { style: "font-size:13px" }, t6("Options", "Op\xE7\xF5es")),
+    el7("div", { className: "uo-dialog-grid" }, el7("span", {}, t6("Label:", "R\xF3tulo:")), labelSel, el7("span", {}, t6("Position:", "Posi\xE7\xE3o:")), pos),
     excl.box,
-    el6("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
+    el7("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
   );
   syncPrefix();
   const h3 = openDialog({
@@ -51894,14 +52444,14 @@ async function captionDialog(env) {
   ed.insertCaption({ label: labelSel.value, title: caption.value.slice(prefix.length), excludeLabel: excl.input.checked, ...target ? { position: pos.value } : {} });
 }
 async function tofDialog(env) {
-  const t6 = T6(env), ed = env.ed;
+  const t6 = T7(env), ed = env.ed;
   const cur = ed.getTableOfFiguresOptions();
   const labels = ed.getCaptionLabels();
-  const pages2 = check3(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
-  const right = check3(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
-  const leader = select2([["none", t6("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
-  const links = check3(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
-  const format = select2([
+  const pages2 = check4(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
+  const right = check4(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
+  const leader = select3([["none", t6("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
+  const links = check4(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
+  const format = select3([
     ["template", t6("From template", "Do modelo")],
     ["classic", t6("Classic", "Cl\xE1ssico")],
     ["distinctive", t6("Distinctive", "Elegante")],
@@ -51909,17 +52459,17 @@ async function tofDialog(env) {
     ["formal", t6("Formal", "Formal")],
     ["simple", t6("Simple", "Simples")]
   ], "template");
-  const label = select2([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
-  const incl = check3(t6("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
-  const preview2 = el6("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
+  const label = select3([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
+  const incl = check4(t6("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
+  const preview2 = el7("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
   const paint = () => {
     const lab = label.value;
     const lead = { none: " ", dot: ".", hyphen: "-", underscore: "_" }[leader.value] ?? ".";
     preview2.replaceChildren(...[1, 2, 3, 4].map((n5) => {
       const txt2 = `${incl.input.checked ? `${lab} ${n5}: ` : ""}${t6("Text", "Texto")}`;
-      const row2 = el6("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el6("span", {}, txt2));
-      if (pages2.input.checked && right.input.checked) row2.append(el6("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el6("span", {}, String(n5 * 2 - 1)));
-      else if (pages2.input.checked) row2.append(el6("span", {}, String(n5 * 2 - 1)));
+      const row2 = el7("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el7("span", {}, txt2));
+      if (pages2.input.checked && right.input.checked) row2.append(el7("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el7("span", {}, String(n5 * 2 - 1)));
+      else if (pages2.input.checked) row2.append(el7("span", {}, String(n5 * 2 - 1)));
       return row2;
     }));
     right.input.disabled = !pages2.input.checked;
@@ -51928,21 +52478,21 @@ async function tofDialog(env) {
   for (const c5 of [pages2.input, right.input, incl.input, links.input]) c5.addEventListener("change", paint);
   for (const s4 of [leader, label, format]) s4.addEventListener("change", paint);
   paint();
-  const modify = button2(t6("Modify\u2026", "Modificar\u2026"));
+  const modify = button3(t6("Modify\u2026", "Modificar\u2026"));
   modify.addEventListener("click", () => env.modifyStyle?.(ed.ensureBuiltinStyle("table of figures")));
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:440px" },
-    el6("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
+    el7("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
     preview2,
     pages2.box,
     right.box,
     field2(t6("Tab leader:", "Preenchimento de tabula\xE7\xE3o:"), leader),
     links.box,
-    el6("strong", { style: "font-size:13px" }, t6("General", "Geral")),
-    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t6("Formats:", "Formatos:")), format, el6("span", {}, t6("Caption label:", "Nome da legenda:")), label),
+    el7("strong", { style: "font-size:13px" }, t6("General", "Geral")),
+    el7("div", { className: "uo-dialog-grid" }, el7("span", {}, t6("Formats:", "Formatos:")), format, el7("span", {}, t6("Caption label:", "Nome da legenda:")), label),
     incl.box,
-    el6("div", {}, modify)
+    el7("div", {}, modify)
   );
   const h3 = openDialog({
     title: t6("Table of Figures", "\xCDndice de Ilustra\xE7\xF5es"),
@@ -51966,15 +52516,15 @@ async function tofDialog(env) {
   if (!ok) env.flash(t6("The table of figures could not be inserted here", "N\xE3o foi poss\xEDvel inserir o \xEDndice aqui"));
 }
 async function hyperlinkDialog(env) {
-  const t6 = T6(env), ed = env.ed;
+  const t6 = T7(env), ed = env.ed;
   const cur = ed.getLink();
   const sel4 = ed.selectedText();
-  const display = el6("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
-  const tip = el6("input", { type: "text", value: cur?.tip ?? "" });
+  const display = el7("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
+  const tip = el7("input", { type: "text", value: cur?.tip ?? "" });
   const isMail = !!cur?.address?.startsWith("mailto:");
-  const address = el6("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
-  const mail = el6("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
-  const subject = el6("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
+  const address = el7("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
+  const mail = el7("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
+  const subject = el7("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
   const targets = ed.getLinkTargets();
   const place2 = listBox(220);
   const items = [
@@ -51986,16 +52536,16 @@ async function hyperlinkDialog(env) {
   ];
   place2.set(items.map((x3, i7) => ({ id: x3.id || `#sec${i7}`, text: x3.text })), cur?.anchor && items.some((x3) => x3.id === cur.anchor) ? cur.anchor : "_top");
   const panes2 = {
-    web: el6("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("Address:", "Endere\xE7o:"), address)),
-    place: el6("div", { style: "display:flex;flex-direction:column;gap:6px" }, el6("span", { style: "font-size:13px" }, t6("Select a place in this document:", "Selecione um local neste documento:")), place2.el),
-    mail: el6("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("E-mail address:", "Endere\xE7o de email:"), mail), field2(t6("Subject:", "Assunto:"), subject))
+    web: el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("Address:", "Endere\xE7o:"), address)),
+    place: el7("div", { style: "display:flex;flex-direction:column;gap:6px" }, el7("span", { style: "font-size:13px" }, t6("Select a place in this document:", "Selecione um local neste documento:")), place2.el),
+    mail: el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("E-mail address:", "Endere\xE7o de email:"), mail), field2(t6("Subject:", "Assunto:"), subject))
   };
   const tabs = dialogTabs([
     { id: "web", label: t6("Existing File or Web Page", "P\xE1gina da Web ou arquivo"), body: panes2.web },
     { id: "place", label: t6("Place in This Document", "Colocar neste documento"), body: panes2.place },
     { id: "mail", label: t6("E-mail Address", "Endere\xE7o de email"), body: panes2.mail }
   ], cur?.anchor ? "place" : isMail ? "mail" : "web");
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:460px" },
     field2(t6("Text to display:", "Texto para exibi\xE7\xE3o:"), display),
@@ -52052,31 +52602,31 @@ function refsDialog(env, kind) {
       return hyperlinkDialog(env);
   }
 }
-var el6, select2, check3, field2, button2, T6, KIND_LABEL, FORMATS;
+var el7, select3, check4, field2, button3, T7, KIND_LABEL, FORMATS;
 var init_chrome_refs = __esm({
   "src/chrome-refs.ts"() {
     "use strict";
     init_src5();
-    el6 = (tag2, props = {}, ...kids) => {
+    el7 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
       e8.append(...kids);
       return e8;
     };
-    select2 = (opts, value) => {
-      const s4 = el6("select");
-      for (const [v2, t6] of opts) s4.append(el6("option", { value: v2, textContent: t6 }));
+    select3 = (opts, value) => {
+      const s4 = el7("select");
+      for (const [v2, t6] of opts) s4.append(el7("option", { value: v2, textContent: t6 }));
       s4.value = value;
       return s4;
     };
-    check3 = (label, on) => {
-      const input = el6("input", { type: "checkbox", checked: on });
-      return { box: el6("label", { className: "uo-check" }, input, label), input };
+    check4 = (label, on) => {
+      const input = el7("input", { type: "checkbox", checked: on });
+      return { box: el7("label", { className: "uo-check" }, input, label), input };
     };
-    field2 = (label, ...kids) => el6("label", { className: "uo-field" }, el6("span", {}, label), ...kids);
-    button2 = (label) => el6("button", { type: "button", className: "uo-pill", textContent: label });
-    T6 = (env) => (en, pt2) => pickLabels(env.lang, { en, pt: pt2 });
+    field2 = (label, ...kids) => el7("label", { className: "uo-field" }, el7("span", {}, label), ...kids);
+    button3 = (label) => el7("button", { type: "button", className: "uo-pill", textContent: label });
+    T7 = (env) => (en, pt2) => pickLabels(env.lang, { en, pt: pt2 });
     KIND_LABEL = (t6, type, k2) => {
       const what = type === "heading" ? t6("Heading", "t\xEDtulo") : type === "bookmark" ? t6("Bookmark", "indicador") : t6("Paragraph", "par\xE1grafo");
       switch (k2) {
@@ -52112,34 +52662,34 @@ var init_chrome_refs = __esm({
 // src/chrome-dialogs.ts
 async function authorDialog(env) {
   if (env.ed.hasAuthor()) return true;
-  const L10 = env.app.ui.L;
-  const name = await promptDialog({ title: L10.authorTitle, label: L10.authorText, ok: L10.authorOk, layer: env.layer, lang: env.lang });
+  const L11 = env.app.ui.L;
+  const name = await promptDialog({ title: L11.authorTitle, label: L11.authorText, ok: L11.authorOk, layer: env.layer, lang: env.lang });
   if (!name?.trim()) return false;
   env.ed.author = name.trim();
   originStore.set("uw-author", env.ed.author);
   return true;
 }
 async function commentDialog(env) {
-  const L10 = env.app.ui.L;
+  const L11 = env.app.ui.L;
   if (!env.ed.selectedText()) {
-    env.app.ui.flash(L10.selectToComment);
+    env.app.ui.flash(L11.selectToComment);
     return;
   }
   if (!await authorDialog(env)) return;
-  const text = await promptDialog({ title: L10.commentTitle, label: L10.commentText, multiline: true, ok: L10.commentAdd, layer: env.layer, lang: env.lang });
+  const text = await promptDialog({ title: L11.commentTitle, label: L11.commentText, multiline: true, ok: L11.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
-  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L10.selectToComment : L10.commentAdded);
+  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L11.selectToComment : L11.commentAdded);
 }
 async function fontDialog(env, families) {
-  const L10 = env.app.ui.L, lang = env.lang;
+  const L11 = env.app.ui.L, lang = env.lang;
   const r6 = env.state().run;
   const cur = r6.fontAscii ?? "";
   const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
-  const font = select3("font", fams.map((f3) => [f3, f3]), cur);
-  const size = el7("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r6.szHalfPt ?? 22) / 2) });
-  const color3 = el7("input", { type: "color", name: "color", value: `#${r6.color && /^[0-9a-f]{6}$/i.test(r6.color) ? r6.color : "000000"}` });
+  const font = select4("font", fams.map((f3) => [f3, f3]), cur);
+  const size = el8("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r6.szHalfPt ?? 22) / 2) });
+  const color3 = el8("input", { type: "color", name: "color", value: `#${r6.color && /^[0-9a-f]{6}$/i.test(r6.color) ? r6.color : "000000"}` });
   color3.style.cssText = "width:48px;height:32px;padding:2px;border-radius:8px";
-  const spacing = select3("spacing", [
+  const spacing = select4("spacing", [
     ["0", "Normal"],
     ["20", tr4(lang, "Expanded 1 pt", "Expandido 1 pt")],
     ["40", tr4(lang, "Expanded 2 pt", "Expandido 2 pt")],
@@ -52156,35 +52706,35 @@ async function fontDialog(env, families) {
     allCaps: [tr4(lang, "All caps", "Todas em mai\xFAsculas"), !!r6.allCaps],
     smallCaps: [tr4(lang, "Small caps", "Versalete"), !!r6.smallCaps]
   };
-  const grid2 = el7(
+  const grid2 = el8(
     "div",
     { className: "uo-dialog-grid" },
-    el7("span", {}, L10.fontDlg),
+    el8("span", {}, L11.fontDlg),
     font,
-    el7("span", {}, L10.size),
+    el8("span", {}, L11.size),
     size,
-    el7("span", {}, L10.color),
+    el8("span", {}, L11.color),
     color3,
-    el7("span", {}, L10.charSpacing),
+    el8("span", {}, L11.charSpacing),
     spacing
   );
-  const fx = el7("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
-  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check4(k2, label, on));
-  const body = el7("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el7("strong", {}, L10.effects), fx);
+  const fx = el8("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
+  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check5(k2, label, on));
+  const body = el8("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el8("strong", {}, L11.effects), fx);
   const h3 = openDialog({
-    title: L10.fontDlg,
+    title: L11.fontDlg,
     body,
     layer: env.layer,
     lang,
     width: 440,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ed = env.ed;
   const box = (k2) => fx.querySelector(`input[name="${k2}"]`).checked;
   if (font.value && font.value !== cur) ed.setFontFamily(font.value);
-  const sz2 = parseFloat(size.value);
-  if (sz2 > 0 && sz2 * 2 !== r6.szHalfPt) ed.setFontSize(sz2);
+  const sz3 = parseFloat(size.value);
+  if (sz3 > 0 && sz3 * 2 !== r6.szHalfPt) ed.setFontSize(sz3);
   const hex3 = color3.value.slice(1).toUpperCase();
   if (hex3 !== (r6.color ?? "000000").toUpperCase()) ed.setColor(hex3);
   for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) {
@@ -52196,24 +52746,24 @@ async function fontDialog(env, families) {
   if (cs !== (r6.charSpacingTwips ?? 0)) ed.setCharSpacing(cs || void 0);
 }
 async function paragraphDialog(env) {
-  const L10 = env.app.ui.L, lang = env.lang;
+  const L11 = env.app.ui.L, lang = env.lang;
   const p3 = env.state().para;
   const u3 = unitOf(lang);
-  const ind = env.ed.getParagraphIndents();
-  const align = select3("align", [
+  const ind2 = env.ed.getParagraphIndents();
+  const align = select4("align", [
     ["left", tr4(lang, "Left", "Esquerda")],
     ["center", tr4(lang, "Centered", "Centralizada")],
     ["right", tr4(lang, "Right", "Direita")],
     ["both", tr4(lang, "Justified", "Justificada")]
   ], p3.alignment ?? "left");
-  const left = unitInput("left", ind.left, u3, lang);
-  const right = unitInput("right", ind.right, u3, lang);
-  const special = select3("special", [
+  const left = unitInput("left", ind2.left, u3, lang);
+  const right = unitInput("right", ind2.right, u3, lang);
+  const special = select4("special", [
     ["none", tr4(lang, "(none)", "(nenhum)")],
     ["firstLine", tr4(lang, "First line", "Primeira linha")],
     ["hanging", tr4(lang, "Hanging", "Deslocamento")]
-  ], !ind.firstLine ? "none" : ind.firstLine > 0 ? "firstLine" : "hanging");
-  const by = unitInput("by", Math.abs(ind.firstLine), u3, lang);
+  ], !ind2.firstLine ? "none" : ind2.firstLine > 0 ? "firstLine" : "hanging");
+  const by = unitInput("by", Math.abs(ind2.firstLine), u3, lang);
   const syncBy = () => {
     by.disabled = special.value === "none";
     if (special.value === "none") by.value = "";
@@ -52225,40 +52775,40 @@ async function paragraphDialog(env) {
     by.disabled = true;
   }
   const pt2 = (tw3) => String(Math.round((tw3 ?? 0) / 2) / 10);
-  const before = el7("input", { type: "number", name: "before", min: "0", step: "6", value: pt2(p3.spaceBeforeTwips) });
-  const after = el7("input", { type: "number", name: "after", min: "0", step: "6", value: pt2(p3.spaceAfterTwips) });
+  const before = el8("input", { type: "number", name: "before", min: "0", step: "6", value: pt2(p3.spaceBeforeTwips) });
+  const after = el8("input", { type: "number", name: "after", min: "0", step: "6", value: pt2(p3.spaceAfterTwips) });
   const dec = tr4(lang, ".", ",");
-  const line2 = select3(
+  const line2 = select4(
     "line",
     [["240", `1${dec}0`], ["259", `1${dec}08`], ["276", `1${dec}15`], ["360", `1${dec}5`], ["480", `2${dec}0`]],
     String(p3.lineTwentieths ?? 259)
   );
-  const withUnit = (i7) => el7("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
-  const grid2 = el7(
+  const withUnit = (i7) => el8("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
+  const grid2 = el8(
     "div",
     { className: "uo-dialog-grid" },
-    el7("span", {}, L10.alignment),
+    el8("span", {}, L11.alignment),
     align,
-    el7("span", {}, tr4(lang, "Left indent", "Recuo \xE0 esquerda")),
+    el8("span", {}, tr4(lang, "Left indent", "Recuo \xE0 esquerda")),
     withUnit(left),
-    el7("span", {}, tr4(lang, "Right indent", "Recuo \xE0 direita")),
+    el8("span", {}, tr4(lang, "Right indent", "Recuo \xE0 direita")),
     withUnit(right),
-    el7("span", {}, L10.specialIndent),
-    el7("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
-    el7("span", {}, L10.before),
+    el8("span", {}, L11.specialIndent),
+    el8("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
+    el8("span", {}, L11.before),
     before,
-    el7("span", {}, L10.after),
+    el8("span", {}, L11.after),
     after,
-    el7("span", {}, L10.lineSpacing),
+    el8("span", {}, L11.lineSpacing),
     line2
   );
   const h3 = openDialog({
-    title: L10.paraDlg,
+    title: L11.paraDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
+    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
   });
   const res = await h3.result;
   if (res !== "ok" && res !== "tabs") return;
@@ -52268,9 +52818,9 @@ async function paragraphDialog(env) {
   const nb = special.value === "none" ? 0 : parseUnit(by.value, u3);
   const nf = special.value === "hanging" ? -Math.abs(nb) : Math.abs(nb);
   const patch2 = {};
-  if (Number.isFinite(nl) && nl !== ind.left) patch2.left = nl;
-  if (Number.isFinite(nr) && nr !== ind.right) patch2.right = nr;
-  if (Number.isFinite(nf) && nf !== ind.firstLine) patch2.firstLine = nf;
+  if (Number.isFinite(nl) && nl !== ind2.left) patch2.left = nl;
+  if (Number.isFinite(nr) && nr !== ind2.right) patch2.right = nr;
+  if (Number.isFinite(nf) && nf !== ind2.firstLine) patch2.firstLine = nf;
   if (Object.keys(patch2).length) ed.setParagraphIndents(patch2);
   ed.setSpaceBefore(Math.round(Number(before.value) * 20));
   ed.setSpaceAfter(Math.round(Number(after.value) * 20));
@@ -52278,21 +52828,21 @@ async function paragraphDialog(env) {
   if (res === "tabs") await tabsDialog(env);
 }
 async function tabsDialog(env) {
-  const lang = env.lang, ed = env.ed, L10 = env.app.ui.L;
+  const lang = env.lang, ed = env.ed, L11 = env.app.ui.L;
   const u3 = unitOf(lang);
   const cur = ed.getTabStops();
   let tabs = cur.tabs.map((t6) => ({ ...t6 }));
   const cleared = [];
-  const pos = el7("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
+  const pos = el8("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
   pos.setAttribute("aria-label", tr4(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
-  const list = el7("select", { name: "list", size: 6, style: "width:100%;height:132px" });
+  const list = el8("select", { name: "list", size: 6, style: "width:100%;height:132px" });
   const def = unitInput("default", cur.defaultTabTwips, u3, lang);
-  const clearedEl = el7("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
+  const clearedEl = el8("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
   const radios2 = (name, opts, value) => {
-    const box = el7("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
+    const box = el8("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
     for (const [v2, t6] of opts) {
-      const i7 = el7("input", { type: "radio", name, value: v2, checked: v2 === value });
-      box.append(el7("label", { className: "uo-check" }, i7, t6));
+      const i7 = el8("input", { type: "radio", name, value: v2, checked: v2 === value });
+      box.append(el8("label", { className: "uo-check" }, i7, t6));
     }
     return box;
   };
@@ -52310,7 +52860,7 @@ async function tabsDialog(env) {
   };
   const render = (keep) => {
     tabs.sort((a3, b5) => a3.pos - b5.pos);
-    list.replaceChildren(...tabs.map((t6) => el7("option", { value: String(t6.pos), textContent: `${fmtUnit(t6.pos, u3, lang)} ${u3.name}` })));
+    list.replaceChildren(...tabs.map((t6) => el8("option", { value: String(t6.pos), textContent: `${fmtUnit(t6.pos, u3, lang)} ${u3.name}` })));
     if (keep !== void 0) list.value = String(keep);
     clearedEl.textContent = cleared.length ? `${tr4(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x3) => `${fmtUnit(x3, u3, lang)} ${u3.name}`).join("; ")}` : "";
   };
@@ -52321,9 +52871,9 @@ async function tabsDialog(env) {
     setRadio("align", t6.align);
     setRadio("leader", t6.leader === "dot" || t6.leader === "hyphen" || t6.leader === "underscore" ? t6.leader : "");
   });
-  const setBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Set", "Definir") });
-  const clrBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear", "Limpar") });
-  const allBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear All", "Limpar Tudo") });
+  const setBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Set", "Definir") });
+  const clrBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear", "Limpar") });
+  const allBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear All", "Limpar Tudo") });
   const define = () => {
     const p3 = parseUnit(pos.value, u3);
     if (!Number.isFinite(p3)) return false;
@@ -52360,29 +52910,29 @@ async function tabsDialog(env) {
       define();
     }
   });
-  const left = el7(
+  const left = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0" },
-    el7("span", {}, tr4(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
+    el8("span", {}, tr4(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
     pos,
     list
   );
-  const right = el7(
+  const right = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;flex:1 1 0" },
-    el7("span", {}, tr4(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
-    el7("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
+    el8("span", {}, tr4(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
+    el8("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
     clearedEl
   );
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el7("div", { style: "display:flex;gap:16px" }, left, right),
-    el7("strong", {}, tr4(lang, "Alignment", "Alinhamento")),
+    el8("div", { style: "display:flex;gap:16px" }, left, right),
+    el8("strong", {}, tr4(lang, "Alignment", "Alinhamento")),
     alignBox,
-    el7("strong", {}, tr4(lang, "Leader", "Preenchimento")),
+    el8("strong", {}, tr4(lang, "Leader", "Preenchimento")),
     leaderBox,
-    el7("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
+    el8("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
   );
   render();
   if (tabs[0]) {
@@ -52395,7 +52945,7 @@ async function tabsDialog(env) {
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
   });
   setTimeout(() => pos.focus(), 0);
   if (await h3.result !== "ok") return;
@@ -52406,11 +52956,11 @@ async function tabsDialog(env) {
   if (!same2) ed.setTabStops(tabs);
 }
 async function pageDialog(env) {
-  const L10 = env.app.ui.L, lang = env.lang;
+  const L11 = env.app.ui.L, lang = env.lang;
   const u3 = unitOf(lang);
-  const orient = select3("orientation", [["portrait", tr4(lang, "Portrait", "Retrato")], ["landscape", tr4(lang, "Landscape", "Paisagem")]], "portrait");
-  const size = select3("size", [["A4", "A4"], ["Letter", tr4(lang, "Letter", "Carta")]], "A4");
-  const margins = select3("margins", [["normal", "Normal"], ["narrow", tr4(lang, "Narrow", "Estreita")], ["wide", tr4(lang, "Wide", "Larga")], ["custom", tr4(lang, "Custom", "Personalizadas")]], "normal");
+  const orient = select4("orientation", [["portrait", tr4(lang, "Portrait", "Retrato")], ["landscape", tr4(lang, "Landscape", "Paisagem")]], "portrait");
+  const size = select4("size", [["A4", "A4"], ["Letter", tr4(lang, "Letter", "Carta")]], "A4");
+  const margins = select4("margins", [["normal", "Normal"], ["narrow", tr4(lang, "Narrow", "Estreita")], ["wide", tr4(lang, "Wide", "Larga")], ["custom", tr4(lang, "Custom", "Personalizadas")]], "normal");
   const s4 = env.ed.getSection();
   const cm = s4 ? { ...s4.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s4) {
@@ -52427,34 +52977,34 @@ async function pageDialog(env) {
   });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
   const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, "section");
-  const withUnit = (i7) => el7("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
-  const grid2 = el7(
+  const withUnit = (i7) => el8("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
+  const grid2 = el8(
     "div",
     { className: "uo-dialog-grid" },
-    el7("span", {}, L10.orientation),
+    el8("span", {}, L11.orientation),
     orient,
-    el7("span", {}, L10.paper),
+    el8("span", {}, L11.paper),
     size,
-    el7("span", {}, L10.margins),
+    el8("span", {}, L11.margins),
     margins,
-    el7("span", {}, tr4(lang, "Top", "Superior")),
+    el8("span", {}, tr4(lang, "Top", "Superior")),
     withUnit(mt),
-    el7("span", {}, tr4(lang, "Bottom", "Inferior")),
+    el8("span", {}, tr4(lang, "Bottom", "Inferior")),
     withUnit(mb),
-    el7("span", {}, tr4(lang, "Left", "Esquerda")),
+    el8("span", {}, tr4(lang, "Left", "Esquerda")),
     withUnit(ml),
-    el7("span", {}, tr4(lang, "Right", "Direita")),
+    el8("span", {}, tr4(lang, "Right", "Direita")),
     withUnit(mr),
-    el7("span", {}, tr4(lang, "Apply to", "Aplicar a")),
+    el8("span", {}, tr4(lang, "Apply to", "Aplicar a")),
     applyTo
   );
   const h3 = openDialog({
-    title: L10.pageDlg,
+    title: L11.pageDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 420,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const all = applyTo.value !== "section";
@@ -52489,10 +53039,10 @@ async function columnsDialog(env) {
     const w2 = Math.round((W3 - st.space * (n5 - 1)) / n5);
     st.widths = Array.from({ length: n5 }, (_2, i7) => ({ widthTwips: w2, spaceTwips: i7 < n5 - 1 ? st.space : 0 }));
   };
-  const presets = el7("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const presets = el8("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
   const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
   const presetBtns = PRESETS.map(([id, en, pt2, n5]) => {
-    const b5 = el7("button", { type: "button", textContent: tr4(lang, en, pt2), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    const b5 = el8("button", { type: "button", textContent: tr4(lang, en, pt2), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
     b5.addEventListener("click", () => {
       st.count = n5;
       if (id === "left" || id === "right") {
@@ -52509,13 +53059,13 @@ async function columnsDialog(env) {
     presets.append(b5);
     return [id, b5];
   });
-  const count = el7("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
-  const sep = check4("sep", tr4(lang, "Line between", "Linha entre colunas"), st.sep);
-  const equal = check4("equal", tr4(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
-  const rows = el7("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const count = el8("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check5("sep", tr4(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check5("equal", tr4(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el8("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
-  const newCol = check4("newCol", tr4(lang, "Start new column", "Iniciar nova coluna"), false);
-  const preview2 = el7("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const newCol = check5("newCol", tr4(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview2 = el8("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
   const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
   function render() {
     count.value = String(st.count);
@@ -52529,22 +53079,22 @@ async function columnsDialog(env) {
       b5.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
       b5.setAttribute("aria-pressed", String(on));
     }
-    rows.replaceChildren(el7("strong", {}, "#"), el7("strong", {}, tr4(lang, "Width", "Largura")), el7("strong", {}, tr4(lang, "Spacing", "Espa\xE7amento")));
+    rows.replaceChildren(el8("strong", {}, "#"), el8("strong", {}, tr4(lang, "Width", "Largura")), el8("strong", {}, tr4(lang, "Spacing", "Espa\xE7amento")));
     st.widths.slice(0, Math.max(1, st.count)).forEach((c5, i7) => {
       const last = i7 === st.count - 1;
-      const wIn = el7("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
-      const sIn = el7("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      const wIn = el8("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      const sIn = el8("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
       wIn.setAttribute("aria-label", `${tr4(lang, "Width", "Largura")} ${i7 + 1}`);
       sIn.setAttribute("aria-label", `${tr4(lang, "Spacing", "Espa\xE7amento")} ${i7 + 1}`);
       wIn.addEventListener("change", () => setWidth(i7, parse(wIn.value)));
       sIn.addEventListener("change", () => setSpace(i7, parse(sIn.value)));
-      rows.append(el7("span", {}, `${i7 + 1}:`), el7("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el7("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+      rows.append(el8("span", {}, `${i7 + 1}:`), el8("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el8("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
     });
     preview2.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c5, i7) => {
-      const col = el7("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      const col = el8("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
       if (i7 === st.count - 1) return [col];
-      const gap = el7("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
-      if (box("sep").checked) gap.append(el7("div", { style: "width:1px;background:currentColor" }));
+      const gap = el8("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el8("div", { style: "width:1px;background:currentColor" }));
       return [col, gap];
     }));
   }
@@ -52567,19 +53117,19 @@ async function columnsDialog(env) {
     }
     render();
   }
-  function setSpace(i7, sp) {
-    if (!(sp >= 0)) {
+  function setSpace(i7, sp2) {
+    if (!(sp2 >= 0)) {
       render();
       return;
     }
     if (st.equal) {
       const n5 = st.count;
-      st.space = Math.min(sp, Math.floor((W3 - n5 * MIN) / Math.max(1, n5 - 1)));
+      st.space = Math.min(sp2, Math.floor((W3 - n5 * MIN) / Math.max(1, n5 - 1)));
       equalize();
     } else {
       const j = i7 + 1;
       const total = st.widths[i7].spaceTwips + st.widths[j].widthTwips;
-      const ss = Math.max(0, Math.min(sp, total - MIN));
+      const ss = Math.max(0, Math.min(sp2, total - MIN));
       st.widths[i7].spaceTwips = ss;
       st.widths[j].widthTwips = total - ss;
     }
@@ -52613,23 +53163,23 @@ async function columnsDialog(env) {
     equalize();
   }
   render();
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el7("strong", {}, tr4(lang, "Presets", "Predefini\xE7\xF5es")),
+    el8("strong", {}, tr4(lang, "Presets", "Predefini\xE7\xF5es")),
     presets,
-    el7(
+    el8(
       "div",
       { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
-      el7("label", { style: "display:flex;gap:8px;align-items:center" }, tr4(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      el8("label", { style: "display:flex;gap:8px;align-items:center" }, tr4(lang, "Number of columns", "N\xFAmero de colunas"), count),
       sep
     ),
-    el7("strong", {}, tr4(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    el8("strong", {}, tr4(lang, "Width and spacing", "Largura e espa\xE7amento")),
     rows,
     equal,
-    el7("div", { className: "uo-dialog-grid" }, el7("span", {}, tr4(lang, "Apply to", "Aplicar a")), applyTo),
+    el8("div", { className: "uo-dialog-grid" }, el8("span", {}, tr4(lang, "Apply to", "Aplicar a")), applyTo),
     newCol,
-    el7("strong", {}, tr4(lang, "Preview", "Visualiza\xE7\xE3o")),
+    el8("strong", {}, tr4(lang, "Preview", "Visualiza\xE7\xE3o")),
     preview2
   );
   const h3 = openDialog({
@@ -52652,32 +53202,32 @@ async function columnsDialog(env) {
   });
 }
 function wordCountDialog(env) {
-  const L10 = env.app.ui.L;
+  const L11 = env.app.ui.L;
   const s4 = env.ed.stats();
   const fmt2 = (n5) => n5.toLocaleString(tr4(env.lang, "en-US", "pt-BR"));
-  const grid2 = el7(
+  const grid2 = el8(
     "div",
     { className: "uo-dialog-grid" },
-    el7("span", {}, L10.pages),
-    el7("strong", {}, fmt2(s4.pages)),
-    el7("span", {}, L10.words),
-    el7("strong", {}, fmt2(s4.words)),
-    el7("span", {}, L10.chars),
-    el7("strong", {}, fmt2(s4.chars))
+    el8("span", {}, L11.pages),
+    el8("strong", {}, fmt2(s4.pages)),
+    el8("span", {}, L11.words),
+    el8("strong", {}, fmt2(s4.words)),
+    el8("span", {}, L11.chars),
+    el8("strong", {}, fmt2(s4.chars))
   );
-  openDialog({ title: L10.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
+  openDialog({ title: L11.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
 }
 function shortcutsDialog(env) {
-  const grid2 = el7("div", { className: "uo-dialog-grid" });
+  const grid2 = el8("div", { className: "uo-dialog-grid" });
   grid2.style.gridTemplateColumns = "auto 1fr";
   for (const [k2, en, pt2] of SHORTCUTS) {
-    grid2.append(el7("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el7("span", {}, tr4(env.lang, en, pt2)));
+    grid2.append(el8("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el8("span", {}, tr4(env.lang, en, pt2)));
   }
   openDialog({ title: env.app.ui.L.shortcutsTitle, body: grid2, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
-  const L10 = env.app.ui.L;
-  openDialog({ title: L10.aboutTitle, icon: "info", body: L10.aboutText, layer: env.layer, lang: env.lang, width: 400 });
+  const L11 = env.app.ui.L;
+  openDialog({ title: L11.aboutTitle, icon: "info", body: L11.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
 async function spellingDialog(env) {
   const lang = env.lang, ed = env.ed;
@@ -52689,18 +53239,18 @@ async function spellingDialog(env) {
     env.app.ui.flash(done);
     return;
   }
-  const word = el7("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
-  const info = el7("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
-  const list = el7("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
+  const word = el8("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
+  const info = el8("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
+  const list = el8("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
   const show = async (m2) => {
     word.textContent = m2.word;
     info.textContent = tr4(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
     const sug = await ed.spellingSuggestions(m2, 8);
-    list.replaceChildren(...sug.length ? sug.map((x3) => el7("option", { value: x3, textContent: x3 })) : [el7("option", { value: "", disabled: true, textContent: tr4(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
+    list.replaceChildren(...sug.length ? sug.map((x3) => el8("option", { value: x3, textContent: x3 })) : [el8("option", { value: "", disabled: true, textContent: tr4(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
     list.selectedIndex = sug.length ? 0 : -1;
   };
   await show(cur);
-  const body = el7("div", {}, word, info, el7("div", { style: "font-size:12px;margin-bottom:4px" }, tr4(lang, "Suggestions", "Sugest\xF5es")), list);
+  const body = el8("div", {}, word, info, el8("div", { style: "font-size:12px;margin-bottom:4px" }, tr4(lang, "Suggestions", "Sugest\xF5es")), list);
   const next = async () => {
     cur = await ed.nextMisspelling(skip);
     while (cur && always.has(cur.word)) {
@@ -52760,16 +53310,16 @@ async function spellingDialog(env) {
 }
 async function notesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T8 = (en, pt2) => tr4(lang, en, pt2);
+  const T9 = (en, pt2) => tr4(lang, en, pt2);
   let kind = ed.editingNote()?.kind ?? "footnote";
   const st = { footnote: ed.getNoteOptions("footnote"), endnote: ed.getNoteOptions("endnote") };
-  const fnRadio = radio3("kind", "footnote", T8("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
-  const enRadio = radio3("kind", "endnote", T8("Endnotes:", "Notas de fim:"), kind === "endnote");
-  const fnPos = select3("fnPos", [["pageBottom", T8("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T8("Below text", "Abaixo do texto")]], st.footnote.position);
-  const enPos = select3("enPos", [["docEnd", T8("End of document", "Fim do documento")], ["sectEnd", T8("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
-  const convert = el7("button", { type: "button", className: "uo-pill", textContent: T8("Convert\u2026", "Converter\u2026") });
-  const columns = select3("columns", [["0", T8("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T8("1 column", "1 coluna")], ["2", T8("2 columns", "2 colunas")], ["3", T8("3 columns", "3 colunas")], ["4", T8("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
-  const format = select3("format", [
+  const fnRadio = radio3("kind", "footnote", T9("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
+  const enRadio = radio3("kind", "endnote", T9("Endnotes:", "Notas de fim:"), kind === "endnote");
+  const fnPos = select4("fnPos", [["pageBottom", T9("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T9("Below text", "Abaixo do texto")]], st.footnote.position);
+  const enPos = select4("enPos", [["docEnd", T9("End of document", "Fim do documento")], ["sectEnd", T9("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
+  const convert = el8("button", { type: "button", className: "uo-pill", textContent: T9("Convert\u2026", "Converter\u2026") });
+  const columns = select4("columns", [["0", T9("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T9("1 column", "1 coluna")], ["2", T9("2 columns", "2 colunas")], ["3", T9("3 columns", "3 colunas")], ["4", T9("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
+  const format = select4("format", [
     ["decimal", "1, 2, 3, \u2026"],
     ["lowerLetter", "a, b, c, \u2026"],
     ["upperLetter", "A, B, C, \u2026"],
@@ -52777,20 +53327,20 @@ async function notesDialog(env) {
     ["upperRoman", "I, II, III, \u2026"],
     ["chicago", "*, \u2020, \u2021, \xA7, \u2026"]
   ], st[kind].numberFormat);
-  const mark2 = el7("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
-  mark2.setAttribute("aria-label", T8("Custom mark", "Marca personalizada"));
-  const symbols = el7("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
+  const mark2 = el8("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
+  mark2.setAttribute("aria-label", T9("Custom mark", "Marca personalizada"));
+  const symbols = el8("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
   for (const ch of ["*", "\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "#", "\u203B", "\xB9", "\xB2", "\xB3"]) {
-    const b5 = el7("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
+    const b5 = el8("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
     b5.addEventListener("click", () => {
       mark2.value += ch;
       mark2.focus();
     });
     symbols.append(b5);
   }
-  const startAt = el7("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
-  const restart = select3("restart", [["continuous", T8("Continuous", "Cont\xEDnua")], ["eachSect", T8("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T8("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
-  const scope = select3("scope", [["document", T8("Whole document", "Todo o documento")], ["section", T8("This section", "Esta se\xE7\xE3o")]], "document");
+  const startAt = el8("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
+  const restart = select4("restart", [["continuous", T9("Continuous", "Cont\xEDnua")], ["eachSect", T9("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T9("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
+  const scope = select4("scope", [["document", T9("Whole document", "Todo o documento")], ["section", T9("This section", "Esta se\xE7\xE3o")]], "document");
   const show = () => {
     format.value = st[kind].numberFormat;
     startAt.value = String(st[kind].startAt);
@@ -52820,33 +53370,33 @@ async function notesDialog(env) {
     startAt.disabled = restart.value !== "continuous";
   });
   show();
-  const grid2 = (...rows) => el7("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el7("span", {}, label), el7("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
-  const body = el7(
+  const grid2 = (...rows) => el8("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el8("span", {}, label), el8("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el7("strong", {}, T8("Location", "Local")),
-    el7("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
-    el7("div", {}, convert),
-    el7("strong", {}, T8("Footnote layout", "Layout de nota de rodap\xE9")),
-    grid2([T8("Columns:", "Colunas:"), columns]),
-    el7("strong", {}, T8("Format", "Formato")),
-    grid2([T8("Number format:", "Formato do n\xFAmero:"), format], [T8("Custom mark:", "Marca personalizada:"), mark2], [T8("Symbol:", "S\xEDmbolo:"), symbols], [T8("Start at:", "Iniciar em:"), startAt], [T8("Numbering:", "Numera\xE7\xE3o:"), restart]),
-    el7("strong", {}, T8("Apply changes", "Aplicar altera\xE7\xF5es")),
-    grid2([T8("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
+    el8("strong", {}, T9("Location", "Local")),
+    el8("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
+    el8("div", {}, convert),
+    el8("strong", {}, T9("Footnote layout", "Layout de nota de rodap\xE9")),
+    grid2([T9("Columns:", "Colunas:"), columns]),
+    el8("strong", {}, T9("Format", "Formato")),
+    grid2([T9("Number format:", "Formato do n\xFAmero:"), format], [T9("Custom mark:", "Marca personalizada:"), mark2], [T9("Symbol:", "S\xEDmbolo:"), symbols], [T9("Start at:", "Iniciar em:"), startAt], [T9("Numbering:", "Numera\xE7\xE3o:"), restart]),
+    el8("strong", {}, T9("Apply changes", "Aplicar altera\xE7\xF5es")),
+    grid2([T9("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
   );
   convert.addEventListener("click", () => {
     void convertNotesDialog(env);
   });
   const canInsert = ed.canInsertNote();
   const h3 = openDialog({
-    title: T8("Footnote and Endnote", "Notas de Rodap\xE9 e de Fim"),
+    title: T9("Footnote and Endnote", "Notas de Rodap\xE9 e de Fim"),
     icon: "notes",
     body,
     layer: env.layer,
     lang,
     width: 480,
     actions: [
-      ...canInsert ? [{ id: "insert", label: T8("Insert", "Inserir"), primary: true }] : [],
+      ...canInsert ? [{ id: "insert", label: T9("Insert", "Inserir"), primary: true }] : [],
       { id: "cancel", label: env.app.ui.L.cancel },
       { id: "apply", label: env.app.ui.L.apply, primary: !canInsert }
     ]
@@ -52865,21 +53415,21 @@ async function notesDialog(env) {
 }
 async function convertNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T8 = (en, pt2) => tr4(lang, en, pt2);
+  const T9 = (en, pt2) => tr4(lang, en, pt2);
   const nf = ed.noteCount("footnote"), ne = ed.noteCount("endnote");
   const opts = [
-    ["toEndnotes", T8("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
-    ["toFootnotes", T8("Convert all endnotes to footnotes", "Converter todas as notas de fim em notas de rodap\xE9"), ne > 0],
-    ["swap", T8("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
+    ["toEndnotes", T9("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
+    ["toFootnotes", T9("Convert all endnotes to footnotes", "Converter todas as notas de fim em notas de rodap\xE9"), ne > 0],
+    ["swap", T9("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
   ];
   const first = opts.find((o7) => o7[2])?.[0];
-  const body = el7("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
+  const body = el8("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
     const r6 = radio3("convert", v3, label, v3 === first);
     r6.querySelector("input").disabled = !on;
     return r6;
   }));
   const h3 = openDialog({
-    title: T8("Convert Notes", "Converter Notas"),
+    title: T9("Convert Notes", "Converter Notas"),
     icon: "autorenew",
     body,
     layer: env.layer,
@@ -52893,20 +53443,20 @@ async function convertNotesDialog(env) {
 }
 async function showNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T8 = (en, pt2) => tr4(lang, en, pt2);
+  const T9 = (en, pt2) => tr4(lang, en, pt2);
   if (ed.editingNote() || !ed.noteCount("footnote") || !ed.noteCount("endnote")) {
     ed.showNotes();
     return;
   }
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:8px" },
-    el7("span", {}, T8("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
-    radio3("area", "footnote", T8("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
-    radio3("area", "endnote", T8("View endnote area", "Exibir \xE1rea de notas de fim"), false)
+    el8("span", {}, T9("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
+    radio3("area", "footnote", T9("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
+    radio3("area", "endnote", T9("View endnote area", "Exibir \xE1rea de notas de fim"), false)
   );
   const h3 = openDialog({
-    title: T8("Show Notes", "Mostrar Notas"),
+    title: T9("Show Notes", "Mostrar Notas"),
     icon: "notes",
     body,
     layer: env.layer,
@@ -52918,28 +53468,28 @@ async function showNotesDialog(env) {
   const v2 = body.querySelector('input[name="area"]:checked')?.value;
   ed.showNotes(v2 ?? "footnote");
 }
-var el7, select3, check4, tr4, unitOf, fmtUnit, parseUnit, unitInput, applyToSelect, SHORTCUTS, radio3;
+var el8, select4, check5, tr4, unitOf, fmtUnit, parseUnit, unitInput, applyToSelect, SHORTCUTS, radio3;
 var init_chrome_dialogs = __esm({
   "src/chrome-dialogs.ts"() {
     "use strict";
     init_src5();
     init_chrome_store();
-    el7 = (tag2, props = {}, ...kids) => {
+    el8 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
       e8.append(...kids);
       return e8;
     };
-    select3 = (name, opts, value) => {
-      const s4 = el7("select", { name });
-      for (const [v2, t6] of opts) s4.append(el7("option", { value: v2, textContent: t6 }));
+    select4 = (name, opts, value) => {
+      const s4 = el8("select", { name });
+      for (const [v2, t6] of opts) s4.append(el8("option", { value: v2, textContent: t6 }));
       s4.value = value;
       return s4;
     };
-    check4 = (name, label, on) => {
-      const i7 = el7("input", { type: "checkbox", name, checked: on });
-      return el7("label", { className: "uo-check" }, i7, label);
+    check5 = (name, label, on) => {
+      const i7 = el8("input", { type: "checkbox", name, checked: on });
+      return el8("label", { className: "uo-check" }, i7, label);
     };
     tr4 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
     unitOf = (lang) => lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
@@ -52948,8 +53498,8 @@ var init_chrome_dialogs = __esm({
       const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
       return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
     };
-    unitInput = (name, tw3, u3, lang, min) => el7("input", { type: "text", name, value: fmtUnit(tw3, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
-    applyToSelect = (lang, hasSel, value) => select3("applyTo", [
+    unitInput = (name, tw3, u3, lang, min) => el8("input", { type: "text", name, value: fmtUnit(tw3, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
+    applyToSelect = (lang, hasSel, value) => select4("applyTo", [
       ["section", tr4(lang, "This section", "Esta se\xE7\xE3o")],
       ["forward", tr4(lang, "This point forward", "Deste ponto em diante")],
       ["document", tr4(lang, "Whole document", "No documento inteiro")],
@@ -52975,12 +53525,12 @@ var init_chrome_dialogs = __esm({
       ["Ctrl+Shift+8", "Formatting marks", "Marcas de formata\xE7\xE3o"],
       ["Ctrl+scroll", "Zoom", "Zoom"]
     ];
-    radio3 = (name, value, label, on) => el7("label", { className: "uo-check" }, el7("input", { type: "radio", name, value, checked: on }), label);
+    radio3 = (name, value, label, on) => el8("label", { className: "uo-check" }, el8("input", { type: "radio", name, value, checked: on }), label);
   }
 });
 
 // src/chrome-nav.ts
-var LABELS5, el8, NavPane;
+var LABELS5, el9, NavPane;
 var init_chrome_nav = __esm({
   "src/chrome-nav.ts"() {
     "use strict";
@@ -53063,7 +53613,7 @@ var init_chrome_nav = __esm({
         expand: "Expandir"
       }
     };
-    el8 = (tag2, cls, text) => {
+    el9 = (tag2, cls, text) => {
       const e8 = document.createElement(tag2);
       if (cls) e8.className = cls;
       if (text !== void 0) e8.textContent = text;
@@ -53157,20 +53707,20 @@ var init_chrome_nav = __esm({
         });
       }
       build() {
-        const L10 = this.L;
-        const body = el8("div", "uw-nav");
-        const box = el8("div", "uw-nav-search");
-        const ic = el8("span", "uw-nav-search-ic");
+        const L11 = this.L;
+        const body = el9("div", "uw-nav");
+        const box = el9("div", "uw-nav-search");
+        const ic = el9("span", "uw-nav-search-ic");
         ic.innerHTML = symbol("search");
-        this.input = el8("input", "uw-nav-input");
+        this.input = el9("input", "uw-nav-input");
         this.input.type = "search";
-        this.input.placeholder = L10.search;
-        this.input.setAttribute("aria-label", L10.search);
+        this.input.placeholder = L11.search;
+        this.input.setAttribute("aria-label", L11.search);
         this.input.dataset["a"] = "nav:search";
-        const optBtn = el8("button", "uo-btn uw-nav-opt");
+        const optBtn = el9("button", "uo-btn uw-nav-opt");
         optBtn.type = "button";
-        optBtn.title = L10.options;
-        optBtn.setAttribute("aria-label", L10.options);
+        optBtn.title = L11.options;
+        optBtn.setAttribute("aria-label", L11.options);
         optBtn.dataset["a"] = "nav:options";
         optBtn.innerHTML = symbol("arrow_drop_down");
         optBtn.addEventListener("click", () => this.optionsMenu(optBtn));
@@ -53192,27 +53742,27 @@ var init_chrome_nav = __esm({
             } else this.env.ed.focusEditor();
           }
         });
-        const st = el8("div", "uw-nav-status");
-        this.status = el8("span", "uw-nav-count");
-        const prev = el8("button", "uo-btn uw-nav-step");
+        const st = el9("div", "uw-nav-status");
+        this.status = el9("span", "uw-nav-count");
+        const prev = el9("button", "uo-btn uw-nav-step");
         prev.type = "button";
-        prev.title = L10.prev;
-        prev.setAttribute("aria-label", L10.prev);
+        prev.title = L11.prev;
+        prev.setAttribute("aria-label", L11.prev);
         prev.innerHTML = symbol("keyboard_arrow_up");
         prev.dataset["a"] = "nav:prev";
         prev.addEventListener("click", () => this.step(-1));
-        const next = el8("button", "uo-btn uw-nav-step");
+        const next = el9("button", "uo-btn uw-nav-step");
         next.type = "button";
-        next.title = L10.next;
-        next.setAttribute("aria-label", L10.next);
+        next.title = L11.next;
+        next.setAttribute("aria-label", L11.next);
         next.innerHTML = symbol("keyboard_arrow_down");
         next.dataset["a"] = "nav:next";
         next.addEventListener("click", () => this.step(1));
         st.append(this.status, prev, next);
-        const tabs = el8("div", "uw-nav-tabs");
+        const tabs = el9("div", "uw-nav-tabs");
         tabs.setAttribute("role", "tablist");
         for (const t6 of ["headings", "pages", "results"]) {
-          const b5 = el8("button", "uw-nav-tab", L10[t6]);
+          const b5 = el9("button", "uw-nav-tab", L11[t6]);
           b5.type = "button";
           b5.setAttribute("role", "tab");
           b5.dataset["a"] = `nav:tab:${t6}`;
@@ -53223,11 +53773,11 @@ var init_chrome_nav = __esm({
           this.tabs.set(t6, b5);
           tabs.appendChild(b5);
         }
-        this.bodyEl = el8("div", "uw-nav-body");
+        this.bodyEl = el9("div", "uw-nav-body");
         body.append(box, st, tabs, this.bodyEl);
         const pane = openPane({
           id: "navigation",
-          title: L10.title,
+          title: L11.title,
           lang: this.env.lang,
           layer: this.env.layer,
           frame: this.env.frame,
@@ -53254,7 +53804,7 @@ var init_chrome_nav = __esm({
         this.env.app.prefs.set("navPane", "1");
       }
       optionsMenu(anchor) {
-        const L10 = this.L;
+        const L11 = this.L;
         const flag = (k2, label) => ({
           id: `nav:${k2}`,
           label,
@@ -53265,13 +53815,13 @@ var init_chrome_nav = __esm({
           }
         });
         openMenu([
-          flag("matchCase", L10.matchCase),
-          flag("wholeWord", L10.wholeWord),
-          flag("highlight", L10.highlight),
-          flag("incremental", L10.incremental),
+          flag("matchCase", L11.matchCase),
+          flag("wholeWord", L11.wholeWord),
+          flag("highlight", L11.highlight),
+          flag("incremental", L11.incremental),
           { sep: true },
-          { id: "nav:replace", label: L10.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
-          { id: "nav:clear", label: L10.clear, icon: "close", onClick: () => {
+          { id: "nav:replace", label: L11.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
+          { id: "nav:clear", label: L11.clear, icon: "close", onClick: () => {
             this.input.value = "";
             this.runSearch(true);
           }, disabled: !this.query }
@@ -53295,7 +53845,7 @@ var init_chrome_nav = __esm({
       }
       refresh() {
         if (!this.pane) return;
-        const L10 = this.L;
+        const L11 = this.L;
         const ed = this.env.ed;
         this.pane.place();
         this.heads = ed.getHeadings();
@@ -53305,7 +53855,7 @@ var init_chrome_nav = __esm({
         }
         const n5 = this.results.length;
         this.status.parentElement.hidden = !this.query;
-        this.status.textContent = !this.query ? "" : !n5 ? L10.results0 : this.current >= 0 ? L10.result(this.current + 1, n5) : L10.resultsN(n5);
+        this.status.textContent = !this.query ? "" : !n5 ? L11.results0 : this.current >= 0 ? L11.result(this.current + 1, n5) : L11.resultsN(n5);
         for (const b5 of this.status.parentElement.querySelectorAll("button")) b5.disabled = !n5;
         if (this.tab === "headings") this.renderHeadings();
         else if (this.tab === "pages") this.renderPages();
@@ -53333,13 +53883,13 @@ var init_chrome_nav = __esm({
         return roots;
       }
       renderHeadings() {
-        const L10 = this.L;
+        const L11 = this.L;
         const ed = this.env.ed;
-        const list = el8("div", "uw-nav-tree");
+        const list = el9("div", "uw-nav-tree");
         list.setAttribute("role", "tree");
         if (!this.heads.length) {
           this.treeSig = "";
-          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L10.noHeadings));
+          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noHeadings));
           return;
         }
         const cur = ed.currentHeading(this.heads);
@@ -53359,19 +53909,19 @@ var init_chrome_nav = __esm({
           const kids = node.kids.filter((k2) => k2.h.level <= this.maxLevel);
           const key = this.keyOf(h3);
           const closed = this.collapsed.has(key);
-          const r6 = el8("div", "uw-nav-row");
+          const r6 = el9("div", "uw-nav-row");
           r6.setAttribute("role", "treeitem");
           r6.dataset["index"] = String(h3.index);
           r6.style.paddingLeft = `${4 + depth * 14}px`;
           r6.classList.toggle("uo-on", h3.index === cur);
           r6.classList.toggle("uw-nav-hit", hit.has(h3.index));
           if (kids.length) r6.setAttribute("aria-expanded", String(!closed));
-          const tw3 = el8("button", "uw-nav-twisty");
+          const tw3 = el9("button", "uw-nav-twisty");
           tw3.type = "button";
           tw3.tabIndex = -1;
           if (kids.length) {
             tw3.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
-            tw3.title = closed ? L10.expand : L10.collapse;
+            tw3.title = closed ? L11.expand : L11.collapse;
             tw3.addEventListener("click", (e8) => {
               e8.stopPropagation();
               if (closed) this.collapsed.delete(key);
@@ -53379,7 +53929,7 @@ var init_chrome_nav = __esm({
               this.refresh();
             });
           } else tw3.classList.add("uw-nav-leaf");
-          const label = el8("span", "uw-nav-label", h3.text);
+          const label = el9("span", "uw-nav-label", h3.text);
           label.title = h3.text;
           r6.append(tw3, label);
           r6.addEventListener("click", () => {
@@ -53456,7 +54006,7 @@ var init_chrome_nav = __esm({
         this.bodyEl.querySelector(".uw-nav-tree")?.classList.remove("uw-nav-drop-end");
       }
       headingMenu(h3, x3, y3) {
-        const L10 = this.L;
+        const L11 = this.L;
         const ed = this.env.ed;
         const ro = ed.isProtected();
         const done = (ok) => {
@@ -53464,52 +54014,52 @@ var init_chrome_nav = __esm({
           this.refresh();
         };
         const levels = () => [
-          { id: "nav:levels:all", label: L10.all, checked: this.maxLevel === 9, onClick: () => {
+          { id: "nav:levels:all", label: L11.all, checked: this.maxLevel === 9, onClick: () => {
             this.maxLevel = 9;
             this.refresh();
           } },
-          ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L10.level(n5), checked: this.maxLevel === n5, onClick: () => {
+          ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L11.level(n5), checked: this.maxLevel === n5, onClick: () => {
             this.maxLevel = n5;
             this.refresh();
           } }))
         ];
         openMenu([
-          { id: "nav:promote", label: L10.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
-          { id: "nav:demote", label: L10.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
+          { id: "nav:promote", label: L11.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
+          { id: "nav:demote", label: L11.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
           { sep: true },
-          { id: "nav:newBefore", label: L10.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
-          { id: "nav:newAfter", label: L10.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
-          { id: "nav:newSub", label: L10.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
-          { id: "nav:delete", label: L10.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
+          { id: "nav:newBefore", label: L11.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
+          { id: "nav:newAfter", label: L11.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
+          { id: "nav:newSub", label: L11.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
+          { id: "nav:delete", label: L11.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
           { sep: true },
-          { id: "nav:select", label: L10.select, icon: "select_all", onClick: () => {
+          { id: "nav:select", label: L11.select, icon: "select_all", onClick: () => {
             ed.selectHeading(h3.index);
             this.env.after();
           } },
           { sep: true },
-          { id: "nav:expandAll", label: L10.expandAll, icon: "unfold_more", onClick: () => {
+          { id: "nav:expandAll", label: L11.expandAll, icon: "unfold_more", onClick: () => {
             this.collapsed.clear();
             this.refresh();
           } },
-          { id: "nav:collapseAll", label: L10.collapseAll, icon: "unfold_less", onClick: () => {
+          { id: "nav:collapseAll", label: L11.collapseAll, icon: "unfold_less", onClick: () => {
             for (const x4 of this.heads) this.collapsed.add(this.keyOf(x4));
             this.refresh();
           } },
-          { id: "nav:levels", label: L10.showLevels, submenu: levels }
+          { id: "nav:levels", label: L11.showLevels, submenu: levels }
         ], { x: x3, y: y3 }, { layer: this.env.layer, lang: this.env.lang });
       }
       // ───── Páginas ─────
       renderPages() {
-        const L10 = this.L;
+        const L11 = this.L;
         const ed = this.env.ed;
         const total = ed.layoutPageCount();
         if (!total) {
-          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L10.noPages));
+          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noPages));
           return;
         }
         const only = this.query ? new Set(this.results.map((r6) => r6.page).filter((p3) => p3 >= 0)) : null;
         if (only && !only.size) {
-          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L10.noMatch));
+          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noMatch));
           return;
         }
         const cur = ed.currentPage() - 1;
@@ -53517,7 +54067,7 @@ var init_chrome_nav = __esm({
         const want = [...Array(total).keys()].filter((i7) => !only || only.has(i7));
         const sig = want.join(",");
         if (!grid2 || grid2.dataset["sig"] !== sig) {
-          grid2 = el8("div", "uw-nav-pages");
+          grid2 = el9("div", "uw-nav-pages");
           grid2.dataset["sig"] = sig;
           this.io?.disconnect();
           this.thumbs.clear();
@@ -53525,13 +54075,13 @@ var init_chrome_nav = __esm({
             for (const e8 of ents) if (e8.isIntersecting) this.paintThumb(+e8.target.dataset["page"]);
           }, { root: this.bodyEl, rootMargin: "200px" });
           for (const i7 of want) {
-            const item = el8("button", "uw-nav-page");
+            const item = el9("button", "uw-nav-page");
             item.type = "button";
             item.dataset["page"] = String(i7);
             item.dataset["a"] = `nav:page:${i7 + 1}`;
-            item.title = L10.page(i7 + 1);
-            const c5 = el8("canvas", "uw-nav-thumb");
-            const num3 = el8("span", "uw-nav-pnum", String(i7 + 1));
+            item.title = L11.page(i7 + 1);
+            const c5 = el9("canvas", "uw-nav-thumb");
+            const num3 = el9("span", "uw-nav-pnum", String(i7 + 1));
             item.append(c5, num3);
             item.addEventListener("click", () => {
               ed.goToPage(i7);
@@ -53557,24 +54107,24 @@ var init_chrome_nav = __esm({
       }
       // ───── Resultados ─────
       renderResults() {
-        const L10 = this.L;
+        const L11 = this.L;
         if (!this.query) {
-          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L10.noSearch));
+          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noSearch));
           return;
         }
         if (!this.results.length) {
-          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L10.noMatch));
+          this.bodyEl.replaceChildren(el9("p", "uw-nav-empty", L11.noMatch));
           return;
         }
-        const list = el8("div", "uw-nav-results");
+        const list = el9("div", "uw-nav-results");
         list.setAttribute("role", "list");
         for (const r6 of this.results) {
-          const b5 = el8("button", "uw-nav-result");
+          const b5 = el9("button", "uw-nav-result");
           b5.type = "button";
           b5.setAttribute("role", "listitem");
           b5.dataset["a"] = `nav:result:${r6.index + 1}`;
           b5.classList.toggle("uo-on", r6.index === this.current);
-          b5.append(document.createTextNode(r6.before), el8("strong", void 0, r6.match), document.createTextNode(r6.after));
+          b5.append(document.createTextNode(r6.before), el9("strong", void 0, r6.match), document.createTextNode(r6.after));
           b5.addEventListener("click", () => {
             this.current = r6.index;
             this.env.ed.goToSearchResult(r6.index);
@@ -53590,30 +54140,30 @@ var init_chrome_nav = __esm({
 });
 
 // src/chrome-ruler.ts
-var L8, TIPS, MIN_TEXT, RulerUI;
+var L9, TIPS, MIN_TEXT, RulerUI;
 var init_chrome_ruler = __esm({
   "src/chrome-ruler.ts"() {
     "use strict";
     init_src5();
-    L8 = (en, pt2) => ({ en, pt: pt2 });
+    L9 = (en, pt2) => ({ en, pt: pt2 });
     TIPS = {
-      firstLine: L8("First Line Indent", "Recuo da Primeira Linha"),
-      hanging: L8("Hanging Indent", "Recuo Deslocado"),
-      left: L8("Left Indent", "Recuo \xE0 Esquerda"),
-      right: L8("Right Indent", "Recuo \xE0 Direita"),
-      marginL: L8("Left Margin", "Margem Esquerda"),
-      marginR: L8("Right Margin", "Margem Direita"),
-      marginT: L8("Top Margin", "Margem Superior"),
-      marginB: L8("Bottom Margin", "Margem Inferior"),
-      column: L8("Move Column", "Mover Coluna"),
-      cell: L8("Move Table Column", "Mover Coluna da Tabela"),
-      row: L8("Adjust Table Row", "Ajustar Linha da Tabela"),
+      firstLine: L9("First Line Indent", "Recuo da Primeira Linha"),
+      hanging: L9("Hanging Indent", "Recuo Deslocado"),
+      left: L9("Left Indent", "Recuo \xE0 Esquerda"),
+      right: L9("Right Indent", "Recuo \xE0 Direita"),
+      marginL: L9("Left Margin", "Margem Esquerda"),
+      marginR: L9("Right Margin", "Margem Direita"),
+      marginT: L9("Top Margin", "Margem Superior"),
+      marginB: L9("Bottom Margin", "Margem Inferior"),
+      column: L9("Move Column", "Mover Coluna"),
+      cell: L9("Move Table Column", "Mover Coluna da Tabela"),
+      row: L9("Adjust Table Row", "Ajustar Linha da Tabela"),
       tab: {
-        left: L8("Left Tab", "Tabula\xE7\xE3o Esquerda"),
-        center: L8("Center Tab", "Tabula\xE7\xE3o Centralizada"),
-        right: L8("Right Tab", "Tabula\xE7\xE3o Direita"),
-        decimal: L8("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
-        bar: L8("Bar Tab", "Barra de Tabula\xE7\xE3o")
+        left: L9("Left Tab", "Tabula\xE7\xE3o Esquerda"),
+        center: L9("Center Tab", "Tabula\xE7\xE3o Centralizada"),
+        right: L9("Right Tab", "Tabula\xE7\xE3o Direita"),
+        decimal: L9("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
+        bar: L9("Bar Tab", "Barra de Tabula\xE7\xE3o")
       }
     };
     MIN_TEXT = 720;
@@ -53643,7 +54193,7 @@ var init_chrome_ruler = __esm({
         this.guide = document.createElement("div");
         this.guide.className = "uw-ruler-guide";
         this.guide.hidden = true;
-        for (const el14 of [this.h.el, this.vbox]) el14.addEventListener("mousedown", (e8) => e8.preventDefault());
+        for (const el15 of [this.h.el, this.vbox]) el15.addEventListener("mousedown", (e8) => e8.preventDefault());
       }
       env;
       h;
@@ -53914,14 +54464,14 @@ var init_chrome_panels = __esm({
       constructor(ed, app, layer) {
         this.ed = ed;
         this.app = app;
-        const L10 = app.ui.L;
-        const el14 = document.createElement("div");
-        el14.className = "uw-find";
-        el14.setAttribute("role", "dialog");
-        el14.setAttribute("aria-label", L10.findTitle);
-        el14.setAttribute("part", "find");
-        el14.hidden = true;
-        el14.innerHTML = `
+        const L11 = app.ui.L;
+        const el15 = document.createElement("div");
+        el15.className = "uw-find";
+        el15.setAttribute("role", "dialog");
+        el15.setAttribute("aria-label", L11.findTitle);
+        el15.setAttribute("part", "find");
+        el15.hidden = true;
+        el15.innerHTML = `
       <div class="uw-find-head"><strong></strong>
         <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
       <input type="text" data-a="find:text" />
@@ -53930,21 +54480,21 @@ var init_chrome_panels = __esm({
         <button type="button" class="uo-pill" data-a="find:next"></button>
         <button type="button" class="uo-pill" data-a="find:one"></button>
         <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-        el14.querySelector("strong").textContent = L10.findTitle;
-        this.find = el14.querySelector('[data-a="find:text"]');
-        this.repl = el14.querySelector('[data-a="find:replace"]');
-        this.msg = el14.querySelector(".uw-find-msg");
-        this.find.placeholder = L10.find;
-        this.repl.placeholder = L10.replaceWith;
+        el15.querySelector("strong").textContent = L11.findTitle;
+        this.find = el15.querySelector('[data-a="find:text"]');
+        this.repl = el15.querySelector('[data-a="find:replace"]');
+        this.msg = el15.querySelector(".uw-find-msg");
+        this.find.placeholder = L11.find;
+        this.repl.placeholder = L11.replaceWith;
         const b5 = (id, label, fn) => {
-          const x3 = el14.querySelector(`[data-a="find:${id}"]`);
+          const x3 = el15.querySelector(`[data-a="find:${id}"]`);
           x3.textContent = label;
           x3.addEventListener("click", fn);
         };
-        b5("next", L10.findNext, () => this.next());
-        b5("one", L10.replace, () => this.replaceOne());
-        b5("all", L10.replaceAll, () => this.replaceAll());
-        el14.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
+        b5("next", L11.findNext, () => this.next());
+        b5("one", L11.replace, () => this.replaceOne());
+        b5("all", L11.replaceAll, () => this.replaceAll());
+        el15.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
         for (const i7 of [this.find, this.repl]) {
           i7.addEventListener("keydown", (e8) => {
             if (e8.key === "Escape") {
@@ -53962,8 +54512,8 @@ var init_chrome_panels = __esm({
           this.msg.textContent = "";
           this.find.classList.remove("uw-miss");
         });
-        layer.appendChild(el14);
-        this.el = el14;
+        layer.appendChild(el15);
+        this.el = el15;
       }
       ed;
       app;
@@ -54012,16 +54562,16 @@ var init_chrome_panels = __esm({
         this.ed = ed;
         this.app = app;
         this.after = after;
-        const el14 = document.createElement("div");
-        el14.className = "uw-comments";
-        el14.setAttribute("part", "comments");
+        const el15 = document.createElement("div");
+        el15.className = "uw-comments";
+        el15.setAttribute("part", "comments");
         for (const t6 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-          el14.addEventListener(t6, (e8) => {
+          el15.addEventListener(t6, (e8) => {
             if (t6 !== "wheel") e8.stopPropagation();
           }, { passive: t6 === "wheel" });
         }
-        root.appendChild(el14);
-        this.el = el14;
+        root.appendChild(el15);
+        this.el = el15;
       }
       ed;
       app;
@@ -54043,7 +54593,7 @@ var init_chrome_panels = __esm({
       render() {
         const pages2 = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
         const print = this.ed.getView() === "print";
-        const L10 = this.app.ui.L;
+        const L11 = this.app.ui.L;
         const mode = this.ed.getMarkupMode();
         const mk = this.ed.getMarkupOptions();
         const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
@@ -54075,9 +54625,9 @@ var init_chrome_panels = __esm({
           card.className = `uw-card${active2.has(c5.id) ? " active" : ""}`;
           card.dataset["commentId"] = String(c5.id);
           card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c5.id}" title="${L10.deleteComment}">${symbol("delete")}</button></div>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c5.id}" title="${L11.deleteComment}">${symbol("delete")}</button></div>
         <div class="txt"></div>`;
-          card.querySelector(".who").textContent = c5.author ?? L10.anonymous;
+          card.querySelector(".who").textContent = c5.author ?? L11.anonymous;
           card.querySelector(".txt").textContent = c5.text;
           card.querySelector("button").addEventListener("click", (e8) => {
             e8.stopPropagation();
@@ -54103,8 +54653,8 @@ var init_chrome_panels = __esm({
           card.className = "uw-card uw-rev-card";
           card.style.setProperty("--uw-rev", `#${r6.color}`);
           card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
-        <button type="button" class="uo-btn" data-a="rev:accept" title="${L10.revAccept}">${symbol("check")}</button>
-        <button type="button" class="uo-btn" data-a="rev:reject" title="${L10.revReject}">${symbol("close")}</button></div>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L11.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L11.revReject}">${symbol("close")}</button></div>
         <div class="txt"></div>`;
           card.querySelector(".who").textContent = r6.author;
           card.querySelector(".when").textContent = revisionTime(r6.date, uiLang(this.ed));
@@ -54113,7 +54663,7 @@ var init_chrome_panels = __esm({
             const [head, ...rest] = r6.description.split(": ");
             txt2.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
           } else {
-            txt2.append(Object.assign(document.createElement("b"), { textContent: `${r6.mark ? L10.revParaDeleted : L10.revDeleted}: ` }), r6.text);
+            txt2.append(Object.assign(document.createElement("b"), { textContent: `${r6.mark ? L11.revParaDeleted : L11.revDeleted}: ` }), r6.text);
           }
           const [acc, rej] = card.querySelectorAll("button");
           acc.addEventListener("click", (e8) => {
@@ -54153,9 +54703,9 @@ var init_chrome_panels = __esm({
         this.status.className = "uw-status";
         this.status.dataset["a"] = "status";
         this.status.setAttribute("role", "status");
-        const sp = document.createElement("span");
-        sp.className = "uo-spacer";
-        bar.append(this.status, sp);
+        const sp2 = document.createElement("span");
+        sp2.className = "uo-spacer";
+        bar.append(this.status, sp2);
         const views = document.createElement("span");
         views.className = "uw-views";
         for (const id of ["view:print", "view:web", "view:read", "focus"]) {
@@ -54310,7 +54860,7 @@ var init_chrome_review = __esm({
         const pane = this.pane;
         if (!pane) return;
         pane.place();
-        const L10 = this.app.ui.L;
+        const L11 = this.app.ui.L;
         const lang = uiLang(this.ed);
         const revs = this.ed.getRevisions();
         const comments = this.app.commentsVisible ? this.ed.getComments() : [];
@@ -54321,17 +54871,17 @@ var init_chrome_review = __esm({
           else if (r6.kind === "delete") n5.del++;
           else n5.fmt++;
         }
-        pane.setTitle(`${L10.revPane}: ${L10.revCount(revs.length)}`);
+        pane.setTitle(`${L11.revPane}: ${L11.revCount(revs.length)}`);
         const sum2 = document.createElement("div");
         sum2.className = "uw-review-sum";
-        sum2.textContent = [`${L10.revInsertions}: ${n5.ins}`, `${L10.revDeletions}: ${n5.del}`, `${L10.revMoves}: ${n5.move}`, `${L10.revFormatting}: ${n5.fmt}`, `${L10.revComments}: ${comments.length}`].join(" \xB7 ");
+        sum2.textContent = [`${L11.revInsertions}: ${n5.ins}`, `${L11.revDeletions}: ${n5.del}`, `${L11.revMoves}: ${n5.move}`, `${L11.revFormatting}: ${n5.fmt}`, `${L11.revComments}: ${comments.length}`].join(" \xB7 ");
         const list = document.createElement("ul");
         list.className = "uw-review-list";
         revs.forEach((r6, i7) => {
           const li = document.createElement("li");
           li.className = "uw-rev";
           li.style.setProperty("--uw-rev", `#${r6.color}`);
-          const what = r6.move ? r6.kind === "delete" ? L10.revMovedFrom : L10.revMovedTo : r6.kind === "insert" ? r6.mark ? L10.revParaInserted : L10.revInserted : r6.kind === "delete" ? r6.mark ? L10.revParaDeleted : L10.revDeleted : L10.revFormatted;
+          const what = r6.move ? r6.kind === "delete" ? L11.revMovedFrom : L11.revMovedTo : r6.kind === "insert" ? r6.mark ? L11.revParaInserted : L11.revInserted : r6.kind === "delete" ? r6.mark ? L11.revParaDeleted : L11.revDeleted : L11.revFormatted;
           li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
         <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
         <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
@@ -54340,8 +54890,8 @@ var init_chrome_review = __esm({
           li.querySelector(".when").textContent = revisionTime(r6.date, lang);
           li.querySelector(".txt").textContent = r6.description ? r6.description.replace(/^[^:]*:\s*/, "") : r6.text;
           const [acc, rej] = li.querySelectorAll("button");
-          acc.title = L10.revAccept;
-          rej.title = L10.revReject;
+          acc.title = L11.revAccept;
+          rej.title = L11.revReject;
           acc.addEventListener("click", (e8) => {
             e8.stopPropagation();
             if (this.ed.acceptRevisionAt(i7)) this.after();
@@ -54360,8 +54910,8 @@ var init_chrome_review = __esm({
           const li = document.createElement("li");
           li.className = "uw-rev uw-rev-comment";
           li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
-          li.querySelector(".who").textContent = c5.author ?? L10.anonymous;
-          li.querySelector(".what").textContent = L10.revComments;
+          li.querySelector(".who").textContent = c5.author ?? L11.anonymous;
+          li.querySelector(".what").textContent = L11.revComments;
           li.querySelector(".txt").textContent = c5.text;
           li.addEventListener("click", () => {
             this.app.activeCommentIds = [c5.id];
@@ -54373,7 +54923,7 @@ var init_chrome_review = __esm({
         if (!revs.length && !comments.length) {
           const li = document.createElement("li");
           li.className = "uw-rev-empty";
-          li.textContent = L10.revNone;
+          li.textContent = L11.revNone;
           list.appendChild(li);
         }
         pane.body.replaceChildren(sum2, list);
@@ -54416,20 +54966,20 @@ async function tableStyleDialog(env, mode, nameOrId) {
   }
   const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
   const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
-  const name = el9("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
+  const name = el10("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
   const base = sel2("ts-base", [["", tr5(lang, "(no style)", "(sem estilo)")], ...bases.map((b5) => [b5.id, b5.name])], headBase, "width:100%");
   const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c6) => [c6, tr5(lang, ...COND_LABELS[c6])]), "wholeTable", "width:100%");
-  const font = el9("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
+  const font = el10("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
   const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr5(lang, ".", ","))])], "", "width:70px");
-  const tog = (label, title) => el9("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
+  const tog = (label, title) => el10("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
   const bBtn = tog("B", tr5(lang, "Bold", "Negrito")), iBtn = tog("I", tr5(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr5(lang, "Underline", "Sublinhado"));
   bBtn.style.fontWeight = "700";
   iBtn.style.fontStyle = "italic";
   uBtn.style.textDecoration = "underline";
-  const color3 = el9("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const color3 = el10("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt2]) => [v2, tr5(lang, en, pt2)]), "single");
-  const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz2, t6]) => [String(sz2), `${t6} pt`]), "4");
-  const bColor = el9("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz3, t6]) => [String(sz3), `${t6} pt`]), "4");
+  const bColor = el10("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const sideBtns = [
     ["top", "Top", "Superior"],
     ["bottom", "Bottom", "Inferior"],
@@ -54440,12 +54990,12 @@ async function tableStyleDialog(env, mode, nameOrId) {
     ["none", "None", "Nenhuma"],
     ["all", "All", "Todas"]
   ].map(([s4, en, pt2]) => {
-    const b5 = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt2), style: "padding:3px 9px" });
+    const b5 = el10("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt2), style: "padding:3px 9px" });
     b5.dataset["side"] = s4;
     return b5;
   });
-  const fillOn = el9("input", { type: "checkbox", name: "ts-fill-on" });
-  const fill = el9("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const fillOn = el10("input", { type: "checkbox", name: "ts-fill-on" });
+  const fill = el10("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const align = sel2("ts-align", [
     ["", "\u2014"],
     ["left|top", tr5(lang, "Top left", "Em cima, \xE0 esquerda")],
@@ -54459,7 +55009,7 @@ async function tableStyleDialog(env, mode, nameOrId) {
     ["right|bottom", tr5(lang, "Bottom right", "Embaixo, \xE0 direita")]
   ], "");
   const dpr = window.devicePixelRatio || 1;
-  const cv = el9("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
+  const cv = el10("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
   const c5 = () => cond.value;
   const sync = () => {
     const st = condState(draft, c5());
@@ -54509,20 +55059,20 @@ async function tableStyleDialog(env, mode, nameOrId) {
     draft = retitleTableStyleXml(draft, { basedOn: base.value || null });
     sync();
   });
-  const row2 = (...kids) => el9("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-  const lbl = (t6, ctl) => el9("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t6, ctl);
-  const body = el9(
+  const row2 = (...kids) => el10("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+  const lbl = (t6, ctl) => el10("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t6, ctl);
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el9("strong", {}, tr5(lang, "Properties", "Propriedades")),
+    el10("strong", {}, tr5(lang, "Properties", "Propriedades")),
     row2(lbl(tr5(lang, "Name:", "Nome:"), name), lbl(tr5(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr5(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr5(lang, "Style based on:", "Estilo baseado em:"), base)),
-    el9("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
+    el10("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
     lbl(tr5(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
-    row2(font, size, bBtn, iBtn, uBtn, el9("span", {}, tr5(lang, "Color", "Cor")), color3),
+    row2(font, size, bBtn, iBtn, uBtn, el10("span", {}, tr5(lang, "Color", "Cor")), color3),
     row2(bStyle, bWidth, bColor, ...sideBtns),
-    row2(el9("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el9("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
+    row2(el10("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el10("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
     cv,
-    el9("label", { className: "uo-check" }, el9("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
+    el10("label", { className: "uo-check" }, el10("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
   );
   sync();
   const h3 = openDialog({
@@ -54543,7 +55093,7 @@ async function tableStyleDialog(env, mode, nameOrId) {
   const baseName = bases.find((b5) => b5.id === base.value)?.name;
   ed.saveTableStyle(draft, { apply: false, basedOnName: baseName });
 }
-var tr5, el9, sel2, COND_LABELS;
+var tr5, el10, sel2, COND_LABELS;
 var init_chrome_table_style = __esm({
   "src/chrome-table-style.ts"() {
     "use strict";
@@ -54551,7 +55101,7 @@ var init_chrome_table_style = __esm({
     init_src();
     init_chrome_borders();
     tr5 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    el9 = (tag2, props = {}, ...kids) => {
+    el10 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -54559,8 +55109,8 @@ var init_chrome_table_style = __esm({
       return e8;
     };
     sel2 = (name, opts, value, style = "") => {
-      const s4 = el9("select", { name, style });
-      for (const [v2, t6] of opts) s4.append(el9("option", { value: v2, selected: v2 === value }, t6));
+      const s4 = el10("select", { name, style });
+      for (const [v2, t6] of opts) s4.append(el10("option", { value: v2, selected: v2 === value }, t6));
       return s4;
     };
     COND_LABELS = {
@@ -54583,29 +55133,29 @@ var init_chrome_table_style = __esm({
 
 // src/chrome-table-dialogs.ts
 function radios(name, opts, value) {
-  const box = el10("div", { style: "display:flex;flex-direction:column;gap:6px" });
+  const box = el11("div", { style: "display:flex;flex-direction:column;gap:6px" });
   for (const [v2, t6] of opts) {
-    const i7 = el10("input", { type: "radio", name, value: v2, checked: v2 === value });
-    box.append(el10("label", { className: "uo-check" }, i7, t6));
+    const i7 = el11("input", { type: "radio", name, value: v2, checked: v2 === value });
+    box.append(el11("label", { className: "uo-check" }, i7, t6));
   }
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
 async function ask(env, title, body, width = 400) {
-  const L10 = env.app.ui.L;
+  const L11 = env.app.ui.L;
   const h3 = openDialog({
     title,
     body,
     layer: env.layer,
     lang: env.lang,
     width,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   return await h3.result === "ok";
 }
 function separatorPicker(lang, name, value, other, paraLabel) {
   const opts = [["paragraph", paraLabel], ["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr6(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr6(lang, "Other:", "Outro:")]];
   const r6 = radios(name, opts, value);
-  const otherIn = el10("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
+  const otherIn = el11("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
   r6.el.lastElementChild.append(otherIn);
   otherIn.addEventListener("input", () => {
     r6.el.querySelector('input[value="other"]').checked = true;
@@ -54623,7 +55173,7 @@ function autofitPicker(lang, value, colTw) {
     ["window", tr6(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
   ], value);
   const auto = tr6(lang, "Auto", "Autom\xE1tico");
-  const w2 = el10("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
+  const w2 = el11("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
   r6.el.firstElementChild.append(w2);
   const read = () => {
     const a3 = r6.value();
@@ -54639,20 +55189,20 @@ async function tableDialog(env, kind, arg) {
       const mem = env.app.prefs.get("tableDims")?.split("x").map(Number);
       const cols = num2("cols", mem?.[0] || 5), rows = num2("rows", mem?.[1] || 2, 1, 32767);
       const af = autofitPicker(lang, "fixed");
-      const remember = el10("input", { type: "checkbox", name: "remember", checked: !!mem });
-      const body = el10(
+      const remember = el11("input", { type: "checkbox", name: "remember", checked: !!mem });
+      const body = el11(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Table size", "Tamanho da tabela"), el10(
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el11(
           "div",
           { className: "uo-dialog-grid" },
-          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el11("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el11("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         )),
         section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        el10("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
+        el11("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
       );
       if (!await ask(env, tr6(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
       const c5 = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r6 = Math.max(1, parseInt(rows.value, 10) || 1);
@@ -54663,7 +55213,7 @@ async function tableDialog(env, kind, arg) {
     case "fromText": {
       const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraphs", "Par\xE1grafos"));
       const cols = num2("cols", 2);
-      const rowsOut = el10("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
+      const rowsOut = el11("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
       const af = autofitPicker(lang, "fixed");
       const guess = ed.textToTableGuess();
       if (guess) {
@@ -54680,15 +55230,15 @@ async function tableDialog(env, kind, arg) {
       };
       sep.el.addEventListener("change", recount);
       cols.addEventListener("input", recount);
-      const body = el10(
+      const body = el11(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Table size", "Tamanho da tabela"), el10(
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el11(
           "div",
           { className: "uo-dialog-grid" },
-          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el11("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el11("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rowsOut
         )),
         section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
@@ -54730,19 +55280,19 @@ async function tableDialog(env, kind, arg) {
     case "split": {
       const s4 = ed.getTableState();
       const cols = num2("cols", 2), rows = num2("rows", 1, 1, 32767);
-      const merge = el10("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
-      const body = el10(
+      const merge = el11("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
+      const body = el11(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        el10(
+        el11(
           "div",
           { className: "uo-dialog-grid" },
-          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el11("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el11("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         ),
-        el10("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
+        el11("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
       );
       if (!await ask(env, tr6(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
       ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
@@ -54755,29 +55305,29 @@ async function tableDialog(env, kind, arg) {
       const top = cmInput(lang, "top", w2(mar.top)), bottom = cmInput(lang, "bottom", w2(mar.bottom));
       const left = cmInput(lang, "left", w2(mar.left, 108)), right = cmInput(lang, "right", w2(mar.right, 108));
       const spTw = s4?.tblPr.tblCellSpacing?.type === "dxa" ? s4.tblPr.tblCellSpacing.w * 2 : 0;
-      const allow = el10("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
+      const allow = el11("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
       const spacing = cmInput(lang, "spacing", spTw);
-      const resize = el10("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
-      const body = el10(
+      const resize = el11("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
+      const body = el11(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el10(
+        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el11(
           "div",
           { className: "uo-dialog-grid" },
-          el10("span", {}, tr6(lang, "Top:", "Superior:")),
+          el11("span", {}, tr6(lang, "Top:", "Superior:")),
           top,
-          el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
+          el11("span", {}, tr6(lang, "Left:", "Esquerda:")),
           left,
-          el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+          el11("span", {}, tr6(lang, "Bottom:", "Inferior:")),
           bottom,
-          el10("span", {}, tr6(lang, "Right:", "Direita:")),
+          el11("span", {}, tr6(lang, "Right:", "Direita:")),
           right
         )),
         section2(
           tr6(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
-          el10("div", { style: "display:flex;align-items:center;gap:8px" }, el10("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
+          el11("div", { style: "display:flex;align-items:center;gap:8px" }, el11("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
         ),
-        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el10("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
+        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el11("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
       );
       if (!await ask(env, tr6(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
       ed.setTableCellMargins(
@@ -54806,23 +55356,23 @@ async function tableDialog(env, kind, arg) {
     case "properties:alt":
       return propertiesDialog(env, kind === "properties" ? "table" : kind.slice(11));
     case "formula": {
-      const formula = el10("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
-      const fmt2 = el10("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
-      const fmtList = el10(
+      const formula = el11("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
+      const fmt2 = el11("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
+      const fmtList = el11(
         "select",
         { name: "format-list", style: "width:28px" },
-        el10("option", { value: "" }, ""),
-        ...NUMBER_FORMATS.map((f3) => el10("option", { value: f3 }, f3))
+        el11("option", { value: "" }, ""),
+        ...NUMBER_FORMATS.map((f3) => el11("option", { value: f3 }, f3))
       );
       fmtList.addEventListener("change", () => {
         fmt2.value = fmtList.value;
         fmtList.value = "";
       });
-      const fn = el10(
+      const fn = el11(
         "select",
         { name: "function" },
-        el10("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
-        ...FORMULA_FUNCTIONS.map((f3) => el10("option", { value: f3 }, f3))
+        el11("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
+        ...FORMULA_FUNCTIONS.map((f3) => el11("option", { value: f3 }, f3))
       );
       fn.addEventListener("change", () => {
         if (!fn.value) return;
@@ -54833,17 +55383,17 @@ async function tableDialog(env, kind, arg) {
         formula.setSelectionRange(a3 + ins.length - 1, a3 + ins.length - 1);
         fn.value = "";
       });
-      const body = el10(
+      const body = el11(
         "div",
         { style: "display:flex;flex-direction:column;gap:12px" },
-        el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
-        el10(
+        el11("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
+        el11(
           "label",
           { style: "display:flex;flex-direction:column;gap:4px" },
           tr6(lang, "Number format:", "Formato do n\xFAmero:"),
-          el10("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
+          el11("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
         ),
-        el10("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
+        el11("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
       );
       queueMicrotask(() => {
         formula.focus();
@@ -54856,16 +55406,16 @@ async function tableDialog(env, kind, arg) {
   }
 }
 function radiosRow(name, opts, value) {
-  const box = el10("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
-  for (const [v2, t6] of opts) box.append(el10("label", { className: "uo-check" }, el10("input", { type: "radio", name, value: v2, checked: v2 === value }), t6));
+  const box = el11("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
+  for (const [v2, t6] of opts) box.append(el11("label", { className: "uo-check" }, el11("input", { type: "radio", name, value: v2, checked: v2 === value }), t6));
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
 function widthField(lang, name, w2, defTw) {
   const on = !!w2 && (w2.type === "dxa" || w2.type === "pct") && w2.w > 0;
-  const c5 = check5(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
+  const c5 = check6(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
   const unit = sel3(`${name}-unit`, [["dxa", tr6(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr6(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
   const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr6(lang, ".", ","));
-  const val3 = el10("input", {
+  const val3 = el11("input", {
     type: "text",
     name,
     inputMode: "decimal",
@@ -54889,7 +55439,7 @@ function widthField(lang, name, w2, defTw) {
     const tw3 = twOf(val3.value);
     return tw3 && tw3 > 0 ? { w: tw3, type: "dxa" } : null;
   };
-  return { el: line(c5.el, val3, el10("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
+  return { el: line(c5.el, val3, el11("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
 }
 async function propertiesDialog(env, tab) {
   const lang = env.lang, ed = env.ed;
@@ -54908,7 +55458,7 @@ async function propertiesDialog(env, tab) {
   const wrap = radiosRow("twrap", [["none", tr6(lang, "None", "Nenhuma")], ["around", tr6(lang, "Around", "Ao redor")]], t6.tblpPr ? "around" : "none");
   let position = t6.tblpPr ? { ...t6.tblpPr } : void 0;
   let overlap;
-  const posBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
+  const posBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
   const syncWrap = () => {
     posBtn.disabled = wrap.value() !== "around";
   };
@@ -54923,20 +55473,20 @@ async function propertiesDialog(env, tab) {
       }
     });
   });
-  const optBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const optBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   optBtn.addEventListener("click", () => {
     void tableDialog(env, "margins");
   });
-  const tableTab = el10(
+  const tableTab = el11(
     "div",
     {},
     section2(tr6(lang, "Size", "Tamanho"), tWidth.el),
-    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el10("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
+    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el11("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
     section2(tr6(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
-    el10("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
+    el11("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
   );
   const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr6(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr6(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
-  const hOn = check5("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
+  const hOn = check6("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
   const hVal = cmInput(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
   const hRule = sel3("rh-rule", [["atLeast", tr6(lang, "At least", "Pelo menos")], ["exact", tr6(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
   const syncH = () => {
@@ -54944,43 +55494,43 @@ async function propertiesDialog(env, tab) {
   };
   hOn.box.addEventListener("change", syncH);
   syncH();
-  const brk = check5("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
-  const hdr = check5("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
-  const rowTab = el10(
+  const brk = check6("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
+  const hdr = check6("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
+  const rowTab = el11(
     "div",
     {},
-    el10("strong", {}, rowsLabel),
-    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el10("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
+    el11("strong", {}, rowsLabel),
+    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el11("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
     section2(tr6(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
   );
   const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr6(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr6(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
   const tcW = cp.tcW?.type === "dxa" || cp.tcW?.type === "pct" ? cp.tcW : void 0;
   const cWidth = widthField(lang, "cw", tcW, s4.colWidth);
-  const colTab = el10("div", {}, el10("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
+  const colTab = el11("div", {}, el11("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
   const kWidth = widthField(lang, "kw", tcW, s4.colWidth);
   const curV = cp.vAlign === "center" || cp.vAlign === "bottom" ? cp.vAlign : "top";
   const vAlign = radiosRow("kva", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Center", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")]], curV);
   let cellOpts;
-  const cellBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const cellBtn = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   cellBtn.addEventListener("click", () => {
     void cellOptionsDialog(env, cp, t6).then((r6) => {
       if (r6) cellOpts = r6;
     });
   });
-  const cellTab = el10(
+  const cellTab = el11(
     "div",
     {},
     section2(tr6(lang, "Size", "Tamanho"), kWidth.el),
     section2(tr6(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
-    el10("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
+    el11("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
   );
-  const title = el10("input", { type: "text", name: "alt-title", value: t6.tblCaption ?? "", style: "width:100%" });
-  const descr = el10("textarea", { name: "alt-descr", value: t6.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
-  const altTab = el10(
+  const title = el11("input", { type: "text", name: "alt-title", value: t6.tblCaption ?? "", style: "width:100%" });
+  const descr = el11("textarea", { name: "alt-descr", value: t6.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
+  const altTab = el11(
     "div",
     {},
-    el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
-    el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
+    el11("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
+    el11("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
   );
   const tabs = dialogTabs([
     { id: "table", label: tr6(lang, "Table", "Tabela"), body: tableTab },
@@ -54997,8 +55547,8 @@ async function propertiesDialog(env, tab) {
   if (!sameW(tw3, t6.tblW)) tb.width = tw3;
   const al = align.value();
   if (al !== curAlign) tb.align = al;
-  const ind = twOf(indent.value) ?? 0;
-  if (al === "left" && ind !== (t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0)) tb.indentTwips = ind;
+  const ind2 = twOf(indent.value) ?? 0;
+  if (al === "left" && ind2 !== (t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0)) tb.indentTwips = ind2;
   const wr = wrap.value();
   if (wr !== (t6.tblpPr ? "around" : "none")) tb.wrap = wr;
   if (wr === "around" && position && JSON.stringify(position) !== JSON.stringify(t6.tblpPr ?? null)) tb.position = position;
@@ -55046,8 +55596,8 @@ async function positioningDialog(env, pos, overlap) {
     ["outside", tr6(lang, "Outside", "Externa")]
   ];
   const combo = (name, specs, spec, tw3) => {
-    const input = el10("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw3 ?? 0)} cm` });
-    const list = el10("select", { name: `${name}-list`, style: "width:28px" }, el10("option", { value: "" }, ""), ...specs.map(([v3, x3]) => el10("option", { value: v3 }, x3)));
+    const input = el11("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw3 ?? 0)} cm` });
+    const list = el11("select", { name: `${name}-list`, style: "width:28px" }, el11("option", { value: "" }, ""), ...specs.map(([v3, x3]) => el11("option", { value: v3 }, x3)));
     list.addEventListener("change", () => {
       if (list.value) input.value = specs.find(([v3]) => v3 === list.value)[1];
       list.value = "";
@@ -55056,7 +55606,7 @@ async function positioningDialog(env, pos, overlap) {
       const hit = specs.find(([, x3]) => x3.toLowerCase() === input.value.trim().toLowerCase());
       return hit ? { spec: hit[0] } : { tw: twOf(input.value) ?? 0 };
     };
-    return { el: el10("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
+    return { el: el11("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
   };
   const hPos = combo("hpos", hSpecs, pos.tblpXSpec, pos.tblpX);
   const hRel = sel3("hrel", [["text", tr6(lang, "Column", "Coluna")], ["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
@@ -55064,28 +55614,28 @@ async function positioningDialog(env, pos, overlap) {
   const vRel = sel3("vrel", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["text", tr6(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
   const top = cmInput(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput(lang, "dbottom", pos.bottomFromText ?? 0);
   const left = cmInput(lang, "dleft", pos.leftFromText ?? 0), right = cmInput(lang, "dright", pos.rightFromText ?? 0);
-  const move = check5("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
+  const move = check6("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
   move.box.addEventListener("change", () => {
     vRel.value = move.box.checked ? "text" : "margin";
   });
   vRel.addEventListener("change", () => {
     move.box.checked = vRel.value === "text";
   });
-  const ov = check5("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
-  const grid2 = (...kids) => el10("div", { className: "uo-dialog-grid" }, ...kids);
-  const body = el10(
+  const ov = check6("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
+  const grid2 = (...kids) => el11("div", { className: "uo-dialog-grid" }, ...kids);
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el10("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el10("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
-    section2(tr6(lang, "Vertical", "Vertical"), grid2(el10("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el10("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
+    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el11("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el11("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
+    section2(tr6(lang, "Vertical", "Vertical"), grid2(el11("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el11("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
     section2(tr6(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
-      el10("span", {}, tr6(lang, "Top:", "Superior:")),
+      el11("span", {}, tr6(lang, "Top:", "Superior:")),
       top,
-      el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
+      el11("span", {}, tr6(lang, "Left:", "Esquerda:")),
       left,
-      el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+      el11("span", {}, tr6(lang, "Bottom:", "Inferior:")),
       bottom,
-      el10("span", {}, tr6(lang, "Right:", "Direita:")),
+      el11("span", {}, tr6(lang, "Right:", "Direita:")),
       right
     )),
     section2(tr6(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
@@ -55113,7 +55663,7 @@ async function cellOptionsDialog(env, cp, t6) {
   const tm = t6.tblCellMar ?? {};
   const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
   const own4 = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
-  const same2 = check5("same", !own4, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
+  const same2 = check6("same", !own4, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
   const m2 = cp.tcMar ?? {};
   const top = cmInput(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
   const left = cmInput(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput(lang, "right", w2(m2.right, w2(tm.right, 108)));
@@ -55122,21 +55672,21 @@ async function cellOptionsDialog(env, cp, t6) {
   };
   same2.box.addEventListener("change", syncM);
   syncM();
-  const wrap = check5("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
-  const fit = check5("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
-  const body = el10(
+  const wrap = check6("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
+  const fit = check6("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same2.el, el10(
+    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same2.el, el11(
       "div",
       { className: "uo-dialog-grid" },
-      el10("span", {}, tr6(lang, "Top:", "Superior:")),
+      el11("span", {}, tr6(lang, "Top:", "Superior:")),
       top,
-      el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
+      el11("span", {}, tr6(lang, "Left:", "Esquerda:")),
       left,
-      el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+      el11("span", {}, tr6(lang, "Bottom:", "Inferior:")),
       bottom,
-      el10("span", {}, tr6(lang, "Right:", "Direita:")),
+      el11("span", {}, tr6(lang, "Right:", "Direita:")),
       right
     )),
     section2(tr6(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
@@ -55174,12 +55724,12 @@ async function sortDialog(env) {
     return isHeader() && c5.text ? c5.text : tr6(lang, `Column ${i7 + 1}`, `Coluna ${i7 + 1}`);
   });
   const keyRow = (n5) => {
-    const col = el10("select", { name: `k${n5}-col`, style: "min-width:160px" });
+    const col = el11("select", { name: `k${n5}-col`, style: "min-width:160px" });
     const type = sel3(`k${n5}-type`, types, "text");
     const dir = radiosRow(`k${n5}-dir`, [["asc", tr6(lang, "Ascending", "Crescente")], ["desc", tr6(lang, "Descending", "Decrescente")]], "asc");
     const fill = () => {
       const cur = col.value;
-      col.replaceChildren(...n5 > 0 ? [el10("option", { value: "" }, none)] : [], ...labels().map((l3, i7) => el10("option", { value: String(i7) }, l3)));
+      col.replaceChildren(...n5 > 0 ? [el11("option", { value: "" }, none)] : [], ...labels().map((l3, i7) => el11("option", { value: String(i7) }, l3)));
       col.value = cur && [...col.options].some((o7) => o7.value === cur) ? cur : n5 > 0 ? "" : "0";
     };
     const sync = () => {
@@ -55199,7 +55749,7 @@ async function sortDialog(env) {
     });
     const title = n5 === 0 ? tr6(lang, "Sort by", "Classificar por") : tr6(lang, "Then by", "E depois por");
     return {
-      el: section2(title, line(col, el10("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
+      el: section2(title, line(col, el11("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
       fill: () => {
         fill();
         sync();
@@ -55209,7 +55759,7 @@ async function sortDialog(env) {
   };
   const keys = [keyRow(0), keyRow(1), keyRow(2)];
   header.el.addEventListener("change", () => keys.forEach((k2) => k2.fill()));
-  const opts = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const opts = el11("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   opts.addEventListener("click", () => {
     void sortOptionsDialog(env, info.kind === "paragraphs", separator, caseSensitive).then((r6) => {
       if (!r6) return;
@@ -55219,12 +55769,12 @@ async function sortDialog(env) {
       keys.forEach((k2) => k2.fill());
     });
   });
-  const body = el10(
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
     ...keys.map((k2) => k2.el),
     section2(tr6(lang, "My list has", "Minha lista tem"), header.el),
-    el10("div", { style: "display:flex;justify-content:flex-end" }, opts)
+    el11("div", { style: "display:flex;justify-content:flex-end" }, opts)
   );
   if (!await ask(env, tr6(lang, "Sort", "Classificar"), body, 460)) return;
   const ks = keys.map((k2) => k2.read()).filter((k2) => !!k2);
@@ -55234,13 +55784,13 @@ async function sortOptionsDialog(env, paragraphs, sep, cs) {
   const lang = env.lang;
   const cur = sep === void 0 ? "tab" : typeof sep === "string" ? sep : "other";
   const r6 = radiosRow("ssep", [["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr6(lang, "Commas", "V\xEDrgulas")], ["other", tr6(lang, "Other:", "Outro:")]], cur);
-  const other = el10("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
+  const other = el11("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
   other.addEventListener("input", () => {
     r6.el.querySelector('input[value="other"]').checked = true;
   });
-  const use = check5("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
-  const csBox = check5("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
-  const body = el10(
+  const use = check6("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
+  const csBox = check6("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
+  const body = el11(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
     ...paragraphs ? [section2(tr6(lang, "Separate fields at", "Separar campos em"), use.el, line(r6.el, other))] : [],
@@ -55251,7 +55801,7 @@ async function sortOptionsDialog(env, paragraphs, sep, cs) {
   const separator = !paragraphs || !use.box.checked ? void 0 : v2 === "other" ? { char: other.value || "-" } : v2;
   return { separator, caseSensitive: csBox.box.checked };
 }
-var NUMBER_FORMATS, el10, tr6, num2, cmText, cmInput, twOf, section2, sel3, line, check5;
+var NUMBER_FORMATS, el11, tr6, num2, cmText, cmInput, twOf, section2, sel3, line, check6;
 var init_chrome_table_dialogs = __esm({
   "src/chrome-table-dialogs.ts"() {
     "use strict";
@@ -55260,7 +55810,7 @@ var init_chrome_table_dialogs = __esm({
     init_chrome_borders();
     init_chrome_table_style();
     NUMBER_FORMATS = ["#.##0", "#.##0,00", "R$ #.##0,00;(R$ #.##0,00)", "0", "0%", "0,00", "0,00%"];
-    el10 = (tag2, props = {}, ...kids) => {
+    el11 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -55268,23 +55818,23 @@ var init_chrome_table_dialogs = __esm({
       return e8;
     };
     tr6 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    num2 = (name, value, min = 1, max2 = 63) => el10("input", { type: "number", name, min: String(min), max: String(max2), step: "1", value: String(value) });
+    num2 = (name, value, min = 1, max2 = 63) => el11("input", { type: "number", name, min: String(min), max: String(max2), step: "1", value: String(value) });
     cmText = (lang, tw3) => (Math.round(tw3 / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
-    cmInput = (lang, name, tw3) => el10("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw3)} cm`, style: "width:96px" });
+    cmInput = (lang, name, tw3) => el11("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw3)} cm`, style: "width:96px" });
     twOf = (s4) => {
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
     };
-    section2 = (title, ...kids) => el10("div", { style: "display:flex;flex-direction:column;gap:8px" }, el10("strong", {}, title), ...kids);
+    section2 = (title, ...kids) => el11("div", { style: "display:flex;flex-direction:column;gap:8px" }, el11("strong", {}, title), ...kids);
     sel3 = (name, opts, value) => {
-      const s4 = el10("select", { name });
-      for (const [v2, t6] of opts) s4.append(el10("option", { value: v2, selected: v2 === value }, t6));
+      const s4 = el11("select", { name });
+      for (const [v2, t6] of opts) s4.append(el11("option", { value: v2, selected: v2 === value }, t6));
       return s4;
     };
-    line = (...kids) => el10("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-    check5 = (name, on, label) => {
-      const box = el10("input", { type: "checkbox", name, checked: on });
-      return { el: el10("label", { className: "uo-check" }, box, label), box };
+    line = (...kids) => el11("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+    check6 = (name, on, label) => {
+      const box = el11("input", { type: "checkbox", name, checked: on });
+      return { el: el11("label", { className: "uo-check" }, box, label), box };
     };
   }
 });
@@ -55309,7 +55859,7 @@ function toggleFormatPane(env, tab, onClose) {
   const syncers = [];
   const dec = tr8(".", ",");
   const num3 = (label, unit, get, set, o7 = {}) => {
-    const input = el11("input", { type: "text", inputMode: "decimal", style: "width:76px" });
+    const input = el12("input", { type: "text", inputMode: "decimal", style: "width:76px" });
     input.setAttribute("aria-label", label);
     const digits = o7.digits ?? 1;
     const show2 = () => {
@@ -55340,8 +55890,8 @@ function toggleFormatPane(env, tab, onClose) {
       env.after();
       sync();
     };
-    const up2 = el11("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
-    const dn = el11("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const up2 = el12("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const dn = el12("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
     up2.innerHTML = symbol("keyboard_arrow_up");
     dn.innerHTML = symbol("keyboard_arrow_down");
     for (const [b5, d3] of [[up2, 1], [dn, -1]]) {
@@ -55349,12 +55899,12 @@ function toggleFormatPane(env, tab, onClose) {
       b5.addEventListener("click", () => step(d3));
     }
     syncers.push(show2);
-    return row2(label, el11("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el11("span", { style: "display:inline-flex;flex-direction:column" }, up2, dn)));
+    return row2(label, el12("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el12("span", { style: "display:inline-flex;flex-direction:column" }, up2, dn)));
   };
   const choice = (label, opts, get, set) => {
-    const s4 = el11("select", { style: "max-width:150px" });
+    const s4 = el12("select", { style: "max-width:150px" });
     s4.setAttribute("aria-label", label);
-    for (const [v2, t6] of opts) s4.append(el11("option", { value: v2, textContent: t6 }));
+    for (const [v2, t6] of opts) s4.append(el12("option", { value: v2, textContent: t6 }));
     s4.addEventListener("change", () => {
       set(s4.value);
       env.after();
@@ -55368,9 +55918,9 @@ function toggleFormatPane(env, tab, onClose) {
     return row2(label, s4);
   };
   const color3 = (label, get, set) => {
-    const b5 = el11("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+    const b5 = el12("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
     b5.setAttribute("aria-label", label);
-    const chip = el11("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
+    const chip = el12("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
     b5.append(chip);
     b5.insertAdjacentHTML("beforeend", symbol("arrow_drop_down"));
     b5.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -55397,10 +55947,10 @@ function toggleFormatPane(env, tab, onClose) {
     });
     return row2(label, b5);
   };
-  const row2 = (label, ctl) => el11("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el11("span", { textContent: label }), ctl);
+  const row2 = (label, ctl) => el12("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el12("span", { textContent: label }), ctl);
   const section4 = (title2, open2, ...kids) => {
-    const d3 = el11("details", { open: open2, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el11("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
-    d3.append(el11("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
+    const d3 = el12("details", { open: open2, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el12("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
+    d3.append(el12("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
     return d3;
   };
   const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr8("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i7) => [i7.id, i7.label])], () => "", (v2) => {
@@ -55433,7 +55983,7 @@ function toggleFormatPane(env, tab, onClose) {
     ed.setShapeFill({ ...base, ...ch });
   };
   const pickPicture = (tile) => {
-    const inp = el11("input", { type: "file", accept: "image/*" });
+    const inp = el12("input", { type: "file", accept: "image/*" });
     inp.addEventListener("change", () => {
       const f3 = inp.files?.[0];
       if (f3) void f3.arrayBuffer().then((b5) => ed.setShapePictureFill(new Uint8Array(b5), (f3.name.split(".").pop() || "png").toLowerCase(), tile)).then(() => {
@@ -55503,22 +56053,22 @@ function toggleFormatPane(env, tab, onClose) {
     }, { min: 0, max: 359.9 }),
     choice(tr8("Pattern", "Padr\xE3o"), Object.keys(PRESET_PATTERNS).map((k2) => [k2, k2]), () => patt()?.prst, (v2) => setPatt({ prst: v2 })),
     color3(tr8("Background", "Plano de fundo"), () => patt()?.bg, (c5) => setPatt({ bg: c5 })),
-    row2(tr8("Picture source", "Fonte da imagem"), el11(
+    row2(tr8("Picture source", "Fonte da imagem"), el12(
       "span",
       { style: "display:inline-flex;gap:4px" },
       (() => {
-        const b5 = el11("button", { type: "button", className: "uo-btn", textContent: tr8("Insert\u2026", "Inserir...") });
+        const b5 = el12("button", { type: "button", className: "uo-btn", textContent: tr8("Insert\u2026", "Inserir...") });
         b5.addEventListener("click", () => pickPicture(false));
         return b5;
       })(),
       (() => {
-        const b5 = el11("button", { type: "button", className: "uo-btn", textContent: tr8("Texture\u2026", "Textura...") });
+        const b5 = el12("button", { type: "button", className: "uo-btn", textContent: tr8("Texture\u2026", "Textura...") });
         b5.addEventListener("click", () => pickPicture(true));
         return b5;
       })()
     ))
   );
-  const lineTab = el11(
+  const lineTab = el12(
     "div",
     {},
     ...shape2 ? [fillSection] : [],
@@ -55567,7 +56117,7 @@ function toggleFormatPane(env, tab, onClose) {
     const cam = td2()?.camera ?? { prst: "orthographicFront" };
     setTd({ camera: { ...cam, rot: { ...rot(), [k2]: Math.round((deg % 360 + 360) % 360 * ANG) } } });
   };
-  const effectsTab = el11(
+  const effectsTab = el12(
     "div",
     {},
     section4(
@@ -55625,8 +56175,8 @@ function toggleFormatPane(env, tab, onClose) {
       num3(tr8("Perspective", "Perspectiva"), "\xB0", () => (td2()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td2()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
     )
   );
-  const title = el11("input", { type: "text", style: "width:100%;box-sizing:border-box" });
-  const descr = el11("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
+  const title = el12("input", { type: "text", style: "width:100%;box-sizing:border-box" });
+  const descr = el12("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
   title.addEventListener("change", () => {
     setAlt({ title: title.value });
     env.after();
@@ -55646,8 +56196,8 @@ function toggleFormatPane(env, tab, onClose) {
     title.disabled = descr.disabled = off();
   });
   const tx2 = () => ed.selectedShape()?.text;
-  const check7 = (label, get, set) => {
-    const i7 = el11("input", { type: "checkbox" });
+  const check8 = (label, get, set) => {
+    const i7 = el12("input", { type: "checkbox" });
     i7.addEventListener("change", () => {
       set(i7.checked);
       env.after();
@@ -55657,30 +56207,30 @@ function toggleFormatPane(env, tab, onClose) {
       i7.checked = !!get();
       i7.disabled = off() || !tx2();
     });
-    return el11("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i7, label);
+    return el12("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i7, label);
   };
   const textSection = section4(
     tr8("Text Box", "Caixa de Texto"),
     true,
     choice(tr8("Vertical alignment", "Alinhamento vertical"), [["t", tr8("Top", "Superior")], ["ctr", tr8("Middle", "Meio")], ["b", tr8("Bottom", "Inferior")]], () => tx2()?.anchor, (v2) => ed.setTextboxOptions({ anchor: v2 })),
     choice(tr8("Text direction", "Dire\xE7\xE3o do texto"), [["horz", tr8("Horizontal", "Horizontal")], ["vert", tr8("Rotate all text 90\xB0", "Girar todo o texto 90\xB0")], ["vert270", tr8("Rotate all text 270\xB0", "Girar todo o texto 270\xB0")], ["eaVert", tr8("Stacked (East Asian)", "Empilhado (Leste Asi\xE1tico)")], ["wordArtVert", tr8("Stacked", "Empilhado")]], () => tx2()?.direction, (v2) => ed.setTextboxOptions({ direction: v2 })),
-    check7(tr8("Do not rotate text", "N\xE3o girar o texto"), () => tx2()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
-    check7(tr8("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx2()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
+    check8(tr8("Do not rotate text", "N\xE3o girar o texto"), () => tx2()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
+    check8(tr8("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx2()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
     num3(tr8("Left margin", "Margem esquerda"), "cm", () => tx2() ? tx2().marginsPt.l / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { l: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
     num3(tr8("Right margin", "Margem direita"), "cm", () => tx2() ? tx2().marginsPt.r / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { r: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
     num3(tr8("Top margin", "Margem superior"), "cm", () => tx2() ? tx2().marginsPt.t / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { t: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
     num3(tr8("Bottom margin", "Margem inferior"), "cm", () => tx2() ? tx2().marginsPt.b / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { b: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    check7(tr8("Wrap text in shape", "Quebrar texto na forma"), () => tx2()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
+    check8(tr8("Wrap text in shape", "Quebrar texto na forma"), () => tx2()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
   );
-  const layoutTab = el11(
+  const layoutTab = el12(
     "div",
     {},
     ...shape2 ? [textSection] : [],
     section4(
       tr8("Alt Text", "Texto Alt"),
       true,
-      el11("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Title", "T\xEDtulo"), title),
-      el11("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Description", "Descri\xE7\xE3o"), descr)
+      el12("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Title", "T\xEDtulo"), title),
+      el12("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Description", "Descri\xE7\xE3o"), descr)
     )
   );
   const a14 = () => fmt2()?.blip.a14;
@@ -55700,7 +56250,7 @@ function toggleFormatPane(env, tab, onClose) {
     const t6 = (o7.fh / 2 - o7.oy - o7.h / 2) / o7.fh, b5 = (o7.fh / 2 + o7.oy - o7.h / 2) / o7.fh;
     ed.setImageCrop({ l: l3, t: t6, r: r6, b: b5 });
   };
-  const pictureTab = el11(
+  const pictureTab = el12(
     "div",
     {},
     section4(
@@ -55739,7 +56289,7 @@ function toggleFormatPane(env, tab, onClose) {
     section4(
       tr8("Crop", "Cortar"),
       false,
-      el11("div", { textContent: tr8("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
+      el12("div", { textContent: tr8("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
       num3(tr8("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fw) : void 0;
@@ -55768,7 +56318,7 @@ function toggleFormatPane(env, tab, onClose) {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, oy: pt2(v2) });
       }, { step: 0.1, digits: 2 }),
-      el11("div", { textContent: tr8("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
+      el12("div", { textContent: tr8("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
       num3(tr8("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.w) : void 0;
@@ -55785,10 +56335,10 @@ function toggleFormatPane(env, tab, onClose) {
     ["layout", tr8("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
     ...shape2 ? [] : [["picture", tr8("Picture", "Imagem"), "image", pictureTab]]
   ];
-  const head = el11("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
+  const head = el12("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
   head.setAttribute("role", "tablist");
   const btns = tabs.map(([id, label, icon, panel]) => {
-    const b5 = el11("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
+    const b5 = el12("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
     b5.innerHTML = symbol(icon);
     b5.setAttribute("role", "tab");
     b5.setAttribute("aria-label", label);
@@ -55798,8 +56348,8 @@ function toggleFormatPane(env, tab, onClose) {
     panel.setAttribute("role", "tabpanel");
     return b5;
   });
-  const empty = el11("p", { textContent: shape2 ? tr8("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
-  const body = el11("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t6) => t6[3]));
+  const empty = el12("p", { textContent: shape2 ? tr8("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
+  const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t6) => t6[3]));
   head.append(...btns);
   const show = (id) => {
     tabs.forEach(([tid, , , panel], i7) => {
@@ -55818,7 +56368,7 @@ function toggleFormatPane(env, tab, onClose) {
   sync();
   return { sync, show };
 }
-var el11, EMU_PT2, ANG, alphaOf, withAlpha, noAlpha;
+var el12, EMU_PT2, ANG, alphaOf, withAlpha, noAlpha;
 var init_chrome_picture_pane = __esm({
   "src/chrome-picture-pane.ts"() {
     "use strict";
@@ -55826,7 +56376,7 @@ var init_chrome_picture_pane = __esm({
     init_src2();
     init_chrome_picture();
     init_picture_ops();
-    el11 = (tag2, props = {}, ...kids) => {
+    el12 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -55852,28 +56402,28 @@ async function pictureLayoutDialog(env, tab) {
   const ph = f3.posH, pv = f3.posV;
   const hMode = !ph ? "abs" : ph.align === "inside" || ph.align === "outside" ? "book" : ph.align !== void 0 ? "align" : ph.pct !== void 0 ? "rel" : "abs";
   const vMode = !pv ? "abs" : pv.align !== void 0 ? "align" : pv.pct !== void 0 ? "rel" : "abs";
-  const hAlign = select4("hAlign", [["left", tr7(lang, "Left", "Esquerda")], ["center", tr7(lang, "Centered", "Centralizado")], ["right", tr7(lang, "Right", "Direita")]], ph?.align ?? "left");
-  const hAlignRef = select4("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hBook = select4("hBook", [["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], ph?.align ?? "inside");
-  const hBookRef = select4("hBookRef", [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
+  const hAlign = select5("hAlign", [["left", tr7(lang, "Left", "Esquerda")], ["center", tr7(lang, "Centered", "Centralizado")], ["right", tr7(lang, "Right", "Direita")]], ph?.align ?? "left");
+  const hAlignRef = select5("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
+  const hBook = select5("hBook", [["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], ph?.align ?? "inside");
+  const hBookRef = select5("hBookRef", [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
   const hAbs = cmInput2(lang, "hAbs", pt2(ph?.offset ?? 0));
-  const hAbsRef = select4("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hRel = el12("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const hRelRef = select4("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
-  const vAlign = select4("vAlign", [["top", tr7(lang, "Top", "Superior")], ["center", tr7(lang, "Centered", "Centralizado")], ["bottom", tr7(lang, "Bottom", "Inferior")], ["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], pv?.align ?? "top");
-  const vAlignRef = select4("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
+  const hAbsRef = select5("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
+  const hRel = el13("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const hRelRef = select5("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
+  const vAlign = select5("vAlign", [["top", tr7(lang, "Top", "Superior")], ["center", tr7(lang, "Centered", "Centralizado")], ["bottom", tr7(lang, "Bottom", "Inferior")], ["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], pv?.align ?? "top");
+  const vAlignRef = select5("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
   const vAbs = cmInput2(lang, "vAbs", pt2(pv?.offset ?? 0));
-  const vAbsRef = select4("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
-  const vRel = el12("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const vRelRef = select4("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
+  const vAbsRef = select5("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
+  const vRel = el13("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const vRelRef = select5("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
   const hR = { align: radio4("h", "align", tr7(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio4("h", "book", tr7(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio4("h", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio4("h", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
   const vR = { align: radio4("v", "align", tr7(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio4("v", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio4("v", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
-  const moveWith = check6("moveWith", tr7(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
-  const lockAnchor = check6("lockAnchor", tr7(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
-  const overlap = check6("overlap", tr7(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
-  const inCell = check6("inCell", tr7(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
+  const moveWith = check7("moveWith", tr7(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
+  const lockAnchor = check7("lockAnchor", tr7(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
+  const overlap = check7("overlap", tr7(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
+  const inCell = check7("inCell", tr7(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
   const rel = tr7(lang, "relative to", "relativo a");
-  const posBody = el12(
+  const posBody = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(
@@ -55904,10 +56454,10 @@ async function pictureLayoutDialog(env, tab) {
   };
   for (const r6 of wrapR) r6.input.addEventListener("change", syncWrap);
   syncWrap();
-  const wrapBody = el12(
+  const wrapBody = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr7(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el12("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r6) => r6.el))),
+    section3(tr7(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el13("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r6) => r6.el))),
     section3(tr7(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
     section3(
       tr7(lang, "Distance from text", "Dist\xE2ncia do texto"),
@@ -55918,20 +56468,20 @@ async function pictureLayoutDialog(env, tab) {
   const nat = st.naturalPt;
   const hAbsSz = cmInput2(lang, "hAbsSz", st.heightPt), wAbsSz = cmInput2(lang, "wAbsSz", st.widthPt);
   const relV = f3.sizeRelV?.pct ? f3.sizeRelV : null, relH = f3.sizeRelH?.pct ? f3.sizeRelH : null;
-  const hRelSz = el12("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const wRelSz = el12("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const hRelSz = el13("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const wRelSz = el13("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const sizeRefsV = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["topMargin", tr7(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
   const sizeRefsH = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
-  const hRelRefSz = select4("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
-  const wRelRefSz = select4("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
+  const hRelRefSz = select5("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
+  const wRelRefSz = select5("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
   const szH = { abs: radio4("szh", "abs", tr7(lang, "Absolute", "Absoluta"), !relV), rel: radio4("szh", "rel", tr7(lang, "Relative", "Relativa"), !!relV) };
   const szW = { abs: radio4("szw", "abs", tr7(lang, "Absolute", "Absoluta"), !relH), rel: radio4("szw", "rel", tr7(lang, "Relative", "Relativa"), !!relH) };
-  const rotIn = el12("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
-  const relOrig = check6("relOrig", tr7(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
-  const lockAsp = check6("lockAsp", tr7(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
+  const rotIn = el13("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
+  const relOrig = check7("relOrig", tr7(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
+  const lockAsp = check7("lockAsp", tr7(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
   const base = () => relOrig.input.checked && nat ? nat : { w: st.widthPt, h: st.heightPt };
-  const scH = el12("input", { type: "text", name: "scH", value: "", style: "width:72px" });
-  const scW = el12("input", { type: "text", name: "scW", value: "", style: "width:72px" });
+  const scH = el13("input", { type: "text", name: "scH", value: "", style: "width:72px" });
+  const scW = el13("input", { type: "text", name: "scW", value: "", style: "width:72px" });
   const showScale = () => {
     const b5 = base();
     const h4 = ptOf2(hAbsSz.value) ?? st.heightPt, w2 = ptOf2(wAbsSz.value) ?? st.widthPt;
@@ -55960,7 +56510,7 @@ async function pictureLayoutDialog(env, tab) {
   };
   scH.addEventListener("change", () => fromScale("h"));
   scW.addEventListener("change", () => fromScale("w"));
-  const reset = el12("button", { type: "button", className: "uo-btn", textContent: tr7(lang, "Reset", "Redefinir"), disabled: !nat });
+  const reset = el13("button", { type: "button", className: "uo-btn", textContent: tr7(lang, "Reset", "Redefinir"), disabled: !nat });
   reset.addEventListener("click", () => {
     if (!nat) return;
     hAbsSz.value = cmText2(lang, nat.h);
@@ -55970,7 +56520,7 @@ async function pictureLayoutDialog(env, tab) {
     showScale();
   });
   for (const i7 of [hRelSz, hRelRefSz, wRelSz, wRelRefSz, szH.rel.input, szW.rel.input]) i7.disabled = !anchored;
-  const sizeBody = el12(
+  const sizeBody = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(tr7(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
@@ -55978,8 +56528,8 @@ async function pictureLayoutDialog(env, tab) {
     section3(tr7(lang, "Rotate", "Girar"), row(tr7(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
     section3(tr7(lang, "Scale", "Escala"), row(tr7(lang, "Height:", "Altura:"), scH, tr7(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
     section3(tr7(lang, "Original size", "Tamanho original"), row(
-      el12("span", { textContent: `${tr7(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
-      el12("span", { textContent: `${tr7(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
+      el13("span", { textContent: `${tr7(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
+      el13("span", { textContent: `${tr7(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
       reset
     ))
   );
@@ -55988,14 +56538,14 @@ async function pictureLayoutDialog(env, tab) {
     { id: "wrap", label: tr7(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
     { id: "size", label: tr7(lang, "Size", "Tamanho"), body: sizeBody }
   ], tab);
-  const L10 = env.app.ui.L;
+  const L11 = env.app.ui.L;
   const h3 = openDialog({
     title: tr7(lang, "Layout", "Layout"),
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 560,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const o7 = {};
@@ -56043,8 +56593,8 @@ async function pictureLayoutDialog(env, tab) {
 async function pictureCompressDialog(env) {
   const { ed, lang } = env;
   if (!ed.selectedImage()) return;
-  const only = check6("only", tr7(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
-  const crop = check6("crop", tr7(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
+  const only = check7("only", tr7(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
+  const crop = check7("crop", tr7(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
   const RES = [
     ["hifi", Infinity, "High fidelity: preserves quality of the original picture", "Alta fidelidade: preserva a qualidade da imagem original"],
     ["hd", 330, "HD (330 ppi): good quality for high-definition (HD) displays", "HD (330 ppi): boa qualidade para monitores de alta defini\xE7\xE3o (HD)"],
@@ -56054,32 +56604,32 @@ async function pictureCompressDialog(env) {
     ["default", 220, "Use default resolution", "Usar a resolu\xE7\xE3o padr\xE3o"]
   ];
   const res = RES.map(([k2, ppi2, en, pt2]) => ({ ppi: ppi2, ...radio4("res", k2, tr7(lang, en, pt2), k2 === "default") }));
-  const body = el12(
+  const body = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(tr7(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
     section3(tr7(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r6) => r6.el))
   );
-  const L10 = env.app.ui.L;
+  const L11 = env.app.ui.L;
   const h3 = openDialog({
     title: tr7(lang, "Compress Pictures", "Compactar Imagens"),
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ppi = res.find((r6) => r6.input.checked)?.ppi ?? 220;
   await ed.compressImages({ ppi, deleteCropped: crop.input.checked, all: !only.input.checked });
 }
-var el12, tr7, select4, check6, cmText2, ptOf2, numOf, cmInput2, row, section3, radio4, H_REFS, V_REFS, WRAP_STYLES, PictureUI;
+var el13, tr7, select5, check7, cmText2, ptOf2, numOf, cmInput2, row, section3, radio4, H_REFS, V_REFS, WRAP_STYLES, PictureUI;
 var init_chrome_picture_dialogs = __esm({
   "src/chrome-picture-dialogs.ts"() {
     "use strict";
     init_src5();
     init_chrome_picture_pane();
-    el12 = (tag2, props = {}, ...kids) => {
+    el13 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -56087,15 +56637,15 @@ var init_chrome_picture_dialogs = __esm({
       return e8;
     };
     tr7 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    select4 = (name, opts, value) => {
-      const s4 = el12("select", { name });
-      for (const [v2, t6] of opts) s4.append(el12("option", { value: v2, textContent: t6 }));
+    select5 = (name, opts, value) => {
+      const s4 = el13("select", { name });
+      for (const [v2, t6] of opts) s4.append(el13("option", { value: v2, textContent: t6 }));
       s4.value = opts.some(([v2]) => v2 === value) ? value : opts[0]?.[0] ?? "";
       return s4;
     };
-    check6 = (name, label, on) => {
-      const input = el12("input", { type: "checkbox", name, checked: on });
-      return { el: el12("label", { className: "uo-check" }, input, label), input };
+    check7 = (name, label, on) => {
+      const input = el13("input", { type: "checkbox", name, checked: on });
+      return { el: el13("label", { className: "uo-check" }, input, label), input };
     };
     cmText2 = (lang, pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", tr7(lang, ".", ","))} cm`;
     ptOf2 = (s4) => {
@@ -56106,12 +56656,12 @@ var init_chrome_picture_dialogs = __esm({
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? n5 : void 0;
     };
-    cmInput2 = (lang, name, pt2) => el12("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt2), style: "width:92px" });
-    row = (...kids) => el12("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-    section3 = (title, ...kids) => el12("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el12("legend", { textContent: title }), ...kids);
+    cmInput2 = (lang, name, pt2) => el13("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt2), style: "width:92px" });
+    row = (...kids) => el13("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+    section3 = (title, ...kids) => el13("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el13("legend", { textContent: title }), ...kids);
     radio4 = (name, value, label, on) => {
-      const input = el12("input", { type: "radio", name, value, checked: on });
-      return { el: el12("label", { className: "uo-check" }, input, label), input };
+      const input = el13("input", { type: "radio", name, value, checked: on });
+      return { el: el13("label", { className: "uo-check" }, input, label), input };
     };
     H_REFS = (lang) => [
       ["margin", tr7(lang, "Margin", "Margem")],
@@ -56190,7 +56740,7 @@ var init_chrome_picture_dialogs = __esm({
           return;
         }
         const btn2 = (label, icon, run3) => {
-          const b5 = el12("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+          const b5 = el13("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
           b5.innerHTML = symbol(icon) + (icon === "keyboard_arrow_up" || icon === "keyboard_arrow_down" ? "" : `<span>${label}</span>`);
           b5.setAttribute("aria-label", label);
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -56205,11 +56755,11 @@ var init_chrome_picture_dialogs = __esm({
         const hideAll = btn2(tr7(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
         const up2 = btn2(tr7(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
         const down = btn2(tr7(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
-        const bar = el12("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el12("span", { style: "flex:1" }), up2, down);
-        const list = el12("div", { style: "display:flex;flex-direction:column;gap:1px" });
+        const bar = el13("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el13("span", { style: "flex:1" }), up2, down);
+        const list = el13("div", { style: "display:flex;flex-direction:column;gap:1px" });
         list.setAttribute("role", "listbox");
-        const empty = el12("p", { textContent: tr7(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
-        const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
+        const empty = el13("p", { textContent: tr7(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
+        const body = el13("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
         let editing = false;
         const sync = () => {
           if (editing) return;
@@ -56220,12 +56770,12 @@ var init_chrome_picture_dialogs = __esm({
           const sel4 = items.find((i7) => i7.selected);
           up2.disabled = down.disabled = off || !sel4;
           list.replaceChildren(...items.map((it) => {
-            const row2 = el12("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
+            const row2 = el13("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
             row2.setAttribute("role", "option");
             row2.setAttribute("aria-selected", String(it.selected));
             row2.dataset["key"] = it.key;
-            const name = el12("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
-            const eye = el12("button", { type: "button", className: "uo-btn", title: it.hidden ? tr7(lang, "Show", "Mostrar") : tr7(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
+            const name = el13("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
+            const eye = el13("button", { type: "button", className: "uo-btn", title: it.hidden ? tr7(lang, "Show", "Mostrar") : tr7(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
             eye.innerHTML = symbol(it.hidden ? "visibility_off" : "visibility");
             eye.disabled = off;
             eye.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -56244,7 +56794,7 @@ var init_chrome_picture_dialogs = __esm({
             row2.addEventListener("dblclick", () => {
               if (off) return;
               editing = true;
-              const input = el12("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
+              const input = el13("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
               const done = (ok) => {
                 if (!editing) return;
                 editing = false;
@@ -56292,13 +56842,13 @@ var init_chrome_picture_dialogs = __esm({
           cur.close();
           return;
         }
-        const intro = el12("p", { textContent: tr7(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
-        const text = el12("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
+        const intro = el13("p", { textContent: tr7(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
+        const text = el13("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
         text.dataset["a"] = "pic:alt:text";
-        const deco = check6("decorative", tr7(lang, "Mark as decorative", "Marcar como decorativa"), false);
-        const note = el12("p", { textContent: tr7(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
-        const empty = el12("p", { textContent: tr7(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
-        const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
+        const deco = check7("decorative", tr7(lang, "Mark as decorative", "Marcar como decorativa"), false);
+        const note = el13("p", { textContent: tr7(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
+        const empty = el13("p", { textContent: tr7(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
+        const body = el13("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
         let last = null;
         const sync = () => {
           const st = ed.selectedImage() ?? ed.selectedShape();
@@ -56811,7 +57361,7 @@ var init_chrome_widgets = __esm({
             const half = env.ctl.state().run.szHalfPt;
             if (half && env.root.activeElement !== input) input.value = fmt2(half / 2);
             const ok = canEdit(env);
-            for (const el14 of wrap.querySelectorAll("input,button")) el14.disabled = !ok;
+            for (const el15 of wrap.querySelectorAll("input,button")) el15.disabled = !ok;
           }
         };
       }
@@ -56849,23 +57399,23 @@ var init_chrome_widgets = __esm({
       }
     });
     colorMenu2 = (env, ctx) => {
-      const L10 = env.app.ui.L;
+      const L11 = env.app.ui.L;
       const pick = (hex3) => {
         env.app.lastColor = hex3;
         env.ed.setColor(hex3);
         ctx.after();
       };
       return [
-        { id: "color:auto", label: L10.automatic, swatch: "#000000", onClick: () => {
+        { id: "color:auto", label: L11.automatic, swatch: "#000000", onClick: () => {
           env.ed.setColor(void 0);
           ctx.after();
         } },
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().run.color, onPick: pick, close }) },
-        moreColors(ctx, L10.moreColors, pick)
+        moreColors(ctx, L11.moreColors, pick)
       ];
     };
     highlightMenu = (env, ctx) => {
-      const L10 = env.app.ui.L;
+      const L11 = env.app.ui.L;
       return [
         { content: (close) => colorGrid({
           colors: HIGHLIGHT_COLORS.map((h3) => ({ value: h3.value, css: h3.css, title: ctx.registry.text(h3.label) })),
@@ -56878,14 +57428,14 @@ var init_chrome_widgets = __esm({
           },
           close
         }) },
-        { id: "highlight:none", label: L10.noColor, swatch: "", onClick: () => {
+        { id: "highlight:none", label: L11.noColor, swatch: "", onClick: () => {
           env.ed.setHighlight(void 0);
           ctx.after();
         } }
       ];
     };
     shadingMenu = (env, ctx) => {
-      const L10 = env.app.ui.L;
+      const L11 = env.app.ui.L;
       const pick = (hex3) => {
         env.app.lastShading = hex3;
         env.ed.setShading(hex3);
@@ -56893,11 +57443,11 @@ var init_chrome_widgets = __esm({
       };
       return [
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().para.shadingHex, onPick: pick, close }) },
-        { id: "shading:none", label: L10.noColor, swatch: "", onClick: () => {
+        { id: "shading:none", label: L11.noColor, swatch: "", onClick: () => {
           env.ed.setShading(void 0);
           ctx.after();
         } },
-        moreColors(ctx, L10.moreColors, pick)
+        moreColors(ctx, L11.moreColors, pick)
       ];
     };
     lineSpacingMenu = (env, ctx) => {
@@ -57127,6 +57677,13 @@ function menus(env, ctx) {
     accent: sub({ en: "Accent color", pt: "Cor de destaque" }, "palette", () => accentMenu(env, ctx), "accent"),
     toolbar: sub({ en: "Toolbar", pt: "Barra de ferramentas" }, "toolbar", () => ["toolbar:compact", "toolbar:ribbon", "-", "statusbar"], "toolbar"),
     fields: sub({ en: "Field", pt: "Campo" }, "data_object", fieldsMenu, "fields"),
+    // Sumário: a galeria, Adicionar Texto (com Marcar Entrada) e Atualizar
+    toc: sub({ en: "Table of contents", pt: "Sum\xE1rio" }, "toc", () => [
+      ...tocGalleryMenu(env, ctx),
+      "-",
+      sub({ en: "Add text", pt: "Adicionar texto" }, "playlist_add", () => addTextMenu(env), "toc:addText"),
+      "toc"
+    ], "toc:sub"),
     symbols: sub({ en: "Special characters", pt: "Caracteres especiais" }, "special_character", () => symbolMenu(env, ctx), "symbols"),
     breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", breaksMenu, "breaks"),
     columns: sub({ en: "Columns", pt: "Colunas" }, "view_column_2", columnsMenu, "columns"),
@@ -57248,7 +57805,7 @@ function compactLayout(env, ctx) {
       { id: "file", label: { en: "File", pt: "Arquivo" }, items: () => fileMenu(m2) },
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "view:outline", "view:draft", "focus", "-", "view:ruler", "view:gridlines", "view:navpane", "view:bookmarks", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
-      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", { id: "textbox:sub", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", submenu: () => textboxMenu(env, ctx) }, m2.symbols] },
+      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, m2.toc, "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", { id: "textbox:sub", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", submenu: () => textboxMenu(env, ctx) }, m2.symbols] },
       { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
@@ -57305,22 +57862,22 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L9("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L10("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L9("Home", "P\xE1gina Inicial"),
+        label: L10("Home", "P\xE1gina Inicial"),
         groups: [
-          { id: "clipboard", label: L9("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
+          { id: "clipboard", label: L10("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
             { split: "paste", size: "large", menu: ["paste", "pastePlain"] },
             { rows: [["cut"], ["copy"], ["painter"]] }
           ] },
-          { id: "font", label: L9("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
+          { id: "font", label: L10("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L9("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L10("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu2(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
-          { id: "paragraph", label: L9("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
+          { id: "paragraph", label: L10("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
             { rows: [
               ["list:bullet", "list:decimal", "outdent", "indent", "sort", "marks"],
               [
@@ -57328,44 +57885,44 @@ function ribbonLayout(env, ctx) {
                 "align:center",
                 "align:right",
                 "align:both",
-                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L9("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
+                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L10("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
                 { split: "shading", menu: () => shadingMenu(env, ctx) },
                 "borders"
               ]
             ] }
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
-          { id: "styles", label: L9("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
-          { id: "editing", label: L9("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
+          { id: "styles", label: L10("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
+          { id: "editing", label: L10("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L9("Insert", "Inserir"),
+        label: L10("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L9("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
-            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L9("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
+          { id: "pages", label: L10("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L10("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
             large3("blankPage"),
             large3("pagebreak"),
-            { menu: breaksMenu, id: "breaks", label: L9("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+            { menu: breaksMenu, id: "breaks", label: L10("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
           ] },
-          { id: "objects", label: L9("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
-            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L9("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+          { id: "objects", label: L10("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L10("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large3("image")
           ] },
           // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
-          { id: "links", label: L9("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
-          { id: "comments", label: L9("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
-          { id: "hf", label: L9("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
-            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L9("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
-            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L9("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
-            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L9("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
+          { id: "links", label: L10("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
+          { id: "comments", label: L10("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
+          { id: "hf", label: L10("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
+            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L10("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
+            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L10("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
+            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L10("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
           ] },
-          { id: "text", label: L9("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
-            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L9("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
-            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L9("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+          { id: "text", label: L10("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
+            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L10("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
+            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L10("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
           ] }
         ]
       },
@@ -57373,32 +57930,32 @@ function ribbonLayout(env, ctx) {
         // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
         // Documento (temas, conjuntos de estilos) entra quando chegar
         id: "design",
-        label: L9("Design", "Design"),
+        label: L10("Design", "Design"),
         groups: [
-          { id: "background", label: L9("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L9("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
-            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L9("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
+          { id: "background", label: L10("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L10("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
+            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L10("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
             { cmd: "dlg:pageBorders", size: "large" }
           ] }
         ]
       },
       {
         id: "layout",
-        label: L9("Layout", "Layout"),
+        label: L10("Layout", "Layout"),
         groups: [
-          { id: "pagesetup", label: L9("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
-            { menu: () => marginsMenu(env, ctx), id: "margins", label: L9("Margins", "Margens"), icon: "margin", size: "large" },
-            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L9("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
-            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L9("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: columnsMenu, id: "columns", label: L9("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
-            { rows: [[{ menu: breaksMenu, id: "breaks", label: L9("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
+          { id: "pagesetup", label: L10("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
+            { menu: () => marginsMenu(env, ctx), id: "margins", label: L10("Margins", "Margens"), icon: "margin", size: "large" },
+            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L10("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
+            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L10("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
+            { menu: columnsMenu, id: "columns", label: L10("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+            { rows: [[{ menu: breaksMenu, id: "breaks", label: L10("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
           ] },
-          { id: "paragraph", label: L9("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L9("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
+          { id: "paragraph", label: L10("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L10("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
             { rows: [
               [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
-              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L9("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
-              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L9("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
+              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L10("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
+              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L10("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
             ] }
           ] }
         ]
@@ -57407,18 +57964,25 @@ function ribbonLayout(env, ctx) {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: "references",
-        label: L9("References", "Refer\xEAncias"),
+        label: L10("References", "Refer\xEAncias"),
         groups: [
-          { id: "toc", label: L9("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large3("toc")] },
-          { id: "footnotes", label: L9("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+          // Sumário (como no Word): a galeria com Personalizado/Remover, Adicionar Texto e Atualizar
+          { id: "toc", label: L10("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [
+            { menu: () => tocGalleryMenu(env, ctx), id: "toc:menu", label: L10("Table of Contents", "Sum\xE1rio"), icon: "toc", size: "large", supports: has("insertTocTemplate") },
+            { rows: [
+              [{ menu: () => addTextMenu(env), id: "toc:addText", label: L10("Add Text", "Adicionar Texto"), icon: "playlist_add", showLabel: true, supports: has("setTocLevel") }],
+              [{ cmd: "toc", label: true }]
+            ] }
+          ] },
+          { id: "footnotes", label: L10("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
             large3("footnote"),
             { rows: [
               [{ cmd: "endnote", label: true }],
-              [{ menu: noteNavMenu, id: "note:nav", label: L9("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L10("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
               [{ cmd: "note:show", label: true }]
             ] }
           ] },
-          { id: "captions", label: L9("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
+          { id: "captions", label: L10("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
             large3("caption"),
             { rows: [[{ cmd: "tof", label: true }], [{ cmd: "tof:update", label: true }], [{ cmd: "crossref", label: true }]] }
           ] }
@@ -57426,86 +57990,86 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "mailings",
-        label: L9("Mailings", "Correspond\xEAncias"),
+        label: L10("Mailings", "Correspond\xEAncias"),
         groups: [
-          { id: "merge", label: L9("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
+          { id: "merge", label: L10("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
         ]
       },
       {
         id: "review",
-        label: L9("Review", "Revis\xE3o"),
+        label: L10("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L9("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
-          { id: "comments", label: L9("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
+          { id: "proofing", label: L10("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
+          { id: "comments", label: L10("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large3("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L9("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+          { id: "tracking", label: L10("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
             large3("trackChanges"),
             { rows: [
-              [{ menu: markupModes, id: "markupMode", label: L9("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
-              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L9("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ menu: markupModes, id: "markupMode", label: L10("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L10("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
               [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
             ] }
           ] },
-          { id: "changes", label: L9("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+          { id: "changes", label: L10("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
             { split: "change:accept", menu: acceptItems, size: "large" },
             { split: "change:reject", menu: rejectItems, size: "large" },
             { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
           ] },
-          { id: "document", label: L9("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
+          { id: "document", label: L10("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
         ]
       },
       {
         id: "view",
-        label: L9("View", "Exibir"),
+        label: L10("View", "Exibir"),
         groups: [
-          { id: "views", label: L9("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
+          { id: "views", label: L10("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
             large3("view:read"),
             large3("view:print"),
             large3("view:web"),
             { rows: [[{ cmd: "view:outline", label: true }], [{ cmd: "view:draft", label: true }]] },
             large3("focus")
           ] },
-          { id: "show", label: L9("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
+          { id: "show", label: L10("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
             { rows: [[{ cmd: "view:ruler", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:navpane", label: true }]] },
             { rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] },
             { rows: [[{ cmd: "view:bookmarks", label: true }]] }
           ] },
-          { id: "zoom", label: L9("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
-            { menu: m2.zoomItems, id: "zoom", label: L9("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+          { id: "zoom", label: L10("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
+            { menu: m2.zoomItems, id: "zoom", label: L10("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
             large3("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "appearance", label: L9("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env, ctx), id: "theme", label: L9("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L9("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L9("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L10("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env, ctx), id: "theme", label: L10("Theme", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L10("Accent", "Destaque"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L10("Toolbar", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "hf-tools",
-        label: L9("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
+        label: L10("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
         contextual: () => env.ed.editingHeaderFooter() !== null,
         groups: hfToolsGroups(env, ctx)
       },
       {
         id: "table-design",
-        label: L9("Table Design", "Design da Tabela"),
+        label: L10("Table Design", "Design da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableDesignGroups(env, ctx)
       },
       {
         id: "table-layout",
-        label: L9("Table Layout", "Layout da Tabela"),
+        label: L10("Table Layout", "Layout da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableLayoutGroups(env)
       },
       {
         id: "image-tools",
-        label: L9("Picture Format", "Formato da Imagem"),
+        label: L10("Picture Format", "Formato da Imagem"),
         contextual: () => {
           const f3 = env.ed.selectedImage;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -57514,7 +58078,7 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "shape-tools",
-        label: L9("Shape Format", "Formato da Forma"),
+        label: L10("Shape Format", "Formato da Forma"),
         contextual: () => {
           const f3 = env.ed.selectedShape;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -57524,7 +58088,7 @@ function ribbonLayout(env, ctx) {
     ]
   };
 }
-var breaksMenu, noteNavMenu, columnsMenu, markupModes, acceptItems, rejectItems, MODE_LABELS, fileMenu, L9, large3;
+var breaksMenu, noteNavMenu, columnsMenu, markupModes, acceptItems, rejectItems, MODE_LABELS, fileMenu, L10, large3;
 var init_chrome_layout = __esm({
   "src/chrome-layout.ts"() {
     "use strict";
@@ -57533,6 +58097,7 @@ var init_chrome_layout = __esm({
     init_chrome_hf();
     init_chrome_picture();
     init_chrome_page();
+    init_chrome_toc();
     init_chrome_shape();
     init_chrome_commands();
     breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
@@ -57563,7 +58128,7 @@ var init_chrome_layout = __esm({
       "-",
       m2.autosave
     ];
-    L9 = (en, pt2) => ({ en, pt: pt2 });
+    L10 = (en, pt2) => ({ en, pt: pt2 });
     large3 = (cmd) => ({ cmd, size: "large" });
   }
 });
@@ -57680,39 +58245,39 @@ function styleNames(env) {
   return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
 }
 function galleryMenu(env, ui, s4) {
-  const L10 = pickLabels(env.lang, T7);
+  const L11 = pickLabels(env.lang, T8);
   const ok = canEdit2(env);
   const out = [
-    { id: "style:update", icon: "refresh", label: L10.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+    { id: "style:update", icon: "refresh", label: L11.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
       env.ed.updateStyleFromSelection(s4.id);
       env.after();
     } },
-    { id: "style:modify", icon: "edit", label: L10.modifyDots, disabled: !ok, onClick: () => {
+    { id: "style:modify", icon: "edit", label: L11.modifyDots, disabled: !ok, onClick: () => {
       void ui.styleDialog("modify", s4.id);
     } },
-    { id: "style:rename", icon: "drive_file_rename_outline", label: L10.rename, disabled: !ok, onClick: () => {
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L11.rename, disabled: !ok, onClick: () => {
       void ui.rename(s4);
     } },
-    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L10.removeFromGallery, disabled: !ok, onClick: () => {
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L11.removeFromGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, false);
       env.after();
-    } } : { id: "style:togallery", icon: "bookmark_add", label: L10.addGallery, disabled: !ok, onClick: () => {
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L11.addGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, true);
       env.after();
     } }
   ];
   if (!s4.builtIn) {
-    out.push("-", { id: "style:delete", icon: "delete", label: L10.del(s4.name), disabled: !ok, onClick: () => {
+    out.push("-", { id: "style:delete", icon: "delete", label: L11.del(s4.name), disabled: !ok, onClick: () => {
       void ui.remove(s4);
     } });
   }
   return out;
 }
 function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
-  const L10 = pickLabels(env.lang, T7);
+  const L11 = pickLabels(env.lang, T8);
   if (!look) return s4.name;
   const parts = [];
-  const d3 = L10.d;
+  const d3 = L11.d;
   parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
   if (look.bold) parts.push(d3.bold);
   if (look.italic) parts.push(d3.italic);
@@ -57720,15 +58285,15 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   if (look.strike) parts.push(d3.strike);
   if (look.allCaps) parts.push(d3.caps);
   if (look.smallCaps) parts.push(d3.smallCaps);
-  if (look.color) parts.push(d3.color(colorName(look.color, L10)));
+  if (look.color) parts.push(d3.color(colorName(look.color, L11)));
   if (s4.kind !== "character") {
-    if (look.alignment !== "left") parts.push({ center: L10.center, right: L10.right, both: L10.justify }[look.alignment]);
-    if (look.lineTwentieths !== void 0) parts.push(d3.line(L10.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.alignment !== "left") parts.push({ center: L11.center, right: L11.right, both: L11.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L11.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
     if (look.spaceBeforeTwips) parts.push(d3.before(ptOf3(look.spaceBeforeTwips)));
     if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf3(look.spaceAfterTwips)));
     if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
   }
-  parts.push(d3.style(L10.kind[s4.kind]));
+  parts.push(d3.style(L11.kind[s4.kind]));
   if (s4.quick) parts.push(d3.gallery);
   parts.push(d3.priority(s4.priority + 1));
   const nm = names ?? styleNames(env);
@@ -57739,13 +58304,13 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
 ${parts.join(", ")}`;
 }
 function describeDirect(env, run3, para4) {
-  const L10 = pickLabels(env.lang, T7);
-  const d3 = L10.d;
+  const L11 = pickLabels(env.lang, T8);
+  const d3 = L11.d;
   const parts = [];
   if (para4) {
     const a3 = para4["alignment"];
-    if (a3) parts.push({ left: L10.left, center: L10.center, right: L10.right, both: L10.justify }[a3] ?? a3);
-    if (para4["lineTwentieths"] !== void 0) parts.push(d3.line(L10.lines[para4["lineTwentieths"]] ?? String(para4["lineTwentieths"])));
+    if (a3) parts.push({ left: L11.left, center: L11.center, right: L11.right, both: L11.justify }[a3] ?? a3);
+    if (para4["lineTwentieths"] !== void 0) parts.push(d3.line(L11.lines[para4["lineTwentieths"]] ?? String(para4["lineTwentieths"])));
     if (para4["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf3(para4["spaceBeforeTwips"])));
     if (para4["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf3(para4["spaceAfterTwips"])));
     if (para4["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para4["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
@@ -57763,12 +58328,12 @@ function describeDirect(env, run3, para4) {
     if (run3["strike"] || run3["doubleStrike"]) parts.push(d3.strike);
     if (run3["allCaps"]) parts.push(d3.caps);
     if (run3["smallCaps"]) parts.push(d3.smallCaps);
-    if (run3["color"]) parts.push(d3.color(colorName(run3["color"], L10)));
+    if (run3["color"]) parts.push(d3.color(colorName(run3["color"], L11)));
     if (run3["highlight"]) parts.push(d3.highlight);
     if (run3["vertAlign"]) parts.push(run3["vertAlign"] === "superscript" ? d3.sup : d3.sub);
     if (run3["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf3(run3["charSpacingTwips"]))));
   }
-  return parts.length ? parts.join(", ") : L10.noDirect;
+  return parts.length ? parts.join(", ") : L11.noDirect;
 }
 function diff(a3, b5, para4) {
   const f3 = {};
@@ -57791,7 +58356,7 @@ function diff(a3, b5, para4) {
   }
   return f3;
 }
-function drawPreview(cv, ed, look, L10, kind) {
+function drawPreview(cv, ed, look, L11, kind) {
   const W3 = 508, H2 = 96;
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   cv.width = W3 * dpr;
@@ -57805,20 +58370,20 @@ function drawPreview(cv, ed, look, L10, kind) {
   c5.fillRect(0, 0, W3, H2);
   c5.fillStyle = "#a0a0a0";
   c5.font = "9px sans-serif";
-  c5.fillText(L10.prevPara, 8, 14);
+  c5.fillText(L11.prevPara, 8, 14);
   const inner = document.createElement("canvas");
-  drawSample(inner, ed, look, { text: kind === "character" ? L10.sample.split(" ").slice(0, 4).join(" ") : L10.sample, w: W3 - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  drawSample(inner, ed, look, { text: kind === "character" ? L11.sample.split(" ").slice(0, 4).join(" ") : L11.sample, w: W3 - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
   c5.drawImage(inner, 8, 22, W3 - 16, 46);
   c5.fillStyle = "#a0a0a0";
   c5.font = "9px sans-serif";
-  c5.fillText(L10.prevPara, 8, 84);
+  c5.fillText(L11.prevPara, 8, 84);
 }
-var T7, SAMPLE2, canEdit2, ptOf3, cmOf, colorName, el13, draftOf, lookOfDraft, StylesUI;
+var T8, SAMPLE2, canEdit2, ptOf3, cmOf, colorName, el14, draftOf, lookOfDraft, StylesUI;
 var init_chrome_styles = __esm({
   "src/chrome-styles.ts"() {
     "use strict";
     init_src5();
-    T7 = {
+    T8 = {
       en: {
         gallery: "Styles",
         pane: "Styles",
@@ -58052,8 +58617,8 @@ var init_chrome_styles = __esm({
     canEdit2 = (env) => !env.app.comparing && !env.ed.isProtected();
     ptOf3 = (tw3) => Math.round(tw3 / 2) / 10;
     cmOf = (tw3, dec) => (Math.round(tw3 / 567 * 100) / 100).toFixed(2).replace(/\.?0+$/, "").replace(".", dec);
-    colorName = (hex3, L10) => hex3 ? `#${hex3}` : L10.auto;
-    el13 = (tag2, props = {}, ...kids) => {
+    colorName = (hex3, L11) => hex3 ? `#${hex3}` : L11.auto;
+    el14 = (tag2, props = {}, ...kids) => {
       const { cls, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (cls) e8.className = cls;
@@ -58097,7 +58662,7 @@ var init_chrome_styles = __esm({
       lastKey = "";
       inspRows = null;
       get L() {
-        return pickLabels(this.env.lang, T7);
+        return pickLabels(this.env.lang, T8);
       }
       /** Galeria da ribbon (Página Inicial › Estilos). */
       galleryItem() {
@@ -58116,11 +58681,11 @@ var init_chrome_styles = __esm({
           return;
         }
         const { env } = this;
-        const L10 = this.L;
-        const body = el13("div", { cls: "uw-styles" });
+        const L11 = this.L;
+        const body = el14("div", { cls: "uw-styles" });
         const sel4 = (name, opts2, v2, on) => {
-          const s4 = el13("select", { name });
-          for (const [k2, t6] of opts2) s4.append(el13("option", { value: k2, textContent: t6 }));
+          const s4 = el14("select", { name });
+          for (const [k2, t6] of opts2) s4.append(el14("option", { value: k2, textContent: t6 }));
           s4.value = v2;
           s4.addEventListener("change", () => {
             on(s4.value);
@@ -58129,12 +58694,12 @@ var init_chrome_styles = __esm({
           });
           return s4;
         };
-        const opts = el13(
+        const opts = el14(
           "div",
           { cls: "uw-styles-opts" },
           sel4(
             "filter",
-            [["recommended", L10.recommended], ["inUse", L10.inUse], ["document", L10.inDoc], ["all", L10.all]],
+            [["recommended", L11.recommended], ["inUse", L11.inUse], ["document", L11.inDoc], ["all", L11.all]],
             this.filter,
             (v2) => {
               this.filter = v2;
@@ -58143,7 +58708,7 @@ var init_chrome_styles = __esm({
           ),
           sel4(
             "sort",
-            [["prio", L10.asRecommended], ["alpha", L10.alphabetical]],
+            [["prio", L11.asRecommended], ["alpha", L11.alphabetical]],
             this.alpha ? "alpha" : "prio",
             (v2) => {
               this.alpha = v2 === "alpha";
@@ -58151,19 +58716,19 @@ var init_chrome_styles = __esm({
             }
           )
         );
-        const prev = el13("input", { type: "checkbox", checked: this.preview });
+        const prev = el14("input", { type: "checkbox", checked: this.preview });
         prev.addEventListener("change", () => {
           this.preview = prev.checked;
           env.app.prefs.set("stylesPreview", prev.checked ? "1" : "");
           this.lastKey = "";
           this.renderList();
         });
-        this.listEl = el13("div", { cls: "uw-styles-list" });
+        this.listEl = el14("div", { cls: "uw-styles-list" });
         this.listEl.setAttribute("role", "listbox");
-        body.append(opts, this.listEl, el13("label", { cls: "uo-check uw-styles-prev" }, prev, L10.preview));
-        const foot = el13("div");
+        body.append(opts, this.listEl, el14("label", { cls: "uo-check uw-styles-prev" }, prev, L11.preview));
+        const foot = el14("div");
         const btn2 = (icon, label, a3, fn) => {
-          const b5 = el13("button", { type: "button", cls: "uo-btn", title: label });
+          const b5 = el14("button", { type: "button", cls: "uo-btn", title: label });
           b5.dataset["a"] = a3;
           b5.setAttribute("aria-label", label);
           b5.innerHTML = symbol(icon);
@@ -58171,14 +58736,14 @@ var init_chrome_styles = __esm({
           return b5;
         };
         foot.append(
-          btn2("add", L10.newStyle, "styles:new", () => {
+          btn2("add", L11.newStyle, "styles:new", () => {
             void this.styleDialog("new");
           }),
-          btn2("manage_search", L10.inspector, "styles:inspector", () => this.toggleInspector())
+          btn2("manage_search", L11.inspector, "styles:inspector", () => this.toggleInspector())
         );
         this.pane = openPane({
           id: "styles",
-          title: L10.pane,
+          title: L11.pane,
           lang: env.lang,
           layer: env.layer,
           width: 280,
@@ -58211,22 +58776,22 @@ var init_chrome_styles = __esm({
         const ok = canEdit2(env);
         const names = styleNames(env);
         box.replaceChildren(...list.map((s4) => {
-          const row2 = el13("div", { cls: "uw-style-row" });
+          const row2 = el14("div", { cls: "uw-style-row" });
           row2.dataset["id"] = s4.id;
           row2.setAttribute("role", "option");
           row2.title = describeStyle(env, s4, void 0, names);
           const on = s4.id === cur.character || s4.id === cur.paragraph && !list.some((x3) => x3.id === cur.character);
           row2.classList.toggle("uo-on", on);
           row2.setAttribute("aria-selected", String(on));
-          const name = el13("span", { cls: "uw-style-name" });
+          const name = el14("span", { cls: "uw-style-name" });
           if (this.preview) {
             const look = env.ed.styleFormatting(s4.id);
             const cv = document.createElement("canvas");
             if (look) drawSample(cv, env.ed, look, { text: s4.name, w: 190, h: 24, maxPx: 18, minPx: 9, autoColor: getComputedStyle(box).color });
             name.append(cv);
           } else name.textContent = s4.name;
-          const mark2 = el13("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
-          const more = el13("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
+          const mark2 = el14("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
+          const more = el14("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
           more.innerHTML = symbol("arrow_drop_down");
           more.addEventListener("mousedown", (e8) => e8.preventDefault());
           more.addEventListener("click", (e8) => {
@@ -58256,10 +58821,10 @@ var init_chrome_styles = __esm({
           return;
         }
         const { env } = this;
-        const L10 = this.L;
-        const body = el13("div", { cls: "uw-insp" });
+        const L11 = this.L;
+        const body = el14("div", { cls: "uw-insp" });
         const row2 = (value, icon, tip, a3, fn) => {
-          const b5 = el13("button", { type: "button", cls: "uo-btn", title: tip });
+          const b5 = el14("button", { type: "button", cls: "uo-btn", title: tip });
           b5.dataset["a"] = a3;
           b5.setAttribute("aria-label", tip);
           b5.innerHTML = symbol(icon);
@@ -58268,39 +58833,39 @@ var init_chrome_styles = __esm({
             fn();
             env.after();
           });
-          return el13("div", { cls: "uw-insp-row" }, value, b5);
+          return el14("div", { cls: "uw-insp-row" }, value, b5);
         };
-        const box = () => el13("div", { cls: "uw-insp-val" });
+        const box = () => el14("div", { cls: "uw-insp-val" });
         const r6 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
         body.append(
-          el13("div", { cls: "uw-insp-h", textContent: L10.paraFmt }),
-          row2(r6.pStyle, "format_clear", L10.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
-          row2(r6.pDirect, "format_clear", L10.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
-          el13("div", { cls: "uw-insp-h", textContent: L10.textFmt }),
-          row2(r6.tStyle, "format_clear", L10.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
-          row2(r6.tDirect, "format_clear", L10.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+          el14("div", { cls: "uw-insp-h", textContent: L11.paraFmt }),
+          row2(r6.pStyle, "format_clear", L11.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+          row2(r6.pDirect, "format_clear", L11.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+          el14("div", { cls: "uw-insp-h", textContent: L11.textFmt }),
+          row2(r6.tStyle, "format_clear", L11.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+          row2(r6.tDirect, "format_clear", L11.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
         );
         this.inspRows = r6;
-        const foot = el13("div");
+        const foot = el14("div");
         const pill = (label, a3, fn) => {
-          const b5 = el13("button", { type: "button", cls: "uo-pill", textContent: label });
+          const b5 = el14("button", { type: "button", cls: "uo-pill", textContent: label });
           b5.dataset["a"] = a3;
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
           b5.addEventListener("click", fn);
           return b5;
         };
         foot.append(
-          pill(L10.newStyle, "insp:new", () => {
+          pill(L11.newStyle, "insp:new", () => {
             void this.styleDialog("new");
           }),
-          pill(L10.clearAll, "insp:clearAll", () => {
+          pill(L11.clearAll, "insp:clearAll", () => {
             env.ed.clearFormatting();
             env.after();
           })
         );
         this.inspector = openPane({
           id: "styleInspector",
-          title: L10.inspector,
+          title: L11.inspector,
           lang: env.lang,
           layer: env.layer,
           width: 300,
@@ -58352,31 +58917,31 @@ var init_chrome_styles = __esm({
       /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
       async quickCreate() {
         const { env } = this;
-        const L10 = this.L;
+        const L11 = this.L;
         if (!canEdit2(env)) return;
-        const input = el13("input", { type: "text", value: this.freeName() });
+        const input = el14("input", { type: "text", value: this.freeName() });
         const look = this.selectionLook();
         const cv = document.createElement("canvas");
         if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: 360, h: 56, maxPx: 30, paper: true, align: true });
-        const msg = el13("div", { cls: "uw-style-msg" });
-        const body = el13("div", { cls: "uw-style-quick" }, el13("label", { cls: "uo-field" }, el13("span", { textContent: L10.name }), input), cv, msg);
+        const msg = el14("div", { cls: "uw-style-msg" });
+        const body = el14("div", { cls: "uw-style-quick" }, el14("label", { cls: "uo-field" }, el14("span", { textContent: L11.name }), input), cv, msg);
         let action = null;
         const h3 = openDialog({
-          title: L10.newStyleTitle,
+          title: L11.newStyleTitle,
           body,
           layer: env.layer,
           lang: env.lang,
           width: 420,
-          actions: [{ id: "modify", label: L10.modify }, { id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }],
+          actions: [{ id: "modify", label: L11.modify }, { id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }],
           onAction: (id) => {
             if (id === "cancel") return true;
             const name = input.value.trim();
             if (!name) {
-              msg.textContent = L10.empty;
+              msg.textContent = L11.empty;
               return false;
             }
             if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
-              msg.textContent = L10.nameTaken;
+              msg.textContent = L11.nameTaken;
               return false;
             }
             return true;
@@ -58407,7 +58972,7 @@ var init_chrome_styles = __esm({
       async styleDialog(mode, id, presetName) {
         const { env } = this;
         const ed = env.ed;
-        const L10 = this.L;
+        const L11 = this.L;
         if (!canEdit2(env)) return;
         const all = ed.listStyles("all");
         const info = id ? all.find((s4) => s4.id === id) : void 0;
@@ -58419,25 +58984,25 @@ var init_chrome_styles = __esm({
         if (!startLook) return;
         const start = draftOf(startLook);
         const draft = { ...start };
-        const nameIn = el13("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
-        const typeSel = el13("select", { name: "type" });
-        for (const [k2, t6] of [["linked", L10.linked], ["paragraph", L10.paragraph], ["character", L10.character]]) typeSel.append(el13("option", { value: k2, textContent: t6 }));
+        const nameIn = el14("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
+        const typeSel = el14("select", { name: "type" });
+        for (const [k2, t6] of [["linked", L11.linked], ["paragraph", L11.paragraph], ["character", L11.character]]) typeSel.append(el14("option", { value: k2, textContent: t6 }));
         typeSel.value = kind;
         typeSel.disabled = mode === "modify";
-        const baseSel = el13("select", { name: "basedOn" });
-        const nextSel = el13("select", { name: "next" });
+        const baseSel = el14("select", { name: "basedOn" });
+        const nextSel = el14("select", { name: "next" });
         const fillBases = () => {
           baseSel.replaceChildren();
           nextSel.replaceChildren();
           const paraStyles2 = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
           const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
           const opts = kind === "character" ? charStyles : paraStyles2;
-          if (kind === "character") baseSel.append(el13("option", { value: "", textContent: L10.none }));
-          for (const s4 of opts) baseSel.append(el13("option", { value: s4.id, textContent: s4.name }));
+          if (kind === "character") baseSel.append(el14("option", { value: "", textContent: L11.none }));
+          for (const s4 of opts) baseSel.append(el14("option", { value: s4.id, textContent: s4.name }));
           baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
           if (kind !== "character") {
-            nextSel.append(el13("option", { value: "", textContent: nameIn.value.trim() || L10.none }));
-            for (const s4 of paraStyles2) nextSel.append(el13("option", { value: s4.id, textContent: s4.name }));
+            nextSel.append(el14("option", { value: "", textContent: nameIn.value.trim() || L11.none }));
+            for (const s4 of paraStyles2) nextSel.append(el14("option", { value: s4.id, textContent: s4.name }));
             nextSel.value = info?.next && info.next !== id ? info.next : "";
           }
           nextSel.disabled = kind === "character";
@@ -58449,13 +59014,13 @@ var init_chrome_styles = __esm({
           refresh();
         });
         const families = await ed.listAvailableFonts();
-        const fontSel = el13("select", { name: "font" });
-        for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el13("option", { value: f3, textContent: f3 }));
+        const fontSel = el14("select", { name: "font" });
+        for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el14("option", { value: f3, textContent: f3 }));
         fontSel.value = draft.fontAscii;
-        const sizeIn = el13("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
+        const sizeIn = el14("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
         sizeIn.style.width = "64px";
         const tog = (k2, icon, tip) => {
-          const b5 = el13("button", { type: "button", cls: "uo-btn", title: tip });
+          const b5 = el14("button", { type: "button", cls: "uo-btn", title: tip });
           b5.dataset["a"] = `dlg:${k2}`;
           b5.innerHTML = symbol(icon);
           const upd = () => {
@@ -58470,10 +59035,10 @@ var init_chrome_styles = __esm({
           upd();
           return b5;
         };
-        const colorIn2 = el13("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+        const colorIn2 = el14("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
         colorIn2.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
         const alignBtns = ["left", "center", "right", "both"].map((a3) => {
-          const b5 = el13("button", { type: "button", cls: "uo-btn", title: { left: L10.left, center: L10.center, right: L10.right, both: L10.justify }[a3] });
+          const b5 = el14("button", { type: "button", cls: "uo-btn", title: { left: L11.left, center: L11.center, right: L11.right, both: L11.justify }[a3] });
           b5.dataset["a"] = `dlg:align:${a3}`;
           b5.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
           b5.addEventListener("click", () => {
@@ -58485,14 +59050,14 @@ var init_chrome_styles = __esm({
         });
         const syncAlign = () => alignBtns.forEach((b5, i7) => b5.classList.toggle("uo-on", ["left", "center", "right", "both"][i7] === draft.alignment));
         syncAlign();
-        const lineSel = el13("select", { name: "line" });
-        for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el13("option", { value: String(v2), textContent: L10.lines[v2] }));
+        const lineSel = el14("select", { name: "line" });
+        for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el14("option", { value: String(v2), textContent: L11.lines[v2] }));
         if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
-          lineSel.append(el13("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
+          lineSel.append(el14("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
         }
         lineSel.value = String(draft.lineTwentieths ?? 240);
         const num3 = (v2, step, name2) => {
-          const i7 = el13("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
+          const i7 = el14("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
           i7.style.width = "72px";
           return i7;
         };
@@ -58501,8 +59066,8 @@ var init_chrome_styles = __esm({
         const indentIn = num3(Math.round(draft.indentLeftTwips / 567 * 100) / 100, "0.25", "indentLeft");
         const read = () => {
           draft.fontAscii = fontSel.value;
-          const sz2 = parseFloat(sizeIn.value.replace(",", "."));
-          if (sz2 > 0) draft.szHalfPt = Math.round(sz2 * 2);
+          const sz3 = parseFloat(sizeIn.value.replace(",", "."));
+          if (sz3 > 0) draft.szHalfPt = Math.round(sz3 * 2);
           const hex3 = colorIn2.value.slice(1).toUpperCase();
           if (hex3 !== (start.color ?? "000000") || draft.color !== start.color) draft.color = hex3 === "000000" && !start.color ? void 0 : hex3;
           draft.lineTwentieths = Number(lineSel.value);
@@ -58514,16 +59079,16 @@ var init_chrome_styles = __esm({
           read();
           refresh();
         });
-        const formatBtn = el13("button", { type: "button", cls: "uo-pill", textContent: `${L10.format} \u25BE` });
+        const formatBtn = el14("button", { type: "button", cls: "uo-pill", textContent: `${L11.format} \u25BE` });
         formatBtn.dataset["a"] = "dlg:format";
         formatBtn.addEventListener("click", (e8) => {
           e8.stopPropagation();
           const r6 = formatBtn.getBoundingClientRect();
           openMenu([
-            { id: "dlg:format:font", icon: "text_format", label: L10.fontDots, onClick: () => {
+            { id: "dlg:format:font", icon: "text_format", label: L11.fontDots, onClick: () => {
               void this.fontSub(draft).then(refresh);
             } },
-            { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L10.paraDots, disabled: kind === "character", onClick: () => {
+            { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L11.paraDots, disabled: kind === "character", onClick: () => {
               void this.paraSub(draft).then(() => {
                 syncAlign();
                 beforeIn.value = String(ptOf3(draft.spaceBeforeTwips));
@@ -58537,13 +59102,13 @@ var init_chrome_styles = __esm({
         });
         const cv = document.createElement("canvas");
         cv.className = "uw-style-prev";
-        const desc = el13("div", { cls: "uw-style-desc" });
-        const quick = el13("input", { type: "checkbox", checked: info?.quick ?? true });
-        const auto = el13("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
-        const msg = el13("div", { cls: "uw-style-msg" });
+        const desc = el14("div", { cls: "uw-style-desc" });
+        const quick = el14("input", { type: "checkbox", checked: info?.quick ?? true });
+        const auto = el14("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
+        const msg = el14("div", { cls: "uw-style-msg" });
         const refresh = () => {
           const look = lookOfDraft(draft, startLook);
-          drawPreview(cv, ed, look, L10, kind);
+          drawPreview(cv, ed, look, L11, kind);
           const fake = {
             id: id ?? "",
             name: nameIn.value.trim() || "\u2026",
@@ -58569,78 +59134,78 @@ var init_chrome_styles = __esm({
           refresh();
         });
         for (const i7 of [baseSel, nextSel, quick, auto]) i7.addEventListener("change", refresh);
-        const grid2 = el13(
+        const grid2 = el14(
           "div",
           { cls: "uo-dialog-grid" },
-          el13("span", { textContent: L10.name }),
+          el14("span", { textContent: L11.name }),
           nameIn,
-          el13("span", { textContent: L10.type }),
+          el14("span", { textContent: L11.type }),
           typeSel,
-          el13("span", { textContent: L10.basedOn }),
+          el14("span", { textContent: L11.basedOn }),
           baseSel,
-          el13("span", { textContent: L10.next }),
+          el14("span", { textContent: L11.next }),
           nextSel
         );
-        const fmtRow1 = el13(
+        const fmtRow1 = el14(
           "div",
           { cls: "uw-style-fmt" },
           fontSel,
           sizeIn,
-          tog("bold", "format_bold", L10.bold),
-          tog("italic", "format_italic", L10.italic),
-          tog("underline", "format_underlined", L10.underline),
+          tog("bold", "format_bold", L11.bold),
+          tog("italic", "format_italic", L11.italic),
+          tog("underline", "format_underlined", L11.underline),
           colorIn2
         );
-        const fmtRow2 = el13("div", { cls: "uw-style-fmt" }, ...alignBtns, el13("span", { textContent: L10.lineSpacing }), lineSel);
-        const fmtRow3 = el13(
+        const fmtRow2 = el14("div", { cls: "uw-style-fmt" }, ...alignBtns, el14("span", { textContent: L11.lineSpacing }), lineSel);
+        const fmtRow3 = el14(
           "div",
           { cls: "uw-style-fmt" },
-          el13("span", { textContent: L10.before }),
+          el14("span", { textContent: L11.before }),
           beforeIn,
-          el13("span", { textContent: L10.after }),
+          el14("span", { textContent: L11.after }),
           afterIn,
-          el13("span", { textContent: L10.indentLeft }),
+          el14("span", { textContent: L11.indentLeft }),
           indentIn
         );
-        const checks = el13(
+        const checks = el14(
           "div",
           { cls: "uw-style-checks" },
-          el13("label", { cls: "uo-check" }, quick, L10.addToGallery),
-          el13("label", { cls: "uo-check" }, auto, L10.autoUpdate)
+          el14("label", { cls: "uo-check" }, quick, L11.addToGallery),
+          el14("label", { cls: "uo-check" }, auto, L11.autoUpdate)
         );
-        const body = el13(
+        const body = el14(
           "div",
           { cls: "uw-style-dlg" },
-          el13("strong", { textContent: L10.properties }),
+          el14("strong", { textContent: L11.properties }),
           grid2,
-          el13("strong", { textContent: L10.formatting }),
+          el14("strong", { textContent: L11.formatting }),
           fmtRow1,
           fmtRow2,
           fmtRow3,
           cv,
           desc,
           checks,
-          el13("div", {}, formatBtn),
+          el14("div", {}, formatBtn),
           msg
         );
         refresh();
         const h3 = openDialog({
-          title: mode === "new" ? L10.newStyleTitle : L10.modifyTitle,
+          title: mode === "new" ? L11.newStyleTitle : L11.modifyTitle,
           body,
           layer: env.layer,
           lang: env.lang,
           width: 560,
-          actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }],
+          actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }],
           onAction: (a3) => {
             if (a3 !== "ok") return true;
             read();
             const name2 = nameIn.value.trim();
             if (!name2) {
-              msg.textContent = L10.empty;
+              msg.textContent = L11.empty;
               return false;
             }
             if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
-              msg.textContent = L10.nameTaken;
+              msg.textContent = L11.nameTaken;
               return false;
             }
             return true;
@@ -58667,73 +59232,73 @@ var init_chrome_styles = __esm({
       }
       /** Formatar › Fonte… (rascunho do estilo). */
       async fontSub(d3) {
-        const L10 = this.L;
+        const L11 = this.L;
         const box = (k2, label) => {
-          const i7 = el13("input", { type: "checkbox", checked: !!d3[k2] });
+          const i7 = el14("input", { type: "checkbox", checked: !!d3[k2] });
           i7.name = k2;
-          return el13("label", { cls: "uo-check" }, i7, label);
+          return el14("label", { cls: "uo-check" }, i7, label);
         };
-        const spacing = el13("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf3(d3.charSpacingTwips)) });
-        const body = el13(
+        const spacing = el14("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf3(d3.charSpacingTwips)) });
+        const body = el14(
           "div",
           { cls: "uw-style-sub" },
-          el13(
+          el14(
             "div",
             { cls: "uw-style-fx" },
-            box("bold", L10.bold),
-            box("italic", L10.italic),
-            box("underline", L10.underline),
-            box("strike", L10.strike),
-            box("allCaps", L10.caps),
-            box("smallCaps", L10.smallCaps)
+            box("bold", L11.bold),
+            box("italic", L11.italic),
+            box("underline", L11.underline),
+            box("strike", L11.strike),
+            box("allCaps", L11.caps),
+            box("smallCaps", L11.smallCaps)
           ),
-          el13("label", { cls: "uo-field" }, el13("span", { textContent: `${L10.charSpacing} (pt)` }), spacing)
+          el14("label", { cls: "uo-field" }, el14("span", { textContent: `${L11.charSpacing} (pt)` }), spacing)
         );
-        const h3 = openDialog({ title: L10.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }] });
+        const h3 = openDialog({ title: L11.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }] });
         if (await h3.result !== "ok") return;
         for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
         d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
       }
       /** Formatar › Parágrafo… (recuos à direita e especial). */
       async paraSub(d3) {
-        const L10 = this.L;
-        const right = el13("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
-        const special = el13("select", { name: "special" });
-        for (const [k2, t6] of [["none", L10.none], ["firstLine", L10.firstLine], ["hanging", L10.hanging]]) special.append(el13("option", { value: k2, textContent: t6 }));
+        const L11 = this.L;
+        const right = el14("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
+        const special = el14("select", { name: "special" });
+        for (const [k2, t6] of [["none", L11.none], ["firstLine", L11.firstLine], ["hanging", L11.hanging]]) special.append(el14("option", { value: k2, textContent: t6 }));
         special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
-        const by = el13("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
-        const body = el13(
+        const by = el14("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
+        const body = el14(
           "div",
           { cls: "uo-dialog-grid" },
-          el13("span", { textContent: L10.indentRight }),
+          el14("span", { textContent: L11.indentRight }),
           right,
-          el13("span", { textContent: L10.special }),
+          el14("span", { textContent: L11.special }),
           special,
-          el13("span", { textContent: L10.by }),
+          el14("span", { textContent: L11.by }),
           by
         );
-        const h3 = openDialog({ title: L10.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }] });
+        const h3 = openDialog({ title: L11.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.ok, primary: true }] });
         if (await h3.result !== "ok") return;
         d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
         const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
         d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
       }
       async rename(s4) {
-        const L10 = this.L;
-        const v2 = await promptDialog({ title: L10.renameTitle, label: L10.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+        const L11 = this.L;
+        const v2 = await promptDialog({ title: L11.renameTitle, label: L11.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
         if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
-        if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L10.nameTaken);
+        if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L11.nameTaken);
         this.env.after();
       }
       async remove(s4) {
-        const L10 = this.L;
+        const L11 = this.L;
         const h3 = openDialog({
-          title: L10.del(s4.name).replace(/…$/, ""),
-          body: L10.delConfirm(s4.name),
+          title: L11.del(s4.name).replace(/…$/, ""),
+          body: L11.delConfirm(s4.name),
           layer: this.env.layer,
           lang: this.env.lang,
           icon: "delete",
-          actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.delete, primary: true }]
+          actions: [{ id: "cancel", label: L11.cancel }, { id: "ok", label: L11.delete, primary: true }]
         });
         if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
         this.env.after();
@@ -59750,7 +60315,7 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         header.className = "uwd-header";
         const statsBox = doc.createElement("div");
         statsBox.className = "uwd-stats";
-        const L10 = this._L;
+        const L11 = this._L;
         const stat = (cls, label, n5) => {
           if (n5 === 0) return;
           const s4 = doc.createElement("span");
@@ -59758,13 +60323,13 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
           s4.textContent = label(n5);
           statsBox.append(s4);
         };
-        stat("ins", L10.inserted, stats.inserted);
-        stat("del", L10.deleted, stats.deleted);
-        stat("chg", L10.changed, stats.changed);
-        stat("fmt", L10.formatOnly, stats.formatOnly);
+        stat("ins", L11.inserted, stats.inserted);
+        stat("del", L11.deleted, stats.deleted);
+        stat("chg", L11.changed, stats.changed);
+        stat("fmt", L11.formatOnly, stats.formatOnly);
         if (statsBox.childElementCount === 0) {
           const s4 = doc.createElement("span");
-          s4.textContent = L10.identical;
+          s4.textContent = L11.identical;
           statsBox.append(s4);
         }
         header.append(statsBox);
@@ -59772,7 +60337,7 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         spacer.className = "uwd-spacer";
         header.append(spacer);
         const toggle = doc.createElement("button");
-        toggle.textContent = L10.onlyChanges;
+        toggle.textContent = L11.onlyChanges;
         toggle.dataset["on"] = this.view === "diffs" ? "1" : "0";
         toggle.addEventListener("click", () => {
           this.view = this.view === "diffs" ? "all" : "diffs";
@@ -59780,8 +60345,8 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         header.append(toggle);
         const close = doc.createElement("button");
         close.className = "uwd-close";
-        close.title = L10.close;
-        close.setAttribute("aria-label", L10.close);
+        close.title = L11.close;
+        close.setAttribute("aria-label", L11.close);
         close.textContent = "\u2715";
         close.addEventListener("click", () => {
           this.dispatchEvent(new CustomEvent("close-request", { bubbles: true, composed: true }));
@@ -59866,24 +60431,24 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
       }
       // ─────────────── blocos ───────────────
       _renderParagraph(doc, p3, marks) {
-        const el14 = doc.createElement("div");
-        el14.className = "uwd-para";
+        const el15 = doc.createElement("div");
+        el15.className = "uwd-para";
         const pr = p3.props;
         if (pr.alignment && pr.alignment !== "left") {
-          el14.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
+          el15.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
         }
-        if (pr.indentLeftTwips) el14.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
-        if (pr.indentRightTwips) el14.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
-        if (pr.indentFirstLineTwips) el14.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
-        if (pr.spaceBeforeTwips) el14.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
-        if (pr.spaceAfterTwips) el14.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
+        if (pr.indentLeftTwips) el15.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
+        if (pr.indentRightTwips) el15.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
+        if (pr.indentFirstLineTwips) el15.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
+        if (pr.spaceBeforeTwips) el15.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
+        if (pr.spaceAfterTwips) el15.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
         const shd = hex6(pr.shadingHex);
-        if (shd) el14.style.background = shd;
+        if (shd) el15.style.background = shd;
         if (pr.numbering) {
           const marker = doc.createElement("span");
           marker.textContent = pr.numbering.kind === "bullet" ? "\u2022 " : "# ";
           marker.style.paddingLeft = `${pr.numbering.ilvl * 18}pt`;
-          el14.append(marker);
+          el15.append(marker);
         }
         let offset = 0;
         for (const r6 of p3.runs) {
@@ -59893,10 +60458,10 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             end: Math.min(len2, m2.endCh - offset),
             kind: m2.kind
           })).sort((x3, y3) => x3.start - y3.start);
-          el14.append(...this._renderRun(doc, r6, runMarks));
+          el15.append(...this._renderRun(doc, r6, runMarks));
           offset += len2;
         }
-        return el14;
+        return el15;
       }
       _renderRun(doc, r6, marks) {
         if (r6.image) {
@@ -59979,8 +60544,8 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             }
           }
         }
-        const el14 = doc.createElement("table");
-        el14.className = "uwd-table";
+        const el15 = doc.createElement("table");
+        el15.className = "uwd-table";
         for (let ri = 0; ri < t6.rows.length; ri++) {
           const tr8 = doc.createElement("tr");
           const kind = rowKind.get(ri);
@@ -59994,9 +60559,9 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             for (const nested of c5.tables) td2.append(this._renderTable(doc, nested, side, null));
             tr8.append(td2);
           }
-          el14.append(tr8);
+          el15.append(tr8);
         }
-        return el14;
+        return el15;
       }
     };
     if (typeof customElements !== "undefined" && !customElements.get("universal-write-diff")) {
@@ -60072,6 +60637,7 @@ var init_chrome = __esm({
     init_chrome_app();
     init_chrome_commands();
     init_chrome_refs();
+    init_chrome_toc();
     init_chrome_dialogs();
     init_chrome_nav();
     init_chrome_ruler();
@@ -60492,6 +61058,12 @@ var init_chrome = __esm({
           saveCaptionSettings: () => originStore.set("uw-captions", JSON.stringify(this.ed.captionSettings))
         };
       }
+      /** Ambiente dos diálogos do Sumário (Modificar estilo pela barra). */
+      tocEnv() {
+        return { ed: this.ed, layer: this.layer, lang: this.lang, flash: (m2) => this.flash(m2), modifyStyle: (id) => {
+          void this.styles?.styleDialog("modify", id);
+        } };
+      }
       ctl() {
         const d3 = () => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
         return {
@@ -60530,6 +61102,9 @@ var init_chrome = __esm({
           },
           refsDialog: (kind) => {
             void refsDialog(this.refsEnv(), kind).then(() => this.after());
+          },
+          tocDialog: (kind, scope) => {
+            void tocDialog(this.tocEnv(), kind, scope).then(() => this.after());
           },
           image: () => this.pickImage(),
           fontDialog: () => {
@@ -60715,22 +61290,22 @@ var init_chrome = __esm({
       }
       // ───── Modo Protegido ─────
       makeProtectedBar() {
-        const el14 = document.createElement("div");
-        el14.className = "uw-protbar";
-        el14.setAttribute("part", "protected-bar");
-        el14.setAttribute("role", "alert");
-        el14.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+        const el15 = document.createElement("div");
+        el15.className = "uw-protbar";
+        el15.setAttribute("part", "protected-bar");
+        el15.setAttribute("role", "alert");
+        el15.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
       <span><b></b> \u2014 </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-        el14.querySelector("b").textContent = this.L.protectedTitle;
-        el14.querySelector("span").append(this.L.protectedText);
-        const b5 = el14.querySelector("button");
+        el15.querySelector("b").textContent = this.L.protectedTitle;
+        el15.querySelector("span").append(this.L.protectedText);
+        const b5 = el15.querySelector("button");
         b5.textContent = this.L.enableEditing;
         b5.addEventListener("click", () => {
           this.app.enableEditing();
           this.after();
         });
-        el14.hidden = true;
-        return el14;
+        el15.hidden = true;
+        return el15;
       }
       // ───── localizar ─────
       openFind(replace) {
@@ -60931,6 +61506,14 @@ var init_chrome = __esm({
           const mine = last?.isConnected ? last === ed : document.querySelectorAll("universal-write[topbar]").length === 1;
           if (mine) run3(e8, id);
         }, { signal });
+        ed.addEventListener("uw-toc-update", ((e8) => {
+          e8.preventDefault();
+          void tocDialog(this.tocEnv(), "update", e8.detail.scope).then(() => this.after());
+        }), { signal });
+        ed.addEventListener("uw-toc-menu", ((e8) => {
+          const env = { ed, app: this.app, ctl: this.ctl(), root: this.root, ...this.styles ? { styles: this.styles } : {} };
+          openMenu(tocGalleryMenu(env, this.ctx), { x: e8.detail.x, y: e8.detail.y }, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+        }), { signal });
         ed.addEventListener("contextmenu", (e8) => {
           if (e8.composedPath().some((n5) => n5 === this.topEl || n5 === this.bottomEl || n5 === this.layer)) return;
           if (this.app.comparing) return;
@@ -61131,8 +61714,8 @@ function coverXml(id, env) {
     }
     case "sidebar": {
       const side = 110;
-      const ind = Math.max(0, side + 30 - P3.left);
-      body = anchorPara(shape(env, { x: 0, y: 0, w: side, h: P3.h, fill: "accent1" }) + infoBox(env, P3.left + ind, bottomY, cw - ind, "dark")) + para(f3.title, { size: 44, ink: "accent1", before: at(P3.h * 0.32), indLeft: ind, major: true }, env) + para(f3.subtitle, { size: 16, ink: "dark", before: 12, indLeft: ind }, env) + para(f3.summary, { size: 11, ink: "grey", before: 30, indLeft: ind }, env);
+      const ind2 = Math.max(0, side + 30 - P3.left);
+      body = anchorPara(shape(env, { x: 0, y: 0, w: side, h: P3.h, fill: "accent1" }) + infoBox(env, P3.left + ind2, bottomY, cw - ind2, "dark")) + para(f3.title, { size: 44, ink: "accent1", before: at(P3.h * 0.32), indLeft: ind2, major: true }, env) + para(f3.subtitle, { size: 16, ink: "dark", before: 12, indLeft: ind2 }, env) + para(f3.summary, { size: 11, ink: "grey", before: 30, indLeft: ind2 }, env);
       break;
     }
     case "frame": {
@@ -61472,8 +62055,24 @@ function parseTocInstr(instr) {
     o7.caption = a3;
     o7.includeLabel = false;
   }
+  const range = (v2) => {
+    const m2 = /(\d)\s*-\s*(\d)/.exec(v2 ?? "");
+    return m2 ? [+m2[1], +m2[2]] : void 0;
+  };
+  const f3 = /\\f(?:\s+(?:"([^"]*)"|([^\s\\"]+)))?/i.exec(instr);
+  if (f3) {
+    o7.fields = true;
+    const id = f3[1] ?? f3[2];
+    if (id) o7.fieldId = id;
+  }
+  const l3 = range(q("l"));
+  if (l3) o7.fieldLevels = l3;
   if (has("h")) o7.hyperlinks = true;
-  if (has("n")) o7.noPageNumbers = true;
+  if (has("n")) {
+    const r6 = range(q("n"));
+    if (r6) o7.noPageLevels = r6;
+    else o7.noPageNumbers = true;
+  }
   const p3 = q("p");
   if (p3 !== void 0) o7.separator = p3;
   if (has("z")) o7.hideInWeb = true;
@@ -61482,7 +62081,10 @@ function parseTocInstr(instr) {
 function tocInstr(o7) {
   const parts = ["TOC"];
   if (o7.outline) parts.push(`\\o "${o7.outline[0]}-${o7.outline[1]}"`);
-  if (o7.noPageNumbers) parts.push("\\n");
+  if (o7.fields) parts.push(o7.fieldId ? `\\f ${/[\s"]/.test(o7.fieldId) ? `"${o7.fieldId}"` : o7.fieldId}` : "\\f");
+  if (o7.fieldLevels) parts.push(`\\l "${o7.fieldLevels[0]}-${o7.fieldLevels[1]}"`);
+  if (o7.noPageLevels) parts.push(`\\n "${o7.noPageLevels[0]}-${o7.noPageLevels[1]}"`);
+  else if (o7.noPageNumbers) parts.push("\\n");
   if (o7.separator !== void 0) parts.push(`\\p "${o7.separator}"`);
   if (o7.hyperlinks) parts.push("\\h");
   if (o7.hideInWeb) parts.push("\\z");
@@ -61504,7 +62106,8 @@ function tocEntryParagraphs(o7, sources, look) {
     }
     const text = s4.text.replace(/[\t\n\f\u000B\r]/g, " ");
     runs.push({ text, props: { ...base, ...o7.hyperlinks ? { charStyle: look.hyperlinkStyle } : {} }, inToc: true });
-    if (!o7.noPageNumbers) {
+    const lv = o7.noPageLevels;
+    if (!o7.noPageNumbers && !s4.noPage && !(lv && s4.level >= lv[0] && s4.level <= lv[1])) {
       runs.push({ text: o7.separator ?? "	", props: { ...base, ...web }, inToc: true });
       const instr = ` PAGEREF ${s4.bookmark} \\h `;
       runs.push({ text: s4.page, props: { ...base, ...web }, field: instr, fieldResult: [{ text: s4.page, props: { ...base, ...web } }], inToc: true });
@@ -61544,6 +62147,9 @@ function unlinkRuns(p3, from, to, hyperlinkStyle) {
   });
   normalizeParagraph(p3);
 }
+
+// src/universal-write.ts
+init_toc();
 
 // src/styles.ts
 init_src();
@@ -61754,8 +62360,8 @@ function styleProps(ds, theme, id) {
 }
 function lookOf(pPr, rPr, theme, dd) {
   const jc = pPr.jc;
-  const sp = pPr.spacing ?? {};
-  const ind = pPr.ind ?? {};
+  const sp2 = pPr.spacing ?? {};
+  const ind2 = pPr.ind ?? {};
   return {
     fontFamily: fontOfSlot(rPr.rFonts, "ascii", theme) ?? fontOfSlot(rPr.rFonts, "hAnsi", theme) ?? fontOfSlot(dd?.rFonts, "ascii", theme) ?? theme.minor.latin ?? "Times New Roman",
     sizePt: (rPr.sz ?? 20) / 2,
@@ -61768,12 +62374,12 @@ function lookOf(pPr, rPr, theme, dd) {
     color: resolveColor(rPr.color, theme),
     charSpacingTwips: rPr.spacing ?? 0,
     alignment: jc === "center" ? "center" : jc === "right" || jc === "end" ? "right" : jc === "both" || jc === "distribute" ? "both" : "left",
-    spaceBeforeTwips: sp.before ?? 0,
-    spaceAfterTwips: sp.after ?? 0,
-    lineTwentieths: sp.lineRule === "exact" || sp.lineRule === "atLeast" ? void 0 : sp.line ?? 240,
-    indentLeftTwips: ind.left ?? 0,
-    indentRightTwips: ind.right ?? 0,
-    indentFirstLineTwips: ind.hanging ? -ind.hanging : ind.firstLine ?? 0,
+    spaceBeforeTwips: sp2.before ?? 0,
+    spaceAfterTwips: sp2.after ?? 0,
+    lineTwentieths: sp2.lineRule === "exact" || sp2.lineRule === "atLeast" ? void 0 : sp2.line ?? 240,
+    indentLeftTwips: ind2.left ?? 0,
+    indentRightTwips: ind2.right ?? 0,
+    indentFirstLineTwips: ind2.hanging ? -ind2.hanging : ind2.firstLine ?? 0,
     shadingHex: pPr.shd?.fill && pPr.shd.fill !== "auto" ? pPr.shd.fill : void 0,
     borderTop: borderCss(pPr.pBdr?.top, theme),
     borderBottom: borderCss(pPr.pBdr?.bottom, theme)
@@ -62099,7 +62705,7 @@ function hfTemplateXml(gallery, id, env) {
   const ph = placeholderText(env.lang);
   const title = env.lang === "pt" ? "[T\xEDtulo do documento]" : "[Document title]";
   const author = env.lang === "pt" ? "[Nome do autor]" : "[Author name]";
-  const bdr = (side, sz2, hex3, theme = true) => `<w:pBdr><w:${side} w:val="single" w:sz="${sz2}" w:space="${side === "left" ? 4 : 1}" w:color="${hex3}"${theme ? ' w:themeColor="accent1"' : ""}/></w:pBdr>`;
+  const bdr = (side, sz3, hex3, theme = true) => `<w:pBdr><w:${side} w:val="single" w:sz="${sz3}" w:space="${side === "left" ? 4 : 1}" w:color="${hex3}"${theme ? ' w:themeColor="accent1"' : ""}/></w:pBdr>`;
   const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${env.accent}" w:themeFill="accent1"/>`;
   const three = run2(ph) + ptab("center") + run2(ph) + ptab("right") + run2(ph);
   if (gallery === "header" || gallery === "footer") {
@@ -62174,10 +62780,10 @@ var BAND = {
   pt: { header: "Cabe\xE7alho", footer: "Rodap\xE9", first: "da Primeira P\xE1gina", even: "de P\xE1gina Par", odd: "de P\xE1gina \xCDmpar", section: "Se\xE7\xE3o", same: "Mesmo que o Anterior" }
 };
 function hfBandLabel(kind, type, evenOdd, sec, count, lang) {
-  const L10 = BAND[lang];
-  const variant = type === "first" ? L10.first : type === "even" ? L10.even : evenOdd ? L10.odd : "";
-  const base = lang === "pt" ? `${L10[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L10[kind]}`;
-  return count > 1 ? `${base} -${L10.section} ${sec + 1}-` : base;
+  const L11 = BAND[lang];
+  const variant = type === "first" ? L11.first : type === "even" ? L11.even : evenOdd ? L11.odd : "";
+  const base = lang === "pt" ? `${L11[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L11[kind]}`;
+  return count > 1 ? `${base} -${L11.section} ${sec + 1}-` : base;
 }
 function sameAsPreviousLabel(lang) {
   return BAND[lang].same;
@@ -62286,15 +62892,15 @@ function paraParts(old, now, lang, styleName2) {
     const a3 = now.alignment ?? "left";
     out.push(en ? { left: "Left", center: "Centered", right: "Right", both: "Justified" }[a3] : { left: "\xC0 esquerda", center: "Centralizado", right: "\xC0 direita", both: "Justificado" }[a3]);
   }
-  const ind = [];
+  const ind2 = [];
   if ((now.indentLeftTwips ?? 0) !== (old.indentLeftTwips ?? 0) || (now.indentFirstLineTwips ?? 0) < 0 && now.indentFirstLineTwips !== old.indentFirstLineTwips) {
-    ind.push(`${en ? "Left" : "\xC0 esquerda"}:  ${len(now.indentLeftTwips ?? 0, lang)}`);
+    ind2.push(`${en ? "Left" : "\xC0 esquerda"}:  ${len(now.indentLeftTwips ?? 0, lang)}`);
   }
   if ((now.indentFirstLineTwips ?? 0) !== (old.indentFirstLineTwips ?? 0)) {
     const f3 = now.indentFirstLineTwips ?? 0;
-    ind.push(f3 < 0 ? `${en ? "Hanging" : "Deslocamento"}:  ${len(-f3, lang)}` : `${en ? "First line" : "Primeira linha"}:  ${len(f3, lang)}`);
+    ind2.push(f3 < 0 ? `${en ? "Hanging" : "Deslocamento"}:  ${len(-f3, lang)}` : `${en ? "First line" : "Primeira linha"}:  ${len(f3, lang)}`);
   }
-  if (ind.length) out.push(`${en ? "Indent" : "Recuo"}: ${ind.join(", ")}`);
+  if (ind2.length) out.push(`${en ? "Indent" : "Recuo"}: ${ind2.join(", ")}`);
   if ((now.indentRightTwips ?? 0) !== (old.indentRightTwips ?? 0)) out.push(`${en ? "Right" : "\xC0 direita"}:  ${len(now.indentRightTwips ?? 0, lang)}`);
   if (now.spaceBeforeTwips !== old.spaceBeforeTwips) out.push(`${en ? "Space Before" : "Espa\xE7o Antes"}:  ${pt((now.spaceBeforeTwips ?? 0) / 20, lang)}`);
   if (now.spaceAfterTwips !== old.spaceAfterTwips) out.push(`${en ? "Space After" : "Espa\xE7o Depois de"}:  ${pt((now.spaceAfterTwips ?? 0) / 20, lang)}`);
@@ -62430,12 +63036,12 @@ var keyCache = /* @__PURE__ */ new Map();
 function keyOf2(text) {
   const hit = keyCache.get(text);
   if (hit) return hit;
-  const p3 = [], s4 = [], t6 = [], sp = [];
+  const p3 = [], s4 = [], t6 = [], sp2 = [];
   let pos = 0;
   for (const ch of text) {
     if (ch === "\xAD") continue;
     const e8 = charElements(ch);
-    if (e8 === null) sp.push([pos, ch === "'" ? 1 : 2]);
+    if (e8 === null) sp2.push([pos, ch === "'" ? 1 : 2]);
     else for (let i7 = 0; i7 < e8.p.length; i7++) {
       p3.push(e8.p[i7]);
       s4.push(e8.s[i7]);
@@ -62443,7 +63049,7 @@ function keyOf2(text) {
     }
     pos++;
   }
-  const k2 = { p: p3, s: s4, t: t6, sp };
+  const k2 = { p: p3, s: s4, t: t6, sp: sp2 };
   if (keyCache.size > 2e4) keyCache.clear();
   keyCache.set(text, k2);
   return k2;
@@ -62650,13 +63256,13 @@ function matchSnippet(text, start, end) {
   const clean = (s4) => s4.replace(/[\t\n\r\u000b\u000c\ufffc]/g, " ");
   let b5 = Math.max(0, start - 40);
   if (b5 > 0) {
-    const sp = text.indexOf(" ", b5);
-    b5 = sp >= 0 && sp < start ? sp + 1 : b5;
+    const sp2 = text.indexOf(" ", b5);
+    b5 = sp2 >= 0 && sp2 < start ? sp2 + 1 : b5;
   }
   let a3 = Math.min(text.length, end + 60);
   if (a3 < text.length) {
-    const sp = text.lastIndexOf(" ", a3);
-    a3 = sp > end ? sp : a3;
+    const sp2 = text.lastIndexOf(" ", a3);
+    a3 = sp2 > end ? sp2 : a3;
   }
   return {
     before: (b5 > 0 ? "\u2026" : "") + clean(text.slice(b5, start)),
@@ -62786,9 +63392,9 @@ async function sheetAvailable(loader) {
   }
   return !!customElements.get("universal-sheet");
 }
-function usedSize(el14, minCols, minRows) {
+function usedSize(el15, minCols, minRows) {
   let cols = minCols, rows = minRows;
-  for (const c5 of el14.debugCellDisplays(60, 400)) {
+  for (const c5 of el15.debugCellDisplays(60, 400)) {
     if (!c5.display) continue;
     const m2 = /^([A-Z]+)(\d+)$/.exec(c5.ref);
     if (!m2) continue;
@@ -62805,11 +63411,11 @@ async function previewPng(canvas2, w2, h3) {
   return { png, widthTwips: Math.round((w2 || canvas2.width) * 15), heightTwips: Math.round((h3 || canvas2.height) * 15) };
 }
 async function editSpreadsheet(layer, lang, xlsx) {
-  const el14 = document.createElement("universal-sheet");
-  el14.setAttribute("lang", lang);
-  el14.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
+  const el15 = document.createElement("universal-sheet");
+  el15.setAttribute("lang", lang);
+  el15.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
   const body = document.createElement("div");
-  body.append(el14);
+  body.append(el15);
   let saved = null;
   const h3 = openDialog({
     title: pickLabels(lang, { en: "Excel Spreadsheet", pt: "Planilha do Excel" }),
@@ -62821,10 +63427,10 @@ async function editSpreadsheet(layer, lang, xlsx) {
     onAction: (id) => {
       if (id !== "ok") return;
       try {
-        const out = el14.saveXlsx();
-        const { cols, rows } = usedSize(el14, 3, 4);
+        const out = el15.saveXlsx();
+        const { cols, rows } = usedSize(el15, 3, 4);
         const canvas2 = document.createElement("canvas");
-        const d3 = el14.renderRegionToCanvas(0, canvas2, cols, rows);
+        const d3 = el15.renderRegionToCanvas(0, canvas2, cols, rows);
         saved = { xlsx: out, canvas: canvas2, w: d3.w, h: d3.h };
       } catch (err2) {
         console.error(err2);
@@ -62833,7 +63439,7 @@ async function editSpreadsheet(layer, lang, xlsx) {
     }
   });
   await new Promise((r6) => requestAnimationFrame(r6));
-  el14.loadXlsx(xlsx);
+  el15.loadXlsx(xlsx);
   if (await h3.result !== "ok" || !saved) return null;
   const s4 = saved;
   return { xlsx: s4.xlsx, ...await previewPng(s4.canvas, s4.w, s4.h) };
@@ -63053,8 +63659,8 @@ function buildEngineDoc(input) {
   } else {
     const startBlock = (i7) => {
       if (i7 === 0) return 0;
-      const sp = starts[i7].startPara;
-      return sp >= paragraphs.length ? blocks.length : firstBlockOf[sp];
+      const sp2 = starts[i7].startPara;
+      return sp2 >= paragraphs.length ? blocks.length : firstBlockOf[sp2];
     };
     for (let i7 = 0; i7 < starts.length; i7++) {
       const a3 = startBlock(i7);
@@ -63403,10 +64009,10 @@ var NOTE_TIP_LABELS = {
   en: { empty: "(empty note)" },
   pt: { empty: "(nota vazia)" }
 };
-function sectionColumns(sp, sec) {
-  const marL = sp.marginLeftTwips;
-  const contentW = Math.max(720, sp.pageWidthTwips - marL - sp.marginRightTwips);
-  const n5 = Math.max(1, sp.cols?.count ?? 1);
+function sectionColumns(sp2, sec) {
+  const marL = sp2.marginLeftTwips;
+  const contentW = Math.max(720, sp2.pageWidthTwips - marL - sp2.marginRightTwips);
+  const n5 = Math.max(1, sp2.cols?.count ?? 1);
   const defs = sec?.sect?.colDefs;
   const out = [];
   if (n5 > 1 && defs && defs.length >= n5 && sec?.sect?.equalWidth === false) {
@@ -63416,7 +64022,7 @@ function sectionColumns(sp, sec) {
       x3 += d3.w + d3.space;
     }
   } else if (n5 > 1) {
-    const space = sp.cols?.spaceTwips ?? 720;
+    const space = sp2.cols?.spaceTwips ?? 720;
     const w2 = (contentW - space * (n5 - 1)) / n5;
     for (let k2 = 0; k2 < n5; k2++) out.push({ x: marL + k2 * (w2 + space), w: w2 });
   } else out.push({ x: marL, w: contentW });
@@ -66115,9 +66721,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot();
     const newCol = !preset && spec.startNewColumn;
     const targets = this.sectionTargets(applyTo, applyTo === "forward" && newCol ? "nextColumn" : "continuous");
-    for (const sp of targets) {
-      const s4 = preset ? presetColumns(sp, preset) : spec;
-      sp.cols = columnsFor(sp, s4);
+    for (const sp2 of targets) {
+      const s4 = preset ? presetColumns(sp2, preset) : spec;
+      sp2.cols = columnsFor(sp2, s4);
     }
     this.refresh();
   }
@@ -66127,24 +66733,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!m2) return null;
     const para4 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
     const k2 = sectionIndexAt(m2, para4);
-    const sp = sectionSectPr(m2, k2);
+    const sp2 = sectionSectPr(m2, k2);
     return {
       index: k2,
       count: sectionRanges(m2).length,
-      type: sp.type ?? "nextPage",
-      orientation: sp.pageWidthTwips > sp.pageHeightTwips ? "landscape" : "portrait",
-      pageWidthTwips: sp.pageWidthTwips,
-      pageHeightTwips: sp.pageHeightTwips,
-      margins: { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips },
+      type: sp2.type ?? "nextPage",
+      orientation: sp2.pageWidthTwips > sp2.pageHeightTwips ? "landscape" : "portrait",
+      pageWidthTwips: sp2.pageWidthTwips,
+      pageHeightTwips: sp2.pageHeightTwips,
+      margins: { top: sp2.marginTopTwips, right: sp2.marginRightTwips, bottom: sp2.marginBottomTwips, left: sp2.marginLeftTwips },
       columns: {
-        count: sp.cols?.count ?? 1,
-        spaceTwips: sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT,
-        sep: !!sp.cols?.sep,
-        equalWidth: !sp.cols?.widths,
-        widths: columnWidths(sp),
-        preset: columnsPresetOf(sp),
-        max: maxColumns(sp),
-        contentWidthTwips: contentWidth(sp)
+        count: sp2.cols?.count ?? 1,
+        spaceTwips: sp2.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT,
+        sep: !!sp2.cols?.sep,
+        equalWidth: !sp2.cols?.widths,
+        widths: columnWidths(sp2),
+        preset: columnsPresetOf(sp2),
+        max: maxColumns(sp2),
+        contentWidthTwips: contentWidth(sp2)
       }
     };
   }
@@ -66420,18 +67026,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.strokeStyle = this.pageDark ? "#9aa0a6" : "#808080";
     ctx.lineWidth = 14;
-    for (const el14 of this.eng.lines) {
-      if (el14.page !== pg || !el14.para || el14.loc.kind === "other") continue;
+    for (const el15 of this.eng.lines) {
+      if (el15.page !== pg || !el15.para || el15.loc.kind === "other") continue;
       let acc = 0;
-      const runs = el14.para.runs;
+      const runs = el15.para.runs;
       for (let i7 = 0; i7 < runs.length; i7++) {
         const r6 = runs[i7];
         const at = acc;
         acc += r6.text.length;
         if (!r6.bookmark || isHiddenBookmark(r6.bookmark.name)) continue;
-        if (at < el14.line.start || at > el14.line.end || at === el14.line.end && at < paraLength(el14.para) && !r6.bookmark.end) continue;
-        const x3 = caretXIn(el14.line, at);
-        const y0 = el14.line.y + 10, y1 = el14.line.y + el14.line.height - 10, w2 = 50;
+        if (at < el15.line.start || at > el15.line.end || at === el15.line.end && at < paraLength(el15.para) && !r6.bookmark.end) continue;
+        const x3 = caretXIn(el15.line, at);
+        const y0 = el15.line.y + 10, y1 = el15.line.y + el15.line.height - 10, w2 = 50;
         const point = !r6.bookmark.end && runs[i7 + 1]?.bookmark?.end && runs[i7 + 1].bookmark.id === r6.bookmark.id;
         ctx.beginPath();
         ctx.moveTo(x3, y0);
@@ -66705,8 +67311,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    * Atualizar campos (F9 = os da seleção, como o Word; "Atualizar campos" = todos):
    * sumários e índices de ilustrações refeitos, fórmulas de tabela recalculadas e
    * o resultado em cache de REF/PAGEREF/NOTEREF/SEQ/STYLEREF. Devolve quantos mudaram.
+   * `toc` = como atualizar os sumários: 'pages' (só os números de página, como a
+   * pergunta do Word) ou 'all' (o índice inteiro).
    */
-  updateFields(scope = "all") {
+  updateFields(scope = "all", toc = "all") {
     if (!this.model || this.locked()) return 0;
     const work = this.formulaWork(scope === "selection" ? this.fieldRunsInSelection() : void 0);
     const tocs = this.tocFields().filter((t6) => scope === "all" || this.tocInSelection(t6));
@@ -66718,8 +67326,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       delete w2.run.fieldResult;
     }
     let n5 = work.length;
-    for (const t6 of tocs.reverse()) if (this.rebuildToc(t6)) n5++;
-    n5 += this.refreshFieldCache(scope === "selection" && !tocs.length ? this.fieldRunsInSelection() : void 0);
+    if (toc === "all") for (const t6 of tocs.reverse()) {
+      if (this.rebuildToc(t6)) n5++;
+    }
+    const only = scope === "selection" && (!tocs.length || toc === "pages") ? this.fieldRunsInSelection() : void 0;
+    if (only && toc === "pages") for (const t6 of tocs) for (const r6 of this.tocPageRuns(t6)) only.add(r6);
+    n5 += this.refreshFieldCache(only);
     if (!n5) {
       this.undoStack.pop();
       return 0;
@@ -66834,8 +67446,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     const styleLevel = /* @__PURE__ */ new Map();
     for (const s4 of o7.styles ?? []) {
-      const meta = this.docStyles.byName(s4.style) ?? this.docStyles.meta(s4.style);
-      if (meta) styleLevel.set(meta.id, s4.level);
+      const id = this.tocStyleId(s4.style);
+      if (id) styleLevel.set(id, s4.level);
     }
     for (const h3 of all) {
       const p3 = h3.paragraph;
@@ -66845,12 +67457,34 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (sid && styleLevel.has(sid)) level = styleLevel.get(sid);
       else if (h3.level && o7.outline && this.isHeadingStyle(sid, h3.level) && h3.level >= o7.outline[0] && h3.level <= o7.outline[1]) level = h3.level;
       else if (h3.level && o7.outlineLevels && h3.level >= (o7.outline?.[0] ?? 1) && h3.level <= (o7.outline?.[1] ?? 9)) level = h3.level;
-      if (!level) continue;
       const text = paraText(p3).replace(/[\t\n\f\u000B]/g, " ").trim();
-      if (!text) continue;
-      out.push({ level, text, ...h3.number ? { number: h3.number } : {}, page: this.pageLabelOf(p3), bookmark: mark2(p3) });
+      if (level && text) out.push({ level, text, ...h3.number ? { number: h3.number } : {}, page: this.pageLabelOf(p3), bookmark: mark2(p3) });
+      if (!o7.fields) continue;
+      let acc = 0;
+      for (const r6 of p3.runs) {
+        const at = acc;
+        acc += r6.text.length;
+        const tc = parseTcInstr(r6.field);
+        if (!tc || !tcInToc(o7, tc)) continue;
+        const hp = host.get(p3);
+        const bm = hp ? this.refBookmark(hp.paras, hp.idx, at, at + r6.text.length, "_Toc") : "";
+        out.push({ level: tc.level, text: tc.text, page: this.pageLabelOf(p3), bookmark: bm, ...tc.noPage ? { noPage: true } : {} });
+      }
     }
     return out;
+  }
+  /** Estilo do \t pelo nome: o w:name, o nome de exibição (o Word grava o do idioma
+   *  dele — "Título;1", oráculo toc-styles) ou o id. */
+  tocStyleId(name) {
+    const ds = this.docStyles;
+    const m2 = ds.byName(name) ?? ds.meta(name);
+    if (m2) return m2.id;
+    const k2 = name.trim().toLowerCase();
+    for (const s4 of ds.index().styles) {
+      if (s4.type !== "paragraph") continue;
+      if (displayName(s4, "pt").toLowerCase() === k2 || displayName(s4, "en").toLowerCase() === k2) return s4.id;
+    }
+    return void 0;
   }
   /** O estilo do parágrafo é (ou herda de) um título interno do nível? (\o sem \u) */
   isHeadingStyle(id, level) {
@@ -66933,32 +67567,47 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   tocOrEmpty(o7, sources, look) {
     if (sources.length) return tocEntryParagraphs(o7, sources, look);
     const msg = pickLabels(this, o7.caption !== void 0 ? TOF_EMPTY : TOC_EMPTY);
-    return [{ runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} }];
+    const p3 = { runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} };
+    this.emptyTocParas.add(p3);
+    return [p3];
   }
+  /** o parágrafo do aviso "Nenhuma entrada…" (o campo começa e acaba nele) */
+  emptyTocParas = /* @__PURE__ */ new WeakSet();
   /**
    * Monta os parágrafos do campo TOC como o Word (oráculo tof-cursor-*): com texto
    * antes do começo, o começo fica no fim desse parágrafo e as entradas vêm em
    * parágrafos novos; senão o começo abre a 1ª entrada (no parágrafo de origem). O
-   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele.
+   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele. Sem
+   * entradas o campo cabe num parágrafo só, com o aviso (oráculo tof-empty,
+   * bb-1-empty). Dentro do controle do sumário as entradas ficam nele.
    */
   tocParagraphs(bp, ep, before, begin, entries, after, same2) {
     const out = [];
     const lead = before.some((r6) => r6.text || r6.image || r6.field);
+    const sdt = bp.props.blockSdt;
     const endProps = { ...ep.props };
     if (same2) delete endProps.src;
     const first = { ...bp.props };
     delete first.sectionBreak;
+    const inSdt = (p3) => {
+      if (sdt) p3.props = { ...p3.props, blockSdt: sdt };
+      return p3;
+    };
+    const empty = !lead && entries.length === 1 && this.emptyTocParas.has(entries[0]);
     if (lead) {
       bp.runs = [...before, begin];
       bp.props = first;
-      out.push(bp, ...entries);
+      out.push(bp, ...entries.map(inSdt));
     } else {
       const e0 = entries[0];
-      bp.runs = [...before, begin, ...e0.runs];
-      bp.props = { ...e0.props, ...first.src !== void 0 ? { src: first.src } : {} };
+      const endRun = empty && after[0]?.fieldEnd ? after.shift() : void 0;
+      bp.runs = [...before, begin, ...e0.runs, ...endRun ? [endRun] : []];
+      bp.props = { ...e0.props, ...first.src !== void 0 ? { src: first.src } : {}, ...sdt ? { blockSdt: sdt } : {} };
       delete bp.ppr;
       bp.pprEdited = true;
-      out.push(bp, ...entries.slice(1));
+      out.push(bp, ...entries.slice(1).map(inSdt));
+      const rest = after.some((r6) => r6.text || r6.image || r6.field || r6.fieldBegin !== void 0 || r6.fieldEnd || r6.bookmark || r6.textbox || r6.shape || r6.group);
+      if (endRun && !rest && !(same2 ? endProps : ep.props).sectionBreak) return out;
     }
     if (same2) out.push({ runs: after, props: endProps, ...ep.ppr ? { ppr: ep.ppr } : {} });
     else {
@@ -67056,21 +67705,553 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return true;
   }
   /**
-   * Atualiza os sumários (campos TOC com títulos) como o Word: entradas com
-   * hiperlink para _Toc ocultos nos títulos e PAGEREF, estilos Sumário N. A
-   * inserção do sumário é da frente Sumário, que reaproveita este motor.
+   * Atualizar Sumário, com a escolha da pergunta do Word: 'pages' refaz só os
+   * números de página das entradas (o texto editado nelas fica e os _Toc são os
+   * mesmos — oráculo bb-update-pages); 'all' refaz o índice inteiro com o mesmo
+   * motor (entradas com hiperlink para _Toc novos e PAGEREF, estilos Sumário N —
+   * bb-update-all). Vale para o sumário do cursor; fora de um, para todos os
+   * campos TOC (sumários e índices de ilustrações).
    */
-  updateToc() {
+  updateToc(mode = "all") {
     if (!this.model || this.locked()) return false;
-    const list = this.tocFields();
+    const at = this.tocAtCaret();
+    const list = at ? [at] : this.tocFields();
     if (!list.length) return false;
     this.quietChange = true;
     this.snapshot();
     this.quietChange = false;
-    for (const t6 of [...list].reverse()) this.rebuildToc(t6);
+    if (mode === "pages") {
+      const runs = /* @__PURE__ */ new Set();
+      for (const t6 of list) for (const r6 of this.tocPageRuns(t6)) runs.add(r6);
+      this.refreshFieldCache(runs);
+    } else {
+      for (const t6 of [...list].reverse()) this.rebuildToc(t6);
+      this.refreshFieldCache();
+    }
+    this.refresh();
+    return true;
+  }
+  // ── sumário (frente Sumário): galeria, Sumário Personalizado, Remover, Adicionar
+  //    Texto, campos TC e o controle de conteúdo. Regras em toc.ts; fatos do Word
+  //    em write/tools/toc-lab (memória word-toc-oracle-facts).
+  /** Campos TOC de sumário (sem os índices de ilustrações). */
+  tocTables() {
+    return this.tocFields().filter((t6) => parseTocInstr(t6.instr).caption === void 0);
+  }
+  /** Parágrafos [a, b] do controle de conteúdo do sumário que contém o parágrafo `pi` do corpo. */
+  tocSdtRange(pi) {
+    if (this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return null;
+    const ps = this.model.paragraphs;
+    const s4 = ps[pi]?.props.blockSdt;
+    if (!isTocSdt(s4)) return null;
+    let a3 = pi, b5 = pi;
+    while (a3 > 0 && ps[a3 - 1].props.blockSdt?.key === s4.key) a3--;
+    while (b5 + 1 < ps.length && ps[b5 + 1].props.blockSdt?.key === s4.key) b5++;
+    return [a3, b5];
+  }
+  /** O 1º controle de conteúdo de sumário do corpo. */
+  firstTocSdt() {
+    const ps = this.bodyModel().paragraphs;
+    const i7 = ps.findIndex((p3) => isTocSdt(p3.props.blockSdt));
+    return i7 < 0 || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit ? null : this.tocSdtRange(i7);
+  }
+  /** O sumário do cursor: o campo que contém a seleção ou o do controle de conteúdo
+   *  em que o cursor está (no título dele, por exemplo). */
+  tocAtCaret() {
+    if (!this.model || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return void 0;
+    const all = this.tocTables();
+    const hit = all.find((t6) => this.tocInSelection(t6));
+    if (hit) return hit;
+    const r6 = this.tocSdtRange(this.selection.focus.para);
+    return r6 ? all.find((t6) => t6.begin >= r6[0] && t6.begin <= r6[1]) : void 0;
+  }
+  /** Runs PAGEREF das entradas de um campo TOC (Atualizar só os números). */
+  tocPageRuns(t6) {
+    const ps = this.bodyModel().paragraphs;
+    const out = [];
+    const last = t6.end < 0 ? t6.begin : t6.end;
+    const take = (r6) => {
+      if (/^\s*PAGEREF\b/i.test(r6.field ?? "")) out.push(r6);
+      for (const x3 of r6.fieldResult ?? []) take(x3);
+    };
+    for (let pi = t6.begin; pi <= last; pi++) for (const r6 of ps[pi]?.runs ?? []) take(r6);
+    return out;
+  }
+  /** Há sumário no documento (campo ou controle — o Manual não tem campo)? */
+  hasTableOfContents() {
+    if (!this.model) return false;
+    return this.tocTables().length > 0 || this.firstTocSdt() !== null;
+  }
+  /** O cursor está num sumário (campo ou controle)? */
+  inTableOfContents() {
+    if (!this.model) return false;
+    return !!this.tocAtCaret() || !!this.tocSdtRange(this.selection.focus.para);
+  }
+  /** Modelos da galeria Sumário, com o nome no idioma da interface. */
+  tocTemplates() {
+    return TOC_TEMPLATES.map((t6) => ({ id: t6.id, name: pickLabels(this, t6.name) }));
+  }
+  /** w:id novo de controle de conteúdo (inteiro de 32 bits com sinal, como o Word). */
+  newSdtId() {
+    const n5 = Math.floor(Math.random() * 2147483647) || 1;
+    return Math.random() < 0.5 ? -n5 : n5;
+  }
+  /**
+   * Onde entra um bloco novo da galeria: a seleção sai; num parágrafo vazio o bloco
+   * fica no lugar dele (oráculo bb-1); no começo, antes; no fim, depois; no meio
+   * do texto, o parágrafo é dividido. Devolve o índice do parágrafo.
+   */
+  blockInsertPoint() {
+    if (this.hasSelection()) {
+      const p4 = this.deleteSelection();
+      this.selection = { anchor: p4, focus: p4 };
+    }
+    const ps = this.model.paragraphs;
+    const pos = this.selection.focus;
+    const p3 = ps[pos.para];
+    const len2 = paraLength(p3);
+    const bare = !len2 && !p3.props.sectionBreak && !p3.runs.some((r6) => r6.bookmark || r6.fieldBegin !== void 0 || r6.fieldEnd);
+    if (bare) {
+      ps.splice(pos.para, 1);
+      this.shiftAnchors(pos.para, -1);
+      return pos.para;
+    }
+    if (pos.offset <= 0) return pos.para;
+    if (pos.offset >= len2) return pos.para + 1;
+    splitParagraph(this.model, pos);
+    this.shiftAnchors(pos.para, 1);
+    return pos.para + 1;
+  }
+  /** Tira os parágrafos [a, b] do corpo (e os _Toc que só as entradas usavam). */
+  dropBodyParas(a3, b5) {
+    const ps = this.model.paragraphs;
+    const old = [];
+    for (let i7 = a3; i7 <= b5; i7++) old.push(...ps[i7].runs);
+    this.dropOldTocMarks(old);
+    ps.splice(a3, b5 - a3 + 1);
+    this.shiftAnchors(a3, -(b5 - a3 + 1));
+  }
+  /** Entradas do Sumário Manual (oráculo bb-3): Sumário 1–3, espaço reservado,
+   *  tabulação de alinhamento à direita com pontilhado e o número; nível 1 em
+   *  negrito, recuo direto 216/446 nos níveis 2 e 3. */
+  manualTocParas(lang, sdt, styleOf = (n5) => this.builtinStyleId(n5)) {
+    return MANUAL_LEVELS.map((level, i7) => {
+      const bold = level === 1 ? { bold: true } : {};
+      const runs = [
+        { text: manualPlaceholder(lang, level), props: { ...DEFAULT_RUN_PROPS, ...bold } },
+        { text: "	", props: { ...DEFAULT_RUN_PROPS }, ptab: { alignment: "right", relativeTo: "margin", leader: "dot" } },
+        { text: String(i7 + 1), props: { ...DEFAULT_RUN_PROPS, ...bold } }
+      ];
+      const ind2 = level === 2 ? 216 : level === 3 ? 446 : void 0;
+      return { runs, props: { styleId: styleOf(`toc ${level}`), ...ind2 ? { indentLeftTwips: ind2 } : {}, ...sdt ? { blockSdt: sdt } : {} } };
+    });
+  }
+  /**
+   * Miniatura de um modelo da galeria Sumário (o motor desenha): o título e três
+   * entradas com os estilos do documento (os que faltam, pela definição interna —
+   * sem gravá-los no documento).
+   */
+  paintTocTemplate(id, canvas2, cssWidth) {
+    const tpl = TOC_TEMPLATES.find((t6) => t6.id === id);
+    if (!tpl || !this.model || !this.fonts) return false;
+    const lang = uiLang(this);
+    const ds = this.docStyles;
+    let xml = ds.base();
+    const styleOf = (name) => {
+      const b5 = builtinStyle(name);
+      const sid = resolveStyleId(xml, b5 ? /w:styleId="([^"]*)"/.exec(b5.xml)?.[1] ?? name : name);
+      xml = ensureDefined(ds, xml, sid, true);
+      return sid;
+    };
+    const sp2 = { ...this.sect() };
+    delete sp2.pgBorders;
+    delete sp2.cols;
+    const width = 4800;
+    sp2.pageWidthTwips = sp2.marginLeftTwips + sp2.marginRightTwips + width;
+    const head = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: styleOf("TOC Heading") } };
+    const entries = tpl.manual ? this.manualTocParas(lang, void 0, styleOf).slice(0, 3) : [1, 2, 3].map((level) => ({
+      runs: [
+        { text: lang === "pt" ? `T\xEDtulo ${level}` : `Heading ${level}`, props: { ...DEFAULT_RUN_PROPS } },
+        { text: "	", props: { ...DEFAULT_RUN_PROPS } },
+        { text: "1", props: { ...DEFAULT_RUN_PROPS } }
+      ],
+      props: { styleId: styleOf(`toc ${level}`), tabStops: [{ posTwips: width - 10, align: "right", leader: "dot" }] }
+    }));
+    const paras = [head, ...entries];
+    const full = {
+      ...this.fullDoc ?? {},
+      blocks: paras.map((paragraph) => ({ type: "paragraph", paragraph })),
+      sections: [{ sectPr: sp2, blockStart: 0, blockEnd: paras.length - 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks: {}, footerBlocks: {} }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      bookmarks: /* @__PURE__ */ new Map(),
+      formatting: { ...this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting(), styles: readStyleSheet(xml) }
+    };
+    let page2;
+    try {
+      page2 = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: void 0 }).pages[0];
+    } catch {
+      return false;
+    }
+    if (!page2?.lines.length) return false;
+    const top = Math.max(0, Math.min(...page2.lines.map((l3) => l3.y)) - 160);
+    const bottom = Math.max(...page2.lines.map((l3) => l3.y + l3.height)) + 160;
+    const left = Math.max(0, sp2.marginLeftTwips - 240), right = Math.min(page2.widthTw, page2.widthTw - sp2.marginRightTwips + 240);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / (right - left);
+    canvas2.width = Math.max(1, Math.round((right - left) * scale * dpr));
+    canvas2.height = Math.max(1, Math.round((bottom - top) * scale * dpr));
+    canvas2.style.width = `${Math.round((right - left) * scale)}px`;
+    canvas2.style.height = `${Math.round((bottom - top) * scale)}px`;
+    const ctx = canvas2.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
+    ctx.fillRect(0, 0, canvas2.width, canvas2.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, -left * scale * dpr, -top * scale * dpr);
+    paintItems(ctx, page2.items, this.enginePaintEnv(), {});
+    return true;
+  }
+  /**
+   * Insere um modelo da galeria Sumário: o controle de conteúdo do sumário
+   * (docPartGallery "Table of Contents", docPartUnique), o título no estilo
+   * Cabeçalho do Sumário e o campo `TOC \o "1-3" \h \z \u` (ou as entradas do
+   * Manual). Um sumário da galeria por documento: o que já houver é substituído.
+   * Um passo de desfazer.
+   */
+  insertTocTemplate(id) {
+    const tpl = TOC_TEMPLATES.find((t6) => t6.id === id);
+    if (!tpl || !this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    this.snapshot();
+    const ps = this.model.paragraphs;
+    const old = this.firstTocSdt();
+    let at;
+    if (old) {
+      at = old[0];
+      this.dropBodyParas(old[0], old[1]);
+    } else at = this.blockInsertPoint();
+    const lang = uiLang(this);
+    const sdt = { key: `t${this.newSdtId()}`, gallery: "Table of Contents", pr: tocSdtPr(this.newSdtId()) };
+    const heading = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: this.builtinStyleId("TOC Heading"), blockSdt: sdt } };
+    let body;
+    if (tpl.manual) body = this.manualTocParas(lang, sdt);
+    else {
+      const o7 = parseTocInstr(TOC_AUTO_INSTR);
+      const entries = this.tocOrEmpty(o7, this.tocSources(o7, null), this.tocLook(o7, void 0, "dot"));
+      const bp = { runs: [], props: { blockSdt: sdt } };
+      const begin = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldBegin: TOC_AUTO_INSTR };
+      const end = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+      body = this.tocParagraphs(bp, bp, [], begin, entries, [end], true);
+    }
+    const built = [heading, ...body];
+    if (at >= ps.length) built.push({ runs: [], props: {} });
+    ps.splice(at, 0, ...built);
+    this.shiftAnchors(at, built.length);
+    const next = Math.min(at + built.length, ps.length - 1);
+    const pos = next === at + built.length ? { para: next, offset: 0 } : { para: next, offset: paraLength(ps[next]) };
+    this.selection = { anchor: pos, focus: pos };
     this.refreshFieldCache();
     this.refresh();
     return true;
+  }
+  /** Opções do sumário do cursor (ou do 1º) — o diálogo Sumário Personalizado abre com elas. */
+  getTableOfContentsOptions() {
+    const t6 = this.tocAtCaret() ?? this.tocTables()[0];
+    if (!t6) return null;
+    const d3 = dialogOptionsFrom(parseTocInstr(t6.instr));
+    const ps = this.bodyModel().paragraphs;
+    const tab = [ps[t6.begin], ps[t6.begin + 1]].find((p3) => p3?.props.tabStops?.some((x3) => x3.align === "right"))?.props.tabStops?.find((x3) => x3.align === "right");
+    d3.leader = tab ? tab.leader ?? "none" : "dot";
+    return d3;
+  }
+  /**
+   * Sumário Personalizado: grava o campo com as opções do diálogo (`\o "1-N"`, `\n`,
+   * `\p " "`, `\h`, `\z`, `\t`, `\u`, `\f` — oráculo toc-*), o preenchimento na
+   * tabulação das entradas e o formato nos estilos Sumário 1–9. `replace`: true =
+   * substitui o sumário do cursor (ou o 1º), como o "Sim" da pergunta do Word;
+   * false = insere outro no cursor; omitido = substitui o do cursor, se houver.
+   */
+  insertTableOfContents(opts = {}, replace) {
+    if (!this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    const o7 = tocOptionsFrom(opts);
+    const leader = opts.leader ?? "dot";
+    const old = replace === false ? void 0 : this.tocAtCaret() ?? (replace ? this.tocTables()[0] : void 0);
+    this.snapshot();
+    if (opts.format) this.applyTocFormat(opts.format, opts.levels ?? 3);
+    if (old) {
+      this.rebuildToc({ ...old, instr: tocInstr(o7) }, leader);
+      this.refreshFieldCache();
+      this.refresh();
+      return true;
+    }
+    this.insertTocField(o7, leader);
+    return true;
+  }
+  /** Campo TOC novo no cursor, como o Word (oráculo tof-cursor-*: o campo começa
+   *  no cursor, o fim abre o parágrafo seguinte às entradas; o cursor fica nele). */
+  insertTocField(o7, leader) {
+    if (this.hasSelection()) {
+      const p4 = this.deleteSelection();
+      this.selection = { anchor: p4, focus: p4 };
+    }
+    const ps = this.model.paragraphs;
+    const at = this.selection.focus;
+    const p3 = ps[at.para];
+    const idx = insertIndex(p3, at.offset);
+    const before = p3.runs.slice(0, idx), after = p3.runs.slice(idx);
+    const sources = this.tocSources(o7, null);
+    const entries = this.tocOrEmpty(o7, sources, this.tocLook(o7, void 0, leader));
+    const begin = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldBegin: tocInstr(o7) };
+    const end = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+    const built = this.tocParagraphs(p3, p3, before, begin, entries, [end, ...after], true);
+    ps.splice(at.para, 1, ...built);
+    this.shiftAnchors(at.para, built.length - 1);
+    const endAt = { para: at.para + built.length - 1, offset: 0 };
+    this.selection = { anchor: endAt, focus: endAt };
+    this.refreshFieldCache();
+    this.refresh();
+  }
+  /** Formatos do diálogo: o pPr/rPr de cada estilo "toc N" (os níveis mostrados e os
+   *  já definidos — oráculo toc-format*); "Do modelo" volta à definição interna. */
+  applyTocFormat(f3, levels) {
+    if (!this.stylesEditable()) return;
+    for (let n5 = 1; n5 <= 9; n5++) {
+      const name = `toc ${n5}`;
+      const defined = !!this.docStyles.byName(name);
+      if (n5 > levels && !defined) continue;
+      if (f3 === "template" && !defined) continue;
+      const id = this.builtinStyleId(name);
+      const raw = styleRaw(this.docStyles.base(), id);
+      if (!raw) continue;
+      const fm = tocFormatStyle(f3, n5);
+      this.commitStyles(putStyle(this.docStyles.base(), id, patchStyleXml(raw, { pPr: `<w:pPr>${fm.pPr}</w:pPr>`, rPr: fm.rPr ? `<w:rPr>${fm.rPr}</w:rPr>` : null })));
+    }
+  }
+  /**
+   * Remover Sumário (o comando interno RemoveTableOfContents, medido): o controle
+   * de conteúdo inteiro, com o título, ou o campo; os _Toc que só as entradas
+   * usavam saem dos títulos. O do cursor ou o 1º do documento. Um passo de desfazer.
+   */
+  removeTableOfContents() {
+    if (!this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    const ps = this.model.paragraphs;
+    const t6 = this.tocAtCaret();
+    let range = this.tocSdtRange(this.selection.focus.para);
+    let field3 = range ? void 0 : t6;
+    if (!range && !field3) {
+      const s4 = this.firstTocSdt(), f3 = this.tocTables()[0];
+      if (s4 && (!f3 || s4[0] <= f3.begin)) range = s4;
+      else field3 = f3;
+    }
+    if (!range && !field3) return false;
+    this.snapshot();
+    let at;
+    if (range) {
+      at = range[0];
+      this.dropBodyParas(range[0], range[1]);
+    } else {
+      const f3 = field3;
+      const last = f3.end < 0 ? f3.begin : f3.end;
+      const bp = ps[f3.begin], ep = ps[last];
+      const bi = bp.runs.indexOf(f3.beginRun), ei = f3.endRun ? ep.runs.indexOf(f3.endRun) : -1;
+      const lead = bi > 0 ? bp.runs.slice(0, bi) : [];
+      const tail = ei >= 0 ? ep.runs.slice(ei + 1) : [];
+      const old = [];
+      for (let i7 = f3.begin; i7 <= last; i7++) old.push(...ps[i7].runs);
+      this.dropOldTocMarks(old);
+      const keep = [];
+      const hasLead = lead.some((r6) => r6.text || r6.image || r6.field || r6.bookmark);
+      if (f3.begin === last) keep.push({ ...bp, runs: [...lead, ...tail] });
+      else {
+        if (hasLead) keep.push({ ...bp, runs: lead });
+        if (tail.length || ep.props.sectionBreak) keep.push({ ...ep, runs: tail });
+      }
+      ps.splice(f3.begin, last - f3.begin + 1, ...keep);
+      this.shiftAnchors(f3.begin, keep.length - (last - f3.begin + 1));
+      at = f3.begin + (keep.length > 1 ? 1 : 0);
+    }
+    if (!ps.length) ps.push({ runs: [], props: {} });
+    const pi = Math.min(at, ps.length - 1);
+    this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+    this.refresh();
+    return true;
+  }
+  /** Nível do parágrafo do cursor no sumário (Adicionar Texto: 0 = Não Mostrar no Sumário). */
+  getTocLevel() {
+    if (!this.model || this.hfEdit || this.tbEdit || this.noteEdit) return 0;
+    const p3 = this.model.paragraphs[this.selection.focus.para];
+    if (!p3) return 0;
+    if (this.cellEdit) return 0;
+    return outlineParagraphs(this.liveEngineDoc().full).find((h3) => h3.paragraph === p3)?.level ?? 0;
+  }
+  /** O estilo do parágrafo para Adicionar Texto: Normal, título interno ou outro. */
+  addTextKind(p3) {
+    const ds = this.docStyles;
+    const id = p3.props.styleId ?? p3.ppr?.pStyle;
+    if (!id || id === ds.defaultParagraph()) return "normal";
+    return /^heading [1-9]$/i.test(ds.meta(id)?.name ?? "") ? "heading" : "other";
+  }
+  /**
+   * Adicionar Texto (0 = Não Mostrar no Sumário; 1–9 = Nível N) nos parágrafos da
+   * seleção — regra de toc.ts (addTextPlan): Título N ou Normal nos parágrafos
+   * Normal/de título, só o nível de tópico nos de outro estilo. Um passo de desfazer.
+   */
+  setTocLevel(level) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit) return;
+    const lv = Math.max(0, Math.min(9, Math.round(level)));
+    this.snapshot();
+    const { start, end } = normalizeRange(this.range());
+    const keep = this.selection;
+    const now = /* @__PURE__ */ new Map();
+    for (const h3 of outlineParagraphs(this.liveEngineDoc().full)) now.set(h3.paragraph, h3.level);
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p3 = this.model.paragraphs[pi];
+      if (!p3) continue;
+      const plan = addTextPlan(lv, this.addTextKind(p3));
+      if (plan.heading || plan.normal) {
+        this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+        this.applyStyleCore(plan.heading ? this.builtinStyleId(`heading ${plan.heading}`) : void 0);
+      } else if (plan.outline !== void 0) {
+        if (plan.outline === null && !now.get(p3)) continue;
+        const v2 = plan.outline === null ? 9 : plan.outline - 1;
+        p3.props = { ...p3.props, outlineLvl: v2 };
+        p3.ppr = { ...p3.ppr ?? {}, outlineLvl: v2 };
+      }
+    }
+    this.selection = keep;
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /**
+   * Marcar Entrada de Sumário (Alt+Shift+O): o campo TC no fim da seleção (ou no
+   * cursor), como o Word grava — ` TC "texto" \f C \l "N" ` (oráculo tc-mark,
+   * tc-mark-sel). O sumário o lê com "Campos de entrada de índice" (\f).
+   */
+  markTocEntry(opts) {
+    if (!this.model || this.locked() || !opts.text.trim() || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    this.snapshot();
+    const { end } = normalizeRange(this.range());
+    const base = this.newRunProps(this.pendingProps ?? this.currentProps());
+    const run3 = { text: "", props: { ...base }, field: tcInstr({ text: opts.text, id: opts.identifier, level: opts.level }) };
+    const pos = insertRun(this.model, end, run3);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    return true;
+  }
+  /** Texto sugerido para Marcar Entrada de Sumário: a seleção (sem quebras). */
+  tocEntrySuggestion() {
+    return this.selectedText().replace(/[\r\n\t\u000B\f]+/g, " ").trim();
+  }
+  /**
+   * Pede a atualização do sumário: a barra cancela o `uw-toc-update` e faz a
+   * pergunta do Word (só os números ou o índice inteiro); sem barra, o índice
+   * inteiro. `scope` 'caret' = o sumário (botão do controle, comando); 'selection'
+   * = F9 com um sumário na seleção.
+   */
+  requestTocUpdate(scope) {
+    const ev = new CustomEvent("uw-toc-update", { cancelable: true, detail: { scope } });
+    if (!this.dispatchEvent(ev)) return;
+    if (scope === "caret") this.updateToc("all");
+    else this.updateFields("selection");
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  // ── controle de conteúdo do sumário na tela (adorno do editor, como o Word: a
+  //    moldura e a aba com o menu da galeria e "Atualizar Sumário…" quando o cursor
+  //    está nele — nunca no PDF, na impressão ou no viewer)
+  tocMeasure = null;
+  /** Moldura por página (twips) do controle do sumário com o cursor dentro. */
+  tocControlBoxes() {
+    if (!this.model || !this.eng || this.printRender || this.hfCapturing || this.view !== "print" || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return [];
+    const r6 = this.tocSdtRange(this.selection.focus.para);
+    if (!r6) return [];
+    const by = /* @__PURE__ */ new Map();
+    for (let pi = r6[0]; pi <= r6[1]; pi++) {
+      for (const l3 of this.layoutCache[pi]?.lines ?? []) {
+        const b5 = by.get(l3.page);
+        const y0 = l3.yTwips, y1 = l3.yTwips + l3.heightTwips;
+        by.set(l3.page, b5 ? { y0: Math.min(b5.y0, y0), y1: Math.max(b5.y1, y1) } : { y0, y1 });
+      }
+    }
+    return [...by].sort((a3, b5) => a3[0] - b5[0]).map(([pg, b5]) => {
+      const sp2 = this.sectPrAt(this.pageSections[pg] ?? 0);
+      const x3 = sp2.marginLeftTwips;
+      return { pg, x: x3, y: b5.y0, w: sp2.pageWidthTwips - sp2.marginRightTwips - x3, h: b5.y1 - b5.y0 };
+    });
+  }
+  /** A aba do controle (em cima, à esquerda da 1ª moldura): o botão do menu e o
+   *  "Atualizar Sumário…", em twips da página. */
+  tocTabGeom() {
+    const b5 = this.tocControlBoxes()[0];
+    if (!b5) return null;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const pad2 = 3 * px, th = 20 * px, fs = 11.5 * px;
+    const label = pickLabels(this, { en: "Update Table\u2026", pt: "Atualizar Sum\xE1rio\u2026" });
+    this.tocMeasure ??= document.createElement("canvas").getContext("2d");
+    let tw3 = label.length * fs * 0.55;
+    if (this.tocMeasure) {
+      this.tocMeasure.font = `400 ${fs}px ${DEFAULT_FONT_CSS}`;
+      tw3 = this.tocMeasure.measureText(label).width;
+    }
+    const x0 = b5.x - pad2, y0 = b5.y - pad2 - th;
+    return { pg: b5.pg, pad: pad2, th, fs, label, menu: [x0, y0, th, th], update: [x0 + th, y0, tw3 + 14 * px, th] };
+  }
+  paintTocControl(ctx, pg) {
+    const boxes = this.tocControlBoxes();
+    const b5 = boxes.find((x3) => x3.pg === pg);
+    if (!b5) return;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const dark = this.pageDark;
+    const line2 = dark ? "#5f6b7a" : "#a9bcd0", bg = dark ? "#2b3138" : "#eef3f8", ink = dark ? "#e3e3e3" : "#3c4043";
+    ctx.save();
+    ctx.lineWidth = px;
+    ctx.strokeStyle = line2;
+    const pad2 = 3 * px;
+    ctx.strokeRect(b5.x - pad2, b5.y - pad2, b5.w + 2 * pad2, b5.h + 2 * pad2);
+    const g2 = boxes[0] === b5 ? this.tocTabGeom() : null;
+    if (g2) {
+      for (const r6 of [g2.menu, g2.update]) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(...r6);
+        ctx.strokeRect(...r6);
+      }
+      const [mx, my, mw] = g2.menu;
+      ctx.strokeStyle = ink;
+      ctx.beginPath();
+      const lines = [[0.25, 0.3, 0.75], [0.33, 0.45, 0.75], [0.33, 0.6, 0.75], [0.25, 0.75, 0.75]];
+      for (const [x1, y3, x22] of lines) {
+        ctx.moveTo(mx + mw * x1, my + mw * y3);
+        ctx.lineTo(mx + mw * x22, my + mw * y3);
+      }
+      ctx.stroke();
+      ctx.fillStyle = ink;
+      ctx.font = `400 ${g2.fs}px ${DEFAULT_FONT_CSS}`;
+      ctx.textBaseline = "middle";
+      ctx.fillText(g2.label, g2.update[0] + 7 * px, g2.update[1] + g2.th / 2);
+    }
+    ctx.restore();
+  }
+  /** Clique na aba do controle do sumário: o menu (a barra abre a galeria) ou
+   *  Atualizar Sumário. */
+  tocTabMouseDown(e8) {
+    if (e8.button !== 0) return false;
+    const g2 = this.tocTabGeom();
+    const p3 = g2 ? this.engPoint(e8) : null;
+    if (!g2 || !p3 || p3.pg !== g2.pg) return false;
+    const inR = (r6) => p3.x >= r6[0] && p3.x <= r6[0] + r6[2] && p3.y >= r6[1] && p3.y <= r6[1] + r6[3];
+    if (inR(g2.update)) {
+      e8.preventDefault();
+      if (!this.locked()) this.requestTocUpdate("caret");
+      return true;
+    }
+    if (inR(g2.menu)) {
+      e8.preventDefault();
+      this.dispatchEvent(new CustomEvent("uw-toc-menu", { detail: { x: e8.clientX, y: e8.clientY } }));
+      return true;
+    }
+    return false;
   }
   // ── legendas
   /** Configuração das legendas (rótulos criados, numeração, AutoLegenda) — a barra a
@@ -67404,12 +68585,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       };
     }
     if (this.eng) {
-      for (const el14 of this.eng.lines) {
-        const para4 = el14.para;
+      for (const el15 of this.eng.lines) {
+        const para4 = el15.para;
         if (!para4?.runs.some((r6) => r6.props.commentIds?.includes(id))) continue;
-        const canvas2 = this.canvases[el14.page];
+        const canvas2 = this.canvases[el15.page];
         if (!canvas2) return null;
-        return { topPx: canvas2.offsetTop + el14.line.y * scale, heightPx: el14.line.height * scale, page: el14.page };
+        return { topPx: canvas2.offsetTop + el15.line.y * scale, heightPx: el15.line.height * scale, page: el15.page };
       }
       return null;
     }
@@ -67895,12 +69076,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.eng) return out;
     const scale = PX_PER_TWIP * this.zoom;
     this.revisionSpans().forEach(({ span, para: para4 }, index) => {
-      for (const el14 of this.eng.lines) {
-        if (el14.para !== para4) continue;
-        if (!span.mark && span.kind !== "paraFormat" && (el14.line.end < span.start || el14.line.start > Math.max(span.start, span.end - 1))) continue;
-        const canvas2 = this.canvases[el14.page];
+      for (const el15 of this.eng.lines) {
+        if (el15.para !== para4) continue;
+        if (!span.mark && span.kind !== "paraFormat" && (el15.line.end < span.start || el15.line.start > Math.max(span.start, span.end - 1))) continue;
+        const canvas2 = this.canvases[el15.page];
         if (!canvas2) break;
-        out.push({ index, topPx: canvas2.offsetTop + el14.line.y * scale, heightPx: el14.line.height * scale, page: el14.page });
+        out.push({ index, topPx: canvas2.offsetTop + el15.line.y * scale, heightPx: el15.line.height * scale, page: el15.page });
         break;
       }
     });
@@ -67939,19 +69120,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   rasterizeSvg(img) {
     const text = new TextDecoder().decode(img.svg);
     const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
-    const el14 = new Image();
-    el14.onload = () => {
+    const el15 = new Image();
+    el15.onload = () => {
       try {
         const SS = 3;
-        const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el14.width) * PX_PER_TWIP * SS)));
-        const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el14.height) * PX_PER_TWIP * SS)));
+        const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el15.width) * PX_PER_TWIP * SS)));
+        const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el15.height) * PX_PER_TWIP * SS)));
         const oc = document.createElement("canvas");
         oc.width = wPx;
         oc.height = hPx;
         const octx = oc.getContext("2d");
         octx.imageSmoothingEnabled = true;
         octx.imageSmoothingQuality = "high";
-        octx.drawImage(el14, 0, 0, wPx, hPx);
+        octx.drawImage(el15, 0, 0, wPx, hPx);
         void createImageBitmap(oc).then((bmp) => {
           this.bitmaps.set(img, bmp);
           this.imagesVersion++;
@@ -67962,11 +69143,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       URL.revokeObjectURL(url);
     };
-    el14.onerror = () => {
+    el15.onerror = () => {
       this.bitmaps.set(img, void 0);
       URL.revokeObjectURL(url);
     };
-    el14.src = url;
+    el15.src = url;
   }
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
   async insertImage(data8, ext, obj) {
@@ -69118,6 +70299,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
       if (this.tableMouseDown(e8)) return;
+      if (this.tocTabMouseDown(e8)) return;
       if (e8.button === 0 && !this.protectedMode) {
         if (this.drawMouseDown(e8) || this.linkMouseDown(e8)) {
           this.focusEditor();
@@ -69488,7 +70670,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (k2 === "F9" && !ctrl && !e8.altKey && !e8.shiftKey) {
         e8.preventDefault();
-        this.updateFields("selection");
+        if (this.tocFields().some((t6) => this.tocInSelection(t6))) this.requestTocUpdate("selection");
+        else this.updateFields("selection");
         this.onSelectionChange?.();
         this.chromeSync?.();
         return;
@@ -69807,13 +70990,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       while (j < text.length && isLower(text[j]) === lower) j++;
       const seg = text.slice(i7, j);
       let t6 = seg;
-      let sz2 = size;
+      let sz3 = size;
       if (lower) {
         const up2 = seg.toUpperCase();
         t6 = up2.length === seg.length ? up2 : seg;
-        sz2 = size * _UniversalWriteElement.SMALL_CAPS_SCALE;
+        sz3 = size * _UniversalWriteElement.SMALL_CAPS_SCALE;
       }
-      out.push({ text: t6, family, variant, sizePt: sz2, letterSpacingTwips: ls2, runIndex });
+      out.push({ text: t6, family, variant, sizePt: sz3, letterSpacingTwips: ls2, runIndex });
       i7 = j;
     }
     return out.length ? out : [{ text: "", family, variant, sizePt: size, runIndex }];
@@ -69994,21 +71177,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Seção como o motor e a pintura a usam: geometria do modelo, props do
    *  sectPr guardadas (tipo e colunas do modelo valem) e cabeçalhos/rodapés das
    *  refs da seção no modelo. */
-  effectiveSection(id, sp, refs) {
+  effectiveSection(id, sp2, refs) {
     const props = this.sectionProps.get(id);
-    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp.type ?? "", sp.cols ?? null]);
+    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp2.type ?? "", sp2.cols ?? null]);
     const c5 = this.sectionEff.get(id);
-    if (c5 && c5.sp === sp && c5.key === key && c5.props === props) return c5.sec;
-    const sect = { ...props ?? { type: "nextPage" }, type: sp.type ?? "nextPage" };
-    if (sp.cols?.widths) {
-      sect.colDefs = sp.cols.widths.map((w2) => ({ w: w2.widthTwips, space: w2.spaceTwips }));
+    if (c5 && c5.sp === sp2 && c5.key === key && c5.props === props) return c5.sec;
+    const sect = { ...props ?? { type: "nextPage" }, type: sp2.type ?? "nextPage" };
+    if (sp2.cols?.widths) {
+      sect.colDefs = sp2.cols.widths.map((w2) => ({ w: w2.widthTwips, space: w2.spaceTwips }));
       sect.equalWidth = false;
     } else {
       delete sect.colDefs;
       delete sect.equalWidth;
     }
     const sec = {
-      sectPr: sp,
+      sectPr: sp2,
       sect,
       blockStart: 0,
       blockEnd: 0,
@@ -70029,7 +71212,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (part.blocks) (kind === "header" ? sec.headerBlocks : sec.footerBlocks)[type] = part.blocks;
       }
     }
-    this.sectionEff.set(id, { sp, key, props, sec });
+    this.sectionEff.set(id, { sp: sp2, key, props, sec });
     this.sectionIds.set(sec, id);
     return sec;
   }
@@ -70125,8 +71308,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!eng || !page2) return pg === 0 && this.sectionOfPage(pg)?.sectPr.titlePg ? "first" : "default";
     let sectPage = 0;
     for (let i7 = pg - 1; i7 >= 0 && eng.result.pages[i7].section === page2.section; i7--) sectPage++;
-    const sp = this.sectionOfPage(pg)?.sectPr;
-    return sectPage === 0 && sp?.titlePg ? "first" : this.evenOddHeaders() && page2.number % 2 === 0 ? "even" : "default";
+    const sp2 = this.sectionOfPage(pg)?.sectPr;
+    return sectPage === 0 && sp2?.titlePg ? "first" : this.evenOddHeaders() && page2.number % 2 === 0 ? "even" : "default";
   }
   /** Seção (índice no modelo) e variante do cabeçalho/rodapé em foco. */
   hfContext() {
@@ -70171,17 +71354,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const c5 = this.hfContext();
     if (!c5) return null;
     const m2 = this.bodyModel();
-    const sp = sectionSectPr(m2, c5.sec);
+    const sp2 = sectionSectPr(m2, c5.sec);
     const kind = this.hfEdit?.kind ?? null;
     return {
       section: c5.sec,
       sectionCount: sectionRanges(m2).length,
       page: c5.page,
       part: kind ? { kind, type: c5.type } : null,
-      differentFirstPage: !!sp.titlePg,
+      differentFirstPage: !!sp2.titlePg,
       differentOddEven: this.evenOddHeaders(),
-      headerDistance: sp.headerDistanceTwips ?? 720,
-      footerDistance: sp.footerDistanceTwips ?? 720,
+      headerDistance: sp2.headerDistanceTwips ?? 720,
+      footerDistance: sp2.footerDistanceTwips ?? 720,
       linkToPrevious: kind && c5.sec > 0 ? !this.refsOfSection(m2, c5.sec, kind).some((r6) => r6.type === c5.type) : false,
       documentTextShown: !this.hideDocText
     };
@@ -70191,9 +71374,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const c5 = this.hfContext();
     if (!c5) return;
     this.hfSectionOp((m2) => {
-      const sp = sectionSectPr(m2, c5.sec);
-      if (on) sp.titlePg = true;
-      else delete sp.titlePg;
+      const sp2 = sectionSectPr(m2, c5.sec);
+      if (on) sp2.titlePg = true;
+      else delete sp2.titlePg;
     });
   }
   /** Páginas Pares e Ímpares Diferentes (w:evenAndOddHeaders — vale para o documento). */
@@ -70207,9 +71390,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!c5) return;
     const clamp = (v2) => Math.max(0, Math.min(Math.round(v2), 31680));
     this.hfSectionOp((m2) => {
-      const sp = sectionSectPr(m2, c5.sec);
-      if (d3.header !== void 0) sp.headerDistanceTwips = clamp(d3.header);
-      if (d3.footer !== void 0) sp.footerDistanceTwips = clamp(d3.footer);
+      const sp2 = sectionSectPr(m2, c5.sec);
+      if (d3.header !== void 0) sp2.headerDistanceTwips = clamp(d3.header);
+      if (d3.footer !== void 0) sp2.footerDistanceTwips = clamp(d3.footer);
     });
   }
   /**
@@ -70392,34 +71575,34 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   getPageNumberFormat() {
     const c5 = this.hfContext();
     if (!c5) return null;
-    const sp = sectionSectPr(this.bodyModel(), c5.sec);
+    const sp2 = sectionSectPr(this.bodyModel(), c5.sec);
     return {
-      format: sp.pgNumFmt ?? "decimal",
-      chapter: sp.pgNumChapStyle ? { level: sp.pgNumChapStyle, separator: sp.pgNumChapSep ?? "hyphen" } : null,
-      start: sp.pgNumStart ?? null
+      format: sp2.pgNumFmt ?? "decimal",
+      chapter: sp2.pgNumChapStyle ? { level: sp2.pgNumChapStyle, separator: sp2.pgNumChapSep ?? "hyphen" } : null,
+      start: sp2.pgNumStart ?? null
     };
   }
   setPageNumberFormat(f3) {
     const c5 = this.hfContext();
     if (!c5) return;
     this.hfSectionOp((m2) => {
-      const sp = sectionSectPr(m2, c5.sec);
+      const sp2 = sectionSectPr(m2, c5.sec);
       if (f3.format !== void 0) {
-        if (f3.format === "decimal") delete sp.pgNumFmt;
-        else sp.pgNumFmt = f3.format;
+        if (f3.format === "decimal") delete sp2.pgNumFmt;
+        else sp2.pgNumFmt = f3.format;
       }
       if (f3.chapter !== void 0) {
         if (f3.chapter) {
-          sp.pgNumChapStyle = Math.max(1, Math.min(9, f3.chapter.level));
-          sp.pgNumChapSep = f3.chapter.separator;
+          sp2.pgNumChapStyle = Math.max(1, Math.min(9, f3.chapter.level));
+          sp2.pgNumChapSep = f3.chapter.separator;
         } else {
-          delete sp.pgNumChapStyle;
-          delete sp.pgNumChapSep;
+          delete sp2.pgNumChapStyle;
+          delete sp2.pgNumChapSep;
         }
       }
       if (f3.start !== void 0) {
-        if (f3.start === null) delete sp.pgNumStart;
-        else sp.pgNumStart = Math.max(0, Math.round(f3.start));
+        if (f3.start === null) delete sp2.pgNumStart;
+        else sp2.pgNumStart = Math.max(0, Math.round(f3.start));
       }
     });
   }
@@ -70747,8 +71930,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const c5 = this.hfContext();
     if (!c5) return;
     const lang = uiLang(this);
-    const sp = sectionSectPr(this.bodyModel(), c5.sec);
-    const contentW = (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips) / 20;
+    const sp2 = sectionSectPr(this.bodyModel(), c5.sec);
+    const contentW = (sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips) / 20;
     let wm;
     let box;
     if (typeof spec === "string") {
@@ -70930,7 +72113,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Ambiente dos modelos: página da 1ª seção, cores do tema e os campos (propriedades). */
   coverEnv() {
     const lang = uiLang(this);
-    const sp = sectionSectPr(this.bodyModel(), 0);
+    const sp2 = sectionSectPr(this.bodyModel(), 0);
     const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
     const col = (k2, d3) => String(theme?.colors?.[k2] ?? d3).replace(/^#/, "").toUpperCase();
     const core = this.pkg?.getPartText("docProps/core.xml") ?? "";
@@ -70950,7 +72133,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     return {
       lang,
-      page: { w: sp.pageWidthTwips / 20, h: sp.pageHeightTwips / 20, top: sp.marginTopTwips / 20, bottom: sp.marginBottomTwips / 20, left: sp.marginLeftTwips / 20, right: sp.marginRightTwips / 20 },
+      page: { w: sp2.pageWidthTwips / 20, h: sp2.pageHeightTwips / 20, top: sp2.marginTopTwips / 20, bottom: sp2.marginBottomTwips / 20, left: sp2.marginLeftTwips / 20, right: sp2.marginRightTwips / 20 },
       accent1: col("accent1", "156082"),
       accent2: col("accent2", "E97132"),
       fields,
@@ -71008,9 +72191,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const xml = coverXml(id, this.coverEnv());
     const read = xml ? readBodyFragment(this.pkg ?? DocxPackage.empty(), void 0, xml, COVER_NS) : void 0;
     if (!read) return false;
-    const sp = { ...sectionSectPr(this.bodyModel(), 0), titlePg: false };
-    delete sp.pgBorders;
-    return this.paintPreviewPage(read.blocks, sp, {}, canvas2, cssWidth);
+    const sp2 = { ...sectionSectPr(this.bodyModel(), 0), titlePg: false };
+    delete sp2.pgBorders;
+    return this.paintPreviewPage(read.blocks, sp2, {}, canvas2, cssWidth);
   }
   /** Miniatura de uma marca-d'água da galeria (página inteira) num canvas de `cssWidth` px. */
   paintWatermarkTemplate(id, canvas2, cssWidth) {
@@ -71027,16 +72210,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     );
     const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), "word/uw-preview.xml", void 0, hfPartXml("header", `<w:p>${xml}</w:p>`));
     if (!read) return false;
-    const sp = { pageWidthTwips: 12240, pageHeightTwips: 15840, marginLeftTwips: 1440, marginRightTwips: 1440, marginTopTwips: 1440, marginBottomTwips: 1440, headerDistanceTwips: 720, footerDistanceTwips: 720 };
-    return this.paintPreviewPage([{ type: "paragraph", paragraph: { runs: [], props: {} } }], sp, { default: read.blocks }, canvas2, cssWidth);
+    const sp2 = { pageWidthTwips: 12240, pageHeightTwips: 15840, marginLeftTwips: 1440, marginRightTwips: 1440, marginTopTwips: 1440, marginBottomTwips: 1440, headerDistanceTwips: 720, footerDistanceTwips: 720 };
+    return this.paintPreviewPage([{ type: "paragraph", paragraph: { runs: [], props: {} } }], sp2, { default: read.blocks }, canvas2, cssWidth);
   }
   /** Diagrama uma página de prévia (corpo + cabeçalho) e a pinta inteira no canvas. */
-  paintPreviewPage(blocks, sp, headerBlocks, canvas2, cssWidth) {
+  paintPreviewPage(blocks, sp2, headerBlocks, canvas2, cssWidth) {
     const full = {
       ...this.fullDoc ?? {},
       blocks,
       sections: [{
-        sectPr: sp,
+        sectPr: sp2,
         blockStart: 0,
         blockEnd: Math.max(0, blocks.length - 1),
         headers: {},
@@ -71123,10 +72306,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.layoutCache = [];
     this.tableLayouts = [];
     this.dropCapFloats = [];
-    const sp = this.sectPrForSavedPage(this.hfActivePage);
-    const marginL = sp.marginLeftTwips;
-    const contentW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-    const topY = this.hfEdit.kind === "header" ? sp.headerDistanceTwips ?? 720 : sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(this.model.paragraphs, contentW);
+    const sp2 = this.sectPrForSavedPage(this.hfActivePage);
+    const marginL = sp2.marginLeftTwips;
+    const contentW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
+    const topY = this.hfEdit.kind === "header" ? sp2.headerDistanceTwips ?? 720 : sp2.pageHeightTwips - (sp2.footerDistanceTwips ?? 720) - this.measureHfHeight(this.model.paragraphs, contentW);
     this.hfRegionTopTwips = topY;
     const font = this.fonts.resolve(void 0, "regular");
     let y3 = topY;
@@ -71247,8 +72430,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         break;
       }
     }
-    const sp = this.savedBody ? this.savedBody.sectionStarts[sIdx]?.section.sectPr ?? this.sect() : this.sectionStarts.length ? this.sectPrAt(sIdx) : this.sect();
-    const start = sp.pgNumStart ?? 1;
+    const sp2 = this.savedBody ? this.savedBody.sectionStarts[sIdx]?.section.sectPr ?? this.sect() : this.sectionStarts.length ? this.sectPrAt(sIdx) : this.sect();
+    const start = sp2.pgNumStart ?? 1;
     return start + (pageIdx - firstPage);
   }
   /** Parágrafos do header/footer que valem na página pg (first se capa+titlePg,
@@ -71261,15 +72444,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const sIdx = ps[pg] ?? 0;
     const section4 = this.savedBody?.sectionStarts[sIdx]?.section ?? fd2.sections[sIdx] ?? fd2.sections[0];
     if (!section4) return void 0;
-    const sp = this.sectPrForSavedPage(pg);
+    const sp2 = this.sectPrForSavedPage(pg);
     const set = kind === "header" ? section4.headers : section4.footers;
-    const part = pg === 0 && sp.titlePg ? set.first : set.default;
+    const part = pg === 0 && sp2.titlePg ? set.first : set.default;
     return part?.length ? part : void 0;
   }
   /** topo (twips) da região do HF: header a headerDistance; footer ancorado pela
    *  base (footerDistance + altura do conteúdo). */
-  hfTopY(kind, paras, sp, colW) {
-    return kind === "header" ? sp.headerDistanceTwips ?? 720 : sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(paras, colW);
+  hfTopY(kind, paras, sp2, colW) {
+    return kind === "header" ? sp2.headerDistanceTwips ?? 720 : sp2.pageHeightTwips - (sp2.footerDistanceTwips ?? 720) - this.measureHfHeight(paras, colW);
   }
   /** Composição da edição de HF: imagem behindDoc ATRÁS, corpo esmaecido, header
    *  E footer em foco (o ativo destacado), como o modo "Header & Footer" do Word.
@@ -71282,8 +72465,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const ctx = ctxs[pg];
       if (!ctx) continue;
       const scale = scales[pg];
-      const sp = this.sectPrForSavedPage(pg);
-      const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+      const sp2 = this.sectPrForSavedPage(pg);
+      const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
       const isActivePage = pg === this.hfActivePage;
       const headerParas = this.hfPartParas("header", pg);
       const footerParas = this.hfPartParas("footer", pg);
@@ -71291,8 +72474,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const kind of kinds) {
         const paras = kind === "header" ? headerParas : footerParas;
         if (!paras) continue;
-        const topY = this.hfTopY(kind, paras, sp, colW);
-        this.paintHf(ctx, scale, paras, sp.marginLeftTwips, topY, colW, pg, inkBright, sp, "behind");
+        const topY = this.hfTopY(kind, paras, sp2, colW);
+        this.paintHf(ctx, scale, paras, sp2.marginLeftTwips, topY, colW, pg, inkBright, sp2, "behind");
       }
       const snap = this.hfBodySnapshots[pg];
       if ((snap?.width ?? 0) > 1) {
@@ -71304,42 +72487,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const kind of kinds) {
         const paras = kind === "header" ? headerParas : footerParas;
         if (!paras) continue;
-        const topY = this.hfTopY(kind, paras, sp, colW);
+        const topY = this.hfTopY(kind, paras, sp2, colW);
         const isFocused = isActivePage && kind === this.hfEdit.kind;
         if (isFocused) {
           this.model.paragraphs.forEach((p3, pi) => {
             const paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? topY;
-            this.drawHfFloats(ctx, scale, p3.runs, sp.marginLeftTwips, paraTop, colW, pg, inkBright, sp, "front");
+            this.drawHfFloats(ctx, scale, p3.runs, sp2.marginLeftTwips, paraTop, colW, pg, inkBright, sp2, "front");
           });
         } else {
           ctx.save();
           if (!isActivePage) ctx.globalAlpha = HF_DIM_ALPHA;
-          this.paintHf(ctx, scale, paras, sp.marginLeftTwips, topY, colW, pg, isActivePage ? inkBright : inkDim, sp, "front");
+          this.paintHf(ctx, scale, paras, sp2.marginLeftTwips, topY, colW, pg, isActivePage ? inkBright : inkDim, sp2, "front");
           ctx.restore();
         }
       }
-      if (isActivePage) this.paintHfBands(ctx, scale, sp, dpr);
+      if (isActivePage) this.paintHfBands(ctx, scale, sp2, dpr);
     }
   }
   /** Bandas realçadas de header e footer na página ativa + linhas separadoras no
    *  limite com o corpo (base da margem sup. / topo da margem inf.), como o Word. */
-  paintHfBands(ctx, scale, sp, dpr, pg) {
+  paintHfBands(ctx, scale, sp2, dpr, pg) {
     const activeKind = this.hfEdit.kind;
     const drawBand = (kind) => {
       const band = this.eng && pg !== void 0 ? this.hfBand(pg, kind) : null;
-      const lineY = band ? kind === "header" ? band.bottom : band.top : kind === "header" ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
+      const lineY = band ? kind === "header" ? band.bottom : band.top : kind === "header" ? sp2.marginTopTwips : sp2.pageHeightTwips - sp2.marginBottomTwips;
       const bandTop = kind === "header" ? 0 : lineY;
-      const bandBot = kind === "header" ? lineY : sp.pageHeightTwips;
+      const bandBot = kind === "header" ? lineY : sp2.pageHeightTwips;
       const active2 = kind === activeKind && (pg === void 0 || pg === this.hfActivePage);
       ctx.save();
       ctx.fillStyle = active2 ? this.pageDark ? "rgba(80,130,200,0.16)" : "rgba(43,87,154,0.09)" : this.pageDark ? "rgba(120,120,120,0.10)" : "rgba(120,120,120,0.06)";
-      ctx.fillRect(0, bandTop * scale, sp.pageWidthTwips * scale, (bandBot - bandTop) * scale);
+      ctx.fillRect(0, bandTop * scale, sp2.pageWidthTwips * scale, (bandBot - bandTop) * scale);
       ctx.strokeStyle = active2 ? this.pageDark ? "#5b8def" : "#2b579a" : this.pageDark ? "#777" : "#9aa0a6";
       ctx.setLineDash([6, 4]);
       ctx.lineWidth = Math.max(1, dpr);
       ctx.beginPath();
-      ctx.moveTo(sp.marginLeftTwips * scale, lineY * scale);
-      ctx.lineTo((sp.pageWidthTwips - sp.marginRightTwips) * scale, lineY * scale);
+      ctx.moveTo(sp2.marginLeftTwips * scale, lineY * scale);
+      ctx.lineTo((sp2.pageWidthTwips - sp2.marginRightTwips) * scale, lineY * scale);
       ctx.stroke();
       ctx.setLineDash([]);
       const tags = this.hfBandLabels(kind, pg ?? this.hfActivePage);
@@ -71358,8 +72541,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.textBaseline = "middle";
         ctx.fillText(text, x0 + pad2, ty + th / 2);
       };
-      tag2(tags.name, sp.marginLeftTwips * scale, false);
-      if (tags.same) tag2(tags.same, (sp.pageWidthTwips - sp.marginRightTwips) * scale, true);
+      tag2(tags.name, sp2.marginLeftTwips * scale, false);
+      if (tags.same) tag2(tags.same, (sp2.pageWidthTwips - sp2.marginRightTwips) * scale, true);
       ctx.restore();
     };
     drawBand("header");
@@ -71523,9 +72706,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
       const spanCharStart = [];
       let acc = 0;
-      for (const sp of spans) {
+      for (const sp2 of spans) {
         spanCharStart.push(acc);
-        acc += sp.text.length;
+        acc += sp2.text.length;
       }
       let marker;
       if (p3.props.numbering) {
@@ -71622,7 +72805,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (align === "center") x3 += (lineAvail - rich.widthTwips) / 2;
         else if (align === "right") x3 += lineAvail - rich.widthTwips;
         else if (align === "both" && li < lines.length - 1) {
-          const text = spans.map((sp) => sp.text).join("").slice(rich.start, rich.end).trimEnd();
+          const text = spans.map((sp2) => sp2.text).join("").slice(rich.start, rich.end).trimEnd();
           const spaces = (text.match(/ /g) ?? []).length;
           if (spaces > 0) justifyExtra = (lineAvail - rich.widthTwips) / spaces;
         }
@@ -71639,7 +72822,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         });
         y3 += lh;
         if (!isPaged) tileBottoms[page2] = y3;
-        const fullText = spans.map((sp) => sp.text).join("");
+        const fullText = spans.map((sp2) => sp2.text).join("");
         if (isPaged && rich.end > 0 && fullText[rich.end - 1] === "\f") {
           newPage();
         }
@@ -71730,22 +72913,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Posição page-absolute (twips) de um objeto flutuante âncorado, respeitando
    *  wp:positionH/V relativeFrom. originX = margem esquerda; paraTop = topo do
    *  parágrafo âncora (banda do HF); sp = geometria da seção. */
-  anchoredPos(a3, originXTwips, paraTopTwips, sp) {
+  anchoredPos(a3, originXTwips, paraTopTwips, sp2) {
     const ox = a3.offsetXTwips ?? 0;
     const oy = a3.offsetYTwips ?? 0;
     const x3 = a3.relH === "page" ? ox : originXTwips + ox;
     let y3;
     if (a3.relV === "page") y3 = oy;
-    else if (a3.relV === "margin" || a3.relV === "topMargin") y3 = sp.marginTopTwips + oy;
-    else if (a3.relV === "bottomMargin") y3 = sp.pageHeightTwips - sp.marginBottomTwips + oy;
+    else if (a3.relV === "margin" || a3.relV === "topMargin") y3 = sp2.marginTopTwips + oy;
+    else if (a3.relV === "bottomMargin") y3 = sp2.pageHeightTwips - sp2.marginBottomTwips + oy;
     else y3 = paraTopTwips + oy;
     return { x: x3, y: y3 };
   }
   /** Desenha os objetos FLUTUANTES (caixas de texto / imagens ancoradas) dos
    *  runs de um parágrafo de HF, na posição ancorada. Usado tanto no render
    *  normal (paintHf) quanto na EDIÇÃO de HF (senão os flutuantes somem). */
-  drawHfFloats(ctx, scale, runs, originXTwips, paraTopTwips, widthTwips, pageIdx, color3, sp, floatMode = "all") {
-    const pageArea = sp.pageWidthTwips * sp.pageHeightTwips;
+  drawHfFloats(ctx, scale, runs, originXTwips, paraTopTwips, widthTwips, pageIdx, color3, sp2, floatMode = "all") {
+    const pageArea = sp2.pageWidthTwips * sp2.pageHeightTwips;
     const isBg = (o7) => !!o7.behindDoc || pageArea > 0 && o7.widthTwips * o7.heightTwips >= 0.4 * pageArea;
     for (const r6 of runs) {
       const obj = r6.textbox ?? r6.image;
@@ -71755,17 +72938,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (floatMode === "front" && isBg(obj)) continue;
       if (r6.textbox) {
         const tb = r6.textbox;
-        const { x: tx2, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
+        const { x: tx2, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp2) : { x: originXTwips, y: paraTopTwips };
         {
           const iw = this.tbInner(tb, tx2, ty, tb.widthTwips || widthTwips);
-          this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color3, sp);
+          this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color3, sp2);
         }
         continue;
       }
       const bmp = this.bitmapFor(r6.image);
       if (!bmp) continue;
       const img = r6.image;
-      const { x: ix, y: iy } = img.floating ? this.anchoredPos(img, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
+      const { x: ix, y: iy } = img.floating ? this.anchoredPos(img, originXTwips, paraTopTwips, sp2) : { x: originXTwips, y: paraTopTwips };
       ctx.drawImage(bmp, ix * scale, iy * scale, img.widthTwips * scale, img.heightTwips * scale);
     }
   }
@@ -71783,7 +72966,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     return DEFAULT_FONT;
   }
-  paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color3, sp, floatMode = "all") {
+  paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color3, sp2, floatMode = "all") {
     if (!this.fonts) return;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
@@ -71813,7 +72996,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         availableTwips: widthTwips,
         tabStops: legacyTabs(p3.props.tabStops) ?? defaultTabs
       });
-      this.drawHfFloats(ctx, scale, runs, originXTwips, y3, widthTwips, pageIdx, color3, sp, floatMode);
+      this.drawHfFloats(ctx, scale, runs, originXTwips, y3, widthTwips, pageIdx, color3, sp2, floatMode);
       const font = this.fonts.resolve(void 0, "regular");
       const fallback = p3.props.boxBorder && !p3.props.borders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
       const bd = p3.props.borders ?? (fallback ? { top: fallback, bottom: fallback, left: fallback, right: fallback } : void 0);
@@ -71911,9 +73094,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const spans = this.buildSpans(p3);
           const spanCharStart = [];
           let accSp = 0;
-          for (const sp of spans) {
+          for (const sp2 of spans) {
             spanCharStart.push(accSp);
-            accSp += sp.text.length;
+            accSp += sp2.text.length;
           }
           const { lines } = breakRich(spans, this.fonts, { availableTwips: cellW });
           const align = p3.props.alignment ?? st?.alignment;
@@ -72011,9 +73194,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (yT > this.hfBand(pg, "footer").top) return { kind: "footer", page: pg };
         return null;
       }
-      const sp = this.sectionStarts.length ? this.sectPrAt(this.pageSections[pg] ?? 0) : this.sect();
-      if (yT < sp.marginTopTwips) return { kind: "header", page: pg };
-      if (yT > sp.pageHeightTwips - sp.marginBottomTwips) return { kind: "footer", page: pg };
+      const sp2 = this.sectionStarts.length ? this.sectPrAt(this.pageSections[pg] ?? 0) : this.sect();
+      if (yT < sp2.marginTopTwips) return { kind: "header", page: pg };
+      if (yT > sp2.pageHeightTwips - sp2.marginBottomTwips) return { kind: "footer", page: pg };
       return null;
     }
     return null;
@@ -72033,10 +73216,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const band = this.hfBand(this.hfActivePage, this.hfEdit.kind);
       return yT >= band.top && yT <= band.bottom;
     }
-    const sp = this.sectPrForSavedPage(this.hfActivePage);
-    const lineY = isHeader ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
+    const sp2 = this.sectPrForSavedPage(this.hfActivePage);
+    const lineY = isHeader ? sp2.marginTopTwips : sp2.pageHeightTwips - sp2.marginBottomTwips;
     const bandTop = isHeader ? 0 : lineY;
-    const bandBot = isHeader ? lineY : sp.pageHeightTwips;
+    const bandBot = isHeader ? lineY : sp2.pageHeightTwips;
     return yT >= bandTop && yT <= bandBot;
   }
   /** Região de HF (header/footer) sob o clique, ou null (corpo). Usado no modo
@@ -72055,9 +73238,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (yT >= this.hfBand(pg, "footer").top) return { kind: "footer", page: pg };
         return null;
       }
-      const sp = this.sectPrForSavedPage(pg);
-      if (yT <= sp.marginTopTwips) return { kind: "header", page: pg };
-      if (yT >= sp.pageHeightTwips - sp.marginBottomTwips) return { kind: "footer", page: pg };
+      const sp2 = this.sectPrForSavedPage(pg);
+      if (yT <= sp2.marginTopTwips) return { kind: "header", page: pg };
+      if (yT >= sp2.pageHeightTwips - sp2.marginBottomTwips) return { kind: "footer", page: pg };
       return null;
     }
     return null;
@@ -72071,13 +73254,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.enterHeaderFooter(kind, page2);
   }
   /** Geometria das colunas numa página + quais têm conteúdo (p/ o separador). */
-  colContentOnPage(pg, sp) {
-    if (!sp.cols || sp.cols.count < 2) return null;
-    const n5 = sp.cols.count, gap = sp.cols.spaceTwips;
-    const cw = (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips - gap * (n5 - 1)) / n5;
-    const origin = (c5) => sp.marginLeftTwips + c5 * (cw + gap);
+  colContentOnPage(pg, sp2) {
+    if (!sp2.cols || sp2.cols.count < 2) return null;
+    const n5 = sp2.cols.count, gap = sp2.cols.spaceTwips;
+    const cw = (sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips - gap * (n5 - 1)) / n5;
+    const origin = (c5) => sp2.marginLeftTwips + c5 * (cw + gap);
     const hasContent = new Array(n5).fill(false);
-    let maxBottom = sp.marginTopTwips;
+    let maxBottom = sp2.marginTopTwips;
     for (const pl of this.layoutCache) for (const ln2 of pl.lines) {
       if (ln2.page !== pg) continue;
       maxBottom = Math.max(maxBottom, ln2.yTwips + ln2.heightTwips);
@@ -72087,7 +73270,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       hasContent[best] = true;
     }
-    maxBottom = Math.min(maxBottom, sp.pageHeightTwips - sp.marginBottomTwips);
+    maxBottom = Math.min(maxBottom, sp2.pageHeightTwips - sp2.marginBottomTwips);
     return { n: n5, gap, origin, hasContent, maxBottom };
   }
   /** snapshot do corpo (por página) p/ mostrar esmaecido durante a edição de HF. */
@@ -72170,24 +73353,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const r6 of paras[pi].runs) {
         if (!r6.textbox) continue;
         const tb = r6.textbox;
-        let page2, sp, originX, paraTop;
+        let page2, sp2, originX, paraTop;
         const er = this.eng ? this.engObjectOf(r6, inHf ? this.hfActivePage : void 0) : null;
         if (this.eng && !er) continue;
         if (inHf) {
           page2 = this.hfActivePage;
-          sp = this.sectPrForSavedPage(page2);
-          originX = sp.marginLeftTwips;
+          sp2 = this.sectPrForSavedPage(page2);
+          originX = sp2.marginLeftTwips;
           paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? this.hfRegionTopTwips;
         } else {
           const first = this.layoutCache[pi]?.lines[0];
           if (!first) continue;
           page2 = first.page;
-          sp = this.sectPrAt(this.pageSections[page2] ?? 0);
-          originX = sp.marginLeftTwips;
+          sp2 = this.sectPrAt(this.pageSections[page2] ?? 0);
+          originX = sp2.marginLeftTwips;
           paraTop = first.yTwips;
         }
-        let { x: x3, y: y3 } = tb.floating ? this.anchoredPos(tb, originX, paraTop, sp) : { x: originX, y: paraTop };
-        let w2 = tb.widthTwips || sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        let { x: x3, y: y3 } = tb.floating ? this.anchoredPos(tb, originX, paraTop, sp2) : { x: originX, y: paraTop };
+        let w2 = tb.widthTwips || sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
         let h3 = this.effectiveTbHeight(tb);
         if (er) ({ page: page2, x: x3, y: y3, w: w2, h: h3 } = er);
         const cv = this.canvases[page2];
@@ -72244,14 +73427,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return out;
     }
     if (this.hfEdit) {
-      const sp = this.sectPrForSavedPage(this.hfActivePage);
-      const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+      const sp2 = this.sectPrForSavedPage(this.hfActivePage);
+      const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
       this.model.paragraphs.forEach((p3, pi) => {
         const paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? this.hfRegionTopTwips;
         for (const r6 of p3.runs) {
           const obj = r6.textbox ?? r6.image;
           if (!obj) continue;
-          const { x: x3, y: y3 } = obj.floating ? this.anchoredPos(obj, sp.marginLeftTwips, paraTop, sp) : { x: sp.marginLeftTwips, y: paraTop };
+          const { x: x3, y: y3 } = obj.floating ? this.anchoredPos(obj, sp2.marginLeftTwips, paraTop, sp2) : { x: sp2.marginLeftTwips, y: paraTop };
           out.push({
             run: r6,
             obj,
@@ -72283,11 +73466,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.model.paragraphs.forEach((p3, pi) => {
       const first = this.layoutCache[pi]?.lines[0];
       if (!first) return;
-      const sp = this.sectPrAt(this.pageSections[first.page] ?? 0);
-      const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+      const sp2 = this.sectPrAt(this.pageSections[first.page] ?? 0);
+      const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
       for (const r6 of p3.runs) {
         if (!r6.textbox) continue;
-        const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
+        const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp2.marginLeftTwips, first.yTwips, sp2) : { x: sp2.marginLeftTwips, y: first.yTwips };
         out.push({
           run: r6,
           obj: r6.textbox,
@@ -72750,42 +73933,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   applyResize(obj, d3, dxT, dyT, lockAspect, fromCenter = false, rotDeg = 0) {
     const MIN = 120;
     const hn = d3.handle;
-    let L10 = -d3.startW / 2, R2 = d3.startW / 2, T8 = -d3.startH / 2, B2 = d3.startH / 2;
+    let L11 = -d3.startW / 2, R2 = d3.startW / 2, T9 = -d3.startH / 2, B3 = d3.startH / 2;
     if (hn.includes("e")) {
       R2 += dxT;
-      if (fromCenter) L10 -= dxT;
+      if (fromCenter) L11 -= dxT;
     }
     if (hn.includes("w")) {
-      L10 += dxT;
+      L11 += dxT;
       if (fromCenter) R2 -= dxT;
     }
     if (hn.includes("s")) {
-      B2 += dyT;
-      if (fromCenter) T8 -= dyT;
+      B3 += dyT;
+      if (fromCenter) T9 -= dyT;
     }
     if (hn.includes("n")) {
-      T8 += dyT;
-      if (fromCenter) B2 -= dyT;
+      T9 += dyT;
+      if (fromCenter) B3 -= dyT;
     }
     if (lockAspect && hn.length === 2 && d3.startW > 0 && d3.startH > 0) {
-      const rw = (R2 - L10) / d3.startW, rh = (B2 - T8) / d3.startH;
+      const rw = (R2 - L11) / d3.startW, rh = (B3 - T9) / d3.startH;
       const r6 = Math.abs(rw - 1) >= Math.abs(rh - 1) ? rw : rh;
       const nw = d3.startW * r6, nh = d3.startH * r6;
       if (fromCenter) {
-        L10 = -nw / 2;
+        L11 = -nw / 2;
         R2 = nw / 2;
-        T8 = -nh / 2;
-        B2 = nh / 2;
+        T9 = -nh / 2;
+        B3 = nh / 2;
       } else {
-        if (hn.includes("w")) L10 = R2 - nw;
-        else R2 = L10 + nw;
-        if (hn.includes("n")) T8 = B2 - nh;
-        else B2 = T8 + nh;
+        if (hn.includes("w")) L11 = R2 - nw;
+        else R2 = L11 + nw;
+        if (hn.includes("n")) T9 = B3 - nh;
+        else B3 = T9 + nh;
       }
     }
-    const w2 = Math.max(MIN, R2 - L10), h3 = Math.max(MIN, B2 - T8);
+    const w2 = Math.max(MIN, R2 - L11), h3 = Math.max(MIN, B3 - T9);
     const a3 = rotDeg * Math.PI / 180;
-    const cxl = (L10 + R2) / 2, cyl = (T8 + B2) / 2;
+    const cxl = (L11 + R2) / 2, cyl = (T9 + B3) / 2;
     const cx = cxl * Math.cos(a3) - cyl * Math.sin(a3), cy = cxl * Math.sin(a3) + cyl * Math.cos(a3);
     obj.widthTwips = Math.round(w2);
     obj.heightTwips = Math.round(h3);
@@ -72877,17 +74060,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const rx = (ev.clientX - sx) / scale, ry = (ev.clientY - sy) / scale;
       const ar = -rot * Math.PI / 180;
       const dx = rx * Math.cos(ar) - ry * Math.sin(ar), dy = rx * Math.sin(ar) + ry * Math.cos(ar);
-      let { L: L10, R: R2, T: T8, B: B2, fL, fT } = g0;
+      let { L: L11, R: R2, T: T9, B: B3, fL, fT } = g0;
       if (handle === "pan") {
         fL += dx;
         fT += dy;
       } else {
-        if (handle.includes("w")) L10 = Math.min(R2 - MIN, L10 + dx);
-        if (handle.includes("e")) R2 = Math.max(L10 + MIN, R2 + dx);
-        if (handle.includes("n")) T8 = Math.min(B2 - MIN, T8 + dy);
-        if (handle.includes("s")) B2 = Math.max(T8 + MIN, B2 + dy);
+        if (handle.includes("w")) L11 = Math.min(R2 - MIN, L11 + dx);
+        if (handle.includes("e")) R2 = Math.max(L11 + MIN, R2 + dx);
+        if (handle.includes("n")) T9 = Math.min(B3 - MIN, T9 + dy);
+        if (handle.includes("s")) B3 = Math.max(T9 + MIN, B3 + dy);
       }
-      const dl = (L10 - fL) / g0.fW, dr = (fL + g0.fW - R2) / g0.fW, dt = (T8 - fT) / g0.fH, db2 = (fT + g0.fH - B2) / g0.fH;
+      const dl = (L11 - fL) / g0.fW, dr = (fL + g0.fW - R2) / g0.fW, dt = (T9 - fT) / g0.fH, db2 = (fT + g0.fH - B3) / g0.fH;
       crop = {
         l: pic.format.flipH ? dr : dl,
         r: pic.format.flipH ? dl : dr,
@@ -72895,8 +74078,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         b: pic.format.flipV ? dt : db2
       };
       pic.crop = crop;
-      const w2 = R2 - L10, hh = B2 - T8;
-      const a3 = rot * Math.PI / 180, cxl = (L10 + R2) / 2, cyl = (T8 + B2) / 2;
+      const w2 = R2 - L11, hh = B3 - T9;
+      const a3 = rot * Math.PI / 180, cxl = (L11 + R2) / 2, cyl = (T9 + B3) / 2;
       const cx = cxl * Math.cos(a3) - cyl * Math.sin(a3), cy = cxl * Math.sin(a3) + cyl * Math.cos(a3);
       pic.widthTwips = Math.round(w2);
       pic.heightTwips = Math.round(hh);
@@ -72965,19 +74148,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.strokeStyle = "#2b579a";
     ctx.strokeRect(s4(g2.L), s4(g2.T), s4(g2.R - g2.L), s4(g2.B - g2.T));
     const len2 = 12 * dpr, th = 4 * dpr;
-    const L10 = s4(g2.L), R2 = s4(g2.R), T8 = s4(g2.T), B2 = s4(g2.B), mx = (L10 + R2) / 2, my = (T8 + B2) / 2;
+    const L11 = s4(g2.L), R2 = s4(g2.R), T9 = s4(g2.T), B3 = s4(g2.B), mx = (L11 + R2) / 2, my = (T9 + B3) / 2;
     const bars = [
-      [L10, T8, len2, th],
-      [L10, T8, th, len2],
-      [R2 - len2, T8, len2, th],
-      [R2 - th, T8, th, len2],
-      [L10, B2 - th, len2, th],
-      [L10, B2 - len2, th, len2],
-      [R2 - len2, B2 - th, len2, th],
-      [R2 - th, B2 - len2, th, len2],
-      [mx - len2 / 2, T8, len2, th],
-      [mx - len2 / 2, B2 - th, len2, th],
-      [L10, my - len2 / 2, th, len2],
+      [L11, T9, len2, th],
+      [L11, T9, th, len2],
+      [R2 - len2, T9, len2, th],
+      [R2 - th, T9, th, len2],
+      [L11, B3 - th, len2, th],
+      [L11, B3 - len2, th, len2],
+      [R2 - len2, B3 - th, len2, th],
+      [R2 - th, B3 - len2, th, len2],
+      [mx - len2 / 2, T9, len2, th],
+      [mx - len2 / 2, B3 - th, len2, th],
+      [L11, my - len2 / 2, th, len2],
       [R2 - th, my - len2 / 2, th, len2]
     ];
     ctx.fillStyle = "#ffffff";
@@ -73542,8 +74725,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const theme = path ? this.pkg?.getPartText(path) : void 0;
     const f3 = run3 && this.formatOf(run3);
     if (!raw || !theme || !path || !f3?.body || this.locked()) return false;
-    const sp = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
-    const spIn = sp.replace(/<a:xfrm\b[\s\S]*?<\/a:xfrm>|<a:xfrm\/>/, "").replace(/<a:prstGeom\b[\s\S]*?<\/a:prstGeom>|<a:prstGeom\b[^>]*\/>|<a:custGeom\b[\s\S]*?<\/a:custGeom>/, "");
+    const sp2 = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
+    const spIn = sp2.replace(/<a:xfrm\b[\s\S]*?<\/a:xfrm>|<a:xfrm\/>/, "").replace(/<a:prstGeom\b[\s\S]*?<\/a:prstGeom>|<a:prstGeom\b[^>]*\/>|<a:custGeom\b[\s\S]*?<\/a:custGeom>/, "");
     const b5 = f3.body, d3 = DEFAULT_TEXTBOX_BODY;
     const ins = ["lIns", "tIns", "rIns", "bIns"].filter((k2) => b5[k2] !== d3[k2]).map((k2) => ` ${k2}="${b5[k2]}"`).join("");
     const attrs3 = `vert="${b5.vert}" wrap="${b5.wrap}"${ins}${b5.anchor !== "t" ? ` anchor="${b5.anchor}"` : ""} rtlCol="0"`;
@@ -74979,29 +76162,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const eng = this.eng;
     const t6 = this.tableAnchors[anchor]?.table;
     if (!t6) return null;
-    const els = eng.lines.filter((el14) => el14.loc.kind === "cell" && el14.loc.anchor === anchor);
+    const els = eng.lines.filter((el15) => el15.loc.kind === "cell" && el15.loc.anchor === anchor);
     if (!els.length) return null;
     const pg = els[0].page;
-    if (els.some((el14) => el14.page !== pg)) return null;
+    if (els.some((el15) => el15.page !== pg)) return null;
     const page2 = eng.result.pages[pg];
     const synth = this.synthLayout(t6, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
-    const sp = synth.pages[0];
-    if (sp.lines.length !== els.length) return null;
-    const dx = els[0].line.x - sp.lines[0].x, dy = els[0].line.y - sp.lines[0].y;
+    const sp2 = synth.pages[0];
+    if (sp2.lines.length !== els.length) return null;
+    const dx = els[0].line.x - sp2.lines[0].x, dy = els[0].line.y - sp2.lines[0].y;
     const eq3 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
     const tail = (ref) => ref.slice(ref.indexOf("/"));
     for (let i7 = 0; i7 < els.length; i7++) {
-      const a3 = els[i7].line, b5 = sp.lines[i7];
+      const a3 = els[i7].line, b5 = sp2.lines[i7];
       if (tail(a3.ref) !== tail(b5.ref) || a3.start !== b5.start || a3.end !== b5.end || !eq3(a3.height, b5.height) || !eq3(a3.x, b5.x + dx) || !eq3(a3.y, b5.y + dy)) return null;
       const ca = a3.chars ?? [], cb = b5.chars ?? [];
       if (ca.length !== cb.length || ca.some((c5, k2) => c5.o !== cb[k2].o || !eq3(c5.x, cb[k2].x + dx) || !eq3(c5.w, cb[k2].w))) return null;
     }
-    const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
+    const want = sp2.items.map((it) => shiftPageItem(it, dx, dy));
     const start = findItems(page2.items, want, eng.hfItems[pg] ?? 0);
     const lineAt = page2.lines.indexOf(els[0].line);
-    if (start < 0 || lineAt < 0 || els.some((el14, i7) => page2.lines[lineAt + i7] !== el14.line)) return null;
-    return { page: pg, dx, dy, start, count: want.length, lineAt, lineCount: els.length, bottom: itemsBottom(sp), root: els[0].line.ref.split("/")[0] };
+    if (start < 0 || lineAt < 0 || els.some((el15, i7) => page2.lines[lineAt + i7] !== el15.line)) return null;
+    return { page: pg, dx, dy, start, count: want.length, lineAt, lineCount: els.length, bottom: itemsBottom(sp2), root: els[0].line.ref.split("/")[0] };
   }
   /** Edição numa célula: troca só os itens/linhas da tabela se a altura dela
    *  (e portanto o resto do documento) não mudou. */
@@ -75019,12 +76202,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (ce.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
     const synth = this.synthLayout(t6, this.pageSections[b5.page] ?? 0);
     if (!synth || synth.pages.length !== 1) return false;
-    const sp = synth.pages[0];
-    if (Math.abs(itemsBottom(sp) - b5.bottom) > 0.01) return false;
+    const sp2 = synth.pages[0];
+    if (Math.abs(itemsBottom(sp2) - b5.bottom) > 0.01) return false;
     const page2 = eng.result.pages[b5.page];
-    const items = sp.items.map((it) => shiftPageItem(it, b5.dx, b5.dy));
+    const items = sp2.items.map((it) => shiftPageItem(it, b5.dx, b5.dy));
     page2.items.splice(b5.start, b5.count, ...items);
-    const lines = sp.lines.map((l3) => ({
+    const lines = sp2.lines.map((l3) => ({
       ...l3,
       ref: b5.root + l3.ref.slice(l3.ref.indexOf("/")),
       x: l3.x + b5.dx,
@@ -75033,7 +76216,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ...l3.chars ? { chars: l3.chars.map((c5) => ({ o: c5.o, x: c5.x + b5.dx, w: c5.w })) } : {}
     }));
     page2.lines.splice(b5.lineAt, b5.lineCount, ...lines);
-    const k2 = eng.lines.findIndex((el14) => el14.page === b5.page && el14.loc.kind === "cell" && el14.loc.anchor === h3.anchor);
+    const k2 = eng.lines.findIndex((el15) => el15.page === b5.page && el15.loc.kind === "cell" && el15.loc.anchor === h3.anchor);
     if (k2 < 0) return false;
     const sec = eng.result.pages[b5.page].section;
     eng.lines.splice(k2, b5.lineCount, ...lines.map((line2) => {
@@ -75053,14 +76236,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Parágrafo (ou tabela) sozinho num documento sintético (página alta, sem HF). */
   synthLayout(block, sectIdx) {
     const sec = this.sectionStarts[sectIdx]?.section;
-    const sp = sec?.sectPr ?? this.bodyModel().sectPr;
-    if ((sp.cols?.count ?? 1) > 1 || sec?.sect?.lnNumType) return null;
+    const sp2 = sec?.sectPr ?? this.bodyModel().sectPr;
+    if ((sp2.cols?.count ?? 1) > 1 || sec?.sect?.lnNumType) return null;
     const base = this.fullDoc ?? { footnotes: /* @__PURE__ */ new Map(), endnotes: /* @__PURE__ */ new Map(), comments: [], styles: /* @__PURE__ */ new Map() };
     const full = {
       ...base,
       blocks: ["runs" in block ? { type: "paragraph", paragraph: block } : block],
       sections: [{
-        sectPr: { ...sp, pageHeightTwips: 2e6, titlePg: false },
+        sectPr: { ...sp2, pageHeightTwips: 2e6, titlePg: false },
         ...sec?.sect ? { sect: { ...sec.sect, vAlign: void 0 } } : {},
         blockStart: 0,
         blockEnd: 0,
@@ -75086,22 +76269,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const para4 = this.model.paragraphs[pi];
     const synth = this.synthLayout(para4, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
-    const sp = synth.pages[0];
-    if (sp.lines.length !== ls2.length) return null;
-    const dx = first.x - sp.lines[0].x, dy = first.y - sp.lines[0].y;
+    const sp2 = synth.pages[0];
+    if (sp2.lines.length !== ls2.length) return null;
+    const dx = first.x - sp2.lines[0].x, dy = first.y - sp2.lines[0].y;
     const eq3 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
     for (let i7 = 0; i7 < ls2.length; i7++) {
-      const a3 = ls2[i7].eng, b5 = sp.lines[i7];
+      const a3 = ls2[i7].eng, b5 = sp2.lines[i7];
       if (a3.start !== b5.start || a3.end !== b5.end || !eq3(a3.height, b5.height) || !eq3(a3.x, b5.x + dx) || !eq3(a3.y, b5.y + dy)) return null;
       const ca = a3.chars ?? [], cb = b5.chars ?? [];
       if (ca.length !== cb.length || ca.some((c5, k2) => c5.o !== cb[k2].o || !eq3(c5.x, cb[k2].x + dx) || !eq3(c5.w, cb[k2].w))) return null;
     }
-    const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
+    const want = sp2.items.map((it) => shiftPageItem(it, dx, dy));
     const start = want.length ? findItems(page2.items, want, eng.hfItems[pg] ?? 0) : this.emptyParaSlot(pi, pg);
     if (start < 0) return null;
     const lineAt = page2.lines.indexOf(first);
     if (lineAt < 0) return null;
-    return { page: pg, ref: first.ref, dx, dy, start, count: want.length, lineAt, heights: sp.lines.map((l3) => l3.height) };
+    return { page: pg, ref: first.ref, dx, dy, start, count: want.length, lineAt, heights: sp2.lines.map((l3) => l3.height) };
   }
   /** Parágrafo sem itens (vazio): os itens novos entram logo depois dos da
    *  última linha do parágrafo anterior na mesma página (glifos + sublinhados);
@@ -75141,12 +76324,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.syncRunRPr([para4]);
     const synth = this.synthLayout(para4, this.pageSections[b5.page] ?? 0);
     if (!synth || synth.pages.length !== 1) return false;
-    const sp = synth.pages[0];
-    if (sp.lines.length !== b5.heights.length || sp.lines.some((l3, i7) => Math.abs(l3.height - b5.heights[i7]) > 0.01)) return false;
+    const sp2 = synth.pages[0];
+    if (sp2.lines.length !== b5.heights.length || sp2.lines.some((l3, i7) => Math.abs(l3.height - b5.heights[i7]) > 0.01)) return false;
     const page2 = eng.result.pages[b5.page];
-    const items = sp.items.map((it) => shiftPageItem(it, b5.dx, b5.dy));
+    const items = sp2.items.map((it) => shiftPageItem(it, b5.dx, b5.dy));
     page2.items.splice(b5.start, b5.count, ...items);
-    const lines = sp.lines.map((l3) => ({
+    const lines = sp2.lines.map((l3) => ({
       ...l3,
       ref: b5.ref,
       x: l3.x + b5.dx,
@@ -75157,7 +76340,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (para4.runs.some((r6) => r6.custom)) for (const l3 of lines) collapseCustomChars(l3, para4);
     page2.lines.splice(b5.lineAt, lines.length, ...lines);
     const loc = { kind: "body", para: h3.para };
-    let k2 = eng.lines.findIndex((el14) => el14.page === b5.page && el14.line.ref === b5.ref);
+    let k2 = eng.lines.findIndex((el15) => el15.page === b5.page && el15.line.ref === b5.ref);
     if (k2 >= 0) eng.lines.splice(k2, lines.length, ...lines.map((line2) => ({ line: line2, page: b5.page, loc, para: para4 })));
     const len2 = paraLength(para4);
     this.layoutCache[h3.para] = {
@@ -75200,35 +76383,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const hfWhich = this.hfEdit ? this.hfEdit.kind === "header" ? "hdr" : "ftr" : null;
     let hfPage = this.hfActivePage;
     if (hfWhich) {
-      const shows = (pg) => this.eng.lines.some((el14) => el14.page === pg && el14.loc.kind === "hf" && el14.loc.which === hfWhich && !!el14.para && paras.includes(el14.para));
+      const shows = (pg) => this.eng.lines.some((el15) => el15.page === pg && el15.loc.kind === "hf" && el15.loc.which === hfWhich && !!el15.para && paras.includes(el15.para));
       if (!shows(hfPage)) {
-        const other = this.eng.lines.find((el14) => el14.loc.kind === "hf" && el14.loc.which === hfWhich && !!el14.para && paras.includes(el14.para));
+        const other = this.eng.lines.find((el15) => el15.loc.kind === "hf" && el15.loc.which === hfWhich && !!el15.para && paras.includes(el15.para));
         if (other) this.hfActivePage = hfPage = other.page;
       }
     }
-    for (const el14 of this.eng.lines) {
+    for (const el15 of this.eng.lines) {
       let pi = -1;
       if (hfWhich) {
-        if (el14.page === hfPage && el14.loc.kind === "hf" && el14.loc.which === hfWhich && el14.para) pi = paras.indexOf(el14.para);
+        if (el15.page === hfPage && el15.loc.kind === "hf" && el15.loc.which === hfWhich && el15.para) pi = paras.indexOf(el15.para);
       } else if (this.noteEdit) {
         const ne = this.noteEdit;
-        if (el14.loc.kind === "note" && el14.loc.note === ne.kind && el14.loc.id === ne.id && el14.para) pi = paras.indexOf(el14.para);
+        if (el15.loc.kind === "note" && el15.loc.note === ne.kind && el15.loc.id === ne.id && el15.para) pi = paras.indexOf(el15.para);
       } else if (!ce) {
-        if (el14.loc.kind === "body") pi = el14.loc.para;
-      } else if (el14.loc.kind === "cell" && el14.loc.anchor === ce.anchor && sameHops(el14.loc.hops, ce.hops)) {
-        const blk = blocksOfCell[el14.loc.block];
+        if (el15.loc.kind === "body") pi = el15.loc.para;
+      } else if (el15.loc.kind === "cell" && el15.loc.anchor === ce.anchor && sameHops(el15.loc.hops, ce.hops)) {
+        const blk = blocksOfCell[el15.loc.block];
         if (blk?.type === "paragraph") pi = paras.indexOf(blk.paragraph);
       }
       const pl = pi >= 0 ? this.layoutCache[pi] : void 0;
       if (!pl) continue;
-      const l3 = el14.line;
+      const l3 = el15.line;
       if (pl.lines.some((x3) => x3.rich.start === l3.start && x3.rich.end === l3.end)) continue;
       const len2 = paraLength(paras[pi]);
       const clamp = (o7) => Math.max(0, Math.min(len2, o7));
       pl.lines.push({
         para: pi,
         rich: { start: clamp(l3.start), end: clamp(l3.end), widthTwips: l3.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
-        page: el14.page,
+        page: el15.page,
         xTwips: l3.x,
         yTwips: l3.y,
         heightTwips: l3.height,
@@ -75465,6 +76648,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (this.tableSel) this.paintTableSel(ctx, i7);
         else if (hasSel && !picSel) this.paintEngineSelection(ctx, i7, sel4);
         this.paintTableAdorners(ctx, i7);
+        this.paintTocControl(ctx, i7);
         ctx.restore();
       }
       return ctx;
@@ -75473,8 +76657,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.hfEdit && !this.printRender) {
       ctxs.forEach((c5, pg) => {
         if (!c5) return;
-        const sp = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
-        this.paintHfBands(c5, scales[pg], sp, dpr, pg);
+        const sp2 = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
+        this.paintHfBands(c5, scales[pg], sp2, dpr, pg);
       });
     }
     this.paintFloatAndCaret(ctxs, scales, dpr, hasSel || !!this.tableSel);
@@ -75532,9 +76716,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
       ctx.textAlign = "left";
     }
-    for (const el14 of eng.lines) {
-      if (el14.page !== pg || el14.loc.kind === "other") continue;
-      const para4 = el14.para;
+    for (const el15 of eng.lines) {
+      if (el15.page !== pg || el15.loc.kind === "other") continue;
+      const para4 = el15.para;
       if (!para4) continue;
       let acc = 0;
       for (const run3 of para4.runs) {
@@ -75544,22 +76728,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const comment = !!run3.props.commentIds?.length;
         if (!field3 && !comment) continue;
         let x1 = Infinity, x22 = -Infinity;
-        for (const c5 of el14.line.chars ?? []) {
+        for (const c5 of el15.line.chars ?? []) {
           if (c5.o < a3 || c5.o >= acc) continue;
           x1 = Math.min(x1, c5.x);
           x22 = Math.max(x22, c5.x + c5.w);
         }
         if (!(x22 > x1)) continue;
         ctx.fillStyle = comment ? "rgba(255, 187, 0, 0.28)" : this.pageDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)";
-        ctx.fillRect(x1, el14.line.y, x22 - x1, el14.line.height);
+        ctx.fillRect(x1, el15.line.y, x22 - x1, el15.line.height);
       }
     }
   }
   /** Marca de quebra com "mostrar marcas": linha pontilhada (dupla na de seção)
    *  até o fim da coluna com o nome no meio — adorno de tela (não vai ao PDF). */
   paintBreakMark(ctx, x0, x1, baseline, fs, kind, double) {
-    const L10 = pickLabels(this, BREAK_MARK_LABELS);
-    const label = kind === "page" ? L10.page : kind === "column" ? L10.column : `${L10.section} (${L10[kind]})`;
+    const L11 = pickLabels(this, BREAK_MARK_LABELS);
+    const label = kind === "page" ? L11.page : kind === "column" ? L11.column : `${L11.section} (${L11[kind]})`;
     const right = Math.max(x1, x0 + 600);
     ctx.save();
     ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
@@ -75588,9 +76772,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Borda direita da coluna (da seção) em que está x. */
   columnRightAt(sectionIdx, x3) {
-    const sp = this.sectPrAt(sectionIdx);
-    const left = sp.marginLeftTwips;
-    const frames = columnWidths(sp).map((c5, i7, all) => {
+    const sp2 = this.sectPrAt(sectionIdx);
+    const left = sp2.marginLeftTwips;
+    const frames = columnWidths(sp2).map((c5, i7, all) => {
       const x0 = left + all.slice(0, i7).reduce((a3, w2) => a3 + w2.widthTwips + w2.spaceTwips, 0);
       return { x0, x1: x0 + c5.widthTwips };
     });
@@ -75640,11 +76824,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.strokeStyle = this.pageDark ? "#ff6b6b" : "#e81123";
     ctx.lineWidth = 11;
-    for (const el14 of this.eng.lines) {
-      if (el14.page !== pg || el14.loc.kind === "other" || !el14.para) continue;
-      const list = spell.get(el14.para);
+    for (const el15 of this.eng.lines) {
+      if (el15.page !== pg || el15.loc.kind === "other" || !el15.para) continue;
+      const list = spell.get(el15.para);
       if (!list?.length) continue;
-      const chars = el14.line.chars ?? [];
+      const chars = el15.line.chars ?? [];
       for (const m2 of list) {
         let x1 = Infinity, x22 = -Infinity;
         for (const c5 of chars) {
@@ -75653,7 +76837,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           x22 = Math.max(x22, c5.x + c5.w);
         }
         if (!(x22 > x1)) continue;
-        wavePath(ctx, x1, x22, el14.line.baseline + 50);
+        wavePath(ctx, x1, x22, el15.line.baseline + 50);
         ctx.stroke();
       }
     }
@@ -75765,9 +76949,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  motor diagramou (o motor não conhece a medida do plugin). */
   paintEngineInlines(ctx, pg, scale) {
     const page2 = this.eng.result.pages[pg];
-    for (const el14 of this.eng.lines) {
-      if (el14.page !== pg || el14.loc.kind === "other") continue;
-      const para4 = el14.para;
+    for (const el15 of this.eng.lines) {
+      if (el15.page !== pg || el15.loc.kind === "other") continue;
+      const para4 = el15.para;
       if (!para4?.runs.some((r6) => r6.custom)) continue;
       let acc = 0;
       for (const run3 of para4.runs) {
@@ -75775,9 +76959,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         acc += run3.text.length;
         if (!run3.custom) continue;
         const renderer = this.inlineRenderers.get(run3.custom.type)?.renderer;
-        const c5 = el14.line.chars?.find((k2) => k2.o === a3);
+        const c5 = el15.line.chars?.find((k2) => k2.o === a3);
         if (!renderer?.draw || !c5) continue;
-        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el14.line.baseline) < 400 && it.glyphs.some((g2) => Math.abs(g2.x - c5.x) < 0.5));
+        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el15.line.baseline) < 400 && it.glyphs.some((g2) => Math.abs(g2.x - c5.x) < 0.5));
         const run0 = gr?.t === "glyphs" ? gr : null;
         const sizePt = run0?.sizePt ?? (run3.props.szHalfPt ?? 22) / 2;
         const css2 = run0 ? this.enginePaintEnv().fontOf(run0.face) : { family: DEFAULT_FONT_CSS, weight: 400, italic: false };
@@ -75791,7 +76975,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const ink = this.inkColor(run0?.color ?? run3.props.color);
         ctx.save();
         ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
-        ctx.fillRect(c5.x * scale, el14.line.y * scale, c5.w * scale, el14.line.height * scale);
+        ctx.fillRect(c5.x * scale, el15.line.y * scale, c5.w * scale, el15.line.height * scale);
         ctx.font = `${css2.italic ? "italic " : ""}${css2.weight} ${sizePt * TWIPS_PER_PT * scale}px ${css2.family}`;
         ctx.fillStyle = ink;
         renderer.draw({
@@ -75802,10 +76986,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           measureText,
           ctx,
           xTwips: c5.x,
-          yTwips: el14.line.y,
-          baselineTwips: el14.line.baseline,
+          yTwips: el15.line.y,
+          baselineTwips: el15.line.baseline,
           widthTwips: c5.w,
-          heightTwips: el14.line.height,
+          heightTwips: el15.line.height,
           scale,
           dark: this.pageDark,
           color: ink
@@ -75850,11 +77034,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const line2 = this.lineOf(focus);
     const pg = line2?.page ?? 0;
     const sec = this.eng ? this.sectionOfPage(pg) : void 0;
-    const sp = sec?.sectPr ?? this.sect();
-    const margins = { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips };
+    const sp2 = sec?.sectPr ?? this.sect();
+    const margins = { top: sp2.marginTopTwips, right: sp2.marginRightTwips, bottom: sp2.marginBottomTwips, left: sp2.marginLeftTwips };
     const p3 = this.model.paragraphs[focus.para];
     const eng = line2?.eng;
-    let columns = sectionColumns(sp, sec);
+    let columns = sectionColumns(sp2, sec);
     let frame2;
     let indents;
     let tabs;
@@ -75863,12 +77047,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       indents = { left: eng.pfmt.left, right: eng.pfmt.right, firstLine: eng.pfmt.firstLine };
       tabs = eng.pfmt.tabs.map(tabInfo);
     } else {
-      const x0 = this.view === "print" ? sp.marginLeftTwips : 600;
+      const x0 = this.view === "print" ? sp2.marginLeftTwips : 600;
       frame2 = { x0, x1: x0 + this.contentWidthTwips() };
       if (this.view !== "print") columns = [{ x: frame2.x0, w: frame2.x1 - frame2.x0 }];
       const ppr = p3 ? this.effectivePPrOf(p3) : {};
-      const ind = ppr.ind ?? {};
-      indents = { left: ind.left ?? 0, right: ind.right ?? 0, firstLine: ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0 };
+      const ind2 = ppr.ind ?? {};
+      indents = { left: ind2.left ?? 0, right: ind2.right ?? 0, firstLine: ind2.hanging !== void 0 ? -ind2.hanging : ind2.firstLine ?? 0 };
       tabs = (ppr.tabs ?? []).filter((t6) => t6.val !== "clear").map(tabInfo);
     }
     const where = this.hfEdit ? this.hfEdit.kind : this.tbEdit ? "textbox" : this.cellEdit ? "cell" : "body";
@@ -75893,8 +77077,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     return {
       page: pg,
-      pageWidthTwips: sp.pageWidthTwips,
-      pageHeightTwips: sp.pageHeightTwips,
+      pageWidthTwips: sp2.pageWidthTwips,
+      pageHeightTwips: sp2.pageHeightTwips,
       margins,
       columns,
       frame: frame2,
@@ -75920,14 +77104,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  estilo e a lista incluídos) — diálogo Parágrafo. */
   getParagraphIndents() {
     const p3 = this.model?.paragraphs[this.selection.focus.para];
-    const ind = p3 ? this.effectivePPrOf(p3).ind ?? {} : {};
-    return { left: ind.left ?? 0, right: ind.right ?? 0, firstLine: ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0 };
+    const ind2 = p3 ? this.effectivePPrOf(p3).ind ?? {} : {};
+    return { left: ind2.left ?? 0, right: ind2.right ?? 0, firstLine: ind2.hanging !== void 0 ? -ind2.hanging : ind2.firstLine ?? 0 };
   }
   /** Recuos dos parágrafos selecionados (twips, a partir do quadro): o que não
    *  vier fica como está. Como a régua do Word: valor absoluto em todos os
    *  parágrafos da seleção, gravando só o que difere do herdado (oráculo
    *  nav-lab ind-*). Um passo de desfazer. */
-  setParagraphIndents(ind) {
+  setParagraphIndents(ind2) {
     if (!this.model || this.locked()) return;
     const { start, end } = normalizeRange(this.range());
     this.snapshot();
@@ -75936,9 +77120,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (!p3) continue;
       const eff = this.effectivePPrOf(p3).ind ?? {};
       const want = {
-        left: ind.left ?? eff.left ?? 0,
-        right: ind.right ?? eff.right ?? 0,
-        firstLine: ind.firstLine ?? (eff.hanging !== void 0 ? -eff.hanging : eff.firstLine ?? 0)
+        left: ind2.left ?? eff.left ?? 0,
+        right: ind2.right ?? eff.right ?? 0,
+        firstLine: ind2.firstLine ?? (eff.hanging !== void 0 ? -eff.hanging : eff.firstLine ?? 0)
       };
       const d3 = indentsDirect(this.inheritedPPrOf(p3).ind, want);
       if (d3.indentLeftTwips === p3.props.indentLeftTwips && d3.indentRightTwips === p3.props.indentRightTwips && d3.indentFirstLineTwips === p3.props.indentFirstLineTwips) continue;
@@ -76378,15 +77562,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!read) return false;
     const c5 = this.hfContext();
     const sp0 = sectionSectPr(this.bodyModel(), c5?.sec ?? 0);
-    const sp = { ...sp0, titlePg: false };
-    delete sp.pgBorders;
+    const sp2 = { ...sp0, titlePg: false };
+    delete sp2.pgBorders;
     const current = gallery === "pageCurrent";
     const set = { default: read.blocks };
     const full = {
       ...this.fullDoc ?? {},
       blocks: current ? read.blocks : [{ type: "paragraph", paragraph: { runs: [], props: {} } }],
       sections: [{
-        sectPr: sp,
+        sectPr: sp2,
         blockStart: 0,
         blockEnd: current ? read.blocks.length - 1 : 0,
         headers: {},
@@ -76414,17 +77598,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (gallery === "pageMargin") {
     } else if (current) {
       const l3 = page2.lines[0];
-      top = Math.max(0, (l3?.y ?? sp.marginTopTwips) - 240);
+      top = Math.max(0, (l3?.y ?? sp2.marginTopTwips) - 240);
       bottom = top + (l3?.height ?? 300) + 480;
     } else if (kind === "header") {
       top = 0;
-      bottom = Math.max(sp.marginTopTwips, ...page2.lines.filter((l3) => l3.y < page2.heightTw / 2).map((l3) => l3.y + l3.height)) + 120;
+      bottom = Math.max(sp2.marginTopTwips, ...page2.lines.filter((l3) => l3.y < page2.heightTw / 2).map((l3) => l3.y + l3.height)) + 120;
     } else {
-      top = Math.min(page2.heightTw - sp.marginBottomTwips, ...page2.lines.filter((l3) => l3.y > page2.heightTw / 2).map((l3) => l3.y)) - 120;
+      top = Math.min(page2.heightTw - sp2.marginBottomTwips, ...page2.lines.filter((l3) => l3.y > page2.heightTw / 2).map((l3) => l3.y)) - 120;
       bottom = page2.heightTw;
     }
-    const left = gallery === "pageMargin" ? 0 : Math.max(0, sp.marginLeftTwips - 360);
-    const right = gallery === "pageMargin" ? page2.widthTw : Math.min(page2.widthTw, page2.widthTw - sp.marginRightTwips + 360);
+    const left = gallery === "pageMargin" ? 0 : Math.max(0, sp2.marginLeftTwips - 360);
+    const right = gallery === "pageMargin" ? page2.widthTw : Math.min(page2.widthTw, page2.widthTw - sp2.marginRightTwips + 360);
     const dpr = window.devicePixelRatio || 1;
     const scale = cssWidth / (right - left);
     const hTw = bottom - top;
@@ -76476,12 +77660,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   paintDocGrid(ctx, pg, scale) {
     if (!this.docGrid || !this.eng) return;
     const page2 = this.eng.result.pages[pg];
-    const sp = this.sectionOfPage(pg)?.sectPr;
-    if (!page2 || !sp) return;
+    const sp2 = this.sectionOfPage(pg)?.sectPr;
+    if (!page2 || !sp2) return;
     const xml = this.pkg?.getPartText("word/settings.xml");
     if (!this.gridCache || this.gridCache.xml !== xml) this.gridCache = { xml, grid: drawingGridOf(xml) };
     const g2 = this.gridCache.grid;
-    const box = { x0: sp.marginLeftTwips, y0: sp.marginTopTwips, x1: page2.widthTw - sp.marginRightTwips, y1: page2.heightTw - sp.marginBottomTwips };
+    const box = { x0: sp2.marginLeftTwips, y0: sp2.marginTopTwips, x1: page2.widthTw - sp2.marginRightTwips, y1: page2.heightTw - sp2.marginBottomTwips };
     const origin = g2.fromMargins ? { x: box.x0, y: box.y0 } : { x: g2.originX, y: g2.originY };
     const { xs, ys } = gridLines(g2, box, origin);
     ctx.save();
@@ -76559,15 +77743,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!eng || !page2) return null;
     const which = kind === "header" ? "hdr" : "ftr";
     let type;
-    for (const el14 of eng.lines) if (el14.page === pg && el14.loc.kind === "hf" && el14.loc.which === which) {
-      type = el14.loc.part;
+    for (const el15 of eng.lines) if (el15.page === pg && el15.loc.kind === "hf" && el15.loc.which === which) {
+      type = el15.loc.part;
       break;
     }
     if (!type) {
       let sectPage = 0;
       for (let i7 = pg - 1; i7 >= 0 && eng.result.pages[i7].section === page2.section; i7--) sectPage++;
-      const sp = this.sectionOfPage(pg)?.sectPr;
-      type = sectPage === 0 && sp?.titlePg ? "first" : this.evenOddHeaders() && page2.number % 2 === 0 ? "even" : "default";
+      const sp2 = this.sectionOfPage(pg)?.sectPr;
+      type = sectPage === 0 && sp2?.titlePg ? "first" : this.evenOddHeaders() && page2.number % 2 === 0 ? "even" : "default";
     }
     const src = hfBlocksFor(eng.doc.full, page2.section, which, type);
     const b5 = this.bodyState();
@@ -76579,15 +77763,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  o conteúdo do motor ocupa, o que for maior. */
   hfBand(pg, kind) {
     const page2 = this.eng?.result.pages[pg];
-    const sp = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
-    const pageH = page2?.heightTw ?? sp.pageHeightTwips;
+    const sp2 = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
+    const pageH = page2?.heightTw ?? sp2.pageHeightTwips;
     const which = kind === "header" ? "hdr" : "ftr";
-    let top = kind === "header" ? 0 : pageH - sp.marginBottomTwips;
-    let bottom = kind === "header" ? sp.marginTopTwips : pageH;
-    for (const el14 of this.eng?.lines ?? []) {
-      if (el14.page !== pg || el14.loc.kind !== "hf" || el14.loc.which !== which) continue;
-      if (kind === "header") bottom = Math.max(bottom, el14.line.y + el14.line.height);
-      else top = Math.min(top, el14.line.y);
+    let top = kind === "header" ? 0 : pageH - sp2.marginBottomTwips;
+    let bottom = kind === "header" ? sp2.marginTopTwips : pageH;
+    for (const el15 of this.eng?.lines ?? []) {
+      if (el15.page !== pg || el15.loc.kind !== "hf" || el15.loc.which !== which) continue;
+      if (kind === "header") bottom = Math.max(bottom, el15.line.y + el15.line.height);
+      else top = Math.min(top, el15.line.y);
     }
     return { top, bottom };
   }
@@ -76604,15 +77788,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const yT = (e8.clientY - rect2.top) / scale;
       let best = null;
       let bestD = Infinity;
-      for (const el14 of eng.lines) {
-        if (el14.page !== pg || el14.loc.kind === "other") continue;
-        const l3 = el14.line;
+      for (const el15 of eng.lines) {
+        if (el15.page !== pg || el15.loc.kind === "other") continue;
+        const l3 = el15.line;
         const dy = yT < l3.y ? l3.y - yT : yT > l3.y + l3.height ? yT - (l3.y + l3.height) : 0;
         const dx = xT < l3.x ? l3.x - xT : xT > l3.x + l3.width ? xT - (l3.x + l3.width) : 0;
         const d3 = dy * 4 + dx;
         if (d3 < bestD) {
           bestD = d3;
-          best = el14;
+          best = el15;
         }
       }
       return best;
@@ -76623,19 +77807,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  clicada (o hitTest depois acha o offset nas linhas do modelo em edição). */
   routeEngineClick(e8) {
     if (!this.eng || this.hfEdit || this.tbEdit || this.locked()) return;
-    const el14 = this.engLineAt(e8);
-    if (!el14) return;
-    if (el14.loc.kind === "note") {
+    const el15 = this.engLineAt(e8);
+    if (!el15) return;
+    if (el15.loc.kind === "note") {
       const ne = this.noteEdit;
-      if (!ne || ne.kind !== el14.loc.note || ne.id !== el14.loc.id) this.enterNote(el14.loc.note, el14.loc.id);
+      if (!ne || ne.kind !== el15.loc.note || ne.id !== el15.loc.id) this.enterNote(el15.loc.note, el15.loc.id);
       return;
     }
     if (this.noteEdit) this.exitNote();
-    if (el14.loc.kind === "cell") {
+    if (el15.loc.kind === "cell") {
       const ce = this.cellEdit;
-      if (ce && ce.anchor === el14.loc.anchor && sameHops(ce.hops, el14.loc.hops)) return;
-      this.enterCell(el14.loc.anchor, el14.loc.hops);
-    } else if (el14.loc.kind === "body" && this.cellEdit) {
+      if (ce && ce.anchor === el15.loc.anchor && sameHops(ce.hops, el15.loc.hops)) return;
+      this.enterCell(el15.loc.anchor, el15.loc.hops);
+    } else if (el15.loc.kind === "body" && this.cellEdit) {
       this.exitCell();
       this.refreshSelection();
     }
@@ -76771,14 +77955,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Texto da nota cuja referência está sob o ponteiro (null = nenhuma). */
   noteTipAt(e8) {
     if (!this.eng || !this.fullDoc || this.view === "read") return null;
-    const el14 = this.engLineAt(e8);
-    const para4 = el14?.para;
-    if (!el14 || !para4 || el14.loc.kind !== "body" && el14.loc.kind !== "cell" || !para4.runs.some((r6) => r6.noteRef)) return null;
-    const rect2 = this.canvases[el14.page]?.getBoundingClientRect();
+    const el15 = this.engLineAt(e8);
+    const para4 = el15?.para;
+    if (!el15 || !para4 || el15.loc.kind !== "body" && el15.loc.kind !== "cell" || !para4.runs.some((r6) => r6.noteRef)) return null;
+    const rect2 = this.canvases[el15.page]?.getBoundingClientRect();
     if (!rect2) return null;
     const scale = PX_PER_TWIP * this.zoom;
     const xT = (e8.clientX - rect2.left) / scale, yT = (e8.clientY - rect2.top) / scale;
-    const l3 = el14.line;
+    const l3 = el15.line;
     if (yT < l3.y || yT > l3.y + l3.height) return null;
     let acc = 0;
     for (const r6 of para4.runs) {
@@ -77054,8 +78238,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Opções de nota da seção do cursor (formato, início, numeração, local, colunas). */
   getNoteOptions(kind = "footnote") {
     const m2 = this.bodyModel();
-    const sp = sectionSectPr(m2, sectionIndexAt(m2, this.bodyCaretPara()));
-    return effectiveNoteOptions(kind, this.noteSettings[kind], kind === "footnote" ? sp.footnotePr : sp.endnotePr, kind === "footnote" ? sp.footnoteColumns : void 0);
+    const sp2 = sectionSectPr(m2, sectionIndexAt(m2, this.bodyCaretPara()));
+    return effectiveNoteOptions(kind, this.noteSettings[kind], kind === "footnote" ? sp2.footnotePr : sp2.endnotePr, kind === "footnote" ? sp2.footnoteColumns : void 0);
   }
   /**
    * Muda as opções de nota, como o diálogo "Notas de Rodapé e de Fim": em toda a
@@ -77079,16 +78263,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const fnLike = kind === "footnote";
     const sectProps = notePropsOf(kind, next, fnLike);
     for (const i7 of targets) {
-      const sp = sectionSectPr(m2, i7);
+      const sp2 = sectionSectPr(m2, i7);
       if (fnLike) {
-        if (sectProps) sp.footnotePr = sectProps;
-        else delete sp.footnotePr;
+        if (sectProps) sp2.footnotePr = sectProps;
+        else delete sp2.footnotePr;
         if (o7.columns !== void 0) {
-          if (next.columns) sp.footnoteColumns = next.columns;
-          else delete sp.footnoteColumns;
+          if (next.columns) sp2.footnoteColumns = next.columns;
+          else delete sp2.footnoteColumns;
         }
-      } else if (sectProps) sp.endnotePr = sectProps;
-      else delete sp.endnotePr;
+      } else if (sectProps) sp2.endnotePr = sectProps;
+      else delete sp2.endnotePr;
     }
     if (scope === "document" || k2 === 0 || !fnLike && o7.position !== void 0) {
       const docProps = notePropsOf(kind, scope === "document" || k2 === 0 ? next : { ...effectiveNoteOptions(kind, this.noteSettings[kind], void 0), position: next.position }, true);
@@ -77157,10 +78341,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!ce || !this.eng) return false;
     const prefix = ce.hops.slice(0, -1);
     const seen = [];
-    for (const el14 of this.eng.lines) {
-      if (el14.loc.kind !== "cell" || el14.loc.anchor !== ce.anchor || el14.loc.hops.length !== ce.hops.length) continue;
-      if (!sameHops(el14.loc.hops.slice(0, -1), prefix)) continue;
-      const h3 = el14.loc.hops[el14.loc.hops.length - 1];
+    for (const el15 of this.eng.lines) {
+      if (el15.loc.kind !== "cell" || el15.loc.anchor !== ce.anchor || el15.loc.hops.length !== ce.hops.length) continue;
+      if (!sameHops(el15.loc.hops.slice(0, -1), prefix)) continue;
+      const h3 = el15.loc.hops[el15.loc.hops.length - 1];
       if (!seen.some((s4) => s4.r === h3.r && s4.c === h3.c)) seen.push(h3);
     }
     seen.sort((a3, b5) => a3.r - b5.r || a3.c - b5.c);
@@ -77390,10 +78574,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const p3 = this.model.paragraphs[para4];
-    const ind = this.paraIndent(p3);
+    const ind2 = this.paraIndent(p3);
     const t6 = table_ops_exports.newTable(rows, cols, {
-      availTwips: this.contentWidthTwips() - ind,
-      indTwips: ind > 0 ? ind : void 0,
+      availTwips: this.contentWidthTwips() - ind2,
+      indTwips: ind2 > 0 ? ind2 : void 0,
       styleId,
       autofit: opts.autofit,
       colTwips: opts.colWidthTwips
@@ -77588,8 +78772,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** AutoAjuste: ao conteúdo, à janela ou largura fixa da coluna. */
   autoFitTable(mode) {
     this.editTable((tg) => {
-      const ind = tg.table.tblPr?.tblInd?.type === "dxa" ? tg.table.tblPr.tblInd.w : 0;
-      table_ops_exports.autoFit(tg.table, mode, this.contentWidthTwips() - ind);
+      const ind2 = tg.table.tblPr?.tblInd?.type === "dxa" ? tg.table.tblPr.tblInd.w : 0;
+      table_ops_exports.autoFit(tg.table, mode, this.contentWidthTwips() - ind2);
       return { select: { ...tg.rect } };
     });
   }
@@ -77769,11 +78953,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!paras.length) return false;
     const sep = opts.separator ?? table_ops_exports.guessSeparator(paras);
     this.snapshot();
-    const ind = this.paraIndent(paras[0]);
+    const ind2 = this.paraIndent(paras[0]);
     const t6 = table_ops_exports.textToTable(paras, sep, {
       cols: opts.cols ?? (sep === "paragraph" ? 1 : table_ops_exports.columnsFor(paras, sep)),
-      availTwips: this.contentWidthTwips() - ind,
-      indTwips: ind > 0 ? ind : void 0,
+      availTwips: this.contentWidthTwips() - ind2,
+      indTwips: ind2 > 0 ? ind2 : void 0,
       styleId: this.tableStyleId("Table Grid") ?? null,
       autofit: opts.autofit,
       colTwips: opts.colWidthTwips
@@ -78683,8 +79867,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           table_ops_exports.setColumnWidth(t6, b5, b5, r6);
         } else if (b5 === g2.length) table_ops_exports.setColumnWidth(t6, b5 - 1, b5 - 1, g2[b5 - 1] + delta);
         else {
-          const ind = t6.tblPr?.tblInd?.type === "dxa" ? t6.tblPr.tblInd.w : 0;
-          table_ops_exports.setTableProps(t6, { tblInd: ind + delta ? { w: ind + delta, type: "dxa" } : void 0 });
+          const ind2 = t6.tblPr?.tblInd?.type === "dxa" ? t6.tblPr.tblInd.w : 0;
+          table_ops_exports.setTableProps(t6, { tblInd: ind2 + delta ? { w: ind2 + delta, type: "dxa" } : void 0 });
           table_ops_exports.setColumnWidth(t6, 0, 0, g2[0] - delta);
         }
       });
@@ -78706,8 +79890,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       this.editTableAt(d3.anchor, [], (t6) => {
         const pp = t6.tblPr?.tblpPr;
-        const ind = t6.tblPr?.tblInd?.type === "dxa" ? t6.tblPr.tblInd.w : 0;
-        const x0 = pp?.tblpXSpec ? 0 : pp?.tblpX ?? ind, y0 = pp?.tblpYSpec ? 0 : pp?.tblpY ?? 0;
+        const ind2 = t6.tblPr?.tblInd?.type === "dxa" ? t6.tblPr.tblInd.w : 0;
+        const x0 = pp?.tblpXSpec ? 0 : pp?.tblpX ?? ind2, y0 = pp?.tblpYSpec ? 0 : pp?.tblpY ?? 0;
         table_ops_exports.setTableProps(t6, {
           tblpPr: { leftFromText: 141, rightFromText: 141, ...pp ?? {}, vertAnchor: pp?.vertAnchor ?? "text", horzAnchor: pp?.horzAnchor, tblpX: x0 + dx, tblpY: y0 + dy, tblpXSpec: void 0, tblpYSpec: void 0 },
           tblOverlap: t6.tblPr?.tblOverlap ?? "never",
@@ -79223,14 +80407,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Largura disponível para a tabela: coluna de texto (ou a célula de fora) menos o recuo. */
   tableAvail(tg) {
-    const ind = tg.table.tblPr?.tblInd?.type === "dxa" ? tg.table.tblPr.tblInd.w : 0;
+    const ind2 = tg.table.tblPr?.tblInd?.type === "dxa" ? tg.table.tblPr.tblInd.w : 0;
     if (tg.path.length) {
       const h3 = tg.path[tg.path.length - 1];
       const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
       const g2 = outer ? table_ops_exports.cellAt(table_ops_exports.mapTable(outer), h3.r, h3.c) : void 0;
-      if (outer && g2) return table_ops_exports.gridWidth(outer, g2.col, g2.span) - 216 - ind;
+      if (outer && g2) return table_ops_exports.gridWidth(outer, g2.col, g2.span) - 216 - ind2;
     }
-    return this.contentWidthTwips() - ind;
+    return this.contentWidthTwips() - ind2;
   }
   /** Propriedades da Tabela (guias Tabela, Linha, Coluna, Célula e Texto Alt) num passo de desfazer. */
   setTableProperties(p3) {
@@ -79372,13 +80556,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         w2 = ep.widthTw;
         h3 = ep.heightTw;
       } else if (isPaged && this.hfEdit && this.savedBody) {
-        const sp = this.sectPrForSavedPage(i7);
-        w2 = sp.pageWidthTwips;
-        h3 = sp.pageHeightTwips;
+        const sp2 = this.sectPrForSavedPage(i7);
+        w2 = sp2.pageWidthTwips;
+        h3 = sp2.pageHeightTwips;
       } else if (isPaged && this.sectionStarts.length > 0) {
-        const sp = this.sectPrAt(this.pageSections[i7] ?? 0);
-        w2 = sp.pageWidthTwips;
-        h3 = sp.pageHeightTwips;
+        const sp2 = this.sectPrAt(this.pageSections[i7] ?? 0);
+        w2 = sp2.pageWidthTwips;
+        h3 = sp2.pageHeightTwips;
       }
       return { wPx: `${Math.round(w2 * cssScale)}px`, hPx: `${Math.round(h3 * cssScale)}px` };
     };
@@ -79439,28 +80623,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const scale = scales[pg];
       const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
       const section4 = this.sectionStarts[sIdx]?.section ?? fullDoc.sections[0];
-      const sp = this.sectPrAt(sIdx);
+      const sp2 = this.sectPrAt(sIdx);
       const grey = this.pageDark ? "#9aa0a6" : "#555";
       if (section4) {
-        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-        const header2 = pg === 0 && sp.titlePg ? section4.headers.first : section4.headers.default;
+        const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
+        const header2 = pg === 0 && sp2.titlePg ? section4.headers.first : section4.headers.default;
         if (header2?.length && !this.hfCapturing) {
           ctx.save();
           ctx.globalAlpha = this.printRender ? 1 : HF_DIM_ALPHA;
-          this.paintHf(ctx, scale, header2, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, grey, sp);
+          this.paintHf(ctx, scale, header2, sp2.marginLeftTwips, sp2.headerDistanceTwips ?? 720, colW, pg, grey, sp2);
           ctx.restore();
         }
-        const footer2 = pg === 0 && sp.titlePg ? section4.footers.first : section4.footers.default;
+        const footer2 = pg === 0 && sp2.titlePg ? section4.footers.first : section4.footers.default;
         if (footer2?.length && !this.hfCapturing) {
-          const fTop = sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(footer2, colW);
+          const fTop = sp2.pageHeightTwips - (sp2.footerDistanceTwips ?? 720) - this.measureHfHeight(footer2, colW);
           ctx.save();
           ctx.globalAlpha = this.printRender ? 1 : HF_DIM_ALPHA;
-          this.paintHf(ctx, scale, footer2, sp.marginLeftTwips, fTop, colW, pg, grey, sp);
+          this.paintHf(ctx, scale, footer2, sp2.marginLeftTwips, fTop, colW, pg, grey, sp2);
           ctx.restore();
         }
       }
-      if (sp.cols?.sep && sp.cols.count > 1) {
-        const cc = this.colContentOnPage(pg, sp);
+      if (sp2.cols?.sep && sp2.cols.count > 1) {
+        const cc = this.colContentOnPage(pg, sp2);
         if (cc) {
           ctx.strokeStyle = this.pageDark ? "#5f6368" : "#bdbdbd";
           ctx.lineWidth = Math.max(1, dpr * 0.75);
@@ -79468,7 +80652,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (!cc.hasContent[i7 + 1]) continue;
             const xs = (cc.origin(i7 + 1) - cc.gap / 2) * scale;
             ctx.beginPath();
-            ctx.moveTo(xs, sp.marginTopTwips * scale);
+            ctx.moveTo(xs, sp2.marginTopTwips * scale);
             ctx.lineTo(xs, cc.maxBottom * scale);
             ctx.stroke();
           }
@@ -79476,12 +80660,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       const hits = this.footnoteHits.filter((h3) => h3.page === pg);
       if (hits.length && fullDoc.footnotes.size) {
-        let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
+        let fy = sp2.pageHeightTwips - sp2.marginBottomTwips - hits.length * 260 - 120;
         ctx.strokeStyle = grey;
         ctx.lineWidth = Math.max(1, dpr);
         ctx.beginPath();
-        ctx.moveTo(sp.marginLeftTwips * scale, fy * scale);
-        ctx.lineTo((sp.marginLeftTwips + 2880) * scale, fy * scale);
+        ctx.moveTo(sp2.marginLeftTwips * scale, fy * scale);
+        ctx.lineTo((sp2.marginLeftTwips + 2880) * scale, fy * scale);
         ctx.stroke();
         fy += 220;
         ctx.font = `400 ${9 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
@@ -79489,7 +80673,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (const h3 of hits) {
           const paras = fullDoc.footnotes.get(h3.id);
           const text = paras?.map((p3) => p3.runs.map((r6) => r6.text).join("")).join(" ").trim() ?? "";
-          ctx.fillText(`${h3.id}. ${text}`.slice(0, 160), sp.marginLeftTwips * scale, fy * scale);
+          ctx.fillText(`${h3.id}. ${text}`.slice(0, 160), sp2.marginLeftTwips * scale, fy * scale);
           fy += 240;
         }
       }
@@ -79682,15 +80866,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const ctx = ctxs[fpg];
         if (!ctx) return;
         const scale = scales[fpg];
-        const sp = this.sectPrAt(this.pageSections[fpg] ?? 0);
-        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        const sp2 = this.sectPrAt(this.pageSections[fpg] ?? 0);
+        const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
         for (const r6 of p3.runs) {
           if (!r6.textbox) continue;
           if (r6 === this.tbSnapshotSuppress) continue;
-          const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
+          const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp2.marginLeftTwips, first.yTwips, sp2) : { x: sp2.marginLeftTwips, y: first.yTwips };
           {
             const iw = this.tbInner(r6.textbox, x3, y3, r6.textbox.widthTwips || colW);
-            this.paintHf(ctx, scale, r6.textbox.paras, iw.x, iw.y, iw.w, fpg, inkTb, sp);
+            this.paintHf(ctx, scale, r6.textbox.paras, iw.x, iw.y, iw.w, fpg, inkTb, sp2);
           }
         }
       });
@@ -80213,7 +81397,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   async exportPdfCanvasLegacy() {
     if (!this.model || !this.fonts) throw new Error("document not loaded");
     await this.ensureImagesDecoded();
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
     this.pdfImgCache = /* @__PURE__ */ new WeakMap();
     await this.settleDocumentFonts();
@@ -80245,39 +81429,39 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const pages2 = [];
     const total = Math.max(1, this.pageCount);
     for (let pg = 0; pg < total; pg++) {
-      const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
-      pages2.push(doc.addPage(sp.pageWidthTwips / T8, sp.pageHeightTwips / T8));
+      const sp2 = this.sectPrAt(this.pageSections[pg] ?? 0);
+      pages2.push(doc.addPage(sp2.pageWidthTwips / T9, sp2.pageHeightTwips / T9));
     }
     if (this.view === "print" && this.fullDoc) {
       for (let pg = 0; pg < pages2.length; pg++) {
         const page2 = pages2[pg];
         const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
         const section4 = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
-        const sp = this.sectPrAt(sIdx);
+        const sp2 = this.sectPrAt(sIdx);
         if (section4) {
-          const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-          const header = pg === 0 && sp.titlePg ? section4.headers.first : section4.headers.default;
-          if (header?.length) this.pdfPaintHf(doc, page2, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, sp);
-          const footer = pg === 0 && sp.titlePg ? section4.footers.first : section4.footers.default;
-          if (footer?.length) this.pdfPaintHf(doc, page2, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg, sp);
+          const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
+          const header = pg === 0 && sp2.titlePg ? section4.headers.first : section4.headers.default;
+          if (header?.length) this.pdfPaintHf(doc, page2, emb, header, sp2.marginLeftTwips, sp2.headerDistanceTwips ?? 720, colW, pg, sp2);
+          const footer = pg === 0 && sp2.titlePg ? section4.footers.first : section4.footers.default;
+          if (footer?.length) this.pdfPaintHf(doc, page2, emb, footer, sp2.marginLeftTwips, sp2.pageHeightTwips - (sp2.footerDistanceTwips ?? 720), colW, pg, sp2);
         }
-        if (sp.cols?.sep && sp.cols.count > 1) {
-          const cc = this.colContentOnPage(pg, sp);
+        if (sp2.cols?.sep && sp2.cols.count > 1) {
+          const cc = this.colContentOnPage(pg, sp2);
           if (cc) for (let i7 = 0; i7 < cc.n - 1; i7++) {
             if (!cc.hasContent[i7 + 1]) continue;
-            const xs = (cc.origin(i7 + 1) - cc.gap / 2) / T8;
-            page2.line(xs, sp.marginTopTwips / T8, xs, cc.maxBottom / T8, [0.74, 0.74, 0.74], 0.6);
+            const xs = (cc.origin(i7 + 1) - cc.gap / 2) / T9;
+            page2.line(xs, sp2.marginTopTwips / T9, xs, cc.maxBottom / T9, [0.74, 0.74, 0.74], 0.6);
           }
         }
         const hits = this.footnoteHits.filter((h3) => h3.page === pg);
         if (hits.length && this.fullDoc.footnotes.size) {
-          let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
-          page2.line(sp.marginLeftTwips / T8, fy / T8, (sp.marginLeftTwips + 2880) / T8, fy / T8, [0.33, 0.33, 0.33], 0.75);
+          let fy = sp2.pageHeightTwips - sp2.marginBottomTwips - hits.length * 260 - 120;
+          page2.line(sp2.marginLeftTwips / T9, fy / T9, (sp2.marginLeftTwips + 2880) / T9, fy / T9, [0.33, 0.33, 0.33], 0.75);
           fy += 220;
           for (const h3 of hits) {
             const paras = this.fullDoc.footnotes.get(h3.id);
             const text = paras?.map((p3) => p3.runs.map((r6) => r6.text).join("")).join(" ").trim() ?? "";
-            this.pdfGlyphsAt(page2, emb, DEFAULT_FONT, "regular", 9, [0.2, 0.2, 0.2], `${h3.id}. ${text}`.slice(0, 160), sp.marginLeftTwips, fy);
+            this.pdfGlyphsAt(page2, emb, DEFAULT_FONT, "regular", 9, [0.2, 0.2, 0.2], `${h3.id}. ${text}`.slice(0, 160), sp2.marginLeftTwips, fy);
             fy += 240;
           }
         }
@@ -80297,7 +81481,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const page2 = pages2[dc.page];
       if (!page2) continue;
       const variant = dc.bold && dc.italic ? "boldItalic" : dc.bold ? "bold" : dc.italic ? "italic" : "regular";
-      const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T8;
+      const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T9;
       this.pdfGlyphsAt(page2, emb, DEFAULT_FONT, variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
     }
     for (const f3 of this.floatImages) {
@@ -80311,10 +81495,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         doc,
         page2,
         img,
-        (first.xTwips + (img.offsetXTwips ?? 0)) / T8,
-        (first.yTwips + (img.offsetYTwips ?? 0)) / T8,
-        img.widthTwips / T8,
-        img.heightTwips / T8
+        (first.xTwips + (img.offsetXTwips ?? 0)) / T9,
+        (first.yTwips + (img.offsetYTwips ?? 0)) / T9,
+        img.widthTwips / T9,
+        img.heightTwips / T9
       );
     }
     if (this.model) {
@@ -80324,14 +81508,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (!first) return;
         const page2 = pages2[first.page];
         if (!page2) return;
-        const sp = this.sectPrAt(this.pageSections[first.page] ?? 0);
-        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        const sp2 = this.sectPrAt(this.pageSections[first.page] ?? 0);
+        const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
         for (const r6 of p3.runs) {
           if (!r6.textbox) continue;
-          const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
+          const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp2.marginLeftTwips, first.yTwips, sp2) : { x: sp2.marginLeftTwips, y: first.yTwips };
           {
             const iw = this.tbInner(r6.textbox, x3, y3, r6.textbox.widthTwips || colW);
-            this.pdfPaintHf(doc, page2, emb, r6.textbox.paras, iw.x, iw.y, iw.w, first.page, sp);
+            this.pdfPaintHf(doc, page2, emb, r6.textbox.paras, iw.x, iw.y, iw.w, first.page, sp2);
           }
         }
       });
@@ -80348,14 +81532,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   exportXpsLegacy() {
     if (!this.model || !this.fonts) throw new Error("document not loaded");
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     const pages2 = [];
     const total = Math.max(1, this.pageCount);
     for (let pg = 0; pg < total; pg++) {
-      const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
+      const sp2 = this.sectPrAt(this.pageSections[pg] ?? 0);
       pages2.push({
-        widthPt: sp.pageWidthTwips / T8,
-        heightPt: sp.pageHeightTwips / T8,
+        widthPt: sp2.pageWidthTwips / T9,
+        heightPt: sp2.pageHeightTwips / T9,
         fills: [],
         lines: [],
         glyphs: []
@@ -80368,7 +81552,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return [(n5 >> 16 & 255) / 255, (n5 >> 8 & 255) / 255, (n5 & 255) / 255];
     };
     const emitParaLine = (page2, pl, line2, runs) => {
-      const baselinePt = line2.baselineTwips / T8;
+      const baselinePt = line2.baselineTwips / T9;
       for (const seg of line2.rich.segments) {
         const span = pl.spans[seg.spanIndex];
         const run3 = runs[span?.runIndex ?? seg.spanIndex];
@@ -80378,7 +81562,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (!txt2.trim()) continue;
         page2.glyphs.push({
           text: txt2,
-          xPt: (line2.xTwips + seg.xTwips) / T8,
+          xPt: (line2.xTwips + seg.xTwips) / T9,
           baselinePt,
           fontFamily: famOf(span.family),
           variant: span.variant === "boldItalic" ? "boldItalic" : span.variant === "bold" ? "bold" : span.variant === "italic" ? "italic" : "regular",
@@ -80388,9 +81572,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (run3?.props.underline) {
           const w2 = Math.max(0.3, span.sizePt * 0.07);
           page2.lines.push({
-            ax: (line2.xTwips + seg.xTwips) / T8,
+            ax: (line2.xTwips + seg.xTwips) / T9,
             ay: baselinePt + span.sizePt * 0.13,
-            bx: (line2.xTwips + seg.xTwips + seg.widthTwips) / T8,
+            bx: (line2.xTwips + seg.xTwips + seg.widthTwips) / T9,
             by: baselinePt + span.sizePt * 0.13,
             widthPt: w2,
             colorRgb: colorOf4(run3.props.color)
@@ -80411,18 +81595,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (!page2) continue;
       for (const sh of tl.cellShades) {
         page2.fills.push({
-          xPt: (tl.xTwips + sh.xTwips) / T8,
-          yPt: (tl.yTwips + sh.yTwips) / T8,
-          wPt: sh.wTwips / T8,
-          hPt: sh.hTwips / T8,
+          xPt: (tl.xTwips + sh.xTwips) / T9,
+          yPt: (tl.yTwips + sh.yTwips) / T9,
+          wPt: sh.wTwips / T9,
+          hPt: sh.hTwips / T9,
           colorRgb: colorOf4(sh.hex)
         });
       }
       for (const cr of tl.cellRects) {
-        const x0 = (tl.xTwips + cr.x0) / T8;
-        const y0 = (tl.yTwips + cr.y0) / T8;
-        const x1 = (tl.xTwips + cr.x1) / T8;
-        const y1 = (tl.yTwips + cr.y1) / T8;
+        const x0 = (tl.xTwips + cr.x0) / T9;
+        const y0 = (tl.yTwips + cr.y0) / T9;
+        const x1 = (tl.xTwips + cr.x1) / T9;
+        const y1 = (tl.yTwips + cr.y1) / T9;
         const e8 = (edge, ax, ay, bx, by) => {
           if (!edge) return;
           page2.lines.push({
@@ -80443,8 +81627,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const variant = cl.bold && cl.italic ? "boldItalic" : cl.bold ? "bold" : cl.italic ? "italic" : "regular";
         page2.glyphs.push({
           text: cl.text,
-          xPt: (tl.xTwips + cl.xTwips) / T8,
-          baselinePt: (tl.yTwips + cl.yTwips) / T8,
+          xPt: (tl.xTwips + cl.xTwips) / T9,
+          baselinePt: (tl.yTwips + cl.yTwips) / T9,
           fontFamily: famOf(cl.family),
           variant,
           sizePt: cl.sizePt,
@@ -80453,10 +81637,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (cl.underline) {
           const wEm = Math.max(0.3, cl.sizePt * 0.07);
           page2.lines.push({
-            ax: (tl.xTwips + cl.xTwips) / T8,
-            ay: (tl.yTwips + cl.yTwips) / T8 + cl.sizePt * 0.13,
-            bx: (tl.xTwips + cl.xTwips + cl.text.length * cl.sizePt * 0.5) / T8,
-            by: (tl.yTwips + cl.yTwips) / T8 + cl.sizePt * 0.13,
+            ax: (tl.xTwips + cl.xTwips) / T9,
+            ay: (tl.yTwips + cl.yTwips) / T9 + cl.sizePt * 0.13,
+            bx: (tl.xTwips + cl.xTwips + cl.text.length * cl.sizePt * 0.5) / T9,
+            by: (tl.yTwips + cl.yTwips) / T9 + cl.sizePt * 0.13,
             widthPt: wEm,
             colorRgb: colorOf4(cl.color)
           });
@@ -80468,20 +81652,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const page2 = pages2[pg];
         const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
         const section4 = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
-        const sp = this.sectPrAt(sIdx);
+        const sp2 = this.sectPrAt(sIdx);
         if (!section4) continue;
-        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-        const header = pg === 0 && sp.titlePg ? section4.headers.first : section4.headers.default;
-        if (header?.length) this.xpsPaintHf(page2, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
-        const footer = pg === 0 && sp.titlePg ? section4.footers.first : section4.footers.default;
-        if (footer?.length) this.xpsPaintHf(page2, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
+        const colW = sp2.pageWidthTwips - sp2.marginLeftTwips - sp2.marginRightTwips;
+        const header = pg === 0 && sp2.titlePg ? section4.headers.first : section4.headers.default;
+        if (header?.length) this.xpsPaintHf(page2, header, sp2.marginLeftTwips, sp2.headerDistanceTwips ?? 720, colW, pg);
+        const footer = pg === 0 && sp2.titlePg ? section4.footers.first : section4.footers.default;
+        if (footer?.length) this.xpsPaintHf(page2, footer, sp2.marginLeftTwips, sp2.pageHeightTwips - (sp2.footerDistanceTwips ?? 720), colW, pg);
       }
     }
     return buildXps({ pages: pages2, fontBytes: this.fontBytes });
   }
   xpsPaintHf(page2, paras, originXTwips, topYTwips, widthTwips, pageIdx) {
     if (!this.fonts) return;
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
       { posTwips: widthTwips, align: "right" }
@@ -80498,12 +81682,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const font = this.fonts.resolve(void 0, "regular");
       for (const line2 of lines) {
         const lineSize = Math.max(line2.maxSizePt, spans[0]?.sizePt ?? 11);
-        const lh = lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * T8;
+        const lh = lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * T9;
         let lx = originXTwips;
         const align = p3.props.alignment;
         if (align === "center") lx += (widthTwips - line2.widthTwips) / 2;
         else if (align === "right") lx += widthTwips - line2.widthTwips;
-        const baselinePt = (y3 + lh * 0.8) / T8;
+        const baselinePt = (y3 + lh * 0.8) / T9;
         for (const seg of line2.segments) {
           const span = spans[seg.spanIndex];
           if (!span) continue;
@@ -80513,7 +81697,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           if (!txt2.trim()) continue;
           page2.glyphs.push({
             text: txt2,
-            xPt: (lx + seg.xTwips) / T8,
+            xPt: (lx + seg.xTwips) / T9,
             baselinePt,
             fontFamily: famOf(span.family),
             variant: span.variant === "boldItalic" ? "boldItalic" : span.variant === "bold" ? "bold" : span.variant === "italic" ? "italic" : "regular",
@@ -80562,7 +81746,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Coloca os glifos de `text` em sequência usando NOSSOS advances (snap-free). */
   pdfGlyphsAt(page2, emb, family, variant, sizePt, color3, text, xTwips, baselineTwips) {
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     const sf = this.fonts.resolve(family, variant);
     const font = emb(family, variant);
     let x3 = xTwips;
@@ -80572,7 +81756,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const a3 = sf.advanceTwips(cp, sizePt);
       if (ch !== " " && ch !== "	") {
         const { gid } = font.encode(cp);
-        placed.push({ gid, codePoint: cp, xPt: x3 / T8, baselineFromTopPt: baselineTwips / T8 });
+        placed.push({ gid, codePoint: cp, xPt: x3 / T9, baselineFromTopPt: baselineTwips / T9 });
       }
       x3 += a3;
     }
@@ -80580,7 +81764,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Versão PDF do paintLine: texto + decorações de parágrafo/run. */
   pdfPaintLine(doc, page2, emb, pl, line2) {
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     const para4 = this.model.paragraphs[line2.para];
     const st = this.styleOf(para4);
     const effBorders = para4.props.borders ?? st?.borders;
@@ -80595,29 +81779,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const isLast = line2.rich.end === pl.charAdvances.length;
       if (effShading) {
         const bd = effBorders;
-        const exL = (bd?.left?.spacePt ?? 0) * T8;
-        const exR = (bd?.right?.spacePt ?? 0) * T8;
-        const exT = isFirst ? (bd?.top?.spacePt ?? 0) * T8 : 0;
-        const exB = isLast ? (bd?.bottom?.spacePt ?? 0) * T8 : 0;
+        const exL = (bd?.left?.spacePt ?? 0) * T9;
+        const exR = (bd?.right?.spacePt ?? 0) * T9;
+        const exT = isFirst ? (bd?.top?.spacePt ?? 0) * T9 : 0;
+        const exB = isLast ? (bd?.bottom?.spacePt ?? 0) * T9 : 0;
         page2.fillRect(
-          (colX - exL) / T8,
-          (line2.yTwips - exT) / T8,
-          (colW + exL + exR) / T8,
-          (line2.heightTwips + exT + exB) / T8,
+          (colX - exL) / T9,
+          (line2.yTwips - exT) / T9,
+          (colW + exL + exR) / T9,
+          (line2.heightTwips + exT + exB) / T9,
           hexColor(effShading)
         );
       }
       if (effBorders || para4.props.boxBorder) {
         const fallback = para4.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b5 = effBorders ?? { top: fallback, bottom: fallback, left: fallback, right: fallback };
-        const spL = (b5.left?.spacePt ?? 0) * T8, spR = (b5.right?.spacePt ?? 0) * T8;
-        const spT = (b5.top?.spacePt ?? 0) * T8, spB = (b5.bottom?.spacePt ?? 0) * T8;
+        const spL = (b5.left?.spacePt ?? 0) * T9, spR = (b5.right?.spacePt ?? 0) * T9;
+        const spT = (b5.top?.spacePt ?? 0) * T9, spB = (b5.bottom?.spacePt ?? 0) * T9;
         const x0 = colX - spL, x1 = colX + colW + spR;
         const y0 = line2.yTwips - (isFirst ? spT : 0), y1 = line2.yTwips + line2.heightTwips + (isLast ? spB : 0);
         const edge = (e8, ax, ay, bx, by) => {
           if (!e8) return;
           const dash = e8.style === "dashed" ? [6, 3.75] : e8.style === "dotted" ? [1.5, 3] : void 0;
-          page2.line(ax / T8, ay / T8, bx / T8, by / T8, this.pdfColor(e8.color), Math.max(0.4, e8.sizeEighthPt / 8), dash);
+          page2.line(ax / T9, ay / T9, bx / T9, by / T9, this.pdfColor(e8.color), Math.max(0.4, e8.sizeEighthPt / 8), dash);
         };
         edge(b5.left, x0, y0, x0, y1);
         edge(b5.right, x1, y0, x1, y1);
@@ -80657,14 +81841,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (run3?.image) {
         const img = run3.image;
-        this.pdfImage(doc, page2, img, x3 / T8, (line2.baselineTwips - img.heightTwips) / T8, img.widthTwips / T8, img.heightTwips / T8);
+        this.pdfImage(doc, page2, img, x3 / T9, (line2.baselineTwips - img.heightTwips) / T9, img.widthTwips / T9, img.heightTwips / T9);
         x3 += img.widthTwips;
         continue;
       }
       const sf = this.fonts.resolve(span.family, span.variant);
       const font = emb(span.family, span.variant);
       const col = this.pdfColor(props?.color ?? st?.color);
-      const baseShift = props?.vertAlign === "superscript" ? -span.sizePt * 0.35 * T8 : props?.vertAlign === "subscript" ? span.sizePt * 0.14 * T8 : 0;
+      const baseShift = props?.vertAlign === "superscript" ? -span.sizePt * 0.35 * T9 : props?.vertAlign === "subscript" ? span.sizePt * 0.14 * T9 : 0;
       const globalStart = pl.spanCharStart[seg.spanIndex] + seg.start;
       const segX0 = x3;
       const placed = [];
@@ -80674,15 +81858,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         let a3 = pl.charAdvances[gi];
         if (line2.justifyExtraPerSpace && ch === " ") a3 += line2.justifyExtraPerSpace;
         if (props?.highlight) {
-          page2.fillRect(x3 / T8, line2.yTwips / T8, a3 / T8, line2.heightTwips / T8, hexColor((HIGHLIGHTS3[props.highlight] ?? "#ffff00").replace("#", "")));
+          page2.fillRect(x3 / T9, line2.yTwips / T9, a3 / T9, line2.heightTwips / T9, hexColor((HIGHLIGHTS3[props.highlight] ?? "#ffff00").replace("#", "")));
         }
-        if (run3?.field) page2.fillRect(x3 / T8, line2.yTwips / T8, a3 / T8, line2.heightTwips / T8, [0.9, 0.9, 0.9]);
-        if (props?.commentIds?.length) page2.fillRect(x3 / T8, line2.yTwips / T8, a3 / T8, line2.heightTwips / T8, [1, 0.925, 0.72]);
+        if (run3?.field) page2.fillRect(x3 / T9, line2.yTwips / T9, a3 / T9, line2.heightTwips / T9, [0.9, 0.9, 0.9]);
+        if (props?.commentIds?.length) page2.fillRect(x3 / T9, line2.yTwips / T9, a3 / T9, line2.heightTwips / T9, [1, 0.925, 0.72]);
         if (ch === "	" && pl.tabLeaders?.get(gi)) {
           for (let dx = 60; dx < a3 - 40; dx += 90) {
             const cp = ".".codePointAt(0);
             const { gid } = font.encode(cp);
-            placed.push({ gid, codePoint: cp, xPt: (x3 + dx) / T8, baselineFromTopPt: (line2.baselineTwips + baseShift) / T8 });
+            placed.push({ gid, codePoint: cp, xPt: (x3 + dx) / T9, baselineFromTopPt: (line2.baselineTwips + baseShift) / T9 });
           }
         }
         if (ch !== " " && ch !== "	" && ch !== "\n" && ch !== "\f") {
@@ -80690,7 +81874,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const xSnap = line2.xTwips + Math.round(rel / 2.4) * 2.4;
           const cp = ch.codePointAt(0);
           const { gid } = font.encode(cp);
-          placed.push({ gid, codePoint: cp, xPt: xSnap / T8, baselineFromTopPt: (line2.baselineTwips + baseShift) / T8 });
+          placed.push({ gid, codePoint: cp, xPt: xSnap / T9, baselineFromTopPt: (line2.baselineTwips + baseShift) / T9 });
         }
         x3 += a3;
       }
@@ -80698,7 +81882,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (props?.underline || props?.strike || props?.doubleStrike) {
         const w2 = x3 - segX0;
         const baseW = Math.max(0.5, deviceEmPt(span.sizePt) / 16);
-        const drawU = (yOffTwips, lwPt, c5, dash) => page2.line(segX0 / T8, (line2.baselineTwips + yOffTwips) / T8, (segX0 + w2) / T8, (line2.baselineTwips + yOffTwips) / T8, c5, lwPt, dash);
+        const drawU = (yOffTwips, lwPt, c5, dash) => page2.line(segX0 / T9, (line2.baselineTwips + yOffTwips) / T9, (segX0 + w2) / T9, (line2.baselineTwips + yOffTwips) / T9, c5, lwPt, dash);
         if (props.underline) {
           const uc = props.underlineColor ? hexColor(props.underlineColor) : col;
           const yU = 40;
@@ -80720,9 +81904,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               drawU(yU, baseW, uc);
           }
         }
-        if (props.strike) drawU(-span.sizePt * 0.25 * T8, baseW, col);
+        if (props.strike) drawU(-span.sizePt * 0.25 * T9, baseW, col);
         if (props.doubleStrike) {
-          const yS = -span.sizePt * 0.25 * T8;
+          const yS = -span.sizePt * 0.25 * T9;
           drawU(yS - 8, baseW, col);
           drawU(yS + 8, baseW, col);
         }
@@ -80731,18 +81915,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Versão PDF do desenho de tabela (sombreado + bordas + texto das células). */
   pdfPaintTable(doc, page2, emb, tl) {
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     for (const sh of tl.cellShades) {
-      page2.fillRect((tl.xTwips + sh.xTwips) / T8, (tl.yTwips + sh.yTwips) / T8, sh.wTwips / T8, sh.hTwips / T8, hexColor(sh.hex));
+      page2.fillRect((tl.xTwips + sh.xTwips) / T9, (tl.yTwips + sh.yTwips) / T9, sh.wTwips / T9, sh.hTwips / T9, hexColor(sh.hex));
     }
     const strokeEdge = (e8, ax, ay, bx, by) => {
       if (!e8) return;
       const dash = e8.style === "dashed" ? [6, 3.75] : e8.style === "dotted" ? [1.5, 3] : void 0;
       page2.line(
-        (tl.xTwips + ax) / T8,
-        (tl.yTwips + ay) / T8,
-        (tl.xTwips + bx) / T8,
-        (tl.yTwips + by) / T8,
+        (tl.xTwips + ax) / T9,
+        (tl.yTwips + ay) / T9,
+        (tl.xTwips + bx) / T9,
+        (tl.yTwips + by) / T9,
         this.pdfColor(e8.color),
         Math.max(0.4, e8.sizeEighthPt / 8),
         dash
@@ -80760,9 +81944,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   /** Versão PDF do paintHf (cabeçalho/rodapé) com glifos posicionados. */
-  pdfPaintHf(doc, page2, emb, paras, originXTwips, topYTwips, widthTwips, pageIdx, sp) {
+  pdfPaintHf(doc, page2, emb, paras, originXTwips, topYTwips, widthTwips, pageIdx, sp2) {
     if (!this.fonts) return;
-    const T8 = TWIPS_PER_PT;
+    const T9 = TWIPS_PER_PT;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
       { posTwips: widthTwips, align: "right" }
@@ -80774,14 +81958,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const r6 of runs) {
         const obj = r6.textbox ?? r6.image;
         if (!obj) continue;
-        const { x: fx, y: fy } = obj.floating ? this.anchoredPos(obj, originXTwips, y3, sp) : { x: originXTwips, y: y3 };
+        const { x: fx, y: fy } = obj.floating ? this.anchoredPos(obj, originXTwips, y3, sp2) : { x: originXTwips, y: y3 };
         if (r6.textbox) {
           {
             const iw = this.tbInner(r6.textbox, fx, fy, r6.textbox.widthTwips || widthTwips);
-            this.pdfPaintHf(doc, page2, emb, r6.textbox.paras, iw.x, iw.y, iw.w, pageIdx, sp);
+            this.pdfPaintHf(doc, page2, emb, r6.textbox.paras, iw.x, iw.y, iw.w, pageIdx, sp2);
           }
         } else if (r6.image) {
-          this.pdfImage(doc, page2, r6.image, fx / T8, fy / T8, r6.image.widthTwips / T8, r6.image.heightTwips / T8);
+          this.pdfImage(doc, page2, r6.image, fx / T9, fy / T9, r6.image.widthTwips / T9, r6.image.heightTwips / T9);
         }
       }
       const spans = this.buildSpans({ runs, props: p3.props }, { skipFloating: true });
@@ -80801,14 +81985,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const strokeEdge = (e8, ax, ay, bx, by) => {
         if (!e8) return;
         const dash = e8.style === "dashed" ? [6, 3.75] : e8.style === "dotted" ? [1.5, 3] : void 0;
-        page2.line(ax / T8, ay / T8, bx / T8, by / T8, this.pdfColor(e8.color), Math.max(0.4, e8.sizeEighthPt / 8), dash);
+        page2.line(ax / T9, ay / T9, bx / T9, by / T9, this.pdfColor(e8.color), Math.max(0.4, e8.sizeEighthPt / 8), dash);
       };
       for (let li = 0; li < lines.length; li++) {
         const line2 = lines[li];
         const lineSize = Math.max(line2.maxSizePt, spans[0]?.sizePt ?? 11);
-        const lh = lineHeightPt(font0, lineSize, { line: 240, lineRule: "auto" }) * T8;
+        const lh = lineHeightPt(font0, lineSize, { line: 240, lineRule: "auto" }) * T9;
         if (p3.props.shadingHex) {
-          page2.fillRect(originXTwips / T8, y3 / T8, widthTwips / T8, lh / T8, hexColor(p3.props.shadingHex));
+          page2.fillRect(originXTwips / T9, y3 / T9, widthTwips / T9, lh / T9, hexColor(p3.props.shadingHex));
         }
         let lx = originXTwips;
         const align = p3.props.alignment;
@@ -80830,7 +82014,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (ch !== " " && ch !== "	") {
               const cp = ch.codePointAt(0);
               const { gid } = font.encode(cp);
-              placed.push({ gid, codePoint: cp, xPt: cx / T8, baselineFromTopPt: baseline / T8 });
+              placed.push({ gid, codePoint: cp, xPt: cx / T9, baselineFromTopPt: baseline / T9 });
             }
             cx += a3;
           }
@@ -80839,10 +82023,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (bd) {
           const isFirst = li === 0;
           const isLast = li === lines.length - 1;
-          const spL = (bd.left?.spacePt ?? 0) * T8;
-          const spR = (bd.right?.spacePt ?? 0) * T8;
-          const spT = (bd.top?.spacePt ?? 0) * T8;
-          const spB = (bd.bottom?.spacePt ?? 0) * T8;
+          const spL = (bd.left?.spacePt ?? 0) * T9;
+          const spR = (bd.right?.spacePt ?? 0) * T9;
+          const spT = (bd.top?.spacePt ?? 0) * T9;
+          const spB = (bd.bottom?.spacePt ?? 0) * T9;
           const x0 = originXTwips - spL;
           const x1 = originXTwips + widthTwips + spR;
           const y0 = y3 - (isFirst ? spT : 0);
@@ -80977,10 +82161,10 @@ function setupMentionAutocomplete(editor, options, prefix) {
     popup.replaceChildren();
     popup.hidden = !active2;
     if (!active2) return;
-    const L10 = labels();
-    popup.setAttribute("aria-label", L10.menu);
+    const L11 = labels();
+    popup.setAttribute("aria-label", L11.menu);
     const heading = document.createElement("div");
-    heading.textContent = query ? `${prefix}${query}` : L10.choose;
+    heading.textContent = query ? `${prefix}${query}` : L11.choose;
     Object.assign(heading.style, {
       padding: "6px 10px 8px",
       color: "#5f6368",
@@ -80990,20 +82174,20 @@ function setupMentionAutocomplete(editor, options, prefix) {
     popup.append(heading);
     if (items.length === 0) {
       const empty = document.createElement("div");
-      empty.textContent = options.emptyLabel ?? L10.empty;
+      empty.textContent = options.emptyLabel ?? L11.empty;
       Object.assign(empty.style, { padding: "10px", color: "#6b7280" });
       popup.append(empty);
       return;
     }
     items.forEach((item, index) => {
-      const button3 = document.createElement("button");
-      button3.type = "button";
-      button3.id = `wordnext-mention-option-${index}`;
-      button3.dataset.index = String(index);
-      button3.setAttribute("role", "option");
-      button3.setAttribute("aria-selected", String(index === selected));
-      button3.textContent = `${prefix}${item.label}`;
-      Object.assign(button3.style, {
+      const button4 = document.createElement("button");
+      button4.type = "button";
+      button4.id = `wordnext-mention-option-${index}`;
+      button4.dataset.index = String(index);
+      button4.setAttribute("role", "option");
+      button4.setAttribute("aria-selected", String(index === selected));
+      button4.textContent = `${prefix}${item.label}`;
+      Object.assign(button4.style, {
         display: "block",
         width: "100%",
         padding: "9px 10px",
@@ -81015,12 +82199,12 @@ function setupMentionAutocomplete(editor, options, prefix) {
         cursor: "pointer",
         font: "inherit"
       });
-      button3.addEventListener("mouseenter", () => {
+      button4.addEventListener("mouseenter", () => {
         selected = index;
         render();
       });
-      button3.addEventListener("click", () => choose(item));
-      popup.append(button3);
+      button4.addEventListener("click", () => choose(item));
+      popup.append(button4);
     });
     popup.setAttribute("aria-activedescendant", `wordnext-mention-option-${selected}`);
   };

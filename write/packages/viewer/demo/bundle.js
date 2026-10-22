@@ -4347,6 +4347,7 @@ function paraPropsFromPPr(ppr) {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.keepNext) props.keepNext = true;
+  if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
@@ -6130,6 +6131,20 @@ function readTable(tblEl, ctx) {
 function blockSrc(b) {
   return b.type === "paragraph" ? b.paragraph.props.src : b.src;
 }
+var blockSdtKeys = 0;
+function markBlockSdt(child, g, produced) {
+  const gallery = child.name === "w:sdt" ? docPartGallery(child) : void 0;
+  if (gallery === void 0) return;
+  const sdt = { key: `s${++blockSdtKeys}`, ...gallery ? { gallery } : {} };
+  g.sdtKey = sdt.key;
+  for (const b of produced) if (b.type === "paragraph") b.paragraph.props.blockSdt = sdt;
+}
+function docPartGallery(sdt) {
+  const pr = firstChild(sdt, "w:sdtPr");
+  const obj = pr && firstChild(pr, "w:docPartObj");
+  if (!obj) return void 0;
+  return firstChild(obj, "w:docPartGallery")?.attrs["w:val"] ?? "";
+}
 function storyOf(xml, container) {
   return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
 }
@@ -6409,7 +6424,11 @@ function readFullDocument(pkg, opts = {}) {
     }
     if (story) {
       if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
-      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
+      else {
+        const g = groupOf(docXml, child, blocks.slice(before), store);
+        markBlockSdt(child, g, blocks.slice(before));
+        story.groups.push(g);
+      }
     }
   }
   if (sections.length === 0) {

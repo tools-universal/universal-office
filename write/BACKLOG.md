@@ -81,7 +81,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | feito |
 | Caixa de texto | ◐ inserir; Painel de Seleção | feito |
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
-| Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | em curso |
+| Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | feito |
 | Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | feito |
 | Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | em curso |
 | Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | em curso |
@@ -137,6 +137,9 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Imagem | Charts e slides-core ainda têm cópias próprias da matemática de cor; migrar para `shared/drawingml` |
 | Página | Guia Design: faltam Temas do documento (cores, fontes, efeitos) e conjuntos de estilos — frente própria |
 | Página | Tamanho "Auto" da marca-d'água personalizada foi inferido, não medido; hex de cor de tema pode diferir ±1 |
+| Sumário | Adicionar Texto não é mensurável por COM; segue a regra descrita pela MVP Suzanne Barnhill |
+| Sumário | Campo TC com "Mostrar tudo" ligado não mostra o código do campo |
+| Sumário | O `_Toc` de um TC fica em volta do campo, e não dentro da instrução como o Word grava |
 
 ### Fora do escopo
 

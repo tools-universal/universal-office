@@ -1,6 +1,6 @@
 import {
   subsetTrueType
-} from "./chunk-R66JLTEY.js";
+} from "./chunk-4FTRJ73Y.js";
 import {
   DEFAULT_RUN_PROPS,
   WORD_PATTERNS,
@@ -15,7 +15,7 @@ import {
   runPropsFromRPr,
   unzlibSync,
   zlibSync
-} from "./chunk-J635FHRH.js";
+} from "./chunk-NPDEUMTK.js";
 
 // ../../../shared/drawingml/src/preset-defs.ts
 var PRESET_DEFS = {
@@ -1501,11 +1501,11 @@ var up = (v) => v <= 0.5 ? 0 : Math.ceil(v / STEP - 1e-6) * STEP;
 function effectExtentOf(f) {
   const { cx, cy } = f;
   let l = 0, t = 0, r = 0, b = 0;
-  const grow = (L, T4, R, B) => {
+  const grow = (L, T4, R, B2) => {
     l = Math.max(l, L);
     t = Math.max(t, T4);
     r = Math.max(r, R);
-    b = Math.max(b, B);
+    b = Math.max(b, B2);
   };
   let ex = 0, ey = 0;
   if (f.rot) {
@@ -1928,8 +1928,8 @@ function shapeStyleIndex(raw) {
   const style = /<wps:style>[\s\S]*?<\/wps:style>/.exec(raw)?.[0];
   if (!style) return 0;
   const st = squash(style);
-  const sp = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
-  const fillLn = squash(sp.replace(/^[\s\S]*?(<\/a:prstGeom>|<\/a:custGeom>|<a:prstGeom\b[^>]*\/>)/, "")).replace(/<a:effectLst[\s\S]*$|<a:scene3d[\s\S]*$|<a:sp3d[\s\S]*$|<a:extLst[\s\S]*$/, "");
+  const sp2 = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
+  const fillLn = squash(sp2.replace(/^[\s\S]*?(<\/a:prstGeom>|<\/a:custGeom>|<a:prstGeom\b[^>]*\/>)/, "")).replace(/<a:effectLst[\s\S]*$|<a:scene3d[\s\S]*$|<a:sp3d[\s\S]*$|<a:extLst[\s\S]*$/, "");
   for (let i = 0; i < SHAPE_STYLE_PRESETS.length; i++) {
     const [p, s] = SHAPE_STYLE_PRESETS[i];
     if (s === st && p === fillLn) return i + 1;
@@ -2059,6 +2059,123 @@ function gradientVariations(base) {
     }
   }
   return out;
+}
+
+// src/toc.ts
+var TOC_TEMPLATES = [
+  { id: "auto1", name: { en: "Automatic Table 1", pt: "Sum\xE1rio Autom\xE1tico 1" }, heading: { en: "Contents", pt: "Conte\xFAdo" } },
+  { id: "auto2", name: { en: "Automatic Table 2", pt: "Sum\xE1rio Autom\xE1tico 2" }, heading: { en: "Table of Contents", pt: "Sum\xE1rio" } },
+  { id: "manual", name: { en: "Manual Table", pt: "Sum\xE1rio Manual" }, heading: { en: "Table of Contents", pt: "Sum\xE1rio" }, manual: true }
+];
+var TOC_AUTO_INSTR = ' TOC \\o "1-3" \\h \\z \\u ';
+var manualPlaceholder = (lang, level) => lang === "pt" ? `Digite o t\xEDtulo do cap\xEDtulo (n\xEDvel ${level})` : `Type chapter title (level ${level})`;
+var MANUAL_LEVELS = [1, 2, 3, 1, 2, 3];
+var TOC_GALLERY = "Table of Contents";
+var isTocSdt = (s) => s?.gallery === TOC_GALLERY;
+var tocSdtPr = (id) => `<w:sdtPr><w:id w:val="${id}"/><w:docPartObj><w:docPartGallery w:val="${TOC_GALLERY}"/><w:docPartUnique/></w:docPartObj></w:sdtPr>`;
+var TOC_FORMATS = [
+  { id: "template", label: { en: "From template", pt: "Do modelo" } },
+  { id: "classic", label: { en: "Classic", pt: "Cl\xE1ssico" } },
+  { id: "distinctive", label: { en: "Distinctive", pt: "Elegante" } },
+  { id: "fancy", label: { en: "Fancy", pt: "Sofisticado" } },
+  { id: "modern", label: { en: "Modern", pt: "Moderno" } },
+  { id: "formal", label: { en: "Formal", pt: "Formal" } },
+  { id: "simple", label: { en: "Simple", pt: "Simples" } }
+];
+var sp = (before, after) => `<w:spacing${before !== null ? ` w:before="${before}"` : ""} w:after="${after}"/>`;
+var ind = (left) => left > 0 ? `<w:ind w:left="${left}"/>` : "";
+var sz2 = (hp) => `<w:sz w:val="${hp}"/><w:szCs w:val="${hp}"/>`;
+var B = "<w:b/><w:bCs/>";
+var I = "<w:i/><w:iCs/>";
+function tocFormatStyle(f, level) {
+  const n = Math.min(9, Math.max(1, level));
+  switch (f) {
+    case "classic":
+      if (n === 1) return { pPr: sp(360, 0), rPr: `<w:rFonts w:asciiTheme="majorHAnsi" w:hAnsiTheme="majorHAnsi"/>${B}<w:caps/>${sz2(24)}` };
+      if (n === 2) return { pPr: sp(240, 0), rPr: B + sz2(20) };
+      return { pPr: sp(null, 0) + ind(220 * (n - 2)), rPr: sz2(20) };
+    case "distinctive":
+      if (n === 1) return { pPr: sp(120, 0), rPr: B + I + sz2(24) };
+      if (n === 2) return { pPr: sp(120, 0) + ind(220), rPr: B };
+      return { pPr: sp(null, 0) + ind(220 * (n - 1)), rPr: sz2(20) };
+    case "fancy":
+      if (n === 1) return { pPr: sp(360, 360), rPr: `${B}<w:caps/><w:u w:val="single"/>` };
+      if (n === 2) return { pPr: sp(null, 0), rPr: `${B}<w:smallCaps/>` };
+      if (n === 3) return { pPr: sp(null, 0), rPr: "<w:smallCaps/>" };
+      return { pPr: sp(null, 0), rPr: "" };
+    case "modern": {
+      const bdr = '<w:pBdr><w:between w:val="double" w:sz="6" w:space="0" w:color="auto"/></w:pBdr>';
+      const jc = '<w:jc w:val="center"/>';
+      if (n === 1) return { pPr: bdr + sp(120, 120) + jc, rPr: B + I + sz2(24) };
+      if (n === 2) return { pPr: bdr + sp(120, 120) + jc, rPr: I + sz2(20) };
+      return { pPr: bdr + sp(120, 120) + ind(220 * (n - 2)) + jc, rPr: sz2(20) };
+    }
+    case "formal":
+      if (n === 1) return { pPr: sp(120, 120), rPr: `${B}<w:caps/>${sz2(20)}` };
+      if (n === 2) return { pPr: sp(null, 0) + ind(220), rPr: `<w:smallCaps/>${sz2(20)}` };
+      if (n === 3) return { pPr: sp(null, 0) + ind(440), rPr: I + sz2(20) };
+      return { pPr: sp(null, 0) + ind(220 * (n - 1)), rPr: sz2(18) };
+    case "simple":
+      if (n === 1) return { pPr: sp(240, 120), rPr: B + sz2(20) };
+      if (n === 2) return { pPr: sp(120, 0) + ind(220), rPr: I + sz2(20) };
+      return { pPr: sp(null, 0) + ind(220 * (n - 1)), rPr: sz2(20) };
+    default:
+      return { pPr: sp(null, 100) + ind(220 * (n - 1)), rPr: "" };
+  }
+}
+function parseTcInstr(instr) {
+  const m = /^\s*TC\s+(?:"((?:[^"\\]|\\.)*)"|(\S+))/i.exec(instr ?? "");
+  if (!m) return null;
+  const text = (m[1] ?? m[2] ?? "").replace(/\\(.)/g, "$1");
+  const rest = (instr ?? "").slice(m.index + m[0].length);
+  const f = /\\f\s+(?:"([^"]*)"|([^\s\\"]+))/i.exec(rest);
+  const l = /\\l\s+"?(\d+)/i.exec(rest);
+  return { text, id: f ? f[1] ?? f[2] ?? "C" : "C", level: l ? Math.min(9, Math.max(1, +l[1])) : 1, noPage: /\\n\b/i.test(rest) };
+}
+function tcInstr(o) {
+  const id = (o.id ?? "").trim() || "C";
+  const text = o.text.replace(/(["\\])/g, "\\$1");
+  return ` TC "${text}" \\f ${/\s/.test(id) ? `"${id}"` : id} \\l "${Math.min(9, Math.max(1, o.level ?? 1))}" `;
+}
+function tcInToc(o, tc) {
+  if (!o.fields) return false;
+  if ((o.fieldId ?? "C").toLowerCase() !== tc.id.toLowerCase()) return false;
+  const l = o.fieldLevels;
+  return !l || tc.level >= l[0] && tc.level <= l[1];
+}
+function tocOptionsFrom(d) {
+  const levels = Math.min(9, Math.max(1, d.levels ?? 3));
+  const links = d.hyperlinks !== false;
+  const o = { hyperlinks: links, hideInWeb: true };
+  if (d.useStyles !== false) o.outline = [1, levels];
+  if (d.fields) {
+    o.fields = true;
+    if (d.fieldId) o.fieldId = d.fieldId;
+  }
+  if (d.pageNumbers === false) o.noPageNumbers = true;
+  else if (d.rightAlign === false) o.separator = " ";
+  if (d.useStyles !== false && d.styles?.length) o.styles = d.styles.filter((s) => s.level >= 1 && s.level <= 9);
+  if (d.outlineLevels !== false) o.outlineLevels = true;
+  if (!links) delete o.hyperlinks;
+  return o;
+}
+function dialogOptionsFrom(o) {
+  return {
+    pageNumbers: !o.noPageNumbers,
+    rightAlign: o.separator === void 0,
+    hyperlinks: !!o.hyperlinks,
+    levels: o.outline?.[1] ?? o.fieldLevels?.[1] ?? 3,
+    useStyles: !!o.outline || !!o.styles?.length,
+    styles: o.styles ?? [],
+    outlineLevels: !!o.outlineLevels,
+    fields: !!o.fields,
+    ...o.fieldId ? { fieldId: o.fieldId } : {}
+  };
+}
+function addTextPlan(level, styleKind) {
+  if (level <= 0) return styleKind === "heading" ? { normal: true } : { outline: null };
+  if (styleKind === "other") return { outline: level };
+  return { heading: level };
 }
 
 // ../docx-layout/src/typography/font/gpos.ts
@@ -3773,12 +3890,12 @@ function mergePPr(base, over) {
   const out = { ...base, ...over };
   if (base.spacing || over.spacing) out.spacing = { ...base.spacing, ...over.spacing };
   if (base.ind || over.ind) {
-    const ind = { ...base.ind, ...over.ind };
-    if (over.ind?.hanging !== void 0 && over.ind.firstLine === void 0) delete ind.firstLine;
-    if (over.ind?.firstLine !== void 0 && over.ind.hanging === void 0) delete ind.hanging;
-    if (over.ind?.hangingChars !== void 0) delete ind.firstLineChars;
-    if (over.ind?.firstLineChars !== void 0) delete ind.hangingChars;
-    out.ind = ind;
+    const ind2 = { ...base.ind, ...over.ind };
+    if (over.ind?.hanging !== void 0 && over.ind.firstLine === void 0) delete ind2.firstLine;
+    if (over.ind?.firstLine !== void 0 && over.ind.hanging === void 0) delete ind2.hanging;
+    if (over.ind?.hangingChars !== void 0) delete ind2.firstLineChars;
+    if (over.ind?.firstLineChars !== void 0) delete ind2.hangingChars;
+    out.ind = ind2;
   }
   if (base.pBdr || over.pBdr) out.pBdr = { ...base.pBdr, ...over.pBdr };
   if (base.numPr || over.numPr) out.numPr = { ...base.numPr, ...over.numPr };
@@ -4768,39 +4885,39 @@ function directPPr(para2) {
     else base.numPr = { numId: p.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p.numbering.ilvl };
   }
   if (p.indentLeftTwips !== orig.indentLeftTwips || p.indentRightTwips !== orig.indentRightTwips || p.indentFirstLineTwips !== orig.indentFirstLineTwips) {
-    const ind = { ...base.ind };
-    if (p.indentLeftTwips !== void 0) ind.left = p.indentLeftTwips;
-    else delete ind.left;
-    if (p.indentRightTwips !== void 0) ind.right = p.indentRightTwips;
-    else delete ind.right;
-    delete ind.firstLine;
-    delete ind.hanging;
+    const ind2 = { ...base.ind };
+    if (p.indentLeftTwips !== void 0) ind2.left = p.indentLeftTwips;
+    else delete ind2.left;
+    if (p.indentRightTwips !== void 0) ind2.right = p.indentRightTwips;
+    else delete ind2.right;
+    delete ind2.firstLine;
+    delete ind2.hanging;
     if (p.indentFirstLineTwips !== void 0) {
-      if (p.indentFirstLineTwips < 0) ind.hanging = -p.indentFirstLineTwips;
-      else ind.firstLine = p.indentFirstLineTwips;
+      if (p.indentFirstLineTwips < 0) ind2.hanging = -p.indentFirstLineTwips;
+      else ind2.firstLine = p.indentFirstLineTwips;
     }
-    base.ind = ind;
+    base.ind = ind2;
   }
   if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips) {
-    const sp = { ...base.spacing };
+    const sp2 = { ...base.spacing };
     if (p.lineTwentieths !== orig.lineTwentieths) {
       if (p.lineTwentieths !== void 0) {
-        sp.line = p.lineTwentieths;
-        sp.lineRule = "auto";
+        sp2.line = p.lineTwentieths;
+        sp2.lineRule = "auto";
       } else {
-        delete sp.line;
-        delete sp.lineRule;
+        delete sp2.line;
+        delete sp2.lineRule;
       }
     }
     if (p.spaceAfterTwips !== orig.spaceAfterTwips) {
-      if (p.spaceAfterTwips !== void 0) sp.after = p.spaceAfterTwips;
-      else delete sp.after;
+      if (p.spaceAfterTwips !== void 0) sp2.after = p.spaceAfterTwips;
+      else delete sp2.after;
     }
     if (p.spaceBeforeTwips !== orig.spaceBeforeTwips) {
-      if (p.spaceBeforeTwips !== void 0) sp.before = p.spaceBeforeTwips;
-      else delete sp.before;
+      if (p.spaceBeforeTwips !== void 0) sp2.before = p.spaceBeforeTwips;
+      else delete sp2.before;
     }
-    base.spacing = sp;
+    base.spacing = sp2;
   }
   if (p.shadingHex !== orig.shadingHex) {
     if (p.shadingHex) base.shd = { val: "clear", fill: p.shadingHex };
@@ -5117,10 +5234,10 @@ function mathAtoms(env, nodes, lvl = "D", scale = 1, off = { n: 0 }) {
     if (kern && a.kind === "char" && b.kind === "char" && a.face === b.face && a.sizePt === b.sizePt && a.sizePt * 2 >= kern) a.adv += env.kern(a.face, a.cp, b.cp, a.sizePt);
     if (a.italic && !b.italic) a.adv += a.ital;
     if (lvl === "S") continue;
-    let sp = 0;
-    if (a.cls === "rel" !== (b.cls === "rel") && a.cls !== "open" && b.cls !== "close") sp = 5 / 18;
-    else if ((a.cls === "bin" || b.cls === "bin") && a.cls !== "open") sp = 4 / 18;
-    if (sp) a.adv += sp * emTw(a.cls === "ord" || a.cls === "close" ? b : a);
+    let sp2 = 0;
+    if (a.cls === "rel" !== (b.cls === "rel") && a.cls !== "open" && b.cls !== "close") sp2 = 5 / 18;
+    else if ((a.cls === "bin" || b.cls === "bin") && a.cls !== "open") sp2 = 4 / 18;
+    if (sp2) a.adv += sp2 * emTw(a.cls === "ord" || a.cls === "close" ? b : a);
   }
   return atoms;
 }
@@ -5203,9 +5320,9 @@ function fallbackOrder(cp, font) {
 }
 function resolveRunStyle(ctx, rpr, env, link) {
   const theme = ctx.fmt.theme;
-  const sz2 = (rpr.sz ?? 20) / 2;
+  const sz3 = (rpr.sz ?? 20) / 2;
   const va = rpr.vertAlign;
-  const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz2 * 2 * 1331 / 2048) / 2 : sz2;
+  const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz3 * 2 * 1331 / 2048) / 2 : sz3;
   const shift = (rpr.position ?? 0) * 10;
   const tf = rpr.textFill;
   const color2 = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
@@ -5231,7 +5348,7 @@ function resolveRunStyle(ctx, rpr, env, link) {
   };
   if (va === "superscript" || va === "subscript") {
     const face = faceFor(ctx, rpr, 65, style);
-    style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz2, sizePt) * 20 : -subscriptDropPt(face.family, sz2) * 20;
+    style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz3, sizePt) * 20 : -subscriptDropPt(face.family, sz3) * 20;
   }
   return style;
 }
@@ -5313,8 +5430,8 @@ function scaledUnits(units, font, w) {
   const lf = Math.floor(avg * w / 100 + 1e-9);
   return Math.floor(units * lf / avg + 0.5);
 }
-function spacingTwips(ctx, sp) {
-  return ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device" ? toWordUnit(sp) : sp;
+function spacingTwips(ctx, sp2) {
+  return ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device" ? toWordUnit(sp2) : sp2;
 }
 function advanceTwips(ctx, face, cp, sizePt, w = 100) {
   const f = face.font;
@@ -5918,12 +6035,12 @@ function prepareParagraph(ctx, para0, env0) {
       marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? "tab", jc: nm.level.lvlJc ?? "left", ...nm.chapter !== void 0 ? { chapter: nm.chapter } : {} };
     }
   }
-  const ind = ppr.ind ?? {};
-  const sp = ppr.spacing ?? {};
+  const ind2 = ppr.ind ?? {};
+  const sp2 = ppr.spacing ?? {};
   let jc = ppr.jc ?? "left";
   if (jc === "start") jc = "left";
   if (jc === "end") jc = "right";
-  let firstLine = env.continuation ? 0 : ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0;
+  let firstLine = env.continuation ? 0 : ind2.hanging !== void 0 ? -ind2.hanging : ind2.firstLine ?? 0;
   if (mathJc && !glyphs.some((g) => !mathRuns.has(g.runIdx) && g.kind !== "lb" && g.kind !== "pb" && g.kind !== "space" && !(g.kind === "obj" && g.adv === 0))) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
@@ -5938,19 +6055,19 @@ function prepareParagraph(ctx, para0, env0) {
     glyphs,
     marker,
     ...revBars ? { revBars } : {},
-    indLeft: ind.left ?? 0,
-    indRight: ind.right ?? 0,
+    indLeft: ind2.left ?? 0,
+    indRight: ind2.right ?? 0,
     firstLine,
     jc,
     tabs: (ppr.tabs ?? []).filter((t) => t.val !== "clear"),
-    spaceBefore: env.continuation ? 0 : sp.before ?? 0,
-    spaceAfter: sp.after ?? 0,
+    spaceBefore: env.continuation ? 0 : sp2.before ?? 0,
+    spaceAfter: sp2.after ?? 0,
     // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
     // w:before/w:after explícitos (oráculo autosphtml)
-    beforeAuto: !env.continuation && !!sp.beforeAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
-    afterAuto: !!sp.afterAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
-    lineRule: sp.lineRule ?? "auto",
-    line: sp.line ?? 240,
+    beforeAuto: !env.continuation && !!sp2.beforeAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
+    afterAuto: !!sp2.afterAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
+    lineRule: sp2.lineRule ?? "auto",
+    line: sp2.line ?? 240,
     contextual: !!ppr.contextualSpacing,
     keepNext: !!ppr.keepNext,
     keepLines: !!ppr.keepLines,
@@ -7149,10 +7266,10 @@ function decodeTiff(b) {
   const coef = tags.get(529) ?? [0.299, 0.587, 0.114];
   const toRgb = (Y, cb, cr) => {
     const lr = coef[0] ?? 0.299, lg = coef[1] ?? 0.587, lb = coef[2] ?? 0.114;
-    const R = Y + (cr - 128) * (2 - 2 * lr), B = Y + (cb - 128) * (2 - 2 * lb);
-    const G = (Y - lb * B - lr * R) / lg;
+    const R = Y + (cr - 128) * (2 - 2 * lr), B2 = Y + (cb - 128) * (2 - 2 * lb);
+    const G = (Y - lb * B2 - lr * R) / lg;
     const c = (v) => Math.max(0, Math.min(255, Math.round(v)));
-    return [c(R), c(G), c(B)];
+    return [c(R), c(G), c(B2)];
   };
   if (ycc && (sh > 1 || sv > 1)) {
     if (tags.has(322)) return null;
@@ -7177,11 +7294,11 @@ function decodeTiff(b) {
           for (let i = 0; i < sh; i++) {
             const x = bx * sh + i, y = by * sv + j;
             if (x >= width || y >= height) continue;
-            const [R, G, B] = toRgb(data[u + j * sh + i], cb, cr);
+            const [R, G, B2] = toRgb(data[u + j * sh + i], cb, cr);
             const k = (y * width + x) * 4;
             out2[k] = R;
             out2[k + 1] = G;
-            out2[k + 2] = B;
+            out2[k + 2] = B2;
             out2[k + 3] = 255;
           }
         }
@@ -7254,10 +7371,10 @@ function decodeTiff(b) {
         return v;
       };
       if (ycc) {
-        const [R, G, B] = toRgb(sample(0), sample(1), sample(2));
+        const [R, G, B2] = toRgb(sample(0), sample(1), sample(2));
         out[k] = R;
         out[k + 1] = G;
-        out[k + 2] = B;
+        out[k + 2] = B2;
         out[k + 3] = 255;
       } else if (photo === 2 || photo === 6) {
         out[k] = sample(0);
@@ -8045,11 +8162,11 @@ var LineBreaker = class {
     if (emptyLine) {
       const mm = faceMetrics(p.markFace.font);
       const va = p.markStyle.rpr.vertAlign;
-      const sz2 = (va === "superscript" || va === "subscript" ? (p.markStyle.rpr.sz ?? 20) / 2 : p.markStyle.sizePt) * 20;
+      const sz3 = (va === "superscript" || va === "subscript" ? (p.markStyle.rpr.sz ?? 20) / 2 : p.markStyle.sizePt) * 20;
       const sh = va ? 0 : p.markStyle.shift;
       const [ea, ed] = shadowExtent(p.markStyle);
-      asc = Math.max(0, mm.ascent * sz2 + ea + sh);
-      desc = Math.max(0, mm.descent * sz2 + ed - sh);
+      asc = Math.max(0, mm.ascent * sz3 + ea + sh);
+      desc = Math.max(0, mm.descent * sz3 + ed - sh);
     }
     if (tAsc + tDesc === 0) {
       const mm = faceMetrics(p.markFace.font);
@@ -9379,8 +9496,8 @@ function paintDecorations(out, all, frameX, baseY, line) {
   for (const s of segs((g) => !!g.style.underline && g.style.underline.val !== "none")) {
     const st = s.g.style;
     const m = faceMetrics(s.g.face.font);
-    const sz2 = st.sizePt * 20;
-    const y = baseY - st.shift + m.underlinePos * sz2;
+    const sz3 = st.sizePt * 20;
+    const y = baseY - st.shift + m.underlinePos * sz3;
     const w = Math.max(0.5, m.underlineThick * st.sizePt);
     const color2 = st.underline.color ?? st.color;
     const val = st.underline.val;
@@ -9566,12 +9683,12 @@ function pageBorderItems(ctx, pb, g, surround) {
   const on = (b) => !!b && b.val !== "none" && b.val !== "nil";
   const lw = (b) => on(b) ? Math.max(0.25, (b.sz ?? 4) / 8) * 20 : 0;
   const thick = (b) => on(b) && b.val === "double" ? 3 * lw(b) : lw(b);
-  const sp = (b) => (b?.space ?? 0) * 20;
+  const sp2 = (b) => (b?.space ?? 0) * 20;
   const page = pb.offsetFrom === "page";
-  const top = page ? sp(pb.top) : (surround.header ? g.hdr : g.marT) - sp(pb.top) - thick(pb.top);
-  const bottom = page ? g.pageH - sp(pb.bottom) : g.pageH - (surround.footer ? g.ftr : g.marB) + sp(pb.bottom) + thick(pb.bottom);
-  const left = page ? sp(pb.left) : g.marL - sp(pb.left) - thick(pb.left);
-  const right = page ? g.pageW - sp(pb.right) : g.pageW - g.marR + sp(pb.right) + thick(pb.right);
+  const top = page ? sp2(pb.top) : (surround.header ? g.hdr : g.marT) - sp2(pb.top) - thick(pb.top);
+  const bottom = page ? g.pageH - sp2(pb.bottom) : g.pageH - (surround.footer ? g.ftr : g.marB) + sp2(pb.bottom) + thick(pb.bottom);
+  const left = page ? sp2(pb.left) : g.marL - sp2(pb.left) - thick(pb.left);
+  const right = page ? g.pageW - sp2(pb.right) : g.pageW - g.marR + sp2(pb.right) + thick(pb.right);
   const out = [];
   const color2 = (b) => resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const bands = (b) => b.val === "double" ? [[0, lw(b)], [2 * lw(b), 3 * lw(b)]] : [[0, lw(b)]];
@@ -9855,10 +9972,10 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
       room -= p2[j];
     }
     fitPctMins(p2, all, minOf, g1, () => true);
-    const sp = p2.reduce((a, b) => a + b, 0);
+    const sp2 = p2.reduce((a, b) => a + b, 0);
     const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T5, base);
-    if (sp > cap + 0.5) return p2.map((x) => x * cap / sp);
-    return sp > 0 && T5 > sp + 0.5 ? p2.map((x) => x * T5 / sp) : p2;
+    if (sp2 > cap + 0.5) return p2.map((x) => x * cap / sp2);
+    return sp2 > 0 && T5 > sp2 + 0.5 ? p2.map((x) => x * T5 / sp2) : p2;
   }
   const frac = Array.from({ length: nCols }, (_, j) => {
     const own3 = all.filter((c) => c.span === 1 && c.col === j);
@@ -9905,8 +10022,8 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   }
   const np = (j) => !isPct[j];
   if (!isPct.some((x) => !x)) {
-    const sp = sumOf(p, () => true);
-    return sp > 0 && T4 > sp + 0.5 ? p.map((x) => x * T4 / sp) : p;
+    const sp2 = sumOf(p, () => true);
+    return sp2 > 0 && T4 > sp2 + 0.5 ? p.map((x) => x * T4 / sp2) : p;
   }
   let R = T4 - sumOf(p, () => true);
   const g3 = g3of(T4), g4 = g4of(T4);
@@ -10186,11 +10303,11 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     return mm;
   };
   const geoCells = slots.map((rs, ri) => {
-    const sp = spacingOf(ri);
+    const sp2 = spacingOf(ri);
     const out = rs.map((s) => {
       const tcW0 = resolved.get(s)?.tcPr.tcW;
-      const exSp = sp > 0 ? 2 * sp + (s.col === 0 ? sp : 0) + (s.col + s.span >= nCols ? sp : 0) : 0;
-      const ex = sp > 0 ? exSp + borderWidth(edge(s, "left")) + borderWidth(edge(s, "right")) : 0;
+      const exSp = sp2 > 0 ? 2 * sp2 + (s.col === 0 ? sp2 : 0) + (s.col + s.span >= nCols ? sp2 : 0) : 0;
+      const ex = sp2 > 0 ? exSp + borderWidth(edge(s, "left")) + borderWidth(edge(s, "right")) : 0;
       const tcW = tcW0 && exSp && prefOf(tcW0) === "dxa" ? { ...tcW0, w: tcW0.w + exSp } : tcW0;
       const nw = !!resolved.get(s)?.tcPr.noWrap;
       const noWrap = nw && prefOf(tcW0) !== "dxa";
@@ -10247,7 +10364,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const sepTop = [], sepBottom = [], sepWT = [], sepWB = [];
   if (separated) {
     for (let ri = 0; ri < nRows; ri++) {
-      const sp = spRow(ri);
+      const sp2 = spRow(ri);
       let wT = 0, wB = 0;
       for (const sl of slots[ri] ?? []) {
         wT = Math.max(wT, borderWidth(edge(sl, "top")));
@@ -10255,8 +10372,8 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       }
       sepWT.push(wT);
       sepWB.push(wB);
-      sepTop.push((ri === 0 ? borderWidth(outerB(0, "top")) + sp : 0) + sp + wT);
-      sepBottom.push(wB + sp + (ri === nRows - 1 ? sp + borderWidth(outerB(ri, "bottom")) : 0));
+      sepTop.push((ri === 0 ? borderWidth(outerB(0, "top")) + sp2 : 0) + sp2 + wT);
+      sepBottom.push(wB + sp2 + (ri === nRows - 1 ? sp2 + borderWidth(outerB(ri, "bottom")) : 0));
     }
   }
   const bandTopOf = (ri) => separated ? sepTop[ri] : band[ri];
@@ -10515,18 +10632,18 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
             a.set(ci.slot, c);
             continue;
           }
-          const sp = splitContent(c, availContent - ci.marT - ci.marB - brkW);
-          if (!sp) {
+          const sp2 = splitContent(c, availContent - ci.marT - ci.marB - brkW);
+          if (!sp2) {
             if (c.lines.length) return null;
             rest.set(ci.slot, c);
             h2 = Math.max(h2, c.height + ci.marT + ci.marB);
             continue;
           }
           any = true;
-          a.set(ci.slot, sp[0]);
-          rest.set(ci.slot, sp[1]);
-          h1 = Math.max(h1, sp[0].height + ci.marT + ci.marB);
-          h2 = Math.max(h2, sp[1].height + ci.marT + ci.marB);
+          a.set(ci.slot, sp2[0]);
+          rest.set(ci.slot, sp2[1]);
+          h1 = Math.max(h1, sp2[0].height + ci.marT + ci.marB);
+          h2 = Math.max(h2, sp2[1].height + ci.marT + ci.marB);
         }
         if (!any) return null;
         const first = paintRow(h1, a, false, drawTop, bandTop, 0);
@@ -11321,13 +11438,13 @@ var Engine = class {
     });
   }
   geomOf(s, i) {
-    const sp = s.sectPr;
-    const pageW = sp.pageWidthTwips, pageH = sp.pageHeightTwips;
-    const marL = sp.marginLeftTwips, marR = sp.marginRightTwips;
+    const sp2 = s.sectPr;
+    const pageW = sp2.pageWidthTwips, pageH = sp2.pageHeightTwips;
+    const marL = sp2.marginLeftTwips, marR = sp2.marginRightTwips;
     const contentW = Math.max(720, pageW - marL - marR);
     const cols = [];
     const defs = s.sect?.colDefs;
-    const n = Math.max(1, sp.cols?.count ?? 1);
+    const n = Math.max(1, sp2.cols?.count ?? 1);
     if (n > 1 && defs && defs.length >= n && s.sect?.equalWidth === false) {
       let x = marL;
       for (const d of defs.slice(0, n)) {
@@ -11335,7 +11452,7 @@ var Engine = class {
         x += d.w + d.space;
       }
     } else if (n > 1) {
-      const space = sp.cols?.spaceTwips ?? 720;
+      const space = sp2.cols?.spaceTwips ?? 720;
       const w = (contentW - space * (n - 1)) / n;
       for (let k = 0; k < n; k++) cols.push({ x: marL + k * (w + space), w });
     } else cols.push({ x: marL, w: contentW });
@@ -11350,13 +11467,13 @@ var Engine = class {
     const hb = s.headerBlocks ?? blocksOfParas(s.headers);
     const fb = s.footerBlocks ?? blocksOfParas(s.footers);
     const st = this.ctx.fmt.settings;
-    const fnPr = { ...st.footnotePr, ...sp.footnotePr }, enPr = { ...st.endnotePr, ...sp.endnotePr };
+    const fnPr = { ...st.footnotePr, ...sp2.footnotePr }, enPr = { ...st.endnotePr, ...sp2.endnotePr };
     const notes = {
       footnote: { fmt: fnPr.numFmt ?? "decimal", start: fnPr.numStart ?? 1, restart: fnPr.numRestart ?? "continuous" },
       // (nota de fim não reinicia por página)
       endnote: { fmt: enPr.numFmt ?? "lowerRoman", start: enPr.numStart ?? 1, restart: enPr.numRestart === "eachSect" ? "eachSect" : "continuous" },
       fnPos: fnPr.pos ?? "pageBottom",
-      ...sp.footnoteColumns ? { fnCols: sp.footnoteColumns } : {}
+      ...sp2.footnoteColumns ? { fnCols: sp2.footnoteColumns } : {}
     };
     return {
       notes,
@@ -11365,18 +11482,18 @@ var Engine = class {
       pageH,
       marL,
       marR,
-      marT: sp.marginTopTwips,
-      marB: sp.marginBottomTwips,
-      hdr: sp.headerDistanceTwips ?? 720,
-      ftr: sp.footerDistanceTwips ?? 720,
+      marT: sp2.marginTopTwips,
+      marB: sp2.marginBottomTwips,
+      hdr: sp2.headerDistanceTwips ?? 720,
+      ftr: sp2.footerDistanceTwips ?? 720,
       cols,
-      colSep: !!sp.cols?.sep,
-      titlePg: !!sp.titlePg,
+      colSep: !!sp2.cols?.sep,
+      titlePg: !!sp2.titlePg,
       type: s.sect?.type ?? "nextPage",
       ...s.sect?.vAlign ? { vAlign: s.sect.vAlign } : {},
-      ...sp.pgNumStart !== void 0 ? { pgStart: sp.pgNumStart } : {},
-      ...sp.pgNumFmt ?? s.sect?.pgNumFmt ? { pgFmt: sp.pgNumFmt ?? s.sect.pgNumFmt } : {},
-      ...sp.pgNumChapStyle ? { chap: { level: sp.pgNumChapStyle, sep: CHAP_SEP[sp.pgNumChapSep ?? "hyphen"] ?? "-" } } : {},
+      ...sp2.pgNumStart !== void 0 ? { pgStart: sp2.pgNumStart } : {},
+      ...sp2.pgNumFmt ?? s.sect?.pgNumFmt ? { pgFmt: sp2.pgNumFmt ?? s.sect.pgNumFmt } : {},
+      ...sp2.pgNumChapStyle ? { chap: { level: sp2.pgNumChapStyle, sep: CHAP_SEP[sp2.pgNumChapSep ?? "hyphen"] ?? "-" } } : {},
       headers: pick(hb, prev?.headers),
       footers: pick(fb, prev?.footers),
       blocks: [s.blockStart, s.blockEnd],
@@ -11476,10 +11593,10 @@ var Engine = class {
       this.noteCarry = [];
       for (const n of carry) {
         const avail = ps.bodyBottomBase - ps.bodyTop - this.noteAreaOf(ps.notes.map((x) => x.content), g) - (ps.notes.length ? 0 : this.separatorHeight());
-        const sp = n.content.height > avail + 0.05 && !ps.notesFull ? splitContent(n.content, avail) : null;
-        if (sp && sp[0].lines.length && sp[1].lines.length) {
-          ps.notes.push({ id: n.id, content: sp[0] });
-          this.noteCarry.push({ id: n.id, content: sp[1] });
+        const sp2 = n.content.height > avail + 0.05 && !ps.notesFull ? splitContent(n.content, avail) : null;
+        if (sp2 && sp2[0].lines.length && sp2[1].lines.length) {
+          ps.notes.push({ id: n.id, content: sp2[0] });
+          this.noteCarry.push({ id: n.id, content: sp2[1] });
           ps.notesFull = true;
         } else if (ps.notesFull) this.noteCarry.push(n);
         else ps.notes.push(n);
@@ -12736,8 +12853,8 @@ var Engine = class {
     const id = ids[ids.length - 1];
     const avail = ps.bodyBottom - bottom - h;
     if (avail <= 0) return null;
-    const sp = splitContent(this.noteContent(id), avail);
-    return sp && sp[0].lines.length && sp[1].lines.length ? { id, first: sp[0], rest: sp[1] } : null;
+    const sp2 = splitContent(this.noteContent(id), avail);
+    return sp2 && sp2[0].lines.length && sp2[1].lines.length ? { id, first: sp2[0], rest: sp2[1] } : null;
   }
   /** Separador + notas, alinhados ao fundo do corpo (medido no Word); "abaixo do
    *  texto" (w:pos beneathText): logo depois do conteúdo da página, como as notas de
@@ -13088,8 +13205,8 @@ var Engine = class {
         if (!c) return;
         let part = c, rest = null;
         if (k < segs.length - 1) {
-          const sp = splitContent(c, sg.bottom - sg.top - (m.off - sg.cut));
-          if (sp) [part, rest] = sp;
+          const sp2 = splitContent(c, sg.bottom - sg.top - (m.off - sg.cut));
+          if (sp2) [part, rest] = sp2;
           else {
             part = { items: [], lines: [], height: 0 };
             rest = c;
@@ -13330,8 +13447,8 @@ var Engine = class {
         if (!c) return;
         let part = c, rest = null;
         if (k < segs.length - 1) {
-          const sp = splitContent(c, sg.bottom - sg.top - (m.off - sg.cut));
-          if (sp) [part, rest] = sp;
+          const sp2 = splitContent(c, sg.bottom - sg.top - (m.off - sg.cut));
+          if (sp2) [part, rest] = sp2;
           else {
             part = { items: [], lines: [], height: 0 };
             rest = c;
@@ -15974,6 +16091,20 @@ export {
   TEXTBOX_TEMPLATES,
   textboxTemplateSpec,
   gradientVariations,
+  TOC_TEMPLATES,
+  TOC_AUTO_INSTR,
+  manualPlaceholder,
+  MANUAL_LEVELS,
+  isTocSdt,
+  tocSdtPr,
+  TOC_FORMATS,
+  tocFormatStyle,
+  parseTcInstr,
+  tcInstr,
+  tcInToc,
+  tocOptionsFrom,
+  dialogOptionsFrom,
+  addTextPlan,
   SfntFont,
   deviceEmPt,
   lineHeightPt,

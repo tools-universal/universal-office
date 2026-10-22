@@ -2,6 +2,7 @@ import {
   GLOW_SIZES,
   GRADIENT_PRESETS,
   GRADIENT_VARIANTS,
+  MANUAL_LEVELS,
   PdfDocument,
   RECOLOR_PRESETS,
   REFLECTION_PRESETS,
@@ -11,8 +12,11 @@ import {
   SfntFont,
   StyleResolver,
   TEXTBOX_TEMPLATES,
+  TOC_AUTO_INSTR,
+  TOC_TEMPLATES,
   TWIPS_PER_PT,
   Z_FIRST,
+  addTextPlan,
   adjustBrightnessContrast,
   adjustSaturation,
   adjustSharpen,
@@ -25,6 +29,7 @@ import {
   cellAtGrid,
   cellBlocks,
   deviceEmPt,
+  dialogOptionsFrom,
   documentHyphenationLanguages,
   documentOutline,
   effectExtentOf,
@@ -42,9 +47,11 @@ import {
   imagePixelInfo,
   inheritedPPr,
   isShapeFill,
+  isTocSdt,
   layoutDocument,
   lineHeightPt,
   loadHyphenation,
+  manualPlaceholder,
   mergePPr,
   numberedItems,
   outlineParagraphs,
@@ -52,17 +59,23 @@ import {
   paintItems,
   paintPageBackground,
   paragraphAtPath,
+  parseTcInstr,
   patternRows,
   renderPdf,
   resolveColor,
   resolveDrawingColor,
   shapeStyleIndex,
+  tcInToc,
+  tcInstr,
   textboxTemplateSpec,
   themeTintShade,
+  tocFormatStyle,
+  tocOptionsFrom,
+  tocSdtPr,
   withEmbeddedFonts,
   wrapContour,
   zFor
-} from "./chunks/chunk-4FCCFIN6.js";
+} from "./chunks/chunk-AXM5VHWE.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -73,7 +86,7 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-R66JLTEY.js";
+} from "./chunks/chunk-4FTRJ73Y.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -220,7 +233,7 @@ import {
   writeEvenAndOddHeaders,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-J635FHRH.js";
+} from "./chunks/chunk-NPDEUMTK.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -1056,8 +1069,24 @@ function parseTocInstr(instr) {
     o.caption = a;
     o.includeLabel = false;
   }
+  const range = (v) => {
+    const m = /(\d)\s*-\s*(\d)/.exec(v ?? "");
+    return m ? [+m[1], +m[2]] : void 0;
+  };
+  const f = /\\f(?:\s+(?:"([^"]*)"|([^\s\\"]+)))?/i.exec(instr);
+  if (f) {
+    o.fields = true;
+    const id = f[1] ?? f[2];
+    if (id) o.fieldId = id;
+  }
+  const l = range(q("l"));
+  if (l) o.fieldLevels = l;
   if (has("h")) o.hyperlinks = true;
-  if (has("n")) o.noPageNumbers = true;
+  if (has("n")) {
+    const r = range(q("n"));
+    if (r) o.noPageLevels = r;
+    else o.noPageNumbers = true;
+  }
   const p = q("p");
   if (p !== void 0) o.separator = p;
   if (has("z")) o.hideInWeb = true;
@@ -1066,7 +1095,10 @@ function parseTocInstr(instr) {
 function tocInstr(o) {
   const parts = ["TOC"];
   if (o.outline) parts.push(`\\o "${o.outline[0]}-${o.outline[1]}"`);
-  if (o.noPageNumbers) parts.push("\\n");
+  if (o.fields) parts.push(o.fieldId ? `\\f ${/[\s"]/.test(o.fieldId) ? `"${o.fieldId}"` : o.fieldId}` : "\\f");
+  if (o.fieldLevels) parts.push(`\\l "${o.fieldLevels[0]}-${o.fieldLevels[1]}"`);
+  if (o.noPageLevels) parts.push(`\\n "${o.noPageLevels[0]}-${o.noPageLevels[1]}"`);
+  else if (o.noPageNumbers) parts.push("\\n");
   if (o.separator !== void 0) parts.push(`\\p "${o.separator}"`);
   if (o.hyperlinks) parts.push("\\h");
   if (o.hideInWeb) parts.push("\\z");
@@ -1088,7 +1120,8 @@ function tocEntryParagraphs(o, sources, look) {
     }
     const text = s.text.replace(/[\t\n\f\u000B\r]/g, " ");
     runs.push({ text, props: { ...base, ...o.hyperlinks ? { charStyle: look.hyperlinkStyle } : {} }, inToc: true });
-    if (!o.noPageNumbers) {
+    const lv = o.noPageLevels;
+    if (!o.noPageNumbers && !s.noPage && !(lv && s.level >= lv[0] && s.level <= lv[1])) {
       runs.push({ text: o.separator ?? "	", props: { ...base, ...web }, inToc: true });
       const instr = ` PAGEREF ${s.bookmark} \\h `;
       runs.push({ text: s.page, props: { ...base, ...web }, field: instr, fieldResult: [{ text: s.page, props: { ...base, ...web } }], inToc: true });
@@ -3396,7 +3429,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-M6ZQL3MV.js");
+    const { setupChrome } = await import("./chunks/chrome-H4IG4N7F.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -3433,7 +3466,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-M6ZQL3MV.js").then((m) => {
+      void import("./chunks/chrome-H4IG4N7F.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -6264,8 +6297,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    * Atualizar campos (F9 = os da seleção, como o Word; "Atualizar campos" = todos):
    * sumários e índices de ilustrações refeitos, fórmulas de tabela recalculadas e
    * o resultado em cache de REF/PAGEREF/NOTEREF/SEQ/STYLEREF. Devolve quantos mudaram.
+   * `toc` = como atualizar os sumários: 'pages' (só os números de página, como a
+   * pergunta do Word) ou 'all' (o índice inteiro).
    */
-  updateFields(scope = "all") {
+  updateFields(scope = "all", toc = "all") {
     if (!this.model || this.locked()) return 0;
     const work = this.formulaWork(scope === "selection" ? this.fieldRunsInSelection() : void 0);
     const tocs = this.tocFields().filter((t) => scope === "all" || this.tocInSelection(t));
@@ -6277,8 +6312,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       delete w.run.fieldResult;
     }
     let n = work.length;
-    for (const t of tocs.reverse()) if (this.rebuildToc(t)) n++;
-    n += this.refreshFieldCache(scope === "selection" && !tocs.length ? this.fieldRunsInSelection() : void 0);
+    if (toc === "all") for (const t of tocs.reverse()) {
+      if (this.rebuildToc(t)) n++;
+    }
+    const only = scope === "selection" && (!tocs.length || toc === "pages") ? this.fieldRunsInSelection() : void 0;
+    if (only && toc === "pages") for (const t of tocs) for (const r of this.tocPageRuns(t)) only.add(r);
+    n += this.refreshFieldCache(only);
     if (!n) {
       this.undoStack.pop();
       return 0;
@@ -6393,8 +6432,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     const styleLevel = /* @__PURE__ */ new Map();
     for (const s of o.styles ?? []) {
-      const meta = this.docStyles.byName(s.style) ?? this.docStyles.meta(s.style);
-      if (meta) styleLevel.set(meta.id, s.level);
+      const id = this.tocStyleId(s.style);
+      if (id) styleLevel.set(id, s.level);
     }
     for (const h of all) {
       const p = h.paragraph;
@@ -6404,12 +6443,34 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (sid && styleLevel.has(sid)) level = styleLevel.get(sid);
       else if (h.level && o.outline && this.isHeadingStyle(sid, h.level) && h.level >= o.outline[0] && h.level <= o.outline[1]) level = h.level;
       else if (h.level && o.outlineLevels && h.level >= (o.outline?.[0] ?? 1) && h.level <= (o.outline?.[1] ?? 9)) level = h.level;
-      if (!level) continue;
       const text = paraText(p).replace(/[\t\n\f\u000B]/g, " ").trim();
-      if (!text) continue;
-      out.push({ level, text, ...h.number ? { number: h.number } : {}, page: this.pageLabelOf(p), bookmark: mark2(p) });
+      if (level && text) out.push({ level, text, ...h.number ? { number: h.number } : {}, page: this.pageLabelOf(p), bookmark: mark2(p) });
+      if (!o.fields) continue;
+      let acc = 0;
+      for (const r of p.runs) {
+        const at = acc;
+        acc += r.text.length;
+        const tc = parseTcInstr(r.field);
+        if (!tc || !tcInToc(o, tc)) continue;
+        const hp = host.get(p);
+        const bm = hp ? this.refBookmark(hp.paras, hp.idx, at, at + r.text.length, "_Toc") : "";
+        out.push({ level: tc.level, text: tc.text, page: this.pageLabelOf(p), bookmark: bm, ...tc.noPage ? { noPage: true } : {} });
+      }
     }
     return out;
+  }
+  /** Estilo do \t pelo nome: o w:name, o nome de exibição (o Word grava o do idioma
+   *  dele — "Título;1", oráculo toc-styles) ou o id. */
+  tocStyleId(name) {
+    const ds = this.docStyles;
+    const m = ds.byName(name) ?? ds.meta(name);
+    if (m) return m.id;
+    const k = name.trim().toLowerCase();
+    for (const s of ds.index().styles) {
+      if (s.type !== "paragraph") continue;
+      if (displayName(s, "pt").toLowerCase() === k || displayName(s, "en").toLowerCase() === k) return s.id;
+    }
+    return void 0;
   }
   /** O estilo do parágrafo é (ou herda de) um título interno do nível? (\o sem \u) */
   isHeadingStyle(id, level) {
@@ -6492,32 +6553,47 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   tocOrEmpty(o, sources, look) {
     if (sources.length) return tocEntryParagraphs(o, sources, look);
     const msg = pickLabels(this, o.caption !== void 0 ? TOF_EMPTY : TOC_EMPTY);
-    return [{ runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} }];
+    const p = { runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} };
+    this.emptyTocParas.add(p);
+    return [p];
   }
+  /** o parágrafo do aviso "Nenhuma entrada…" (o campo começa e acaba nele) */
+  emptyTocParas = /* @__PURE__ */ new WeakSet();
   /**
    * Monta os parágrafos do campo TOC como o Word (oráculo tof-cursor-*): com texto
    * antes do começo, o começo fica no fim desse parágrafo e as entradas vêm em
    * parágrafos novos; senão o começo abre a 1ª entrada (no parágrafo de origem). O
-   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele.
+   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele. Sem
+   * entradas o campo cabe num parágrafo só, com o aviso (oráculo tof-empty,
+   * bb-1-empty). Dentro do controle do sumário as entradas ficam nele.
    */
   tocParagraphs(bp, ep, before, begin, entries, after, same) {
     const out = [];
     const lead = before.some((r) => r.text || r.image || r.field);
+    const sdt = bp.props.blockSdt;
     const endProps = { ...ep.props };
     if (same) delete endProps.src;
     const first = { ...bp.props };
     delete first.sectionBreak;
+    const inSdt = (p) => {
+      if (sdt) p.props = { ...p.props, blockSdt: sdt };
+      return p;
+    };
+    const empty = !lead && entries.length === 1 && this.emptyTocParas.has(entries[0]);
     if (lead) {
       bp.runs = [...before, begin];
       bp.props = first;
-      out.push(bp, ...entries);
+      out.push(bp, ...entries.map(inSdt));
     } else {
       const e0 = entries[0];
-      bp.runs = [...before, begin, ...e0.runs];
-      bp.props = { ...e0.props, ...first.src !== void 0 ? { src: first.src } : {} };
+      const endRun = empty && after[0]?.fieldEnd ? after.shift() : void 0;
+      bp.runs = [...before, begin, ...e0.runs, ...endRun ? [endRun] : []];
+      bp.props = { ...e0.props, ...first.src !== void 0 ? { src: first.src } : {}, ...sdt ? { blockSdt: sdt } : {} };
       delete bp.ppr;
       bp.pprEdited = true;
-      out.push(bp, ...entries.slice(1));
+      out.push(bp, ...entries.slice(1).map(inSdt));
+      const rest = after.some((r) => r.text || r.image || r.field || r.fieldBegin !== void 0 || r.fieldEnd || r.bookmark || r.textbox || r.shape || r.group);
+      if (endRun && !rest && !(same ? endProps : ep.props).sectionBreak) return out;
     }
     if (same) out.push({ runs: after, props: endProps, ...ep.ppr ? { ppr: ep.ppr } : {} });
     else {
@@ -6615,21 +6691,553 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return true;
   }
   /**
-   * Atualiza os sumários (campos TOC com títulos) como o Word: entradas com
-   * hiperlink para _Toc ocultos nos títulos e PAGEREF, estilos Sumário N. A
-   * inserção do sumário é da frente Sumário, que reaproveita este motor.
+   * Atualizar Sumário, com a escolha da pergunta do Word: 'pages' refaz só os
+   * números de página das entradas (o texto editado nelas fica e os _Toc são os
+   * mesmos — oráculo bb-update-pages); 'all' refaz o índice inteiro com o mesmo
+   * motor (entradas com hiperlink para _Toc novos e PAGEREF, estilos Sumário N —
+   * bb-update-all). Vale para o sumário do cursor; fora de um, para todos os
+   * campos TOC (sumários e índices de ilustrações).
    */
-  updateToc() {
+  updateToc(mode = "all") {
     if (!this.model || this.locked()) return false;
-    const list = this.tocFields();
+    const at = this.tocAtCaret();
+    const list = at ? [at] : this.tocFields();
     if (!list.length) return false;
     this.quietChange = true;
     this.snapshot();
     this.quietChange = false;
-    for (const t of [...list].reverse()) this.rebuildToc(t);
+    if (mode === "pages") {
+      const runs = /* @__PURE__ */ new Set();
+      for (const t of list) for (const r of this.tocPageRuns(t)) runs.add(r);
+      this.refreshFieldCache(runs);
+    } else {
+      for (const t of [...list].reverse()) this.rebuildToc(t);
+      this.refreshFieldCache();
+    }
+    this.refresh();
+    return true;
+  }
+  // ── sumário (frente Sumário): galeria, Sumário Personalizado, Remover, Adicionar
+  //    Texto, campos TC e o controle de conteúdo. Regras em toc.ts; fatos do Word
+  //    em write/tools/toc-lab (memória word-toc-oracle-facts).
+  /** Campos TOC de sumário (sem os índices de ilustrações). */
+  tocTables() {
+    return this.tocFields().filter((t) => parseTocInstr(t.instr).caption === void 0);
+  }
+  /** Parágrafos [a, b] do controle de conteúdo do sumário que contém o parágrafo `pi` do corpo. */
+  tocSdtRange(pi) {
+    if (this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return null;
+    const ps = this.model.paragraphs;
+    const s = ps[pi]?.props.blockSdt;
+    if (!isTocSdt(s)) return null;
+    let a = pi, b = pi;
+    while (a > 0 && ps[a - 1].props.blockSdt?.key === s.key) a--;
+    while (b + 1 < ps.length && ps[b + 1].props.blockSdt?.key === s.key) b++;
+    return [a, b];
+  }
+  /** O 1º controle de conteúdo de sumário do corpo. */
+  firstTocSdt() {
+    const ps = this.bodyModel().paragraphs;
+    const i = ps.findIndex((p) => isTocSdt(p.props.blockSdt));
+    return i < 0 || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit ? null : this.tocSdtRange(i);
+  }
+  /** O sumário do cursor: o campo que contém a seleção ou o do controle de conteúdo
+   *  em que o cursor está (no título dele, por exemplo). */
+  tocAtCaret() {
+    if (!this.model || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return void 0;
+    const all = this.tocTables();
+    const hit = all.find((t) => this.tocInSelection(t));
+    if (hit) return hit;
+    const r = this.tocSdtRange(this.selection.focus.para);
+    return r ? all.find((t) => t.begin >= r[0] && t.begin <= r[1]) : void 0;
+  }
+  /** Runs PAGEREF das entradas de um campo TOC (Atualizar só os números). */
+  tocPageRuns(t) {
+    const ps = this.bodyModel().paragraphs;
+    const out = [];
+    const last = t.end < 0 ? t.begin : t.end;
+    const take = (r) => {
+      if (/^\s*PAGEREF\b/i.test(r.field ?? "")) out.push(r);
+      for (const x of r.fieldResult ?? []) take(x);
+    };
+    for (let pi = t.begin; pi <= last; pi++) for (const r of ps[pi]?.runs ?? []) take(r);
+    return out;
+  }
+  /** Há sumário no documento (campo ou controle — o Manual não tem campo)? */
+  hasTableOfContents() {
+    if (!this.model) return false;
+    return this.tocTables().length > 0 || this.firstTocSdt() !== null;
+  }
+  /** O cursor está num sumário (campo ou controle)? */
+  inTableOfContents() {
+    if (!this.model) return false;
+    return !!this.tocAtCaret() || !!this.tocSdtRange(this.selection.focus.para);
+  }
+  /** Modelos da galeria Sumário, com o nome no idioma da interface. */
+  tocTemplates() {
+    return TOC_TEMPLATES.map((t) => ({ id: t.id, name: pickLabels(this, t.name) }));
+  }
+  /** w:id novo de controle de conteúdo (inteiro de 32 bits com sinal, como o Word). */
+  newSdtId() {
+    const n = Math.floor(Math.random() * 2147483647) || 1;
+    return Math.random() < 0.5 ? -n : n;
+  }
+  /**
+   * Onde entra um bloco novo da galeria: a seleção sai; num parágrafo vazio o bloco
+   * fica no lugar dele (oráculo bb-1); no começo, antes; no fim, depois; no meio
+   * do texto, o parágrafo é dividido. Devolve o índice do parágrafo.
+   */
+  blockInsertPoint() {
+    if (this.hasSelection()) {
+      const p2 = this.deleteSelection();
+      this.selection = { anchor: p2, focus: p2 };
+    }
+    const ps = this.model.paragraphs;
+    const pos = this.selection.focus;
+    const p = ps[pos.para];
+    const len2 = paraLength(p);
+    const bare = !len2 && !p.props.sectionBreak && !p.runs.some((r) => r.bookmark || r.fieldBegin !== void 0 || r.fieldEnd);
+    if (bare) {
+      ps.splice(pos.para, 1);
+      this.shiftAnchors(pos.para, -1);
+      return pos.para;
+    }
+    if (pos.offset <= 0) return pos.para;
+    if (pos.offset >= len2) return pos.para + 1;
+    splitParagraph(this.model, pos);
+    this.shiftAnchors(pos.para, 1);
+    return pos.para + 1;
+  }
+  /** Tira os parágrafos [a, b] do corpo (e os _Toc que só as entradas usavam). */
+  dropBodyParas(a, b) {
+    const ps = this.model.paragraphs;
+    const old = [];
+    for (let i = a; i <= b; i++) old.push(...ps[i].runs);
+    this.dropOldTocMarks(old);
+    ps.splice(a, b - a + 1);
+    this.shiftAnchors(a, -(b - a + 1));
+  }
+  /** Entradas do Sumário Manual (oráculo bb-3): Sumário 1–3, espaço reservado,
+   *  tabulação de alinhamento à direita com pontilhado e o número; nível 1 em
+   *  negrito, recuo direto 216/446 nos níveis 2 e 3. */
+  manualTocParas(lang, sdt, styleOf = (n) => this.builtinStyleId(n)) {
+    return MANUAL_LEVELS.map((level, i) => {
+      const bold = level === 1 ? { bold: true } : {};
+      const runs = [
+        { text: manualPlaceholder(lang, level), props: { ...DEFAULT_RUN_PROPS, ...bold } },
+        { text: "	", props: { ...DEFAULT_RUN_PROPS }, ptab: { alignment: "right", relativeTo: "margin", leader: "dot" } },
+        { text: String(i + 1), props: { ...DEFAULT_RUN_PROPS, ...bold } }
+      ];
+      const ind = level === 2 ? 216 : level === 3 ? 446 : void 0;
+      return { runs, props: { styleId: styleOf(`toc ${level}`), ...ind ? { indentLeftTwips: ind } : {}, ...sdt ? { blockSdt: sdt } : {} } };
+    });
+  }
+  /**
+   * Miniatura de um modelo da galeria Sumário (o motor desenha): o título e três
+   * entradas com os estilos do documento (os que faltam, pela definição interna —
+   * sem gravá-los no documento).
+   */
+  paintTocTemplate(id, canvas, cssWidth) {
+    const tpl = TOC_TEMPLATES.find((t) => t.id === id);
+    if (!tpl || !this.model || !this.fonts) return false;
+    const lang = uiLang(this);
+    const ds = this.docStyles;
+    let xml = ds.base();
+    const styleOf = (name) => {
+      const b = builtinStyle(name);
+      const sid = resolveStyleId(xml, b ? /w:styleId="([^"]*)"/.exec(b.xml)?.[1] ?? name : name);
+      xml = ensureDefined(ds, xml, sid, true);
+      return sid;
+    };
+    const sp = { ...this.sect() };
+    delete sp.pgBorders;
+    delete sp.cols;
+    const width = 4800;
+    sp.pageWidthTwips = sp.marginLeftTwips + sp.marginRightTwips + width;
+    const head = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: styleOf("TOC Heading") } };
+    const entries = tpl.manual ? this.manualTocParas(lang, void 0, styleOf).slice(0, 3) : [1, 2, 3].map((level) => ({
+      runs: [
+        { text: lang === "pt" ? `T\xEDtulo ${level}` : `Heading ${level}`, props: { ...DEFAULT_RUN_PROPS } },
+        { text: "	", props: { ...DEFAULT_RUN_PROPS } },
+        { text: "1", props: { ...DEFAULT_RUN_PROPS } }
+      ],
+      props: { styleId: styleOf(`toc ${level}`), tabStops: [{ posTwips: width - 10, align: "right", leader: "dot" }] }
+    }));
+    const paras = [head, ...entries];
+    const full = {
+      ...this.fullDoc ?? {},
+      blocks: paras.map((paragraph) => ({ type: "paragraph", paragraph })),
+      sections: [{ sectPr: sp, blockStart: 0, blockEnd: paras.length - 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks: {}, footerBlocks: {} }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      bookmarks: /* @__PURE__ */ new Map(),
+      formatting: { ...this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting(), styles: readStyleSheet(xml) }
+    };
+    let page2;
+    try {
+      page2 = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: void 0 }).pages[0];
+    } catch {
+      return false;
+    }
+    if (!page2?.lines.length) return false;
+    const top = Math.max(0, Math.min(...page2.lines.map((l) => l.y)) - 160);
+    const bottom = Math.max(...page2.lines.map((l) => l.y + l.height)) + 160;
+    const left = Math.max(0, sp.marginLeftTwips - 240), right = Math.min(page2.widthTw, page2.widthTw - sp.marginRightTwips + 240);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / (right - left);
+    canvas.width = Math.max(1, Math.round((right - left) * scale * dpr));
+    canvas.height = Math.max(1, Math.round((bottom - top) * scale * dpr));
+    canvas.style.width = `${Math.round((right - left) * scale)}px`;
+    canvas.style.height = `${Math.round((bottom - top) * scale)}px`;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, -left * scale * dpr, -top * scale * dpr);
+    paintItems(ctx, page2.items, this.enginePaintEnv(), {});
+    return true;
+  }
+  /**
+   * Insere um modelo da galeria Sumário: o controle de conteúdo do sumário
+   * (docPartGallery "Table of Contents", docPartUnique), o título no estilo
+   * Cabeçalho do Sumário e o campo `TOC \o "1-3" \h \z \u` (ou as entradas do
+   * Manual). Um sumário da galeria por documento: o que já houver é substituído.
+   * Um passo de desfazer.
+   */
+  insertTocTemplate(id) {
+    const tpl = TOC_TEMPLATES.find((t) => t.id === id);
+    if (!tpl || !this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    this.snapshot();
+    const ps = this.model.paragraphs;
+    const old = this.firstTocSdt();
+    let at;
+    if (old) {
+      at = old[0];
+      this.dropBodyParas(old[0], old[1]);
+    } else at = this.blockInsertPoint();
+    const lang = uiLang(this);
+    const sdt = { key: `t${this.newSdtId()}`, gallery: "Table of Contents", pr: tocSdtPr(this.newSdtId()) };
+    const heading = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: this.builtinStyleId("TOC Heading"), blockSdt: sdt } };
+    let body;
+    if (tpl.manual) body = this.manualTocParas(lang, sdt);
+    else {
+      const o = parseTocInstr(TOC_AUTO_INSTR);
+      const entries = this.tocOrEmpty(o, this.tocSources(o, null), this.tocLook(o, void 0, "dot"));
+      const bp = { runs: [], props: { blockSdt: sdt } };
+      const begin = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldBegin: TOC_AUTO_INSTR };
+      const end = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+      body = this.tocParagraphs(bp, bp, [], begin, entries, [end], true);
+    }
+    const built = [heading, ...body];
+    if (at >= ps.length) built.push({ runs: [], props: {} });
+    ps.splice(at, 0, ...built);
+    this.shiftAnchors(at, built.length);
+    const next = Math.min(at + built.length, ps.length - 1);
+    const pos = next === at + built.length ? { para: next, offset: 0 } : { para: next, offset: paraLength(ps[next]) };
+    this.selection = { anchor: pos, focus: pos };
     this.refreshFieldCache();
     this.refresh();
     return true;
+  }
+  /** Opções do sumário do cursor (ou do 1º) — o diálogo Sumário Personalizado abre com elas. */
+  getTableOfContentsOptions() {
+    const t = this.tocAtCaret() ?? this.tocTables()[0];
+    if (!t) return null;
+    const d = dialogOptionsFrom(parseTocInstr(t.instr));
+    const ps = this.bodyModel().paragraphs;
+    const tab = [ps[t.begin], ps[t.begin + 1]].find((p) => p?.props.tabStops?.some((x) => x.align === "right"))?.props.tabStops?.find((x) => x.align === "right");
+    d.leader = tab ? tab.leader ?? "none" : "dot";
+    return d;
+  }
+  /**
+   * Sumário Personalizado: grava o campo com as opções do diálogo (`\o "1-N"`, `\n`,
+   * `\p " "`, `\h`, `\z`, `\t`, `\u`, `\f` — oráculo toc-*), o preenchimento na
+   * tabulação das entradas e o formato nos estilos Sumário 1–9. `replace`: true =
+   * substitui o sumário do cursor (ou o 1º), como o "Sim" da pergunta do Word;
+   * false = insere outro no cursor; omitido = substitui o do cursor, se houver.
+   */
+  insertTableOfContents(opts = {}, replace) {
+    if (!this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    const o = tocOptionsFrom(opts);
+    const leader = opts.leader ?? "dot";
+    const old = replace === false ? void 0 : this.tocAtCaret() ?? (replace ? this.tocTables()[0] : void 0);
+    this.snapshot();
+    if (opts.format) this.applyTocFormat(opts.format, opts.levels ?? 3);
+    if (old) {
+      this.rebuildToc({ ...old, instr: tocInstr(o) }, leader);
+      this.refreshFieldCache();
+      this.refresh();
+      return true;
+    }
+    this.insertTocField(o, leader);
+    return true;
+  }
+  /** Campo TOC novo no cursor, como o Word (oráculo tof-cursor-*: o campo começa
+   *  no cursor, o fim abre o parágrafo seguinte às entradas; o cursor fica nele). */
+  insertTocField(o, leader) {
+    if (this.hasSelection()) {
+      const p2 = this.deleteSelection();
+      this.selection = { anchor: p2, focus: p2 };
+    }
+    const ps = this.model.paragraphs;
+    const at = this.selection.focus;
+    const p = ps[at.para];
+    const idx = insertIndex(p, at.offset);
+    const before = p.runs.slice(0, idx), after = p.runs.slice(idx);
+    const sources = this.tocSources(o, null);
+    const entries = this.tocOrEmpty(o, sources, this.tocLook(o, void 0, leader));
+    const begin = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldBegin: tocInstr(o) };
+    const end = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+    const built = this.tocParagraphs(p, p, before, begin, entries, [end, ...after], true);
+    ps.splice(at.para, 1, ...built);
+    this.shiftAnchors(at.para, built.length - 1);
+    const endAt = { para: at.para + built.length - 1, offset: 0 };
+    this.selection = { anchor: endAt, focus: endAt };
+    this.refreshFieldCache();
+    this.refresh();
+  }
+  /** Formatos do diálogo: o pPr/rPr de cada estilo "toc N" (os níveis mostrados e os
+   *  já definidos — oráculo toc-format*); "Do modelo" volta à definição interna. */
+  applyTocFormat(f, levels) {
+    if (!this.stylesEditable()) return;
+    for (let n = 1; n <= 9; n++) {
+      const name = `toc ${n}`;
+      const defined = !!this.docStyles.byName(name);
+      if (n > levels && !defined) continue;
+      if (f === "template" && !defined) continue;
+      const id = this.builtinStyleId(name);
+      const raw = styleRaw(this.docStyles.base(), id);
+      if (!raw) continue;
+      const fm = tocFormatStyle(f, n);
+      this.commitStyles(putStyle(this.docStyles.base(), id, patchStyleXml(raw, { pPr: `<w:pPr>${fm.pPr}</w:pPr>`, rPr: fm.rPr ? `<w:rPr>${fm.rPr}</w:rPr>` : null })));
+    }
+  }
+  /**
+   * Remover Sumário (o comando interno RemoveTableOfContents, medido): o controle
+   * de conteúdo inteiro, com o título, ou o campo; os _Toc que só as entradas
+   * usavam saem dos títulos. O do cursor ou o 1º do documento. Um passo de desfazer.
+   */
+  removeTableOfContents() {
+    if (!this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    const ps = this.model.paragraphs;
+    const t = this.tocAtCaret();
+    let range = this.tocSdtRange(this.selection.focus.para);
+    let field2 = range ? void 0 : t;
+    if (!range && !field2) {
+      const s = this.firstTocSdt(), f = this.tocTables()[0];
+      if (s && (!f || s[0] <= f.begin)) range = s;
+      else field2 = f;
+    }
+    if (!range && !field2) return false;
+    this.snapshot();
+    let at;
+    if (range) {
+      at = range[0];
+      this.dropBodyParas(range[0], range[1]);
+    } else {
+      const f = field2;
+      const last = f.end < 0 ? f.begin : f.end;
+      const bp = ps[f.begin], ep = ps[last];
+      const bi = bp.runs.indexOf(f.beginRun), ei = f.endRun ? ep.runs.indexOf(f.endRun) : -1;
+      const lead = bi > 0 ? bp.runs.slice(0, bi) : [];
+      const tail = ei >= 0 ? ep.runs.slice(ei + 1) : [];
+      const old = [];
+      for (let i = f.begin; i <= last; i++) old.push(...ps[i].runs);
+      this.dropOldTocMarks(old);
+      const keep = [];
+      const hasLead = lead.some((r) => r.text || r.image || r.field || r.bookmark);
+      if (f.begin === last) keep.push({ ...bp, runs: [...lead, ...tail] });
+      else {
+        if (hasLead) keep.push({ ...bp, runs: lead });
+        if (tail.length || ep.props.sectionBreak) keep.push({ ...ep, runs: tail });
+      }
+      ps.splice(f.begin, last - f.begin + 1, ...keep);
+      this.shiftAnchors(f.begin, keep.length - (last - f.begin + 1));
+      at = f.begin + (keep.length > 1 ? 1 : 0);
+    }
+    if (!ps.length) ps.push({ runs: [], props: {} });
+    const pi = Math.min(at, ps.length - 1);
+    this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+    this.refresh();
+    return true;
+  }
+  /** Nível do parágrafo do cursor no sumário (Adicionar Texto: 0 = Não Mostrar no Sumário). */
+  getTocLevel() {
+    if (!this.model || this.hfEdit || this.tbEdit || this.noteEdit) return 0;
+    const p = this.model.paragraphs[this.selection.focus.para];
+    if (!p) return 0;
+    if (this.cellEdit) return 0;
+    return outlineParagraphs(this.liveEngineDoc().full).find((h) => h.paragraph === p)?.level ?? 0;
+  }
+  /** O estilo do parágrafo para Adicionar Texto: Normal, título interno ou outro. */
+  addTextKind(p) {
+    const ds = this.docStyles;
+    const id = p.props.styleId ?? p.ppr?.pStyle;
+    if (!id || id === ds.defaultParagraph()) return "normal";
+    return /^heading [1-9]$/i.test(ds.meta(id)?.name ?? "") ? "heading" : "other";
+  }
+  /**
+   * Adicionar Texto (0 = Não Mostrar no Sumário; 1–9 = Nível N) nos parágrafos da
+   * seleção — regra de toc.ts (addTextPlan): Título N ou Normal nos parágrafos
+   * Normal/de título, só o nível de tópico nos de outro estilo. Um passo de desfazer.
+   */
+  setTocLevel(level) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit) return;
+    const lv = Math.max(0, Math.min(9, Math.round(level)));
+    this.snapshot();
+    const { start, end } = normalizeRange(this.range());
+    const keep = this.selection;
+    const now = /* @__PURE__ */ new Map();
+    for (const h of outlineParagraphs(this.liveEngineDoc().full)) now.set(h.paragraph, h.level);
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      const plan = addTextPlan(lv, this.addTextKind(p));
+      if (plan.heading || plan.normal) {
+        this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+        this.applyStyleCore(plan.heading ? this.builtinStyleId(`heading ${plan.heading}`) : void 0);
+      } else if (plan.outline !== void 0) {
+        if (plan.outline === null && !now.get(p)) continue;
+        const v = plan.outline === null ? 9 : plan.outline - 1;
+        p.props = { ...p.props, outlineLvl: v };
+        p.ppr = { ...p.ppr ?? {}, outlineLvl: v };
+      }
+    }
+    this.selection = keep;
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /**
+   * Marcar Entrada de Sumário (Alt+Shift+O): o campo TC no fim da seleção (ou no
+   * cursor), como o Word grava — ` TC "texto" \f C \l "N" ` (oráculo tc-mark,
+   * tc-mark-sel). O sumário o lê com "Campos de entrada de índice" (\f).
+   */
+  markTocEntry(opts) {
+    if (!this.model || this.locked() || !opts.text.trim() || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    this.snapshot();
+    const { end } = normalizeRange(this.range());
+    const base = this.newRunProps(this.pendingProps ?? this.currentProps());
+    const run2 = { text: "", props: { ...base }, field: tcInstr({ text: opts.text, id: opts.identifier, level: opts.level }) };
+    const pos = insertRun(this.model, end, run2);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    return true;
+  }
+  /** Texto sugerido para Marcar Entrada de Sumário: a seleção (sem quebras). */
+  tocEntrySuggestion() {
+    return this.selectedText().replace(/[\r\n\t\u000B\f]+/g, " ").trim();
+  }
+  /**
+   * Pede a atualização do sumário: a barra cancela o `uw-toc-update` e faz a
+   * pergunta do Word (só os números ou o índice inteiro); sem barra, o índice
+   * inteiro. `scope` 'caret' = o sumário (botão do controle, comando); 'selection'
+   * = F9 com um sumário na seleção.
+   */
+  requestTocUpdate(scope) {
+    const ev = new CustomEvent("uw-toc-update", { cancelable: true, detail: { scope } });
+    if (!this.dispatchEvent(ev)) return;
+    if (scope === "caret") this.updateToc("all");
+    else this.updateFields("selection");
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  // ── controle de conteúdo do sumário na tela (adorno do editor, como o Word: a
+  //    moldura e a aba com o menu da galeria e "Atualizar Sumário…" quando o cursor
+  //    está nele — nunca no PDF, na impressão ou no viewer)
+  tocMeasure = null;
+  /** Moldura por página (twips) do controle do sumário com o cursor dentro. */
+  tocControlBoxes() {
+    if (!this.model || !this.eng || this.printRender || this.hfCapturing || this.view !== "print" || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return [];
+    const r = this.tocSdtRange(this.selection.focus.para);
+    if (!r) return [];
+    const by = /* @__PURE__ */ new Map();
+    for (let pi = r[0]; pi <= r[1]; pi++) {
+      for (const l of this.layoutCache[pi]?.lines ?? []) {
+        const b = by.get(l.page);
+        const y0 = l.yTwips, y1 = l.yTwips + l.heightTwips;
+        by.set(l.page, b ? { y0: Math.min(b.y0, y0), y1: Math.max(b.y1, y1) } : { y0, y1 });
+      }
+    }
+    return [...by].sort((a, b) => a[0] - b[0]).map(([pg, b]) => {
+      const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
+      const x = sp.marginLeftTwips;
+      return { pg, x, y: b.y0, w: sp.pageWidthTwips - sp.marginRightTwips - x, h: b.y1 - b.y0 };
+    });
+  }
+  /** A aba do controle (em cima, à esquerda da 1ª moldura): o botão do menu e o
+   *  "Atualizar Sumário…", em twips da página. */
+  tocTabGeom() {
+    const b = this.tocControlBoxes()[0];
+    if (!b) return null;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const pad = 3 * px, th = 20 * px, fs = 11.5 * px;
+    const label = pickLabels(this, { en: "Update Table\u2026", pt: "Atualizar Sum\xE1rio\u2026" });
+    this.tocMeasure ??= document.createElement("canvas").getContext("2d");
+    let tw2 = label.length * fs * 0.55;
+    if (this.tocMeasure) {
+      this.tocMeasure.font = `400 ${fs}px ${DEFAULT_FONT_CSS}`;
+      tw2 = this.tocMeasure.measureText(label).width;
+    }
+    const x0 = b.x - pad, y0 = b.y - pad - th;
+    return { pg: b.pg, pad, th, fs, label, menu: [x0, y0, th, th], update: [x0 + th, y0, tw2 + 14 * px, th] };
+  }
+  paintTocControl(ctx, pg) {
+    const boxes = this.tocControlBoxes();
+    const b = boxes.find((x) => x.pg === pg);
+    if (!b) return;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const dark = this.pageDark;
+    const line = dark ? "#5f6b7a" : "#a9bcd0", bg = dark ? "#2b3138" : "#eef3f8", ink = dark ? "#e3e3e3" : "#3c4043";
+    ctx.save();
+    ctx.lineWidth = px;
+    ctx.strokeStyle = line;
+    const pad = 3 * px;
+    ctx.strokeRect(b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad);
+    const g = boxes[0] === b ? this.tocTabGeom() : null;
+    if (g) {
+      for (const r of [g.menu, g.update]) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(...r);
+        ctx.strokeRect(...r);
+      }
+      const [mx, my, mw] = g.menu;
+      ctx.strokeStyle = ink;
+      ctx.beginPath();
+      const lines = [[0.25, 0.3, 0.75], [0.33, 0.45, 0.75], [0.33, 0.6, 0.75], [0.25, 0.75, 0.75]];
+      for (const [x1, y, x2] of lines) {
+        ctx.moveTo(mx + mw * x1, my + mw * y);
+        ctx.lineTo(mx + mw * x2, my + mw * y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = ink;
+      ctx.font = `400 ${g.fs}px ${DEFAULT_FONT_CSS}`;
+      ctx.textBaseline = "middle";
+      ctx.fillText(g.label, g.update[0] + 7 * px, g.update[1] + g.th / 2);
+    }
+    ctx.restore();
+  }
+  /** Clique na aba do controle do sumário: o menu (a barra abre a galeria) ou
+   *  Atualizar Sumário. */
+  tocTabMouseDown(e) {
+    if (e.button !== 0) return false;
+    const g = this.tocTabGeom();
+    const p = g ? this.engPoint(e) : null;
+    if (!g || !p || p.pg !== g.pg) return false;
+    const inR = (r) => p.x >= r[0] && p.x <= r[0] + r[2] && p.y >= r[1] && p.y <= r[1] + r[3];
+    if (inR(g.update)) {
+      e.preventDefault();
+      if (!this.locked()) this.requestTocUpdate("caret");
+      return true;
+    }
+    if (inR(g.menu)) {
+      e.preventDefault();
+      this.dispatchEvent(new CustomEvent("uw-toc-menu", { detail: { x: e.clientX, y: e.clientY } }));
+      return true;
+    }
+    return false;
   }
   // ── legendas
   /** Configuração das legendas (rótulos criados, numeração, AutoLegenda) — a barra a
@@ -8677,6 +9285,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
       if (this.tableMouseDown(e)) return;
+      if (this.tocTabMouseDown(e)) return;
       if (e.button === 0 && !this.protectedMode) {
         if (this.drawMouseDown(e) || this.linkMouseDown(e)) {
           this.focusEditor();
@@ -9047,7 +9656,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (k === "F9" && !ctrl && !e.altKey && !e.shiftKey) {
         e.preventDefault();
-        this.updateFields("selection");
+        if (this.tocFields().some((t) => this.tocInSelection(t))) this.requestTocUpdate("selection");
+        else this.updateFields("selection");
         this.onSelectionChange?.();
         this.chromeSync?.();
         return;
@@ -15024,6 +15634,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (this.tableSel) this.paintTableSel(ctx, i);
         else if (hasSel && !picSel) this.paintEngineSelection(ctx, i, sel);
         this.paintTableAdorners(ctx, i);
+        this.paintTocControl(ctx, i);
         ctx.restore();
       }
       return ctx;
@@ -20716,7 +21327,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-VFUYVRLI.js");
+  const { appFor } = await import("./chunks/chrome-app-VTTWS6FC.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

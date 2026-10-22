@@ -4391,6 +4391,7 @@ function paraPropsFromPPr(ppr) {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.keepNext) props.keepNext = true;
+  if (ppr.outlineLvl !== void 0) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
@@ -6382,7 +6383,7 @@ function clearPara(p) {
   const next = { ...paraPropsFromPPr(ppr) };
   if (old.styleId !== void 0) next.styleId = old.styleId;
   else delete next.styleId;
-  for (const k of ["src", "sectionBreak", "tocInstr", "tocEntry"]) {
+  for (const k of ["src", "sectionBreak", "tocInstr", "tocEntry", "blockSdt"]) {
     if (old[k] !== void 0) next[k] = old[k];
   }
   p.ppr = ppr;
@@ -6400,7 +6401,7 @@ function newRevision(author, now = /* @__PURE__ */ new Date()) {
 var json = (v) => JSON.stringify(v ?? null);
 var same = (a, b) => a === b || json(a) === json(b);
 var RUN_META = ["src", "link", "commentIds", "isMath", "ins", "del", "fmt"];
-var PARA_META = ["src", "fmtSrc", "sectionBreak", "markIns", "markDel", "pfmt", "tocInstr", "tocEntry"];
+var PARA_META = ["src", "fmtSrc", "sectionBreak", "markIns", "markDel", "pfmt", "tocInstr", "tocEntry", "blockSdt"];
 function runFormatting(p) {
   const out = { ...p };
   for (const k of RUN_META) delete out[k];
@@ -7524,6 +7525,7 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (pp.outlineLvl !== void 0) ppr.push(`<w:outlineLvl w:val="${pp.outlineLvl}"/>`);
   const mark = markXml(pp);
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
   if (sectPrXml) ppr.push(sectPrXml);
@@ -7621,6 +7623,7 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
     set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
   }
   if (p.alignment !== base.alignment) set("w:jc", p.alignment ? `<w:jc w:val="${p.alignment}"/>` : null);
+  if (p.outlineLvl !== base.outlineLvl) set("w:outlineLvl", p.outlineLvl !== void 0 ? `<w:outlineLvl w:val="${p.outlineLvl}"/>` : null);
   if (sect !== void 0) {
     const cur = kidRaw(kids, "w:sectPr");
     if ((sect ?? "") !== cur) set("w:sectPr", sect);
@@ -8395,6 +8398,20 @@ function markSectionBreaks(full) {
 function blockSrc(b) {
   return b.type === "paragraph" ? b.paragraph.props.src : b.src;
 }
+var blockSdtKeys = 0;
+function markBlockSdt(child, g, produced) {
+  const gallery = child.name === "w:sdt" ? docPartGallery(child) : void 0;
+  if (gallery === void 0) return;
+  const sdt = { key: `s${++blockSdtKeys}`, ...gallery ? { gallery } : {} };
+  g.sdtKey = sdt.key;
+  for (const b of produced) if (b.type === "paragraph") b.paragraph.props.blockSdt = sdt;
+}
+function docPartGallery(sdt) {
+  const pr = firstChild(sdt, "w:sdtPr");
+  const obj = pr && firstChild(pr, "w:docPartObj");
+  if (!obj) return void 0;
+  return firstChild(obj, "w:docPartGallery")?.attrs["w:val"] ?? "";
+}
 function storyOf(xml, container) {
   return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
 }
@@ -8510,7 +8527,9 @@ function readBodyFragment(pkg, store, inner, ns) {
   const blocks = [];
   for (const c of childElements(body)) {
     const produced = readBlocksOf({ name: body.name, attrs: {}, children: [c] }, ctx);
-    groups.push(groupOf(xml, c, produced, store));
+    const g = groupOf(xml, c, produced, store);
+    markBlockSdt(c, g, produced);
+    groups.push(g);
     blocks.push(...produced);
   }
   return { blocks, groups };
@@ -8694,7 +8713,11 @@ function readFullDocument(pkg, opts = {}) {
     }
     if (story) {
       if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
-      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
+      else {
+        const g = groupOf(docXml, child, blocks.slice(before), store);
+        markBlockSdt(child, g, blocks.slice(before));
+        story.groups.push(g);
+      }
     }
   }
   if (sections.length === 0) {
@@ -9623,6 +9646,10 @@ function fieldOrRunXml(r) {
   if (!r.field || active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field)) return runXml(r);
   if (!r.props.ins && !r.props.del) {
     if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
+    if (/^\s*(TC|XE|RD)\b/i.test(r.field) && !r.text && !r.fieldResult?.length) {
+      const rpr2 = rPrXml(r);
+      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc5(r.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "end");
+    }
     const result = fieldResultXml(r);
     if (/\\h\b/i.test(r.field) || r.props.src === void 0 && (r.fieldResult?.length ?? 0) > 1) {
       const rpr2 = rPrXml(r);
@@ -10041,6 +10068,25 @@ function tcPrXml2(cell) {
 }
 var blockXml = (b) => b.type === "table" ? tableXml(b) : paraXml(b.paragraph);
 var blockId = (b) => b.type === "table" ? b.src : b.paragraph.props.src;
+var sdtOf = (b) => b?.type === "paragraph" ? b.paragraph.props.blockSdt : void 0;
+function sdtRunEnd(blocks, from, key) {
+  let j = from;
+  while (j < blocks.length && sdtOf(blocks[j])?.key === key) j++;
+  return j;
+}
+var newSdtXml = (pr, inner) => `<w:sdt>${pr}<w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
+function blocksXml(blocks) {
+  let out = "";
+  for (let i2 = 0; i2 < blocks.length; ) {
+    const s = sdtOf(blocks[i2]);
+    if (s?.pr) {
+      const j = sdtRunEnd(blocks, i2, s.key);
+      out += newSdtXml(s.pr, blocks.slice(i2, j).map(blockXml).join(""));
+      i2 = j;
+    } else out += blockXml(blocks[i2++]);
+  }
+  return out;
+}
 function storyBlocksXml(story, blocks, store) {
   countCopies(blocks, active.remaining);
   return groupsXml(story.groups, blocks, store);
@@ -10134,6 +10180,8 @@ function groupsXml(groups, blocks, store) {
       const g = groups[gi];
       let ok = g.blocks[0] === id && i2 + g.blocks.length <= blocks.length;
       for (let k = 0; ok && k < g.blocks.length; k++) ok = blockId(blocks[i2 + k]) === g.blocks[k] && pristine(blocks[i2 + k]);
+      const trailing = (k) => !!g.sdtKey && k < blocks.length && blockId(blocks[k]) === void 0 && sdtOf(blocks[k])?.key === g.sdtKey;
+      if (ok && trailing(i2 + g.blocks.length)) ok = false;
       flushZero(gi);
       if (ok) {
         for (const bid of g.blocks) active.claimed.add(bid);
@@ -10159,6 +10207,10 @@ function groupsXml(groups, blocks, store) {
             j = k;
             continue;
           }
+          if (trailing(j)) {
+            j++;
+            continue;
+          }
           break;
         }
         const inner = blocks.slice(i2, j);
@@ -10167,6 +10219,13 @@ function groupsXml(groups, blocks, store) {
         i2 = j;
         continue;
       }
+    }
+    const s = sdtOf(b);
+    if (s?.pr) {
+      const j = sdtRunEnd(blocks, i2 + 1, s.key);
+      out += newSdtXml(s.pr, blocks.slice(i2, j).map(blockXml).join(""));
+      i2 = j;
+      continue;
     }
     out += blockXml(b);
     i2++;
@@ -10197,14 +10256,14 @@ function serializeBlocks(blocks, sectPr, hfRefs = []) {
   const bodyRefs = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
   beginShapeContext(blocks);
-  const body = blocks.map(blockXml).join("") + sect;
+  const body = blocksXml(blocks) + sect;
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<w:document ${W_NS}${body.includes("<w15:") ? W15_NS : ""}${drawingNsAttrs(body)}>`, "w:document") + `<w:body>${body}</w:body></w:document>`;
 }
 function serializeDocument(model, hfRefs = []) {
   const bodyRefs = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
   beginShapeContext(model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })));
-  const body = model.paragraphs.map(paraXml).join("") + sect;
+  const body = blocksXml(model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }))) + sect;
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<w:document ${W_NS}${body.includes("<w15:") ? W15_NS : ""}${drawingNsAttrs(body)}>`, "w:document") + `<w:body>${body}</w:body></w:document>`;
 }
 function revRoot(open, rootName) {
