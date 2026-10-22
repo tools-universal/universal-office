@@ -2,18 +2,20 @@
 // "Formato da Imagem" (ribbon), o grupo Imagem da barra compacta, Formatar ›
 // Imagem e o menu de contexto da imagem. Só DECLARA sobre a API pública do
 // <universal-write>; comando cuja API não existe fica oculto (supports).
-import { symbol, type BarContext, type BarGroup, type BarItem, type Command, type CommandRegistry, type MenuEntry, type MenuItem } from '@universal-office/ui';
-import type { PicWrapKind } from '@universal-office/docx-core';
+import { symbol, colorGrid, themePaletteColors, parseThemePick, STANDARD_COLORS, tileGrid, type BarContext, type BarGroup, type BarItem, type Command, type CommandRegistry, type GalleryItem, type Lbl, type MenuEntry, type MenuItem } from '@universal-office/ui';
+import type { PicWrapKind, DmlColor, InlineImage } from '@universal-office/docx-core';
+import { paintPicture, type PictureLook } from '@universal-office/docx-layout';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import type { ChromeCtl } from './chrome-commands.js';
 import type { WidgetEnv } from './chrome-widgets.js';
-import { POSITION_PRESETS, ASPECT_RATIOS } from './picture-ops.js';
+import { adjustCells, correctionsMenu, colorMenu as pictureColorMenu, transparencyMenu } from './chrome-picture-adjust.js';
+import { POSITION_PRESETS, ASPECT_RATIOS, SHADOW_PRESETS, REFLECTION_PRESETS, SOFT_EDGE_PRESETS, GLOW_SIZES, BEVEL_PRESETS, ROTATION_PRESETS, LINE_WEIGHTS_PT, LINE_DASHES } from './picture-ops.js';
 
 const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
 
 /** Diálogos e painéis da imagem (chrome-picture-dialogs.ts). */
-export type PictureDialogKind = 'layout:position' | 'layout:wrap' | 'layout:size' | 'alt';
+export type PictureDialogKind = 'layout:position' | 'layout:wrap' | 'layout:size' | 'alt' | 'compress';
 
 const WRAPS: [PicWrapKind, string, string, string][] = [
   ['inline', 'In Line with Text', 'Alinhado ao Texto', 'format_align_left'],
@@ -163,9 +165,15 @@ const large = (cmd: string): BarItem => ({ cmd, size: 'large' });
 
 /** Guia contextual "Formato da Imagem" da ribbon. */
 export function pictureFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
-  void ctx;
   const has = (m: string) => (): boolean => typeof (env.ed as unknown as Record<string, unknown>)[m] === 'function';
   return [
+    { id: 'pic-adjust', label: L('Adjust', 'Ajustar'), icon: 'tune', prio: 4, cells: adjustCells(env, ctx) },
+    { id: 'pic-styles', label: L('Picture Styles', 'Estilos de Imagem'), icon: 'photo_frame', prio: 5, cells: [
+      { rows: [
+        [{ menu: () => borderMenu(env, ctx), id: 'pic:border', label: L('Picture Border', 'Borda da Imagem'), icon: 'border_color', showLabel: true, supports: has('setImageBorder') }],
+        [{ menu: () => effectsMenu(env, ctx), id: 'pic:effects', label: L('Picture Effects', 'Efeitos de Imagem'), icon: 'auto_awesome', showLabel: true, supports: has('setImageEffect') }],
+      ] },
+    ] },
     { id: 'pic-access', label: L('Accessibility', 'Acessibilidade'), icon: 'accessibility_new', prio: 4, cells: [large('pic:alt')] },
     { id: 'pic-arrange', label: L('Arrange', 'Organizar'), icon: 'layers', prio: 6, cells: [
       { menu: positionMenu, id: 'pic:position', label: L('Position', 'Posição'), icon: 'picture_in_picture', size: 'large', supports: has('setImagePosition') },
@@ -185,8 +193,25 @@ export function pictureFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[]
   ];
 }
 
+/** Ajustar e Estilos de Imagem como submenus (barra compacta e Formatar › Imagem). */
+function adjustSubmenus(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
+  return [
+    { id: 'pic:sub:corrections', label: L('Corrections', 'Correções'), icon: 'tune', submenu: () => correctionsMenu(env, ctx) },
+    { id: 'pic:sub:color', label: L('Color', 'Cor'), icon: 'palette', submenu: () => pictureColorMenu(env, ctx) },
+    { id: 'pic:sub:transparency', label: L('Transparency', 'Transparência'), icon: 'opacity', submenu: () => transparencyMenu(env, ctx) },
+    '-', 'pic:compress', changeSubmenu, 'pic:reset', 'pic:resetSize',
+  ];
+}
+const changeSubmenu: MenuItem = { id: 'pic:sub:change', label: L('Change Picture', 'Alterar Imagem'), icon: 'swap_horiz', submenu: ['pic:change:file', 'pic:change:clip'] };
+function styleSubmenus(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
+  return [
+    { id: 'pic:sub:border', label: L('Picture Border', 'Borda da Imagem'), icon: 'border_color', submenu: () => borderMenu(env, ctx) },
+    { id: 'pic:sub:effects', label: L('Picture Effects', 'Efeitos de Imagem'), icon: 'auto_awesome', submenu: () => effectsMenu(env, ctx) },
+  ];
+}
+
 /** Barra compacta: o grupo Imagem aparece com a imagem selecionada. */
-export function pictureCompactGroup(env: WidgetEnv): BarGroup {
+export function pictureCompactGroup(env: WidgetEnv, ctx: BarContext): BarGroup {
   const sel = (): boolean => typeof (env.ed as unknown as { selectedImage?: unknown }).selectedImage === 'function' && !!env.ed.selectedImage();
   return {
     id: 'picture', label: L('Picture', 'Imagem'), icon: 'image', prio: 7, items: [
@@ -194,6 +219,8 @@ export function pictureCompactGroup(env: WidgetEnv): BarGroup {
       { menu: positionMenu, id: 'pic:position', label: L('Position', 'Posição'), icon: 'picture_in_picture', supports: sel },
       { menu: rotateMenu, id: 'pic:rotate', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', supports: sel },
       { menu: cropMenu, id: 'pic:crop', label: L('Crop', 'Cortar'), icon: 'crop', supports: sel },
+      { menu: () => adjustSubmenus(env, ctx), id: 'pic:adjust', label: L('Adjust', 'Ajustar'), icon: 'tune', supports: sel },
+      { menu: () => styleSubmenus(env, ctx), id: 'pic:styles', label: L('Picture Styles', 'Estilos de Imagem'), icon: 'photo_frame', supports: sel },
       { menu: () => ['pic:forward', 'pic:front', 'pic:frontOfText', '-', 'pic:backward', 'pic:back', 'pic:behindText'], id: 'pic:order', label: L('Arrange', 'Organizar'), icon: 'layers', supports: sel },
       { cmd: 'pic:alt' },
       { cmd: 'pic:layout' },
@@ -202,7 +229,7 @@ export function pictureCompactGroup(env: WidgetEnv): BarGroup {
 }
 
 /** Formatar › Imagem (barra compacta) e o menu de contexto da imagem. */
-export function pictureMenu(): MenuItem {
+export function pictureMenu(env: WidgetEnv, ctx: BarContext): MenuItem {
   return {
     id: 'pic:menu', label: L('Picture', 'Imagem'), icon: 'image',
     submenu: () => [
@@ -210,6 +237,7 @@ export function pictureMenu(): MenuItem {
       { id: 'pic:posSub', label: L('Position', 'Posição'), icon: 'picture_in_picture', submenu: positionMenu },
       { id: 'pic:rotSub', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', submenu: rotateMenu },
       { id: 'pic:cropSub', label: L('Crop', 'Cortar'), icon: 'crop', submenu: cropMenu },
+      '-', ...adjustSubmenus(env, ctx), '-', ...styleSubmenus(env, ctx),
       '-', 'pic:alt', 'pic:layout', '-', 'image:delete',
     ],
   };
@@ -221,8 +249,207 @@ export function pictureContextItems(): MenuEntry[] {
     'cut', 'copy', 'paste', '-',
     { id: 'pic:ctx:front', label: L('Bring to Front', 'Trazer para a Frente'), icon: 'flip_to_front', submenu: ['pic:front', 'pic:forward', 'pic:frontOfText'] },
     { id: 'pic:ctx:back', label: L('Send to Back', 'Enviar para Trás'), icon: 'flip_to_back', submenu: ['pic:back', 'pic:backward', 'pic:behindText'] },
-    '-', 'link',
+    '-', changeSubmenu, 'link',
     { id: 'pic:ctx:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', submenu: wrapMenu },
     'pic:alt', 'pic:layout', '-', 'image:delete',
+  ];
+}
+
+// ───────────────────────── Estilos de Imagem: Borda e Efeitos ─────────────────────────
+
+/** Paleta das cores do tema para DrawingML: a referência (schemeClr + lumMod/lumOff,
+ *  como o Word grava nas formas) em vez do tint/shade do texto. */
+export function dmlFromPick(value: string, colors: Record<string, string>): DmlColor {
+  const p = parseThemePick(value, colors);
+  if (!p) return { kind: 'srgbClr', val: value.toUpperCase() };
+  const SCHEME: Record<string, string> = { background1: 'bg1', text1: 'tx1', background2: 'bg2', text2: 'tx2' };
+  const val = SCHEME[p.themeColor] ?? p.themeColor;
+  const snap = (x: number): number => Math.round(x * 20) / 20;
+  const mods: [string, number][] = [];
+  if (p.tint) { const k = snap(1 - parseInt(p.tint, 16) / 255); mods.push(['lumMod', Math.round((1 - k) * 100000)], ['lumOff', Math.round(k * 100000)]); }
+  if (p.shade) { const k = snap(1 - parseInt(p.shade, 16) / 255); mods.push(['lumMod', Math.round((1 - k) * 100000)]); }
+  return { kind: 'schemeClr', val, ...(mods.length ? { mods } : {}) };
+}
+
+/** Miniatura de efeito: a amostra (retângulo da cor de ênfase) desenhada pelo
+ *  MESMO pintor do documento, com a aparência da predefinição. */
+const SAMPLE = new Map<string, HTMLCanvasElement>();
+function sampleBitmap(hex: string): HTMLCanvasElement {
+  let c = SAMPLE.get(hex);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = 32; c.height = 24;
+    const x = c.getContext('2d')!;
+    x.fillStyle = `#${hex}`;
+    x.fillRect(0, 0, 32, 24);
+    SAMPLE.set(hex, c);
+  }
+  return c;
+}
+const THUMB_IMG = { data: new Uint8Array(0), ext: 'png', widthTwips: 0, heightTwips: 0 } as unknown as InlineImage;
+export function effectThumb(tile: HTMLElement, look: PictureLook | null, base: string): void {
+  const W = 56, H = 48;
+  const c = document.createElement('canvas');
+  const dpr = window.devicePixelRatio || 1;
+  c.width = W * dpr; c.height = H * dpr;
+  c.style.cssText = `width:${W}px;height:${H}px;display:block;margin:auto`;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#ffffff';
+  x.fillRect(0, 0, c.width, c.height);
+  // twips → px; a amostra tem 30×22 pt no centro (o reflexo a sobe um pouco)
+  x.scale((dpr * 96) / 1440, (dpr * 96) / 1440);
+  const w = 30 * 20, h = 22 * 20;
+  const it = { t: 'image' as const, x: (W * 15 - w) / 2, y: (H * 15 - h) / 2 - (look?.reflection ? 120 : 0), w, h, image: THUMB_IMG, ...(look ? { pic: look } : {}) };
+  if (look) paintPicture(x as unknown as CanvasRenderingContext2D, it, sampleBitmap(base));
+  else x.drawImage(sampleBitmap(base), it.x, it.y, it.w, it.h);
+  tile.replaceChildren(c);
+}
+
+/** Cor de ênfase n do tema do documento (miniaturas). */
+const accentOf = (env: WidgetEnv, n = 1): string => (env.ed.documentThemeColors()[`accent${n}`] ?? '4472C4').toUpperCase();
+
+function borderMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
+  const ed = env.ed;
+  const st = () => ed.selectedImage();
+  return [
+    {
+      content: (close) => {
+        const colors = ed.documentThemeColors();
+        return colorGrid({
+          colors: [...themePaletteColors(colors), ...STANDARD_COLORS.map((h) => ({ value: h, css: `#${h}` }))], columns: 10, close,
+          onPick: (v) => { ed.setImageBorder({ color: dmlFromPick(v, colors) }); ctx.after(); },
+        });
+      },
+    },
+    { id: 'pic:border:none', label: L('No Outline', 'Sem Contorno'), icon: 'border_clear', checked: !st()?.format.line?.fill, onClick: () => { ed.setImageBorder({ color: null }); ctx.after(); } },
+    {
+      id: 'pic:border:more', label: L('More Outline Colors…', 'Mais Cores de Contorno...'), icon: 'palette',
+      onClick: () => {
+        const inp = document.createElement('input');
+        inp.type = 'color';
+        inp.addEventListener('change', () => { ed.setImageBorder({ color: { kind: 'srgbClr', val: inp.value.slice(1).toUpperCase() } }); ctx.after(); });
+        inp.click();
+      },
+    },
+    '-',
+    {
+      id: 'pic:border:weight', label: L('Weight', 'Espessura'), icon: 'line_weight',
+      submenu: () => LINE_WEIGHTS_PT.map((w): MenuItem => ({
+        id: `pic:border:w:${w}`, label: `${String(w).replace('.', ctx.registry.text(L('.', ',')))} pt`,
+        checked: !!st()?.format.line?.fill && Math.abs((st()!.format.line!.w ?? 9525) / 12700 - w) < 0.01,
+        onClick: () => { ed.setImageBorder({ weightPt: w }); ctx.after(); },
+      })),
+    },
+    {
+      id: 'pic:border:dash', label: L('Dashes', 'Tracejados'), icon: 'line_style',
+      submenu: () => LINE_DASHES.map((d): MenuItem => ({
+        id: `pic:border:d:${d.val}`, label: d.label, checked: (st()?.format.line?.dash ?? 'solid') === d.val,
+        onClick: () => { ed.setImageBorder({ dash: d.val }); ctx.after(); },
+      })),
+    },
+  ];
+}
+
+function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
+  const ed = env.ed;
+  const t = (l: Lbl): string => ctx.registry.text(l);
+  const base = accentOf(env);
+  const fx = () => ed.selectedImage()?.format.effects;
+  const grid = (sections: { label?: Lbl; items: GalleryItem[] }[], look: (id: string) => PictureLook | null, pick: (id: string) => void, selected: string | undefined, cols: number) => (close: () => void): HTMLElement =>
+    tileGrid({
+      sections, tile: { w: 64, h: 56 }, cols, text: t, close, ...(selected ? { selected } : {}),
+      render: (tile, it) => effectThumb(tile, look(it.id), base), onPick: (id) => { pick(id); ctx.after(); },
+    });
+  const shadowLook = (id: string): PictureLook | null => {
+    const p = SHADOW_PRESETS.find((x) => x.id === id);
+    if (!p) return null;
+    const s = p.shadow, al = (s.color.mods?.find((m) => m[0] === 'alpha')?.[1] ?? 100000) / 100000;
+    return {
+      shadow: {
+        kind: s.kind === 'inner' ? 'inner' : 'outer', color: '000000', alpha: al, blurPt: (s.blurRad ?? 0) / 12700, distPt: (s.dist ?? 0) / 12700, dirDeg: (s.dir ?? 0) / 60000,
+        ...(s.sx !== undefined ? { sx: s.sx / 100000 } : {}), ...(s.sy !== undefined ? { sy: s.sy / 100000 } : {}), ...(s.kx ? { kxDeg: s.kx / 60000 } : {}), ...(s.algn ? { algn: s.algn } : {}),
+      },
+    };
+  };
+  const none = (en: string, pt: string): GalleryItem => ({ id: 'none', label: L(en, pt) });
+  const curShadow = (): string | undefined => {
+    const s = fx()?.shadow;
+    return s ? SHADOW_PRESETS.find((p) => JSON.stringify(p.shadow) === JSON.stringify(s))?.id : 'none';
+  };
+  const curRefl = (): string | undefined => {
+    const r = fx()?.reflection;
+    return r ? REFLECTION_PRESETS.find((p) => JSON.stringify(p.reflection) === JSON.stringify(r))?.id : 'none';
+  };
+  return [
+    {
+      id: 'pic:fx:shadow', label: L('Shadow', 'Sombra'), icon: 'filter_none',
+      submenu: () => [{
+        content: grid([
+          { label: L('No Shadow', 'Sem Sombra'), items: [none('No Shadow', 'Sem Sombra')] },
+          { label: L('Outer', 'Externa'), items: SHADOW_PRESETS.filter((p) => p.group === 'outer').map((p) => ({ id: p.id, label: p.label })) },
+          { label: L('Inner', 'Interna'), items: SHADOW_PRESETS.filter((p) => p.group === 'inner').map((p) => ({ id: p.id, label: p.label })) },
+          { label: L('Perspective', 'Perspectiva'), items: SHADOW_PRESETS.filter((p) => p.group === 'persp').map((p) => ({ id: p.id, label: p.label })) },
+        ], shadowLook, (id) => ed.setImageEffect('shadow', id === 'none' ? null : id), curShadow(), 3),
+      }],
+    },
+    {
+      id: 'pic:fx:reflection', label: L('Reflection', 'Reflexo'), icon: 'flip',
+      submenu: () => [{
+        content: grid([
+          { label: L('No Reflection', 'Sem Reflexo'), items: [none('No Reflection', 'Sem Reflexo')] },
+          { label: L('Reflection Variations', 'Variações de Reflexo'), items: REFLECTION_PRESETS.map((p) => ({ id: p.id, label: p.label })) },
+        ], (id) => {
+          const p = REFLECTION_PRESETS.find((x) => x.id === id);
+          if (!p) return null;
+          const r = p.reflection;
+          return { reflection: { blurPt: (r.blurRad ?? 0) / 12700, stA: (r.stA ?? 100000) / 100000, stPos: 0, endA: (r.endA ?? 0) / 100000, endPos: (r.endPos ?? 100000) / 100000, distPt: (r.dist ?? 0) / 12700, dirDeg: 90, sy: -1 } };
+        }, (id) => ed.setImageEffect('reflection', id === 'none' ? null : id), curRefl(), 3),
+      }],
+    },
+    {
+      id: 'pic:fx:glow', label: L('Glow', 'Brilho'), icon: 'light',
+      submenu: () => [{
+        content: grid([
+          { label: L('No Glow', 'Sem Brilho'), items: [none('No Glow', 'Sem Brilho')] },
+          {
+            label: L('Glow Variations', 'Variações de Brilho'), items: GLOW_SIZES.flatMap((rad, si) => [1, 2, 3, 4, 5, 6].map((a) => ({
+              id: `glow-${si}-${a}`, label: L(`Glow: ${rad / 12700} point; Accent color ${a}`, `Brilho: ${String(rad / 12700).replace('.', ',')} pt; Cor de ênfase ${a}`),
+            }))),
+          },
+        ], (id) => {
+          const m = /^glow-(\d+)-(\d)$/.exec(id);
+          return m ? { glow: { color: accentOf(env, Number(m[2])), alpha: 0.4, radPt: GLOW_SIZES[Number(m[1])]! / 12700 / 1.6 } } : null;
+        }, (id) => ed.setImageEffect('glow', id === 'none' ? null : id), undefined, 6),
+      }],
+    },
+    {
+      id: 'pic:fx:soft', label: L('Soft Edges', 'Bordas Suaves'), icon: 'crop_free',
+      submenu: () => [{
+        content: grid([
+          { label: L('No Soft Edges', 'Sem Bordas Suaves'), items: [none('No Soft Edges', 'Sem Bordas Suaves')] },
+          { label: L('Soft Edge Variations', 'Variações de Bordas Suaves'), items: SOFT_EDGE_PRESETS.map((v) => ({ id: String(v), label: L(`${v / 12700} Point`, `${String(v / 12700).replace('.', ',')} Ponto`) })) },
+        ], (id) => (id === 'none' ? null : { softEdgePt: Number(id) / 12700 / 2.5 }), (id) => ed.setImageEffect('softEdge', id === 'none' ? null : id), fx()?.softEdge ? String(fx()!.softEdge) : 'none', 3),
+      }],
+    },
+    {
+      id: 'pic:fx:bevel', label: L('Bevel', 'Bisel'), icon: 'crop_square',
+      submenu: () => [{
+        content: grid([
+          { label: L('No Bevel', 'Sem Bisel'), items: [none('No Bevel', 'Sem Bisel')] },
+          { label: L('Bevel', 'Bisel'), items: BEVEL_PRESETS.map((p) => ({ id: p.prst, label: p.label })) },
+        ], () => null, (id) => ed.setImageEffect('bevel', id === 'none' ? null : id), undefined, 4),
+      }],
+    },
+    {
+      id: 'pic:fx:rot3d', label: L('3-D Rotation', 'Rotação 3D'), icon: 'view_in_ar',
+      submenu: () => [{
+        content: grid([
+          { label: L('No Rotation', 'Sem Rotação'), items: [none('No Rotation', 'Sem Rotação')] },
+          { label: L('Parallel', 'Paralelo'), items: ROTATION_PRESETS.filter((p) => p.group === 'parallel').map((p) => ({ id: p.prst, label: p.label })) },
+          { label: L('Perspective', 'Perspectiva'), items: ROTATION_PRESETS.filter((p) => p.group === 'perspective').map((p) => ({ id: p.prst, label: p.label })) },
+          { label: L('Oblique', 'Oblíqua'), items: ROTATION_PRESETS.filter((p) => p.group === 'oblique').map((p) => ({ id: p.prst, label: p.label })) },
+        ], () => null, (id) => ed.setImageEffect('rotation', id === 'none' ? null : id), undefined, 4),
+      }],
+    },
   ];
 }

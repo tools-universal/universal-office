@@ -15,7 +15,7 @@ export {
   colorGrid, OFFICE_COLORS, HIGHLIGHT_COLORS, THEME_SLOTS, STANDARD_COLORS, themePaletteColors, themeVariants, themeTintHex, parseThemePick,
   type ColorGridOptions, type ThemeColorPick,
 } from './colors.js';
-export { renderGallery, closeGallery, type GalleryConfig, type GalleryItem, type RenderedGallery } from './gallery.js';
+export { renderGallery, closeGallery, tileGrid, type GalleryConfig, type GalleryItem, type RenderedGallery, type TileGridOptions } from './gallery.js';
 export { openPane, closePanes, paneOpen, type PaneOptions, type PaneHandle } from './pane.js';
 export { createRuler, rulerStep, type RulerHandle, type RulerModel, type RulerMarker, type RulerMarkerKind, type RulerTabKind, type RulerSelectorKind, type RulerEvents } from './ruler.js';
 export { BAR_CSS, ensureBarStyles } from './css.js';

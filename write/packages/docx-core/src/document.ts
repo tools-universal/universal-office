@@ -170,21 +170,31 @@ function vmlImageEffects(el: XmlElement): ImageEffects | undefined {
   return Object.keys(fx).length ? fx : undefined;
 }
 
+/** Efeitos de cor do a:blip (a:lum, a:grayscl, a:biLevel; valores em 1/100000)
+ *  no formato do desenho — a leitura e as miniaturas de Recolorir usam este. */
+export function blipFxImageEffects(b: { lum?: { bright?: number; contrast?: number }; grayscl?: boolean; biLevel?: number }): ImageEffects | undefined {
+  const fx: ImageEffects = {};
+  if (b.lum) {
+    const br = (b.lum.bright ?? 0) / 100000;
+    const c = Math.max(-1, Math.min(0.999, (b.lum.contrast ?? 0) / 100000));
+    if (c) fx.gain = c > 0 ? 1 / (1 - c) : 1 + c;
+    if (br) fx.bright = br;
+    if (br || c) fx.floor = true;
+  }
+  if (b.grayscl) fx.gray = true;
+  if (b.biLevel !== undefined) fx.biLevel = b.biLevel / 100000;
+  return Object.keys(fx).length ? fx : undefined;
+}
+
 /** Efeitos de cor de um a:blip (a:lum, a:grayscl, a:biLevel). */
 function blipImageEffects(blip: XmlElement): ImageEffects | undefined {
-  const fx: ImageEffects = {};
-  const lum = firstChild(blip, 'a:lum');
-  if (lum) {
-    const b = (parseInt(lum.attrs['bright'] ?? '0', 10) || 0) / 100000;
-    const c = Math.max(-1, Math.min(0.999, (parseInt(lum.attrs['contrast'] ?? '0', 10) || 0) / 100000));
-    if (c) fx.gain = c > 0 ? 1 / (1 - c) : 1 + c;
-    if (b) fx.bright = b;
-    if (b || c) fx.floor = true;
-  }
-  if (firstChild(blip, 'a:grayscl')) fx.gray = true;
-  const bi = firstChild(blip, 'a:biLevel');
-  if (bi) fx.biLevel = (parseInt(bi.attrs['thresh'] ?? '50000', 10) || 0) / 100000;
-  return Object.keys(fx).length ? fx : undefined;
+  const lum = firstChild(blip, 'a:lum'), bi = firstChild(blip, 'a:biLevel');
+  const int = (v: string | undefined, d: string): number => parseInt(v ?? d, 10) || 0;
+  return blipFxImageEffects({
+    ...(lum ? { lum: { bright: int(lum.attrs['bright'], '0'), contrast: int(lum.attrs['contrast'], '0') } } : {}),
+    ...(firstChild(blip, 'a:grayscl') ? { grayscl: true } : {}),
+    ...(bi ? { biLevel: int(bi.attrs['thresh'], '50000') } : {}),
+  });
 }
 
 /** Forma sem texto (retângulo, linha, elipse…) — DrawingML wps:wsp ou VML. */

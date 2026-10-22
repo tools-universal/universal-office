@@ -118,6 +118,45 @@ if (scenario === 'alt') {
   await page.waitForTimeout(600);
   await shot('pane');
 }
+if (scenario === 'fxmenu' || scenario === 'border') {
+  // Efeitos de Imagem › <submenu> (--sub shadow|reflection|glow|soft) ou Borda da Imagem
+  const sub = opt('--sub', 'shadow');
+  await page.evaluate((s) => document.querySelector('universal-write').shadowRoot.querySelector(`[data-a="${s === 'border' ? 'pic:border' : 'pic:effects'}"]`)?.click(), scenario);
+  await page.waitForTimeout(400);
+  if (scenario === 'fxmenu') {
+    const box = await page.evaluate((s) => {
+      const root = document.querySelector('universal-write').shadowRoot;
+      const el = [...root.querySelectorAll('[data-id], [data-a]')].find((e) => (e.dataset.id ?? e.dataset.a) === `pic:fx:${s}`);
+      const r = el?.getBoundingClientRect();
+      return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+    }, sub);
+    if (box) { await page.mouse.move(box.x, box.y); await page.waitForTimeout(700); }
+  }
+  await shot(scenario === 'border' ? 'border' : sub);
+}
+if (scenario === 'adjust') {
+  // Ajustar › Correções | Cor | Transparência (--sub corrections|color|transparency),
+  // e com --pick <id da miniatura> aplica e captura a página
+  const sub = opt('--sub', 'corrections');
+  await page.evaluate((s) => document.querySelector('universal-write').shadowRoot.querySelector(`[data-a="pic:${s}"]`)?.click(), sub);
+  await page.waitForTimeout(700);
+  await shot(sub);
+  const pick = opt('--pick');
+  if (pick) {
+    await page.evaluate((id) => {
+      const root = document.querySelector('universal-write').shadowRoot;
+      [...root.querySelectorAll('[data-id]')].find((e) => e.dataset.id === id)?.click();
+    }, pick);
+    await page.waitForTimeout(1500);
+    console.log('a14:', JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectedImage()?.format.blip)));
+    await shot(`picked-${pick.replace(/[:.]/g, '_')}`);
+  }
+}
+if (scenario === 'compress') {
+  await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:compress"]')?.click());
+  await page.waitForTimeout(600);
+  await shot('dialog');
+}
 if (scenario === 'context') {
   await page.mouse.click(c.x, c.y, { button: 'right' });
   await page.waitForTimeout(500);

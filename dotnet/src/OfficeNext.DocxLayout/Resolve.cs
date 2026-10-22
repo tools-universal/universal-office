@@ -333,53 +333,19 @@ public static class Resolve
         if (string.IsNullOrEmpty(hex) || !Hex6.IsMatch(hex)) return null;
         if (string.IsNullOrEmpty(mods)) return hex.ToUpperInvariant();
         var (r0, g0, b0) = Rgb(hex);
-        double r = r0 / 255, g = g0 / 255, bl = b0 / 255;
-        // HSL p/ lumMod/lumOff
-        (double, double, double) ToHsl()
-        {
-            double mx = Math.Max(Math.Max(r, g), bl), mn = Math.Min(Math.Min(r, g), bl);
-            double l = (mx + mn) / 2;
-            if (mx == mn) return (0, 0, l);
-            double d = mx - mn;
-            double s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
-            double h = mx == r ? (g - bl) / d + (g < bl ? 6 : 0) : mx == g ? (bl - r) / d + 2 : (r - g) / d + 4;
-            return (h / 6, s, l);
-        }
-        void FromHsl(double h, double s, double l)
-        {
-            if (s == 0) { r = g = bl = l; return; }
-            double q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-            double p = 2 * l - q;
-            double F(double t)
-            {
-                if (t < 0) t += 1;
-                if (t > 1) t -= 1;
-                if (t < 1.0 / 6) return p + (q - p) * 6 * t;
-                if (t < 1.0 / 2) return q;
-                if (t < 2.0 / 3) return p + (q - p) * (2.0 / 3 - t) * 6;
-                return p;
-            }
-            r = F(h + 1.0 / 3); g = F(h); bl = F(h - 1.0 / 3);
-        }
-        foreach (var m in mods.Split(','))
+        // modificadores do DrawingML (shade/tint em RGB linear…): OfficeNext.Core.DmlColorMods
+        var list = mods.Split(',').Select(m =>
         {
             var kv = m.Split('=');
-            string k = kv[0];
-            double v = OfficeNext.Core.JsNumber.ParseInt(kv.Length > 1 ? kv[1] : "0", 10) / 100000;
-            if (k == "lumMod" || k == "lumOff")
+            double? n = null;
+            if (kv.Length > 1 && kv[1] != "undefined")
             {
-                var (h, s, l) = ToHsl();
-                FromHsl(h, s, k == "lumMod" ? Math.Min(1, l * v) : Math.Min(1, l + v));
+                double p = OfficeNext.Core.JsNumber.ParseInt(kv[1], 10);
+                if (!double.IsNaN(p) && !double.IsInfinity(p)) n = p;
             }
-            else if (k == "tint")
-            {
-                r = 1 - (1 - r) * v; g = 1 - (1 - g) * v; bl = 1 - (1 - bl) * v;
-            }
-            else if (k == "shade")
-            {
-                r *= v; g *= v; bl *= v;
-            }
-        }
+            return (kv[0], n);
+        }).ToList();
+        var (r, g, bl) = OfficeNext.Core.DmlColorMods.Apply((r0 / 255, g0 / 255, b0 / 255), list);
         return ToHex(r * 255, g * 255, bl * 255);
     }
 }

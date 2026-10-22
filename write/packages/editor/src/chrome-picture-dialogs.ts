@@ -245,6 +245,33 @@ export async function pictureLayoutDialog(env: DialogEnv, tab: 'position' | 'wra
   ed.setImageLayout(o);
 }
 
+/** Compactar Imagens: opções e resolução (a "padrão" do documento é 220 ppi;
+ *  Alta fidelidade não reamostra — só exclui o que está cortado). */
+export async function pictureCompressDialog(env: DialogEnv): Promise<void> {
+  const { ed, lang } = env;
+  if (!ed.selectedImage()) return;
+  const only = check('only', tr(lang, 'Apply only to this picture', 'Aplicar somente a esta imagem'), true);
+  const crop = check('crop', tr(lang, 'Delete cropped areas of pictures', 'Excluir áreas cortadas de imagens'), true);
+  const RES: [string, number, string, string][] = [
+    ['hifi', Infinity, 'High fidelity: preserves quality of the original picture', 'Alta fidelidade: preserva a qualidade da imagem original'],
+    ['hd', 330, 'HD (330 ppi): good quality for high-definition (HD) displays', 'HD (330 ppi): boa qualidade para monitores de alta definição (HD)'],
+    ['print', 220, 'Print (220 ppi): excellent quality on most printers and screens', 'Impressão (220 ppi): excelente qualidade na maioria das impressoras e telas'],
+    ['web', 150, 'Web (150 ppi): good for web pages and projectors', 'Web (150 ppi): bom para páginas da Web e projetores'],
+    ['email', 96, 'E-mail (96 ppi): minimize document size for sharing', 'Email (96 ppi): minimizar o tamanho do documento para compartilhamento'],
+    ['default', 220, 'Use default resolution', 'Usar a resolução padrão'],
+  ];
+  const res = RES.map(([k, ppi, en, pt]) => ({ ppi, ...radio('res', k, tr(lang, en, pt), k === 'default') }));
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
+    section(tr(lang, 'Compression options:', 'Opções de compactação:'), only.el, crop.el),
+    section(tr(lang, 'Resolution:', 'Resolução:'), ...res.map((r) => r.el)));
+  const L = env.app.ui!.L;
+  const h = openDialog({ title: tr(lang, 'Compress Pictures', 'Compactar Imagens'), body, layer: env.layer, lang, width: 480,
+    actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
+  if ((await h.result) !== 'ok') return;
+  const ppi = res.find((r) => r.input.checked)?.ppi ?? 220;
+  await ed.compressImages({ ppi, deleteCropped: crop.input.checked, all: !only.input.checked });
+}
+
 export interface PictureUIEnv { ed: UniversalWriteElement; lang: UiLang; layer: HTMLElement; frame: () => DOMRect; after: () => void }
 
 /** Painéis da imagem (Texto Alt; acompanham a imagem selecionada pelo sync da barra). */

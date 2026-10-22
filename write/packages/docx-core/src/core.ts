@@ -4,6 +4,7 @@ export { parseXml, childElements, firstChild, textContent, type XmlElement } fro
 export {
   readDocument,
   syncImageFromXml,
+  blipFxImageEffects,
   DEFAULT_RUN_PROPS,
   type DocumentModel,
   type Paragraph,

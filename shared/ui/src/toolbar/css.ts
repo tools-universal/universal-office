@@ -280,6 +280,9 @@ export const BAR_CSS = /* css */ `
 .uo-gal-pop .uo-gal-grid { margin: 0 0 6px; }
 .uo-gal-foot { border-top: 1px solid ${OUTLINE_VAR}; padding-top: 4px; }
 .uo-gal-trigger { min-width: 120px; }
+.uo-tiles { display: flex; flex-direction: column; gap: 4px; padding: 4px 8px 8px; max-height: min(70vh, 560px); overflow: auto; }
+.uo-menu:has(> .uo-tiles), .uo-menu:has(> * > .uo-tiles) { max-width: calc(100vw - 16px); }
+.uo-tiles-h { font-size: 12px; font-weight: 600; opacity: .8; padding: 4px 2px 0; }
 
 /* ── painel lateral ── */
 .uo-pane {

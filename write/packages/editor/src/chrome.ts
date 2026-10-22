@@ -24,7 +24,7 @@ import { ReviewPane, type PaneDir } from './chrome-review.js';
 import { originStore } from './chrome-store.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
 import { tableDialog } from './chrome-table-dialogs.js';
-import { PictureUI, pictureLayoutDialog } from './chrome-picture-dialogs.js';
+import { PictureUI, pictureLayoutDialog, pictureCompressDialog } from './chrome-picture-dialogs.js';
 import { pictureContextItems } from './chrome-picture.js';
 import { tableContextItems } from './chrome-table.js';
 import { alignTabDialog, dateTimeDialog, hfOptionsDialog, pageNumberFormatDialog } from './chrome-hf.js';
@@ -534,6 +534,7 @@ class WriteChrome {
       },
       pictureDialog: (kind) => {
         if (kind === 'alt') this.pictures?.toggleAlt();
+        else if (kind === 'compress') void pictureCompressDialog(d()).then(() => this.after());
         else void pictureLayoutDialog(d(), kind.slice(7) as 'position' | 'wrap' | 'size').then(() => this.after());
       },
     };

@@ -313,3 +313,20 @@ foreach ($v in @(@(0, 50, 0), @(4, 50, 0), @(0, 100, 0), @(0, 50, 10))) {
 foreach ($v in @(@(4, 0), @(8, 4))) {
   $E[('fx-inner-' + $v[0] + '-' + $v[1])] = @{ V = $v; Op = { param($c) $s = $c.ish.Shadow; $s.Visible = -1; $s.Style = 1; $s.Blur = $c.ex.V[0]; $s.OffsetX = $c.ex.V[1]; $s.OffsetY = 0; $s.Transparency = 0.5; $s.ForeColor.RGB = 0 } }
 }
+
+# ---- lote 4: varreduras dos ajustes a14 (a imagem processada sai no .docx) ----
+function Pe($c, [int]$type, [object[]]$vals) {
+  $fx = $c.ish.Fill.PictureEffects.Insert($type)
+  for ($i = 0; $i -lt $vals.Count; $i++) { $fx.EffectParameters.Item($i + 1).Value = [single]$vals[$i] }
+}
+foreach ($v in @(0, 0.33, 0.66, 3, 4)) { $E[('pe-sat-' + $v)] = @{ V = $v; Op = { param($c) Pe $c 24 @($c.ex.V) } } }
+foreach ($v in @(4700, 5300, 5900, 7200, 11200)) { $E[('pe-temp-' + $v)] = @{ V = $v; Op = { param($c) Pe $c 7 @($c.ex.V) } } }
+foreach ($v in @(-0.5, -0.25, 0.25)) { $E[('pe-sharp-' + $v)] = @{ V = $v; Op = { param($c) Pe $c 25 @($c.ex.V) } } }
+foreach ($b in @(-0.4, 0, 0.4)) { foreach ($k in @(-0.4, 0, 0.4)) { $E[('pe-bc-' + $b + '-' + $k)] = @{ B = $b; K = $k; Op = { param($c) Pe $c 3 @($c.ex.B, $c.ex.K) } } } }
+foreach ($b in @(-0.4, -0.2, 0, 0.2, 0.4)) { foreach ($k in @(-0.4, -0.2, 0, 0.2, 0.4)) { $E[('pe-bcg-' + $b + '-' + $k)] = @{ B = $b; K = $k; Op = { param($c) Pe $c 3 @($c.ex.B, $c.ex.K) } } } }
+foreach ($v in @(-0.75, -1, 0.75, 1)) { $E[('pe-sharp-' + $v)] = @{ V = $v; Op = { param($c) Pe $c 25 @($c.ex.V) } } }
+# brilho e contraste sozinhos, na faixa toda do painel (-100%..100%)
+foreach ($v in @(-1, -0.8, -0.6, -0.3, -0.1, 0.1, 0.3, 0.6, 0.8, 1)) {
+  $E[('pe-b1-' + $v)] = @{ B = $v; Op = { param($c) Pe $c 3 @($c.ex.B, 0) } }
+  $E[('pe-c1-' + $v)] = @{ K = $v; Op = { param($c) Pe $c 3 @(0, $c.ex.K) } }
+}

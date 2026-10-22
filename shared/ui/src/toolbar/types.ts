@@ -67,7 +67,7 @@ export type BarItem =
       supports?: () => boolean; isEnabled?: () => boolean; isChecked?: () => boolean;
     }
   /** botão dividido: a parte principal roda o comando, a seta abre o menu */
-  | { split: string; menu: MenuSource; size?: 'small' | 'large' }
+  | { split: string; menu: MenuSource; size?: 'small' | 'large'; label?: boolean }
   | { widget: (ctx: BarContext) => BarWidget }
   /** galeria de miniaturas (ribbon: faixa elástica com ▲ ▼ ⌄; compacta: botão que abre a grade) */
   | { gallery: import('./gallery.js').GalleryConfig };

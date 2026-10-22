@@ -18,6 +18,7 @@
     "@universal-office/docx-core": "*",
     "@universal-office/docx-layout": "*",
     "@universal-office/fonts": "file:../../../shared/fonts",
+    "@universal-office/drawingml": "file:../../../shared/drawingml",
     "@universal-office/ui": "file:../../../shared/ui",
     "@universal-office/spell": "file:../../../shared/spell"
   },

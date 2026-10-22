@@ -252,3 +252,5 @@ anchor
 photo_frame
 filter_b_and_w
 light
+upload_file
+colorize

@@ -261,4 +261,17 @@ public class ImagesAndPdfRulesTests
         Assert.Equal("000000", g.Color);
         Assert.DoesNotContain(res.Pages[0].Items, i => i is RectItem);
     }
+
+    // ── cores do DrawingML (medido no Word: write/tools/image-lab/recolor-probe.mjs) ──
+    [Fact]
+    public void DrawingColorShadeTintLinearAndSatModHsl()
+    {
+        var theme = new Theme();
+        theme.Colors["accent1"] = "4472C4";
+        theme.Colors["accent2"] = "E97132";
+        // contorno padrão das formas do Word: accent1 shade 50%
+        Assert.Equal("2F528F", Resolve.ResolveDrawingColor("@accent1|shade=50000", theme));
+        Assert.Equal("BA4609", Resolve.ResolveDrawingColor("@accent2|shade=45000,satMod=135000", theme));
+        Assert.Equal("2F5597", Resolve.ResolveDrawingColor("4472C4|lumMod=75000", theme));
+    }
 }

@@ -107,8 +107,12 @@ import {
   type PictureChange,
   type PicWrapKind,
   type PicPos,
+  type PicLine,
+  type Pic3D,
+  type DmlColor,
 } from '@universal-office/docx-core';
-import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST } from './picture-ops.js';
+import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST, SHADOW_PRESETS, REFLECTION_PRESETS, GLOW_SIZES, glowPreset, bevel3D, RECOLOR_PRESETS } from './picture-ops.js';
+import { adjustSaturation, adjustTemperature, adjustSharpen, adjustBrightnessContrast } from '@universal-office/drawingml';
 import {
   ensureNoteStyles, noteBlocks, flattenBlocks, setNoteBlocks, cloneBlocks, nextNoteId, markNoteRuns, markNoteRunsInTable,
   isNoteMark, convertNoteContent, effectiveNoteOptions, notePropsOf, NOTE_DEFAULTS, type NoteOptions,
@@ -5292,6 +5296,8 @@ export class UniversalWriteElement extends HTMLElement {
    *  Sobrescreve a mídia referenciada no pacote e remove a versão vetorial
    *  (asvg:svgBlip) do XML cru, para o Word passar a exibir a nova imagem. */
   private async replaceSelectedImage(data: Uint8Array, ext: string): Promise<void> {
+    // imagem DrawingML: Alterar Imagem pelo XML (mídia nova, desfazer, sem tocar o pacote)
+    if (this.picRun()) { await this.changeImage(data, ext); return; }
     const h = this.selectedFloat();
     if (!h || h.kind !== 'image') return;
     const img = h.obj as InlineImage;
@@ -6327,6 +6333,14 @@ export class UniversalWriteElement extends HTMLElement {
 
     this.addEventListener('mousedown', (e) => {
       if (this.eventInChrome(e)) return;
+      // Definir Cor Transparente: o clique escolhe a cor do pixel da imagem
+      if (this.pickingTransparent && e.button === 0) {
+        e.preventDefault();
+        this.pickingTransparent = false;
+        this.style.cursor = '';
+        void this.pictureColorAt(e).then((hex) => { if (hex) this.setImageTransparentColor(hex); });
+        return;
+      }
       // tabelas: ferramenta ativa (pincel, borracha, lápis), alças e divisas
       if (this.tableMouseDown(e)) return;
       // objetos flutuantes + entrada em caixa de texto (CLIQUE ÚNICO):
@@ -9558,6 +9572,28 @@ export class UniversalWriteElement extends HTMLElement {
     return null;
   }
 
+  /** Prévia da imagem selecionada (o ORIGINAL, sem os ajustes a14, recortada e
+   *  espelhada) em até w×h px — miniaturas das galerias Correções/Cor/Transparência. */
+  selectedImagePreview(w: number, h: number): ImageData | null {
+    const run = this.picRun();
+    if (!run) return null;
+    const img = run.image!, f = img.format!;
+    const src = img.layer ? this.bitmapFor(img.layer) : this.bitmapFor(img);
+    if (!src) return null;
+    const s = f.srcRect;
+    const sx = Math.max(0, s.l / 100000) * src.width, sy = Math.max(0, s.t / 100000) * src.height;
+    const sw = Math.max(1, (1 - (Math.max(0, s.l) + Math.max(0, s.r)) / 100000) * src.width);
+    const sh = Math.max(1, (1 - (Math.max(0, s.t) + Math.max(0, s.b)) / 100000) * src.height);
+    const k = Math.min(w / sw, h / sh);
+    const cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+    const c = new OffscreenCanvas(cw, ch);
+    const x = c.getContext('2d')!;
+    x.translate(f.flipH ? cw : 0, f.flipV ? ch : 0);
+    x.scale(f.flipH ? -1 : 1, f.flipV ? -1 : 1);
+    x.drawImage(src, sx, sy, sw, sh, 0, 0, cw, ch);
+    return x.getImageData(0, 0, cw, ch);
+  }
+
   /** Exclui a imagem selecionada. */
   deleteSelectedImage(): void {
     if (!this.floatSel?.image || this.locked()) return;
@@ -9710,6 +9746,307 @@ export class UniversalWriteElement extends HTMLElement {
   /** Cortar › Cortar para Forma (nome do a:prstGeom). */
   cropImageToShape(prst: string): void {
     this.editPicture((f) => (f.geom === prst ? null : { geom: { prst } }));
+  }
+
+  /** Borda da Imagem: cor (null = Sem Contorno), espessura (pt) e tracejado. Sem
+   *  contorno antes, a cor padrão é a do texto (tx1) e a espessura 0,75 pt. */
+  setImageBorder(o: { color?: DmlColor | null; weightPt?: number; dash?: string }): void {
+    this.editPicture((f) => {
+      if (o.color === null) return f.line?.fill === null ? null : { line: { ...(f.line ?? {}), fill: null } };
+      const base: PicLine = f.line && f.line.fill ? { ...f.line } : { w: 9525, fill: { kind: 'schemeClr', val: 'tx1' } };
+      if (o.color) base.fill = o.color;
+      if (o.weightPt !== undefined) base.w = Math.max(0, Math.round(o.weightPt * 12700));
+      if (o.dash !== undefined) { if (o.dash === 'solid') delete base.dash; else base.dash = o.dash; }
+      return { line: base };
+    });
+  }
+
+  /** Efeitos de Imagem: aplica a predefinição `preset` (ids de picture-ops) do tipo,
+   *  ou tira o efeito (null = "Sem Sombra", "Sem Reflexo"…). */
+  setImageEffect(kind: 'shadow' | 'reflection' | 'glow' | 'softEdge' | 'bevel' | 'rotation', preset: string | null): void {
+    this.editPicture((f) => {
+      switch (kind) {
+        case 'shadow': {
+          const p = preset ? SHADOW_PRESETS.find((x) => x.id === preset) : undefined;
+          return preset && !p ? null : { shadow: p?.shadow ?? null };
+        }
+        case 'reflection': {
+          const p = preset ? REFLECTION_PRESETS.find((x) => x.id === preset) : undefined;
+          return preset && !p ? null : { reflection: p?.reflection ?? null };
+        }
+        case 'glow': {
+          if (!preset) return { glow: null };
+          const m = /^glow-(\d+)-(\d)$/.exec(preset);
+          return m ? { glow: glowPreset(GLOW_SIZES[Number(m[1])] ?? GLOW_SIZES[0]!, Number(m[2])) } : null;
+        }
+        case 'softEdge': return { softEdge: preset ? Number(preset) || null : null };
+        case 'bevel': {
+          const t: Pic3D = { ...(f.threeD ?? {}) };
+          if (preset) { const b = bevel3D(preset); t.bevelT = b.bevelT; t.camera ??= b.camera; t.lightRig ??= b.lightRig; } else delete t.bevelT;
+          return { threeD: t.bevelT || (t.camera && t.camera.prst !== 'orthographicFront') ? t : null };
+        }
+        case 'rotation': {
+          const t: Pic3D = { ...(f.threeD ?? {}) };
+          t.camera = { prst: preset ?? 'orthographicFront' };
+          t.lightRig ??= { rig: 'threePt', dir: 't' };
+          return { threeD: t.bevelT || preset ? t : null };
+        }
+      }
+      return null;
+    });
+  }
+
+  // ───────── Ajustar: Correções, Cor, Transparência, Alterar, Redefinir, Compactar ─────────
+
+  /** Pixels da imagem (bytes do arquivo) → ImageData. */
+  private async decodePicture(src: { data: Uint8Array; ext: string }): Promise<ImageData> {
+    const type = `image/${src.ext === 'jpg' ? 'jpeg' : src.ext === 'svg' ? 'svg+xml' : src.ext}`;
+    const bmp = await createImageBitmap(new Blob([new Uint8Array(src.data)], { type }));
+    const c = new OffscreenCanvas(Math.max(1, bmp.width), Math.max(1, bmp.height));
+    const x = c.getContext('2d')!;
+    x.drawImage(bmp, 0, 0);
+    return x.getImageData(0, 0, c.width, c.height);
+  }
+
+  private async encodePng(id: ImageData): Promise<Uint8Array> {
+    const c = new OffscreenCanvas(id.width, id.height);
+    c.getContext('2d')!.putImageData(id, 0, 0);
+    const blob = await c.convertToBlob({ type: 'image/png' });
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  /** Correções e Cor (efeitos do Office 2010, a14): a imagem é processada como no
+   *  Word e o original vai para a camada a14:imgLayer (PNG/JPEG — o Word aceita e
+   *  reprocessa ao gravar). nitidez/brilho/contraste em −1..1, saturação 1 =
+   *  original, temperatura em kelvin (6500 = original); omitidos ficam como estão. */
+  async setImageAdjust(o: { sharpen?: number; bright?: number; contrast?: number; saturation?: number; temperature?: number }): Promise<void> {
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    const img = run.image!, f = img.format!;
+    const cur = f.blip.a14 ?? {};
+    const pct = (v: number | undefined, d: number | undefined): number | undefined => (v === undefined ? d : Math.round(v * 100000));
+    const next = {
+      saturation: o.saturation !== undefined ? Math.round(o.saturation * 100000) : cur.saturation,
+      colorTemp: o.temperature !== undefined ? Math.round(o.temperature) : cur.colorTemp,
+      sharpen: pct(o.sharpen, cur.sharpen),
+      bright: pct(o.bright, cur.bright),
+      contrast: pct(o.contrast, cur.contrast),
+    };
+    if (next.saturation === 100000) delete next.saturation;
+    if (next.colorTemp === 6500) delete next.colorTemp;
+    if (!next.sharpen) delete next.sharpen;
+    if (!next.bright) delete next.bright;
+    if (!next.contrast) delete next.contrast;
+    const neutral = !Object.values(next).some((v) => v !== undefined);
+    // original: a camada que criamos, ou a imagem atual (sem camada); com uma camada
+    // .wdp do arquivo (JPEG XR, sem decodificador aqui) processa a imagem atual
+    const original = img.layer ?? (cur.layerRid ? null : { data: img.data, ext: img.ext });
+    const base = original ?? { data: img.data, ext: img.ext };
+    let baked: Uint8Array | null = null;
+    if (!neutral) {
+      const id = await this.decodePicture(base);
+      const d = id.data;
+      if (next.saturation !== undefined) adjustSaturation(d, next.saturation / 100000);
+      if (next.colorTemp !== undefined) adjustTemperature(d, next.colorTemp);
+      if (next.sharpen !== undefined) adjustSharpen(d, id.width, id.height, next.sharpen / 100000);
+      if (next.bright !== undefined || next.contrast !== undefined) adjustBrightnessContrast(d, (next.bright ?? 0) / 100000, (next.contrast ?? 0) / 100000);
+      baked = await this.encodePng(id);
+    }
+    if (this.picRun() !== run) return; // a seleção mudou enquanto processava
+    this.snapshot();
+    let ch: PictureChange;
+    if (neutral) {
+      if (original) { img.data = original.data; img.ext = original.ext; }
+      delete img.layer;
+      ch = { a14: (cur.otherRaw?.length ? { ...(cur.layerRid ? { layerRid: cur.layerRid } : {}), otherRaw: cur.otherRaw } : null), embed: 'uw:media' };
+    } else {
+      img.data = baked!;
+      img.ext = 'png';
+      if (original) img.layer = original;
+      const layerRid = original ? 'uw:layer' : cur.layerRid;
+      ch = { a14: { ...next, ...(layerRid ? { layerRid } : {}), ...(cur.otherRaw ? { otherRaw: cur.otherRaw } : {}) }, embed: 'uw:media' };
+    }
+    img.svg = undefined;
+    this.bitmaps.delete(img);
+    this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, ch), false);
+    this.afterPictureEdit();
+  }
+
+  /** Transparência (0..100 %): a:alphaModFix. */
+  setImageTransparency(pct: number): void {
+    this.editPicture((f) => {
+      const amt = Math.round((100 - Math.max(0, Math.min(100, pct))) * 1000);
+      const { a14: _a, ...fx } = f.blip;
+      void _a;
+      if ((f.blip.alphaModFix ?? 100000) === amt) return null;
+      return { blipFx: { ...fx, alphaModFix: amt } };
+    });
+  }
+
+  /** Recolorir: predefinição (RECOLOR_PRESETS) ou uma cor (Mais Variações: tom
+   *  duplo do preto até a cor escurecida, como as variações escuras). */
+  setImageRecolor(preset: string | DmlColor): void {
+    this.editPicture((f) => {
+      const { a14: _a, grayscl: _g, duotone: _d, lum: _l, biLevel: _b, ...keep } = f.blip;
+      void _a; void _g; void _d; void _l; void _b;
+      if (typeof preset !== 'string') {
+        const c: DmlColor = { ...preset, mods: [...(preset.mods ?? []), ['shade', 45000], ['satMod', 135000]] };
+        return { blipFx: { ...keep, duotone: [{ kind: 'prstClr', val: 'black' }, c] } };
+      }
+      const p = RECOLOR_PRESETS.find((x) => x.id === preset);
+      return p ? { blipFx: { ...keep, ...p.fx } } : null;
+    });
+  }
+
+  /** Definir Cor Transparente (RRGGBB; null tira): a:clrChange. */
+  setImageTransparentColor(hex: string | null): void {
+    this.editPicture((f) => {
+      const { a14: _a, ...fx } = f.blip;
+      void _a;
+      if (!hex) { if (!fx.clrChange) return null; delete fx.clrChange; return { blipFx: fx }; }
+      const c: DmlColor = { kind: 'srgbClr', val: hex.toUpperCase() };
+      return { blipFx: { ...fx, clrChange: { from: c, to: { ...c, mods: [['alpha', 0]] } } } };
+    });
+  }
+
+  /** Próximo clique na imagem escolhe a cor transparente (Definir Cor Transparente). */
+  private pickingTransparent = false;
+  startTransparentColorPick(): void {
+    if (!this.picRun()) return;
+    this.pickingTransparent = true;
+    this.style.cursor = 'crosshair';
+  }
+
+  /** Cor do pixel da imagem selecionada sob o ponteiro (RRGGBB) ou null. */
+  private async pictureColorAt(e: MouseEvent): Promise<string | null> {
+    const h = this.selectedFloat();
+    const img = this.picRun()?.image;
+    if (!h || !img) return null;
+    const cv = this.canvases[h.page];
+    if (!cv) return null;
+    const r = cv.getBoundingClientRect(), scale = PX_PER_TWIP * this.zoom;
+    // ponto na caixa (sem giro) → fração da imagem inteira (recorte)
+    const a = (-(h.rot ?? 0) * Math.PI) / 180;
+    const cx = r.left + (h.rect.x + h.rect.w / 2) * scale, cy = r.top + (h.rect.y + h.rect.h / 2) * scale;
+    const dx = e.clientX - cx, dy = e.clientY - cy;
+    const lx = (dx * Math.cos(a) - dy * Math.sin(a)) / scale + h.rect.w / 2, ly = (dx * Math.sin(a) + dy * Math.cos(a)) / scale + h.rect.h / 2;
+    const s = img.format?.srcRect ?? { l: 0, t: 0, r: 0, b: 0 };
+    const visW = 1 - (s.l + s.r) / 100000, visH = 1 - (s.t + s.b) / 100000;
+    let u = s.l / 100000 + (lx / h.rect.w) * visW, v = s.t / 100000 + (ly / h.rect.h) * visH;
+    if (img.format?.flipH) u = 1 - u;
+    if (img.format?.flipV) v = 1 - v;
+    if (u < 0 || v < 0 || u > 1 || v > 1) return null;
+    const id = await this.decodePicture(img);
+    const k = (Math.min(id.height - 1, Math.floor(v * id.height)) * id.width + Math.min(id.width - 1, Math.floor(u * id.width))) * 4;
+    return [id.data[k]!, id.data[k + 1]!, id.data[k + 2]!].map((n) => n.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+
+  /** Redefinir Imagem: tira contorno, efeitos, 3D, ajustes de cor e a14 (volta ao
+   *  original da camada); com `size`, também o tamanho natural e o corte (medido:
+   *  o giro e o espelho ficam no Redefinir Imagem). */
+  resetImage(size = false): void {
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    const img = run.image!, f = img.format!;
+    this.snapshot();
+    if (img.layer) { img.data = img.layer.data; img.ext = img.layer.ext; delete img.layer; this.bitmaps.delete(img); }
+    const ch: PictureChange = {
+      line: null, shadow: null, reflection: null, glow: null, softEdge: null, threeD: null, blipFx: {},
+      ...(f.blip.a14 ? { a14: null, embed: 'uw:media' } : {}),
+    };
+    if (size) {
+      const nat = this.naturalSizePt(img);
+      if (nat) ch.size = { cx: Math.round(nat.w * 12700), cy: Math.round(nat.h * 12700) };
+      ch.srcRect = { l: 0, t: 0, r: 0, b: 0 };
+      if (f.geom !== 'rect') ch.geom = { prst: 'rect' };
+    }
+    this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, ch), true);
+    this.afterPictureEdit();
+  }
+
+  /** Alterar Imagem: troca os bytes mantendo a formatação, a posição e a largura
+   *  (a altura segue a proporção da imagem nova); o corte e a camada a14 saem. */
+  async changeImage(data: Uint8Array, ext: string): Promise<void> {
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    const copy = new Uint8Array(data);
+    const bmp = await createImageBitmap(new Blob([copy], { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` }));
+    if (this.picRun() !== run) return;
+    const img = run.image!, f = img.format!;
+    this.snapshot();
+    img.data = copy;
+    img.ext = ext;
+    img.svg = undefined;
+    delete img.layer;
+    this.bitmaps.delete(img);
+    const cy = Math.round((f.cx * bmp.height) / Math.max(1, bmp.width));
+    let xml = img.rawDrawingXml!.replace(/<a:ext uri="\{96DAC541-7B7A-43D3-8B79-37D633B846F1\}">[\s\S]*?<\/a:ext>/g, ''); // asvg:svgBlip
+    xml = patchPicture(xml, { embed: 'uw:media', a14: null, srcRect: { l: 0, t: 0, r: 0, b: 0 }, size: { cx: f.cx, cy } });
+    this.applyPictureXml(img, xml, true);
+    this.afterPictureEdit();
+  }
+
+  /** Alterar Imagem › De um Arquivo… */
+  changeImageFromFile(): void { this.promptReplaceImage(); }
+
+  /** Alterar Imagem › Da Área de Transferência. */
+  async changeImageFromClipboard(): Promise<boolean> {
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith('image/'));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        await this.changeImage(new Uint8Array(await blob.arrayBuffer()), type.slice(6) === 'jpeg' ? 'jpg' : type.slice(6));
+        return true;
+      }
+    } catch { /* sem permissão ou sem imagem */ }
+    return false;
+  }
+
+  /** Compactar Imagens: reamostra para `ppi` (220 Impressão, 150 Web, 96 E-mail;
+   *  330 HD) e, com `deleteCropped`, recorta os pixels fora do corte; só a
+   *  selecionada (padrão) ou todas. Fotos (JPEG) ficam JPEG; o resto, PNG. */
+  async compressImages(o: { ppi: number; deleteCropped: boolean; all?: boolean }): Promise<number> {
+    if (!this.model || this.locked()) return 0;
+    const runs: Run[] = [];
+    if (o.all) { for (const p of this.model.paragraphs) for (const r of p.runs) if (r.image?.rawDrawingXml && r.image.format && !r.image.ole) runs.push(r); }
+    else { const r = this.picRun(); if (r) runs.push(r); }
+    const jobs: { img: InlineImage; data: Uint8Array; ext: string; crop: boolean }[] = [];
+    for (const r of runs) {
+      const img = r.image!, f = img.format!;
+      if (img.svg || /^(emf|wmf)$/i.test(img.ext)) continue;
+      let id: ImageData;
+      try { id = await this.decodePicture(img); } catch { continue; }
+      const s = f.srcRect;
+      const crop = o.deleteCropped && (s.l > 0 || s.t > 0 || s.r > 0 || s.b > 0);
+      const sx = crop ? Math.round((Math.max(0, s.l) / 100000) * id.width) : 0, sy = crop ? Math.round((Math.max(0, s.t) / 100000) * id.height) : 0;
+      const sw = crop ? Math.max(1, Math.round((1 - (Math.max(0, s.l) + Math.max(0, s.r)) / 100000) * id.width)) : id.width;
+      const sh = crop ? Math.max(1, Math.round((1 - (Math.max(0, s.t) + Math.max(0, s.b)) / 100000) * id.height)) : id.height;
+      // pixels necessários para a caixa na resolução pedida
+      const tw = Math.max(1, Math.round((f.cx / 914400) * o.ppi)), th = Math.max(1, Math.round((f.cy / 914400) * o.ppi));
+      const w = Math.min(sw, tw), h = Math.min(sh, th);
+      if (w === sw && h === sh && !crop) continue;
+      const src = new OffscreenCanvas(id.width, id.height);
+      src.getContext('2d')!.putImageData(id, 0, 0);
+      const c = new OffscreenCanvas(w, h);
+      const x = c.getContext('2d')!;
+      x.imageSmoothingQuality = 'high';
+      x.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+      const jpeg = /^jpe?g$/i.test(img.ext);
+      const blob = await c.convertToBlob(jpeg ? { type: 'image/jpeg', quality: 0.85 } : { type: 'image/png' });
+      jobs.push({ img, data: new Uint8Array(await blob.arrayBuffer()), ext: jpeg ? 'jpg' : 'png', crop });
+    }
+    if (!jobs.length) return 0;
+    this.snapshot();
+    for (const j of jobs) {
+      j.img.data = j.data;
+      j.img.ext = j.ext;
+      delete j.img.layer;
+      this.bitmaps.delete(j.img);
+      this.applyPictureXml(j.img, patchPicture(j.img.rawDrawingXml!, { embed: 'uw:media', ...(j.crop ? { srcRect: { l: 0, t: 0, r: 0, b: 0 } } : {}), ...(j.img.format?.blip.a14 ? { a14: null } : {}) }), false);
+    }
+    this.afterPictureEdit();
+    return jobs.length;
   }
 
   /** Diálogo Layout (Posição, Quebra Automática de Texto, Tamanho) — tudo num

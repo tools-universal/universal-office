@@ -4,7 +4,8 @@
  * cores do tema já resolvidas — o pintor do canvas e o do PDF desenham a partir
  * disto (com os efeitos de @universal-office/drawingml).
  */
-import { dmlColorSpec, type DmlColor, type InlineImage, type Theme } from '@universal-office/docx-core';
+import { blipFxImageEffects, dmlColorSpec, type DmlColor, type InlineImage, type PicBlipFx, type Theme } from '@universal-office/docx-core';
+import { applyImageEffects, applyPictureAdjust } from './images.js';
 import { resolveDrawingColor } from './resolve.js';
 import type { PictureLook } from './tree.js';
 
@@ -62,7 +63,13 @@ export function pictureLook(im: InlineImage, theme: Theme): PictureLook | undefi
       ...(r.algn ? { algn: r.algn } : {}), ...(r.rotWithShape !== undefined ? { rotWithShape: r.rotWithShape } : {}),
     };
   }
-  const b = f.blip;
+  Object.assign(out, blipLook(f.blip, theme));
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** A parte do a:blip da aparência: transparência, tom duplo e cor transparente. */
+function blipLook(b: PicBlipFx, theme: Theme): Pick<PictureLook, 'alpha' | 'duotone' | 'clrChange'> {
+  const out: Pick<PictureLook, 'alpha' | 'duotone' | 'clrChange'> = {};
   if (b.alphaModFix !== undefined && b.alphaModFix < 100000) out.alpha = b.alphaModFix / 100000;
   if (b.duotone) {
     const c0 = color(b.duotone[0], theme), c1 = color(b.duotone[1], theme);
@@ -72,5 +79,14 @@ export function pictureLook(im: InlineImage, theme: Theme): PictureLook | undefi
     const from = color(b.clrChange.from, theme), to = color(b.clrChange.to, theme);
     if (from && to) out.clrChange = { from: from.color, to: to.color, toAlpha: to.alpha };
   }
-  return Object.keys(out).length ? out : undefined;
+  return out;
+}
+
+/** Ajustes de cor do a:blip sobre pixels RGBA pelo MESMO caminho do desenho
+ *  (a:lum/grayscl/biLevel, depois tom duplo, cor transparente e transparência) —
+ *  as miniaturas das galerias Cor e Transparência usam isto. */
+export function applyBlipFx(d: Uint8Array | Uint8ClampedArray, b: PicBlipFx, theme: Theme): void {
+  const fx = blipFxImageEffects(b);
+  if (fx) applyImageEffects(d as Uint8Array, fx);
+  applyPictureAdjust(d, blipLook(b, theme));
 }

@@ -1,3 +1,4 @@
+import { applyColorMods } from '@universal-office/drawingml';
 import type {
   DocFormatting, StyleDef, RPr, PPr, TblPr, TrPr, TcPr, RFonts, TabSpec, TblStylePart, TblStyleType,
   BorderSpec, CellMargins, TcBorders, Theme,
@@ -394,46 +395,16 @@ export function shadingFill(
 export function resolveDrawingColor(spec: string | undefined, theme: Theme): string | undefined {
   if (!spec) return undefined;
   const [head, mods] = spec.split('|');
-  let hex = head!.startsWith('@') ? own(theme.colors, own(THEME_ALIAS, head!.slice(1)) ?? head!.slice(1)) : head;
+  const hex = head!.startsWith('@') ? own(theme.colors, own(THEME_ALIAS, head!.slice(1)) ?? head!.slice(1)) : head;
   if (!hex || !/^[0-9A-Fa-f]{6}$/.test(hex)) return undefined;
   if (!mods) return hex.toUpperCase();
-  let [r, g, b] = rgb(hex).map((v) => v / 255) as [number, number, number];
-  // HSL p/ lumMod/lumOff
-  const toHsl = (): [number, number, number] => {
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-    const l = (mx + mn) / 2;
-    if (mx === mn) return [0, 0, l];
-    const d = mx - mn;
-    const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
-    const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    return [h / 6, s, l];
-  };
-  const fromHsl = (h: number, s: number, l: number) => {
-    if (s === 0) { r = g = b = l; return; }
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const f = (t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    r = f(h + 1 / 3); g = f(h); b = f(h - 1 / 3);
-  };
-  for (const m of mods.split(',')) {
-    const [k, vs] = m.split('=');
-    const v = parseInt(vs ?? '0', 10) / 100000;
-    if (k === 'lumMod' || k === 'lumOff') {
-      const [h, s, l] = toHsl();
-      fromHsl(h, s, k === 'lumMod' ? Math.min(1, l * v) : Math.min(1, l + v));
-    } else if (k === 'tint') {
-      r = 1 - (1 - r) * v; g = 1 - (1 - g) * v; b = 1 - (1 - b) * v;
-    } else if (k === 'shade') {
-      r *= v; g *= v; b *= v;
-    }
-  }
+  // modificadores do DrawingML (shade/tint em RGB linear…): @universal-office/drawingml
+  const list = mods.split(',').map((m): [string, number | undefined] => {
+    const [k, v] = m.split('=');
+    const n = v === undefined || v === 'undefined' ? undefined : parseInt(v, 10);
+    return [k!, n !== undefined && Number.isFinite(n) ? n : undefined];
+  });
+  const [r, g, b] = applyColorMods(rgb(hex).map((v) => v / 255) as [number, number, number], list);
   return toHex(r * 255, g * 255, b * 255);
 }
 

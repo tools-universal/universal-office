@@ -11,10 +11,13 @@ export { NumberingState, formatNumber } from './numbering.js';
 export { renderPdf, type PdfRenderOptions } from './pdf.js';
 export type {
   LayoutResult, LayoutPage, PageItem, GlyphRunItem, RectItem, LineItem, ImageItem, ShapeItem, ClipItem, LaidOutLine, LineParaFormat,
-  PathItem, PathCmdTw, XformItem, PlacedObject, ObjectFrame, PlacedCell,
+  PathItem, PathCmdTw, XformItem, PlacedObject, ObjectFrame, PlacedCell, PictureLook,
 } from './tree.js';
 export { documentHyphenationLanguages } from './hyphenate.js';
 export { paintItems, type EnginePaintEnv } from './canvas.js';
+export { paintPicture } from './canvas-picture.js';
+export { pictureLook, applyBlipFx } from './picture.js';
+export { applyImageEffects, applyPictureAdjust } from './images.js';
 export { paragraphAtPath, cellAtGrid, cellBlocks } from './refs.js';
 export { AUTHOR_PALETTE, MOVE_COLOR, RevisionDisplay, authorColor, type RevisionMode, type RevisionView } from './revisions.js';
 export { documentOutline, outlineLevelOf, headingText, numberedItems, outlineParagraphs, type OutlineHeading, type NumberedItem, type OutlineParagraph } from './outline.js';

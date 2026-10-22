@@ -333,3 +333,65 @@ export function renderGallery(cfg: GalleryConfig, ctx: BarContext, inline: boole
     },
   };
 }
+
+/** Grade de miniaturas dentro de um MENU (MenuItem.content) — as galerias de
+ *  predefinições (Sombra, Reflexo, Brilho, Bordas Suaves, Bisel, Rotação 3D,
+ *  Correções, Cor…): seções com título, miniaturas desenhadas pelo app, a atual
+ *  destacada, setas entre elas. */
+export interface TileGridOptions {
+  sections: { label?: Lbl; items: GalleryItem[] }[];
+  tile: { w: number; h: number };
+  cols: number;
+  render: (tile: HTMLElement, item: GalleryItem) => void;
+  selected?: string;
+  onPick: (id: string) => void;
+  close: () => void;
+  /** texto de um rótulo no idioma da barra */
+  text: (l: Lbl) => string;
+}
+
+export function tileGrid(o: TileGridOptions): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'uo-tiles';
+  const all: HTMLButtonElement[] = [];
+  for (const sec of o.sections) {
+    if (!sec.items.length) continue;
+    if (sec.label) {
+      const h = document.createElement('div');
+      h.className = 'uo-tiles-h';
+      h.textContent = o.text(sec.label);
+      box.appendChild(h);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'uo-gal-grid';
+    grid.setAttribute('role', 'listbox');
+    grid.style.gridTemplateColumns = `repeat(${o.cols}, ${o.tile.w}px)`;
+    for (const it of sec.items) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'uo-gal-tile';
+      b.dataset['id'] = it.id;
+      b.setAttribute('role', 'option');
+      b.title = o.text(it.tip ?? it.label);
+      b.setAttribute('aria-label', o.text(it.label));
+      b.style.width = `${o.tile.w}px`;
+      b.style.height = `${o.tile.h}px`;
+      if (o.selected === it.id) b.classList.add('uo-on');
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => { o.close(); o.onPick(it.id); });
+      b.addEventListener('keydown', (e) => {
+        const i = all.indexOf(b);
+        const step: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: o.cols, ArrowUp: -o.cols };
+        if (step[e.key] === undefined) return;
+        e.preventDefault();
+        e.stopPropagation();
+        all[Math.max(0, Math.min(all.length - 1, i + step[e.key]!))]?.focus();
+      });
+      o.render(b, it);
+      all.push(b);
+      grid.appendChild(b);
+    }
+    box.appendChild(grid);
+  }
+  return box;
+}

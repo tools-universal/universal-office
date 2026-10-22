@@ -93,7 +93,7 @@ export function renderItem(item: BarItem, ctx: BarContext, defSize: 'small' | 'l
 
   if ('split' in item) {
     const cmd = item.split;
-    const main = renderItem({ cmd, size: item.size ?? defSize }, ctx, defSize);
+    const main = renderItem({ cmd, size: item.size ?? defSize, ...(item.label !== undefined ? { label: item.label } : {}) }, ctx, defSize);
     const wrap = document.createElement('span');
     wrap.className = `uo-split${(item.size ?? defSize) === 'large' ? ' uo-split-lg' : ''}`;
     const arrow = button('uo-btn uo-split-arrow');

@@ -146,3 +146,21 @@ describe('PDF com imagem defeituosa', () => {
     expect(new TextDecoder('latin1').decode(pdf.subarray(0, 8))).toBe('%PDF-1.7');
   });
 });
+
+describe('cores do DrawingML e recolorir (medido no Word: image-lab recolor-probe)', () => {
+  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: { accent1: '4472C4', accent2: 'E97132' } };
+  it('shade/tint em RGB linear e satMod no HSL', async () => {
+    const { resolveDrawingColor } = await import('../src/index.js');
+    // contorno padrão das formas do Word: accent1 shade 50%
+    expect(resolveDrawingColor('@accent1|shade=50000', theme)).toBe('2F528F');
+    expect(resolveDrawingColor('@accent2|shade=45000,satMod=135000', theme)).toBe('BA4609');
+    expect(resolveDrawingColor('4472C4|lumMod=75000', theme)).toBe('2F5597');
+  });
+  it('tom duplo das variações escuras como o Word desenha', async () => {
+    const { applyBlipFx } = await import('../src/index.js');
+    const d = new Uint8ClampedArray([250, 250, 250, 255, 128, 128, 128, 255]);
+    applyBlipFx(d, { duotone: [{ kind: 'prstClr', val: 'black' }, { kind: 'schemeClr', val: 'accent2', mods: [['shade', 45000], ['satMod', 135000]] }] }, theme);
+    expect([...d.slice(0, 3)]).toEqual([182, 69, 9]);
+    expect([...d.slice(4, 7)]).toEqual([93, 35, 5]);
+  });
+});
