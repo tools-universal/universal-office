@@ -315,7 +315,7 @@ export function blipTiles(b: { tile?: { tx: number; ty: number; sx: number; sy: 
   const tw = natural.width * 9525 * emu * (t.sx / 100000), th = natural.height * 9525 * emu * (t.sy / 100000);
   if (!(tw > 0) || !(th > 0)) return [{ x, y, w, h }];
   const a = t.algn ?? 'tl';
-  const ax = a.includes('r') ? x + w - tw : a === 't' || a === 'ctr' || a === 'b' ? x + (w - tw) / 2 : x;
+  const ax = a === 'tr' || a === 'r' || a === 'br' ? x + w - tw : a === 't' || a === 'ctr' || a === 'b' ? x + (w - tw) / 2 : x;
   const ay = a.startsWith('b') ? y + h - th : a === 'l' || a === 'ctr' || a === 'r' ? y + (h - th) / 2 : y;
   const ox = ax + t.tx * emu, oy = ay + t.ty * emu;
   const sx0 = ox - Math.ceil((ox - x) / tw) * tw, sy0 = oy - Math.ceil((oy - y) / th) * th;

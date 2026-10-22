@@ -68,14 +68,22 @@ export function topBlockOf(ref: string): number {
   return m ? +m[1]! : -1;
 }
 
+/** Linha de tabela do ref de uma linha do conteúdo ("txbx/b3/r2/c0/b0" → 2), ou -1. */
+export function topRowOf(ref: string): number {
+  const m = /^[^/]+\/b\d+\/r(\d+)\//.exec(ref);
+  return m ? +m[1]! : -1;
+}
+
 /** Refs e offsets das linhas do resto para os blocos ORIGINAIS: o bloco j do resto é o
- *  map[j] do conteúdo da 1ª caixa; o 1º, se continua um parágrafo, soma `cont` aos offsets. */
-export function remapLines(lines: readonly LaidOutLine[], map: readonly number[], cont: number): LaidOutLine[] {
+ *  map[j] do conteúdo da 1ª caixa; o 1º, se continua um parágrafo, soma `cont` aos offsets;
+ *  se é o resto de uma tabela partida entre as caixas, soma `rows` às linhas dela. */
+export function remapLines(lines: readonly LaidOutLine[], map: readonly number[], cont: number, rows = 0): LaidOutLine[] {
   return lines.map((l) => {
     const m = /^([^/]+)\/b(\d+)(.*)$/.exec(l.ref);
     if (!m) return l;
     const j = +m[2]!;
-    const ref = `${m[1]}/b${map[j] ?? j}${m[3]}`;
+    const tail = j === 0 && rows ? m[3]!.replace(/^\/r(\d+)/, (_s, r: string) => `/r${+r + rows}`) : m[3];
+    const ref = `${m[1]}/b${map[j] ?? j}${tail}`;
     // offsets só na continuação (o próprio parágrafo, não células de tabela)
     if (j !== 0 || !cont || m[3]) return ref === l.ref ? l : { ...l, ref };
     return { ...l, ref, start: l.start + cont, end: l.end + cont, ...(l.chars ? { chars: l.chars.map((c) => ({ ...c, o: c.o + cont })) } : {}) };

@@ -2,7 +2,7 @@ import type {
   FullDocument, Block, Paragraph, TableBlock, Section, SectPr, Run, PBdr, DrawingAnchor, TableCell, DrawingTextbox,
 } from '@universal-office/docx-core';
 import { presetTextRect } from '@universal-office/drawingml';
-import { indexChains, sliceParagraphFrom, remapLines, topBlockOf, CONTINUATION, type TextboxChain } from './chain.js';
+import { indexChains, sliceParagraphFrom, remapLines, topBlockOf, topRowOf, CONTINUATION, type TextboxChain } from './chain.js';
 import { runPropsFromRPr, paraPropsFromPPr, revisionAuthors } from '@universal-office/docx-core';
 import { DocContext, emptyFormatting, directPPr, type LayoutOptions, type FlowState, type NoteNumbering } from './context.js';
 import { faceMetrics, type FontProvider } from './fonts.js';
@@ -3166,7 +3166,7 @@ class Engine {
   private chainSlices = new Map<TextboxChain, Map<DrawingTextbox, CellContent>>();
 
   private chainOf(tb: DrawingTextbox): TextboxChain | undefined {
-    if (!tb.story && !tb.link) return undefined;
+    if (tb.story === undefined && !tb.link) return undefined;
     this.chains ??= indexChains(this.full);
     return this.chains.get(tb);
   }
@@ -3188,13 +3188,13 @@ class Engine {
       const head = chain.members[0]!;
       let rem: Block[] = head.blocks ?? head.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
       let map = rem.map((_, i) => i);
-      let cont = 0;
+      let cont = 0, rows = 0;
       const empty = (): CellContent => ({ items: [], lines: [], height: 0 });
       chain.members.forEach((m, k) => {
         if (!rem.length) { out.set(m, empty()); return; }
         const fr = tbFrame(m, theme, m.widthTwips, m.heightTwips);
         const env: ParaEnv = { ...env0, ...this.tbEnv(m) };
-        const blocks = rem, curMap = map, curCont = cont;
+        const blocks = rem, curMap = map, curCont = cont, curRows = rows;
         const c = this.ctx.pure(() => this.layoutStatic(blocks, 0, Math.max(1, fr.iw), env, 'txbx'));
         // a 1ª linha da continuação não é a 1ª do parágrafo (viúvas/órfãs)
         const ci = curCont ? c.paras?.get('txbx/b0') : undefined;
@@ -3202,29 +3202,47 @@ class Engine {
         let slice = c;
         rem = [];
         if (k < chain.members.length - 1) {
-          const parts = splitContent(c, fr.ih);
+          let parts = splitContent(c, fr.ih);
           // nem a 1ª linha coube: a caixa fica vazia e tudo segue
           if (!parts) { out.set(m, empty()); rem = blocks; return; }
-          const cut = parts[0].height;
-          const moved = c.lines.filter((l) => l.y >= cut - 0.01);
-          if (moved.length) {
+          let cut = parts[0].height;
+          let moved = c.lines.filter((l) => l.y >= cut - 0.01);
+          let first = moved.length ? moved.reduce((a, b) => (b.y < a.y ? b : a)) : undefined;
+          // corte numa tabela: as linhas dela que não couberam inteiras vão para a próxima
+          // caixa (a linha partida desce inteira — senão a parte de cima sairia duas vezes)
+          let row = first ? topRowOf(first.ref) : -1;
+          if (first && row >= 0) {
+            const jt = topBlockOf(first.ref), r0 = row;
+            const nr = c.nest?.find((n) => n.lines.some((l) => topBlockOf(l.ref) === jt && topRowOf(l.ref) === r0));
+            if (nr && nr.top < cut - 0.01) {
+              const p2 = nr.top > 0.5 ? splitContent(c, nr.top) : null;
+              if (!p2) { out.set(m, empty()); rem = blocks; return; }
+              parts = p2;
+              cut = p2[0].height;
+              moved = c.lines.filter((l) => l.y >= cut - 0.01);
+              first = moved.reduce((a, b) => (b.y < a.y ? b : a));
+              row = topRowOf(first.ref);
+            }
+          }
+          if (first) {
             slice = { ...parts[0], height: cut };
-            const first = moved.reduce((a, b) => (b.y < a.y ? b : a));
             const j = Math.max(0, topBlockOf(first.ref));
-            // linha numa tabela: a tabela inteira vai para a próxima caixa
             const off = /^[^/]+\/b\d+$/.test(first.ref) ? first.start : 0;
             map = curMap.slice(j);
             const pb = blocks[j];
+            cont = 0; rows = 0;
             if (off > 0 && pb?.type === 'paragraph') {
               cont = (j === 0 ? curCont : 0) + off;
               rem = [{ type: 'paragraph', paragraph: sliceParagraphFrom(pb.paragraph, off) }, ...blocks.slice(j + 1)];
+            } else if (row > 0 && pb?.type === 'table') {
+              rows = (j === 0 ? curRows : 0) + row;
+              rem = [{ ...pb, rows: pb.rows.slice(row) }, ...blocks.slice(j + 1)];
             } else {
-              cont = 0;
               rem = blocks.slice(j);
             }
           }
         }
-        out.set(m, { ...slice, lines: remapLines(slice.lines, curMap, curCont) });
+        out.set(m, { ...slice, lines: remapLines(slice.lines, curMap, curCont, curRows) });
       });
     }
     return slices.get(tb) ?? { items: [], lines: [], height: 0 };
@@ -3595,8 +3613,9 @@ class Engine {
         if (r.textbox) {
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
           // campos (PAGE…) da caixa do grupo valem por página, como na caixa solta (oráculo hfgroup)
-          const chain = this.chainOf(r.textbox);
-          tc = chain ? this.chainSlice(chain, r.textbox, { field: this.fieldValue(ps), ...(this.inHf ? { hf: true } : {}) })
+          // (com giro/espelho do grupo o filho é uma cópia: a cadeia é a da caixa original)
+          const chain = this.chainOf(item.run.textbox!);
+          tc = chain ? this.chainSlice(chain, item.run.textbox!, { field: this.fieldValue(ps), ...(this.inHf ? { hf: true } : {}) })
             : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, iw, ih).iw), { field: this.fieldValue(ps), ...this.tbEnv(r.textbox), ...(this.inHf ? { hf: true } : {}) }, 'grp', ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));

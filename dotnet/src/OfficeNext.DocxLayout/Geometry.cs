@@ -391,7 +391,7 @@ public static class Geometry
         double tw = nat.Width * 9525 * emu * (t.Sx / 100000), th = nat.Height * 9525 * emu * (t.Sy / 100000);
         if (!(tw > 0) || !(th > 0)) return new() { (x, y, w, h) };
         string a = t.Algn ?? "tl";
-        double ax = a.Contains('r') ? x + w - tw : a is "t" or "ctr" or "b" ? x + (w - tw) / 2 : x;
+        double ax = a is "tr" or "r" or "br" ? x + w - tw : a is "t" or "ctr" or "b" ? x + (w - tw) / 2 : x;
         double ay = a.StartsWith('b') ? y + h - th : a is "l" or "ctr" or "r" ? y + (h - th) / 2 : y;
         double ox = ax + t.Tx * emu, oy = ay + t.Ty * emu;
         double sx0 = ox - Math.Ceiling((ox - x) / tw) * tw, sy0 = oy - Math.Ceiling((oy - y) / th) * th;

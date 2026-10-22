@@ -110,10 +110,21 @@ internal static class Chain
         return m.Success ? int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : -1;
     }
 
+    private static readonly Regex TopRowRe = new(@"^[^/]+/b[0-9]+/r([0-9]+)/", RegexOptions.CultureInvariant);
+    private static readonly Regex RowHeadRe = new(@"^/r([0-9]+)", RegexOptions.CultureInvariant);
+
+    /// <summary>Linha de tabela do ref de uma linha do conteúdo ("txbx/b3/r2/c0/b0" → 2), ou -1.</summary>
+    public static int TopRowOf(string reference)
+    {
+        var m = TopRowRe.Match(reference);
+        return m.Success ? int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : -1;
+    }
+
     /// <summary>Refs e offsets das linhas do resto para os blocos ORIGINAIS: o bloco j do resto é o
     /// map[j] do conteúdo da 1ª caixa; o 1º, se continua um parágrafo, soma <paramref name="cont"/>
-    /// aos offsets.</summary>
-    public static List<LaidOutLine> RemapLines(IReadOnlyList<LaidOutLine> lines, IReadOnlyList<int> map, double cont)
+    /// aos offsets; se é o resto de uma tabela partida entre as caixas, soma <paramref name="rows"/>
+    /// às linhas dela.</summary>
+    public static List<LaidOutLine> RemapLines(IReadOnlyList<LaidOutLine> lines, IReadOnlyList<int> map, double cont, int rows = 0)
     {
         return lines.Select(l =>
         {
@@ -121,7 +132,10 @@ internal static class Chain
             if (!m.Success) return l;
             int j = int.Parse(m.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
             string rest = m.Groups[3].Value;
-            string reference = $"{m.Groups[1].Value}/b{(j < map.Count ? map[j] : j)}{rest}";
+            string tail = j == 0 && rows != 0
+                ? RowHeadRe.Replace(rest, mm => "/r" + (int.Parse(mm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) + rows).ToString(System.Globalization.CultureInfo.InvariantCulture), 1)
+                : rest;
+            string reference = $"{m.Groups[1].Value}/b{(j < map.Count ? map[j] : j)}{tail}";
             // offsets só na continuação (o próprio parágrafo, não células de tabela)
             if (j != 0 || cont == 0 || double.IsNaN(cont) || rest.Length > 0)
             {

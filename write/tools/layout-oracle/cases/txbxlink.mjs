@@ -14,6 +14,10 @@ const D = (objs, after = '') => buildDocx({
   defaults: docDefaults({ font: 'Arial', size: 11 }),
 });
 const PB = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+const BD = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map((k) => `<w:${k} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('') + '</w:tblBorders>';
+const TBL = (n) => `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>${BD}<w:tblLook w:val="04A0"/></w:tblPr><w:tblGrid><w:gridCol w:w="1300"/><w:gridCol w:w="1300"/></w:tblGrid>`
+  + Array.from({ length: n }, (_, k) => `<w:tr><w:tc><w:tcPr><w:tcW w:w="1300" w:type="dxa"/></w:tcPr>${p(r(`Linha ${k + 1}`))}</w:tc><w:tc><w:tcPr><w:tcW w:w="1300" w:type="dxa"/></w:tcPr>${p(r(lorem(3, k + 7)))}</w:tc></w:tr>`).join('')
+  + '</w:tbl>';
 
 const A = (o) => tbx({ i: 1, x: 90, y: 200, w: 200, h: 90, id: 1, ...o });
 const B = (o) => tbx({ i: 2, x: 330, y: 200, w: 150, h: 130, link: { id: 1, seq: 1 }, ...o });
@@ -30,5 +34,10 @@ export const cases = [
   { name: 'lk-anchor', docx: D(A({ content: paras(3, 30) }) + B({ anchor: 'ctr', h: 200 }) ) },
   { name: 'lk-insets', docx: D(A({ content: paras(3, 30), ins: [20, 12, 4, 2] }) + B({ ins: [0, 0, 0, 0] })) },
   { name: 'lk-page', docx: D(A({ content: paras(4, 40) }), PB + p(tbx({ i: 2, x: 120, y: 150, w: 240, h: 150, link: { id: 1, seq: 1 } }) + r('Ancora na pagina dois.')) + p(r(lorem(20, 2)))) },
+  // tabela que não cabe na 1ª caixa: as linhas que sobram continuam na seguinte
+  { name: 'lk-table', docx: D(A({ content: p(r(lorem(18, 3))) + TBL(8) + p(r(lorem(12, 5))) }) + B()) },
+  { name: 'lk-table2', docx: D(A({ content: p(r('Tabela:')) + TBL(12) }) + B()) },
+  // história com id 0 (o Word numera a partir de 1, mas 0 é válido)
+  { name: 'lk-id0', docx: D(A({ id: 0, content: paras(3, 30) }) + B({ link: { id: 0, seq: 1 } })) },
   { name: 'lk-keepnext', docx: D(A({ content: p(r(lorem(70, 3))) + p(r('Titulo preso ao proximo'), '<w:keepNext/>') + p(r(lorem(30, 4))) }) + B()) },
 ];

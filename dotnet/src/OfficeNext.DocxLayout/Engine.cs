@@ -3971,8 +3971,7 @@ internal sealed class Engine
 
     private TextboxChain? ChainOf(DrawingTextbox tb)
     {
-        // (história 0 conta como sem história, como o !tb.story do JS)
-        if ((tb.Story ?? 0) == 0 && tb.Link is null) return null;
+        if (tb.Story is null && tb.Link is null) return null;
         _chains ??= Chain.IndexChains(_full);
         return _chains.TryGetValue(tb, out var c) ? c : null;
     }
@@ -3998,6 +3997,7 @@ internal sealed class Engine
             List<Block> rem = head.Blocks ?? head.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
             List<int> map = Enumerable.Range(0, rem.Count).ToList();
             double cont = 0;
+            int rows = 0;
             static CellContent Empty() => new CellContent();
             for (int k = 0; k < chain.Members.Count; k++)
             {
@@ -4008,6 +4008,7 @@ internal sealed class Engine
                 var blocks = rem;
                 var curMap = map;
                 double curCont = cont;
+                int curRows = rows;
                 var c = _ctx.Pure(() => LayoutStatic(blocks, 0, Math.Max(1, fr.Iw), env, "txbx"));
                 // a 1ª linha da continuação não é a 1ª do parágrafo (viúvas/órfãs)
                 var ci = curCont != 0 && !double.IsNaN(curCont) && c.Paras is not null && c.Paras.TryGetValue("txbx/b0", out var cv) ? cv : null;
@@ -4021,31 +4022,57 @@ internal sealed class Engine
                     if (parts is null) { outp[m] = Empty(); rem = blocks; continue; }
                     double cut = parts.Value.A.Height;
                     var moved = c.Lines.Where(l => l.Y >= cut - 0.01).ToList();
-                    if (moved.Count > 0)
+                    var first = moved.Count > 0 ? moved.Aggregate((a, b) => b.Y < a.Y ? b : a) : null;
+                    // corte numa tabela: as linhas dela que não couberam inteiras vão para a próxima
+                    // caixa (a linha partida desce inteira — senão a parte de cima sairia duas vezes)
+                    int row = first is not null ? Chain.TopRowOf(first.Ref) : -1;
+                    if (first is not null && row >= 0)
+                    {
+                        int jt = Chain.TopBlockOf(first.Ref), r0 = row;
+                        var nr = c.Nest?.FirstOrDefault(n => n.Lines.Any(l => Chain.TopBlockOf(l.Ref) == jt && Chain.TopRowOf(l.Ref) == r0));
+                        if (nr is not null && nr.Top < cut - 0.01)
+                        {
+                            var p2 = nr.Top > 0.5 ? TableEngine.SplitContent(c, nr.Top) : null;
+                            if (p2 is null) { outp[m] = Empty(); rem = blocks; continue; }
+                            parts = p2;
+                            cut = p2.Value.A.Height;
+                            double cut2 = cut;
+                            moved = c.Lines.Where(l => l.Y >= cut2 - 0.01).ToList();
+                            first = moved.Aggregate((a, b) => b.Y < a.Y ? b : a);
+                            row = Chain.TopRowOf(first.Ref);
+                        }
+                    }
+                    if (first is not null)
                     {
                         slice = parts.Value.A.ShallowClone();
                         slice.Height = cut;
-                        var first = moved.Aggregate((a, b) => b.Y < a.Y ? b : a);
                         int j = Math.Max(0, Chain.TopBlockOf(first.Ref));
-                        // linha numa tabela: a tabela inteira vai para a próxima caixa
                         double off = ChainBlockRefRe.IsMatch(first.Ref) ? first.Start : 0;
                         map = curMap.Skip(j).ToList();
                         var pb = j < blocks.Count ? blocks[j] : null;
+                        cont = 0; rows = 0;
                         if (off > 0 && pb is ParagraphBlock ppb)
                         {
                             cont = (j == 0 ? curCont : 0) + off;
                             rem = new List<Block> { new ParagraphBlock { Paragraph = Chain.SliceParagraphFrom(ppb.Paragraph, off) } };
                             rem.AddRange(blocks.Skip(j + 1));
                         }
+                        else if (row > 0 && pb is TableBlock tpb)
+                        {
+                            rows = (j == 0 ? curRows : 0) + row;
+                            var tcut = tpb.ShallowClone();
+                            tcut.Rows = tpb.Rows.Skip(row).ToList();
+                            rem = new List<Block> { tcut };
+                            rem.AddRange(blocks.Skip(j + 1));
+                        }
                         else
                         {
-                            cont = 0;
                             rem = blocks.Skip(j).ToList();
                         }
                     }
                 }
                 var sl = slice.ShallowClone();
-                sl.Lines = Chain.RemapLines(slice.Lines, curMap, curCont);
+                sl.Lines = Chain.RemapLines(slice.Lines, curMap, curCont, curRows);
                 outp[m] = sl;
             }
         }
@@ -4518,8 +4545,9 @@ internal sealed class Engine
                 {
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                     // campos (PAGE…) da caixa do grupo valem por página, como na caixa solta (oráculo hfgroup)
-                    var chain = ChainOf(r.Textbox);
-                    if (chain is not null) tc = ChainSlice(chain, r.Textbox, new ParaEnv { Field = FieldValue(ps ?? _cur), Hf = _inHf });
+                    // (com giro/espelho do grupo o filho é uma cópia: a cadeia é a da caixa original)
+                    var chain = ChainOf(item.Run.Textbox!);
+                    if (chain is not null) tc = ChainSlice(chain, item.Run.Textbox!, new ParaEnv { Field = FieldValue(ps ?? _cur), Hf = _inHf });
                     else
                     {
                         var genv = TbEnv(new ParaEnv { Field = FieldValue(ps ?? _cur) }, r.Textbox);
