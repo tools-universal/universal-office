@@ -17,6 +17,6 @@ export { documentHyphenationLanguages } from './hyphenate.js';
 export { paintItems, type EnginePaintEnv } from './canvas.js';
 export { paragraphAtPath, cellAtGrid, cellBlocks } from './refs.js';
 export { AUTHOR_PALETTE, MOVE_COLOR, RevisionDisplay, authorColor, type RevisionMode, type RevisionView } from './revisions.js';
-export { documentOutline, outlineLevelOf, headingText, numberedItems, type OutlineHeading, type NumberedItem } from './outline.js';
+export { documentOutline, outlineLevelOf, headingText, numberedItems, outlineParagraphs, type OutlineHeading, type NumberedItem, type OutlineParagraph } from './outline.js';
 export { inheritedPPr, effectivePPr } from './paraformat.js';
 export { formatWordDate, dateFieldValue } from './datefmt.js';

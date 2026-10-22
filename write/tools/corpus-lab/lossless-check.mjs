@@ -27,6 +27,9 @@
 // distâncias, numeração i, ii… a partir de 3 na última seção; Pares e Ímpares;
 // desvincula (cópia) e vincula (a parte sai) cabeçalhos de seções; número de
 // página da galeria no rodapé da 1ª seção → as outras partes saem byte a byte.
+// --refs: indicador novo num parágrafo, referência cruzada REF h a ele, legenda
+// com SEQ num parágrafo novo e hiperlink com Dica de Tela → o XML relê, o
+// indicador e os campos saem como o Word grava, nada se perde.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -52,6 +55,7 @@ const show = opt('--show');
 const sectionsMode = args.includes('--sections');
 const tablesMode = args.includes('--tables');
 const notesMode = args.includes('--notes');
+const refsMode = args.includes('--refs');
 
 /** Notas como o editor passa ao salvar: o conteúdo das referenciadas no corpo. */
 function notesOf(full) {
@@ -492,6 +496,36 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       navEdit = { move };
     }
+    // --refs: indicador novo (marcas nos runs do modelo do editor), referência
+    // cruzada REF \h a ele, legenda com SEQ num parágrafo novo e hiperlink com
+    // Dica de Tela (como o <universal-write> grava — oráculo refs-lab)
+    let refEdit = null;
+    if (refsMode && cands[3] && cands[1]) {
+      const bp = cands[3][0], bpi = ps.indexOf(bp);
+      let maxId = -1;
+      for (const pp of paras(b.full.blocks)) for (const r of pp.runs) if (r.bookmark && r.bookmark.id > maxId) maxId = r.bookmark.id;
+      for (const m of orig.documentXml().matchAll(/<w:bookmarkStart\b[^>]*\bw:id="(\d+)"/g)) maxId = Math.max(maxId, +m[1]);
+      const id = maxId + 1;
+      const bmText = text(bp).slice(0, 5);
+      const mark = (end) => ({ text: '', props: { ...core.DEFAULT_RUN_PROPS }, bookmark: { id, name: 'RefLossless', ...(end ? { end: true } : {}) } });
+      bp.runs.splice(core.splitAt(bp, 5), 0, mark(true));
+      bp.runs.splice(core.insertIndex(bp, 0), 0, mark(false));
+      if (!edited.includes(bp)) edited.push(bp);
+      // a referência depois do "XYZ" do 1º editado (ou no começo do 2º)
+      const host = cands[0] ? cands[0][1] : cands[1][1];
+      const rp = { ...core.DEFAULT_RUN_PROPS };
+      core.insertRun(model, { para: host, offset: cands[0] ? 8 : 0 }, { text: bmText, props: rp, field: ' REF RefLossless \\h ', fieldResult: [{ text: bmText, props: rp }] });
+      // hiperlink com Dica de Tela num trecho do 2º
+      applyRunProps(model, { start: { para: cands[1][1], offset: 10 }, end: { para: cands[1][1], offset: 14 } }, { link: 'https://exemplo.com/lossless', linkTip: 'Dica Lossless', charStyle: 'Hyperlink' });
+      if (!edited.includes(cands[1][0])) edited.push(cands[1][0]);
+      // legenda num parágrafo novo antes do 4º candidato
+      const capP = { runs: [{ text: 'Figura ', props: { ...rp } }, { text: '1', props: { ...rp }, field: ' SEQ Figura \\* ARABIC ', fieldResult: [{ text: '1', props: { ...rp, noProof: true } }] }, { text: ' - Lossless', props: { ...rp } }], props: {} };
+      const bi = b.full.blocks.findIndex((x) => x.type === 'paragraph' && x.paragraph === bp);
+      b.full.blocks.splice(bi, 0, { type: 'paragraph', paragraph: capP });
+      ps.splice(bpi, 0, capP);
+      secEdits += 1;
+      refEdit = { id, bmText };
+    }
     // --hf: cabeçalho e rodapé como o editor (frente Cabeçalho e rodapé)
     const hfEdit = hfMode ? editHf(b, model) : null;
     if (hfEdit) secEdits += hfEdit.secEdits;
@@ -554,6 +588,15 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       res.hf = { titlePg: hfEdit.titlePg, unlink: hfEdit.unlink?.sec ?? -1, relink: hfEdit.relink?.sec ?? -1 };
     }
+    if (refEdit) {
+      if (!xml.includes(`<w:bookmarkStart w:id="${refEdit.id}" w:name="RefLossless"/>`) || !xml.includes(`<w:bookmarkEnd w:id="${refEdit.id}"/>`)) res.issues.push('refs-no-bookmark');
+      if (!xml.includes('<w:instrText xml:space="preserve"> REF RefLossless \\h </w:instrText>')) res.issues.push('refs-no-ref');
+      if (!xml.includes('<w:fldSimple w:instr=" SEQ Figura \\* ARABIC ">')) res.issues.push('refs-no-seq');
+      if (!/<w:hyperlink r:id="[^"]+" w:tooltip="Dica Lossless" w:history="1">/.test(xml)) res.issues.push('refs-no-tooltip');
+      const rf = readFullDocument(re);
+      if (!rf.bookmarks.has('RefLossless') || !rf.bookmarkEnds?.has('RefLossless')) res.issues.push('refs-unread-bookmark');
+      res.refs = true;
+    }
     if (tblEdit) {
       if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
       if (!xml.includes('<w:pgBorders')) res.issues.push('tables-no-pgborders');
@@ -594,7 +637,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));

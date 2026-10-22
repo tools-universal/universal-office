@@ -418,6 +418,44 @@ document's default tab stop; Page Setup takes custom margins.
 | Pages | `layoutPageCount()`, `paintPageThumbnail(page, canvas, cssWidth)`, `goToPage(page)` |
 | Gridlines | `showGridlines(on)` · `gridlinesShown()` |
 
+## Links and references
+
+Bookmarks, cross-references, captions, the table of figures, the table of
+contents and hyperlinks are written the way Word writes them (measured against
+Word: bookmark XML and ids, hidden `_Ref`/`_Toc` bookmarks, complex
+`REF`/`PAGEREF`/`NOTEREF` fields, `SEQ`/`STYLEREF` captions, multi-paragraph
+`TOC` fields). Bookmarks follow edits like Word's: typing at the start of a
+bookmark goes inside it, at the end it stays out; deleting the whole bookmarked
+text deletes the bookmark; cut and paste moves it, copy does not duplicate it.
+
+| Area | Methods |
+|---|---|
+| Bookmarks | `insertBookmark(name)` — on the selection (or a point bookmark at the caret); a repeated name (case-insensitive) moves the bookmark; `false` for an invalid name (a letter, then letters, digits or `_`, up to 40). `deleteBookmark(name)`, `goToBookmark(name)` (selects it), `getBookmarks({ hidden, sort: 'name' \| 'location' })` → `{ name, hidden, text }[]`, `hasBookmark(name)`, `validBookmarkName(name)`, `showBookmarks(on?)` · `bookmarksShown()` (gray brackets on the screen, never in the PDF or print; hidden bookmarks are not shown) |
+| Cross-reference | `getCrossReferenceItems(type, label?)` → `{ id, text }[]` for `'numbered' \| 'heading' \| 'bookmark' \| 'footnote' \| 'endnote' \| 'caption'`, `crossReferenceKinds(type)`, `insertCrossReference({ type, label?, item, kind, hyperlink = true, position, separator })` — kinds `'text' \| 'page' \| 'number' \| 'numberNoContext' \| 'numberFullContext' \| 'position' \| 'noteNumber' \| 'noteNumberFormatted' \| 'captionEntire' \| 'captionLabel' \| 'captionText'`; a hidden `_Ref` bookmark is created on the target (and reused by the next reference to it) |
+| Captions | `insertCaption({ label, title?, position?, excludeLabel?, numbering? })` — above or below the selected picture or table (`keepNext` like Word), otherwise at the caret; renumbers the following captions of the label. `getCaptionLabels()`, `addCaptionLabel(name)` · `deleteCaptionLabel(name)`, `getCaptionNumbering(label)` · `setCaptionNumbering(label, { format, chapter?: { level, separator } })` (formats `ARABIC`, `alphabetic`, `ALPHABETIC`, `roman`, `ROMAN`; chapter numbers through `STYLEREF n \s`), `captionTarget()`, `nextCaptionNumber(label)`, `getAutoCaption()` · `setAutoCaption({ table: { label, position } })` (caption new tables). `captionSettings` (get/set) holds the new labels, numbering and AutoCaption — the bars keep it per machine |
+| Table of figures | `insertTableOfFigures({ label, includeLabel, pageNumbers, rightAlign, leader, hyperlinks, format })` (`TOC \h \z \c "Figure"`; with the caret in a table of figures it is replaced), `updateTableOfFigures()` (the one at the caret, or all), `getTableOfFiguresOptions()` |
+| Table of contents | `updateToc()` rebuilds every `TOC` field (headings and figures) with the same engine: entries linked to hidden `_Toc` bookmarks with `PAGEREF` page numbers, the TOC N / Table of Figures styles and the existing right tab and leader |
+| Fields | `updateFields(scope = 'all')` — `'selection'` (what F9 does, like Word) updates the fields in the selection or at the caret; `'all'` every field: TOCs, table formulas and the cached results of `REF`, `PAGEREF`, `NOTEREF`, `SEQ` and `STYLEREF` (the `REF` result keeps the direct formatting of the bookmarked text). Returns how many changed |
+| Hyperlinks | `insertHyperlink({ address?, anchor?, tip?, text? })` — a web address, file or `mailto:`, or a place in the document (`anchor`: a bookmark, `'_top'`, or `'p:<paragraph>'` for a heading, which gets a hidden `_Toc` bookmark); `tip` is the ScreenTip (`w:tooltip`); the runs take the Hyperlink style. `getLink()` → `{ address?, anchor?, tip?, text }`, `getLinkTargets()` (headings and bookmarks), `removeLink()` |
+
+The layout engine computes these fields the way Word does when it prints or
+exports: `REF` shows the exact bookmarked text (`\n`, `\r`, `\w` and `\d`
+for paragraph numbers in context), `\p` gives "above"/"below", `NOTEREF` the
+note's mark (also for a later note), `STYLEREF` the nearest heading of the level
+(`\s` only the numbers, `\n` the number) and `SEQ \s n` restarts at each
+heading of level n or above.
+
+The ribbon has **Insert › Links** (Link, Bookmark, Cross-reference),
+**References › Captions** (Insert Caption, Insert Table of Figures, Update
+Table, Cross-reference) and **View › Show › Bookmarks**; the compact bar has
+them under Insert and View. The dialogs: **Bookmark** (add, delete, go to, sort
+by name or location, hidden bookmarks, show bookmarks), **Cross-reference**
+(non-modal: it stays open after Insert), **Caption** (New Label, Delete Label,
+Numbering, AutoCaption), **Table of Figures** (preview, page numbers, tab
+leader, hyperlinks, formats, Modify the style) and **Link** (web page or file,
+place in this document, e-mail address, text to display, ScreenTip, Remove
+Link). Ctrl+click follows a link or a cross-reference inserted as a hyperlink.
+
 ## Events
 
 | Event | `detail` | When |
@@ -434,6 +472,8 @@ document's default tab stop; Page Setup takes custom margins.
 | `uw-borderpen` | `BorderSpec` | The border pen (style, width, color) changed. |
 | `uw-sort-error` | `{ reason, message }` | Sort refused (`reason: 'merged'` — the table has merged cells). |
 | `uw-notemode` | `{ active, kind, id }` | Entered or left a footnote or endnote. |
+| `uw-bookmarks-change` | — | A bookmark was added, moved or deleted. |
+| `uw-caption-settings` | — | Caption labels, numbering or AutoCaption changed (save `captionSettings`). |
 | `uw-before-input` | `{ text }` | Text is about to be typed. **Cancelable.** |
 | `uw-input` | `{ text }` | Text was typed. |
 | `uw-comments-changed` | — | A comment was added or removed. |
@@ -507,7 +547,7 @@ Type `@` to open the suggestions (only when `source` is given).
 Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · R · J
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
 break), Shift+Enter (column break), ← → (word), Home · End (document, also from a table cell), Alt+F ·
-Alt+D (footnote, endnote; Esc inside a note goes back to its reference). F9 updates the fields (table formulas). With `topbar`, also O (open), S ·
+Alt+D (footnote, endnote; Esc inside a note goes back to its reference). F9 updates the fields in the selection (Ctrl+A, F9: all). With `topbar`, also O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
 dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts),
 Alt+1 · 2 · 3 (Heading 1–3), Shift+N (Normal), Space (clear character

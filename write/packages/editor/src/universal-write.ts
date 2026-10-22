@@ -173,7 +173,7 @@ import { compareText } from '@universal-office/collation';
 import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
-import { documentOutline, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
+import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
 import {
   tabInfo, tabsDirect, indentsDirect, dedupeTabs, headingSpan, moveMap, findInText, matchSnippet, drawingGridOf, gridLines,
   type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
@@ -3986,45 +3986,49 @@ export class UniversalWriteElement extends HTMLElement {
   private tocSources(o: TocOptions, skip: [number, number] | null): TocSource[] {
     const ps = this.bodyModel().paragraphs;
     const out: TocSource[] = [];
-    const inSkip = (pi: number): boolean => !!skip && pi >= skip[0] && pi <= skip[1];
+    // corpo e células na ordem do documento (o Word leva títulos e legendas de dentro das tabelas)
+    const all = outlineParagraphs(this.liveEngineDoc().full);
+    const host = new Map<Paragraph, { paras: Paragraph[]; idx: number }>();
+    for (const s of this.markStories()) s.paras.forEach((p, i) => host.set(p, { paras: s.paras, idx: i }));
+    const inSkip = (p: Paragraph): boolean => {
+      const h = host.get(p);
+      return !!skip && h?.paras === ps && h.idx >= skip[0] && h.idx <= skip[1];
+    };
+    const mark = (p: Paragraph): string => {
+      const h = host.get(p);
+      return h ? this.refBookmark(h.paras, h.idx, 0, paraLength(p), '_Toc') : '';
+    };
     if (o.caption !== undefined) {
       const want = o.caption.toLowerCase();
-      ps.forEach((p, pi) => {
-        if (inSkip(pi)) return;
+      for (const { paragraph: p } of all) {
+        if (inSkip(p)) continue;
         let acc = 0, seqEnd = -1;
         for (const r of p.runs) { acc += r.text.length; if (seqEnd < 0 && seqLabel(r.field).toLowerCase() === want) seqEnd = acc; }
-        if (seqEnd < 0) return;
+        if (seqEnd < 0) continue;
         const full = paraText(p);
         const text = (o.includeLabel === false ? full.slice(seqEnd).replace(/^\s+/, '') : full).replace(/[\t\n\f\u000B]/g, ' ').trim();
-        out.push({ level: 1, text, page: this.pageLabelOf(p), bookmark: this.refBookmark(ps, pi, 0, paraLength(p), '_Toc') });
-      });
+        out.push({ level: 1, text, page: this.pageLabelOf(p), bookmark: mark(p) });
+      }
       return out;
-    }
-    const doc = this.liveEngineDoc();
-    const outline = documentOutline(doc.full);
-    const byPara = new Map<number, { level: number; number: string }>();
-    for (const h of outline) {
-      const og = doc.origins[h.block];
-      if (og?.kind === 'para') byPara.set(og.para, { level: h.level, number: h.number });
     }
     const styleLevel = new Map<string, number>();
     for (const s of o.styles ?? []) {
       const meta = this.docStyles.byName(s.style) ?? this.docStyles.meta(s.style);
       if (meta) styleLevel.set(meta.id, s.level);
     }
-    ps.forEach((p, pi) => {
-      if (inSkip(pi)) return;
+    for (const h of all) {
+      const p = h.paragraph;
+      if (inSkip(p)) continue;
       let level = 0;
-      const h = byPara.get(pi);
       const sid = p.props.styleId ?? p.ppr?.pStyle;
       if (sid && styleLevel.has(sid)) level = styleLevel.get(sid)!;
-      else if (h && o.outline && this.isHeadingStyle(sid, h.level) && h.level >= o.outline[0] && h.level <= o.outline[1]) level = h.level;
-      else if (h && o.outlineLevels && h.level >= (o.outline?.[0] ?? 1) && h.level <= (o.outline?.[1] ?? 9)) level = h.level;
-      if (!level) return;
+      else if (h.level && o.outline && this.isHeadingStyle(sid, h.level) && h.level >= o.outline[0] && h.level <= o.outline[1]) level = h.level;
+      else if (h.level && o.outlineLevels && h.level >= (o.outline?.[0] ?? 1) && h.level <= (o.outline?.[1] ?? 9)) level = h.level;
+      if (!level) continue;
       const text = paraText(p).replace(/[\t\n\f\u000B]/g, ' ').trim();
-      if (!text) return;
-      out.push({ level, text, ...(h?.number ? { number: h.number } : {}), page: this.pageLabelOf(p), bookmark: this.refBookmark(ps, pi, 0, paraLength(p), '_Toc') });
-    });
+      if (!text) continue;
+      out.push({ level, text, ...(h.number ? { number: h.number } : {}), page: this.pageLabelOf(p), bookmark: mark(p) });
+    }
     return out;
   }
 

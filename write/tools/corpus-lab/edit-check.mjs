@@ -1226,6 +1226,59 @@ if (want('refs')) {
   check('link para título: _Toc oculto nele e w:anchor', /<w:hyperlink w:anchor="_Toc\d{9}" w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"\/><\/w:rPr><w:t>Ver título<\/w:t>/.test(xml));
 }
 
+// ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────
+// --only toccorpus [--toc-limit N] [--toc-out pasta]: abre documentos do corpus com
+// campo TOC, atualiza (updateToc — o motor de TOC único), confere o XML e grava os
+// salvos + manifest.tsv para o word-open-check -Toc (o Word atualiza o mesmo sumário
+// e compara as entradas).
+if (want('toccorpus')) {
+  const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
+  const CORPUS = process.env.CORPUS_ROOT ?? 'E:/UniversalWriteTest';
+  const lim = Number(opt('toc-limit', 40));
+  const outDir = opt('toc-out');
+  const files = [];
+  const walkDir = function* (dir) {
+    for (const e of (require('node:fs').readdirSync(dir, { withFileTypes: true }))) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== '_lab') yield* walkDir(p); } else if (/\.docx$/i.test(e.name)) yield p;
+    }
+  };
+  for (const f of walkDir(join(CORPUS, 'Documents'))) {
+    if (files.length >= lim) break;
+    try {
+      const b = readFileSync(f);
+      if (b[0] !== 0x50) continue;
+      const x = core.DocxPackage.load(new Uint8Array(b)).documentXml();
+      if (/<w:instrText[^>]*>\s*TOC\s+\\[ocu]/.test(x)) files.push(f);
+    } catch { /* não abre: fora */ }
+  }
+  const manifest = [];
+  let k = 0;
+  for (const f of files) {
+    k++;
+    extraFiles.set('doc', f);
+    try {
+      await ev('open', '/__file/doc');
+      await page.evaluate(() => document.querySelector('universal-write').enableEditing?.());
+      const ok = await call('updateToc');
+      const xml = await ev('savedPart', 'word/document.xml');
+      const begins = (xml.match(/w:fldCharType="begin"/g) ?? []).length, ends = (xml.match(/w:fldCharType="end"/g) ?? []).length;
+      const anchors = [...xml.matchAll(/<w:hyperlink w:anchor="(_Toc\d+)"/g)].map((m) => m[1]);
+      const missing = anchors.filter((a) => !xml.includes(`w:name="${a}"`));
+      const pass = ok && begins === ends && missing.length === 0;
+      check(`TOC do corpus ${k}: atualiza, campos balanceados, _Toc existem`, pass, { file: f.slice(CORPUS.length + 1).slice(-60), ok, begins, ends, entries: anchors.length, missing: missing.slice(0, 3) });
+      if (outDir && pass) {
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(join(outDir, `${k}.docx`), Buffer.from(await ev('saveBase64'), 'base64'));
+        manifest.push(`${k}.docx\t${f}`);
+      }
+    } catch (e) {
+      check(`TOC do corpus ${k}: abre e atualiza`, false, { file: f.slice(-60), err: String(e).slice(0, 200) });
+    }
+  }
+  if (outDir) writeFileSync(join(outDir, 'manifest.tsv'), manifest.join('\n'), 'utf8');
+}
+
 // ───────────── desempenho ─────────────
 const perf = [];
 async function perfDoc(label, opener) {

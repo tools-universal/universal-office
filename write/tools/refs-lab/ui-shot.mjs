@@ -56,7 +56,18 @@ await run('ed.enableEditing(); ed.setAttribute("lang", ' + JSON.stringify(lang) 
 await page.waitForTimeout(800);
 const tab = async (en, pt) => { await run(`[...ed.shadowRoot.querySelectorAll(".uo-tab")].find((t) => t.textContent === ${JSON.stringify(pt)} || t.textContent === ${JSON.stringify(en)})?.click();`); await page.waitForTimeout(300); };
 const click = async (sel) => { await run(`ed.shadowRoot.querySelector(${JSON.stringify(sel)})?.click();`); await page.waitForTimeout(500); };
-const cmd = async (id) => { await run(`ed.shadowRoot.querySelector('[data-a="${id}"]')?.click();`); await page.waitForTimeout(600); };
+// barra compacta: os comandos moram no menu Inserir (rótulo do item, en|pt)
+const ITEM = { bookmark: 'Bookmark|Indicador', crossref: 'Cross-reference|Referência Cruzada', caption: 'Insert Caption|Inserir Legenda', tof: 'Insert Table of Figures|Inserir Índice de Ilustrações', link: 'Link|Link' };
+const cmd = async (id) => {
+  if (toolbar === 'compact') {
+    await run(`[...ed.shadowRoot.querySelectorAll(".uo-mbtn")].find((b) => /^(Insert|Inserir)$/.test(b.textContent.trim()))?.click();`);
+    await page.waitForTimeout(300);
+    await run(`const want = ${JSON.stringify(ITEM[id] ?? id)}.split("|");
+      const items = [...ed.shadowRoot.querySelectorAll(".uo-menu-item"), ...document.querySelectorAll(".uo-menu-item")];
+      items.find((b) => want.some((w) => b.querySelector(".lb")?.textContent.trim().replace(/…$/, "") === w))?.click();`);
+  } else await run(`ed.shadowRoot.querySelector('[data-a="${id}"]')?.click();`);
+  await page.waitForTimeout(600);
+};
 
 if (scenario === 'ribbon') {
   await tab('Insert', 'Inserir'); await shot('inserir');

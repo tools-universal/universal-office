@@ -593,7 +593,8 @@ function runsLossless(para: Paragraph, src: ParaSource, pid: number, last: boole
         while (j < cur.length && cur[j]!.props.src !== undefined && own.has(cur[j]!.props.src!)
           && sameWrap(cur[j]!)) j++;
         flushGen();
-        out += g.wrapOpen + genRuns(cur.slice(i, j).map((run, k) => ({ run, before: marks.before[i + k]!, after: marks.after[i + k]! })), true) + g.wrapClose;
+        // (dentro de um w:hyperlink os runs não abrem outro; dentro de sdt/smartTag sim)
+        out += g.wrapOpen + genRuns(cur.slice(i, j).map((run, k) => ({ run, before: marks.before[i + k]!, after: marks.after[i + k]! })), g.link !== undefined) + g.wrapClose;
         take(loc[0]);
         zp = loc[0] + 1;
         i = j;
@@ -1004,7 +1005,16 @@ function groupsXml(groups: StoryGroup[], blocks: Block[], store: SourceStore): s
         // sdt/customXml com blocos editados: reembrulha os blocos que seguem do
         // grupo, com os filhos de dentro (sdt aninhado…) tratados do mesmo jeito
         let j = i;
-        while (j < blocks.length && (() => { const x = blockId(blocks[j]!); return x !== undefined && groupOf.get(x) === gi; })()) j++;
+        const inGroup = (k: number): boolean => { const x = blockId(blocks[k]!); return x !== undefined && groupOf.get(x) === gi; };
+        while (j < blocks.length) {
+          if (inGroup(j)) { j++; continue; }
+          // blocos novos (sem fonte) ENTRE blocos do grupo ficam dentro do envoltório:
+          // entradas refeitas de um sumário em sdt, legenda inserida no meio dele
+          let k = j;
+          while (k < blocks.length && blockId(blocks[k]!) === undefined) k++;
+          if (k > j && k < blocks.length && inGroup(k)) { j = k; continue; }
+          break;
+        }
         const inner = blocks.slice(i, j);
         out += g.wrapOpen + (g.inner ? groupsXml(g.inner, inner, store) : inner.map(blockXml).join('')) + g.wrapClose;
         zp = gi + 1;

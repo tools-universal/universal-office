@@ -127,3 +127,38 @@ export function numberedItems(full: FullDocument, opts: { lang?: string } = {}):
   walk(full.blocks, true);
   return out;
 }
+
+/** Parágrafo do documento (fonte de sumário), no corpo ou numa célula. */
+export interface OutlineParagraph {
+  paragraph: Paragraph;
+  /** bloco de topo (a tabela, para as células) */
+  block: number;
+  /** nível de tópico 1–9 (0 = corpo do texto) */
+  level: number;
+  /** número da lista ("" sem numeração) */
+  number: string;
+}
+
+/** Todos os parágrafos do corpo na ordem do documento, células de tabela INCLUÍDAS,
+ *  com o nível de tópico — o sumário do Word leva os títulos e as legendas de dentro
+ *  das tabelas (corpus: edit-check toccorpus × word-open-check -Toc); a numeração
+ *  avança como no desenho. */
+export function outlineParagraphs(full: FullDocument, opts: { lang?: string } = {}): OutlineParagraph[] {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const out: OutlineParagraph[] = [];
+  const walk = (blocks: readonly Block[], top: number | null): void => {
+    blocks.forEach((b, i) => {
+      if (b.type === 'table') {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell), top ?? i);
+        return;
+      }
+      const p = b.paragraph;
+      const { ppr } = resolvePPr(ctx, p, {});
+      const n = ppr.numPr;
+      const num = n?.numId ? (ctx.numbering.next(n.numId, n.ilvl ?? 0)?.text ?? '') : '';
+      out.push({ paragraph: p, block: top ?? i, level: outlineLevelOf(ctx, p, ppr), number: num });
+    });
+  };
+  walk(full.blocks, null);
+  return out;
+}

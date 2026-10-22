@@ -14,6 +14,10 @@
 # -Hf: saida do lossless-check --hf (ultima secao com Primeira Pagina Diferente
 # trocada, distancias 2 / 1,5 cm, numeracao i, ii... a partir de 3, pares e impares;
 # secoes desvinculada e vinculada: colunas 3 a 5 do manifest).
+# -Refs: saida do lossless-check --refs (indicador RefLossless, REF \h a ele que, atualizado,
+# da o texto do indicador; legenda SEQ Figura num paragrafo novo; hiperlink com Dica de Tela).
+# -Toc: saida do edit-check --only toccorpus (sumario atualizado pelo editor): o Word
+# atualiza o MESMO sumario e as entradas (texto sem o numero da pagina) tem de bater.
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -22,7 +26,9 @@ param(
   [switch]$Tables,
   [switch]$Notes,
   [switch]$Nav,
-  [switch]$Hf
+  [switch]$Hf,
+  [switch]$Refs,
+  [switch]$Toc
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -103,6 +109,28 @@ foreach ($row in $rows) {
             if ($r -ge 0 -and $r + 1 -le $d.Sections.Count) { $script:hfRe = [bool]$d.Sections.Item($r + 1).Headers.Item(1).LinkToPrevious }
           }
         }
+        if ($Toc) {
+          $script:tocSame = $false; $script:tocInfo = ''
+          if ($d.TablesOfContents.Count -gt 0) {
+            $norm = { param($t) (([string]$t -split "`r") | ForEach-Object { (($_ -replace '\t[^\t]*$', '') -replace '[^\p{L}\p{N}]', '') } | Where-Object { $_ -ne '' }) -join '|' }
+            $ours = & $norm $d.TablesOfContents.Item(1).Range.Text
+            $null = $d.TablesOfContents.Item(1).Update()
+            $word = & $norm $d.TablesOfContents.Item(1).Range.Text
+            $script:tocSame = ($ours -eq $word)
+            if (-not $script:tocSame) { $script:tocInfo = (" ours=" + $ours.Substring(0, [math]::Min(160, $ours.Length)) + " word=" + $word.Substring(0, [math]::Min(160, $word.Length))) }
+          } else { $script:tocSame = $true; $script:tocInfo = ' (sem TOC \o)' }
+        }
+        if ($Refs) {
+          $script:bm = [bool]$d.Bookmarks.Exists('RefLossless')
+          $script:refOk = $false; $script:seq = $false; $script:tip = $false
+          $bt = if ($script:bm) { [string]$d.Bookmarks.Item('RefLossless').Range.Text } else { '' }
+          foreach ($f in $d.Fields) {
+            $c = [string]$f.Code.Text
+            if ($c.Contains('REF RefLossless')) { $null = $f.Update(); if ([string]$f.Result.Text -eq $bt) { $script:refOk = $true } }
+            if ($c.Contains('SEQ Figura')) { $script:seq = $true }
+          }
+          foreach ($h in $d.Hyperlinks) { if ([string]$h.ScreenTip -eq 'Dica Lossless') { $script:tip = $true } }
+        }
         $script:fe = $d.Footnotes.Count; $script:ee = $d.Endnotes.Count
         $script:noteText = ''
         if ($Notes) {
@@ -115,9 +143,16 @@ foreach ($row in $rows) {
       try { $script:po = $o.Paragraphs.Count; $script:so = $o.Sections.Count; $script:to = $o.Tables.Count; $script:fo = $o.Footnotes.Count; $script:eo = $o.Endnotes.Count } finally { $o.Close([ref]0) }
     }
     $detail = "paras $($script:po)->$($script:pe) secoes $($script:so)->$($script:se) tabelas $($script:to)->$($script:te) notas $($script:fo)/$($script:eo)->$($script:fe)/$($script:ee)"
+    if ($Toc) { $script:hasEdit = $true }
     $slack = 1
-    if ($Sections) { $slack = 2 }
+    if ($Sections -or $Refs) { $slack = 2 }
     if (-not $script:hasEdit) { $status = 'no-edit' }
+    elseif ($Toc -and -not $script:tocSame) { $status = 'toc-differs'; $detail += $script:tocInfo }
+    elseif ($Toc) { $status = 'ok' }
+    elseif ($Refs -and -not $script:bm) { $status = 'no-bookmark' }
+    elseif ($Refs -and -not $script:refOk) { $status = 'ref-result' }
+    elseif ($Refs -and -not $script:seq) { $status = 'no-seq' }
+    elseif ($Refs -and -not $script:tip) { $status = 'no-tooltip' }
     elseif ($Nav -and $script:prot) { $status = 'ok-protected' }
     elseif ($Nav -and -not $script:ind) { $status = 'no-indent' }
     elseif ($Nav -and -not $script:tabs) { $status = 'no-tabs' }
