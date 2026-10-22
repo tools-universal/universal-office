@@ -305,6 +305,24 @@ editor.host = {
         </tbody>
       </table>
 
+      <h2 id="notes">Footnotes and endnotes</h2>
+      <p>Notes are edited in place: clicking the note area (bottom of the page, or the endnotes after the text) enters the note; Esc or a click in the text goes back. Text and notes share one undo history. Deleting a reference deletes its note; the first Backspace right after a reference only selects it; pasting a copied reference creates a new note with a copy of the text. Ctrl+Alt+F / Ctrl+Alt+D insert a footnote / endnote.</p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>insertFootnote(opts?): number | null</code><br><code>insertEndnote(opts?): number | null</code></td><td>Inserts a note at the end of the selection (nothing is deleted) and moves the caret into it; <code>{ mark?: string }</code> is a custom mark instead of the number. Not available in headers/footers, text boxes or inside a note. Returns the note id.</td></tr>
+          <tr><td><code>canInsertNote(): boolean</code></td><td>Whether a note can be inserted at the caret.</td></tr>
+          <tr><td><code>editingNote()</code></td><td>The note being edited — <code>{ kind: 'footnote' | 'endnote', id } | null</code>.</td></tr>
+          <tr><td><code>noteCount(kind): number</code></td><td>How many notes of the kind the text references.</td></tr>
+          <tr><td><code>nextNote(kind = 'footnote', dir = 1): boolean</code></td><td>Next (<code>1</code>) or previous (<code>-1</code>) note: in the text the caret goes before the reference; inside the notes, to the start of the next note.</td></tr>
+          <tr><td><code>showNotes(kind?): boolean</code></td><td>In the text, opens the note of the reference at the caret (or the next one); inside a note, goes back to its reference.</td></tr>
+          <tr><td><code>openNote(kind, id)</code> · <code>goToNoteRef(kind, id)</code></td><td>Edits a note (caret at the end) · puts the caret right after its reference.</td></tr>
+          <tr><td><code>getNoteOptions(kind)</code></td><td>Options of the caret's section: <code>{ position, numberFormat, startAt, restart, columns? }</code>. <code>position</code>: <code>'pageBottom' | 'beneathText'</code> (footnotes) or <code>'docEnd' | 'sectEnd'</code> (endnotes); <code>numberFormat</code>: <code>'decimal' | 'lowerLetter' | 'upperLetter' | 'lowerRoman' | 'upperRoman' | 'chicago'</code>; <code>restart</code>: <code>'continuous' | 'eachSect' | 'eachPage'</code> (per page: footnotes only); <code>columns</code>: footnote area columns, <code>0</code> = as the section.</td></tr>
+          <tr><td><code>setNoteOptions(kind, options, scope = 'document')</code></td><td>Changes the options for the whole document or for <code>'section'</code> (the caret's section), the way Word writes them (section properties and document settings). With numbering restarted per section or page the start is 1.</td></tr>
+          <tr><td><code>convertNotes(mode, only?): number</code></td><td><code>'toEndnotes' | 'toFootnotes' | 'swap'</code>, or only the note <code>{ kind, id }</code>; the content takes the other kind's note styles. Returns how many notes changed.</td></tr>
+        </tbody>
+      </table>
+
       <h2 id="comments">Comments</h2>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>

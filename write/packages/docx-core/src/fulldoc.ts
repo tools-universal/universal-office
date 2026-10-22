@@ -129,6 +129,8 @@ export interface FullDocument {
   /** Notas como blocos (tabelas preservadas). */
   footnoteBlocks?: Map<number, Block[]>;
   endnoteBlocks?: Map<number, Block[]>;
+  /** ids das notas especiais (separadores, aviso de continuação): nota nova não os usa */
+  noteSpecialIds?: { footnote: number[]; endnote: number[] };
   /** docProps/core.xml (W3CDTF) — campos CREATEDATE/SAVEDATE/PRINTDATE. */
   coreProps?: { created?: string; modified?: string; lastPrinted?: string };
   /** w:background (cor da página): hex e/ou cor do tema com tom/sombra. */
@@ -421,6 +423,7 @@ function readNotesPart(
   elementName: string,
   blocksOut?: Map<number, Block[]>,
   store?: SourceStore,
+  special?: number[],
 ): Map<number, Paragraph[]> {
   const out = new Map<number, Paragraph[]>();
   const xml = pkg.getPartText(path);
@@ -437,13 +440,15 @@ function readNotesPart(
     const id = parseInt(note.attrs['w:id'] ?? '0', 10);
     const type = note.attrs['w:type'];
     if (type === 'separator' || type === 'continuationSeparator' || type === 'continuationNotice') {
+      special?.push(id);
       part?.items.push({ id, raw: xml.slice(note.s, note.e), separator: true });
       continue;
     }
     let blocks: Block[];
     if (!store) blocks = readBlocksOf(note, ctx);
     else {
-      const story = storyOf(xml, note);
+      // (a história é só o elemento da nota: a tag de abertura e o fechamento dela)
+      const story: StorySource = { open: xml.slice(note.s, note.cs), close: xml.slice(note.ce, note.e), groups: [] };
       blocks = [];
       for (const c of childElements(note)) {
         const produced = readBlocksOf({ name: note.name, attrs: {}, children: [c] }, ctx);
@@ -622,8 +627,9 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
   }
   const footnoteBlocks = new Map<number, Block[]>();
   const endnoteBlocks = new Map<number, Block[]>();
-  const footnotes = readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote', footnoteBlocks, store);
-  const endnotes = readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote', endnoteBlocks, store);
+  const noteSpecialIds = { footnote: [] as number[], endnote: [] as number[] };
+  const footnotes = readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote', footnoteBlocks, store, noteSpecialIds.footnote);
+  const endnotes = readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote', endnoteBlocks, store, noteSpecialIds.endnote);
   for (const kind of ['footnote', 'endnote'] as const) {
     const part = store?.noteParts.get(`word/${kind}s.xml`);
     if (part) for (const id of noteRefIds(blocks, kind)) part.refsAtLoad.add(id);
@@ -640,6 +646,7 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,
+    noteSpecialIds,
     ...readCoreProps(pkg),
     ...readBackground(root),
     ...(store ? { sources: store } : {}),

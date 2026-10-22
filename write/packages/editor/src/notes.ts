@@ -122,6 +122,8 @@ export function nextNoteId(full: FullDocument, kind: NoteKind): number {
   let max = 0;
   for (const id of (kind === 'footnote' ? full.footnotes : full.endnotes).keys()) max = Math.max(max, id);
   for (const id of (kind === 'footnote' ? full.footnoteBlocks : full.endnoteBlocks)?.keys() ?? []) max = Math.max(max, id);
+  // (separador, continuação e aviso de continuação também têm id — corpus: aviso com id 1)
+  for (const id of full.noteSpecialIds?.[kind] ?? []) max = Math.max(max, id);
   return max + 1;
 }
 

@@ -15,6 +15,9 @@
 // --tables: também edita a 1ª tabela do corpo como o editor (linha nova com
 // texto e campo de fórmula, mescla, sombreamento, largura preferida, estilo de
 // tabela novo) e põe bordas de página → só ela e o sectPr do corpo mudam.
+// --notes: nota de rodapé e de fim novas no 1º parágrafo editado (estilos e partes
+// como o Word grava) e o texto da 1ª nota de rodapé existente editado → as outras
+// notas saem cruas, as novas entram no fim das partes.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -23,7 +26,8 @@ import { join, extname, basename } from 'node:path';
 
 const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
 const { DocxPackage, readFullDocument, markSectionBreaks, writeDocument, insertText, applyRunProps, splitParagraph, parseXml, childElements, firstChild,
-  readStyleIndex, styleRaw, putStyle, patchStyleXml, patchStyleRPr, styleKid, newStyleXml, styleIdFromName } = core;
+  readStyleIndex, styleRaw, putStyle, patchStyleXml, patchStyleRPr, styleKid, newStyleXml, styleIdFromName,
+  noteRefIds, newNoteParagraphs, noteRefRun, ensureNoteParts, NOTE_STYLES } = core;
 
 const CORPUS_ROOT = process.env.CORPUS_ROOT ?? 'E:/UniversalWriteTest';
 const LAB_DIR = process.env.LAB_DIR ?? join(CORPUS_ROOT, '_lab');
@@ -38,6 +42,38 @@ const show = opt('--show');
 // --sections: além das edições de texto, quebra de seção + colunas + quebra de coluna + paisagem
 const sectionsMode = args.includes('--sections');
 const tablesMode = args.includes('--tables');
+const notesMode = args.includes('--notes');
+
+/** Notas como o editor passa ao salvar: o conteúdo das referenciadas no corpo. */
+function notesOf(full) {
+  const out = {};
+  for (const kind of ['footnote', 'endnote']) {
+    const used = noteRefIds(full.blocks, kind);
+    const src = (kind === 'footnote' ? full.footnoteBlocks : full.endnoteBlocks) ?? new Map();
+    out[kind] = { used, blocks: new Map(used.filter((id) => src.has(id)).map((id) => [id, src.get(id)])) };
+  }
+  return out;
+}
+
+/** Estilos de nota do documento pelo nome, ou os do Word pt-BR (como o editor). */
+function noteStyles(pkg, kind) {
+  let xml = pkg.getPartText('word/styles.xml');
+  if (!xml) return {};
+  const st = NOTE_STYLES[kind];
+  const idx = () => readStyleIndex(xml);
+  const named = (n) => idx().styles.find((x) => x.name.toLowerCase() === n.toLowerCase())?.id;
+  const dP = idx().styles.find((x) => x.type === 'paragraph' && x.isDefault)?.id ?? 'Normal';
+  const dC = idx().styles.find((x) => x.type === 'character' && x.isDefault)?.id ?? 'Fontepargpadro';
+  const map = (x) => x.replace('<w:basedOn w:val="Normal"/>', () => `<w:basedOn w:val="${dP}"/>`).replace('<w:basedOn w:val="Fontepargpadro"/>', () => `<w:basedOn w:val="${dC}"/>`);
+  let text = named(st.text.name), ref = named(st.ref.name);
+  if (!text) { text = st.text.id; xml = putStyle(xml, text, map(st.text.xml)); if (!named(st.char.name)) xml = putStyle(xml, st.char.id, map(st.char.xml)); }
+  if (!ref) { ref = st.ref.id; xml = putStyle(xml, ref, map(st.ref.xml)); }
+  pkg.setPartText('word/styles.xml', xml);
+  return { text, ref };
+}
+
+/** Cada w:footnote / w:endnote cru por id. */
+const noteRaws = (xml, tag) => new Map([...(xml ?? '').matchAll(new RegExp(`<w:${tag}\\b[^>]*?w:id="(-?\\d+)"[\\s\\S]*?</w:${tag}>`, 'g'))].map((m) => [m[1], m[0]]));
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -78,6 +114,7 @@ function save(pkg, full, dirtyAllHf) {
     bodySectRefs: hfParts.filter((h) => lastRefs.includes(h.path)).map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
     blocks: full.blocks,
     sources: full.sources,
+    notes: notesOf(full),
   });
   return pkg.save();
 }
@@ -100,6 +137,7 @@ function saveModel(pkg, full, model) {
     bodySectRefs: [...model.bodyRefs.headerRefs, ...model.bodyRefs.footerRefs],
     blocks: full.blocks,
     sources: full.sources,
+    notes: notesOf(full),
   });
   return pkg.save();
 }
@@ -194,6 +232,34 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       core.setOrientation(model.sectPr, 'landscape');
     }
+    // --notes: nota de rodapé e de fim novas no 1º editado; texto da 1ª nota de rodapé
+    // existente editado (o resto das notas tem de sair cru)
+    let noteEdit = null;
+    if (notesMode && cands[0]) {
+      const pi = ps.indexOf(cands[0][0]);
+      const editedFn = noteRefIds(b.full.blocks, 'footnote')[0];
+      if (editedFn !== undefined) {
+        const np = paras(b.full.footnoteBlocks?.get(editedFn) ?? []);
+        const last = np[np.length - 1];
+        if (last) insertText({ paragraphs: np, sectPr: model.sectPr }, { para: np.length - 1, offset: text(last).length }, ' NOTA EDITADA');
+      }
+      ensureNoteParts(b.pkg);
+      const ids = {};
+      let off = 8; // depois do "XYZ" do 1º
+      for (const kind of ['footnote', 'endnote']) {
+        const st = noteStyles(b.pkg, kind);
+        const map = (kind === 'footnote' ? (b.full.footnoteBlocks ??= new Map()) : (b.full.endnoteBlocks ??= new Map()));
+        const all = [...map.keys(), ...(kind === 'footnote' ? b.full.footnotes : b.full.endnotes).keys(), ...(b.full.noteSpecialIds?.[kind] ?? [])];
+        const id = Math.max(0, ...all) + 1;
+        ids[kind] = id;
+        core.insertRun(model, { para: pi, offset: off }, noteRefRun(kind, id, st.ref));
+        off += 1;
+        const np = newNoteParagraphs(kind, st.text, st.ref);
+        np[0].runs[1].text = kind === 'footnote' ? ' NOTA NOVA RODAPE' : ' NOTA NOVA FIM';
+        map.set(id, np.map((paragraph) => ({ type: 'paragraph', paragraph })));
+      }
+      noteEdit = { editedFn, ids };
+    }
     // 3. estilos
     const stylesPath = 'word/styles.xml';
     const sx0 = b.pkg.getPartText(stylesPath);
@@ -260,7 +326,10 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
     readFullDocument(re); // relê
-    for (const part of re.partNames()) if (/^word\/[^/]+\.xml$|^word\/_rels\//.test(part)) parseXml(re.getPartText(part));
+    for (const part of re.partNames()) {
+      if (!/^word\/[^/]+\.xml$|^word\/_rels\//.test(part)) continue;
+      try { parseXml(re.getPartText(part)); } catch (e) { throw new Error(`${part}: ${e?.message ?? e}`); }
+    }
     const before = counts(orig.documentXml()), after = counts(xml);
     for (const t of COUNT) if (after[t] < before[t]) res.issues.push(`lost:${t}:${before[t]}→${after[t]}`);
     const ka = bodyKids(orig.documentXml()), kb = bodyKids(xml);
@@ -280,11 +349,30 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (tblEdit.tsId && !re.getPartText(stylesPath)?.includes(`w:styleId="${tblEdit.tsId}"`)) res.issues.push('tables-style-missing');
       res.tables = true;
     }
+    if (noteEdit) {
+      // notas: as novas no fim, a editada com o texto, as outras cruas
+      for (const [kind, tag] of [['footnote', 'footnote'], ['endnote', 'endnote']]) {
+        const path = `word/${kind}s.xml`;
+        const ra = noteRaws(orig.getPartText(path), tag), rb = noteRaws(re.getPartText(path), tag);
+        const nid = String(noteEdit.ids[kind]);
+        if (!rb.get(nid)?.includes(kind === 'footnote' ? 'NOTA NOVA RODAPE' : 'NOTA NOVA FIM')) res.issues.push(`notes-missing-new:${kind}`);
+        if (!xml.includes(`<w:${kind}Reference w:id="${nid}"/>`)) res.issues.push(`notes-missing-ref:${kind}`);
+        for (const [id, raw] of ra) {
+          if (kind === 'footnote' && id === String(noteEdit.editedFn)) {
+            if (!rb.get(id)?.includes('NOTA EDITADA')) res.issues.push('notes-missing-edit');
+          } else if (rb.has(id) && rb.get(id) !== raw) res.issues.push(`notes-changed:${kind}:${id}`);
+        }
+      }
+      const back = readFullDocument(re);
+      if (!back.footnotes.has(noteEdit.ids.footnote) || !back.endnotes.has(noteEdit.ids.endnote)) res.issues.push('notes-unread');
+      res.notes = true;
+    }
     if (styleEdit) {
       const sa = orig.getPartText(stylesPath), sb = re.getPartText(stylesPath);
       const map = (x) => new Map(readStyleIndex(x).styles.map((s) => [s.id, x.slice(s.start, s.end)]));
       const ma = map(sa), mb = map(sb);
-      const moved = styleEdit.ids.filter((i) => i !== styleEdit.target && ma.get(i) !== mb.get(i));
+      // (os estilos de nota que o --notes acrescenta não existiam no original)
+      const moved = styleEdit.ids.filter((i) => i !== styleEdit.target && ma.has(i) && ma.get(i) !== mb.get(i));
       if (tblEdit?.tsId && !mb.get(tblEdit.tsId)) res.issues.push('tables-style-unread');
       if (moved.length) res.issues.push(`styles-changed:${moved.slice(0, 3).join(',')}`);
       if (!mb.get(styleEdit.id) || !mb.get(styleEdit.tw)) res.issues.push('styles-missing-new');
@@ -296,6 +384,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit)) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
+    if (process.env.LOSSLESS_STACK) console.log(e?.stack);
   }
   res.ok = res.issues.length === 0;
   results.push(res);

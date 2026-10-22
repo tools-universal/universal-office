@@ -277,6 +277,40 @@ UI language (`heading 1` → "Heading 1" / "Título 1").
 Enter at the end of a paragraph whose style has a *next style* (Heading 1 →
 Normal) starts the new paragraph in that style, without direct formatting.
 
+## Footnotes and endnotes
+
+Notes are edited where they are drawn: click the note area at the bottom of the
+page (or the endnotes after the text) and type — caret, selection, formatting,
+styles and spelling work as in the body; Esc or a click in the text goes back.
+Undo is one history for the text and the notes (undoing note typing from the
+body moves the caret to the note). Deleting the reference deletes the note;
+numbers follow the order of the references. The first Backspace right after a
+reference only selects it; copying a reference and pasting it creates a new note
+with a copy of the text. Double-click a reference to open its note and the
+note's number to go back; hovering a reference shows the note's text.
+
+Endnotes are laid out after the text of the document (or of each section), with
+the separator and, on the following pages, the continuation separator; the
+footnote area can be split in columns. Number formats: `decimal`,
+`lowerLetter`, `upperLetter`, `lowerRoman`, `upperRoman`, `chicago` (*, †, ‡,
+§…); numbering continuous, per section or (footnotes) per page.
+
+| Method | Description |
+|---|---|
+| `insertFootnote({ mark })` · `insertEndnote({ mark })` | Inserts a note at the end of the selection (nothing is deleted) and moves the caret into it. `mark`: custom mark instead of the number. Not available in headers/footers, text boxes or inside a note. Returns the note id or `null`. Note styles and parts are added the way Word writes them. |
+| `canInsertNote()` · `editingNote()` · `noteCount(kind)` | Whether a note can be inserted here; the note being edited (`{ kind, id }` or `null`); how many notes of a kind the text references. |
+| `nextNote(kind = 'footnote', dir = 1)` | Next (`1`) or previous (`-1`) note: in the text the caret goes before the reference; inside the notes, to the start of the next note. `false` = none. |
+| `showNotes(kind?)` | In the text, opens the note of the reference at the caret (or the next one); inside a note, goes back to its reference. |
+| `openNote(kind, id)` · `goToNoteRef(kind, id)` | Edit a note (caret at the end) · caret right after its reference. |
+| `getNoteOptions(kind)` | `{ position, numberFormat, startAt, restart, columns }` of the section at the caret. `position`: `'pageBottom'` · `'beneathText'` (footnotes), `'docEnd'` · `'sectEnd'` (endnotes); `restart`: `'continuous'` · `'eachSect'` · `'eachPage'` (footnotes); `columns`: footnote area columns, `0` = as the section. |
+| `setNoteOptions(kind, options, scope = 'document')` | Changes them for the whole document or for `'section'` (the section at the caret). With numbering restarted per section or page the start is 1. One undo step. |
+| `convertNotes('toEndnotes' \| 'toFootnotes' \| 'swap', only?)` | Converts all notes of a kind, swaps them, or only `{ kind, id }`; the content takes the other kind's note styles. Returns how many changed. |
+
+The ribbon has a **References** tab (Table of Contents; Footnotes: insert
+footnote/endnote, the Next Footnote menu, Show Notes and the **Footnote and
+Endnote** dialog, with Convert…); the compact bar has them under Insert ›
+Notes. Right-click inside a note for Go to Reference, Convert and the options.
+
 ## Events
 
 | Event | `detail` | When |
@@ -292,6 +326,7 @@ Normal) starts the new paragraph in that style, without direct formatting.
 | `uw-tabletool` | `{ tool }` | Draw Table, Eraser or Border Painter turned on (`'draw'` · `'eraser'` · `'painter'`) or off (`null`). |
 | `uw-borderpen` | `BorderSpec` | The border pen (style, width, color) changed. |
 | `uw-sort-error` | `{ reason, message }` | Sort refused (`reason: 'merged'` — the table has merged cells). |
+| `uw-notemode` | `{ active, kind, id }` | Entered or left a footnote or endnote. |
 | `uw-before-input` | `{ text }` | Text is about to be typed. **Cancelable.** |
 | `uw-input` | `{ text }` | Text was typed. |
 | `uw-comments-changed` | — | A comment was added or removed. |
@@ -364,7 +399,8 @@ Type `@` to open the suggestions (only when `source` is given).
 
 Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · R · J
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
-break), Shift+Enter (column break), ← → (word), Home · End (document, also from a table cell). F9 updates the fields (table formulas). With `topbar`, also O (open), S ·
+break), Shift+Enter (column break), ← → (word), Home · End (document, also from a table cell), Alt+F ·
+Alt+D (footnote, endnote; Esc inside a note goes back to its reference). F9 updates the fields (table formulas). With `topbar`, also O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
 dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts),
 Alt+1 · 2 · 3 (Heading 1–3), Shift+N (Normal), Space (clear character

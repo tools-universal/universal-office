@@ -61,6 +61,9 @@ describe('notas: gravação sem perdas', () => {
     expect(raw(xml, '-1')).toBe(raw(orig, '-1'));
     expect(raw(xml, '2')).toBe(raw(orig, '2'));
     expect(raw(xml, '1')).not.toBe(raw(orig, '1'));
+    // a parte continua válida e a nota editada é só o elemento dela
+    expect(readFullDocument(out).endnotes.get(1)?.[0]?.runs.map((r) => r.text).join('')).toContain('EDITADA');
+    expect(xml.split('<?xml').length).toBe(2);
     // footnotes.xml intocado
     expect(out.getPartText('word/footnotes.xml')).toBe(pkg.getPartText('word/footnotes.xml'));
   });
