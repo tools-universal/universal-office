@@ -1440,6 +1440,17 @@ if (want('textbox')) {
   const nDel = (await ev('objects')).length;
   await page.keyboard.press('Control+z');
   check('Delete exclui a forma e desfazer volta', nDel === nBefore - 1 && (await ev('objects')).length === nBefore, { nBefore, nDel });
+  // Ctrl+C na forma selecionada e colar: uma cópia nova (id de desenho novo), selecionada
+  objs = await ev('objects');
+  await clickBorder(objs.find(tbx));
+  await page.keyboard.press('Control+c');
+  await page.evaluate(() => { const ed = document.querySelector('universal-write'); ed.input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: new DataTransfer(), bubbles: true, cancelable: true })); });
+  await sleep(200);
+  const nPaste = (await ev('objects')).length;
+  sel = await call('selectedShape');
+  xml = await ev('savedPart', 'word/document.xml');
+  const ids = [...xml.matchAll(/<wp:docPr id="(\d+)"/g)].map((m) => m[1]);
+  check('copiar e colar a forma: uma cópia nova, selecionada, ids de desenho únicos', nPaste === nBefore + 1 && sel?.kind === 'textbox' && new Set(ids).size === ids.length, { nBefore, nPaste, ids });
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────

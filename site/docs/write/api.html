@@ -325,6 +325,39 @@ editor.host = {
         kept and saved but drawn flat.
       </p>
 
+      <h2 id="shapes">Shapes and text boxes</h2>
+      <p>
+        Text boxes and shapes follow Word&rsquo;s rules (measured against Word): the XML each operation writes
+        (<code>wps:wsp</code> inside <code>mc:AlternateContent</code> with the VML fallback rebuilt like Word), linked
+        text boxes and the text flowing between them, vertical text and the theme&rsquo;s shape styles. Click inside a
+        text box to edit its text (one undo stack with the document, like Word); click its border to select the shape:
+        round handles resize, the handle above rotates, dragging moves; Esc in the text selects the shape, typing with
+        the shape selected adds to its text, Delete removes it, Ctrl+C / Ctrl+V copy it. A document in compatibility
+        mode (Word 2007 or earlier) and a text box that came only as VML stay VML when saved, like Word. With
+        <code>topbar</code>: the contextual <strong>Shape Format</strong> tab (Insert Shapes &middot; Shape Styles
+        &middot; Text &middot; Accessibility &middot; Arrange &middot; Size), Insert &rsaquo; Text Box (gallery and Draw
+        Text Box), the compact bar&rsquo;s Shape group, Format &rsaquo; Shape, the context menu and the Format Shape
+        pane.
+      </p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>insertTextbox(id?) &middot; textboxTemplates()</code></td><td>Text Box gallery (our own designs): the box is anchored to the paragraph of the cursor and its sample text is selected, so typing replaces it.</td></tr>
+          <tr><td><code>drawTextbox(vertical?) &middot; drawingTextbox() &middot; cancelDrawTextbox()</code></td><td>Draw (Vertical) Text Box: the next drag on the page draws it, positioned from the column and the paragraph; a click makes a 1&times;1 inch box.</td></tr>
+          <tr><td><code>selectedShape(): ShapeState | null</code></td><td><code>{ kind, inline, wrap, widthPt, heightPt, rotation, flipH, flipV, lockAspect, moveWithText, lockAnchor, name, altText, decorative, geometry, styleIndex, text, link, editingText, format }</code> &mdash; the selected shape, text box or group (or the text box being edited). <code>editSelectedTextbox()</code>, <code>deleteSelectedShape()</code>.</td></tr>
+          <tr><td><code>setShapeStyle(n) &middot; setShapeFill(fill) &middot; setShapePictureFill(bytes, ext, tile?) &middot; setShapeOutline(o)</code></td><td>Shape Styles gallery (1&ndash;77, as Word writes each one), Shape Fill (a color, a gradient &mdash; <code>shapeGradientVariations()</code> &mdash;, a pattern, picture or texture; <code>null</code> = No Fill) and Shape Outline (<code>{ color | null, weightPt, dash, compound }</code>; No Outline keeps the previous line in <code>a14:hiddenLine</code>).</td></tr>
+          <tr><td><code>setShapeEffect(kind, preset | null) &middot; setShapeFormat(o) &middot; changeShape(prst)</code></td><td>Shape Effects (the same presets as the pictures), exact values (the Format Shape pane) and Change Shape (the text goes into the shape&rsquo;s text rectangle).</td></tr>
+          <tr><td><code>setTextboxOptions({ marginsPt, anchor, direction, wrap, autofit, upright })</code></td><td>Internal margins, Align Text (<code>'t' | 'ctr' | 'b'</code>), Text Direction (<code>'horz' | 'vert' | 'vert270' | 'eaVert' | &hellip;</code>), Wrap text in shape, Resize shape to fit text, Do not rotate text.</td></tr>
+          <tr><td><code>createTextboxLink() &middot; linkingTextbox() &middot; cancelTextboxLink() &middot; linkTextboxTo(key) &middot; breakTextboxLink()</code></td><td>Create Link: the next click on an empty text box continues the text there (a box with text is refused, <code>uw-blocked</code>). Break Link: the following boxes leave the chain and the text stays in the ones before.</td></tr>
+          <tr><td><code>setShapeWrap &middot; setShapePosition &middot; setShapeMoveWithText &middot; setShapeLockAnchor &middot; setShapeLayout &middot; arrangeShape &middot; alignShape &middot; setShapeSize &middot; setShapeRotation &middot; rotateShape &middot; flipShape &middot; setShapeAltText</code></td><td>Arrange and Size, as for pictures. The Selection Pane (<code>selectionPaneItems()</code> &hellip;) lists pictures, text boxes, shapes and groups.</td></tr>
+          <tr><td><code>setAsDefaultTextbox()</code></td><td>Set as Default Text Box: fill, outline, effects and text options go into the theme (<code>a:objectDefaults/a:txDef</code>, like Word) and are used by the next drawn boxes.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Not included: WordArt styles, inserting new shapes, Edit Points and grouping (separate work items), Word&rsquo;s
+        own Text Box gallery designs and textures; 3-D rotation is kept and saved but drawn flat.
+      </p>
+
       <h2 id="clipboard">Clipboard, find and replace</h2>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>

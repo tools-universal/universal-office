@@ -286,6 +286,37 @@ Background, Artistic Effects (kept when present in the file), Picture Layout,
 online pictures and icons, and drawing 3-D rotation (it is kept and saved, but
 the picture is drawn flat).
 
+## Shapes and text boxes
+
+Text boxes and shapes follow Word's rules (measured against Word): the XML each
+operation writes (`wps:wsp` inside `mc:AlternateContent` with the VML fallback
+rebuilt like Word), linked text boxes, the text flowing between them, vertical
+text and the theme's shape styles. Click inside a text box to edit its text (the
+undo stack is the document's, like Word); click its border to select the shape
+(round handles resize, the handle above rotates, dragging moves; Esc in the text
+selects the shape, typing with the shape selected adds to its text, Delete
+removes it, Ctrl+C / Ctrl+V copy it). Shapes and groups are selected the same
+way. A document in compatibility mode (Word 2007 or earlier) and a text box that
+came only as VML stay VML when saved, like Word.
+
+| Area | Methods |
+|---|---|
+| Insert | `insertTextbox(id?)` (the Text Box gallery — `textboxTemplates()`: our own designs; the sample text is selected so typing replaces it), `drawTextbox(vertical?)` · `drawingTextbox()` · `cancelDrawTextbox()` (the next drag on the page draws the box; a click makes a 1-inch one), `setAsDefaultTextbox()` (Set as Default Text Box: stored in the theme, `a:objectDefaults/a:txDef`, and used by the next drawn boxes) |
+| State | `selectedShape()` → `{ kind, inline, wrap, widthPt, heightPt, rotation, flipH, flipV, lockAspect, moveWithText, lockAnchor, name, altText, decorative, geometry, styleIndex, text, link, editingText, format }` (`text`: margins, vertical alignment, direction, wrap, autofit, Do not rotate text; `format` is the parsed shape), `editSelectedTextbox()`, `deleteSelectedShape()` |
+| Shape styles | `setShapeStyle(1…77)` (the Shape Styles gallery, as Word writes each one), `setShapeFill(color \| fill \| null)` (solid, gradient — `shapeGradientVariations()` —, pattern; `null` = No Fill), `setShapePictureFill(bytes, ext, tile?)` (Picture or Texture), `setShapeOutline({ color \| null, weightPt, dash, compound })` (No Outline keeps the previous line in `a14:hiddenLine`, like Word), `setShapeEffect(kind, preset \| null)`, `setShapeFormat({ line, shadow, reflection, glow, softEdge, threeD })`, `changeShape(prst)` |
+| Text | `setTextboxOptions({ marginsPt, anchor: 't' \| 'ctr' \| 'b', direction: 'horz' \| 'vert' \| 'vert270' \| 'eaVert' \| …, wrap, autofit: 'none' \| 'shape', upright })`; Create Link: `createTextboxLink()` (the next click on an EMPTY text box links it; a box with text is refused with `uw-blocked`) · `linkingTextbox()` · `cancelTextboxLink()` · `linkTextboxTo(key)`, `breakTextboxLink()` |
+| Arrange and size | `setShapeWrap(kind)`, `setShapePosition(preset)`, `setShapeMoveWithText(on)`, `setShapeLockAnchor(on)`, `setShapeLayout(o)` (the Layout dialog), `arrangeShape(op)`, `alignShape(kind, relativeTo?)`, `setShapeSize({ widthPt, heightPt })`, `setShapeRotation(deg)`, `rotateShape(±90)`, `flipShape('h' \| 'v')`, `setShapeAltText({ text, title, decorative })`; the Selection Pane lists pictures, text boxes, shapes and groups |
+
+With `topbar`, the ribbon shows the contextual **Shape Format** tab (Insert
+Shapes · Shape Styles · Text · Accessibility · Arrange · Size) when a shape or
+text box is selected or being edited, and Insert › Text Box opens the gallery
+and Draw Text Box; the compact bar has a Shape group, Format › Shape and Insert ›
+Text box. The Format Shape pane (Fill & Line · Effects · Layout & Properties,
+with the Text Box options) and the shape's context menu are included. Not
+included: WordArt styles, inserting new shapes, Edit Points and grouping (other
+work items), Word's own Text Box gallery designs and textures, and 3-D rotation
+is kept and saved but drawn flat.
+
 ## Styles
 
 The document's `styles.xml` is edited in place: each operation rewrites only

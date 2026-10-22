@@ -566,6 +566,8 @@ interface RichClip {
   tables?: { before: number; table: TableBlock }[];
   /** células selecionadas (como tabela nova); rows = linhas inteiras; whole = a tabela toda */
   cells?: { table: TableBlock; rows: boolean; whole: boolean };
+  /** forma/caixa de texto/grupo/imagem flutuante selecionado (uma cópia do run) */
+  drawing?: Run;
 }
 
 /** Divisa de célula sob o mouse: de coluna (fronteira da grade) ou de linha (base da linha). */
@@ -3264,8 +3266,20 @@ export class UniversalWriteElement extends HTMLElement {
     return { text, paras, ...(tables.length ? { tables } : {}) };
   }
 
+  /** Cópia profunda do run de um objeto de desenho (os bytes das imagens são os mesmos). */
+  private static cloneDrawingRun(r: Run): Run {
+    return structuredClone(r);
+  }
+
   /** Copia a seleção: texto p/ o sistema + cópia RICA interna (preserva origem). */
   async copy(): Promise<void> {
+    // objeto de desenho selecionado (não a imagem em linha, que é texto): a cópia dele
+    const fs = this.floatSel;
+    if (fs && !this.tbEdit && (fs.textbox || fs.shape || fs.group || fs.image?.floating) && UniversalWriteElement.rawOf(fs)) {
+      this.richClip = { text: '', paras: [], drawing: UniversalWriteElement.cloneDrawingRun(fs) };
+      try { await navigator.clipboard?.writeText(''); } catch { /* sem permissão */ }
+      return;
+    }
     // células selecionadas: a tabela recortada (texto por tabulação + HTML)
     const cells = this.cellsClip();
     if (cells) {
@@ -3283,6 +3297,13 @@ export class UniversalWriteElement extends HTMLElement {
   }
   /** Recorta a seleção. */
   async cut(): Promise<void> {
+    // objeto de desenho selecionado: copia e exclui
+    const fs = this.floatSel;
+    if (fs && !this.tbEdit && (fs.textbox || fs.shape || fs.group || fs.image?.floating) && !this.locked()) {
+      await this.copy();
+      if (this.richClip?.drawing) this.deleteSelectedFloat();
+      return;
+    }
     // células: a tabela toda sai; linhas inteiras saem; senão o conteúdo é limpo (Word)
     if (this.tableSel && !this.locked()) {
       const c = this.cellsClip();
@@ -3307,6 +3328,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.locked()) return;
     try {
       const t = await navigator.clipboard?.readText();
+      if (!t && this.richClip?.drawing) { this.pasteDrawing(this.richClip.drawing); return; }
       if (!t && this.richClip?.text === '' && this.richClip.paras.some((p) => p.runs.some((r) => r.noteRef))) { this.insertRich(this.richClip); this.onSelectionChange?.(); this.chromeSync?.(); return; }
       if (!t) return;
       // o clipboard do SO normaliza p/ \r\n no Windows — comparar normalizado
@@ -3314,6 +3336,29 @@ export class UniversalWriteElement extends HTMLElement {
       else this.pasteText(t);
       this.onSelectionChange?.(); this.chromeSync?.();
     } catch { /* sem permissão de leitura */ }
+  }
+
+  /** Cola o objeto de desenho copiado: uma cópia nova (id e nome de desenho novos), ancorada
+   *  no parágrafo do cursor na mesma posição relativa, e fica selecionada. */
+  private pasteDrawing(src: Run): void {
+    if (!this.model || this.locked() || this.tbEdit) return;
+    const run = UniversalWriteElement.cloneDrawingRun(src);
+    const obj = (run.textbox ?? run.shape ?? run.group ?? run.image)!;
+    const id = this.nextDrawingId();
+    if (obj.rawDrawingXml) {
+      obj.rawDrawingXml = obj.rawDrawingXml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a: string) => `${a}${id}"`)
+        .replace(/(<wp:docPr\b[^>]*?\bname=")([^"]*?)\s*\d*"/, (_m, a: string, n: string) => `${a}${n} ${id}"`);
+      obj.edited = true;
+    }
+    this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    const at = this.selection.focus;
+    const p = this.model.paragraphs[at.para]!;
+    p.runs.splice(insertIndex(p, at.offset), 0, run);
+    this.floatSel = run;
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.onSelectionChange?.(); this.chromeSync?.();
   }
 
   /** Cola a cópia rica: células (linhas inteiras numa tabela entram como linhas novas; senão substituem) ou parágrafos. */
@@ -6791,7 +6836,8 @@ export class UniversalWriteElement extends HTMLElement {
       const plain = this.plainPasteNext;
       this.plainPasteNext = false;
       const html = plain ? '' : e.clipboardData?.getData('text/html') ?? '';
-      if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
+      if (!plain && !text && this.richClip?.drawing) this.pasteDrawing(this.richClip.drawing);
+      else if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
       else if (/<table[\s>]/i.test(html) && this.pasteHtmlTables(html)) { /* tabela do HTML */ }
       else if (text) this.pasteText(text);
       this.onSelectionChange?.(); this.chromeSync?.();
@@ -13138,6 +13184,38 @@ export class UniversalWriteElement extends HTMLElement {
         wavePath(ctx, x1, x2, el.line.baseline + 50);
         ctx.stroke();
       }
+    }
+    // caixas de texto: as linhas do conteúdo de cada caixa posicionada (refs nos blocos da
+    // 1ª caixa da cadeia), no referencial do texto levado à página pela matriz dela
+    const heads = new Map<number, DrawingTextbox>();
+    for (const o of this.eng!.result.pages[pg]?.objects ?? []) {
+      const tb = o.run.textbox;
+      if (!tb || !o.content?.lines.length) continue;
+      let head = tb;
+      if (tb.link) {
+        head = heads.get(tb.link.id) ?? this.textboxChain(tb)?.[0] ?? tb;
+        heads.set(tb.link.id, head);
+      }
+      const blocks: Block[] = head.blocks ?? head.paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+      ctx.save();
+      ctx.transform(...o.content.xf);
+      for (const l of o.content.lines) {
+        const para = paragraphAtPath(blocks, l.ref.split('/').slice(1));
+        const list = para && spell.get(para);
+        if (!list?.length) continue;
+        for (const m of list) {
+          let x1 = Infinity, x2 = -Infinity;
+          for (const c of l.chars ?? []) {
+            if (c.o < m.start || c.o >= m.end) continue;
+            x1 = Math.min(x1, c.x);
+            x2 = Math.max(x2, c.x + c.w);
+          }
+          if (!(x2 > x1)) continue;
+          wavePath(ctx, x1, x2, l.baseline + 50);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
     }
     ctx.restore();
   }
