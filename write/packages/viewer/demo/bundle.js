@@ -3912,7 +3912,7 @@ function readStyleSheet(xml) {
       if (f) part.tcPr = f;
       (def.tblStylePr ??= {})[t] = part;
     }
-    if (!sheet.styles[id]) sheet.styles[id] = def;
+    sheet.styles[id] = def;
   }
   return sheet;
 }

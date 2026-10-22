@@ -1,6 +1,6 @@
 import {
   subsetTrueType
-} from "./chunk-HZ4N6OND.js";
+} from "./chunk-R66JLTEY.js";
 import {
   DEFAULT_RUN_PROPS,
   WORD_PATTERNS,
@@ -15,7 +15,7 @@ import {
   runPropsFromRPr,
   unzlibSync,
   zlibSync
-} from "./chunk-UKAC2AZH.js";
+} from "./chunk-J635FHRH.js";
 
 // ../../../shared/drawingml/src/preset-defs.ts
 var PRESET_DEFS = {

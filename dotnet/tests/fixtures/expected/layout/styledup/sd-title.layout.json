@@ -1,0 +1,17 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":true,"italic":false,"synthBold":false,"synthItalic":false,"size":32,"color":"000000","y":2017.31,"scaleX":1,"text":"TituloHxg","g":[[84,4388.78],[105,4779.72],[116,4957.53],[117,5170.66],[108,5561.59],[111,5739.41],[72,6308.16],[120,6770.34],[103,7126.28]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":10,"x":4388.78,"y":1417,"height":735.94,"baseline":2017.31,"width":3128.44}
+      ]
+    }
+  ],
+  "warnings": []
+}

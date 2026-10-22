@@ -62,7 +62,7 @@ import {
   withEmbeddedFonts,
   wrapContour,
   zFor
-} from "./chunks/chunk-MOVDDWNT.js";
+} from "./chunks/chunk-4FCCFIN6.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -73,7 +73,7 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-HZ4N6OND.js";
+} from "./chunks/chunk-R66JLTEY.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -220,7 +220,7 @@ import {
   writeEvenAndOddHeaders,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-UKAC2AZH.js";
+} from "./chunks/chunk-J635FHRH.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -3396,7 +3396,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-JY7HS352.js");
+    const { setupChrome } = await import("./chunks/chrome-M6ZQL3MV.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -3433,7 +3433,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-JY7HS352.js").then((m) => {
+      void import("./chunks/chrome-M6ZQL3MV.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -20716,7 +20716,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-BFE7KAOR.js");
+  const { appFor } = await import("./chunks/chrome-app-VFUYVRLI.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

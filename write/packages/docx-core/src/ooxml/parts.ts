@@ -107,8 +107,9 @@ export function readStyleSheet(xml: string | undefined): StyleSheet {
       if (f) part.tcPr = f;
       (def.tblStylePr ??= {})[t] = part;
     }
-    // primeira definição vence (o Word ignora duplicatas posteriores)
-    if (!sheet.styles[id]) sheet.styles[id] = def;
+    // w:styleId repetido: a ÚLTIMA definição substitui as anteriores inteira
+    // (medido no Word, oráculo styledup)
+    sheet.styles[id] = def;
   }
   return sheet;
 }

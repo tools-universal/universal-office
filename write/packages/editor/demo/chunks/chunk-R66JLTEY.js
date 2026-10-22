@@ -8,7 +8,7 @@ import {
   pickLabels,
   unzipSync,
   zipSync
-} from "./chunk-UKAC2AZH.js";
+} from "./chunk-J635FHRH.js";
 
 // ../docx-core/src/odf/zip.ts
 var OdfPackage = class _OdfPackage {

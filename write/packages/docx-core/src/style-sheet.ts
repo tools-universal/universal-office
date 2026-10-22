@@ -93,11 +93,14 @@ export function readStyleIndex(xml: string): {
 } {
   const root = parseXml(xml, { positions: true });
   const styles: (StyleMeta & { start: number; end: number })[] = [];
-  const seen = new Set<string>();
-  for (const st of childElements(root, 'w:style')) {
+  // w:styleId repetido: vale a ÚLTIMA definição, inteira (medido no Word,
+  // oráculo styledup) — as anteriores ficam mortas e saem do índice
+  const all = childElements(root, 'w:style');
+  const last = new Map<string, number>();
+  all.forEach((st, i) => { const id = st.attrs['w:styleId']; if (id) last.set(id, i); });
+  for (const [i, st] of all.entries()) {
     const id = st.attrs['w:styleId'];
-    if (!id || seen.has(id)) continue; // o Word ignora duplicatas posteriores
-    seen.add(id);
+    if (!id || last.get(id) !== i) continue;
     const type = (st.attrs['w:type'] ?? 'paragraph') as StyleType;
     const prio = val(st, 'w:uiPriority');
     styles.push({
@@ -146,10 +149,13 @@ export function putStyle(xml: string, id: string, styleXml: string): string {
   return xml.slice(0, at) + styleXml + xml.slice(at);
 }
 
-/** Remove o w:style `id`. */
+/** Remove o w:style `id` — todas as definições, senão uma duplicata anterior voltaria a valer. */
 export function dropStyle(xml: string, id: string): string {
-  const s = readStyleIndex(xml).styles.find((x) => x.id === id);
-  return s ? xml.slice(0, s.start) + xml.slice(s.end) : xml;
+  const spans = childElements(parseXml(xml, { positions: true }), 'w:style')
+    .filter((st) => st.attrs['w:styleId'] === id)
+    .map((st) => [st.s!, st.e!] as const);
+  for (const [s, e] of spans.reverse()) xml = xml.slice(0, s) + xml.slice(e);
+  return xml;
 }
 
 /** lsdException do latente `name`: liga/desliga w:qFormat (o Word muda os dois). */

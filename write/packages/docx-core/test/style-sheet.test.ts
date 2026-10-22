@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLANK_STYLES_XML, blankDocxPackage, builtinDisplayName, builtinStyle, builtinXml, dropStyle, newStyleXml,
-  patchStylePPr, patchStyleRPr, patchStyleXml, putStyle, readFullDocument, readStyleIndex, setLatentQFormat,
+  patchStylePPr, patchStyleRPr, patchStyleXml, putStyle, readFullDocument, readStyleIndex, readStyleSheet, setLatentQFormat,
   styleIdFromName, styleKid, styleRaw,
 } from '../src/index.js';
 
@@ -141,5 +141,30 @@ describe('criar/excluir estilo', () => {
     expect(builtinDisplayName('annotation text', 'en')).toBe('Comment Text');
     expect(builtinDisplayName('List Paragraph', 'pt')).toBe('Parágrafo da Lista');
     expect(builtinDisplayName('Meu Estilo', 'en')).toBeUndefined();
+  });
+});
+
+describe('w:styleId repetido (oráculo styledup: vale a ÚLTIMA definição, inteira)', () => {
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+  const st = (inner: string): string => `<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/>${inner}</w:style>`;
+  const xml = `<w:styles ${W}>${st('<w:rPr><w:sz w:val="56"/></w:rPr>')}`
+    + '<w:style w:type="paragraph" w:styleId="Outro"><w:name w:val="Outro"/></w:style>'
+    + `${st('<w:pPr><w:jc w:val="center"/></w:pPr>')}</w:styles>`;
+
+  it('leitor do motor: a última substitui (sem misturar com a primeira)', () => {
+    const t = readStyleSheet(xml).styles['Title']!;
+    expect(t.pPr?.jc).toBe('center');
+    expect(t.rPr?.sz).toBeUndefined();
+  });
+
+  it('índice e edição apontam para a última; excluir tira todas', () => {
+    const idx = readStyleIndex(xml).styles;
+    expect(idx.map((s) => s.id)).toEqual(['Outro', 'Title']);
+    expect(styleRaw(xml, 'Title')).toContain('w:jc');
+    const put = putStyle(xml, 'Title', st('<w:pPr><w:jc w:val="right"/></w:pPr>'));
+    expect(readStyleSheet(put).styles['Title']!.pPr?.jc).toBe('right');
+    const dropped = dropStyle(xml, 'Title');
+    expect(dropped).not.toContain('w:styleId="Title"');
+    expect(dropped).toContain('w:styleId="Outro"');
   });
 });

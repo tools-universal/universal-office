@@ -350,8 +350,9 @@ public static class OoxmlParts
                 };
                 (def.TblStylePr ??= new Dictionary<string, TblStylePart>(StringComparer.Ordinal))[t!] = part;
             }
-            // primeira definição vence (o Word ignora duplicatas posteriores)
-            if (sheet.Styles[id!] is null) sheet.Styles[id!] = def;
+            // w:styleId repetido: a ÚLTIMA definição substitui as anteriores inteira
+            // (medido no Word, oráculo styledup)
+            sheet.Styles[id!] = def;
         }
         return sheet;
     }

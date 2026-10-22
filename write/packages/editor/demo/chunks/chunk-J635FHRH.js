@@ -3955,7 +3955,7 @@ function readStyleSheet(xml) {
       if (f) part.tcPr = f;
       (def.tblStylePr ??= {})[t] = part;
     }
-    if (!sheet.styles[id]) sheet.styles[id] = def;
+    sheet.styles[id] = def;
   }
   return sheet;
 }
@@ -10789,11 +10789,15 @@ var truthy = (v) => v === "1" || v === "true" || v === "on";
 function readStyleIndex(xml) {
   const root = parseXml(xml, { positions: true });
   const styles = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const st of childElements(root, "w:style")) {
+  const all = childElements(root, "w:style");
+  const last = /* @__PURE__ */ new Map();
+  all.forEach((st, i2) => {
     const id = st.attrs["w:styleId"];
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
+    if (id) last.set(id, i2);
+  });
+  for (const [i2, st] of all.entries()) {
+    const id = st.attrs["w:styleId"];
+    if (!id || last.get(id) !== i2) continue;
     const type = st.attrs["w:type"] ?? "paragraph";
     const prio = val2(st, "w:uiPriority");
     styles.push({
@@ -10851,8 +10855,9 @@ function putStyle(xml, id, styleXml2) {
   return xml.slice(0, at) + styleXml2 + xml.slice(at);
 }
 function dropStyle(xml, id) {
-  const s = readStyleIndex(xml).styles.find((x2) => x2.id === id);
-  return s ? xml.slice(0, s.start) + xml.slice(s.end) : xml;
+  const spans = childElements(parseXml(xml, { positions: true }), "w:style").filter((st) => st.attrs["w:styleId"] === id).map((st) => [st.s, st.e]);
+  for (const [s, e] of spans.reverse()) xml = xml.slice(0, s) + xml.slice(e);
+  return xml;
 }
 function setLatentQFormat(xml, name, on) {
   const re = new RegExp(`<w:lsdException\\b[^>]*\\bw:name="${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/"/g, "&quot;")}"[^>]*/>`);

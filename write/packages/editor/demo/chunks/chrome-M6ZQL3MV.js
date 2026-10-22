@@ -6,7 +6,7 @@ import {
   hostOf,
   isDark,
   originStore
-} from "./chunk-HM6P72E3.js";
+} from "./chunk-XJUQW72M.js";
 import {
   ASPECT_RATIOS,
   BEVEL_PRESETS,
@@ -42,7 +42,7 @@ import {
   patternRows,
   presetOutline,
   textboxTemplateSpec
-} from "./chunk-MOVDDWNT.js";
+} from "./chunk-4FCCFIN6.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -71,7 +71,7 @@ import {
   themePaletteColors,
   tileGrid,
   toggleMenu
-} from "./chunk-HZ4N6OND.js";
+} from "./chunk-R66JLTEY.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
@@ -84,7 +84,7 @@ import {
   resolveColor2,
   retitleTableStyleXml,
   uiLang
-} from "./chunk-UKAC2AZH.js";
+} from "./chunk-J635FHRH.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -12643,7 +12643,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-NOBQGUKT.js");
+    await import("./src-VYLS3RDS.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
