@@ -16,7 +16,7 @@ import { CROP_SHAPES, POSITION_PRESETS, ASPECT_RATIOS, SHADOW_PRESETS, REFLECTIO
 const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
 
 /** Diálogos e painéis da imagem (chrome-picture-dialogs.ts). */
-export type PictureDialogKind = 'layout:position' | 'layout:wrap' | 'layout:size' | 'alt' | 'compress';
+export type PictureDialogKind = 'layout:position' | 'layout:wrap' | 'layout:size' | 'alt' | 'compress' | 'selection';
 
 const WRAPS: [PicWrapKind, string, string, string][] = [
   ['inline', 'In Line with Text', 'Alinhado ao Texto', 'format_align_left'],
@@ -49,6 +49,10 @@ export function registerPictureCommands(reg: CommandRegistry, ed: UniversalWrite
       id: `pic:wrap:${k}`, label: L(en, pt), icon, supports: has('setImageWrap'),
       run: () => ed.setImageWrap(k), isChecked: () => pic()?.wrap === k,
     })),
+    p({
+      id: 'pic:wrap:editPoints', label: L('Edit Wrap Points', 'Editar pontos da disposição do texto'), icon: 'polyline', supports: has('startEditWrapPoints'), isEnabled: floating,
+      isChecked: () => typeof api['editingWrapPoints'] === 'function' && ed.editingWrapPoints(), run: () => (ed.editingWrapPoints() ? ed.endEditWrapPoints() : ed.startEditWrapPoints()),
+    }),
     p({ id: 'pic:wrap:moveWithText', label: L('Move with Text', 'Mover com o Texto'), supports: has('setImageMoveWithText'), isEnabled: floating,
       run: () => ed.setImageMoveWithText(true), isChecked: () => !!pic()?.moveWithText }),
     p({ id: 'pic:wrap:fixOnPage', label: L('Fix Position on Page', 'Corrigir Posição na Página'), supports: has('setImageMoveWithText'), isEnabled: floating,
@@ -88,15 +92,31 @@ export function registerPictureCommands(reg: CommandRegistry, ed: UniversalWrite
     p({ id: 'pic:crop:fit', label: L('Fit', 'Ajustar'), icon: 'crop_free', supports: has('cropImageFillFit'), run: () => ed.cropImageFillFit('fit') }),
     ...ASPECT_RATIOS.map((r): Command => p({ id: `pic:crop:ratio:${r.id}`, label: r.id, supports: has('cropImageToAspect'), run: () => ed.cropImageToAspect(r.w, r.h) })),
     p({ id: 'pic:layout', label: L('Layout Options…', 'Layout...'), icon: 'aspect_ratio', supports: has('setImageLayout'), run: () => ctl.pictureDialog('layout:size') }),
+    // ── Organizar: Painel de Seleção e Alinhar ──
+    { id: 'pic:selectionPane', label: L('Selection Pane', 'Painel de Seleção'), icon: 'select', supports: has('selectionPaneItems'), isEnabled: () => !app.comparing, isChecked: () => ctl.pictureDialogOpen('selection'), run: () => ctl.pictureDialog('selection') },
+    ...ALIGNS.map(([k, en, pt, icon]): Command => p({ id: `pic:align:${k}`, label: L(en, pt), icon, supports: has('alignImage'), isEnabled: floating, run: () => ed.alignImage(k) })),
+    ...(['page', 'margin'] as const).map((k): Command => ({
+      id: `pic:align:to:${k}`, label: k === 'page' ? L('Align to Page', 'Alinhar à Página') : L('Align to Margin', 'Alinhar à Margem'), supports: has('alignImage'),
+      isChecked: () => (ed as unknown as { imageAlignTo?: string }).imageAlignTo === k, run: () => { ed.imageAlignTo = k; },
+    })),
     // ── Acessibilidade ──
     p({ id: 'pic:alt', label: L('Alt Text', 'Texto Alt'), tip: L('Alt Text: describe the picture for people who use screen readers', 'Texto Alt: descreva a imagem para quem usa leitor de tela'), icon: 'accessibility_new', supports: has('setImageAltText'), run: () => ctl.pictureDialog('alt') }),
   ];
   reg.add(...cmds);
 }
 
+const ALIGNS: ['left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', string, string, string][] = [
+  ['left', 'Align Left', 'Alinhar à Esquerda', 'align_horizontal_left'], ['center', 'Align Center', 'Centralizar', 'align_horizontal_center'],
+  ['right', 'Align Right', 'Alinhar à Direita', 'align_horizontal_right'], ['top', 'Align Top', 'Alinhar Acima', 'align_vertical_top'],
+  ['middle', 'Align Middle', 'Alinhar ao Meio', 'align_vertical_center'], ['bottom', 'Align Bottom', 'Alinhar Parte Inferior', 'align_vertical_bottom'],
+];
+
+/** Alinhar (menu): os 6 alinhamentos e a referência (página ou margem). */
+export const alignMenu = (): MenuEntry[] => [...ALIGNS.slice(0, 3).map(([k]) => `pic:align:${k}`), '-', ...ALIGNS.slice(3).map(([k]) => `pic:align:${k}`), '-', 'pic:align:to:page', 'pic:align:to:margin'];
+
 /** Quebra de Texto Automática (menu). */
 export const wrapMenu = (): MenuEntry[] => [
-  ...WRAPS.map(([k]) => `pic:wrap:${k}`), '-', 'pic:wrap:moveWithText', 'pic:wrap:fixOnPage', '-', 'pic:wrap:more',
+  ...WRAPS.map(([k]) => `pic:wrap:${k}`), '-', 'pic:wrap:editPoints', 'pic:wrap:moveWithText', 'pic:wrap:fixOnPage', '-', 'pic:wrap:more',
 ];
 
 /** Galeria Posição (menu): Alinhado ao Texto + as 9 posições com quebra Quadrado. */
@@ -222,10 +242,12 @@ export function pictureFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[]
       { menu: positionMenu, id: 'pic:position', label: L('Position', 'Posição'), icon: 'picture_in_picture', size: 'large', supports: has('setImagePosition') },
       { menu: wrapMenu, id: 'pic:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', size: 'large', supports: has('setImageWrap') },
       { rows: [
-        [{ split: 'pic:forward', menu: ['pic:forward', 'pic:front', 'pic:frontOfText'] }],
-        [{ split: 'pic:backward', menu: ['pic:backward', 'pic:back', 'pic:behindText'] }],
+        [{ split: 'pic:forward', menu: ['pic:forward', 'pic:front', 'pic:frontOfText'], label: true }],
+        [{ split: 'pic:backward', menu: ['pic:backward', 'pic:back', 'pic:behindText'], label: true }],
       ] },
       { rows: [
+        [{ cmd: 'pic:selectionPane', label: true }],
+        [{ menu: alignMenu, id: 'pic:align', label: L('Align', 'Alinhar'), icon: 'align_horizontal_left', showLabel: true, supports: has('alignImage') }],
         [{ menu: rotateMenu, id: 'pic:rotate', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', showLabel: true, supports: has('rotateImage') }],
       ] },
     ] },

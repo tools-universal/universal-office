@@ -60,6 +60,8 @@ export interface ChromeCtl {
   tableDialog(kind: TableDialogKind, arg?: string): void;
   /** diálogos e painéis de imagem (Layout, Texto Alt…) */
   pictureDialog(kind: import('./chrome-picture.js').PictureDialogKind): void;
+  /** painel da imagem aberto (Texto Alt, Seleção)? */
+  pictureDialogOpen(kind: import('./chrome-picture.js').PictureDialogKind): boolean;
   /** Painel de Navegação, Régua, Linhas de Grade e o diálogo Tabulação (chrome-nav/ruler) */
   navPane(): void;
   navPaneOpen(): boolean;

@@ -2,7 +2,7 @@
 // Automática de Texto, Tamanho) e o painel Texto Alt. Sobre o openDialog /
 // openPane de @universal-office/ui; textos { en, pt } (inglês por padrão);
 // medidas em cm, como o Word pt-BR.
-import { dialogTabs, openDialog, openPane, paneOpen, pickLabels, type UiLang } from '@universal-office/ui';
+import { dialogTabs, openDialog, openPane, paneOpen, pickLabels, symbol, type UiLang } from '@universal-office/ui';
 import type { PicWrapKind } from '@universal-office/docx-core';
 import type { ImageLayoutInput, UniversalWriteElement } from './universal-write.js';
 import type { DialogEnv } from './chrome-dialogs.js';
@@ -279,9 +279,88 @@ export class PictureUI {
   private alt: { sync(): void } | null = null;
   constructor(private readonly env: PictureUIEnv) {}
 
-  get altOpen(): boolean { return !!this.alt; }
+  private sel: { sync(): void } | null = null;
 
-  sync(): void { this.alt?.sync(); }
+  get altOpen(): boolean { return !!this.alt; }
+  get selectionOpen(): boolean { return !!this.sel; }
+
+  sync(): void { this.alt?.sync(); this.sel?.sync(); }
+
+  /** Painel de Seleção: as imagens flutuantes da frente para trás — clicar seleciona,
+   *  duplo clique renomeia, o olho mostra/oculta; Mostrar/Ocultar Tudo e as setas
+   *  de ordem (Avançar/Recuar) no topo. */
+  toggleSelection(): void {
+    const { ed, lang } = this.env;
+    const cur = paneOpen('pic-sel');
+    if (cur) { cur.close(); return; }
+    const btn = (label: string, icon: string, run: () => void): HTMLButtonElement => {
+      const b = el('button', { type: 'button', className: 'uo-btn', title: label, style: 'min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px' });
+      b.innerHTML = symbol(icon) + (icon === 'keyboard_arrow_up' || icon === 'keyboard_arrow_down' ? '' : `<span>${label}</span>`);
+      b.setAttribute('aria-label', label);
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => { run(); this.env.after(); sync(); });
+      return b;
+    };
+    const showAll = btn(tr(lang, 'Show All', 'Mostrar Tudo'), 'visibility', () => ed.setPaneItemHidden(null, false));
+    const hideAll = btn(tr(lang, 'Hide All', 'Ocultar Tudo'), 'visibility_off', () => ed.setPaneItemHidden(null, true));
+    const up = btn(tr(lang, 'Bring Forward', 'Avançar'), 'keyboard_arrow_up', () => ed.arrangeImage('forward'));
+    const down = btn(tr(lang, 'Send Backward', 'Recuar'), 'keyboard_arrow_down', () => ed.arrangeImage('backward'));
+    const bar = el('div', { style: 'display:flex;gap:4px;align-items:center;flex-wrap:wrap' }, showAll, hideAll, el('span', { style: 'flex:1' }), up, down);
+    const list = el('div', { style: 'display:flex;flex-direction:column;gap:1px' });
+    list.setAttribute('role', 'listbox');
+    const empty = el('p', { textContent: tr(lang, 'There are no floating objects in this document.', 'Não há objetos flutuantes neste documento.'), style: 'margin:0;font-size:13px;opacity:.75' });
+    const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px;padding:4px' }, bar, list, empty);
+    let editing = false;
+    const sync = (): void => {
+      if (editing) return;
+      const items = ed.selectionPaneItems();
+      empty.hidden = items.length > 0;
+      const off = ed.isProtected();
+      showAll.disabled = hideAll.disabled = off || !items.length;
+      const sel = items.find((i) => i.selected);
+      up.disabled = down.disabled = off || !sel;
+      list.replaceChildren(...items.map((it) => {
+        const row = el('div', { className: 'uo-sel-row', style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? 'background:var(--uo-secondary-container,#d3e3fd);' : ''}${it.hidden ? 'opacity:.55;' : ''}` });
+        row.setAttribute('role', 'option');
+        row.setAttribute('aria-selected', String(it.selected));
+        row.dataset['key'] = it.key;
+        const name = el('span', { textContent: it.name || '—', style: 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px' });
+        const eye = el('button', { type: 'button', className: 'uo-btn', title: it.hidden ? tr(lang, 'Show', 'Mostrar') : tr(lang, 'Hide', 'Ocultar'), style: 'min-width:0;padding:2px' });
+        eye.innerHTML = symbol(it.hidden ? 'visibility_off' : 'visibility');
+        eye.disabled = off;
+        eye.addEventListener('mousedown', (e) => e.preventDefault());
+        eye.addEventListener('click', (e) => { e.stopPropagation(); ed.setPaneItemHidden(it.key, !it.hidden); this.env.after(); sync(); });
+        row.addEventListener('mousedown', (e) => e.preventDefault());
+        row.addEventListener('click', () => { ed.selectPaneItem(it.key); this.env.after(); sync(); });
+        row.addEventListener('dblclick', () => {
+          if (off) return;
+          editing = true;
+          const input = el('input', { type: 'text', value: it.name, style: 'flex:1;font-size:13px;min-width:0' });
+          const done = (ok: boolean) => {
+            if (!editing) return;
+            editing = false;
+            if (ok) ed.renamePaneItem(it.key, input.value);
+            this.env.after();
+            sync();
+          };
+          input.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
+          input.addEventListener('blur', () => done(true));
+          name.replaceWith(input);
+          input.focus();
+          input.select();
+        });
+        row.append(name, eye);
+        return row;
+      }));
+    };
+    openPane({
+      id: 'pic-sel', title: { en: 'Selection', pt: 'Seleção' }, lang, layer: this.env.layer, frame: this.env.frame, width: 280, body,
+      onClose: () => { this.sel = null; ed.classList.remove('uw-has-pane'); this.env.after(); },
+    });
+    ed.classList.add('uw-has-pane');
+    this.sel = { sync };
+    sync();
+  }
 
   /** Painel Texto Alt: descrição + "Marcar como decorativa". */
   toggleAlt(): void {

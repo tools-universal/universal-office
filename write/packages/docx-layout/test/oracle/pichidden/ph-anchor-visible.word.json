@@ -1,0 +1,110 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 135.25,
+"size": 11.04,
+"text": "AntesHxg"
+},
+{
+"y": 93.86,
+"x0": 214.13,
+"x1": 507.85,
+"size": 11.04,
+"text": "Qualidadeaprovaçãogestãocontroleresponsávelconforme"
+},
+{
+"y": 106.46,
+"x0": 214.13,
+"x1": 492.5,
+"size": 11.04,
+"text": "comregistroúltimotécnicaseráclienteumaquerelatório"
+},
+{
+"y": 119.18,
+"x0": 214.13,
+"x1": 477.85,
+"size": 11.04,
+"text": "prazoatendimentoinformaçãoasemàperíododados"
+},
+{
+"y": 131.78,
+"x0": 214.13,
+"x1": 462.6,
+"size": 11.04,
+"text": "contratoprocedimentoosdeéempresasegurança"
+},
+{
+"y": 144.38,
+"x0": 214.13,
+"x1": 498.88,
+"size": 11.04,
+"text": "operaçãonãodocumentooanáliseserviçoáreaexecução"
+},
+{
+"y": 157.1,
+"x0": 214.13,
+"x1": 466.85,
+"size": 11.04,
+"text": "processoparaqualidadeaprovaçãogestãocontrole"
+},
+{
+"y": 169.7,
+"x0": 214.13,
+"x1": 480.19,
+"size": 11.04,
+"text": "responsávelconformecomregistroúltimotécnicaserá"
+},
+{
+"y": 182.42,
+"x0": 214.13,
+"x1": 500.5,
+"size": 11.04,
+"text": "clienteumaquerelatórioprazoatendimentoinformaçãoas"
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 504.87,
+"size": 11.04,
+"text": "emàperíododadoscontratoprocedimentoosdeéempresasegurançaoperaçãonão"
+},
+{
+"y": 207.62,
+"x0": 85.1,
+"x1": 477.43,
+"size": 11.04,
+"text": "documentooanáliseserviçoáreaexecuçãoprocessoparaqualidadeaprovação"
+},
+{
+"y": 220.34,
+"x0": 85.1,
+"x1": 407.43,
+"size": 11.04,
+"text": "gestãocontroleresponsávelconformecomregistroúltimotécnica."
+},
+{
+"y": 232.94,
+"x0": 85.1,
+"x1": 141.25,
+"size": 11.04,
+"text": "DepoisHxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 85.05,
+"y0": 83.5,
+"x1": 205.05,
+"y1": 173.5
+}
+]
+}
+]
+}

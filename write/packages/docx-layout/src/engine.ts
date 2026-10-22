@@ -3156,6 +3156,11 @@ class Engine {
      *  "depois" do anterior — oráculo anchorbefore); a linha usa paraTop */
     paraRef?: number): FloatReceipt {
     const g = ps.geom;
+    // imagem flutuante oculta (Painel de Seleção, docPr hidden): não desenha nem
+    // afasta o texto; a em linha continua (oráculo pichidden)
+    if (run.image?.floating && run.image.format?.docPr.hidden) {
+      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: [] }, obj: { run, x: 0, y: 0, w: 0, h: 0, layer: 'front', hf: this.inHf } };
+    }
     const anchor: DrawingAnchor | undefined = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
     let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
     let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;

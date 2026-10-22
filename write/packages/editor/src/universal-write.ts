@@ -101,6 +101,7 @@ import {
   type TabLeader,
   readPictureFormat,
   patchPicture,
+  DEFAULT_WRAP_POLYGON,
   syncImageFromXml,
   newPictureXml,
   type PictureFormat,
@@ -6345,7 +6346,11 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.tableMouseDown(e)) return;
       // objetos flutuantes + entrada em caixa de texto (CLIQUE ÚNICO):
       if (e.button === 0 && !this.protectedMode) {
-        // 0) modo Cortar: alças pretas e arrastar a imagem; clique fora sai do modo
+        // 0) Editar Pontos de Quebra e modo Cortar; clique fora sai do modo
+        if (this.editingWrapPoints()) {
+          if (this.wrapPointsMouseDown(e)) { this.focusEditor(); return; }
+          this.endEditWrapPoints();
+        }
         if (this.croppingImage()) {
           const ch = this.cropHit(e);
           if (ch) { this.focusEditor(); this.startCropDrag(e, ch); return; }
@@ -6553,6 +6558,7 @@ export class UniversalWriteElement extends HTMLElement {
     // para vencer a definição de cursor quando há um objeto selecionado/sob o mouse).
     this.addEventListener('mousemove', (e) => {
       if (this.floatDrag || !this.model) return;
+      if (this.editingWrapPoints() && this.wrapPointAt(e)) { this.style.cursor = 'move'; return; }
       if (this.croppingImage()) {
         const ch = this.cropHit(e);
         if (ch) { this.style.cursor = ch === 'pan' ? 'move' : this.cursorForHandle(ch, this.activeFloat()?.rot ?? 0); return; }
@@ -6780,6 +6786,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.floatSel && !this.tbEdit && this.selectedFloat()) {
         const inline = !!this.floatSel.image && !this.floatSel.image.floating;
         if ((k === 'Escape' || k === 'Enter') && this.croppingImage()) { e.preventDefault(); this.endImageCrop(); return; }
+        if ((k === 'Escape' || k === 'Enter') && this.editingWrapPoints()) { e.preventDefault(); this.endEditWrapPoints(); return; }
         if (k === 'Escape') { e.preventDefault(); this.floatSel = null; if (inline) { const f = normalizeRange(this.range()).end; this.selection = { anchor: f, focus: f }; } this.refreshSelection(); this.chromeSync?.(); return; }
         if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.deleteSelectedFloat(); return; }
         if (!inline && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown')) {
@@ -9493,6 +9500,7 @@ export class UniversalWriteElement extends HTMLElement {
   startImageCrop(): void {
     const run = this.picRun();
     if (!run || this.locked()) return;
+    this.endEditWrapPoints();
     this.cropRun = run;
     this.paint();
     this.chromeSync?.();
@@ -9663,6 +9671,155 @@ export class UniversalWriteElement extends HTMLElement {
     for (const [x, y, w, hh] of bars) ctx.fillRect(x - dpr, y - dpr, w + 2 * dpr, hh + 2 * dpr);
     ctx.fillStyle = '#000000';
     for (const [x, y, w, hh] of bars) ctx.fillRect(x, y, w, hh);
+    ctx.restore();
+  }
+
+  // ───────────────────────── Editar Pontos de Quebra ─────────────────────────
+
+  /** Imagem com o polígono de quebra em edição (linha vermelha tracejada e pontos
+   *  pretos): arrastar um ponto o move, Ctrl+clique numa aresta cria um ponto e
+   *  Ctrl+clique num ponto o apaga. Grava edited="1", como o Word. */
+  private wrapEditRun: Run | null = null;
+
+  /** Entra em Editar Pontos de Quebra (a imagem flutuante passa a Justo se não
+   *  for Justo/Através, como no Word). */
+  startEditWrapPoints(): void {
+    const run = this.picRun();
+    if (!run || this.locked() || run.image!.format!.inline) return;
+    if (run.image!.format!.wrap !== 'tight' && run.image!.format!.wrap !== 'through') this.setImageWrap('tight');
+    this.endImageCrop();
+    this.wrapEditRun = run;
+    this.paint();
+    this.chromeSync?.();
+  }
+
+  endEditWrapPoints(): void {
+    if (!this.wrapEditRun) return;
+    this.wrapEditRun = null;
+    this.paint();
+    this.chromeSync?.();
+  }
+
+  editingWrapPoints(): boolean {
+    if (this.wrapEditRun && this.wrapEditRun !== this.floatSel) this.wrapEditRun = null;
+    return !!this.wrapEditRun;
+  }
+
+  /** Pontos do polígono (unidades 0..21600, sem o ponto de fechamento repetido). */
+  private wrapPoints(img: InlineImage): [number, number][] {
+    const pts = (img.format?.polygon?.pts ?? DEFAULT_WRAP_POLYGON).map(([x, y]): [number, number] => [x, y]);
+    const a = pts[0], b = pts[pts.length - 1];
+    if (pts.length > 1 && a && b && a[0] === b[0] && a[1] === b[1]) pts.pop();
+    return pts;
+  }
+
+  /** Ponto (unidades do polígono) sob o ponteiro, no referencial da imagem. */
+  private wrapLocal(e: MouseEvent, h: FloatHandle): { u: number; v: number; scale: number } | null {
+    const cv = this.canvases[h.page];
+    if (!cv) return null;
+    const r = cv.getBoundingClientRect(), scale = PX_PER_TWIP * this.zoom;
+    const a = (-(h.rot ?? 0) * Math.PI) / 180;
+    const dx = e.clientX - (r.left + (h.rect.x + h.rect.w / 2) * scale), dy = e.clientY - (r.top + (h.rect.y + h.rect.h / 2) * scale);
+    const lx = (dx * Math.cos(a) - dy * Math.sin(a)) / scale + h.rect.w / 2, ly = (dx * Math.sin(a) + dy * Math.cos(a)) / scale + h.rect.h / 2;
+    return { u: (lx / h.rect.w) * 21600, v: (ly / h.rect.h) * 21600, scale };
+  }
+
+  /** Clique no modo de pontos: true se tratou (arrasto, criar ou apagar ponto). */
+  private wrapPointsMouseDown(e: MouseEvent): boolean {
+    const h = this.wrapEditRun && this.selectedFloat();
+    const img = h?.obj as InlineImage | undefined;
+    if (!h || !img?.format) return false;
+    const at = this.wrapLocal(e, h);
+    if (!at) return false;
+    const pts = this.wrapPoints(img);
+    // tolerância de 6 px em unidades do polígono (por eixo)
+    const tu = ((6 * (window.devicePixelRatio || 1)) / at.scale / h.rect.w) * 21600, tv = ((6 * (window.devicePixelRatio || 1)) / at.scale / h.rect.h) * 21600;
+    const vi = pts.findIndex(([x, y]) => Math.abs(x - at.u) <= tu && Math.abs(y - at.v) <= tv);
+    const commit = (next: [number, number][]) => {
+      this.snapshot();
+      this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { polygon: { edited: true, pts: [...next, next[0]!] } }), false);
+      this.refresh();
+      this.dispatchEvent(new CustomEvent('uw-change'));
+    };
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (vi >= 0) { if (pts.length > 3) commit(pts.filter((_, i) => i !== vi)); return true; }
+      // aresta mais próxima: o ponto entra nela
+      let best = -1, bd = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const [ax, ay] = pts[i]!, [bx, by] = pts[(i + 1) % pts.length]!;
+        const sx = (bx - ax) / tu, sy = (by - ay) / tv, px = (at.u - ax) / tu, py = (at.v - ay) / tv;
+        const t = Math.max(0, Math.min(1, (px * sx + py * sy) / (sx * sx + sy * sy || 1)));
+        const d = Math.hypot(px - t * sx, py - t * sy);
+        if (d < bd) { bd = d; best = i; }
+      }
+      if (best >= 0 && bd <= 1.5) { const next = [...pts]; next.splice(best + 1, 0, [Math.round(at.u), Math.round(at.v)]); commit(next); return true; }
+      return false;
+    }
+    if (vi < 0) return false;
+    e.preventDefault();
+    this.snapshot();
+    const live = [...pts];
+    const sx = e.clientX, sy = e.clientY;
+    let moved = false, frame = 0;
+    const move = (ev: MouseEvent) => {
+      if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) <= 2) return;
+      moved = true;
+      const p = this.wrapLocal(ev, h);
+      if (!p) return;
+      live[vi] = [Math.round(p.u), Math.round(p.v)];
+      // o texto acompanha ao vivo (o motor lê a âncora)
+      const xs = live.map((q) => q[0]), ys = live.map((q) => q[1]);
+      if (img.anchor) img.anchor = { ...img.anchor, wrapPoly: live.map(([x, y]): [number, number] => [x / 21600, y / 21600]), wrapBox: { x0: Math.min(...xs) / 21600, y0: Math.min(...ys) / 21600, x1: Math.max(...xs) / 21600, y1: Math.max(...ys) / 21600 } };
+      img.format = { ...img.format!, polygon: { edited: true, pts: [...live, live[0]!] } };
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; this.refresh(); });
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      cancelAnimationFrame(frame);
+      if (!moved) { this.undoStack.pop(); return; }
+      this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { polygon: { edited: true, pts: [...live, live[0]!] } }), false);
+      this.refresh();
+      this.dispatchEvent(new CustomEvent('uw-change'));
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return true;
+  }
+
+  /** Ponto do polígono sob o ponteiro (cursor de mover). */
+  private wrapPointAt(e: MouseEvent): boolean {
+    const h = this.wrapEditRun && this.selectedFloat();
+    const img = h?.obj as InlineImage | undefined;
+    if (!h || !img?.format) return false;
+    const at = this.wrapLocal(e, h);
+    if (!at) return false;
+    const tu = ((6 * (window.devicePixelRatio || 1)) / at.scale / h.rect.w) * 21600, tv = ((6 * (window.devicePixelRatio || 1)) / at.scale / h.rect.h) * 21600;
+    return this.wrapPoints(img).some(([x, y]) => Math.abs(x - at.u) <= tu && Math.abs(y - at.v) <= tv);
+  }
+
+  private paintWrapPoints(ctx: CanvasRenderingContext2D, h: FloatHandle, scale: number, dpr: number): void {
+    const img = h.obj as InlineImage;
+    const pts = this.wrapPoints(img);
+    const W = h.rect.w * scale, H = h.rect.h * scale;
+    ctx.save();
+    ctx.translate((h.rect.x + h.rect.w / 2) * scale, (h.rect.y + h.rect.h / 2) * scale);
+    if (h.rot) ctx.rotate((h.rot * Math.PI) / 180);
+    ctx.translate(-W / 2, -H / 2);
+    ctx.strokeStyle = '#2b579a';
+    ctx.lineWidth = Math.max(1, dpr);
+    ctx.strokeRect(0, 0, W, H);
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => { const px = (x / 21600) * W, py = (y / 21600) * H; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); });
+    ctx.closePath();
+    ctx.strokeStyle = '#e00000';
+    ctx.setLineDash([4 * dpr, 3 * dpr]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const s = 6 * dpr;
+    ctx.fillStyle = '#000000';
+    for (const [x, y] of pts) ctx.fillRect((x / 21600) * W - s / 2, (y / 21600) * H - s / 2, s, s);
     ctx.restore();
   }
 
@@ -9885,7 +10042,92 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Bloquear âncora. */
-  setImageLockAnchor(on: boolean): void {
+  // ───────────────────────── Painel de Seleção ─────────────────────────
+
+  /** Imagens flutuantes (DrawingML) do documento para o Painel de Seleção, da frente
+   *  para trás (relativeHeight), com nome (docPr) e visibilidade (docPr hidden). */
+  selectionPaneItems(): { key: string; name: string; hidden: boolean; selected: boolean }[] {
+    const out: { key: string; name: string; hidden: boolean; selected: boolean; z: number }[] = [];
+    let n = 0;
+    for (const p of this.model?.paragraphs ?? []) {
+      for (const r of p.runs) {
+        const f = r.image?.format;
+        if (!f || f.inline || !r.image!.rawDrawingXml) continue;
+        n++;
+        out.push({ key: f.docPr.id ?? `#${n}`, name: f.docPr.name ?? '', hidden: !!f.docPr.hidden, selected: this.floatSel === r, z: f.relativeHeight ?? 0 });
+      }
+    }
+    out.sort((x, y) => y.z - x.z);
+    return out.map(({ z: _z, ...o }) => o);
+  }
+
+  private paneRun(key: string): Run | null {
+    let n = 0;
+    for (const p of this.model?.paragraphs ?? []) {
+      for (const r of p.runs) {
+        const f = r.image?.format;
+        if (!f || f.inline || !r.image!.rawDrawingXml) continue;
+        n++;
+        if ((f.docPr.id ?? `#${n}`) === key) return r;
+      }
+    }
+    return null;
+  }
+
+  /** Seleciona o objeto da lista (oculto também: sem alças na página). */
+  selectPaneItem(key: string): void {
+    const r = this.paneRun(key);
+    if (!r) return;
+    this.endImageCrop();
+    this.endEditWrapPoints();
+    this.floatSel = r;
+    this.refreshSelection();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Renomeia (docPr name, e o do pic:cNvPr acompanha). */
+  renamePaneItem(key: string, name: string): void {
+    const r = this.paneRun(key);
+    const img = r?.image;
+    if (!img?.rawDrawingXml || this.locked() || !name.trim() || img.format!.docPr.name === name) return;
+    this.snapshot();
+    this.applyPictureXml(img, patchPicture(img.rawDrawingXml, { name: name.trim() }), false);
+    this.afterPictureEdit();
+  }
+
+  /** Mostrar/ocultar (docPr hidden): oculta não desenha nem afasta o texto. */
+  setPaneItemHidden(key: string | null, hidden: boolean): void {
+    if (this.locked()) return;
+    const runs = key === null ? this.selectionPaneItems().map((i) => this.paneRun(i.key)) : [this.paneRun(key)];
+    const todo = runs.filter((r): r is Run => !!r?.image?.rawDrawingXml && !!r.image.format!.docPr.hidden !== hidden);
+    if (!todo.length) return;
+    this.snapshot();
+    for (const r of todo) this.applyPictureXml(r.image!, patchPicture(r.image!.rawDrawingXml!, { hidden }), false);
+    this.afterPictureEdit();
+  }
+
+  /** Alinhar (Organizar › Alinhar) em relação à margem (padrão) ou à página: o
+   *  botão grava `<wp:align>` relativo a elas (medido: align-ui-left). Só imagens
+   *  flutuantes. */
+  alignImage(kind: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', relativeTo?: 'margin' | 'page'): void {
+    const run = this.picRun();
+    if (!run || run.image!.format!.inline) return;
+    const rel = relativeTo ?? this.imageAlignTo;
+    this.editPicture((f) => {
+      if (kind === 'left' || kind === 'center' || kind === 'right') {
+        if (f.posH?.relativeFrom === rel && f.posH.align === kind) return null;
+        return { posH: { relativeFrom: rel, align: kind } };
+      }
+      const v = kind === 'middle' ? 'center' : kind;
+      if (f.posV?.relativeFrom === rel && f.posV.align === v) return null;
+      return { posV: { relativeFrom: rel, align: v } };
+    });
+  }
+
+  /** Alinhar à Página × Alinhar à Margem (vale para os próximos Alinhar). */
+  imageAlignTo: 'margin' | 'page' = 'margin';
+
+    setImageLockAnchor(on: boolean): void {
     this.editPicture((f) => (f.inline ? null : { locked: on }));
   }
 
@@ -15255,6 +15497,7 @@ export class UniversalWriteElement extends HTMLElement {
           const cx = h.rect.x * scale + w / 2, cy = h.rect.y * scale + hh / 2;
           const pic = h.kind === 'image' && !this.tbEdit;
           if (pic && this.croppingImage()) { this.paintCropOverlay(ctx, h, scale, dpr); return this.paintCaretOnly(ctxs, scales, dpr, hasSel); }
+          if (pic && this.editingWrapPoints()) { this.paintWrapPoints(ctx, h, scale, dpr); return this.paintCaretOnly(ctxs, scales, dpr, hasSel); }
           ctx.save();
           // as alças giram com a imagem (em volta do centro)
           ctx.translate(cx, cy);

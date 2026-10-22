@@ -91,6 +91,32 @@ if (scenario === 'wrapkind') {
   console.log('polígono:', JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectedImage()?.format.polygon)));
   await shot(kind);
 }
+if (scenario === 'wrappoints') {
+  await page.evaluate(() => document.querySelector('universal-write').startEditWrapPoints());
+  await page.waitForTimeout(400);
+  await shot('mode');
+  // arrasta o canto de cima à direita 60 px para dentro e para baixo
+  const tr = await picCenter();
+  const x0 = tr.x + tr.w / 2 - 1, y0 = tr.y - tr.h / 2 + 1;
+  await page.mouse.move(x0, y0); await page.mouse.down(); await page.mouse.move(x0 - 60, y0 + 60, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(500);
+  console.log('polígono:', JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectedImage()?.format.polygon)));
+  await shot('dragged');
+}
+if (scenario === 'selpane') {
+  await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:selectionPane"]')?.click());
+  await page.waitForTimeout(500);
+  await shot('pane');
+  console.log('itens:', JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectionPaneItems())));
+  // oculta o 2º da lista pelo olho
+  await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelectorAll('.uo-sel-row button')[1]?.click());
+  await page.waitForTimeout(500);
+  await shot('hidden');
+  console.log('avançar habilitado:', await page.evaluate(() => !document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:forward"]')?.disabled));
+  await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:align"]')?.click());
+  await page.waitForTimeout(400);
+  await shot('align');
+}
 if (scenario === 'rotate') {
   // alça de girar: 22 px acima do meio da borda de cima
   const hx = c.x, hy = c.y - c.h / 2 - 22;
