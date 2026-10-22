@@ -1,0 +1,468 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 137.92,
+"size": 11.04,
+"text": "Referencia"
+},
+{
+"y": 77.16,
+"x0": 138.26,
+"x1": 139.33,
+"size": 6.96,
+"text": "i"
+},
+{
+"y": 81.12,
+"x0": 142.94,
+"x1": 161.77,
+"size": 11.04,
+"text": "Hxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento1Hxg"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento2Hxg"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento3Hxg"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento4Hxg"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento5Hxg"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento6Hxg"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento7Hxg"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento8Hxg"
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 173.18,
+"size": 11.04,
+"text": "enchimento9Hxg"
+},
+{
+"y": 207.62,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento10Hxg"
+},
+{
+"y": 220.34,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento11Hxg"
+},
+{
+"y": 232.94,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento12Hxg"
+},
+{
+"y": 245.66,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento13Hxg"
+},
+{
+"y": 258.26,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento14Hxg"
+},
+{
+"y": 271.01,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento15Hxg"
+},
+{
+"y": 283.61,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento16Hxg"
+},
+{
+"y": 296.21,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento17Hxg"
+},
+{
+"y": 308.93,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento18Hxg"
+},
+{
+"y": 321.53,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento19Hxg"
+},
+{
+"y": 334.25,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento20Hxg"
+},
+{
+"y": 346.85,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento21Hxg"
+},
+{
+"y": 359.45,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento22Hxg"
+},
+{
+"y": 372.17,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento23Hxg"
+},
+{
+"y": 384.77,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento24Hxg"
+},
+{
+"y": 397.49,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento25Hxg"
+},
+{
+"y": 410.09,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento26Hxg"
+},
+{
+"y": 422.69,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento27Hxg"
+},
+{
+"y": 435.41,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento28Hxg"
+},
+{
+"y": 448.03,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento29Hxg"
+},
+{
+"y": 460.75,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento30Hxg"
+},
+{
+"y": 473.35,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento31Hxg"
+},
+{
+"y": 485.95,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento32Hxg"
+},
+{
+"y": 498.67,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento33Hxg"
+},
+{
+"y": 511.27,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento34Hxg"
+},
+{
+"y": 523.99,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento35Hxg"
+},
+{
+"y": 536.59,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento36Hxg"
+},
+{
+"y": 549.31,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento37Hxg"
+},
+{
+"y": 561.91,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento38Hxg"
+},
+{
+"y": 574.51,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento39Hxg"
+},
+{
+"y": 587.23,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento40Hxg"
+},
+{
+"y": 599.83,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento41Hxg"
+},
+{
+"y": 612.55,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento42Hxg"
+},
+{
+"y": 625.18,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento43Hxg"
+},
+{
+"y": 637.78,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento44Hxg"
+},
+{
+"y": 650.5,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento45Hxg"
+},
+{
+"y": 663.1,
+"x0": 85.1,
+"x1": 179.28,
+"size": 11.04,
+"text": "enchimento46Hxg"
+},
+{
+"y": 684.46,
+"x0": 85.1,
+"x1": 86.1,
+"size": 6.48,
+"text": "i"
+},
+{
+"y": 687.46,
+"x0": 89.3,
+"x1": 495.48,
+"size": 9.96,
+"text": "linha1danotadefimlongacomtextoqueocupaalarguratodadocorpolinha2danotade"
+},
+{
+"y": 698.98,
+"x0": 85.1,
+"x1": 498.55,
+"size": 9.96,
+"text": "fimlongacomtextoqueocupaalarguratodadocorpolinha3danotadefimlongacomtexto"
+},
+{
+"y": 710.38,
+"x0": 85.1,
+"x1": 500.94,
+"size": 9.96,
+"text": "queocupaalarguratodadocorpolinha4danotadefimlongacomtextoqueocupaalargura"
+},
+{
+"y": 721.9,
+"x0": 85.1,
+"x1": 505.05,
+"size": 9.96,
+"text": "todadocorpolinha5danotadefimlongacomtextoqueocupaalarguratodadocorpolinha6"
+},
+{
+"y": 733.42,
+"x0": 85.1,
+"x1": 502.33,
+"size": 9.96,
+"text": "danotadefimlongacomtextoqueocupaalarguratodadocorpolinha7danotadefimlonga"
+},
+{
+"y": 744.94,
+"x0": 85.1,
+"x1": 504.77,
+"size": 9.96,
+"text": "comtextoqueocupaalarguratodadocorpolinha8danotadefimlongacomtextoqueocupa"
+},
+{
+"y": 756.46,
+"x0": 85.1,
+"x1": 487.42,
+"size": 9.96,
+"text": "alarguratodadocorpolinha9danotadefimlongacomtextoqueocupaalarguratodado"
+},
+{
+"y": 767.98,
+"x0": 85.1,
+"x1": 493.98,
+"size": 9.96,
+"text": "corpolinha10danotadefimlongacomtextoqueocupaalarguratodadocorpolinha11da"
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 85.1,
+"y0": 672.94,
+"x1": 229.12,
+"y1": 673.54
+}
+]
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 92.9,
+"x0": 85.1,
+"x1": 493.94,
+"size": 9.96,
+"text": "notadefimlongacomtextoqueocupaalarguratodadocorpolinha12danotadefimlonga"
+},
+{
+"y": 104.3,
+"x0": 85.1,
+"x1": 480.16,
+"size": 9.96,
+"text": "comtextoqueocupaalarguratodadocorpolinha13danotadefimlongacomtextoque"
+},
+{
+"y": 115.82,
+"x0": 85.1,
+"x1": 509.27,
+"size": 9.96,
+"text": "ocupaalarguratodadocorpolinha14danotadefimlongacomtextoqueocupaalarguratoda"
+},
+{
+"y": 127.34,
+"x0": 85.1,
+"x1": 123.49,
+"size": 9.96,
+"text": "docorpo"
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 85.1,
+"y0": 78.24,
+"x1": 510.33,
+"y1": 78.84
+}
+]
+}
+]
+}

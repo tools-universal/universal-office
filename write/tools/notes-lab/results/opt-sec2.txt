@@ -1,0 +1,2 @@
+# opt-sec2
+ERRO: Notas de rodapé ou notas de fim devem iniciar em 1, se a numeração não for contínua.
