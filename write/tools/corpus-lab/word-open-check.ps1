@@ -124,10 +124,14 @@ foreach ($row in $rows) {
           $script:bm = [bool]$d.Bookmarks.Exists('RefLossless')
           $script:refOk = $false; $script:seq = $false; $script:tip = $false
           $bt = if ($script:bm) { [string]$d.Bookmarks.Item('RefLossless').Range.Text } else { '' }
+          # com o controle de alteracoes ligado no documento, atualizar guarda o resultado
+          # velho como exclusao (Result.Text dobra); "Todas em maiusculas" muda o texto
+          # devolvido do codigo e do resultado (refs-lab ref-probe2/fields-list)
+          $d.TrackRevisions = $false
           foreach ($f in $d.Fields) {
             $c = [string]$f.Code.Text
-            if ($c.Contains('REF RefLossless')) { $null = $f.Update(); if ([string]$f.Result.Text -eq $bt) { $script:refOk = $true } }
-            if ($c.Contains('SEQ Figura')) { $script:seq = $true }
+            if ($c -match 'REF RefLossless') { $null = $f.Update(); if ([string]$f.Result.Text -ieq $bt) { $script:refOk = $true } }
+            if ($c -match 'SEQ Figura') { $script:seq = $true }
           }
           foreach ($h in $d.Hyperlinks) { if ([string]$h.ScreenTip -eq 'Dica Lossless') { $script:tip = $true } }
         }

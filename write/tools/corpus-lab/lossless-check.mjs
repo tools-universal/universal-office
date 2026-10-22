@@ -500,8 +500,13 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     // cruzada REF \h a ele, legenda com SEQ num parágrafo novo e hiperlink com
     // Dica de Tela (como o <universal-write> grava — oráculo refs-lab)
     let refEdit = null;
-    if (refsMode && cands[3] && cands[1]) {
-      const bp = cands[3][0], bpi = ps.indexOf(bp);
+    // fora de controles de conteúdo de texto sem formatação (o editor recusa campo e
+    // hiperlink ali — canInsertField; o Word acusa arquivo corrompido) e do 3º
+    // candidato (dividido acima); índices pelo modelo atual
+    const free = refsMode ? cands.filter((c, k) => k !== 2 && !b.full.sources.inPlainTextControl(c[0], c[0].runs)) : [];
+    if (refsMode && free.length >= 3) {
+      const [hc, lc, bc] = free;
+      const bp = bc[0], bpi = ps.indexOf(bp);
       let maxId = -1;
       for (const pp of paras(b.full.blocks)) for (const r of pp.runs) if (r.bookmark && r.bookmark.id > maxId) maxId = r.bookmark.id;
       for (const m of orig.documentXml().matchAll(/<w:bookmarkStart\b[^>]*\bw:id="(\d+)"/g)) maxId = Math.max(maxId, +m[1]);
@@ -511,13 +516,15 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       bp.runs.splice(core.splitAt(bp, 5), 0, mark(true));
       bp.runs.splice(core.insertIndex(bp, 0), 0, mark(false));
       if (!edited.includes(bp)) edited.push(bp);
-      // a referência depois do "XYZ" do 1º editado (ou no começo do 2º)
-      const host = cands[0] ? cands[0][1] : cands[1][1];
+      // a referência depois do "XYZ" do 1º editado (ou no começo do parágrafo)
+      const host = ps.indexOf(hc[0]);
       const rp = { ...core.DEFAULT_RUN_PROPS };
-      core.insertRun(model, { para: host, offset: cands[0] ? 8 : 0 }, { text: bmText, props: rp, field: ' REF RefLossless \\h ', fieldResult: [{ text: bmText, props: rp }] });
-      // hiperlink com Dica de Tela num trecho do 2º
-      applyRunProps(model, { start: { para: cands[1][1], offset: 10 }, end: { para: cands[1][1], offset: 14 } }, { link: 'https://exemplo.com/lossless', linkTip: 'Dica Lossless', charStyle: 'Hyperlink' });
-      if (!edited.includes(cands[1][0])) edited.push(cands[1][0]);
+      core.insertRun(model, { para: host, offset: hc === cands[0] ? 8 : 0 }, { text: bmText, props: rp, field: ' REF RefLossless \\h ', fieldResult: [{ text: bmText, props: rp }] });
+      if (!edited.includes(hc[0])) edited.push(hc[0]);
+      // hiperlink com Dica de Tela num trecho de outro
+      const lp = ps.indexOf(lc[0]);
+      applyRunProps(model, { start: { para: lp, offset: 10 }, end: { para: lp, offset: 14 } }, { link: 'https://exemplo.com/lossless', linkTip: 'Dica Lossless', charStyle: 'Hyperlink' });
+      if (!edited.includes(lc[0])) edited.push(lc[0]);
       // legenda num parágrafo novo antes do 4º candidato
       const capP = { runs: [{ text: 'Figura ', props: { ...rp } }, { text: '1', props: { ...rp }, field: ' SEQ Figura \\* ARABIC ', fieldResult: [{ text: '1', props: { ...rp, noProof: true } }] }, { text: ' - Lossless', props: { ...rp } }], props: {} };
       const bi = b.full.blocks.findIndex((x) => x.type === 'paragraph' && x.paragraph === bp);

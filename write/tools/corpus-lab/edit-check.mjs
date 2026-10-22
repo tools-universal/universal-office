@@ -1224,6 +1224,30 @@ if (want('refs')) {
   await call('insertHyperlink', { anchor: 'p:0', text: 'Ver título' });
   xml = await docXml();
   check('link para título: _Toc oculto nele e w:anchor', /<w:hyperlink w:anchor="_Toc\d{9}" w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"\/><\/w:rPr><w:t>Ver título<\/w:t>/.test(xml));
+  // ── controle de conteúdo de texto sem formatação (texto, data…): campo e hiperlink
+  // ali deixam o arquivo "corrompido" no Word (corpus: lossless-check --refs ×
+  // word-open-check -Refs) — o editor recusa, como a nota (canInsertNote)
+  const ccSdt = (pr, content) => `<w:sdt><w:sdtPr><w:id w:val="7"/>${pr}</w:sdtPr><w:sdtContent>${content}</w:sdtContent></w:sdt>`;
+  const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
+  const ccPkg = core.blankDocxPackage();
+  ccPkg.setPartText('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+    ccSdt('<w:text/>', '<w:p><w:r><w:t>Titulo da capa</w:t></w:r></w:p>') +
+    `<w:p><w:r><w:t xml:space="preserve">Antes </w:t></w:r>${ccSdt('<w:date/>', '<w:r><w:t>21/10/2026</w:t></w:r>')}${ccSdt('', '<w:r><w:t>rico</w:t></w:r>')}<w:r><w:t xml:space="preserve"> depois</w:t></w:r></w:p>` +
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
+  await ev('openBase64', Buffer.from(ccPkg.save()).toString('base64'));
+  await call('enableEditing');
+  const canAt = async (para, offset) => { await ev('select', para, offset); return call('canInsertField'); };
+  const cf = { bloco: await canAt(0, 4), data: await canAt(1, 9), rico: await canAt(1, 18), fora: await canAt(1, 3) };
+  check('campo/hiperlink recusados em controle de texto sem formatação/data; aceitos em rich text e fora', !cf.bloco && !cf.data && cf.rico && cf.fora, cf);
+  await ev('select', 0, 4);
+  const refused = [
+    await call('insertCrossReference', { type: 'heading', item: 'p:1', kind: 'text' }),
+    await call('insertHyperlink', { address: 'https://exemplo.com/cc' }),
+    await call('insertCaption', { label: 'Figura' }),
+    await call('insertTableOfFigures', { label: 'Figura' }),
+  ];
+  xml = await docXml();
+  check('no controle de texto: referência, hiperlink, legenda e índice não fazem nada', refused.every((x) => x === false) && !/fldChar|fldSimple|w:hyperlink/.test(xml), refused);
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────

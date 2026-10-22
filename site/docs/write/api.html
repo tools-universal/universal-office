@@ -406,6 +406,7 @@ editor.host = {
           <tr><td><code>updateTableOfFigures()</code> · <code>getTableOfFiguresOptions()</code></td><td>Updates the table of figures at the caret (or all) · its options.</td></tr>
           <tr><td><code>updateFields(scope = 'all'): number</code></td><td><code>'selection'</code> (F9) or <code>'all'</code>: TOCs, table formulas and the cached results of <code>REF</code>, <code>PAGEREF</code>, <code>NOTEREF</code>, <code>SEQ</code>, <code>STYLEREF</code>. Returns how many changed.</td></tr>
           <tr><td><code>insertHyperlink(opts): boolean</code></td><td><code>{ address?, anchor?, tip?, text? }</code> — web address, file or <code>mailto:</code>, or a place in the document (<code>anchor</code>: a bookmark, <code>'_top'</code>, or <code>'p:&lt;paragraph&gt;'</code> for a heading, which gets a hidden <code>_Toc</code> bookmark); <code>tip</code> is the ScreenTip. On an existing link it edits it.</td></tr>
+          <tr><td><code>canInsertField(): boolean</code></td><td><code>false</code> inside a plain-text, date, combo box or drop-down list content control: Word refuses fields and hyperlinks there, so cross-references, captions at the caret, tables of figures and hyperlinks do nothing there.</td></tr>
           <tr><td><code>getLink()</code> · <code>getLinkTargets()</code> · <code>removeLink()</code></td><td>The link at the caret <code>{ address?, anchor?, tip?, text }</code> · headings and bookmarks for "Place in this document" · removes the link and its Hyperlink style (the text stays).</td></tr>
         </tbody>
       </table>

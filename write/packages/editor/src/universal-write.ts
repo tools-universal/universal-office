@@ -2348,7 +2348,7 @@ export class UniversalWriteElement extends HTMLElement {
   setAlignment(a: 'left' | 'center' | 'right' | 'both'): void { this.formatPara({ alignment: a }); }
   /** Aplica hyperlink à seleção; sem seleção e com url, insere a url já linkada. */
   setLink(url: string | undefined): void {
-    if (!this.model || this.locked()) return;
+    if (!this.model || this.locked() || (url && !this.canInsertField())) return;
     this.snapshot();
     if (this.hasSelection()) {
       applyRunProps(this.model, this.range(), { link: url || undefined });
@@ -3715,7 +3715,7 @@ export class UniversalWriteElement extends HTMLElement {
    * oráculo xr-*). `position` acrescenta " acima/abaixo" (REF \p) depois.
    */
   insertCrossReference(opts: CrossRefOptions): boolean {
-    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
     const body = this.bodyState();
     let target: string | null = null;
     const ps = body.model.paragraphs;
@@ -4158,7 +4158,7 @@ export class UniversalWriteElement extends HTMLElement {
    * "Índice de ilustrações" no formato escolhido (oráculo tof-*).
    */
   insertTableOfFigures(opts: TableOfFiguresOptions): boolean {
-    if (!this.model || this.locked() || !opts.label || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    if (!this.model || this.locked() || !opts.label || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
     const o: TocOptions = {
       caption: opts.label, includeLabel: opts.includeLabel !== false, hyperlinks: opts.hyperlinks !== false, hideInWeb: opts.hyperlinks !== false,
       ...(opts.pageNumbers === false ? { noPageNumbers: true } : {}),
@@ -4335,6 +4335,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (!label) return false;
     const numbering = opts.numbering ?? this.getCaptionNumbering(label);
     const target = this.captionTarget();
+    // sem objeto a legenda entra no cursor: não num controle de texto sem formatação
+    if (!target && !this.canInsertField()) return false;
     const position = opts.position ?? (this.getCaptionLabels().find((l) => l.name === label)?.position ?? 'below');
     this.snapshot();
     const style = this.builtinStyleId('caption');
@@ -4479,7 +4481,7 @@ export class UniversalWriteElement extends HTMLElement {
    * Hyperlink, como o Word grava (oráculo hl-*).
    */
   insertHyperlink(opts: HyperlinkOptions): boolean {
-    if (!this.model || this.locked()) return false;
+    if (!this.model || this.locked() || !this.canInsertField()) return false;
     let link = opts.address?.trim() ?? '';
     this.snapshot();
     if (!link && opts.anchor) {
@@ -11295,16 +11297,33 @@ export class UniversalWriteElement extends HTMLElement {
   canInsertNote(): boolean {
     if (!this.model || !this.fullDoc || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit || this.view === 'read') return false;
     // controle de conteúdo de texto sem formatação: o Word recusa (oráculo notes-lab, cc-plain-*)
-    const store = this.fullDoc.sources;
-    const { end } = normalizeRange(this.range());
-    const p = this.model.paragraphs[end.para];
-    if (!store || !p) return true;
-    const runAt = (o: number): Run | undefined => {
-      let acc = 0;
-      for (const r of p.runs) { if (o >= acc && o < acc + r.text.length) return r; acc += r.text.length; }
-      return undefined;
-    };
-    return !store.inPlainTextControl(p, [runAt(end.offset - 1), runAt(end.offset)]);
+    return !this.inPlainTextControlAt([normalizeRange(this.range()).end]);
+  }
+
+  /** Pode inserir campo (referência cruzada, índice de ilustrações) ou hiperlink na
+   *  seleção? Não num controle de conteúdo de texto sem formatação (texto, data, caixa
+   *  de combinação, lista suspensa): o Word recusa e o arquivo com o campo/hiperlink
+   *  ali fica "corrompido" (corpus: lossless-check --refs × word-open-check -Refs). */
+  canInsertField(): boolean {
+    if (!this.model || this.locked() || this.view === 'read') return false;
+    const { start, end } = normalizeRange(this.range());
+    return !this.inPlainTextControlAt(comparePos(start, end) === 0 ? [end] : [start, end]);
+  }
+
+  /** Alguma das posições está num controle de conteúdo de texto sem formatação? */
+  private inPlainTextControlAt(at: readonly DocPosition[]): boolean {
+    const store = this.fullDoc?.sources;
+    if (!store || !this.model) return false;
+    return at.some((pos) => {
+      const p = this.model!.paragraphs[pos.para];
+      if (!p) return false;
+      const runAt = (o: number): Run | undefined => {
+        let acc = 0;
+        for (const r of p.runs) { if (o >= acc && o < acc + r.text.length) return r; acc += r.text.length; }
+        return undefined;
+      };
+      return store.inPlainTextControl(p, [runAt(pos.offset - 1), runAt(pos.offset)]);
+    });
   }
 
   /** Insere uma nota de rodapé no cursor (no FIM da seleção, sem apagá-la) e leva o
