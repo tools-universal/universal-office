@@ -295,6 +295,24 @@ export const BAR_CSS = /* css */ `
 .uo-pane-body { flex: 1 1 auto; overflow: auto; padding: 2px 8px 8px; min-height: 0; }
 .uo-pane-foot { flex: none; display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid ${OUTLINE_VAR}; }
 
+/* ── régua ── */
+.uo-ruler {
+  --uo-ruler-track: ${LOWEST}; --uo-ruler-shade: ${OUTLINE_VAR}; --uo-ruler-ink: ${ON_VAR};
+  --uo-ruler-mark: ${ON}; --uo-ruler-accent: ${PRIMARY}; --uo-ruler-fill: ${LOWEST};
+  display: flex; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none;
+  font-family: var(--uo-font, "Segoe UI", system-ui, -apple-system, sans-serif);
+}
+.uo-ruler[hidden] { display: none !important; }
+.uo-ruler-h { height: 24px; width: 100%; flex-direction: row; align-items: stretch; }
+.uo-ruler-v { width: 22px; height: 100%; flex-direction: column; }
+.uo-ruler-canvas { display: block; flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%; height: 100%; }
+.uo-ruler-sel {
+  flex: none; width: 22px; height: 24px; padding: 0; margin: 0; border: 0; border-right: 1px solid ${OUTLINE_VAR};
+  background: transparent; color: inherit; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.uo-ruler-sel:hover { background: ${HIGHEST}; }
+.uo-ruler-sel:focus-visible { outline: 2px solid ${PRIMARY}; outline-offset: -2px; }
+
 /* ── aviso (snackbar) ── */
 .uo-toast {
   position: fixed; z-index: 1100; left: 50%; bottom: 28px; transform: translateX(-50%);

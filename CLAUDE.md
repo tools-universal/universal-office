@@ -89,7 +89,10 @@ Docs (menus + linha que recolhe por prioridade — `data-prio`, gatilhos, "⋮",
 "☰") e RIBBON estilo Word (guias, grupos com iniciador, guias contextuais),
 menus/submenus (o motor único — não copiar menu.ts/context-menu.ts nos demos),
 diálogo sobre `<dialog>` nativo (o u-dialog trava no fechar sem relógio de
-animação), avisos e os Material Symbols como SVG (`symbols.ts`, gerado por
+animação), avisos, galeria, painel lateral (`pane.ts`), a RÉGUA (`ruler.ts`:
+margens, recuos, tabulações, colunas/células, arrasto com encaixe e seletor
+de tabulação — o app só entrega a geometria em twips) e os Material Symbols
+como SVG (`symbols.ts`, gerado por
 `shared/ui/tools/extract-symbols.py`). Tudo funciona dentro de shadow root
 (clique fora por `composedPath()`). O app só DECLARA comandos sobre a própria
 API e os layouts: o Write em `editor/src/chrome-*.ts` (`toolbar="compact|ribbon"`,

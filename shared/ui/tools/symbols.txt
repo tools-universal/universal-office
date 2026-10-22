@@ -198,3 +198,11 @@ warning
 sort_by_alpha
 format_color_reset
 view_in_ar
+straighten
+grid_4x4
+side_navigation
+keyboard_tab
+unfold_more
+unfold_less
+arrow_back
+arrow_forward
