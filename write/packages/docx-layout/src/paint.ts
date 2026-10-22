@@ -196,12 +196,12 @@ function paintInlineObject(ctx: DocContext, out: PageItem[], g: Glyph, x0: numbe
   if (obj.image && isEmf(obj.image.data)) {
     const im = obj.image;
     const r = { x, y: baseY - shift - im.heightTwips, w: im.widthTwips, h: im.heightTwips };
-    out.push({ t: 'clip', op: 'push', ...r }, ...renderEmf(ctx, im.data, r), { t: 'clip', op: 'pop' });
+    out.push({ t: 'clip', op: 'push', ...r, src: im }, ...renderEmf(ctx, im.data, r), { t: 'clip', op: 'pop' });
   } else if (obj.image && isWmf(obj.image.data)) {
     // WMF (prévia do Equation Editor 3.0…): o Word desenha e grava o texto (wmf.ts)
     const im = obj.image;
     const r = { x, y: baseY - shift - im.heightTwips, w: im.widthTwips, h: im.heightTwips };
-    out.push({ t: 'clip', op: 'push', ...r }, ...renderWmf(ctx, im.data, r), { t: 'clip', op: 'pop' });
+    out.push({ t: 'clip', op: 'push', ...r, src: im }, ...renderWmf(ctx, im.data, r), { t: 'clip', op: 'pop' });
   } else if (obj.image) {
     const im = obj.image;
     out.push({

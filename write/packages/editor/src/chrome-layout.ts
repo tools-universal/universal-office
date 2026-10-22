@@ -11,6 +11,7 @@ import {
 } from './chrome-widgets.js';
 import { tableDesignGroups, tableFormatMenu, tableLayoutGroups, tableMenu } from './chrome-table.js';
 import { docInfoMenu, hfGalleryMenu, hfToolsGroups, pageNumberMenu } from './chrome-hf.js';
+import { pictureCompactGroup, pictureFormatGroups, pictureMenu } from './chrome-picture.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -138,7 +139,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -158,6 +159,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
         { menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: { en: 'Line & paragraph spacing', pt: 'Espaçamento entre linhas e parágrafos' }, icon: 'format_line_spacing' },
         'list:bullet', 'list:decimal', 'outdent', 'indent', 'clear',
       ] },
+      pictureCompactGroup(env),
       { id: 'extras', label: { en: 'More tools', pt: 'Mais ferramentas' }, icon: 'more_horiz', prio: 0, items: [
         'strike', 'sub', 'sup',
         { menu: caseMenu, id: 'case', label: { en: 'Change case', pt: 'Maiúsculas e minúsculas' }, icon: 'match_case' },
@@ -341,14 +343,12 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
         id: 'table-layout', label: L('Table Layout', 'Layout da Tabela'), contextual: () => env.ed.editingTableCell(), groups: tableLayoutGroups(env),
       },
       {
-        id: 'image-tools', label: L('Picture', 'Imagem'),
+        id: 'image-tools', label: L('Picture Format', 'Formato da Imagem'),
         contextual: () => {
           const f = (env.ed as unknown as { selectedImage?: () => unknown }).selectedImage;
           return typeof f === 'function' && !!f.call(env.ed);
         },
-        groups: [
-          { id: 'image', label: L('Picture', 'Imagem'), icon: 'image', prio: 5, cells: [large('image:delete')] },
-        ],
+        groups: pictureFormatGroups(env, ctx),
       },
     ],
   };

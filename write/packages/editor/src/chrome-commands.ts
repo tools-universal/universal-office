@@ -8,6 +8,7 @@ import type { WriteApp } from './chrome-app.js';
 import type { TableDialogKind } from './chrome-table-dialogs.js';
 import { registerTableCommands } from './chrome-table.js';
 import { registerHfCommands } from './chrome-hf.js';
+import { registerPictureCommands } from './chrome-picture.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -56,6 +57,8 @@ export interface ChromeCtl {
   modifyStyle(): void;
   /** diálogos de tabela (Inserir Tabela, Dividir Células…) */
   tableDialog(kind: TableDialogKind, arg?: string): void;
+  /** diálogos e painéis de imagem (Layout, Texto Alt…) */
+  pictureDialog(kind: import('./chrome-picture.js').PictureDialogKind): void;
   /** Painel de Navegação, Régua, Linhas de Grade e o diálogo Tabulação (chrome-nav/ruler) */
   navPane(): void;
   navPaneOpen(): boolean;
@@ -297,6 +300,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   reg.add(...cmds);
   registerTableCommands(reg, ed, app, ctl);
   registerHfCommands(reg, ed, app, ctl);
+  registerPictureCommands(reg, ed, app, ctl);
 
   function stepComment(dir: 1 | -1): void {
     const cs = ed.getComments();

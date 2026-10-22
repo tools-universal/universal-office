@@ -3214,7 +3214,10 @@ class Engine {
     const target = this.inHf ? (behind ? ps.hfBehind : ps.hfFront) : (behind ? ps.behind : ps.front);
     if (tbFinal) tbContent = tbFinal(x, y);
     const items = this.paintObject(run, x, y, w, h, tbContent, ps);
-    const obj: PlacedObject = { run, x, y, w, h, layer: behind ? 'behind' : 'front', hf: this.inHf };
+    const obj: PlacedObject = {
+      run, x, y, w, h, layer: behind ? 'behind' : 'front', hf: this.inHf,
+      frame: { colX, colW, paraTop: paraRef ?? paraTop, pageW: g.pageW, pageH: g.pageH, marL: g.marL, marR: g.marR, marT: g.marT, marB: g.marB, bodyTop: Math.max(g.marT, ps.bodyTop ?? g.marT) },
+    };
     (ps.page.objects ??= []).push(obj);
     // moldura no cabeçalho/rodapé: vai no fluxo — no PDF do Word o texto dela vem
     // na ordem da linha: antes do parágrafo âncora se está no começo dela
@@ -3319,9 +3322,9 @@ class Engine {
     const out: PageItem[] = [];
     const theme = this.ctx.fmt.theme;
     if (run.image && isEmf(run.image.data)) {
-      out.push({ t: 'clip', op: 'push', x, y, w, h }, ...renderEmf(this.ctx, run.image.data, { x, y, w, h }), { t: 'clip', op: 'pop' });
+      out.push({ t: 'clip', op: 'push', x, y, w, h, src: run.image }, ...renderEmf(this.ctx, run.image.data, { x, y, w, h }), { t: 'clip', op: 'pop' });
     } else if (run.image && isWmf(run.image.data)) {
-      out.push({ t: 'clip', op: 'push', x, y, w, h }, ...renderWmf(this.ctx, run.image.data, { x, y, w, h }), { t: 'clip', op: 'pop' });
+      out.push({ t: 'clip', op: 'push', x, y, w, h, src: run.image }, ...renderWmf(this.ctx, run.image.data, { x, y, w, h }), { t: 'clip', op: 'pop' });
     } else if (run.image) {
       const im = run.image;
       out.push({

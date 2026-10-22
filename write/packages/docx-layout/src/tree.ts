@@ -116,6 +116,8 @@ export interface ClipItem {
   /** empilha recorte (push) ou desempilha (pop). */
   op: 'push' | 'pop';
   x?: number; y?: number; w?: number; h?: number;
+  /** imagem vetorial (EMF/WMF) desenhada dentro do recorte — o editor a acha pelo item */
+  src?: import('@universal-office/docx-core').InlineImage;
 }
 
 /**
@@ -201,6 +203,16 @@ export interface PlacedObject {
   layer: 'behind' | 'front';
   /** pertence ao cabeçalho/rodapé */
   hf: boolean;
+  /** referências do posicionamento (twips de página): coluna, topo do parágrafo
+   *  âncora e a geometria da página — o editor converte posições entre elas */
+  frame?: ObjectFrame;
+}
+
+export interface ObjectFrame {
+  colX: number; colW: number; paraTop: number;
+  pageW: number; pageH: number; marL: number; marR: number; marT: number; marB: number;
+  /** topo da área de texto (abaixo do cabeçalho) */
+  bodyTop: number;
 }
 
 export interface LayoutResult {

@@ -24,6 +24,8 @@ import { ReviewPane, type PaneDir } from './chrome-review.js';
 import { originStore } from './chrome-store.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
 import { tableDialog } from './chrome-table-dialogs.js';
+import { PictureUI, pictureLayoutDialog } from './chrome-picture-dialogs.js';
+import { pictureContextItems } from './chrome-picture.js';
 import { tableContextItems } from './chrome-table.js';
 import { alignTabDialog, dateTimeDialog, hfOptionsDialog, pageNumberFormatDialog } from './chrome-hf.js';
 import { LABELS } from './chrome-labels.js';
@@ -311,6 +313,7 @@ class WriteChrome {
   private ruler: RulerUI | null = null;
   private find: FindPanel | null = null;
   private styles: StylesUI | null = null;
+  private pictures: PictureUI | null = null;
   private protbar: HTMLElement | null = null;
   private stateCache: ReturnType<UniversalWriteElement['getSelectionState']> | null = null;
   private families: string[] = [];
@@ -359,6 +362,7 @@ class WriteChrome {
     this.reg.afterRun = () => this.after();
     this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
     this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
+    this.pictures = new PictureUI({ ed, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     registerWriteCommands(this.reg, ed, app, this.ctl());
 
     const env: WidgetEnv = { ed, app, ctl: this.ctl(), root: this.root, styles: this.styles };
@@ -528,6 +532,10 @@ class WriteChrome {
         const dlg = { pageNumbers: pageNumberFormatDialog, dateTime: dateTimeDialog, alignTab: alignTabDialog, options: hfOptionsDialog }[kind];
         void dlg(d()).then(() => this.after());
       },
+      pictureDialog: (kind) => {
+        if (kind === 'alt') this.pictures?.toggleAlt();
+        else void pictureLayoutDialog(d(), kind.slice(7) as 'position' | 'wrap' | 'size').then(() => this.after());
+      },
     };
   }
 
@@ -569,6 +577,7 @@ class WriteChrome {
     this.bar?.sync();
     this.status?.sync();
     this.styles?.sync();
+    this.pictures?.sync();
     this.review?.place();
     this.nav?.schedule();
     this.ruler?.schedule();
@@ -835,6 +844,11 @@ class WriteChrome {
       if (this.app.comparing) return;
       e.preventDefault();
       const at = { x: e.clientX, y: e.clientY };
+      // imagem selecionada (clique direito nela): o menu da imagem, como o Word
+      if (typeof ed.selectedImage === 'function' && ed.selectedImage()) {
+        openMenu(pictureContextItems(), at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+        return;
+      }
       const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', ...(ed.getTableState() ? tableContextItems() : []), 'bold', 'italic', 'underline', '-',
         'link', 'comment', '-', 'list:bullet', 'list:decimal', '-', 'find', 'selectAll'];
       // dentro de uma nota: ir para a referência, converter e as opções (como o Word)

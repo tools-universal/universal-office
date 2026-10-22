@@ -99,7 +99,16 @@ import {
   patchStyleXml,
   builtinStyle,
   type TabLeader,
+  readPictureFormat,
+  patchPicture,
+  syncImageFromXml,
+  newPictureXml,
+  type PictureFormat,
+  type PictureChange,
+  type PicWrapKind,
+  type PicPos,
 } from '@universal-office/docx-core';
+import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST } from './picture-ops.js';
 import {
   ensureNoteStyles, noteBlocks, flattenBlocks, setNoteBlocks, cloneBlocks, nextNoteId, markNoteRuns, markNoteRunsInTable,
   isNoteMark, convertNoteContent, effectiveNoteOptions, notePropsOf, NOTE_DEFAULTS, type NoteOptions,
@@ -170,7 +179,7 @@ import {
 } from '@universal-office/docx-core';
 // a colação do Windows (a mesma do Sheet): só o arquivo dela, não o motor de cálculo
 import { compareText } from '@universal-office/collation';
-import type { PlacedCell } from '@universal-office/docx-layout';
+import type { PlacedCell, ObjectFrame } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
@@ -862,6 +871,54 @@ interface FloatHandle {
   kind: 'image' | 'textbox';
   page: number;
   rect: { x: number; y: number; w: number; h: number };
+  /** imagem em linha (sem âncora): só redimensiona/gira; mover = arrastar no texto */
+  inline?: boolean;
+  /** giro (graus, horário) — as alças acompanham */
+  rot?: number;
+}
+
+/** Entrada do diálogo Layout da imagem (pontos; % em 0..100). */
+export interface ImageLayoutInput {
+  wrap?: PicWrapKind;
+  wrapText?: 'bothSides' | 'left' | 'right' | 'largest';
+  distPt?: { t?: number; b?: number; l?: number; r?: number };
+  /** alinhamento (left|center|right|inside|outside / top|center|bottom|inside|outside),
+   *  deslocamento absoluto (pontos) ou relativo (%), sempre com a referência */
+  posH?: { relativeFrom: string; align?: string; offsetPt?: number; pct?: number };
+  posV?: { relativeFrom: string; align?: string; offsetPt?: number; pct?: number };
+  moveWithText?: boolean;
+  lockAnchor?: boolean;
+  allowOverlap?: boolean;
+  layoutInCell?: boolean;
+  widthPt?: number;
+  heightPt?: number;
+  /** tamanho relativo (null = absoluto) */
+  relWidth?: { relativeFrom: string; pct: number } | null;
+  relHeight?: { relativeFrom: string; pct: number } | null;
+  lockAspect?: boolean;
+  rotation?: number;
+}
+
+/** Estado da imagem selecionada para a faixa, os diálogos e os painéis
+ *  (medidas em pontos; `format` é o XML tipado, em EMU). */
+export interface ImageState {
+  inline: boolean;
+  wrap: PicWrapKind;
+  widthPt: number;
+  heightPt: number;
+  /** giro em graus (0..360) */
+  rotation: number;
+  flipH: boolean;
+  flipV: boolean;
+  lockAspect: boolean;
+  moveWithText: boolean;
+  lockAnchor: boolean;
+  name: string;
+  altText: string;
+  decorative: boolean;
+  /** tamanho natural da imagem (pontos, 96 ppp) */
+  naturalPt: { w: number; h: number } | null;
+  format: PictureFormat;
 }
 
 /** Referência de nota no corpo: parágrafo (do corpo ou da célula), offset e a chave
@@ -1787,7 +1844,9 @@ export class UniversalWriteElement extends HTMLElement {
   private floatSel: Run | null = null;
   /** Estado do arrasto de mover/redimensionar em andamento. */
   private floatDrag: {
-    mode: 'move' | 'resize';
+    mode: 'move' | 'resize' | 'rotate';
+    /** giro ao vivo (graus) */
+    rot?: number;
     handle: string;                 // 'nw'|'n'|'ne'|'e'|'se'|'s'|'sw'|'w' (move: '')
     startClientX: number; startClientY: number;
     startW: number; startH: number; // twips
@@ -5175,10 +5234,20 @@ export class UniversalWriteElement extends HTMLElement {
       const rs = acc;
       const re = acc + (run?.text.length ?? 0);
       if (offset <= re || ri === p.runs.length) {
+        const image: InlineImage = { data: copy, ext, widthTwips: w, heightTwips: h, ...(obj ? { ole: obj.ole } : {}) };
+        if (!obj) {
+          // imagem nova: o XML que o Word grava ao inserir (Formato da Imagem já
+          // funciona nela); a mídia entra na gravação (r:embed="uw:media")
+          const id = 1 + Math.floor(Math.random() * 2000000000);
+          const n = 1 + this.model.paragraphs.reduce((k, q) => k + q.runs.filter((r) => r.image).length, 0);
+          image.rawDrawingXml = newPictureXml({ id, name: `Imagem ${n}`, rid: 'uw:media', cx: Math.round(w * 635), cy: Math.round(h * 635) });
+          image.edited = true;
+          syncImageFromXml(image);
+        }
         const imageRun = {
           text: '￼',
           props: this.newRunProps(run?.props),
-          image: { data: copy, ext, widthTwips: w, heightTwips: h, ...(obj ? { ole: obj.ole } : {}) },
+          image,
         };
         if (!run) {
           p.runs.push(imageRun);
@@ -6265,7 +6334,7 @@ export class UniversalWriteElement extends HTMLElement {
         // 1) alça de redimensionamento do float ATIVO (imagem selecionada OU
         //    caixa em edição) — precede a saída da caixa, senão pegar a alça sairia.
         const hn = this.handleAt(e);
-        if (hn) { this.focusEditor(); this.startFloatDrag(e, 'resize', hn); return; }
+        if (hn) { this.focusEditor(); this.startFloatDrag(e, hn === 'rot' ? 'rotate' : 'resize', hn); return; }
         // 2) clique DENTRO da caixa em edição → só reposiciona o caret (abaixo).
         if (!(this.tbEdit && this.pointInTbRect(e))) {
           if (this.tbEdit) this.exitTextbox(); // saiu da caixa atual
@@ -6280,9 +6349,12 @@ export class UniversalWriteElement extends HTMLElement {
             this.enterTextbox(tbHit.hostRun, tbHit.rect, tbHit.page);
           } else {
             // 4) clique numa IMAGEM → seleciona p/ mover/redimensionar.
-            const fh = fh0 ?? this.hitFloat(e);
+            const fh = fh0 ?? this.hitFloat(e) ?? this.hitInlinePic(e);
             if (fh && fh.kind === 'image') {
               if (this.floatSel !== fh.run) { this.floatSel = fh.run; this.refreshSelection(); }
+              // em linha: a seleção de texto cobre o caractere da imagem (digitar a
+              // troca, Delete a apaga, Ctrl+C a copia — como no Word)
+              if (fh.inline) this.selectInlineRun(fh.run);
               this.focusEditor();
               this.startFloatDrag(e, 'move', '');
               this.onSelectionChange?.(); this.chromeSync?.();
@@ -6291,6 +6363,16 @@ export class UniversalWriteElement extends HTMLElement {
             // 5) clique fora → desseleciona imagem.
             if (this.floatSel) { this.floatSel = null; this.refreshSelection(); }
           }
+        }
+      }
+      // botão direito numa imagem: seleciona (o menu de contexto é o da imagem)
+      if (e.button === 2 && !this.tbEdit && this.model) {
+        const ph = this.hitFloat(e, 'image') ?? this.hitInlinePic(e);
+        if (ph) {
+          if (ph.inline) this.selectInlineRun(ph.run); else { this.floatSel = ph.run; this.refreshSelection(); }
+          this.focusEditor();
+          this.onSelectionChange?.(); this.chromeSync?.();
+          return;
         }
       }
       // modo HF: clicar na OUTRA região (header↔footer) troca o foco (ambos
@@ -6453,7 +6535,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.floatDrag || !this.model) return;
       // alça de redimensionamento (funciona também com a caixa em edição)
       const hn = this.handleAt(e);
-      if (hn) { this.style.cursor = this.cursorForHandle(hn); return; }
+      if (hn) { this.style.cursor = this.cursorForHandle(hn, this.activeFloat()?.rot ?? 0); return; }
       // corpo de uma imagem flutuante → mover (durante edição de texto não)
       const fh = this.tbEdit ? null : this.hitFloat(e);
       if (fh) { this.style.cursor = 'move'; return; }
@@ -6478,14 +6560,13 @@ export class UniversalWriteElement extends HTMLElement {
         const ole = this.oleRunAt(e);
         if (ole && this.canEmbedSpreadsheet()) { e.preventDefault(); void this.editEmbeddedObject(ole); return; }
       }
-      // duplo-clique numa IMAGEM flutuante (logo) → trocar a imagem, mantendo
-      // posição/tamanho (como o Word: "Alterar Imagem").
+      // duplo-clique numa IMAGEM: fica selecionada (a guia Formato da Imagem já
+      // está à frente; "Alterar Imagem" mora na faixa e no menu de contexto)
       if (!this.tbEdit && this.model && !this.protectedMode) {
-        const fh = this.hitFloat(e);
+        const fh = this.hitFloat(e) ?? this.hitInlinePic(e);
         if (fh && fh.kind === 'image') {
-          this.floatSel = fh.run;
+          if (fh.inline) this.selectInlineRun(fh.run); else this.floatSel = fh.run;
           this.refresh();
-          this.promptReplaceImage();
           return;
         }
       }
@@ -6672,22 +6753,31 @@ export class UniversalWriteElement extends HTMLElement {
         return;
       }
       // objeto flutuante selecionado: Esc desseleciona, Del remove, setas nudge
-      if (this.floatSel && !this.tbEdit) {
-        if (k === 'Escape') { e.preventDefault(); this.floatSel = null; this.refreshSelection(); return; }
+      if (this.floatSel && !this.tbEdit && this.selectedFloat()) {
+        const inline = !!this.floatSel.image && !this.floatSel.image.floating;
+        if (k === 'Escape') { e.preventDefault(); this.floatSel = null; if (inline) { const f = normalizeRange(this.range()).end; this.selection = { anchor: f, focus: f }; } this.refreshSelection(); this.chromeSync?.(); return; }
         if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.deleteSelectedFloat(); return; }
-        if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown') {
+        if (!inline && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown')) {
           e.preventDefault();
           const h = this.selectedFloat();
           if (h) {
             this.snapshot();
-            const step = e.shiftKey ? 15 : 90; // twips (~0.75pt / 4.5pt)
+            const step = e.ctrlKey ? 15 : 90; // twips (~0,75 pt com Ctrl / 4,5 pt)
             const obj = h.obj;
             const ox = obj.offsetXTwips ?? 0, oy = obj.offsetYTwips ?? 0;
-            if (k === 'ArrowLeft') obj.offsetXTwips = ox - step;
-            else if (k === 'ArrowRight') obj.offsetXTwips = ox + step;
-            else if (k === 'ArrowUp') obj.offsetYTwips = oy - step;
-            else obj.offsetYTwips = oy + step;
-            if (this.eng) this.moveAnchorTo(obj, h.rect.x + (obj.offsetXTwips ?? 0) - ox, h.rect.y + (obj.offsetYTwips ?? 0) - oy);
+            const dx = k === 'ArrowLeft' ? -step : k === 'ArrowRight' ? step : 0;
+            const dy = k === 'ArrowUp' ? -step : k === 'ArrowDown' ? step : 0;
+            const pic = h.kind === 'image' ? (obj as InlineImage) : null;
+            const fr = this.engObjectFrame(h.run);
+            if (pic?.format && pic.rawDrawingXml && fr) {
+              // imagem: a posição nova vai para o XML, nas mesmas referências
+              const ph = this.posFor(pic.format.posH, 'h', h.rect.x + dx, fr), pv = this.posFor(pic.format.posV, 'v', h.rect.y + dy, fr);
+              this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml, { ...(dx && ph ? { posH: ph } : {}), ...(dy && pv ? { posV: pv } : {}) }), false);
+            } else {
+              obj.offsetXTwips = ox + dx;
+              obj.offsetYTwips = oy + dy;
+              if (this.eng) this.moveAnchorTo(obj, h.rect.x + dx, h.rect.y + dy);
+            }
             this.refresh();
             this.dispatchEvent(new CustomEvent('uw-change'));
           }
@@ -8954,10 +9044,81 @@ export class UniversalWriteElement extends HTMLElement {
     return out;
   }
 
+  /** Imagens EM LINHA do contexto atual (corpo, célula, cabeçalho em edição) com
+   *  o retângulo pintado pelo motor (item de imagem, ou o recorte de EMF/WMF). */
+  private enumInlinePics(): FloatHandle[] {
+    if (!this.eng || this.tbEdit || !this.model) return [];
+    const byImg = new Map<object, Run>();
+    for (const p of this.model.paragraphs) for (const r of p.runs) if (r.image && !r.image.floating) byImg.set(r.image, r);
+    if (!byImg.size) return [];
+    const out: FloatHandle[] = [];
+    this.eng.result.pages.forEach((page, pg) => {
+      if (this.hfEdit && pg !== this.hfActivePage) return;
+      const hfN = page.hfItems ?? 0;
+      const [from, to] = this.hfEdit ? [0, hfN] : [hfN, page.items.length];
+      for (let i = from; i < to; i++) {
+        const it = page.items[i]!;
+        const img = it.t === 'image' ? it.image : it.t === 'clip' && it.op === 'push' ? it.src : undefined;
+        const run = img && byImg.get(img);
+        if (!run || it.t === 'clip' && it.y === undefined) continue;
+        const r = it as { x: number; y: number; w: number; h: number };
+        const rot = run.image!.style?.rot ?? 0;
+        out.push({ run, obj: run.image!, kind: 'image', page: pg, rect: { x: r.x, y: r.y, w: r.w, h: r.h }, inline: true, ...(rot ? { rot } : {}) });
+      }
+    });
+    return out;
+  }
+
   /** Handle atual do objeto selecionado (retângulo vivo, recomputado). */
   private selectedFloat(): FloatHandle | null {
     if (!this.floatSel) return null;
-    return this.enumFloats().find((h) => h.run === this.floatSel) ?? null;
+    const run = this.floatSel;
+    const fl = this.enumFloats().find((h) => h.run === run);
+    if (fl) {
+      const rot = run.image?.style?.rot;
+      return rot ? { ...fl, rot } : fl;
+    }
+    if (!run.image || run.image.floating) return null;
+    // a seleção de texto andou (setas, clique): a imagem em linha deixa de estar selecionada
+    const at = this.inlineRunPos(run);
+    const { start, end } = normalizeRange(this.range());
+    if (!at || start.para !== at.para || end.para !== at.para || start.offset !== at.offset || end.offset !== at.offset + run.text.length) {
+      this.floatSel = null;
+      return null;
+    }
+    return this.enumInlinePics().find((h) => h.run === run) ?? null;
+  }
+
+  /** Posição (parágrafo, offset) de um run do modelo atual. */
+  private inlineRunPos(run: Run): DocPosition | null {
+    const paras = this.model?.paragraphs ?? [];
+    for (let pi = 0; pi < paras.length; pi++) {
+      const ri = paras[pi]!.runs.indexOf(run);
+      if (ri >= 0) return { para: pi, offset: paras[pi]!.runs.slice(0, ri).reduce((n, r) => n + r.text.length, 0) };
+    }
+    return null;
+  }
+
+  /** Seleciona a imagem em linha: a seleção de texto cobre o caractere dela. */
+  private selectInlineRun(run: Run): void {
+    const at = this.inlineRunPos(run);
+    if (!at) return;
+    this.floatSel = run;
+    this.selection = { anchor: at, focus: { para: at.para, offset: at.offset + run.text.length } };
+    this.refreshSelection();
+  }
+
+  /** Imagem em linha sob o ponteiro. */
+  private hitInlinePic(e: MouseEvent): FloatHandle | null {
+    const scale = PX_PER_TWIP * this.zoom;
+    for (const h of this.enumInlinePics()) {
+      const cv = this.canvases[h.page];
+      if (!cv) continue;
+      const rect = cv.getBoundingClientRect();
+      const xT = (e.clientX - rect.left) / scale, yT = (e.clientY - rect.top) / scale;
+      if (xT >= h.rect.x && xT <= h.rect.x + h.rect.w && yT >= h.rect.y && yT <= h.rect.y + h.rect.h) return h;
+    }
+    return null;
   }
   /** Float ATIVO para handles/resize: a caixa em EDIÇÃO (tbEdit) OU a imagem
    *  selecionada (floatSel). Assim o redimensionamento coexiste com a edição. */
@@ -8995,23 +9156,27 @@ export class UniversalWriteElement extends HTMLElement {
     return best;
   }
 
-  /** Centro (client px) de cada handle do objeto selecionado. */
+  /** Distância (px de tela) da alça de girar acima da borda de cima. */
+  private static readonly ROT_HANDLE_GAP = 22;
+
+  /** Centro (client px) de cada handle do objeto selecionado — girados com ele;
+   *  imagens também têm a alça de girar ('rot', acima do meio da borda de cima). */
   private handleCenters(h: FloatHandle): Record<string, { cx: number; cy: number }> | null {
     const cv = this.canvases[h.page];
     if (!cv) return null;
     const rect = cv.getBoundingClientRect();
     const scale = PX_PER_TWIP * this.zoom;
-    const left = rect.left + h.rect.x * scale;
-    const top = rect.top + h.rect.y * scale;
-    const right = left + h.rect.w * scale;
-    const bottom = top + h.rect.h * scale;
-    const midX = (left + right) / 2;
-    const midY = (top + bottom) / 2;
-    return {
-      nw: { cx: left, cy: top }, n: { cx: midX, cy: top }, ne: { cx: right, cy: top },
-      e: { cx: right, cy: midY }, se: { cx: right, cy: bottom }, s: { cx: midX, cy: bottom },
-      sw: { cx: left, cy: bottom }, w: { cx: left, cy: midY },
+    const w = h.rect.w * scale, hh = h.rect.h * scale;
+    const cx0 = rect.left + h.rect.x * scale + w / 2, cy0 = rect.top + h.rect.y * scale + hh / 2;
+    const a = ((h.rot ?? 0) * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+    const at = (dx: number, dy: number) => ({ cx: cx0 + dx * cos - dy * sin, cy: cy0 + dx * sin + dy * cos });
+    const out: Record<string, { cx: number; cy: number }> = {
+      nw: at(-w / 2, -hh / 2), n: at(0, -hh / 2), ne: at(w / 2, -hh / 2),
+      e: at(w / 2, 0), se: at(w / 2, hh / 2), s: at(0, hh / 2),
+      sw: at(-w / 2, hh / 2), w: at(-w / 2, 0),
     };
+    if (h.kind === 'image' && !this.tbEdit) out['rot'] = at(0, -hh / 2 - UniversalWriteElement.ROT_HANDLE_GAP);
+    return out;
   }
 
   /** Nome do handle sob o ponteiro (ou null). */
@@ -9021,58 +9186,82 @@ export class UniversalWriteElement extends HTMLElement {
     const centers = this.handleCenters(h);
     if (!centers) return null;
     const R = 7 * (window.devicePixelRatio || 1);
-    for (const name of UniversalWriteElement.FLOAT_HANDLES) {
-      const c = centers[name]!;
-      if (Math.abs(e.clientX - c.cx) <= R && Math.abs(e.clientY - c.cy) <= R) return name;
+    for (const name of [...UniversalWriteElement.FLOAT_HANDLES, 'rot']) {
+      const c = centers[name];
+      if (c && Math.abs(e.clientX - c.cx) <= R && Math.abs(e.clientY - c.cy) <= R) return name;
     }
     return null;
   }
 
-  private cursorForHandle(hn: string): string {
-    if (hn === 'nw' || hn === 'se') return 'nwse-resize';
-    if (hn === 'ne' || hn === 'sw') return 'nesw-resize';
-    if (hn === 'n' || hn === 's') return 'ns-resize';
-    return 'ew-resize';
+  private cursorForHandle(hn: string, rot = 0): string {
+    if (hn === 'rot') return 'grab';
+    // a alça girada usa o cursor da direção mais próxima
+    const base: Record<string, number> = { e: 0, se: 45, s: 90, sw: 135, w: 180, nw: 225, n: 270, ne: 315 };
+    const ang = (((base[hn] ?? 0) + rot) % 180 + 180) % 180;
+    const k = Math.round(ang / 45) % 4;
+    return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][k]!;
   }
 
-  /** Inicia arrasto de mover (handle='') ou redimensionar. Snapshot p/ undo. */
-  private startFloatDrag(e: MouseEvent, mode: 'move' | 'resize', handle: string): void {
+  /** Inicia arrasto: mover (handle=''), redimensionar (8 alças) ou girar ('rot').
+   *  Imagem: durante o arrasto o motor desenha com os campos de layout ao vivo; no
+   *  fim, o resultado vai para o XML (um passo de desfazer). Imagem em linha:
+   *  arrastar o corpo move NO TEXTO (solta no ponto do cursor). */
+  private startFloatDrag(e: MouseEvent, mode: 'move' | 'resize' | 'rotate', handle: string): void {
     const h = this.activeFloat();
     if (!h) return;
     e.preventDefault();
     const scale = PX_PER_TWIP * this.zoom;
-    this.snapshot(); // undo + marca HF sujo
     const obj = h.obj;
     // caixa em edição: o retângulo na tela (tbEdit.rectTwips) é a referência.
     const editingTb = this.tbEdit && obj === this.tbEdit.hostRun.textbox ? this.tbEdit : null;
+    const pic = h.kind === 'image' && !editingTb && (obj as InlineImage).format ? (obj as InlineImage) : null;
+    if (h.inline && mode === 'move') { this.startInlineDrag(e, h); return; }
+    this.snapshot(); // undo + marca HF sujo
     const startRect = editingTb ? { ...editingTb.rectTwips } : null;
     if (mode === 'resize' && editingTb) (obj as DrawingTextbox).autoFit = false; // sizing manual
     // caixa em edição: parte do retângulo EXIBIDO (autofit), não do cy declarado.
     const startW = editingTb ? editingTb.rectTwips.w : obj.widthTwips;
     const startH = editingTb ? editingTb.rectTwips.h : obj.heightTwips;
+    const startRot = h.rot ?? 0;
     const d = {
       mode, handle,
       startClientX: e.clientX, startClientY: e.clientY,
       startW, startH,
       startOX: obj.offsetXTwips ?? 0, startOY: obj.offsetYTwips ?? 0,
       aspect: startH ? startW / startH : 1,
-      page: h.page, moved: false,
+      page: h.page, moved: false, rot: startRot,
     };
     this.floatDrag = d;
     // motor: posição exibida no início do arrasto (a âncora vira relativa à página)
-    const engStart = this.eng && !editingTb ? { x: h.rect.x, y: h.rect.y } : null;
+    const engStart = this.eng && !editingTb && !h.inline ? { x: h.rect.x, y: h.rect.y } : null;
+    const frame0 = !h.inline ? this.engObjectFrame(h.run) : null;
+    const startStyle = pic?.style;
+    // giro: em volta do centro da imagem na tela
+    const cr = this.canvases[h.page]?.getBoundingClientRect();
+    const center = cr ? { x: cr.left + (h.rect.x + h.rect.w / 2) * scale, y: cr.top + (h.rect.y + h.rect.h / 2) * scale } : { x: e.clientX, y: e.clientY };
+    const a0 = Math.atan2(e.clientY - center.y, e.clientX - center.x);
     const move = (ev: MouseEvent) => {
       if (!this.floatDrag) return;
-      const dxT = (ev.clientX - d.startClientX) / scale;
-      const dyT = (ev.clientY - d.startClientY) / scale;
       if (Math.abs(ev.clientX - d.startClientX) + Math.abs(ev.clientY - d.startClientY) > 2) d.moved = true;
-      if (d.mode === 'move') {
-        obj.offsetXTwips = Math.round(d.startOX + dxT);
-        obj.offsetYTwips = Math.round(d.startOY + dyT);
+      if (!d.moved) return;
+      if (mode === 'rotate') {
+        let rot = startRot + ((Math.atan2(ev.clientY - center.y, ev.clientX - center.x) - a0) * 180) / Math.PI;
+        if (ev.shiftKey) rot = Math.round(rot / 15) * 15; // Shift: passos de 15°
+        d.rot = ((rot % 360) + 360) % 360;
+        if (pic) pic.style = { ...(startStyle ?? { geom: 'rect' }), rot: d.rot };
+      } else if (mode === 'move') {
+        obj.offsetXTwips = Math.round(d.startOX + (ev.clientX - d.startClientX) / scale);
+        obj.offsetYTwips = Math.round(d.startOY + (ev.clientY - d.startClientY) / scale);
       } else {
-        this.applyResize(obj, d, dxT, dyT, h.kind === 'image');
+        // deltas no referencial da imagem (as alças giram com ela)
+        const rx = (ev.clientX - d.startClientX) / scale, ry = (ev.clientY - d.startClientY) / scale;
+        const ar = (-startRot * Math.PI) / 180;
+        const dxT = rx * Math.cos(ar) - ry * Math.sin(ar), dyT = rx * Math.sin(ar) + ry * Math.cos(ar);
+        // imagem: os cantos mantêm a proporção quando ela está travada; Shift inverte
+        const lock = h.kind === 'image' && ((pic?.format?.noChangeAspect ?? true) !== ev.shiftKey);
+        this.applyResize(obj, d, dxT, dyT, lock, ev.ctrlKey, startRot);
       }
-      if (engStart) this.moveAnchorTo(obj, engStart.x + (obj.offsetXTwips ?? 0) - d.startOX, engStart.y + (obj.offsetYTwips ?? 0) - d.startOY);
+      if (engStart && mode !== 'rotate') this.moveAnchorTo(obj, engStart.x + (obj.offsetXTwips ?? 0) - d.startOX, engStart.y + (obj.offsetYTwips ?? 0) - d.startOY);
       // caixa em edição: espelha a nova geometria no retângulo de edição p/ o
       // layout/handles seguirem o arrasto.
       if (editingTb && startRect) {
@@ -9094,7 +9283,10 @@ export class UniversalWriteElement extends HTMLElement {
       const moved = this.floatDrag?.moved;
       this.floatDrag = null;
       if (!moved) this.undoStack.pop(); // clique sem arrasto: descarta snapshot
-      else { this.dispatchEvent(new CustomEvent('uw-change')); }
+      else {
+        if (pic) this.commitPictureDrag(pic, h, engStart, frame0, d);
+        this.dispatchEvent(new CustomEvent('uw-change'));
+      }
       this.onSelectionChange?.(); this.chromeSync?.();
       this.refresh();
     };
@@ -9102,31 +9294,168 @@ export class UniversalWriteElement extends HTMLElement {
     window.addEventListener('mouseup', up);
   }
 
+  /** Fim do arrasto de uma imagem: tamanho, giro e posição vão para o XML (a
+   *  posição continua relativa às MESMAS referências — coluna, parágrafo,
+   *  margem…; alinhada vira deslocamento, como no Word). */
+  private commitPictureDrag(
+    pic: InlineImage, h: FloatHandle, engStart: { x: number; y: number } | null, frame: ObjectFrame | null,
+    d: { mode: string; startOX: number; startOY: number; rot: number },
+  ): void {
+    const f = pic.format;
+    if (!f || !pic.rawDrawingXml) return;
+    const ch: PictureChange = {};
+    if (d.mode === 'rotate') {
+      ch.rot = Math.round(d.rot * 60000) % 21600000;
+    } else {
+      ch.size = { cx: Math.round(pic.widthTwips * 635), cy: Math.round(pic.heightTwips * 635) };
+      // tamanho relativo (wp14:sizeRel): o arrasto o torna absoluto, como no Word
+      if (f.sizeRelH?.pct) ch.sizeRelH = { relativeFrom: f.sizeRelH.relativeFrom, pct: 0 };
+      if (f.sizeRelV?.pct) ch.sizeRelV = { relativeFrom: f.sizeRelV.relativeFrom, pct: 0 };
+    }
+    if (engStart && frame && d.mode !== 'rotate' && !f.inline) {
+      const x = engStart.x + (pic.offsetXTwips ?? 0) - d.startOX;
+      const y = engStart.y + (pic.offsetYTwips ?? 0) - d.startOY;
+      const nh = this.posFor(f.posH, 'h', x, frame), nv = this.posFor(f.posV, 'v', y, frame);
+      if (nh) ch.posH = nh;
+      if (nv) ch.posV = nv;
+    }
+    this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml, ch), true);
+    void h;
+  }
+
+  /** Posição `xy` (twips de página) na referência de `cur` (deslocamento; % fica %). */
+  private posFor(cur: PicPos | undefined, axis: 'h' | 'v', xy: number, frame: ObjectFrame): PicPos | undefined {
+    if (!cur) return undefined;
+    const ref = this.refRect(cur.relativeFrom, axis, frame);
+    if (cur.pct !== undefined && cur.align === undefined) {
+      const span = axis === 'h' ? frame.pageW : frame.pageH;
+      return { relativeFrom: cur.relativeFrom, pct: Math.round(((xy - ref.o) / span) * 100000), fallback: Math.round(xy * 635) };
+    }
+    return { relativeFrom: cur.relativeFrom, offset: Math.round((xy - ref.o) * 635) };
+  }
+
+  /** Origem/extensão de uma referência de posicionamento (as mesmas do motor). */
+  private refRect(from: string, axis: 'h' | 'v', f: ObjectFrame): { o: number; span: number } {
+    if (axis === 'h') {
+      switch (from) {
+        case 'page': return { o: 0, span: f.pageW };
+        case 'margin': return { o: f.marL, span: f.pageW - f.marL - f.marR };
+        case 'leftMargin': case 'insideMargin': return { o: 0, span: f.marL };
+        case 'rightMargin': case 'outsideMargin': return { o: f.pageW - f.marR, span: f.marR };
+        default: return { o: f.colX, span: f.colW };
+      }
+    }
+    switch (from) {
+      case 'page': return { o: 0, span: f.pageH };
+      case 'margin': return { o: f.bodyTop, span: f.pageH - f.bodyTop - f.marB };
+      case 'topMargin': case 'insideMargin': return { o: 0, span: f.marT };
+      case 'bottomMargin': case 'outsideMargin': return { o: f.pageH - f.marB, span: f.marB };
+      default: return { o: f.paraTop, span: 0 };
+    }
+  }
+
+  /** Referências de posicionamento do objeto como o motor o colocou. */
+  private engObjectFrame(run: Run): ObjectFrame | null {
+    for (const p of this.eng?.result.pages ?? []) {
+      const o = p.objects?.find((x) => x.run === run);
+      if (o?.frame) return o.frame;
+    }
+    return null;
+  }
+
+  /** Arrastar uma imagem EM LINHA: o cursor de inserção acompanha o ponteiro e,
+   *  ao soltar, a imagem sai de onde estava e entra ali (um passo de desfazer). */
+  private startInlineDrag(e: MouseEvent, h: FloatHandle): void {
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    let moved = false;
+    let target: DocPosition | null = null;
+    const keep = { ...this.selection };
+    const move = (ev: MouseEvent) => {
+      if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) moved = true;
+      if (!moved) return;
+      target = this.hitTest(ev);
+      if (target) { this.selection = { anchor: target, focus: target }; this.refreshSelection(); }
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      if (moved && target) this.moveInlineRun(h.run, target);
+      else { this.selection = keep; this.refreshSelection(); }
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
+
+  /** Move o run de uma imagem em linha para `to` (posição no modelo atual). */
+  private moveInlineRun(run: Run, to: DocPosition): void {
+    if (!this.model) return;
+    const paras = this.model.paragraphs;
+    const pi = paras.findIndex((p) => p.runs.includes(run));
+    if (pi < 0) return;
+    const p = paras[pi]!;
+    const ri = p.runs.indexOf(run);
+    const from = p.runs.slice(0, ri).reduce((n, r) => n + r.text.length, 0);
+    // soltar sobre ela mesma: nada muda
+    if (to.para === pi && (to.offset === from || to.offset === from + 1)) { this.selection = { anchor: { para: pi, offset: from }, focus: { para: pi, offset: from } }; this.refresh(); return; }
+    this.snapshot();
+    p.runs.splice(ri, 1);
+    let off = to.offset;
+    if (to.para === pi && off > from) off -= run.text.length;
+    const q = paras[to.para]!;
+    let acc = 0;
+    let done = false;
+    for (let k = 0; k <= q.runs.length && !done; k++) {
+      const r = q.runs[k];
+      const len = r?.text.length ?? 0;
+      if (!r || off <= acc + len) {
+        if (r && off > acc && off < acc + len && !r.image && !r.textbox) {
+          const cut = off - acc;
+          q.runs.splice(k, 1, { ...r, text: r.text.slice(0, cut), props: { ...r.props } }, run, { ...r, text: r.text.slice(cut), props: { ...r.props } });
+        } else q.runs.splice(r && off > acc ? k + 1 : k, 0, run);
+        done = true;
+      }
+      acc += len;
+    }
+    if (!done) q.runs.push(run);
+    // a imagem continua selecionada no lugar novo (como no Word)
+    this.selectInlineRun(run);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-change'));
+  }
+
   private applyResize(
     obj: InlineImage | DrawingTextbox,
     d: { handle: string; startW: number; startH: number; startOX: number; startOY: number; aspect: number },
-    dxT: number, dyT: number, lockAspect: boolean,
+    dxT: number, dyT: number, lockAspect: boolean, fromCenter = false, rotDeg = 0,
   ): void {
     const MIN = 120; // twips (~6pt)
     const hn = d.handle;
-    let w = d.startW, h = d.startH, ox = d.startOX, oy = d.startOY;
-    if (hn.includes('e')) w = d.startW + dxT;
-    if (hn.includes('w')) { w = d.startW - dxT; ox = d.startOX + dxT; }
-    if (hn.includes('s')) h = d.startH + dyT;
-    if (hn.includes('n')) { h = d.startH - dyT; oy = d.startOY + dyT; }
-    // trava de aspecto em cantos p/ imagem (padrão do Word)
+    // bordas relativas ao centro, no referencial da imagem (girado)
+    let L = -d.startW / 2, R = d.startW / 2, T = -d.startH / 2, B = d.startH / 2;
+    if (hn.includes('e')) { R += dxT; if (fromCenter) L -= dxT; }
+    if (hn.includes('w')) { L += dxT; if (fromCenter) R -= dxT; }
+    if (hn.includes('s')) { B += dyT; if (fromCenter) T -= dyT; }
+    if (hn.includes('n')) { T += dyT; if (fromCenter) B -= dyT; }
+    // trava de aspecto nos cantos (imagem com noChangeAspect; Shift inverte)
     if (lockAspect && hn.length === 2 && d.startW > 0 && d.startH > 0) {
-      const rw = w / d.startW, rh = h / d.startH;
+      const rw = (R - L) / d.startW, rh = (B - T) / d.startH;
       const r = Math.abs(rw - 1) >= Math.abs(rh - 1) ? rw : rh;
       const nw = d.startW * r, nh = d.startH * r;
-      if (hn.includes('w')) ox = d.startOX + (d.startW - nw);
-      if (hn.includes('n')) oy = d.startOY + (d.startH - nh);
-      w = nw; h = nh;
+      if (fromCenter) { L = -nw / 2; R = nw / 2; T = -nh / 2; B = nh / 2; } else {
+        if (hn.includes('w')) L = R - nw; else R = L + nw;
+        if (hn.includes('n')) T = B - nh; else B = T + nh;
+      }
     }
-    obj.widthTwips = Math.max(MIN, Math.round(w));
-    obj.heightTwips = Math.max(MIN, Math.round(h));
-    obj.offsetXTwips = Math.round(ox);
-    obj.offsetYTwips = Math.round(oy);
+    const w = Math.max(MIN, R - L), h = Math.max(MIN, B - T);
+    // deslocamento do centro (girado para a página) → canto de cima à esquerda
+    const a = (rotDeg * Math.PI) / 180;
+    const cxl = (L + R) / 2, cyl = (T + B) / 2;
+    const cx = cxl * Math.cos(a) - cyl * Math.sin(a), cy = cxl * Math.sin(a) + cyl * Math.cos(a);
+    obj.widthTwips = Math.round(w);
+    obj.heightTwips = Math.round(h);
+    obj.offsetXTwips = Math.round(d.startOX + d.startW / 2 + cx - w / 2);
+    obj.offsetYTwips = Math.round(d.startOY + d.startH / 2 + cy - h / 2);
   }
 
   private deleteSelectedFloat(): void {
@@ -9135,12 +9464,319 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     for (const p of this.model.paragraphs) {
       const idx = p.runs.indexOf(run);
-      if (idx >= 0) { p.runs.splice(idx, 1); break; }
+      if (idx >= 0) {
+        // imagem em linha: o cursor fica onde ela estava
+        if (run.image && !run.image.floating) {
+          const off = p.runs.slice(0, idx).reduce((n, r) => n + r.text.length, 0);
+          const pi = this.model.paragraphs.indexOf(p);
+          this.selection = { anchor: { para: pi, offset: off }, focus: { para: pi, offset: off } };
+        }
+        p.runs.splice(idx, 1);
+        break;
+      }
     }
     this.floatImages = this.floatImages.filter((f) => f.run !== run);
     this.floatSel = null;
     this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-change'));
     this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  // ───────────────────────── Formato da Imagem (API) ─────────────────────────
+
+  /** Run da imagem selecionada com XML DrawingML editável (as de VML só mexem no
+   *  tamanho/posição pelo mouse). */
+  private picRun(): Run | null {
+    const r = this.floatSel;
+    return r?.image?.rawDrawingXml && r.image.format ? r : null;
+  }
+
+  /** Grava o XML novo na imagem e relê os campos de layout; com `extent`, refaz o
+   *  wp:effectExtent como o Word (tamanho, giro, contorno ou efeitos mudaram). */
+  private applyPictureXml(img: InlineImage, xml: string, extent: boolean): void {
+    let x = xml;
+    if (extent) {
+      const f = readPictureFormat(x);
+      if (f) {
+        const ee = effectExtentOf(f), cur = f.effectExtent;
+        if (ee.l !== cur.l || ee.t !== cur.t || ee.r !== cur.r || ee.b !== cur.b) x = patchPicture(x, { effectExtent: ee });
+      }
+    }
+    img.rawDrawingXml = x;
+    img.edited = true;
+    syncImageFromXml(img);
+  }
+
+  private static readonly EXTENT_KEYS = ['size', 'rot', 'line', 'shadow', 'reflection', 'glow', 'softEdge', 'threeD', 'wrap'];
+
+  /** Uma edição da imagem selecionada (um passo de desfazer). `fn` devolve null
+   *  quando não há o que mudar. */
+  private editPicture(fn: (f: PictureFormat, img: InlineImage, run: Run) => PictureChange | null): boolean {
+    const run = this.picRun();
+    if (!run || this.locked()) return false;
+    const img = run.image!;
+    const ch = fn(img.format!, img, run);
+    if (!ch) return false;
+    this.snapshot();
+    const extent = UniversalWriteElement.EXTENT_KEYS.some((k) => k in ch);
+    this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, ch), extent);
+    this.afterPictureEdit();
+    return true;
+  }
+
+  private afterPictureEdit(): void {
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Imagem selecionada (Formato da Imagem) ou null. */
+  selectedImage(): ImageState | null {
+    const run = this.picRun();
+    if (!run) return null;
+    const img = run.image!, f = img.format!;
+    const nat = this.naturalSizePt(img);
+    return {
+      inline: f.inline, wrap: f.wrap,
+      widthPt: f.cx / 12700, heightPt: f.cy / 12700,
+      rotation: f.rot / 60000, flipH: f.flipH, flipV: f.flipV,
+      lockAspect: f.noChangeAspect,
+      moveWithText: !f.inline && (f.posV?.relativeFrom === 'paragraph' || f.posV?.relativeFrom === 'line'),
+      lockAnchor: f.locked,
+      name: f.docPr.name ?? '',
+      altText: f.docPr.descr ?? '',
+      decorative: !!f.docPr.decorative,
+      naturalPt: nat,
+      format: f,
+    };
+  }
+
+  /** Tamanho natural (pontos a 96 ppp, ou pela resolução do PNG/JPEG). */
+  private naturalSizePt(img: InlineImage): { w: number; h: number } | null {
+    const bmp = this.bitmaps.get(img);
+    if (bmp && bmp !== 'loading') return { w: bmp.width * 0.75, h: bmp.height * 0.75 };
+    return null;
+  }
+
+  /** Exclui a imagem selecionada. */
+  deleteSelectedImage(): void {
+    if (!this.floatSel?.image || this.locked()) return;
+    this.deleteSelectedFloat();
+  }
+
+  /** Maior relativeHeight dos flutuantes do contexto (para um objeto novo). */
+  private zValues(except?: Run): number[] {
+    const out: number[] = [];
+    const visit = (runs: Run[]) => {
+      for (const r of runs) {
+        if (r === except) continue;
+        const a = r.image?.anchor ?? r.textbox?.anchor ?? r.shape?.anchor ?? r.group?.anchor;
+        if (a?.relativeHeight !== undefined) out.push(a.relativeHeight);
+      }
+    };
+    for (const p of this.model?.paragraphs ?? []) visit(p.runs);
+    return out;
+  }
+
+  /** Quebra de Texto Automática (Alinhado ao Texto, Quadrado, Comprimido, Através,
+   *  Superior e Inferior, Atrás do Texto, Na Frente do Texto). Da linha para fora,
+   *  a imagem fica onde estava (deslocamento relativo à coluna e ao parágrafo). */
+  setImageWrap(kind: PicWrapKind): void {
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    const img = run.image!, f = img.format!;
+    if (f.wrap === kind) return;
+    if (!f.inline || kind === 'inline') { this.editPicture(() => ({ wrap: kind })); return; }
+    // em linha → flutuante: posição atual da caixa da imagem
+    const h = this.selectedFloat();
+    const zs = this.zValues(run);
+    const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
+    this.snapshot();
+    this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { wrap: kind, at: { x: 0, y: 0 }, newRelativeHeight: z }), true);
+    this.refresh();
+    // com o objeto colocado, as referências do motor dão o deslocamento exato
+    const fr = this.engObjectFrame(run);
+    if (h && fr) {
+      const x = Math.round((h.rect.x - fr.colX) * 635), y = Math.round((h.rect.y - fr.paraTop) * 635);
+      this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { posH: { relativeFrom: 'column', offset: x }, posV: { relativeFrom: 'paragraph', offset: y } }), false);
+    }
+    this.afterPictureEdit();
+  }
+
+  /** Galeria Posição: 'inline' ou "<top|center|bottom>-<left|center|right>" — com
+   *  quebra Quadrado, alinhada à margem. */
+  setImagePosition(preset: string): void {
+    if (preset === 'inline') { this.setImageWrap('inline'); return; }
+    const [v, hh] = preset.split('-') as ['top' | 'center' | 'bottom', 'left' | 'center' | 'right'];
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    const f = run.image!.format!;
+    if (f.wrap !== 'square') this.setImageWrap('square');
+    this.editPicture(() => ({ posH: { relativeFrom: 'margin', align: hh }, posV: { relativeFrom: 'margin', align: v } }));
+  }
+
+  /** Mover com o Texto (posição vertical relativa ao parágrafo) × Corrigir Posição
+   *  na Página (relativa à página) — a imagem não sai do lugar. */
+  setImageMoveWithText(on: boolean): void {
+    const run = this.picRun();
+    if (!run) return;
+    const f = run.image!.format!;
+    if (f.inline) return;
+    const fr = this.engObjectFrame(run);
+    const h = this.selectedFloat();
+    this.editPicture(() => {
+      const to = on ? 'paragraph' : 'page';
+      if (!fr || !h) return { posV: { relativeFrom: to, offset: f.posV?.offset ?? 0 } };
+      return { posV: this.posFor({ relativeFrom: to, offset: 0 }, 'v', h.rect.y, fr)! };
+    });
+  }
+
+  /** Bloquear âncora. */
+  setImageLockAnchor(on: boolean): void {
+    this.editPicture((f) => (f.inline ? null : { locked: on }));
+  }
+
+  /** Altura/Largura (pontos). Com a proporção travada, mudar uma muda a outra. */
+  setImageSize(o: { widthPt?: number; heightPt?: number; lockAspect?: boolean }): void {
+    this.editPicture((f) => {
+      const lock = o.lockAspect ?? f.noChangeAspect;
+      let cx = f.cx, cy = f.cy;
+      if (o.widthPt !== undefined) { const n = Math.max(1, Math.round(o.widthPt * 12700)); if (lock && cx) cy = Math.round((cy * n) / cx); cx = n; }
+      if (o.heightPt !== undefined) { const n = Math.max(1, Math.round(o.heightPt * 12700)); if (lock && cy && o.widthPt === undefined) cx = Math.round((cx * n) / cy); cy = n; }
+      const ch: PictureChange = { size: { cx, cy } };
+      if (o.lockAspect !== undefined && o.lockAspect !== f.noChangeAspect) ch.noChangeAspect = o.lockAspect;
+      if (f.sizeRelH?.pct) ch.sizeRelH = { relativeFrom: f.sizeRelH.relativeFrom, pct: 0 };
+      if (f.sizeRelV?.pct) ch.sizeRelV = { relativeFrom: f.sizeRelV.relativeFrom, pct: 0 };
+      return cx === f.cx && cy === f.cy && !('noChangeAspect' in ch) ? null : ch;
+    });
+  }
+
+  /** Giro absoluto (graus, horário). */
+  setImageRotation(deg: number): void {
+    const r = Math.round((((deg % 360) + 360) % 360) * 60000) % 21600000;
+    this.editPicture((f) => (f.rot === r ? null : { rot: r }));
+  }
+
+  /** Girar 90° à direita (+90) ou à esquerda (−90). */
+  rotateImage(deg: number): void {
+    const f = this.picRun()?.image?.format;
+    if (f) this.setImageRotation(f.rot / 60000 + deg);
+  }
+
+  /** Inverter na horizontal/vertical. */
+  flipImage(axis: 'h' | 'v'): void {
+    this.editPicture((f) => (axis === 'h' ? { flipH: !f.flipH } : { flipV: !f.flipV }));
+  }
+
+  /** Texto Alt: descrição e "Marcar como decorativa". */
+  setImageAltText(o: { text?: string; decorative?: boolean }): void {
+    this.editPicture((f) => {
+      const ch: PictureChange = {};
+      if (o.text !== undefined && o.text !== (f.docPr.descr ?? '')) ch.descr = o.text;
+      if (o.decorative !== undefined && o.decorative !== !!f.docPr.decorative) ch.decorative = o.decorative;
+      return Object.keys(ch).length ? ch : null;
+    });
+  }
+
+  /** Avançar/Recuar: ordem entre os flutuantes (relativeHeight) e frente/trás do texto. */
+  arrangeImage(op: 'front' | 'back' | 'forward' | 'backward' | 'frontOfText' | 'behindText'): void {
+    const run = this.picRun();
+    if (!run) return;
+    const f = run.image!.format!;
+    if (f.inline) return;
+    if (op === 'frontOfText') { if (f.wrap === 'behind') this.setImageWrap('front'); return; }
+    if (op === 'behindText') { if (f.wrap !== 'behind') this.setImageWrap('behind'); return; }
+    const mine = f.relativeHeight ?? Z_FIRST;
+    const z = zFor(op, mine, this.zValues(run));
+    this.editPicture(() => (z === mine ? null : { relativeHeight: z }));
+  }
+
+  /** Cortar › Preencher / Ajustar: a imagem cobre (ou cabe) no quadro atual. */
+  cropImageFillFit(mode: 'fill' | 'fit'): void {
+    const run = this.picRun();
+    const nat = run && this.naturalSizePt(run.image!);
+    if (!run || !nat) return;
+    this.editPicture((f) => ({ srcRect: fillFitCrop(mode, { cx: f.cx, cy: f.cy }, nat) }));
+  }
+
+  /** Cortar › Taxa de Proporção (w:h): a maior região centrada com a razão. */
+  cropImageToAspect(w: number, h: number): void {
+    this.editPicture((f) => {
+      const r = aspectCrop(f, w / h);
+      return { srcRect: r.crop, size: { cx: r.cx, cy: r.cy } };
+    });
+  }
+
+  /** Cortar › Cortar para Forma (nome do a:prstGeom). */
+  cropImageToShape(prst: string): void {
+    this.editPicture((f) => (f.geom === prst ? null : { geom: { prst } }));
+  }
+
+  /** Diálogo Layout (Posição, Quebra Automática de Texto, Tamanho) — tudo num
+   *  passo de desfazer. Posições em pontos relativas à referência dada; `pct` em %
+   *  da referência (sai com a posição absoluta de reserva, como o Word). */
+  setImageLayout(o: ImageLayoutInput): void {
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    // um passo de desfazer só (a troca de quebra e o resto)
+    const mark = this.undoStack.length;
+    if (o.wrap !== undefined && o.wrap !== run.image!.format!.wrap) this.setImageWrap(o.wrap);
+    const fr = this.engObjectFrame(run);
+    this.editPicture((f) => {
+      const ch: PictureChange = {};
+      const anchor = !f.inline;
+      if (anchor) {
+        if (o.wrapText !== undefined && o.wrapText !== f.wrapText) ch.wrapText = o.wrapText;
+        if (o.distPt) ch.dist = Object.fromEntries(Object.entries(o.distPt).filter(([, v]) => v !== undefined).map(([k, v]) => [k, Math.round(v! * 12700)]));
+        const pos = (p: ImageLayoutInput['posH'], axis: 'h' | 'v'): PicPos | undefined => {
+          if (!p) return undefined;
+          if (p.align !== undefined) return { relativeFrom: p.relativeFrom, align: p.align };
+          if (p.pct !== undefined) {
+            const ref = fr ? this.refRect(p.relativeFrom, axis, fr) : { o: 0, span: 0 };
+            const span = fr ? (axis === 'h' ? fr.pageW : fr.pageH) : 0;
+            return { relativeFrom: p.relativeFrom, pct: Math.round(p.pct * 1000), fallback: Math.round((ref.o + (p.pct / 100) * span) * 635) };
+          }
+          return { relativeFrom: p.relativeFrom, offset: Math.round((p.offsetPt ?? 0) * 12700) };
+        };
+        const ph = pos(o.posH, 'h'), pv = pos(o.posV, 'v');
+        if (ph) ch.posH = ph;
+        if (pv) ch.posV = pv;
+        if (o.lockAnchor !== undefined && o.lockAnchor !== f.locked) ch.locked = o.lockAnchor;
+        if (o.allowOverlap !== undefined && o.allowOverlap !== f.allowOverlap) ch.allowOverlap = o.allowOverlap;
+        if (o.layoutInCell !== undefined && o.layoutInCell !== f.layoutInCell) ch.layoutInCell = o.layoutInCell;
+        if (o.relWidth !== undefined) ch.sizeRelH = o.relWidth ? { relativeFrom: o.relWidth.relativeFrom, pct: Math.round(o.relWidth.pct * 1000) } : { relativeFrom: f.sizeRelH?.relativeFrom ?? 'page', pct: 0 };
+        if (o.relHeight !== undefined) ch.sizeRelV = o.relHeight ? { relativeFrom: o.relHeight.relativeFrom, pct: Math.round(o.relHeight.pct * 1000) } : { relativeFrom: f.sizeRelV?.relativeFrom ?? 'page', pct: 0 };
+      }
+      if (o.widthPt !== undefined || o.heightPt !== undefined) {
+        ch.size = { cx: o.widthPt !== undefined ? Math.max(1, Math.round(o.widthPt * 12700)) : f.cx, cy: o.heightPt !== undefined ? Math.max(1, Math.round(o.heightPt * 12700)) : f.cy };
+        if (ch.size.cx === f.cx && ch.size.cy === f.cy) delete ch.size;
+      }
+      if (o.lockAspect !== undefined && o.lockAspect !== f.noChangeAspect) ch.noChangeAspect = o.lockAspect;
+      if (o.rotation !== undefined) {
+        const r = Math.round((((o.rotation % 360) + 360) % 360) * 60000) % 21600000;
+        if (r !== f.rot) ch.rot = r;
+      }
+      return Object.keys(ch).length ? ch : null;
+    });
+    if (o.moveWithText !== undefined) {
+      const f = run.image!.format!;
+      const cur = f.posV?.relativeFrom === 'paragraph' || f.posV?.relativeFrom === 'line';
+      if (!f.inline && cur !== o.moveWithText) this.setImageMoveWithText(o.moveWithText);
+    }
+    if (this.undoStack.length > mark + 1) this.undoStack.splice(mark + 1);
+  }
+
+  /** Corte livre (frações 0..1 de cada lado da imagem inteira; negativas = margem). */
+  setImageCrop(c: { l: number; t: number; r: number; b: number }): void {
+    this.editPicture((f) => {
+      const s = f.srcRect;
+      const visW0 = 1 - (s.l + s.r) / 100000, visH0 = 1 - (s.t + s.b) / 100000;
+      const visW = 1 - c.l - c.r, visH = 1 - c.t - c.b;
+      if (visW <= 0.001 || visH <= 0.001) return null;
+      // a escala da imagem fica: o quadro acompanha a parte visível
+      const cx = Math.round((f.cx / visW0) * visW), cy = Math.round((f.cy / visH0) * visH);
+      return { srcRect: { l: Math.round(c.l * 100000), t: Math.round(c.t * 100000), r: Math.round(c.r * 100000), b: Math.round(c.b * 100000) }, size: { cx, cy } };
+    });
   }
 
   private hitTest(e: MouseEvent): DocPosition | null {
@@ -9886,6 +10522,7 @@ export class UniversalWriteElement extends HTMLElement {
     const dpr = window.devicePixelRatio || 1;
     const sel = normalizeRange(this.range());
     const hasSel = this.hasSelection();
+    const picSel = !!this.floatSel?.image && !this.floatSel.image.floating && !!this.selectedFloat();
     const scales: number[] = [];
     const ctxs: (CanvasRenderingContext2D | null)[] = this.canvases.map((c, i) => {
       const page = eng.result.pages[i];
@@ -9906,7 +10543,8 @@ export class UniversalWriteElement extends HTMLElement {
         this.paintEngineSpelling(ctx, i);
         this.paintSearchHits(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
-        else if (hasSel) this.paintEngineSelection(ctx, i, sel);
+        // imagem em linha selecionada: só as alças (sem o realce do caractere dela)
+        else if (hasSel && !picSel) this.paintEngineSelection(ctx, i, sel);
         this.paintTableAdorners(ctx, i);
         ctx.restore();
       }
@@ -14059,23 +14697,50 @@ export class UniversalWriteElement extends HTMLElement {
         const ctx = ctxs[pg];
         if (ctx) {
           const scale = scales[pg]!;
-          const x = h.rect.x * scale, y = h.rect.y * scale;
           const w = h.rect.w * scale, hh = h.rect.h * scale;
+          const cx = h.rect.x * scale + w / 2, cy = h.rect.y * scale + hh / 2;
+          const pic = h.kind === 'image' && !this.tbEdit;
           ctx.save();
+          // as alças giram com a imagem (em volta do centro)
+          ctx.translate(cx, cy);
+          if (h.rot) ctx.rotate((h.rot * Math.PI) / 180);
           ctx.strokeStyle = '#2b579a';
-          ctx.setLineDash([4, 3]);
+          if (!pic) ctx.setLineDash([4, 3]);
           ctx.lineWidth = Math.max(1, dpr);
-          ctx.strokeRect(x, y, w, hh);
+          ctx.strokeRect(-w / 2, -hh / 2, w, hh);
           ctx.setLineDash([]);
           const hs = 6 * dpr;
           const pts: [number, number][] = [
-            [x, y], [x + w / 2, y], [x + w, y], [x + w, y + hh / 2],
-            [x + w, y + hh], [x + w / 2, y + hh], [x, y + hh], [x, y + hh / 2],
+            [-w / 2, -hh / 2], [0, -hh / 2], [w / 2, -hh / 2], [w / 2, 0],
+            [w / 2, hh / 2], [0, hh / 2], [-w / 2, hh / 2], [-w / 2, 0],
           ];
           ctx.fillStyle = '#ffffff';
           for (const [px, py] of pts) {
-            ctx.fillRect(px - hs / 2, py - hs / 2, hs, hs);
-            ctx.strokeRect(px - hs / 2, py - hs / 2, hs, hs);
+            if (pic) {
+              // imagem: alças redondas, como no Word
+              ctx.beginPath();
+              ctx.arc(px, py, hs / 2 + 0.5 * dpr, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+            } else {
+              ctx.fillRect(px - hs / 2, py - hs / 2, hs, hs);
+              ctx.strokeRect(px - hs / 2, py - hs / 2, hs, hs);
+            }
+          }
+          if (pic) {
+            // alça de girar: seta circular acima do meio da borda de cima
+            const gy = -hh / 2 - UniversalWriteElement.ROT_HANDLE_GAP * dpr;
+            const r = 5 * dpr;
+            ctx.beginPath();
+            ctx.arc(0, gy, r, -Math.PI * 0.15, Math.PI * 1.55);
+            ctx.lineWidth = 1.6 * dpr;
+            ctx.stroke();
+            const ex = r * Math.cos(-Math.PI * 0.15), ey = gy + r * Math.sin(-Math.PI * 0.15);
+            ctx.beginPath();
+            ctx.moveTo(ex - 3 * dpr, ey - 2.5 * dpr);
+            ctx.lineTo(ex + 0.8 * dpr, ey + 0.5 * dpr);
+            ctx.lineTo(ex + 2.5 * dpr, ey - 3.5 * dpr);
+            ctx.stroke();
           }
           ctx.restore();
         }
