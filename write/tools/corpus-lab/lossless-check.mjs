@@ -34,11 +34,19 @@
 // XML cirúrgico + effectExtent) — giro, contorno, sombra, corte em elipse,
 // transparência, texto alt e quebra/posição → só o parágrafo dela muda, o
 // desenho relê com tudo e os outros desenhos saem crus.
+// --page: frente Página como o editor — Cor da Página (cor, gradiente ou padrão em
+// GIF, alternados), marca-d'água da galeria no 1º cabeçalho padrão que já existe
+// (VML no 1º run do 1º parágrafo) e folha de rosto própria no início do corpo (sdt
+// "Cover Pages" + Primeira Página Diferente na 1ª seção) → o w:background e o
+// displayBackgroundShape relêem, os outros cabeçalhos/rodapés saem byte a byte e
+// só o sdt novo e o sectPr da 1ª seção mudam no corpo.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
 const { DocxPackage, readFullDocument, markSectionBreaks, writeDocument, insertText, applyRunProps, splitParagraph, parseXml, childElements, firstChild,
@@ -95,7 +103,16 @@ const navMode = args.includes('--nav');
 // --hf: cabeçalho e rodapé (ver editHf)
 const hfMode = args.includes('--hf');
 const picturesMode = args.includes('--pictures');
-const layout = navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
+const pageMode = args.includes('--page');
+const drawingml = pageMode ? await import(new URL('../../../shared/drawingml/dist/index.js', import.meta.url).href) : null;
+// os modelos de folha de rosto moram no editor (sem dist): transpilados na hora
+const covers = pageMode ? await (async () => {
+  const { build } = await import('esbuild');
+  const outfile = join(tmpdir(), 'uw-lossless-covers.mjs');
+  await build({ entryPoints: [fileURLToPath(new URL('../../packages/editor/src/cover-templates.ts', import.meta.url))], bundle: true, format: 'esm', outfile, logLevel: 'warning' });
+  return import(pathToFileURL(outfile).href);
+})() : null;
+const layout =navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -117,7 +134,8 @@ function open(bytes) {
 
 const paras = (blocks) => blocks.filter((b) => b.type === 'paragraph').map((b) => b.paragraph);
 
-function save(pkg, full, dirtyAllHf) {
+/** `page`: as partes de cabeçalho editadas (marca-d'água) e a Cor da Página gravada como o editor. */
+function save(pkg, full, dirtyAllHf, page) {
   const last = full.sections[full.sections.length - 1];
   const hfParts = [];
   const seen = new Set();
@@ -126,7 +144,7 @@ function save(pkg, full, dirtyAllHf) {
       for (const r of refs) {
         if (seen.has(r.path) || !set[r.type]) continue;
         seen.add(r.path);
-        hfParts.push({ kind, type: r.type, rid: r.rid, path: r.path, paragraphs: set[r.type], blocks: blocks?.[r.type], dirty: dirtyAllHf });
+        hfParts.push({ kind, type: r.type, rid: r.rid, path: r.path, paragraphs: set[r.type], blocks: blocks?.[r.type], dirty: dirtyAllHf || r.path === page?.wm });
       }
     }
   }
@@ -138,7 +156,65 @@ function save(pkg, full, dirtyAllHf) {
     sources: full.sources,
     notes: notesOf(full),
   });
+  if (page) {
+    core.writePageBackground(pkg, full.background ?? null);
+    core.writeDisplayBackgroundShape(pkg, true);
+  }
   return pkg.save();
+}
+
+// ── --page: frente Página como o editor (setPageColor/setPageFill, setWatermark, insertCoverPage) ──
+
+function editPage(b, n) {
+  // Cor da Página: cor sólida, gradiente vertical de duas cores ou padrão 20% (GIF), alternados
+  const k = n % 3;
+  const bg = k === 0 ? { color: 'FFF2CC' }
+    : k === 1 ? { color: '1F4E79', fill: { type: 'gradient', angle: -90, focus: 100, color: '1F4E79', color2: '#ffffff' } }
+    : { color: 'C00000', fill: { type: 'pattern', color: 'C00000', color2: '#ffffff', title: '20%', image: { data: core.patternGif(drawingml.patternRows('pct20')), ext: 'gif' } } };
+  b.full.background = bg;
+  // marca-d'água da galeria (CONFIDENCIAL 1) no 1º cabeçalho padrão com parágrafo
+  let wm = null;
+  const s0 = b.full.sections.find((s) => s.headerRefs.some((r) => r.type === 'default') && s.headers.default?.length);
+  if (s0) {
+    const ref = s0.headerRefs.find((r) => r.type === 'default');
+    const used = b.pkg.partNames().filter((p) => /^word\/(header|footer)\d*\.xml$/.test(p)).map((p) => b.pkg.getPartText(p) ?? '').join('');
+    let spid = 1025;
+    for (const m of used.matchAll(/_x0000_s(\d+)/g)) spid = Math.max(spid, parseInt(m[1], 10) + 1);
+    const spec = { kind: 'text', text: 'CONFIDENCIAL', font: 'calibri', color: 'C0C0C0', semitransparent: true, layout: 'diagonal' };
+    const runXml = core.watermarkRunXml(spec, { widthPt: 527.85, heightPt: 131.95 }, { n: 100000000 + n, spid, anchorId: (0x10000000 + n).toString(16).toUpperCase() }, undefined, core.vmlColorAttr);
+    const read = core.readHeaderFooterPart(b.pkg, ref.path, undefined, core.hfPartXml('header', `<w:p>${runXml}</w:p>`));
+    const run = read?.paras[0]?.runs.find((r) => r.textbox || r.image);
+    if (run) {
+      const id = b.full.sources.id();
+      b.full.sources.runs.set(id, { rPr: '<w:rPr><w:noProof/></w:rPr>', obj: /<w:pict\b[\s\S]*<\/w:pict>/.exec(runXml)[0] });
+      run.props = { ...run.props, src: id };
+      s0.headers.default[0].runs.unshift(run);
+      wm = ref.path;
+    }
+  }
+  // folha de rosto (sem trocar uma que o documento já tenha)
+  let cover = null;
+  const story = b.full.sources.stories.get('word/document.xml');
+  const hasCover = (gs) => gs.some((g) => (g.wrapOpen && /<w:docPartGallery\s+w:val="Cover Pages"/.test(g.wrapOpen)) || (g.inner && hasCover(g.inner)));
+  if (story && !hasCover(story.groups)) {
+    const tpl = covers.COVER_TEMPLATES[n % covers.COVER_TEMPLATES.length];
+    const sp = b.full.sections[0].sectPr;
+    let did = 1000 + n * 10;
+    const env = {
+      lang: 'pt',
+      page: { w: sp.pageWidthTwips / 20, h: sp.pageHeightTwips / 20, top: sp.marginTopTwips / 20, bottom: sp.marginBottomTwips / 20, left: sp.marginLeftTwips / 20, right: sp.marginRightTwips / 20 },
+      accent1: '156082', accent2: 'E97132', fields: covers.coverPlaceholders('pt'), drawingId: () => did++,
+    };
+    const read = core.readBodyFragment(b.pkg, b.full.sources, covers.coverXml(tpl.id, env), covers.COVER_NS);
+    if (read) {
+      b.full.blocks.unshift(...read.blocks);
+      story.groups.unshift(...read.groups);
+      b.full.sources.baseline();
+      sp.titlePg = true;
+      cover = { id: tpl.id, paras: read.blocks.filter((x) => x.type === 'paragraph').length, multi: b.full.sections.length > 1 };
+    }
+  }
+  return { bg, wm, cover };
 }
 
 /** Salva como o editor depois de mexer nas seções: a geometria e as refs do corpo vêm do modelo. */
@@ -568,7 +644,9 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         picEdit = { wasInline: f.inline };
       }
     }
-    const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
+    // --page: por último (a folha de rosto entra antes dos parágrafos já editados)
+    const pageEdit = pageMode ? editPage(b, n) : null;
+    const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false, pageEdit ?? undefined);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
     readFullDocument(re); // relê
@@ -584,7 +662,8 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     res.edits = edited.length;
     res.changedKids = changed;
     // (--tables: a tabela e o sectPr do corpo)
-    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits + (tblEdit ? 2 : 0);
+    // (--page: o sdt da folha de rosto e o sectPr da 1ª seção — o do corpo ou o do ¶ que a encerra)
+    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits + (tblEdit ? 2 : 0) + (pageEdit?.cover ? 2 : 0);
     if (changed > allowed) res.issues.push(`changed:${changed}>${allowed}`);
     if (!xml.includes('XYZ') && cands[0]) res.issues.push('missing-edit');
     if (navEdit) {
@@ -626,6 +705,30 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         if (re.getPart(part) && re.getPartText(part) !== orig.getPartText(part)) res.issues.push(`hf-part-changed:${part}`);
       }
       res.hf = { titlePg: hfEdit.titlePg, unlink: hfEdit.unlink?.sec ?? -1, relink: hfEdit.relink?.sec ?? -1 };
+    }
+    if (pageEdit) {
+      const rf = readFullDocument(re);
+      const g = rf.background, want = pageEdit.bg;
+      if ((g?.color ?? '').toUpperCase() !== want.color) res.issues.push('page-bg-color');
+      if ((g?.fill?.type ?? null) !== (want.fill?.type ?? null)) res.issues.push('page-bg-fill');
+      if (want.fill?.type === 'pattern' && !(g?.fill?.image?.data?.length > 0)) res.issues.push('page-bg-image');
+      if ((xml.match(/<w:background\b/g) ?? []).length !== 1) res.issues.push('page-bg-count');
+      if (!/<w:displayBackgroundShape\/>/.test(re.getPartText('word/settings.xml') ?? '')) res.issues.push('page-display');
+      if (pageEdit.wm) {
+        const hx = re.getPartText(pageEdit.wm) ?? '';
+        const info = core.readWatermarkXml(/<w:pict\b[\s\S]*?<\/w:pict>/.exec(hx)?.[0] ?? '', core.vmlColor);
+        if (!core.isWatermarkXml(hx) || info?.kind !== 'text' || info.text !== 'CONFIDENCIAL') res.issues.push('page-wm');
+      }
+      // os outros cabeçalhos/rodapés saem byte a byte
+      for (const part of orig.partNames()) {
+        if (/^word\/(?:header|footer)\d*\.xml$/.test(part) && part !== pageEdit.wm && re.getPartText(part) !== orig.getPartText(part)) res.issues.push(`page-hf-changed:${part}`);
+      }
+      if (pageEdit.cover) {
+        const k0 = bodyKids(xml)[0] ?? '';
+        if (!/^<w:sdt>\s*<w:sdtPr>[\s\S]*?<w:docPartGallery w:val="Cover Pages"\/>/.test(k0) || !/<w:br w:type="page"\/>/.test(k0)) res.issues.push('page-cover');
+        if (!rf.sections[0]?.sectPr.titlePg) res.issues.push('page-titlepg');
+      }
+      res.page = { bg: want.fill?.type ?? 'color', wm: pageEdit.wm ? 1 : 0, cover: pageEdit.cover?.paras ?? 0 };
     }
     if (refEdit) {
       if (!xml.includes(`<w:bookmarkStart w:id="${refEdit.id}" w:name="RefLossless"/>`) || !xml.includes(`<w:bookmarkEnd w:id="${refEdit.id}"/>`)) res.issues.push('refs-no-bookmark');
@@ -701,6 +804,8 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));
       // --hf: Primeira Página Diferente esperada e as seções desvinculada/vinculada (word-open-check -Hf)
       if (res.hf) res.hfCols = [res.hf.titlePg ? 1 : 0, res.hf.unlink, res.hf.relink];
+      // --page: preenchimento esperado, marca-d'água e parágrafos da folha de rosto (word-open-check -Page)
+      if (res.page) res.pageCols = [res.page.bg, res.page.wm, res.page.cover];
     }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
@@ -715,7 +820,7 @@ mkdirSync(join(LAB_DIR, 'report'), { recursive: true });
 writeFileSync(join(LAB_DIR, 'report', 'lossless.json'), JSON.stringify(results, null, 1));
 if (outDir) {
   writeFileSync(join(outDir, 'manifest.tsv'),
-    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}`).join('\n'), 'utf8');
+    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}`).join('\n'), 'utf8');
 }
 const bad = results.filter((r) => !r.ok);
 const kinds = {};

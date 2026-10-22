@@ -408,6 +408,40 @@ editor.host = {
         </tbody>
       </table>
 
+      <h2 id="page-design">Page design (watermark, page color, cover page)</h2>
+      <p>
+        With <code>topbar</code>, the ribbon's <strong>Design</strong> tab has the <strong>Page Background</strong> group
+        (the compact bar: Format &rsaquo; Page background): the <strong>Watermark</strong> gallery (Confidential, Do Not Copy,
+        Draft, Sample, ASAP, Urgent, diagonal and horizontal, in the UI language) with Custom Watermark (picture with scale and
+        washout; text with language, font, size, color, semitransparent, diagonal or horizontal) and Remove Watermark;
+        <strong>Page Color</strong> with the theme palette, standard colors, No Color, More Colors and <strong>Fill
+        Effects</strong> (gradient with one or two colors or our own presets and the six shading styles, texture, the 48
+        patterns, picture); and Page Borders. Insert &rsaquo; Pages adds <strong>Cover Page</strong> (our own designs, filled
+        from the document properties or with placeholders) and <strong>Blank Page</strong>. What is written follows Word: the
+        watermark is VML in the first paragraph of the three headers of the section (Word recognizes and removes it), the page
+        color is <code>w:background</code> (+ <code>v:background</code> for the effects) with
+        <code>w:displayBackgroundShape</code>, the cover page is a <code>w:sdt</code> &ldquo;Cover Pages&rdquo; at the start
+        ending in a page break, with Different First Page. The page color and fill show on screen, always go into the PDF and
+        stay out of printing, as in Word.
+      </p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>pageBackground(): PageBackgroundInfo | null</code></td><td>The page color: <code>{ color?, themeColor?, tint?, shade?, fill?, shown }</code> (<code>fill</code> is the <code>v:fill</code>: <code>type</code> <code>'gradient' | 'gradientRadial' | 'pattern' | 'tile' | 'frame'</code>, colors, angle, focus&hellip;); <code>null</code> = No Color.</td></tr>
+          <tr><td><code>setPageColor(color)</code></td><td><code>'RRGGBB'</code>, <code>{ themeColor, tint?, shade? }</code> (<code>themeColor</code> as in <code>w:themeColor</code>; <code>tint</code>/<code>shade</code> 0&ndash;1) or <code>null</code> (No Color). One undo step.</td></tr>
+          <tr><td><code>setPageFill(fill: PageFillInput | null)</code></td><td>Fill Effects: <code>{ type: 'gradient', colors: 'one', color, degree, style, variant }</code> (<code>degree</code> 0 dark &ndash; 1 light), <code>{ type: 'gradient', colors: 'two', color, color2, style, variant }</code>, <code>{ type: 'gradient', colors: 'preset', preset, style, variant }</code>, <code>{ type: 'pattern', pattern, color, background }</code> or <code>{ type: 'texture' | 'picture', data, ext, name }</code>; <code>style</code>: <code>'horizontal' | 'vertical' | 'diagonalUp' | 'diagonalDown' | 'fromCorner' | 'fromCenter'</code>.</td></tr>
+          <tr><td><code>pageFillOptions()</code></td><td>Gradient presets, variants per style and the 48 patterns (DrawingML preset names) with names in the UI language.</td></tr>
+          <tr><td><code>watermark(): WatermarkInfo | null</code></td><td>The watermark of the section at the caret: text (text, font, size, color, semitransparent, layout) or picture (washout), with its box in points.</td></tr>
+          <tr><td><code>watermarkGallery()</code> / <code>watermarkTexts()</code></td><td>Gallery items (<code>{ id, label, categoryLabel, &hellip; }</code>) and the text list of the Custom Watermark dialog, in the UI language.</td></tr>
+          <tr><td><code>setWatermark(spec: WatermarkSpec | string)</code></td><td>A gallery id (<code>'confidential1'</code>, <code>'draft2'</code>&hellip;) or <code>{ kind: 'text', text, font, sizePt?, color, semitransparent, layout, lang? }</code> / <code>{ kind: 'picture', data, ext, title, scale?, washout }</code> (no <code>sizePt</code>/<code>scale</code> = Auto). Replaces the current one in the three headers of the section; one undo step.</td></tr>
+          <tr><td><code>removeWatermark()</code></td><td>Remove Watermark, from every section.</td></tr>
+          <tr><td><code>coverPages()</code> / <code>hasCoverPage()</code></td><td>The cover page designs (<code>{ id, name }[]</code>) and whether the document has one.</td></tr>
+          <tr><td><code>insertCoverPage(id)</code> / <code>removeCoverPage(): boolean</code></td><td>Insert a cover page at the start (replacing the current one; the title placeholder comes selected) / Remove Current Cover Page.</td></tr>
+          <tr><td><code>paintWatermarkTemplate(id, canvas, cssWidth)</code> / <code>paintCoverTemplate(id, canvas, cssWidth)</code></td><td>Draw a gallery thumbnail (a whole page) with the layout engine.</td></tr>
+          <tr><td><code>insertBlankPage()</code></td><td>Blank Page: page break, an empty paragraph with the caret and another page break, splitting the paragraph at the caret.</td></tr>
+        </tbody>
+      </table>
+
       <h2 id="notes">Footnotes and endnotes</h2>
       <p>Notes are edited in place: clicking the note area (bottom of the page, or the endnotes after the text) enters the note; Esc or a click in the text goes back. Text and notes share one undo history. Deleting a reference deletes its note; the first Backspace right after a reference only selects it; pasting a copied reference creates a new note with a copy of the text. With Track Changes on, a new note is an insertion and a deleted reference keeps its note until the deletion is accepted; revisions inside notes appear in <code>getRevisions()</code> (<code>story: 'footnote' | 'endnote'</code>) and in Accept/Reject All. Ctrl+Alt+F / Ctrl+Alt+D insert a footnote / endnote.</p>
       <table>

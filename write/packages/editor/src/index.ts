@@ -1,6 +1,9 @@
 export { UniversalWriteElement, type FileFormat, type ViewMode, type SectionApplyTo, type SectionInfo } from './universal-write.js';
 export type { StyleInfo, StyleLook, StyleFilter, StyleKind, CreateStyleOptions, ModifyStyleOptions } from './styles.js';
 export type { SectionType, ColumnSpec, ColumnPreset, StyleFormat } from '@universal-office/docx-core';
+// guia Design: Cor da Página, Efeitos de Preenchimento e marca-d'água
+export type { GradientStyle, PageBackgroundInfo, PageFillInput, ThemeColorRef } from './page-design.js';
+export type { WatermarkSpec, WatermarkTextSpec, WatermarkPictureSpec, WatermarkInfo, WatermarkLayout } from '@universal-office/docx-core';
 // barras (topbar/bottombar/toolbar): integração opcional com o app hospedeiro
 export type { UniversalWriteHost, UniversalWriteHostFile } from './chrome-host.js';
 import type { UniversalWriteElement } from './universal-write.js';

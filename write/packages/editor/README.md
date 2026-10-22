@@ -400,6 +400,57 @@ bar has all of it under Insert › Headers & footers, with the options in the
 | `insertDocumentInfo('author' \| 'title' \| 'fileName' \| 'filePath', fileName?)` | Document Info fields (`AUTHOR`, `TITLE`, `FILENAME`). |
 | `insertAlignmentTab('left' \| 'center' \| 'right', relativeTo?, leader?)` | Alignment tab (`w:ptab`) relative to the margin or the indent. |
 
+## Page design
+
+The ribbon's **Design** tab holds the **Page Background** group; the compact
+bar has the same under Format › Page background, and Insert › Cover page /
+Blank Page.
+
+- **Watermark**: a gallery of 12 text watermarks (Confidential, Do Not Copy,
+  Draft, Sample, ASAP, Urgent — diagonal and horizontal, in the UI language)
+  with thumbnails drawn by the layout engine, **Custom Watermark…** (picture
+  with scale and washout; text with language, the language's list of texts,
+  font, size or Auto, color, semitransparent, diagonal or horizontal — Apply
+  keeps the dialog open) and **Remove Watermark**. It goes where Word puts it:
+  VML (`PowerPlusWaterMarkObject` / `WordPictureWatermark`) in the first
+  paragraph of the three headers of the section at the caret, creating the
+  ones it lacks; Word recognizes and removes it, and Remove takes it out of
+  every section.
+- **Page Color**: the theme palette (saved with `w:themeColor` and its
+  tint/shade), standard colors, No Color, More Colors and **Fill Effects…**:
+  gradient (one color dark↔light, two colors or our own presets; the six
+  shading styles and their variants), texture (your image, tiled at its
+  natural size), the 48 patterns with foreground and background, and picture.
+  Saved as `w:background` (+ `v:background` for the effects) and
+  `w:displayBackgroundShape`.
+- **Page Borders** opens the Borders and Shading dialog on its page tab.
+- **Cover Page** (Insert › Pages): our own designs — Band, Sidebar, Frame,
+  Block, Minimal, Base, Duotone and Diagonal — with fields filled from the
+  document properties (title, subject, author, company, description) or
+  placeholders. The cover is a `w:sdt` "Cover Pages" at the start of the
+  document ending in a page break, with Different First Page on the first
+  section; choosing another one replaces it and **Remove Current Cover Page**
+  takes it out (Word's own cover pages too). The title placeholder comes
+  selected, so typing replaces it.
+- **Blank Page**: splits the paragraph at the caret and puts a page break, an
+  empty paragraph (the caret goes there) and another page break, as Word does;
+  one undo step.
+
+Like Word, the page color and fill show on screen, always go into the PDF
+(gradient and picture tiles at Word's device resolution, patterns at 1 pt)
+and stay out of printing.
+
+| Method | Description |
+|---|---|
+| `pageBackground()` | `PageBackgroundInfo` or `null` (No Color): `color`, `themeColor`, `tint`/`shade` (0–1), `fill` (the `v:fill`: `type` `gradient` · `gradientRadial` · `pattern` · `tile` · `frame`, colors, angle, focus…) and `shown`. |
+| `setPageColor(color)` | `'RRGGBB'`, `{ themeColor, tint?, shade? }` (`themeColor` as in `w:themeColor`: `accent1`, `background1`…; `tint`/`shade` 0–1) or `null` for No Color. One undo step. |
+| `setPageFill(fill)` · `pageFillOptions()` | Fill Effects: `{ type: 'gradient', colors: 'one', color, degree (0 dark–1 light), style, variant }`, `{ type: 'gradient', colors: 'two', color, color2, style, variant }`, `{ type: 'gradient', colors: 'preset', preset, style, variant }`, `{ type: 'pattern', pattern, color, background }`, `{ type: 'texture' \| 'picture', data, ext, name }`; `style` is `horizontal` · `vertical` · `diagonalUp` · `diagonalDown` · `fromCorner` · `fromCenter`. `pageFillOptions()` lists the presets, the variants per style and the patterns (DrawingML preset names) with names in the UI language. |
+| `watermark()` · `watermarkGallery()` · `watermarkTexts()` | The watermark of the section at the caret (`WatermarkInfo`: text, font, size, color, semitransparent, layout — or picture, washout — with its box in points), the gallery items (`id`, `label`, `categoryLabel`) and the text list of the Custom Watermark dialog. |
+| `setWatermark(spec)` · `removeWatermark()` | A gallery id (`'confidential1'`, `'draft2'`…) or a `WatermarkSpec`: `{ kind: 'text', text, font, sizePt?, color, semitransparent, layout: 'diagonal' \| 'horizontal', lang? }` (no `sizePt` = Auto) or `{ kind: 'picture', data, ext, title, scale?, washout }` (no `scale` = Auto). Replaces the current one; one undo step. |
+| `coverPages()` · `hasCoverPage()` · `insertCoverPage(id)` · `removeCoverPage()` | Cover page designs (`{ id, name }`), whether the document has one, insert (replaces the current), remove (`false` without a cover page). |
+| `paintWatermarkTemplate(id, canvas, cssWidth)` · `paintCoverTemplate(id, canvas, cssWidth)` | Draw a gallery thumbnail (a whole page) with the layout engine. |
+| `insertBlankPage()` | Blank Page at the caret. |
+
 ## Navigation
 
 **View › Show** has Word's three switches, remembered per instance:

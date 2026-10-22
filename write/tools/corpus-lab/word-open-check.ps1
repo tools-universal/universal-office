@@ -20,6 +20,9 @@
 # atualiza o MESMO sumario e as entradas (texto sem o numero da pagina) tem de bater.
 # -Pictures: saida do lossless-check --pictures (a imagem com texto alt "Imagem editada
 # (lossless)": o Word tem de ve-la flutuante, girada 15 graus, com o texto alt).
+# -Page: saida do lossless-check --page (Cor da Pagina: o tipo do preenchimento que o Word
+# ve - cor 1, padrao 2, gradiente 3; marca-d'agua PowerPlusWaterMarkObject num cabecalho;
+# folha de rosto: Primeira Pagina Diferente na 1a secao e o titulo no inicio; colunas 3 a 5).
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -31,7 +34,8 @@ param(
   [switch]$Hf,
   [switch]$Refs,
   [switch]$Toc,
-  [switch]$Pictures
+  [switch]$Pictures,
+  [switch]$Page
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -152,6 +156,24 @@ foreach ($row in $rows) {
           }
           foreach ($h in $d.Hyperlinks) { if ([string]$h.ScreenTip -eq 'Dica Lossless') { $script:tip = $true } }
         }
+        if ($Page) {
+          $f = $d.Background.Fill
+          $script:pgFill = if ($f.Visible) { [int]$f.Type } else { 0 }
+          $script:pgWm = 0
+          foreach ($s in $d.Sections) {
+            foreach ($t in @(1, 2, 3)) {
+              $h = $s.Headers.Item($t)
+              if (-not $h.Exists) { continue }
+              foreach ($sh in $h.Shapes) { if ([string]$sh.Name -like 'PowerPlusWaterMarkObject*') { $script:pgWm++ } }
+            }
+          }
+          # documento protegido (formularios): o COM nao le o PageSetup (como no -Hf)
+          $script:pgTp = -2
+          if ($d.ProtectionType -eq -1) { $script:pgTp = [int]$d.Sections.Item(1).PageSetup.DifferentFirstPageHeaderFooter }
+          $r0 = $d.Content
+          # "[Titulo do documento]" com i agudo (o .ps1 fica em ASCII)
+          $script:pgTitle = ([string]$d.Range(0, [math]::Min(4000, $r0.End)).Text).Contains('[T' + [char]0xED + 'tulo do documento]')
+        }
         if ($Pictures) {
           $script:pic = 'no-picture'
           foreach ($sh in $d.Shapes) {
@@ -181,7 +203,20 @@ foreach ($row in $rows) {
     if ($Toc) { $script:hasEdit = $true }
     $slack = 1
     if ($Sections -or $Refs) { $slack = 2 }
-    if ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }
+    if ($Page -and $parts.Count -ge 5) {
+      # cor 1 (solido), padrao 2, gradiente 3; a folha de rosto acrescenta paragrafos ao corpo
+      $wantFill = @{ 'color' = 1; 'pattern' = 2; 'gradient' = 3 }[$parts[2]]
+      $coverParas = [int]$parts[4]
+      $slack = 1 + $coverParas
+      $detail += " page fill=$($script:pgFill) wm=$($script:pgWm) titlePg=$($script:pgTp) title=$($script:pgTitle)"
+      if (-not $script:hasEdit) { $status = 'no-edit' }
+      elseif ($script:pgFill -ne $wantFill) { $status = 'page-fill' }
+      elseif ($parts[3] -eq '1' -and $script:pgWm -lt 1) { $status = 'page-wm' }
+      elseif ($coverParas -gt 0 -and $script:pgTp -ne -1 -and $script:pgTp -ne -2) { $status = 'page-titlepg' }
+      elseif ($coverParas -gt 0 -and -not $script:pgTitle) { $status = 'page-cover' }
+      elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
+    }
+    elseif ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }
     elseif (-not $script:hasEdit) { $status = 'no-edit' }
     elseif ($Toc -and -not $script:tocSame) { $status = 'toc-differs'; $detail += $script:tocInfo }
     elseif ($Toc) { $status = 'ok' }
