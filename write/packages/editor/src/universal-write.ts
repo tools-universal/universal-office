@@ -9437,22 +9437,9 @@ export class UniversalWriteElement extends HTMLElement {
     p.runs.splice(ri, 1);
     let off = to.offset;
     if (to.para === pi && off > from) off -= run.text.length;
+    // (insertIndex divide o run e respeita as marcas de indicador/campo, como o Word)
     const q = paras[to.para]!;
-    let acc = 0;
-    let done = false;
-    for (let k = 0; k <= q.runs.length && !done; k++) {
-      const r = q.runs[k];
-      const len = r?.text.length ?? 0;
-      if (!r || off <= acc + len) {
-        if (r && off > acc && off < acc + len && !r.image && !r.textbox) {
-          const cut = off - acc;
-          q.runs.splice(k, 1, { ...r, text: r.text.slice(0, cut), props: { ...r.props } }, run, { ...r, text: r.text.slice(cut), props: { ...r.props } });
-        } else q.runs.splice(r && off > acc ? k + 1 : k, 0, run);
-        done = true;
-      }
-      acc += len;
-    }
-    if (!done) q.runs.push(run);
+    q.runs.splice(insertIndex(q, off), 0, run);
     // a imagem continua selecionada no lugar novo (como no Word)
     this.selectInlineRun(run);
     this.refresh();
