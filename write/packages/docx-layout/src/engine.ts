@@ -2539,7 +2539,11 @@ class Engine {
     this.floatCarry = [];
     for (const c of carry) {
       const items: PageItem[] = [];
-      this.emitFloatRows(c.t, c.rows, c.fp, this.cur, c.refX, this.cur.bodyTop, items, 0, true, true);
+      // linhas de cabeçalho (w:tblHeader) repetem no topo da continuação, como no fluxo (oráculo tblhdr2)
+      const hdr: TableLayout['rows'] = [];
+      for (const r of c.t.rows) { if (r.header) hdr.push(r); else break; }
+      const rows = hdr.length && hdr.length < c.t.rows.length && !hdr.includes(c.rows[0]!) ? [...hdr, ...c.rows] : c.rows;
+      this.emitFloatRows(c.t, rows, c.fp, this.cur, c.refX, this.cur.bodyTop, items, 0, true, true);
       this.cur.front.push({ z: -1, seq: this.zSeq++, items });
     }
   }

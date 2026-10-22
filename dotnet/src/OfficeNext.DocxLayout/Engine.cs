@@ -3196,7 +3196,11 @@ internal sealed class Engine
         foreach (var c in carry)
         {
             var items = new List<PageItem>();
-            EmitFloatRows(c.T, c.Rows, c.Fp, _cur, c.RefX, _cur.BodyTop, items, 0, true, true);
+            // linhas de cabeçalho (w:tblHeader) repetem no topo da continuação, como no fluxo (oráculo tblhdr2)
+            var hdr = new List<RowLayout>();
+            foreach (var r in c.T.Rows) { if (r.Header) hdr.Add(r); else break; }
+            var rows = hdr.Count > 0 && hdr.Count < c.T.Rows.Count && c.Rows.Count > 0 && !hdr.Contains(c.Rows[0]) ? hdr.Concat(c.Rows).ToList() : c.Rows;
+            EmitFloatRows(c.T, rows, c.Fp, _cur, c.RefX, _cur.BodyTop, items, 0, true, true);
             _cur.Front.Add(new ZObj { Z = -1, Seq = _zSeq++, Items = items });
         }
     }
