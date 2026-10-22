@@ -40,3 +40,53 @@ export function writeDefaultTabStop(pkg: DocxPackage, twips: number): void {
   }
   pkg.setPartText(path, xml);
 }
+
+/** Elementos de CT_Settings que vêm ANTES de w:evenAndOddHeaders. */
+const BEFORE_EVEN_ODD = new Set([...BEFORE_DEFAULT_TAB,
+  'w:defaultTabStop', 'w:autoHyphenation', 'w:consecutiveHyphenLimit', 'w:hyphenationZone', 'w:doNotHyphenateCaps',
+  'w:showEnvelope', 'w:summaryLength', 'w:clickAndTypeStyle', 'w:defaultTableStyle',
+]);
+
+/** Liga/desliga w:evenAndOddHeaders (Páginas Pares e Ímpares Diferentes — vale
+ *  para o documento todo; o Word grava `<w:evenAndOddHeaders/>`, oráculo hf-lab
+ *  e04). Sem settings.xml: cria um mínimo quando for ligar. */
+export function writeEvenAndOddHeaders(pkg: DocxPackage, on: boolean): void {
+  const path = partByRelType(pkg, 'settings', 'word/settings.xml');
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!on) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText('word/settings.xml');
+    if (!xml) return;
+  }
+  const cur = /<w:evenAndOddHeaders\b[^>]*?(?:\/>|>[\s\S]*?<\/w:evenAndOddHeaders>)/.exec(xml);
+  const isOn = !!cur && !/w:val="(?:0|false|off)"/.test(cur[0]);
+  if (isOn === on) return;
+  if (cur) xml = xml.slice(0, cur.index) + (on ? '<w:evenAndOddHeaders/>' : '') + xml.slice(cur.index + cur[0].length);
+  else {
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) return;
+    let at = root.cs!;
+    for (const k of childElements(root)) if (BEFORE_EVEN_ODD.has(k.name)) at = Math.max(at, k.e!);
+    xml = xml.slice(0, at) + '<w:evenAndOddHeaders/>' + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
+
+/** settings.xml mínimo (documento sem a parte), com rel e content type. */
+function ensureSettingsPart(pkg: DocxPackage): void {
+  if (pkg.getPart('word/settings.xml')) return;
+  pkg.setPartText('word/settings.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:settings>');
+  const relsPath = 'word/_rels/document.xml.rels';
+  const rels = pkg.getPartText(relsPath);
+  if (rels && !/relationships\/settings"/.test(rels)) {
+    pkg.setPartText(relsPath, rels.replace('</Relationships>',
+      '<Relationship Id="rIdWnSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>'));
+  }
+  const ct = pkg.getPartText('[Content_Types].xml');
+  if (ct && !ct.includes('PartName="/word/settings.xml"')) {
+    pkg.setPartText('[Content_Types].xml', ct.replace('</Types>',
+      '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>'));
+  }
+}

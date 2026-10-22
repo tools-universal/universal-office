@@ -1,0 +1,6 @@
+# h01-styles-header
+== style <w:style w:type="paragraph" w:styleId="Cabealho"><w:name w:val="header"/><w:basedOn w:val="Normal"/><w:link w:val="CabealhoChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rsid w:val="00411C56"/><w:pPr><w:tabs><w:tab w:val="center" w:pos="4252"/><w:tab w:val="right" w:pos="8504"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>
+== style <w:style w:type="paragraph" w:styleId="Rodap"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:link w:val="RodapChar"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/><w:rsid w:val="00411C56"/><w:pPr><w:tabs><w:tab w:val="center" w:pos="4252"/><w:tab w:val="right" w:pos="8504"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>
+== latent <w:lsdException w:name="header" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="footer" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="page number" w:semiHidden="1" w:unhideWhenUsed="1"/>

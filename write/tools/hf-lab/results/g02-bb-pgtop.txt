@@ -1,0 +1,12 @@
+# g02-bb-pgtop
+story=1 sec=1 sel=5..5 paraText=[Corpo\r] undoSteps=1
+log: bb type=11 behavior=0
+== sectPr <w:sectPr><w:headerReference w:type="even" r:id="rId6"/><w:headerReference w:type="default" r:id="rId7"/><w:footerReference w:type="even" r:id="rId8"/><w:footerReference w:type="default" r:id="rId9"/><w:headerReference w:type="first" r:id="rId10"/><w:footerReference w:type="first" r:id="rI…
+== word/footer1.xml
+== word/footer2.xml
+== word/footer3.xml
+== word/header1.xml
+== word/header2.xml
+   <w:sdtPr><w:id w:val="2104679654"/><w:docPartObj><w:docPartGallery w:val="Page Numbers (Top of Page)"/><w:docPartUnique/></w:docPartObj></w:sdtPr> (conteudo do bloco do Word omitido)
+   (paragrafo com campo PAGE; conteudo do bloco do Word omitido)
+== word/header3.xml

@@ -384,8 +384,14 @@ function groupOf(xml: string, child: XmlElement, produced: Block[], store: Sourc
   return g;
 }
 
-function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: SourceStore): { paras: Paragraph[]; blocks: Block[] } | undefined {
-  const xml = pkg.getPartText(path);
+/**
+ * Lê uma parte de cabeçalho/rodapé (blocos + parágrafos achatados). Com `store`,
+ * guarda as fontes e a história da parte (salvar sem perdas). `xml`: o conteúdo
+ * no lugar do que está no pacote — parte nova do editor (cópia ao desvincular,
+ * modelo da galeria), lida como se viesse do arquivo; as rels são as de `path`.
+ */
+export function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: SourceStore, xml0?: string): { paras: Paragraph[]; blocks: Block[] } | undefined {
+  const xml = xml0 ?? pkg.getPartText(path);
   if (!xml) return undefined;
   const root = parseXml(xml, { positions: !!store });
   const partName = path.split('/').pop()!;

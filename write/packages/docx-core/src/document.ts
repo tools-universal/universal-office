@@ -441,6 +441,9 @@ export interface Paragraph {
   pprEdited?: boolean;
 }
 
+/** w:chapSep — separador entre o número do capítulo e o da página. */
+export type ChapterSeparator = 'hyphen' | 'period' | 'colon' | 'emDash' | 'enDash';
+
 /** w:type — como a seção começa em relação à anterior (ausente = próxima página). */
 export type SectionType = 'nextPage' | 'continuous' | 'evenPage' | 'oddPage' | 'nextColumn';
 
@@ -488,6 +491,13 @@ export interface SectPr {
   /** w:pgNumType/@w:start — número inicial de página da seção (campo PAGE).
    *  Ausente = 1 (padrão do Word). start=0 → 1ª página é "0". */
   pgNumStart?: number;
+  /** w:pgNumType/@w:fmt — formato do número de página (ausente = decimal). */
+  pgNumFmt?: string;
+  /** w:pgNumType/@w:chapStyle — nível do título (1–9) do número de capítulo
+   *  (Formatar Números de Página › Incluir número do capítulo). */
+  pgNumChapStyle?: number;
+  /** w:pgNumType/@w:chapSep — separador capítulo–página (ausente = hífen). */
+  pgNumChapSep?: ChapterSeparator;
   /** w:pgBorders (null = o editor tirou; ausente = como no arquivo) */
   pgBorders?: PageBorders | null;
   /** w:footnotePr / w:endnotePr da seção (sobre os do settings). */
@@ -1868,6 +1878,14 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
   if (startAttr !== undefined) {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
+  }
+  const pgFmt = pgNumType?.attrs['w:fmt'];
+  if (pgFmt) sect.pgNumFmt = pgFmt;
+  const chapStyle = parseInt(pgNumType?.attrs['w:chapStyle'] ?? '', 10);
+  if (chapStyle > 0) {
+    sect.pgNumChapStyle = chapStyle;
+    const sep = pgNumType?.attrs['w:chapSep'];
+    if (sep === 'period' || sep === 'colon' || sep === 'emDash' || sep === 'enDash') sect.pgNumChapSep = sep;
   }
   const fnPr = readNoteProps(sectEl && firstChild(sectEl, 'w:footnotePr'));
   if (fnPr) sect.footnotePr = fnPr;

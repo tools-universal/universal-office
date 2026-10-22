@@ -1,0 +1,2 @@
+# e14-ptab
+ERRO: Falha na invocação do método porque [System.__ComObject] não contém um método denominado 'InsertAlignmentTab'.

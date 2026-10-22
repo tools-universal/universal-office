@@ -1529,6 +1529,15 @@ public static class DocumentReader
             double n = JsNumber.ParseInt(startAttr);
             if (!double.IsNaN(n)) sect.PgNumStart = (int)Math.Clamp(n, int.MinValue, int.MaxValue);
         }
+        string? pgFmt = pgNumType?.Attr("w:fmt");
+        if (Js.Truthy(pgFmt)) sect.PgNumFmt = pgFmt;
+        double chapStyle = JsNumber.ParseInt(pgNumType?.Attr("w:chapStyle") ?? "");
+        if (chapStyle > 0)
+        {
+            sect.PgNumChapStyle = (int)Math.Min(chapStyle, int.MaxValue);
+            string? sep = pgNumType?.Attr("w:chapSep");
+            if (sep is "period" or "colon" or "emDash" or "enDash") sect.PgNumChapSep = sep;
+        }
         var fnPr = OoxmlParts.ReadNoteProps(sectEl is not null ? FirstChild(sectEl, "w:footnotePr") : null);
         if (fnPr is not null) sect.FootnotePr = fnPr;
         var enPr = OoxmlParts.ReadNoteProps(sectEl is not null ? FirstChild(sectEl, "w:endnotePr") : null);

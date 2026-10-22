@@ -117,6 +117,8 @@ public sealed class ParaMarker
     /// <summary>tab | space | nothing</summary>
     public string Suff = "tab";
     public string Jc = "left";
+    /// <summary>número de capítulo (campo PAGE com w:chapStyle) — ver NumberMarker.Chapter</summary>
+    public string? Chapter;
 }
 
 public sealed class PreparedPara
@@ -1235,7 +1237,7 @@ public static class Para
                     mg.Add(new Glyph { Kind = GlyphKind.Char, Ch = ch, Cp = cp, Face = face, Style = ms, Adv = adv, Asc = m.Ascent * ms.SizePt * 20, Desc = m.Descent * ms.SizePt * 20, Offset = -1, RunIdx = -1, BreakAfter = false, SizePt = ms.SizePt });
                     w += adv;
                 }
-                marker = new ParaMarker { Text = nm.Text, Glyphs = mg, Width = w, Level = nm.Level, Suff = nm.Level.Suff ?? "tab", Jc = nm.Level.LvlJc ?? "left" };
+                marker = new ParaMarker { Text = nm.Text, Glyphs = mg, Width = w, Level = nm.Level, Suff = nm.Level.Suff ?? "tab", Jc = nm.Level.LvlJc ?? "left", Chapter = nm.Chapter };
             }
         }
 

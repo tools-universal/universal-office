@@ -474,6 +474,12 @@ public sealed class SectPr
     public int? FooterDistanceTwips;
     /// <summary>w:pgNumType/@w:start — número inicial de página da seção.</summary>
     public int? PgNumStart;
+    /// <summary>w:pgNumType/@w:fmt — formato do número de página (ausente = decimal).</summary>
+    public string? PgNumFmt;
+    /// <summary>w:pgNumType/@w:chapStyle — nível do título (1–9) do número de capítulo.</summary>
+    public int? PgNumChapStyle;
+    /// <summary>w:pgNumType/@w:chapSep — separador capítulo–página (ausente = hífen).</summary>
+    public string? PgNumChapSep;
     /// <summary>w:footnotePr / w:endnotePr da seção (sobre os do settings).</summary>
     public NoteProps? FootnotePr;
     public NoteProps? EndnotePr;

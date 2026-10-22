@@ -103,7 +103,8 @@ export function buildDocx({ body, sect, defaults, styles = '', normal = '', numb
       files[`word/_rels/${name}.rels`] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${Object.keys(media).map((m, i) => `<Relationship Id="rIdImg${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m}"/>`).join('')}</Relationships>`);
       ct.push(`<Override PartName="/word/${name}" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.${kind}+xml"/>`);
       rels.push(`<Relationship Id="rId_${kind}_${type}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${kind}" Target="${name}"/>`);
-      hfRefs += `<w:${kind}Reference w:type="${type}" r:id="rId_${kind}_${type}"/>`;
+      // chaves além de default/first/even (partes de outras seções): o caso põe as refs
+      if (type === 'default' || type === 'first' || type === 'even') hfRefs += `<w:${kind}Reference w:type="${type}" r:id="rId_${kind}_${type}"/>`;
     }
   }
   if (numbering) {

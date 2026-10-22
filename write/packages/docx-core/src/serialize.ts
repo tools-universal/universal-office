@@ -4,7 +4,7 @@ import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
-import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
+import { patchRPr, patchPPr, patchSectPr, pgNumTypeXml, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 import {
   patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
   tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped, pgBordersXml,
@@ -719,7 +719,7 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
   const type = s.type && s.type !== 'nextPage' ? `<w:type w:val="${s.type}"/>` : '';
   const cols = s.cols ? colsXml(s.cols) : '';
   const titlePg = s.titlePg ? '<w:titlePg/>' : '';
-  const pgNumType = s.pgNumStart !== undefined ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : '';
+  const pgNumType = pgNumTypeXml(s) ?? '';
   const pgBorders = pgBordersXml(s.pgBorders) ?? '';
   // notas: propriedades antes do w:type; as colunas da área de notas no fim (Word)
   const notes = notePropsXml('footnote', s.footnotePr) + notePropsXml('endnote', s.endnotePr);

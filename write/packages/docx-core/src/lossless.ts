@@ -446,6 +446,23 @@ export function colsXml(cols: SectPr['cols'], raw?: string): string {
   return `<w:cols${sep && sep !== '0' && sep !== 'false' ? ' w:sep="1"' : ''} w:space="${esc(space)}"/>`;
 }
 
+/**
+ * w:pgNumType da seção (Formatar Números de Página): fmt, start, chapStyle e
+ * chapSep na ordem do schema; o Word omite o separador hífen e tira o elemento
+ * quando fica sem atributo (oráculo hf-lab e10/e11). `raw`: o elemento de
+ * origem (atributos desconhecidos ficam). null = sem elemento.
+ */
+export function pgNumTypeXml(s: SectPr, raw = ''): string | null {
+  const chap = s.pgNumChapStyle && s.pgNumChapStyle > 0 ? s.pgNumChapStyle : undefined;
+  const xml = withAttrs(raw ? raw.replace(/\s+w:(?:fmt|start|chapStyle|chapSep)="[^"]*"/g, '') : '', 'w:pgNumType', {
+    'w:fmt': s.pgNumFmt && s.pgNumFmt !== 'decimal' ? s.pgNumFmt : undefined,
+    'w:start': s.pgNumStart,
+    'w:chapStyle': chap,
+    'w:chapSep': chap && s.pgNumChapSep && s.pgNumChapSep !== 'hyphen' ? s.pgNumChapSep : undefined,
+  });
+  return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
+}
+
 /** w:sectPr cru com a geometria/refs atuais (só o que mudou é tocado). */
 export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefined): string {
   const { open, close, kids, el } = splitElement(raw);
@@ -488,8 +505,9 @@ export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefin
   if (!!cur.titlePg !== !!base.titlePg) set('w:titlePg', cur.titlePg ? '<w:titlePg/>' : null);
   // bordas de página: só quando o editor as definiu (ausente = como no arquivo)
   if (cur.pgBorders !== undefined && !eq(cur.pgBorders ?? undefined, base.pgBorders ?? undefined)) set('w:pgBorders', pgBordersXml(cur.pgBorders));
-  if (cur.pgNumStart !== base.pgNumStart) {
-    set('w:pgNumType', withAttrs(kidRaw(kids, 'w:pgNumType'), 'w:pgNumType', { 'w:start': cur.pgNumStart }));
+  if (cur.pgNumStart !== base.pgNumStart || cur.pgNumFmt !== base.pgNumFmt
+    || cur.pgNumChapStyle !== base.pgNumChapStyle || cur.pgNumChapSep !== base.pgNumChapSep) {
+    set('w:pgNumType', pgNumTypeXml(cur, kidRaw(kids, 'w:pgNumType')));
   }
   if (!sameNoteProps(cur.footnotePr, base.footnotePr)) set('w:footnotePr', notePropsXml('footnote', cur.footnotePr) || null);
   if (!sameNoteProps(cur.endnotePr, base.endnotePr)) set('w:endnotePr', notePropsXml('endnote', cur.endnotePr) || null);

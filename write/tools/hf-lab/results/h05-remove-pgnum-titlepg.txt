@@ -1,0 +1,11 @@
+# h05-remove-pgnum-titlepg
+story=1 sec=1 sel=0..0 paraText=[Corpo\r] undoSteps=1
+== sectPr <w:sectPr><w:headerReference w:type="even" r:id="rId6"/><w:headerReference w:type="default" r:id="rId7"/><w:footerReference w:type="even" r:id="rId8"/><w:footerReference w:type="default" r:id="rId9"/><w:headerReference w:type="first" r:id="rId10"/><w:footerReference w:type="first" r:id="rI…
+== word/footer1.xml
+== word/footer2.xml
+   <w:sdtPr><w:id w:val="110790745"/><w:docPartObj><w:docPartGallery w:val="Page Numbers (Bottom of Page)"/><w:docPartUnique/></w:docPartObj></w:sdtPr> (conteudo do bloco do Word omitido)
+   (paragrafo com campo PAGE; conteudo do bloco do Word omitido)
+== word/footer3.xml
+== word/header1.xml
+== word/header2.xml
+== word/header3.xml

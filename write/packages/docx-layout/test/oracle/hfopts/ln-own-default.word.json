@@ -1,0 +1,179 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 186.61,
+"size": 11.04,
+"text": "CabS1primeiraHxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 472.39,
+"size": 11.04,
+"text": "S11Hxg.Empresasegurançaoperaçãonãodocumentooanáliseserviçoárea"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 499.28,
+"size": 11.04,
+"text": "execuçãoprocessoparaqualidadeaprovaçãogestãocontroleresponsávelconforme"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 457.6,
+"size": 11.04,
+"text": "comregistroúltimotécnicaseráclienteumaquerelatórioprazoatendimento"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 141.68,
+"size": 11.04,
+"text": "informação."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 181.09,
+"size": 11.04,
+"text": "CabS1padraoHxg"
+},
+{
+"y": 804.24,
+"x0": 85.1,
+"x1": 143.79,
+"size": 11.04,
+"text": "RodS1Hxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 474.19,
+"size": 11.04,
+"text": "S12Hxg.Aprovaçãogestãocontroleresponsávelconformecomregistroúltimo"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 501.67,
+"size": 11.04,
+"text": "técnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoasemàperíodo"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 418.1,
+"size": 11.04,
+"text": "dadoscontratoprocedimentoosdeéempresasegurançaoperação."
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 173.19,
+"size": 11.04,
+"text": "FimdasecaoHxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 186.61,
+"size": 11.04,
+"text": "CabS1primeiraHxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 472.39,
+"size": 11.04,
+"text": "S21Hxg.Empresasegurançaoperaçãonãodocumentooanáliseserviçoárea"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 499.28,
+"size": 11.04,
+"text": "execuçãoprocessoparaqualidadeaprovaçãogestãocontroleresponsávelconforme"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 457.6,
+"size": 11.04,
+"text": "comregistroúltimotécnicaseráclienteumaquerelatórioprazoatendimento"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 141.68,
+"size": 11.04,
+"text": "informação."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 181.09,
+"size": 11.04,
+"text": "CabS2proprioHxg"
+},
+{
+"y": 804.24,
+"x0": 85.1,
+"x1": 143.79,
+"size": 11.04,
+"text": "RodS1Hxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 474.19,
+"size": 11.04,
+"text": "S22Hxg.Aprovaçãogestãocontroleresponsávelconformecomregistroúltimo"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 501.67,
+"size": 11.04,
+"text": "técnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoasemàperíodo"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 418.1,
+"size": 11.04,
+"text": "dadoscontratoprocedimentoosdeéempresasegurançaoperação."
+}
+],
+"objs": []
+}
+]
+}

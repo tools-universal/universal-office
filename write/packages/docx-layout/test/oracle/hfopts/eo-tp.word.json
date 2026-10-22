@@ -1,0 +1,151 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 170.02,
+"size": 11.04,
+"text": "CabprimeiraHxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 493.3,
+"size": 11.04,
+"text": "Pagina1Hxg.Empresasegurançaoperaçãonãodocumentooanáliseserviçoárea"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 499.28,
+"size": 11.04,
+"text": "execuçãoprocessoparaqualidadeaprovaçãogestãocontroleresponsávelconforme"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 457.6,
+"size": 11.04,
+"text": "comregistroúltimotécnicaseráclienteumaquerelatórioprazoatendimento"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 141.68,
+"size": 11.04,
+"text": "informação."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 146.28,
+"size": 11.04,
+"text": "CabparHxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 495.06,
+"size": 11.04,
+"text": "Pagina2Hxg.Aprovaçãogestãocontroleresponsávelconformecomregistroúltimo"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 501.67,
+"size": 11.04,
+"text": "técnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoasemàperíodo"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 418.1,
+"size": 11.04,
+"text": "dadoscontratoprocedimentoosdeéempresasegurançaoperação."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 157.79,
+"size": 11.04,
+"text": "CabimparHxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 484.06,
+"size": 11.04,
+"text": "Pagina3Hxg.Análiseserviçoáreaexecuçãoprocessoparaqualidadeaprovação"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 488.72,
+"size": 11.04,
+"text": "gestãocontroleresponsávelconformecomregistroúltimotécnicaseráclienteuma"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 458.32,
+"size": 11.04,
+"text": "querelatórioprazoatendimentoinformaçãoasemàperíododadoscontrato."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 45.72,
+"x0": 85.1,
+"x1": 146.28,
+"size": 11.04,
+"text": "CabparHxg"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 446.72,
+"size": 11.04,
+"text": "Pagina4Hxg.Registroúltimotécnicaseráclienteumaquerelatórioprazo"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 469.84,
+"size": 11.04,
+"text": "atendimentoinformaçãoasemàperíododadoscontratoprocedimentoosdeé"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 422.29,
+"size": 11.04,
+"text": "empresasegurançaoperaçãonãodocumentooanáliseserviçoárea."
+}
+],
+"objs": []
+}
+]
+}

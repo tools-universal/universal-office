@@ -44,6 +44,8 @@ interface SectGeom {
   vAlign?: string;
   pgStart?: number;
   pgFmt?: string;
+  /** w:pgNumType chapStyle/chapSep: número do capítulo antes do da página (campo PAGE) */
+  chap?: { level: number; sep: string };
   headers: { default?: Block[]; first?: Block[]; even?: Block[] };
   footers: { default?: Block[]; first?: Block[]; even?: Block[] };
   blocks: [number, number];
@@ -124,6 +126,12 @@ interface CtxNeighbor { styleId?: string }
 interface CellNeighbors { prev?: CtxNeighbor; next?: CtxNeighbor }
 
 const EMPTY_LINES: LaidOutLine[] = [];
+/** Número de capítulo por nível de título: as páginas (índice) onde cada título começa, na ordem. */
+export type ChapterIndex = Map<number, { page: number; text: string }[]>;
+/** w:chapSep → caractere entre o capítulo e a página (oráculo hfopts, chap-*). */
+const CHAP_SEP: Record<string, string> = { hyphen: '-', period: '.', colon: ':', emDash: '—', enDash: '–' };
+const sameChapters = (a: ChapterIndex, b: ChapterIndex): boolean =>
+  a.size === b.size && [...a].every(([k, v]) => { const w = b.get(k); return !!w && w.length === v.length && v.every((x, i) => x.page === w[i]!.page && x.text === w[i]!.text); });
 /** Espessura da linha entre colunas (w:sep) no PDF do Word: 0,84 pt (oráculo sections, sep-*). */
 const COL_SEP_W = 16.8;
 
@@ -158,18 +166,24 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
     if (noteMarks) c.noteMarkOverride = noteMarks;
     return c;
   };
+  // número de capítulo no PAGE: as páginas dos títulos vêm da passada anterior
+  let chaps: ChapterIndex = new Map();
   let last: Engine | null = null;
   for (let pass = 0; pass < 5; pass++) {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
+    eng.chaptersGuess = chaps;
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
     const fix = eng.noteMarkFix();
+    const newChaps = eng.usedChapter ? eng.chapterIndex() : chaps;
     const stable = (!eng.usedNumPages || result.pages.length === total)
-      && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix;
+      && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix
+      && (!eng.usedChapter || sameChapters(newChaps, chaps));
     if (stable) break;
+    chaps = newChaps;
     total = result.pages.length;
     marks = newMarks;
     late = newLate;
@@ -182,6 +196,7 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
   const balance = new Map<number, BalanceSpec>();
   const runWith = (bal: Map<number, BalanceSpec>): Engine => {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
+    eng.chaptersGuess = chaps;
     result = eng.run();
     return eng;
   };
@@ -278,6 +293,11 @@ class Engine {
   zSeq = 0;
 
   usedPageRef = false;
+  /** campo PAGE com número de capítulo: títulos de cada nível por página (passada anterior) */
+  chaptersGuess: ChapterIndex = new Map();
+  usedChapter = false;
+  /** títulos numerados (estilo Título N) diagramados nesta passada: ref → nível e número */
+  private headingMarks = new Map<string, { level: number; text: string }>();
 
   constructor(
     readonly ctx: DocContext, public full: FullDocument, readonly totalPagesGuess: number,
@@ -402,6 +422,35 @@ class Engine {
   }
 
   /** Página exibida (já formatada) do parágrafo de cada indicador. */
+  /** Número de capítulo da página `page` no nível `level`: o do ÚLTIMO título do
+   *  nível que começa nela ou antes; antes do 1º título, o do 1º; sem título
+   *  numerado, nenhum (o PAGE fica só com a página) — oráculo hfopts, chap-*. */
+  private chapterOf(level: number, page: number): string | undefined {
+    this.usedChapter = true;
+    const list = this.chaptersGuess.get(level);
+    if (!list?.length) return undefined;
+    let out = list[0]!.text;
+    for (const h of list) { if (h.page > page) break; out = h.text; }
+    return out;
+  }
+
+  /** Títulos numerados desta passada por nível: a página onde cada um começa. */
+  chapterIndex(): ChapterIndex {
+    const out: ChapterIndex = new Map();
+    const seen = new Set<string>();
+    this.pages.forEach((ps, i) => {
+      for (const l of ps.page.lines) {
+        const h = this.headingMarks.get(l.ref);
+        if (!h || seen.has(l.ref)) continue;
+        seen.add(l.ref);
+        const arr = out.get(h.level) ?? [];
+        arr.push({ page: i, text: h.text });
+        out.set(h.level, arr);
+      }
+    });
+    return out;
+  }
+
   bookmarkPages(): Map<string, string> {
     const out = new Map<string, string>();
     const firstPage = new Map<number, LayoutPage>();
@@ -587,7 +636,8 @@ class Engine {
       type: s.sect?.type ?? 'nextPage',
       ...(s.sect?.vAlign ? { vAlign: s.sect.vAlign } : {}),
       ...(sp.pgNumStart !== undefined ? { pgStart: sp.pgNumStart } : {}),
-      ...(s.sect?.pgNumFmt ? { pgFmt: s.sect.pgNumFmt } : {}),
+      ...(sp.pgNumFmt ?? s.sect?.pgNumFmt ? { pgFmt: sp.pgNumFmt ?? s.sect!.pgNumFmt! } : {}),
+      ...(sp.pgNumChapStyle ? { chap: { level: sp.pgNumChapStyle, sep: CHAP_SEP[sp.pgNumChapSep ?? 'hyphen'] ?? '-' } } : {}),
       headers: pick(hb, prev?.headers),
       footers: pick(fb, prev?.footers),
       blocks: [s.blockStart, s.blockEnd],
@@ -834,7 +884,11 @@ class Engine {
       // número da própria nota de fim (w:endnoteRef) no fluxo das notas de fim
       if (name === 'ENDNOTEREF_MARK' && this.curEndnote !== undefined) return this.ctx.noteMarkOf('endnote', this.curEndnote) ?? '';
       if (name === 'REF') return this.refValue(instr ?? '');
-      if (name === 'PAGE') return formatNumber(ps.page.number, ps.geom.pgFmt ?? 'decimal', this.ctx.opts.lang);
+      if (name === 'PAGE') {
+        const num = formatNumber(ps.page.number, ps.geom.pgFmt ?? 'decimal', this.ctx.opts.lang);
+        const chap = ps.geom.chap ? this.chapterOf(ps.geom.chap.level, this.pages.indexOf(ps)) : undefined;
+        return chap !== undefined ? chap + ps.geom.chap!.sep + num : num;
+      }
       if (name === 'NUMPAGES') { this.usedNumPages = true; return String(this.totalPagesGuess); }
       if (name === 'SECTIONPAGES') { this.usedNumPages = true; return String(this.totalPagesGuess); }
       if (name === 'SECTION') return String(ps.geom.index + 1);
@@ -1463,6 +1517,11 @@ class Engine {
     const para = join ? this.joinHidden(join, merged, env) : merged;
     const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
     if (join) p.marker = join.marker;
+    // título numerado (estilo Título N): o número de capítulo do campo PAGE
+    if (p.marker?.chapter !== undefined && p.styleId) {
+      const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p.styleId]?.name ?? '')?.[1];
+      if (lv) this.headingMarks.set(ref, { level: +lv, text: p.marker.chapter });
+    }
     // texto oculto (oráculo hidden): parágrafo de marca oculta sem conteúdo visível
     // não ocupa nada (nem linha nem espaçamento); com conteúdo visível, junta-se ao
     // seguinte, com as propriedades do 1º (joinHidden). O último da seção (quebra) fica como está.

@@ -93,6 +93,8 @@ public static class NumberFormat
             case "decimalEnclosedCircle": return n >= 1 && n <= 20 ? Js.FromCodePoint((int)(0x2460 + n - 1)) : Js.Str(n);
             case "decimalEnclosedParen": return $"({Js.Str(n)})";
             case "decimalEnclosedFullstop": return $"{Js.Str(n)}.";
+            // número de página "- 1 -" (w:pgNumType fmt — oráculo hfopts fmt-dash)
+            case "numberInDash": return $"- {Js.Str(n)} -";
             // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
             case "chicago": return n <= 0 ? Js.Str(n) : new string("*†‡§"[(int)((n - 1) % 4)], (int)Math.Floor((n - 1) / 4) + 1);
             case "none": return "";
@@ -110,6 +112,9 @@ public sealed class NumberMarker
     public double Ilvl;
     /// <summary>id da lista (contador) — p/ depuração.</summary>
     public string ListKey = "";
+    /// <summary>só os números do marcador (do 1º ao último %n do texto do nível) — o
+    /// número de capítulo do campo PAGE (w:chapStyle).</summary>
+    public string? Chapter;
 }
 
 public sealed class NumberingState
@@ -240,10 +245,11 @@ public sealed class NumberingState
         }
         string lvlText = lvl.LvlTextNull == true ? "" : (lvl.LvlText ?? "");
         string text;
+        string? chapter = null;
         if (lvl.NumFmt == "bullet") text = lvlText;
         else
         {
-            text = PctRe.Replace(lvlText, m =>
+            string Subst(string s) => PctRe.Replace(s, m =>
             {
                 int l = m.Groups[1].Value[0] - '1';
                 var n = c[l];
@@ -251,7 +257,13 @@ public sealed class NumberingState
                 string fmt = lvl.IsLgl == true && l != il ? "decimal" : (Level(numId, l)?.NumFmt ?? "decimal");
                 return NumberFormat.FormatNumber(v, fmt == "bullet" ? "decimal" : fmt, _lang);
             });
+            text = Subst(lvlText);
+            // número de capítulo (PAGE com w:chapStyle): do 1º ao último espaço reservado
+            // do texto do nível — "Capítulo %1" → "I", "%1.%2" → "1.1" (oráculo hfopts)
+            var first = PctRe.Match(lvlText);
+            int b = lvlText.LastIndexOf('%');
+            if (first.Success && b >= first.Index) chapter = Subst(lvlText.Substring(first.Index, Math.Min(lvlText.Length, b + 2) - first.Index));
         }
-        return new NumberMarker { Text = text, Level = lvl, NumId = numId, Ilvl = ilvl, ListKey = key };
+        return new NumberMarker { Text = text, Level = lvl, NumId = numId, Ilvl = ilvl, ListKey = key, Chapter = chapter };
     }
 }

@@ -15,6 +15,7 @@ export {
   type SectPr,
   type PageBorders,
   type SectionType,
+  type ChapterSeparator,
   type InlineImage,
   type DrawingTextbox,
   type NoteRef,
@@ -39,6 +40,7 @@ export * from './ooxml/parts.js';
 export type { DrawingAnchor, AnchorPos, ShapeStyle, WrapType, CustPath, CustCmd } from './drawing.js';
 export {
   readFullDocument,
+  readHeaderFooterPart,
   type FullDocument,
   type Block,
   type ParagraphBlock,
@@ -117,7 +119,8 @@ export {
   type TrackedDelete,
 } from './revisions.js';
 export { readTrackRevisions, writeTrackRevisions } from './rev-xml.js';
-export { writeDefaultTabStop } from './settings-xml.js';
+export { writeDefaultTabStop, writeEvenAndOddHeaders } from './settings-xml.js';
+export { copyHfPartXml, hfPartXml, pageNumberGroupIds, HF_NS } from './hf-ops.js';
 export {
   serializeDocument,
   serializeBlocks,

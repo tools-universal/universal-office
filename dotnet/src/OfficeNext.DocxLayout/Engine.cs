@@ -51,10 +51,12 @@ public static class LayoutEngine
             if (noteMarks is not null) c.NoteMarkOverride = noteMarks;
             return c;
         }
+        // número de capítulo no PAGE: as páginas dos títulos vêm da passada anterior
+        var chaps = new Dictionary<int, List<(int Page, string Text)>>();
         Engine? last = null;
         for (int pass = 0; pass < 5; pass++)
         {
-            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables);
+            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables) { ChaptersGuess = chaps };
             result = eng.Run();
             last = eng;
             var newMarks = eng.UsedPageRef ? eng.BookmarkPages() : marks;
@@ -66,9 +68,12 @@ public static class LayoutEngine
                 foreach (var (k, v) in eng.LateTablesFound) newLateTables[k] = v;
             }
             var fix = eng.NoteMarkFix();
+            var newChaps = eng.UsedChapter ? eng.ChapterIndex() : chaps;
             bool stable = (!eng.UsedNumPages || result.Pages.Count == total)
-                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables) && fix is null;
+                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables) && fix is null
+                && (!eng.UsedChapter || SameChapters(newChaps, chaps));
             if (stable) break;
+            chaps = newChaps;
             total = result.Pages.Count;
             marks = newMarks;
             lateTables = newLateTables;
@@ -81,7 +86,7 @@ public static class LayoutEngine
         var balance = new Dictionary<int, BalanceSpec>();
         Engine RunWith(Dictionary<int, BalanceSpec> bal)
         {
-            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables, bal);
+            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables, bal) { ChaptersGuess = chaps };
             result = eng.Run();
             return eng;
         }
@@ -113,6 +118,15 @@ public static class LayoutEngine
         }
         return result!;
     }
+
+    /// <summary>w:chapSep → caractere entre o capítulo e a página (oráculo hfopts, chap-*).</summary>
+    internal static readonly Dictionary<string, string> ChapSep = new(StringComparer.Ordinal)
+    {
+        ["hyphen"] = "-", ["period"] = ".", ["colon"] = ":", ["emDash"] = "—", ["enDash"] = "–",
+    };
+
+    private static bool SameChapters(Dictionary<int, List<(int Page, string Text)>> a, Dictionary<int, List<(int Page, string Text)>> b)
+        => a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var w) && w.Count == kv.Value.Count && kv.Value.Select((x, i) => x.Page == w[i].Page && x.Text == w[i].Text).All(t => t));
 
     /// <summary>Junta os flutuantes tardios achados numa passada (o mesmo objeto não entra duas vezes).</summary>
     private static Dictionary<int, List<Run>> MergeLate(Dictionary<int, List<Run>> a, Dictionary<int, List<Run>> b)
@@ -160,6 +174,8 @@ internal sealed class SectGeom
     public string? VAlign;
     public double? PgStart;
     public string? PgFmt;
+    /// <summary>w:pgNumType chapStyle/chapSep: número do capítulo antes do da página (campo PAGE)</summary>
+    public (int Level, string Sep)? Chap;
     public HfBlocks Headers = new();
     public HfBlocks Footers = new();
     public (int Start, int End) Blocks;
@@ -291,6 +307,11 @@ internal sealed class Engine
     private readonly HashSet<Run> _prePlaced = new(ReferenceEqualityComparer.Instance);
     private int _zSeq;
     public bool UsedPageRef;
+    /// <summary>campo PAGE com número de capítulo: títulos de cada nível por página (passada anterior)</summary>
+    public Dictionary<int, List<(int Page, string Text)>> ChaptersGuess = new();
+    public bool UsedChapter;
+    /// <summary>títulos numerados (estilo Título N) diagramados nesta passada: ref → nível e número</summary>
+    private readonly Dictionary<string, (int Level, string Text)> _headingMarks = new(StringComparer.Ordinal);
     /// <summary>linhas de tabelas flutuantes que continuam na próxima página</summary>
     private List<FloatCarryItem> _floatCarry = new();
     /// <summary>medição do rodapé: ignora flutuantes de posição absoluta</summary>
@@ -352,6 +373,8 @@ internal sealed class Engine
 
 
     private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
+    /// <summary>estilo de título interno ("heading N") — número de capítulo do PAGE</summary>
+    private static readonly Regex HeadingNameRe = new(@"^heading ([1-9])$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     /// <summary>\s do JS (espaços e quebras Unicode)</summary>
     private static readonly Regex JsWsRe = new("[\t\n\u000b\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", RegexOptions.CultureInvariant);
     private static readonly Regex SeqR = new(@"\\r\s*([0-9]+)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -481,6 +504,35 @@ internal sealed class Engine
     }
 
     /// <summary>Página exibida (já formatada) do parágrafo de cada indicador.</summary>
+    /// <summary>Número de capítulo da página <paramref name="page"/> no nível <paramref name="level"/>: o do
+    /// ÚLTIMO título do nível que começa nela ou antes; antes do 1º título, o do 1º; sem título
+    /// numerado, nenhum (o PAGE fica só com a página) — oráculo hfopts, chap-*.</summary>
+    private string? ChapterOf(int level, int page)
+    {
+        UsedChapter = true;
+        if (!ChaptersGuess.TryGetValue(level, out var list) || list.Count == 0) return null;
+        string outp = list[0].Text;
+        foreach (var h in list) { if (h.Page > page) break; outp = h.Text; }
+        return outp;
+    }
+
+    /// <summary>Títulos numerados desta passada por nível: a página onde cada um começa.</summary>
+    public Dictionary<int, List<(int Page, string Text)>> ChapterIndex()
+    {
+        var outp = new Dictionary<int, List<(int Page, string Text)>>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < _pages.Count; i++)
+        {
+            foreach (var l in _pages[i].Page.Lines)
+            {
+                if (!_headingMarks.TryGetValue(l.Ref, out var h) || !seen.Add(l.Ref)) continue;
+                if (!outp.TryGetValue(h.Level, out var arr)) outp[h.Level] = arr = new List<(int Page, string Text)>();
+                arr.Add((i, h.Text));
+            }
+        }
+        return outp;
+    }
+
     public Dictionary<string, string> BookmarkPages()
     {
         var outp = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -734,7 +786,8 @@ internal sealed class Engine
             Type = s.Sect?.Type ?? "nextPage",
             VAlign = Js.Truthy(s.Sect?.VAlign) ? s.Sect!.VAlign : null,
             PgStart = sp.PgNumStart,
-            PgFmt = Js.Truthy(s.Sect?.PgNumFmt) ? s.Sect!.PgNumFmt : null,
+            PgFmt = Js.Truthy(sp.PgNumFmt) ? sp.PgNumFmt : Js.Truthy(s.Sect?.PgNumFmt) ? s.Sect!.PgNumFmt : null,
+            Chap = sp.PgNumChapStyle is > 0 ? (sp.PgNumChapStyle.Value, LayoutEngine.ChapSep.TryGetValue(sp.PgNumChapSep ?? "hyphen", out var csep) ? csep : "-") : null,
             Headers = Pick(hb, prev?.Headers),
             Footers = Pick(fb, prev?.Footers),
             Blocks = (s.BlockStart, s.BlockEnd),
@@ -1016,7 +1069,12 @@ internal sealed class Engine
         // número da própria nota de fim (w:endnoteRef) no fluxo das notas de fim
         if (name == "ENDNOTEREF_MARK" && _curEndnote is { } ce) return _ctx.NoteMarkOf("endnote", ce) ?? "";
         if (name == "REF") return RefValue(instr ?? "");
-        if (name == "PAGE") return NumberFormat.FormatNumber(ps.Page.Number, ps.Geom.PgFmt ?? "decimal", _ctx.Opts.Lang);
+        if (name == "PAGE")
+        {
+            string num = NumberFormat.FormatNumber(ps.Page.Number, ps.Geom.PgFmt ?? "decimal", _ctx.Opts.Lang);
+            string? chap = ps.Geom.Chap is { } gc ? ChapterOf(gc.Level, _pages.IndexOf(ps)) : null;
+            return chap is not null ? chap + ps.Geom.Chap!.Value.Sep + num : num;
+        }
         if (name == "NUMPAGES") { UsedNumPages = true; return Js.Str(_totalPagesGuess); }
         if (name == "SECTIONPAGES") { UsedNumPages = true; return Js.Str(_totalPagesGuess); }
         if (name == "SECTION") return Js.Str(ps.Geom.Index + 1);
@@ -1855,6 +1913,10 @@ internal sealed class Engine
         if (join is not null) { penv = env.Clone(); penv.Numbering = false; }
         var p = Para.PrepareParagraph(_ctx, para, penv);
         if (join is not null) p.Marker = join.Marker;
+        // título numerado (estilo Título N): o número de capítulo do campo PAGE
+        if (p.Marker?.Chapter is { } chapter && p.StyleId is { } sid
+            && _ctx.Fmt.Styles.Styles[sid] is { } hst && HeadingNameRe.Match(hst.Name ?? "") is { Success: true } hm)
+            _headingMarks[reference] = (hm.Groups[1].Value[0] - '0', chapter);
         // texto oculto (oráculo hidden): parágrafo de marca oculta sem conteúdo visível
         // não ocupa nada (nem linha nem espaçamento); com conteúdo visível, junta-se ao
         // seguinte, com as propriedades do 1º (JoinHidden). O último da seção (quebra) fica como está.

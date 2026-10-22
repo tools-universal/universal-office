@@ -57,6 +57,8 @@ export function formatNumber(n: number, fmt: string | undefined, lang = 'pt-BR')
     case 'decimalEnclosedCircle': return n >= 1 && n <= 20 ? String.fromCodePoint(0x2460 + n - 1) : String(n);
     case 'decimalEnclosedParen': return `(${n})`;
     case 'decimalEnclosedFullstop': return `${n}.`;
+    // número de página "- 1 -" (w:pgNumType fmt — oráculo hfopts fmt-dash)
+    case 'numberInDash': return `- ${n} -`;
     // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
     case 'chicago': return n <= 0 ? String(n) : '*†‡§'[(n - 1) % 4]!.repeat(Math.floor((n - 1) / 4) + 1);
     case 'none': return '';
@@ -72,6 +74,9 @@ export interface NumberMarker {
   ilvl: number;
   /** id da lista (contador) — p/ depuração. */
   listKey: string;
+  /** só os números do marcador (do 1º ao último %n do texto do nível) — o
+   *  número de capítulo do campo PAGE (w:chapStyle). */
+  chapter?: string;
 }
 
 /**
@@ -190,16 +195,22 @@ export class NumberingState {
     }
     const lvlText = lvl.lvlTextNull ? '' : (lvl.lvlText ?? '');
     let text: string;
+    let chapter: string | undefined;
     if (lvl.numFmt === 'bullet') text = lvlText;
     else {
-      text = lvlText.replace(/%([1-9])/g, (_, k: string) => {
+      const subst = (s: string): string => s.replace(/%([1-9])/g, (_, k: string) => {
         const l = parseInt(k, 10) - 1;
         const n = c![l];
         const v = n?.real ? n.v : lvlStart(l);
         const fmt = lvl.isLgl && l !== ilvl ? 'decimal' : (this.level(numId, l)?.numFmt ?? 'decimal');
         return formatNumber(v, fmt === 'bullet' ? 'decimal' : fmt, this.lang);
       });
+      text = subst(lvlText);
+      // número de capítulo (PAGE com w:chapStyle): do 1º ao último espaço reservado
+      // do texto do nível — "Capítulo %1" → "I", "%1.%2" → "1.1" (oráculo hfopts)
+      const a = lvlText.search(/%[1-9]/), b = lvlText.lastIndexOf('%');
+      if (a >= 0 && b >= a) chapter = subst(lvlText.slice(a, b + 2));
     }
-    return { text, level: lvl, numId, ilvl, listKey: key };
+    return { text, level: lvl, numId, ilvl, listKey: key, ...(chapter !== undefined ? { chapter } : {}) };
   }
 }

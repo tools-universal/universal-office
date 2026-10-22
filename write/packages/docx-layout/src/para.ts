@@ -105,6 +105,8 @@ export interface ParaMarker {
   suff: 'tab' | 'space' | 'nothing';
   jc: string;
   picBullet?: InlineImage;
+  /** número de capítulo (campo PAGE com w:chapStyle) — ver NumberMarker.chapter */
+  chapter?: string;
 }
 
 export interface PreparedPara {
@@ -1043,7 +1045,7 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
         mg.push({ kind: 'char', ch, cp, face, style: ms, adv, asc: m.ascent * ms.sizePt * 20, desc: m.descent * ms.sizePt * 20, offset: -1, runIdx: -1, breakAfter: false, sizePt: ms.sizePt });
         w += adv;
       }
-      marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? 'tab', jc: nm.level.lvlJc ?? 'left' };
+      marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? 'tab', jc: nm.level.lvlJc ?? 'left', ...(nm.chapter !== undefined ? { chapter: nm.chapter } : {}) };
     }
   }
 
