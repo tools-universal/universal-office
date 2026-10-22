@@ -10,7 +10,8 @@ import type { WriteApp } from './chrome-app.js';
 import type { ChromeCtl } from './chrome-commands.js';
 import type { WidgetEnv } from './chrome-widgets.js';
 import { adjustCells, correctionsMenu, colorMenu as pictureColorMenu, transparencyMenu } from './chrome-picture-adjust.js';
-import { POSITION_PRESETS, ASPECT_RATIOS, SHADOW_PRESETS, REFLECTION_PRESETS, SOFT_EDGE_PRESETS, GLOW_SIZES, BEVEL_PRESETS, ROTATION_PRESETS, LINE_WEIGHTS_PT, LINE_DASHES } from './picture-ops.js';
+import { presetOutline } from '@universal-office/drawingml';
+import { CROP_SHAPES, POSITION_PRESETS, ASPECT_RATIOS, SHADOW_PRESETS, REFLECTION_PRESETS, SOFT_EDGE_PRESETS, GLOW_SIZES, BEVEL_PRESETS, ROTATION_PRESETS, LINE_WEIGHTS_PT, LINE_DASHES } from './picture-ops.js';
 
 const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
 
@@ -79,6 +80,10 @@ export function registerPictureCommands(reg: CommandRegistry, ed: UniversalWrite
     p({ id: 'pic:flip:h', label: L('Flip Horizontal', 'Inverter Horizontalmente'), icon: 'flip', supports: has('flipImage'), run: () => ed.flipImage('h') }),
     p({ id: 'pic:rotate:more', label: L('More Rotation Options…', 'Mais Opções de Rotação...'), icon: 'tune', supports: has('setImageLayout'), run: () => ctl.pictureDialog('layout:size') }),
     // ── Tamanho: Cortar ──
+    p({
+      id: 'pic:crop:mode', label: L('Crop', 'Cortar'), tip: L('Crop: drag the black handles to remove unwanted areas', 'Cortar: arraste as alças pretas para remover as áreas indesejadas'), icon: 'crop', supports: has('startImageCrop'),
+      isChecked: () => typeof api['croppingImage'] === 'function' && ed.croppingImage(), run: () => (ed.croppingImage() ? ed.endImageCrop() : ed.startImageCrop()),
+    }),
     p({ id: 'pic:crop:fill', label: L('Fill', 'Preencher'), icon: 'fit_screen', supports: has('cropImageFillFit'), run: () => ed.cropImageFillFit('fill') }),
     p({ id: 'pic:crop:fit', label: L('Fit', 'Ajustar'), icon: 'crop_free', supports: has('cropImageFillFit'), run: () => ed.cropImageFillFit('fit') }),
     ...ASPECT_RATIOS.map((r): Command => p({ id: `pic:crop:ratio:${r.id}`, label: r.id, supports: has('cropImageToAspect'), run: () => ed.cropImageToAspect(r.w, r.h) })),
@@ -101,7 +106,45 @@ export const positionMenu = (): MenuEntry[] => [
 
 export const rotateMenu = (): MenuEntry[] => ['pic:rotate:right', 'pic:rotate:left', 'pic:flip:v', 'pic:flip:h', '-', 'pic:rotate:more'];
 
-const cropMenu = (): MenuEntry[] => [
+/** Miniatura de uma forma predefinida (contorno oficial do DrawingML). */
+function shapeThumb(tile: HTMLElement, prst: string): void {
+  const W = 26, H = 22, dpr = Math.max(1, window.devicePixelRatio || 1);
+  const c = document.createElement('canvas');
+  c.width = W * dpr; c.height = H * dpr;
+  c.style.cssText = `width:${W}px;height:${H}px;display:block;margin:auto`;
+  const x = c.getContext('2d')!;
+  x.scale(dpr, dpr);
+  x.translate(1.5, 1.5);
+  const o = presetOutline(prst, W - 3, H - 3);
+  o.subs.forEach((sub, i) => {
+    const p = new Path2D();
+    for (const g of sub) {
+      if (g.c === 'M') p.moveTo(g.x, g.y);
+      else if (g.c === 'L') p.lineTo(g.x, g.y);
+      else if (g.c === 'C') p.bezierCurveTo(g.x1, g.y1, g.x2, g.y2, g.x, g.y);
+      else if (g.c === 'Q') p.quadraticCurveTo(g.x1, g.y1, g.x, g.y);
+      else if (g.c === 'E') p.ellipse(g.cx, g.cy, Math.abs(g.rx), Math.abs(g.ry), 0, g.a0, g.a1, g.ccw);
+      else p.closePath();
+    }
+    if (o.fill[i]) { x.fillStyle = 'rgba(68,114,196,.25)'; x.fill(p); }
+    if (o.stroke[i]) { x.lineWidth = 1; x.strokeStyle = getComputedStyle(tile).color || '#444'; x.stroke(p); }
+  });
+  tile.replaceChildren(c);
+}
+
+const cropMenu = (env: WidgetEnv, ctx: BarContext) => (): MenuEntry[] => [
+  'pic:crop:mode',
+  {
+    id: 'pic:crop:shape', label: L('Crop to Shape', 'Cortar para Forma'), icon: 'shapes',
+    submenu: () => [{
+      content: (close) => tileGrid({
+        sections: CROP_SHAPES.map((g) => ({ label: g.label, items: g.shapes.map(([prst, en, pt]) => ({ id: prst, label: L(en, pt) })) })),
+        tile: { w: 30, h: 26 }, cols: 10, close, text: (l) => ctx.registry.text(l),
+        render: (tile, it) => shapeThumb(tile, it.id),
+        onPick: (id) => { env.ed.cropImageToShape(id); ctx.after(); },
+      }),
+    }],
+  },
   { id: 'pic:crop:ratio', label: L('Aspect Ratio', 'Taxa de Proporção'), icon: 'aspect_ratio', submenu: () => ASPECT_RATIOS.map((r) => `pic:crop:ratio:${r.id}`) },
   '-', 'pic:crop:fill', 'pic:crop:fit',
 ];
@@ -187,7 +230,7 @@ export function pictureFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[]
       ] },
     ] },
     { id: 'pic-size', label: L('Size', 'Tamanho'), icon: 'aspect_ratio', prio: 5, launcher: 'pic:layout', cells: [
-      { menu: cropMenu, id: 'pic:crop', label: L('Crop', 'Cortar'), icon: 'crop', size: 'large', supports: has('cropImageFillFit') },
+      { split: 'pic:crop:mode', menu: cropMenu(env, ctx), size: 'large' },
       { rows: [[measureWidget(env, 'height')], [measureWidget(env, 'width')]] },
     ] },
   ];
@@ -218,7 +261,7 @@ export function pictureCompactGroup(env: WidgetEnv, ctx: BarContext): BarGroup {
       { menu: wrapMenu, id: 'pic:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', supports: sel },
       { menu: positionMenu, id: 'pic:position', label: L('Position', 'Posição'), icon: 'picture_in_picture', supports: sel },
       { menu: rotateMenu, id: 'pic:rotate', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', supports: sel },
-      { menu: cropMenu, id: 'pic:crop', label: L('Crop', 'Cortar'), icon: 'crop', supports: sel },
+      { menu: cropMenu(env, ctx), id: 'pic:crop', label: L('Crop', 'Cortar'), icon: 'crop', supports: sel },
       { menu: () => adjustSubmenus(env, ctx), id: 'pic:adjust', label: L('Adjust', 'Ajustar'), icon: 'tune', supports: sel },
       { menu: () => styleSubmenus(env, ctx), id: 'pic:styles', label: L('Picture Styles', 'Estilos de Imagem'), icon: 'photo_frame', supports: sel },
       { menu: () => ['pic:forward', 'pic:front', 'pic:frontOfText', '-', 'pic:backward', 'pic:back', 'pic:behindText'], id: 'pic:order', label: L('Arrange', 'Organizar'), icon: 'layers', supports: sel },
@@ -236,7 +279,7 @@ export function pictureMenu(env: WidgetEnv, ctx: BarContext): MenuItem {
       { id: 'pic:wrapSub', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', submenu: wrapMenu },
       { id: 'pic:posSub', label: L('Position', 'Posição'), icon: 'picture_in_picture', submenu: positionMenu },
       { id: 'pic:rotSub', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', submenu: rotateMenu },
-      { id: 'pic:cropSub', label: L('Crop', 'Cortar'), icon: 'crop', submenu: cropMenu },
+      { id: 'pic:cropSub', label: L('Crop', 'Cortar'), icon: 'crop', submenu: cropMenu(env, ctx) },
       '-', ...adjustSubmenus(env, ctx), '-', ...styleSubmenus(env, ctx),
       '-', 'pic:alt', 'pic:layout', '-', 'image:delete',
     ],

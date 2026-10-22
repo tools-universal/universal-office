@@ -152,6 +152,37 @@ if (scenario === 'adjust') {
     await shot(`picked-${pick.replace(/[:.]/g, '_')}`);
   }
 }
+if (scenario === 'crop') {
+  // botão Cortar → arrasta a alça do meio da direita 50 px para dentro e a de
+  // baixo 30 px para cima; depois arrasta a imagem 20 px (move dentro do quadro)
+  await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:crop:mode"]')?.click());
+  await page.waitForTimeout(400);
+  await shot('mode');
+  const drag = async (x0, y0, dx, dy) => { await page.mouse.move(x0, y0); await page.mouse.down(); await page.mouse.move(x0 + dx, y0 + dy, { steps: 6 }); await page.mouse.up(); await page.waitForTimeout(400); };
+  await drag(c.x + c.w / 2 - 2, c.y, -50, 0);
+  await drag(c.x - 25, c.y + c.h / 2 - 2, 0, -30);
+  await shot('cropped');
+  await drag(c.x - 30, c.y - 10, 20, 0);
+  await shot('panned');
+  console.log('depois:', JSON.stringify(await state()), JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectedImage()?.format.srcRect)));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await shot('done');
+}
+if (scenario === 'shapecrop') {
+  await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:crop:mode:menu"]')?.click());
+  await page.waitForTimeout(300);
+  const box = await page.evaluate(() => {
+    const el = [...document.querySelector('universal-write').shadowRoot.querySelectorAll('[data-id], [data-a]')].find((e) => (e.dataset.id ?? e.dataset.a) === 'pic:crop:shape');
+    const r = el?.getBoundingClientRect();
+    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+  });
+  if (box) { await page.mouse.move(box.x, box.y); await page.waitForTimeout(700); }
+  await shot('gallery');
+  await page.evaluate(() => [...document.querySelector('universal-write').shadowRoot.querySelectorAll('[data-id]')].find((e) => e.dataset.id === 'ellipse')?.click());
+  await page.waitForTimeout(600);
+  await shot('ellipse');
+}
 if (scenario === 'compress') {
   await page.evaluate(() => document.querySelector('universal-write').shadowRoot.querySelector('[data-a="pic:compress"]')?.click());
   await page.waitForTimeout(600);

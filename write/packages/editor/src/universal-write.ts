@@ -6345,6 +6345,12 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.tableMouseDown(e)) return;
       // objetos flutuantes + entrada em caixa de texto (CLIQUE ÚNICO):
       if (e.button === 0 && !this.protectedMode) {
+        // 0) modo Cortar: alças pretas e arrastar a imagem; clique fora sai do modo
+        if (this.croppingImage()) {
+          const ch = this.cropHit(e);
+          if (ch) { this.focusEditor(); this.startCropDrag(e, ch); return; }
+          this.endImageCrop();
+        }
         // 1) alça de redimensionamento do float ATIVO (imagem selecionada OU
         //    caixa em edição) — precede a saída da caixa, senão pegar a alça sairia.
         const hn = this.handleAt(e);
@@ -6547,6 +6553,10 @@ export class UniversalWriteElement extends HTMLElement {
     // para vencer a definição de cursor quando há um objeto selecionado/sob o mouse).
     this.addEventListener('mousemove', (e) => {
       if (this.floatDrag || !this.model) return;
+      if (this.croppingImage()) {
+        const ch = this.cropHit(e);
+        if (ch) { this.style.cursor = ch === 'pan' ? 'move' : this.cursorForHandle(ch, this.activeFloat()?.rot ?? 0); return; }
+      }
       // alça de redimensionamento (funciona também com a caixa em edição)
       const hn = this.handleAt(e);
       if (hn) { this.style.cursor = this.cursorForHandle(hn, this.activeFloat()?.rot ?? 0); return; }
@@ -6769,6 +6779,7 @@ export class UniversalWriteElement extends HTMLElement {
       // objeto flutuante selecionado: Esc desseleciona, Del remove, setas nudge
       if (this.floatSel && !this.tbEdit && this.selectedFloat()) {
         const inline = !!this.floatSel.image && !this.floatSel.image.floating;
+        if ((k === 'Escape' || k === 'Enter') && this.croppingImage()) { e.preventDefault(); this.endImageCrop(); return; }
         if (k === 'Escape') { e.preventDefault(); this.floatSel = null; if (inline) { const f = normalizeRange(this.range()).end; this.selection = { anchor: f, focus: f }; } this.refreshSelection(); this.chromeSync?.(); return; }
         if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.deleteSelectedFloat(); return; }
         if (!inline && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown')) {
@@ -9470,6 +9481,189 @@ export class UniversalWriteElement extends HTMLElement {
     obj.heightTwips = Math.round(h);
     obj.offsetXTwips = Math.round(d.startOX + d.startW / 2 + cx - w / 2);
     obj.offsetYTwips = Math.round(d.startOY + d.startH / 2 + cy - h / 2);
+  }
+
+  // ───────────────────────── modo Cortar (mouse) ─────────────────────────
+
+  /** Imagem em modo Cortar: o quadro é o recorte, a imagem inteira aparece
+   *  esmaecida em volta; as alças pretas cortam e arrastar dentro move a imagem. */
+  private cropRun: Run | null = null;
+
+  /** Entra no modo Cortar da imagem selecionada (botão Cortar). */
+  startImageCrop(): void {
+    const run = this.picRun();
+    if (!run || this.locked()) return;
+    this.cropRun = run;
+    this.paint();
+    this.chromeSync?.();
+  }
+
+  /** Sai do modo Cortar (Esc, Enter, clique fora ou o botão de novo). */
+  endImageCrop(): void {
+    if (!this.cropRun) return;
+    this.cropRun = null;
+    this.paint();
+    this.chromeSync?.();
+  }
+
+  /** A imagem selecionada está em modo Cortar? */
+  croppingImage(): boolean {
+    if (this.cropRun && this.cropRun !== this.floatSel) this.cropRun = null;
+    return !!this.cropRun;
+  }
+
+  /** Geometria do modo Cortar no referencial da imagem (twips, centro do quadro na
+   *  origem, sem giro): o quadro e a imagem inteira (com o espelho, o corte da
+   *  esquerda aparece à direita). */
+  private cropGeom(h: FloatHandle): { L: number; R: number; T: number; B: number; fL: number; fT: number; fW: number; fH: number } {
+    const img = h.obj as InlineImage;
+    const c = img.crop ?? { l: 0, t: 0, r: 0, b: 0 };
+    const fx = img.format?.flipH ? { a: c.r, b: c.l } : { a: c.l, b: c.r };
+    const fy = img.format?.flipV ? { a: c.b, b: c.t } : { a: c.t, b: c.b };
+    const w = h.rect.w, hh = h.rect.h;
+    const fW = w / Math.max(0.001, 1 - fx.a - fx.b), fH = hh / Math.max(0.001, 1 - fy.a - fy.b);
+    return { L: -w / 2, R: w / 2, T: -hh / 2, B: hh / 2, fL: -w / 2 - fx.a * fW, fT: -hh / 2 - fy.a * fH, fW, fH };
+  }
+
+  /** Alça de corte (nw, n, …) ou 'pan' (dentro da imagem inteira) sob o ponteiro. */
+  private cropHit(e: MouseEvent): string | null {
+    const h = this.cropRun && this.selectedFloat();
+    const cv = h && this.canvases[h.page];
+    if (!h || !cv) return null;
+    const r = cv.getBoundingClientRect(), scale = PX_PER_TWIP * this.zoom;
+    const a = (-(h.rot ?? 0) * Math.PI) / 180;
+    const dx = e.clientX - (r.left + (h.rect.x + h.rect.w / 2) * scale), dy = e.clientY - (r.top + (h.rect.y + h.rect.h / 2) * scale);
+    const lx = (dx * Math.cos(a) - dy * Math.sin(a)) / scale, ly = (dx * Math.sin(a) + dy * Math.cos(a)) / scale;
+    const g = this.cropGeom(h);
+    const tol = (9 * (window.devicePixelRatio || 1)) / scale;
+    const xs: Record<string, number> = { w: g.L, c: 0, e: g.R }, ys: Record<string, number> = { n: g.T, c: 0, s: g.B };
+    for (const hn of UniversalWriteElement.FLOAT_HANDLES) {
+      const hx = xs[hn.includes('w') ? 'w' : hn.includes('e') ? 'e' : 'c']!, hy = ys[hn.includes('n') ? 'n' : hn.includes('s') ? 's' : 'c']!;
+      if (Math.abs(lx - hx) <= tol && Math.abs(ly - hy) <= tol) return hn;
+    }
+    const inFull = lx >= g.fL && lx <= g.fL + g.fW && ly >= g.fT && ly <= g.fT + g.fH;
+    const inFrame = lx >= g.L && lx <= g.R && ly >= g.T && ly <= g.B;
+    return inFull || inFrame ? 'pan' : null;
+  }
+
+  /** Arrasto no modo Cortar: uma alça corta aquele lado (o quadro anda, a imagem
+   *  fica); 'pan' move a imagem dentro do quadro. No fim, a:srcRect + tamanho +
+   *  posição vão para o XML (um passo de desfazer). */
+  private startCropDrag(e: MouseEvent, handle: string): void {
+    const h = this.selectedFloat();
+    const pic = h?.obj as InlineImage | undefined;
+    if (!h || !pic?.format || !pic.rawDrawingXml) return;
+    e.preventDefault();
+    this.snapshot();
+    const scale = PX_PER_TWIP * this.zoom;
+    const g0 = this.cropGeom(h);
+    const rot = h.rot ?? 0;
+    const startW = pic.widthTwips, startH = pic.heightTwips;
+    const startOX = pic.offsetXTwips ?? 0, startOY = pic.offsetYTwips ?? 0;
+    const engStart = this.eng && !h.inline ? { x: h.rect.x, y: h.rect.y } : null;
+    const frame0 = !h.inline ? this.engObjectFrame(h.run) : null;
+    const sx = e.clientX, sy = e.clientY;
+    const MIN = 120;
+    let moved = false, frame = 0;
+    let crop = { ...(pic.crop ?? { l: 0, t: 0, r: 0, b: 0 }) };
+    const d = { mode: 'resize' as const, handle, startClientX: sx, startClientY: sy, startW, startH, startOX, startOY, aspect: 1, page: h.page, moved: false, rot };
+    this.floatDrag = d;
+    const move = (ev: MouseEvent) => {
+      if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) <= 2) return;
+      moved = d.moved = true;
+      const rx = (ev.clientX - sx) / scale, ry = (ev.clientY - sy) / scale;
+      const ar = (-rot * Math.PI) / 180;
+      const dx = rx * Math.cos(ar) - ry * Math.sin(ar), dy = rx * Math.sin(ar) + ry * Math.cos(ar);
+      let { L, R, T, B, fL, fT } = g0;
+      if (handle === 'pan') { fL += dx; fT += dy; } else {
+        if (handle.includes('w')) L = Math.min(R - MIN, L + dx);
+        if (handle.includes('e')) R = Math.max(L + MIN, R + dx);
+        if (handle.includes('n')) T = Math.min(B - MIN, T + dy);
+        if (handle.includes('s')) B = Math.max(T + MIN, B + dy);
+      }
+      // frações exibidas → as do arquivo (com o espelho, esquerda ↔ direita)
+      const dl = (L - fL) / g0.fW, dr = (fL + g0.fW - R) / g0.fW, dt = (T - fT) / g0.fH, db = (fT + g0.fH - B) / g0.fH;
+      crop = {
+        l: pic.format!.flipH ? dr : dl, r: pic.format!.flipH ? dl : dr,
+        t: pic.format!.flipV ? db : dt, b: pic.format!.flipV ? dt : db,
+      };
+      pic.crop = crop;
+      const w = R - L, hh = B - T;
+      const a = (rot * Math.PI) / 180, cxl = (L + R) / 2, cyl = (T + B) / 2;
+      const cx = cxl * Math.cos(a) - cyl * Math.sin(a), cy = cxl * Math.sin(a) + cyl * Math.cos(a);
+      pic.widthTwips = Math.round(w);
+      pic.heightTwips = Math.round(hh);
+      pic.offsetXTwips = Math.round(startOX + startW / 2 + cx - w / 2);
+      pic.offsetYTwips = Math.round(startOY + startH / 2 + cy - hh / 2);
+      if (engStart) this.moveAnchorTo(pic, engStart.x + pic.offsetXTwips - startOX, engStart.y + pic.offsetYTwips - startOY);
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (this.floatDrag) this.refresh(); });
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      cancelAnimationFrame(frame);
+      this.floatDrag = null;
+      if (!moved) { this.undoStack.pop(); return; }
+      const f = pic.format!;
+      const ch: PictureChange = {
+        srcRect: { l: Math.round(crop.l * 100000), t: Math.round(crop.t * 100000), r: Math.round(crop.r * 100000), b: Math.round(crop.b * 100000) },
+        size: { cx: Math.round(pic.widthTwips * 635), cy: Math.round(pic.heightTwips * 635) },
+      };
+      if (engStart && frame0 && !f.inline) {
+        const nh = this.posFor(f.posH, 'h', engStart.x + (pic.offsetXTwips ?? 0) - startOX, frame0);
+        const nv = this.posFor(f.posV, 'v', engStart.y + (pic.offsetYTwips ?? 0) - startOY, frame0);
+        if (nh) ch.posH = nh;
+        if (nv) ch.posV = nv;
+      }
+      this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml!, ch), true);
+      this.dispatchEvent(new CustomEvent('uw-change'));
+      this.refresh();
+      this.onSelectionChange?.(); this.chromeSync?.();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
+
+  /** Desenho do modo Cortar: a imagem inteira esmaecida fora do quadro e as
+   *  alças pretas de corte (cantos em L, barras no meio dos lados). */
+  private paintCropOverlay(ctx: CanvasRenderingContext2D, h: FloatHandle, scale: number, dpr: number): void {
+    const img = h.obj as InlineImage;
+    const g = this.cropGeom(h);
+    const s = (v: number): number => v * scale;
+    ctx.save();
+    ctx.translate(s(h.rect.x + h.rect.w / 2), s(h.rect.y + h.rect.h / 2));
+    if (h.rot) ctx.rotate((h.rot * Math.PI) / 180);
+    const bmp = this.bitmapFor(img);
+    if (bmp) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(s(g.fL), s(g.fT), s(g.fW), s(g.fH));
+      ctx.rect(s(g.L), s(g.T), s(g.R - g.L), s(g.B - g.T));
+      ctx.clip('evenodd');
+      ctx.globalAlpha = 0.45;
+      ctx.translate(s(g.fL + g.fW / 2), s(g.fT + g.fH / 2));
+      ctx.scale(img.format?.flipH ? -1 : 1, img.format?.flipV ? -1 : 1);
+      ctx.drawImage(bmp, -s(g.fW) / 2, -s(g.fH) / 2, s(g.fW), s(g.fH));
+      ctx.restore();
+    }
+    ctx.lineWidth = Math.max(1, dpr);
+    ctx.strokeStyle = '#7f7f7f';
+    ctx.strokeRect(s(g.fL), s(g.fT), s(g.fW), s(g.fH));
+    ctx.strokeStyle = '#2b579a';
+    ctx.strokeRect(s(g.L), s(g.T), s(g.R - g.L), s(g.B - g.T));
+    // alças de corte: pretas com contorno branco, para dentro do quadro
+    const len = 12 * dpr, th = 4 * dpr;
+    const L = s(g.L), R = s(g.R), T = s(g.T), B = s(g.B), mx = (L + R) / 2, my = (T + B) / 2;
+    const bars: [number, number, number, number][] = [
+      [L, T, len, th], [L, T, th, len], [R - len, T, len, th], [R - th, T, th, len],
+      [L, B - th, len, th], [L, B - len, th, len], [R - len, B - th, len, th], [R - th, B - len, th, len],
+      [mx - len / 2, T, len, th], [mx - len / 2, B - th, len, th], [L, my - len / 2, th, len], [R - th, my - len / 2, th, len],
+    ];
+    ctx.fillStyle = '#ffffff';
+    for (const [x, y, w, hh] of bars) ctx.fillRect(x - dpr, y - dpr, w + 2 * dpr, hh + 2 * dpr);
+    ctx.fillStyle = '#000000';
+    for (const [x, y, w, hh] of bars) ctx.fillRect(x, y, w, hh);
+    ctx.restore();
   }
 
   private deleteSelectedFloat(): void {
@@ -15037,6 +15231,7 @@ export class UniversalWriteElement extends HTMLElement {
           const w = h.rect.w * scale, hh = h.rect.h * scale;
           const cx = h.rect.x * scale + w / 2, cy = h.rect.y * scale + hh / 2;
           const pic = h.kind === 'image' && !this.tbEdit;
+          if (pic && this.croppingImage()) { this.paintCropOverlay(ctx, h, scale, dpr); return this.paintCaretOnly(ctxs, scales, dpr, hasSel); }
           ctx.save();
           // as alças giram com a imagem (em volta do centro)
           ctx.translate(cx, cy);
@@ -15084,7 +15279,12 @@ export class UniversalWriteElement extends HTMLElement {
       }
     }
 
-    // caret
+    this.paintCaretOnly(ctxs, scales, dpr, hasSel);
+  }
+
+  /** Caret (os dois layouts). */
+  private paintCaretOnly(ctxs: (CanvasRenderingContext2D | null)[], scales: number[], dpr: number, hasSel: boolean): void {
+    const pgOf = (p: number) => Math.min(p, ctxs.length - 1);
     if (this.caretVisible && !this.printRender && this.view !== 'read' && !hasSel) {
       const line = this.lineOf(this.selection.focus);
       if (line) {

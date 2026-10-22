@@ -135,6 +135,81 @@ export const ASPECT_RATIOS: { id: string; group: 'square' | 'portrait' | 'landsc
   { id: '16:9', group: 'landscape', w: 16, h: 9 }, { id: '16:10', group: 'landscape', w: 16, h: 10 },
 ];
 
+/** Cortar para Forma: a galeria de formas do Word sem as linhas e a caixa de
+ *  texto, por categoria (`[prst, en, pt]`). */
+export const CROP_SHAPES: { label: Lbl; shapes: [string, string, string][] }[] = [
+  { label: { en: 'Rectangles', pt: 'Retângulos' }, shapes: [
+    ['rect', 'Rectangle', 'Retângulo'], ['roundRect', 'Rectangle: Rounded Corners', 'Retângulo: Cantos Arredondados'],
+    ['snip1Rect', 'Rectangle: Single Corner Snipped', 'Retângulo: Único Canto Recortado'], ['snip2SameRect', 'Rectangle: Top Corners Snipped', 'Retângulo: Cantos Superiores Recortados'],
+    ['snip2DiagRect', 'Rectangle: Diagonal Corners Snipped', 'Retângulo: Cantos Diagonais Recortados'], ['snipRoundRect', 'Rectangle: Top Corners One Rounded and One Snipped', 'Retângulo: Cantos Superiores, Um Arredondado e Um Recortado'],
+    ['round1Rect', 'Rectangle: Single Corner Rounded', 'Retângulo: Único Canto Arredondado'], ['round2SameRect', 'Rectangle: Top Corners Rounded', 'Retângulo: Cantos Superiores Arredondados'],
+    ['round2DiagRect', 'Rectangle: Diagonal Corners Rounded', 'Retângulo: Cantos Diagonais Arredondados'],
+  ] },
+  { label: { en: 'Basic Shapes', pt: 'Formas Básicas' }, shapes: [
+    ['ellipse', 'Oval', 'Elipse'], ['triangle', 'Isosceles Triangle', 'Triângulo Isósceles'], ['rtTriangle', 'Right Triangle', 'Triângulo Retângulo'],
+    ['parallelogram', 'Parallelogram', 'Paralelogramo'], ['trapezoid', 'Trapezoid', 'Trapezoide'], ['diamond', 'Diamond', 'Losango'],
+    ['pentagon', 'Regular Pentagon', 'Pentágono Regular'], ['hexagon', 'Hexagon', 'Hexágono'], ['heptagon', 'Heptagon', 'Heptágono'],
+    ['octagon', 'Octagon', 'Octógono'], ['decagon', 'Decagon', 'Decágono'], ['dodecagon', 'Dodecagon', 'Dodecágono'],
+    ['pie', 'Partial Circle', 'Círculo Parcial'], ['chord', 'Chord', 'Corda'], ['teardrop', 'Teardrop', 'Lágrima'],
+    ['frame', 'Frame', 'Moldura'], ['halfFrame', 'Half Frame', 'Meia Moldura'], ['corner', 'L-Shape', 'Forma em L'],
+    ['diagStripe', 'Diagonal Stripe', 'Faixa Diagonal'], ['plus', 'Cross', 'Cruz'], ['plaque', 'Plaque', 'Placa'],
+    ['can', 'Cylinder', 'Cilindro'], ['cube', 'Cube', 'Cubo'], ['bevel', 'Rectangle: Beveled', 'Retângulo: Chanfrado'],
+    ['donut', 'Circle: Hollow', 'Círculo: Vazado'], ['noSmoking', '"No" Symbol', 'Símbolo "Não"'], ['blockArc', 'Block Arc', 'Arco Fechado'],
+    ['foldedCorner', 'Rectangle: Folded Corner', 'Retângulo: Canto Dobrado'], ['smileyFace', 'Smiley Face', 'Rosto Feliz'], ['heart', 'Heart', 'Coração'],
+    ['lightningBolt', 'Lightning Bolt', 'Raio'], ['sun', 'Sun', 'Sol'], ['moon', 'Moon', 'Lua'], ['cloud', 'Cloud', 'Nuvem'],
+    ['arc', 'Arc', 'Arco'], ['bracketPair', 'Double Bracket', 'Colchetes Duplos'], ['bracePair', 'Double Brace', 'Chaves Duplas'],
+    ['leftBracket', 'Left Bracket', 'Colchete Esquerdo'], ['rightBracket', 'Right Bracket', 'Colchete Direito'],
+    ['leftBrace', 'Left Brace', 'Chave Esquerda'], ['rightBrace', 'Right Brace', 'Chave Direita'],
+  ] },
+  { label: { en: 'Block Arrows', pt: 'Setas Largas' }, shapes: [
+    ['rightArrow', 'Arrow: Right', 'Seta: para a Direita'], ['leftArrow', 'Arrow: Left', 'Seta: para a Esquerda'], ['upArrow', 'Arrow: Up', 'Seta: para Cima'],
+    ['downArrow', 'Arrow: Down', 'Seta: para Baixo'], ['leftRightArrow', 'Arrow: Left-Right', 'Seta: Esquerda e Direita'], ['upDownArrow', 'Arrow: Up-Down', 'Seta: para Cima e para Baixo'],
+    ['quadArrow', 'Arrow: Quad', 'Seta: Cruzada'], ['leftRightUpArrow', 'Arrow: Left-Right-Up', 'Seta: para a Esquerda, para a Direita e para Cima'], ['bentArrow', 'Arrow: Bent', 'Seta: Dobrada'],
+    ['uturnArrow', 'Arrow: U-Turn', 'Seta: em Forma de U'], ['leftUpArrow', 'Arrow: Left-Up', 'Seta: para a Esquerda e para Cima'], ['bentUpArrow', 'Arrow: Bent-Up', 'Seta: Dobrada para Cima'],
+    ['curvedRightArrow', 'Arrow: Curved Right', 'Seta: Curvada para a Direita'], ['curvedLeftArrow', 'Arrow: Curved Left', 'Seta: Curvada para a Esquerda'],
+    ['curvedUpArrow', 'Arrow: Curved Up', 'Seta: Curvada para Cima'], ['curvedDownArrow', 'Arrow: Curved Down', 'Seta: Curvada para Baixo'],
+    ['stripedRightArrow', 'Arrow: Striped Right', 'Seta: Listrada para a Direita'], ['notchedRightArrow', 'Arrow: Notched Right', 'Seta: Entalhada para a Direita'],
+    ['homePlate', 'Arrow: Pentagon', 'Seta: Pentágono'], ['chevron', 'Arrow: Chevron', 'Seta: Divisa'],
+    ['rightArrowCallout', 'Callout: Right Arrow', 'Texto Explicativo: Seta para a Direita'], ['downArrowCallout', 'Callout: Down Arrow', 'Texto Explicativo: Seta para Baixo'],
+    ['leftArrowCallout', 'Callout: Left Arrow', 'Texto Explicativo: Seta para a Esquerda'], ['upArrowCallout', 'Callout: Up Arrow', 'Texto Explicativo: Seta para Cima'],
+    ['leftRightArrowCallout', 'Callout: Left-Right Arrow', 'Texto Explicativo: Seta para a Esquerda e para a Direita'], ['quadArrowCallout', 'Callout: Quad Arrow', 'Texto Explicativo: Seta Cruzada'],
+    ['circularArrow', 'Arrow: Circular', 'Seta: Circular'],
+  ] },
+  { label: { en: 'Equation Shapes', pt: 'Formas de Equação' }, shapes: [
+    ['mathPlus', 'Plus Sign', 'Sinal de Adição'], ['mathMinus', 'Minus Sign', 'Sinal de Subtração'], ['mathMultiply', 'Multiplication Sign', 'Sinal de Multiplicação'],
+    ['mathDivide', 'Division Sign', 'Sinal de Divisão'], ['mathEqual', 'Equals', 'Igual a'], ['mathNotEqual', 'Not Equal', 'Diferente de'],
+  ] },
+  { label: { en: 'Flowchart', pt: 'Fluxograma' }, shapes: ([
+    ['Process', 'Process', 'Processo'], ['AlternateProcess', 'Alternate Process', 'Processo Alternativo'], ['Decision', 'Decision', 'Decisão'], ['InputOutput', 'Data', 'Dados'],
+    ['PredefinedProcess', 'Predefined Process', 'Processo Predefinido'], ['InternalStorage', 'Internal Storage', 'Armazenamento Interno'], ['Document', 'Document', 'Documento'], ['Multidocument', 'Multidocument', 'Vários Documentos'],
+    ['Terminator', 'Terminator', 'Terminação'], ['Preparation', 'Preparation', 'Preparação'], ['ManualInput', 'Manual Input', 'Entrada Manual'], ['ManualOperation', 'Manual Operation', 'Operação Manual'],
+    ['Connector', 'Connector', 'Conector'], ['OffpageConnector', 'Off-page Connector', 'Conector Fora da Página'], ['PunchedCard', 'Card', 'Cartão'], ['PunchedTape', 'Punched Tape', 'Fita Perfurada'],
+    ['SummingJunction', 'Summing Junction', 'Junção de Soma'], ['Or', 'Or', 'Ou'], ['Collate', 'Collate', 'Agrupar'], ['Sort', 'Sort', 'Classificar'], ['Extract', 'Extract', 'Extrair'], ['Merge', 'Merge', 'Mesclar'],
+    ['OnlineStorage', 'Stored Data', 'Dados Armazenados'], ['Delay', 'Delay', 'Atraso'], ['MagneticTape', 'Sequential Access Storage', 'Armazenamento de Acesso Sequencial'], ['MagneticDisk', 'Magnetic Disk', 'Disco Magnético'],
+    ['MagneticDrum', 'Direct Access Storage', 'Armazenamento de Acesso Direto'], ['Display', 'Display', 'Exibir'],
+  ] as const).map(([k, en, pt]): [string, string, string] => [`flowChart${k}`, `Flowchart: ${en}`, `Fluxograma: ${pt}`]) },
+  { label: { en: 'Stars and Banners', pt: 'Estrelas e Faixas' }, shapes: [
+    ['irregularSeal1', 'Explosion: 8 Points', 'Explosão: 8 Pontos'], ['irregularSeal2', 'Explosion: 14 Points', 'Explosão: 14 Pontos'],
+    ['star4', 'Star: 4 Points', 'Estrela: 4 Pontas'], ['star5', 'Star: 5 Points', 'Estrela: 5 Pontas'], ['star6', 'Star: 6 Points', 'Estrela: 6 Pontas'],
+    ['star7', 'Star: 7 Points', 'Estrela: 7 Pontas'], ['star8', 'Star: 8 Points', 'Estrela: 8 Pontas'], ['star10', 'Star: 10 Points', 'Estrela: 10 Pontas'],
+    ['star12', 'Star: 12 Points', 'Estrela: 12 Pontas'], ['star16', 'Star: 16 Points', 'Estrela: 16 Pontas'], ['star24', 'Star: 24 Points', 'Estrela: 24 Pontas'],
+    ['star32', 'Star: 32 Points', 'Estrela: 32 Pontas'], ['ribbon2', 'Ribbon: Tilted Up', 'Faixa: Inclinada para Cima'], ['ribbon', 'Ribbon: Tilted Down', 'Faixa: Inclinada para Baixo'],
+    ['ellipseRibbon2', 'Ribbon: Curved and Tilted Up', 'Faixa: Curvada e Inclinada para Cima'], ['ellipseRibbon', 'Ribbon: Curved and Tilted Down', 'Faixa: Curvada e Inclinada para Baixo'],
+    ['verticalScroll', 'Scroll: Vertical', 'Rolagem: Vertical'], ['horizontalScroll', 'Scroll: Horizontal', 'Rolagem: Horizontal'],
+    ['wave', 'Wave', 'Onda'], ['doubleWave', 'Double Wave', 'Onda Dupla'],
+  ] },
+  { label: { en: 'Callouts', pt: 'Textos Explicativos' }, shapes: [
+    ['wedgeRectCallout', 'Speech Bubble: Rectangle', 'Balão de Fala: Retângulo'], ['wedgeRoundRectCallout', 'Speech Bubble: Rectangle with Corners Rounded', 'Balão de Fala: Retângulo com Cantos Arredondados'],
+    ['wedgeEllipseCallout', 'Speech Bubble: Oval', 'Balão de Fala: Oval'], ['cloudCallout', 'Thought Bubble: Cloud', 'Balão de Pensamento: Nuvem'],
+    ['borderCallout1', 'Callout: Line', 'Texto Explicativo: Linha'], ['borderCallout2', 'Callout: Bent Line', 'Texto Explicativo: Linha Dobrada'],
+    ['borderCallout3', 'Callout: Double Bent Line', 'Texto Explicativo: Linha Dobrada Dupla'], ['accentCallout1', 'Callout: Line with Accent Bar', 'Texto Explicativo: Linha com Barra de Ênfase'],
+    ['accentCallout2', 'Callout: Bent Line with Accent Bar', 'Texto Explicativo: Linha Dobrada com Barra de Ênfase'], ['accentCallout3', 'Callout: Double Bent Line with Accent Bar', 'Texto Explicativo: Linha Dobrada Dupla com Barra de Ênfase'],
+    ['callout1', 'Callout: Line with No Border', 'Texto Explicativo: Linha sem Borda'], ['callout2', 'Callout: Bent Line with No Border', 'Texto Explicativo: Linha Dobrada sem Borda'],
+    ['callout3', 'Callout: Double Bent Line with No Border', 'Texto Explicativo: Linha Dobrada Dupla sem Borda'], ['accentBorderCallout1', 'Callout: Line with Border and Accent Bar', 'Texto Explicativo: Linha com Borda e Barra de Ênfase'],
+    ['accentBorderCallout2', 'Callout: Bent Line with Border and Accent Bar', 'Texto Explicativo: Linha Dobrada com Borda e Barra de Ênfase'], ['accentBorderCallout3', 'Callout: Double Bent Line with Border and Accent Bar', 'Texto Explicativo: Linha Dobrada Dupla com Borda e Barra de Ênfase'],
+  ] },
+];
+
 // ───────────────────────── predefinições ─────────────────────────
 
 const black = (alpha?: number): DmlColor => ({ kind: 'prstClr', val: 'black', ...(alpha !== undefined ? { mods: [['alpha', alpha]] as [string, number][] } : {}) });
