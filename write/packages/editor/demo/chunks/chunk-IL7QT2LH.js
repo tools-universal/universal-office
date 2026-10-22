@@ -4376,6 +4376,7 @@ var FaceResolver = class {
       const a2 = own2(ALIASES, ps.family.toLowerCase()) ?? ps.family;
       tries.push({ family: a2, bold: bold || !!ps.bold, italic: italic || !!ps.italic });
     }
+    const mappedEnd = tries.length;
     const info = own2(this.fontTable, fam);
     if (info?.altName) for (const alt of info.altName.split(/[,;]/)) tries.push({ family: alt.trim(), bold, italic });
     const symbolic = info?.charset === "02" || info?.family === "decorative";
@@ -4387,10 +4388,18 @@ var FaceResolver = class {
     void this.docDefault;
     tries.push({ family: genericFor(info), bold, italic });
     for (const fb of this.fallbacks) tries.push({ family: fb, bold, italic });
-    for (const t of tries) {
+    for (let i = 0; i < tries.length; i++) {
+      const t = tries[i];
       if (!t.family) continue;
       const face = this.provider.face(t.family, t.bold, t.italic);
-      if (face) return face;
+      if (!face) continue;
+      if (i === 0 && face.standIn) {
+        for (const c of tries.slice(1, mappedEnd)) {
+          const f = c.family ? this.provider.face(c.family, c.bold, c.italic) : null;
+          if (f && !f.standIn) return f;
+        }
+      }
+      return face;
     }
     throw new Error(`nenhuma fonte dispon\xEDvel para "${fam}"`);
   }
@@ -6244,578 +6253,6 @@ function chooseHyphenation(ctx, gs, u) {
   return null;
 }
 
-// ../docx-layout/src/datefmt.ts
-var PT = {
-  months: ["janeiro", "fevereiro", "mar\xE7o", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
-  monthsShort: ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
-  days: ["domingo", "segunda-feira", "ter\xE7a-feira", "quarta-feira", "quinta-feira", "sexta-feira", "s\xE1bado"],
-  daysShort: ["dom", "seg", "ter", "qua", "qui", "sex", "s\xE1b"],
-  date: "dd/MM/yyyy",
-  time: "HH:mm"
-};
-var EN = {
-  months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-  monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-  daysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  date: "M/d/yyyy",
-  time: "h:mm am/pm"
-};
-var pad = (n, w) => String(n).padStart(w, "0");
-function formatWordDate(d, picture, lang = "pt-BR") {
-  const L = lang.toLowerCase().startsWith("en") ? EN : PT;
-  let out = "";
-  let i = 0;
-  const run2 = (ch) => {
-    let n = 0;
-    while (picture[i + n] === ch) n++;
-    return n;
-  };
-  while (i < picture.length) {
-    const c = picture[i];
-    if (c === "'") {
-      const j = picture.indexOf("'", i + 1);
-      out += j < 0 ? picture.slice(i + 1) : picture.slice(i + 1, j);
-      i = j < 0 ? picture.length : j + 1;
-      continue;
-    }
-    const lower = picture.slice(i, i + 5).toLowerCase();
-    if (lower === "am/pm") {
-      out += L === EN ? d.getHours() >= 12 ? "PM" : "AM" : "";
-      i += 5;
-      continue;
-    }
-    if (c === "d" || c === "D") {
-      const n = run2(c);
-      out += n >= 4 ? L.days[d.getDay()] : n === 3 ? L.daysShort[d.getDay()] : n === 2 ? pad(d.getDate(), 2) : String(d.getDate());
-      i += n;
-      continue;
-    }
-    if (c === "M") {
-      const n = run2(c);
-      out += n >= 4 ? L.months[d.getMonth()] : n === 3 ? L.monthsShort[d.getMonth()] : n === 2 ? pad(d.getMonth() + 1, 2) : String(d.getMonth() + 1);
-      i += n;
-      continue;
-    }
-    if (c === "y" || c === "Y") {
-      const n = run2(c);
-      out += n >= 3 ? String(d.getFullYear()) : pad(d.getFullYear() % 100, 2);
-      i += n;
-      continue;
-    }
-    if (c === "H") {
-      const n = run2(c);
-      out += n >= 2 ? pad(d.getHours(), 2) : String(d.getHours());
-      i += n;
-      continue;
-    }
-    if (c === "h") {
-      const n = run2(c);
-      const h = d.getHours() % 12 || 12;
-      out += n >= 2 ? pad(h, 2) : String(h);
-      i += n;
-      continue;
-    }
-    if (c === "m") {
-      const n = run2(c);
-      out += n >= 2 ? pad(d.getMinutes(), 2) : String(d.getMinutes());
-      i += n;
-      continue;
-    }
-    if (c === "s" || c === "S") {
-      const n = run2(c);
-      out += n >= 2 ? pad(d.getSeconds(), 2) : String(d.getSeconds());
-      i += n;
-      continue;
-    }
-    out += c;
-    i++;
-  }
-  return out;
-}
-function dateFieldValue(instr, now, lang = "pt-BR") {
-  const name = instr.trim().split(/\s+/)[0].toUpperCase();
-  const L = lang.toLowerCase().startsWith("en") ? EN : PT;
-  const m = /\\@\s*(?:"([^"]*)"|(\S+))/.exec(instr);
-  const picture = m ? m[1] ?? m[2] ?? "" : name === "TIME" ? L.time : L.date;
-  let v = formatWordDate(now, picture, lang);
-  const fmt2 = /\\\*\s*(\w+)/g;
-  let f;
-  while (f = fmt2.exec(instr)) {
-    const k = f[1].toLowerCase();
-    if (k === "upper") v = v.toUpperCase();
-    else if (k === "lower") v = v.toLowerCase();
-    else if (k === "firstcap") v = v.charAt(0).toUpperCase() + v.slice(1);
-    else if (k === "caps") v = v.replace(/(^|\s)(\S)/g, (_, a, b) => a + b.toUpperCase());
-  }
-  return v;
-}
-
-// ../docx-layout/src/geometry.ts
-var K2 = 0.5522847498;
-function arcTo(out, cur, wR, hR, stDeg, swDeg) {
-  const st = stDeg * Math.PI / 180, sw = swDeg * Math.PI / 180;
-  const cx = cur[0] - wR * Math.cos(st), cy = cur[1] - hR * Math.sin(st);
-  const n = Math.max(1, Math.ceil(Math.abs(swDeg) / 90 - 1e-9));
-  const d = sw / n, k = 4 / 3 * Math.tan(d / 4);
-  let a = st, x = cur[0], y = cur[1];
-  for (let i = 0; i < n; i++) {
-    const b = a + d;
-    const x2 = cx + wR * Math.cos(b), y2 = cy + hR * Math.sin(b);
-    out.push({
-      op: "C",
-      x1: x - k * wR * Math.sin(a),
-      y1: y + k * hR * Math.cos(a),
-      x2: x2 + k * wR * Math.sin(b),
-      y2: y2 - k * hR * Math.cos(b),
-      x: x2,
-      y: y2
-    });
-    a = b;
-    x = x2;
-    y = y2;
-  }
-  return [x, y];
-}
-var poly = (pts, close = true) => {
-  const out = pts.map(([x, y], i) => ({ op: i ? "L" : "M", x, y }));
-  if (close) out.push({ op: "Z" });
-  return out;
-};
-var pin = (lo, v, hi) => Math.max(lo, Math.min(hi, v));
-function presetPathLocal(prst, w, h, adj = {}) {
-  const ss = Math.min(w, h), hc = w / 2, vc = h / 2;
-  const av = (name, def) => adj[name] ?? (name === "adj1" && adj["adj"] !== void 0 ? adj["adj"] : def);
-  switch (prst) {
-    case "triangle": {
-      const a = pin(0, av("adj", 5e4), 1e5);
-      return poly([[0, h], [w * a / 1e5, 0], [w, h]]);
-    }
-    case "rtTriangle":
-      return poly([[0, 0], [w, h], [0, h]]);
-    case "diamond":
-      return poly([[0, vc], [hc, 0], [w, vc], [hc, h]]);
-    case "parallelogram": {
-      const a = pin(0, av("adj", 25e3), 1e5 * w / ss), x2 = ss * a / 1e5;
-      return poly([[0, h], [x2, 0], [w, 0], [w - x2, h]]);
-    }
-    case "trapezoid": {
-      const a = pin(0, av("adj", 25e3), 5e4 * w / ss), x2 = ss * a / 1e5;
-      return poly([[0, h], [x2, 0], [w - x2, 0], [w, h]]);
-    }
-    case "homePlate": {
-      const a = pin(0, av("adj", 5e4), 1e5 * w / ss), x1 = w - ss * a / 1e5;
-      return poly([[0, 0], [x1, 0], [w, vc], [x1, h], [0, h]]);
-    }
-    case "chevron": {
-      const a = pin(0, av("adj", 5e4), 1e5 * w / ss), x1 = ss * a / 1e5;
-      return poly([[0, 0], [w - x1, 0], [w, vc], [w - x1, h], [0, h], [x1, vc]]);
-    }
-    case "hexagon": {
-      const a = pin(0, av("adj", 25e3), 5e4 * w / ss), x1 = ss * a / 1e5;
-      const dy1 = h / 2 * (av("vf", 115470) / 1e5) * Math.sin(Math.PI / 3);
-      return poly([[0, vc], [x1, vc - dy1], [w - x1, vc - dy1], [w, vc], [w - x1, vc + dy1], [x1, vc + dy1]]);
-    }
-    case "octagon": {
-      const x1 = ss * pin(0, av("adj", 29289), 5e4) / 1e5;
-      return poly([[0, x1], [x1, 0], [w - x1, 0], [w, x1], [w, h - x1], [w - x1, h], [x1, h], [0, h - x1]]);
-    }
-    case "rightArrow":
-    case "leftArrow": {
-      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 1e5 * w / ss);
-      const dx = ss * a2 / 1e5, dy1 = h * a1 / 2e5, y1 = vc - dy1, y2 = vc + dy1;
-      if (prst === "rightArrow") {
-        const x1 = w - dx;
-        return poly([[0, y1], [x1, y1], [x1, 0], [w, vc], [x1, h], [x1, y2], [0, y2]]);
-      }
-      return poly([[0, vc], [dx, 0], [dx, y1], [w, y1], [w, y2], [dx, y2], [dx, h]]);
-    }
-    case "upArrow":
-    case "downArrow": {
-      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 1e5 * h / ss);
-      const dy = ss * a2 / 1e5, dx1 = w * a1 / 2e5, x1 = hc - dx1, x2 = hc + dx1;
-      if (prst === "downArrow") {
-        const y1 = h - dy;
-        return poly([[0, y1], [x1, y1], [x1, 0], [x2, 0], [x2, y1], [w, y1], [hc, h]]);
-      }
-      return poly([[0, dy], [hc, 0], [w, dy], [x2, dy], [x2, h], [x1, h], [x1, dy]]);
-    }
-    // setas duplas (presetShapeDefinitions; corpus t15: forma 70 de .doc)
-    case "upDownArrow": {
-      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 5e4 * h / ss);
-      const y2 = ss * a2 / 1e5, y3 = h - y2, dx1 = w * a1 / 2e5, x1 = hc - dx1, x2 = hc + dx1;
-      return poly([[0, y2], [hc, 0], [w, y2], [x2, y2], [x2, y3], [w, y3], [hc, h], [0, y3], [x1, y3], [x1, y2]]);
-    }
-    case "leftRightArrow": {
-      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 5e4 * w / ss);
-      const x2 = ss * a2 / 1e5, x3 = w - x2, dy = h * a1 / 2e5, y1 = vc - dy, y2 = vc + dy;
-      return poly([[0, vc], [x2, 0], [x2, y1], [x3, y1], [x3, 0], [w, vc], [x3, h], [x3, y2], [x2, y2], [x2, h]]);
-    }
-    case "ellipse": {
-      const rx = w / 2, ry = h / 2;
-      return [
-        { op: "M", x: w, y: vc },
-        { op: "C", x1: w, y1: vc + ry * K2, x2: hc + rx * K2, y2: h, x: hc, y: h },
-        { op: "C", x1: hc - rx * K2, y1: h, x2: 0, y2: vc + ry * K2, x: 0, y: vc },
-        { op: "C", x1: 0, y1: vc - ry * K2, x2: hc - rx * K2, y2: 0, x: hc, y: 0 },
-        { op: "C", x1: hc + rx * K2, y1: 0, x2: w, y2: vc - ry * K2, x: w, y: vc },
-        { op: "Z" }
-      ];
-    }
-    case "roundRect": {
-      const r = ss * pin(0, av("adj", 16667), 5e4) / 1e5;
-      const out = [{ op: "M", x: 0, y: r }];
-      let c = arcTo(out, [0, r], r, r, 180, 90);
-      out.push({ op: "L", x: w - r, y: 0 });
-      c = arcTo(out, [w - r, 0], r, r, 270, 90);
-      out.push({ op: "L", x: w, y: h - r });
-      c = arcTo(out, [w, h - r], r, r, 0, 90);
-      out.push({ op: "L", x: r, y: h });
-      arcTo(out, [r, h], r, r, 90, 90);
-      void c;
-      out.push({ op: "Z" });
-      return out;
-    }
-    case "round2SameRect": {
-      const t = ss * pin(0, av("adj1", 16667), 5e4) / 1e5, b = ss * pin(0, av("adj2", 0), 5e4) / 1e5;
-      const out = [{ op: "M", x: t, y: 0 }, { op: "L", x: w - t, y: 0 }];
-      arcTo(out, [w - t, 0], t, t, 270, 90);
-      out.push({ op: "L", x: w, y: h - b });
-      arcTo(out, [w, h - b], b, b, 0, 90);
-      out.push({ op: "L", x: b, y: h });
-      arcTo(out, [b, h], b, b, 90, 90);
-      out.push({ op: "L", x: 0, y: t });
-      arcTo(out, [0, t], t, t, 180, 90);
-      out.push({ op: "Z" });
-      return out;
-    }
-    case "frame": {
-      const x1 = ss * pin(0, av("adj1", 12500), 5e4) / 1e5;
-      return [...poly([[0, 0], [w, 0], [w, h], [0, h]]), ...poly([[x1, x1], [x1, h - x1], [w - x1, h - x1], [w - x1, x1]])];
-    }
-    case "bentConnector3": {
-      const x1 = w * av("adj1", 5e4) / 1e5;
-      return poly([[0, 0], [x1, 0], [x1, h], [w, h]], false);
-    }
-    case "line":
-    case "straightConnector1":
-      return poly([[0, 0], [w, h]], false);
-    default:
-      return poly([[0, 0], [w, 0], [w, h], [0, h]]);
-  }
-}
-var OPEN_PRESETS = /* @__PURE__ */ new Set(["line", "straightConnector1", "bentConnector3", "bentConnector2", "curvedConnector3"]);
-function mapPath(cmds, f) {
-  return cmds.map((c) => {
-    if (c.op === "Z") return c;
-    if (c.op === "C") {
-      const [x1, y1] = f(c.x1, c.y1), [x2, y2] = f(c.x2, c.y2), [x3, y3] = f(c.x, c.y);
-      return { op: "C", x1, y1, x2, y2, x: x3, y: y3 };
-    }
-    const [x, y] = f(c.x, c.y);
-    return { op: c.op, x, y };
-  });
-}
-function presetPath(prst, x, y, w, h, opts = {}) {
-  const local = presetPathLocal(prst, w, h, opts.adj);
-  const r = (opts.rot ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
-  const cx = w / 2, cy = h / 2;
-  return mapPath(local, (px, py) => {
-    if (opts.flipH) px = w - px;
-    if (opts.flipV) py = h - py;
-    const dx = px - cx, dy = py - cy;
-    return [x + cx + dx * c - dy * s, y + cy + dx * s + dy * c];
-  });
-}
-function pathBounds(cmds) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  const add = (x, y) => {
-    x0 = Math.min(x0, x);
-    y0 = Math.min(y0, y);
-    x1 = Math.max(x1, x);
-    y1 = Math.max(y1, y);
-  };
-  for (const c of cmds) {
-    if (c.op === "Z") continue;
-    if (c.op === "C") {
-      add(c.x1, c.y1);
-      add(c.x2, c.y2);
-    }
-    add(c.x, c.y);
-  }
-  return { x0, y0, x1, y1 };
-}
-function phi(x) {
-  const t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
-  const e = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(x * x) / 2);
-  return x >= 0 ? (1 + e) / 2 : (1 - e) / 2;
-}
-var hexRgb = (h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-function gradientSamples(stops, n = 512) {
-  const out = new Uint8Array(n * 3);
-  if (!stops.length) return out;
-  const st = stops.map((s) => ({ pos: s.pos, c: hexRgb(s.color) }));
-  const two = st.length === 2 && st[0].pos <= 0 && st[1].pos >= 1;
-  const sig = 0.25, p0 = phi(-0.5 / sig), p1 = phi(0.5 / sig);
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    let c;
-    if (two) {
-      const g = (phi((t - 0.5) / sig) - p0) / (p1 - p0);
-      c = [0, 1, 2].map((k) => 255 * ((st[0].c[k] / 255) ** 2.2 * (1 - g) + (st[1].c[k] / 255) ** 2.2 * g) ** (1 / 2.2));
-    } else {
-      let j = 0;
-      while (j < st.length - 1 && st[j + 1].pos < t) j++;
-      const a = st[j], b = st[Math.min(j + 1, st.length - 1)];
-      const f = t <= a.pos ? 0 : t >= b.pos || b.pos === a.pos ? 1 : (t - a.pos) / (b.pos - a.pos);
-      c = [0, 1, 2].map((k) => a.c[k] + (b.c[k] - a.c[k]) * f);
-    }
-    for (let k = 0; k < 3; k++) out[i * 3 + k] = Math.max(0, Math.min(255, Math.round(c[k])));
-  }
-  return out;
-}
-function gradientGeometry2(g, box, pathBox) {
-  const withShape = g.rotWithShape !== false;
-  const b = withShape ? box : { x: pathBox.x0, y: pathBox.y0, w: pathBox.x1 - pathBox.x0, h: pathBox.y1 - pathBox.y0 };
-  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-  const rotPt = (px, py) => {
-    if (!withShape || !box.rot) return [px, py];
-    const r = box.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
-    return [cx + (px - cx) * c - (py - cy) * s, cy + (px - cx) * s + (py - cy) * c];
-  };
-  if (g.path) {
-    const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
-    const fx = b.x + b.w * (f.l + (1 - f.l - f.r) / 2), fy = b.y + b.h * (f.t + (1 - f.t - f.b) / 2);
-    const r = Math.max(...[[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map(([px, py]) => Math.hypot(px - fx, py - fy)));
-    const [x02, y02] = rotPt(fx, fy);
-    return { kind: "radial", x0: x02, y0: y02, r };
-  }
-  const a = g.angleDeg * Math.PI / 180;
-  let dx = Math.cos(a), dy = Math.sin(a);
-  if (g.scaled) {
-    dx *= b.h;
-    dy *= b.w;
-  }
-  const len = Math.hypot(dx, dy) || 1;
-  dx /= len;
-  dy /= len;
-  const proj = [[-b.w / 2, -b.h / 2], [b.w / 2, -b.h / 2], [-b.w / 2, b.h / 2], [b.w / 2, b.h / 2]].map(([px, py]) => px * dx + py * dy);
-  const t0 = Math.min(...proj), t1 = Math.max(...proj);
-  const [x0, y0] = rotPt(cx + dx * t0, cy + dy * t0);
-  const [x1, y1] = rotPt(cx + dx * t1, cy + dy * t1);
-  return { kind: "axial", x0, y0, x1, y1 };
-}
-function patternRaster(p, x, y, w, h, px, k = 1) {
-  const rows = patternRows(p.prst);
-  if (!rows || w <= 0 || h <= 0) return null;
-  const i0 = Math.floor(x / px), j0 = Math.floor(y / px);
-  const W = Math.max(1, Math.ceil((x + w) / px) - i0), H = Math.max(1, Math.ceil((y + h) / px) - j0);
-  const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
-  const RW = W * k, RH = H * k;
-  const data = new Uint8Array(RW * RH * 4);
-  for (let y2 = 0; y2 < RH; y2++) {
-    const j = Math.floor(y2 / k);
-    const row = rows[((j0 + j) % 8 + 8) % 8];
-    for (let x2 = 0; x2 < RW; x2++) {
-      const i = Math.floor(x2 / k);
-      const on = row >> 7 - ((i0 + i) % 8 + 8) % 8 & 1;
-      const c = on ? fg : bg, q = (y2 * RW + x2) * 4;
-      data[q] = c[0];
-      data[q + 1] = c[1];
-      data[q + 2] = c[2];
-      data[q + 3] = 255;
-    }
-  }
-  return { data, w: RW, h: RH, x: i0 * px, y: j0 * px, cells: { w: W, h: H } };
-}
-function blipTiles(b, x, y, w, h, emu, natural) {
-  const t = b.tile;
-  if (!t || !natural) return [{ x, y, w, h }];
-  const tw = natural.width * 9525 * emu * (t.sx / 1e5), th = natural.height * 9525 * emu * (t.sy / 1e5);
-  if (!(tw > 0) || !(th > 0)) return [{ x, y, w, h }];
-  const a = t.algn ?? "tl";
-  const ax = a === "tr" || a === "r" || a === "br" ? x + w - tw : a === "t" || a === "ctr" || a === "b" ? x + (w - tw) / 2 : x;
-  const ay = a.startsWith("b") ? y + h - th : a === "l" || a === "ctr" || a === "r" ? y + (h - th) / 2 : y;
-  const ox = ax + t.tx * emu, oy = ay + t.ty * emu;
-  const sx0 = ox - Math.ceil((ox - x) / tw) * tw, sy0 = oy - Math.ceil((oy - y) / th) * th;
-  const out = [];
-  for (let ty = sy0; ty < y + h && out.length < 4e3; ty += th) for (let tx = sx0; tx < x + w; tx += tw) out.push({ x: tx, y: ty, w: tw, h: th });
-  return out;
-}
-function isRectGradient(g) {
-  return !!g && (g.path === "rect" || g.path === "shape");
-}
-function rectGradientRaster(g, w, h, ppu) {
-  const W = Math.max(1, Math.min(2e3, Math.round(w * ppu))), H = Math.max(1, Math.min(2e3, Math.round(h * ppu)));
-  const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
-  const fx0 = f.l * W, fx1 = (1 - f.r) * W, fy0 = f.t * H, fy1 = (1 - f.b) * H;
-  const smp = gradientSamples(g.stops, 256);
-  const data = new Uint8Array(W * H * 4);
-  for (let y = 0; y < H; y++) {
-    const py = y + 0.5;
-    const ty = py < fy0 ? (fy0 - py) / Math.max(1e-6, fy0) : py > fy1 ? (py - fy1) / Math.max(1e-6, H - fy1) : 0;
-    for (let x = 0; x < W; x++) {
-      const px = x + 0.5;
-      const tx = px < fx0 ? (fx0 - px) / Math.max(1e-6, fx0) : px > fx1 ? (px - fx1) / Math.max(1e-6, W - fx1) : 0;
-      const t = Math.min(1, Math.max(tx, ty));
-      const i = Math.round(t * 255) * 3, k = (y * W + x) * 4;
-      data[k] = smp[i];
-      data[k + 1] = smp[i + 1];
-      data[k + 2] = smp[i + 2];
-      data[k + 3] = 255;
-    }
-  }
-  return { data, w: W, h: H };
-}
-function substPhClr(spec, color2) {
-  if (!spec.startsWith("@phClr")) return spec;
-  const mods = spec.split("|")[1];
-  if (!mods) return color2;
-  const [base, cm] = color2.split("|");
-  return `${base}|${[cm, mods].filter(Boolean).join(",")}`;
-}
-function withThemeStyles(s, theme) {
-  let out = s;
-  if (s.fillRef) {
-    const list = s.fillRef.idx >= 1e3 ? theme.bgFillStyles : theme.fillStyles;
-    const ts = list?.[s.fillRef.idx % 1e3 - 1];
-    if (ts) {
-      const c = s.fillRef.color;
-      out = {
-        ...out,
-        ...ts.fill ? { fill: substPhClr(ts.fill, c) } : {},
-        ...ts.gradient ? { gradient: { ...ts.gradient, from: substPhClr(ts.gradient.from, c), to: substPhClr(ts.gradient.to, c), ...ts.gradient.stops ? { stops: ts.gradient.stops.map((x) => ({ ...x, color: substPhClr(x.color, c) })) } : {} } } : {},
-        ...ts.pattern ? { pattern: { ...ts.pattern, fg: substPhClr(ts.pattern.fg, c), bg: substPhClr(ts.pattern.bg, c) } } : {}
-      };
-    }
-  }
-  if (s.effectRef && !s.shadow) {
-    const sh = theme.effectStyles?.[s.effectRef.idx - 1];
-    if (sh) out = { ...out, shadow: { ...sh, color: substPhClr(sh.color, s.effectRef.color) } };
-  }
-  return out;
-}
-function shapeExtras(s0, theme) {
-  const s = withThemeStyles(s0, theme);
-  const out = {};
-  if (s.fx) {
-    const f = s.fx, c = (x) => resolveDrawingColor(x, theme) ?? "000000";
-    const fx = {};
-    if (f.inner) fx.shadow = { kind: "inner", color: c(f.inner.color), alpha: f.inner.alpha, blurPt: f.inner.blurPt, distPt: f.inner.distPt, dirDeg: f.inner.dirDeg };
-    else if (f.outer) {
-      const o = f.outer;
-      fx.shadow = {
-        kind: "outer",
-        color: c(o.color),
-        alpha: o.alpha,
-        blurPt: o.blurPt,
-        distPt: o.distPt,
-        dirDeg: o.dirDeg,
-        ...o.sx !== void 0 ? { sx: o.sx } : {},
-        ...o.sy !== void 0 ? { sy: o.sy } : {},
-        ...o.kxDeg ? { kxDeg: o.kxDeg } : {},
-        ...o.kyDeg ? { kyDeg: o.kyDeg } : {},
-        ...o.algn ? { algn: o.algn } : {},
-        ...o.rotWithShape !== void 0 ? { rotWithShape: o.rotWithShape } : {}
-      };
-    }
-    if (f.glow) fx.glow = { color: c(f.glow.color), alpha: f.glow.alpha, radPt: f.glow.radPt };
-    if (f.softEdgePt) fx.softEdgePt = f.softEdgePt;
-    if (f.reflection) fx.reflection = { ...f.reflection };
-    if (Object.keys(fx).length) out.fx = fx;
-  }
-  if (s.pattern) {
-    out.pattern = { prst: s.pattern.prst, fg: resolveDrawingColor(s.pattern.fg, theme) ?? "000000", bg: resolveDrawingColor(s.pattern.bg, theme) ?? "FFFFFF" };
-  }
-  if (s.blip) out.blip = s.blip;
-  const g = s.gradient;
-  if (g?.stops && g.stops.length) {
-    out.grad = {
-      stops: g.stops.map((st) => ({ pos: st.pos, color: resolveDrawingColor(st.color, theme) ?? "000000" })),
-      angleDeg: g.angleDeg,
-      ...g.scaled !== void 0 ? { scaled: g.scaled } : {},
-      ...g.rotWithShape !== void 0 ? { rotWithShape: g.rotWithShape } : {},
-      ...g.path ? { path: g.path } : {},
-      ...g.fillTo ? { fillTo: g.fillTo } : {}
-    };
-  }
-  if (s.shadow) {
-    const c = resolveDrawingColor(s.shadow.color, theme);
-    if (c) out.shadow = { ...s.shadow, color: c };
-  }
-  return out;
-}
-function groupChild(gr, item, x, y, w, h) {
-  const sx = gr.widthTwips ? w / gr.widthTwips : 1, sy = gr.heightTwips ? h / gr.heightTwips : 1;
-  const iw = item.w * sx, ih = item.h * sy;
-  let ix = x + item.x * sx, iy = y + item.y * sy;
-  if (!gr.rot && !gr.flipH && !gr.flipV) return { run: item.run, x: ix, y: iy, w: iw, h: ih };
-  const gcx = x + w / 2, gcy = y + h / 2;
-  let cx = ix + iw / 2, cy = iy + ih / 2;
-  if (gr.flipH) cx = 2 * gcx - cx;
-  if (gr.flipV) cy = 2 * gcy - cy;
-  const a = (gr.rot ?? 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-  [cx, cy] = [gcx + (cx - gcx) * c - (cy - gcy) * s, gcy + (cx - gcx) * s + (cy - gcy) * c];
-  ix = cx - iw / 2;
-  iy = cy - ih / 2;
-  const mirror = !!gr.flipH !== !!gr.flipV;
-  const xf = (st) => {
-    if (!st) return st;
-    const r = ((mirror ? -(st.rot ?? 0) : st.rot ?? 0) + (gr.rot ?? 0)) % 360;
-    return { ...st, rot: r, flipH: !!st.flipH !== !!gr.flipH, flipV: !!st.flipV !== !!gr.flipV };
-  };
-  const r0 = item.run;
-  const run2 = { ...r0 };
-  if (r0.shape) run2.shape = { ...r0.shape, style: xf(r0.shape.style) };
-  if (r0.image) run2.image = { ...r0.image, style: xf(r0.image.style ?? { geom: "rect" }) };
-  if (r0.textbox) {
-    const tb = { ...r0.textbox };
-    if (tb.shape) tb.shape = xf(tb.shape);
-    const tr = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
-    if (tr) tb.rot = tr;
-    run2.textbox = tb;
-  }
-  if (r0.group) run2.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
-  return { run: run2, x: ix, y: iy, w: iw, h: ih };
-}
-function custPaths(cust, x, y, w, h, opts = {}) {
-  const r = (opts.rot ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
-  const cx = w / 2, cy = h / 2;
-  const place = (px, py) => {
-    if (opts.flipH) px = w - px;
-    if (opts.flipV) py = h - py;
-    const dx = px - cx, dy = py - cy;
-    return [x + cx + dx * c - dy * s, y + cy + dx * s + dy * c];
-  };
-  return cust.map((p) => {
-    const sx = w / (p.w || 1), sy = h / (p.h || 1);
-    const local = [];
-    let cur = [0, 0];
-    let start = [0, 0];
-    for (const k of p.cmds) {
-      if (k.op === "M" || k.op === "L") {
-        cur = [k.x * sx, k.y * sy];
-        if (k.op === "M") start = cur;
-        local.push({ op: k.op, x: cur[0], y: cur[1] });
-      } else if (k.op === "C" && k.pts.length >= 3) {
-        const [a, b, d] = k.pts.map(([px, py]) => [px * sx, py * sy]);
-        local.push({ op: "C", x1: a[0], y1: a[1], x2: b[0], y2: b[1], x: d[0], y: d[1] });
-        cur = d;
-      } else if (k.op === "Q" && k.pts.length >= 2) {
-        const [q, d] = k.pts.map(([px, py]) => [px * sx, py * sy]);
-        local.push({ op: "C", x1: cur[0] + 2 / 3 * (q[0] - cur[0]), y1: cur[1] + 2 / 3 * (q[1] - cur[1]), x2: d[0] + 2 / 3 * (q[0] - d[0]), y2: d[1] + 2 / 3 * (q[1] - d[1]), x: d[0], y: d[1] });
-        cur = d;
-      } else if (k.op === "A") {
-        cur = arcTo(local, cur, k.wR * sx, k.hR * sy, k.st, k.sw);
-      } else if (k.op === "Z") {
-        local.push({ op: "Z" });
-        cur = start;
-      }
-    }
-    return { cmds: mapPath(local, place), fill: p.fill, stroke: p.stroke };
-  });
-}
-
 // ../docx-layout/src/images.ts
 function jpegInfo(b) {
   if (b[0] !== 255 || b[1] !== 216) return null;
@@ -7462,6 +6899,578 @@ function applyPictureAdjust(d, o) {
     }
   }
   if (o.alpha !== void 0) for (let i = 3; i < d.length; i += 4) d[i] = Math.round(d[i] * o.alpha);
+}
+
+// ../docx-layout/src/datefmt.ts
+var PT = {
+  months: ["janeiro", "fevereiro", "mar\xE7o", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
+  monthsShort: ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+  days: ["domingo", "segunda-feira", "ter\xE7a-feira", "quarta-feira", "quinta-feira", "sexta-feira", "s\xE1bado"],
+  daysShort: ["dom", "seg", "ter", "qua", "qui", "sex", "s\xE1b"],
+  date: "dd/MM/yyyy",
+  time: "HH:mm"
+};
+var EN = {
+  months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  daysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  date: "M/d/yyyy",
+  time: "h:mm am/pm"
+};
+var pad = (n, w) => String(n).padStart(w, "0");
+function formatWordDate(d, picture, lang = "pt-BR") {
+  const L = lang.toLowerCase().startsWith("en") ? EN : PT;
+  let out = "";
+  let i = 0;
+  const run2 = (ch) => {
+    let n = 0;
+    while (picture[i + n] === ch) n++;
+    return n;
+  };
+  while (i < picture.length) {
+    const c = picture[i];
+    if (c === "'") {
+      const j = picture.indexOf("'", i + 1);
+      out += j < 0 ? picture.slice(i + 1) : picture.slice(i + 1, j);
+      i = j < 0 ? picture.length : j + 1;
+      continue;
+    }
+    const lower = picture.slice(i, i + 5).toLowerCase();
+    if (lower === "am/pm") {
+      out += L === EN ? d.getHours() >= 12 ? "PM" : "AM" : "";
+      i += 5;
+      continue;
+    }
+    if (c === "d" || c === "D") {
+      const n = run2(c);
+      out += n >= 4 ? L.days[d.getDay()] : n === 3 ? L.daysShort[d.getDay()] : n === 2 ? pad(d.getDate(), 2) : String(d.getDate());
+      i += n;
+      continue;
+    }
+    if (c === "M") {
+      const n = run2(c);
+      out += n >= 4 ? L.months[d.getMonth()] : n === 3 ? L.monthsShort[d.getMonth()] : n === 2 ? pad(d.getMonth() + 1, 2) : String(d.getMonth() + 1);
+      i += n;
+      continue;
+    }
+    if (c === "y" || c === "Y") {
+      const n = run2(c);
+      out += n >= 3 ? String(d.getFullYear()) : pad(d.getFullYear() % 100, 2);
+      i += n;
+      continue;
+    }
+    if (c === "H") {
+      const n = run2(c);
+      out += n >= 2 ? pad(d.getHours(), 2) : String(d.getHours());
+      i += n;
+      continue;
+    }
+    if (c === "h") {
+      const n = run2(c);
+      const h = d.getHours() % 12 || 12;
+      out += n >= 2 ? pad(h, 2) : String(h);
+      i += n;
+      continue;
+    }
+    if (c === "m") {
+      const n = run2(c);
+      out += n >= 2 ? pad(d.getMinutes(), 2) : String(d.getMinutes());
+      i += n;
+      continue;
+    }
+    if (c === "s" || c === "S") {
+      const n = run2(c);
+      out += n >= 2 ? pad(d.getSeconds(), 2) : String(d.getSeconds());
+      i += n;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+function dateFieldValue(instr, now, lang = "pt-BR") {
+  const name = instr.trim().split(/\s+/)[0].toUpperCase();
+  const L = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const m = /\\@\s*(?:"([^"]*)"|(\S+))/.exec(instr);
+  const picture = m ? m[1] ?? m[2] ?? "" : name === "TIME" ? L.time : L.date;
+  let v = formatWordDate(now, picture, lang);
+  const fmt2 = /\\\*\s*(\w+)/g;
+  let f;
+  while (f = fmt2.exec(instr)) {
+    const k = f[1].toLowerCase();
+    if (k === "upper") v = v.toUpperCase();
+    else if (k === "lower") v = v.toLowerCase();
+    else if (k === "firstcap") v = v.charAt(0).toUpperCase() + v.slice(1);
+    else if (k === "caps") v = v.replace(/(^|\s)(\S)/g, (_, a, b) => a + b.toUpperCase());
+  }
+  return v;
+}
+
+// ../docx-layout/src/geometry.ts
+var K2 = 0.5522847498;
+function arcTo(out, cur, wR, hR, stDeg, swDeg) {
+  const st = stDeg * Math.PI / 180, sw = swDeg * Math.PI / 180;
+  const cx = cur[0] - wR * Math.cos(st), cy = cur[1] - hR * Math.sin(st);
+  const n = Math.max(1, Math.ceil(Math.abs(swDeg) / 90 - 1e-9));
+  const d = sw / n, k = 4 / 3 * Math.tan(d / 4);
+  let a = st, x = cur[0], y = cur[1];
+  for (let i = 0; i < n; i++) {
+    const b = a + d;
+    const x2 = cx + wR * Math.cos(b), y2 = cy + hR * Math.sin(b);
+    out.push({
+      op: "C",
+      x1: x - k * wR * Math.sin(a),
+      y1: y + k * hR * Math.cos(a),
+      x2: x2 + k * wR * Math.sin(b),
+      y2: y2 - k * hR * Math.cos(b),
+      x: x2,
+      y: y2
+    });
+    a = b;
+    x = x2;
+    y = y2;
+  }
+  return [x, y];
+}
+var poly = (pts, close = true) => {
+  const out = pts.map(([x, y], i) => ({ op: i ? "L" : "M", x, y }));
+  if (close) out.push({ op: "Z" });
+  return out;
+};
+var pin = (lo, v, hi) => Math.max(lo, Math.min(hi, v));
+function presetPathLocal(prst, w, h, adj = {}) {
+  const ss = Math.min(w, h), hc = w / 2, vc = h / 2;
+  const av = (name, def) => adj[name] ?? (name === "adj1" && adj["adj"] !== void 0 ? adj["adj"] : def);
+  switch (prst) {
+    case "triangle": {
+      const a = pin(0, av("adj", 5e4), 1e5);
+      return poly([[0, h], [w * a / 1e5, 0], [w, h]]);
+    }
+    case "rtTriangle":
+      return poly([[0, 0], [w, h], [0, h]]);
+    case "diamond":
+      return poly([[0, vc], [hc, 0], [w, vc], [hc, h]]);
+    case "parallelogram": {
+      const a = pin(0, av("adj", 25e3), 1e5 * w / ss), x2 = ss * a / 1e5;
+      return poly([[0, h], [x2, 0], [w, 0], [w - x2, h]]);
+    }
+    case "trapezoid": {
+      const a = pin(0, av("adj", 25e3), 5e4 * w / ss), x2 = ss * a / 1e5;
+      return poly([[0, h], [x2, 0], [w - x2, 0], [w, h]]);
+    }
+    case "homePlate": {
+      const a = pin(0, av("adj", 5e4), 1e5 * w / ss), x1 = w - ss * a / 1e5;
+      return poly([[0, 0], [x1, 0], [w, vc], [x1, h], [0, h]]);
+    }
+    case "chevron": {
+      const a = pin(0, av("adj", 5e4), 1e5 * w / ss), x1 = ss * a / 1e5;
+      return poly([[0, 0], [w - x1, 0], [w, vc], [w - x1, h], [0, h], [x1, vc]]);
+    }
+    case "hexagon": {
+      const a = pin(0, av("adj", 25e3), 5e4 * w / ss), x1 = ss * a / 1e5;
+      const dy1 = h / 2 * (av("vf", 115470) / 1e5) * Math.sin(Math.PI / 3);
+      return poly([[0, vc], [x1, vc - dy1], [w - x1, vc - dy1], [w, vc], [w - x1, vc + dy1], [x1, vc + dy1]]);
+    }
+    case "octagon": {
+      const x1 = ss * pin(0, av("adj", 29289), 5e4) / 1e5;
+      return poly([[0, x1], [x1, 0], [w - x1, 0], [w, x1], [w, h - x1], [w - x1, h], [x1, h], [0, h - x1]]);
+    }
+    case "rightArrow":
+    case "leftArrow": {
+      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 1e5 * w / ss);
+      const dx = ss * a2 / 1e5, dy1 = h * a1 / 2e5, y1 = vc - dy1, y2 = vc + dy1;
+      if (prst === "rightArrow") {
+        const x1 = w - dx;
+        return poly([[0, y1], [x1, y1], [x1, 0], [w, vc], [x1, h], [x1, y2], [0, y2]]);
+      }
+      return poly([[0, vc], [dx, 0], [dx, y1], [w, y1], [w, y2], [dx, y2], [dx, h]]);
+    }
+    case "upArrow":
+    case "downArrow": {
+      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 1e5 * h / ss);
+      const dy = ss * a2 / 1e5, dx1 = w * a1 / 2e5, x1 = hc - dx1, x2 = hc + dx1;
+      if (prst === "downArrow") {
+        const y1 = h - dy;
+        return poly([[0, y1], [x1, y1], [x1, 0], [x2, 0], [x2, y1], [w, y1], [hc, h]]);
+      }
+      return poly([[0, dy], [hc, 0], [w, dy], [x2, dy], [x2, h], [x1, h], [x1, dy]]);
+    }
+    // setas duplas (presetShapeDefinitions; corpus t15: forma 70 de .doc)
+    case "upDownArrow": {
+      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 5e4 * h / ss);
+      const y2 = ss * a2 / 1e5, y3 = h - y2, dx1 = w * a1 / 2e5, x1 = hc - dx1, x2 = hc + dx1;
+      return poly([[0, y2], [hc, 0], [w, y2], [x2, y2], [x2, y3], [w, y3], [hc, h], [0, y3], [x1, y3], [x1, y2]]);
+    }
+    case "leftRightArrow": {
+      const a1 = pin(0, av("adj1", 5e4), 1e5), a2 = pin(0, av("adj2", 5e4), 5e4 * w / ss);
+      const x2 = ss * a2 / 1e5, x3 = w - x2, dy = h * a1 / 2e5, y1 = vc - dy, y2 = vc + dy;
+      return poly([[0, vc], [x2, 0], [x2, y1], [x3, y1], [x3, 0], [w, vc], [x3, h], [x3, y2], [x2, y2], [x2, h]]);
+    }
+    case "ellipse": {
+      const rx = w / 2, ry = h / 2;
+      return [
+        { op: "M", x: w, y: vc },
+        { op: "C", x1: w, y1: vc + ry * K2, x2: hc + rx * K2, y2: h, x: hc, y: h },
+        { op: "C", x1: hc - rx * K2, y1: h, x2: 0, y2: vc + ry * K2, x: 0, y: vc },
+        { op: "C", x1: 0, y1: vc - ry * K2, x2: hc - rx * K2, y2: 0, x: hc, y: 0 },
+        { op: "C", x1: hc + rx * K2, y1: 0, x2: w, y2: vc - ry * K2, x: w, y: vc },
+        { op: "Z" }
+      ];
+    }
+    case "roundRect": {
+      const r = ss * pin(0, av("adj", 16667), 5e4) / 1e5;
+      const out = [{ op: "M", x: 0, y: r }];
+      let c = arcTo(out, [0, r], r, r, 180, 90);
+      out.push({ op: "L", x: w - r, y: 0 });
+      c = arcTo(out, [w - r, 0], r, r, 270, 90);
+      out.push({ op: "L", x: w, y: h - r });
+      c = arcTo(out, [w, h - r], r, r, 0, 90);
+      out.push({ op: "L", x: r, y: h });
+      arcTo(out, [r, h], r, r, 90, 90);
+      void c;
+      out.push({ op: "Z" });
+      return out;
+    }
+    case "round2SameRect": {
+      const t = ss * pin(0, av("adj1", 16667), 5e4) / 1e5, b = ss * pin(0, av("adj2", 0), 5e4) / 1e5;
+      const out = [{ op: "M", x: t, y: 0 }, { op: "L", x: w - t, y: 0 }];
+      arcTo(out, [w - t, 0], t, t, 270, 90);
+      out.push({ op: "L", x: w, y: h - b });
+      arcTo(out, [w, h - b], b, b, 0, 90);
+      out.push({ op: "L", x: b, y: h });
+      arcTo(out, [b, h], b, b, 90, 90);
+      out.push({ op: "L", x: 0, y: t });
+      arcTo(out, [0, t], t, t, 180, 90);
+      out.push({ op: "Z" });
+      return out;
+    }
+    case "frame": {
+      const x1 = ss * pin(0, av("adj1", 12500), 5e4) / 1e5;
+      return [...poly([[0, 0], [w, 0], [w, h], [0, h]]), ...poly([[x1, x1], [x1, h - x1], [w - x1, h - x1], [w - x1, x1]])];
+    }
+    case "bentConnector3": {
+      const x1 = w * av("adj1", 5e4) / 1e5;
+      return poly([[0, 0], [x1, 0], [x1, h], [w, h]], false);
+    }
+    case "line":
+    case "straightConnector1":
+      return poly([[0, 0], [w, h]], false);
+    default:
+      return poly([[0, 0], [w, 0], [w, h], [0, h]]);
+  }
+}
+var OPEN_PRESETS = /* @__PURE__ */ new Set(["line", "straightConnector1", "bentConnector3", "bentConnector2", "curvedConnector3"]);
+function mapPath(cmds, f) {
+  return cmds.map((c) => {
+    if (c.op === "Z") return c;
+    if (c.op === "C") {
+      const [x1, y1] = f(c.x1, c.y1), [x2, y2] = f(c.x2, c.y2), [x3, y3] = f(c.x, c.y);
+      return { op: "C", x1, y1, x2, y2, x: x3, y: y3 };
+    }
+    const [x, y] = f(c.x, c.y);
+    return { op: c.op, x, y };
+  });
+}
+function presetPath(prst, x, y, w, h, opts = {}) {
+  const local = presetPathLocal(prst, w, h, opts.adj);
+  const r = (opts.rot ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  const cx = w / 2, cy = h / 2;
+  return mapPath(local, (px, py) => {
+    if (opts.flipH) px = w - px;
+    if (opts.flipV) py = h - py;
+    const dx = px - cx, dy = py - cy;
+    return [x + cx + dx * c - dy * s, y + cy + dx * s + dy * c];
+  });
+}
+function pathBounds(cmds) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x, y) => {
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x);
+    y1 = Math.max(y1, y);
+  };
+  for (const c of cmds) {
+    if (c.op === "Z") continue;
+    if (c.op === "C") {
+      add(c.x1, c.y1);
+      add(c.x2, c.y2);
+    }
+    add(c.x, c.y);
+  }
+  return { x0, y0, x1, y1 };
+}
+function phi(x) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
+  const e = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(x * x) / 2);
+  return x >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+}
+var hexRgb = (h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+function gradientSamples(stops, n = 512) {
+  const out = new Uint8Array(n * 3);
+  if (!stops.length) return out;
+  const st = stops.map((s) => ({ pos: s.pos, c: hexRgb(s.color) }));
+  const two = st.length === 2 && st[0].pos <= 0 && st[1].pos >= 1;
+  const sig = 0.25, p0 = phi(-0.5 / sig), p1 = phi(0.5 / sig);
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    let c;
+    if (two) {
+      const g = (phi((t - 0.5) / sig) - p0) / (p1 - p0);
+      c = [0, 1, 2].map((k) => 255 * ((st[0].c[k] / 255) ** 2.2 * (1 - g) + (st[1].c[k] / 255) ** 2.2 * g) ** (1 / 2.2));
+    } else {
+      let j = 0;
+      while (j < st.length - 1 && st[j + 1].pos < t) j++;
+      const a = st[j], b = st[Math.min(j + 1, st.length - 1)];
+      const f = t <= a.pos ? 0 : t >= b.pos || b.pos === a.pos ? 1 : (t - a.pos) / (b.pos - a.pos);
+      c = [0, 1, 2].map((k) => a.c[k] + (b.c[k] - a.c[k]) * f);
+    }
+    for (let k = 0; k < 3; k++) out[i * 3 + k] = Math.max(0, Math.min(255, Math.round(c[k])));
+  }
+  return out;
+}
+function gradientGeometry2(g, box, pathBox) {
+  const withShape = g.rotWithShape !== false;
+  const b = withShape ? box : { x: pathBox.x0, y: pathBox.y0, w: pathBox.x1 - pathBox.x0, h: pathBox.y1 - pathBox.y0 };
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  const rotPt = (px, py) => {
+    if (!withShape || !box.rot) return [px, py];
+    const r = box.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    return [cx + (px - cx) * c - (py - cy) * s, cy + (px - cx) * s + (py - cy) * c];
+  };
+  if (g.path) {
+    const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
+    const fx = b.x + b.w * (f.l + (1 - f.l - f.r) / 2), fy = b.y + b.h * (f.t + (1 - f.t - f.b) / 2);
+    const r = Math.max(...[[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map(([px, py]) => Math.hypot(px - fx, py - fy)));
+    const [x02, y02] = rotPt(fx, fy);
+    return { kind: "radial", x0: x02, y0: y02, r };
+  }
+  const a = g.angleDeg * Math.PI / 180;
+  let dx = Math.cos(a), dy = Math.sin(a);
+  if (g.scaled) {
+    dx *= b.h;
+    dy *= b.w;
+  }
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len;
+  dy /= len;
+  const proj = [[-b.w / 2, -b.h / 2], [b.w / 2, -b.h / 2], [-b.w / 2, b.h / 2], [b.w / 2, b.h / 2]].map(([px, py]) => px * dx + py * dy);
+  const t0 = Math.min(...proj), t1 = Math.max(...proj);
+  const [x0, y0] = rotPt(cx + dx * t0, cy + dy * t0);
+  const [x1, y1] = rotPt(cx + dx * t1, cy + dy * t1);
+  return { kind: "axial", x0, y0, x1, y1 };
+}
+function patternRaster(p, x, y, w, h, px, k = 1) {
+  const rows = patternRows(p.prst);
+  if (!rows || w <= 0 || h <= 0) return null;
+  const i0 = Math.floor(x / px), j0 = Math.floor(y / px);
+  const W = Math.max(1, Math.ceil((x + w) / px) - i0), H = Math.max(1, Math.ceil((y + h) / px) - j0);
+  const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
+  const RW = W * k, RH = H * k;
+  const data = new Uint8Array(RW * RH * 4);
+  for (let y2 = 0; y2 < RH; y2++) {
+    const j = Math.floor(y2 / k);
+    const row = rows[((j0 + j) % 8 + 8) % 8];
+    for (let x2 = 0; x2 < RW; x2++) {
+      const i = Math.floor(x2 / k);
+      const on = row >> 7 - ((i0 + i) % 8 + 8) % 8 & 1;
+      const c = on ? fg : bg, q = (y2 * RW + x2) * 4;
+      data[q] = c[0];
+      data[q + 1] = c[1];
+      data[q + 2] = c[2];
+      data[q + 3] = 255;
+    }
+  }
+  return { data, w: RW, h: RH, x: i0 * px, y: j0 * px, cells: { w: W, h: H } };
+}
+function blipTiles(b, x, y, w, h, emu, natural) {
+  const t = b.tile;
+  if (!t || !natural) return [{ x, y, w, h }];
+  const tw = natural.width * 9525 * emu * (t.sx / 1e5), th = natural.height * 9525 * emu * (t.sy / 1e5);
+  if (!(tw > 0) || !(th > 0)) return [{ x, y, w, h }];
+  const a = t.algn ?? "tl";
+  const ax = a === "tr" || a === "r" || a === "br" ? x + w - tw : a === "t" || a === "ctr" || a === "b" ? x + (w - tw) / 2 : x;
+  const ay = a.startsWith("b") ? y + h - th : a === "l" || a === "ctr" || a === "r" ? y + (h - th) / 2 : y;
+  const ox = ax + t.tx * emu, oy = ay + t.ty * emu;
+  const sx0 = ox - Math.ceil((ox - x) / tw) * tw, sy0 = oy - Math.ceil((oy - y) / th) * th;
+  const out = [];
+  for (let ty = sy0; ty < y + h && out.length < 4e3; ty += th) for (let tx = sx0; tx < x + w; tx += tw) out.push({ x: tx, y: ty, w: tw, h: th });
+  return out;
+}
+function isRectGradient(g) {
+  return !!g && (g.path === "rect" || g.path === "shape");
+}
+function rectGradientRaster(g, w, h, ppu) {
+  const W = Math.max(1, Math.min(2e3, Math.round(w * ppu))), H = Math.max(1, Math.min(2e3, Math.round(h * ppu)));
+  const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
+  const fx0 = f.l * W, fx1 = (1 - f.r) * W, fy0 = f.t * H, fy1 = (1 - f.b) * H;
+  const smp = gradientSamples(g.stops, 256);
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const py = y + 0.5;
+    const ty = py < fy0 ? (fy0 - py) / Math.max(1e-6, fy0) : py > fy1 ? (py - fy1) / Math.max(1e-6, H - fy1) : 0;
+    for (let x = 0; x < W; x++) {
+      const px = x + 0.5;
+      const tx = px < fx0 ? (fx0 - px) / Math.max(1e-6, fx0) : px > fx1 ? (px - fx1) / Math.max(1e-6, W - fx1) : 0;
+      const t = Math.min(1, Math.max(tx, ty));
+      const i = Math.round(t * 255) * 3, k = (y * W + x) * 4;
+      data[k] = smp[i];
+      data[k + 1] = smp[i + 1];
+      data[k + 2] = smp[i + 2];
+      data[k + 3] = 255;
+    }
+  }
+  return { data, w: W, h: H };
+}
+function substPhClr(spec, color2) {
+  if (!spec.startsWith("@phClr")) return spec;
+  const mods = spec.split("|")[1];
+  if (!mods) return color2;
+  const [base, cm] = color2.split("|");
+  return `${base}|${[cm, mods].filter(Boolean).join(",")}`;
+}
+function withThemeStyles(s, theme) {
+  let out = s;
+  if (s.fillRef) {
+    const list = s.fillRef.idx >= 1e3 ? theme.bgFillStyles : theme.fillStyles;
+    const ts = list?.[s.fillRef.idx % 1e3 - 1];
+    if (ts) {
+      const c = s.fillRef.color;
+      out = {
+        ...out,
+        ...ts.fill ? { fill: substPhClr(ts.fill, c) } : {},
+        ...ts.gradient ? { gradient: { ...ts.gradient, from: substPhClr(ts.gradient.from, c), to: substPhClr(ts.gradient.to, c), ...ts.gradient.stops ? { stops: ts.gradient.stops.map((x) => ({ ...x, color: substPhClr(x.color, c) })) } : {} } } : {},
+        ...ts.pattern ? { pattern: { ...ts.pattern, fg: substPhClr(ts.pattern.fg, c), bg: substPhClr(ts.pattern.bg, c) } } : {}
+      };
+    }
+  }
+  if (s.effectRef && !s.shadow) {
+    const sh = theme.effectStyles?.[s.effectRef.idx - 1];
+    if (sh) out = { ...out, shadow: { ...sh, color: substPhClr(sh.color, s.effectRef.color) } };
+  }
+  return out;
+}
+function shapeExtras(s0, theme) {
+  const s = withThemeStyles(s0, theme);
+  const out = {};
+  if (s.fx) {
+    const f = s.fx, c = (x) => resolveDrawingColor(x, theme) ?? "000000";
+    const fx = {};
+    if (f.inner) fx.shadow = { kind: "inner", color: c(f.inner.color), alpha: f.inner.alpha, blurPt: f.inner.blurPt, distPt: f.inner.distPt, dirDeg: f.inner.dirDeg };
+    else if (f.outer) {
+      const o = f.outer;
+      fx.shadow = {
+        kind: "outer",
+        color: c(o.color),
+        alpha: o.alpha,
+        blurPt: o.blurPt,
+        distPt: o.distPt,
+        dirDeg: o.dirDeg,
+        ...o.sx !== void 0 ? { sx: o.sx } : {},
+        ...o.sy !== void 0 ? { sy: o.sy } : {},
+        ...o.kxDeg ? { kxDeg: o.kxDeg } : {},
+        ...o.kyDeg ? { kyDeg: o.kyDeg } : {},
+        ...o.algn ? { algn: o.algn } : {},
+        ...o.rotWithShape !== void 0 ? { rotWithShape: o.rotWithShape } : {}
+      };
+    }
+    if (f.glow) fx.glow = { color: c(f.glow.color), alpha: f.glow.alpha, radPt: f.glow.radPt };
+    if (f.softEdgePt) fx.softEdgePt = f.softEdgePt;
+    if (f.reflection) fx.reflection = { ...f.reflection };
+    if (Object.keys(fx).length) out.fx = fx;
+  }
+  if (s.pattern) {
+    out.pattern = { prst: s.pattern.prst, fg: resolveDrawingColor(s.pattern.fg, theme) ?? "000000", bg: resolveDrawingColor(s.pattern.bg, theme) ?? "FFFFFF" };
+  }
+  if (s.blip) out.blip = s.blip;
+  const g = s.gradient;
+  if (g?.stops && g.stops.length) {
+    out.grad = {
+      stops: g.stops.map((st) => ({ pos: st.pos, color: resolveDrawingColor(st.color, theme) ?? "000000" })),
+      angleDeg: g.angleDeg,
+      ...g.scaled !== void 0 ? { scaled: g.scaled } : {},
+      ...g.rotWithShape !== void 0 ? { rotWithShape: g.rotWithShape } : {},
+      ...g.path ? { path: g.path } : {},
+      ...g.fillTo ? { fillTo: g.fillTo } : {}
+    };
+  }
+  if (s.shadow) {
+    const c = resolveDrawingColor(s.shadow.color, theme);
+    if (c) out.shadow = { ...s.shadow, color: c };
+  }
+  return out;
+}
+function groupChild(gr, item, x, y, w, h) {
+  const sx = gr.widthTwips ? w / gr.widthTwips : 1, sy = gr.heightTwips ? h / gr.heightTwips : 1;
+  const iw = item.w * sx, ih = item.h * sy;
+  let ix = x + item.x * sx, iy = y + item.y * sy;
+  if (!gr.rot && !gr.flipH && !gr.flipV) return { run: item.run, x: ix, y: iy, w: iw, h: ih };
+  const gcx = x + w / 2, gcy = y + h / 2;
+  let cx = ix + iw / 2, cy = iy + ih / 2;
+  if (gr.flipH) cx = 2 * gcx - cx;
+  if (gr.flipV) cy = 2 * gcy - cy;
+  const a = (gr.rot ?? 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  [cx, cy] = [gcx + (cx - gcx) * c - (cy - gcy) * s, gcy + (cx - gcx) * s + (cy - gcy) * c];
+  ix = cx - iw / 2;
+  iy = cy - ih / 2;
+  const mirror = !!gr.flipH !== !!gr.flipV;
+  const xf = (st) => {
+    if (!st) return st;
+    const r = ((mirror ? -(st.rot ?? 0) : st.rot ?? 0) + (gr.rot ?? 0)) % 360;
+    return { ...st, rot: r, flipH: !!st.flipH !== !!gr.flipH, flipV: !!st.flipV !== !!gr.flipV };
+  };
+  const r0 = item.run;
+  const run2 = { ...r0 };
+  if (r0.shape) run2.shape = { ...r0.shape, style: xf(r0.shape.style) };
+  if (r0.image) run2.image = { ...r0.image, style: xf(r0.image.style ?? { geom: "rect" }) };
+  if (r0.textbox) {
+    const tb = { ...r0.textbox };
+    if (tb.shape) tb.shape = xf(tb.shape);
+    const tr = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
+    if (tr) tb.rot = tr;
+    run2.textbox = tb;
+  }
+  if (r0.group) run2.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
+  return { run: run2, x: ix, y: iy, w: iw, h: ih };
+}
+function custPaths(cust, x, y, w, h, opts = {}) {
+  const r = (opts.rot ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  const cx = w / 2, cy = h / 2;
+  const place = (px, py) => {
+    if (opts.flipH) px = w - px;
+    if (opts.flipV) py = h - py;
+    const dx = px - cx, dy = py - cy;
+    return [x + cx + dx * c - dy * s, y + cy + dx * s + dy * c];
+  };
+  return cust.map((p) => {
+    const sx = w / (p.w || 1), sy = h / (p.h || 1);
+    const local = [];
+    let cur = [0, 0];
+    let start = [0, 0];
+    for (const k of p.cmds) {
+      if (k.op === "M" || k.op === "L") {
+        cur = [k.x * sx, k.y * sy];
+        if (k.op === "M") start = cur;
+        local.push({ op: k.op, x: cur[0], y: cur[1] });
+      } else if (k.op === "C" && k.pts.length >= 3) {
+        const [a, b, d] = k.pts.map(([px, py]) => [px * sx, py * sy]);
+        local.push({ op: "C", x1: a[0], y1: a[1], x2: b[0], y2: b[1], x: d[0], y: d[1] });
+        cur = d;
+      } else if (k.op === "Q" && k.pts.length >= 2) {
+        const [q, d] = k.pts.map(([px, py]) => [px * sx, py * sy]);
+        local.push({ op: "C", x1: cur[0] + 2 / 3 * (q[0] - cur[0]), y1: cur[1] + 2 / 3 * (q[1] - cur[1]), x2: d[0] + 2 / 3 * (q[0] - d[0]), y2: d[1] + 2 / 3 * (q[1] - d[1]), x: d[0], y: d[1] });
+        cur = d;
+      } else if (k.op === "A") {
+        cur = arcTo(local, cur, k.wR * sx, k.hR * sy, k.st, k.sw);
+      } else if (k.op === "Z") {
+        local.push({ op: "Z" });
+        cur = start;
+      }
+    }
+    return { cmds: mapPath(local, place), fill: p.fill, stroke: p.stroke };
+  });
 }
 
 // ../docx-layout/src/page-fill.ts
@@ -15520,7 +15529,9 @@ function paintItems(ctx, items, env, opts = {}) {
     const it = items[i];
     switch (it.t) {
       case "glyphs":
+        if (it.alpha !== void 0) ctx.globalAlpha = base * it.alpha;
         paintGlyphs(ctx, it, env);
+        ctx.globalAlpha = base;
         break;
       case "rect": {
         if (!HEX6.test(it.fill)) break;
@@ -15531,9 +15542,15 @@ function paintItems(ctx, items, env, opts = {}) {
           w = n.x + n.w - it.x;
           i++;
         }
+        let x = it.x, y = it.y, h = it.h;
+        const m = ctx.getTransform();
+        if (m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0) {
+          [x, w] = snapThin(x, w, m.a, m.e);
+          [y, h] = snapThin(y, h, m.d, m.f);
+        }
         ctx.globalAlpha = base * (it.alpha ?? 1);
         ctx.fillStyle = env.color(it.fill);
-        ctx.fillRect(it.x, it.y, w, it.h);
+        ctx.fillRect(x, y, w, h);
         ctx.globalAlpha = base;
         break;
       }
@@ -15648,6 +15665,13 @@ function paintItems(ctx, items, env, opts = {}) {
   }
   while (depth-- > 0) ctx.restore();
   ctx.restore();
+}
+function snapThin(v, len, s, o) {
+  const dev = len * s;
+  if (!(dev > 0 && dev < 3)) return [v, len];
+  const dw = Math.max(1, Math.round(dev));
+  const start = Math.round((v + len / 2) * s + o - dw / 2);
+  return [(start - o) / s, dw / s];
 }
 function paintGlyphs(ctx, it, env) {
   if (!it.glyphs.length || !HEX6.test(it.color)) return;
@@ -16127,6 +16151,7 @@ export {
   RevisionDisplay,
   emptyFormatting,
   documentHyphenationLanguages,
+  decodeRaster,
   applyBlipFx,
   formatWordDate,
   gradientTileRgba,

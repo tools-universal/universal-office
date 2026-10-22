@@ -27537,6 +27537,7 @@ var init_fonts3 = __esm({
           const a22 = own3(ALIASES, ps.family.toLowerCase()) ?? ps.family;
           tries.push({ family: a22, bold: bold || !!ps.bold, italic: italic || !!ps.italic });
         }
+        const mappedEnd = tries.length;
         const info = own3(this.fontTable, fam);
         if (info?.altName) for (const alt of info.altName.split(/[,;]/)) tries.push({ family: alt.trim(), bold, italic });
         const symbolic = info?.charset === "02" || info?.family === "decorative";
@@ -27548,10 +27549,18 @@ var init_fonts3 = __esm({
         void this.docDefault;
         tries.push({ family: genericFor(info), bold, italic });
         for (const fb of this.fallbacks) tries.push({ family: fb, bold, italic });
-        for (const t6 of tries) {
+        for (let i7 = 0; i7 < tries.length; i7++) {
+          const t6 = tries[i7];
           if (!t6.family) continue;
           const face = this.provider.face(t6.family, t6.bold, t6.italic);
-          if (face) return face;
+          if (!face) continue;
+          if (i7 === 0 && face.standIn) {
+            for (const c5 of tries.slice(1, mappedEnd)) {
+              const f3 = c5.family ? this.provider.face(c5.family, c5.bold, c5.italic) : null;
+              if (f3 && !f3.standIn) return f3;
+            }
+          }
+          return face;
         }
         throw new Error(`nenhuma fonte dispon\xEDvel para "${fam}"`);
       }
@@ -38767,7 +38776,9 @@ function paintItems(ctx, items, env, opts = {}) {
     const it = items[i7];
     switch (it.t) {
       case "glyphs":
+        if (it.alpha !== void 0) ctx.globalAlpha = base * it.alpha;
         paintGlyphs(ctx, it, env);
+        ctx.globalAlpha = base;
         break;
       case "rect": {
         if (!HEX6.test(it.fill)) break;
@@ -38778,9 +38789,15 @@ function paintItems(ctx, items, env, opts = {}) {
           w2 = n5.x + n5.w - it.x;
           i7++;
         }
+        let x3 = it.x, y3 = it.y, h3 = it.h;
+        const m2 = ctx.getTransform();
+        if (m2.b === 0 && m2.c === 0 && m2.a > 0 && m2.d > 0) {
+          [x3, w2] = snapThin(x3, w2, m2.a, m2.e);
+          [y3, h3] = snapThin(y3, h3, m2.d, m2.f);
+        }
         ctx.globalAlpha = base * (it.alpha ?? 1);
         ctx.fillStyle = env.color(it.fill);
-        ctx.fillRect(it.x, it.y, w2, it.h);
+        ctx.fillRect(x3, y3, w2, h3);
         ctx.globalAlpha = base;
         break;
       }
@@ -38895,6 +38912,13 @@ function paintItems(ctx, items, env, opts = {}) {
   }
   while (depth-- > 0) ctx.restore();
   ctx.restore();
+}
+function snapThin(v2, len2, s4, o7) {
+  const dev = len2 * s4;
+  if (!(dev > 0 && dev < 3)) return [v2, len2];
+  const dw = Math.max(1, Math.round(dev));
+  const start = Math.round((v2 + len2 / 2) * s4 + o7 - dw / 2);
+  return [(start - o7) / s4, dw / s4];
 }
 function paintGlyphs(ctx, it, env) {
   if (!it.glyphs.length || !HEX6.test(it.color)) return;
@@ -39349,6 +39373,7 @@ var init_src4 = __esm({
     init_page_fill();
     init_canvas_picture();
     init_picture();
+    init_images();
     init_refs();
     init_revisions2();
     init_outline2();
@@ -69102,52 +69127,77 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const cached = this.bitmaps.get(img);
     if (cached === "loading") return null;
     if (cached) return cached;
-    this.bitmaps.set(img, "loading");
-    if (img.svg) {
-      this.rasterizeSvg(img);
-      return null;
-    }
-    const copy = new Uint8Array(img.data);
-    void createImageBitmap(new Blob([copy.buffer], { type: `image/${img.ext === "jpg" ? "jpeg" : img.ext}` })).then((bmp) => {
-      this.bitmaps.set(img, bmp);
-      this.imagesVersion++;
-      this.paint();
-    }).catch(() => this.bitmaps.set(img, void 0));
+    void this.decodeImage(img).then((ok) => {
+      if (ok) this.paint();
+    });
     return null;
   }
+  /** Decodifica a imagem no cache de bitmaps (o SVG, se houver, rasterizado);
+   *  `true` se um bitmap novo entrou. Uma decodificação por imagem: quem chega
+   *  com ela em curso espera a mesma; a que termina depois de a imagem trocar
+   *  de bytes (Alterar Imagem, ajustes) é descartada. */
+  decodeImage(img) {
+    const cached = this.bitmaps.get(img);
+    if (cached && cached !== "loading") return Promise.resolve(false);
+    const { data: data8, svg } = img;
+    const cur = this.decoding.get(img);
+    if (cur && cur.data === data8 && cur.svg === svg) return cur.p;
+    this.bitmaps.set(img, "loading");
+    const bmp = svg ? this.rasterizeSvg(img) : createImageBitmap(new Blob([new Uint8Array(data8).buffer], { type: `image/${img.ext === "jpg" ? "jpeg" : img.ext}` })).catch((e8) => {
+      const rgba = decodeRaster(data8);
+      if (!rgba) throw e8;
+      return createImageBitmap(new ImageData(new Uint8ClampedArray(rgba.data), rgba.width, rgba.height));
+    });
+    const same2 = () => img.data === data8 && img.svg === svg;
+    const p3 = bmp.then(
+      (b5) => {
+        if (!same2()) return false;
+        this.bitmaps.set(img, b5);
+        this.imagesVersion++;
+        return true;
+      },
+      () => {
+        if (same2()) this.bitmaps.set(img, void 0);
+        return false;
+      }
+    ).finally(() => {
+      if (this.decoding.get(img)?.p === p3) this.decoding.delete(img);
+    });
+    this.decoding.set(img, { data: data8, svg, p: p3 });
+    return p3;
+  }
+  decoding = /* @__PURE__ */ new WeakMap();
   /** Rasteriza um SVG (asvg:svgBlip) num bitmap com supersampling, para o
    *  desenho ficar nítido no zoom/DPI do editor — como o vetor do Word. */
   rasterizeSvg(img) {
     const text = new TextDecoder().decode(img.svg);
     const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
     const el15 = new Image();
-    el15.onload = () => {
-      try {
-        const SS = 3;
-        const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el15.width) * PX_PER_TWIP * SS)));
-        const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el15.height) * PX_PER_TWIP * SS)));
-        const oc = document.createElement("canvas");
-        oc.width = wPx;
-        oc.height = hPx;
-        const octx = oc.getContext("2d");
-        octx.imageSmoothingEnabled = true;
-        octx.imageSmoothingQuality = "high";
-        octx.drawImage(el15, 0, 0, wPx, hPx);
-        void createImageBitmap(oc).then((bmp) => {
-          this.bitmaps.set(img, bmp);
-          this.imagesVersion++;
-          this.paint();
-        }).catch(() => this.bitmaps.set(img, void 0));
-      } catch {
-        this.bitmaps.set(img, void 0);
-      }
-      URL.revokeObjectURL(url);
-    };
-    el15.onerror = () => {
-      this.bitmaps.set(img, void 0);
-      URL.revokeObjectURL(url);
-    };
-    el15.src = url;
+    return new Promise((resolve, reject) => {
+      el15.onload = () => {
+        try {
+          const SS = 3;
+          const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el15.width) * PX_PER_TWIP * SS)));
+          const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el15.height) * PX_PER_TWIP * SS)));
+          const oc = document.createElement("canvas");
+          oc.width = wPx;
+          oc.height = hPx;
+          const octx = oc.getContext("2d");
+          octx.imageSmoothingEnabled = true;
+          octx.imageSmoothingQuality = "high";
+          octx.drawImage(el15, 0, 0, wPx, hPx);
+          createImageBitmap(oc).then(resolve, reject);
+        } catch (e8) {
+          reject(e8);
+        }
+        URL.revokeObjectURL(url);
+      };
+      el15.onerror = (e8) => {
+        URL.revokeObjectURL(url);
+        reject(e8);
+      };
+      el15.src = url;
+    });
   }
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
   async insertImage(data8, ext, obj) {
@@ -81340,6 +81390,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               fam = sub;
             }
             const vb = v2 === "bold" || v2 === "boldItalic", vi = v2 === "italic" || v2 === "boldItalic";
+            const standIn = !this.loadedFamilyNames.has(family) && this.fontResolver.getWithFile(family)?.source === "substitute";
             out = {
               key: `${fam}|${v2}`,
               family: fam,
@@ -81348,7 +81399,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               bold,
               italic,
               ...bold && !vb ? { synthBold: true } : {},
-              ...italic && !vi ? { synthItalic: true } : {}
+              ...italic && !vi ? { synthItalic: true } : {},
+              ...standIn ? { standIn: true } : {}
             };
             const css2 = file.name === DEFAULT_FONT ? DEFAULT_FONT_CSS : `${cssFamily(file.name)}, ${DEFAULT_FONT_CSS}`;
             this.engFaceCss.set(out, { family: css2, weight: vb ? 700 : 400, italic: vi });
@@ -81730,19 +81782,25 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     return out;
   }
-  /** Garante que todas as imagens estejam decodificadas (createImageBitmap é async). */
-  async ensureImagesDecoded() {
-    await Promise.all(this.collectImages().map(async (img) => {
-      const cached = this.bitmaps.get(img);
-      if (cached && cached !== "loading") return;
-      try {
-        const copy = new Uint8Array(img.data);
-        const bmp = await createImageBitmap(new Blob([copy.buffer], { type: `image/${img.ext === "jpg" ? "jpeg" : img.ext}` }));
-        this.bitmaps.set(img, bmp);
-        this.imagesVersion++;
-      } catch {
+  /** Imagens que o layout do motor pinta: as dos runs e também as que não são
+   *  run.image do modelo (figura dentro de grupo/caixa, preenchimento de forma,
+   *  fundo da página, EMF/WMF). */
+  engineImages() {
+    const out = [];
+    for (const p3 of this.eng?.result.pages ?? []) {
+      if (p3.backgroundFill?.image) out.push(p3.backgroundFill.image);
+      for (const it of p3.items) {
+        if (it.t === "image") out.push(it.image);
+        else if (it.t === "shape" && it.blip) out.push(it.blip.image);
       }
-    }));
+    }
+    return out;
+  }
+  /** Garante que todas as imagens estejam decodificadas (createImageBitmap é async)
+   *  — antes de imprimir/exportar páginas que nunca foram pintadas. */
+  async ensureImagesDecoded() {
+    const all = /* @__PURE__ */ new Set([...this.collectImages(), ...this.engineImages()]);
+    await Promise.all([...all].map((img) => this.decodeImage(img)));
   }
   /** Coloca os glifos de `text` em sequência usando NOSSOS advances (snap-free). */
   pdfGlyphsAt(page2, emb, family, variant, sizePt, color3, text, xTwips, baselineTwips) {

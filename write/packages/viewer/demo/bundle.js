@@ -16717,6 +16717,7 @@ var FaceResolver = class {
       const a2 = own3(ALIASES, ps.family.toLowerCase()) ?? ps.family;
       tries.push({ family: a2, bold: bold || !!ps.bold, italic: italic || !!ps.italic });
     }
+    const mappedEnd = tries.length;
     const info = own3(this.fontTable, fam);
     if (info?.altName) for (const alt of info.altName.split(/[,;]/)) tries.push({ family: alt.trim(), bold, italic });
     const symbolic = info?.charset === "02" || info?.family === "decorative";
@@ -16728,10 +16729,18 @@ var FaceResolver = class {
     void this.docDefault;
     tries.push({ family: genericFor(info), bold, italic });
     for (const fb of this.fallbacks) tries.push({ family: fb, bold, italic });
-    for (const t of tries) {
+    for (let i2 = 0; i2 < tries.length; i2++) {
+      const t = tries[i2];
       if (!t.family) continue;
       const face = this.provider.face(t.family, t.bold, t.italic);
-      if (face) return face;
+      if (!face) continue;
+      if (i2 === 0 && face.standIn) {
+        for (const c of tries.slice(1, mappedEnd)) {
+          const f = c.family ? this.provider.face(c.family, c.bold, c.italic) : null;
+          if (f && !f.standIn) return f;
+        }
+      }
+      return face;
     }
     throw new Error(`nenhuma fonte dispon\xEDvel para "${fam}"`);
   }
@@ -27786,7 +27795,9 @@ function paintItems(ctx, items, env, opts = {}) {
     const it = items[i2];
     switch (it.t) {
       case "glyphs":
+        if (it.alpha !== void 0) ctx.globalAlpha = base * it.alpha;
         paintGlyphs(ctx, it, env);
+        ctx.globalAlpha = base;
         break;
       case "rect": {
         if (!HEX6.test(it.fill)) break;
@@ -27797,9 +27808,15 @@ function paintItems(ctx, items, env, opts = {}) {
           w = n.x + n.w - it.x;
           i2++;
         }
+        let x2 = it.x, y = it.y, h = it.h;
+        const m = ctx.getTransform();
+        if (m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0) {
+          [x2, w] = snapThin(x2, w, m.a, m.e);
+          [y, h] = snapThin(y, h, m.d, m.f);
+        }
         ctx.globalAlpha = base * (it.alpha ?? 1);
         ctx.fillStyle = env.color(it.fill);
-        ctx.fillRect(it.x, it.y, w, it.h);
+        ctx.fillRect(x2, y, w, h);
         ctx.globalAlpha = base;
         break;
       }
@@ -27914,6 +27931,13 @@ function paintItems(ctx, items, env, opts = {}) {
   }
   while (depth-- > 0) ctx.restore();
   ctx.restore();
+}
+function snapThin(v, len, s, o) {
+  const dev = len * s;
+  if (!(dev > 0 && dev < 3)) return [v, len];
+  const dw = Math.max(1, Math.round(dev));
+  const start = Math.round((v + len / 2) * s + o - dw / 2);
+  return [(start - o) / s, dw / s];
 }
 function paintGlyphs(ctx, it, env) {
   if (!it.glyphs.length || !HEX6.test(it.color)) return;
@@ -28604,7 +28628,7 @@ var ViewerFonts = class {
   face(family, bold, italic) {
     const want = variantOf2(bold, italic);
     const order = [.../* @__PURE__ */ new Set([want, bold ? "bold" : "regular", italic ? "italic" : "regular", "regular"])];
-    const mk = (fam, font, bytes, v) => {
+    const mk = (fam, font, bytes, v, standIn = false) => {
       const vb = v === "bold" || v === "boldItalic", vi = v === "italic" || v === "boldItalic";
       return {
         key: `${fam}|${v}`,
@@ -28614,7 +28638,8 @@ var ViewerFonts = class {
         bold,
         italic,
         ...bold && !vb ? { synthBold: true } : {},
-        ...italic && !vi ? { synthItalic: true } : {}
+        ...italic && !vi ? { synthItalic: true } : {},
+        ...standIn ? { standIn: true } : {}
       };
     };
     const a = this.assets.get(family.toLowerCase());
@@ -28647,7 +28672,7 @@ var ViewerFonts = class {
         fam = sub;
       }
       try {
-        return mk(fam, this.sfnt(bytes), bytes, v);
+        return mk(fam, this.sfnt(bytes), bytes, v, r.source === "substitute");
       } catch {
       }
     }

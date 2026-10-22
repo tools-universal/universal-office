@@ -44,7 +44,7 @@ import {
   presetOutline,
   textboxTemplateSpec,
   tocFormatStyle
-} from "./chunk-AXM5VHWE.js";
+} from "./chunk-IL7QT2LH.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,

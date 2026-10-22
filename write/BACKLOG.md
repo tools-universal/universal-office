@@ -140,6 +140,9 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Sumário | Adicionar Texto não é mensurável por COM; segue a regra descrita pela MVP Suzanne Barnhill |
 | Sumário | Campo TC com "Mostrar tudo" ligado não mostra o código do campo |
 | Sumário | O `_Toc` de um TC fica em volta do campo, e não dentro da instrução como o Word grava |
+| Verificação | Letra Capitular (`w:framePr w:dropCap`) não é desenhada: é o maior defeito visível no demo (demo.docx pág. 6, Catalogo pág. 3) — adiantar da frente Texto decorativo |
+| Verificação | 45 documentos com o canvas abaixo do PDF (rasterização de serifadas pequenas, cores de formas) |
+| Verificação | PDF do Atlas (500 MB) sai com 655 MB contra 29 MB do Word: imagens não são reamostradas |
 
 ### Fora do escopo
 
