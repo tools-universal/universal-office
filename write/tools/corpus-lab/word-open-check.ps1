@@ -49,8 +49,10 @@ foreach ($row in $rows) {
           $script:ind = $false; $script:tabs = $false; $k = 0
           $na = ''; $nt = ''; $script:ia = -1; $script:it = -1
           if ($parts.Count -ge 4 -and $parts[2] -ne '' -and $parts[3] -ne '') {
-            $na = $parts[2].Substring(0, [math]::Min(40, $parts[2].Length))
-            $nt = $parts[3].Substring(0, [math]::Min(40, $parts[3].Length))
+            # so letras e digitos, 12 primeiros (espacos, NBSP e numeracao variam)
+            $na = ($parts[2] -replace '[^\p{L}\p{N}]', '')
+            $nt = ($parts[3] -replace '[^\p{L}\p{N}]', '')
+            $na = $na.Substring(0, [math]::Min(12, $na.Length)); $nt = $nt.Substring(0, [math]::Min(12, $nt.Length))
           }
           foreach ($p in $d.Paragraphs) {
             $k++
@@ -63,7 +65,7 @@ foreach ($row in $rows) {
             if ($na -ne '' -and ($script:ia -lt 0 -or $script:it -lt 0)) {
               $lv = $p.OutlineLevel
               if ($lv -ne $null -and $lv -lt 10) {
-                $x = ([string]$p.Range.Text).Trim()
+                $x = ([string]$p.Range.Text) -replace '[^\p{L}\p{N}]', ''
                 if ($script:ia -lt 0 -and $x.StartsWith($na, [System.StringComparison]::OrdinalIgnoreCase)) { $script:ia = $k }
                 elseif ($script:it -lt 0 -and $x.StartsWith($nt, [System.StringComparison]::OrdinalIgnoreCase)) { $script:it = $k }
               }
