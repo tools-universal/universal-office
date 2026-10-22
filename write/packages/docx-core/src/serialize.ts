@@ -3,6 +3,7 @@ import { parseXml, childElements } from './xml.js';
 import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
+import { HF_NS } from './hf-ops.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
 import { patchRPr, patchPPr, patchSectPr, pgNumTypeXml, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 import {
@@ -1153,6 +1154,14 @@ function withNamespaces(open: string, rootName: string, content = ''): string {
     ['wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'],
     // w15:footnoteColumns no sectPr (colunas da área de notas)
     ...(content.includes('<w15:') ? [['w15', 'http://schemas.microsoft.com/office/word/2012/wordml'] as [string, string]] : []),
+    // VML/DrawingML novos (marca-d'água, folha de rosto) numa parte de outro programa
+    ...([
+      ['v', 'urn:schemas-microsoft-com:vml', /<v:/], ['o', 'urn:schemas-microsoft-com:office:office', /\so:\w+=|<o:/],
+      ['w10', 'urn:schemas-microsoft-com:office:word', /<w10:/], ['w14', 'http://schemas.microsoft.com/office/word/2010/wordml', /\sw14:\w+=|<w14:/],
+      ['mc', 'http://schemas.openxmlformats.org/markup-compatibility/2006', /<mc:/], ['wps', 'http://schemas.microsoft.com/office/word/2010/wordprocessingShape', /<wps:|Requires="wps"/],
+      ['a', 'http://schemas.openxmlformats.org/drawingml/2006/main', /<a:/],
+    // (só o prefixo usado e não declarado em lugar nenhum: o Word declara `a` no a:graphic)
+    ] as [string, string, RegExp][]).filter(([pfx, , re]) => re.test(content) && !content.includes(`xmlns:${pfx}=`)).map(([pfx, uri]) => [pfx, uri] as [string, string]),
   ];
   for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag)) tag += ` xmlns:${pfx}="${uri}"`;
   return open.slice(0, at) + tag + open.slice(end);
@@ -1218,14 +1227,15 @@ const W_NS_HF =
   'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
   'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 
-/** Serializa uma parte de cabeçalho/rodapé (w:hdr / w:ftr). */
+/** Serializa uma parte de cabeçalho/rodapé (w:hdr / w:ftr) nova: a raiz leva os namespaces
+ *  que o Word grava (HF_NS) — o conteúdo pode ter VML (marca-d'água: v/o/w10/w14), wps… */
 export function serializeHfPart(kind: 'header' | 'footer', paragraphs: Paragraph[]): string {
   const tag = kind === 'header' ? 'w:hdr' : 'w:ftr';
   takeUsedDateUtc();
   const body = paragraphs.map(paraXml).join('');
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    revRoot(`<${tag} ${W_NS_HF}>`, tag) + body + `</${tag}>`
+    revRoot(`<${tag} ${HF_NS}>`, tag) + body + `</${tag}>`
   );
 }
 
@@ -1379,7 +1389,7 @@ function writeParts(
           const root = hf.kind === 'header' ? 'w:hdr' : 'w:ftr';
           takeUsedDateUtc();
           const body = storyBlocksXml(story, blocks, store!);
-          const xml = revRoot(withNamespaces(story.open, root), root) + body + story.close;
+          const xml = revRoot(withNamespaces(story.open, root, body), root) + body + story.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
           active.relsPath = relsPath;
         } else {

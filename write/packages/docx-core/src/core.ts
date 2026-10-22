@@ -42,9 +42,11 @@ export {
 export * from './ooxml/props.js';
 export * from './ooxml/parts.js';
 export type { DrawingAnchor, AnchorPos, ShapeStyle, WrapType, CustPath, CustCmd } from './drawing.js';
+export { vmlColor } from './drawing.js';
 export {
   readFullDocument,
   readHeaderFooterPart,
+  readBodyFragment,
   type FullDocument,
   type Block,
   type ParagraphBlock,

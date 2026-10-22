@@ -427,6 +427,31 @@ export function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: Sou
   return { paras, blocks };
 }
 
+/**
+ * Fragmento do CORPO (filhos de w:body: w:p, w:tbl, w:sdt…) lido como o corpo é lido —
+ * com fontes, os blocos e os grupos (o sdt de uma folha de rosto) entram na história do
+ * document.xml e saem crus ao salvar. `ns` = declarações de namespace do fragmento.
+ */
+export function readBodyFragment(pkg: DocxPackage, store: SourceStore | undefined, inner: string, ns: string): { blocks: Block[]; groups: StoryGroup[] } | undefined {
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<w:document ${ns}><w:body>${inner}</w:body></w:document>`;
+  const root = parseXml(xml, { positions: !!store });
+  const body = firstChild(root, 'w:body');
+  if (!body) return undefined;
+  const ctx = buildReadContext(pkg, 'word/_rels/document.xml.rels');
+  ctx.readBlocks = readBlocksOf;
+  if (!store) return { blocks: readBlocksOf(body, ctx), groups: [] };
+  ctx.sources = store;
+  ctx.sourceXml = xml;
+  const groups: StoryGroup[] = [];
+  const blocks: Block[] = [];
+  for (const c of childElements(body)) {
+    const produced = readBlocksOf({ name: body.name, attrs: {}, children: [c] }, ctx);
+    groups.push(groupOf(xml, c, produced, store));
+    blocks.push(...produced);
+  }
+  return { blocks, groups };
+}
+
 function readNotesPart(
   pkg: DocxPackage,
   path: string,

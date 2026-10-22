@@ -176,14 +176,21 @@ const MIME: Record<string, string> = {
  * Grava (ou tira, com null) o w:background no document.xml já serializado: troca
  * o elemento, põe as declarações de namespace que faltam, grava a imagem do efeito
  * (word/media + relação + tipo de conteúdo) e tira a relação da imagem anterior
- * que ficou sem uso.
+ * que ficou sem uso. `prev` = o que a gravação anterior NESTE pacote acrescentou (o
+ * editor salva várias vezes sobre o mesmo pacote): sai antes. Devolve o acrescentado.
  */
-export function writePageBackground(pkg: DocxPackage, bg: PageBackground | null): void {
+export function writePageBackground(pkg: DocxPackage, bg: PageBackground | null, prev?: { rid: string; media: string }): { rid: string; media: string } | undefined {
   const path = partByRelType(pkg, 'officeDocument', 'word/document.xml');
   let xml = pkg.getPartText(path);
-  if (!xml) return;
+  if (!xml) return undefined;
   const relsPath = path.replace(/([^/]+)$/, '_rels/$1.rels');
   let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  if (prev) {
+    const rel = new RegExp(`<Relationship\\b[^>]*\\bId="${prev.rid}"[^>]*/>`).exec(rels);
+    if (rel) rels = rels.slice(0, rel.index) + rels.slice(rel.index + rel[0].length);
+    pkg.removePart(prev.media);
+  }
+  let added: { rid: string; media: string } | undefined;
   // elemento anterior (e a imagem dele)
   const old = /<w:background\b[^>]*?(?:\/>|>[\s\S]*?<\/w:background>)/.exec(xml);
   const oldRid = old ? /\br:id="([^"]+)"/.exec(old[0])?.[1] : undefined;
@@ -199,7 +206,8 @@ export function writePageBackground(pkg: DocxPackage, bg: PageBackground | null)
     let k = 1;
     while (new RegExp(`Id="rId${k}"`).test(rels)) k++;
     rid = `rId${k}`;
-    rels = rels.replace('</Relationships>', `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`);
+    added = { rid, media: `word/${target}` };
+    rels = rels.replace('</Relationships>', () => `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`);
     let ct = pkg.getPartText('[Content_Types].xml') ?? '';
     if (ct && !new RegExp(`<Default Extension="${ext}"`, 'i').test(ct)) {
       ct = ct.replace(/(<Types\b[^>]*>)/, `$1<Default Extension="${ext}" ContentType="${MIME[ext] ?? `image/${ext}`}"/>`);
@@ -221,7 +229,8 @@ export function writePageBackground(pkg: DocxPackage, bg: PageBackground | null)
     if (rel) rels = rels.slice(0, rel.index) + rels.slice(rel.index + rel[0].length);
   }
   pkg.setPartText(path, xml);
-  if (img || oldRid) pkg.setPartText(relsPath, rels);
+  if (img || oldRid || prev) pkg.setPartText(relsPath, rels);
+  return added;
 }
 
 // ───────────────────────── padrões e cores ─────────────────────────

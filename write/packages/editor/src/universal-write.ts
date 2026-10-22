@@ -30,6 +30,7 @@ import {
   sectionSectPr,
   sectionRefs,
   readHeaderFooterPart,
+  readBodyFragment,
   copyHfPartXml,
   hfPartXml,
   pageNumberGroupIds,
@@ -114,7 +115,29 @@ import {
   type PicReflection,
   type Pic3D,
   type DmlColor,
+  writePageBackground,
+  writeDisplayBackgroundShape,
+  patternGif,
+  vmlColorAttr,
+  vmlColor,
+  watermarkRunXml,
+  isWatermarkXml,
+  readWatermarkXml,
+  autoTextBox,
+  explicitTextBox,
+  pictureBox,
+  WATERMARK_GALLERY,
+  WATERMARK_TEXTS,
+  WORD_PATTERNS,
+  type PageBackground,
+  type WatermarkSpec,
+  type WatermarkInfo,
+  type WatermarkGalleryItem,
+  type StoryGroup,
 } from '@universal-office/docx-core';
+import { patternRows } from '@universal-office/drawingml';
+import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
+import { pageFillFrom, themeTintShade, GRADIENT_PRESETS, GRADIENT_VARIANTS, type PageFillInput, type PageBackgroundInfo, type ThemeColorRef, type GradientStyle } from './page-design.js';
 import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST, SHADOW_PRESETS, REFLECTION_PRESETS, GLOW_SIZES, glowPreset, bevel3D, RECOLOR_PRESETS } from './picture-ops.js';
 import { adjustSaturation, adjustTemperature, adjustSharpen, adjustBrightnessContrast, wrapContour } from '@universal-office/drawingml';
 import {
@@ -189,7 +212,7 @@ import {
 import { compareText } from '@universal-office/collation';
 import type { PlacedCell, ObjectFrame } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
-import { paintItems, paintPageBackground, type EnginePaintEnv } from '@universal-office/docx-layout';
+import { paintItems, paintPageBackground, imagePixelInfo, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
 import {
   tabInfo, tabsDirect, indentsDirect, dedupeTabs, headingSpan, moveMap, findInText, matchSnippet, drawingGridOf, gridLines,
@@ -1729,6 +1752,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.revAuthors = revisionAuthors(this.fullDoc);
     // linha de base do salvamento sem perdas: o documento como instalado
     this.fullDoc.sources?.baseline();
+    this.bgAtLoad = bgKey(this.fullDoc.background ?? null);
+    this.bgWritten = undefined;
     this.refresh();
     this.dispatchEvent(new CustomEvent('uw-protected', {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() },
@@ -5422,6 +5447,13 @@ export class UniversalWriteElement extends HTMLElement {
     });
     // Páginas Pares e Ímpares Diferentes (settings.xml), se o editor mexeu
     if (this.evenOdd !== null) writeEvenAndOddHeaders(pkg, this.evenOdd);
+    // Cor da Página: só se mudou desde que abriu (o w:background do arquivo fica byte a byte)
+    const bg = this.fullDoc?.background ?? null;
+    if (bgKey(bg) !== this.bgAtLoad || this.bgWritten) {
+      // o pacote é o mesmo entre gravações: a imagem que a anterior pôs sai antes
+      this.bgWritten = writePageBackground(pkg, bg, this.bgWritten);
+      if (bg) writeDisplayBackgroundShape(pkg, true);
+    }
     // partes que nenhuma seção referencia mais saem do pacote (Word, oráculo e07)
     const usedRids = new Set(sections.flatMap((s) => [...s.headerRefs, ...s.footerRefs].map((r) => r.rid)));
     const goneRids = new Set([...this.hfRidsAtLoad].filter((r) => !usedRids.has(r)));
@@ -5806,6 +5838,9 @@ export class UniversalWriteElement extends HTMLElement {
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
+      // Cor da Página (w:background) e a exibição do fundo (w:displayBackgroundShape)
+      bg: this.fullDoc?.background ?? null,
+      bgd: !!this.fullDoc?.formatting?.settings.displayBackgroundShape,
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
       ...(deep ? {
         hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
@@ -5855,6 +5890,8 @@ export class UniversalWriteElement extends HTMLElement {
     hp?: { k: string; b: Block[]; s: { anchor: DocPosition; focus: DocPosition } };
     hx?: [string, Block[]][];
     eo?: boolean;
+    bg?: PageBackground | null;
+    bgd?: boolean;
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -5966,6 +6003,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== undefined && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
+    this.restorePageBackground(state.bg, state.bgd);
     // cabeçalhos/rodapés que o passo mudou (a parte em edição e as outras)
     if (!this.tbEdit) {
       for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
@@ -7773,6 +7811,506 @@ export class UniversalWriteElement extends HTMLElement {
     this.engPageCache.clear();
     this.refresh();
     if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+
+  // ───────────────── Plano de Fundo da Página (guia Design) ─────────────────
+  // Regras medidas no Word (write/tools/page-lab; memória word-page-background-facts e
+  // word-watermark-facts). Cor da Página: w:background + w:displayBackgroundShape (a tela
+  // só mostra com ela; o PDF sempre). Marca-d'água: VML no 1º parágrafo dos TRÊS
+  // cabeçalhos da seção do cursor (even/default/first), num passo de desfazer.
+
+  /** w:background como o documento abriu (para gravar só se mudou). */
+  private bgAtLoad: string | null = null;
+  /** imagem do fundo que a última gravação acrescentou ao pacote (sai na próxima) */
+  private bgWritten: { rid: string; media: string } | undefined;
+
+  /** Cor da Página atual (null = Sem Cor). */
+  pageBackground(): PageBackgroundInfo | null {
+    const bg = this.fullDoc?.background;
+    if (!bg) return null;
+    const shown = !!this.fullDoc?.formatting?.settings.displayBackgroundShape;
+    const t = bg.themeTint ? 1 - parseInt(bg.themeTint, 16) / 255 : undefined;
+    const sh = bg.themeShade ? 1 - parseInt(bg.themeShade, 16) / 255 : undefined;
+    const { image, ...fill } = bg.fill ?? ({} as NonNullable<PageBackground['fill']>);
+    return {
+      ...(bg.color ? { color: bg.color.toUpperCase() } : {}),
+      ...(bg.themeColor ? { themeColor: bg.themeColor } : {}),
+      ...(t !== undefined ? { tint: Math.round(t * 100) / 100 } : {}),
+      ...(sh !== undefined ? { shade: Math.round(sh * 100) / 100 } : {}),
+      ...(bg.fill ? { fill: { ...fill, ...(image ? { hasImage: true } : {}) } } : {}),
+      shown,
+    };
+  }
+
+  /**
+   * Cor da Página: RRGGBB, uma cor do tema ({ themeColor, tint | shade }, como a paleta)
+   * ou null = Sem Cor. O Word grava `<w:background w:color>` (com themeColor/Tint/Shade)
+   * e liga a exibição do fundo (w:displayBackgroundShape).
+   */
+  setPageColor(color: string | ThemeColorRef | null): void {
+    if (!this.model || this.locked()) return;
+    if (color === null) { this.applyPageBackground(null); return; }
+    if (typeof color === 'string') { this.applyPageBackground({ color: color.replace(/^#/, '').toUpperCase() }); return; }
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const ts = themeTintShade(color);
+    const colors = Object.fromEntries(Object.entries(theme?.colors ?? {}).map(([k, v]) => [k, String(v).replace(/^#/, '')]));
+    const hex = themeHex(colors, color.themeColor, ts.themeTint, ts.themeShade);
+    this.applyPageBackground({ color: hex, themeColor: color.themeColor, ...ts });
+  }
+
+  /** Efeitos de Preenchimento (gradiente, padrão, imagem, textura) — null tira o fundo. */
+  setPageFill(fill: PageFillInput | null): void {
+    if (!this.model || this.locked()) return;
+    if (!fill) { this.applyPageBackground(null); return; }
+    const bg = pageFillFrom(fill, uiLang(this), (prst) => { const rows = patternRows(prst); return rows ? patternGif(rows) : null; });
+    if (bg) this.applyPageBackground(bg);
+  }
+
+  /** Predefinições de gradiente (próprias), variantes por estilo e padrões, para o diálogo. */
+  pageFillOptions(): { presets: { id: string; name: string; stops: { pos: number; color: string }[] }[]; variants: Record<GradientStyle, number>; patterns: { id: string; name: string }[] } {
+    const lang = uiLang(this);
+    return {
+      presets: GRADIENT_PRESETS.map((p) => ({ id: p.id, name: p.name[lang], stops: p.stops })),
+      variants: { ...GRADIENT_VARIANTS },
+      patterns: WORD_PATTERNS.map((p) => ({ id: p.prst, name: p.title[lang].trim() })),
+    };
+  }
+
+  /** Troca o w:background (um passo de desfazer) e liga a exibição do fundo na tela. */
+  private applyPageBackground(bg: PageBackground | null): void {
+    if (!this.fullDoc) return;
+    this.snapshot();
+    if (bg) this.fullDoc.background = bg; else delete this.fullDoc.background;
+    const f = this.fullDoc.formatting ?? (this.newFormatting ??= emptyFormatting());
+    if (bg) f.settings.displayBackgroundShape = true;
+    this.engPageCache.clear();
+    this.refresh();
+  }
+
+  /** Volta o fundo do estado de desfazer. */
+  private restorePageBackground(bg: PageBackground | null | undefined, shown: boolean | undefined): void {
+    if (!this.fullDoc || bg === undefined) return;
+    if (bg) this.fullDoc.background = bg; else delete this.fullDoc.background;
+    const f = this.fullDoc.formatting ?? this.newFormatting;
+    if (f && shown !== undefined) f.settings.displayBackgroundShape = shown;
+    this.engPageCache.clear();
+  }
+
+  // ── marca-d'água ──
+
+  /** XML do objeto (w:pict/w:drawing) de origem de um run, se houver. */
+  private runObjXml(run: Run): string | undefined {
+    const store = this.fullDoc?.sources;
+    const sid = run.props.src;
+    if (!store || sid === undefined) return undefined;
+    const src = store.runs.get(sid);
+    return src?.obj ?? (src?.objHead !== undefined ? store.runs.get(src.objHead)?.obj : undefined);
+  }
+
+  /** O run é a marca-d'água do Word (PowerPlusWaterMarkObject / WordPictureWatermark)? */
+  private isWatermarkRun(run: Run): boolean {
+    if (!run.textbox?.vml && !run.image?.vml) return false;
+    return isWatermarkXml(this.runObjXml(run));
+  }
+
+  /** Marca-d'água da seção do cursor (do cabeçalho padrão; senão do primeiro com uma). */
+  watermark(): (WatermarkInfo & { image?: Uint8Array }) | null {
+    const c = this.hfContext();
+    if (!c) return null;
+    for (const type of ['default', 'first', 'even'] as const) {
+      const p = this.hfPartFor(c.sec, 'header', type);
+      const paras = p ? this.hfParts.get(p.key)?.paras : undefined;
+      for (const para of paras ?? []) {
+        for (const run of para.runs) {
+          if (!this.isWatermarkRun(run)) continue;
+          const info = readWatermarkXml(this.runObjXml(run)!, vmlColor);
+          if (info) return info.kind === 'picture' && run.image ? { ...info, image: run.image.data } : info;
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Textos da lista do diálogo Marca-d'Água Personalizada (idioma da interface). */
+  watermarkTexts(): readonly string[] { return WATERMARK_TEXTS[uiLang(this)]; }
+
+  /** Itens da galeria (texto e categoria no idioma da interface). */
+  watermarkGallery(): (WatermarkGalleryItem & { label: string; categoryLabel: string })[] {
+    const lang = uiLang(this);
+    const cat = { confidential: { en: 'Confidential', pt: 'Confidencial' }, disclaimers: { en: 'Disclaimers', pt: 'Avisos de Isenção de Responsabilidade' }, urgent: { en: 'Urgent', pt: 'Urgente' } };
+    return WATERMARK_GALLERY.map((g) => ({ ...g, label: `${g.text[lang]} ${g.layout === 'diagonal' ? 1 : 2}`, categoryLabel: cat[g.category][lang] }));
+  }
+
+  /**
+   * Marca-d'água: um item da galeria (id) ou a do diálogo Personalizada. Vai no 1º
+   * parágrafo dos três cabeçalhos da seção do cursor (as partes que faltam são
+   * criadas; as vinculadas são compartilhadas), trocando a que houver. Um passo.
+   */
+  setWatermark(spec: WatermarkSpec | string): void {
+    if (!this.model || this.locked()) return;
+    const c = this.hfContext();
+    if (!c) return;
+    const lang = uiLang(this);
+    const sp = sectionSectPr(this.bodyModel(), c.sec);
+    const contentW = (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips) / 20;
+    let wm: WatermarkSpec;
+    let box: { widthPt: number; heightPt: number };
+    if (typeof spec === 'string') {
+      const g = WATERMARK_GALLERY.find((x) => x.id === spec);
+      if (!g) return;
+      wm = { kind: 'text', text: g.text[lang], font: 'calibri', color: 'C0C0C0', semitransparent: true, layout: g.layout };
+      box = { widthPt: g.box[lang][0], heightPt: g.box[lang][1] };
+    } else if (spec.kind === 'text') {
+      if (!spec.text.trim()) return;
+      wm = spec;
+      box = spec.sizePt ? this.watermarkTextBox(spec.text, spec.font, spec.sizePt) : autoTextBox(spec.text, spec.layout, contentW);
+    } else {
+      const info = imagePixelInfo(spec.data);
+      if (!info) return;
+      wm = spec;
+      box = pictureBox({ w: (info.w * 72) / info.dpi, h: (info.h * 72) / info.dpi }, spec.scale, contentW);
+    }
+    this.editSectionHeaders(c.sec, (paras, path) => {
+      for (const p of paras) p.runs = p.runs.filter((r) => !this.isWatermarkRun(r));
+      const run = this.watermarkRun(wm, box, path);
+      if (run) {
+        if (!paras.length) paras.push(...this.newHfParas('header'));
+        paras[0]!.runs.unshift(run);
+      }
+    });
+  }
+
+  /** Remover Marca-d'Água: de TODOS os cabeçalhos do documento (Word, oráculo wm-remove-multi). */
+  removeWatermark(): void {
+    if (!this.model || this.locked()) return;
+    const keys = [...this.hfParts.entries()].filter(([k, p]) => k.startsWith('header:') && p.paras?.some((q) => q.runs.some((r) => this.isWatermarkRun(r)))).map(([k]) => k);
+    if (!keys.length) return;
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    this.snapshot(false, keys);
+    for (const k of keys) {
+      const part = this.hfParts.get(k)!;
+      for (const p of part.paras!) p.runs = p.runs.filter((r) => !this.isWatermarkRun(r));
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+
+  /** Caixa da marca com tamanho explícito: avanço do texto e altura (winAscent+winDescent). */
+  private watermarkTextBox(text: string, font: string, sizePt: number): { widthPt: number; heightPt: number } {
+    const prov = this.liveFontProvider();
+    const face = prov.face(font, false, false) ?? prov.face('Calibri', false, false);
+    if (!face) return { widthPt: sizePt * text.length * 0.6, heightPt: sizePt * 1.2 };
+    let tw = 0;
+    for (const ch of text) tw += face.font.advanceTwips(ch.codePointAt(0)!, sizePt);
+    const fm = face.font.metrics, u = fm.unitsPerEm || 1000;
+    const line = ((fm.usWinAscent || fm.ascender) + (fm.usWinDescent || -fm.descender)) / u;
+    return explicitTextBox(tw / 20, sizePt, line);
+  }
+
+  /** Run da marca-d'água para a parte `path` (a imagem ganha relação e mídia já no pacote). */
+  private watermarkRun(spec: WatermarkSpec, box: { widthPt: number; heightPt: number }, path: string): Run | null {
+    const pkg = this.pkg ?? (this.pkg = DocxPackage.empty());
+    let rid: string | undefined;
+    if (spec.kind === 'picture') rid = this.addPartImage(path, spec.data, spec.ext);
+    const used = pkg.partNames().filter((n) => /^word\/(header|footer)\d*\.xml$/.test(n)).map((n) => pkg.getPartText(n) ?? '').join('')
+      + [...this.hfParts.values()].flatMap((p) => p.paras ?? []).flatMap((q) => q.runs).map((r) => this.runObjXml(r) ?? '').join('');
+    let spid = 1025;
+    for (const mm of used.matchAll(/_x0000_s(\d+)/g)) spid = Math.max(spid, parseInt(mm[1]!, 10) + 1);
+    const ids = { n: 100000000 + Math.floor(Math.random() * 899999999), spid, anchorId: Math.floor(Math.random() * 0x7fffffff).toString(16).toUpperCase().padStart(8, '0') };
+    const runXml = watermarkRunXml(spec, box, ids, rid, vmlColorAttr);
+    const read = readHeaderFooterPart(pkg, path, undefined, hfPartXml('header', `<w:p>${runXml}</w:p>`));
+    const run = read?.paras[0]?.runs.find((r) => r.textbox || r.image);
+    if (!run) return null;
+    const store = this.fullDoc?.sources;
+    if (store) {
+      const id = store.id();
+      store.runs.set(id, { rPr: '<w:rPr><w:noProof/></w:rPr>', obj: /<w:pict\b[\s\S]*<\/w:pict>/.exec(runXml)![0] });
+      run.props = { ...run.props, src: id };
+    }
+    return run;
+  }
+
+  /** Relação de imagem nova na parte (headerN.xml.rels), com a mídia e o tipo de conteúdo. */
+  private addPartImage(path: string, data: Uint8Array, ext0: string): string {
+    const pkg = this.pkg!;
+    const ext = ext0.toLowerCase() === 'jpg' ? 'jpeg' : ext0.toLowerCase();
+    let n = 1;
+    while (pkg.getPart(`word/media/image${n}.${ext}`)) n++;
+    pkg.setPart(`word/media/image${n}.${ext}`, data);
+    const relsPath = `word/_rels/${path.split('/').pop()}.rels`;
+    let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    let k = 1;
+    while (new RegExp(`Id="rId${k}"`).test(rels)) k++;
+    rels = rels.replace('</Relationships>', () => `<Relationship Id="rId${k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${n}.${ext}"/></Relationships>`);
+    pkg.setPartText(relsPath, rels);
+    const ct = pkg.getPartText('[Content_Types].xml');
+    const mime: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff' };
+    if (ct && !new RegExp(`<Default Extension="${ext}"`, 'i').test(ct)) {
+      pkg.setPartText('[Content_Types].xml', ct.replace(/(<Types\b[^>]*>)/, (t) => `${t}<Default Extension="${ext}" ContentType="${mime[ext] ?? `image/${ext}`}"/>`));
+    }
+    return `rId${k}`;
+  }
+
+  /**
+   * Os três cabeçalhos (even/default/first) da seção `sec` — a parte dela ou a herdada,
+   * criando na própria seção a que nenhuma anterior tem — num passo de desfazer
+   * (Word: a marca-d'água entra nos três; oráculo page-lab, corpus 106/110).
+   */
+  private editSectionHeaders(sec: number, fn: (paras: Paragraph[], path: string) => void): void {
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    const m = this.bodyModel();
+    const keys = new Set<string>();
+    for (const type of ['even', 'default', 'first']) { const p = this.hfPartFor(sec, 'header', type); if (p) keys.add(p.key); }
+    this.snapshot(false, [...keys]);
+    const done = new Set<string>();
+    for (const type of ['even', 'default', 'first'] as const) {
+      let key = this.hfPartFor(sec, 'header', type)?.key;
+      if (!key) {
+        const target = this.newHfTarget('header');
+        this.createHfPart('header', target, null);
+        this.refsOfSection(m, sec, 'header').push({ kind: 'header', type, rid: target.rid } as never);
+        key = `header:${target.rid}`;
+      }
+      if (done.has(key)) continue;
+      done.add(key);
+      const part = this.hfParts.get(key)!;
+      if (!part.paras) part.paras = this.newHfParas('header');
+      fn(part.paras, part.path);
+      part.blocks = reconcileBlocks(part.blocks, part.paras, true);
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+
+  // ── Folha de Rosto ──
+
+  /** Modelos da galeria Folha de Rosto (próprios; nomes no idioma da interface). */
+  coverPages(): { id: string; name: string }[] {
+    const lang = uiLang(this);
+    return COVER_TEMPLATES.map((t) => ({ id: t.id, name: t.name[lang] }));
+  }
+
+  /** O documento tem uma folha de rosto (w:sdt "Cover Pages")? */
+  hasCoverPage(): boolean { return this.coverParaIndexes().length > 0; }
+
+  /** Índices (no modelo do corpo) dos parágrafos da folha de rosto — os do sdt "Cover Pages". */
+  private coverParaIndexes(): number[] {
+    const store = this.fullDoc?.sources;
+    const story = store?.stories.get('word/document.xml');
+    if (!story || !this.model) return [];
+    const ids = new Set<number>();
+    const walk = (gs: readonly StoryGroup[], inCover: boolean): void => {
+      for (const g of gs) {
+        const cover = inCover || (g.wrapOpen !== undefined && /<w:docPartGallery\s+w:val="Cover Pages"/.test(g.wrapOpen));
+        if (cover) for (const id of g.blocks) ids.add(id);
+        if (g.inner) walk(g.inner, cover);
+      }
+    };
+    walk(story.groups, false);
+    if (!ids.size) return [];
+    const m = this.bodyModel();
+    const out: number[] = [];
+    m.paragraphs.forEach((p, i) => { if (p.props.src !== undefined && ids.has(p.props.src)) out.push(i); });
+    return out;
+  }
+
+  /** Tira os parágrafos da folha de rosto atual do modelo (sem passo de desfazer). */
+  private dropCoverPage(): boolean {
+    const idx = this.coverParaIndexes();
+    if (!idx.length) return false;
+    const m = this.bodyModel();
+    for (let k = idx.length - 1; k >= 0; k--) {
+      const i = idx[k]!;
+      m.paragraphs.splice(i, 1);
+      this.shiftAnchors(i, -1);
+    }
+    if (!m.paragraphs.length) m.paragraphs.push({ runs: [], props: {} });
+    return true;
+  }
+
+  /** Ambiente dos modelos: página da 1ª seção, cores do tema e os campos (propriedades). */
+  private coverEnv(): CoverEnv {
+    const lang = uiLang(this);
+    const sp = sectionSectPr(this.bodyModel(), 0);
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const col = (k: string, d: string): string => String(theme?.colors?.[k] ?? d).replace(/^#/, '').toUpperCase();
+    const core = this.pkg?.getPartText('docProps/core.xml') ?? '';
+    const app = this.pkg?.getPartText('docProps/app.xml') ?? '';
+    const prop = (xml: string, tag: string): string => {
+      const m = new RegExp(`<${tag}[^>]*>([^<]*)<`).exec(xml);
+      return m ? m[1]!.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim() : '';
+    };
+    const ph = coverPlaceholders(lang);
+    const fields = {
+      title: prop(core, 'dc:title') || ph.title,
+      subtitle: prop(core, 'dc:subject') || ph.subtitle,
+      author: prop(core, 'dc:creator') || ph.author,
+      date: ph.date,
+      company: prop(app, 'Company') || ph.company,
+      summary: prop(core, 'dc:description') || ph.summary,
+    };
+    return {
+      lang,
+      page: { w: sp.pageWidthTwips / 20, h: sp.pageHeightTwips / 20, top: sp.marginTopTwips / 20, bottom: sp.marginBottomTwips / 20, left: sp.marginLeftTwips / 20, right: sp.marginRightTwips / 20 },
+      accent1: col('accent1', '156082'), accent2: col('accent2', 'E97132'),
+      fields,
+      drawingId: () => 1 + Math.floor(Math.random() * 0x7ffffffe),
+    };
+  }
+
+  /**
+   * Insere a folha de rosto `id` no INÍCIO do documento (troca a que houver), num
+   * w:sdt "Cover Pages" que termina com a quebra de página, e liga Primeira Página
+   * Diferente na 1ª seção (o Word: corpus 3/3) — o cabeçalho não aparece na capa.
+   * Um passo de desfazer; o título (espaço reservado) fica selecionado.
+   */
+  insertCoverPage(id: string): void {
+    if (!this.canInsertSectionBreak()) return;
+    const env = this.coverEnv();
+    const xml = coverXml(id, env);
+    if (!xml) return;
+    const pkg = this.pkg ?? (this.pkg = DocxPackage.empty());
+    const store = this.fullDoc?.sources;
+    const read = readBodyFragment(pkg, store, xml, COVER_NS);
+    if (!read) return;
+    this.snapshot();
+    this.dropCoverPage();
+    const m = this.model!;
+    const paras = read.blocks.flatMap((b) => (b.type === 'paragraph' ? [b.paragraph] : []));
+    this.syncRunRPr(paras);
+    m.paragraphs.splice(0, 0, ...paras);
+    this.shiftAnchors(-1, paras.length);
+    const story = store?.stories.get('word/document.xml');
+    if (story) story.groups.unshift(...read.groups);
+    store?.baseline();
+    sectionSectPr(m, 0).titlePg = true;
+    // o título fica selecionado (digitar troca o espaço reservado), senão o cursor nele
+    const ti = paras.findIndex((p) => paraText(p) === env.fields.title);
+    const at = Math.max(0, ti);
+    const len = ti >= 0 && /^\[.*\]$/.test(env.fields.title) ? env.fields.title.length : 0;
+    this.selection = { anchor: { para: at, offset: 0 }, focus: { para: at, offset: len } };
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+
+  /** Remover Folha de Rosto Atual (o sdt "Cover Pages" inteiro). false sem folha de rosto. */
+  removeCoverPage(): boolean {
+    if (!this.canInsertSectionBreak() || !this.hasCoverPage()) return false;
+    this.snapshot();
+    this.dropCoverPage();
+    this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.engPageCache.clear();
+    this.refresh();
+    return true;
+  }
+
+  /** Miniatura da folha de rosto `id` (página inteira) num canvas de `cssWidth` px. */
+  paintCoverTemplate(id: string, canvas: HTMLCanvasElement, cssWidth: number): boolean {
+    if (!this.model || !this.fonts) return false;
+    const xml = coverXml(id, this.coverEnv());
+    const read = xml ? readBodyFragment(this.pkg ?? DocxPackage.empty(), undefined, xml, COVER_NS) : undefined;
+    if (!read) return false;
+    const sp: SectPr = { ...sectionSectPr(this.bodyModel(), 0), titlePg: false };
+    delete sp.pgBorders;
+    return this.paintPreviewPage(read.blocks, sp, {}, canvas, cssWidth);
+  }
+
+  /** Miniatura de uma marca-d'água da galeria (página inteira) num canvas de `cssWidth` px. */
+  paintWatermarkTemplate(id: string, canvas: HTMLCanvasElement, cssWidth: number): boolean {
+    if (!this.model || !this.fonts) return false;
+    const g = WATERMARK_GALLERY.find((x) => x.id === id);
+    if (!g) return false;
+    const lang = uiLang(this);
+    const xml = watermarkRunXml({ kind: 'text', text: g.text[lang], font: 'calibri', color: 'C0C0C0', semitransparent: true, layout: g.layout },
+      { widthPt: g.box[lang][0], heightPt: g.box[lang][1] }, { n: 1, spid: 1025, anchorId: '00000001' }, undefined, vmlColorAttr);
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), 'word/uw-preview.xml', undefined, hfPartXml('header', `<w:p>${xml}</w:p>`));
+    if (!read) return false;
+    // papel Carta com margens de 1" (onde os tamanhos da galeria cabem como no Word)
+    const sp: SectPr = { pageWidthTwips: 12240, pageHeightTwips: 15840, marginLeftTwips: 1440, marginRightTwips: 1440, marginTopTwips: 1440, marginBottomTwips: 1440, headerDistanceTwips: 720, footerDistanceTwips: 720 };
+    return this.paintPreviewPage([{ type: 'paragraph', paragraph: { runs: [], props: {} } }], sp, { default: read.blocks }, canvas, cssWidth);
+  }
+
+  /** Diagrama uma página de prévia (corpo + cabeçalho) e a pinta inteira no canvas. */
+  private paintPreviewPage(blocks: Block[], sp: SectPr, headerBlocks: { default?: Block[] }, canvas: HTMLCanvasElement, cssWidth: number): boolean {
+    const full = {
+      ...(this.fullDoc ?? {}),
+      blocks,
+      sections: [{
+        sectPr: sp, blockStart: 0, blockEnd: Math.max(0, blocks.length - 1),
+        headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks, footerBlocks: {},
+      }],
+      footnotes: new Map(), endnotes: new Map(), comments: [], bookmarks: new Map(),
+      background: undefined,
+      ...(this.fullDoc?.formatting ? {} : { formatting: this.newFormatting ?? emptyFormatting() }),
+    } as unknown as FullDocument;
+    let page: LayoutPage | undefined;
+    try { page = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: undefined }).pages[0]; } catch { return false; }
+    if (!page) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / page.widthTw;
+    canvas.width = Math.max(1, Math.round(page.widthTw * scale * dpr));
+    canvas.height = Math.max(1, Math.round(page.heightTw * scale * dpr));
+    canvas.style.width = `${Math.round(page.widthTw * scale)}px`;
+    canvas.style.height = `${Math.round(page.heightTw * scale)}px`;
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintItems(ctx, page.items, this.enginePaintEnv(), {});
+    return true;
+  }
+
+  // ── Página em Branco ──
+
+  /**
+   * Página em Branco (Inserir › Páginas): divide o parágrafo no cursor (com seleção, no
+   * INÍCIO dela, sem apagar) e põe [quebra, ¶ vazio, quebra] — o cursor fica no ¶ vazio,
+   * que leva as props do parágrafo. No fim do documento só [quebra, ¶]; no início, só
+   * [¶, quebra] antes do texto, com o cursor onde estava. Um passo (oráculo page-lab bp-*).
+   */
+  insertBlankPage(): void {
+    if (!this.canInsertSectionBreak()) return;
+    const m = this.model!;
+    const pos = normalizeRange(this.range()).start;
+    const last = m.paragraphs.length - 1;
+    const atEnd = pos.para === last && pos.offset >= paraText(m.paragraphs[last]!).length && !this.tableAnchors.some((a) => a.beforePara > last);
+    const atStart = pos.para === 0 && pos.offset === 0 && !this.tableAnchors.some((a) => a.beforePara === 0);
+    this.snapshot();
+    const brk = (): Paragraph => ({ runs: [{ text: '\f', props: { ...DEFAULT_RUN_PROPS } }], props: {} });
+    const empty = (from: Paragraph): Paragraph => {
+      const { sectionBreak: _sb, src: _src, ...props } = from.props;
+      return { runs: [], props };
+    };
+    const P = m.paragraphs[pos.para]!;
+    if (atStart) {
+      m.paragraphs.splice(0, 0, empty(P), brk());
+      this.shiftAnchors(-1, 2);
+      this.selection = { anchor: { para: 2, offset: 0 }, focus: { para: 2, offset: 0 } };
+    } else if (atEnd) {
+      m.paragraphs.splice(last + 1, 0, brk(), empty(P));
+      this.selection = { anchor: { para: last + 2, offset: 0 }, focus: { para: last + 2, offset: 0 } };
+    } else {
+      const tail = this.splitAt(pos);
+      this.shiftAnchors(pos.para, 1);
+      const at = tail.para;
+      m.paragraphs.splice(at, 0, brk(), empty(P), brk());
+      this.shiftAnchors(at - 1, 3);
+      this.selection = { anchor: { para: at + 1, offset: 0 }, focus: { para: at + 1, offset: 0 } };
+    }
+    this.pendingProps = null;
+    this.refresh();
+    this.scrollCaretIntoView();
   }
 
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
@@ -16778,3 +17316,8 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 }
 
 customElements.define('universal-write', UniversalWriteElement);
+
+/** Chave do w:background para saber se mudou (bytes da imagem pelo tamanho e por amostras). */
+function bgKey(bg: PageBackground | null): string {
+  return JSON.stringify(bg, (_k, v) => (v instanceof Uint8Array ? `#${v.length}:${v[0]}:${v[v.length >> 1]}:${v[v.length - 1]}` : v));
+}

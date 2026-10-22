@@ -118,7 +118,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,page,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -1319,6 +1319,142 @@ async function perfDoc(label, opener) {
   perf.push({ label, pages: r.pages, medianMs: median, maxMs: sorted[sorted.length - 1], layoutMs: Math.round(last.layoutMs), buildMs: Math.round(last.buildMs * 10) / 10, paintMs: Math.round(last.paintMs), mode: last.mode });
   console.log(`perf ${label}: ${r.pages} pág., digitação mediana ${median} ms (máx ${sorted[sorted.length - 1]}), layout ${Math.round(last.layoutMs)} ms, pintura ${Math.round(last.paintMs)} ms [${t.ms.join(' ')}] modos ${t.stats.map((x) => x.mode[0]).join('')}`);
 }
+// ───────────── Página: Cor da Página, marca-d'água, folha de rosto, página em branco (frente Página) ─────────────
+if (want('page')) {
+  // --save-page <pasta>: grava os .docx intermediários (conferência no Word: write/tools/page-lab/open-check.ps1)
+  const saveDir = opt('save-page');
+  const saveDoc = async (name) => { if (!saveDir) return; mkdirSync(saveDir, { recursive: true }); writeFileSync(join(saveDir, `${name}.docx`), Buffer.from(await ev('saveBase64'), 'base64')); };
+  const E = 'document.querySelector("universal-write")';
+  const js = (body) => page.evaluate(`(async () => { const e = ${E}; ${body} })()`);
+  const parts = (names) => page.evaluate((n) => window.ed.savedParts(n), names);
+  await ev('blank');
+  await js('e.type("Primeiro paragrafo"); e.pressEnter(); e.type("Segundo paragrafo"); e.pressEnter(); e.type("Terceiro");');
+
+  // Cor da Página sólida: w:background + displayBackgroundShape; a tela pinta a cor
+  await js('e.setPageColor("FFFF00");');
+  let x = await parts(['word/document.xml', 'word/settings.xml']);
+  check('page: Cor da Página grava <w:background w:color="FFFF00"/> e liga displayBackgroundShape',
+    /<w:document\b[^>]*><w:background w:color="FFFF00"\/><w:body>/.test(x['word/document.xml']) && /<w:displayBackgroundShape\/>/.test(x['word/settings.xml']), null);
+  let px = await ev('pixel', 0, 300, 300);
+  check('page: a página aparece amarela na tela', px[0] > 240 && px[1] > 240 && px[2] < 30, px);
+  await js('e.undo();');
+  x = await parts(['word/document.xml']);
+  px = await ev('pixel', 0, 300, 300);
+  check('page: desfazer tira a cor (XML e tela)', !/<w:background/.test(x['word/document.xml']) && px[2] > 240, px);
+  // cor do tema com tom (paleta): accent2 mais claro 80% (oráculo pc-theme-5-0.8: FAE2D5 / 33)
+  await js('e.setPageColor({ themeColor: "accent2", tint: 0.8 });');
+  x = await parts(['word/document.xml']);
+  // o hex é cosmético (o Word recalcula pelo tema ao desenhar): ±1 por canal do medido (FAE2D5)
+  const tbg = /<w:background w:color="([0-9A-F]{6})" w:themeColor="accent2" w:themeTint="33"\/>/.exec(x['word/document.xml']);
+  check('page: cor do tema grava themeColor/themeTint e o hex do tom (accent2 +80% ≈ FAE2D5)',
+    !!tbg && [0, 2, 4].every((i) => Math.abs(parseInt(tbg[1].slice(i, i + 2), 16) - parseInt('FAE2D5'.slice(i, i + 2), 16)) <= 1), tbg?.[0]);
+  // gradiente de duas cores (Horizontal, variante 1) e padrão
+  await js('e.setPageFill({ type: "gradient", colors: "two", color: "FF0000", color2: "0000FF", style: "horizontal", variant: 1 });');
+  x = await parts(['word/document.xml']);
+  check('page: gradiente grava v:background/v:fill como o Word', /<v:background id="_x0000_s1025" o:bwmode="white" fillcolor="red" o:targetscreensize="1024,768"><v:fill color2="#0000ff" focus="100%" type="gradient"\/><\/v:background>/.test(x['word/document.xml']), null);
+  const bg = await js('const p = e.eng.result.pages[0]; return { t: p.backgroundFill?.type, show: p.backgroundShow };');
+  check('page: o motor recebe o efeito e a tela o mostra', bg.t === 'gradient' && bg.show === true, bg);
+  px = await ev('pixel', 0, 30, 30);
+  check('page: o ladrilho começa vermelho no topo da página', px[0] > 200 && px[2] < 60, px);
+  await saveDoc('pg-gradient');
+  await js('e.setPageFill({ type: "pattern", pattern: "openDmnd", color: "C80000", background: "FFFFC8" });');
+  await saveDoc('pg-pattern');
+  x = await parts(['word/document.xml', 'word/_rels/document.xml.rels', '[Content_Types].xml']);
+  const rid = /<v:fill r:id="(rId\d+)" o:title="[^"]*" color2="#ffffc8" type="pattern"\/>/.exec(x['word/document.xml'])?.[1];
+  check('page: padrão grava o GIF com relação e tipo de conteúdo', !!rid && new RegExp(`Id="${rid}"[^>]*Target="media/image\\d+\\.gif"`).test(x['word/_rels/document.xml.rels']) && /Extension="gif"/.test(x['[Content_Types].xml']), rid);
+  await js('e.setPageColor(null);');
+  x = await parts(['word/document.xml']);
+  check('page: Sem Cor tira o w:background', !/<w:background/.test(x['word/document.xml']), null);
+
+  // marca-d'água da galeria: nos 3 cabeçalhos da seção
+  await js('e.setWatermark("confidential1");');
+  await saveDoc('wm-gallery');
+  x = await parts(['word/document.xml']);
+  const refs = [...x['word/document.xml'].matchAll(/<w:headerReference w:type="(\w+)" r:id="(rId\d+)"\/>/g)].map((m) => m[1]).sort();
+  check('page: marca-d\'água cria os 3 cabeçalhos da seção (even/default/first)', refs.join(',') === 'default,even,first', refs);
+  const rels = (await parts(['word/_rels/document.xml.rels']))['word/_rels/document.xml.rels'];
+  const hdrs = [...rels.matchAll(/Target="(header\d+\.xml)"/g)].map((m) => `word/${m[1]}`);
+  const hx = await parts(hdrs);
+  check('page: cada cabeçalho tem a PowerPlusWaterMarkObject no 1º run (VML do diálogo, girada, prateada, 50%)',
+    hdrs.length === 3 && hdrs.every((h) => /<w:p\b[^>]*>(?:<w:pPr>[\s\S]*?<\/w:pPr>)?<w:r><w:rPr><w:noProof\/><\/w:rPr><w:pict w14:anchorId="[0-9A-F]{8}"><v:shapetype id="_x0000_t136"[\s\S]*?<v:shape id="PowerPlusWaterMarkObject\d+" o:spid="_x0000_s\d+" type="#_x0000_t136" alt="" style="position:absolute;margin-left:0;margin-top:0;width:527\.85pt;height:131\.95pt;rotation:315;/.test(hx[h]) && /fillcolor="silver" stroked="f"><v:fill opacity="\.5"\/>/.test(hx[h])), null);
+  let wm = await js('return e.watermark();');
+  check('page: watermark() lê a marca atual', wm?.kind === 'text' && wm.layout === 'diagonal' && wm.semitransparent && /CONFIDEN/.test(wm.text), wm);
+  const items = await js('return e.eng.result.pages[0].items.filter((i) => i.t === "glyphs" && i.asPath && i.alpha !== undefined).length;');
+  check('page: o motor desenha a marca (curvas com alfa real)', items > 0, items);
+  // personalizada: texto 72 pt horizontal opaco, vermelho
+  await js('e.setWatermark({ kind: "text", text: "RASCUNHO", font: "Carlito", sizePt: 72, color: "C00000", semitransparent: false, layout: "horizontal" });');
+  const hx2 = await parts(hdrs);
+  const one = hx2[hdrs[0]];
+  check('page: personalizada troca a marca (uma só, 72 pt, sem giro, opaca, vermelha)',
+    (one.match(/PowerPlusWaterMarkObject/g) ?? []).length === 1 && /font-size:72pt/.test(one) && !/rotation:/.test(one) && !/opacity=/.test(one) && /fillcolor="#c00000"/.test(one), null);
+  // imagem desbotada
+  const png = (await import(new URL('../image-lab/test-image.mjs', import.meta.url).href)).patternPng();
+  await page.evaluate(({ b64 }) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); document.querySelector('universal-write').setWatermark({ kind: 'picture', data: u, ext: 'png', title: 'logo', washout: true }); }, { b64: Buffer.from(png).toString('base64') });
+  const hx3 = await parts([...hdrs, ...hdrs.map((h) => h.replace('word/', 'word/_rels/') + '.rels')]);
+  const prid = /<v:imagedata r:id="(rId\d+)" o:title="logo" gain="19661f" blacklevel="22938f"\/>/.exec(hx3[hdrs[0]])?.[1];
+  check('page: marca de imagem desbotada (WordPictureWatermark com gain/blacklevel e a relação na parte)',
+    /WordPictureWatermark\d+/.test(hx3[hdrs[0]]) && !!prid && new RegExp(`Id="${prid}"[^>]*Target="media/image\\d+\\.png"`).test(hx3[hdrs[0].replace('word/', 'word/_rels/') + '.rels']), prid);
+  await saveDoc('wm-picture');
+  await js('e.removeWatermark();');
+  const hx4 = await parts(hdrs);
+  check('page: Remover Marca-d\'Água tira de todos os cabeçalhos', hdrs.every((h) => !/WaterMark|Watermark/.test(hx4[h] ?? '')), null);
+  await js('e.undo();');
+  wm = await js('return e.watermark();');
+  check('page: desfazer devolve a marca (um passo)', wm?.kind === 'picture', wm?.kind);
+
+  // folha de rosto
+  await js('e.insertCoverPage("band");');
+  await saveDoc('cover-band');
+  x = await parts(['word/document.xml']);
+  const d = x['word/document.xml'];
+  check('page: folha de rosto no INÍCIO do corpo, num sdt "Cover Pages" com a quebra de página dentro, e titlePg',
+    /<w:body><w:sdt><w:sdtPr><w:id w:val="\d+"\/><w:docPartObj><w:docPartGallery w:val="Cover Pages"\/><w:docPartUnique\/><\/w:docPartObj><\/w:sdtPr><w:sdtContent>[\s\S]*<w:br w:type="page"\/><\/w:r><\/w:p><\/w:sdtContent><\/w:sdt>/.test(d) && /<w:titlePg\/>/.test(d), d.slice(d.indexOf('<w:body>'), d.indexOf('<w:body>') + 300));
+  let st0 = await st();
+  check('page: o título (espaço reservado) fica selecionado', st0.sel.anchor.offset === 0 && st0.sel.focus.offset > 5, st0.sel);
+  const pg1 = await js('const p = e.eng.result.pages[0]; return { shapes: p.items.filter((i) => i.t === "shape").length, pages: e.eng.result.pages.length };');
+  check('page: a capa ocupa a 1ª página com as formas do modelo', pg1.shapes >= 1 && pg1.pages >= 2, pg1);
+  await js('e.insertCoverPage("minimal");');
+  x = await parts(['word/document.xml']);
+  check('page: outra folha de rosto troca a atual (um só sdt)', (x['word/document.xml'].match(/Cover Pages/g) ?? []).length === 1, null);
+  check('page: removeCoverPage tira o sdt', (await js('return e.removeCoverPage();')) === true && !/Cover Pages/.test((await parts(['word/document.xml']))['word/document.xml']), null);
+  await js('e.undo();');
+  check('page: desfazer devolve a folha de rosto', await js('return e.hasCoverPage();'), null);
+  await js('e.removeCoverPage();');
+
+  // página em branco no meio do parágrafo: [quebra, ¶ vazio (cursor), quebra]
+  const pBefore = await js('return e.eng.result.pages.length;');
+  const idx = (await ev('paras')).findIndex((p) => p.text === 'Segundo paragrafo');
+  await ev('select', idx, 6);
+  await js('e.insertBlankPage();');
+  await saveDoc('blank-page');
+  const ps = (await ev('paras')).map((p) => p.text);
+  st0 = await st();
+  check('page: Página em Branco divide o ¶ e põe quebra, ¶ vazio e quebra (cursor no vazio)',
+    ps[idx] === 'Segund' && ps[idx + 1] === '\f' && ps[idx + 2] === '' && ps[idx + 3] === '\f' && ps[idx + 4] === 'o paragrafo' && st0.sel.focus.para === idx + 2, { ps, sel: st0.sel.focus });
+  check('page: +2 páginas', (await js('return e.eng.result.pages.length;')) === pBefore + 2, null);
+  await js('e.undo();');
+  check('page: desfazer em um passo', (await ev('paras')).some((p) => p.text === 'Segundo paragrafo'), null);
+
+  // conferência no Word: cada modelo de folha de rosto, textura, imagem e marca de texto 72 pt
+  if (saveDir) {
+    const covers = await js('return e.coverPages().map((c) => c.id);');
+    for (const id of covers) {
+      await ev('blank');
+      await js(`e.type("Corpo do documento"); e.setWatermark("draft2"); e.insertCoverPage("${id}");`);
+      await saveDoc(`cover-${id}`);
+    }
+    const b64 = Buffer.from(png).toString('base64');
+    for (const kind of ['picture', 'texture']) {
+      await ev('blank');
+      await page.evaluate(({ b64, kind }) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); const e = document.querySelector('universal-write'); e.type('Corpo'); e.setPageFill({ type: kind, data: u, ext: 'png', name: 'padrao.png' }); }, { b64, kind });
+      await saveDoc(`pg-${kind}`);
+    }
+    await ev('blank');
+    await js('e.type("Corpo"); e.setWatermark({ kind: "text", text: "URGENTE", font: "Arial", sizePt: 72, color: "C00000", semitransparent: true, layout: "diagonal" }); e.setPageFill({ type: "gradient", colors: "one", color: "1F4E79", degree: 0.75, style: "fromCorner", variant: 4 });');
+    await saveDoc('wm-text72');
+  }
+}
+
 if (want('perf')) {
 await perfDoc('sintético 20 pág.', () => ev('synthetic', 220, 60));
 await perfDoc('demo.docx', () => ev('open', '/write/samples/demo.docx'));
