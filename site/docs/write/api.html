@@ -306,7 +306,7 @@ editor.host = {
       </table>
 
       <h2 id="notes">Footnotes and endnotes</h2>
-      <p>Notes are edited in place: clicking the note area (bottom of the page, or the endnotes after the text) enters the note; Esc or a click in the text goes back. Text and notes share one undo history. Deleting a reference deletes its note; the first Backspace right after a reference only selects it; pasting a copied reference creates a new note with a copy of the text. Ctrl+Alt+F / Ctrl+Alt+D insert a footnote / endnote.</p>
+      <p>Notes are edited in place: clicking the note area (bottom of the page, or the endnotes after the text) enters the note; Esc or a click in the text goes back. Text and notes share one undo history. Deleting a reference deletes its note; the first Backspace right after a reference only selects it; pasting a copied reference creates a new note with a copy of the text. With Track Changes on, a new note is an insertion and a deleted reference keeps its note until the deletion is accepted; revisions inside notes appear in <code>getRevisions()</code> (<code>story: 'footnote' | 'endnote'</code>) and in Accept/Reject All. Ctrl+Alt+F / Ctrl+Alt+D insert a footnote / endnote.</p>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>

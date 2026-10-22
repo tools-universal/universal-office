@@ -7,6 +7,7 @@ import '../../packages/editor/src/universal-write.js';
 import type { UniversalWriteElement } from '../../packages/editor/src/universal-write.js';
 import { createMentionPlugin } from '../../packages/editor/src/mention-plugin.js';
 import { FontResolver, type HostFontFace } from '@universal-office/fonts';
+import { DocxPackage } from '@universal-office/docx-core';
 
 // o motor em desenvolvimento lê process.env (flags de experimento) — no
 // navegador não existe; sem isto ele lança e o editor cai no layout legado
@@ -114,6 +115,12 @@ w.ed = {
     let s = '';
     for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
     return btoa(s);
+  },
+
+  /** Salva e devolve o XML das partes pedidas (ex.: word/footnotes.xml). */
+  savedParts(names: string[]): Record<string, string | null> {
+    const pkg = DocxPackage.load((need() as unknown as { saveDocx(): Uint8Array }).saveDocx());
+    return Object.fromEntries(names.map((n) => [n, pkg.getPartText(n) ?? null]));
   },
 
   /** Abre um .docx a partir de base64 (o que o node leu). */

@@ -288,6 +288,10 @@ numbers follow the order of the references. The first Backspace right after a
 reference only selects it; copying a reference and pasting it creates a new note
 with a copy of the text. Double-click a reference to open its note and the
 note's number to go back; hovering a reference shows the note's text.
+With Track Changes on, a new note is an insertion (the reference and the note's
+text); deleting the reference keeps the note until the deletion is accepted.
+Revisions inside notes are listed by `getRevisions()` (`story: 'footnote' |
+'endnote'`) and included in Accept/Reject All.
 
 Endnotes are laid out after the text of the document (or of each section), with
 the separator and, on the following pages, the continuation separator; the

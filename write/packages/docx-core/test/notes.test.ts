@@ -93,6 +93,22 @@ describe('notas: gravação sem perdas', () => {
     expect(back.footnotes.get(2)?.[0]?.runs.map((r) => r.text).join('')).toBe(' Nova nota');
   });
 
+  it('nota inserida com o controle de alterações: marca e texto em w:ins, w16du na raiz (oráculo trk-insert)', () => {
+    const { pkg, full } = open();
+    const rev = { author: 'Autor', date: '2026-10-21T23:39:00Z', dateUtc: '2026-10-22T02:39:00Z' };
+    const body = paragraphsOf(full.blocks)[0]!;
+    body.runs.push({ text: NOTE_REF_TEXT, props: { bold: false, italic: false, underline: false, strike: false, allCaps: false, smallCaps: false, charStyle: 'FootnoteReference', ins: rev }, noteRef: { kind: 'footnote', id: 2 } });
+    const paras = newNoteParagraphs('footnote', 'FootnoteText', 'FootnoteReference');
+    paras[0]!.runs[1]!.text = ' Nota';
+    for (const r of paras[0]!.runs) r.props = { ...r.props, ins: rev };
+    full.footnoteBlocks!.set(2, paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
+    const out = save(pkg, full);
+    const xml = out.getPartText('word/footnotes.xml')!;
+    expect(xml).toMatch(/<w:footnotes [^>]*xmlns:w16du=/);
+    expect(xml).toMatch(/<w:footnote w:id="2"><w:p><w:pPr><w:pStyle w:val="FootnoteText"\/><\/w:pPr><w:ins w:id="\d+" w:author="Autor" w:date="2026-10-21T23:39:00Z" w16du:dateUtc="2026-10-22T02:39:00Z"><w:r><w:rPr><w:rStyle w:val="FootnoteReference"\/><\/w:rPr><w:footnoteRef\/><\/w:r><w:r><w:t xml:space="preserve"> Nota<\/w:t><\/w:r><\/w:ins><\/w:p><\/w:footnote>/);
+    expect(out.getPartText('word/document.xml')).toMatch(/<w:ins [^>]*><w:r><w:rPr><w:rStyle w:val="FootnoteReference"\/><\/w:rPr><w:footnoteReference w:id="2"\/><\/w:r><\/w:ins>/);
+  });
+
   it('opções de nota no sectPr e colunas da área de notas (w15)', () => {
     const { pkg, full } = open();
     const sp = full.sections[full.sections.length - 1]!.sectPr;

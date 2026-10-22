@@ -891,6 +891,7 @@ function writeNotesPart(pkg: DocxPackage, kind: NoteKind, notes: NotesOut, store
   const relsPath = active?.relsPath;
   if (active) active.relsPath = `word/_rels/${kind}s.xml.rels`;
   try {
+    takeUsedDateUtc();
     const seen = new Set<number>();
     let body = '';
     for (const it of part.items) {
@@ -907,7 +908,8 @@ function writeNotesPart(pkg: DocxPackage, kind: NoteKind, notes: NotesOut, store
       const blocks = notes.blocks.get(id);
       if (!seen.has(id) && blocks) body += noteXml(kind, id, blocks);
     }
-    const out = dropCommentMarks(part.open + body + part.close, gone);
+    // nota inserida com o controle de alterações: w:ins com w16du:dateUtc (como o corpo)
+    const out = dropCommentMarks(revRoot(part.open, `w:${kind}s`) + body + part.close, gone);
     if (out !== xml0) pkg.setPartText(path, out);
   } finally {
     if (active && relsPath !== undefined) active.relsPath = relsPath;

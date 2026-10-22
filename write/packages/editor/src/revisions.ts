@@ -39,8 +39,8 @@ export interface WriteRevision {
   text: string;
   /** descrição da formatação ("Formatado: Fonte: Negrito") */
   description?: string;
-  /** onde está: corpo, tabela, cabeçalho ou rodapé */
-  story: 'body' | 'table' | 'header' | 'footer';
+  /** onde está: corpo, tabela, cabeçalho, rodapé, nota de rodapé ou de fim */
+  story: 'body' | 'table' | 'header' | 'footer' | 'footnote' | 'endnote';
   /** cor da marcação deste autor (RRGGBB) */
   color: string;
 }

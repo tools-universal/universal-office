@@ -878,6 +878,33 @@ if (want('notes')) {
   s = await N();
   const opts = await call('getNoteOptions', 'footnote');
   check('salvar e reabrir mantém as notas e as opções', s.fn === 2 && s.en === 1 && opts.numberFormat === 'upperRoman' && opts.startAt === 3, { s, opts });
+  // controle de alterações: a referência e a marca + texto da nota entram em w:ins;
+  // apagar a referência controlada a deixa em w:del e a nota fica (oráculo notes-lab, trk-*)
+  await call('toggleTrackChanges', true);
+  // (o documento foi reaberto: clique para o foco voltar a ele)
+  p = await ev('clientOfRef', /^b2$/);
+  await page.mouse.click(p.x, p.y);
+  await at(2, 5);
+  await call('insertFootnote');
+  await page.keyboard.type('Rev');
+  await page.keyboard.press('Escape');
+  let xml = await ev('savedParts', ['word/document.xml', 'word/footnotes.xml']);
+  const lastFn = (xml['word/footnotes.xml'] ?? '').split('<w:footnote ').pop();
+  check('controle ligado: referência e nota inseridas como w:ins',
+    /<w:ins [^>]*w16du:dateUtc[^>]*><w:r><w:rPr><w:rStyle [^>]*\/><\/w:rPr><w:footnoteReference w:id="\d+"\/><\/w:r><\/w:ins>/.test(xml['word/document.xml'] ?? '') &&
+    /<w:ins [^>]*><w:r><w:rPr><w:rStyle [^>]*\/><\/w:rPr><w:footnoteRef\/><\/w:r><w:r><w:t xml:space="preserve"> Rev<\/w:t><\/w:r><\/w:ins><\/w:p>/.test(lastFn) &&
+    /<w:footnotes [^>]*xmlns:w16du=/.test(xml['word/footnotes.xml'] ?? ''), { lastFn, doc: (xml['word/document.xml'] ?? '').match(/.{300}<w:footnoteReference w:id="3"\/>.{100}/)?.[0] });
+  await call('toggleTrackChanges', false);
+  await call('acceptAllChanges');
+  await call('toggleTrackChanges', true);
+  await at(2, 6);
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Backspace');
+  s = await N();
+  xml = await ev('savedParts', ['word/document.xml', 'word/footnotes.xml']);
+  check('controle ligado: apagar a referência a deixa em w:del e a nota fica',
+    s.fn === 3 && /<w:del [^>]*><w:r><w:rPr><w:rStyle [^>]*\/><\/w:rPr><w:footnoteReference w:id="\d+"\/><\/w:r><\/w:del>/.test(xml['word/document.xml'] ?? '') && (xml['word/footnotes.xml'] ?? '').includes('> Rev<'), s);
+  await call('toggleTrackChanges', false);
 }
 
 // ───────────── desempenho ─────────────

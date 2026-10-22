@@ -497,7 +497,7 @@ interface RevisionEntry {
   /** a lista de parágrafos (corpo, célula, cabeçalho…) e o índice nela */
   list: Paragraph[];
   idx: number;
-  owner: { cell?: import('@universal-office/docx-core').TableCell; hfPath?: string };
+  owner: { cell?: import('@universal-office/docx-core').TableCell; hfPath?: string; note?: { kind: NoteKind; id: number } };
 }
 
 /** Referência ao w:rPr original guardada nas props do run (ver syncRunRPr):
@@ -3650,7 +3650,33 @@ export class UniversalWriteElement extends HTMLElement {
         }
       }
     }
+    // as das notas, na ordem das referências (a nota em edição é o modelo ativo)
+    for (const [kind, list] of this.noteLists()) add(list.paras, kind, { note: { kind, id: list.id } });
     return out;
+  }
+
+  /** Parágrafos de cada nota referenciada (células inclusive), na ordem das
+   *  referências; a nota em edição é o modelo ativo. */
+  private noteLists(): [NoteKind, { id: number; paras: Paragraph[] }][] {
+    const fd = this.fullDoc;
+    if (!fd) return [];
+    const out: [NoteKind, { id: number; paras: Paragraph[] }][] = [];
+    for (const kind of ['footnote', 'endnote'] as const) {
+      for (const id of new Set(this.noteRefs(kind).map((r) => r.id))) {
+        const ne = this.noteEdit;
+        const paras = ne?.kind === kind && ne.id === id ? this.model!.paragraphs : flattenBlocks(noteBlocks(fd, kind, id) ?? []);
+        if (paras.length) out.push([kind, { id, paras }]);
+      }
+    }
+    return out;
+  }
+
+  /** Depois de aceitar/rejeitar numa nota fora de edição: os blocos dela seguem os
+   *  parágrafos (marca de parágrafo aceita junta dois). */
+  private relinkNote(kind: NoteKind, id: number, paras: Paragraph[]): void {
+    const ne = this.noteEdit;
+    if (!this.fullDoc || ne?.kind === kind && ne.id === id) return;
+    setNoteBlocks(this.fullDoc, kind, id, reconcileBlocks(noteBlocks(this.fullDoc, kind, id), paras, true) ?? []);
   }
 
   /** Aceita a revisão de índice `index` (a ordem de getRevisions). */
@@ -3668,6 +3694,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (!changed) { this.undoStack.pop(); return false; }
     if (e.owner.cell) e.owner.cell.blocks = reconcileBlocks(e.owner.cell.blocks, e.owner.cell.paragraphs, false);
     if (e.owner.hfPath) this.dirtyHf.add(e.owner.hfPath);
+    if (e.owner.note) this.relinkNote(e.owner.note.kind, e.owner.note.id, e.list);
     this.selection = { anchor: this.clampPos(this.selection.anchor), focus: this.clampPos(this.selection.focus) };
     this.refresh();
     this.dispatchEvent(new CustomEvent('uw-revisions-changed'));
@@ -3750,7 +3777,7 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Aceita todas as revisões (as mostradas, com `shown`; e para o controle, com
-   *  `stopTracking`) — corpo, tabelas, cabeçalhos e rodapés. */
+   *  `stopTracking`) — corpo, tabelas, cabeçalhos, rodapés e notas. */
   acceptAllChanges(opts: { shown?: boolean; stopTracking?: boolean } = {}): number {
     return this.resolveAll(true, opts);
   }
@@ -3767,9 +3794,13 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.cellEdit) this.exitCell();
     if (this.tbEdit) this.exitTextbox();
     if (this.hfEdit) this.exitHeaderFooter();
+    if (this.noteEdit) this.exitNote();
     const scope: RevisionScope = opts.shown ? this.shownScope() : {};
     this.snapshot(true);
     this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
+    for (const [kind, { id, paras }] of this.noteLists()) {
+      if (this.applyRevisionScope(paras, scope, accept, false)) this.relinkNote(kind, id, paras);
+    }
     const cells = (t: TableBlock): void => {
       for (const row of t.rows) for (const cell of row.cells) {
         if (this.applyRevisionScope(cell.paragraphs, scope, accept, false)) cell.blocks = reconcileBlocks(cell.blocks, cell.paragraphs, false);
@@ -4472,6 +4503,8 @@ export class UniversalWriteElement extends HTMLElement {
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
       ...(deep ? {
         hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
+        // e as notas (fora a em edição, que vai em `nt`)
+        nb: own ? undefined : this.noteLists().filter(([k, l]) => ne?.kind !== k || ne.id !== l.id).map(([k, l]) => [k, l.id, l.paras]),
       } : {}),
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
@@ -4510,6 +4543,7 @@ export class UniversalWriteElement extends HTMLElement {
     ts?: TableSel;
     hf?: (Paragraph[] | undefined)[][];
     nt?: { k: NoteKind; id: number; p: Paragraph[]; s: { anchor: DocPosition; focus: DocPosition } };
+    nb?: [NoteKind, number, Paragraph[]][];
     np?: { footnote?: NoteProps; endnote?: NoteProps };
   } {
     return JSON.parse(json, (key, value) =>
@@ -4606,6 +4640,8 @@ export class UniversalWriteElement extends HTMLElement {
         this.model = { paragraphs: p, sectPr: this.model.sectPr };
         this.selection = state.nt.s;
       }
+      // aceitar/rejeitar todas: as outras notas voltam também
+      for (const [k, id, p] of state.nb ?? []) this.relinkNote(k, id, p);
       if (wasNote && (wasNote.kind !== this.noteEdit?.kind || wasNote.id !== this.noteEdit?.id)) {
         this.dispatchEvent(new CustomEvent('uw-notemode', { detail: this.noteEdit ? { active: true, kind: this.noteEdit.kind, id: this.noteEdit.id } : { active: false } }));
       }
@@ -8776,6 +8812,9 @@ export class UniversalWriteElement extends HTMLElement {
     if (mark) pos = this.insertTyped(pos, mark, { ...ref.props });
     const paras = newNoteParagraphs(kind, st.text, st.ref);
     if (mark) paras[0]!.runs[0] = { text: mark, props: { ...paras[0]!.runs[0]!.props } };
+    // controle ligado: a marca e o espaço da nota também entram como inserção (a marca
+    // de parágrafo não — oráculo notes-lab, trk-insert)
+    if (this.tracking) { const rev = this.newRev(); for (const r of paras[0]!.runs) r.props = { ...r.props, ins: rev }; }
     setNoteBlocks(fd, kind, id, paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
