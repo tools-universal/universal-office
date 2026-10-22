@@ -6558,6 +6558,11 @@ function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
   } else model.bodyRefs = { headerRefs: [], footerRefs: [] };
   return next;
 }
+function insertPageBreakParagraph(model, pos, split2 = splitParagraph) {
+  const at = pos.offset > 0 ? split2(model, pos) : pos;
+  model.paragraphs.splice(at.para, 0, { runs: [{ text: "\f", props: { ...DEFAULT_RUN_PROPS } }], props: {} });
+  return { index: at.para, at: { para: at.para + 1, offset: 0 } };
+}
 var contentWidth = (sp) => sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
 var maxColumns = (sp) => Math.max(1, Math.floor(contentWidth(sp) / COLUMN_MIN_WIDTH));
 function columnsFor(sp, spec) {
@@ -15912,6 +15917,7 @@ export {
   sectionIndexAt,
   sectionSectPr,
   insertSectionBreak,
+  insertPageBreakParagraph,
   contentWidth,
   maxColumns,
   columnsFor,

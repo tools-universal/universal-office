@@ -6686,6 +6686,11 @@ function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
   } else model.bodyRefs = { headerRefs: [], footerRefs: [] };
   return next;
 }
+function insertPageBreakParagraph(model, pos, split2 = splitParagraph) {
+  const at = pos.offset > 0 ? split2(model, pos) : pos;
+  model.paragraphs.splice(at.para, 0, { runs: [{ text: "\f", props: { ...DEFAULT_RUN_PROPS } }], props: {} });
+  return { index: at.para, at: { para: at.para + 1, offset: 0 } };
+}
 function columnsFor(sp, spec) {
   const W3 = contentWidth(sp);
   const n5 = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp)));
@@ -6753,6 +6758,7 @@ var COLUMN_SPACE_DEFAULT, COLUMN_MIN_WIDTH, cloneSectPr, contentWidth, maxColumn
 var init_section_ops = __esm({
   "../docx-core/src/section-ops.ts"() {
     "use strict";
+    init_document();
     init_model_ops();
     COLUMN_SPACE_DEFAULT = 708;
     COLUMN_MIN_WIDTH = 720;
@@ -28783,7 +28789,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "image", label: { en: "Image\u2026", pt: "Imagem\u2026" }, tip: { en: "Insert image", pt: "Inserir imagem" }, icon: "image", run: () => ctl.image() }),
     edit({ id: "link", label: { en: "Link\u2026", pt: "Link\u2026" }, tip: { en: "Insert link", pt: "Inserir link" }, icon: "link", shortcut: "Ctrl+K", run: () => ctl.link(), isChecked: () => !!run().link }),
     edit({ id: "comment", label: { en: "Comment", pt: "Coment\xE1rio" }, tip: { en: "New comment", pt: "Novo coment\xE1rio" }, icon: "add_comment", shortcut: "Ctrl+Alt+M", run: () => ctl.comment() }),
-    edit({ id: "pagebreak", label: { en: "Page break", pt: "Quebra de p\xE1gina" }, icon: "insert_page_break", shortcut: "Ctrl+Enter", run: () => ed.insertPageBreak() }),
+    edit({ id: "pagebreak", label: { en: "Page break", pt: "Quebra de p\xE1gina" }, icon: "insert_page_break", shortcut: "Ctrl+Enter", run: () => ed.insertPageBreak(), isEnabled: () => bodyOnly() }),
     edit({ id: "field:page", label: { en: "Page number", pt: "N\xFAmero da p\xE1gina" }, icon: "numbers", run: () => ed.insertField("PAGE") }),
     edit({ id: "field:numpages", label: { en: "Page count", pt: "N\xFAmero de p\xE1ginas" }, icon: "filter_none", run: () => ed.insertField("NUMPAGES") }),
     edit({ id: "field:date", label: { en: "Date", pt: "Data" }, tip: { en: "Insert date field", pt: "Inserir campo de data" }, icon: "calendar_today", run: () => ed.insertField("DATE") }),
@@ -50808,10 +50814,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     let pos = this.selection.focus;
     if (pos.offset > 0) {
-      pos = splitParagraph2(this.model, pos);
+      pos = this.splitAt(pos);
       this.shiftAnchors(pos.para - 1, 1);
     }
-    pos = insertText2(this.model, pos, "\v", this.pendingProps ?? void 0);
+    pos = this.insertTyped(pos, "\v", this.pendingProps ?? void 0);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -50825,7 +50831,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const id = this.nextSectionId++;
     this.sectionProps.set(id, this.sectionProps.get(range.sb?.id ?? 0));
     const raw = this.fullDoc?.sources?.sectPrRaw(closing);
-    const next = insertSectionBreak(m2, pos, type, { split: (mm, p3) => splitParagraph2(mm, p3), id, ...raw ? { raw } : {} });
+    const next = insertSectionBreak(m2, pos, type, { split: (_mm, p3) => this.splitAt(p3), id, ...raw ? { raw } : {} });
     this.shiftAnchors(pos.para, 1);
     return next;
   }
@@ -50911,9 +50917,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   redo() {
     this.popHistory(this.redoStack, this.undoStack);
   }
-  /** Insere quebra de página no caret (Ctrl+Enter). */
+  /**
+   * Quebra de página no cursor (Ctrl+Enter), como o Word: num parágrafo PRÓPRIO
+   * (estilo Normal) — no meio do parágrafo ele é dividido e a quebra vai entre as
+   * metades; a seleção é substituída; o cursor vai ao início do parágrafo de
+   * depois. Só no corpo (o Word recusa em cabeçalho/rodapé e divide a tabela).
+   */
   insertPageBreak() {
-    this.type("\f");
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p3 = this.deleteSelection();
+      this.selection = { anchor: p3, focus: p3 };
+    }
+    const from = this.selection.focus;
+    const { index, at } = insertPageBreakParagraph(this.model, from, (_m, p3) => {
+      const tail = this.splitAt(p3);
+      this.shiftAnchors(p3.para, 1);
+      return tail;
+    });
+    this.shiftAnchors(index, 1);
+    if (this.tracking) {
+      const rev2 = this.newRev();
+      const pb = this.model.paragraphs[index];
+      pb.props = { ...pb.props, markIns: rev2 };
+      pb.runs = pb.runs.map((r6) => ({ ...r6, props: { ...r6.props, ins: rev2 } }));
+    }
+    this.selection = { anchor: at, focus: at };
+    this.refresh();
+    this.scrollCaretIntoView();
   }
   /** Insere um CAMPO no caret (variáveis de cabeçalho/rodapé do app de referência).
    *  O texto é o token que o paint substitui por página; ao salvar vira
@@ -53005,7 +53037,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         Home: () => this.moveCaret("home", e8.shiftKey),
         End: () => this.moveCaret("end", e8.shiftKey),
         // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
-        Enter: () => ctrl && e8.shiftKey ? this.insertColumnBreak() : ctrl ? this.type("\f") : this.pressEnter(),
+        Enter: () => ctrl && e8.shiftKey ? this.insertColumnBreak() : ctrl ? this.insertPageBreak() : this.pressEnter(),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete()
       };
@@ -55419,7 +55451,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (ch === " " || ch === "\xA0") ctx.fillText(ch === " " ? "\xB7" : "\xB0", c5.x + c5.w / 2, line2.baselineTwips);
             else if (ch === "	") ctx.fillText("\u2192", c5.x + c5.w / 2, line2.baselineTwips);
           }
-          for (let o7 = Math.max(1, line2.rich.start); o7 < Math.min(line2.rich.end, text.length); o7++) {
+          const breakOnly = text === "\f" || text === "\v";
+          for (let o7 = breakOnly ? 0 : Math.max(1, line2.rich.start); o7 < Math.min(line2.rich.end, text.length); o7++) {
             const ch = text[o7];
             if (ch !== "\f" && ch !== "\v") continue;
             const bx = this.caretX({ para: pi, offset: o7 }, line2);
@@ -55431,6 +55464,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             const nextType = (k2) => this.sectionStarts[this.sectionIndexForPara(k2) + 1]?.section.sectPr.type ?? "nextPage";
             if (body && para.props.sectionBreak) {
               this.paintBreakMark(ctx, x3 + 20, this.columnRightAt(secOf(pi), x3), line2.baselineTwips, fs, nextType(pi), true);
+            } else if (breakOnly) {
             } else {
               ctx.fillText("\xB6", x3 + 20, line2.baselineTwips);
               const nx = this.model.paragraphs[pi + 1];
@@ -55438,7 +55472,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               if (body && nx?.props.sectionBreak && !this.layoutCache[pi + 1]?.lines.length) {
                 this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x3), line2.baselineTwips, fs, nextType(pi + 1), true);
               } else {
-                const c0 = nx ? paraText(nx)[0] : void 0;
+                const nt = nx ? paraText(nx) : "", c0 = nt.length > 1 ? nt[0] : void 0;
                 if (c0 === "\f" || c0 === "\v") this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x3), line2.baselineTwips, fs, c0 === "\f" ? "page" : "column", false);
               }
             }

@@ -4,11 +4,11 @@ import {
   isOdt,
   openDialog,
   showToast
-} from "./chunk-RJ6W7YOR.js";
+} from "./chunk-LCTHD25U.js";
 import {
   pickLabels,
   uiLang
-} from "./chunk-IP6LSAL6.js";
+} from "./chunk-Y2M4QOXB.js";
 
 // ../../../shared/ui/src/font-embedding-dialog.ts
 var LABELS = {

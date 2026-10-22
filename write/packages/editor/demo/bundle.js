@@ -9,7 +9,7 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-RJ6W7YOR.js";
+} from "./chunks/chunk-LCTHD25U.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -47,6 +47,7 @@ import {
   formulaResultText,
   hasParaChanges,
   hasRunChanges,
+  insertPageBreakParagraph,
   insertRun,
   insertSectionBreak,
   insertText,
@@ -110,7 +111,7 @@ import {
   writeDocument,
   zipSync,
   zlibSync
-} from "./chunks/chunk-IP6LSAL6.js";
+} from "./chunks/chunk-Y2M4QOXB.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -13950,7 +13951,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-CFD22DDY.js");
+    const { setupChrome } = await import("./chunks/chrome-6WHSJTGD.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -13987,7 +13988,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-CFD22DDY.js").then((m) => {
+      void import("./chunks/chrome-6WHSJTGD.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -15996,10 +15997,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     let pos = this.selection.focus;
     if (pos.offset > 0) {
-      pos = splitParagraph2(this.model, pos);
+      pos = this.splitAt(pos);
       this.shiftAnchors(pos.para - 1, 1);
     }
-    pos = insertText2(this.model, pos, "\v", this.pendingProps ?? void 0);
+    pos = this.insertTyped(pos, "\v", this.pendingProps ?? void 0);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -16013,7 +16014,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const id = this.nextSectionId++;
     this.sectionProps.set(id, this.sectionProps.get(range.sb?.id ?? 0));
     const raw = this.fullDoc?.sources?.sectPrRaw(closing);
-    const next = insertSectionBreak(m, pos, type, { split: (mm, p) => splitParagraph2(mm, p), id, ...raw ? { raw } : {} });
+    const next = insertSectionBreak(m, pos, type, { split: (_mm, p) => this.splitAt(p), id, ...raw ? { raw } : {} });
     this.shiftAnchors(pos.para, 1);
     return next;
   }
@@ -16099,9 +16100,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   redo() {
     this.popHistory(this.redoStack, this.undoStack);
   }
-  /** Insere quebra de página no caret (Ctrl+Enter). */
+  /**
+   * Quebra de página no cursor (Ctrl+Enter), como o Word: num parágrafo PRÓPRIO
+   * (estilo Normal) — no meio do parágrafo ele é dividido e a quebra vai entre as
+   * metades; a seleção é substituída; o cursor vai ao início do parágrafo de
+   * depois. Só no corpo (o Word recusa em cabeçalho/rodapé e divide a tabela).
+   */
   insertPageBreak() {
-    this.type("\f");
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p = this.deleteSelection();
+      this.selection = { anchor: p, focus: p };
+    }
+    const from = this.selection.focus;
+    const { index, at } = insertPageBreakParagraph(this.model, from, (_m, p) => {
+      const tail = this.splitAt(p);
+      this.shiftAnchors(p.para, 1);
+      return tail;
+    });
+    this.shiftAnchors(index, 1);
+    if (this.tracking) {
+      const rev = this.newRev();
+      const pb = this.model.paragraphs[index];
+      pb.props = { ...pb.props, markIns: rev };
+      pb.runs = pb.runs.map((r) => ({ ...r, props: { ...r.props, ins: rev } }));
+    }
+    this.selection = { anchor: at, focus: at };
+    this.refresh();
+    this.scrollCaretIntoView();
   }
   /** Insere um CAMPO no caret (variáveis de cabeçalho/rodapé do app de referência).
    *  O texto é o token que o paint substitui por página; ao salvar vira
@@ -18193,7 +18220,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         Home: () => this.moveCaret("home", e.shiftKey),
         End: () => this.moveCaret("end", e.shiftKey),
         // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
-        Enter: () => ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.type("\f") : this.pressEnter(),
+        Enter: () => ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.insertPageBreak() : this.pressEnter(),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete()
       };
@@ -20607,7 +20634,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (ch === " " || ch === "\xA0") ctx.fillText(ch === " " ? "\xB7" : "\xB0", c.x + c.w / 2, line.baselineTwips);
             else if (ch === "	") ctx.fillText("\u2192", c.x + c.w / 2, line.baselineTwips);
           }
-          for (let o = Math.max(1, line.rich.start); o < Math.min(line.rich.end, text.length); o++) {
+          const breakOnly = text === "\f" || text === "\v";
+          for (let o = breakOnly ? 0 : Math.max(1, line.rich.start); o < Math.min(line.rich.end, text.length); o++) {
             const ch = text[o];
             if (ch !== "\f" && ch !== "\v") continue;
             const bx = this.caretX({ para: pi, offset: o }, line);
@@ -20619,6 +20647,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             const nextType = (k) => this.sectionStarts[this.sectionIndexForPara(k) + 1]?.section.sectPr.type ?? "nextPage";
             if (body && para.props.sectionBreak) {
               this.paintBreakMark(ctx, x + 20, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi), true);
+            } else if (breakOnly) {
             } else {
               ctx.fillText("\xB6", x + 20, line.baselineTwips);
               const nx = this.model.paragraphs[pi + 1];
@@ -20626,7 +20655,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               if (body && nx?.props.sectionBreak && !this.layoutCache[pi + 1]?.lines.length) {
                 this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi + 1), true);
               } else {
-                const c0 = nx ? paraText(nx)[0] : void 0;
+                const nt = nx ? paraText(nx) : "", c0 = nt.length > 1 ? nt[0] : void 0;
                 if (c0 === "\f" || c0 === "\v") this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, c0 === "\f" ? "page" : "column", false);
               }
             }
@@ -25076,7 +25105,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-AVGZ67N4.js");
+  const { appFor } = await import("./chunks/chrome-app-UGANA4FY.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

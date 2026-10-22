@@ -6,7 +6,7 @@ import {
   hostOf,
   isDark,
   originStore
-} from "./chunk-X5ZQATMH.js";
+} from "./chunk-RJFIOX5L.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -32,7 +32,7 @@ import {
   symbol,
   themePaletteColors,
   toggleMenu
-} from "./chunk-RJ6W7YOR.js";
+} from "./chunk-LCTHD25U.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
@@ -42,7 +42,7 @@ import {
   readStyleSheet,
   retitleTableStyleXml,
   uiLang
-} from "./chunk-IP6LSAL6.js";
+} from "./chunk-Y2M4QOXB.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -2175,7 +2175,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "image", label: { en: "Image\u2026", pt: "Imagem\u2026" }, tip: { en: "Insert image", pt: "Inserir imagem" }, icon: "image", run: () => ctl.image() }),
     edit({ id: "link", label: { en: "Link\u2026", pt: "Link\u2026" }, tip: { en: "Insert link", pt: "Inserir link" }, icon: "link", shortcut: "Ctrl+K", run: () => ctl.link(), isChecked: () => !!run().link }),
     edit({ id: "comment", label: { en: "Comment", pt: "Coment\xE1rio" }, tip: { en: "New comment", pt: "Novo coment\xE1rio" }, icon: "add_comment", shortcut: "Ctrl+Alt+M", run: () => ctl.comment() }),
-    edit({ id: "pagebreak", label: { en: "Page break", pt: "Quebra de p\xE1gina" }, icon: "insert_page_break", shortcut: "Ctrl+Enter", run: () => ed.insertPageBreak() }),
+    edit({ id: "pagebreak", label: { en: "Page break", pt: "Quebra de p\xE1gina" }, icon: "insert_page_break", shortcut: "Ctrl+Enter", run: () => ed.insertPageBreak(), isEnabled: () => bodyOnly() }),
     edit({ id: "field:page", label: { en: "Page number", pt: "N\xFAmero da p\xE1gina" }, icon: "numbers", run: () => ed.insertField("PAGE") }),
     edit({ id: "field:numpages", label: { en: "Page count", pt: "N\xFAmero de p\xE1ginas" }, icon: "filter_none", run: () => ed.insertField("NUMPAGES") }),
     edit({ id: "field:date", label: { en: "Date", pt: "Data" }, tip: { en: "Insert date field", pt: "Inserir campo de data" }, icon: "calendar_today", run: () => ed.insertField("DATE") }),
@@ -7049,7 +7049,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-RQGTPAWK.js");
+    await import("./src-P3HSCDII.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
