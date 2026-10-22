@@ -76,6 +76,15 @@ export interface ShapeStyle {
   adj?: Record<string, number>;
   /** sombra externa (a:outerShdw): deslocamento (twips), cor, opacidade, desfoque (twips) */
   shadow?: { dx: number; dy: number; color: string; alpha?: number; blur?: number };
+  /** padrão (a:pattFill): predefinição e cores de frente/fundo (RRGGBB ou @esquema|mods) */
+  pattern?: { prst: string; fg: string; bg: string };
+  /** imagem (a:blipFill): esticada (Imagem) ou em mosaico (Textura: a:tile em EMU e 1/1000 %) */
+  blip?: { image: { data: Uint8Array; ext: string }; tile?: { tx: number; ty: number; sx: number; sy: number; algn: string; flip: string }; alpha?: number };
+  /** wps:style/a:fillRef sem preenchimento no spPr: idx 2..3 (e 1002…) = estilo de
+   *  preenchimento do tema com a cor (phClr) — Estilos de Forma (oráculo textbox-lab style-*) */
+  fillRef?: { idx: number; color: string };
+  /** wps:style/a:effectRef idx ≥ 1 (efeito do tema) com a cor */
+  effectRef?: { idx: number; color: string };
 }
 
 export const EMU_PER_TWIP_D = 635;
@@ -271,13 +280,30 @@ export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): Sh
       }
       st.fill = from.hex;
     }
-  } else if (styleEl) {
-    // sem fill explícito: wps:style/a:fillRef (cor do tema)
+  } else if (firstChild(spPr, 'a:pattFill')) {
+    const pf = firstChild(spPr, 'a:pattFill')!;
+    const fg = srgbOf(firstChild(pf, 'a:fgClr')), bg = srgbOf(firstChild(pf, 'a:bgClr'));
+    st.pattern = { prst: pf.attrs['prst'] ?? 'pct5', fg: fg?.hex ?? '000000', bg: bg?.hex ?? 'FFFFFF' };
+    // a cor de fundo é a do preenchimento (texto automático continua preto — medido:
+    // padrão vermelho sobre branco não clareia o texto; pintores sem o padrão)
+    st.fill = st.pattern.bg;
+  } else if (styleEl && !firstChild(spPr, 'a:blipFill') && !firstChild(spPr, 'a:grpFill')) {
+    // sem fill explícito: wps:style/a:fillRef (cor do tema); idx 2/3 = degradês do tema
     const fillRef = firstChild(styleEl, 'a:fillRef');
-    if (fillRef && fillRef.attrs['idx'] !== '0') {
+    const idx = parseInt(fillRef?.attrs['idx'] ?? '0', 10) || 0;
+    if (fillRef && idx !== 0) {
       const c = srgbOf(fillRef);
-      if (c) st.fill = c.hex;
+      if (c) {
+        st.fill = c.hex;
+        if (idx !== 1 && idx !== 1001) st.fillRef = { idx, color: c.hex };
+      }
     }
+  }
+  const effRef = styleEl && !firstChild(spPr, 'a:effectLst') ? firstChild(styleEl, 'a:effectRef') : undefined;
+  const effIdx = parseInt(effRef?.attrs['idx'] ?? '0', 10) || 0;
+  if (effRef && effIdx > 0) {
+    const c = srgbOf(effRef);
+    if (c) st.effectRef = { idx: effIdx, color: c.hex };
   }
   const eff = firstChild(spPr, 'a:effectLst');
   const shd = eff && firstChild(eff, 'a:outerShdw');

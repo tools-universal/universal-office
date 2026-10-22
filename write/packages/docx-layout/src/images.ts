@@ -46,6 +46,16 @@ export function jpegInfo(b: Uint8Array): JpegInfo | null {
   return null;
 }
 
+/** Tamanho em pixels de uma imagem raster pelo cabeçalho (PNG, JPEG, GIF, BMP). */
+export function imagePixelSize(b: Uint8Array): { width: number; height: number } | null {
+  const jp = jpegInfo(b);
+  if (jp) return { width: jp.width, height: jp.height };
+  if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50) return { width: ((b[16]! << 24) | (b[17]! << 16) | (b[18]! << 8) | b[19]!) >>> 0, height: ((b[20]! << 24) | (b[21]! << 16) | (b[22]! << 8) | b[23]!) >>> 0 };
+  if (b.length > 10 && b[0] === 0x47 && b[1] === 0x49) return { width: b[6]! | (b[7]! << 8), height: b[8]! | (b[9]! << 8) };
+  if (b.length > 26 && b[0] === 0x42 && b[1] === 0x4d) return { width: Math.abs(b[18]! | (b[19]! << 8) | (b[20]! << 16) | (b[21]! << 24)), height: Math.abs(b[22]! | (b[23]! << 8) | (b[24]! << 16) | (b[25]! << 24)) };
+  return null;
+}
+
 const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 export function decodePng(b: Uint8Array): Rgba | null {

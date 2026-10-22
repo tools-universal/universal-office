@@ -1,6 +1,7 @@
 import type { CustPath, DrawingGroup, Run, ShapeStyle, Theme } from '@universal-office/docx-core';
 import type { PathCmdTw, GradFill, ShapeItem } from './tree.js';
 import { resolveDrawingColor } from './resolve.js';
+import { patternRows } from '@universal-office/drawingml';
 
 /**
  * Geometrias predefinidas do DrawingML (presetShapeDefinitions.xml) usadas nos
@@ -276,9 +277,122 @@ export function gradientGeometry(g: GradFill, box: { x: number; y: number; w: nu
   return { kind: 'axial', x0, y0, x1, y1 };
 }
 
-/** Degradê e sombra de um ShapeStyle com as cores do tema resolvidas (itens 'shape'). */
-export function shapeExtras(s: ShapeStyle, theme: Theme): { grad?: GradFill; shadow?: ShapeItem['shadow'] } {
-  const out: { grad?: GradFill; shadow?: ShapeItem['shadow'] } = {};
+/**
+ * Padrão (a:pattFill) num quadro: raster RGBA com 1 pixel do padrão por célula da grade
+ * (`px` unidades — 0,75 pt / 15 twips: 1/96 pol, medido no PDF do Word), a grade alinhada
+ * à origem da página. Devolve o canto (na unidade do quadro) e o tamanho em células.
+ */
+export function patternRaster(p: { prst: string; fg: string; bg: string }, x: number, y: number, w: number, h: number, px: number, k = 1): { data: Uint8Array; w: number; h: number; x: number; y: number; cells: { w: number; h: number } } | null {
+  const rows = patternRows(p.prst);
+  if (!rows || w <= 0 || h <= 0) return null;
+  const i0 = Math.floor(x / px), j0 = Math.floor(y / px);
+  const W = Math.max(1, Math.ceil((x + w) / px) - i0), H = Math.max(1, Math.ceil((y + h) / px) - j0);
+  const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
+  // k pixels por célula: sem a interpolação do visualizador borrando o padrão
+  const RW = W * k, RH = H * k;
+  const data = new Uint8Array(RW * RH * 4);
+  for (let y2 = 0; y2 < RH; y2++) {
+    const j = Math.floor(y2 / k);
+    const row = rows[(((j0 + j) % 8) + 8) % 8]!;
+    for (let x2 = 0; x2 < RW; x2++) {
+      const i = Math.floor(x2 / k);
+      const on = (row >> (7 - ((((i0 + i) % 8) + 8) % 8))) & 1;
+      const c = on ? fg : bg, q = (y2 * RW + x2) * 4;
+      data[q] = c[0]!; data[q + 1] = c[1]!; data[q + 2] = c[2]!; data[q + 3] = 255;
+    }
+  }
+  return { data, w: RW, h: RH, x: i0 * px, y: j0 * px, cells: { w: W, h: H } };
+}
+
+/**
+ * Imagem do a:blipFill no quadro: esticada (um retângulo) ou em mosaico (a:tile: escala
+ * sx/sy em 1/1000 %, deslocamento tx/ty em EMU, alinhamento do 1º ladrilho; tamanho
+ * natural a 96 ppp). `emu` = unidades do quadro por EMU; `natural` em pixels.
+ */
+export function blipTiles(b: { tile?: { tx: number; ty: number; sx: number; sy: number; algn: string } }, x: number, y: number, w: number, h: number, emu: number, natural: { width: number; height: number } | null): { x: number; y: number; w: number; h: number }[] {
+  const t = b.tile;
+  if (!t || !natural) return [{ x, y, w, h }];
+  const tw = natural.width * 9525 * emu * (t.sx / 100000), th = natural.height * 9525 * emu * (t.sy / 100000);
+  if (!(tw > 0) || !(th > 0)) return [{ x, y, w, h }];
+  const a = t.algn ?? 'tl';
+  const ax = a.includes('r') ? x + w - tw : a === 't' || a === 'ctr' || a === 'b' ? x + (w - tw) / 2 : x;
+  const ay = a.startsWith('b') ? y + h - th : a === 'l' || a === 'ctr' || a === 'r' ? y + (h - th) / 2 : y;
+  const ox = ax + t.tx * emu, oy = ay + t.ty * emu;
+  const sx0 = ox - Math.ceil((ox - x) / tw) * tw, sy0 = oy - Math.ceil((oy - y) / th) * th;
+  const out: { x: number; y: number; w: number; h: number }[] = [];
+  for (let ty = sy0; ty < y + h && out.length < 4000; ty += th) for (let tx = sx0; tx < x + w; tx += tw) out.push({ x: tx, y: ty, w: tw, h: th });
+  return out;
+}
+
+/** Degradê em retângulos (a:path path="rect" | "shape"): o "Do Centro" do Word — anéis
+ *  retangulares do retângulo de foco (fillToRect) até as bordas do quadro. */
+export function isRectGradient(g: GradFill | undefined): boolean {
+  return !!g && (g.path === 'rect' || g.path === 'shape');
+}
+
+/** Raster RGBA do degradê retangular no quadro (w × h unidades, `ppu` pixels por unidade). */
+export function rectGradientRaster(g: GradFill, w: number, h: number, ppu: number): { data: Uint8Array; w: number; h: number } {
+  const W = Math.max(1, Math.min(2000, Math.round(w * ppu))), H = Math.max(1, Math.min(2000, Math.round(h * ppu)));
+  const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
+  const fx0 = f.l * W, fx1 = (1 - f.r) * W, fy0 = f.t * H, fy1 = (1 - f.b) * H;
+  const smp = gradientSamples(g.stops, 256);
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const py = y + 0.5;
+    const ty = py < fy0 ? (fy0 - py) / Math.max(1e-6, fy0) : py > fy1 ? (py - fy1) / Math.max(1e-6, H - fy1) : 0;
+    for (let x = 0; x < W; x++) {
+      const px = x + 0.5;
+      const tx = px < fx0 ? (fx0 - px) / Math.max(1e-6, fx0) : px > fx1 ? (px - fx1) / Math.max(1e-6, W - fx1) : 0;
+      const t = Math.min(1, Math.max(tx, ty));
+      const i = Math.round(t * 255) * 3, k = (y * W + x) * 4;
+      data[k] = smp[i]!; data[k + 1] = smp[i + 1]!; data[k + 2] = smp[i + 2]!; data[k + 3] = 255;
+    }
+  }
+  return { data, w: W, h: H };
+}
+
+/** Cor do estilo do tema com a do marcador phClr trocada pela da referência (a do
+ *  fillRef/effectRef): os modificadores da referência e depois os do estilo. */
+export function substPhClr(spec: string, color: string): string {
+  if (!spec.startsWith('@phClr')) return spec;
+  const mods = spec.split('|')[1];
+  if (!mods) return color;
+  const [base, cm] = color.split('|');
+  return `${base}|${[cm, mods].filter(Boolean).join(',')}`;
+}
+
+/** O ShapeStyle com o preenchimento e a sombra dos estilos do tema (fillRef idx 2/3 e
+ *  1001…, effectRef) já postos — Estilos de Forma (oráculo textbox-lab style-*). */
+export function withThemeStyles(s: ShapeStyle, theme: Theme): ShapeStyle {
+  let out = s;
+  if (s.fillRef) {
+    const list = s.fillRef.idx >= 1000 ? theme.bgFillStyles : theme.fillStyles;
+    const ts = list?.[(s.fillRef.idx % 1000) - 1];
+    if (ts) {
+      const c = s.fillRef.color;
+      out = {
+        ...out,
+        ...(ts.fill ? { fill: substPhClr(ts.fill, c) } : {}),
+        ...(ts.gradient ? { gradient: { ...ts.gradient, from: substPhClr(ts.gradient.from, c), to: substPhClr(ts.gradient.to, c), ...(ts.gradient.stops ? { stops: ts.gradient.stops.map((x) => ({ ...x, color: substPhClr(x.color, c) })) } : {}) } } : {}),
+        ...(ts.pattern ? { pattern: { ...ts.pattern, fg: substPhClr(ts.pattern.fg, c), bg: substPhClr(ts.pattern.bg, c) } } : {}),
+      };
+    }
+  }
+  if (s.effectRef && !s.shadow) {
+    const sh = theme.effectStyles?.[s.effectRef.idx - 1];
+    if (sh) out = { ...out, shadow: { ...sh, color: substPhClr(sh.color, s.effectRef.color) } };
+  }
+  return out;
+}
+
+/** Degradê, padrão, imagem e sombra de um ShapeStyle com as cores do tema resolvidas (itens 'shape'). */
+export function shapeExtras(s0: ShapeStyle, theme: Theme): Pick<ShapeItem, 'grad' | 'shadow' | 'pattern' | 'blip'> {
+  const s = withThemeStyles(s0, theme);
+  const out: Pick<ShapeItem, 'grad' | 'shadow' | 'pattern' | 'blip'> = {};
+  if (s.pattern) {
+    out.pattern = { prst: s.pattern.prst, fg: resolveDrawingColor(s.pattern.fg, theme) ?? '000000', bg: resolveDrawingColor(s.pattern.bg, theme) ?? 'FFFFFF' };
+  }
+  if (s.blip) out.blip = s.blip;
   const g = s.gradient;
   if (g?.stops && g.stops.length) {
     out.grad = {

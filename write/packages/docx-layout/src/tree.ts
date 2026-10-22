@@ -105,6 +105,10 @@ export interface ShapeItem {
   grad?: GradFill;
   /** sombra externa resolvida (deslocamento em twips) */
   shadow?: { dx: number; dy: number; color: string; alpha?: number; blur?: number };
+  /** padrão (a:pattFill) com as cores resolvidas: bitmap 8×8, 1 pixel = 0,75 pt */
+  pattern?: { prst: string; fg: string; bg: string };
+  /** imagem (a:blipFill): esticada no quadro ou em mosaico (a:tile) */
+  blip?: { image: { data: Uint8Array; ext: string }; tile?: { tx: number; ty: number; sx: number; sy: number; algn: string; flip: string }; alpha?: number };
 }
 
 /** Degradê (a:gradFill): paradas (pos 0..1), a:lin (ângulo, scaled), rotWithShape, a:path. */

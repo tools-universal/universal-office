@@ -1,5 +1,6 @@
 import type { DocxPackage } from '../package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from '../xml.js';
+import { readSpPr, type ShapeStyle } from '../drawing.js';
 import {
   readPPr, readRPr, readTblPr, readTrPr, readTcPr, onOffVal, measureTwips,
   type PPr, type RPr, type TblPr, type TrPr, type TcPr,
@@ -271,6 +272,12 @@ export interface Theme {
   colors: Record<string, string>;
   /** espessuras (pt) das linhas do a:lnStyleLst — lnRef idx 1..3 */
   lineWidthsPt?: number[];
+  /** preenchimentos do a:fillStyleLst (fillRef idx 1..3) e do a:bgFillStyleLst (idx
+   *  1001..1003), com a cor do marcador phClr (@phClr) — Estilos de Forma */
+  fillStyles?: ShapeStyle[];
+  bgFillStyles?: ShapeStyle[];
+  /** sombras do a:effectStyleLst (effectRef idx 1..3; sem efeito = undefined) */
+  effectStyles?: (ShapeStyle['shadow'] | undefined)[];
 }
 
 export function readTheme(xml: string | undefined): Theme {
@@ -302,6 +309,14 @@ export function readTheme(xml: string | undefined): Theme {
   }
   const lnList = find(root, 'a:lnStyleLst');
   if (lnList) theme.lineWidthsPt = childElements(lnList, 'a:ln').map((l) => (parseInt(l.attrs['w'] ?? '0', 10) || 0) / 12700);
+  // estilos de preenchimento/efeito (fillRef/effectRef dos Estilos de Forma)
+  const asSpPr = (kids: XmlElement[]): ShapeStyle => readSpPr({ name: 'a:spPr', attrs: {}, children: kids });
+  const fills = find(root, 'a:fillStyleLst');
+  if (fills) theme.fillStyles = childElements(fills).map((f) => asSpPr([f]));
+  const bgFills = find(root, 'a:bgFillStyleLst');
+  if (bgFills) theme.bgFillStyles = childElements(bgFills).map((f) => asSpPr([f]));
+  const effects = find(root, 'a:effectStyleLst');
+  if (effects) theme.effectStyles = childElements(effects, 'a:effectStyle').map((e) => asSpPr(childElements(e, 'a:effectLst')).shadow);
   const clr = find(root, 'a:clrScheme');
   if (clr) {
     for (const c of childElements(clr)) {

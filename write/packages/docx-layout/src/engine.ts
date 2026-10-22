@@ -18,7 +18,7 @@ import { formatNumber } from './numbering.js';
 import { NumberingState, type NumberMarker } from './numbering.js';
 import { isEmf, renderEmf } from './emf.js';
 import { isWmf, renderWmf } from './wmf.js';
-import { groupChild, shapeExtras } from './geometry.js';
+import { groupChild, shapeExtras, withThemeStyles } from './geometry.js';
 import { pictureLook } from './picture.js';
 import { resolvePageFill } from './page-fill.js';
 import { liftFrames, FRAME_SKIP, FRAME_CARRY, FRAME_INFO } from './frames.js';
@@ -3154,7 +3154,10 @@ class Engine {
   private tbEnv(tb: DrawingTextbox): Pick<ParaEnv, 'darkBackground' | 'defaultColor'> {
     const theme = this.ctx.fmt.theme;
     const fc = tb.fontColor ? resolveDrawingColor(tb.fontColor, theme) : undefined;
-    return { darkBackground: isDark(resolveDrawingColor(tb.shape?.fill, theme)), ...(fc ? { defaultColor: fc } : {}) };
+    // só o preenchimento SÓLIDO escuro clareia o texto automático (medido: degradê e padrão não)
+    const s = tb.shape;
+    const solid = s && !s.gradient && !s.pattern && !s.blip && !s.fillRef ? s.fill : undefined;
+    return { darkBackground: isDark(resolveDrawingColor(solid, theme)), ...(fc ? { defaultColor: fc } : {}) };
   }
 
   /** cadeias de caixas vinculadas (montadas na 1ª caixa que precisa) */
@@ -3462,9 +3465,9 @@ class Engine {
       const x = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
       let tc: CellContent | null = null;
       if (r.textbox) {
-        const ins = tbInsets(r.textbox, this.ctx.fmt.theme, w, h);
         const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
-        tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'itb', ps);
+        const chain = this.chainOf(r.textbox);
+        tc = chain ? this.chainSlice(chain, r.textbox, {}) : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, w, h).iw), { ...this.tbEnv(r.textbox) }, 'itb', ps);
       }
       const drawn = this.paintObject(r, x, y, w, h, tc, ps ?? this.cur);
       // no corpo, como os flutuantes: depois do texto da página (ordem do PDF do Word — oráculo inlinegrp)
@@ -3492,7 +3495,7 @@ class Engine {
       });
     } else if (run.shape) {
       const s = run.shape.style;
-      const fill = resolveDrawingColor(s.fill, theme);
+      const fill = resolveDrawingColor(withThemeStyles(s, theme).fill, theme);
       // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
       const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
       const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: lw!, ...(s.line.dash ? { dash: s.line.dash } : {}) } : undefined;
@@ -3500,11 +3503,11 @@ class Engine {
     } else if (run.textbox) {
       const tb = run.textbox;
       const s = tb.shape;
-      if (s && (s.fill || s.line)) {
-        const fill = resolveDrawingColor(s.fill, theme);
+      if (s && (s.fill || s.line || s.gradient || s.pattern || s.blip)) {
+        const fill = resolveDrawingColor(withThemeStyles(s, theme).fill, theme);
         // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
         const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
-        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: lw! } : undefined;
+        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: lw!, ...(s.line.dash ? { dash: s.line.dash } : {}) } : undefined;
         out.push({ t: 'shape', x, y, w, h, style: s, ...(fill ? { fill } : {}), ...(stroke ? { stroke } : {}), ...shapeExtras(s, theme) });
       }
       if (tbContent) {
@@ -3589,10 +3592,11 @@ class Engine {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x, y, w, h);
         let tc: CellContent | null = null;
         if (r.textbox) {
-          const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
           // campos (PAGE…) da caixa do grupo valem por página, como na caixa solta (oráculo hfgroup)
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)), ...(this.inHf ? { hf: true } : {}) }, 'grp', ps);
+          const chain = this.chainOf(r.textbox);
+          tc = chain ? this.chainSlice(chain, r.textbox, { field: this.fieldValue(ps), ...(this.inHf ? { hf: true } : {}) })
+            : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, iw, ih).iw), { field: this.fieldValue(ps), ...this.tbEnv(r.textbox), ...(this.inHf ? { hf: true } : {}) }, 'grp', ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }

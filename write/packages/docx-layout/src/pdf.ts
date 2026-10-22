@@ -4,9 +4,9 @@ import type { InlineImage } from '@universal-office/docx-core';
 import type { LayoutResult, LayoutPage, PageItem, PathCmdTw, ImageItem } from './tree.js';
 import { gradientTileRgba, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
 import { paintPicturePdf, type PdfPictureEnv } from './pdf-picture.js';
-import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, type GradGeom } from './geometry.js';
+import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, patternRaster, blipTiles, isRectGradient, rectGradientRaster, type GradGeom } from './geometry.js';
 import { isSymbolFont, type FontFace } from './fonts.js';
-import { applyImageEffects, applyPictureAdjust, decodeRaster, effectDecode, jpegInfo } from './images.js';
+import { applyImageEffects, applyPictureAdjust, decodeRaster, effectDecode, jpegInfo, imagePixelSize } from './images.js';
 
 /**
  * Pinta a árvore de layout num PDF (o mesmo desenho do canvas): glifos
@@ -160,7 +160,7 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
     const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
     if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h));
   }
   return doc.build();
 }
@@ -239,6 +239,7 @@ function paintItem(
   fontFor: (f: FontFace, pua?: boolean) => EmbeddedFont | null, imageFor: (i: InlineImage) => PdfImage | null,
   shade: (g: GradGeom, samples: Uint8Array) => PdfShading,
   pictureEnv?: (it: ImageItem) => PdfPictureEnv,
+  embedRgba?: (data: Uint8Array, w: number, h: number) => PdfImage,
 ): void {
   switch (it.t) {
     case 'glyphs': {
@@ -309,7 +310,7 @@ function paintItem(
       const stroke = it.stroke && /^[0-9A-Fa-f]{6}$/.test(it.stroke.color)
         ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...(it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {}) }
         : undefined;
-      if (!fill && !stroke && !it.grad) return;
+      if (!fill && !stroke && !it.grad && !it.pattern && !it.blip) return;
       const x = it.x / T, y = it.y / T, w = it.w / T, h = it.h / T;
       const isLine = st.geom === 'line' || st.geom.startsWith('straightConnector');
       const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
@@ -339,6 +340,39 @@ function paintItem(
             : { ...c, x: c.x + dx, y: c.y + dy });
           page.withAlpha(it.shadow.alpha, it.shadow.alpha, () => page.path(sc, p.fill && (fill || it.grad) ? col : undefined, p.stroke && stroke ? { ...stroke, color: col } : undefined, p.evenOdd));
         }
+      }
+      // padrão (a:pattFill) e imagem/textura (a:blipFill): raster recortado pelo caminho
+      if ((it.pattern || it.blip) && embedRgba) {
+        const fillParts = parts.filter((p) => p.fill);
+        for (const p of fillParts) {
+          page.pushClipPath(p.cmds, p.evenOdd);
+          if (it.pattern) {
+            const pr = patternRaster(it.pattern, x, y, w, h, 0.75, 4);
+            if (pr) page.drawImage(embedRgba(pr.data, pr.w, pr.h), pr.x, pr.y, pr.cells.w * 0.75, pr.cells.h * 0.75);
+          } else if (it.blip) {
+            const im = imageFor(it.blip.image as InlineImage);
+            const nat = imagePixelSize(it.blip.image.data);
+            if (im) page.withAlpha(it.blip.alpha, undefined, () => {
+              for (const t of blipTiles(it.blip!, x, y, w, h, 1 / 12700, nat)) page.drawImage(im, t.x, t.y, t.w, t.h);
+            });
+          }
+          page.popClip();
+        }
+        if (stroke) for (const p of parts) if (p.stroke) page.withAlpha(undefined, st.line?.alpha, () => page.path(p.cmds, undefined, stroke));
+        return;
+      }
+      // degradê em retângulos ("Do Centro"): raster no quadro da forma, girado com ela
+      if (it.grad && isRectGradient(it.grad) && embedRgba) {
+        const r = rectGradientRaster(it.grad, w, h, 2);
+        const im = embedRgba(r.data, r.w, r.h);
+        for (const p of parts) {
+          if (!p.fill) continue;
+          page.pushClipPath(p.cmds, p.evenOdd);
+          page.withAlpha(st.fillAlpha, undefined, () => page.drawImageTransformed(im, x, y, w, h, st.rot ?? 0, !!st.flipH, !!st.flipV));
+          page.popClip();
+        }
+        if (stroke) for (const p of parts) if (p.stroke) page.withAlpha(undefined, st.line?.alpha, () => page.path(p.cmds, undefined, stroke));
+        return;
       }
       if (it.grad) {
         const pb = pathBounds(parts.flatMap((p) => p.cmds) as PathCmdTw[]);

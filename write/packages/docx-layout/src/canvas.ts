@@ -1,8 +1,10 @@
 import type { InlineImage } from '@universal-office/docx-core';
 import { BORDER_DASHES } from './tree.js';
 import { needsPicturePainter, paintPicture } from './canvas-picture.js';
-import type { PageItem, GlyphRunItem, ShapeItem, LayoutPage } from './tree.js';
+import type { PageItem, GlyphRunItem, ShapeItem, LayoutPage, PathCmdTw } from './tree.js';
 import { gradientTileRgba, gradientTilePx, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
+import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, patternRaster, blipTiles, isRectGradient, rectGradientRaster } from './geometry.js';
+import { imagePixelSize } from './images.js';
 import type { FontFace as EngineFontFace } from './fonts.js';
 
 /**
@@ -310,24 +312,120 @@ function strokeWith(ctx: CanvasRenderingContext2D, color: string, widthPt: numbe
   ctx.setLineDash([]);
 }
 
+/**
+ * Forma (wps/VML): a MESMA geometria do pdf.ts — predefinida com ajustes, espelho e
+ * giro; a:custGeom; linha — com preenchimento sólido, degradê, padrão ou imagem,
+ * contorno e a sombra externa (cópia deslocada, sem desfoque, como no PDF).
+ */
 function paintShape(ctx: CanvasRenderingContext2D, it: ShapeItem, env: EnginePaintEnv, base: number): void {
+  const st = it.style;
   const fill = it.fill && HEX6.test(it.fill) ? env.color(it.fill) : undefined;
   const stroke = it.stroke && HEX6.test(it.stroke.color) ? it.stroke : undefined;
-  if (!fill && !stroke) return;
-  let cmds = shapePath(it.style.geom, it.x, it.y, it.w, it.h, it.line, !!it.style.flipH, !!it.style.flipV);
-  if (it.style.rot) cmds = rotatePath(cmds, it.x + it.w / 2, it.y + it.h / 2, it.style.rot);
-  ctx.beginPath();
-  tracePath(ctx, cmds);
-  if (fill && it.style.geom !== 'line') {
-    ctx.globalAlpha = base * (it.style.fillAlpha ?? 1);
+  if (!fill && !stroke && !it.grad && !it.pattern && !it.blip) return;
+  const { x, y, w, h } = it;
+  const isLine = st.geom === 'line' || st.geom.startsWith('straightConnector');
+  const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
+  type Part = { cmds: Cmd[]; fill: boolean; stroke: boolean; evenOdd: boolean };
+  let parts: Part[];
+  if (isLine) {
+    let cmds = shapePath('line', x, y, w, h, it.line, !!st.flipH, !!st.flipV);
+    if (st.rot) cmds = rotatePath(cmds, x + w / 2, y + h / 2, st.rot);
+    parts = [{ cmds, fill: false, stroke: true, evenOdd: false }];
+  } else if (st.geom === 'custom' && st.cust) {
+    parts = custPaths(st.cust, x, y, w, h, xf).map((p) => ({ cmds: p.cmds as Cmd[], fill: p.fill, stroke: p.stroke, evenOdd: true }));
+  } else {
+    parts = [{ cmds: presetPath(st.geom, x, y, w, h, { ...(st.adj ? { adj: st.adj } : {}), ...xf }) as Cmd[], fill: !OPEN_PRESETS.has(st.geom), stroke: true, evenOdd: false }];
+  }
+  const fillPart = (p: Part): void => { ctx.beginPath(); tracePath(ctx, p.cmds); ctx.fill(p.evenOdd ? 'evenodd' : 'nonzero'); };
+  const strokePart = (p: Part): void => { ctx.beginPath(); tracePath(ctx, p.cmds); strokeWith(ctx, env.color(stroke!.color), stroke!.widthPt, stroke!.dash); };
+  if (it.shadow && HEX6.test(it.shadow.color)) {
+    ctx.save();
+    ctx.translate(it.shadow.dx, it.shadow.dy);
+    ctx.globalAlpha = base * (it.shadow.alpha ?? 1);
+    ctx.fillStyle = env.color(it.shadow.color);
+    for (const p of parts) {
+      if (p.fill && (fill || it.grad || it.pattern || it.blip)) fillPart(p);
+      if (p.stroke && stroke) { ctx.beginPath(); tracePath(ctx, p.cmds); strokeWith(ctx, env.color(it.shadow.color), stroke.widthPt, stroke.dash); }
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = base * (st.fillAlpha ?? 1);
+  if (it.pattern || it.blip) {
+    for (const p of parts) {
+      if (!p.fill) continue;
+      ctx.save();
+      ctx.beginPath();
+      tracePath(ctx, p.cmds);
+      ctx.clip(p.evenOdd ? 'evenodd' : 'nonzero');
+      if (it.pattern) {
+        const pr = patternRaster({ ...it.pattern, fg: it.pattern.fg, bg: it.pattern.bg }, x, y, w, h, 15);
+        if (pr) {
+          const c = rgbaCanvasThemed(pr.data, pr.w, pr.h, env, it.pattern);
+          ctx.imageSmoothingEnabled = false;
+          if (c) ctx.drawImage(c, pr.x, pr.y, pr.cells.w * 15, pr.cells.h * 15);
+        }
+      } else if (it.blip) {
+        const bmp = env.image(it.blip.image as InlineImage);
+        if (bmp) {
+          ctx.globalAlpha = base * (it.blip.alpha ?? 1);
+          for (const t of blipTiles(it.blip, x, y, w, h, 1 / 635, imagePixelSize(it.blip.image.data))) ctx.drawImage(bmp, t.x, t.y, t.w, t.h);
+        }
+      }
+      ctx.restore();
+    }
+  } else if (it.grad && isRectGradient(it.grad)) {
+    // degradê em retângulos ("Do Centro"): raster no quadro, girado com a forma
+    const r = rectGradientRaster(it.grad, w / 20, h / 20, 2);
+    const c = rgbaCanvasThemed(r.data, r.w, r.h, env, null);
+    for (const p of parts) {
+      if (!p.fill || !c) continue;
+      ctx.save();
+      ctx.beginPath();
+      tracePath(ctx, p.cmds);
+      ctx.clip(p.evenOdd ? 'evenodd' : 'nonzero');
+      ctx.translate(x + w / 2, y + h / 2);
+      if (st.rot) ctx.rotate((st.rot * Math.PI) / 180);
+      ctx.scale(st.flipH ? -1 : 1, st.flipV ? -1 : 1);
+      ctx.drawImage(c, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+  } else if (it.grad) {
+    const pb = pathBounds(parts.flatMap((p) => p.cmds) as PathCmdTw[]);
+    const g = gradientGeometry(it.grad, { x, y, w, h, rot: st.rot ?? 0 }, pb);
+    const smp = gradientSamples(it.grad.stops, 64);
+    const cg = g.kind === 'axial' ? ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1) : ctx.createRadialGradient(g.x0, g.y0, 0, g.x0, g.y0, g.r);
+    for (let i = 0; i < 64; i++) cg.addColorStop(i / 63, env.color(hex2(smp[i * 3]!) + hex2(smp[i * 3 + 1]!) + hex2(smp[i * 3 + 2]!)));
+    ctx.fillStyle = cg;
+    for (const p of parts) if (p.fill) fillPart(p);
+  } else if (fill) {
     ctx.fillStyle = fill;
-    ctx.fill('nonzero');
+    for (const p of parts) if (p.fill) fillPart(p);
   }
   if (stroke) {
-    ctx.globalAlpha = base * (it.style.line?.alpha ?? 1);
-    strokeWith(ctx, env.color(stroke.color), stroke.widthPt, stroke.dash);
+    ctx.globalAlpha = base * (st.line?.alpha ?? 1);
+    for (const p of parts) if (p.stroke) strokePart(p);
   }
   ctx.globalAlpha = base;
+}
+
+const hex2 = (n: number): string => n.toString(16).padStart(2, '0').toUpperCase();
+
+/** RGBA → canvas (padrão; as cores passam pelo env.color do tema escuro). */
+function rgbaCanvasThemed(data: Uint8Array, w: number, h: number, env: EnginePaintEnv, p: { fg: string; bg: string } | null): HTMLCanvasElement | OffscreenCanvas | null {
+  const c: HTMLCanvasElement | OffscreenCanvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const x = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+  if (!x) return null;
+  const img = x.createImageData(w, h);
+  img.data.set(data);
+  // cores trocadas pelo tema escuro do editor (env.color): recolore frente/fundo
+  const fg = p ? env.color(p.fg) : '', bg = p ? env.color(p.bg) : '';
+  if (p && (fg !== `#${p.fg}` || bg !== `#${p.bg}`)) {
+    const parse = (s: string): number[] | null => { const m = /^#?([0-9a-f]{6})$/i.exec(s); return m ? [0, 2, 4].map((i) => parseInt(m[1]!.slice(i, i + 2), 16)) : null; };
+    const f = parse(fg), b = parse(bg), f0 = parse(p.fg)!;
+    if (f && b) for (let i = 0; i < img.data.length; i += 4) { const on = img.data[i] === f0[0] && img.data[i + 1] === f0[1] && img.data[i + 2] === f0[2]; const c2 = on ? f : b; img.data[i] = c2[0]!; img.data[i + 1] = c2[1]!; img.data[i + 2] = c2[2]!; }
+  }
+  x.putImageData(img, 0, 0);
+  return c;
 }
 
 function tracePath(ctx: CanvasRenderingContext2D, cmds: readonly Cmd[]): void {

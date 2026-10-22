@@ -878,7 +878,21 @@ function readGraphicObject(
       const fontRef = firstChild(firstChild(obj, 'wps:style') ?? obj, 'a:fontRef');
       const fc = fontRef ? readSpPr({ name: 'wps:spPr', attrs: {}, children: [{ name: 'a:solidFill', attrs: {}, children: childElements(fontRef) }] }).fill : undefined;
       if (fc) tb.fontColor = fc;
-      if (style.fill || style.line || style.gradient) tb.shape = style;
+      // preenchimento de imagem (Imagem: esticada; Textura: a:tile)
+      const bf = spPr && firstChild(spPr, 'a:blipFill');
+      const blip = bf && firstChild(bf, 'a:blip');
+      const media = blip?.attrs['r:embed'] ? ctx.resolveImage(blip.attrs['r:embed']) : undefined;
+      if (bf && media) {
+        const tile = firstChild(bf, 'a:tile');
+        const n = (k: string, d: number) => parseInt(tile?.attrs[k] ?? String(d), 10) || 0;
+        const amf = blip && firstChild(blip, 'a:alphaModFix');
+        style.blip = {
+          image: { data: media.data, ext: media.ext },
+          ...(tile ? { tile: { tx: n('tx', 0), ty: n('ty', 0), sx: n('sx', 100000), sy: n('sy', 100000), algn: tile.attrs['algn'] ?? 'tl', flip: tile.attrs['flip'] ?? 'none' } } : {}),
+          ...(amf ? { alpha: (parseInt(amf.attrs['amt'] ?? '100000', 10) || 0) / 100000 } : {}),
+        };
+      }
+      if (style.fill || style.line || style.gradient || style.blip || style.pattern || style.effectRef) tb.shape = style;
       tb.lineInset = style.lineInset ?? {};
       if (style.geom && style.geom !== 'rect' && style.geom !== 'custom') tb.geom = { prst: style.geom, ...(style.adj ? { adj: style.adj } : {}) };
       // espelho vertical gira o texto 180° (o horizontal não o afeta): rot 180 + flipV fica
