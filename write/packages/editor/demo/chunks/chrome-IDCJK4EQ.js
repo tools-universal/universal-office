@@ -6,7 +6,7 @@ import {
   hostOf,
   isDark,
   originStore
-} from "./chunk-RJFIOX5L.js";
+} from "./chunk-IHKHIKWI.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -32,7 +32,7 @@ import {
   symbol,
   themePaletteColors,
   toggleMenu
-} from "./chunk-LCTHD25U.js";
+} from "./chunk-BHXX4LCT.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
@@ -42,7 +42,7 @@ import {
   readStyleSheet,
   retitleTableStyleXml,
   uiLang
-} from "./chunk-Y2M4QOXB.js";
+} from "./chunk-OY4FZEKX.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -2184,8 +2184,36 @@ function registerWriteCommands(reg, ed, app, ctl) {
     { id: "hf:close", label: { en: "Close Header and Footer", pt: "Fechar Cabe\xE7alho e Rodap\xE9" }, icon: "close", run: () => ed.exitHeaderFooter() },
     edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L4.tocUpdated : L4.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
-    edit({ id: "footnote", label: { en: "Footnote", pt: "Nota de rodap\xE9" }, tip: { en: "Insert footnote", pt: "Inserir nota de rodap\xE9" }, icon: "notes", shortcut: "Ctrl+Alt+F", supports: has("insertFootnote"), run: () => call("insertFootnote") }),
-    edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), run: () => call("insertEndnote") }),
+    edit({ id: "footnote", label: { en: "Footnote", pt: "Nota de rodap\xE9" }, tip: { en: "Insert footnote", pt: "Inserir nota de rodap\xE9" }, icon: "notes", shortcut: "Ctrl+Alt+F", supports: has("insertFootnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertFootnote") }),
+    edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertEndnote") }),
+    // notas: navegar, mostrar, opções e converter
+    { id: "note:next", label: { en: "Next Footnote", pt: "Pr\xF3xima Nota de Rodap\xE9" }, tip: { en: "Go to the next footnote", pt: "Ir para a pr\xF3xima nota de rodap\xE9" }, icon: "keyboard_arrow_down", supports: has("nextNote"), isEnabled: () => ed.noteCount("footnote") > 0, run: () => {
+      ed.nextNote("footnote", 1);
+    } },
+    { id: "note:prev", label: { en: "Previous Footnote", pt: "Nota de Rodap\xE9 Anterior" }, icon: "keyboard_arrow_up", supports: has("nextNote"), isEnabled: () => ed.noteCount("footnote") > 0, run: () => {
+      ed.nextNote("footnote", -1);
+    } },
+    { id: "note:nextEnd", label: { en: "Next Endnote", pt: "Pr\xF3xima Nota de Fim" }, icon: "keyboard_arrow_down", supports: has("nextNote"), isEnabled: () => ed.noteCount("endnote") > 0, run: () => {
+      ed.nextNote("endnote", 1);
+    } },
+    { id: "note:prevEnd", label: { en: "Previous Endnote", pt: "Nota de Fim Anterior" }, icon: "keyboard_arrow_up", supports: has("nextNote"), isEnabled: () => ed.noteCount("endnote") > 0, run: () => {
+      ed.nextNote("endnote", -1);
+    } },
+    { id: "note:show", label: { en: "Show Notes", pt: "Mostrar Notas" }, tip: { en: "Go from the reference to the note and back", pt: "Vai da refer\xEAncia \xE0 nota e volta" }, icon: "visibility", supports: has("showNotes"), isEnabled: () => ed.noteCount("footnote") + ed.noteCount("endnote") > 0, run: () => ctl.showNotes() },
+    edit({ id: "dlg:notes", label: { en: "Footnote and Endnote\u2026", pt: "Notas de Rodap\xE9 e de Fim\u2026" }, tip: { en: "Location, number format and numbering of the notes", pt: "Local, formato e numera\xE7\xE3o das notas" }, icon: "notes", supports: has("setNoteOptions"), run: () => ctl.notesDialog() }),
+    edit({ id: "note:convert", label: { en: "Convert Notes\u2026", pt: "Converter Notas\u2026" }, icon: "autorenew", supports: has("convertNotes"), isEnabled: () => ed.noteCount("footnote") + ed.noteCount("endnote") > 0, run: () => ctl.convertNotesDialog() }),
+    { id: "note:goRef", label: { en: "Go to Reference", pt: "Ir para a Refer\xEAncia" }, icon: "keyboard_arrow_up", supports: () => !!ed.editingNote(), run: () => {
+      const n5 = ed.editingNote();
+      if (n5) ed.goToNoteRef(n5.kind, n5.id);
+    } },
+    edit({ id: "note:toEndnote", label: { en: "Convert to Endnote", pt: "Converter em Nota de Fim" }, icon: "autorenew", supports: () => ed.editingNote()?.kind === "footnote", run: () => {
+      const n5 = ed.editingNote();
+      if (n5) ed.convertNotes("toEndnotes", n5);
+    } }),
+    edit({ id: "note:toFootnote", label: { en: "Convert to Footnote", pt: "Converter em Nota de Rodap\xE9" }, icon: "autorenew", supports: () => ed.editingNote()?.kind === "endnote", run: () => {
+      const n5 = ed.editingNote();
+      if (n5) ed.convertNotes("toFootnotes", n5);
+    } }),
     edit({ id: "bookmark", label: { en: "Bookmark", pt: "Indicador" }, icon: "bookmark", supports: has("insertBookmark"), run: () => call("insertBookmark") }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -2866,6 +2894,167 @@ async function spellingDialog(env) {
     }
   });
   await h3.result;
+}
+var radio = (name, value, label, on) => el2("label", { className: "uo-check" }, el2("input", { type: "radio", name, value, checked: on }), label);
+async function notesDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const T3 = (en, pt) => tr2(lang, en, pt);
+  let kind = ed.editingNote()?.kind ?? "footnote";
+  const st = { footnote: ed.getNoteOptions("footnote"), endnote: ed.getNoteOptions("endnote") };
+  const fnRadio = radio("kind", "footnote", T3("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
+  const enRadio = radio("kind", "endnote", T3("Endnotes:", "Notas de fim:"), kind === "endnote");
+  const fnPos = select("fnPos", [["pageBottom", T3("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T3("Below text", "Abaixo do texto")]], st.footnote.position);
+  const enPos = select("enPos", [["docEnd", T3("End of document", "Fim do documento")], ["sectEnd", T3("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
+  const convert = el2("button", { type: "button", className: "uo-pill", textContent: T3("Convert\u2026", "Converter\u2026") });
+  const columns = select("columns", [["0", T3("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T3("1 column", "1 coluna")], ["2", T3("2 columns", "2 colunas")], ["3", T3("3 columns", "3 colunas")], ["4", T3("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
+  const format = select("format", [
+    ["decimal", "1, 2, 3, \u2026"],
+    ["lowerLetter", "a, b, c, \u2026"],
+    ["upperLetter", "A, B, C, \u2026"],
+    ["lowerRoman", "i, ii, iii, \u2026"],
+    ["upperRoman", "I, II, III, \u2026"],
+    ["chicago", "*, \u2020, \u2021, \xA7, \u2026"]
+  ], st[kind].numberFormat);
+  const mark = el2("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
+  mark.setAttribute("aria-label", T3("Custom mark", "Marca personalizada"));
+  const symbols = el2("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
+  for (const ch of ["*", "\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "#", "\u203B", "\xB9", "\xB2", "\xB3"]) {
+    const b3 = el2("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
+    b3.addEventListener("click", () => {
+      mark.value += ch;
+      mark.focus();
+    });
+    symbols.append(b3);
+  }
+  const startAt = el2("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
+  const restart = select("restart", [["continuous", T3("Continuous", "Cont\xEDnua")], ["eachSect", T3("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T3("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
+  const scope = select("scope", [["document", T3("Whole document", "Todo o documento")], ["section", T3("This section", "Esta se\xE7\xE3o")]], "document");
+  const show = () => {
+    format.value = st[kind].numberFormat;
+    startAt.value = String(st[kind].startAt);
+    restart.value = st[kind].restart;
+    restart.querySelector('option[value="eachPage"]').disabled = kind === "endnote";
+    columns.disabled = kind !== "footnote";
+    fnPos.disabled = kind !== "footnote";
+    enPos.disabled = kind !== "endnote";
+    startAt.disabled = restart.value !== "continuous";
+  };
+  const keep = () => {
+    const o6 = st[kind];
+    o6.numberFormat = format.value;
+    o6.restart = restart.value;
+    o6.startAt = o6.restart === "continuous" ? Math.max(1, Math.round(Number(startAt.value) || 1)) : 1;
+    st.footnote.position = fnPos.value;
+    st.footnote.columns = Number(columns.value);
+    st.endnote.position = enPos.value;
+  };
+  for (const r5 of [fnRadio, enRadio]) r5.querySelector("input").addEventListener("change", (e6) => {
+    keep();
+    kind = e6.target.value;
+    show();
+  });
+  restart.addEventListener("change", () => {
+    if (restart.value !== "continuous") startAt.value = "1";
+    startAt.disabled = restart.value !== "continuous";
+  });
+  show();
+  const grid = (...rows) => el2("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el2("span", {}, label), el2("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
+  const body = el2(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    el2("strong", {}, T3("Location", "Local")),
+    el2("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
+    el2("div", {}, convert),
+    el2("strong", {}, T3("Footnote layout", "Layout de nota de rodap\xE9")),
+    grid([T3("Columns:", "Colunas:"), columns]),
+    el2("strong", {}, T3("Format", "Formato")),
+    grid([T3("Number format:", "Formato do n\xFAmero:"), format], [T3("Custom mark:", "Marca personalizada:"), mark], [T3("Symbol:", "S\xEDmbolo:"), symbols], [T3("Start at:", "Iniciar em:"), startAt], [T3("Numbering:", "Numera\xE7\xE3o:"), restart]),
+    el2("strong", {}, T3("Apply changes", "Aplicar altera\xE7\xF5es")),
+    grid([T3("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
+  );
+  convert.addEventListener("click", () => {
+    void convertNotesDialog(env);
+  });
+  const canInsert = ed.canInsertNote();
+  const h3 = openDialog({
+    title: T3("Footnote and Endnote", "Notas de Rodap\xE9 e de Fim"),
+    icon: "notes",
+    body,
+    layer: env.layer,
+    lang,
+    width: 480,
+    actions: [
+      ...canInsert ? [{ id: "insert", label: T3("Insert", "Inserir"), primary: true }] : [],
+      { id: "cancel", label: env.app.ui.L.cancel },
+      { id: "apply", label: env.app.ui.L.apply, primary: !canInsert }
+    ]
+  });
+  const res = await h3.result;
+  if (res !== "insert" && res !== "apply") return;
+  keep();
+  const sc = scope.value;
+  ed.setNoteOptions("footnote", st.footnote, sc);
+  ed.setNoteOptions("endnote", st.endnote, sc);
+  if (res === "insert") {
+    const m2 = mark.value.trim();
+    if (kind === "footnote") ed.insertFootnote(m2 ? { mark: m2 } : {});
+    else ed.insertEndnote(m2 ? { mark: m2 } : {});
+  }
+}
+async function convertNotesDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const T3 = (en, pt) => tr2(lang, en, pt);
+  const nf = ed.noteCount("footnote"), ne = ed.noteCount("endnote");
+  const opts = [
+    ["toEndnotes", T3("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
+    ["toFootnotes", T3("Convert all endnotes to footnotes", "Converter todas as notas de fim em notas de rodap\xE9"), ne > 0],
+    ["swap", T3("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
+  ];
+  const first = opts.find((o6) => o6[2])?.[0];
+  const body = el2("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
+    const r5 = radio("convert", v3, label, v3 === first);
+    r5.querySelector("input").disabled = !on;
+    return r5;
+  }));
+  const h3 = openDialog({
+    title: T3("Convert Notes", "Converter Notas"),
+    icon: "autorenew",
+    body,
+    layer: env.layer,
+    lang,
+    width: 420,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await h3.result !== "ok" || !first) return;
+  const v2 = body.querySelector('input[name="convert"]:checked')?.value;
+  if (v2) ed.convertNotes(v2);
+}
+async function showNotesDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const T3 = (en, pt) => tr2(lang, en, pt);
+  if (ed.editingNote() || !ed.noteCount("footnote") || !ed.noteCount("endnote")) {
+    ed.showNotes();
+    return;
+  }
+  const body = el2(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:8px" },
+    el2("span", {}, T3("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
+    radio("area", "footnote", T3("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
+    radio("area", "endnote", T3("View endnote area", "Exibir \xE1rea de notas de fim"), false)
+  );
+  const h3 = openDialog({
+    title: T3("Show Notes", "Mostrar Notas"),
+    icon: "notes",
+    body,
+    layer: env.layer,
+    lang,
+    width: 420,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  if (await h3.result !== "ok") return;
+  const v2 = body.querySelector('input[name="area"]:checked')?.value;
+  ed.showNotes(v2 ?? "footnote");
 }
 
 // src/chrome-panels.ts
@@ -5044,10 +5233,12 @@ function menus(env, ctx) {
       sub({ en: "Reject", pt: "Rejeitar" }, "cancel", rejectItems, "rejectMenu")
     ], "tracking"),
     comments: sub({ en: "Comments", pt: "Coment\xE1rios" }, "comment", () => ["comment", "comment:prev", "comment:next", "comment:delete", "comment:deleteAll", "-", "comments"], "commentsMenu"),
-    table: { ...sub({ en: "Table", pt: "Tabela" }, "table", () => tableMenu(env, ctx), "tableMenu"), hidden: typeof env.ed.insertTable !== "function" }
+    table: { ...sub({ en: "Table", pt: "Tabela" }, "table", () => tableMenu(env, ctx), "tableMenu"), hidden: typeof env.ed.insertTable !== "function" },
+    notes: sub({ en: "Notes", pt: "Notas" }, "notes", () => [...noteNavMenu(), "-", "note:show", "note:convert", "dlg:notes"], "notesMenu")
   };
 }
 var breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
+var noteNavMenu = () => ["note:next", "note:prev", "note:nextEnd", "note:prevEnd"];
 var columnsMenu = () => ["columns:one", "columns:two", "columns:three", "columns:left", "columns:right", "-", "dlg:columns"];
 var markupModes = () => ["markup:simple", "markup:all", "markup:none", "markup:original"];
 var acceptItems = () => ["change:acceptNext", "change:acceptOne", "change:acceptShown", "change:acceptAll", "change:acceptAllStop"];
@@ -5110,7 +5301,7 @@ function compactLayout(env, ctx) {
       { id: "file", label: { en: "File", pt: "Arquivo" }, items: () => fileMenu(m2) },
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "focus", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
-      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", "bookmark", "textbox", m2.symbols] },
+      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "textbox", m2.symbols] },
       { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
@@ -5224,10 +5415,6 @@ function ribbonLayout(env, ctx) {
           { id: "text", label: L3("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
             large("textbox"),
             { rows: [[{ cmd: "field:date", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L3("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
-          ] },
-          { id: "references", label: L3("References", "Refer\xEAncias"), icon: "toc", prio: 2, cells: [
-            large("toc"),
-            { rows: [[{ cmd: "footnote", label: true }], [{ cmd: "endnote", label: true }]] }
           ] }
         ]
       },
@@ -5253,6 +5440,23 @@ function ribbonLayout(env, ctx) {
           { id: "background", label: L3("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
             { cmd: "pageColor", size: "large" },
             { cmd: "watermark", size: "large" }
+          ] }
+        ]
+      },
+      {
+        // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
+        // Índice entram aqui quando chegarem
+        id: "references",
+        label: L3("References", "Refer\xEAncias"),
+        groups: [
+          { id: "toc", label: L3("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large("toc")] },
+          { id: "footnotes", label: L3("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+            large("footnote"),
+            { rows: [
+              [{ cmd: "endnote", label: true }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L3("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ cmd: "note:show", label: true }]
+            ] }
           ] }
         ]
       },
@@ -6682,7 +6886,7 @@ var CHROME_CSS = (
 .uw-drop[hidden] { display: none; }
 `
 );
-var EDITOR_KEYS = /* @__PURE__ */ new Set(["Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+B", "Ctrl+I", "Ctrl+U", "Ctrl+E", "Ctrl+L", "Ctrl+R", "Ctrl+J", "Ctrl+Enter"]);
+var EDITOR_KEYS = /* @__PURE__ */ new Set(["Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+B", "Ctrl+I", "Ctrl+U", "Ctrl+E", "Ctrl+L", "Ctrl+R", "Ctrl+J", "Ctrl+Enter", "Ctrl+Alt+F", "Ctrl+Alt+D"]);
 var APP_SHORTCUTS = /* @__PURE__ */ new Set(["open", "save", "saveAs", "print", "find", "replace"]);
 var lastFocused = null;
 function isField(t5) {
@@ -6843,6 +7047,15 @@ var WriteChrome = class {
       },
       columnsDialog: () => {
         void columnsDialog(d3()).then(() => this.after());
+      },
+      notesDialog: () => {
+        void notesDialog(d3()).then(() => this.after());
+      },
+      convertNotesDialog: () => {
+        void convertNotesDialog(d3()).then(() => this.after());
+      },
+      showNotes: () => {
+        void showNotesDialog(d3()).then(() => this.after());
       },
       wordCount: () => wordCountDialog(d3()),
       spelling: () => {
@@ -7049,7 +7262,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-P3HSCDII.js");
+    await import("./src-RCCVT2RO.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
@@ -7211,8 +7424,9 @@ var WriteChrome = class {
         "find",
         "selectAll"
       ];
+      const noteItems = ed.editingNote() ? ["note:goRef", "note:toEndnote", "note:toFootnote", "dlg:notes", "-"] : [];
       const open = (pre) => {
-        openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+        openMenu([...pre, ...noteItems, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
       };
       const rv = typeof ed.revisionAtCaret === "function" ? ed.revisionAtCaret() : null;
       const revItems = rv ? (() => {

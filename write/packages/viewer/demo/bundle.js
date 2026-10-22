@@ -2169,6 +2169,339 @@ function readTcPr(tcPr) {
   return p;
 }
 
+// ../docx-core/src/ooxml/parts.ts
+function readStyleSheet(xml) {
+  const sheet = { docDefaults: {}, styles: {}, defaults: {} };
+  if (!xml) return sheet;
+  const root = parseXml(xml);
+  const dd = firstChild(root, "w:docDefaults");
+  if (dd) {
+    const rPr = readRPr(firstChild(firstChild(dd, "w:rPrDefault") ?? dd, "w:rPr"));
+    const pPr = readPPr(firstChild(firstChild(dd, "w:pPrDefault") ?? dd, "w:pPr"));
+    if (rPr) sheet.docDefaults.rPr = rPr;
+    if (pPr) sheet.docDefaults.pPr = pPr;
+  }
+  for (const st of childElements(root, "w:style")) {
+    const id = st.attrs["w:styleId"];
+    const type = st.attrs["w:type"] ?? "paragraph";
+    if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
+    const def = { styleId: id, type };
+    const val = (n) => firstChild(st, n)?.attrs["w:val"];
+    const name = val("w:name");
+    if (name !== void 0) def.name = name;
+    const basedOn = val("w:basedOn");
+    if (basedOn) def.basedOn = basedOn;
+    const next = val("w:next");
+    if (next) def.next = next;
+    const link = val("w:link");
+    if (link) def.link = link;
+    const d = st.attrs["w:default"];
+    if (d === "1" || d === "true" || d === "on") {
+      def.isDefault = true;
+      sheet.defaults[type] ??= id;
+    }
+    const pPr = readPPr(firstChild(st, "w:pPr"));
+    if (pPr) def.pPr = pPr;
+    const rPr = readRPr(firstChild(st, "w:rPr"));
+    if (rPr) def.rPr = rPr;
+    const tblPr = readTblPr(firstChild(st, "w:tblPr"));
+    if (tblPr) def.tblPr = tblPr;
+    const trPr = readTrPr(firstChild(st, "w:trPr"));
+    if (trPr) def.trPr = trPr;
+    const tcPr = readTcPr(firstChild(st, "w:tcPr"));
+    if (tcPr) def.tcPr = tcPr;
+    for (const tsp of childElements(st, "w:tblStylePr")) {
+      const t = tsp.attrs["w:type"];
+      if (!t) continue;
+      const part = {};
+      const a = readPPr(firstChild(tsp, "w:pPr"));
+      if (a) part.pPr = a;
+      const b = readRPr(firstChild(tsp, "w:rPr"));
+      if (b) part.rPr = b;
+      const c = readTblPr(firstChild(tsp, "w:tblPr"));
+      if (c) part.tblPr = c;
+      const e = readTrPr(firstChild(tsp, "w:trPr"));
+      if (e) part.trPr = e;
+      const f = readTcPr(firstChild(tsp, "w:tcPr"));
+      if (f) part.tcPr = f;
+      (def.tblStylePr ??= {})[t] = part;
+    }
+    if (!sheet.styles[id]) sheet.styles[id] = def;
+  }
+  return sheet;
+}
+function readLevel(el2) {
+  const ilvl = parseInt(el2.attrs["w:ilvl"] ?? "0", 10) || 0;
+  const lvl = { ilvl };
+  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
+  const start = v("w:start");
+  if (start !== void 0) lvl.start = parseInt(start, 10);
+  const fmtEl = firstChild(el2, "w:numFmt");
+  if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
+  if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
+  const restart = v("w:lvlRestart");
+  if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
+  const ps = v("w:pStyle");
+  if (ps) lvl.pStyle = ps;
+  const isLgl = firstChild(el2, "w:isLgl");
+  if (isLgl) lvl.isLgl = onOffVal(isLgl);
+  const suff = v("w:suff");
+  if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
+  const lt = firstChild(el2, "w:lvlText");
+  if (lt) {
+    if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
+    if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
+  }
+  const pic = v("w:lvlPicBulletId");
+  if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
+  const jc = v("w:lvlJc");
+  if (jc) lvl.lvlJc = jc;
+  const pPr = readPPr(firstChild(el2, "w:pPr"));
+  if (pPr) lvl.pPr = pPr;
+  const rPr = readRPr(firstChild(el2, "w:rPr"));
+  if (rPr) lvl.rPr = rPr;
+  return lvl;
+}
+function readNumbering(xml) {
+  const out = { abstractNums: {}, nums: {}, picBullets: {} };
+  if (!xml) return out;
+  const root = parseXml(xml);
+  for (const pb of childElements(root, "w:numPicBullet")) {
+    const id = parseInt(pb.attrs["w:numPicBulletId"] ?? "-1", 10);
+    const bullet = { id };
+    const find = (e, name) => {
+      for (const c of childElements(e)) {
+        if (c.name === name) return c;
+        const f = find(c, name);
+        if (f) return f;
+      }
+      return void 0;
+    };
+    const img = find(pb, "v:imagedata");
+    const blip = find(pb, "a:blip");
+    const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
+    if (rid) bullet.rid = rid;
+    const shape = find(pb, "v:shape");
+    const style = shape?.attrs["style"] ?? "";
+    const w = /width:\s*([0-9.]+)pt/.exec(style);
+    const h = /height:\s*([0-9.]+)pt/.exec(style);
+    if (w) bullet.widthPt = parseFloat(w[1]);
+    if (h) bullet.heightPt = parseFloat(h[1]);
+    out.picBullets[id] = bullet;
+  }
+  for (const an of childElements(root, "w:abstractNum")) {
+    const id = parseInt(an.attrs["w:abstractNumId"] ?? "-1", 10);
+    const a = { abstractNumId: id, levels: {} };
+    const mlt = firstChild(an, "w:multiLevelType")?.attrs["w:val"];
+    if (mlt) a.multiLevelType = mlt;
+    const sl = firstChild(an, "w:styleLink")?.attrs["w:val"];
+    if (sl) a.styleLink = sl;
+    const nsl = firstChild(an, "w:numStyleLink")?.attrs["w:val"];
+    if (nsl) a.numStyleLink = nsl;
+    for (const lvl of childElements(an, "w:lvl")) {
+      const l = readLevel(lvl);
+      a.levels[l.ilvl] = l;
+    }
+    out.abstractNums[id] = a;
+  }
+  for (const num of childElements(root, "w:num")) {
+    const numId = parseInt(num.attrs["w:numId"] ?? "-1", 10);
+    const abs = parseInt(firstChild(num, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
+    const inst = { numId, abstractNumId: abs, overrides: {} };
+    for (const ov of childElements(num, "w:lvlOverride")) {
+      const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
+      const o = {};
+      const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
+      if (so !== void 0) o.startOverride = parseInt(so, 10);
+      const lvl = firstChild(ov, "w:lvl");
+      if (lvl) o.lvl = readLevel(lvl);
+      inst.overrides[ilvl] = o;
+    }
+    out.nums[numId] = inst;
+  }
+  return out;
+}
+function readTheme(xml) {
+  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: {} };
+  if (!xml) return theme;
+  const root = parseXml(xml);
+  const find = (e, name) => {
+    for (const c of childElements(e)) {
+      if (c.name === name) return c;
+      const f = find(c, name);
+      if (f) return f;
+    }
+    return void 0;
+  };
+  const fontScheme = find(root, "a:fontScheme");
+  for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
+    const el2 = fontScheme && firstChild(fontScheme, tag2);
+    if (!el2) continue;
+    const set = theme[key];
+    const latin = firstChild(el2, "a:latin")?.attrs["typeface"];
+    if (latin) set.latin = latin;
+    const ea = firstChild(el2, "a:ea")?.attrs["typeface"];
+    if (ea) set.ea = ea;
+    const cs = firstChild(el2, "a:cs")?.attrs["typeface"];
+    if (cs) set.cs = cs;
+    for (const f of childElements(el2, "a:font")) {
+      if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
+    }
+  }
+  const lnList = find(root, "a:lnStyleLst");
+  if (lnList) theme.lineWidthsPt = childElements(lnList, "a:ln").map((l) => (parseInt(l.attrs["w"] ?? "0", 10) || 0) / 12700);
+  const clr = find(root, "a:clrScheme");
+  if (clr) {
+    for (const c of childElements(clr)) {
+      const key = c.name.replace(/^a:/, "");
+      const srgb = firstChild(c, "a:srgbClr")?.attrs["val"];
+      const sys = firstChild(c, "a:sysClr");
+      const v = srgb ?? sys?.attrs["lastClr"] ?? (sys?.attrs["val"] === "window" ? "FFFFFF" : sys?.attrs["val"] === "windowText" ? "000000" : void 0);
+      if (v) theme.colors[key] = v.toUpperCase();
+    }
+  }
+  return theme;
+}
+function readNoteProps(el2) {
+  if (!el2) return void 0;
+  const out = {};
+  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
+  const pos = v("w:pos");
+  if (pos) out.pos = pos;
+  const fmt2 = v("w:numFmt");
+  if (fmt2) out.numFmt = fmt2;
+  const start = parseInt(v("w:numStart") ?? "", 10);
+  if (Number.isFinite(start)) out.numStart = start;
+  const rs = v("w:numRestart");
+  if (rs === "continuous" || rs === "eachSect" || rs === "eachPage") out.numRestart = rs;
+  return Object.keys(out).length ? out : void 0;
+}
+var ROOT_COMPAT_FLAGS = /* @__PURE__ */ new Set([
+  "w:doNotUseHTMLParagraphAutoSpacing",
+  "w:doNotExpandShiftReturn",
+  "w:ulTrailSpace",
+  "w:spaceForUL",
+  "w:balanceSingleByteDoubleByteWidth",
+  "w:adjustLineHeightInTable",
+  "w:doNotSuppressParagraphBorders",
+  "w:noSpaceRaiseLower",
+  "w:suppressSpBfAfterPgBrk",
+  "w:suppressTopSpacing",
+  "w:doNotUseIndentAsNumberingTabStop"
+]);
+function readSettings(xml) {
+  const s = {
+    defaultTabStop: 720,
+    compatibilityMode: xml ? 12 : 15,
+    compat: {},
+    evenAndOddHeaders: false,
+    mirrorMargins: false,
+    autoHyphenation: false,
+    doNotHyphenateCaps: false,
+    displayBackgroundShape: false,
+    updateFields: false
+  };
+  if (!xml) return s;
+  const root = parseXml(xml);
+  const on = (n) => {
+    const e = firstChild(root, n);
+    return e ? onOffVal(e) : false;
+  };
+  const dts = measureTwips(firstChild(root, "w:defaultTabStop")?.attrs["w:val"]);
+  if (dts !== void 0 && dts > 0) s.defaultTabStop = dts;
+  s.evenAndOddHeaders = on("w:evenAndOddHeaders");
+  s.mirrorMargins = on("w:mirrorMargins");
+  s.autoHyphenation = on("w:autoHyphenation");
+  s.doNotHyphenateCaps = on("w:doNotHyphenateCaps");
+  s.displayBackgroundShape = on("w:displayBackgroundShape");
+  s.updateFields = on("w:updateFields");
+  if (on("w:bordersDoNotSurroundHeader")) s.bordersDoNotSurroundHeader = true;
+  if (on("w:bordersDoNotSurroundFooter")) s.bordersDoNotSurroundFooter = true;
+  const fnPr = readNoteProps(firstChild(root, "w:footnotePr"));
+  if (fnPr) s.footnotePr = fnPr;
+  const enPr = readNoteProps(firstChild(root, "w:endnotePr"));
+  if (enPr) s.endnotePr = enPr;
+  const hz = measureTwips(firstChild(root, "w:hyphenationZone")?.attrs["w:val"]);
+  if (hz !== void 0) s.hyphenationZone = hz;
+  const chl = firstChild(root, "w:consecutiveHyphenLimit")?.attrs["w:val"];
+  if (chl !== void 0) s.consecutiveHyphenLimit = parseInt(chl, 10);
+  const csc = firstChild(root, "w:characterSpacingControl")?.attrs["w:val"];
+  if (csc) s.characterSpacingControl = csc;
+  const tfl = firstChild(root, "w:themeFontLang");
+  if (tfl) {
+    s.themeFontLang = {};
+    if (tfl.attrs["w:val"]) s.themeFontLang.val = tfl.attrs["w:val"];
+    if (tfl.attrs["w:eastAsia"]) s.themeFontLang.eastAsia = tfl.attrs["w:eastAsia"];
+    if (tfl.attrs["w:bidi"]) s.themeFontLang.bidi = tfl.attrs["w:bidi"];
+  }
+  for (const c of childElements(root)) {
+    if (ROOT_COMPAT_FLAGS.has(c.name)) s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
+  }
+  const compat = firstChild(root, "w:compat");
+  if (compat) {
+    for (const c of childElements(compat)) {
+      if (c.name === "w:compatSetting") {
+        if (c.attrs["w:name"] === "compatibilityMode" && c.attrs["w:uri"] === "http://schemas.microsoft.com/office/word") {
+          const n = parseInt(c.attrs["w:val"] ?? "", 10);
+          if (Number.isFinite(n)) s.compatibilityMode = n;
+        }
+        continue;
+      }
+      s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
+    }
+  }
+  return s;
+}
+function readFontTable(xml) {
+  const out = {};
+  if (!xml) return out;
+  const root = parseXml(xml);
+  for (const f of childElements(root, "w:font")) {
+    const name = f.attrs["w:name"];
+    if (!name) continue;
+    const info = { name };
+    const v = (n) => firstChild(f, n)?.attrs["w:val"];
+    const alt = v("w:altName");
+    if (alt) info.altName = alt;
+    const pan = v("w:panose1");
+    if (pan) info.panose1 = pan;
+    const cs = v("w:charset");
+    if (cs) info.charset = cs;
+    const fam = v("w:family");
+    if (fam) info.family = fam;
+    const pitch = v("w:pitch");
+    if (pitch) info.pitch = pitch;
+    const sig = firstChild(f, "w:sig");
+    if (sig) {
+      info.sig = {};
+      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
+    }
+    out[name] = info;
+  }
+  return out;
+}
+function partByRelType(pkg, type, fallback) {
+  const rels = pkg.getPartText("word/_rels/document.xml.rels");
+  if (rels) {
+    for (const rel of childElements(parseXml(rels), "Relationship")) {
+      if ((rel.attrs["Type"] ?? "").endsWith(`/${type}`) && rel.attrs["Target"] && rel.attrs["TargetMode"] !== "External") {
+        const t = rel.attrs["Target"].replace(/^\.\//, "");
+        return t.startsWith("/") ? t.slice(1) : `word/${t}`;
+      }
+    }
+  }
+  return fallback;
+}
+function readDocFormatting(pkg) {
+  return {
+    styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
+    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
+    theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
+    settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
+    fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
+  };
+}
+
 // ../docx-core/src/drawing.ts
 var EMU_PER_TWIP_D = 635;
 var emuTw = (v) => {
@@ -3635,7 +3968,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       case "w:endnoteReference": {
         const id = parseInt(child.attrs["w:id"] ?? "0", 10);
         flush();
-        const run = make("", { noteRef: { kind: child.name === "w:footnoteReference" ? "footnote" : "endnote", id } });
+        const custom = child.attrs["w:customMarkFollows"] === "1" || child.attrs["w:customMarkFollows"] === "true";
+        const run = make("", { noteRef: { kind: child.name === "w:footnoteReference" ? "footnote" : "endnote", id, ...custom ? { custom } : {} } });
         run.props.vertAlign = "superscript";
         runTarget(ctx, runs)?.push(run);
         break;
@@ -3900,322 +4234,13 @@ function readSectPr(sectEl) {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
+  const fnPr = readNoteProps(sectEl && firstChild(sectEl, "w:footnotePr"));
+  if (fnPr) sect.footnotePr = fnPr;
+  const enPr = readNoteProps(sectEl && firstChild(sectEl, "w:endnotePr"));
+  if (enPr) sect.endnotePr = enPr;
+  const fnCols = sectEl && firstChild(sectEl, "w15:footnoteColumns")?.attrs["w:val"];
+  if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
   return sect;
-}
-
-// ../docx-core/src/ooxml/parts.ts
-function readStyleSheet(xml) {
-  const sheet = { docDefaults: {}, styles: {}, defaults: {} };
-  if (!xml) return sheet;
-  const root = parseXml(xml);
-  const dd = firstChild(root, "w:docDefaults");
-  if (dd) {
-    const rPr = readRPr(firstChild(firstChild(dd, "w:rPrDefault") ?? dd, "w:rPr"));
-    const pPr = readPPr(firstChild(firstChild(dd, "w:pPrDefault") ?? dd, "w:pPr"));
-    if (rPr) sheet.docDefaults.rPr = rPr;
-    if (pPr) sheet.docDefaults.pPr = pPr;
-  }
-  for (const st of childElements(root, "w:style")) {
-    const id = st.attrs["w:styleId"];
-    const type = st.attrs["w:type"] ?? "paragraph";
-    if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
-    const def = { styleId: id, type };
-    const val = (n) => firstChild(st, n)?.attrs["w:val"];
-    const name = val("w:name");
-    if (name !== void 0) def.name = name;
-    const basedOn = val("w:basedOn");
-    if (basedOn) def.basedOn = basedOn;
-    const next = val("w:next");
-    if (next) def.next = next;
-    const link = val("w:link");
-    if (link) def.link = link;
-    const d = st.attrs["w:default"];
-    if (d === "1" || d === "true" || d === "on") {
-      def.isDefault = true;
-      sheet.defaults[type] ??= id;
-    }
-    const pPr = readPPr(firstChild(st, "w:pPr"));
-    if (pPr) def.pPr = pPr;
-    const rPr = readRPr(firstChild(st, "w:rPr"));
-    if (rPr) def.rPr = rPr;
-    const tblPr = readTblPr(firstChild(st, "w:tblPr"));
-    if (tblPr) def.tblPr = tblPr;
-    const trPr = readTrPr(firstChild(st, "w:trPr"));
-    if (trPr) def.trPr = trPr;
-    const tcPr = readTcPr(firstChild(st, "w:tcPr"));
-    if (tcPr) def.tcPr = tcPr;
-    for (const tsp of childElements(st, "w:tblStylePr")) {
-      const t = tsp.attrs["w:type"];
-      if (!t) continue;
-      const part = {};
-      const a = readPPr(firstChild(tsp, "w:pPr"));
-      if (a) part.pPr = a;
-      const b = readRPr(firstChild(tsp, "w:rPr"));
-      if (b) part.rPr = b;
-      const c = readTblPr(firstChild(tsp, "w:tblPr"));
-      if (c) part.tblPr = c;
-      const e = readTrPr(firstChild(tsp, "w:trPr"));
-      if (e) part.trPr = e;
-      const f = readTcPr(firstChild(tsp, "w:tcPr"));
-      if (f) part.tcPr = f;
-      (def.tblStylePr ??= {})[t] = part;
-    }
-    if (!sheet.styles[id]) sheet.styles[id] = def;
-  }
-  return sheet;
-}
-function readLevel(el2) {
-  const ilvl = parseInt(el2.attrs["w:ilvl"] ?? "0", 10) || 0;
-  const lvl = { ilvl };
-  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
-  const start = v("w:start");
-  if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el2, "w:numFmt");
-  if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
-  if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
-  const restart = v("w:lvlRestart");
-  if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
-  const ps = v("w:pStyle");
-  if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el2, "w:isLgl");
-  if (isLgl) lvl.isLgl = onOffVal(isLgl);
-  const suff = v("w:suff");
-  if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el2, "w:lvlText");
-  if (lt) {
-    if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
-    if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
-  }
-  const pic = v("w:lvlPicBulletId");
-  if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
-  const jc = v("w:lvlJc");
-  if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el2, "w:pPr"));
-  if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el2, "w:rPr"));
-  if (rPr) lvl.rPr = rPr;
-  return lvl;
-}
-function readNumbering(xml) {
-  const out = { abstractNums: {}, nums: {}, picBullets: {} };
-  if (!xml) return out;
-  const root = parseXml(xml);
-  for (const pb of childElements(root, "w:numPicBullet")) {
-    const id = parseInt(pb.attrs["w:numPicBulletId"] ?? "-1", 10);
-    const bullet = { id };
-    const find = (e, name) => {
-      for (const c of childElements(e)) {
-        if (c.name === name) return c;
-        const f = find(c, name);
-        if (f) return f;
-      }
-      return void 0;
-    };
-    const img = find(pb, "v:imagedata");
-    const blip = find(pb, "a:blip");
-    const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
-    if (rid) bullet.rid = rid;
-    const shape = find(pb, "v:shape");
-    const style = shape?.attrs["style"] ?? "";
-    const w = /width:\s*([0-9.]+)pt/.exec(style);
-    const h = /height:\s*([0-9.]+)pt/.exec(style);
-    if (w) bullet.widthPt = parseFloat(w[1]);
-    if (h) bullet.heightPt = parseFloat(h[1]);
-    out.picBullets[id] = bullet;
-  }
-  for (const an of childElements(root, "w:abstractNum")) {
-    const id = parseInt(an.attrs["w:abstractNumId"] ?? "-1", 10);
-    const a = { abstractNumId: id, levels: {} };
-    const mlt = firstChild(an, "w:multiLevelType")?.attrs["w:val"];
-    if (mlt) a.multiLevelType = mlt;
-    const sl = firstChild(an, "w:styleLink")?.attrs["w:val"];
-    if (sl) a.styleLink = sl;
-    const nsl = firstChild(an, "w:numStyleLink")?.attrs["w:val"];
-    if (nsl) a.numStyleLink = nsl;
-    for (const lvl of childElements(an, "w:lvl")) {
-      const l = readLevel(lvl);
-      a.levels[l.ilvl] = l;
-    }
-    out.abstractNums[id] = a;
-  }
-  for (const num of childElements(root, "w:num")) {
-    const numId = parseInt(num.attrs["w:numId"] ?? "-1", 10);
-    const abs = parseInt(firstChild(num, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
-    const inst = { numId, abstractNumId: abs, overrides: {} };
-    for (const ov of childElements(num, "w:lvlOverride")) {
-      const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
-      const o = {};
-      const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
-      if (so !== void 0) o.startOverride = parseInt(so, 10);
-      const lvl = firstChild(ov, "w:lvl");
-      if (lvl) o.lvl = readLevel(lvl);
-      inst.overrides[ilvl] = o;
-    }
-    out.nums[numId] = inst;
-  }
-  return out;
-}
-function readTheme(xml) {
-  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: {} };
-  if (!xml) return theme;
-  const root = parseXml(xml);
-  const find = (e, name) => {
-    for (const c of childElements(e)) {
-      if (c.name === name) return c;
-      const f = find(c, name);
-      if (f) return f;
-    }
-    return void 0;
-  };
-  const fontScheme = find(root, "a:fontScheme");
-  for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el2 = fontScheme && firstChild(fontScheme, tag2);
-    if (!el2) continue;
-    const set = theme[key];
-    const latin = firstChild(el2, "a:latin")?.attrs["typeface"];
-    if (latin) set.latin = latin;
-    const ea = firstChild(el2, "a:ea")?.attrs["typeface"];
-    if (ea) set.ea = ea;
-    const cs = firstChild(el2, "a:cs")?.attrs["typeface"];
-    if (cs) set.cs = cs;
-    for (const f of childElements(el2, "a:font")) {
-      if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
-    }
-  }
-  const lnList = find(root, "a:lnStyleLst");
-  if (lnList) theme.lineWidthsPt = childElements(lnList, "a:ln").map((l) => (parseInt(l.attrs["w"] ?? "0", 10) || 0) / 12700);
-  const clr = find(root, "a:clrScheme");
-  if (clr) {
-    for (const c of childElements(clr)) {
-      const key = c.name.replace(/^a:/, "");
-      const srgb = firstChild(c, "a:srgbClr")?.attrs["val"];
-      const sys = firstChild(c, "a:sysClr");
-      const v = srgb ?? sys?.attrs["lastClr"] ?? (sys?.attrs["val"] === "window" ? "FFFFFF" : sys?.attrs["val"] === "windowText" ? "000000" : void 0);
-      if (v) theme.colors[key] = v.toUpperCase();
-    }
-  }
-  return theme;
-}
-var ROOT_COMPAT_FLAGS = /* @__PURE__ */ new Set([
-  "w:doNotUseHTMLParagraphAutoSpacing",
-  "w:doNotExpandShiftReturn",
-  "w:ulTrailSpace",
-  "w:spaceForUL",
-  "w:balanceSingleByteDoubleByteWidth",
-  "w:adjustLineHeightInTable",
-  "w:doNotSuppressParagraphBorders",
-  "w:noSpaceRaiseLower",
-  "w:suppressSpBfAfterPgBrk",
-  "w:suppressTopSpacing",
-  "w:doNotUseIndentAsNumberingTabStop"
-]);
-function readSettings(xml) {
-  const s = {
-    defaultTabStop: 720,
-    compatibilityMode: xml ? 12 : 15,
-    compat: {},
-    evenAndOddHeaders: false,
-    mirrorMargins: false,
-    autoHyphenation: false,
-    doNotHyphenateCaps: false,
-    displayBackgroundShape: false,
-    updateFields: false
-  };
-  if (!xml) return s;
-  const root = parseXml(xml);
-  const on = (n) => {
-    const e = firstChild(root, n);
-    return e ? onOffVal(e) : false;
-  };
-  const dts = measureTwips(firstChild(root, "w:defaultTabStop")?.attrs["w:val"]);
-  if (dts !== void 0 && dts > 0) s.defaultTabStop = dts;
-  s.evenAndOddHeaders = on("w:evenAndOddHeaders");
-  s.mirrorMargins = on("w:mirrorMargins");
-  s.autoHyphenation = on("w:autoHyphenation");
-  s.doNotHyphenateCaps = on("w:doNotHyphenateCaps");
-  s.displayBackgroundShape = on("w:displayBackgroundShape");
-  s.updateFields = on("w:updateFields");
-  if (on("w:bordersDoNotSurroundHeader")) s.bordersDoNotSurroundHeader = true;
-  if (on("w:bordersDoNotSurroundFooter")) s.bordersDoNotSurroundFooter = true;
-  const hz = measureTwips(firstChild(root, "w:hyphenationZone")?.attrs["w:val"]);
-  if (hz !== void 0) s.hyphenationZone = hz;
-  const chl = firstChild(root, "w:consecutiveHyphenLimit")?.attrs["w:val"];
-  if (chl !== void 0) s.consecutiveHyphenLimit = parseInt(chl, 10);
-  const csc = firstChild(root, "w:characterSpacingControl")?.attrs["w:val"];
-  if (csc) s.characterSpacingControl = csc;
-  const tfl = firstChild(root, "w:themeFontLang");
-  if (tfl) {
-    s.themeFontLang = {};
-    if (tfl.attrs["w:val"]) s.themeFontLang.val = tfl.attrs["w:val"];
-    if (tfl.attrs["w:eastAsia"]) s.themeFontLang.eastAsia = tfl.attrs["w:eastAsia"];
-    if (tfl.attrs["w:bidi"]) s.themeFontLang.bidi = tfl.attrs["w:bidi"];
-  }
-  for (const c of childElements(root)) {
-    if (ROOT_COMPAT_FLAGS.has(c.name)) s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
-  }
-  const compat = firstChild(root, "w:compat");
-  if (compat) {
-    for (const c of childElements(compat)) {
-      if (c.name === "w:compatSetting") {
-        if (c.attrs["w:name"] === "compatibilityMode" && c.attrs["w:uri"] === "http://schemas.microsoft.com/office/word") {
-          const n = parseInt(c.attrs["w:val"] ?? "", 10);
-          if (Number.isFinite(n)) s.compatibilityMode = n;
-        }
-        continue;
-      }
-      s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
-    }
-  }
-  return s;
-}
-function readFontTable(xml) {
-  const out = {};
-  if (!xml) return out;
-  const root = parseXml(xml);
-  for (const f of childElements(root, "w:font")) {
-    const name = f.attrs["w:name"];
-    if (!name) continue;
-    const info = { name };
-    const v = (n) => firstChild(f, n)?.attrs["w:val"];
-    const alt = v("w:altName");
-    if (alt) info.altName = alt;
-    const pan = v("w:panose1");
-    if (pan) info.panose1 = pan;
-    const cs = v("w:charset");
-    if (cs) info.charset = cs;
-    const fam = v("w:family");
-    if (fam) info.family = fam;
-    const pitch = v("w:pitch");
-    if (pitch) info.pitch = pitch;
-    const sig = firstChild(f, "w:sig");
-    if (sig) {
-      info.sig = {};
-      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
-    }
-    out[name] = info;
-  }
-  return out;
-}
-function partByRelType(pkg, type, fallback) {
-  const rels = pkg.getPartText("word/_rels/document.xml.rels");
-  if (rels) {
-    for (const rel of childElements(parseXml(rels), "Relationship")) {
-      if ((rel.attrs["Type"] ?? "").endsWith(`/${type}`) && rel.attrs["Target"] && rel.attrs["TargetMode"] !== "External") {
-        const t = rel.attrs["Target"].replace(/^\.\//, "");
-        return t.startsWith("/") ? t.slice(1) : `word/${t}`;
-      }
-    }
-  }
-  return fallback;
-}
-function readDocFormatting(pkg) {
-  return {
-    styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
-    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
-    theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
-    settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
-    fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
-  };
 }
 
 // ../docx-core/src/styles.ts
@@ -4415,6 +4440,8 @@ var SourceStore = class {
   tcs = /* @__PURE__ */ new Map();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   stories = /* @__PURE__ */ new Map();
+  /** Por caminho da parte de notas (word/footnotes.xml, word/endnotes.xml). */
+  noteParts = /* @__PURE__ */ new Map();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
   commentIds = /* @__PURE__ */ new Set();
   /** comments.xml original, para regravar só se a lista mudar. */
@@ -4491,6 +4518,28 @@ var SourceStore = class {
     const pPr = closing.props.src !== void 0 ? this.paras.get(closing.props.src)?.pPr : void 0;
     return pPr ? splitElement(pPr).kids.find((k) => k.name === "w:sectPr")?.raw : void 0;
   }
+  /**
+   * O parágrafo — ou os runs em volta do cursor — está num controle de conteúdo
+   * de TEXTO SEM FORMATAÇÃO (w:sdt com w:text, w:date, w:comboBox ou
+   * w:dropDownList), de bloco ou inline? O Word recusa notas ali e um
+   * w:footnoteReference dentro dele deixa o arquivo "corrompido" (oráculo
+   * notes-lab, cc-*; rich text aceita).
+   */
+  inPlainTextControl(p, around) {
+    const id = p.props.src;
+    if (id === void 0) return false;
+    const inGroups = (groups) => {
+      for (const g of groups ?? []) {
+        if (!g.blocks.includes(id)) continue;
+        if (plainTextSdt(g.wrapOpen) || inGroups(g.inner)) return true;
+      }
+      return false;
+    };
+    for (const s of this.stories.values()) if (inGroups(s.groups)) return true;
+    for (const c of this.tcs.values()) if (inGroups(c.groups)) return true;
+    const sids = new Set(around.map((r) => r?.props.src).filter((x2) => x2 !== void 0));
+    return !!sids.size && !!this.paras.get(id)?.segs.some((s) => plainTextSdt(s.wrapOpen) && s.sids.some((x2) => sids.has(x2)));
+  }
   /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
   pristine(p) {
     let v = this.memo.get(p);
@@ -4516,6 +4565,11 @@ var SourceStore = class {
     return v;
   }
 };
+function plainTextSdt(open) {
+  if (!open || !/^<w:sdt[\s>]/.test(open)) return false;
+  const end = open.indexOf("</w:sdtPr>");
+  return /<w:(?:text|date|comboBox|dropDownList)\b/.test(end < 0 ? open : open.slice(0, end));
+}
 function tableSig(t) {
   return sigHash(JSON.stringify(t, sigReplacer));
 }
@@ -4734,21 +4788,54 @@ function readHeaderFooterPart(pkg, path, store) {
   walk(blocks);
   return { paras, blocks };
 }
-function readNotesPart(pkg, path, elementName, blocksOut) {
+function readNotesPart(pkg, path, elementName, blocksOut, store, special) {
   const out = /* @__PURE__ */ new Map();
   const xml = pkg.getPartText(path);
   if (!xml) return out;
-  const root = parseXml(xml);
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  const part = store ? { open: xml.slice(0, root.cs), close: xml.slice(root.ce), items: [], refsAtLoad: /* @__PURE__ */ new Set() } : void 0;
+  if (store) {
+    ctx.sources = store;
+    ctx.sourceXml = xml;
+  }
   for (const note of childElements(root, elementName)) {
     const id = parseInt(note.attrs["w:id"] ?? "0", 10);
     const type = note.attrs["w:type"];
-    if (type === "separator" || type === "continuationSeparator" || type === "continuationNotice") continue;
-    const blocks = readBlocksOf(note, ctx);
+    if (type === "separator" || type === "continuationSeparator" || type === "continuationNotice") {
+      special?.push(id);
+      part?.items.push({ id, raw: xml.slice(note.s, note.e), separator: true });
+      continue;
+    }
+    let blocks;
+    if (!store) blocks = readBlocksOf(note, ctx);
+    else {
+      const story = { open: xml.slice(note.s, note.cs), close: xml.slice(note.ce, note.e), groups: [] };
+      blocks = [];
+      for (const c of childElements(note)) {
+        const produced = readBlocksOf({ name: note.name, attrs: {}, children: [c] }, ctx);
+        story.groups.push(groupOf(xml, c, produced, store));
+        blocks.push(...produced);
+      }
+      part.items.push({ id, raw: xml.slice(note.s, note.e), story });
+    }
     out.set(id, blocks.filter((bl) => bl.type === "paragraph").map((bl) => bl.paragraph));
     blocksOut?.set(id, blocks);
+  }
+  if (store && part) store.noteParts.set(path, part);
+  return out;
+}
+function noteRefIds(blocks, kind, out = []) {
+  for (const b of blocks) {
+    if (b.type === "paragraph") {
+      for (const r of b.paragraph.runs) if (r.noteRef?.kind === kind && !out.includes(r.noteRef.id)) out.push(r.noteRef.id);
+    } else {
+      for (const row of b.rows) for (const cell of row.cells) {
+        noteRefIds(cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })), kind, out);
+      }
+    }
   }
   return out;
 }
@@ -4888,11 +4975,18 @@ function readFullDocument(pkg, opts = {}) {
   }
   const footnoteBlocks = /* @__PURE__ */ new Map();
   const endnoteBlocks = /* @__PURE__ */ new Map();
+  const noteSpecialIds = { footnote: [], endnote: [] };
+  const footnotes = readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks, store, noteSpecialIds.footnote);
+  const endnotes = readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks, store, noteSpecialIds.endnote);
+  for (const kind of ["footnote", "endnote"]) {
+    const part = store?.noteParts.get(`word/${kind}s.xml`);
+    if (part) for (const id of noteRefIds(blocks, kind)) part.refsAtLoad.add(id);
+  }
   return {
     blocks,
     sections,
-    footnotes: readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks),
-    endnotes: readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks),
+    footnotes,
+    endnotes,
     comments,
     styles: readStyles(pkg),
     bookmarks,
@@ -4900,6 +4994,7 @@ function readFullDocument(pkg, opts = {}) {
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,
+    noteSpecialIds,
     ...readCoreProps(pkg),
     ...readBackground(root),
     ...store ? { sources: store } : {}
@@ -14193,6 +14288,9 @@ function formatNumber(n, fmt2, lang = "pt-BR") {
       return `(${n})`;
     case "decimalEnclosedFullstop":
       return `${n}.`;
+    // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
+    case "chicago":
+      return n <= 0 ? String(n) : "*\u2020\u2021\xA7"[(n - 1) % 4].repeat(Math.floor((n - 1) / 4) + 1);
     case "none":
       return "";
     case "bullet":
@@ -14455,6 +14553,11 @@ function revisionRanges(rd, para) {
 }
 
 // ../docx-layout/src/context.ts
+var cloneNotes = (n) => ({
+  marks: { footnote: new Map(n.marks.footnote), endnote: new Map(n.marks.endnote) },
+  seq: { ...n.seq },
+  endnoteOrder: [...n.endnoteOrder]
+});
 var DocContext = class {
   constructor(fmt2, provider, opts = {}) {
     this.fmt = fmt2;
@@ -14476,20 +14579,26 @@ var DocContext = class {
   warn(msg) {
     this.warnings.add(msg);
   }
-  footnotes = /* @__PURE__ */ new Map();
-  endnotes = /* @__PURE__ */ new Map();
+  notes = { marks: { footnote: /* @__PURE__ */ new Map(), endnote: /* @__PURE__ */ new Map() }, seq: { footnote: 0, endnote: 0 }, endnoteOrder: [] };
+  /** numeração da seção corrente (o motor troca em cada seção) */
+  noteNumbering = {
+    footnote: { fmt: "decimal", start: 1, restart: "continuous" },
+    endnote: { fmt: "lowerRoman", start: 1, restart: "continuous" }
+  };
+  /** marcas finais de uma passada anterior (reinício por página: a página da
+   *  referência só se sabe depois de diagramar) */
+  noteMarkOverride;
   /** contadores dos campos SEQ (ordem do documento) */
   seqCounters = /* @__PURE__ */ new Map();
   /** Fotografia do estado que avança com o conteúdo. */
   saveFlow() {
-    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), footnotes: new Map(this.footnotes), endnotes: new Map(this.endnotes) };
+    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), notes: cloneNotes(this.notes) };
   }
   /** Volta ao estado fotografado (a fotografia continua reutilizável). */
   restoreFlow(s) {
     this.numbering = s.numbering.clone();
     this.seqCounters = new Map(s.seq);
-    this.footnotes = new Map(s.footnotes);
-    this.endnotes = new Map(s.endnotes);
+    this.notes = cloneNotes(s.notes);
   }
   /** Medição sem efeito colateral: não avança listas, SEQ nem números de nota. */
   pure(fn) {
@@ -14500,22 +14609,39 @@ var DocContext = class {
       this.restoreFlow(s);
     }
   }
-  /** Número exibido da nota de rodapé (ordem da 1ª referência). */
-  footnoteNumber(id) {
-    let n = this.footnotes.get(id);
-    if (n === void 0) {
-      n = this.footnotes.size + 1;
-      this.footnotes.set(id, n);
-    }
-    return n;
+  /** Seção nova: formato/início da numeração das notas e o reinício por seção. */
+  beginNoteSection(n, first) {
+    this.noteNumbering = n;
+    for (const k of ["footnote", "endnote"]) if (first || n[k].restart === "eachSect") this.notes.seq[k] = 0;
   }
-  endnoteNumber(id) {
-    let n = this.endnotes.get(id);
-    if (n === void 0) {
-      n = this.endnotes.size + 1;
-      this.endnotes.set(id, n);
+  /** Página nova: reinicia a contagem das notas de rodapé "a cada página". */
+  beginNotePage() {
+    if (this.noteNumbering.footnote.restart === "eachPage") this.notes.seq.footnote = 0;
+  }
+  /** Marca exibida de uma nota (ordem da 1ª referência, no formato da seção dela);
+   *  com marca personalizada não consome número (oráculo notefmt, custom-mark). */
+  noteMark(kind, id, custom = false) {
+    const marks = this.notes.marks[kind];
+    let m = marks.get(id);
+    if (m === void 0) {
+      if (kind === "endnote") this.notes.endnoteOrder.push(id);
+      if (custom) m = "";
+      else {
+        const nn = this.noteNumbering[kind];
+        const seq = ++this.notes.seq[kind];
+        m = this.noteMarkOverride?.get(`${kind[0]}${id}`) ?? formatNumber(nn.start - 1 + seq, nn.fmt, this.opts.lang);
+      }
+      marks.set(id, m);
     }
-    return n;
+    return m;
+  }
+  /** Marca já atribuída (sem numerar). */
+  noteMarkOf(kind, id) {
+    return this.notes.marks[kind].get(id);
+  }
+  /** Notas de fim referenciadas até aqui (ordem da 1ª referência). */
+  get endnoteOrder() {
+    return this.notes.endnoteOrder;
   }
 };
 function emptyFormatting() {
@@ -15588,6 +15714,7 @@ function prepareParagraph(ctx, para0, env0) {
     }
     flushSeg();
   };
+  let pendingNote;
   for (const { run, idx, offset } of displayRuns(para, env)) {
     const rev2 = ctx.rev.run(run);
     if (rev2 === "hide") continue;
@@ -15671,11 +15798,19 @@ function prepareParagraph(ctx, para0, env0) {
       glyphs.push({ kind: "tab", ch: "	", cp: 9, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, ptab: run.ptab, sizePt: style.sizePt });
       continue;
     }
-    if (run.noteRef && !run.text) {
-      const num = run.noteRef.kind === "footnote" ? ctx.footnoteNumber(run.noteRef.id) : ctx.endnoteNumber(run.noteRef.id);
+    if (run.noteRef) {
+      const { kind, id, custom } = run.noteRef;
+      const mark = ctx.noteMark(kind, id, custom);
+      if (custom) {
+        if (kind === "footnote") pendingNote = id;
+        continue;
+      }
       const before2 = glyphs.length;
-      pushChars(String(num), run, rpr, style, offset, idx);
-      if (run.noteRef.kind === "footnote") for (let k = before2; k < glyphs.length; k++) glyphs[k].noteId = run.noteRef.id;
+      pushChars(mark, run, rpr, style, offset, idx);
+      for (let k = before2; k < glyphs.length; k++) {
+        glyphs[k].offset = offset;
+        if (kind === "footnote") glyphs[k].noteId = id;
+      }
       continue;
     }
     if (run.math) {
@@ -15685,6 +15820,11 @@ function prepareParagraph(ctx, para0, env0) {
     const before = glyphs.length;
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ""));
     if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
+    if (/_MARK\s*$/.test(para.runs[idx]?.field ?? "")) for (let k = before; k < glyphs.length; k++) glyphs[k].offset = offset;
+    if (pendingNote !== void 0 && glyphs.length > before) {
+      glyphs[before].noteId = pendingNote;
+      pendingNote = void 0;
+    }
   }
   for (let k = 1; k < glyphs.length; k++) {
     if (glyphs[k].kind !== "obj" || glyphs[k].adv <= 0) continue;
@@ -19363,6 +19503,7 @@ function liftFrames(blocks, stops) {
 }
 
 // ../docx-layout/src/engine.ts
+var balKey = (g) => g.balKey ?? g.index;
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
 var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
@@ -19375,25 +19516,32 @@ function layoutDocument(full0, provider, opts = {}) {
   let result = null;
   let late = /* @__PURE__ */ new Map();
   let lateTables = /* @__PURE__ */ new Map();
+  let noteMarks;
+  const newCtx = () => {
+    const c = new DocContext(fmt2, provider, opts);
+    if (noteMarks) c.noteMarkOverride = noteMarks;
+    return c;
+  };
   let last = null;
   for (let pass = 0; pass < 5; pass++) {
-    const ctx = new DocContext(fmt2, provider, opts);
-    const eng = new Engine(ctx, full, total, marks, late, lateTables);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
-    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables;
+    const fix = eng.noteMarkFix();
+    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix;
     if (stable) break;
     total = result.pages.length;
     marks = newMarks;
     late = newLate;
     lateTables = newLateTables;
+    if (fix) noteMarks = fix;
   }
   const balance = /* @__PURE__ */ new Map();
   const runWith = (bal) => {
-    const eng = new Engine(new DocContext(fmt2, provider, opts), full, total, marks, late, lateTables, bal);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
     result = eng.run();
     return eng;
   };
@@ -19496,7 +19644,7 @@ var Engine = class {
   balanceSaved = null;
   /** Limita a altura das colunas na última página de uma seção equilibrada. */
   applyBalance() {
-    const spec = this.balance.get(this.cur.geom.index);
+    const spec = this.balance.get(balKey(this.cur.geom));
     if (!spec || spec.page !== this.pages.length - 1) return;
     this.balanceSaved = this.cur.bodyBottom;
     this.cur.bodyBottom = Math.min(this.cur.bodyBottom, this.colTop + spec.h);
@@ -19573,6 +19721,30 @@ var Engine = class {
     }
     return this.listTexts.get(block);
   }
+  /**
+   * Reinício a cada página (w:numRestart eachPage): a marca de cada nota pela
+   * página onde ela saiu (a continuação de nota partida não conta de novo). null =
+   * as marcas desta passada já valem; senão todas as marcas certas, para a próxima.
+   */
+  noteMarkFix() {
+    const want = /* @__PURE__ */ new Map();
+    let differs = false;
+    const seen = /* @__PURE__ */ new Set();
+    for (const ps of this.pages) {
+      const nn = ps.geom.notes.footnote;
+      let k = 0;
+      for (const n of ps.notes) {
+        if (seen.has(n.id)) continue;
+        seen.add(n.id);
+        const cur = this.ctx.noteMarkOf("footnote", n.id);
+        if (!cur || nn.restart !== "eachPage") continue;
+        const m = formatNumber(nn.start - 1 + ++k, nn.fmt, this.ctx.opts.lang);
+        want.set(`f${n.id}`, m);
+        if (m !== cur) differs = true;
+      }
+    }
+    return differs ? want : null;
+  }
   /** Página exibida (já formatada) do parágrafo de cada indicador. */
   bookmarkPages() {
     const out = /* @__PURE__ */ new Map();
@@ -19617,7 +19789,9 @@ var Engine = class {
         footerRefs: []
       }, 0));
     }
+    const enSectEnd = this.ctx.fmt.settings.endnotePr?.pos === "sectEnd";
     for (const g of this.geoms) {
+      this.ctx.beginNoteSection(g.notes, g.index === 0);
       const samePaper = !!this.cur && this.cur.page.widthTw === g.pageW && this.cur.page.heightTw === g.pageH;
       if (g.index > 0 && g.type === "nextColumn" && samePaper && this.nextColumnFits(g)) this.nextColumnSection(g);
       else if (g.index === 0 || g.type !== "continuous" || !samePaper) {
@@ -19630,6 +19804,8 @@ var Engine = class {
         if (block.type === "paragraph") this.placeParagraph(block.paragraph, `b${b}`, b, g);
         else this.placeTable(block, `b${b}`, b);
       }
+      const lastSect = g === this.geoms[this.geoms.length - 1];
+      if (lastSect || enSectEnd && !full.sections[g.index]?.sect?.noEndnote) this.placeEndnotes(g);
     }
     for (let k = 0; k < 100 && this.floatCarry.length && this.cur; k++) this.newPage(this.cur.geom);
     if (this.cur) {
@@ -19723,7 +19899,17 @@ var Engine = class {
     };
     const hb = s.headerBlocks ?? blocksOfParas(s.headers);
     const fb = s.footerBlocks ?? blocksOfParas(s.footers);
+    const st = this.ctx.fmt.settings;
+    const fnPr = { ...st.footnotePr, ...sp.footnotePr }, enPr = { ...st.endnotePr, ...sp.endnotePr };
+    const notes = {
+      footnote: { fmt: fnPr.numFmt ?? "decimal", start: fnPr.numStart ?? 1, restart: fnPr.numRestart ?? "continuous" },
+      // (nota de fim não reinicia por página)
+      endnote: { fmt: enPr.numFmt ?? "lowerRoman", start: enPr.numStart ?? 1, restart: enPr.numRestart === "eachSect" ? "eachSect" : "continuous" },
+      fnPos: fnPr.pos ?? "pageBottom",
+      ...sp.footnoteColumns ? { fnCols: sp.footnoteColumns } : {}
+    };
     return {
+      notes,
       index: i2,
       pageW,
       pageH,
@@ -19782,7 +19968,10 @@ var Engine = class {
     this.atTop = true;
     this.topGapPrevAfter = null;
     this.prev = null;
+    this.ctx.beginNotePage();
+    if (this.enFlow?.sepDone) this.continuationSeparator(true);
     if (this.floatCarry.length) this.placeFloatCarry();
+    if (this.cur.notesFull) return this.newPage(this.cur.geom);
     const late = this.lateFloats.get(this.pages.length - 1);
     if (late) {
       const fr = this.colFrame();
@@ -19832,21 +20021,25 @@ var Engine = class {
     this.layoutHeaderFooter(ps);
     ps.bodyBottomBase = ps.bodyBottom;
     if (this.noteCarry.length) {
-      for (const n of this.noteCarry) {
-        if (!ps.notes.length) ps.noteArea += this.separatorHeight();
-        ps.notes.push(n);
-        ps.noteArea += n.content.height;
-      }
+      const carry = this.noteCarry;
       this.noteCarry = [];
+      for (const n of carry) {
+        const avail = ps.bodyBottomBase - ps.bodyTop - this.noteAreaOf(ps.notes.map((x2) => x2.content), g) - (ps.notes.length ? 0 : this.separatorHeight());
+        const sp = n.content.height > avail + 0.05 && !ps.notesFull ? splitContent(n.content, avail) : null;
+        if (sp && sp[0].lines.length && sp[1].lines.length) {
+          ps.notes.push({ id: n.id, content: sp[0] });
+          this.noteCarry.push({ id: n.id, content: sp[1] });
+          ps.notesFull = true;
+        } else if (ps.notesFull) this.noteCarry.push(n);
+        else ps.notes.push(n);
+      }
+      ps.noteArea = this.noteAreaOf(ps.notes.map((n) => n.content), g);
       ps.bodyBottom = ps.bodyBottomBase - ps.noteArea;
     }
   }
   continuousSection(g) {
     const ending = this.cur.geom;
-    if (ending.cols.length > 1) {
-      const used = [...this.colUsed, this.y - this.colTop];
-      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
-    }
+    this.recordBalance(ending);
     if (this.balanceSaved !== null) {
       this.cur.bodyBottom = this.balanceSaved;
       this.balanceSaved = null;
@@ -19865,6 +20058,13 @@ var Engine = class {
     this.col = 0;
     this.colTop = this.y;
     this.applyBalance();
+  }
+  /** Seção de várias colunas que termina nesta página: o que cada coluna ocupou
+   *  (o equilíbrio é buscado em layoutDocument). */
+  recordBalance(ending) {
+    if (ending.cols.length <= 1) return;
+    const used = [...this.colUsed, this.y - this.colTop];
+    this.balanceFound.set(balKey(ending), { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
   }
   /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
    *  na última (senão vale como próxima página — oráculo sections, nc-*) */
@@ -19913,6 +20113,7 @@ var Engine = class {
       this.y = this.colTop;
       this.atTop = true;
       this.prev = null;
+      if (this.enFlow?.sepDone) this.continuationSeparator(false);
     } else this.newPage(g);
   }
   /** fim do conteúdo de cada coluna da área de colunas corrente (com o "depois"
@@ -19950,6 +20151,7 @@ var Engine = class {
         return bm ? this.marksGuess.get(bm) : void 0;
       }
       if (name === "SEQ") return this.seqValue(instr ?? "");
+      if (name === "ENDNOTEREF_MARK" && this.curEndnote !== void 0) return this.ctx.noteMarkOf("endnote", this.curEndnote) ?? "";
       if (name === "REF") return this.refValue(instr ?? "");
       if (name === "PAGE") return formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
       if (name === "NUMPAGES") {
@@ -20534,7 +20736,7 @@ var Engine = class {
         return;
       }
     }
-    if (blockIdx === g.blocks[1] && !p.glyphs.length && this.geoms[g.index + 1]?.type === "continuous" && (this.full.blocks[blockIdx - 1]?.type === "paragraph" || this.ctx.fmt.settings.compatibilityMode < 15)) {
+    if (blockIdx === g.blocks[1] && !p.glyphs.length && !this.enFlow && this.geoms[g.index + 1]?.type === "continuous" && (this.full.blocks[blockIdx - 1]?.type === "paragraph" || this.ctx.fmt.settings.compatibilityMode < 15)) {
       const sb = p.beforeAuto ? 280 : p.spaceBefore, sa = p.afterAuto ? 280 : p.spaceAfter;
       if (this.prev && !this.atTop) this.y += Math.max(0, this.collapse(this.prev.after, sb) - sb);
       this.prev = { after: 0, afterAuto: false, contextual: false };
@@ -20888,24 +21090,37 @@ var Engine = class {
     };
   }
   // ───────────────────────── notas de rodapé ─────────────────────────
+  /** conteúdo diagramado por nota e largura */
   noteCache = /* @__PURE__ */ new Map();
-  /** Conteúdo diagramado de uma nota (largura do corpo da página). */
+  /** Colunas da área de notas de rodapé: com w15:footnoteColumns, N iguais com vão de
+   *  720 tw (oráculo notefmt, cols2); sem ("coincidir layout de seção"), as colunas da
+   *  própria seção (sect-cols2). x relativo à margem esquerda; w = a da 1ª coluna. */
+  noteCols(g) {
+    const contentW = g.pageW - g.marL - g.marR;
+    const n = g.notes.fnCols ?? g.cols.length;
+    if (g.notes.fnCols === void 0 && n > 1) return { n, w: g.cols[0].w, dx: g.cols.map((c) => c.x - g.marL) };
+    const gap = 720, w = n > 1 ? (contentW - gap * (n - 1)) / n : contentW;
+    return { n, w, dx: Array.from({ length: n }, (_, k) => k * (w + gap)) };
+  }
+  /** Conteúdo diagramado de uma nota (largura do corpo ou da coluna de notas). */
   noteContent(id) {
-    let c = this.noteCache.get(id);
+    const g = this.cur.geom;
+    const w = this.noteCols(g).w;
+    const key = `${id}:${Math.round(w)}`;
+    let c = this.noteCache.get(key);
     if (!c) {
-      const g = this.cur.geom;
       const blocks = this.full.footnoteBlocks?.get(id) ?? (this.full.footnotes.get(id) ?? []).map((paragraph) => ({ type: "paragraph", paragraph }));
-      const num = this.ctx.footnoteNumber(id);
+      const mark = this.ctx.noteMarkOf("footnote", id) ?? "";
       const saved = this.ctx.numbering;
       this.ctx.numbering = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       try {
-        c = this.layoutStatic(blocks, g.marL, g.pageW - g.marL - g.marR, {
-          field: (name) => name === "FOOTNOTEREF_MARK" ? String(num) : this.fieldValue(this.cur)(name)
+        c = this.layoutStatic(blocks, g.marL, w, {
+          field: (name) => name === "FOOTNOTEREF_MARK" ? mark : this.fieldValue(this.cur)(name)
         }, `fn${id}`);
       } finally {
         this.ctx.numbering = saved;
       }
-      this.noteCache.set(id, c);
+      this.noteCache.set(key, c);
     }
     return c;
   }
@@ -20927,11 +21142,7 @@ var Engine = class {
     return ids;
   }
   rowNoteExtra(row) {
-    const ids = this.rowNoteIds(row);
-    if (!ids.length) return 0;
-    let extra = this.cur.notes.length ? 0 : this.separatorHeight();
-    for (const id of ids) extra += this.noteContent(id).height;
-    return extra;
+    return this.notesExtra(this.rowNoteIds(row));
   }
   /** Parágrafo do corpo pelo caminho do ref ("b3/r2/c0/b1"). */
   paraByRef(ref) {
@@ -20958,11 +21169,61 @@ var Engine = class {
     }
     return block?.type === "paragraph" ? block.paragraph : void 0;
   }
+  sepCache;
+  /**
+   * Linha do separador: altura (1 linha SIMPLES da fonte do Normal, sem espaçamento —
+   * o pPr do separador e a entrelinha do Normal não contam, oráculo fnsep), o meio do
+   * traço (0,23 em acima da base da linha) e a espessura (0,05 em em pixels de 1/600",
+   * por cima — medidos com Arial, Calibri e Times: oráculo endnotes, sep-*).
+   */
+  sepGeom() {
+    if (!this.sepCache) {
+      const ppr = { spacing: { before: 0, after: 0, line: 240, lineRule: "auto" } };
+      const p = prepareParagraph(this.ctx, { runs: [], props: paraPropsFromPPr(ppr), ppr }, {});
+      const l = new LineBreaker(this.ctx, p).next({ left: 0, right: 1e4 });
+      const em = (p.markStyle.sizePt || 10) * 20;
+      this.sepCache = { h: l.height, mid: l.baseline - 0.23 * em, thick: Math.max(2.4, Math.ceil(0.05 * em / 2.4 - 0.01) * 2.4) };
+    }
+    return this.sepCache;
+  }
   /** Altura do separador (1 linha do estilo Normal). */
   separatorHeight() {
-    const ppr = { spacing: { before: 0, after: 0, line: 240, lineRule: "auto" } };
-    const p = prepareParagraph(this.ctx, { runs: [], props: paraPropsFromPPr(ppr), ppr }, {});
-    return new LineBreaker(this.ctx, p).next({ left: 0, right: 1e4 }).height;
+    return this.sepGeom().h;
+  }
+  /** Traço do separador a partir do topo `top` da linha dele (2" no normal, a
+   *  largura da coluna no de continuação das notas de fim). */
+  sepLine(x2, top, w) {
+    const sg = this.sepGeom();
+    return { t: "rect", x: x2, y: top + sg.mid - sg.thick / 2, w, h: sg.thick, fill: "000000" };
+  }
+  /** Altura da área de notas (separador + notas; em colunas, a coluna mais alta). */
+  noteAreaOf(contents, g = this.cur.geom) {
+    if (!contents.length) return 0;
+    return this.separatorHeight() + this.packNotes(contents.map((c) => c.height), this.noteCols(g).n).height;
+  }
+  /** Notas inteiras por coluna: cada coluna recebe notas até passar da média
+   *  (oráculo notefmt, cols2); uma coluna = em sequência. */
+  packNotes(hs, n) {
+    const col = [], top = [];
+    const target = n > 1 ? hs.reduce((a, b) => a + b, 0) / n : Infinity;
+    let c = 0, y = 0, max2 = 0;
+    for (const h of hs) {
+      if (y > 0 && y >= target - 0.5 && c < n - 1) {
+        c++;
+        y = 0;
+      }
+      col.push(c);
+      top.push(y);
+      y += h;
+      max2 = Math.max(max2, y);
+    }
+    return { col, top, height: max2 };
+  }
+  /** Espaço que as notas NOVAS `ids` acrescentam à área de notas da página. */
+  notesExtra(ids) {
+    if (!ids.length) return 0;
+    const cur = this.cur.notes.map((n) => n.content);
+    return this.noteAreaOf([...cur, ...ids.map((id) => this.noteContent(id))]) - this.noteAreaOf(cur);
   }
   /** Altura com que a linha que traz uma nota NOVA precisa caber acima das notas: a
    *  linha inteira (com a entrelinha extra) e, na última do parágrafo, o "depois"
@@ -20977,21 +21238,17 @@ var Engine = class {
       const id = p.glyphs[k]?.noteId;
       if (id !== void 0 && !ids.includes(id) && !this.cur.notes.some((n) => n.id === id)) ids.push(id);
     }
-    if (!ids.length) return { ids, extra: 0 };
-    let extra = this.cur.notes.length ? 0 : this.separatorHeight();
-    for (const id of ids) extra += this.noteContent(id).height;
-    return { ids, extra };
+    return { ids, extra: this.notesExtra(ids) };
   }
   reserveNotes(ids, cut) {
     const ps = this.cur;
     for (const id of ids) {
       if (ps.notes.some((n) => n.id === id)) continue;
-      if (!ps.notes.length) ps.noteArea += this.separatorHeight();
       const content = cut && cut.id === id ? cut.first : this.noteContent(id);
       ps.notes.push({ id, content });
-      ps.noteArea += content.height;
       if (cut && cut.id === id) this.noteCarry.push({ id, content: cut.rest });
     }
+    ps.noteArea = this.noteAreaOf(ps.notes.map((n) => n.content), ps.geom);
     ps.bodyBottom = ps.bodyBottomBase - ps.noteArea;
   }
   /** notas que continuam na página seguinte (o resto de uma nota partida) */
@@ -21005,9 +21262,10 @@ var Engine = class {
    * o começo dela fica nesta página — o que couber, com viúvas/órfãs da própria nota — e o
    * resto continua no pé da seguinte, antes das notas de lá (oráculo fncont). Só a última
    * das notas da linha parte; sem ao menos o começo permitido, null (a linha desce).
+   * Com a área de notas em colunas, a nota não parte.
    */
   notePartial(ids, bottom) {
-    if (!ids.length) return null;
+    if (!ids.length || this.noteCols(this.cur.geom).n > 1) return null;
     const ps = this.cur;
     let h = ps.notes.length ? 0 : this.separatorHeight();
     for (const id2 of ids.slice(0, -1)) h += this.noteContent(id2).height;
@@ -21017,19 +21275,98 @@ var Engine = class {
     const sp = splitContent(this.noteContent(id), avail);
     return sp && sp[0].lines.length && sp[1].lines.length ? { id, first: sp[0], rest: sp[1] } : null;
   }
-  /** Separador + notas, alinhados ao fundo do corpo (medido no Word). */
+  /** Separador + notas, alinhados ao fundo do corpo (medido no Word); "abaixo do
+   *  texto" (w:pos beneathText): logo depois do conteúdo da página, como as notas de
+   *  fim (oráculo notefmt, pos-beneath*). As linhas das notas entram na página
+   *  (o editor edita a nota no lugar). */
   paintNotes(ps) {
     if (!ps.notes.length) return;
     const g = ps.geom;
     let y = ps.bodyBottomBase - ps.noteArea;
-    const sepH = this.separatorHeight();
-    const ly = y + sepH * 0.62;
-    ps.body.push({ t: "line", x1: g.marL, y1: ly, x2: g.marL + 2880, y2: ly, color: "000000", widthPt: 0.5 });
-    y += sepH;
-    for (const n of ps.notes) {
-      for (const it of n.content.items) ps.body.push(shiftItem(it, y));
-      y += n.content.height;
+    if (g.notes.fnPos === "beneathText" && ps === this.cur) {
+      const end = Math.max(this.y, this.colMaxY) + (this.prev && !this.atTop ? this.prev.after : 0);
+      y = Math.max(ps.bodyTop, Math.min(y, end));
     }
+    ps.body.push(this.sepLine(g.marL, y, 2880));
+    y += this.separatorHeight();
+    const cols = this.noteCols(g);
+    const pack = this.packNotes(ps.notes.map((n) => n.content.height), cols.n);
+    ps.notes.forEach((n, i2) => {
+      const dx = cols.dx[pack.col[i2]] ?? 0, dy = y + pack.top[i2];
+      for (const it of n.content.items) ps.body.push(shiftItem(it, dy, dx));
+      for (const l of n.content.lines) ps.page.lines.push(shiftLineXY(l, dx, dy));
+    });
+  }
+  // ───────────────────────── notas de fim ─────────────────────────
+  /** fluxo de notas de fim em curso (o separador já saiu: páginas e colunas seguintes
+   *  ganham o de continuação) */
+  enFlow = null;
+  /** nota de fim sendo diagramada (o número dela no campo ENDNOTEREF_MARK) */
+  curEndnote;
+  /** quantas notas de fim (na ordem de referência) já saíram */
+  endnotesDone = 0;
+  /**
+   * Notas de fim pendentes no fluxo, depois do conteúdo da seção/documento: o
+   * separador (uma linha simples da fonte do Normal, depois do "depois" do último
+   * parágrafo, que mantém a 1ª linha da 1ª nota com ele) e as notas na ordem de
+   * referência; a continuação noutra página tem o separador de continuação
+   * (oráculo endnotes). Linhas com ref "en<id>/b<k>".
+   */
+  placeEndnotes(g) {
+    const order = this.ctx.endnoteOrder;
+    const ids = order.slice(this.endnotesDone);
+    this.endnotesDone = order.length;
+    if (!ids.length) return;
+    const sepPPr = { spacing: { before: 0, after: 0, line: 240, lineRule: "auto" }, keepNext: true };
+    const sep = { runs: [], props: paraPropsFromPPr(sepPPr), ppr: sepPPr };
+    const blocks = [{ type: "paragraph", paragraph: sep }];
+    const refs = ["ensep"];
+    const owner = [void 0];
+    for (const id of ids) {
+      const bs = this.full.endnoteBlocks?.get(id) ?? (this.full.endnotes.get(id) ?? []).map((paragraph) => ({ type: "paragraph", paragraph }));
+      bs.forEach((b, k) => {
+        blocks.push(b);
+        refs.push(`en${id}/b${k}`);
+        owner.push(id);
+      });
+    }
+    if (blocks.length < 2) return;
+    const saved = this.full;
+    this.full = { ...saved, blocks };
+    const multi = this.pageCols().length > 1 || g.cols.length > 1;
+    const gEn = { ...g, blocks: [0, blocks.length - 1], ...multi ? { balKey: -1 - g.index } : {} };
+    if (multi) this.continuousSection(gEn);
+    this.enFlow = { sepDone: false };
+    try {
+      for (let b = 0; b < blocks.length; b++) {
+        const block = blocks[b];
+        this.curEndnote = owner[b];
+        if (block.type === "paragraph") this.placeParagraph(block.paragraph, refs[b], b, gEn);
+        else this.placeTable(block, refs[b]);
+        if (b === 0) {
+          const lines = this.cur.page.lines;
+          const at = lines.map((l) => l.ref).lastIndexOf("ensep");
+          if (at >= 0) {
+            const l = lines[at];
+            lines.splice(at, 1);
+            this.cur.body.push(this.sepLine(l.x, l.y, 2880));
+          }
+          this.enFlow.sepDone = true;
+        }
+      }
+      if (multi) this.recordBalance(gEn);
+    } finally {
+      this.full = saved;
+      this.enFlow = null;
+      this.curEndnote = void 0;
+    }
+  }
+  /** Separador de continuação no topo da página/coluna nova do fluxo de notas de fim
+   *  (`draw`: o traço, da largura da coluna; na coluna seguinte só o lugar). */
+  continuationSeparator(draw) {
+    const fr = this.colFrame();
+    if (draw) this.cur.body.push(this.sepLine(fr.x, this.y, fr.w));
+    this.y += this.separatorHeight();
   }
   /** Linhas de um parágrafo (sem quebra de página), p/ keepLines/keepNext. */
   paragraphLines(p, width) {
@@ -22145,6 +22482,9 @@ function bdrKey(ppr) {
 var ABSOLUTE_V = /* @__PURE__ */ new Set(["page", "margin", "topMargin", "bottomMargin", "insideMargin", "outsideMargin"]);
 function shiftLine(l, dy) {
   return { ...l, y: l.y + dy, baseline: l.baseline + dy };
+}
+function shiftLineXY(l, dx, dy) {
+  return { ...l, x: l.x + dx, y: l.y + dy, baseline: l.baseline + dy, ...l.chars && dx ? { chars: l.chars.map((c) => ({ ...c, x: c.x + dx })) } : {} };
 }
 var WRAPPING = /* @__PURE__ */ new Set(["square", "tight", "through", "topAndBottom"]);
 var MIN_GAP = 359.5;

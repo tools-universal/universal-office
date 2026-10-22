@@ -1898,6 +1898,339 @@ function readTcPr(tcPr) {
   return p;
 }
 
+// ../docx-core/src/ooxml/parts.ts
+function readStyleSheet(xml) {
+  const sheet = { docDefaults: {}, styles: {}, defaults: {} };
+  if (!xml) return sheet;
+  const root = parseXml(xml);
+  const dd = firstChild(root, "w:docDefaults");
+  if (dd) {
+    const rPr = readRPr(firstChild(firstChild(dd, "w:rPrDefault") ?? dd, "w:rPr"));
+    const pPr = readPPr(firstChild(firstChild(dd, "w:pPrDefault") ?? dd, "w:pPr"));
+    if (rPr) sheet.docDefaults.rPr = rPr;
+    if (pPr) sheet.docDefaults.pPr = pPr;
+  }
+  for (const st of childElements(root, "w:style")) {
+    const id = st.attrs["w:styleId"];
+    const type = st.attrs["w:type"] ?? "paragraph";
+    if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
+    const def = { styleId: id, type };
+    const val = (n) => firstChild(st, n)?.attrs["w:val"];
+    const name = val("w:name");
+    if (name !== void 0) def.name = name;
+    const basedOn = val("w:basedOn");
+    if (basedOn) def.basedOn = basedOn;
+    const next = val("w:next");
+    if (next) def.next = next;
+    const link = val("w:link");
+    if (link) def.link = link;
+    const d = st.attrs["w:default"];
+    if (d === "1" || d === "true" || d === "on") {
+      def.isDefault = true;
+      sheet.defaults[type] ??= id;
+    }
+    const pPr = readPPr(firstChild(st, "w:pPr"));
+    if (pPr) def.pPr = pPr;
+    const rPr = readRPr(firstChild(st, "w:rPr"));
+    if (rPr) def.rPr = rPr;
+    const tblPr = readTblPr(firstChild(st, "w:tblPr"));
+    if (tblPr) def.tblPr = tblPr;
+    const trPr = readTrPr(firstChild(st, "w:trPr"));
+    if (trPr) def.trPr = trPr;
+    const tcPr = readTcPr(firstChild(st, "w:tcPr"));
+    if (tcPr) def.tcPr = tcPr;
+    for (const tsp of childElements(st, "w:tblStylePr")) {
+      const t = tsp.attrs["w:type"];
+      if (!t) continue;
+      const part = {};
+      const a = readPPr(firstChild(tsp, "w:pPr"));
+      if (a) part.pPr = a;
+      const b = readRPr(firstChild(tsp, "w:rPr"));
+      if (b) part.rPr = b;
+      const c = readTblPr(firstChild(tsp, "w:tblPr"));
+      if (c) part.tblPr = c;
+      const e = readTrPr(firstChild(tsp, "w:trPr"));
+      if (e) part.trPr = e;
+      const f = readTcPr(firstChild(tsp, "w:tcPr"));
+      if (f) part.tcPr = f;
+      (def.tblStylePr ??= {})[t] = part;
+    }
+    if (!sheet.styles[id]) sheet.styles[id] = def;
+  }
+  return sheet;
+}
+function readLevel(el) {
+  const ilvl = parseInt(el.attrs["w:ilvl"] ?? "0", 10) || 0;
+  const lvl = { ilvl };
+  const v = (n) => firstChild(el, n)?.attrs["w:val"];
+  const start = v("w:start");
+  if (start !== void 0) lvl.start = parseInt(start, 10);
+  const fmtEl = firstChild(el, "w:numFmt");
+  if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
+  if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
+  const restart = v("w:lvlRestart");
+  if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
+  const ps = v("w:pStyle");
+  if (ps) lvl.pStyle = ps;
+  const isLgl = firstChild(el, "w:isLgl");
+  if (isLgl) lvl.isLgl = onOffVal(isLgl);
+  const suff = v("w:suff");
+  if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
+  const lt = firstChild(el, "w:lvlText");
+  if (lt) {
+    if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
+    if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
+  }
+  const pic = v("w:lvlPicBulletId");
+  if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
+  const jc = v("w:lvlJc");
+  if (jc) lvl.lvlJc = jc;
+  const pPr = readPPr(firstChild(el, "w:pPr"));
+  if (pPr) lvl.pPr = pPr;
+  const rPr = readRPr(firstChild(el, "w:rPr"));
+  if (rPr) lvl.rPr = rPr;
+  return lvl;
+}
+function readNumbering(xml) {
+  const out = { abstractNums: {}, nums: {}, picBullets: {} };
+  if (!xml) return out;
+  const root = parseXml(xml);
+  for (const pb of childElements(root, "w:numPicBullet")) {
+    const id = parseInt(pb.attrs["w:numPicBulletId"] ?? "-1", 10);
+    const bullet = { id };
+    const find = (e, name) => {
+      for (const c of childElements(e)) {
+        if (c.name === name) return c;
+        const f = find(c, name);
+        if (f) return f;
+      }
+      return void 0;
+    };
+    const img = find(pb, "v:imagedata");
+    const blip = find(pb, "a:blip");
+    const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
+    if (rid) bullet.rid = rid;
+    const shape = find(pb, "v:shape");
+    const style = shape?.attrs["style"] ?? "";
+    const w = /width:\s*([0-9.]+)pt/.exec(style);
+    const h = /height:\s*([0-9.]+)pt/.exec(style);
+    if (w) bullet.widthPt = parseFloat(w[1]);
+    if (h) bullet.heightPt = parseFloat(h[1]);
+    out.picBullets[id] = bullet;
+  }
+  for (const an of childElements(root, "w:abstractNum")) {
+    const id = parseInt(an.attrs["w:abstractNumId"] ?? "-1", 10);
+    const a = { abstractNumId: id, levels: {} };
+    const mlt = firstChild(an, "w:multiLevelType")?.attrs["w:val"];
+    if (mlt) a.multiLevelType = mlt;
+    const sl = firstChild(an, "w:styleLink")?.attrs["w:val"];
+    if (sl) a.styleLink = sl;
+    const nsl = firstChild(an, "w:numStyleLink")?.attrs["w:val"];
+    if (nsl) a.numStyleLink = nsl;
+    for (const lvl of childElements(an, "w:lvl")) {
+      const l = readLevel(lvl);
+      a.levels[l.ilvl] = l;
+    }
+    out.abstractNums[id] = a;
+  }
+  for (const num of childElements(root, "w:num")) {
+    const numId = parseInt(num.attrs["w:numId"] ?? "-1", 10);
+    const abs = parseInt(firstChild(num, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
+    const inst = { numId, abstractNumId: abs, overrides: {} };
+    for (const ov of childElements(num, "w:lvlOverride")) {
+      const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
+      const o = {};
+      const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
+      if (so !== void 0) o.startOverride = parseInt(so, 10);
+      const lvl = firstChild(ov, "w:lvl");
+      if (lvl) o.lvl = readLevel(lvl);
+      inst.overrides[ilvl] = o;
+    }
+    out.nums[numId] = inst;
+  }
+  return out;
+}
+function readTheme(xml) {
+  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: {} };
+  if (!xml) return theme;
+  const root = parseXml(xml);
+  const find = (e, name) => {
+    for (const c of childElements(e)) {
+      if (c.name === name) return c;
+      const f = find(c, name);
+      if (f) return f;
+    }
+    return void 0;
+  };
+  const fontScheme = find(root, "a:fontScheme");
+  for (const [key, tag] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
+    const el = fontScheme && firstChild(fontScheme, tag);
+    if (!el) continue;
+    const set = theme[key];
+    const latin = firstChild(el, "a:latin")?.attrs["typeface"];
+    if (latin) set.latin = latin;
+    const ea = firstChild(el, "a:ea")?.attrs["typeface"];
+    if (ea) set.ea = ea;
+    const cs = firstChild(el, "a:cs")?.attrs["typeface"];
+    if (cs) set.cs = cs;
+    for (const f of childElements(el, "a:font")) {
+      if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
+    }
+  }
+  const lnList = find(root, "a:lnStyleLst");
+  if (lnList) theme.lineWidthsPt = childElements(lnList, "a:ln").map((l) => (parseInt(l.attrs["w"] ?? "0", 10) || 0) / 12700);
+  const clr = find(root, "a:clrScheme");
+  if (clr) {
+    for (const c of childElements(clr)) {
+      const key = c.name.replace(/^a:/, "");
+      const srgb = firstChild(c, "a:srgbClr")?.attrs["val"];
+      const sys = firstChild(c, "a:sysClr");
+      const v = srgb ?? sys?.attrs["lastClr"] ?? (sys?.attrs["val"] === "window" ? "FFFFFF" : sys?.attrs["val"] === "windowText" ? "000000" : void 0);
+      if (v) theme.colors[key] = v.toUpperCase();
+    }
+  }
+  return theme;
+}
+function readNoteProps(el) {
+  if (!el) return void 0;
+  const out = {};
+  const v = (n) => firstChild(el, n)?.attrs["w:val"];
+  const pos = v("w:pos");
+  if (pos) out.pos = pos;
+  const fmt = v("w:numFmt");
+  if (fmt) out.numFmt = fmt;
+  const start = parseInt(v("w:numStart") ?? "", 10);
+  if (Number.isFinite(start)) out.numStart = start;
+  const rs = v("w:numRestart");
+  if (rs === "continuous" || rs === "eachSect" || rs === "eachPage") out.numRestart = rs;
+  return Object.keys(out).length ? out : void 0;
+}
+var ROOT_COMPAT_FLAGS = /* @__PURE__ */ new Set([
+  "w:doNotUseHTMLParagraphAutoSpacing",
+  "w:doNotExpandShiftReturn",
+  "w:ulTrailSpace",
+  "w:spaceForUL",
+  "w:balanceSingleByteDoubleByteWidth",
+  "w:adjustLineHeightInTable",
+  "w:doNotSuppressParagraphBorders",
+  "w:noSpaceRaiseLower",
+  "w:suppressSpBfAfterPgBrk",
+  "w:suppressTopSpacing",
+  "w:doNotUseIndentAsNumberingTabStop"
+]);
+function readSettings(xml) {
+  const s = {
+    defaultTabStop: 720,
+    compatibilityMode: xml ? 12 : 15,
+    compat: {},
+    evenAndOddHeaders: false,
+    mirrorMargins: false,
+    autoHyphenation: false,
+    doNotHyphenateCaps: false,
+    displayBackgroundShape: false,
+    updateFields: false
+  };
+  if (!xml) return s;
+  const root = parseXml(xml);
+  const on = (n) => {
+    const e = firstChild(root, n);
+    return e ? onOffVal(e) : false;
+  };
+  const dts = measureTwips(firstChild(root, "w:defaultTabStop")?.attrs["w:val"]);
+  if (dts !== void 0 && dts > 0) s.defaultTabStop = dts;
+  s.evenAndOddHeaders = on("w:evenAndOddHeaders");
+  s.mirrorMargins = on("w:mirrorMargins");
+  s.autoHyphenation = on("w:autoHyphenation");
+  s.doNotHyphenateCaps = on("w:doNotHyphenateCaps");
+  s.displayBackgroundShape = on("w:displayBackgroundShape");
+  s.updateFields = on("w:updateFields");
+  if (on("w:bordersDoNotSurroundHeader")) s.bordersDoNotSurroundHeader = true;
+  if (on("w:bordersDoNotSurroundFooter")) s.bordersDoNotSurroundFooter = true;
+  const fnPr = readNoteProps(firstChild(root, "w:footnotePr"));
+  if (fnPr) s.footnotePr = fnPr;
+  const enPr = readNoteProps(firstChild(root, "w:endnotePr"));
+  if (enPr) s.endnotePr = enPr;
+  const hz = measureTwips(firstChild(root, "w:hyphenationZone")?.attrs["w:val"]);
+  if (hz !== void 0) s.hyphenationZone = hz;
+  const chl = firstChild(root, "w:consecutiveHyphenLimit")?.attrs["w:val"];
+  if (chl !== void 0) s.consecutiveHyphenLimit = parseInt(chl, 10);
+  const csc = firstChild(root, "w:characterSpacingControl")?.attrs["w:val"];
+  if (csc) s.characterSpacingControl = csc;
+  const tfl = firstChild(root, "w:themeFontLang");
+  if (tfl) {
+    s.themeFontLang = {};
+    if (tfl.attrs["w:val"]) s.themeFontLang.val = tfl.attrs["w:val"];
+    if (tfl.attrs["w:eastAsia"]) s.themeFontLang.eastAsia = tfl.attrs["w:eastAsia"];
+    if (tfl.attrs["w:bidi"]) s.themeFontLang.bidi = tfl.attrs["w:bidi"];
+  }
+  for (const c of childElements(root)) {
+    if (ROOT_COMPAT_FLAGS.has(c.name)) s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
+  }
+  const compat = firstChild(root, "w:compat");
+  if (compat) {
+    for (const c of childElements(compat)) {
+      if (c.name === "w:compatSetting") {
+        if (c.attrs["w:name"] === "compatibilityMode" && c.attrs["w:uri"] === "http://schemas.microsoft.com/office/word") {
+          const n = parseInt(c.attrs["w:val"] ?? "", 10);
+          if (Number.isFinite(n)) s.compatibilityMode = n;
+        }
+        continue;
+      }
+      s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
+    }
+  }
+  return s;
+}
+function readFontTable(xml) {
+  const out = {};
+  if (!xml) return out;
+  const root = parseXml(xml);
+  for (const f of childElements(root, "w:font")) {
+    const name = f.attrs["w:name"];
+    if (!name) continue;
+    const info = { name };
+    const v = (n) => firstChild(f, n)?.attrs["w:val"];
+    const alt = v("w:altName");
+    if (alt) info.altName = alt;
+    const pan = v("w:panose1");
+    if (pan) info.panose1 = pan;
+    const cs = v("w:charset");
+    if (cs) info.charset = cs;
+    const fam = v("w:family");
+    if (fam) info.family = fam;
+    const pitch = v("w:pitch");
+    if (pitch) info.pitch = pitch;
+    const sig = firstChild(f, "w:sig");
+    if (sig) {
+      info.sig = {};
+      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
+    }
+    out[name] = info;
+  }
+  return out;
+}
+function partByRelType(pkg, type, fallback) {
+  const rels = pkg.getPartText("word/_rels/document.xml.rels");
+  if (rels) {
+    for (const rel of childElements(parseXml(rels), "Relationship")) {
+      if ((rel.attrs["Type"] ?? "").endsWith(`/${type}`) && rel.attrs["Target"] && rel.attrs["TargetMode"] !== "External") {
+        const t = rel.attrs["Target"].replace(/^\.\//, "");
+        return t.startsWith("/") ? t.slice(1) : `word/${t}`;
+      }
+    }
+  }
+  return fallback;
+}
+function readDocFormatting(pkg) {
+  return {
+    styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
+    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
+    theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
+    settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
+    fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
+  };
+}
+
 // ../docx-core/src/drawing.ts
 var EMU_PER_TWIP_D = 635;
 var emuTw = (v) => {
@@ -3353,7 +3686,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       case "w:endnoteReference": {
         const id = parseInt(child.attrs["w:id"] ?? "0", 10);
         flush();
-        const run = make("", { noteRef: { kind: child.name === "w:footnoteReference" ? "footnote" : "endnote", id } });
+        const custom = child.attrs["w:customMarkFollows"] === "1" || child.attrs["w:customMarkFollows"] === "true";
+        const run = make("", { noteRef: { kind: child.name === "w:footnoteReference" ? "footnote" : "endnote", id, ...custom ? { custom } : {} } });
         run.props.vertAlign = "superscript";
         runTarget(ctx, runs)?.push(run);
         break;
@@ -3618,322 +3952,13 @@ function readSectPr(sectEl) {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
+  const fnPr = readNoteProps(sectEl && firstChild(sectEl, "w:footnotePr"));
+  if (fnPr) sect.footnotePr = fnPr;
+  const enPr = readNoteProps(sectEl && firstChild(sectEl, "w:endnotePr"));
+  if (enPr) sect.endnotePr = enPr;
+  const fnCols = sectEl && firstChild(sectEl, "w15:footnoteColumns")?.attrs["w:val"];
+  if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
   return sect;
-}
-
-// ../docx-core/src/ooxml/parts.ts
-function readStyleSheet(xml) {
-  const sheet = { docDefaults: {}, styles: {}, defaults: {} };
-  if (!xml) return sheet;
-  const root = parseXml(xml);
-  const dd = firstChild(root, "w:docDefaults");
-  if (dd) {
-    const rPr = readRPr(firstChild(firstChild(dd, "w:rPrDefault") ?? dd, "w:rPr"));
-    const pPr = readPPr(firstChild(firstChild(dd, "w:pPrDefault") ?? dd, "w:pPr"));
-    if (rPr) sheet.docDefaults.rPr = rPr;
-    if (pPr) sheet.docDefaults.pPr = pPr;
-  }
-  for (const st of childElements(root, "w:style")) {
-    const id = st.attrs["w:styleId"];
-    const type = st.attrs["w:type"] ?? "paragraph";
-    if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
-    const def = { styleId: id, type };
-    const val = (n) => firstChild(st, n)?.attrs["w:val"];
-    const name = val("w:name");
-    if (name !== void 0) def.name = name;
-    const basedOn = val("w:basedOn");
-    if (basedOn) def.basedOn = basedOn;
-    const next = val("w:next");
-    if (next) def.next = next;
-    const link = val("w:link");
-    if (link) def.link = link;
-    const d = st.attrs["w:default"];
-    if (d === "1" || d === "true" || d === "on") {
-      def.isDefault = true;
-      sheet.defaults[type] ??= id;
-    }
-    const pPr = readPPr(firstChild(st, "w:pPr"));
-    if (pPr) def.pPr = pPr;
-    const rPr = readRPr(firstChild(st, "w:rPr"));
-    if (rPr) def.rPr = rPr;
-    const tblPr = readTblPr(firstChild(st, "w:tblPr"));
-    if (tblPr) def.tblPr = tblPr;
-    const trPr = readTrPr(firstChild(st, "w:trPr"));
-    if (trPr) def.trPr = trPr;
-    const tcPr = readTcPr(firstChild(st, "w:tcPr"));
-    if (tcPr) def.tcPr = tcPr;
-    for (const tsp of childElements(st, "w:tblStylePr")) {
-      const t = tsp.attrs["w:type"];
-      if (!t) continue;
-      const part = {};
-      const a = readPPr(firstChild(tsp, "w:pPr"));
-      if (a) part.pPr = a;
-      const b = readRPr(firstChild(tsp, "w:rPr"));
-      if (b) part.rPr = b;
-      const c = readTblPr(firstChild(tsp, "w:tblPr"));
-      if (c) part.tblPr = c;
-      const e = readTrPr(firstChild(tsp, "w:trPr"));
-      if (e) part.trPr = e;
-      const f = readTcPr(firstChild(tsp, "w:tcPr"));
-      if (f) part.tcPr = f;
-      (def.tblStylePr ??= {})[t] = part;
-    }
-    if (!sheet.styles[id]) sheet.styles[id] = def;
-  }
-  return sheet;
-}
-function readLevel(el) {
-  const ilvl = parseInt(el.attrs["w:ilvl"] ?? "0", 10) || 0;
-  const lvl = { ilvl };
-  const v = (n) => firstChild(el, n)?.attrs["w:val"];
-  const start = v("w:start");
-  if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el, "w:numFmt");
-  if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
-  if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
-  const restart = v("w:lvlRestart");
-  if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
-  const ps = v("w:pStyle");
-  if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el, "w:isLgl");
-  if (isLgl) lvl.isLgl = onOffVal(isLgl);
-  const suff = v("w:suff");
-  if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el, "w:lvlText");
-  if (lt) {
-    if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
-    if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
-  }
-  const pic = v("w:lvlPicBulletId");
-  if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
-  const jc = v("w:lvlJc");
-  if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el, "w:pPr"));
-  if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el, "w:rPr"));
-  if (rPr) lvl.rPr = rPr;
-  return lvl;
-}
-function readNumbering(xml) {
-  const out = { abstractNums: {}, nums: {}, picBullets: {} };
-  if (!xml) return out;
-  const root = parseXml(xml);
-  for (const pb of childElements(root, "w:numPicBullet")) {
-    const id = parseInt(pb.attrs["w:numPicBulletId"] ?? "-1", 10);
-    const bullet = { id };
-    const find = (e, name) => {
-      for (const c of childElements(e)) {
-        if (c.name === name) return c;
-        const f = find(c, name);
-        if (f) return f;
-      }
-      return void 0;
-    };
-    const img = find(pb, "v:imagedata");
-    const blip = find(pb, "a:blip");
-    const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
-    if (rid) bullet.rid = rid;
-    const shape = find(pb, "v:shape");
-    const style = shape?.attrs["style"] ?? "";
-    const w = /width:\s*([0-9.]+)pt/.exec(style);
-    const h = /height:\s*([0-9.]+)pt/.exec(style);
-    if (w) bullet.widthPt = parseFloat(w[1]);
-    if (h) bullet.heightPt = parseFloat(h[1]);
-    out.picBullets[id] = bullet;
-  }
-  for (const an of childElements(root, "w:abstractNum")) {
-    const id = parseInt(an.attrs["w:abstractNumId"] ?? "-1", 10);
-    const a = { abstractNumId: id, levels: {} };
-    const mlt = firstChild(an, "w:multiLevelType")?.attrs["w:val"];
-    if (mlt) a.multiLevelType = mlt;
-    const sl = firstChild(an, "w:styleLink")?.attrs["w:val"];
-    if (sl) a.styleLink = sl;
-    const nsl = firstChild(an, "w:numStyleLink")?.attrs["w:val"];
-    if (nsl) a.numStyleLink = nsl;
-    for (const lvl of childElements(an, "w:lvl")) {
-      const l = readLevel(lvl);
-      a.levels[l.ilvl] = l;
-    }
-    out.abstractNums[id] = a;
-  }
-  for (const num of childElements(root, "w:num")) {
-    const numId = parseInt(num.attrs["w:numId"] ?? "-1", 10);
-    const abs = parseInt(firstChild(num, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
-    const inst = { numId, abstractNumId: abs, overrides: {} };
-    for (const ov of childElements(num, "w:lvlOverride")) {
-      const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
-      const o = {};
-      const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
-      if (so !== void 0) o.startOverride = parseInt(so, 10);
-      const lvl = firstChild(ov, "w:lvl");
-      if (lvl) o.lvl = readLevel(lvl);
-      inst.overrides[ilvl] = o;
-    }
-    out.nums[numId] = inst;
-  }
-  return out;
-}
-function readTheme(xml) {
-  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: {} };
-  if (!xml) return theme;
-  const root = parseXml(xml);
-  const find = (e, name) => {
-    for (const c of childElements(e)) {
-      if (c.name === name) return c;
-      const f = find(c, name);
-      if (f) return f;
-    }
-    return void 0;
-  };
-  const fontScheme = find(root, "a:fontScheme");
-  for (const [key, tag] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el = fontScheme && firstChild(fontScheme, tag);
-    if (!el) continue;
-    const set = theme[key];
-    const latin = firstChild(el, "a:latin")?.attrs["typeface"];
-    if (latin) set.latin = latin;
-    const ea = firstChild(el, "a:ea")?.attrs["typeface"];
-    if (ea) set.ea = ea;
-    const cs = firstChild(el, "a:cs")?.attrs["typeface"];
-    if (cs) set.cs = cs;
-    for (const f of childElements(el, "a:font")) {
-      if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
-    }
-  }
-  const lnList = find(root, "a:lnStyleLst");
-  if (lnList) theme.lineWidthsPt = childElements(lnList, "a:ln").map((l) => (parseInt(l.attrs["w"] ?? "0", 10) || 0) / 12700);
-  const clr = find(root, "a:clrScheme");
-  if (clr) {
-    for (const c of childElements(clr)) {
-      const key = c.name.replace(/^a:/, "");
-      const srgb = firstChild(c, "a:srgbClr")?.attrs["val"];
-      const sys = firstChild(c, "a:sysClr");
-      const v = srgb ?? sys?.attrs["lastClr"] ?? (sys?.attrs["val"] === "window" ? "FFFFFF" : sys?.attrs["val"] === "windowText" ? "000000" : void 0);
-      if (v) theme.colors[key] = v.toUpperCase();
-    }
-  }
-  return theme;
-}
-var ROOT_COMPAT_FLAGS = /* @__PURE__ */ new Set([
-  "w:doNotUseHTMLParagraphAutoSpacing",
-  "w:doNotExpandShiftReturn",
-  "w:ulTrailSpace",
-  "w:spaceForUL",
-  "w:balanceSingleByteDoubleByteWidth",
-  "w:adjustLineHeightInTable",
-  "w:doNotSuppressParagraphBorders",
-  "w:noSpaceRaiseLower",
-  "w:suppressSpBfAfterPgBrk",
-  "w:suppressTopSpacing",
-  "w:doNotUseIndentAsNumberingTabStop"
-]);
-function readSettings(xml) {
-  const s = {
-    defaultTabStop: 720,
-    compatibilityMode: xml ? 12 : 15,
-    compat: {},
-    evenAndOddHeaders: false,
-    mirrorMargins: false,
-    autoHyphenation: false,
-    doNotHyphenateCaps: false,
-    displayBackgroundShape: false,
-    updateFields: false
-  };
-  if (!xml) return s;
-  const root = parseXml(xml);
-  const on = (n) => {
-    const e = firstChild(root, n);
-    return e ? onOffVal(e) : false;
-  };
-  const dts = measureTwips(firstChild(root, "w:defaultTabStop")?.attrs["w:val"]);
-  if (dts !== void 0 && dts > 0) s.defaultTabStop = dts;
-  s.evenAndOddHeaders = on("w:evenAndOddHeaders");
-  s.mirrorMargins = on("w:mirrorMargins");
-  s.autoHyphenation = on("w:autoHyphenation");
-  s.doNotHyphenateCaps = on("w:doNotHyphenateCaps");
-  s.displayBackgroundShape = on("w:displayBackgroundShape");
-  s.updateFields = on("w:updateFields");
-  if (on("w:bordersDoNotSurroundHeader")) s.bordersDoNotSurroundHeader = true;
-  if (on("w:bordersDoNotSurroundFooter")) s.bordersDoNotSurroundFooter = true;
-  const hz = measureTwips(firstChild(root, "w:hyphenationZone")?.attrs["w:val"]);
-  if (hz !== void 0) s.hyphenationZone = hz;
-  const chl = firstChild(root, "w:consecutiveHyphenLimit")?.attrs["w:val"];
-  if (chl !== void 0) s.consecutiveHyphenLimit = parseInt(chl, 10);
-  const csc = firstChild(root, "w:characterSpacingControl")?.attrs["w:val"];
-  if (csc) s.characterSpacingControl = csc;
-  const tfl = firstChild(root, "w:themeFontLang");
-  if (tfl) {
-    s.themeFontLang = {};
-    if (tfl.attrs["w:val"]) s.themeFontLang.val = tfl.attrs["w:val"];
-    if (tfl.attrs["w:eastAsia"]) s.themeFontLang.eastAsia = tfl.attrs["w:eastAsia"];
-    if (tfl.attrs["w:bidi"]) s.themeFontLang.bidi = tfl.attrs["w:bidi"];
-  }
-  for (const c of childElements(root)) {
-    if (ROOT_COMPAT_FLAGS.has(c.name)) s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
-  }
-  const compat = firstChild(root, "w:compat");
-  if (compat) {
-    for (const c of childElements(compat)) {
-      if (c.name === "w:compatSetting") {
-        if (c.attrs["w:name"] === "compatibilityMode" && c.attrs["w:uri"] === "http://schemas.microsoft.com/office/word") {
-          const n = parseInt(c.attrs["w:val"] ?? "", 10);
-          if (Number.isFinite(n)) s.compatibilityMode = n;
-        }
-        continue;
-      }
-      s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
-    }
-  }
-  return s;
-}
-function readFontTable(xml) {
-  const out = {};
-  if (!xml) return out;
-  const root = parseXml(xml);
-  for (const f of childElements(root, "w:font")) {
-    const name = f.attrs["w:name"];
-    if (!name) continue;
-    const info = { name };
-    const v = (n) => firstChild(f, n)?.attrs["w:val"];
-    const alt = v("w:altName");
-    if (alt) info.altName = alt;
-    const pan = v("w:panose1");
-    if (pan) info.panose1 = pan;
-    const cs = v("w:charset");
-    if (cs) info.charset = cs;
-    const fam = v("w:family");
-    if (fam) info.family = fam;
-    const pitch = v("w:pitch");
-    if (pitch) info.pitch = pitch;
-    const sig = firstChild(f, "w:sig");
-    if (sig) {
-      info.sig = {};
-      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
-    }
-    out[name] = info;
-  }
-  return out;
-}
-function partByRelType(pkg, type, fallback) {
-  const rels = pkg.getPartText("word/_rels/document.xml.rels");
-  if (rels) {
-    for (const rel of childElements(parseXml(rels), "Relationship")) {
-      if ((rel.attrs["Type"] ?? "").endsWith(`/${type}`) && rel.attrs["Target"] && rel.attrs["TargetMode"] !== "External") {
-        const t = rel.attrs["Target"].replace(/^\.\//, "");
-        return t.startsWith("/") ? t.slice(1) : `word/${t}`;
-      }
-    }
-  }
-  return fallback;
-}
-function readDocFormatting(pkg) {
-  return {
-    styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
-    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
-    theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
-    settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
-    fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
-  };
 }
 
 // ../docx-core/src/styles.ts
@@ -4153,6 +4178,8 @@ var SourceStore = class {
   tcs = /* @__PURE__ */ new Map();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   stories = /* @__PURE__ */ new Map();
+  /** Por caminho da parte de notas (word/footnotes.xml, word/endnotes.xml). */
+  noteParts = /* @__PURE__ */ new Map();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
   commentIds = /* @__PURE__ */ new Set();
   /** comments.xml original, para regravar só se a lista mudar. */
@@ -4229,6 +4256,28 @@ var SourceStore = class {
     const pPr = closing.props.src !== void 0 ? this.paras.get(closing.props.src)?.pPr : void 0;
     return pPr ? splitElement(pPr).kids.find((k) => k.name === "w:sectPr")?.raw : void 0;
   }
+  /**
+   * O parágrafo — ou os runs em volta do cursor — está num controle de conteúdo
+   * de TEXTO SEM FORMATAÇÃO (w:sdt com w:text, w:date, w:comboBox ou
+   * w:dropDownList), de bloco ou inline? O Word recusa notas ali e um
+   * w:footnoteReference dentro dele deixa o arquivo "corrompido" (oráculo
+   * notes-lab, cc-*; rich text aceita).
+   */
+  inPlainTextControl(p, around) {
+    const id = p.props.src;
+    if (id === void 0) return false;
+    const inGroups = (groups) => {
+      for (const g of groups ?? []) {
+        if (!g.blocks.includes(id)) continue;
+        if (plainTextSdt(g.wrapOpen) || inGroups(g.inner)) return true;
+      }
+      return false;
+    };
+    for (const s of this.stories.values()) if (inGroups(s.groups)) return true;
+    for (const c of this.tcs.values()) if (inGroups(c.groups)) return true;
+    const sids = new Set(around.map((r) => r?.props.src).filter((x2) => x2 !== void 0));
+    return !!sids.size && !!this.paras.get(id)?.segs.some((s) => plainTextSdt(s.wrapOpen) && s.sids.some((x2) => sids.has(x2)));
+  }
   /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
   pristine(p) {
     let v = this.memo.get(p);
@@ -4254,6 +4303,11 @@ var SourceStore = class {
     return v;
   }
 };
+function plainTextSdt(open) {
+  if (!open || !/^<w:sdt[\s>]/.test(open)) return false;
+  const end = open.indexOf("</w:sdtPr>");
+  return /<w:(?:text|date|comboBox|dropDownList)\b/.test(end < 0 ? open : open.slice(0, end));
+}
 function tableSig(t) {
   return sigHash(JSON.stringify(t, sigReplacer));
 }
@@ -4472,21 +4526,54 @@ function readHeaderFooterPart(pkg, path, store) {
   walk(blocks);
   return { paras, blocks };
 }
-function readNotesPart(pkg, path, elementName, blocksOut) {
+function readNotesPart(pkg, path, elementName, blocksOut, store, special) {
   const out = /* @__PURE__ */ new Map();
   const xml = pkg.getPartText(path);
   if (!xml) return out;
-  const root = parseXml(xml);
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  const part = store ? { open: xml.slice(0, root.cs), close: xml.slice(root.ce), items: [], refsAtLoad: /* @__PURE__ */ new Set() } : void 0;
+  if (store) {
+    ctx.sources = store;
+    ctx.sourceXml = xml;
+  }
   for (const note of childElements(root, elementName)) {
     const id = parseInt(note.attrs["w:id"] ?? "0", 10);
     const type = note.attrs["w:type"];
-    if (type === "separator" || type === "continuationSeparator" || type === "continuationNotice") continue;
-    const blocks = readBlocksOf(note, ctx);
+    if (type === "separator" || type === "continuationSeparator" || type === "continuationNotice") {
+      special?.push(id);
+      part?.items.push({ id, raw: xml.slice(note.s, note.e), separator: true });
+      continue;
+    }
+    let blocks;
+    if (!store) blocks = readBlocksOf(note, ctx);
+    else {
+      const story = { open: xml.slice(note.s, note.cs), close: xml.slice(note.ce, note.e), groups: [] };
+      blocks = [];
+      for (const c of childElements(note)) {
+        const produced = readBlocksOf({ name: note.name, attrs: {}, children: [c] }, ctx);
+        story.groups.push(groupOf(xml, c, produced, store));
+        blocks.push(...produced);
+      }
+      part.items.push({ id, raw: xml.slice(note.s, note.e), story });
+    }
     out.set(id, blocks.filter((bl) => bl.type === "paragraph").map((bl) => bl.paragraph));
     blocksOut?.set(id, blocks);
+  }
+  if (store && part) store.noteParts.set(path, part);
+  return out;
+}
+function noteRefIds(blocks, kind, out = []) {
+  for (const b of blocks) {
+    if (b.type === "paragraph") {
+      for (const r of b.paragraph.runs) if (r.noteRef?.kind === kind && !out.includes(r.noteRef.id)) out.push(r.noteRef.id);
+    } else {
+      for (const row of b.rows) for (const cell of row.cells) {
+        noteRefIds(cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })), kind, out);
+      }
+    }
   }
   return out;
 }
@@ -4626,11 +4713,18 @@ function readFullDocument(pkg, opts = {}) {
   }
   const footnoteBlocks = /* @__PURE__ */ new Map();
   const endnoteBlocks = /* @__PURE__ */ new Map();
+  const noteSpecialIds = { footnote: [], endnote: [] };
+  const footnotes = readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks, store, noteSpecialIds.footnote);
+  const endnotes = readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks, store, noteSpecialIds.endnote);
+  for (const kind of ["footnote", "endnote"]) {
+    const part = store?.noteParts.get(`word/${kind}s.xml`);
+    if (part) for (const id of noteRefIds(blocks, kind)) part.refsAtLoad.add(id);
+  }
   return {
     blocks,
     sections,
-    footnotes: readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks),
-    endnotes: readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks),
+    footnotes,
+    endnotes,
     comments,
     styles: readStyles(pkg),
     bookmarks,
@@ -4638,6 +4732,7 @@ function readFullDocument(pkg, opts = {}) {
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,
+    noteSpecialIds,
     ...readCoreProps(pkg),
     ...readBackground(root),
     ...store ? { sources: store } : {}

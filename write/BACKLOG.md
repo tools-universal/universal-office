@@ -68,7 +68,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 |---|---|---|
 | Tabela | ◐ inserir; desenhar; converter texto↔tabela; Design da Tabela (estilos, sombreamento, bordas); Layout (dimensionar, distribuir, alinhar na célula, direção do texto, repetir cabeçalho, fórmula) | feito |
 | Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | feito |
-| Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | em curso |
+| Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | feito |
 | Seções e colunas | ◐ quebra de seção e de coluna; Colunas | feito |
 | Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | feito |
 | Navegação | Painel de Navegação; Régua; Linhas de Grade | em curso |
@@ -126,6 +126,8 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Tabela | O título "Documento sem título" não troca de idioma quando o `lang` muda depois de montado |
 | Tabela | `<universal-sheet>`: `setCellValue(0, …)` cria uma referência de célula inválida |
 | Seções | Larguras das colunas Esquerda/Direita não medidas (o COM não alcança a galeria); hoje é uma grade de 3 |
+| Notas | Fixtures de paridade `symnotdef/sn-arial` diferem entre JS e .NET (anterior às notas) |
+| Notas | O título do iniciador de Estilos repete o atalho: "Estilos (Ctrl+Alt+Shift+S) (Ctrl+Alt+Shift+S)" |
 
 ### Fora do escopo
 
