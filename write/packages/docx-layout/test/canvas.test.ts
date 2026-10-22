@@ -2,11 +2,13 @@
  * Pintor de canvas (paintItems): retângulo fino — borda de tabela de 0,5 pt, que o
  * motor emite UMA vez por divisa — sai com largura inteira ≥ 1 px alinhada ao pixel,
  * como as linhas. Antes ficava em 2 px cinza-claros na tela (varredura do editor no
- * corpus, 2026-10-22: bordas verticais de tabela "sumindo" a 100%).
+ * corpus, 2026-10-22: bordas verticais de tabela "sumindo" a 100%). E o texto
+ * semitransparente (marca-d'água em curvas com alfa) com a opacidade do run, como
+ * no PDF — saía opaco na tela.
  */
 import { describe, it, expect } from 'vitest';
 import { paintItems, snapThin, type EnginePaintEnv } from '../src/canvas.js';
-import type { PageItem } from '../src/tree.js';
+import type { GlyphRunItem, PageItem } from '../src/tree.js';
 
 /** contexto 2D falso: só o que o retângulo usa; grava os fillRect em pixels de dispositivo */
 function fakeCtx(scale: number, ox = 0, oy = 0): { ctx: CanvasRenderingContext2D; rects: number[][] } {
@@ -50,5 +52,23 @@ describe('canvas: retângulo fino', () => {
     expect(snapThin(1975.2, 9.6, 2 * S, 0)).toEqual([264 / (2 * S), 1 / (2 * S)]);
     // ≥ 3 px de dispositivo: intacto
     expect(snapThin(100, 60, S, 0)).toEqual([100, 60]);
+  });
+});
+
+describe('canvas: texto semitransparente', () => {
+  it('a opacidade do run (alpha) vale no fillText e volta depois', () => {
+    const alphas: number[] = [];
+    const ctx = {
+      globalAlpha: 1, fillStyle: '', font: '', textAlign: '', textBaseline: '',
+      save() {}, restore() {},
+      fillText() { alphas.push(ctx.globalAlpha); },
+    };
+    const font = { metrics: { unitsPerEm: 1000 }, advanceWidth: () => 500, glyphId: () => 1 };
+    const run = (alpha?: number) => ({
+      t: 'glyphs', face: { key: 'k', family: 'x', font, bold: false, italic: false }, sizePt: 12, color: '808080', y: 100,
+      glyphs: [{ cp: 0x41, x: 0 }], text: 'A', ...(alpha !== undefined ? { alpha } : {}),
+    }) as unknown as GlyphRunItem;
+    paintItems(ctx as unknown as CanvasRenderingContext2D, [run(0.05), run()], env, { alpha: 0.5 });
+    expect(alphas).toEqual([0.025, 0.5]);
   });
 });

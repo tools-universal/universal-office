@@ -118,7 +118,12 @@ export function paintItems(
   for (let i = from; i < to; i++) {
     const it = items[i]!;
     switch (it.t) {
-      case 'glyphs': paintGlyphs(ctx, it, env); break;
+      case 'glyphs':
+        // texto semitransparente (w14:textFill, marca-d'água): a opacidade do run, como no PDF
+        if (it.alpha !== undefined) ctx.globalAlpha = base * it.alpha;
+        paintGlyphs(ctx, it, env);
+        ctx.globalAlpha = base;
+        break;
       case 'rect': {
         if (!HEX6.test(it.fill)) break;
         // realces/sombreamentos vêm um retângulo por caractere: os contíguos
