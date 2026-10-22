@@ -1,0 +1,3 @@
+toc-custom.docx	ok	tocs=1 sdt=1 entries=[UM|Dois|TRES] sdtAfterWordSave=1
+toc-gallery.docx	ok	tocs=1 sdt=1 entries=[Um|Dois] sdtAfterWordSave=1
+toc-manual.docx	ok	tocs=0 sdt=1 sdtAfterWordSave=1
