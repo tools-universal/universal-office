@@ -149,6 +149,20 @@ export interface LaidOutLine {
   /** a linha tem revisão que pede barra de alteração: o espaço antes (1ª linha do
    *  parágrafo) e depois (última) que a barra também cobre (twips) */
   rev?: { before: number; after: number };
+  /** quadro do parágrafo (coluna, célula, caixa ou cabeçalho, antes dos recuos):
+   *  bordas esquerda/direita RELATIVAS a `x` (acompanham os deslocamentos da
+   *  linha) — régua do editor; fora da paridade .NET */
+  frame?: { l: number; r: number };
+  /** recuos e tabulações efetivos do parágrafo (twips; firstLine < 0 = deslocado;
+   *  tabs sem os clear) — régua do editor; o mesmo objeto em todas as linhas */
+  pfmt?: LineParaFormat;
+}
+
+export interface LineParaFormat {
+  left: number;
+  right: number;
+  firstLine: number;
+  tabs: readonly import('@universal-office/docx-core').TabSpec[];
 }
 
 export interface LayoutPage {

@@ -9,7 +9,7 @@ import { LineBreaker, type Line } from './lines.js';
 import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.js';
 import { dateFieldValue } from './datefmt.js';
 import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, LATE_ITEMS, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
-import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, PlacedObject } from './tree.js';
+import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, LineParaFormat, PlacedObject } from './tree.js';
 import { BAR_WIDTH, barX, joinDeleted } from './revisions.js';
 import { resolveColor, resolveDrawingColor, shadingFill } from './resolve.js';
 import { formatNumber } from './numbering.js';
@@ -1085,7 +1085,7 @@ class Engine {
           const put = (l: Line) => {
             paintLine(this.ctx, items, l, x, y);
             this.paintInlineDrawings(items, l, x, y, ps);
-            lines.push(lineRecord(`${ref}/b${bi}`, p, l, x, y));
+            lines.push(lineRecord(`${ref}/b${bi}`, p, l, x, y, width));
             lh = Math.max(lh, l.height);
           };
           put(line);
@@ -1602,7 +1602,7 @@ class Engine {
         if (this.cur.geom.lnNum && !p.ppr.suppressLineNumbers) this.paintLineNumber(f.frameX, f.y + f.line.baseline);
         paintLine(this.ctx, this.cur.body, f.line, f.frameX, f.y);
         this.paintInlineDrawings(this.cur.body, f.line, f.frameX, f.y, this.cur);
-        this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y));
+        this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y, this.colFrame().w));
       }
       const last = frag[frag.length - 1]!;
       let bottom = last.y + last.line.height;
@@ -3325,7 +3325,15 @@ function alignPos(align: string | undefined, offset: number | undefined, base: n
   return base + (offset ?? 0);
 }
 
-function lineRecord(ref: string, p: PreparedPara, line: Line, frameX: number, top: number): LaidOutLine {
+/** recuos/tabulações efetivos por parágrafo preparado (um objeto para todas as linhas) */
+const PFMT = new WeakMap<PreparedPara, LineParaFormat>();
+const pfmtOf = (p: PreparedPara): LineParaFormat => {
+  let f = PFMT.get(p);
+  if (!f) PFMT.set(p, (f = { left: p.indLeft, right: p.indRight, firstLine: p.firstLine, tabs: p.tabs }));
+  return f;
+};
+
+function lineRecord(ref: string, p: PreparedPara, line: Line, frameX: number, top: number, frameW?: number): LaidOutLine {
   const gs = p.glyphs;
   const first = gs[line.start];
   const lastG = gs[Math.max(line.start, line.end - 1)];
@@ -3341,11 +3349,14 @@ function lineRecord(ref: string, p: PreparedPara, line: Line, frameX: number, to
   const firstLine = line.start === 0, lastLine = line.end >= gs.length;
   // (texto escondido — exclusão na Marcação Simples — não tem glifo: vale encostar na linha)
   const rev = !!rb && (rb.whole || (rb.mark && lastLine) || rb.ranges.some(([a, b, hidden]) => (hidden ? a <= end && b >= start : a < end && b > start)));
+  const x = frameX + line.xStart;
   return {
     ref, start, end,
-    x: frameX + line.xStart, y: top, height: line.height, baseline: top + line.baseline, width: line.width,
+    x, y: top, height: line.height, baseline: top + line.baseline, width: line.width,
     chars,
     ...(rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}),
+    // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
+    ...(frameW !== undefined ? { frame: { l: frameX - x, r: frameX + frameW - x }, pfmt: pfmtOf(p) } : {}),
   };
 }
 
