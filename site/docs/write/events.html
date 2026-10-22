@@ -91,6 +91,10 @@
         <tbody>
           <tr><td><code>uw-zoom</code></td><td><code>{ zoom: number }</code></td><td>The zoom changed (shortcut, gesture, or <code>setZoom</code>).</td></tr>
           <tr><td><code>uw-styles-change</code></td><td>&mdash;</td><td>The style sheet changed (create, modify, rename, delete or undo/redo of a style).</td></tr>
+          <tr><td><code>uw-cellmode</code></td><td><code>{ active: boolean }</code></td><td>The caret entered or left a table cell.</td></tr>
+          <tr><td><code>uw-tabletool</code></td><td><code>{ tool: 'draw' | 'eraser' | 'painter' | null }</code></td><td>Draw Table, Eraser or Border Painter turned on or off.</td></tr>
+          <tr><td><code>uw-borderpen</code></td><td><code>BorderSpec</code></td><td>The border pen (style, width, color) changed.</td></tr>
+          <tr><td><code>uw-sort-error</code></td><td><code>{ reason: 'merged', message }</code></td><td>Sort refused: the table has merged cells (Word&rsquo;s message).</td></tr>
           <tr><td><code>uw-hfmode</code></td><td><code>{ active: boolean, kind?: 'header' | 'footer' }</code></td><td>Entered/left header or footer editing.</td></tr>
           <tr><td><code>uw-hfhover</code></td><td><code>{ kind?: 'header' | 'footer', x?: number, y?: number }</code></td><td>Mouse over the header/footer region (to show a hint).</td></tr>
           <tr><td><code>uw-tbmode</code></td><td><code>{ active: boolean }</code></td><td>Entered/left text-box editing.</td></tr>

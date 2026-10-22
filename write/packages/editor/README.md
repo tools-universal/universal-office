@@ -84,8 +84,8 @@ Give the element a size with CSS — it fills its box and scrolls inside.
 - **Ribbon** (`toolbar="ribbon"`): quick access toolbar, File menu, Home ·
   Insert · Design · Layout · References · Mailings · Review · View tabs,
   groups with dialog launchers (Font, Paragraph, Page Setup) and contextual
-  tabs (Header & Footer while editing them; Table and Picture as soon as the
-  editor exposes their commands). The Styles group is a **gallery** of
+  tabs (Header & Footer while editing them; Table Design and Table Layout
+  inside a table; Picture as soon as the editor exposes its commands). The Styles group is a **gallery** of
   thumbnails drawn with each style's real formatting (scroll by row, expand,
   right-click to update, modify, rename or remove from the gallery); its
   launcher opens the **Styles pane**.
@@ -180,6 +180,44 @@ and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & gramm
 | View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
 | State | `stats()` → `{ pages, words, chars, page, paragraph }`, `getSelectionState()`, `currentPage()`, `focusEditor()` |
 
+## Tables
+
+Tables follow Word's rules (measured against Word): what each operation does
+to widths, merges, borders and styles, and what it writes to the file. Every
+operation is one undo step, works in nested tables and floating tables, and
+is refused in Protected View. A table that was read from the file keeps its
+original XML for everything the operation did not touch (rows, cells, content
+controls and bookmarks inside it).
+
+| Area | Methods |
+|---|---|
+| Insert and convert | `insertTable(rows, cols, { autofit: 'fixed' \| 'content' \| 'window', colWidthTwips })`, `convertTextToTable({ separator, cols, autofit })`, `textToTableGuess(separator?, cols?)`, `convertTableToText(separator)` — separators: `'paragraph'` · `'tab'` · `'semicolon'` · `'comma'` · `{ char }`; `quickTables()` · `insertQuickTable(id)` (calendar, tabular list, matrix, with subheads, double table — content in the UI language) |
+| Rows, columns, cells | `insertRowAbove()` · `insertRowBelow()` · `insertColumnLeft()` · `insertColumnRight()`, `insertCells('right' \| 'down' \| 'row' \| 'column')`, `deleteCells('left' \| 'up' \| 'row' \| 'column')`, `deleteRow()` · `deleteColumn()` · `deleteTable()`, `mergeCells()`, `splitCell(cols, rows, mergeFirst)`, `splitTable()` |
+| Select | `selectCell()` · `selectRow()` · `selectColumn()` · `selectTable()`, `editingTableCell()`, `getTableState()` → `TableState` (`rows`, `cols`, `rect`, `cells`, `nested`, `canMerge`, `style`, `look`, `vAlign`, `textDirection`, `headerRow`, `rowHeight`, `colWidth`, `shading`, `tblPr` · `trPr` · `tcPr`, `availTwips`) |
+| Size | `setRowHeight(twips, 'atLeast' \| 'exact')`, `setColumnWidth(twips)`, `distributeRows()` · `distributeColumns()`, `autoFitTable('content' \| 'window' \| 'fixed')`, `setTableCellMargins({ top, left, bottom, right }, spacingTwips?, autoResize?)` |
+| Properties | `setTableProperties({ table, row, column, cell })` — the Table Properties dialog in one step: `table` (`width` (dxa or pct), `align`, `indentTwips`, `wrap: 'none' \| 'around'`, `position` (floating table), `overlap`, `title`, `description` — Alt Text), `row` (`height`, `allowBreak`, `header`), `column` (`width`), `cell` (`width`, `vAlign`, `margins`, `wrap`, `fitText`). `setCellAlignment(h, v)`, `setTextDirection('lrTb' \| 'tbRl' \| 'btLr')`, `toggleRepeatHeaderRows()` |
+| Styles | `tableStyleList()` · `tableStyleListNow()` → `TableStyleInfo[]` (`name`, `label { en, pt }`, `group`: custom · plain · grid · list), `setTableStyle(name \| null)` (built-ins are added to the file on first use, with Word's definition), `setTableStyleOptions({ headerRow, totalRow, bandedRows, firstColumn, lastColumn, bandedColumns })`, `renderTableStyleThumb(canvas, name, look?)` |
+| New / modify table style | `tableStyleXml(nameOrId)` → `{ id, xml, inDoc }`, `tableStyleBases()`, `newTableStyleId(name)`, `saveTableStyle(xml, { apply, basedOnName })`, `renderTableStyleXmlThumb(canvas, xml, look?)` — the New/Modify Table Style dialog edits the style per condition (whole table, header row, total row, first/last column, banded rows/columns, corner cells): font, borders, fill and alignment |
+| Borders and shading | `setCellBorders(kind, spec?)` (`'all'` · `'outside'` · `'inside'` · `'insideH'` · `'insideV'` · `'top'` · `'bottom'` · `'left'` · `'right'` · `'tl2br'` · `'tr2bl'` · `'none'`), `setTableBorderSides(sides, 'cell' \| 'table')`, `getBorderPen()` · `setBorderPen({ val, sz, color })`, `setCellShading(color \| { themeColor, tint, shade } \| null, pattern?, 'cell' \| 'table')` (patterns `pct10`…, `horzStripe`…, painted with Word's coverage), `setParagraphBorders(sides)` · `getParagraphBorders()`, `getPageBorders()` · `setPageBorders({ offsetFrom, display, zOrder, top, left, bottom, right }, 'section' \| 'document')` |
+| Draw | `setTableTool('draw' \| 'eraser' \| 'painter' \| null)` · `getTableTool()`: draw a table or a cell divider, erase a divider (merges the cells), paint borders with the current pen. With the mouse, drag a column or row border to resize, the move handle to float the table, the corner handle to resize it. `showTableGridlines(on)` · `tableGridlinesShown()` — dashed gridlines on screen for tables without borders (never in PDF or print) |
+| Sort | `sortInfo(separator?)` → `{ kind: 'table' \| 'paragraphs', columns: [{ text, guess }], header, mergeError }`, `sort({ keys: [{ column, type: 'text' \| 'number' \| 'date', desc }], header, caseSensitive, separator })` — up to three keys (the dialog); text compares like Word (pt-BR word sort); tables with merged cells are refused (`uw-sort-error`) |
+| Formula | `suggestFormula()` (`=SUM(ABOVE)` / `=SUM(LEFT)` like Word), `previewFormula(formula, numberFormat?)`, `insertFormula(formula?, numberFormat?)` — a `{ =… }` field with `SUM`, `AVERAGE`, `COUNT`, `MAX`, `MIN`, `PRODUCT`, `ABS`, `INT`, `MOD`, `ROUND`, `SIGN`, `IF`, `AND`, `OR`, `NOT`, `TRUE`, `FALSE`, `DEFINED`, cell references (`A1`, `B2:C4`), `ABOVE` · `BELOW` · `LEFT` · `RIGHT`, and a number format (`\# "#.##0,00"`); `updateFields()` (F9) recalculates them |
+| Clipboard | `copy()` · `cut()` of cells and tables (tab-separated text + HTML), `paste()` (cells over the selection, HTML tables become tables), `pasteCells('overwrite' \| 'rows' \| 'nest' \| 'text')`, `hasCellsClip()` |
+| Excel spreadsheet | `insertSpreadsheet()` · `editEmbeddedObject(run)` (double-click the object): an embedded Excel worksheet edited in `<universal-sheet>`, saved like Word (`w:object` + the workbook in `word/embeddings`). The page supplies the Sheet product: `editor.sheetLoader = () => import('@universal-office/sheet')`; `canEmbedSpreadsheet()` says whether it is available |
+
+With `topbar`, the commands are in Insert › Table (grid, Insert Table, Draw
+Table, Convert, Excel Spreadsheet, Quick Tables), Format › Table and Tools ›
+Sort in the compact bar, and on the contextual **Table Design** (styles
+gallery with live preview, style options, shading, border styles, pen, border
+painter) and **Table Layout** (select, gridlines, properties, draw/eraser, insert,
+delete, merge, split, cell size, alignment, text direction, margins, sort,
+repeat header rows, convert to text, formula) tabs of the ribbon. The context
+menu has the paste options, insert/delete, merge/split, borders, alignment and
+Table Properties. Dialogs: Insert Table, Convert, Insert/Delete Cells, Split
+Cells, Cell Margins, Table Properties (Table · Row · Column · Cell · Alt Text,
+with Positioning and Options), Sort, Formula, Borders and Shading (Borders ·
+Page Border · Shading), and New/Modify Table Style.
+
 ## Styles
 
 The document's `styles.xml` is edited in place: each operation rewrites only
@@ -218,6 +256,10 @@ Normal) starts the new paragraph in that style, without direct formatting.
 | `uw-zoom` | `{ zoom }` | Zoom changed. |
 | `uw-styles-change` | — | The style sheet changed (create, modify, rename, delete, undo). |
 | `uw-hfmode` | `{ active, kind }` | Entered or left header/footer editing. |
+| `uw-cellmode` | `{ active }` | The caret entered or left a table cell. |
+| `uw-tabletool` | `{ tool }` | Draw Table, Eraser or Border Painter turned on (`'draw'` · `'eraser'` · `'painter'`) or off (`null`). |
+| `uw-borderpen` | `BorderSpec` | The border pen (style, width, color) changed. |
+| `uw-sort-error` | `{ reason, message }` | Sort refused (`reason: 'merged'` — the table has merged cells). |
 | `uw-before-input` | `{ text }` | Text is about to be typed. **Cancelable.** |
 | `uw-input` | `{ text }` | Text was typed. |
 | `uw-comments-changed` | — | A comment was added or removed. |
@@ -287,12 +329,12 @@ Type `@` to open the suggestions (only when `source` is given).
 
 Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · R · J
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
-break), Shift+Enter (column break), ← → (word), Home · End (document). With `topbar`, also O (open), S ·
+break), Shift+Enter (column break), ← → (word), Home · End (document, also from a table cell). F9 updates the fields (table formulas). With `topbar`, also O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
 dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts),
 Alt+1 · 2 · 3 (Heading 1–3), Shift+N (Normal), Space (clear character
 formatting), Q (clear paragraph formatting), Alt+Shift+S (Styles pane). Tab / Shift+Tab move between table
-cells and list levels. Ctrl+wheel zooms; Ctrl+click follows a link;
+cells and list levels; Esc turns off Draw Table, Eraser and Border Painter. Ctrl+wheel zooms; Ctrl+click follows a link;
 double-click the top or bottom margin to edit the header or footer.
 
 ## License
