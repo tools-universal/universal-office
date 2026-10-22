@@ -19,3 +19,4 @@ export { renderGallery, closeGallery, tileGrid, type GalleryConfig, type Gallery
 export { openPane, closePanes, paneOpen, type PaneOptions, type PaneHandle } from './pane.js';
 export { createRuler, rulerStep, type RulerHandle, type RulerModel, type RulerMarker, type RulerMarkerKind, type RulerTabKind, type RulerSelectorKind, type RulerEvents } from './ruler.js';
 export { BAR_CSS, ensureBarStyles } from './css.js';
+export { spinField, barCaption, parseMeasure, formatMeasure, type SpinFieldConfig, type MeasureUnit } from './spin.js';

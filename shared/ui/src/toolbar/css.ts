@@ -100,6 +100,28 @@ export const BAR_CSS = /* css */ `
   border: 1px solid ${OUTLINE_VAR}; border-radius: 6px; background: ${LOWEST}; color: ${ON}; flex: none;
 }
 .uo-num:focus { outline: none; border-color: ${PRIMARY}; }
+/* caixa numérica com setas (spin.ts): rótulo, caixa e as duas setas empilhadas */
+.uo-spin { display: inline-flex; align-items: center; gap: 6px; height: 28px; font-size: 13px; color: ${ON}; white-space: nowrap; }
+.uo-spin-lbl { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: ${ON}; cursor: default; }
+.uo-spin-lbl .uo-ic { width: 18px; height: 18px; color: ${ON_VAR}; }
+.uo-spin-box {
+  display: inline-flex; align-items: stretch; height: 24px; border: 1px solid ${OUTLINE_VAR}; border-radius: 6px;
+  background: ${LOWEST}; overflow: hidden; margin-left: auto;
+}
+.uo-spin-box:focus-within { border-color: ${PRIMARY}; }
+.uo-spin-in { width: 64px; min-width: 0; border: 0; padding: 0 4px 0 8px; font: inherit; font-size: 13px; background: transparent; color: ${ON}; outline: none; }
+.uo-spin-in[aria-invalid=true] { color: var(--u-color-error, #ba1a1a); }
+.uo-spin-arrows { display: flex; flex-direction: column; border-left: 1px solid ${OUTLINE_VAR}; }
+.uo-spin-arrow {
+  flex: 1 1 0; width: 18px; display: flex; align-items: center; justify-content: center; padding: 0;
+  border: 0; background: transparent; color: ${ON_VAR}; cursor: pointer; overflow: hidden;
+}
+.uo-spin-arrow .uo-ic { width: 18px; height: 18px; margin: -4px 0; }
+.uo-spin-arrow:hover { background: ${HIGHEST}; color: ${ON}; }
+.uo-spin-arrow:disabled, .uo-spin.uo-off .uo-spin-in { opacity: .38; cursor: default; }
+.uo-caption { display: inline-flex; align-items: center; height: 24px; font-size: 12px; color: ${ON_VAR}; padding: 0 2px; }
+/* na coluna da ribbon as caixas se alinham à direita (rótulos de larguras diferentes) */
+.uo-rrow > .uo-spin { flex: 1 1 auto; padding: 0 4px; }
 .uo-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: ${ON_VAR}; }
 .uo-field input, .uo-field textarea, .uo-field select, .uo-dialog input[type=text], .uo-dialog input[type=number], .uo-dialog select {
   height: 38px; border: 1px solid ${OUTLINE}; border-radius: 8px; padding: 0 12px;

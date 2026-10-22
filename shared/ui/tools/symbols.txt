@@ -266,3 +266,5 @@ vertical_distribute
 select
 gradient
 playlist_add
+arrow_drop_up
+vertical_align_center

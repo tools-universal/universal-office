@@ -38,6 +38,8 @@ export interface DialogHandle {
   close(value?: string | null): void;
   /** id da ação escolhida; null = cancelado (Esc, ×, clique no fundo) */
   result: Promise<string | null>;
+  /** troca o título (diálogo que percorre itens: Hifenização Manual por idioma) */
+  setTitle(title: Lbl): void;
 }
 
 /** Diálogos abertos (para quem desmonta a interface fechá-los como cancelados). */
@@ -104,6 +106,7 @@ export function openDialog(opts: DialogOptions): DialogHandle {
       dlg.remove();
       resolve(value);
     },
+    setTitle(t) { head.querySelector('.uo-dialog-title')!.textContent = txt(t, lang); },
   };
   head.querySelector('.uo-dialog-x')!.addEventListener('click', () => handle.close(null));
   dlg.addEventListener('cancel', (e) => { e.preventDefault(); handle.close(null); });
