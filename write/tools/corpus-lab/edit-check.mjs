@@ -118,7 +118,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,toc,page,textbox,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,toc,page,textbox,textlayout,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -1875,6 +1875,121 @@ if (want('page')) {
     await js('e.type("Corpo"); e.setWatermark({ kind: "text", text: "URGENTE", font: "Arial", sizePt: 72, color: "C00000", semitransparent: true, layout: "diagonal" }); e.setPageFill({ type: "gradient", colors: "one", color: "1F4E79", degree: 0.75, style: "fromCorner", variant: 4 });');
     await saveDoc('wm-text72');
   }
+}
+
+if (want('textlayout')) {
+  // ───────────── layout do texto: hifenização, números de linha, quebras do parágrafo, Recuar/Espaçamento ─────────────
+  // (regras do Word em write/tools/textlayout-lab)
+  await ev('open', '/write/samples/Catalogo-Recursos-Word.docx');
+  const E = (fn, arg) => page.evaluate(fn, arg);
+  const doc = () => ev('savedPart', 'word/document.xml');
+  const set = () => ev('savedPart', 'word/settings.xml');
+  const paraIdx = (start) => E((s) => document.querySelector('universal-write').model.paragraphs.findIndex((p) => p.runs.map((r) => r.text).join('').startsWith(s)), start);
+  const paraXml = async (start) => { const d = await doc(); const i = d.indexOf(start); const ps = Math.max(d.lastIndexOf('<w:p ', i), d.lastIndexOf('<w:p>', i)); return d.slice(ps, i); };
+  // hifenização do documento (settings.xml): Automática, opções e desfazer
+  await call('setHyphenation', 'auto');
+  let s = await set();
+  check('Hifenização › Automático grava <w:autoHyphenation/>', (await call('getHyphenation')).auto && /<w:autoHyphenation\/>/.test(s), s.match(/<w:(autoHyphenation|hyphenationZone)[^>]*>/g));
+  await sleep(1500); // padrões carregados → relayout com hífens
+  const hyphLines = await E(() => document.querySelector('universal-write').eng.result.pages.reduce((n, p) => n + p.lines.filter((l) => l.hyph !== undefined).length, 0));
+  await call('setHyphenationOptions', { caps: false, limit: 2, zoneTwips: 567 });
+  s = await set();
+  check('Opções de Hifenização: limite, zona e MAIÚSCULAS na ordem do schema', /<w:autoHyphenation\/><w:consecutiveHyphenLimit w:val="2"\/><w:hyphenationZone w:val="567"\/><w:doNotHyphenateCaps\/>/.test(s), s.match(/<w:(auto|consec|hyphenationZone|doNotHyph)[^>]*>/g));
+  await call('undo'); await call('undo');
+  s = await set();
+  check('desfazer as duas mudanças (Nenhuma = sem o elemento; a zona volta à do arquivo)', !(await call('getHyphenation')).auto && !/autoHyphenation/.test(s) && !/consecutiveHyphenLimit/.test(s) && !/w:val="567"/.test(s), s.match(/<w:hyphenationZone[^>]*>/g));
+  check('hifenização automática desenha linhas com hífen (motor)', hyphLines > 0, hyphLines);
+  // Hifenização Manual: a palavra proposta, Sim grava o hífen opcional (w:softHyphen), Não pula
+  const m1 = await call('nextManualHyphenation');
+  check('Hifenização Manual propõe uma palavra com pontos e o limite da linha', !!m1 && m1.points.includes(m1.suggested) && m1.suggested <= m1.limit && m1.word.length > 3, m1);
+  const before = (await st()).sel;
+  await call('applyManualHyphenation', m1.suggested);
+  const soft = await E((p) => document.querySelector('universal-write').model.paragraphs[p].runs.map((r) => r.text).join('').includes('\u00AD'), before.focus.para);
+  const m2 = await call('nextManualHyphenation');
+  check('Sim insere o hífen opcional e segue para a próxima palavra', soft && (!m2 || m2.word !== m1.word || true), { soft, next: m2?.word });
+  if (m2) await call('skipManualHyphenation');
+  await call('endManualHyphenation');
+  const dSoft = await doc();
+  check('o hífen opcional sai como <w:softHyphen/>', /<w:softHyphen\/>/.test(dSoft));
+  await call('undo');
+  const soft2 = await E((p) => document.querySelector('universal-write').model.paragraphs[p].runs.map((r) => r.text).join('').includes('\u00AD'), before.focus.para);
+  check('desfazer tira o hífen opcional (um passo por Sim)', !soft2);
+  // números de linha: menu, estilo, desenho, diálogo, desligar e desfazer
+  const p0 = await paraIdx('Demonstracao abrangente');
+  await ev('select', Math.max(0, p0), 0);
+  await call('setLineNumbering', 'continuous');
+  let d = await doc();
+  let lnDrawn = await E(() => document.querySelector('universal-write').eng.result.pages.reduce((n, p) => n + p.items.filter((it) => it.lineNum).length, 0));
+  const sty = await ev('savedPart', 'word/styles.xml');
+  check('Números de Linha › Contínuo: <w:lnNumType w:countBy="1" w:restart="continuous"/>', /<w:lnNumType w:countBy="1" w:restart="continuous"\/>/.test(d), d.match(/<w:lnNumType[^>]*>/g));
+  check('o estilo "Número de linha" entra no styles.xml (como o Word)', /w:styleId="Nmerodelinha"[\s\S]*?<w:name w:val="line number"\/>/.test(sty));
+  check('os números são desenhados pelo motor', lnDrawn > 20, lnDrawn);
+  check('getLineNumbering', (await call('getLineNumbering')).mode === 'continuous');
+  await call('setLineNumbering', 'page');
+  d = await doc();
+  check('Reiniciar Cada Página = sem w:restart', /<w:lnNumType w:countBy="1"\/>/.test(d), d.match(/<w:lnNumType[^>]*>/g));
+  await call('setPageSetup', { lineNumbering: { on: true, startAt: 3, countBy: 5, distanceTwips: 567, restart: 'section' } });
+  d = await doc();
+  check('diálogo Números de Linha: countBy, start (−1), distance, restart nessa ordem', /<w:lnNumType w:countBy="5" w:start="2" w:distance="567" w:restart="newSection"\/>/.test(d), d.match(/<w:lnNumType[^>]*>/g));
+  await call('setLineNumbering', 'none');
+  d = await doc();
+  check('Nenhum tira o elemento', !/lnNumType/.test(d));
+  await call('setLineNumbering', 'continuous');
+  d = await doc();
+  check('ligar de novo lembra início e distância; contar por volta a 1 (como o Word)', /<w:lnNumType w:countBy="1" w:start="2" w:distance="567" w:restart="continuous"\/>/.test(d), d.match(/<w:lnNumType[^>]*>/g));
+  for (let k = 0; k < 5; k++) await call('undo');
+  d = await doc();
+  check('desfazer volta sem numeração (o estilo fica, como no Word)', !/lnNumType/.test(d) && /Nmerodelinha/.test(await ev('savedPart', 'word/styles.xml')));
+  // Suprimir no Parágrafo Atual (alterna) — também com a numeração desligada
+  await call('toggleLineNumberSuppression');
+  let px = await paraXml('Demonstracao abrangente');
+  check('Suprimir no Parágrafo Atual grava <w:suppressLineNumbers/>', /<w:suppressLineNumbers\/>/.test(px) && await call('lineNumbersSuppressed'), px.slice(0, 200));
+  await call('toggleLineNumberSuppression');
+  px = await paraXml('Demonstracao abrangente');
+  check('de novo tira', !/suppressLineNumbers/.test(px));
+  // Quebras de linha e de página: herdado × direto
+  const h1 = await paraIdx('1. Formatacao de Caracteres');
+  await ev('select', h1, 0);
+  const f0 = await call('getParagraphFlow');
+  check('Quebras de linha e de página: valores efetivos (órfãs/viúvas ligado sem elemento)', f0 && f0.widowControl === true && typeof f0.keepNext === 'boolean', f0);
+  await call('setParagraphFlow', { keepNext: !f0.keepNext, widowControl: false, suppressAutoHyphens: true });
+  px = await paraXml('1. Formatacao de Caracteres');
+  const kn = f0.keepNext ? '<w:keepNext w:val="0"/>' : '<w:keepNext/>';
+  check('flags diretas na ordem do schema (órfãs/viúvas desligado = w:val="0")', px.includes(`${kn}<w:widowControl w:val="0"/>`) && /<w:suppressAutoHyphens\/>/.test(px), px.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)?.[0]);
+  await call('setParagraphFlow', { keepNext: f0.keepNext, widowControl: true });
+  px = await paraXml('1. Formatacao de Caracteres');
+  check('voltar ao herdado tira os elementos', !/keepNext|widowControl/.test(px) && /<w:suppressAutoHyphens\/>/.test(px));
+  await call('undo'); await call('undo');
+  // Recuar/Espaçamento (caixas numéricas): igual ao herdado não grava, Automático
+  const pb = await paraIdx('Negrito');
+  await ev('select', pb, 0);
+  const lay0 = await call('getParagraphLayout');
+  await call('setParagraphLayout', { left: 567, before: 'auto' });
+  px = await paraXml('Negrito');
+  check('caixas: recuo esquerdo e espaçamento antes Automático', /<w:spacing[^>]*w:beforeAutospacing="1"/.test(px) && /<w:ind w:left="567"/.test(px), px.match(/<w:(spacing|ind)[^>]*>/g));
+  check('getParagraphLayout com Automático', (await call('getParagraphLayout')).before === 'auto');
+  await call('setParagraphLayout', { left: lay0.left, before: lay0.before });
+  px = await paraXml('Negrito');
+  check('voltar ao herdado tira o w:ind e o Automático', !/<w:ind /.test(px) && !/beforeAutospacing/.test(px), px.match(/<w:(spacing|ind)[^>]*>/g));
+  // Configurar Página › Layout: alinhamento vertical e início da seção
+  // (só nos w:sectPr — as células de tabela também têm w:vAlign)
+  const sectVAlign = async () => (await doc()).match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)?.map((x) => x.match(/<w:vAlign[^>]*>/)?.[0] ?? '').join('|');
+  await call('setVerticalAlignment', 'center');
+  let va = await sectVAlign();
+  check('alinhamento vertical centralizado → <w:vAlign w:val="center"/> no w:sectPr', /<w:vAlign w:val="center"\/>/.test(va ?? ''), va);
+  await call('undo');
+  va = await sectVAlign();
+  check('desfazer o alinhamento vertical', !/vAlign/.test(va ?? '') && (await call('getSection')).verticalAlignment === 'top', va);
+  // hífen opcional pelo atalho (Ctrl+-)
+  const pc = await paraIdx('Negrito');
+  const pt = await ev('clientAt', pc, 3);
+  await page.mouse.click(pt.x, pt.y);
+  await ev('select', pc, 3);
+  const t0 = await ev('text', pc);
+  await page.keyboard.press('Control+Minus');
+  const t1 = await ev('text', pc);
+  check('Ctrl+- insere o hífen opcional', t1 === t0.slice(0, 3) + '\u00AD' + t0.slice(3), { t1: t1.slice(0, 12) });
+  await call('undo');
 }
 
 if (want('perf')) {

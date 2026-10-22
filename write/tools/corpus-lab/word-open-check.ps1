@@ -30,6 +30,11 @@
 # inicio, com "Entrada lossless TOC", que o Word tem de ver como sumario; 'enter' =
 # paragrafo TOCNOVO no fim do sumario existente; coluna 4 = 1 se ha o campo TC
 # "Entrada lossless", que o Word tem de ler como campo TC).
+# -TextLayout: saida do lossless-check --textlayout (hifenizacao automatica com limite 2 e
+# MAIUSCULAS desligadas; ultima secao com numeros de linha contar por 5, iniciar em 3,
+# 1 cm, continuo, e alinhamento vertical centralizado; o paragrafo marcado - coluna 3 -
+# com manter linhas juntas, sem controle de orfas, sem numeros, sem hifenizar, ajuste
+# rigido em todas as linhas e espaco antes automatico; hifen opcional - coluna 4).
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -44,7 +49,8 @@ param(
   [switch]$Pictures,
   [switch]$Page,
   [switch]$Textboxes,
-  [switch]$TocEdit
+  [switch]$TocEdit,
+  [switch]$TextLayout
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -222,6 +228,40 @@ foreach ($row in $rows) {
           if ($script:tbx -eq 'ok' -and -not $script:tbxNew) { $script:tbx = 'tbx-new' }
           $script:hasEdit = $true
         }
+        if ($TextLayout) {
+          # documento protegido (formularios): o COM nao le o PageSetup nem a formatacao (como no -Hf)
+          $script:prot = ($d.ProtectionType -ne -1)
+          $script:tl = 'ok'; $script:tlInfo = ''
+          if (-not $script:prot) {
+            $script:tlInfo = "hy=$($d.AutoHyphenation)/$($d.ConsecutiveHyphensLimit)/$($d.HyphenateCaps)"
+            $ls = $d.Sections.Item($d.Sections.Count).PageSetup
+            $ln = $ls.LineNumbering
+            $script:tlInfo += " ln=$($ln.Active)/$($ln.CountBy)/$($ln.StartingNumber)/$($ln.RestartMode)/$($ln.DistanceFromText) va=$($ls.VerticalAlignment)"
+            if (-not $d.AutoHyphenation -or $d.ConsecutiveHyphensLimit -ne 2 -or $d.HyphenateCaps) { $script:tl = 'tl-hyphenation' }
+            # (RestartMode 0 = continuo no COM - oraculo textlayout-lab ln-cont)
+            elseif ($ln.Active -eq 0 -or $ln.CountBy -ne 5 -or $ln.StartingNumber -ne 3 -or $ln.RestartMode -ne 0 -or [math]::Abs([double]$ln.DistanceFromText - 28.35) -gt 0.1) { $script:tl = 'tl-linenumbers' }
+            elseif ($ls.VerticalAlignment -ne 1) { $script:tl = 'tl-valign' }
+            else {
+              $fl = ''
+              if ($parts.Count -ge 3) { $fl = ($parts[2] -replace '[^\p{L}\p{N}]', ''); $fl = $fl.Substring(0, [math]::Min(12, $fl.Length)) }
+              $found = $null; $k = 0
+              if ($fl -ne '') {
+                foreach ($p in $d.Paragraphs) {
+                  $k++
+                  if ($k -gt 6000) { break }
+                  $x = ([string]$p.Range.Text) -replace '[^\p{L}\p{N}]', ''
+                  if ($x.StartsWith($fl, [System.StringComparison]::OrdinalIgnoreCase) -and $p.NoLineNumber) { $found = $p; break }
+                }
+              }
+              if ($fl -ne '' -and $found -eq $null) { $script:tl = 'tl-para' }
+              elseif ($found -ne $null) {
+                $script:tlInfo += " p=$($found.KeepTogether)/$($found.WidowControl)/$($found.Format.Hyphenation)/$($found.Format.TextboxTightWrap)/$($found.SpaceBeforeAuto)"
+                if ($found.KeepTogether -eq 0 -or $found.WidowControl -ne 0 -or $found.Format.Hyphenation -ne 0 -or $found.Format.TextboxTightWrap -ne 1 -or $found.SpaceBeforeAuto -eq 0) { $script:tl = 'tl-flags' }
+              }
+              if ($script:tl -eq 'ok' -and $parts.Count -ge 4 -and $parts[3] -eq '1' -and -not ([string]$d.Content.Text).Contains([string][char]31)) { $script:tl = 'tl-softhyphen' }
+            }
+          }
+        }
         $script:fe = $d.Footnotes.Count; $script:ee = $d.Endnotes.Count
         $script:noteText = ''
         if ($Notes) {
@@ -249,6 +289,13 @@ foreach ($row in $rows) {
       elseif ($parts[3] -eq '1' -and $script:pgWm -lt 1) { $status = 'page-wm' }
       elseif ($coverParas -gt 0 -and $script:pgTp -ne -1 -and $script:pgTp -ne -2) { $status = 'page-titlepg' }
       elseif ($coverParas -gt 0 -and -not $script:pgTitle) { $status = 'page-cover' }
+      elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
+    }
+    elseif ($TextLayout) {
+      $detail += " $($script:tlInfo)"
+      if (-not $script:hasEdit) { $status = 'no-edit' }
+      elseif ($script:prot) { $status = 'ok-protected' }
+      elseif ($script:tl -ne 'ok') { $status = $script:tl }
       elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
     }
     elseif ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }

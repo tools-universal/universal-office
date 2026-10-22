@@ -45,6 +45,12 @@
 // VML de reserva refeito como o Word) e uma caixa NOVA (o XML do Desenhar Caixa de
 // Texto) noutro parágrafo → só os dois parágrafos mudam, as caixas releem com tudo e
 // as outras saem cruas.
+// --textlayout: frente Layout do texto como o editor — hifenização automática do documento
+// (MAIÚSCULAS desligadas, limite de 2 hifens), números de linha (contar por 5, iniciar em 3,
+// 1 cm, contínuo) e alinhamento vertical centralizado na última seção, as flags de Quebras de
+// linha e de página + ajuste rígido + espaçamento antes Automático num parágrafo, um hífen
+// opcional (Hifenização Manual) numa palavra de outro e o estilo "Número de linha" (como o
+// Word ao ligar) → settings/sectPr/pPr como o Word grava, tudo relê.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -121,6 +127,7 @@ const covers = pageMode ? await (async () => {
 })() : null;
 const layout =navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
 const textboxesMode = args.includes('--textboxes');
+const textlayoutMode = args.includes('--textlayout');
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -169,6 +176,48 @@ function save(pkg, full, dirtyAllHf, page) {
     core.writeDisplayBackgroundShape(pkg, true);
   }
   return pkg.save();
+}
+
+// ── --textlayout: frente Layout do texto como o editor (setHyphenationOptions, setPageSetup/setLineNumbering,
+// setVerticalAlignment, setParagraphFlow, setParagraphLayout, Hifenização Manual) ──
+function editTextLayout(b, model, cands, edited) {
+  const free = cands.map((c) => c[0]).filter((p) => !edited.includes(p));
+  const fp = free[0];
+  if (!fp) return null;
+  fp.props = { ...fp.props, keepLines: true, widowControl: false, suppressLineNumbers: true, suppressAutoHyphens: true, textboxTightWrap: 'allLines', spaceBeforeAuto: true };
+  edited.push(fp);
+  // hífen opcional depois de 3 letras de uma palavra de 6+ letras (um run de texto simples de outro parágrafo)
+  const shy0 = (b.pkg.documentXml().match(/<w:softHyphen\/>/g) ?? []).length;
+  let shy = false;
+  for (const p of free.slice(1)) {
+    // (fora de controles de conteúdo: digitar dentro de sdt ANINHADO perde o interno — limitação
+    // anterior do salvar sem perdas, registrada como pendência; aqui se confere o hífen opcional)
+    if (b.full.sources.paras.get(p.props.src)?.raw.includes('<w:sdt')) continue;
+    const r = p.runs.find((x) => !x.field && !x.image && !x.textbox && !x.noteRef && !x.custom && !x.props.del && /\p{L}{6,}/u.test(x.text));
+    const m = r && /\p{L}{6,}/u.exec(r.text);
+    if (!m) continue;
+    // como o editor (insertTyped \u2192 insertText: o run dentro de controle de conte\u00FAdo continua nele)
+    let off = 0;
+    for (const x of p.runs) { if (x === r) break; off += x.text.length; }
+    insertText(model, { para: model.paragraphs.indexOf(p), offset: off + m.index + 3 }, '\u00AD');
+    edited.push(p);
+    shy = true;
+    break;
+  }
+  const last = b.full.sections[b.full.sections.length - 1].sectPr;
+  last.lnNumType = { countBy: 5, start: 2, distance: 567, restart: 'continuous' };
+  last.vAlign = 'center';
+  const zone = b.full.formatting?.settings.hyphenationZone;
+  core.writeHyphenationSettings(b.pkg, { auto: true, caps: false, limit: 2, ...(zone !== undefined ? { zone } : {}) });
+  // o estilo "Número de linha" (o Word acrescenta ao ligar a numeração)
+  let sx = b.pkg.getPartText('word/styles.xml');
+  if (sx && !readStyleIndex(sx).styles.some((x) => x.name.toLowerCase() === 'line number')) {
+    const bs = core.builtinStyle('line number');
+    const dC = readStyleIndex(sx).styles.find((x) => x.type === 'character' && x.isDefault)?.id ?? 'Fontepargpadro';
+    sx = putStyle(sx, 'Nmerodelinha', bs.xml.replace('<w:basedOn w:val="Fontepargpadro"/>', () => `<w:basedOn w:val="${dC}"/>`));
+    b.pkg.setPartText('word/styles.xml', sx);
+  }
+  return { flagged: text(fp), shy, shy0 };
 }
 
 // ── --page: frente Página como o editor (setPageColor/setPageFill, setWatermark, insertCoverPage) ──
@@ -730,6 +779,9 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (freeT[1]) { const p = freeT[1][0]; p.props = { ...p.props, outlineLvl: 1 }; edited.push(p); lvl = true; }
       tocEdit = { mode, tc, lvl };
     }
+    // --textlayout: Layout do texto (o salvar é o comum; o settings vai antes)
+    const tlEdit = textlayoutMode ? editTextLayout(b, model, cands, edited) : null;
+    if (tlEdit) secEdits += 1;
     // --page: por último (a folha de rosto entra antes dos parágrafos já editados)
     const pageEdit = pageMode ? editPage(b, n) : null;
     const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false, pageEdit ?? undefined);
@@ -815,6 +867,21 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         if (!rf.sections[0]?.sectPr.titlePg) res.issues.push('page-titlepg');
       }
       res.page = { bg: want.fill?.type ?? 'color', wm: pageEdit.wm ? 1 : 0, cover: pageEdit.cover?.paras ?? 0 };
+    }
+    if (tlEdit) {
+      const st = re.getPartText('word/settings.xml') ?? '';
+      if (!/<w:autoHyphenation\/><w:consecutiveHyphenLimit w:val="2"\/>/.test(st) || !/<w:doNotHyphenateCaps\/>/.test(st)) res.issues.push('tl-settings');
+      const lastSect = [...xml.matchAll(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)].pop()?.[0] ?? '';
+      if (!lastSect.includes('<w:lnNumType w:countBy="5" w:start="2" w:distance="567" w:restart="continuous"/>')) res.issues.push('tl-lnnum');
+      if (!lastSect.includes('<w:vAlign w:val="center"/>')) res.issues.push('tl-valign');
+      const rf = readFullDocument(re);
+      const ls = rf.sections[rf.sections.length - 1].sectPr;
+      if (ls.lnNumType?.countBy !== 5 || ls.vAlign !== 'center') res.issues.push('tl-unread-sect');
+      const fp = paras(rf.blocks).find((p) => p.props.textboxTightWrap === 'allLines' && p.props.suppressLineNumbers === true);
+      if (!fp || fp.props.keepLines !== true || fp.props.widowControl !== false || fp.props.suppressAutoHyphens !== true || fp.props.spaceBeforeAuto !== true) res.issues.push('tl-flags');
+      if (tlEdit.shy && (xml.match(/<w:softHyphen\/>/g) ?? []).length <= tlEdit.shy0) res.issues.push('tl-softhyphen');
+      if (!readStyleIndex(re.getPartText('word/styles.xml') ?? '').styles.some((x) => x.name.toLowerCase() === 'line number')) res.issues.push('tl-style');
+      res.textlayout = { flagged: tlEdit.flagged.slice(0, 40), shy: tlEdit.shy };
     }
     if (refEdit) {
       if (!xml.includes(`<w:bookmarkStart w:id="${refEdit.id}" w:name="RefLossless"/>`) || !xml.includes(`<w:bookmarkEnd w:id="${refEdit.id}"/>`)) res.issues.push('refs-no-bookmark');
@@ -932,6 +999,8 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (res.page) res.pageCols = [res.page.bg, res.page.wm, res.page.cover];
       // --toc: o modo (sumário novo ou Enter no existente) e se houve TC (word-open-check -TocEdit)
       if (tocEdit) res.tocCols = [tocEdit.mode, tocEdit.tc ? 1 : 0];
+      // --textlayout: começo do parágrafo marcado e se houve hífen opcional (word-open-check -TextLayout)
+      if (res.textlayout) res.tlCols = [res.textlayout.flagged.replace(/[\t\r\n]/g, ' '), res.textlayout.shy ? 1 : 0];
     }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
@@ -946,7 +1015,7 @@ mkdirSync(join(LAB_DIR, 'report'), { recursive: true });
 writeFileSync(join(LAB_DIR, 'report', 'lossless.json'), JSON.stringify(results, null, 1));
 if (outDir) {
   writeFileSync(join(outDir, 'manifest.tsv'),
-    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}${r.tocCols ? `\t${r.tocCols.join('\t')}` : ''}`).join('\n'), 'utf8');
+    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}${r.tocCols ? `\t${r.tocCols.join('\t')}` : ''}${r.tlCols ? `\t${r.tlCols.join('\t')}` : ''}`).join('\n'), 'utf8');
 }
 const bad = results.filter((r) => !r.ok);
 const kinds = {};
