@@ -989,7 +989,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit) && (!tocMode || tocEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit) && (!tocMode || tocEdit) && (!textlayoutMode || tlEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));
