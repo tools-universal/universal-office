@@ -25,4 +25,7 @@ export interface LayoutFont {
   /** Camadas de um glifo colorido (COLR v0 + CPAL, paleta 0), na ordem de
    *  pintura; null se o glifo não é colorido. */
   colorLayers?(glyphId: number): import('./sfnt.js').ColorLayer[] | null;
+  /** VDMX (razão 1:1): yMax/yMin em pixels para o em pedido — o que o GDI dá como
+   *  ascendente/descendente da fonte realizada; undefined se a fonte não tem esse em. */
+  vdmx?(ppem: number): { yMax: number; yMin: number } | undefined;
 }

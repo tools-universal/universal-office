@@ -1,0 +1,1702 @@
+font	style	size	Pexact	Texact	bands	w
+Arial-b	dotted	6	5.3	5.25	5+5	
+Arial-b	dotted	7	6.18	6.12	6+6	
+Arial-b	dotted	8	7.06	7	7+7	
+Arial-b	dotted	9	7.95	7.87	8+8	
+Arial-b	dotted	10	8.83	8.75	9+9	
+Arial-b	dotted	10.5	9.27	9.19	9+9	
+Arial-b	dotted	11	9.71	9.62	10+10	
+Arial-b	dotted	12	10.6	10.5	11+10	
+Arial-b	dotted	13	11.48	11.37	11+11	
+Arial-b	dotted	14	12.36	12.25	12+12	
+Arial-b	dotted	15	13.24	13.12	13+13	
+Arial-b	dotted	16	14.13	14	14+14	
+Arial-b	dotted	18	15.89	15.75	16+16	
+Arial-b	dotted	20	17.66	17.5	18+18	
+Arial-b	dotted	22	19.43	19.25	19+19	
+Arial-b	dotted	24	21.19	21	21+21	
+Arial-b	dotted	26	22.96	22.75	23+23	
+Arial-b	dotted	28	24.72	24.5	25+24	
+Arial-b	dotted	32	28.26	27.99	28+28	
+Arial-b	dotted	36	31.79	31.49	32+31	
+Arial-b	dotted	40	35.32	34.99	35+35	
+Arial-b	dotted	44	38.85	38.49	39+39	
+Arial-b	dotted	48	42.38	41.99	42+42	
+Arial-b	dotted	54	47.68	47.24	48+47	
+Arial-b	dotted	60	52.98	52.49	53+52	
+Arial-b	dotted	66	58.28	57.74	58+58	
+Arial-b	dotted	72	63.57	62.99	64+63	
+Arial-b	double	6	5.3	5.25	0+2 10+2	
+Arial-b	double	7	6.18	6.12	0+3 11+3	
+Arial-b	double	8	7.06	7	0+4 12+4	
+Arial-b	double	9	7.95	7.87	2+4 14+4	
+Arial-b	double	10	8.83	8.75	1+5 14+5	
+Arial-b	double	10.5	9.27	9.19	2+5 15+5	
+Arial-b	double	11	9.71	9.62	3+5 16+5	
+Arial-b	double	12	10.6	10.5	4+5 17+5	
+Arial-b	double	13	11.48	11.37	4+6 18+6	
+Arial-b	double	14	12.36	12.25	6+6 20+6	
+Arial-b	double	15	13.24	13.12	6+7 21+7	
+Arial-b	double	16	14.13	14	7+7 22+7	
+Arial-b	double	18	15.89	15.75	8+8 24+8	
+Arial-b	double	20	17.66	17.5	9+9 27+9	
+Arial-b	double	22	19.43	19.25	10+10 28+10	
+Arial-b	double	24	21.19	21	11+11 31+11	
+Arial-b	double	26	22.96	22.75	12+12 34+12	
+Arial-b	double	28	24.72	24.5	13+12 37+12	
+Arial-b	double	32	28.26	27.99	14+14 42+14	
+Arial-b	double	36	31.79	31.49	16+16 47+16	
+Arial-b	double	40	35.32	34.99	18+18 52+18	
+Arial-b	double	44	38.85	38.49	20+20 58+20	
+Arial-b	double	48	42.38	41.99	21+21 63+21	
+Arial-b	double	54	47.68	47.24	24+24 71+24	
+Arial-b	double	60	52.98	52.49	27+26 79+26	
+Arial-b	double	66	58.28	57.74	29+29 87+29	
+Arial-b	double	72	63.57	62.99	32+32 95+32	
+Arial-b	single	6	5.3	5.25	5+5	
+Arial-b	single	7	6.18	6.12	6+6	
+Arial-b	single	8	7.06	7	7+7	
+Arial-b	single	9	7.95	7.87	8+8	
+Arial-b	single	10	8.83	8.75	9+9	
+Arial-b	single	10.5	9.27	9.19	9+9	
+Arial-b	single	11	9.71	9.62	10+10	
+Arial-b	single	12	10.6	10.5	11+10	
+Arial-b	single	13	11.48	11.37	11+11	
+Arial-b	single	14	12.36	12.25	12+12	
+Arial-b	single	15	13.24	13.12	13+13	
+Arial-b	single	16	14.13	14	14+14	
+Arial-b	single	18	15.89	15.75	16+16	
+Arial-b	single	20	17.66	17.5	18+18	
+Arial-b	single	22	19.43	19.25	19+19	
+Arial-b	single	24	21.19	21	21+21	
+Arial-b	single	26	22.96	22.75	23+23	
+Arial-b	single	28	24.72	24.5	25+24	
+Arial-b	single	32	28.26	27.99	28+28	
+Arial-b	single	36	31.79	31.49	32+31	
+Arial-b	single	40	35.32	34.99	35+35	
+Arial-b	single	44	38.85	38.49	39+39	
+Arial-b	single	48	42.38	41.99	42+42	
+Arial-b	single	54	47.68	47.24	48+47	
+Arial-b	single	60	52.98	52.49	53+52	
+Arial-b	single	66	58.28	57.74	58+58	
+Arial-b	single	72	63.57	62.99	64+63	
+Arial-b	thick	6	5.3	5.25	0+10	
+Arial-b	thick	7	6.18	6.12	0+11	
+Arial-b	thick	8	7.06	7	0+12	
+Arial-b	thick	9	7.95	7.87	2+12	
+Arial-b	thick	10	8.83	8.75	1+13	
+Arial-b	thick	10.5	9.27	9.19	2+13	
+Arial-b	thick	11	9.71	9.62	3+13	
+Arial-b	thick	12	10.6	10.5	4+13	
+Arial-b	thick	13	11.48	11.37	4+14	
+Arial-b	thick	14	12.36	12.25	6+14	
+Arial-b	thick	15	13.24	13.12	6+15	
+Arial-b	thick	16	14.13	14	7+15	
+Arial-b	thick	18	15.89	15.75	8+16	
+Arial-b	thick	20	17.66	17.5	9+18	
+Arial-b	thick	22	19.43	19.25	10+18	
+Arial-b	thick	24	21.19	21	11+20	
+Arial-b	thick	26	22.96	22.75	12+22	
+Arial-b	thick	28	24.72	24.5	13+24	
+Arial-b	thick	32	28.26	27.99	14+28	
+Arial-b	thick	36	31.79	31.49	16+31	
+Arial-b	thick	40	35.32	34.99	18+34	
+Arial-b	thick	44	38.85	38.49	20+38	
+Arial-b	thick	48	42.38	41.99	21+42	
+Arial-b	thick	54	47.68	47.24	24+47	
+Arial-b	thick	60	52.98	52.49	27+52	
+Arial-b	thick	66	58.28	57.74	29+58	
+Arial-b	thick	72	63.57	62.99	32+63	
+Arial-b	wave	6	5.3	5.25	0..5	0.24
+Arial-b	wave	7	6.18	6.12	0..6	0.24
+Arial-b	wave	8	7.06	7	0..7	0.24
+Arial-b	wave	9	7.95	7.87	2..9	0.24
+Arial-b	wave	10	8.83	8.75	1..9	0.24
+Arial-b	wave	10.5	9.27	9.19	2..10	0.24
+Arial-b	wave	11	9.71	9.62	3..11	0.24
+Arial-b	wave	12	10.6	10.5	4..12	0.24
+Arial-b	wave	13	11.48	11.37	4..13	0.24
+Arial-b	wave	14	12.36	12.25	6..15	0.24
+Arial-b	wave	15	13.24	13.12	6..16	0.24
+Arial-b	wave	16	14.13	14	7..17	0.24
+Arial-b	wave	18	15.89	15.75	8..19	0.24
+Arial-b	wave	20	17.66	17.5	9..21	0.24
+Arial-b	wave	22	19.43	19.25	10..23	0.24
+Arial-b	wave	24	21.19	21	11..25	0.24
+Arial-b	wave	26	22.96	22.75	12..28	0.24
+Arial-b	wave	28	24.72	24.5	13..30	0.24
+Arial-b	wave	32	28.26	27.99	14..34	0.24
+Arial-b	wave	36	31.79	31.49	16..38	0.24
+Arial-b	wave	40	35.32	34.99	18..43	0.24
+Arial-b	wave	44	38.85	38.49	20..48	0.24
+Arial-b	wave	48	42.38	41.99	21..51	0.24
+Arial-b	wave	54	47.68	47.24	24..58	0.24
+Arial-b	wave	60	52.98	52.49	27..65	0.24
+Arial-b	wave	66	58.28	57.74	29..71	0.24
+Arial-b	wave	72	63.57	62.99	32..78	0.24
+Arial-b	wavyDouble	6	5.3	5.25	0..1 4..5	0.24
+Arial-b	wavyDouble	7	6.18	6.12	0..2 4..6	0.24
+Arial-b	wavyDouble	8	7.06	7	0..2 5..7	0.24
+Arial-b	wavyDouble	9	7.95	7.87	2..4 7..9	0.24
+Arial-b	wavyDouble	10	8.83	8.75	1..4 6..9	0.24
+Arial-b	wavyDouble	10.5	9.27	9.19	2..5 7..10	0.24
+Arial-b	wavyDouble	11	9.71	9.62	3..6 8..11	0.24
+Arial-b	wavyDouble	12	10.6	10.5	4..7 9..12	0.24
+Arial-b	wavyDouble	13	11.48	11.37	4..7 10..13	0.24
+Arial-b	wavyDouble	14	12.36	12.25	6..9 12..15	0.24
+Arial-b	wavyDouble	15	13.24	13.12	6..10 12..16	0.24
+Arial-b	wavyDouble	16	14.13	14	7..11 13..17	0.24
+Arial-b	wavyDouble	18	15.89	15.75	8..12 15..19	0.24
+Arial-b	wavyDouble	20	17.66	17.5	9..14 16..21	0.24
+Arial-b	wavyDouble	22	19.43	19.25	10..15 18..23	0.24
+Arial-b	wavyDouble	24	21.19	21	11..17 19..25	0.24
+Arial-b	wavyDouble	26	22.96	22.75	12..19 21..28	0.24
+Arial-b	wavyDouble	28	24.72	24.5	13..20 23..30	0.24
+Arial-b	wavyDouble	32	28.26	27.99	14..23 25..34	0.24
+Arial-b	wavyDouble	36	31.79	31.49	16..26 28..38	0.24
+Arial-b	wavyDouble	40	35.32	34.99	18..29 32..43	0.24
+Arial-b	wavyDouble	44	38.85	38.49	20..33 35..48	0.24
+Arial-b	wavyDouble	48	42.38	41.99	21..35 37..51	0.24
+Arial-b	wavyDouble	54	47.68	47.24	24..40 42..58	0.24
+Arial-b	wavyDouble	60	52.98	52.49	27..45 47..65	0.24
+Arial-b	wavyDouble	66	58.28	57.74	29..49 51..71	0.24
+Arial-b	wavyDouble	72	63.57	62.99	32..54 56..78	0.24
+Arial-b	wavyHeavy	6	5.3	5.25	0..5	0.96
+Arial-b	wavyHeavy	7	6.18	6.12	0..6	0.96
+Arial-b	wavyHeavy	8	7.06	7	0..7	0.96
+Arial-b	wavyHeavy	9	7.95	7.87	2..9	0.96
+Arial-b	wavyHeavy	10	8.83	8.75	1..9	0.96
+Arial-b	wavyHeavy	10.5	9.27	9.19	2..10	0.96
+Arial-b	wavyHeavy	11	9.71	9.62	3..11	0.96
+Arial-b	wavyHeavy	12	10.6	10.5	4..12	0.96
+Arial-b	wavyHeavy	13	11.48	11.37	4..13	0.96
+Arial-b	wavyHeavy	14	12.36	12.25	6..15	0.96
+Arial-b	wavyHeavy	15	13.24	13.12	6..16	0.96
+Arial-b	wavyHeavy	16	14.13	14	7..17	0.96
+Arial-b	wavyHeavy	18	15.89	15.75	8..19	0.96
+Arial-b	wavyHeavy	20	17.66	17.5	9..21	0.96
+Arial-b	wavyHeavy	22	19.43	19.25	10..23	0.96
+Arial-b	wavyHeavy	24	21.19	21	11..25	0.96
+Arial-b	wavyHeavy	26	22.96	22.75	12..28	0.96
+Arial-b	wavyHeavy	28	24.72	24.5	13..30	0.96
+Arial-b	wavyHeavy	32	28.26	27.99	14..34	0.96
+Arial-b	wavyHeavy	36	31.79	31.49	16..38	0.96
+Arial-b	wavyHeavy	40	35.32	34.99	18..43	0.96
+Arial-b	wavyHeavy	44	38.85	38.49	20..48	0.96
+Arial-b	wavyHeavy	48	42.38	41.99	21..51	0.96
+Arial-b	wavyHeavy	54	47.68	47.24	24..58	0.96
+Arial-b	wavyHeavy	60	52.98	52.49	27..65	0.96
+Arial-b	wavyHeavy	66	58.28	57.74	29..71	0.96
+Arial-b	wavyHeavy	72	63.57	62.99	32..78	0.96
+Arial-i	dotted	6	5.3	3.66	5+4	
+Arial-i	dotted	7	6.18	4.27	6+4	
+Arial-i	dotted	8	7.06	4.88	7+5	
+Arial-i	dotted	9	7.95	5.49	8+5	
+Arial-i	dotted	10	8.83	6.1	9+6	
+Arial-i	dotted	10.5	9.27	6.41	9+6	
+Arial-i	dotted	11	9.71	6.71	10+7	
+Arial-i	dotted	12	10.6	7.32	11+7	
+Arial-i	dotted	13	11.48	7.93	11+8	
+Arial-i	dotted	14	12.36	8.54	12+9	
+Arial-i	dotted	15	13.24	9.16	13+9	
+Arial-i	dotted	16	14.13	9.77	14+10	
+Arial-i	dotted	18	15.89	10.99	16+11	
+Arial-i	dotted	20	17.66	12.21	18+12	
+Arial-i	dotted	22	19.43	13.43	19+13	
+Arial-i	dotted	24	21.19	14.65	21+15	
+Arial-i	dotted	26	22.96	15.87	23+16	
+Arial-i	dotted	28	24.72	17.09	25+17	
+Arial-i	dotted	32	28.26	19.53	28+20	
+Arial-i	dotted	36	31.79	21.97	32+22	
+Arial-i	dotted	40	35.32	24.41	35+24	
+Arial-i	dotted	44	38.85	26.86	39+27	
+Arial-i	dotted	48	42.38	29.3	42+29	
+Arial-i	dotted	54	47.68	32.96	48+33	
+Arial-i	dotted	60	52.98	36.62	53+37	
+Arial-i	dotted	66	58.28	40.28	58+40	
+Arial-i	dotted	72	63.57	43.95	64+44	
+Arial-i	double	6	5.3	3.66	0+1 10+1	
+Arial-i	double	7	6.18	4.27	1+2 11+2	
+Arial-i	double	8	7.06	4.88	1+3 12+3	
+Arial-i	double	9	7.95	5.49	3+3 14+3	
+Arial-i	double	10	8.83	6.1	5+3 16+3	
+Arial-i	double	10.5	9.27	6.41	5+3 16+3	
+Arial-i	double	11	9.71	6.71	4+4 16+4	
+Arial-i	double	12	10.6	7.32	6+4 18+4	
+Arial-i	double	13	11.48	7.93	6+4 18+4	
+Arial-i	double	14	12.36	8.54	6+5 19+5	
+Arial-i	double	15	13.24	9.16	7+5 20+5	
+Arial-i	double	16	14.13	9.77	7+5 20+5	
+Arial-i	double	18	15.89	10.99	8+6 22+6	
+Arial-i	double	20	17.66	12.21	9+6 24+6	
+Arial-i	double	22	19.43	13.43	10+7 25+7	
+Arial-i	double	24	21.19	14.65	11+8 28+8	
+Arial-i	double	26	22.96	15.87	12+8 31+8	
+Arial-i	double	28	24.72	17.09	13+9 33+9	
+Arial-i	double	32	28.26	19.53	14+10 38+10	
+Arial-i	double	36	31.79	21.97	16+11 43+11	
+Arial-i	double	40	35.32	24.41	18+12 47+12	
+Arial-i	double	44	38.85	26.86	20+14 52+14	
+Arial-i	double	48	42.38	29.3	21+15 56+15	
+Arial-i	double	54	47.68	32.96	24+17 64+17	
+Arial-i	double	60	52.98	36.62	27+19 71+19	
+Arial-i	double	66	58.28	40.28	29+20 78+20	
+Arial-i	double	72	63.57	43.95	32+22 86+22	
+Arial-i	single	6	5.3	3.66	5+4	
+Arial-i	single	7	6.18	4.27	6+4	
+Arial-i	single	8	7.06	4.88	7+5	
+Arial-i	single	9	7.95	5.49	8+5	
+Arial-i	single	10	8.83	6.1	9+6	
+Arial-i	single	10.5	9.27	6.41	9+6	
+Arial-i	single	11	9.71	6.71	10+7	
+Arial-i	single	12	10.6	7.32	11+7	
+Arial-i	single	13	11.48	7.93	11+8	
+Arial-i	single	14	12.36	8.54	12+9	
+Arial-i	single	15	13.24	9.16	13+9	
+Arial-i	single	16	14.13	9.77	14+10	
+Arial-i	single	18	15.89	10.99	16+11	
+Arial-i	single	20	17.66	12.21	18+12	
+Arial-i	single	22	19.43	13.43	19+13	
+Arial-i	single	24	21.19	14.65	21+15	
+Arial-i	single	26	22.96	15.87	23+16	
+Arial-i	single	28	24.72	17.09	25+17	
+Arial-i	single	32	28.26	19.53	28+20	
+Arial-i	single	36	31.79	21.97	32+22	
+Arial-i	single	40	35.32	24.41	35+24	
+Arial-i	single	44	38.85	26.86	39+27	
+Arial-i	single	48	42.38	29.3	42+29	
+Arial-i	single	54	47.68	32.96	48+33	
+Arial-i	single	60	52.98	36.62	53+37	
+Arial-i	single	66	58.28	40.28	58+40	
+Arial-i	single	72	63.57	43.95	64+44	
+Arial-i	thick	6	5.3	3.66	0+10	
+Arial-i	thick	7	6.18	4.27	1+10	
+Arial-i	thick	8	7.06	4.88	1+11	
+Arial-i	thick	9	7.95	5.49	3+11	
+Arial-i	thick	10	8.83	6.1	5+11	
+Arial-i	thick	10.5	9.27	6.41	5+11	
+Arial-i	thick	11	9.71	6.71	4+12	
+Arial-i	thick	12	10.6	7.32	6+12	
+Arial-i	thick	13	11.48	7.93	6+12	
+Arial-i	thick	14	12.36	8.54	6+13	
+Arial-i	thick	15	13.24	9.16	7+13	
+Arial-i	thick	16	14.13	9.77	7+13	
+Arial-i	thick	18	15.89	10.99	8+14	
+Arial-i	thick	20	17.66	12.21	9+15	
+Arial-i	thick	22	19.43	13.43	10+15	
+Arial-i	thick	24	21.19	14.65	11+17	
+Arial-i	thick	26	22.96	15.87	12+19	
+Arial-i	thick	28	24.72	17.09	13+20	
+Arial-i	thick	32	28.26	19.53	14+24	
+Arial-i	thick	36	31.79	21.97	16+27	
+Arial-i	thick	40	35.32	24.41	18+29	
+Arial-i	thick	44	38.85	26.86	20+32	
+Arial-i	thick	48	42.38	29.3	21+35	
+Arial-i	thick	54	47.68	32.96	24+40	
+Arial-i	thick	60	52.98	36.62	27+44	
+Arial-i	thick	66	58.28	40.28	29+49	
+Arial-i	thick	72	63.57	43.95	32+54	
+Arial-i	wave	6	5.3	3.66	0..4	0.24
+Arial-i	wave	7	6.18	4.27	1..6	0.24
+Arial-i	wave	8	7.06	4.88	1..7	0.24
+Arial-i	wave	9	7.95	5.49	3..9	0.24
+Arial-i	wave	10	8.83	6.1	5..11	0.24
+Arial-i	wave	10.5	9.27	6.41	5..11	0.24
+Arial-i	wave	11	9.71	6.71	4..11	0.24
+Arial-i	wave	12	10.6	7.32	6..13	0.24
+Arial-i	wave	13	11.48	7.93	6..13	0.24
+Arial-i	wave	14	12.36	8.54	6..14	0.24
+Arial-i	wave	15	13.24	9.16	7..15	0.24
+Arial-i	wave	16	14.13	9.77	7..15	0.24
+Arial-i	wave	18	15.89	10.99	8..17	0.24
+Arial-i	wave	20	17.66	12.21	9..18	0.24
+Arial-i	wave	22	19.43	13.43	10..20	0.24
+Arial-i	wave	24	21.19	14.65	11..22	0.24
+Arial-i	wave	26	22.96	15.87	12..24	0.24
+Arial-i	wave	28	24.72	17.09	13..26	0.24
+Arial-i	wave	32	28.26	19.53	14..30	0.24
+Arial-i	wave	36	31.79	21.97	16..34	0.24
+Arial-i	wave	40	35.32	24.41	18..37	0.24
+Arial-i	wave	44	38.85	26.86	20..42	0.24
+Arial-i	wave	48	42.38	29.3	21..45	0.24
+Arial-i	wave	54	47.68	32.96	24..51	0.24
+Arial-i	wave	60	52.98	36.62	27..57	0.24
+Arial-i	wave	66	58.28	40.28	29..62	0.24
+Arial-i	wave	72	63.57	43.95	32..69	0.24
+Arial-i	wavyDouble	6	5.3	3.66	0..1 3..4	0.24
+Arial-i	wavyDouble	7	6.18	4.27	1..2 5..6	0.24
+Arial-i	wavyDouble	8	7.06	4.88	1..3 5..7	0.24
+Arial-i	wavyDouble	9	7.95	5.49	3..5 7..9	0.24
+Arial-i	wavyDouble	10	8.83	6.1	5..7 9..11	0.24
+Arial-i	wavyDouble	10.5	9.27	6.41	5..7 9..11	0.24
+Arial-i	wavyDouble	11	9.71	6.71	4..6 9..11	0.24
+Arial-i	wavyDouble	12	10.6	7.32	6..8 11..13	0.24
+Arial-i	wavyDouble	13	11.48	7.93	6..8 11..13	0.24
+Arial-i	wavyDouble	14	12.36	8.54	6..9 11..14	0.24
+Arial-i	wavyDouble	15	13.24	9.16	7..10 12..15	0.24
+Arial-i	wavyDouble	16	14.13	9.77	7..10 12..15	0.24
+Arial-i	wavyDouble	18	15.89	10.99	8..11 14..17	0.24
+Arial-i	wavyDouble	20	17.66	12.21	9..12 15..18	0.24
+Arial-i	wavyDouble	22	19.43	13.43	10..14 16..20	0.24
+Arial-i	wavyDouble	24	21.19	14.65	11..15 18..22	0.24
+Arial-i	wavyDouble	26	22.96	15.87	12..17 19..24	0.24
+Arial-i	wavyDouble	28	24.72	17.09	13..18 21..26	0.24
+Arial-i	wavyDouble	32	28.26	19.53	14..21 23..30	0.24
+Arial-i	wavyDouble	36	31.79	21.97	16..24 26..34	0.24
+Arial-i	wavyDouble	40	35.32	24.41	18..26 29..37	0.24
+Arial-i	wavyDouble	44	38.85	26.86	20..30 32..42	0.24
+Arial-i	wavyDouble	48	42.38	29.3	21..32 34..45	0.24
+Arial-i	wavyDouble	54	47.68	32.96	24..36 39..51	0.24
+Arial-i	wavyDouble	60	52.98	36.62	27..41 43..57	0.24
+Arial-i	wavyDouble	66	58.28	40.28	29..44 47..62	0.24
+Arial-i	wavyDouble	72	63.57	43.95	32..49 52..69	0.24
+Arial-i	wavyHeavy	6	5.3	3.66	0..4	0.96
+Arial-i	wavyHeavy	7	6.18	4.27	1..6	0.96
+Arial-i	wavyHeavy	8	7.06	4.88	1..7	0.96
+Arial-i	wavyHeavy	9	7.95	5.49	3..9	0.96
+Arial-i	wavyHeavy	10	8.83	6.1	5..11	0.96
+Arial-i	wavyHeavy	10.5	9.27	6.41	5..11	0.96
+Arial-i	wavyHeavy	11	9.71	6.71	4..11	0.96
+Arial-i	wavyHeavy	12	10.6	7.32	6..13	0.96
+Arial-i	wavyHeavy	13	11.48	7.93	6..13	0.96
+Arial-i	wavyHeavy	14	12.36	8.54	6..14	0.96
+Arial-i	wavyHeavy	15	13.24	9.16	7..15	0.96
+Arial-i	wavyHeavy	16	14.13	9.77	7..15	0.96
+Arial-i	wavyHeavy	18	15.89	10.99	8..17	0.96
+Arial-i	wavyHeavy	20	17.66	12.21	9..18	0.96
+Arial-i	wavyHeavy	22	19.43	13.43	10..20	0.96
+Arial-i	wavyHeavy	24	21.19	14.65	11..22	0.96
+Arial-i	wavyHeavy	26	22.96	15.87	12..24	0.96
+Arial-i	wavyHeavy	28	24.72	17.09	13..26	0.96
+Arial-i	wavyHeavy	32	28.26	19.53	14..30	0.96
+Arial-i	wavyHeavy	36	31.79	21.97	16..34	0.96
+Arial-i	wavyHeavy	40	35.32	24.41	18..37	0.96
+Arial-i	wavyHeavy	44	38.85	26.86	20..42	0.96
+Arial-i	wavyHeavy	48	42.38	29.3	21..45	0.96
+Arial-i	wavyHeavy	54	47.68	32.96	24..51	0.96
+Arial-i	wavyHeavy	60	52.98	36.62	27..57	0.96
+Arial-i	wavyHeavy	66	58.28	40.28	29..62	0.96
+Arial-i	wavyHeavy	72	63.57	43.95	32..69	0.96
+Arial	dotted	6	5.3	3.66	5+4	
+Arial	dotted	7	6.18	4.27	6+4	
+Arial	dotted	8	7.06	4.88	7+5	
+Arial	dotted	9	7.95	5.49	8+5	
+Arial	dotted	10	8.83	6.1	9+6	
+Arial	dotted	10.5	9.27	6.41	9+6	
+Arial	dotted	11	9.71	6.71	10+7	
+Arial	dotted	12	10.6	7.32	11+7	
+Arial	dotted	13	11.48	7.93	11+8	
+Arial	dotted	14	12.36	8.54	12+9	
+Arial	dotted	15	13.24	9.16	13+9	
+Arial	dotted	16	14.13	9.77	14+10	
+Arial	dotted	18	15.89	10.99	16+11	
+Arial	dotted	20	17.66	12.21	18+12	
+Arial	dotted	22	19.43	13.43	19+13	
+Arial	dotted	24	21.19	14.65	21+15	
+Arial	dotted	26	22.96	15.87	23+16	
+Arial	dotted	28	24.72	17.09	25+17	
+Arial	dotted	32	28.26	19.53	28+20	
+Arial	dotted	36	31.79	21.97	32+22	
+Arial	dotted	40	35.32	24.41	35+24	
+Arial	dotted	44	38.85	26.86	39+27	
+Arial	dotted	48	42.38	29.3	42+29	
+Arial	dotted	54	47.68	32.96	48+33	
+Arial	dotted	60	52.98	36.62	53+37	
+Arial	dotted	66	58.28	40.28	58+40	
+Arial	dotted	72	63.57	43.95	64+44	
+Arial	double	6	5.3	3.66	0+1 10+1	
+Arial	double	7	6.18	4.27	1+2 11+2	
+Arial	double	8	7.06	4.88	1+3 12+3	
+Arial	double	9	7.95	5.49	2+3 13+3	
+Arial	double	10	8.83	6.1	4+3 15+3	
+Arial	double	10.5	9.27	6.41	5+3 16+3	
+Arial	double	11	9.71	6.71	4+4 16+4	
+Arial	double	12	10.6	7.32	6+4 18+4	
+Arial	double	13	11.48	7.93	6+4 18+4	
+Arial	double	14	12.36	8.54	6+5 19+5	
+Arial	double	15	13.24	9.16	7+5 20+5	
+Arial	double	16	14.13	9.77	7+5 20+5	
+Arial	double	18	15.89	10.99	8+6 22+6	
+Arial	double	20	17.66	12.21	9+6 24+6	
+Arial	double	22	19.43	13.43	10+7 25+7	
+Arial	double	24	21.19	14.65	11+8 28+8	
+Arial	double	26	22.96	15.87	12+8 31+8	
+Arial	double	28	24.72	17.09	13+9 33+9	
+Arial	double	32	28.26	19.53	14+10 38+10	
+Arial	double	36	31.79	21.97	16+11 43+11	
+Arial	double	40	35.32	24.41	18+12 47+12	
+Arial	double	44	38.85	26.86	20+14 52+14	
+Arial	double	48	42.38	29.3	21+15 56+15	
+Arial	double	54	47.68	32.96	24+17 64+17	
+Arial	double	60	52.98	36.62	27+19 71+19	
+Arial	double	66	58.28	40.28	29+20 78+20	
+Arial	double	72	63.57	43.95	32+22 86+22	
+Arial	single	6	5.3	3.66	5+4	
+Arial	single	7	6.18	4.27	6+4	
+Arial	single	8	7.06	4.88	7+5	
+Arial	single	9	7.95	5.49	8+5	
+Arial	single	10	8.83	6.1	9+6	
+Arial	single	10.5	9.27	6.41	9+6	
+Arial	single	11	9.71	6.71	10+7	
+Arial	single	12	10.6	7.32	11+7	
+Arial	single	13	11.48	7.93	11+8	
+Arial	single	14	12.36	8.54	12+9	
+Arial	single	15	13.24	9.16	13+9	
+Arial	single	16	14.13	9.77	14+10	
+Arial	single	18	15.89	10.99	16+11	
+Arial	single	20	17.66	12.21	18+12	
+Arial	single	22	19.43	13.43	19+13	
+Arial	single	24	21.19	14.65	21+15	
+Arial	single	26	22.96	15.87	23+16	
+Arial	single	28	24.72	17.09	25+17	
+Arial	single	32	28.26	19.53	28+20	
+Arial	single	36	31.79	21.97	32+22	
+Arial	single	40	35.32	24.41	35+24	
+Arial	single	44	38.85	26.86	39+27	
+Arial	single	48	42.38	29.3	42+29	
+Arial	single	54	47.68	32.96	48+33	
+Arial	single	60	52.98	36.62	53+37	
+Arial	single	66	58.28	40.28	58+40	
+Arial	single	72	63.57	43.95	64+44	
+Arial	thick	6	5.3	3.66	0+10	
+Arial	thick	7	6.18	4.27	1+10	
+Arial	thick	8	7.06	4.88	1+11	
+Arial	thick	9	7.95	5.49	2+11	
+Arial	thick	10	8.83	6.1	4+11	
+Arial	thick	10.5	9.27	6.41	5+11	
+Arial	thick	11	9.71	6.71	4+12	
+Arial	thick	12	10.6	7.32	6+12	
+Arial	thick	13	11.48	7.93	6+12	
+Arial	thick	14	12.36	8.54	6+13	
+Arial	thick	15	13.24	9.16	7+13	
+Arial	thick	16	14.13	9.77	7+13	
+Arial	thick	18	15.89	10.99	8+14	
+Arial	thick	20	17.66	12.21	9+15	
+Arial	thick	22	19.43	13.43	10+15	
+Arial	thick	24	21.19	14.65	11+17	
+Arial	thick	26	22.96	15.87	12+19	
+Arial	thick	28	24.72	17.09	13+20	
+Arial	thick	32	28.26	19.53	14+24	
+Arial	thick	36	31.79	21.97	16+27	
+Arial	thick	40	35.32	24.41	18+29	
+Arial	thick	44	38.85	26.86	20+32	
+Arial	thick	48	42.38	29.3	21+35	
+Arial	thick	54	47.68	32.96	24+40	
+Arial	thick	60	52.98	36.62	27+44	
+Arial	thick	66	58.28	40.28	29+49	
+Arial	thick	72	63.57	43.95	32+54	
+Arial	wave	6	5.3	3.66	0..4	0.24
+Arial	wave	7	6.18	4.27	1..6	0.24
+Arial	wave	8	7.06	4.88	1..7	0.24
+Arial	wave	9	7.95	5.49	2..8	0.24
+Arial	wave	10	8.83	6.1	4..10	0.24
+Arial	wave	10.5	9.27	6.41	5..11	0.24
+Arial	wave	11	9.71	6.71	4..11	0.24
+Arial	wave	12	10.6	7.32	6..13	0.24
+Arial	wave	13	11.48	7.93	6..13	0.24
+Arial	wave	14	12.36	8.54	6..14	0.24
+Arial	wave	15	13.24	9.16	7..15	0.24
+Arial	wave	16	14.13	9.77	7..15	0.24
+Arial	wave	18	15.89	10.99	8..17	0.24
+Arial	wave	20	17.66	12.21	9..18	0.24
+Arial	wave	22	19.43	13.43	10..20	0.24
+Arial	wave	24	21.19	14.65	11..22	0.24
+Arial	wave	26	22.96	15.87	12..24	0.24
+Arial	wave	28	24.72	17.09	13..26	0.24
+Arial	wave	32	28.26	19.53	14..30	0.24
+Arial	wave	36	31.79	21.97	16..34	0.24
+Arial	wave	40	35.32	24.41	18..37	0.24
+Arial	wave	44	38.85	26.86	20..42	0.24
+Arial	wave	48	42.38	29.3	21..45	0.24
+Arial	wave	54	47.68	32.96	24..51	0.24
+Arial	wave	60	52.98	36.62	27..57	0.24
+Arial	wave	66	58.28	40.28	29..62	0.24
+Arial	wave	72	63.57	43.95	32..69	0.24
+Arial	wavyDouble	6	5.3	3.66	0..1 3..4	0.24
+Arial	wavyDouble	7	6.18	4.27	1..2 5..6	0.24
+Arial	wavyDouble	8	7.06	4.88	1..3 5..7	0.24
+Arial	wavyDouble	9	7.95	5.49	2..4 6..8	0.24
+Arial	wavyDouble	10	8.83	6.1	4..6 8..10	0.24
+Arial	wavyDouble	10.5	9.27	6.41	5..7 9..11	0.24
+Arial	wavyDouble	11	9.71	6.71	4..6 9..11	0.24
+Arial	wavyDouble	12	10.6	7.32	6..8 11..13	0.24
+Arial	wavyDouble	13	11.48	7.93	6..8 11..13	0.24
+Arial	wavyDouble	14	12.36	8.54	6..9 11..14	0.24
+Arial	wavyDouble	15	13.24	9.16	7..10 12..15	0.24
+Arial	wavyDouble	16	14.13	9.77	7..10 12..15	0.24
+Arial	wavyDouble	18	15.89	10.99	8..11 14..17	0.24
+Arial	wavyDouble	20	17.66	12.21	9..12 15..18	0.24
+Arial	wavyDouble	22	19.43	13.43	10..14 16..20	0.24
+Arial	wavyDouble	24	21.19	14.65	11..15 18..22	0.24
+Arial	wavyDouble	26	22.96	15.87	12..17 19..24	0.24
+Arial	wavyDouble	28	24.72	17.09	13..18 21..26	0.24
+Arial	wavyDouble	32	28.26	19.53	14..21 23..30	0.24
+Arial	wavyDouble	36	31.79	21.97	16..24 26..34	0.24
+Arial	wavyDouble	40	35.32	24.41	18..26 29..37	0.24
+Arial	wavyDouble	44	38.85	26.86	20..30 32..42	0.24
+Arial	wavyDouble	48	42.38	29.3	21..32 34..45	0.24
+Arial	wavyDouble	54	47.68	32.96	24..36 39..51	0.24
+Arial	wavyDouble	60	52.98	36.62	27..41 43..57	0.24
+Arial	wavyDouble	66	58.28	40.28	29..44 47..62	0.24
+Arial	wavyDouble	72	63.57	43.95	32..49 52..69	0.24
+Arial	wavyHeavy	6	5.3	3.66	0..4	0.96
+Arial	wavyHeavy	7	6.18	4.27	1..6	0.96
+Arial	wavyHeavy	8	7.06	4.88	1..7	0.96
+Arial	wavyHeavy	9	7.95	5.49	2..8	0.96
+Arial	wavyHeavy	10	8.83	6.1	4..10	0.96
+Arial	wavyHeavy	10.5	9.27	6.41	5..11	0.96
+Arial	wavyHeavy	11	9.71	6.71	4..11	0.96
+Arial	wavyHeavy	12	10.6	7.32	6..13	0.96
+Arial	wavyHeavy	13	11.48	7.93	6..13	0.96
+Arial	wavyHeavy	14	12.36	8.54	6..14	0.96
+Arial	wavyHeavy	15	13.24	9.16	7..15	0.96
+Arial	wavyHeavy	16	14.13	9.77	7..15	0.96
+Arial	wavyHeavy	18	15.89	10.99	8..17	0.96
+Arial	wavyHeavy	20	17.66	12.21	9..18	0.96
+Arial	wavyHeavy	22	19.43	13.43	10..20	0.96
+Arial	wavyHeavy	24	21.19	14.65	11..22	0.96
+Arial	wavyHeavy	26	22.96	15.87	12..24	0.96
+Arial	wavyHeavy	28	24.72	17.09	13..26	0.96
+Arial	wavyHeavy	32	28.26	19.53	14..30	0.96
+Arial	wavyHeavy	36	31.79	21.97	16..34	0.96
+Arial	wavyHeavy	40	35.32	24.41	18..37	0.96
+Arial	wavyHeavy	44	38.85	26.86	20..42	0.96
+Arial	wavyHeavy	48	42.38	29.3	21..45	0.96
+Arial	wavyHeavy	54	47.68	32.96	24..51	0.96
+Arial	wavyHeavy	60	52.98	36.62	27..57	0.96
+Arial	wavyHeavy	66	58.28	40.28	29..62	0.96
+Arial	wavyHeavy	72	63.57	43.95	32..69	0.96
+Calibri	dotted	6	5.66	3.27	6+3	
+Calibri	dotted	7	6.61	3.82	7+4	
+Calibri	dotted	8	7.55	4.36	8+4	
+Calibri	dotted	9	8.5	4.91	8+5	
+Calibri	dotted	10	9.44	5.45	9+5	
+Calibri	dotted	10.5	9.91	5.73	10+6	
+Calibri	dotted	11	10.38	6	10+6	
+Calibri	dotted	12	11.33	6.54	11+7	
+Calibri	dotted	13	12.27	7.09	12+7	
+Calibri	dotted	14	13.22	7.63	13+8	
+Calibri	dotted	15	14.16	8.18	14+8	
+Calibri	dotted	16	15.1	8.72	15+9	
+Calibri	dotted	18	16.99	9.81	17+10	
+Calibri	dotted	20	18.88	10.9	19+11	
+Calibri	dotted	22	20.77	12	21+12	
+Calibri	dotted	24	22.66	13.09	23+13	
+Calibri	dotted	26	24.54	14.18	25+14	
+Calibri	dotted	28	26.43	15.27	26+15	
+Calibri	dotted	32	30.21	17.45	30+17	
+Calibri	dotted	36	33.98	19.63	34+20	
+Calibri	dotted	40	37.76	21.81	38+22	
+Calibri	dotted	44	41.54	23.99	42+24	
+Calibri	dotted	48	45.31	26.17	45+26	
+Calibri	dotted	54	50.98	29.44	51+29	
+Calibri	dotted	60	56.64	32.71	57+33	
+Calibri	dotted	66	62.3	35.99	62+36	
+Calibri	dotted	72	67.97	39.26	68+39	
+Calibri	double	6	5.66	3.27	1+2 11+2	
+Calibri	double	7	6.61	3.82	4+2 14+2	
+Calibri	double	8	7.55	4.36	4+2 14+2	
+Calibri	double	9	8.5	4.91	4+3 15+3	
+Calibri	double	10	9.44	5.45	5+3 16+3	
+Calibri	double	10.5	9.91	5.73	5+3 16+3	
+Calibri	double	11	10.38	6	5+3 16+3	
+Calibri	double	12	11.33	6.54	6+4 18+4	
+Calibri	double	13	12.27	7.09	6+4 18+4	
+Calibri	double	14	13.22	7.63	7+4 19+4	
+Calibri	double	15	14.16	8.18	7+4 19+4	
+Calibri	double	16	15.1	8.72	8+5 21+5	
+Calibri	double	18	16.99	9.81	9+5 22+5	
+Calibri	double	20	18.88	10.9	10+6 24+6	
+Calibri	double	22	20.77	12	11+6 27+6	
+Calibri	double	24	22.66	13.09	12+7 29+7	
+Calibri	double	26	24.54	14.18	13+7 32+7	
+Calibri	double	28	26.43	15.27	13+8 33+8	
+Calibri	double	32	30.21	17.45	15+9 38+9	
+Calibri	double	36	33.98	19.63	17+10 44+10	
+Calibri	double	40	37.76	21.81	19+11 49+11	
+Calibri	double	44	41.54	23.99	21+12 54+12	
+Calibri	double	48	45.31	26.17	23+13 58+13	
+Calibri	double	54	50.98	29.44	26+15 65+15	
+Calibri	double	60	56.64	32.71	29+17 73+17	
+Calibri	double	66	62.3	35.99	31+18 80+18	
+Calibri	double	72	67.97	39.26	34+20 87+20	
+Calibri	single	6	5.66	3.27	6+3	
+Calibri	single	7	6.61	3.82	7+4	
+Calibri	single	8	7.55	4.36	8+4	
+Calibri	single	9	8.5	4.91	8+5	
+Calibri	single	10	9.44	5.45	9+5	
+Calibri	single	10.5	9.91	5.73	10+6	
+Calibri	single	11	10.38	6	10+6	
+Calibri	single	12	11.33	6.54	11+7	
+Calibri	single	13	12.27	7.09	12+7	
+Calibri	single	14	13.22	7.63	13+8	
+Calibri	single	15	14.16	8.18	14+8	
+Calibri	single	16	15.1	8.72	15+9	
+Calibri	single	18	16.99	9.81	17+10	
+Calibri	single	20	18.88	10.9	19+11	
+Calibri	single	22	20.77	12	21+12	
+Calibri	single	24	22.66	13.09	23+13	
+Calibri	single	26	24.54	14.18	25+14	
+Calibri	single	28	26.43	15.27	26+15	
+Calibri	single	32	30.21	17.45	30+17	
+Calibri	single	36	33.98	19.63	34+20	
+Calibri	single	40	37.76	21.81	38+22	
+Calibri	single	44	41.54	23.99	42+24	
+Calibri	single	48	45.31	26.17	45+26	
+Calibri	single	54	50.98	29.44	51+29	
+Calibri	single	60	56.64	32.71	57+33	
+Calibri	single	66	62.3	35.99	62+36	
+Calibri	single	72	67.97	39.26	68+39	
+Calibri	thick	6	5.66	3.27	1+10	
+Calibri	thick	7	6.61	3.82	4+10	
+Calibri	thick	8	7.55	4.36	4+10	
+Calibri	thick	9	8.5	4.91	4+11	
+Calibri	thick	10	9.44	5.45	5+11	
+Calibri	thick	10.5	9.91	5.73	5+11	
+Calibri	thick	11	10.38	6	5+11	
+Calibri	thick	12	11.33	6.54	6+12	
+Calibri	thick	13	12.27	7.09	6+12	
+Calibri	thick	14	13.22	7.63	7+12	
+Calibri	thick	15	14.16	8.18	7+12	
+Calibri	thick	16	15.1	8.72	8+13	
+Calibri	thick	18	16.99	9.81	9+13	
+Calibri	thick	20	18.88	10.9	10+14	
+Calibri	thick	22	20.77	12	11+16	
+Calibri	thick	24	22.66	13.09	12+17	
+Calibri	thick	26	24.54	14.18	13+19	
+Calibri	thick	28	26.43	15.27	13+20	
+Calibri	thick	32	30.21	17.45	15+23	
+Calibri	thick	36	33.98	19.63	17+27	
+Calibri	thick	40	37.76	21.81	19+30	
+Calibri	thick	44	41.54	23.99	21+33	
+Calibri	thick	48	45.31	26.17	23+35	
+Calibri	thick	54	50.98	29.44	26+39	
+Calibri	thick	60	56.64	32.71	29+44	
+Calibri	thick	66	62.3	35.99	31+49	
+Calibri	thick	72	67.97	39.26	34+53	
+Calibri	wave	6	5.66	3.27	1..6	0.24
+Calibri	wave	7	6.61	3.82	4..9	0.24
+Calibri	wave	8	7.55	4.36	4..9	0.24
+Calibri	wave	9	8.5	4.91	4..10	0.24
+Calibri	wave	10	9.44	5.45	5..11	0.24
+Calibri	wave	10.5	9.91	5.73	5..11	0.24
+Calibri	wave	11	10.38	6	5..11	0.24
+Calibri	wave	12	11.33	6.54	6..13	0.24
+Calibri	wave	13	12.27	7.09	6..13	0.24
+Calibri	wave	14	13.22	7.63	7..14	0.24
+Calibri	wave	15	14.16	8.18	7..14	0.24
+Calibri	wave	16	15.1	8.72	8..16	0.24
+Calibri	wave	18	16.99	9.81	9..17	0.24
+Calibri	wave	20	18.88	10.9	10..19	0.24
+Calibri	wave	22	20.77	12	11..21	0.24
+Calibri	wave	24	22.66	13.09	12..23	0.24
+Calibri	wave	26	24.54	14.18	13..25	0.24
+Calibri	wave	28	26.43	15.27	13..26	0.24
+Calibri	wave	32	30.21	17.45	15..30	0.24
+Calibri	wave	36	33.98	19.63	17..34	0.24
+Calibri	wave	40	37.76	21.81	19..38	0.24
+Calibri	wave	44	41.54	23.99	21..42	0.24
+Calibri	wave	48	45.31	26.17	23..46	0.24
+Calibri	wave	54	50.98	29.44	26..52	0.24
+Calibri	wave	60	56.64	32.71	29..58	0.24
+Calibri	wave	66	62.3	35.99	31..63	0.24
+Calibri	wave	72	67.97	39.26	34..69	0.24
+Calibri	wavyDouble	6	5.66	3.27	1..2 5..6	0.24
+Calibri	wavyDouble	7	6.61	3.82	4..5 8..9	0.24
+Calibri	wavyDouble	8	7.55	4.36	4..5 8..9	0.24
+Calibri	wavyDouble	9	8.5	4.91	4..6 8..10	0.24
+Calibri	wavyDouble	10	9.44	5.45	5..7 9..11	0.24
+Calibri	wavyDouble	10.5	9.91	5.73	5..7 9..11	0.24
+Calibri	wavyDouble	11	10.38	6	5..7 9..11	0.24
+Calibri	wavyDouble	12	11.33	6.54	6..8 11..13	0.24
+Calibri	wavyDouble	13	12.27	7.09	6..8 11..13	0.24
+Calibri	wavyDouble	14	13.22	7.63	7..9 12..14	0.24
+Calibri	wavyDouble	15	14.16	8.18	7..9 12..14	0.24
+Calibri	wavyDouble	16	15.1	8.72	8..11 13..16	0.24
+Calibri	wavyDouble	18	16.99	9.81	9..12 14..17	0.24
+Calibri	wavyDouble	20	18.88	10.9	10..13 16..19	0.24
+Calibri	wavyDouble	22	20.77	12	11..15 17..21	0.24
+Calibri	wavyDouble	24	22.66	13.09	12..16 19..23	0.24
+Calibri	wavyDouble	26	24.54	14.18	13..18 20..25	0.24
+Calibri	wavyDouble	28	26.43	15.27	13..18 21..26	0.24
+Calibri	wavyDouble	32	30.21	17.45	15..21 24..30	0.24
+Calibri	wavyDouble	36	33.98	19.63	17..24 27..34	0.24
+Calibri	wavyDouble	40	37.76	21.81	19..27 30..38	0.24
+Calibri	wavyDouble	44	41.54	23.99	21..30 33..42	0.24
+Calibri	wavyDouble	48	45.31	26.17	23..33 36..46	0.24
+Calibri	wavyDouble	54	50.98	29.44	26..38 40..52	0.24
+Calibri	wavyDouble	60	56.64	32.71	29..42 45..58	0.24
+Calibri	wavyDouble	66	62.3	35.99	31..46 48..63	0.24
+Calibri	wavyDouble	72	67.97	39.26	34..50 53..69	0.24
+Calibri	wavyHeavy	6	5.66	3.27	1..6	0.96
+Calibri	wavyHeavy	7	6.61	3.82	4..9	0.96
+Calibri	wavyHeavy	8	7.55	4.36	4..9	0.96
+Calibri	wavyHeavy	9	8.5	4.91	4..10	0.96
+Calibri	wavyHeavy	10	9.44	5.45	5..11	0.96
+Calibri	wavyHeavy	10.5	9.91	5.73	5..11	0.96
+Calibri	wavyHeavy	11	10.38	6	5..11	0.96
+Calibri	wavyHeavy	12	11.33	6.54	6..13	0.96
+Calibri	wavyHeavy	13	12.27	7.09	6..13	0.96
+Calibri	wavyHeavy	14	13.22	7.63	7..14	0.96
+Calibri	wavyHeavy	15	14.16	8.18	7..14	0.96
+Calibri	wavyHeavy	16	15.1	8.72	8..16	0.96
+Calibri	wavyHeavy	18	16.99	9.81	9..17	0.96
+Calibri	wavyHeavy	20	18.88	10.9	10..19	0.96
+Calibri	wavyHeavy	22	20.77	12	11..21	0.96
+Calibri	wavyHeavy	24	22.66	13.09	12..23	0.96
+Calibri	wavyHeavy	26	24.54	14.18	13..25	0.96
+Calibri	wavyHeavy	28	26.43	15.27	13..26	0.96
+Calibri	wavyHeavy	32	30.21	17.45	15..30	0.96
+Calibri	wavyHeavy	36	33.98	19.63	17..34	0.96
+Calibri	wavyHeavy	40	37.76	21.81	19..38	0.96
+Calibri	wavyHeavy	44	41.54	23.99	21..42	0.96
+Calibri	wavyHeavy	48	45.31	26.17	23..46	0.96
+Calibri	wavyHeavy	54	50.98	29.44	26..52	0.96
+Calibri	wavyHeavy	60	56.64	32.71	29..58	0.96
+Calibri	wavyHeavy	66	62.3	35.99	31..63	0.96
+Calibri	wavyHeavy	72	67.97	39.26	34..69	0.96
+Cambria	dotted	6	3.05	2.83	3+3	
+Cambria	dotted	7	3.56	3.3	4+3	
+Cambria	dotted	8	4.07	3.78	4+4	
+Cambria	dotted	9	4.58	4.25	5+4	
+Cambria	dotted	10	5.09	4.72	5+5	
+Cambria	dotted	10.5	5.34	4.96	5+5	
+Cambria	dotted	11	5.59	5.19	6+5	
+Cambria	dotted	12	6.1	5.66	6+6	
+Cambria	dotted	13	6.61	6.14	7+6	
+Cambria	dotted	14	7.12	6.61	7+7	
+Cambria	dotted	15	7.63	7.08	8+7	
+Cambria	dotted	16	8.14	7.55	8+8	
+Cambria	dotted	18	9.16	8.5	9+8	
+Cambria	dotted	20	10.17	9.44	10+9	
+Cambria	dotted	22	11.19	10.38	11+10	
+Cambria	dotted	24	12.21	11.33	12+11	
+Cambria	dotted	26	13.22	12.27	13+12	
+Cambria	dotted	28	14.24	13.22	14+13	
+Cambria	dotted	32	16.28	15.1	16+15	
+Cambria	dotted	36	18.31	16.99	18+17	
+Cambria	dotted	40	20.35	18.88	20+19	
+Cambria	dotted	44	22.38	20.77	22+21	
+Cambria	dotted	48	24.41	22.66	24+23	
+Cambria	dotted	54	27.47	25.49	27+25	
+Cambria	dotted	60	30.52	28.32	31+28	
+Cambria	dotted	66	33.57	31.15	34+31	
+Cambria	dotted	72	36.62	33.98	37+34	
+Cambria	double	6	3.05	2.83	0+1 10+1	
+Cambria	double	7	3.56	3.3	1+2 11+2	
+Cambria	double	8	4.07	3.78	2+2 12+2	
+Cambria	double	9	4.58	4.25	3+2 13+2	
+Cambria	double	10	5.09	4.72	3+3 14+3	
+Cambria	double	10.5	5.34	4.96	3+3 14+3	
+Cambria	double	11	5.59	5.19	3+3 14+3	
+Cambria	double	12	6.1	5.66	3+3 14+3	
+Cambria	double	13	6.61	6.14	4+3 15+3	
+Cambria	double	14	7.12	6.61	4+4 16+4	
+Cambria	double	15	7.63	7.08	4+4 16+4	
+Cambria	double	16	8.14	7.55	4+4 16+4	
+Cambria	double	18	9.16	8.5	5+4 17+4	
+Cambria	double	20	10.17	9.44	5+5 18+5	
+Cambria	double	22	11.19	10.38	6+5 19+5	
+Cambria	double	24	12.21	11.33	6+6 20+6	
+Cambria	double	26	13.22	12.27	7+6 21+6	
+Cambria	double	28	14.24	13.22	7+7 22+7	
+Cambria	double	32	16.28	15.1	8+8 24+8	
+Cambria	double	36	18.31	16.99	9+9 26+9	
+Cambria	double	40	20.35	18.88	10+10 29+10	
+Cambria	double	44	22.38	20.77	11+11 32+11	
+Cambria	double	48	24.41	22.66	12+12 35+12	
+Cambria	double	54	27.47	25.49	14+13 39+13	
+Cambria	double	60	30.52	28.32	16+14 45+14	
+Cambria	double	66	33.57	31.15	17+16 49+16	
+Cambria	double	72	36.62	33.98	19+17 54+17	
+Cambria	single	6	3.05	2.83	3+3	
+Cambria	single	7	3.56	3.3	4+3	
+Cambria	single	8	4.07	3.78	4+4	
+Cambria	single	9	4.58	4.25	5+4	
+Cambria	single	10	5.09	4.72	5+5	
+Cambria	single	10.5	5.34	4.96	5+5	
+Cambria	single	11	5.59	5.19	6+5	
+Cambria	single	12	6.1	5.66	6+6	
+Cambria	single	13	6.61	6.14	7+6	
+Cambria	single	14	7.12	6.61	7+7	
+Cambria	single	15	7.63	7.08	8+7	
+Cambria	single	16	8.14	7.55	8+8	
+Cambria	single	18	9.16	8.5	9+8	
+Cambria	single	20	10.17	9.44	10+9	
+Cambria	single	22	11.19	10.38	11+10	
+Cambria	single	24	12.21	11.33	12+11	
+Cambria	single	26	13.22	12.27	13+12	
+Cambria	single	28	14.24	13.22	14+13	
+Cambria	single	32	16.28	15.1	16+15	
+Cambria	single	36	18.31	16.99	18+17	
+Cambria	single	40	20.35	18.88	20+19	
+Cambria	single	44	22.38	20.77	22+21	
+Cambria	single	48	24.41	22.66	24+23	
+Cambria	single	54	27.47	25.49	27+25	
+Cambria	single	60	30.52	28.32	31+28	
+Cambria	single	66	33.57	31.15	34+31	
+Cambria	single	72	36.62	33.98	37+34	
+Cambria	thick	6	3.05	2.83	0+10	
+Cambria	thick	7	3.56	3.3	1+10	
+Cambria	thick	8	4.07	3.78	2+10	
+Cambria	thick	9	4.58	4.25	3+10	
+Cambria	thick	10	5.09	4.72	3+11	
+Cambria	thick	10.5	5.34	4.96	3+11	
+Cambria	thick	11	5.59	5.19	3+11	
+Cambria	thick	12	6.1	5.66	3+11	
+Cambria	thick	13	6.61	6.14	4+11	
+Cambria	thick	14	7.12	6.61	4+12	
+Cambria	thick	15	7.63	7.08	4+12	
+Cambria	thick	16	8.14	7.55	4+12	
+Cambria	thick	18	9.16	8.5	5+12	
+Cambria	thick	20	10.17	9.44	5+13	
+Cambria	thick	22	11.19	10.38	6+13	
+Cambria	thick	24	12.21	11.33	6+14	
+Cambria	thick	26	13.22	12.27	7+14	
+Cambria	thick	28	14.24	13.22	7+15	
+Cambria	thick	32	16.28	15.1	8+16	
+Cambria	thick	36	18.31	16.99	9+17	
+Cambria	thick	40	20.35	18.88	10+19	
+Cambria	thick	44	22.38	20.77	11+21	
+Cambria	thick	48	24.41	22.66	12+23	
+Cambria	thick	54	27.47	25.49	14+25	
+Cambria	thick	60	30.52	28.32	16+29	
+Cambria	thick	66	33.57	31.15	17+32	
+Cambria	thick	72	36.62	33.98	19+35	
+Cambria	wave	6	3.05	2.83	0..4	0.24
+Cambria	wave	7	3.56	3.3	1..6	0.24
+Cambria	wave	8	4.07	3.78	2..7	0.24
+Cambria	wave	9	4.58	4.25	3..8	0.24
+Cambria	wave	10	5.09	4.72	3..9	0.24
+Cambria	wave	10.5	5.34	4.96	3..9	0.24
+Cambria	wave	11	5.59	5.19	3..9	0.24
+Cambria	wave	12	6.1	5.66	3..9	0.24
+Cambria	wave	13	6.61	6.14	4..10	0.24
+Cambria	wave	14	7.12	6.61	4..11	0.24
+Cambria	wave	15	7.63	7.08	4..11	0.24
+Cambria	wave	16	8.14	7.55	4..11	0.24
+Cambria	wave	18	9.16	8.5	5..12	0.24
+Cambria	wave	20	10.17	9.44	5..13	0.24
+Cambria	wave	22	11.19	10.38	6..14	0.24
+Cambria	wave	24	12.21	11.33	6..15	0.24
+Cambria	wave	26	13.22	12.27	7..16	0.24
+Cambria	wave	28	14.24	13.22	7..17	0.24
+Cambria	wave	32	16.28	15.1	8..19	0.24
+Cambria	wave	36	18.31	16.99	9..21	0.24
+Cambria	wave	40	20.35	18.88	10..23	0.24
+Cambria	wave	44	22.38	20.77	11..26	0.24
+Cambria	wave	48	24.41	22.66	12..28	0.24
+Cambria	wave	54	27.47	25.49	14..32	0.24
+Cambria	wave	60	30.52	28.32	16..36	0.24
+Cambria	wave	66	33.57	31.15	17..40	0.24
+Cambria	wave	72	36.62	33.98	19..44	0.24
+Cambria	wavyDouble	6	3.05	2.83	0..1 3..4	0.24
+Cambria	wavyDouble	7	3.56	3.3	1..2 5..6	0.24
+Cambria	wavyDouble	8	4.07	3.78	2..3 6..7	0.24
+Cambria	wavyDouble	9	4.58	4.25	3..4 7..8	0.24
+Cambria	wavyDouble	10	5.09	4.72	3..5 7..9	0.24
+Cambria	wavyDouble	10.5	5.34	4.96	3..5 7..9	0.24
+Cambria	wavyDouble	11	5.59	5.19	3..5 7..9	0.24
+Cambria	wavyDouble	12	6.1	5.66	3..5 7..9	0.24
+Cambria	wavyDouble	13	6.61	6.14	4..6 8..10	0.24
+Cambria	wavyDouble	14	7.12	6.61	4..6 9..11	0.24
+Cambria	wavyDouble	15	7.63	7.08	4..6 9..11	0.24
+Cambria	wavyDouble	16	8.14	7.55	4..6 9..11	0.24
+Cambria	wavyDouble	18	9.16	8.5	5..7 10..12	0.24
+Cambria	wavyDouble	20	10.17	9.44	5..8 10..13	0.24
+Cambria	wavyDouble	22	11.19	10.38	6..9 11..14	0.24
+Cambria	wavyDouble	24	12.21	11.33	6..9 12..15	0.24
+Cambria	wavyDouble	26	13.22	12.27	7..10 13..16	0.24
+Cambria	wavyDouble	28	14.24	13.22	7..11 13..17	0.24
+Cambria	wavyDouble	32	16.28	15.1	8..12 15..19	0.24
+Cambria	wavyDouble	36	18.31	16.99	9..14 16..21	0.24
+Cambria	wavyDouble	40	20.35	18.88	10..15 18..23	0.24
+Cambria	wavyDouble	44	22.38	20.77	11..17 20..26	0.24
+Cambria	wavyDouble	48	24.41	22.66	12..19 21..28	0.24
+Cambria	wavyDouble	54	27.47	25.49	14..22 24..32	0.24
+Cambria	wavyDouble	60	30.52	28.32	16..25 27..36	0.24
+Cambria	wavyDouble	66	33.57	31.15	17..27 30..40	0.24
+Cambria	wavyDouble	72	36.62	33.98	19..30 33..44	0.24
+Cambria	wavyHeavy	6	3.05	2.83	0..4	0.96
+Cambria	wavyHeavy	7	3.56	3.3	1..6	0.96
+Cambria	wavyHeavy	8	4.07	3.78	2..7	0.96
+Cambria	wavyHeavy	9	4.58	4.25	3..8	0.96
+Cambria	wavyHeavy	10	5.09	4.72	3..9	0.96
+Cambria	wavyHeavy	10.5	5.34	4.96	3..9	0.96
+Cambria	wavyHeavy	11	5.59	5.19	3..9	0.96
+Cambria	wavyHeavy	12	6.1	5.66	3..9	0.96
+Cambria	wavyHeavy	13	6.61	6.14	4..10	0.96
+Cambria	wavyHeavy	14	7.12	6.61	4..11	0.96
+Cambria	wavyHeavy	15	7.63	7.08	4..11	0.96
+Cambria	wavyHeavy	16	8.14	7.55	4..11	0.96
+Cambria	wavyHeavy	18	9.16	8.5	5..12	0.96
+Cambria	wavyHeavy	20	10.17	9.44	5..13	0.96
+Cambria	wavyHeavy	22	11.19	10.38	6..14	0.96
+Cambria	wavyHeavy	24	12.21	11.33	6..15	0.96
+Cambria	wavyHeavy	26	13.22	12.27	7..16	0.96
+Cambria	wavyHeavy	28	14.24	13.22	7..17	0.96
+Cambria	wavyHeavy	32	16.28	15.1	8..19	0.96
+Cambria	wavyHeavy	36	18.31	16.99	9..21	0.96
+Cambria	wavyHeavy	40	20.35	18.88	10..23	0.96
+Cambria	wavyHeavy	44	22.38	20.77	11..26	0.96
+Cambria	wavyHeavy	48	24.41	22.66	12..28	0.96
+Cambria	wavyHeavy	54	27.47	25.49	14..32	0.96
+Cambria	wavyHeavy	60	30.52	28.32	16..36	0.96
+Cambria	wavyHeavy	66	33.57	31.15	17..40	0.96
+Cambria	wavyHeavy	72	36.62	33.98	19..44	0.96
+CourierNew	dotted	6	11.65	2.05	12+2	
+CourierNew	dotted	7	13.59	2.39	14+2	
+CourierNew	dotted	8	15.53	2.73	15+3	
+CourierNew	dotted	9	17.47	3.08	17+3	
+CourierNew	dotted	10	19.41	3.42	19+3	
+CourierNew	dotted	10.5	20.38	3.59	20+4	
+CourierNew	dotted	11	21.35	3.76	21+4	
+CourierNew	dotted	12	23.29	4.1	23+4	
+CourierNew	dotted	13	25.23	4.44	25+4	
+CourierNew	dotted	14	27.17	4.79	27+5	
+CourierNew	dotted	15	29.11	5.13	29+5	
+CourierNew	dotted	16	31.05	5.47	31+5	
+CourierNew	dotted	18	34.94	6.15	35+6	
+CourierNew	dotted	20	38.82	6.84	39+7	
+CourierNew	dotted	22	42.7	7.52	42+8	
+CourierNew	dotted	24	46.58	8.2	47+8	
+CourierNew	dotted	26	50.46	8.89	50+9	
+CourierNew	dotted	28	54.35	9.57	54+10	
+CourierNew	dotted	32	62.11	10.94	62+11	
+CourierNew	dotted	36	69.87	12.3	70+12	
+CourierNew	dotted	40	77.64	13.67	78+14	
+CourierNew	dotted	44	85.4	15.04	85+15	
+CourierNew	dotted	48	93.16	16.41	93+16	
+CourierNew	dotted	54	104.81	18.46	105+18	
+CourierNew	dotted	60	116.46	20.51	116+21	
+CourierNew	dotted	66	128.1	22.56	128+23	
+CourierNew	dotted	72	139.75	24.61	140+25	
+CourierNew	double	6	11.65	2.05	4+1 13+1	
+CourierNew	double	7	13.59	2.39	6+1 15+1	
+CourierNew	double	8	15.53	2.73	6+2 16+2	
+CourierNew	double	9	17.47	3.08	9+2 19+2	
+CourierNew	double	10	19.41	3.42	10+2 20+2	
+CourierNew	double	10.5	20.38	3.59	10+2 22+2	
+CourierNew	double	11	21.35	3.76	11+2 23+2	
+CourierNew	double	12	23.29	4.1	12+2 25+2	
+CourierNew	double	13	25.23	4.44	13+2 27+2	
+CourierNew	double	14	27.17	4.79	14+3 29+3	
+CourierNew	double	15	29.11	5.13	15+3 31+3	
+CourierNew	double	16	31.05	5.47	16+3 33+3	
+CourierNew	double	18	34.94	6.15	18+3 38+3	
+CourierNew	double	20	38.82	6.84	20+4 42+4	
+CourierNew	double	22	42.7	7.52	21+4 46+4	
+CourierNew	double	24	46.58	8.2	24+4 51+4	
+CourierNew	double	26	50.46	8.89	25+5 54+5	
+CourierNew	double	28	54.35	9.57	27+5 59+5	
+CourierNew	double	32	62.11	10.94	31+6 67+6	
+CourierNew	double	36	69.87	12.3	35+6 76+6	
+CourierNew	double	40	77.64	13.67	39+7 85+7	
+CourierNew	double	44	85.4	15.04	43+8 92+8	
+CourierNew	double	48	93.16	16.41	47+8 101+8	
+CourierNew	double	54	104.81	18.46	53+9 114+9	
+CourierNew	double	60	116.46	20.51	58+11 126+11	
+CourierNew	double	66	128.1	22.56	64+12 139+12	
+CourierNew	double	72	139.75	24.61	70+13 152+13	
+CourierNew	single	6	11.65	2.05	12+2	
+CourierNew	single	7	13.59	2.39	14+2	
+CourierNew	single	8	15.53	2.73	15+3	
+CourierNew	single	9	17.47	3.08	17+3	
+CourierNew	single	10	19.41	3.42	19+3	
+CourierNew	single	10.5	20.38	3.59	20+4	
+CourierNew	single	11	21.35	3.76	21+4	
+CourierNew	single	12	23.29	4.1	23+4	
+CourierNew	single	13	25.23	4.44	25+4	
+CourierNew	single	14	27.17	4.79	27+5	
+CourierNew	single	15	29.11	5.13	29+5	
+CourierNew	single	16	31.05	5.47	31+5	
+CourierNew	single	18	34.94	6.15	35+6	
+CourierNew	single	20	38.82	6.84	39+7	
+CourierNew	single	22	42.7	7.52	42+8	
+CourierNew	single	24	46.58	8.2	47+8	
+CourierNew	single	26	50.46	8.89	50+9	
+CourierNew	single	28	54.35	9.57	54+10	
+CourierNew	single	32	62.11	10.94	62+11	
+CourierNew	single	36	69.87	12.3	70+12	
+CourierNew	single	40	77.64	13.67	78+14	
+CourierNew	single	44	85.4	15.04	85+15	
+CourierNew	single	48	93.16	16.41	93+16	
+CourierNew	single	54	104.81	18.46	105+18	
+CourierNew	single	60	116.46	20.51	116+21	
+CourierNew	single	66	128.1	22.56	128+23	
+CourierNew	single	72	139.75	24.61	140+25	
+CourierNew	thick	6	11.65	2.05	4+9	
+CourierNew	thick	7	13.59	2.39	6+9	
+CourierNew	thick	8	15.53	2.73	6+10	
+CourierNew	thick	9	17.47	3.08	9+10	
+CourierNew	thick	10	19.41	3.42	10+10	
+CourierNew	thick	10.5	20.38	3.59	10+12	
+CourierNew	thick	11	21.35	3.76	11+12	
+CourierNew	thick	12	23.29	4.1	12+13	
+CourierNew	thick	13	25.23	4.44	13+14	
+CourierNew	thick	14	27.17	4.79	14+15	
+CourierNew	thick	15	29.11	5.13	15+16	
+CourierNew	thick	16	31.05	5.47	16+17	
+CourierNew	thick	18	34.94	6.15	18+20	
+CourierNew	thick	20	38.82	6.84	20+22	
+CourierNew	thick	22	42.7	7.52	21+25	
+CourierNew	thick	24	46.58	8.2	24+27	
+CourierNew	thick	26	50.46	8.89	25+29	
+CourierNew	thick	28	54.35	9.57	27+32	
+CourierNew	thick	32	62.11	10.94	31+36	
+CourierNew	thick	36	69.87	12.3	35+41	
+CourierNew	thick	40	77.64	13.67	39+46	
+CourierNew	thick	44	85.4	15.04	43+49	
+CourierNew	thick	48	93.16	16.41	47+54	
+CourierNew	thick	54	104.81	18.46	53+61	
+CourierNew	thick	60	116.46	20.51	58+68	
+CourierNew	thick	66	128.1	22.56	64+75	
+CourierNew	thick	72	139.75	24.61	70+82	
+CourierNew	wave	6	11.65	2.05	4..8	0.24
+CourierNew	wave	7	13.59	2.39	6..10	0.24
+CourierNew	wave	8	15.53	2.73	6..11	0.24
+CourierNew	wave	9	17.47	3.08	9..14	0.24
+CourierNew	wave	10	19.41	3.42	10..15	0.24
+CourierNew	wave	10.5	20.38	3.59	10..16	0.24
+CourierNew	wave	11	21.35	3.76	11..17	0.24
+CourierNew	wave	12	23.29	4.1	12..18	0.24
+CourierNew	wave	13	25.23	4.44	13..20	0.24
+CourierNew	wave	14	27.17	4.79	14..22	0.24
+CourierNew	wave	15	29.11	5.13	15..23	0.24
+CourierNew	wave	16	31.05	5.47	16..25	0.24
+CourierNew	wave	18	34.94	6.15	18..28	0.24
+CourierNew	wave	20	38.82	6.84	20..32	0.24
+CourierNew	wave	22	42.7	7.52	21..34	0.24
+CourierNew	wave	24	46.58	8.2	24..38	0.24
+CourierNew	wave	26	50.46	8.89	25..41	0.24
+CourierNew	wave	28	54.35	9.57	27..44	0.24
+CourierNew	wave	32	62.11	10.94	31..51	0.24
+CourierNew	wave	36	69.87	12.3	35..57	0.24
+CourierNew	wave	40	77.64	13.67	39..64	0.24
+CourierNew	wave	44	85.4	15.04	43..70	0.24
+CourierNew	wave	48	93.16	16.41	47..77	0.24
+CourierNew	wave	54	104.81	18.46	53..87	0.24
+CourierNew	wave	60	116.46	20.51	58..96	0.24
+CourierNew	wave	66	128.1	22.56	64..106	0.24
+CourierNew	wave	72	139.75	24.61	70..116	0.24
+CourierNew	wavyDouble	6	11.65	2.05	4..5 7..8	0.24
+CourierNew	wavyDouble	7	13.59	2.39	6..7 9..10	0.24
+CourierNew	wavyDouble	8	15.53	2.73	6..7 10..11	0.24
+CourierNew	wavyDouble	9	17.47	3.08	9..10 13..14	0.24
+CourierNew	wavyDouble	10	19.41	3.42	10..11 14..15	0.24
+CourierNew	wavyDouble	10.5	20.38	3.59	10..12 14..16	0.24
+CourierNew	wavyDouble	11	21.35	3.76	11..13 15..17	0.24
+CourierNew	wavyDouble	12	23.29	4.1	12..14 16..18	0.24
+CourierNew	wavyDouble	13	25.23	4.44	13..15 18..20	0.24
+CourierNew	wavyDouble	14	27.17	4.79	14..17 19..22	0.24
+CourierNew	wavyDouble	15	29.11	5.13	15..18 20..23	0.24
+CourierNew	wavyDouble	16	31.05	5.47	16..19 22..25	0.24
+CourierNew	wavyDouble	18	34.94	6.15	18..22 24..28	0.24
+CourierNew	wavyDouble	20	38.82	6.84	20..25 27..32	0.24
+CourierNew	wavyDouble	22	42.7	7.52	21..26 29..34	0.24
+CourierNew	wavyDouble	24	46.58	8.2	24..30 32..38	0.24
+CourierNew	wavyDouble	26	50.46	8.89	25..32 34..41	0.24
+CourierNew	wavyDouble	28	54.35	9.57	27..34 37..44	0.24
+CourierNew	wavyDouble	32	62.11	10.94	31..40 42..51	0.24
+CourierNew	wavyDouble	36	69.87	12.3	35..45 47..57	0.24
+CourierNew	wavyDouble	40	77.64	13.67	39..50 53..64	0.24
+CourierNew	wavyDouble	44	85.4	15.04	43..55 58..70	0.24
+CourierNew	wavyDouble	48	93.16	16.41	47..61 63..77	0.24
+CourierNew	wavyDouble	54	104.81	18.46	53..69 71..87	0.24
+CourierNew	wavyDouble	60	116.46	20.51	58..76 78..96	0.24
+CourierNew	wavyDouble	66	128.1	22.56	64..84 86..106	0.24
+CourierNew	wavyDouble	72	139.75	24.61	70..92 94..116	0.24
+CourierNew	wavyHeavy	6	11.65	2.05	4..8	0.96
+CourierNew	wavyHeavy	7	13.59	2.39	6..10	0.96
+CourierNew	wavyHeavy	8	15.53	2.73	6..11	0.96
+CourierNew	wavyHeavy	9	17.47	3.08	9..14	0.96
+CourierNew	wavyHeavy	10	19.41	3.42	10..15	0.96
+CourierNew	wavyHeavy	10.5	20.38	3.59	10..16	0.96
+CourierNew	wavyHeavy	11	21.35	3.76	11..17	0.96
+CourierNew	wavyHeavy	12	23.29	4.1	12..18	0.96
+CourierNew	wavyHeavy	13	25.23	4.44	13..20	0.96
+CourierNew	wavyHeavy	14	27.17	4.79	14..22	0.96
+CourierNew	wavyHeavy	15	29.11	5.13	15..23	0.96
+CourierNew	wavyHeavy	16	31.05	5.47	16..25	0.96
+CourierNew	wavyHeavy	18	34.94	6.15	18..28	0.96
+CourierNew	wavyHeavy	20	38.82	6.84	20..32	0.96
+CourierNew	wavyHeavy	22	42.7	7.52	21..34	0.96
+CourierNew	wavyHeavy	24	46.58	8.2	24..38	0.96
+CourierNew	wavyHeavy	26	50.46	8.89	25..41	0.96
+CourierNew	wavyHeavy	28	54.35	9.57	27..44	0.96
+CourierNew	wavyHeavy	32	62.11	10.94	31..51	0.96
+CourierNew	wavyHeavy	36	69.87	12.3	35..57	0.96
+CourierNew	wavyHeavy	40	77.64	13.67	39..64	0.96
+CourierNew	wavyHeavy	44	85.4	15.04	43..70	0.96
+CourierNew	wavyHeavy	48	93.16	16.41	47..77	0.96
+CourierNew	wavyHeavy	54	104.81	18.46	53..87	0.96
+CourierNew	wavyHeavy	60	116.46	20.51	58..96	0.96
+CourierNew	wavyHeavy	66	128.1	22.56	64..106	0.96
+CourierNew	wavyHeavy	72	139.75	24.61	70..116	0.96
+Georgia	dotted	6	4.42	2.47	4+2	
+Georgia	dotted	7	5.16	2.88	5+3	
+Georgia	dotted	8	5.89	3.29	6+3	
+Georgia	dotted	9	6.63	3.7	7+4	
+Georgia	dotted	10	7.36	4.11	7+4	
+Georgia	dotted	10.5	7.73	4.32	8+4	
+Georgia	dotted	11	8.1	4.52	8+5	
+Georgia	dotted	12	8.84	4.93	9+5	
+Georgia	dotted	13	9.57	5.34	10+5	
+Georgia	dotted	14	10.31	5.75	10+6	
+Georgia	dotted	15	11.05	6.16	11+6	
+Georgia	dotted	16	11.78	6.58	12+7	
+Georgia	dotted	18	13.26	7.4	13+7	
+Georgia	dotted	20	14.73	8.22	15+8	
+Georgia	dotted	22	16.2	9.04	16+9	
+Georgia	dotted	24	17.68	9.86	18+10	
+Georgia	dotted	26	19.15	10.69	19+11	
+Georgia	dotted	28	20.62	11.51	21+11	
+Georgia	dotted	32	23.57	13.15	24+13	
+Georgia	dotted	36	26.51	14.79	27+15	
+Georgia	dotted	40	29.46	16.44	29+16	
+Georgia	dotted	44	32.41	18.08	32+18	
+Georgia	dotted	48	35.35	19.73	35+20	
+Georgia	dotted	54	39.77	22.19	40+22	
+Georgia	dotted	60	44.19	24.66	44+25	
+Georgia	dotted	66	48.61	27.12	49+27	
+Georgia	dotted	72	53.03	29.59	53+30	
+Georgia	double	6	4.42	2.47	2+1 11+1	
+Georgia	double	7	5.16	2.88	1+2 11+2	
+Georgia	double	8	5.89	3.29	3+2 13+2	
+Georgia	double	9	6.63	3.7	4+2 14+2	
+Georgia	double	10	7.36	4.11	4+2 14+2	
+Georgia	double	10.5	7.73	4.32	4+2 14+2	
+Georgia	double	11	8.1	4.52	4+3 15+3	
+Georgia	double	12	8.84	4.93	5+3 16+3	
+Georgia	double	13	9.57	5.34	5+3 16+3	
+Georgia	double	14	10.31	5.75	5+3 16+3	
+Georgia	double	15	11.05	6.16	6+3 17+3	
+Georgia	double	16	11.78	6.58	6+4 18+4	
+Georgia	double	18	13.26	7.4	7+4 19+4	
+Georgia	double	20	14.73	8.22	8+4 20+4	
+Georgia	double	22	16.2	9.04	8+5 21+5	
+Georgia	double	24	17.68	9.86	9+5 23+5	
+Georgia	double	26	19.15	10.69	10+6 24+6	
+Georgia	double	28	20.62	11.51	11+6 26+6	
+Georgia	double	32	23.57	13.15	12+7 30+7	
+Georgia	double	36	26.51	14.79	14+8 34+8	
+Georgia	double	40	29.46	16.44	15+8 37+8	
+Georgia	double	44	32.41	18.08	16+9 41+9	
+Georgia	double	48	35.35	19.73	18+10 45+10	
+Georgia	double	54	39.77	22.19	20+11 51+11	
+Georgia	double	60	44.19	24.66	22+13 56+13	
+Georgia	double	66	48.61	27.12	25+14 62+14	
+Georgia	double	72	53.03	29.59	27+15 68+15	
+Georgia	single	6	4.42	2.47	4+2	
+Georgia	single	7	5.16	2.88	5+3	
+Georgia	single	8	5.89	3.29	6+3	
+Georgia	single	9	6.63	3.7	7+4	
+Georgia	single	10	7.36	4.11	7+4	
+Georgia	single	10.5	7.73	4.32	8+4	
+Georgia	single	11	8.1	4.52	8+5	
+Georgia	single	12	8.84	4.93	9+5	
+Georgia	single	13	9.57	5.34	10+5	
+Georgia	single	14	10.31	5.75	10+6	
+Georgia	single	15	11.05	6.16	11+6	
+Georgia	single	16	11.78	6.58	12+7	
+Georgia	single	18	13.26	7.4	13+7	
+Georgia	single	20	14.73	8.22	15+8	
+Georgia	single	22	16.2	9.04	16+9	
+Georgia	single	24	17.68	9.86	18+10	
+Georgia	single	26	19.15	10.69	19+11	
+Georgia	single	28	20.62	11.51	21+11	
+Georgia	single	32	23.57	13.15	24+13	
+Georgia	single	36	26.51	14.79	27+15	
+Georgia	single	40	29.46	16.44	29+16	
+Georgia	single	44	32.41	18.08	32+18	
+Georgia	single	48	35.35	19.73	35+20	
+Georgia	single	54	39.77	22.19	40+22	
+Georgia	single	60	44.19	24.66	44+25	
+Georgia	single	66	48.61	27.12	49+27	
+Georgia	single	72	53.03	29.59	53+30	
+Georgia	thick	6	4.42	2.47	2+9	
+Georgia	thick	7	5.16	2.88	1+10	
+Georgia	thick	8	5.89	3.29	3+10	
+Georgia	thick	9	6.63	3.7	4+10	
+Georgia	thick	10	7.36	4.11	4+10	
+Georgia	thick	10.5	7.73	4.32	4+10	
+Georgia	thick	11	8.1	4.52	4+11	
+Georgia	thick	12	8.84	4.93	5+11	
+Georgia	thick	13	9.57	5.34	5+11	
+Georgia	thick	14	10.31	5.75	5+11	
+Georgia	thick	15	11.05	6.16	6+11	
+Georgia	thick	16	11.78	6.58	6+12	
+Georgia	thick	18	13.26	7.4	7+12	
+Georgia	thick	20	14.73	8.22	8+12	
+Georgia	thick	22	16.2	9.04	8+13	
+Georgia	thick	24	17.68	9.86	9+14	
+Georgia	thick	26	19.15	10.69	10+14	
+Georgia	thick	28	20.62	11.51	11+15	
+Georgia	thick	32	23.57	13.15	12+18	
+Georgia	thick	36	26.51	14.79	14+20	
+Georgia	thick	40	29.46	16.44	15+22	
+Georgia	thick	44	32.41	18.08	16+25	
+Georgia	thick	48	35.35	19.73	18+27	
+Georgia	thick	54	39.77	22.19	20+31	
+Georgia	thick	60	44.19	24.66	22+34	
+Georgia	thick	66	48.61	27.12	25+37	
+Georgia	thick	72	53.03	29.59	27+41	
+Georgia	wave	6	4.42	2.47	2..6	0.24
+Georgia	wave	7	5.16	2.88	1..6	0.24
+Georgia	wave	8	5.89	3.29	3..8	0.24
+Georgia	wave	9	6.63	3.7	4..9	0.24
+Georgia	wave	10	7.36	4.11	4..9	0.24
+Georgia	wave	10.5	7.73	4.32	4..9	0.24
+Georgia	wave	11	8.1	4.52	4..10	0.24
+Georgia	wave	12	8.84	4.93	5..11	0.24
+Georgia	wave	13	9.57	5.34	5..11	0.24
+Georgia	wave	14	10.31	5.75	5..11	0.24
+Georgia	wave	15	11.05	6.16	6..12	0.24
+Georgia	wave	16	11.78	6.58	6..13	0.24
+Georgia	wave	18	13.26	7.4	7..14	0.24
+Georgia	wave	20	14.73	8.22	8..15	0.24
+Georgia	wave	22	16.2	9.04	8..16	0.24
+Georgia	wave	24	17.68	9.86	9..17	0.24
+Georgia	wave	26	19.15	10.69	10..19	0.24
+Georgia	wave	28	20.62	11.51	11..20	0.24
+Georgia	wave	32	23.57	13.15	12..23	0.24
+Georgia	wave	36	26.51	14.79	14..27	0.24
+Georgia	wave	40	29.46	16.44	15..29	0.24
+Georgia	wave	44	32.41	18.08	16..32	0.24
+Georgia	wave	48	35.35	19.73	18..35	0.24
+Georgia	wave	54	39.77	22.19	20..40	0.24
+Georgia	wave	60	44.19	24.66	22..44	0.24
+Georgia	wave	66	48.61	27.12	25..49	0.24
+Georgia	wave	72	53.03	29.59	27..54	0.24
+Georgia	wavyDouble	6	4.42	2.47	2..3 5..6	0.24
+Georgia	wavyDouble	7	5.16	2.88	1..2 5..6	0.24
+Georgia	wavyDouble	8	5.89	3.29	3..4 7..8	0.24
+Georgia	wavyDouble	9	6.63	3.7	4..5 8..9	0.24
+Georgia	wavyDouble	10	7.36	4.11	4..5 8..9	0.24
+Georgia	wavyDouble	10.5	7.73	4.32	4..5 8..9	0.24
+Georgia	wavyDouble	11	8.1	4.52	4..6 8..10	0.24
+Georgia	wavyDouble	12	8.84	4.93	5..7 9..11	0.24
+Georgia	wavyDouble	13	9.57	5.34	5..7 9..11	0.24
+Georgia	wavyDouble	14	10.31	5.75	5..7 9..11	0.24
+Georgia	wavyDouble	15	11.05	6.16	6..8 10..12	0.24
+Georgia	wavyDouble	16	11.78	6.58	6..8 11..13	0.24
+Georgia	wavyDouble	18	13.26	7.4	7..9 12..14	0.24
+Georgia	wavyDouble	20	14.73	8.22	8..10 13..15	0.24
+Georgia	wavyDouble	22	16.2	9.04	8..11 13..16	0.24
+Georgia	wavyDouble	24	17.68	9.86	9..12 14..17	0.24
+Georgia	wavyDouble	26	19.15	10.69	10..13 16..19	0.24
+Georgia	wavyDouble	28	20.62	11.51	11..14 17..20	0.24
+Georgia	wavyDouble	32	23.57	13.15	12..16 19..23	0.24
+Georgia	wavyDouble	36	26.51	14.79	14..19 22..27	0.24
+Georgia	wavyDouble	40	29.46	16.44	15..21 23..29	0.24
+Georgia	wavyDouble	44	32.41	18.08	16..23 25..32	0.24
+Georgia	wavyDouble	48	35.35	19.73	18..25 28..35	0.24
+Georgia	wavyDouble	54	39.77	22.19	20..29 31..40	0.24
+Georgia	wavyDouble	60	44.19	24.66	22..32 34..44	0.24
+Georgia	wavyDouble	66	48.61	27.12	25..36 38..49	0.24
+Georgia	wavyDouble	72	53.03	29.59	27..39 42..54	0.24
+Georgia	wavyHeavy	6	4.42	2.47	2..6	0.96
+Georgia	wavyHeavy	7	5.16	2.88	1..6	0.96
+Georgia	wavyHeavy	8	5.89	3.29	3..8	0.96
+Georgia	wavyHeavy	9	6.63	3.7	4..9	0.96
+Georgia	wavyHeavy	10	7.36	4.11	4..9	0.96
+Georgia	wavyHeavy	10.5	7.73	4.32	4..9	0.96
+Georgia	wavyHeavy	11	8.1	4.52	4..10	0.96
+Georgia	wavyHeavy	12	8.84	4.93	5..11	0.96
+Georgia	wavyHeavy	13	9.57	5.34	5..11	0.96
+Georgia	wavyHeavy	14	10.31	5.75	5..11	0.96
+Georgia	wavyHeavy	15	11.05	6.16	6..12	0.96
+Georgia	wavyHeavy	16	11.78	6.58	6..13	0.96
+Georgia	wavyHeavy	18	13.26	7.4	7..14	0.96
+Georgia	wavyHeavy	20	14.73	8.22	8..15	0.96
+Georgia	wavyHeavy	22	16.2	9.04	8..16	0.96
+Georgia	wavyHeavy	24	17.68	9.86	9..17	0.96
+Georgia	wavyHeavy	26	19.15	10.69	10..19	0.96
+Georgia	wavyHeavy	28	20.62	11.51	11..20	0.96
+Georgia	wavyHeavy	32	23.57	13.15	12..23	0.96
+Georgia	wavyHeavy	36	26.51	14.79	14..27	0.96
+Georgia	wavyHeavy	40	29.46	16.44	15..29	0.96
+Georgia	wavyHeavy	44	32.41	18.08	16..32	0.96
+Georgia	wavyHeavy	48	35.35	19.73	18..35	0.96
+Georgia	wavyHeavy	54	39.77	22.19	20..40	0.96
+Georgia	wavyHeavy	60	44.19	24.66	22..44	0.96
+Georgia	wavyHeavy	66	48.61	27.12	25..49	0.96
+Georgia	wavyHeavy	72	53.03	29.59	27..54	0.96
+TimesNewRoman	dotted	6	5.44	2.44	5+2	
+TimesNewRoman	dotted	7	6.35	2.85	6+3	
+TimesNewRoman	dotted	8	7.26	3.26	7+3	
+TimesNewRoman	dotted	9	8.17	3.66	8+4	
+TimesNewRoman	dotted	10	9.07	4.07	9+4	
+TimesNewRoman	dotted	10.5	9.53	4.27	10+4	
+TimesNewRoman	dotted	11	9.98	4.48	10+4	
+TimesNewRoman	dotted	12	10.89	4.88	11+5	
+TimesNewRoman	dotted	13	11.8	5.29	12+5	
+TimesNewRoman	dotted	14	12.7	5.7	13+6	
+TimesNewRoman	dotted	15	13.61	6.1	14+6	
+TimesNewRoman	dotted	16	14.52	6.51	14+6	
+TimesNewRoman	dotted	18	16.33	7.32	16+7	
+TimesNewRoman	dotted	20	18.15	8.14	18+8	
+TimesNewRoman	dotted	22	19.96	8.95	20+9	
+TimesNewRoman	dotted	24	21.78	9.77	22+10	
+TimesNewRoman	dotted	26	23.59	10.58	24+11	
+TimesNewRoman	dotted	28	25.41	11.39	25+11	
+TimesNewRoman	dotted	32	29.04	13.02	29+13	
+TimesNewRoman	dotted	36	32.67	14.65	33+15	
+TimesNewRoman	dotted	40	36.3	16.28	36+16	
+TimesNewRoman	dotted	44	39.93	17.9	40+18	
+TimesNewRoman	dotted	48	43.55	19.53	44+20	
+TimesNewRoman	dotted	54	49	21.97	49+22	
+TimesNewRoman	dotted	60	54.44	24.41	54+24	
+TimesNewRoman	dotted	66	59.89	26.86	60+27	
+TimesNewRoman	dotted	72	65.33	29.3	65+29	
+TimesNewRoman	double	6	5.44	2.44	2+1 11+1	
+TimesNewRoman	double	7	6.35	2.85	2+2 12+2	
+TimesNewRoman	double	8	7.26	3.26	4+2 14+2	
+TimesNewRoman	double	9	8.17	3.66	4+2 14+2	
+TimesNewRoman	double	10	9.07	4.07	5+2 15+2	
+TimesNewRoman	double	10.5	9.53	4.27	5+2 15+2	
+TimesNewRoman	double	11	9.98	4.48	5+2 15+2	
+TimesNewRoman	double	12	10.89	4.88	6+3 17+3	
+TimesNewRoman	double	13	11.8	5.29	6+3 17+3	
+TimesNewRoman	double	14	12.7	5.7	7+3 18+3	
+TimesNewRoman	double	15	13.61	6.1	7+3 18+3	
+TimesNewRoman	double	16	14.52	6.51	7+3 18+3	
+TimesNewRoman	double	18	16.33	7.32	8+4 20+4	
+TimesNewRoman	double	20	18.15	8.14	9+4 22+4	
+TimesNewRoman	double	22	19.96	8.95	10+5 24+5	
+TimesNewRoman	double	24	21.78	9.77	11+5 27+5	
+TimesNewRoman	double	26	23.59	10.58	12+6 29+6	
+TimesNewRoman	double	28	25.41	11.39	13+6 30+6	
+TimesNewRoman	double	32	29.04	13.02	15+7 35+7	
+TimesNewRoman	double	36	32.67	14.65	17+8 40+8	
+TimesNewRoman	double	40	36.3	16.28	18+8 44+8	
+TimesNewRoman	double	44	39.93	17.9	20+9 49+9	
+TimesNewRoman	double	48	43.55	19.53	22+10 54+10	
+TimesNewRoman	double	54	49	21.97	25+11 60+11	
+TimesNewRoman	double	60	54.44	24.41	27+12 66+12	
+TimesNewRoman	double	66	59.89	26.86	30+14 73+14	
+TimesNewRoman	double	72	65.33	29.3	33+15 79+15	
+TimesNewRoman	single	6	5.44	2.44	5+2	
+TimesNewRoman	single	7	6.35	2.85	6+3	
+TimesNewRoman	single	8	7.26	3.26	7+3	
+TimesNewRoman	single	9	8.17	3.66	8+4	
+TimesNewRoman	single	10	9.07	4.07	9+4	
+TimesNewRoman	single	10.5	9.53	4.27	10+4	
+TimesNewRoman	single	11	9.98	4.48	10+4	
+TimesNewRoman	single	12	10.89	4.88	11+5	
+TimesNewRoman	single	13	11.8	5.29	12+5	
+TimesNewRoman	single	14	12.7	5.7	13+6	
+TimesNewRoman	single	15	13.61	6.1	14+6	
+TimesNewRoman	single	16	14.52	6.51	14+6	
+TimesNewRoman	single	18	16.33	7.32	16+7	
+TimesNewRoman	single	20	18.15	8.14	18+8	
+TimesNewRoman	single	22	19.96	8.95	20+9	
+TimesNewRoman	single	24	21.78	9.77	22+10	
+TimesNewRoman	single	26	23.59	10.58	24+11	
+TimesNewRoman	single	28	25.41	11.39	25+11	
+TimesNewRoman	single	32	29.04	13.02	29+13	
+TimesNewRoman	single	36	32.67	14.65	33+15	
+TimesNewRoman	single	40	36.3	16.28	36+16	
+TimesNewRoman	single	44	39.93	17.9	40+18	
+TimesNewRoman	single	48	43.55	19.53	44+20	
+TimesNewRoman	single	54	49	21.97	49+22	
+TimesNewRoman	single	60	54.44	24.41	54+24	
+TimesNewRoman	single	66	59.89	26.86	60+27	
+TimesNewRoman	single	72	65.33	29.3	65+29	
+TimesNewRoman	thick	6	5.44	2.44	2+9	
+TimesNewRoman	thick	7	6.35	2.85	2+10	
+TimesNewRoman	thick	8	7.26	3.26	4+10	
+TimesNewRoman	thick	9	8.17	3.66	4+10	
+TimesNewRoman	thick	10	9.07	4.07	5+10	
+TimesNewRoman	thick	10.5	9.53	4.27	5+10	
+TimesNewRoman	thick	11	9.98	4.48	5+10	
+TimesNewRoman	thick	12	10.89	4.88	6+11	
+TimesNewRoman	thick	13	11.8	5.29	6+11	
+TimesNewRoman	thick	14	12.7	5.7	7+11	
+TimesNewRoman	thick	15	13.61	6.1	7+11	
+TimesNewRoman	thick	16	14.52	6.51	7+11	
+TimesNewRoman	thick	18	16.33	7.32	8+12	
+TimesNewRoman	thick	20	18.15	8.14	9+13	
+TimesNewRoman	thick	22	19.96	8.95	10+14	
+TimesNewRoman	thick	24	21.78	9.77	11+16	
+TimesNewRoman	thick	26	23.59	10.58	12+17	
+TimesNewRoman	thick	28	25.41	11.39	13+17	
+TimesNewRoman	thick	32	29.04	13.02	15+20	
+TimesNewRoman	thick	36	32.67	14.65	17+23	
+TimesNewRoman	thick	40	36.3	16.28	18+26	
+TimesNewRoman	thick	44	39.93	17.9	20+29	
+TimesNewRoman	thick	48	43.55	19.53	22+32	
+TimesNewRoman	thick	54	49	21.97	25+35	
+TimesNewRoman	thick	60	54.44	24.41	27+39	
+TimesNewRoman	thick	66	59.89	26.86	30+43	
+TimesNewRoman	thick	72	65.33	29.3	33+46	
+TimesNewRoman	wave	6	5.44	2.44	2..6	0.24
+TimesNewRoman	wave	7	6.35	2.85	2..7	0.24
+TimesNewRoman	wave	8	7.26	3.26	4..9	0.24
+TimesNewRoman	wave	9	8.17	3.66	4..9	0.24
+TimesNewRoman	wave	10	9.07	4.07	5..10	0.24
+TimesNewRoman	wave	10.5	9.53	4.27	5..10	0.24
+TimesNewRoman	wave	11	9.98	4.48	5..10	0.24
+TimesNewRoman	wave	12	10.89	4.88	6..12	0.24
+TimesNewRoman	wave	13	11.8	5.29	6..12	0.24
+TimesNewRoman	wave	14	12.7	5.7	7..13	0.24
+TimesNewRoman	wave	15	13.61	6.1	7..13	0.24
+TimesNewRoman	wave	16	14.52	6.51	7..13	0.24
+TimesNewRoman	wave	18	16.33	7.32	8..15	0.24
+TimesNewRoman	wave	20	18.15	8.14	9..16	0.24
+TimesNewRoman	wave	22	19.96	8.95	10..18	0.24
+TimesNewRoman	wave	24	21.78	9.77	11..20	0.24
+TimesNewRoman	wave	26	23.59	10.58	12..22	0.24
+TimesNewRoman	wave	28	25.41	11.39	13..23	0.24
+TimesNewRoman	wave	32	29.04	13.02	15..27	0.24
+TimesNewRoman	wave	36	32.67	14.65	17..31	0.24
+TimesNewRoman	wave	40	36.3	16.28	18..34	0.24
+TimesNewRoman	wave	44	39.93	17.9	20..38	0.24
+TimesNewRoman	wave	48	43.55	19.53	22..42	0.24
+TimesNewRoman	wave	54	49	21.97	25..47	0.24
+TimesNewRoman	wave	60	54.44	24.41	27..51	0.24
+TimesNewRoman	wave	66	59.89	26.86	30..57	0.24
+TimesNewRoman	wave	72	65.33	29.3	33..62	0.24
+TimesNewRoman	wavyDouble	6	5.44	2.44	2..3 5..6	0.24
+TimesNewRoman	wavyDouble	7	6.35	2.85	2..3 6..7	0.24
+TimesNewRoman	wavyDouble	8	7.26	3.26	4..5 8..9	0.24
+TimesNewRoman	wavyDouble	9	8.17	3.66	4..5 8..9	0.24
+TimesNewRoman	wavyDouble	10	9.07	4.07	5..6 9..10	0.24
+TimesNewRoman	wavyDouble	10.5	9.53	4.27	5..6 9..10	0.24
+TimesNewRoman	wavyDouble	11	9.98	4.48	5..6 9..10	0.24
+TimesNewRoman	wavyDouble	12	10.89	4.88	6..8 10..12	0.24
+TimesNewRoman	wavyDouble	13	11.8	5.29	6..8 10..12	0.24
+TimesNewRoman	wavyDouble	14	12.7	5.7	7..9 11..13	0.24
+TimesNewRoman	wavyDouble	15	13.61	6.1	7..9 11..13	0.24
+TimesNewRoman	wavyDouble	16	14.52	6.51	7..9 11..13	0.24
+TimesNewRoman	wavyDouble	18	16.33	7.32	8..10 13..15	0.24
+TimesNewRoman	wavyDouble	20	18.15	8.14	9..11 14..16	0.24
+TimesNewRoman	wavyDouble	22	19.96	8.95	10..13 15..18	0.24
+TimesNewRoman	wavyDouble	24	21.78	9.77	11..14 17..20	0.24
+TimesNewRoman	wavyDouble	26	23.59	10.58	12..16 18..22	0.24
+TimesNewRoman	wavyDouble	28	25.41	11.39	13..17 19..23	0.24
+TimesNewRoman	wavyDouble	32	29.04	13.02	15..20 22..27	0.24
+TimesNewRoman	wavyDouble	36	32.67	14.65	17..23 25..31	0.24
+TimesNewRoman	wavyDouble	40	36.3	16.28	18..25 27..34	0.24
+TimesNewRoman	wavyDouble	44	39.93	17.9	20..28 30..38	0.24
+TimesNewRoman	wavyDouble	48	43.55	19.53	22..31 33..42	0.24
+TimesNewRoman	wavyDouble	54	49	21.97	25..35 37..47	0.24
+TimesNewRoman	wavyDouble	60	54.44	24.41	27..38 40..51	0.24
+TimesNewRoman	wavyDouble	66	59.89	26.86	30..42 45..57	0.24
+TimesNewRoman	wavyDouble	72	65.33	29.3	33..46 49..62	0.24
+TimesNewRoman	wavyHeavy	6	5.44	2.44	2..6	0.96
+TimesNewRoman	wavyHeavy	7	6.35	2.85	2..7	0.96
+TimesNewRoman	wavyHeavy	8	7.26	3.26	4..9	0.96
+TimesNewRoman	wavyHeavy	9	8.17	3.66	4..9	0.96
+TimesNewRoman	wavyHeavy	10	9.07	4.07	5..10	0.96
+TimesNewRoman	wavyHeavy	10.5	9.53	4.27	5..10	0.96
+TimesNewRoman	wavyHeavy	11	9.98	4.48	5..10	0.96
+TimesNewRoman	wavyHeavy	12	10.89	4.88	6..12	0.96
+TimesNewRoman	wavyHeavy	13	11.8	5.29	6..12	0.96
+TimesNewRoman	wavyHeavy	14	12.7	5.7	7..13	0.96
+TimesNewRoman	wavyHeavy	15	13.61	6.1	7..13	0.96
+TimesNewRoman	wavyHeavy	16	14.52	6.51	7..13	0.96
+TimesNewRoman	wavyHeavy	18	16.33	7.32	8..15	0.96
+TimesNewRoman	wavyHeavy	20	18.15	8.14	9..16	0.96
+TimesNewRoman	wavyHeavy	22	19.96	8.95	10..18	0.96
+TimesNewRoman	wavyHeavy	24	21.78	9.77	11..20	0.96
+TimesNewRoman	wavyHeavy	26	23.59	10.58	12..22	0.96
+TimesNewRoman	wavyHeavy	28	25.41	11.39	13..23	0.96
+TimesNewRoman	wavyHeavy	32	29.04	13.02	15..27	0.96
+TimesNewRoman	wavyHeavy	36	32.67	14.65	17..31	0.96
+TimesNewRoman	wavyHeavy	40	36.3	16.28	18..34	0.96
+TimesNewRoman	wavyHeavy	44	39.93	17.9	20..38	0.96
+TimesNewRoman	wavyHeavy	48	43.55	19.53	22..42	0.96
+TimesNewRoman	wavyHeavy	54	49	21.97	25..47	0.96
+TimesNewRoman	wavyHeavy	60	54.44	24.41	27..51	0.96
+TimesNewRoman	wavyHeavy	66	59.89	26.86	30..57	0.96
+TimesNewRoman	wavyHeavy	72	65.33	29.3	33..62	0.96
+Verdana	dotted	6	4.39	2.93	4+3	
+Verdana	dotted	7	5.13	3.42	5+3	
+Verdana	dotted	8	5.86	3.91	6+4	
+Verdana	dotted	9	6.59	4.39	7+4	
+Verdana	dotted	10	7.32	4.88	7+5	
+Verdana	dotted	10.5	7.69	5.13	8+5	
+Verdana	dotted	11	8.06	5.37	8+5	
+Verdana	dotted	12	8.79	5.86	9+6	
+Verdana	dotted	13	9.52	6.35	9+6	
+Verdana	dotted	14	10.25	6.84	10+7	
+Verdana	dotted	15	10.99	7.32	11+7	
+Verdana	dotted	16	11.72	7.81	12+8	
+Verdana	dotted	18	13.18	8.79	13+9	
+Verdana	dotted	20	14.65	9.77	15+10	
+Verdana	dotted	22	16.11	10.74	16+11	
+Verdana	dotted	24	17.58	11.72	18+12	
+Verdana	dotted	26	19.04	12.7	19+13	
+Verdana	dotted	28	20.51	13.67	20+14	
+Verdana	dotted	32	23.44	15.63	23+16	
+Verdana	dotted	36	26.37	17.58	26+18	
+Verdana	dotted	40	29.3	19.53	29+20	
+Verdana	dotted	44	32.23	21.48	32+22	
+Verdana	dotted	48	35.16	23.44	35+23	
+Verdana	dotted	54	39.55	26.37	40+26	
+Verdana	dotted	60	43.95	29.3	44+29	
+Verdana	dotted	66	48.34	32.23	48+32	
+Verdana	dotted	72	52.73	35.16	53+35	
+Verdana	double	6	4.39	2.93	0+1 9+1	
+Verdana	double	7	5.13	3.42	0+2 10+2	
+Verdana	double	8	5.86	3.91	1+2 11+2	
+Verdana	double	9	6.59	4.39	3+2 13+2	
+Verdana	double	10	7.32	4.88	3+3 14+3	
+Verdana	double	10.5	7.69	5.13	4+3 15+3	
+Verdana	double	11	8.06	5.37	4+3 15+3	
+Verdana	double	12	8.79	5.86	5+3 16+3	
+Verdana	double	13	9.52	6.35	5+3 16+3	
+Verdana	double	14	10.25	6.84	5+4 17+4	
+Verdana	double	15	10.99	7.32	6+4 18+4	
+Verdana	double	16	11.72	7.81	6+4 18+4	
+Verdana	double	18	13.18	8.79	7+5 20+5	
+Verdana	double	20	14.65	9.77	8+5 21+5	
+Verdana	double	22	16.11	10.74	8+6 22+6	
+Verdana	double	24	17.58	11.72	9+6 24+6	
+Verdana	double	26	19.04	12.7	10+7 25+7	
+Verdana	double	28	20.51	13.67	10+7 27+7	
+Verdana	double	32	23.44	15.63	12+8 31+8	
+Verdana	double	36	26.37	17.58	13+9 35+9	
+Verdana	double	40	29.3	19.53	15+10 39+10	
+Verdana	double	44	32.23	21.48	16+11 43+11	
+Verdana	double	48	35.16	23.44	18+12 46+12	
+Verdana	double	54	39.55	26.37	20+13 53+13	
+Verdana	double	60	43.95	29.3	22+15 58+15	
+Verdana	double	66	48.34	32.23	24+16 64+16	
+Verdana	double	72	52.73	35.16	27+18 70+18	
+Verdana	single	6	4.39	2.93	4+3	
+Verdana	single	7	5.13	3.42	5+3	
+Verdana	single	8	5.86	3.91	6+4	
+Verdana	single	9	6.59	4.39	7+4	
+Verdana	single	10	7.32	4.88	7+5	
+Verdana	single	10.5	7.69	5.13	8+5	
+Verdana	single	11	8.06	5.37	8+5	
+Verdana	single	12	8.79	5.86	9+6	
+Verdana	single	13	9.52	6.35	9+6	
+Verdana	single	14	10.25	6.84	10+7	
+Verdana	single	15	10.99	7.32	11+7	
+Verdana	single	16	11.72	7.81	12+8	
+Verdana	single	18	13.18	8.79	13+9	
+Verdana	single	20	14.65	9.77	15+10	
+Verdana	single	22	16.11	10.74	16+11	
+Verdana	single	24	17.58	11.72	18+12	
+Verdana	single	26	19.04	12.7	19+13	
+Verdana	single	28	20.51	13.67	20+14	
+Verdana	single	32	23.44	15.63	23+16	
+Verdana	single	36	26.37	17.58	26+18	
+Verdana	single	40	29.3	19.53	29+20	
+Verdana	single	44	32.23	21.48	32+22	
+Verdana	single	48	35.16	23.44	35+23	
+Verdana	single	54	39.55	26.37	40+26	
+Verdana	single	60	43.95	29.3	44+29	
+Verdana	single	66	48.34	32.23	48+32	
+Verdana	single	72	52.73	35.16	53+35	
+Verdana	thick	6	4.39	2.93	0+9	
+Verdana	thick	7	5.13	3.42	0+10	
+Verdana	thick	8	5.86	3.91	1+10	
+Verdana	thick	9	6.59	4.39	3+10	
+Verdana	thick	10	7.32	4.88	3+11	
+Verdana	thick	10.5	7.69	5.13	4+11	
+Verdana	thick	11	8.06	5.37	4+11	
+Verdana	thick	12	8.79	5.86	5+11	
+Verdana	thick	13	9.52	6.35	5+11	
+Verdana	thick	14	10.25	6.84	5+12	
+Verdana	thick	15	10.99	7.32	6+12	
+Verdana	thick	16	11.72	7.81	6+12	
+Verdana	thick	18	13.18	8.79	7+13	
+Verdana	thick	20	14.65	9.77	8+13	
+Verdana	thick	22	16.11	10.74	8+14	
+Verdana	thick	24	17.58	11.72	9+15	
+Verdana	thick	26	19.04	12.7	10+15	
+Verdana	thick	28	20.51	13.67	10+17	
+Verdana	thick	32	23.44	15.63	12+19	
+Verdana	thick	36	26.37	17.58	13+22	
+Verdana	thick	40	29.3	19.53	15+24	
+Verdana	thick	44	32.23	21.48	16+27	
+Verdana	thick	48	35.16	23.44	18+28	
+Verdana	thick	54	39.55	26.37	20+33	
+Verdana	thick	60	43.95	29.3	22+36	
+Verdana	thick	66	48.34	32.23	24+40	
+Verdana	thick	72	52.73	35.16	27+43	
+Verdana	wave	6	4.39	2.93	0..4	0.24
+Verdana	wave	7	5.13	3.42	0..5	0.24
+Verdana	wave	8	5.86	3.91	1..6	0.24
+Verdana	wave	9	6.59	4.39	3..8	0.24
+Verdana	wave	10	7.32	4.88	3..9	0.24
+Verdana	wave	10.5	7.69	5.13	4..10	0.24
+Verdana	wave	11	8.06	5.37	4..10	0.24
+Verdana	wave	12	8.79	5.86	5..11	0.24
+Verdana	wave	13	9.52	6.35	5..11	0.24
+Verdana	wave	14	10.25	6.84	5..12	0.24
+Verdana	wave	15	10.99	7.32	6..13	0.24
+Verdana	wave	16	11.72	7.81	6..13	0.24
+Verdana	wave	18	13.18	8.79	7..15	0.24
+Verdana	wave	20	14.65	9.77	8..16	0.24
+Verdana	wave	22	16.11	10.74	8..17	0.24
+Verdana	wave	24	17.58	11.72	9..18	0.24
+Verdana	wave	26	19.04	12.7	10..20	0.24
+Verdana	wave	28	20.51	13.67	10..21	0.24
+Verdana	wave	32	23.44	15.63	12..24	0.24
+Verdana	wave	36	26.37	17.58	13..27	0.24
+Verdana	wave	40	29.3	19.53	15..31	0.24
+Verdana	wave	44	32.23	21.48	16..34	0.24
+Verdana	wave	48	35.16	23.44	18..37	0.24
+Verdana	wave	54	39.55	26.37	20..42	0.24
+Verdana	wave	60	43.95	29.3	22..46	0.24
+Verdana	wave	66	48.34	32.23	24..51	0.24
+Verdana	wave	72	52.73	35.16	27..56	0.24
+Verdana	wavyDouble	6	4.39	2.93	0..1 3..4	0.24
+Verdana	wavyDouble	7	5.13	3.42	0..1 4..5	0.24
+Verdana	wavyDouble	8	5.86	3.91	1..2 5..6	0.24
+Verdana	wavyDouble	9	6.59	4.39	3..4 7..8	0.24
+Verdana	wavyDouble	10	7.32	4.88	3..5 7..9	0.24
+Verdana	wavyDouble	10.5	7.69	5.13	4..6 8..10	0.24
+Verdana	wavyDouble	11	8.06	5.37	4..6 8..10	0.24
+Verdana	wavyDouble	12	8.79	5.86	5..7 9..11	0.24
+Verdana	wavyDouble	13	9.52	6.35	5..7 9..11	0.24
+Verdana	wavyDouble	14	10.25	6.84	5..7 10..12	0.24
+Verdana	wavyDouble	15	10.99	7.32	6..8 11..13	0.24
+Verdana	wavyDouble	16	11.72	7.81	6..8 11..13	0.24
+Verdana	wavyDouble	18	13.18	8.79	7..10 12..15	0.24
+Verdana	wavyDouble	20	14.65	9.77	8..11 13..16	0.24
+Verdana	wavyDouble	22	16.11	10.74	8..11 14..17	0.24
+Verdana	wavyDouble	24	17.58	11.72	9..12 15..18	0.24
+Verdana	wavyDouble	26	19.04	12.7	10..14 16..20	0.24
+Verdana	wavyDouble	28	20.51	13.67	10..14 17..21	0.24
+Verdana	wavyDouble	32	23.44	15.63	12..17 19..24	0.24
+Verdana	wavyDouble	36	26.37	17.58	13..19 21..27	0.24
+Verdana	wavyDouble	40	29.3	19.53	15..22 24..31	0.24
+Verdana	wavyDouble	44	32.23	21.48	16..24 26..34	0.24
+Verdana	wavyDouble	48	35.16	23.44	18..26 29..37	0.24
+Verdana	wavyDouble	54	39.55	26.37	20..30 32..42	0.24
+Verdana	wavyDouble	60	43.95	29.3	22..33 35..46	0.24
+Verdana	wavyDouble	66	48.34	32.23	24..36 39..51	0.24
+Verdana	wavyDouble	72	52.73	35.16	27..40 43..56	0.24
+Verdana	wavyHeavy	6	4.39	2.93	0..4	0.96
+Verdana	wavyHeavy	7	5.13	3.42	0..5	0.96
+Verdana	wavyHeavy	8	5.86	3.91	1..6	0.96
+Verdana	wavyHeavy	9	6.59	4.39	3..8	0.96
+Verdana	wavyHeavy	10	7.32	4.88	3..9	0.96
+Verdana	wavyHeavy	10.5	7.69	5.13	4..10	0.96
+Verdana	wavyHeavy	11	8.06	5.37	4..10	0.96
+Verdana	wavyHeavy	12	8.79	5.86	5..11	0.96
+Verdana	wavyHeavy	13	9.52	6.35	5..11	0.96
+Verdana	wavyHeavy	14	10.25	6.84	5..12	0.96
+Verdana	wavyHeavy	15	10.99	7.32	6..13	0.96
+Verdana	wavyHeavy	16	11.72	7.81	6..13	0.96
+Verdana	wavyHeavy	18	13.18	8.79	7..15	0.96
+Verdana	wavyHeavy	20	14.65	9.77	8..16	0.96
+Verdana	wavyHeavy	22	16.11	10.74	8..17	0.96
+Verdana	wavyHeavy	24	17.58	11.72	9..18	0.96
+Verdana	wavyHeavy	26	19.04	12.7	10..20	0.96
+Verdana	wavyHeavy	28	20.51	13.67	10..21	0.96
+Verdana	wavyHeavy	32	23.44	15.63	12..24	0.96
+Verdana	wavyHeavy	36	26.37	17.58	13..27	0.96
+Verdana	wavyHeavy	40	29.3	19.53	15..31	0.96
+Verdana	wavyHeavy	44	32.23	21.48	16..34	0.96
+Verdana	wavyHeavy	48	35.16	23.44	18..37	0.96
+Verdana	wavyHeavy	54	39.55	26.37	20..42	0.96
+Verdana	wavyHeavy	60	43.95	29.3	22..46	0.96
+Verdana	wavyHeavy	66	48.34	32.23	24..51	0.96
+Verdana	wavyHeavy	72	52.73	35.16	27..56	0.96

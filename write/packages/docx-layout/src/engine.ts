@@ -160,6 +160,10 @@ interface PrevPara {
   pBdr?: PBdr;
   pBdrKey?: string;
   boxBottomItemIdx?: number;
+  /** pé da caixa de bordas (twips) e a página/quadro onde ficou — o seguinte do grupo
+   *  sobe as laterais até ele */
+  boxBottom?: number;
+  boxPage?: object;
 }
 
 /** Parágrafo vizinho de uma célula na ordem do documento (espaçamento contextual). */
@@ -314,6 +318,8 @@ class Engine {
    *  espaço = colapso(depois, antes) − depois (oráculo tocref-sectgap). null = suprime */
   topGapPrevAfter: number | null = null;
   prev: PrevPara | null = null;
+  /** pé da última caixa de parágrafo pintada (grupos de bordas) */
+  private lastBox: { bottom: number; page?: object } | null = null;
   firstInDoc = true;
   usedNumPages = false;
   geoms: SectGeom[] = [];
@@ -1311,7 +1317,7 @@ class Engine {
         const groupedNext = this.groupsWithNext(p, blocks[bi + 1], env);
         const bandB = this.borderBottomExtent(p, groupedNext);
         y += bandB;
-        this.paintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
+        this.paintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext, items);
         // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
         if (ps && !hfWrap && !cellAnch) this.placeFloats(p, ps, x + this.staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
         if (cellAnch) items.push(...cellAnch);
@@ -1325,7 +1331,7 @@ class Engine {
           widow: this.ctx.fmt.settings.compatibilityMode >= 15 && (p.widowControl || p.ppr.widowControl === undefined),
         };
         paras.set(`${ref}/b${bi}`, lastPara);
-        prev = { after, afterAuto: p.afterAuto, ...(p.styleId ? { styleId: p.styleId } : {}), contextual: p.contextual, ...(p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr) } : {}) };
+        prev = { after, afterAuto: p.afterAuto, ...(p.styleId ? { styleId: p.styleId } : {}), contextual: p.contextual, ...(p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr), boxBottom: y, boxPage: items } : {}) };
       } else if (b.rows.every((r) => isHiddenRow(this.ctx, r))) {
         // tabela só com linhas ocultas: some (oráculo hidden)
       } else if (b.tblPr?.tblpPr && b.tblPr.tblpPr.tblpYSpec !== 'inline' && !hfFlow && this.inCell) {
@@ -1614,10 +1620,13 @@ class Engine {
   }
 
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
-  private paintBox(out: PageItem[], p: PreparedPara, x: number, width: number, top: number, bottom: number, prev: PrevPara | null, at = out.length, groupedNext = false): void {
+  private paintBox(out: PageItem[], p: PreparedPara, x: number, width: number, top: number, bottom: number, prev: PrevPara | null, at = out.length, groupedNext = false, page?: object): void {
     const hasFill = !!shadingFill(p.ppr.shd, this.ctx.fmt.theme);
+    this.lastBox = { bottom, page };
     if (!p.ppr.pBdr && !hasFill) return;
     const grouped = !!prev?.pBdrKey && prev.pBdrKey === bdrKey(p.ppr);
+    // no grupo, a caixa começa no pé da anterior: as laterais passam pelo espaço entre eles
+    if (grouped && prev!.boxBottom !== undefined && prev!.boxPage === page && prev!.boxBottom < top) top = prev!.boxBottom;
     const left = x + p.indLeft + Math.min(0, p.firstLine);
     const right = x + width - p.indRight;
     const box: PageItem[] = [];
@@ -1844,7 +1853,7 @@ class Engine {
       let bottom = last.y + last.line.height;
       this.noteColContent(bottom);
       if (isLast) bottom += this.borderBottomExtent(p, groupedNext);
-      this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext);
+      this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext, this.cur);
       frag = [];
     };
     this.y += this.borderTopExtent(p, this.prev);
@@ -2135,6 +2144,7 @@ class Engine {
       ...(p.styleId ? { styleId: p.styleId } : {}),
       contextual: p.contextual,
       ...(p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr) } : {}),
+      ...(p.ppr.pBdr && this.lastBox ? { boxBottom: this.lastBox.bottom, boxPage: this.lastBox.page } : {}),
     };
   }
 

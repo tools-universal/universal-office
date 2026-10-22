@@ -1,0 +1,29 @@
+<!-- document.xml (corpo) -->
+<w:p>
+  <w:r>
+    <w:t>Primeiro</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:r>
+    <w:pict w14:anchorId="66493047">
+      <v:rect id="_x0000_i1025" style="width:0;height:1.5pt" o:hralign="center" o:hrstd="t" o:hr="t" fillcolor="#a0a0a0" stroked="f"/>
+    </w:pict>
+  </w:r>
+</w:p>
+<w:p>
+  <w:r>
+    <w:t>Terceiro paragrafo</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:r>
+    <w:t>Quarto</w:t>
+  </w:r>
+</w:p>
+<w:sectPr>
+  <w:pgSz w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+  <w:cols w:space="708"/>
+  <w:docGrid w:linePitch="360"/>
+</w:sectPr>

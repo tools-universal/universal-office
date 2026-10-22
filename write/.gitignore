@@ -28,3 +28,5 @@ tools/image-lab/.out/
 tools/textbox-lab/.out/
 # Oráculo do layout do texto (hifenização, números de linha) — idem
 tools/textlayout-lab/.out/
+# Oráculo da Página Inicial (sublinhados, listas, colagem, efeitos de texto) — idem
+tools/home-lab/.out/

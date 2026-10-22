@@ -517,6 +517,46 @@ public sealed class SfntFont : ILayoutFont
         return info;
     }
 
+    private Dictionary<int, (int YMax, int YMin)>? _vdmx;
+    private bool _vdmxRead;
+
+    /// <summary>VDMX, grupo da razão 1:1 (ou a que vale para todas): yMax/yMin no em em pixels.</summary>
+    public (int YMax, int YMin)? Vdmx(int ppem)
+    {
+        if (!_vdmxRead)
+        {
+            _vdmxRead = true;
+            if (_tables.TryGetValue("VDMX", out var t))
+            {
+                try
+                {
+                    var v = _view;
+                    long o = t.Offset;
+                    int nRatios = v.GetUint16(o + 4);
+                    for (int i = 0; i < nRatios; i++)
+                    {
+                        long r = o + 6 + i * 4;
+                        int x = v.GetUint8(r + 1), y0 = v.GetUint8(r + 2), y1 = v.GetUint8(r + 3);
+                        // 1:1 (dispositivo quadrado) ou a razão "todas" (0:0:0)
+                        if (!(x == 0 || (y0 <= x && x <= y1))) continue;
+                        long g = o + v.GetUint16(o + 6 + nRatios * 4 + i * 2);
+                        int recs = v.GetUint16(g);
+                        var tab = new Dictionary<int, (int, int)>();
+                        for (int k = 0; k < recs; k++)
+                        {
+                            long e = g + 4 + k * 6;
+                            tab[v.GetUint16(e)] = (v.GetInt16(e + 2), v.GetInt16(e + 4));
+                        }
+                        _vdmx = tab;
+                        break;
+                    }
+                }
+                catch (Exception) { _vdmx = null; }
+            }
+        }
+        return _vdmx is not null && _vdmx.TryGetValue(ppem, out var r2) ? r2 : null;
+    }
+
     public bool HasColorGlyphs() => ColrTables() is not null;
 
     public IReadOnlyList<ColorLayer>? ColorLayers(int glyphId)

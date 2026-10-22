@@ -89,6 +89,9 @@ public sealed class UnderlineSpec
     public string Val = "single";
     public string? Color;
     public string? ThemeColor;
+    /// <summary>00-FF em hex (fração do tint/shade da cor do tema).</summary>
+    public string? ThemeTint;
+    public string? ThemeShade;
 }
 
 public sealed class LangSpec
@@ -1109,6 +1112,8 @@ public static class OoxmlProps
                         var u = new UnderlineSpec { Val = val ?? "single" };
                         if (Js.Truthy(el.Attr("w:color"))) u.Color = el.Attr("w:color");
                         if (Js.Truthy(el.Attr("w:themeColor"))) u.ThemeColor = el.Attr("w:themeColor");
+                        if (Js.Truthy(el.Attr("w:themeTint"))) u.ThemeTint = el.Attr("w:themeTint");
+                        if (Js.Truthy(el.Attr("w:themeShade"))) u.ThemeShade = el.Attr("w:themeShade");
                         p.U = u;
                         break;
                     }

@@ -825,7 +825,14 @@ public static class DocumentReader
                     var style = DrawingReader.VmlShapeStyle(el, geom);
                     if (geom == "line") style.Fill = null;
                     var shape = new DrawingShape { Style = style, WidthTwips = w, HeightTwips = h };
-                    if (el.Attr("o:hr") == "t") shape.Hr = true;
+                    if (el.Attr("o:hr") == "t")
+                    {
+                        shape.Hr = true;
+                        double pct = Js.ParseInt(el.Attr("o:hrpct"));
+                        if (pct > 0) shape.HrPct = pct;
+                        if (el.Attr("o:hrnoshade") == "t") shape.HrNoShade = true;
+                        if (Js.Truthy(el.Attr("o:hralign"))) shape.HrAlign = el.Attr("o:hralign");
+                    }
                     if (tag == "line")
                     {
                         double[] Pt(string? s) => (s ?? "0,0").Split(',').Select(v => DrawingReader.VmlLenTwips(v.Trim()) ?? 0).ToArray();

@@ -1,0 +1,94 @@
+{
+    "Ctrl+Shift+V":  {
+                         "command":  "PasteTextOnly",
+                         "category":  1
+                     },
+    "Ctrl+Shift+C":  {
+                         "command":  "",
+                         "category":  0
+                     },
+    "Ctrl+Alt+V":  {
+                       "command":  "PasteFormat",
+                       "category":  1
+                   },
+    "Ctrl+Shift+D":  {
+                         "command":  "DoubleUnderline",
+                         "category":  1
+                     },
+    "Ctrl+Shift+W":  {
+                         "command":  "WordUnderline",
+                         "category":  1
+                     },
+    "Shift+F3":  {
+                     "command":  "ChangeCase",
+                     "category":  1
+                 },
+    "Ctrl+G":  {
+                   "command":  "RightPara",
+                   "category":  1
+               },
+    "F5":  {
+               "command":  "EditGoTo",
+               "category":  1
+           },
+    "Ctrl+Shift+L":  {
+                         "command":  "ApplyListBullet",
+                         "category":  1
+                     },
+    "Ctrl+Alt+L":  {
+                       "command":  "InsertListNumField",
+                       "category":  1
+                   },
+    "Alt+Shift+Left":  {
+                           "command":  "OutlinePromote",
+                           "category":  1
+                       },
+    "Alt+Shift+Right":  {
+                            "command":  "OutlineDemote",
+                            "category":  1
+                        },
+    "Ctrl+Shift+H":  {
+                         "command":  "Hidden",
+                         "category":  1
+                     },
+    "Ctrl+Shift+K":  {
+                         "command":  "SmallCaps",
+                         "category":  1
+                     },
+    "Ctrl+Shift+A":  {
+                         "command":  "AllCaps",
+                         "category":  1
+                     },
+    "Ctrl+D":  {
+                   "command":  "FormatFont",
+                   "category":  1
+               },
+    "Ctrl+U":  {
+                   "command":  "EditReplace",
+                   "category":  1
+               },
+    "Ctrl+Space":  {
+                       "command":  "ResetChar",
+                       "category":  1
+                   },
+    "Ctrl+Alt+H":  {
+                       "command":  "Highlight",
+                       "category":  1
+                   },
+    "Alt+Ctrl+V":  {
+                       "command":  "PasteFormat",
+                       "category":  1
+                   },
+    "Ctrl+F3":  {
+                    "command":  "Spike",
+                    "category":  1
+                },
+    "Ctrl+Shift+F3":  {
+                          "command":  "InsertSpike",
+                          "category":  1
+                      },
+    "Ctrl+Shift+N":  {
+                         "command":  "Bold",
+                         "category":  1
+                     }
+}

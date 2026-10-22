@@ -74,6 +74,7 @@ public static class Paint
                 Flush();
                 if (g.Kind == GlyphKind.Tab && pg.Leader is not null) PaintLeader(ctx, outp, pg, frameX, baseY, all);
                 if (g.Kind == GlyphKind.Obj && g.Obj is not null && g.Adv > 0) PaintInlineObject(ctx, outp, g, frameX + pg.X, baseY);
+                if (g.Kind == GlyphKind.Obj && g.Hr is not null && g.Obj?.Shape is not null && line.HrFrame is { } hf) PaintHr(outp, g, frameX, hf, baseY);
                 if (g.Kind == GlyphKind.Box && g.Box is not null) PaintCheckBox(outp, g, frameX + pg.X, baseY);
                 continue;
             }
@@ -231,6 +232,32 @@ public static class Paint
         public Glyph G = null!;
     }
 
+    /// <summary>
+    /// Linha horizontal VML (o:hr) como o Word a desenha no PDF (oráculo vmlhr, lab home-lab):
+    /// um retângulo da cor de preenchimento com o pé em baseline + descendente da fonte do run
+    /// − 2,5 pt; largura = a do quadro, ou o:hrpct (décimos de %) alinhado por o:hralign; sem
+    /// o:hrnoshade, o relevo: bordas de 2 px — em cima e à esquerda na cor, embaixo e à direita E3E3E3.
+    /// </summary>
+    private static void PaintHr(List<PageItem> outp, Glyph g, double frameX, (double Left, double Right) fr, double baseY)
+    {
+        var sh = g.Obj!.Shape!;
+        double avail = fr.Right - fr.Left;
+        double w = sh.HrPct > 0 ? (avail * sh.HrPct) / 1000 : sh.WidthTwips > 0 ? Math.Min(sh.WidthTwips, avail) : avail;
+        if (w <= 0) w = avail;
+        double x0 = frameX + fr.Left + (sh.HrAlign == "left" ? 0 : sh.HrAlign == "right" ? avail - w : (avail - w) / 2);
+        var m = Fonts.FaceMetrics(g.Face.Font);
+        double bottom = baseY - g.Style.Shift + m.Descent * g.SizePt * 20 - 50;
+        double h = g.Hr ?? sh.HeightTwips;
+        string fill = sh.Style.Fill ?? "A0A0A0";
+        outp.Add(new RectItem { X = x0, Y = bottom - h, W = w, H = h, Fill = fill });
+        if (sh.HrNoShade || h < 10 || w < 10) return;
+        const double e = 4.8; // 2 px de 600 dpi
+        outp.Add(new RectItem { X = x0, Y = bottom - h, W = w, H = e, Fill = fill });
+        outp.Add(new RectItem { X = x0, Y = bottom - h + e, W = e, H = h - 2 * e, Fill = fill });
+        outp.Add(new RectItem { X = x0, Y = bottom - e, W = w, H = e, Fill = "E3E3E3" });
+        outp.Add(new RectItem { X = x0 + w - e, Y = bottom - h + e, W = e, H = h - 2 * e, Fill = "E3E3E3" });
+    }
+
     private static void PaintDecorations(List<PageItem> outp, List<PlacedGlyph> all, double frameX, double baseY, Line line)
     {
         List<Seg> Segs(Func<Glyph, bool> pred)
@@ -263,20 +290,8 @@ public static class Paint
             if (cur is not null) res.Add(cur);
             return res;
         }
-        foreach (var s in Segs(g => g.Style.Underline is not null && g.Style.Underline.Val != "none"))
-        {
-            var st = s.G.Style;
-            var m = Fonts.FaceMetrics(s.G.Face.Font);
-            double sz = st.SizePt * 20;
-            double y = baseY - st.Shift + m.UnderlinePos * sz;
-            double w = Math.Max(0.5, m.UnderlineThick * st.SizePt);
-            string color = st.Underline!.Color ?? st.Color;
-            string val = st.Underline.Val;
-            if (val == "words" && s.G.Kind == GlyphKind.Space) continue;
-            string? dash = val.StartsWith("dotted", StringComparison.Ordinal) ? "dotted" : val.StartsWith("dash", StringComparison.Ordinal) ? "dashed" : null;
-            outp.Add(new LineItem { X1 = s.X0, Y1 = y, X2 = s.X1, Y2 = y, Color = color, WidthPt = val == "thick" ? w * 2 : w, Dash = dash });
-            if (val == "double") outp.Add(new LineItem { X1 = s.X0, Y1 = y + w * 20 * 2, X2 = s.X1, Y2 = y + w * 20 * 2, Color = color, WidthPt = w });
-        }
+        // sublinhados: a geometria medida no Word (Underline.cs)
+        Underline.Paint(outp, all, frameX, baseY);
         foreach (var s in Segs(g => g.Style.Strike || g.Style.Dstrike))
         {
             var st = s.G.Style;

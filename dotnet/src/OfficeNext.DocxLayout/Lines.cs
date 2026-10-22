@@ -51,6 +51,8 @@ public sealed class Line
     public string? GapTab;
     /// <summary>um tab atravessou o flutuante: a linha já ocupou o vão seguinte (oráculo ftrtabs)</summary>
     public bool Spanned;
+    /// <summary>linha com traço horizontal (o:hr): o espaço do quadro (twips, relativos ao quadro)</summary>
+    public (double Left, double Right)? HrFrame;
 }
 
 public struct LineFrame
@@ -819,6 +821,7 @@ public sealed class LineBreaker
             Last = lastLine,
             GapTab = gapTab,
             Spanned = spanned,
+            HrFrame = placed.Any(pg => pg.G.Hr is not null) ? (frame.Left, frame.Right) : null,
         };
     }
 }

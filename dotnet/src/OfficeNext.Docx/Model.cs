@@ -150,6 +150,12 @@ public sealed class DrawingShape
     public RectTw? InlineEffect;
     /// <summary>linha horizontal VML (v:rect o:hr="t", "Inserir linha horizontal")</summary>
     public bool Hr;
+    /// <summary>o:hrpct — largura em décimos de % da coluna (990 = 99%); 0 = a largura dada ou 100%</summary>
+    public double HrPct;
+    /// <summary>o:hrnoshade — sem o relevo (só o preenchimento)</summary>
+    public bool HrNoShade;
+    /// <summary>o:hralign — left | center | right</summary>
+    public string? HrAlign;
     /// <summary>wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto</summary>
     public bool Hidden;
 

@@ -230,8 +230,10 @@ public static class Para
         var tf = rpr.TextFill;
         string? color = (tf is not null ? (tf.Color ?? (Js.Truthy(tf.ThemeColor) ? Resolve.ResolveColor(null, tf.ThemeColor, null, null, theme) : null)) : null)
             ?? Resolve.ResolveColor(rpr.Color, theme);
+        // cor do sublinhado: hex ou cor do tema (recalculada do tema, como no texto); auto = a do texto
+        string? uColor = rpr.U is not null ? Resolve.ResolveColor(rpr.U.Color, rpr.U.ThemeColor, rpr.U.ThemeTint, rpr.U.ThemeShade, theme) : null;
         UnderlineStyle? u = rpr.U is not null && rpr.U.Val != "none" && rpr.U.Val != ""
-            ? new UnderlineStyle { Val = rpr.U.Val, Color = Js.Truthy(rpr.U.Color) && rpr.U.Color != "auto" ? rpr.U.Color : null }
+            ? new UnderlineStyle { Val = rpr.U.Val, Color = uColor }
             : null;
         string? shd = Resolve.ShadingFill(rpr.Shd, theme);
         var style = new RunStyle

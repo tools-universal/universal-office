@@ -64,6 +64,9 @@ export interface UnderlineSpec {
   val: string;
   color?: string;
   themeColor?: string;
+  /** 00-FF em hex (fração do tint/shade da cor do tema). */
+  themeTint?: string;
+  themeShade?: string;
 }
 
 /**
@@ -499,6 +502,8 @@ export function readRPr(rPr: XmlElement | undefined): RPr | undefined {
         const u: UnderlineSpec = { val: val ?? 'single' };
         if (el.attrs['w:color']) u.color = el.attrs['w:color'];
         if (el.attrs['w:themeColor']) u.themeColor = el.attrs['w:themeColor'];
+        if (el.attrs['w:themeTint']) u.themeTint = el.attrs['w:themeTint'];
+        if (el.attrs['w:themeShade']) u.themeShade = el.attrs['w:themeShade'];
         p.u = u;
         break;
       }

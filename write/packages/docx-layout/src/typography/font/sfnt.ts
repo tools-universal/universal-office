@@ -118,6 +118,38 @@ export class SfntFont implements LayoutFont {
     }
   }
 
+  private vdmxTab: Map<number, { yMax: number; yMin: number }> | null | undefined;
+
+  /** VDMX, grupo da razão 1:1 (ou a que vale para todas): yMax/yMin no em em pixels. */
+  vdmx(ppem: number): { yMax: number; yMin: number } | undefined {
+    if (this.vdmxTab === undefined) {
+      this.vdmxTab = null;
+      const t = this.tables.get('VDMX');
+      if (t) {
+        try {
+          const v = this.view, o = t.offset;
+          const nRatios = v.getUint16(o + 4);
+          for (let i = 0; i < nRatios; i++) {
+            const r = o + 6 + i * 4;
+            const x = v.getUint8(r + 1), y0 = v.getUint8(r + 2), y1 = v.getUint8(r + 3);
+            // 1:1 (dispositivo quadrado) ou a razão "todas" (0:0:0)
+            if (!(x === 0 || (y0 <= x && x <= y1))) continue;
+            const g = o + v.getUint16(o + 6 + nRatios * 4 + i * 2);
+            const recs = v.getUint16(g);
+            const tab = new Map<number, { yMax: number; yMin: number }>();
+            for (let k = 0; k < recs; k++) {
+              const e = g + 4 + k * 6;
+              tab.set(v.getUint16(e), { yMax: v.getInt16(e + 2), yMin: v.getInt16(e + 4) });
+            }
+            this.vdmxTab = tab;
+            break;
+          }
+        } catch { this.vdmxTab = null; }
+      }
+    }
+    return this.vdmxTab?.get(ppem);
+  }
+
   private kernMap: KernMap;
   /** PairPos formato 2: ajuste contra a classe 0 do 2º glifo, por 1º glifo */
   private kernClass0: KernClass0 = new Map();

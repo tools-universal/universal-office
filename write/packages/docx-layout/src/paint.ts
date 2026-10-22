@@ -5,6 +5,7 @@ import { WORD_UNIT } from './para.js';
 import type { PageItem, GlyphRunItem, PictureLook } from './tree.js';
 import { pictureLook } from './picture.js';
 import { faceMetrics } from './fonts.js';
+import { paintUnderlines } from './underline.js';
 import { resolveColor, shadingFill, fontOfSlot } from './resolve.js';
 import type { DocContext } from './context.js';
 import { isEmf, renderEmf } from './emf.js';
@@ -42,6 +43,7 @@ export function paintLine(
       flush();
       if (g.kind === 'tab' && pg.leader) paintLeader(ctx, out, pg, frameX, baseY, all);
       if (g.kind === 'obj' && g.obj && g.adv > 0) paintInlineObject(ctx, out, g, frameX + pg.x, baseY);
+      if (g.kind === 'obj' && g.hr !== undefined && g.obj?.shape && line.hrFrame) paintHr(out, g, frameX, line.hrFrame, baseY);
       if (g.kind === 'box' && g.box) paintCheckBox(out, g, frameX + pg.x, baseY);
       continue;
     }
@@ -219,6 +221,32 @@ function paintInlineObject(ctx: DocContext, out: PageItem[], g: Glyph, x0: numbe
   }
 }
 
+/**
+ * Linha horizontal VML (o:hr) como o Word a desenha no PDF (oráculo vmlhr, lab home-lab):
+ * um retângulo da cor de preenchimento com o pé em baseline + descendente da fonte do run
+ * − 2,5 pt (o objeto tem h + 5 pt de altura e o traço fica no meio); largura = a do quadro,
+ * ou o:hrpct (décimos de %) alinhado por o:hralign; sem o:hrnoshade, o relevo: bordas de
+ * 2 px (0,24 pt) — em cima e à esquerda na cor, embaixo e à direita E3E3E3.
+ */
+function paintHr(out: PageItem[], g: Glyph, frameX: number, fr: { left: number; right: number }, baseY: number): void {
+  const sh = g.obj!.shape!;
+  const avail = fr.right - fr.left;
+  let w = sh.hrPct ? (avail * sh.hrPct) / 1000 : sh.widthTwips > 0 ? Math.min(sh.widthTwips, avail) : avail;
+  if (w <= 0) w = avail;
+  const x0 = frameX + fr.left + (sh.hrAlign === 'left' ? 0 : sh.hrAlign === 'right' ? avail - w : (avail - w) / 2);
+  const m = faceMetrics(g.face.font);
+  const bottom = baseY - g.style.shift + m.descent * g.sizePt * 20 - 50;
+  const h = g.hr ?? sh.heightTwips;
+  const fill = sh.style.fill ?? 'A0A0A0';
+  out.push({ t: 'rect', x: x0, y: bottom - h, w, h, fill });
+  if (sh.hrNoShade || h < 10 || w < 10) return;
+  const e = 4.8; // 2 px de 600 dpi
+  out.push({ t: 'rect', x: x0, y: bottom - h, w, h: e, fill });
+  out.push({ t: 'rect', x: x0, y: bottom - h + e, w: e, h: h - 2 * e, fill });
+  out.push({ t: 'rect', x: x0, y: bottom - e, w, h: e, fill: 'E3E3E3' });
+  out.push({ t: 'rect', x: x0 + w - e, y: bottom - h + e, w: e, h: h - 2 * e, fill: 'E3E3E3' });
+}
+
 function paintDecorations(out: PageItem[], all: PlacedGlyph[], frameX: number, baseY: number, line: Line): void {
   type Seg = { x0: number; x1: number; g: Glyph };
   const segs = (pred: (g: Glyph) => boolean): Seg[] => {
@@ -240,19 +268,8 @@ function paintDecorations(out: PageItem[], all: PlacedGlyph[], frameX: number, b
     if (cur) res.push(cur);
     return res;
   };
-  for (const s of segs((g) => !!g.style.underline && g.style.underline.val !== 'none')) {
-    const st = s.g.style;
-    const m = faceMetrics(s.g.face.font);
-    const sz = st.sizePt * 20;
-    const y = baseY - st.shift + m.underlinePos * sz;
-    const w = Math.max(0.5, m.underlineThick * st.sizePt);
-    const color = st.underline!.color ?? st.color;
-    const val = st.underline!.val;
-    if (val === 'words' && s.g.kind === 'space') continue;
-    const dash = val.startsWith('dotted') ? 'dotted' as const : val.startsWith('dash') ? 'dashed' as const : undefined;
-    out.push({ t: 'line', x1: s.x0, y1: y, x2: s.x1, y2: y, color, widthPt: val === 'thick' ? w * 2 : w, ...(dash ? { dash } : {}) });
-    if (val === 'double') out.push({ t: 'line', x1: s.x0, y1: y + w * 20 * 2, x2: s.x1, y2: y + w * 20 * 2, color, widthPt: w });
-  }
+  // sublinhados: a geometria medida no Word (underline.ts)
+  paintUnderlines(out, all, frameX, baseY);
   for (const s of segs((g) => g.style.strike || g.style.dstrike)) {
     const st = s.g.style;
     const m = faceMetrics(s.g.face.font);

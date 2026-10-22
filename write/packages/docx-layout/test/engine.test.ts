@@ -157,7 +157,8 @@ describe('motor: hiperlinks (oráculo hlink)', () => {
   const probe = (runs: string, styles = HSTYLE) => {
     const res = run(link(runs), { styles });
     const g = glyphRuns(res).find((x) => x.text.startsWith('Link'))!;
-    const underlined = res.pages[0]!.items.some((i) => i.t === 'line' && Math.abs(i.y1 - g.y) < 100);
+    // o sublinhado sai como retângulo logo abaixo da baseline (underline.ts)
+    const underlined = res.pages[0]!.items.some((i) => i.t === 'rect' && i.y > g.y && i.y - g.y < 100);
     return { color: g.color, underlined };
   };
   it('o w:hyperlink sozinho não formata: run sem rPr fica preto e sem sublinhado', () => {

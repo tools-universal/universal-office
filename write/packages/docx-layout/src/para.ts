@@ -208,7 +208,9 @@ export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: 
   // w14:textFill (Word 2010+) manda sobre w:color e traz a opacidade
   const tf = rpr.textFill;
   const color = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : undefined))) ?? resolveColor(rpr.color, theme);
-  const u = rpr.u && rpr.u.val !== 'none' && rpr.u.val !== '' ? { val: rpr.u.val, ...(rpr.u.color && rpr.u.color !== 'auto' ? { color: rpr.u.color } : {}) } : undefined;
+  // cor do sublinhado: hex ou cor do tema (recalculada do tema, como no texto); auto = a do texto
+  const uColor = rpr.u ? resolveColor({ val: rpr.u.color, themeColor: rpr.u.themeColor, themeTint: rpr.u.themeTint, themeShade: rpr.u.themeShade }, theme) : undefined;
+  const u = rpr.u && rpr.u.val !== 'none' && rpr.u.val !== '' ? { val: rpr.u.val, ...(uColor ? { color: uColor } : {}) } : undefined;
   const shd = shadingFill(rpr.shd, theme);
   const style: RunStyle = {
     rpr,

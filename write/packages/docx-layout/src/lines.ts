@@ -59,6 +59,8 @@ export interface Line {
   gapTab?: 'break' | 'start';
   /** um tab atravessou o flutuante: a linha já ocupou o vão seguinte (oráculo ftrtabs) */
   spanned?: boolean;
+  /** linha com traço horizontal (o:hr): o espaço do quadro (twips, relativos ao quadro) */
+  hrFrame?: { left: number; right: number };
 }
 
 export interface LineFrame {
@@ -680,6 +682,7 @@ export class LineBreaker {
       ...(clearAfter ? { clear: true } : {}),
       ...(gapTab ? { gapTab } : {}),
       ...(spanned ? { spanned: true } : {}),
+      ...(placed.some((pg) => pg.g.hr !== undefined) ? { hrFrame: { left: frame.left, right: frame.right } } : {}),
       last,
     };
   }

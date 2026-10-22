@@ -320,6 +320,10 @@ internal sealed class PrevPara
     public string? PBdrKey;
     /// <summary>lista (abstractNum) do parágrafo numerado/com marcador</summary>
     public string? List;
+    /// <summary>pé da caixa de bordas (twips) e a página/quadro onde ficou — o seguinte do
+    /// grupo sobe as laterais até ele</summary>
+    public double? BoxBottom;
+    public object? BoxPage;
 
     public PrevPara ShallowClone() => (PrevPara)MemberwiseClone();
 }
@@ -339,6 +343,8 @@ internal sealed class Engine
     /// espaço = colapso(depois, antes) − depois (oráculo tocref-sectgap). null = suprime</summary>
     private double? _topGapPrevAfter;
     private PrevPara? _prev;
+    /// <summary>pé da última caixa de parágrafo pintada (grupos de bordas)</summary>
+    private (double Bottom, object? Page)? _lastBox;
     private bool _firstInDoc = true;
     public bool UsedNumPages;
     private List<SectGeom> _geoms = new();
@@ -1548,7 +1554,7 @@ internal sealed class Engine
                 bool groupedNext = GroupsWithNext(p, bi + 1 < n ? blocks[bi + 1] : null, env);
                 double bandB = BorderBottomExtent(p, groupedNext);
                 y += bandB;
-                PaintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
+                PaintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext, items);
                 // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
                 if (ps is not null && !hfWrap && cellAnch is null) PlaceFloats(p, ps, x + _staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
                 if (cellAnch is not null) items.AddRange(cellAnch);
@@ -1567,6 +1573,7 @@ internal sealed class Engine
                 {
                     After = after, AfterAuto = p.AfterAuto, StyleId = p.StyleId, Contextual = p.Contextual,
                     PBdr = p.Ppr.PBdr, PBdrKey = BdrKey(p.Ppr),
+                    BoxBottom = p.Ppr.PBdr is not null ? y : null, BoxPage = p.Ppr.PBdr is not null ? items : null,
                 };
             }
             else if (b is TableBlock htb && htb.Rows.All(r => TableEngine.IsHiddenRow(_ctx, r)))
@@ -2059,11 +2066,14 @@ internal sealed class Engine
     }
 
     /// <summary>Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado).</summary>
-    private void PaintBox(List<PageItem> outp, PreparedPara p, double x, double width, double top, double bottom, PrevPara? prev, int at, bool groupedNext = false)
+    private void PaintBox(List<PageItem> outp, PreparedPara p, double x, double width, double top, double bottom, PrevPara? prev, int at, bool groupedNext = false, object? page = null)
     {
         bool hasFill = Resolve.ShadingFill(p.Ppr.Shd, _ctx.Fmt.Theme) is not null;
+        _lastBox = (bottom, page);
         if (p.Ppr.PBdr is null && !hasFill) return;
         bool grouped = prev?.PBdrKey is not null && prev.PBdrKey == BdrKey(p.Ppr);
+        // no grupo, a caixa começa no pé da anterior: as laterais passam pelo espaço entre eles
+        if (grouped && prev!.BoxBottom is { } bb && ReferenceEquals(prev.BoxPage, page) && bb < top) top = bb;
         double left = x + p.IndLeft + Math.Min(0, p.FirstLine);
         double right = x + width - p.IndRight;
         var box = new List<PageItem>();
@@ -2303,7 +2313,7 @@ internal sealed class Engine
             double bottom = last.Y + last.Line.Height;
             NoteColContent(bottom);
             if (isLast) bottom += BorderBottomExtent(p, groupedNext);
-            PaintBox(_cur.Body, p, frameX, ColFrame().W, boxTop, bottom, _prev, boxAt, isLast && groupedNext);
+            PaintBox(_cur.Body, p, frameX, ColFrame().W, boxTop, bottom, _prev, boxAt, isLast && groupedNext, _cur);
             frag = new List<Frag>();
         }
         _y += BorderTopExtent(p, _prev);
@@ -2642,6 +2652,8 @@ internal sealed class Engine
             Contextual = p.Contextual,
             PBdr = p.Ppr.PBdr,
             PBdrKey = BdrKey(p.Ppr),
+            BoxBottom = p.Ppr.PBdr is not null && _lastBox is { } lb ? lb.Bottom : null,
+            BoxPage = p.Ppr.PBdr is not null && _lastBox is { } lb2 ? lb2.Page : null,
         };
     }
 

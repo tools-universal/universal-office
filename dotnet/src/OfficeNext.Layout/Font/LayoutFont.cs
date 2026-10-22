@@ -62,4 +62,7 @@ public interface ILayoutFont
     /// <summary>Camadas de um glifo colorido (COLR v0 + CPAL, paleta 0), na ordem de
     /// pintura; nulo se o glifo não é colorido.</summary>
     IReadOnlyList<ColorLayer>? ColorLayers(int glyphId) => null;
+    /// <summary>VDMX (razão 1:1): yMax/yMin em pixels para o em pedido — o que o GDI dá como
+    /// ascendente/descendente da fonte realizada; nulo se a fonte não tem esse em.</summary>
+    (int YMax, int YMin)? Vdmx(int ppem) => null;
 }
