@@ -1,0 +1,10 @@
+# bg-pattern-2pages
+story=1 sec=1 page=2 sel=10..10 paraText=[P2\r] undoSteps=4
+== background <w:background w:color="C80000"><v:background id="_x0000_s1025" o:bwmode="white" fillcolor="#c80000"><v:fill r:id="rId2" o:title="Contorno de losango" color2="#ffffc8" type="pattern"/>
+== sectPr <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>
+== rel <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.gif"/>
+== media word/media/image1.gif 76
+== ct <Default Extension="gif" ContentType="image/gif"/>
+== ct <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+== ct <Default Extension="xml" ContentType="application/xml"/>
+

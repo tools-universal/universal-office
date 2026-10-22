@@ -1,0 +1,37 @@
+# wm-multi
+story=1 sec=1 page=1 sel=0..0 paraText=[Corpo\f] undoSteps=1
+== sectPr <w:sectPr><w:headerReference w:type="even" r:id="rId6"/><w:headerReference w:type="default" r:id="rId7"/><w:footerReference w:type="even" r:id="rId8"/><w:footerReference w:type="default" r:id="rId9"/><w:headerReference w:type="first" r:id="rId10"/><w:footerReference w:type="first" r:id="rId11"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:titlePg/><w:docGrid w:linePitch="360"/></w:sectPr>
+== sectPr <w:sectPr><w:headerReference w:type="default" r:id="rId12"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:titlePg/><w:docGrid w:linePitch="360"/></w:sectPr>
+== word/footer1.xml
+
+<w:p><w:pPr><w:pStyle w:val="Rodap"/></w:pPr></w:p></w:ftr>
+== word/footer2.xml
+
+<w:p><w:pPr><w:pStyle w:val="Rodap"/></w:pPr></w:p></w:ftr>
+== word/footer3.xml
+
+<w:p><w:pPr><w:pStyle w:val="Rodap"/></w:pPr></w:p></w:ftr>
+== word/header1.xml
+
+<w:p><w:pPr><w:pStyle w:val="Cabealho"/></w:pPr></w:p></w:hdr>
+== word/header2.xml
+
+<w:sdt><w:sdtPr><w:id w:val="-1046224350"/><w:docPartObj><w:docPartGallery w:val="Watermarks"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtContent>
+<w:p><w:pPr><w:pStyle w:val="Cabealho"/></w:pPr><w:r><w:pict w14:anchorId="6A6831BB"><v:shapetype id="_x0000_t136" coordsize="21600,21600" o:spt="136" adj="10800" path="m@7,l@8,m@5,21600l@6,21600e"><v:formulas><v:f eqn="sum #0 0 10800"/><v:f eqn="prod #0 2 1"/><v:f eqn="sum 21600 0 @1"/><v:f eqn="sum 0 0 @2"/><v:f eqn="sum 21600 0 @3"/><v:f eqn="if @0 @3 0"/><v:f eqn="if @0 21600 @1"/><v:f eqn="if @0 0 @2"/><v:f eqn="if @0 @4 21600"/><v:f eqn="mid @5 @6"/><v:f eqn="mid @8 @5"/><v:f eqn="mid @7 @8"/><v:f eqn="mid @6 @7"/><v:f eqn="sum @6 0 @5"/></v:formulas><v:path textpathok="t" o:connecttype="custom" o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800" o:connectangles="270,180,90,0"/><v:textpath on="t" fitshape="t"/><v:handles><v:h position="#0,bottomRight" xrange="6629,14971"/></v:handles><o:lock v:ext="edit" text="t" shapetype="t"/></v:shapetype>
+    <v:shape id="PowerPlusWaterMarkObject357476642" o:spid="_x0000_s1025" type="#_x0000_t136" style="position:absolute;margin-left:0;margin-top:0;width:527.85pt;height:131.95pt;rotation:315;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" o:allowincell="f" fillcolor="silver" stroked="f"><v:fill opacity=".5"/><v:textpath style="font-family:&quot;calibri&quot;;font-size:1pt" string="CONFIDENCIAL"/><w10:wrap anchorx="margin" anchory="margin"/></v:shape></w:pict></w:r></w:p></w:sdtContent></w:sdt></w:hdr>
+== word/header3.xml
+
+<w:p><w:pPr><w:pStyle w:val="Cabealho"/></w:pPr><w:r><w:t>Cab2</w:t></w:r></w:p></w:hdr>
+== word/header4.xml
+
+<w:p><w:pPr><w:pStyle w:val="Cabealho"/></w:pPr><w:r><w:t>Cab</w:t></w:r></w:p></w:hdr>
+== rel <Relationship Id="rId8" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
+== rel <Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header2.xml"/>
+== rel <Relationship Id="rId12" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header4.xml"/>
+== rel <Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+== rel <Relationship Id="rId11" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer3.xml"/>
+== rel <Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header3.xml"/>
+== rel <Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer2.xml"/>
+== ct <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+== ct <Default Extension="xml" ContentType="application/xml"/>
+

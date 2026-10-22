@@ -89,6 +89,6 @@ if (all || process.argv.includes('--build')) {
     execSync(`npm run ${script}`, { cwd: wt, stdio: 'inherit', windowsHide: true });
   };
   run('fonts:sync');
-  for (const p of ['fonts', 'charts', 'ui', 'spell', 'write']) run(`build:${p}`);
+  for (const p of ['fonts', 'charts', 'drawingml', 'ui', 'spell', 'write']) run(`build:${p}`);
   if (all) for (const p of ['slides', 'sheet']) run(`build:${p}`);
 }

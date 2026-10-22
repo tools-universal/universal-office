@@ -1,0 +1,10 @@
+# bg-tile-p2000
+story=1 sec=1 page=1 sel=5..5 paraText=[Corpo\r] undoSteps=2
+== background <w:background w:color="FFFFFF"><v:background id="_x0000_s1025" o:bwmode="white"><v:fill r:id="rId2" o:title="p2000" type="tile"/>
+== sectPr <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>
+== rel <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>
+== media word/media/image1.png 18669
+== ct <Default Extension="png" ContentType="image/png"/>
+== ct <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+== ct <Default Extension="xml" ContentType="application/xml"/>
+
