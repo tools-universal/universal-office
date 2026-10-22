@@ -90,6 +90,7 @@ export const BAR_CSS = /* css */ `
 .uo-pill-primary { background: ${PRIMARY}; color: ${ON_PRIMARY}; border-color: ${PRIMARY}; }
 .uo-pill-primary:hover { background: color-mix(in srgb, ${PRIMARY} 88%, ${ON_PRIMARY}); }
 .uo-pill .uo-ic { width: 18px; height: 18px; }
+.uo-pill:disabled { opacity: .38; cursor: default; pointer-events: none; }
 
 /* ── campos (seletores de texto, tamanho, título) ── */
 .uo-combo { justify-content: space-between; padding: 0 2px 0 8px; color: ${ON}; }

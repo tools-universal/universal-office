@@ -136,8 +136,8 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
     menus: [
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
-      { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
-      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'textbox', m.symbols] },
+      { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
+      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', 'textbox', m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
@@ -223,7 +223,9 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             { menu: () => tableMenu(env, ctx), id: 'table:menu', label: L('Table', 'Tabela'), icon: 'table', size: 'large', supports: has('insertTable') },
             large('image'),
           ] },
-          { id: 'links', label: L('Links & Comments', 'Links e Comentários'), icon: 'link', prio: 5, cells: [large('link'), large('comment'), { rows: [['bookmark']] }] },
+          // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
+          { id: 'links', label: L('Links', 'Links'), icon: 'link', prio: 5, cells: [large('link'), large('bookmark'), large('crossref')] },
+          { id: 'comments', label: L('Comments', 'Comentários'), icon: 'add_comment', prio: 4, cells: [large('comment')] },
           { id: 'hf', label: L('Header & Footer', 'Cabeçalho e Rodapé'), icon: 'call_to_action', prio: 4, cells: [
             { menu: () => hfGalleryMenu(env, ctx, 'header'), id: 'hf:headerMenu', label: L('Header', 'Cabeçalho'), icon: 'vertical_align_top', size: 'large' },
             { menu: () => hfGalleryMenu(env, ctx, 'footer'), id: 'hf:footerMenu', label: L('Footer', 'Rodapé'), icon: 'vertical_align_bottom', size: 'large' },
@@ -270,6 +272,10 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
               [{ cmd: 'note:show', label: true }],
             ] },
           ] },
+          { id: 'captions', label: L('Captions', 'Legendas'), icon: 'subtitles', prio: 5, cells: [
+            large('caption'),
+            { rows: [[{ cmd: 'tof', label: true }], [{ cmd: 'tof:update', label: true }], [{ cmd: 'crossref', label: true }]] },
+          ] },
         ],
       },
       {
@@ -311,6 +317,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           { id: 'show', label: L('Show', 'Mostrar'), icon: 'visibility', prio: 4, cells: [
             { rows: [[{ cmd: 'view:ruler', label: true }], [{ cmd: 'view:gridlines', label: true }], [{ cmd: 'view:navpane', label: true }]] },
             { rows: [[{ cmd: 'marks', label: true }], [{ cmd: 'comments', label: true }], [{ cmd: 'statusbar', label: true }]] },
+            { rows: [[{ cmd: 'view:bookmarks', label: true }]] },
           ] },
           { id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in', prio: 5, cells: [
             { menu: m.zoomItems, id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in', size: 'large' },

@@ -213,3 +213,9 @@ text_select_end
 person
 title
 folder
+arrow_outward
+subtitles
+list_alt
+bookmarks
+link_off
+public

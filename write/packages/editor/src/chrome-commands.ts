@@ -65,6 +65,8 @@ export interface ChromeCtl {
   tabsDialog(): void;
   /** diálogos do cabeçalho/rodapé (chrome-hf.ts) */
   hfDialog(kind: 'pageNumbers' | 'dateTime' | 'alignTab' | 'options'): void;
+  /** diálogos da frente Links e referências (Indicador, Referência Cruzada, Legenda, Índice de Ilustrações) */
+  refsDialog(kind: 'bookmark' | 'crossref' | 'caption' | 'tof'): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -132,6 +134,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     // Mostrar (Exibir): Régua, Linhas de Grade e Painel de Navegação
     { id: 'view:ruler', label: { en: 'Ruler', pt: 'Régua' }, tip: { en: 'Show the rulers to measure and line up objects, indents and tabs', pt: 'Mostra as réguas para medir e alinhar objetos, recuos e tabulações' }, icon: 'straighten', supports: has('getRulerInfo'), run: () => ctl.ruler(), isChecked: () => ctl.rulerOn() },
     { id: 'view:gridlines', label: { en: 'Gridlines', pt: 'Linhas de Grade' }, tip: { en: 'Show the document grid on the page', pt: 'Mostra a grade do documento na página' }, icon: 'grid_4x4', supports: has('showGridlines'), run: () => ctl.gridlines(), isChecked: () => ed.gridlinesShown() },
+    { id: 'view:bookmarks', label: { en: 'Bookmarks', pt: 'Indicadores' }, tip: { en: 'Show bookmarks (gray brackets on the screen)', pt: 'Mostrar indicadores (colchetes cinza na tela)' }, icon: 'bookmarks', supports: has('showBookmarks'), run: () => { ed.showBookmarks(); }, isChecked: () => ed.bookmarksShown() },
     { id: 'view:navpane', label: { en: 'Navigation Pane', pt: 'Painel de Navegação' }, tip: { en: 'Headings, pages and search results of the document', pt: 'Títulos, páginas e resultados da pesquisa no documento' }, icon: 'side_navigation', supports: has('getHeadings'), run: () => ctl.navPane(), isChecked: () => ctl.navPaneOpen() },
     { id: 'focus', label: { en: 'Focus', pt: 'Foco' }, tip: { en: 'Focus mode — full screen (Esc to exit)', pt: 'Modo foco — tela inteira (Esc para sair)' }, icon: 'center_focus_strong', run: () => ctl.focusMode(), isChecked: () => ctl.inFocusMode() },
     { id: 'marks', label: { en: 'Formatting marks', pt: 'Mostrar tudo' }, tip: { en: 'Show paragraph marks and other formatting symbols', pt: 'Mostrar marcas de parágrafo e outros símbolos de formatação' }, icon: 'format_paragraph', shortcut: 'Ctrl+Shift+8', run: () => ed.toggleMarks(), isChecked: () => ctl.state().marks },
@@ -169,7 +172,12 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     { id: 'note:goRef', label: { en: 'Go to Reference', pt: 'Ir para a Referência' }, icon: 'keyboard_arrow_up', supports: () => !!ed.editingNote(), run: () => { const n = ed.editingNote(); if (n) ed.goToNoteRef(n.kind, n.id); } },
     edit({ id: 'note:toEndnote', label: { en: 'Convert to Endnote', pt: 'Converter em Nota de Fim' }, icon: 'autorenew', supports: () => ed.editingNote()?.kind === 'footnote', run: () => { const n = ed.editingNote(); if (n) ed.convertNotes('toEndnotes', n); } }),
     edit({ id: 'note:toFootnote', label: { en: 'Convert to Footnote', pt: 'Converter em Nota de Rodapé' }, icon: 'autorenew', supports: () => ed.editingNote()?.kind === 'endnote', run: () => { const n = ed.editingNote(); if (n) ed.convertNotes('toFootnotes', n); } }),
-    edit({ id: 'bookmark', label: { en: 'Bookmark', pt: 'Indicador' }, icon: 'bookmark', supports: has('insertBookmark'), run: () => call('insertBookmark') }),
+    edit({ id: 'bookmark', label: { en: 'Bookmark', pt: 'Indicador' }, tip: { en: 'Add, delete or go to a bookmark', pt: 'Adicionar, excluir ou ir para um indicador' }, icon: 'bookmark', supports: has('insertBookmark'), run: () => ctl.refsDialog('bookmark') }),
+    // links e referências: Referência Cruzada, Legenda, Índice de Ilustrações
+    edit({ id: 'crossref', label: { en: 'Cross-reference', pt: 'Referência Cruzada' }, tip: { en: 'Refer to a heading, numbered item, bookmark, note or caption', pt: 'Referir-se a título, item numerado, indicador, nota ou legenda' }, icon: 'arrow_outward', supports: has('insertCrossReference'), run: () => ctl.refsDialog('crossref') }),
+    edit({ id: 'caption', label: { en: 'Insert Caption', pt: 'Inserir Legenda' }, tip: { en: 'Add a numbered caption to a picture, table or equation', pt: 'Adicionar uma legenda numerada a imagem, tabela ou equação' }, icon: 'subtitles', supports: has('insertCaption'), run: () => ctl.refsDialog('caption') }),
+    edit({ id: 'tof', label: { en: 'Insert Table of Figures', pt: 'Inserir Índice de Ilustrações' }, tip: { en: 'List of the captions of a label', pt: 'Lista das legendas de um rótulo' }, icon: 'list_alt', supports: has('insertTableOfFigures'), run: () => ctl.refsDialog('tof') }),
+    edit({ id: 'tof:update', label: { en: 'Update Table', pt: 'Atualizar Tabela' }, tip: { en: 'Update the table of figures', pt: 'Atualizar o índice de ilustrações' }, icon: 'autorenew', supports: has('updateTableOfFigures'), run: () => { if (!ed.updateTableOfFigures()) ctl.flash(L.noTof); } }),
     edit({ id: 'textbox', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', supports: has('insertTextbox'), run: () => call('insertTextbox') }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
     ...([['sectionbreak', 'nextPage', 'Section break (next page)', 'Quebra de seção (próxima página)', 'Start the new section on the next page', 'Começa a seção nova na próxima página', 'insert_page_break'],

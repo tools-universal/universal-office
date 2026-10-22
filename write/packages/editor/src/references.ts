@@ -498,3 +498,6 @@ export function unlinkRuns(p: Paragraph, from: number, to: number, hyperlinkStyl
   });
   normalizeParagraph(p);
 }
+
+/** Preenchimento da tabulação dos índices (o do Word ou nenhum). */
+export type TabLeaderChoice = TabLeader | 'none';

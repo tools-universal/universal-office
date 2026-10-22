@@ -108,6 +108,7 @@ import {
   validBookmarkName, isHiddenBookmark, bookmarksIn, findBookmark, removeBookmarkMarks, addBookmarkMarks, textBetween, runsBetween,
   maxBookmarkId, hiddenBookmarkName, crossRefInstr, refFieldTarget, captionRange, captionFields, seqLabel, parseTocInstr, tocInstr,
   tocEntryParagraphs, unlinkRuns, TOF_EMPTY, TOC_EMPTY, TOF_FORMATS, BUILTIN_LABELS, CHAPTER_SEPARATOR_TEXT,
+  crossRefKinds, type CrossRefKind,
   type BookmarkInfo, type CrossRefType, type CrossRefItem, type CrossRefOptions, type CaptionSettings, type CaptionLabelInfo,
   type CaptionOptions, type CaptionNumbering, type TableOfFiguresOptions, type TofFormat, type LinkInfo, type HyperlinkOptions,
   type TocField, type TocOptions, type TocSource, type TocLook,
@@ -3591,6 +3592,26 @@ export class UniversalWriteElement extends HTMLElement {
   }
   bookmarksShown(): boolean { return this.bookmarkMarksShown; }
 
+  /** O nome serve para um indicador (regras do Word: letra, letras/dígitos/_, até 40)? */
+  validBookmarkName(name: string): boolean { return validBookmarkName(name); }
+
+  /** O que a Referência Cruzada pode inserir para o tipo (ordem do diálogo do Word). */
+  crossReferenceKinds(type: CrossRefType): CrossRefKind[] { return crossRefKinds(type); }
+
+  /** Próximo número da legenda do rótulo (o diálogo Legenda mostra "Figura N"). */
+  nextCaptionNumber(label: string): string {
+    const want = label.toLowerCase();
+    let n = 0;
+    for (const p of this.bodyModel().paragraphs) for (const r of p.runs) if (seqLabel(r.field).toLowerCase() === want) n++;
+    const f = this.getCaptionNumbering(label).format;
+    const map: Record<string, string> = { ARABIC: 'decimal', ALPHABETIC: 'upperLetter', alphabetic: 'lowerLetter', ROMAN: 'upperRoman', roman: 'lowerRoman' };
+    return formatNumber(n + 1, map[f] ?? 'decimal');
+  }
+
+  /** Id no documento do estilo interno de nome canônico `name` ("table of figures",
+   *  "caption", "Hyperlink"…), definido se faltar — para os diálogos (Modificar). */
+  ensureBuiltinStyle(name: string): string { return this.builtinStyleId(name); }
+
   /** Colchetes dos indicadores nas linhas da página (adorno de tela). */
   private paintBookmarkMarks(ctx: CanvasRenderingContext2D, pg: number): void {
     if (!this.bookmarkMarksShown || !this.eng) return;
@@ -3605,7 +3626,8 @@ export class UniversalWriteElement extends HTMLElement {
         const r = runs[i]!;
         const at = acc;
         acc += r.text.length;
-        if (!r.bookmark) continue;
+        // (os ocultos — _Ref, _Toc… — não aparecem)
+        if (!r.bookmark || isHiddenBookmark(r.bookmark.name)) continue;
         if (at < el.line.start || at > el.line.end || (at === el.line.end && at < paraLength(el.para) && !r.bookmark.end)) continue;
         const x = caretXIn(el.line, at);
         const y0 = el.line.y + 10, y1 = el.line.y + el.line.height - 10, w = 50;
@@ -4063,7 +4085,7 @@ export class UniversalWriteElement extends HTMLElement {
    * começo ao fim do campo dão lugar às entradas novas (o texto antes do começo e
    * depois do fim fica; o parágrafo do começo guarda a identidade dele).
    */
-  private rebuildToc(t: TocField): boolean {
+  private rebuildToc(t: TocField, leader?: TabLeader | 'none'): boolean {
     const ps = this.bodyModel().paragraphs;
     const bp = ps[t.begin];
     if (!bp) return false;
@@ -4076,7 +4098,7 @@ export class UniversalWriteElement extends HTMLElement {
     for (let pi = t.begin; pi <= endPara; pi++) for (const r of ps[pi]!.runs) oldRuns.push(r);
     this.dropOldTocMarks(oldRuns);
     const sources = this.tocSources(o, [t.begin, endPara]);
-    const look = this.tocLook(o, ps[t.begin + (bi >= 0 && bp.runs.slice(0, bi).some((r) => r.text) ? 1 : 0)]);
+    const look = this.tocLook(o, ps[t.begin + (bi >= 0 && bp.runs.slice(0, bi).some((r) => r.text) ? 1 : 0)], leader);
     const entries = this.tocOrEmpty(o, sources, look);
     const before = bi > 0 ? bp.runs.slice(0, bi) : [];
     const after = ei >= 0 ? ep.runs.slice(ei) : [{ text: '', props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true } as Run];
@@ -4139,6 +4161,15 @@ export class UniversalWriteElement extends HTMLElement {
       ...(opts.pageNumbers !== false && opts.rightAlign === false ? { separator: ' ' } : {}),
     };
     this.snapshot();
+    // com o cursor num índice de ilustrações, o Word o substitui pelo novo
+    const old = this.tofAtCaret();
+    if (old && this.tocInSelection(old)) {
+      this.applyTofFormat(opts.format ?? 'template');
+      this.rebuildToc({ ...old, instr: tocInstr(o) }, opts.leader ?? 'dot');
+      this.refreshFieldCache();
+      this.refresh();
+      return true;
+    }
     if (this.hasSelection()) { const p = this.deleteSelection(); this.selection = { anchor: p, focus: p }; }
     this.applyTofFormat(opts.format ?? 'template');
     const ps = this.model.paragraphs;

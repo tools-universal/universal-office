@@ -16,6 +16,7 @@ import {
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
+import { refsDialog, hyperlinkDialog, type RefsEnv } from './chrome-refs.js';
 import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, fontDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
@@ -404,6 +405,8 @@ class WriteChrome {
       }, { signal: this.ac.signal });
     }
     this.ac.signal.addEventListener('abort', () => mo.disconnect());
+    // rótulos de legenda criados, numeração e AutoLegenda (por máquina, como o Word no Normal)
+    try { const cs = originStore.get('uw-captions'); if (cs) ed.captionSettings = JSON.parse(cs); } catch { /* lixo: ignora */ }
     if (!ed.hasAuthor()) {
       void Promise.resolve(hostOf(ed)?.userName?.()).then((n) => {
         if (ed.hasAuthor()) return;
@@ -434,6 +437,16 @@ class WriteChrome {
     return this.app.prefs.get('toolbar') === 'ribbon' ? 'ribbon' : 'compact';
   }
 
+  /** Ambiente dos diálogos de Links e referências (estilo e legendas pela barra). */
+  private refsEnv(): RefsEnv {
+    return {
+      ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, flash: (m) => this.flash(m),
+      modifyStyle: (id) => { void this.styles?.styleDialog('modify', id); },
+      // rótulos/numeração/AutoLegenda: por máquina, como o Word no Normal
+      saveCaptionSettings: () => originStore.set('uw-captions', JSON.stringify(this.ed.captionSettings)),
+    };
+  }
+
   private ctl(): ChromeCtl {
     const d = (): DialogEnv => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
     return {
@@ -456,7 +469,8 @@ class WriteChrome {
       },
       tabsDialog: () => { void tabsDialog(d()).then(() => this.after()); },
       comment: () => { void commentDialog(d()).then(() => this.after()); },
-      link: () => { void linkDialog(d()).then(() => this.after()); },
+      link: () => { void hyperlinkDialog(this.refsEnv()).then(() => this.after()); },
+      refsDialog: (kind) => { void refsDialog(this.refsEnv(), kind).then(() => this.after()); },
       image: () => this.pickImage(),
       fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
