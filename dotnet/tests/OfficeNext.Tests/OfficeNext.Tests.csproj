@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\OfficeNext.Pdf\OfficeNext.Pdf.csproj" />
     <ProjectReference Include="..\..\src\OfficeNext.Layout\OfficeNext.Layout.csproj" />
     <ProjectReference Include="..\..\src\OfficeNext.DocxLayout\OfficeNext.DocxLayout.csproj" />
+    <ProjectReference Include="..\..\src\OfficeNext.DrawingML\OfficeNext.DrawingML.csproj" />
     <ProjectReference Include="..\..\..\vendor\office-converter\src\OfficeConverter\ToolsUniversal.OfficeConverter.csproj" />
   </ItemGroup>
 </Project>

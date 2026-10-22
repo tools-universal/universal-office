@@ -46,6 +46,130 @@ public static class LayoutDump
         w.WriteEndObject();
     }
 
+    private static void OptStr(Utf8JsonWriter w, string name, string? v)
+    {
+        if (v is null) w.WriteNull(name); else w.WriteString(name, v);
+    }
+
+    private static void OptR(Utf8JsonWriter w, string name, double? v)
+    {
+        if (v is null) w.WriteNull(name);
+        else Num(w, name, v.Value);
+    }
+
+    private static void OptBool(Utf8JsonWriter w, string name, bool? v)
+    {
+        if (v is null) w.WriteNull(name); else w.WriteBoolean(name, v.Value);
+    }
+
+    /// <summary>Formato da Imagem (PictureLook) — chaves fixas, null = ausente; frações a 0,0001.</summary>
+    private static void Pic(Utf8JsonWriter w, PictureLook p)
+    {
+        w.WriteStartObject("pic");
+        if (p.Geom is null) w.WriteNull("geom");
+        else
+        {
+            w.WriteStartObject("geom");
+            w.WriteString("prst", p.Geom.Prst);
+            if (p.Geom.Adj is null) w.WriteNull("adj");
+            else
+            {
+                w.WriteStartObject("adj");
+                foreach (var (k, v) in p.Geom.Adj) Num(w, k, v);
+                w.WriteEndObject();
+            }
+            w.WriteEndObject();
+        }
+        if (p.Line is not { } ln) w.WriteNull("line");
+        else
+        {
+            w.WriteStartObject("line");
+            w.WriteString("color", ln.Color);
+            Num(w, "alpha", ln.Alpha, 1e4);
+            Num(w, "width", ln.WidthPt);
+            OptStr(w, "dash", ln.Dash);
+            OptStr(w, "cmpd", ln.Cmpd);
+            OptStr(w, "cap", ln.Cap);
+            OptStr(w, "join", ln.Join);
+            w.WriteEndObject();
+        }
+        if (p.Shadow is not { } s) w.WriteNull("shadow");
+        else
+        {
+            w.WriteStartObject("shadow");
+            w.WriteString("kind", s.Kind);
+            w.WriteString("color", s.Color);
+            Num(w, "alpha", s.Alpha, 1e4);
+            Num(w, "blur", s.BlurPt);
+            Num(w, "dist", s.DistPt);
+            Num(w, "dir", s.DirDeg);
+            OptR4(w, "sx", s.Sx);
+            OptR4(w, "sy", s.Sy);
+            OptR(w, "kx", s.KxDeg);
+            OptR(w, "ky", s.KyDeg);
+            OptStr(w, "algn", s.Algn);
+            OptBool(w, "rotWithShape", s.RotWithShape);
+            w.WriteEndObject();
+        }
+        if (p.Glow is not { } g) w.WriteNull("glow");
+        else
+        {
+            w.WriteStartObject("glow");
+            w.WriteString("color", g.Color);
+            Num(w, "alpha", g.Alpha, 1e4);
+            Num(w, "rad", g.RadPt);
+            w.WriteEndObject();
+        }
+        OptR(w, "softEdge", p.SoftEdgePt);
+        if (p.Bevel is not { } bv) w.WriteNull("bevel");
+        else
+        {
+            w.WriteStartObject("bevel");
+            Num(w, "w", bv.WPt);
+            Num(w, "h", bv.HPt);
+            OptStr(w, "prst", bv.Prst);
+            OptStr(w, "rig", bv.Rig);
+            OptStr(w, "dir", bv.Dir);
+            OptStr(w, "material", bv.Material);
+            w.WriteEndObject();
+        }
+        if (p.Reflection is not { } r) w.WriteNull("reflection");
+        else
+        {
+            w.WriteStartObject("reflection");
+            Num(w, "blur", r.BlurPt);
+            Num(w, "stA", r.StA, 1e4);
+            Num(w, "stPos", r.StPos, 1e4);
+            Num(w, "endA", r.EndA, 1e4);
+            Num(w, "endPos", r.EndPos, 1e4);
+            Num(w, "dist", r.DistPt);
+            Num(w, "dir", r.DirDeg);
+            Num(w, "sy", r.Sy, 1e4);
+            OptStr(w, "algn", r.Algn);
+            OptBool(w, "rotWithShape", r.RotWithShape);
+            w.WriteEndObject();
+        }
+        OptR4(w, "alpha", p.Alpha);
+        if (p.Duotone is not { } du) w.WriteNull("duotone");
+        else
+        {
+            w.WriteStartArray("duotone");
+            w.WriteStringValue(du.A);
+            w.WriteStringValue(du.B);
+            w.WriteEndArray();
+        }
+        if (p.ClrChange is not { } cc) w.WriteNull("clrChange");
+        else
+        {
+            w.WriteStartObject("clrChange");
+            w.WriteString("from", cc.From);
+            w.WriteString("to", cc.To);
+            Num(w, "toAlpha", cc.ToAlpha, 1e4);
+            w.WriteEndObject();
+        }
+        w.WriteEndObject();
+    }
+
     private static void Item(Utf8JsonWriter w, PageItem it)
     {
         w.WriteStartObject();
@@ -98,6 +222,7 @@ public static class LayoutDump
                 Num(w, "rot", im.Rot ?? 0);
                 w.WriteBoolean("flipH", im.FlipH);
                 w.WriteBoolean("flipV", im.FlipV);
+                if (im.Pic is not null) Pic(w, im.Pic);
                 break;
             case ShapeItem sh:
                 Num(w, "x", sh.X); Num(w, "y", sh.Y); Num(w, "w", sh.W); Num(w, "h", sh.H);

@@ -99,6 +99,9 @@ public sealed class InlineImage
     /// <summary>Ajustes de cor (VML gain/blacklevel/grayscale/bilevel, DrawingML
     /// a:lum/a:grayscl/a:biLevel) — o Word os aplica aos pixels ao exportar.</summary>
     public ImageEffects? Effects;
+    /// <summary>Formatação da imagem lida do w:drawing (forma, contorno, efeitos, 3D,
+    /// ajustes do a:blip, texto alt) — PictureXml.ReadPictureFormat.</summary>
+    public PictureFormat? Format;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public InlineImage ShallowClone() => (InlineImage)MemberwiseClone();

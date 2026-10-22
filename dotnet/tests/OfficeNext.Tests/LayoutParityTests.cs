@@ -64,6 +64,30 @@ public class LayoutParityTests
         string? diff = JsonDiff.First(exp.RootElement, act.RootElement, "$", 0.05);
         Assert.True(diff is null, $"{caseId}: {diff}");
     }
+
+    /// <summary>Entradas sintéticas fora do oráculo (fixtures/input/&lt;nome&gt;.docx, sem medida
+    /// do Word) com dump JS em expected/layout-input — Formato da Imagem
+    /// (tools/gen-parity-pictures.mjs).</summary>
+    public static IEnumerable<object[]> InputCases()
+    {
+        string dir = Path.Combine(Fixtures.Dir, "expected", "layout-input");
+        if (!Directory.Exists(dir)) yield break;
+        var all = Directory.EnumerateFiles(dir, "*.layout.json").Select(f => Path.GetFileName(f)[..^".layout.json".Length]).ToList();
+        all.Sort(StringComparer.Ordinal);
+        foreach (var c in all) yield return new object[] { c };
+    }
+
+    [Theory]
+    [MemberData(nameof(InputCases))]
+    public void Layout_Js_Net_Input(string name)
+    {
+        if (!HasFonts.Value) { _out.WriteLine("fontes Arial/Calibri/Times New Roman ausentes — caso não avaliado"); return; }
+        using var exp = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures.Dir, "expected", "layout-input", name + ".layout.json")));
+        var res = DocxLayoutPipeline.Layout(Fixtures.InputBytes(name + ".docx"), SystemFontProvider.Shared);
+        using var act = JsonDocument.Parse(LayoutDump.Normalize(res));
+        string? diff = JsonDiff.First(exp.RootElement, act.RootElement, "$", 0.05);
+        Assert.True(diff is null, $"input/{name}: {diff}");
+    }
 }
 
 /// <summary>Comparação estrutural de JSON com tolerância numérica.</summary>

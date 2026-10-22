@@ -8,5 +8,6 @@
     <ProjectReference Include="..\OfficeNext.Docx\OfficeNext.Docx.csproj" />
     <ProjectReference Include="..\OfficeNext.Layout\OfficeNext.Layout.csproj" />
     <ProjectReference Include="..\OfficeNext.Pdf\OfficeNext.Pdf.csproj" />
+    <ProjectReference Include="..\OfficeNext.DrawingML\OfficeNext.DrawingML.csproj" />
   </ItemGroup>
 </Project>

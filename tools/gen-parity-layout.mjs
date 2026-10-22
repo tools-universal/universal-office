@@ -14,6 +14,8 @@
 // Formato (o teste .NET compara a estrutura exata e os números com ±0,05):
 //   { "pages": [{ "w", "h", "section", "number", "items": [...], "lines": [...] }],
 //     "warnings": [...] }
+// imagem com Formato da Imagem leva `pic` (forma, contorno, efeitos e ajustes do
+// a:blip, cores resolvidas; frações como sx/stA a 0,0001); as demais não têm a chave.
 // números arredondados a 0,01 (recorte e alfas a 0,0001), -0 → 0; ordem de
 // chaves fixa; um item / uma linha de texto por linha do arquivo (diff
 // legível). Exceção do motor num caso: { "error": "<mensagem>" } e segue.
@@ -30,6 +32,12 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const oracleDir = join(root, 'write', 'packages', 'docx-layout', 'test', 'oracle');
 const outDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout');
+// entradas sintéticas de paridade fora do oráculo (sem medida do Word): fixtures/input/<nome>.docx
+// → expected/layout-input/<nome>.layout.json, casos "input/<nome>" (Formato da Imagem:
+// tools/gen-parity-pictures.mjs)
+const inputDir = join(root, 'dotnet', 'tests', 'fixtures', 'input');
+const inputOutDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout-input');
+const INPUT_CASES = ['input/pictures'];
 
 // ─────────────────────── normalização ───────────────────────
 
@@ -65,6 +73,59 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
   const stroke = (s) => (s
     ? { color: str(s.color, 'stroke.color'), width: r(s.widthPt, 'stroke.widthPt'), dash: optStr(s.dash, 'stroke.dash') }
     : null);
+  /** número opcional a 0,01: ausente → null sem aviso */
+  const optR = (v, field) => (v === undefined || v === null ? null : r(v, field));
+  const optBool = (v, field) => (v === undefined || v === null ? null : bool(v, field));
+  // Formato da Imagem (PictureLook): forma, contorno, efeitos e ajustes do a:blip — só
+  // nos itens que o têm (as demais imagens ficam como antes); chaves fixas, null = ausente
+  const pic = (p) => ({
+    geom: p.geom
+      ? {
+        prst: str(p.geom.prst, 'pic.geom.prst'),
+        adj: p.geom.adj ? Object.fromEntries(Object.entries(p.geom.adj).map(([k, v]) => [k, r(v, `pic.geom.adj.${k}`)])) : null,
+      }
+      : null,
+    line: p.line
+      ? {
+        color: str(p.line.color, 'pic.line.color'), alpha: r4(p.line.alpha, 'pic.line.alpha'), width: r(p.line.widthPt, 'pic.line.widthPt'),
+        dash: optStr(p.line.dash, 'pic.line.dash'), cmpd: optStr(p.line.cmpd, 'pic.line.cmpd'),
+        cap: optStr(p.line.cap, 'pic.line.cap'), join: optStr(p.line.join, 'pic.line.join'),
+      }
+      : null,
+    shadow: p.shadow
+      ? {
+        kind: str(p.shadow.kind, 'pic.shadow.kind'), color: str(p.shadow.color, 'pic.shadow.color'), alpha: r4(p.shadow.alpha, 'pic.shadow.alpha'),
+        blur: r(p.shadow.blurPt, 'pic.shadow.blurPt'), dist: r(p.shadow.distPt, 'pic.shadow.distPt'), dir: r(p.shadow.dirDeg, 'pic.shadow.dirDeg'),
+        sx: optR4(p.shadow.sx, 'pic.shadow.sx'), sy: optR4(p.shadow.sy, 'pic.shadow.sy'),
+        kx: optR(p.shadow.kxDeg, 'pic.shadow.kxDeg'), ky: optR(p.shadow.kyDeg, 'pic.shadow.kyDeg'),
+        algn: optStr(p.shadow.algn, 'pic.shadow.algn'), rotWithShape: optBool(p.shadow.rotWithShape, 'pic.shadow.rotWithShape'),
+      }
+      : null,
+    glow: p.glow
+      ? { color: str(p.glow.color, 'pic.glow.color'), alpha: r4(p.glow.alpha, 'pic.glow.alpha'), rad: r(p.glow.radPt, 'pic.glow.radPt') }
+      : null,
+    softEdge: optR(p.softEdgePt, 'pic.softEdgePt'),
+    bevel: p.bevel
+      ? {
+        w: r(p.bevel.wPt, 'pic.bevel.wPt'), h: r(p.bevel.hPt, 'pic.bevel.hPt'), prst: optStr(p.bevel.prst, 'pic.bevel.prst'),
+        rig: optStr(p.bevel.rig, 'pic.bevel.rig'), dir: optStr(p.bevel.dir, 'pic.bevel.dir'), material: optStr(p.bevel.material, 'pic.bevel.material'),
+      }
+      : null,
+    reflection: p.reflection
+      ? {
+        blur: r(p.reflection.blurPt, 'pic.reflection.blurPt'), stA: r4(p.reflection.stA, 'pic.reflection.stA'),
+        stPos: r4(p.reflection.stPos, 'pic.reflection.stPos'), endA: r4(p.reflection.endA, 'pic.reflection.endA'),
+        endPos: r4(p.reflection.endPos, 'pic.reflection.endPos'), dist: r(p.reflection.distPt, 'pic.reflection.distPt'),
+        dir: r(p.reflection.dirDeg, 'pic.reflection.dirDeg'), sy: r4(p.reflection.sy, 'pic.reflection.sy'),
+        algn: optStr(p.reflection.algn, 'pic.reflection.algn'), rotWithShape: optBool(p.reflection.rotWithShape, 'pic.reflection.rotWithShape'),
+      }
+      : null,
+    alpha: optR4(p.alpha, 'pic.alpha'),
+    duotone: p.duotone ? [str(p.duotone[0], 'pic.duotone.0'), str(p.duotone[1], 'pic.duotone.1')] : null,
+    clrChange: p.clrChange
+      ? { from: str(p.clrChange.from, 'pic.clrChange.from'), to: str(p.clrChange.to, 'pic.clrChange.to'), toAlpha: r4(p.clrChange.toAlpha, 'pic.clrChange.toAlpha') }
+      : null,
+  });
 
   const item = (it) => {
     switch (it.t) {
@@ -108,6 +169,7 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
           rot: r(it.rot ?? 0, 'rot'),
           flipH: !!it.flipH,
           flipV: !!it.flipV,
+          ...(it.pic ? { pic: pic(it.pic) } : {}),
         };
       }
       case 'shape': {
@@ -256,7 +318,7 @@ if (isMain) {
     return eng.layoutDocument(full, prov, opts);
   };
 
-  const all = listCases();
+  const all = [...listCases(), ...INPUT_CASES.filter((c) => existsSync(join(inputDir, `${c.slice(6)}.docx`)))];
   if (only) for (const c of only) if (!all.includes(c)) console.warn(`aviso: --only ${c}: caso inexistente`);
   const cases = only ? all.filter((c) => only.has(c)) : all;
 
@@ -267,7 +329,7 @@ if (isMain) {
   for (const c of cases) {
     let norm;
     try {
-      const res = convert(new Uint8Array(readFileSync(join(oracleDir, `${c}.docx`))), c.split('/').pop().startsWith('mk-') ? { revisions: { mode: 'all' } } : {});
+      const res = convert(new Uint8Array(readFileSync(c.startsWith('input/') ? join(inputDir, `${c.slice(6)}.docx`) : join(oracleDir, `${c}.docx`))), c.split('/').pop().startsWith('mk-') ? { revisions: { mode: 'all' } } : {});
       norm = normalizeLayout(res, (i) => {
         const m = issues.get(c) ?? new Map();
         const k = `${i.t}.${i.field}: ${i.kind}`;
@@ -284,7 +346,7 @@ if (isMain) {
       norm = { error: msg };
     }
     const text = formatLayout(norm);
-    const file = join(outDir, `${c}.layout.json`);
+    const file = c.startsWith('input/') ? join(inputOutDir, `${c.slice(6)}.layout.json`) : join(outDir, `${c}.layout.json`);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, text, 'utf8');
     bytesOut += Buffer.byteLength(text, 'utf8');

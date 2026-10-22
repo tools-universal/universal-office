@@ -202,6 +202,29 @@ public static class DrawingReader
         return pos;
     }
 
+    /// <summary>
+    /// Filho <paramref name="name"/> do wp:anchor, direto ou dentro de mc:AlternateContent
+    /// (mc:Choice, senão mc:Fallback) — o Word grava a posição em % assim (wp14:pctPos…
+    /// no Choice, a absoluta no Fallback). Porta de anchorChild (drawing.ts).
+    /// </summary>
+    public static XmlElement? AnchorChild(XmlElement anchor, string name)
+    {
+        var direct = FirstChild(anchor, name);
+        if (direct is not null) return direct;
+        foreach (var ac in ChildElements(anchor, "mc:AlternateContent"))
+        {
+            var choice = FirstChild(ac, "mc:Choice");
+            var el = choice is not null ? FirstChild(choice, name) : null;
+            if (el is null)
+            {
+                var fb = FirstChild(ac, "mc:Fallback");
+                el = fb is not null ? FirstChild(fb, name) : null;
+            }
+            if (el is not null) return el;
+        }
+        return null;
+    }
+
     /// <summary>Âncora de um wp:anchor (nulo para wp:inline).</summary>
     public static DrawingAnchor? ReadWpAnchor(XmlElement? anchor)
     {
@@ -238,8 +261,8 @@ public static class DrawingReader
         var outp = new DrawingAnchor
         {
             Wrap = wrap,
-            PosH = ReadPos(FirstChild(anchor, "wp:positionH"), "column"),
-            PosV = ReadPos(FirstChild(anchor, "wp:positionV"), "paragraph"),
+            PosH = ReadPos(AnchorChild(anchor, "wp:positionH"), "column"),
+            PosV = ReadPos(AnchorChild(anchor, "wp:positionV"), "paragraph"),
         };
         if (Js.Truthy(wrapText)) outp.WrapText = wrapText;
         if (anchor.Attr("behindDoc") is "1" or "true") outp.BehindDoc = true;

@@ -3989,6 +3989,16 @@ internal sealed class Engine
         double? paraRef = null)
     {
         var g = ps.Geom;
+        // imagem flutuante oculta (Painel de Seleção, docPr hidden): não desenha nem
+        // afasta o texto; a em linha continua (oráculo pichidden)
+        if (run.Image is { Floating: true, Format.DocPr.Hidden: true })
+        {
+            return new FloatReceipt
+            {
+                Ps = ps, Target = new List<ZObj>(), ZObj = new ZObj { Z = 0, Seq = _zSeq++ },
+                Obj = new PlacedObject { Run = run, X = 0, Y = 0, W = 0, H = 0, Layer = "front", Hf = _inHf },
+            };
+        }
         var anchor = run.Image?.Anchor ?? run.Shape?.Anchor ?? run.Group?.Anchor ?? run.Textbox?.Anchor;
         double w = run.Image?.WidthTwips ?? run.Shape?.WidthTwips ?? run.Group?.WidthTwips ?? run.Textbox?.WidthTwips ?? 0;
         double h = run.Image?.HeightTwips ?? run.Shape?.HeightTwips ?? run.Group?.HeightTwips ?? run.Textbox?.HeightTwips ?? 0;
@@ -4218,7 +4228,7 @@ internal sealed class Engine
         }
         else if (run.Image is not null)
         {
-            outp.Add(Paint.ImageItemOf(run.Image, x, y, w, h));
+            outp.Add(Paint.ImageItemOf(run.Image, x, y, w, h, theme));
         }
         else if (run.Shape is not null)
         {

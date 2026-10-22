@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Porta de shared/drawingml (@universal-office/drawingml): o intérprete das
+       formas predefinidas OFICIAIS (presetShapeDefinitions), o contorno das formas,
+       a rasterização sem DOM (máscaras, desfoque, distância), os efeitos de imagem
+       medidos no Word (sombra, brilho, bordas suaves, reflexo), a luz do 3D
+       (light3d) e o chanfro das imagens (bevel). Um arquivo C# por módulo TS, mesmos
+       números. As tabelas vêm dos PRÓPRIOS preset-defs.ts, light3d.ts e
+       bevel-word.ts (recursos embutidos) — uma fonte só para JS e .NET. -->
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeNext.Core\OfficeNext.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\preset-defs.ts" LogicalName="preset-defs.ts" Link="preset-defs.ts" />
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\light3d.ts" LogicalName="light3d.ts" Link="light3d.ts" />
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\bevel-word.ts" LogicalName="bevel-word.ts" Link="bevel-word.ts" />
+  </ItemGroup>
+</Project>

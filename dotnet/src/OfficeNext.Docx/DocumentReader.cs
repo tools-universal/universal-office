@@ -646,6 +646,8 @@ public static class DocumentReader
                 if (anchor.PosV.Offset is { } oy) tb.OffsetYTwips = oy;
             }
         }
+        // formatação da imagem (Formato da Imagem): contorno, efeitos, 3D, ajustes, texto alt
+        if (run.Image is not null && PictureXml.ReadPictureFormat(drawing) is { } fmt) run.Image.Format = fmt;
         return run;
     }
 

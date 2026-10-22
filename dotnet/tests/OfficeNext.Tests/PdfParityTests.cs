@@ -40,7 +40,7 @@ public class PdfParityTests
         new PdfFontSource { Bytes = Font("write/tools/word-lab/fonts/aptos-bolditalic.ttf"), Bold = true, Italic = true },
     };
 
-    private sealed record Meta(int Pages, List<double[]> MediaBoxes, int TjCount);
+    private sealed record Meta(int Pages, List<double[]> MediaBoxes, int TjCount, int? Images);
 
     private static Meta ExpectedMeta(string name)
     {
@@ -51,7 +51,8 @@ public class PdfParityTests
             root.GetProperty("pages").GetInt32(),
             root.GetProperty("mediaBoxes").EnumerateArray()
                 .Select(b => b.EnumerateArray().Select(v => v.GetDouble()).ToArray()).ToList(),
-            root.GetProperty("tjCount").GetInt32());
+            root.GetProperty("tjCount").GetInt32(),
+            root.TryGetProperty("images", out var im) ? im.GetInt32() : null);
     }
 
     // ───────────── extração estrutural do PDF .NET (espelho do meta JS) ─────────────
@@ -71,7 +72,9 @@ public class PdfParityTests
     // operadores de texto: Tj (um glifo) e TJ (corrida de glifos — docx-layout, como o Word)
     private static readonly Regex TjRe = new(@"(?:> Tj|\] TJ)\n", RegexOptions.CultureInvariant);
 
-    private static (int Pages, List<double[]> MediaBoxes, int TjCount) ActualMeta(byte[] pdf)
+    private static readonly Regex ImageRe = new(@"/Subtype /Image ", RegexOptions.CultureInvariant);
+
+    private static (int Pages, List<double[]> MediaBoxes, int TjCount, int Images) ActualMeta(byte[] pdf)
     {
         string latin1 = Latin1(pdf);
         var mediaBoxes = PageRe.Matches(latin1)
@@ -101,7 +104,7 @@ public class PdfParityTests
             }
             tjCount += TjRe.Matches(Latin1(data)).Count;
         }
-        return (pages, mediaBoxes, tjCount);
+        return (pages, mediaBoxes, tjCount, ImageRe.Matches(latin1).Count);
     }
 
     private static void AssertStructuralParity(string fixtureName, byte[] pdf)
@@ -128,6 +131,9 @@ public class PdfParityTests
         // (layout portado 1:1 → mesmos glifos posicionados)
         Assert.True(actual.TjCount > 0, "nenhum operador Tj nos content streams");
         Assert.Equal(expected.TjCount, actual.TjCount);
+
+        // XObjects de imagem (máscaras suaves inclusas): a mesma composição do Formato da Imagem
+        if (expected.Images is { } ni) Assert.Equal(ni, actual.Images);
     }
 
     [Fact]
@@ -156,6 +162,15 @@ public class PdfParityTests
     {
         byte[] pdf = DocxPdf.ToPdf(Fixtures.InputBytes("synthetic.docx"), AptosFonts());
         AssertStructuralParity("synthetic.docx", pdf);
+    }
+
+    [Fact]
+    public void Pictures_Docx_Pdf_Estrutural()
+    {
+        // Formato da Imagem (tools/gen-parity-pictures.mjs): sombras, brilho, bordas suaves,
+        // reflexo, formas, contornos, giro/espelho com corte e ajustes do a:blip
+        byte[] pdf = DocxPdf.ToPdf(Fixtures.InputBytes("pictures.docx"), AptosFonts());
+        AssertStructuralParity("pictures.docx", pdf);
     }
 
     // ───────────── unidade: writer/subset ─────────────

@@ -306,6 +306,44 @@ public sealed class PdfPage
 
     public void PopClip() => Content.Str("Q\n");
 
+    /// <summary>Empilha um recorte por caminho (até PopClip); <paramref name="evenOdd"/> = regra par-ímpar.</summary>
+    public void PushClipPath(IReadOnlyList<PathCmd> cmds, bool evenOdd = false)
+    {
+        var c = Content;
+        c.Str("q\n");
+        foreach (var cmd in cmds)
+        {
+            switch (cmd.Op)
+            {
+                case PathOp.M:
+                    c.Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" m\n");
+                    break;
+                case PathOp.L:
+                    c.Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" l\n");
+                    break;
+                case PathOp.C:
+                    c.Num(cmd.X1).Byte((byte)' ').Num(FromTop(cmd.Y1)).Byte((byte)' ')
+                     .Num(cmd.X2).Byte((byte)' ').Num(FromTop(cmd.Y2)).Byte((byte)' ')
+                     .Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" c\n");
+                    break;
+                default:
+                    c.Str("h\n");
+                    break;
+            }
+        }
+        c.Str(evenOdd ? "W*" : "W").Str(" n\n");
+    }
+
+    /// <summary>Imagem pela matriz (a b c d e f) que leva o quadrado unitário à página (y a
+    /// partir do TOPO; (0,0) = canto de cima à esquerda da imagem).</summary>
+    public void DrawImageMatrix(PdfImage img, double a, double b, double c, double d, double e, double f)
+    {
+        double H = HeightPt;
+        Content.Str("q\n").Num(a).Byte((byte)' ').Num(-b).Byte((byte)' ').Num(-c).Byte((byte)' ')
+            .Num(d).Byte((byte)' ').Num(c + e).Byte((byte)' ').Num(H - d - f).Str(" cm\n/")
+            .Str(img.ResourceName).Str(" Do\nQ\n");
+    }
+
     /// <summary>Empilha uma transformação afim (matriz cm, em pt) até PopClip.</summary>
     public void PushTransform(double a, double b, double c, double d, double e, double f)
     {
@@ -390,15 +428,20 @@ public sealed class PdfDocument
     /// 4 = DeviceCMYK (com /Decode invertido quando o APP14 da Adobe marca CMYK
     /// invertido), senão DeviceRGB.
     /// </summary>
-    public PdfImage EmbedJpeg(byte[] bytes, int widthPx, int heightPx, int components = 3, bool adobeInverted = false, IReadOnlyList<double>? decodeArr = null)
+    public PdfImage EmbedJpeg(byte[] bytes, int widthPx, int heightPx, int components = 3, bool adobeInverted = false, IReadOnlyList<double>? decodeArr = null,
+        /* máscara suave (alfa de 8 bits, em qualquer resolução: cobre a imagem inteira) */
+        (byte[] Alpha, int Width, int Height)? smask = null)
     {
         string cs = components == 1 ? "/DeviceGray" : components == 4 ? "/DeviceCMYK" : "/DeviceRGB";
         // decodeArr: reta por componente (brilho/contraste sem decodificar o JPEG)
         string decode = components == 4 && adobeInverted ? " /Decode [1 0 1 0 1 0 1 0]"
             : decodeArr is { Count: > 0 } ? $" /Decode [{string.Join(" ", decodeArr.Select(PdfNum.Fmt))}]" : "";
+        string sm = smask is { } m
+            ? $" /SMask {_writer.AddStream($"/Type /XObject /Subtype /Image /Width {m.Width} /Height {m.Height} /ColorSpace /DeviceGray /BitsPerComponent 8", m.Alpha)} 0 R"
+            : "";
         int objNum = _writer.AddStream(
             $"/Type /XObject /Subtype /Image /Width {widthPx} /Height {heightPx} " +
-            $"/ColorSpace {cs} /BitsPerComponent 8 /Filter /DCTDecode{decode}",
+            $"/ColorSpace {cs} /BitsPerComponent 8 /Filter /DCTDecode{decode}{sm}",
             bytes,
             allowCompress: false); // já comprimido
         var handle = new PdfImage($"Im{_images.Count}", objNum);

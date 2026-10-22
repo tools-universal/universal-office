@@ -89,6 +89,85 @@ public sealed class ImageItem : PageItem
     public double? Rot;
     public bool FlipH;
     public bool FlipV;
+    /// <summary>Formato da Imagem (cores já resolvidas): forma, contorno, efeitos e ajustes</summary>
+    public PictureLook? Pic;
+}
+
+/// <summary>Aparência da imagem além do bitmap (Formato da Imagem), resolvida no layout —
+/// porta do PictureLook de tree.ts.</summary>
+public sealed class PictureLook
+{
+    /// <summary>Cortar para Forma: a forma predefinida (sem = retângulo)</summary>
+    public PicGeomLook? Geom;
+    /// <summary>contorno: todo do lado de FORA da forma (medido)</summary>
+    public PicLineLook? Line;
+    public PicShadowLook? Shadow;
+    public PicGlowLook? Glow;
+    public double? SoftEdgePt;
+    /// <summary>chanfro de cima com a câmera de frente (pt; luz/material do scene3d/sp3d)</summary>
+    public PicBevelLook? Bevel;
+    public PicReflectionLook? Reflection;
+    /// <summary>ajustes do a:blip que o Word aplica aos pixels (os de a:lum/grayscl/biLevel
+    /// ficam em image.Effects)</summary>
+    public double? Alpha;
+    public (string A, string B)? Duotone;
+    public PicClrChangeLook? ClrChange;
+}
+
+public sealed class PicGeomLook
+{
+    public string Prst = "rect";
+    public Dictionary<string, double>? Adj;
+}
+
+public sealed class PicLineLook
+{
+    public string Color = "000000";
+    public double Alpha = 1;
+    public double WidthPt;
+    public string? Dash;
+    public string? Cmpd;
+    public string? Cap;
+    public string? Join;
+}
+
+public sealed class PicShadowLook
+{
+    /// <summary>outer | inner</summary>
+    public string Kind = "outer";
+    public string Color = "000000";
+    public double Alpha = 1;
+    public double BlurPt, DistPt, DirDeg;
+    public double? Sx, Sy, KxDeg, KyDeg;
+    public string? Algn;
+    public bool? RotWithShape;
+}
+
+public sealed class PicGlowLook
+{
+    public string Color = "000000";
+    public double Alpha = 1;
+    public double RadPt;
+}
+
+public sealed class PicBevelLook
+{
+    public double WPt, HPt;
+    public string? Prst, Rig, Dir, Material;
+}
+
+public sealed class PicReflectionLook
+{
+    public double BlurPt, StA, StPos, EndA, EndPos, DistPt, DirDeg, Sy;
+    public string? Algn;
+    public bool? RotWithShape;
+}
+
+public sealed class PicClrChangeLook
+{
+    public string From = "FFFFFF";
+    public string To = "FFFFFF";
+    public double ToAlpha = 1;
 }
 
 public sealed class StrokeSpec

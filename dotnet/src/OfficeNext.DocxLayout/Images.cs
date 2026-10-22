@@ -1021,4 +1021,52 @@ public static class Images
         double[] d = { ln.Off, ln.Off + ln.Slope };
         return components == 1 ? d : new[] { d[0], d[1], d[0], d[1], d[0], d[1] };
     }
+
+    /// <summary>Valor gravado num Uint8Array do JS (inteiro já arredondado; NaN → 0).</summary>
+    private static byte U8(double v) => double.IsNaN(v) ? (byte)0 : (byte)((long)v & 0xFF);
+
+    /// <summary>
+    /// Ajustes do a:blip que o Word aplica aos pixels além de a:lum/cinza/preto e
+    /// branco (RGBA, no lugar): cor transparente (a:clrChange: a cor exata, com a
+    /// folga do arredondamento do JPEG), tom duplo (luminância Rec. 709 entre as duas
+    /// cores) e transparência (a:alphaModFix) — porta de applyPictureAdjust (images.ts).
+    /// </summary>
+    public static void ApplyPictureAdjust(byte[] d, double? alpha, (string A, string B)? duotone, PicClrChangeLook? clrChange)
+    {
+        static (double, double, double) Hex(string s) => (
+            OfficeNext.Core.JsNumber.ParseInt(s.Length >= 2 ? s[..2] : s, 16),
+            OfficeNext.Core.JsNumber.ParseInt(s.Length >= 4 ? s[2..4] : s.Length > 2 ? s[2..] : "", 16),
+            OfficeNext.Core.JsNumber.ParseInt(s.Length >= 6 ? s[4..6] : s.Length > 4 ? s[4..] : "", 16));
+        if (clrChange is not null)
+        {
+            var (fr, fg, fb) = Hex(clrChange.From);
+            var (tr, tg, tb) = Hex(clrChange.To);
+            double ta = OfficeNext.Core.JsNumber.Round(clrChange.ToAlpha * 255);
+            for (int i = 0; i + 3 < d.Length; i += 4)
+            {
+                if (Math.Abs(d[i] - fr) <= 2 && Math.Abs(d[i + 1] - fg) <= 2 && Math.Abs(d[i + 2] - fb) <= 2)
+                {
+                    d[i] = U8(tr); d[i + 1] = U8(tg); d[i + 2] = U8(tb);
+                    d[i + 3] = U8(OfficeNext.Core.JsNumber.Round((d[i + 3] * ta) / 255));
+                }
+            }
+        }
+        if (duotone is { } du)
+        {
+            var (a0, a1, a2) = Hex(du.A);
+            var (b0, b1, b2) = Hex(du.B);
+            for (int i = 0; i + 3 < d.Length; i += 4)
+            {
+                double t = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+                d[i] = U8(OfficeNext.Core.JsNumber.Round(a0 + (b0 - a0) * t));
+                d[i + 1] = U8(OfficeNext.Core.JsNumber.Round(a1 + (b1 - a1) * t));
+                d[i + 2] = U8(OfficeNext.Core.JsNumber.Round(a2 + (b2 - a2) * t));
+            }
+        }
+        if (alpha is { } al)
+            for (int i = 3; i < d.Length; i += 4) d[i] = U8(OfficeNext.Core.JsNumber.Round(d[i] * al));
+    }
+
+    /// <summary><see cref="ApplyPictureAdjust(byte[], double?, (string, string)?, PicClrChangeLook?)"/> com a aparência da imagem.</summary>
+    public static void ApplyPictureAdjust(byte[] d, PictureLook look) => ApplyPictureAdjust(d, look.Alpha, look.Duotone, look.ClrChange);
 }

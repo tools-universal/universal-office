@@ -119,17 +119,95 @@ public static class PdfRenderer
             return h;
         }
 
+        // Formato da Imagem: os pixels (com os ajustes de cor) quando dá para decodificar
+        Rgba? RgbaOf(ImageItem it)
+        {
+            var img = it.Image;
+            Rgba? r = null;
+            try
+            {
+                var jp = Images.JpegInfo(img.Data);
+                var d = jp is not null ? null : Images.DecodeRaster(img.Data);
+                if (d is not null) r = new Rgba(d.Width, d.Height, (byte[])d.Data.Clone());
+                else
+                {
+                    var ext = opts.DecodeImage?.Invoke(img);
+                    if (ext is not null) r = new Rgba(ext.Width, ext.Height, (byte[])ext.Data.Clone());
+                }
+            }
+            catch (Exception)
+            {
+                r = null;
+            }
+            if (r is null) return null;
+            if (img.Effects is not null) Images.ApplyImageEffects(r.Data, img.Effects);
+            if (it.Pic is not null) Images.ApplyPictureAdjust(r.Data, it.Pic);
+            return r;
+        }
+        var adjustedFor = new Dictionary<InlineImage, Dictionary<string, PdfImage?>>(ReferenceEqualityComparer.Instance);
+        PdfPictureEnv PictureEnv(ImageItem it)
+        {
+            var look = it.Pic;
+            bool needPixels = look is not null && (look.Alpha is not null || look.Duotone is not null || look.ClrChange is not null);
+            return new PdfPictureEnv
+            {
+                Image = () =>
+                {
+                    if (!needPixels) return ImageFor(it.Image);
+                    string key = PicAdjustKey(look!);
+                    if (!adjustedFor.TryGetValue(it.Image, out var byImg)) { byImg = new Dictionary<string, PdfImage?>(StringComparer.Ordinal); adjustedFor[it.Image] = byImg; }
+                    if (byImg.TryGetValue(key, out var hit)) return hit;
+                    var r = RgbaOf(it);
+                    var h = r is not null ? doc.EmbedRgba(r.Data, r.Width, r.Height) : ImageFor(it.Image);
+                    byImg[key] = h;
+                    return h;
+                },
+                Rgba = () => RgbaOf(it),
+                Masked = (alpha, mw, mh) =>
+                {
+                    var jp = Images.JpegInfo(it.Image.Data);
+                    if (jp is not null && !needPixels)
+                    {
+                        var fx = it.Image.Effects;
+                        var dec = fx is not null ? Images.EffectDecode(fx, jp.Components ?? 3) : null;
+                        if (fx is null || dec is not null) return doc.EmbedJpeg(it.Image.Data, jp.Width, jp.Height, jp.Components ?? 3, jp.Adobe, dec, (alpha, mw, mh));
+                    }
+                    var r = RgbaOf(it);
+                    if (r is null) return ImageFor(it.Image);
+                    // a máscara (na resolução dela) multiplica o alfa da imagem
+                    for (int y = 0; y < r.Height; y++)
+                    {
+                        int my = (int)Math.Min(mh - 1, Math.Floor(((y + 0.5) / r.Height) * mh));
+                        for (int x = 0; x < r.Width; x++)
+                        {
+                            int mx = (int)Math.Min(mw - 1, Math.Floor(((x + 0.5) / r.Width) * mw));
+                            int k = (y * r.Width + x) * 4 + 3;
+                            r.Data[k] = (byte)JsNumber.Round((r.Data[k] * (double)alpha[my * mw + mx]) / 255);
+                        }
+                    }
+                    return doc.EmbedRgba(r.Data, r.Width, r.Height);
+                },
+                EmbedRgba = (d, w, h) => doc.EmbedRgba(d, w, h),
+            };
+        }
+
         foreach (var lp in result.Pages)
         {
             var page = doc.AddPage(lp.WidthTw / T, lp.HeightTw / T);
             if (Js.Truthy(lp.Background)) page.FillRect(0, 0, lp.WidthTw / T, lp.HeightTw / T, HexColor(lp.Background!));
             foreach (var it in lp.Items) PaintItem(page, it, FontFor, ImageFor,
-                (g, smp) => doc.AddShading(new PdfShadingGeom(g.Radial, g.X0, g.Y0, g.X1, g.Y1, g.R), smp, page.HeightPt));
+                (g, smp) => doc.AddShading(new PdfShadingGeom(g.Radial, g.X0, g.Y0, g.X1, g.Y1, g.R), smp, page.HeightPt), PictureEnv);
         }
         return doc.Build();
     }
 
     private sealed record PdfImageBox(PdfImage? Image);
+
+    /// <summary>Chave do cache de imagem ajustada (o JSON.stringify([alpha, duotone, clrChange]) do JS).</summary>
+    private static string PicAdjustKey(PictureLook look) =>
+        string.Join("|", look.Alpha is { } a ? JsNumber.ToString(a) : "-",
+            look.Duotone is { } d ? d.A + "," + d.B : "-",
+            look.ClrChange is { } c ? c.From + "," + c.To + "," + JsNumber.ToString(c.ToAlpha) : "-");
 
     private static PathStroke? StrokeOf(StrokeSpec? s, bool validate)
     {
@@ -204,7 +282,7 @@ public static class PdfRenderer
     }
 
     private static void PaintItem(PdfPage page, PageItem item, Func<FontFace, bool, EmbeddedFont?> fontFor, Func<InlineImage, PdfImage?> imageFor,
-        Func<GradGeom, byte[], PdfShading> shade)
+        Func<GradGeom, byte[], PdfShading> shade, Func<ImageItem, PdfPictureEnv>? pictureEnv = null)
     {
         switch (item)
         {
@@ -257,6 +335,13 @@ public static class PdfRenderer
                 }
             case ImageItem it:
                 {
+                    // Formato da Imagem (e recorte girado): a composição no referencial da imagem
+                    bool rotOn0 = it.Rot is { } r0 && r0 != 0 && !double.IsNaN(r0);
+                    if (pictureEnv is not null && (it.Pic is not null || (it.Crop is not null && (rotOn0 || it.FlipH || it.FlipV))))
+                    {
+                        PdfPicture.PaintPicturePdf(page, it, pictureEnv(it));
+                        return;
+                    }
                     var h = imageFor(it.Image);
                     if (h is null) return;
                     double x = it.X / T, y = it.Y / T, w = it.W / T, hh = it.H / T;

@@ -1,6 +1,8 @@
 // Gera as fixtures de paridade PDF do projeto .NET (fase 2):
 // roda os exports PDF JS sobre showcase.xlsx, reference.pptx, gaps-smoke.pptx
-// e synthetic.docx (fixtures/input, gerado por gen-parity-fixtures.mjs) e
+// e synthetic.docx (fixtures/input, gerado por gen-parity-fixtures.mjs) + pictures.docx
+// (Formato da Imagem, gen-parity-pictures.mjs; o meta dele leva também images = nº de
+// XObjects de imagem, máscaras suaves inclusas) e
 // grava em dotnet/tests/fixtures/expected/<nome>.pdf.meta.json:
 //   { pages, mediaBoxes: [[w,h]...], tjCount, bytes }
 // extraídos por regex do PDF JS (page dicts ficam sem compressão; os content
@@ -8,7 +10,7 @@
 // fixtures/.out/<nome>.js.pdf (IGNORADO pelo git), só para inspeção manual:
 // eles embutem subconjuntos das fontes usadas (Aptos — proprietária), e PDF com
 // fonte proprietária não entra no repositório (CLAUDE.md; tools/fonts/check-fonts.mjs).
-// Regenerável: `node tools/gen-parity-pdf.mjs` (dist dos projetos já buildado).
+// Regenerável: `node tools/gen-parity-pdf.mjs [--only nome,nome]` (dist dos projetos já buildado).
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -23,10 +25,9 @@ const expectedDir = join(fixtures, 'expected');
 const inputDir = join(fixtures, 'input');
 const inspectDir = join(fixtures, '.out');
 
-const sheetExport = await import(
-  new URL('../sheet/packages/sheet-core/dist/index.js', import.meta.url).href);
-const slidesExport = await import(
-  new URL('../slides/packages/slides-core/dist/index.js', import.meta.url).href);
+// sheet-core/slides-core sob demanda: com --only, só o dist do que vai rodar precisa existir
+const sheetExport = () => import(new URL('../sheet/packages/sheet-core/dist/index.js', import.meta.url).href);
+const slidesExport = () => import(new URL('../slides/packages/slides-core/dist/index.js', import.meta.url).href);
 
 const font = (p, opts = {}) => ({ bytes: new Uint8Array(readFileSync(join(root, p))), ...opts });
 
@@ -76,23 +77,32 @@ export function pdfMeta(bytes) {
   return { pages, mediaBoxes, tjCount };
 }
 
+/** Nº de XObjects de imagem (/SMask inclusas) — a composição do Formato da Imagem. */
+export function pdfImageCount(bytes) {
+  return (Buffer.from(bytes).toString('latin1').match(/\/Subtype \/Image /g) ?? []).length;
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
   const jobs = [
-    ['showcase.xlsx', (b) => sheetExport.xlsxToPdf(b, { fonts: narrowFonts })],
-    ['reference.pptx', (b) => slidesExport.pptxToPdf(b, { fonts: aptosFonts })],
-    ['gaps-smoke.pptx', (b) => slidesExport.pptxToPdf(b, { fonts: aptosFonts })],
+    ['showcase.xlsx', async (b) => (await sheetExport()).xlsxToPdf(b, { fonts: narrowFonts })],
+    ['reference.pptx', async (b) => (await slidesExport()).pptxToPdf(b, { fonts: aptosFonts })],
+    ['gaps-smoke.pptx', async (b) => (await slidesExport()).pptxToPdf(b, { fonts: aptosFonts })],
     ['synthetic.docx', (b) => docxToPdfRef(b, aptosFonts)],
+    ['pictures.docx', (b) => docxToPdfRef(b, aptosFonts)],
   ];
+  const oi = process.argv.indexOf('--only');
+  const only = oi >= 0 ? new Set((process.argv[oi + 1] ?? '').split(',').filter(Boolean)) : null;
   for (const [name, run] of jobs) {
+    if (only && !only.has(name)) continue;
     const src = join(inputDir, name);
     if (!existsSync(src)) {
       console.error(`AVISO: ${src} não existe — rode tools/gen-parity-fixtures.mjs antes.`);
       continue;
     }
     const bytes = new Uint8Array(readFileSync(src));
-    const pdf = run(bytes);
-    const meta = { ...pdfMeta(pdf), bytes: pdf.length };
+    const pdf = await run(bytes);
+    const meta = { ...pdfMeta(pdf), ...(name === 'pictures.docx' ? { images: pdfImageCount(pdf) } : {}), bytes: pdf.length };
     writeFileSync(join(expectedDir, `${name}.pdf.meta.json`), JSON.stringify(meta, null, 2) + '\n');
     mkdirSync(inspectDir, { recursive: true });
     writeFileSync(join(inspectDir, `${name}.js.pdf`), pdf);

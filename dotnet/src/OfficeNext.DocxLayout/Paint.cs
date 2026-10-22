@@ -178,13 +178,14 @@ public static class Paint
         }
     }
 
-    internal static ImageItem ImageItemOf(InlineImage im, double x, double y, double w, double h) => new()
+    internal static ImageItem ImageItemOf(InlineImage im, double x, double y, double w, double h, Theme theme) => new()
     {
         X = x, Y = y, W = w, H = h, Image = im,
         Crop = im.Crop,
         Rot = im.Style?.Rot is { } r && r != 0 && !double.IsNaN(r) ? r : null,
         FlipH = im.Style?.FlipH == true,
         FlipV = im.Style?.FlipV == true,
+        Pic = Picture.PictureLookOf(im, theme),
     };
 
     private static void PaintInlineObject(DocContext ctx, List<PageItem> outp, Glyph g, double x0, double baseY0)
@@ -214,7 +215,7 @@ public static class Paint
         else if (obj.Image is not null)
         {
             var im = obj.Image;
-            outp.Add(ImageItemOf(im, x, baseY - shift - im.HeightTwips, im.WidthTwips, im.HeightTwips));
+            outp.Add(ImageItemOf(im, x, baseY - shift - im.HeightTwips, im.WidthTwips, im.HeightTwips, ctx.Fmt.Theme));
         }
         else if (obj.Shape is not null)
         {
