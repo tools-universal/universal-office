@@ -699,6 +699,19 @@ if (want('sections')) {
     check('o texto depois da quebra de página vai para a página seguinte', r.page === r.pageOfA + 1, { page: r.page, pageOfA: r.pageOfA });
     await page.keyboard.press('Control+z');
     check('desfazer a quebra de página num passo', (await S()).paras === p1 && (await ev('text', 9)) === before);
+    // com o controle de alterações ligado, a quebra entra como inserção (marca e run)
+    const tr = await page.evaluate(() => {
+      const e = document.querySelector('universal-write');
+      e.toggleTrackChanges(true);
+      e.selection = { anchor: { para: 9, offset: 12 }, focus: { para: 9, offset: 12 } };
+      e.insertPageBreak();
+      const ps = e.model.paragraphs;
+      const r = { firstMark: !!ps[9].props.markIns, pbMark: !!ps[10].props.markIns, pbRun: !!ps[10].runs[0]?.props.ins };
+      e.undo();
+      e.toggleTrackChanges(false);
+      return r;
+    });
+    check('quebra de página com o controle ligado: marcas e run como inserção', tr.firstMark && tr.pbMark && tr.pbRun, tr);
   }
   // Backspace logo depois da quebra de seção não a apaga (apaga o caractere antes dela)
   const t3 = await ev('text', 3);

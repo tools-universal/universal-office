@@ -3036,10 +3036,10 @@ export class UniversalWriteElement extends HTMLElement {
     }
     let pos = this.selection.focus;
     if (pos.offset > 0) {
-      pos = splitParagraph(this.model!, pos);
+      pos = this.splitAt(pos);
       this.shiftAnchors(pos.para - 1, 1);
     }
-    pos = insertText(this.model!, pos, '\u000B', this.pendingProps ?? undefined);
+    pos = this.insertTyped(pos, '\u000B', this.pendingProps ?? undefined);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -3054,7 +3054,7 @@ export class UniversalWriteElement extends HTMLElement {
     const id = this.nextSectionId++;
     this.sectionProps.set(id, this.sectionProps.get(range.sb?.id ?? 0));
     const raw = this.fullDoc?.sources?.sectPrRaw(closing);
-    const next = coreInsertSectionBreak(m, pos, type, { split: (mm, p) => splitParagraph(mm, p), id, ...(raw ? { raw } : {}) });
+    const next = coreInsertSectionBreak(m, pos, type, { split: (_mm, p) => this.splitAt(p), id, ...(raw ? { raw } : {}) });
     this.shiftAnchors(pos.para, 1);
     return next;
   }
@@ -3156,13 +3156,20 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: p, focus: p };
     }
     const from = this.selection.focus;
-    const { index, at } = insertPageBreakParagraph(this.model!, from, (m, p) => {
-      const tail = splitParagraph(m, p);
+    const { index, at } = insertPageBreakParagraph(this.model!, from, (_m, p) => {
+      const tail = this.splitAt(p);
       this.shiftAnchors(p.para, 1);
       return tail;
     });
     // o parágrafo da quebra entra em `index`: tabela ancorada antes dele fica antes dele
     this.shiftAnchors(index, 1);
+    if (this.tracking) {
+      // controle de alterações: o parágrafo da quebra (run e marca) é inserção
+      const rev = this.newRev();
+      const pb = this.model!.paragraphs[index]!;
+      pb.props = { ...pb.props, markIns: rev };
+      pb.runs = pb.runs.map((r) => ({ ...r, props: { ...r.props, ins: rev } }));
+    }
     this.selection = { anchor: at, focus: at };
     this.refresh();
     this.scrollCaretIntoView();
