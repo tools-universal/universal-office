@@ -212,6 +212,10 @@ export interface DrawingShape {
   hr?: boolean;
   /** wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto */
   hidden?: boolean;
+  /** XML CRU do <w:drawing> (wps:wsp) — Formato da Forma e o salvar */
+  rawDrawingXml?: string;
+  /** o XML cru foi editado (Formato da Forma): a gravação refaz o VML de reserva */
+  edited?: boolean;
 }
 
 /** Caixa de texto de DrawingML (wps:txbx / VML v:textbox) — usada em
@@ -276,6 +280,8 @@ export interface DrawingTextbox {
   /** cor do texto sem cor própria: a do wps:style/a:fontRef (medido: estilo de forma
    *  com fontRef lt1 deixa o texto branco) — RRGGBB ou @esquema|mods */
   fontColor?: string;
+  /** o XML cru foi editado (Formato da Forma): a gravação refaz o VML de reserva */
+  edited?: boolean;
 }
 
 export interface NoteRef {
@@ -390,6 +396,9 @@ export interface DrawingGroup {
   items: { x: number; y: number; w: number; h: number; run: Run }[];
   /** wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto */
   hidden?: boolean;
+  /** XML CRU do <w:drawing> do grupo (Painel de Seleção: nome, oculto, ordem) */
+  rawDrawingXml?: string;
+  edited?: boolean;
 }
 
 export const EMU_PER_TWIP = 635;
@@ -1138,6 +1147,9 @@ function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props
   const docPr = firstChild(container, 'wp:docPr');
   if (docPr && /^(1|true)$/.test(docPr.attrs['hidden'] ?? '') && (run.textbox || run.shape || run.group)) (run.textbox ?? run.shape ?? run.group)!.hidden = true;
   // campos legados usados pelo editor (relH/relV/offsets + XML cru p/ o save)
+  // (forma e grupo: só o XML cru — Formato da Forma e Painel de Seleção)
+  if (drawing.raw && run.shape) run.shape.rawDrawingXml = drawing.raw;
+  if (drawing.raw && run.group) run.group.rawDrawingXml = drawing.raw;
   for (const t of [run.image, run.textbox]) {
     if (!t) continue;
     if (anchor) {
@@ -1174,6 +1186,37 @@ export function syncImageFromXml(img: InlineImage): void {
   for (const k of KEYS) {
     if (src[k] === undefined) delete dst[k];
     else dst[k] = src[k];
+  }
+}
+
+/**
+ * Relê os campos de layout de uma caixa de texto ou forma a partir do XML cru (depois
+ * de uma edição do Formato da Forma): tamanho, âncora, quebra, preenchimento,
+ * contorno, margens, direção, vínculo… O conteúdo (parágrafos/blocos) e o XML ficam.
+ */
+export function syncShapeFromXml(run: Pick<Run, 'textbox' | 'shape'>): void {
+  const obj = run.textbox ?? run.shape;
+  const raw = obj?.rawDrawingXml;
+  if (!obj || !raw) return;
+  let root: XmlElement;
+  try { root = parseXml(raw); } catch { return; }
+  root.raw = raw;
+  const ctx = { resolveImage: () => undefined, resolveLink: () => undefined } as unknown as ReadContext;
+  const fresh = readDrawingRun(root, ctx);
+  const src = (fresh?.textbox ?? fresh?.shape) as unknown as Record<string, unknown> | undefined;
+  if (!src) return;
+  const dst = obj as unknown as Record<string, unknown>;
+  const keep = new Set(['paras', 'blocks', 'rawDrawingXml', 'edited', 'vml', 'vmlId', 'vmlNext']);
+  // preenchimento de imagem: os bytes não vêm do XML (a mídia é do pacote)
+  const blip = (obj as DrawingTextbox).shape?.blip ?? (obj as DrawingShape).style?.blip;
+  for (const k of new Set([...Object.keys(dst), ...Object.keys(src)])) {
+    if (keep.has(k)) continue;
+    if (src[k] === undefined) delete dst[k];
+    else dst[k] = src[k];
+  }
+  if (blip) {
+    const st = run.textbox ? run.textbox.shape : run.shape?.style;
+    if (st && !st.blip && /<a:blipFill\b/.test(raw)) st.blip = blip;
   }
 }
 

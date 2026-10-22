@@ -1,7 +1,10 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements } from './xml.js';
-import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage } from './document.js';
-import type { TableBlock, TableBorders, Block } from './fulldoc.js';
+import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage, type DrawingTextbox } from './document.js';
+import { forEachTextbox, type TableBlock, type TableBorders, type Block } from './fulldoc.js';
+import { textboxAlternateContent } from './shape-xml.js';
+import { readTheme } from './ooxml/parts.js';
+import type { DmlColor } from './picture-xml.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { HF_NS } from './hf-ops.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
@@ -220,6 +223,105 @@ function drawingWithParas(rawDrawingXml: string, paras: Paragraph[], blocks?: Bl
 
 const isObjectRun = (r: Run): boolean => !!(r.image || r.textbox || r.shape || r.group);
 
+// ───────────── caixa de texto / forma editada: wps + VML de reserva refeito ─────────────
+
+/** Cores do tema do documento em gravação (VML de reserva: só a cor resolvida). */
+let shapeTheme: Record<string, string> = { dk1: '000000', lt1: 'FFFFFF', dk2: '0E2841', lt2: 'E8E8E8', accent1: '156082', accent2: 'E97132', accent3: '196B24', accent4: '0F9ED5', accent5: 'A02B93', accent6: '4EA72E', hlink: '467886', folHlink: '96607D' };
+/** Caixa → nome (docPr) da seguinte na cadeia (VML mso-next-textbox), da parte em gravação. */
+let chainNext = new Map<DrawingTextbox, string>();
+/** o:spid das formas refeitas (acima dos que o Word costuma usar) */
+let vmlSpid = 4096;
+
+const docPrName = (raw: string | undefined): string | undefined => (raw ? /<wp:docPr\b[^>]*\bname="([^"]*)"/.exec(raw)?.[1] : undefined);
+
+/** Cadeias de caixas vinculadas da parte que vai ser gravada. */
+function beginShapeContext(blocks: readonly Block[]): void {
+  chainNext = new Map();
+  const heads = new Map<number, DrawingTextbox>();
+  const links: DrawingTextbox[] = [];
+  forEachTextbox(blocks, (tb) => {
+    if (tb.link) links.push(tb);
+    else if (tb.story !== undefined && !heads.has(tb.story)) heads.set(tb.story, tb);
+  });
+  for (const [id, head] of heads) {
+    const ms = [head, ...links.filter((l) => l.link!.id === id).sort((a, b) => a.link!.seq - b.link!.seq)];
+    for (let i = 0; i + 1 < ms.length; i++) {
+      const n = docPrName(ms[i + 1]!.rawDrawingXml);
+      if (n) chainNext.set(ms[i]!, n);
+    }
+  }
+}
+
+/** DmlColor → RRGGBB no tema do documento (lumMod/lumOff em HSL, shade/tint lineares). */
+function shapeColor(c: DmlColor): string {
+  const base = c.kind === 'srgbClr' ? c.val : c.kind === 'prstClr' ? ({ black: '000000', white: 'FFFFFF', red: 'FF0000' } as Record<string, string>)[c.val] ?? '000000'
+    : c.kind === 'sysClr' ? c.lastClr ?? (c.val === 'window' ? 'FFFFFF' : '000000')
+      : shapeTheme[({ tx1: 'dk1', bg1: 'lt1', tx2: 'dk2', bg2: 'lt2' } as Record<string, string>)[c.val] ?? c.val] ?? '000000';
+  let [r, g, b] = [0, 2, 4].map((i) => parseInt(base.slice(i, i + 2), 16) / 255) as [number, number, number];
+  for (const [n, v0] of c.mods ?? []) {
+    const v = v0 / 100000;
+    if (n === 'shade') { r *= v; g *= v; b *= v; } else if (n === 'tint') { r = 1 - (1 - r) * v; g = 1 - (1 - g) * v; b = 1 - (1 - b) * v; } else if (n === 'lumMod' || n === 'lumOff') {
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      let l = (mx + mn) / 2;
+      const d = mx - mn;
+      const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+      let hh = d === 0 ? 0 : mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      hh = (hh * 60 + 360) % 360;
+      l = n === 'lumMod' ? l * v : Math.min(1, l + v);
+      const C = (1 - Math.abs(2 * l - 1)) * s, X = C * (1 - Math.abs(((hh / 60) % 2) - 1)), m = l - C / 2;
+      const [a1, b1, c1] = hh < 60 ? [C, X, 0] : hh < 120 ? [X, C, 0] : hh < 180 ? [0, C, X] : hh < 240 ? [0, X, C] : hh < 300 ? [X, 0, C] : [C, 0, X];
+      [r, g, b] = [a1 + m, b1 + m, c1 + m];
+    }
+  }
+  return [r, g, b].map((x) => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+/** Caixa de texto/forma editada (ou nova): mc:AlternateContent com o wps e o VML de
+ *  reserva refeito a partir dele (como o Word ao salvar). */
+function editedShapeXml(run: Run): string {
+  const tb = run.textbox;
+  if (tb?.rawDrawingXml) {
+    const inner = tb.link ? '' : (tb.blocks?.length ? tb.blocks.map(blockXml) : tb.paras.map(paraXml)).join('');
+    const drawing = tb.link ? patchDrawingGeometry(tb.rawDrawingXml, tb) : drawingWithParas(patchDrawingGeometry(tb.rawDrawingXml, tb), tb.paras, tb.blocks);
+    const next = chainNext.get(tb);
+    return textboxAlternateContent(drawing, inner || (tb.link ? '' : '<w:p/>'), { color: shapeColor, spid: ++vmlSpid, ...(next ? { next } : {}) });
+  }
+  const sh = run.shape;
+  if (sh?.rawDrawingXml) return textboxAlternateContent(sh.rawDrawingXml, '', { color: shapeColor, spid: ++vmlSpid });
+  return '';
+}
+
+/** Objeto refeito já emitido nesta gravação (cópia colada): sai com ids de desenho novos. */
+let emittedShapes = new WeakSet<object>();
+function onceShape(obj: object, xml: string): string {
+  if (emittedShapes.has(obj)) return freshDrawingIds(xml);
+  emittedShapes.add(obj);
+  return xml;
+}
+
+/** Grupo editado (Painel de Seleção: nome, oculto, ordem): o wps novo no mc:Choice e o
+ *  v:group de reserva com o mesmo nome/visibilidade/ordem. */
+function editedGroupXml(srcObj: string, raw: string): string {
+  let xml = srcObj.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/, () => raw);
+  if (!/<mc:AlternateContent\b/.test(xml)) return raw;
+  const name = docPrName(raw);
+  const hidden = /<wp:docPr\b[^>]*\bhidden="1"/.test(raw);
+  const rh = /\brelativeHeight="(\d+)"/.exec(raw)?.[1];
+  const behind = /\bbehindDoc="1"/.test(raw);
+  xml = xml.replace(/<v:group\b[^>]*>/, (tag) => {
+    let t = tag;
+    if (name) t = /\sid="[^"]*"/.test(t) ? t.replace(/\sid="[^"]*"/, () => ` id="${escAttr(name)}"`) : t.replace(/^<v:group/, () => `<v:group id="${escAttr(name)}"`);
+    t = t.replace(/style="([^"]*)"/, (_m, st: string) => {
+      let s = st.replace(/;?visibility:[^;]*/g, '');
+      s += `;visibility:${hidden ? 'hidden' : 'visible'}`;
+      if (rh) s = s.replace(/z-index:-?\d+/, `z-index:${behind ? -(Number(rh) - 2048) : rh}`);
+      return `style="${s.replace(/^;/, '')}"`;
+    });
+    return t;
+  });
+  return xml;
+}
+
 /**
  * Objeto lido (imagem, caixa de texto, forma, grupo, VML, mc:AlternateContent):
  * sai o elemento de origem inteiro, com o rPr do run. Um objeto que virou
@@ -235,6 +337,20 @@ function objectXml(run: Run): string | undefined {
   const headSid = src?.obj !== undefined ? sid! : src?.objHead;
   const head = headSid !== undefined ? lossless.store.runs.get(headSid) : undefined;
   const rpr = rPrXml(run);
+  // caixa de texto/forma editada no Formato da Forma (ou nova): refeita a partir do
+  // wps, com o VML de reserva novo (o objeto de origem não sai)
+  const wps = run.textbox?.edited && run.textbox.rawDrawingXml ? run.textbox : run.shape?.edited && run.shape.rawDrawingXml ? run.shape : null;
+  if (wps) {
+    if (head?.obj && headSid !== undefined) lossless.emittedObj.add(headSid);
+    return `<w:r>${rpr}${onceShape(wps, editedShapeXml(run))}</w:r>`;
+  }
+  // grupo editado (Painel de Seleção): o original com o nome/oculto/ordem novos
+  if (run.group?.edited && run.group.rawDrawingXml && head?.obj && headSid !== undefined) {
+    const xml = editedGroupXml(head.obj, run.group.rawDrawingXml);
+    const out = lossless.emittedObj.has(headSid) ? freshDrawingIds(xml) : xml;
+    lossless.emittedObj.add(headSid);
+    return `<w:r>${rpr}${out}</w:r>`;
+  }
   if (!head?.obj) {
     if (run.image?.ole && !run.image.rawDrawingXml) return `<w:r>${rpr}${oleObjectXml(run)}</w:r>`;
     if (run.image?.rawDrawingXml) return `<w:r>${rpr}${pictureXml(run.image)}</w:r>`;
@@ -371,6 +487,10 @@ function runXml(run: Run): string {
     }
     if (run.image.ole) return `<w:r>${oleObjectXml(run)}</w:r>`;
     return `<w:r>${drawingXml(run)}</w:r>`;
+  }
+  // caixa/forma nova ou editada (Formato da Forma): wps + VML de reserva
+  if ((run.textbox?.edited && run.textbox.rawDrawingXml) || (run.shape?.edited && run.shape.rawDrawingXml)) {
+    return `<w:r>${rPrXml(run)}${onceShape((run.textbox ?? run.shape)!, editedShapeXml(run))}</w:r>`;
   }
   // caixa de texto: reemite o <w:drawing> CRU com a geometria atual, trocando só
   // o <w:txbxContent> pelos parágrafos (possivelmente editados). Sem o cru (caixa
@@ -1120,20 +1240,22 @@ function countCopies(blocks: Block[], out: Map<number, number>): void {
 export function serializeBlocks(blocks: Block[], sectPr: SectPr, hfRefs: HfPartInfo[] = []): string {
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
+  beginShapeContext(blocks);
   const body = blocks.map(blockXml).join('') + sect;
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
+    revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}${drawingNsAttrs(body)}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
   );
 }
 
 export function serializeDocument(model: DocumentModel, hfRefs: HfPartInfo[] = []): string {
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
+  beginShapeContext(model.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
   const body = model.paragraphs.map(paraXml).join('') + sect;
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
+    revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}${drawingNsAttrs(body)}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
   );
 }
 
@@ -1143,6 +1265,22 @@ function revRoot(open: string, rootName: string): string {
 }
 
 /** Garante na tag raiz as declarações que o XML gerado usa (w, r, wp). */
+/** Namespaces dos desenhos (caixa de texto/forma nova: mc:AlternateContent com wps e o
+ *  VML de reserva) usados no conteúdo. */
+const DRAWING_NS: [string, string][] = [
+  ['mc', 'http://schemas.openxmlformats.org/markup-compatibility/2006'],
+  ['wps', 'http://schemas.microsoft.com/office/word/2010/wordprocessingShape'],
+  ['wp14', 'http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing'],
+  ['w14', 'http://schemas.microsoft.com/office/word/2010/wordml'],
+  ['v', 'urn:schemas-microsoft-com:vml'],
+  ['o', 'urn:schemas-microsoft-com:office:office'],
+  ['w10', 'urn:schemas-microsoft-com:office:word'],
+];
+function drawingNs(content: string): [string, string][] {
+  return DRAWING_NS.filter(([pfx]) => content.includes(`<${pfx}:`) || content.includes(` ${pfx}:`));
+}
+const drawingNsAttrs = (content: string): string => drawingNs(content).map(([p, u]) => ` xmlns:${p}="${u}"`).join('');
+
 function withNamespaces(open: string, rootName: string, content = ''): string {
   const at = open.indexOf(`<${rootName}`);
   if (at < 0) return open;
@@ -1160,6 +1298,7 @@ function withNamespaces(open: string, rootName: string, content = ''): string {
       ['w10', 'urn:schemas-microsoft-com:office:word', /<w10:/], ['w14', 'http://schemas.microsoft.com/office/word/2010/wordml', /\sw14:\w+=|<w14:/],
       ['mc', 'http://schemas.openxmlformats.org/markup-compatibility/2006', /<mc:/], ['wps', 'http://schemas.microsoft.com/office/word/2010/wordprocessingShape', /<wps:|Requires="wps"/],
       ['a', 'http://schemas.openxmlformats.org/drawingml/2006/main', /<a:/],
+      ['wp14', 'http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing', /<wp14:|\swp14:\w+=/],
     // (só o prefixo usado e não declarado em lugar nenhum: o Word declara `a` no a:graphic)
     ] as [string, string, RegExp][]).filter(([pfx, , re]) => re.test(content) && !content.includes(`xmlns:${pfx}=`)).map(([pfx, uri]) => [pfx, uri] as [string, string]),
   ];
@@ -1232,6 +1371,7 @@ const W_NS_HF =
 export function serializeHfPart(kind: 'header' | 'footer', paragraphs: Paragraph[]): string {
   const tag = kind === 'header' ? 'w:hdr' : 'w:ftr';
   takeUsedDateUtc();
+  beginShapeContext(paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
   const body = paragraphs.map(paraXml).join('');
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -1317,6 +1457,11 @@ export function writeDocument(
 ): void {
   mediaOut = [];
   drawingId = 0;
+  vmlSpid = 4096;
+  emittedShapes = new WeakSet();
+  // cores do tema (VML de reserva das caixas/formas refeitas)
+  const th = readTheme(pkg.getPartText('word/theme/theme1.xml'));
+  if (Object.keys(th.colors).length) shapeTheme = { ...shapeTheme, ...th.colors };
   const store = opts.sources;
   if (store) {
     store.beginSave();
@@ -1388,6 +1533,7 @@ function writeParts(
           const blocks = hf.blocks ?? hf.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
           const root = hf.kind === 'header' ? 'w:hdr' : 'w:ftr';
           takeUsedDateUtc();
+          beginShapeContext(blocks);
           const body = storyBlocksXml(story, blocks, store!);
           const xml = revRoot(withNamespaces(story.open, root, body), root) + body + story.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
@@ -1437,6 +1583,7 @@ function writeParts(
       ? patchSectPr(story.sectPr, model.sectPr, refs)
       : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
     takeUsedDateUtc();
+    beginShapeContext(blocks);
     const body = storyBlocksXml(story, blocks, store!) + sect;
     const xml = revRoot(withNamespaces(story.open, 'w:document', body), 'w:document') + body + story.close;
     pkg.setPartText('word/document.xml', dropCommentMarks(xml, gone));
