@@ -4072,6 +4072,14 @@ function readSectPr(sectEl) {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
+  const pgFmt = pgNumType?.attrs["w:fmt"];
+  if (pgFmt) sect.pgNumFmt = pgFmt;
+  const chapStyle = parseInt(pgNumType?.attrs["w:chapStyle"] ?? "", 10);
+  if (chapStyle > 0) {
+    sect.pgNumChapStyle = chapStyle;
+    const sep = pgNumType?.attrs["w:chapSep"];
+    if (sep === "period" || sep === "colon" || sep === "emDash" || sep === "enDash") sect.pgNumChapSep = sep;
+  }
   const fnPr = readNoteProps(sectEl && firstChild(sectEl, "w:footnotePr"));
   if (fnPr) sect.footnotePr = fnPr;
   const enPr = readNoteProps(sectEl && firstChild(sectEl, "w:endnotePr"));
@@ -5966,6 +5974,16 @@ function colsXml(cols, raw) {
   const space = el3?.attrs["w:space"] ?? "708";
   return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc3(space)}"/>`;
 }
+function pgNumTypeXml(s, raw = "") {
+  const chap = s.pgNumChapStyle && s.pgNumChapStyle > 0 ? s.pgNumChapStyle : void 0;
+  const xml = withAttrs(raw ? raw.replace(/\s+w:(?:fmt|start|chapStyle|chapSep)="[^"]*"/g, "") : "", "w:pgNumType", {
+    "w:fmt": s.pgNumFmt && s.pgNumFmt !== "decimal" ? s.pgNumFmt : void 0,
+    "w:start": s.pgNumStart,
+    "w:chapStyle": chap,
+    "w:chapSep": chap && s.pgNumChapSep && s.pgNumChapSep !== "hyphen" ? s.pgNumChapSep : void 0
+  });
+  return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
+}
 function patchSectPr(raw, cur, refs) {
   const { open, close, kids, el: el3 } = splitElement(raw);
   const base = readSectPr(el3);
@@ -6011,8 +6029,8 @@ function patchSectPr(raw, cur, refs) {
   if (!eq(cur.cols, base.cols)) set("w:cols", colsXml(cur.cols, kidRaw(kids, "w:cols") || void 0));
   if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
   if (cur.pgBorders !== void 0 && !eq(cur.pgBorders ?? void 0, base.pgBorders ?? void 0)) set("w:pgBorders", pgBordersXml(cur.pgBorders));
-  if (cur.pgNumStart !== base.pgNumStart) {
-    set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
+  if (cur.pgNumStart !== base.pgNumStart || cur.pgNumFmt !== base.pgNumFmt || cur.pgNumChapStyle !== base.pgNumChapStyle || cur.pgNumChapSep !== base.pgNumChapSep) {
+    set("w:pgNumType", pgNumTypeXml(cur, kidRaw(kids, "w:pgNumType")));
   }
   if (!sameNoteProps(cur.footnotePr, base.footnotePr)) set("w:footnotePr", notePropsXml("footnote", cur.footnotePr) || null);
   if (!sameNoteProps(cur.endnotePr, base.endnotePr)) set("w:endnotePr", notePropsXml("endnote", cur.endnotePr) || null);
@@ -6383,8 +6401,8 @@ function groupOf(xml, child, produced, store) {
   }
   return g;
 }
-function readHeaderFooterPart(pkg, path, store) {
-  const xml = pkg.getPartText(path);
+function readHeaderFooterPart(pkg, path, store, xml0) {
+  const xml = xml0 ?? pkg.getPartText(path);
   if (!xml) return void 0;
   const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
@@ -6773,6 +6791,11 @@ function sectionIndexAt(model, para) {
 function sectionSectPr(model, k) {
   return sectionRanges(model)[k]?.sb?.sectPr ?? model.sectPr;
 }
+function sectionRefs(model, k) {
+  const r = sectionRanges(model)[k];
+  if (r?.sb) return r.sb;
+  return model.bodyRefs ??= { headerRefs: [], footerRefs: [] };
+}
 var cloneSectPr = (s) => JSON.parse(JSON.stringify(s));
 function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
   const k = sectionIndexAt(model, pos.para);
@@ -6926,6 +6949,107 @@ function writeDefaultTabStop(pkg, twips) {
     xml = xml.slice(0, at) + `<w:defaultTabStop w:val="${val3}"/>` + xml.slice(at);
   }
   pkg.setPartText(path, xml);
+}
+var BEFORE_EVEN_ODD = /* @__PURE__ */ new Set([
+  ...BEFORE_DEFAULT_TAB,
+  "w:defaultTabStop",
+  "w:autoHyphenation",
+  "w:consecutiveHyphenLimit",
+  "w:hyphenationZone",
+  "w:doNotHyphenateCaps",
+  "w:showEnvelope",
+  "w:summaryLength",
+  "w:clickAndTypeStyle",
+  "w:defaultTableStyle"
+]);
+function writeEvenAndOddHeaders(pkg, on) {
+  const path = partByRelType(pkg, "settings", "word/settings.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!on) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText("word/settings.xml");
+    if (!xml) return;
+  }
+  const cur = /<w:evenAndOddHeaders\b[^>]*?(?:\/>|>[\s\S]*?<\/w:evenAndOddHeaders>)/.exec(xml);
+  const isOn = !!cur && !/w:val="(?:0|false|off)"/.test(cur[0]);
+  if (isOn === on) return;
+  if (cur) xml = xml.slice(0, cur.index) + (on ? "<w:evenAndOddHeaders/>" : "") + xml.slice(cur.index + cur[0].length);
+  else {
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) return;
+    let at = root.cs;
+    for (const k of childElements(root)) if (BEFORE_EVEN_ODD.has(k.name)) at = Math.max(at, k.e);
+    xml = xml.slice(0, at) + "<w:evenAndOddHeaders/>" + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
+function ensureSettingsPart(pkg) {
+  if (pkg.getPart("word/settings.xml")) return;
+  pkg.setPartText("word/settings.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:settings>');
+  const relsPath = "word/_rels/document.xml.rels";
+  const rels = pkg.getPartText(relsPath);
+  if (rels && !/relationships\/settings"/.test(rels)) {
+    pkg.setPartText(relsPath, rels.replace(
+      "</Relationships>",
+      '<Relationship Id="rIdWnSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>'
+    ));
+  }
+  const ct = pkg.getPartText("[Content_Types].xml");
+  if (ct && !ct.includes('PartName="/word/settings.xml"')) {
+    pkg.setPartText("[Content_Types].xml", ct.replace(
+      "</Types>",
+      '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>'
+    ));
+  }
+}
+
+// ../docx-core/src/hf-ops.ts
+var HF_NS = 'xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 w15 wp14"';
+function hfPartXml(kind, inner) {
+  const tag = kind === "header" ? "w:hdr" : "w:ftr";
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r
+<${tag} ${HF_NS}>${inner}</${tag}>`;
+}
+function copyHfPartXml(xml, newId) {
+  return xml.replace(/(<wp:docPr\b[^>]*?\bid=")(\d+)(")/g, (_m, a, _id, b) => `${a}${newId()}${b}`).replace(/\s(?:w14:paraId|w14:textId|wp14:anchorId|wp14:editId)="[0-9A-Fa-f]+"/g, "");
+}
+function dropUnusedHfParts(pkg, drop) {
+  const relsPath = "word/_rels/document.xml.rels";
+  let rels = pkg.getPartText(relsPath) ?? "";
+  let ct = pkg.getPartText("[Content_Types].xml") ?? "";
+  let changed = false;
+  for (const m of [...rels.matchAll(/<Relationship\b[^>]*?\/>/g)]) {
+    const tag = m[0];
+    if (!/relationships\/(?:header|footer)"/.test(tag)) continue;
+    const id = /\bId="([^"]+)"/.exec(tag)?.[1];
+    const target = /\bTarget="([^"]+)"/.exec(tag)?.[1];
+    if (!id || !target || !drop.has(id)) continue;
+    const path = `word/${target.replace(/^\.\//, "").replace(/^\/?word\//, "")}`;
+    rels = rels.replace(tag, "");
+    ct = ct.replace(new RegExp(`<Override PartName="/${path.replace(/[.]/g, "\\.")}"[^>]*/>`), "");
+    pkg.removePart(path);
+    pkg.removePart(`word/_rels/${path.split("/").pop()}.rels`);
+    changed = true;
+  }
+  if (changed) {
+    pkg.setPartText(relsPath, rels);
+    if (ct) pkg.setPartText("[Content_Types].xml", ct);
+  }
+}
+function pageNumberGroupIds(story) {
+  const out = /* @__PURE__ */ new Set();
+  const walk = (groups, inside) => {
+    for (const g of groups) {
+      const mine = inside || g.wrapOpen !== void 0 && /<w:docPartGallery\s+w:val="Page Numbers/.test(g.wrapOpen);
+      if (mine) {
+        for (const id of g.blocks) if (id) out.add(id);
+      }
+      if (g.inner) walk(g.inner, mine);
+    }
+  };
+  if (story) walk(story.groups, false);
+  return out;
 }
 
 // ../docx-core/src/serialize.ts
@@ -7431,7 +7555,7 @@ function sectPrInner(s, refs = []) {
   const type = s.type && s.type !== "nextPage" ? `<w:type w:val="${s.type}"/>` : "";
   const cols = s.cols ? colsXml(s.cols) : "";
   const titlePg = s.titlePg ? "<w:titlePg/>" : "";
-  const pgNumType = s.pgNumStart !== void 0 ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : "";
+  const pgNumType = pgNumTypeXml(s) ?? "";
   const pgBorders = pgBordersXml(s.pgBorders) ?? "";
   const notes = notePropsXml("footnote", s.footnotePr) + notePropsXml("endnote", s.endnotePr);
   const fnCols = s.footnoteColumns ? `<w15:footnoteColumns w:val="${s.footnoteColumns}"/>` : "";
@@ -16287,12 +16411,14 @@ export {
   noteRefRun,
   newNoteParagraphs,
   markSectionBreaks,
+  readHeaderFooterPart,
   noteRefIds,
   readFullDocument,
   COLUMN_SPACE_DEFAULT,
   sectionRanges,
   sectionIndexAt,
   sectionSectPr,
+  sectionRefs,
   insertSectionBreak,
   insertPageBreakParagraph,
   contentWidth,
@@ -16303,6 +16429,11 @@ export {
   columnWidths,
   setOrientation,
   writeDefaultTabStop,
+  writeEvenAndOddHeaders,
+  hfPartXml,
+  copyHfPartXml,
+  dropUnusedHfParts,
+  pageNumberGroupIds,
   writeDocument,
   BLANK_STYLES_XML,
   blankDocxPackage,

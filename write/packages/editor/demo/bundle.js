@@ -9,7 +9,7 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-IHJFRFO3.js";
+} from "./chunks/chunk-SXFO5MW3.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -38,9 +38,11 @@ import {
   comparePos,
   contentWidth,
   convertDocToDocx,
+  copyHfPartXml,
   defaultFormula,
   deleteRange,
   dropStyle,
+  dropUnusedHfParts,
   editBaseProps,
   ensureNoteParts,
   ensureTableStyle,
@@ -50,6 +52,7 @@ import {
   formulaResultText,
   hasParaChanges,
   hasRunChanges,
+  hfPartXml,
   insertPageBreakParagraph,
   insertRun,
   insertSectionBreak,
@@ -67,6 +70,7 @@ import {
   noteRefIds,
   noteRefRun,
   onBrowserLangChange,
+  pageNumberGroupIds,
   paraFormatting,
   paraLength,
   paraPropsFromPPr,
@@ -84,6 +88,7 @@ import {
   putStyle,
   readEmbeddedFonts,
   readFullDocument,
+  readHeaderFooterPart,
   readStyleIndex,
   readStyleSheet,
   readStylesXml,
@@ -94,6 +99,7 @@ import {
   runPropsFromRPr,
   sectionIndexAt,
   sectionRanges,
+  sectionRefs,
   sectionSectPr,
   setLatentQFormat,
   setOrientation,
@@ -118,9 +124,10 @@ import {
   withoutRevisions,
   writeDefaultTabStop,
   writeDocument,
+  writeEvenAndOddHeaders,
   zipSync,
   zlibSync
-} from "./chunks/chunk-YLWUQXXR.js";
+} from "./chunks/chunk-YWUJZRZU.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -231,24 +238,24 @@ function edgeCss(e) {
   const w = Math.max(0.5, e.sizeEighthPt / 8);
   return `${w}pt ${cssBorderStyle(e.style)} ${e.color ? "#" + e.color : "#000"}`;
 }
-function runHtml(run, ctx) {
-  if (run.image) {
+function runHtml(run2, ctx) {
+  if (run2.image) {
     if (ctx.imagesMode === "omit") {
       return `<span class="uw-img-placeholder" aria-label="imagem" style="display:inline-block;padding:0 .35em;margin:0 .15em;background:rgba(0,0,0,.06);border-radius:4px;font-size:.9em;color:#777">\u{1F4F7}</span>`;
     }
-    const w = twipsToPx(run.image.widthTwips);
-    const h = twipsToPx(run.image.heightTwips);
-    return `<img src="${resolveImageUri(run.image, ctx.imageDataUris)}" width="${w}" height="${h}" alt="" loading="lazy">`;
+    const w = twipsToPx(run2.image.widthTwips);
+    const h = twipsToPx(run2.image.heightTwips);
+    return `<img src="${resolveImageUri(run2.image, ctx.imageDataUris)}" width="${w}" height="${h}" alt="" loading="lazy">`;
   }
-  const p = run.props;
-  if (run.noteRef) {
+  const p = run2.props;
+  if (run2.noteRef) {
     const seq = ctx.notes.length + 1;
-    const paras = (run.noteRef.kind === "footnote" ? ctx.footnotes : ctx.endnotes).get(run.noteRef.id);
+    const paras = (run2.noteRef.kind === "footnote" ? ctx.footnotes : ctx.endnotes).get(run2.noteRef.id);
     const noteHtml = paras?.map((np) => np.runs.map((r) => escapeHtml(r.text)).join("")).join(" ").trim() ?? "";
-    ctx.notes.push({ kind: run.noteRef.kind, id: run.noteRef.id, html: escapeHtml(noteHtml) });
+    ctx.notes.push({ kind: run2.noteRef.kind, id: run2.noteRef.id, html: escapeHtml(noteHtml) });
     return `<sup class="uw-note"><a id="noteref-${seq}" href="#note-${seq}">${seq}</a></sup>`;
   }
-  let text = escapeHtml(run.text);
+  let text = escapeHtml(run2.text);
   if (!text) return "";
   const styles = [];
   if (p.color) styles.push(`color:#${p.color}`);
@@ -448,17 +455,17 @@ function emphasize(t, p) {
   else if (p.vertAlign === "subscript") core = `<sub>${core}</sub>`;
   return lead + core + trail;
 }
-function runMd(run, ctx) {
-  if (run.image) return ctx.imagesMode === "omit" ? "[imagem]" : `![](${resolveImageUri(run.image, ctx.imageDataUris)})`;
-  if (run.noteRef) {
+function runMd(run2, ctx) {
+  if (run2.image) return ctx.imagesMode === "omit" ? "[imagem]" : `![](${resolveImageUri(run2.image, ctx.imageDataUris)})`;
+  if (run2.noteRef) {
     const seq = ++ctx.noteSeq;
-    const paras = (run.noteRef.kind === "footnote" ? ctx.footnotes : ctx.endnotes).get(run.noteRef.id);
+    const paras = (run2.noteRef.kind === "footnote" ? ctx.footnotes : ctx.endnotes).get(run2.noteRef.id);
     const txt = paras?.map((np) => np.runs.map((r) => r.text).join("")).join(" ").trim() ?? "";
     ctx.noteDefs.push(`[^n${seq}]: ${txt}`);
     return `[^n${seq}]`;
   }
-  let t = emphasize(escapeMd(run.text), run.props);
-  if (run.props.link) t = `[${t}](${run.props.link})`;
+  let t = emphasize(escapeMd(run2.text), run2.props);
+  if (run2.props.link) t = `[${t}](${run2.props.link})`;
   return t;
 }
 function inlineRuns(runs, ctx) {
@@ -2010,20 +2017,20 @@ var PdfPage = class {
     return this.heightPt - yTop;
   }
   /** Retângulo preenchido (sombreado, realce). yTopPt = topo do retângulo. */
-  fillRect(xPt, yTopPt, wPt, hPt, color) {
+  fillRect(xPt, yTopPt, wPt, hPt, color2) {
     const y = this.fromTop(yTopPt + hPt);
     this.content.str(
-      `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])} rg
+      `${fmt(color2[0])} ${fmt(color2[1])} ${fmt(color2[2])} rg
 ${fmt(xPt)} ${fmt(y)} ${fmt(wPt)} ${fmt(hPt)} re f
 `
     );
   }
   /** Segmento de reta (bordas, sublinhado, divisores). Coords y a partir do topo. */
-  line(x0, y0Top, x1, y1Top, color, widthPt, dash) {
+  line(x0, y0Top, x1, y1Top, color2, widthPt, dash) {
     const d = dash && dash.length ? `[${dash.map(fmt).join(" ")}] 0 d
 ` : "[] 0 d\n";
     this.content.str(
-      `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])} RG
+      `${fmt(color2[0])} ${fmt(color2[1])} ${fmt(color2[2])} RG
 ${fmt(widthPt)} w
 ${d}${fmt(x0)} ${fmt(this.fromTop(y0Top))} m ${fmt(x1)} ${fmt(this.fromTop(y1Top))} l S
 `
@@ -2034,10 +2041,10 @@ ${d}${fmt(x0)} ${fmt(this.fromTop(y0Top))} m ${fmt(x1)} ${fmt(this.fromTop(y1Top
    * recebe sua própria matriz de texto (posição absoluta), reproduzindo
    * exatamente as posições calculadas pelo layout (inclusive o snap de 1/600").
    */
-  glyphs(font, sizePt, color, glyphs, opts = {}) {
+  glyphs(font, sizePt, color2, glyphs, opts = {}) {
     if (!glyphs.length) return;
     const c = this.content;
-    const col = `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])}`;
+    const col = `${fmt(color2[0])} ${fmt(color2[1])} ${fmt(color2[2])}`;
     c.str(`BT
 /${font.resourceName} ${fmt(sizePt)} Tf
 ${col} rg
@@ -2275,10 +2282,10 @@ var PdfDocument = class {
     const catalog = w.alloc();
     const pagesNode = w.alloc();
     const pageRefs = [];
-    for (const page of this.pages) {
-      const contentNum = w.addStream("", page.content.toUint8Array());
+    for (const page2 of this.pages) {
+      const contentNum = w.addStream("", page2.content.toUint8Array());
       const pageNum = w.addDict(
-        `<< /Type /Page /Parent ${pagesNode} 0 R /MediaBox [0 0 ${fmt(page.widthPt)} ${fmt(page.heightPt)}] /Resources ${resources} /Contents ${contentNum} 0 R >>`
+        `<< /Type /Page /Parent ${pagesNode} 0 R /MediaBox [0 0 ${fmt(page2.widthPt)} ${fmt(page2.heightPt)}] /Resources ${resources} /Contents ${contentNum} 0 R >>`
       );
       pageRefs.push(pageNum);
     }
@@ -3018,6 +3025,9 @@ function formatNumber(n, fmt2, lang = "pt-BR") {
       return `(${n})`;
     case "decimalEnclosedFullstop":
       return `${n}.`;
+    // número de página "- 1 -" (w:pgNumType fmt — oráculo hfopts fmt-dash)
+    case "numberInDash":
+      return `- ${n} -`;
     // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
     case "chicago":
       return n <= 0 ? String(n) : "*\u2020\u2021\xA7"[(n - 1) % 4].repeat(Math.floor((n - 1) / 4) + 1);
@@ -3137,17 +3147,21 @@ var NumberingState = class _NumberingState {
     }
     const lvlText = lvl.lvlTextNull ? "" : lvl.lvlText ?? "";
     let text;
+    let chapter;
     if (lvl.numFmt === "bullet") text = lvlText;
     else {
-      text = lvlText.replace(/%([1-9])/g, (_, k) => {
+      const subst = (s) => s.replace(/%([1-9])/g, (_, k) => {
         const l = parseInt(k, 10) - 1;
         const n = c[l];
         const v = n?.real ? n.v : lvlStart(l);
         const fmt2 = lvl.isLgl && l !== ilvl ? "decimal" : this.level(numId, l)?.numFmt ?? "decimal";
         return formatNumber(v, fmt2 === "bullet" ? "decimal" : fmt2, this.lang);
       });
+      text = subst(lvlText);
+      const a2 = lvlText.search(/%[1-9]/), b = lvlText.lastIndexOf("%");
+      if (a2 >= 0 && b >= a2) chapter = subst(lvlText.slice(a2, b + 2));
     }
-    return { text, level: lvl, numId, ilvl, listKey: key };
+    return { text, level: lvl, numId, ilvl, listKey: key, ...chapter !== void 0 ? { chapter } : {} };
   }
 };
 
@@ -3210,8 +3224,8 @@ var RevisionDisplay = class {
     return this.colors[author] ?? authorColor(this.order, author);
   }
   /** O run aparece? Marcado? (texto inserido/excluído) */
-  run(run) {
-    const { ins, del } = run.props;
+  run(run2) {
+    const { ins, del } = run2.props;
     if (!ins && !del) return null;
     if (this.mode === "original") return ins ? "hide" : null;
     const marks = this.mode === "all";
@@ -3223,29 +3237,29 @@ var RevisionDisplay = class {
     return { color: ins.move ? MOVE_COLOR : this.color(ins.author), kind: "ins", move: !!ins.move };
   }
   /** rPr direto a desenhar: no modo Original, o de antes da formatação controlada. */
-  directRPr(run) {
-    const f = run.props.fmt;
-    if (this.mode !== "original" || !f) return directRPr(run);
-    const c = run.rpr?.change;
+  directRPr(run2) {
+    const f = run2.props.fmt;
+    if (this.mode !== "original" || !f) return directRPr(run2);
+    const c = run2.rpr?.change;
     if (c && c.author === f.author && c.date === f.date && JSON.stringify(runPropsFromRPr(c.rPr)) === JSON.stringify(f.old)) return { ...c.rPr };
-    const p = run.props;
-    return directRPr({ ...run, props: { ...f.old, ...p.src !== void 0 ? { src: p.src } : {}, ...p.link ? { link: p.link } : {} } });
+    const p = run2.props;
+    return directRPr({ ...run2, props: { ...f.old, ...p.src !== void 0 ? { src: p.src } : {}, ...p.link ? { link: p.link } : {} } });
   }
   /** Parágrafo a diagramar: no modo Original, com a formatação de antes. */
-  paragraph(para) {
-    const f = para.props.pfmt;
-    if (this.mode !== "original" || !f) return para;
-    const c = para.ppr?.change;
-    const meta = { ...para.props.src !== void 0 ? { src: para.props.src } : {}, ...para.props.sectionBreak ? { sectionBreak: para.props.sectionBreak } : {} };
+  paragraph(para2) {
+    const f = para2.props.pfmt;
+    if (this.mode !== "original" || !f) return para2;
+    const c = para2.ppr?.change;
+    const meta = { ...para2.props.src !== void 0 ? { src: para2.props.src } : {}, ...para2.props.sectionBreak ? { sectionBreak: para2.props.sectionBreak } : {} };
     if (c && c.author === f.author && c.date === f.date && JSON.stringify(paraPropsFromPPr(c.pPr)) === JSON.stringify(f.old)) {
-      const ppr = { ...c.pPr, ...para.ppr?.rPr ? { rPr: para.ppr.rPr } : {} };
-      return { ...para, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
+      const ppr = { ...c.pPr, ...para2.ppr?.rPr ? { rPr: para2.ppr.rPr } : {} };
+      return { ...para2, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
     }
-    return { ...para, ppr: directPPr({ ...para, props: { ...f.old, ...meta } }), props: { ...f.old, ...meta } };
+    return { ...para2, ppr: directPPr({ ...para2, props: { ...f.old, ...meta } }), props: { ...f.old, ...meta } };
   }
   /** A marca deste parágrafo some (o texto vai para o seguinte) nesta visão? */
-  markGone(para) {
-    const { markDel, markIns } = para.props;
+  markGone(para2) {
+    const { markDel, markIns } = para2.props;
     if (this.mode === "original") return !!markIns;
     if (!markDel) return false;
     return this.mode !== "all" || !this.shown(markDel, "insDel");
@@ -3267,18 +3281,18 @@ function joinDeleted(carried, next) {
   out[REV_JOINS] = [carried.reduce((n, r) => n + r.text.length, 0)];
   return out;
 }
-function revisionRanges(rd, para) {
+function revisionRanges(rd, para2) {
   if (!rd.barColor()) return null;
   const ranges = [];
   let acc = 0;
-  for (const r of para.runs) {
+  for (const r of para2.runs) {
     const rs = acc;
     acc += r.text.length;
     if (rd.barFor(r.props.ins, "insDel") || rd.barFor(r.props.del, "insDel") || rd.barFor(r.props.fmt, "fmt")) ranges.push([rs, acc, rd.run(r) === "hide"]);
   }
-  if (rd.mode === "simple") for (const k of para[REV_JOINS] ?? []) ranges.push([k, k, true]);
-  const whole = rd.barFor(para.props.pfmt, "fmt");
-  const mark = rd.barFor(para.props.markIns, "insDel") || rd.barFor(para.props.markDel, "insDel");
+  if (rd.mode === "simple") for (const k of para2[REV_JOINS] ?? []) ranges.push([k, k, true]);
+  const whole = rd.barFor(para2.props.pfmt, "fmt");
+  const mark = rd.barFor(para2.props.markIns, "insDel") || rd.barFor(para2.props.markDel, "insDel");
   return ranges.length || whole || mark ? { ranges, whole, mark } : null;
 }
 
@@ -3394,11 +3408,11 @@ function emptyFormatting() {
   };
 }
 var eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-function directRPr(run) {
-  const base = run.rpr ? { ...run.rpr } : {};
-  const p = run.props;
-  const orig = editBaseProps(run, run.rpr);
-  if (!run.rpr) {
+function directRPr(run2) {
+  const base = run2.rpr ? { ...run2.rpr } : {};
+  const p = run2.props;
+  const orig = editBaseProps(run2, run2.rpr);
+  if (!run2.rpr) {
     if (p.bold) base.b = true;
     if (p.italic) base.i = true;
     if (p.underline && !(p.link && !p.underlineStyle && !p.underlineColor)) base.u = { val: p.underlineStyle ?? "single", ...p.underlineColor ? { color: p.underlineColor } : {} };
@@ -3451,10 +3465,10 @@ function directRPr(run) {
   }
   return base;
 }
-function directPPr(para) {
-  const base = para.ppr ? { ...para.ppr } : {};
-  const p = para.props;
-  const orig = paraPropsFromPPr(para.ppr);
+function directPPr(para2) {
+  const base = para2.ppr ? { ...para2.ppr } : {};
+  const p = para2.props;
+  const orig = paraPropsFromPPr(para2.ppr);
   if (!eq(p.alignment, orig.alignment)) {
     if (p.alignment) base.jc = p.alignment;
     else delete base.jc;
@@ -3465,7 +3479,7 @@ function directPPr(para) {
   }
   if (!eq(p.numbering, orig.numbering)) {
     if (!p.numbering) base.numPr = { numId: 0 };
-    else if (para.ppr?.numPr?.numId) base.numPr = { ...para.ppr.numPr, ilvl: p.numbering.ilvl };
+    else if (para2.ppr?.numPr?.numId) base.numPr = { ...para2.ppr.numPr, ilvl: p.numbering.ilvl };
     else base.numPr = { numId: p.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p.numbering.ilvl };
   }
   if (p.indentLeftTwips !== orig.indentLeftTwips || p.indentRightTwips !== orig.indentRightTwips || p.indentFirstLineTwips !== orig.indentFirstLineTwips) {
@@ -3943,14 +3957,14 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz * 2 * 1331 / 2048) / 2 : sz;
   const shift = (rpr.position ?? 0) * 10;
   const tf = rpr.textFill;
-  const color = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
+  const color2 = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
   const u = rpr.u && rpr.u.val !== "none" && rpr.u.val !== "" ? { val: rpr.u.val, ...rpr.u.color && rpr.u.color !== "auto" ? { color: rpr.u.color } : {} } : void 0;
   const shd = shadingFill(rpr.shd, theme);
   const style = {
     rpr,
     sizePt,
-    color: color ?? (env.darkBackground ? "FFFFFF" : "000000"),
-    autoColor: !color,
+    color: color2 ?? (env.darkBackground ? "FFFFFF" : "000000"),
+    autoColor: !color2,
     bold: !!rpr.b,
     italic: !!rpr.i,
     underline: u,
@@ -4185,39 +4199,39 @@ function kernTwips(ctx, face, cp, next, sizePt) {
   if (ctx.opts.advanceEm === "device") return k;
   return k * sizePt / deviceEmPt(sizePt);
 }
-function fieldRuns(run, env) {
-  const instr = (run.field ?? "").trim();
+function fieldRuns(run2, env) {
+  const instr = (run2.field ?? "").trim();
   const name = instr.split(/\s+/)[0]?.toUpperCase() ?? "";
   if (["PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE"].includes(name) || name.endsWith("_MARK")) {
     const v = env.field?.(name, instr);
     if (v !== void 0) {
-      const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
+      const base = run2.fieldResult?.find((r) => !r.image && !r.textbox) ?? run2;
       const out = { ...base, text: v, field: void 0, fieldResult: void 0 };
       if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
       return [out];
     }
   }
-  if (run.fieldResult?.length) {
-    if (!run.fieldResult.some((r) => r.field !== void 0)) return run.fieldResult;
-    return run.fieldResult.flatMap((r) => r.field !== void 0 ? fieldRuns(r, env) ?? (r.text ? [r] : []) : [r]);
+  if (run2.fieldResult?.length) {
+    if (!run2.fieldResult.some((r) => r.field !== void 0)) return run2.fieldResult;
+    return run2.fieldResult.flatMap((r) => r.field !== void 0 ? fieldRuns(r, env) ?? (r.text ? [r] : []) : [r]);
   }
   return null;
 }
-function displayRuns(para, env) {
+function displayRuns(para2, env) {
   const out = [];
   let offset = 0;
-  para.runs.forEach((run, idx) => {
-    if (run.formField?.type === "checkBox") out.push({ run, idx, offset });
-    else if (run.formField?.type === "dropDown" && run.formField.entries) {
-      const text = run.formField.entries[run.formField.selected ?? 0] ?? "";
-      if (text) out.push({ run: { ...run, text, field: void 0, fieldResult: void 0, formField: void 0 }, idx, offset });
-    } else if (run.field !== void 0) {
-      const fr = fieldRuns(run, env);
+  para2.runs.forEach((run2, idx) => {
+    if (run2.formField?.type === "checkBox") out.push({ run: run2, idx, offset });
+    else if (run2.formField?.type === "dropDown" && run2.formField.entries) {
+      const text = run2.formField.entries[run2.formField.selected ?? 0] ?? "";
+      if (text) out.push({ run: { ...run2, text, field: void 0, fieldResult: void 0, formField: void 0 }, idx, offset });
+    } else if (run2.field !== void 0) {
+      const fr = fieldRuns(run2, env);
       if (fr) {
         for (const r of fr) out.push({ run: r, idx, offset });
-      } else if (run.text) out.push({ run, idx, offset });
-    } else out.push({ run, idx, offset });
-    offset += run.text.length;
+      } else if (run2.text) out.push({ run: run2, idx, offset });
+    } else out.push({ run: run2, idx, offset });
+    offset += run2.text.length;
   });
   return out;
 }
@@ -4258,9 +4272,9 @@ var hangPunct = (rpr, alt) => {
   return HANG_BASE + HANG_CLOSE + HANG_QUOTES + (/^zh-(tw|hk|mo)/i.test(ea) ? "" : "%");
 };
 var SPACE_LIKE = /* @__PURE__ */ new Set([32, 8194, 8195, 8197, 8203, 12288]);
-function resolvePPr(ctx, para, env) {
+function resolvePPr(ctx, para2, env) {
   const dd = ctx.resolver.docDefaults;
-  const direct = directPPr(para);
+  const direct = directPPr(para2);
   const styleId = ctx.resolver.paraStyleId(direct.pStyle);
   const st = ctx.resolver.paraStyle(styleId);
   let ppr = mergePPr(dd.pPr, env.tablePPr);
@@ -4290,18 +4304,18 @@ function resolvePPr(ctx, para, env) {
   return { ppr, styleId, styleRPr: st.rPr };
 }
 function paraVisibility(ctx, para0, env) {
-  const para = ctx.rev.paragraph(para0);
-  const { ppr, styleRPr } = resolvePPr(ctx, para, env);
+  const para2 = ctx.rev.paragraph(para0);
+  const { ppr, styleRPr } = resolvePPr(ctx, para2, env);
   const dd = ctx.resolver.docDefaults;
   const runRPr = (rpr) => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(para, env).some(({ run }) => !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === "checkBox" || run.custom || run.ptab || run.noteRef) && ctx.rev.run(run) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run))));
+  const visible = displayRuns(para2, env).some(({ run: run2 }) => !!(run2.text || run2.image || run2.shape || run2.group || run2.textbox || run2.formField?.type === "checkBox" || run2.custom || run2.ptab || run2.noteRef) && ctx.rev.run(run2) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run2))));
   return { markHidden, visible };
 }
 function prepareParagraph(ctx, para0, env0) {
-  const para = ctx.rev.paragraph(para0);
-  const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
+  const para2 = ctx.rev.paragraph(para0);
+  const { ppr, styleId, styleRPr } = resolvePPr(ctx, para2, env0);
   const shd = ppr.shd;
   const paraFill = shadingFill(shd, ctx.fmt.theme);
   const env = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
@@ -4313,7 +4327,7 @@ function prepareParagraph(ctx, para0, env0) {
   const markStyle = resolveRunStyle(ctx, markRpr, env);
   const markFace = faceFor(ctx, markRpr, 32, markStyle);
   const glyphs = [];
-  const pushChars = (text, run, rpr, style, offset0, runIdx, formText = false) => {
+  const pushChars = (text, run2, rpr, style, offset0, runIdx, formText = false) => {
     let t = text;
     if (rpr.caps) t = t.toUpperCase();
     const chars = Array.from(t);
@@ -4357,7 +4371,7 @@ function prepareParagraph(ctx, para0, env0) {
       } else if (rpr.smallCaps && !rpr.caps && cp === 32) {
         size = Math.round(style.sizePt * 2 * 0.8) / 2;
       }
-      const face = faceFor(ctx, rpr, kind === "lb" ? 32 : shownCp, style, run.symFont);
+      const face = faceFor(ctx, rpr, kind === "lb" ? 32 : shownCp, style, run2.symFont);
       const m = faceMetrics(notdefPua(face, shownCp) ? faceFor(ctx, rpr, 65, style).font : face.font);
       let adv = 0;
       let kernAdj;
@@ -4402,8 +4416,8 @@ function prepareParagraph(ctx, para0, env0) {
   };
   let mathJc;
   const mathRuns = /* @__PURE__ */ new Set();
-  const pushMath = (run, runIdx, offset0) => {
-    const zone = run.math;
+  const pushMath = (run2, runIdx, offset0) => {
+    const zone = run2.math;
     mathJc = zone.jc ?? "centerGroup";
     mathRuns.add(runIdx);
     const menv = {
@@ -4418,7 +4432,7 @@ function prepareParagraph(ctx, para0, env0) {
       adv: (face, cp, size) => advanceTwips(ctx, face, cp, size),
       kern: (face, cp, next, size) => kernTwips(ctx, face, cp, next, size)
     };
-    const last = Math.max(0, run.text.length - 1);
+    const last = Math.max(0, run2.text.length - 1);
     const off = { n: 0 };
     let seg = [];
     const flushSeg = () => {
@@ -4445,13 +4459,13 @@ function prepareParagraph(ctx, para0, env0) {
     flushSeg();
   };
   let pendingNote;
-  for (const { run, idx, offset } of displayRuns(para, env)) {
-    const rev = ctx.rev.run(run);
+  for (const { run: run2, idx, offset } of displayRuns(para2, env)) {
+    const rev = ctx.rev.run(run2);
     if (rev === "hide") continue;
-    const direct = ctx.rev.directRPr(run);
-    if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
+    const direct = ctx.rev.directRPr(run2);
+    if (run2.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
-    const style = resolveRunStyle(ctx, rpr, env, run.props.link);
+    const style = resolveRunStyle(ctx, rpr, env, run2.props.link);
     if (style.hidden) continue;
     if (rev) {
       style.color = rev.color;
@@ -4462,18 +4476,18 @@ function prepareParagraph(ctx, para0, env0) {
         style.dstrike = rev.move;
       }
     }
-    if (run.image || run.shape || run.group || run.textbox) {
-      const floating = run.image?.floating ?? run.shape?.floating ?? run.group?.floating ?? run.textbox?.floating;
+    if (run2.image || run2.shape || run2.group || run2.textbox) {
+      const floating = run2.image?.floating ?? run2.shape?.floating ?? run2.group?.floating ?? run2.textbox?.floating;
       const face = faceFor(ctx, rpr, 32, style);
       if (floating) {
-        glyphs.push({ kind: "obj", ch: "", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: false, obj: run, sizePt: style.sizePt });
+        glyphs.push({ kind: "obj", ch: "", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: false, obj: run2, sizePt: style.sizePt });
         continue;
       }
-      const ie = run.image?.inlineEffect ?? run.shape?.inlineEffect;
-      const w = (run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0) + (ie ? ie.l + ie.r : 0);
-      const h = (run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0) + (ie ? ie.t + ie.b : 0);
-      if (run.shape?.hr) {
-        glyphs.push({ kind: "obj", ch: "\uFFFC", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, obj: run, sizePt: style.sizePt, hr: h });
+      const ie = run2.image?.inlineEffect ?? run2.shape?.inlineEffect;
+      const w = (run2.image?.widthTwips ?? run2.shape?.widthTwips ?? run2.group?.widthTwips ?? run2.textbox?.widthTwips ?? 0) + (ie ? ie.l + ie.r : 0);
+      const h = (run2.image?.heightTwips ?? run2.shape?.heightTwips ?? run2.group?.heightTwips ?? run2.textbox?.heightTwips ?? 0) + (ie ? ie.t + ie.b : 0);
+      if (run2.shape?.hr) {
+        glyphs.push({ kind: "obj", ch: "\uFFFC", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, obj: run2, sizePt: style.sizePt, hr: h });
         continue;
       }
       const m = faceMetrics(face.font);
@@ -4490,14 +4504,14 @@ function prepareParagraph(ctx, para0, env0) {
         offset,
         runIdx: idx,
         breakAfter: true,
-        obj: run,
+        obj: run2,
         sizePt: style.sizePt
       });
       continue;
     }
-    if (run.formField?.type === "checkBox") {
+    if (run2.formField?.type === "checkBox") {
       const face = faceFor(ctx, rpr, 32, style);
-      const size = run.formField.sizeAuto || !run.formField.sizeHalfPt ? style.sizePt : run.formField.sizeHalfPt / 2;
+      const size = run2.formField.sizeAuto || !run2.formField.sizeHalfPt ? style.sizePt : run2.formField.sizeHalfPt / 2;
       const side = 1.07 * size * 20;
       const fm = faceMetrics(face.font);
       glyphs.push({
@@ -4513,44 +4527,44 @@ function prepareParagraph(ctx, para0, env0) {
         runIdx: idx,
         breakAfter: false,
         sizePt: style.sizePt,
-        box: { side, checked: !!run.formField.checked }
+        box: { side, checked: !!run2.formField.checked }
       });
       continue;
     }
-    if (run.custom) {
+    if (run2.custom) {
       const face = faceFor(ctx, rpr, 32, style);
-      const text = run.custom.fallbackText || " ";
-      pushChars(text, run, rpr, style, offset, idx);
+      const text = run2.custom.fallbackText || " ";
+      pushChars(text, run2, rpr, style, offset, idx);
       continue;
     }
-    if (run.ptab) {
+    if (run2.ptab) {
       const face = faceFor(ctx, rpr, 32, style);
-      glyphs.push({ kind: "tab", ch: "	", cp: 9, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, ptab: run.ptab, sizePt: style.sizePt });
+      glyphs.push({ kind: "tab", ch: "	", cp: 9, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, ptab: run2.ptab, sizePt: style.sizePt });
       continue;
     }
-    if (run.noteRef) {
-      const { kind, id, custom } = run.noteRef;
+    if (run2.noteRef) {
+      const { kind, id, custom } = run2.noteRef;
       const mark = ctx.noteMark(kind, id, custom);
       if (custom) {
         if (kind === "footnote") pendingNote = id;
         continue;
       }
       const before2 = glyphs.length;
-      pushChars(mark, run, rpr, style, offset, idx);
+      pushChars(mark, run2, rpr, style, offset, idx);
       for (let k = before2; k < glyphs.length; k++) {
         glyphs[k].offset = offset;
         if (kind === "footnote") glyphs[k].noteId = id;
       }
       continue;
     }
-    if (run.math) {
-      pushMath(run, idx, offset);
+    if (run2.math) {
+      pushMath(run2, idx, offset);
       continue;
     }
     const before = glyphs.length;
-    pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ""));
-    if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
-    if (/_MARK\s*$/.test(para.runs[idx]?.field ?? "")) for (let k = before; k < glyphs.length; k++) glyphs[k].offset = offset;
+    pushChars(run2.text, run2, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para2.runs[idx]?.field ?? ""));
+    if (GLUED_FIELD.has(run2)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
+    if (/_MARK\s*$/.test(para2.runs[idx]?.field ?? "")) for (let k = before; k < glyphs.length; k++) glyphs[k].offset = offset;
     if (pendingNote !== void 0 && glyphs.length > before) {
       glyphs[before].noteId = pendingNote;
       pendingNote = void 0;
@@ -4647,7 +4661,7 @@ function prepareParagraph(ctx, para0, env0) {
         mg.push({ kind: "char", ch, cp, face, style: ms, adv, asc: m.ascent * ms.sizePt * 20, desc: m.descent * ms.sizePt * 20, offset: -1, runIdx: -1, breakAfter: false, sizePt: ms.sizePt });
         w += adv;
       }
-      marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? "tab", jc: nm.level.lvlJc ?? "left" };
+      marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? "tab", jc: nm.level.lvlJc ?? "left", ...nm.chapter !== void 0 ? { chapter: nm.chapter } : {} };
     }
   }
   const ind = ppr.ind ?? {};
@@ -4660,9 +4674,9 @@ function prepareParagraph(ctx, para0, env0) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
   }
-  const revBars = revisionRanges(ctx.rev, para);
+  const revBars = revisionRanges(ctx.rev, para2);
   return {
-    para,
+    para: para2,
     ppr,
     styleId,
     markStyle,
@@ -6177,11 +6191,11 @@ function paintLine(ctx, out, line, frameX, top) {
     const asc = m.ascent * st.sizePt * 20, desc = m.descent * st.sizePt * 20;
     out.push({ t: "rect", x: frameX + pg.x, y: baseY - asc, w: pg.w, h: asc + desc, fill });
   }
-  let run = null;
+  let run2 = null;
   let runKey = "";
   const flush = () => {
-    if (run && run.glyphs.length) out.push(run);
-    run = null;
+    if (run2 && run2.glyphs.length) out.push(run2);
+    run2 = null;
     runKey = "";
   };
   for (const pg of all) {
@@ -6211,7 +6225,7 @@ function paintLine(ctx, out, line, frameX, top) {
     if (key !== runKey) {
       flush();
       runKey = key;
-      run = {
+      run2 = {
         t: "glyphs",
         face: g.face,
         sizePt: g.sizePt,
@@ -6230,8 +6244,8 @@ function paintLine(ctx, out, line, frameX, top) {
       };
     }
     const cp = g.kind === "shy" ? 45 : g.cp;
-    run.glyphs.push({ cp, x: frameX + pg.x });
-    run.text += String.fromCodePoint(cp);
+    run2.glyphs.push({ cp, x: frameX + pg.x });
+    run2.text += String.fromCodePoint(cp);
   }
   flush();
   paintDecorations(out, all, frameX, baseY, line);
@@ -6253,7 +6267,7 @@ function paintLeader(ctx, out, pg, frameX, baseY, all) {
   const fv = frameX / 2.4, ff = Math.floor(fv);
   const fx = Math.abs(fv - ff - 0.5) < 1e-6 ? ff + ff % 2 : Math.round(fv);
   const x0 = displayEnd(ctx, all, pg, fx), x1 = fx + Math.round((pg.x + pg.w) / 2.4);
-  const run = {
+  const run2 = {
     t: "glyphs",
     face,
     sizePt: g.sizePt,
@@ -6264,10 +6278,10 @@ function paintLeader(ctx, out, pg, frameX, baseY, all) {
     ...scale !== 1 ? { scaleX: scale } : {}
   };
   for (let k = Math.ceil(x0 / step); (k + 1) * step <= x1; k++) {
-    run.glyphs.push({ cp, x: k * step * 2.4 });
-    run.text += ch;
+    run2.glyphs.push({ cp, x: k * step * 2.4 });
+    run2.text += ch;
   }
-  if (run.glyphs.length) out.push(run);
+  if (run2.glyphs.length) out.push(run2);
 }
 function displayEnd(ctx, all, tab, fx) {
   const i = all.indexOf(tab);
@@ -6289,14 +6303,14 @@ function displayEnd(ctx, all, tab, fx) {
   return px + seg(u);
 }
 function paintMath(out, box, frameX, x, baseY, line, lineId) {
-  let run = null;
+  let run2 = null;
   let key = "";
   for (const it of box.items) {
     const k = `${it.face.key}|${it.sizePt}|${it.style.color}|${it.y}`;
-    if (!run || k !== key) {
-      if (run) out.push(run);
+    if (!run2 || k !== key) {
+      if (run2) out.push(run2);
       key = k;
-      run = {
+      run2 = {
         t: "glyphs",
         face: it.face,
         sizePt: it.sizePt,
@@ -6307,10 +6321,10 @@ function paintMath(out, box, frameX, x, baseY, line, lineId) {
         lineBox: { asc: line.baseline + it.y, desc: line.height - line.baseline - it.y, lead: x + it.x, line: lineId }
       };
     }
-    run.glyphs.push({ cp: it.cp, x: frameX + x + it.x });
-    run.text += String.fromCodePoint(it.cp);
+    run2.glyphs.push({ cp: it.cp, x: frameX + x + it.x });
+    run2.text += String.fromCodePoint(it.cp);
   }
-  if (run) out.push(run);
+  if (run2) out.push(run2);
   for (const r of box.rules) out.push({ t: "rect", x: frameX + x + r.x, y: baseY + r.y, w: r.w, h: r.h, fill: r.color });
 }
 function paintCheckBox(out, g, x, baseY) {
@@ -6389,12 +6403,12 @@ function paintDecorations(out, all, frameX, baseY, line) {
     const sz = st.sizePt * 20;
     const y = baseY - st.shift + m.underlinePos * sz;
     const w = Math.max(0.5, m.underlineThick * st.sizePt);
-    const color = st.underline.color ?? st.color;
+    const color2 = st.underline.color ?? st.color;
     const val = st.underline.val;
     if (val === "words" && s.g.kind === "space") continue;
     const dash = val.startsWith("dotted") ? "dotted" : val.startsWith("dash") ? "dashed" : void 0;
-    out.push({ t: "line", x1: s.x0, y1: y, x2: s.x1, y2: y, color, widthPt: val === "thick" ? w * 2 : w, ...dash ? { dash } : {} });
-    if (val === "double") out.push({ t: "line", x1: s.x0, y1: y + w * 20 * 2, x2: s.x1, y2: y + w * 20 * 2, color, widthPt: w });
+    out.push({ t: "line", x1: s.x0, y1: y, x2: s.x1, y2: y, color: color2, widthPt: val === "thick" ? w * 2 : w, ...dash ? { dash } : {} });
+    if (val === "double") out.push({ t: "line", x1: s.x0, y1: y + w * 20 * 2, x2: s.x1, y2: y + w * 20 * 2, color: color2, widthPt: w });
   }
   for (const s of segs((g) => g.style.strike || g.style.dstrike)) {
     const st = s.g.style;
@@ -6494,20 +6508,20 @@ function borderPaintWidth(b) {
 }
 function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   if (!b || b.val === "none" || b.val === "nil") return;
-  const color = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
+  const color2 = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const w = borderPaintWidth(b);
   const dash = BORDER_DASH[b.val];
   if (dash) {
-    out.push({ t: "line", x1, y1, x2, y2, color, widthPt: w / 20, dash });
+    out.push({ t: "line", x1, y1, x2, y2, color: color2, widthPt: w / 20, dash });
     return;
   }
   if (x1 !== x2 && y1 !== y2) {
-    out.push({ t: "line", x1, y1, x2, y2, color, widthPt: w / 20 });
+    out.push({ t: "line", x1, y1, x2, y2, color: color2, widthPt: w / 20 });
     return;
   }
   const horizontal = Math.abs(y2 - y1) < Math.abs(x2 - x1);
   if (b.val === "wave" || b.val === "doubleWave") {
-    paintWave(out, b.val === "doubleWave", color, w, horizontal, x1, y1, x2, y2);
+    paintWave(out, b.val === "doubleWave", color2, w, horizontal, x1, y1, x2, y2);
     return;
   }
   const bands = borderBands(b.val, w);
@@ -6516,7 +6530,7 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   let pos = -total / 2;
   for (const band of flip ? [...bands].reverse() : bands) {
     if (band.c) {
-      const fill = band.c === "light" ? toWhite(color, 192 / 255) : band.c === "mid" ? toWhite(color, 96 / 255) : color;
+      const fill = band.c === "light" ? toWhite(color2, 192 / 255) : band.c === "mid" ? toWhite(color2, 96 / 255) : color2;
       if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band.t, fill });
       else out.push({ t: "rect", x: x1 + pos, y: Math.min(y1, y2), w: band.t, h: Math.abs(y2 - y1), fill });
     }
@@ -6524,7 +6538,7 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   }
   void BORDER_SINGLE_LIKE;
 }
-function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
+function paintWave(out, double, color2, w, horizontal, x1, y1, x2, y2) {
   const h = Math.max(60, w * 3), period = h * 2, lw = Math.max(0.5, w / 20 / 1.5);
   const len2 = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
   const waves = double ? [-h / 4, h / 4] : [0];
@@ -6535,7 +6549,7 @@ function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
       const a = Math.min(s, len2);
       cmds.push(horizontal ? { op: cmds.length ? "L" : "M", x: Math.min(x1, x2) + a, y: y1 + off + d } : { op: cmds.length ? "L" : "M", x: x1 + off + d, y: Math.min(y1, y2) + a });
     }
-    out.push({ t: "path", cmds, stroke: { color, widthPt: lw } });
+    out.push({ t: "path", cmds, stroke: { color: color2, widthPt: lw } });
   }
 }
 function paintParaBox(ctx, out, p, pBdr, left, right, top, bottom, drawTop, drawBottom, between = false) {
@@ -6574,18 +6588,18 @@ function pageBorderItems(ctx, pb, g, surround) {
   const lw = (b) => on(b) ? Math.max(0.25, (b.sz ?? 4) / 8) * 20 : 0;
   const thick = (b) => on(b) && b.val === "double" ? 3 * lw(b) : lw(b);
   const sp = (b) => (b?.space ?? 0) * 20;
-  const page = pb.offsetFrom === "page";
-  const top = page ? sp(pb.top) : (surround.header ? g.hdr : g.marT) - sp(pb.top) - thick(pb.top);
-  const bottom = page ? g.pageH - sp(pb.bottom) : g.pageH - (surround.footer ? g.ftr : g.marB) + sp(pb.bottom) + thick(pb.bottom);
-  const left = page ? sp(pb.left) : g.marL - sp(pb.left) - thick(pb.left);
-  const right = page ? g.pageW - sp(pb.right) : g.pageW - g.marR + sp(pb.right) + thick(pb.right);
+  const page2 = pb.offsetFrom === "page";
+  const top = page2 ? sp(pb.top) : (surround.header ? g.hdr : g.marT) - sp(pb.top) - thick(pb.top);
+  const bottom = page2 ? g.pageH - sp(pb.bottom) : g.pageH - (surround.footer ? g.ftr : g.marB) + sp(pb.bottom) + thick(pb.bottom);
+  const left = page2 ? sp(pb.left) : g.marL - sp(pb.left) - thick(pb.left);
+  const right = page2 ? g.pageW - sp(pb.right) : g.pageW - g.marR + sp(pb.right) + thick(pb.right);
   const out = [];
-  const color = (b) => resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
+  const color2 = (b) => resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const bands = (b) => b.val === "double" ? [[0, lw(b)], [2 * lw(b), 3 * lw(b)]] : [[0, lw(b)]];
-  if (on(pb.top)) for (const [a, z] of bands(pb.top)) out.push({ t: "rect", x: left, y: top + a, w: right - left, h: z - a, fill: color(pb.top) });
-  if (on(pb.bottom)) for (const [a, z] of bands(pb.bottom)) out.push({ t: "rect", x: left, y: bottom - z, w: right - left, h: z - a, fill: color(pb.bottom) });
-  if (on(pb.left)) for (const [a, z] of bands(pb.left)) out.push({ t: "rect", x: left + a, y: top, w: z - a, h: bottom - top, fill: color(pb.left) });
-  if (on(pb.right)) for (const [a, z] of bands(pb.right)) out.push({ t: "rect", x: right - z, y: top, w: z - a, h: bottom - top, fill: color(pb.right) });
+  if (on(pb.top)) for (const [a, z] of bands(pb.top)) out.push({ t: "rect", x: left, y: top + a, w: right - left, h: z - a, fill: color2(pb.top) });
+  if (on(pb.bottom)) for (const [a, z] of bands(pb.bottom)) out.push({ t: "rect", x: left, y: bottom - z, w: right - left, h: z - a, fill: color2(pb.bottom) });
+  if (on(pb.left)) for (const [a, z] of bands(pb.left)) out.push({ t: "rect", x: left + a, y: top, w: z - a, h: bottom - top, fill: color2(pb.left) });
+  if (on(pb.right)) for (const [a, z] of bands(pb.right)) out.push({ t: "rect", x: right - z, y: top, w: z - a, h: bottom - top, fill: color2(pb.right) });
   return out;
 }
 
@@ -6611,7 +6625,7 @@ function formatWordDate(d, picture, lang = "pt-BR") {
   const L = lang.toLowerCase().startsWith("en") ? EN : PT;
   let out = "";
   let i = 0;
-  const run = (ch) => {
+  const run2 = (ch) => {
     let n = 0;
     while (picture[i + n] === ch) n++;
     return n;
@@ -6626,51 +6640,49 @@ function formatWordDate(d, picture, lang = "pt-BR") {
     }
     const lower = picture.slice(i, i + 5).toLowerCase();
     if (lower === "am/pm") {
-      const pm = d.getHours() >= 12;
-      const s = pm ? "pm" : "am";
-      out += picture[i] === "A" ? s.toUpperCase() : s;
+      out += L === EN ? d.getHours() >= 12 ? "PM" : "AM" : "";
       i += 5;
       continue;
     }
     if (c === "d" || c === "D") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 4 ? L.days[d.getDay()] : n === 3 ? L.daysShort[d.getDay()] : n === 2 ? pad(d.getDate(), 2) : String(d.getDate());
       i += n;
       continue;
     }
     if (c === "M") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 4 ? L.months[d.getMonth()] : n === 3 ? L.monthsShort[d.getMonth()] : n === 2 ? pad(d.getMonth() + 1, 2) : String(d.getMonth() + 1);
       i += n;
       continue;
     }
     if (c === "y" || c === "Y") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 3 ? String(d.getFullYear()) : pad(d.getFullYear() % 100, 2);
       i += n;
       continue;
     }
     if (c === "H") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 2 ? pad(d.getHours(), 2) : String(d.getHours());
       i += n;
       continue;
     }
     if (c === "h") {
-      const n = run(c);
+      const n = run2(c);
       const h = d.getHours() % 12 || 12;
       out += n >= 2 ? pad(h, 2) : String(h);
       i += n;
       continue;
     }
     if (c === "m") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 2 ? pad(d.getMinutes(), 2) : String(d.getMinutes());
       i += n;
       continue;
     }
     if (c === "s" || c === "S") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 2 ? pad(d.getSeconds(), 2) : String(d.getSeconds());
       i += n;
       continue;
@@ -6963,18 +6975,18 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const g1 = boundaryWidths(cells, nCols, (c) => m.get(c).min, () => true);
   const minOf = (c) => m.get(c).min;
   if (all.length && all.every((c) => prefOf(c.tcW) === "pct")) {
-    const T3 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
-    const p2 = boundaryWidths(cells, nCols, (c) => T3 * c.tcW.w / 5e3);
-    let room = T3;
+    const T4 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
+    const p2 = boundaryWidths(cells, nCols, (c) => T4 * c.tcW.w / 5e3);
+    let room = T4;
     for (let j = 0; j < nCols; j++) {
       p2[j] = Math.max(0, Math.min(p2[j], room));
       room -= p2[j];
     }
     fitPctMins(p2, all, minOf, g1, () => true);
     const sp = p2.reduce((a, b) => a + b, 0);
-    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T3, base);
+    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T4, base);
     if (sp > cap + 0.5) return p2.map((x) => x * cap / sp);
-    return sp > 0 && T3 > sp + 0.5 ? p2.map((x) => x * T3 / sp) : p2;
+    return sp > 0 && T4 > sp + 0.5 ? p2.map((x) => x * T4 / sp) : p2;
   }
   const frac = Array.from({ length: nCols }, (_, j) => {
     const own3 = all.filter((c) => c.span === 1 && c.col === j);
@@ -6982,23 +6994,23 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     return Math.max(...own3.filter((c) => prefOf(c.tcW) === "pct").map((c) => c.tcW.w / 5e3));
   });
   const isPct = frac.map((f) => f > 0);
-  const kind = (c, T3) => {
+  const kind = (c, T4) => {
     const k = prefOf(c.tcW);
-    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T3 * c.tcW.w / 5e3 };
+    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T4 * c.tcW.w / 5e3 };
     return { k, w: k === "dxa" ? c.tcW.w : 0 };
   };
   const sumOf = (v, pick) => v.reduce((a, x, j) => a + (pick(j) ? x : 0), 0);
   const gMax = boundaryWidths(cells, nCols, (c) => m.get(c).max, () => true);
-  const g3of = (T3) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T3);
+  const g3of = (T4) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T4);
     return q.k === "dxa" ? Math.max(q.w, m.get(c).min) : m.get(c).min;
-  }, (c) => kind(c, T3).k !== "dxa");
-  const g4of = (T3) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T3), mm = m.get(c);
+  }, (c) => kind(c, T4).k !== "dxa");
+  const g4of = (T4) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T4), mm = m.get(c);
     return q.k === "dxa" ? Math.max(q.w, mm.min) : q.k === "auto" ? mm.max : mm.min;
-  }, (c) => kind(c, T3).k !== "dxa");
-  let T2 = T0;
-  if (T2 === void 0) {
+  }, (c) => kind(c, T4).k !== "dxa");
+  let T3 = T0;
+  if (T3 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
     const fr = Math.min(1, frac.reduce((a, b) => a + b, 0));
@@ -7007,14 +7019,14 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
       for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac[j]);
       if (fr < 1) t = Math.max(t, rest / (1 - fr));
     }
-    T2 = Math.min(t, avail);
+    T3 = Math.min(t, avail);
   }
   const explicit = T0 !== void 0;
   const p = new Array(nCols).fill(0);
   if (isPct.some(Boolean)) {
-    let room = T2 - sumOf(g1, (j) => !isPct[j]);
+    let room = T3 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p[j] = Math.max(0, Math.min(frac[j] * T2, room));
+      p[j] = Math.max(0, Math.min(frac[j] * T3, room));
       room -= p[j];
     }
     fitPctMins(p, all.filter((c) => c.span === 1), minOf, g1, (k) => isPct[k]);
@@ -7022,15 +7034,15 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const np = (j) => !isPct[j];
   if (!isPct.some((x) => !x)) {
     const sp = sumOf(p, () => true);
-    return sp > 0 && T2 > sp + 0.5 ? p.map((x) => x * T2 / sp) : p;
+    return sp > 0 && T3 > sp + 0.5 ? p.map((x) => x * T3 / sp) : p;
   }
-  let R = T2 - sumOf(p, () => true);
-  const g3 = g3of(T2), g4 = g4of(T2);
+  let R = T3 - sumOf(p, () => true);
+  const g3 = g3of(T3), g4 = g4of(T3);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp = (a, b, t) => a.map((x, j) => isPct[j] ? p[j] : x + (b[j] - x) * t);
   if (R >= S4 - 0.5) {
     const covered = (j) => all.some((c) => c.col <= j && c.col + c.span > j);
-    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T2).k !== "auto"));
+    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T3).k !== "auto"));
     let grow = auto;
     if (!grow.some(Boolean)) grow = isPct.map((x, j) => !x && covered(j));
     const wsum = sumOf(g4, (j) => grow[j]);
@@ -7039,19 +7051,19 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   }
   if (R >= S3) return lerp(g3, g4, (R - S3) / (S4 - S3));
   if (R >= S1) return lerp(g1, g3, S3 > S1 ? (R - S1) / (S3 - S1) : 0);
-  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T2 > avail) && S1 > avail + 0.5) {
+  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T3 > avail) && S1 > avail + 0.5) {
     const pad2 = Array.from({ length: nCols }, (_, j) => Math.max(0, ...all.filter((c) => c.span === 1 && c.col === j).map((c) => c.pad ?? 0)));
     const inner = g1.map((x, j) => Math.max(0, x - pad2[j]));
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x, j) => x - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
   if (explicit) {
-    if (!(S1 > avail + 0.5 && (tw === "pct" ? T2 <= avail + 0.5 : T2 < avail - 0.5))) return g3.map((x, j) => isPct[j] ? p[j] : x);
-    R += avail - T2;
-    T2 = avail;
+    if (!(S1 > avail + 0.5 && (tw === "pct" ? T3 <= avail + 0.5 : T3 < avail - 0.5))) return g3.map((x, j) => isPct[j] ? p[j] : x);
+    R += avail - T3;
+    T3 = avail;
   }
   const sg = docGrid.reduce((a, b) => a + b, 0);
-  if (!isPct.some(Boolean) && Math.abs(sg - T2) <= Math.max(20, 5e-3 * T2)) return docGrid.map((x) => x * T2 / sg);
+  if (!isPct.some(Boolean) && Math.abs(sg - T3) <= Math.max(20, 5e-3 * T3)) return docGrid.map((x) => x * T3 / sg);
   return g1.map((x, j) => isPct[j] ? p[j] : S1 > 0 ? x * R / S1 : x);
 }
 function measureCell(ctx, cell, r, mar) {
@@ -7080,14 +7092,14 @@ function measureCell(ctx, cell, r, mar) {
   });
   return { min: Math.max(6, Math.ceil(min - 1e-6)) + mar, max: Math.max(6, Math.ceil(max - 1e-6)) + mar };
 }
-function anchoredWidth(ctx, para) {
+function anchoredWidth(ctx, para2) {
   let w = 0;
-  for (const run of para.runs) {
-    const t = run.image ?? run.shape ?? run.group ?? run.textbox;
+  for (const run2 of para2.runs) {
+    const t = run2.image ?? run2.shape ?? run2.group ?? run2.textbox;
     const anc = t?.anchor;
     if (!t?.floating || !anc || anc.wrap === "none" || anc.wrap === "inline" || anc.layoutInCell === false) continue;
     let ow = t.widthTwips;
-    const tb = run.textbox;
+    const tb = run2.textbox;
     if (tb?.autoFit && tb.noWrap) {
       let tw = 0;
       for (const tp of tb.paras) tw = Math.max(tw, paraContentWidths(prepareParagraph(ctx, tp, {}), ctx.fmt.settings.defaultTabStop).max);
@@ -8079,18 +8091,18 @@ function groupChild(gr, item, x, y, w, h) {
     return { ...st, rot: r, flipH: !!st.flipH !== !!gr.flipH, flipV: !!st.flipV !== !!gr.flipV };
   };
   const r0 = item.run;
-  const run = { ...r0 };
-  if (r0.shape) run.shape = { ...r0.shape, style: xf(r0.shape.style) };
-  if (r0.image) run.image = { ...r0.image, style: xf(r0.image.style ?? { geom: "rect" }) };
+  const run2 = { ...r0 };
+  if (r0.shape) run2.shape = { ...r0.shape, style: xf(r0.shape.style) };
+  if (r0.image) run2.image = { ...r0.image, style: xf(r0.image.style ?? { geom: "rect" }) };
   if (r0.textbox) {
     const tb = { ...r0.textbox };
     if (tb.shape) tb.shape = xf(tb.shape);
     const tr = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
     if (tr) tb.rot = tr;
-    run.textbox = tb;
+    run2.textbox = tb;
   }
-  if (r0.group) run.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
-  return { run, x: ix, y: iy, w: iw, h: ih };
+  if (r0.group) run2.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
+  return { run: run2, x: ix, y: iy, w: iw, h: ih };
 }
 function custPaths(cust, x, y, w, h, opts = {}) {
   const r = (opts.rot ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
@@ -8184,9 +8196,9 @@ function frameRun(paras, f) {
     }
   };
   FRAME_INFO.set(tb, { autoWidth: !f.w, hRule: hRule === "exact" && f.h ? "exact" : hRule === "auto" || !f.h ? "auto" : "atLeast", h: f.h ?? 0 });
-  const run = { text: "\uFFFC", props: { ...DEFAULT_RUN_PROPS }, textbox: tb };
-  runCache.set(paras[0], run);
-  return run;
+  const run2 = { text: "\uFFFC", props: { ...DEFAULT_RUN_PROPS }, textbox: tb };
+  runCache.set(paras[0], run2);
+  return run2;
 }
 function liftFrames(blocks, stops) {
   let out = null;
@@ -8204,7 +8216,7 @@ function liftFrames(blocks, stops) {
       group.push(n.paragraph);
     }
     for (const p of group) FRAME_SKIP.add(p);
-    const run = frameRun(group, f);
+    const run2 = frameRun(group, f);
     let k = j;
     while (k < blocks.length && !stops?.has(k - 1)) {
       const n = blocks[k];
@@ -8217,16 +8229,16 @@ function liftFrames(blocks, stops) {
       const cur = out[k];
       const src = cur.paragraph;
       let c = anchorCache.get(src);
-      if (!c || !c.runs.includes(run)) {
+      if (!c || !c.runs.includes(run2)) {
         const prevRuns = c?.runs ?? [];
-        const runs = [...prevRuns, run];
+        const runs = [...prevRuns, run2];
         const base = c ? c.para : src;
-        const para = { ...base, runs: [...base.runs, run] };
-        c = { runs, para };
+        const para2 = { ...base, runs: [...base.runs, run2] };
+        c = { runs, para: para2 };
         anchorCache.set(src, c);
       }
       out[k] = { ...cur, paragraph: c.para };
-    } else FRAME_CARRY.set(group[0], run);
+    } else FRAME_CARRY.set(group[0], run2);
     i = j - 1;
   }
   return out ?? blocks;
@@ -8235,6 +8247,11 @@ function liftFrames(blocks, stops) {
 // ../docx-layout/src/engine.ts
 var balKey = (g) => g.balKey ?? g.index;
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
+var CHAP_SEP = { hyphen: "-", period: ".", colon: ":", emDash: "\u2014", enDash: "\u2013" };
+var sameChapters = (a, b) => a.size === b.size && [...a].every(([k, v]) => {
+  const w = b.get(k);
+  return !!w && w.length === v.length && v.every((x, i) => x.page === w[i].page && x.text === w[i].text);
+});
 var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
   if (opts.revisions && opts.revisions.mode !== "final" && !opts.revisions.order) opts = { ...opts, revisions: { ...opts.revisions, order: revisionAuthors(full0) } };
@@ -8252,17 +8269,21 @@ function layoutDocument(full0, provider, opts = {}) {
     if (noteMarks) c.noteMarkOverride = noteMarks;
     return c;
   };
+  let chaps = /* @__PURE__ */ new Map();
   let last = null;
   for (let pass = 0; pass < 5; pass++) {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
+    eng.chaptersGuess = chaps;
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
     const fix = eng.noteMarkFix();
-    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix;
+    const newChaps = eng.usedChapter ? eng.chapterIndex() : chaps;
+    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix && (!eng.usedChapter || sameChapters(newChaps, chaps));
     if (stable) break;
+    chaps = newChaps;
     total = result.pages.length;
     marks = newMarks;
     late = newLate;
@@ -8272,6 +8293,7 @@ function layoutDocument(full0, provider, opts = {}) {
   const balance = /* @__PURE__ */ new Map();
   const runWith = (bal) => {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
+    eng.chaptersGuess = chaps;
     result = eng.run();
     return eng;
   };
@@ -8366,6 +8388,11 @@ var Engine = class {
   prePlaced = /* @__PURE__ */ new Set();
   zSeq = 0;
   usedPageRef = false;
+  /** campo PAGE com número de capítulo: títulos de cada nível por página (passada anterior) */
+  chaptersGuess = /* @__PURE__ */ new Map();
+  usedChapter = false;
+  /** títulos numerados (estilo Título N) diagramados nesta passada: ref → nível e número */
+  headingMarks = /* @__PURE__ */ new Map();
   /** seções de várias colunas seguidas de seção contínua: o que ocupam na última página */
   balanceFound = /* @__PURE__ */ new Map();
   /** alturas usadas pelas colunas já encerradas na porção da seção nesta página */
@@ -8426,8 +8453,8 @@ var Engine = class {
       const saved = this.ctx.numbering;
       const st = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       this.ctx.numbering = st;
-      const num = (para) => {
-        const n = resolvePPr(this.ctx, para, {}).ppr.numPr;
+      const num = (para2) => {
+        const n = resolvePPr(this.ctx, para2, {}).ppr.numPr;
         return (n?.numId ? st.next(n.numId, n.ilvl ?? 0)?.text : void 0) ?? "";
       };
       const visit = (b) => {
@@ -8476,6 +8503,36 @@ var Engine = class {
     return differs ? want : null;
   }
   /** Página exibida (já formatada) do parágrafo de cada indicador. */
+  /** Número de capítulo da página `page` no nível `level`: o do ÚLTIMO título do
+   *  nível que começa nela ou antes; antes do 1º título, o do 1º; sem título
+   *  numerado, nenhum (o PAGE fica só com a página) — oráculo hfopts, chap-*. */
+  chapterOf(level, page2) {
+    this.usedChapter = true;
+    const list = this.chaptersGuess.get(level);
+    if (!list?.length) return void 0;
+    let out = list[0].text;
+    for (const h of list) {
+      if (h.page > page2) break;
+      out = h.text;
+    }
+    return out;
+  }
+  /** Títulos numerados desta passada por nível: a página onde cada um começa. */
+  chapterIndex() {
+    const out = /* @__PURE__ */ new Map();
+    const seen = /* @__PURE__ */ new Set();
+    this.pages.forEach((ps, i) => {
+      for (const l of ps.page.lines) {
+        const h = this.headingMarks.get(l.ref);
+        if (!h || seen.has(l.ref)) continue;
+        seen.add(l.ref);
+        const arr = out.get(h.level) ?? [];
+        arr.push({ page: i, text: h.text });
+        out.set(h.level, arr);
+      }
+    });
+    return out;
+  }
   bookmarkPages() {
     const out = /* @__PURE__ */ new Map();
     const firstPage = /* @__PURE__ */ new Map();
@@ -8544,7 +8601,7 @@ var Engine = class {
     }
     const bgSpec = full.background;
     const bg = bgSpec ? resolveColor({ ...bgSpec.color ? { val: bgSpec.color } : {}, ...bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}, ...bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}, ...bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {} }, this.ctx.fmt.theme) : void 0;
-    const pages = this.pages.map((ps) => {
+    const pages2 = this.pages.map((ps) => {
       const late = (arr) => {
         const keep = [], front = [], back = [];
         let cur = null, curMk = null;
@@ -8585,7 +8642,7 @@ var Engine = class {
       if (bg && bg.toUpperCase() !== "FFFFFF" && bg !== "auto") ps.page.background = bg;
       return ps.page;
     });
-    return { pages, warnings: [...this.ctx.warnings] };
+    return { pages: pages2, warnings: [...this.ctx.warnings] };
   }
   // ───────────────────────── seções e páginas ─────────────────────────
   /** Bordas de página da seção nesta página (w:display, contorno do cabeçalho/rodapé). */
@@ -8655,7 +8712,8 @@ var Engine = class {
       type: s.sect?.type ?? "nextPage",
       ...s.sect?.vAlign ? { vAlign: s.sect.vAlign } : {},
       ...sp.pgNumStart !== void 0 ? { pgStart: sp.pgNumStart } : {},
-      ...s.sect?.pgNumFmt ? { pgFmt: s.sect.pgNumFmt } : {},
+      ...sp.pgNumFmt ?? s.sect?.pgNumFmt ? { pgFmt: sp.pgNumFmt ?? s.sect.pgNumFmt } : {},
+      ...sp.pgNumChapStyle ? { chap: { level: sp.pgNumChapStyle, sep: CHAP_SEP[sp.pgNumChapSep ?? "hyphen"] ?? "-" } } : {},
       headers: pick(hb, prev?.headers),
       footers: pick(fb, prev?.footers),
       blocks: [s.blockStart, s.blockEnd],
@@ -8705,9 +8763,9 @@ var Engine = class {
     const late = this.lateFloats.get(this.pages.length - 1);
     if (late) {
       const fr = this.colFrame();
-      for (const run of late) {
-        this.placeFloat(run, this.cur, fr.x, fr.w, this.cur.bodyTop, this.cur.body, 0);
-        this.prePlaced.add(run);
+      for (const run2 of late) {
+        this.placeFloat(run2, this.cur, fr.x, fr.w, this.cur.bodyTop, this.cur.body, 0);
+        this.prePlaced.add(run2);
       }
     }
     for (const [bi, lt] of this.lateTables) {
@@ -8723,9 +8781,9 @@ var Engine = class {
     }
   }
   makePage(g, sectPage, number) {
-    const page = { widthTw: g.pageW, heightTw: g.pageH, section: g.index, number, items: [], lines: [] };
+    const page2 = { widthTw: g.pageW, heightTw: g.pageH, section: g.index, number, items: [], lines: [] };
     const ps = {
-      page,
+      page: page2,
       geom: g,
       bodyTop: g.marT,
       bodyBottom: g.pageH - g.marB,
@@ -8883,7 +8941,11 @@ var Engine = class {
       if (name === "SEQ") return this.seqValue(instr ?? "");
       if (name === "ENDNOTEREF_MARK" && this.curEndnote !== void 0) return this.ctx.noteMarkOf("endnote", this.curEndnote) ?? "";
       if (name === "REF") return this.refValue(instr ?? "");
-      if (name === "PAGE") return formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
+      if (name === "PAGE") {
+        const num = formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
+        const chap = ps.geom.chap ? this.chapterOf(ps.geom.chap.level, this.pages.indexOf(ps)) : void 0;
+        return chap !== void 0 ? chap + ps.geom.chap.sep + num : num;
+      }
       if (name === "NUMPAGES") {
         this.usedNumPages = true;
         return String(this.totalPagesGuess);
@@ -8977,12 +9039,12 @@ var Engine = class {
       for (const b of blocks) {
         if (b.type !== "paragraph") continue;
         const carry = FRAME_CARRY.get(b.paragraph);
-        for (const run of FRAME_SKIP.has(b.paragraph) ? carry ? [carry] : [] : b.paragraph.runs) {
-          const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-          const anc = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
+        for (const run2 of FRAME_SKIP.has(b.paragraph) ? carry ? [carry] : [] : b.paragraph.runs) {
+          const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+          const anc = run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
           if (!fl || !anc || !ABSOLUTE_V.has(anc.posV.relativeFrom ?? "") || this.onlyTextFloats) continue;
-          this.placeFloat(run, ps, x, width, yOrigin, items, yOrigin);
-          this.prePlaced.add(run);
+          this.placeFloat(run2, ps, x, width, yOrigin, items, yOrigin);
+          this.prePlaced.add(run2);
         }
       }
     }
@@ -9013,14 +9075,14 @@ var Engine = class {
         if (this.ctx.rev.markGone(b.paragraph) && this.noShownRuns(b.paragraph) && !join && !delRuns) return;
         const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
-        const para = join ? this.joinHidden(join, merged, env) : merged;
-        const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {} });
+        const para2 = join ? this.joinHidden(join, merged, env) : merged;
+        const p = prepareParagraph(this.ctx, para2, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {} });
         if (join) p.marker = join.marker;
         join = null;
         if (p.markStyle.hidden && bi < n - 1) {
           if (!p.glyphs.length) return;
           if (blocks[bi + 1].type === "paragraph") {
-            join = { para, marker: p.marker };
+            join = { para: para2, marker: p.marker };
             return;
           }
         }
@@ -9057,15 +9119,15 @@ var Engine = class {
         if (this.inCell && !cellShape) cellShape = p.glyphs.some((g) => !!(g.obj?.image?.floating || g.obj?.shape?.floating || g.obj?.group?.floating || g.obj?.textbox?.floating));
         if (cellAnch) {
           for (const g of p.glyphs) {
-            const run = g.obj;
-            if (!run || this.prePlaced.has(run) || !(run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating)) continue;
-            if (this.onlyTextFloats && !followsText(floatAnchor(run))) continue;
+            const run2 = g.obj;
+            if (!run2 || this.prePlaced.has(run2) || !(run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating)) continue;
+            if (this.onlyTextFloats && !followsText(floatAnchor(run2))) continue;
             const its = [];
-            const rc = this.placeFloat(run, ps, x + this.staticDx, width, yOrigin + top, its, yOrigin, void 0, yOrigin + paraRefS);
-            const mk = { z: floatAnchor(run)?.relativeHeight ?? 0, seq: this.zSeq++, behind: rc.obj.layer === "behind" };
+            const rc = this.placeFloat(run2, ps, x + this.staticDx, width, yOrigin + top, its, yOrigin, void 0, yOrigin + paraRefS);
+            const mk = { z: floatAnchor(run2)?.relativeHeight ?? 0, seq: this.zSeq++, behind: rc.obj.layer === "behind" };
             for (const it of its) LATE_ITEMS.set(it, mk);
             cellAnch.push(...its);
-            if (rc.box && !floatAnchor(run)?.simplePos) {
+            if (rc.box && !floatAnchor(run2)?.simplePos) {
               cellFloats.push({ ...rc.box, x: rc.box.x - this.staticDx, y: rc.box.y - yOrigin });
               floatBottom = Math.max(floatBottom, rc.obj.y - yOrigin + rc.obj.h);
             }
@@ -9383,8 +9445,8 @@ var Engine = class {
     const styles = this.ctx.fmt.styles.styles;
     const sid = Object.values(styles).find((d) => d.type === "character" && d.name?.toLowerCase() === "line number")?.styleId;
     const rpr = sid ? { rStyle: sid } : {};
-    const para = { runs: [{ text: String(this.lnCount), props: runPropsFromRPr(rpr), rpr }], props: {}, ppr: {} };
-    const np = prepareParagraph(this.ctx, para, { numbering: false });
+    const para2 = { runs: [{ text: String(this.lnCount), props: runPropsFromRPr(rpr), rpr }], props: {}, ppr: {} };
+    const np = prepareParagraph(this.ctx, para2, { numbering: false });
     const line = new LineBreaker(this.ctx, np).next({ left: 0, right: 2e4 });
     const x = colX - ln.distance - line.width;
     paintLine(this.ctx, this.cur.body, line, x, baseline - line.baseline);
@@ -9456,13 +9518,17 @@ var Engine = class {
     const env = { field: this.fieldValue(this.cur) };
     const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
-    const para = join ? this.joinHidden(join, merged, env) : merged;
-    const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
+    const para2 = join ? this.joinHidden(join, merged, env) : merged;
+    const p = prepareParagraph(this.ctx, para2, join ? { ...env, numbering: false } : env);
     if (join) p.marker = join.marker;
+    if (p.marker?.chapter !== void 0 && p.styleId) {
+      const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p.styleId]?.name ?? "")?.[1];
+      if (lv) this.headingMarks.set(ref, { level: +lv, text: p.marker.chapter });
+    }
     if (p.markStyle.hidden && blockIdx < g.blocks[1]) {
       if (!p.glyphs.length) return;
       if (this.full.blocks[blockIdx + 1]?.type === "paragraph") {
-        this.pendingJoin = { para, marker: p.marker };
+        this.pendingJoin = { para: para2, marker: p.marker };
         return;
       }
     }
@@ -9859,10 +9925,10 @@ var Engine = class {
   rowNoteIds(row) {
     const ids = [];
     for (const l of row.lines) {
-      const para = this.paraByRef(l.ref);
-      if (!para) continue;
+      const para2 = this.paraByRef(l.ref);
+      if (!para2) continue;
       let off = 0;
-      for (const r of para.runs) {
+      for (const r of para2.runs) {
         const len2 = r.text.length;
         const id = r.noteRef?.kind === "footnote" ? r.noteRef.id : void 0;
         if (id !== void 0 && off + Math.max(len2, 1) > l.start && off < Math.max(l.end, l.start + 1) && !ids.includes(id) && !this.cur.notes.some((n) => n.id === id)) ids.push(id);
@@ -10425,9 +10491,9 @@ var Engine = class {
   pinFloatsOverTable(t, blockIdx) {
     const nb = this.full.blocks[blockIdx + 1];
     if (!nb || nb.type !== "paragraph") return;
-    const runs = nb.paragraph.runs.filter((run) => {
-      const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-      const anc = floatAnchor(run);
+    const runs = nb.paragraph.runs.filter((run2) => {
+      const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+      const anc = floatAnchor(run2);
       return !!fl && !!anc && WRAPPING.has(anc.wrap ?? "") && !anc.simplePos && (anc.posV.relativeFrom ?? "paragraph") === "paragraph" && anc.posV.align === void 0 && anc.posV.pct === void 0 && (anc.posV.offset ?? 0) < 0;
     });
     if (!runs.length) return;
@@ -10440,10 +10506,10 @@ var Engine = class {
     const fr = this.colFrame();
     const g = this.cur.geom;
     let newTop = top;
-    for (const run of runs) {
-      const anc = floatAnchor(run);
-      const w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
-      const h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
+    for (const run2 of runs) {
+      const anc = floatAnchor(run2);
+      const w = run2.image?.widthTwips ?? run2.shape?.widthTwips ?? run2.group?.widthTwips ?? run2.textbox?.widthTwips ?? 0;
+      const h = run2.image?.heightTwips ?? run2.shape?.heightTwips ?? run2.group?.heightTwips ?? run2.textbox?.heightTwips ?? 0;
       const y = Math.max(this.floatMinY(this.cur), anchorTop0 + (anc.posV.offset ?? 0));
       const hRef = horizRef(anc.posH.relativeFrom ?? "column", g, fr.x, fr.w);
       const x = alignPos(anc.posH.align, anc.posH.offset, hRef.x, hRef.w, w, anc.posH.pct, g.pageW, anc.effectExtent?.l, anc.effectExtent?.r);
@@ -10453,7 +10519,7 @@ var Engine = class {
       const overV = by0 - (anc.distT ?? 0) < top + H && by1 + (anc.distB ?? 0) > top;
       const overH = bx0 - (anc.distL ?? 0) < t.x + t.width && bx1 + (anc.distR ?? 0) > t.x;
       if (!overV || !overH) continue;
-      this.pinnedFloats.set(run, { ps: this.cur, y });
+      this.pinnedFloats.set(run2, { ps: this.cur, y });
       newTop = Math.max(newTop, by1 + (anc.distB ?? 0));
     }
     if (newTop > top) this.y = newTop;
@@ -10750,28 +10816,28 @@ var Engine = class {
   }
   placeFloats(p, ps, colX, colW, paraTop, flowItems, yOrigin, paraRef) {
     for (const g of p.glyphs) {
-      const run = g.obj;
-      if (!run) continue;
-      const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-      if (!fl || this.prePlaced.has(run)) continue;
-      if (this.onlyTextFloats && !followsText(floatAnchor(run))) continue;
-      this.placeFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, void 0, paraRef);
+      const run2 = g.obj;
+      if (!run2) continue;
+      const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+      if (!fl || this.prePlaced.has(run2)) continue;
+      if (this.onlyTextFloats && !followsText(floatAnchor(run2))) continue;
+      this.placeFloat(run2, ps, colX, colW, paraTop, flowItems, yOrigin, void 0, paraRef);
     }
   }
-  placeFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, clampBottom, paraRef) {
+  placeFloat(run2, ps, colX, colW, paraTop, flowItems, yOrigin, clampBottom, paraRef) {
     const g = ps.geom;
-    const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
-    let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
-    let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
+    const anchor = run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
+    let w = run2.image?.widthTwips ?? run2.shape?.widthTwips ?? run2.group?.widthTwips ?? run2.textbox?.widthTwips ?? 0;
+    let h = run2.image?.heightTwips ?? run2.shape?.heightTwips ?? run2.group?.heightTwips ?? run2.textbox?.heightTwips ?? 0;
     const wrapsText = !!anchor && anchor.wrap !== "none";
-    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
+    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run2.image?.behindDoc || !!run2.textbox?.behindDoc);
     let tbContent = null;
     let tbFinal = null;
-    if (run.textbox) {
-      const tb = run.textbox;
+    if (run2.textbox) {
+      const tb = run2.textbox;
       const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
       const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
+      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run2.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
       let inner = w - ins.l - ins.r;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
@@ -10813,7 +10879,7 @@ var Engine = class {
     } else {
       const hRef = horizRef(anchor?.posH.relativeFrom ?? "column", g, colX, colW);
       x = alignPos(anchor?.posH.align, anchor?.posH.offset, hRef.x, hRef.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
-      const pin2 = this.pinnedFloats.get(run);
+      const pin2 = this.pinnedFloats.get(run2);
       if (pin2 && pin2.ps === ps) y = pin2.y;
       else {
         const vFrom0 = anchor?.posV.relativeFrom ?? "paragraph";
@@ -10841,19 +10907,19 @@ var Engine = class {
       y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef, 0, h, void 0, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
       if (anchor && WRAPPING.has(anchor.wrap) && (vFrom === "paragraph" || vFrom === "line")) y = Math.max(y, yOrigin);
       if (tbFinal) tbContent = this.ctx.pure(() => tbFinal(x, y));
-      const cellItems = this.paintObject(run, x, y, w, h, tbContent, ps);
+      const cellItems = this.paintObject(run2, x, y, w, h, tbContent, ps);
       if (behind) flowItems.unshift(...cellItems);
       else flowItems.push(...cellItems);
       const wb = anchor && (anchor.wrap === "tight" || anchor.wrap === "through") ? anchor.wrapBox : void 0;
       const cbox = anchor && WRAPPING.has(anchor.wrap) && anchor.layoutInCell !== false ? { x: wb ? x + w * wb.x0 : x, y: wb ? y + h * wb.y0 : y, w: wb ? w * (wb.x1 - wb.x0) : w, h: wb ? h * (wb.y1 - wb.y0) : h, wrap: anchor.wrap, side: anchor.wrapText ?? "bothSides", distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 } : void 0;
-      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run, x, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf }, ...cbox ? { box: cbox } : {} };
+      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run: run2, x, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf }, ...cbox ? { box: cbox } : {} };
     }
     const target = this.inHf ? behind ? ps.hfBehind : ps.hfFront : behind ? ps.behind : ps.front;
     if (tbFinal) tbContent = tbFinal(x, y);
-    const items = this.paintObject(run, x, y, w, h, tbContent, ps);
-    const obj = { run, x, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf };
+    const items = this.paintObject(run2, x, y, w, h, tbContent, ps);
+    const obj = { run: run2, x, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf };
     (ps.page.objects ??= []).push(obj);
-    const frameFlow = this.inHf && !!run.textbox && FRAME_INFO.has(run.textbox);
+    const frameFlow = this.inHf && !!run2.textbox && FRAME_INFO.has(run2.textbox);
     let inFlow;
     if (frameFlow) {
       const rel = yOrigin ? items.map((it) => shiftItem(it, -yOrigin)) : items;
@@ -10875,11 +10941,11 @@ var Engine = class {
     }
     if (box) {
       ps.floats.push(box);
-      if (!this.inHf && !followsText(anchor) && !this.prePlaced.has(run)) {
+      if (!this.inHf && !followsText(anchor) && !this.prePlaced.has(run2)) {
         const pi = this.pages.indexOf(ps);
         const b = box;
         const hit = pi >= 0 && ps.page.lines.some((l) => !/^(hdr|ftr|txbx)/.test(l.ref) && l.y + l.height > b.y - b.distT && l.y < b.y + b.h + b.distB && b.x + b.w + b.distR > ps.geom.marL && b.x - b.distL < ps.geom.pageW - ps.geom.marR);
-        if (hit) (this.lateFound.get(pi) ?? this.lateFound.set(pi, []).get(pi)).push(run);
+        if (hit) (this.lateFound.get(pi) ?? this.lateFound.set(pi, []).get(pi)).push(run2);
       }
     }
     return { ps, target, zobj, obj, ...box ? { box } : {}, ...inFlow ? { inFlow } : {} };
@@ -10905,13 +10971,13 @@ var Engine = class {
     const out = [];
     let flow;
     for (const g of p.glyphs) {
-      const run = g.obj;
-      if (!run) continue;
-      const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-      const anc = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
-      if (!fl || !anc || !WRAPPING.has(anc.wrap ?? "") || this.prePlaced.has(run)) continue;
+      const run2 = g.obj;
+      if (!run2) continue;
+      const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+      const anc = run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
+      if (!fl || !anc || !WRAPPING.has(anc.wrap ?? "") || this.prePlaced.has(run2)) continue;
       flow ??= this.ctx.saveFlow();
-      out.push({ ...this.placeFloat(run, ps, colX, colW, paraTop, ps.body, 0, clampBottom !== void 0 && followsText(anc) ? clampBottom : void 0, paraRef), flow });
+      out.push({ ...this.placeFloat(run2, ps, colX, colW, paraTop, ps.body, 0, clampBottom !== void 0 && followsText(anc) ? clampBottom : void 0, paraRef), flow });
     }
     return out;
   }
@@ -10935,15 +11001,15 @@ var Engine = class {
       else out.push(...drawn);
     }
   }
-  paintObject(run, x, y, w, h, tbContent, ps = this.cur, inGroup = false) {
+  paintObject(run2, x, y, w, h, tbContent, ps = this.cur, inGroup = false) {
     const out = [];
     const theme = this.ctx.fmt.theme;
-    if (run.image && isEmf(run.image.data)) {
-      out.push({ t: "clip", op: "push", x, y, w, h }, ...renderEmf(this.ctx, run.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
-    } else if (run.image && isWmf(run.image.data)) {
-      out.push({ t: "clip", op: "push", x, y, w, h }, ...renderWmf(this.ctx, run.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
-    } else if (run.image) {
-      const im = run.image;
+    if (run2.image && isEmf(run2.image.data)) {
+      out.push({ t: "clip", op: "push", x, y, w, h }, ...renderEmf(this.ctx, run2.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
+    } else if (run2.image && isWmf(run2.image.data)) {
+      out.push({ t: "clip", op: "push", x, y, w, h }, ...renderWmf(this.ctx, run2.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
+    } else if (run2.image) {
+      const im = run2.image;
       out.push({
         t: "image",
         x,
@@ -10956,14 +11022,14 @@ var Engine = class {
         ...im.style?.flipH ? { flipH: true } : {},
         ...im.style?.flipV ? { flipV: true } : {}
       });
-    } else if (run.shape) {
-      const s = run.shape.style;
+    } else if (run2.shape) {
+      const s = run2.shape.style;
       const fill = resolveDrawingColor(s.fill, theme);
       const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
       const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw, ...s.line.dash ? { dash: s.line.dash } : {} } : void 0;
-      out.push({ t: "shape", x, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...run.shape.line ? { line: run.shape.line } : {}, ...shapeExtras(s, theme) });
-    } else if (run.textbox) {
-      const tb = run.textbox;
+      out.push({ t: "shape", x, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...run2.shape.line ? { line: run2.shape.line } : {}, ...shapeExtras(s, theme) });
+    } else if (run2.textbox) {
+      const tb = run2.textbox;
       const s = tb.shape;
       if (s && (s.fill || s.line)) {
         const fill = resolveDrawingColor(s.fill, theme);
@@ -11009,8 +11075,8 @@ var Engine = class {
         }
         if (rot) out.push({ t: "xform", op: "pop" });
       }
-    } else if (run.group) {
-      const gr = run.group;
+    } else if (run2.group) {
+      const gr = run2.group;
       for (const item of gr.items) {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x, y, w, h);
         let tc = null;
@@ -11148,7 +11214,7 @@ function lineRecord(ref, p, line, frameX, top, frameW) {
     ...frameW !== void 0 ? { frame: { l: frameX - x, r: frameX + frameW - x }, pfmt: pfmtOf(p) } : {}
   };
 }
-function revisionBarItems(lines, x, color) {
+function revisionBarItems(lines, x, color2) {
   const all = [...lines].sort((a, b) => a.y - b.y);
   const segs = [];
   all.forEach((l, i) => {
@@ -11161,7 +11227,7 @@ function revisionBarItems(lines, x, color) {
     if (last && top <= last[1] + 20) last[1] = Math.max(last[1], bottom);
     else segs.push([top, bottom]);
   });
-  return segs.map(([y0, y1]) => ({ t: "rect", x, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color }));
+  return segs.map(([y0, y1]) => ({ t: "rect", x, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color2 }));
 }
 function cullOffPage(items, pageW, pageH) {
   const stack = [];
@@ -11227,8 +11293,8 @@ function shiftLineXY(l, dx, dy) {
 }
 var WRAPPING = /* @__PURE__ */ new Set(["square", "tight", "through", "topAndBottom"]);
 var MIN_GAP = 359.5;
-function floatAnchor(run) {
-  return run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
+function floatAnchor(run2) {
+  return run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
 }
 function followsText(a) {
   return !!a && !a.simplePos && !ABSOLUTE_V.has(a.posV.relativeFrom ?? "paragraph");
@@ -11937,9 +12003,9 @@ function renderPdf(result, opts = {}) {
     return h;
   };
   for (const lp of result.pages) {
-    const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
-    if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt));
+    const page2 = doc.addPage(lp.widthTw / T, lp.heightTw / T);
+    if (lp.background) page2.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
+    for (const it of lp.items) paintItem(page2, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page2.heightPt));
   }
   return doc.build();
 }
@@ -11964,7 +12030,7 @@ function outlineInto(cmds, font, gid, ox, base, sx, s, skew) {
   }
   return true;
 }
-function glyphsAsPath(page, it) {
+function glyphsAsPath(page2, it) {
   const font = it.face.font;
   if (!font.glyphOutline) return false;
   const upm = font.metrics.unitsPerEm;
@@ -11981,7 +12047,7 @@ function glyphsAsPath(page, it) {
         if (!outlineInto(lc, font, L.glyphId, g.x / T, base, sx, s, skew)) continue;
         if (!lc.length) continue;
         const a = L.alpha * (it.alpha ?? 1);
-        page.withAlpha(a < 1 ? a : void 0, void 0, () => page.path(lc, hexColor(L.color ?? it.color)));
+        page2.withAlpha(a < 1 ? a : void 0, void 0, () => page2.path(lc, hexColor(L.color ?? it.color)));
       }
       continue;
     }
@@ -12006,15 +12072,15 @@ function glyphsAsPath(page, it) {
     }
   }
   if (!cmds.length) return true;
-  const color = hexColor(it.color);
-  const stroke = it.synthBold ? { color, widthPt: it.sizePt * 0.03 } : void 0;
-  page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color, stroke));
+  const color2 = hexColor(it.color);
+  const stroke = it.synthBold ? { color: color2, widthPt: it.sizePt * 0.03 } : void 0;
+  page2.withAlpha(it.alpha, it.alpha, () => page2.path(cmds, color2, stroke));
   return true;
 }
-function paintItem(page, it, fontFor, imageFor, shade) {
+function paintItem(page2, it, fontFor, imageFor, shade) {
   switch (it.t) {
     case "glyphs": {
-      if (it.asPath && glyphsAsPath(page, it)) return;
+      if (it.asPath && glyphsAsPath(page2, it)) return;
       const ef = fontFor(it.face);
       if (!ef) return;
       const pdfSize = Math.round(it.sizePt / 0.12) * 0.12;
@@ -12030,7 +12096,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
           const { gid } = f.encode(g.cp);
           return { gid, codePoint: g.cp, xPt: g.x / T, baselineFromTopPt: it.y / T };
         });
-        page.withAlpha(it.alpha, it.alpha, () => page.glyphs(f, pdfSize, hexColor(it.color), placed, {
+        page2.withAlpha(it.alpha, it.alpha, () => page2.glyphs(f, pdfSize, hexColor(it.color), placed, {
           ...it.scaleX ? { scaleX: it.scaleX } : {},
           ...it.synthBold ? { synthBold: true } : {},
           ...it.synthItalic ? { synthItalic: true } : {},
@@ -12042,11 +12108,11 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       return;
     }
     case "rect":
-      page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T, it.y / T, it.w / T, it.h / T, hexColor(it.fill)));
+      page2.withAlpha(it.alpha, void 0, () => page2.fillRect(it.x / T, it.y / T, it.w / T, it.h / T, hexColor(it.fill)));
       return;
     case "line": {
       const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash ? BORDER_DASHES[it.dash]?.(it.widthPt) : void 0;
-      page.line(it.x1 / T, it.y1 / T, it.x2 / T, it.y2 / T, hexColor(it.color), it.widthPt, dash);
+      page2.line(it.x1 / T, it.y1 / T, it.x2 / T, it.y2 / T, hexColor(it.color), it.widthPt, dash);
       return;
     }
     case "image": {
@@ -12055,17 +12121,17 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       let x = it.x / T, y = it.y / T, w = it.w / T, hh = it.h / T;
       const crop = it.crop;
       if (crop && (crop.l || crop.t || crop.r || crop.b)) {
-        page.pushClipRect(x, y, w, hh);
+        page2.pushClipRect(x, y, w, hh);
         const fw = w / Math.max(0.01, 1 - crop.l - crop.r);
         const fh = hh / Math.max(0.01, 1 - crop.t - crop.b);
         x -= crop.l * fw;
         y -= crop.t * fh;
         w = fw;
         hh = fh;
-        page.drawImageTransformed(h, x, y, w, hh, it.rot ?? 0, !!it.flipH, !!it.flipV);
-        page.popClip();
-      } else if (it.rot || it.flipH || it.flipV) page.drawImageTransformed(h, x, y, w, hh, it.rot ?? 0, !!it.flipH, !!it.flipV);
-      else page.drawImage(h, x, y, w, hh);
+        page2.drawImageTransformed(h, x, y, w, hh, it.rot ?? 0, !!it.flipH, !!it.flipV);
+        page2.popClip();
+      } else if (it.rot || it.flipH || it.flipV) page2.drawImageTransformed(h, x, y, w, hh, it.rot ?? 0, !!it.flipH, !!it.flipV);
+      else page2.drawImage(h, x, y, w, hh);
       return;
     }
     case "shape": {
@@ -12092,42 +12158,42 @@ function paintItem(page, it, fontFor, imageFor, shade) {
         for (const p of parts) {
           if (!p.fill && !stroke) continue;
           const sc = p.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { ...c, x1: c.x1 + dx, y1: c.y1 + dy, x2: c.x2 + dx, y2: c.y2 + dy, x: c.x + dx, y: c.y + dy } : { ...c, x: c.x + dx, y: c.y + dy });
-          page.withAlpha(it.shadow.alpha, it.shadow.alpha, () => page.path(sc, p.fill && (fill || it.grad) ? col : void 0, p.stroke && stroke ? { ...stroke, color: col } : void 0, p.evenOdd));
+          page2.withAlpha(it.shadow.alpha, it.shadow.alpha, () => page2.path(sc, p.fill && (fill || it.grad) ? col : void 0, p.stroke && stroke ? { ...stroke, color: col } : void 0, p.evenOdd));
         }
       }
       if (it.grad) {
         const pb = pathBounds(parts.flatMap((p) => p.cmds));
         const g = gradientGeometry(it.grad, { x, y, w, h, rot: st.rot ?? 0 }, pb);
         const sh = shade(g, gradientSamples(it.grad.stops, it.grad.path ? 256 : 512));
-        for (const p of parts) if (p.fill) page.withAlpha(st.fillAlpha, void 0, () => page.fillShaded(p.cmds, sh, p.evenOdd));
+        for (const p of parts) if (p.fill) page2.withAlpha(st.fillAlpha, void 0, () => page2.fillShaded(p.cmds, sh, p.evenOdd));
         if (stroke) {
-          for (const p of parts) if (p.stroke) page.withAlpha(void 0, st.line?.alpha, () => page.path(p.cmds, void 0, stroke));
+          for (const p of parts) if (p.stroke) page2.withAlpha(void 0, st.line?.alpha, () => page2.path(p.cmds, void 0, stroke));
         }
         return;
       }
-      for (const p of parts) page.withAlpha(st.fillAlpha, st.line?.alpha, () => page.path(p.cmds, p.fill ? fill : void 0, p.stroke ? stroke : void 0, p.evenOdd));
+      for (const p of parts) page2.withAlpha(st.fillAlpha, st.line?.alpha, () => page2.path(p.cmds, p.fill ? fill : void 0, p.stroke ? stroke : void 0, p.evenOdd));
       return;
     }
     case "path": {
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : void 0;
       const stroke = it.stroke ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {} } : void 0;
       const cmds = it.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { op: "C", x1: c.x1 / T, y1: c.y1 / T, x2: c.x2 / T, y2: c.y2 / T, x: c.x / T, y: c.y / T } : { op: c.op, x: c.x / T, y: c.y / T });
-      page.path(cmds, fill, stroke);
+      page2.path(cmds, fill, stroke);
       return;
     }
     case "xform": {
       if (it.op === "pop" || !it.m) {
-        page.popClip();
+        page2.popClip();
         return;
       }
       const [a, b, c, d, e, f] = it.m;
-      const H = page.heightPt;
-      page.pushTransform(a, -b, -c, d, c * H + e / T, H - d * H - f / T);
+      const H = page2.heightPt;
+      page2.pushTransform(a, -b, -c, d, c * H + e / T, H - d * H - f / T);
       return;
     }
     case "clip":
-      if (it.op === "push") page.pushClipRect((it.x ?? 0) / T, (it.y ?? 0) / T, (it.w ?? 0) / T, (it.h ?? 0) / T);
-      else page.popClip();
+      if (it.op === "push") page2.pushClipRect((it.x ?? 0) / T, (it.y ?? 0) / T, (it.w ?? 0) / T, (it.h ?? 0) / T);
+      else page2.popClip();
       return;
   }
 }
@@ -12299,12 +12365,12 @@ function paintGlyphs(ctx, it, env) {
   const f = env.fontOf(it.face);
   const font = it.face.font;
   ctx.font = `${f.italic ? "italic " : ""}${f.weight} ${it.sizePt * 20}px ${f.family}`;
-  const color = env.color(it.color);
-  ctx.fillStyle = color;
+  const color2 = env.color(it.color);
+  ctx.fillStyle = color2;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   if (it.synthBold) {
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = color2;
     ctx.lineWidth = it.sizePt / 35 * 20;
     ctx.lineJoin = "miter";
   }
@@ -12346,9 +12412,9 @@ function paintGlyphs(ctx, it, env) {
 function batchable(cp) {
   return cp >= 32 && cp < 768 || cp >= 880 && cp < 1424 || cp >= 8192 && cp < 8304 && cp !== 8204 && cp !== 8205 || cp >= 8352 && cp < 8400;
 }
-function strokeWith(ctx, color, widthPt, dash) {
+function strokeWith(ctx, color2, widthPt, dash) {
   const w = Math.max(0.25, widthPt);
-  ctx.strokeStyle = color;
+  ctx.strokeStyle = color2;
   const m = ctx.getTransform();
   const px = Math.hypot(m.a, m.b) || 1;
   ctx.lineWidth = Math.max(w * 20, 1 / px);
@@ -12529,15 +12595,15 @@ var ctxOf = (fmt2) => {
   if (!c) CTX.set(fmt2, c = new DocContext(fmt2, NO_FONTS2));
   return c;
 };
-function inheritedPPr(fmt2, para) {
-  const d = directPPr(para);
+function inheritedPPr(fmt2, para2) {
+  const d = directPPr(para2);
   const base = {};
   if (d.pStyle !== void 0) base.pStyle = d.pStyle;
   if (d.numPr) base.numPr = d.numPr;
   return resolvePPr(ctxOf(fmt2), { runs: [], ppr: base, props: paraPropsFromPPr(base) }, {}).ppr;
 }
-function effectivePPr(fmt2, para) {
-  return resolvePPr(ctxOf(fmt2), para, {}).ppr;
+function effectivePPr(fmt2, para2) {
+  return resolvePPr(ctxOf(fmt2), para2, {}).ppr;
 }
 
 // src/styles.ts
@@ -12738,8 +12804,8 @@ function styleProps(ds, theme, id) {
   const def = sheet.styles[id];
   const dd = sheet.docDefaults;
   if (def?.type === "character") {
-    const para = res.paraStyle(void 0);
-    return { pPr: mergePPr(dd.pPr, para.pPr), rPr: cascadeRPr(dd.rPr, [para.rPr, res.charStyle(id)], void 0), kind: "character" };
+    const para2 = res.paraStyle(void 0);
+    return { pPr: mergePPr(dd.pPr, para2.pPr), rPr: cascadeRPr(dd.rPr, [para2.rPr, res.charStyle(id)], void 0), kind: "character" };
   }
   const ps = res.paraStyle(id);
   const kind = def?.link && sheet.styles[def.link]?.type === "character" ? "linked" : "paragraph";
@@ -12785,9 +12851,9 @@ function resolveStyleId(xml, id) {
   const b = builtinStyles().find((x) => idOf(x.xml) === id || x.twin && idOf(x.twin) === id);
   if (!b) return id;
   const twin = b.twin && idOf(b.twin) === id;
-  const para = idx.styles.find((s) => s.name.toLowerCase() === b.name.toLowerCase());
-  if (!para) return id;
-  return twin ? para.link ?? id : para.id;
+  const para2 = idx.styles.find((s) => s.name.toLowerCase() === b.name.toLowerCase());
+  if (!para2) return id;
+  return twin ? para2.link ?? id : para2.id;
 }
 function ensureDefined(ds, xml, id, used) {
   const idx = readStyleIndex(xml);
@@ -12993,6 +13059,218 @@ function writeStylesPart(pkg, xml) {
     ));
   }
 }
+
+// src/hf-templates.ts
+var T2 = (en, pt2) => ({ en, pt: pt2 });
+var TEMPLATES = {
+  header: [
+    { id: "blank", name: T2("Blank", "Em branco") },
+    { id: "blank3", name: T2("Blank (three columns)", "Em branco (tr\xEAs colunas)") },
+    { id: "title", name: T2("Centered title", "T\xEDtulo centralizado") },
+    { id: "rule", name: T2("Title and author", "T\xEDtulo e autor") },
+    { id: "band", name: T2("Color band", "Faixa colorida") },
+    { id: "accent", name: T2("Accent bar", "Barra de destaque") }
+  ],
+  footer: [
+    { id: "blank", name: T2("Blank", "Em branco") },
+    { id: "blank3", name: T2("Blank (three columns)", "Em branco (tr\xEAs colunas)") },
+    { id: "pageXofY", name: T2("Page X of Y", "P\xE1gina X de Y") },
+    { id: "rule", name: T2("Title and page", "T\xEDtulo e p\xE1gina") },
+    { id: "band", name: T2("Color band", "Faixa colorida") },
+    { id: "accent", name: T2("Accent number", "N\xFAmero em destaque") }
+  ],
+  pageTop: [
+    { id: "plainLeft", name: T2("Plain number left", "N\xFAmero simples \xE0 esquerda") },
+    { id: "plainCenter", name: T2("Plain number centered", "N\xFAmero simples centralizado") },
+    { id: "plainRight", name: T2("Plain number right", "N\xFAmero simples \xE0 direita") },
+    { id: "pageXofY", name: T2("Page X of Y", "P\xE1gina X de Y") },
+    { id: "accentRule", name: T2("Accent rule", "Linha de destaque") },
+    { id: "brackets", name: T2("Brackets", "Colchetes") }
+  ],
+  pageBottom: [
+    { id: "plainLeft", name: T2("Plain number left", "N\xFAmero simples \xE0 esquerda") },
+    { id: "plainCenter", name: T2("Plain number centered", "N\xFAmero simples centralizado") },
+    { id: "plainRight", name: T2("Plain number right", "N\xFAmero simples \xE0 direita") },
+    { id: "pageXofY", name: T2("Page X of Y", "P\xE1gina X de Y") },
+    { id: "accentRule", name: T2("Accent rule", "Linha de destaque") },
+    { id: "brackets", name: T2("Brackets", "Colchetes") }
+  ],
+  pageMargin: [
+    { id: "right", name: T2("Right margin", "Margem direita") },
+    { id: "left", name: T2("Left margin", "Margem esquerda") },
+    { id: "circle", name: T2("Circle, right", "C\xEDrculo \xE0 direita") }
+  ],
+  pageCurrent: [
+    { id: "plain", name: T2("Plain number", "N\xFAmero simples") },
+    { id: "pageXofY", name: T2("Page X of Y", "P\xE1gina X de Y") },
+    { id: "brackets", name: T2("Brackets", "Colchetes") },
+    { id: "dashes", name: T2("Dashes", "Tra\xE7os") }
+  ]
+};
+function hfTemplates(gallery) {
+  return TEMPLATES[gallery];
+}
+function galleryKind(gallery) {
+  return gallery === "footer" || gallery === "pageBottom" ? "footer" : gallery === "pageCurrent" ? null : "header";
+}
+var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+var field = (instr, shown, rPr = "") => {
+  const r = rPr ? `<w:rPr>${rPr}</w:rPr>` : "";
+  return `<w:r>${r}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r}<w:instrText xml:space="preserve"> ${esc(instr)} </w:instrText></w:r><w:r>${r}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc(shown)}</w:t></w:r><w:r>${r}<w:fldChar w:fldCharType="end"/></w:r>`;
+};
+var page = (rPr = "") => field("PAGE   \\* MERGEFORMAT", "1", rPr);
+var pages = (rPr = "") => field("NUMPAGES   \\* MERGEFORMAT", "1", rPr);
+var ptab = (al) => `<w:r><w:ptab w:relativeTo="margin" w:alignment="${al}" w:leader="none"/></w:r>`;
+var color = (hex) => `<w:color w:val="${hex}" w:themeColor="accent1"/>`;
+var WHITE = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
+function placeholderText(lang) {
+  return lang === "pt" ? "[Digite aqui]" : "[Type here]";
+}
+function para(env, body, pPr = "") {
+  const style = env.styleId ? `<w:pStyle w:val="${esc(env.styleId)}"/>` : "";
+  return `<w:p><w:pPr>${style}${pPr}</w:pPr>${body}</w:p>`;
+}
+function pageNumberSdt(env, gallery, inner) {
+  return `<w:sdt><w:sdtPr><w:id w:val="${env.drawingId()}"/><w:docPartObj><w:docPartGallery w:val="Page Numbers (${gallery})"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
+}
+function pageXofY(env, numRPr = "") {
+  return env.lang === "pt" ? run("P\xE1gina ") + page(numRPr) + run(" de ") + pages(numRPr) : run("Page ") + page(numRPr) + run(" of ") + pages(numRPr);
+}
+function marginBox(env, side, circle) {
+  const id = env.drawingId();
+  const size = circle ? 457200 : 520700;
+  const h = circle ? 457200 : 368300;
+  const fill = circle ? `<a:solidFill><a:schemeClr val="accent1"/></a:solidFill>` : "<a:noFill/>";
+  const rPr = circle ? `<w:b/>${WHITE}<w:sz w:val="24"/><w:szCs w:val="24"/>` : `<w:b/>${color(env.accent)}<w:sz w:val="32"/><w:szCs w:val="32"/>`;
+  const inner = `<w:p><w:pPr><w:jc w:val="center"/></w:pPr>${page(rPr)}</w:p>`;
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="${side}Margin"><wp:align>center</wp:align></wp:positionH><wp:positionV relativeFrom="margin"><wp:align>center</wp:align></wp:positionV><wp:extent cx="${size}" cy="${h}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${size}" cy="${h}"/></a:xfrm><a:prstGeom prst="${circle ? "ellipse" : "rect"}"><a:avLst/></a:prstGeom>${fill}<a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+}
+function hfTemplateXml(gallery, id, env) {
+  const ph = placeholderText(env.lang);
+  const title = env.lang === "pt" ? "[T\xEDtulo do documento]" : "[Document title]";
+  const author = env.lang === "pt" ? "[Nome do autor]" : "[Author name]";
+  const bdr = (side, sz, hex, theme = true) => `<w:pBdr><w:${side} w:val="single" w:sz="${sz}" w:space="${side === "left" ? 4 : 1}" w:color="${hex}"${theme ? ' w:themeColor="accent1"' : ""}/></w:pBdr>`;
+  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${env.accent}" w:themeFill="accent1"/>`;
+  const three = run(ph) + ptab("center") + run(ph) + ptab("right") + run(ph);
+  if (gallery === "header" || gallery === "footer") {
+    const isH = gallery === "header";
+    switch (id) {
+      case "blank":
+        return para(env, run(ph));
+      case "blank3":
+        return para(env, three);
+      case "title":
+        return para(env, run(title, `<w:smallCaps/>${color(env.accent)}<w:sz w:val="28"/><w:szCs w:val="28"/>`), `${bdr("bottom", 12, env.accent)}<w:jc w:val="center"/>`);
+      case "rule":
+        return isH ? para(env, run(title, "<w:b/>") + ptab("right") + run(author, color(env.accent)), bdr("bottom", 6, "A6A6A6", false)) : para(env, run(title, color(env.accent)) + ptab("right") + page("<w:b/>"), bdr("top", 6, "A6A6A6", false));
+      case "band":
+        return isH ? para(env, run(title, `<w:b/>${WHITE}`) + ptab("right") + run(author, WHITE), `${shd}<w:spacing w:before="60" w:after="60"/>`) : para(env, run(title, WHITE) + ptab("right") + page(`<w:b/>${WHITE}`), `${shd}<w:spacing w:before="60" w:after="60"/>`);
+      case "accent":
+        return isH ? para(env, run(title, `<w:b/>${color(env.accent)}`), bdr("left", 24, env.accent)) : para(env, run("\u2014 ", color(env.accent)) + page(`<w:b/>${color(env.accent)}<w:sz w:val="24"/><w:szCs w:val="24"/>`) + run(" \u2014", color(env.accent)), '<w:jc w:val="center"/>');
+      case "pageXofY":
+        return isH ? null : para(env, pageXofY(env, "<w:b/>"), '<w:jc w:val="center"/>');
+      default:
+        return null;
+    }
+  }
+  if (gallery === "pageTop" || gallery === "pageBottom") {
+    const top = gallery === "pageTop";
+    const g = top ? "Top of Page" : "Bottom of Page";
+    const jc = (v) => `<w:jc w:val="${v}"/>`;
+    let inner;
+    switch (id) {
+      case "plainLeft":
+        inner = para(env, page());
+        break;
+      case "plainCenter":
+        inner = para(env, page(), jc("center"));
+        break;
+      case "plainRight":
+        inner = para(env, page(), jc("right"));
+        break;
+      case "pageXofY":
+        inner = para(env, pageXofY(env, "<w:b/>"), jc("right"));
+        break;
+      case "accentRule":
+        inner = para(env, page(`<w:b/>${color(env.accent)}`), `${bdr(top ? "bottom" : "top", 12, env.accent)}${jc("right")}`);
+        break;
+      case "brackets":
+        inner = para(env, run("[ ") + page() + run(" ]"), jc("center"));
+        break;
+      default:
+        inner = null;
+    }
+    return inner ? pageNumberSdt(env, g, inner + para(env, "")) : null;
+  }
+  if (gallery === "pageMargin") {
+    const box = id === "right" ? marginBox(env, "right", false) : id === "left" ? marginBox(env, "left", false) : id === "circle" ? marginBox(env, "right", true) : null;
+    return box ? pageNumberSdt(env, "Margins", para(env, box)) : null;
+  }
+  switch (id) {
+    case "plain":
+      return para(env, page());
+    case "pageXofY":
+      return para(env, pageXofY(env));
+    case "brackets":
+      return para(env, run("[") + page() + run("]"));
+    case "dashes":
+      return para(env, run("\u2013 ") + page() + run(" \u2013"));
+    default:
+      return null;
+  }
+}
+var BAND = {
+  en: { header: "Header", footer: "Footer", first: "First Page", even: "Even Page", odd: "Odd Page", section: "Section", same: "Same as Previous" },
+  pt: { header: "Cabe\xE7alho", footer: "Rodap\xE9", first: "da Primeira P\xE1gina", even: "de P\xE1gina Par", odd: "de P\xE1gina \xCDmpar", section: "Se\xE7\xE3o", same: "Mesmo que o Anterior" }
+};
+function hfBandLabel(kind, type, evenOdd, sec, count, lang) {
+  const L = BAND[lang];
+  const variant = type === "first" ? L.first : type === "even" ? L.even : evenOdd ? L.odd : "";
+  const base = lang === "pt" ? `${L[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L[kind]}`;
+  return count > 1 ? `${base} -${L.section} ${sec + 1}-` : base;
+}
+function sameAsPreviousLabel(lang) {
+  return BAND[lang].same;
+}
+var DATE_TIME_FORMATS = {
+  pt: [
+    "dd/MM/yyyy",
+    "dddd, d' de 'MMMM' de 'yyyy",
+    "d' de 'MMMM' de 'yyyy",
+    "dd/MM/yy",
+    "yyyy-MM-dd",
+    "d-MMM-yy",
+    "dd.MM.yyyy",
+    "d MMM. yy",
+    "d' de 'MMMM' de 'yy",
+    "MMMM' de 'yy",
+    "MMM-yy",
+    "dd/MM/yyyy HH:mm",
+    "dd/MM/yyyy HH:mm:ss",
+    "HH:mm",
+    "HH:mm:ss"
+  ],
+  en: [
+    "M/d/yyyy",
+    "dddd, MMMM d, yyyy",
+    "MMMM d, yyyy",
+    "M/d/yy",
+    "yyyy-MM-dd",
+    "d-MMM-yy",
+    "M.d.yyyy",
+    "MMM. d, yy",
+    "d MMMM yyyy",
+    "MMMM yy",
+    "MMM-yy",
+    "M/d/yyyy h:mm AM/PM",
+    "M/d/yyyy h:mm:ss AM/PM",
+    "h:mm AM/PM",
+    "h:mm:ss AM/PM",
+    "HH:mm",
+    "HH:mm:ss"
+  ]
+};
 
 // src/revisions.ts
 var DEFAULT_MARKUP = {
@@ -13269,22 +13547,22 @@ function fixedDoc(pageCount) {
   }
   return `<?xml version="1.0" encoding="utf-8"?><FixedDocument xmlns="http://schemas.microsoft.com/xps/2005/06">${inner}</FixedDocument>`;
 }
-function fixedPage(page, usedFonts) {
-  const w = page.widthPt * PT_TO_PX;
-  const h = page.heightPt * PT_TO_PX;
+function fixedPage(page2, usedFonts) {
+  const w = page2.widthPt * PT_TO_PX;
+  const h = page2.heightPt * PT_TO_PX;
   let body = "";
-  for (const r of page.fills) {
+  for (const r of page2.fills) {
     const x = r.xPt * PT_TO_PX, y = r.yPt * PT_TO_PX;
     const ww = r.wPt * PT_TO_PX, hh = r.hPt * PT_TO_PX;
     body += `<Path Fill="${rgb2(r.colorRgb)}" Data="M ${x} ${y} L ${x + ww} ${y} ${x + ww} ${y + hh} ${x} ${y + hh} Z"/>`;
   }
-  for (const ln of page.lines) {
+  for (const ln of page2.lines) {
     const ax = ln.ax * PT_TO_PX, ay = ln.ay * PT_TO_PX;
     const bx = ln.bx * PT_TO_PX, by = ln.by * PT_TO_PX;
     const w2 = ln.widthPt * PT_TO_PX;
     body += `<Path Stroke="${rgb2(ln.colorRgb)}" StrokeThickness="${w2.toFixed(2)}" Data="M ${ax.toFixed(2)} ${ay.toFixed(2)} L ${bx.toFixed(2)} ${by.toFixed(2)}"/>`;
   }
-  for (const g of page.glyphs) {
+  for (const g of page2.glyphs) {
     if (!g.text) continue;
     usedFonts.add(`${g.fontFamily}-${g.variant}`);
     const x = g.xPt * PT_TO_PX;
@@ -13481,8 +13759,8 @@ function guardRuns(model, lo, hi, op) {
   } finally {
     const end = Math.min(model.paragraphs.length - 1, b + 1);
     for (let i = a; i <= end; i++) restore(model.paragraphs[i], orig);
-    for (const { run, font } of orig.values()) {
-      if (run.props.fontAscii?.startsWith(MARK3)) setFont(run, font);
+    for (const { run: run2, font } of orig.values()) {
+      if (run2.props.fontAscii?.startsWith(MARK3)) setFont(run2, font);
     }
   }
 }
@@ -13622,10 +13900,10 @@ var LangResolver = class {
     this.styleCache.set(id, out);
     return out;
   }
-  run(run, para) {
-    const rpr = run.rpr;
+  run(run2, para2) {
+    const rpr = run2.rpr;
     const ch = this.style(rpr?.rStyle);
-    const ps = this.style(para.props.styleId ?? para.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
+    const ps = this.style(para2.props.styleId ?? para2.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
     const dd = this.sheet?.docDefaults.rPr;
     return {
       lang: rpr?.lang?.val ?? ch.lang ?? ps.lang ?? dd?.lang?.val ?? this.fallback,
@@ -13634,14 +13912,14 @@ var LangResolver = class {
   }
 };
 var skipRun = (r) => !!(r.field || r.fieldResult || r.noteRef || r.custom || r.image || r.textbox || r.shape || r.group || r.math || r.props.isMath || r.formField || r.props.del);
-function spellSpans(para, langs) {
-  const full = para.runs.map((r) => r.text).join("");
+function spellSpans(para2, langs) {
+  const full = para2.runs.map((r) => r.text).join("");
   if (!/\p{L}/u.test(full)) return [];
   const byLang = /* @__PURE__ */ new Map();
   let at = 0;
-  for (const r of para.runs) {
+  for (const r of para2.runs) {
     const n = r.text.length;
-    const { lang, noProof } = langs.run(r, para);
+    const { lang, noProof } = langs.run(r, para2);
     if (!skipRun(r) && !noProof) {
       let arr = byLang.get(lang);
       if (!arr) {
@@ -13686,30 +13964,30 @@ var ParagraphSpell = class {
     this.queue.clear();
   }
   /** Erros do parágrafo, ou undefined se ainda não revisado. */
-  get(para) {
-    const spans = spellSpans(para, this.langs());
+  get(para2) {
+    const spans = spellSpans(para2, this.langs());
     if (!spans.length) return [];
     const key = keyOf2(spans);
-    const hit = this.byPara.get(para);
+    const hit = this.byPara.get(para2);
     if (hit?.key === key) return hit.list;
     const known = this.byKey.get(key);
     if (known) {
-      this.byPara.set(para, { key, list: known });
+      this.byPara.set(para2, { key, list: known });
       return known;
     }
-    this.queue.set(para, spans);
+    this.queue.set(para2, spans);
     this.schedule();
     return hit?.list;
   }
   /** Revisão imediata (diálogo F7): espera o motor. */
-  async check(para) {
-    const spans = spellSpans(para, this.langs());
+  async check(para2) {
+    const spans = spellSpans(para2, this.langs());
     if (!spans.length) return [];
     const key = keyOf2(spans);
-    const hit = this.byPara.get(para);
+    const hit = this.byPara.get(para2);
     if (hit?.key === key) return hit.list;
     const list = await this.run(spans);
-    this.store(para, key, list);
+    this.store(para2, key, list);
     return list;
   }
   schedule() {
@@ -13724,7 +14002,7 @@ var ParagraphSpell = class {
     this.queue.clear();
     const gen = this.generation;
     let changed = false;
-    for (const [para, spans] of batch) {
+    for (const [para2, spans] of batch) {
       let list;
       try {
         list = await this.run(spans);
@@ -13732,13 +14010,13 @@ var ParagraphSpell = class {
         continue;
       }
       if (gen !== this.generation) return;
-      this.store(para, keyOf2(spans), list);
+      this.store(para2, keyOf2(spans), list);
       changed = true;
     }
     if (changed) this.onUpdate();
   }
-  store(para, key, list) {
-    this.byPara.set(para, { key, list });
+  store(para2, key, list) {
+    this.byPara.set(para2, { key, list });
     if (this.byKey.size > 4e3) this.byKey.clear();
     this.byKey.set(key, list);
   }
@@ -14196,19 +14474,19 @@ var CLEARED_PARA = {
   shadingHex: void 0
 };
 var insertText2 = (m, pos, text, props) => guardRuns(m, pos.para, pos.para, () => insertText(m, pos, text, props));
-var insertRun2 = (m, pos, run) => guardRuns(m, pos.para, pos.para, () => insertRun(m, pos, run));
+var insertRun2 = (m, pos, run2) => guardRuns(m, pos.para, pos.para, () => insertRun(m, pos, run2));
 var deleteRange2 = (m, range) => {
   const r = normalizeRange(range);
   return guardRuns(m, r.start.para, r.end.para, () => deleteRange(m, range));
 };
 var splitParagraph2 = (m, pos) => guardRuns(m, pos.para, pos.para, () => splitParagraph(m, pos));
-var mergeWithPrevious2 = (m, para) => guardRuns(m, para - 1, para, () => mergeWithPrevious(m, para));
+var mergeWithPrevious2 = (m, para2) => guardRuns(m, para2 - 1, para2, () => mergeWithPrevious(m, para2));
 var applyRunProps2 = (m, range, patch) => {
   const r = normalizeRange(range);
   guardRuns(m, r.start.para, r.end.para, () => applyRunProps(m, range, patch));
 };
 var trackInsertText2 = (m, pos, text, rev, props) => guardRuns(m, pos.para, pos.para, () => trackInsertText(m, pos, text, rev, props));
-var trackInsertRun2 = (m, pos, run, rev) => guardRuns(m, pos.para, pos.para, () => trackInsertRun(m, pos, run, rev));
+var trackInsertRun2 = (m, pos, run2, rev) => guardRuns(m, pos.para, pos.para, () => trackInsertRun(m, pos, run2, rev));
 var trackSplitParagraph2 = (m, pos, rev) => guardRuns(m, pos.para, pos.para, () => trackSplitParagraph(m, pos, rev));
 var trackDelete2 = (m, range, rev) => {
   const r = normalizeRange(range);
@@ -14223,11 +14501,11 @@ var legacyTabs = (stops) => {
   const out = (stops ?? []).flatMap((t) => t.align === "left" || t.align === "center" || t.align === "right" || t.align === "decimal" ? [{ posTwips: t.posTwips, align: t.align === "decimal" ? "right" : t.align, ...t.leader ? { leader: "dot" } : {} }] : []);
   return out.length ? out : void 0;
 };
-function collapseCustomChars(line, para) {
+function collapseCustomChars(line, para2) {
   const cs = line.chars;
   if (!cs?.length) return;
   let acc = 0;
-  for (const r of para.runs) {
+  for (const r of para2.runs) {
     const a = acc;
     acc += r.text.length;
     if (!r.custom) continue;
@@ -14240,14 +14518,14 @@ function collapseCustomChars(line, para) {
     cs.splice(i, j - i + 1, { o: a, x: cs[i].x, w: last.x + last.w - cs[i].x });
   }
 }
-function itemsBottom(page) {
+function itemsBottom(page2) {
   let b = 0;
-  for (const it of page.items) {
+  for (const it of page2.items) {
     if (it.t === "rect" || it.t === "image" || it.t === "shape") b = Math.max(b, it.y + it.h);
     else if (it.t === "line") b = Math.max(b, it.y1, it.y2);
     else if (it.t === "glyphs") b = Math.max(b, it.y);
   }
-  for (const l of page.lines) b = Math.max(b, l.y + l.height);
+  for (const l of page2.lines) b = Math.max(b, l.y + l.height);
   return b;
 }
 var Registry = class {
@@ -14537,7 +14815,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-XDI6HFKR.js");
+    const { setupChrome } = await import("./chunks/chrome-VZP3CUV3.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -14574,7 +14852,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-XDI6HFKR.js").then((m) => {
+      void import("./chunks/chrome-VZP3CUV3.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -14978,6 +15256,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const secs = this.fullDoc.sections;
     this.resetSections();
     for (const s of secs) this.indexHfParts(s);
+    this.hfRidsAtLoad = new Set(secs.flatMap((s) => [...s.headerRefs, ...s.footerRefs].map((r) => r.rid)));
+    this.hfRelsCopied = /* @__PURE__ */ new Set();
     for (const p of paragraphs) {
       const sb = p.props.sectionBreak;
       if (!sb) continue;
@@ -14988,15 +15268,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.sectionProps.set(0, lastSec?.sect);
     this.floatImages = [];
     paragraphs.forEach((p, pi) => {
-      for (const run of p.runs) {
-        if (run.field && run.text === "") {
-          if (/DATE/i.test(run.field)) {
-            run.text = (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR");
-          } else if (/PAGE/i.test(run.field)) {
-            run.text = "1";
+      for (const run2 of p.runs) {
+        if (run2.field && run2.text === "") {
+          if (/DATE/i.test(run2.field)) {
+            run2.text = (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR");
+          } else if (/PAGE/i.test(run2.field)) {
+            run2.text = "1";
           }
         }
-        if (run.image?.floating) this.floatImages.push({ para: pi, run });
+        if (run2.image?.floating) this.floatImages.push({ para: pi, run: run2 });
       }
     });
     this.noteSettings = {
@@ -15128,6 +15408,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return `#${toHex2(rr)}${toHex2(gg)}${toHex2(bb)}`;
   }
   // ───────────────── edição de cabeçalho/rodapé ─────────────────
+  /** Parte em edição: tipo, caminho, rId e variante (primeira/par/padrão) exibida na página. */
   hfEdit = null;
   dirtyHf = /* @__PURE__ */ new Set();
   savedBody = null;
@@ -15155,7 +15436,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   editingTextbox() {
     return this.tbEdit !== null;
   }
-  enterHeaderFooter(kind, activePage = 0) {
+  enterHeaderFooter(kind, activePage = 0, silent = false) {
     if (!this.model || this.hfEdit || this.locked()) return;
     if (this.cellEdit) {
       this.exitCell();
@@ -15190,18 +15471,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (engPart) ({ section: sec, type: partType } = engPart);
     const set = kind === "header" ? sec.headers : sec.footers;
     const refs = kind === "header" ? sec.headerRefs : sec.footerRefs;
-    if (!set[partType]) set[partType] = [{ runs: [], props: {} }];
+    if (!set[partType]) set[partType] = this.newHfParas(kind);
     const part = set[partType];
     for (const p of part) {
-      for (const run of p.runs) {
-        if (run.field && !run.text.trim()) {
-          run.text = /NUMPAGES/i.test(run.field) ? String(this.numPagesFor()) : /PAGE/i.test(run.field) ? String(this.pageNumberFor(this.hfActivePage)) : /DATE/i.test(run.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run.field.trim();
+      for (const run2 of p.runs) {
+        if (run2.field && !run2.text.trim()) {
+          run2.text = /NUMPAGES/i.test(run2.field) ? String(this.numPagesFor()) : /PAGE/i.test(run2.field) ? String(this.pageNumberFor(this.hfActivePage)) : /DATE/i.test(run2.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run2.field.trim();
         }
       }
     }
     let ref = refs.find((r) => r.type === partType);
     if (!ref) {
-      ref = { type: partType, rid: `rIdWn${kind}${partType}`, path: `word/uw-${kind}-${partType}.xml` };
+      ref = { type: partType, ...this.newHfTarget(kind) };
       refs.push(ref);
       this.dirtyHf.add(ref.path);
     }
@@ -15224,8 +15505,6 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sectionStarts: this.sectionStarts,
       floatImages: this.floatImages,
       selection: this.selection,
-      undoStack: this.undoStack,
-      redoStack: this.redoStack,
       pageCount: this.pageCount,
       pageSections: [...this.pageSections]
     };
@@ -15233,14 +15512,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.tableAnchors = [];
     this.sectionStarts = [];
     this.floatImages = [];
-    this.hfEdit = { kind, path: ref.path };
+    this.hfEdit = { kind, path: ref.path, rid: ref.rid, type: partType };
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
-    this.undoStack = [];
-    this.redoStack = [];
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: true, kind } }));
+    if (!silent) this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: true, kind } }));
   }
-  exitHeaderFooter() {
+  exitHeaderFooter(silent = false, relayout = true) {
     if (this.tbEdit) this.exitTextbox();
     if (!this.hfEdit || !this.savedBody) return;
     this.floatSel = null;
@@ -15250,12 +15527,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.sectionStarts = this.savedBody.sectionStarts;
     this.floatImages = this.savedBody.floatImages;
     this.selection = this.savedBody.selection;
-    this.undoStack = this.savedBody.undoStack;
-    this.redoStack = this.savedBody.redoStack;
     this.savedBody = null;
     this.hfEdit = null;
-    this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
+    if (relayout) this.refresh();
+    if (!silent) this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
   }
   /** Entra na edição do conteúdo de uma caixa de texto flutuante. hostRun é o
    *  run que carrega `.textbox`; rectTwips é o retângulo ancorado (coords de
@@ -15269,9 +15544,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.floatSel = null;
     const tb = hostRun.textbox;
     for (const p of tb.paras) {
-      for (const run of p.runs) {
-        if (run.field && !run.text.trim()) {
-          run.text = /NUMPAGES/i.test(run.field) ? String(this.numPagesFor()) : /PAGE/i.test(run.field) ? String(this.pageNumberFor(pageIdx)) : /DATE/i.test(run.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run.field.trim();
+      for (const run2 of p.runs) {
+        if (run2.field && !run2.text.trim()) {
+          run2.text = /NUMPAGES/i.test(run2.field) ? String(this.numPagesFor()) : /PAGE/i.test(run2.field) ? String(this.pageNumberFor(pageIdx)) : /DATE/i.test(run2.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run2.field.trim();
         }
       }
     }
@@ -15420,18 +15695,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return this.showMarks;
   }
   getSelectionState() {
-    const run = { ...this.pendingProps ?? this.currentProps() };
+    const run2 = { ...this.pendingProps ?? this.currentProps() };
     const p = this.model?.paragraphs[this.selection.focus.para];
     const st = p ? this.styleOf(p) : void 0;
     const dd = this.docDefaults();
-    const para = { ...p?.props ?? {} };
-    if (para.alignment === void 0) para.alignment = st?.alignment;
-    const look = this.docStyles.xml && (run.fontAscii === void 0 || run.szHalfPt === void 0) ? styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, run.charStyle ?? p?.props.styleId ?? this.docStyles.defaultParagraph()) : null;
-    if (run.fontAscii === void 0) run.fontAscii = look?.fontFamily ?? st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
-    if (run.szHalfPt === void 0) {
-      run.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
+    const para2 = { ...p?.props ?? {} };
+    if (para2.alignment === void 0) para2.alignment = st?.alignment;
+    const look = this.docStyles.xml && (run2.fontAscii === void 0 || run2.szHalfPt === void 0) ? styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, run2.charStyle ?? p?.props.styleId ?? this.docStyles.defaultParagraph()) : null;
+    if (run2.fontAscii === void 0) run2.fontAscii = look?.fontFamily ?? st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
+    if (run2.szHalfPt === void 0) {
+      run2.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
-    return { run, para, view: this.view, marks: this.showMarks, table: this.getTableState() };
+    return { run: run2, para: para2, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
   toggleRunProp(key) {
     const cur = this.pendingProps ?? this.currentProps();
@@ -15653,16 +15928,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi];
       let acc = 0;
-      for (const run of p.runs) {
+      for (const run2 of p.runs) {
         const rs = acc;
-        const re = acc + run.text.length;
+        const re = acc + run2.text.length;
         acc = re;
         const from = pi === start.para ? Math.max(start.offset, rs) : rs;
         const to = pi === end.para ? Math.min(end.offset, re) : re;
         if (to <= from) continue;
-        const seg = run.text.slice(from - rs, to - rs);
+        const seg = run2.text.slice(from - rs, to - rs);
         const tx = mode === "upper" ? seg.toUpperCase() : seg.toLowerCase();
-        run.text = run.text.slice(0, from - rs) + tx + run.text.slice(to - rs);
+        run2.text = run2.text.slice(0, from - rs) + tx + run2.text.slice(to - rs);
       }
     }
     this.refresh();
@@ -15763,8 +16038,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Estilo de parágrafo e de caractere no cursor (ids). */
   currentStyles() {
     const p = this.model?.paragraphs[this.selection.focus.para];
-    const run = this.pendingProps ?? this.currentProps();
-    return { paragraph: p?.props.styleId ?? this.docStyles.defaultParagraph(), character: run.charStyle };
+    const run2 = this.pendingProps ?? this.currentProps();
+    return { paragraph: p?.props.styleId ?? this.docStyles.defaultParagraph(), character: run2.charStyle };
   }
   /** Aplica um estilo como o Word (oráculo):
    *  - PARÁGRAFO: troca o estilo dos parágrafos da seleção, LIMPA a formatação
@@ -15879,18 +16154,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Formatação do 1º caractere e do 1º parágrafo da seleção (criar estilo). */
   selectionFormat(type) {
     const { start } = normalizeRange(this.range());
-    const run = this.hasSelection() ? propsAt(this.model, { para: start.para, offset: start.offset + 1 }) : this.pendingProps ?? this.currentProps();
+    const run2 = this.hasSelection() ? propsAt(this.model, { para: start.para, offset: start.offset + 1 }) : this.pendingProps ?? this.currentProps();
     const f = {};
-    if (run.fontAscii) f.fontAscii = run.fontAscii;
-    if (run.szHalfPt !== void 0) f.szHalfPt = run.szHalfPt;
-    if (run.bold) f.bold = true;
-    if (run.italic) f.italic = true;
-    if (run.underline && !run.link) f.underline = true;
-    if (run.strike) f.strike = true;
-    if (run.allCaps) f.allCaps = true;
-    if (run.smallCaps) f.smallCaps = true;
-    if (run.color && !(run.link && run.color === "0563C1")) f.color = run.color;
-    if (run.charSpacingTwips) f.charSpacingTwips = run.charSpacingTwips;
+    if (run2.fontAscii) f.fontAscii = run2.fontAscii;
+    if (run2.szHalfPt !== void 0) f.szHalfPt = run2.szHalfPt;
+    if (run2.bold) f.bold = true;
+    if (run2.italic) f.italic = true;
+    if (run2.underline && !run2.link) f.underline = true;
+    if (run2.strike) f.strike = true;
+    if (run2.allCaps) f.allCaps = true;
+    if (run2.smallCaps) f.smallCaps = true;
+    if (run2.color && !(run2.link && run2.color === "0563C1")) f.color = run2.color;
+    if (run2.charSpacingTwips) f.charSpacingTwips = run2.charSpacingTwips;
     if (type === "character") return f;
     const pp = this.model.paragraphs[start.para].props;
     if (pp.alignment && pp.alignment !== "left") f.alignment = pp.alignment;
@@ -16041,13 +16316,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const lang = uiLang(this);
     const ds = this.docStyles;
     const p = this.model?.paragraphs[this.selection.focus.para];
-    const run = this.hasSelection() ? propsAt(this.model, { para: normalizeRange(this.range()).start.para, offset: normalizeRange(this.range()).start.offset + 1 }) : this.pendingProps ?? this.currentProps();
+    const run2 = this.hasSelection() ? propsAt(this.model, { para: normalizeRange(this.range()).start.para, offset: normalizeRange(this.range()).start.offset + 1 }) : this.pendingProps ?? this.currentProps();
     const nameOf = (id) => {
       const m = ds.meta(id);
       return m ? displayName(m, lang) : this.listStyles("all").find((s) => s.id === id)?.name ?? id;
     };
     const pid = p?.props.styleId ?? ds.defaultParagraph();
-    const cid = run.charStyle ?? ds.defaultCharacter();
+    const cid = run2.charStyle ?? ds.defaultCharacter();
     const pd = {};
     for (const k of [
       "alignment",
@@ -16082,9 +16357,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       "vertAlign",
       "charSpacingTwips"
     ]) {
-      const v = run[k];
+      const v = run2[k];
       if (v === void 0 || v === false) continue;
-      if (run.link && (k === "underline" && !run.underlineStyle || k === "color" && v === "0563C1")) continue;
+      if (run2.link && (k === "underline" && !run2.underlineStyle || k === "color" && v === "0563C1")) continue;
       rd[k] = v;
     }
     return { paragraph: { id: pid, name: nameOf(pid), direct: pd }, text: { id: cid, name: nameOf(cid), direct: rd } };
@@ -16243,11 +16518,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   applyPainter() {
     if (!this.painterProps || !this.model) return;
-    const { run, para } = this.painterProps;
+    const { run: run2, para: para2 } = this.painterProps;
     this.painterProps = null;
     this.snapshot();
-    if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run));
-    this.applyPara(this.range(), paraFormatting(para));
+    if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run2));
+    this.applyPara(this.range(), paraFormatting(para2));
     this.refresh();
   }
   // localizar / substituir
@@ -16320,15 +16595,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   plainTextSlice(paragraph, from, to) {
     let out = "";
     let acc = 0;
-    for (const run of paragraph.runs) {
+    for (const run2 of paragraph.runs) {
       const start = acc;
-      const end = acc + run.text.length;
+      const end = acc + run2.text.length;
       acc = end;
       const sliceStart = Math.max(from, start);
       const sliceEnd = Math.min(to, end);
       if (sliceEnd <= sliceStart) continue;
-      if (run.noteRef || isNoteMark(run)) continue;
-      out += run.custom ? run.custom.fallbackText : run.text.slice(sliceStart - start, sliceEnd - start);
+      if (run2.noteRef || isNoteMark(run2)) continue;
+      out += run2.custom ? run2.custom.fallbackText : run2.text.slice(sliceStart - start, sliceEnd - start);
     }
     return out;
   }
@@ -16351,15 +16626,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const to = pi === end.para ? end.offset : paraLength(p);
       const runs = [];
       let acc = 0;
-      for (const run of p.runs) {
-        const rs = acc, re = acc + run.text.length;
+      for (const run2 of p.runs) {
+        const rs = acc, re = acc + run2.text.length;
         acc = re;
         const s = Math.max(from, rs), e = Math.min(to, re);
-        const nb = run.noteRef && this.fullDoc ? noteBlocks(this.fullDoc, run.noteRef.kind, run.noteRef.id) : void 0;
+        const nb = run2.noteRef && this.fullDoc ? noteBlocks(this.fullDoc, run2.noteRef.kind, run2.noteRef.id) : void 0;
         if (e > s) runs.push({
-          text: run.custom ? run.custom.fallbackText : run.noteRef ? "" : run.text.slice(s - rs, e - rs),
-          props: { ...run.props },
-          ...run.noteRef ? { noteRef: { ...run.noteRef }, note: cloneBlocks(nb ?? []) } : {}
+          text: run2.custom ? run2.custom.fallbackText : run2.noteRef ? "" : run2.text.slice(s - rs, e - rs),
+          props: { ...run2.props },
+          ...run2.noteRef ? { noteRef: { ...run2.noteRef }, note: cloneBlocks(nb ?? []) } : {}
         });
       }
       paras.push({ runs });
@@ -16478,13 +16753,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.tableAnchors.splice(at, 0, { beforePara: pos.para, table: table_ops_exports.cloneTable(t.table) });
         }
       }
-      for (const run of cp.runs) {
-        if (run.noteRef) {
+      for (const run2 of cp.runs) {
+        if (run2.noteRef) {
           if (!notesOk || !this.fullDoc) continue;
-          const id = nextNoteId(this.fullDoc, run.noteRef.kind);
-          setNoteBlocks(this.fullDoc, run.noteRef.kind, id, cloneBlocks(run.note ?? []));
-          pos = this.insertWholeRun(pos, { text: NOTE_REF_TEXT, props: withoutRevisions(run.props), noteRef: { ...run.noteRef, id } });
-        } else if (run.text) pos = this.insertTyped(pos, run.text, withoutRevisions(run.props));
+          const id = nextNoteId(this.fullDoc, run2.noteRef.kind);
+          setNoteBlocks(this.fullDoc, run2.noteRef.kind, id, cloneBlocks(run2.note ?? []));
+          pos = this.insertWholeRun(pos, { text: NOTE_REF_TEXT, props: withoutRevisions(run2.props), noteRef: { ...run2.noteRef, id } });
+        } else if (run2.text) pos = this.insertTyped(pos, run2.text, withoutRevisions(run2.props));
       }
     });
     this.selection = { anchor: pos, focus: pos };
@@ -16564,8 +16839,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   pageBorderTargets(applyTo) {
     const m = this.bodyModel();
     if (applyTo === "document") return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
-    const para = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
-    return [sectionSectPr(m, sectionIndexAt(m, Math.min(para, m.paragraphs.length - 1)))];
+    const para2 = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
+    return [sectionSectPr(m, sectionIndexAt(m, Math.min(para2, m.paragraphs.length - 1)))];
   }
   /** Bordas de página da seção do cursor (Bordas e Sombreamento › Borda da Página); null = nenhuma. */
   getPageBorders() {
@@ -16692,8 +16967,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   getSection() {
     const m = this.bodyModel();
     if (!m) return null;
-    const para = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
-    const k = sectionIndexAt(m, para);
+    const para2 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const k = sectionIndexAt(m, para2);
     const sp = sectionSectPr(m, k);
     return {
       index: k,
@@ -16768,26 +17043,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const { para, offset } = this.selection.focus;
-    const p = this.model.paragraphs[para];
+    const { para: para2, offset } = this.selection.focus;
+    const p = this.model.paragraphs[para2];
     let acc = 0;
     let inserted = false;
     for (let ri = 0; ri <= p.runs.length; ri++) {
-      const run = p.runs[ri];
-      const re = acc + (run?.text.length ?? 0);
+      const run2 = p.runs[ri];
+      const re = acc + (run2?.text.length ?? 0);
       if (offset <= re || ri === p.runs.length) {
         const fieldRun = {
           text: display,
-          props: { ...this.newRunProps(run?.props), ...extraProps },
+          props: { ...this.newRunProps(run2?.props), ...extraProps },
           field: instr
         };
-        if (!run) p.runs.push(fieldRun);
+        if (!run2) p.runs.push(fieldRun);
         else {
           const cut = offset - acc;
           const parts = [];
-          if (run.text.slice(0, cut)) parts.push({ text: run.text.slice(0, cut), props: { ...run.props }, ...run.field ? { field: run.field } : {} });
+          if (run2.text.slice(0, cut)) parts.push({ text: run2.text.slice(0, cut), props: { ...run2.props }, ...run2.field ? { field: run2.field } : {} });
           parts.push(fieldRun);
-          if (run.text.slice(cut)) parts.push({ text: run.text.slice(cut), props: { ...run.props }, ...run.field ? { field: run.field } : {} });
+          if (run2.text.slice(cut)) parts.push({ text: run2.text.slice(cut), props: { ...run2.props }, ...run2.field ? { field: run2.field } : {} });
           p.runs.splice(ri, 1, ...parts);
         }
         inserted = true;
@@ -16796,7 +17071,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       acc = re;
     }
     if (!inserted) return;
-    const np = { para, offset: offset + display.length };
+    const np = { para: para2, offset: offset + display.length };
     this.selection = { anchor: np, focus: np };
     this.refresh();
   }
@@ -16827,12 +17102,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (!m) return;
       const lvl = parseInt(m[1], 10);
       if (lvl < minLvl || lvl > maxLvl) return;
-      const page = (this.layoutCache[pi]?.lines[0]?.page ?? 0) + 1;
+      const page2 = (this.layoutCache[pi]?.lines[0]?.page ?? 0) + 1;
       const text = paraText(p).replace(/[\f\n]/g, "").trim();
       if (!text) return;
       entries.push({
         runs: [{
-          text: `${text}	${page}`,
+          text: `${text}	${page2}`,
           props: { ...DEFAULT_RUN_PROPS, link: `#para:${pi}`, color: lvl === 1 ? void 0 : "444444" }
         }],
         props: {
@@ -16890,8 +17165,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) return null;
     const scale = PX_PER_TWIP * this.zoom;
     for (let pi = 0; pi < this.model.paragraphs.length; pi++) {
-      const para = this.model.paragraphs[pi];
-      const has = para.runs.some((r) => r.props.commentIds?.includes(id));
+      const para2 = this.model.paragraphs[pi];
+      const has = para2.runs.some((r) => r.props.commentIds?.includes(id));
       if (!has) continue;
       const line = this.layoutCache[pi]?.lines[0];
       if (!line) return null;
@@ -16905,8 +17180,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     if (this.eng) {
       for (const el of this.eng.lines) {
-        const para = el.para;
-        if (!para?.runs.some((r) => r.props.commentIds?.includes(id))) continue;
+        const para2 = el.para;
+        if (!para2?.runs.some((r) => r.props.commentIds?.includes(id))) continue;
         const canvas = this.canvases[el.page];
         if (!canvas) return null;
         return { topPx: canvas.offsetTop + el.line.y * scale, heightPx: el.line.height * scale, page: el.page };
@@ -16973,10 +17248,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot();
     this.fullDoc.comments = this.fullDoc.comments.filter((c) => c.id !== id);
     for (const p of this.model.paragraphs) {
-      for (const run of p.runs) {
-        if (run.props.commentIds) {
-          run.props.commentIds = run.props.commentIds.filter((i) => i !== id);
-          if (run.props.commentIds.length === 0) delete run.props.commentIds;
+      for (const run2 of p.runs) {
+        if (run2.props.commentIds) {
+          run2.props.commentIds = run2.props.commentIds.filter((i) => i !== id);
+          if (run2.props.commentIds.length === 0) delete run2.props.commentIds;
         }
       }
     }
@@ -16988,17 +17263,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) return;
     for (let pi = 0; pi < this.model.paragraphs.length; pi++) {
       let acc = 0;
-      for (const run of this.model.paragraphs[pi].runs) {
-        if (run.props.commentIds?.includes(id)) {
+      for (const run2 of this.model.paragraphs[pi].runs) {
+        if (run2.props.commentIds?.includes(id)) {
           this.selection = {
             anchor: { para: pi, offset: acc },
-            focus: { para: pi, offset: acc + run.text.length }
+            focus: { para: pi, offset: acc + run2.text.length }
           };
           this.refreshSelection();
           this.navigateTo(`#para:${pi}`);
           return;
         }
-        acc += run.text.length;
+        acc += run2.text.length;
       }
     }
   }
@@ -17345,8 +17620,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   clampPos(p) {
     const paras = this.model.paragraphs;
-    const para = Math.min(p.para, paras.length - 1);
-    return this.canonPos({ para, offset: Math.min(para === p.para ? p.offset : 0, paraLength(paras[para])) });
+    const para2 = Math.min(p.para, paras.length - 1);
+    return this.canonPos({ para: para2, offset: Math.min(para2 === p.para ? p.offset : 0, paraLength(paras[para2])) });
   }
   /** Seleciona a próxima revisão depois do cursor (recomeça do início). */
   nextChange() {
@@ -17394,9 +17669,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const out = [];
     if (!this.eng) return out;
     const scale = PX_PER_TWIP * this.zoom;
-    this.revisionSpans().forEach(({ span, para }, index) => {
+    this.revisionSpans().forEach(({ span, para: para2 }, index) => {
       for (const el of this.eng.lines) {
-        if (el.para !== para) continue;
+        if (el.para !== para2) continue;
         if (!span.mark && span.kind !== "paraFormat" && (el.line.end < span.start || el.line.start > Math.max(span.start, span.end - 1))) continue;
         const canvas = this.canvases[el.page];
         if (!canvas) break;
@@ -17493,28 +17768,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const { para, offset } = this.selection.focus;
-    const p = this.model.paragraphs[para];
+    const { para: para2, offset } = this.selection.focus;
+    const p = this.model.paragraphs[para2];
     let acc = 0;
     let inserted = false;
     for (let ri = 0; ri <= p.runs.length; ri++) {
-      const run = p.runs[ri];
+      const run2 = p.runs[ri];
       const rs = acc;
-      const re = acc + (run?.text.length ?? 0);
+      const re = acc + (run2?.text.length ?? 0);
       if (offset <= re || ri === p.runs.length) {
         const imageRun = {
           text: "\uFFFC",
-          props: this.newRunProps(run?.props),
+          props: this.newRunProps(run2?.props),
           image: { data: copy, ext, widthTwips: w, heightTwips: h, ...obj ? { ole: obj.ole } : {} }
         };
-        if (!run) {
+        if (!run2) {
           p.runs.push(imageRun);
         } else {
           const cut = offset - rs;
           const parts = [];
-          if (run.text.slice(0, cut)) parts.push({ text: run.text.slice(0, cut), props: { ...run.props } });
+          if (run2.text.slice(0, cut)) parts.push({ text: run2.text.slice(0, cut), props: { ...run2.props } });
           parts.push(imageRun);
-          if (run.text.slice(cut)) parts.push({ text: run.text.slice(cut), props: { ...run.props } });
+          if (run2.text.slice(cut)) parts.push({ text: run2.text.slice(cut), props: { ...run2.props } });
           p.runs.splice(ri, 1, ...parts);
         }
         inserted = true;
@@ -17523,7 +17798,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       acc = re;
     }
     if (!inserted) return;
-    this.selection = { anchor: { para, offset: offset + 1 }, focus: { para, offset: offset + 1 } };
+    this.selection = { anchor: { para: para2, offset: offset + 1 }, focus: { para: para2, offset: offset + 1 } };
     this.refresh();
   }
   /** Abre o seletor de arquivo para TROCAR a imagem flutuante selecionada
@@ -17587,7 +17862,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   saveDocx() {
     if (!this.model) throw new Error("no document");
-    if (this.hfEdit) this.exitHeaderFooter();
+    const hf = this.hfEdit && !this.tbEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage, sel: this.selection } : null;
+    if (this.hfEdit) this.exitHeaderFooter(true);
+    try {
+      return this.saveDocxBody();
+    } finally {
+      if (hf) {
+        this.enterHeaderFooter(hf.kind, hf.page, true);
+        if (this.hfEdit) this.selection = this.clampSel(hf.sel);
+        else this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
+        this.refresh();
+      }
+    }
+  }
+  saveDocxBody() {
+    if (!this.model) throw new Error("no document");
     if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
     this.syncNoteEdit();
     const body = this.bodyState().model;
@@ -17640,6 +17929,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       trackRevisions: this.tracking,
       notes: this.notesOut(blocks)
     });
+    if (this.evenOdd !== null) writeEvenAndOddHeaders(pkg, this.evenOdd);
+    const usedRids = new Set(sections.flatMap((s) => [...s.headerRefs, ...s.footerRefs].map((r) => r.rid)));
+    const goneRids = new Set([...this.hfRidsAtLoad].filter((r) => !usedRids.has(r)));
+    if (goneRids.size) dropUnusedHfParts(pkg, goneRids);
+    for (const r of this.hfRelsCopied) if (!pkg.getPart(`word/${r.split("/").pop().replace(/\.rels$/, "")}`)) pkg.removePart(r);
     const np = JSON.stringify(this.noteSettings);
     const settingsXml = np !== this.noteSettingsLoaded ? pkg.getPartText("word/settings.xml") : void 0;
     if (settingsXml) pkg.setPartText("word/settings.xml", patchSettingsNotes(settingsXml, { footnote: this.noteSettings.footnote ?? null, endnote: this.noteSettings.endnote ?? null }));
@@ -17681,10 +17975,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   withPluginFallback(paragraph) {
     return {
       props: paragraph.props,
-      runs: paragraph.runs.map((run) => run.custom ? {
-        text: run.custom.fallbackText,
-        props: run.props
-      } : run)
+      runs: paragraph.runs.map((run2) => run2.custom ? {
+        text: run2.custom.fallbackText,
+        props: run2.props
+      } : run2)
     };
   }
   /**
@@ -17882,9 +18176,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const wasView = this.view;
     if (wasView !== "print") this.setView("print");
     await this.ensureImagesDecoded();
-    const pages = this.canvases.map((_, i) => this.pageImageForPrint(i));
+    const pages2 = this.canvases.map((_, i) => this.pageImageForPrint(i));
     if (wasView !== "print") this.setView(wasView);
-    return pages;
+    return pages2;
   }
   /** PNG (dataURL) da página `i` "como impressa" (sem adornos de tela) a
    *  96 dpi × devicePixelRatio. Aloca o buffer só durante a captura. */
@@ -17974,15 +18268,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   // dos bytes (senão JSON.stringify estoura com docs de 50MB de mídia)
   imgPool = [];
   imgPoolIdx = /* @__PURE__ */ new WeakMap();
-  /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre). */
-  stringifyState(deep = false) {
-    const own3 = this.hfEdit || this.tbEdit;
+  /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre).
+   *  `parts`: conteúdo de partes de cabeçalho/rodapé (chave "kind:rId") que o passo muda. */
+  stringifyState(deep = false, parts = []) {
+    const own3 = this.tbEdit;
     const ce = own3 ? null : this.cellEdit;
     const ne = own3 ? null : this.noteEdit;
+    const he = own3 ? null : this.hfEdit;
+    const sb = he ? this.savedBody : null;
+    const hk = he ? `${he.kind}:${he.rid}` : null;
     if (ce?.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
+    const anchors = sb ? sb.tableAnchors : this.tableAnchors;
+    const hx = parts.filter((k) => k !== hk && this.hfParts.get(k)?.paras).map((k) => [k, this.hfPartBlocks(k)]);
     return JSON.stringify({
-      m: ce ? ce.saved.model : ne ? ne.saved.model : this.model,
-      s: ce ? ce.saved.selection : ne ? ne.saved.selection : this.selection,
+      m: ce ? ce.saved.model : ne ? ne.saved.model : sb ? sb.model : this.model,
+      s: ce ? ce.saved.selection : ne ? ne.saved.selection : sb ? sb.selection : this.selection,
+      // passo dado no cabeçalho/rodapé: a parte (blocos, com as tabelas) e o cursor nela
+      hp: he ? { k: hk, b: this.hfPartBlocks(hk, this.model.paragraphs), s: this.selection } : void 0,
+      hx: hx.length ? hx : void 0,
+      // Páginas Pares e Ímpares Diferentes (settings)
+      eo: this.evenOddHeaders(),
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
@@ -17996,10 +18301,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: own3 ? void 0 : {
-        t: this.tableAnchors.map((a) => a.beforePara),
+        t: anchors.map((a) => a.beforePara),
         b: [...this.bookmarkParas]
       },
-      tb: own3 ? void 0 : this.tableAnchors.map((a) => a.table),
+      tb: own3 ? void 0 : anchors.map((a) => a.table),
       ce: ce ? { a: ce.anchor, h: ce.hops, s: this.selection } : void 0,
       ts: own3 ? void 0 : this.tableSel ?? void 0,
       // passo dado dentro de uma nota (a pilha é a do corpo, como no Word): o
@@ -18032,11 +18337,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  .docx regravado pelo modelo de edição ainda não preserva tudo). */
   editsSinceLoad = 0;
   loadedBytes = null;
-  snapshot(deep = false) {
+  snapshot(deep = false, parts = []) {
     if (!this.model) return;
     this.editsSinceLoad++;
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
-    this.undoStack.push(this.stringifyState(deep));
+    this.undoStack.push(this.stringifyState(deep, parts));
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
     if (!this.quietChange) {
@@ -18047,11 +18352,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model || from.length === 0) return;
     this.floatSel = null;
     const state = this.parseState(from.pop());
+    const hf = this.hfEdit && !this.tbEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage, key: `${this.hfEdit.kind}:${this.hfEdit.rid}`, sel: this.selection } : null;
+    const partKeys = [...state.hp ? [state.hp.k] : [], ...(state.hx ?? []).map(([k]) => k)];
     if (!this.hfEdit && !this.tbEdit && state.nt) {
       const ne = this.noteEdit;
       if (ne?.kind !== state.nt.k || ne?.id !== state.nt.id) this.enterNote(state.nt.k, state.nt.id, "end");
     }
-    to.push(this.stringifyState(!!state.hf));
+    to.push(this.stringifyState(!!state.hf, partKeys));
+    if (hf) this.exitHeaderFooter(true, false);
     if (state.hf) {
       state.hf.forEach((sets, si) => {
         const sec = this.fullDoc?.sections[si];
@@ -18064,7 +18372,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (const r of [...sec.headerRefs, ...sec.footerRefs]) this.dirtyHf.add(r.path);
       });
     }
-    if (this.hfEdit || this.tbEdit) {
+    if (this.tbEdit) {
       const linked = this.model.paragraphs;
       linked.splice(0, linked.length, ...state.m.paragraphs);
       this.model = { ...state.m, paragraphs: linked };
@@ -18112,7 +18420,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (state.sv !== void 0 && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== void 0 && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
+    if (!this.tbEdit) {
+      for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
+      if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
+      if (state.eo !== void 0 && state.eo !== this.evenOddHeaders()) this.setEvenOddFlag(state.eo);
+    }
+    if (hf && !this.noteEdit && !this.cellEdit) {
+      this.refresh();
+      this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+      const now = this.hfEdit ? `${this.hfEdit.kind}:${this.hfEdit.rid}` : null;
+      if (state.hp && now === state.hp.k) this.selection = this.clampSel(state.hp.s);
+      else if (now === hf.key) this.selection = this.clampSel(hf.sel);
+      if (!this.hfEdit) this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
+    }
     this.refresh();
+  }
+  /** Seleção dentro do modelo atual (parágrafos/offsets existentes). */
+  clampSel(s) {
+    const ps = this.model.paragraphs;
+    const c = (p) => {
+      const para2 = Math.max(0, Math.min(p.para, ps.length - 1));
+      return { para: para2, offset: Math.max(0, Math.min(p.offset, paraLength(ps[para2]))) };
+    };
+    return { anchor: c(s.anchor), focus: c(s.focus) };
   }
   /** deleteRange com ajuste de âncoras de tabela/seção. */
   deleteSelection() {
@@ -18139,8 +18469,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return this.tracking ? trackInsertText2(this.model, pos, text, this.newRev(), props) : insertText2(this.model, pos, text, props);
   }
   /** Insere um run inteiro (imagem, campo, quebra…), controlado se ligado. */
-  insertWholeRun(pos, run) {
-    return this.tracking ? trackInsertRun2(this.model, pos, run, this.newRev()) : insertRun2(this.model, pos, run);
+  insertWholeRun(pos, run2) {
+    return this.tracking ? trackInsertRun2(this.model, pos, run2, this.newRev()) : insertRun2(this.model, pos, run2);
   }
   /** Enter (com o controle ligado, a marca nova entra como inserção). */
   splitAt(pos) {
@@ -18191,8 +18521,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.hasSelection()) {
       const r = this.runBefore(this.selection.focus);
       if (r?.noteRef) {
-        const { para, offset } = this.selection.focus;
-        this.selection = { anchor: { para, offset: offset - r.text.length }, focus: { para, offset } };
+        const { para: para2, offset } = this.selection.focus;
+        this.selection = { anchor: { para: para2, offset: offset - r.text.length }, focus: { para: para2, offset } };
         this.refreshSelection();
         return;
       }
@@ -18207,26 +18537,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     } else {
-      const { para, offset } = this.selection.focus;
-      const prev = para > 0 ? this.model.paragraphs[para - 1] : null;
+      const { para: para2, offset } = this.selection.focus;
+      const prev = para2 > 0 ? this.model.paragraphs[para2 - 1] : null;
       if (offset > 0) {
         const pos = deleteRange2(this.model, {
-          start: { para, offset: offset - 1 },
-          end: { para, offset }
+          start: { para: para2, offset: offset - 1 },
+          end: { para: para2, offset }
         });
         this.selection = { anchor: pos, focus: pos };
       } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
         const len2 = paraLength(prev);
         let pos;
-        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para - 1, offset: len2 - 1 }, end: { para: para - 1, offset: len2 } });
-        else if (para > 1) {
-          pos = mergeWithPrevious2(this.model, para - 1);
-          this.shiftAnchors(para - 2, -1);
-        } else pos = { para: para - 1, offset: 0 };
+        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para2 - 1, offset: len2 - 1 }, end: { para: para2 - 1, offset: len2 } });
+        else if (para2 > 1) {
+          pos = mergeWithPrevious2(this.model, para2 - 1);
+          this.shiftAnchors(para2 - 2, -1);
+        } else pos = { para: para2 - 1, offset: 0 };
         this.selection = { anchor: pos, focus: pos };
-      } else if (para > 0) {
-        const pos = mergeWithPrevious2(this.model, para);
-        this.shiftAnchors(para - 1, -1);
+      } else if (para2 > 0) {
+        const pos = mergeWithPrevious2(this.model, para2);
+        this.shiftAnchors(para2 - 1, -1);
         this.selection = { anchor: pos, focus: pos };
       } else {
         this.undoStack.pop();
@@ -18248,12 +18578,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     } else {
-      const { para, offset } = this.selection.focus;
-      const len2 = paraLength(this.model.paragraphs[para]);
+      const { para: para2, offset } = this.selection.focus;
+      const len2 = paraLength(this.model.paragraphs[para2]);
       if (offset < len2) {
-        deleteRange2(this.model, { start: { para, offset }, end: { para, offset: offset + 1 } });
-      } else if (para < this.model.paragraphs.length - 1) {
-        mergeWithPrevious2(this.model, para + 1);
+        deleteRange2(this.model, { start: { para: para2, offset }, end: { para: para2, offset: offset + 1 } });
+      } else if (para2 < this.model.paragraphs.length - 1) {
+        mergeWithPrevious2(this.model, para2 + 1);
       } else {
         this.undoStack.pop();
         return;
@@ -18269,9 +18599,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    */
   trackedKey(dir) {
     const paras = this.model.paragraphs;
-    const { para } = this.selection.focus;
+    const { para: para2 } = this.selection.focus;
     let k = this.selection.focus.offset;
-    const p = paras[para];
+    const p = paras[para2];
     const len2 = paraLength(p);
     const deleted = (i) => {
       let acc = 0;
@@ -18289,43 +18619,43 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     if (dir < 0) {
       if (k > 0 && deleted(k - 1) && !this.hiddenChar(p, k - 1)) {
-        go({ para, offset: k - 1 });
+        go({ para: para2, offset: k - 1 });
         return;
       }
       while (k > 0 && this.hiddenChar(p, k - 1)) k--;
     } else {
       if (k < len2 && deleted(k) && !this.hiddenChar(p, k)) {
-        go({ para, offset: k + 1 });
+        go({ para: para2, offset: k + 1 });
         return;
       }
       while (k < len2 && this.hiddenChar(p, k)) k++;
     }
     let range;
-    if (dir < 0 && k > 0) range = { start: { para, offset: k - 1 }, end: { para, offset: k } };
-    else if (dir > 0 && k < len2) range = { start: { para, offset: k }, end: { para, offset: k + 1 } };
-    else if (dir < 0 && para > 0) {
-      const prev = paras[para - 1];
+    if (dir < 0 && k > 0) range = { start: { para: para2, offset: k - 1 }, end: { para: para2, offset: k } };
+    else if (dir > 0 && k < len2) range = { start: { para: para2, offset: k }, end: { para: para2, offset: k + 1 } };
+    else if (dir < 0 && para2 > 0) {
+      const prev = paras[para2 - 1];
       const pl = paraLength(prev);
       if (prev.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
-        if (pl > 0) range = { start: { para: para - 1, offset: pl - 1 }, end: { para: para - 1, offset: pl } };
-        else if (para > 1 && !paras[para - 2].props.markDel) range = { start: { para: para - 2, offset: paraLength(paras[para - 2]) }, end: { para: para - 1, offset: 0 } };
+        if (pl > 0) range = { start: { para: para2 - 1, offset: pl - 1 }, end: { para: para2 - 1, offset: pl } };
+        else if (para2 > 1 && !paras[para2 - 2].props.markDel) range = { start: { para: para2 - 2, offset: paraLength(paras[para2 - 2]) }, end: { para: para2 - 1, offset: 0 } };
         else return;
       } else {
         if (prev.props.markDel) {
-          go({ para: para - 1, offset: pl });
+          go({ para: para2 - 1, offset: pl });
           return;
         }
-        range = { start: { para: para - 1, offset: pl }, end: { para, offset: 0 } };
+        range = { start: { para: para2 - 1, offset: pl }, end: { para: para2, offset: 0 } };
       }
-    } else if (dir > 0 && para < paras.length - 1) {
+    } else if (dir > 0 && para2 < paras.length - 1) {
       if (p.props.markDel) {
-        go({ para: para + 1, offset: 0 });
+        go({ para: para2 + 1, offset: 0 });
         return;
       }
-      range = { start: { para, offset: len2 }, end: { para: para + 1, offset: 0 } };
+      range = { start: { para: para2, offset: len2 }, end: { para: para2 + 1, offset: 0 } };
     } else return;
     this.snapshot();
-    if (range.start.para === range.end.para) this.noteParaEdit(para);
+    if (range.start.para === range.end.para) this.noteParaEdit(para2);
     const pos = this.trackedDelete(range, dir < 0 ? "start" : "end");
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -18334,12 +18664,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Próxima fronteira de palavra a partir do caret. */
   moveWord(dir, extend) {
     if (!this.model) return;
-    let { para, offset } = this.selection.focus;
-    const text = paraText(this.model.paragraphs[para]);
+    let { para: para2, offset } = this.selection.focus;
+    const text = paraText(this.model.paragraphs[para2]);
     if (dir === 1) {
       if (offset >= text.length) {
-        if (para < this.model.paragraphs.length - 1) {
-          para++;
+        if (para2 < this.model.paragraphs.length - 1) {
+          para2++;
           offset = 0;
         }
       } else {
@@ -18348,16 +18678,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     } else {
       if (offset === 0) {
-        if (para > 0) {
-          para--;
-          offset = paraLength(this.model.paragraphs[para]);
+        if (para2 > 0) {
+          para2--;
+          offset = paraLength(this.model.paragraphs[para2]);
         }
       } else {
         while (offset > 0 && /\s/.test(text[offset - 1])) offset--;
         while (offset > 0 && /\S/.test(text[offset - 1])) offset--;
       }
     }
-    const focus = { para, offset };
+    const focus = { para: para2, offset };
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.refreshSelection();
     this.scrollCaretIntoView();
@@ -18383,42 +18713,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.pendingProps = null;
       return;
     }
-    let { para, offset } = this.selection.focus;
+    let { para: para2, offset } = this.selection.focus;
     const len2 = (i) => paraLength(this.model.paragraphs[i]);
     const hid = (i, o) => this.hiddenChar(this.model.paragraphs[i], o);
     if (dir === "left") {
       if (offset > 0) {
         offset--;
-        while (offset > 0 && hid(para, offset - 1)) offset--;
-      } else if (para > 0) {
-        para--;
-        offset = len2(para);
+        while (offset > 0 && hid(para2, offset - 1)) offset--;
+      } else if (para2 > 0) {
+        para2--;
+        offset = len2(para2);
       }
     } else if (dir === "right") {
-      while (offset < len2(para) && hid(para, offset)) offset++;
-      if (offset < len2(para)) offset++;
-      else if (para < this.model.paragraphs.length - 1) {
-        para++;
+      while (offset < len2(para2) && hid(para2, offset)) offset++;
+      if (offset < len2(para2)) offset++;
+      else if (para2 < this.model.paragraphs.length - 1) {
+        para2++;
         offset = 0;
       }
     } else if (dir === "home" || dir === "end") {
-      const line = this.lineOf({ para, offset });
+      const line = this.lineOf({ para: para2, offset });
       if (line) offset = dir === "home" ? line.rich.start : this.lineEndOffset(line);
     } else {
-      const line = this.lineOf({ para, offset });
+      const line = this.lineOf({ para: para2, offset });
       if (line) {
-        const x = this.caretX({ para, offset }, line);
+        const x = this.caretX({ para: para2, offset }, line);
         const all = this.allLines();
         const idx = all.indexOf(line);
         const target = all[idx + (dir === "down" ? 1 : -1)];
         if (target) {
           const hit = this.hitLineX(target, x);
-          para = target.para;
+          para2 = target.para;
           offset = hit;
         }
       }
     }
-    const focus = this.canonPos({ para, offset });
+    const focus = this.canonPos({ para: para2, offset });
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.pendingProps = null;
     this.refreshSelection();
@@ -18551,28 +18881,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
       if (e.ctrlKey && this.model) {
-        const para = this.model.paragraphs[hit.para];
+        const para2 = this.model.paragraphs[hit.para];
         let acc = 0;
-        for (const run of para?.runs ?? []) {
-          const end = acc + run.text.length;
-          if (hit.offset >= acc && hit.offset <= end && run.props.link) {
-            if (/^https?:/.test(run.props.link)) {
-              window.open(run.props.link, "_blank", "noopener");
+        for (const run2 of para2?.runs ?? []) {
+          const end = acc + run2.text.length;
+          if (hit.offset >= acc && hit.offset <= end && run2.props.link) {
+            if (/^https?:/.test(run2.props.link)) {
+              window.open(run2.props.link, "_blank", "noopener");
               return;
             }
-            if (this.navigateTo(run.props.link)) return;
+            if (this.navigateTo(run2.props.link)) return;
           }
           acc = end;
         }
       }
       if (this.model) {
-        const para = this.model.paragraphs[hit.para];
+        const para2 = this.model.paragraphs[hit.para];
         let acc = 0;
-        for (const run of para?.runs ?? []) {
-          const end = acc + run.text.length;
-          if (hit.offset >= acc && hit.offset < end && run.props.commentIds?.length) {
+        for (const run2 of para2?.runs ?? []) {
+          const end = acc + run2.text.length;
+          if (hit.offset >= acc && hit.offset < end && run2.props.commentIds?.length) {
             this.dispatchEvent(new CustomEvent("uw-comment-click", {
-              detail: { ids: run.props.commentIds }
+              detail: { ids: run2.props.commentIds }
             }));
             break;
           }
@@ -18890,11 +19220,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.chromeSync?.();
           return;
         }
-        const para = this.model?.paragraphs[this.selection.focus.para];
-        if (para?.props.numbering && this.selection.focus.offset === 0) {
-          const lvl = Math.max(0, Math.min(2, para.props.numbering.ilvl + (e.shiftKey ? -1 : 1)));
+        const para2 = this.model?.paragraphs[this.selection.focus.para];
+        if (para2?.props.numbering && this.selection.focus.offset === 0) {
+          const lvl = Math.max(0, Math.min(2, para2.props.numbering.ilvl + (e.shiftKey ? -1 : 1)));
           this.formatPara({
-            numbering: { ...para.props.numbering, ilvl: lvl },
+            numbering: { ...para2.props.numbering, ilvl: lvl },
             indentLeftTwips: 720 * (lvl + 1)
           });
         } else if (!e.shiftKey) this.type("	");
@@ -19151,6 +19481,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   // ───────────────── seções derivadas do modelo ─────────────────
   resetSections() {
+    this.evenOdd = null;
+    this.hideDocText = false;
     this.sectionStarts = [];
     this.sectionProps = /* @__PURE__ */ new Map([[0, void 0]]);
     this.nextSectionId = 1;
@@ -19278,6 +19610,580 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.sectionEff.set(id, { sp, key, props, sec });
     this.sectionIds.set(sec, id);
     return sec;
+  }
+  // ───────────── cabeçalho e rodapé: opções da seção, vincular, modelos ─────────────
+  // Regras do Word medidas em write/tools/hf-lab (memória word-header-footer-facts).
+  // Cada opção é UM passo de desfazer do documento; no modo cabeçalho o passo
+  // sai da edição, muda o corpo (sectPr/refs moram no modelo) e volta à mesma
+  // página — a variante exibida pode mudar (primeira página, par).
+  /** Páginas Pares e Ímpares Diferentes como o editor a deixou (null = a do arquivo). */
+  evenOdd = null;
+  /** Mostrar Texto do Documento (no modo cabeçalho). */
+  hideDocText = false;
+  /** números de página inseridos pelas galerias num documento sem fontes (sem o sdt) */
+  pageNumberParas = /* @__PURE__ */ new WeakSet();
+  /** rIds de cabeçalho/rodapé referenciados ao abrir (ver saveDocx) */
+  hfRidsAtLoad = /* @__PURE__ */ new Set();
+  /** rels copiadas para partes desvinculadas (saem se a parte não for gravada) */
+  hfRelsCopied = /* @__PURE__ */ new Set();
+  evenOddHeaders() {
+    return this.evenOdd ?? !!(this.fullDoc?.formatting ?? this.newFormatting)?.settings.evenAndOddHeaders;
+  }
+  /** Liga/desliga w:evenAndOddHeaders no estado (o motor lê das settings da formatação). */
+  setEvenOddFlag(on) {
+    this.evenOdd = on;
+    const f = this.fullDoc?.formatting ?? (this.newFormatting ??= emptyFormatting());
+    f.settings.evenAndOddHeaders = on;
+    this.engPageCache.clear();
+  }
+  /** Blocos de uma parte de cabeçalho/rodapé ("kind:rId") alinhados aos parágrafos. */
+  hfPartBlocks(k, paras) {
+    const part = this.hfParts.get(k);
+    return reconcileBlocks(part?.blocks, paras ?? part?.paras ?? [], true) ?? [];
+  }
+  /** Conteúdo de uma parte de volta (desfazer): parágrafos no lugar, blocos novos. */
+  restoreHfPart(k, blocks0) {
+    const part = this.hfParts.get(k);
+    if (!part) return;
+    const blocks = blocks0.map((b) => b.type === "table" ? table_ops_exports.relink(b) : b);
+    const paras = flattenBlocks(blocks);
+    if (part.paras) part.paras.splice(0, part.paras.length, ...paras);
+    else part.paras = paras;
+    part.blocks = blocks;
+    this.sectionEff.clear();
+    this.dirtyHf.add(part.path);
+  }
+  /** Id do estilo Cabeçalho/Rodapé do documento (o Word o cria com a 1ª parte). */
+  hfStyleId(kind) {
+    if (!this.stylesEditable()) return void 0;
+    const id = this.docStyles.byName(kind)?.id ?? resolveStyleId(this.docStyles.xml, kind === "header" ? "Cabealho" : "Rodap");
+    this.ensureStyleUsed(id);
+    return id;
+  }
+  /** Conteúdo de uma parte nova: um parágrafo vazio no estilo Cabeçalho/Rodapé (Word). */
+  newHfParas(kind) {
+    const styleId = this.hfStyleId(kind);
+    return [{ runs: [], props: styleId ? { styleId } : {} }];
+  }
+  /** Caminho e rId livres para uma parte nova (headerN.xml, rIdN — como o Word). */
+  newHfTarget(kind) {
+    const used = new Set(this.pkg?.partNames() ?? []);
+    for (const p of this.hfParts.values()) used.add(p.path);
+    let n = 1;
+    while (used.has(`word/${kind}${n}.xml`)) n++;
+    const rels = this.pkg?.getPartText("word/_rels/document.xml.rels") ?? "";
+    const rids = new Set([...rels.matchAll(/\bId="([^"]+)"/g)].map((m2) => m2[1]));
+    for (const k of this.hfParts.keys()) rids.add(k.slice(k.indexOf(":") + 1));
+    let m = 1;
+    while (rids.has(`rId${m}`)) m++;
+    return { rid: `rId${m}`, path: `word/${kind}${n}.xml` };
+  }
+  /** Etiquetas da faixa da página no modo cabeçalho/rodapé (nome da parte e "Mesmo que o Anterior"). */
+  hfBandLabels(kind, pg) {
+    const lang = uiLang(this);
+    const m = this.bodyModel();
+    const count = sectionRanges(m).length;
+    const sec = Math.min(this.pageSections[pg] ?? 0, count - 1);
+    const type = this.hfTypeOfPage(pg);
+    const linked = sec > 0 && !this.refsOfSection(m, sec, kind).some((r) => r.type === type);
+    return { name: hfBandLabel(kind, type, this.evenOddHeaders(), sec, count, lang), same: linked ? sameAsPreviousLabel(lang) : null };
+  }
+  /** Página do cursor (no corpo) ou a página em edição (cabeçalho/rodapé). */
+  caretPageIndex() {
+    if (this.hfEdit) return this.hfActivePage;
+    const f = (this.noteEdit?.saved.selection ?? this.selection).focus;
+    const pl = this.cellEdit || this.noteEdit ? void 0 : this.layoutCache[f.para];
+    const line = pl?.lines.find((l) => f.offset >= l.rich.start && f.offset <= l.rich.end) ?? pl?.lines[0];
+    return Math.max(0, Math.min(line?.page ?? this.currentPage() - 1, this.pageCount - 1));
+  }
+  /** Variante de cabeçalho/rodapé que a página mostra (regra do Word e do motor). */
+  hfTypeOfPage(pg) {
+    const eng = this.eng;
+    const page2 = eng?.result.pages[pg];
+    if (!eng || !page2) return pg === 0 && this.sectionOfPage(pg)?.sectPr.titlePg ? "first" : "default";
+    let sectPage = 0;
+    for (let i = pg - 1; i >= 0 && eng.result.pages[i].section === page2.section; i--) sectPage++;
+    const sp = this.sectionOfPage(pg)?.sectPr;
+    return sectPage === 0 && sp?.titlePg ? "first" : this.evenOddHeaders() && page2.number % 2 === 0 ? "even" : "default";
+  }
+  /** Seção (índice no modelo) e variante do cabeçalho/rodapé em foco. */
+  hfContext() {
+    if (!this.model) return null;
+    const page2 = this.caretPageIndex();
+    const m = this.bodyModel();
+    const sec = Math.min(this.pageSections[page2] ?? 0, sectionRanges(m).length - 1);
+    return { page: page2, sec, type: this.hfEdit?.type ?? this.hfTypeOfPage(page2) };
+  }
+  /** Refs de cabeçalho/rodapé de uma seção do modelo do corpo. */
+  refsOfSection(m, sec, kind) {
+    const holder = sectionRefs(m, sec);
+    return kind === "header" ? holder.headerRefs : holder.footerRefs;
+  }
+  /** Parte que a seção `sec` usa para (kind, type): a dela ou a herdada das anteriores. */
+  hfPartFor(sec, kind, type) {
+    const m = this.bodyModel();
+    for (let s = Math.min(sec, sectionRanges(m).length - 1); s >= 0; s--) {
+      const r = this.refsOfSection(m, s, kind).find((x) => x.type === type);
+      if (r && this.hfParts.has(`${kind}:${r.rid}`)) return { key: `${kind}:${r.rid}`, sec: s };
+    }
+    return null;
+  }
+  /** Uma opção de seção/documento como UM passo de desfazer (ver acima). */
+  hfSectionOp(fn, parts = []) {
+    if (!this.model || this.locked()) return;
+    if (this.tbEdit) this.exitTextbox();
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    this.snapshot(false, parts);
+    if (hf) this.exitHeaderFooter(true, false);
+    fn(this.bodyModel());
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) {
+      this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+      this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: !!this.hfEdit, kind: hf.kind } }));
+    }
+  }
+  /** Opções de cabeçalho/rodapé da seção do cursor (ou da página em edição). */
+  getHeaderFooterOptions() {
+    const c = this.hfContext();
+    if (!c) return null;
+    const m = this.bodyModel();
+    const sp = sectionSectPr(m, c.sec);
+    const kind = this.hfEdit?.kind ?? null;
+    return {
+      section: c.sec,
+      sectionCount: sectionRanges(m).length,
+      page: c.page,
+      part: kind ? { kind, type: c.type } : null,
+      differentFirstPage: !!sp.titlePg,
+      differentOddEven: this.evenOddHeaders(),
+      headerDistance: sp.headerDistanceTwips ?? 720,
+      footerDistance: sp.footerDistanceTwips ?? 720,
+      linkToPrevious: kind && c.sec > 0 ? !this.refsOfSection(m, c.sec, kind).some((r) => r.type === c.type) : false,
+      documentTextShown: !this.hideDocText
+    };
+  }
+  /** Primeira Página Diferente (w:titlePg) da seção. */
+  setDifferentFirstPage(on) {
+    const c = this.hfContext();
+    if (!c) return;
+    this.hfSectionOp((m) => {
+      const sp = sectionSectPr(m, c.sec);
+      if (on) sp.titlePg = true;
+      else delete sp.titlePg;
+    });
+  }
+  /** Páginas Pares e Ímpares Diferentes (w:evenAndOddHeaders — vale para o documento). */
+  setDifferentOddEven(on) {
+    if (!this.model || on === this.evenOddHeaders()) return;
+    this.hfSectionOp(() => this.setEvenOddFlag(on));
+  }
+  /** Distâncias do cabeçalho até o topo e do rodapé até a base da página (twips), na seção. */
+  setHeaderFooterDistance(d) {
+    const c = this.hfContext();
+    if (!c) return;
+    const clamp = (v) => Math.max(0, Math.min(Math.round(v), 31680));
+    this.hfSectionOp((m) => {
+      const sp = sectionSectPr(m, c.sec);
+      if (d.header !== void 0) sp.headerDistanceTwips = clamp(d.header);
+      if (d.footer !== void 0) sp.footerDistanceTwips = clamp(d.footer);
+    });
+  }
+  /**
+   * Vincular ao Anterior da parte em foco (cabeçalho ou rodapé, na variante da
+   * página). Desligar copia o conteúdo herdado numa parte nova da seção (Word);
+   * ligar tira a parte da seção, que volta a usar a da anterior. Na 1ª seção, nada.
+   */
+  setLinkToPrevious(on, kind) {
+    const c = this.hfContext();
+    if (!c || c.sec === 0 || this.locked()) return;
+    const k = kind ?? this.hfEdit?.kind ?? "header";
+    const own3 = this.refsOfSection(this.bodyModel(), c.sec, k).some((r) => r.type === c.type);
+    if (on !== own3) return;
+    if (on) {
+      this.hfSectionOp((m) => {
+        const list = this.refsOfSection(m, c.sec, k);
+        const i = list.findIndex((r) => r.type === c.type);
+        if (i >= 0) list.splice(i, 1);
+      });
+      return;
+    }
+    const src = this.hfPartFor(c.sec - 1, k, c.type);
+    const target = this.newHfTarget(k);
+    this.hfSectionOp((m) => {
+      this.createHfPart(k, target, src?.key ?? null);
+      this.refsOfSection(m, c.sec, k).push({ kind: k, type: c.type, rid: target.rid });
+    });
+  }
+  /** Parte nova registrada no índice: cópia de `srcKey` (como o Word ao
+   *  desvincular) ou vazia. Parte de origem intocada sai do XML (byte a byte,
+   *  docPr renovado, rels repetidas); editada, dos blocos do modelo. */
+  createHfPart(kind, target, srcKey) {
+    const key = `${kind}:${target.rid}`;
+    const src = srcKey ? this.hfParts.get(srcKey) : void 0;
+    const pkg = this.pkg;
+    const store = this.fullDoc?.sources;
+    const name = (p) => p.split("/").pop();
+    const copyRels = (from) => {
+      const rels = pkg?.getPartText(`word/_rels/${name(from)}.rels`);
+      if (!rels || !pkg) return;
+      const to = `word/_rels/${name(target.path)}.rels`;
+      pkg.setPartText(to, rels);
+      this.hfRelsCopied.add(to);
+    };
+    if (src && pkg && store && !this.dirtyHf.has(src.path) && pkg.getPart(src.path)) {
+      copyRels(src.path);
+      const xml = copyHfPartXml(pkg.getPartText(src.path), () => 1 + Math.floor(Math.random() * 2147483646));
+      const read = readHeaderFooterPart(pkg, target.path, store, xml);
+      if (read) {
+        store.baseline();
+        this.hfParts.set(key, { path: target.path, paras: read.paras, blocks: read.blocks });
+        return;
+      }
+    }
+    if (src?.paras) {
+      if (pkg?.getPart(src.path)) copyRels(src.path);
+      const blocks = cloneBlocks(this.hfPartBlocks(srcKey));
+      this.hfParts.set(key, { path: target.path, paras: flattenBlocks(blocks), blocks });
+    } else {
+      const paras = this.newHfParas(kind);
+      this.hfParts.set(key, { path: target.path, paras, blocks: paras.map((paragraph) => ({ type: "paragraph", paragraph })) });
+    }
+    this.dirtyHf.add(target.path);
+  }
+  /** Mostrar Texto do Documento (no modo cabeçalho/rodapé o corpo some da tela). */
+  showDocumentText(on) {
+    if (this.hideDocText === !on) return;
+    this.hideDocText = !on;
+    this.engPageCache.clear();
+    this.paint();
+  }
+  documentTextShown() {
+    return !this.hideDocText;
+  }
+  /** Ir para Cabeçalho / Ir para Rodapé (no corpo: entra na edição da página do cursor). */
+  goToHeaderFooter(kind) {
+    if (!this.model || this.locked()) return;
+    if (this.hfEdit) {
+      const k = kind ?? (this.hfEdit.kind === "header" ? "footer" : "header");
+      if (k !== this.hfEdit.kind) {
+        const page2 = this.hfActivePage;
+        this.exitHeaderFooter(true);
+        this.enterHeaderFooter(k, page2, true);
+        this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: true, kind: k } }));
+      }
+    } else this.enterHeaderFooter(kind ?? "header", this.caretPageIndex());
+    this.focusEditor();
+  }
+  /**
+   * Próximo / Anterior: o cabeçalho (ou rodapé) seguinte na ordem do Word —
+   * por seção, primeira página → par → padrão — que alguma página mostra; para
+   * no fim (oráculo hf-lab f06).
+   */
+  nextHeaderFooter() {
+    this.stepHeaderFooter(1);
+  }
+  previousHeaderFooter() {
+    this.stepHeaderFooter(-1);
+  }
+  stepHeaderFooter(dir) {
+    if (!this.model || this.locked()) return;
+    const kind = this.hfEdit?.kind ?? "header";
+    const order = (t) => t === "first" ? 0 : t === "even" ? 1 : 2;
+    const stops = /* @__PURE__ */ new Map();
+    for (let pg = 0; pg < this.pageCount; pg++) {
+      const sec = this.pageSections[pg] ?? 0, type = this.hfTypeOfPage(pg);
+      if (!stops.has(`${sec}:${type}`)) stops.set(`${sec}:${type}`, { sec, type, page: pg });
+    }
+    const list = [...stops.values()].sort((a, b) => a.sec - b.sec || order(a.type) - order(b.type));
+    const cur = this.hfContext();
+    if (!cur) return;
+    const at = list.findIndex((s) => s.sec === cur.sec && s.type === cur.type);
+    const next = list[at < 0 ? dir > 0 ? 0 : list.length - 1 : at + dir];
+    if (!next) return;
+    if (this.hfEdit) this.exitHeaderFooter(true);
+    this.enterHeaderFooter(kind, next.page, true);
+    this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: !!this.hfEdit, kind } }));
+    this.scrollPageIntoView(next.page);
+    this.focusEditor();
+  }
+  /** Rola até a página (navegação entre cabeçalhos/rodapés). */
+  scrollPageIntoView(pg) {
+    const c = this.canvases[pg];
+    if (!c) return;
+    const top = c.offsetTop, bottom = top + c.offsetHeight;
+    if (top < this.scrollTop || bottom > this.scrollTop + this.clientHeight) this.scrollTop = Math.max(0, top - 24);
+  }
+  /** Parte (chave) que a página mostra para `kind`, criando-a na seção se faltar. */
+  hfPartOfPageKey(kind, pg) {
+    const sec = this.pageSections[pg] ?? 0;
+    const type = this.hfTypeOfPage(pg);
+    return this.hfPartFor(sec, kind, type)?.key ?? null;
+  }
+  /** Remover Cabeçalho / Remover Rodapé: esvazia a parte da página do cursor
+   *  (fica um parágrafo vazio do estilo; a parte continua — oráculo e12). */
+  removeHeaderFooter(kind) {
+    if (!this.model || this.locked()) return;
+    const page2 = this.caretPageIndex();
+    const key = this.hfEdit?.kind === kind ? `${kind}:${this.hfEdit.rid}` : this.hfPartOfPageKey(kind, page2);
+    const part = key ? this.hfParts.get(key) : void 0;
+    if (!key || !part?.paras) return;
+    this.snapshot(false, [key]);
+    const fresh = this.newHfParas(kind);
+    part.paras.splice(0, part.paras.length, ...fresh);
+    part.blocks = fresh.map((paragraph) => ({ type: "paragraph", paragraph }));
+    this.sectionEff.clear();
+    this.dirtyHf.add(part.path);
+    if (this.hfEdit && `${this.hfEdit.kind}:${this.hfEdit.rid}` === key) this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.refresh();
+  }
+  /** Remover Números de Página: tira os números das galerias (w:sdt "Page
+   *  Numbers") do cabeçalho e do rodapé da página do cursor (oráculo h04/h05). */
+  removePageNumbers() {
+    if (!this.model || this.locked()) return;
+    const page2 = this.caretPageIndex();
+    const keys = ["header", "footer"].map((k) => this.hfEdit?.kind === k ? `${k}:${this.hfEdit.rid}` : this.hfPartOfPageKey(k, page2)).filter((k) => !!k);
+    const store = this.fullDoc?.sources;
+    const plan = keys.map((key) => {
+      const part = this.hfParts.get(key);
+      const ids = pageNumberGroupIds(store?.stories.get(part.path));
+      const gone = (p) => p.props.src !== void 0 && ids.has(p.props.src) || this.pageNumberParas.has(p);
+      return { key, part, gone };
+    }).filter((x) => x.part.paras?.some(x.gone));
+    if (!plan.length) return;
+    this.snapshot(false, plan.map((x) => x.key));
+    for (const { key, part, gone } of plan) {
+      const kind = key.startsWith("header") ? "header" : "footer";
+      let blocks = this.hfPartBlocks(key).filter((b) => b.type !== "paragraph" || !gone(b.paragraph));
+      if (!blocks.some((b) => b.type === "paragraph")) blocks = [...blocks, ...this.newHfParas(kind).map((paragraph) => ({ type: "paragraph", paragraph }))];
+      part.paras.splice(0, part.paras.length, ...flattenBlocks(blocks));
+      part.blocks = blocks;
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    if (this.hfEdit) this.selection = this.clampSel(this.selection);
+    this.refresh();
+  }
+  /** Formatar Números de Página da seção: formato, número do capítulo e início
+   *  (null = continuar da seção anterior). */
+  getPageNumberFormat() {
+    const c = this.hfContext();
+    if (!c) return null;
+    const sp = sectionSectPr(this.bodyModel(), c.sec);
+    return {
+      format: sp.pgNumFmt ?? "decimal",
+      chapter: sp.pgNumChapStyle ? { level: sp.pgNumChapStyle, separator: sp.pgNumChapSep ?? "hyphen" } : null,
+      start: sp.pgNumStart ?? null
+    };
+  }
+  setPageNumberFormat(f) {
+    const c = this.hfContext();
+    if (!c) return;
+    this.hfSectionOp((m) => {
+      const sp = sectionSectPr(m, c.sec);
+      if (f.format !== void 0) {
+        if (f.format === "decimal") delete sp.pgNumFmt;
+        else sp.pgNumFmt = f.format;
+      }
+      if (f.chapter !== void 0) {
+        if (f.chapter) {
+          sp.pgNumChapStyle = Math.max(1, Math.min(9, f.chapter.level));
+          sp.pgNumChapSep = f.chapter.separator;
+        } else {
+          delete sp.pgNumChapStyle;
+          delete sp.pgNumChapSep;
+        }
+      }
+      if (f.start !== void 0) {
+        if (f.start === null) delete sp.pgNumStart;
+        else sp.pgNumStart = Math.max(0, Math.round(f.start));
+      }
+    });
+  }
+  /** Modelos de uma galeria (Cabeçalho, Rodapé, Número de Página › Início/Fim/Margens/Posição Atual). */
+  headerFooterTemplates(gallery) {
+    const lang = uiLang(this);
+    return hfTemplates(gallery).map((t) => ({ id: t.id, name: t.name[lang] }));
+  }
+  /** XML de um modelo para a miniatura da galeria (o mesmo que entra no documento). */
+  headerFooterTemplateXml(gallery, id) {
+    return hfTemplateXml(gallery, id, this.templateEnv(galleryKind(gallery) ?? "header"));
+  }
+  templateEnv(kind) {
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const accent = (theme?.colors?.accent1 ?? "156082").replace(/^#/, "").toUpperCase();
+    const sid = this.docStyles.byName(kind)?.id ?? resolveStyleId(this.docStyles.xml, kind === "header" ? "Cabealho" : "Rodap");
+    return { styleId: sid, accent, lang: uiLang(this), drawingId: () => 1 + Math.floor(Math.random() * 2147483646) };
+  }
+  /**
+   * Insere um modelo da galeria. Cabeçalho, Rodapé, Início/Fim da Página e
+   * Margens da Página TROCAM o conteúdo da parte da página do cursor (entra na
+   * edição dela, como o Word); Posição Atual insere o número no cursor.
+   */
+  insertHeaderFooterTemplate(gallery, id) {
+    if (!this.model || this.locked()) return;
+    const kind = galleryKind(gallery);
+    if (!kind) {
+      this.insertPageNumberHere(id);
+      return;
+    }
+    if (!this.hfEdit || this.hfEdit.kind !== kind) {
+      const page2 = this.caretPageIndex();
+      if (this.hfEdit) this.exitHeaderFooter(true);
+      this.enterHeaderFooter(kind, page2, true);
+      this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: !!this.hfEdit, kind } }));
+    }
+    const he = this.hfEdit;
+    if (!he) return;
+    const env = this.templateEnv(kind);
+    if (env.styleId) this.ensureStyleUsed(env.styleId);
+    const inner = hfTemplateXml(gallery, id, env);
+    if (!inner) return;
+    const key = `${kind}:${he.rid}`;
+    const part = this.hfParts.get(key);
+    if (!part) return;
+    this.snapshot();
+    const read = this.readTemplatePart(kind, he.path, inner);
+    if (!read) return;
+    this.model.paragraphs.splice(0, this.model.paragraphs.length, ...read.paras);
+    part.paras = this.model.paragraphs;
+    part.blocks = read.blocks;
+    this.sectionEff.clear();
+    this.dirtyHf.add(he.path);
+    this.selection = this.firstPlaceholder(env.lang) ?? { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.refresh();
+    this.focusEditor();
+  }
+  /** Lê o XML de um modelo como uma parte (com fontes: sdt e campos voltam ao salvar). */
+  readTemplatePart(kind, path, inner) {
+    const store = this.fullDoc?.sources;
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), path, store, hfPartXml(kind, inner));
+    if (!read) return null;
+    store?.baseline();
+    if (!store) {
+      for (const p of read.paras) if (p.runs.some((r) => r.field && /PAGE/.test(r.field))) this.pageNumberParas.add(p);
+    }
+    return read;
+  }
+  /** Seleção do 1º "[Digite aqui]" da parte em edição. */
+  firstPlaceholder(lang) {
+    const ph = placeholderText(lang);
+    const ps = this.model.paragraphs;
+    for (let i = 0; i < ps.length; i++) {
+      const at = paraText(ps[i]).indexOf(ph);
+      if (at >= 0) return { anchor: { para: i, offset: at }, focus: { para: i, offset: at + ph.length } };
+    }
+    return null;
+  }
+  /** Número de Página › Posição Atual: os runs do modelo no cursor. */
+  insertPageNumberHere(id) {
+    const inner = hfTemplateXml("pageCurrent", id, this.templateEnv("header"));
+    const read = inner ? readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), "word/uw-template.xml", void 0, hfPartXml("header", inner)) : null;
+    const runs = read?.paras[0]?.runs;
+    if (!runs?.length) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const pos2 = this.deleteSelection();
+      this.selection = { anchor: pos2, focus: pos2 };
+    }
+    let pos = this.selection.focus;
+    const base = this.newRunProps(this.pendingProps ?? this.currentProps());
+    for (const r of runs) {
+      const run2 = { text: r.text, props: { ...base }, ...r.field ? { field: r.field } : {} };
+      if (run2.field) run2.text = /NUMPAGES/i.test(run2.field) ? String(this.numPagesFor()) : /PAGE/i.test(run2.field) ? String(this.pageNumberFor(this.caretPageIndex())) : run2.text;
+      pos = insertRun(this.model, pos, run2);
+    }
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+  }
+  /** Formatos de Data e Hora do idioma (padrão: o da interface) com o exemplo de agora. */
+  dateTimeFormats(lang) {
+    const l = lang ?? uiLang(this);
+    const now = /* @__PURE__ */ new Date();
+    return DATE_TIME_FORMATS[l].map((pattern) => ({ pattern, sample: formatWordDate(now, pattern, l === "pt" ? "pt-BR" : "en-US") }));
+  }
+  /** Data e Hora: `update` = campo TIME \@ (atualiza sozinho, como o Word grava);
+   *  senão o texto de agora. */
+  insertDateTime(pattern, update = false, lang) {
+    if (!this.model || this.locked()) return;
+    const l = lang ?? uiLang(this);
+    const text = formatWordDate(/* @__PURE__ */ new Date(), pattern, l === "pt" ? "pt-BR" : "en-US");
+    if (update) this.insertFieldRun(` TIME \\@ "${pattern}" `, text);
+    else this.pasteText(text);
+  }
+  /** Informações do Documento: Autor, Título, Nome do Arquivo, Caminho do Arquivo (campos
+   *  AUTHOR, TITLE, FILENAME; o resultado guardado é o valor de agora — o nome do
+   *  arquivo vem do hospedeiro, que é quem o conhece). */
+  insertDocumentInfo(kind, fileName = "") {
+    if (!this.model || this.locked()) return;
+    const core = this.pkg?.getPartText("docProps/core.xml") ?? "";
+    const prop = (tag) => {
+      const m = new RegExp(`<${tag}[^>]*>([^<]*)<`).exec(core);
+      return m ? m[1].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&") : "";
+    };
+    const name = fileName;
+    const [instr, shown] = kind === "author" ? [" AUTHOR  \\* MERGEFORMAT ", prop("dc:creator")] : kind === "title" ? [" TITLE  \\* MERGEFORMAT ", prop("dc:title")] : kind === "fileName" ? [" FILENAME  \\* MERGEFORMAT ", name] : [" FILENAME \\p  \\* MERGEFORMAT ", name];
+    this.insertFieldRun(instr, shown || (uiLang(this) === "pt" ? "[sem valor]" : "[no value]"));
+  }
+  /** Inserir Tabulação de Alinhamento (w:ptab): à esquerda/centro/direita da margem ou do recuo. */
+  insertAlignmentTab(alignment, relativeTo = "margin", leader = "none") {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const pos2 = this.deleteSelection();
+      this.selection = { anchor: pos2, focus: pos2 };
+    }
+    const run2 = { text: "	", props: this.newRunProps(this.pendingProps ?? this.currentProps()), ptab: { alignment, relativeTo, leader } };
+    const pos = insertRun(this.model, this.selection.focus, run2);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+  }
+  /**
+   * Partes de cabeçalho (ou rodapé) que o documento EXIBE — cada seção nas
+   * variantes que mostra (padrão; primeira se titlePg; par se pares/ímpares) —
+   * sem repetir as compartilhadas (vinculadas), criando a que falta. Para a
+   * frente Página: a marca-d'água é um desenho posto em cada uma, num passo só:
+   * `editShownHfParts('header', (paras) => …)`.
+   */
+  editShownHfParts(kind, fn) {
+    if (!this.model || this.locked()) return;
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    const m = this.model;
+    const types = (sec) => [
+      ...sectionSectPr(m, sec).titlePg ? ["first"] : [],
+      ...this.evenOddHeaders() ? ["even"] : [],
+      "default"
+    ];
+    const wanted = [];
+    sectionRanges(m).forEach((_, sec) => {
+      for (const type of types(sec)) wanted.push({ sec, type });
+    });
+    const keys = /* @__PURE__ */ new Set();
+    for (const w of wanted) {
+      const p = this.hfPartFor(w.sec, kind, w.type);
+      if (p) keys.add(p.key);
+    }
+    this.snapshot(false, [...keys]);
+    for (const w of wanted) {
+      let p = this.hfPartFor(w.sec, kind, w.type)?.key;
+      if (!p) {
+        const target = this.newHfTarget(kind);
+        this.createHfPart(kind, target, null);
+        this.refsOfSection(m, w.sec, kind).push({ kind, type: w.type, rid: target.rid });
+        p = `${kind}:${target.rid}`;
+      }
+      if (keys.has(`done:${p}`)) continue;
+      keys.add(`done:${p}`);
+      const part = this.hfParts.get(p);
+      fn(part.paras, p);
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
   }
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
    *  nº de páginas/panes) e posiciona o HF apenas na banda da página ativa. */
@@ -19495,7 +20401,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const lineY = band ? kind === "header" ? band.bottom : band.top : kind === "header" ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
       const bandTop = kind === "header" ? 0 : lineY;
       const bandBot = kind === "header" ? lineY : sp.pageHeightTwips;
-      const active = kind === activeKind;
+      const active = kind === activeKind && (pg === void 0 || pg === this.hfActivePage);
       ctx.save();
       ctx.fillStyle = active ? this.pageDark ? "rgba(80,130,200,0.16)" : "rgba(43,87,154,0.09)" : this.pageDark ? "rgba(120,120,120,0.10)" : "rgba(120,120,120,0.06)";
       ctx.fillRect(0, bandTop * scale, sp.pageWidthTwips * scale, (bandBot - bandTop) * scale);
@@ -19507,11 +20413,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ctx.lineTo((sp.pageWidthTwips - sp.marginRightTwips) * scale, lineY * scale);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = `600 ${9 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
-      ctx.fillStyle = active ? this.pageDark ? "#9bc0ff" : "#2b579a" : this.pageDark ? "#9aa0a6" : "#9aa0a6";
-      const label = kind === "header" ? "Header" : "Footer";
-      const ly = (kind === "header" ? lineY - 60 : lineY + 190) * scale;
-      ctx.fillText(label, sp.marginLeftTwips * scale, ly);
+      const tags = this.hfBandLabels(kind, pg ?? this.hfActivePage);
+      ctx.font = `${8 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
+      const th = 13 * TWIPS_PER_PT * scale, pad2 = 4 * TWIPS_PER_PT * scale;
+      const ty = kind === "header" ? lineY * scale : lineY * scale - th;
+      const tag = (text, x, right) => {
+        const w = ctx.measureText(text).width + pad2 * 2;
+        const x0 = right ? x - w : x;
+        ctx.fillStyle = this.pageDark ? "#2d2f33" : "#eef2f8";
+        ctx.fillRect(x0, ty, w, th);
+        ctx.strokeStyle = active ? this.pageDark ? "#5b8def" : "#2b579a" : this.pageDark ? "#777" : "#9aa0a6";
+        ctx.lineWidth = Math.max(1, dpr) * 0.75;
+        ctx.strokeRect(x0, ty, w, th);
+        ctx.fillStyle = active ? this.pageDark ? "#9bc0ff" : "#2b579a" : this.pageDark ? "#c4c7c5" : "#5f6368";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, x0 + pad2, ty + th / 2);
+      };
+      tag(tags.name, sp.marginLeftTwips * scale, false);
+      if (tags.same) tag(tags.same, (sp.pageWidthTwips - sp.marginRightTwips) * scale, true);
       ctx.restore();
     };
     drawBand("header");
@@ -19568,14 +20487,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.dropCapFloats = [];
     this.pageSections = [0];
     let pendingDropCap = null;
-    let page = 0;
+    let page2 = 0;
     let y = marginT;
     const CONT_TILE_PX = 4e3;
     const tileTwips = isPaged ? Infinity : CONT_TILE_PX / (PX_PER_TWIP * this.zoom);
     const tileBottoms = [];
     const contTileBreak = (need) => {
-      if (!isPaged && y > (page === 0 ? marginT : 0) && y + need > tileTwips) {
-        page++;
+      if (!isPaged && y > (page2 === 0 ? marginT : 0) && y + need > tileTwips) {
+        page2++;
         y = 0;
       }
     };
@@ -19587,10 +20506,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let fnReserved = 0;
     let pageHadNotes = false;
     const newPage = () => {
-      page++;
+      page2++;
       y = marginT;
       col = 0;
-      this.pageSections[page] = sectIdx;
+      this.pageSections[page2] = sectIdx;
       fnReserved = 0;
       pageHadNotes = false;
     };
@@ -19621,11 +20540,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           newPage();
         }
         contTileBreak(tl.heightTwips);
-        tl.page = page;
+        tl.page = page2;
         tl.yTwips = y;
         this.tableLayouts.push(tl);
         y += tl.heightTwips + 160;
-        tileBottoms[page] = y;
+        tileBottoms[page2] = y;
       }
       const st = this.styleOf(p);
       const outlineIndent = this.view === "outline" ? st ? 0 : 720 : 0;
@@ -19639,16 +20558,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
       if (p.props.dropCap && p.runs.length > 0) {
-        const run = p.runs[0];
-        const sizePt = (run.props.szHalfPt ?? 22) / 2;
-        const letterFont = this.fonts.resolve(run.props.fontAscii, run.props.bold ? "bold" : "regular");
+        const run2 = p.runs[0];
+        const sizePt = (run2.props.szHalfPt ?? 22) / 2;
+        const letterFont = this.fonts.resolve(run2.props.fontAscii, run2.props.bold ? "bold" : "regular");
         pendingDropCap = {
-          text: run.text,
+          text: run2.text,
           sizePt,
-          bold: run.props.bold,
-          italic: run.props.italic,
-          color: run.props.color,
-          widthTwips: [...run.text].reduce((w, ch) => w + letterFont.advanceTwips(ch.codePointAt(0), sizePt), 0)
+          bold: run2.props.bold,
+          italic: run2.props.italic,
+          color: run2.props.color,
+          widthTwips: [...run2.text].reduce((w, ch) => w + letterFont.advanceTwips(ch.codePointAt(0), sizePt), 0)
         };
         this.layoutCache.push({ spans: [], charAdvances: [], lines: [], spanCharStart: [] });
         return;
@@ -19740,15 +20659,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (li === 1 && laid.length === 1) {
               const first = laid[0];
               const delta = y - first.yTwips;
-              first.page = page;
+              first.page = page2;
               first.yTwips += delta;
               first.baselineTwips += delta;
               y += first.heightTwips;
             } else if (li === lines.length - 1 && laid.length >= 2) {
               const prev = laid[laid.length - 1];
-              if (prev.page !== page) {
+              if (prev.page !== page2) {
                 const delta = y - prev.yTwips;
-                prev.page = page;
+                prev.page = page2;
                 prev.yTwips += delta;
                 prev.baselineTwips += delta;
                 y += prev.heightTwips;
@@ -19763,7 +20682,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (dropCap && li === 0) {
           this.dropCapFloats.push({
             ...dropCap,
-            page,
+            page: page2,
             xTwips: colX() + indent,
             yTopTwips: y,
             kPitch: pitchPre * dropK
@@ -19781,7 +20700,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         laid.push({
           para: pi,
           rich,
-          page,
+          page: page2,
           xTwips: x,
           yTwips: y,
           heightTwips: lh,
@@ -19790,7 +20709,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           justifyExtraPerSpace: justifyExtra
         });
         y += lh;
-        if (!isPaged) tileBottoms[page] = y;
+        if (!isPaged) tileBottoms[page2] = y;
         const fullText = spans.map((sp) => sp.text).join("");
         if (isPaged && rich.end > 0 && fullText[rich.end - 1] === "\f") {
           newPage();
@@ -19803,7 +20722,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (anchor.beforePara < this.model.paragraphs.length) continue;
       const tl = this.layoutTable(anchor.table, marginL, contentW);
       if (isPaged && y + tl.heightTwips > contentBottom) newPage();
-      tl.page = page;
+      tl.page = page2;
       tl.yTwips = y;
       this.tableLayouts.push(tl);
       y += tl.heightTwips + 160;
@@ -19811,20 +20730,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.footnoteHits = [];
     if (this.fullDoc) {
       this.layoutCache.forEach((pl, pi) => {
-        const para = this.model.paragraphs[pi];
-        for (const run of para.runs) {
-          if (run.noteRef?.kind === "footnote") {
+        const para2 = this.model.paragraphs[pi];
+        for (const run2 of para2.runs) {
+          if (run2.noteRef?.kind === "footnote") {
             const pg = pl.lines[0]?.page ?? 0;
-            this.footnoteHits.push({ page: pg, id: run.noteRef.id });
+            this.footnoteHits.push({ page: pg, id: run2.noteRef.id });
           }
         }
       });
     }
-    this.pageCount = isPaged ? page + 1 : 1;
+    this.pageCount = isPaged ? page2 + 1 : 1;
     if (!isPaged) {
       this.continuousHeight = y + 600;
-      tileBottoms[page] = y;
-      this.tileHeights = tileBottoms.map((b, i) => (b ?? 0) + (i === page ? 600 : 0));
+      tileBottoms[page2] = y;
+      this.tileHeights = tileBottoms.map((b, i) => (b ?? 0) + (i === page2 ? 600 : 0));
     } else {
       this.tileHeights = [];
     }
@@ -19896,7 +20815,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Desenha os objetos FLUTUANTES (caixas de texto / imagens ancoradas) dos
    *  runs de um parágrafo de HF, na posição ancorada. Usado tanto no render
    *  normal (paintHf) quanto na EDIÇÃO de HF (senão os flutuantes somem). */
-  drawHfFloats(ctx, scale, runs, originXTwips, paraTopTwips, widthTwips, pageIdx, color, sp, floatMode = "all") {
+  drawHfFloats(ctx, scale, runs, originXTwips, paraTopTwips, widthTwips, pageIdx, color2, sp, floatMode = "all") {
     const pageArea = sp.pageWidthTwips * sp.pageHeightTwips;
     const isBg = (o) => !!o.behindDoc || pageArea > 0 && o.widthTwips * o.heightTwips >= 0.4 * pageArea;
     for (const r of runs) {
@@ -19910,7 +20829,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const { x: tx, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
         {
           const iw = this.tbInner(tb, tx, ty, tb.widthTwips || widthTwips);
-          this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color, sp);
+          this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color2, sp);
         }
         continue;
       }
@@ -19935,7 +20854,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     return DEFAULT_FONT;
   }
-  paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color, sp, floatMode = "all") {
+  paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color2, sp, floatMode = "all") {
     if (!this.fonts) return;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
@@ -19965,7 +20884,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         availableTwips: widthTwips,
         tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs
       });
-      this.drawHfFloats(ctx, scale, runs, originXTwips, y, widthTwips, pageIdx, color, sp, floatMode);
+      this.drawHfFloats(ctx, scale, runs, originXTwips, y, widthTwips, pageIdx, color2, sp, floatMode);
       const font = this.fonts.resolve(void 0, "regular");
       const fallback = p.props.boxBorder && !p.props.borders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
       const bd = p.props.borders ?? (fallback ? { top: fallback, bottom: fallback, left: fallback, right: fallback } : void 0);
@@ -19984,16 +20903,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const baseline = y + lh * 0.8;
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
-          const run = runs[span.runIndex ?? seg.spanIndex];
-          const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
-          const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
+          const run2 = runs[span.runIndex ?? seg.spanIndex];
+          const renderer = run2?.custom ? this.inlineRenderers.get(run2.custom.type)?.renderer : void 0;
+          const txt = run2?.custom ? renderer?.toText?.(run2.custom.data) ?? run2.custom.fallbackText : span.text.slice(seg.start, seg.end);
           if (!txt.trim()) continue;
           const fam = this.familyFor(span.family);
           const fontPx = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
           const v = span.variant;
           ctx.font = `${v === "italic" || v === "boldItalic" ? "italic " : ""}${v === "bold" || v === "boldItalic" ? "700" : "400"} ${fontPx}px ${fam}`;
-          const runColor = run?.props.color ?? stColor;
-          ctx.fillStyle = runColor ? this.inkColor(runColor) : color;
+          const runColor = run2?.props.color ?? stColor;
+          ctx.fillStyle = runColor ? this.inkColor(runColor) : color2;
           ctx.fillText(txt, (x + seg.xTwips) * scale, baseline * scale);
         }
         if (bd) {
@@ -20078,9 +20997,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             const baseY = cy + lh * 0.8;
             for (const seg of line.segments) {
               const span = spans[seg.spanIndex];
-              const run = p.runs[span.runIndex ?? seg.spanIndex];
-              const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
-              const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
+              const run2 = p.runs[span.runIndex ?? seg.spanIndex];
+              const renderer = run2?.custom ? this.inlineRenderers.get(run2.custom.type)?.renderer : void 0;
+              const txt = run2?.custom ? renderer?.toText?.(run2.custom.data) ?? run2.custom.fallbackText : span.text.slice(seg.start, seg.end);
               if (!txt) continue;
               pending2.push({
                 row: ri,
@@ -20091,10 +21010,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
                 sizePt: span.sizePt,
                 bold: span.variant === "bold" || span.variant === "boldItalic",
                 italic: span.variant === "italic" || span.variant === "boldItalic",
-                color: run?.props.color ?? st?.color,
+                color: run2?.props.color ?? st?.color,
                 family: this.familyFor(span.family),
-                underline: run?.props.underline,
-                strike: run?.props.strike
+                underline: run2?.props.underline,
+                strike: run2?.props.strike
               });
             }
             cy += lh;
@@ -20216,11 +21135,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Troca o foco de edição entre header e footer (ou de página) sem sair do
    *  modo HF. As edições da parte anterior persistem (mesmas refs no fullDoc). */
-  switchHfFocus(kind, page) {
+  switchHfFocus(kind, page2) {
     if (!this.hfEdit) return;
-    if (this.hfEdit.kind === kind && this.hfActivePage === page) return;
+    if (this.hfEdit.kind === kind && this.hfActivePage === page2) return;
     this.exitHeaderFooter();
-    this.enterHeaderFooter(kind, page);
+    this.enterHeaderFooter(kind, page2);
   }
   /** Geometria das colunas numa página + quais têm conteúdo (p/ o separador). */
   colContentOnPage(pg, sp) {
@@ -20293,27 +21212,27 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const r of paras[pi].runs) {
         if (!r.textbox) continue;
         const tb = r.textbox;
-        let page, sp, originX, paraTop;
+        let page2, sp, originX, paraTop;
         const er = this.eng ? this.engObjectOf(r, inHf ? this.hfActivePage : void 0) : null;
         if (this.eng && !er) continue;
         if (inHf) {
-          page = this.hfActivePage;
-          sp = this.sectPrForSavedPage(page);
+          page2 = this.hfActivePage;
+          sp = this.sectPrForSavedPage(page2);
           originX = sp.marginLeftTwips;
           paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? this.hfRegionTopTwips;
         } else {
           const first = this.layoutCache[pi]?.lines[0];
           if (!first) continue;
-          page = first.page;
-          sp = this.sectPrAt(this.pageSections[page] ?? 0);
+          page2 = first.page;
+          sp = this.sectPrAt(this.pageSections[page2] ?? 0);
           originX = sp.marginLeftTwips;
           paraTop = first.yTwips;
         }
         let { x, y } = tb.floating ? this.anchoredPos(tb, originX, paraTop, sp) : { x: originX, y: paraTop };
         let w = tb.widthTwips || sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
         let h = this.effectiveTbHeight(tb);
-        if (er) ({ page, x, y, w, h } = er);
-        const cv = this.canvases[page];
+        if (er) ({ page: page2, x, y, w, h } = er);
+        const cv = this.canvases[page2];
         if (!cv) continue;
         const rect = cv.getBoundingClientRect();
         if (e.clientY < rect.top || e.clientY > rect.bottom) continue;
@@ -20321,7 +21240,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const xT = (e.clientX - rect.left) / scale;
         const yT = (e.clientY - rect.top) / scale;
         if (xT >= x && xT <= x + w && yT >= y && yT <= y + h) {
-          return { hostRun: r, rect: { x, y, w, h }, page };
+          return { hostRun: r, rect: { x, y, w, h }, page: page2 };
         }
       }
     }
@@ -20600,17 +21519,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     obj.offsetYTwips = Math.round(oy);
   }
   deleteSelectedFloat() {
-    const run = this.floatSel;
-    if (!run || !this.model) return;
+    const run2 = this.floatSel;
+    if (!run2 || !this.model) return;
     this.snapshot();
     for (const p of this.model.paragraphs) {
-      const idx = p.runs.indexOf(run);
+      const idx = p.runs.indexOf(run2);
       if (idx >= 0) {
         p.runs.splice(idx, 1);
         break;
       }
     }
-    this.floatImages = this.floatImages.filter((f) => f.run !== run);
+    this.floatImages = this.floatImages.filter((f) => f.run !== run2);
     this.floatSel = null;
     this.refresh();
     this.onSelectionChange?.();
@@ -20944,7 +21863,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!els.length) return null;
     const pg = els[0].page;
     if (els.some((el) => el.page !== pg)) return null;
-    const page = eng.result.pages[pg];
+    const page2 = eng.result.pages[pg];
     const synth = this.synthLayout(t, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
     const sp = synth.pages[0];
@@ -20959,9 +21878,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (ca.length !== cb.length || ca.some((c, k) => c.o !== cb[k].o || !eq2(c.x, cb[k].x + dx) || !eq2(c.w, cb[k].w))) return null;
     }
     const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
-    const start = findItems(page.items, want, eng.hfItems[pg] ?? 0);
-    const lineAt = page.lines.indexOf(els[0].line);
-    if (start < 0 || lineAt < 0 || els.some((el, i) => page.lines[lineAt + i] !== el.line)) return null;
+    const start = findItems(page2.items, want, eng.hfItems[pg] ?? 0);
+    const lineAt = page2.lines.indexOf(els[0].line);
+    if (start < 0 || lineAt < 0 || els.some((el, i) => page2.lines[lineAt + i] !== el.line)) return null;
     return { page: pg, dx, dy, start, count: want.length, lineAt, lineCount: els.length, bottom: itemsBottom(sp), root: els[0].line.ref.split("/")[0] };
   }
   /** Edição numa célula: troca só os itens/linhas da tabela se a altura dela
@@ -20982,9 +21901,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!synth || synth.pages.length !== 1) return false;
     const sp = synth.pages[0];
     if (Math.abs(itemsBottom(sp) - b.bottom) > 0.01) return false;
-    const page = eng.result.pages[b.page];
+    const page2 = eng.result.pages[b.page];
     const items = sp.items.map((it) => shiftPageItem(it, b.dx, b.dy));
-    page.items.splice(b.start, b.count, ...items);
+    page2.items.splice(b.start, b.count, ...items);
     const lines = sp.lines.map((l) => ({
       ...l,
       ref: b.root + l.ref.slice(l.ref.indexOf("/")),
@@ -20993,7 +21912,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       baseline: l.baseline + b.dy,
       ...l.chars ? { chars: l.chars.map((c) => ({ o: c.o, x: c.x + b.dx, w: c.w })) } : {}
     }));
-    page.lines.splice(b.lineAt, b.lineCount, ...lines);
+    page2.lines.splice(b.lineAt, b.lineCount, ...lines);
     const k = eng.lines.findIndex((el) => el.page === b.page && el.loc.kind === "cell" && el.loc.anchor === h.anchor);
     if (k < 0) return false;
     const sec = eng.result.pages[b.page].section;
@@ -21043,9 +21962,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const first = ls[0]?.eng;
     if (!first || ls.some((l) => l.page !== ls[0].page || !l.eng)) return null;
     const pg = ls[0].page;
-    const page = eng.result.pages[pg];
-    const para = this.model.paragraphs[pi];
-    const synth = this.synthLayout(para, this.pageSections[pg] ?? 0);
+    const page2 = eng.result.pages[pg];
+    const para2 = this.model.paragraphs[pi];
+    const synth = this.synthLayout(para2, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
     const sp = synth.pages[0];
     if (sp.lines.length !== ls.length) return null;
@@ -21058,9 +21977,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (ca.length !== cb.length || ca.some((c, k) => c.o !== cb[k].o || !eq2(c.x, cb[k].x + dx) || !eq2(c.w, cb[k].w))) return null;
     }
     const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
-    const start = want.length ? findItems(page.items, want, eng.hfItems[pg] ?? 0) : this.emptyParaSlot(pi, pg);
+    const start = want.length ? findItems(page2.items, want, eng.hfItems[pg] ?? 0) : this.emptyParaSlot(pi, pg);
     if (start < 0) return null;
-    const lineAt = page.lines.indexOf(first);
+    const lineAt = page2.lines.indexOf(first);
     if (lineAt < 0) return null;
     return { page: pg, ref: first.ref, dx, dy, start, count: want.length, lineAt, heights: sp.lines.map((l) => l.height) };
   }
@@ -21097,16 +22016,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const b = h?.before;
     if (!h || !b || !eng || this.cellEdit || !this.model) return false;
     const t0 = performance.now();
-    const para = this.model.paragraphs[h.para];
-    if (!para) return false;
-    this.syncRunRPr([para]);
-    const synth = this.synthLayout(para, this.pageSections[b.page] ?? 0);
+    const para2 = this.model.paragraphs[h.para];
+    if (!para2) return false;
+    this.syncRunRPr([para2]);
+    const synth = this.synthLayout(para2, this.pageSections[b.page] ?? 0);
     if (!synth || synth.pages.length !== 1) return false;
     const sp = synth.pages[0];
     if (sp.lines.length !== b.heights.length || sp.lines.some((l, i) => Math.abs(l.height - b.heights[i]) > 0.01)) return false;
-    const page = eng.result.pages[b.page];
+    const page2 = eng.result.pages[b.page];
     const items = sp.items.map((it) => shiftPageItem(it, b.dx, b.dy));
-    page.items.splice(b.start, b.count, ...items);
+    page2.items.splice(b.start, b.count, ...items);
     const lines = sp.lines.map((l) => ({
       ...l,
       ref: b.ref,
@@ -21115,12 +22034,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       baseline: l.baseline + b.dy,
       ...l.chars ? { chars: l.chars.map((c) => ({ o: c.o, x: c.x + b.dx, w: c.w })) } : {}
     }));
-    if (para.runs.some((r) => r.custom)) for (const l of lines) collapseCustomChars(l, para);
-    page.lines.splice(b.lineAt, lines.length, ...lines);
+    if (para2.runs.some((r) => r.custom)) for (const l of lines) collapseCustomChars(l, para2);
+    page2.lines.splice(b.lineAt, lines.length, ...lines);
     const loc = { kind: "body", para: h.para };
     let k = eng.lines.findIndex((el) => el.page === b.page && el.line.ref === b.ref);
-    if (k >= 0) eng.lines.splice(k, lines.length, ...lines.map((line) => ({ line, page: b.page, loc, para })));
-    const len2 = paraLength(para);
+    if (k >= 0) eng.lines.splice(k, lines.length, ...lines.map((line) => ({ line, page: b.page, loc, para: para2 })));
+    const len2 = paraLength(para2);
     this.layoutCache[h.para] = {
       spans: [],
       charAdvances: [],
@@ -21203,24 +22122,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Instala o resultado: páginas, linhas do modelo em edição, camadas de HF. */
   installEngineResult(doc, result) {
-    const pages = result.pages;
-    this.pageCount = Math.max(1, pages.length);
-    this.pageSections = pages.map((p) => doc.sectionMap[p.section] ?? 0);
+    const pages2 = result.pages;
+    this.pageCount = Math.max(1, pages2.length);
+    this.pageSections = pages2.map((p) => doc.sectionMap[p.section] ?? 0);
     this.tableLayouts = [];
     this.dropCapFloats = [];
     this.footnoteHits = [];
     this.tileHeights = [];
     const lines = [];
-    pages.forEach((p, pg) => {
+    pages2.forEach((p, pg) => {
       for (const l of p.lines) {
         const loc = locateRef(l.ref, doc.origins);
-        const para = this.lineParagraph(loc, doc, p.section);
-        if (para?.runs.some((r) => r.custom)) collapseCustomChars(l, para);
-        lines.push({ line: l, page: pg, loc, para });
+        const para2 = this.lineParagraph(loc, doc, p.section);
+        if (para2?.runs.some((r) => r.custom)) collapseCustomChars(l, para2);
+        lines.push({ line: l, page: pg, loc, para: para2 });
       }
     });
-    const hfItems = pages.map((p) => Math.min(p.hfItems ?? 0, p.items.length));
-    this.eng = { result, doc, lines, hfItems, version: ++this.engVersion, pageVersion: pages.map(() => 0) };
+    const hfItems = pages2.map((p) => Math.min(p.hfItems ?? 0, p.items.length));
+    this.eng = { result, doc, lines, hfItems, version: ++this.engVersion, pageVersion: pages2.map(() => 0) };
     this.rebuildEditLines();
   }
   /** Parágrafo do editor de uma linha do motor (corpo, célula ou cabeçalho/rodapé). */
@@ -21243,14 +22162,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return null;
   }
   /** Objeto flutuante como o motor o posicionou (na página dada, ou o 1º). */
-  engObjectOf(run, page) {
-    const pages = this.eng?.result.pages ?? [];
-    const scan = (pg) => pages[pg]?.objects?.find((o) => o.run === run);
-    if (page !== void 0) {
-      const o = scan(page);
-      return o ? { page, x: o.x, y: o.y, w: o.w, h: o.h } : null;
+  engObjectOf(run2, page2) {
+    const pages2 = this.eng?.result.pages ?? [];
+    const scan = (pg) => pages2[pg]?.objects?.find((o) => o.run === run2);
+    if (page2 !== void 0) {
+      const o = scan(page2);
+      return o ? { page: page2, x: o.x, y: o.y, w: o.w, h: o.h } : null;
     }
-    for (let pg = 0; pg < pages.length; pg++) {
+    for (let pg = 0; pg < pages2.length; pg++) {
       const o = scan(pg);
       if (o) return { page: pg, x: o.x, y: o.y, w: o.w, h: o.h };
     }
@@ -21270,10 +22189,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Página do motor (fundo + itens) num canvas em cache: o caret pisca e a
    *  seleção muda sem repintar os glifos. */
-  engineBase(pg, page, w, h, scale) {
+  engineBase(pg, page2, w, h, scale) {
     const sup = this.tbSnapshotSuppress;
     const hfMode = !!this.hfEdit;
-    const key = `${this.eng.version}.${this.eng.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}|${this.docGrid && !this.printRender ? 1 : 0}`;
+    const key = `${this.eng.version}.${this.eng.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? this.hideDocText ? 2 : 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}|${this.docGrid && !this.printRender ? 1 : 0}`;
     const hit = this.engPageCache.get(pg);
     if (hit && hit.key === key) return hit.canvas;
     const off = hit?.canvas ?? document.createElement("canvas");
@@ -21283,37 +22202,38 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     if (!this.hfCapturing) {
-      ctx.fillStyle = page.background ? `#${page.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
+      ctx.fillStyle = page2.background ? `#${page2.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
       ctx.fillRect(0, 0, w, h);
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    if (this.gridlines && !this.printRender && !this.hfCapturing && page.cells?.length) this.paintGridlines(ctx, page.cells, scale);
+    if (this.gridlines && !this.printRender && !this.hfCapturing && page2.cells?.length) this.paintGridlines(ctx, page2.cells, scale);
     if (this.docGrid && !this.printRender && !this.hfCapturing) this.paintDocGrid(ctx, pg, scale);
     const env = this.enginePaintEnv();
-    const n = page.items.length;
+    const n = page2.items.length;
     const hf = Math.min(this.eng.hfItems[pg] ?? 0, n);
     const dim = this.printRender ? 1 : HF_DIM_ALPHA;
     const layers = [
       ...this.hfCapturing ? [] : [[0, hf, hfMode ? 1 : dim]],
-      [hf, n, hfMode ? dim : 1]
+      // Mostrar Texto do Documento desligado: o corpo some no modo cabeçalho
+      ...hfMode && this.hideDocText && !this.printRender ? [] : [[hf, n, hfMode ? dim : 1]]
     ];
-    const skip = sup ? this.textboxItemRange(pg, page, sup) : null;
+    const skip = sup ? this.textboxItemRange(pg, page2, sup) : null;
     for (const [from, to, alpha] of layers) {
       if (from >= to) continue;
       if (skip && skip[0] < to && skip[1] > from) {
-        paintItems(ctx, page.items, env, { from, to: Math.max(from, skip[0]), alpha });
-        paintItems(ctx, page.items, env, { from: Math.min(to, skip[1]), to, alpha });
-      } else paintItems(ctx, page.items, env, { from, to, alpha });
+        paintItems(ctx, page2.items, env, { from, to: Math.max(from, skip[0]), alpha });
+        paintItems(ctx, page2.items, env, { from: Math.min(to, skip[1]), to, alpha });
+      } else paintItems(ctx, page2.items, env, { from, to, alpha });
     }
     this.engPageCache.set(pg, { key, canvas: off });
     return off;
   }
   /** Itens do CONTEÚDO de uma caixa de texto: o recorte (push…pop) no
    *  retângulo em que o motor a posicionou — [início, fim) ou null. */
-  textboxItemRange(pg, page, run) {
-    const o = page.objects?.find((x) => x.run === run);
+  textboxItemRange(pg, page2, run2) {
+    const o = page2.objects?.find((x) => x.run === run2);
     if (!o) return null;
-    const items = page.items;
+    const items = page2.items;
     const near2 = (a, b) => a !== void 0 && Math.abs(a - b) < 0.5;
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
@@ -21341,8 +22261,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const hasSel = this.hasSelection();
     const scales = [];
     const ctxs = this.canvases.map((c, i) => {
-      const page = eng.result.pages[i];
-      if (!active.has(i) || c.width <= 1 || !page) {
+      const page2 = eng.result.pages[i];
+      if (!active.has(i) || c.width <= 1 || !page2) {
         scales.push(0);
         return null;
       }
@@ -21352,7 +22272,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const ctx = c.getContext("2d");
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, c.width, c.height);
-      ctx.drawImage(this.engineBase(i, page, c.width, c.height, scale), 0, 0);
+      ctx.drawImage(this.engineBase(i, page2, c.width, c.height, scale), 0, 0);
       if (this.inlineRenderers.size && !this.hfCapturing) this.paintEngineInlines(ctx, i, scale);
       if (!this.printRender && !this.hfCapturing) {
         ctx.save();
@@ -21368,10 +22288,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return ctx;
     });
     for (const k of [...this.engPageCache.keys()]) if (!this.allocatedPages.has(k) && !active.has(k)) this.engPageCache.delete(k);
-    const hp = this.hfActivePage;
-    if (this.hfEdit && !this.printRender && ctxs[hp]) {
-      const sp = this.sectionOfPage(hp)?.sectPr ?? this.bodyState().model.sectPr;
-      this.paintHfBands(ctxs[hp], scales[hp], sp, dpr, hp);
+    if (this.hfEdit && !this.printRender) {
+      ctxs.forEach((c, pg) => {
+        if (!c) return;
+        const sp = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
+        this.paintHfBands(c, scales[pg], sp, dpr, pg);
+      });
     }
     this.paintFloatAndCaret(ctxs, scales, dpr, hasSel || !!this.tableSel);
     this.engineStats.paintMs = performance.now() - t0;
@@ -21386,8 +22308,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const body = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit;
       const secOf = (k) => body ? this.sectionIndexForPara(k) : this.pageSections[pg] ?? 0;
       this.layoutCache.forEach((pl, pi) => {
-        const para = this.model.paragraphs[pi];
-        const text = paraText(para);
+        const para2 = this.model.paragraphs[pi];
+        const text = paraText(para2);
         pl.lines.forEach((line, li) => {
           if (line.page !== pg || !line.eng) return;
           const fs = Math.max(160, line.heightTwips * 0.6);
@@ -21406,9 +22328,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           }
           if (li === pl.lines.length - 1) {
             ctx.textAlign = "left";
-            const x = this.caretX({ para: pi, offset: paraLength(para) }, line);
+            const x = this.caretX({ para: pi, offset: paraLength(para2) }, line);
             const nextType = (k) => this.sectionStarts[this.sectionIndexForPara(k) + 1]?.section.sectPr.type ?? "nextPage";
-            if (body && para.props.sectionBreak) {
+            if (body && para2.props.sectionBreak) {
               this.paintBreakMark(ctx, x + 20, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi), true);
             } else if (breakOnly) {
             } else {
@@ -21430,15 +22352,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     for (const el of eng.lines) {
       if (el.page !== pg || el.loc.kind === "other") continue;
-      const para = el.para;
-      if (!para) continue;
+      const para2 = el.para;
+      if (!para2) continue;
       let acc = 0;
-      for (const run of para.runs) {
+      for (const run2 of para2.runs) {
         const a = acc;
-        acc += run.text.length;
-        const field = !!run.field || !!run.fieldResult;
-        const comment = !!run.props.commentIds?.length;
-        if (!field && !comment) continue;
+        acc += run2.text.length;
+        const field2 = !!run2.field || !!run2.fieldResult;
+        const comment = !!run2.props.commentIds?.length;
+        if (!field2 && !comment) continue;
         let x1 = Infinity, x2 = -Infinity;
         for (const c of el.line.chars ?? []) {
           if (c.o < a || c.o >= acc) continue;
@@ -21569,8 +22491,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   spellingAtCaret() {
     if (!this.model || !this.spellActive()) return null;
     const pos = this.selection.focus;
-    const para = this.model.paragraphs[pos.para];
-    const m = para && misspellingAt(this.ensureSpell()?.get(para), pos.offset);
+    const para2 = this.model.paragraphs[pos.para];
+    const m = para2 && misspellingAt(this.ensureSpell()?.get(para2), pos.offset);
     return m ? { ...m, para: pos.para } : null;
   }
   /** Sugestões do Hunspell para a palavra (até `limit`, como o menu do Word). */
@@ -21581,8 +22503,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Troca a palavra errada (se ela ainda está lá) — desfazível. */
   replaceSpelling(m, text) {
     if (!this.model || this.locked()) return false;
-    const para = this.model.paragraphs[m.para];
-    if (!para || paraText(para).slice(m.start, m.end) !== m.word) return false;
+    const para2 = this.model.paragraphs[m.para];
+    if (!para2 || paraText(para2).slice(m.start, m.end) !== m.word) return false;
     this.snapshot();
     const range = { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } };
     const pos = this.tracking ? this.trackedDelete(range, "end") : deleteRange2(this.model, range);
@@ -21630,22 +22552,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Inlines de plugin com desenho próprio: na caixa do texto de reserva que o
    *  motor diagramou (o motor não conhece a medida do plugin). */
   paintEngineInlines(ctx, pg, scale) {
-    const page = this.eng.result.pages[pg];
+    const page2 = this.eng.result.pages[pg];
     for (const el of this.eng.lines) {
       if (el.page !== pg || el.loc.kind === "other") continue;
-      const para = el.para;
-      if (!para?.runs.some((r) => r.custom)) continue;
+      const para2 = el.para;
+      if (!para2?.runs.some((r) => r.custom)) continue;
       let acc = 0;
-      for (const run of para.runs) {
+      for (const run2 of para2.runs) {
         const a = acc;
-        acc += run.text.length;
-        if (!run.custom) continue;
-        const renderer = this.inlineRenderers.get(run.custom.type)?.renderer;
+        acc += run2.text.length;
+        if (!run2.custom) continue;
+        const renderer = this.inlineRenderers.get(run2.custom.type)?.renderer;
         const c = el.line.chars?.find((k) => k.o === a);
         if (!renderer?.draw || !c) continue;
-        const gr = page.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el.line.baseline) < 400 && it.glyphs.some((g) => Math.abs(g.x - c.x) < 0.5));
+        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el.line.baseline) < 400 && it.glyphs.some((g) => Math.abs(g.x - c.x) < 0.5));
         const run0 = gr?.t === "glyphs" ? gr : null;
-        const sizePt = run0?.sizePt ?? (run.props.szHalfPt ?? 22) / 2;
+        const sizePt = run0?.sizePt ?? (run2.props.szHalfPt ?? 22) / 2;
         const css = run0 ? this.enginePaintEnv().fontOf(run0.face) : { family: DEFAULT_FONT_CSS, weight: 400, italic: false };
         const font = run0?.face.font ?? this.fonts.resolve(void 0, "regular");
         const measureText = (text) => {
@@ -21653,17 +22575,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           for (const ch of text) w += font.advanceWidth(font.glyphId(ch.codePointAt(0))) * sizePt * 20 / (font.metrics.unitsPerEm || 1e3);
           return w;
         };
-        const fallbackText = renderer.toText?.(run.custom.data) ?? run.custom.fallbackText;
-        const ink = this.inkColor(run0?.color ?? run.props.color);
+        const fallbackText = renderer.toText?.(run2.custom.data) ?? run2.custom.fallbackText;
+        const ink = this.inkColor(run0?.color ?? run2.props.color);
         ctx.save();
         ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
         ctx.fillRect(c.x * scale, el.line.y * scale, c.w * scale, el.line.height * scale);
         ctx.font = `${css.italic ? "italic " : ""}${css.weight} ${sizePt * TWIPS_PER_PT * scale}px ${css.family}`;
         ctx.fillStyle = ink;
         renderer.draw({
-          data: run.custom.data,
+          data: run2.custom.data,
           fallbackText,
-          props: run.props,
+          props: run2.props,
           sizePt,
           measureText,
           ctx,
@@ -21888,23 +22810,23 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const b = this.bodyState();
     if (!b.model) return [];
     const doc = this.eng && !this.hfEdit && !this.tbEdit && !this.cellEdit ? this.eng.doc : this.liveEngineDoc();
-    const pages = /* @__PURE__ */ new Map();
+    const pages2 = /* @__PURE__ */ new Map();
     if (this.eng) {
-      for (const l of this.eng.lines) if (l.loc.kind === "body" && l.para && !pages.has(l.para)) pages.set(l.para, l.page);
+      for (const l of this.eng.lines) if (l.loc.kind === "body" && l.para && !pages2.has(l.para)) pages2.set(l.para, l.page);
     }
     return documentOutline(doc.full).flatMap((h) => {
       const o = doc.origins[h.block];
       if (o?.kind !== "para") return [];
-      const para = b.model.paragraphs[o.para];
-      return para ? [{ index: 0, level: h.level, text: h.text, para: o.para, page: pages.get(para) ?? -1 }] : [];
+      const para2 = b.model.paragraphs[o.para];
+      return para2 ? [{ index: 0, level: h.level, text: h.text, para: o.para, page: pages2.get(para2) ?? -1 }] : [];
     }).map((h, i) => ({ ...h, index: i }));
   }
   /** Índice (em getHeadings) do título da seção onde está o cursor; -1 antes do 1º. */
   currentHeading(heads = this.getHeadings()) {
-    const para = this.navCaretPara();
+    const para2 = this.navCaretPara();
     let cur = -1;
     for (const h of heads) {
-      if (h.para <= para) cur = h.index;
+      if (h.para <= para2) cur = h.index;
       else break;
     }
     return cur;
@@ -21938,8 +22860,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!h || !this.toBody()) return;
     this.goToBodyPara(h.para, 0, 0, true);
   }
-  goToBodyPara(para, start, end, top) {
-    this.selection = { anchor: { para, offset: start }, focus: { para, offset: end } };
+  goToBodyPara(para2, start, end, top) {
+    this.selection = { anchor: { para: para2, offset: start }, focus: { para: para2, offset: end } };
     this.pendingProps = null;
     this.refreshSelection();
     this.revealCaret(top);
@@ -21992,8 +22914,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const [k, v] of this.bookmarkParas) if (map[v] !== void 0) this.bookmarkParas.set(k, map[v]);
     this.tableAnchors.sort((a, b) => a.beforePara - b.beforePara);
   }
-  goToBodyParaAfterEdit(para) {
-    this.selection = { anchor: { para, offset: 0 }, focus: { para, offset: 0 } };
+  goToBodyParaAfterEdit(para2) {
+    this.selection = { anchor: { para: para2, offset: 0 }, focus: { para: para2, offset: 0 } };
     this.pendingProps = null;
     this.refresh();
     this.revealCaret(false);
@@ -22213,8 +23135,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Desenha a página `page` do layout de impressão num canvas (miniatura da aba
    *  Páginas), com `cssWidth` px de largura. false fora do layout de impressão. */
-  paintPageThumbnail(page, canvas, cssWidth) {
-    const p = this.eng?.result.pages[page];
+  paintPageThumbnail(page2, canvas, cssWidth) {
+    const p = this.eng?.result.pages[page2];
     if (!p) return false;
     const dpr = window.devicePixelRatio || 1;
     const scale = cssWidth / p.widthTw;
@@ -22231,18 +23153,95 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     paintItems(ctx, p.items, this.enginePaintEnv(), {});
     return true;
   }
+  /**
+   * Miniatura de um modelo das galerias de Cabeçalho/Rodapé/Número de Página,
+   * diagramada pelo motor (o mesmo do documento) numa página com a geometria da
+   * seção do cursor: a faixa do cabeçalho (ou do rodapé); Margens da Página e
+   * Posição Atual mostram a página inteira / a linha. false = sem motor/modelo.
+   */
+  paintHeaderFooterTemplate(gallery, id, canvas, cssWidth) {
+    if (!this.model || !this.fonts) return false;
+    const kind = galleryKind(gallery) ?? "header";
+    const inner = hfTemplateXml(gallery, id, this.templateEnv(kind));
+    if (!inner) return false;
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), "word/uw-preview.xml", void 0, hfPartXml(kind, inner));
+    if (!read) return false;
+    const c = this.hfContext();
+    const sp0 = sectionSectPr(this.bodyModel(), c?.sec ?? 0);
+    const sp = { ...sp0, titlePg: false };
+    delete sp.pgBorders;
+    const current = gallery === "pageCurrent";
+    const set = { default: read.blocks };
+    const full = {
+      ...this.fullDoc ?? {},
+      blocks: current ? read.blocks : [{ type: "paragraph", paragraph: { runs: [], props: {} } }],
+      sections: [{
+        sectPr: sp,
+        blockStart: 0,
+        blockEnd: current ? read.blocks.length - 1 : 0,
+        headers: {},
+        footers: {},
+        headerRefs: [],
+        footerRefs: [],
+        headerBlocks: !current && kind === "header" ? set : {},
+        footerBlocks: !current && kind === "footer" ? set : {}
+      }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      bookmarks: /* @__PURE__ */ new Map(),
+      ...this.fullDoc?.formatting ? {} : { formatting: this.newFormatting ?? emptyFormatting() }
+    };
+    let page2;
+    try {
+      page2 = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: void 0 }).pages[0];
+    } catch {
+      return false;
+    }
+    if (!page2) return false;
+    const items = page2.items;
+    let top = 0, bottom = page2.heightTw;
+    if (gallery === "pageMargin") {
+    } else if (current) {
+      const l = page2.lines[0];
+      top = Math.max(0, (l?.y ?? sp.marginTopTwips) - 240);
+      bottom = top + (l?.height ?? 300) + 480;
+    } else if (kind === "header") {
+      top = 0;
+      bottom = Math.max(sp.marginTopTwips, ...page2.lines.filter((l) => l.y < page2.heightTw / 2).map((l) => l.y + l.height)) + 120;
+    } else {
+      top = Math.min(page2.heightTw - sp.marginBottomTwips, ...page2.lines.filter((l) => l.y > page2.heightTw / 2).map((l) => l.y)) - 120;
+      bottom = page2.heightTw;
+    }
+    const left = gallery === "pageMargin" ? 0 : Math.max(0, sp.marginLeftTwips - 360);
+    const right = gallery === "pageMargin" ? page2.widthTw : Math.min(page2.widthTw, page2.widthTw - sp.marginRightTwips + 360);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / (right - left);
+    const hTw = bottom - top;
+    canvas.width = Math.max(1, Math.round((right - left) * scale * dpr));
+    canvas.height = Math.max(1, Math.round(hTw * scale * dpr));
+    canvas.style.width = `${Math.round((right - left) * scale)}px`;
+    canvas.style.height = `${Math.round(hTw * scale)}px`;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, -left * scale * dpr, -top * scale * dpr);
+    paintItems(ctx, items, this.enginePaintEnv(), {});
+    return true;
+  }
   /** Número de páginas do layout de impressão (0 nas outras visões). */
   layoutPageCount() {
     return this.eng?.result.pages.length ?? 0;
   }
   /** Vai para a página `page` (índice 0): o topo dela no alto da área visível. */
-  goToPage(page) {
-    const c = this.canvases[page];
+  goToPage(page2) {
+    const c = this.canvases[page2];
     if (!c) return;
     const bar = this.topbarEl.offsetHeight + (this.shadowRoot?.querySelector(".uw-hruler")?.offsetHeight ?? 0);
     cancelAnimationFrame(this.scrollAnim);
     this.scrollTop = Math.max(0, c.offsetTop - bar - 8);
-    const first = this.eng?.lines.find((l) => l.page === page && l.loc.kind === "body");
+    const first = this.eng?.lines.find((l) => l.page === page2 && l.loc.kind === "body");
     if (first && first.loc.kind === "body" && !this.hfEdit && !this.tbEdit) {
       if (this.cellEdit) this.exitCell();
       this.selection = { anchor: { para: first.loc.para, offset: first.line.start }, focus: { para: first.loc.para, offset: first.line.start } };
@@ -22266,13 +23265,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   gridCache = null;
   paintDocGrid(ctx, pg, scale) {
     if (!this.docGrid || !this.eng) return;
-    const page = this.eng.result.pages[pg];
+    const page2 = this.eng.result.pages[pg];
     const sp = this.sectionOfPage(pg)?.sectPr;
-    if (!page || !sp) return;
+    if (!page2 || !sp) return;
     const xml = this.pkg?.getPartText("word/settings.xml");
     if (!this.gridCache || this.gridCache.xml !== xml) this.gridCache = { xml, grid: drawingGridOf(xml) };
     const g = this.gridCache.grid;
-    const box = { x0: sp.marginLeftTwips, y0: sp.marginTopTwips, x1: page.widthTw - sp.marginRightTwips, y1: page.heightTw - sp.marginBottomTwips };
+    const box = { x0: sp.marginLeftTwips, y0: sp.marginTopTwips, x1: page2.widthTw - sp.marginRightTwips, y1: page2.heightTw - sp.marginBottomTwips };
     const origin = g.fromMargins ? { x: box.x0, y: box.y0 } : { x: g.originX, y: g.originY };
     const { xs, ys } = gridLines(g, box, origin);
     ctx.save();
@@ -22341,8 +23340,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    */
   hfPartOfPage(kind, pg) {
     const eng = this.eng;
-    const page = eng?.result.pages[pg];
-    if (!eng || !page) return null;
+    const page2 = eng?.result.pages[pg];
+    if (!eng || !page2) return null;
     const which = kind === "header" ? "hdr" : "ftr";
     let type;
     for (const el of eng.lines) if (el.page === pg && el.loc.kind === "hf" && el.loc.which === which) {
@@ -22351,12 +23350,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     if (!type) {
       let sectPage = 0;
-      for (let i = pg - 1; i >= 0 && eng.result.pages[i].section === page.section; i--) sectPage++;
+      for (let i = pg - 1; i >= 0 && eng.result.pages[i].section === page2.section; i--) sectPage++;
       const sp = this.sectionOfPage(pg)?.sectPr;
-      const evenOdd = !!this.fullDoc?.formatting?.settings.evenAndOddHeaders;
-      type = sectPage === 0 && sp?.titlePg ? "first" : evenOdd && page.number % 2 === 0 ? "even" : "default";
+      type = sectPage === 0 && sp?.titlePg ? "first" : this.evenOddHeaders() && page2.number % 2 === 0 ? "even" : "default";
     }
-    const src = hfBlocksFor(eng.doc.full, page.section, which, type);
+    const src = hfBlocksFor(eng.doc.full, page2.section, which, type);
     const b = this.bodyState();
     const definer = src ? eng.doc.sectionMap[src.definer] : void 0;
     const section = (definer !== void 0 ? b.sectionStarts[definer]?.section ?? this.fullDoc?.sections[definer] : void 0) ?? this.sectionOfPage(pg);
@@ -22365,9 +23363,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Faixa vertical (twips) do cabeçalho/rodapé na página: a margem ou o que
    *  o conteúdo do motor ocupa, o que for maior. */
   hfBand(pg, kind) {
-    const page = this.eng?.result.pages[pg];
+    const page2 = this.eng?.result.pages[pg];
     const sp = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
-    const pageH = page?.heightTw ?? sp.pageHeightTwips;
+    const pageH = page2?.heightTw ?? sp.pageHeightTwips;
     const which = kind === "header" ? "hdr" : "ftr";
     let top = kind === "header" ? 0 : pageH - sp.marginBottomTwips;
     let bottom = kind === "header" ? sp.marginTopTwips : pageH;
@@ -22559,8 +23557,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   noteTipAt(e) {
     if (!this.eng || !this.fullDoc || this.view === "read") return null;
     const el = this.engLineAt(e);
-    const para = el?.para;
-    if (!el || !para || el.loc.kind !== "body" && el.loc.kind !== "cell" || !para.runs.some((r) => r.noteRef)) return null;
+    const para2 = el?.para;
+    if (!el || !para2 || el.loc.kind !== "body" && el.loc.kind !== "cell" || !para2.runs.some((r) => r.noteRef)) return null;
     const rect = this.canvases[el.page]?.getBoundingClientRect();
     if (!rect) return null;
     const scale = PX_PER_TWIP * this.zoom;
@@ -22568,7 +23566,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const l = el.line;
     if (yT < l.y || yT > l.y + l.height) return null;
     let acc = 0;
-    for (const r of para.runs) {
+    for (const r of para2.runs) {
       if (r.noteRef) {
         const box = (l.chars ?? []).filter((c) => c.o === acc);
         if (box.some((c) => xT >= c.x - 20 && xT <= c.x + c.w + 20)) {
@@ -22812,12 +23810,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let len2 = 1;
     if (p) {
       let acc = 0;
-      for (const run of p.runs) {
-        if (acc === r.offset && run.noteRef) {
-          len2 = run.text.length;
+      for (const run2 of p.runs) {
+        if (acc === r.offset && run2.noteRef) {
+          len2 = run2.text.length;
           break;
         }
-        acc += run.text.length;
+        acc += run2.text.length;
       }
     }
     this.placeBodyCaret({ ...r, offset: r.offset + len2 });
@@ -22908,13 +23906,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       const p = r.cell ? resolveCell(this.tableAnchors[r.cell.anchor].table, r.cell.hops)?.paragraphs[r.para] : this.model.paragraphs[r.para];
       let acc = 0;
-      for (const run of p?.runs ?? []) {
-        if (acc === r.offset && run.noteRef) {
-          run.noteRef = { ...run.noteRef, kind: to, id: nid };
-          if (run.props.charStyle === styles[r.kind].ref) run.props = { ...run.props, charStyle: styles[to].ref };
+      for (const run2 of p?.runs ?? []) {
+        if (acc === r.offset && run2.noteRef) {
+          run2.noteRef = { ...run2.noteRef, kind: to, id: nid };
+          if (run2.props.charStyle === styles[r.kind].ref) run2.props = { ...run2.props, charStyle: styles[to].ref };
           break;
         }
-        acc += run.text.length;
+        acc += run2.text.length;
       }
     }
     if (this.pkg) ensureNoteParts(this.pkg);
@@ -23135,17 +24133,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     }
     const styleId = this.tableStyleId("Table Grid") ?? null;
-    let { para, offset } = this.selection.focus;
+    let { para: para2, offset } = this.selection.focus;
     if (offset > 0) {
-      splitParagraph2(this.model, { para, offset });
-      this.shiftAnchors(para, 1);
-      para++;
+      splitParagraph2(this.model, { para: para2, offset });
+      this.shiftAnchors(para2, 1);
+      para2++;
     }
     const ce = this.cellEdit;
     if (ce) {
       const me = ce.hops[ce.hops.length - 1];
       const path = ce.hops.slice(0, -1);
-      const target = ce.cell.paragraphs[para];
+      const target = ce.cell.paragraphs[para2];
       this.exitCell();
       const outer = this.tableAt(ce.anchor, path);
       const g = outer ? table_ops_exports.cellAt(table_ops_exports.mapTable(outer), me.r, me.c) : void 0;
@@ -23161,7 +24159,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.refresh();
       return;
     }
-    const p = this.model.paragraphs[para];
+    const p = this.model.paragraphs[para2];
     const ind = this.paraIndent(p);
     const t = table_ops_exports.newTable(rows, cols, {
       availTwips: this.contentWidthTwips() - ind,
@@ -23170,9 +24168,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       autofit: opts.autofit,
       colTwips: opts.colWidthTwips
     });
-    let at = this.tableAnchors.findIndex((a) => a.beforePara > para);
+    let at = this.tableAnchors.findIndex((a) => a.beforePara > para2);
     if (at < 0) at = this.tableAnchors.length;
-    this.tableAnchors.splice(at, 0, { beforePara: para, table: t });
+    this.tableAnchors.splice(at, 0, { beforePara: para2, table: t });
     this.enterCellAt(at, [], 0, 0, false, false);
     this.refresh();
     this.scrollCaretIntoView();
@@ -23445,12 +24443,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const ps = this.hasSelection() ? this.model.paragraphs.slice(start.para, end.para + 1) : this.model.paragraphs;
     const ch = separator === "comma" ? "," : separator && typeof separator === "object" ? separator.char : "	";
     const nf = Math.max(1, ...ps.map((p) => paraText(p).split(ch).length));
-    const field = (k) => ps.map((p) => k < 0 ? paraText(p) : paraText(p).split(ch)[k] ?? "");
+    const field2 = (k) => ps.map((p) => k < 0 ? paraText(p) : paraText(p).split(ch)[k] ?? "");
     return {
       kind: "paragraphs",
       header: false,
       mergeError: false,
-      columns: nf > 1 ? Array.from({ length: nf }, (_, k) => ({ text: "", guess: guessSortType(field(k).slice(1)) })) : [{ text: "", guess: guessSortType(field(-1)) }]
+      columns: nf > 1 ? Array.from({ length: nf }, (_, k) => ({ text: "", guess: guessSortType(field2(k).slice(1)) })) : [{ text: "", guess: guessSortType(field2(-1)) }]
     };
   }
   /**
@@ -23672,20 +24670,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    * ({ themeColor: 'accent1', tint?: '33', shade?: 'BF' } — grava themeFill como
    * o Word) ou null (Sem Cor). Tabela inteira selecionada: também o tblPr.
    */
-  setCellShading(color, pattern, applyTo) {
+  setCellShading(color2, pattern, applyTo) {
     this.editTable((tg) => {
       let shd = null;
       const pv = pattern && pattern.val !== "clear" ? pattern : null;
       const pat = { val: pv?.val ?? "clear", color: pv?.color && pv.color !== "auto" ? pv.color.replace(/^#/, "").toUpperCase() : "auto" };
-      if (typeof color === "string") shd = { ...pat, fill: color.replace(/^#/, "").toUpperCase() };
-      else if (color) {
+      if (typeof color2 === "string") shd = { ...pat, fill: color2.replace(/^#/, "").toUpperCase() };
+      else if (color2) {
         const f = this.formattingForTables();
         shd = {
           ...pat,
-          fill: themeHex(f.theme?.colors ?? {}, color.themeColor, color.tint, color.shade),
-          themeFill: color.themeColor,
-          ...color.tint ? { themeFillTint: color.tint } : {},
-          ...color.shade ? { themeFillShade: color.shade } : {}
+          fill: themeHex(f.theme?.colors ?? {}, color2.themeColor, color2.tint, color2.shade),
+          themeFill: color2.themeColor,
+          ...color2.tint ? { themeFillTint: color2.tint } : {},
+          ...color2.shade ? { themeFillShade: color2.shade } : {}
         };
       } else if (pv) shd = { ...pat, fill: "auto" };
       const whole = applyTo === "table" || applyTo === void 0 && this.isWholeTable(tg);
@@ -23811,15 +24809,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       formatting: f
     };
     const res = layoutDocument(full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
-    const page = res.pages[0];
+    const page2 = res.pages[0];
     const ctx = canvas.getContext("2d");
-    if (!page || !ctx) return;
+    if (!page2 || !ctx) return;
     const scale = Math.min(canvas.width / (W + 240), canvas.height / (rowH * 5 + 240));
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale, 0, 0, scale, -120 * scale + (canvas.width - W * scale) / 2, -120 * scale + (canvas.height - rowH * 5 * scale) / 2);
-    paintItems(ctx, page.items, this.enginePaintEnv());
+    paintItems(ctx, page2.items, this.enginePaintEnv());
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   // ───────────── Novo/Modificar Estilo de Tabela ─────────────
@@ -23925,8 +24923,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return true;
   }
   /** Edita a planilha incorporada (duplo clique no objeto); o objeto passa a ser gravado como novo. */
-  async editEmbeddedObject(run) {
-    const img = run.image;
+  async editEmbeddedObject(run2) {
+    const img = run2.image;
     if (!img?.ole || !/^Excel\.Sheet/i.test(img.ole.progId) || img.ole.ext !== "xlsx" || this.locked()) return false;
     if (!await sheetAvailable(this.sheetLoader ?? void 0)) return false;
     const r = await editSpreadsheet(this.dialogLayer(), uiLang(this), img.ole.data);
@@ -23939,7 +24937,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     img.heightTwips = r.heightTwips;
     delete img.vml;
     delete img.rawDrawingXml;
-    delete run.props.src;
+    delete run2.props.src;
     this.bitmaps.delete(img);
     this.refresh();
     return true;
@@ -23950,9 +24948,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const p = pos && this.model?.paragraphs[pos.para];
     if (!p) return null;
     let acc = 0;
-    for (const run of p.runs) {
-      const end = acc + run.text.length;
-      if (run.image?.ole && (pos.offset === acc || pos.offset === end)) return run;
+    for (const run2 of p.runs) {
+      const end = acc + run2.text.length;
+      if (run2.image?.ole && (pos.offset === acc || pos.offset === end)) return run2;
       acc = end;
     }
     return null;
@@ -24094,11 +25092,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Texto e HTML de uma tabela (células por tabulação, linhas por quebra — como o Word põe no texto). */
   static tableClipText(t) {
-    const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const text = t.rows.map((row) => row.cells.map((c) => cellText(c).replace(/\n/g, " ")).join("	")).join("\n");
     const html = '<table border="1" style="border-collapse:collapse">' + t.rows.map((row) => "<tr>" + row.cells.map((c) => {
       const span = (c.tcPr?.gridSpan ?? 1) > 1 ? ` colspan="${c.tcPr.gridSpan}"` : "";
-      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
+      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc2(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
     }).join("") + "</tr>").join("") + "</table>";
     return { text, html };
   }
@@ -24138,15 +25136,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const pos = this.deleteSelection();
         this.selection = { anchor: pos, focus: pos };
       }
-      let { para, offset } = this.selection.focus;
+      let { para: para2, offset } = this.selection.focus;
       if (offset > 0) {
-        splitParagraph2(this.model, { para, offset });
-        this.shiftAnchors(para, 1);
-        para++;
+        splitParagraph2(this.model, { para: para2, offset });
+        this.shiftAnchors(para2, 1);
+        para2++;
       }
-      let at = this.tableAnchors.findIndex((a) => a.beforePara > para);
+      let at = this.tableAnchors.findIndex((a) => a.beforePara > para2);
       if (at < 0) at = this.tableAnchors.length;
-      this.tableAnchors.splice(at, 0, { beforePara: para, table: table_ops_exports.cloneTable(src) });
+      this.tableAnchors.splice(at, 0, { beforePara: para2, table: table_ops_exports.cloneTable(src) });
       this.enterCellAt(at, [], 0, 0, false, false);
       this.refresh();
       this.scrollCaretIntoView();
@@ -24878,11 +25876,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return true;
     }
-    const para = where === "after" ? a.beforePara : a.beforePara - 1;
-    if (para < 0 || !this.cellEdit) return true;
+    const para2 = where === "after" ? a.beforePara : a.beforePara - 1;
+    if (para2 < 0 || !this.cellEdit) return true;
     this.exitCell();
     const ps = this.model.paragraphs;
-    const p = Math.min(para, ps.length - 1);
+    const p = Math.min(para2, ps.length - 1);
     let offset = where === "after" ? 0 : paraLength(ps[p]);
     const pl = this.layoutCache[p]?.lines ?? [];
     const line = where === "after" ? pl[0] : pl[pl.length - 1];
@@ -24972,10 +25970,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               visit(b);
               continue;
             }
-            for (const run of b.paragraph.runs) {
-              if (!run.field || !/^\s*=/.test(run.field)) continue;
-              const text = formulaResultText(run.field, { table: t, r: g.ri, c: g.col });
-              if (text !== run.text) work.push({ run, text });
+            for (const run2 of b.paragraph.runs) {
+              if (!run2.field || !/^\s*=/.test(run2.field)) continue;
+              const text = formulaResultText(run2.field, { table: t, r: g.ri, c: g.col });
+              if (text !== run2.text) work.push({ run: run2, text });
             }
           }
         }
@@ -25556,13 +26554,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   paintLine(ctx, pl, line, scale, sel, hasSel) {
-    const para = this.model.paragraphs[line.para];
-    const st = this.styleOf(para);
-    const effBorders = para.props.borders ?? st?.borders;
-    const effShading = para.props.shadingHex ?? st?.shadingHex;
-    const effIndentL = para.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
-    const effIndentR = para.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
-    if (effShading || para.props.boxBorder || effBorders) {
+    const para2 = this.model.paragraphs[line.para];
+    const st = this.styleOf(para2);
+    const effBorders = para2.props.borders ?? st?.borders;
+    const effShading = para2.props.shadingHex ?? st?.shadingHex;
+    const effIndentL = para2.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
+    const effIndentR = para2.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
+    if (effShading || para2.props.boxBorder || effBorders) {
       const s = this.sect();
       const marginL = this.view === "print" || this.view === "read" ? s.marginLeftTwips : 600;
       const colX = marginL + effIndentL;
@@ -25583,10 +26581,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           (line.heightTwips + exT + exB) * scale
         );
       }
-      if (effBorders || para.props.boxBorder) {
+      if (effBorders || para2.props.boxBorder) {
         const isFirst = line.rich.start === 0;
         const isLast = line.rich.end === pl.charAdvances.length;
-        const fallback = para.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
+        const fallback = para2.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b = effBorders ?? {
           top: fallback,
           bottom: fallback,
@@ -25638,10 +26636,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let x = line.xTwips;
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run = para.runs[span.runIndex ?? seg.spanIndex];
-      const rv = run?.props.del ?? run?.props.ins;
-      const props = run && rv && this.markupMode !== "original" ? { ...run.props, color: this.authorColor(rv.author), ...run.props.del ? { strike: true } : { underline: true, underlineStyle: void 0 } } : run?.props;
-      if (run?.custom) {
+      const run2 = para2.runs[span.runIndex ?? seg.spanIndex];
+      const rv = run2?.props.del ?? run2?.props.ins;
+      const props = run2 && rv && this.markupMode !== "original" ? { ...run2.props, color: this.authorColor(rv.author), ...run2.props.del ? { strike: true } : { underline: true, underlineStyle: void 0 } } : run2?.props;
+      if (run2?.custom) {
         const family2 = this.familyFor(span.family);
         const fontPx2 = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
         const variant2 = span.variant;
@@ -25653,8 +26651,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (let i = 0; i < seg.end - seg.start; i++) {
           widthTwips += pl.charAdvances[globalStart2 + i];
         }
-        const renderer = this.inlineRenderers.get(run.custom.type)?.renderer;
-        const fallbackText = renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText;
+        const renderer = this.inlineRenderers.get(run2.custom.type)?.renderer;
+        const fallbackText = renderer?.toText?.(run2.custom.data) ?? run2.custom.fallbackText;
         const font = this.fonts.resolve(span.family, variant2);
         const measureText = (text) => {
           const chars = Array.from(text);
@@ -25669,9 +26667,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         };
         if (renderer?.draw) {
           const drawContext = {
-            data: run.custom.data,
+            data: run2.custom.data,
             fallbackText,
-            props: run.props,
+            props: run2.props,
             sizePt: span.sizePt,
             measureText,
             ctx,
@@ -25691,8 +26689,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         x += widthTwips;
         continue;
       }
-      if (run?.image) {
-        const img = run.image;
+      if (run2?.image) {
+        const img = run2.image;
         const bmp = this.bitmapFor(img);
         const wPx = img.widthTwips * scale;
         const hPx = img.heightTwips * scale;
@@ -25709,8 +26707,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const fontPx = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
       const variant = span.variant;
       ctx.font = `${variant === "italic" || variant === "boldItalic" ? "italic " : ""}${variant === "bold" || variant === "boldItalic" ? "700" : "400"} ${fontPx}px ${family}`;
-      const color = props?.color ?? st?.color;
-      ctx.fillStyle = this.inkColor(color);
+      const color2 = props?.color ?? st?.color;
+      ctx.fillStyle = this.inkColor(color2);
       const baseShift = props?.vertAlign === "superscript" ? -span.sizePt * 0.35 * TWIPS_PER_PT : props?.vertAlign === "subscript" ? span.sizePt * 0.14 * TWIPS_PER_PT : 0;
       const globalStart = pl.spanCharStart[seg.spanIndex] + seg.start;
       const segX0 = x;
@@ -25726,7 +26724,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           ctx.fillRect(x * scale, line.yTwips * scale, a * scale, line.heightTwips * scale);
           ctx.restore();
         }
-        if (run?.field && !this.printRender) {
+        if (run2?.field && !this.printRender) {
           ctx.save();
           ctx.fillStyle = this.pageDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)";
           ctx.fillRect(x * scale, line.yTwips * scale, a * scale, line.heightTwips * scale);
@@ -25968,7 +26966,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   async exportPdfCanvasLegacy() {
     if (!this.model || !this.fonts) throw new Error("document not loaded");
     await this.ensureImagesDecoded();
-    const T2 = TWIPS_PER_PT;
+    const T3 = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
     this.pdfImgCache = /* @__PURE__ */ new WeakMap();
     await this.settleDocumentFonts();
@@ -25997,42 +26995,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return e;
     };
-    const pages = [];
+    const pages2 = [];
     const total = Math.max(1, this.pageCount);
     for (let pg = 0; pg < total; pg++) {
       const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
-      pages.push(doc.addPage(sp.pageWidthTwips / T2, sp.pageHeightTwips / T2));
+      pages2.push(doc.addPage(sp.pageWidthTwips / T3, sp.pageHeightTwips / T3));
     }
     if (this.view === "print" && this.fullDoc) {
-      for (let pg = 0; pg < pages.length; pg++) {
-        const page = pages[pg];
+      for (let pg = 0; pg < pages2.length; pg++) {
+        const page2 = pages2[pg];
         const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
         const section = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
         const sp = this.sectPrAt(sIdx);
         if (section) {
           const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
           const header = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
-          if (header?.length) this.pdfPaintHf(doc, page, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, sp);
+          if (header?.length) this.pdfPaintHf(doc, page2, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, sp);
           const footer = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
-          if (footer?.length) this.pdfPaintHf(doc, page, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg, sp);
+          if (footer?.length) this.pdfPaintHf(doc, page2, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg, sp);
         }
         if (sp.cols?.sep && sp.cols.count > 1) {
           const cc = this.colContentOnPage(pg, sp);
           if (cc) for (let i = 0; i < cc.n - 1; i++) {
             if (!cc.hasContent[i + 1]) continue;
-            const xs = (cc.origin(i + 1) - cc.gap / 2) / T2;
-            page.line(xs, sp.marginTopTwips / T2, xs, cc.maxBottom / T2, [0.74, 0.74, 0.74], 0.6);
+            const xs = (cc.origin(i + 1) - cc.gap / 2) / T3;
+            page2.line(xs, sp.marginTopTwips / T3, xs, cc.maxBottom / T3, [0.74, 0.74, 0.74], 0.6);
           }
         }
         const hits = this.footnoteHits.filter((h) => h.page === pg);
         if (hits.length && this.fullDoc.footnotes.size) {
           let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
-          page.line(sp.marginLeftTwips / T2, fy / T2, (sp.marginLeftTwips + 2880) / T2, fy / T2, [0.33, 0.33, 0.33], 0.75);
+          page2.line(sp.marginLeftTwips / T3, fy / T3, (sp.marginLeftTwips + 2880) / T3, fy / T3, [0.33, 0.33, 0.33], 0.75);
           fy += 220;
           for (const h of hits) {
             const paras = this.fullDoc.footnotes.get(h.id);
             const text = paras?.map((p) => p.runs.map((r) => r.text).join("")).join(" ").trim() ?? "";
-            this.pdfGlyphsAt(page, emb, DEFAULT_FONT, "regular", 9, [0.2, 0.2, 0.2], `${h.id}. ${text}`.slice(0, 160), sp.marginLeftTwips, fy);
+            this.pdfGlyphsAt(page2, emb, DEFAULT_FONT, "regular", 9, [0.2, 0.2, 0.2], `${h.id}. ${text}`.slice(0, 160), sp.marginLeftTwips, fy);
             fy += 240;
           }
         }
@@ -26040,36 +27038,36 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     for (const pl of this.layoutCache) {
       for (const line of pl.lines) {
-        const page = pages[line.page];
-        if (page) this.pdfPaintLine(doc, page, emb, pl, line);
+        const page2 = pages2[line.page];
+        if (page2) this.pdfPaintLine(doc, page2, emb, pl, line);
       }
     }
     for (const tl of this.tableLayouts) {
-      const page = pages[tl.page];
-      if (page) this.pdfPaintTable(doc, page, emb, tl);
+      const page2 = pages2[tl.page];
+      if (page2) this.pdfPaintTable(doc, page2, emb, tl);
     }
     for (const dc of this.dropCapFloats) {
-      const page = pages[dc.page];
-      if (!page) continue;
+      const page2 = pages2[dc.page];
+      if (!page2) continue;
       const variant = dc.bold && dc.italic ? "boldItalic" : dc.bold ? "bold" : dc.italic ? "italic" : "regular";
-      const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T2;
-      this.pdfGlyphsAt(page, emb, DEFAULT_FONT, variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
+      const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T3;
+      this.pdfGlyphsAt(page2, emb, DEFAULT_FONT, variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
     }
     for (const f of this.floatImages) {
       const pl = this.layoutCache[f.para];
       const first = pl?.lines[0];
       if (!first || !f.run.image) continue;
-      const page = pages[first.page];
-      if (!page) continue;
+      const page2 = pages2[first.page];
+      if (!page2) continue;
       const img = f.run.image;
       this.pdfImage(
         doc,
-        page,
+        page2,
         img,
-        (first.xTwips + (img.offsetXTwips ?? 0)) / T2,
-        (first.yTwips + (img.offsetYTwips ?? 0)) / T2,
-        img.widthTwips / T2,
-        img.heightTwips / T2
+        (first.xTwips + (img.offsetXTwips ?? 0)) / T3,
+        (first.yTwips + (img.offsetYTwips ?? 0)) / T3,
+        img.widthTwips / T3,
+        img.heightTwips / T3
       );
     }
     if (this.model) {
@@ -26077,8 +27075,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (!p.runs.some((r) => r.textbox)) return;
         const first = this.layoutCache[pi]?.lines[0];
         if (!first) return;
-        const page = pages[first.page];
-        if (!page) return;
+        const page2 = pages2[first.page];
+        if (!page2) return;
         const sp = this.sectPrAt(this.pageSections[first.page] ?? 0);
         const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
         for (const r of p.runs) {
@@ -26086,7 +27084,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const { x, y } = r.textbox.floating ? this.anchoredPos(r.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
           {
             const iw = this.tbInner(r.textbox, x, y, r.textbox.widthTwips || colW);
-            this.pdfPaintHf(doc, page, emb, r.textbox.paras, iw.x, iw.y, iw.w, first.page, sp);
+            this.pdfPaintHf(doc, page2, emb, r.textbox.paras, iw.x, iw.y, iw.w, first.page, sp);
           }
         }
       });
@@ -26103,14 +27101,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   exportXpsLegacy() {
     if (!this.model || !this.fonts) throw new Error("document not loaded");
-    const T2 = TWIPS_PER_PT;
-    const pages = [];
+    const T3 = TWIPS_PER_PT;
+    const pages2 = [];
     const total = Math.max(1, this.pageCount);
     for (let pg = 0; pg < total; pg++) {
       const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
-      pages.push({
-        widthPt: sp.pageWidthTwips / T2,
-        heightPt: sp.pageHeightTwips / T2,
+      pages2.push({
+        widthPt: sp.pageWidthTwips / T3,
+        heightPt: sp.pageHeightTwips / T3,
         fills: [],
         lines: [],
         glyphs: []
@@ -26122,65 +27120,65 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const n = parseInt(hex, 16);
       return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
     };
-    const emitParaLine = (page, pl, line, runs) => {
-      const baselinePt = line.baselineTwips / T2;
+    const emitParaLine = (page2, pl, line, runs) => {
+      const baselinePt = line.baselineTwips / T3;
       for (const seg of line.rich.segments) {
         const span = pl.spans[seg.spanIndex];
-        const run = runs[span?.runIndex ?? seg.spanIndex];
+        const run2 = runs[span?.runIndex ?? seg.spanIndex];
         if (!span) continue;
-        const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
-        const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
+        const renderer = run2?.custom ? this.inlineRenderers.get(run2.custom.type)?.renderer : void 0;
+        const txt = run2?.custom ? renderer?.toText?.(run2.custom.data) ?? run2.custom.fallbackText : span.text.slice(seg.start, seg.end);
         if (!txt.trim()) continue;
-        page.glyphs.push({
+        page2.glyphs.push({
           text: txt,
-          xPt: (line.xTwips + seg.xTwips) / T2,
+          xPt: (line.xTwips + seg.xTwips) / T3,
           baselinePt,
           fontFamily: famOf(span.family),
           variant: span.variant === "boldItalic" ? "boldItalic" : span.variant === "bold" ? "bold" : span.variant === "italic" ? "italic" : "regular",
           sizePt: span.sizePt,
-          colorRgb: colorOf3(run?.props.color)
+          colorRgb: colorOf3(run2?.props.color)
         });
-        if (run?.props.underline) {
+        if (run2?.props.underline) {
           const w = Math.max(0.3, span.sizePt * 0.07);
-          page.lines.push({
-            ax: (line.xTwips + seg.xTwips) / T2,
+          page2.lines.push({
+            ax: (line.xTwips + seg.xTwips) / T3,
             ay: baselinePt + span.sizePt * 0.13,
-            bx: (line.xTwips + seg.xTwips + seg.widthTwips) / T2,
+            bx: (line.xTwips + seg.xTwips + seg.widthTwips) / T3,
             by: baselinePt + span.sizePt * 0.13,
             widthPt: w,
-            colorRgb: colorOf3(run.props.color)
+            colorRgb: colorOf3(run2.props.color)
           });
         }
       }
     };
     for (const pl of this.layoutCache) {
       for (const line of pl.lines) {
-        const para = this.model.paragraphs[line.para];
-        if (!para) continue;
-        const page = pages[line.page];
-        if (page) emitParaLine(page, pl, line, para.runs);
+        const para2 = this.model.paragraphs[line.para];
+        if (!para2) continue;
+        const page2 = pages2[line.page];
+        if (page2) emitParaLine(page2, pl, line, para2.runs);
       }
     }
     for (const tl of this.tableLayouts) {
-      const page = pages[tl.page];
-      if (!page) continue;
+      const page2 = pages2[tl.page];
+      if (!page2) continue;
       for (const sh of tl.cellShades) {
-        page.fills.push({
-          xPt: (tl.xTwips + sh.xTwips) / T2,
-          yPt: (tl.yTwips + sh.yTwips) / T2,
-          wPt: sh.wTwips / T2,
-          hPt: sh.hTwips / T2,
+        page2.fills.push({
+          xPt: (tl.xTwips + sh.xTwips) / T3,
+          yPt: (tl.yTwips + sh.yTwips) / T3,
+          wPt: sh.wTwips / T3,
+          hPt: sh.hTwips / T3,
           colorRgb: colorOf3(sh.hex)
         });
       }
       for (const cr of tl.cellRects) {
-        const x0 = (tl.xTwips + cr.x0) / T2;
-        const y0 = (tl.yTwips + cr.y0) / T2;
-        const x1 = (tl.xTwips + cr.x1) / T2;
-        const y1 = (tl.yTwips + cr.y1) / T2;
+        const x0 = (tl.xTwips + cr.x0) / T3;
+        const y0 = (tl.yTwips + cr.y0) / T3;
+        const x1 = (tl.xTwips + cr.x1) / T3;
+        const y1 = (tl.yTwips + cr.y1) / T3;
         const e = (edge, ax, ay, bx, by) => {
           if (!edge) return;
-          page.lines.push({
+          page2.lines.push({
             ax,
             ay,
             bx,
@@ -26196,10 +27194,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       for (const cl of tl.cellLines) {
         const variant = cl.bold && cl.italic ? "boldItalic" : cl.bold ? "bold" : cl.italic ? "italic" : "regular";
-        page.glyphs.push({
+        page2.glyphs.push({
           text: cl.text,
-          xPt: (tl.xTwips + cl.xTwips) / T2,
-          baselinePt: (tl.yTwips + cl.yTwips) / T2,
+          xPt: (tl.xTwips + cl.xTwips) / T3,
+          baselinePt: (tl.yTwips + cl.yTwips) / T3,
           fontFamily: famOf(cl.family),
           variant,
           sizePt: cl.sizePt,
@@ -26207,11 +27205,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         });
         if (cl.underline) {
           const wEm = Math.max(0.3, cl.sizePt * 0.07);
-          page.lines.push({
-            ax: (tl.xTwips + cl.xTwips) / T2,
-            ay: (tl.yTwips + cl.yTwips) / T2 + cl.sizePt * 0.13,
-            bx: (tl.xTwips + cl.xTwips + cl.text.length * cl.sizePt * 0.5) / T2,
-            by: (tl.yTwips + cl.yTwips) / T2 + cl.sizePt * 0.13,
+          page2.lines.push({
+            ax: (tl.xTwips + cl.xTwips) / T3,
+            ay: (tl.yTwips + cl.yTwips) / T3 + cl.sizePt * 0.13,
+            bx: (tl.xTwips + cl.xTwips + cl.text.length * cl.sizePt * 0.5) / T3,
+            by: (tl.yTwips + cl.yTwips) / T3 + cl.sizePt * 0.13,
             widthPt: wEm,
             colorRgb: colorOf3(cl.color)
           });
@@ -26219,24 +27217,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     if (this.view === "print" && this.fullDoc) {
-      for (let pg = 0; pg < pages.length; pg++) {
-        const page = pages[pg];
+      for (let pg = 0; pg < pages2.length; pg++) {
+        const page2 = pages2[pg];
         const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
         const section = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
         const sp = this.sectPrAt(sIdx);
         if (!section) continue;
         const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
         const header = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
-        if (header?.length) this.xpsPaintHf(page, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
+        if (header?.length) this.xpsPaintHf(page2, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
         const footer = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
-        if (footer?.length) this.xpsPaintHf(page, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
+        if (footer?.length) this.xpsPaintHf(page2, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
       }
     }
-    return buildXps({ pages, fontBytes: this.fontBytes });
+    return buildXps({ pages: pages2, fontBytes: this.fontBytes });
   }
-  xpsPaintHf(page, paras, originXTwips, topYTwips, widthTwips, pageIdx) {
+  xpsPaintHf(page2, paras, originXTwips, topYTwips, widthTwips, pageIdx) {
     if (!this.fonts) return;
-    const T2 = TWIPS_PER_PT;
+    const T3 = TWIPS_PER_PT;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
       { posTwips: widthTwips, align: "right" }
@@ -26253,22 +27251,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const font = this.fonts.resolve(void 0, "regular");
       for (const line of lines) {
         const lineSize = Math.max(line.maxSizePt, spans[0]?.sizePt ?? 11);
-        const lh = lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * T2;
+        const lh = lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * T3;
         let lx = originXTwips;
         const align = p.props.alignment;
         if (align === "center") lx += (widthTwips - line.widthTwips) / 2;
         else if (align === "right") lx += widthTwips - line.widthTwips;
-        const baselinePt = (y + lh * 0.8) / T2;
+        const baselinePt = (y + lh * 0.8) / T3;
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
           if (!span) continue;
-          const run = runs[span.runIndex ?? seg.spanIndex];
-          const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
-          const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
+          const run2 = runs[span.runIndex ?? seg.spanIndex];
+          const renderer = run2?.custom ? this.inlineRenderers.get(run2.custom.type)?.renderer : void 0;
+          const txt = run2?.custom ? renderer?.toText?.(run2.custom.data) ?? run2.custom.fallbackText : span.text.slice(seg.start, seg.end);
           if (!txt.trim()) continue;
-          page.glyphs.push({
+          page2.glyphs.push({
             text: txt,
-            xPt: (lx + seg.xTwips) / T2,
+            xPt: (lx + seg.xTwips) / T3,
             baselinePt,
             fontFamily: famOf(span.family),
             variant: span.variant === "boldItalic" ? "boldItalic" : span.variant === "bold" ? "bold" : span.variant === "italic" ? "italic" : "regular",
@@ -26316,8 +27314,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }));
   }
   /** Coloca os glifos de `text` em sequência usando NOSSOS advances (snap-free). */
-  pdfGlyphsAt(page, emb, family, variant, sizePt, color, text, xTwips, baselineTwips) {
-    const T2 = TWIPS_PER_PT;
+  pdfGlyphsAt(page2, emb, family, variant, sizePt, color2, text, xTwips, baselineTwips) {
+    const T3 = TWIPS_PER_PT;
     const sf = this.fonts.resolve(family, variant);
     const font = emb(family, variant);
     let x = xTwips;
@@ -26327,22 +27325,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const a = sf.advanceTwips(cp, sizePt);
       if (ch !== " " && ch !== "	") {
         const { gid } = font.encode(cp);
-        placed.push({ gid, codePoint: cp, xPt: x / T2, baselineFromTopPt: baselineTwips / T2 });
+        placed.push({ gid, codePoint: cp, xPt: x / T3, baselineFromTopPt: baselineTwips / T3 });
       }
       x += a;
     }
-    page.glyphs(font, deviceEmPt(sizePt), color, placed);
+    page2.glyphs(font, deviceEmPt(sizePt), color2, placed);
   }
   /** Versão PDF do paintLine: texto + decorações de parágrafo/run. */
-  pdfPaintLine(doc, page, emb, pl, line) {
-    const T2 = TWIPS_PER_PT;
-    const para = this.model.paragraphs[line.para];
-    const st = this.styleOf(para);
-    const effBorders = para.props.borders ?? st?.borders;
-    const effShading = para.props.shadingHex ?? st?.shadingHex;
-    const effIndentL = para.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
-    const effIndentR = para.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
-    if (effShading || para.props.boxBorder || effBorders) {
+  pdfPaintLine(doc, page2, emb, pl, line) {
+    const T3 = TWIPS_PER_PT;
+    const para2 = this.model.paragraphs[line.para];
+    const st = this.styleOf(para2);
+    const effBorders = para2.props.borders ?? st?.borders;
+    const effShading = para2.props.shadingHex ?? st?.shadingHex;
+    const effIndentL = para2.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
+    const effIndentR = para2.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
+    if (effShading || para2.props.boxBorder || effBorders) {
       const s = this.sect();
       const colX = s.marginLeftTwips + effIndentL;
       const colW = this.contentWidthTwips() - effIndentL - effIndentR;
@@ -26350,29 +27348,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const isLast = line.rich.end === pl.charAdvances.length;
       if (effShading) {
         const bd = effBorders;
-        const exL = (bd?.left?.spacePt ?? 0) * T2;
-        const exR = (bd?.right?.spacePt ?? 0) * T2;
-        const exT = isFirst ? (bd?.top?.spacePt ?? 0) * T2 : 0;
-        const exB = isLast ? (bd?.bottom?.spacePt ?? 0) * T2 : 0;
-        page.fillRect(
-          (colX - exL) / T2,
-          (line.yTwips - exT) / T2,
-          (colW + exL + exR) / T2,
-          (line.heightTwips + exT + exB) / T2,
+        const exL = (bd?.left?.spacePt ?? 0) * T3;
+        const exR = (bd?.right?.spacePt ?? 0) * T3;
+        const exT = isFirst ? (bd?.top?.spacePt ?? 0) * T3 : 0;
+        const exB = isLast ? (bd?.bottom?.spacePt ?? 0) * T3 : 0;
+        page2.fillRect(
+          (colX - exL) / T3,
+          (line.yTwips - exT) / T3,
+          (colW + exL + exR) / T3,
+          (line.heightTwips + exT + exB) / T3,
           hexColor(effShading)
         );
       }
-      if (effBorders || para.props.boxBorder) {
-        const fallback = para.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
+      if (effBorders || para2.props.boxBorder) {
+        const fallback = para2.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b = effBorders ?? { top: fallback, bottom: fallback, left: fallback, right: fallback };
-        const spL = (b.left?.spacePt ?? 0) * T2, spR = (b.right?.spacePt ?? 0) * T2;
-        const spT = (b.top?.spacePt ?? 0) * T2, spB = (b.bottom?.spacePt ?? 0) * T2;
+        const spL = (b.left?.spacePt ?? 0) * T3, spR = (b.right?.spacePt ?? 0) * T3;
+        const spT = (b.top?.spacePt ?? 0) * T3, spB = (b.bottom?.spacePt ?? 0) * T3;
         const x0 = colX - spL, x1 = colX + colW + spR;
         const y0 = line.yTwips - (isFirst ? spT : 0), y1 = line.yTwips + line.heightTwips + (isLast ? spB : 0);
         const edge = (e, ax, ay, bx, by) => {
           if (!e) return;
           const dash = e.style === "dashed" ? [6, 3.75] : e.style === "dotted" ? [1.5, 3] : void 0;
-          page.line(ax / T2, ay / T2, bx / T2, by / T2, this.pdfColor(e.color), Math.max(0.4, e.sizeEighthPt / 8), dash);
+          page2.line(ax / T3, ay / T3, bx / T3, by / T3, this.pdfColor(e.color), Math.max(0.4, e.sizeEighthPt / 8), dash);
         };
         edge(b.left, x0, y0, x0, y1);
         edge(b.right, x1, y0, x1, y1);
@@ -26381,23 +27379,23 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     if (line.marker) {
-      this.pdfGlyphsAt(page, emb, DEFAULT_FONT, "regular", 11, [0, 0, 0], line.marker.text, line.marker.xTwips, line.baselineTwips);
+      this.pdfGlyphsAt(page2, emb, DEFAULT_FONT, "regular", 11, [0, 0, 0], line.marker.text, line.marker.xTwips, line.baselineTwips);
     }
     let x = line.xTwips;
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run = para.runs[span.runIndex ?? seg.spanIndex];
-      const props = run?.props;
-      if (run?.custom) {
+      const run2 = para2.runs[span.runIndex ?? seg.spanIndex];
+      const props = run2?.props;
+      if (run2?.custom) {
         const globalStart2 = pl.spanCharStart[seg.spanIndex] + seg.start;
         let widthTwips = 0;
         for (let i = 0; i < seg.end - seg.start; i++) {
           widthTwips += pl.charAdvances[globalStart2 + i];
         }
-        const renderer = this.inlineRenderers.get(run.custom.type)?.renderer;
-        const fallbackText = renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText;
+        const renderer = this.inlineRenderers.get(run2.custom.type)?.renderer;
+        const fallbackText = renderer?.toText?.(run2.custom.data) ?? run2.custom.fallbackText;
         this.pdfGlyphsAt(
-          page,
+          page2,
           emb,
           span.family,
           span.variant,
@@ -26410,16 +27408,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         x += widthTwips;
         continue;
       }
-      if (run?.image) {
-        const img = run.image;
-        this.pdfImage(doc, page, img, x / T2, (line.baselineTwips - img.heightTwips) / T2, img.widthTwips / T2, img.heightTwips / T2);
+      if (run2?.image) {
+        const img = run2.image;
+        this.pdfImage(doc, page2, img, x / T3, (line.baselineTwips - img.heightTwips) / T3, img.widthTwips / T3, img.heightTwips / T3);
         x += img.widthTwips;
         continue;
       }
       const sf = this.fonts.resolve(span.family, span.variant);
       const font = emb(span.family, span.variant);
       const col = this.pdfColor(props?.color ?? st?.color);
-      const baseShift = props?.vertAlign === "superscript" ? -span.sizePt * 0.35 * T2 : props?.vertAlign === "subscript" ? span.sizePt * 0.14 * T2 : 0;
+      const baseShift = props?.vertAlign === "superscript" ? -span.sizePt * 0.35 * T3 : props?.vertAlign === "subscript" ? span.sizePt * 0.14 * T3 : 0;
       const globalStart = pl.spanCharStart[seg.spanIndex] + seg.start;
       const segX0 = x;
       const placed = [];
@@ -26429,15 +27427,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         let a = pl.charAdvances[gi];
         if (line.justifyExtraPerSpace && ch === " ") a += line.justifyExtraPerSpace;
         if (props?.highlight) {
-          page.fillRect(x / T2, line.yTwips / T2, a / T2, line.heightTwips / T2, hexColor((HIGHLIGHTS2[props.highlight] ?? "#ffff00").replace("#", "")));
+          page2.fillRect(x / T3, line.yTwips / T3, a / T3, line.heightTwips / T3, hexColor((HIGHLIGHTS2[props.highlight] ?? "#ffff00").replace("#", "")));
         }
-        if (run?.field) page.fillRect(x / T2, line.yTwips / T2, a / T2, line.heightTwips / T2, [0.9, 0.9, 0.9]);
-        if (props?.commentIds?.length) page.fillRect(x / T2, line.yTwips / T2, a / T2, line.heightTwips / T2, [1, 0.925, 0.72]);
+        if (run2?.field) page2.fillRect(x / T3, line.yTwips / T3, a / T3, line.heightTwips / T3, [0.9, 0.9, 0.9]);
+        if (props?.commentIds?.length) page2.fillRect(x / T3, line.yTwips / T3, a / T3, line.heightTwips / T3, [1, 0.925, 0.72]);
         if (ch === "	" && pl.tabLeaders?.get(gi)) {
           for (let dx = 60; dx < a - 40; dx += 90) {
             const cp = ".".codePointAt(0);
             const { gid } = font.encode(cp);
-            placed.push({ gid, codePoint: cp, xPt: (x + dx) / T2, baselineFromTopPt: (line.baselineTwips + baseShift) / T2 });
+            placed.push({ gid, codePoint: cp, xPt: (x + dx) / T3, baselineFromTopPt: (line.baselineTwips + baseShift) / T3 });
           }
         }
         if (ch !== " " && ch !== "	" && ch !== "\n" && ch !== "\f") {
@@ -26445,15 +27443,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const xSnap = line.xTwips + Math.round(rel / 2.4) * 2.4;
           const cp = ch.codePointAt(0);
           const { gid } = font.encode(cp);
-          placed.push({ gid, codePoint: cp, xPt: xSnap / T2, baselineFromTopPt: (line.baselineTwips + baseShift) / T2 });
+          placed.push({ gid, codePoint: cp, xPt: xSnap / T3, baselineFromTopPt: (line.baselineTwips + baseShift) / T3 });
         }
         x += a;
       }
-      page.glyphs(font, deviceEmPt(span.sizePt), col, placed);
+      page2.glyphs(font, deviceEmPt(span.sizePt), col, placed);
       if (props?.underline || props?.strike || props?.doubleStrike) {
         const w = x - segX0;
         const baseW = Math.max(0.5, deviceEmPt(span.sizePt) / 16);
-        const drawU = (yOffTwips, lwPt, c, dash) => page.line(segX0 / T2, (line.baselineTwips + yOffTwips) / T2, (segX0 + w) / T2, (line.baselineTwips + yOffTwips) / T2, c, lwPt, dash);
+        const drawU = (yOffTwips, lwPt, c, dash) => page2.line(segX0 / T3, (line.baselineTwips + yOffTwips) / T3, (segX0 + w) / T3, (line.baselineTwips + yOffTwips) / T3, c, lwPt, dash);
         if (props.underline) {
           const uc = props.underlineColor ? hexColor(props.underlineColor) : col;
           const yU = 40;
@@ -26475,9 +27473,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               drawU(yU, baseW, uc);
           }
         }
-        if (props.strike) drawU(-span.sizePt * 0.25 * T2, baseW, col);
+        if (props.strike) drawU(-span.sizePt * 0.25 * T3, baseW, col);
         if (props.doubleStrike) {
-          const yS = -span.sizePt * 0.25 * T2;
+          const yS = -span.sizePt * 0.25 * T3;
           drawU(yS - 8, baseW, col);
           drawU(yS + 8, baseW, col);
         }
@@ -26485,19 +27483,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   /** Versão PDF do desenho de tabela (sombreado + bordas + texto das células). */
-  pdfPaintTable(doc, page, emb, tl) {
-    const T2 = TWIPS_PER_PT;
+  pdfPaintTable(doc, page2, emb, tl) {
+    const T3 = TWIPS_PER_PT;
     for (const sh of tl.cellShades) {
-      page.fillRect((tl.xTwips + sh.xTwips) / T2, (tl.yTwips + sh.yTwips) / T2, sh.wTwips / T2, sh.hTwips / T2, hexColor(sh.hex));
+      page2.fillRect((tl.xTwips + sh.xTwips) / T3, (tl.yTwips + sh.yTwips) / T3, sh.wTwips / T3, sh.hTwips / T3, hexColor(sh.hex));
     }
     const strokeEdge = (e, ax, ay, bx, by) => {
       if (!e) return;
       const dash = e.style === "dashed" ? [6, 3.75] : e.style === "dotted" ? [1.5, 3] : void 0;
-      page.line(
-        (tl.xTwips + ax) / T2,
-        (tl.yTwips + ay) / T2,
-        (tl.xTwips + bx) / T2,
-        (tl.yTwips + by) / T2,
+      page2.line(
+        (tl.xTwips + ax) / T3,
+        (tl.yTwips + ay) / T3,
+        (tl.xTwips + bx) / T3,
+        (tl.yTwips + by) / T3,
         this.pdfColor(e.color),
         Math.max(0.4, e.sizeEighthPt / 8),
         dash
@@ -26511,13 +27509,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     for (const cl of tl.cellLines) {
       const variant = cl.bold && cl.italic ? "boldItalic" : cl.bold ? "bold" : cl.italic ? "italic" : "regular";
-      this.pdfGlyphsAt(page, emb, cl.family, variant, cl.sizePt, this.pdfColor(cl.color), cl.text, tl.xTwips + cl.xTwips, tl.yTwips + cl.yTwips);
+      this.pdfGlyphsAt(page2, emb, cl.family, variant, cl.sizePt, this.pdfColor(cl.color), cl.text, tl.xTwips + cl.xTwips, tl.yTwips + cl.yTwips);
     }
   }
   /** Versão PDF do paintHf (cabeçalho/rodapé) com glifos posicionados. */
-  pdfPaintHf(doc, page, emb, paras, originXTwips, topYTwips, widthTwips, pageIdx, sp) {
+  pdfPaintHf(doc, page2, emb, paras, originXTwips, topYTwips, widthTwips, pageIdx, sp) {
     if (!this.fonts) return;
-    const T2 = TWIPS_PER_PT;
+    const T3 = TWIPS_PER_PT;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
       { posTwips: widthTwips, align: "right" }
@@ -26533,10 +27531,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (r.textbox) {
           {
             const iw = this.tbInner(r.textbox, fx, fy, r.textbox.widthTwips || widthTwips);
-            this.pdfPaintHf(doc, page, emb, r.textbox.paras, iw.x, iw.y, iw.w, pageIdx, sp);
+            this.pdfPaintHf(doc, page2, emb, r.textbox.paras, iw.x, iw.y, iw.w, pageIdx, sp);
           }
         } else if (r.image) {
-          this.pdfImage(doc, page, r.image, fx / T2, fy / T2, r.image.widthTwips / T2, r.image.heightTwips / T2);
+          this.pdfImage(doc, page2, r.image, fx / T3, fy / T3, r.image.widthTwips / T3, r.image.heightTwips / T3);
         }
       }
       const spans = this.buildSpans({ runs, props: p.props }, { skipFloating: true });
@@ -26556,14 +27554,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const strokeEdge = (e, ax, ay, bx, by) => {
         if (!e) return;
         const dash = e.style === "dashed" ? [6, 3.75] : e.style === "dotted" ? [1.5, 3] : void 0;
-        page.line(ax / T2, ay / T2, bx / T2, by / T2, this.pdfColor(e.color), Math.max(0.4, e.sizeEighthPt / 8), dash);
+        page2.line(ax / T3, ay / T3, bx / T3, by / T3, this.pdfColor(e.color), Math.max(0.4, e.sizeEighthPt / 8), dash);
       };
       for (let li = 0; li < lines.length; li++) {
         const line = lines[li];
         const lineSize = Math.max(line.maxSizePt, spans[0]?.sizePt ?? 11);
-        const lh = lineHeightPt(font0, lineSize, { line: 240, lineRule: "auto" }) * T2;
+        const lh = lineHeightPt(font0, lineSize, { line: 240, lineRule: "auto" }) * T3;
         if (p.props.shadingHex) {
-          page.fillRect(originXTwips / T2, y / T2, widthTwips / T2, lh / T2, hexColor(p.props.shadingHex));
+          page2.fillRect(originXTwips / T3, y / T3, widthTwips / T3, lh / T3, hexColor(p.props.shadingHex));
         }
         let lx = originXTwips;
         const align = p.props.alignment;
@@ -26572,9 +27570,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const baseline = y + lh * 0.8;
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
-          const run = runs[span.runIndex ?? seg.spanIndex];
+          const run2 = runs[span.runIndex ?? seg.spanIndex];
           const font = emb(span.family, span.variant);
-          const cHex = run?.props.color ?? stColor;
+          const cHex = run2?.props.color ?? stColor;
           const col = cHex ? hexColor(cHex) : [0.33, 0.33, 0.33];
           const gs = spanStart[seg.spanIndex] + seg.start;
           let cx = lx + seg.xTwips;
@@ -26585,19 +27583,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (ch !== " " && ch !== "	") {
               const cp = ch.codePointAt(0);
               const { gid } = font.encode(cp);
-              placed.push({ gid, codePoint: cp, xPt: cx / T2, baselineFromTopPt: baseline / T2 });
+              placed.push({ gid, codePoint: cp, xPt: cx / T3, baselineFromTopPt: baseline / T3 });
             }
             cx += a;
           }
-          page.glyphs(font, deviceEmPt(span.sizePt), col, placed);
+          page2.glyphs(font, deviceEmPt(span.sizePt), col, placed);
         }
         if (bd) {
           const isFirst = li === 0;
           const isLast = li === lines.length - 1;
-          const spL = (bd.left?.spacePt ?? 0) * T2;
-          const spR = (bd.right?.spacePt ?? 0) * T2;
-          const spT = (bd.top?.spacePt ?? 0) * T2;
-          const spB = (bd.bottom?.spacePt ?? 0) * T2;
+          const spL = (bd.left?.spacePt ?? 0) * T3;
+          const spR = (bd.right?.spacePt ?? 0) * T3;
+          const spT = (bd.top?.spacePt ?? 0) * T3;
+          const spB = (bd.bottom?.spacePt ?? 0) * T3;
           const x0 = originXTwips - spL;
           const x1 = originXTwips + widthTwips + spR;
           const y0 = y - (isFirst ? spT : 0);
@@ -26616,7 +27614,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    * tamanho EXIBIDO (~150 DPI), como o app de referência faz — evita PDFs gigantes (RGBA cru
    * de fotos em 4K explodia para dezenas de MB). Alpha é achatado em branco.
    */
-  pdfImage(doc, page, img, xPt, yTopPt, wPt, hPt) {
+  pdfImage(doc, page2, img, xPt, yTopPt, wPt, hPt) {
     const DPI = 150;
     let handle = this.pdfImgCache.get(img);
     if (handle === void 0) {
@@ -26650,8 +27648,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       this.pdfImgCache.set(img, handle);
     }
-    if (handle) page.drawImage(handle, xPt, yTopPt, wPt, hPt);
-    else page.fillRect(xPt, yTopPt, wPt, hPt, [0.93, 0.93, 0.93]);
+    if (handle) page2.drawImage(handle, xPt, yTopPt, wPt, hPt);
+    else page2.fillRect(xPt, yTopPt, wPt, hPt, [0.93, 0.93, 0.93]);
   }
 };
 function dataUrlToBytes(dataUrl) {
@@ -26909,7 +27907,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-MIIDGLHY.js");
+  const { appFor } = await import("./chunks/chrome-app-NVX22KJ2.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

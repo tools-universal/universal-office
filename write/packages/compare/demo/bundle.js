@@ -3951,6 +3951,14 @@ function readSectPr(sectEl) {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
+  const pgFmt = pgNumType?.attrs["w:fmt"];
+  if (pgFmt) sect.pgNumFmt = pgFmt;
+  const chapStyle = parseInt(pgNumType?.attrs["w:chapStyle"] ?? "", 10);
+  if (chapStyle > 0) {
+    sect.pgNumChapStyle = chapStyle;
+    const sep = pgNumType?.attrs["w:chapSep"];
+    if (sep === "period" || sep === "colon" || sep === "emDash" || sep === "enDash") sect.pgNumChapSep = sep;
+  }
   const fnPr = readNoteProps(sectEl && firstChild(sectEl, "w:footnotePr"));
   if (fnPr) sect.footnotePr = fnPr;
   const enPr = readNoteProps(sectEl && firstChild(sectEl, "w:endnotePr"));
@@ -4494,8 +4502,8 @@ function groupOf(xml, child, produced, store) {
   }
   return g;
 }
-function readHeaderFooterPart(pkg, path, store) {
-  const xml = pkg.getPartText(path);
+function readHeaderFooterPart(pkg, path, store, xml0) {
+  const xml = xml0 ?? pkg.getPartText(path);
   if (!xml) return void 0;
   const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();

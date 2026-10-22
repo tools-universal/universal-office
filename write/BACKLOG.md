@@ -77,7 +77,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 
 | Frente | Inclui | Estado |
 |---|---|---|
-| Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | em curso |
+| Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | feito |
 | Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | em curso |
 | Caixa de texto | ◐ inserir; Painel de Seleção | — |
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | em curso |
@@ -128,6 +128,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Seções | Larguras das colunas Esquerda/Direita não medidas (o COM não alcança a galeria); hoje é uma grade de 3 |
 | Notas | Fixtures de paridade `symnotdef/sn-arial` diferem entre JS e .NET (anterior às notas) |
 | Notas | O título do iniciador de Estilos repete o atalho: "Estilos (Ctrl+Alt+Shift+S) (Ctrl+Alt+Shift+S)" |
+| Cabeçalho e rodapé | A lista de formatos do diálogo Data e Hora vem das convenções de cada idioma (o COM não a expõe); um print do diálogo do Word fecharia a comparação |
 
 ### Fora do escopo
 

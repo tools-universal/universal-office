@@ -4233,6 +4233,14 @@ function readSectPr(sectEl) {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
+  const pgFmt = pgNumType?.attrs["w:fmt"];
+  if (pgFmt) sect.pgNumFmt = pgFmt;
+  const chapStyle = parseInt(pgNumType?.attrs["w:chapStyle"] ?? "", 10);
+  if (chapStyle > 0) {
+    sect.pgNumChapStyle = chapStyle;
+    const sep = pgNumType?.attrs["w:chapSep"];
+    if (sep === "period" || sep === "colon" || sep === "emDash" || sep === "enDash") sect.pgNumChapSep = sep;
+  }
   const fnPr = readNoteProps(sectEl && firstChild(sectEl, "w:footnotePr"));
   if (fnPr) sect.footnotePr = fnPr;
   const enPr = readNoteProps(sectEl && firstChild(sectEl, "w:endnotePr"));
@@ -4756,8 +4764,8 @@ function groupOf(xml, child, produced, store) {
   }
   return g;
 }
-function readHeaderFooterPart(pkg, path, store) {
-  const xml = pkg.getPartText(path);
+function readHeaderFooterPart(pkg, path, store, xml0) {
+  const xml = xml0 ?? pkg.getPartText(path);
   if (!xml) return void 0;
   const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
@@ -14287,6 +14295,9 @@ function formatNumber(n, fmt2, lang = "pt-BR") {
       return `(${n})`;
     case "decimalEnclosedFullstop":
       return `${n}.`;
+    // número de página "- 1 -" (w:pgNumType fmt — oráculo hfopts fmt-dash)
+    case "numberInDash":
+      return `- ${n} -`;
     // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
     case "chicago":
       return n <= 0 ? String(n) : "*\u2020\u2021\xA7"[(n - 1) % 4].repeat(Math.floor((n - 1) / 4) + 1);
@@ -14406,17 +14417,21 @@ var NumberingState = class _NumberingState {
     }
     const lvlText2 = lvl.lvlTextNull ? "" : lvl.lvlText ?? "";
     let text;
+    let chapter;
     if (lvl.numFmt === "bullet") text = lvlText2;
     else {
-      text = lvlText2.replace(/%([1-9])/g, (_, k) => {
+      const subst = (s) => s.replace(/%([1-9])/g, (_, k) => {
         const l = parseInt(k, 10) - 1;
         const n = c[l];
         const v = n?.real ? n.v : lvlStart(l);
         const fmt2 = lvl.isLgl && l !== ilvl ? "decimal" : this.level(numId, l)?.numFmt ?? "decimal";
         return formatNumber(v, fmt2 === "bullet" ? "decimal" : fmt2, this.lang);
       });
+      text = subst(lvlText2);
+      const a2 = lvlText2.search(/%[1-9]/), b = lvlText2.lastIndexOf("%");
+      if (a2 >= 0 && b >= a2) chapter = subst(lvlText2.slice(a2, b + 2));
     }
-    return { text, level: lvl, numId, ilvl, listKey: key };
+    return { text, level: lvl, numId, ilvl, listKey: key, ...chapter !== void 0 ? { chapter } : {} };
   }
 };
 
@@ -15916,7 +15931,7 @@ function prepareParagraph(ctx, para0, env0) {
         mg.push({ kind: "char", ch, cp, face, style: ms, adv, asc: m.ascent * ms.sizePt * 20, desc: m.descent * ms.sizePt * 20, offset: -1, runIdx: -1, breakAfter: false, sizePt: ms.sizePt });
         w += adv;
       }
-      marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? "tab", jc: nm.level.lvlJc ?? "left" };
+      marker = { text: nm.text, glyphs: mg, width: w, level: nm.level, suff: nm.level.suff ?? "tab", jc: nm.level.lvlJc ?? "left", ...nm.chapter !== void 0 ? { chapter: nm.chapter } : {} };
     }
   }
   const ind = ppr.ind ?? {};
@@ -17895,9 +17910,7 @@ function formatWordDate(d, picture, lang = "pt-BR") {
     }
     const lower = picture.slice(i2, i2 + 5).toLowerCase();
     if (lower === "am/pm") {
-      const pm = d.getHours() >= 12;
-      const s = pm ? "pm" : "am";
-      out += picture[i2] === "A" ? s.toUpperCase() : s;
+      out += L === EN ? d.getHours() >= 12 ? "PM" : "AM" : "";
       i2 += 5;
       continue;
     }
@@ -19504,6 +19517,11 @@ function liftFrames(blocks, stops) {
 // ../docx-layout/src/engine.ts
 var balKey = (g) => g.balKey ?? g.index;
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
+var CHAP_SEP = { hyphen: "-", period: ".", colon: ":", emDash: "\u2014", enDash: "\u2013" };
+var sameChapters = (a, b) => a.size === b.size && [...a].every(([k, v]) => {
+  const w = b.get(k);
+  return !!w && w.length === v.length && v.every((x2, i2) => x2.page === w[i2].page && x2.text === w[i2].text);
+});
 var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
   if (opts.revisions && opts.revisions.mode !== "final" && !opts.revisions.order) opts = { ...opts, revisions: { ...opts.revisions, order: revisionAuthors(full0) } };
@@ -19521,17 +19539,21 @@ function layoutDocument(full0, provider, opts = {}) {
     if (noteMarks) c.noteMarkOverride = noteMarks;
     return c;
   };
+  let chaps = /* @__PURE__ */ new Map();
   let last = null;
   for (let pass = 0; pass < 5; pass++) {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
+    eng.chaptersGuess = chaps;
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
     const fix = eng.noteMarkFix();
-    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix;
+    const newChaps = eng.usedChapter ? eng.chapterIndex() : chaps;
+    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix && (!eng.usedChapter || sameChapters(newChaps, chaps));
     if (stable) break;
+    chaps = newChaps;
     total = result.pages.length;
     marks = newMarks;
     late = newLate;
@@ -19541,6 +19563,7 @@ function layoutDocument(full0, provider, opts = {}) {
   const balance = /* @__PURE__ */ new Map();
   const runWith = (bal) => {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
+    eng.chaptersGuess = chaps;
     result = eng.run();
     return eng;
   };
@@ -19635,6 +19658,11 @@ var Engine = class {
   prePlaced = /* @__PURE__ */ new Set();
   zSeq = 0;
   usedPageRef = false;
+  /** campo PAGE com número de capítulo: títulos de cada nível por página (passada anterior) */
+  chaptersGuess = /* @__PURE__ */ new Map();
+  usedChapter = false;
+  /** títulos numerados (estilo Título N) diagramados nesta passada: ref → nível e número */
+  headingMarks = /* @__PURE__ */ new Map();
   /** seções de várias colunas seguidas de seção contínua: o que ocupam na última página */
   balanceFound = /* @__PURE__ */ new Map();
   /** alturas usadas pelas colunas já encerradas na porção da seção nesta página */
@@ -19745,6 +19773,36 @@ var Engine = class {
     return differs ? want : null;
   }
   /** Página exibida (já formatada) do parágrafo de cada indicador. */
+  /** Número de capítulo da página `page` no nível `level`: o do ÚLTIMO título do
+   *  nível que começa nela ou antes; antes do 1º título, o do 1º; sem título
+   *  numerado, nenhum (o PAGE fica só com a página) — oráculo hfopts, chap-*. */
+  chapterOf(level, page) {
+    this.usedChapter = true;
+    const list2 = this.chaptersGuess.get(level);
+    if (!list2?.length) return void 0;
+    let out = list2[0].text;
+    for (const h of list2) {
+      if (h.page > page) break;
+      out = h.text;
+    }
+    return out;
+  }
+  /** Títulos numerados desta passada por nível: a página onde cada um começa. */
+  chapterIndex() {
+    const out = /* @__PURE__ */ new Map();
+    const seen = /* @__PURE__ */ new Set();
+    this.pages.forEach((ps, i2) => {
+      for (const l of ps.page.lines) {
+        const h = this.headingMarks.get(l.ref);
+        if (!h || seen.has(l.ref)) continue;
+        seen.add(l.ref);
+        const arr = out.get(h.level) ?? [];
+        arr.push({ page: i2, text: h.text });
+        out.set(h.level, arr);
+      }
+    });
+    return out;
+  }
   bookmarkPages() {
     const out = /* @__PURE__ */ new Map();
     const firstPage = /* @__PURE__ */ new Map();
@@ -19924,7 +19982,8 @@ var Engine = class {
       type: s.sect?.type ?? "nextPage",
       ...s.sect?.vAlign ? { vAlign: s.sect.vAlign } : {},
       ...sp.pgNumStart !== void 0 ? { pgStart: sp.pgNumStart } : {},
-      ...s.sect?.pgNumFmt ? { pgFmt: s.sect.pgNumFmt } : {},
+      ...sp.pgNumFmt ?? s.sect?.pgNumFmt ? { pgFmt: sp.pgNumFmt ?? s.sect.pgNumFmt } : {},
+      ...sp.pgNumChapStyle ? { chap: { level: sp.pgNumChapStyle, sep: CHAP_SEP[sp.pgNumChapSep ?? "hyphen"] ?? "-" } } : {},
       headers: pick(hb, prev?.headers),
       footers: pick(fb, prev?.footers),
       blocks: [s.blockStart, s.blockEnd],
@@ -20152,7 +20211,11 @@ var Engine = class {
       if (name === "SEQ") return this.seqValue(instr ?? "");
       if (name === "ENDNOTEREF_MARK" && this.curEndnote !== void 0) return this.ctx.noteMarkOf("endnote", this.curEndnote) ?? "";
       if (name === "REF") return this.refValue(instr ?? "");
-      if (name === "PAGE") return formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
+      if (name === "PAGE") {
+        const num = formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
+        const chap = ps.geom.chap ? this.chapterOf(ps.geom.chap.level, this.pages.indexOf(ps)) : void 0;
+        return chap !== void 0 ? chap + ps.geom.chap.sep + num : num;
+      }
       if (name === "NUMPAGES") {
         this.usedNumPages = true;
         return String(this.totalPagesGuess);
@@ -20728,6 +20791,10 @@ var Engine = class {
     const para = join ? this.joinHidden(join, merged, env) : merged;
     const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
     if (join) p.marker = join.marker;
+    if (p.marker?.chapter !== void 0 && p.styleId) {
+      const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p.styleId]?.name ?? "")?.[1];
+      if (lv) this.headingMarks.set(ref, { level: +lv, text: p.marker.chapter });
+    }
     if (p.markStyle.hidden && blockIdx < g.blocks[1]) {
       if (!p.glyphs.length) return;
       if (this.full.blocks[blockIdx + 1]?.type === "paragraph") {
