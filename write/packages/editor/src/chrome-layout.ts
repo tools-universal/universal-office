@@ -75,11 +75,14 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     ], 'tracking'),
     comments: sub({ en: 'Comments', pt: 'Comentários' }, 'comment', () => ['comment', 'comment:prev', 'comment:next', 'comment:delete', 'comment:deleteAll', '-', 'comments'], 'commentsMenu'),
     table: { ...sub({ en: 'Table', pt: 'Tabela' }, 'table', () => tableMenu(env, ctx), 'tableMenu'), hidden: typeof (env.ed as unknown as { insertTable?: unknown }).insertTable !== 'function' },
+    notes: sub({ en: 'Notes', pt: 'Notas' }, 'notes', () => [...noteNavMenu(), '-', 'note:show', 'note:convert', 'dlg:notes'], 'notesMenu'),
   };
 }
 
 /** Quebras: de página e coluna; de seção pelos quatro tipos (como o menu Quebras). */
 const breaksMenu = (): MenuEntry[] => ['pagebreak', 'columnbreak', '-', 'sectionbreak', 'sectionbreak:continuous', 'sectionbreak:evenPage', 'sectionbreak:oddPage'];
+/** Próxima/Anterior nota de rodapé e de fim (menu do botão Próxima Nota). */
+const noteNavMenu = (): MenuEntry[] => ['note:next', 'note:prev', 'note:nextEnd', 'note:prevEnd'];
 /** Galeria Colunas: predefinições + Mais Colunas. */
 const columnsMenu = (): MenuEntry[] => ['columns:one', 'columns:two', 'columns:three', 'columns:left', 'columns:right', '-', 'dlg:columns'];
 
@@ -126,7 +129,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'focus', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
-      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', 'bookmark', 'textbox', m.symbols] },
+      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'textbox', m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
@@ -221,9 +224,6 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             large('textbox'),
             { rows: [[{ cmd: 'field:date', label: true }], [{ menu: () => symbolMenu(env, ctx), id: 'symbols', label: L('Symbol', 'Símbolo'), icon: 'special_character', showLabel: true }]] },
           ] },
-          { id: 'references', label: L('References', 'Referências'), icon: 'toc', prio: 2, cells: [
-            large('toc'), { rows: [[{ cmd: 'footnote', label: true }], [{ cmd: 'endnote', label: true }]] },
-          ] },
         ],
       },
       {
@@ -245,6 +245,21 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           ] },
           { id: 'background', label: L('Page Background', 'Plano de Fundo da Página'), icon: 'format_color_fill', prio: 4, cells: [
             { cmd: 'pageColor', size: 'large' }, { cmd: 'watermark', size: 'large' },
+          ] },
+        ],
+      },
+      {
+        // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
+        // Índice entram aqui quando chegarem
+        id: 'references', label: L('References', 'Referências'), groups: [
+          { id: 'toc', label: L('Table of Contents', 'Sumário'), icon: 'toc', prio: 4, cells: [large('toc')] },
+          { id: 'footnotes', label: L('Footnotes', 'Notas de Rodapé'), icon: 'notes', prio: 6, launcher: 'dlg:notes', cells: [
+            large('footnote'),
+            { rows: [
+              [{ cmd: 'endnote', label: true }],
+              [{ menu: noteNavMenu, id: 'note:nav', label: L('Next Footnote', 'Próxima Nota de Rodapé'), icon: 'keyboard_arrow_down', showLabel: true, supports: has('nextNote') }],
+              [{ cmd: 'note:show', label: true }],
+            ] },
           ] },
         ],
       },

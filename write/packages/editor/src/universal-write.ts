@@ -79,7 +79,19 @@ import {
   type RevisionSpan,
   type RevisionScope,
   type TrackedDelete,
+  NOTE_REF_TEXT,
+  ensureNoteParts,
+  noteRefIds,
+  newNoteParagraphs,
+  noteRefRun,
+  patchSettingsNotes,
+  type NoteKind,
+  type NoteProps,
 } from '@universal-office/docx-core';
+import {
+  ensureNoteStyles, noteBlocks, flattenBlocks, setNoteBlocks, cloneBlocks, nextNoteId, markNoteRuns, markNoteRunsInTable,
+  isNoteMark, convertNoteContent, effectiveNoteOptions, notePropsOf, NOTE_DEFAULTS, type NoteOptions,
+} from './notes.js';
 import {
   DocStyles, listStyles, styleLook, ensureDefined, resolveStyleId, createStyleXml, modifyStyleXml, renameStyleXml, deleteStyleXml, setQuickXml, displayName,
   type StyleInfo, type StyleLook, type StyleFilter, type CreateStyleOptions, type ModifyStyleOptions,
@@ -186,6 +198,11 @@ const DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
 const BREAK_MARK_LABELS: Record<'en' | 'pt', Record<'page' | 'column' | 'section' | SectionType, string>> = {
   en: { page: 'Page Break', column: 'Column Break', section: 'Section Break', nextPage: 'Next Page', continuous: 'Continuous', evenPage: 'Even Page', oddPage: 'Odd Page', nextColumn: 'Next Column' },
   pt: { page: 'Quebra de página', column: 'Quebra de coluna', section: 'Quebra de seção', nextPage: 'Próxima página', continuous: 'Contínua', evenPage: 'Página par', oddPage: 'Página ímpar', nextColumn: 'Próxima coluna' },
+};
+
+const NOTE_TIP_LABELS: Record<'en' | 'pt', { empty: string }> = {
+  en: { empty: '(empty note)' },
+  pt: { empty: '(nota vazia)' },
 };
 
 export type ViewMode = 'print' | 'web' | 'draft' | 'read' | 'outline';
@@ -333,7 +350,7 @@ interface TableSel {
 /** Cópia rica interna: parágrafos com as props de origem, tabelas inteiras do meio da seleção e células copiadas. */
 interface RichClip {
   text: string;
-  paras: { runs: { text: string; props: RunProps }[] }[];
+  paras: { runs: ClipRun[] }[];
   /** tabelas entre os parágrafos copiados: entram antes do parágrafo `before` do recorte */
   tables?: { before: number; table: TableBlock }[];
   /** células selecionadas (como tabela nova); rows = linhas inteiras; whole = a tabela toda */
@@ -696,6 +713,17 @@ interface FloatHandle {
   page: number;
   rect: { x: number; y: number; w: number; h: number };
 }
+
+/** Referência de nota no corpo: parágrafo (do corpo ou da célula), offset e a chave
+ *  de ordem no documento (Próxima/Anterior nota). */
+interface NoteRefLoc {
+  kind: NoteKind; id: number; para: number; offset: number;
+  cell?: { anchor: number; hops: CellHop[] };
+  key: number[];
+}
+
+/** Run da cópia rica interna (referência de nota leva o conteúdo da nota). */
+interface ClipRun { text: string; props: RunProps; noteRef?: import('@universal-office/docx-core').NoteRef; note?: Block[] }
 
 interface FootnoteHit {
   page: number;
@@ -1433,8 +1461,7 @@ export class UniversalWriteElement extends HTMLElement {
     const lastSec = secs[secs.length - 1];
     this.sectionProps.set(0, lastSec?.sect);
 
-    // pré-processa runs: campos DATE viram texto; noteRef ganha o número;
-    // imagens flutuantes saem do fluxo
+    // pré-processa runs: campos DATE viram texto; imagens flutuantes saem do fluxo
     this.floatImages = [];
     paragraphs.forEach((p, pi) => {
       for (const run of p.runs) {
@@ -1445,10 +1472,25 @@ export class UniversalWriteElement extends HTMLElement {
             run.text = '1';
           }
         }
-        if (run.noteRef && run.text === '') run.text = String(run.noteRef.id);
         if (run.image?.floating) this.floatImages.push({ para: pi, run });
       }
     });
+    this.noteSettings = {
+      ...(this.fullDoc.formatting?.settings.footnotePr ? { footnote: this.fullDoc.formatting.settings.footnotePr } : {}),
+      ...(this.fullDoc.formatting?.settings.endnotePr ? { endnote: this.fullDoc.formatting.settings.endnotePr } : {}),
+    };
+    this.noteSettingsLoaded = JSON.stringify(this.noteSettings);
+    this.noteEdit = null;
+    // notas: a referência e a marca da própria nota ocupam UM caractere no editor
+    // (o número é do motor, na ordem e no formato da seção)
+    markNoteRuns(paragraphs);
+    for (const a of this.tableAnchors) markNoteRunsInTable(a.table);
+    for (const kind of ['footnote', 'endnote'] as const) {
+      for (const id of (kind === 'footnote' ? this.fullDoc.footnotes : this.fullDoc.endnotes).keys()) {
+        const bs = noteBlocks(this.fullDoc, kind, id);
+        if (bs) { const ps = flattenBlocks(bs); markNoteRuns(ps); this.syncRunRPr(ps); }
+      }
+    }
 
     this.model = {
       paragraphs,
@@ -1809,7 +1851,7 @@ export class UniversalWriteElement extends HTMLElement {
    *  modelo — syncSections). */
   private shiftAnchors(fromPara: number, delta: number): void {
     // na célula de tabela os parágrafos são os DELA: âncoras do corpo ficam
-    if (this.cellEdit) return;
+    if (this.cellEdit || this.noteEdit) return;
     for (const a of this.tableAnchors) if (a.beforePara > fromPara) a.beforePara += delta;
     for (const f of this.floatImages) if (f.para > fromPara) f.para += delta;
     if (!this.hfEdit && !this.tbEdit) {
@@ -2757,6 +2799,8 @@ export class UniversalWriteElement extends HTMLElement {
       const sliceStart = Math.max(from, start);
       const sliceEnd = Math.min(to, end);
       if (sliceEnd <= sliceStart) continue;
+      // (referência de nota e marca da nota: o caractere do editor não é texto)
+      if (run.noteRef || isNoteMark(run)) continue;
       out += run.custom
         ? run.custom.fallbackText
         : run.text.slice(sliceStart - start, sliceEnd - start);
@@ -2777,7 +2821,7 @@ export class UniversalWriteElement extends HTMLElement {
   private extractSelection(): RichClip | null {
     if (!this.model || !this.hasSelection()) return null;
     const { start, end } = normalizeRange(this.range());
-    const paras: { runs: { text: string; props: RunProps }[] }[] = [];
+    const paras: { runs: ClipRun[] }[] = [];
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi]!;
       const from = pi === start.para ? start.offset : 0;
@@ -2787,9 +2831,12 @@ export class UniversalWriteElement extends HTMLElement {
       for (const run of p.runs) {
         const rs = acc, re = acc + run.text.length; acc = re;
         const s = Math.max(from, rs), e = Math.min(to, re);
+        // referência de nota: leva uma cópia do conteúdo (colar cria nota nova — oráculo fn-copy)
+        const nb = run.noteRef && this.fullDoc ? noteBlocks(this.fullDoc, run.noteRef.kind, run.noteRef.id) : undefined;
         if (e > s) runs.push({
-          text: run.custom ? run.custom.fallbackText : run.text.slice(s - rs, e - rs),
+          text: run.custom ? run.custom.fallbackText : run.noteRef ? '' : run.text.slice(s - rs, e - rs),
           props: { ...run.props },
+          ...(run.noteRef ? { noteRef: { ...run.noteRef }, note: cloneBlocks(nb ?? []) } : {}),
         });
       }
       paras.push({ runs });
@@ -2813,8 +2860,10 @@ export class UniversalWriteElement extends HTMLElement {
       return;
     }
     const t = this.selectedText();
-    if (!t) return;
-    this.richClip = this.extractSelection();
+    const clip = this.extractSelection();
+    // (só uma referência de nota selecionada: não tem texto, mas cola como nota nova)
+    if (!t && !clip?.paras.some((p) => p.runs.some((r) => r.noteRef))) return;
+    this.richClip = clip;
     try { await navigator.clipboard?.writeText(t); } catch { /* sem permissão */ }
   }
   /** Recorta a seleção. */
@@ -2843,6 +2892,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.locked()) return;
     try {
       const t = await navigator.clipboard?.readText();
+      if (!t && this.richClip?.text === '' && this.richClip.paras.some((p) => p.runs.some((r) => r.noteRef))) { this.insertRich(this.richClip); this.onSelectionChange?.(); this.chromeSync?.(); return; }
       if (!t) return;
       // o clipboard do SO normaliza p/ \r\n no Windows — comparar normalizado
       if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
@@ -2892,7 +2942,16 @@ export class UniversalWriteElement extends HTMLElement {
           this.tableAnchors.splice(at, 0, { beforePara: pos.para, table: TOps.cloneTable(t.table) });
         }
       }
-      for (const run of cp.runs) if (run.text) pos = this.insertTyped(pos, run.text, withoutRevisions(run.props));
+      for (const run of cp.runs) {
+        if (run.noteRef) {
+          // nota nova com cópia do conteúdo; fora do texto principal (cabeçalho,
+          // caixa, nota) o Word não aceita referência: ela fica de fora
+          if (!this.fullDoc || this.hfEdit || this.tbEdit || this.noteEdit) continue;
+          const id = nextNoteId(this.fullDoc, run.noteRef.kind);
+          setNoteBlocks(this.fullDoc, run.noteRef.kind, id, cloneBlocks(run.note ?? []));
+          pos = this.insertWholeRun(pos, { text: NOTE_REF_TEXT, props: withoutRevisions(run.props), noteRef: { ...run.noteRef, id } });
+        } else if (run.text) pos = this.insertTyped(pos, run.text, withoutRevisions(run.props));
+      }
     });
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -3006,7 +3065,7 @@ export class UniversalWriteElement extends HTMLElement {
   /** Quebras de seção/coluna valem no corpo (o Word as desabilita em
    *  cabeçalho/rodapé e caixa de texto; em tabela ele divide a tabela). */
   private canInsertSectionBreak(): boolean {
-    return !!this.model && !this.locked() && !this.hfEdit && !this.tbEdit && !this.cellEdit;
+    return !!this.model && !this.locked() && !this.hfEdit && !this.tbEdit && !this.cellEdit && !this.noteEdit;
   }
 
   /**
@@ -3116,7 +3175,7 @@ export class UniversalWriteElement extends HTMLElement {
   getSection(): SectionInfo | null {
     const m = this.bodyModel();
     if (!m) return null;
-    const para = this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const para = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
     const k = sectionIndexAt(m, para);
     const sp = sectionSectPr(m, k);
     return {
@@ -3990,8 +4049,9 @@ export class UniversalWriteElement extends HTMLElement {
   saveDocx(): Uint8Array {
     if (!this.model) throw new Error('no document');
     if (this.hfEdit) this.exitHeaderFooter(); // salva sempre a partir do corpo
-    // na célula de tabela o modelo é o DELA: o corpo vem de bodyState
+    // na célula de tabela (ou na nota) o modelo é o DELA: o corpo vem de bodyState
     if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
+    this.syncNoteEdit();
     const body = this.bodyState().model;
     const pkg = this.pkg ?? DocxPackage.empty();
     this.syncSections();
@@ -4047,12 +4107,32 @@ export class UniversalWriteElement extends HTMLElement {
       blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : undefined,
       sources: this.fullDoc?.sources,
       trackRevisions: this.tracking,
+      notes: this.notesOut(blocks),
     });
+    // opções de nota do documento (settings.xml): só se mudaram
+    const np = JSON.stringify(this.noteSettings);
+    const settingsXml = np !== this.noteSettingsLoaded ? pkg.getPartText('word/settings.xml') : undefined;
+    if (settingsXml) pkg.setPartText('word/settings.xml', patchSettingsNotes(settingsXml, { footnote: this.noteSettings.footnote ?? null, endnote: this.noteSettings.endnote ?? null }));
     // folha de estilos: só regrava a parte se algum estilo mudou (o resto byte a byte)
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
     // estilos de tabela internos que as tabelas passaram a usar
     addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
+  }
+
+  /** Notas para a gravação: o conteúdo de cada nota referenciada no corpo (blocos,
+   *  na ordem do documento). As que perderam a referência saem do arquivo. */
+  private notesOut(blocks: Block[]): NonNullable<Parameters<typeof writeDocument>[3]>['notes'] {
+    const fd = this.fullDoc;
+    if (!fd) return undefined;
+    const out: NonNullable<Parameters<typeof writeDocument>[3]>['notes'] = {};
+    for (const kind of ['footnote', 'endnote'] as const) {
+      const used = noteRefIds(blocks, kind);
+      const bm = new Map<number, Block[]>();
+      for (const id of used) { const bs = noteBlocks(fd, kind, id); if (bs) bm.set(id, bs); }
+      out[kind] = { blocks: bm, used };
+    }
+    return out;
   }
 
   /** Monta o documento de exportação a partir do estado VIVO do editor. */
@@ -4380,11 +4460,13 @@ export class UniversalWriteElement extends HTMLElement {
     // digitado numa célula depois de sair dela, como no Word)
     const own = this.hfEdit || this.tbEdit;
     const ce = own ? null : this.cellEdit;
+    // (na nota, idem: o corpo e, à parte, a nota)
+    const ne = own ? null : this.noteEdit;
     // blocos da célula em edição alinhados aos parágrafos (relink ao desfazer)
     if (ce?.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
     return JSON.stringify({
-      m: ce ? ce.saved.model : this.model,
-      s: ce ? ce.saved.selection : this.selection,
+      m: ce ? ce.saved.model : ne ? ne.saved.model : this.model,
+      s: ce ? ce.saved.selection : ne ? ne.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
@@ -4400,6 +4482,11 @@ export class UniversalWriteElement extends HTMLElement {
       tb: own ? undefined : this.tableAnchors.map((a) => a.table),
       ce: ce ? { a: ce.anchor, h: ce.hops, s: this.selection } : undefined,
       ts: own ? undefined : this.tableSel ?? undefined,
+      // passo dado dentro de uma nota (a pilha é a do corpo, como no Word): o
+      // conteúdo dela e o cursor nela
+      nt: ne ? { k: ne.kind, id: ne.id, p: this.model!.paragraphs, s: this.selection } : undefined,
+      // opções de nota do documento (settings)
+      np: own ? undefined : this.noteSettings,
     }, (key, value) => {
       if (value instanceof Uint8Array) {
         let idx = this.imgPoolIdx.get(value);
@@ -4422,6 +4509,8 @@ export class UniversalWriteElement extends HTMLElement {
     ce?: { a: number; h: CellHop[]; s: { anchor: DocPosition; focus: DocPosition } };
     ts?: TableSel;
     hf?: (Paragraph[] | undefined)[][];
+    nt?: { k: NoteKind; id: number; p: Paragraph[]; s: { anchor: DocPosition; focus: DocPosition } };
+    np?: { footnote?: NoteProps; endnote?: NoteProps };
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -4452,6 +4541,13 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model || from.length === 0) return;
     this.floatSel = null; // o modelo é recriado → referência de run fica obsoleta
     const state = this.parseState(from.pop()!);
+    // corpo e notas dividem a pilha (como no Word): o passo dado numa nota leva o
+    // cursor até ela antes de voltar o estado — o refazer guarda o texto dela
+    // (oráculo notes-lab, fn-undo)
+    if (!this.hfEdit && !this.tbEdit && state.nt) {
+      const ne = this.noteEdit;
+      if (ne?.kind !== state.nt.k || ne?.id !== state.nt.id) this.enterNote(state.nt.k, state.nt.id, 'end');
+    }
     to.push(this.stringifyState(!!state.hf));
     // aceitar/rejeitar todas: os cabeçalhos/rodapés voltam no lugar
     if (state.hf) {
@@ -4475,7 +4571,9 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = state.s;
     } else {
       const wasCell = !!this.cellEdit;
+      const wasNote = this.noteEdit;
       this.cellEdit = null;
+      this.noteEdit = null;
       this.model = state.m;
       this.selection = state.s;
       this.tableSel = state.ts ?? null;
@@ -4499,8 +4597,21 @@ export class UniversalWriteElement extends HTMLElement {
         }
       }
       if (wasCell !== !!this.cellEdit) this.dispatchEvent(new CustomEvent('uw-cellmode', { detail: { active: !!this.cellEdit } }));
+      // de volta à nota em que o passo foi dado, com o conteúdo de então (os
+      // parágrafos vêm novos do JSON: os blocos da nota acompanham)
+      if (state.nt && this.fullDoc) {
+        const { k, id, p } = state.nt;
+        setNoteBlocks(this.fullDoc, k, id, reconcileBlocks(noteBlocks(this.fullDoc, k, id), p, true) ?? []);
+        this.noteEdit = { kind: k, id, saved: { model: this.model, selection: this.selection } };
+        this.model = { paragraphs: p, sectPr: this.model.sectPr };
+        this.selection = state.nt.s;
+      }
+      if (wasNote && (wasNote.kind !== this.noteEdit?.kind || wasNote.id !== this.noteEdit?.id)) {
+        this.dispatchEvent(new CustomEvent('uw-notemode', { detail: this.noteEdit ? { active: true, kind: this.noteEdit.kind, id: this.noteEdit.id } : { active: false } }));
+      }
     }
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
+    if (state.np) this.noteSettings = state.np;
     this.refresh();
   }
 
@@ -4555,7 +4666,7 @@ export class UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const props = this.pendingProps ?? undefined;
+    const props = this.pendingProps ?? this.propsAfterNoteRef();
     const pos = this.insertTyped(this.selection.focus, text, props);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
@@ -4585,6 +4696,17 @@ export class UniversalWriteElement extends HTMLElement {
 
   private pressBackspace(): void {
     if (!this.model || this.locked()) return;
+    // logo depois de uma referência de nota o 1º Backspace só a SELECIONA; o 2º
+    // apaga a referência e a nota (oráculo notes-lab, fn-bksp)
+    if (!this.hasSelection()) {
+      const r = this.runBefore(this.selection.focus);
+      if (r?.noteRef) {
+        const { para, offset } = this.selection.focus;
+        this.selection = { anchor: { para, offset: offset - r.text.length }, focus: { para, offset } };
+        this.refreshSelection();
+        return;
+      }
+    }
     if (this.tracking && !this.hasSelection()) { this.trackedKey(-1); return; }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
@@ -4599,7 +4721,7 @@ export class UniversalWriteElement extends HTMLElement {
           start: { para, offset: offset - 1 }, end: { para, offset },
         });
         this.selection = { anchor: pos, focus: pos };
-      } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+      } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
         // logo depois de uma quebra de seção o Word NÃO a apaga: pula a marca e
         // apaga o caractere antes dela — o fim do parágrafo da quebra, ou (vazio)
         // a marca do parágrafo anterior, que se funde a ele (oráculo bs-same, del-break-backspace)
@@ -5007,6 +5129,20 @@ export class UniversalWriteElement extends HTMLElement {
       }
     });
 
+    // dica com o texto da nota ao passar sobre a referência (como o Word)
+    let noteTipQueued = false;
+    this.addEventListener('mousemove', (e) => {
+      if (noteTipQueued || !this.model || this.floatDrag || (e.buttons & 1)) return;
+      noteTipQueued = true;
+      requestAnimationFrame(() => {
+        noteTipQueued = false;
+        const tip = this.noteTipAt(e);
+        if (tip !== null) this.title = tip;
+        else if (this.noteTipShown) this.removeAttribute('title');
+        this.noteTipShown = tip !== null;
+      });
+    });
+
     // cursor de manipulação de objeto flutuante (registrado DEPOIS do hover de HF
     // para vencer a definição de cursor quando há um objeto selecionado/sob o mouse).
     this.addEventListener('mousemove', (e) => {
@@ -5095,6 +5231,10 @@ export class UniversalWriteElement extends HTMLElement {
       }
       const hit = this.hitTest(e);
       if (!hit || !this.model) return;
+      // duplo clique na referência abre a nota; no número da nota, volta à referência
+      const nr = this.noteRunAt(hit);
+      if (nr?.noteRef && !this.noteEdit) { this.openNote(nr.noteRef.kind, nr.noteRef.id); return; }
+      if (nr && this.noteEdit && isNoteMark(nr)) { this.goToNoteRef(this.noteEdit.kind, this.noteEdit.id); return; }
       const text = this.model.paragraphs[hit.para]!.runs.map((r) => r.text).join('');
       let a = hit.offset, b = hit.offset;
       while (a > 0 && !/[\s]/.test(text[a - 1]!)) a--;
@@ -5140,6 +5280,13 @@ export class UniversalWriteElement extends HTMLElement {
           this.onSelectionChange?.(); this.chromeSync?.();
           return;
         }
+      }
+      // Ctrl+Alt+F / Ctrl+Alt+D: nota de rodapé / de fim (atalhos do Word)
+      if (ctrl && e.altKey && !e.shiftKey && (k.toLowerCase() === 'f' || k.toLowerCase() === 'd')) {
+        e.preventDefault();
+        if (k.toLowerCase() === 'f') this.insertFootnote(); else this.insertEndnote();
+        this.onSelectionChange?.(); this.chromeSync?.();
+        return;
       }
       if (ctrl) {
         if (k === 'ArrowLeft' || k === 'ArrowRight') {
@@ -5249,6 +5396,12 @@ export class UniversalWriteElement extends HTMLElement {
         this.onSelectionChange?.(); this.chromeSync?.();
         return;
       }
+      // na área de notas, Esc volta à referência no texto
+      if (k === 'Escape' && this.noteEdit && !this.tbEdit) {
+        e.preventDefault();
+        this.goToNoteRef(this.noteEdit.kind, this.noteEdit.id);
+        return;
+      }
       if (k === 'Escape' && this.hfEdit) {
         e.preventDefault();
         this.exitHeaderFooter();
@@ -5269,7 +5422,8 @@ export class UniversalWriteElement extends HTMLElement {
         Home: () => this.moveCaret('home', e.shiftKey),
         End: () => this.moveCaret('end', e.shiftKey),
         // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
-        Enter: () => (ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.insertPageBreak() : this.pressEnter()),
+        // (na nota não há quebra de página nem de coluna, como no Word)
+        Enter: () => (ctrl && this.noteEdit ? undefined : ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.insertPageBreak() : this.pressEnter()),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete(),
       };
@@ -5522,7 +5676,7 @@ export class UniversalWriteElement extends HTMLElement {
    */
   private syncSections(): void {
     const m = this.model;
-    if (!m || this.hfEdit || this.tbEdit || this.cellEdit) return;
+    if (!m || this.hfEdit || this.tbEdit || this.cellEdit || this.noteEdit) return;
     const breaks: { pi: number; sb: SectionBreak }[] = [];
     const seen = new Set<number>();
     m.paragraphs.forEach((p, pi) => {
@@ -7253,6 +7407,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.savedBody) return this.savedBody;                  // HF (e caixa dentro do HF)
     if (this.savedForTb) return this.savedForTb;                // caixa de texto do corpo
     if (this.cellEdit) return { model: this.cellEdit.saved.model, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts };
+    if (this.noteEdit) return { model: this.noteEdit.saved.model, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts };
     return { model: this.model!, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts };
   }
 
@@ -7262,6 +7417,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
     const tb = this.tbEdit?.hostRun.textbox;
     if (tb?.blocks) tb.blocks = reconcileBlocks(tb.blocks, tb.paras, true);
+    this.syncNoteEdit();
+    this.syncNoteSettings();
     const doc = buildEngineDoc({
       fullDoc: this.fullDoc, paragraphs: b.model.paragraphs, tableAnchors: b.tableAnchors,
       sectionStarts: b.sectionStarts, sectPr: b.model.sectPr, bookmarkParas: this.bookmarkParas,
@@ -7395,7 +7552,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.fastHint = null;
     this.fastTable = null;
     // cabeçalho/rodapé: repete em várias páginas — layout completo
-    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit) return;
+    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit || this.noteEdit) return;
     // revisões com barra de alteração (o layout isolado não refaz as barras da página)
     if ((this.markupMode === 'all' || this.markupMode === 'simple')
       && (this.tracking || (this.model.paragraphs[pi] && paragraphHasRevisions(this.model.paragraphs[pi]!)))) return;
@@ -7631,6 +7788,9 @@ export class UniversalWriteElement extends HTMLElement {
       let pi = -1;
       if (hfWhich) {
         if (el.page === hfPage && el.loc.kind === 'hf' && el.loc.which === hfWhich && el.para) pi = paras.indexOf(el.para);
+      } else if (this.noteEdit) {
+        const ne = this.noteEdit;
+        if (el.loc.kind === 'note' && el.loc.note === ne.kind && el.loc.id === ne.id && el.para) pi = paras.indexOf(el.para);
       } else if (!ce) { if (el.loc.kind === 'body') pi = el.loc.para; }
       else if (el.loc.kind === 'cell' && el.loc.anchor === ce.anchor && sameHops(el.loc.hops, ce.hops)) {
         const blk = blocksOfCell[el.loc.block];
@@ -7695,6 +7855,10 @@ export class UniversalWriteElement extends HTMLElement {
     if (loc.kind === 'hf') {
       const src = hfBlocksFor(doc.full, section, loc.which, loc.part);
       return src ? paragraphAtPath(src.blocks, loc.path) : null;
+    }
+    if (loc.kind === 'note') {
+      const bs = this.fullDoc ? noteBlocks(this.fullDoc, loc.note, loc.id) : undefined;
+      return bs ? paragraphAtPath(bs, loc.path) : null;
     }
     return null;
   }
@@ -7850,7 +8014,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.showMarks && this.model) {
       ctx.fillStyle = this.pageDark ? '#9aa0a6' : '#888';
       ctx.textAlign = 'center';
-      const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
+      const body = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit;
       const secOf = (k: number): number => (body ? this.sectionIndexForPara(k) : this.pageSections[pg] ?? 0);
       this.layoutCache.forEach((pl, pi) => {
         const para = this.model!.paragraphs[pi]!;
@@ -8300,6 +8464,13 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.eng || this.hfEdit || this.tbEdit || this.locked()) return;
     const el = this.engLineAt(e);
     if (!el) return;
+    // área de notas: entra na nota clicada; fora dela, volta ao corpo
+    if (el.loc.kind === 'note') {
+      const ne = this.noteEdit;
+      if (!ne || ne.kind !== el.loc.note || ne.id !== el.loc.id) this.enterNote(el.loc.note, el.loc.id);
+      return;
+    }
+    if (this.noteEdit) this.exitNote();
     if (el.loc.kind === 'cell') {
       const ce = this.cellEdit;
       if (ce && ce.anchor === el.loc.anchor && sameHops(ce.hops, el.loc.hops)) return;
@@ -8351,6 +8522,430 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Editando uma célula de tabela? */
   editingTableCell(): boolean { return this.cellEdit !== null; }
+
+  // ───────────────────────── notas de rodapé e de fim ─────────────────────────
+
+  /** Edição de uma nota no lugar (área de notas da página ou notas de fim): o
+   *  modelo passa a ser os parágrafos dela (células inclusive), como numa célula;
+   *  a pilha de desfazer é a do corpo (como no Word). */
+  private noteEdit: {
+    kind: NoteKind; id: number;
+    saved: { model: DocumentModel; selection: { anchor: DocPosition; focus: DocPosition } };
+  } | null = null;
+  /** w:footnotePr / w:endnotePr do documento (settings) em edição; o que veio do arquivo */
+  private noteSettings: { footnote?: NoteProps; endnote?: NoteProps } = {};
+  private noteSettingsLoaded = '{}';
+
+  /** Nota em edição (null fora da área de notas). */
+  editingNote(): { kind: NoteKind; id: number } | null {
+    return this.noteEdit ? { kind: this.noteEdit.kind, id: this.noteEdit.id } : null;
+  }
+
+  /** Entra na edição de uma nota (cursor no início, no fim ou na posição dada). */
+  private enterNote(kind: NoteKind, id: number, caret?: DocPosition | 'end'): boolean {
+    if (!this.model || !this.fullDoc || this.hfEdit || this.tbEdit) return false;
+    if (this.cellEdit) this.exitCell();
+    const ne0 = this.noteEdit;
+    if (ne0 && (ne0.kind !== kind || ne0.id !== id)) this.exitNote();
+    if (!this.noteEdit) {
+      let blocks = noteBlocks(this.fullDoc, kind, id);
+      if (!blocks?.length) {
+        blocks = [{ type: 'paragraph', paragraph: { runs: [], props: {} } }];
+        setNoteBlocks(this.fullDoc, kind, id, blocks);
+      }
+      this.floatSel = null;
+      this.noteEdit = { kind, id, saved: { model: this.model, selection: this.selection } };
+      this.model = { paragraphs: flattenBlocks(blocks), sectPr: this.model.sectPr };
+      this.dispatchEvent(new CustomEvent('uw-notemode', { detail: { active: true, kind, id } }));
+    }
+    const paras = this.model.paragraphs;
+    const at = caret === 'end'
+      ? { para: paras.length - 1, offset: paraLength(paras[paras.length - 1]!) }
+      : caret ?? { para: 0, offset: 0 };
+    this.selection = { anchor: at, focus: at };
+    this.pendingProps = null;
+    if (this.eng) { this.rebuildEditLines(); this.refreshSelection(); } else this.refresh();
+    return true;
+  }
+
+  /** Volta ao corpo (o cursor onde estava antes de entrar na nota). */
+  private exitNote(): void {
+    const ne = this.noteEdit;
+    if (!ne) return;
+    this.syncNoteEdit();
+    this.noteEdit = null;
+    this.model = ne.saved.model;
+    this.selection = ne.saved.selection;
+    this.pendingProps = null;
+    if (this.eng) this.rebuildEditLines();
+    this.dispatchEvent(new CustomEvent('uw-notemode', { detail: { active: false } }));
+  }
+
+  /** A nota editada pode ter ganho/perdido parágrafos: os blocos acompanham. */
+  private syncNoteEdit(): void {
+    const ne = this.noteEdit;
+    if (!ne || !this.fullDoc || !this.model) return;
+    const blocks = noteBlocks(this.fullDoc, ne.kind, ne.id) ?? [];
+    const b = reconcileBlocks(blocks, this.model.paragraphs, true) ?? [];
+    if (b !== blocks) setNoteBlocks(this.fullDoc, ne.kind, ne.id, b);
+  }
+
+  /** Opções de nota do documento (settings) no formato que o motor lê. */
+  private syncNoteSettings(): void {
+    const f = this.fullDoc?.formatting;
+    if (!f) return;
+    const s = f.settings, np = this.noteSettings;
+    if (s.footnotePr !== np.footnote || s.endnotePr !== np.endnote) {
+      const next = { ...s };
+      if (np.footnote) next.footnotePr = np.footnote; else delete next.footnotePr;
+      if (np.endnote) next.endnotePr = np.endnote; else delete next.endnotePr;
+      f.settings = next;
+    }
+  }
+
+  /** Parágrafo do corpo onde está o cursor (na nota: o de onde se entrou; na
+   *  célula: o da tabela). */
+  private bodyCaretPara(): number {
+    if (this.noteEdit) return this.noteEdit.saved.selection.focus.para;
+    if (this.cellEdit) return this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0;
+    if (this.hfEdit || this.tbEdit) return 0;
+    return this.selection.focus.para;
+  }
+
+  private noteTipShown = false;
+  /** Texto da nota cuja referência está sob o ponteiro (null = nenhuma). */
+  private noteTipAt(e: MouseEvent): string | null {
+    if (!this.eng || !this.fullDoc || this.view === 'read') return null;
+    const el = this.engLineAt(e);
+    const para = el?.para;
+    if (!el || !para || (el.loc.kind !== 'body' && el.loc.kind !== 'cell') || !para.runs.some((r) => r.noteRef)) return null;
+    const rect = this.canvases[el.page]?.getBoundingClientRect();
+    if (!rect) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    const xT = (e.clientX - rect.left) / scale, yT = (e.clientY - rect.top) / scale;
+    const l = el.line;
+    if (yT < l.y || yT > l.y + l.height) return null;
+    let acc = 0;
+    for (const r of para.runs) {
+      if (r.noteRef) {
+        const box = (l.chars ?? []).filter((c) => c.o === acc);
+        if (box.some((c) => xT >= c.x - 20 && xT <= c.x + c.w + 20)) {
+          const bs = noteBlocks(this.fullDoc, r.noteRef.kind, r.noteRef.id) ?? [];
+          const text = flattenBlocks(bs).map((p) => p.runs.filter((x) => !isNoteMark(x)).map((x) => x.text).join('')).join(' ').trim();
+          return text || pickLabels(this, NOTE_TIP_LABELS).empty;
+        }
+      }
+      acc += r.text.length;
+    }
+    return null;
+  }
+
+  /** Referência de nota ou marca da nota sob a posição (o caractere nela ou o anterior). */
+  private noteRunAt(pos: DocPosition): Run | undefined {
+    const p = this.model?.paragraphs[pos.para];
+    if (!p) return undefined;
+    let acc = 0;
+    for (const r of p.runs) {
+      const end = acc + r.text.length;
+      if ((r.noteRef || isNoteMark(r)) && pos.offset >= acc && pos.offset <= end) return r;
+      acc = end;
+    }
+    return undefined;
+  }
+
+  /** Run que termina em `pos` (o caractere antes do cursor). */
+  private runBefore(pos: DocPosition): Run | undefined {
+    const p = this.model?.paragraphs[pos.para];
+    if (!p || pos.offset <= 0) return undefined;
+    let acc = 0;
+    for (const r of p.runs) {
+      const end = acc + r.text.length;
+      if (pos.offset > acc && pos.offset <= end) return r;
+      acc = end;
+    }
+    return undefined;
+  }
+
+  /** Texto digitado logo depois da referência (ou da marca da nota) não leva o
+   *  estilo de referência nem o sobrescrito (oráculo notes-lab, type-after). */
+  private propsAfterNoteRef(): RunProps | undefined {
+    const r = this.runBefore(this.selection.focus);
+    if (!r || (!r.noteRef && !isNoteMark(r))) return undefined;
+    const props = { ...r.props };
+    delete props.charStyle;
+    delete props.vertAlign;
+    return props;
+  }
+
+  /** Referências de nota no corpo (parágrafos e células), na ordem do documento. */
+  private noteRefs(kind?: NoteKind): NoteRefLoc[] {
+    const body = this.bodyState();
+    const out: NoteRefLoc[] = [];
+    const inPara = (p: Paragraph, key: number[], at: Omit<NoteRefLoc, 'kind' | 'id' | 'offset' | 'key'>): void => {
+      let off = 0;
+      for (const r of p.runs) {
+        if (r.noteRef && (!kind || r.noteRef.kind === kind)) out.push({ kind: r.noteRef.kind, id: r.noteRef.id, ...at, offset: off, key: [...key, off] });
+        off += r.text.length;
+      }
+    };
+    const anchorsAt = new Map<number, number[]>();
+    body.tableAnchors.forEach((a, i) => { const l = anchorsAt.get(a.beforePara) ?? []; l.push(i); anchorsAt.set(a.beforePara, l); });
+    const table = (ai: number): void => {
+      const t = body.tableAnchors[ai]!.table;
+      const P = body.tableAnchors[ai]!.beforePara;
+      t.rows.forEach((row, ri) => {
+        let col = row.trPr?.gridBefore ?? 0;
+        for (const c of row.cells) {
+          c.paragraphs.forEach((p, k) => inPara(p, [P, 0, ai, ri, col, k], { para: k, cell: { anchor: ai, hops: [{ r: ri, c: col }] } }));
+          col += Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1);
+        }
+      });
+    };
+    const n = body.model.paragraphs.length;
+    for (let pi = 0; pi <= n; pi++) {
+      for (const ai of anchorsAt.get(pi) ?? []) table(ai);
+      const p = body.model.paragraphs[pi];
+      if (p) inPara(p, [pi, 1, 0, 0, 0, 0], { para: pi });
+    }
+    return out;
+  }
+
+  /** Posição do cursor na ordem de noteRefs (para Próxima/Anterior). */
+  private caretKey(): number[] {
+    if (this.noteEdit) {
+      // dentro da nota: a posição da referência dela
+      const r = this.noteRefs(this.noteEdit.kind).find((x) => x.id === this.noteEdit!.id);
+      return r ? r.key : [this.noteEdit.saved.selection.focus.para, 1, 0, 0, 0, 0, this.noteEdit.saved.selection.focus.offset];
+    }
+    const f = this.selection.focus;
+    if (this.cellEdit) {
+      const a = this.tableAnchors[this.cellEdit.anchor];
+      const h = this.cellEdit.hops[0];
+      return [a?.beforePara ?? 0, 0, this.cellEdit.anchor, h?.r ?? 0, h?.c ?? 0, f.para, f.offset];
+    }
+    return [f.para, 1, 0, 0, 0, 0, f.offset];
+  }
+
+  /** Cursor numa posição do corpo ou de uma célula. */
+  private placeBodyCaret(at: { para: number; offset: number; cell?: { anchor: number; hops: CellHop[] } }): void {
+    if (this.noteEdit) this.exitNote();
+    if (at.cell) {
+      const caret = { para: at.para, offset: at.offset };
+      if (!this.cellEdit || this.cellEdit.anchor !== at.cell.anchor || !sameHops(this.cellEdit.hops, at.cell.hops)) this.enterCell(at.cell.anchor, at.cell.hops, caret);
+      this.selection = { anchor: caret, focus: caret };
+    } else {
+      if (this.cellEdit) this.exitCell();
+      this.selection = { anchor: { para: at.para, offset: at.offset }, focus: { para: at.para, offset: at.offset } };
+    }
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Pode inserir nota aqui? (corpo e células; o Word recusa em cabeçalho/rodapé,
+   *  caixa de texto e dentro de nota — oráculo notes-lab, fn-header) */
+  canInsertNote(): boolean {
+    return !!this.model && !!this.fullDoc && !this.locked() && !this.hfEdit && !this.tbEdit && !this.noteEdit && this.view !== 'read';
+  }
+
+  /** Insere uma nota de rodapé no cursor (no FIM da seleção, sem apagá-la) e leva o
+   *  cursor ao texto dela. `mark`: marca personalizada (não numerada). Devolve o id. */
+  insertFootnote(opts: { mark?: string } = {}): number | null { return this.insertNote('footnote', opts); }
+
+  /** Insere uma nota de fim no cursor (ver insertFootnote). */
+  insertEndnote(opts: { mark?: string } = {}): number | null { return this.insertNote('endnote', opts); }
+
+  private insertNote(kind: NoteKind, opts: { mark?: string }): number | null {
+    if (!this.canInsertNote()) return null;
+    const fd = this.fullDoc!;
+    this.snapshot();
+    // estilos de nota (os do documento ou os do Word) e as partes de notas, como o
+    // Word grava ao inserir a 1ª nota (oráculo notes-lab, fn-wb/en-wb)
+    const st = ensureNoteStyles(this.docStyles, kind);
+    this.commitStyles(st.xml);
+    if (this.pkg) ensureNoteParts(this.pkg);
+    const id = nextNoteId(fd, kind);
+    const mark = opts.mark?.trim();
+    const ref = noteRefRun(kind, id, st.ref);
+    if (mark) ref.noteRef!.custom = true;
+    const { end } = normalizeRange(this.range());
+    if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(end.para);
+    // (com o controle de alterações ligado, a referência entra como inserção)
+    let pos = this.insertWholeRun(end, ref);
+    if (mark) pos = this.insertTyped(pos, mark, { ...ref.props });
+    const paras = newNoteParagraphs(kind, st.text, st.ref);
+    if (mark) paras[0]!.runs[0] = { text: mark, props: { ...paras[0]!.runs[0]!.props } };
+    setNoteBlocks(fd, kind, id, paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.enterNote(kind, id, 'end');
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return id;
+  }
+
+  /** Quantas notas de cada tipo o documento referencia. */
+  noteCount(kind: NoteKind): number {
+    return new Set(this.noteRefs(kind).map((r) => r.id)).size;
+  }
+
+  /** Próxima nota (dir 1) ou anterior (-1) do tipo: no texto, o cursor vai para
+   *  ANTES da referência; dentro da área de notas, para o início da nota seguinte
+   *  (oráculo notes-lab, goto-next/goto-in-note). false = não há. */
+  nextNote(kind: NoteKind = 'footnote', dir: 1 | -1 = 1): boolean {
+    if (!this.model || this.hfEdit || this.tbEdit) return false;
+    const refs = this.noteRefs(kind);
+    if (this.noteEdit && this.noteEdit.kind === kind) {
+      const order = refs.map((r) => r.id).filter((id, i, a) => a.indexOf(id) === i);
+      const k = order.indexOf(this.noteEdit.id) + dir;
+      if (k < 0 || k >= order.length) return false;
+      this.enterNote(kind, order[k]!);
+      this.scrollCaretIntoView();
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    const cur = this.caretKey();
+    const cmp = (a: number[], b: number[]): number => { for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] ?? 0) - (b[i] ?? 0); if (d) return d; } return 0; };
+    const target = dir > 0 ? refs.find((r) => cmp(r.key, cur) > 0) : [...refs].reverse().find((r) => cmp(r.key, cur) < 0);
+    if (!target) return false;
+    this.placeBodyCaret(target);
+    return true;
+  }
+
+  /** Mostrar Notas: no texto, vai para a nota (do tipo dado, ou o que houver) da
+   *  referência no cursor ou da seguinte; dentro da nota, volta à referência
+   *  (cursor depois dela). false = sem notas. */
+  showNotes(kind?: NoteKind): boolean {
+    if (!this.model || this.hfEdit || this.tbEdit) return false;
+    if (this.noteEdit) return this.goToNoteRef(this.noteEdit.kind, this.noteEdit.id);
+    const k = kind ?? (this.noteCount('footnote') ? 'footnote' : 'endnote');
+    const refs = this.noteRefs(k);
+    if (!refs.length) return false;
+    const cur = this.caretKey();
+    const cmp = (a: number[], b: number[]): number => { for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] ?? 0) - (b[i] ?? 0); if (d) return d; } return 0; };
+    // a referência logo antes do cursor (cursor depois dela) ou a próxima
+    const before = [...refs].reverse().find((r) => cmp([...r.key.slice(0, -1), r.key[r.key.length - 1]! + 1], cur) === 0);
+    const r = before ?? refs.find((x) => cmp(x.key, cur) >= 0) ?? refs[refs.length - 1]!;
+    return this.openNote(r.kind, r.id);
+  }
+
+  /** Abre a nota para edição, cursor no fim do texto dela. */
+  openNote(kind: NoteKind, id: number): boolean {
+    if (!this.model || this.locked()) return false;
+    if (!this.noteRefs(kind).some((r) => r.id === id)) return false;
+    if (!this.enterNote(kind, id, 'end')) return false;
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Vai para a referência da nota no texto (cursor logo depois dela). */
+  goToNoteRef(kind: NoteKind, id: number): boolean {
+    if (this.noteEdit) this.exitNote();
+    const r = this.noteRefs(kind).find((x) => x.id === id);
+    if (!r) return false;
+    const p = r.cell ? undefined : this.model?.paragraphs[r.para];
+    let len = 1;
+    if (p) { let acc = 0; for (const run of p.runs) { if (acc === r.offset && run.noteRef) { len = run.text.length; break; } acc += run.text.length; } }
+    this.placeBodyCaret({ ...r, offset: r.offset + len });
+    return true;
+  }
+
+  /** Opções de nota da seção do cursor (formato, início, numeração, local, colunas). */
+  getNoteOptions(kind: NoteKind = 'footnote'): NoteOptions {
+    const m = this.bodyModel();
+    const sp = sectionSectPr(m, sectionIndexAt(m, this.bodyCaretPara()));
+    return effectiveNoteOptions(kind, this.noteSettings[kind], kind === 'footnote' ? sp.footnotePr : sp.endnotePr, kind === 'footnote' ? sp.footnoteColumns : undefined);
+  }
+
+  /**
+   * Muda as opções de nota, como o diálogo "Notas de Rodapé e de Fim": em toda a
+   * seção do cursor (`section`) ou no documento (`document`, padrão). O Word grava
+   * no sectPr das seções alcançadas e, no documento (ou na 1ª seção), no settings;
+   * o local da nota de fim só no settings (oráculo notes-lab, opt-* / sec2-*). Com
+   * numeração que reinicia (seção/página), o início é 1 (o Word recusa outro).
+   */
+  setNoteOptions(kind: NoteKind, o: Partial<NoteOptions>, scope: 'section' | 'document' = 'document'): void {
+    if (!this.model || this.locked()) return;
+    const cur = this.getNoteOptions(kind);
+    const next: NoteOptions = { ...cur, ...o };
+    if (kind === 'endnote' && next.restart === 'eachPage') next.restart = 'continuous';
+    if (next.restart !== 'continuous') next.startAt = 1;
+    next.startAt = Math.max(1, Math.round(next.startAt));
+    this.snapshot();
+    const m = this.bodyModel();
+    const ranges = sectionRanges(m);
+    const k = sectionIndexAt(m, this.bodyCaretPara());
+    const targets = scope === 'document' ? ranges.map((_, i) => i) : [k];
+    const fnLike = kind === 'footnote';
+    const sectProps = notePropsOf(kind, next, fnLike);
+    for (const i of targets) {
+      const sp = sectionSectPr(m, i);
+      if (fnLike) {
+        if (sectProps) sp.footnotePr = sectProps; else delete sp.footnotePr;
+        if (o.columns !== undefined) { if (next.columns) sp.footnoteColumns = next.columns; else delete sp.footnoteColumns; }
+      } else if (sectProps) sp.endnotePr = sectProps; else delete sp.endnotePr;
+    }
+    // o settings: no documento, ou quando a seção é a 1ª (o Word espelha a 1ª)
+    if (scope === 'document' || k === 0 || (!fnLike && o.position !== undefined)) {
+      const docProps = notePropsOf(kind, scope === 'document' || k === 0 ? next : { ...effectiveNoteOptions(kind, this.noteSettings[kind], undefined), position: next.position }, true);
+      if (docProps) this.noteSettings = { ...this.noteSettings, [kind]: docProps };
+      else { const ns = { ...this.noteSettings }; delete ns[kind]; this.noteSettings = ns; }
+    }
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /**
+   * Converte notas: todas as de rodapé em de fim, as de fim em de rodapé, ou troca
+   * as duas (diálogo Converter), ou só uma (`only`). O conteúdo passa a usar os
+   * estilos de nota do outro tipo (oráculo notes-lab, cv-*).
+   */
+  convertNotes(mode: 'toEndnotes' | 'toFootnotes' | 'swap', only?: { kind: NoteKind; id: number }): number {
+    if (!this.model || !this.fullDoc || this.locked() || this.hfEdit || this.tbEdit) return 0;
+    const fd = this.fullDoc;
+    const from = (k: NoteKind): boolean => (only ? only.kind === k : mode === 'swap' || (mode === 'toEndnotes' ? k === 'footnote' : k === 'endnote'));
+    const refs = this.noteRefs().filter((r) => from(r.kind) && (!only || r.id === only.id));
+    if (!refs.length) return 0;
+    const inNote = this.noteEdit;
+    if (inNote) this.exitNote();
+    this.snapshot();
+    const styles = { footnote: ensureNoteStyles(this.docStyles, 'footnote'), endnote: ensureNoteStyles(this.docStyles, 'endnote') };
+    // as duas folhas: a segunda chamada parte da que a primeira já mudou
+    this.commitStyles(styles.footnote.xml);
+    styles.endnote = ensureNoteStyles(this.docStyles, 'endnote');
+    this.commitStyles(styles.endnote.xml);
+    const newIds = new Map<string, number>();
+    const next = { footnote: nextNoteId(fd, 'footnote'), endnote: nextNoteId(fd, 'endnote') };
+    for (const r of refs) {
+      const to: NoteKind = r.kind === 'footnote' ? 'endnote' : 'footnote';
+      const key = `${r.kind}:${r.id}`;
+      let nid = newIds.get(key);
+      if (nid === undefined) {
+        nid = next[to]++;
+        newIds.set(key, nid);
+        // cópia (o desfazer volta as referências para as notas antigas, intactas)
+        const blocks = cloneBlocks(noteBlocks(fd, r.kind, r.id) ?? []);
+        convertNoteContent(blocks, to, { from: styles[r.kind], to: styles[to] });
+        setNoteBlocks(fd, to, nid, blocks);
+      }
+      const p = r.cell ? resolveCell(this.tableAnchors[r.cell.anchor]!.table, r.cell.hops)?.paragraphs[r.para] : this.model.paragraphs[r.para];
+      let acc = 0;
+      for (const run of p?.runs ?? []) {
+        if (acc === r.offset && run.noteRef) {
+          run.noteRef = { ...run.noteRef, kind: to, id: nid };
+          if (run.props.charStyle === styles[r.kind].ref) run.props = { ...run.props, charStyle: styles[to].ref };
+          break;
+        }
+        acc += run.text.length;
+      }
+    }
+    if (this.pkg) ensureNoteParts(this.pkg);
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return newIds.size;
+  }
 
   /** Tab/Shift+Tab: próxima/anterior célula da mesma tabela (como o Word). */
   private moveCell(dir: 1 | -1): boolean {

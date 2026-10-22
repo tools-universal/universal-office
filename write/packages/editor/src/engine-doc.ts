@@ -255,6 +255,8 @@ export type LineLoc =
   | { kind: 'cell'; anchor: number; hops: CellHop[]; block: number }
   /** cabeçalho/rodapé: parte usada na página e caminho nos blocos dela */
   | { kind: 'hf'; which: 'hdr' | 'ftr'; part: HfKind; path: string[] }
+  /** nota de rodapé/fim: id e caminho nos blocos dela ("fn3/b0", "en2/b1/r0/c0/b0") */
+  | { kind: 'note'; note: 'footnote' | 'endnote'; id: number; path: string[] }
   | { kind: 'other'; root: string };
 
 export type HfKind = 'first' | 'even' | 'default';
@@ -264,6 +266,8 @@ export function locateRef(ref: string, origins: readonly BlockOrigin[]): LineLoc
   const parts = ref.split('/');
   const hf = /^(hdr|ftr):(first|even|default)$/.exec(parts[0]!);
   if (hf) return { kind: 'hf', which: hf[1] as 'hdr' | 'ftr', part: hf[2] as HfKind, path: parts.slice(1) };
+  const note = /^(fn|en)(\d+)$/.exec(parts[0]!);
+  if (note) return { kind: 'note', note: note[1] === 'fn' ? 'footnote' : 'endnote', id: +note[2]!, path: parts.slice(1) };
   const m = /^b(\d+)$/.exec(parts[0]!);
   if (!m) return { kind: 'other', root: parts[0]! };
   const o = origins[+m[1]!];

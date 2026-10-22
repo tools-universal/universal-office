@@ -117,7 +117,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,fuzz,sections,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,fuzz,sections,notes,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -748,6 +748,136 @@ if (want('sections')) {
   check('Orientação vale só para a seção do cursor e gira as margens', geo.length === 2 && !geo[0][0] && geo[1][0] && geo[1][1] === 1701, geo);
   const pages = (await st()).pages;
   check('contínua para outra orientação começa página nova (Word)', pages >= 2, pages);
+}
+
+// ───────────── notas de rodapé e de fim (documento sintético) ─────────────
+if (want('notes')) {
+  await ev('synthetic', 6, 40);
+  const N = () => page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    const refs = e.eng.lines.filter((l) => /^(fn|en)\d+/.test(l.line.ref)).map((l) => l.line.ref);
+    return { note: e.editingNote(), sel: e.selection.focus, fn: e.noteCount('footnote'), en: e.noteCount('endnote'), refs, body: e.bodyModel().paragraphs.map((p) => p.runs.map((r) => r.text).join('')) };
+  });
+  const at = (para, offset = 0) => page.evaluate(({ para, offset }) => { document.querySelector('universal-write').selection = { anchor: { para, offset }, focus: { para, offset } }; }, { para, offset });
+  // clique para o foco ir ao documento; o cursor fica depois de 'lorem ipsu'
+  let p0 = await ev('clientAt', 0, 11);
+  await page.mouse.click(p0.x, p0.y);
+  await at(0, 11);
+  await page.keyboard.press('Control+Alt+f');
+  await page.keyboard.type('Primeira nota');
+  let s = await N();
+  check('Ctrl+Alt+F insere a nota e o cursor vai para o texto dela', s.note?.kind === 'footnote' && s.fn === 1 && s.refs.some((r) => /^fn1\//.test(r)) && s.sel.offset === 15, s);
+  let cg = await ev('caretVsGlyphs');
+  check('cursor = glifos na área de notas', cg.bad.length === 0 && cg.checked >= 10, cg);
+  // a marca da nota e o espaço vêm antes do texto (como o Word grava)
+  const txt = await ev('text', 0);
+  check('nota nova: marca + espaço + texto', txt === '￼ Primeira nota', txt);
+  // clique no corpo sai da nota; clique na nota volta
+  let p = await ev('clientOfRef', /^b2$/);
+  await page.mouse.click(p.x, p.y);
+  s = await N();
+  check('clique no corpo sai da nota', !s.note && s.sel.para === 2, s.sel);
+  p = await ev('clientOfRef', /^fn1\//);
+  await page.mouse.click(p.x, p.y);
+  s = await N();
+  check('clique na área de notas entra na nota', s.note?.id === 1, s.note);
+  // desfazer único (corpo + nota): no corpo, Ctrl+Z desfaz a digitação da nota
+  p = await ev('clientOfRef', /^b2$/);
+  await page.mouse.click(p.x, p.y);
+  // (cada tecla é um passo de desfazer)
+  for (let k = 0; k < 'Primeira nota'.length; k++) await page.keyboard.press('Control+z');
+  s = await N();
+  check('desfazer no corpo volta à nota e desfaz o texto dela', s.note?.id === 1 && (await ev('text', 0)) === '￼ ', { note: s.note, t: await ev('text', 0) });
+  await page.keyboard.press('Control+z');
+  s = await N();
+  check('desfazer de novo tira a nota (cursor no corpo)', !s.note && s.fn === 0 && s.sel.para === 0 && s.sel.offset === 11, s);
+  for (let k = 0; k <= 'Primeira nota'.length; k++) await page.keyboard.press('Control+y');
+  s = await N();
+  check('refazer devolve a nota com o texto', s.fn === 1 && s.note?.id === 1 && (await ev('text', 0)) === '￼ Primeira nota', s);
+  // Esc volta à referência (cursor depois dela)
+  await page.keyboard.press('Escape');
+  s = await N();
+  check('Esc na nota volta para depois da referência', !s.note && s.sel.para === 0 && s.sel.offset === 12, s.sel);
+  // digitar logo depois da referência não leva o estilo de referência
+  await page.keyboard.type('Z');
+  const runs = (await ev('paras'))[0].runs;
+  const z = runs.find((r) => r.text.includes('Z'));
+  check('texto digitado depois da referência sem o estilo dela', z && !z.charStyle, runs.slice(0, 4));
+  await page.keyboard.press('Control+z');
+  // Backspace logo depois da referência: o 1º seleciona, o 2º apaga a nota
+  await at(0, 12);
+  await page.keyboard.press('Backspace');
+  s = await N();
+  const selA = await page.evaluate(() => document.querySelector('universal-write').selection.anchor);
+  check('1º Backspace depois da referência só a seleciona', s.fn === 1 && selA.offset === 11 && s.sel.offset === 12, { selA, sel: s.sel });
+  await page.keyboard.press('Backspace');
+  s = await N();
+  check('2º Backspace apaga a referência e a nota', s.fn === 0 && !s.refs.length, s);
+  await page.keyboard.press('Control+z');
+  s = await N();
+  check('desfazer traz a nota de volta', s.fn === 1, s);
+  // nota de fim: no fim do documento, numeração i, ii
+  await at(3, 6);
+  await page.keyboard.press('Control+Alt+d');
+  await page.keyboard.type('Nota de fim');
+  s = await N();
+  check('Ctrl+Alt+D insere nota de fim (fim do documento)', s.note?.kind === 'endnote' && s.en === 1 && s.refs.some((r) => /^en1\//.test(r)), s);
+  const enMark = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    const pg = e.eng.result.pages[e.eng.result.pages.length - 1];
+    return pg.items.filter((i) => i.t === 'glyphs').map((i) => i.glyphs.map((g) => String.fromCodePoint(g.cp)).join('')).join('|');
+  });
+  check('nota de fim numerada i (romanos minúsculos por padrão)', /\|i\|/.test(`|${enMark}|`), enMark.slice(-80));
+  // Próxima / Anterior e Mostrar Notas
+  await page.keyboard.press('Escape');
+  await at(0, 0);
+  await call('nextNote', 'footnote', 1);
+  s = await N();
+  check('Próxima nota de rodapé: cursor antes da referência', !s.note && s.sel.para === 0 && s.sel.offset === 11, s.sel);
+  await call('nextNote', 'endnote', 1);
+  s = await N();
+  check('Próxima nota de fim', s.sel.para === 3 && s.sel.offset === 6, s.sel);
+  await at(0, 12);
+  await call('showNotes', 'footnote');
+  s = await N();
+  check('Mostrar Notas vai da referência à nota', s.note?.kind === 'footnote' && s.note.id === 1, s.note);
+  await call('showNotes');
+  s = await N();
+  check('Mostrar Notas na nota volta à referência', !s.note && s.sel.offset === 12, s.sel);
+  // duplo clique na referência abre a nota
+  p = await ev('clientAt', 0, 11);
+  await page.mouse.dblclick(p.x + 2, p.y);
+  s = await N();
+  check('duplo clique na referência abre a nota', s.note?.kind === 'footnote', s.note);
+  await page.keyboard.press('Escape');
+  // opções: romanos no rodapé, documento inteiro
+  await call('setNoteOptions', 'footnote', { numberFormat: 'upperRoman', startAt: 3 });
+  const fnMark = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    return e.eng.result.pages[0].items.filter((i) => i.t === 'glyphs').map((i) => i.glyphs.map((g) => String.fromCodePoint(g.cp)).join('')).join('|');
+  });
+  check('Formato I, II e início 3 na nota de rodapé', /\|III\|/.test(`|${fnMark}|`), fnMark.slice(0, 120));
+  // converter: a nota de rodapé vira de fim
+  const n = await call('convertNotes', 'toEndnotes');
+  s = await N();
+  check('Converter rodapé → fim', n === 1 && s.fn === 0 && s.en === 2, s);
+  await page.keyboard.press('Control+z');
+  s = await N();
+  check('desfazer a conversão', s.fn === 1 && s.en === 1, s);
+  // copiar/colar a referência cria uma nota nova com o mesmo texto
+  await page.evaluate(() => { const e = document.querySelector('universal-write'); e.selection = { anchor: { para: 0, offset: 11 }, focus: { para: 0, offset: 12 } }; });
+  await call('copy');
+  await at(4, 3);
+  await page.evaluate(() => { const e = document.querySelector('universal-write'); e.insertRich(e.richClip); });
+  s = await N();
+  const texts = await page.evaluate(() => [...document.querySelector('universal-write').fullDoc.footnotes.entries()].map(([k, ps]) => [k, ps.map((pp) => pp.runs.map((r) => r.text).join('')).join('')]));
+  check('colar a referência cria nota nova com cópia do texto', s.fn === 2 && texts.filter(([, t]) => t.includes('Primeira nota')).length === 2, texts);
+  // salvar e reabrir: notas, estilos e opções voltam
+  const b64 = await ev('saveBase64');
+  await ev('openBase64', b64);
+  s = await N();
+  const opts = await call('getNoteOptions', 'footnote');
+  check('salvar e reabrir mantém as notas e as opções', s.fn === 2 && s.en === 1 && opts.numberFormat === 'upperRoman' && opts.startAt === 3, { s, opts });
 }
 
 // ───────────── desempenho ─────────────

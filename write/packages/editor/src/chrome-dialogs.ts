@@ -431,3 +431,140 @@ export async function spellingDialog(env: Env): Promise<void> {
   });
   await h.result;
 }
+
+// ───────────────────────── notas de rodapé e de fim ─────────────────────────
+
+type NoteKind = 'footnote' | 'endnote';
+const radio = (name: string, value: string, label: string, on: boolean): HTMLLabelElement =>
+  el('label', { className: 'uo-check' }, el('input', { type: 'radio', name, value, checked: on }), label);
+
+/**
+ * Diálogo "Notas de Rodapé e de Fim": local (rodapé: fim da página/abaixo do
+ * texto; fim: fim do documento/da seção), colunas da área de notas, formato do
+ * número, marca personalizada, início, numeração e a quem se aplica; Converter…
+ * Inserir aplica e insere a nota; Aplicar só muda as opções.
+ */
+export async function notesDialog(env: Env): Promise<void> {
+  const lang = env.lang, ed = env.ed;
+  const T = (en: string, pt: string): string => tr(lang, en, pt);
+  let kind: NoteKind = ed.editingNote()?.kind ?? 'footnote';
+  const st = { footnote: ed.getNoteOptions('footnote'), endnote: ed.getNoteOptions('endnote') };
+  const fnRadio = radio('kind', 'footnote', T('Footnotes:', 'Notas de rodapé:'), kind === 'footnote');
+  const enRadio = radio('kind', 'endnote', T('Endnotes:', 'Notas de fim:'), kind === 'endnote');
+  const fnPos = select('fnPos', [['pageBottom', T('Bottom of page', 'Fim da página')], ['beneathText', T('Below text', 'Abaixo do texto')]], st.footnote.position);
+  const enPos = select('enPos', [['docEnd', T('End of document', 'Fim do documento')], ['sectEnd', T('End of section', 'Fim da seção')]], st.endnote.position);
+  const convert = el('button', { type: 'button', className: 'uo-pill', textContent: T('Convert…', 'Converter…') });
+  const columns = select('columns', [['0', T('Match section layout', 'Coincidir layout de seção')], ['1', T('1 column', '1 coluna')], ['2', T('2 columns', '2 colunas')], ['3', T('3 columns', '3 colunas')], ['4', T('4 columns', '4 colunas')]], String(st.footnote.columns ?? 0));
+  const format = select('format', [
+    ['decimal', '1, 2, 3, …'], ['lowerLetter', 'a, b, c, …'], ['upperLetter', 'A, B, C, …'],
+    ['lowerRoman', 'i, ii, iii, …'], ['upperRoman', 'I, II, III, …'], ['chicago', '*, †, ‡, §, …'],
+  ], st[kind].numberFormat);
+  const mark = el('input', { type: 'text', name: 'mark', maxLength: 10, style: 'width:72px' });
+  mark.setAttribute('aria-label', T('Custom mark', 'Marca personalizada'));
+  const symbols = el('div', { style: 'display:flex;gap:4px;flex-wrap:wrap' });
+  for (const ch of ['*', '†', '‡', '§', '¶', '‖', '#', '※', '¹', '²', '³']) {
+    const b = el('button', { type: 'button', className: 'uo-btn', textContent: ch, title: ch, style: 'min-width:28px;font:inherit' });
+    b.addEventListener('click', () => { mark.value += ch; mark.focus(); });
+    symbols.append(b);
+  }
+  const startAt = el('input', { type: 'number', name: 'startAt', min: '1', step: '1', value: String(st[kind].startAt), style: 'width:72px' });
+  const restart = select('restart', [['continuous', T('Continuous', 'Contínua')], ['eachSect', T('Restart each section', 'Reiniciar a cada seção')], ['eachPage', T('Restart each page', 'Reiniciar a cada página')]], st[kind].restart);
+  const scope = select('scope', [['document', T('Whole document', 'Todo o documento')], ['section', T('This section', 'Esta seção')]], 'document');
+
+  /** mostra as opções do tipo escolhido (cada tipo guarda as suas) */
+  const show = (): void => {
+    format.value = st[kind].numberFormat;
+    startAt.value = String(st[kind].startAt);
+    restart.value = st[kind].restart;
+    (restart.querySelector('option[value="eachPage"]') as HTMLOptionElement).disabled = kind === 'endnote';
+    columns.disabled = kind !== 'footnote';
+    fnPos.disabled = kind !== 'footnote';
+    enPos.disabled = kind !== 'endnote';
+    // com numeração que reinicia o início é 1 (o Word recusa outro)
+    startAt.disabled = restart.value !== 'continuous';
+  };
+  /** guarda os campos no tipo corrente */
+  const keep = (): void => {
+    const o = st[kind];
+    o.numberFormat = format.value;
+    o.restart = restart.value as typeof o.restart;
+    o.startAt = o.restart === 'continuous' ? Math.max(1, Math.round(Number(startAt.value) || 1)) : 1;
+    st.footnote.position = fnPos.value;
+    st.footnote.columns = Number(columns.value);
+    st.endnote.position = enPos.value;
+  };
+  for (const r of [fnRadio, enRadio]) r.querySelector('input')!.addEventListener('change', (e) => { keep(); kind = (e.target as HTMLInputElement).value as NoteKind; show(); });
+  restart.addEventListener('change', () => { if (restart.value !== 'continuous') startAt.value = '1'; startAt.disabled = restart.value !== 'continuous'; });
+  show();
+
+  const grid = (...rows: [string, ...(Node | string)[]][]): HTMLElement => el('div', { className: 'uo-dialog-grid' }, ...rows.flatMap(([label, ...kids]) => [el('span', {}, label), el('span', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' }, ...kids)]));
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
+    el('strong', {}, T('Location', 'Local')),
+    el('div', { className: 'uo-dialog-grid' }, fnRadio, fnPos, enRadio, enPos),
+    el('div', {}, convert),
+    el('strong', {}, T('Footnote layout', 'Layout de nota de rodapé')),
+    grid([T('Columns:', 'Colunas:'), columns]),
+    el('strong', {}, T('Format', 'Formato')),
+    grid([T('Number format:', 'Formato do número:'), format], [T('Custom mark:', 'Marca personalizada:'), mark], [T('Symbol:', 'Símbolo:'), symbols], [T('Start at:', 'Iniciar em:'), startAt], [T('Numbering:', 'Numeração:'), restart]),
+    el('strong', {}, T('Apply changes', 'Aplicar alterações')),
+    grid([T('Apply changes to:', 'Aplicar alterações a:'), scope]));
+  convert.addEventListener('click', () => { void convertNotesDialog(env); });
+  const canInsert = ed.canInsertNote();
+  const h = openDialog({ title: T('Footnote and Endnote', 'Notas de Rodapé e de Fim'), icon: 'notes', body, layer: env.layer, lang, width: 480,
+    actions: [
+      ...(canInsert ? [{ id: 'insert', label: T('Insert', 'Inserir'), primary: true }] : []),
+      { id: 'cancel', label: env.app.ui!.L.cancel },
+      { id: 'apply', label: env.app.ui!.L.apply, primary: !canInsert },
+    ] });
+  const res = await h.result;
+  if (res !== 'insert' && res !== 'apply') return;
+  keep();
+  const sc = scope.value as 'section' | 'document';
+  // (as opções dos dois tipos valem, como no Word)
+  ed.setNoteOptions('footnote', st.footnote, sc);
+  ed.setNoteOptions('endnote', st.endnote, sc);
+  if (res === 'insert') {
+    const m = mark.value.trim();
+    if (kind === 'footnote') ed.insertFootnote(m ? { mark: m } : {});
+    else ed.insertEndnote(m ? { mark: m } : {});
+  }
+}
+
+/** Converter Notas: todas as de rodapé em de fim, as de fim em de rodapé ou trocar. */
+export async function convertNotesDialog(env: Env): Promise<void> {
+  const lang = env.lang, ed = env.ed;
+  const T = (en: string, pt: string): string => tr(lang, en, pt);
+  const nf = ed.noteCount('footnote'), ne = ed.noteCount('endnote');
+  const opts: [string, string, boolean][] = [
+    ['toEndnotes', T('Convert all footnotes to endnotes', 'Converter todas as notas de rodapé em notas de fim'), nf > 0],
+    ['toFootnotes', T('Convert all endnotes to footnotes', 'Converter todas as notas de fim em notas de rodapé'), ne > 0],
+    ['swap', T('Swap footnotes and endnotes', 'Trocar notas de rodapé e notas de fim'), nf > 0 && ne > 0],
+  ];
+  const first = opts.find((o) => o[2])?.[0];
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, ...opts.map(([v, label, on]) => {
+    const r = radio('convert', v, label, v === first);
+    r.querySelector('input')!.disabled = !on;
+    return r;
+  }));
+  const h = openDialog({ title: T('Convert Notes', 'Converter Notas'), icon: 'autorenew', body, layer: env.layer, lang, width: 420,
+    actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
+  if ((await h.result) !== 'ok' || !first) return;
+  const v = (body.querySelector('input[name="convert"]:checked') as HTMLInputElement | null)?.value;
+  if (v) ed.convertNotes(v as 'toEndnotes' | 'toFootnotes' | 'swap');
+}
+
+/** Mostrar Notas com os dois tipos no documento: qual área exibir (como o Word). */
+export async function showNotesDialog(env: Env): Promise<void> {
+  const lang = env.lang, ed = env.ed;
+  const T = (en: string, pt: string): string => tr(lang, en, pt);
+  if (ed.editingNote() || !ed.noteCount('footnote') || !ed.noteCount('endnote')) { ed.showNotes(); return; }
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px' },
+    el('span', {}, T('This document contains both footnotes and endnotes. Which do you want to view?', 'Este documento contém notas de rodapé e notas de fim. Qual área você deseja exibir?')),
+    radio('area', 'footnote', T('View footnote area', 'Exibir área de notas de rodapé'), true),
+    radio('area', 'endnote', T('View endnote area', 'Exibir área de notas de fim'), false));
+  const h = openDialog({ title: T('Show Notes', 'Mostrar Notas'), icon: 'notes', body, layer: env.layer, lang, width: 420,
+    actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
+  if ((await h.result) !== 'ok') return;
+  const v = (body.querySelector('input[name="area"]:checked') as HTMLInputElement | null)?.value as NoteKind | undefined;
+  ed.showNotes(v ?? 'footnote');
+}

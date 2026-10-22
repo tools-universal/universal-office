@@ -16,7 +16,7 @@ import {
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
-import { aboutDialog, authorDialog, columnsDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, fontDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { ReviewPane, type PaneDir } from './chrome-review.js';
 import { originStore } from './chrome-store.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
@@ -205,7 +205,7 @@ interface ChromeHandle { sync: () => void }
 type Mode = 'compact' | 'ribbon';
 
 /** Atalhos que o próprio editor já trata (não roubar). */
-const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter']);
+const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter', 'Ctrl+Alt+F', 'Ctrl+Alt+D']);
 
 /** Atalhos de APLICATIVO (valem até com o foco fora do documento). */
 const APP_SHORTCUTS = new Set(['open', 'save', 'saveAs', 'print', 'find', 'replace']);
@@ -368,6 +368,9 @@ class WriteChrome {
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: () => { void pageDialog(d()).then(() => this.after()); },
       columnsDialog: () => { void columnsDialog(d()).then(() => this.after()); },
+      notesDialog: () => { void notesDialog(d()).then(() => this.after()); },
+      convertNotesDialog: () => { void convertNotesDialog(d()).then(() => this.after()); },
+      showNotes: () => { void showNotesDialog(d()).then(() => this.after()); },
       wordCount: () => wordCountDialog(d()),
       spelling: () => { void spellingDialog(d()).then(() => this.after()); },
       shortcuts: () => shortcutsDialog(d()),
@@ -705,8 +708,10 @@ class WriteChrome {
       const at = { x: e.clientX, y: e.clientY };
       const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', ...(ed.getTableState() ? tableContextItems() : []), 'bold', 'italic', 'underline', '-',
         'link', 'comment', '-', 'list:bullet', 'list:decimal', '-', 'find', 'selectAll'];
+      // dentro de uma nota: ir para a referência, converter e as opções (como o Word)
+      const noteItems: MenuEntry[] = ed.editingNote() ? ['note:goRef', 'note:toEndnote', 'note:toFootnote', 'dlg:notes', '-'] : [];
       const open = (pre: MenuEntry[]): void => {
-        openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+        openMenu([...pre, ...noteItems, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
       };
       // revisão sob o clique: Aceitar/Rejeitar no topo, como o Word
       const rv = typeof ed.revisionAtCaret === 'function' ? ed.revisionAtCaret() : null;

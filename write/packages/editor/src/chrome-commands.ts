@@ -22,6 +22,10 @@ export interface ChromeCtl {
   pageDialog(): void;
   /** diálogo Mais Colunas */
   columnsDialog(): void;
+  /** diálogo Notas de Rodapé e de Fim, Converter Notas e Mostrar Notas (que pergunta a área) */
+  notesDialog(): void;
+  convertNotesDialog(): void;
+  showNotes(): void;
   wordCount(): void;
   /** diálogo Ortografia (F7) */
   spelling(): void;
@@ -135,8 +139,19 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     { id: 'hf:close', label: { en: 'Close Header and Footer', pt: 'Fechar Cabeçalho e Rodapé' }, icon: 'close', run: () => ed.exitHeaderFooter() },
     edit({ id: 'toc', label: { en: 'Update table of contents', pt: 'Atualizar sumário' }, icon: 'toc', run: () => ctl.flash(ed.updateToc() ? L.tocUpdated : L.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
-    edit({ id: 'footnote', label: { en: 'Footnote', pt: 'Nota de rodapé' }, tip: { en: 'Insert footnote', pt: 'Inserir nota de rodapé' }, icon: 'notes', shortcut: 'Ctrl+Alt+F', supports: has('insertFootnote'), run: () => call('insertFootnote') }),
-    edit({ id: 'endnote', label: { en: 'Endnote', pt: 'Nota de fim' }, tip: { en: 'Insert endnote', pt: 'Inserir nota de fim' }, icon: 'short_text', shortcut: 'Ctrl+Alt+D', supports: has('insertEndnote'), run: () => call('insertEndnote') }),
+    edit({ id: 'footnote', label: { en: 'Footnote', pt: 'Nota de rodapé' }, tip: { en: 'Insert footnote', pt: 'Inserir nota de rodapé' }, icon: 'notes', shortcut: 'Ctrl+Alt+F', supports: has('insertFootnote'), isEnabled: () => ed.canInsertNote(), run: () => call('insertFootnote') }),
+    edit({ id: 'endnote', label: { en: 'Endnote', pt: 'Nota de fim' }, tip: { en: 'Insert endnote', pt: 'Inserir nota de fim' }, icon: 'short_text', shortcut: 'Ctrl+Alt+D', supports: has('insertEndnote'), isEnabled: () => ed.canInsertNote(), run: () => call('insertEndnote') }),
+    // notas: navegar, mostrar, opções e converter
+    { id: 'note:next', label: { en: 'Next Footnote', pt: 'Próxima Nota de Rodapé' }, tip: { en: 'Go to the next footnote', pt: 'Ir para a próxima nota de rodapé' }, icon: 'keyboard_arrow_down', supports: has('nextNote'), isEnabled: () => ed.noteCount('footnote') > 0, run: () => { ed.nextNote('footnote', 1); } },
+    { id: 'note:prev', label: { en: 'Previous Footnote', pt: 'Nota de Rodapé Anterior' }, icon: 'keyboard_arrow_up', supports: has('nextNote'), isEnabled: () => ed.noteCount('footnote') > 0, run: () => { ed.nextNote('footnote', -1); } },
+    { id: 'note:nextEnd', label: { en: 'Next Endnote', pt: 'Próxima Nota de Fim' }, icon: 'keyboard_arrow_down', supports: has('nextNote'), isEnabled: () => ed.noteCount('endnote') > 0, run: () => { ed.nextNote('endnote', 1); } },
+    { id: 'note:prevEnd', label: { en: 'Previous Endnote', pt: 'Nota de Fim Anterior' }, icon: 'keyboard_arrow_up', supports: has('nextNote'), isEnabled: () => ed.noteCount('endnote') > 0, run: () => { ed.nextNote('endnote', -1); } },
+    { id: 'note:show', label: { en: 'Show Notes', pt: 'Mostrar Notas' }, tip: { en: 'Go from the reference to the note and back', pt: 'Vai da referência à nota e volta' }, icon: 'visibility', supports: has('showNotes'), isEnabled: () => ed.noteCount('footnote') + ed.noteCount('endnote') > 0, run: () => ctl.showNotes() },
+    edit({ id: 'dlg:notes', label: { en: 'Footnote and Endnote…', pt: 'Notas de Rodapé e de Fim…' }, tip: { en: 'Location, number format and numbering of the notes', pt: 'Local, formato e numeração das notas' }, icon: 'notes', supports: has('setNoteOptions'), run: () => ctl.notesDialog() }),
+    edit({ id: 'note:convert', label: { en: 'Convert Notes…', pt: 'Converter Notas…' }, icon: 'autorenew', supports: has('convertNotes'), isEnabled: () => ed.noteCount('footnote') + ed.noteCount('endnote') > 0, run: () => ctl.convertNotesDialog() }),
+    { id: 'note:goRef', label: { en: 'Go to Reference', pt: 'Ir para a Referência' }, icon: 'keyboard_arrow_up', supports: () => !!ed.editingNote(), run: () => { const n = ed.editingNote(); if (n) ed.goToNoteRef(n.kind, n.id); } },
+    edit({ id: 'note:toEndnote', label: { en: 'Convert to Endnote', pt: 'Converter em Nota de Fim' }, icon: 'autorenew', supports: () => ed.editingNote()?.kind === 'footnote', run: () => { const n = ed.editingNote(); if (n) ed.convertNotes('toEndnotes', n); } }),
+    edit({ id: 'note:toFootnote', label: { en: 'Convert to Footnote', pt: 'Converter em Nota de Rodapé' }, icon: 'autorenew', supports: () => ed.editingNote()?.kind === 'endnote', run: () => { const n = ed.editingNote(); if (n) ed.convertNotes('toFootnotes', n); } }),
     edit({ id: 'bookmark', label: { en: 'Bookmark', pt: 'Indicador' }, icon: 'bookmark', supports: has('insertBookmark'), run: () => call('insertBookmark') }),
     edit({ id: 'textbox', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', supports: has('insertTextbox'), run: () => call('insertTextbox') }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)

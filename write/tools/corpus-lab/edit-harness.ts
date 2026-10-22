@@ -169,7 +169,7 @@ w.ed = {
     const e = need();
     return {
       engine: !!e.eng, pages: e.pageCount, sel: e.selection,
-      cell: !!e.cellEdit, hf: !!e.hfEdit, tb: !!e.tbEdit, view: e.getView(),
+      cell: !!e.cellEdit, hf: !!e.hfEdit, tb: !!e.tbEdit, note: e.editingNote(), view: e.getView(),
       paras: e.model?.paragraphs.length ?? 0, undo: e.undoStack.length, stats: e.engineStats,
     };
   },
