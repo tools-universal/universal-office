@@ -198,11 +198,12 @@ public static class TableEngine
         }
         var a = new CellContent { Height = cut, Paras = paras };
         var b = new CellContent { Height = Math.Max(0, c.Height - cutB), Paras = paras };
+        var moved = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
         foreach (var it in c.Items)
         {
             double y = ItemTop(it);
             if (y < cut) a.Items.Add(it);
-            else b.Items.Add(ShiftItem(it, -cutB));
+            else { var s = ShiftItem(it, -cutB); moved[it] = s; b.Items.Add(s); }
         }
         foreach (var l in c.Lines)
         {
@@ -212,9 +213,20 @@ public static class TableEngine
                 var nl = l.ShallowClone();
                 nl.Y = l.Y - cutB;
                 nl.Baseline = l.Baseline - cutB;
+                moved[l] = nl;
                 b.Lines.Add(nl);
             }
         }
+        // linhas aninhadas inteiras de cada lado (o corte não as cruza)
+        var na = (c.Nest ?? new List<NestRow>()).Where(n => n.Top < cut).ToList();
+        var nb = (c.Nest ?? new List<NestRow>()).Where(n => n.Top >= cut).Select(n => new NestRow
+        {
+            Top = n.Top - cutB, Row = n.Row,
+            Items = n.Items.Select(it => moved.TryGetValue(it, out var mv) ? (PageItem)mv : it).ToList(),
+            Lines = n.Lines.Select(l => moved.TryGetValue(l, out var mv) ? (LaidOutLine)mv : l).ToList(),
+        }).ToList();
+        if (na.Count > 0) a.Nest = na;
+        if (nb.Count > 0) b.Nest = nb;
         return (a, b);
     }
 
@@ -332,8 +344,10 @@ public static class TableEngine
                 moved[l] = s; bLines.Add(s);
             }
         }
-        aItems.AddRange(p0.Items.Concat(p0.BorderItems).Select(it => ShiftItem(it, nr.Top)));
-        aLines.AddRange(p0.Lines.Select(l => { var s = l.ShallowClone(); s.Y = l.Y + nr.Top; s.Baseline = l.Baseline + nr.Top; return s; }));
+        var p0Items = p0.Items.Concat(p0.BorderItems).Select(it => ShiftItem(it, nr.Top)).ToList();
+        var p0Lines = p0.Lines.Select(l => { var s = l.ShallowClone(); s.Y = l.Y + nr.Top; s.Baseline = l.Baseline + nr.Top; return s; }).ToList();
+        aItems.AddRange(p0Items);
+        aLines.AddRange(p0Lines);
         var p1Items = p1.Items.Concat(p1.BorderItems).ToList();
         var p1Lines = p1.Lines.Select(l => l.ShallowClone()).ToList();
         bItems.InsertRange(0, p1Items);
@@ -345,7 +359,8 @@ public static class TableEngine
             Items = n.Items.Select(it => moved.TryGetValue(it, out var mv) ? (PageItem)mv : it).ToList(),
             Lines = n.Lines.Select(l => moved.TryGetValue(l, out var mv) ? (LaidOutLine)mv : l).ToList(),
         }).ToList();
-        var a = new CellContent { Items = aItems, Lines = aLines, Height = nr.Top + p0.Height, Paras = c.Paras, Nest = before.Count > 0 ? before : null };
+        before.Add(new NestRow { Top = nr.Top, Row = p0, Items = p0Items, Lines = p0Lines });
+        var a = new CellContent { Items = aItems, Lines = aLines, Height = nr.Top + p0.Height, Paras = c.Paras, Nest = before };
         var bNest = new List<NestRow> { new NestRow { Top = 0, Row = p1, Items = p1Items, Lines = p1Lines } };
         bNest.AddRange(after);
         var b = new CellContent { Items = bItems, Lines = bLines, Height = Math.Max(0, c.Height - end) + p1.Height, Paras = c.Paras, Nest = bNest };

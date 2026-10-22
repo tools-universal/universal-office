@@ -83,7 +83,8 @@ export interface RowLayout {
    *  linha em que ela termina: no fluxo, o motor pinta uma faixa por página (oráculo vmshd) */
   mergeFills?: { item: Extract<PageItem, { t: 'rect' }>; end: number }[];
   /** caixas das células desta linha (x absoluto, altura = a da linha) — editor */
-  cells?: { ref: string; x: number; w: number; span: number }[];
+  /** caixas das células (tela/editor): dy/h = de uma tabela ANINHADA (deslocamento na linha e altura) */
+  cells?: { ref: string; x: number; w: number; span: number; dy?: number; h?: number }[];
 }
 
 /** Parte um conteúdo de célula num corte vertical (fim da última linha que cabe). */
@@ -126,15 +127,24 @@ export function splitContent(c: CellContent, availContent: number): [CellContent
   const a: CellContent = { items: [], lines: [], height: cut, ...w };
   const b: CellContent = { items: [], lines: [], height: Math.max(0, c.height - cutB), ...w };
   const keyY = (it: PageItem): number => it.t === 'line' ? Math.min(it.y1, it.y2) : it.t === 'clip' ? (it.y ?? 0) : it.t === 'xform' ? (it.m?.[5] ?? 0) : it.t === 'path' ? Math.min(...it.cmds.map((c) => (c.op === 'Z' ? Infinity : c.y))) : it.y;
+  const moved = new Map<object, object>();
   for (const it of c.items) {
     const y = it.t === 'glyphs' ? it.y : keyY(it);
     if (y < cut) a.items.push(it);
-    else b.items.push(shiftItem(it, -cutB));
+    else { const s = shiftItem(it, -cutB); moved.set(it, s); b.items.push(s); }
   }
   for (const l of c.lines) {
     if (l.y < cut) a.lines.push(l);
-    else b.lines.push({ ...l, y: l.y - cutB, baseline: l.baseline - cutB });
+    else { const s = { ...l, y: l.y - cutB, baseline: l.baseline - cutB }; moved.set(l, s); b.lines.push(s); }
   }
+  // linhas aninhadas inteiras de cada lado (caixas das células do editor; o corte não as cruza)
+  const na = (c.nest ?? []).filter((n) => n.top < cut);
+  const nb = (c.nest ?? []).filter((n) => n.top >= cut).map((n) => ({
+    top: n.top - cutB, row: n.row,
+    items: n.items.map((it) => (moved.get(it) ?? it) as PageItem), lines: n.lines.map((l) => (moved.get(l) ?? l) as LaidOutLine),
+  }));
+  if (na.length) a.nest = na;
+  if (nb.length) b.nest = nb;
   return [a, b];
 }
 
@@ -163,8 +173,9 @@ function splitAtNest(c: CellContent, nr: NestRow, [p0, p1]: [RowLayout, RowLayou
     else { const s = { ...l, y: l.y + dy, baseline: l.baseline + dy }; moved.set(l, s); bLines.push(s); }
   }
   const p0Items = [...p0.items, ...p0.borderItems].map((it) => shiftItem(it, nr.top));
+  const p0Lines = p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top }));
   aItems.push(...p0Items);
-  aLines.push(...p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top })));
+  aLines.push(...p0Lines);
   const p1Items = [...p1.items, ...p1.borderItems];
   const p1Lines = p1.lines.map((l) => ({ ...l }));
   bItems.unshift(...p1Items);
@@ -174,7 +185,7 @@ function splitAtNest(c: CellContent, nr: NestRow, [p0, p1]: [RowLayout, RowLayou
     top: n.top + dy, row: n.row,
     items: n.items.map((it) => (moved.get(it) ?? it) as PageItem), lines: n.lines.map((l) => (moved.get(l) ?? l) as LaidOutLine),
   }));
-  const a: CellContent = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, ...(before.length ? { nest: before } : {}) };
+  const a: CellContent = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, nest: [...before, { top: nr.top, row: p0, items: p0Items, lines: p0Lines }] };
   const b: CellContent = { items: bItems, lines: bLines, height: Math.max(0, c.height - end) + p1.height, ...w, nest: [{ top: 0, row: p1, items: p1Items, lines: p1Lines }, ...after] };
   return [a, b];
 }
@@ -1048,6 +1059,13 @@ export function layoutTable(
     // caixas das células (editor: seleção de células, alças, arrasto de bordas)
     const cellBoxes = (): NonNullable<RowLayout['cells']> => cellInfos.map((ci) => ({ ref: `${ref}/r${ri}/c${ci.slot.lcol}`, x: x + ci.bx0, w: ci.bx1 - ci.bx0, span: ci.slot.span }));
     const paintRow = (ch: number, contents: Map<CellSlot, CellContent | undefined>, vTop: boolean, drawTop: boolean, bTop: number, bBottom: number): RowLayout => {
+      /** caixas das células das tabelas aninhadas no conteúdo posto nesta linha */
+      const nest: NonNullable<RowLayout['cells']> = [];
+      const nestOf = (c: CellContent, va: string | undefined, marT: number, marB: number): void => {
+        if (!c.nest?.length) return;
+        const dy = contentDy(c, va, ch, marT, marB, bTop);
+        for (const nr of c.nest) for (const b of nr.row.cells ?? []) nest.push({ ...b, dy: dy + nr.top + (b.dy ?? 0), h: b.h ?? nr.row.height });
+      };
       const its: PageItem[] = [];
       const lns: LaidOutLine[] = [];
       const brd: PageItem[] = [];
@@ -1077,7 +1095,7 @@ export function layoutTable(
           if (s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
           if (s.rowSpan === 1) {
             if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-            else if (content) placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+            else if (content) { placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop); nestOf(content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ci.marT, ci.marB); }
           }
           const bT = edge(s, 'top'), bB = edge(s, 'bottom'), bL = edge(s, 'left'), bR = edge(s, 'right');
           if (drawTop && bT) paintBorder(ctx, brd, bT, x + ci.bx0, cy0 + borderWidth(bT) / 2, x + ci.bx1, cy0 + borderWidth(bT) / 2, 'top');
@@ -1092,7 +1110,7 @@ export function layoutTable(
         if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2, 'top');
         if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2, 'bottom');
         return {
-          height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: cellBoxes(),
+          height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: [...cellBoxes(), ...nest],
           ...(mergeAt.length ? { mergeAt } : {}),
           ...(rowKeepNext ? { keepNext: true } : {}), natural: bTop + Math.min(ch, contentH) + bBottom,
         };
@@ -1108,7 +1126,7 @@ export function layoutTable(
         if (!s.merged && s.rowSpan === 1) {
           if (fill) its.push({ t: 'rect', x: x + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
           if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-          else if (content) placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+          else if (content) { placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop); nestOf(content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ci.marT, ci.marB); }
         }
         // continuação de mescla: vale o fundo da célula inicial; o dela o Word ignora (oráculo vmshd)
         const tcb = ci.tcPr.tcBorders;
@@ -1144,7 +1162,7 @@ export function layoutTable(
         if (tcb?.tr2bl) paintBorder(ctx, brd, tcb.tr2bl, x + ci.x1, bTop, x + ci.x0, rh - bBottom);
       }
       return {
-        height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: cellBoxes(),
+        height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: [...cellBoxes(), ...nest],
         ...(mergeAt.length ? { mergeAt } : {}),
         ...(rowKeepNext ? { keepNext: true } : {}), natural: bTop + Math.min(ch, contentH) + bBottom,
         ...(drawTop && ri > 0 && bTop - ownBand > 0.5 ? { topCut: bTop - ownBand, topBorders: topBrd, ownTopBorders: ownBrd } : {}),
@@ -1288,12 +1306,18 @@ function paintVertical(items: PageItem[], c: CellContent, dir: string, vAlign: s
   items.push({ t: 'xform', op: 'pop' });
 }
 
-function placeContent(items: PageItem[], lines: LaidOutLine[], c: CellContent, vAlign: string | undefined, rowH: number, marT: number, marB: number, y0 = 0): void {
-  if (!c) return;
+/** Deslocamento vertical do conteúdo na célula (margem de cima + alinhamento vertical). */
+function contentDy(c: CellContent, vAlign: string | undefined, rowH: number, marT: number, marB: number, y0 = 0): number {
   let dy = y0 + marT;
   const free = rowH - marT - marB - (c.alignH ?? c.height);
   if (vAlign === 'center' && free > 0) dy += free / 2;
   else if (vAlign === 'bottom' && free > 0) dy += free;
+  return dy;
+}
+
+function placeContent(items: PageItem[], lines: LaidOutLine[], c: CellContent, vAlign: string | undefined, rowH: number, marT: number, marB: number, y0 = 0): void {
+  if (!c) return;
+  const dy = contentDy(c, vAlign, rowH, marT, marB, y0);
   for (const it of c.items) items.push(shiftItem(it, dy));
   for (const l of c.lines) lines.push({ ...l, y: l.y + dy, baseline: l.baseline + dy });
 }
