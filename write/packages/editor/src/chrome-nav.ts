@@ -91,6 +91,8 @@ export class NavPane {
   private io: IntersectionObserver | null = null;
   private dirtyThumbs = true;
   private dragFrom = -1;
+  /** assinatura da árvore desenhada (redesenha só quando muda) */
+  private treeSig = '';
 
   constructor(private readonly env: NavEnv) {
     this.L = pickLabels(env.lang, LABELS);
@@ -302,12 +304,22 @@ export class NavPane {
     const list = el('div', 'uw-nav-tree');
     list.setAttribute('role', 'tree');
     if (!this.heads.length) {
+      this.treeSig = '';
       this.bodyEl.replaceChildren(el('p', 'uw-nav-empty', L.noHeadings));
       return;
     }
     const cur = ed.currentHeading(this.heads);
     const hit = new Set(this.results.map((r) => r.heading));
     const editable = !ed.isProtected();
+    // mesma árvore (só o cursor andou): troca o destaque sem refazer as linhas
+    const sig = [this.heads.map((h) => `${h.level}|${h.text}`).join('\n'), [...this.collapsed].join('\n'), this.maxLevel, [...hit].join(','), editable].join('\u0001');
+    const old = this.bodyEl.querySelector<HTMLElement>('.uw-nav-tree');
+    if (old && this.treeSig === sig) {
+      for (const r of old.querySelectorAll<HTMLElement>('.uw-nav-row')) r.classList.toggle('uo-on', +r.dataset['index']! === cur);
+      old.querySelector('.uo-on')?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    this.treeSig = sig;
     const row = (node: TreeNode, depth: number): void => {
       const h = node.h;
       if (h.level > this.maxLevel) return;
