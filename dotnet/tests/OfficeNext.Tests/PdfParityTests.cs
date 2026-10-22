@@ -173,6 +173,15 @@ public class PdfParityTests
         AssertStructuralParity("pictures.docx", pdf);
     }
 
+    [Fact]
+    public void Page_Docx_Pdf_Estrutural()
+    {
+        // frente Página (tools/gen-parity-page.mjs): marca-d'água de texto (diagonal e
+        // horizontal) e de imagem desbotada, e a Cor da Página em gradiente (ladrilhos)
+        byte[] pdf = DocxPdf.ToPdf(Fixtures.InputBytes("page.docx"), AptosFonts());
+        AssertStructuralParity("page.docx", pdf);
+    }
+
     // ───────────── unidade: writer/subset ─────────────
 
     [Fact]

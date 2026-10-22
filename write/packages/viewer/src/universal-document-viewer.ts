@@ -5,7 +5,7 @@ import {
 import { FontResolver } from '@universal-office/fonts';
 import { SfntFont, loadHyphenation } from '@universal-office/docx-layout';
 import {
-  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paragraphAtPath,
+  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paintPageBackground, paragraphAtPath,
   type LayoutOptions, type LayoutResult, type EnginePaintEnv,
 } from '@universal-office/docx-layout';
 import { LiveRegion, type ProgressStep } from '@universal-office/ui';
@@ -762,9 +762,11 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.fillStyle = p.background ? `#${p.background}` : '#ffffff';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
     ctx.setTransform(sc, 0, 0, sc, 0, -topTw * sc);
+    // Cor da Página: na tela só com w:displayBackgroundShape; efeitos em ladrilhos de px de tela
+    try { paintPageBackground(ctx, p, this.paintEnv(), { devicePxTw: (window.devicePixelRatio || 1) / sc, screen: true, paper: '#ffffff' }); } catch { /* fundo que não pinta: a página fica branca */ }
     try { paintItems(ctx, p.items, this.paintEnv()); } catch { /* item que o pintor não conhece: o resto fica */ }
     // trechos comentados (só com o painel de comentários aberto — a página impressa não os tem)
     if (highlights && this.commentsOpen) {

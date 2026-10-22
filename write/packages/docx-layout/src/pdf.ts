@@ -1,7 +1,8 @@
 import { BORDER_DASHES } from './tree.js';
 import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from './pdf-writer/index.js';
 import type { InlineImage } from '@universal-office/docx-core';
-import type { LayoutResult, PageItem, PathCmdTw, ImageItem } from './tree.js';
+import type { LayoutResult, LayoutPage, PageItem, PathCmdTw, ImageItem } from './tree.js';
+import { gradientTileRgba, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
 import { paintPicturePdf, type PdfPictureEnv } from './pdf-picture.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, type GradGeom } from './geometry.js';
 import { isSymbolFont, type FontFace } from './fonts.js';
@@ -147,9 +148,18 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
   const adjustedFor = new Map<InlineImage, Map<string, PdfImage | null>>();
   void adjusted;
 
+  // efeito da Cor da Página: o ladrilho (gradiente/padrão) embutido UMA vez por documento
+  const bgImages = new Map<string, PdfImage>();
+  const bgImage = (key: string, make: () => { rgba: Uint8Array; w: number; h: number }): PdfImage => {
+    let h = bgImages.get(key);
+    if (!h) { const r = make(); h = doc.embedRgba(r.rgba, r.w, r.h); bgImages.set(key, h); }
+    return h;
+  };
+
   for (const lp of result.pages) {
     const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
+    if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
     for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
   }
   return doc.build();
@@ -386,4 +396,41 @@ function linePath(x: number, y: number, w: number, h: number, line?: { x1: numbe
   const [x1, x2] = flipH ? [x + w, x] : [x, x + w];
   const [y1, y2] = flipV ? [y + h, y] : [y, y + h];
   return [{ op: 'M', x: x1, y: y1 }, { op: 'L', x: x2, y: y2 }];
+}
+
+/**
+ * Efeito de preenchimento da página no PDF como o Word grava (page-fill.ts):
+ * ladrilhos de "pixel de dispositivo" de 0,12 pt (gradiente, imagem) ou 1 pt
+ * (padrão), textura no tamanho natural, ancorados no canto superior esquerdo.
+ * Imagem do ladrilho do gradiente a 96 ppp do tamanho no PDF (o Word grava 164×123
+ * para 1024×768 px).
+ */
+function paintFillPdf(
+  page: PdfPage, lp: LayoutPage, f: PageFillPaint,
+  bgImage: (key: string, make: () => { rgba: Uint8Array; w: number; h: number }) => PdfImage,
+  imageFor: (img: InlineImage) => PdfImage | null,
+): void {
+  const tile = pageFillTileTw(f, 2.4, 20, true);
+  if (!tile) return;
+  let img: PdfImage | null = null;
+  let tw = tile.w / T, th = tile.h / T;
+  if (f.type === 'gradient' || f.type === 'gradientRadial') {
+    const pw = Math.max(2, Math.round((tw * 96) / 72)), ph = Math.max(2, Math.round((th * 96) / 72));
+    img = bgImage(`g|${JSON.stringify([f.type, f.c1, f.c2, f.stops, f.angle, f.focus, f.focusPosition, f.gradientCenter])}|${pw}x${ph}`,
+      () => ({ rgba: gradientTileRgba(f, pw, ph, true), w: pw, h: ph }));
+  } else if (f.type === 'pattern') {
+    // 8 repetições em cada direção por imagem (menos desenhos na página)
+    const base = patternRgba(f);
+    img = bgImage(`p|${f.c1}|${f.c2}|${f.pattern?.join(',')}`, () => {
+      const rgba = new Uint8Array(64 * 64 * 4);
+      for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) rgba.set(base.subarray(((y % 8) * 8 + (x % 8)) * 4, ((y % 8) * 8 + (x % 8)) * 4 + 4), (y * 64 + x) * 4);
+      return { rgba, w: 64, h: 64 };
+    });
+    tw *= 8; th *= 8;
+  } else if (f.image) img = imageFor(f.image);
+  if (!img || tw <= 0 || th <= 0) return;
+  const W = lp.widthTw / T, H = lp.heightTw / T;
+  page.pushClipRect(0, 0, W, H);
+  for (let y = 0; y < H; y += th) for (let x = 0; x < W; x += tw) page.drawImage(img, x, y, tw, th);
+  page.popClip();
 }

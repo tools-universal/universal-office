@@ -18,6 +18,7 @@ import { isEmf, renderEmf } from './emf.js';
 import { isWmf, renderWmf } from './wmf.js';
 import { groupChild, shapeExtras } from './geometry.js';
 import { pictureLook } from './picture.js';
+import { resolvePageFill } from './page-fill.js';
 import { liftFrames, FRAME_SKIP, FRAME_CARRY, FRAME_INFO } from './frames.js';
 
 /**
@@ -676,6 +677,10 @@ class Engine {
     // fundo da página (w:background): o Word o grava no PDF (corpus); branco = nada
     const bgSpec = full.background;
     const bg = bgSpec ? resolveColor({ ...(bgSpec.color ? { val: bgSpec.color } : {}), ...(bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}), ...(bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}), ...(bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {}) }, this.ctx.fmt.theme) : undefined;
+    // efeito de preenchimento (gradiente, padrão, imagem, textura) e se a tela o mostra
+    // (w:displayBackgroundShape; o PDF do Word leva sempre — page-fill.ts)
+    const bgFill = bgSpec?.fill ? resolvePageFill(bgSpec, bg) : undefined;
+    const bgShow = !!this.ctx.fmt.settings.displayBackgroundShape;
     const pages: LayoutPage[] = this.pages.map((ps) => {
       // camadas do Word: TODO o cabeçalho/rodapé (atrás, texto, frente) fica
       // abaixo do documento; no corpo, atrás do texto < texto < na frente
@@ -714,6 +719,8 @@ class Engine {
       }
       ps.page.hfItems = hfLayer.length;
       if (bg && bg.toUpperCase() !== 'FFFFFF' && bg !== 'auto') ps.page.background = bg;
+      if (bgFill) ps.page.backgroundFill = bgFill;
+      if (bgShow && (ps.page.background || bgFill)) ps.page.backgroundShow = true;
       return ps.page;
     });
     return { pages, warnings: [...this.ctx.warnings] };
@@ -3412,13 +3419,35 @@ class Engine {
         const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
         // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
         const rot = tb.rot ?? s?.rot ?? 0;
-        if (rot) out.push({ t: 'xform', op: 'push', m: rotation(x + w / 2, y + h / 2, rot) });
+        // WordArt (textPlain): o texto estica para preencher a caixa interna
+        let art: { m: [number, number, number, number, number, number]; dy: number } | null = null;
         if (tb.wordArt && tbContent.lines.length) {
-          // WordArt (textPlain): o texto estica para preencher a caixa interna
           const x0 = Math.min(...tbContent.lines.map((l) => l.x)), x1 = Math.max(...tbContent.lines.map((l) => l.x + l.width));
           const iw = Math.max(1, w - ins.l - ins.r), ih = Math.max(1, h - ins.t - ins.b);
           const sx = iw / Math.max(1, x1 - x0), sy = ih / Math.max(1, tbContent.height);
-          out.push({ t: 'xform', op: 'push', m: [sx, 0, 0, sy, x + ins.l - x0 * sx, y + ins.t] });
+          art = { m: [sx, 0, 0, sy, x + ins.l - x0 * sx, y + ins.t], dy: 0 };
+          // v:textpath (marca-d'água): o em ocupa a ALTURA da caixa e a linha de base fica
+          // a altura·winDescent/upm do fundo; a largura do texto ocupa a largura (oráculo
+          // page-lab wmf-*: Arial, Times, Georgia e Calibri, em/altura = 1,000)
+          const g0 = tb.vml ? tbContent.items.find((it): it is import('./tree.js').GlyphRunItem => it.t === 'glyphs') : undefined;
+          if (g0 && tbContent.lines.length === 1) {
+            const fm = g0.face.font.metrics, u = fm.unitsPerEm || 1000;
+            const desc = (fm.usWinDescent || -fm.descender) / u;
+            const sy2 = ih / Math.max(1, g0.sizePt * 20);
+            art.m = [sx, 0, 0, sy2, x + ins.l - x0 * sx, y + ins.t + ih - ih * desc - g0.y * sy2];
+            // forma GIRADA centrada na vertical: o Word centra a caixa da TINTA do texto
+            // girado (não a da forma) — a horizontal segue a caixa (oráculo page-lab wmd:
+            // 6 marcas diagonais, centro da tinta = centro da margem ± 0,5 pt)
+            if (rot % 180 !== 0 && tb.anchor?.posV.align === 'center') {
+              const ink = rotatedInkY(tbContent.items, art.m, x + w / 2, y + h / 2, rot);
+              if (ink) art.dy = y + h / 2 - (ink.lo + ink.hi) / 2;
+            }
+          }
+        }
+        if (art?.dy) out.push({ t: 'xform', op: 'push', m: [1, 0, 0, 1, 0, art.dy] });
+        if (rot) out.push({ t: 'xform', op: 'push', m: rotation(x + w / 2, y + h / 2, rot) });
+        if (art) {
+          out.push({ t: 'xform', op: 'push', m: art.m });
           // o Word grava o texto do WordArt como CURVAS no PDF (não é texto extraível)
           for (const it of tbContent.items) out.push(it.t === 'glyphs' ? { ...it, asPath: true } : it);
           out.push({ t: 'xform', op: 'pop' });
@@ -3452,6 +3481,7 @@ class Engine {
           out.push({ t: 'clip', op: 'pop' });
         }
         if (rot) out.push({ t: 'xform', op: 'pop' });
+        if (art?.dy) out.push({ t: 'xform', op: 'pop' });
       }
     } else if (run.group) {
       const gr = run.group;
@@ -3737,4 +3767,34 @@ function scratchPage(ps: PageState): PageState {
     ...ps, page: { ...ps.page, items: [], lines: [], objects: [], cells: [] },
     behind: [], hf: [], body: [], front: [], hfBehind: [], hfFront: [], floats: [...ps.floats], notes: [],
   };
+}
+
+/** Faixa vertical (twips da página) da TINTA dos glifos depois da escala do WordArt
+ *  (`m`) e do giro em torno de (cx, cy) — contornos da fonte (pontos de controle). */
+function rotatedInkY(items: readonly PageItem[], m: readonly number[], cx: number, cy: number, rotDeg: number): { lo: number; hi: number } | null {
+  const r = (rotDeg * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r);
+  let lo = Infinity, hi = -Infinity;
+  for (const it of items) {
+    if (it.t !== 'glyphs') continue;
+    const font = it.face.font;
+    if (!font.glyphOutline) continue;
+    const k = (it.sizePt * 20) / (font.metrics.unitsPerEm || 1000);
+    const sxg = it.scaleX ?? 1;
+    for (const g of it.glyphs) {
+      const ol = font.glyphOutline(g.gid ?? font.glyphId(g.cp));
+      if (!ol) continue;
+      for (const c of ol) {
+        if (c.op === 'Z') continue;
+        const pts: [number, number][] = c.op === 'Q' ? [[c.cx, c.cy], [c.x, c.y]] : [[c.x, c.y]];
+        for (const [px, py] of pts) {
+          const lx = g.x + px * k * sxg, ly = it.y - py * k;
+          const X = m[0]! * lx + m[2]! * ly + m[4]!, Y = m[1]! * lx + m[3]! * ly + m[5]!;
+          const Yr = cy + (X - cx) * sn + (Y - cy) * cs;
+          if (Yr < lo) lo = Yr;
+          if (Yr > hi) hi = Yr;
+        }
+      }
+    }
+  }
+  return lo <= hi ? { lo, hi } : null;
 }

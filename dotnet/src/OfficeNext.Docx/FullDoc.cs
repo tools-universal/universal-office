@@ -360,18 +360,15 @@ public static class FullDocReader
             FootnoteBlocks = footnoteBlocks,
             EndnoteBlocks = endnoteBlocks,
             CoreProps = ReadCoreProps(pkg),
-            Background = ReadBackground(root),
+            Background = ReadBackground(root, ctx),
         };
     }
 
-    /// <summary>Cor de fundo da página (w:document/w:background).</summary>
-    private static PageBackground? ReadBackground(XmlElement root)
+    /// <summary>Cor de fundo da página (w:document/w:background) com o efeito de preenchimento.</summary>
+    private static PageBackground? ReadBackground(XmlElement root, ReadContext ctx)
     {
         var bg = FirstChild(root, "w:background");
-        if (bg is null) return null;
-        string? V(string k) { string? v = bg.Attr("w:" + k); return Js.Truthy(v) ? v : null; }
-        var outp = new PageBackground { Color = V("color"), ThemeColor = V("themeColor"), ThemeTint = V("themeTint"), ThemeShade = V("themeShade") };
-        return outp.Color is null && outp.ThemeColor is null && outp.ThemeTint is null && outp.ThemeShade is null ? null : outp;
+        return bg is null ? null : PageBackgroundReader.Read(bg, ctx.ResolveImage);
     }
 
     /// <summary>Datas do docProps/core.xml (criação, última gravação, última impressão).</summary>

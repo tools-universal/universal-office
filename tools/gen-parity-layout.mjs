@@ -37,7 +37,7 @@ const outDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout');
 // tools/gen-parity-pictures.mjs)
 const inputDir = join(root, 'dotnet', 'tests', 'fixtures', 'input');
 const inputOutDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout-input');
-const INPUT_CASES = ['input/pictures'];
+const INPUT_CASES = ['input/pictures', 'input/page', 'input/page-pattern', 'input/page-frame', 'input/page-tile'];
 
 // ─────────────────────── normalização ───────────────────────
 
@@ -209,6 +209,11 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
         return it.op === 'pop'
           ? { t: 'clip', op: 'pop' }
           : { t: 'clip', op: 'push', x: r(it.x ?? 0, 'x'), y: r(it.y ?? 0, 'y'), w: r(it.w ?? 0, 'w'), h: r(it.h ?? 0, 'h') };
+      case 'xform':
+        // transformação afim (giro de caixa, escala do WordArt/marca-d'água): a,b,c,d a 0,0001; e,f em twips a 0,01
+        return it.op === 'pop'
+          ? { t: 'xform', op: 'pop' }
+          : { t: 'xform', op: 'push', m: (it.m ?? []).map((v, i) => num(v, 'm', i < 4 ? 10000 : 100)) };
       default:
         issue('t', 'tipo de item desconhecido', it.t);
         return { t: it.t };
@@ -226,6 +231,20 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
       where = `p${pi + 1}/item${ii}`; t = it?.t ?? '?';
       page.items.push(item(it));
     });
+    // Cor da Página (frente Página): cor, se a tela mostra e o efeito resolvido — só quando há
+    if (p.background || p.backgroundFill) {
+      where = `p${pi + 1}/bg`; t = 'bg';
+      const f = p.backgroundFill;
+      page.bg = {
+        color: p.background ?? null, show: !!p.backgroundShow,
+        fill: f ? {
+          type: str(f.type, 'type'), c1: str(f.c1, 'c1'), c2: str(f.c2, 'c2'), angle: r(f.angle, 'angle'), focus: r(f.focus, 'focus'),
+          fp: f.focusPosition ? [r(f.focusPosition[0], 'fp'), r(f.focusPosition[1], 'fp')] : null, center: !!f.gradientCenter,
+          stops: f.stops ? f.stops.map((x) => [num(x.pos, 'pos', 10000), x.color]) : null,
+          pattern: f.pattern ?? null, img: f.imagePx ? [f.imagePx.w, f.imagePx.h, f.imagePx.dpi] : null,
+        } : null,
+      };
+    }
     (p.lines ?? []).forEach((ln, li) => {
       where = `p${pi + 1}/line${li}`; t = 'line-record';
       page.lines.push({
@@ -255,7 +274,8 @@ export function formatLayout(norm) {
     `      "section": ${J(p.section)},`,
     `      "number": ${J(p.number)},`,
     `      "items": ${list(p.items, '      ')},`,
-    `      "lines": ${list(p.lines, '      ')}`,
+    `      "lines": ${list(p.lines, '      ')}${p.bg ? ',' : ''}`,
+    ...(p.bg ? [`      "bg": ${J(p.bg)}`] : []),
     '    }',
   ].join('\n');
   return [

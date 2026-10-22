@@ -73,6 +73,35 @@ export function writeEvenAndOddHeaders(pkg: DocxPackage, on: boolean): void {
   pkg.setPartText(path, xml);
 }
 
+/** Elementos de CT_Settings que vêm ANTES de w:displayBackgroundShape. */
+const BEFORE_DISPLAY_BG = new Set(['w:writeProtection', 'w:view', 'w:zoom', 'w:removePersonalInformation', 'w:removeDateAndTime', 'w:doNotDisplayPageBoundaries']);
+
+/** Liga/desliga w:displayBackgroundShape (mostrar a cor/efeito da página na tela —
+ *  é o que o Word grava com a exibição de planos de fundo ligada; oráculo page-lab
+ *  sc-solid-disp). Sem settings.xml: cria um mínimo quando for ligar. */
+export function writeDisplayBackgroundShape(pkg: DocxPackage, on: boolean): void {
+  const path = partByRelType(pkg, 'settings', 'word/settings.xml');
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!on) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText('word/settings.xml');
+    if (!xml) return;
+  }
+  const cur = /<w:displayBackgroundShape\b[^>]*?(?:\/>|>[\s\S]*?<\/w:displayBackgroundShape>)/.exec(xml);
+  const isOn = !!cur && !/w:val="(?:0|false|off)"/.test(cur[0]);
+  if (isOn === on) return;
+  if (cur) xml = xml.slice(0, cur.index) + (on ? '<w:displayBackgroundShape/>' : '') + xml.slice(cur.index + cur[0].length);
+  else {
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) return;
+    let at = root.cs!;
+    for (const k of childElements(root)) if (BEFORE_DISPLAY_BG.has(k.name)) at = Math.max(at, k.e!);
+    xml = xml.slice(0, at) + '<w:displayBackgroundShape/>' + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
+
 /** settings.xml mínimo (documento sem a parte), com rel e content type. */
 function ensureSettingsPart(pkg: DocxPackage): void {
   if (pkg.getPart('word/settings.xml')) return;

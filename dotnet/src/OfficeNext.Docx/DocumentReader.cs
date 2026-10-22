@@ -678,20 +678,11 @@ public static class DocumentReader
                 var tps = DrawingReader.ParseVmlStyle(textpath.Attr("style"));
                 string famRaw = QuoteRe.Replace(SG(tps, "font-family") ?? "", "").Trim();
                 var wsh = DrawingReader.VmlShapeStyle(el, "rect");
-                // opacidade do preenchimento: misturada ao branco (a cor do texto não tem alfa)
+                // opacidade do preenchimento: alfa REAL (o PDF do Word grava ExtGState ca 0,502
+                // para o ".5" da marca-d'água; sobre uma cor de página a mistura é com ela)
                 string color = wsh.Fill ?? "000000";
-                if (wsh.FillAlpha is { } fa && fa < 1)
-                {
-                    string Mix(int i)
-                    {
-                        double v = Js.Round(JsNumber.ParseInt(i < color.Length ? color.Substring(i, Math.Min(2, color.Length - i)) : "", 16) * fa + 255 * (1 - fa));
-                        if (double.IsNaN(v)) return "NaN";
-                        string s = ((long)v).ToString("x", System.Globalization.CultureInfo.InvariantCulture);
-                        return s.Length < 2 ? "0" + s : s;
-                    }
-                    color = (Mix(0) + Mix(2) + Mix(4)).ToUpperInvariant();
-                }
                 var wrpr = new RPr { Color = new ColorSpec { Val = color }, Sz = 72 };
+                if (wsh.FillAlpha is { } fa && fa < 1) wrpr.TextFill = new TextFillSpec { Color = color, Alpha = Math.Max(0, fa) };
                 if (famRaw.Length > 0) wrpr.RFonts = new RFonts { Ascii = famRaw, HAnsi = famRaw, Cs = famRaw };
                 if (BoldRe.IsMatch(SG(tps, "font-weight") ?? "")) wrpr.B = true;
                 if ((SG(tps, "font-style") ?? "").Contains("italic", StringComparison.Ordinal)) wrpr.I = true;

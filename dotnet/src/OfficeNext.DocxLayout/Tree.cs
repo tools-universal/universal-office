@@ -296,6 +296,10 @@ public sealed class LayoutPage
     public int? HfItems;
     /// <summary>cor de fundo da página (w:background, RRGGBB) — o Word a grava no PDF</summary>
     public string? Background;
+    /// <summary>efeito de preenchimento da página (gradiente, padrão, imagem, textura) — PageFill.cs</summary>
+    public PageFillPaint? BackgroundFill;
+    /// <summary>a TELA mostra o fundo (w:displayBackgroundShape); o PDF mostra sempre</summary>
+    public bool BackgroundShow;
     /// <summary>objetos flutuantes posicionados (seleção/arrasto no editor)</summary>
     public List<PlacedObject>? Objects;
 }

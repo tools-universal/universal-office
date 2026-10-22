@@ -14,7 +14,8 @@ export type {
   PathItem, PathCmdTw, XformItem, PlacedObject, ObjectFrame, PlacedCell, PictureLook,
 } from './tree.js';
 export { documentHyphenationLanguages } from './hyphenate.js';
-export { paintItems, type EnginePaintEnv } from './canvas.js';
+export { paintItems, paintPageBackground, type EnginePaintEnv } from './canvas.js';
+export { resolvePageFill, gradientTileRgba, patternRgba, pageFillTileTw, fillParam, imagePixelInfo, type PageFillPaint } from './page-fill.js';
 export { paintPicture } from './canvas-picture.js';
 export { pictureLook, applyBlipFx } from './picture.js';
 export { applyImageEffects, applyPictureAdjust } from './images.js';

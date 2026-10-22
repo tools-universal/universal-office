@@ -191,14 +191,67 @@ public static class PdfRenderer
             };
         }
 
+        // efeito da Cor da Página: o ladrilho (gradiente/padrão) embutido UMA vez por documento
+        var bgImages = new Dictionary<string, PdfImage>();
+        PdfImage BgImage(string key, Func<(byte[] Rgba, int W, int H)> make)
+        {
+            if (!bgImages.TryGetValue(key, out var h)) { var r = make(); h = doc.EmbedRgba(r.Rgba, r.W, r.H); bgImages[key] = h; }
+            return h;
+        }
+
         foreach (var lp in result.Pages)
         {
             var page = doc.AddPage(lp.WidthTw / T, lp.HeightTw / T);
             if (Js.Truthy(lp.Background)) page.FillRect(0, 0, lp.WidthTw / T, lp.HeightTw / T, HexColor(lp.Background!));
+            if (lp.BackgroundFill is not null) PaintFillPdf(page, lp, lp.BackgroundFill, BgImage, ImageFor);
             foreach (var it in lp.Items) PaintItem(page, it, FontFor, ImageFor,
                 (g, smp) => doc.AddShading(new PdfShadingGeom(g.Radial, g.X0, g.Y0, g.X1, g.Y1, g.R), smp, page.HeightPt), PictureEnv);
         }
         return doc.Build();
+    }
+
+    /// <summary>
+    /// Efeito de preenchimento da página no PDF como o Word grava (PageFill.cs): ladrilhos de
+    /// "pixel de dispositivo" de 0,12 pt (gradiente, imagem) ou 1 pt (padrão), textura no
+    /// tamanho natural, ancorados no canto superior esquerdo; a imagem do ladrilho do gradiente a
+    /// 96 ppp do tamanho no PDF.
+    /// </summary>
+    private static void PaintFillPdf(PdfPage page, LayoutPage lp, PageFillPaint f,
+        Func<string, Func<(byte[] Rgba, int W, int H)>, PdfImage> bgImage, Func<InlineImage, PdfImage?> imageFor)
+    {
+        var tile = PageFillMath.TileTw(f, 2.4, 20, true);
+        if (tile is not { } t) return;
+        PdfImage? img = null;
+        double tw = t.W / T, th = t.H / T;
+        if (f.Type is "gradient" or "gradientRadial")
+        {
+            int pw = Math.Max(2, (int)JsNumber.Round(tw * 96 / 72)), ph = Math.Max(2, (int)JsNumber.Round(th * 96 / 72));
+            string key = "g|" + f.Type + "|" + f.C1 + "|" + f.C2 + "|" + string.Join(";", f.Stops?.Select(s => s.Pos.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + s.Color) ?? Enumerable.Empty<string>())
+                + "|" + f.Angle.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + f.Focus.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "|" + f.FocusPosition + "|" + f.GradientCenter + "|" + pw + "x" + ph;
+            img = bgImage(key, () => (PageFillMath.GradientTileRgba(f, pw, ph, true), pw, ph));
+        }
+        else if (f.Type == "pattern")
+        {
+            var bas = PageFillMath.PatternRgba(f);
+            img = bgImage("p|" + f.C1 + "|" + f.C2 + "|" + string.Join(",", f.Pattern ?? Array.Empty<int>()), () =>
+            {
+                var rgba = new byte[64 * 64 * 4];
+                for (int y = 0; y < 64; y++)
+                    for (int x = 0; x < 64; x++)
+                        Array.Copy(bas, ((y % 8) * 8 + (x % 8)) * 4, rgba, (y * 64 + x) * 4, 4);
+                return (rgba, 64, 64);
+            });
+            tw *= 8; th *= 8;
+        }
+        else if (f.Image is not null) img = imageFor(f.Image);
+        if (img is null || tw <= 0 || th <= 0) return;
+        double W = lp.WidthTw / T, H = lp.HeightTw / T;
+        page.PushClipRect(0, 0, W, H);
+        for (double y = 0; y < H; y += th)
+            for (double x = 0; x < W; x += tw)
+                page.DrawImage(img, x, y, tw, th);
+        page.PopClip();
     }
 
     private sealed record PdfImageBox(PdfImage? Image);

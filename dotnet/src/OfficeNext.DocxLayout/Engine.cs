@@ -794,6 +794,10 @@ internal sealed class Engine
         // fundo da página (w:background): o Word o grava no PDF (corpus); branco = nada
         var bgSpec = full.Background;
         string? bg = bgSpec is not null ? Resolve.ResolveColor(bgSpec.Color, bgSpec.ThemeColor, bgSpec.ThemeTint, bgSpec.ThemeShade, _ctx.Fmt.Theme) : null;
+        // efeito de preenchimento (gradiente, padrão, imagem, textura) e se a tela o mostra
+        // (w:displayBackgroundShape; o PDF do Word leva sempre — PageFill.cs)
+        var bgFill = bgSpec?.Fill is not null ? PageFillMath.Resolve(bgSpec, bg) : null;
+        bool bgShow = _ctx.Fmt.Settings.DisplayBackgroundShape;
         var pages = _pages.Select(ps =>
         {
             // camadas do Word: TODO o cabeçalho/rodapé (atrás, texto, frente) fica
@@ -856,6 +860,8 @@ internal sealed class Engine
             }
             ps.Page.HfItems = hfLayer.Count;
             if (bg is not null && bg.ToUpperInvariant() != "FFFFFF" && bg != "auto") ps.Page.Background = bg;
+            if (bgFill is not null) ps.Page.BackgroundFill = bgFill;
+            if (bgShow && (ps.Page.Background is not null || bgFill is not null)) ps.Page.BackgroundShow = true;
             return ps.Page;
         }).ToList();
         return new LayoutResult { Pages = pages, Warnings = _ctx.Warnings.ToList() };
@@ -1964,6 +1970,41 @@ internal sealed class Engine
     }
 
     /// <summary>Rotação (graus, horário na tela) em torno de (cx, cy) — matriz de XformItem.</summary>
+    /// <summary>Faixa vertical (twips da página) da TINTA dos glifos depois da escala do WordArt
+    /// (m) e do giro em torno de (cx, cy) — contornos da fonte (pontos de controle).</summary>
+    private static (double Lo, double Hi)? RotatedInkY(IEnumerable<PageItem> items, double[] m, double cx, double cy, double rotDeg)
+    {
+        double r = rotDeg * Math.PI / 180, cs = Math.Cos(r), sn = Math.Sin(r);
+        double lo = double.PositiveInfinity, hi = double.NegativeInfinity;
+        foreach (var it in items)
+        {
+            if (it is not GlyphRunItem gr) continue;
+            var font = gr.Face.Font;
+            double k = gr.SizePt * 20 / (font.Metrics.UnitsPerEm != 0 ? font.Metrics.UnitsPerEm : 1000);
+            double sxg = gr.ScaleX ?? 1;
+            foreach (var g in gr.Glyphs)
+            {
+                var ol = font.GlyphOutline(gr.ByGid ? g.Cp : font.GlyphId(g.Cp));
+                if (ol is null) continue;
+                foreach (var c in ol)
+                {
+                    if (c.Op == 'Z') continue;
+                    void Pt(double px, double py)
+                    {
+                        double lx = g.X + px * k * sxg, ly = gr.Y - py * k;
+                        double X = m[0] * lx + m[2] * ly + m[4], Y = m[1] * lx + m[3] * ly + m[5];
+                        double Yr = cy + (X - cx) * sn + (Y - cy) * cs;
+                        if (Yr < lo) lo = Yr;
+                        if (Yr > hi) hi = Yr;
+                    }
+                    if (c.Op == 'Q') Pt(c.Cx, c.Cy);
+                    Pt(c.X, c.Y);
+                }
+            }
+        }
+        return lo <= hi ? (lo, hi) : null;
+    }
+
     private static double[] Rotation(double cx, double cy, double deg)
     {
         double r = (deg * Math.PI) / 180, c = Math.Cos(r), s = Math.Sin(r);
@@ -4261,14 +4302,40 @@ internal sealed class Engine
                 // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
                 double rot = tb.Rot ?? s?.Rot ?? 0;
                 bool rotOn = rot != 0 && !double.IsNaN(rot);
-                if (rotOn) outp.Add(XformItem.Push(Rotation(x + w / 2, y + h / 2, rot)));
+                // WordArt (textPlain): o texto estica para preencher a caixa interna
+                double[]? artM = null;
+                double artDy = 0;
                 if (Js.Truthy(tb.WordArt) && tbContent.Lines.Count > 0)
                 {
-                    // WordArt (textPlain): o texto estica para preencher a caixa interna
                     double x0 = Lines.JsMinOf(tbContent.Lines.Select(l => l.X)), x1 = Lines.JsMax(tbContent.Lines.Select(l => l.X + l.Width));
                     double iw = Math.Max(1, w - ins.L - ins.R), ih = Math.Max(1, h - ins.T - ins.B);
                     double sx = iw / Math.Max(1, x1 - x0), sy = ih / Math.Max(1, tbContent.Height);
-                    outp.Add(XformItem.Push(new[] { sx, 0, 0, sy, x + ins.L - x0 * sx, y + ins.T }));
+                    artM = new[] { sx, 0, 0, sy, x + ins.L - x0 * sx, y + ins.T };
+                    // v:textpath (marca-d'água): o em ocupa a ALTURA da caixa e a linha de base fica
+                    // a altura·winDescent/upm do fundo; a largura do texto ocupa a largura (oráculo
+                    // page-lab wmf-*: Arial, Times, Georgia e Calibri, em/altura = 1,000)
+                    var g0 = tb.Vml ? tbContent.Items.OfType<GlyphRunItem>().FirstOrDefault() : null;
+                    if (g0 is not null && tbContent.Lines.Count == 1)
+                    {
+                        var fm = g0.Face.Font.Metrics;
+                        double u = fm.UnitsPerEm != 0 ? fm.UnitsPerEm : 1000;
+                        double desc = (fm.UsWinDescent != 0 && !double.IsNaN(fm.UsWinDescent) ? fm.UsWinDescent : -fm.Descender) / u;
+                        double sy2 = ih / Math.Max(1, g0.SizePt * 20);
+                        artM = new[] { sx, 0, 0, sy2, x + ins.L - x0 * sx, y + ins.T + ih - ih * desc - g0.Y * sy2 };
+                        // forma GIRADA centrada na vertical: o Word centra a caixa da TINTA do texto
+                        // girado (não a da forma) — a horizontal segue a caixa (oráculo page-lab wmd)
+                        if (rotOn && rot % 180 != 0 && tb.Anchor?.PosV.Align == "center")
+                        {
+                            var ink = RotatedInkY(tbContent.Items, artM, x + w / 2, y + h / 2, rot);
+                            if (ink is { } k) artDy = y + h / 2 - (k.Lo + k.Hi) / 2;
+                        }
+                    }
+                }
+                if (artDy != 0) outp.Add(XformItem.Push(new[] { 1.0, 0, 0, 1, 0, artDy }));
+                if (rotOn) outp.Add(XformItem.Push(Rotation(x + w / 2, y + h / 2, rot)));
+                if (artM is not null)
+                {
+                    outp.Add(XformItem.Push(artM));
                     // o Word grava o texto do WordArt como CURVAS no PDF (não é texto extraível)
                     foreach (var it in tbContent.Items) outp.Add(it is GlyphRunItem g ? AsPathCopy(g) : it);
                     outp.Add(XformItem.Pop());
@@ -4306,6 +4373,7 @@ internal sealed class Engine
                     outp.Add(ClipItem.Pop());
                 }
                 if (rotOn) outp.Add(XformItem.Pop());
+                if (artDy != 0) outp.Add(XformItem.Pop());
             }
         }
         else if (run.Group is not null)

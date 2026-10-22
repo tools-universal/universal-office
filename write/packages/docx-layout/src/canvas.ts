@@ -1,7 +1,8 @@
 import type { InlineImage } from '@universal-office/docx-core';
 import { BORDER_DASHES } from './tree.js';
 import { needsPicturePainter, paintPicture } from './canvas-picture.js';
-import type { PageItem, GlyphRunItem, ShapeItem } from './tree.js';
+import type { PageItem, GlyphRunItem, ShapeItem, LayoutPage } from './tree.js';
+import { gradientTileRgba, gradientTilePx, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
 import type { FontFace as EngineFontFace } from './fonts.js';
 
 /**
@@ -26,6 +27,69 @@ export interface EnginePaintEnv {
 }
 
 const HEX6 = /^[0-9A-Fa-f]{6}$/;
+
+/** Ladrilhos do fundo da página já rasterizados (gradiente 1024×768, padrão 8×8). */
+const fillTiles = new Map<string, CanvasImageSource>();
+
+function rgbaCanvas(rgba: Uint8Array, w: number, h: number): CanvasImageSource | null {
+  const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h)
+    : typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: w, height: h }) : null;
+  const x = c?.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined;
+  if (!c || !x) return null;
+  const id = x.createImageData(w, h);
+  id.data.set(rgba);
+  x.putImageData(id, 0, 0);
+  return c as CanvasImageSource;
+}
+
+/**
+ * Fundo da página (Cor da Página) no contexto JÁ em twips: a cor sólida e o efeito
+ * de preenchimento em ladrilhos de "pixel de dispositivo" ancorados no canto da
+ * página (page-fill.ts). Na tela (`screen`) o Word só mostra o fundo com
+ * w:displayBackgroundShape; sem ele, `paper` (branco, ou o da página escura).
+ * `devicePxTw` = twips por pixel CSS na escala atual (tela: 15/zoom).
+ */
+export function paintPageBackground(
+  ctx: CanvasRenderingContext2D, page: LayoutPage, env: EnginePaintEnv,
+  opts: { devicePxTw: number; screen: boolean; paper: string },
+): void {
+  const show = !opts.screen || !!page.backgroundShow;
+  const f = show ? page.backgroundFill : undefined;
+  const solid = show && page.background && !(f && (f.type === 'frame' || f.type === 'tile')) ? `#${page.background}` : f && (f.type === 'frame' || f.type === 'tile') ? '#ffffff' : opts.paper;
+  ctx.fillStyle = solid;
+  ctx.fillRect(0, 0, page.widthTw, page.heightTw);
+  if (!f) return;
+  const tile = pageFillTileTw(f, opts.devicePxTw, opts.devicePxTw);
+  if (!tile) return;
+  let src: CanvasImageSource | null = null;
+  let srcW = 1, srcH = 1;
+  if (f.type === 'gradient' || f.type === 'gradientRadial') {
+    const t = gradientTilePx(f, false);
+    const key = `g|${JSON.stringify([f.type, f.c1, f.c2, f.stops, f.angle, f.focus, f.focusPosition, f.gradientCenter])}`;
+    src = fillTiles.get(key) ?? null;
+    if (!src) { src = rgbaCanvas(gradientTileRgba(f, t.w, t.h), t.w, t.h); if (src) fillTiles.set(key, src); }
+    srcW = t.w; srcH = t.h;
+  } else if (f.type === 'pattern') {
+    const key = `p|${f.c1}|${f.c2}|${f.pattern?.join(',')}`;
+    src = fillTiles.get(key) ?? null;
+    if (!src) { src = rgbaCanvas(patternRgba(f), 8, 8); if (src) fillTiles.set(key, src); }
+    srcW = 8; srcH = 8;
+  } else if (f.image) {
+    src = env.image(f.image);
+    srcW = f.imagePx?.w ?? 1; srcH = f.imagePx?.h ?? 1;
+  }
+  if (!src) return;
+  if (fillTiles.size > 32) fillTiles.clear();
+  const pat = ctx.createPattern(src, 'repeat');
+  if (!pat) return;
+  pat.setTransform(new DOMMatrix([tile.w / srcW, 0, 0, tile.h / srcH, 0, 0]));
+  ctx.save();
+  // padrão de bits: sem suavizar (como o Word, 1 bit = 1 pixel)
+  if (f.type === 'pattern') ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, page.widthTw, page.heightTw);
+  ctx.restore();
+}
 const K = 0.5523;
 
 type Cmd =

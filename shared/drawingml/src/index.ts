@@ -17,4 +17,6 @@ export { alignPoint, shadowAffine, outerShadowMask, innerShadowMask, glowMask, s
 export { adjustSaturation, adjustTemperature, adjustBrightnessContrast, adjustSharpen, blackbody } from './adjust.js';
 export { applyColorMods, srgbToLin, linToSrgb, type Rgb } from './color.js';
 export { wrapContour } from './contour.js';
+// - padrões predefinidos (a:pattFill prst / os 48 do Preenchimento do Word): bitmaps 8×8
+export { PRESET_PATTERNS, patternDensity, patternRows } from './patterns.js';
 export { shadeBevel, type BevelSpec } from './bevel.js';

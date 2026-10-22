@@ -46,12 +46,8 @@ function Dump-Docx([string]$docx, [bool]$full = $false) {
   try {
     $out = ''
     $x = Part-Text $z 'word/document.xml'
-    $bg = [regex]::Match($x, '(?s)<w:background\b.*?(/>|</w:background>)')
-    if ($bg.Success) {
-      $bgx = $bg.Value
-      if ($bgx -match '^<w:background\b[^>]*/>') { $bgx = [regex]::Match($bgx, '^<w:background\b[^>]*/>').Value }
-      $out += "== background " + $bgx + "`n"
-    }
+    $bg = [regex]::Match($x, '(?s)<w:background\b[^>]*/>|<w:background\b.*?</w:background>')
+    if ($bg.Success) { $out += "== background " + $bg.Value + "`n" }
     $i = $x.IndexOf('<w:body>'); $j = $x.IndexOf('</w:body>')
     $body = $x.Substring($i, $j - $i + 9)
     if ($full) { $out += "== body`n" + (Clean $body) + "`n" }

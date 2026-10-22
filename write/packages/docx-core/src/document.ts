@@ -1142,16 +1142,15 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
       const tps = parseVmlStyle(textpath.attrs['style']);
       const famRaw = (tps['font-family'] ?? '').replace(/^["']|["']$/g, '').trim();
       const sh = vmlShapeStyle(el, 'rect');
-      // opacidade do preenchimento: misturada ao branco (a cor do texto não tem alfa)
-      let color = sh.fill ?? '000000';
+      // opacidade do preenchimento: alfa REAL (o PDF do Word grava ExtGState ca 0,502 para
+      // o ".5" da marca-d'água; sobre uma cor de página a mistura é com ela, não com o
+      // branco — oráculo page-lab wp-cf1/screen-wm1)
+      const color = sh.fill ?? '000000';
       const a = sh.fillAlpha;
-      if (a !== undefined && a < 1) {
-        const mix = (i: number) => Math.round(parseInt(color.slice(i, i + 2), 16) * a + 255 * (1 - a));
-        color = [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase();
-      }
       const rpr: RPr = {
         ...(famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {}),
         color: { val: color }, sz: 72,
+        ...(a !== undefined && a < 1 ? { textFill: { color, alpha: Math.max(0, a) } } : {}),
         ...(/bold|[6-9]00/.test(tps['font-weight'] ?? '') ? { b: true } : {}),
         ...(/italic/.test(tps['font-style'] ?? '') ? { i: true } : {}),
       };

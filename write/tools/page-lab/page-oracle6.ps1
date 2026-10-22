@@ -21,6 +21,12 @@ Run-Exp 'bp-start' { param($doc, $sel) Paras $doc $sel; $doc.Paragraphs(2).Range
 Run-Exp 'bp-end' { param($doc, $sel) Paras $doc $sel; $sel.EndKey(6) | Out-Null } {
   param($doc, $sel, $log) Mso 'BlankPageInsert' $doc; [void]$log.Add('pages=' + $doc.ComputeStatistics(2))
 } '' $true
+Run-Exp 'bp-paraend' { param($doc, $sel) Paras $doc $sel; $r = $doc.Paragraphs(2).Range; $doc.Range($r.End - 1, $r.End - 1).Select() } {
+  param($doc, $sel, $log) Mso 'BlankPageInsert' $doc; [void]$log.Add('pages=' + $doc.ComputeStatistics(2))
+} '' $true
+Run-Exp 'bp-emptypara' { param($doc, $sel) Paras $doc $sel; $doc.Paragraphs(2).Range.InsertParagraphBefore(); $doc.Paragraphs(2).Range.Select(); $sel.Collapse(1) } {
+  param($doc, $sel, $log) Mso 'BlankPageInsert' $doc; [void]$log.Add('pages=' + $doc.ComputeStatistics(2))
+} '' $true
 Run-Exp 'bp-docstart' { param($doc, $sel) Paras $doc $sel; $sel.HomeKey(6) | Out-Null } {
   param($doc, $sel, $log) Mso 'BlankPageInsert' $doc; [void]$log.Add('pages=' + $doc.ComputeStatistics(2))
 } '' $true

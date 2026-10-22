@@ -730,13 +730,36 @@ public sealed class CoreProps
     public string? LastPrinted;
 }
 
-/// <summary>w:document/w:background: cor hex e/ou cor do tema com tom/sombra.</summary>
+/// <summary>w:document/w:background: cor hex e/ou cor do tema com tom/sombra e o
+/// efeito de preenchimento (v:background/v:fill) — page-background.ts.</summary>
 public sealed class PageBackground
 {
     public string? Color;
     public string? ThemeColor;
     public string? ThemeTint;
     public string? ThemeShade;
+    public PageFill? Fill;
+}
+
+/// <summary>Efeito de preenchimento da página (v:fill do v:background) — page-background.ts.</summary>
+public sealed class PageFill
+{
+    /// <summary>gradient | gradientRadial | pattern | frame | tile</summary>
+    public string Type = "gradient";
+    /// <summary>cor 1 (fillcolor), RRGGBB</summary>
+    public string? Color;
+    /// <summary>cor 2 crua do VML ("blue", "fill darken(128)"…)</summary>
+    public string? Color2;
+    public double? Angle;
+    /// <summary>foco em %</summary>
+    public double? Focus;
+    public (double X, double Y)? FocusPosition;
+    public bool GradientCenter;
+    public List<(double Pos, string Color)>? Colors;
+    public string? Method;
+    public string? Title;
+    public (byte[] Data, string Ext)? Image;
+    public bool TargetScreen;
 }
 
 public static class DocxModel

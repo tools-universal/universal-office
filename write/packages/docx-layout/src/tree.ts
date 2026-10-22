@@ -201,6 +201,10 @@ export interface LayoutPage {
   hfItems?: number;
   /** cor de fundo da página (w:background, RRGGBB) — o Word a grava no PDF */
   background?: string;
+  /** efeito de preenchimento da página (gradiente, padrão, imagem, textura) — page-fill.ts */
+  backgroundFill?: import('./page-fill.js').PageFillPaint;
+  /** a TELA mostra o fundo (w:displayBackgroundShape); o PDF mostra sempre */
+  backgroundShow?: boolean;
   /** objetos flutuantes posicionados (seleção/arrasto no editor) */
   objects?: PlacedObject[];
   /** caixas das células de tabela do corpo (seleção de células, alças e

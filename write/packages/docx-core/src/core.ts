@@ -125,7 +125,15 @@ export {
   type TrackedDelete,
 } from './revisions.js';
 export { readTrackRevisions, writeTrackRevisions } from './rev-xml.js';
-export { writeDefaultTabStop, writeEvenAndOddHeaders } from './settings-xml.js';
+export { writeDefaultTabStop, writeEvenAndOddHeaders, writeDisplayBackgroundShape } from './settings-xml.js';
+export {
+  readPageBackground, pageBackgroundXml, writePageBackground, vmlColorAttr, patternGif, oneColorGradientColor2, resolveColor2,
+  WORD_PATTERNS, type PageBackground, type PageFill,
+} from './page-background.js';
+export {
+  watermarkRunXml, isWatermarkXml, readWatermarkXml, autoTextBox, explicitTextBox, pictureBox, WATERMARK_GALLERY, WATERMARK_TEXTS,
+  type WatermarkSpec, type WatermarkTextSpec, type WatermarkPictureSpec, type WatermarkInfo, type WatermarkLayout, type WatermarkGalleryItem, type WatermarkIds,
+} from './watermark.js';
 export { copyHfPartXml, hfPartXml, pageNumberGroupIds, dropUnusedHfParts, HF_NS } from './hf-ops.js';
 export {
   serializeDocument,

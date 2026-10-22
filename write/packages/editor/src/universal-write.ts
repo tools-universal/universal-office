@@ -189,7 +189,7 @@ import {
 import { compareText } from '@universal-office/collation';
 import type { PlacedCell, ObjectFrame } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
-import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
+import { paintItems, paintPageBackground, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
 import {
   tabInfo, tabsDirect, indentsDirect, dedupeTabs, headingSpan, moveMap, findInText, matchSnippet, drawingGridOf, gridLines,
@@ -11256,12 +11256,14 @@ export class UniversalWriteElement extends HTMLElement {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     // instantâneo do corpo (edição legada de HF): fundo transparente e sem o HF
-    if (!this.hfCapturing) {
-      // fundo da página do documento (w:background) — vale também no modo escuro
-      ctx.fillStyle = page.background ? `#${page.background}` : this.pageDark ? '#1e1e1e' : '#ffffff';
-      ctx.fillRect(0, 0, w, h);
-    }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if (!this.hfCapturing) {
+      // Cor da Página (w:background): na tela só com w:displayBackgroundShape, com os
+      // efeitos em ladrilhos de px de tela (iguais em qualquer zoom); a impressão, como
+      // a do Word por padrão, não leva o fundo; o PDF leva sempre (renderPdf)
+      if (this.printRender) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, page.widthTw, page.heightTw); }
+      else paintPageBackground(ctx, page, this.enginePaintEnv(), { devicePxTw: 1 / (PX_PER_TWIP * this.zoom), screen: true, paper: this.pageDark ? '#1e1e1e' : '#ffffff' });
+    }
     // linhas de grade das tabelas (Exibir Linhas de Grade): só na tela, sob o conteúdo
     if (this.gridlines && !this.printRender && !this.hfCapturing && page.cells?.length) this.paintGridlines(ctx, page.cells, scale);
     // linhas de grade do documento (Exibir > Linhas de Grade): só na tela, sob o conteúdo
@@ -12204,10 +12206,8 @@ export class UniversalWriteElement extends HTMLElement {
     canvas.style.width = `${Math.round(p.widthTw * scale)}px`;
     canvas.style.height = `${Math.round(p.heightTw * scale)}px`;
     const ctx = canvas.getContext('2d')!;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = p.background ? `#${p.background}` : this.pageDark ? '#1e1e1e' : '#ffffff';
-    ctx.fillRect(0, 0, w, h);
     ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintPageBackground(ctx, p, this.enginePaintEnv(), { devicePxTw: 1 / scale, screen: true, paper: this.pageDark ? '#1e1e1e' : '#ffffff' });
     paintItems(ctx, p.items, this.enginePaintEnv(), {});
     return true;
   }

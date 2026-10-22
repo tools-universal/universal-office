@@ -14,6 +14,7 @@ import { readStyles, type StylesMap } from './styles.js';
 import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
 import { readDocFormatting, type DocFormatting } from './ooxml/parts.js';
 import { SourceStore, type NotesPartSource, type StoryGroup, type StorySource, type WrapSeg } from './source.js';
+import { readPageBackground, type PageBackground } from './page-background.js';
 
 /**
  * Modelo completo do documento: blocos (parágrafos E tabelas), seções
@@ -135,8 +136,9 @@ export interface FullDocument {
   noteSpecialIds?: { footnote: number[]; endnote: number[] };
   /** docProps/core.xml (W3CDTF) — campos CREATEDATE/SAVEDATE/PRINTDATE. */
   coreProps?: { created?: string; modified?: string; lastPrinted?: string };
-  /** w:background (cor da página): hex e/ou cor do tema com tom/sombra. */
-  background?: { color?: string; themeColor?: string; themeTint?: string; themeShade?: string };
+  /** w:background (cor da página): hex e/ou cor do tema com tom/sombra e o efeito
+   *  de preenchimento (v:background/v:fill) — page-background.ts. */
+  background?: PageBackground;
   /** XML original (salvamento sem perdas) — ver source.ts. */
   sources?: SourceStore;
 }
@@ -661,21 +663,16 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
     endnoteBlocks,
     noteSpecialIds,
     ...readCoreProps(pkg),
-    ...readBackground(root),
+    ...readBackground(root, ctx),
     ...(store ? { sources: store } : {}),
   };
 }
 
-/** Cor de fundo da página (w:document/w:background). */
-function readBackground(root: ReturnType<typeof parseXml>): { background?: FullDocument['background'] } {
+/** Cor de fundo da página (w:document/w:background) com o efeito de preenchimento. */
+function readBackground(root: ReturnType<typeof parseXml>, ctx: ReadContext): { background?: FullDocument['background'] } {
   const bg = firstChild(root, 'w:background');
-  if (!bg) return {};
-  const out: NonNullable<FullDocument['background']> = {};
-  for (const k of ['color', 'themeColor', 'themeTint', 'themeShade'] as const) {
-    const v = bg.attrs[`w:${k}`];
-    if (v) out[k] = v;
-  }
-  return Object.keys(out).length ? { background: out } : {};
+  const out = bg ? readPageBackground(bg, (rid) => ctx.resolveImage(rid)) : undefined;
+  return out ? { background: out } : {};
 }
 
 /** Datas do docProps/core.xml (criação, última gravação, última impressão). */

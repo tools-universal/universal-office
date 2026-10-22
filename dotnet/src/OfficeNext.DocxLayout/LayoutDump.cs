@@ -257,6 +257,17 @@ public static class LayoutDump
                 Stroke(w, pa.Stroke);
                 w.WriteBoolean("evenOdd", pa.EvenOdd);
                 break;
+            case XformItem xi:
+                // transformação afim (giro de caixa, escala do WordArt/marca-d'água)
+                w.WriteString("op", xi.Op == "pop" ? "pop" : "push");
+                if (xi.Op != "pop")
+                {
+                    w.WriteStartArray("m");
+                    var mm = xi.M ?? Array.Empty<double>();
+                    for (int i = 0; i < mm.Length; i++) NumV(w, mm[i], i < 4 ? 10000 : 100);
+                    w.WriteEndArray();
+                }
+                break;
             case ClipItem ci:
                 w.WriteString("op", ci.Op == "pop" ? "pop" : "push");
                 if (ci.Op != "pop")
@@ -297,6 +308,33 @@ public static class LayoutDump
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();
+                // Cor da Página (frente Página): cor, se a tela mostra e o efeito resolvido — só quando há
+                if (p.Background is not null || p.BackgroundFill is not null)
+                {
+                    w.WriteStartObject("bg");
+                    if (p.Background is null) w.WriteNull("color"); else w.WriteString("color", p.Background);
+                    w.WriteBoolean("show", p.BackgroundShow);
+                    if (p.BackgroundFill is not { } f) w.WriteNull("fill");
+                    else
+                    {
+                        w.WriteStartObject("fill");
+                        w.WriteString("type", f.Type); w.WriteString("c1", f.C1); w.WriteString("c2", f.C2);
+                        Num(w, "angle", f.Angle); Num(w, "focus", f.Focus);
+                        if (f.FocusPosition is { } fp) { w.WriteStartArray("fp"); NumV(w, fp.X); NumV(w, fp.Y); w.WriteEndArray(); } else w.WriteNull("fp");
+                        w.WriteBoolean("center", f.GradientCenter);
+                        if (f.Stops is { } st)
+                        {
+                            w.WriteStartArray("stops");
+                            foreach (var (pos, col) in st) { w.WriteStartArray(); NumV(w, pos, 10000); w.WriteStringValue(col); w.WriteEndArray(); }
+                            w.WriteEndArray();
+                        }
+                        else w.WriteNull("stops");
+                        if (f.Pattern is { } pat) { w.WriteStartArray("pattern"); foreach (int b in pat) w.WriteNumberValue(b); w.WriteEndArray(); } else w.WriteNull("pattern");
+                        if (f.ImagePx is { } ip) { w.WriteStartArray("img"); w.WriteNumberValue(ip.W); w.WriteNumberValue(ip.H); w.WriteNumberValue(ip.Dpi); w.WriteEndArray(); } else w.WriteNull("img");
+                        w.WriteEndObject();
+                    }
+                    w.WriteEndObject();
+                }
                 w.WriteEndObject();
             }
             w.WriteEndArray();
