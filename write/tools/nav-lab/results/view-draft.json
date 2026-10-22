@@ -1,0 +1,6 @@
+{
+    "name":  "view-draft",
+    "extra":  {
+                  "ViewType":  1
+              }
+}

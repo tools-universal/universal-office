@@ -1,0 +1,23 @@
+{
+    "name":  "grid-defaults",
+    "extra":  {
+                  "GridDistanceHorizontal":  9,
+                  "GridDistanceVertical":  9,
+                  "GridSpaceBetweenHorizontalLines":  1,
+                  "GridSpaceBetweenVerticalLines":  1,
+                  "GridOriginFromMargin":  true,
+                  "GridOriginHorizontal":  85.05,
+                  "GridOriginVertical":  70.85,
+                  "SnapToGrid":  false,
+                  "SnapToShapes":  true,
+                  "DisplayGridLines":  false,
+                  "DisplayRulers":  false,
+                  "DisplayVerticalRuler":  true,
+                  "DocumentMap":  false,
+                  "MeasurementUnit":  1,
+                  "ViewType":  3,
+                  "LayoutGridType":  0,
+                  "LinesPage":  38,
+                  "CharsLine":  38
+              }
+}

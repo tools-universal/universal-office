@@ -117,7 +117,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,fuzz,sections,notes,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,fuzz,sections,notes,nav,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -928,6 +928,117 @@ if (want('notes')) {
   await at(0, 4);
   const none = await call('insertFootnote');
   check('insertFootnote no controle de texto sem formatação não faz nada', none === null && (await N()).fn === 0, none);
+}
+
+// ───────────── navegação: títulos, régua (recuos/tabulações), busca, miniaturas ─────────────
+if (want('nav')) {
+  await ev('open', '/write/samples/Catalogo-Recursos-Word.docx');
+  const E = (fn) => page.evaluate(fn);
+  const heads = await call('getHeadings');
+  check('Títulos: os do catálogo (Título 1/2 sem w:outlineLvl valem pelo nome, como no Word)', heads.length === 24 && heads[3].level === 2 && heads[3].text === '2.1 Alinhamento' && heads.every((h) => h.page >= 0), heads.slice(0, 4));
+  // régua no parágrafo de recuo deslocado
+  const pd = await E(() => { const e = document.querySelector('universal-write'); return e.model.paragraphs.findIndex((p) => p.runs.map((r) => r.text).join('').startsWith('Recuo deslocado')); });
+  await ev('select', pd, 3);
+  let ri = await call('getRulerInfo');
+  check('régua: margens, quadro e recuo deslocado do parágrafo', ri && ri.margins.left === 1440 && ri.frame.x0 === 1440 && ri.indents.left === 720 && ri.indents.firstLine === -360 && ri.where === 'body', ri && { m: ri.margins, f: ri.frame, i: ri.indents });
+  // arrastar o recuo esquerdo (o deslocado acompanha) → só o atributo mudado vai para o w:ind
+  await call('setParagraphIndents', { left: 1134 });
+  const pXml = async () => {
+    const d = await ev('savedPart', 'word/document.xml');
+    const i = d.indexOf('Recuo deslocado');
+    const ps = Math.max(d.lastIndexOf('<w:p ', i), d.lastIndexOf('<w:p>', i));
+    return d.slice(ps, i).match(/<w:ind [^>]*\/>/)?.[0] ?? null;
+  };
+  let ind = await pXml();
+  check('recuo esquerdo: w:left novo, deslocamento mantido', /w:left="1134"/.test(ind ?? '') && /w:hanging="360"/.test(ind ?? ''), ind);
+  await call('setParagraphIndents', { left: 0, firstLine: 0 });
+  ind = await pXml();
+  check('recuo igual ao herdado sai do XML (o Word tira o w:ind)', ind === null, ind);
+  await call('undo'); await call('undo');
+  ri = await call('getRulerInfo');
+  check('desfazer volta os recuos (um passo por arrasto)', ri.indents.left === 720 && ri.indents.firstLine === -360, ri.indents);
+  // tabulações: marcar centralizada e decimal com preenchimento, mover e remover
+  await call('setTabStops', [], { add: [{ pos: 2835, align: 'center' }, { pos: 5669, align: 'decimal', leader: 'dot' }] });
+  let tabs = (await call('getTabStops')).tabs;
+  const tabsXml = async () => { const d = await ev('savedPart', 'word/document.xml'); const i = d.indexOf('Recuo deslocado'); const ps = Math.max(d.lastIndexOf('<w:p ', i), d.lastIndexOf('<w:p>', i)); return d.slice(ps, i).match(/<w:tabs>.*?<\/w:tabs>/)?.[0] ?? null; };
+  let tx = await tabsXml();
+  check('tabulações centralizada e decimal pontilhada no w:tabs (ordem de posição)', tabs.length === 2 && tx === '<w:tabs><w:tab w:val="center" w:pos="2835"/><w:tab w:val="decimal" w:leader="dot" w:pos="5669"/></w:tabs>', { tabs, tx });
+  await call('setTabStops', [], { remove: [2835], add: [{ pos: 3402, align: 'center' }] });
+  await call('setTabStops', [], { remove: [5669] });
+  tx = await tabsXml();
+  check('mover e remover tabulação', tx === '<w:tabs><w:tab w:val="center" w:pos="3402"/></w:tabs>', tx);
+  await call('setDefaultTabStop', 567);
+  const st1 = await ev('savedPart', 'word/settings.xml');
+  check('tabulação padrão → w:defaultTabStop no settings', /<w:defaultTabStop w:val="567"\/>/.test(st1), st1.match(/<w:defaultTabStop[^>]*>/)?.[0]);
+  await call('undo');
+  check('desfazer a tabulação padrão', (await call('getDefaultTabStop')) !== 567);
+  for (let k = 0; k < 3; k++) await call('undo');
+  check('desfazer as tabulações', (await call('getTabStops')).tabs.length === 0);
+  // mover a seção "3. Listas" para antes de "2. Formatacao de Paragrafo"
+  const n0 = (await st()).paras;
+  const i3 = heads.findIndex((h) => h.text.startsWith('3. Listas'));
+  const i2 = heads.findIndex((h) => h.text.startsWith('2. Formatacao'));
+  const moved = await call('moveHeading', i3, i2);
+  let h2 = await call('getHeadings');
+  check('arrastar título move a seção inteira (com os subtítulos)', moved && h2[i2].text.startsWith('3. Listas') && h2[i2 + 1].text.startsWith('3.1') && h2[i2 + 3].text.startsWith('2. Formatacao') && (await st()).paras === n0, h2.slice(i2, i2 + 4).map((h) => h.text));
+  const tablesKept = await E(() => document.querySelector('universal-write').tableAnchors.length);
+  await call('undo');
+  h2 = await call('getHeadings');
+  check('desfazer o arrasto num passo', h2[i2].text.startsWith('2. Formatacao') && h2.length === heads.length, h2.slice(i2, i2 + 2).map((h) => h.text));
+  // mover "4. Tabelas" (com a tabela) para o fim: a tabela vai junto
+  const i4 = heads.findIndex((h) => h.text.startsWith('4. Tabelas'));
+  await call('moveHeading', i4, heads.length);
+  const tAfter = await E(() => { const e = document.querySelector('universal-write'); const hs = e.getHeadings(); const last = hs[hs.length - 1]; return { last: last.text, anchors: e.tableAnchors.map((a) => a.beforePara), lastPara: last.para, n: e.model.paragraphs.length }; });
+  check('seção com tabela vai para o fim com a tabela', tAfter.last.startsWith('4. Tabelas') && tAfter.anchors.some((b) => b > tAfter.lastPara), tAfter);
+  await call('undo');
+  // rebaixar/promover, novo título e excluir
+  await call('demoteHeading', 3);
+  check('Rebaixar: Título 2 → Título 3', (await call('getHeadings'))[3].level === 3);
+  await call('undo');
+  await call('insertHeading', 3, 'after');
+  h2 = await call('getHeadings');
+  const sel = (await st()).sel.focus;
+  check('Novo Título Depois: parágrafo de título vazio (não aparece até ter texto) e o cursor nele', (await st()).paras === n0 + 1 && h2.length === heads.length && sel.offset === 0, { sel, n: (await st()).paras });
+  await E(() => document.querySelector('universal-write').type('Novo'));
+  h2 = await call('getHeadings');
+  check('o título novo entra na árvore depois da seção', h2.length === heads.length + 1 && h2[4].text === 'Novo' && h2[4].level === 2, h2.slice(3, 6).map((h) => h.text));
+  for (let k = 0; k < 8 && (await st()).paras !== n0; k++) await call('undo');
+  await call('deleteHeading', i3);
+  h2 = await call('getHeadings');
+  check('Excluir apaga o título e o conteúdo', !h2.some((h) => h.text.startsWith('3.1')) && h2.length === heads.length - 3, h2.length);
+  await call('undo');
+  check('desfazer a exclusão', (await call('getHeadings')).length === heads.length && tablesKept > 0);
+  // busca: corpo e tabela, realce, ir até o resultado (célula)
+  const res = await call('search', 'recuo');
+  check('busca: ocorrências do corpo com trecho e título', res.length === 7 && res[0].match.toLowerCase() === 'recuo' && res.every((r) => r.page >= 0), res.length);
+  const rt = await call('search', 'Cabecalho', { matchCase: true });
+  const kt = rt.findIndex((r) => r.inTable);
+  const went = kt >= 0 && (await call('goToSearchResult', kt));
+  const s2 = await E(() => { const e = document.querySelector('universal-write'); return { cell: !!e.cellEdit, sel: e.selection, text: e.selectedText() }; });
+  check('ir até o resultado na tabela entra na célula e seleciona', went && s2.cell && s2.text === 'Cabecalho', s2);
+  check('palavra inteira e maiúsculas', (await call('search', 'recu', { wholeWord: true })).length === 0 && (await call('search', 'RECUO', { matchCase: true })).length === 0);
+  await call('clearSearch');
+  // miniatura e ir para a página
+  const thumb = await E(() => { const e = document.querySelector('universal-write'); const c = document.createElement('canvas'); const ok = e.paintPageThumbnail(1, c, 120); return { ok, w: c.width, h: c.height }; });
+  check('miniatura da página (Páginas)', thumb.ok && thumb.w >= 120 && thumb.h > thumb.w, thumb);
+  // régua numa célula: divisas da tabela e redimensionar pela régua
+  ri = await call('getRulerInfo');
+  check('régua na célula: divisas e linhas da tabela', ri.where === 'cell' && ri.table && ri.table.cols.length >= 2 && ri.table.rows.length >= 1, ri.table);
+  const g0 = await E(() => { const e = document.querySelector('universal-write'); return e.tableAnchors[e.cellEdit.anchor].table.gridColsTwips.slice(); });
+  await call('resizeTableColumn', 1, 300);
+  const g1 = await E(() => { const e = document.querySelector('universal-write'); return e.tableAnchors[e.cellEdit.anchor].table.gridColsTwips.slice(); });
+  check('divisa da tabela pela régua: as colunas vizinhas trocam largura', g1[0] === g0[0] + 300 && g1[1] === g0[1] - 300, { g0, g1 });
+  await call('undo');
+  // visões e grade
+  await call('showGridlines', true);
+  check('Linhas de Grade liga/desliga', (await call('gridlinesShown')) === true);
+  await call('showGridlines', false);
+  await call('setView', 'outline');
+  check('Estrutura de Tópicos sem régua (como o Word)', (await call('getRulerInfo')) === null);
+  await call('setView', 'draft');
+  ri = await call('getRulerInfo');
+  check('Rascunho: régua horizontal com o quadro do texto', ri && ri.frame.x1 > ri.frame.x0, ri && ri.frame);
+  await call('setView', 'print');
 }
 
 // ───────────── desempenho ─────────────

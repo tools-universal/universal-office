@@ -20,3 +20,5 @@ __pycache__/
 
 # Oráculo das tabelas — .docx brutos do Word (os XML extraídos em results/ SÃO versionados)
 tools/table-lab/.out/
+# Oráculo da navegação (régua, grade, títulos) — idem
+tools/nav-lab/.out/

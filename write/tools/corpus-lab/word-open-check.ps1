@@ -2,19 +2,23 @@
 # originais correspondentes; falha = o Word nao abre (conteudo ilegivel) ou o
 # texto digitado nao aparece. Saida: uma linha TSV por documento.
 #
-#   powershell -NoProfile -WindowStyle Hidden -File word-open-check.ps1 -Dir <pasta do --out> [-Limit N] [-Skip N] [-Sections] [-Tables] [-Notes]
+#   powershell -NoProfile -WindowStyle Hidden -File word-open-check.ps1 -Dir <pasta do --out> [-Limit N] [-Skip N] [-Sections] [-Tables] [-Notes] [-Nav]
 # -Sections: saida do lossless-check --sections (uma secao a mais, dois paragrafos a mais).
 # -Tables: saida do lossless-check --tables (linha nova na 1a tabela: o numero de
 # paragrafos muda; confere tabelas, o campo de formula, as bordas de pagina e o estilo de tabela).
 # -Notes: saida do lossless-check --notes (uma nota de rodape e uma de fim a mais, com o texto novo).
 # -Skip: pula as N primeiras linhas do manifesto (rodar em blocos e soltar a trava do Word entre eles).
+# -Nav: saida do lossless-check --nav (recuo esquerdo 1134/deslocamento 567, tabulacoes
+# centralizada 2835 e decimal 5669, tabulacao padrao 567 e a ordem do titulo arrastado:
+# colunas 3 e 4 do manifest).
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
   [int]$Skip = 0,
   [switch]$Sections,
   [switch]$Tables,
-  [switch]$Notes
+  [switch]$Notes,
+  [switch]$Nav
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -39,6 +43,36 @@ foreach ($row in $rows) {
         $script:se = $d.Sections.Count
         $script:te = $d.Tables.Count
         $script:hasEdit = ([string]$d.Content.Text).Contains('XYZ')
+        if ($Nav) {
+          # documento protegido (formularios): o COM nao le a formatacao de paragrafo
+          $script:prot = ($d.ProtectionType -ne -1)
+          $script:ind = $false; $script:tabs = $false; $k = 0
+          $na = ''; $nt = ''; $script:ia = -1; $script:it = -1
+          if ($parts.Count -ge 4 -and $parts[2] -ne '' -and $parts[3] -ne '') {
+            $na = $parts[2].Substring(0, [math]::Min(40, $parts[2].Length))
+            $nt = $parts[3].Substring(0, [math]::Min(40, $parts[3].Length))
+          }
+          foreach ($p in $d.Paragraphs) {
+            $k++
+            if ($k -gt 4000) { break }
+            if (-not $script:ind -and [math]::Abs($p.LeftIndent - 56.7) -lt 0.2 -and [math]::Abs($p.FirstLineIndent + 28.35) -lt 0.2) { $script:ind = $true }
+            if (-not $script:tabs -and $p.TabStops.Count -ge 2) {
+              foreach ($t in $p.TabStops) { if ([math]::Abs($t.Position - 141.75) -lt 0.2 -and $t.Alignment -eq 1) { $script:tabs = $true } }
+            }
+            # ordem dos titulos pelos paragrafos com nivel de topico (o sumario repete os textos)
+            if ($na -ne '' -and ($script:ia -lt 0 -or $script:it -lt 0)) {
+              $lv = $p.OutlineLevel
+              if ($lv -ne $null -and $lv -lt 10) {
+                $x = ([string]$p.Range.Text).Trim()
+                if ($script:ia -lt 0 -and $x.StartsWith($na, [System.StringComparison]::OrdinalIgnoreCase)) { $script:ia = $k }
+                elseif ($script:it -lt 0 -and $x.StartsWith($nt, [System.StringComparison]::OrdinalIgnoreCase)) { $script:it = $k }
+              }
+            }
+            if ($script:ind -and $script:tabs -and ($na -eq '' -or ($script:ia -ge 0 -and $script:it -ge 0))) { break }
+          }
+          $script:dts = [double]$d.DefaultTabStop
+          $script:order = ($na -eq '') -or ($script:ia -ge 0 -and $script:it -ge 0 -and $script:ia -lt $script:it)
+        }
         if ($Tables) {
           $script:formula = $false
           foreach ($f in $d.Fields) { if (([string]$f.Code.Text).Contains('=SUM(ABOVE)')) { $script:formula = $true } }
@@ -61,6 +95,11 @@ foreach ($row in $rows) {
     $slack = 1
     if ($Sections) { $slack = 2 }
     if (-not $script:hasEdit) { $status = 'no-edit' }
+    elseif ($Nav -and $script:prot) { $status = 'ok-protected' }
+    elseif ($Nav -and -not $script:ind) { $status = 'no-indent' }
+    elseif ($Nav -and -not $script:tabs) { $status = 'no-tabs' }
+    elseif ($Nav -and [math]::Abs($script:dts - 28.35) -gt 0.1) { $status = 'no-default-tab' }
+    elseif ($Nav -and -not $script:order) { $status = 'heading-order' }
     elseif ($Tables) {
       if ($script:te -ne $script:to) { $status = 'table-count' }
       elseif (-not $script:formula) { $status = 'no-formula' }

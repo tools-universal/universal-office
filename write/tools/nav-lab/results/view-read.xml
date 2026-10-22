@@ -1,0 +1,17 @@
+<w:body>
+  <w:p>
+    <w:r>
+      <w:t>abc</w:t>
+    </w:r>
+  </w:p>
+  <w:sectPr>
+    <w:pgSz w:w="11906" w:h="16838"/>
+    <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+    <w:cols w:space="708"/>
+    <w:docGrid w:linePitch="360"/>
+  </w:sectPr>
+</w:body>
+
+<!-- settings.xml × blank -->
++ <w:view w:val="normal"/>
+- <w:shapeDefaults><o:shapedefaults v:ext="edit" spidmax="1026"/><o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout></w:shapeDefaults>

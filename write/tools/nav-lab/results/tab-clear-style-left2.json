@@ -1,0 +1,79 @@
+{
+    "name":  "tab-clear-style-left2",
+    "extra":  {
+                  "tabs":  [
+                               {
+                                   "pos":  200,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  true
+                               },
+                               {
+                                   "pos":  212.4,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  247.8,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  283.2,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  318.6,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  354,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  389.4,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  424.8,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  460.2,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  495.6,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  531,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               },
+                               {
+                                   "pos":  566.4,
+                                   "align":  0,
+                                   "leader":  0,
+                                   "custom":  false
+                               }
+                           ]
+              }
+}

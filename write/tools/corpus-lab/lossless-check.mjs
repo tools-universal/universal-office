@@ -18,6 +18,11 @@
 // --notes: nota de rodapé e de fim novas no 1º parágrafo editado (estilos e partes
 // como o Word grava) e o texto da 1ª nota de rodapé existente editado → as outras
 // notas saem cruas, as novas entram no fim das partes.
+// --nav: régua e Painel de Navegação — recuos (esquerdo e deslocamento) num
+// parágrafo, tabulações centralizada e decimal pontilhada noutro, tabulação
+// padrão de 1 cm, margem esquerda da última seção e a seção de um título
+// arrastada para antes da irmã anterior (os blocos mudam de lugar sem mudar o
+// XML) → o XML relê e os títulos saem na ordem nova.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -74,6 +79,8 @@ function noteStyles(pkg, kind) {
 
 /** Cada w:footnote / w:endnote cru por id. */
 const noteRaws = (xml, tag) => new Map([...(xml ?? '').matchAll(new RegExp(`<w:${tag}\\b[^>]*?w:id="(-?\\d+)"[\\s\\S]*?</w:${tag}>`, 'g'))].map((m) => [m[1], m[0]]));
+const navMode = args.includes('--nav');
+const layout = navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -268,7 +275,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     const sx0 = b.pkg.getPartText(stylesPath);
     let styleEdit = null;
     // (--sections usa o 4º e o 5º candidatos: os estilos vão no 6º)
-    const sc = sectionsMode ? cands[5] : cands[3];
+    const sc = sectionsMode || navMode ? cands[5] : cands[3];
     if (sx0 && sc) {
       const idx = readStyleIndex(sx0);
       const dPara = idx.styles.find((x) => x.type === 'paragraph' && x.isDefault)?.id;
@@ -325,6 +332,41 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         tblEdit = { tsId };
       }
     }
+    // --nav: recuos, tabulações, tabulação padrão, margem e arrastar seção de título
+    let navEdit = null;
+    if (navMode && cands[3] && cands[4]) {
+      const pi = cands[3][0], pt = cands[4][0];
+      pi.props.indentLeftTwips = 1134;
+      pi.props.indentFirstLineTwips = -567;
+      pt.props.tabStops = [{ posTwips: 2835, align: 'center' }, { posTwips: 5669, align: 'decimal', leader: 'dot' }];
+      edited.push(pi, pt);
+      core.writeDefaultTabStop(b.pkg, 567);
+      const last = b.full.sections[b.full.sections.length - 1];
+      last.sectPr.marginLeftTwips += 283;
+      secEdits += 1;
+      // seção de título (sem quebra de seção dentro) para antes da irmã anterior
+      // texto sem o número da lista (a numeração muda com a ordem nova)
+      const plain = (h) => (h.number ? h.text.slice(h.number.length) : h.text).trim();
+      const heads = layout.documentOutline(b.full);
+      let move = null;
+      for (let k = 1; k < heads.length && !move; k++) {
+        const h = heads[k];
+        const prevSib = [...heads.slice(0, k)].reverse().find((x) => x.level <= h.level);
+        if (!prevSib || prevSib.level !== h.level) continue;
+        const next = heads.slice(k + 1).find((x) => x.level <= h.level);
+        const s0 = h.block, e0 = next ? next.block : b.full.blocks.length - 1;
+        const span = b.full.blocks.slice(prevSib.block, e0);
+        if (e0 <= s0 || span.some((x) => x.type === 'paragraph' && x.paragraph.props.sectionBreak)) continue;
+        move = { s0, e0, t: prevSib.block, moved: plain(h), target: plain(prevSib) };
+      }
+      if (move) {
+        const blk = b.full.blocks.splice(move.s0, move.e0 - move.s0);
+        b.full.blocks.splice(move.t, 0, ...blk);
+        model.paragraphs = paras(b.full.blocks);
+        ps.splice(0, ps.length, ...model.paragraphs);
+      }
+      navEdit = { move };
+    }
     const out = sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
@@ -344,6 +386,20 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits + (tblEdit ? 2 : 0);
     if (changed > allowed) res.issues.push(`changed:${changed}>${allowed}`);
     if (!xml.includes('XYZ') && cands[0]) res.issues.push('missing-edit');
+    if (navEdit) {
+      const rf = readFullDocument(re);
+      const rps = paras(rf.blocks);
+      if (!rps.some((p) => p.props.indentLeftTwips === 1134 && p.props.indentFirstLineTwips === -567)) res.issues.push('nav-indent');
+      if (!xml.includes('<w:tab w:val="center" w:pos="2835"/><w:tab w:val="decimal" w:leader="dot" w:pos="5669"/>')) res.issues.push('nav-tabs');
+      if (rf.formatting?.settings.defaultTabStop !== 567) res.issues.push('nav-default-tab');
+      if (navEdit.move) {
+        const hs = layout.documentOutline(rf).map((h) => (h.number ? h.text.slice(h.number.length) : h.text).trim());
+        const a = hs.indexOf(navEdit.move.moved), t = hs.indexOf(navEdit.move.target);
+        if (a < 0 || t < 0 || a > t) res.issues.push('nav-move');
+        res.navMove = true;
+      }
+      res.nav = true;
+    }
     if (tblEdit) {
       if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
       if (!xml.includes('<w:pgBorders')) res.issues.push('tables-no-pgborders');
@@ -384,7 +440,11 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit)) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit)) {
+      mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
+      // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
+      if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));
+    }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
     if (process.env.LOSSLESS_STACK) console.log(e?.stack);
@@ -398,7 +458,7 @@ mkdirSync(join(LAB_DIR, 'report'), { recursive: true });
 writeFileSync(join(LAB_DIR, 'report', 'lossless.json'), JSON.stringify(results, null, 1));
 if (outDir) {
   writeFileSync(join(outDir, 'manifest.tsv'),
-    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}`).join('\n'), 'utf8');
+    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}`).join('\n'), 'utf8');
 }
 const bad = results.filter((r) => !r.ok);
 const kinds = {};

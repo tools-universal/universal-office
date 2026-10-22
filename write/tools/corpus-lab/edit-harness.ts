@@ -429,4 +429,9 @@ w.ed = {
   async exportPdfSize(): Promise<number> {
     return (await need().exportPdf()).length;
   },
+
+  /** Texto de uma parte do .docx salvo agora (ex.: word/document.xml). */
+  savedPart(part: string): string {
+    return DocxPackage.load(need().saveDocx()).getPartText(part) ?? '';
+  },
 };
