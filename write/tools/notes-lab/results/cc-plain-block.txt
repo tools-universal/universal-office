@@ -1,0 +1,15 @@
+# cc-plain-block
+story=1 sel=5..5 paraText=[Paragrafo de titulo\r] undoSteps=0
+log: footnote=ERRO Este método ou propriedade não está disponível porque a seleção atual cobre parcialmente um controle de conteúdo de texto sem formatação.
+== body
+<w:body><w:sdt><w:sdtPr><w:id w:val="1927156539"/><w:placeholder><w:docPart w:val="DefaultPlaceholder_-1854013440"/></w:placeholder><w:text/></w:sdtPr><w:sdtContent>
+<w:p><w:r><w:t>Paragrafo de titulo</w:t></w:r></w:p></w:sdtContent></w:sdt>
+<w:p><w:r><w:t>Corpo.</w:t></w:r></w:p>
+  <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>
+== word/footnotes.xml (ausente)
+== word/endnotes.xml (ausente)
+== latent <w:lsdException w:name="footnote text" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="footnote reference" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="endnote reference" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="endnote text" w:semiHidden="1" w:unhideWhenUsed="1"/>
+

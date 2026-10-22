@@ -2930,6 +2930,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
     let pos = this.selection.focus;
     const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
+    const notesOk = clip.paras.some((p) => p.runs.some((r) => r.noteRef)) && this.canInsertNote();
     clip.paras.forEach((cp, i) => {
       if (i > 0) {
         this.shiftAnchors(pos.para, 1);
@@ -2945,8 +2946,9 @@ export class UniversalWriteElement extends HTMLElement {
       for (const run of cp.runs) {
         if (run.noteRef) {
           // nota nova com cópia do conteúdo; fora do texto principal (cabeçalho,
-          // caixa, nota) o Word não aceita referência: ela fica de fora
-          if (!this.fullDoc || this.hfEdit || this.tbEdit || this.noteEdit) continue;
+          // caixa, nota) ou em controle de texto sem formatação o Word não aceita
+          // referência: ela fica de fora
+          if (!notesOk || !this.fullDoc) continue;
           const id = nextNoteId(this.fullDoc, run.noteRef.kind);
           setNoteBlocks(this.fullDoc, run.noteRef.kind, id, cloneBlocks(run.note ?? []));
           pos = this.insertWholeRun(pos, { text: NOTE_REF_TEXT, props: withoutRevisions(run.props), noteRef: { ...run.noteRef, id } });
@@ -8785,7 +8787,18 @@ export class UniversalWriteElement extends HTMLElement {
   /** Pode inserir nota aqui? (corpo e células; o Word recusa em cabeçalho/rodapé,
    *  caixa de texto e dentro de nota — oráculo notes-lab, fn-header) */
   canInsertNote(): boolean {
-    return !!this.model && !!this.fullDoc && !this.locked() && !this.hfEdit && !this.tbEdit && !this.noteEdit && this.view !== 'read';
+    if (!this.model || !this.fullDoc || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit || this.view === 'read') return false;
+    // controle de conteúdo de texto sem formatação: o Word recusa (oráculo notes-lab, cc-plain-*)
+    const store = this.fullDoc.sources;
+    const { end } = normalizeRange(this.range());
+    const p = this.model.paragraphs[end.para];
+    if (!store || !p) return true;
+    const runAt = (o: number): Run | undefined => {
+      let acc = 0;
+      for (const r of p.runs) { if (o >= acc && o < acc + r.text.length) return r; acc += r.text.length; }
+      return undefined;
+    };
+    return !store.inPlainTextControl(p, [runAt(end.offset - 1), runAt(end.offset)]);
   }
 
   /** Insere uma nota de rodapé no cursor (no FIM da seleção, sem apagá-la) e leva o

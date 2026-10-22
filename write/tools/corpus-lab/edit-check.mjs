@@ -912,6 +912,22 @@ if (want('notes')) {
   check('controle ligado: apagar a referência a deixa em w:del e a nota fica',
     s.fn === 3 && /<w:del [^>]*><w:r><w:rPr><w:rStyle [^>]*\/><\/w:rPr><w:footnoteReference w:id="\d+"\/><\/w:r><\/w:del>/.test(xml['word/document.xml'] ?? '') && (xml['word/footnotes.xml'] ?? '').includes('> Rev<'), s);
   await call('toggleTrackChanges', false);
+  // controle de conteúdo de texto sem formatação (ou data, caixa de combinação, lista
+  // suspensa): o Word recusa a nota ali (oráculo notes-lab, cc-*); rich text aceita
+  const ccSdt = (pr, content) => `<w:sdt><w:sdtPr><w:id w:val="7"/>${pr}</w:sdtPr><w:sdtContent>${content}</w:sdtContent></w:sdt>`;
+  const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
+  const ccPkg = core.blankDocxPackage();
+  ccPkg.setPartText('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+    ccSdt('<w:text/>', '<w:p><w:r><w:t>Titulo da capa</w:t></w:r></w:p>') +
+    `<w:p><w:r><w:t xml:space="preserve">Antes </w:t></w:r>${ccSdt('<w:date/>', '<w:r><w:t>21/10/2026</w:t></w:r>')}${ccSdt('', '<w:r><w:t>rico</w:t></w:r>')}<w:r><w:t xml:space="preserve"> depois</w:t></w:r></w:p>` +
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
+  await ev('openBase64', Buffer.from(ccPkg.save()).toString('base64'));
+  const canAt = async (para, offset) => { await at(para, offset); return call('canInsertNote'); };
+  const cc = { bloco: await canAt(0, 4), data: await canAt(1, 9), rico: await canAt(1, 18), fora: await canAt(1, 3) };
+  check('nota recusada em controle de texto sem formatação/data; aceita em rich text e fora', !cc.bloco && !cc.data && cc.rico && cc.fora, cc);
+  await at(0, 4);
+  const none = await call('insertFootnote');
+  check('insertFootnote no controle de texto sem formatação não faz nada', none === null && (await N()).fn === 0, none);
 }
 
 // ───────────── desempenho ─────────────

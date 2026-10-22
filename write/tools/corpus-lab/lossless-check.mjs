@@ -235,8 +235,11 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     // --notes: nota de rodapé e de fim novas no 1º editado; texto da 1ª nota de rodapé
     // existente editado (o resto das notas tem de sair cru)
     let noteEdit = null;
-    if (notesMode && cands[0]) {
-      const pi = ps.indexOf(cands[0][0]);
+    // (como o editor: nada de nota em controle de conteúdo de texto sem formatação)
+    const nc = notesMode ? cands.find((c) => !b.full.sources.inPlainTextControl(c[0], c[0].runs)) : undefined;
+    if (nc) {
+      if (!edited.includes(nc[0])) edited.push(nc[0]);
+      const pi = ps.indexOf(nc[0]);
       const editedFn = noteRefIds(b.full.blocks, 'footnote')[0];
       if (editedFn !== undefined) {
         const np = paras(b.full.footnoteBlocks?.get(editedFn) ?? []);
@@ -245,7 +248,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       ensureNoteParts(b.pkg);
       const ids = {};
-      let off = 8; // depois do "XYZ" do 1º
+      let off = nc === cands[0] ? 8 : 5; // depois do "XYZ" do 1º
       for (const kind of ['footnote', 'endnote']) {
         const st = noteStyles(b.pkg, kind);
         const map = (kind === 'footnote' ? (b.full.footnoteBlocks ??= new Map()) : (b.full.endnoteBlocks ??= new Map()));

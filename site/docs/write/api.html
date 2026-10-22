@@ -310,7 +310,7 @@ editor.host = {
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>insertFootnote(opts?): number | null</code><br><code>insertEndnote(opts?): number | null</code></td><td>Inserts a note at the end of the selection (nothing is deleted) and moves the caret into it; <code>{ mark?: string }</code> is a custom mark instead of the number. Not available in headers/footers, text boxes or inside a note. Returns the note id.</td></tr>
+          <tr><td><code>insertFootnote(opts?): number | null</code><br><code>insertEndnote(opts?): number | null</code></td><td>Inserts a note at the end of the selection (nothing is deleted) and moves the caret into it; <code>{ mark?: string }</code> is a custom mark instead of the number. Not available in headers/footers, text boxes, inside a note or in a plain text, date, combo box or drop-down content control. Returns the note id.</td></tr>
           <tr><td><code>canInsertNote(): boolean</code></td><td>Whether a note can be inserted at the caret.</td></tr>
           <tr><td><code>editingNote()</code></td><td>The note being edited — <code>{ kind: 'footnote' | 'endnote', id } | null</code>.</td></tr>
           <tr><td><code>noteCount(kind): number</code></td><td>How many notes of the kind the text references.</td></tr>

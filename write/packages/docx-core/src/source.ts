@@ -255,6 +255,29 @@ export class SourceStore {
     return pPr ? splitElement(pPr).kids.find((k) => k.name === 'w:sectPr')?.raw : undefined;
   }
 
+  /**
+   * O parágrafo — ou os runs em volta do cursor — está num controle de conteúdo
+   * de TEXTO SEM FORMATAÇÃO (w:sdt com w:text, w:date, w:comboBox ou
+   * w:dropDownList), de bloco ou inline? O Word recusa notas ali e um
+   * w:footnoteReference dentro dele deixa o arquivo "corrompido" (oráculo
+   * notes-lab, cc-*; rich text aceita).
+   */
+  inPlainTextControl(p: Paragraph, around: readonly (Run | undefined)[]): boolean {
+    const id = p.props.src;
+    if (id === undefined) return false;
+    const inGroups = (groups: readonly StoryGroup[] | undefined): boolean => {
+      for (const g of groups ?? []) {
+        if (!g.blocks.includes(id)) continue;
+        if (plainTextSdt(g.wrapOpen) || inGroups(g.inner)) return true;
+      }
+      return false;
+    };
+    for (const s of this.stories.values()) if (inGroups(s.groups)) return true;
+    for (const c of this.tcs.values()) if (inGroups(c.groups)) return true;
+    const sids = new Set(around.map((r) => r?.props.src).filter((x): x is number => x !== undefined));
+    return !!sids.size && !!this.paras.get(id)?.segs.some((s) => plainTextSdt(s.wrapOpen) && s.sids.some((x) => sids.has(x)));
+  }
+
   /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
   pristine(p: Paragraph): boolean {
     let v = this.memo.get(p);
@@ -281,6 +304,14 @@ export class SourceStore {
     }
     return v;
   }
+}
+
+/** Abertura de um w:sdt que o Word trata como texto sem formatação: texto, data,
+ *  caixa de combinação e lista suspensa (oráculo notes-lab, cc-*). */
+function plainTextSdt(open: string | undefined): boolean {
+  if (!open || !/^<w:sdt[\s>]/.test(open)) return false;
+  const end = open.indexOf('</w:sdtPr>');
+  return /<w:(?:text|date|comboBox|dropDownList)\b/.test(end < 0 ? open : open.slice(0, end));
 }
 
 function tableSig(t: TableBlock): number {

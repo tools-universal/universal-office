@@ -124,6 +124,33 @@ describe('notas: gravação sem perdas', () => {
   });
 });
 
+describe('notas: controle de conteúdo de texto sem formatação', () => {
+  it('inPlainTextControl: sdt w:text de bloco (dentro de outro sdt) e inline; rich text não (oráculo cc-*)', () => {
+    const pkg = blankDocxPackage();
+    const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+    const sdt = (plain: boolean, content: string) => `<w:sdt><w:sdtPr><w:id w:val="1"/>${plain ? '<w:text/>' : ''}</w:sdtPr><w:sdtContent>${content}</w:sdtContent></w:sdt>`;
+    const p = (t: string) => `<w:p><w:r><w:t xml:space="preserve">${t}</w:t></w:r></w:p>`;
+    pkg.setPartText('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W}><w:body>` +
+      sdt(false, sdt(true, p('Titulo da capa'))) +
+      `<w:p><w:r><w:t xml:space="preserve">Antes </w:t></w:r>${sdt(true, '<w:r><w:t>campo</w:t></w:r>')}${sdt(false, '<w:r><w:t>rico</w:t></w:r>')}<w:r><w:t xml:space="preserve"> depois</w:t></w:r></w:p>` +
+      p('Corpo') +
+      `<w:sdt><w:sdtPr><w:date><w:dateFormat w:val="dd/MM/yyyy"/></w:date></w:sdtPr><w:sdtContent>${p('21/10/2026')}</w:sdtContent></w:sdt>` +
+      '<w:sectPr/></w:body></w:document>');
+    const full = readFullDocument(pkg, { sources: true });
+    const ps = paragraphsOf(full.blocks);
+    const st = full.sources!;
+    expect(st.inPlainTextControl(ps[0]!, [])).toBe(true);
+    expect(st.inPlainTextControl(ps[2]!, ps[2]!.runs)).toBe(false);
+    // data (como caixa de combinação e lista suspensa): o Word trata como texto sem formatação
+    expect(st.inPlainTextControl(ps[3]!, [])).toBe(true);
+    const [antes, campo, rico, depois] = ps[1]!.runs;
+    expect(ps[1]!.runs.map((r) => r.text)).toEqual(['Antes ', 'campo', 'rico', ' depois']);
+    expect(st.inPlainTextControl(ps[1]!, [campo, campo])).toBe(true);
+    expect(st.inPlainTextControl(ps[1]!, [antes, antes])).toBe(false);
+    expect(st.inPlainTextControl(ps[1]!, [rico, depois])).toBe(false);
+  });
+});
+
 describe('notas: partes e settings', () => {
   it('patchSettingsNotes troca as propriedades e mantém os separadores, na ordem do schema', () => {
     const s0 = '<w:settings xmlns:w="w"><w:zoom/><w:footnotePr><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr><w:compat/></w:settings>';

@@ -301,7 +301,7 @@ footnote area can be split in columns. Number formats: `decimal`,
 
 | Method | Description |
 |---|---|
-| `insertFootnote({ mark })` · `insertEndnote({ mark })` | Inserts a note at the end of the selection (nothing is deleted) and moves the caret into it. `mark`: custom mark instead of the number. Not available in headers/footers, text boxes or inside a note. Returns the note id or `null`. Note styles and parts are added the way Word writes them. |
+| `insertFootnote({ mark })` · `insertEndnote({ mark })` | Inserts a note at the end of the selection (nothing is deleted) and moves the caret into it. `mark`: custom mark instead of the number. Not available in headers/footers, text boxes, inside a note or in a plain text, date, combo box or drop-down content control. Returns the note id or `null`. Note styles and parts are added the way Word writes them. |
 | `canInsertNote()` · `editingNote()` · `noteCount(kind)` | Whether a note can be inserted here; the note being edited (`{ kind, id }` or `null`); how many notes of a kind the text references. |
 | `nextNote(kind = 'footnote', dir = 1)` | Next (`1`) or previous (`-1`) note: in the text the caret goes before the reference; inside the notes, to the start of the next note. `false` = none. |
 | `showNotes(kind?)` | In the text, opens the note of the reference at the caret (or the next one); inside a note, goes back to its reference. |

@@ -1,0 +1,15 @@
+# cc-date
+story=1 sel=7..50 paraText=[Antes Clique ou toque aqui para inserir uma data. depois.\r] undoSteps=0
+log: type=6 range=7..50
+log: footnote=ERRO Este método ou propriedade não está disponível porque a seleção atual cobre parcialmente um controle de conteúdo de texto sem formatação.
+== body
+<w:body>
+<w:p><w:r><w:t xml:space="preserve">Antes </w:t></w:r><w:sdt><w:sdtPr><w:id w:val="-977139702"/><w:placeholder><w:docPart w:val="DefaultPlaceholder_-1854013437"/></w:placeholder><w:showingPlcHdr/><w:date><w:dateFormat w:val="dd/MM/yyyy"/><w:lid w:val="pt-BR"/><w:storeMappedDataAs w:val="dateTime"/><w:calendar w:val="gregorian"/></w:date></w:sdtPr><w:sdtContent><w:r><w:rPr><w:rStyle w:val="TextodoEspaoReservado"/></w:rPr><w:t>Clique ou toque aqui para inserir uma data.</w:t></w:r></w:sdtContent></w:sdt><w:r><w:t xml:space="preserve"> depois.</w:t></w:r></w:p>
+  <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>
+== word/footnotes.xml (ausente)
+== word/endnotes.xml (ausente)
+== latent <w:lsdException w:name="footnote text" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="footnote reference" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="endnote reference" w:semiHidden="1" w:unhideWhenUsed="1"/>
+== latent <w:lsdException w:name="endnote text" w:semiHidden="1" w:unhideWhenUsed="1"/>
+
