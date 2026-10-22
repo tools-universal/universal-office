@@ -77,16 +77,17 @@ Estado: `—` a fazer · `em curso` · `feito`.
 
 | Frente | Inclui | Estado |
 |---|---|---|
-| Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | — |
-| Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | — |
+| Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | em curso |
+| Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | em curso |
 | Caixa de texto | ◐ inserir; Painel de Seleção | — |
-| Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | — |
+| Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | em curso |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | — |
-| Página | ◐ marca-d'água; ◐ cor da página; bordas de página; Folha de Rosto; Página em Branco | — |
+| Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | — |
 | Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | — |
 | Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | — |
 | Exibir | Estrutura de Tópicos e Rascunho no ribbon (os modos já existem); Lado a Lado; Uma Página/Várias Páginas/Largura da Página; Dividir; Nova Janela/Organizar Tudo/Rolagem Sincronizada | — |
 | Revisão | Dicionário de Sinônimos; Ler em Voz Alta; Verificar Acessibilidade; Definir Idioma; Excluir Todos/Resolver comentários | — |
+| Macros | preservar: abrir `.docm/.dotm/.dotx`, salvar no tipo certo, "Salvar como .docx" tira as macros com aviso, faixa "contém macros, que não são executadas aqui", `.doc` mantém o VBA ao converter; ver: Exibir › Macros com a lista de módulos e o código só leitura, gatilhos automáticos em destaque | em curso |
 
 ### Fase C — objetos
 
@@ -113,7 +114,6 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Desenhar | canetas, marca-texto, borracha, laço, tinta para forma | — |
 | Ditar | ditado por voz — precisa de um motor de reconhecimento (decidir quando chegar a vez) | — |
 | Desenvolvedor | controles de conteúdo; XML Mapping | — |
-| Macros | em análise (vale a pena?) | — |
 
 ### Pendências deixadas pelas frentes
 
@@ -131,5 +131,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 
 ### Fora do escopo
 
-SharePoint (e as propriedades do SharePoint) e os assistentes de IA (Copilot,
-Editor com IA).
+SharePoint (e as propriedades do SharePoint), os assistentes de IA (Copilot,
+Editor com IA) e EXECUTAR ou editar macros VBA (análise de 2026-10-21: 0,1% do
+corpus com lógica; exigiria interpretador VBA + modelo de objetos do Word, e
+macro é o principal vetor de malware do Office).
