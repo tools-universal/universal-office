@@ -3,7 +3,7 @@
 // Caixa de Texto (galeria de modelos próprios, Desenhar Caixa de Texto) e o menu de
 // contexto da forma. Só DECLARA sobre a API pública do <universal-write>; comando cuja
 // API não existe fica oculto (supports).
-import { symbol, colorGrid, themePaletteColors, STANDARD_COLORS, tileGrid, type BarContext, type BarGroup, type BarItem, type Command, type CommandRegistry, type GalleryItem, type MenuEntry, type MenuItem } from '@universal-office/ui';
+import { symbol, colorGrid, themePaletteColors, STANDARD_COLORS, tileGrid, promptDialog, type BarContext, type BarGroup, type BarItem, type Command, type CommandRegistry, type GalleryItem, type MenuEntry, type MenuItem } from '@universal-office/ui';
 import type { DmlColor, PicWrapKind } from '@universal-office/docx-core';
 import { SHAPE_STYLE_PRESETS } from '@universal-office/drawingml';
 import type { UniversalWriteElement, ShapeState } from './universal-write.js';
@@ -250,17 +250,41 @@ function templateThumb(tile: HTMLElement, id: string, ed: UniversalWriteElement,
 export function textboxMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
   const lang = ctx.lang === 'pt' ? 'pt' : 'en';
+  const all = ed.textboxTemplates();
+  const mine = all.filter((t) => t.user);
+  const isBox = (): boolean => typeof ed.selectedShape === 'function' && ed.selectedShape()?.kind === 'textbox' && !ed.isProtected();
   return [
     {
       content: (close) => tileGrid({
-        sections: [{ label: L('Built-In', 'Internos'), items: ed.textboxTemplates().map((t) => ({ id: t.id, label: t.name })) }],
+        sections: [
+          { label: L('Built-In', 'Internos'), items: all.filter((t) => !t.user).map((t) => ({ id: t.id, label: t.name })) },
+          { label: L('General', 'Geral'), items: mine.map((t) => ({ id: t.id, label: t.name })) },
+        ],
         tile: { w: 92, h: 116 }, cols: 3, close, text: (l) => ctx.registry.text(l),
-        render: (tile, it) => templateThumb(tile, it.id, ed, lang),
+        render: (tile, it) => (it.id.startsWith('user:') ? userThumb(tile, it.label as string) : templateThumb(tile, it.id, ed, lang)),
         onPick: (id) => { ed.insertTextbox(id); ctx.after(); },
       }),
     },
     '-', 'textbox:draw', 'textbox:drawVertical',
+    {
+      id: 'textbox:save', label: L('Save Selection to Text Box Gallery…', 'Salvar Seleção na Galeria de Caixas de Texto...'), icon: 'save', disabled: !isBox(),
+      onClick: () => {
+        void promptDialog({ title: L('Create New Building Block', 'Criar Novo Bloco de Construção'), label: L('Name', 'Nome'), value: ed.selectedShape()?.name ?? '', layer: env.root.querySelector<HTMLElement>('.uw-layer') ?? undefined, lang }).then((n) => {
+          if (n !== null) ed.saveSelectionToTextboxGallery(n);
+          ctx.after();
+        });
+      },
+    },
+    ...(mine.length ? [{
+      id: 'textbox:remove', label: L('Remove from Gallery', 'Remover da Galeria'), icon: 'delete',
+      submenu: () => mine.map((t): MenuItem => ({ id: `textbox:rm:${t.id}`, label: t.name, onClick: () => { ed.removeTextboxGalleryItem(t.id); ctx.after(); } })),
+    } as MenuItem] : []),
   ];
+}
+
+/** Miniatura de um item do usuário: a caixa com o nome. */
+function userThumb(tile: HTMLElement, name: string): void {
+  tile.innerHTML = `<span style="display:flex;align-items:center;justify-content:center;width:78px;height:96px;margin:auto;border:1px solid #c8c8c8;background:#fff;font-size:11px;color:#333;text-align:center;padding:4px;box-sizing:border-box;overflow:hidden">${name.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)}</span>`;
 }
 
 function fillMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {

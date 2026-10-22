@@ -50,6 +50,11 @@ export interface UniversalWriteHost {
   userName?(): string | Promise<string>;
   /** Título do documento mudou. */
   setTitle?(title: string): void;
+  /** Galeria de Caixas de Texto do usuário (Salvar Seleção na Galeria de Caixas de
+   *  Texto): o JSON dos itens, guardado pelo host (como os blocos de construção do
+   *  usuário no Word). Sem ele: localStorage da origem. */
+  loadTextboxGallery?(): string | null;
+  saveTextboxGallery?(json: string): void;
   /**
    * O componente ocupa o topo de uma janela SEM MOLDURA cujos controles do SO
    * ficam sobrepostos (Electron `titleBarOverlay`, PWA window-controls-overlay):

@@ -1451,6 +1451,16 @@ if (want('textbox')) {
   xml = await ev('savedPart', 'word/document.xml');
   const ids = [...xml.matchAll(/<wp:docPr id="(\d+)"/g)].map((m) => m[1]);
   check('copiar e colar a forma: uma cópia nova, selecionada, ids de desenho únicos', nPaste === nBefore + 1 && sel?.kind === 'textbox' && new Set(ids).size === ids.length, { nBefore, nPaste, ids });
+  // Salvar Seleção na Galeria de Caixas de Texto e inserir o item do usuário
+  ok = await call('saveSelectionToTextboxGallery', 'Minha caixa da galeria');
+  const tpl = (await call('textboxTemplates')).find((t) => t.user && t.name === 'Minha caixa da galeria');
+  const textOf = (await ev('objects')).find(tbx)?.text;
+  await page.keyboard.press('Escape');
+  const nG = (await ev('objects')).length;
+  ok = ok && tpl && await call('insertTextbox', tpl.id);
+  objs = await ev('objects');
+  check('galeria do usuário: salvar a caixa e inserir de novo (o texto vem junto)', ok && objs.length === nG + 1 && objs.filter((o) => o.text === textOf).length >= 2, { tpl, nG, n: objs.length });
+  if (tpl) await call('removeTextboxGalleryItem', tpl.id);
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────

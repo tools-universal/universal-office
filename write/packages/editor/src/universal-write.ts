@@ -145,6 +145,7 @@ import {
   type ShapeFill,
   type TextboxBody,
   newTextboxDrawingXml,
+  serializeBlocks,
   DEFAULT_TEXTBOX_BODY,
   NEW_TEXTBOX_FILL,
   NEW_TEXTBOX_LINE,
@@ -11009,10 +11010,53 @@ export class UniversalWriteElement extends HTMLElement {
 
   // ───────────────────────── Inserir › Caixa de Texto ─────────────────────────
 
-  /** Galeria Caixa de Texto: os modelos (nomes no idioma da interface). */
-  textboxTemplates(): { id: string; name: string }[] {
+  /** Galeria Caixa de Texto: os modelos (nomes no idioma da interface) e, depois, os do
+   *  usuário (Salvar Seleção na Galeria de Caixas de Texto — `user: true`). */
+  textboxTemplates(): { id: string; name: string; user?: boolean }[] {
     const lang = uiLang(this);
-    return TEXTBOX_TEMPLATES.map((t) => ({ id: t.id, name: t.name[lang] }));
+    return [
+      ...TEXTBOX_TEMPLATES.map((t) => ({ id: t.id, name: t.name[lang] })),
+      ...this.userTextboxes().map((u) => ({ id: u.id, name: u.name, user: true })),
+    ];
+  }
+
+  /** Itens da galeria do usuário: o w:drawing da caixa (com o conteúdo) e o nome. */
+  private userTextboxes(): { id: string; name: string; xml: string }[] {
+    const host = (this as { host?: import('./chrome-host.js').UniversalWriteHost | null }).host;
+    let json: string | null = null;
+    try { json = host?.loadTextboxGallery ? host.loadTextboxGallery() : localStorage.getItem('uw:textbox-gallery'); } catch { json = null; }
+    try {
+      const v = JSON.parse(json ?? '[]') as unknown;
+      return Array.isArray(v) ? v.filter((x): x is { id: string; name: string; xml: string } => !!x && typeof x.id === 'string' && typeof x.xml === 'string' && x.xml.startsWith('<w:drawing')) : [];
+    } catch { return []; }
+  }
+  private storeUserTextboxes(items: { id: string; name: string; xml: string }[]): void {
+    const host = (this as { host?: import('./chrome-host.js').UniversalWriteHost | null }).host;
+    const json = JSON.stringify(items);
+    try { if (host?.saveTextboxGallery) host.saveTextboxGallery(json); else localStorage.setItem('uw:textbox-gallery', json); } catch { /* sem armazenamento */ }
+  }
+
+  /** Salvar Seleção na Galeria de Caixas de Texto: a caixa selecionada (formato, tamanho,
+   *  posição e texto) vira um item da galeria do usuário. */
+  saveSelectionToTextboxGallery(name?: string): boolean {
+    const run = this.drawRun();
+    const tb = run?.textbox;
+    const raw = run && UniversalWriteElement.rawOf(run);
+    if (!tb || !raw || !this.model) return false;
+    const blocks: Block[] = tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+    const doc = serializeBlocks(blocks, this.model.sectPr);
+    const body = /<w:body>([\s\S]*?)<w:sectPr\b/.exec(doc)?.[1] ?? '<w:p/>';
+    const xml = raw.replace(/<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/, () => `<w:txbxContent>${body}</w:txbxContent>`);
+    const f = this.formatOf(run);
+    const items = this.userTextboxes();
+    items.push({ id: `user:${Date.now().toString(36)}`, name: (name ?? '').trim() || f?.docPr.name || 'Text Box', xml });
+    this.storeUserTextboxes(items);
+    return true;
+  }
+
+  /** Tira um item da galeria do usuário. */
+  removeTextboxGalleryItem(id: string): void {
+    this.storeUserTextboxes(this.userTextboxes().filter((u) => u.id !== id));
   }
 
   /** Variações do degradê do Preenchimento da Forma (claras e escuras), a partir da cor
@@ -11158,9 +11202,21 @@ export class UniversalWriteElement extends HTMLElement {
   insertTextbox(id = 'simple'): boolean {
     if (!this.model || this.locked() || this.tbEdit || this.noteEdit) return false;
     const accent = this.documentThemeColors()['accent1'] ?? '156082';
-    const spec = textboxTemplateSpec(id, { accent, lang: uiLang(this) });
-    if (!spec) return false;
-    const { xml } = this.newTextboxXml({ cx: spec.cx, cy: spec.cy, content: spec.content, template: spec });
+    let xml: string;
+    const user = id.startsWith('user:') ? this.userTextboxes().find((u) => u.id === id) : undefined;
+    if (user) {
+      // item do usuário: o desenho guardado com id/nome de desenho novos e por cima dos outros
+      const nid = this.nextDrawingId();
+      const zs = this.zValues();
+      const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
+      xml = user.xml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a: string) => `${a}${nid}"`)
+        .replace(/(<wp:docPr\b[^>]*?\bname=")[^"]*"/, (_m, a: string) => `${a}${uiLang(this) === 'pt' ? 'Caixa de Texto' : 'Text Box'} ${nid}"`)
+        .replace(/\brelativeHeight="\d+"/, () => `relativeHeight="${z}"`);
+    } else {
+      const spec = textboxTemplateSpec(id, { accent, lang: uiLang(this) });
+      if (!spec) return false;
+      xml = this.newTextboxXml({ cx: spec.cx, cy: spec.cy, content: spec.content, template: spec }).xml;
+    }
     const run = this.textboxRunFromXml(xml);
     if (!run) return false;
     this.snapshot();
