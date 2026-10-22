@@ -93,3 +93,17 @@ cases.push({ name: 'en-cols', docx: D({
 }) });
 // nota de fim que se parte entre páginas (o separador de continuação)
 cases.push({ name: 'en-split', docx: D({ body: p(r('Referencia') + eref(1) + r(' Hxg')) + fill(46), ends: enote(1, longText(14)) }) });
+// "depois" do Normal (10 pt, 1,15): o separador vem depois dele? e a 1ª nota?
+cases.push({ name: 'en-after', docx: buildDocx({
+  body: p(r('Texto') + eref(1) + r(' Hxg')) + fill(2) + p(r('Ultimo Hxg')),
+  styles, defaults: docDefaults({ font: 'Arial', size: 11, after: 200, line: 276 }), settings: settings(),
+  extraParts: { 'word/footnotes.xml': part('footnotes', 'footnote', ''), 'word/endnotes.xml': part('endnotes', 'endnote', enote(1, 'Nota de fim um.') + enote(2, 'x')) },
+}) });
+// geometria do separador com outras fontes no Normal (Calibri 11, Times 14)
+for (const [nm, f, size] of [['sep-calibri', 'Calibri', 11], ['sep-times14', 'Times New Roman', 14]]) {
+  cases.push({ name: nm, docx: buildDocx({
+    body: p(r('Texto') + eref(1) + r(' rodape') + fref(1) + r(' Hxg')) + fill(2),
+    styles, defaults: docDefaults({ font: f, size }), settings: settings(),
+    extraParts: { 'word/footnotes.xml': part('footnotes', 'footnote', fnote(1, 'Nota de rodape.')), 'word/endnotes.xml': part('endnotes', 'endnote', enote(1, 'Nota de fim.')) },
+  }) });
+}

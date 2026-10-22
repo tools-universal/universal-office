@@ -317,6 +317,32 @@ export function readTheme(xml: string | undefined): Theme {
 
 // ───────────────────────── configurações ─────────────────────────
 
+/** w:footnotePr / w:endnotePr (do sectPr ou do settings): numeração e local. */
+export interface NoteProps {
+  /** rodapé: pageBottom | beneathText; fim: sectEnd | docEnd */
+  pos?: string;
+  /** w:numFmt (decimal, lowerRoman, chicago…) */
+  numFmt?: string;
+  numStart?: number;
+  numRestart?: 'continuous' | 'eachSect' | 'eachPage';
+}
+
+/** w:footnotePr / w:endnotePr → NoteProps (sem nada = undefined). */
+export function readNoteProps(el: XmlElement | undefined): NoteProps | undefined {
+  if (!el) return undefined;
+  const out: NoteProps = {};
+  const v = (n: string) => firstChild(el, n)?.attrs['w:val'];
+  const pos = v('w:pos');
+  if (pos) out.pos = pos;
+  const fmt = v('w:numFmt');
+  if (fmt) out.numFmt = fmt;
+  const start = parseInt(v('w:numStart') ?? '', 10);
+  if (Number.isFinite(start)) out.numStart = start;
+  const rs = v('w:numRestart');
+  if (rs === 'continuous' || rs === 'eachSect' || rs === 'eachPage') out.numRestart = rs;
+  return Object.keys(out).length ? out : undefined;
+}
+
 export interface Settings {
   /** twips (padrão do Word: 720; templates pt-BR costumam ter 708). */
   defaultTabStop: number;
@@ -340,6 +366,10 @@ export interface Settings {
   /** bordas de página (offsetFrom text) NÃO contornam o cabeçalho/rodapé */
   bordersDoNotSurroundHeader?: boolean;
   bordersDoNotSurroundFooter?: boolean;
+  /** w:footnotePr / w:endnotePr do documento (padrão das seções; o local da nota
+   *  de fim só existe aqui) */
+  footnotePr?: NoteProps;
+  endnotePr?: NoteProps;
 }
 
 const ROOT_COMPAT_FLAGS = new Set([
@@ -373,6 +403,10 @@ export function readSettings(xml: string | undefined): Settings {
   s.updateFields = on('w:updateFields');
   if (on('w:bordersDoNotSurroundHeader')) s.bordersDoNotSurroundHeader = true;
   if (on('w:bordersDoNotSurroundFooter')) s.bordersDoNotSurroundFooter = true;
+  const fnPr = readNoteProps(firstChild(root, 'w:footnotePr'));
+  if (fnPr) s.footnotePr = fnPr;
+  const enPr = readNoteProps(firstChild(root, 'w:endnotePr'));
+  if (enPr) s.endnotePr = enPr;
   const hz = measureTwips(firstChild(root, 'w:hyphenationZone')?.attrs['w:val']);
   if (hz !== undefined) s.hyphenationZone = hz;
   const chl = firstChild(root, 'w:consecutiveHyphenLimit')?.attrs['w:val'];

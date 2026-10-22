@@ -15,6 +15,7 @@ import {
 import { pgBordersXml } from './table-xml.js';
 import { paraFormatting, runFormatting } from './revisions.js';
 import { markRevisionXml, revisionAttrs } from './rev-xml.js';
+import { notePropsXml, sameNoteProps } from './notes.js';
 
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -42,7 +43,9 @@ const PPR_ORDER = [
 const SECT_ORDER = [
   'w:headerReference', 'w:footerReference', 'w:footnotePr', 'w:endnotePr', 'w:type', 'w:pgSz', 'w:pgMar',
   'w:paperSrc', 'w:pgBorders', 'w:lnNumType', 'w:pgNumType', 'w:cols', 'w:formProt', 'w:vAlign', 'w:noEndnote',
-  'w:titlePg', 'w:textDirection', 'w:bidi', 'w:rtlGutter', 'w:docGrid', 'w:printerSettings', 'w:sectPrChange',
+  'w:titlePg', 'w:textDirection', 'w:bidi', 'w:rtlGutter', 'w:docGrid', 'w:printerSettings',
+  // extensão do Word 2013 (colunas da área de notas): no fim, como o Word grava
+  'w15:footnoteColumns', 'w:sectPrChange',
 ];
 
 export interface Kid { name: string; raw: string; el: XmlElement }
@@ -485,6 +488,11 @@ export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefin
   if (cur.pgBorders !== undefined && !eq(cur.pgBorders ?? undefined, base.pgBorders ?? undefined)) set('w:pgBorders', pgBordersXml(cur.pgBorders));
   if (cur.pgNumStart !== base.pgNumStart) {
     set('w:pgNumType', withAttrs(kidRaw(kids, 'w:pgNumType'), 'w:pgNumType', { 'w:start': cur.pgNumStart }));
+  }
+  if (!sameNoteProps(cur.footnotePr, base.footnotePr)) set('w:footnotePr', notePropsXml('footnote', cur.footnotePr) || null);
+  if (!sameNoteProps(cur.endnotePr, base.endnotePr)) set('w:endnotePr', notePropsXml('endnote', cur.endnotePr) || null);
+  if ((cur.footnoteColumns ?? 0) !== (base.footnoteColumns ?? 0)) {
+    set('w15:footnoteColumns', cur.footnoteColumns ? `<w15:footnoteColumns w:val="${cur.footnoteColumns}"/>` : null);
   }
   return changed ? join(open, kids, close) || `${open}${close}` : raw;
 }

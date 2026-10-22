@@ -86,3 +86,10 @@ cases.push({ name: 'cols2', docx: withW15(D({
 // continuação: nota partida + nota nova na página seguinte; nota que atravessa 3 páginas
 cases.push({ name: 'cont-sep-two', docx: D({ body: fill(51) + p(r('Referencia Hxg') + ref(1)) + fill(3, 'depois') + p(r('Outra') + ref(2) + r(' Hxg')), notes: note(1, longText) + note(2, 'Nota curta da pagina dois.') }) });
 cases.push({ name: 'cont-sep-3p', docx: D({ body: fill(48) + p(r('Referencia Hxg') + ref(1)) + fill(60, 'depois'), notes: note(1, Array.from({ length: 9 }, () => longText).join(' ')) }) });
+// seção em duas colunas, sem w15:footnoteColumns ("coincidir layout de seção"): as
+// notas ficam no pé da página inteira ou da coluna da referência?
+cases.push({ name: 'sect-cols2', docx: D({
+  body: p(r('Coluna um') + ref(1) + r(' Hxg')) + fill(55) + p(r('Coluna dois') + ref(2) + r(' Hxg')) + fill(5),
+  notes: note(1, 'Nota da coluna um com texto um pouco mais longo para ver a largura da linha da nota.') + note(2, 'Nota da coluna dois.'),
+  sect: sectPr().replace('<w:cols w:space="708"/>', '<w:cols w:num="2" w:space="708"/>'),
+}) });

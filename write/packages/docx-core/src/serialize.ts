@@ -1,6 +1,8 @@
 import { DocxPackage } from './package.js';
+import { parseXml, childElements } from './xml.js';
 import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
+import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
 import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 import {
@@ -294,12 +296,14 @@ function runXml(run: Run): string {
     return '';
   }
   const rpr = rPrXml(run);
-  if (active && run.noteRef) {
+  if (run.noteRef) {
+    // o texto do run é só o lugar da marca no editor (o número é do motor); a
+    // marca personalizada é o texto do run seguinte
     const tag = run.noteRef.kind === 'footnote' ? 'w:footnoteReference' : 'w:endnoteReference';
     const r = rpr || '<w:rPr><w:vertAlign w:val="superscript"/></w:rPr>';
-    return `<w:r>${r}<${tag} w:id="${run.noteRef.id}"/></w:r>`;
+    return `<w:r>${r}<${tag}${run.noteRef.custom ? ' w:customMarkFollows="1"' : ''} w:id="${run.noteRef.id}"/></w:r>`;
   }
-  if (active && run.field && run.text === '' && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(run.field)) {
+  if (run.field && (run.text === '' || run.text === NOTE_REF_TEXT) && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(run.field)) {
     return `<w:r>${rpr}<w:${run.field.includes('FOOTNOTE') ? 'footnoteRef' : 'endnoteRef'}/></w:r>`;
   }
   if (active && run.ptab) {
@@ -688,6 +692,7 @@ const W_NS =
   'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
   'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
   'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
+const W15_NS = ' xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml"';
 
 export interface HfPartInfo {
   kind: 'header' | 'footer';
@@ -716,11 +721,14 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
   const titlePg = s.titlePg ? '<w:titlePg/>' : '';
   const pgNumType = s.pgNumStart !== undefined ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : '';
   const pgBorders = pgBordersXml(s.pgBorders) ?? '';
+  // notas: propriedades antes do w:type; as colunas da área de notas no fim (Word)
+  const notes = notePropsXml('footnote', s.footnotePr) + notePropsXml('endnote', s.endnotePr);
+  const fnCols = s.footnoteColumns ? `<w15:footnoteColumns w:val="${s.footnoteColumns}"/>` : '';
   return (
-    `${refsXml}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
+    `${refsXml}${notes}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
     `<w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" ` +
     `w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" ` +
-    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}`
+    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}${fnCols}`
   );
 }
 
@@ -845,6 +853,67 @@ function storyBlocksXml(story: StorySource, blocks: Block[], store: SourceStore)
   return groupsXml(story.groups, blocks, store);
 }
 
+/** A história tem exatamente os blocos lidos, todos iguais à linha de base. */
+function storyPristine(story: StorySource, blocks: Block[], store: SourceStore): boolean {
+  const ids = story.groups.flatMap((g) => g.blocks);
+  if (ids.length !== blocks.length) return false;
+  return blocks.every((b, i) => blockId(b) === ids[i] && (b.type === 'table' ? store.tablePristine(b) : store.pristine(b.paragraph)));
+}
+
+/** Nota nova (ou de parte sem fonte): o elemento inteiro gerado dos blocos. */
+const noteXml = (kind: NoteKind, id: number, blocks: Block[]): string =>
+  `<w:${kind} w:id="${id}">${blocks.length ? blocks.map(blockXml).join('') : '<w:p/>'}</w:${kind}>`;
+
+/**
+ * footnotes.xml / endnotes.xml: separadores e notas intocadas saem crus; nota
+ * editada é regravada pela história dela; nota cuja referência sumiu sai (a órfã
+ * que já veio no arquivo fica); nota nova entra no fim. Sem mudança, a parte
+ * fica byte a byte.
+ */
+function writeNotesPart(pkg: DocxPackage, kind: NoteKind, notes: NotesOut, store: SourceStore | undefined, gone: ReadonlySet<number>): void {
+  const path = `word/${kind}s.xml`;
+  const xml0 = pkg.getPartText(path);
+  const used = new Set(notes.used);
+  if (!xml0 && !used.size) return;
+  let part = store?.noteParts.get(path);
+  if (!part) {
+    // parte criada nesta sessão (ou documento sem fontes): elementos crus, sem história
+    const xml = xml0 ?? emptyNotesPart(kind);
+    const root = parseXml(xml, { positions: true });
+    part = {
+      open: xml.slice(0, root.cs), close: xml.slice(root.ce), refsAtLoad: new Set(),
+      items: childElements(root, `w:${kind}`).map((e) => ({
+        id: parseInt(e.attrs['w:id'] ?? '0', 10), raw: xml.slice(e.s, e.e),
+        separator: !!e.attrs['w:type'] && e.attrs['w:type'] !== 'normal',
+      })),
+    };
+  }
+  const relsPath = active?.relsPath;
+  if (active) active.relsPath = `word/_rels/${kind}s.xml.rels`;
+  try {
+    const seen = new Set<number>();
+    let body = '';
+    for (const it of part.items) {
+      if (it.separator) { body += it.raw; continue; }
+      seen.add(it.id);
+      if (!used.has(it.id)) { if (!part.refsAtLoad.has(it.id)) body += it.raw; continue; }
+      const blocks = notes.blocks.get(it.id);
+      if (!blocks) body += it.raw;
+      else if (it.story && active && store) {
+        body += storyPristine(it.story, blocks, store) ? it.raw : it.story.open + storyBlocksXml(it.story, blocks, store) + it.story.close;
+      } else body += noteXml(kind, it.id, blocks);
+    }
+    for (const id of notes.used) {
+      const blocks = notes.blocks.get(id);
+      if (!seen.has(id) && blocks) body += noteXml(kind, id, blocks);
+    }
+    const out = dropCommentMarks(part.open + body + part.close, gone);
+    if (out !== xml0) pkg.setPartText(path, out);
+  } finally {
+    if (active && relsPath !== undefined) active.relsPath = relsPath;
+  }
+}
+
 function groupsXml(groups: StoryGroup[], blocks: Block[], store: SourceStore): string {
   const groupOf = new Map<number, number>();
   groups.forEach((g, gi) => g.blocks.forEach((id) => { if (id) groupOf.set(id, gi); }));
@@ -924,20 +993,20 @@ function countCopies(blocks: Block[], out: Map<number, number>): void {
 export function serializeBlocks(blocks: Block[], sectPr: SectPr, hfRefs: HfPartInfo[] = []): string {
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
-  const body = blocks.map(blockXml).join('');
+  const body = blocks.map(blockXml).join('') + sect;
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    revRoot(`<w:document ${W_NS}>`, 'w:document') + `<w:body>${body}${sect}</w:body></w:document>`
+    revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
   );
 }
 
 export function serializeDocument(model: DocumentModel, hfRefs: HfPartInfo[] = []): string {
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
-  const body = model.paragraphs.map(paraXml).join('');
+  const body = model.paragraphs.map(paraXml).join('') + sect;
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    revRoot(`<w:document ${W_NS}>`, 'w:document') + `<w:body>${body}${sect}</w:body></w:document>`
+    revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
   );
 }
 
@@ -947,7 +1016,7 @@ function revRoot(open: string, rootName: string): string {
 }
 
 /** Garante na tag raiz as declarações que o XML gerado usa (w, r, wp). */
-function withNamespaces(open: string, rootName: string): string {
+function withNamespaces(open: string, rootName: string, content = ''): string {
   const at = open.indexOf(`<${rootName}`);
   if (at < 0) return open;
   const end = open.indexOf('>', at);
@@ -956,6 +1025,8 @@ function withNamespaces(open: string, rootName: string): string {
     ['w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'],
     ['r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'],
     ['wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'],
+    // w15:footnoteColumns no sectPr (colunas da área de notas)
+    ...(content.includes('<w15:') ? [['w15', 'http://schemas.microsoft.com/office/word/2012/wordml'] as [string, string]] : []),
   ];
   for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag)) tag += ` xmlns:${pfx}="${uri}"`;
   return open.slice(0, at) + tag + open.slice(end);
@@ -1052,6 +1123,13 @@ export interface WriteOptions {
   sources?: SourceStore;
   /** controle de alterações ligado/desligado (w:settings/w:trackRevisions); ausente = não mexe */
   trackRevisions?: boolean;
+  /** notas: conteúdo de cada uma e os ids referenciados no corpo (ordem do documento) */
+  notes?: Partial<Record<NoteKind, NotesOut>>;
+}
+
+export interface NotesOut {
+  blocks: ReadonlyMap<number, Block[]>;
+  used: number[];
 }
 
 const commentXml = (c: CommentOut): string =>
@@ -1198,6 +1276,15 @@ function writeParts(
     if (ct) pkg.setPartText('[Content_Types].xml', ct);
   }
 
+  // notas de rodapé/fim (antes do corpo, como os cabeçalhos)
+  if (opts.notes) {
+    if ((opts.notes.footnote?.used.length || opts.notes.endnote?.used.length) && !pkg.getPart('word/footnotes.xml')) ensureNoteParts(pkg);
+    for (const kind of ['footnote', 'endnote'] as const) {
+      const n = opts.notes[kind];
+      if (n) writeNotesPart(pkg, kind, n, store, gone);
+    }
+  }
+
   // refs do body sectPr: explícitas (multi-seção) OU todos os hfParts (1 seção)
   const bodyRefs: HfPartInfo[] = opts.bodySectRefs
     ? opts.bodySectRefs.map((r) => ({
@@ -1214,8 +1301,8 @@ function writeParts(
       ? patchSectPr(story.sectPr, model.sectPr, refs)
       : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
     takeUsedDateUtc();
-    const body = storyBlocksXml(story, blocks, store!);
-    const xml = revRoot(withNamespaces(story.open, 'w:document'), 'w:document') + body + sect + story.close;
+    const body = storyBlocksXml(story, blocks, store!) + sect;
+    const xml = revRoot(withNamespaces(story.open, 'w:document', body), 'w:document') + body + story.close;
     pkg.setPartText('word/document.xml', dropCommentMarks(xml, gone));
   } else {
     pkg.setPartText('word/document.xml',

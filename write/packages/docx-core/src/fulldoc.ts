@@ -13,7 +13,7 @@ import {
 import { readStyles, type StylesMap } from './styles.js';
 import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
 import { readDocFormatting, type DocFormatting } from './ooxml/parts.js';
-import { SourceStore, type StoryGroup, type StorySource, type WrapSeg } from './source.js';
+import { SourceStore, type NotesPartSource, type StoryGroup, type StorySource, type WrapSeg } from './source.js';
 
 /**
  * Modelo completo do documento: blocos (parágrafos E tabelas), seções
@@ -420,21 +420,55 @@ function readNotesPart(
   path: string,
   elementName: string,
   blocksOut?: Map<number, Block[]>,
+  store?: SourceStore,
 ): Map<number, Paragraph[]> {
   const out = new Map<number, Paragraph[]>();
   const xml = pkg.getPartText(path);
   if (!xml) return out;
-  const root = parseXml(xml);
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split('/').pop()!;
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  // com fontes: cada nota vira uma história (filhos de topo → blocos), como um
+  // cabeçalho; os separadores ficam crus
+  const part: NotesPartSource | undefined = store ? { open: xml.slice(0, root.cs), close: xml.slice(root.ce), items: [], refsAtLoad: new Set() } : undefined;
+  if (store) { ctx.sources = store; ctx.sourceXml = xml; }
   for (const note of childElements(root, elementName)) {
     const id = parseInt(note.attrs['w:id'] ?? '0', 10);
     const type = note.attrs['w:type'];
-    if (type === 'separator' || type === 'continuationSeparator' || type === 'continuationNotice') continue;
-    const blocks = readBlocksOf(note, ctx);
+    if (type === 'separator' || type === 'continuationSeparator' || type === 'continuationNotice') {
+      part?.items.push({ id, raw: xml.slice(note.s, note.e), separator: true });
+      continue;
+    }
+    let blocks: Block[];
+    if (!store) blocks = readBlocksOf(note, ctx);
+    else {
+      const story = storyOf(xml, note);
+      blocks = [];
+      for (const c of childElements(note)) {
+        const produced = readBlocksOf({ name: note.name, attrs: {}, children: [c] }, ctx);
+        story.groups.push(groupOf(xml, c, produced, store));
+        blocks.push(...produced);
+      }
+      part!.items.push({ id, raw: xml.slice(note.s, note.e), story });
+    }
     out.set(id, blocks.filter((bl): bl is ParagraphBlock => bl.type === 'paragraph').map((bl) => bl.paragraph));
     blocksOut?.set(id, blocks);
+  }
+  if (store && part) store.noteParts.set(path, part);
+  return out;
+}
+
+/** ids das notas referenciadas nos blocos (corpo e tabelas, na ordem do documento). */
+export function noteRefIds(blocks: readonly Block[], kind: 'footnote' | 'endnote', out: number[] = []): number[] {
+  for (const b of blocks) {
+    if (b.type === 'paragraph') {
+      for (const r of b.paragraph.runs) if (r.noteRef?.kind === kind && !out.includes(r.noteRef.id)) out.push(r.noteRef.id);
+    } else {
+      for (const row of b.rows) for (const cell of row.cells) {
+        noteRefIds(cell.blocks ?? cell.paragraphs.map((paragraph): Block => ({ type: 'paragraph', paragraph })), kind, out);
+      }
+    }
   }
   return out;
 }
@@ -588,11 +622,17 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
   }
   const footnoteBlocks = new Map<number, Block[]>();
   const endnoteBlocks = new Map<number, Block[]>();
+  const footnotes = readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote', footnoteBlocks, store);
+  const endnotes = readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote', endnoteBlocks, store);
+  for (const kind of ['footnote', 'endnote'] as const) {
+    const part = store?.noteParts.get(`word/${kind}s.xml`);
+    if (part) for (const id of noteRefIds(blocks, kind)) part.refsAtLoad.add(id);
+  }
   return {
     blocks,
     sections,
-    footnotes: readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote', footnoteBlocks),
-    endnotes: readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote', endnoteBlocks),
+    footnotes,
+    endnotes,
     comments,
     styles: readStyles(pkg),
     bookmarks,

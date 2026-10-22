@@ -57,6 +57,8 @@ export function formatNumber(n: number, fmt: string | undefined, lang = 'pt-BR')
     case 'decimalEnclosedCircle': return n >= 1 && n <= 20 ? String.fromCodePoint(0x2460 + n - 1) : String(n);
     case 'decimalEnclosedParen': return `(${n})`;
     case 'decimalEnclosedFullstop': return `${n}.`;
+    // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
+    case 'chicago': return n <= 0 ? String(n) : '*†‡§'[(n - 1) % 4]!.repeat(Math.floor((n - 1) / 4) + 1);
     case 'none': return '';
     case 'bullet': return '';
     default: return String(n);

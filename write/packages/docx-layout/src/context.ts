@@ -2,7 +2,7 @@ import type { DocFormatting, RPr, PPr, Paragraph, Run } from '@universal-office/
 import { editBaseProps, paraPropsFromPPr } from '@universal-office/docx-core';
 import { StyleResolver, fontOfSlot } from './resolve.js';
 import { FaceResolver, type FontProvider } from './fonts.js';
-import { NumberingState } from './numbering.js';
+import { NumberingState, formatNumber } from './numbering.js';
 import { RevisionDisplay, type RevisionView } from './revisions.js';
 
 /** Opções do motor. */
@@ -60,9 +60,29 @@ export interface WordFitInfo {
 export interface FlowState {
   numbering: NumberingState;
   seq: Map<string, number>;
-  footnotes: Map<number, number>;
-  endnotes: Map<number, number>;
+  notes: NoteFlow;
 }
+
+/** Numeração das notas de um tipo na seção corrente (sectPr sobre o settings). */
+export interface NoteNumbering {
+  fmt: string;
+  start: number;
+  restart: 'continuous' | 'eachSect' | 'eachPage';
+}
+
+/** Marcas das notas já referenciadas e os contadores (reinício por seção/página). */
+interface NoteFlow {
+  marks: { footnote: Map<number, string>; endnote: Map<number, string> };
+  seq: { footnote: number; endnote: number };
+  /** notas de fim na ordem da 1ª referência (as que ainda não saíram ficam pendentes) */
+  endnoteOrder: number[];
+}
+
+const cloneNotes = (n: NoteFlow): NoteFlow => ({
+  marks: { footnote: new Map(n.marks.footnote), endnote: new Map(n.marks.endnote) },
+  seq: { ...n.seq },
+  endnoteOrder: [...n.endnoteOrder],
+});
 
 /** Estado compartilhado de um layout de documento. */
 export class DocContext {
@@ -85,22 +105,28 @@ export class DocContext {
 
   warn(msg: string): void { this.warnings.add(msg); }
 
-  private footnotes = new Map<number, number>();
-  private endnotes = new Map<number, number>();
+  private notes: NoteFlow = { marks: { footnote: new Map(), endnote: new Map() }, seq: { footnote: 0, endnote: 0 }, endnoteOrder: [] };
+  /** numeração da seção corrente (o motor troca em cada seção) */
+  noteNumbering: { footnote: NoteNumbering; endnote: NoteNumbering } = {
+    footnote: { fmt: 'decimal', start: 1, restart: 'continuous' },
+    endnote: { fmt: 'lowerRoman', start: 1, restart: 'continuous' },
+  };
+  /** marcas finais de uma passada anterior (reinício por página: a página da
+   *  referência só se sabe depois de diagramar) */
+  noteMarkOverride?: Map<string, string>;
   /** contadores dos campos SEQ (ordem do documento) */
   seqCounters = new Map<string, number>();
 
   /** Fotografia do estado que avança com o conteúdo. */
   saveFlow(): FlowState {
-    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), footnotes: new Map(this.footnotes), endnotes: new Map(this.endnotes) };
+    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), notes: cloneNotes(this.notes) };
   }
 
   /** Volta ao estado fotografado (a fotografia continua reutilizável). */
   restoreFlow(s: FlowState): void {
     this.numbering = s.numbering.clone();
     this.seqCounters = new Map(s.seq);
-    this.footnotes = new Map(s.footnotes);
-    this.endnotes = new Map(s.endnotes);
+    this.notes = cloneNotes(s.notes);
   }
 
   /** Medição sem efeito colateral: não avança listas, SEQ nem números de nota. */
@@ -108,17 +134,43 @@ export class DocContext {
     const s = this.saveFlow();
     try { return fn(); } finally { this.restoreFlow(s); }
   }
-  /** Número exibido da nota de rodapé (ordem da 1ª referência). */
-  footnoteNumber(id: number): number {
-    let n = this.footnotes.get(id);
-    if (n === undefined) { n = this.footnotes.size + 1; this.footnotes.set(id, n); }
-    return n;
+
+  /** Seção nova: formato/início da numeração das notas e o reinício por seção. */
+  beginNoteSection(n: { footnote: NoteNumbering; endnote: NoteNumbering }, first: boolean): void {
+    this.noteNumbering = n;
+    for (const k of ['footnote', 'endnote'] as const) if (first || n[k].restart === 'eachSect') this.notes.seq[k] = 0;
   }
-  endnoteNumber(id: number): number {
-    let n = this.endnotes.get(id);
-    if (n === undefined) { n = this.endnotes.size + 1; this.endnotes.set(id, n); }
-    return n;
+
+  /** Página nova: reinicia a contagem das notas de rodapé "a cada página". */
+  beginNotePage(): void {
+    if (this.noteNumbering.footnote.restart === 'eachPage') this.notes.seq.footnote = 0;
   }
+
+  /** Marca exibida de uma nota (ordem da 1ª referência, no formato da seção dela);
+   *  com marca personalizada não consome número (oráculo notefmt, custom-mark). */
+  noteMark(kind: 'footnote' | 'endnote', id: number, custom = false): string {
+    const marks = this.notes.marks[kind];
+    let m = marks.get(id);
+    if (m === undefined) {
+      if (kind === 'endnote') this.notes.endnoteOrder.push(id);
+      if (custom) m = '';
+      else {
+        const nn = this.noteNumbering[kind];
+        const seq = ++this.notes.seq[kind];
+        m = this.noteMarkOverride?.get(`${kind[0]}${id}`) ?? formatNumber(nn.start - 1 + seq, nn.fmt, this.opts.lang);
+      }
+      marks.set(id, m);
+    }
+    return m;
+  }
+
+  /** Marca já atribuída (sem numerar). */
+  noteMarkOf(kind: 'footnote' | 'endnote', id: number): string | undefined {
+    return this.notes.marks[kind].get(id);
+  }
+
+  /** Notas de fim referenciadas até aqui (ordem da 1ª referência). */
+  get endnoteOrder(): readonly number[] { return this.notes.endnoteOrder; }
 }
 
 /** Formatação vazia (documentos sem as partes — ex.: ODT convertido). */

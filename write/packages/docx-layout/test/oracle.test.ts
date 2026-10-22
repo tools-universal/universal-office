@@ -42,6 +42,12 @@ const EXACT_LEADERS = new Set(['tdhalfpx', 'tdend']);
 /** Grupos medidos caractere a caractere em teste próprio (supraise.test.ts). */
 const CHAR_ONLY = new Set(['supraise']);
 
+/** Casos em que a ORDEM das linhas no PDF não é a do motor: o Word emite as colunas da
+ *  área de notas (de fim, ou de rodapé numa seção em colunas) intercaladas com as do
+ *  texto (coluna 1 do texto, coluna 1 das notas, coluna 2…). Compara com as linhas ordenadas por coluna e altura. */
+const ORDERLESS = new Set(['en-cols', 'sect-cols2']);
+const byColumn = (d: OracleDoc): OracleDoc => ({ pages: d.pages.map((p) => ({ ...p, lines: [...p.lines].sort((a, b) => Math.round(a.x0 / 100) - Math.round(b.x0 / 100) || a.y - b.y) })) });
+
 const groups = existsSync(oracleDir) ? readdirSync(oracleDir).filter((g) => !CHAR_ONLY.has(g)) : [];
 for (const g of groups) {
   describe.skipIf(!hasFonts)(`oráculo Word: ${g}`, () => {
@@ -57,7 +63,8 @@ for (const g of groups) {
         // casos mk-* (controle de alterações): o PDF do Word "com marcação" = Todas as Marcações
         const opts = f.startsWith('mk-') ? { revisions: { mode: 'all' as const } } : {};
         const res = layoutDocument(full, withEmbeddedFonts(provider, readEmbeddedFonts(pkg), (b) => new SfntFont(b)), opts);
-        const r = compareLines(word, engineLines(res), EXACT_LEADERS.has(g));
+        const orderless = ORDERLESS.has(f.replace(/\.docx$/, ''));
+        const r = orderless ? compareLines(byColumn(word), byColumn(engineLines(res))) : compareLines(word, engineLines(res), EXACT_LEADERS.has(g));
         if (SWEEPS.has(g) || g === 'vertalign') {
           // vertalign: o deslocamento do sobrescrito muda o agrupamento em linhas da extração
           expect(r.matched / r.linesW, r.firstDiff).toBeGreaterThanOrEqual(g === 'vertalign' ? 0.9 : 0.98);

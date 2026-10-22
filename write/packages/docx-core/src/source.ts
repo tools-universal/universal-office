@@ -123,6 +123,17 @@ export interface StorySource {
   sectPr?: string;
 }
 
+/** footnotes.xml / endnotes.xml: a raiz e cada w:footnote (separadores crus;
+ *  cada nota com a sua história, para regravar só as notas editadas). */
+export interface NotesPartSource {
+  open: string;
+  close: string;
+  items: { id: number; raw: string; separator?: boolean; story?: StorySource }[];
+  /** ids referenciados no corpo ao abrir: só estes saem quando a referência some
+   *  (nota órfã do arquivo fica como está) */
+  refsAtLoad: Set<number>;
+}
+
 /** Assinatura de um run (texto, props, extras) — hash do JSON; bytes de imagem
  *  entram pelo tamanho. A linha de base guarda só o hash (não uma cópia do modelo). */
 export function runSig(run: Run): number {
@@ -159,6 +170,8 @@ export class SourceStore {
   readonly tcs = new Map<number, CellSource>();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   readonly stories = new Map<string, StorySource>();
+  /** Por caminho da parte de notas (word/footnotes.xml, word/endnotes.xml). */
+  readonly noteParts = new Map<string, NotesPartSource>();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
   readonly commentIds = new Set<number>();
   /** comments.xml original, para regravar só se a lista mudar. */

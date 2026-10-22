@@ -2,7 +2,7 @@ import type {
   FullDocument, Block, Paragraph, TableBlock, Section, SectPr, Run, PBdr, DrawingAnchor, TableCell,
 } from '@universal-office/docx-core';
 import { runPropsFromRPr, paraPropsFromPPr, revisionAuthors } from '@universal-office/docx-core';
-import { DocContext, emptyFormatting, directPPr, type LayoutOptions, type FlowState } from './context.js';
+import { DocContext, emptyFormatting, directPPr, type LayoutOptions, type FlowState, type NoteNumbering } from './context.js';
 import { faceMetrics, type FontProvider } from './fonts.js';
 import { prepareParagraph, resolvePPr, isDark, paraVisibility, type PreparedPara, type ParaEnv } from './para.js';
 import { LineBreaker, type Line } from './lines.js';
@@ -51,7 +51,15 @@ interface SectGeom {
   lnNum?: { countBy: number; start: number; restart: string; distance: number };
   /** grade de linhas (docGrid type=lines/linesAndChars): passo em twips */
   linePitch?: number;
+  /** notas: numeração efetiva da seção (sectPr sobre o settings), local das de rodapé
+   *  (pageBottom | beneathText) e colunas da área de notas (w15:footnoteColumns) */
+  notes: { footnote: NoteNumbering; endnote: NoteNumbering; fnPos: string; fnCols?: number };
+  /** chave do equilíbrio de colunas (padrão: o índice da seção; a área das notas de
+   *  fim é equilibrada à parte) */
+  balKey?: number;
 }
+
+const balKey = (g: SectGeom): number => g.balKey ?? g.index;
 
 interface FloatBox {
   x: number; y: number; w: number; h: number;
@@ -87,6 +95,8 @@ interface PageState {
   /** altura reservada no pé (separador + notas) e o fundo do corpo sem notas */
   noteArea: number;
   bodyBottomBase: number;
+  /** página tomada pela continuação de uma nota (o corpo segue na próxima) */
+  notesFull?: boolean;
   /** colunas da página quando a seção seguinte entrou por "próxima coluna": o
    *  resto da página fica com as colunas de antes (oráculo sections, nc-2to2-margin) */
   cols?: { x: number; w: number }[];
@@ -140,29 +150,38 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
   // delas: na passada seguinte entram no início da página, na posição achada, e o
   // texto de antes as contorna (oráculo ftable2, ft2-form*)
   let lateTables = new Map<number, LateTable>();
+  // notas de rodapé "reiniciar a cada página": a marca depende da página onde a nota
+  // saiu — a passada seguinte usa as da anterior
+  let noteMarks: Map<string, string> | undefined;
+  const newCtx = (): DocContext => {
+    const c = new DocContext(fmt, provider, opts);
+    if (noteMarks) c.noteMarkOverride = noteMarks;
+    return c;
+  };
   let last: Engine | null = null;
   for (let pass = 0; pass < 5; pass++) {
-    const ctx = new DocContext(fmt, provider, opts);
-    const eng = new Engine(ctx, full, total, marks, late, lateTables);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
+    const fix = eng.noteMarkFix();
     const stable = (!eng.usedNumPages || result.pages.length === total)
-      && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables;
+      && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix;
     if (stable) break;
     total = result.pages.length;
     marks = newMarks;
     late = newLate;
     lateTables = newLateTables;
+    if (fix) noteMarks = fix;
   }
   // seções de várias colunas encerradas por quebra CONTÍNUA: o Word equilibra as
   // colunas da última página da seção — a menor altura de coluna com que o conteúdo,
   // enchido em sequência, ainda cabe nas colunas da página (oráculo colbal)
   const balance = new Map<number, BalanceSpec>();
   const runWith = (bal: Map<number, BalanceSpec>): Engine => {
-    const eng = new Engine(new DocContext(fmt, provider, opts), full, total, marks, late, lateTables, bal);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
     result = eng.run();
     return eng;
   };
@@ -261,7 +280,7 @@ class Engine {
   usedPageRef = false;
 
   constructor(
-    readonly ctx: DocContext, readonly full: FullDocument, readonly totalPagesGuess: number,
+    readonly ctx: DocContext, public full: FullDocument, readonly totalPagesGuess: number,
     /** página exibida de cada indicador (passada anterior) — PAGEREF */
     readonly marksGuess: Map<string, string> = new Map(),
     /** flutuantes tardios (passada anterior): índice da página → objetos */
@@ -281,7 +300,7 @@ class Engine {
 
   /** Limita a altura das colunas na última página de uma seção equilibrada. */
   private applyBalance(): void {
-    const spec = this.balance.get(this.cur.geom.index);
+    const spec = this.balance.get(balKey(this.cur.geom));
     if (!spec || spec.page !== this.pages.length - 1) return;
     this.balanceSaved = this.cur.bodyBottom;
     this.cur.bodyBottom = Math.min(this.cur.bodyBottom, this.colTop + spec.h);
@@ -357,6 +376,31 @@ class Engine {
     return this.listTexts.get(block);
   }
 
+  /**
+   * Reinício a cada página (w:numRestart eachPage): a marca de cada nota pela
+   * página onde ela saiu (a continuação de nota partida não conta de novo). null =
+   * as marcas desta passada já valem; senão todas as marcas certas, para a próxima.
+   */
+  noteMarkFix(): Map<string, string> | null {
+    const want = new Map<string, string>();
+    let differs = false;
+    const seen = new Set<number>();
+    for (const ps of this.pages) {
+      const nn = ps.geom.notes.footnote;
+      let k = 0;
+      for (const n of ps.notes) {
+        if (seen.has(n.id)) continue;
+        seen.add(n.id);
+        const cur = this.ctx.noteMarkOf('footnote', n.id);
+        if (!cur || nn.restart !== 'eachPage') continue;
+        const m = formatNumber(nn.start - 1 + ++k, nn.fmt, this.ctx.opts.lang);
+        want.set(`f${n.id}`, m);
+        if (m !== cur) differs = true;
+      }
+    }
+    return differs ? want : null;
+  }
+
   /** Página exibida (já formatada) do parágrafo de cada indicador. */
   bookmarkPages(): Map<string, string> {
     const out = new Map<string, string>();
@@ -403,7 +447,11 @@ class Engine {
     // (até o Word 16.0.19xxx, o PDF exportado direto recomeçava as listas com
     // startOverride depois do bloco que abre a 2ª página; o Word 16.0.20430,
     // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
+    // notas de fim no fim de cada seção (settings w:endnotePr/w:pos sectEnd) ou do documento
+    const enSectEnd = this.ctx.fmt.settings.endnotePr?.pos === 'sectEnd';
     for (const g of this.geoms) {
+      // numeração das notas da seção (reinício por seção vale a partir daqui)
+      this.ctx.beginNoteSection(g.notes, g.index === 0);
       // contínua (ou próxima coluna) para outro tamanho/orientação de papel: o Word
       // começa página nova (oráculo sections, cont-landscape); só margens mudam na mesma
       const samePaper = !!this.cur && this.cur.page.widthTw === g.pageW && this.cur.page.heightTw === g.pageH;
@@ -420,6 +468,10 @@ class Engine {
         if (block.type === 'paragraph') this.placeParagraph(block.paragraph, `b${b}`, b, g);
         else this.placeTable(block, `b${b}`, b);
       }
+      // a seção que suprime as notas (w:noEndnote) passa as dela para a seguinte
+      // (oráculo endnotes, en-noend); no fim do documento saem todas
+      const lastSect = g === this.geoms[this.geoms.length - 1];
+      if (lastSect || (enSectEnd && !full.sections[g.index]?.sect?.noEndnote)) this.placeEndnotes(g);
     }
     // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas
     for (let k = 0; k < 100 && this.floatCarry.length && this.cur; k++) this.newPage(this.cur.geom);
@@ -515,7 +567,19 @@ class Engine {
     };
     const hb = s.headerBlocks ?? blocksOfParas(s.headers);
     const fb = s.footerBlocks ?? blocksOfParas(s.footers);
+    // notas: o footnotePr/endnotePr da seção sobre o do settings (o Word grava nos
+    // dois); padrões 1, 2, 3 no rodapé e i, ii, iii no fim
+    const st = this.ctx.fmt.settings;
+    const fnPr = { ...st.footnotePr, ...sp.footnotePr }, enPr = { ...st.endnotePr, ...sp.endnotePr };
+    const notes: SectGeom['notes'] = {
+      footnote: { fmt: fnPr.numFmt ?? 'decimal', start: fnPr.numStart ?? 1, restart: fnPr.numRestart ?? 'continuous' },
+      // (nota de fim não reinicia por página)
+      endnote: { fmt: enPr.numFmt ?? 'lowerRoman', start: enPr.numStart ?? 1, restart: enPr.numRestart === 'eachSect' ? 'eachSect' : 'continuous' },
+      fnPos: fnPr.pos ?? 'pageBottom',
+      ...(sp.footnoteColumns ? { fnCols: sp.footnoteColumns } : {}),
+    };
     return {
+      notes,
       index: i, pageW, pageH, marL, marR,
       marT: sp.marginTopTwips, marB: sp.marginBottomTwips,
       hdr: sp.headerDistanceTwips ?? 720, ftr: sp.footerDistanceTwips ?? 720,
@@ -572,7 +636,13 @@ class Engine {
     this.atTop = true;
     this.topGapPrevAfter = null;
     this.prev = null;
+    this.ctx.beginNotePage();
+    // notas de fim que continuam: separador de continuação (margem a margem) no topo
+    // (oráculo endnotes, en-fill50/en-split)
+    if (this.enFlow?.sepDone) this.continuationSeparator(true);
     if (this.floatCarry.length) this.placeFloatCarry();
+    // página só de notas (continuação longa): o texto segue na próxima
+    if (this.cur.notesFull) return this.newPage(this.cur.geom);
     // flutuantes tardios desta página: entram antes do texto
     const late = this.lateFloats.get(this.pages.length - 1);
     if (late) {
@@ -610,12 +680,21 @@ class Engine {
     ps.bodyBottomBase = ps.bodyBottom;
     // continuação de nota partida na página anterior: primeiro no pé desta (oráculo fncont)
     if (this.noteCarry.length) {
-      for (const n of this.noteCarry) {
-        if (!ps.notes.length) ps.noteArea += this.separatorHeight();
-        ps.notes.push(n);
-        ps.noteArea += n.content.height;
-      }
+      // nota que nem nesta página cabe inteira: enche a página (só notas, alinhadas
+      // ao pé) e o resto segue para a próxima (oráculo notefmt, cont-sep-3p)
+      const carry = this.noteCarry;
       this.noteCarry = [];
+      for (const n of carry) {
+        const avail = ps.bodyBottomBase - ps.bodyTop - this.noteAreaOf(ps.notes.map((x) => x.content), g) - (ps.notes.length ? 0 : this.separatorHeight());
+        const sp = n.content.height > avail + 0.05 && !ps.notesFull ? splitContent(n.content, avail) : null;
+        if (sp && sp[0].lines.length && sp[1].lines.length) {
+          ps.notes.push({ id: n.id, content: sp[0] });
+          this.noteCarry.push({ id: n.id, content: sp[1] });
+          ps.notesFull = true;
+        } else if (ps.notesFull) this.noteCarry.push(n);
+        else ps.notes.push(n);
+      }
+      ps.noteArea = this.noteAreaOf(ps.notes.map((n) => n.content), g);
       ps.bodyBottom = ps.bodyBottomBase - ps.noteArea;
     }
   }
@@ -623,10 +702,7 @@ class Engine {
   private continuousSection(g: SectGeom): void {
     // a seção que termina (várias colunas): o que ocupou nesta página (equilíbrio)
     const ending = this.cur.geom;
-    if (ending.cols.length > 1) {
-      const used = [...this.colUsed, this.y - this.colTop];
-      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
-    }
+    this.recordBalance(ending);
     if (this.balanceSaved !== null) { this.cur.bodyBottom = this.balanceSaved; this.balanceSaved = null; }
     this.closeColumns();
     this.colUsed = [];
@@ -651,6 +727,14 @@ class Engine {
     this.applyBalance();
     // o espaço "depois" do último parágrafo da seção anterior colapsa com o
     // "antes" do 1º desta, como entre parágrafos (oráculo colbreak, cb-textsect-*)
+  }
+
+  /** Seção de várias colunas que termina nesta página: o que cada coluna ocupou
+   *  (o equilíbrio é buscado em layoutDocument). */
+  private recordBalance(ending: SectGeom): void {
+    if (ending.cols.length <= 1) return;
+    const used = [...this.colUsed, this.y - this.colTop];
+    this.balanceFound.set(balKey(ending), { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
   }
 
   /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
@@ -701,6 +785,9 @@ class Engine {
       this.y = this.colTop;
       this.atTop = true;
       this.prev = null;
+      // notas de fim em colunas: a coluna seguinte guarda o lugar do separador (sem
+      // linha — oráculo endnotes, en-cols)
+      if (this.enFlow?.sepDone) this.continuationSeparator(false);
     } else this.newPage(g);
   }
 
@@ -744,6 +831,8 @@ class Engine {
         return bm ? this.marksGuess.get(bm) : undefined;
       }
       if (name === 'SEQ') return this.seqValue(instr ?? '');
+      // número da própria nota de fim (w:endnoteRef) no fluxo das notas de fim
+      if (name === 'ENDNOTEREF_MARK' && this.curEndnote !== undefined) return this.ctx.noteMarkOf('endnote', this.curEndnote) ?? '';
       if (name === 'REF') return this.refValue(instr ?? '');
       if (name === 'PAGE') return formatNumber(ps.page.number, ps.geom.pgFmt ?? 'decimal', this.ctx.opts.lang);
       if (name === 'NUMPAGES') { this.usedNumPages = true; return String(this.totalPagesGuess); }
@@ -1386,7 +1475,7 @@ class Engine {
     // anterior e o "antes" do seguinte se SOMAM (oráculo colbreak, cb-emptysect-*).
     // Logo depois de tabela ele ocupa a linha no modo 15 (cb-emptysect-aftertbl); nos
     // modos 11/14 também some (…-c11/-c14)
-    if (blockIdx === g.blocks[1] && !p.glyphs.length && this.geoms[g.index + 1]?.type === 'continuous'
+    if (blockIdx === g.blocks[1] && !p.glyphs.length && !this.enFlow && this.geoms[g.index + 1]?.type === 'continuous'
       && (this.full.blocks[blockIdx - 1]?.type === 'paragraph' || this.ctx.fmt.settings.compatibilityMode < 15)) {
       // o próprio espaçamento dele se desconta dos vizinhos: colapso(depois anterior,
       // antes dele) − antes dele; e no seguinte colapso(depois dele, antes) − depois
@@ -1815,23 +1904,38 @@ class Engine {
 
   // ───────────────────────── notas de rodapé ─────────────────────────
 
-  private noteCache = new Map<number, CellContent>();
+  /** conteúdo diagramado por nota e largura */
+  private noteCache = new Map<string, CellContent>();
 
-  /** Conteúdo diagramado de uma nota (largura do corpo da página). */
+  /** Colunas da área de notas de rodapé: com w15:footnoteColumns, N iguais com vão de
+   *  720 tw (oráculo notefmt, cols2); sem ("coincidir layout de seção"), as colunas da
+   *  própria seção (sect-cols2). x relativo à margem esquerda; w = a da 1ª coluna. */
+  private noteCols(g: SectGeom): { n: number; w: number; dx: number[] } {
+    const contentW = g.pageW - g.marL - g.marR;
+    const n = g.notes.fnCols ?? g.cols.length;
+    if (g.notes.fnCols === undefined && n > 1) return { n, w: g.cols[0]!.w, dx: g.cols.map((c) => c.x - g.marL) };
+    const gap = 720, w = n > 1 ? (contentW - gap * (n - 1)) / n : contentW;
+    return { n, w, dx: Array.from({ length: n }, (_, k) => k * (w + gap)) };
+  }
+
+  /** Conteúdo diagramado de uma nota (largura do corpo ou da coluna de notas). */
   private noteContent(id: number): CellContent {
-    let c = this.noteCache.get(id);
+    const g = this.cur.geom;
+    const w = this.noteCols(g).w;
+    const key = `${id}:${Math.round(w)}`;
+    let c = this.noteCache.get(key);
     if (!c) {
-      const g = this.cur.geom;
       const blocks: Block[] = this.full.footnoteBlocks?.get(id) ?? (this.full.footnotes.get(id) ?? []).map((paragraph) => ({ type: 'paragraph', paragraph }));
-      const num = this.ctx.footnoteNumber(id);
+      // o número da própria nota é a marca da referência (no formato da seção dela)
+      const mark = this.ctx.noteMarkOf('footnote', id) ?? '';
       const saved = this.ctx.numbering;
       this.ctx.numbering = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       try {
-        c = this.layoutStatic(blocks, g.marL, g.pageW - g.marL - g.marR, {
-          field: (name) => (name === 'FOOTNOTEREF_MARK' ? String(num) : this.fieldValue(this.cur)(name)),
+        c = this.layoutStatic(blocks, g.marL, w, {
+          field: (name) => (name === 'FOOTNOTEREF_MARK' ? mark : this.fieldValue(this.cur)(name)),
         }, `fn${id}`);
       } finally { this.ctx.numbering = saved; }
-      this.noteCache.set(id, c);
+      this.noteCache.set(key, c);
     }
     return c;
   }
@@ -1856,11 +1960,7 @@ class Engine {
   }
 
   private rowNoteExtra(row: TableLayout['rows'][number]): number {
-    const ids = this.rowNoteIds(row);
-    if (!ids.length) return 0;
-    let extra = this.cur.notes.length ? 0 : this.separatorHeight();
-    for (const id of ids) extra += this.noteContent(id).height;
-    return extra;
+    return this.notesExtra(this.rowNoteIds(row));
   }
 
   /** Parágrafo do corpo pelo caminho do ref ("b3/r2/c0/b1"). */
@@ -1888,13 +1988,62 @@ class Engine {
     return block?.type === 'paragraph' ? block.paragraph : undefined;
   }
 
+  private sepCache?: { h: number; mid: number; thick: number };
+  /**
+   * Linha do separador: altura (1 linha SIMPLES da fonte do Normal, sem espaçamento —
+   * o pPr do separador e a entrelinha do Normal não contam, oráculo fnsep), o meio do
+   * traço (0,23 em acima da base da linha) e a espessura (0,05 em em pixels de 1/600",
+   * por cima — medidos com Arial, Calibri e Times: oráculo endnotes, sep-*).
+   */
+  private sepGeom(): { h: number; mid: number; thick: number } {
+    if (!this.sepCache) {
+      const ppr = { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' as const } };
+      const p = prepareParagraph(this.ctx, { runs: [], props: paraPropsFromPPr(ppr), ppr }, {});
+      const l = new LineBreaker(this.ctx, p).next({ left: 0, right: 10000 });
+      const em = (p.markStyle.sizePt || 10) * 20;
+      this.sepCache = { h: l.height, mid: l.baseline - 0.23 * em, thick: Math.max(2.4, Math.ceil((0.05 * em) / 2.4 - 0.01) * 2.4) };
+    }
+    return this.sepCache;
+  }
+
   /** Altura do separador (1 linha do estilo Normal). */
   private separatorHeight(): number {
-    // linha SIMPLES da fonte do Normal, sem espaçamento (o pPr do separador e a
-    // entrelinha do Normal não contam — oráculo fnsep)
-    const ppr = { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' as const } };
-    const p = prepareParagraph(this.ctx, { runs: [], props: paraPropsFromPPr(ppr), ppr }, {});
-    return new LineBreaker(this.ctx, p).next({ left: 0, right: 10000 }).height;
+    return this.sepGeom().h;
+  }
+
+  /** Traço do separador a partir do topo `top` da linha dele (2" no normal, a
+   *  largura da coluna no de continuação das notas de fim). */
+  private sepLine(x: number, top: number, w: number): PageItem {
+    const sg = this.sepGeom();
+    return { t: 'rect', x, y: top + sg.mid - sg.thick / 2, w, h: sg.thick, fill: '000000' };
+  }
+
+  /** Altura da área de notas (separador + notas; em colunas, a coluna mais alta). */
+  private noteAreaOf(contents: CellContent[], g: SectGeom = this.cur.geom): number {
+    if (!contents.length) return 0;
+    return this.separatorHeight() + this.packNotes(contents.map((c) => c.height), this.noteCols(g).n).height;
+  }
+
+  /** Notas inteiras por coluna: cada coluna recebe notas até passar da média
+   *  (oráculo notefmt, cols2); uma coluna = em sequência. */
+  private packNotes(hs: number[], n: number): { col: number[]; top: number[]; height: number } {
+    const col: number[] = [], top: number[] = [];
+    const target = n > 1 ? hs.reduce((a, b) => a + b, 0) / n : Infinity;
+    let c = 0, y = 0, max = 0;
+    for (const h of hs) {
+      if (y > 0 && y >= target - 0.5 && c < n - 1) { c++; y = 0; }
+      col.push(c); top.push(y);
+      y += h;
+      max = Math.max(max, y);
+    }
+    return { col, top, height: max };
+  }
+
+  /** Espaço que as notas NOVAS `ids` acrescentam à área de notas da página. */
+  private notesExtra(ids: number[]): number {
+    if (!ids.length) return 0;
+    const cur = this.cur.notes.map((n) => n.content);
+    return this.noteAreaOf([...cur, ...ids.map((id) => this.noteContent(id))]) - this.noteAreaOf(cur);
   }
 
   /** Altura com que a linha que traz uma nota NOVA precisa caber acima das notas: a
@@ -1911,22 +2060,18 @@ class Engine {
       const id = p.glyphs[k]?.noteId;
       if (id !== undefined && !ids.includes(id) && !this.cur.notes.some((n) => n.id === id)) ids.push(id);
     }
-    if (!ids.length) return { ids, extra: 0 };
-    let extra = this.cur.notes.length ? 0 : this.separatorHeight();
-    for (const id of ids) extra += this.noteContent(id).height;
-    return { ids, extra };
+    return { ids, extra: this.notesExtra(ids) };
   }
 
   private reserveNotes(ids: number[], cut?: NoteCut | null): void {
     const ps = this.cur;
     for (const id of ids) {
       if (ps.notes.some((n) => n.id === id)) continue;
-      if (!ps.notes.length) ps.noteArea += this.separatorHeight();
       const content = cut && cut.id === id ? cut.first : this.noteContent(id);
       ps.notes.push({ id, content });
-      ps.noteArea += content.height;
       if (cut && cut.id === id) this.noteCarry.push({ id, content: cut.rest });
     }
+    ps.noteArea = this.noteAreaOf(ps.notes.map((n) => n.content), ps.geom);
     ps.bodyBottom = ps.bodyBottomBase - ps.noteArea;
   }
 
@@ -1942,9 +2087,10 @@ class Engine {
    * o começo dela fica nesta página — o que couber, com viúvas/órfãs da própria nota — e o
    * resto continua no pé da seguinte, antes das notas de lá (oráculo fncont). Só a última
    * das notas da linha parte; sem ao menos o começo permitido, null (a linha desce).
+   * Com a área de notas em colunas, a nota não parte.
    */
   private notePartial(ids: number[], bottom: number): NoteCut | null {
-    if (!ids.length) return null;
+    if (!ids.length || this.noteCols(this.cur.geom).n > 1) return null;
     const ps = this.cur;
     let h = ps.notes.length ? 0 : this.separatorHeight();
     for (const id of ids.slice(0, -1)) h += this.noteContent(id).height;
@@ -1955,20 +2101,103 @@ class Engine {
     return sp && sp[0].lines.length && sp[1].lines.length ? { id, first: sp[0], rest: sp[1] } : null;
   }
 
-  /** Separador + notas, alinhados ao fundo do corpo (medido no Word). */
+  /** Separador + notas, alinhados ao fundo do corpo (medido no Word); "abaixo do
+   *  texto" (w:pos beneathText): logo depois do conteúdo da página, como as notas de
+   *  fim (oráculo notefmt, pos-beneath*). As linhas das notas entram na página
+   *  (o editor edita a nota no lugar). */
   private paintNotes(ps: PageState): void {
     if (!ps.notes.length) return;
     const g = ps.geom;
     let y = ps.bodyBottomBase - ps.noteArea;
-    const sepH = this.separatorHeight();
-    // traço de 2" (144 pt) na altura do meio-x da linha do separador
-    const ly = y + sepH * 0.62;
-    ps.body.push({ t: 'line', x1: g.marL, y1: ly, x2: g.marL + 2880, y2: ly, color: '000000', widthPt: 0.5 });
-    y += sepH;
-    for (const n of ps.notes) {
-      for (const it of n.content.items) ps.body.push(shiftItem(it, y));
-      y += n.content.height;
+    if (g.notes.fnPos === 'beneathText' && ps === this.cur) {
+      const end = Math.max(this.y, this.colMaxY) + (this.prev && !this.atTop ? this.prev.after : 0);
+      y = Math.max(ps.bodyTop, Math.min(y, end));
     }
+    // traço de 2" (144 pt) no separador
+    ps.body.push(this.sepLine(g.marL, y, 2880));
+    y += this.separatorHeight();
+    const cols = this.noteCols(g);
+    const pack = this.packNotes(ps.notes.map((n) => n.content.height), cols.n);
+    ps.notes.forEach((n, i) => {
+      const dx = cols.dx[pack.col[i]!] ?? 0, dy = y + pack.top[i]!;
+      for (const it of n.content.items) ps.body.push(shiftItem(it, dy, dx));
+      for (const l of n.content.lines) ps.page.lines.push(shiftLineXY(l, dx, dy));
+    });
+  }
+
+  // ───────────────────────── notas de fim ─────────────────────────
+
+  /** fluxo de notas de fim em curso (o separador já saiu: páginas e colunas seguintes
+   *  ganham o de continuação) */
+  private enFlow: { sepDone: boolean } | null = null;
+  /** nota de fim sendo diagramada (o número dela no campo ENDNOTEREF_MARK) */
+  private curEndnote: number | undefined;
+  /** quantas notas de fim (na ordem de referência) já saíram */
+  private endnotesDone = 0;
+
+  /**
+   * Notas de fim pendentes no fluxo, depois do conteúdo da seção/documento: o
+   * separador (uma linha simples da fonte do Normal, depois do "depois" do último
+   * parágrafo, que mantém a 1ª linha da 1ª nota com ele) e as notas na ordem de
+   * referência; a continuação noutra página tem o separador de continuação
+   * (oráculo endnotes). Linhas com ref "en<id>/b<k>".
+   */
+  private placeEndnotes(g: SectGeom): void {
+    const order = this.ctx.endnoteOrder;
+    const ids = order.slice(this.endnotesDone);
+    this.endnotesDone = order.length;
+    if (!ids.length) return;
+    const sepPPr = { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' as const }, keepNext: true };
+    const sep: Paragraph = { runs: [], props: paraPropsFromPPr(sepPPr), ppr: sepPPr };
+    const blocks: Block[] = [{ type: 'paragraph', paragraph: sep }];
+    const refs = ['ensep'];
+    const owner: (number | undefined)[] = [undefined];
+    for (const id of ids) {
+      const bs: Block[] = this.full.endnoteBlocks?.get(id) ?? (this.full.endnotes.get(id) ?? []).map((paragraph) => ({ type: 'paragraph', paragraph }));
+      bs.forEach((b, k) => { blocks.push(b); refs.push(`en${id}/b${k}`); owner.push(id); });
+    }
+    if (blocks.length < 2) return;
+    // o fluxo das notas usa a mesma maquinaria do corpo, sobre os blocos delas
+    const saved = this.full;
+    this.full = { ...saved, blocks };
+    // em colunas, a área das notas é como uma seção contínua: o texto de antes e as
+    // notas são equilibrados cada um à parte (oráculo endnotes, en-cols)
+    const multi = this.pageCols().length > 1 || g.cols.length > 1;
+    const gEn: SectGeom = { ...g, blocks: [0, blocks.length - 1], ...(multi ? { balKey: -1 - g.index } : {}) };
+    if (multi) this.continuousSection(gEn);
+    this.enFlow = { sepDone: false };
+    try {
+      for (let b = 0; b < blocks.length; b++) {
+        const block = blocks[b]!;
+        this.curEndnote = owner[b];
+        if (block.type === 'paragraph') this.placeParagraph(block.paragraph, refs[b]!, b, gEn);
+        else this.placeTable(block, refs[b]!);
+        if (b === 0) {
+          // o traço na linha do separador (a linha some da página: não é texto)
+          const lines = this.cur.page.lines;
+          const at = lines.map((l) => l.ref).lastIndexOf('ensep');
+          if (at >= 0) {
+            const l = lines[at]!;
+            lines.splice(at, 1);
+            this.cur.body.push(this.sepLine(l.x, l.y, 2880));
+          }
+          this.enFlow.sepDone = true;
+        }
+      }
+      if (multi) this.recordBalance(gEn);
+    } finally {
+      this.full = saved;
+      this.enFlow = null;
+      this.curEndnote = undefined;
+    }
+  }
+
+  /** Separador de continuação no topo da página/coluna nova do fluxo de notas de fim
+   *  (`draw`: o traço, da largura da coluna; na coluna seguinte só o lugar). */
+  private continuationSeparator(draw: boolean): void {
+    const fr = this.colFrame();
+    if (draw) this.cur.body.push(this.sepLine(fr.x, this.y, fr.w));
+    this.y += this.separatorHeight();
   }
 
   /** Linhas de um parágrafo (sem quebra de página), p/ keepLines/keepNext. */
@@ -3209,6 +3438,10 @@ const ABSOLUTE_V = new Set(['page', 'margin', 'topMargin', 'bottomMargin', 'insi
 /** Desloca uma linha diagramada (y e baseline). */
 function shiftLine(l: LaidOutLine, dy: number): LaidOutLine {
   return { ...l, y: l.y + dy, baseline: l.baseline + dy };
+}
+
+function shiftLineXY(l: LaidOutLine, dx: number, dy: number): LaidOutLine {
+  return { ...l, x: l.x + dx, y: l.y + dy, baseline: l.baseline + dy, ...(l.chars && dx ? { chars: l.chars.map((c) => ({ ...c, x: c.x + dx })) } : {}) };
 }
 
 /** Quebras de texto que afastam as linhas do objeto. */

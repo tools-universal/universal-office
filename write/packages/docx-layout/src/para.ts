@@ -821,6 +821,8 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
     flushSeg();
   };
 
+  /** nota de rodapé de marca personalizada: vai no 1º glifo da marca (texto seguinte) */
+  let pendingNote: number | undefined;
   for (const { run, idx, offset } of displayRuns(para, env)) {
     // revisões: o texto que a visão esconde (excluído na final, inserido na
     // original) sai como o oculto — sem glifo, offsets intactos
@@ -892,18 +894,26 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
       glyphs.push({ kind: 'tab', ch: '\t', cp: 9, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, ptab: run.ptab, sizePt: style.sizePt });
       continue;
     }
-    if (run.noteRef && !run.text) {
-      // número exibido = ordem de referência no documento (não o id)
-      const num = run.noteRef.kind === 'footnote' ? ctx.footnoteNumber(run.noteRef.id) : ctx.endnoteNumber(run.noteRef.id);
+    if (run.noteRef) {
+      // marca exibida = ordem de referência no documento, no formato da seção (não o
+      // id nem o texto do run — no editor ele só guarda o lugar da marca); com marca
+      // personalizada o texto que segue é a marca (e não consome número)
+      const { kind, id, custom } = run.noteRef;
+      const mark = ctx.noteMark(kind, id, custom);
+      if (custom) { if (kind === 'footnote') pendingNote = id; continue; }
       const before = glyphs.length;
-      pushChars(String(num), run, rpr, style, offset, idx);
-      if (run.noteRef.kind === 'footnote') for (let k = before; k < glyphs.length; k++) glyphs[k]!.noteId = run.noteRef.id;
+      pushChars(mark, run, rpr, style, offset, idx);
+      // a marca inteira é UM caractere do run (cursor/seleção não entram nela)
+      for (let k = before; k < glyphs.length; k++) { glyphs[k]!.offset = offset; if (kind === 'footnote') glyphs[k]!.noteId = id; }
       continue;
     }
     if (run.math) { pushMath(run, idx, offset); continue; }
     const before = glyphs.length;
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ''));
     if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k]!.glue = true;
+    // número da própria nota (w:footnoteRef): também um caractere só
+    if (/_MARK\s*$/.test(para.runs[idx]?.field ?? '')) for (let k = before; k < glyphs.length; k++) glyphs[k]!.offset = offset;
+    if (pendingNote !== undefined && glyphs.length > before) { glyphs[before]!.noteId = pendingNote; pendingNote = undefined; }
   }
   // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
   // objeto desce sozinho), salvo depois de NBSP (oráculo imgbreak)

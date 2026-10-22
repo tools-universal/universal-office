@@ -53,8 +53,13 @@ export {
   readSectionProps,
   blockSrc,
   markSectionBreaks,
+  noteRefIds,
 } from './fulldoc.js';
-export { SourceStore, runSig, type ParaSource, type RunSource, type TableSource, type StorySource, type StoryGroup, type SegSource } from './source.js';
+export { SourceStore, runSig, type ParaSource, type RunSource, type TableSource, type StorySource, type StoryGroup, type SegSource, type NotesPartSource } from './source.js';
+export {
+  NOTE_STYLES, NOTE_REF_TEXT, ensureNoteParts, emptyNotesPart, patchSettingsNotes, notePropsXml, sameNoteProps, noteRefRun,
+  newNoteParagraphs, noteMarkField, type NoteKind,
+} from './notes.js';
 export {
   insertText,
   insertRun,
@@ -119,6 +124,7 @@ export {
   type HfPartInfo,
   type WriteOptions,
   type CommentOut,
+  type NotesOut,
 } from './serialize.js';
 export { readStyles, readStylesXml, type StylesMap, type ResolvedStyle } from './styles.js';
 export { blankDocxPackage, BLANK_STYLES_XML } from './blank.js';

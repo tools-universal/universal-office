@@ -1,6 +1,7 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
 import { readRPr, readPPr, readBorder, readRevisionInfo, type RPr, type PPr, type BorderSpec, type RevisionInfo } from './ooxml/props.js';
+import { readNoteProps, type NoteProps } from './ooxml/parts.js';
 import type { SourceStore, SegSource } from './source.js';
 import {
   readWpAnchor, readSpPr, parseVmlStyle, vmlAnchor, vmlLenTwips, vmlShapeStyle,
@@ -236,6 +237,8 @@ export interface DrawingTextbox {
 export interface NoteRef {
   kind: 'footnote' | 'endnote';
   id: number;
+  /** w:customMarkFollows — a marca é o texto que segue (não consome número). */
+  custom?: boolean;
 }
 
 /**
@@ -477,6 +480,11 @@ export interface SectPr {
   pgNumStart?: number;
   /** w:pgBorders (null = o editor tirou; ausente = como no arquivo) */
   pgBorders?: PageBorders | null;
+  /** w:footnotePr / w:endnotePr da seção (sobre os do settings). */
+  footnotePr?: NoteProps;
+  endnotePr?: NoteProps;
+  /** w15:footnoteColumns — colunas da área de notas de rodapé (ausente = as da seção). */
+  footnoteColumns?: number;
 }
 
 export interface DocumentModel {
@@ -1563,7 +1571,8 @@ function readSingleRun(
       case 'w:endnoteReference': {
         const id = parseInt(child.attrs['w:id'] ?? '0', 10);
         flush();
-        const run = make('', { noteRef: { kind: child.name === 'w:footnoteReference' ? 'footnote' : 'endnote', id } });
+        const custom = child.attrs['w:customMarkFollows'] === '1' || child.attrs['w:customMarkFollows'] === 'true';
+        const run = make('', { noteRef: { kind: child.name === 'w:footnoteReference' ? 'footnote' : 'endnote', id, ...(custom ? { custom } : {}) } });
         run.props.vertAlign = 'superscript';
         runTarget(ctx, runs)?.push(run);
         break;
@@ -1853,5 +1862,12 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
     const n = parseInt(startAttr, 10);
     if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
+  const fnPr = readNoteProps(sectEl && firstChild(sectEl, 'w:footnotePr'));
+  if (fnPr) sect.footnotePr = fnPr;
+  const enPr = readNoteProps(sectEl && firstChild(sectEl, 'w:endnotePr'));
+  if (enPr) sect.endnotePr = enPr;
+  const fnCols = sectEl && firstChild(sectEl, 'w15:footnoteColumns')?.attrs['w:val'];
+  if (fnCols !== undefined && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
   return sect;
 }
+
