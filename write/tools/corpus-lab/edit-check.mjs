@@ -571,6 +571,44 @@ if (want('hf')) {
     return { n, of: d.length / 4 };
   }, Buffer.from(hg.docx).toString('base64'));
   check('imprimir logo depois de abrir leva a figura do grupo do cabeçalho', blue.n > blue.of * 0.5, blue);
+
+  // imagem TIFF (o Chromium não decodifica): o canvas usa o decodificador do motor, o
+  // mesmo do PDF — antes ficava em branco na tela e na impressão (corpus t43-fac9b9ad)
+  const { buildDocx, docDefaults: dd, p: pp, r: rr } = await import(new URL('../layout-oracle/docx-builder.mjs', import.meta.url).href);
+  const le16 = (v) => [v & 0xff, v >> 8], le32 = (v) => [v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, v >>> 24];
+  const tiffRgb = (w, h, [R, G, B]) => {
+    // II*, IFD com 9 entradas logo depois do cabeçalho; BitsPerSample (3 × 8) e os pixels depois
+    const tags = [[256, 3, w], [257, 3, h], [258, 3, 0], [259, 3, 1], [262, 3, 2], [273, 4, 0], [277, 3, 3], [278, 3, h], [279, 4, w * h * 3]];
+    const ifd = 8, bpsOff = ifd + 2 + tags.length * 12 + 4, pixOff = bpsOff + 6;
+    const out = [0x49, 0x49, 42, 0, ...le32(ifd), ...le16(tags.length)];
+    for (const [tag, type, v] of tags) {
+      const val = tag === 258 ? bpsOff : tag === 273 ? pixOff : v;
+      out.push(...le16(tag), ...le16(type), ...le32(tag === 258 ? 3 : 1), ...(type === 3 && tag !== 258 ? [...le16(val), 0, 0] : le32(val)));
+    }
+    out.push(0, 0, 0, 0, ...le16(8), ...le16(8), ...le16(8));
+    for (let i = 0; i < w * h; i++) out.push(R, G, B);
+    return new Uint8Array(out);
+  };
+  const EMU = 12700 * 200;
+  const tifPic = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${EMU}" cy="${EMU}"/><wp:docPr id="1" name="tif"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="tif"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${EMU}" cy="${EMU}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+  const tifDocx = buildDocx({ body: pp(rr('Antes')) + pp(tifPic) + pp(rr('Depois')), defaults: dd(), media: { 'image1.tiff': tiffRgb(8, 8, [200, 30, 30]) } });
+  const red = await page.evaluate(async (b64) => {
+    await window.ed.openBase64(b64);
+    const [url] = await document.querySelector('universal-write').printPages();
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, img.width, img.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 170 && d[i + 1] < 70 && d[i + 2] < 70) n++;
+    return n;
+  }, Buffer.from(tifDocx).toString('base64'));
+  // 200 × 200 pt a 96 dpi ≈ 266² px
+  check('imagem TIFF aparece na página (decodificador do motor)', red > 60000, red);
 }
 
 // ───────────── cabeçalho e rodapé: opções, vincular, modelos (frente Cabeçalho e rodapé) ─────────────

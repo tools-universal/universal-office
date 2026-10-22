@@ -19,7 +19,7 @@ export { paintItems, paintPageBackground, type EnginePaintEnv } from './canvas.j
 export { resolvePageFill, gradientTileRgba, patternRgba, pageFillTileTw, fillParam, imagePixelInfo, type PageFillPaint } from './page-fill.js';
 export { paintPicture } from './canvas-picture.js';
 export { pictureLook, applyBlipFx } from './picture.js';
-export { applyImageEffects, applyPictureAdjust } from './images.js';
+export { applyImageEffects, applyPictureAdjust, decodeRaster } from './images.js';
 export { paragraphAtPath, cellAtGrid, cellBlocks } from './refs.js';
 export { AUTHOR_PALETTE, MOVE_COLOR, RevisionDisplay, authorColor, type RevisionMode, type RevisionView } from './revisions.js';
 export { documentOutline, outlineLevelOf, headingText, numberedItems, outlineParagraphs, type OutlineHeading, type NumberedItem, type OutlineParagraph } from './outline.js';

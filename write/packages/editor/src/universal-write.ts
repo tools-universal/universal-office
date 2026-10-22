@@ -214,7 +214,7 @@ import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting, numberedItems, formatNumber,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
-  RevisionDisplay, authorColor, type RevisionView, formatWordDate, resolveDrawingColor,
+  RevisionDisplay, authorColor, type RevisionView, formatWordDate, resolveDrawingColor, decodeRaster,
 } from '@universal-office/docx-layout';
 import {
   hfTemplates, hfTemplateXml, galleryKind, placeholderText, hfBandLabel, sameAsPreviousLabel, DATE_TIME_FORMATS,
@@ -6019,7 +6019,13 @@ export class UniversalWriteElement extends HTMLElement {
     // Preferir a versão VETORIAL (asvg:svgBlip), como o Word: rasteriza o SVG
     // em alta resolução em vez de esticar o PNG de fallback (que pixeliza).
     const bmp: Promise<ImageBitmap> = svg ? this.rasterizeSvg(img)
-      : createImageBitmap(new Blob([new Uint8Array(data).buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }));
+      : createImageBitmap(new Blob([new Uint8Array(data).buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }))
+        // o que o navegador não decodifica (TIFF): o decodificador do motor, o mesmo do PDF
+        .catch((e: unknown) => {
+          const rgba = decodeRaster(data);
+          if (!rgba) throw e;
+          return createImageBitmap(new ImageData(new Uint8ClampedArray(rgba.data), rgba.width, rgba.height));
+        });
     const same = (): boolean => img.data === data && img.svg === svg;
     const p: Promise<boolean> = bmp.then(
       (b) => { if (!same()) return false; this.bitmaps.set(img, b); this.imagesVersion++; return true; },
