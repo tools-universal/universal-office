@@ -115,6 +115,18 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Desenvolvedor | controles de conteúdo; XML Mapping | — |
 | Macros | em análise (vale a pena?) | — |
 
+### Pendências deixadas pelas frentes
+
+| Origem | Pendência |
+|---|---|
+| Tabela | Ajustar Texto (`tcFitText`): a regra do Word não saiu das medições; a opção é gravada, mas o layout não a aplica |
+| Tabela | Bordas de página artísticas: ficaram de fora porque as imagens são do Word |
+| Tabela | A colação do Windows é um alias para `sheet/packages/calc/src/collation.ts`; ir para um lugar compartilhado |
+| Tabela | Inserir tabela no parágrafo vazio logo depois de outra tabela deixa as duas coladas |
+| Tabela | O título "Documento sem título" não troca de idioma quando o `lang` muda depois de montado |
+| Tabela | `<universal-sheet>`: `setCellValue(0, …)` cria uma referência de célula inválida |
+| Seções | Larguras das colunas Esquerda/Direita não medidas (o COM não alcança a galeria); hoje é uma grade de 3 |
+
 ### Fora do escopo
 
 SharePoint (e as propriedades do SharePoint) e os assistentes de IA (Copilot,
