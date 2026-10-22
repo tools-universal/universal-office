@@ -82,6 +82,8 @@ export interface PictureLook {
   shadow?: { kind: 'outer' | 'inner'; color: string; alpha: number; blurPt: number; distPt: number; dirDeg: number; sx?: number; sy?: number; kxDeg?: number; kyDeg?: number; algn?: string; rotWithShape?: boolean };
   glow?: { color: string; alpha: number; radPt: number };
   softEdgePt?: number;
+  /** chanfro de cima com a câmera de frente (pt; luz/material do scene3d/sp3d) */
+  bevel?: { wPt: number; hPt: number; prst?: string; rig?: string; dir?: string; material?: string };
   reflection?: { blurPt: number; stA: number; stPos: number; endA: number; endPos: number; distPt: number; dirDeg: number; sy: number; algn?: string; rotWithShape?: boolean };
   /** ajustes do a:blip que o Word aplica aos pixels (os de a:lum/grayscl/biLevel
    *  ficam em image.effects) */

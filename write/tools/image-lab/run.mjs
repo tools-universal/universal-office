@@ -30,7 +30,7 @@ const script = opt('--script') || 'image-oracle.ps1';
 
 writeFileSync(join(imgDir, 'pattern.png'), patternPng());
 writeFileSync(join(imgDir, 'alpha.png'), alphaPng());
-for (const k of ['star', 'lshape', 'ring']) writeFileSync(join(imgDir, `${k}.png`), shapePng(k));
+for (const k of ['star', 'lshape', 'ring', 'solid']) writeFileSync(join(imgDir, `${k}.png`), shapePng(k));
 
 if (!argv.includes('--extract-only')) {
   acquireWordLock('image-lab');

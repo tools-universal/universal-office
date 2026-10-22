@@ -350,6 +350,8 @@ $E['alpha-tight-com'] = @{ Img2 = $true; Op = { param($c) To-Float $c 1 | Out-Nu
 $E['alpha-square'] = @{ Img2 = $true; Op = { param($c) Mso $c 'TextWrappingSquare' } }
 foreach ($k in @('star', 'lshape', 'ring')) { $E[('shape-tight-' + $k)] = @{ ImgFile = ($k + '.png'); Op = { param($c) Mso $c 'TextWrappingTight' } } }
 $E['shape-through-ring'] = @{ ImgFile = 'ring.png'; Op = { param($c) Mso $c 'TextWrappingThrough' } }
+# chanfro numa imagem vermelha lisa cortada em elipse: todas as direcoes da normal num documento so
+foreach ($k in 2..13) { $E[('bvo-' + $k)] = @{ K = $k; ImgFile = 'solid.png'; Width = 144; Op = { param($c) $s = To-Float $c 0; $s.AutoShapeType = 9; $s.ThreeD.BevelTopType = $c.ex.K } } }
 # brilho e contraste sozinhos, na faixa toda do painel (-100%..100%)
 foreach ($v in @(-1, -0.8, -0.6, -0.3, -0.1, 0.1, 0.3, 0.6, 0.8, 1)) {
   $E[('pe-b1-' + $v)] = @{ B = $v; Op = { param($c) Pe $c 3 @($c.ex.B, 0) } }

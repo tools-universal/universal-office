@@ -8,7 +8,7 @@
  */
 import {
   presetOutline, flattenPath, fillPolygons, newMask, outerShadowMask, innerShadowMask, glowMask, softEdgeMask, reflectionAlpha,
-  gaussianBlur, type Mask, type PathSeg, type Affine,
+  gaussianBlur, shadeBevel, type Mask, type PathSeg, type Affine,
 } from '@universal-office/drawingml';
 import type { ImageItem, PictureLook } from './tree.js';
 import type { PdfImage, PdfPage, PathCmd } from './pdf-writer/document.js';
@@ -185,9 +185,35 @@ export function paintPicturePdf(page: PdfPage, it: ImageItem, env: PdfPictureEnv
     }
   }
 
+  // 3') chanfro: a imagem vira um raster da camada com a luz 3D (e a forma/bordas
+  // suaves no alfa), como o Word grava
+  const src = look.bevel ? env.rgba() : null;
+  if (look.bevel && src) {
+    const shapeM = sil ?? fillPolygons(newMask(W, H), flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35));
+    const alphaM = look.softEdgePt ? softEdgeMask(shapeM, look.softEdgePt, ppt) : shapeM;
+    const px = new Uint8Array(W * H * 4);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const k = y * W + x;
+        if (shapeM.a[k]! <= 0) continue;
+        // pixel da camada → ponto da imagem inteira (corte e espelho)
+        let lx = (x + 0.5 - ox) / ppt, ly = (y + 0.5 - oy) / ppt;
+        if (it.flipH) lx = w - lx;
+        if (it.flipV) ly = h - ly;
+        const u = (lx - fx0) / fw, v = (ly - fy0) / fh;
+        if (u < 0 || v < 0 || u >= 1 || v >= 1) continue;
+        const si = (Math.min(src.height - 1, Math.floor(v * src.height)) * src.width + Math.min(src.width - 1, Math.floor(u * src.width))) * 4;
+        px[k * 4] = src.data[si]!; px[k * 4 + 1] = src.data[si + 1]!; px[k * 4 + 2] = src.data[si + 2]!;
+        px[k * 4 + 3] = Math.round(src.data[si + 3]! * Math.min(1, alphaM.a[k]!));
+      }
+    }
+    shadeBevel(px, shapeM, { w: look.bevel.wPt * ppt, h: look.bevel.hPt * ppt, prst: look.bevel.prst, rig: look.bevel.rig, dir: look.bevel.dir, material: look.bevel.material, word: true });
+    draw(env.embedRgba(px, W, H), layerMatrix);
+  }
+
   // 3) a imagem recortada pela forma (bordas suaves como /SMask)
-  const sm = softMask();
-  const img = sm ? env.masked(sm.alpha, sm.width, sm.height) : env.image();
+  const sm = look.bevel && src ? null : softMask();
+  const img = look.bevel && src ? null : sm ? env.masked(sm.alpha, sm.width, sm.height) : env.image();
   if (img) {
     page.pushClipPath(cmds(polysLocal));
     draw(img, imgRect());

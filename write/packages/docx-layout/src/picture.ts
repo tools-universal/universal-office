@@ -54,6 +54,15 @@ export function pictureLook(im: InlineImage, theme: Theme): PictureLook | undefi
     if (c) out.glow = { color: c.color, alpha: c.alpha, radPt: fx.glow.rad / EMU_PT };
   }
   if (fx.softEdge) out.softEdgePt = fx.softEdge / EMU_PT;
+  // chanfro (câmera de frente; a rotação 3D/perspectiva não é desenhada)
+  const td = f.threeD;
+  if (td?.bevelT && (!td.camera || td.camera.prst === 'orthographicFront') && !td.camera?.rot) {
+    out.bevel = {
+      wPt: (td.bevelT.w ?? 76200) / EMU_PT, hPt: (td.bevelT.h ?? 76200) / EMU_PT,
+      ...(td.bevelT.prst ? { prst: td.bevelT.prst } : {}), ...(td.lightRig ? { rig: td.lightRig.rig, dir: td.lightRig.dir } : {}),
+      ...(td.prstMaterial ? { material: td.prstMaterial } : {}),
+    };
+  }
   const r = fx.reflection;
   if (r) {
     out.reflection = {

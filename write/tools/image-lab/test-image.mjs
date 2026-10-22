@@ -73,6 +73,7 @@ export function shapePng(kind) {
   const S = 240, c = S / 2;
   const inside = (x, y) => {
     const dx = x + 0.5 - c, dy = y + 0.5 - c;
+    if (kind === 'solid') return true;
     if (kind === 'ring') { const d = Math.hypot(dx, dy); return d <= 96 && d >= 48; }
     if (kind === 'lshape') return x >= 24 && x < 216 && y >= 24 && y < 216 && (x < 96 || y >= 144);
     // estrela de 5 pontas: raio externo 100, interno 40

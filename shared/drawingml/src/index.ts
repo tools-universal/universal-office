@@ -17,3 +17,4 @@ export { alignPoint, shadowAffine, outerShadowMask, innerShadowMask, glowMask, s
 export { adjustSaturation, adjustTemperature, adjustBrightnessContrast, adjustSharpen, blackbody } from './adjust.js';
 export { applyColorMods, srgbToLin, linToSrgb, type Rgb } from './color.js';
 export { wrapContour } from './contour.js';
+export { shadeBevel, type BevelSpec } from './bevel.js';

@@ -8,7 +8,7 @@
  */
 import {
   presetOutline, flattenPath, fillPolygons, newMask, outerShadowMask, innerShadowMask, glowMask, softEdgeMask, reflectionAlpha,
-  gaussianBlur, type Mask, type PathSeg,
+  gaussianBlur, shadeBevel, type Mask, type PathSeg,
 } from '@universal-office/drawingml';
 import type { ImageItem, PictureLook } from './tree.js';
 import { applyImageEffects, applyPictureAdjust } from './images.js';
@@ -166,6 +166,13 @@ function buildLayer(it: ImageItem, bmp: CanvasImageSource & { width: number; hei
   pc.imageSmoothingQuality = 'high';
   pc.drawImage(src, (-w / 2 - crop.l * fw) * ppt, (-h / 2 - crop.t * fh) * ppt, fw * ppt, fh * ppt);
   pc.restore();
+  // chanfro: a luz 3D sobre a imagem dentro da forma
+  if (look?.bevel) {
+    const img = pc.getImageData(0, 0, W, H);
+    const shapeM = fillPolygons(newMask(W, H), polys);
+    shadeBevel(img.data, shapeM, { w: look.bevel.wPt * ppt, h: look.bevel.hPt * ppt, prst: look.bevel.prst, rig: look.bevel.rig, dir: look.bevel.dir, material: look.bevel.material, word: true });
+    pc.putImageData(img, 0, 0);
+  }
 
   // silhueta: a forma (e a transparência da imagem)
   const sil = fillPolygons(newMask(W, H), polys);
