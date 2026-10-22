@@ -561,7 +561,16 @@ export function vmlFallback(drawingXml: string, content: string, o: { color: (c:
   const rect = f.geom === 'rect' || f.geom === 'custom';
   let typeAttr = ' type="#_x0000_t202"';
   let shapetype = rect ? '<v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>' : '';
-  if (!rect && o.outline) {
+  // retângulo de cantos arredondados e elipse: os elementos próprios do VML (o Word grava
+  // assim no modo de compatibilidade — oráculo c12-shape: v:roundrect arcsize)
+  let tag = 'v:shape';
+  if (f.geom === 'roundRect') {
+    tag = 'v:roundrect';
+    typeAttr = ` arcsize="${Math.round(((f.adj?.['adj'] ?? 16667) / 100000) * 65536)}f"`;
+  } else if (f.geom === 'ellipse') {
+    tag = 'v:oval';
+    typeAttr = '';
+  } else if (!rect && o.outline) {
     const cx = Math.max(1, Math.round(f.cx)), cy = Math.max(1, Math.round(f.cy));
     const path = o.outline(f.geom, f.adj, cx, cy);
     if (path) { typeAttr = ` coordsize="${cx},${cy}" o:spt="100" path="${path}"`; shapetype = ''; }
@@ -581,8 +590,8 @@ export function vmlFallback(drawingXml: string, content: string, o: { color: (c:
   const ax = f.posH?.relativeFrom && f.posH.relativeFrom !== 'column' ? (H_REL[f.posH.relativeFrom] === 'char' ? 'char' : f.posH.relativeFrom === 'page' ? 'page' : 'margin') : undefined;
   const ay = f.posV?.relativeFrom && f.posV.relativeFrom !== 'paragraph' ? (f.posV.relativeFrom === 'line' ? 'line' : f.posV.relativeFrom === 'page' ? 'page' : 'margin') : undefined;
   const w10 = !f.inline && (wrapType || ax || ay) ? `<w10:wrap${wrapType ? ` type="${wrapType}"` : ''}${ax ? ` anchorx="${ax}"` : ''}${ay ? ` anchory="${ay}"` : ''}/>` : '';
-  return `<mc:Fallback><w:pict>${shapetype}<v:shape id="${escAttr(name)}" o:spid="_x0000_s${o.spid}"${typeAttr} style="${style.join(';')}"${alt}${attrs.length ? ` ${attrs.join(' ')}` : ''}>`
-    + `${fillEl}${strokeEl}<v:textbox${tbAttrs}><w:txbxContent>${content}</w:txbxContent></v:textbox>${w10}</v:shape></w:pict></mc:Fallback>`;
+  return `<mc:Fallback><w:pict>${shapetype}<${tag} id="${escAttr(name)}" o:spid="_x0000_s${o.spid}"${typeAttr} style="${style.join(';')}"${alt}${attrs.length ? ` ${attrs.join(' ')}` : ''}>`
+    + `${fillEl}${strokeEl}<v:textbox${tbAttrs}><w:txbxContent>${content}</w:txbxContent></v:textbox>${w10}</${tag}></w:pict></mc:Fallback>`;
 }
 
 /** mc:AlternateContent completo da caixa: o wps (Choice) e o VML de reserva. */

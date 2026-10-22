@@ -115,6 +115,14 @@ describe('caixa só em VML (modo de compatibilidade 12): o wps equivalente', () 
   it('sem preenchimento e sem contorno', () => { const f = vml('c12-noline'); expect(f.fill.kind).toBe('none'); expect(f.line?.fill).toBeNull(); });
   it('margens e alinhamento', () => expect(vml('c12-margins').body).toMatchObject({ lIns: 127000, tIns: 38100, rIns: 152400, bIns: 50800, anchor: 'ctr' }));
   it('ajustar ao texto e direção', () => { expect(vml('c12-autosize').body?.autofit).toBe('shape'); expect(vml('c12-orient').body?.vert).toBe('vert'); });
+  it('VML de volta: cantos arredondados viram v:roundrect com o arcsize do Word', () => {
+    const x = unpretty(readFileSync(join(RES, 'c12-shape.xml'), 'utf8'));
+    const pict = parseXml(/<w:pict[^>]*>[\s\S]*?<\/w:pict>/.exec(x)![0]);
+    const el = pict.children.find((k) => typeof k !== 'string' && k.name !== 'v:shapetype') as Parameters<typeof vmlTextboxToDrawing>[0];
+    const out = vmlFallback(vmlTextboxToDrawing(el, 7)!, '<w:p/>', { color: () => '000000', spid: 1026 });
+    expect(out).toMatch(/<v:roundrect [^>]*arcsize="10923f"/);
+    expect(out).toMatch(/<\/v:roundrect><\/w:pict>/);
+  });
   it('quebra quadrada, oculta com nome, cantos arredondados', () => {
     expect(vml('c12-wrap').wrap).toBe('square');
     const h = vml('c12-hidden');
