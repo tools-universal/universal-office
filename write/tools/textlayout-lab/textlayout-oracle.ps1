@@ -239,6 +239,37 @@ foreach ($v in @(@('pf-tight-all', 1), @('pf-tight-fl', 2), @('pf-tight-first', 
 $E['pf-tight-none'] = @{ Setup = { param($app, $doc) Three $doc; (P1 $doc).Format.TextboxTightWrap = 1 }
   Op = { param($app, $doc) (P1 $doc).Format.TextboxTightWrap = 0 } }
 
+# ---- espacamento antes/depois (caixas numericas da guia Layout) ----
+$E['sp-before-auto'] = @{ Op = { param($app, $doc) Three $doc; (P1 $doc).SpaceBeforeAuto = -1 }
+  Info = { param($app, $doc) $p = P1 $doc; [ordered]@{ before = $p.SpaceBefore; auto = $p.SpaceBeforeAuto } } }
+$E['sp-after-auto'] = @{ Op = { param($app, $doc) Three $doc; (P1 $doc).SpaceAfterAuto = -1 }
+  Info = { param($app, $doc) $p = P1 $doc; [ordered]@{ after = $p.SpaceAfter; auto = $p.SpaceAfterAuto } } }
+$E['sp-auto-back'] = @{ Setup = { param($app, $doc) Three $doc; (P1 $doc).SpaceBeforeAuto = -1 }
+  Op = { param($app, $doc) (P1 $doc).SpaceBefore = 6 }
+  Info = { param($app, $doc) $p = P1 $doc; [ordered]@{ before = $p.SpaceBefore; auto = $p.SpaceBeforeAuto } } }
+# igual ao herdado (Normal: depois 8 pt): grava ou nao?
+$E['sp-after-same'] = @{ Op = { param($app, $doc) Three $doc; (P1 $doc).SpaceAfter = 8 } }
+$E['sp-after-same-sel'] = @{ Setup = { param($app, $doc) Three $doc; (P1 $doc).SpaceAfter = 12; $doc.Content.Select() }
+  Op = { param($app, $doc) $app.Selection.ParagraphFormat.SpaceAfter = 8 } }
+$E['sp-before-zero'] = @{ Setup = { param($app, $doc) Three $doc; (P1 $doc).Style = $doc.Styles.Item(-2) }
+  Op = { param($app, $doc) (P1 $doc).SpaceBefore = 0 } }
+$E['sp-before-6'] = @{ Op = { param($app, $doc) Three $doc; (P1 $doc).SpaceBefore = 6 } }
+$E['sp-indent-sel'] = @{ Setup = { param($app, $doc) Three $doc; $doc.Paragraphs.Item(2).LeftIndent = 36; $doc.Content.Select() }
+  Op = { param($app, $doc) }
+  Info = { param($app, $doc) $f = $app.Selection.ParagraphFormat; [ordered]@{ left = $f.LeftIndent; right = $f.RightIndent; before = $f.SpaceBefore; after = $f.SpaceAfter } } }
+# limites aceitos pelo COM (as caixas do dialogo usam os mesmos)
+$E['limits'] = @{ Op = { param($app, $doc) Three $doc }
+  Info = { param($app, $doc)
+    $o = [ordered]@{}
+    $l = $doc.Sections.Item(1).PageSetup.LineNumbering; $l.Active = -1
+    foreach ($v in @(0, 1, 32767, 32768, 99999)) { try { $l.StartingNumber = $v; $o["start$v"] = $l.StartingNumber } catch { $o["start$v"] = 'ERR' } }
+    foreach ($v in @(0, 1, 100, 101, 1000)) { try { $l.CountBy = $v; $o["count$v"] = $l.CountBy } catch { $o["count$v"] = 'ERR' } }
+    foreach ($v in @(0, 1, 1584, 1585, 5000)) { try { $l.DistanceFromText = $v; $o["dist$v"] = $l.DistanceFromText } catch { $o["dist$v"] = 'ERR' } }
+    foreach ($v in @(0, 1, 32767, 32768)) { try { $doc.ConsecutiveHyphensLimit = $v; $o["limit$v"] = $doc.ConsecutiveHyphensLimit } catch { $o["limit$v"] = 'ERR' } }
+    foreach ($v in @(-1, 0, 1584, 1585, 2000)) { try { (P1 $doc).LeftIndent = $v; $o["left$v"] = (P1 $doc).LeftIndent } catch { $o["left$v"] = 'ERR' } }
+    foreach ($v in @(-1, 0, 1584, 1585, 2000)) { try { (P1 $doc).SpaceBefore = $v; $o["before$v"] = (P1 $doc).SpaceBefore } catch { $o["before$v"] = 'ERR' } }
+    return $o } }
+
 # ---- layout da secao (Configurar Pagina > Layout) ----
 foreach ($v in @(@('sec-start-cont', 0), @('sec-start-col', 1), @('sec-start-page', 2), @('sec-start-even', 3), @('sec-start-odd', 4))) {
   $E[$v[0]] = @{ SS = $v[1]

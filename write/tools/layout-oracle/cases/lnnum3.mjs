@@ -48,3 +48,7 @@ export const cases = [
   doc('s-cont-long-page', [['cont', 60], ['page', 3]]),
   doc('s-page-long-cont', [['page', 60], ['cont', 3]]),
 ];
+
+// w:lnNumType sem countBy e com countBy 0 (o Word sempre grava countBy): numera?
+cases.push(doc('s-nocountby', [['<w:lnNumType w:restart="continuous"/>', 4]]));
+cases.push(doc('s-countby0', [['<w:lnNumType w:countBy="0" w:restart="continuous"/>', 4]]));

@@ -61,10 +61,10 @@ function langAllowed(ctx: DocContext, lang: string): boolean {
 
 /** Idiomas (w:lang) do texto de um documento com hifenização automática — para o
  *  app carregar os padrões antes de diagramar (`loadHyphenation`). Vazio sem
- *  w:autoHyphenation. */
-export function documentHyphenationLanguages(full: FullDocument, fallback = 'pt-BR'): string[] {
+ *  w:autoHyphenation (salvo `force`: a Hifenização Manual). */
+export function documentHyphenationLanguages(full: FullDocument, fallback = 'pt-BR', force = false): string[] {
   const fmt = full.formatting;
-  if (!fmt?.settings.autoHyphenation) return [];
+  if (!fmt || (!fmt.settings.autoHyphenation && !force)) return [];
   const out = new Set<string>([fmt.styles.docDefaults.rPr?.lang?.val ?? fallback]);
   const visit = (x: unknown): void => {
     if (!x || typeof x !== 'object') return;
@@ -89,7 +89,7 @@ export function documentHyphenationLanguages(full: FullDocument, fallback = 'pt-
  */
 export function markHyphenation(ctx: DocContext, ppr: PPr, glyphs: Glyph[], skipRuns?: Set<number>): void {
   const s = ctx.fmt.settings;
-  if (!s.autoHyphenation || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
+  if ((!s.autoHyphenation && ctx.opts.hyphenation !== 'force') || ppr.suppressAutoHyphens || ctx.opts.hyphenation === false) return;
   const [left, right] = hyphenMins(s.compatibilityMode);
   for (let k = 0; k < glyphs.length;) {
     const g = glyphs[k]!;

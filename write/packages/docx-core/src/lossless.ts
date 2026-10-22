@@ -147,7 +147,7 @@ const PPR_FIELD: Record<string, string> = {
   'w:overflowPunct': 'overflowPunct', 'w:autoSpaceDE': 'autoSpaceDE', 'w:autoSpaceDN': 'autoSpaceDN', 'w:bidi': 'bidi',
   'w:adjustRightInd': 'adjustRightInd', 'w:snapToGrid': 'snapToGrid', 'w:spacing': 'spacing', 'w:ind': 'ind',
   'w:contextualSpacing': 'contextualSpacing', 'w:mirrorIndents': 'mirrorIndents', 'w:suppressOverlap': 'suppressOverlap', 'w:jc': 'jc',
-  'w:textAlignment': 'textAlignment', 'w:outlineLvl': 'outlineLvl', 'w:rPr': 'rPr',
+  'w:textAlignment': 'textAlignment', 'w:textboxTightWrap': 'textboxTightWrap', 'w:outlineLvl': 'outlineLvl', 'w:rPr': 'rPr',
 };
 /** rpr sem a formatação direta (fica o que não é formatação: idioma, noProof…;
  *  o rStyle fica o de origem — a troca do estilo de caractere vai pelas props). */
@@ -262,12 +262,19 @@ const eq = sameJson;
 export interface GenNumIds { bullet: number; decimal: number }
 export const DEFAULT_NUM_IDS: GenNumIds = { bullet: 1001, decimal: 1002 };
 
+/** Flags de Quebras de linha e de página (CT_PPr) ↔ props de edição, na ordem do schema. */
+const FLOW_FLAGS = (pp: ParaProps): [string, boolean | undefined][] => [
+  ['w:keepNext', pp.keepNext], ['w:keepLines', pp.keepLines], ['w:pageBreakBefore', pp.pageBreakBefore],
+  ['w:widowControl', pp.widowControl], ['w:suppressLineNumbers', pp.suppressLineNumbers], ['w:suppressAutoHyphens', pp.suppressAutoHyphens],
+];
+
 /** Partes do pPr que as props de edição controlam (o gerador puro usa o mesmo). */
 function pprBits(pp: ParaProps, ids: GenNumIds): Record<string, string | null> {
   const out: Record<string, string | null> = {};
   out['w:pStyle'] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
-  out['w:keepNext'] = pp.keepNext ? '<w:keepNext/>' : null;
-  out['w:pageBreakBefore'] = pp.pageBreakBefore ? '<w:pageBreakBefore/>' : null;
+  // quebras de linha e de página: ligado, desligado contra o herdado (w:val="0"), herdado
+  for (const [name, v] of FLOW_FLAGS(pp)) out[name] = v === undefined ? null : v ? `<${name}/>` : `<${name} w:val="0"/>`;
+  out['w:textboxTightWrap'] = pp.textboxTightWrap ? `<w:textboxTightWrap w:val="${pp.textboxTightWrap}"/>` : null;
   out['w:tabs'] = pp.tabStops?.length
     ? '<w:tabs>' + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ''} w:pos="${t.posTwips}"/>`).join('') + '</w:tabs>'
     : null;
@@ -299,15 +306,21 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
   const add = (name: string): void => { const x = bits[name]; if (x) ppr.push(x); };
   add('w:pStyle');
   add('w:keepNext');
+  add('w:keepLines');
   add('w:pageBreakBefore');
+  add('w:widowControl');
   add('w:numPr');
+  add('w:suppressLineNumbers');
   add('w:pBdr');
   add('w:shd');
   add('w:tabs');
-  if (pp.lineTwentieths !== undefined || pp.spaceAfterTwips !== undefined || pp.spaceBeforeTwips !== undefined) {
+  add('w:suppressAutoHyphens');
+  if (pp.lineTwentieths !== undefined || pp.spaceAfterTwips !== undefined || pp.spaceBeforeTwips !== undefined || pp.spaceBeforeAuto !== undefined || pp.spaceAfterAuto !== undefined) {
     const line = pp.lineTwentieths !== undefined ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : '';
-    const before = pp.spaceBeforeTwips !== undefined ? ` w:before="${pp.spaceBeforeTwips}"` : '';
-    const after = pp.spaceAfterTwips !== undefined ? ` w:after="${pp.spaceAfterTwips}"` : '';
+    const before = (pp.spaceBeforeTwips !== undefined ? ` w:before="${pp.spaceBeforeTwips}"` : '')
+      + (pp.spaceBeforeAuto !== undefined ? ` w:beforeAutospacing="${pp.spaceBeforeAuto ? 1 : 0}"` : '');
+    const after = (pp.spaceAfterTwips !== undefined ? ` w:after="${pp.spaceAfterTwips}"` : '')
+      + (pp.spaceAfterAuto !== undefined ? ` w:afterAutospacing="${pp.spaceAfterAuto ? 1 : 0}"` : '');
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
   if (pp.indentLeftTwips !== undefined || pp.indentRightTwips !== undefined || pp.indentFirstLineTwips !== undefined) {
@@ -320,6 +333,7 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
     ppr.push(`<w:ind${attrs}/>`);
   }
   if (pp.alignment && pp.alignment !== 'left') ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  add('w:textboxTightWrap');
   if (pp.outlineLvl !== undefined) ppr.push(`<w:outlineLvl w:val="${pp.outlineLvl}"/>`);
   const mark = markXml(pp);
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
@@ -379,8 +393,10 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   const set = (name: string, xml: string | null): void => { changed = true; setKid(kids, PPR_ORDER, name, xml); };
   const bits = pprBits(p, ids);
   if (p.styleId !== base.styleId) set('w:pStyle', bits['w:pStyle']!);
-  if (!!p.pageBreakBefore !== !!base.pageBreakBefore) set('w:pageBreakBefore', p.pageBreakBefore ? '<w:pageBreakBefore/>' : '<w:pageBreakBefore w:val="0"/>');
-  if (!!p.keepNext !== !!base.keepNext) set('w:keepNext', p.keepNext ? '<w:keepNext/>' : '<w:keepNext w:val="0"/>');
+  // quebras de linha e de página: ausente = herdado (sai), false = w:val="0" (oráculo textlayout-lab pf-*)
+  const baseFlags = new Map(FLOW_FLAGS(base));
+  for (const [name, v] of FLOW_FLAGS(p)) if (v !== baseFlags.get(name)) set(name, bits[name]!);
+  if (p.textboxTightWrap !== base.textboxTightWrap) set('w:textboxTightWrap', bits['w:textboxTightWrap']!);
   if (!eq(p.tabStops, base.tabStops)) set('w:tabs', bits['w:tabs']!);
   if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set('w:pBdr', bits['w:pBdr']!);
   if (p.shadingHex !== base.shadingHex) set('w:shd', bits['w:shd']!);
@@ -404,15 +420,21 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
     // tudo herdado: o Word tira o w:ind (oráculo nav-lab ind-to-zero)
     set('w:ind', /^<w:ind\s*\/>$/.test(ind) ? null : ind);
   }
-  if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips) {
+  if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips
+    || p.spaceBeforeAuto !== base.spaceBeforeAuto || p.spaceAfterAuto !== base.spaceAfterAuto) {
     const ch: Record<string, string | number | undefined> = {};
     if (p.lineTwentieths !== base.lineTwentieths) {
       ch['w:line'] = p.lineTwentieths;
       ch['w:lineRule'] = p.lineTwentieths !== undefined ? 'auto' : undefined;
     }
-    if (p.spaceAfterTwips !== base.spaceAfterTwips) { ch['w:after'] = p.spaceAfterTwips; ch['w:afterLines'] = undefined; ch['w:afterAutospacing'] = undefined; }
-    if (p.spaceBeforeTwips !== base.spaceBeforeTwips) { ch['w:before'] = p.spaceBeforeTwips; ch['w:beforeLines'] = undefined; ch['w:beforeAutospacing'] = undefined; }
-    set('w:spacing', withAttrs(kidRaw(kids, 'w:spacing'), 'w:spacing', ch));
+    const auto = (v: boolean | undefined): string | undefined => (v === undefined ? undefined : v ? '1' : '0');
+    if (p.spaceAfterTwips !== base.spaceAfterTwips) { ch['w:after'] = p.spaceAfterTwips; ch['w:afterLines'] = undefined; ch['w:afterAutospacing'] = auto(p.spaceAfterAuto); }
+    if (p.spaceBeforeTwips !== base.spaceBeforeTwips) { ch['w:before'] = p.spaceBeforeTwips; ch['w:beforeLines'] = undefined; ch['w:beforeAutospacing'] = auto(p.spaceBeforeAuto); }
+    // "Automático" (oráculo textlayout-lab sp-before-auto: w:beforeAutospacing="1")
+    if (p.spaceBeforeAuto !== base.spaceBeforeAuto) ch['w:beforeAutospacing'] = auto(p.spaceBeforeAuto);
+    if (p.spaceAfterAuto !== base.spaceAfterAuto) ch['w:afterAutospacing'] = auto(p.spaceAfterAuto);
+    const sp = withAttrs(kidRaw(kids, 'w:spacing'), 'w:spacing', ch);
+    set('w:spacing', /^<w:spacing\s*\/>$/.test(sp) ? null : sp);
   }
   if (p.alignment !== base.alignment) set('w:jc', p.alignment ? `<w:jc w:val="${p.alignment}"/>` : null);
   if (p.outlineLvl !== base.outlineLvl) set('w:outlineLvl', p.outlineLvl !== undefined ? `<w:outlineLvl w:val="${p.outlineLvl}"/>` : null);
@@ -470,6 +492,16 @@ export function pgNumTypeXml(s: SectPr, raw = ''): string | null {
   return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
 }
 
+/**
+ * w:lnNumType como o Word grava (oráculo textlayout-lab ln-*): countBy sempre,
+ * start só se > 0, distance só se não for Automático, restart só se não for
+ * "a cada página" — nessa ordem.
+ */
+export function lnNumTypeXml(ln: NonNullable<SectPr['lnNumType']>): string {
+  return `<w:lnNumType w:countBy="${ln.countBy ?? 1}"${ln.start ? ` w:start="${ln.start}"` : ''}`
+    + `${ln.distance ? ` w:distance="${ln.distance}"` : ''}${ln.restart ? ` w:restart="${ln.restart}"` : ''}/>`;
+}
+
 /** w:sectPr cru com a geometria/refs atuais (só o que mudou é tocado). */
 export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefined): string {
   const { open, close, kids, el } = splitElement(raw);
@@ -521,5 +553,8 @@ export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefin
   if ((cur.footnoteColumns ?? 0) !== (base.footnoteColumns ?? 0)) {
     set('w15:footnoteColumns', cur.footnoteColumns ? `<w15:footnoteColumns w:val="${cur.footnoteColumns}"/>` : null);
   }
+  // números de linha (desligar tira o elemento) e alinhamento vertical (superior = sem)
+  if (!eq(cur.lnNumType, base.lnNumType)) set('w:lnNumType', cur.lnNumType ? lnNumTypeXml(cur.lnNumType) : null);
+  if (cur.vAlign !== base.vAlign) set('w:vAlign', cur.vAlign ? `<w:vAlign w:val="${cur.vAlign}"/>` : null);
   return changed ? join(open, kids, close) || `${open}${close}` : raw;
 }

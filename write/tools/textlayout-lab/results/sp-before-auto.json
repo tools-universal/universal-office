@@ -1,0 +1,7 @@
+{
+    "name":  "sp-before-auto",
+    "extra":  {
+                  "before":  0,
+                  "auto":  -1
+              }
+}

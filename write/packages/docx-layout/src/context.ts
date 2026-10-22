@@ -25,8 +25,10 @@ export interface LayoutOptions {
   /** diagnóstico (laboratório): cada decisão "a palavra cabe na linha?" */
   onWordFit?: (info: WordFitInfo) => void;
   /** hifenização automática (w:autoHyphenation) com os padrões já carregados em
-   *  base tipográfica (`loadHyphenation`) — padrão: ligada */
-  hyphenation?: boolean;
+   *  base tipográfica (`loadHyphenation`) — padrão: ligada; 'force' = como se o
+   *  documento tivesse w:autoHyphenation (a Hifenização Manual do editor procura
+   *  as palavras assim) */
+  hyphenation?: boolean | 'force';
   /** só hifeniza estes idiomas (etiquetas BCP 47 ou prefixos: 'pt-BR', 'en'…): o Word
    *  só hifeniza os idiomas com revisores instalados — padrão: todos com padrões */
   hyphenationLanguages?: string[];
@@ -287,8 +289,11 @@ export function directPPr(para: Paragraph): PPr {
     }
     base.ind = ind;
   }
-  if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips) {
+  if (p.lineTwentieths !== orig.lineTwentieths || p.spaceAfterTwips !== orig.spaceAfterTwips || p.spaceBeforeTwips !== orig.spaceBeforeTwips
+    || p.spaceBeforeAuto !== orig.spaceBeforeAuto || p.spaceAfterAuto !== orig.spaceAfterAuto) {
     const sp = { ...base.spacing };
+    if (p.spaceBeforeAuto !== orig.spaceBeforeAuto) { if (p.spaceBeforeAuto === undefined) delete sp.beforeAutospacing; else sp.beforeAutospacing = p.spaceBeforeAuto; }
+    if (p.spaceAfterAuto !== orig.spaceAfterAuto) { if (p.spaceAfterAuto === undefined) delete sp.afterAutospacing; else sp.afterAutospacing = p.spaceAfterAuto; }
     if (p.lineTwentieths !== orig.lineTwentieths) {
       if (p.lineTwentieths !== undefined) { sp.line = p.lineTwentieths; sp.lineRule = 'auto'; } else { delete sp.line; delete sp.lineRule; }
     }
@@ -312,7 +317,10 @@ export function directPPr(para: Paragraph): PPr {
   if (!eq(p.tabStops, orig.tabStops)) {
     base.tabs = (p.tabStops ?? []).map((t) => ({ val: t.align, pos: t.posTwips, ...(t.leader ? { leader: t.leader } : {}) }));
   }
-  if (!!p.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p.pageBreakBefore;
-  if (!!p.keepNext !== !!orig.keepNext) base.keepNext = !!p.keepNext;
+  // quebras de linha e de página: ausente = herdado, false = desligado contra o herdado
+  for (const k of ['pageBreakBefore', 'keepNext', 'keepLines', 'widowControl', 'suppressLineNumbers', 'suppressAutoHyphens'] as const) {
+    if (p[k] !== orig[k]) { if (p[k] === undefined) delete base[k]; else base[k] = p[k]; }
+  }
+  if (p.textboxTightWrap !== orig.textboxTightWrap) { if (p.textboxTightWrap) base.textboxTightWrap = p.textboxTightWrap; else delete base.textboxTightWrap; }
   return base;
 }

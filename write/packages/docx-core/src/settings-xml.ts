@@ -41,6 +41,62 @@ export function writeDefaultTabStop(pkg: DocxPackage, twips: number): void {
   pkg.setPartText(path, xml);
 }
 
+/** Opções de hifenização do documento (settings.xml). */
+export interface HyphenationSettings {
+  /** w:autoHyphenation */
+  auto: boolean;
+  /** hifenizar palavras em MAIÚSCULAS (falso = w:doNotHyphenateCaps) */
+  caps: boolean;
+  /** w:hyphenationZone (twips) */
+  zone?: number;
+  /** w:consecutiveHyphenLimit (0 = sem limite) */
+  limit: number;
+}
+
+/** Ordem de CT_Settings a partir de w:defaultTabStop (as opções de hifenização). */
+const HYPH_ORDER = ['w:autoHyphenation', 'w:consecutiveHyphenLimit', 'w:hyphenationZone', 'w:doNotHyphenateCaps'];
+
+/**
+ * Grava as opções de hifenização no settings.xml como o Word (oráculo
+ * write/tools/textlayout-lab hy-*): Automática = `<w:autoHyphenation/>` e Nenhuma
+ * TIRA o elemento; MAIÚSCULAS desligadas = `<w:doNotHyphenateCaps/>` (ligar tira);
+ * limite 0 = sem elemento; a zona só muda se veio definida. Na ordem do schema.
+ */
+export function writeHyphenationSettings(pkg: DocxPackage, s: HyphenationSettings): void {
+  const path = partByRelType(pkg, 'settings', 'word/settings.xml');
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!s.auto && s.caps && !s.limit && s.zone === undefined) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText('word/settings.xml');
+    if (!xml) return;
+  }
+  const want: Record<string, string | null> = {
+    'w:autoHyphenation': s.auto ? '<w:autoHyphenation/>' : null,
+    'w:consecutiveHyphenLimit': s.limit > 0 ? `<w:consecutiveHyphenLimit w:val="${Math.round(s.limit)}"/>` : null,
+    'w:doNotHyphenateCaps': s.caps ? null : '<w:doNotHyphenateCaps/>',
+  };
+  if (s.zone !== undefined) want['w:hyphenationZone'] = `<w:hyphenationZone w:val="${Math.round(s.zone)}"/>`;
+  for (const name of HYPH_ORDER) {
+    if (!(name in want)) continue;
+    const el = want[name]!;
+    const cur = new RegExp(`<${name}\\b[^>]*?(?:/>|>[\\s\\S]*?</${name}>)`).exec(xml);
+    if (cur) {
+      if (cur[0] === el) continue;
+      xml = xml.slice(0, cur.index) + (el ?? '') + xml.slice(cur.index + cur[0].length);
+      continue;
+    }
+    if (el === null) continue;
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) continue;
+    const before = new Set([...BEFORE_DEFAULT_TAB, 'w:defaultTabStop', ...HYPH_ORDER.slice(0, HYPH_ORDER.indexOf(name))]);
+    let at = root.cs!;
+    for (const k of childElements(root)) if (before.has(k.name)) at = Math.max(at, k.e!);
+    xml = xml.slice(0, at) + el + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
+
 /** Elementos de CT_Settings que vêm ANTES de w:evenAndOddHeaders. */
 const BEFORE_EVEN_ODD = new Set([...BEFORE_DEFAULT_TAB,
   'w:defaultTabStop', 'w:autoHyphenation', 'w:consecutiveHyphenLimit', 'w:hyphenationZone', 'w:doNotHyphenateCaps',

@@ -965,7 +965,8 @@ internal sealed class Engine
         var dg = s.Sect?.DocGrid;
         if (dg is not null && (dg.Type == "lines" || dg.Type == "linesAndChars") && (dg.LinePitch ?? 0) > 0) g.LinePitch = dg.LinePitch;
         var ln = s.Sect?.LnNumType;
-        if (ln is not null)
+        // (sem w:countBy, ou 0, o Word não numera — oráculo lnnum3/s-nocountby, s-countby0)
+        if (ln is not null && (ln.CountBy ?? 0) >= 1)
         {
             // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
             double dist = (ln.Distance ?? 0) > 0 ? ln.Distance!.Value : cols.Count > 1 ? 180 : 360;

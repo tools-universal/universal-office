@@ -448,6 +448,10 @@ export interface ParaProps {
   spaceAfterTwips?: number;
   /** w:spacing w:before, twips. */
   spaceBeforeTwips?: number;
+  /** w:spacing w:beforeAutospacing — espaçamento antes "Automático" (false = w:beforeAutospacing="0"). */
+  spaceBeforeAuto?: boolean;
+  /** w:spacing w:afterAutospacing — espaçamento depois "Automático". */
+  spaceAfterAuto?: boolean;
   /** Instrução de campo TOC (parágrafo é o sumário a gerar/atualizar). */
   tocInstr?: string;
   /** Entrada de sumário gerada por nós (substituída ao atualizar). */
@@ -461,12 +465,24 @@ export interface ParaProps {
   boxBorder?: boolean;
   /** w:pBdr por lado, com estilo/espessura/cor/afastamento. */
   borders?: ParagraphBorders;
-  /** w:pageBreakBefore. */
+  /** w:pageBreakBefore (false = desligado contra o herdado: w:val="0"). */
   pageBreakBefore?: boolean;
-  /** w:keepNext (manter com o próximo — legenda acima/abaixo do objeto). */
+  /** w:keepNext (manter com o próximo — legenda acima/abaixo do objeto; false =
+   *  w:val="0" contra o estilo, como o Word grava — oráculo textlayout-lab pf-heading-off). */
   keepNext?: boolean;
   /** w:outlineLvl direto (0–8 = Nível 1–9; 9 = corpo do texto) — Adicionar Texto. */
   outlineLvl?: number;
+  /** w:keepLines (manter linhas juntas; false = w:val="0"). */
+  keepLines?: boolean;
+  /** w:widowControl (controle de linhas órfãs/viúvas). LIGADO quando ausente em toda
+   *  a herança: desligar grava w:val="0" (oráculo pf-widow-off). */
+  widowControl?: boolean;
+  /** w:suppressLineNumbers (suprimir números de linha; false = w:val="0"). */
+  suppressLineNumbers?: boolean;
+  /** w:suppressAutoHyphens (não hifenizar; false = w:val="0"). */
+  suppressAutoHyphens?: boolean;
+  /** w:textboxTightWrap (ajuste rígido da caixa de texto; ausente = nenhum). */
+  textboxTightWrap?: 'none' | 'allLines' | 'firstAndLastLine' | 'firstLineOnly' | 'lastLineOnly';
   /** w:framePr w:dropCap — letra capitular sobreposta ao parágrafo seguinte. */
   dropCap?: boolean;
   /** Id da fonte XML original do parágrafo (source.ts) — salvamento sem perdas. */
@@ -604,6 +620,23 @@ export interface SectPr {
   endnotePr?: NoteProps;
   /** w15:footnoteColumns — colunas da área de notas de rodapé (ausente = as da seção). */
   footnoteColumns?: number;
+  /** w:lnNumType — números de linha (ausente = sem numeração). */
+  lnNumType?: LineNumbering;
+  /** w:vAlign — alinhamento vertical do texto na página (ausente = superior). */
+  vAlign?: 'center' | 'both' | 'bottom';
+}
+
+/**
+ * Numeração de linhas da seção (w:lnNumType), nos valores do XML: `start` é o
+ * número ANTES do primeiro (o diálogo mostra start + 1), `distance` em twips
+ * (ausente = Automático), `restart` ausente = reiniciar a cada página.
+ */
+export interface LineNumbering {
+  /** o Word sempre grava (ausente no arquivo = como veio) */
+  countBy?: number;
+  start?: number;
+  distance?: number;
+  restart?: 'newSection' | 'continuous';
 }
 
 export interface DocumentModel {
@@ -675,6 +708,8 @@ export function editBaseProps(run: Run, rpr: RPr | undefined): RunProps {
   return base;
 }
 
+const TIGHT_WRAP = new Set(['none', 'allLines', 'firstAndLastLine', 'firstLineOnly', 'lastLineOnly']);
+
 /** Props de parágrafo de EDIÇÃO derivadas do w:pPr tipado (ver runPropsFromRPr). */
 export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
   const props: ParaProps = {};
@@ -699,6 +734,8 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
     if (ppr.spacing.line !== undefined && ppr.spacing.lineRule === 'auto') props.lineTwentieths = ppr.spacing.line;
     if (ppr.spacing.after !== undefined) props.spaceAfterTwips = ppr.spacing.after;
     if (ppr.spacing.before !== undefined) props.spaceBeforeTwips = ppr.spacing.before;
+    if (ppr.spacing.beforeAutospacing !== undefined) props.spaceBeforeAuto = ppr.spacing.beforeAutospacing;
+    if (ppr.spacing.afterAutospacing !== undefined) props.spaceAfterAuto = ppr.spacing.afterAutospacing;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== 'auto') props.shadingHex = ppr.shd.fill;
   if (ppr.tabs?.length) {
@@ -723,8 +760,14 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
     }
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
-  if (ppr.pageBreakBefore) props.pageBreakBefore = true;
-  if (ppr.keepNext) props.keepNext = true;
+  // quebras de linha e de página: ligado, desligado contra o herdado (w:val="0") ou herdado
+  if (ppr.pageBreakBefore !== undefined) props.pageBreakBefore = ppr.pageBreakBefore;
+  if (ppr.keepNext !== undefined) props.keepNext = ppr.keepNext;
+  if (ppr.keepLines !== undefined) props.keepLines = ppr.keepLines;
+  if (ppr.widowControl !== undefined) props.widowControl = ppr.widowControl;
+  if (ppr.suppressLineNumbers !== undefined) props.suppressLineNumbers = ppr.suppressLineNumbers;
+  if (ppr.suppressAutoHyphens !== undefined) props.suppressAutoHyphens = ppr.suppressAutoHyphens;
+  if (ppr.textboxTightWrap && TIGHT_WRAP.has(ppr.textboxTightWrap)) props.textboxTightWrap = ppr.textboxTightWrap as ParaProps['textboxTightWrap'];
   if (ppr.outlineLvl !== undefined) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== 'none') props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
@@ -2170,6 +2213,20 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
   if (enPr) sect.endnotePr = enPr;
   const fnCols = sectEl && firstChild(sectEl, 'w15:footnoteColumns')?.attrs['w:val'];
   if (fnCols !== undefined && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
+  const ln = sectEl && firstChild(sectEl, 'w:lnNumType');
+  if (ln) {
+    const num = (k: string): number | undefined => { const n = parseInt(ln.attrs[k] ?? '', 10); return Number.isNaN(n) ? undefined : n; };
+    const out: LineNumbering = {};
+    const cb = num('w:countBy'), st = num('w:start'), di = num('w:distance');
+    if (cb !== undefined) out.countBy = cb;
+    if (st !== undefined) out.start = st;
+    if (di !== undefined) out.distance = di;
+    const rs = ln.attrs['w:restart'];
+    if (rs === 'newSection' || rs === 'continuous') out.restart = rs;
+    sect.lnNumType = out;
+  }
+  const va = sectEl && firstChild(sectEl, 'w:vAlign')?.attrs['w:val'];
+  if (va === 'center' || va === 'both' || va === 'bottom') sect.vAlign = va;
   return sect;
 }
 

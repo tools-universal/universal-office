@@ -230,6 +230,8 @@ export interface PPr {
   mirrorIndents?: boolean;
   suppressOverlap?: boolean;
   jc?: string;
+  /** w:textboxTightWrap (none | allLines | firstAndLastLine | firstLineOnly | lastLineOnly) */
+  textboxTightWrap?: string;
   textAlignment?: string;
   outlineLvl?: number;
   /** rPr da MARCA de parágrafo (¶) — define a altura de parágrafo vazio. */
@@ -558,6 +560,7 @@ export function readPPr(pPr: XmlElement | undefined): PPr | undefined {
       case 'w:mirrorIndents': p.mirrorIndents = onOffVal(el); break;
       case 'w:suppressOverlap': p.suppressOverlap = onOffVal(el); break;
       case 'w:jc': if (val) p.jc = val; break;
+      case 'w:textboxTightWrap': if (val) p.textboxTightWrap = val; break;
       case 'w:textAlignment': if (val) p.textAlignment = val; break;
       case 'w:outlineLvl': { const n = int(val); if (n !== undefined) p.outlineLvl = n; break; }
       case 'w:numPr': {

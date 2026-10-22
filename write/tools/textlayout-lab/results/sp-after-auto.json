@@ -1,0 +1,7 @@
+{
+    "name":  "sp-after-auto",
+    "extra":  {
+                  "after":  8,
+                  "auto":  -1
+              }
+}

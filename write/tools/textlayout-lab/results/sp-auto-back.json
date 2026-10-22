@@ -1,0 +1,7 @@
+{
+    "name":  "sp-auto-back",
+    "extra":  {
+                  "before":  6,
+                  "auto":  -1
+              }
+}

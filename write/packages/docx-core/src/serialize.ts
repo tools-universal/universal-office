@@ -9,7 +9,7 @@ import type { ShapeStyle } from './drawing.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { HF_NS } from './hf-ops.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
-import { patchRPr, patchPPr, patchSectPr, pgNumTypeXml, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
+import { patchRPr, patchPPr, patchSectPr, pgNumTypeXml, lnNumTypeXml, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 import {
   patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
   tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped, pgBordersXml,
@@ -891,13 +891,17 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
   const pp = para.props;
   const ppr: string[] = [];
   if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr(pp.styleId)}"/>`);
-  if (pp.keepNext) ppr.push('<w:keepNext/>');
+  // quebras de linha e de página (false = desligado contra o herdado)
+  const flag = (name: string, v: boolean | undefined): void => { if (v !== undefined) ppr.push(v ? `<${name}/>` : `<${name} w:val="0"/>`); };
+  flag('w:keepNext', pp.keepNext);
+  flag('w:keepLines', pp.keepLines);
   // quebra de seção: sectPr DENTRO do pPr (encerra a seção neste parágrafo)
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];
     ppr.push(`<w:sectPr>${sectPrInner(pp.sectionBreak.sectPr, refs)}</w:sectPr>`);
   }
-  if (pp.pageBreakBefore) ppr.push('<w:pageBreakBefore/>');
+  flag('w:pageBreakBefore', pp.pageBreakBefore);
+  flag('w:widowControl', pp.widowControl);
   if (pp.tabStops?.length) {
     ppr.push('<w:tabs>' + pp.tabStops.map((t) =>
       `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ''} w:pos="${t.posTwips}"/>`,
@@ -907,6 +911,7 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
     const numId = pp.numbering.kind === 'decimal' ? 1002 : 1001;
     ppr.push(`<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
   }
+  flag('w:suppressLineNumbers', pp.suppressLineNumbers);
   if (pp.borders) {
     let inner = '';
     for (const side of ['top', 'left', 'bottom', 'right'] as const) {
@@ -928,11 +933,14 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
   if (pp.shadingHex) {
     ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(pp.shadingHex)}"/>`);
   }
-  if (pp.lineTwentieths !== undefined || pp.spaceAfterTwips !== undefined || pp.spaceBeforeTwips !== undefined) {
+  flag('w:suppressAutoHyphens', pp.suppressAutoHyphens);
+  if (pp.lineTwentieths !== undefined || pp.spaceAfterTwips !== undefined || pp.spaceBeforeTwips !== undefined || pp.spaceBeforeAuto !== undefined || pp.spaceAfterAuto !== undefined) {
     const line = pp.lineTwentieths !== undefined
       ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : '';
-    const before = pp.spaceBeforeTwips !== undefined ? ` w:before="${pp.spaceBeforeTwips}"` : '';
-    const after = pp.spaceAfterTwips !== undefined ? ` w:after="${pp.spaceAfterTwips}"` : '';
+    const before = (pp.spaceBeforeTwips !== undefined ? ` w:before="${pp.spaceBeforeTwips}"` : '')
+      + (pp.spaceBeforeAuto !== undefined ? ` w:beforeAutospacing="${pp.spaceBeforeAuto ? 1 : 0}"` : '');
+    const after = (pp.spaceAfterTwips !== undefined ? ` w:after="${pp.spaceAfterTwips}"` : '')
+      + (pp.spaceAfterAuto !== undefined ? ` w:afterAutospacing="${pp.spaceAfterAuto ? 1 : 0}"` : '');
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
   if (pp.indentLeftTwips !== undefined || pp.indentRightTwips !== undefined || pp.indentFirstLineTwips !== undefined) {
@@ -947,6 +955,7 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
     ppr.push(`<w:ind${attrs}/>`);
   }
   if (pp.alignment && pp.alignment !== 'left') ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (pp.textboxTightWrap) ppr.push(`<w:textboxTightWrap w:val="${pp.textboxTightWrap}"/>`);
   // revisões: marca de parágrafo (w:rPr) e formatação controlada (w:pPrChange, a última)
   const mark = (pp.markIns ? markRevisionXml('ins', pp.markIns) : '') + (pp.markDel ? markRevisionXml('del', pp.markDel) : '');
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
@@ -998,11 +1007,13 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
   // notas: propriedades antes do w:type; as colunas da área de notas no fim (Word)
   const notes = notePropsXml('footnote', s.footnotePr) + notePropsXml('endnote', s.endnotePr);
   const fnCols = s.footnoteColumns ? `<w15:footnoteColumns w:val="${s.footnoteColumns}"/>` : '';
+  const lnNum = s.lnNumType ? lnNumTypeXml(s.lnNumType) : '';
+  const vAlign = s.vAlign ? `<w:vAlign w:val="${s.vAlign}"/>` : '';
   return (
     `${refsXml}${notes}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
     `<w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" ` +
     `w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" ` +
-    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}${fnCols}`
+    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${lnNum}${pgNumType}${cols}${vAlign}${titlePg}${fnCols}`
   );
 }
 

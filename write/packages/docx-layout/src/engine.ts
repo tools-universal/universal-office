@@ -799,8 +799,9 @@ class Engine {
       blocks: [s.blockStart, s.blockEnd],
       ...(s.sect?.docGrid && (s.sect.docGrid.type === 'lines' || s.sect.docGrid.type === 'linesAndChars') && (s.sect.docGrid.linePitch ?? 0) > 0
         ? { linePitch: s.sect.docGrid.linePitch } : {}),
-      ...(s.sect?.lnNumType ? { lnNum: {
-        countBy: Math.max(1, s.sect.lnNumType.countBy ?? 1),
+      // (sem w:countBy, ou 0, o Word não numera — oráculo lnnum3/s-nocountby, s-countby0)
+      ...(s.sect?.lnNumType && (s.sect.lnNumType.countBy ?? 0) >= 1 ? { lnNum: {
+        countBy: s.sect.lnNumType.countBy!,
         start: s.sect.lnNumType.start ?? 0,
         restart: s.sect.lnNumType.restart ?? 'newPage',
         // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
@@ -3833,10 +3834,13 @@ function lineRecord(ref: string, p: PreparedPara, line: Line, frameX: number, to
   // (texto escondido — exclusão na Marcação Simples — não tem glifo: vale encostar na linha)
   const rev = !!rb && (rb.whole || (rb.mark && lastLine) || rb.ranges.some(([a, b, hidden]) => (hidden ? a <= end && b >= start : a < end && b > start)));
   const x = frameX + line.xStart;
+  // linha que termina em hífen AUTOMÁTICO: onde a palavra quebrou (Hifenização Manual)
+  const tail = line.placed[line.placed.length - 1];
   return {
     ref, start, end,
     x, y: top, height: line.height, baseline: top + line.baseline, width: line.width,
     chars,
+    ...(tail?.g.autoHyphen ? { hyph: tail.g.offset } : {}),
     ...(rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}),
     // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
     ...(frameW !== undefined ? { frame: { l: frameX - x, r: frameX + frameW - x }, pfmt: pfmtOf(p) } : {}),

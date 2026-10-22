@@ -17,6 +17,7 @@ export {
   type TabLeader,
   type NumberingProps,
   type SectPr,
+  type LineNumbering,
   type PageBorders,
   type SectionType,
   type ChapterSeparator,
@@ -131,7 +132,7 @@ export {
   type TrackedDelete,
 } from './revisions.js';
 export { readTrackRevisions, writeTrackRevisions } from './rev-xml.js';
-export { writeDefaultTabStop, writeEvenAndOddHeaders, writeDisplayBackgroundShape } from './settings-xml.js';
+export { writeDefaultTabStop, writeEvenAndOddHeaders, writeDisplayBackgroundShape, writeHyphenationSettings, type HyphenationSettings } from './settings-xml.js';
 export {
   readPageBackground, pageBackgroundXml, writePageBackground, vmlColorAttr, patternGif, oneColorGradientColor2, resolveColor2,
   WORD_PATTERNS, type PageBackground, type PageFill,
