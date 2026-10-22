@@ -83,8 +83,8 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | em curso |
 | Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | feito |
-| Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | — |
-| Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | — |
+| Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | em curso |
+| Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | em curso |
 | Exibir | Estrutura de Tópicos e Rascunho no ribbon (os modos já existem); Lado a Lado; Uma Página/Várias Páginas/Largura da Página; Dividir; Nova Janela/Organizar Tudo/Rolagem Sincronizada | — |
 | Revisão | Dicionário de Sinônimos; Ler em Voz Alta; Verificar Acessibilidade; Definir Idioma; Excluir Todos/Resolver comentários | — |
 | Macros | preservar: abrir `.docm/.dotm/.dotx`, salvar no tipo certo, "Salvar como .docx" tira as macros com aviso, faixa "contém macros, que não são executadas aqui", `.doc` mantém o VBA ao converter; ver: Exibir › Macros com a lista de módulos e o código só leitura, gatilhos automáticos em destaque | em curso |
