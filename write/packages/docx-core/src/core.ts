@@ -120,7 +120,7 @@ export {
 } from './revisions.js';
 export { readTrackRevisions, writeTrackRevisions } from './rev-xml.js';
 export { writeDefaultTabStop, writeEvenAndOddHeaders } from './settings-xml.js';
-export { copyHfPartXml, hfPartXml, pageNumberGroupIds, HF_NS } from './hf-ops.js';
+export { copyHfPartXml, hfPartXml, pageNumberGroupIds, dropUnusedHfParts, HF_NS } from './hf-ops.js';
 export {
   serializeDocument,
   serializeBlocks,

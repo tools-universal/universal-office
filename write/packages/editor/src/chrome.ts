@@ -24,6 +24,7 @@ import { originStore } from './chrome-store.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
 import { tableDialog } from './chrome-table-dialogs.js';
 import { tableContextItems } from './chrome-table.js';
+import { alignTabDialog, dateTimeDialog, hfOptionsDialog, pageNumberFormatDialog } from './chrome-hf.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
 import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
@@ -509,6 +510,10 @@ class WriteChrome {
       newStyle: () => { void this.styles?.styleDialog('new'); },
       modifyStyle: () => { const c = this.ed.currentStyles(); void this.styles?.styleDialog('modify', c.character ?? c.paragraph); },
       tableDialog: (kind, arg) => { void tableDialog(d(), kind, arg).then(() => this.after()); },
+      hfDialog: (kind) => {
+        const dlg = { pageNumbers: pageNumberFormatDialog, dateTime: dateTimeDialog, alignTab: alignTabDialog, options: hfOptionsDialog }[kind];
+        void dlg(d()).then(() => this.after());
+      },
     };
   }
 

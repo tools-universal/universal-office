@@ -206,3 +206,10 @@ unfold_more
 unfold_less
 arrow_back
 arrow_forward
+filter_1
+auto_stories
+swap_vert
+text_select_end
+person
+title
+folder

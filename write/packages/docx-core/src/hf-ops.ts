@@ -10,6 +10,7 @@
  *    solto ou em moldura fica).
  */
 import type { StoryGroup, StorySource } from './source.js';
+import type { DocxPackage } from './package.js';
 
 /** Namespaces da raiz de uma parte de cabeçalho/rodapé nova (os que o Word grava
  *  para texto, desenhos e caixas de texto). */
@@ -46,6 +47,36 @@ export function copyHfPartXml(xml: string, newId: () => number): string {
   return xml
     .replace(/(<wp:docPr\b[^>]*?\bid=")(\d+)(")/g, (_m, a: string, _id: string, b: string) => `${a}${newId()}${b}`)
     .replace(/\s(?:w14:paraId|w14:textId|wp14:anchorId|wp14:editId)="[0-9A-Fa-f]+"/g, '');
+}
+
+/**
+ * Tira do pacote as partes de cabeçalho/rodapé que deixaram de ser
+ * referenciadas — vincular ao anterior apaga a parte da seção (oráculo e07) —
+ * com a rel do documento, o content type e as rels da parte. `drop`: os rIds
+ * (do documento) que saíram. A mídia fica (outra parte pode usá-la).
+ */
+export function dropUnusedHfParts(pkg: DocxPackage, drop: ReadonlySet<string>): void {
+  const relsPath = 'word/_rels/document.xml.rels';
+  let rels = pkg.getPartText(relsPath) ?? '';
+  let ct = pkg.getPartText('[Content_Types].xml') ?? '';
+  let changed = false;
+  for (const m of [...rels.matchAll(/<Relationship\b[^>]*?\/>/g)]) {
+    const tag = m[0];
+    if (!/relationships\/(?:header|footer)"/.test(tag)) continue;
+    const id = /\bId="([^"]+)"/.exec(tag)?.[1];
+    const target = /\bTarget="([^"]+)"/.exec(tag)?.[1];
+    if (!id || !target || !drop.has(id)) continue;
+    const path = `word/${target.replace(/^\.\//, '').replace(/^\/?word\//, '')}`;
+    rels = rels.replace(tag, '');
+    ct = ct.replace(new RegExp(`<Override PartName="/${path.replace(/[.]/g, '\\.')}"[^>]*/>`), '');
+    pkg.removePart(path);
+    pkg.removePart(`word/_rels/${path.split('/').pop()}.rels`);
+    changed = true;
+  }
+  if (changed) {
+    pkg.setPartText(relsPath, rels);
+    if (ct) pkg.setPartText('[Content_Types].xml', ct);
+  }
 }
 
 /** ids (props.src) dos blocos dentro de números de página das galerias

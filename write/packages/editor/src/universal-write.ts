@@ -28,6 +28,14 @@ import {
   sectionRanges,
   sectionIndexAt,
   sectionSectPr,
+  sectionRefs,
+  readHeaderFooterPart,
+  copyHfPartXml,
+  hfPartXml,
+  pageNumberGroupIds,
+  writeEvenAndOddHeaders,
+  dropUnusedHfParts,
+  type ChapterSeparator,
   insertSectionBreak as coreInsertSectionBreak,
   insertPageBreakParagraph,
   columnsFor,
@@ -131,8 +139,12 @@ import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
-  RevisionDisplay, authorColor, type RevisionView,
+  RevisionDisplay, authorColor, type RevisionView, formatWordDate,
 } from '@universal-office/docx-layout';
+import {
+  hfTemplates, hfTemplateXml, galleryKind, placeholderText, hfBandLabel, sameAsPreviousLabel, DATE_TIME_FORMATS,
+  type HfGallery, type HfTemplateEnv,
+} from './hf-templates.js';
 import { DEFAULT_MARKUP, formatDescription, type MarkupMode, type MarkupOptions, type WriteRevision } from './revisions.js';
 import { readOdt, writeOdt } from '@universal-office/docx-core';
 import {
@@ -246,6 +258,39 @@ export interface SectionInfo {
 }
 
 export type { TabStopInfo, IndentInfo, FindOptions } from './navigation.js';
+export type { HfGallery } from './hf-templates.js';
+
+/** Opções de cabeçalho/rodapé da seção do cursor (getHeaderFooterOptions). Twips. */
+export interface HeaderFooterOptions {
+  /** seção (0 = a 1ª) e total */
+  section: number;
+  sectionCount: number;
+  /** página (0 = a 1ª) do cursor ou em edição */
+  page: number;
+  /** parte em edição (null fora do modo cabeçalho/rodapé): tipo e variante exibida */
+  part: { kind: 'header' | 'footer'; type: 'default' | 'first' | 'even' } | null;
+  /** Primeira Página Diferente (w:titlePg, da seção) */
+  differentFirstPage: boolean;
+  /** Páginas Pares e Ímpares Diferentes (w:evenAndOddHeaders, do documento) */
+  differentOddEven: boolean;
+  /** distância do cabeçalho até o topo e do rodapé até a base da página */
+  headerDistance: number;
+  footerDistance: number;
+  /** a parte em edição usa a da seção anterior (Vincular ao Anterior) */
+  linkToPrevious: boolean;
+  /** Mostrar Texto do Documento */
+  documentTextShown: boolean;
+}
+
+/** Formatar Números de Página (w:pgNumType da seção). */
+export interface PageNumberFormat {
+  /** decimal | upperRoman | lowerRoman | upperLetter | lowerLetter | numberInDash… */
+  format: string;
+  /** número do capítulo: nível do título (1–9) e separador; null = sem capítulo */
+  chapter: { level: number; separator: ChapterSeparator } | null;
+  /** número inicial; null = continua da seção anterior */
+  start: number | null;
+}
 
 /** Geometria da régua no cursor (getRulerInfo). Twips, coordenadas da página. */
 export interface RulerInfo {
@@ -1544,6 +1589,9 @@ export class UniversalWriteElement extends HTMLElement {
     const secs = this.fullDoc.sections;
     this.resetSections();
     for (const s of secs) this.indexHfParts(s);
+    // partes referenciadas ao abrir: a que deixar de ser (vincular ao anterior) sai do pacote ao salvar
+    this.hfRidsAtLoad = new Set(secs.flatMap((s) => [...s.headerRefs, ...s.footerRefs].map((r) => r.rid)));
+    this.hfRelsCopied = new Set();
     for (const p of paragraphs) {
       const sb = p.props.sectionBreak;
       if (!sb) continue;
@@ -1681,7 +1729,8 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   // ───────────────── edição de cabeçalho/rodapé ─────────────────
-  private hfEdit: { kind: 'header' | 'footer'; path: string } | null = null;
+  /** Parte em edição: tipo, caminho, rId e variante (primeira/par/padrão) exibida na página. */
+  private hfEdit: { kind: 'header' | 'footer'; path: string; rid: string; type: HfKind } | null = null;
   private dirtyHf = new Set<string>();
   private savedBody: {
     model: DocumentModel;
@@ -1689,8 +1738,6 @@ export class UniversalWriteElement extends HTMLElement {
     sectionStarts: { startPara: number; section: Section }[];
     floatImages: FloatImage[];
     selection: { anchor: DocPosition; focus: DocPosition };
-    undoStack: string[];
-    redoStack: string[];
     pageCount: number;
     pageSections: number[];
   } | null = null;
@@ -1743,7 +1790,7 @@ export class UniversalWriteElement extends HTMLElement {
   /** true quando o foco está DENTRO de uma caixa de texto. */
   editingTextbox(): boolean { return this.tbEdit !== null; }
 
-  enterHeaderFooter(kind: 'header' | 'footer', activePage = 0): void {
+  enterHeaderFooter(kind: 'header' | 'footer', activePage = 0, silent = false): void {
     if (!this.model || this.hfEdit || this.locked()) return;
     if (this.cellEdit) { this.exitCell(); this.refreshSelection(); }
     this.floatSel = null;
@@ -1773,7 +1820,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (engPart) ({ section: sec, type: partType } = engPart);
     const set = kind === 'header' ? sec.headers : sec.footers;
     const refs = kind === 'header' ? sec.headerRefs : sec.footerRefs;
-    if (!set[partType]) set[partType] = [{ runs: [], props: {} }];
+    // parte nova: um parágrafo no estilo Cabeçalho/Rodapé (o Word cria o estilo)
+    if (!set[partType]) set[partType] = this.newHfParas(kind);
     const part = set[partType]!;
     // materializa o texto dos campos (PAGE/NUMPAGES/DATE) sem cache p/ que
     // fiquem visíveis e editáveis; o .field é preservado para o salvar
@@ -1789,7 +1837,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
     let ref = refs.find((r) => r.type === partType);
     if (!ref) {
-      ref = { type: partType, rid: `rIdWn${kind}${partType}`, path: `word/uw-${kind}-${partType}.xml` };
+      ref = { type: partType, ...this.newHfTarget(kind) };
       refs.push(ref);
       this.dirtyHf.add(ref.path); // parte nova: sempre gravar
     }
@@ -1816,8 +1864,6 @@ export class UniversalWriteElement extends HTMLElement {
       sectionStarts: this.sectionStarts,
       floatImages: this.floatImages,
       selection: this.selection,
-      undoStack: this.undoStack,
-      redoStack: this.redoStack,
       pageCount: this.pageCount,
       pageSections: [...this.pageSections],
     };
@@ -1828,15 +1874,15 @@ export class UniversalWriteElement extends HTMLElement {
     this.tableAnchors = [];
     this.sectionStarts = [];
     this.floatImages = [];
-    this.hfEdit = { kind, path: ref.path };
+    this.hfEdit = { kind, path: ref.path, rid: ref.rid, type: partType };
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
-    this.undoStack = [];
-    this.redoStack = [];
+    // a pilha de desfazer é a do documento (como no Word): os passos dados no
+    // cabeçalho levam a parte (stringifyState → hp) e voltam de qualquer modo
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: true, kind } }));
+    if (!silent) this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: true, kind } }));
   }
 
-  exitHeaderFooter(): void {
+  exitHeaderFooter(silent = false, relayout = true): void {
     if (this.tbEdit) this.exitTextbox(); // caixa aninhada no HF: sai dela antes
     if (!this.hfEdit || !this.savedBody) return;
     this.floatSel = null;
@@ -1846,12 +1892,10 @@ export class UniversalWriteElement extends HTMLElement {
     this.sectionStarts = this.savedBody.sectionStarts;
     this.floatImages = this.savedBody.floatImages;
     this.selection = this.savedBody.selection;
-    this.undoStack = this.savedBody.undoStack;
-    this.redoStack = this.savedBody.redoStack;
     this.savedBody = null;
     this.hfEdit = null;
-    this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: false } }));
+    if (relayout) this.refresh();
+    if (!silent) this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: false } }));
   }
 
   /** Entra na edição do conteúdo de uma caixa de texto flutuante. hostRun é o
@@ -4234,6 +4278,13 @@ export class UniversalWriteElement extends HTMLElement {
       trackRevisions: this.tracking,
       notes: this.notesOut(blocks),
     });
+    // Páginas Pares e Ímpares Diferentes (settings.xml), se o editor mexeu
+    if (this.evenOdd !== null) writeEvenAndOddHeaders(pkg, this.evenOdd);
+    // partes que nenhuma seção referencia mais saem do pacote (Word, oráculo e07)
+    const usedRids = new Set(sections.flatMap((s) => [...s.headerRefs, ...s.footerRefs].map((r) => r.rid)));
+    const goneRids = new Set([...this.hfRidsAtLoad].filter((r) => !usedRids.has(r)));
+    if (goneRids.size) dropUnusedHfParts(pkg, goneRids);
+    for (const r of this.hfRelsCopied) if (!pkg.getPart(`word/${r.split('/').pop()!.replace(/\.rels$/, '')}`)) pkg.removePart(r);
     // opções de nota do documento (settings.xml): só se mudaram
     const np = JSON.stringify(this.noteSettings);
     const settingsXml = np !== this.noteSettingsLoaded ? pkg.getPartText('word/settings.xml') : undefined;
@@ -4582,21 +4633,33 @@ export class UniversalWriteElement extends HTMLElement {
   private imgPool: Uint8Array[] = [];
   private imgPoolIdx = new WeakMap<Uint8Array, number>();
 
-  /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre). */
-  private stringifyState(deep = false): string {
-    // cabeçalho/rodapé e caixa de texto têm pilha própria (o modelo é o deles);
-    // corpo e célula de tabela dividem a do corpo: o estado leva o corpo, as
-    // TABELAS e a célula ativa (desfazer uma operação de tabela, ou texto
-    // digitado numa célula depois de sair dela, como no Word)
-    const own = this.hfEdit || this.tbEdit;
+  /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre).
+   *  `parts`: conteúdo de partes de cabeçalho/rodapé (chave "kind:rId") que o passo muda. */
+  private stringifyState(deep = false, parts: readonly string[] = []): string {
+    // a caixa de texto tem pilha própria (o modelo é o dela); corpo, célula de
+    // tabela, nota e cabeçalho/rodapé dividem a do documento: o estado leva o
+    // corpo, as TABELAS e a célula ativa (desfazer uma operação de tabela, ou
+    // texto digitado numa célula depois de sair dela, como no Word)
+    const own = this.tbEdit;
     const ce = own ? null : this.cellEdit;
     // (na nota, idem: o corpo e, à parte, a nota)
     const ne = own ? null : this.noteEdit;
+    // no cabeçalho/rodapé, idem: o corpo (guardado) e, à parte, a parte em edição
+    const he = own ? null : this.hfEdit;
+    const sb = he ? this.savedBody : null;
+    const hk = he ? `${he.kind}:${he.rid}` : null;
     // blocos da célula em edição alinhados aos parágrafos (relink ao desfazer)
     if (ce?.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
+    const anchors = sb ? sb.tableAnchors : this.tableAnchors;
+    const hx = parts.filter((k) => k !== hk && this.hfParts.get(k)?.paras).map((k) => [k, this.hfPartBlocks(k)] as const);
     return JSON.stringify({
-      m: ce ? ce.saved.model : ne ? ne.saved.model : this.model,
-      s: ce ? ce.saved.selection : ne ? ne.saved.selection : this.selection,
+      m: ce ? ce.saved.model : ne ? ne.saved.model : sb ? sb.model : this.model,
+      s: ce ? ce.saved.selection : ne ? ne.saved.selection : sb ? sb.selection : this.selection,
+      // passo dado no cabeçalho/rodapé: a parte (blocos, com as tabelas) e o cursor nela
+      hp: he ? { k: hk, b: this.hfPartBlocks(hk!, this.model!.paragraphs), s: this.selection } : undefined,
+      hx: hx.length ? hx : undefined,
+      // Páginas Pares e Ímpares Diferentes (settings)
+      eo: this.evenOddHeaders(),
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
@@ -4610,10 +4673,10 @@ export class UniversalWriteElement extends HTMLElement {
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: own ? undefined : {
-        t: this.tableAnchors.map((a) => a.beforePara),
+        t: anchors.map((a) => a.beforePara),
         b: [...this.bookmarkParas],
       },
-      tb: own ? undefined : this.tableAnchors.map((a) => a.table),
+      tb: own ? undefined : anchors.map((a) => a.table),
       ce: ce ? { a: ce.anchor, h: ce.hops, s: this.selection } : undefined,
       ts: own ? undefined : this.tableSel ?? undefined,
       // passo dado dentro de uma nota (a pilha é a do corpo, como no Word): o
@@ -4647,6 +4710,9 @@ export class UniversalWriteElement extends HTMLElement {
     nt?: { k: NoteKind; id: number; p: Paragraph[]; s: { anchor: DocPosition; focus: DocPosition } };
     nb?: [NoteKind, number, Paragraph[]][];
     np?: { footnote?: NoteProps; endnote?: NoteProps };
+    hp?: { k: string; b: Block[]; s: { anchor: DocPosition; focus: DocPosition } };
+    hx?: [string, Block[]][];
+    eo?: boolean;
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -4662,11 +4728,11 @@ export class UniversalWriteElement extends HTMLElement {
   private editsSinceLoad = 0;
   private loadedBytes: Uint8Array | null = null;
 
-  private snapshot(deep = false): void {
+  private snapshot(deep = false, parts: readonly string[] = []): void {
     if (!this.model) return;
     this.editsSinceLoad++;
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
-    this.undoStack.push(this.stringifyState(deep));
+    this.undoStack.push(this.stringifyState(deep, parts));
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
     if (!this.quietChange) {
@@ -4677,14 +4743,21 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model || from.length === 0) return;
     this.floatSel = null; // o modelo é recriado → referência de run fica obsoleta
     const state = this.parseState(from.pop()!);
-    // corpo e notas dividem a pilha (como no Word): o passo dado numa nota leva o
-    // cursor até ela antes de voltar o estado — o refazer guarda o texto dela
-    // (oráculo notes-lab, fn-undo)
+    // corpo, notas e cabeçalho/rodapé dividem a pilha (como no Word). Cabeçalho:
+    // o passo volta sem trocar de modo (oráculo hf-lab h02/h03) — no modo
+    // cabeçalho, sai e volta à mesma página depois (a parte exibida pode mudar)
+    const hf = this.hfEdit && !this.tbEdit
+      ? { kind: this.hfEdit.kind, page: this.hfActivePage, key: `${this.hfEdit.kind}:${this.hfEdit.rid}`, sel: this.selection }
+      : null;
+    const partKeys = [...(state.hp ? [state.hp.k] : []), ...(state.hx ?? []).map(([k]) => k)];
+    // o passo dado numa nota leva o cursor até ela antes de voltar o estado — o
+    // refazer guarda o texto dela (oráculo notes-lab, fn-undo)
     if (!this.hfEdit && !this.tbEdit && state.nt) {
       const ne = this.noteEdit;
       if (ne?.kind !== state.nt.k || ne?.id !== state.nt.id) this.enterNote(state.nt.k, state.nt.id, 'end');
     }
-    to.push(this.stringifyState(!!state.hf));
+    to.push(this.stringifyState(!!state.hf, partKeys));
+    if (hf) this.exitHeaderFooter(true, false);
     // aceitar/rejeitar todas: os cabeçalhos/rodapés voltam no lugar
     if (state.hf) {
       state.hf.forEach((sets, si) => {
@@ -4698,9 +4771,9 @@ export class UniversalWriteElement extends HTMLElement {
         for (const r of [...sec.headerRefs, ...sec.footerRefs]) this.dirtyHf.add(r.path);
       });
     }
-    if (this.hfEdit || this.tbEdit) {
-      // cabeçalho/caixa: o array de parágrafos É o do documento (parte do HF,
-      // caixa de texto) — restaura no lugar para não desligá-lo
+    if (this.tbEdit) {
+      // caixa de texto: o array de parágrafos É o do documento (a caixa) —
+      // restaura no lugar para não desligá-lo
       const linked = this.model.paragraphs;
       linked.splice(0, linked.length, ...state.m.paragraphs);
       this.model = { ...state.m, paragraphs: linked };
@@ -4751,7 +4824,33 @@ export class UniversalWriteElement extends HTMLElement {
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== undefined && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
+    // cabeçalhos/rodapés que o passo mudou (a parte em edição e as outras)
+    if (!this.tbEdit) {
+      for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
+      if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
+      if (state.eo !== undefined && state.eo !== this.evenOddHeaders()) this.setEvenOddFlag(state.eo);
+    }
+    if (hf && !this.noteEdit && !this.cellEdit) {
+      // de volta ao cabeçalho/rodapé da mesma página (diagramada já com o estado
+      // de volta); o cursor do passo, se for a mesma parte
+      this.refresh();
+      this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+      const now = this.hfEdit ? `${this.hfEdit.kind}:${this.hfEdit.rid}` : null;
+      if (state.hp && now === state.hp.k) this.selection = this.clampSel(state.hp.s);
+      else if (now === hf.key) this.selection = this.clampSel(hf.sel);
+      if (!this.hfEdit) this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: false } }));
+    }
     this.refresh();
+  }
+
+  /** Seleção dentro do modelo atual (parágrafos/offsets existentes). */
+  private clampSel(s: { anchor: DocPosition; focus: DocPosition }): { anchor: DocPosition; focus: DocPosition } {
+    const ps = this.model!.paragraphs;
+    const c = (p: DocPosition): DocPosition => {
+      const para = Math.max(0, Math.min(p.para, ps.length - 1));
+      return { para, offset: Math.max(0, Math.min(p.offset, paraLength(ps[para]!))) };
+    };
+    return { anchor: c(s.anchor), focus: c(s.focus) };
   }
 
   /** deleteRange com ajuste de âncoras de tabela/seção. */
@@ -5767,6 +5866,8 @@ export class UniversalWriteElement extends HTMLElement {
   // ───────────────── seções derivadas do modelo ─────────────────
 
   private resetSections(): void {
+    this.evenOdd = null;
+    this.hideDocText = false;
     this.sectionStarts = [];
     this.sectionProps = new Map([[0, undefined]]);
     this.nextSectionId = 1;
@@ -5893,6 +5994,594 @@ export class UniversalWriteElement extends HTMLElement {
     this.sectionEff.set(id, { sp, key, props, sec });
     this.sectionIds.set(sec, id);
     return sec;
+  }
+
+  // ───────────── cabeçalho e rodapé: opções da seção, vincular, modelos ─────────────
+  // Regras do Word medidas em write/tools/hf-lab (memória word-header-footer-facts).
+  // Cada opção é UM passo de desfazer do documento; no modo cabeçalho o passo
+  // sai da edição, muda o corpo (sectPr/refs moram no modelo) e volta à mesma
+  // página — a variante exibida pode mudar (primeira página, par).
+
+  /** Páginas Pares e Ímpares Diferentes como o editor a deixou (null = a do arquivo). */
+  private evenOdd: boolean | null = null;
+  /** Mostrar Texto do Documento (no modo cabeçalho). */
+  private hideDocText = false;
+  /** números de página inseridos pelas galerias num documento sem fontes (sem o sdt) */
+  private pageNumberParas = new WeakSet<Paragraph>();
+  /** rIds de cabeçalho/rodapé referenciados ao abrir (ver saveDocx) */
+  private hfRidsAtLoad = new Set<string>();
+  /** rels copiadas para partes desvinculadas (saem se a parte não for gravada) */
+  private hfRelsCopied = new Set<string>();
+
+  private evenOddHeaders(): boolean {
+    return this.evenOdd ?? !!(this.fullDoc?.formatting ?? this.newFormatting)?.settings.evenAndOddHeaders;
+  }
+
+  /** Liga/desliga w:evenAndOddHeaders no estado (o motor lê das settings da formatação). */
+  private setEvenOddFlag(on: boolean): void {
+    this.evenOdd = on;
+    const f = this.fullDoc?.formatting ?? (this.newFormatting ??= emptyFormatting());
+    f.settings.evenAndOddHeaders = on;
+    this.engPageCache.clear();
+  }
+
+  /** Blocos de uma parte de cabeçalho/rodapé ("kind:rId") alinhados aos parágrafos. */
+  private hfPartBlocks(k: string, paras?: Paragraph[]): Block[] {
+    const part = this.hfParts.get(k);
+    return reconcileBlocks(part?.blocks, paras ?? part?.paras ?? [], true) ?? [];
+  }
+
+  /** Conteúdo de uma parte de volta (desfazer): parágrafos no lugar, blocos novos. */
+  private restoreHfPart(k: string, blocks0: Block[]): void {
+    const part = this.hfParts.get(k);
+    if (!part) return;
+    const blocks = blocks0.map((b) => (b.type === 'table' ? TOps.relink(b) : b));
+    const paras = flattenBlocks(blocks);
+    if (part.paras) part.paras.splice(0, part.paras.length, ...paras); else part.paras = paras;
+    part.blocks = blocks;
+    this.sectionEff.clear();
+    this.dirtyHf.add(part.path);
+  }
+
+  /** Id do estilo Cabeçalho/Rodapé do documento (o Word o cria com a 1ª parte). */
+  private hfStyleId(kind: 'header' | 'footer'): string | undefined {
+    if (!this.stylesEditable()) return undefined;
+    const id = this.docStyles.byName(kind)?.id ?? resolveStyleId(this.docStyles.xml, kind === 'header' ? 'Cabealho' : 'Rodap');
+    this.ensureStyleUsed(id);
+    return id;
+  }
+
+  /** Conteúdo de uma parte nova: um parágrafo vazio no estilo Cabeçalho/Rodapé (Word). */
+  private newHfParas(kind: 'header' | 'footer'): Paragraph[] {
+    const styleId = this.hfStyleId(kind);
+    return [{ runs: [], props: styleId ? { styleId } : {} }];
+  }
+
+  /** Caminho e rId livres para uma parte nova (headerN.xml, rIdN — como o Word). */
+  private newHfTarget(kind: 'header' | 'footer'): { rid: string; path: string } {
+    const used = new Set<string>(this.pkg?.partNames() ?? []);
+    for (const p of this.hfParts.values()) used.add(p.path);
+    let n = 1;
+    while (used.has(`word/${kind}${n}.xml`)) n++;
+    const rels = this.pkg?.getPartText('word/_rels/document.xml.rels') ?? '';
+    const rids = new Set([...rels.matchAll(/\bId="([^"]+)"/g)].map((m) => m[1]!));
+    for (const k of this.hfParts.keys()) rids.add(k.slice(k.indexOf(':') + 1));
+    let m = 1;
+    while (rids.has(`rId${m}`)) m++;
+    return { rid: `rId${m}`, path: `word/${kind}${n}.xml` };
+  }
+
+  /** Etiquetas da faixa da página no modo cabeçalho/rodapé (nome da parte e "Mesmo que o Anterior"). */
+  private hfBandLabels(kind: 'header' | 'footer', pg: number): { name: string; same: string | null } {
+    const lang = uiLang(this);
+    const m = this.bodyModel();
+    const count = sectionRanges(m).length;
+    const sec = Math.min(this.pageSections[pg] ?? 0, count - 1);
+    const type = this.hfTypeOfPage(pg);
+    const linked = sec > 0 && !this.refsOfSection(m, sec, kind).some((r) => r.type === type);
+    return { name: hfBandLabel(kind, type, this.evenOddHeaders(), sec, count, lang), same: linked ? sameAsPreviousLabel(lang) : null };
+  }
+
+  /** Página do cursor (no corpo) ou a página em edição (cabeçalho/rodapé). */
+  private caretPageIndex(): number {
+    if (this.hfEdit) return this.hfActivePage;
+    const f = (this.noteEdit?.saved.selection ?? this.selection).focus;
+    const pl = this.cellEdit || this.noteEdit ? undefined : this.layoutCache[f.para];
+    const line = pl?.lines.find((l) => f.offset >= l.rich.start && f.offset <= l.rich.end) ?? pl?.lines[0];
+    return Math.max(0, Math.min(line?.page ?? this.currentPage() - 1, this.pageCount - 1));
+  }
+
+  /** Variante de cabeçalho/rodapé que a página mostra (regra do Word e do motor). */
+  private hfTypeOfPage(pg: number): HfKind {
+    const eng = this.eng;
+    const page = eng?.result.pages[pg];
+    if (!eng || !page) return pg === 0 && this.sectionOfPage(pg)?.sectPr.titlePg ? 'first' : 'default';
+    let sectPage = 0;
+    for (let i = pg - 1; i >= 0 && eng.result.pages[i]!.section === page.section; i--) sectPage++;
+    const sp = this.sectionOfPage(pg)?.sectPr;
+    return sectPage === 0 && sp?.titlePg ? 'first' : this.evenOddHeaders() && page.number % 2 === 0 ? 'even' : 'default';
+  }
+
+  /** Seção (índice no modelo) e variante do cabeçalho/rodapé em foco. */
+  private hfContext(): { page: number; sec: number; type: HfKind } | null {
+    if (!this.model) return null;
+    const page = this.caretPageIndex();
+    const m = this.bodyModel();
+    const sec = Math.min(this.pageSections[page] ?? 0, sectionRanges(m).length - 1);
+    return { page, sec, type: this.hfEdit?.type ?? this.hfTypeOfPage(page) };
+  }
+
+  /** Refs de cabeçalho/rodapé de uma seção do modelo do corpo. */
+  private refsOfSection(m: DocumentModel, sec: number, kind: 'header' | 'footer'): { kind: 'header' | 'footer'; type: string; rid: string }[] {
+    const holder = sectionRefs(m, sec);
+    return kind === 'header' ? holder.headerRefs : holder.footerRefs;
+  }
+
+  /** Parte que a seção `sec` usa para (kind, type): a dela ou a herdada das anteriores. */
+  private hfPartFor(sec: number, kind: 'header' | 'footer', type: string): { key: string; sec: number } | null {
+    const m = this.bodyModel();
+    for (let s = Math.min(sec, sectionRanges(m).length - 1); s >= 0; s--) {
+      const r = this.refsOfSection(m, s, kind).find((x) => x.type === type);
+      if (r && this.hfParts.has(`${kind}:${r.rid}`)) return { key: `${kind}:${r.rid}`, sec: s };
+    }
+    return null;
+  }
+
+  /** Uma opção de seção/documento como UM passo de desfazer (ver acima). */
+  private hfSectionOp(fn: (m: DocumentModel) => void, parts: readonly string[] = []): void {
+    if (!this.model || this.locked()) return;
+    if (this.tbEdit) this.exitTextbox();
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    this.snapshot(false, parts);
+    if (hf) this.exitHeaderFooter(true, false);
+    fn(this.bodyModel());
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) {
+      this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+      this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: !!this.hfEdit, kind: hf.kind } }));
+    }
+  }
+
+  /** Opções de cabeçalho/rodapé da seção do cursor (ou da página em edição). */
+  getHeaderFooterOptions(): HeaderFooterOptions | null {
+    const c = this.hfContext();
+    if (!c) return null;
+    const m = this.bodyModel();
+    const sp = sectionSectPr(m, c.sec);
+    const kind = this.hfEdit?.kind ?? null;
+    return {
+      section: c.sec,
+      sectionCount: sectionRanges(m).length,
+      page: c.page,
+      part: kind ? { kind, type: c.type } : null,
+      differentFirstPage: !!sp.titlePg,
+      differentOddEven: this.evenOddHeaders(),
+      headerDistance: sp.headerDistanceTwips ?? 720,
+      footerDistance: sp.footerDistanceTwips ?? 720,
+      linkToPrevious: kind && c.sec > 0 ? !this.refsOfSection(m, c.sec, kind).some((r) => r.type === c.type) : false,
+      documentTextShown: !this.hideDocText,
+    };
+  }
+
+  /** Primeira Página Diferente (w:titlePg) da seção. */
+  setDifferentFirstPage(on: boolean): void {
+    const c = this.hfContext();
+    if (!c) return;
+    this.hfSectionOp((m) => { const sp = sectionSectPr(m, c.sec); if (on) sp.titlePg = true; else delete sp.titlePg; });
+  }
+
+  /** Páginas Pares e Ímpares Diferentes (w:evenAndOddHeaders — vale para o documento). */
+  setDifferentOddEven(on: boolean): void {
+    if (!this.model || on === this.evenOddHeaders()) return;
+    this.hfSectionOp(() => this.setEvenOddFlag(on));
+  }
+
+  /** Distâncias do cabeçalho até o topo e do rodapé até a base da página (twips), na seção. */
+  setHeaderFooterDistance(d: { header?: number; footer?: number }): void {
+    const c = this.hfContext();
+    if (!c) return;
+    const clamp = (v: number): number => Math.max(0, Math.min(Math.round(v), 31680));
+    this.hfSectionOp((m) => {
+      const sp = sectionSectPr(m, c.sec);
+      if (d.header !== undefined) sp.headerDistanceTwips = clamp(d.header);
+      if (d.footer !== undefined) sp.footerDistanceTwips = clamp(d.footer);
+    });
+  }
+
+  /**
+   * Vincular ao Anterior da parte em foco (cabeçalho ou rodapé, na variante da
+   * página). Desligar copia o conteúdo herdado numa parte nova da seção (Word);
+   * ligar tira a parte da seção, que volta a usar a da anterior. Na 1ª seção, nada.
+   */
+  setLinkToPrevious(on: boolean, kind?: 'header' | 'footer'): void {
+    const c = this.hfContext();
+    if (!c || c.sec === 0 || this.locked()) return;
+    const k = kind ?? this.hfEdit?.kind ?? 'header';
+    const own = this.refsOfSection(this.bodyModel(), c.sec, k).some((r) => r.type === c.type);
+    if (on !== own) return;
+    if (on) {
+      this.hfSectionOp((m) => {
+        const list = this.refsOfSection(m, c.sec, k);
+        const i = list.findIndex((r) => r.type === c.type);
+        if (i >= 0) list.splice(i, 1);
+      });
+      return;
+    }
+    const src = this.hfPartFor(c.sec - 1, k, c.type);
+    const target = this.newHfTarget(k);
+    this.hfSectionOp((m) => {
+      this.createHfPart(k, target, src?.key ?? null);
+      this.refsOfSection(m, c.sec, k).push({ kind: k, type: c.type, rid: target.rid } as never);
+    });
+  }
+
+  /** Parte nova registrada no índice: cópia de `srcKey` (como o Word ao
+   *  desvincular) ou vazia. Parte de origem intocada sai do XML (byte a byte,
+   *  docPr renovado, rels repetidas); editada, dos blocos do modelo. */
+  private createHfPart(kind: 'header' | 'footer', target: { rid: string; path: string }, srcKey: string | null): void {
+    const key = `${kind}:${target.rid}`;
+    const src = srcKey ? this.hfParts.get(srcKey) : undefined;
+    const pkg = this.pkg;
+    const store = this.fullDoc?.sources;
+    const name = (p: string) => p.split('/').pop()!;
+    const copyRels = (from: string): void => {
+      const rels = pkg?.getPartText(`word/_rels/${name(from)}.rels`);
+      if (!rels || !pkg) return;
+      const to = `word/_rels/${name(target.path)}.rels`;
+      pkg.setPartText(to, rels);
+      this.hfRelsCopied.add(to);
+    };
+    if (src && pkg && store && !this.dirtyHf.has(src.path) && pkg.getPart(src.path)) {
+      copyRels(src.path);
+      const xml = copyHfPartXml(pkg.getPartText(src.path)!, () => 1 + Math.floor(Math.random() * 0x7ffffffe));
+      const read = readHeaderFooterPart(pkg, target.path, store, xml);
+      if (read) {
+        store.baseline();
+        this.hfParts.set(key, { path: target.path, paras: read.paras, blocks: read.blocks });
+        return;
+      }
+    }
+    if (src?.paras) {
+      if (pkg?.getPart(src.path)) copyRels(src.path);
+      const blocks = cloneBlocks(this.hfPartBlocks(srcKey!));
+      this.hfParts.set(key, { path: target.path, paras: flattenBlocks(blocks), blocks });
+    } else {
+      const paras = this.newHfParas(kind);
+      this.hfParts.set(key, { path: target.path, paras, blocks: paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })) });
+    }
+    this.dirtyHf.add(target.path);
+  }
+
+  /** Mostrar Texto do Documento (no modo cabeçalho/rodapé o corpo some da tela). */
+  showDocumentText(on: boolean): void {
+    if (this.hideDocText === !on) return;
+    this.hideDocText = !on;
+    this.engPageCache.clear();
+    this.paint();
+  }
+  documentTextShown(): boolean { return !this.hideDocText; }
+
+  /** Ir para Cabeçalho / Ir para Rodapé (no corpo: entra na edição da página do cursor). */
+  goToHeaderFooter(kind?: 'header' | 'footer'): void {
+    if (!this.model || this.locked()) return;
+    if (this.hfEdit) {
+      const k = kind ?? (this.hfEdit.kind === 'header' ? 'footer' : 'header');
+      if (k !== this.hfEdit.kind) {
+        const page = this.hfActivePage;
+        this.exitHeaderFooter(true);
+        this.enterHeaderFooter(k, page, true);
+        this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: true, kind: k } }));
+      }
+    } else this.enterHeaderFooter(kind ?? 'header', this.caretPageIndex());
+    this.focusEditor();
+  }
+
+  /**
+   * Próximo / Anterior: o cabeçalho (ou rodapé) seguinte na ordem do Word —
+   * por seção, primeira página → par → padrão — que alguma página mostra; para
+   * no fim (oráculo hf-lab f06).
+   */
+  nextHeaderFooter(): void { this.stepHeaderFooter(1); }
+  previousHeaderFooter(): void { this.stepHeaderFooter(-1); }
+
+  private stepHeaderFooter(dir: 1 | -1): void {
+    if (!this.model || this.locked()) return;
+    const kind = this.hfEdit?.kind ?? 'header';
+    const order = (t: HfKind): number => (t === 'first' ? 0 : t === 'even' ? 1 : 2);
+    const stops = new Map<string, { sec: number; type: HfKind; page: number }>();
+    for (let pg = 0; pg < this.pageCount; pg++) {
+      const sec = this.pageSections[pg] ?? 0, type = this.hfTypeOfPage(pg);
+      if (!stops.has(`${sec}:${type}`)) stops.set(`${sec}:${type}`, { sec, type, page: pg });
+    }
+    const list = [...stops.values()].sort((a, b) => a.sec - b.sec || order(a.type) - order(b.type));
+    const cur = this.hfContext();
+    if (!cur) return;
+    const at = list.findIndex((s) => s.sec === cur.sec && s.type === cur.type);
+    const next = list[at < 0 ? (dir > 0 ? 0 : list.length - 1) : at + dir];
+    if (!next) return;
+    if (this.hfEdit) this.exitHeaderFooter(true);
+    this.enterHeaderFooter(kind, next.page, true);
+    this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: !!this.hfEdit, kind } }));
+    this.scrollPageIntoView(next.page);
+    this.focusEditor();
+  }
+
+  /** Rola até a página (navegação entre cabeçalhos/rodapés). */
+  private scrollPageIntoView(pg: number): void {
+    const c = this.canvases[pg];
+    if (!c) return;
+    const top = c.offsetTop, bottom = top + c.offsetHeight;
+    if (top < this.scrollTop || bottom > this.scrollTop + this.clientHeight) this.scrollTop = Math.max(0, top - 24);
+  }
+
+  /** Parte (chave) que a página mostra para `kind`, criando-a na seção se faltar. */
+  private hfPartOfPageKey(kind: 'header' | 'footer', pg: number): string | null {
+    const sec = this.pageSections[pg] ?? 0;
+    const type = this.hfTypeOfPage(pg);
+    return this.hfPartFor(sec, kind, type)?.key ?? null;
+  }
+
+  /** Remover Cabeçalho / Remover Rodapé: esvazia a parte da página do cursor
+   *  (fica um parágrafo vazio do estilo; a parte continua — oráculo e12). */
+  removeHeaderFooter(kind: 'header' | 'footer'): void {
+    if (!this.model || this.locked()) return;
+    const page = this.caretPageIndex();
+    const key = this.hfEdit?.kind === kind ? `${kind}:${this.hfEdit.rid}` : this.hfPartOfPageKey(kind, page);
+    const part = key ? this.hfParts.get(key) : undefined;
+    if (!key || !part?.paras) return;
+    this.snapshot(false, [key]);
+    const fresh = this.newHfParas(kind);
+    part.paras.splice(0, part.paras.length, ...fresh);
+    part.blocks = fresh.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+    this.sectionEff.clear();
+    this.dirtyHf.add(part.path);
+    if (this.hfEdit && `${this.hfEdit.kind}:${this.hfEdit.rid}` === key) this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.refresh();
+  }
+
+  /** Remover Números de Página: tira os números das galerias (w:sdt "Page
+   *  Numbers") do cabeçalho e do rodapé da página do cursor (oráculo h04/h05). */
+  removePageNumbers(): void {
+    if (!this.model || this.locked()) return;
+    const page = this.caretPageIndex();
+    const keys = (['header', 'footer'] as const).map((k) => (this.hfEdit?.kind === k ? `${k}:${this.hfEdit.rid}` : this.hfPartOfPageKey(k, page)))
+      .filter((k): k is string => !!k);
+    const store = this.fullDoc?.sources;
+    const plan = keys.map((key) => {
+      const part = this.hfParts.get(key)!;
+      const ids = pageNumberGroupIds(store?.stories.get(part.path));
+      const gone = (p: Paragraph) => (p.props.src !== undefined && ids.has(p.props.src)) || this.pageNumberParas.has(p);
+      return { key, part, gone };
+    }).filter((x) => x.part.paras?.some(x.gone));
+    if (!plan.length) return;
+    this.snapshot(false, plan.map((x) => x.key));
+    for (const { key, part, gone } of plan) {
+      const kind = key.startsWith('header') ? 'header' : 'footer';
+      let blocks = this.hfPartBlocks(key).filter((b) => b.type !== 'paragraph' || !gone(b.paragraph));
+      if (!blocks.some((b) => b.type === 'paragraph')) blocks = [...blocks, ...this.newHfParas(kind).map((paragraph) => ({ type: 'paragraph' as const, paragraph }))];
+      part.paras!.splice(0, part.paras!.length, ...flattenBlocks(blocks));
+      part.blocks = blocks;
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    if (this.hfEdit) this.selection = this.clampSel(this.selection);
+    this.refresh();
+  }
+
+  /** Formatar Números de Página da seção: formato, número do capítulo e início
+   *  (null = continuar da seção anterior). */
+  getPageNumberFormat(): PageNumberFormat | null {
+    const c = this.hfContext();
+    if (!c) return null;
+    const sp = sectionSectPr(this.bodyModel(), c.sec);
+    return {
+      format: sp.pgNumFmt ?? 'decimal',
+      chapter: sp.pgNumChapStyle ? { level: sp.pgNumChapStyle, separator: sp.pgNumChapSep ?? 'hyphen' } : null,
+      start: sp.pgNumStart ?? null,
+    };
+  }
+
+  setPageNumberFormat(f: Partial<PageNumberFormat>): void {
+    const c = this.hfContext();
+    if (!c) return;
+    this.hfSectionOp((m) => {
+      const sp = sectionSectPr(m, c.sec);
+      if (f.format !== undefined) { if (f.format === 'decimal') delete sp.pgNumFmt; else sp.pgNumFmt = f.format; }
+      if (f.chapter !== undefined) {
+        if (f.chapter) { sp.pgNumChapStyle = Math.max(1, Math.min(9, f.chapter.level)); sp.pgNumChapSep = f.chapter.separator; }
+        else { delete sp.pgNumChapStyle; delete sp.pgNumChapSep; }
+      }
+      if (f.start !== undefined) { if (f.start === null) delete sp.pgNumStart; else sp.pgNumStart = Math.max(0, Math.round(f.start)); }
+    });
+  }
+
+  /** Modelos de uma galeria (Cabeçalho, Rodapé, Número de Página › Início/Fim/Margens/Posição Atual). */
+  headerFooterTemplates(gallery: HfGallery): { id: string; name: string }[] {
+    const lang = uiLang(this);
+    return hfTemplates(gallery).map((t) => ({ id: t.id, name: t.name[lang] }));
+  }
+
+  /** XML de um modelo para a miniatura da galeria (o mesmo que entra no documento). */
+  headerFooterTemplateXml(gallery: HfGallery, id: string): string | null {
+    return hfTemplateXml(gallery, id, this.templateEnv(galleryKind(gallery) ?? 'header'));
+  }
+
+  private templateEnv(kind: 'header' | 'footer'): HfTemplateEnv {
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const accent = (theme?.colors?.accent1 ?? '156082').replace(/^#/, '').toUpperCase();
+    const sid = this.docStyles.byName(kind)?.id ?? resolveStyleId(this.docStyles.xml, kind === 'header' ? 'Cabealho' : 'Rodap');
+    return { styleId: sid, accent, lang: uiLang(this), drawingId: () => 1 + Math.floor(Math.random() * 0x7ffffffe) };
+  }
+
+  /**
+   * Insere um modelo da galeria. Cabeçalho, Rodapé, Início/Fim da Página e
+   * Margens da Página TROCAM o conteúdo da parte da página do cursor (entra na
+   * edição dela, como o Word); Posição Atual insere o número no cursor.
+   */
+  insertHeaderFooterTemplate(gallery: HfGallery, id: string): void {
+    if (!this.model || this.locked()) return;
+    const kind = galleryKind(gallery);
+    if (!kind) { this.insertPageNumberHere(id); return; }
+    if (!this.hfEdit || this.hfEdit.kind !== kind) {
+      const page = this.caretPageIndex();
+      if (this.hfEdit) this.exitHeaderFooter(true);
+      this.enterHeaderFooter(kind, page, true);
+      this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: !!this.hfEdit, kind } }));
+    }
+    const he = this.hfEdit;
+    if (!he) return;
+    const env = this.templateEnv(kind);
+    if (env.styleId) this.ensureStyleUsed(env.styleId);
+    const inner = hfTemplateXml(gallery, id, env);
+    if (!inner) return;
+    const key = `${kind}:${he.rid}`;
+    const part = this.hfParts.get(key);
+    if (!part) return;
+    this.snapshot();
+    const read = this.readTemplatePart(kind, he.path, inner);
+    if (!read) return;
+    this.model.paragraphs.splice(0, this.model.paragraphs.length, ...read.paras);
+    part.paras = this.model.paragraphs;
+    part.blocks = read.blocks;
+    this.sectionEff.clear();
+    this.dirtyHf.add(he.path);
+    // o 1º espaço reservado fica selecionado (digitar troca), senão o cursor no início
+    this.selection = this.firstPlaceholder(env.lang) ?? { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.refresh();
+    this.focusEditor();
+  }
+
+  /** Lê o XML de um modelo como uma parte (com fontes: sdt e campos voltam ao salvar). */
+  private readTemplatePart(kind: 'header' | 'footer', path: string, inner: string): { paras: Paragraph[]; blocks: Block[] } | null {
+    const store = this.fullDoc?.sources;
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), path, store, hfPartXml(kind, inner));
+    if (!read) return null;
+    store?.baseline();
+    if (!store) for (const p of read.paras) if (p.runs.some((r) => r.field && /PAGE/.test(r.field))) this.pageNumberParas.add(p);
+    return read;
+  }
+
+  /** Seleção do 1º "[Digite aqui]" da parte em edição. */
+  private firstPlaceholder(lang: 'en' | 'pt'): { anchor: DocPosition; focus: DocPosition } | null {
+    const ph = placeholderText(lang);
+    const ps = this.model!.paragraphs;
+    for (let i = 0; i < ps.length; i++) {
+      const at = paraText(ps[i]!).indexOf(ph);
+      if (at >= 0) return { anchor: { para: i, offset: at }, focus: { para: i, offset: at + ph.length } };
+    }
+    return null;
+  }
+
+  /** Número de Página › Posição Atual: os runs do modelo no cursor. */
+  private insertPageNumberHere(id: string): void {
+    const inner = hfTemplateXml('pageCurrent', id, this.templateEnv('header'));
+    const read = inner ? readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), 'word/uw-template.xml', undefined, hfPartXml('header', inner)) : null;
+    const runs = read?.paras[0]?.runs;
+    if (!runs?.length) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const pos = this.deleteSelection();
+      this.selection = { anchor: pos, focus: pos };
+    }
+    let pos = this.selection.focus;
+    const base = this.newRunProps(this.pendingProps ?? this.currentProps());
+    for (const r of runs) {
+      const run: Run = { text: r.text, props: { ...base }, ...(r.field ? { field: r.field } : {}) };
+      if (run.field) run.text = /NUMPAGES/i.test(run.field) ? String(this.numPagesFor()) : /PAGE/i.test(run.field) ? String(this.pageNumberFor(this.caretPageIndex())) : run.text;
+      pos = coreInsertRun(this.model!, pos, run);
+    }
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+  }
+
+  /** Formatos de Data e Hora do idioma (padrão: o da interface) com o exemplo de agora. */
+  dateTimeFormats(lang?: 'en' | 'pt'): { pattern: string; sample: string }[] {
+    const l = lang ?? uiLang(this);
+    const now = new Date();
+    return DATE_TIME_FORMATS[l].map((pattern) => ({ pattern, sample: formatWordDate(now, pattern, l === 'pt' ? 'pt-BR' : 'en-US') }));
+  }
+
+  /** Data e Hora: `update` = campo TIME \@ (atualiza sozinho, como o Word grava);
+   *  senão o texto de agora. */
+  insertDateTime(pattern: string, update = false, lang?: 'en' | 'pt'): void {
+    if (!this.model || this.locked()) return;
+    const l = lang ?? uiLang(this);
+    const text = formatWordDate(new Date(), pattern, l === 'pt' ? 'pt-BR' : 'en-US');
+    if (update) this.insertFieldRun(` TIME \\@ "${pattern}" `, text);
+    else this.pasteText(text);
+  }
+
+  /** Informações do Documento: Autor, Título, Nome do Arquivo, Caminho do Arquivo (campos
+   *  AUTHOR, TITLE, FILENAME; o resultado guardado é o valor de agora — o nome do
+   *  arquivo vem do hospedeiro, que é quem o conhece). */
+  insertDocumentInfo(kind: 'author' | 'title' | 'fileName' | 'filePath', fileName = ''): void {
+    if (!this.model || this.locked()) return;
+    const core = this.pkg?.getPartText('docProps/core.xml') ?? '';
+    const prop = (tag: string): string => {
+      const m = new RegExp(`<${tag}[^>]*>([^<]*)<`).exec(core);
+      return m ? m[1]!.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&') : '';
+    };
+    const name = fileName;
+    const [instr, shown] = kind === 'author' ? [' AUTHOR  \\* MERGEFORMAT ', prop('dc:creator')]
+      : kind === 'title' ? [' TITLE  \\* MERGEFORMAT ', prop('dc:title')]
+      : kind === 'fileName' ? [' FILENAME  \\* MERGEFORMAT ', name]
+      : [' FILENAME \\p  \\* MERGEFORMAT ', name];
+    this.insertFieldRun(instr, shown || (uiLang(this) === 'pt' ? '[sem valor]' : '[no value]'));
+  }
+
+  /** Inserir Tabulação de Alinhamento (w:ptab): à esquerda/centro/direita da margem ou do recuo. */
+  insertAlignmentTab(alignment: 'left' | 'center' | 'right', relativeTo: 'margin' | 'indent' = 'margin', leader: 'none' | 'dot' | 'hyphen' | 'underscore' | 'middleDot' = 'none'): void {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const pos = this.deleteSelection();
+      this.selection = { anchor: pos, focus: pos };
+    }
+    const run: Run = { text: '\t', props: this.newRunProps(this.pendingProps ?? this.currentProps()), ptab: { alignment, relativeTo, leader } };
+    const pos = coreInsertRun(this.model, this.selection.focus, run);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+  }
+
+  /**
+   * Partes de cabeçalho (ou rodapé) que o documento EXIBE — cada seção nas
+   * variantes que mostra (padrão; primeira se titlePg; par se pares/ímpares) —
+   * sem repetir as compartilhadas (vinculadas), criando a que falta. Para a
+   * frente Página: a marca-d'água é um desenho posto em cada uma, num passo só:
+   * `editShownHfParts('header', (paras) => …)`.
+   */
+  private editShownHfParts(kind: 'header' | 'footer', fn: (paras: Paragraph[], key: string) => void): void {
+    if (!this.model || this.locked()) return;
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    const m = this.model;
+    const types = (sec: number): HfKind[] => [
+      ...(sectionSectPr(m, sec).titlePg ? ['first' as const] : []), ...(this.evenOddHeaders() ? ['even' as const] : []), 'default' as const];
+    const wanted: { sec: number; type: HfKind }[] = [];
+    sectionRanges(m).forEach((_, sec) => { for (const type of types(sec)) wanted.push({ sec, type }); });
+    const keys = new Set<string>();
+    for (const w of wanted) { const p = this.hfPartFor(w.sec, kind, w.type); if (p) keys.add(p.key); }
+    this.snapshot(false, [...keys]);
+    for (const w of wanted) {
+      let p = this.hfPartFor(w.sec, kind, w.type)?.key;
+      if (!p) {
+        const target = this.newHfTarget(kind);
+        this.createHfPart(kind, target, null);
+        this.refsOfSection(m, w.sec, kind).push({ kind, type: w.type, rid: target.rid } as never);
+        p = `${kind}:${target.rid}`;
+      }
+      if (keys.has(`done:${p}`)) continue;
+      keys.add(`done:${p}`);
+      const part = this.hfParts.get(p)!;
+      fn(part.paras!, p);
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
   }
 
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
@@ -6124,7 +6813,7 @@ export class UniversalWriteElement extends HTMLElement {
         : kind === 'header' ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
       const bandTop = kind === 'header' ? 0 : lineY;
       const bandBot = kind === 'header' ? lineY : sp.pageHeightTwips;
-      const active = kind === activeKind;
+      const active = kind === activeKind && (pg === undefined || pg === this.hfActivePage);
       ctx.save();
       ctx.fillStyle = active
         ? (this.pageDark ? 'rgba(80,130,200,0.16)' : 'rgba(43,87,154,0.09)')
@@ -6138,11 +6827,26 @@ export class UniversalWriteElement extends HTMLElement {
       ctx.lineTo((sp.pageWidthTwips - sp.marginRightTwips) * scale, lineY * scale);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = `600 ${9 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
-      ctx.fillStyle = active ? (this.pageDark ? '#9bc0ff' : '#2b579a') : (this.pageDark ? '#9aa0a6' : '#9aa0a6');
-      const label = kind === 'header' ? 'Header' : 'Footer';
-      const ly = (kind === 'header' ? lineY - 60 : lineY + 190) * scale;
-      ctx.fillText(label, sp.marginLeftTwips * scale, ly);
+      // etiquetas como as do Word: o nome da parte (variante e seção) à esquerda,
+      // "Mesmo que o Anterior" à direita — sob a linha do cabeçalho, sobre a do rodapé
+      const tags = this.hfBandLabels(kind, pg ?? this.hfActivePage);
+      ctx.font = `${8 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
+      const th = 13 * TWIPS_PER_PT * scale, pad = 4 * TWIPS_PER_PT * scale;
+      const ty = kind === 'header' ? lineY * scale : lineY * scale - th;
+      const tag = (text: string, x: number, right: boolean): void => {
+        const w = ctx.measureText(text).width + pad * 2;
+        const x0 = right ? x - w : x;
+        ctx.fillStyle = this.pageDark ? '#2d2f33' : '#eef2f8';
+        ctx.fillRect(x0, ty, w, th);
+        ctx.strokeStyle = active ? (this.pageDark ? '#5b8def' : '#2b579a') : (this.pageDark ? '#777' : '#9aa0a6');
+        ctx.lineWidth = Math.max(1, dpr) * 0.75;
+        ctx.strokeRect(x0, ty, w, th);
+        ctx.fillStyle = active ? (this.pageDark ? '#9bc0ff' : '#2b579a') : (this.pageDark ? '#c4c7c5' : '#5f6368');
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x0 + pad, ty + th / 2);
+      };
+      tag(tags.name, sp.marginLeftTwips * scale, false);
+      if (tags.same) tag(tags.same, (sp.pageWidthTwips - sp.marginRightTwips) * scale, true);
       ctx.restore();
     };
     drawBand('header');
@@ -8041,7 +8745,7 @@ export class UniversalWriteElement extends HTMLElement {
     const sup = this.tbSnapshotSuppress;
     const hfMode = !!this.hfEdit;
     const key = `${this.eng!.version}.${this.eng!.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|`
-      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}|${this.docGrid && !this.printRender ? 1 : 0}`;
+      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? (this.hideDocText ? 2 : 1) : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}|${this.docGrid && !this.printRender ? 1 : 0}`;
     const hit = this.engPageCache.get(pg);
     if (hit && hit.key === key) return hit.canvas;
     const off = hit?.canvas ?? document.createElement('canvas');
@@ -8068,7 +8772,8 @@ export class UniversalWriteElement extends HTMLElement {
     const dim = this.printRender ? 1 : HF_DIM_ALPHA;
     const layers: [number, number, number][] = [
       ...(this.hfCapturing ? [] : [[0, hf, hfMode ? 1 : dim] as [number, number, number]]),
-      [hf, n, hfMode ? dim : 1],
+      // Mostrar Texto do Documento desligado: o corpo some no modo cabeçalho
+      ...(hfMode && this.hideDocText && !this.printRender ? [] : [[hf, n, hfMode ? dim : 1] as [number, number, number]]),
     ];
     // caixa de texto entrando em edição: o texto dela sai do instantâneo
     const skip = sup ? this.textboxItemRange(pg, page, sup) : null;
@@ -8143,10 +8848,13 @@ export class UniversalWriteElement extends HTMLElement {
     // cache só das páginas com buffer
     for (const k of [...this.engPageCache.keys()]) if (!this.allocatedPages.has(k) && !active.has(k)) this.engPageCache.delete(k);
     // edição de cabeçalho/rodapé: faixas e separadores na página ativa (Word)
-    const hp = this.hfActivePage;
-    if (this.hfEdit && !this.printRender && ctxs[hp]) {
-      const sp = this.sectionOfPage(hp)?.sectPr ?? this.bodyState().model.sectPr;
-      this.paintHfBands(ctxs[hp]!, scales[hp]!, sp, dpr, hp);
+    // (em todas as páginas, como o Word — a etiqueta diz qual parte cada uma mostra)
+    if (this.hfEdit && !this.printRender) {
+      ctxs.forEach((c, pg) => {
+        if (!c) return;
+        const sp = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
+        this.paintHfBands(c, scales[pg]!, sp, dpr, pg);
+      });
     }
     this.paintFloatAndCaret(ctxs, scales, dpr, hasSel || !!this.tableSel);
     this.engineStats.paintMs = performance.now() - t0;
@@ -8999,6 +9707,66 @@ export class UniversalWriteElement extends HTMLElement {
     return true;
   }
 
+  /**
+   * Miniatura de um modelo das galerias de Cabeçalho/Rodapé/Número de Página,
+   * diagramada pelo motor (o mesmo do documento) numa página com a geometria da
+   * seção do cursor: a faixa do cabeçalho (ou do rodapé); Margens da Página e
+   * Posição Atual mostram a página inteira / a linha. false = sem motor/modelo.
+   */
+  paintHeaderFooterTemplate(gallery: HfGallery, id: string, canvas: HTMLCanvasElement, cssWidth: number): boolean {
+    if (!this.model || !this.fonts) return false;
+    const kind = galleryKind(gallery) ?? 'header';
+    const inner = hfTemplateXml(gallery, id, this.templateEnv(kind));
+    if (!inner) return false;
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), 'word/uw-preview.xml', undefined, hfPartXml(kind, inner));
+    if (!read) return false;
+    const c = this.hfContext();
+    const sp0 = sectionSectPr(this.bodyModel(), c?.sec ?? 0);
+    const sp: SectPr = { ...sp0, titlePg: false };
+    delete sp.pgBorders;
+    const current = gallery === 'pageCurrent';
+    const set = { default: read.blocks };
+    const full = {
+      ...(this.fullDoc ?? {}),
+      blocks: current ? read.blocks : [{ type: 'paragraph', paragraph: { runs: [], props: {} } }],
+      sections: [{
+        sectPr: sp, blockStart: 0, blockEnd: current ? read.blocks.length - 1 : 0,
+        headers: {}, footers: {}, headerRefs: [], footerRefs: [],
+        headerBlocks: !current && kind === 'header' ? set : {}, footerBlocks: !current && kind === 'footer' ? set : {},
+      }],
+      footnotes: new Map(), endnotes: new Map(), comments: [], bookmarks: new Map(),
+      ...(this.fullDoc?.formatting ? {} : { formatting: this.newFormatting ?? emptyFormatting() }),
+    } as unknown as FullDocument;
+    let page: LayoutPage | undefined;
+    try { page = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: undefined }).pages[0]; } catch { return false; }
+    if (!page) return false;
+    // recorte: a faixa do cabeçalho/rodapé, a página inteira (margens) ou a 1ª linha do corpo
+    const items = page.items;
+    let top = 0, bottom = page.heightTw;
+    if (gallery === 'pageMargin') { /* página inteira */ } else if (current) {
+      const l = page.lines[0];
+      top = Math.max(0, (l?.y ?? sp.marginTopTwips) - 240); bottom = top + (l?.height ?? 300) + 480;
+    } else if (kind === 'header') { top = 0; bottom = Math.max(sp.marginTopTwips, ...page.lines.filter((l) => l.y < page!.heightTw / 2).map((l) => l.y + l.height)) + 120; }
+    else { top = Math.min(page.heightTw - sp.marginBottomTwips, ...page.lines.filter((l) => l.y > page!.heightTw / 2).map((l) => l.y)) - 120; bottom = page.heightTw; }
+    // na horizontal, a área do texto com uma folga (a página inteira em Margens da Página)
+    const left = gallery === 'pageMargin' ? 0 : Math.max(0, sp.marginLeftTwips - 360);
+    const right = gallery === 'pageMargin' ? page.widthTw : Math.min(page.widthTw, page.widthTw - sp.marginRightTwips + 360);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / (right - left);
+    const hTw = bottom - top;
+    canvas.width = Math.max(1, Math.round((right - left) * scale * dpr));
+    canvas.height = Math.max(1, Math.round(hTw * scale * dpr));
+    canvas.style.width = `${Math.round((right - left) * scale)}px`;
+    canvas.style.height = `${Math.round(hTw * scale)}px`;
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = this.pageDark ? '#1e1e1e' : '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, -left * scale * dpr, -top * scale * dpr);
+    paintItems(ctx, items, this.enginePaintEnv(), {});
+    return true;
+  }
+
   /** Número de páginas do layout de impressão (0 nas outras visões). */
   layoutPageCount(): number { return this.eng?.result.pages.length ?? 0; }
 
@@ -9118,8 +9886,7 @@ export class UniversalWriteElement extends HTMLElement {
       let sectPage = 0;
       for (let i = pg - 1; i >= 0 && eng.result.pages[i]!.section === page.section; i--) sectPage++;
       const sp = this.sectionOfPage(pg)?.sectPr;
-      const evenOdd = !!this.fullDoc?.formatting?.settings.evenAndOddHeaders;
-      type = sectPage === 0 && sp?.titlePg ? 'first' : evenOdd && page.number % 2 === 0 ? 'even' : 'default';
+      type = sectPage === 0 && sp?.titlePg ? 'first' : this.evenOddHeaders() && page.number % 2 === 0 ? 'even' : 'default';
     }
     const src = hfBlocksFor(eng.doc.full, page.section, which, type);
     const b = this.bodyState();

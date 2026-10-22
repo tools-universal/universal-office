@@ -10,6 +10,7 @@ import {
   specialIndentMenu, styleWidget, symbolMenu, themeMenu, titleWidget, zoomItem,
 } from './chrome-widgets.js';
 import { tableDesignGroups, tableFormatMenu, tableLayoutGroups, tableMenu } from './chrome-table.js';
+import { docInfoMenu, hfGalleryMenu, hfToolsGroups, pageNumberMenu } from './chrome-hf.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -41,7 +42,14 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     symbols: sub({ en: 'Special characters', pt: 'Caracteres especiais' }, 'special_character', () => symbolMenu(env, ctx), 'symbols'),
     breaks: sub({ en: 'Break', pt: 'Quebra' }, 'insert_page_break', breaksMenu, 'breaks'),
     columns: sub({ en: 'Columns', pt: 'Colunas' }, 'view_column_2', columnsMenu, 'columns'),
-    hf: sub({ en: 'Headers & footers', pt: 'Cabeçalhos e rodapés' }, 'call_to_action', () => ['header', 'footer'], 'hf'),
+    // Cabeçalho, Rodapé e Número de Página com as galerias de modelos; opções e vínculo no diálogo
+    hf: sub({ en: 'Headers & footers', pt: 'Cabeçalhos e rodapés' }, 'call_to_action', () => [
+      sub({ en: 'Header', pt: 'Cabeçalho' }, 'vertical_align_top', () => hfGalleryMenu(env, ctx, 'header'), 'hf:headerMenu'),
+      sub({ en: 'Footer', pt: 'Rodapé' }, 'vertical_align_bottom', () => hfGalleryMenu(env, ctx, 'footer'), 'hf:footerMenu'),
+      sub({ en: 'Page number', pt: 'Número de página' }, 'numbers', () => pageNumberMenu(env, ctx), 'hf:pgnumMenu'),
+      '-', 'dlg:dateTime', sub({ en: 'Document info', pt: 'Informações do documento' }, 'info', docInfoMenu, 'hf:docinfo'), 'dlg:alignTab',
+      '-', 'dlg:hfOptions', 'hf:link', 'hf:prev', 'hf:next', 'hf:showText', '-', 'hf:close',
+    ], 'hf'),
     text: sub({ en: 'Text', pt: 'Texto' }, 'format_bold', () => ['bold', 'italic', 'underline', 'strike', 'sup', 'sub', '-', 'grow', 'shrink', '-', 'allCaps', 'smallCaps', 'case:upper', 'case:lower'], 'text'),
     color: sub({ en: 'Font color', pt: 'Cor da fonte' }, 'format_color_text', () => colorMenu(env, ctx), 'color'),
     highlight: sub({ en: 'Highlight color', pt: 'Cor do realce' }, 'format_ink_highlighter', () => highlightMenu(env, ctx), 'highlightMenu'),
@@ -217,12 +225,13 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           ] },
           { id: 'links', label: L('Links & Comments', 'Links e Comentários'), icon: 'link', prio: 5, cells: [large('link'), large('comment'), { rows: [['bookmark']] }] },
           { id: 'hf', label: L('Header & Footer', 'Cabeçalho e Rodapé'), icon: 'call_to_action', prio: 4, cells: [
-            large('header'), large('footer'),
-            { menu: fieldsMenu, id: 'fields', label: L('Page Number', 'Número de Página'), icon: 'numbers', size: 'large' },
+            { menu: () => hfGalleryMenu(env, ctx, 'header'), id: 'hf:headerMenu', label: L('Header', 'Cabeçalho'), icon: 'vertical_align_top', size: 'large' },
+            { menu: () => hfGalleryMenu(env, ctx, 'footer'), id: 'hf:footerMenu', label: L('Footer', 'Rodapé'), icon: 'vertical_align_bottom', size: 'large' },
+            { menu: () => pageNumberMenu(env, ctx), id: 'hf:pgnumMenu', label: L('Page Number', 'Número de Página'), icon: 'numbers', size: 'large' },
           ] },
           { id: 'text', label: L('Text', 'Texto'), icon: 'text_fields', prio: 3, cells: [
             large('textbox'),
-            { rows: [[{ cmd: 'field:date', label: true }], [{ menu: () => symbolMenu(env, ctx), id: 'symbols', label: L('Symbol', 'Símbolo'), icon: 'special_character', showLabel: true }]] },
+            { rows: [[{ cmd: 'dlg:dateTime', label: true }], [{ menu: () => symbolMenu(env, ctx), id: 'symbols', label: L('Symbol', 'Símbolo'), icon: 'special_character', showLabel: true }]] },
           ] },
         ],
       },
@@ -316,10 +325,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
         ],
       },
       {
-        id: 'hf-tools', label: L('Header & Footer', 'Cabeçalho e Rodapé'), contextual: () => env.ed.editingHeaderFooter() !== null, groups: [
-          { id: 'hf-insert', label: L('Insert', 'Inserir'), icon: 'numbers', prio: 5, cells: [large('field:page'), large('field:numpages'), large('field:date')] },
-          { id: 'hf-close', label: L('Close', 'Fechar'), icon: 'close', prio: 9, cells: [large('hf:close')] },
-        ],
+        id: 'hf-tools', label: L('Header & Footer', 'Cabeçalho e Rodapé'), contextual: () => env.ed.editingHeaderFooter() !== null, groups: hfToolsGroups(env, ctx),
       },
       {
         id: 'table-design', label: L('Table Design', 'Design da Tabela'), contextual: () => env.ed.editingTableCell(), groups: tableDesignGroups(env, ctx),

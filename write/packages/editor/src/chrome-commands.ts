@@ -7,6 +7,7 @@ import type { UniversalWriteElement, ViewMode } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import type { TableDialogKind } from './chrome-table-dialogs.js';
 import { registerTableCommands } from './chrome-table.js';
+import { registerHfCommands } from './chrome-hf.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -62,6 +63,8 @@ export interface ChromeCtl {
   rulerOn(): boolean;
   gridlines(): void;
   tabsDialog(): void;
+  /** diálogos do cabeçalho/rodapé (chrome-hf.ts) */
+  hfDialog(kind: 'pageNumbers' | 'dateTime' | 'alignTab' | 'options'): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -285,6 +288,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   ];
   reg.add(...cmds);
   registerTableCommands(reg, ed, app, ctl);
+  registerHfCommands(reg, ed, app, ctl);
 
   function stepComment(dir: 1 | -1): void {
     const cs = ed.getComments();
