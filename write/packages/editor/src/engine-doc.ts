@@ -117,14 +117,54 @@ export function buildEngineDoc(input: EngineDocInput): EngineDoc {
       if (b !== undefined) bookmarks.set(name, b);
     }
   }
+  // as marcas de indicador nos runs (modelo do editor) valem sobre o índice por
+  // parágrafo: trecho exato (REF) e posição no parágrafo (PAGEREF)
+  const marks = bookmarkMarks(blocks);
+  const bookmarkOffsets = new Map<string, number>();
+  const bookmarkEnds = new Map<string, { block: number; offset: number }>();
+  if (marks.starts.size) {
+    if (bookmarks === fullDoc?.bookmarks) bookmarks = new Map(bookmarks);
+    for (const [name, at] of marks.starts) { bookmarks.set(name, at.block); bookmarkOffsets.set(name, at.offset); }
+    for (const [name, at] of marks.ends) bookmarkEnds.set(name, at);
+  }
 
   const full: FullDocument = {
     ...(fullDoc ?? { footnotes: new Map(), endnotes: new Map(), comments: [], styles: new Map() }),
     blocks,
     sections: secs,
     bookmarks,
+    bookmarkOffsets,
+    bookmarkEnds,
   } as FullDocument;
   return { full, origins, paraBlock, sectionMap };
+}
+
+/** Começo e fim de cada indicador pelas marcas nos runs: bloco do motor e posição
+ *  no texto do parágrafo (nas células, o bloco da tabela e a posição na célula). */
+export function bookmarkMarks(blocks: readonly Block[]): {
+  starts: Map<string, { block: number; offset: number }>;
+  ends: Map<string, { block: number; offset: number }>;
+} {
+  const starts = new Map<string, { block: number; offset: number }>();
+  const ends = new Map<string, { block: number; offset: number }>();
+  const names = new Map<number, string>();
+  const para = (p: Paragraph, block: number): void => {
+    let offset = 0;
+    for (const r of p.runs) {
+      const bm = r.bookmark;
+      if (bm && !bm.end && !starts.has(bm.name)) { starts.set(bm.name, { block, offset }); names.set(bm.id, bm.name); }
+      else if (bm?.end) { const n = names.get(bm.id); if (n && !ends.has(n)) ends.set(n, { block, offset }); }
+      offset += r.text.length;
+    }
+  };
+  const walk = (bs: readonly Block[], block: number | null): void => {
+    bs.forEach((b, i) => {
+      if (b.type === 'paragraph') para(b.paragraph, block ?? i);
+      else for (const row of b.rows) for (const c of row.cells) walk(cellBlocks(c), block ?? i);
+    });
+  };
+  walk(blocks, null);
+  return { starts, ends };
 }
 
 /** Bordas de página editadas (SectPr.pgBorders) valem sobre as lidas do arquivo (sect.pgBorders, que o motor pinta). */

@@ -95,11 +95,23 @@ import {
   patchSettingsNotes,
   type NoteKind,
   type NoteProps,
+  insertIndex,
+  patchStyleXml,
+  builtinStyle,
+  type TabLeader,
 } from '@universal-office/docx-core';
 import {
   ensureNoteStyles, noteBlocks, flattenBlocks, setNoteBlocks, cloneBlocks, nextNoteId, markNoteRuns, markNoteRunsInTable,
   isNoteMark, convertNoteContent, effectiveNoteOptions, notePropsOf, NOTE_DEFAULTS, type NoteOptions,
 } from './notes.js';
+import {
+  validBookmarkName, isHiddenBookmark, bookmarksIn, findBookmark, removeBookmarkMarks, addBookmarkMarks, textBetween, runsBetween,
+  maxBookmarkId, hiddenBookmarkName, crossRefInstr, refFieldTarget, captionRange, captionFields, seqLabel, parseTocInstr, tocInstr,
+  tocEntryParagraphs, unlinkRuns, TOF_EMPTY, TOC_EMPTY, TOF_FORMATS, BUILTIN_LABELS, CHAPTER_SEPARATOR_TEXT,
+  type BookmarkInfo, type CrossRefType, type CrossRefItem, type CrossRefOptions, type CaptionSettings, type CaptionLabelInfo,
+  type CaptionOptions, type CaptionNumbering, type TableOfFiguresOptions, type TofFormat, type LinkInfo, type HyperlinkOptions,
+  type TocField, type TocOptions, type TocSource, type TocLook,
+} from './references.js';
 import {
   DocStyles, listStyles, styleLook, ensureDefined, resolveStyleId, createStyleXml, modifyStyleXml, renameStyleXml, deleteStyleXml, setQuickXml, displayName,
   type StyleInfo, type StyleLook, type StyleFilter, type CreateStyleOptions, type ModifyStyleOptions,
@@ -136,7 +148,7 @@ import {
 } from '@universal-office/docx-layout';
 import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/docx-core';
 import {
-  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting,
+  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting, numberedItems, formatNumber,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
   RevisionDisplay, authorColor, type RevisionView, formatWordDate,
@@ -3424,62 +3436,1059 @@ export class UniversalWriteElement extends HTMLElement {
     this.refresh();
   }
 
-  // ───────────────── sumário (TOC) ─────────────────
+  // ───────────────── links e referências ─────────────────
+  // Indicadores (marcas de largura zero nos runs — Run.bookmark), Referência
+  // Cruzada (REF/PAGEREF/NOTEREF), legendas (SEQ/STYLEREF), índice de
+  // ilustrações e sumário (campo TOC que atravessa parágrafos: Run.fieldBegin /
+  // fieldEnd) e a atualização de campos (F9). Regras puras em references.ts;
+  // fatos medidos em write/tools/refs-lab (memória word-refs-oracle-facts).
 
-  /** Gera/atualiza o sumário a partir dos títulos, com páginas do NOSSO
-   *  layout e leader pontilhado — o equivalente do F9 do app de referência. */
-  updateToc(): boolean {
-    if (!this.model || this.locked()) return false;
-    const tocIdx = this.model.paragraphs.findIndex((p) => p.props.tocInstr);
-    if (tocIdx < 0) return false;
+  /** "Mostrar indicadores" (colchetes cinza na tela — opção própria, como no Word). */
+  private bookmarkMarksShown = false;
+  /** contador dos nomes ocultos novos (_Ref/_Toc + 9 dígitos, sequenciais na sessão) */
+  private refSeed = { n: 243_000_000 + Math.floor(Math.random() * 400_000) };
+  /** próximo w:id de indicador livre (-1 = ainda não calculado) */
+  private nextBmId = -1;
+  /** rótulos de legenda criados, numeração por rótulo e AutoLegenda (como o Word
+   *  guarda no Normal: a barra persiste — `captionSettings`) */
+  private captionCfg: CaptionSettings = { labels: [], numbering: {} };
+
+  /** Listas de parágrafos com marcas de indicador e a ordem de cada uma no documento
+   *  (corpo por parágrafo; tabela pela âncora; notas e cabeçalhos/rodapés depois). */
+  private markStories(): { paras: Paragraph[]; key: number; body?: boolean; cell?: { anchor: number; hops: CellHop[] } }[] {
+    const b = this.bodyState();
+    const out: { paras: Paragraph[]; key: number; body?: boolean; cell?: { anchor: number; hops: CellHop[] } }[] = [{ paras: b.model.paragraphs, key: -1, body: true }];
+    b.tableAnchors.forEach((a, ai) => {
+      a.table.rows.forEach((row, ri) => {
+        let col = row.trPr?.gridBefore ?? 0;
+        for (const c of row.cells) {
+          out.push({ paras: c.paragraphs, key: a.beforePara - 0.5, cell: { anchor: ai, hops: [{ r: ri, c: col }] } });
+          const nested = (t: TableBlock): void => { for (const r of t.rows) for (const x of r.cells) { out.push({ paras: x.paragraphs, key: a.beforePara - 0.5 }); x.tables.forEach(nested); } };
+          c.tables.forEach(nested);
+          col += Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1);
+        }
+      });
+    });
+    let k = 1e9;
+    for (const m of [this.fullDoc?.footnotes, this.fullDoc?.endnotes]) m?.forEach((ps) => out.push({ paras: ps, key: k++ }));
+    for (const s of this.fullDoc?.sections ?? []) for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) out.push({ paras: ps, key: k++ });
+    const seen = new Set<Paragraph[]>();
+    return out.filter((s) => (seen.has(s.paras) ? false : (seen.add(s.paras), true)));
+  }
+
+  /** Indicadores do documento (diálogo Indicador): nome, oculto e texto do trecho;
+   *  `sort` 'name' (sem caixa, com acento — como o Word) ou 'location'. */
+  getBookmarks(opts: { hidden?: boolean; sort?: 'name' | 'location' } = {}): BookmarkInfo[] {
+    const rows: (BookmarkInfo & { k: number[] })[] = [];
+    const seen = new Set<string>();
+    for (const s of this.markStories()) {
+      for (const b of bookmarksIn(s.paras)) {
+        const low = b.name.toLowerCase();
+        if (seen.has(low)) continue;
+        seen.add(low);
+        rows.push({ name: b.name, hidden: isHiddenBookmark(b.name), text: textBetween(s.paras, b.start, b.end), k: s.body ? [b.start.para, b.start.offset] : [s.key, b.start.para, b.start.offset] });
+      }
+    }
+    // indicadores fora dos runs (marca no nível do corpo): pelo parágrafo
+    for (const [name, para] of this.bookmarkParas) {
+      if (seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      rows.push({ name, hidden: isHiddenBookmark(name), text: '', k: [para - 0.25, 0] });
+    }
+    const vis = rows.filter((r) => opts.hidden || !r.hidden);
+    const cmpK = (a: number[], b: number[]): number => { for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] ?? -1) - (b[i] ?? -1); if (d) return d; } return 0; };
+    vis.sort((a, b) => (opts.sort === 'location' ? cmpK(a.k, b.k) : a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'accent' })));
+    return vis.map(({ k: _k, ...r }) => r);
+  }
+
+  /** Algum indicador com este nome (sem diferenciar maiúsculas)? */
+  hasBookmark(name: string): boolean {
+    const low = name.toLowerCase();
+    if ([...this.bookmarkParas.keys()].some((k) => k.toLowerCase() === low)) return true;
+    return this.markStories().some((s) => !!findBookmark(s.paras, name));
+  }
+
+  /** w:id livre para um indicador novo (acima de todos os do documento, inclusive os crus). */
+  private newBookmarkId(): number {
+    if (this.nextBmId < 0) {
+      const xmls = (this.pkg?.partNames() ?? []).filter((p) => /^word\/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml$/.test(p)).map((p) => this.pkg!.getPartText(p));
+      this.nextBmId = maxBookmarkId(this.allParagraphs(), xmls) + 1;
+    }
+    return this.nextBmId++;
+  }
+
+  /** Nome oculto novo (_Ref/_Toc) que o documento ainda não usa. */
+  private newHiddenName(prefix: '_Ref' | '_Toc'): string {
+    return hiddenBookmarkName(prefix, (n) => this.hasBookmark(n), this.refSeed);
+  }
+
+  /** Tira as marcas do indicador `name` de todas as histórias. */
+  private dropBookmark(name: string): boolean {
+    let hit = false;
+    for (const s of this.markStories()) if (removeBookmarkMarks(s.paras, name)) hit = true;
+    for (const k of [...this.bookmarkParas.keys()]) if (k.toLowerCase() === name.toLowerCase()) { this.bookmarkParas.delete(k); hit = true; }
+    return hit;
+  }
+
+  /**
+   * Adiciona o indicador `name` na seleção (ou no cursor: indicador de ponto). Nome
+   * repetido move o indicador (o Word não diferencia maiúsculas). false = nome
+   * inválido (começa com letra; letras, dígitos e `_`; até 40) ou edição bloqueada.
+   */
+  insertBookmark(name: string): boolean {
+    if (!this.model || this.locked() || !validBookmarkName(name)) return false;
+    this.snapshot();
+    this.dropBookmark(name);
+    const { start, end } = normalizeRange(this.range());
+    addBookmarkMarks(this.model.paragraphs, name, this.newBookmarkId(), start, end);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-bookmarks-change'));
+    return true;
+  }
+
+  /** Exclui o indicador (o texto fica). */
+  deleteBookmark(name: string): boolean {
+    if (!this.model || this.locked() || !this.hasBookmark(name)) return false;
+    this.snapshot();
+    this.dropBookmark(name);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-bookmarks-change'));
+    return true;
+  }
+
+  /** Ir para: seleciona o trecho do indicador (o de ponto: o cursor nele). */
+  goToBookmark(name: string): boolean {
+    if (!this.model) return false;
+    for (const s of this.markStories()) {
+      const b = findBookmark(s.paras, name);
+      if (!b) continue;
+      if (s.body) {
+        if (!this.toBody()) return false;
+        this.goToBodyPara(b.start.para, b.start.offset, b.start.offset, false);
+        this.selection = { anchor: b.start, focus: b.end };
+      } else if (s.cell) {
+        if (!this.toBody() || !this.enterCell(s.cell.anchor, s.cell.hops, b.start)) return false;
+        this.selection = { anchor: b.start, focus: b.end };
+      } else return false;
+      this.pendingProps = null;
+      this.refreshSelection();
+      this.scrollCaretIntoView();
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    const para = [...this.bookmarkParas].find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+    if (para === undefined || !this.toBody()) return false;
+    this.goToBodyPara(Math.min(para, this.model.paragraphs.length - 1), 0, 0, false);
+    return true;
+  }
+
+  /** "Mostrar indicadores": colchetes cinza em volta dos trechos (I no de ponto) —
+   *  só na tela, nunca no PDF/impressão. Sem argumento alterna. */
+  showBookmarks(on?: boolean): boolean {
+    this.bookmarkMarksShown = on ?? !this.bookmarkMarksShown;
+    this.refreshView();
+    return this.bookmarkMarksShown;
+  }
+  bookmarksShown(): boolean { return this.bookmarkMarksShown; }
+
+  /** Colchetes dos indicadores nas linhas da página (adorno de tela). */
+  private paintBookmarkMarks(ctx: CanvasRenderingContext2D, pg: number): void {
+    if (!this.bookmarkMarksShown || !this.eng) return;
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? '#9aa0a6' : '#808080';
+    ctx.lineWidth = 14;
+    for (const el of this.eng.lines) {
+      if (el.page !== pg || !el.para || el.loc.kind === 'other') continue;
+      let acc = 0;
+      const runs = el.para.runs;
+      for (let i = 0; i < runs.length; i++) {
+        const r = runs[i]!;
+        const at = acc;
+        acc += r.text.length;
+        if (!r.bookmark) continue;
+        if (at < el.line.start || at > el.line.end || (at === el.line.end && at < paraLength(el.para) && !r.bookmark.end)) continue;
+        const x = caretXIn(el.line, at);
+        const y0 = el.line.y + 10, y1 = el.line.y + el.line.height - 10, w = 50;
+        const point = !r.bookmark.end && runs[i + 1]?.bookmark?.end && runs[i + 1]!.bookmark!.id === r.bookmark.id;
+        ctx.beginPath();
+        ctx.moveTo(x, y0); ctx.lineTo(x, y1);
+        if (point) {
+          ctx.moveTo(x - w, y0); ctx.lineTo(x + w, y0); ctx.moveTo(x - w, y1); ctx.lineTo(x + w, y1);
+          i++;
+        } else {
+          const d = r.bookmark.end ? -w : w;
+          ctx.moveTo(x, y0); ctx.lineTo(x + d, y0); ctx.moveTo(x, y1); ctx.lineTo(x + d, y1);
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ── referência cruzada
+
+  /**
+   * Itens do diálogo Referência Cruzada para um tipo (como o Word os lista —
+   * oráculo xr-items): títulos com recuo por nível, itens numerados com o número,
+   * indicadores visíveis por nome, notas "marca  texto", legendas do rótulo.
+   */
+  getCrossReferenceItems(type: CrossRefType, label?: string): CrossRefItem[] {
+    const b = this.bodyState();
+    if (!b.model) return [];
+    const ps = b.model.paragraphs;
+    switch (type) {
+      case 'heading': {
+        return this.getHeadings().map((h) => ({ id: `p:${h.para}`, text: `${'  '.repeat(Math.max(0, h.level - 1))}${h.text}` }));
+      }
+      case 'numbered': {
+        const doc = this.eng && !this.hfEdit && !this.tbEdit && !this.cellEdit ? this.eng.doc : this.liveEngineDoc();
+        return numberedItems(doc.full).flatMap((n) => {
+          const o = doc.origins[n.block];
+          return o?.kind === 'para' ? [{ id: `p:${o.para}`, text: `${'  '.repeat(n.ilvl)}${n.number} ${n.text}` }] : [];
+        });
+      }
+      case 'bookmark':
+        return this.getBookmarks({ sort: 'name' }).map((x) => ({ id: x.name, text: x.name }));
+      case 'footnote': case 'endnote': {
+        const notes = type === 'footnote' ? this.fullDoc?.footnotes : this.fullDoc?.endnotes;
+        const fmt = this.getNoteOptions(type).numberFormat;
+        let n = this.getNoteOptions(type).startAt - 1;
+        const seen = new Set<number>();
+        return this.noteRefs(type).flatMap((r) => {
+          if (seen.has(r.id)) return [];
+          seen.add(r.id);
+          const paras = notes?.get(r.id) ?? [];
+          const text = paras.map((p) => paraText(p).replace(NOTE_REF_TEXT, '')).join(' ').replace(/[\t\n]/g, ' ').trim();
+          return [{ id: `n:${r.id}`, text: `${formatNumber(++n, fmt)}  ${text}` }];
+        });
+      }
+      case 'caption': {
+        const want = (label ?? '').toLowerCase();
+        return ps.flatMap((p, pi) => p.runs.some((r) => seqLabel(r.field).toLowerCase() === want && !!want)
+          ? [{ id: `p:${pi}`, text: paraText(p).replace(/[\t\n\f]/g, ' ').trim() }] : []);
+      }
+    }
+  }
+
+  /** Rótulos de legenda que têm itens no documento + os internos e os criados. */
+  private paraOfItem(id: string): number {
+    const m = /^p:(\d+)$/.exec(id);
+    return m ? +m[1]! : -1;
+  }
+
+  /** Indicador _Ref que cobre exatamente [from, to] do parágrafo (reaproveitado,
+   *  como o Word na 2ª referência ao mesmo destino — oráculo xr-h-twice) ou um novo. */
+  private refBookmark(paras: Paragraph[], para: number, from: number, to: number, prefix: '_Ref' | '_Toc' = '_Ref'): string {
+    const hit = bookmarksIn(paras).find((b) => b.name.startsWith(prefix) && b.start.para === para && b.end.para === para && b.start.offset === from && b.end.offset === to);
+    if (hit) return hit.name;
+    const name = this.newHiddenName(prefix);
+    addBookmarkMarks(paras, name, this.newBookmarkId(), { para, offset: from }, { para, offset: to });
+    return name;
+  }
+
+  /**
+   * Insere uma referência cruzada no cursor (diálogo Referência Cruzada): cria o
+   * _Ref oculto no destino (título, item, legenda, nota) ou usa o indicador e
+   * grava o campo como o Word (REF/PAGEREF/NOTEREF com \h, \r \n \w \d, \p, \f —
+   * oráculo xr-*). `position` acrescenta " acima/abaixo" (REF \p) depois.
+   */
+  insertCrossReference(opts: CrossRefOptions): boolean {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    const body = this.bodyState();
+    let target: string | null = null;
+    const ps = body.model.paragraphs;
+    if (opts.type === 'bookmark') target = this.hasBookmark(opts.item) ? opts.item : null;
+    else if (opts.type === 'footnote' || opts.type === 'endnote') {
+      const id = +(/^n:(\d+)$/.exec(opts.item)?.[1] ?? NaN);
+      const ref = this.noteRefs(opts.type).find((r) => r.id === id);
+      if (!ref) return false;
+      this.snapshot();
+      if (opts.kind === 'page') {
+        // nº da página de uma nota: o _Ref fica NA nota, em volta do parágrafo (oráculo xr-fn-page)
+        const notes = opts.type === 'footnote' ? this.fullDoc?.footnotes : this.fullDoc?.endnotes;
+        const np = notes?.get(id);
+        if (!np?.length) return false;
+        target = this.refBookmark(np, 0, 0, paraLength(np[0]!));
+      } else {
+        const host = ref.cell ? resolveCell(body.tableAnchors[ref.cell.anchor]!.table, ref.cell.hops)?.paragraphs : ps;
+        if (!host) return false;
+        const run = host[ref.para]?.runs;
+        let len = 1, acc = 0;
+        for (const r of run ?? []) { if (acc === ref.offset && r.noteRef) { len = r.text.length; break; } acc += r.text.length; }
+        target = this.refBookmark(host, ref.para, ref.offset, ref.offset + len);
+      }
+      return this.insertRefFields(target, opts, true);
+    } else {
+      const para = this.paraOfItem(opts.item);
+      const p = ps[para];
+      if (!p) return false;
+      this.snapshot();
+      const len = paraLength(p);
+      let [from, to] = [0, len];
+      if (opts.type === 'caption') {
+        let acc = 0, seqEnd = -1;
+        for (const r of p.runs) { acc += r.text.length; if (seqEnd < 0 && seqLabel(r.field)) seqEnd = acc; }
+        [from, to] = captionRange(opts.kind, len, seqEnd < 0 ? len : seqEnd);
+      }
+      target = this.refBookmark(ps, para, from, to);
+      return this.insertRefFields(target, opts, true);
+    }
+    if (!target) return false;
+    this.snapshot();
+    return this.insertRefFields(target, opts, true);
+  }
+
+  /** Os campos da referência no cursor (snapshot já tirado). */
+  private insertRefFields(name: string, opts: CrossRefOptions, snapshotted: boolean): boolean {
+    if (!this.model) return false;
+    if (!snapshotted) this.snapshot();
+    if (this.hasSelection()) {
+      const pos = this.deleteSelection();
+      this.selection = { anchor: pos, focus: pos };
+    }
+    const instrs = [crossRefInstr(name, opts.kind, { hyperlink: opts.hyperlink !== false, separator: opts.separator })];
+    if (opts.position && opts.kind !== 'position') instrs.push(crossRefInstr(name, 'position', { hyperlink: opts.hyperlink !== false }));
+    const added = new Set<Run>();
+    let pos = this.selection.focus;
+    instrs.forEach((instr, i) => {
+      if (i > 0) pos = this.insertTyped(pos, ' ');
+      const props = this.newRunProps(propsAt(this.model!, pos));
+      const run: Run = { text: '?', props, field: instr };
+      pos = this.insertWholeRun(pos, run);
+      const p = this.model!.paragraphs[pos.para]!;
+      let acc = 0;
+      for (const r of p.runs) { acc += r.text.length; if (acc === pos.offset && r.field === instr) { added.add(r); break; } }
+    });
+    this.selection = { anchor: pos, focus: pos };
+    this.refreshFieldCache(added);
+    // o resultado pode ter outro tamanho que o "?": o cursor vai para depois dos campos
+    const last = [...added].pop();
+    if (last) {
+      const p = this.model.paragraphs[pos.para]!;
+      let acc = 0;
+      for (const r of p.runs) { acc += r.text.length; if (r === last) { this.selection = { anchor: { para: pos.para, offset: acc }, focus: { para: pos.para, offset: acc } }; break; } }
+    }
+    this.refresh();
+    return true;
+  }
+
+  // ── atualização de campos (F9)
+
+  /**
+   * Grava no run o valor que a diagramação completa calculou para cada campo
+   * dinâmico (REF, PAGEREF, NOTEREF, SEQ, STYLEREF…) — o resultado em cache que
+   * o arquivo leva. `only`: só estes runs. Devolve quantos mudaram.
+   */
+  private refreshFieldCache(only?: ReadonlySet<Run>): number {
+    if (!this.model) return 0;
+    const values = new Map<Run, string>();
+    this.syncRunRPr(this.bodyModel().paragraphs);
+    const doc = this.liveEngineDoc();
+    layoutDocument(doc.full, this.liveFontProvider(), { ...this.layoutOpts(), onField: (r, v) => { if (!only || only.has(r)) values.set(r, v); } });
+    let n = 0;
+    for (const [run, v] of values) if (this.setFieldResult(run, v)) n++;
+    return n;
+  }
+
+  /** Resultado novo de um campo: o texto e os runs formatados como o Word (REF copia a
+   *  formatação do trecho; PAGEREF/SEQ/STYLEREF com w:noProof; NOTEREF \f com o estilo
+   *  da referência de nota — oráculo refs-lab). */
+  private setFieldResult(run: Run, v: string): boolean {
+    const instr = run.field ?? '';
+    const name = /^\s*(\w+)/.exec(instr)?.[1]?.toUpperCase() ?? '';
+    if (run.props.src !== undefined && !run.fieldResult) {
+      if (run.text === v) return false;
+      run.text = v;
+      return true;
+    }
+    const before = run.text + JSON.stringify(run.fieldResult ?? null);
+    const base: RunProps = { ...withoutRevisions(run.props) };
+    delete base.src;
+    let result: Run[];
+    if (name === 'REF' && !/\\[pnrw]\b/i.test(instr)) {
+      const target = refFieldTarget(instr);
+      let copied: Run[] | null = null;
+      for (const s of this.markStories()) {
+        const b = findBookmark(s.paras, target);
+        if (b && b.start.para === b.end.para) { copied = runsBetween(s.paras[b.start.para]!, b.start.offset, b.end.offset); break; }
+      }
+      result = copied?.length && copied.map((r) => r.text).join('') === v ? copied : [{ text: v, props: base }];
+    } else if (name === 'PAGEREF' || name === 'SEQ' || name === 'STYLEREF') {
+      result = [{ text: v, props: { ...base, noProof: true } }];
+    } else if (name === 'NOTEREF' && /\\f\b/i.test(instr)) {
+      const ref = this.noteRefStyleId(instr);
+      result = [{ text: v, props: { ...base, ...(ref ? { charStyle: ref } : {}) } }];
+    } else result = [{ text: v, props: base }];
+    run.text = v;
+    if (run.props.src === undefined) run.fieldResult = result;
+    else if (run.fieldResult) run.fieldResult = result;
+    return before !== run.text + JSON.stringify(run.fieldResult ?? null);
+  }
+
+  /** Estilo de caractere da referência da nota do indicador (NOTEREF \f). */
+  private noteRefStyleId(instr: string): string | undefined {
+    const target = refFieldTarget(instr);
+    for (const s of this.markStories()) {
+      const b = findBookmark(s.paras, target);
+      if (!b) continue;
+      let acc = 0;
+      for (const r of s.paras[b.start.para]?.runs ?? []) {
+        if (acc >= b.start.offset && r.noteRef) return r.props.charStyle ?? r.rpr?.rStyle;
+        acc += r.text.length;
+      }
+    }
+    return undefined;
+  }
+
+  /** Campos do modelo em edição que cruzam a seleção (o cursor junto de um conta). */
+  private fieldRunsInSelection(): Set<Run> {
+    const out = new Set<Run>();
+    if (!this.model) return out;
+    const { start, end } = normalizeRange(this.range());
+    for (let pi = start.para; pi <= end.para; pi++) {
+      let acc = 0;
+      for (const r of this.model.paragraphs[pi]?.runs ?? []) {
+        const rs = acc;
+        acc += r.text.length;
+        const a = pi === start.para ? start.offset : 0, z = pi === end.para ? end.offset : Infinity;
+        if (!r.field || rs > z || acc < a) continue;
+        out.add(r);
+        for (const x of r.fieldResult ?? []) if (x.field) out.add(x);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Atualizar campos (F9 = os da seleção, como o Word; "Atualizar campos" = todos):
+   * sumários e índices de ilustrações refeitos, fórmulas de tabela recalculadas e
+   * o resultado em cache de REF/PAGEREF/NOTEREF/SEQ/STYLEREF. Devolve quantos mudaram.
+   */
+  updateFields(scope: 'selection' | 'all' = 'all'): number {
+    if (!this.model || this.locked()) return 0;
+    const work = this.formulaWork(scope === 'selection' ? this.fieldRunsInSelection() : undefined);
+    const tocs = this.tocFields().filter((t) => scope === 'all' || this.tocInSelection(t));
     // atualização de campo ≠ edição (não dispara autosave)
     this.quietChange = true;
     this.snapshot();
     this.quietChange = false;
+    for (const w of work) { w.run.text = w.text; delete w.run.fieldResult; }
+    let n = work.length;
+    for (const t of tocs.reverse()) if (this.rebuildToc(t)) n++;
+    n += this.refreshFieldCache(scope === 'selection' && !tocs.length ? this.fieldRunsInSelection() : undefined);
+    if (!n) { this.undoStack.pop(); return 0; }
+    // o texto do resultado mudou de tamanho: o cursor fica dentro do parágrafo
+    const ps = this.model.paragraphs;
+    const fit = (q: DocPosition): DocPosition => ({ para: Math.min(q.para, ps.length - 1), offset: Math.min(q.offset, paraLength(ps[Math.min(q.para, ps.length - 1)]!)) });
+    this.selection = { anchor: fit(this.selection.anchor), focus: fit(this.selection.focus) };
+    this.refresh();
+    return n;
+  }
 
-    // remove entradas antigas (e o resíduo vazio do campo logo após)
-    let end = tocIdx + 1;
-    while (
-      end < this.model.paragraphs.length &&
-      (this.model.paragraphs[end]!.props.tocEntry ||
-        (end === tocIdx + 1 && paraLength(this.model.paragraphs[end]!) === 0 && !this.model.paragraphs[end]!.props.styleId))
-    ) end++;
-    const removed = end - (tocIdx + 1);
-    this.model.paragraphs.splice(tocIdx + 1, removed);
-    this.shiftAnchors(tocIdx, -removed);
+  /** Fórmulas de tabela (= …) a recalcular — de todas as tabelas ou só as `only`. */
+  private formulaWork(only?: ReadonlySet<Run>): { run: Run; text: string }[] {
+    const work: { run: Run; text: string }[] = [];
+    const visit = (t: TableBlock): void => {
+      const m = TOps.mapTable(t);
+      for (const row of m.rows) {
+        for (const g of row) {
+          for (const b of TOps.cellContent(g.cell)) {
+            if (b.type === 'table') { visit(b); continue; }
+            for (const run of b.paragraph.runs) {
+              if (!run.field || !/^\s*=/.test(run.field) || (only && !only.has(run))) continue;
+              const text = formulaResultText(run.field, { table: t, r: g.ri, c: g.col });
+              if (text !== run.text) work.push({ run, text });
+            }
+          }
+        }
+      }
+    };
+    for (const a of this.bodyState().tableAnchors) visit(a.table);
+    return work;
+  }
 
-    // níveis do instr: TOC \o "1-3"
-    const instr = this.model.paragraphs[tocIdx]!.props.tocInstr!;
-    const range = instr.match(/\\o\s+"(\d)-(\d)"/);
-    const minLvl = range ? parseInt(range[1]!, 10) : 1;
-    const maxLvl = range ? parseInt(range[2]!, 10) : 3;
+  // ── sumário e índice de ilustrações (o MESMO motor: campo TOC)
 
-    const s = this.sect();
-    const contentW = s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
-    const entries: Paragraph[] = [];
-    this.model.paragraphs.forEach((p, pi) => {
-      const m = p.props.styleId?.match(/^(?:Heading|Ttulo)(\d)$/);
-      if (!m) return;
-      const lvl = parseInt(m[1]!, 10);
-      if (lvl < minLvl || lvl > maxLvl) return;
-      const page = (this.layoutCache[pi]?.lines[0]?.page ?? 0) + 1;
-      const text = paraText(p).replace(/[\f\n]/g, '').trim();
-      if (!text) return;
-      entries.push({
-        runs: [{
-          text: `${text}\t${page}`,
-          props: { ...DEFAULT_RUN_PROPS, link: `#para:${pi}`, color: lvl === 1 ? undefined : '444444' },
-        }],
-        props: {
-          tocEntry: true,
-          indentLeftTwips: (lvl - 1) * 220 || undefined,
-          spaceAfterTwips: 40,
-          tabStops: [{ posTwips: contentW, align: 'right', leader: 'dot' }],
-        },
-      });
+  /** Campos TOC do corpo: parágrafos do começo e do fim, os runs de começo/fim e a instrução. */
+  private tocFields(): TocField[] {
+    const ps = this.bodyModel().paragraphs;
+    const out: TocField[] = [];
+    const stack: { para: number; run: Run; instr: string }[] = [];
+    ps.forEach((p, pi) => {
+      for (const r of p.runs) {
+        if (r.fieldBegin !== undefined || (r.fieldOpen && r.field)) stack.push({ para: pi, run: r, instr: r.fieldBegin ?? r.field! });
+        else if (r.fieldEnd) {
+          const b = stack.pop();
+          if (b && /^\s*TOC\b/i.test(b.instr)) out.push({ begin: b.para, end: pi, beginRun: b.run, endRun: r, instr: b.instr });
+        }
+      }
     });
-    this.model.paragraphs.splice(tocIdx + 1, 0, ...entries);
-    this.shiftAnchors(tocIdx, entries.length);
+    for (const b of stack) if (/^\s*TOC\b/i.test(b.instr)) out.push({ begin: b.para, end: -1, beginRun: b.run, endRun: null, instr: b.instr });
+    return out.sort((a, b) => a.begin - b.begin);
+  }
+
+  private tocInSelection(t: TocField): boolean {
+    if (this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    const { start, end } = normalizeRange(this.range());
+    const last = t.end < 0 ? t.begin : t.end;
+    return start.para <= last && end.para >= t.begin;
+  }
+
+  /** O campo TOC (índice de ilustrações) onde está o cursor, ou o 1º do documento. */
+  private tofAtCaret(): TocField | undefined {
+    const all = this.tocFields().filter((t) => parseTocInstr(t.instr).caption !== undefined);
+    return all.find((t) => this.tocInSelection(t)) ?? all[0];
+  }
+
+  /** Página exibida de um parágrafo do corpo (layout atual). */
+  private pageLabelOf(p: Paragraph): string {
+    const l = this.eng?.lines.find((x) => x.para === p);
+    const page = l ? this.eng!.result.pages[l.page] : undefined;
+    return page ? String(page.number) : '1';
+  }
+
+  /** Estilo do documento para um built-in (pelo w:name canônico), definido se faltar. */
+  private builtinStyleId(name: string): string {
+    const b = builtinStyle(name);
+    const pt = b ? /w:styleId="([^"]*)"/.exec(b.xml)?.[1] ?? name : name;
+    const id = resolveStyleId(this.docStyles.base(), pt);
+    if (this.stylesEditable()) this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), id, true));
+    return id;
+  }
+
+  /**
+   * Fontes de um campo TOC (fora do próprio campo): legendas do rótulo (\c/\a) ou
+   * títulos (\o, \u, \t). Cria o _Toc oculto em cada uma (o Word recria todos a
+   * cada atualização — oráculo tof-update).
+   */
+  private tocSources(o: TocOptions, skip: [number, number] | null): TocSource[] {
+    const ps = this.bodyModel().paragraphs;
+    const out: TocSource[] = [];
+    const inSkip = (pi: number): boolean => !!skip && pi >= skip[0] && pi <= skip[1];
+    if (o.caption !== undefined) {
+      const want = o.caption.toLowerCase();
+      ps.forEach((p, pi) => {
+        if (inSkip(pi)) return;
+        let acc = 0, seqEnd = -1;
+        for (const r of p.runs) { acc += r.text.length; if (seqEnd < 0 && seqLabel(r.field).toLowerCase() === want) seqEnd = acc; }
+        if (seqEnd < 0) return;
+        const full = paraText(p);
+        const text = (o.includeLabel === false ? full.slice(seqEnd).replace(/^\s+/, '') : full).replace(/[\t\n\f\u000B]/g, ' ').trim();
+        out.push({ level: 1, text, page: this.pageLabelOf(p), bookmark: this.refBookmark(ps, pi, 0, paraLength(p), '_Toc') });
+      });
+      return out;
+    }
+    const doc = this.liveEngineDoc();
+    const outline = documentOutline(doc.full);
+    const byPara = new Map<number, { level: number; number: string }>();
+    for (const h of outline) {
+      const og = doc.origins[h.block];
+      if (og?.kind === 'para') byPara.set(og.para, { level: h.level, number: h.number });
+    }
+    const styleLevel = new Map<string, number>();
+    for (const s of o.styles ?? []) {
+      const meta = this.docStyles.byName(s.style) ?? this.docStyles.meta(s.style);
+      if (meta) styleLevel.set(meta.id, s.level);
+    }
+    ps.forEach((p, pi) => {
+      if (inSkip(pi)) return;
+      let level = 0;
+      const h = byPara.get(pi);
+      const sid = p.props.styleId ?? p.ppr?.pStyle;
+      if (sid && styleLevel.has(sid)) level = styleLevel.get(sid)!;
+      else if (h && o.outline && this.isHeadingStyle(sid, h.level) && h.level >= o.outline[0] && h.level <= o.outline[1]) level = h.level;
+      else if (h && o.outlineLevels && h.level >= (o.outline?.[0] ?? 1) && h.level <= (o.outline?.[1] ?? 9)) level = h.level;
+      if (!level) return;
+      const text = paraText(p).replace(/[\t\n\f\u000B]/g, ' ').trim();
+      if (!text) return;
+      out.push({ level, text, ...(h?.number ? { number: h.number } : {}), page: this.pageLabelOf(p), bookmark: this.refBookmark(ps, pi, 0, paraLength(p), '_Toc') });
+    });
+    return out;
+  }
+
+  /** O estilo do parágrafo é (ou herda de) um título interno do nível? (\o sem \u) */
+  private isHeadingStyle(id: string | undefined, level: number): boolean {
+    let cur = id, guard = 0;
+    while (cur && guard++ < 12) {
+      const m = this.docStyles.meta(cur);
+      if (!m) return false;
+      if (m.name.toLowerCase() === `heading ${level}`) return true;
+      cur = m.basedOn;
+    }
+    return false;
+  }
+
+  /** Aparência das entradas: estilos, tabulação e preenchimento (o atual do índice, se houver). */
+  private tocLook(o: TocOptions, current?: Paragraph, leader?: TabLeader | 'none'): TocLook {
+    const sect = this.sect();
+    const width = sect.pageWidthTwips - sect.marginLeftTwips - sect.marginRightTwips;
+    const cur = current?.props.tabStops?.find((t) => t.align === 'right');
+    const fig = o.caption !== undefined;
+    const ids = new Map<number, string>();
+    const styleFor = (level: number): string => {
+      if (!ids.has(level)) ids.set(level, this.builtinStyleId(fig ? 'table of figures' : `toc ${Math.min(9, Math.max(1, level))}`));
+      return ids.get(level)!;
+    };
+    return {
+      styleFor,
+      hyperlinkStyle: o.hyperlinks ? this.builtinStyleId('Hyperlink') : '',
+      tabPos: cur?.posTwips ?? width - 10,
+      leader: leader ?? (cur ? cur.leader ?? 'none' : 'dot'),
+    };
+  }
+
+  /** Remove os _Toc que só as entradas antigas usavam (o Word recria todos). */
+  private dropOldTocMarks(oldRuns: readonly Run[]): void {
+    const names = new Set<string>();
+    const scan = (r: Run): void => {
+      if (r.props.link?.startsWith('#_Toc')) names.add(r.props.link.slice(1));
+      const t = refFieldTarget(r.field);
+      if (t.startsWith('_Toc')) names.add(t);
+      for (const x of r.fieldResult ?? []) scan(x);
+    };
+    oldRuns.forEach(scan);
+    if (!names.size) return;
+    // ainda usado fora do índice (hiperlink do usuário): fica
+    const old = new Set(oldRuns);
+    for (const s of this.markStories()) for (const p of s.paras) for (const r of p.runs) {
+      if (old.has(r)) continue;
+      const t = r.props.link?.startsWith('#') ? r.props.link.slice(1) : refFieldTarget(r.field);
+      if (t) names.delete(t);
+    }
+    for (const n of names) this.dropBookmark(n);
+  }
+
+  /**
+   * Refaz as entradas de um campo TOC (atualizar sumário/índice): os parágrafos do
+   * começo ao fim do campo dão lugar às entradas novas (o texto antes do começo e
+   * depois do fim fica; o parágrafo do começo guarda a identidade dele).
+   */
+  private rebuildToc(t: TocField): boolean {
+    const ps = this.bodyModel().paragraphs;
+    const bp = ps[t.begin];
+    if (!bp) return false;
+    const endPara = t.end < 0 ? t.begin : t.end;
+    const ep = ps[endPara]!;
+    const bi = bp.runs.indexOf(t.beginRun);
+    const ei = t.endRun ? ep.runs.indexOf(t.endRun) : -1;
+    const o = parseTocInstr(t.instr);
+    const oldRuns: Run[] = [];
+    for (let pi = t.begin; pi <= endPara; pi++) for (const r of ps[pi]!.runs) oldRuns.push(r);
+    this.dropOldTocMarks(oldRuns);
+    const sources = this.tocSources(o, [t.begin, endPara]);
+    const look = this.tocLook(o, ps[t.begin + (bi >= 0 && bp.runs.slice(0, bi).some((r) => r.text) ? 1 : 0)]);
+    const entries = this.tocOrEmpty(o, sources, look);
+    const before = bi > 0 ? bp.runs.slice(0, bi) : [];
+    const after = ei >= 0 ? ep.runs.slice(ei) : [{ text: '', props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true } as Run];
+    const begin: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldBegin: ` ${t.instr.trim()} ` };
+    const built = this.tocParagraphs(bp, ep, before, begin, entries, after, endPara === t.begin);
+    const removed = endPara - t.begin + 1;
+    ps.splice(t.begin, removed, ...built);
+    this.shiftAnchors(t.begin, built.length - removed);
+    return true;
+  }
+
+  /** Entradas do índice ou, sem fontes, o aviso do Word em negrito (oráculo tof-empty). */
+  private tocOrEmpty(o: TocOptions, sources: TocSource[], look: TocLook): Paragraph[] {
+    if (sources.length) return tocEntryParagraphs(o, sources, look);
+    const msg = pickLabels(this, o.caption !== undefined ? TOF_EMPTY : TOC_EMPTY);
+    return [{ runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} }];
+  }
+
+  /**
+   * Monta os parágrafos do campo TOC como o Word (oráculo tof-cursor-*): com texto
+   * antes do começo, o começo fica no fim desse parágrafo e as entradas vêm em
+   * parágrafos novos; senão o começo abre a 1ª entrada (no parágrafo de origem). O
+   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele.
+   */
+  private tocParagraphs(bp: Paragraph, ep: Paragraph, before: Run[], begin: Run, entries: Paragraph[], after: Run[], same: boolean): Paragraph[] {
+    const out: Paragraph[] = [];
+    const lead = before.some((r) => r.text || r.image || r.field);
+    const endProps: Paragraph['props'] = { ...ep.props };
+    if (same) delete endProps.src;
+    const first = { ...bp.props };
+    delete first.sectionBreak;
+    if (lead) {
+      bp.runs = [...before, begin];
+      bp.props = first;
+      out.push(bp, ...entries);
+    } else {
+      const e0 = entries[0]!;
+      bp.runs = [...before, begin, ...e0.runs];
+      bp.props = { ...e0.props, ...(first.src !== undefined ? { src: first.src } : {}) };
+      delete bp.ppr;
+      bp.pprEdited = true;
+      out.push(bp, ...entries.slice(1));
+    }
+    if (same) out.push({ runs: after, props: endProps, ...(ep.ppr ? { ppr: ep.ppr } : {}) });
+    else { ep.runs = after; out.push(ep); }
+    return out;
+  }
+
+  /**
+   * Insere o Índice de Ilustrações no cursor (diálogo Índice de Ilustrações):
+   * `TOC \h \z \c "Figura"` com as opções do Word (sem rótulo \a; sem números \n;
+   * sem alinhar \p " "; sem hiperlinks), _Toc ocultos nas legendas e o estilo
+   * "Índice de ilustrações" no formato escolhido (oráculo tof-*).
+   */
+  insertTableOfFigures(opts: TableOfFiguresOptions): boolean {
+    if (!this.model || this.locked() || !opts.label || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    const o: TocOptions = {
+      caption: opts.label, includeLabel: opts.includeLabel !== false, hyperlinks: opts.hyperlinks !== false, hideInWeb: opts.hyperlinks !== false,
+      ...(opts.pageNumbers === false ? { noPageNumbers: true } : {}),
+      ...(opts.pageNumbers !== false && opts.rightAlign === false ? { separator: ' ' } : {}),
+    };
+    this.snapshot();
+    if (this.hasSelection()) { const p = this.deleteSelection(); this.selection = { anchor: p, focus: p }; }
+    this.applyTofFormat(opts.format ?? 'template');
+    const ps = this.model.paragraphs;
+    const at = this.selection.focus;
+    const p = ps[at.para]!;
+    const idx = insertIndex(p, at.offset);
+    const before = p.runs.slice(0, idx), after = p.runs.slice(idx);
+    const sources = this.tocSources(o, null);
+    const entries = this.tocOrEmpty(o, sources, this.tocLook(o, undefined, opts.leader ?? 'dot'));
+    const begin: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldBegin: tocInstr(o) };
+    const end: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+    const built = this.tocParagraphs(p, p, before, begin, entries, [end, ...after], true);
+    ps.splice(at.para, 1, ...built);
+    this.shiftAnchors(at.para, built.length - 1);
+    // o cursor fica no parágrafo do fim (oráculo tof-cursor-*)
+    const endAt = { para: at.para + built.length - 1, offset: 0 };
+    this.selection = { anchor: endAt, focus: endAt };
+    this.refreshFieldCache();
+    this.refresh();
+    return true;
+  }
+
+  /** Formatos do diálogo: o estilo "table of figures" recebe o pPr/rPr do formato. */
+  private applyTofFormat(f: TofFormat): void {
+    const id = this.builtinStyleId('table of figures');
+    if (f === 'template' || !this.stylesEditable()) return;
+    const raw = styleRaw(this.docStyles.base(), id);
+    if (!raw) return;
+    const fm = TOF_FORMATS[f];
+    this.commitStyles(putStyle(this.docStyles.base(), id, patchStyleXml(raw, { pPr: `<w:pPr>${fm.pPr}</w:pPr>`, rPr: fm.rPr ? `<w:rPr>${fm.rPr}</w:rPr>` : null })));
+  }
+
+  /** Opções do índice de ilustrações onde está o cursor (ou do 1º) — o diálogo abre com elas. */
+  getTableOfFiguresOptions(): TableOfFiguresOptions | null {
+    const t = this.tofAtCaret();
+    if (!t) return null;
+    const o = parseTocInstr(t.instr);
+    const first = this.bodyModel().paragraphs[t.begin];
+    const tab = first?.props.tabStops?.find((x) => x.align === 'right');
+    return {
+      label: o.caption ?? '', includeLabel: o.includeLabel !== false, pageNumbers: !o.noPageNumbers,
+      rightAlign: o.separator === undefined, hyperlinks: !!o.hyperlinks, leader: tab ? tab.leader ?? 'none' : 'dot',
+    };
+  }
+
+  /** Atualizar Tabela (grupo Legendas): o índice de ilustrações do cursor, ou todos. */
+  updateTableOfFigures(): boolean {
+    if (!this.model || this.locked()) return false;
+    const at = this.tofAtCaret();
+    const all = this.tocFields().filter((t) => parseTocInstr(t.instr).caption !== undefined);
+    const list = at && this.tocInSelection(at) ? [at] : all;
+    if (!list.length) return false;
+    this.quietChange = true;
+    this.snapshot();
+    this.quietChange = false;
+    for (const t of list.reverse()) this.rebuildToc(t);
+    this.refreshFieldCache();
+    this.refresh();
+    return true;
+  }
+
+  /**
+   * Atualiza os sumários (campos TOC com títulos) como o Word: entradas com
+   * hiperlink para _Toc ocultos nos títulos e PAGEREF, estilos Sumário N. A
+   * inserção do sumário é da frente Sumário, que reaproveita este motor.
+   */
+  updateToc(): boolean {
+    if (!this.model || this.locked()) return false;
+    const list = this.tocFields();
+    if (!list.length) return false;
+    this.quietChange = true;
+    this.snapshot();
+    this.quietChange = false;
+    for (const t of [...list].reverse()) this.rebuildToc(t);
+    this.refreshFieldCache();
+    this.refresh();
+    return true;
+  }
+
+  // ── legendas
+
+  /** Configuração das legendas (rótulos criados, numeração, AutoLegenda) — a barra a
+   *  guarda e devolve (como o Word no Normal, por máquina). */
+  get captionSettings(): CaptionSettings { return JSON.parse(JSON.stringify(this.captionCfg)) as CaptionSettings; }
+  set captionSettings(v: CaptionSettings) {
+    this.captionCfg = { labels: [...(v?.labels ?? [])], numbering: { ...(v?.numbering ?? {}) }, ...(v?.auto ? { auto: v.auto } : {}) };
+  }
+
+  /** Rótulos do diálogo Legenda: os internos (no idioma da interface), os criados e os
+   *  que o documento usa em campos SEQ. */
+  getCaptionLabels(): CaptionLabelInfo[] {
+    const pt = uiLang(this) === 'pt';
+    const out: CaptionLabelInfo[] = BUILTIN_LABELS.map((b) => ({ name: pt ? b.pt : b.en, builtIn: true, position: b.position }));
+    const has = (n: string): boolean => out.some((x) => x.name.toLowerCase() === n.toLowerCase());
+    for (const n of this.captionCfg.labels) if (!has(n)) out.push({ name: n, builtIn: false, position: 'below' });
+    for (const p of this.allParagraphs()) for (const r of p.runs) {
+      const l = seqLabel(r.field);
+      if (l && !has(l)) out.push({ name: l, builtIn: false, position: 'below' });
+    }
+    return out;
+  }
+
+  /** Novo Rótulo (fica nas configurações das legendas). */
+  addCaptionLabel(name: string): boolean {
+    const n = name.trim();
+    if (!n || this.getCaptionLabels().some((x) => x.name.toLowerCase() === n.toLowerCase())) return false;
+    this.captionCfg.labels.push(n);
+    this.dispatchEvent(new CustomEvent('uw-caption-settings'));
+    return true;
+  }
+
+  /** Excluir Rótulo (só os criados). */
+  deleteCaptionLabel(name: string): boolean {
+    const i = this.captionCfg.labels.findIndex((x) => x.toLowerCase() === name.toLowerCase());
+    if (i < 0) return false;
+    this.captionCfg.labels.splice(i, 1);
+    delete this.captionCfg.numbering[name];
+    this.dispatchEvent(new CustomEvent('uw-caption-settings'));
+    return true;
+  }
+
+  getCaptionNumbering(label: string): CaptionNumbering {
+    return this.captionCfg.numbering[label] ?? { format: 'ARABIC' };
+  }
+  setCaptionNumbering(label: string, n: CaptionNumbering): void {
+    this.captionCfg.numbering[label] = n;
+    this.dispatchEvent(new CustomEvent('uw-caption-settings'));
+  }
+
+  /** O que a legenda legendaria agora: tabela (cursor nela), imagem selecionada ou nada. */
+  captionTarget(): 'table' | 'image' | null {
+    if (this.cellEdit || this.tableSel) return 'table';
+    return this.selectedInlineImage() ? 'image' : null;
+  }
+
+  /** Imagem inline sozinha na seleção (parágrafo e posição dela). */
+  private selectedInlineImage(): { para: number; offset: number } | null {
+    if (!this.model || !this.hasSelection()) return null;
+    const { start, end } = normalizeRange(this.range());
+    if (start.para !== end.para || end.offset - start.offset !== 1) return null;
+    let acc = 0;
+    for (const r of this.model.paragraphs[start.para]?.runs ?? []) {
+      if (acc === start.offset && r.image && !r.image.floating) return start;
+      acc += r.text.length;
+    }
+    return null;
+  }
+
+  /**
+   * Inserir Legenda (oráculo cap-*): parágrafo no estilo Legenda com o rótulo, o
+   * número (SEQ, e o capítulo por STYLEREF \s com o separador) e o texto. Com uma
+   * imagem ou tabela, acima ou abaixo dela (keepNext no de cima); sem objeto, no
+   * cursor, e o parágrafo ganha o estilo Legenda. As legendas seguintes do rótulo
+   * são renumeradas.
+   */
+  insertCaption(opts: CaptionOptions): boolean {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit) return false;
+    const label = opts.label.trim();
+    if (!label) return false;
+    const numbering = opts.numbering ?? this.getCaptionNumbering(label);
+    const target = this.captionTarget();
+    const position = opts.position ?? (this.getCaptionLabels().find((l) => l.name === label)?.position ?? 'below');
+    this.snapshot();
+    const style = this.builtinStyleId('caption');
+    const runs = this.captionRuns(label, numbering, opts);
+    const added = new Set(runs.filter((r) => r.field));
+    let caret: DocPosition;
+    if (target === 'table') {
+      const anchor = this.cellEdit?.anchor ?? this.tableSel?.anchor ?? -1;
+      const a = this.tableAnchors[anchor];
+      if (!a) return false;
+      if (this.cellEdit) this.exitCell();
+      this.tableSel = null;
+      const ps = this.model.paragraphs;
+      const at = a.beforePara;
+      const para: Paragraph = { runs, props: { styleId: style, ...(position === 'above' ? { keepNext: true } : {}) } as Paragraph['props'] };
+      ps.splice(at, 0, para);
+      for (const x of this.tableAnchors) if (x !== a && x.beforePara >= at) x.beforePara++;
+      for (const f of this.floatImages) if (f.para >= at) f.para++;
+      if (position === 'above') a.beforePara++;
+      else this.keepTableWithNext(a.table);
+      caret = { para: at, offset: paraLength(para) };
+    } else if (target === 'image') {
+      const img = this.selectedInlineImage()!;
+      const ps = this.model.paragraphs;
+      const at = position === 'above' ? img.para : img.para + 1;
+      const para: Paragraph = { runs, props: { styleId: style, ...(position === 'above' ? { keepNext: true } : {}) } as Paragraph['props'] };
+      if (position === 'below') ps[img.para]!.props = { ...ps[img.para]!.props, keepNext: true } as Paragraph['props'];
+      ps.splice(at, 0, para);
+      this.shiftAnchors(at - 1, 1);
+      caret = { para: at, offset: paraLength(para) };
+    } else {
+      // sem objeto: no cursor, e o parágrafo vira Legenda (oráculo cap-text-mid)
+      if (this.hasSelection()) { const p = this.deleteSelection(); this.selection = { anchor: p, focus: p }; }
+      let pos = this.selection.focus;
+      for (const r of runs) pos = r.field ? this.insertWholeRun(pos, r) : this.insertTyped(pos, r.text, r.props);
+      this.applyPara({ start: pos, end: pos }, { styleId: style });
+      caret = pos;
+      // os runs inseridos são cópias: os campos da legenda pelo parágrafo
+      added.clear();
+      for (const r of this.model.paragraphs[pos.para]!.runs) if (r.field) added.add(r);
+    }
+    this.selection = { anchor: caret, focus: caret };
+    // renumera as legendas do rótulo (o Word atualiza os SEQ seguintes)
+    for (const p of this.model.paragraphs) for (const r of p.runs) if (seqLabel(r.field).toLowerCase() === label.toLowerCase()) added.add(r);
+    this.refreshFieldCache(added);
+    const fit = this.model.paragraphs[caret.para]!;
+    this.selection = { anchor: { para: caret.para, offset: Math.min(paraLength(fit), target ? paraLength(fit) : caret.offset) }, focus: { para: caret.para, offset: Math.min(paraLength(fit), target ? paraLength(fit) : caret.offset) } };
+    this.refresh();
+    return true;
+  }
+
+  /** Runs da legenda: "Rótulo " + [capítulo + separador] + número + texto. */
+  private captionRuns(label: string, n: CaptionNumbering, opts: CaptionOptions): Run[] {
+    const props = (): RunProps => ({ ...DEFAULT_RUN_PROPS });
+    const f = captionFields(label, n);
+    const out: Run[] = [];
+    if (!opts.excludeLabel) out.push({ text: `${label} `, props: props() });
+    if (f.chapter && n.chapter) {
+      out.push({ text: '0', props: props(), field: f.chapter, fieldResult: [{ text: '0', props: { ...props(), noProof: true } }] });
+      out.push({ text: CHAPTER_SEPARATOR_TEXT[n.chapter.separator], props: props() });
+    }
+    out.push({ text: '1', props: props(), field: f.seq, fieldResult: [{ text: '1', props: { ...props(), noProof: true } }] });
+    if (opts.title) out.push({ text: opts.title, props: props() });
+    return out;
+  }
+
+  /** Legenda abaixo da tabela: a última linha fica com a próxima (keepNext no
+   *  parágrafo da última célula — oráculo cap-tbl-below). */
+  private keepTableWithNext(t: TableBlock): void {
+    const row = t.rows[t.rows.length - 1];
+    const cell = row?.cells[row.cells.length - 1];
+    const p = cell?.paragraphs[cell.paragraphs.length - 1];
+    if (p) p.props = { ...p.props, keepNext: true } as Paragraph['props'];
+  }
+
+  /** AutoLegenda: o que ganha legenda sozinho ao ser inserido (como no Word, só a
+   *  tabela — a imagem não está na lista dele; oráculo cap-auto-table). */
+  getAutoCaption(): CaptionSettings['auto'] { return this.captionCfg.auto ? { ...this.captionCfg.auto } : undefined; }
+  setAutoCaption(auto: CaptionSettings['auto']): void {
+    if (auto?.table) this.captionCfg.auto = { table: { ...auto.table } }; else delete this.captionCfg.auto;
+    this.dispatchEvent(new CustomEvent('uw-caption-settings'));
+  }
+
+  /** Depois de inserir uma tabela: a legenda automática, com o cursor de volta na 1ª célula. */
+  private autoCaptionTable(): void {
+    const a = this.captionCfg.auto?.table;
+    if (!a || !this.cellEdit) return;
+    const anchor = this.cellEdit.anchor, hops = this.cellEdit.hops.map((h) => ({ ...h }));
+    const before = this.undoStack.length;
+    this.insertCaption({ label: a.label, position: a.position });
+    // um passo só no desfazer (a tabela e a legenda)
+    if (this.undoStack.length > before) this.undoStack.length = before;
+    const shifted = a.position === 'above' ? 1 : 0;
+    void shifted;
+    this.enterCell(anchor, hops);
+  }
+
+  // ── hiperlinks
+
+  /** Link sob o cursor/na seleção: endereço (ou destino interno), Dica de Tela e o texto do link. */
+  getLink(): LinkInfo | null {
+    if (!this.model) return null;
+    const g = this.linkGroupAt();
+    if (!g) return null;
+    const p = this.model.paragraphs[g.para]!;
+    const link = g.link;
+    return {
+      ...(link.startsWith('#') ? { anchor: link.slice(1) } : { address: link }),
+      ...(g.tip ? { tip: g.tip } : {}),
+      text: paraText(p).slice(g.from, g.to),
+    };
+  }
+
+  /** Trecho do hiperlink que contém o cursor (ou o 1º caractere da seleção). */
+  private linkGroupAt(): { para: number; from: number; to: number; link: string; tip?: string } | null {
+    const at = normalizeRange(this.range()).start;
+    const p = this.model?.paragraphs[at.para];
+    if (!p) return null;
+    let acc = 0;
+    const spans: { a: number; z: number; link?: string; tip?: string }[] = [];
+    for (const r of p.runs) { spans.push({ a: acc, z: acc + r.text.length, link: r.props.link, tip: r.props.linkTip }); acc += r.text.length; }
+    const hit = spans.find((s) => s.link && s.a <= at.offset && at.offset <= s.z && (s.z > s.a));
+    if (!hit) return null;
+    let from = hit.a, to = hit.z;
+    for (const s of spans) if (s.link === hit.link) { if (s.z === from || (s.a < from && s.z >= from)) from = Math.min(from, s.a); }
+    for (const s of spans) if (s.link === hit.link && s.a <= to && s.z > to) to = s.z;
+    return { para: at.para, from, to, link: hit.link!, ...(hit.tip ? { tip: hit.tip } : {}) };
+  }
+
+  /** Destinos de "Neste documento": títulos e indicadores visíveis. */
+  getLinkTargets(): { headings: { id: string; level: number; text: string }[]; bookmarks: string[] } {
+    return {
+      headings: this.getHeadings().map((h) => ({ id: `p:${h.para}`, level: h.level, text: h.text })),
+      bookmarks: this.getBookmarks({ sort: 'name' }).map((b) => b.name),
+    };
+  }
+
+  /**
+   * Inserir/editar hiperlink (diálogo Link): endereço (web, arquivo, mailto:) ou
+   * destino no documento (indicador; título = _Toc oculto nele; "_top" = início),
+   * Dica de Tela (w:tooltip) e texto para exibição. Os runs levam o estilo
+   * Hyperlink, como o Word grava (oráculo hl-*).
+   */
+  insertHyperlink(opts: HyperlinkOptions): boolean {
+    if (!this.model || this.locked()) return false;
+    let link = opts.address?.trim() ?? '';
+    this.snapshot();
+    if (!link && opts.anchor) {
+      const para = this.paraOfItem(opts.anchor);
+      if (para >= 0 && !this.cellEdit && !this.noteEdit && !this.hfEdit && !this.tbEdit) {
+        const p = this.model.paragraphs[para];
+        if (!p) return false;
+        link = `#${this.refBookmark(this.model.paragraphs, para, 0, paraLength(p), '_Toc')}`;
+      } else link = `#${opts.anchor}`;
+    }
+    if (!link) { this.undoStack.pop(); return false; }
+    const style = this.builtinStyleId('Hyperlink');
+    const patch: Partial<RunProps> = { link, linkTip: opts.tip || undefined, charStyle: style };
+    const g = !this.hasSelection() ? this.linkGroupAt() : null;
+    let range: DocRange;
+    if (g) range = { start: { para: g.para, offset: g.from }, end: { para: g.para, offset: g.to } };
+    else range = normalizeRange(this.range());
+    const cur = paraText(this.model.paragraphs[range.start.para]!).slice(range.start.offset, range.start.para === range.end.para ? range.end.offset : undefined);
+    const text = opts.text ?? (comparePos(range.start, range.end) === 0 ? (opts.address ?? opts.anchor ?? '') : cur);
+    if (comparePos(range.start, range.end) === 0 || (opts.text !== undefined && text !== cur)) {
+      // texto novo (ou trocado): entra no lugar, já com o link
+      let at = range.start;
+      if (comparePos(range.start, range.end) !== 0) { this.selection = { anchor: range.start, focus: range.end }; at = this.deleteSelection(); }
+      const end = this.insertTyped(at, text, { ...propsAt(this.model, at), ...patch } as RunProps);
+      range = { start: at, end };
+    } else this.applyRun(range, patch);
+    this.selection = { anchor: range.end, focus: range.end };
+    this.refresh();
+    return true;
+  }
+
+  /** Remover Hiperlink: tira o link e o estilo Hyperlink (o texto fica — oráculo hl-remove). */
+  removeLink(): boolean {
+    if (!this.model || this.locked()) return false;
+    const g = !this.hasSelection() ? this.linkGroupAt() : null;
+    const range = g ? { start: { para: g.para, offset: g.from }, end: { para: g.para, offset: g.to } } : normalizeRange(this.range());
+    if (comparePos(range.start, range.end) === 0) return false;
+    this.snapshot();
+    const style = this.builtinStyleId('Hyperlink');
+    for (let pi = range.start.para; pi <= range.end.para; pi++) {
+      const p = this.model.paragraphs[pi]!;
+      const from = pi === range.start.para ? range.start.offset : 0, to = pi === range.end.para ? range.end.offset : paraLength(p);
+      unlinkRuns(p, from, to, style);
+    }
     this.refresh();
     return true;
   }
@@ -3487,6 +4496,8 @@ export class UniversalWriteElement extends HTMLElement {
   /** Navega para um destino interno: "#para:N" ou "#bookmark". */
   navigateTo(link: string): boolean {
     if (!link.startsWith('#')) return false;
+    if (/^#_top$/i.test(link) && this.toBody()) { this.goToBodyPara(0, 0, 0, true); return true; }
+    if (!/^#para:\d+$/.test(link) && this.goToBookmark(link.slice(1))) return true;
     // destino é um parágrafo do corpo: sai da célula em edição
     if (this.cellEdit) { this.exitCell(); this.refreshSelection(); }
     let paraIdx = -1;
@@ -5291,12 +6302,15 @@ export class UniversalWriteElement extends HTMLElement {
         for (const run of para?.runs ?? []) {
           const end = acc + run.text.length;
           if (hit.offset >= acc && hit.offset <= end && run.props.link) {
-            if (/^https?:/.test(run.props.link)) {
+            if (/^(https?|mailto):/.test(run.props.link)) {
               window.open(run.props.link, '_blank', 'noopener');
               return;
             }
             if (this.navigateTo(run.props.link)) return;
           }
+          // referência cruzada inserida como hiperlink (\h): vai ao destino
+          const target = refFieldTarget(run.field);
+          if (hit.offset >= acc && hit.offset <= end && target && /\\h\b/i.test(run.field ?? '') && this.navigateTo(`#${target}`)) return;
           acc = end;
         }
       }
@@ -5517,10 +6531,10 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.tableSel && this.tableSelKey(e)) return;
       // Esc: sai do Pincel de Bordas / Borracha / Desenhar Tabela
       if (k === 'Escape' && this.tableTool) { e.preventDefault(); this.setTableTool(null); return; }
-      // F9: atualiza os campos de fórmula
+      // F9: atualiza os campos da seleção (como o Word; Ctrl+A, F9 = todos)
       if (k === 'F9' && !ctrl && !e.altKey && !e.shiftKey) {
         e.preventDefault();
-        this.updateFields();
+        this.updateFields('selection');
         this.onSelectionChange?.(); this.chromeSync?.();
         return;
       }
@@ -8851,6 +9865,7 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.save();
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
+        this.paintBookmarkMarks(ctx, i);
         this.paintEngineSpelling(ctx, i);
         this.paintSearchHits(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
@@ -10721,6 +11736,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (at < 0) at = this.tableAnchors.length;
     this.tableAnchors.splice(at, 0, { beforePara: para, table: t });
     this.enterCellAt(at, [], 0, 0, false, false);
+    this.autoCaptionTable();
     this.refresh();
     this.scrollCaretIntoView();
   }
@@ -12418,39 +13434,7 @@ export class UniversalWriteElement extends HTMLElement {
     return true;
   }
 
-  /** Atualiza os campos de fórmula de todas as tabelas (F9): devolve quantos mudaram. */
-  updateFields(): number {
-    if (!this.model || this.locked()) return 0;
-    const work: { run: Run; text: string }[] = [];
-    const visit = (t: TableBlock): void => {
-      const m = TOps.mapTable(t);
-      for (const row of m.rows) {
-        for (const g of row) {
-          for (const b of TOps.cellContent(g.cell)) {
-            if (b.type === 'table') { visit(b); continue; }
-            for (const run of b.paragraph.runs) {
-              if (!run.field || !/^\s*=/.test(run.field)) continue;
-              const text = formulaResultText(run.field, { table: t, r: g.ri, c: g.col });
-              if (text !== run.text) work.push({ run, text });
-            }
-          }
-        }
-      }
-    };
-    for (const a of this.bodyState().tableAnchors) visit(a.table);
-    if (!work.length) return 0;
-    this.snapshot();
-    for (const w of work) {
-      w.run.text = w.text;
-      delete w.run.fieldResult;
-    }
-    // o texto do resultado mudou de tamanho: o cursor fica dentro do parágrafo
-    const ps = this.model.paragraphs;
-    const fit = (q: DocPosition): DocPosition => ({ para: q.para, offset: Math.min(q.offset, paraLength(ps[q.para] ?? ps[0]!)) });
-    this.selection = { anchor: fit(this.selection.anchor), focus: fit(this.selection.focus) };
-    this.refresh();
-    return work.length;
-  }
+
 
   getTableState(): TableState | null {
     const tg = this.tableTarget();

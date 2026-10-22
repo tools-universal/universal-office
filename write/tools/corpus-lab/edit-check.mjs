@@ -117,7 +117,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -1124,6 +1124,106 @@ if (want('nav')) {
   ri = await call('getRulerInfo');
   check('Rascunho: régua horizontal com o quadro do texto', ri && ri.frame.x1 > ri.frame.x0, ri && ri.frame);
   await call('setView', 'print');
+}
+
+// ───────────── links e referências (frente Links e referências) ─────────────
+if (want('refs')) {
+  await ev('blank');
+  const W = (fn, ...a) => page.evaluate(({ fn, a }) => { const e = document.querySelector('universal-write'); return e[fn](...a); }, { fn, a });
+  const docXml = () => ev('savedPart', 'word/document.xml');
+  await W('type', 'Introdução'); await W('applyStyle', 'Ttulo1'); await W('pressEnter');
+  await W('type', 'Alfa beta gama.'); await W('pressEnter');
+  await W('type', 'Fim.');
+  // ── indicador
+  await ev('select', 1, 5, 1, 9);
+  check('nome inválido recusado (começa com dígito / tem hífen)', !(await call('insertBookmark', '1abc')) && !(await call('insertBookmark', 'a-b')));
+  check('Adicionar indicador na seleção', await call('insertBookmark', 'marca'));
+  let bms = await call('getBookmarks');
+  check('lista: nome e trecho', bms.length === 1 && bms[0].name === 'marca' && bms[0].text === 'beta', bms);
+  let xml = await docXml();
+  check('XML: bookmarkStart/End em volta do trecho, como o Word', /<w:bookmarkStart w:id="\d+" w:name="marca"\/><w:r><w:t>beta<\/w:t><\/w:r><w:bookmarkEnd w:id="\d+"\/>/.test(xml), xml.match(/<w:p>.{0,40}Alfa.{0,200}/)?.[0]);
+  await ev('select', 1, 5); await W('type', 'XY');
+  check('digitar no começo do indicador entra nele (oráculo bm-type-start)', (await call('getBookmarks'))[0].text === 'XYbeta');
+  await ev('select', 1, 11); await W('type', 'Z');
+  check('digitar no fim fica fora (bm-type-end)', (await call('getBookmarks'))[0].text === 'XYbeta');
+  await call('undo'); await call('undo');
+  await ev('select', 1, 5, 1, 9); await W('pressBackspace');
+  check('apagar exatamente o trecho apaga o indicador (bm-del-exact)', (await call('getBookmarks')).length === 0);
+  await call('undo');
+  check('desfazer devolve o indicador', (await call('getBookmarks'))[0]?.text === 'beta');
+  await ev('select', 2, 0);
+  await call('goToBookmark', 'MARCA');
+  let s = await st();
+  check('Ir para (nome sem caixa) seleciona o trecho', s.sel.anchor.para === 1 && s.sel.anchor.offset === 5 && s.sel.focus.offset === 9, s.sel);
+  await ev('select', 2, 0);
+  await call('insertBookmark', 'Marca');
+  bms = await call('getBookmarks', { sort: 'location' });
+  check('nome repetido (outra caixa) move o indicador; ponto', bms.length === 1 && bms[0].name === 'Marca' && bms[0].text === '', bms);
+  check('Mostrar indicadores alterna', (await call('showBookmarks', true)) === true && (await call('bookmarksShown')) === true);
+  await call('showBookmarks', false);
+  // ── referência cruzada ao título
+  await ev('select', 2, 4);
+  const items = await call('getCrossReferenceItems', 'heading');
+  check('itens: títulos', items.length === 1 && items[0].text === 'Introdução', items);
+  check('inserir referência (texto do título)', await call('insertCrossReference', { type: 'heading', item: items[0].id, kind: 'text' }));
+  check('o resultado no texto', (await ev('text', 2)) === 'Fim.Introdução', await ev('text', 2));
+  check('o motor desenha o resultado', (await ev('drawnText', 2, 0)).includes('Fim.Introdução'), await ev('drawnText', 2, 0));
+  xml = await docXml();
+  const ref = xml.match(/_Ref\d{9}/)?.[0];
+  check('_Ref oculto em volta do texto do título', !!ref && new RegExp(`<w:bookmarkStart w:id="\\d+" w:name="${ref}"/><w:r><w:t>Introdução</w:t></w:r><w:bookmarkEnd`).test(xml), xml.slice(xml.indexOf('<w:body>'), xml.indexOf('<w:body>') + 400));
+  check('REF \\h complexo (begin/instr/separate/resultado/end)', new RegExp(`<w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> REF ${ref} \\\\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>Introdução</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/>`).test(xml), xml.match(/.{0,200}REF _Ref.{0,300}/)?.[0]);
+  await W('type', ' p. ');
+  await call('insertCrossReference', { type: 'heading', item: items[0].id, kind: 'page' });
+  xml = await docXml();
+  check('2ª referência reaproveita o _Ref; PAGEREF com noProof', (xml.match(/_Ref\d{9}" ?\/>/g) ?? []).length <= 1 && new RegExp(`PAGEREF ${ref} \\\\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:noProof/></w:rPr><w:t>1</w:t>`).test(xml), (xml.match(/_Ref\d{9}/g) ?? []).length);
+  await call('insertCrossReference', { type: 'heading', item: items[0].id, kind: 'position', hyperlink: false });
+  check('acima/abaixo sem hiperlink → REF \\p em w:fldSimple', /<w:fldSimple w:instr=" REF _Ref\d{9} \\p "><w:r><w:t>acima<\/w:t>/.test(await docXml()));
+  // mudar o título e atualizar com F9 na referência
+  await ev('select', 0, 0); await W('type', 'Nova ');
+  await ev('select', 2, 6);
+  const n = await call('updateFields', 'selection');
+  check('F9 na referência: o resultado acompanha o título', n >= 1 && (await ev('text', 2)).startsWith('Fim.Nova Introdução'), await ev('text', 2));
+  // ── legenda sem objeto (no cursor; o parágrafo vira Legenda) e numeração
+  const endOf = async () => { const l = (await st()).paras - 1; await ev('select', l, (await ev('text', l)).length); return l; };
+  await endOf(); await W('pressEnter');
+  check('Inserir Legenda no cursor', await call('insertCaption', { label: 'Figura', title: ': Primeira' }));
+  let ps = await ev('paras');
+  let cap = ps.length - 1;
+  check('legenda: "Figura 1: Primeira" no parágrafo, estilo Legenda', ps[cap].text === 'Figura 1: Primeira' && ps[cap].style === 'Legenda', ps[cap]);
+  await ev('select', 1, 0); await W('pressEnter'); await ev('select', 1, 0);
+  await call('insertCaption', { label: 'Figura' });
+  ps = await ev('paras');
+  check('legenda antes renumera as seguintes (cap-renum)', ps[1].text === 'Figura 1' && ps[cap + 1].text === 'Figura 2: Primeira', [ps[1].text, ps[cap + 1]?.text]);
+  xml = await docXml();
+  check('SEQ como o Word: fldSimple com noProof', /<w:fldSimple w:instr=" SEQ Figura \\\* ARABIC "><w:r><w:rPr><w:noProof\/><\/w:rPr><w:t>2<\/w:t>/.test(xml));
+  // ── índice de ilustrações no fim
+  await endOf(); await W('pressEnter');
+  check('Inserir Índice de Ilustrações', await call('insertTableOfFigures', { label: 'Figura' }));
+  xml = await docXml();
+  check('campo TOC \\h \\z \\c "Figura" com 2 entradas e _Toc nas legendas', /<w:instrText xml:space="preserve"> TOC \\h \\z \\c "Figura" <\/w:instrText>/.test(xml) && (xml.match(/<w:hyperlink w:anchor="_Toc\d{9}" w:history="1">/g) ?? []).length === 2 && (xml.match(/w:name="_Toc\d{9}"/g) ?? []).length === 2, (xml.match(/_Toc\d{9}/g) ?? []).length);
+  check('entradas no estilo Índice de ilustrações com tabulação direita pontilhada', /<w:pStyle w:val="ndicedeilustraes"\/><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="\d+"\/><\/w:tabs>/.test(xml));
+  check('fim do campo no parágrafo seguinte às entradas', /<w:p><w:r><w:fldChar w:fldCharType="end"\/><\/w:r><\/w:p>/.test(xml));
+  await ev('select', 1, 0); await W('pressEnter'); await ev('select', 1, 0);
+  await call('insertCaption', { label: 'Figura', title: ' nova' });
+  check('Atualizar Tabela refaz as entradas', await call('updateTableOfFigures'));
+  xml = await docXml();
+  check('3 entradas, _Toc recriados (os velhos somem)', (xml.match(/<w:hyperlink w:anchor="_Toc/g) ?? []).length === 3 && (xml.match(/w:name="_Toc/g) ?? []).length === 3);
+  // ── hiperlink
+  const p2 = (await ev('paras')).findIndex((p) => p.text.startsWith('Alfa'));
+  await ev('select', p2, 0, p2, 4);
+  check('Inserir hiperlink com Dica de Tela', await call('insertHyperlink', { address: 'https://exemplo.com/a', tip: 'Dica' }));
+  xml = await docXml();
+  check('w:hyperlink r:id + w:tooltip, runs com o estilo Hyperlink', /<w:hyperlink r:id="[^"]+" w:tooltip="Dica" w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"\/><\/w:rPr><w:t>Alfa<\/w:t>/.test(xml), xml.match(/<w:hyperlink[^>]*>.{0,120}/)?.[0]);
+  const li = await call('getLink');
+  check('getLink: endereço, dica e texto', li?.address === 'https://exemplo.com/a' && li.tip === 'Dica' && li.text === 'Alfa', li);
+  await ev('select', p2, 2);
+  check('Remover hiperlink tira o link e o estilo', await call('removeLink'));
+  xml = await docXml();
+  check('sem w:hyperlink nem rStyle Hyperlink no parágrafo', !/w:tooltip="Dica"/.test(xml));
+  await ev('select', p2, 0);
+  await call('insertHyperlink', { anchor: 'p:0', text: 'Ver título' });
+  xml = await docXml();
+  check('link para título: _Toc oculto nele e w:anchor', /<w:hyperlink w:anchor="_Toc\d{9}" w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"\/><\/w:rPr><w:t>Ver título<\/w:t>/.test(xml));
 }
 
 // ───────────── desempenho ─────────────
