@@ -127,18 +127,16 @@ public static class DocumentReader
             if (ppr.Spacing.Before is { } before) props.SpaceBeforeTwips = ToInt(before);
         }
         if (Js.Truthy(ppr.Shd?.Fill) && ppr.Shd!.Fill != "auto") props.ShadingHex = ppr.Shd.Fill;
-        if (ppr.Tabs is not null)
+        if (ppr.Tabs is { Count: > 0 })
         {
-            var stops = ppr.Tabs
-                .Where(t => t.Pos > 0 && t.Val != "clear" && t.Val != "bar")
+            props.TabStops = ppr.Tabs
                 .Select(t => new TabStop
                 {
                     PosTwips = ToInt(t.Pos),
-                    Align = t.Val == "right" ? "right" : "left",
-                    Leader = t.Leader == "dot" ? "dot" : null,
+                    Align = t.Val,
+                    Leader = Js.Truthy(t.Leader) && t.Leader != "none" ? t.Leader : null,
                 })
                 .ToList();
-            if (stops.Count > 0) props.TabStops = stops;
         }
         if (ppr.PBdr is not null)
         {

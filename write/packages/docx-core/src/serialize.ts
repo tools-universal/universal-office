@@ -661,12 +661,12 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
     const after = pp.spaceAfterTwips !== undefined ? ` w:after="${pp.spaceAfterTwips}"` : '';
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
-  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+  if (pp.indentLeftTwips !== undefined || pp.indentRightTwips !== undefined || pp.indentFirstLineTwips !== undefined) {
     let attrs = '';
-    if (pp.indentLeftTwips) attrs += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs += ` w:right="${pp.indentRightTwips}"`;
-    if (pp.indentFirstLineTwips) {
-      attrs += pp.indentFirstLineTwips > 0
+    if (pp.indentLeftTwips !== undefined) attrs += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips !== undefined) attrs += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips !== undefined) {
+      attrs += pp.indentFirstLineTwips >= 0
         ? ` w:firstLine="${pp.indentFirstLineTwips}"`
         : ` w:hanging="${-pp.indentFirstLineTwips}"`;
     }

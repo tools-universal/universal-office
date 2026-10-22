@@ -1,6 +1,6 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
-import { readRPr, readPPr, readBorder, readRevisionInfo, type RPr, type PPr, type BorderSpec, type RevisionInfo } from './ooxml/props.js';
+import { readRPr, readPPr, readBorder, readRevisionInfo, type RPr, type PPr, type BorderSpec, type RevisionInfo, type TabAlign } from './ooxml/props.js';
 import { readNoteProps, type NoteProps } from './ooxml/parts.js';
 import type { SourceStore, SegSource } from './source.js';
 import {
@@ -330,6 +330,15 @@ export interface NumberingProps {
   ilvl: number;
 }
 
+/** Tabulação do parágrafo (w:tab): tipo, posição e preenchimento. */
+export interface ParaTabStop {
+  posTwips: number;
+  /** clear = tira a tabulação herdada nesta posição */
+  align: TabAlign;
+  leader?: TabLeader;
+}
+export type TabLeader = 'dot' | 'hyphen' | 'underscore' | 'heavy' | 'middleDot';
+
 export interface ParaProps {
   alignment?: 'left' | 'center' | 'right' | 'both';
   styleId?: string;
@@ -350,8 +359,9 @@ export interface ParaProps {
   tocInstr?: string;
   /** Entrada de sumário gerada por nós (substituída ao atualizar). */
   tocEntry?: boolean;
-  /** w:tabs (tab stops customizados). */
-  tabStops?: { posTwips: number; align: 'left' | 'right'; leader?: 'dot' }[];
+  /** w:tabs (tab stops do parágrafo), na ordem gravada — inclusive os `clear`,
+   *  que tiram uma tabulação herdada do estilo/numeração. */
+  tabStops?: ParaTabStop[];
   /** w:shd w:fill (hex RRGGBB). */
   shadingHex?: string;
   /** w:pBdr caixa simples nas 4 bordas (legado da toolbar; borders tem prioridade). */
@@ -582,15 +592,12 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
     if (ppr.spacing.before !== undefined) props.spaceBeforeTwips = ppr.spacing.before;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== 'auto') props.shadingHex = ppr.shd.fill;
-  if (ppr.tabs) {
-    const stops = ppr.tabs
-      .filter((t) => t.pos > 0 && t.val !== 'clear' && t.val !== 'bar')
-      .map((t) => ({
-        posTwips: t.pos,
-        align: (t.val === 'right' ? 'right' : 'left') as 'left' | 'right',
-        leader: t.leader === 'dot' ? ('dot' as const) : undefined,
-      }));
-    if (stops.length) props.tabStops = stops;
+  if (ppr.tabs?.length) {
+    props.tabStops = ppr.tabs.map((t): ParaTabStop => ({
+      posTwips: t.pos,
+      align: t.val,
+      ...(t.leader && t.leader !== 'none' ? { leader: t.leader } : {}),
+    }));
   }
   if (ppr.pBdr) {
     props.boxBorder = true;

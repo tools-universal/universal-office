@@ -9,6 +9,8 @@ export {
   type Run,
   type RunProps,
   type ParaProps,
+  type ParaTabStop,
+  type TabLeader,
   type NumberingProps,
   type SectPr,
   type PageBorders,
@@ -115,6 +117,7 @@ export {
   type TrackedDelete,
 } from './revisions.js';
 export { readTrackRevisions, writeTrackRevisions } from './rev-xml.js';
+export { writeDefaultTabStop } from './settings-xml.js';
 export {
   serializeDocument,
   serializeBlocks,

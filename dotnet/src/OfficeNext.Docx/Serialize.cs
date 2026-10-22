@@ -260,14 +260,14 @@ public static class DocxSerialize
             string after = pp.SpaceAfterTwips is int sa ? $" w:after=\"{sa}\"" : "";
             ppr.Add($"<w:spacing{before}{after}{line}/>");
         }
-        if ((pp.IndentLeftTwips ?? 0) != 0 || (pp.IndentRightTwips ?? 0) != 0 || (pp.IndentFirstLineTwips ?? 0) != 0)
+        if (pp.IndentLeftTwips is not null || pp.IndentRightTwips is not null || pp.IndentFirstLineTwips is not null)
         {
             var attrs = new StringBuilder();
-            if ((pp.IndentLeftTwips ?? 0) != 0) attrs.Append($" w:left=\"{pp.IndentLeftTwips}\"");
-            if ((pp.IndentRightTwips ?? 0) != 0) attrs.Append($" w:right=\"{pp.IndentRightTwips}\"");
-            if ((pp.IndentFirstLineTwips ?? 0) != 0)
+            if (pp.IndentLeftTwips is not null) attrs.Append($" w:left=\"{pp.IndentLeftTwips}\"");
+            if (pp.IndentRightTwips is not null) attrs.Append($" w:right=\"{pp.IndentRightTwips}\"");
+            if (pp.IndentFirstLineTwips is not null)
             {
-                attrs.Append(pp.IndentFirstLineTwips > 0
+                attrs.Append(pp.IndentFirstLineTwips >= 0
                     ? $" w:firstLine=\"{pp.IndentFirstLineTwips}\""
                     : $" w:hanging=\"{-pp.IndentFirstLineTwips}\"");
             }

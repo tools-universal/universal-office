@@ -306,12 +306,12 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
     const after = pp.spaceAfterTwips !== undefined ? ` w:after="${pp.spaceAfterTwips}"` : '';
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
-  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+  if (pp.indentLeftTwips !== undefined || pp.indentRightTwips !== undefined || pp.indentFirstLineTwips !== undefined) {
     let attrs = '';
-    if (pp.indentLeftTwips) attrs += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs += ` w:right="${pp.indentRightTwips}"`;
-    if (pp.indentFirstLineTwips) {
-      attrs += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+    if (pp.indentLeftTwips !== undefined) attrs += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips !== undefined) attrs += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips !== undefined) {
+      attrs += pp.indentFirstLineTwips >= 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
     }
     ppr.push(`<w:ind${attrs}/>`);
   }
@@ -388,13 +388,15 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   }
   if (p.indentLeftTwips !== base.indentLeftTwips || p.indentRightTwips !== base.indentRightTwips || p.indentFirstLineTwips !== base.indentFirstLineTwips) {
     const f = p.indentFirstLineTwips;
-    set('w:ind', withAttrs(kidRaw(kids, 'w:ind'), 'w:ind', {
+    const ind = withAttrs(kidRaw(kids, 'w:ind'), 'w:ind', {
       'w:left': p.indentLeftTwips, 'w:start': undefined,
       'w:right': p.indentRightTwips, 'w:end': undefined,
       'w:firstLine': f !== undefined && f >= 0 ? f : undefined,
       'w:hanging': f !== undefined && f < 0 ? -f : undefined,
       'w:firstLineChars': undefined, 'w:hangingChars': undefined, 'w:leftChars': undefined, 'w:rightChars': undefined,
-    }));
+    });
+    // tudo herdado: o Word tira o w:ind (oráculo nav-lab ind-to-zero)
+    set('w:ind', /^<w:ind\s*\/>$/.test(ind) ? null : ind);
   }
   if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips) {
     const ch: Record<string, string | number | undefined> = {};

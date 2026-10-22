@@ -365,8 +365,8 @@ public sealed class NumberingProps
 public sealed class TabStop
 {
     public int PosTwips;
-    public string Align = "left"; // left | right
-    public string? Leader;        // dot
+    public string Align = "left"; // left | center | right | decimal | bar | clear | num
+    public string? Leader;        // dot | hyphen | underscore | heavy | middleDot
 }
 
 public sealed class DocxBorderEdge
