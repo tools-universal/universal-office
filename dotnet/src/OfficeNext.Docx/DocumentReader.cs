@@ -1327,7 +1327,8 @@ public static class DocumentReader
                     {
                         int id = JsNumber.ParseIntOr(child.Attr("w:id") ?? "0", 0);
                         Flush();
-                        var run = Make("", new Run { NoteRef = new NoteRef { Kind = child.Name == "w:footnoteReference" ? "footnote" : "endnote", Id = id } });
+                        bool custom = child.Attr("w:customMarkFollows") is "1" or "true";
+                        var run = Make("", new Run { NoteRef = new NoteRef { Kind = child.Name == "w:footnoteReference" ? "footnote" : "endnote", Id = id, Custom = custom } });
                         run.Props.VertAlign = "superscript";
                         RunTarget(ctx, runs)?.Add(run);
                         break;
@@ -1530,6 +1531,12 @@ public static class DocumentReader
             double n = JsNumber.ParseInt(startAttr);
             if (!double.IsNaN(n)) sect.PgNumStart = (int)Math.Clamp(n, int.MinValue, int.MaxValue);
         }
+        var fnPr = OoxmlParts.ReadNoteProps(sectEl is not null ? FirstChild(sectEl, "w:footnotePr") : null);
+        if (fnPr is not null) sect.FootnotePr = fnPr;
+        var enPr = OoxmlParts.ReadNoteProps(sectEl is not null ? FirstChild(sectEl, "w:endnotePr") : null);
+        if (enPr is not null) sect.EndnotePr = enPr;
+        string? fnCols = sectEl is not null ? FirstChild(sectEl, "w15:footnoteColumns")?.Attr("w:val") : null;
+        if (fnCols is not null && JsNumber.ParseInt(fnCols) > 0) sect.FootnoteColumns = (int)Math.Min(JsNumber.ParseInt(fnCols), int.MaxValue);
         return sect;
     }
 }

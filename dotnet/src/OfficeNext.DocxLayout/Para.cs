@@ -614,6 +614,8 @@ public static class Para
     private static readonly string[] DynFields = { "PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE" };
     private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
     private static readonly Regex FormTextRe = new(@"^\s*FORMTEXT(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    /// <summary>campo do número da própria nota (FOOTNOTEREF_MARK / ENDNOTEREF_MARK)</summary>
+    private static readonly Regex MarkFieldRe = new(@"_MARK\s*$", RegexOptions.CultureInvariant);
 
     /// <summary>resultado do PAGE no cabeçalho/rodapé: o Word não o parte por caractere numa
     /// caixa mais estreita que ele (no corpo parte — oráculo hfgroup, hn-field-*)</summary>
@@ -967,6 +969,8 @@ public static class Para
             FlushSeg();
         }
 
+        // nota de rodapé de marca personalizada: vai no 1º glifo da marca (texto seguinte)
+        int? pendingNote = null;
         foreach (var (run, idx, offset) in DisplayRuns(para, env))
         {
             // revisões: o texto que a visão esconde (excluído na final, inserido na
@@ -1049,19 +1053,28 @@ public static class Para
                 glyphs.Add(new Glyph { Kind = GlyphKind.Tab, Ch = "\t", Cp = 9, Face = face, Style = style, Adv = 0, Asc = 0, Desc = 0, Offset = offset, RunIdx = idx, BreakAfter = true, Ptab = run.Ptab, SizePt = style.SizePt });
                 continue;
             }
-            if (run.NoteRef is not null && run.Text.Length == 0)
+            if (run.NoteRef is not null)
             {
-                // número exibido = ordem de referência no documento (não o id)
-                double num = run.NoteRef.Kind == "footnote" ? ctx.FootnoteNumber(run.NoteRef.Id) : ctx.EndnoteNumber(run.NoteRef.Id);
+                // marca exibida = ordem de referência no documento, no formato da seção (não o
+                // id nem o texto do run — no editor ele só guarda o lugar da marca); com marca
+                // personalizada o texto que segue é a marca (e não consome número)
+                string kind = run.NoteRef.Kind; int id = run.NoteRef.Id; bool custom = run.NoteRef.Custom;
+                string mark = ctx.NoteMark(kind, id, custom);
+                if (custom) { if (kind == "footnote") pendingNote = id; continue; }
                 int before = glyphs.Count;
-                PushChars(Js.Str(num), run, rpr, style, offset, idx);
-                if (run.NoteRef.Kind == "footnote") for (int k = before; k < glyphs.Count; k++) glyphs[k].NoteId = run.NoteRef.Id;
+                PushChars(mark, run, rpr, style, offset, idx);
+                // a marca inteira é UM caractere do run (cursor/seleção não entram nela)
+                for (int k = before; k < glyphs.Count; k++) { glyphs[k].Offset = offset; if (kind == "footnote") glyphs[k].NoteId = id; }
                 continue;
             }
             if (run.Math is not null) { PushMath(run, idx, offset); continue; }
             int before0 = glyphs.Count;
-            PushChars(run.Text, run, rpr, style, offset, idx, idx >= 0 && idx < para.Runs.Count && FormTextRe.IsMatch(para.Runs[idx].Field ?? ""));
+            string? runField = idx >= 0 && idx < para.Runs.Count ? para.Runs[idx].Field : null;
+            PushChars(run.Text, run, rpr, style, offset, idx, FormTextRe.IsMatch(runField ?? ""));
             if (GluedField.TryGetValue(run, out _)) for (int k = before0 + 1; k < glyphs.Count; k++) glyphs[k].Glue = true;
+            // número da própria nota (w:footnoteRef): também um caractere só
+            if (MarkFieldRe.IsMatch(runField ?? "")) for (int k = before0; k < glyphs.Count; k++) glyphs[k].Offset = offset;
+            if (pendingNote is { } pn && glyphs.Count > before0) { glyphs[before0].NoteId = pn; pendingNote = null; }
         }
         // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
         // objeto desce sozinho), salvo depois de NBSP (oráculo imgbreak)

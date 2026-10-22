@@ -84,8 +84,47 @@ public sealed class FlowState
 {
     public NumberingState Numbering = null!;
     public Dictionary<string, double> Seq = null!;
-    public Dictionary<double, double> Footnotes = null!;
-    public Dictionary<double, double> Endnotes = null!;
+    public NoteFlow Notes = null!;
+}
+
+/// <summary>Numeração das notas de um tipo na seção corrente (sectPr sobre o settings).</summary>
+public sealed class NoteNumbering
+{
+    public string Fmt = "decimal";
+    public double Start = 1;
+    /// <summary>continuous | eachSect | eachPage</summary>
+    public string Restart = "continuous";
+}
+
+/// <summary>Numeração das notas de rodapé e de fim de uma seção.</summary>
+public sealed class NoteNumberingPair
+{
+    public NoteNumbering Footnote = new() { Fmt = "decimal" };
+    public NoteNumbering Endnote = new() { Fmt = "lowerRoman" };
+
+    public NoteNumbering Of(string kind) => kind == "endnote" ? Endnote : Footnote;
+}
+
+/// <summary>Marcas das notas já referenciadas e os contadores (reinício por seção/página).</summary>
+public sealed class NoteFlow
+{
+    public Dictionary<int, string> FootnoteMarks = new();
+    public Dictionary<int, string> EndnoteMarks = new();
+    public double FootnoteSeq;
+    public double EndnoteSeq;
+    /// <summary>notas de fim na ordem da 1ª referência (as que ainda não saíram ficam pendentes)</summary>
+    public List<int> EndnoteOrder = new();
+
+    public Dictionary<int, string> Marks(string kind) => kind == "endnote" ? EndnoteMarks : FootnoteMarks;
+
+    public NoteFlow Clone() => new()
+    {
+        FootnoteMarks = new Dictionary<int, string>(FootnoteMarks),
+        EndnoteMarks = new Dictionary<int, string>(EndnoteMarks),
+        FootnoteSeq = FootnoteSeq,
+        EndnoteSeq = EndnoteSeq,
+        EndnoteOrder = new List<int>(EndnoteOrder),
+    };
 }
 
 public sealed class DocContext
@@ -130,8 +169,12 @@ public sealed class DocContext
         if (_warnSet.Add(msg)) _warnings.Add(msg);
     }
 
-    private Dictionary<double, double> _footnotes = new();
-    private Dictionary<double, double> _endnotes = new();
+    private NoteFlow _notes = new();
+    /// <summary>numeração da seção corrente (o motor troca em cada seção)</summary>
+    public NoteNumberingPair NoteNumbering = new();
+    /// <summary>marcas finais de uma passada anterior (reinício por página: a página da
+    /// referência só se sabe depois de diagramar)</summary>
+    public Dictionary<string, string>? NoteMarkOverride;
     /// <summary>contadores dos campos SEQ (ordem do documento)</summary>
     public Dictionary<string, double> SeqCounters = new(StringComparer.Ordinal);
 
@@ -139,7 +182,7 @@ public sealed class DocContext
     public FlowState SaveFlow() => new()
     {
         Numbering = Numbering.Clone(), Seq = new Dictionary<string, double>(SeqCounters, StringComparer.Ordinal),
-        Footnotes = new Dictionary<double, double>(_footnotes), Endnotes = new Dictionary<double, double>(_endnotes),
+        Notes = _notes.Clone(),
     };
 
     /// <summary>Volta ao estado fotografado (a fotografia continua reutilizável).</summary>
@@ -147,8 +190,7 @@ public sealed class DocContext
     {
         Numbering = s.Numbering.Clone();
         SeqCounters = new Dictionary<string, double>(s.Seq, StringComparer.Ordinal);
-        _footnotes = new Dictionary<double, double>(s.Footnotes);
-        _endnotes = new Dictionary<double, double>(s.Endnotes);
+        _notes = s.Notes.Clone();
     }
 
     /// <summary>Medição sem efeito colateral: não avança listas, SEQ nem números de nota.</summary>
@@ -159,18 +201,47 @@ public sealed class DocContext
         finally { RestoreFlow(s); }
     }
 
-    /// <summary>Número exibido da nota de rodapé (ordem da 1ª referência).</summary>
-    public double FootnoteNumber(double id)
+    /// <summary>Seção nova: formato/início da numeração das notas e o reinício por seção.</summary>
+    public void BeginNoteSection(NoteNumberingPair n, bool first)
     {
-        if (!_footnotes.TryGetValue(id, out var n)) { n = _footnotes.Count + 1; _footnotes[id] = n; }
-        return n;
+        NoteNumbering = n;
+        if (first || n.Footnote.Restart == "eachSect") _notes.FootnoteSeq = 0;
+        if (first || n.Endnote.Restart == "eachSect") _notes.EndnoteSeq = 0;
     }
 
-    public double EndnoteNumber(double id)
+    /// <summary>Página nova: reinicia a contagem das notas de rodapé "a cada página".</summary>
+    public void BeginNotePage()
     {
-        if (!_endnotes.TryGetValue(id, out var n)) { n = _endnotes.Count + 1; _endnotes[id] = n; }
-        return n;
+        if (NoteNumbering.Footnote.Restart == "eachPage") _notes.FootnoteSeq = 0;
     }
+
+    /// <summary>Marca exibida de uma nota (ordem da 1ª referência, no formato da seção dela);
+    /// com marca personalizada não consome número (oráculo notefmt, custom-mark).</summary>
+    public string NoteMark(string kind, int id, bool custom = false)
+    {
+        var marks = _notes.Marks(kind);
+        if (!marks.TryGetValue(id, out var m))
+        {
+            if (kind == "endnote") _notes.EndnoteOrder.Add(id);
+            if (custom) m = "";
+            else
+            {
+                var nn = NoteNumbering.Of(kind);
+                double seq = kind == "endnote" ? ++_notes.EndnoteSeq : ++_notes.FootnoteSeq;
+                m = NoteMarkOverride is not null && NoteMarkOverride.TryGetValue($"{kind[0]}{id}", out var ov)
+                    ? ov
+                    : NumberFormat.FormatNumber(nn.Start - 1 + seq, nn.Fmt, Opts.Lang);
+            }
+            marks[id] = m;
+        }
+        return m;
+    }
+
+    /// <summary>Marca já atribuída (sem numerar).</summary>
+    public string? NoteMarkOf(string kind, int id) => _notes.Marks(kind).TryGetValue(id, out var m) ? m : null;
+
+    /// <summary>Notas de fim referenciadas até aqui (ordem da 1ª referência).</summary>
+    public IReadOnlyList<int> EndnoteOrder => _notes.EndnoteOrder;
 
     /// <summary>Formatação vazia (documentos sem as partes — ex.: ODT convertido).</summary>
     public static DocFormatting EmptyFormatting() => new()

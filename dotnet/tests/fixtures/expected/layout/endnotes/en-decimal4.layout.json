@@ -1,0 +1,28 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"Um","g":[[85,1701],[109,1859.88]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":7,"color":"000000","y":1543.36,"scaleX":1,"text":"4","g":[[52,2043.14]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"dois","g":[[100,2182.12],[111,2304.48],[105,2426.83],[115,2475.71]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":7,"color":"000000","y":1543.36,"scaleX":1,"text":"5","g":[[53,2585.71]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"Hxg","g":[[72,2724.69],[120,2883.57],[103,2993.57]]},
+        {"t":"rect","x":1701,"y":1819.74,"w":2880,"h":12,"fill":"000000","alpha":null},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":6.5,"color":"000000","y":2050.55,"scaleX":1,"text":"4","g":[[52,1701]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":2110.55,"scaleX":1,"text":"Notaum.","g":[[78,1828.87],[111,1973.3],[116,2084.53],[97,2140.1],[117,2306.89],[109,2418.12],[46,2584.73]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":6.5,"color":"000000","y":2280.54,"scaleX":1,"text":"5","g":[[53,1701]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":2340.54,"scaleX":1,"text":"Notadois.","g":[[78,1828.87],[111,1973.3],[116,2084.53],[97,2140.1],[100,2306.89],[111,2418.12],[105,2529.35],[115,2573.79],[46,2673.79]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":11,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1414.92},
+        {"ref":"en1/b0","start":0,"end":9,"x":1701,"y":1922.96,"height":229.98,"baseline":2110.55,"width":939.29},
+        {"ref":"en2/b0","start":0,"end":11,"x":1701,"y":2152.94,"height":229.98,"baseline":2340.54,"width":1028.35}
+      ]
+    }
+  ],
+  "warnings": []
+}

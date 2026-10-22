@@ -93,6 +93,8 @@ public static class NumberFormat
             case "decimalEnclosedCircle": return n >= 1 && n <= 20 ? Js.FromCodePoint((int)(0x2460 + n - 1)) : Js.Str(n);
             case "decimalEnclosedParen": return $"({Js.Str(n)})";
             case "decimalEnclosedFullstop": return $"{Js.Str(n)}.";
+            // notas "símbolos": *, †, ‡, § e depois repetidos (**, ††…) — oráculo notefmt, fmt-chicago
+            case "chicago": return n <= 0 ? Js.Str(n) : new string("*†‡§"[(int)((n - 1) % 4)], (int)Math.Floor((n - 1) / 4) + 1);
             case "none": return "";
             case "bullet": return "";
             default: return Js.Str(n);

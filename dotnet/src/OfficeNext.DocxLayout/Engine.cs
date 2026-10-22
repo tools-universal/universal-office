@@ -42,11 +42,19 @@ public static class LayoutEngine
         // delas: na passada seguinte entram no início da página, na posição achada, e o
         // texto de antes as contorna (oráculo ftable2, ft2-form*)
         var lateTables = new Dictionary<int, LateTable>();
+        // notas de rodapé "reiniciar a cada página": a marca depende da página onde a nota
+        // saiu — a passada seguinte usa as da anterior
+        Dictionary<string, string>? noteMarks = null;
+        DocContext NewCtx()
+        {
+            var c = new DocContext(fmt, provider, opts);
+            if (noteMarks is not null) c.NoteMarkOverride = noteMarks;
+            return c;
+        }
         Engine? last = null;
         for (int pass = 0; pass < 5; pass++)
         {
-            var ctx = new DocContext(fmt, provider, opts);
-            var eng = new Engine(ctx, full, total, marks, late, lateTables);
+            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables);
             result = eng.Run();
             last = eng;
             var newMarks = eng.UsedPageRef ? eng.BookmarkPages() : marks;
@@ -57,13 +65,15 @@ public static class LayoutEngine
                 newLateTables = new Dictionary<int, LateTable>(lateTables);
                 foreach (var (k, v) in eng.LateTablesFound) newLateTables[k] = v;
             }
+            var fix = eng.NoteMarkFix();
             bool stable = (!eng.UsedNumPages || result.Pages.Count == total)
-                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables);
+                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables) && fix is null;
             if (stable) break;
             total = result.Pages.Count;
             marks = newMarks;
             lateTables = newLateTables;
             late = newLate;
+            if (fix is not null) noteMarks = fix;
         }
         // seções de várias colunas encerradas por quebra CONTÍNUA: o Word equilibra as
         // colunas da última página da seção — a menor altura de coluna com que o conteúdo,
@@ -71,7 +81,7 @@ public static class LayoutEngine
         var balance = new Dictionary<int, BalanceSpec>();
         Engine RunWith(Dictionary<int, BalanceSpec> bal)
         {
-            var eng = new Engine(new DocContext(fmt, provider, opts), full, total, marks, late, lateTables, bal);
+            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables, bal);
             result = eng.Run();
             return eng;
         }
@@ -157,6 +167,24 @@ internal sealed class SectGeom
     public (double CountBy, double Start, string Restart, double Distance)? LnNum;
     /// <summary>grade de linhas (docGrid type=lines/linesAndChars): passo em twips</summary>
     public double? LinePitch;
+    /// <summary>notas: numeração efetiva da seção (sectPr sobre o settings), local das de rodapé
+    /// (pageBottom | beneathText) e colunas da área de notas (w15:footnoteColumns)</summary>
+    public SectNotes Notes = new();
+    /// <summary>chave do equilíbrio de colunas (padrão: o índice da seção; a área das notas de
+    /// fim é equilibrada à parte)</summary>
+    public int? BalKey;
+
+    public SectGeom ShallowClone() => (SectGeom)MemberwiseClone();
+}
+
+/// <summary>Notas de uma seção: numeração dos dois tipos, local das de rodapé e colunas da área delas.</summary>
+internal sealed class SectNotes
+{
+    public NoteNumberingPair Num = new();
+    public NoteNumbering Footnote => Num.Footnote;
+    public NoteNumbering Endnote => Num.Endnote;
+    public string FnPos = "pageBottom";
+    public int? FnCols;
 }
 
 internal sealed class FloatBox
@@ -199,6 +227,8 @@ internal sealed class PageState
     /// <summary>altura reservada no pé (separador + notas) e o fundo do corpo sem notas</summary>
     public double NoteArea;
     public double BodyBottomBase;
+    /// <summary>página tomada pela continuação de uma nota (o corpo segue na próxima)</summary>
+    public bool NotesFull;
     /// <summary>colunas da página quando a seção seguinte entrou por "próxima coluna": o
     /// resto da página fica com as colunas de antes (oráculo sections, nc-2to2-margin)</summary>
     public List<(double X, double W)>? Cols;
@@ -269,7 +299,8 @@ internal sealed class Engine
     private sealed record FloatCarryItem(TableLayout T, List<RowLayout> Rows, TblpPr Fp, double RefX);
 
     private readonly DocContext _ctx;
-    private readonly FullDocument _full;
+    /// <summary>documento (as notas de fim trocam os blocos pelos delas enquanto saem)</summary>
+    private FullDocument _full;
     private readonly double _totalPagesGuess;
     /// <summary>página exibida de cada indicador (passada anterior) — PAGEREF</summary>
     private readonly Dictionary<string, string> _marksGuess;
@@ -308,10 +339,13 @@ internal sealed class Engine
     /// <summary>fundo do corpo antes do limite de coluna equilibrada (restaurado na seção seguinte)</summary>
     private double? _balanceSaved;
 
+    /// <summary>Chave do equilíbrio de colunas da seção (BalKey ou o índice).</summary>
+    private static int BalKeyOf(SectGeom g) => g.BalKey ?? g.Index;
+
     /// <summary>Limita a altura das colunas na última página de uma seção equilibrada.</summary>
     private void ApplyBalance()
     {
-        if (!_balance.TryGetValue(_cur.Geom.Index, out var spec) || spec.Page != _pages.Count - 1) return;
+        if (!_balance.TryGetValue(BalKeyOf(_cur.Geom), out var spec) || spec.Page != _pages.Count - 1) return;
         _balanceSaved = _cur.BodyBottom;
         _cur.BodyBottom = Math.Min(_cur.BodyBottom, _colTop + spec.H);
     }
@@ -419,6 +453,33 @@ internal sealed class Engine
         return _listTexts.TryGetValue(block, out var t) ? t : null;
     }
 
+    /// <summary>
+    /// Reinício a cada página (w:numRestart eachPage): a marca de cada nota pela
+    /// página onde ela saiu (a continuação de nota partida não conta de novo). null =
+    /// as marcas desta passada já valem; senão todas as marcas certas, para a próxima.
+    /// </summary>
+    public Dictionary<string, string>? NoteMarkFix()
+    {
+        var want = new Dictionary<string, string>(StringComparer.Ordinal);
+        bool differs = false;
+        var seen = new HashSet<double>();
+        foreach (var ps in _pages)
+        {
+            var nn = ps.Geom.Notes.Footnote;
+            double k = 0;
+            foreach (var n in ps.Notes)
+            {
+                if (!seen.Add(n.Id)) continue;
+                string? cur = _ctx.NoteMarkOf("footnote", (int)n.Id);
+                if (!Js.Truthy(cur) || nn.Restart != "eachPage") continue;
+                string m = NumberFormat.FormatNumber(nn.Start - 1 + ++k, nn.Fmt, _ctx.Opts.Lang);
+                want[$"f{Js.Str(n.Id)}"] = m;
+                if (m != cur) differs = true;
+            }
+        }
+        return differs ? want : null;
+    }
+
     /// <summary>Página exibida (já formatada) do parágrafo de cada indicador.</summary>
     public Dictionary<string, string> BookmarkPages()
     {
@@ -480,8 +541,12 @@ internal sealed class Engine
         // (até o Word 16.0.19xxx, o PDF exportado direto recomeçava as listas com
         // startOverride depois do bloco que abre a 2ª página; o Word 16.0.20430,
         // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
+        // notas de fim no fim de cada seção (settings w:endnotePr/w:pos sectEnd) ou do documento
+        bool enSectEnd = _ctx.Fmt.Settings.EndnotePr?.Pos == "sectEnd";
         foreach (var g in _geoms)
         {
+            // numeração das notas da seção (reinício por seção vale a partir daqui)
+            _ctx.BeginNoteSection(g.Notes.Num, g.Index == 0);
             // contínua (ou próxima coluna) para outro tamanho/orientação de papel: o Word
             // começa página nova (oráculo sections, cont-landscape); só margens mudam na mesma
             bool samePaper = _cur is not null && _cur.Page.WidthTw == g.PageW && _cur.Page.HeightTw == g.PageH;
@@ -501,6 +566,10 @@ internal sealed class Engine
                 if (block is ParagraphBlock pb) PlaceParagraph(pb.Paragraph, $"b{b}", b, g);
                 else PlaceTable((TableBlock)block, $"b{b}", b);
             }
+            // a seção que suprime as notas (w:noEndnote) passa as dela para a seguinte
+            // (oráculo endnotes, en-noend); no fim do documento saem todas
+            bool lastSect = ReferenceEquals(g, _geoms[^1]);
+            if (lastSect || (enSectEnd && !(g.Index < full.Sections.Count && full.Sections[g.Index].Sect?.NoEndnote == true))) PlaceEndnotes(g);
         }
         // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas
         for (int k = 0; k < 100 && _floatCarry.Count > 0 && _cur is not null; k++) NewPage(_cur.Geom);
@@ -638,8 +707,26 @@ internal sealed class Engine
         }
         var hb = s.HeaderBlocks ?? BlocksOfParas(s.Headers);
         var fb = s.FooterBlocks ?? BlocksOfParas(s.Footers);
+        // notas: o footnotePr/endnotePr da seção sobre o do settings (o Word grava nos
+        // dois); padrões 1, 2, 3 no rodapé e i, ii, iii no fim
+        var st = _ctx.Fmt.Settings;
+        var fnS = sp.FootnotePr; var fnD = st.FootnotePr;
+        var enS = sp.EndnotePr; var enD = st.EndnotePr;
+        string? enRestart = enS?.NumRestart ?? enD?.NumRestart;
+        var notes = new SectNotes
+        {
+            Num = new NoteNumberingPair
+            {
+                Footnote = new NoteNumbering { Fmt = fnS?.NumFmt ?? fnD?.NumFmt ?? "decimal", Start = fnS?.NumStart ?? fnD?.NumStart ?? 1, Restart = fnS?.NumRestart ?? fnD?.NumRestart ?? "continuous" },
+                // (nota de fim não reinicia por página)
+                Endnote = new NoteNumbering { Fmt = enS?.NumFmt ?? enD?.NumFmt ?? "lowerRoman", Start = enS?.NumStart ?? enD?.NumStart ?? 1, Restart = enRestart == "eachSect" ? "eachSect" : "continuous" },
+            },
+            FnPos = fnS?.Pos ?? fnD?.Pos ?? "pageBottom",
+            FnCols = sp.FootnoteColumns is > 0 ? sp.FootnoteColumns : null,
+        };
         var g = new SectGeom
         {
+            Notes = notes,
             Index = i, PageW = pageW, PageH = pageH, MarL = marL, MarR = marR,
             MarT = sp.MarginTopTwips, MarB = sp.MarginBottomTwips,
             Hdr = sp.HeaderDistanceTwips ?? 720, Ftr = sp.FooterDistanceTwips ?? 720,
@@ -702,7 +789,13 @@ internal sealed class Engine
         _atTop = true;
         _topGapPrevAfter = null;
         _prev = null;
+        _ctx.BeginNotePage();
+        // notas de fim que continuam: separador de continuação (margem a margem) no topo
+        // (oráculo endnotes, en-fill50/en-split)
+        if (_enFlow is { SepDone: true }) ContinuationSeparator(true);
         if (_floatCarry.Count > 0) PlaceFloatCarry();
+        // página só de notas (continuação longa): o texto segue na próxima
+        if (_cur.NotesFull) { NewPage(_cur.Geom); return; }
         // flutuantes tardios desta página: entram antes do texto
         if (_lateFloats.TryGetValue(_pages.Count - 1, out var late))
         {
@@ -744,13 +837,24 @@ internal sealed class Engine
         // continuação de nota partida na página anterior: primeiro no pé desta (oráculo fncont)
         if (_noteCarry.Count > 0)
         {
-            foreach (var nc in _noteCarry)
-            {
-                if (ps.Notes.Count == 0) ps.NoteArea += SeparatorHeight();
-                ps.Notes.Add(nc);
-                ps.NoteArea += nc.Content.Height;
-            }
+            // nota que nem nesta página cabe inteira: enche a página (só notas, alinhadas
+            // ao pé) e o resto segue para a próxima (oráculo notefmt, cont-sep-3p)
+            var carry = _noteCarry;
             _noteCarry = new List<(double Id, CellContent Content)>();
+            foreach (var n in carry)
+            {
+                double avail = ps.BodyBottomBase - ps.BodyTop - NoteAreaOf(ps.Notes.Select(x => x.Content).ToList(), g) - (ps.Notes.Count > 0 ? 0 : SeparatorHeight());
+                var sp = n.Content.Height > avail + 0.05 && !ps.NotesFull ? TableEngine.SplitContent(n.Content, avail) : null;
+                if (sp is { } spv && spv.A.Lines.Count > 0 && spv.B.Lines.Count > 0)
+                {
+                    ps.Notes.Add((n.Id, spv.A));
+                    _noteCarry.Add((n.Id, spv.B));
+                    ps.NotesFull = true;
+                }
+                else if (ps.NotesFull) _noteCarry.Add(n);
+                else ps.Notes.Add(n);
+            }
+            ps.NoteArea = NoteAreaOf(ps.Notes.Select(n => n.Content).ToList(), g);
             ps.BodyBottom = ps.BodyBottomBase - ps.NoteArea;
         }
     }
@@ -759,11 +863,7 @@ internal sealed class Engine
     {
         // a seção que termina (várias colunas): o que ocupou nesta página (equilíbrio)
         var ending = _cur.Geom;
-        if (ending.Cols.Count > 1)
-        {
-            var used = new List<double>(_colUsed) { _y - _colTop };
-            BalanceFound[ending.Index] = new BalanceInfo(_pages.Count - 1, _colTop, _balanceSaved ?? _cur.BodyBottom, used.Aggregate(0.0, (a, b) => a + Math.Max(0, b)), ending.Cols.Count, used);
-        }
+        RecordBalance(ending);
         if (_balanceSaved is { } bs) { _cur.BodyBottom = bs; _balanceSaved = null; }
         CloseColumns();
         _colUsed = new List<double>();
@@ -789,6 +889,15 @@ internal sealed class Engine
         ApplyBalance();
         // o espaço "depois" do último parágrafo da seção anterior colapsa com o
         // "antes" do 1º desta, como entre parágrafos (oráculo colbreak, cb-textsect-*)
+    }
+
+    /// <summary>Seção de várias colunas que termina nesta página: o que cada coluna ocupou
+    /// (o equilíbrio é buscado em LayoutDocument).</summary>
+    private void RecordBalance(SectGeom ending)
+    {
+        if (ending.Cols.Count <= 1) return;
+        var used = new List<double>(_colUsed) { _y - _colTop };
+        BalanceFound[BalKeyOf(ending)] = new BalanceInfo(_pages.Count - 1, _colTop, _balanceSaved ?? _cur.BodyBottom, used.Aggregate(0.0, (a, b) => a + Math.Max(0, b)), ending.Cols.Count, used);
     }
 
     /// <summary>fundo da coluna mais alta já deixada nesta página (seção de várias colunas)</summary>
@@ -885,6 +994,9 @@ internal sealed class Engine
             _y = _colTop;
             _atTop = true;
             _prev = null;
+            // notas de fim em colunas: a coluna seguinte guarda o lugar do separador (sem
+            // linha — oráculo endnotes, en-cols)
+            if (_enFlow is { SepDone: true }) ContinuationSeparator(false);
         }
         else NewPage(g);
     }
@@ -901,6 +1013,8 @@ internal sealed class Engine
             return !string.IsNullOrEmpty(bm) && _marksGuess.TryGetValue(bm, out var v) ? v : null;
         }
         if (name == "SEQ") return SeqValue(instr ?? "");
+        // número da própria nota de fim (w:endnoteRef) no fluxo das notas de fim
+        if (name == "ENDNOTEREF_MARK" && _curEndnote is { } ce) return _ctx.NoteMarkOf("endnote", ce) ?? "";
         if (name == "REF") return RefValue(instr ?? "");
         if (name == "PAGE") return NumberFormat.FormatNumber(ps.Page.Number, ps.Geom.PgFmt ?? "decimal", _ctx.Opts.Lang);
         if (name == "NUMPAGES") { UsedNumPages = true; return Js.Str(_totalPagesGuess); }
@@ -1755,7 +1869,7 @@ internal sealed class Engine
         // Logo depois de tabela ele ocupa a linha no modo 15 (cb-emptysect-aftertbl); nos
         // modos 11/14 também some (…-c11/-c14)
         var nextGeom = g.Index + 1 < _geoms.Count ? _geoms[g.Index + 1] : null;
-        if (blockIdx == g.Blocks.End && p.Glyphs.Count == 0 && nextGeom?.Type == "continuous"
+        if (blockIdx == g.Blocks.End && p.Glyphs.Count == 0 && _enFlow is null && nextGeom?.Type == "continuous"
             && ((blockIdx - 1 >= 0 && blockIdx - 1 < _full.Blocks.Count && _full.Blocks[blockIdx - 1] is ParagraphBlock) || _ctx.Fmt.Settings.CompatibilityMode < 15))
         {
             // o próprio espaçamento dele se desconta dos vizinhos: colapso(depois anterior,
@@ -2251,31 +2365,48 @@ internal sealed class Engine
 
     // ───────────────────────── notas de rodapé ─────────────────────────
 
-    private readonly Dictionary<double, CellContent> _noteCache = new();
+    /// <summary>conteúdo diagramado por nota e largura</summary>
+    private readonly Dictionary<string, CellContent> _noteCache = new(StringComparer.Ordinal);
 
-    /// <summary>Conteúdo diagramado de uma nota (largura do corpo da página).</summary>
+    /// <summary>Colunas da área de notas de rodapé: com w15:footnoteColumns, N iguais com vão de
+    /// 720 tw (oráculo notefmt, cols2); sem ("coincidir layout de seção"), as colunas da
+    /// própria seção (sect-cols2). x relativo à margem esquerda; w = a da 1ª coluna.</summary>
+    private static (int N, double W, List<double> Dx) NoteCols(SectGeom g)
+    {
+        double contentW = g.PageW - g.MarL - g.MarR;
+        int n = g.Notes.FnCols ?? g.Cols.Count;
+        if (g.Notes.FnCols is null && n > 1) return (n, g.Cols[0].W, g.Cols.Select(c => c.X - g.MarL).ToList());
+        const double gap = 720;
+        double w = n > 1 ? (contentW - gap * (n - 1)) / n : contentW;
+        return (n, w, Enumerable.Range(0, Math.Max(0, n)).Select(k => k * (w + gap)).ToList());
+    }
+
+    /// <summary>Conteúdo diagramado de uma nota (largura do corpo ou da coluna de notas).</summary>
     private CellContent NoteContent(double id)
     {
-        if (!_noteCache.TryGetValue(id, out var c))
+        var g = _cur.Geom;
+        double w = NoteCols(g).W;
+        string key = $"{Js.Str(id)}:{Js.Str(Js.Round(w))}";
+        if (!_noteCache.TryGetValue(key, out var c))
         {
-            var g = _cur.Geom;
             int iid = (int)id;
             List<Block> blocks;
             if (_full.FootnoteBlocks is not null && _full.FootnoteBlocks.TryGetValue(iid, out var fb)) blocks = fb;
             else blocks = (_full.Footnotes.TryGetValue(iid, out var ps) ? ps : new List<Paragraph>())
                 .Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-            double num = _ctx.FootnoteNumber(id);
+            // o número da própria nota é a marca da referência (no formato da seção dela)
+            string mark = _ctx.NoteMarkOf("footnote", iid) ?? "";
             var saved = _ctx.Numbering;
             _ctx.Numbering = new NumberingState(_ctx.Fmt.Numbering, _ctx.Fmt.Styles.Styles, _ctx.Opts.Lang);
             try
             {
-                c = LayoutStatic(blocks, g.MarL, g.PageW - g.MarL - g.MarR, new ParaEnv
+                c = LayoutStatic(blocks, g.MarL, w, new ParaEnv
                 {
-                    Field = (name, _) => name == "FOOTNOTEREF_MARK" ? Js.Str(num) : FieldValue(_cur)(name, null),
+                    Field = (name, _) => name == "FOOTNOTEREF_MARK" ? mark : FieldValue(_cur)(name, null),
                 }, $"fn{Js.Str(id)}");
             }
             finally { _ctx.Numbering = saved; }
-            _noteCache[id] = c;
+            _noteCache[key] = c;
         }
         return c;
     }
@@ -2302,14 +2433,7 @@ internal sealed class Engine
         return ids;
     }
 
-    private double RowNoteExtra(RowLayout row)
-    {
-        var ids = RowNoteIds(row);
-        if (ids.Count == 0) return 0;
-        double extra = _cur.Notes.Count > 0 ? 0 : SeparatorHeight();
-        foreach (var id in ids) extra += NoteContent(id).Height;
-        return extra;
-    }
+    private double RowNoteExtra(RowLayout row) => NotesExtra(RowNoteIds(row));
 
     private static readonly Regex RefB = new(@"^b([0-9]+)\z", RegexOptions.CultureInvariant);
     private static readonly Regex RefR = new(@"^r([0-9]+)\z", RegexOptions.CultureInvariant);
@@ -2348,14 +2472,72 @@ internal sealed class Engine
         return block is ParagraphBlock pb ? pb.Paragraph : null;
     }
 
-    /// <summary>Altura do separador (1 linha do estilo Normal).</summary>
-    private double SeparatorHeight()
+    private (double H, double Mid, double Thick)? _sepCache;
+
+    /// <summary>
+    /// Linha do separador: altura (1 linha SIMPLES da fonte do Normal, sem espaçamento —
+    /// o pPr do separador e a entrelinha do Normal não contam, oráculo fnsep), o meio do
+    /// traço (0,23 em acima da base da linha) e a espessura (0,05 em em pixels de 1/600",
+    /// por cima — medidos com Arial, Calibri e Times: oráculo endnotes, sep-*).
+    /// </summary>
+    private (double H, double Mid, double Thick) SepGeom()
     {
-        // linha SIMPLES da fonte do Normal, sem espaçamento (o pPr do separador e a
-        // entrelinha do Normal não contam — oráculo fnsep)
-        var ppr = new PPr { Spacing = new SpacingSpec { Before = 0, After = 0, Line = 240, LineRule = "auto" } };
-        var p = Para.PrepareParagraph(_ctx, new Paragraph { Runs = new List<Run>(), Props = DocumentReader.ParaPropsFromPPr(ppr), Ppr = ppr }, new ParaEnv());
-        return new LineBreaker(_ctx, p).Next(new LineFrame(0, 10000)).Height;
+        if (_sepCache is null)
+        {
+            var ppr = new PPr { Spacing = new SpacingSpec { Before = 0, After = 0, Line = 240, LineRule = "auto" } };
+            var p = Para.PrepareParagraph(_ctx, new Paragraph { Runs = new List<Run>(), Props = DocumentReader.ParaPropsFromPPr(ppr), Ppr = ppr }, new ParaEnv());
+            var l = new LineBreaker(_ctx, p).Next(new LineFrame(0, 10000));
+            double sz = p.MarkStyle.SizePt;
+            if (sz == 0 || double.IsNaN(sz)) sz = 10;
+            double em = sz * 20;
+            _sepCache = (l.Height, l.Baseline - 0.23 * em, Math.Max(2.4, Math.Ceiling((0.05 * em) / 2.4 - 0.01) * 2.4));
+        }
+        return _sepCache.Value;
+    }
+
+    /// <summary>Altura do separador (1 linha do estilo Normal).</summary>
+    private double SeparatorHeight() => SepGeom().H;
+
+    /// <summary>Traço do separador a partir do topo <paramref name="top"/> da linha dele (2" no normal, a
+    /// largura da coluna no de continuação das notas de fim).</summary>
+    private RectItem SepLine(double x, double top, double w)
+    {
+        var sg = SepGeom();
+        return new RectItem { X = x, Y = top + sg.Mid - sg.Thick / 2, W = w, H = sg.Thick, Fill = "000000" };
+    }
+
+    /// <summary>Altura da área de notas (separador + notas; em colunas, a coluna mais alta).</summary>
+    private double NoteAreaOf(List<CellContent> contents, SectGeom? g = null)
+    {
+        if (contents.Count == 0) return 0;
+        return SeparatorHeight() + PackNotes(contents.Select(c => c.Height).ToList(), NoteCols(g ?? _cur.Geom).N).Height;
+    }
+
+    /// <summary>Notas inteiras por coluna: cada coluna recebe notas até passar da média
+    /// (oráculo notefmt, cols2); uma coluna = em sequência.</summary>
+    private static (List<int> Col, List<double> Top, double Height) PackNotes(List<double> hs, int n)
+    {
+        var col = new List<int>();
+        var top = new List<double>();
+        double target = n > 1 ? hs.Aggregate(0.0, (a, b) => a + b) / n : double.PositiveInfinity;
+        int c = 0;
+        double y = 0, max = 0;
+        foreach (var h in hs)
+        {
+            if (y > 0 && y >= target - 0.5 && c < n - 1) { c++; y = 0; }
+            col.Add(c); top.Add(y);
+            y += h;
+            max = Math.Max(max, y);
+        }
+        return (col, top, max);
+    }
+
+    /// <summary>Espaço que as notas NOVAS <paramref name="ids"/> acrescentam à área de notas da página.</summary>
+    private double NotesExtra(List<double> ids)
+    {
+        if (ids.Count == 0) return 0;
+        var cur = _cur.Notes.Select(n => n.Content).ToList();
+        return NoteAreaOf(cur.Concat(ids.Select(NoteContent)).ToList()) - NoteAreaOf(cur);
     }
 
     /// <summary>Altura com que a linha que traz uma nota NOVA precisa caber acima das notas: a
@@ -2373,10 +2555,7 @@ internal sealed class Engine
             double? id = k < p.Glyphs.Count ? p.Glyphs[k].NoteId : null;
             if (id is { } v && !ids.Contains(v) && !_cur.Notes.Any(n => n.Id.Equals(v))) ids.Add(v);
         }
-        if (ids.Count == 0) return (ids, 0);
-        double extra = _cur.Notes.Count > 0 ? 0 : SeparatorHeight();
-        foreach (var id in ids) extra += NoteContent(id).Height;
-        return (ids, extra);
+        return (ids, NotesExtra(ids));
     }
 
     private void ReserveNotes(List<double> ids, NoteCut? cut = null)
@@ -2385,12 +2564,11 @@ internal sealed class Engine
         foreach (var id in ids)
         {
             if (ps.Notes.Any(n => n.Id.Equals(id))) continue;
-            if (ps.Notes.Count == 0) ps.NoteArea += SeparatorHeight();
             var content = cut is not null && cut.Id.Equals(id) ? cut.First : NoteContent(id);
             ps.Notes.Add((id, content));
-            ps.NoteArea += content.Height;
             if (cut is not null && cut.Id.Equals(id)) _noteCarry.Add((id, cut.Rest));
         }
+        ps.NoteArea = NoteAreaOf(ps.Notes.Select(n => n.Content).ToList(), ps.Geom);
         ps.BodyBottom = ps.BodyBottomBase - ps.NoteArea;
     }
 
@@ -2409,10 +2587,11 @@ internal sealed class Engine
     /// o começo dela fica nesta página — o que couber, com viúvas/órfãs da própria nota — e o
     /// resto continua no pé da seguinte, antes das notas de lá (oráculo fncont). Só a última
     /// das notas da linha parte; sem ao menos o começo permitido, nulo (a linha desce).
+    /// Com a área de notas em colunas, a nota não parte.
     /// </summary>
     private NoteCut? NotePartial(List<double> ids, double bottom)
     {
-        if (ids.Count == 0) return null;
+        if (ids.Count == 0 || NoteCols(_cur.Geom).N > 1) return null;
         var ps = _cur;
         double h = ps.Notes.Count > 0 ? 0 : SeparatorHeight();
         foreach (var nid in ids.Take(ids.Count - 1)) h += NoteContent(nid).Height;
@@ -2423,22 +2602,124 @@ internal sealed class Engine
         return sp is { } spv && spv.A.Lines.Count > 0 && spv.B.Lines.Count > 0 ? new NoteCut(id, spv.A, spv.B) : null;
     }
 
-    /// <summary>Separador + notas, alinhados ao fundo do corpo (medido no Word).</summary>
+    /// <summary>Separador + notas, alinhados ao fundo do corpo (medido no Word); "abaixo do
+    /// texto" (w:pos beneathText): logo depois do conteúdo da página, como as notas de
+    /// fim (oráculo notefmt, pos-beneath*). As linhas das notas entram na página
+    /// (o editor edita a nota no lugar).</summary>
     private void PaintNotes(PageState ps)
     {
         if (ps.Notes.Count == 0) return;
         var g = ps.Geom;
         double y = ps.BodyBottomBase - ps.NoteArea;
-        double sepH = SeparatorHeight();
-        // traço de 2" (144 pt) na altura do meio-x da linha do separador
-        double ly = y + sepH * 0.62;
-        ps.Body.Add(new LineItem { X1 = g.MarL, Y1 = ly, X2 = g.MarL + 2880, Y2 = ly, Color = "000000", WidthPt = 0.5 });
-        y += sepH;
-        foreach (var n in ps.Notes)
+        if (g.Notes.FnPos == "beneathText" && ReferenceEquals(ps, _cur))
         {
-            foreach (var it in n.Content.Items) ps.Body.Add(TableEngine.ShiftItem(it, y));
-            y += n.Content.Height;
+            double end = Math.Max(_y, _colMaxY) + (_prev is not null && !_atTop ? _prev.After : 0);
+            y = Math.Max(ps.BodyTop, Math.Min(y, end));
         }
+        // traço de 2" (144 pt) no separador
+        ps.Body.Add(SepLine(g.MarL, y, 2880));
+        y += SeparatorHeight();
+        var cols = NoteCols(g);
+        var pack = PackNotes(ps.Notes.Select(n => n.Content.Height).ToList(), cols.N);
+        for (int i = 0; i < ps.Notes.Count; i++)
+        {
+            var n = ps.Notes[i];
+            int ci = pack.Col[i];
+            double dx = ci >= 0 && ci < cols.Dx.Count ? cols.Dx[ci] : 0, dy = y + pack.Top[i];
+            foreach (var it in n.Content.Items) ps.Body.Add(TableEngine.ShiftItem(it, dy, dx));
+            foreach (var l in n.Content.Lines) ps.Page.Lines.Add(ShiftLineXY(l, dx, dy));
+        }
+    }
+
+    // ───────────────────────── notas de fim ─────────────────────────
+
+    /// <summary>fluxo de notas de fim em curso (o separador já saiu: páginas e colunas seguintes
+    /// ganham o de continuação)</summary>
+    private sealed class EnFlowState { public bool SepDone; }
+    private EnFlowState? _enFlow;
+    /// <summary>nota de fim sendo diagramada (o número dela no campo ENDNOTEREF_MARK)</summary>
+    private int? _curEndnote;
+    /// <summary>quantas notas de fim (na ordem de referência) já saíram</summary>
+    private int _endnotesDone;
+
+    /// <summary>
+    /// Notas de fim pendentes no fluxo, depois do conteúdo da seção/documento: o
+    /// separador (uma linha simples da fonte do Normal, depois do "depois" do último
+    /// parágrafo, que mantém a 1ª linha da 1ª nota com ele) e as notas na ordem de
+    /// referência; a continuação noutra página tem o separador de continuação
+    /// (oráculo endnotes). Linhas com ref "en&lt;id&gt;/b&lt;k&gt;".
+    /// </summary>
+    private void PlaceEndnotes(SectGeom g)
+    {
+        var order = _ctx.EndnoteOrder;
+        var ids = order.Skip(_endnotesDone).ToList();
+        _endnotesDone = order.Count;
+        if (ids.Count == 0) return;
+        var sepPPr = new PPr { Spacing = new SpacingSpec { Before = 0, After = 0, Line = 240, LineRule = "auto" }, KeepNext = true };
+        var sep = new Paragraph { Runs = new List<Run>(), Props = DocumentReader.ParaPropsFromPPr(sepPPr), Ppr = sepPPr };
+        var blocks = new List<Block> { new ParagraphBlock { Paragraph = sep } };
+        var refs = new List<string> { "ensep" };
+        var owner = new List<int?> { null };
+        foreach (var id in ids)
+        {
+            List<Block> bs;
+            if (_full.EndnoteBlocks is not null && _full.EndnoteBlocks.TryGetValue(id, out var eb)) bs = eb;
+            else bs = (_full.Endnotes.TryGetValue(id, out var ps) ? ps : new List<Paragraph>())
+                .Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
+            for (int k = 0; k < bs.Count; k++) { blocks.Add(bs[k]); refs.Add($"en{id}/b{k}"); owner.Add(id); }
+        }
+        if (blocks.Count < 2) return;
+        // o fluxo das notas usa a mesma maquinaria do corpo, sobre os blocos delas
+        var saved = _full;
+        _full = saved.ShallowClone();
+        _full.Blocks = blocks;
+        // em colunas, a área das notas é como uma seção contínua: o texto de antes e as
+        // notas são equilibrados cada um à parte (oráculo endnotes, en-cols)
+        bool multi = PageCols().Count > 1 || g.Cols.Count > 1;
+        var gEn = g.ShallowClone();
+        gEn.Blocks = (0, blocks.Count - 1);
+        if (multi) gEn.BalKey = -1 - g.Index;
+        if (multi) ContinuousSection(gEn);
+        _enFlow = new EnFlowState { SepDone = false };
+        try
+        {
+            for (int b = 0; b < blocks.Count; b++)
+            {
+                var block = blocks[b];
+                _curEndnote = owner[b];
+                if (block is ParagraphBlock pb) PlaceParagraph(pb.Paragraph, refs[b], b, gEn);
+                else PlaceTable((TableBlock)block, refs[b]);
+                if (b == 0)
+                {
+                    // o traço na linha do separador (a linha some da página: não é texto)
+                    var lines = _cur.Page.Lines;
+                    int at = lines.FindLastIndex(l => l.Ref == "ensep");
+                    if (at >= 0)
+                    {
+                        var l = lines[at];
+                        lines.RemoveAt(at);
+                        _cur.Body.Add(SepLine(l.X, l.Y, 2880));
+                    }
+                    _enFlow.SepDone = true;
+                }
+            }
+            if (multi) RecordBalance(gEn);
+        }
+        finally
+        {
+            _full = saved;
+            _enFlow = null;
+            _curEndnote = null;
+        }
+    }
+
+    /// <summary>Separador de continuação no topo da página/coluna nova do fluxo de notas de fim
+    /// (<paramref name="draw"/>: o traço, da largura da coluna; na coluna seguinte só o lugar).</summary>
+    private void ContinuationSeparator(bool draw)
+    {
+        var fr = ColFrame();
+        if (draw) _cur.Body.Add(SepLine(fr.X, _y, fr.W));
+        _y += SeparatorHeight();
     }
 
     /// <summary>Linhas de um parágrafo (sem quebra de página), p/ keepLines/keepNext.</summary>
@@ -2881,6 +3162,7 @@ internal sealed class Engine
         Behind = new List<ZObj>(), Hf = new List<PageItem>(), Body = new List<PageItem>(), Front = new List<ZObj>(),
         HfBehind = new List<ZObj>(), HfFront = new List<ZObj>(), Floats = new List<FloatBox>(ps.Floats),
         SectPage = ps.SectPage, Notes = new List<(double Id, CellContent Content)>(), NoteArea = ps.NoteArea, BodyBottomBase = ps.BodyBottomBase,
+        NotesFull = ps.NotesFull,
     };
 
     /// <summary>O quadro <paramref name="a"/> aperta a linha mais que <paramref name="b"/> (lados ou vãos ao redor de flutuantes)?</summary>
@@ -2901,6 +3183,17 @@ internal sealed class Engine
         var n = l.ShallowClone();
         n.Y = l.Y + dy;
         n.Baseline = l.Baseline + dy;
+        return n;
+    }
+
+    /// <summary>Desloca uma linha diagramada em x e y (as posições dos caracteres também).</summary>
+    private static LaidOutLine ShiftLineXY(LaidOutLine l, double dx, double dy)
+    {
+        var n = l.ShallowClone();
+        n.X = l.X + dx;
+        n.Y = l.Y + dy;
+        n.Baseline = l.Baseline + dy;
+        if (l.Chars is not null && dx != 0) n.Chars = l.Chars.Select(c => c with { X = c.X + dx }).ToList();
         return n;
     }
 

@@ -278,6 +278,8 @@ public sealed class NoteRef
 {
     public string Kind = "footnote"; // footnote | endnote
     public int Id;
+    /// <summary>w:customMarkFollows — a marca é o texto que segue (não consome número).</summary>
+    public bool Custom;
 }
 
 /// <summary>
@@ -472,6 +474,11 @@ public sealed class SectPr
     public int? FooterDistanceTwips;
     /// <summary>w:pgNumType/@w:start — número inicial de página da seção.</summary>
     public int? PgNumStart;
+    /// <summary>w:footnotePr / w:endnotePr da seção (sobre os do settings).</summary>
+    public NoteProps? FootnotePr;
+    public NoteProps? EndnotePr;
+    /// <summary>w15:footnoteColumns — colunas da área de notas de rodapé (ausente = as da seção).</summary>
+    public int? FootnoteColumns;
 }
 
 public sealed class DocumentModel

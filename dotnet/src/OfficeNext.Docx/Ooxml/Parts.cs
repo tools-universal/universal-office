@@ -202,6 +202,18 @@ public sealed class Theme
 
 // ───────────────────────── configurações ─────────────────────────
 
+/// <summary>w:footnotePr / w:endnotePr (do sectPr ou do settings): numeração e local.</summary>
+public sealed class NoteProps
+{
+    /// <summary>rodapé: pageBottom | beneathText; fim: sectEnd | docEnd</summary>
+    public string? Pos;
+    /// <summary>w:numFmt (decimal, lowerRoman, chicago…)</summary>
+    public string? NumFmt;
+    public double? NumStart;
+    /// <summary>continuous | eachSect | eachPage</summary>
+    public string? NumRestart;
+}
+
 public sealed class Settings
 {
     /// <summary>twips (padrão do Word: 720; templates pt-BR costumam ter 708).</summary>
@@ -223,6 +235,10 @@ public sealed class Settings
     /// <summary>bordas de página (offsetFrom text) NÃO contornam o cabeçalho/rodapé</summary>
     public bool BordersDoNotSurroundHeader;
     public bool BordersDoNotSurroundFooter;
+    /// <summary>w:footnotePr / w:endnotePr do documento (padrão das seções; o local da nota
+    /// de fim só existe aqui)</summary>
+    public NoteProps? FootnotePr;
+    public NoteProps? EndnotePr;
 }
 
 // ───────────────────────── tabela de fontes ─────────────────────────
@@ -476,6 +492,24 @@ public static class OoxmlParts
 
     private static string StripW(string name) => name.StartsWith("w:", StringComparison.Ordinal) ? name[2..] : name;
 
+    /// <summary>w:footnotePr / w:endnotePr → NoteProps (sem nada = null).</summary>
+    public static NoteProps? ReadNoteProps(XmlElement? el)
+    {
+        if (el is null) return null;
+        var o = new NoteProps();
+        bool any = false;
+        string? V(string n) => FirstChild(el, n)?.Attr("w:val");
+        string? pos = V("w:pos");
+        if (Js.Truthy(pos)) { o.Pos = pos; any = true; }
+        string? fmt = V("w:numFmt");
+        if (Js.Truthy(fmt)) { o.NumFmt = fmt; any = true; }
+        double start = JsNumber.ParseInt(V("w:numStart") ?? "");
+        if (double.IsFinite(start)) { o.NumStart = start; any = true; }
+        string? rs = V("w:numRestart");
+        if (rs is "continuous" or "eachSect" or "eachPage") { o.NumRestart = rs; any = true; }
+        return any ? o : null;
+    }
+
     public static Settings ReadSettings(string? xml)
     {
         var s = new Settings { CompatibilityMode = xml is not null && xml != "" ? 12 : 15 };
@@ -492,6 +526,10 @@ public static class OoxmlParts
         s.UpdateFields = On("w:updateFields");
         if (On("w:bordersDoNotSurroundHeader")) s.BordersDoNotSurroundHeader = true;
         if (On("w:bordersDoNotSurroundFooter")) s.BordersDoNotSurroundFooter = true;
+        var fnPr = ReadNoteProps(FirstChild(root, "w:footnotePr"));
+        if (fnPr is not null) s.FootnotePr = fnPr;
+        var enPr = ReadNoteProps(FirstChild(root, "w:endnotePr"));
+        if (enPr is not null) s.EndnotePr = enPr;
         var hz = OoxmlProps.MeasureTwips(FirstChild(root, "w:hyphenationZone")?.Attr("w:val"));
         if (hz is not null) s.HyphenationZone = hz;
         string? chl = FirstChild(root, "w:consecutiveHyphenLimit")?.Attr("w:val");

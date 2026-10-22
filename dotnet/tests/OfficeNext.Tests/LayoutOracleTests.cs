@@ -88,6 +88,19 @@ public class LayoutOracleTests
     private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3, ["omath"] = 0.6, ["tblbdmin"] = 0.6, ["sckmix"] = 0.6, ["rowjc"] = 0.6, ["wmftext"] = 0.6, ["cellwrap"] = 0.3, ["txrect"] = 0.3, ["tblmincol"] = 0.6, ["felead"] = 0.6, ["feknown"] = 0.6, ["fehangcomp"] = 0.6, ["glyphfb"] = 0.6, ["anctrail"] = 0.3, ["cellout"] = 0.3, ["brfirst"] = 0.6 };
     /// <summary>Grupos em que a contagem de pontos do preenchimento de tab é comparada exata.</summary>
     private static readonly HashSet<string> ExactLeaders = new(StringComparer.Ordinal) { "tdhalfpx", "tdend" };
+    /// <summary>Casos em que a ORDEM das linhas no PDF não é a do motor: o Word emite as colunas da
+    /// área de notas (de fim, ou de rodapé numa seção em colunas) intercaladas com as do
+    /// texto (coluna 1 do texto, coluna 1 das notas, coluna 2…). Compara com as linhas ordenadas por coluna e altura.</summary>
+    private static readonly HashSet<string> Orderless = new(StringComparer.Ordinal) { "en-cols", "sect-cols2" };
+
+    private static OracleCompare.ODoc ByColumn(OracleCompare.ODoc d) => new()
+    {
+        Pages = d.Pages.Select(p => new OracleCompare.OPage
+        {
+            W = p.W, H = p.H, Objs = p.Objs,
+            Lines = p.Lines.OrderBy(l => OfficeNext.Docx.Js.Round(l.X0 / 100)).ThenBy(l => l.Y).ToList(),
+        }).ToList(),
+    };
 
     [Theory]
     [MemberData(nameof(Cases))]
@@ -101,7 +114,10 @@ public class LayoutOracleTests
             ? new LayoutOptions { Revisions = new RevisionView { Mode = "all" } }
             : null;
         var res = DocxLayoutPipeline.Layout(File.ReadAllBytes(Path.Combine(LayoutParityTests.OracleDir, caseId + ".docx")), SystemFontProvider.Shared, opts);
-        var r = OracleCompare.CompareLines(word, OracleCompare.EngineLines(res), ExactLeaders.Contains(g));
+        bool orderless = Orderless.Contains(caseId[(caseId.IndexOf('/') + 1)..]);
+        var r = orderless
+            ? OracleCompare.CompareLines(ByColumn(word), ByColumn(OracleCompare.EngineLines(res)))
+            : OracleCompare.CompareLines(word, OracleCompare.EngineLines(res), ExactLeaders.Contains(g));
         _out.WriteLine($"páginas W/O {r.PagesW}/{r.PagesO}, linhas {r.Matched}/{r.LinesW}, mesma página {r.SamePage}, Δy máx {r.MaxDy:0.###} pt");
         if (Sweeps.Contains(g) || g == "vertalign")
         {
