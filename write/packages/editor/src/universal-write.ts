@@ -148,8 +148,13 @@ import { compareText } from '@universal-office/collation';
 import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
+import { documentOutline, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
+import {
+  tabInfo, tabsDirect, indentsDirect, dedupeTabs, headingSpan, moveMap, findInText, matchSnippet, drawingGridOf, gridLines,
+  type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
+} from './navigation.js';
 import { guardRuns } from './edit-guard.js';
-import { readStyleSheet, styleRaw, styleIdFromName } from '@universal-office/docx-core';
+import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop } from '@universal-office/docx-core';
 import { blankXlsx, editSpreadsheet, sheetAvailable } from './ole-sheet.js';
 import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
 import {
@@ -238,6 +243,83 @@ export interface SectionInfo {
     /** largura útil entre as margens */
     contentWidthTwips: number;
   };
+}
+
+export type { TabStopInfo, IndentInfo, FindOptions } from './navigation.js';
+
+/** Geometria da régua no cursor (getRulerInfo). Twips, coordenadas da página. */
+export interface RulerInfo {
+  /** página (índice) onde está o cursor */
+  page: number;
+  pageWidthTwips: number;
+  pageHeightTwips: number;
+  /** margens da seção da página */
+  margins: { top: number; right: number; bottom: number; left: number };
+  /** colunas da seção (x e largura na página) */
+  columns: { x: number; w: number }[];
+  /** quadro do parágrafo do cursor: coluna, célula (área do texto), cabeçalho/rodapé ou caixa */
+  frame: { x0: number; x1: number };
+  /** recuos efetivos, a partir das bordas do quadro (firstLine < 0 = deslocamento) */
+  indents: IndentInfo;
+  /** tabulações efetivas (posição a partir de frame.x0) */
+  tabs: TabStopInfo[];
+  defaultTabTwips: number;
+  where: 'body' | 'cell' | 'header' | 'footer' | 'textbox';
+  /** tabela do cursor: divisas da linha (x na página + fronteira da grade), a
+   *  célula atual e as linhas que aparecem na página (régua vertical) */
+  table: { cols: { x: number; boundary: number }[]; current: number; rows: { top: number; bottom: number; row: number }[] } | null;
+  /** topo da linha do cursor (y na página) */
+  lineTop: number;
+  /** Modo Protegido, Leitura ou comparação: a régua só mostra */
+  readOnly: boolean;
+}
+
+/** Título do corpo (aba Títulos do Painel de Navegação). */
+export interface HeadingInfo {
+  index: number;
+  /** nível de tópico 1–9 */
+  level: number;
+  /** número da lista + texto, como o painel mostra */
+  text: string;
+  /** parágrafo do corpo */
+  para: number;
+  /** página (índice; -1 fora do layout de impressão) */
+  page: number;
+}
+
+/** Ocorrência da busca do Painel de Navegação (aba Resultados). */
+export interface SearchResult {
+  index: number;
+  /** posição no parágrafo (offsets) */
+  start: number;
+  end: number;
+  /** trecho em volta: antes, a ocorrência, depois */
+  before: string;
+  match: string;
+  after: string;
+  /** página (índice; -1 fora do layout de impressão) */
+  page: number;
+  /** título da seção onde está (índice em getHeadings; -1 antes do 1º) */
+  heading: number;
+  inTable: boolean;
+}
+
+/** Colunas da seção na página, como o motor as monta (geomOf). */
+function sectionColumns(sp: SectPr, sec?: Section): { x: number; w: number }[] {
+  const marL = sp.marginLeftTwips;
+  const contentW = Math.max(720, sp.pageWidthTwips - marL - sp.marginRightTwips);
+  const n = Math.max(1, sp.cols?.count ?? 1);
+  const defs = sec?.sect?.colDefs;
+  const out: { x: number; w: number }[] = [];
+  if (n > 1 && defs && defs.length >= n && sec?.sect?.equalWidth === false) {
+    let x = marL;
+    for (const d of defs.slice(0, n)) { out.push({ x, w: d.w }); x += d.w + d.space; }
+  } else if (n > 1) {
+    const space = sp.cols?.spaceTwips ?? 720;
+    const w = (contentW - space * (n - 1)) / n;
+    for (let k = 0; k < n; k++) out.push({ x: marL + k * (w + space), w });
+  } else out.push({ x: marL, w: contentW });
+  return out;
 }
 
 /** Formato de arquivo para load()/save(). 'auto' detecta na carga e, ao salvar,
@@ -555,6 +637,16 @@ const trackApplyRunProps = (m: DocumentModel, range: DocRange, patch: Partial<Ru
 
 /** Família CSS entre aspas. */
 const cssFamily = (family: string): string => `"${family.replace(/["\\]/g, '\\$&')}"`;
+
+/** Tabulações do parágrafo para o layout ANTIGO (visões Web/Rascunho/Estrutura):
+ *  ele só conhece esquerda/centro/direita com pontilhado — decimal vira direita;
+ *  clear/barra/num ficam de fora. Sem nenhuma: undefined (o chamador põe a grade). */
+const legacyTabs = (stops: ParaProps['tabStops']): { posTwips: number; align: 'left' | 'right' | 'center'; leader?: 'dot' }[] | undefined => {
+  const out = (stops ?? []).flatMap((t) => (t.align === 'left' || t.align === 'center' || t.align === 'right' || t.align === 'decimal'
+    ? [{ posTwips: t.posTwips, align: t.align === 'decimal' ? 'right' as const : t.align, ...(t.leader ? { leader: 'dot' as const } : {}) }]
+    : []));
+  return out.length ? out : undefined;
+};
 
 /**
  * Inline de plugin (run.custom: 1 caractere U+FFFC no modelo) — o motor
@@ -4148,6 +4240,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (settingsXml) pkg.setPartText('word/settings.xml', patchSettingsNotes(settingsXml, { footnote: this.noteSettings.footnote ?? null, endnote: this.noteSettings.endnote ?? null }));
     // folha de estilos: só regrava a parte se algum estilo mudou (o resto byte a byte)
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
+    // tabulação padrão mudada no diálogo Tabulação (w:defaultTabStop)
+    if (this.defaultTab !== null) writeDefaultTabStop(pkg, this.defaultTab);
     // estilos de tabela internos que as tabelas passaram a usar
     addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
@@ -4505,6 +4599,8 @@ export class UniversalWriteElement extends HTMLElement {
       s: ce ? ce.saved.selection : ne ? ne.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
+      // tabulação padrão (diálogo Tabulação)
+      dt: this.defaultTabStop(),
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
       ...(deep ? {
         hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
@@ -4543,6 +4639,7 @@ export class UniversalWriteElement extends HTMLElement {
     s: { anchor: DocPosition; focus: DocPosition };
     anc?: { t: number[]; b: [string, number][] };
     sv?: number;
+    dt?: number;
     tb?: TableBlock[];
     ce?: { a: number; h: CellHop[]; s: { anchor: DocPosition; focus: DocPosition } };
     ts?: TableSel;
@@ -4653,6 +4750,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
+    if (state.dt !== undefined && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
     this.refresh();
   }
 
@@ -5824,7 +5922,7 @@ export class UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans(p, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts!, {
         availableTwips: contentW,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : [
+        tabStops: legacyTabs(p.props.tabStops) ?? [
           { posTwips: contentW / 2, align: 'center' as const },
           { posTwips: contentW, align: 'right' as const },
         ],
@@ -5877,7 +5975,7 @@ export class UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans(p, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts!, {
         availableTwips: width,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : [
+        tabStops: legacyTabs(p.props.tabStops) ?? [
           { posTwips: width / 2, align: 'center' as const },
           { posTwips: width, align: 'right' as const },
         ],
@@ -6243,7 +6341,7 @@ export class UniversalWriteElement extends HTMLElement {
         firstLineAvailableTwips: availFirst,
         tabOriginOffsetTwips: indent,
         firstLineTabOriginOffsetTwips: indent + firstDelta,
-        tabStops: p.props.tabStops,
+        tabStops: legacyTabs(p.props.tabStops),
         indentFirstKLines: dropCap ? { k: dropK, indentTwips: dropIndent } : undefined,
       });
       const spanCharStart: number[] = [];
@@ -6471,7 +6569,7 @@ export class UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans({ runs: p.runs, props: p.props }, { skipFloating: true });
       const { lines } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs,
+        tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs,
       });
       for (const line of lines) {
         const lineSize = Math.max(line.maxSizePt, spans[0]?.sizePt ?? 11);
@@ -6605,7 +6703,7 @@ export class UniversalWriteElement extends HTMLElement {
       const stColor = this.styleOf(p)?.color;
       const { lines } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs,
+        tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs,
       });
       // imagens e caixas de texto flutuantes do HF (timbrado), no offset ancorado
       this.drawHfFloats(ctx, scale, runs, originXTwips, y, widthTwips, pageIdx, color, sp, floatMode);
@@ -7431,6 +7529,11 @@ export class UniversalWriteElement extends HTMLElement {
     this.newFormatting = null;
     this.engMissing.clear();
     this.engFontsAttempted.clear();
+    // navegação: tabulação padrão mudada e a busca são do documento anterior
+    this.defaultTab = null;
+    this.searchHits.clear();
+    this.searchList = [];
+    this.searchCurrent = -1;
   }
 
   /** Estado do CORPO — na edição de célula o modelo é o da célula. */
@@ -7938,7 +8041,7 @@ export class UniversalWriteElement extends HTMLElement {
     const sup = this.tbSnapshotSuppress;
     const hfMode = !!this.hfEdit;
     const key = `${this.eng!.version}.${this.eng!.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|`
-      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}`;
+      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}|${this.docGrid && !this.printRender ? 1 : 0}`;
     const hit = this.engPageCache.get(pg);
     if (hit && hit.key === key) return hit.canvas;
     const off = hit?.canvas ?? document.createElement('canvas');
@@ -7955,6 +8058,8 @@ export class UniversalWriteElement extends HTMLElement {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     // linhas de grade das tabelas (Exibir Linhas de Grade): só na tela, sob o conteúdo
     if (this.gridlines && !this.printRender && !this.hfCapturing && page.cells?.length) this.paintGridlines(ctx, page.cells, scale);
+    // linhas de grade do documento (Exibir > Linhas de Grade): só na tela, sob o conteúdo
+    if (this.docGrid && !this.printRender && !this.hfCapturing) this.paintDocGrid(ctx, pg, scale);
     const env = this.enginePaintEnv();
     const n = page.items.length;
     const hf = Math.min(this.eng!.hfItems[pg] ?? 0, n);
@@ -8027,6 +8132,7 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
         this.paintEngineSpelling(ctx, i);
+        this.paintSearchHits(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
         else if (hasSel) this.paintEngineSelection(ctx, i, sel);
         this.paintTableAdorners(ctx, i);
@@ -8377,6 +8483,574 @@ export class UniversalWriteElement extends HTMLElement {
     this.chromeSync?.();
   }
   tableGridlinesShown(): boolean { return this.gridlines; }
+
+  // ───────────── navegação: régua, títulos, busca, miniaturas, grade ─────────────
+  // Regras puras em navigation.ts; fatos do Word em write/tools/nav-lab.
+
+  /** Régua: a geometria no cursor — página, margens e colunas da seção, quadro
+   *  do parágrafo (coluna, célula, cabeçalho/rodapé ou caixa), recuos e
+   *  tabulações efetivos e as divisas da tabela. null sem documento ou nas
+   *  visões sem régua (Leitura e Estrutura de Tópicos, como o Word). */
+  getRulerInfo(): RulerInfo | null {
+    if (!this.model || this.view === 'read' || this.view === 'outline') return null;
+    const focus = this.selection.focus;
+    const line = this.lineOf(focus);
+    const pg = line?.page ?? 0;
+    const sec = this.eng ? this.sectionOfPage(pg) : undefined;
+    const sp: SectPr = sec?.sectPr ?? this.sect();
+    const margins = { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips };
+    const p = this.model.paragraphs[focus.para];
+    const eng = line?.eng;
+    let columns = sectionColumns(sp, sec);
+    let frame: { x0: number; x1: number };
+    let indents: IndentInfo;
+    let tabs: TabStopInfo[];
+    if (eng?.frame && eng.pfmt) {
+      frame = { x0: eng.x + eng.frame.l, x1: eng.x + eng.frame.r };
+      indents = { left: eng.pfmt.left, right: eng.pfmt.right, firstLine: eng.pfmt.firstLine };
+      tabs = eng.pfmt.tabs.map(tabInfo);
+    } else {
+      // layout antigo (Web/Rascunho): o texto começa em 600 tw nas visões contínuas
+      const x0 = this.view === 'print' ? sp.marginLeftTwips : 600;
+      frame = { x0, x1: x0 + this.contentWidthTwips() };
+      if (this.view !== 'print') columns = [{ x: frame.x0, w: frame.x1 - frame.x0 }];
+      const ppr = p ? this.effectivePPrOf(p) : {};
+      const ind = ppr.ind ?? {};
+      indents = { left: ind.left ?? 0, right: ind.right ?? 0, firstLine: ind.hanging !== undefined ? -ind.hanging : (ind.firstLine ?? 0) };
+      tabs = (ppr.tabs ?? []).filter((t) => t.val !== 'clear').map(tabInfo);
+    }
+    const where: RulerInfo['where'] = this.hfEdit ? this.hfEdit.kind : this.tbEdit ? 'textbox' : this.cellEdit ? 'cell' : 'body';
+    let table: RulerInfo['table'] = null;
+    if (this.cellEdit && this.eng && !this.hfEdit && !this.tbEdit) {
+      const ce = this.cellEdit;
+      const last = ce.hops[ce.hops.length - 1]!;
+      const boxes = this.tableBoxes(ce.anchor, ce.hops.slice(0, -1)).filter((b) => b.pg === pg);
+      const inRow = boxes.filter((b) => b.r === last.r).sort((a, b) => a.box.x - b.box.x);
+      const cols = inRow.map((b) => ({ x: b.box.x, boundary: b.c }));
+      const end = inRow[inRow.length - 1];
+      if (end) cols.push({ x: end.box.x + end.box.w, boundary: end.c + end.box.span });
+      const rows = new Map<number, { top: number; bottom: number; row: number }>();
+      for (const b of boxes) {
+        const r = rows.get(b.r);
+        if (r) { r.top = Math.min(r.top, b.box.y); r.bottom = Math.max(r.bottom, b.box.y + b.box.h); } else rows.set(b.r, { top: b.box.y, bottom: b.box.y + b.box.h, row: b.r });
+      }
+      table = { cols, rows: [...rows.values()].sort((a, b) => a.top - b.top), current: inRow.findIndex((b) => b.c === last.c) };
+    }
+    return {
+      page: pg, pageWidthTwips: sp.pageWidthTwips, pageHeightTwips: sp.pageHeightTwips, margins, columns, frame,
+      indents, tabs, defaultTabTwips: this.defaultTabStop(), where, table,
+      lineTop: line?.yTwips ?? margins.top, readOnly: this.locked() || this.isComparing(),
+    };
+  }
+
+  private isComparing(): boolean { return this.classList.contains('uw-comparing'); }
+
+  private effectivePPrOf(p: Paragraph): import('@universal-office/docx-core').PPr {
+    return effectivePPr(this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting(), p);
+  }
+  private inheritedPPrOf(p: Paragraph): import('@universal-office/docx-core').PPr {
+    return inheritedPPr(this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting(), p);
+  }
+
+  /** Recuos efetivos do parágrafo do cursor (twips, a partir do quadro; o
+   *  estilo e a lista incluídos) — diálogo Parágrafo. */
+  getParagraphIndents(): IndentInfo {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const ind = p ? this.effectivePPrOf(p).ind ?? {} : {};
+    return { left: ind.left ?? 0, right: ind.right ?? 0, firstLine: ind.hanging !== undefined ? -ind.hanging : (ind.firstLine ?? 0) };
+  }
+
+  /** Recuos dos parágrafos selecionados (twips, a partir do quadro): o que não
+   *  vier fica como está. Como a régua do Word: valor absoluto em todos os
+   *  parágrafos da seleção, gravando só o que difere do herdado (oráculo
+   *  nav-lab ind-*). Um passo de desfazer. */
+  setParagraphIndents(ind: Partial<IndentInfo>): void {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    this.snapshot();
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      const eff = this.effectivePPrOf(p).ind ?? {};
+      const want: IndentInfo = {
+        left: ind.left ?? eff.left ?? 0,
+        right: ind.right ?? eff.right ?? 0,
+        firstLine: ind.firstLine ?? (eff.hanging !== undefined ? -eff.hanging : (eff.firstLine ?? 0)),
+      };
+      const d = indentsDirect(this.inheritedPPrOf(p).ind, want);
+      if (d.indentLeftTwips === p.props.indentLeftTwips && d.indentRightTwips === p.props.indentRightTwips && d.indentFirstLineTwips === p.props.indentFirstLineTwips) continue;
+      this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, d);
+    }
+    this.refresh();
+  }
+
+  /** Tabulações efetivas do parágrafo do cursor (as do estilo e da lista
+   *  incluídas, sem as limpas) e a tabulação padrão do documento. */
+  getTabStops(): { tabs: TabStopInfo[]; defaultTabTwips: number } {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const tabs = p ? (this.effectivePPrOf(p).tabs ?? []).filter((t) => t.val !== 'clear').map(tabInfo) : [];
+    return { tabs: dedupeTabs(tabs), defaultTabTwips: this.defaultTabStop() };
+  }
+
+  /** Define as tabulações EFETIVAS dos parágrafos selecionados (a régua e o
+   *  diálogo Tabulação montam a lista e chamam aqui). Grava o mínimo, como o
+   *  Word: `clear` para herdada que sumiu, nada para igual à herdada (oráculo
+   *  nav-lab tab-*). `only`: só mexe nestas posições (tabulação marcada/movida
+   *  com vários parágrafos de tabulações diferentes selecionados). */
+  setTabStops(tabs: readonly TabStopInfo[], only?: { add?: TabStopInfo[]; remove?: number[] }): void {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    this.snapshot();
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      let want: TabStopInfo[] = [...tabs];
+      if (only) {
+        // vários parágrafos: cada um mantém as suas e só ganha/perde as tocadas
+        const cur = (this.effectivePPrOf(p).tabs ?? []).filter((t) => t.val !== 'clear').map(tabInfo);
+        const rm = new Set((only.remove ?? []).map((x) => Math.round(x)));
+        want = [...cur.filter((t) => !rm.has(t.pos)), ...(only.add ?? [])];
+      }
+      const d = tabsDirect(this.inheritedPPrOf(p).tabs, want);
+      if (JSON.stringify(d ?? null) === JSON.stringify(p.props.tabStops ?? null)) continue;
+      this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, { tabStops: d });
+    }
+    this.refresh();
+  }
+
+  /** Tabulação padrão do documento (twips; w:defaultTabStop — 708 no documento novo). */
+  private defaultTab: number | null = null;
+  private defaultTabStop(): number {
+    return this.defaultTab ?? this.fullDoc?.formatting?.settings.defaultTabStop ?? this.newFormatting?.settings.defaultTabStop ?? 708;
+  }
+  getDefaultTabStop(): number { return this.defaultTabStop(); }
+  /** Muda a tabulação padrão (diálogo Tabulação): relayout e w:defaultTabStop no settings ao salvar. */
+  setDefaultTabStop(twips: number): void {
+    if (!this.model || this.locked()) return;
+    const v = Math.max(1, Math.round(twips));
+    if (v === this.defaultTabStop()) return;
+    this.snapshot();
+    this.applyDefaultTab(v);
+    this.refresh();
+  }
+  private applyDefaultTab(v: number): void {
+    this.defaultTab = v;
+    const set = (f: DocFormatting | undefined | null): DocFormatting | undefined => (f ? { ...f, settings: { ...f.settings, defaultTabStop: v } } : undefined);
+    if (this.fullDoc?.formatting) this.fullDoc.formatting = set(this.fullDoc.formatting);
+    if (this.newFormatting) this.newFormatting = set(this.newFormatting) ?? null;
+    this.engPageCache.clear();
+  }
+
+  /** Arrasta uma divisa de COLUNA da tabela do cursor (régua): `boundary` é a
+   *  fronteira da grade (0 = borda esquerda) e `deltaTwips` o deslocamento —
+   *  as duas colunas vizinhas trocam largura, como arrastar a borda. */
+  resizeTableColumn(boundary: number, deltaTwips: number): boolean {
+    const ce = this.cellEdit;
+    if (!ce || this.locked()) return false;
+    return this.resizeTableEdge('col', ce.anchor, ce.hops.slice(0, -1), boundary, Math.round(deltaTwips));
+  }
+  /** Arrasta a base da LINHA `row` da tabela do cursor (régua vertical): altura mínima. */
+  resizeTableRow(row: number, deltaTwips: number): boolean {
+    const ce = this.cellEdit;
+    if (!ce || this.locked()) return false;
+    return this.resizeTableEdge('row', ce.anchor, ce.hops.slice(0, -1), row, Math.round(deltaTwips));
+  }
+
+  /** Títulos do corpo (aba Títulos do Painel de Navegação): nível 1–9, texto
+   *  como o Word mostra (número da lista + texto, maiúsculas aplicadas), o
+   *  parágrafo e a página. Títulos em tabela, cabeçalho ou caixa não entram. */
+  getHeadings(): HeadingInfo[] {
+    const b = this.bodyState();
+    if (!b.model) return [];
+    const doc = this.eng && !this.hfEdit && !this.tbEdit && !this.cellEdit ? this.eng.doc : this.liveEngineDoc();
+    const pages = new Map<Paragraph, number>();
+    if (this.eng) for (const l of this.eng.lines) if (l.loc.kind === 'body' && l.para && !pages.has(l.para)) pages.set(l.para, l.page);
+    return documentOutline(doc.full).flatMap((h): HeadingInfo[] => {
+      const o = doc.origins[h.block];
+      if (o?.kind !== 'para') return [];
+      const para = b.model.paragraphs[o.para];
+      return para ? [{ index: 0, level: h.level, text: h.text, para: o.para, page: pages.get(para) ?? -1 }] : [];
+    }).map((h, i) => ({ ...h, index: i }));
+  }
+
+  /** Índice (em getHeadings) do título da seção onde está o cursor; -1 antes do 1º. */
+  currentHeading(heads: readonly HeadingInfo[] = this.getHeadings()): number {
+    const para = this.navCaretPara();
+    let cur = -1;
+    for (const h of heads) { if (h.para <= para) cur = h.index; else break; }
+    return cur;
+  }
+
+  /** Parágrafo do corpo onde está o cursor para a árvore de títulos (na célula: logo antes da
+   *  tabela; na nota: o de onde se entrou; no cabeçalho: nenhum). */
+  private navCaretPara(): number {
+    if (this.noteEdit) return this.noteEdit.saved.selection.focus.para;
+    if (this.hfEdit || this.tbEdit) return -1;
+    if (this.cellEdit) return (this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0) - 0.5;
+    return this.selection.focus.para;
+  }
+
+  /** Sai de célula/cabeçalho/caixa para operar no corpo. */
+  private toBody(): boolean {
+    if (!this.model) return false;
+    if (this.noteEdit) this.exitNote();
+    if (this.tbEdit) this.exitTextbox();
+    if (this.hfEdit) this.exitHeaderFooter();
+    if (this.cellEdit) this.exitCell();
+    return !!this.model;
+  }
+
+  /** Níveis de tópico dos parágrafos do corpo (0 = corpo do texto). */
+  private bodyLevels(heads: readonly HeadingInfo[]): number[] {
+    const lv = new Array<number>(this.model!.paragraphs.length).fill(0);
+    for (const h of heads) lv[h.para] = h.level;
+    return lv;
+  }
+
+  /** Vai ao título: cursor no começo dele, rolado para o alto da janela (como o painel do Word). */
+  goToHeading(index: number): void {
+    const h = this.getHeadings()[index];
+    if (!h || !this.toBody()) return;
+    this.goToBodyPara(h.para, 0, 0, true);
+  }
+
+  private goToBodyPara(para: number, start: number, end: number, top: boolean): void {
+    this.selection = { anchor: { para, offset: start }, focus: { para, offset: end } };
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.revealCaret(top);
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Rola até o cursor: no alto da área visível (abaixo das barras) ou só se estiver fora. */
+  private revealCaret(top: boolean): void {
+    if (!top) { this.scrollCaretIntoView(); return; }
+    const line = this.lineOf(this.selection.focus);
+    const canvas = line ? this.canvases[line.page] : undefined;
+    if (!line || !canvas) return;
+    const scale = PX_PER_TWIP * this.zoom;
+    const bar = this.topbarEl.offsetHeight + (this.shadowRoot?.querySelector<HTMLElement>('.uw-hruler')?.offsetHeight ?? 0);
+    cancelAnimationFrame(this.scrollAnim);
+    this.scrollTop = Math.max(0, canvas.offsetTop + line.yTwips * scale - bar - 12);
+  }
+
+  /** Arrasta a seção do título `index` (o título e o que vem até o próximo de
+   *  nível igual ou maior, tabelas incluídas) para antes do título `before`
+   *  (getHeadings().length = fim do documento). Um passo de desfazer. */
+  moveHeading(index: number, before: number): boolean {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h) return false;
+    const n = this.model!.paragraphs.length;
+    const [s, e] = headingSpan(this.bodyLevels(heads), h.para);
+    const t = before >= heads.length ? n : heads[before]?.para ?? n;
+    if (t >= s && t <= e) return false;
+    this.snapshot();
+    const map = moveMap(n, s, e, t);
+    const ps = this.model!.paragraphs;
+    const next: Paragraph[] = new Array(n);
+    ps.forEach((p, i) => { next[map[i]!] = p; });
+    ps.splice(0, n, ...next);
+    this.remapBodyParas(map, n);
+    this.goToBodyParaAfterEdit(map[s]!);
+    return true;
+  }
+
+  /** Atualiza âncoras de tabela, flutuantes e indicadores com a nova ordem
+   *  `map[velho] = novo` (a tabela fica logo depois do parágrafo que a precedia). */
+  private remapBodyParas(map: readonly number[], n: number): void {
+    for (const a of this.tableAnchors) a.beforePara = a.beforePara <= 0 ? 0 : a.beforePara > n ? a.beforePara : map[a.beforePara - 1]! + 1;
+    for (const f of this.floatImages) if (map[f.para] !== undefined) f.para = map[f.para]!;
+    for (const [k, v] of this.bookmarkParas) if (map[v] !== undefined) this.bookmarkParas.set(k, map[v]!);
+    // tabelas na ordem do documento (o salvar e o motor percorrem nessa ordem)
+    this.tableAnchors.sort((a, b) => a.beforePara - b.beforePara);
+  }
+
+  private goToBodyParaAfterEdit(para: number): void {
+    this.selection = { anchor: { para, offset: 0 }, focus: { para, offset: 0 } };
+    this.pendingProps = null;
+    this.refresh();
+    this.revealCaret(false);
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Promove (-1) ou rebaixa (+1) o título e os subtítulos dele (estilos Título 1–9). */
+  private shiftHeading(index: number, delta: 1 | -1): boolean {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h || (delta < 0 && h.level <= 1) || (delta > 0 && h.level >= 9)) return false;
+    const lv = this.bodyLevels(heads);
+    const [s, e] = headingSpan(lv, h.para);
+    const styles = this.listStyles('all');
+    const idFor = (n: number): string | undefined => styles.find((st) => st.rawName.toLowerCase() === `heading ${n}`)?.id;
+    const keep = this.selection;
+    this.snapshot();
+    for (let pi = s; pi < e; pi++) {
+      if (!lv[pi]) continue;
+      const to = Math.max(1, Math.min(9, lv[pi]! + delta));
+      const id = idFor(to);
+      if (!id) continue;
+      this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+      this.applyStyleCore(id);
+    }
+    this.selection = keep;
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+  promoteHeading(index: number): boolean { return this.shiftHeading(index, -1); }
+  demoteHeading(index: number): boolean { return this.shiftHeading(index, 1); }
+
+  /** Novo Título Antes/Depois (mesmo nível) ou Novo Subtítulo (nível + 1, no fim
+   *  da seção): parágrafo vazio com o estilo Título N e o cursor nele. */
+  insertHeading(index: number, where: 'before' | 'after' | 'sub'): boolean {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h) return false;
+    const [, e] = headingSpan(this.bodyLevels(heads), h.para);
+    const at = where === 'before' ? h.para : e;
+    const level = Math.min(9, h.level + (where === 'sub' ? 1 : 0));
+    const id = this.listStyles('all').find((st) => st.rawName.toLowerCase() === `heading ${level}`)?.id;
+    this.snapshot();
+    const p: Paragraph = { runs: [], props: id ? { styleId: id } : {} };
+    if (this.tracking) p.props.markIns = this.newRev();
+    if (id && this.stylesEditable()) this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), id, true));
+    this.model!.paragraphs.splice(at, 0, p);
+    this.shiftAnchors(at, 1);
+    this.goToBodyParaAfterEdit(at);
+    return true;
+  }
+
+  /** Exclui o título e todo o conteúdo dele (tabelas incluídas). */
+  deleteHeading(index: number): boolean {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h) return false;
+    const n = this.model!.paragraphs.length;
+    const [s, e] = headingSpan(this.bodyLevels(heads), h.para);
+    this.snapshot();
+    if (this.tracking) {
+      // com o controle ligado: a seção vira exclusão em revisão (o texto fica)
+      this.selection = { anchor: { para: s, offset: 0 }, focus: { para: e - 1, offset: paraLength(this.model!.paragraphs[e - 1]!) } };
+      this.deleteSelection();
+      this.refresh();
+      return true;
+    }
+    // tabelas da seção (entre o título e o próximo) saem junto
+    this.tableAnchors = this.tableAnchors.filter((a) => !(a.beforePara > s && a.beforePara <= e && (e < n || a.beforePara < e)));
+    const len = e - s;
+    this.model!.paragraphs.splice(s, len);
+    if (!this.model!.paragraphs.length) this.model!.paragraphs.push({ runs: [], props: {} });
+    for (const a of this.tableAnchors) if (a.beforePara > s) a.beforePara = Math.max(s, a.beforePara - len);
+    this.floatImages = this.floatImages.filter((f) => f.para < s || f.para >= e);
+    for (const f of this.floatImages) if (f.para >= e) f.para -= len;
+    for (const [k, v] of this.bookmarkParas) if (v >= e) this.bookmarkParas.set(k, v - len); else if (v >= s) this.bookmarkParas.set(k, s);
+    this.goToBodyParaAfterEdit(Math.min(s, this.model!.paragraphs.length - 1));
+    return true;
+  }
+
+  /** Seleciona o título e o conteúdo dele. */
+  selectHeading(index: number): void {
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h || !this.toBody()) return;
+    const [s, e] = headingSpan(this.bodyLevels(heads), h.para);
+    const last = this.model!.paragraphs[e - 1]!;
+    this.selection = { anchor: { para: s, offset: 0 }, focus: { para: e - 1, offset: paraLength(last) } };
+    this.refreshSelection();
+    this.revealCaret(false);
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  // ── busca do Painel de Navegação (Resultados) ──
+  private searchHits = new Map<Paragraph, [number, number][]>();
+  private searchList: (SearchResult & { para: Paragraph; loc: { kind: 'body'; para: number } | { kind: 'cell'; anchor: number; hops: CellHop[]; para: number } })[] = [];
+  private searchCurrent = -1;
+
+  /** Procura no corpo e nas tabelas (a busca do Painel de Navegação): devolve
+   *  as ocorrências com o trecho em volta, a página e o título da seção, e
+   *  realça todas na tela (adorno, fora do PDF). Texto vazio limpa. */
+  search(text: string, opts: FindOptions & { highlight?: boolean } = {}): SearchResult[] {
+    this.searchHits.clear();
+    this.searchList = [];
+    this.searchCurrent = -1;
+    const b = this.bodyState();
+    if (!text || !b.model) { this.paint(); return []; }
+    const heads = this.getHeadings();
+    const pageOf = (p: Paragraph, off: number): number => {
+      if (!this.eng) return -1;
+      let best = -1;
+      for (const l of this.eng.lines) if (l.para === p && l.line.start <= off) best = l.page;
+      return best;
+    };
+    const add =(p: Paragraph, loc: (typeof this.searchList)[number]['loc'], bodyPara: number): void => {
+      const full = paraText(p);
+      for (const s of findInText(full, text, opts)) {
+        const e = s + text.length;
+        // ocorrência dentro de texto excluído em revisão não conta
+        if (this.overlapsDeleted(p, s, e)) continue;
+        const sn = matchSnippet(full, s, e);
+        let heading = -1;
+        for (const h of heads) { if (h.para <= bodyPara) heading = h.index; else break; }
+        this.searchList.push({ index: this.searchList.length, start: s, end: e, ...sn, page: pageOf(p, s), heading, inTable: loc.kind === 'cell', para: p, loc });
+        const l = this.searchHits.get(p) ?? [];
+        l.push([s, e]);
+        this.searchHits.set(p, l);
+      }
+    };
+    const cells = (t: TableBlock, anchor: number, path: CellHop[], bodyPara: number): void => {
+      t.rows.forEach((row, r) => {
+        let c = row.trPr?.gridBefore ?? 0;
+        for (const cell of row.cells) {
+          const hops = [...path, { r, c }];
+          cell.paragraphs.forEach((p, k) => add(p, { kind: 'cell', anchor, hops, para: k }, bodyPara));
+          const bl = cell.blocks ?? [];
+          bl.forEach((blk, bi) => { if (blk.type === 'table') cells(blk, anchor, [...path, { r, c, b: bi }], bodyPara); });
+          c += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+        }
+      });
+    };
+    const ps = b.model.paragraphs;
+    for (let i = 0; i <= ps.length; i++) {
+      b.tableAnchors.forEach((a, ai) => { if (a.beforePara === i) cells(a.table, ai, [], i - 0.5); });
+      if (i < ps.length) add(ps[i]!, { kind: 'body', para: i }, i);
+    }
+    this.searchShow = opts.highlight !== false;
+    this.paint();
+    return this.searchList.map(({ para: _p, loc: _l, ...r }) => r);
+  }
+  private searchShow = true;
+
+  private overlapsDeleted(p: Paragraph, s: number, e: number): boolean {
+    let at = 0;
+    for (const r of p.runs) {
+      const a = at, z = at + r.text.length;
+      at = z;
+      if (r.props.del && a < e && z > s) return true;
+    }
+    return false;
+  }
+
+  /** Limpa a busca (e o realce). */
+  clearSearch(): void { this.search(''); }
+
+  /** Seleciona a ocorrência `index` da última busca (entra na célula se preciso) e rola até ela. */
+  goToSearchResult(index: number): boolean {
+    const m = this.searchList[index];
+    if (!m) return false;
+    this.searchCurrent = index;
+    if (m.loc.kind === 'body') {
+      if (!this.toBody()) return false;
+      this.goToBodyPara(m.loc.para, m.start, m.end, false);
+      return true;
+    }
+    if (this.hfEdit || this.tbEdit || this.noteEdit) this.toBody();
+    if (!this.enterCell(m.loc.anchor, m.loc.hops, { para: m.loc.para, offset: m.start })) return false;
+    this.selection = { anchor: { para: m.loc.para, offset: m.start }, focus: { para: m.loc.para, offset: m.end } };
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Realce das ocorrências da busca (adorno de tela, como o "Realçar tudo" do Word). */
+  private paintSearchHits(ctx: CanvasRenderingContext2D, pg: number): void {
+    if (!this.searchShow || !this.searchHits.size || !this.eng) return;
+    ctx.save();
+    ctx.fillStyle = this.pageDark ? 'rgba(255, 213, 0, 0.45)' : 'rgba(255, 230, 0, 0.6)';
+    ctx.globalCompositeOperation = this.pageDark ? 'screen' : 'multiply';
+    for (const l of this.eng.lines) {
+      if (l.page !== pg || !l.para) continue;
+      const hits = this.searchHits.get(l.para);
+      if (!hits) continue;
+      for (const [s, e] of hits) {
+        if (e <= l.line.start || s >= l.line.end) continue;
+        const cs = (l.line.chars ?? []).filter((c) => c.o >= s && c.o < e);
+        if (!cs.length) continue;
+        const x0 = Math.min(...cs.map((c) => c.x)), x1 = Math.max(...cs.map((c) => c.x + c.w));
+        ctx.fillRect(x0, l.line.y, x1 - x0, l.line.height);
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Desenha a página `page` do layout de impressão num canvas (miniatura da aba
+   *  Páginas), com `cssWidth` px de largura. false fora do layout de impressão. */
+  paintPageThumbnail(page: number, canvas: HTMLCanvasElement, cssWidth: number): boolean {
+    const p = this.eng?.result.pages[page];
+    if (!p) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / p.widthTw;
+    const w = Math.max(1, Math.round(p.widthTw * scale * dpr)), h = Math.max(1, Math.round(p.heightTw * scale * dpr));
+    canvas.width = w; canvas.height = h;
+    canvas.style.width = `${Math.round(p.widthTw * scale)}px`;
+    canvas.style.height = `${Math.round(p.heightTw * scale)}px`;
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = p.background ? `#${p.background}` : this.pageDark ? '#1e1e1e' : '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintItems(ctx, p.items, this.enginePaintEnv(), {});
+    return true;
+  }
+
+  /** Número de páginas do layout de impressão (0 nas outras visões). */
+  layoutPageCount(): number { return this.eng?.result.pages.length ?? 0; }
+
+  /** Vai para a página `page` (índice 0): o topo dela no alto da área visível. */
+  goToPage(page: number): void {
+    const c = this.canvases[page];
+    if (!c) return;
+    const bar = this.topbarEl.offsetHeight + (this.shadowRoot?.querySelector<HTMLElement>('.uw-hruler')?.offsetHeight ?? 0);
+    cancelAnimationFrame(this.scrollAnim);
+    this.scrollTop = Math.max(0, c.offsetTop - bar - 8);
+    // cursor no começo da página (1ª linha do corpo dela)
+    const first = this.eng?.lines.find((l) => l.page === page && l.loc.kind === 'body');
+    if (first && first.loc.kind === 'body' && !this.hfEdit && !this.tbEdit) {
+      if (this.cellEdit) this.exitCell();
+      this.selection = { anchor: { para: first.loc.para, offset: first.line.start }, focus: { para: first.loc.para, offset: first.line.start } };
+      this.refreshSelection();
+      this.onSelectionChange?.(); this.chromeSync?.();
+    }
+  }
+
+  // ── Linhas de Grade (Exibir > Mostrar): a grade de desenho do documento, só na tela ──
+  private docGrid = false;
+  /** Mostra a grade do documento (Exibir > Linhas de Grade). Não vai para o arquivo. */
+  showGridlines(on: boolean): void {
+    if (this.docGrid === on) return;
+    this.docGrid = on;
+    this.paint();
+    this.chromeSync?.();
+  }
+  gridlinesShown(): boolean { return this.docGrid; }
+
+  private gridCache: { xml: string | undefined; grid: DrawingGrid } | null = null;
+  private paintDocGrid(ctx: CanvasRenderingContext2D, pg: number, scale: number): void {
+    if (!this.docGrid || !this.eng) return;
+    const page = this.eng.result.pages[pg];
+    const sp = this.sectionOfPage(pg)?.sectPr;
+    if (!page || !sp) return;
+    const xml = this.pkg?.getPartText('word/settings.xml');
+    if (!this.gridCache || this.gridCache.xml !== xml) this.gridCache = { xml, grid: drawingGridOf(xml) };
+    const g = this.gridCache.grid;
+    const box = { x0: sp.marginLeftTwips, y0: sp.marginTopTwips, x1: page.widthTw - sp.marginRightTwips, y1: page.heightTw - sp.marginBottomTwips };
+    const origin = g.fromMargins ? { x: box.x0, y: box.y0 } : { x: g.originX, y: g.originY };
+    const { xs, ys } = gridLines(g, box, origin);
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.14)';
+    ctx.lineWidth = 1 / scale;
+    ctx.beginPath();
+    for (const x of xs) { ctx.moveTo(x, box.y0); ctx.lineTo(x, box.y1); }
+    for (const y of ys) { ctx.moveTo(box.x0, y); ctx.lineTo(box.x1, y); }
+    ctx.stroke();
+    ctx.restore();
+  }
 
   private paintTableSel(ctx: CanvasRenderingContext2D, pg: number): void {
     const ts = this.tableSel;
@@ -10473,30 +11147,36 @@ export class UniversalWriteElement extends HTMLElement {
     window.addEventListener('mouseup', up);
   }
 
-  private finishTableDrag(d: TableDrag, ev: MouseEvent): void {
-    const dx = Math.round(d.x - d.sx), dy = Math.round(d.y - d.sy);
-    if (d.kind === 'col') {
-      if (Math.abs(dx) < 2) { this.paint(); return; }
-      this.editTableAt(d.anchor, d.path, (t) => {
-        const g = t.gridColsTwips, b = d.boundary;
+  /** Divisa de coluna (fronteira `boundary` da grade) ou base da linha `boundary`
+   *  andando `delta` twips — a borda arrastada no documento ou na régua: as duas
+   *  colunas vizinhas trocam largura (a última alarga a tabela; a borda esquerda
+   *  mexe no recuo); a linha ganha altura mínima. false = deslocamento nulo. */
+  private resizeTableEdge(kind: 'col' | 'row', anchor: number, path: readonly CellHop[], boundary: number, delta: number): boolean {
+    if (Math.abs(delta) < 2) return false;
+    if (kind === 'col') {
+      return this.editTableAt(anchor, [...path], (t) => {
+        const g = t.gridColsTwips, b = boundary;
         if (b > 0 && b < g.length) {
-          const l = g[b - 1]! + dx, r = g[b]! - dx;
+          const l = g[b - 1]! + delta, r = g[b]! - delta;
           TOps.setColumnWidth(t, b - 1, b - 1, l);
           TOps.setColumnWidth(t, b, b, r);
-        } else if (b === g.length) TOps.setColumnWidth(t, b - 1, b - 1, g[b - 1]! + dx);
+        } else if (b === g.length) TOps.setColumnWidth(t, b - 1, b - 1, g[b - 1]! + delta);
         else {
           // borda esquerda: o recuo da tabela anda e a 1ª coluna compensa
           const ind = t.tblPr?.tblInd?.type === 'dxa' ? t.tblPr.tblInd.w : 0;
-          TOps.setTableProps(t, { tblInd: ind + dx ? { w: ind + dx, type: 'dxa' } : undefined });
-          TOps.setColumnWidth(t, 0, 0, g[0]! - dx);
+          TOps.setTableProps(t, { tblInd: ind + delta ? { w: ind + delta, type: 'dxa' } : undefined });
+          TOps.setColumnWidth(t, 0, 0, g[0]! - delta);
         }
       });
-      return;
     }
-    if (d.kind === 'row') {
-      if (Math.abs(dy) < 2) { this.paint(); return; }
-      const h = this.rowHeights(d.anchor, d.path, d.boundary, d.boundary)[0] ?? 0;
-      this.editTableAt(d.anchor, d.path, (t) => TOps.setRowHeight(t, d.boundary, d.boundary, Math.max(100, Math.round(h + dy)), 'atLeast'));
+    const h = this.rowHeights(anchor, path, boundary, boundary)[0] ?? 0;
+    return this.editTableAt(anchor, [...path], (t) => TOps.setRowHeight(t, boundary, boundary, Math.max(100, Math.round(h + delta)), 'atLeast'));
+  }
+
+  private finishTableDrag(d: TableDrag, ev: MouseEvent): void {
+    const dx = Math.round(d.x - d.sx), dy = Math.round(d.y - d.sy);
+    if (d.kind === 'col' || d.kind === 'row') {
+      if (!this.resizeTableEdge(d.kind, d.anchor, d.path, d.boundary, d.kind === 'col' ? dx : dy)) this.paint();
       return;
     }
     if (d.kind === 'move') {
@@ -12679,7 +13359,7 @@ export class UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans({ runs, props: p.props }, { skipFloating: true });
       const { lines, charAdvances } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs,
+        tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs,
       });
       const spanStart: number[] = [];
       let acc = 0;

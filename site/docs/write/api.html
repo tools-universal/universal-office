@@ -77,7 +77,7 @@
       <table>
         <thead><tr><th>Attribute / property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>topbar</code></td><td>boolean attribute</td><td>Top bar with menus, find &amp; replace, comments beside the page, open/save (File System Access or the host), autosave, recent files, Protected View, compare, theme, focus/read modes, context menu and drag &amp; drop.</td></tr>
+          <tr><td><code>topbar</code></td><td>boolean attribute</td><td>Top bar with menus, the Navigation Pane (Ctrl+F), rulers and gridlines (View &rsaquo; Show), find &amp; replace, comments beside the page, open/save (File System Access or the host), autosave, recent files, Protected View, compare, theme, focus/read modes, context menu and drag &amp; drop.</td></tr>
           <tr><td><code>toolbar</code></td><td><code>compact</code> · <code>ribbon</code></td><td>Style of the top bar: <strong>compact</strong> (default — File/Edit/View/Insert/Format/Tools/Help menus plus one toolbar row that collapses by priority) or <strong>ribbon</strong> (tabs, groups with dialog launchers and contextual tabs).</td></tr>
           <tr><td><code>theme</code> · <code>accent</code></td><td><code>auto</code> · <code>light</code> · <code>dark</code> · <code>black</code></td><td>Opt-in Material theme scoped to the element. Without it (and without a choice in View › Theme) the bars inherit <code>color-scheme</code> and <code>--u-color-*</code> from the page.</td></tr>
           <tr><td><code>storage-key</code></td><td>string</td><td>Remembers this instance's bar choices (toolbar style, theme, comments, autosave) in <code>localStorage</code>; falls back to <code>id</code>, otherwise session-only.</td></tr>
@@ -185,6 +185,8 @@ editor.host = {
           <tr><td><code>indent(delta)</code></td><td>Grows/shrinks the left indent (<code>1 | -1</code>; step of 720 twips = 0.5").</td></tr>
           <tr><td><code>setSpecialIndent(kind)</code></td><td><code>'none' | 'firstLine' | 'hanging'</code>.</td></tr>
           <tr><td><code>setIndentRight(twips?)</code></td><td>Right indent.</td></tr>
+          <tr><td><code>getParagraphIndents()</code> / <code>setParagraphIndents({ left?, right?, firstLine? })</code></td><td>Effective indents of the caret's paragraph / absolute indents for every selected paragraph (twips from the paragraph's frame; <code>firstLine</code> &lt; 0 = hanging) &mdash; what the ruler and the Paragraph dialog use. Only what differs from the style is written. See <a href="#nav-pane">Ruler</a>.</td></tr>
+          <tr><td><code>getTabStops()</code> / <code>setTabStops(tabs, only?)</code></td><td>Tab stops of the paragraph (style and list included) and the default tab stop / the effective tab stops of the selected paragraphs. See <a href="#nav-pane">Ruler</a>.</td></tr>
           <tr><td><code>setLineSpacing(line)</code></td><td>Line spacing in twentieths of a point (<code>240</code> = 1.0; <code>360</code> = 1.5).</td></tr>
           <tr><td><code>setSpaceBefore(twips?)</code> / <code>setSpaceAfter(twips?)</code></td><td>Space before/after the paragraph.</td></tr>
           <tr><td><code>setShading(hex?)</code></td><td>Paragraph background color.</td></tr>
@@ -290,8 +292,45 @@ editor.host = {
         <tbody>
           <tr><td><code>copy()</code> / <code>cut()</code> / <code>paste()</code></td><td>Async; keep a rich clipboard internally.</td></tr>
           <tr><td><code>pastePlain()</code></td><td>Pastes as plain text, without formatting.</td></tr>
-          <tr><td><code>findNext(needle): boolean</code></td><td>Selects the next occurrence (case-insensitive); <code>true</code> if found.</td></tr>
+          <tr><td><code>findNext(needle): boolean</code></td><td>Selects the next occurrence (case-insensitive); <code>true</code> if found. For the Navigation Pane search (all matches, options, highlight) see <a href="#nav-pane"><code>search()</code></a>.</td></tr>
           <tr><td><code>replaceAll(needle, replacement): number</code></td><td>Replaces all occurrences; returns the count.</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="nav-pane">Navigation Pane, ruler and gridlines</h2>
+      <p>
+        With <code>topbar</code>, View &rsaquo; Show turns on the <strong>Navigation Pane</strong> (also Ctrl+F),
+        the <strong>Ruler</strong> and the <strong>Gridlines</strong>, as in Word. The pane has a search box and three
+        tabs: <em>Headings</em> (the tree of the body's headings &mdash; click to go, collapse/expand, drag a heading to
+        move its whole section, right-click to promote/demote, add, delete or select), <em>Pages</em> (thumbnails) and
+        <em>Results</em> (the matches with the text around them). The heading tree is built like Word's (checked on real
+        documents): the built-in Heading styles count by name even without <code>w:outlineLvl</code>, list numbers and All
+        Caps show as in Word, headings in tables and empty ones are left out.
+        The ruler shows the margins, the section's columns, the table cells, the paragraph's indents and tab stops
+        (centimeters with <code>lang="pt"</code>, inches otherwise): drag to change them (0.25&nbsp;cm or 1/16" steps;
+        Alt = free), click to set a tab, drag a tab off to remove it, double-click for Page Setup, Paragraph or Tabs.
+        Dragging writes what Word writes: only the attributes that differ from the style, tab stops in position order and
+        <code>w:val="clear"</code> for a style's tab that was removed. Gridlines draw the document's drawing grid (9&nbsp;pt
+        from the margins by default) on screen only.
+      </p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>getRulerInfo(): RulerInfo | null</code></td><td>Geometry at the caret, in twips and page coordinates: <code>{ page, pageWidthTwips, pageHeightTwips, margins, columns: { x, w }[], frame: { x0, x1 }, indents: { left, right, firstLine }, tabs, defaultTabTwips, where: 'body' | 'cell' | 'header' | 'footer' | 'textbox', table: { cols: { x, boundary }[], current, rows: { top, bottom, row }[] } | null, lineTop, readOnly }</code>. <code>frame</code> is the paragraph's column, cell text area, header/footer or text box; indents and tabs are measured from it. <code>null</code> in Read Mode and Outline.</td></tr>
+          <tr><td><code>setParagraphIndents({ left?, right?, firstLine? })</code></td><td>Absolute indents for every selected paragraph, one undo step. An attribute equal to the inherited one is removed (Word drops <code>w:ind</code> when nothing is left).</td></tr>
+          <tr><td><code>getTabStops()</code></td><td><code>{ tabs: { pos, align: 'left' | 'center' | 'right' | 'decimal' | 'bar', leader?: 'dot' | 'hyphen' | 'underscore' | 'heavy' | 'middleDot' }[], defaultTabTwips }</code> &mdash; the effective tab stops of the caret's paragraph.</td></tr>
+          <tr><td><code>setTabStops(tabs, only?)</code></td><td>Sets the effective tab stops of the selected paragraphs. <code>only: { add?, remove? }</code> adds/removes just those positions in each paragraph (what the ruler does with several paragraphs selected).</td></tr>
+          <tr><td><code>getDefaultTabStop()</code> / <code>setDefaultTabStop(twips)</code></td><td>The document's default tab stop (<code>w:defaultTabStop</code> in <code>settings.xml</code>; 708 in a new document).</td></tr>
+          <tr><td><code>resizeTableColumn(boundary, deltaTwips)</code> / <code>resizeTableRow(row, deltaTwips)</code></td><td>Moves a column boundary (grid boundary; 0 = left edge) or a row's bottom in the table at the caret, like dragging its border.</td></tr>
+          <tr><td><code>getHeadings(): HeadingInfo[]</code></td><td><code>{ index, level, text, para, page }</code> for each heading of the body. <code>currentHeading()</code> = the heading whose section holds the caret.</td></tr>
+          <tr><td><code>goToHeading(i)</code> / <code>selectHeading(i)</code></td><td>Puts the caret at the heading (scrolled to the top) / selects the heading and its content.</td></tr>
+          <tr><td><code>moveHeading(i, before): boolean</code></td><td>Moves the heading's section (up to the next heading of the same or a higher level, tables included) in front of heading <code>before</code> (<code>getHeadings().length</code> = end of the document). One undo step.</td></tr>
+          <tr><td><code>promoteHeading(i)</code> / <code>demoteHeading(i)</code></td><td>Heading <i>n</i> &plusmn; 1 for the heading and its subheadings.</td></tr>
+          <tr><td><code>insertHeading(i, where)</code> / <code>deleteHeading(i)</code></td><td>New heading <code>'before'</code> or <code>'after'</code> (same level) or <code>'sub'</code>heading (level + 1, at the end of the section) / deletes the heading with its content.</td></tr>
+          <tr><td><code>search(text, opts?): SearchResult[]</code></td><td>Finds in the body and the tables. <code>opts: { matchCase?, wholeWord?, highlight? }</code>. Each result: <code>{ index, start, end, before, match, after, page, heading, inTable }</code>. Matches are highlighted on screen (never in PDF or print).</td></tr>
+          <tr><td><code>goToSearchResult(i)</code> / <code>clearSearch()</code></td><td>Selects a result (entering the table cell when needed) / clears the search and the highlight.</td></tr>
+          <tr><td><code>layoutPageCount()</code> / <code>paintPageThumbnail(page, canvas, cssWidth)</code> / <code>goToPage(page)</code></td><td>Pages of the Print Layout, a page drawn into a canvas (the <em>Pages</em> tab) and scrolling to a page.</td></tr>
+          <tr><td><code>showGridlines(on)</code> / <code>gridlinesShown()</code></td><td>The document grid on the pages (View &rsaquo; Gridlines). Not saved in the file.</td></tr>
         </tbody>
       </table>
 

@@ -102,32 +102,167 @@ export async function fontDialog(env: Env, families: string[]): Promise<void> {
   if (cs !== ((r.charSpacingTwips as number | undefined) ?? 0)) ed.setCharSpacing(cs || undefined);
 }
 
+/** Unidade das medidas dos diálogos: cm (pt) ou polegadas (en), como a régua. */
+const unitOf = (lang: UiLang): { tw: number; name: string; step: string } =>
+  lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };
+const fmtUnit = (tw: number, u: { tw: number }, lang: UiLang): string =>
+  (Math.round((tw / u.tw) * 100) / 100).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 2 });
+/** "2,5", "2.5 cm", '1"' → twips (NaN se não for número) */
+const parseUnit = (v: string, u: { tw: number }): number => {
+  const n = parseFloat(v.replace(/\s|cm|"|pol|in/gi, '').replace(',', '.'));
+  return Number.isFinite(n) ? Math.round(n * u.tw) : NaN;
+};
+const unitInput = (name: string, tw: number, u: { tw: number; step: string }, lang: UiLang, min?: number): HTMLInputElement =>
+  el('input', { type: 'text', name, value: fmtUnit(tw, u, lang), inputMode: 'decimal', style: 'width:96px', ...(min !== undefined ? { dataset: { min: String(min) } } as never : {}) });
+
 export async function paragraphDialog(env: Env): Promise<void> {
   const L = env.app.ui!.L, lang = env.lang;
   const p = env.state().para;
-  const first = p.indentFirstLineTwips as number | undefined;
+  const u = unitOf(lang);
+  const ind = env.ed.getParagraphIndents();
   const align = select('align', [['left', tr(lang, 'Left', 'Esquerda')], ['center', tr(lang, 'Centered', 'Centralizada')],
     ['right', tr(lang, 'Right', 'Direita')], ['both', tr(lang, 'Justified', 'Justificada')]], (p.alignment as string | undefined) ?? 'left');
+  // Recuo: esquerdo, direito, especial (primeira linha / deslocamento) e "Por"
+  const left = unitInput('left', ind.left, u, lang);
+  const right = unitInput('right', ind.right, u, lang);
   const special = select('special', [['none', tr(lang, '(none)', '(nenhum)')], ['firstLine', tr(lang, 'First line', 'Primeira linha')],
-    ['hanging', tr(lang, 'Hanging', 'Deslocamento')]], !first ? 'none' : first > 0 ? 'firstLine' : 'hanging');
+    ['hanging', tr(lang, 'Hanging', 'Deslocamento')]], !ind.firstLine ? 'none' : ind.firstLine > 0 ? 'firstLine' : 'hanging');
+  const by = unitInput('by', Math.abs(ind.firstLine), u, lang);
+  const syncBy = (): void => {
+    by.disabled = special.value === 'none';
+    if (special.value === 'none') by.value = '';
+    else if (!by.value || parseUnit(by.value, u) === 0) by.value = fmtUnit(Math.round(u.tw * (lang === 'pt' ? 1.25 : 0.5)), u, lang);
+  };
+  special.addEventListener('change', syncBy);
+  if (special.value === 'none') { by.value = ''; by.disabled = true; }
   const pt = (tw: number | undefined): string => String(Math.round((tw ?? 0) / 2) / 10);
   const before = el('input', { type: 'number', name: 'before', min: '0', step: '6', value: pt(p.spaceBeforeTwips as number | undefined) });
   const after = el('input', { type: 'number', name: 'after', min: '0', step: '6', value: pt(p.spaceAfterTwips as number | undefined) });
   const dec = tr(lang, '.', ',');
   const line = select('line', [['240', `1${dec}0`], ['259', `1${dec}08`], ['276', `1${dec}15`], ['360', `1${dec}5`], ['480', `2${dec}0`]],
     String((p.lineTwentieths as number | undefined) ?? 259));
+  const withUnit = (i: HTMLInputElement): HTMLElement => el('span', { style: 'display:flex;gap:4px;align-items:center' }, i, u.name);
   const grid = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, L.alignment), align, el('span', {}, L.specialIndent), special,
+    el('span', {}, L.alignment), align,
+    el('span', {}, tr(lang, 'Left indent', 'Recuo à esquerda')), withUnit(left),
+    el('span', {}, tr(lang, 'Right indent', 'Recuo à direita')), withUnit(right),
+    el('span', {}, L.specialIndent), el('span', { style: 'display:flex;gap:6px;align-items:center' }, special, withUnit(by)),
     el('span', {}, L.before), before, el('span', {}, L.after), after, el('span', {}, L.lineSpacing), line);
-  const h = openDialog({ title: L.paraDlg, body: grid, layer: env.layer, lang, width: 420,
-    actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
-  if ((await h.result) !== 'ok') return;
+  const h = openDialog({ title: L.paraDlg, body: grid, layer: env.layer, lang, width: 460,
+    actions: [{ id: 'tabs', label: tr(lang, 'Tabs…', 'Tabulação…') }, { id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
+  const res = await h.result;
+  if (res !== 'ok' && res !== 'tabs') return;
   const ed = env.ed;
   ed.setAlignment(align.value as 'left' | 'center' | 'right' | 'both');
-  ed.setSpecialIndent(special.value as 'none' | 'firstLine' | 'hanging');
+  const nl = parseUnit(left.value, u), nr = parseUnit(right.value, u);
+  const nb = special.value === 'none' ? 0 : parseUnit(by.value, u);
+  const nf = special.value === 'hanging' ? -Math.abs(nb) : Math.abs(nb);
+  const patch: { left?: number; right?: number; firstLine?: number } = {};
+  if (Number.isFinite(nl) && nl !== ind.left) patch.left = nl;
+  if (Number.isFinite(nr) && nr !== ind.right) patch.right = nr;
+  if (Number.isFinite(nf) && nf !== ind.firstLine) patch.firstLine = nf;
+  if (Object.keys(patch).length) ed.setParagraphIndents(patch);
   ed.setSpaceBefore(Math.round(Number(before.value) * 20));
   ed.setSpaceAfter(Math.round(Number(after.value) * 20));
   ed.setLineSpacing(Number(line.value));
+  // Tabulação…: o diálogo de tabulação abre depois de aplicar este, como no Word
+  if (res === 'tabs') await tabsDialog(env);
+}
+
+/**
+ * Tabulação (Parágrafo > Tabulação…, duplo clique numa tabulação da régua):
+ * posições do parágrafo, tabulação padrão do documento, alinhamento e
+ * preenchimento, Definir, Limpar e Limpar Tudo. Vale para os parágrafos
+ * selecionados; o que se grava segue o Word (setTabStops — oráculo nav-lab).
+ */
+export async function tabsDialog(env: Env): Promise<void> {
+  const lang = env.lang, ed = env.ed, L = env.app.ui!.L;
+  const u = unitOf(lang);
+  const cur = ed.getTabStops();
+  type Tab = ReturnType<UniversalWriteElement['getTabStops']>['tabs'][number];
+  let tabs: Tab[] = cur.tabs.map((t) => ({ ...t }));
+  const cleared: number[] = [];
+  const pos = el('input', { type: 'text', name: 'pos', inputMode: 'decimal', style: 'width:100%' });
+  pos.setAttribute('aria-label', tr(lang, 'Tab stop position', 'Posição da parada de tabulação'));
+  const list = el('select', { name: 'list', size: 6, style: 'width:100%;height:132px' });
+  const def = unitInput('default', cur.defaultTabTwips, u, lang);
+  const clearedEl = el('div', { style: 'font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)' });
+  const radios = (name: string, opts: readonly (readonly [string, string])[], value: string): HTMLElement => {
+    const box = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:4px 12px' });
+    for (const [v, t] of opts) {
+      const i = el('input', { type: 'radio', name, value: v, checked: v === value });
+      box.append(el('label', { className: 'uo-check' }, i, t));
+    }
+    return box;
+  };
+  const alignBox = radios('align', [['left', tr(lang, 'Left', 'Esquerdo')], ['center', tr(lang, 'Center', 'Centralizado')], ['right', tr(lang, 'Right', 'Direito')],
+    ['decimal', tr(lang, 'Decimal', 'Decimal')], ['bar', tr(lang, 'Bar', 'Barra')]], 'left');
+  const leaderBox = radios('leader', [['', tr(lang, '1 None', '1 Nenhum')], ['dot', '2 .......'], ['hyphen', '3 -------'], ['underscore', '4 _______']], '');
+  const val = (name: string): string => (alignBox.parentElement?.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value
+    ?? body.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value ?? '');
+  const setRadio = (name: string, v: string): void => {
+    for (const i of body.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) i.checked = i.value === v;
+  };
+  const render = (keep?: number): void => {
+    tabs.sort((a, b) => a.pos - b.pos);
+    list.replaceChildren(...tabs.map((t) => el('option', { value: String(t.pos), textContent: `${fmtUnit(t.pos, u, lang)} ${u.name}` })));
+    if (keep !== undefined) list.value = String(keep);
+    clearedEl.textContent = cleared.length ? `${tr(lang, 'Tab stops to be cleared:', 'Tabulações a serem limpas:')} ${cleared.map((x) => `${fmtUnit(x, u, lang)} ${u.name}`).join('; ')}` : '';
+  };
+  list.addEventListener('change', () => {
+    const t = tabs.find((x) => String(x.pos) === list.value);
+    if (!t) return;
+    pos.value = `${fmtUnit(t.pos, u, lang)}`;
+    setRadio('align', t.align);
+    setRadio('leader', t.leader === 'dot' || t.leader === 'hyphen' || t.leader === 'underscore' ? t.leader : '');
+  });
+  const setBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Set', 'Definir') });
+  const clrBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Clear', 'Limpar') });
+  const allBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Clear All', 'Limpar Tudo') });
+  const define = (): boolean => {
+    const p = parseUnit(pos.value, u);
+    if (!Number.isFinite(p)) return false;
+    tabs = tabs.filter((t) => t.pos !== p);
+    const lead = val('leader');
+    tabs.push({ pos: p, align: (val('align') || 'left') as Tab['align'], ...(lead ? { leader: lead as Tab['leader'] } : {}) });
+    const ci = cleared.indexOf(p);
+    if (ci >= 0) cleared.splice(ci, 1);
+    render(p);
+    return true;
+  };
+  setBtn.addEventListener('click', () => { define(); pos.focus(); pos.select(); });
+  clrBtn.addEventListener('click', () => {
+    const p = list.value ? Number(list.value) : parseUnit(pos.value, u);
+    if (!Number.isFinite(p) || !tabs.some((t) => t.pos === p)) return;
+    tabs = tabs.filter((t) => t.pos !== p);
+    cleared.push(p);
+    pos.value = '';
+    render();
+  });
+  allBtn.addEventListener('click', () => { cleared.push(...tabs.map((t) => t.pos)); tabs = []; pos.value = ''; render(); });
+  pos.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); define(); } });
+  const left = el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0' },
+    el('span', {}, tr(lang, 'Tab stop position:', 'Posição da parada de tabulação:')), pos, list);
+  const right = el('div', { style: 'display:flex;flex-direction:column;gap:6px;flex:1 1 0' },
+    el('span', {}, tr(lang, 'Default tab stops:', 'Paradas de tabulação padrão:')), el('span', { style: 'display:flex;gap:4px;align-items:center' }, def, u.name),
+    clearedEl);
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
+    el('div', { style: 'display:flex;gap:16px' }, left, right),
+    el('strong', {}, tr(lang, 'Alignment', 'Alinhamento')), alignBox,
+    el('strong', {}, tr(lang, 'Leader', 'Preenchimento')), leaderBox,
+    el('div', { style: 'display:flex;gap:8px;justify-content:flex-end' }, setBtn, clrBtn, allBtn));
+  render();
+  if (tabs[0]) { list.value = String(tabs[0].pos); list.dispatchEvent(new Event('change')); }
+  const h = openDialog({ title: tr(lang, 'Tabs', 'Tabulação'), body, layer: env.layer, lang, width: 460,
+    actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
+  setTimeout(() => pos.focus(), 0);
+  if ((await h.result) !== 'ok') return;
+  // posição digitada sem "Definir": o Word define ao dar OK
+  if (pos.value && !tabs.some((t) => t.pos === parseUnit(pos.value, u))) define();
+  const d = parseUnit(def.value, u);
+  if (Number.isFinite(d) && d > 0 && d !== cur.defaultTabTwips) ed.setDefaultTabStop(d);
+  const same = JSON.stringify(tabs) === JSON.stringify(cur.tabs.map((t) => ({ ...t })).sort((a, b) => a.pos - b.pos));
+  if (!same) ed.setTabStops(tabs);
 }
 
 /** "Aplicar a" dos diálogos de página e colunas (texto selecionado só com seleção). */
@@ -140,31 +275,45 @@ const applyToSelect = (lang: UiLang, hasSel: boolean, value: SectionApplyTo): HT
 
 export async function pageDialog(env: Env): Promise<void> {
   const L = env.app.ui!.L, lang = env.lang;
+  const u = unitOf(lang);
   const orient = select('orientation', [['portrait', tr(lang, 'Portrait', 'Retrato')], ['landscape', tr(lang, 'Landscape', 'Paisagem')]], 'portrait');
   const size = select('size', [['A4', 'A4'], ['Letter', tr(lang, 'Letter', 'Carta')]], 'A4');
-  const margins = select('margins', [['normal', 'Normal'], ['narrow', tr(lang, 'Narrow', 'Estreita')], ['wide', tr(lang, 'Wide', 'Larga')]], 'normal');
+  const margins = select('margins', [['normal', 'Normal'], ['narrow', tr(lang, 'Narrow', 'Estreita')], ['wide', tr(lang, 'Wide', 'Larga')], ['custom', tr(lang, 'Custom', 'Personalizadas')]], 'normal');
   // estado atual pela seção do cursor; margens pelo preset mais próximo
   const s = env.ed.getSection();
+  const cm = s ? { ...s.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s) {
     orient.value = s.orientation;
     size.value = Math.abs(Math.min(s.pageWidthTwips, s.pageHeightTwips) - 12240) < 60 ? 'Letter' : 'A4';
     const m = s.orientation === 'landscape' ? s.margins.top : s.margins.left;
     margins.value = m < 1000 ? 'narrow' : m > 2200 ? 'wide' : 'normal';
   }
+  // margens numéricas (a régua abre este diálogo com duplo clique na margem)
+  const mt = unitInput('mtop', cm.top, u, lang), mb = unitInput('mbottom', cm.bottom, u, lang);
+  const ml = unitInput('mleft', cm.left, u, lang), mr = unitInput('mright', cm.right, u, lang);
+  const marginInputs = [mt, mb, ml, mr];
+  for (const i of marginInputs) i.addEventListener('input', () => { margins.value = 'custom'; });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
   const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, 'section');
+  const withUnit = (i: HTMLInputElement): HTMLElement => el('span', { style: 'display:flex;gap:4px;align-items:center' }, i, u.name);
   const grid = el('div', { className: 'uo-dialog-grid' },
     el('span', {}, L.orientation), orient, el('span', {}, L.paper), size, el('span', {}, L.margins), margins,
+    el('span', {}, tr(lang, 'Top', 'Superior')), withUnit(mt), el('span', {}, tr(lang, 'Bottom', 'Inferior')), withUnit(mb),
+    el('span', {}, tr(lang, 'Left', 'Esquerda')), withUnit(ml), el('span', {}, tr(lang, 'Right', 'Direita')), withUnit(mr),
     el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo);
-  const h = openDialog({ title: L.pageDlg, body: grid, layer: env.layer, lang, width: 400,
+  const h = openDialog({ title: L.pageDlg, body: grid, layer: env.layer, lang, width: 420,
     actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   if ((await h.result) !== 'ok') return;
   // na seção do cursor só o que mudou; fora dela (deste ponto, documento, seleção) tudo vale
   const all = applyTo.value !== 'section';
+  const custom = margins.value === 'custom'
+    ? { top: parseUnit(mt.value, u), bottom: parseUnit(mb.value, u), left: parseUnit(ml.value, u), right: parseUnit(mr.value, u) }
+    : null;
+  const customOk = !!custom && Object.values(custom).every((v) => Number.isFinite(v) && v >= 0);
   env.ed.setPageSetup({
     ...(all || orient.value !== start.orientation ? { orientation: orient.value as 'portrait' | 'landscape' } : {}),
     ...(all || size.value !== start.size ? { size: size.value as 'A4' | 'Letter' } : {}),
-    ...(all || margins.value !== start.margins ? { margins: margins.value as 'normal' | 'narrow' | 'wide' } : {}),
+    ...(customOk ? { customMargins: custom! } : all || margins.value !== start.margins ? { margins: margins.value as 'normal' | 'narrow' | 'wide' } : {}),
     applyTo: applyTo.value as SectionApplyTo,
   });
 }

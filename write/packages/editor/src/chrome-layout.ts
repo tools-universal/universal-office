@@ -128,9 +128,9 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
     menus: [
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
-      { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'focus', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
+      { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -294,8 +294,15 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
       },
       {
         id: 'view', label: L('View', 'Exibir'), groups: [
-          { id: 'views', label: L('Views', 'Modos de Exibição'), icon: 'article', prio: 6, cells: [large('view:read'), large('view:print'), large('view:web'), large('focus')] },
-          { id: 'show', label: L('Show', 'Mostrar'), icon: 'visibility', prio: 3, cells: [{ rows: [[{ cmd: 'marks', label: true }], [{ cmd: 'comments', label: true }], [{ cmd: 'statusbar', label: true }]] }] },
+          { id: 'views', label: L('Views', 'Modos de Exibição'), icon: 'article', prio: 6, cells: [
+            large('view:read'), large('view:print'), large('view:web'),
+            { rows: [[{ cmd: 'view:outline', label: true }], [{ cmd: 'view:draft', label: true }]] },
+            large('focus'),
+          ] },
+          { id: 'show', label: L('Show', 'Mostrar'), icon: 'visibility', prio: 4, cells: [
+            { rows: [[{ cmd: 'view:ruler', label: true }], [{ cmd: 'view:gridlines', label: true }], [{ cmd: 'view:navpane', label: true }]] },
+            { rows: [[{ cmd: 'marks', label: true }], [{ cmd: 'comments', label: true }], [{ cmd: 'statusbar', label: true }]] },
+          ] },
           { id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in', prio: 5, cells: [
             { menu: m.zoomItems, id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in', size: 'large' },
             large('zoom100'),

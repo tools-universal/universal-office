@@ -90,7 +90,9 @@ Give the element a size with CSS — it fills its box and scrolls inside.
   thumbnails drawn with each style's real formatting (scroll by row, expand,
   right-click to update, modify, rename or remove from the gallery); its
   launcher opens the **Styles pane**.
-- Both: find and replace, comments and revision balloons as cards beside the
+- Both: the **Navigation Pane** (Ctrl+F; see [Navigation](#navigation)), the
+  **rulers** and **gridlines** (View › Show), find and replace (Ctrl+H),
+  comments and revision balloons as cards beside the
   page, Track Changes (Review tab; Tools › Track Changes), the Reviewing Pane, link/comment
   dialogs, font and paragraph dialogs, word count, theme (automatic, light,
   dark, dark page) and accent color, focus mode (full screen) and read mode,
@@ -107,8 +109,8 @@ Theme the bars with CSS variables on the element: `--uw-font` (UI font),
 `--uw-desk` (background behind the pages), `--uo-bar-bg`,
 `--uo-bar-container`, `--uo-accent`, `--uo-menu-bg`, `--uo-hover-bg`. Parts:
 `toolbar`, `titlebar`, `menubar`, `toolrow`, `tabs`, `ribbon`, `menu`,
-`popover`, `dialog`, `find`, `comments`, `review-pane`, `statusbar`, `protected-bar`,
-`compare`.
+`popover`, `dialog`, `find`, `comments`, `review-pane`, `navigation-pane`, `ruler`
+(`ruler-h` · `ruler-v`), `statusbar`, `protected-bar`, `compare`.
 
 What only the host application can do comes in through the optional
 `editor.host` object (an Electron shell, for example); without it the bars use
@@ -197,13 +199,13 @@ and moves created by editing (cut and paste becomes a deletion plus an insertion
 | Area | Methods |
 |---|---|
 | Characters | `toggleRunProp('bold' \| 'italic' \| 'underline' \| 'strike' \| 'allCaps' \| 'smallCaps')`, `toggleVertAlign('superscript' \| 'subscript')`, `setFontFamily(name)`, `setFontSize(pt)`, `growFont(±1)`, `setColor(hex)`, `setHighlight(name)`, `setLink(url)`, `setCharSpacing(twips)`, `changeCase('upper' \| 'lower')`, `clearFormatting()` |
-| Paragraphs | `applyStyle(styleId)`, `paragraphStyles()`, `setAlignment('left' \| 'center' \| 'right' \| 'both')`, `toggleList('bullet' \| 'decimal')`, `indent(±1)`, `setLineSpacing(line)`, `setSpaceBefore(twips)`, `setSpaceAfter(twips)`, `setSpecialIndent(...)`, `setIndentRight(twips)`, `setShading(hex)`, `toggleBorder()` |
+| Paragraphs | `applyStyle(styleId)`, `paragraphStyles()`, `setAlignment('left' \| 'center' \| 'right' \| 'both')`, `toggleList('bullet' \| 'decimal')`, `indent(±1)`, `setLineSpacing(line)`, `setSpaceBefore(twips)`, `setSpaceAfter(twips)`, `setSpecialIndent(...)`, `setIndentRight(twips)`, `setShading(hex)`, `toggleBorder()`; indents and tabs: see [Navigation](#navigation) |
 | Format painter | `copyFormat()`, `painterActive()` |
 | Insert | `insertImage(bytes, ext)`, `insertPageBreak()`, `insertField('PAGE' \| 'NUMPAGES' \| 'DATE')`, `updateToc()` |
 | Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins, applyTo })` — for the section(s) the selection touches; `applyTo`: `'section'` (default) · `'document'` · `'forward'` (next-page section break at the caret) · `'selection'` (breaks before and after the selection). Changing the orientation rotates the margins. |
 | Sections and columns | `insertSectionBreak('nextPage' \| 'continuous' \| 'evenPage' \| 'oddPage' \| 'nextColumn')` (splits the paragraph; the new section before the caret copies the current one and takes its headers/footers), `insertColumnBreak()`, `setColumns('one' \| 'two' \| 'three' \| 'left' \| 'right')` (with selected text, only for it) or `setColumns({ count, spaceTwips, widths, sep, applyTo, startNewColumn })`, `getSection()` → `{ index, count, type, orientation, margins, columns }` |
 | Edit | `undo()`, `redo()`, `cut()`, `copy()`, `paste()`, `pastePlain()`, `pasteText(text)`, `selectAll()`, `selectedText()` |
-| Find | `findNext(text)`, `replaceAll(text, replacement)` (case-insensitive) |
+| Find | `findNext(text)`, `replaceAll(text, replacement)` (case-insensitive); the Navigation Pane search: `search()` (see [Navigation](#navigation)) |
 | Spelling | `spellCheckEnabled()`, `toggleSpellCheck(on?)`, `spellingAtCaret()`, `spellingSuggestions(m)`, `replaceSpelling(m, text)`, `ignoreSpelling(word)`, `addToDictionary(word)`, `nextMisspelling()` |
 | Comments | `getComments()`, `addComment(text, author = this.author)`, `removeComment(id)`, `goToComment(id)` |
 | Track changes | `toggleTrackChanges(on?)`, `isTrackingChanges()`, `author` (property), `hasAuthor()`, `acceptChange({ moveNext })`, `rejectChange({ moveNext })`, `acceptAllChanges({ shown, stopTracking })` / `rejectAllChanges(…)` → count, `nextChange()`, `previousChange()`, `getRevisions()` → `{ kind, author, date, dateUtc, text, description, mark, move, story, color }[]`, `acceptRevisionAt(i)`, `rejectRevisionAt(i)`, `selectRevision(i)`, `revisionAtCaret()`, `revisionAuthors()`, `authorColor(name)` |
@@ -314,6 +316,58 @@ The ribbon has a **References** tab (Table of Contents; Footnotes: insert
 footnote/endnote, the Next Footnote menu, Show Notes and the **Footnote and
 Endnote** dialog, with Convert…); the compact bar has them under Insert ›
 Notes. Right-click inside a note for Go to Reference, Convert and the options.
+
+## Navigation
+
+**View › Show** has Word's three switches, remembered per instance:
+
+- **Navigation Pane** (also Ctrl+F, which focuses its search box): a pane at
+  the left with a search box and three tabs. *Headings* is the tree of the
+  body's headings — the paragraphs with an outline level, built like Word's
+  (checked on 141 real documents against Word: the built-in Heading styles
+  count by name even without `w:outlineLvl`, a direct outline level on them
+  is ignored, list numbers and All Caps appear as in Word, headings inside
+  tables and empty ones are left out). Click to go to a heading, collapse and
+  expand, **drag a heading to move its whole section** (subheadings, tables
+  and all, one undo step), and right-click to promote/demote, add a heading
+  before/after or a subheading, delete or select the heading with its content,
+  and show only some heading levels. *Pages* shows page thumbnails; *Results*
+  lists the search matches with the text around them. While searching, every
+  match is highlighted on the page (on screen only), the headings that
+  contain matches light up and *Pages* shows only the pages with matches.
+  Search options: match case, whole words, highlight all, incremental find.
+- **Ruler**: horizontal (Print, Web and Draft layouts) and vertical (Print
+  Layout), in centimeters with `lang="pt"` and inches otherwise. It shows the
+  page margins, the columns of the section, the cells of the table at the
+  caret, the indents of the paragraph (first line, hanging, left, right), its
+  tab stops and the default tab stops. Drag to change them (steps of 0.25 cm
+  or 1/16"; hold Alt for free movement); click to set a tab of the kind chosen
+  in the corner selector (left, center, right, decimal, bar — or put the
+  first-line/hanging indent there); drag a tab off the ruler to remove it.
+  Double-click opens Page Setup (margins), Paragraph (indents) or Tabs.
+  Dragging writes what Word writes: only the attributes that differ from the
+  style (an indent dragged back to the style's value leaves `w:ind`), tab
+  stops in position order, and `w:val="clear"` for a style's tab that was
+  removed.
+- **Gridlines**: the document's drawing grid on the page (9 pt squares from
+  the margins unless the document sets its own spacing, origin or
+  intervals) — on screen only, never in the file, PDF or print.
+
+The View tab also switches to **Outline** and **Draft**. The Paragraph dialog
+has left, right and special indents and a **Tabs…** button; the **Tabs**
+dialog sets positions, alignment and leaders, clears them and changes the
+document's default tab stop; Page Setup takes custom margins.
+
+| Area | Methods |
+|---|---|
+| Ruler | `getRulerInfo()` → `RulerInfo` (`page`, `pageWidthTwips`, `pageHeightTwips`, `margins`, `columns`, `frame` — the paragraph's column, cell text area, header/footer or text box —, `indents`, `tabs`, `defaultTabTwips`, `where`, `table` (`cols`, `current`, `rows`), `lineTop`, `readOnly`); `null` in Read Mode and Outline |
+| Indents | `getParagraphIndents()` → `{ left, right, firstLine }` (effective, twips from the frame; `firstLine` < 0 = hanging), `setParagraphIndents({ left?, right?, firstLine? })` — absolute values for every selected paragraph, one undo step |
+| Tabs | `getTabStops()` → `{ tabs: { pos, align: 'left' \| 'center' \| 'right' \| 'decimal' \| 'bar', leader? }[], defaultTabTwips }`, `setTabStops(tabs, only?)` — the effective tab stops of the selected paragraphs (`only: { add, remove }` touches just those positions in each paragraph), `getDefaultTabStop()` · `setDefaultTabStop(twips)` (`w:defaultTabStop`) |
+| Table on the ruler | `resizeTableColumn(boundary, deltaTwips)`, `resizeTableRow(row, deltaTwips)` — the table at the caret, like dragging its borders |
+| Headings | `getHeadings()` → `{ index, level, text, para, page }[]`, `currentHeading()`, `goToHeading(i)`, `moveHeading(i, before)` (`before` = index of the heading to move in front of; `getHeadings().length` = end), `promoteHeading(i)` · `demoteHeading(i)` (with its subheadings), `insertHeading(i, 'before' \| 'after' \| 'sub')`, `deleteHeading(i)`, `selectHeading(i)` |
+| Search | `search(text, { matchCase, wholeWord, highlight })` → `{ index, start, end, before, match, after, page, heading, inTable }[]` (body and tables; highlights the matches), `goToSearchResult(i)` (enters the cell when needed), `clearSearch()` |
+| Pages | `layoutPageCount()`, `paintPageThumbnail(page, canvas, cssWidth)`, `goToPage(page)` |
+| Gridlines | `showGridlines(on)` · `gridlinesShown()` |
 
 ## Events
 

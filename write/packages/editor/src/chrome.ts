@@ -16,7 +16,9 @@ import {
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
-import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, fontDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, fontDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { NavPane } from './chrome-nav.js';
+import { RulerUI } from './chrome-ruler.js';
 import { ReviewPane, type PaneDir } from './chrome-review.js';
 import { originStore } from './chrome-store.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
@@ -170,6 +172,67 @@ export const CHROME_CSS = /* css */ `
 /* Painel de Revisão (painel das barras: vertical à esquerda; horizontal acima da barra de status) */
 :host(.uw-review-v) .pages { padding-left: 304px; justify-content: safe center; }
 :host(.uw-review-h) .pages { padding-bottom: 224px; }
+
+/* painéis da esquerda: Navegação na borda, Revisão vertical ao lado, régua vertical depois */
+:host(.uw-nav-open) .pages { padding-left: 304px; justify-content: safe center; }
+:host(.uw-nav-open.uw-review-v) .pages { padding-left: 604px; }
+:host(.uw-vruler-on) .pages { padding-left: 48px; justify-content: safe center; }
+:host(.uw-vruler-on.uw-nav-open) .pages, :host(.uw-vruler-on.uw-review-v) .pages { padding-left: 326px; }
+:host(.uw-vruler-on.uw-nav-open.uw-review-v) .pages { padding-left: 626px; }
+
+/* régua (Exibir > Régua): a horizontal dentro da barra; a vertical na borda do documento */
+.uw-hruler { border-top: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.12)); background: var(--uo-bar-bg, var(--u-color-surface, #fdfbff)); }
+:host(.view-read) .uw-hruler, :host(.view-outline) .uw-hruler { display: none !important; }
+.uw-vruler { position: fixed; z-index: 35; width: 22px; background: var(--uo-bar-bg, var(--u-color-surface, #fdfbff)); border-right: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.12)); }
+.uw-vruler[hidden] { display: none; }
+.uw-ruler-guide { position: fixed; z-index: 36; pointer-events: none; border: 0 dashed var(--u-color-on-surface-variant, #44474f); border-top-width: 1px; }
+.uw-ruler-guide.uw-ruler-guide-v { border-top-width: 0; border-left-width: 1px; }
+.uw-ruler-guide[hidden] { display: none; }
+
+/* Painel de Navegação */
+.uw-nav.uo-pane-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; font-size: 13px; }
+.uw-nav-search { display: flex; align-items: center; gap: 2px; margin: 2px 12px 6px; height: 34px; padding: 0 2px 0 8px;
+  border: 1px solid var(--u-color-outline, #74777f); border-radius: 8px; background: var(--u-color-surface-container-lowest, #fff); }
+.uw-nav-search:focus-within { outline: 2px solid var(--u-color-primary, #005bc0); outline-offset: -1px; }
+.uw-nav-search-ic { display: flex; color: var(--u-color-on-surface-variant, #44474f); }
+.uw-nav-search-ic .uo-ic { width: 18px; height: 18px; }
+.uw-nav-input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: 13.5px; height: 30px; }
+.uw-nav-input::-webkit-search-cancel-button { cursor: pointer; }
+.uw-nav-opt { height: 28px; min-width: 28px; padding: 0; }
+.uw-nav-status { display: flex; align-items: center; gap: 2px; padding: 0 8px 4px 14px; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); }
+.uw-nav-status[hidden] { display: none; }
+.uw-nav-count { flex: 1 1 auto; }
+.uw-nav-step { height: 26px; min-width: 26px; padding: 0; }
+.uw-nav-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--u-color-outline-variant, #c4c6d0); flex: none; }
+.uw-nav-tab { position: relative; border: 0; background: transparent; color: var(--u-color-on-surface-variant, #44474f); font: inherit; font-size: 13px; padding: 7px 8px 8px; cursor: pointer; border-radius: 6px 6px 0 0; }
+.uw-nav-tab:hover { background: var(--u-color-surface-container-highest, #e3e2e6); }
+.uw-nav-tab.uo-on { color: var(--u-color-primary, #005bc0); font-weight: 600; }
+.uw-nav-tab.uo-on::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--u-color-primary, #005bc0); }
+.uw-nav-body { flex: 1 1 auto; overflow: auto; min-height: 0; padding: 6px 6px 10px; }
+.uw-nav-empty { margin: 10px 8px; color: var(--u-color-on-surface-variant, #44474f); line-height: 1.45; }
+.uw-nav-tree { display: flex; flex-direction: column; gap: 1px; }
+.uw-nav-tree.uw-nav-drop-end { box-shadow: inset 0 -2px 0 var(--u-color-primary, #005bc0); }
+.uw-nav-row { display: flex; align-items: center; gap: 2px; min-height: 28px; padding-right: 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+.uw-nav-row:hover { background: var(--u-color-surface-container-highest, #e3e2e6); }
+.uw-nav-row.uo-on { background: color-mix(in srgb, var(--u-color-primary, #005bc0) 14%, transparent); }
+.uw-nav-row.uw-nav-hit .uw-nav-label { background: color-mix(in srgb, #ffd600 55%, transparent); border-radius: 3px; }
+.uw-nav-row.uw-nav-dragging { opacity: .45; }
+.uw-nav-row.uw-nav-drop-before { box-shadow: inset 0 2px 0 var(--u-color-primary, #005bc0); }
+.uw-nav-twisty { flex: none; width: 22px; height: 22px; padding: 0; border: 0; background: transparent; color: inherit; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; }
+.uw-nav-twisty .uo-ic { width: 18px; height: 18px; }
+.uw-nav-twisty.uw-nav-leaf { visibility: hidden; cursor: default; }
+.uw-nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uw-nav-pages { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 6px 0; }
+.uw-nav-page { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border: 2px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; color: inherit; font: inherit; }
+.uw-nav-page:hover { background: var(--u-color-surface-container-highest, #e3e2e6); }
+.uw-nav-page.uo-on { border-color: var(--u-color-primary, #005bc0); }
+.uw-nav-thumb { display: block; width: 150px; min-height: 60px; background: #fff; outline: 1px solid var(--u-color-outline-variant, #c4c6d0); }
+.uw-nav-pnum { font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); }
+.uw-nav-results { display: flex; flex-direction: column; gap: 2px; }
+.uw-nav-result { text-align: left; border: 1px solid transparent; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 13px; line-height: 1.4; padding: 6px 8px; cursor: pointer; }
+.uw-nav-result:hover { background: var(--u-color-surface-container-highest, #e3e2e6); }
+.uw-nav-result.uo-on { border-color: var(--u-color-primary, #005bc0); }
+.uw-nav-result strong { font-weight: 700; background: color-mix(in srgb, #ffd600 45%, transparent); border-radius: 2px; }
 .uw-review.uo-pane-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; font-size: 13px; }
 .uw-review-sum { flex: none; padding: 0 16px 8px; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); border-bottom: 1px solid var(--u-color-outline-variant, #c4c6d0); }
 .uw-review-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1 1 auto; min-height: 0; }
@@ -242,6 +305,8 @@ class WriteChrome {
   private status: StatusBar | null = null;
   private cards: CommentCards | null = null;
   private review: ReviewPane | null = null;
+  private nav: NavPane | null = null;
+  private ruler: RulerUI | null = null;
   private find: FindPanel | null = null;
   private styles: StylesUI | null = null;
   private protbar: HTMLElement | null = null;
@@ -304,9 +369,21 @@ class WriteChrome {
       this.protbar = this.makeProtectedBar();
       topEl.appendChild(this.protbar);
       this.cards = new CommentCards(ed, app, this.root, () => this.after());
-      this.review = new ReviewPane(ed, app, { layer: this.layer, frame: () => this.docFrame(), lang: opts.lang }, () => this.after());
+      // painéis da esquerda: Navegação (na borda), Revisão vertical ao lado dela, régua vertical depois
+      this.nav = new NavPane({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), replace: () => this.openFind(true), after: () => this.after() });
+      this.review = new ReviewPane(ed, app, { layer: this.layer, frame: () => this.leftFrame('review'), lang: opts.lang }, () => this.after());
       const pane = app.prefs.get('reviewPane');
       if (pane === 'vertical' || pane === 'horizontal') this.review.open(pane);
+      if (app.prefs.get('navPane') === '1') this.nav.open();
+      const d = (): DialogEnv => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
+      this.ruler = new RulerUI({
+        ed, lang: opts.lang, top: topEl, layer: this.layer, frame: () => this.leftFrame('ruler'),
+        pageDialog: () => { void pageDialog(d()).then(() => this.after()); },
+        paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
+        tabsDialog: () => { void tabsDialog(d()).then(() => this.after()); },
+      });
+      if (app.prefs.get('ruler') === '1') this.ruler.show(true);
+      if (app.prefs.get('gridlines') === '1') ed.showGridlines(true);
       this.bindDocumentFeatures();
     }
     if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
@@ -360,7 +437,23 @@ class WriteChrome {
     const d = (): DialogEnv => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
     return {
       state: () => this.state(),
-      find: (replace) => this.openFind(replace),
+      // Localizar abre a busca do Painel de Navegação (Ctrl+F, como no Word); Substituir, a caixa flutuante
+      find: (replace) => { if (!replace && this.nav) this.nav.open(true); else this.openFind(replace); },
+      navPane: () => { this.nav?.toggle(); this.review?.place(); this.ruler?.schedule(); },
+      navPaneOpen: () => !!this.nav?.isOpen,
+      ruler: () => {
+        const r = this.ruler;
+        if (!r) return;
+        r.show(!r.on);
+        this.app.prefs.set('ruler', r.on ? '1' : '');
+      },
+      rulerOn: () => !!this.ruler?.on,
+      gridlines: () => {
+        const on = !this.ed.gridlinesShown();
+        this.ed.showGridlines(on);
+        this.app.prefs.set('gridlines', on ? '1' : '');
+      },
+      tabsDialog: () => { void tabsDialog(d()).then(() => this.after()); },
       comment: () => { void commentDialog(d()).then(() => this.after()); },
       link: () => { void linkDialog(d()).then(() => this.after()); },
       image: () => this.pickImage(),
@@ -458,10 +551,22 @@ class WriteChrome {
     this.status?.sync();
     this.styles?.sync();
     this.review?.place();
+    this.nav?.schedule();
+    this.ruler?.schedule();
   }
 
   /** Área do documento entre as barras (os painéis acoplam nela — Estilos à direita, sem
    *  cobrir a rolagem; Revisão à esquerda ou embaixo). */
+  /** Área do documento sem os painéis da esquerda que vêm antes: a Revisão
+   *  vertical fica à direita da Navegação; a régua vertical, depois das duas. */
+  private leftFrame(kind: 'review' | 'ruler'): DOMRect {
+    const r = this.docFrame();
+    let x = r.left;
+    if (this.nav?.isOpen) x += 300;
+    if (kind === 'ruler' && this.review?.dir === 'vertical') x += 300;
+    return new DOMRect(x, r.top, Math.max(0, r.right - x), r.height);
+  }
+
   private docFrame(): DOMRect {
     const r = this.ed.getBoundingClientRect();
     const top = this.topEl.getBoundingClientRect(), bot = this.bottomEl.getBoundingClientRect();
@@ -487,6 +592,8 @@ class WriteChrome {
     this.bar?.destroy();
     this.cards?.destroy();
     this.review?.destroy();
+    this.nav?.destroy();
+    this.ruler?.destroy();
     this.layer.replaceChildren();
     this.root.querySelector('.uw-compare')?.remove();
     this.topEl.classList.remove('uo-wco');
@@ -632,6 +739,7 @@ class WriteChrome {
     }
     // página atual enquanto rola
     let tick = false;
+    ed.addEventListener('scroll', () => { this.ruler?.schedule(); }, { signal, passive: true });
     ed.addEventListener('scroll', () => {
       if (tick || !this.status) return;
       tick = true;
@@ -643,6 +751,8 @@ class WriteChrome {
       for (const t of ['uw-comments-changed', 'uw-change', 'uw-zoom', 'uw-ready', 'uw-protected', 'uw-markup', 'uw-revisions-changed']) ed.addEventListener(t, () => cards.schedule(), { signal });
       const review = this.review;
       if (review) for (const t of ['uw-comments-changed', 'uw-change', 'uw-ready', 'uw-protected', 'uw-markup', 'uw-revisions-changed', 'uw-track-changes']) ed.addEventListener(t, () => review.schedule(), { signal });
+      const nav = this.nav;
+      if (nav) for (const t of ['uw-change', 'uw-ready', 'uw-protected', 'uw-styles-change', 'uw-markup']) ed.addEventListener(t, () => nav.schedule(true), { signal });
       const cro = new ResizeObserver(() => cards.schedule());
       cro.observe(ed);
       signal.addEventListener('abort', () => cro.disconnect());
@@ -653,7 +763,7 @@ class WriteChrome {
       }) as EventListener, { signal });
     }
     // painéis laterais: a área entre as barras muda (guia da ribbon, barra recolhida, janela)
-    const pro = new ResizeObserver(() => { this.review?.place(); this.styles?.sync(); });
+    const pro = new ResizeObserver(() => { this.review?.place(); this.styles?.sync(); this.nav?.place(); this.ruler?.schedule(); });
     for (const t of [this.topEl, this.bottomEl, ed]) pro.observe(t);
     signal.addEventListener('abort', () => pro.disconnect());
     document.addEventListener('fullscreenchange', () => {

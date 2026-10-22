@@ -55,6 +55,13 @@ export interface ChromeCtl {
   modifyStyle(): void;
   /** diálogos de tabela (Inserir Tabela, Dividir Células…) */
   tableDialog(kind: TableDialogKind, arg?: string): void;
+  /** Painel de Navegação, Régua, Linhas de Grade e o diálogo Tabulação (chrome-nav/ruler) */
+  navPane(): void;
+  navPaneOpen(): boolean;
+  ruler(): void;
+  rulerOn(): boolean;
+  gridlines(): void;
+  tabsDialog(): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -110,12 +117,19 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'painter', label: { en: 'Format Painter', pt: 'Pincel de Formatação' }, icon: 'format_paint', run: () => ed.copyFormat(), isChecked: () => ed.painterActive() }),
 
     // ── Exibir ──
-    ...(['print', 'web', 'read'] as ViewMode[]).map((v): Command => ({
+    ...(['print', 'web', 'read', 'outline', 'draft'] as ViewMode[]).map((v): Command => ({
       id: `view:${v}`,
-      label: { print: { en: 'Print Layout', pt: 'Layout de Impressão' }, web: { en: 'Web Layout', pt: 'Layout da Web' }, read: { en: 'Read Mode', pt: 'Modo de Leitura' } }[v as 'print']!,
-      icon: { print: 'article', web: 'language', read: 'menu_book' }[v as 'print'],
+      label: {
+        print: { en: 'Print Layout', pt: 'Layout de Impressão' }, web: { en: 'Web Layout', pt: 'Layout da Web' }, read: { en: 'Read Mode', pt: 'Modo de Leitura' },
+        outline: { en: 'Outline', pt: 'Estrutura de Tópicos' }, draft: { en: 'Draft', pt: 'Rascunho' },
+      }[v as 'print']!,
+      icon: { print: 'article', web: 'language', read: 'menu_book', outline: 'format_list_bulleted', draft: 'notes' }[v as 'print'],
       run: () => ed.setView(v), isChecked: () => ed.getView() === v, isEnabled: notComparing,
     })),
+    // Mostrar (Exibir): Régua, Linhas de Grade e Painel de Navegação
+    { id: 'view:ruler', label: { en: 'Ruler', pt: 'Régua' }, tip: { en: 'Show the rulers to measure and line up objects, indents and tabs', pt: 'Mostra as réguas para medir e alinhar objetos, recuos e tabulações' }, icon: 'straighten', supports: has('getRulerInfo'), run: () => ctl.ruler(), isChecked: () => ctl.rulerOn() },
+    { id: 'view:gridlines', label: { en: 'Gridlines', pt: 'Linhas de Grade' }, tip: { en: 'Show the document grid on the page', pt: 'Mostra a grade do documento na página' }, icon: 'grid_4x4', supports: has('showGridlines'), run: () => ctl.gridlines(), isChecked: () => ed.gridlinesShown() },
+    { id: 'view:navpane', label: { en: 'Navigation Pane', pt: 'Painel de Navegação' }, tip: { en: 'Headings, pages and search results of the document', pt: 'Títulos, páginas e resultados da pesquisa no documento' }, icon: 'side_navigation', supports: has('getHeadings'), run: () => ctl.navPane(), isChecked: () => ctl.navPaneOpen() },
     { id: 'focus', label: { en: 'Focus', pt: 'Foco' }, tip: { en: 'Focus mode — full screen (Esc to exit)', pt: 'Modo foco — tela inteira (Esc para sair)' }, icon: 'center_focus_strong', run: () => ctl.focusMode(), isChecked: () => ctl.inFocusMode() },
     { id: 'marks', label: { en: 'Formatting marks', pt: 'Mostrar tudo' }, tip: { en: 'Show paragraph marks and other formatting symbols', pt: 'Mostrar marcas de parágrafo e outros símbolos de formatação' }, icon: 'format_paragraph', shortcut: 'Ctrl+Shift+8', run: () => ed.toggleMarks(), isChecked: () => ctl.state().marks },
     { id: 'comments', label: { en: 'Show comments', pt: 'Mostrar comentários' }, icon: 'comment', run: () => ctl.toggleComments(), isChecked: () => app.commentsVisible, supports: () => true },
@@ -219,6 +233,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'shading', label: { en: 'Shading', pt: 'Sombreamento' }, icon: 'format_color_fill', run: () => ed.setShading(app.lastShading), color: () => `#${app.lastShading}` }),
     edit({ id: 'borders', label: { en: 'Borders', pt: 'Bordas' }, icon: 'border_outer', run: () => ed.toggleBorder(), isChecked: () => !!para().boxBorder }),
     edit({ id: 'dlg:paragraph', label: { en: 'Paragraph…', pt: 'Parágrafo…' }, tip: { en: 'Paragraph settings', pt: 'Configurações de parágrafo' }, icon: 'format_textdirection_l_to_r', run: () => ctl.paragraphDialog() }),
+    edit({ id: 'dlg:tabs', label: { en: 'Tabs…', pt: 'Tabulação…' }, tip: { en: 'Tab stops of the paragraph and the default tab stop', pt: 'Tabulações do parágrafo e a tabulação padrão' }, icon: 'keyboard_tab', supports: has('setTabStops'), run: () => ctl.tabsDialog() }),
     edit({ id: 'dlg:page', label: { en: 'Page setup…', pt: 'Configurar página…' }, icon: 'settings', run: () => ctl.pageDialog() }),
     edit({ id: 'pageColor', label: { en: 'Page Color', pt: 'Cor da Página' }, icon: 'format_color_fill', supports: has('setPageColor'), run: () => call('setPageColor') }),
     edit({ id: 'watermark', label: { en: 'Watermark', pt: 'Marca d’Água' }, icon: 'branding_watermark', supports: has('setWatermark'), run: () => call('setWatermark') }),
