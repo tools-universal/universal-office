@@ -59,6 +59,9 @@ public sealed class DrawingAnchor
     /// <summary>contorno justo/através: caixa do wp:wrapPolygon em frações (0..1) do extent —
     /// o texto contorna ela, não a figura inteira (oráculo wrappoly). L=x0, T=y0, R=x1, B=y1.</summary>
     public RectTw? WrapBox;
+    /// <summary>o wp:wrapPolygon quando NÃO é um retângulo (frações 0..1 do extent): o texto
+    /// segue o contorno linha a linha (oráculo wrapcontour)</summary>
+    public List<(double X, double Y)>? WrapPoly;
 }
 
 public sealed class ShapeLine
@@ -206,14 +209,20 @@ public static class DrawingReader
         string wrap = "none";
         string? wrapText = null;
         RectTw? wrapBox = null;
-        static RectTw? PolyBox(XmlElement w)
+        List<(double X, double Y)>? wrapPoly = null;
+        RectTw? PolyBox(XmlElement w)
         {
             var poly = FirstChild(w, "wp:wrapPolygon");
             if (poly is null) return null;
             static double N(string? v) { double n = Js.ParseInt(v ?? "0"); return double.IsNaN(n) ? 0 : n; }
             var pts = ChildElements(poly).Where(e => e.Name is "wp:start" or "wp:lineTo").Select(e => (X: N(e.Attr("x")), Y: N(e.Attr("y")))).ToList();
             if (pts.Count < 3) return null;
-            return new RectTw { L = pts.Min(q => q.X) / 21600, T = pts.Min(q => q.Y) / 21600, R = pts.Max(q => q.X) / 21600, B = pts.Max(q => q.Y) / 21600 };
+            double x0 = pts.Min(q => q.X), y0 = pts.Min(q => q.Y), x1 = pts.Max(q => q.X), y1 = pts.Max(q => q.Y);
+            // retângulo (área = a da caixa): vale a caixa; senão, o contorno
+            double area = 0;
+            for (int i = 0; i < pts.Count; i++) { var a = pts[i]; var b = pts[(i + 1) % pts.Count]; area += a.X * b.Y - b.X * a.Y; }
+            if (Math.Abs(Math.Abs(area) / 2 - (x1 - x0) * (y1 - y0)) > 1e-6 * 21600 * 21600) wrapPoly = pts.Select(q => (q.X / 21600, q.Y / 21600)).ToList();
+            return new RectTw { L = x0 / 21600, T = y0 / 21600, R = x1 / 21600, B = y1 / 21600 };
         }
         foreach (var c in ChildElements(anchor))
         {
@@ -256,6 +265,7 @@ public static class DrawingReader
             };
         }
         if (wrapBox is not null) outp.WrapBox = wrapBox;
+        if (wrapPoly is not null && wrap is "tight" or "through") outp.WrapPoly = wrapPoly;
         return outp;
     }
 

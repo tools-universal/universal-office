@@ -112,7 +112,7 @@ import {
   type DmlColor,
 } from '@universal-office/docx-core';
 import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST, SHADOW_PRESETS, REFLECTION_PRESETS, GLOW_SIZES, glowPreset, bevel3D, RECOLOR_PRESETS } from './picture-ops.js';
-import { adjustSaturation, adjustTemperature, adjustSharpen, adjustBrightnessContrast } from '@universal-office/drawingml';
+import { adjustSaturation, adjustTemperature, adjustSharpen, adjustBrightnessContrast, wrapContour } from '@universal-office/drawingml';
 import {
   ensureNoteStyles, noteBlocks, flattenBlocks, setNoteBlocks, cloneBlocks, nextNoteId, markNoteRuns, markNoteRunsInTable,
   isNoteMark, convertNoteContent, effectiveNoteOptions, notePropsOf, NOTE_DEFAULTS, type NoteOptions,
@@ -9816,13 +9816,16 @@ export class UniversalWriteElement extends HTMLElement {
     if (!run || this.locked()) return;
     const img = run.image!, f = img.format!;
     if (f.wrap === kind) return;
-    if (!f.inline || kind === 'inline') { this.editPicture(() => ({ wrap: kind })); return; }
+    // Justo/Através numa imagem com transparência: o contorno sai dos pixels (como no Word)
+    const poly = kind === 'tight' || kind === 'through' ? this.pictureContour(img) : null;
+    const polygon = poly ? { polygon: { edited: false, pts: poly } } : {};
+    if (!f.inline || kind === 'inline') { this.editPicture(() => ({ wrap: kind, ...polygon })); return; }
     // em linha → flutuante: posição atual da caixa da imagem
     const h = this.selectedFloat();
     const zs = this.zValues(run);
     const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
     this.snapshot();
-    this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { wrap: kind, at: { x: 0, y: 0 }, newRelativeHeight: z }), true);
+    this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { wrap: kind, at: { x: 0, y: 0 }, newRelativeHeight: z, ...polygon }), true);
     this.refresh();
     // com o objeto colocado, as referências do motor dão o deslocamento exato
     const fr = this.engObjectFrame(run);
@@ -9831,6 +9834,26 @@ export class UniversalWriteElement extends HTMLElement {
       this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { posH: { relativeFrom: 'column', offset: x }, posV: { relativeFrom: 'paragraph', offset: y } }), false);
     }
     this.afterPictureEdit();
+  }
+
+  /** Contorno de quebra (wp:wrapPolygon) de uma imagem com transparência, pela
+   *  parte visível (corte e espelho) — null se ela não tem transparência. */
+  private pictureContour(img: InlineImage): [number, number][] | null {
+    if (!/^(png|gif|webp|tiff?|bmp)$/i.test(img.ext) || img.svg) return null;
+    const bmp = this.bitmapFor(img);
+    if (!bmp) return null;
+    const s = img.format?.srcRect ?? { l: 0, t: 0, r: 0, b: 0 };
+    const sx = (s.l / 100000) * bmp.width, sy = (s.t / 100000) * bmp.height;
+    const sw = (1 - (s.l + s.r) / 100000) * bmp.width, sh = (1 - (s.t + s.b) / 100000) * bmp.height;
+    if (sw <= 0 || sh <= 0) return null;
+    const k = Math.min(1, 480 / Math.max(sw, sh));
+    const cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+    const c = new OffscreenCanvas(cw, ch);
+    const x = c.getContext('2d')!;
+    x.translate(img.format?.flipH ? cw : 0, img.format?.flipV ? ch : 0);
+    x.scale(img.format?.flipH ? -1 : 1, img.format?.flipV ? -1 : 1);
+    x.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch);
+    return wrapContour(x.getImageData(0, 0, cw, ch).data, cw, ch);
   }
 
   /** Galeria Posição: 'inline' ou "<top|center|bottom>-<left|center|right>" — com

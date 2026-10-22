@@ -67,6 +67,23 @@ export function patternPng() {
   });
 }
 
+/** Formas sólidas sobre fundo transparente (240x240) para o contorno de quebra:
+ *  star (5 pontas, côncava), lshape (L) e ring (anel, com furo). */
+export function shapePng(kind) {
+  const S = 240, c = S / 2;
+  const inside = (x, y) => {
+    const dx = x + 0.5 - c, dy = y + 0.5 - c;
+    if (kind === 'ring') { const d = Math.hypot(dx, dy); return d <= 96 && d >= 48; }
+    if (kind === 'lshape') return x >= 24 && x < 216 && y >= 24 && y < 216 && (x < 96 || y >= 144);
+    // estrela de 5 pontas: raio externo 100, interno 40
+    const a = Math.atan2(dy, dx) + Math.PI / 2, r = Math.hypot(dx, dy);
+    const k = ((a % (2 * Math.PI / 5)) + 2 * Math.PI / 5) % (2 * Math.PI / 5) / (2 * Math.PI / 5);
+    const t = Math.abs(k - 0.5) * 2; // 1 na ponta, 0 no vale
+    return r <= 40 + (100 - 40) * t;
+  };
+  return png(S, S, 4, (x, y) => (inside(x, y) ? [200, 60, 30, 255] : [255, 255, 255, 0]));
+}
+
 export function alphaPng() {
   const S = 240;
   return png(S, S, 4, (x, y) => {

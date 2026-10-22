@@ -15,7 +15,7 @@
       "lines": [
         {"ref":"ftr:default/b0","start":0,"end":19,"x":5183.66,"y":14980.1,"height":183.98,"baseline":15130.18,"width":1538.67},
         {"ref":"ftr:default/b1","start":0,"end":14,"x":5450.5,"y":15164.08,"height":183.98,"baseline":15314.16,"width":1005},
-        {"ref":"ftr:default/b2","start":0,"end":1,"x":2910.5,"y":15348.07,"height":183.98,"baseline":15498.14,"width":0},
+        {"ref":"ftr:default/b2","start":0,"end":1,"x":3118.79,"y":15348.07,"height":183.98,"baseline":15498.14,"width":0},
         {"ref":"ftr:default/b3","start":0,"end":0,"x":2910.5,"y":15532.05,"height":183.98,"baseline":15682.13,"width":0},
         {"ref":"ftr:default/b4","start":0,"end":0,"x":2910.5,"y":15716.04,"height":183.98,"baseline":15866.11,"width":0},
         {"ref":"ftr:default/b5","start":0,"end":2,"x":1701,"y":15900.02,"height":229.98,"baseline":16087.62,"width":2419},

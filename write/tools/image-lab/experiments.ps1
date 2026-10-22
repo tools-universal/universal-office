@@ -325,6 +325,31 @@ foreach ($v in @(-0.5, -0.25, 0.25)) { $E[('pe-sharp-' + $v)] = @{ V = $v; Op = 
 foreach ($b in @(-0.4, 0, 0.4)) { foreach ($k in @(-0.4, 0, 0.4)) { $E[('pe-bc-' + $b + '-' + $k)] = @{ B = $b; K = $k; Op = { param($c) Pe $c 3 @($c.ex.B, $c.ex.K) } } } }
 foreach ($b in @(-0.4, -0.2, 0, 0.2, 0.4)) { foreach ($k in @(-0.4, -0.2, 0, 0.2, 0.4)) { $E[('pe-bcg-' + $b + '-' + $k)] = @{ B = $b; K = $k; Op = { param($c) Pe $c 3 @($c.ex.B, $c.ex.K) } } } }
 foreach ($v in @(-0.75, -1, 0.75, 1)) { $E[('pe-sharp-' + $v)] = @{ V = $v; Op = { param($c) Pe $c 25 @($c.ex.V) } } }
+# agrupar imagens: variantes (o Group() direto recusou com InFront)
+$E['group3'] = @{ Op = { param($c)
+  $c.info.compat = $c.doc.CompatibilityMode
+  $s1 = To-Float $c 0
+  $a = $c.doc.Paragraphs.Item(1).Range
+  $s2 = $c.doc.Shapes.AddPicture($c.img, $false, $true, 220, 40, 90, 68, $a)
+  $s2.WrapFormat.Type = 0
+  $c.info.types = @($s1.Type, $s2.Type)
+  $tries = @()
+  try { $g = $c.doc.Shapes.Range([object[]]@(1, 2)).Group(); $tries += 'range-ok:' + $g.Name } catch { $tries += 'range:' + $_.Exception.Message }
+  if (-not ($tries[-1] -like 'range-ok*')) {
+    try { $c.doc.Shapes.Range([object[]]@(1, 2)).Select(); $g = $c.app.Selection.ShapeRange.Group(); $tries += 'sel-ok:' + $g.Name } catch { $tries += 'sel:' + $_.Exception.Message }
+  }
+  if (-not ($tries[-1] -like '*-ok*')) {
+    try { $c.doc.Shapes.Range([object[]]@(1, 2)).Select(); $c.app.CommandBars.ExecuteMso('ObjectsGroup'); $tries += 'mso-ok:' + $c.doc.Shapes.Count } catch { $tries += 'mso:' + $_.Exception.Message }
+  }
+  $c.info.tries = $tries
+} }
+# contorno de quebra com imagem de fundo transparente (circulo em alpha.png)
+$E['alpha-tight'] = @{ Img2 = $true; Op = { param($c) Mso $c 'TextWrappingTight' } }
+$E['alpha-through'] = @{ Img2 = $true; Op = { param($c) Mso $c 'TextWrappingThrough' } }
+$E['alpha-tight-com'] = @{ Img2 = $true; Op = { param($c) To-Float $c 1 | Out-Null } }
+$E['alpha-square'] = @{ Img2 = $true; Op = { param($c) Mso $c 'TextWrappingSquare' } }
+foreach ($k in @('star', 'lshape', 'ring')) { $E[('shape-tight-' + $k)] = @{ ImgFile = ($k + '.png'); Op = { param($c) Mso $c 'TextWrappingTight' } } }
+$E['shape-through-ring'] = @{ ImgFile = 'ring.png'; Op = { param($c) Mso $c 'TextWrappingThrough' } }
 # brilho e contraste sozinhos, na faixa toda do painel (-100%..100%)
 foreach ($v in @(-1, -0.8, -0.6, -0.3, -0.1, 0.1, 0.3, 0.6, 0.8, 1)) {
   $E[('pe-b1-' + $v)] = @{ B = $v; Op = { param($c) Pe $c 3 @($c.ex.B, 0) } }

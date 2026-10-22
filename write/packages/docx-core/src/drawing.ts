@@ -41,6 +41,9 @@ export interface DrawingAnchor {
   /** contorno justo/através: caixa do wp:wrapPolygon em frações (0..1) do extent —
    *  o texto contorna ela, não a figura inteira (oráculo wrappoly) */
   wrapBox?: { x0: number; y0: number; x1: number; y1: number };
+  /** o wp:wrapPolygon quando NÃO é um retângulo (frações 0..1 do extent): o texto
+   *  segue o contorno linha a linha (oráculo wrapcontour) */
+  wrapPoly?: [number, number][];
 }
 
 /** Aparência de uma forma (preenchimento/contorno). */
@@ -131,6 +134,7 @@ export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | un
   let wrap: WrapType = 'none';
   let wrapText: DrawingAnchor['wrapText'];
   let wrapBox: DrawingAnchor['wrapBox'];
+  let wrapPoly: DrawingAnchor['wrapPoly'];
   const polyBox = (w: XmlElement): DrawingAnchor['wrapBox'] => {
     const poly = firstChild(w, 'wp:wrapPolygon');
     if (!poly) return undefined;
@@ -138,7 +142,12 @@ export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | un
       .map((e) => [parseInt(e.attrs['x'] ?? '0', 10) || 0, parseInt(e.attrs['y'] ?? '0', 10) || 0] as const);
     if (pts.length < 3) return undefined;
     const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
-    return { x0: Math.min(...xs) / 21600, y0: Math.min(...ys) / 21600, x1: Math.max(...xs) / 21600, y1: Math.max(...ys) / 21600 };
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+    // retângulo (só os 4 cantos da caixa): vale a caixa; senão, o contorno
+    let area = 0;
+    for (let i = 0; i < pts.length; i++) { const [ax, ay] = pts[i]!, [bx, by] = pts[(i + 1) % pts.length]!; area += ax * by - bx * ay; }
+    if (Math.abs(Math.abs(area) / 2 - (x1 - x0) * (y1 - y0)) > 1e-6 * 21600 * 21600) wrapPoly = pts.map(([x, y]) => [x / 21600, y / 21600]);
+    return { x0: x0 / 21600, y0: y0 / 21600, x1: x1 / 21600, y1: y1 / 21600 };
   };
   for (const c of childElements(anchor)) {
     switch (c.name) {
@@ -156,6 +165,7 @@ export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | un
   };
   if (wrapText) out.wrapText = wrapText;
   if (wrapBox) out.wrapBox = wrapBox;
+  if (wrapPoly && (wrap === 'tight' || wrap === 'through')) out.wrapPoly = wrapPoly;
   if (a['behindDoc'] === '1' || a['behindDoc'] === 'true') out.behindDoc = true;
   for (const k of ['distT', 'distB', 'distL', 'distR'] as const) {
     const v = emuTw(a[k]);

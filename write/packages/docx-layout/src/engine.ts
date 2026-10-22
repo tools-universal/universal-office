@@ -72,6 +72,44 @@ interface FloatBox {
   distL: number; distR: number; distT: number; distB: number;
   /** do cabeçalho/rodapé nos modos ≤ 14: só o texto do CORPO o contorna (oráculo hff14wrap) */
   bodyOnly?: boolean;
+  /** justo/através com polígono não retangular (twips da página): a faixa da linha
+   *  bloqueia a projeção do polígono nela (oráculo wrapcontour) */
+  poly?: [number, number][];
+}
+
+/**
+ * Projeção em x do polígono cortado pela faixa horizontal [ya, yb]: os intervalos
+ * (já unidos) ocupados pelo contorno naquela faixa — pedaços das arestas dentro
+ * da faixa e o interior nas duas bordas dela.
+ */
+export function polyBandIntervals(poly: readonly (readonly [number, number])[], ya: number, yb: number): [number, number][] {
+  const iv: [number, number][] = [];
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const [x0, y0] = poly[i]!, [x1, y1] = poly[(i + 1) % n]!;
+    const lo = Math.max(ya, Math.min(y0, y1)), hi = Math.min(yb, Math.max(y0, y1));
+    if (lo > hi) continue;
+    if (y0 === y1) { iv.push([Math.min(x0, x1), Math.max(x0, x1)]); continue; }
+    const xa = x0 + ((lo - y0) / (y1 - y0)) * (x1 - x0), xb = x0 + ((hi - y0) / (y1 - y0)) * (x1 - x0);
+    iv.push([Math.min(xa, xb), Math.max(xa, xb)]);
+  }
+  // interior nas bordas da faixa (regra par-ímpar)
+  for (const yy of [ya, yb]) {
+    const xs: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const [x0, y0] = poly[i]!, [x1, y1] = poly[(i + 1) % n]!;
+      if ((y0 <= yy) !== (y1 <= yy)) xs.push(x0 + ((yy - y0) / (y1 - y0)) * (x1 - x0));
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) iv.push([xs[k]!, xs[k + 1]!]);
+  }
+  iv.sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  for (const [a, b] of iv) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1] + 1e-6) last[1] = Math.max(last[1], b); else out.push([a, b]);
+  }
+  return out;
 }
 
 /** espaço da linha contornando flutuantes: o vão mais largo, os vãos todos
@@ -3017,25 +3055,36 @@ class Engine {
       // (o Word compara em twips inteiros — 0,02pt de sobreposição não desvia;
       // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
       if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
-      const fl = f.x - f.distL - frameX, fr = f.x + f.w + f.distR - frameX;
+      // contorno não retangular: a projeção do polígono na faixa da linha (justo: do
+      // mais à esquerda ao mais à direita; através: os pedaços, com os vãos de dentro)
+      let parts: [number, number][] | undefined;
+      if (f.poly) {
+        const band = polyBandIntervals(f.poly, y, y + lineH);
+        if (!band.length) continue;
+        const hull: [number, number][] = [[band[0]![0], band[band.length - 1]![1]]];
+        parts = (f.wrap === 'through' ? band : hull).map(([a, b]): [number, number] => [a - f.distL - frameX, b + f.distR - frameX]);
+      }
+      const fl = parts ? parts[0]![0] : f.x - f.distL - frameX, fr = parts ? parts[parts.length - 1]![1] : f.x + f.w + f.distR - frameX;
       if (fr <= tl || fl >= tr) continue;
       if (f.wrap === 'topAndBottom') { skipTo = Math.max(skipTo ?? 0, bottom); continue; }
       hit = true;
       minBottom = Math.min(minBottom, bottom);
       // wrapText: o texto passa só de um lado — o outro também fica bloqueado
       // (largest: o vão maior; oráculo wrapsides)
-      let bl = fl, bh = fr;
       const side = f.side ?? 'bothSides';
-      if (side === 'left') bh = Infinity;
-      else if (side === 'right') bl = -Infinity;
-      else if (side === 'largest') { if (fl - tl >= tr - fr) bh = Infinity; else bl = -Infinity; }
-      const next: [number, number][] = [];
-      for (const [a, b] of free) {
-        if (bh <= a || bl >= b) { next.push([a, b]); continue; }
-        if (bl > a) next.push([a, bl]);
-        if (bh < b) next.push([bh, b]);
+      let blocks: [number, number][] = parts && side === 'bothSides' ? parts : [[fl, fr]];
+      if (side === 'left') blocks = [[fl, Infinity]];
+      else if (side === 'right') blocks = [[-Infinity, fr]];
+      else if (side === 'largest') blocks = [fl - tl >= tr - fr ? [fl, Infinity] : [-Infinity, fr]];
+      for (const [bl, bh] of blocks) {
+        const next: [number, number][] = [];
+        for (const [a, b] of free) {
+          if (bh <= a || bl >= b) { next.push([a, b]); continue; }
+          if (bl > a) next.push([a, bl]);
+          if (bh < b) next.push([bh, b]);
+        }
+        free = next;
       }
-      free = next;
     }
     if (hit) {
       // o intervalo mais largo (empate: o da esquerda) — vários flutuantes na mesma
@@ -3244,6 +3293,7 @@ class Engine {
       const bx = wb ? x + w * wb.x0 : x, by = wb ? y + h * wb.y0 : y;
       const bw = wb ? w * (wb.x1 - wb.x0) : w, bh = wb ? h * (wb.y1 - wb.y0) : h;
       const fb: FloatBox = { x: bx, y: by, w: bw, h: bh, wrap: anchor.wrap, side: anchor.wrapText ?? 'bothSides', distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 };
+      if (anchor.wrapPoly && wb) fb.poly = anchor.wrapPoly.map(([u, v]): [number, number] => [x + w * u, y + h * v]);
       // (as tabelas do corpo também descem para baixo deles — oráculo tblfloat)
       if (hfLegacy) fb.bodyOnly = true;
       box = fb;

@@ -16,3 +16,4 @@ export {
 export { alignPoint, shadowAffine, outerShadowMask, innerShadowMask, glowMask, softEdgeMask, reflectionAlpha, type ShadowSpec } from './effects.js';
 export { adjustSaturation, adjustTemperature, adjustBrightnessContrast, adjustSharpen, blackbody } from './adjust.js';
 export { applyColorMods, srgbToLin, linToSrgb, type Rgb } from './color.js';
+export { wrapContour } from './contour.js';

@@ -218,6 +218,47 @@ internal sealed class FloatBox
     public double DistL, DistR, DistT, DistB;
     /// <summary>do cabeçalho/rodapé nos modos ≤ 14: só o texto do CORPO o contorna (oráculo hff14wrap)</summary>
     public bool BodyOnly;
+    /// <summary>justo/através com polígono não retangular (twips da página): a faixa da linha
+    /// bloqueia a projeção do polígono nela (oráculo wrapcontour)</summary>
+    public List<(double X, double Y)>? Poly;
+
+    /// <summary>Projeção em x do polígono cortado pela faixa horizontal [ya, yb]: os intervalos
+    /// (já unidos) ocupados pelo contorno naquela faixa — pedaços das arestas dentro da faixa e o
+    /// interior nas duas bordas dela.</summary>
+    public static List<(double A, double B)> PolyBandIntervals(IReadOnlyList<(double X, double Y)> poly, double ya, double yb)
+    {
+        var iv = new List<(double A, double B)>();
+        int n = poly.Count;
+        for (int i = 0; i < n; i++)
+        {
+            var (x0, y0) = poly[i]; var (x1, y1) = poly[(i + 1) % n];
+            double lo = Math.Max(ya, Math.Min(y0, y1)), hi = Math.Min(yb, Math.Max(y0, y1));
+            if (lo > hi) continue;
+            if (y0 == y1) { iv.Add((Math.Min(x0, x1), Math.Max(x0, x1))); continue; }
+            double xa = x0 + (lo - y0) / (y1 - y0) * (x1 - x0), xb = x0 + (hi - y0) / (y1 - y0) * (x1 - x0);
+            iv.Add((Math.Min(xa, xb), Math.Max(xa, xb)));
+        }
+        // interior nas bordas da faixa (regra par-ímpar)
+        foreach (double yy in new[] { ya, yb })
+        {
+            var xs = new List<double>();
+            for (int i = 0; i < n; i++)
+            {
+                var (x0, y0) = poly[i]; var (x1, y1) = poly[(i + 1) % n];
+                if ((y0 <= yy) != (y1 <= yy)) xs.Add(x0 + (yy - y0) / (y1 - y0) * (x1 - x0));
+            }
+            xs.Sort();
+            for (int k = 0; k + 1 < xs.Count; k += 2) iv.Add((xs[k], xs[k + 1]));
+        }
+        iv.Sort((p, q) => p.A.CompareTo(q.A));
+        var outp = new List<(double A, double B)>();
+        foreach (var (a, b) in iv)
+        {
+            if (outp.Count > 0 && a <= outp[^1].B + 1e-6) outp[^1] = (outp[^1].A, Math.Max(outp[^1].B, b));
+            else outp.Add((a, b));
+        }
+        return outp;
+    }
 }
 
 /// <summary>Objeto flutuante com sua ordem z (wp:anchor relativeHeight / VML z-index).</summary>
@@ -3772,26 +3813,39 @@ internal sealed class Engine
             // (o Word compara em twips inteiros — 0,02pt de sobreposição não desvia;
             // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
             if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
-            double fl = f.X - f.DistL - frameX, frr = f.X + f.W + f.DistR - frameX;
+            // contorno não retangular: a projeção do polígono na faixa da linha (justo: do
+            // mais à esquerda ao mais à direita; através: os pedaços, com os vãos de dentro)
+            List<(double A, double B)>? parts = null;
+            if (f.Poly is not null)
+            {
+                var band = FloatBox.PolyBandIntervals(f.Poly, y, y + lineH);
+                if (band.Count == 0) continue;
+                var src = f.Wrap == "through" ? band : new List<(double A, double B)> { (band[0].A, band[^1].B) };
+                parts = src.Select(p => (p.A - f.DistL - frameX, p.B + f.DistR - frameX)).ToList();
+            }
+            double fl = parts is not null ? parts[0].A : f.X - f.DistL - frameX, frr = parts is not null ? parts[^1].B : f.X + f.W + f.DistR - frameX;
             if (frr <= tl || fl >= tr) continue;
             if (f.Wrap == "topAndBottom") { skipTo = Math.Max(skipTo ?? 0, bottom); continue; }
             hit = true;
             minBottom = Math.Min(minBottom, bottom);
             // wrapText: o texto passa só de um lado — o outro também fica bloqueado
             // (largest: o vão maior; oráculo wrapsides)
-            double bl = fl, bh = frr;
             string side = f.Side ?? "bothSides";
-            if (side == "left") bh = double.PositiveInfinity;
-            else if (side == "right") bl = double.NegativeInfinity;
-            else if (side == "largest") { if (fl - tl >= tr - frr) bh = double.PositiveInfinity; else bl = double.NegativeInfinity; }
-            var next = new List<(double A, double B)>();
-            foreach (var (a, b) in free)
+            var blocks = parts is not null && side == "bothSides" ? parts : new List<(double A, double B)> { (fl, frr) };
+            if (side == "left") blocks = new() { (fl, double.PositiveInfinity) };
+            else if (side == "right") blocks = new() { (double.NegativeInfinity, frr) };
+            else if (side == "largest") blocks = new() { fl - tl >= tr - frr ? (fl, double.PositiveInfinity) : (double.NegativeInfinity, frr) };
+            foreach (var (bl, bh) in blocks)
             {
-                if (bh <= a || bl >= b) { next.Add((a, b)); continue; }
-                if (bl > a) next.Add((a, bl));
-                if (bh < b) next.Add((bh, b));
+                var next = new List<(double A, double B)>();
+                foreach (var (a, b) in free)
+                {
+                    if (bh <= a || bl >= b) { next.Add((a, b)); continue; }
+                    if (bl > a) next.Add((a, bl));
+                    if (bh < b) next.Add((bh, b));
+                }
+                free = next;
             }
-            free = next;
         }
         if (hit)
         {
@@ -4093,6 +4147,7 @@ internal sealed class Engine
             double bbx = wb is not null ? x + w * wb.L : x, bby = wb is not null ? y + h * wb.T : y;
             double bbw = wb is not null ? w * (wb.R - wb.L) : w, bbh = wb is not null ? h * (wb.B - wb.T) : h;
             var fb = new FloatBox { X = bbx, Y = bby, W = bbw, H = bbh, Wrap = anchor.Wrap, Side = anchor.WrapText ?? "bothSides", DistL = anchor.DistL ?? 0, DistR = anchor.DistR ?? 0, DistT = anchor.DistT ?? 0, DistB = anchor.DistB ?? 0 };
+            if (anchor.WrapPoly is not null && wb is not null) fb.Poly = anchor.WrapPoly.Select(q => (x + w * q.X, y + h * q.Y)).ToList();
             // (as tabelas do corpo também descem para baixo deles — oráculo tblfloat)
             if (hfLegacy) fb.BodyOnly = true;
             box = fb;

@@ -74,7 +74,10 @@ try {
     try {
       $w = 144
       if ($ex.Contains('Width')) { $w = [double]$ex.Width }
-      $pair = New-BaseDoc $app $Image $w
+      $base = $Image
+      if ($ex.Contains('Img2')) { $base = $Image2 }
+      if ($ex.Contains('ImgFile')) { $base = [string](Join-Path ([string](Split-Path $Image)) ([string]$ex.ImgFile)) }
+      $pair = New-BaseDoc $app $base $w
       $doc = $pair[0]; $ish = $pair[1]
       $ctx = @{ app = $app; doc = $doc; ish = $ish; img = $Image; img2 = $Image2; info = $info; ex = $ex }
       try {

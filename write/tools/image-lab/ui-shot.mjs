@@ -84,6 +84,13 @@ if (scenario === 'wrap') {
   console.log('depois:', JSON.stringify(await state()));
   await shot('square');
 }
+if (scenario === 'wrapkind') {
+  const kind = opt('--kind', 'tight');
+  await page.evaluate((k) => document.querySelector('universal-write').setImageWrap(k), kind);
+  await page.waitForTimeout(500);
+  console.log('polígono:', JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectedImage()?.format.polygon)));
+  await shot(kind);
+}
 if (scenario === 'rotate') {
   // alça de girar: 22 px acima do meio da borda de cima
   const hx = c.x, hy = c.y - c.h / 2 - 22;
