@@ -78,7 +78,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Frente | Inclui | Estado |
 |---|---|---|
 | Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | feito |
-| Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | em curso |
+| Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | feito |
 | Caixa de texto | ◐ inserir; Painel de Seleção | — |
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | — |
@@ -130,6 +130,11 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Notas | O título do iniciador de Estilos repete o atalho: "Estilos (Ctrl+Alt+Shift+S) (Ctrl+Alt+Shift+S)" |
 | Cabeçalho e rodapé | A lista de formatos do diálogo Data e Hora vem das convenções de cada idioma (o COM não a expõe); um print do diálogo do Word fecharia a comparação |
 | Links e referências | `insertField` (PAGE/NUMPAGES/DATE) ainda não recusa campo dentro de controle de conteúdo de texto/data/combinação/lista (o Word acusa o arquivo de corrompido); usar o `canInsertField()` |
+| Imagem | Galerias Estilos de Imagem (28) e Efeitos › Predefinição (12): as definições não saem por COM; precisa de um documento-oráculo feito à mão no Word (instruções no relatório da frente Imagem) |
+| Imagem | Agrupar e Alinhar/Distribuir vários objetos: dependem de seleção múltipla e de grupos (frente Formas) |
+| Imagem | Rotação 3D/perspectiva: gravada e preservada, mas desenhada plana |
+| Imagem | Fora desta frente: Remover Plano de Fundo, Efeitos Artísticos (os do arquivo seguem visíveis), Layout da Imagem (SmartArt), Alterar Imagem de Imagens Online/Ícones, Definir como Layout Padrão |
+| Imagem | Charts e slides-core ainda têm cópias próprias da matemática de cor; migrar para `shared/drawingml` |
 
 ### Fora do escopo
 

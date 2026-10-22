@@ -1226,6 +1226,13 @@ function childElements(el, name) {
 function firstChild(el, name) {
   return childElements(el, name)[0];
 }
+function textContent(el) {
+  let out = "";
+  for (const c of el.children) {
+    out += typeof c === "string" ? c : textContent(c);
+  }
+  return out;
+}
 
 // ../docx-core/src/ooxml/props.ts
 function readRevisionInfo(el) {
@@ -2262,19 +2269,40 @@ function readPos(el, defFrom) {
   if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
   return pos;
 }
+function anchorChild(anchor, name) {
+  const direct = firstChild(anchor, name);
+  if (direct) return direct;
+  for (const ac of childElements(anchor, "mc:AlternateContent")) {
+    const choice = firstChild(ac, "mc:Choice");
+    const el = (choice && firstChild(choice, name)) ?? (() => {
+      const fb = firstChild(ac, "mc:Fallback");
+      return fb && firstChild(fb, name);
+    })();
+    if (el) return el;
+  }
+  return void 0;
+}
 function readWpAnchor(anchor) {
   if (!anchor) return void 0;
   const a = anchor.attrs;
   let wrap = "none";
   let wrapText;
   let wrapBox;
+  let wrapPoly;
   const polyBox = (w) => {
     const poly = firstChild(w, "wp:wrapPolygon");
     if (!poly) return void 0;
     const pts = childElements(poly).filter((e) => e.name === "wp:start" || e.name === "wp:lineTo").map((e) => [parseInt(e.attrs["x"] ?? "0", 10) || 0, parseInt(e.attrs["y"] ?? "0", 10) || 0]);
     if (pts.length < 3) return void 0;
     const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
-    return { x0: Math.min(...xs) / 21600, y0: Math.min(...ys) / 21600, x1: Math.max(...xs) / 21600, y1: Math.max(...ys) / 21600 };
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+    let area = 0;
+    for (let i2 = 0; i2 < pts.length; i2++) {
+      const [ax, ay] = pts[i2], [bx, by] = pts[(i2 + 1) % pts.length];
+      area += ax * by - bx * ay;
+    }
+    if (Math.abs(Math.abs(area) / 2 - (x1 - x0) * (y1 - y0)) > 1e-6 * 21600 * 21600) wrapPoly = pts.map(([x2, y]) => [x2 / 21600, y / 21600]);
+    return { x0: x0 / 21600, y0: y0 / 21600, x1: x1 / 21600, y1: y1 / 21600 };
   };
   for (const c of childElements(anchor)) {
     switch (c.name) {
@@ -2302,11 +2330,12 @@ function readWpAnchor(anchor) {
   }
   const out = {
     wrap,
-    posH: readPos(firstChild(anchor, "wp:positionH"), "column"),
-    posV: readPos(firstChild(anchor, "wp:positionV"), "paragraph")
+    posH: readPos(anchorChild(anchor, "wp:positionH"), "column"),
+    posV: readPos(anchorChild(anchor, "wp:positionV"), "paragraph")
   };
   if (wrapText) out.wrapText = wrapText;
   if (wrapBox) out.wrapBox = wrapBox;
+  if (wrapPoly && (wrap === "tight" || wrap === "through")) out.wrapPoly = wrapPoly;
   if (a["behindDoc"] === "1" || a["behindDoc"] === "true") out.behindDoc = true;
   for (const k of ["distT", "distB", "distL", "distR"]) {
     const v = emuTw(a[k]);
@@ -2696,6 +2725,284 @@ function readCustGeom(cg, cx, cy) {
   return out;
 }
 
+// ../docx-core/src/picture-xml.ts
+var WRAP_NAMES = ["wp:wrapNone", "wp:wrapSquare", "wp:wrapTight", "wp:wrapThrough", "wp:wrapTopAndBottom"];
+var COLOR_NAMES = ["a:srgbClr", "a:schemeClr", "a:prstClr", "a:sysClr", "a:scrgbClr", "a:hslClr"];
+function readDmlColor(parent) {
+  if (!parent) return void 0;
+  const c = childElements(parent).find((k) => COLOR_NAMES.includes(k.name));
+  if (!c) return void 0;
+  const kind = c.name.slice(2);
+  if (kind !== "srgbClr" && kind !== "schemeClr" && kind !== "prstClr" && kind !== "sysClr") return { kind: "srgbClr", val: "000000" };
+  const out = { kind, val: c.attrs["val"] ?? "000000" };
+  if (c.attrs["lastClr"]) out.lastClr = c.attrs["lastClr"];
+  const mods = childElements(c).map((m) => [m.name.slice(2), parseInt(m.attrs["val"] ?? "0", 10) || 0]);
+  if (mods.length) out.mods = mods;
+  return out;
+}
+var int2 = (v, d = 0) => {
+  if (v === void 0) return d;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : d;
+};
+var bool = (v, d = false) => v === void 0 ? d : v === "1" || v === "true" || v === "on";
+function findDeep2(el, name) {
+  for (const c of childElements(el)) {
+    if (c.name === name) return c;
+    const f = findDeep2(c, name);
+    if (f) return f;
+  }
+  return void 0;
+}
+function partsOf(raw) {
+  const root = parseXml(raw, { positions: true });
+  const container = firstChild(root, "wp:anchor") ?? firstChild(root, "wp:inline");
+  if (!container) throw new Error("w:drawing sem wp:inline/wp:anchor");
+  const gd = findDeep2(container, "a:graphicData");
+  const pic = gd && firstChild(gd, "pic:pic");
+  const spPr = pic && firstChild(pic, "pic:spPr");
+  const blipFill = pic && firstChild(pic, "pic:blipFill");
+  const blip = blipFill && firstChild(blipFill, "a:blip");
+  return { root, container, pic, spPr, blipFill, blip };
+}
+function readPos2(el) {
+  if (!el) return void 0;
+  const p = { relativeFrom: el.attrs["relativeFrom"] ?? "column" };
+  const al = firstChild(el, "wp:align");
+  if (al) p.align = textContent(al).trim();
+  const off = firstChild(el, "wp:posOffset");
+  if (off) p.offset = int2(textContent(off).trim());
+  const pct = firstChild(el, "wp14:pctPosHOffset") ?? firstChild(el, "wp14:pctPosVOffset");
+  if (pct) p.pct = int2(textContent(pct).trim());
+  return p;
+}
+function readPicLine(ln2) {
+  if (!ln2) return void 0;
+  const out = {};
+  if (ln2.attrs["w"] !== void 0) out.w = int2(ln2.attrs["w"]);
+  if (ln2.attrs["cap"]) out.cap = ln2.attrs["cap"];
+  if (ln2.attrs["cmpd"]) out.cmpd = ln2.attrs["cmpd"];
+  if (ln2.attrs["algn"]) out.algn = ln2.attrs["algn"];
+  for (const k of childElements(ln2)) {
+    if (k.name === "a:noFill") out.fill = null;
+    else if (k.name === "a:solidFill") out.fill = readDmlColor(k) ?? null;
+    else if (k.name === "a:gradFill" || k.name === "a:pattFill") out.fillRaw = rawOf(ln2, k);
+    else if (k.name === "a:prstDash") out.dash = k.attrs["val"] ?? "solid";
+    else if (k.name === "a:round" || k.name === "a:bevel") out.join = k.name.slice(2);
+    else if (k.name === "a:miter") {
+      out.join = "miter";
+      if (k.attrs["lim"]) out.miterLim = int2(k.attrs["lim"]);
+    } else if (k.name === "a:headEnd" || k.name === "a:tailEnd" || k.name === "a:extLst") out.tailRaw = (out.tailRaw ?? "") + rawOf(ln2, k);
+  }
+  return out;
+}
+var rawSrc = "";
+function rawOf(_parent, el) {
+  return rawSrc.slice(el.s, el.e);
+}
+function readShadow(k) {
+  const kind = k.name === "a:outerShdw" ? "outer" : k.name === "a:innerShdw" ? "inner" : "prst";
+  const s = { kind, color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
+  const a = k.attrs;
+  if (a["blurRad"] !== void 0) s.blurRad = int2(a["blurRad"]);
+  if (a["dist"] !== void 0) s.dist = int2(a["dist"]);
+  if (a["dir"] !== void 0) s.dir = int2(a["dir"]);
+  for (const n of ["sx", "sy", "kx", "ky"]) if (a[n] !== void 0) s[n] = int2(a[n]);
+  if (a["algn"]) s.algn = a["algn"];
+  if (a["rotWithShape"] !== void 0) s.rotWithShape = bool(a["rotWithShape"]);
+  if (a["prst"]) s.prst = a["prst"];
+  return s;
+}
+function readEffects(el) {
+  const fx = {};
+  if (!el) return fx;
+  for (const k of childElements(el)) {
+    if (k.name === "a:outerShdw" || k.name === "a:innerShdw" || k.name === "a:prstShdw") fx.shadow = readShadow(k);
+    else if (k.name === "a:glow") fx.glow = { rad: int2(k.attrs["rad"]), color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
+    else if (k.name === "a:softEdge") fx.softEdge = int2(k.attrs["rad"]);
+    else if (k.name === "a:reflection") {
+      const r = {};
+      const a = k.attrs;
+      for (const n of ["blurRad", "stA", "stPos", "endA", "endPos", "dist", "dir", "fadeDir", "sx", "sy", "kx", "ky"]) if (a[n] !== void 0) r[n] = int2(a[n]);
+      if (a["algn"]) r.algn = a["algn"];
+      if (a["rotWithShape"] !== void 0) r.rotWithShape = bool(a["rotWithShape"]);
+      fx.reflection = r;
+    } else (fx.otherRaw ??= []).push(rawOf(el, k));
+  }
+  return fx;
+}
+function readRot(el) {
+  return el ? { lat: int2(el.attrs["lat"]), lon: int2(el.attrs["lon"]), rev: int2(el.attrs["rev"]) } : void 0;
+}
+function read3D(scene, sp3d) {
+  if (!scene && !sp3d) return void 0;
+  const t = {};
+  const cam = scene && firstChild(scene, "a:camera");
+  if (cam) {
+    t.camera = { prst: cam.attrs["prst"] ?? "orthographicFront" };
+    if (cam.attrs["fov"] !== void 0) t.camera.fov = int2(cam.attrs["fov"]);
+    if (cam.attrs["zoom"] !== void 0) t.camera.zoom = int2(cam.attrs["zoom"]);
+    const r = readRot(firstChild(cam, "a:rot"));
+    if (r) t.camera.rot = r;
+  }
+  const lr = scene && firstChild(scene, "a:lightRig");
+  if (lr) {
+    t.lightRig = { rig: lr.attrs["rig"] ?? "threePt", dir: lr.attrs["dir"] ?? "t" };
+    const r = readRot(firstChild(lr, "a:rot"));
+    if (r) t.lightRig.rot = r;
+  }
+  if (sp3d) {
+    const bv = (b) => b && {
+      ...b.attrs["w"] !== void 0 ? { w: int2(b.attrs["w"]) } : {},
+      ...b.attrs["h"] !== void 0 ? { h: int2(b.attrs["h"]) } : {},
+      ...b.attrs["prst"] ? { prst: b.attrs["prst"] } : {}
+    };
+    const bt = bv(firstChild(sp3d, "a:bevelT")), bb = bv(firstChild(sp3d, "a:bevelB"));
+    if (bt) t.bevelT = bt;
+    if (bb) t.bevelB = bb;
+    if (sp3d.attrs["extrusionH"] !== void 0) t.extrusionH = int2(sp3d.attrs["extrusionH"]);
+    if (sp3d.attrs["contourW"] !== void 0) t.contourW = int2(sp3d.attrs["contourW"]);
+    if (sp3d.attrs["z"] !== void 0) t.z = int2(sp3d.attrs["z"]);
+    if (sp3d.attrs["prstMaterial"]) t.prstMaterial = sp3d.attrs["prstMaterial"];
+    const ec2 = readDmlColor(firstChild(sp3d, "a:extrusionClr"));
+    if (ec2) t.extrusionClr = ec2;
+    const cc = readDmlColor(firstChild(sp3d, "a:contourClr"));
+    if (cc) t.contourClr = cc;
+  }
+  return t;
+}
+function readBlip(blip) {
+  const fx = {};
+  if (!blip) return fx;
+  for (const k of childElements(blip)) {
+    if (k.name === "a:alphaModFix") fx.alphaModFix = int2(k.attrs["amt"], 1e5);
+    else if (k.name === "a:lum") fx.lum = { ...k.attrs["bright"] !== void 0 ? { bright: int2(k.attrs["bright"]) } : {}, ...k.attrs["contrast"] !== void 0 ? { contrast: int2(k.attrs["contrast"]) } : {} };
+    else if (k.name === "a:grayscl") fx.grayscl = true;
+    else if (k.name === "a:biLevel") fx.biLevel = int2(k.attrs["thresh"], 5e4);
+    else if (k.name === "a:duotone") {
+      const cs = childElements(k).filter((c) => COLOR_NAMES.includes(c.name));
+      const wrap = (c) => readDmlColor({ name: "x", attrs: {}, children: c ? [c] : [] }) ?? { kind: "srgbClr", val: "000000" };
+      fx.duotone = [wrap(cs[0]), wrap(cs[1])];
+    } else if (k.name === "a:clrChange") {
+      fx.clrChange = { from: readDmlColor(firstChild(k, "a:clrFrom")) ?? { kind: "srgbClr", val: "FFFFFF" }, to: readDmlColor(firstChild(k, "a:clrTo")) ?? { kind: "srgbClr", val: "FFFFFF" } };
+      if (k.attrs["useA"] !== void 0) fx.clrChange.useA = bool(k.attrs["useA"]);
+    } else if (k.name === "a:extLst") {
+      const props = findDeep2(k, "a14:imgProps");
+      const layer = props && firstChild(props, "a14:imgLayer");
+      if (layer) {
+        const a14 = {};
+        if (layer.attrs["r:embed"]) a14.layerRid = layer.attrs["r:embed"];
+        for (const ie of childElements(layer, "a14:imgEffect")) {
+          for (const e of childElements(ie)) {
+            if (e.name === "a14:saturation") a14.saturation = int2(e.attrs["sat"], 1e5);
+            else if (e.name === "a14:colorTemperature") a14.colorTemp = int2(e.attrs["colorTemp"], 6500);
+            else if (e.name === "a14:sharpenSoften") a14.sharpen = int2(e.attrs["amount"]);
+            else if (e.name === "a14:brightnessContrast") {
+              a14.bright = int2(e.attrs["bright"]);
+              a14.contrast = int2(e.attrs["contrast"]);
+            } else (a14.otherRaw ??= []).push(rawOf(blip, e));
+          }
+        }
+        fx.a14 = a14;
+      }
+    }
+  }
+  return fx;
+}
+function readPictureFormat(raw) {
+  let p;
+  try {
+    p = partsOf(raw);
+  } catch {
+    return void 0;
+  }
+  if (!p.pic) return void 0;
+  rawSrc = raw;
+  const c = p.container;
+  const inline = c.name === "wp:inline";
+  const ext = firstChild(c, "wp:extent");
+  const ee = firstChild(c, "wp:effectExtent");
+  const docPr = firstChild(c, "wp:docPr");
+  const a = c.attrs;
+  const wrapEl = inline ? void 0 : childElements(c).find((k) => WRAP_NAMES.includes(k.name));
+  const behindDoc = bool(a["behindDoc"]);
+  let wrap = "inline";
+  if (!inline) {
+    const n = wrapEl?.name ?? "wp:wrapNone";
+    wrap = n === "wp:wrapSquare" ? "square" : n === "wp:wrapTight" ? "tight" : n === "wp:wrapThrough" ? "through" : n === "wp:wrapTopAndBottom" ? "topAndBottom" : behindDoc ? "behind" : "front";
+  }
+  const poly = wrapEl && firstChild(wrapEl, "wp:wrapPolygon");
+  const sizeRel = (n, k) => {
+    const el = firstChild(c, n);
+    if (!el) return void 0;
+    const v = firstChild(el, k);
+    return { relativeFrom: el.attrs["relativeFrom"] ?? "page", pct: v ? int2(textContent(v).trim()) : 0 };
+  };
+  const spPr = p.spPr;
+  const xfrm = spPr && firstChild(spPr, "a:xfrm");
+  const prst = spPr && firstChild(spPr, "a:prstGeom");
+  const adj = {};
+  const av = prst && firstChild(prst, "a:avLst");
+  for (const gd of av ? childElements(av, "a:gd") : []) {
+    const m = /^val\s+(-?\d+)/.exec(gd.attrs["fmla"] ?? "");
+    if (m && gd.attrs["name"]) adj[gd.attrs["name"]] = parseInt(m[1], 10);
+  }
+  const src = p.blipFill && firstChild(p.blipFill, "a:srcRect");
+  const decor = docPr && findDeep2(docPr, "adec:decorative");
+  const locks = findDeep2(c, "a:graphicFrameLocks");
+  const out = {
+    inline,
+    wrap,
+    wrapText: wrapEl?.attrs["wrapText"] ?? "bothSides",
+    dist: { t: int2(a["distT"]), b: int2(a["distB"]), l: int2(a["distL"]), r: int2(a["distR"]) },
+    cx: int2(ext?.attrs["cx"]),
+    cy: int2(ext?.attrs["cy"]),
+    effectExtent: { l: int2(ee?.attrs["l"]), t: int2(ee?.attrs["t"]), r: int2(ee?.attrs["r"]), b: int2(ee?.attrs["b"]) },
+    locked: bool(a["locked"]),
+    layoutInCell: bool(a["layoutInCell"], true),
+    allowOverlap: bool(a["allowOverlap"], true),
+    behindDoc,
+    docPr: {
+      ...docPr?.attrs["id"] ? { id: docPr.attrs["id"] } : {},
+      ...docPr?.attrs["name"] !== void 0 ? { name: docPr.attrs["name"] } : {},
+      ...docPr?.attrs["descr"] !== void 0 ? { descr: docPr.attrs["descr"] } : {},
+      ...docPr?.attrs["title"] !== void 0 ? { title: docPr.attrs["title"] } : {},
+      ...bool(docPr?.attrs["hidden"]) ? { hidden: true } : {},
+      ...decor && bool(decor.attrs["val"], true) ? { decorative: true } : {}
+    },
+    noChangeAspect: bool(locks?.attrs["noChangeAspect"]),
+    rot: int2(xfrm?.attrs["rot"]),
+    flipH: bool(xfrm?.attrs["flipH"]),
+    flipV: bool(xfrm?.attrs["flipV"]),
+    srcRect: { l: int2(src?.attrs["l"]), t: int2(src?.attrs["t"]), r: int2(src?.attrs["r"]), b: int2(src?.attrs["b"]) },
+    geom: prst?.attrs["prst"] ?? (spPr && firstChild(spPr, "a:custGeom") ? "custom" : "rect"),
+    effects: readEffects(spPr && firstChild(spPr, "a:effectLst")),
+    blip: readBlip(p.blip)
+  };
+  if (!inline) {
+    const ph = readPos2(anchorChild(c, "wp:positionH")), pv = readPos2(anchorChild(c, "wp:positionV"));
+    if (ph) out.posH = ph;
+    if (pv) out.posV = pv;
+    if (a["relativeHeight"] !== void 0) out.relativeHeight = int2(a["relativeHeight"]);
+    const sh = sizeRel("wp14:sizeRelH", "wp14:pctWidth"), sv = sizeRel("wp14:sizeRelV", "wp14:pctHeight");
+    if (sh) out.sizeRelH = sh;
+    if (sv) out.sizeRelV = sv;
+  }
+  if (poly) {
+    const pts = childElements(poly).map((pt) => [int2(pt.attrs["x"]), int2(pt.attrs["y"])]);
+    out.polygon = { edited: bool(poly.attrs["edited"]), pts };
+  }
+  if (Object.keys(adj).length) out.adj = adj;
+  if (spPr && firstChild(spPr, "a:custGeom")) out.custGeom = true;
+  const ln2 = readPicLine(spPr && firstChild(spPr, "a:ln"));
+  if (ln2 !== void 0) out.line = ln2;
+  const t3 = read3D(spPr && firstChild(spPr, "a:scene3d"), spPr && firstChild(spPr, "a:sp3d"));
+  if (t3) out.threeD = t3;
+  if (p.blip?.attrs["r:embed"]) out.embed = p.blip.attrs["r:embed"];
+  rawSrc = "";
+  return out;
+}
+
 // ../docx-core/src/document.ts
 var DEFAULT_RUN_PROPS = {
   bold: false,
@@ -2720,20 +3027,27 @@ function vmlImageEffects(el) {
   if (a["bilevel"] === "t" || a["bilevel"] === "true") fx.biLevel = 0.5;
   return Object.keys(fx).length ? fx : void 0;
 }
-function blipImageEffects(blip) {
+function blipFxImageEffects(b) {
   const fx = {};
-  const lum = firstChild(blip, "a:lum");
-  if (lum) {
-    const b = (parseInt(lum.attrs["bright"] ?? "0", 10) || 0) / 1e5;
-    const c = Math.max(-1, Math.min(0.999, (parseInt(lum.attrs["contrast"] ?? "0", 10) || 0) / 1e5));
+  if (b.lum) {
+    const br = (b.lum.bright ?? 0) / 1e5;
+    const c = Math.max(-1, Math.min(0.999, (b.lum.contrast ?? 0) / 1e5));
     if (c) fx.gain = c > 0 ? 1 / (1 - c) : 1 + c;
-    if (b) fx.bright = b;
-    if (b || c) fx.floor = true;
+    if (br) fx.bright = br;
+    if (br || c) fx.floor = true;
   }
-  if (firstChild(blip, "a:grayscl")) fx.gray = true;
-  const bi = firstChild(blip, "a:biLevel");
-  if (bi) fx.biLevel = (parseInt(bi.attrs["thresh"] ?? "50000", 10) || 0) / 1e5;
+  if (b.grayscl) fx.gray = true;
+  if (b.biLevel !== void 0) fx.biLevel = b.biLevel / 1e5;
   return Object.keys(fx).length ? fx : void 0;
+}
+function blipImageEffects(blip) {
+  const lum = firstChild(blip, "a:lum"), bi = firstChild(blip, "a:biLevel");
+  const int3 = (v, d) => parseInt(v ?? d, 10) || 0;
+  return blipFxImageEffects({
+    ...lum ? { lum: { bright: int3(lum.attrs["bright"], "0"), contrast: int3(lum.attrs["contrast"], "0") } } : {},
+    ...firstChild(blip, "a:grayscl") ? { grayscl: true } : {},
+    ...bi ? { biLevel: int3(bi.attrs["thresh"], "50000") } : {}
+  });
 }
 var EMU_PER_TWIP = 635;
 function readBorderEdge(el) {
@@ -2836,10 +3150,10 @@ function paraPropsFromPPr(ppr) {
   if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
-function findDeep2(el, name) {
+function findDeep3(el, name) {
   for (const c of childElements(el)) {
     if (c.name === name) return c;
-    const found = findDeep2(c, name);
+    const found = findDeep3(c, name);
     if (found) return found;
   }
   return void 0;
@@ -2858,11 +3172,11 @@ function tagObjectRuns(list, from, el) {
 var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
-  const blip = findDeep2(pic, "a:blip");
+  const blip = findDeep3(pic, "a:blip");
   const rid = blip?.attrs["r:embed"] ?? blip?.attrs["r:link"];
   if (!rid) return void 0;
   const media = ctx.resolveImage(rid) ?? { data: new Uint8Array(0), ext: "png" };
-  const svgRid = blip && findDeep2(blip, "asvg:svgBlip")?.attrs["r:embed"];
+  const svgRid = blip && findDeep3(blip, "asvg:svgBlip")?.attrs["r:embed"];
   const svgMedia = svgRid ? ctx.resolveImage(svgRid) : void 0;
   const img = {
     data: media.data,
@@ -2873,7 +3187,7 @@ function readPic(pic, ctx, wTw, hTw) {
   };
   const fx = blip && blipImageEffects(blip);
   if (fx) img.effects = fx;
-  const src = findDeep2(pic, "a:srcRect");
+  const src = findDeep3(pic, "a:srcRect");
   if (src && (src.attrs["l"] || src.attrs["t"] || src.attrs["r"] || src.attrs["b"])) {
     const f = (k) => (parseInt(src.attrs[k] ?? "0", 10) || 0) / 1e5;
     img.crop = { l: f("l"), t: f("t"), r: f("r"), b: f("b") };
@@ -2887,7 +3201,7 @@ function readPic(pic, ctx, wTw, hTw) {
 }
 function bodyPrOf(tb, bodyPr) {
   if (!bodyPr) return;
-  if (findDeep2(bodyPr, "a:spAutoFit")) tb.autoFit = true;
+  if (findDeep3(bodyPr, "a:spAutoFit")) tb.autoFit = true;
   if (bodyPr.attrs["wrap"] === "none") tb.noWrap = true;
   const insTw = (name, def) => {
     const v = bodyPr.attrs[name];
@@ -3076,15 +3390,15 @@ function dmlParagraphs(body, styleEl, txFill) {
 function readDiagram(gd, ctx, wTw, hTw) {
   const relIds = firstChild(gd, "dgm:relIds");
   const data = relIds && ctx.resolvePart?.(relIds.attrs["r:dm"] ?? "");
-  const ext = data && findDeep2(data, "dsp:dataModelExt");
+  const ext = data && findDeep3(data, "dsp:dataModelExt");
   const drawing = ext && ctx.resolvePart?.(ext.attrs["relId"] ?? "");
-  const tree = drawing && findDeep2(drawing, "dsp:spTree");
+  const tree = drawing && findDeep3(drawing, "dsp:spTree");
   if (!tree) return void 0;
   const colors = relIds && ctx.resolvePart?.(relIds.attrs["r:cs"] ?? "");
   const lbls = /* @__PURE__ */ new Map();
   for (const l of colors ? childElements(colors, "dgm:styleLbl") : []) lbls.set(l.attrs["name"] ?? "", l);
   const txFill = /* @__PURE__ */ new Map();
-  const ptLst = data && findDeep2(data, "dgm:ptLst");
+  const ptLst = data && findDeep3(data, "dgm:ptLst");
   for (const pt of ptLst ? childElements(ptLst, "dgm:pt") : []) {
     const pr = firstChild(pt, "dgm:prSet");
     const lst = pr && lbls.get(pr.attrs["presStyleLbl"] ?? "");
@@ -3138,7 +3452,7 @@ function readDrawingRun(drawing, ctx) {
   const extent = firstChild(container, "wp:extent");
   const wTw = parseInt(extent?.attrs["cx"] ?? "0", 10) / EMU_PER_TWIP;
   const hTw = parseInt(extent?.attrs["cy"] ?? "0", 10) / EMU_PER_TWIP;
-  const gd = findDeep2(container, "a:graphicData");
+  const gd = findDeep3(container, "a:graphicData");
   const obj = gd && childElements(gd).find((c) => ["pic:pic", "wps:wsp", "wpg:wgp", "wpc:wpc"].includes(c.name));
   const dgm = !obj && /\/drawingml\/2006\/diagram$/.test(gd?.attrs["uri"] ?? "");
   if (!obj && !dgm) return void 0;
@@ -3176,6 +3490,10 @@ function readDrawingRun(drawing, ctx) {
     }
     if (drawing.raw) t.rawDrawingXml = drawing.raw;
   }
+  if (run.image && drawing.raw) {
+    const fmt = readPictureFormat(drawing.raw);
+    if (fmt) run.image.format = fmt;
+  }
   return run;
 }
 function readVmlRuns(container, ctx, inline) {
@@ -3185,12 +3503,12 @@ function readVmlRuns(container, ctx, inline) {
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w = vmlLenTwips(st["width"]) ?? 0;
     let h = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep2(el, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el, "w10:wrap"));
     if (inGroup) {
       w = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep2(el, "v:textpath");
+    const textpath = findDeep3(el, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
@@ -3320,7 +3638,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       if (!items.length) continue;
       const group = { widthTwips: w, heightTwips: h, items };
-      const anchor = vmlAnchor(st, findDeep2(el, "w10:wrap"));
+      const anchor = vmlAnchor(st, findDeep3(el, "w10:wrap"));
       if (anchor) {
         group.floating = true;
         group.anchor = anchor;
@@ -3334,7 +3652,7 @@ function readVmlRuns(container, ctx, inline) {
         if (inline && r.image) {
           delete r.image.floating;
           delete r.image.anchor;
-          const oo = findDeep2(container, "o:OLEObject");
+          const oo = findDeep3(container, "o:OLEObject");
           const rid = oo?.attrs["r:id"];
           if (oo && rid && oo.attrs["Type"] !== "Link") {
             const part = ctx.resolveImage(rid);
@@ -3464,7 +3782,7 @@ function readRunsInto(runs, container, ctx, inherit) {
         break;
       }
       case "w:sdt": {
-        const content = findDeep2(child, "w:sdtContent");
+        const content = findDeep3(child, "w:sdtContent");
         const sdtPr = firstChild(child, "w:sdtPr");
         const tag = sdtPr ? firstChild(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
         const custom = parseCustomInlineTag(tag);
@@ -3741,12 +4059,12 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         flush();
         const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const choice = firstChild(child, "mc:Choice");
-        const drawing = choice && findDeep2(choice, "w:drawing");
+        const drawing = choice && findDeep3(choice, "w:drawing");
         const r = drawing && readDrawingRun(drawing, ctx);
         if (r) pushRun(r);
         else {
           const fb = firstChild(child, "mc:Fallback");
-          const pict = fb && (findDeep2(fb, "w:pict") ?? findDeep2(fb, "w:object"));
+          const pict = fb && (findDeep3(fb, "w:pict") ?? findDeep3(fb, "w:object"));
           if (pict) for (const v of readVmlRuns(pict, ctx, pict.name === "w:object")) pushRun(v);
         }
         tagObjectRuns(tgt, k, child);

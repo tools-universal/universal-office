@@ -1445,6 +1445,13 @@ function childElements(el2, name) {
 function firstChild(el2, name) {
   return childElements(el2, name)[0];
 }
+function textContent(el2) {
+  let out = "";
+  for (const c of el2.children) {
+    out += typeof c === "string" ? c : textContent(c);
+  }
+  return out;
+}
 
 // ../docx-core/src/fonts.ts
 var EMBED_TAGS = {
@@ -2533,19 +2540,40 @@ function readPos(el2, defFrom) {
   if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
   return pos;
 }
+function anchorChild(anchor, name) {
+  const direct = firstChild(anchor, name);
+  if (direct) return direct;
+  for (const ac of childElements(anchor, "mc:AlternateContent")) {
+    const choice = firstChild(ac, "mc:Choice");
+    const el2 = (choice && firstChild(choice, name)) ?? (() => {
+      const fb = firstChild(ac, "mc:Fallback");
+      return fb && firstChild(fb, name);
+    })();
+    if (el2) return el2;
+  }
+  return void 0;
+}
 function readWpAnchor(anchor) {
   if (!anchor) return void 0;
   const a = anchor.attrs;
   let wrap = "none";
   let wrapText;
   let wrapBox;
+  let wrapPoly;
   const polyBox = (w) => {
     const poly2 = firstChild(w, "wp:wrapPolygon");
     if (!poly2) return void 0;
     const pts = childElements(poly2).filter((e) => e.name === "wp:start" || e.name === "wp:lineTo").map((e) => [parseInt(e.attrs["x"] ?? "0", 10) || 0, parseInt(e.attrs["y"] ?? "0", 10) || 0]);
     if (pts.length < 3) return void 0;
     const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
-    return { x0: Math.min(...xs) / 21600, y0: Math.min(...ys) / 21600, x1: Math.max(...xs) / 21600, y1: Math.max(...ys) / 21600 };
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+    let area = 0;
+    for (let i2 = 0; i2 < pts.length; i2++) {
+      const [ax, ay] = pts[i2], [bx, by] = pts[(i2 + 1) % pts.length];
+      area += ax * by - bx * ay;
+    }
+    if (Math.abs(Math.abs(area) / 2 - (x1 - x0) * (y1 - y0)) > 1e-6 * 21600 * 21600) wrapPoly = pts.map(([x2, y]) => [x2 / 21600, y / 21600]);
+    return { x0: x0 / 21600, y0: y0 / 21600, x1: x1 / 21600, y1: y1 / 21600 };
   };
   for (const c of childElements(anchor)) {
     switch (c.name) {
@@ -2573,11 +2601,12 @@ function readWpAnchor(anchor) {
   }
   const out = {
     wrap,
-    posH: readPos(firstChild(anchor, "wp:positionH"), "column"),
-    posV: readPos(firstChild(anchor, "wp:positionV"), "paragraph")
+    posH: readPos(anchorChild(anchor, "wp:positionH"), "column"),
+    posV: readPos(anchorChild(anchor, "wp:positionV"), "paragraph")
   };
   if (wrapText) out.wrapText = wrapText;
   if (wrapBox) out.wrapBox = wrapBox;
+  if (wrapPoly && (wrap === "tight" || wrap === "through")) out.wrapPoly = wrapPoly;
   if (a["behindDoc"] === "1" || a["behindDoc"] === "true") out.behindDoc = true;
   for (const k of ["distT", "distB", "distL", "distR"]) {
     const v = emuTw(a[k]);
@@ -2967,6 +2996,297 @@ function readCustGeom(cg, cx, cy) {
   return out;
 }
 
+// ../docx-core/src/picture-xml.ts
+var WRAP_NAMES = ["wp:wrapNone", "wp:wrapSquare", "wp:wrapTight", "wp:wrapThrough", "wp:wrapTopAndBottom"];
+var COLOR_NAMES = ["a:srgbClr", "a:schemeClr", "a:prstClr", "a:sysClr", "a:scrgbClr", "a:hslClr"];
+function readDmlColor(parent) {
+  if (!parent) return void 0;
+  const c = childElements(parent).find((k) => COLOR_NAMES.includes(k.name));
+  if (!c) return void 0;
+  const kind = c.name.slice(2);
+  if (kind !== "srgbClr" && kind !== "schemeClr" && kind !== "prstClr" && kind !== "sysClr") return { kind: "srgbClr", val: "000000" };
+  const out = { kind, val: c.attrs["val"] ?? "000000" };
+  if (c.attrs["lastClr"]) out.lastClr = c.attrs["lastClr"];
+  const mods = childElements(c).map((m) => [m.name.slice(2), parseInt(m.attrs["val"] ?? "0", 10) || 0]);
+  if (mods.length) out.mods = mods;
+  return out;
+}
+var PRST_RGB = { black: "000000", white: "FFFFFF", red: "FF0000", green: "008000", blue: "0000FF", yellow: "FFFF00", gray: "808080" };
+var SCHEME_ALIAS = { tx1: "dk1", bg1: "lt1", tx2: "dk2", bg2: "lt2" };
+function dmlColorSpec(c) {
+  let head = c.kind === "srgbClr" ? c.val.toUpperCase() : c.kind === "schemeClr" ? `@${SCHEME_ALIAS[c.val] ?? c.val}` : c.kind === "prstClr" ? PRST_RGB[c.val] ?? "000000" : c.lastClr ?? (c.val === "window" ? "FFFFFF" : "000000");
+  let alpha = 1;
+  const mods = [];
+  for (const [n, v] of c.mods ?? []) {
+    if (n === "alpha") alpha = v / 1e5;
+    else mods.push(`${n}=${v}`);
+  }
+  if (mods.length) head += `|${mods.join(",")}`;
+  return { spec: head, alpha };
+}
+var int2 = (v, d = 0) => {
+  if (v === void 0) return d;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : d;
+};
+var bool = (v, d = false) => v === void 0 ? d : v === "1" || v === "true" || v === "on";
+function findDeep2(el2, name) {
+  for (const c of childElements(el2)) {
+    if (c.name === name) return c;
+    const f = findDeep2(c, name);
+    if (f) return f;
+  }
+  return void 0;
+}
+function partsOf(raw) {
+  const root = parseXml(raw, { positions: true });
+  const container = firstChild(root, "wp:anchor") ?? firstChild(root, "wp:inline");
+  if (!container) throw new Error("w:drawing sem wp:inline/wp:anchor");
+  const gd = findDeep2(container, "a:graphicData");
+  const pic = gd && firstChild(gd, "pic:pic");
+  const spPr = pic && firstChild(pic, "pic:spPr");
+  const blipFill = pic && firstChild(pic, "pic:blipFill");
+  const blip = blipFill && firstChild(blipFill, "a:blip");
+  return { root, container, pic, spPr, blipFill, blip };
+}
+function readPos2(el2) {
+  if (!el2) return void 0;
+  const p = { relativeFrom: el2.attrs["relativeFrom"] ?? "column" };
+  const al = firstChild(el2, "wp:align");
+  if (al) p.align = textContent(al).trim();
+  const off = firstChild(el2, "wp:posOffset");
+  if (off) p.offset = int2(textContent(off).trim());
+  const pct = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
+  if (pct) p.pct = int2(textContent(pct).trim());
+  return p;
+}
+function readPicLine(ln2) {
+  if (!ln2) return void 0;
+  const out = {};
+  if (ln2.attrs["w"] !== void 0) out.w = int2(ln2.attrs["w"]);
+  if (ln2.attrs["cap"]) out.cap = ln2.attrs["cap"];
+  if (ln2.attrs["cmpd"]) out.cmpd = ln2.attrs["cmpd"];
+  if (ln2.attrs["algn"]) out.algn = ln2.attrs["algn"];
+  for (const k of childElements(ln2)) {
+    if (k.name === "a:noFill") out.fill = null;
+    else if (k.name === "a:solidFill") out.fill = readDmlColor(k) ?? null;
+    else if (k.name === "a:gradFill" || k.name === "a:pattFill") out.fillRaw = rawOf(ln2, k);
+    else if (k.name === "a:prstDash") out.dash = k.attrs["val"] ?? "solid";
+    else if (k.name === "a:round" || k.name === "a:bevel") out.join = k.name.slice(2);
+    else if (k.name === "a:miter") {
+      out.join = "miter";
+      if (k.attrs["lim"]) out.miterLim = int2(k.attrs["lim"]);
+    } else if (k.name === "a:headEnd" || k.name === "a:tailEnd" || k.name === "a:extLst") out.tailRaw = (out.tailRaw ?? "") + rawOf(ln2, k);
+  }
+  return out;
+}
+var rawSrc = "";
+function rawOf(_parent, el2) {
+  return rawSrc.slice(el2.s, el2.e);
+}
+function readShadow(k) {
+  const kind = k.name === "a:outerShdw" ? "outer" : k.name === "a:innerShdw" ? "inner" : "prst";
+  const s = { kind, color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
+  const a = k.attrs;
+  if (a["blurRad"] !== void 0) s.blurRad = int2(a["blurRad"]);
+  if (a["dist"] !== void 0) s.dist = int2(a["dist"]);
+  if (a["dir"] !== void 0) s.dir = int2(a["dir"]);
+  for (const n of ["sx", "sy", "kx", "ky"]) if (a[n] !== void 0) s[n] = int2(a[n]);
+  if (a["algn"]) s.algn = a["algn"];
+  if (a["rotWithShape"] !== void 0) s.rotWithShape = bool(a["rotWithShape"]);
+  if (a["prst"]) s.prst = a["prst"];
+  return s;
+}
+function readEffects(el2) {
+  const fx = {};
+  if (!el2) return fx;
+  for (const k of childElements(el2)) {
+    if (k.name === "a:outerShdw" || k.name === "a:innerShdw" || k.name === "a:prstShdw") fx.shadow = readShadow(k);
+    else if (k.name === "a:glow") fx.glow = { rad: int2(k.attrs["rad"]), color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
+    else if (k.name === "a:softEdge") fx.softEdge = int2(k.attrs["rad"]);
+    else if (k.name === "a:reflection") {
+      const r = {};
+      const a = k.attrs;
+      for (const n of ["blurRad", "stA", "stPos", "endA", "endPos", "dist", "dir", "fadeDir", "sx", "sy", "kx", "ky"]) if (a[n] !== void 0) r[n] = int2(a[n]);
+      if (a["algn"]) r.algn = a["algn"];
+      if (a["rotWithShape"] !== void 0) r.rotWithShape = bool(a["rotWithShape"]);
+      fx.reflection = r;
+    } else (fx.otherRaw ??= []).push(rawOf(el2, k));
+  }
+  return fx;
+}
+function readRot(el2) {
+  return el2 ? { lat: int2(el2.attrs["lat"]), lon: int2(el2.attrs["lon"]), rev: int2(el2.attrs["rev"]) } : void 0;
+}
+function read3D(scene, sp3d) {
+  if (!scene && !sp3d) return void 0;
+  const t = {};
+  const cam = scene && firstChild(scene, "a:camera");
+  if (cam) {
+    t.camera = { prst: cam.attrs["prst"] ?? "orthographicFront" };
+    if (cam.attrs["fov"] !== void 0) t.camera.fov = int2(cam.attrs["fov"]);
+    if (cam.attrs["zoom"] !== void 0) t.camera.zoom = int2(cam.attrs["zoom"]);
+    const r = readRot(firstChild(cam, "a:rot"));
+    if (r) t.camera.rot = r;
+  }
+  const lr = scene && firstChild(scene, "a:lightRig");
+  if (lr) {
+    t.lightRig = { rig: lr.attrs["rig"] ?? "threePt", dir: lr.attrs["dir"] ?? "t" };
+    const r = readRot(firstChild(lr, "a:rot"));
+    if (r) t.lightRig.rot = r;
+  }
+  if (sp3d) {
+    const bv = (b) => b && {
+      ...b.attrs["w"] !== void 0 ? { w: int2(b.attrs["w"]) } : {},
+      ...b.attrs["h"] !== void 0 ? { h: int2(b.attrs["h"]) } : {},
+      ...b.attrs["prst"] ? { prst: b.attrs["prst"] } : {}
+    };
+    const bt = bv(firstChild(sp3d, "a:bevelT")), bb = bv(firstChild(sp3d, "a:bevelB"));
+    if (bt) t.bevelT = bt;
+    if (bb) t.bevelB = bb;
+    if (sp3d.attrs["extrusionH"] !== void 0) t.extrusionH = int2(sp3d.attrs["extrusionH"]);
+    if (sp3d.attrs["contourW"] !== void 0) t.contourW = int2(sp3d.attrs["contourW"]);
+    if (sp3d.attrs["z"] !== void 0) t.z = int2(sp3d.attrs["z"]);
+    if (sp3d.attrs["prstMaterial"]) t.prstMaterial = sp3d.attrs["prstMaterial"];
+    const ec2 = readDmlColor(firstChild(sp3d, "a:extrusionClr"));
+    if (ec2) t.extrusionClr = ec2;
+    const cc = readDmlColor(firstChild(sp3d, "a:contourClr"));
+    if (cc) t.contourClr = cc;
+  }
+  return t;
+}
+function readBlip(blip) {
+  const fx = {};
+  if (!blip) return fx;
+  for (const k of childElements(blip)) {
+    if (k.name === "a:alphaModFix") fx.alphaModFix = int2(k.attrs["amt"], 1e5);
+    else if (k.name === "a:lum") fx.lum = { ...k.attrs["bright"] !== void 0 ? { bright: int2(k.attrs["bright"]) } : {}, ...k.attrs["contrast"] !== void 0 ? { contrast: int2(k.attrs["contrast"]) } : {} };
+    else if (k.name === "a:grayscl") fx.grayscl = true;
+    else if (k.name === "a:biLevel") fx.biLevel = int2(k.attrs["thresh"], 5e4);
+    else if (k.name === "a:duotone") {
+      const cs = childElements(k).filter((c) => COLOR_NAMES.includes(c.name));
+      const wrap = (c) => readDmlColor({ name: "x", attrs: {}, children: c ? [c] : [] }) ?? { kind: "srgbClr", val: "000000" };
+      fx.duotone = [wrap(cs[0]), wrap(cs[1])];
+    } else if (k.name === "a:clrChange") {
+      fx.clrChange = { from: readDmlColor(firstChild(k, "a:clrFrom")) ?? { kind: "srgbClr", val: "FFFFFF" }, to: readDmlColor(firstChild(k, "a:clrTo")) ?? { kind: "srgbClr", val: "FFFFFF" } };
+      if (k.attrs["useA"] !== void 0) fx.clrChange.useA = bool(k.attrs["useA"]);
+    } else if (k.name === "a:extLst") {
+      const props = findDeep2(k, "a14:imgProps");
+      const layer = props && firstChild(props, "a14:imgLayer");
+      if (layer) {
+        const a14 = {};
+        if (layer.attrs["r:embed"]) a14.layerRid = layer.attrs["r:embed"];
+        for (const ie of childElements(layer, "a14:imgEffect")) {
+          for (const e of childElements(ie)) {
+            if (e.name === "a14:saturation") a14.saturation = int2(e.attrs["sat"], 1e5);
+            else if (e.name === "a14:colorTemperature") a14.colorTemp = int2(e.attrs["colorTemp"], 6500);
+            else if (e.name === "a14:sharpenSoften") a14.sharpen = int2(e.attrs["amount"]);
+            else if (e.name === "a14:brightnessContrast") {
+              a14.bright = int2(e.attrs["bright"]);
+              a14.contrast = int2(e.attrs["contrast"]);
+            } else (a14.otherRaw ??= []).push(rawOf(blip, e));
+          }
+        }
+        fx.a14 = a14;
+      }
+    }
+  }
+  return fx;
+}
+function readPictureFormat(raw) {
+  let p;
+  try {
+    p = partsOf(raw);
+  } catch {
+    return void 0;
+  }
+  if (!p.pic) return void 0;
+  rawSrc = raw;
+  const c = p.container;
+  const inline = c.name === "wp:inline";
+  const ext = firstChild(c, "wp:extent");
+  const ee = firstChild(c, "wp:effectExtent");
+  const docPr = firstChild(c, "wp:docPr");
+  const a = c.attrs;
+  const wrapEl = inline ? void 0 : childElements(c).find((k) => WRAP_NAMES.includes(k.name));
+  const behindDoc = bool(a["behindDoc"]);
+  let wrap = "inline";
+  if (!inline) {
+    const n = wrapEl?.name ?? "wp:wrapNone";
+    wrap = n === "wp:wrapSquare" ? "square" : n === "wp:wrapTight" ? "tight" : n === "wp:wrapThrough" ? "through" : n === "wp:wrapTopAndBottom" ? "topAndBottom" : behindDoc ? "behind" : "front";
+  }
+  const poly2 = wrapEl && firstChild(wrapEl, "wp:wrapPolygon");
+  const sizeRel = (n, k) => {
+    const el2 = firstChild(c, n);
+    if (!el2) return void 0;
+    const v = firstChild(el2, k);
+    return { relativeFrom: el2.attrs["relativeFrom"] ?? "page", pct: v ? int2(textContent(v).trim()) : 0 };
+  };
+  const spPr = p.spPr;
+  const xfrm = spPr && firstChild(spPr, "a:xfrm");
+  const prst = spPr && firstChild(spPr, "a:prstGeom");
+  const adj = {};
+  const av = prst && firstChild(prst, "a:avLst");
+  for (const gd of av ? childElements(av, "a:gd") : []) {
+    const m = /^val\s+(-?\d+)/.exec(gd.attrs["fmla"] ?? "");
+    if (m && gd.attrs["name"]) adj[gd.attrs["name"]] = parseInt(m[1], 10);
+  }
+  const src = p.blipFill && firstChild(p.blipFill, "a:srcRect");
+  const decor = docPr && findDeep2(docPr, "adec:decorative");
+  const locks = findDeep2(c, "a:graphicFrameLocks");
+  const out = {
+    inline,
+    wrap,
+    wrapText: wrapEl?.attrs["wrapText"] ?? "bothSides",
+    dist: { t: int2(a["distT"]), b: int2(a["distB"]), l: int2(a["distL"]), r: int2(a["distR"]) },
+    cx: int2(ext?.attrs["cx"]),
+    cy: int2(ext?.attrs["cy"]),
+    effectExtent: { l: int2(ee?.attrs["l"]), t: int2(ee?.attrs["t"]), r: int2(ee?.attrs["r"]), b: int2(ee?.attrs["b"]) },
+    locked: bool(a["locked"]),
+    layoutInCell: bool(a["layoutInCell"], true),
+    allowOverlap: bool(a["allowOverlap"], true),
+    behindDoc,
+    docPr: {
+      ...docPr?.attrs["id"] ? { id: docPr.attrs["id"] } : {},
+      ...docPr?.attrs["name"] !== void 0 ? { name: docPr.attrs["name"] } : {},
+      ...docPr?.attrs["descr"] !== void 0 ? { descr: docPr.attrs["descr"] } : {},
+      ...docPr?.attrs["title"] !== void 0 ? { title: docPr.attrs["title"] } : {},
+      ...bool(docPr?.attrs["hidden"]) ? { hidden: true } : {},
+      ...decor && bool(decor.attrs["val"], true) ? { decorative: true } : {}
+    },
+    noChangeAspect: bool(locks?.attrs["noChangeAspect"]),
+    rot: int2(xfrm?.attrs["rot"]),
+    flipH: bool(xfrm?.attrs["flipH"]),
+    flipV: bool(xfrm?.attrs["flipV"]),
+    srcRect: { l: int2(src?.attrs["l"]), t: int2(src?.attrs["t"]), r: int2(src?.attrs["r"]), b: int2(src?.attrs["b"]) },
+    geom: prst?.attrs["prst"] ?? (spPr && firstChild(spPr, "a:custGeom") ? "custom" : "rect"),
+    effects: readEffects(spPr && firstChild(spPr, "a:effectLst")),
+    blip: readBlip(p.blip)
+  };
+  if (!inline) {
+    const ph = readPos2(anchorChild(c, "wp:positionH")), pv = readPos2(anchorChild(c, "wp:positionV"));
+    if (ph) out.posH = ph;
+    if (pv) out.posV = pv;
+    if (a["relativeHeight"] !== void 0) out.relativeHeight = int2(a["relativeHeight"]);
+    const sh = sizeRel("wp14:sizeRelH", "wp14:pctWidth"), sv = sizeRel("wp14:sizeRelV", "wp14:pctHeight");
+    if (sh) out.sizeRelH = sh;
+    if (sv) out.sizeRelV = sv;
+  }
+  if (poly2) {
+    const pts = childElements(poly2).map((pt) => [int2(pt.attrs["x"]), int2(pt.attrs["y"])]);
+    out.polygon = { edited: bool(poly2.attrs["edited"]), pts };
+  }
+  if (Object.keys(adj).length) out.adj = adj;
+  if (spPr && firstChild(spPr, "a:custGeom")) out.custGeom = true;
+  const ln2 = readPicLine(spPr && firstChild(spPr, "a:ln"));
+  if (ln2 !== void 0) out.line = ln2;
+  const t3 = read3D(spPr && firstChild(spPr, "a:scene3d"), spPr && firstChild(spPr, "a:sp3d"));
+  if (t3) out.threeD = t3;
+  if (p.blip?.attrs["r:embed"]) out.embed = p.blip.attrs["r:embed"];
+  rawSrc = "";
+  return out;
+}
+
 // ../docx-core/src/document.ts
 var DEFAULT_RUN_PROPS = {
   bold: false,
@@ -2991,31 +3311,38 @@ function vmlImageEffects(el2) {
   if (a["bilevel"] === "t" || a["bilevel"] === "true") fx.biLevel = 0.5;
   return Object.keys(fx).length ? fx : void 0;
 }
-function blipImageEffects(blip) {
+function blipFxImageEffects(b) {
   const fx = {};
-  const lum = firstChild(blip, "a:lum");
-  if (lum) {
-    const b = (parseInt(lum.attrs["bright"] ?? "0", 10) || 0) / 1e5;
-    const c = Math.max(-1, Math.min(0.999, (parseInt(lum.attrs["contrast"] ?? "0", 10) || 0) / 1e5));
+  if (b.lum) {
+    const br = (b.lum.bright ?? 0) / 1e5;
+    const c = Math.max(-1, Math.min(0.999, (b.lum.contrast ?? 0) / 1e5));
     if (c) fx.gain = c > 0 ? 1 / (1 - c) : 1 + c;
-    if (b) fx.bright = b;
-    if (b || c) fx.floor = true;
+    if (br) fx.bright = br;
+    if (br || c) fx.floor = true;
   }
-  if (firstChild(blip, "a:grayscl")) fx.gray = true;
-  const bi = firstChild(blip, "a:biLevel");
-  if (bi) fx.biLevel = (parseInt(bi.attrs["thresh"] ?? "50000", 10) || 0) / 1e5;
+  if (b.grayscl) fx.gray = true;
+  if (b.biLevel !== void 0) fx.biLevel = b.biLevel / 1e5;
   return Object.keys(fx).length ? fx : void 0;
+}
+function blipImageEffects(blip) {
+  const lum = firstChild(blip, "a:lum"), bi = firstChild(blip, "a:biLevel");
+  const int3 = (v, d) => parseInt(v ?? d, 10) || 0;
+  return blipFxImageEffects({
+    ...lum ? { lum: { bright: int3(lum.attrs["bright"], "0"), contrast: int3(lum.attrs["contrast"], "0") } } : {},
+    ...firstChild(blip, "a:grayscl") ? { grayscl: true } : {},
+    ...bi ? { biLevel: int3(bi.attrs["thresh"], "50000") } : {}
+  });
 }
 var EMU_PER_TWIP = 635;
 function readBorderEdge(el2) {
   if (!el2) return void 0;
   const style = el2.attrs["w:val"];
   if (!style || style === "none" || style === "nil") return void 0;
-  const color = el2.attrs["w:color"];
+  const color2 = el2.attrs["w:color"];
   return {
     style,
     sizeEighthPt: parseInt(el2.attrs["w:sz"] ?? "4", 10),
-    color: color && color !== "auto" ? color : void 0,
+    color: color2 && color2 !== "auto" ? color2 : void 0,
     spacePt: parseInt(el2.attrs["w:space"] ?? "0", 10)
   };
 }
@@ -3118,10 +3445,10 @@ function paraPropsFromPPr(ppr) {
   if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
-function findDeep2(el2, name) {
+function findDeep3(el2, name) {
   for (const c of childElements(el2)) {
     if (c.name === name) return c;
-    const found = findDeep2(c, name);
+    const found = findDeep3(c, name);
     if (found) return found;
   }
   return void 0;
@@ -3140,11 +3467,11 @@ function tagObjectRuns(list2, from, el2) {
 var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
-  const blip = findDeep2(pic, "a:blip");
+  const blip = findDeep3(pic, "a:blip");
   const rid = blip?.attrs["r:embed"] ?? blip?.attrs["r:link"];
   if (!rid) return void 0;
   const media = ctx.resolveImage(rid) ?? { data: new Uint8Array(0), ext: "png" };
-  const svgRid = blip && findDeep2(blip, "asvg:svgBlip")?.attrs["r:embed"];
+  const svgRid = blip && findDeep3(blip, "asvg:svgBlip")?.attrs["r:embed"];
   const svgMedia = svgRid ? ctx.resolveImage(svgRid) : void 0;
   const img = {
     data: media.data,
@@ -3155,7 +3482,7 @@ function readPic(pic, ctx, wTw, hTw) {
   };
   const fx = blip && blipImageEffects(blip);
   if (fx) img.effects = fx;
-  const src = findDeep2(pic, "a:srcRect");
+  const src = findDeep3(pic, "a:srcRect");
   if (src && (src.attrs["l"] || src.attrs["t"] || src.attrs["r"] || src.attrs["b"])) {
     const f = (k) => (parseInt(src.attrs[k] ?? "0", 10) || 0) / 1e5;
     img.crop = { l: f("l"), t: f("t"), r: f("r"), b: f("b") };
@@ -3169,7 +3496,7 @@ function readPic(pic, ctx, wTw, hTw) {
 }
 function bodyPrOf(tb, bodyPr) {
   if (!bodyPr) return;
-  if (findDeep2(bodyPr, "a:spAutoFit")) tb.autoFit = true;
+  if (findDeep3(bodyPr, "a:spAutoFit")) tb.autoFit = true;
   if (bodyPr.attrs["wrap"] === "none") tb.noWrap = true;
   const insTw = (name, def) => {
     const v = bodyPr.attrs[name];
@@ -3358,15 +3685,15 @@ function dmlParagraphs(body, styleEl, txFill) {
 function readDiagram(gd, ctx, wTw, hTw) {
   const relIds = firstChild(gd, "dgm:relIds");
   const data8 = relIds && ctx.resolvePart?.(relIds.attrs["r:dm"] ?? "");
-  const ext = data8 && findDeep2(data8, "dsp:dataModelExt");
+  const ext = data8 && findDeep3(data8, "dsp:dataModelExt");
   const drawing = ext && ctx.resolvePart?.(ext.attrs["relId"] ?? "");
-  const tree = drawing && findDeep2(drawing, "dsp:spTree");
+  const tree = drawing && findDeep3(drawing, "dsp:spTree");
   if (!tree) return void 0;
   const colors = relIds && ctx.resolvePart?.(relIds.attrs["r:cs"] ?? "");
   const lbls = /* @__PURE__ */ new Map();
   for (const l of colors ? childElements(colors, "dgm:styleLbl") : []) lbls.set(l.attrs["name"] ?? "", l);
   const txFill = /* @__PURE__ */ new Map();
-  const ptLst = data8 && findDeep2(data8, "dgm:ptLst");
+  const ptLst = data8 && findDeep3(data8, "dgm:ptLst");
   for (const pt of ptLst ? childElements(ptLst, "dgm:pt") : []) {
     const pr = firstChild(pt, "dgm:prSet");
     const lst = pr && lbls.get(pr.attrs["presStyleLbl"] ?? "");
@@ -3378,7 +3705,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
     txFill.set(pt.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c] }));
   }
   const n = (el2, k) => (parseInt(el2?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
-  const rect = (xf) => {
+  const rect2 = (xf) => {
     const off = firstChild(xf, "a:off"), e = firstChild(xf, "a:ext");
     return { x: n(off, "x"), y: n(off, "y"), w: n(e, "cx"), h: n(e, "cy") };
   };
@@ -3392,7 +3719,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
       const spPr = sp.name === "dsp:sp" ? firstChild(sp, "dsp:spPr") : void 0;
       const xf = spPr && firstChild(spPr, "a:xfrm");
       if (!xf) continue;
-      const box = rect(xf);
+      const box = rect2(xf);
       const styleEl = firstChild(sp, "dsp:style");
       const style = readSpPr(spPr, styleEl);
       if (style.fill || style.line || style.gradient) {
@@ -3402,7 +3729,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
       const paras = body ? dmlParagraphs(body, styleEl, txFill.get(sp.attrs["modelId"] ?? "")) : [];
       if (!body || !paras.some((p) => p.runs.length)) continue;
       const txf = firstChild(sp, "dsp:txXfrm");
-      const tbox = txf ? rect(txf) : box;
+      const tbox = txf ? rect2(txf) : box;
       const tb = { paras, blocks: paras.map((paragraph) => ({ type: "paragraph", paragraph })), widthTwips: tbox.w, heightTwips: tbox.h };
       bodyPrOf(tb, firstChild(body, "a:bodyPr"));
       const rot = parseInt((txf ?? xf).attrs["rot"] ?? "0", 10);
@@ -3420,7 +3747,7 @@ function readDrawingRun(drawing, ctx) {
   const extent = firstChild(container, "wp:extent");
   const wTw = parseInt(extent?.attrs["cx"] ?? "0", 10) / EMU_PER_TWIP;
   const hTw = parseInt(extent?.attrs["cy"] ?? "0", 10) / EMU_PER_TWIP;
-  const gd = findDeep2(container, "a:graphicData");
+  const gd = findDeep3(container, "a:graphicData");
   const obj = gd && childElements(gd).find((c) => ["pic:pic", "wps:wsp", "wpg:wgp", "wpc:wpc"].includes(c.name));
   const dgm = !obj && /\/drawingml\/2006\/diagram$/.test(gd?.attrs["uri"] ?? "");
   if (!obj && !dgm) return void 0;
@@ -3458,6 +3785,10 @@ function readDrawingRun(drawing, ctx) {
     }
     if (drawing.raw) t.rawDrawingXml = drawing.raw;
   }
+  if (run.image && drawing.raw) {
+    const fmt2 = readPictureFormat(drawing.raw);
+    if (fmt2) run.image.format = fmt2;
+  }
   return run;
 }
 function readVmlRuns(container, ctx, inline) {
@@ -3467,27 +3798,27 @@ function readVmlRuns(container, ctx, inline) {
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w = vmlLenTwips(st["width"]) ?? 0;
     let h = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep2(el2, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el2, "w10:wrap"));
     if (inGroup) {
       w = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep2(el2, "v:textpath");
+    const textpath = findDeep3(el2, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
       const sh = vmlShapeStyle(el2, "rect");
-      let color = sh.fill ?? "000000";
+      let color2 = sh.fill ?? "000000";
       const a = sh.fillAlpha;
       if (a !== void 0 && a < 1) {
-        const mix = (i2) => Math.round(parseInt(color.slice(i2, i2 + 2), 16) * a + 255 * (1 - a));
-        color = [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
+        const mix = (i2) => Math.round(parseInt(color2.slice(i2, i2 + 2), 16) * a + 255 * (1 - a));
+        color2 = [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
       }
       const rpr = {
         ...famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {},
-        color: { val: color },
+        color: { val: color2 },
         sz: 72,
         .../bold|[6-9]00/.test(tps["font-weight"] ?? "") ? { b: true } : {},
         .../italic/.test(tps["font-style"] ?? "") ? { i: true } : {}
@@ -3602,7 +3933,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       if (!items.length) continue;
       const group = { widthTwips: w, heightTwips: h, items };
-      const anchor = vmlAnchor(st, findDeep2(el2, "w10:wrap"));
+      const anchor = vmlAnchor(st, findDeep3(el2, "w10:wrap"));
       if (anchor) {
         group.floating = true;
         group.anchor = anchor;
@@ -3616,7 +3947,7 @@ function readVmlRuns(container, ctx, inline) {
         if (inline && r.image) {
           delete r.image.floating;
           delete r.image.anchor;
-          const oo = findDeep2(container, "o:OLEObject");
+          const oo = findDeep3(container, "o:OLEObject");
           const rid = oo?.attrs["r:id"];
           if (oo && rid && oo.attrs["Type"] !== "Link") {
             const part = ctx.resolveImage(rid);
@@ -3746,7 +4077,7 @@ function readRunsInto(runs, container, ctx, inherit) {
         break;
       }
       case "w:sdt": {
-        const content = findDeep2(child, "w:sdtContent");
+        const content = findDeep3(child, "w:sdtContent");
         const sdtPr = firstChild(child, "w:sdtPr");
         const tag2 = sdtPr ? firstChild(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
         const custom = parseCustomInlineTag(tag2);
@@ -4023,12 +4354,12 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         flush();
         const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const choice = firstChild(child, "mc:Choice");
-        const drawing = choice && findDeep2(choice, "w:drawing");
+        const drawing = choice && findDeep3(choice, "w:drawing");
         const r = drawing && readDrawingRun(drawing, ctx);
         if (r) pushRun(r);
         else {
           const fb = firstChild(child, "mc:Fallback");
-          const pict = fb && (findDeep2(fb, "w:pict") ?? findDeep2(fb, "w:object"));
+          const pict = fb && (findDeep3(fb, "w:pict") ?? findDeep3(fb, "w:object"));
           if (pict) for (const v of readVmlRuns(pict, ctx, pict.name === "w:object")) pushRun(v);
         }
         tagObjectRuns(tgt, k, child);
@@ -4747,13 +5078,13 @@ function readTable(tblEl, ctx) {
       rows.push(row);
     }
   }
-  const table = { type: "table", rows, gridColsTwips, borders: tblBorders };
+  const table2 = { type: "table", rows, gridColsTwips, borders: tblBorders };
   const tblPr = readTblPr(tblPrEl);
-  if (tblPr) table.tblPr = tblPr;
+  if (tblPr) table2.tblPr = tblPr;
   if (xml !== void 0) {
     const tblPrRaw = slice(tblPrEl);
     const gridRaw = slice(grid);
-    ctx.sources.addTable(table, {
+    ctx.sources.addTable(table2, {
       raw: xml.slice(tblEl.s, tblEl.e),
       at: tblEl.s,
       open: openOf(tblEl),
@@ -4761,7 +5092,7 @@ function readTable(tblEl, ctx) {
       ...gridRaw ? { tblGrid: gridRaw } : {}
     });
   }
-  return table;
+  return table2;
 }
 function blockSrc(b) {
   return b.type === "paragraph" ? b.paragraph.props.src : b.src;
@@ -5632,9 +5963,9 @@ function sortRuns(runs) {
   runs.sort((a, b) => a.fcStart - b.fcStart);
   return runs;
 }
-function readChpxRuns(fib, table, word) {
+function readChpxRuns(fib, table2, word) {
   const { fc, lcb } = fib.fcLcb(FC.PlcfBteChpx);
-  const plc = readPlc(table, fc, lcb, 4);
+  const plc = readPlc(table2, fc, lcb, 4);
   if (!plc) return [];
   const w = new ByteReader(word);
   const runs = [];
@@ -5677,9 +6008,9 @@ function expandHugePapx(grpprl, data8) {
   }
   return grpprl;
 }
-function readPapxRuns(fib, table, word, data8) {
+function readPapxRuns(fib, table2, word, data8) {
   const { fc, lcb } = fib.fcLcb(FC.PlcfBtePapx);
-  const plc = readPlc(table, fc, lcb, 4);
+  const plc = readPlc(table2, fc, lcb, 4);
   if (!plc) return [];
   const w = new ByteReader(word);
   const runs = [];
@@ -5749,10 +6080,10 @@ function cstr(r, off, end) {
   }
   return { s, next: o };
 }
-function readFonts(fib, table) {
+function readFonts(fib, table2) {
   const { fc, lcb } = fib.fcLcb(FC.SttbfFfn);
-  if (!lcb || fc + lcb > table.length) return [];
-  const r = new ByteReader(table);
+  if (!lcb || fc + lcb > table2.length) return [];
+  const r = new ByteReader(table2);
   let off = fc;
   const end = fc + lcb;
   let cData = r.u16(off);
@@ -5835,12 +6166,12 @@ function readLvl(r, off, end) {
     next: o
   };
 }
-function readLists(fib, table) {
-  const r = new ByteReader(table);
+function readLists(fib, table2) {
+  const r = new ByteReader(table2);
   const lsts = [];
   const lfos = [];
   const lst = fib.fcLcb(FC.PlfLst);
-  if (lst.lcb && lst.fc + lst.lcb <= table.length) {
+  if (lst.lcb && lst.fc + lst.lcb <= table2.length) {
     const cLst = r.i16(lst.fc);
     let o = lst.fc + 2;
     for (let i2 = 0; i2 < cLst; i2++) {
@@ -5860,15 +6191,15 @@ function readLists(fib, table) {
     let lo = lst.fc + lst.lcb;
     for (const l of lsts) {
       const n = l.simple ? 1 : 9;
-      for (let k = 0; k < n && lo + 28 <= table.length; k++) {
-        const { lvl, next } = readLvl(r, lo, table.length);
+      for (let k = 0; k < n && lo + 28 <= table2.length; k++) {
+        const { lvl, next } = readLvl(r, lo, table2.length);
         l.levels.push(lvl);
         lo = next;
       }
     }
   }
   const lfo = fib.fcLcb(FC.PlfLfo);
-  if (lfo.lcb && lfo.fc + lfo.lcb <= table.length) {
+  if (lfo.lcb && lfo.fc + lfo.lcb <= table2.length) {
     const end = lfo.fc + lfo.lcb;
     const mac = r.u32(lfo.fc);
     let o = lfo.fc + 4;
@@ -7398,14 +7729,14 @@ function applySep(sep, p) {
 
 // ../docx-core/src/doc/stsh.ts
 var ISTD_NIL = 4095;
-function readStsh(fib, table) {
+function readStsh(fib, table2) {
   const { fc, lcb } = fib.fcLcb(FC.Stshf);
   const empty = {
     stshif: { cstd: 0, cbSTDBaseInFile: 10, stdStylenamesWritten: true, stiMaxWhenSaved: 0, ftcAsci: 0, ftcFE: 0, ftcOther: 0, ftcBi: 0 },
     styles: []
   };
-  if (!lcb || fc + lcb > table.length) return empty;
-  const r = new ByteReader(table);
+  if (!lcb || fc + lcb > table2.length) return empty;
+  const r = new ByteReader(table2);
   const end = fc + lcb;
   const cbStshi = r.u16(fc);
   const s = fc + 2;
@@ -7595,12 +7926,12 @@ var CP1252_HIGH = {
 function compressedChar(b) {
   return CP1252_HIGH[b] ?? b;
 }
-function readPieceTable(fib, table) {
+function readPieceTable(fib, table2) {
   const { fc, lcb } = fib.fcLcb(FC.Clx);
-  if (!lcb || fc + lcb > table.length) {
+  if (!lcb || fc + lcb > table2.length) {
     throw new DocFormatError("Arquivo .doc corrompido: tabela de pe\xE7as (Clx) ausente.");
   }
-  const r = new ByteReader(table);
+  const r = new ByteReader(table2);
   const end = fc + lcb;
   let off = fc;
   const prcs = [];
@@ -7734,11 +8065,11 @@ var DocReader = class {
     if (fib.fEncrypted) {
       throw new DocFormatError(fib.fObfuscated ? "O documento est\xE1 protegido por senha (ofusca\xE7\xE3o XOR) e n\xE3o pode ser aberto." : "O documento est\xE1 protegido por senha (criptografado) e n\xE3o pode ser aberto.");
     }
-    const table = cfb.getStream(fib.fWhichTblStm ? "1Table" : "0Table");
-    if (!table) throw new DocFormatError(`Arquivo .doc corrompido: stream ${fib.fWhichTblStm ? "1Table" : "0Table"} ausente.`);
-    this.table = table;
+    const table2 = cfb.getStream(fib.fWhichTblStm ? "1Table" : "0Table");
+    if (!table2) throw new DocFormatError(`Arquivo .doc corrompido: stream ${fib.fWhichTblStm ? "1Table" : "0Table"} ausente.`);
+    this.table = table2;
     this.data = cfb.getStream("Data");
-    this.pt = readPieceTable(fib, table);
+    this.pt = readPieceTable(fib, table2);
     const c = [fib.ccpText, fib.ccpFtn, fib.ccpHdd, fib.ccpMcr, fib.ccpAtn, fib.ccpEdn, fib.ccpTxbx, fib.ccpHdrTxbx].map((v) => Math.max(0, v));
     let at = 0;
     const span = (n) => {
@@ -7753,15 +8084,15 @@ var DocReader = class {
     const lastPieceCp = this.pt.pieces.length ? this.pt.pieces[this.pt.pieces.length - 1].cpEnd : 0;
     const totalCp = Math.max(at, Math.min(lastPieceCp, at + 1));
     this.text = decodeText(this.pt, word, totalCp);
-    this.chpx = readChpxRuns(fib, table, word);
-    this.papx = readPapxRuns(fib, table, word, this.data);
-    this.stsh = readStsh(fib, table);
+    this.chpx = readChpxRuns(fib, table2, word);
+    this.papx = readPapxRuns(fib, table2, word, this.data);
+    this.stsh = readStsh(fib, table2);
     this.styles = new StyleResolver(this.stsh);
-    this.fonts = readFonts(fib, table);
-    this.lists = readLists(fib, table);
+    this.fonts = readFonts(fib, table2);
+    this.lists = readLists(fib, table2);
     this.sections = this.readSections();
     const dop = fib.fcLcb(FC.Dop);
-    this.dop = dop.lcb && dop.fc + dop.lcb <= table.length ? table.subarray(dop.fc, dop.fc + dop.lcb) : new Uint8Array(0);
+    this.dop = dop.lcb && dop.fc + dop.lcb <= table2.length ? table2.subarray(dop.fc, dop.fc + dop.lcb) : new Uint8Array(0);
   }
   get pieces() {
     return this.pt.pieces;
@@ -10040,7 +10371,7 @@ var DocxWriter = class {
       let seq = 0;
       let ilfoSeq = -1;
       const lastIndent = {};
-      const apply2 = (p) => {
+      const apply3 = (p) => {
         seq++;
         const k = INDENT_SPRMS[p.sprm];
         if (k) lastIndent[k] = seq;
@@ -10065,13 +10396,13 @@ var DocxWriter = class {
               for (const q of prls(extra)) {
                 const s2 = sgcOf(q.sprm);
                 if (s2 === 5) tapPrls.push(q);
-                else if (s2 === 1) apply2(q);
+                else if (s2 === 1) apply3(q);
               }
               break;
             }
             continue;
           }
-          apply2(p);
+          apply3(p);
         }
       }
       pruneNoneBorders(pap, base.pap, touched);
@@ -10663,12 +10994,12 @@ var DocxWriter = class {
         }
       }
     }
-    const bounds = /* @__PURE__ */ new Set();
+    const bounds3 = /* @__PURE__ */ new Set();
     for (const row of rows) {
       const c = row.centers;
-      for (let i2 = 0; i2 < c.length && i2 <= row.cells.length; i2++) bounds.add(c[i2]);
+      for (let i2 = 0; i2 < c.length && i2 <= row.cells.length; i2++) bounds3.add(c[i2]);
     }
-    const grid = [...bounds].sort((a, b) => a - b);
+    const grid = [...bounds3].sort((a, b) => a - b);
     const first = rows[0].tap;
     let x2 = "<w:tbl>";
     x2 += `<w:tblPr>${this.tblPrXml(first, centered && grid.length > 1 ? grid[grid.length - 1] - grid[0] : void 0)}</w:tblPr>`;
@@ -11015,8 +11346,8 @@ function backgroundXml(shape) {
   if ((pv(384) ?? 0) !== 0 || oaFlag(pv(447), 4) === false) return "";
   const c = pv(385);
   if (c === void 0 || c >>> 24 !== 0) return "";
-  const color = oaColor(c, 16777215);
-  return color === "FFFFFF" ? "" : el("w:background", { "w:color": color });
+  const color2 = oaColor(c, 16777215);
+  return color2 === "FFFFFF" ? "" : el("w:background", { "w:color": color2 });
 }
 function hrVml(pic) {
   const hr = pic.hr;
@@ -12704,8 +13035,8 @@ var SfntFont = class {
    *  O hinting altera advances em até ±3% vs escala linear; sem a tabela o
    *  texto deriva ao longo da linha (visto no pixel-diff). */
   advanceTable = null;
-  setAdvanceTable(table) {
-    this.advanceTable = table;
+  setAdvanceTable(table2) {
+    this.advanceTable = table2;
   }
   /** Advance de um code point em TWIPS para um tamanho em pontos.
    *  1º tabela empírica do app de referência; fallback: escala linear com o em
@@ -13233,8 +13564,8 @@ var EmbeddedFont = class {
 `);
       for (const gid of chunk) {
         const cp0 = this.used.get(gid);
-        const table = this.symbolTable;
-        const sym = table && cp0 >= 61472 && cp0 <= 61695 ? table[cp0 - 61440] : void 0;
+        const table2 = this.symbolTable;
+        const sym = table2 && cp0 >= 61472 && cp0 <= 61695 ? table2[cp0 - 61440] : void 0;
         const cp = sym ?? cp0;
         b.str(`<${gid.toString(16).padStart(4, "0")}> <${utf16beHex(String.fromCodePoint(cp))}>
 `);
@@ -13319,20 +13650,20 @@ var PdfPage = class {
     return this.heightPt - yTop;
   }
   /** Retângulo preenchido (sombreado, realce). yTopPt = topo do retângulo. */
-  fillRect(xPt, yTopPt, wPt, hPt, color) {
+  fillRect(xPt, yTopPt, wPt, hPt, color2) {
     const y = this.fromTop(yTopPt + hPt);
     this.content.str(
-      `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])} rg
+      `${fmt(color2[0])} ${fmt(color2[1])} ${fmt(color2[2])} rg
 ${fmt(xPt)} ${fmt(y)} ${fmt(wPt)} ${fmt(hPt)} re f
 `
     );
   }
   /** Segmento de reta (bordas, sublinhado, divisores). Coords y a partir do topo. */
-  line(x0, y0Top, x1, y1Top, color, widthPt, dash) {
+  line(x0, y0Top, x1, y1Top, color2, widthPt, dash) {
     const d = dash && dash.length ? `[${dash.map(fmt).join(" ")}] 0 d
 ` : "[] 0 d\n";
     this.content.str(
-      `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])} RG
+      `${fmt(color2[0])} ${fmt(color2[1])} ${fmt(color2[2])} RG
 ${fmt(widthPt)} w
 ${d}${fmt(x0)} ${fmt(this.fromTop(y0Top))} m ${fmt(x1)} ${fmt(this.fromTop(y1Top))} l S
 `
@@ -13343,10 +13674,10 @@ ${d}${fmt(x0)} ${fmt(this.fromTop(y0Top))} m ${fmt(x1)} ${fmt(this.fromTop(y1Top
    * recebe sua própria matriz de texto (posição absoluta), reproduzindo
    * exatamente as posições calculadas pelo layout (inclusive o snap de 1/600").
    */
-  glyphs(font, sizePt, color, glyphs, opts = {}) {
+  glyphs(font, sizePt, color2, glyphs, opts = {}) {
     if (!glyphs.length) return;
     const c = this.content;
-    const col = `${fmt(color[0])} ${fmt(color[1])} ${fmt(color[2])}`;
+    const col = `${fmt(color2[0])} ${fmt(color2[1])} ${fmt(color2[2])}`;
     c.str(`BT
 /${font.resourceName} ${fmt(sizePt)} Tf
 ${col} rg
@@ -13440,6 +13771,31 @@ ${fmt(xPt)} ${fmt(this.fromTop(yTopPt + hPt))} ${fmt(wPt)} ${fmt(hPt)} re W n
   popClip() {
     this.content.str("Q\n");
   }
+  /** Empilha um recorte por caminho (até popClip); `evenOdd` = regra par-ímpar. */
+  pushClipPath(cmds, evenOdd = false) {
+    let s = "q\n";
+    for (const cmd of cmds) {
+      if (cmd.op === "M") s += `${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} m
+`;
+      else if (cmd.op === "L") s += `${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} l
+`;
+      else if (cmd.op === "C") s += `${fmt(cmd.x1)} ${fmt(this.fromTop(cmd.y1))} ${fmt(cmd.x2)} ${fmt(this.fromTop(cmd.y2))} ${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} c
+`;
+      else s += "h\n";
+    }
+    this.content.str(`${s}${evenOdd ? "W*" : "W"} n
+`);
+  }
+  /** Imagem pela matriz (a b c d e f) que leva o quadrado unitário à página (y a
+   *  partir do TOPO; (0,0) = canto de cima à esquerda da imagem). */
+  drawImageMatrix(img, a, b, c, d, e, f) {
+    const H = this.heightPt;
+    this.content.str(`q
+${fmt(a)} ${fmt(-b)} ${fmt(-c)} ${fmt(d)} ${fmt(c + e)} ${fmt(H - d - f)} cm
+/${img.resourceName} Do
+Q
+`);
+  }
   /** Empilha uma transformação afim (matriz cm, em pt) até popClip(). */
   pushTransform(a, b, c, d, e, f) {
     this.content.str(`q
@@ -13491,11 +13847,12 @@ var PdfDocument = class {
     return f;
   }
   /** Embute um JPEG (baseline) diretamente via DCTDecode. */
-  embedJpeg(bytes, widthPx, heightPx, components = 3, adobeInverted = false, decodeArr) {
+  embedJpeg(bytes, widthPx, heightPx, components = 3, adobeInverted = false, decodeArr, smask) {
     const cs = components === 1 ? "/DeviceGray" : components === 4 ? "/DeviceCMYK" : "/DeviceRGB";
     const decode = components === 4 && adobeInverted ? " /Decode [1 0 1 0 1 0 1 0]" : decodeArr?.length ? ` /Decode [${decodeArr.map(fmt).join(" ")}]` : "";
+    const sm = smask ? ` /SMask ${this.writer.addStream(`/Type /XObject /Subtype /Image /Width ${smask.width} /Height ${smask.height} /ColorSpace /DeviceGray /BitsPerComponent 8`, smask.alpha)} 0 R` : "";
     const objNum = this.writer.addStream(
-      `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode${decode}`,
+      `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode${decode}${sm}`,
       bytes,
       { allowCompress: false }
       // já comprimido
@@ -13510,13 +13867,13 @@ var PdfDocument = class {
    * transparência preservam o recorte no PDF.
    */
   embedRgba(rgba, widthPx, heightPx) {
-    const rgb2 = new Uint8Array(widthPx * heightPx * 3);
+    const rgb4 = new Uint8Array(widthPx * heightPx * 3);
     const alpha = new Uint8Array(widthPx * heightPx);
     let hasAlpha = false;
     for (let i2 = 0, j = 0, k = 0; i2 < rgba.length; i2 += 4, j += 3, k++) {
-      rgb2[j] = rgba[i2];
-      rgb2[j + 1] = rgba[i2 + 1];
-      rgb2[j + 2] = rgba[i2 + 2];
+      rgb4[j] = rgba[i2];
+      rgb4[j + 1] = rgba[i2 + 1];
+      rgb4[j + 2] = rgba[i2 + 2];
       const a = rgba[i2 + 3];
       alpha[k] = a;
       if (a !== 255) hasAlpha = true;
@@ -13531,7 +13888,7 @@ var PdfDocument = class {
     }
     const objNum = this.writer.addStream(
       `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8${smask}`,
-      rgb2
+      rgb4
     );
     const handle = { resourceName: `Im${this.images.length}`, objNum };
     this.images.push({ handle, objNum });
@@ -13599,6 +13956,999 @@ var PdfDocument = class {
     return w.build(catalog);
   }
 };
+
+// ../../../shared/drawingml/src/preset-defs.ts
+var PRESET_DEFS = {
+  accentBorderCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2|l t r b",
+  accentBorderCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3|l t r b",
+  accentBorderCallout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4|l t r b",
+  accentCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2|l t r b",
+  accentCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3|l t r b",
+  accentCallout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4|l t r b",
+  actionButtonBackPrevious: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 vc;L g12 g9;L g12 g10;Z#,,darken,false~M g11 vc;L g12 g9;L g12 g10;Z#,,none,~M g11 vc;L g12 g9;L g12 g10;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonBeginning: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1 8;g15=*/ g13 1 4;g16=+- g11 g14 0;g17=+- g11 g15 0|,,,false~M l t;L r t;L r b;L l b;Z;M g17 vc;L g12 g9;L g12 g10;Z;M g16 g9;L g11 g9;L g11 g10;L g16 g10;Z#,,darken,false~M g17 vc;L g12 g9;L g12 g10;Z;M g16 g9;L g11 g9;L g11 g10;L g16 g10;Z#,,none,~M g17 vc;L g12 g9;L g12 g10;Z;M g16 g9;L g16 g10;L g11 g10;L g11 g9;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonBlank: "||,,,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonDocument: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;dx1=*/ ss 9 32;g11=+- hc 0 dx1;g12=+- hc dx1 0;g13=*/ ss 3 16;g14=+- g12 0 g13;g15=+- g9 g13 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 g9;L g14 g9;L g12 g15;L g12 g10;L g11 g10;Z#,,darkenLess,false~M g11 g9;L g14 g9;L g14 g15;L g12 g15;L g12 g10;L g11 g10;Z#,,darken,false~M g14 g9;L g14 g15;L g12 g15;Z#,,none,~M g11 g9;L g14 g9;L g12 g15;L g12 g10;L g11 g10;Z;M g12 g15;L g14 g15;L g14 g9#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonEnd: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 3 4;g15=*/ g13 7 8;g16=+- g11 g14 0;g17=+- g11 g15 0|,,,false~M l t;L r t;L r b;L l b;Z;M g16 vc;L g11 g9;L g11 g10;Z;M g17 g9;L g12 g9;L g12 g10;L g17 g10;Z#,,darken,false~M g16 vc;L g11 g9;L g11 g10;Z;M g17 g9;L g12 g9;L g12 g10;L g17 g10;Z#,,none,~M g16 vc;L g11 g10;L g11 g9;Z;M g17 g9;L g12 g9;L g12 g10;L g17 g10;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonForwardNext: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0|,,,false~M l t;L r t;L r b;L l b;Z;M g12 vc;L g11 g9;L g11 g10;Z#,,darken,false~M g12 vc;L g11 g9;L g11 g10;Z#,,none,~M g12 vc;L g11 g10;L g11 g9;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonHelp: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g11=+- hc 0 dx2;g13=*/ ss 3 4;g14=*/ g13 1 7;g15=*/ g13 3 14;g16=*/ g13 2 7;g19=*/ g13 3 7;g20=*/ g13 4 7;g21=*/ g13 17 28;g23=*/ g13 21 28;g24=*/ g13 11 14;g27=+- g9 g16 0;g29=+- g9 g21 0;g30=+- g9 g23 0;g31=+- g9 g24 0;g33=+- g11 g15 0;g36=+- g11 g19 0;g37=+- g11 g20 0;g41=*/ g13 1 14;g42=*/ g13 3 28|,,,false~M l t;L r t;L r b;L l b;Z;M g33 g27;A g16 g16 cd2 cd2;A g14 g15 0 cd4;A g41 g42 3cd4 -5400000;L g37 g30;L g36 g30;L g36 g29;A g14 g15 cd2 cd4;A g41 g42 cd4 -5400000;A g14 g14 0 -10800000;Z;M hc g31;A g42 g42 3cd4 21600000;Z#,,darken,false~M g33 g27;A g16 g16 cd2 cd2;A g14 g15 0 cd4;A g41 g42 3cd4 -5400000;L g37 g30;L g36 g30;L g36 g29;A g14 g15 cd2 cd4;A g41 g42 cd4 -5400000;A g14 g14 0 -10800000;Z;M hc g31;A g42 g42 3cd4 21600000;Z#,,none,~M g33 g27;A g16 g16 cd2 cd2;A g14 g15 0 cd4;A g41 g42 3cd4 -5400000;L g37 g30;L g36 g30;L g36 g29;A g14 g15 cd2 cd4;A g41 g42 cd4 -5400000;A g14 g14 0 -10800000;Z;M hc g31;A g42 g42 3cd4 21600000;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonHome: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1 16;g15=*/ g13 1 8;g16=*/ g13 3 16;g17=*/ g13 5 16;g18=*/ g13 7 16;g19=*/ g13 9 16;g20=*/ g13 11 16;g21=*/ g13 3 4;g22=*/ g13 13 16;g23=*/ g13 7 8;g24=+- g9 g14 0;g25=+- g9 g16 0;g26=+- g9 g17 0;g27=+- g9 g21 0;g28=+- g11 g15 0;g29=+- g11 g18 0;g30=+- g11 g19 0;g31=+- g11 g20 0;g32=+- g11 g22 0;g33=+- g11 g23 0|,,,false~M l t;L r t;L r b;L l b;Z;M hc g9;L g11 vc;L g28 vc;L g28 g10;L g33 g10;L g33 vc;L g12 vc;L g32 g26;L g32 g24;L g31 g24;L g31 g25;Z#,,darkenLess,false~M g32 g26;L g32 g24;L g31 g24;L g31 g25;Z;M g28 vc;L g28 g10;L g29 g10;L g29 g27;L g30 g27;L g30 g10;L g33 g10;L g33 vc;Z#,,darken,false~M hc g9;L g11 vc;L g12 vc;Z;M g29 g27;L g30 g27;L g30 g10;L g29 g10;Z#,,none,~M hc g9;L g31 g25;L g31 g24;L g32 g24;L g32 g26;L g12 vc;L g33 vc;L g33 g10;L g28 g10;L g28 vc;L g11 vc;Z;M g31 g25;L g32 g26;M g33 vc;L g28 vc;M g29 g10;L g29 g27;L g30 g27;L g30 g10#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonInformation: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g11=+- hc 0 dx2;g13=*/ ss 3 4;g14=*/ g13 1 32;g17=*/ g13 5 16;g18=*/ g13 3 8;g19=*/ g13 13 32;g20=*/ g13 19 32;g22=*/ g13 11 16;g23=*/ g13 13 16;g24=*/ g13 7 8;g25=+- g9 g14 0;g28=+- g9 g17 0;g29=+- g9 g18 0;g30=+- g9 g23 0;g31=+- g9 g24 0;g32=+- g11 g17 0;g34=+- g11 g19 0;g35=+- g11 g20 0;g37=+- g11 g22 0;g38=*/ g13 3 32|,,,false~M l t;L r t;L r b;L l b;Z;M hc g9;A dx2 dx2 3cd4 21600000;Z#,,darken,false~M hc g9;A dx2 dx2 3cd4 21600000;Z;M hc g25;A g38 g38 3cd4 21600000;M g32 g28;L g32 g29;L g34 g29;L g34 g30;L g32 g30;L g32 g31;L g37 g31;L g37 g30;L g35 g30;L g35 g28;Z#,,lighten,false~M hc g25;A g38 g38 3cd4 21600000;M g32 g28;L g35 g28;L g35 g30;L g37 g30;L g37 g31;L g32 g31;L g32 g30;L g34 g30;L g34 g29;L g32 g29;Z#,,none,~M hc g9;A dx2 dx2 3cd4 21600000;Z;M hc g25;A g38 g38 3cd4 21600000;M g32 g28;L g35 g28;L g35 g30;L g37 g30;L g37 g31;L g32 g31;L g32 g30;L g34 g30;L g34 g29;L g32 g29;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonMovie: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1455 21600;g15=*/ g13 1905 21600;g16=*/ g13 2325 21600;g17=*/ g13 16155 21600;g18=*/ g13 17010 21600;g19=*/ g13 19335 21600;g20=*/ g13 19725 21600;g21=*/ g13 20595 21600;g22=*/ g13 5280 21600;g23=*/ g13 5730 21600;g24=*/ g13 6630 21600;g25=*/ g13 7492 21600;g26=*/ g13 9067 21600;g27=*/ g13 9555 21600;g28=*/ g13 13342 21600;g29=*/ g13 14580 21600;g30=*/ g13 15592 21600;g31=+- g11 g14 0;g32=+- g11 g15 0;g33=+- g11 g16 0;g34=+- g11 g17 0;g35=+- g11 g18 0;g36=+- g11 g19 0;g37=+- g11 g20 0;g38=+- g11 g21 0;g39=+- g9 g22 0;g40=+- g9 g23 0;g41=+- g9 g24 0;g42=+- g9 g25 0;g43=+- g9 g26 0;g44=+- g9 g27 0;g45=+- g9 g28 0;g46=+- g9 g29 0;g47=+- g9 g30 0;g48=+- g9 g31 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 g39;L g11 g44;L g31 g44;L g32 g43;L g33 g43;L g33 g47;L g35 g47;L g35 g45;L g36 g45;L g38 g46;L g12 g46;L g12 g41;L g38 g41;L g37 g42;L g35 g42;L g35 g41;L g34 g40;L g32 g40;L g31 g39;Z#,,darken,false~M g11 g39;L g11 g44;L g31 g44;L g32 g43;L g33 g43;L g33 g47;L g35 g47;L g35 g45;L g36 g45;L g38 g46;L g12 g46;L g12 g41;L g38 g41;L g37 g42;L g35 g42;L g35 g41;L g34 g40;L g32 g40;L g31 g39;Z#,,none,~M g11 g39;L g31 g39;L g32 g40;L g34 g40;L g35 g41;L g35 g42;L g37 g42;L g38 g41;L g12 g41;L g12 g46;L g38 g46;L g36 g45;L g35 g45;L g35 g47;L g33 g47;L g33 g43;L g32 g43;L g31 g44;L g11 g44;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonReturn: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 7 8;g15=*/ g13 3 4;g16=*/ g13 5 8;g17=*/ g13 3 8;g18=*/ g13 1 4;g19=+- g9 g15 0;g20=+- g9 g16 0;g21=+- g9 g18 0;g22=+- g11 g14 0;g23=+- g11 g15 0;g24=+- g11 g16 0;g25=+- g11 g17 0;g26=+- g11 g18 0;g27=*/ g13 1 8|,,,false~M l t;L r t;L r b;L l b;Z;M g12 g21;L g23 g9;L hc g21;L g24 g21;L g24 g20;A g27 g27 0 cd4;L g25 g19;A g27 g27 cd4 cd4;L g26 g21;L g11 g21;L g11 g20;A g17 g17 cd2 -5400000;L hc g10;A g17 g17 cd4 -5400000;L g22 g21;Z#,,darken,false~M g12 g21;L g23 g9;L hc g21;L g24 g21;L g24 g20;A g27 g27 0 cd4;L g25 g19;A g27 g27 cd4 cd4;L g26 g21;L g11 g21;L g11 g20;A g17 g17 cd2 -5400000;L hc g10;A g17 g17 cd4 -5400000;L g22 g21;Z#,,none,~M g12 g21;L g22 g21;L g22 g20;A g17 g17 0 cd4;L g25 g10;A g17 g17 cd4 cd4;L g11 g21;L g26 g21;L g26 g20;A g27 g27 cd2 -5400000;L hc g19;A g27 g27 cd4 -5400000;L g24 g21;L hc g21;L g23 g9;Z#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  actionButtonSound: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1 8;g15=*/ g13 5 16;g16=*/ g13 5 8;g17=*/ g13 11 16;g18=*/ g13 3 4;g19=*/ g13 7 8;g20=+- g9 g14 0;g21=+- g9 g15 0;g22=+- g9 g17 0;g23=+- g9 g19 0;g24=+- g11 g15 0;g25=+- g11 g16 0;g26=+- g11 g18 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 g21;L g11 g22;L g24 g22;L g25 g10;L g25 g9;L g24 g21;Z#,,darken,false~M g11 g21;L g11 g22;L g24 g22;L g25 g10;L g25 g9;L g24 g21;Z#,,none,~M g11 g21;L g24 g21;L g25 g9;L g25 g10;L g24 g22;L g11 g22;Z;M g26 g21;L g12 g20;M g26 vc;L g12 vc;M g26 g22;L g12 g23#,,none,~M l t;L r t;L r b;L l b;Z|l t r b",
+  arc: "adj1=val 16200000;adj2=val 0|stAng=pin 0 adj1 21599999;enAng=pin 0 adj2 21599999;sw11=+- enAng 0 stAng;sw12=+- sw11 21600000 0;swAng=?: sw11 sw11 sw12;wt1=sin wd2 stAng;ht1=cos hd2 stAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;wt2=sin wd2 enAng;ht2=cos hd2 enAng;dx2=cat2 wd2 ht2 wt2;dy2=sat2 hd2 ht2 wt2;x1=+- hc dx1 0;y1=+- vc dy1 0;x2=+- hc dx2 0;y2=+- vc dy2 0;sw0=+- 21600000 0 stAng;da1=+- swAng 0 sw0;g1=max x1 x2;ir=?: da1 r g1;sw1=+- cd4 0 stAng;sw2=+- 27000000 0 stAng;sw3=?: sw1 sw1 sw2;da2=+- swAng 0 sw3;g5=max y1 y2;ib=?: da2 b g5;sw4=+- cd2 0 stAng;sw5=+- 32400000 0 stAng;sw6=?: sw4 sw4 sw5;da3=+- swAng 0 sw6;g9=min x1 x2;il=?: da3 l g9;sw7=+- 3cd4 0 stAng;sw8=+- 37800000 0 stAng;sw9=?: sw7 sw7 sw8;da4=+- swAng 0 sw9;g13=min y1 y2;it=?: da4 t g13;cang1=+- stAng 0 cd4;cang2=+- enAng cd4 0;cang3=+/ cang1 cang2 2|,,,false~M x1 y1;A wd2 hd2 stAng swAng;L hc vc;Z#,,none,~M x1 y1;A wd2 hd2 stAng swAng|il it ir ib",
+  bentArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 43750|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;a3=pin 0 adj3 50000;th=*/ ss a1 100000;aw2=*/ ss a2 100000;th2=*/ th 1 2;dh2=+- aw2 0 th2;ah=*/ ss a3 100000;bw=+- r 0 ah;bh=+- b 0 dh2;bs=min bw bh;maxAdj4=*/ 100000 bs ss;a4=pin 0 adj4 maxAdj4;bd=*/ ss a4 100000;bd3=+- bd 0 th;bd2=max bd3 0;x3=+- th bd2 0;x4=+- r 0 ah;y3=+- dh2 th 0;y4=+- y3 dh2 0;y5=+- dh2 bd 0;y6=+- y3 bd2 0|,,,~M l b;L l y5;A bd bd cd2 cd4;L x4 dh2;L x4 t;L r aw2;L x4 y4;L x4 y3;L x3 y3;A bd2 bd2 3cd4 -5400000;L th b;Z|l t r b",
+  bentConnector2: "||,,none,~M l t;L r t;L r b|l t r b",
+  bentConnector3: "adj1=val 50000|x1=*/ w adj1 100000|,,none,~M l t;L x1 t;L x1 b;L r b|l t r b",
+  bentConnector4: "adj1=val 50000;adj2=val 50000|x1=*/ w adj1 100000;x2=+/ x1 r 2;y2=*/ h adj2 100000;y1=+/ t y2 2|,,none,~M l t;L x1 t;L x1 y2;L r y2;L r b|l t r b",
+  bentConnector5: "adj1=val 50000;adj2=val 50000;adj3=val 50000|x1=*/ w adj1 100000;x3=*/ w adj3 100000;x2=+/ x1 x3 2;y2=*/ h adj2 100000;y1=+/ t y2 2;y3=+/ b y2 2|,,none,~M l t;L x1 t;L x1 y2;L x3 y2;L x3 b;L r b|l t r b",
+  bentUpArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;y1=*/ ss a3 100000;dx1=*/ ss a2 50000;x1=+- r 0 dx1;dx3=*/ ss a2 100000;x3=+- r 0 dx3;dx2=*/ ss a1 200000;x2=+- x3 0 dx2;x4=+- x3 dx2 0;dy2=*/ ss a1 100000;y2=+- b 0 dy2;x0=*/ x4 1 2;y3=+/ y2 b 2;y15=+/ y1 b 2|,,,~M l y2;L x2 y2;L x2 y1;L x1 y1;L x3 t;L r y1;L x4 y1;L x4 b;L l b;Z|l y2 x4 b",
+  bevel: "adj=val 12500|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1|,,,false~M x1 x1;L x2 x1;L x2 y2;L x1 y2;Z#,,lightenLess,false~M l t;L r t;L x2 x1;L x1 x1;Z#,,darkenLess,false~M l b;L x1 y2;L x2 y2;L r b;Z#,,lighten,false~M l t;L x1 x1;L x1 y2;L l b;Z#,,darken,false~M r t;L r b;L x2 y2;L x2 x1;Z#,,none,~M l t;L r t;L r b;L l b;Z;M x1 x1;L x2 x1;L x2 y2;L x1 y2;Z;M l t;L x1 x1;M l b;L x1 y2;M r t;L x2 x1;M r b;L x2 y2|x1 x1 x2 y2",
+  blockArc: "adj1=val 10800000;adj2=val 0;adj3=val 25000|stAng=pin 0 adj1 21599999;istAng=pin 0 adj2 21599999;a3=pin 0 adj3 50000;sw11=+- istAng 0 stAng;sw12=+- sw11 21600000 0;swAng=?: sw11 sw11 sw12;iswAng=+- 0 0 swAng;wt1=sin wd2 stAng;ht1=cos hd2 stAng;wt3=sin wd2 istAng;ht3=cos hd2 istAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;dx3=cat2 wd2 ht3 wt3;dy3=sat2 hd2 ht3 wt3;x1=+- hc dx1 0;y1=+- vc dy1 0;x3=+- hc dx3 0;y3=+- vc dy3 0;dr=*/ ss a3 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;wt2=sin iwd2 istAng;ht2=cos ihd2 istAng;wt4=sin iwd2 stAng;ht4=cos ihd2 stAng;dx2=cat2 iwd2 ht2 wt2;dy2=sat2 ihd2 ht2 wt2;dx4=cat2 iwd2 ht4 wt4;dy4=sat2 ihd2 ht4 wt4;x2=+- hc dx2 0;y2=+- vc dy2 0;x4=+- hc dx4 0;y4=+- vc dy4 0;sw0=+- 21600000 0 stAng;da1=+- swAng 0 sw0;g1=max x1 x2;g2=max x3 x4;g3=max g1 g2;ir=?: da1 r g3;sw1=+- cd4 0 stAng;sw2=+- 27000000 0 stAng;sw3=?: sw1 sw1 sw2;da2=+- swAng 0 sw3;g5=max y1 y2;g6=max y3 y4;g7=max g5 g6;ib=?: da2 b g7;sw4=+- cd2 0 stAng;sw5=+- 32400000 0 stAng;sw6=?: sw4 sw4 sw5;da3=+- swAng 0 sw6;g9=min x1 x2;g10=min x3 x4;g11=min g9 g10;il=?: da3 l g11;sw7=+- 3cd4 0 stAng;sw8=+- 37800000 0 stAng;sw9=?: sw7 sw7 sw8;da4=+- swAng 0 sw9;g13=min y1 y2;g14=min y3 y4;g15=min g13 g14;it=?: da4 t g15;x5=+/ x1 x4 2;y5=+/ y1 y4 2;x6=+/ x3 x2 2;y6=+/ y3 y2 2;cang1=+- stAng 0 cd4;cang2=+- istAng cd4 0;cang3=+/ cang1 cang2 2|,,,~M x1 y1;A wd2 hd2 stAng swAng;L x2 y2;A iwd2 ihd2 istAng iswAng;Z|il it ir ib",
+  borderCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2|l t r b",
+  borderCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3|l t r b",
+  borderCallout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4|l t r b",
+  bracePair: "adj=val 8333|a=pin 0 adj 25000;x1=*/ ss a 100000;x2=*/ ss a 50000;x3=+- r 0 x2;x4=+- r 0 x1;y2=+- vc 0 x1;y3=+- vc x1 0;y4=+- b 0 x1;it=*/ x1 29289 100000;il=+- x1 it 0;ir=+- r 0 il;ib=+- b 0 it|,,,false~M x2 b;A x1 x1 cd4 cd4;L x1 y3;A x1 x1 0 -5400000;A x1 x1 cd4 -5400000;L x1 x1;A x1 x1 cd2 cd4;L x3 t;A x1 x1 3cd4 cd4;L x4 y2;A x1 x1 cd2 -5400000;A x1 x1 3cd4 -5400000;L x4 y4;A x1 x1 0 cd4;Z#,,none,~M x2 b;A x1 x1 cd4 cd4;L x1 y3;A x1 x1 0 -5400000;A x1 x1 cd4 -5400000;L x1 x1;A x1 x1 cd2 cd4;M x3 t;A x1 x1 3cd4 cd4;L x4 y2;A x1 x1 cd2 -5400000;A x1 x1 3cd4 -5400000;L x4 y4;A x1 x1 0 cd4|il il ir ib",
+  bracketPair: "adj=val 16667|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,false~M l x1;A x1 x1 cd2 cd4;L x2 t;A x1 x1 3cd4 cd4;L r y2;A x1 x1 0 cd4;L x1 b;A x1 x1 cd4 cd4;Z#,,none,~M x1 b;A x1 x1 cd4 cd4;L l x1;A x1 x1 cd2 cd4;M x2 t;A x1 x1 3cd4 cd4;L r y2;A x1 x1 0 cd4|il il ir ib",
+  callout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2|l t r b",
+  callout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3|l t r b",
+  callout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4|l t r b",
+  can: "adj=val 25000|maxAdj=*/ 50000 h ss;a=pin 0 adj maxAdj;y1=*/ ss a 200000;y2=+- y1 y1 0;y3=+- b 0 y1|,,,false~M l y1;A wd2 y1 cd2 -10800000;L r y3;A wd2 y1 0 cd2;Z#,,lighten,false~M l y1;A wd2 y1 cd2 cd2;A wd2 y1 0 cd2;Z#,,none,~M r y1;A wd2 y1 0 cd2;A wd2 y1 cd2 cd2;L r y3;A wd2 y1 0 cd2;L l y1|l y2 r y3",
+  chartPlus: "||10,10,none,~M 5 0;L 5 10;M 0 5;L 10 5#10,10,,false~M 0 0;L 0 10;L 10 10;L 10 0;Z|",
+  chartStar: "||10,10,none,~M 0 0;L 10 10;M 0 10;L 10 0;M 5 0;L 5 10#10,10,,false~M 0 0;L 0 10;L 10 10;L 10 0;Z|",
+  chartX: "||10,10,none,~M 0 0;L 10 10;M 0 10;L 10 0#10,10,,false~M 0 0;L 0 10;L 10 10;L 10 0;Z|",
+  chevron: "adj=val 50000|maxAdj=*/ 100000 w ss;a=pin 0 adj maxAdj;x1=*/ ss a 100000;x2=+- r 0 x1;x3=*/ x2 1 2;dx=+- x2 0 x1;il=?: dx x1 l;ir=?: dx x2 r|,,,~M l t;L x2 t;L r vc;L x2 b;L l b;L x1 vc;Z|il t ir b",
+  chord: "adj1=val 2700000;adj2=val 16200000|stAng=pin 0 adj1 21599999;enAng=pin 0 adj2 21599999;sw1=+- enAng 0 stAng;sw2=+- sw1 21600000 0;swAng=?: sw1 sw1 sw2;wt1=sin wd2 stAng;ht1=cos hd2 stAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;wt2=sin wd2 enAng;ht2=cos hd2 enAng;dx2=cat2 wd2 ht2 wt2;dy2=sat2 hd2 ht2 wt2;x1=+- hc dx1 0;y1=+- vc dy1 0;x2=+- hc dx2 0;y2=+- vc dy2 0;x3=+/ x1 x2 2;y3=+/ y1 y2 2;midAng0=*/ swAng 1 2;midAng=+- stAng midAng0 cd2;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M x1 y1;A wd2 hd2 stAng swAng;Z|il it ir ib",
+  circularArrow: "adj1=val 12500;adj2=val 1142319;adj3=val 20457681;adj4=val 10800000;adj5=val 12500|a5=pin 0 adj5 25000;maxAdj1=*/ a5 2 1;a1=pin 0 adj1 maxAdj1;enAng=pin 1 adj3 21599999;stAng=pin 0 adj4 21599999;th=*/ ss a1 100000;thh=*/ ss a5 100000;th2=*/ th 1 2;rw1=+- wd2 th2 thh;rh1=+- hd2 th2 thh;rw2=+- rw1 0 th;rh2=+- rh1 0 th;rw3=+- rw2 th2 0;rh3=+- rh2 th2 0;wtH=sin rw3 enAng;htH=cos rh3 enAng;dxH=cat2 rw3 htH wtH;dyH=sat2 rh3 htH wtH;xH=+- hc dxH 0;yH=+- vc dyH 0;rI=min rw2 rh2;u1=*/ dxH dxH 1;u2=*/ dyH dyH 1;u3=*/ rI rI 1;u4=+- u1 0 u3;u5=+- u2 0 u3;u6=*/ u4 u5 u1;u7=*/ u6 1 u2;u8=+- 1 0 u7;u9=sqrt u8;u10=*/ u4 1 dxH;u11=*/ u10 1 dyH;u12=+/ 1 u9 u11;u13=at2 1 u12;u14=+- u13 21600000 0;u15=?: u13 u13 u14;u16=+- u15 0 enAng;u17=+- u16 21600000 0;u18=?: u16 u16 u17;u19=+- u18 0 cd2;u20=+- u18 0 21600000;u21=?: u19 u20 u18;maxAng=abs u21;aAng=pin 0 adj2 maxAng;ptAng=+- enAng aAng 0;wtA=sin rw3 ptAng;htA=cos rh3 ptAng;dxA=cat2 rw3 htA wtA;dyA=sat2 rh3 htA wtA;xA=+- hc dxA 0;yA=+- vc dyA 0;wtE=sin rw1 stAng;htE=cos rh1 stAng;dxE=cat2 rw1 htE wtE;dyE=sat2 rh1 htE wtE;xE=+- hc dxE 0;yE=+- vc dyE 0;dxG=cos thh ptAng;dyG=sin thh ptAng;xG=+- xH dxG 0;yG=+- yH dyG 0;dxB=cos thh ptAng;dyB=sin thh ptAng;xB=+- xH 0 dxB 0;yB=+- yH 0 dyB 0;sx1=+- xB 0 hc;sy1=+- yB 0 vc;sx2=+- xG 0 hc;sy2=+- yG 0 vc;rO=min rw1 rh1;x1O=*/ sx1 rO rw1;y1O=*/ sy1 rO rh1;x2O=*/ sx2 rO rw1;y2O=*/ sy2 rO rh1;dxO=+- x2O 0 x1O;dyO=+- y2O 0 y1O;dO=mod dxO dyO 0;q1=*/ x1O y2O 1;q2=*/ x2O y1O 1;DO=+- q1 0 q2;q3=*/ rO rO 1;q4=*/ dO dO 1;q5=*/ q3 q4 1;q6=*/ DO DO 1;q7=+- q5 0 q6;q8=max q7 0;sdelO=sqrt q8;ndyO=*/ dyO -1 1;sdyO=?: ndyO -1 1;q9=*/ sdyO dxO 1;q10=*/ q9 sdelO 1;q11=*/ DO dyO 1;dxF1=+/ q11 q10 q4;q12=+- q11 0 q10;dxF2=*/ q12 1 q4;adyO=abs dyO;q13=*/ adyO sdelO 1;q14=*/ DO dxO -1;dyF1=+/ q14 q13 q4;q15=+- q14 0 q13;dyF2=*/ q15 1 q4;q16=+- x2O 0 dxF1;q17=+- x2O 0 dxF2;q18=+- y2O 0 dyF1;q19=+- y2O 0 dyF2;q20=mod q16 q18 0;q21=mod q17 q19 0;q22=+- q21 0 q20;dxF=?: q22 dxF1 dxF2;dyF=?: q22 dyF1 dyF2;sdxF=*/ dxF rw1 rO;sdyF=*/ dyF rh1 rO;xF=+- hc sdxF 0;yF=+- vc sdyF 0;x1I=*/ sx1 rI rw2;y1I=*/ sy1 rI rh2;x2I=*/ sx2 rI rw2;y2I=*/ sy2 rI rh2;dxI=+- x2I 0 x1I;dyI=+- y2I 0 y1I;dI=mod dxI dyI 0;v1=*/ x1I y2I 1;v2=*/ x2I y1I 1;DI=+- v1 0 v2;v3=*/ rI rI 1;v4=*/ dI dI 1;v5=*/ v3 v4 1;v6=*/ DI DI 1;v7=+- v5 0 v6;v8=max v7 0;sdelI=sqrt v8;v9=*/ sdyO dxI 1;v10=*/ v9 sdelI 1;v11=*/ DI dyI 1;dxC1=+/ v11 v10 v4;v12=+- v11 0 v10;dxC2=*/ v12 1 v4;adyI=abs dyI;v13=*/ adyI sdelI 1;v14=*/ DI dxI -1;dyC1=+/ v14 v13 v4;v15=+- v14 0 v13;dyC2=*/ v15 1 v4;v16=+- x1I 0 dxC1;v17=+- x1I 0 dxC2;v18=+- y1I 0 dyC1;v19=+- y1I 0 dyC2;v20=mod v16 v18 0;v21=mod v17 v19 0;v22=+- v21 0 v20;dxC=?: v22 dxC1 dxC2;dyC=?: v22 dyC1 dyC2;sdxC=*/ dxC rw2 rI;sdyC=*/ dyC rh2 rI;xC=+- hc sdxC 0;yC=+- vc sdyC 0;ist0=at2 sdxC sdyC;ist1=+- ist0 21600000 0;istAng=?: ist0 ist0 ist1;isw1=+- stAng 0 istAng;isw2=+- isw1 0 21600000;iswAng=?: isw1 isw2 isw1;p1=+- xF 0 xC;p2=+- yF 0 yC;p3=mod p1 p2 0;p4=*/ p3 1 2;p5=+- p4 0 thh;xGp=?: p5 xF xG;yGp=?: p5 yF yG;xBp=?: p5 xC xB;yBp=?: p5 yC yB;en0=at2 sdxF sdyF;en1=+- en0 21600000 0;en2=?: en0 en0 en1;sw0=+- en2 0 stAng;sw1=+- sw0 21600000 0;swAng=?: sw0 sw0 sw1;wtI=sin rw3 stAng;htI=cos rh3 stAng;dxI=cat2 rw3 htI wtI;dyI=sat2 rh3 htI wtI;xI=+- hc dxI 0;yI=+- vc dyI 0;aI=+- stAng 0 cd4;aA=+- ptAng cd4 0;aB=+- ptAng cd2 0;idx=cos rw1 2700000;idy=sin rh1 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xE yE;A rw1 rh1 stAng swAng;L xGp yGp;L xA yA;L xBp yBp;L xC yC;A rw2 rh2 istAng iswAng;Z|il it ir ib",
+  cloud: "|il=*/ w 2977 21600;it=*/ h 3262 21600;ir=*/ w 17087 21600;ib=*/ h 17337 21600;g27=*/ w 67 21600;g28=*/ h 21577 21600;g29=*/ w 21582 21600;g30=*/ h 1235 21600|43200,43200,,~M 3900 14370;A 6753 9190 -11429249 7426832;A 5333 7267 -8646143 5396714;A 4365 5945 -8748475 5983381;A 4857 6595 -7859164 7034504;A 5333 7273 -4722533 6541615;A 6775 9220 -2776035 7816140;A 5785 7867 37501 6842000;A 6752 9215 1347096 6910353;A 7720 10543 3974558 4542661;A 4360 5918 -16496525 8804134;A 4345 5945 -14809710 9151131;Z#43200,43200,none,~M 4693 26177;A 4345 5945 5204520 1585770;M 6928 34899;A 4360 5918 4416628 686848;M 16478 39090;A 6752 9215 8257449 844866;M 28827 34751;A 6752 9215 387196 959901;M 34129 22954;A 5785 7867 -4217541 4255042;M 41798 15354;A 5333 7273 1819082 1665090;M 38324 5426;A 4857 6595 -824660 891534;M 29078 3952;A 4857 6595 -8950887 1091722;M 22141 4720;A 4365 5945 -9809656 1061181;M 14000 5192;A 6753 9190 -4002417 739161;M 4127 15789;A 6753 9190 9459261 711490|il it ir ib",
+  cloudCallout: "adj1=val -20833;adj2=val 62500|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;ht=cat2 hd2 dxPos dyPos;wt=sat2 wd2 dxPos dyPos;g2=cat2 wd2 ht wt;g3=sat2 hd2 ht wt;g4=+- hc g2 0;g5=+- vc g3 0;g6=+- g4 0 xPos;g7=+- g5 0 yPos;g8=mod g6 g7 0;g9=*/ ss 6600 21600;g10=+- g8 0 g9;g11=*/ g10 1 3;g12=*/ ss 1800 21600;g13=+- g11 g12 0;g14=*/ g13 g6 g8;g15=*/ g13 g7 g8;g16=+- g14 xPos 0;g17=+- g15 yPos 0;g18=*/ ss 4800 21600;g19=*/ g11 2 1;g20=+- g18 g19 0;g21=*/ g20 g6 g8;g22=*/ g20 g7 g8;g23=+- g21 xPos 0;g24=+- g22 yPos 0;g25=*/ ss 1200 21600;g26=*/ ss 600 21600;x23=+- xPos g26 0;x24=+- g16 g25 0;x25=+- g23 g12 0;il=*/ w 2977 21600;it=*/ h 3262 21600;ir=*/ w 17087 21600;ib=*/ h 17337 21600;g27=*/ w 67 21600;g28=*/ h 21577 21600;g29=*/ w 21582 21600;g30=*/ h 1235 21600;pang=at2 dxPos dyPos|43200,43200,,~M 3900 14370;A 6753 9190 -11429249 7426832;A 5333 7267 -8646143 5396714;A 4365 5945 -8748475 5983381;A 4857 6595 -7859164 7034504;A 5333 7273 -4722533 6541615;A 6775 9220 -2776035 7816140;A 5785 7867 37501 6842000;A 6752 9215 1347096 6910353;A 7720 10543 3974558 4542661;A 4360 5918 -16496525 8804134;A 4345 5945 -14809710 9151131;Z#,,,~M x23 yPos;A g26 g26 0 21600000;Z#,,,~M x24 g17;A g25 g25 0 21600000;Z#,,,~M x25 g24;A g12 g12 0 21600000;Z#43200,43200,none,~M 4693 26177;A 4345 5945 5204520 1585770;M 6928 34899;A 4360 5918 4416628 686848;M 16478 39090;A 6752 9215 8257449 844866;M 28827 34751;A 6752 9215 387196 959901;M 34129 22954;A 5785 7867 -4217541 4255042;M 41798 15354;A 5333 7273 1819082 1665090;M 38324 5426;A 4857 6595 -824660 891534;M 29078 3952;A 4857 6595 -8950887 1091722;M 22141 4720;A 4365 5945 -9809656 1061181;M 14000 5192;A 6753 9190 -4002417 739161;M 4127 15789;A 6753 9190 9459261 711490|il it ir ib",
+  corner: "adj1=val 50000;adj2=val 50000|maxAdj1=*/ 100000 h ss;maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 maxAdj1;a2=pin 0 adj2 maxAdj2;x1=*/ ss a2 100000;dy1=*/ ss a1 100000;y1=+- b 0 dy1;cx1=*/ x1 1 2;cy1=+/ y1 b 2;d=+- w 0 h;it=?: d y1 t;ir=?: d r x1|,,,~M l t;L x1 t;L x1 y1;L r y1;L r b;L l b;Z|l it ir b",
+  cornerTabs: "|md=mod w h 0;dx=*/ 1 md 20;y1=+- 0 b dx;x1=+- 0 r dx|,,,~M l t;L dx t;L l dx;Z#,,,~M l y1;L dx b;L l b;Z#,,,~M x1 t;L r t;L r dx;Z#,,,~M r y1;L r b;L x1 b;Z|dx dx x1 y1",
+  cube: "adj=val 25000|a=pin 0 adj 100000;y1=*/ ss a 100000;y4=+- b 0 y1;y2=*/ y4 1 2;y3=+/ y1 b 2;x4=+- r 0 y1;x2=*/ x4 1 2;x3=+/ y1 r 2|,,,false~M l y1;L x4 y1;L x4 b;L l b;Z#,,darkenLess,false~M x4 y1;L r t;L r y4;L x4 b;Z#,,lightenLess,false~M l y1;L y1 t;L r t;L x4 y1;Z#,,none,~M l y1;L y1 t;L r t;L r y4;L x4 b;L l b;Z;M l y1;L x4 y1;L r t;M x4 y1;L x4 b|l y1 x4 b",
+  curvedConnector2: "||,,none,~M l t;C wd2 t r hd2 r b|l t r b",
+  curvedConnector3: "adj1=val 50000|x2=*/ w adj1 100000;x1=+/ l x2 2;x3=+/ r x2 2;y3=*/ h 3 4|,,none,~M l t;C x1 t x2 hd4 x2 vc;C x2 y3 x3 b r b|l t r b",
+  curvedConnector4: "adj1=val 50000;adj2=val 50000|x2=*/ w adj1 100000;x1=+/ l x2 2;x3=+/ r x2 2;x4=+/ x2 x3 2;x5=+/ x3 r 2;y4=*/ h adj2 100000;y1=+/ t y4 2;y2=+/ t y1 2;y3=+/ y1 y4 2;y5=+/ b y4 2|,,none,~M l t;C x1 t x2 y2 x2 y1;C x2 y3 x4 y4 x3 y4;C x5 y4 r y5 r b|l t r b",
+  curvedConnector5: "adj1=val 50000;adj2=val 50000;adj3=val 50000|x3=*/ w adj1 100000;x6=*/ w adj3 100000;x1=+/ x3 x6 2;x2=+/ l x3 2;x4=+/ x3 x1 2;x5=+/ x6 x1 2;x7=+/ x6 r 2;y4=*/ h adj2 100000;y1=+/ t y4 2;y2=+/ t y1 2;y3=+/ y1 y4 2;y5=+/ b y4 2;y6=+/ y5 y4 2;y7=+/ y5 b 2|,,none,~M l t;C x2 t x3 y2 x3 y1;C x3 y3 x4 y4 x1 y4;C x5 y4 x6 y6 x6 y5;C x6 y7 x7 b r b|l t r b",
+  curvedDownArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 100000;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;wR=+- wd2 0 q1;q7=*/ wR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idy=*/ q11 h q7;maxAdj3=*/ 100000 idy ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss adj3 100000;x3=+- wR th 0;q2=*/ h h 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dx=*/ q5 wR h;x5=+- wR dx 0;x7=+- x3 dx 0;q6=+- aw 0 th;dh=*/ q6 1 2;x4=+- x5 0 dh;x8=+- x7 dh 0;aw2=*/ aw 1 2;x6=+- r 0 aw2;y1=+- b 0 ah;swAng=at2 ah dx;mswAng=+- 0 0 swAng;iy=+- b 0 idy;ix=+/ wR x3 2;q12=*/ th 1 2;dang2=at2 idy q12;stAng=+- 3cd4 swAng 0;stAng2=+- 3cd4 0 dang2;swAng2=+- dang2 0 cd4;swAng3=+- cd4 dang2 0|,,,false~M x6 b;L x4 y1;L x5 y1;A wR h stAng mswAng;L x3 t;A wR h 3cd4 swAng;L x8 y1;Z#,,darkenLess,false~M ix iy;A wR h stAng2 swAng2;L l b;A wR h cd2 swAng3;Z#,,none,~M ix iy;A wR h stAng2 swAng2;L l b;A wR h cd2 cd4;L x3 t;A wR h 3cd4 swAng;L x8 y1;L x6 b;L x4 y1;L x5 y1;A wR h stAng mswAng|l t r b",
+  curvedLeftArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 a2;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;hR=+- hd2 0 q1;q7=*/ hR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idx=*/ q11 w q7;maxAdj3=*/ 100000 idx ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss a3 100000;y3=+- hR th 0;q2=*/ w w 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dy=*/ q5 hR w;y5=+- hR dy 0;y7=+- y3 dy 0;q6=+- aw 0 th;dh=*/ q6 1 2;y4=+- y5 0 dh;y8=+- y7 dh 0;aw2=*/ aw 1 2;y6=+- b 0 aw2;x1=+- l ah 0;swAng=at2 ah dy;mswAng=+- 0 0 swAng;ix=+- l idx 0;iy=+/ hR y3 2;q12=*/ th 1 2;dang2=at2 idx q12;swAng2=+- dang2 0 swAng;swAng3=+- swAng dang2 0;stAng3=+- 0 0 dang2|,,,false~M l y6;L x1 y4;L x1 y5;A w hR swAng swAng2;A w hR stAng3 swAng3;L x1 y8;Z#,,darkenLess,false~M r y3;A w hR 0 -5400000;L l t;A w hR 3cd4 cd4;Z#,,none,~M r y3;A w hR 0 -5400000;L l t;A w hR 3cd4 cd4;L r y3;A w hR 0 swAng;L x1 y8;L l y6;L x1 y4;L x1 y5;A w hR swAng swAng2|l t r b",
+  curvedRightArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 a2;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;hR=+- hd2 0 q1;q7=*/ hR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idx=*/ q11 w q7;maxAdj3=*/ 100000 idx ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss a3 100000;y3=+- hR th 0;q2=*/ w w 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dy=*/ q5 hR w;y5=+- hR dy 0;y7=+- y3 dy 0;q6=+- aw 0 th;dh=*/ q6 1 2;y4=+- y5 0 dh;y8=+- y7 dh 0;aw2=*/ aw 1 2;y6=+- b 0 aw2;x1=+- r 0 ah;swAng=at2 ah dy;stAng=+- cd2 0 swAng;mswAng=+- 0 0 swAng;ix=+- r 0 idx;iy=+/ hR y3 2;q12=*/ th 1 2;dang2=at2 idx q12;swAng2=+- dang2 0 cd4;swAng3=+- cd4 dang2 0;stAng3=+- cd2 0 dang2|,,,false~M l hR;A w hR cd2 mswAng;L x1 y4;L r y6;L x1 y8;L x1 y7;A w hR stAng swAng;Z#,,darkenLess,false~M r th;A w hR 3cd4 swAng2;A w hR stAng3 swAng3;Z#,,none,~M l hR;A w hR cd2 mswAng;L x1 y4;L r y6;L x1 y8;L x1 y7;A w hR stAng swAng;L l hR;A w hR cd2 cd4;L r th;A w hR 3cd4 swAng2|l t r b",
+  curvedUpArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 100000;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;wR=+- wd2 0 q1;q7=*/ wR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idy=*/ q11 h q7;maxAdj3=*/ 100000 idy ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss adj3 100000;x3=+- wR th 0;q2=*/ h h 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dx=*/ q5 wR h;x5=+- wR dx 0;x7=+- x3 dx 0;q6=+- aw 0 th;dh=*/ q6 1 2;x4=+- x5 0 dh;x8=+- x7 dh 0;aw2=*/ aw 1 2;x6=+- r 0 aw2;y1=+- t ah 0;swAng=at2 ah dx;mswAng=+- 0 0 swAng;iy=+- t idy 0;ix=+/ wR x3 2;q12=*/ th 1 2;dang2=at2 idy q12;swAng2=+- dang2 0 swAng;mswAng2=+- 0 0 swAng2;stAng3=+- cd4 0 swAng;swAng3=+- swAng dang2 0;stAng2=+- cd4 0 dang2|,,,false~M x6 t;L x8 y1;L x7 y1;A wR h stAng3 swAng3;A wR h stAng2 swAng2;L x4 y1;Z#,,darkenLess,false~M wR b;A wR h cd4 cd4;L th t;A wR h cd2 -5400000;Z#,,none,~M ix iy;A wR h stAng2 swAng2;L x4 y1;L x6 t;L x8 y1;L x7 y1;A wR h stAng3 swAng;L wR b;A wR h cd4 cd4;L th t;A wR h cd2 -5400000|l t r b",
+  decagon: "vf=val 105146|shd2=*/ hd2 vf 100000;dx1=cos wd2 2160000;dx2=cos wd2 4320000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;dy1=sin shd2 4320000;dy2=sin shd2 2160000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0|,,,~M l vc;L x1 y2;L x2 y1;L x3 y1;L x4 y2;L r vc;L x4 y3;L x3 y4;L x2 y4;L x1 y3;Z|x1 y2 x4 y3",
+  diagStripe: "adj=val 50000|a=pin 0 adj 100000;x2=*/ w a 100000;x1=*/ x2 1 2;x3=+/ x2 r 2;y2=*/ h a 100000;y1=*/ y2 1 2;y3=+/ y2 b 2|,,,~M l y2;L x2 t;L r t;L l b;Z|l t x3 y3",
+  diamond: "|ir=*/ w 3 4;ib=*/ h 3 4|,,,~M l vc;L hc t;L r vc;L hc b;Z|wd4 hd4 ir ib",
+  dodecagon: "|x1=*/ w 2894 21600;x2=*/ w 7906 21600;x3=*/ w 13694 21600;x4=*/ w 18706 21600;y1=*/ h 2894 21600;y2=*/ h 7906 21600;y3=*/ h 13694 21600;y4=*/ h 18706 21600|,,,~M l y2;L x1 y1;L x2 t;L x3 t;L x4 y1;L r y2;L r y3;L x4 y4;L x3 b;L x2 b;L x1 y4;L l y3;Z|x1 y1 x4 y4",
+  donut: "adj=val 25000|a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z;M dr vc;A iwd2 ihd2 cd2 -5400000;A iwd2 ihd2 cd4 -5400000;A iwd2 ihd2 0 -5400000;A iwd2 ihd2 3cd4 -5400000;Z|il it ir ib",
+  doubleWave: "adj1=val 6250;adj2=val 0|a1=pin 0 adj1 12500;a2=pin -10000 adj2 10000;y1=*/ h a1 100000;dy2=*/ y1 10 3;y2=+- y1 0 dy2;y3=+- y1 dy2 0;y4=+- b 0 y1;y5=+- y4 0 dy2;y6=+- y4 dy2 0;dx1=*/ w a2 100000;of2=*/ w a2 50000;x1=abs dx1;dx2=?: of2 0 of2;x2=+- l 0 dx2;dx8=?: of2 of2 0;x8=+- r 0 dx8;dx3=+/ dx2 x8 6;x3=+- x2 dx3 0;dx4=+/ dx2 x8 3;x4=+- x2 dx4 0;x5=+/ x2 x8 2;x6=+- x5 dx3 0;x7=+/ x6 x8 2;x9=+- l dx8 0;x15=+- r dx2 0;x10=+- x9 dx3 0;x11=+- x9 dx4 0;x12=+/ x9 x15 2;x13=+- x12 dx3 0;x14=+/ x13 x15 2;x16=+- r 0 x1;xAdj=+- hc dx1 0;il=max x2 x9;ir=min x8 x15;it=*/ h a1 50000;ib=+- b 0 it|,,,~M x2 y1;C x3 y2 x4 y3 x5 y1;C x6 y2 x7 y3 x8 y1;L x15 y4;C x14 y6 x13 y5 x12 y4;C x11 y6 x10 y5 x9 y4;Z|il it ir ib",
+  downArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy1=*/ ss a2 100000;y1=+- b 0 dy1;dx1=*/ w a1 200000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy2=*/ x1 dy1 wd2;y2=+- y1 dy2 0|,,,~M l y1;L x1 y1;L x1 t;L x2 t;L x2 y1;L r y1;L hc b;Z|x1 t x2 y2",
+  downArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 h ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss h;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dx1=*/ ss a2 100000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;dy3=*/ ss a3 100000;y3=+- b 0 dy3;y2=*/ h a4 100000;y1=*/ y2 1 2|,,,~M l t;L r t;L r y2;L x3 y2;L x3 y3;L x4 y3;L hc b;L x1 y3;L x2 y3;L x2 y2;L l y2;Z|l t r y2",
+  ellipse: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z|il it ir ib",
+  ellipseRibbon: "adj1=val 25000;adj2=val 50000;adj3=val 12500|a1=pin 0 adj1 100000;a2=pin 25000 adj2 75000;q10=+- 100000 0 a1;q11=*/ q10 1 2;q12=+- a1 0 q11;minAdj3=max 0 q12;a3=pin minAdj3 adj3 a1;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x3=+- x2 wd8 0;x4=+- r 0 x3;x5=+- r 0 x2;x6=+- r 0 wd8;dy1=*/ h a3 100000;f1=*/ 4 dy1 w;q1=*/ x3 x3 w;q2=+- x3 0 q1;y1=*/ f1 q2 1;cx1=*/ x3 1 2;cy1=*/ f1 cx1 1;cx2=+- r 0 cx1;q1=*/ h a1 100000;dy3=+- q1 0 dy1;q3=*/ x2 x2 w;q4=+- x2 0 q3;q5=*/ f1 q4 1;y3=+- q5 dy3 0;q6=+- dy1 dy3 y3;q7=+- q6 dy1 0;cy3=+- q7 dy3 0;rh=+- b 0 q1;q8=*/ dy1 14 16;y2=+/ q8 rh 2;y5=+- q5 rh 0;y6=+- y3 rh 0;cx4=*/ x2 1 2;q9=*/ f1 cx4 1;cy4=+- q9 rh 0;cx5=+- r 0 cx4;cy6=+- cy3 rh 0;y7=+- y1 dy3 0;cy7=+- q1 q1 y7;y8=+- b 0 dy1|,,,false~M l t;Q cx1 cy1 x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;Q cx2 cy1 r t;L x6 y2;L r rh;Q cx5 cy4 x5 y5;L x5 y6;Q hc cy6 x2 y6;L x2 y5;Q cx4 cy4 l rh;L wd8 y2;Z#,,darkenLess,false~M x3 y7;L x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;L x4 y7;Q hc cy7 x3 y7;Z#,,none,~M l t;Q cx1 cy1 x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;Q cx2 cy1 r t;L x6 y2;L r rh;Q cx5 cy4 x5 y5;L x5 y6;Q hc cy6 x2 y6;L x2 y5;Q cx4 cy4 l rh;L wd8 y2;Z;M x2 y5;L x2 y3;M x5 y3;L x5 y5;M x3 y1;L x3 y7;M x4 y7;L x4 y1|x2 q1 x5 y6",
+  ellipseRibbon2: "adj1=val 25000;adj2=val 50000;adj3=val 12500|a1=pin 0 adj1 100000;a2=pin 25000 adj2 75000;q10=+- 100000 0 a1;q11=*/ q10 1 2;q12=+- a1 0 q11;minAdj3=max 0 q12;a3=pin minAdj3 adj3 a1;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x3=+- x2 wd8 0;x4=+- r 0 x3;x5=+- r 0 x2;x6=+- r 0 wd8;dy1=*/ h a3 100000;f1=*/ 4 dy1 w;q1=*/ x3 x3 w;q2=+- x3 0 q1;u1=*/ f1 q2 1;y1=+- b 0 u1;cx1=*/ x3 1 2;cu1=*/ f1 cx1 1;cy1=+- b 0 cu1;cx2=+- r 0 cx1;q1=*/ h a1 100000;dy3=+- q1 0 dy1;q3=*/ x2 x2 w;q4=+- x2 0 q3;q5=*/ f1 q4 1;u3=+- q5 dy3 0;y3=+- b 0 u3;q6=+- dy1 dy3 u3;q7=+- q6 dy1 0;cu3=+- q7 dy3 0;cy3=+- b 0 cu3;rh=+- b 0 q1;q8=*/ dy1 14 16;u2=+/ q8 rh 2;y2=+- b 0 u2;u5=+- q5 rh 0;y5=+- b 0 u5;u6=+- u3 rh 0;y6=+- b 0 u6;cx4=*/ x2 1 2;q9=*/ f1 cx4 1;cu4=+- q9 rh 0;cy4=+- b 0 cu4;cx5=+- r 0 cx4;cu6=+- cu3 rh 0;cy6=+- b 0 cu6;u7=+- u1 dy3 0;y7=+- b 0 u7;cu7=+- q1 q1 u7;cy7=+- b 0 cu7|,,,false~M l b;Q cx1 cy1 x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;Q cx2 cy1 r b;L x6 y2;L r q1;Q cx5 cy4 x5 y5;L x5 y6;Q hc cy6 x2 y6;L x2 y5;Q cx4 cy4 l q1;L wd8 y2;Z#,,darkenLess,false~M x3 y7;L x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;L x4 y7;Q hc cy7 x3 y7;Z#,,none,~M l b;L wd8 y2;L l q1;Q cx4 cy4 x2 y5;L x2 y6;Q hc cy6 x5 y6;L x5 y5;Q cx5 cy4 r q1;L x6 y2;L r b;Q cx2 cy1 x4 y1;L x5 y3;Q hc cy3 x2 y3;L x3 y1;Q cx1 cy1 l b;Z;M x2 y3;L x2 y5;M x5 y5;L x5 y3;M x3 y7;L x3 y1;M x4 y1;L x4 y7|x2 y6 x5 rh",
+  flowChartAlternateProcess: "|x2=+- r 0 ssd6;y2=+- b 0 ssd6;il=*/ ssd6 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l ssd6;A ssd6 ssd6 cd2 cd4;L x2 t;A ssd6 ssd6 3cd4 cd4;L r y2;A ssd6 ssd6 0 cd4;L ssd6 b;A ssd6 ssd6 cd4 cd4;Z|il il ir ib",
+  flowChartCollate: "|ir=*/ w 3 4;ib=*/ h 3 4|2,2,,~M 0 0;L 2 0;L 1 1;L 2 2;L 0 2;L 1 1;Z|wd4 hd4 ir ib",
+  flowChartConnector: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z|il it ir ib",
+  flowChartDecision: "|ir=*/ w 3 4;ib=*/ h 3 4|2,2,,~M 0 1;L 1 0;L 2 1;L 1 2;Z|wd4 hd4 ir ib",
+  flowChartDelay: "|idx=cos wd2 2700000;idy=sin hd2 2700000;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l t;L hc t;A wd2 hd2 3cd4 cd2;L l b;Z|l it ir ib",
+  flowChartDisplay: "|x2=*/ w 5 6|6,6,,~M 0 3;L 1 0;L 5 0;A 1 3 3cd4 cd2;L 1 6;Z|wd6 t x2 b",
+  flowChartDocument: "|y1=*/ h 17322 21600;y2=*/ h 20172 21600|21600,21600,,~M 0 0;L 21600 0;L 21600 17322;C 10800 17322 10800 23922 0 20172;Z|l t r y1",
+  flowChartExtract: "|x2=*/ w 3 4|2,2,,~M 0 2;L 1 0;L 2 2;Z|wd4 vc x2 b",
+  flowChartInputOutput: "|x3=*/ w 2 5;x4=*/ w 3 5;x5=*/ w 4 5;x6=*/ w 9 10|5,5,,~M 0 5;L 1 0;L 5 0;L 4 5;Z|wd5 t x5 b",
+  flowChartInternalStorage: "||1,1,,false~M 0 0;L 1 0;L 1 1;L 0 1;Z#8,8,none,~M 1 0;L 1 8;M 0 1;L 8 1#1,1,none,~M 0 0;L 1 0;L 1 1;L 0 1;Z|wd8 hd8 r b",
+  flowChartMagneticDisk: "|y3=*/ h 5 6|6,6,,false~M 0 1;A 3 1 cd2 cd2;L 6 5;A 3 1 0 cd2;Z#6,6,none,~M 6 1;A 3 1 0 cd2#6,6,none,~M 0 1;A 3 1 cd2 cd2;L 6 5;A 3 1 0 cd2;Z|l hd3 r y3",
+  flowChartMagneticDrum: "|x2=*/ w 2 3|6,6,,false~M 1 0;L 5 0;A 1 3 3cd4 cd2;L 1 6;A 1 3 cd4 cd2;Z#6,6,none,~M 5 6;A 1 3 cd4 cd2#6,6,none,~M 1 0;L 5 0;A 1 3 3cd4 cd2;L 1 6;A 1 3 cd4 cd2;Z|wd6 t x2 b",
+  flowChartMagneticTape: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0;ang1=at2 w h|,,,~M hc b;A wd2 hd2 cd4 cd4;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 ang1;L r ib;L r b;Z|il it ir ib",
+  flowChartManualInput: "||5,5,,~M 0 1;L 5 0;L 5 5;L 0 5;Z|l hd5 r b",
+  flowChartManualOperation: "|x3=*/ w 4 5;x4=*/ w 9 10|5,5,,~M 0 0;L 5 0;L 4 5;L 1 5;Z|wd5 t x3 b",
+  flowChartMerge: "|x2=*/ w 3 4|2,2,,~M 0 0;L 2 0;L 1 2;Z|wd4 t x2 vc",
+  flowChartMultidocument: "|y2=*/ h 3675 21600;y8=*/ h 20782 21600;x3=*/ w 9298 21600;x4=*/ w 12286 21600;x5=*/ w 18595 21600|21600,21600,,false~M 0 20782;C 9298 23542 9298 18022 18595 18022;L 18595 3675;L 0 3675;Z;M 1532 3675;L 1532 1815;L 20000 1815;L 20000 16252;C 19298 16252 18595 16352 18595 16352;L 18595 3675;Z;M 2972 1815;L 2972 0;L 21600 0;L 21600 14392;C 20800 14392 20000 14467 20000 14467;L 20000 1815;Z#21600,21600,none,~M 0 3675;L 18595 3675;L 18595 18022;C 9298 18022 9298 23542 0 20782;Z;M 1532 3675;L 1532 1815;L 20000 1815;L 20000 16252;C 19298 16252 18595 16352 18595 16352;M 2972 1815;L 2972 0;L 21600 0;L 21600 14392;C 20800 14392 20000 14467 20000 14467#21600,21600,none,false~M 0 20782;C 9298 23542 9298 18022 18595 18022;L 18595 16352;C 18595 16352 19298 16252 20000 16252;L 20000 14467;C 20000 14467 20800 14392 21600 14392;L 21600 0;L 2972 0;L 2972 1815;L 1532 1815;L 1532 3675;L 0 3675;Z|l y2 x5 y8",
+  flowChartOfflineStorage: "|x4=*/ w 3 4|2,2,,false~M 0 0;L 2 0;L 1 2;Z#5,5,none,~M 2 4;L 3 4#2,2,none,~M 0 0;L 2 0;L 1 2;Z|wd4 t x4 vc",
+  flowChartOffpageConnector: "|y1=*/ h 4 5|10,10,,~M 0 0;L 10 0;L 10 8;L 5 10;L 0 8;Z|l t r y1",
+  flowChartOnlineStorage: "|x2=*/ w 5 6|6,6,,~M 1 0;L 6 0;A 1 3 3cd4 -10800000;L 1 6;A 1 3 cd4 cd2;Z|wd6 t x2 b",
+  flowChartOr: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,false~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z#,,none,~M hc t;L hc b;M l vc;L r vc#,,none,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z|il it ir ib",
+  flowChartPredefinedProcess: "|x2=*/ w 7 8|1,1,,false~M 0 0;L 1 0;L 1 1;L 0 1;Z#8,8,none,~M 1 0;L 1 8;M 7 0;L 7 8#1,1,none,~M 0 0;L 1 0;L 1 1;L 0 1;Z|wd8 t x2 b",
+  flowChartPreparation: "|x2=*/ w 4 5|10,10,,~M 0 5;L 2 0;L 8 0;L 10 5;L 8 10;L 2 10;Z|wd5 t x2 b",
+  flowChartProcess: "||1,1,,~M 0 0;L 1 0;L 1 1;L 0 1;Z|l t r b",
+  flowChartPunchedCard: "||5,5,,~M 0 1;L 1 0;L 5 0;L 5 5;L 0 5;Z|l hd5 r b",
+  flowChartPunchedTape: "|y2=*/ h 9 10;ib=*/ h 4 5|20,20,,~M 0 2;A 5 2 cd2 -10800000;A 5 2 cd2 cd2;L 20 18;A 5 2 0 -10800000;A 5 2 0 cd2;Z|l hd5 r ib",
+  flowChartSort: "|ir=*/ w 3 4;ib=*/ h 3 4|2,2,,false~M 0 1;L 1 0;L 2 1;L 1 2;Z#2,2,none,~M 0 1;L 2 1#2,2,none,~M 0 1;L 1 0;L 2 1;L 1 2;Z|wd4 hd4 ir ib",
+  flowChartSummingJunction: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,false~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z#,,none,~M il it;L ir ib;M ir it;L il ib#,,none,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z|il it ir ib",
+  flowChartTerminator: "|il=*/ w 1018 21600;ir=*/ w 20582 21600;it=*/ h 3163 21600;ib=*/ h 18437 21600|21600,21600,,~M 3475 0;L 18125 0;A 3475 10800 3cd4 cd2;L 3475 21600;A 3475 10800 cd4 cd2;Z|il it ir ib",
+  foldedCorner: "adj=val 16667|a=pin 0 adj 50000;dy2=*/ ss a 100000;dy1=*/ dy2 1 5;x1=+- r 0 dy2;x2=+- x1 dy1 0;y2=+- b 0 dy2;y1=+- y2 dy1 0|,,,false~M l t;L r t;L r y2;L x1 b;L l b;Z#,,darkenLess,false~M x1 b;L x2 y1;L r y2;Z#,,none,~M x1 b;L x2 y1;L r y2;L x1 b;L l b;L l t;L r t;L r y2|l t r y2",
+  frame: "adj1=val 12500|a1=pin 0 adj1 50000;x1=*/ ss a1 100000;x4=+- r 0 x1;y4=+- b 0 x1|,,,~M l t;L r t;L r b;L l b;Z;M x1 x1;L x1 y4;L x4 y4;L x4 x1;Z|x1 x1 x4 y4",
+  funnel: "|d=*/ ss 1 20;rw2=+- wd2 0 d;rh2=+- hd4 0 d;t1=cos wd2 480000;t2=sin hd4 480000;da=at2 t1 t2;2da=*/ da 2 1;stAng1=+- cd2 0 da;swAng1=+- cd2 2da 0;swAng3=+- cd2 0 2da;rw3=*/ wd2 1 4;rh3=*/ hd4 1 4;ct1=cos hd4 stAng1;st1=sin wd2 stAng1;m1=mod ct1 st1 0;n1=*/ wd2 hd4 m1;dx1=cos n1 stAng1;dy1=sin n1 stAng1;x1=+- hc dx1 0;y1=+- hd4 dy1 0;ct3=cos rh3 da;st3=sin rw3 da;m3=mod ct3 st3 0;n3=*/ rw3 rh3 m3;dx3=cos n3 da;dy3=sin n3 da;x3=+- hc dx3 0;vc3=+- b 0 rh3;y2=+- vc3 dy3 0;x2=+- wd2 0 rw2;cd=*/ cd2 2 1|,,,~M x1 y1;A wd2 hd4 stAng1 swAng1;L x3 y2;A rw3 rh3 da swAng3;Z;M x2 hd4;A rw2 rh2 cd2 -21600000;Z|l t r b",
+  gear6: "adj1=val 15000;adj2=val 3526|a1=pin 0 adj1 20000;a2=pin 0 adj2 5358;th=*/ ss a1 100000;lFD=*/ ss a2 100000;th2=*/ th 1 2;l2=*/ lFD 1 2;l3=+- th2 l2 0;rh=+- hd2 0 th;rw=+- wd2 0 th;dr=+- rw 0 rh;maxr=?: dr rh rw;ha=at2 maxr l3;aA1=+- 19800000 0 ha;aD1=+- 19800000 ha 0;ta11=cos rw aA1;ta12=sin rh aA1;bA1=at2 ta11 ta12;cta1=cos rh bA1;sta1=sin rw bA1;ma1=mod cta1 sta1 0;na1=*/ rw rh ma1;dxa1=cos na1 bA1;dya1=sin na1 bA1;xA1=+- hc dxa1 0;yA1=+- vc dya1 0;td11=cos rw aD1;td12=sin rh aD1;bD1=at2 td11 td12;ctd1=cos rh bD1;std1=sin rw bD1;md1=mod ctd1 std1 0;nd1=*/ rw rh md1;dxd1=cos nd1 bD1;dyd1=sin nd1 bD1;xD1=+- hc dxd1 0;yD1=+- vc dyd1 0;xAD1=+- xA1 0 xD1;yAD1=+- yA1 0 yD1;lAD1=mod xAD1 yAD1 0;a1=at2 yAD1 xAD1;dxF1=sin lFD a1;dyF1=cos lFD a1;xF1=+- xD1 dxF1 0;yF1=+- yD1 dyF1 0;xE1=+- xA1 0 dxF1;yE1=+- yA1 0 dyF1;yC1t=sin th a1;xC1t=cos th a1;yC1=+- yF1 yC1t 0;xC1=+- xF1 0 xC1t;yB1=+- yE1 yC1t 0;xB1=+- xE1 0 xC1t;aD6=+- 3cd4 ha 0;td61=cos rw aD6;td62=sin rh aD6;bD6=at2 td61 td62;ctd6=cos rh bD6;std6=sin rw bD6;md6=mod ctd6 std6 0;nd6=*/ rw rh md6;dxd6=cos nd6 bD6;dyd6=sin nd6 bD6;xD6=+- hc dxd6 0;yD6=+- vc dyd6 0;xA6=+- hc 0 dxd6;xF6=+- xD6 0 lFD;xE6=+- xA6 lFD 0;yC6=+- yD6 0 th;swAng1=+- bA1 0 bD6;aA2=+- 1800000 0 ha;aD2=+- 1800000 ha 0;ta21=cos rw aA2;ta22=sin rh aA2;bA2=at2 ta21 ta22;yA2=+- h 0 yD1;td21=cos rw aD2;td22=sin rh aD2;bD2=at2 td21 td22;yD2=+- h 0 yA1;yC2=+- h 0 yB1;yB2=+- h 0 yC1;xB2=val xC1;swAng2=+- bA2 0 bD1;aD3=+- cd4 ha 0;td31=cos rw aD3;td32=sin rh aD3;bD3=at2 td31 td32;yD3=+- h 0 yD6;yB3=+- h 0 yC6;aD4=+- 9000000 ha 0;td41=cos rw aD4;td42=sin rh aD4;bD4=at2 td41 td42;xD4=+- w 0 xD1;xC4=+- w 0 xC1;xB4=+- w 0 xB1;aD5=+- 12600000 ha 0;td51=cos rw aD5;td52=sin rh aD5;bD5=at2 td51 td52;xD5=+- w 0 xA1;xC5=+- w 0 xB1;xB5=+- w 0 xC1;xCxn1=+/ xB1 xC1 2;yCxn1=+/ yB1 yC1 2;yCxn2=+- b 0 yCxn1;xCxn4=+/ r 0 xCxn1|,,,~M xA1 yA1;L xB1 yB1;L xC1 yC1;L xD1 yD1;A rw rh bD1 swAng2;L xC1 yB2;L xB1 yC2;L xA1 yD2;A rw rh bD2 swAng1;L xF6 yB3;L xE6 yB3;L xA6 yD3;A rw rh bD3 swAng1;L xB4 yC2;L xC4 yB2;L xD4 yA2;A rw rh bD4 swAng2;L xB5 yC1;L xC5 yB1;L xD5 yA1;A rw rh bD5 swAng1;L xE6 yC6;L xF6 yC6;L xD6 yD6;A rw rh bD6 swAng1;Z|xD5 yA1 xA1 yD2",
+  gear9: "adj1=val 10000;adj2=val 1763|a1=pin 0 adj1 20000;a2=pin 0 adj2 2679;th=*/ ss a1 100000;lFD=*/ ss a2 100000;th2=*/ th 1 2;l2=*/ lFD 1 2;l3=+- th2 l2 0;rh=+- hd2 0 th;rw=+- wd2 0 th;dr=+- rw 0 rh;maxr=?: dr rh rw;ha=at2 maxr l3;aA1=+- 18600000 0 ha;aD1=+- 18600000 ha 0;ta11=cos rw aA1;ta12=sin rh aA1;bA1=at2 ta11 ta12;cta1=cos rh bA1;sta1=sin rw bA1;ma1=mod cta1 sta1 0;na1=*/ rw rh ma1;dxa1=cos na1 bA1;dya1=sin na1 bA1;xA1=+- hc dxa1 0;yA1=+- vc dya1 0;td11=cos rw aD1;td12=sin rh aD1;bD1=at2 td11 td12;ctd1=cos rh bD1;std1=sin rw bD1;md1=mod ctd1 std1 0;nd1=*/ rw rh md1;dxd1=cos nd1 bD1;dyd1=sin nd1 bD1;xD1=+- hc dxd1 0;yD1=+- vc dyd1 0;xAD1=+- xA1 0 xD1;yAD1=+- yA1 0 yD1;lAD1=mod xAD1 yAD1 0;a1=at2 yAD1 xAD1;dxF1=sin lFD a1;dyF1=cos lFD a1;xF1=+- xD1 dxF1 0;yF1=+- yD1 dyF1 0;xE1=+- xA1 0 dxF1;yE1=+- yA1 0 dyF1;yC1t=sin th a1;xC1t=cos th a1;yC1=+- yF1 yC1t 0;xC1=+- xF1 0 xC1t;yB1=+- yE1 yC1t 0;xB1=+- xE1 0 xC1t;aA2=+- 21000000 0 ha;aD2=+- 21000000 ha 0;ta21=cos rw aA2;ta22=sin rh aA2;bA2=at2 ta21 ta22;cta2=cos rh bA2;sta2=sin rw bA2;ma2=mod cta2 sta2 0;na2=*/ rw rh ma2;dxa2=cos na2 bA2;dya2=sin na2 bA2;xA2=+- hc dxa2 0;yA2=+- vc dya2 0;td21=cos rw aD2;td22=sin rh aD2;bD2=at2 td21 td22;ctd2=cos rh bD2;std2=sin rw bD2;md2=mod ctd2 std2 0;nd2=*/ rw rh md2;dxd2=cos nd2 bD2;dyd2=sin nd2 bD2;xD2=+- hc dxd2 0;yD2=+- vc dyd2 0;xAD2=+- xA2 0 xD2;yAD2=+- yA2 0 yD2;lAD2=mod xAD2 yAD2 0;a2=at2 yAD2 xAD2;dxF2=sin lFD a2;dyF2=cos lFD a2;xF2=+- xD2 dxF2 0;yF2=+- yD2 dyF2 0;xE2=+- xA2 0 dxF2;yE2=+- yA2 0 dyF2;yC2t=sin th a2;xC2t=cos th a2;yC2=+- yF2 yC2t 0;xC2=+- xF2 0 xC2t;yB2=+- yE2 yC2t 0;xB2=+- xE2 0 xC2t;swAng1=+- bA2 0 bD1;aA3=+- 1800000 0 ha;aD3=+- 1800000 ha 0;ta31=cos rw aA3;ta32=sin rh aA3;bA3=at2 ta31 ta32;cta3=cos rh bA3;sta3=sin rw bA3;ma3=mod cta3 sta3 0;na3=*/ rw rh ma3;dxa3=cos na3 bA3;dya3=sin na3 bA3;xA3=+- hc dxa3 0;yA3=+- vc dya3 0;td31=cos rw aD3;td32=sin rh aD3;bD3=at2 td31 td32;ctd3=cos rh bD3;std3=sin rw bD3;md3=mod ctd3 std3 0;nd3=*/ rw rh md3;dxd3=cos nd3 bD3;dyd3=sin nd3 bD3;xD3=+- hc dxd3 0;yD3=+- vc dyd3 0;xAD3=+- xA3 0 xD3;yAD3=+- yA3 0 yD3;lAD3=mod xAD3 yAD3 0;a3=at2 yAD3 xAD3;dxF3=sin lFD a3;dyF3=cos lFD a3;xF3=+- xD3 dxF3 0;yF3=+- yD3 dyF3 0;xE3=+- xA3 0 dxF3;yE3=+- yA3 0 dyF3;yC3t=sin th a3;xC3t=cos th a3;yC3=+- yF3 yC3t 0;xC3=+- xF3 0 xC3t;yB3=+- yE3 yC3t 0;xB3=+- xE3 0 xC3t;swAng2=+- bA3 0 bD2;aA4=+- 4200000 0 ha;aD4=+- 4200000 ha 0;ta41=cos rw aA4;ta42=sin rh aA4;bA4=at2 ta41 ta42;cta4=cos rh bA4;sta4=sin rw bA4;ma4=mod cta4 sta4 0;na4=*/ rw rh ma4;dxa4=cos na4 bA4;dya4=sin na4 bA4;xA4=+- hc dxa4 0;yA4=+- vc dya4 0;td41=cos rw aD4;td42=sin rh aD4;bD4=at2 td41 td42;ctd4=cos rh bD4;std4=sin rw bD4;md4=mod ctd4 std4 0;nd4=*/ rw rh md4;dxd4=cos nd4 bD4;dyd4=sin nd4 bD4;xD4=+- hc dxd4 0;yD4=+- vc dyd4 0;xAD4=+- xA4 0 xD4;yAD4=+- yA4 0 yD4;lAD4=mod xAD4 yAD4 0;a4=at2 yAD4 xAD4;dxF4=sin lFD a4;dyF4=cos lFD a4;xF4=+- xD4 dxF4 0;yF4=+- yD4 dyF4 0;xE4=+- xA4 0 dxF4;yE4=+- yA4 0 dyF4;yC4t=sin th a4;xC4t=cos th a4;yC4=+- yF4 yC4t 0;xC4=+- xF4 0 xC4t;yB4=+- yE4 yC4t 0;xB4=+- xE4 0 xC4t;swAng3=+- bA4 0 bD3;aA5=+- 6600000 0 ha;aD5=+- 6600000 ha 0;ta51=cos rw aA5;ta52=sin rh aA5;bA5=at2 ta51 ta52;td51=cos rw aD5;td52=sin rh aD5;bD5=at2 td51 td52;xD5=+- w 0 xA4;xC5=+- w 0 xB4;xB5=+- w 0 xC4;swAng4=+- bA5 0 bD4;aD6=+- 9000000 ha 0;td61=cos rw aD6;td62=sin rh aD6;bD6=at2 td61 td62;xD6=+- w 0 xA3;xC6=+- w 0 xB3;xB6=+- w 0 xC3;aD7=+- 11400000 ha 0;td71=cos rw aD7;td72=sin rh aD7;bD7=at2 td71 td72;xD7=+- w 0 xA2;xC7=+- w 0 xB2;xB7=+- w 0 xC2;aD8=+- 13800000 ha 0;td81=cos rw aD8;td82=sin rh aD8;bD8=at2 td81 td82;xA8=+- w 0 xD1;xD8=+- w 0 xA1;xC8=+- w 0 xB1;xB8=+- w 0 xC1;aA9=+- 3cd4 0 ha;aD9=+- 3cd4 ha 0;td91=cos rw aD9;td92=sin rh aD9;bD9=at2 td91 td92;ctd9=cos rh bD9;std9=sin rw bD9;md9=mod ctd9 std9 0;nd9=*/ rw rh md9;dxd9=cos nd9 bD9;dyd9=sin nd9 bD9;xD9=+- hc dxd9 0;yD9=+- vc dyd9 0;ta91=cos rw aA9;ta92=sin rh aA9;bA9=at2 ta91 ta92;xA9=+- hc 0 dxd9;xF9=+- xD9 0 lFD;xE9=+- xA9 lFD 0;yC9=+- yD9 0 th;swAng5=+- bA9 0 bD8;xCxn1=+/ xB1 xC1 2;yCxn1=+/ yB1 yC1 2;xCxn2=+/ xB2 xC2 2;yCxn2=+/ yB2 yC2 2;xCxn3=+/ xB3 xC3 2;yCxn3=+/ yB3 yC3 2;xCxn4=+/ xB4 xC4 2;yCxn4=+/ yB4 yC4 2;xCxn5=+/ r 0 xCxn4;xCxn6=+/ r 0 xCxn3;xCxn7=+/ r 0 xCxn2;xCxn8=+/ r 0 xCxn1|,,,~M xA1 yA1;L xB1 yB1;L xC1 yC1;L xD1 yD1;A rw rh bD1 swAng1;L xB2 yB2;L xC2 yC2;L xD2 yD2;A rw rh bD2 swAng2;L xB3 yB3;L xC3 yC3;L xD3 yD3;A rw rh bD3 swAng3;L xB4 yB4;L xC4 yC4;L xD4 yD4;A rw rh bD4 swAng4;L xB5 yC4;L xC5 yB4;L xD5 yA4;A rw rh bD5 swAng3;L xB6 yC3;L xC6 yB3;L xD6 yA3;A rw rh bD6 swAng2;L xB7 yC2;L xC7 yB2;L xD7 yA2;A rw rh bD7 swAng1;L xB8 yC1;L xC8 yB1;L xD8 yA1;A rw rh bD8 swAng5;L xE9 yC9;L xF9 yC9;L xD9 yD9;A rw rh bD9 swAng5;Z|xA8 yD1 xD1 yD3",
+  halfFrame: "adj1=val 33333;adj2=val 33333|maxAdj2=*/ 100000 w ss;a2=pin 0 adj2 maxAdj2;x1=*/ ss a2 100000;g1=*/ h x1 w;g2=+- h 0 g1;maxAdj1=*/ 100000 g2 ss;a1=pin 0 adj1 maxAdj1;y1=*/ ss a1 100000;dx2=*/ y1 w h;x2=+- r 0 dx2;dy2=*/ x1 h w;y2=+- b 0 dy2;cx1=*/ x1 1 2;cy1=+/ y2 b 2;cx2=+/ x2 r 2;cy2=*/ y1 1 2|,,,~M l t;L r t;L x2 y1;L x1 y1;L x1 y2;L l b;Z|l t r b",
+  heart: "|dx1=*/ w 49 48;dx2=*/ w 10 48;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- t 0 hd3;il=*/ w 1 6;ir=*/ w 5 6;ib=*/ h 2 3|,,,~M hc hd4;C x3 y1 x4 hd4 hc b;C x1 hd4 x2 y1 hc hd4;Z|il hd4 ir ib",
+  heptagon: "hf=val 102572;vf=val 105210|swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=*/ swd2 97493 100000;dx2=*/ swd2 78183 100000;dx3=*/ swd2 43388 100000;dy1=*/ shd2 62349 100000;dy2=*/ shd2 22252 100000;dy3=*/ shd2 90097 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc dx3 0;x5=+- hc dx2 0;x6=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc dy2 0;y3=+- svc dy3 0;ib=+- b 0 y1|,,,~M x1 y2;L x2 y1;L hc t;L x5 y1;L x6 y2;L x4 y3;L x3 y3;Z|x2 y1 x5 ib",
+  hexagon: "adj=val 25000;vf=val 115470|maxAdj=*/ 50000 w ss;a=pin 0 adj maxAdj;shd2=*/ hd2 vf 100000;x1=*/ ss a 100000;x2=+- r 0 x1;dy1=sin shd2 3600000;y1=+- vc 0 dy1;y2=+- vc dy1 0;q1=*/ maxAdj -1 2;q2=+- a q1 0;q3=?: q2 4 2;q4=?: q2 3 2;q5=?: q2 q1 0;q6=+/ a q5 q1;q7=*/ q6 q4 -1;q8=+- q3 q7 0;il=*/ w q8 24;it=*/ h q8 24;ir=+- r 0 il;ib=+- b 0 it|,,,~M l vc;L x1 y1;L x2 y1;L r vc;L x2 y2;L x1 y2;Z|il it ir ib",
+  homePlate: "adj=val 50000|maxAdj=*/ 100000 w ss;a=pin 0 adj maxAdj;dx1=*/ ss a 100000;x1=+- r 0 dx1;ir=+/ x1 r 2;x2=*/ x1 1 2|,,,~M l t;L x1 t;L r vc;L x1 b;L l b;Z|l t ir b",
+  horizontalScroll: "adj=val 12500|a=pin 0 adj 25000;ch=*/ ss a 100000;ch2=*/ ch 1 2;ch4=*/ ch 1 4;y3=+- ch ch2 0;y4=+- ch ch 0;y6=+- b 0 ch;y7=+- b 0 ch2;y5=+- y6 0 ch2;x3=+- r 0 ch;x4=+- r 0 ch2|,,,false~M r ch2;A ch2 ch2 0 cd4;L x4 ch2;A ch4 ch4 0 cd2;L x3 ch;L ch2 ch;A ch2 ch2 3cd4 -5400000;L l y7;A ch2 ch2 cd2 -10800000;L ch y6;L x4 y6;A ch2 ch2 cd4 -5400000;Z;M ch2 y4;A ch2 ch2 cd4 -5400000;A ch4 ch4 0 -10800000;Z#,,darkenLess,false~M ch2 y4;A ch2 ch2 cd4 -5400000;A ch4 ch4 0 -10800000;Z;M x4 ch;A ch2 ch2 cd4 -16200000;A ch4 ch4 cd2 -10800000;Z#,,none,~M l y3;A ch2 ch2 cd2 cd4;L x3 ch;L x3 ch2;A ch2 ch2 cd2 cd2;L r y5;A ch2 ch2 0 cd4;L ch y6;L ch y7;A ch2 ch2 0 cd2;Z;M x3 ch;L x4 ch;A ch2 ch2 cd4 -5400000;M x4 ch;L x4 ch2;A ch4 ch4 0 cd2;M ch2 y4;L ch2 y3;A ch4 ch4 cd2 cd2;A ch2 ch2 0 cd2;M ch y3;L ch y6|ch ch x4 y6",
+  irregularSeal1: "|x5=*/ w 4627 21600;x12=*/ w 8485 21600;x21=*/ w 16702 21600;x24=*/ w 14522 21600;y3=*/ h 6320 21600;y6=*/ h 8615 21600;y9=*/ h 13937 21600;y18=*/ h 13290 21600|21600,21600,,~M 10800 5800;L 14522 0;L 14155 5325;L 18380 4457;L 16702 7315;L 21097 8137;L 17607 10475;L 21600 13290;L 16837 12942;L 18145 18095;L 14020 14457;L 13247 19737;L 10532 14935;L 8485 21600;L 7715 15627;L 4762 17617;L 5667 13937;L 135 14587;L 3722 11775;L 0 8615;L 4627 7617;L 370 2295;L 7312 6320;L 8352 2295;Z|x5 y3 x21 y9",
+  irregularSeal2: "|x2=*/ w 9722 21600;x5=*/ w 5372 21600;x16=*/ w 11612 21600;x19=*/ w 14640 21600;y2=*/ h 1887 21600;y3=*/ h 6382 21600;y8=*/ h 12877 21600;y14=*/ h 19712 21600;y16=*/ h 18842 21600;y17=*/ h 15935 21600;y24=*/ h 6645 21600|21600,21600,,~M 11462 4342;L 14790 0;L 14525 5777;L 18007 3172;L 16380 6532;L 21600 6645;L 16985 9402;L 18270 11290;L 16380 12310;L 18877 15632;L 14640 14350;L 14942 17370;L 12180 15935;L 11612 18842;L 9872 17370;L 8700 19712;L 7527 18125;L 4917 21600;L 4805 18240;L 1285 17825;L 3330 15370;L 0 12877;L 3935 11592;L 1172 8270;L 5372 7817;L 4502 3625;L 8550 6382;L 9722 1887;Z|x5 y3 x19 y17",
+  leftArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx2=*/ ss a2 100000;x2=+- l dx2 0;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;dx1=*/ y1 dx2 hd2;x1=+- x2  0 dx1|,,,~M l vc;L x2 t;L x2 y1;L r y1;L r y2;L x2 y2;L x2 b;Z|x1 y1 r y2",
+  leftArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 w ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss w;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dy1=*/ ss a2 100000;dy2=*/ ss a1 200000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;x1=*/ ss a3 100000;dx2=*/ w a4 100000;x2=+- r 0 dx2;x3=+/ x2 r 2|,,,~M l vc;L x1 y1;L x1 y2;L x2 y2;L x2 t;L r t;L r b;L x2 b;L x2 y3;L x1 y3;L x1 y4;Z|x2 t r b",
+  leftBrace: "adj1=val 8333;adj2=val 50000|a2=pin 0 adj2 100000;q1=+- 100000 0 a2;q2=min q1 a2;q3=*/ q2 1 2;maxAdj1=*/ q3 h ss;a1=pin 0 adj1 maxAdj1;y1=*/ ss a1 100000;y3=*/ h a2 100000;y4=+- y3 y1 0;dx1=cos wd2 2700000;dy1=sin y1 2700000;il=+- r 0 dx1;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M r b;A wd2 y1 cd4 cd4;L hc y4;A wd2 y1 0 -5400000;A wd2 y1 cd4 -5400000;L hc y1;A wd2 y1 cd2 cd4;Z#,,none,~M r b;A wd2 y1 cd4 cd4;L hc y4;A wd2 y1 0 -5400000;A wd2 y1 cd4 -5400000;L hc y1;A wd2 y1 cd2 cd4|il it r ib",
+  leftBracket: "adj=val 8333|maxAdj=*/ 50000 h ss;a=pin 0 adj maxAdj;y1=*/ ss a 100000;y2=+- b 0 y1;dx1=cos w 2700000;dy1=sin y1 2700000;il=+- r 0 dx1;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M r b;A w y1 cd4 cd4;L l y1;A w y1 cd2 cd4;Z#,,none,~M r b;A w y1 cd4 cd4;L l y1;A w y1 cd2 cd4|il it r ib",
+  leftCircularArrow: "adj1=val 12500;adj2=val -1142319;adj3=val 1142319;adj4=val 10800000;adj5=val 12500|a5=pin 0 adj5 25000;maxAdj1=*/ a5 2 1;a1=pin 0 adj1 maxAdj1;enAng=pin 1 adj3 21599999;stAng=pin 0 adj4 21599999;th=*/ ss a1 100000;thh=*/ ss a5 100000;th2=*/ th 1 2;rw1=+- wd2 th2 thh;rh1=+- hd2 th2 thh;rw2=+- rw1 0 th;rh2=+- rh1 0 th;rw3=+- rw2 th2 0;rh3=+- rh2 th2 0;wtH=sin rw3 enAng;htH=cos rh3 enAng;dxH=cat2 rw3 htH wtH;dyH=sat2 rh3 htH wtH;xH=+- hc dxH 0;yH=+- vc dyH 0;rI=min rw2 rh2;u1=*/ dxH dxH 1;u2=*/ dyH dyH 1;u3=*/ rI rI 1;u4=+- u1 0 u3;u5=+- u2 0 u3;u6=*/ u4 u5 u1;u7=*/ u6 1 u2;u8=+- 1 0 u7;u9=sqrt u8;u10=*/ u4 1 dxH;u11=*/ u10 1 dyH;u12=+/ 1 u9 u11;u13=at2 1 u12;u14=+- u13 21600000 0;u15=?: u13 u13 u14;u16=+- u15 0 enAng;u17=+- u16 21600000 0;u18=?: u16 u16 u17;u19=+- u18 0 cd2;u20=+- u18 0 21600000;u21=?: u19 u20 u18;u22=abs u21;minAng=*/ u22 -1 1;u23=abs adj2;a2=*/ u23 -1 1;aAng=pin minAng a2 0;ptAng=+- enAng aAng 0;wtA=sin rw3 ptAng;htA=cos rh3 ptAng;dxA=cat2 rw3 htA wtA;dyA=sat2 rh3 htA wtA;xA=+- hc dxA 0;yA=+- vc dyA 0;wtE=sin rw1 stAng;htE=cos rh1 stAng;dxE=cat2 rw1 htE wtE;dyE=sat2 rh1 htE wtE;xE=+- hc dxE 0;yE=+- vc dyE 0;wtD=sin rw2 stAng;htD=cos rh2 stAng;dxD=cat2 rw2 htD wtD;dyD=sat2 rh2 htD wtD;xD=+- hc dxD 0;yD=+- vc dyD 0;dxG=cos thh ptAng;dyG=sin thh ptAng;xG=+- xH dxG 0;yG=+- yH dyG 0;dxB=cos thh ptAng;dyB=sin thh ptAng;xB=+- xH 0 dxB 0;yB=+- yH 0 dyB 0;sx1=+- xB 0 hc;sy1=+- yB 0 vc;sx2=+- xG 0 hc;sy2=+- yG 0 vc;rO=min rw1 rh1;x1O=*/ sx1 rO rw1;y1O=*/ sy1 rO rh1;x2O=*/ sx2 rO rw1;y2O=*/ sy2 rO rh1;dxO=+- x2O 0 x1O;dyO=+- y2O 0 y1O;dO=mod dxO dyO 0;q1=*/ x1O y2O 1;q2=*/ x2O y1O 1;DO=+- q1 0 q2;q3=*/ rO rO 1;q4=*/ dO dO 1;q5=*/ q3 q4 1;q6=*/ DO DO 1;q7=+- q5 0 q6;q8=max q7 0;sdelO=sqrt q8;ndyO=*/ dyO -1 1;sdyO=?: ndyO -1 1;q9=*/ sdyO dxO 1;q10=*/ q9 sdelO 1;q11=*/ DO dyO 1;dxF1=+/ q11 q10 q4;q12=+- q11 0 q10;dxF2=*/ q12 1 q4;adyO=abs dyO;q13=*/ adyO sdelO 1;q14=*/ DO dxO -1;dyF1=+/ q14 q13 q4;q15=+- q14 0 q13;dyF2=*/ q15 1 q4;q16=+- x2O 0 dxF1;q17=+- x2O 0 dxF2;q18=+- y2O 0 dyF1;q19=+- y2O 0 dyF2;q20=mod q16 q18 0;q21=mod q17 q19 0;q22=+- q21 0 q20;dxF=?: q22 dxF1 dxF2;dyF=?: q22 dyF1 dyF2;sdxF=*/ dxF rw1 rO;sdyF=*/ dyF rh1 rO;xF=+- hc sdxF 0;yF=+- vc sdyF 0;x1I=*/ sx1 rI rw2;y1I=*/ sy1 rI rh2;x2I=*/ sx2 rI rw2;y2I=*/ sy2 rI rh2;dxI=+- x2I 0 x1I;dyI=+- y2I 0 y1I;dI=mod dxI dyI 0;v1=*/ x1I y2I 1;v2=*/ x2I y1I 1;DI=+- v1 0 v2;v3=*/ rI rI 1;v4=*/ dI dI 1;v5=*/ v3 v4 1;v6=*/ DI DI 1;v7=+- v5 0 v6;v8=max v7 0;sdelI=sqrt v8;v9=*/ sdyO dxI 1;v10=*/ v9 sdelI 1;v11=*/ DI dyI 1;dxC1=+/ v11 v10 v4;v12=+- v11 0 v10;dxC2=*/ v12 1 v4;adyI=abs dyI;v13=*/ adyI sdelI 1;v14=*/ DI dxI -1;dyC1=+/ v14 v13 v4;v15=+- v14 0 v13;dyC2=*/ v15 1 v4;v16=+- x1I 0 dxC1;v17=+- x1I 0 dxC2;v18=+- y1I 0 dyC1;v19=+- y1I 0 dyC2;v20=mod v16 v18 0;v21=mod v17 v19 0;v22=+- v21 0 v20;dxC=?: v22 dxC1 dxC2;dyC=?: v22 dyC1 dyC2;sdxC=*/ dxC rw2 rI;sdyC=*/ dyC rh2 rI;xC=+- hc sdxC 0;yC=+- vc sdyC 0;ist0=at2 sdxC sdyC;ist1=+- ist0 21600000 0;istAng0=?: ist0 ist0 ist1;isw1=+- stAng 0 istAng0;isw2=+- isw1 21600000 0;iswAng0=?: isw1 isw1 isw2;istAng=+- istAng0 iswAng0 0;iswAng=+- 0 0 iswAng0;p1=+- xF 0 xC;p2=+- yF 0 yC;p3=mod p1 p2 0;p4=*/ p3 1 2;p5=+- p4 0 thh;xGp=?: p5 xF xG;yGp=?: p5 yF yG;xBp=?: p5 xC xB;yBp=?: p5 yC yB;en0=at2 sdxF sdyF;en1=+- en0 21600000 0;en2=?: en0 en0 en1;sw0=+- en2 0 stAng;sw1=+- sw0 0 21600000;swAng=?: sw0 sw1 sw0;stAng0=+- stAng swAng 0;swAng0=+- 0 0 swAng;wtI=sin rw3 stAng;htI=cos rh3 stAng;dxI=cat2 rw3 htI wtI;dyI=sat2 rh3 htI wtI;xI=+- hc dxI 0;yI=+- vc dyI 0;aI=+- stAng cd4 0;aA=+- ptAng 0 cd4;aB=+- ptAng cd2 0;idx=cos rw1 2700000;idy=sin rh1 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xE yE;L xD yD;A rw2 rh2 istAng iswAng;L xBp yBp;L xA yA;L xGp yGp;L xF yF;A rw1 rh1 stAng0 swAng0;Z|il it ir ib",
+  leftRightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 50000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;x2=*/ ss a2 100000;x3=+- r 0 x2;dy=*/ h a1 200000;y1=+- vc 0 dy;y2=+- vc dy 0;dx1=*/ y1 x2 hd2;x1=+- x2 0 dx1;x4=+- x3 dx1 0|,,,~M l vc;L x2 t;L x2 y1;L x3 y1;L x3 t;L r vc;L x3 b;L x3 y2;L x2 y2;L x2 b;Z|x1 y1 x4 y2",
+  leftRightArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 48123|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 50000 w ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss wd2;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dy1=*/ ss a2 100000;dy2=*/ ss a1 200000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;x1=*/ ss a3 100000;x4=+- r 0 x1;dx2=*/ w a4 200000;x2=+- hc 0 dx2;x3=+- hc dx2 0|,,,~M l vc;L x1 y1;L x1 y2;L x2 y2;L x2 t;L x3 t;L x3 y2;L x4 y2;L x4 y1;L r vc;L x4 y4;L x4 y3;L x3 y3;L x3 b;L x2 b;L x2 y3;L x1 y3;L x1 y4;Z|x2 t x3 b",
+  leftRightCircularArrow: "adj1=val 12500;adj2=val 1142319;adj3=val 20457681;adj4=val 11942319;adj5=val 12500|a5=pin 0 adj5 25000;maxAdj1=*/ a5 2 1;a1=pin 0 adj1 maxAdj1;enAng=pin 1 adj3 21599999;stAng=pin 0 adj4 21599999;th=*/ ss a1 100000;thh=*/ ss a5 100000;th2=*/ th 1 2;rw1=+- wd2 th2 thh;rh1=+- hd2 th2 thh;rw2=+- rw1 0 th;rh2=+- rh1 0 th;rw3=+- rw2 th2 0;rh3=+- rh2 th2 0;wtH=sin rw3 enAng;htH=cos rh3 enAng;dxH=cat2 rw3 htH wtH;dyH=sat2 rh3 htH wtH;xH=+- hc dxH 0;yH=+- vc dyH 0;rI=min rw2 rh2;u1=*/ dxH dxH 1;u2=*/ dyH dyH 1;u3=*/ rI rI 1;u4=+- u1 0 u3;u5=+- u2 0 u3;u6=*/ u4 u5 u1;u7=*/ u6 1 u2;u8=+- 1 0 u7;u9=sqrt u8;u10=*/ u4 1 dxH;u11=*/ u10 1 dyH;u12=+/ 1 u9 u11;u13=at2 1 u12;u14=+- u13 21600000 0;u15=?: u13 u13 u14;u16=+- u15 0 enAng;u17=+- u16 21600000 0;u18=?: u16 u16 u17;u19=+- u18 0 cd2;u20=+- u18 0 21600000;u21=?: u19 u20 u18;maxAng=abs u21;aAng=pin 0 adj2 maxAng;ptAng=+- enAng aAng 0;wtA=sin rw3 ptAng;htA=cos rh3 ptAng;dxA=cat2 rw3 htA wtA;dyA=sat2 rh3 htA wtA;xA=+- hc dxA 0;yA=+- vc dyA 0;dxG=cos thh ptAng;dyG=sin thh ptAng;xG=+- xH dxG 0;yG=+- yH dyG 0;dxB=cos thh ptAng;dyB=sin thh ptAng;xB=+- xH 0 dxB 0;yB=+- yH 0 dyB 0;sx1=+- xB 0 hc;sy1=+- yB 0 vc;sx2=+- xG 0 hc;sy2=+- yG 0 vc;rO=min rw1 rh1;x1O=*/ sx1 rO rw1;y1O=*/ sy1 rO rh1;x2O=*/ sx2 rO rw1;y2O=*/ sy2 rO rh1;dxO=+- x2O 0 x1O;dyO=+- y2O 0 y1O;dO=mod dxO dyO 0;q1=*/ x1O y2O 1;q2=*/ x2O y1O 1;DO=+- q1 0 q2;q3=*/ rO rO 1;q4=*/ dO dO 1;q5=*/ q3 q4 1;q6=*/ DO DO 1;q7=+- q5 0 q6;q8=max q7 0;sdelO=sqrt q8;ndyO=*/ dyO -1 1;sdyO=?: ndyO -1 1;q9=*/ sdyO dxO 1;q10=*/ q9 sdelO 1;q11=*/ DO dyO 1;dxF1=+/ q11 q10 q4;q12=+- q11 0 q10;dxF2=*/ q12 1 q4;adyO=abs dyO;q13=*/ adyO sdelO 1;q14=*/ DO dxO -1;dyF1=+/ q14 q13 q4;q15=+- q14 0 q13;dyF2=*/ q15 1 q4;q16=+- x2O 0 dxF1;q17=+- x2O 0 dxF2;q18=+- y2O 0 dyF1;q19=+- y2O 0 dyF2;q20=mod q16 q18 0;q21=mod q17 q19 0;q22=+- q21 0 q20;dxF=?: q22 dxF1 dxF2;dyF=?: q22 dyF1 dyF2;sdxF=*/ dxF rw1 rO;sdyF=*/ dyF rh1 rO;xF=+- hc sdxF 0;yF=+- vc sdyF 0;x1I=*/ sx1 rI rw2;y1I=*/ sy1 rI rh2;x2I=*/ sx2 rI rw2;y2I=*/ sy2 rI rh2;dxI=+- x2I 0 x1I;dyI=+- y2I 0 y1I;dI=mod dxI dyI 0;v1=*/ x1I y2I 1;v2=*/ x2I y1I 1;DI=+- v1 0 v2;v3=*/ rI rI 1;v4=*/ dI dI 1;v5=*/ v3 v4 1;v6=*/ DI DI 1;v7=+- v5 0 v6;v8=max v7 0;sdelI=sqrt v8;v9=*/ sdyO dxI 1;v10=*/ v9 sdelI 1;v11=*/ DI dyI 1;dxC1=+/ v11 v10 v4;v12=+- v11 0 v10;dxC2=*/ v12 1 v4;adyI=abs dyI;v13=*/ adyI sdelI 1;v14=*/ DI dxI -1;dyC1=+/ v14 v13 v4;v15=+- v14 0 v13;dyC2=*/ v15 1 v4;v16=+- x1I 0 dxC1;v17=+- x1I 0 dxC2;v18=+- y1I 0 dyC1;v19=+- y1I 0 dyC2;v20=mod v16 v18 0;v21=mod v17 v19 0;v22=+- v21 0 v20;dxC=?: v22 dxC1 dxC2;dyC=?: v22 dyC1 dyC2;sdxC=*/ dxC rw2 rI;sdyC=*/ dyC rh2 rI;xC=+- hc sdxC 0;yC=+- vc sdyC 0;wtI=sin rw3 stAng;htI=cos rh3 stAng;dxI=cat2 rw3 htI wtI;dyI=sat2 rh3 htI wtI;xI=+- hc dxI 0;yI=+- vc dyI 0;lptAng=+- stAng 0 aAng;wtL=sin rw3 lptAng;htL=cos rh3 lptAng;dxL=cat2 rw3 htL wtL;dyL=sat2 rh3 htL wtL;xL=+- hc dxL 0;yL=+- vc dyL 0;dxK=cos thh lptAng;dyK=sin thh lptAng;xK=+- xI dxK 0;yK=+- yI dyK 0;dxJ=cos thh lptAng;dyJ=sin thh lptAng;xJ=+- xI 0 dxJ 0;yJ=+- yI 0 dyJ 0;p1=+- xF 0 xC;p2=+- yF 0 yC;p3=mod p1 p2 0;p4=*/ p3 1 2;p5=+- p4 0 thh;xGp=?: p5 xF xG;yGp=?: p5 yF yG;xBp=?: p5 xC xB;yBp=?: p5 yC yB;en0=at2 sdxF sdyF;en1=+- en0 21600000 0;en2=?: en0 en0 en1;od0=+- en2 0 enAng;od1=+- od0 21600000 0;od2=?: od0 od0 od1;st0=+- stAng 0 od2;st1=+- st0 21600000 0;st2=?: st0 st0 st1;sw0=+- en2 0 st2;sw1=+- sw0 21600000 0;swAng=?: sw0 sw0 sw1;ist0=at2 sdxC sdyC;ist1=+- ist0 21600000 0;istAng=?: ist0 ist0 ist1;id0=+- istAng 0 enAng;id1=+- id0 0 21600000;id2=?: id0 id1 id0;ien0=+- stAng 0 id2;ien1=+- ien0 0 21600000;ien2=?: ien1 ien1 ien0;isw1=+- ien2 0 istAng;isw2=+- isw1 0 21600000;iswAng=?: isw1 isw2 isw1;wtE=sin rw1 st2;htE=cos rh1 st2;dxE=cat2 rw1 htE wtE;dyE=sat2 rh1 htE wtE;xE=+- hc dxE 0;yE=+- vc dyE 0;wtD=sin rw2 ien2;htD=cos rh2 ien2;dxD=cat2 rw2 htD wtD;dyD=sat2 rh2 htD wtD;xD=+- hc dxD 0;yD=+- vc dyD 0;xKp=?: p5 xE xK;yKp=?: p5 yE yK;xJp=?: p5 xD xJ;yJp=?: p5 yD yJ;aL=+- lptAng 0 cd4;aA=+- ptAng cd4 0;aB=+- ptAng cd2 0;aJ=+- lptAng cd2 0;idx=cos rw1 2700000;idy=sin rh1 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xL yL;L xKp yKp;L xE yE;A rw1 rh1 st2 swAng;L xGp yGp;L xA yA;L xBp yBp;L xC yC;A rw2 rh2 istAng iswAng;L xJp yJp;Z|il it ir ib",
+  leftRightRibbon: "adj1=val 50000;adj2=val 50000;adj3=val 16667|a3=pin 0 adj3 33333;maxAdj1=+- 100000 0 a3;a1=pin 0 adj1 maxAdj1;w1=+- wd2 0 wd32;maxAdj2=*/ 100000 w1 ss;a2=pin 0 adj2 maxAdj2;x1=*/ ss a2 100000;x4=+- r 0 x1;dy1=*/ h a1 200000;dy2=*/ h a3 -200000;ly1=+- vc dy2 dy1;ry4=+- vc dy1 dy2;ly2=+- ly1 dy1 0;ry3=+- b 0 ly2;ly4=*/ ly2 2 1;ry1=+- b 0 ly4;ly3=+- ly4 0 ly1;ry2=+- b 0 ly3;hR=*/ a3 ss 400000;x2=+- hc 0 wd32;x3=+- hc wd32 0;y1=+- ly1 hR 0;y2=+- ry2 0 hR|,,,false~M l ly2;L x1 t;L x1 ly1;L hc ly1;A wd32 hR 3cd4 cd2;A wd32 hR 3cd4 -10800000;L x4 ry2;L x4 ry1;L r ry3;L x4 b;L x4 ry4;L hc ry4;A wd32 hR cd4 cd4;L x2 ly3;L x1 ly3;L x1 ly4;Z#,,darkenLess,false~M x3 y1;A wd32 hR 0 cd4;A wd32 hR 3cd4 -10800000;L x3 ry2;Z#,,none,~M l ly2;L x1 t;L x1 ly1;L hc ly1;A wd32 hR 3cd4 cd2;A wd32 hR 3cd4 -10800000;L x4 ry2;L x4 ry1;L r ry3;L x4 b;L x4 ry4;L hc ry4;A wd32 hR cd4 cd4;L x2 ly3;L x1 ly3;L x1 ly4;Z;M x3 y1;L x3 ry2;M x2 y2;L x2 ly3|x1 ly1 x4 ry4",
+  leftRightUpArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;q1=+- 100000 0 maxAdj1;maxAdj3=*/ q1 1 2;a3=pin 0 adj3 maxAdj3;x1=*/ ss a3 100000;dx2=*/ ss a2 100000;x2=+- hc 0 dx2;x5=+- hc dx2 0;dx3=*/ ss a1 200000;x3=+- hc 0 dx3;x4=+- hc dx3 0;x6=+- r 0 x1;dy2=*/ ss a2 50000;y2=+- b 0 dy2;y4=+- b 0 dx2;y3=+- y4 0 dx3;y5=+- y4 dx3 0;il=*/ dx3 x1 dx2;ir=+- r 0 il|,,,~M l y4;L x1 y2;L x1 y3;L x3 y3;L x3 x1;L x2 x1;L hc t;L x5 x1;L x4 x1;L x4 y3;L x6 y3;L x6 y2;L r y4;L x6 b;L x6 y5;L x1 y5;L x1 b;Z|il y3 ir y5",
+  leftUpArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=+- 100000 0 maxAdj1;a3=pin 0 adj3 maxAdj3;x1=*/ ss a3 100000;dx2=*/ ss a2 50000;x2=+- r 0 dx2;y2=+- b 0 dx2;dx4=*/ ss a2 100000;x4=+- r 0 dx4;y4=+- b 0 dx4;dx3=*/ ss a1 200000;x3=+- x4 0 dx3;x5=+- x4 dx3 0;y3=+- y4 0 dx3;y5=+- y4 dx3 0;il=*/ dx3 x1 dx4;cx1=+/ x1 x5 2;cy1=+/ x1 y5 2|,,,~M l y4;L x1 y2;L x1 y3;L x3 y3;L x3 x1;L x2 x1;L x4 t;L r x1;L x5 x1;L x5 y5;L x1 y5;L x1 b;Z|il y3 x4 y5",
+  lightningBolt: "|x1=*/ w 5022 21600;x3=*/ w 8472 21600;x4=*/ w 8757 21600;x5=*/ w 10012 21600;x8=*/ w 12860 21600;x9=*/ w 13917 21600;x11=*/ w 16577 21600;y1=*/ h 3890 21600;y2=*/ h 6080 21600;y4=*/ h 7437 21600;y6=*/ h 9705 21600;y7=*/ h 12007 21600;y10=*/ h 14277 21600;y11=*/ h 14915 21600|21600,21600,,~M 8472 0;L 12860 6080;L 11050 6797;L 16577 12007;L 14767 12877;L 21600 21600;L 10012 14915;L 12222 13987;L 5022 9705;L 7602 8382;L 0 3890;Z|x4 y4 x9 y10",
+  line: "||,,,~M l t;L r b|",
+  lineInv: "||,,,~M l b;L r t|",
+  mathDivide: "adj1=val 23520;adj2=val 5880;adj3=val 11760|a1=pin 1000 adj1 36745;ma1=+- 0 0 a1;ma3h=+/ 73490 ma1 4;ma3w=*/ 36745 w h;maxAdj3=min ma3h ma3w;a3=pin 1000 adj3 maxAdj3;m4a3=*/ -4 a3 1;maxAdj2=+- 73490 m4a3 a1;a2=pin 0 adj2 maxAdj2;dy1=*/ h a1 200000;yg=*/ h a2 100000;rad=*/ h a3 100000;dx1=*/ w 73490 200000;y3=+- vc 0 dy1;y4=+- vc dy1 0;a=+- yg rad 0;y2=+- y3 0 a;y1=+- y2 0 rad;y5=+- b 0 y1;x1=+- hc 0 dx1;x3=+- hc dx1 0;x2=+- hc 0 rad|,,,~M hc y1;A rad rad 3cd4 21600000;Z;M hc y5;A rad rad cd4 21600000;Z;M x1 y3;L x3 y3;L x3 y4;L x1 y4;Z|x1 y3 x3 y4",
+  mathEqual: "adj1=val 23520;adj2=val 11760|a1=pin 0 adj1 36745;2a1=*/ a1 2 1;mAdj2=+- 100000 0 2a1;a2=pin 0 adj2 mAdj2;dy1=*/ h a1 100000;dy2=*/ h a2 200000;dx1=*/ w 73490 200000;y2=+- vc 0 dy2;y3=+- vc dy2 0;y1=+- y2 0 dy1;y4=+- y3 dy1 0;x1=+- hc 0 dx1;x2=+- hc dx1 0;yC1=+/ y1 y2 2;yC2=+/ y3 y4 2|,,,~M x1 y1;L x2 y1;L x2 y2;L x1 y2;Z;M x1 y3;L x2 y3;L x2 y4;L x1 y4;Z|x1 y1 x2 y4",
+  mathMinus: "adj1=val 23520|a1=pin 0 adj1 100000;dy1=*/ h a1 200000;dx1=*/ w 73490 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;x1=+- hc 0 dx1;x2=+- hc dx1 0|,,,~M x1 y1;L x2 y1;L x2 y2;L x1 y2;Z|x1 y1 x2 y2",
+  mathMultiply: "adj1=val 23520|a1=pin 0 adj1 51965;th=*/ ss a1 100000;a=at2 w h;sa=sin 1 a;ca=cos 1 a;ta=tan 1 a;dl=mod w h 0;rw=*/ dl 51965 100000;lM=+- dl 0 rw;xM=*/ ca lM 2;yM=*/ sa lM 2;dxAM=*/ sa th 2;dyAM=*/ ca th 2;xA=+- xM 0 dxAM;yA=+- yM dyAM 0;xB=+- xM dxAM 0;yB=+- yM 0 dyAM;xBC=+- hc 0 xB;yBC=*/ xBC ta 1;yC=+- yBC yB 0;xD=+- r 0 xB;xE=+- r 0 xA;yFE=+- vc 0 yA;xFE=*/ yFE 1 ta;xF=+- xE 0 xFE;xL=+- xA xFE 0;yG=+- b 0 yA;yH=+- b 0 yB;yI=+- b 0 yC;xC2=+- r 0 xM;yC3=+- b 0 yM|,,,~M xA yA;L xB yB;L hc yC;L xD yB;L xE yA;L xF vc;L xE yG;L xD yH;L hc yI;L xB yH;L xA yG;L xL vc;Z|xA yB xE yH",
+  mathNotEqual: "adj1=val 23520;adj2=val 6600000;adj3=val 11760|a1=pin 0 adj1 50000;crAng=pin 4200000 adj2 6600000;2a1=*/ a1 2 1;maxAdj3=+- 100000 0 2a1;a3=pin 0 adj3 maxAdj3;dy1=*/ h a1 100000;dy2=*/ h a3 200000;dx1=*/ w 73490 200000;x1=+- hc 0 dx1;x8=+- hc dx1 0;y2=+- vc 0 dy2;y3=+- vc dy2 0;y1=+- y2 0 dy1;y4=+- y3 dy1 0;cadj2=+- crAng 0 cd4;xadj2=tan hd2 cadj2;len=mod xadj2 hd2 0;bhw=*/ len dy1 hd2;bhw2=*/ bhw 1 2;x7=+- hc xadj2 bhw2;dx67=*/ xadj2 y1 hd2;x6=+- x7 0 dx67;dx57=*/ xadj2 y2 hd2;x5=+- x7 0 dx57;dx47=*/ xadj2 y3 hd2;x4=+- x7 0 dx47;dx37=*/ xadj2 y4 hd2;x3=+- x7 0 dx37;dx27=*/ xadj2 2 1;x2=+- x7 0 dx27;rx7=+- x7 bhw 0;rx6=+- x6 bhw 0;rx5=+- x5 bhw 0;rx4=+- x4 bhw 0;rx3=+- x3 bhw 0;rx2=+- x2 bhw 0;dx7=*/ dy1 hd2 len;rxt=+- x7 dx7 0;lxt=+- rx7 0 dx7;rx=?: cadj2 rxt rx7;lx=?: cadj2 x7 lxt;dy3=*/ dy1 xadj2 len;dy4=+- 0 0 dy3;ry=?: cadj2 dy3 t;ly=?: cadj2 t dy4;dlx=+- w 0 rx;drx=+- w 0 lx;dly=+- h 0 ry;dry=+- h 0 ly;xC1=+/ rx lx 2;xC2=+/ drx dlx 2;yC1=+/ ry ly 2;yC2=+/ y1 y2 2;yC3=+/ y3 y4 2;yC4=+/ dry dly 2|,,,~M x1 y1;L x6 y1;L lx ly;L rx ry;L rx6 y1;L x8 y1;L x8 y2;L rx5 y2;L rx4 y3;L x8 y3;L x8 y4;L rx3 y4;L drx dry;L dlx dly;L x3 y4;L x1 y4;L x1 y3;L x4 y3;L x5 y2;L x1 y2;Z|x1 y1 x8 y4",
+  mathPlus: "adj1=val 23520|a1=pin 0 adj1 73490;dx1=*/ w 73490 200000;dy1=*/ h 73490 200000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dx2;y3=+- vc dx2 0;y4=+- vc dy1 0|,,,~M x1 y2;L x2 y2;L x2 y1;L x3 y1;L x3 y2;L x4 y2;L x4 y3;L x3 y3;L x3 y4;L x2 y4;L x2 y3;L x1 y3;Z|x1 y2 x4 y3",
+  moon: "adj=val 50000|a=pin 0 adj 87500;g0=*/ ss a 100000;g0w=*/ g0 w ss;g1=+- ss 0 g0;g2=*/ g0 g0 g1;g3=*/ ss ss g1;g4=*/ g3 2 1;g5=+- g4 0 g2;g6=+- g5 0 g0;g6w=*/ g6 w ss;g7=*/ g5 1 2;g8=+- g7 0 g0;dy1=*/ g8 hd2 ss;g10h=+- vc 0 dy1;g11h=+- vc dy1 0;g12=*/ g0 9598 32768;g12w=*/ g12 w ss;g13=+- ss 0 g12;q1=*/ ss ss 1;q2=*/ g13 g13 1;q3=+- q1 0 q2;q4=sqrt q3;dy4=*/ q4 hd2 ss;g15h=+- vc 0 dy4;g16h=+- vc dy4 0;g17w=+- g6w 0 g0w;g18w=*/ g17w 1 2;dx2p=+- g0w g18w w;dx2=*/ dx2p -1 1;dy2=*/ hd2 -1 1;stAng1=at2 dx2 dy2;enAngp1=at2 dx2 hd2;enAng1=+- enAngp1 0 21600000;swAng1=+- enAng1 0 stAng1|,,,~M r b;A w hd2 cd4 cd2;A g18w dy1 stAng1 swAng1;Z|g12w g15h g0w g16h",
+  noSmoking: "adj=val 18750|a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;ang=at2 w h;ct=cos ihd2 ang;st=sin iwd2 ang;m=mod ct st 0;n=*/ iwd2 ihd2 m;drd2=*/ dr 1 2;dang=at2 n drd2;dang2=*/ dang 2 1;swAng=+- -10800000 dang2 0;t3=at2 w h;stAng1=+- t3 0 dang;stAng2=+- stAng1 0 cd2;ct1=cos ihd2 stAng1;st1=sin iwd2 stAng1;m1=mod ct1 st1 0;n1=*/ iwd2 ihd2 m1;dx1=cos n1 stAng1;dy1=sin n1 stAng1;x1=+- hc dx1 0;y1=+- vc dy1 0;x2=+- hc 0 dx1;y2=+- vc 0 dy1;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z;M x1 y1;A iwd2 ihd2 stAng1 swAng;Z;M x2 y2;A iwd2 ihd2 stAng2 swAng;Z|il it ir ib",
+  nonIsoscelesTrapezoid: "adj1=val 25000;adj2=val 25000|maxAdj=*/ 50000 w ss;a1=pin 0 adj1 maxAdj;a2=pin 0 adj2 maxAdj;x1=*/ ss a1 200000;x2=*/ ss a1 100000;dx3=*/ ss a2 100000;x3=+- r 0 dx3;x4=+/ r x3 2;il=*/ wd3 a1 maxAdj;adjm=max a1 a2;it=*/ hd3 adjm maxAdj;irt=*/ wd3 a2 maxAdj;ir=+- r 0 irt|,,,~M l b;L x2 t;L x3 t;L r b;Z|il it ir b",
+  notchedRightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx2=*/ ss a2 100000;x2=+- r 0 dx2;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;x1=*/ dy1 dx2 hd2;x3=+- r 0 x1|,,,~M l y1;L x2 y1;L x2 t;L r vc;L x2 b;L x2 y2;L l y2;L x1 vc;Z|x1 y1 x3 y2",
+  octagon: "adj=val 29289|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 1 2;ir=+- r 0 il;ib=+- b 0 il|,,,~M l x1;L x1 t;L x2 t;L r x1;L r y2;L x2 b;L x1 b;L l y2;Z|il il ir ib",
+  parallelogram: "adj=val 25000|maxAdj=*/ 100000 w ss;a=pin 0 adj maxAdj;x1=*/ ss a 200000;x2=*/ ss a 100000;x6=+- r 0 x1;x5=+- r 0 x2;x3=*/ x5 1 2;x4=+- r 0 x3;il=*/ wd2 a maxAdj;q1=*/ 5 a maxAdj;q2=+/ 1 q1 12;il=*/ q2 w 1;it=*/ q2 h 1;ir=+- r 0 il;ib=+- b 0 it;q3=*/ h hc x2;y1=pin 0 q3 h;y2=+- b 0 y1|,,,~M l b;L x2 t;L r t;L x5 b;Z|il it ir ib",
+  pentagon: "hf=val 105146;vf=val 110557|swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=cos swd2 1080000;dx2=cos swd2 18360000;dy1=sin shd2 1080000;dy2=sin shd2 18360000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc 0 dy2;it=*/ y1 dx2 dx1|,,,~M x1 y1;L hc t;L x4 y1;L x3 y2;L x2 y2;Z|x2 it x3 y2",
+  pie: "adj1=val 0;adj2=val 16200000|stAng=pin 0 adj1 21599999;enAng=pin 0 adj2 21599999;sw1=+- enAng 0 stAng;sw2=+- sw1 21600000 0;swAng=?: sw1 sw1 sw2;wt1=sin wd2 stAng;ht1=cos hd2 stAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;x1=+- hc dx1 0;y1=+- vc dy1 0;wt2=sin wd2 enAng;ht2=cos hd2 enAng;dx2=cat2 wd2 ht2 wt2;dy2=sat2 hd2 ht2 wt2;x2=+- hc dx2 0;y2=+- vc dy2 0;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M x1 y1;A wd2 hd2 stAng swAng;L hc vc;Z|il it ir ib",
+  pieWedge: "|g1=cos w 13500000;g2=sin h 13500000;x1=+- r g1 0;y1=+- b g2 0|,,,~M l b;A w h cd2 cd4;L r b;Z|x1 y1 r b",
+  plaque: "adj=val 16667|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 70711 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l x1;A x1 x1 cd4 -5400000;L x2 t;A x1 x1 cd2 -5400000;L r y2;A x1 x1 3cd4 -5400000;L x1 b;A x1 x1 0 -5400000;Z|il il ir ib",
+  plaqueTabs: "|md=mod w h 0;dx=*/ 1 md 20;y1=+- 0 b dx;x1=+- 0 r dx|,,,~M l t;L dx t;A dx dx 0 cd4;Z#,,,~M l y1;A dx dx 3cd4 cd4;L l b;Z#,,,~M r t;L r dx;A dx dx cd4 cd4;Z#,,,~M x1 b;A dx dx cd2 cd4;L r b;Z|dx dx x1 y1",
+  plus: "adj=val 25000|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;d=+- w 0 h;il=?: d l x1;ir=?: d r x2;it=?: d x1 t;ib=?: d y2 b|,,,~M l x1;L x1 x1;L x1 t;L x2 t;L x2 x1;L r x1;L r y2;L x2 y2;L x2 b;L x1 b;L x1 y2;L l y2;Z|il it ir ib",
+  quadArrow: "adj1=val 22500;adj2=val 22500;adj3=val 22500|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;q1=+- 100000 0 maxAdj1;maxAdj3=*/ q1 1 2;a3=pin 0 adj3 maxAdj3;x1=*/ ss a3 100000;dx2=*/ ss a2 100000;x2=+- hc 0 dx2;x5=+- hc dx2 0;dx3=*/ ss a1 200000;x3=+- hc 0 dx3;x4=+- hc dx3 0;x6=+- r 0 x1;y2=+- vc 0 dx2;y5=+- vc dx2 0;y3=+- vc 0 dx3;y4=+- vc dx3 0;y6=+- b 0 x1;il=*/ dx3 x1 dx2;ir=+- r 0 il|,,,~M l vc;L x1 y2;L x1 y3;L x3 y3;L x3 x1;L x2 x1;L hc t;L x5 x1;L x4 x1;L x4 y3;L x6 y3;L x6 y2;L r vc;L x6 y5;L x6 y4;L x4 y4;L x4 y6;L x5 y6;L hc b;L x2 y6;L x3 y6;L x3 y4;L x1 y4;L x1 y5;Z|il y3 ir y4",
+  quadArrowCallout: "adj1=val 18515;adj2=val 18515;adj3=val 18515;adj4=val 48123|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=+- 50000 0 a2;a3=pin 0 adj3 maxAdj3;q2=*/ a3 2 1;maxAdj4=+- 100000 0 q2;a4=pin a1 adj4 maxAdj4;dx2=*/ ss a2 100000;dx3=*/ ss a1 200000;ah=*/ ss a3 100000;dx1=*/ w a4 200000;dy1=*/ h a4 200000;x8=+- r 0 ah;x2=+- hc 0 dx1;x7=+- hc dx1 0;x3=+- hc 0 dx2;x6=+- hc dx2 0;x4=+- hc 0 dx3;x5=+- hc dx3 0;y8=+- b 0 ah;y2=+- vc 0 dy1;y7=+- vc dy1 0;y3=+- vc 0 dx2;y6=+- vc dx2 0;y4=+- vc 0 dx3;y5=+- vc dx3 0|,,,~M l vc;L ah y3;L ah y4;L x2 y4;L x2 y2;L x4 y2;L x4 ah;L x3 ah;L hc t;L x6 ah;L x5 ah;L x5 y2;L x7 y2;L x7 y4;L x8 y4;L x8 y3;L r vc;L x8 y6;L x8 y5;L x7 y5;L x7 y7;L x5 y7;L x5 y8;L x6 y8;L hc b;L x3 y8;L x4 y8;L x4 y7;L x2 y7;L x2 y5;L ah y5;L ah y6;Z|x2 y2 x7 y7",
+  rect: "||,,,~M l t;L r t;L r b;L l b;Z|l t r b",
+  ribbon: "adj1=val 16667;adj2=val 50000|a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;x10=+- r 0 wd8;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x9=+- hc dx2 0;x3=+- x2 wd32 0;x8=+- x9 0 wd32;x5=+- x2 wd8 0;x6=+- x9 0 wd8;x4=+- x5 0 wd32;x7=+- x6 wd32 0;y1=*/ h a1 200000;y2=*/ h a1 100000;y4=+- b 0 y2;y3=*/ y4 1 2;hR=*/ h a1 400000;y5=+- b 0 hR;y6=+- y2 0 hR|,,,false~M l t;L x4 t;A wd32 hR 3cd4 cd2;L x3 y1;A wd32 hR 3cd4 -10800000;L x8 y2;A wd32 hR cd4 -10800000;L x7 y1;A wd32 hR cd4 cd2;L r t;L x10 y3;L r y4;L x9 y4;L x9 y5;A wd32 hR 0 cd4;L x3 b;A wd32 hR cd4 cd4;L x2 y4;L l y4;L wd8 y3;Z#,,darkenLess,false~M x5 hR;A wd32 hR 0 cd4;L x3 y1;A wd32 hR 3cd4 -10800000;L x5 y2;Z;M x6 hR;A wd32 hR cd2 -5400000;L x8 y1;A wd32 hR 3cd4 cd2;L x6 y2;Z#,,none,~M l t;L x4 t;A wd32 hR 3cd4 cd2;L x3 y1;A wd32 hR 3cd4 -10800000;L x8 y2;A wd32 hR cd4 -10800000;L x7 y1;A wd32 hR cd4 cd2;L r t;L x10 y3;L r y4;L x9 y4;L x9 y5;A wd32 hR 0 cd4;L x3 b;A wd32 hR cd4 cd4;L x2 y4;L l y4;L wd8 y3;Z;M x5 hR;L x5 y2;M x6 y2;L x6 hR;M x2 y4;L x2 y6;M x9 y6;L x9 y4|x2 y2 x9 b",
+  ribbon2: "adj1=val 16667;adj2=val 50000|a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;x10=+- r 0 wd8;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x9=+- hc dx2 0;x3=+- x2 wd32 0;x8=+- x9 0 wd32;x5=+- x2 wd8 0;x6=+- x9 0 wd8;x4=+- x5 0 wd32;x7=+- x6 wd32 0;dy1=*/ h a1 200000;y1=+- b 0 dy1;dy2=*/ h a1 100000;y2=+- b 0 dy2;y4=+- t dy2 0;y3=+/ y4 b 2;hR=*/ h a1 400000;y6=+- b 0 hR;y7=+- y1 0 hR|,,,false~M l b;L x4 b;A wd32 hR cd4 -10800000;L x3 y1;A wd32 hR cd4 cd2;L x8 y2;A wd32 hR 3cd4 cd2;L x7 y1;A wd32 hR 3cd4 -10800000;L r b;L x10 y3;L r y4;L x9 y4;L x9 hR;A wd32 hR 0 -5400000;L x3 t;A wd32 hR 3cd4 -5400000;L x2 y4;L l y4;L wd8 y3;Z#,,darkenLess,false~M x5 y6;A wd32 hR 0 -5400000;L x3 y1;A wd32 hR cd4 cd2;L x5 y2;Z;M x6 y6;A wd32 hR cd2 cd4;L x8 y1;A wd32 hR cd4 -10800000;L x6 y2;Z#,,none,~M l b;L wd8 y3;L l y4;L x2 y4;L x2 hR;A wd32 hR cd2 cd4;L x8 t;A wd32 hR 3cd4 cd4;L x9 y4;L x9 y4;L r y4;L x10 y3;L r b;L x7 b;A wd32 hR cd4 cd2;L x8 y1;A wd32 hR cd4 -10800000;L x3 y2;A wd32 hR 3cd4 -10800000;L x4 y1;A wd32 hR 3cd4 cd2;Z;M x5 y2;L x5 y6;M x6 y6;L x6 y2;M x2 y7;L x2 y4;M x9 y4;L x9 y7|x2 t x9 y2",
+  rightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx1=*/ ss a2 100000;x1=+- r 0 dx1;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;dx2=*/ y1 dx1 hd2;x2=+- x1 dx2 0|,,,~M l y1;L x1 y1;L x1 t;L r vc;L x1 b;L x1 y2;L l y2;Z|l y1 x2 y2",
+  rightArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 w ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss w;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dy1=*/ ss a2 100000;dy2=*/ ss a1 200000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;dx3=*/ ss a3 100000;x3=+- r 0 dx3;x2=*/ w a4 100000;x1=*/ x2 1 2|,,,~M l t;L x2 t;L x2 y2;L x3 y2;L x3 y1;L r vc;L x3 y4;L x3 y3;L x2 y3;L x2 b;L l b;Z|l t x2 b",
+  rightBrace: "adj1=val 8333;adj2=val 50000|a2=pin 0 adj2 100000;q1=+- 100000 0 a2;q2=min q1 a2;q3=*/ q2 1 2;maxAdj1=*/ q3 h ss;a1=pin 0 adj1 maxAdj1;y1=*/ ss a1 100000;y3=*/ h a2 100000;y2=+- y3 0 y1;y4=+- b 0 y1;dx1=cos wd2 2700000;dy1=sin y1 2700000;ir=+- l dx1 0;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M l t;A wd2 y1 3cd4 cd4;L hc y2;A wd2 y1 cd2 -5400000;A wd2 y1 3cd4 -5400000;L hc y4;A wd2 y1 0 cd4;Z#,,none,~M l t;A wd2 y1 3cd4 cd4;L hc y2;A wd2 y1 cd2 -5400000;A wd2 y1 3cd4 -5400000;L hc y4;A wd2 y1 0 cd4|l it ir ib",
+  rightBracket: "adj=val 8333|maxAdj=*/ 50000 h ss;a=pin 0 adj maxAdj;y1=*/ ss a 100000;y2=+- b 0 y1;dx1=cos w 2700000;dy1=sin y1 2700000;ir=+- l dx1 0;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M l t;A w y1 3cd4 cd4;L r y2;A w y1 0 cd4;Z#,,none,~M l t;A w y1 3cd4 cd4;L r y2;A w y1 0 cd4|l it ir ib",
+  round1Rect: "adj=val 16667|a=pin 0 adj 50000;dx1=*/ ss a 100000;x1=+- r 0 dx1;idx=*/ dx1 29289 100000;ir=+- r 0 idx|,,,~M l t;L x1 t;A dx1 dx1 3cd4 cd4;L r b;L l b;Z|l t ir b",
+  round2DiagRect: "adj1=val 16667;adj2=val 0|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;x1=*/ ss a1 100000;y1=+- b 0 x1;a=*/ ss a2 100000;x2=+- r 0 a;y2=+- b 0 a;dx1=*/ x1 29289 100000;dx2=*/ a 29289 100000;d=+- dx1 0 dx2;dx=?: d dx1 dx2;ir=+- r 0 dx;ib=+- b 0 dx|,,,~M x1 t;L x2 t;A a a 3cd4 cd4;L r y1;A x1 x1 0 cd4;L a b;A a a cd4 cd4;L l x1;A x1 x1 cd2 cd4;Z|dx dx ir ib",
+  round2SameRect: "adj1=val 16667;adj2=val 0|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;tx1=*/ ss a1 100000;tx2=+- r 0 tx1;bx1=*/ ss a2 100000;bx2=+- r 0 bx1;by1=+- b 0 bx1;d=+- tx1 0 bx1;tdx=*/ tx1 29289 100000;bdx=*/ bx1 29289 100000;il=?: d tdx bdx;ir=+- r 0 il;ib=+- b 0 bdx|,,,~M tx1 t;L tx2 t;A tx1 tx1 3cd4 cd4;L r by1;A bx1 bx1 0 cd4;L bx1 b;A bx1 bx1 cd4 cd4;L l tx1;A tx1 tx1 cd2 cd4;Z|il tdx ir ib",
+  roundRect: "adj=val 16667|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l x1;A x1 x1 cd2 cd4;L x2 t;A x1 x1 3cd4 cd4;L r y2;A x1 x1 0 cd4;L x1 b;A x1 x1 cd4 cd4;Z|il il ir ib",
+  rtTriangle: "|it=*/ h 7 12;ir=*/ w 7 12;ib=*/ h 11 12|,,,~M l b;L l t;L r b;Z|wd12 it ir ib",
+  smileyFace: "adj=val 4653|a=pin -4653 adj 4653;x1=*/ w 4969 21699;x2=*/ w 6215 21600;x3=*/ w 13135 21600;x4=*/ w 16640 21600;y1=*/ h 7570 21600;y3=*/ h 16515 21600;dy2=*/ h a 100000;y2=+- y3 0 dy2;y4=+- y3 dy2 0;dy3=*/ h a 50000;y5=+- y4 dy3 0;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0;wR=*/ w 1125 21600;hR=*/ h 1125 21600|,,,false~M l vc;A wd2 hd2 cd2 21600000;Z#,,darkenLess,~M x2 y1;A wR hR cd2 21600000;M x3 y1;A wR hR cd2 21600000#,,none,~M x1 y2;Q hc y5 x4 y2#,,none,~M l vc;A wd2 hd2 cd2 21600000;Z|il it ir ib",
+  snip1Rect: "adj=val 16667|a=pin 0 adj 50000;dx1=*/ ss a 100000;x1=+- r 0 dx1;it=*/ dx1 1 2;ir=+/ x1 r 2|,,,~M l t;L x1 t;L r dx1;L r b;L l b;Z|l it ir b",
+  snip2DiagRect: "adj1=val 0;adj2=val 16667|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;lx1=*/ ss a1 100000;lx2=+- r 0 lx1;ly1=+- b 0 lx1;rx1=*/ ss a2 100000;rx2=+- r 0 rx1;ry1=+- b 0 rx1;d=+- lx1 0 rx1;dx=?: d lx1 rx1;il=*/ dx 1 2;ir=+- r 0 il;ib=+- b 0 il|,,,~M lx1 t;L rx2 t;L r rx1;L r ly1;L lx2 b;L rx1 b;L l ry1;L l lx1;Z|il il ir ib",
+  snip2SameRect: "adj1=val 16667;adj2=val 0|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;tx1=*/ ss a1 100000;tx2=+- r 0 tx1;bx1=*/ ss a2 100000;bx2=+- r 0 bx1;by1=+- b 0 bx1;d=+- tx1 0 bx1;dx=?: d tx1 bx1;il=*/ dx 1 2;ir=+- r 0 il;it=*/ tx1 1 2;ib=+/ by1 b 2|,,,~M tx1 t;L tx2 t;L r tx1;L r by1;L bx2 b;L bx1 b;L l by1;L l tx1;Z|il it ir ib",
+  snipRoundRect: "adj1=val 16667;adj2=val 16667|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;x1=*/ ss a1 100000;dx2=*/ ss a2 100000;x2=+- r 0 dx2;il=*/ x1 29289 100000;ir=+/ x2 r 2|,,,~M x1 t;L x2 t;L r dx2;L r b;L l b;L l x1;A x1 x1 cd2 cd4;Z|il il ir b",
+  squareTabs: "|md=mod w h 0;dx=*/ 1 md 20;y1=+- 0 b dx;x1=+- 0 r dx|,,,~M l t;L dx t;L dx dx;L l dx;Z#,,,~M l y1;L dx y1;L dx b;L l b;Z#,,,~M x1 t;L r t;L r dx;L x1 dx;Z#,,,~M x1 y1;L r y1;L r b;L x1 b;Z|dx dx x1 y1",
+  star10: "adj=val 42533;hf=val 105146|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;dx1=*/ swd2 95106 100000;dx2=*/ swd2 58779 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;dy1=*/ hd2 80902 100000;dy2=*/ hd2 30902 100000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;iwd2=*/ swd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 80902 100000;sdx2=*/ iwd2 30902 100000;sdy1=*/ ihd2 95106 100000;sdy2=*/ ihd2 58779 100000;sx1=+- hc 0 iwd2;sx2=+- hc 0 sdx1;sx3=+- hc 0 sdx2;sx4=+- hc sdx2 0;sx5=+- hc sdx1 0;sx6=+- hc iwd2 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc sdy2 0;sy4=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M x1 y2;L sx2 sy2;L x2 y1;L sx3 sy1;L hc t;L sx4 sy1;L x3 y1;L sx5 sy2;L x4 y2;L sx6 vc;L x4 y3;L sx5 sy3;L x3 y4;L sx4 sy4;L hc b;L sx3 sy4;L x2 y4;L sx2 sy3;L x1 y3;L sx1 vc;Z|sx2 sy2 sx5 sy3",
+  star12: "adj=val 37500|a=pin 0 adj 50000;dx1=cos wd2 1800000;dy1=sin hd2 3600000;x1=+- hc 0 dx1;x3=*/ w 3 4;x4=+- hc dx1 0;y1=+- vc 0 dy1;y3=*/ h 3 4;y4=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=cos iwd2 900000;sdx2=cos iwd2 2700000;sdx3=cos iwd2 4500000;sdy1=sin ihd2 4500000;sdy2=sin ihd2 2700000;sdy3=sin ihd2 900000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc sdx3 0;sx5=+- hc sdx2 0;sx6=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc sdy3 0;sy5=+- vc sdy2 0;sy6=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy3;L x1 hd4;L sx2 sy2;L wd4 y1;L sx3 sy1;L hc t;L sx4 sy1;L x3 y1;L sx5 sy2;L x4 hd4;L sx6 sy3;L r vc;L sx6 sy4;L x4 y3;L sx5 sy5;L x3 y4;L sx4 sy6;L hc b;L sx3 sy6;L wd4 y4;L sx2 sy5;L x1 y3;L sx1 sy4;Z|sx2 sy2 sx5 sy5",
+  star16: "adj=val 37500|a=pin 0 adj 50000;dx1=*/ wd2 92388 100000;dx2=*/ wd2 70711 100000;dx3=*/ wd2 38268 100000;dy1=*/ hd2 92388 100000;dy2=*/ hd2 70711 100000;dy3=*/ hd2 38268 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc dx3 0;x5=+- hc dx2 0;x6=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc 0 dy3;y4=+- vc dy3 0;y5=+- vc dy2 0;y6=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 98079 100000;sdx2=*/ iwd2 83147 100000;sdx3=*/ iwd2 55557 100000;sdx4=*/ iwd2 19509 100000;sdy1=*/ ihd2 98079 100000;sdy2=*/ ihd2 83147 100000;sdy3=*/ ihd2 55557 100000;sdy4=*/ ihd2 19509 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc 0 sdx4;sx5=+- hc sdx4 0;sx6=+- hc sdx3 0;sx7=+- hc sdx2 0;sx8=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc 0 sdy4;sy5=+- vc sdy4 0;sy6=+- vc sdy3 0;sy7=+- vc sdy2 0;sy8=+- vc sdy1 0;idx=cos iwd2 2700000;idy=sin ihd2 2700000;il=+- hc 0 idx;it=+- vc 0 idy;ir=+- hc idx 0;ib=+- vc idy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy4;L x1 y3;L sx2 sy3;L x2 y2;L sx3 sy2;L x3 y1;L sx4 sy1;L hc t;L sx5 sy1;L x4 y1;L sx6 sy2;L x5 y2;L sx7 sy3;L x6 y3;L sx8 sy4;L r vc;L sx8 sy5;L x6 y4;L sx7 sy6;L x5 y5;L sx6 sy7;L x4 y6;L sx5 sy8;L hc b;L sx4 sy8;L x3 y6;L sx3 sy7;L x2 y5;L sx2 sy6;L x1 y4;L sx1 sy5;Z|il it ir ib",
+  star24: "adj=val 37500|a=pin 0 adj 50000;dx1=cos wd2 900000;dx2=cos wd2 1800000;dx3=cos wd2 2700000;dx4=val wd4;dx5=cos wd2 4500000;dy1=sin hd2 4500000;dy2=sin hd2 3600000;dy3=sin hd2 2700000;dy4=val hd4;dy5=sin hd2 900000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc 0 dx4;x5=+- hc 0 dx5;x6=+- hc dx5 0;x7=+- hc dx4 0;x8=+- hc dx3 0;x9=+- hc dx2 0;x10=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc 0 dy3;y4=+- vc 0 dy4;y5=+- vc 0 dy5;y6=+- vc dy5 0;y7=+- vc dy4 0;y8=+- vc dy3 0;y9=+- vc dy2 0;y10=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 99144 100000;sdx2=*/ iwd2 92388 100000;sdx3=*/ iwd2 79335 100000;sdx4=*/ iwd2 60876 100000;sdx5=*/ iwd2 38268 100000;sdx6=*/ iwd2 13053 100000;sdy1=*/ ihd2 99144 100000;sdy2=*/ ihd2 92388 100000;sdy3=*/ ihd2 79335 100000;sdy4=*/ ihd2 60876 100000;sdy5=*/ ihd2 38268 100000;sdy6=*/ ihd2 13053 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc 0 sdx4;sx5=+- hc 0 sdx5;sx6=+- hc 0 sdx6;sx7=+- hc sdx6 0;sx8=+- hc sdx5 0;sx9=+- hc sdx4 0;sx10=+- hc sdx3 0;sx11=+- hc sdx2 0;sx12=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc 0 sdy4;sy5=+- vc 0 sdy5;sy6=+- vc 0 sdy6;sy7=+- vc sdy6 0;sy8=+- vc sdy5 0;sy9=+- vc sdy4 0;sy10=+- vc sdy3 0;sy11=+- vc sdy2 0;sy12=+- vc sdy1 0;idx=cos iwd2 2700000;idy=sin ihd2 2700000;il=+- hc 0 idx;it=+- vc 0 idy;ir=+- hc idx 0;ib=+- vc idy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy6;L x1 y5;L sx2 sy5;L x2 y4;L sx3 sy4;L x3 y3;L sx4 sy3;L x4 y2;L sx5 sy2;L x5 y1;L sx6 sy1;L hc t;L sx7 sy1;L x6 y1;L sx8 sy2;L x7 y2;L sx9 sy3;L x8 y3;L sx10 sy4;L x9 y4;L sx11 sy5;L x10 y5;L sx12 sy6;L r vc;L sx12 sy7;L x10 y6;L sx11 sy8;L x9 y7;L sx10 sy9;L x8 y8;L sx9 sy10;L x7 y9;L sx8 sy11;L x6 y10;L sx7 sy12;L hc b;L sx6 sy12;L x5 y10;L sx5 sy11;L x4 y9;L sx4 sy10;L x3 y8;L sx3 sy9;L x2 y7;L sx2 sy8;L x1 y6;L sx1 sy7;Z|il it ir ib",
+  star32: "adj=val 37500|a=pin 0 adj 50000;dx1=*/ wd2 98079 100000;dx2=*/ wd2 92388 100000;dx3=*/ wd2 83147 100000;dx4=cos wd2 2700000;dx5=*/ wd2 55557 100000;dx6=*/ wd2 38268 100000;dx7=*/ wd2 19509 100000;dy1=*/ hd2 98079 100000;dy2=*/ hd2 92388 100000;dy3=*/ hd2 83147 100000;dy4=sin hd2 2700000;dy5=*/ hd2 55557 100000;dy6=*/ hd2 38268 100000;dy7=*/ hd2 19509 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc 0 dx4;x5=+- hc 0 dx5;x6=+- hc 0 dx6;x7=+- hc 0 dx7;x8=+- hc dx7 0;x9=+- hc dx6 0;x10=+- hc dx5 0;x11=+- hc dx4 0;x12=+- hc dx3 0;x13=+- hc dx2 0;x14=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc 0 dy3;y4=+- vc 0 dy4;y5=+- vc 0 dy5;y6=+- vc 0 dy6;y7=+- vc 0 dy7;y8=+- vc dy7 0;y9=+- vc dy6 0;y10=+- vc dy5 0;y11=+- vc dy4 0;y12=+- vc dy3 0;y13=+- vc dy2 0;y14=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 99518 100000;sdx2=*/ iwd2 95694 100000;sdx3=*/ iwd2 88192 100000;sdx4=*/ iwd2 77301 100000;sdx5=*/ iwd2 63439 100000;sdx6=*/ iwd2 47140 100000;sdx7=*/ iwd2 29028 100000;sdx8=*/ iwd2 9802 100000;sdy1=*/ ihd2 99518 100000;sdy2=*/ ihd2 95694 100000;sdy3=*/ ihd2 88192 100000;sdy4=*/ ihd2 77301 100000;sdy5=*/ ihd2 63439 100000;sdy6=*/ ihd2 47140 100000;sdy7=*/ ihd2 29028 100000;sdy8=*/ ihd2 9802 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc 0 sdx4;sx5=+- hc 0 sdx5;sx6=+- hc 0 sdx6;sx7=+- hc 0 sdx7;sx8=+- hc 0 sdx8;sx9=+- hc sdx8 0;sx10=+- hc sdx7 0;sx11=+- hc sdx6 0;sx12=+- hc sdx5 0;sx13=+- hc sdx4 0;sx14=+- hc sdx3 0;sx15=+- hc sdx2 0;sx16=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc 0 sdy4;sy5=+- vc 0 sdy5;sy6=+- vc 0 sdy6;sy7=+- vc 0 sdy7;sy8=+- vc 0 sdy8;sy9=+- vc sdy8 0;sy10=+- vc sdy7 0;sy11=+- vc sdy6 0;sy12=+- vc sdy5 0;sy13=+- vc sdy4 0;sy14=+- vc sdy3 0;sy15=+- vc sdy2 0;sy16=+- vc sdy1 0;idx=cos iwd2 2700000;idy=sin ihd2 2700000;il=+- hc 0 idx;it=+- vc 0 idy;ir=+- hc idx 0;ib=+- vc idy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy8;L x1 y7;L sx2 sy7;L x2 y6;L sx3 sy6;L x3 y5;L sx4 sy5;L x4 y4;L sx5 sy4;L x5 y3;L sx6 sy3;L x6 y2;L sx7 sy2;L x7 y1;L sx8 sy1;L hc t;L sx9 sy1;L x8 y1;L sx10 sy2;L x9 y2;L sx11 sy3;L x10 y3;L sx12 sy4;L x11 y4;L sx13 sy5;L x12 y5;L sx14 sy6;L x13 y6;L sx15 sy7;L x14 y7;L sx16 sy8;L r vc;L sx16 sy9;L x14 y8;L sx15 sy10;L x13 y9;L sx14 sy11;L x12 y10;L sx13 sy12;L x11 y11;L sx12 sy13;L x10 y12;L sx11 sy14;L x9 y13;L sx10 sy15;L x8 y14;L sx9 sy16;L hc b;L sx8 sy16;L x7 y14;L sx7 sy15;L x6 y13;L sx6 sy14;L x5 y12;L sx5 sy13;L x4 y11;L sx4 sy12;L x3 y10;L sx3 sy11;L x2 y9;L sx2 sy10;L x1 y8;L sx1 sy9;Z|il it ir ib",
+  star4: "adj=val 12500|a=pin 0 adj 50000;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx=cos iwd2 2700000;sdy=sin ihd2 2700000;sx1=+- hc 0 sdx;sx2=+- hc sdx 0;sy1=+- vc 0 sdy;sy2=+- vc sdy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy1;L hc t;L sx2 sy1;L r vc;L sx2 sy2;L hc b;L sx1 sy2;Z|sx1 sy1 sx2 sy2",
+  star5: "adj=val 19098;hf=val 105146;vf=val 110557|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=cos swd2 1080000;dx2=cos swd2 18360000;dy1=sin shd2 1080000;dy2=sin shd2 18360000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc 0 dy2;iwd2=*/ swd2 a 50000;ihd2=*/ shd2 a 50000;sdx1=cos iwd2 20520000;sdx2=cos iwd2 3240000;sdy1=sin ihd2 3240000;sdy2=sin ihd2 20520000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc sdx2 0;sx4=+- hc sdx1 0;sy1=+- svc 0 sdy1;sy2=+- svc 0 sdy2;sy3=+- svc ihd2 0;yAdj=+- svc 0 ihd2|,,,~M x1 y1;L sx2 sy1;L hc t;L sx3 sy1;L x4 y1;L sx4 sy2;L x3 y2;L hc sy3;L x2 y2;L sx1 sy2;Z|sx1 sy1 sx4 sy3",
+  star6: "adj=val 28868;hf=val 115470|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;dx1=cos swd2 1800000;x1=+- hc 0 dx1;x2=+- hc dx1 0;y2=+- vc hd4 0;iwd2=*/ swd2 a 50000;ihd2=*/ hd2 a 50000;sdx2=*/ iwd2 1 2;sx1=+- hc 0 iwd2;sx2=+- hc 0 sdx2;sx3=+- hc sdx2 0;sx4=+- hc iwd2 0;sdy1=sin ihd2 3600000;sy1=+- vc 0 sdy1;sy2=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M x1 hd4;L sx2 sy1;L hc t;L sx3 sy1;L x2 hd4;L sx4 vc;L x2 y2;L sx3 sy2;L hc b;L sx2 sy2;L x1 y2;L sx1 vc;Z|sx1 sy1 sx4 sy2",
+  star7: "adj=val 34601;hf=val 102572;vf=val 105210|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=*/ swd2 97493 100000;dx2=*/ swd2 78183 100000;dx3=*/ swd2 43388 100000;dy1=*/ shd2 62349 100000;dy2=*/ shd2 22252 100000;dy3=*/ shd2 90097 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc dx3 0;x5=+- hc dx2 0;x6=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc dy2 0;y3=+- svc dy3 0;iwd2=*/ swd2 a 50000;ihd2=*/ shd2 a 50000;sdx1=*/ iwd2 97493 100000;sdx2=*/ iwd2 78183 100000;sdx3=*/ iwd2 43388 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc sdx3 0;sx5=+- hc sdx2 0;sx6=+- hc sdx1 0;sdy1=*/ ihd2 90097 100000;sdy2=*/ ihd2 22252 100000;sdy3=*/ ihd2 62349 100000;sy1=+- svc 0 sdy1;sy2=+- svc 0 sdy2;sy3=+- svc sdy3 0;sy4=+- svc ihd2 0;yAdj=+- svc 0 ihd2|,,,~M x1 y2;L sx1 sy2;L x2 y1;L sx3 sy1;L hc t;L sx4 sy1;L x5 y1;L sx6 sy2;L x6 y2;L sx5 sy3;L x4 y3;L hc sy4;L x3 y3;L sx2 sy3;Z|sx2 sy1 sx5 sy3",
+  star8: "adj=val 37500|a=pin 0 adj 50000;dx1=cos wd2 2700000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy1=sin hd2 2700000;y1=+- vc 0 dy1;y2=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 92388 100000;sdx2=*/ iwd2 38268 100000;sdy1=*/ ihd2 92388 100000;sdy2=*/ ihd2 38268 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc sdx2 0;sx4=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc sdy2 0;sy4=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy2;L x1 y1;L sx2 sy1;L hc t;L sx3 sy1;L x2 y1;L sx4 sy2;L r vc;L sx4 sy3;L x2 y2;L sx3 sy4;L hc b;L sx2 sy4;L x1 y2;L sx1 sy3;Z|sx1 sy1 sx4 sy4",
+  straightConnector1: "||,,none,~M l t;L r b|l t r b",
+  stripedRightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 84375 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;x4=*/ ss 5 32;dx5=*/ ss a2 100000;x5=+- r 0 dx5;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;dx6=*/ dy1 dx5 hd2;x6=+- r 0 dx6|,,,~M l y1;L ssd32 y1;L ssd32 y2;L l y2;Z;M ssd16 y1;L ssd8 y1;L ssd8 y2;L ssd16 y2;Z;M x4 y1;L x5 y1;L x5 t;L r vc;L x5 b;L x5 y2;L x4 y2;Z|x4 y1 x6 y2",
+  sun: "adj=val 25000|a=pin 12500 adj 46875;g0=+- 50000 0 a;g1=*/ g0 30274 32768;g2=*/ g0 12540 32768;g3=+- g1 50000 0;g4=+- g2 50000 0;g5=+- 50000 0 g1;g6=+- 50000 0 g2;g7=*/ g0 23170 32768;g8=+- 50000 g7 0;g9=+- 50000 0 g7;g10=*/ g5 3 4;g11=*/ g6 3 4;g12=+- g10 3662 0;g13=+- g11 3662 0;g14=+- g11 12500 0;g15=+- 100000 0 g10;g16=+- 100000 0 g12;g17=+- 100000 0 g13;g18=+- 100000 0 g14;ox1=*/ w 18436 21600;oy1=*/ h 3163 21600;ox2=*/ w 3163 21600;oy2=*/ h 18436 21600;x8=*/ w g8 100000;x9=*/ w g9 100000;x10=*/ w g10 100000;x12=*/ w g12 100000;x13=*/ w g13 100000;x14=*/ w g14 100000;x15=*/ w g15 100000;x16=*/ w g16 100000;x17=*/ w g17 100000;x18=*/ w g18 100000;x19=*/ w a 100000;wR=*/ w g0 100000;hR=*/ h g0 100000;y8=*/ h g8 100000;y9=*/ h g9 100000;y10=*/ h g10 100000;y12=*/ h g12 100000;y13=*/ h g13 100000;y14=*/ h g14 100000;y15=*/ h g15 100000;y16=*/ h g16 100000;y17=*/ h g17 100000;y18=*/ h g18 100000|,,,~M r vc;L x15 y18;L x15 y14;Z;M ox1 oy1;L x16 y13;L x17 y12;Z;M hc t;L x18 y10;L x14 y10;Z;M ox2 oy1;L x13 y12;L x12 y13;Z;M l vc;L x10 y14;L x10 y18;Z;M ox2 oy2;L x12 y17;L x13 y16;Z;M hc b;L x14 y15;L x18 y15;Z;M ox1 oy2;L x17 y16;L x16 y17;Z;M x19 vc;A wR hR cd2 21600000;Z|x9 y9 x8 y8",
+  swooshArrow: "adj1=val 25000;adj2=val 16667|a1=pin 1 adj1 75000;maxAdj2=*/ 70000 w ss;a2=pin 0 adj2 maxAdj2;ad1=*/ h a1 100000;ad2=*/ ss a2 100000;xB=+- r 0 ad2;yB=+- t ssd8 0;alfa=*/ cd4 1 14;dx0=tan ssd8 alfa;xC=+- xB 0 dx0;dx1=tan ad1 alfa;yF=+- yB ad1 0;xF=+- xB dx1 0;xE=+- xF dx0 0;yE=+- yF ssd8 0;dy2=+- yE 0 t;dy22=*/ dy2 1 2;dy3=*/ h 1 20;yD=+- t dy22 dy3;dy4=*/ hd6 1 1;yP1=+- hd6 dy4 0;xP1=val wd6;dy5=*/ hd6 1 2;yP2=+- yF dy5 0;xP2=val wd4|,,,~M l b;Q xP1 yP1 xB yB;L xC t;L r yD;L xE yE;L xF yF;Q xP2 yP2 l b;Z|l t r b",
+  teardrop: "adj=val 100000|a=pin 0 adj 200000;r2=sqrt 2;tw=*/ wd2 r2 1;th=*/ hd2 r2 1;sw=*/ tw a 100000;sh=*/ th a 100000;dx1=cos sw 2700000;dy1=sin sh 2700000;x1=+- hc dx1 0;y1=+- vc 0 dy1;x2=+/ hc x1 2;y2=+/ vc y1 2;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;Q x2 t x1 y1;Q r y2 r vc;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z|il it ir ib",
+  trapezoid: "adj=val 25000|maxAdj=*/ 50000 w ss;a=pin 0 adj maxAdj;x1=*/ ss a 200000;x2=*/ ss a 100000;x3=+- r 0 x2;x4=+- r 0 x1;il=*/ wd3 a maxAdj;it=*/ hd3 a maxAdj;ir=+- r 0 il|,,,~M l b;L x2 t;L x3 t;L r b;Z|il it ir b",
+  triangle: "adj=val 50000|a=pin 0 adj 100000;x1=*/ w a 200000;x2=*/ w a 100000;x3=+- x1 wd2 0|,,,~M l b;L x2 t;L r b;Z|x1 vc x3 b",
+  upArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy2=*/ ss a2 100000;y2=+- t dy2 0;dx1=*/ w a1 200000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy1=*/ x1 dy2 wd2;y1=+- y2  0 dy1|,,,~M l y2;L hc t;L r y2;L x2 y2;L x2 b;L x1 b;L x1 y2;Z|x1 y1 x2 b",
+  upArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 h ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss h;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dx1=*/ ss a2 100000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=*/ ss a3 100000;dy2=*/ h a4 100000;y2=+- b 0 dy2;y3=+/ y2 b 2|,,,~M l y2;L x2 y2;L x2 y1;L x1 y1;L hc t;L x4 y1;L x3 y1;L x3 y2;L r y2;L r b;L l b;Z|l y2 r b",
+  upDownArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 50000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;y2=*/ ss a2 100000;y3=+- b 0 y2;dx1=*/ w a1 200000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy1=*/ x1 y2 wd2;y1=+- y2 0 dy1;y4=+- y3 dy1 0|,,,~M l y2;L hc t;L r y2;L x2 y2;L x2 y3;L r y3;L hc b;L l y3;L x1 y3;L x1 y2;Z|x1 y1 x2 y4",
+  upDownArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 48123|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 50000 h ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss hd2;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dx1=*/ ss a2 100000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=*/ ss a3 100000;y4=+- b 0 y1;dy2=*/ h a4 200000;y2=+- vc 0 dy2;y3=+- vc dy2 0|,,,~M l y2;L x2 y2;L x2 y1;L x1 y1;L hc t;L x4 y1;L x3 y1;L x3 y2;L r y2;L r y3;L x3 y3;L x3 y4;L x4 y4;L hc b;L x1 y4;L x2 y4;L x2 y3;L l y3;Z|l y2 r y3",
+  uturnArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 43750;adj5=val 75000|a2=pin 0 adj2 25000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;q2=*/ a1 ss h;q3=+- 100000 0 q2;maxAdj3=*/ q3 h ss;a3=pin 0 adj3 maxAdj3;q1=+- a3 a1 0;minAdj5=*/ q1 ss h;a5=pin minAdj5 adj5 100000;th=*/ ss a1 100000;aw2=*/ ss a2 100000;th2=*/ th 1 2;dh2=+- aw2 0 th2;y5=*/ h a5 100000;ah=*/ ss a3 100000;y4=+- y5 0 ah;x9=+- r 0 dh2;bw=*/ x9 1 2;bs=min bw y4;maxAdj4=*/ bs 100000 ss;a4=pin 0 adj4 maxAdj4;bd=*/ ss a4 100000;bd3=+- bd 0 th;bd2=max bd3 0;x3=+- th bd2 0;x8=+- r 0 aw2;x6=+- x8 0 aw2;x7=+- x6 dh2 0;x4=+- x9 0 bd;x5=+- x7 0 bd2;cx=+/ th x7 2|,,,~M l b;L l bd;A bd bd cd2 cd4;L x4 t;A bd bd 3cd4 cd4;L x9 y4;L r y4;L x8 y5;L x6 y4;L x7 y4;L x7 x3;A bd2 bd2 0 -5400000;L x3 th;A bd2 bd2 3cd4 -5400000;L th b;Z|l t r b",
+  verticalScroll: "adj=val 12500|a=pin 0 adj 25000;ch=*/ ss a 100000;ch2=*/ ch 1 2;ch4=*/ ch 1 4;x3=+- ch ch2 0;x4=+- ch ch 0;x6=+- r 0 ch;x7=+- r 0 ch2;x5=+- x6 0 ch2;y3=+- b 0 ch;y4=+- b 0 ch2|,,,false~M ch2 b;A ch2 ch2 cd4 -5400000;L ch2 y4;A ch4 ch4 cd4 -10800000;L ch y3;L ch ch2;A ch2 ch2 cd2 cd4;L x7 t;A ch2 ch2 3cd4 cd2;L x6 ch;L x6 y4;A ch2 ch2 0 cd4;Z;M x4 ch2;A ch2 ch2 0 cd4;A ch4 ch4 cd4 cd2;Z#,,darkenLess,false~M x4 ch2;A ch2 ch2 0 cd4;A ch4 ch4 cd4 cd2;Z;M ch y4;A ch2 ch2 0 3cd4;A ch4 ch4 3cd4 cd2;Z#,,none,~M ch y3;L ch ch2;A ch2 ch2 cd2 cd4;L x7 t;A ch2 ch2 3cd4 cd2;L x6 ch;L x6 y4;A ch2 ch2 0 cd4;L ch2 b;A ch2 ch2 cd4 cd2;Z;M x3 t;A ch2 ch2 3cd4 cd2;A ch4 ch4 cd4 cd2;L x4 ch2;M x6 ch;L x3 ch;M ch2 y3;A ch4 ch4 3cd4 cd2;L ch y4;M ch2 b;A ch2 ch2 cd4 -5400000;L ch y3|ch ch x6 y4",
+  wave: "adj1=val 12500;adj2=val 0|a1=pin 0 adj1 20000;a2=pin -10000 adj2 10000;y1=*/ h a1 100000;dy2=*/ y1 10 3;y2=+- y1 0 dy2;y3=+- y1 dy2 0;y4=+- b 0 y1;y5=+- y4 0 dy2;y6=+- y4 dy2 0;dx1=*/ w a2 100000;of2=*/ w a2 50000;x1=abs dx1;dx2=?: of2 0 of2;x2=+- l 0 dx2;dx5=?: of2 of2 0;x5=+- r 0 dx5;dx3=+/ dx2 x5 3;x3=+- x2 dx3 0;x4=+/ x3 x5 2;x6=+- l dx5 0;x10=+- r dx2 0;x7=+- x6 dx3 0;x8=+/ x7 x10 2;x9=+- r 0 x1;xAdj=+- hc dx1 0;xAdj2=+- hc 0 dx1;il=max x2 x6;ir=min x5 x10;it=*/ h a1 50000;ib=+- b 0 it|,,,~M x2 y1;C x3 y2 x4 y3 x5 y1;L x10 y4;C x8 y6 x7 y5 x6 y4;Z|il it ir ib",
+  wedgeEllipseCallout: "adj1=val -20833;adj2=val 62500|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;sdx=*/ dxPos h 1;sdy=*/ dyPos w 1;pang=at2 sdx sdy;stAng=+- pang 660000 0;enAng=+- pang 0 660000;dx1=cos wd2 stAng;dy1=sin hd2 stAng;x1=+- hc dx1 0;y1=+- vc dy1 0;dx2=cos wd2 enAng;dy2=sin hd2 enAng;x2=+- hc dx2 0;y2=+- vc dy2 0;stAng1=at2 dx1 dy1;enAng1=at2 dx2 dy2;swAng1=+- enAng1 0 stAng1;swAng2=+- swAng1 21600000 0;swAng=?: swAng1 swAng1 swAng2;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xPos yPos;L x1 y1;A wd2 hd2 stAng1 swAng;Z|il it ir ib",
+  wedgeRectCallout: "adj1=val -20833;adj2=val 62500|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;dx=+- xPos 0 hc;dy=+- yPos 0 vc;dq=*/ dxPos h w;ady=abs dyPos;adq=abs dq;dz=+- ady 0 adq;xg1=?: dxPos 7 2;xg2=?: dxPos 10 5;x1=*/ w xg1 12;x2=*/ w xg2 12;yg1=?: dyPos 7 2;yg2=?: dyPos 10 5;y1=*/ h yg1 12;y2=*/ h yg2 12;t1=?: dxPos l xPos;xl=?: dz l t1;t2=?: dyPos x1 xPos;xt=?: dz t2 x1;t3=?: dxPos xPos r;xr=?: dz r t3;t4=?: dyPos xPos x1;xb=?: dz t4 x1;t5=?: dxPos y1 yPos;yl=?: dz y1 t5;t6=?: dyPos t yPos;yt=?: dz t6 t;t7=?: dxPos yPos y1;yr=?: dz y1 t7;t8=?: dyPos yPos b;yb=?: dz t8 b|,,,~M l t;L x1 t;L xt yt;L x2 t;L r t;L r y1;L xr yr;L r y2;L r b;L x2 b;L xb yb;L x1 b;L l b;L l y2;L xl yl;L l y1;Z|l t r b",
+  wedgeRoundRectCallout: "adj1=val -20833;adj2=val 62500;adj3=val 16667|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;dq=*/ dxPos h w;ady=abs dyPos;adq=abs dq;dz=+- ady 0 adq;xg1=?: dxPos 7 2;xg2=?: dxPos 10 5;x1=*/ w xg1 12;x2=*/ w xg2 12;yg1=?: dyPos 7 2;yg2=?: dyPos 10 5;y1=*/ h yg1 12;y2=*/ h yg2 12;t1=?: dxPos l xPos;xl=?: dz l t1;t2=?: dyPos x1 xPos;xt=?: dz t2 x1;t3=?: dxPos xPos r;xr=?: dz r t3;t4=?: dyPos xPos x1;xb=?: dz t4 x1;t5=?: dxPos y1 yPos;yl=?: dz y1 t5;t6=?: dyPos t yPos;yt=?: dz t6 t;t7=?: dxPos yPos y1;yr=?: dz y1 t7;t8=?: dyPos yPos b;yb=?: dz t8 b;u1=*/ ss adj3 100000;u2=+- r 0 u1;v2=+- b 0 u1;il=*/ u1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l u1;A u1 u1 cd2 cd4;L x1 t;L xt yt;L x2 t;L u2 t;A u1 u1 3cd4 cd4;L r y1;L xr yr;L r y2;L r v2;A u1 u1 0 cd4;L x2 b;L xb yb;L x1 b;L u1 b;A u1 u1 cd4 cd4;L l y2;L xl yl;L l y1;Z|il il ir ib"
+};
+
+// ../../../shared/drawingml/src/preset-engine.ts
+var parsed = /* @__PURE__ */ new Map();
+function parseDef(name) {
+  if (parsed.has(name)) return parsed.get(name);
+  const raw = Object.prototype.hasOwnProperty.call(PRESET_DEFS, name) ? PRESET_DEFS[name] : void 0;
+  let def = null;
+  if (raw !== void 0) {
+    const [av = "", gd = "", ps = "", rc = ""] = raw.split("|");
+    const words = (s) => s.trim().split(/\s+/).filter(Boolean);
+    const guides = (s) => s ? s.split(";").map((e) => {
+      const i2 = e.indexOf("=");
+      return [e.slice(0, i2).trim(), words(e.slice(i2 + 1))];
+    }) : [];
+    const paths = ps ? ps.split("#").map((p) => {
+      const [attrs2 = "", cmds = ""] = p.split("~");
+      const [w = "", h = "", fill = "", stroke = ""] = attrs2.split(",");
+      const d = { fill, stroke: stroke !== "false" && stroke !== "0", cmds: cmds ? cmds.split(";").map(words) : [] };
+      if (w) d.w = Number(w);
+      if (h) d.h = Number(h);
+      return d;
+    }) : [];
+    def = { av: guides(av), gd: guides(gd), paths };
+    const rw = words(rc);
+    if (rw.length === 4) def.rect = rw;
+  }
+  parsed.set(name, def);
+  return def;
+}
+var DEG = Math.PI / (180 * 6e4);
+function builtins(w, h) {
+  const ss = Math.min(w, h), ls = Math.max(w, h);
+  const v = [
+    ["l", 0],
+    ["t", 0],
+    ["r", w],
+    ["b", h],
+    ["w", w],
+    ["h", h],
+    ["hc", w / 2],
+    ["vc", h / 2],
+    ["ss", ss],
+    ["ls", ls],
+    ["cd2", 108e5],
+    ["cd4", 54e5],
+    ["cd8", 27e5],
+    ["3cd4", 162e5],
+    ["3cd8", 81e5],
+    ["5cd8", 135e5],
+    ["7cd8", 189e5]
+  ];
+  for (const d of [2, 3, 4, 5, 6, 8, 10, 12, 16, 32]) {
+    v.push([`wd${d}`, w / d], [`hd${d}`, h / d], [`ssd${d}`, ss / d]);
+  }
+  return new Map(v);
+}
+function evalFormula(f, val) {
+  const [op, a = "0", b = "0", c = "0"] = f;
+  const x2 = () => val(a), y = () => val(b), z = () => val(c);
+  switch (op) {
+    case "val":
+      return x2();
+    case "*/":
+      return x2() * y() / (z() || 1);
+    case "+-":
+      return x2() + y() - z();
+    case "+/":
+      return (x2() + y()) / (z() || 1);
+    case "?:":
+      return x2() > 0 ? y() : z();
+    case "abs":
+      return Math.abs(x2());
+    case "at2":
+      return Math.atan2(y(), x2()) / DEG;
+    case "cat2":
+      return x2() * Math.cos(Math.atan2(z(), y()));
+    case "sat2":
+      return x2() * Math.sin(Math.atan2(z(), y()));
+    case "cos":
+      return x2() * Math.cos(y() * DEG);
+    case "sin":
+      return x2() * Math.sin(y() * DEG);
+    case "tan":
+      return x2() * Math.tan(y() * DEG);
+    case "max":
+      return Math.max(x2(), y());
+    case "min":
+      return Math.min(x2(), y());
+    case "mod":
+      return Math.sqrt(x2() * x2() + y() * y() + z() * z());
+    case "pin": {
+      const lo = x2(), v = y(), hi = z();
+      return v < lo ? lo : v > hi ? hi : v;
+    }
+    case "sqrt":
+      return Math.sqrt(Math.max(0, x2()));
+    default:
+      return 0;
+  }
+}
+var SHADE = { none: null, darken: -0.4, darkenLess: -0.2, lighten: 0.4, lightenLess: 0.2 };
+function presetVals(def, w, h, adj, adjNames) {
+  const vars = builtins(w, h);
+  const val = (t) => {
+    const v = vars.get(t);
+    if (v !== void 0) return v;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : 0;
+  };
+  def.av.forEach(([n, f], i2) => {
+    let v;
+    if (adj && adjNames) {
+      const k = adjNames.indexOf(n);
+      if (k >= 0) v = adj[k];
+    } else if (adj && i2 < adj.length) v = adj[i2];
+    vars.set(n, v ?? evalFormula(f, val));
+  });
+  for (const [n, f] of def.gd) vars.set(n, evalFormula(f, val));
+  return val;
+}
+function evalPreset(name, w, h, adj, adjNames) {
+  const def = parseDef(name);
+  if (!def) return null;
+  const val = presetVals(def, w, h, adj, adjNames);
+  const out = { subs: [], fill: [], stroke: [] };
+  for (const p of def.paths) {
+    const sx = p.w ? w / p.w : 1, sy = p.h ? h / p.h : 1;
+    const segs = [];
+    let cx = 0, cy = 0;
+    for (const c of p.cmds) {
+      switch (c[0]) {
+        case "M":
+          cx = val(c[1]) * sx;
+          cy = val(c[2]) * sy;
+          segs.push({ c: "M", x: cx, y: cy });
+          break;
+        case "L":
+          cx = val(c[1]) * sx;
+          cy = val(c[2]) * sy;
+          segs.push({ c: "L", x: cx, y: cy });
+          break;
+        case "Q": {
+          const x1 = val(c[1]) * sx, y1 = val(c[2]) * sy;
+          cx = val(c[3]) * sx;
+          cy = val(c[4]) * sy;
+          segs.push({ c: "Q", x1, y1, x: cx, y: cy });
+          break;
+        }
+        case "C": {
+          const x1 = val(c[1]) * sx, y1 = val(c[2]) * sy, x2 = val(c[3]) * sx, y2 = val(c[4]) * sy;
+          cx = val(c[5]) * sx;
+          cy = val(c[6]) * sy;
+          segs.push({ c: "C", x1, y1, x2, y2, x: cx, y: cy });
+          break;
+        }
+        case "A": {
+          const rx = val(c[1]) * sx, ry = val(c[2]) * sy;
+          const st = val(c[3]) * DEG, sw = val(c[4]) * DEG;
+          if (rx <= 0 || ry <= 0 || sw === 0) break;
+          const param = (a) => Math.atan2(rx * Math.sin(a), ry * Math.cos(a));
+          const p0 = param(st);
+          let p1 = param(st + sw);
+          if (Math.abs(sw) >= 2 * Math.PI - 1e-9) p1 = p0 + Math.sign(sw) * 2 * Math.PI;
+          else if (sw > 0) {
+            while (p1 <= p0) p1 += 2 * Math.PI;
+          } else {
+            while (p1 >= p0) p1 -= 2 * Math.PI;
+          }
+          const ecx = cx - rx * Math.cos(p0), ecy = cy - ry * Math.sin(p0);
+          segs.push({ c: "E", cx: ecx, cy: ecy, rx, ry, a0: p0, a1: p1, ccw: sw < 0 });
+          cx = ecx + rx * Math.cos(p1);
+          cy = ecy + ry * Math.sin(p1);
+          break;
+        }
+        case "Z":
+          segs.push({ c: "Z" });
+          break;
+      }
+    }
+    out.subs.push(segs);
+    out.fill.push(p.fill in SHADE ? SHADE[p.fill] : 0);
+    out.stroke.push(p.stroke);
+  }
+  return out;
+}
+
+// ../../../shared/drawingml/src/light3d.ts
+var PH = [0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 85];
+var DIR = { t: 0, tl: 45, l: 90, bl: 135, b: 180, br: -135, r: -90, tr: -45 };
+var TABLES = {
+  "threePt|": "Ozs7ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA7OzsAMDAwACgoKAAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADs7OwAvLy8AKCgoAB4eHgAREREACgoKAAcHBwAHBwcABwcHAAcHBwAHBwcAOzs7ADAwMAArKysBIyMjARMTEwELCwsACQkJAAoKCgAMDAwBDg4OAQ4ODgE7OzsAMTExAC8vLwEqKioDFhYWAg0NDQEMDAwAExMTARkZGQIcHBwCHBwcAjs7OwAxMTEAMTExAjAwMAQaGhoDDw8PARAQEAEjIyMDKioqBC4uLgQuLi4EOzs7ADExMQAwMDABLCwsAxgYGAIQEBABGhoaAjg4OAhDQ0MJQ0NDB0NDQwc7OzsAMjIyAC0tLQElJSUBGBgYARISEgEfHx8EREREDkxMTA5OTk4MTk5ODDs7OwAyMjIALCwsACMjIwAXFxcAFBQUAR4eHgU/Pz8RRkZGD0ZGRgxGRkYMOzs7ADQ0NAAtLS0AJCQkABoaGgAWFhYBGxsbAywsLAsxMTEMMTExCTExMQk7OzsANjY2ADAwMAAoKCgAHh4eABcXFwAWFhYBIiIiBSMjIwYiIiIGIiIiBjs7OwA5OTkAMzMzACwsLAAkJCQAGxsbABUVFQAYGBgCGRkZAhkZGQMZGRkDOzs7AD8/PwE7OzsAMjIyACgoKAAfHx8AGBgYABQUFAEUFBQBFRUVARUVFQE7OzsARkZGAUlJSQE7OzsBMDAwACcnJwAhISEAHBwcABoaGgAZGRkAGRkZADs7OwBPT08CX19fBU5OTgI6OjoAMjIyAC4uLgAnJycAIyMjACIiIgAiIiIAOzs7AFdXVwN7e3sMa2trCEtLSwE8PDwANzc3ADAwMAAsLCwAKSkpACkpKQA7OzsAXV1dBJGRkRODg4MOWFhYAkNDQwA8PDwANTU1ADIyMgAvLy8ALy8vADs7OwBdXV0EkJCQE4ODgw9ZWVkDQ0NDADw8PAA2NjYAMjIyADAwMAAwMDAAOzs7AFhYWAR5eXkLZmZmB0lJSQE8PDwANzc3ADAwMAAqKioAKSkpACkpKQA7OzsAT09PAl1dXQVLS0sCOTk5ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADs7OwBFRUUBRUVFATc3NwEsLCwAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAOzs7AD09PQE3NzcALi4uACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA7OzsAODg4ADExMQAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADs7OwA0NDQALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAOzs7AA==",
+  "threePt|matte": "NjY2ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA2NjYAMDAwACcnJwAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADY2NgAvLy8AJSUlABsbGwAQEBAACgoKAAcHBwAHBwcABwcHAAYGBgAGBgYANjY2AC8vLwAkJCQAGhoaAA8PDwAKCgoACQkJAAkJCQAKCgoACwsLAAsLCwA2NjYALy8vACQkJAAZGRkADw8PAAsLCwALCwsADQ0NABAQEAATExMAExMTADY2NgAuLi4AJCQkABoaGgAQEBAACwsLAAwMDAAUFBQAFxcXABoaGgAaGhoANjY2AC4uLgAlJSUAGxsbABAQEAAMDAwADw8PABkZGQAfHx8AIiIiACIiIgA2NjYAMDAwACcnJwAdHR0AExMTAA0NDQAPDw8AGRkZABwcHAAfHx8AHx8fADY2NgAxMTEAKSkpACAgIAAWFhYADw8PAA4ODgAVFRUAGRkZABwcHAAcHBwANjY2ADMzMwAsLCwAJCQkABoaGgATExMADw8PAA8PDwASEhIAFBQUABQUFAA2NjYANDQ0ADAwMAAoKCgAHh4eABUVFQAQEBAAEBAQABAQEAAPDw8ADw8PADY2NgA2NjYAMzMzACwsLAAkJCQAGxsbABISEgAPDw8ADw8PAA8PDwAPDw8ANjY2ADg4OAA2NjYAMTExACgoKAAfHx8AGBgYABEREQAPDw8ADw8PAA8PDwA2NjYAOTk5ADk5OQA1NTUALy8vACcnJwAhISEAGxsbABgYGAAXFxcAFxcXADY2NgA6OjoAOzs7ADg4OAA1NTUAMjIyAC4uLgAnJycAIyMjACEhIQAhISEANjY2ADs7OwA8PDwAOjo6ADw8PAA7OzsANzc3ADAwMAAsLCwAKSkpACkpKQA2NjYAPDw8AD4+PgA9PT0APz8/AEBAQAA8PDwANTU1ADIyMgAvLy8ALy8vADY2NgA7OzsAPDw8ADw8PABAQEAAQEBAADw8PAA2NjYAMjIyADAwMAAwMDAANjY2ADo6OgA7OzsAOTk5ADs7OwA7OzsANzc3ADAwMAAqKioAKSkpACkpKQA2NjYAOjo6ADk5OQA2NjYANDQ0ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADY2NgA4ODgANjY2ADExMQArKysAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUANjY2ADY2NgAzMzMALS0tACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA2NjYANDQ0ADAwMAAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADY2NgAzMzMALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIANjY2AA==",
+  "threePt|plastic": "ODg4ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA4ODgAMDAwACcnJwAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADg4OAAvLy8AJycnAB0dHQAREREACgoKAAcHBwAHBwcABwcHAAcHBwAHBwcAODg4AC8vLwAsLCwBJiYmAhMTEwELCwsACQkJAAoKCgALCwsADQ0NAQ0NDQE4ODgAMDAwADMzMwI7OzsKHBwcBA0NDQELCwsAEhISARkZGQIcHBwCHBwcAjg4OAAwMDAAODg4A0lJSRAkJCQHDw8PAQ8PDwEpKSkFMjIyBzY2Ngc2NjYHODg4AC8vLwA0NDQCOzs7CBwcHAMQEBABHR0dA1FRURZeXl4WWlpaEFpaWhA4ODgAMTExAC4uLgEoKCgCGBgYAREREQEoKCgJd3d3N39/fzZ6enopenp6KTg4OAAxMTEAKysrACIiIgAXFxcAFBQUAScnJwtzc3NEe3t7PW5ubidubm4nODg4ADMzMwAsLCwAJCQkABoaGgAWFhYBICAgBUdHRyVQUFAnSkpKG0pKShs4ODgANDQ0ADAwMAAoKCgAHh4eABcXFwAWFhYBLCwsCy8vLw4tLS0MLS0tDDg4OAA3NzcAMzMzACwsLAAkJCQAGxsbABQUFAAYGBgCGxsbAxwcHAMcHBwDODg4AD09PQA5OTkAMTExACgoKAAfHx8AGBgYABISEgATExMBFBQUARQUFAE4ODgAREREAUdHRwE5OTkALy8vACcnJwAhISEAGxsbABkZGQAYGBgAGBgYADg4OABPT08CbGxsCFFRUQM4ODgAMjIyAC4uLgAnJycAIyMjACEhIQAhISEAODg4AF5eXgSurq4iiIiIEk1NTQI7OzsANzc3ADAwMAAsLCwAKSkpACkpKQA4ODgAaWlpB6enp0e6uroxYWFhBEJCQgA8PDwANTU1ADIyMgAvLy8ALy8vADg4OABqamoHpaWlSbm5uTJkZGQEQkJCADw8PAA2NjYAMjIyADAwMAAwMDAAODg4AGFhYQWrq6shgICAEEpKSgE7OzsANzc3ADAwMAAqKioAKSkpACkpKQA4ODgAUVFRA2lpaQhMTEwCODg4ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADg4OABDQ0MBREREATU1NQAsLCwAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAODg4ADo6OgA1NTUALS0tACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA4ODgANTU1ADAwMAAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADg4OAAzMzMALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAODg4AA==",
+  "threePt|metal": "Ojo6ADExMQApKSkAICAgABYWFgAODg4ACQkJAQcHBwYICAgTCQkJIAkJCSA6OjoAMDAwACcnJwAeHh4AFBQUAAwMDAAICAgBCwsLBw0NDQ8PDw8ZDw8PGTo6OgAwMDAAKSkpAB8fHwESEhIACwsLAAoKCgEQEBAIExMTFBYWFigWFhYoOjo6ADAwMAAyMjICMjIyCBgYGAINDQ0BDQ0NARQUFAkbGxsdICAgOyAgIDs6OjoAMTExAENDQwhXV1cwJycnDxEREQIPDw8BIyMjFC4uLi8zMzNOMzMzTjo6OgAxMTEATU1NDm5ublc1NTUfFBQUAxcXFwRCQkI7UVFRYFNTU3lTU1N5Ojo6ADExMQBCQkIHVlZWJigoKAwVFRUDKysrFTU1NcUAAAD/BQUF+QUFBfk6OjoAMjIyADQ0NAIyMjIFHR0dAhcXFwM8PDw5AAAA/wAAAP8AAAD/AAAA/zo6OgAxMTEALCwsACMjIwAYGBgAGhoaBDk5OUMAAAD/AAAA/wAAAP8AAAD/Ojo6ADMzMwAsLCwAJSUlABoaGgAaGhoCMjIyIQMDA/wAAAD/AAAA/wAAAP86OjoANTU1ADAwMAAoKCgAHx8fABoaGgEhISEIRUVFa0VFRaU8PDy6PDw8ujo6OgA5OTkAMzMzACwsLAAlJSUAHR0dABkZGQIqKioWLy8vLDExMUAxMTFAOjo6AEJCQgE7OzsBMTExACkpKQAhISEAHBwcAR8fHwcmJiYXKSkpIykpKSM6OjoAT09PA1RUVAQ/Pz8BLy8vACkpKQAmJiYBKCgoBSoqKgsrKysRKysrETo6OgBnZ2cJmpqaJWlpaQo9PT0BNDQ0ADMzMwE0NDQFNjY2Czc3NxM3NzcTOjo6AH9/fxQ+Pj66kZGRX19fXwY9PT0APT09AT09PQVAQEALQUFBFEFBQRQ6OjoAlJSUIAAAAP8EBAT6hISEEkRERAFCQkIBQ0NDBUVFRQtGRkYTRkZGEzo6OgCVlZUgAAAA/wICAvyHh4cVREREAUJCQgFDQ0MFRUVFCUZGRg5GRkYOOjo6AISEhBZCQkK3mpqaVVpaWgU9PT0APDw8AT8/PwVAQEANQEBAE0BAQBM6OjoAaGhoCpWVlSViYmIKPDw8ATMzMwAzMzMBNTU1BTc3Nwo3NzcQNzc3EDo6OgBOTk4DU1NTBDk5OQEsLCwAKCgoACYmJgEoKCgGKSkpDSoqKhYqKioWOjo6AEBAQAE4ODgALS0tACQkJAAeHh4AGhoaARsbGwYcHBwPHR0dHB0dHRw6OjoANzc3ADAwMAAoKCgAHx8fABcXFwAREREBEBAQBxAQEA8QEBAbEBAQGzo6OgAzMzMALCwsACQkJAAbGxsAEhISAA0NDQEKCgoHCgoKDQkJCRQJCQkUOjo6AA==",
+  "threePt|flat": "MTExADExMQAxMTEAMTExADExMQAuLi4AKysrACAgIAAXFxcAERERABEREQAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAICAgABkZGQAUFBQAFBQUADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAfHx8AFxcXABAQEAAQEBAAMTExADExMQAxMTEAMjIyADExMQAvLy8AKysrACAgIAAWFhYADg4OAA4ODgAxMTEAMTExADIyMgBJSUkDOzs7AS8vLwArKysAHx8fABcXFwAQEBAAEBAQADExMQAxMTEANTU1AH9/fxVVVVUGLy8vACsrKwAhISEAGhoaABQUFAAUFBQAMTExADExMQAyMjIAPz8/ATY2NgAuLi4AKysrACwsLAEgICACFhYWARYWFgExMTEAMTExADExMQAxMTEAMTExAC8vLwAuLi4Ab29vIWJiYiJBQUESQUFBEjExMQAxMTEAMTExADExMQAxMTEALy8vADExMQGdnZ1NeHh4Pz09PRM9PT0TMTExADExMQAxMTEAMTExADExMQAvLy8ALS0tAEZGRgg9PT0KIiIiBCIiIgQxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAJCQkAB4eHgEXFxcAFxcXADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAjIyMAHR0dABkZGQAZGRkAMTExADExMQAxMTEAMTExADExMQAuLi4AKysrACMjIwAbGxsAFhYWABYWFgAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAIyMjAB4eHgAZGRkAGRkZADExMQAxMTEAMjIyADExMQAxMTEALy8vACsrKwAiIiIAHBwcABcXFwAXFxcAMTExADIyMgBHR0cCODg4ATExMQAvLy8AKysrACMjIwAbGxsAFhYWABYWFgAxMTEAMzMzAJ+fnyZnZ2cLMTExAC8vLwArKysAIiIiABwcHAAXFxcAFxcXADExMQAzMzMAp6enLGlpaQwyMjIALy8vACsrKwAiIiIAHR0dABoaGgAaGhoAMTExADIyMgBGRkYCNjY2ADExMQAuLi4AKysrACMjIwAaGhoAFxcXABcXFwAxMTEAMTExADIyMgAxMTEAMTExAC8vLwArKysAIiIiABwcHAAYGBgAGBgYADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAhISEAGhoaABUVFQAVFRUAMTExADExMQAxMTEAMTExADExMQAvLy8AKysrACEhIQAZGRkAEhISABISEgAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAICAgABkZGQASEhIAEhISADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAgICAAGhoaABUVFQAVFRUAMTExAA==",
+  "threePt|softEdge": "NjY2ADExMQApKSkAICAgABYWFgAODg4ACgoKAQgICAcJCQkZCQkJKwkJCSs2NjYAMDAwACcnJwAdHR0AExMTAAwMDAAICAgBDAwMCA0NDRIPDw8gDw8PIDY2NgAvLy8AJSUlABsbGwAREREACwsLAAoKCgEQEBAJFBQUFxYWFjAWFhYwNjY2AC8vLwAkJCQAGxsbABAQEAALCwsADQ0NARMTEwgaGhoaHR0dOh0dHTo2NjYALy8vACgoKAA3NzcIGRkZAgwMDAAODg4BGxsbCSQkJBgpKSkzKSkpMzY2NgAuLi4ALCwsAWZmZiYpKSkKDAwMABAQEAElJSUJLy8vFTQ0NCQ0NDQkNjY2AC4uLgAoKCgAMTExBBcXFwEODg4AFBQUAUFBQRtPT089SEhIS0hISEs2NjYAMDAwACcnJwAeHh4AFBQUAA8PDwAbGxsEXV1dlzk5OcBISEimSEhIpjY2NgAxMTEAKSkpACAgIAAXFxcAERERABoaGgURERHtDQ0N8Tc3N7U3Nze1NjY2ADMzMwAsLCwAJCQkABsbGwAUFBQAFhYWAklJST5WVlZwRkZGa0ZGRms2NjYANDQ0ADAwMAAoKCgAHx8fABgYGAAUFBQBJCQkDCoqKhwqKiotKioqLTY2NgA2NjYAMzMzACwsLAAlJSUAHR0dABYWFgEaGhoGHx8fDCEhIRQhISEUNjY2ADg4OAA2NjYAMTExACoqKgAiIiIAHBwcARsbGwUgICAQIyMjGSMjIxk2NjYAOTk5ADk5OQA1NTUALy8vACkpKQAnJycBKSkpBSoqKgsrKysSKysrEjY2NgA7OzsAQUFBADk5OQA2NjYANTU1ADMzMwE2NjYGNzc3DTg4OBc4ODgXNjY2AD8/PwB7e3sMVFRUAz09PQA9PT0APT09AUBAQAVBQUEOQUFBGkFBQRo2NjYARUVFAY2NjWSxsbEmRkZGAUJCQgBCQkIBRkZGBkdHRw1HR0cXR0dHFzY2NgBFRUUBg4ODb7S0tChGRkYBQkJCAEJCQgFFRUUFR0dHCkhISBFISEgRNjY2AD8/PwB4eHgLTU1NAj09PQA9PT0APT09AT8/PwVDQ0MPQkJCGEJCQhg2NjYAOzs7AD8/PwE2NjYANTU1ADQ0NAAzMzMBNTU1Bjc3Nww4ODgUODg4FDY2NgA4ODgANjY2ADExMQAsLCwAKSkpACcnJwEpKSkHKysrDywsLB4sLCweNjY2ADY2NgAzMzMALS0tACQkJAAeHh4AGhoaARwcHAYeHh4THh4eJh4eHiY2NjYANDQ0ADAwMAAoKCgAHx8fABcXFwAREREBEBAQBxERERIQEBAlEBAQJTY2NgAzMzMALCwsACQkJAAbGxsAEhISAA0NDQELCwsHCgoKDwkJCRsJCQkbNjY2AA==",
+  "threePt|powder": "bm5uclpaWlxERERALy8vLCAgICAVFRUcDAwMHggICDEGBgZOBQUFYQUFBWFubm5yWFhYWEJCQj0tLS0rHR0dHxAQEBkJCQkcCgoKOAoKCksJCQleCQkJXm5ubnJXV1dXQEBAQCwsLC4aGhofERERGg0NDSEODg5ADQ0NWAsLC3ELCwtxbm5uclZWVlY/Pz9DLS0tNBsbGyQSEhIfERERKBEREUMQEBBhEBAQgBAQEIBubm5yV1dXV0NDQ0cxMTE5HR0dKRUVFSQUFBQtFhYWUBcXF2wVFRWHFRUVh25ubnJXV1dXQ0NDSTIyMj4fHx8wFhYWKhkZGTYeHh5gICAgdh8fH4gfHx+Ibm5uclhYWFhFRUVJNDQ0PiMjIzIbGxs0Hx8fTSkpKYMoKCiqJSUlvCUlJbxubm5yW1tbW0ZGRkg2NjY7JycnNiEhIT8oKChpMDAwvh8fH90NDQ3wDQ0N8G5ubnJcXFxeSkpKSDg4ODkqKio1IyMjQiQkJGsqKirLDg4O7wMDA/wDAwP8bm5ucmBgYGFNTU1IPDw8NywsLDIkJCQ4ISEhUiIiIoYiIiKsHx8fxx8fH8dubm5yZWVlZ1RUVE9BQUE5MDAwLyQkJC8dHR04GxsbXBkZGXEWFhaEFhYWhG5ubnJra2tvXV1dWUtLS0I3Nzc0KCgoLh0dHTEXFxdJFxcXWBYWFmUWFhZlbm5ucnFxcXlpaWlqV1dXUkJCQj0vLy81IyMjNhoaGkcWFhZeFhYWahYWFmpubm5yb29vhXR0dH9mZmZpT09PTzo6OkIwMDBEJSUlVyEhIWIdHR1sHR0dbG5ubnJlZWWPXV1dmG5uboZhYWFnT09PWD8/P1YwMDBlKSkpciMjI34jIyN+bm5ucl9fX5dHR0exU1NTpG9vb4VgYGBuTExMZTo6Om8vLy9+KSkpiikpKYpubm5yWVlZnTs7O75DQ0O1XFxcmWlpaX1TU1NvPT09eDY2NoEwMDCLMDAwi25ubnJZWVmdPDw8vUJCQrZbW1uaaWlpfVNTU28+Pj54ODg4fzMzM4YzMzOGbm5ucl1dXZhLS0usV1dXn29vb4RdXV1tS0tLZDg4OHAtLS2BKioqiSoqKolubm5yZ2dnjWFhYZVwcHCAX19fZ05OTlg+Pj5WLy8vZysrK3InJyd7Jycne25ubnJzc3OBcXFxfF9fX2JJSUlKOzs7Qi8vL0UjIyNaHh4eaRsbG3cbGxt3bm5ucm9vb3VhYWFjTk5OSzg4ODcrKyswICAgNRgYGEsTExNfEBAQchAQEHJubm5yZ2dna1ZWVlJBQUE6Li4uLCEhISYWFhYpDg4OPwsLC1AKCgpjCgoKY25ubnJgYGBiTExMRjc3NzAmJiYlGhoaIBISEiMLCws2CAgIQwcHB08HBwdPbm5ucg==",
+  "balanced|": "MjIyASoqKgAlJSUAHx8fABoaGgAcHBwBIiIiAyoqKgQoKCgCJiYmASYmJgEyMjIBKSkpACIiIgAbGxsAFhYWABYWFgEbGxsDFxcXBBQUFAITExMCExMTAjIyMgEpKSkAIiIiABsbGwAWFhYAFRUVARgYGAIWFhYCEhISAQ4ODgEODg4BMjIyAS0tLQAnJycAIyMjAB0dHQAaGhoAGxsbARoaGgEWFhYBFBQUARQUFAEyMjIBNDQ0ATIyMgErKysAJycnACIiIgAfHx8AHR0dABsbGwAZGRkAGRkZADIyMgE8PDwCQUFBAjk5OQAzMzMALS0tACcnJwAhISEAICAgAB8fHwAfHx8AMjIyAUdHRwNYWFgFTU1NAj4+PgA4ODgAMjIyACoqKgAlJSUAIyMjACMjIwAyMjIBUFBQBHR0dAtoaGgFTU1NAUBAQAA7OzsAMzMzADAwMAAtLS0ALS0tADIyMgFWVlYFiYmJEX19fQlWVlYBRkZGAEBAQAA3NzcAMzMzADAwMAAwMDAAMjIyAVVVVQWNjY0SgICACldXVwFGRkYAQEBAADk5OQAzMzMALy8vAC8vLwAyMjIBT09PBHZ2dgtqamoGTU1NAUFBQQA7OzsAMzMzAC8vLwAsLCwALCwsADIyMgFGRkYDWVlZBU5OTgJAQEAAODg4ADMzMwAqKioAKCgoACYmJgAmJiYAMjIyAT09PQJCQkICODg4ADIyMgAtLS0AKCgoACEhIQAcHBwAGxsbABsbGwAyMjIBNzc3ATMzMwEtLS0AKCgoACIiIgAcHBwAFhYWABMTEwASEhIAEhISADIyMgE0NDQAMjIyAC8vLwAqKioAJSUlAB4eHgAWFhYAExMTABEREQAREREAMjIyATMzMwAzMzMAMzMzAC4uLgApKSkAIiIiABsbGwAXFxcAFBQUABQUFAAyMjIBMzMzADU1NQA1NTUAMjIyACwsLAAmJiYAHR0dABsbGwAbGxsAGxsbADIyMgEzMzMANTU1ADk5OQA9PT0BNjY2ASoqKgAnJycAKSkpACoqKgAqKioAMjIyATIyMgA2NjYAQ0NDAVRUVAVLS0sENzc3ATU1NQA2NjYANzc3ADc3NwAyMjIBMTExADY2NgBISEgCY2NjC2BgYAtFRUUCPDw8ADw8PAA9PT0APT09ADIyMgEwMDAANDQ0AEJCQgJZWVkJV1dXCURERAI+Pj4AQkJCAEZGRgBGRkYAMjIyAS8vLwAvLy8ANTU1ATw8PAM6OjoDODg4AUFBQQBHR0cAS0tLAEtLSwAyMjIBLS0tACwsLAAqKioAJiYmASYmJgEwMDABQEBAAURERAFHR0cBR0dHATIyMgEsLCwAKCgoACMjIwAeHh4AHx8fASoqKgI4ODgCOjo6Ajs7OwE7OzsBMjIyAQ==",
+  "soft|": "MDAwADMzMwAyMjIAMDAwAC0tLQArKysAKSkpACYmJgAkJCQAIyMjACMjIwAwMDAAMDAwAC4uLgAsLCwAKioqACcnJwAjIyMAICAgAB8fHwAeHh4AHh4eADAwMAAuLi4AKysrACgoKAAlJSUAISEhAB4eHgAaGhoAGRkZABgYGAAYGBgAMDAwACwsLAApKSkAJSUlACEhIQAdHR0AGRkZABYWFgAUFBQAEhISABISEgAwMDAAKysrACcnJwAiIiIAHh4eABkZGQAVFRUAEhISABAQEAAPDw8ADw8PADAwMAAqKioAJSUlACEhIQAbGxsAFxcXABMTEwAPDw8ADg4OAA4ODgAODg4AMDAwACkpKQAkJCQAHh4eABkZGQAVFRUAERERAA4ODgAMDAwADAwMAAwMDAAwMDAAKSkpACMjIwAeHh4AGRkZABQUFAAQEBAADQ0NAAwMDAALCwsACwsLADAwMAApKSkAJCQkAB4eHgAZGRkAFBQUABAQEAANDQ0ADAwMAAsLCwALCwsAMDAwACkpKQAkJCQAHx8fABoaGgAWFhYAEhISAA4ODgAMDAwADAwMAAwMDAAwMDAAKioqACYmJgAhISEAHBwcABgYGAATExMAEBAQAA8PDwAODg4ADg4OADAwMAArKysAJycnACQkJAAfHx8AGhoaABcXFwATExMAEhISABEREQAREREAMDAwACwsLAApKSkAJiYmACIiIgAeHh4AGxsbABcXFwAWFhYAFRUVABUVFQAwMDAALi4uACwsLAApKSkAJiYmACMjIwAgICAAHBwcABsbGwAbGxsAGxsbADAwMAAwMDAALy8vAC0tLQArKysAKCgoACYmJgAiIiIAISEhACAgIAAgICAAMDAwADMzMwA0NDQAMjIyADAwMAAuLi4ALCwsACgoKAAnJycAJiYmACYmJgAwMDAAODg4AT4+PgE6OjoANTU1ADQ0NAAxMTEALy8vAC0tLQArKysAKysrADAwMAA+Pj4BTk5OA0lJSQI+Pj4BODg4ADY2NgAzMzMAMjIyADExMQAxMTEAMDAwAENDQwJeXl4GXV1dBUdHRwE8PDwAOTk5ADg4OAA2NjYANTU1ADU1NQAwMDAARUVFAmtrawlubm4IT09PAj8/PwA7OzsAOjo6ADk5OQA3NzcANzc3ADAwMABEREQCaGhoCGpqagdMTEwCPj4+ADs7OwA4ODgANzc3ADY2NgA2NjYAMDAwAEFBQQJZWVkFVlZWBENDQwE7OzsAODg4ADY2NgA1NTUANDQ0ADQ0NAAwMDAAPDw8AUZGRgJDQ0MBOjo6ADY2NgA1NTUAMjIyADAwMAAvLy8ALy8vADAwMAA3NzcBOTk5ATY2NgAzMzMAMTExAC8vLwAsLCwAKysrACsrKwArKysAMDAwAA==",
+  "harsh|": "ISEhABISEgAHBwcABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAhISEAExMTAAgICAAFBQUABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEACEhIQAVFRUACwsLAAgICAAGBgYABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQAISEhABcXFwAODg4ADQ0NAAsLCwAKCgoACAgIAAcHBwAGBgYABQUFAAUFBQAhISEAGhoaABISEgASEhIAEhISABEREQAREREADw8PAA4ODgAODg4ADg4OACEhIQAeHh4AGBgYABkZGQAbGxsAHBwcABwcHAAcHBwAGxsbABsbGwAbGxsAISEhACMjIwAiIiIAIiIiACYmJgApKSkAKSkpACkpKQApKSkAKSkpACkpKQAhISEAJycnADAwMAE8PDwCPDw8Ajg4OAE1NTUANzc3ADc3NwA3NzcANzc3ACEhIQAsLCwAQEBAAWVlZQZubm4GWlpaAkZGRgBAQEAAQEBAAEBAQABAQEAAISEhAC8vLwBPT08Bh4eHCZycnAqGhoYEZWVlAF9fXwBbW1sAWFhYAFhYWAAhISEAMzMzAFJSUgGMjIwGpaWlBpWVlQJ/f38AfHx8AHp6egB3d3cAd3d3ACEhIQA0NDQAU1NTAXt7ewKRkZECkpKSAY2NjQCQkJAAjo6OAIyMjACMjIwAISEhADU1NQBSUlIBd3d3AYqKigGPj48AkpKSAJOTkwCRkZEAj4+PAI+PjwAhISEANDQ0AFNTUwGCgoIDmZmZA5OTkwGKiooAiIiIAIeHhwCFhYUAhYWFACEhIQAxMTEAUVFRAY+PjwimpqYIkZGRA3Z2dgBxcXEAb29vAG1tbQBtbW0AISEhAC4uLgBLS0sBfX19CIyMjAl1dXUDWFhYAFFRUQBPT08ATU1NAE1NTQAhISEAKioqADk5OQFVVVUEV1dXBEhISAE9PT0APT09AD09PQA8PDwAPDw8ACEhIQAlJSUAKioqADAwMAExMTEBMjIyADExMQAxMTEAMTExADExMQAxMTEAISEhACAgIAAdHR0AHx8fACEhIQAjIyMAJSUlACQkJAAjIyMAIyMjACMjIwAhISEAHBwcABYWFgAWFhYAGBgYABgYGAAYGBgAFhYWABYWFgAVFRUAFRUVACEhIQAZGRkAERERABAQEAAPDw8ADg4OAA0NDQAMDAwACwsLAAoKCgAKCgoAISEhABYWFgANDQ0ACwsLAAkJCQAHBwcABgYGAAUFBQAEBAQABAQEAAQEBAAhISEAFBQUAAoKCgAHBwcABQUFAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEACEhIQASEhIACAgIAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQAISEhAA==",
+  "glow|": "MTExAD8/PwBPT08AcnJyAa2trQbBwcEGqKioApmZmQCbm5sAnJycAJycnAAxMTEAPT09AE5OTgBqamoBlZWVA6urqwSenp4BlJSUAJWVlQCXl5cAl5eXADExMQA8PDwASUlJAFtbWwB0dHQBg4ODAYSEhACHh4cAiIiIAIqKigCKiooAMTExADo6OgBFRUUAT09PAFtbWwBlZWUAa2trAHFxcQBzc3MAdXV1AHV1dQAxMTEANzc3AD4+PgBFRUUATExMAFJSUgBYWFgAXFxcAF1dXQBeXl4AXl5eADExMQA0NDQANzc3ADo6OgA+Pj4AQUFBAERERABGRkYARkZGAEZGRgBGRkYAMTExADExMQAxMTEAMjIyADIyMgAyMjIAMjIyADIyMgAyMjIAMjIyADIyMgAxMTEANjY2ADs7OwA/Pz8AREREAElJSQBMTEwAT09PAFBQUABQUFAAUFBQADExMQA6OjoAREREAE9PTwBbW1sAZGRkAGxsbABzc3MAdnZ2AHd3dwB3d3cAMTExAD4+PgBPT08AX19fAHR0dACEhIQAj4+PAJeXlwCcnJwAnp6eAJ6engAxMTEAQUFBAFVVVQBycnIAmpqaAbW1tQK4uLgBuLi4ALy8vAC/v78Av7+/ADExMQBDQ0MAXFxcAIWFhQHPz88G4eHhCOTk5ALS0tIA1NTUANbW1gDW1tYAMTExAERERABeXl4AkJCQAt7e3gvc3NwN5OTkBN7e3gDd3d0A39/fAN/f3wAxMTEAQ0NDAFxcXACFhYUBz8/PBuHh4Qjk5OQC09PTANTU1ADW1tYA1tbWADExMQBBQUEAVVVVAHFxcQCampoCtra2Arm5uQG6uroAvb29AL+/vwC/v78AMTExAD4+PgBPT08AYGBgAHNzcwCDg4MAjo6OAJaWlgCcnJwAnp6eAJ6engAxMTEAOjo6AEVFRQBQUFAAWlpaAGRkZABsbGwAc3NzAHV1dQB3d3cAd3d3ADExMQA1NTUAOzs7AEBAQABEREQASUlJAE1NTQBOTk4AT09PAFBQUABQUFAAMTExADExMQAxMTEAMjIyADIyMgAyMjIAMjIyADIyMgAyMjIAMjIyADIyMgAxMTEANDQ0ADc3NwA7OzsAPj4+AEFBQQBDQ0MARUVFAEZGRgBGRkYARkZGADExMQA3NzcAPj4+AEZGRgBMTEwAU1NTAFhYWABcXFwAXFxcAF1dXQBdXV0AMTExADo6OgBFRUUAT09PAFxcXABmZmYAbGxsAHJycgB1dXUAdnZ2AHZ2dgAxMTEAPDw8AElJSQBbW1sAdHR0AYODgwGEhIQAhYWFAIeHhwCIiIgAiIiIADExMQA9PT0AT09PAGlpaQGVlZUDqqqqBJ6engGUlJQAlJSUAJWVlQCVlZUAMTExAA==",
+  "twoPt|": "NDQ0ACsrKwAjIyMAGxsbABMTEwAMDAwABwcHAAYGBgAGBgYABgYGAAYGBgA0NDQALCwsACUlJQAdHR0AFhYWAA4ODgAJCQkABQUFAAQEBAAEBAQABAQEADQ0NAAuLi4AJycnACAgIAAYGBgAERERAAwMDAAHBwcABgYGAAUFBQAFBQUANDQ0ADExMQApKSkAIyMjAB0dHQAYGBgAEhISAA0NDQALCwsACQkJAAkJCQA0NDQANTU1ATAwMAAoKCgAJCQkACAgIAAbGxsAFBQUABISEgAQEBAAEBAQADQ0NAA7OzsBOzs7ATExMQAsLCwAKCgoACQkJAAeHh4AGxsbABoaGgAaGhoANDQ0AERERAJLS0sDQEBAATU1NQAwMDAALS0tACYmJgAjIyMAISEhACEhIQA0NDQAS0tLA15eXgdUVFQEPz8/ATc3NwAzMzMALS0tACoqKgAoKCgAKCgoADQ0NABQUFAEbm5uC2NjYwZHR0cBOzs7ADc3NwAwMDAALS0tACsrKwArKysANDQ0AFFRUQRxcXELZGRkB0dHRwE7OzsANzc3ADExMQAtLS0AKysrACsrKwA0NDQATU1NA2RkZAdUVFQEPz8/ATY2NgAzMzMALS0tACoqKgAoKCgAKCgoADQ0NABHR0cCUlJSA0VFRQE3NzcAMDAwAC0tLQAnJycAJSUlACMjIwAjIyMANDQ0AD8/PwFBQUEBOTk5ADExMQApKSkAJCQkAB4eHgAbGxsAGhoaABoaGgA0NDQAOTk5ATg4OAAyMjIALCwsACcnJwAgICAAGRkZABcXFwAVFRUAFRUVADQ0NAA1NTUAMjIyAC4uLgAoKCgAIiIiABwcHAAVFRUAEhISABAQEAAQEBAANDQ0ADIyMgAuLi4AKSkpACMjIwAdHR0AFxcXABAQEAANDQ0ADAwMAAwMDAA0NDQAMDAwACwsLAAnJycAICAgABgYGAASEhIADAwMAAoKCgAKCgoACgoKADQ0NAAuLi4AKioqACcnJwEeHh4AFRUVAA4ODgAMDAwADAwMAAwMDAAMDAwANDQ0AC0tLQArKysAKSkpAR4eHgETExMADQ0NAA0NDQANDQ0ADQ0NAA0NDQA0NDQAKysrACkpKQEoKCgCHh4eARISEgEODg4ADg4OAA4ODgAODg4ADg4OADQ0NAArKysAJiYmACMjIwEZGRkBEBAQAA0NDQANDQ0ADQ0NAA0NDQANDQ0ANDQ0ACoqKgAjIyMAHx8fARQUFAAODg4ADAwMAAwMDAAMDAwADAwMAAwMDAA0NDQAKioqACIiIgAaGhoAERERAAwMDAAKCgoACgoKAAoKCgAKCgoACgoKADQ0NAAqKioAIiIiABoaGgASEhIADAwMAAgICAAICAgACAgIAAgICAAICAgANDQ0AA==",
+  "freezing|": "FRslAAwQFgAMERUAEBkfASE4SgcwVHQPME9tCCY8UQElOU4AJjpQACY6UAAVGyUADhIYAA0RFwAPFhwAFSIsAhwwPwQfMUIDHS49AB4uPgAeLz8AHi8/ABYbJQAQFBwADhMZAA8UGwAQFyAAERojAREaIwESHCYAFB8pABUhKwAVISsAFhslABIXIQAQFB0AEhYgABEWIQAQFSAADxQeAA8VHgAPFh8ADxYfAA8WHwAWGyYAFhsmABUZJgAUGCMAFRgmABQXJgATFiMAExckABMXJAATFyMAExcjABYbJgAZHy0AHSIzAB4jNQAdIDUAGx0xABcYKwAUFSQAFBUlABQVJQAUFSUAFhsmAB0jNAAkK0AAKzFMAC0zUgAsMlMAKi5OACYoRwAjJUIAIyRBACMkQQAWGyYAHyY4ACszTwA5Q2gAQk17AURNfgBBRngAOz9uADk8agA2OmcANjpnABYbJgAhKTwAMjpbAExajQFhb7MCYm62AlZgogBPVpMATFKNAElOhwBJTocAFhsmACMqPQA3QmUAWGiiAneL3QV4it4DZHK6AVtlqgBXYaMAVF2dAFRdnQAWGyYAIyo+ADdBYgBWZp4CcobSA3OH1AJlcrwAXGirAFpkpwBXYaIAV2GiABYbJgAiKjwAMz5bAEdWgQFZaaIBXW2rAVdnogBSYJkAUV2VAE9bkgBPW5IAFhsmACAoOQAsNk8AOUVnAEJQdwBEVH0ARFJ8AEJMdgA+SHAAPEZtADxGbQAWGyYAHSUzACYvQwAsN04AMDtWADE8WAAwOlUAKzRNACkySgAoMEYAKDBGABYbJgAaIS4AHiY1ACApOQAhKTgAHyc1ABsjMAAXHSgAFRskABMZIQATGSEAFhsmABcdKAAXHigAFhwmABMZIAAQFRsADBEVAAkMDgAHCgsABggKAAYICgAWGyYAExkhABAWHQANEhYACg0QAAcKCgAFBwcABAYGAAMFBQADBAQAAwQEABUbJQARFR0ACw8TAAgMDQAGCQkABQcHAAQGBgADBQUAAwQEAAMEBAADBAQAFRslAA4SGAAJDA4ABggJAAUHBwAFBwcABQcIAAUHCAAFBwgABQcIAAUHCAAVGyUADRAVAAcKCwAGCQoACAwNAAkOEAALEBMACxEUAAsRFQALERUACxEVABYbJQAMDxMACAsNAAkNDwAMExYAEBgdABIcIgATHiYAEx4mABMeJgATHiYAFRslAAsOEgAJDQ8ACxIUABMeJAEaKjUBHi89ARwsOAAcKzgAGyo4ABsqOAAVGyUACw8TAAoOEgAOFhsAHjE+BCxKYwguS2YFIzhLASE1RwAiNUgAIjVIABUbJQAMDxQACxAUAA8ZHgEkPFEIOGKKEzdfggsoP1UBJzxRACc7UQAnO1EAFhsmAA==",
+  "contrasting|": "MTExADExMQAzMzMARkZGAmlpaQxpaWkLSUlJAzU1NQAxMTEAMTExADExMQAxMTEAMTExADMzMwBAQEABWVlZBltbWwdCQkICNDQ0ADIyMgAxMTEAMTExADExMQAxMTEAMjIyADY2NgBBQUECQkJCAjg4OAEyMjIAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgA3NzcAQEBAAUJCQgI5OTkBMjIyADIyMgAxMTEAMTExADExMQAxMTEAMjIyAD4+PgFYWFgGXV1dCEdHRwI0NDQAMjIyADExMQAxMTEAMTExADExMQAzMzMAQkJCAmdnZwtsbGwNTk5OBDY2NgAyMjIAMTExADExMQAxMTEAMTExADMzMwA+Pj4BV1dXBl5eXghGRkYCNDQ0ADIyMgAxMTEAMTExADExMQAxMTEAMjIyADY2NgBAQEACQkJCAjk5OQEyMjIAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgA3NzcBQEBAAkJCQgI5OTkBMjIyADIyMgAxMTEAMTExADExMQAxMTEAMjIyAD8/PwFZWVkGXFxcB0NDQwIzMzMAMjIyADExMQAxMTEAMTExAA==",
+  "flood|": "JCQkAA8PDwAICAgABgYGAAYGBgAFBQUABQUFAAQEBAADAwMAAwMDAAMDAwAjIyMAEBAQAAgICAAEBAQABAQEAAMDAwACAgIAAgICAAEBAQABAQEAAQEBACQkJAAREREACgoKAAUFBQACAgIAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAJCQkABMTEwAMDAwACAgIAAQEBAADAwMAAgICAAEBAQABAQEAAQEBAAEBAQAkJCQAFhYWAA8PDwALCwsACgoKAAkJCQAICAgABgYGAAUFBQAFBQUABQUFACQkJAAbGxsAExMTABEREQASEhIAExMTABMTEwAREREAERERABAQEAAQEBAAJCQkACEhIQAdHR0AHBwcAB4eHgAgICAAIiIiACEhIQAhISEAICAgACAgIAAkJCQAKCgoAC4uLgA5OTkBQEBAAUBAQAA+Pj4APDw8ADs7OwA5OTkAOTk5ACQkJAAvLy8ARUVFAW5ubgWGhoYFgYGBAnd3dwB3d3cAdnZ2AHR0dAB0dHQAJCQkADY2NgBgYGACra2tC9zc3A3W1tYFtbW1ALW1tQC3t7cAtra2ALa2tgAkJCQAPDw8AHBwcALZ2dkO2dnZEOLi4gbn5+cB6OjoAOjo6ADo6OgA6OjoACQkJABBQUEAeXl5Ad7e3gnb29sO4uLiBufn5wHo6OgA6OjoAOjo6ADo6OgAJCQkAEJCQgB4eHgB39/fCNnZ2RDg4OAI5+fnAejo6ADo6OgA6OjoAOjo6AAkJCQAQEBAAHNzcwHZ2dkG2NjYEd3d3Qvm5uYC6OjoAOjo6ADo6OgA6OjoACQkJAA9PT0AZmZmALKysgPg4OAJ4uLiBubm5gHU1NQA0dHRAM7OzgDOzs4AJCQkADk5OQBYWFgAgYGBAaampgKtra0Bo6OjAJubmwCXl5cAlJSUAJSUlAAkJCQAMzMzAEhISABgYGABaWlpAWpqagBmZmYAXl5eAF5eXgBdXV0AXV1dACQkJAAsLCwAOzs7AUtLSwJKSkoBRkZGAEdHRwBISEgASEhIAEdHRwBHR0cAJCQkACUlJQAuLi4BOzs7BD09PQM0NDQBLy8vAC4uLgAsLCwALCwsACwsLAAkJCQAHx8fACAgIAEsLCwFKysrAyEhIQEaGhoAGBgYABcXFwAXFxcAFxcXACQkJAAZGRkAFBQUARgYGAIYGBgCFRUVABQUFAAUFBQAExMTABMTEwATExMAJCQkABUVFQANDQ0AEBAQAREREQAQEBAAEBAQABAQEAAPDw8ADw8PAA8PDwAkJCQAERERAAoKCgALCwsADAwMAAwMDAAMDAwADAwMAAsLCwALCwsACwsLACQkJAAPDw8ACQkJAAkJCQAJCQkACAgIAAgICAAICAgABwcHAAcHBwAHBwcAJCQkAA==",
+  "chilly|": "MTE2ACEhJAAXFxkAEBESAA4PEAAOEBAADQ4QAAoMDQAJCwwACQoLAAkKCwAxMTYAJCQoABoZHAATExUADQ0OAAkKCgAICQkABgcIAAYHBwAGBwcABgcHADExNgApKS4AHx8jABcXGQAQEBEACgoLAAYGBgADBAQAAwMEAAMEBAADBAQAMTE2AC4uMwAnJiwAICAkABcXGgAQEBMACgoLAAYGBwAEBAUABAQEAAQEBAAxMTYAMzM5ADIyOQAuLTUAJyctACAfJAAYGBwAERETAA8PEgAODhAADg4QADExNwA5OEAAPT1GAD8/SQA8PEYANjY/AC4uNwAlJS0AJCQrACMjKQAjIykAMTE3AD4+RgBISFMAUU9dAFRUYQBQUF8ASkpZAEFBTgA9PUkAPDxIADw8SAAxMTcAQkJLAFRTYABkZHUAbG1/AG1tgABmZXkAW1tuAFdXaQBWVWcAVlVnADExNgBFRE0AW1tqAHd4iwGKi6MBiomlAX9+lwBwcIcAa2uBAGhofgBoaH4AMTE2AEdHTwBjYnEAg4OWAZ6dtwKenrsBjIypAIB+mAB4eJAAcnKKAHJyigAxMTYAR0ZPAF9fbgCBgZQBmJmxAZiYswGKi6UAfX2VAHd3jwBycokAcnKJADExNwBFQ00AWlpnAHBwgQCAgJUBg4OZAHp6kABvb4UAa2uBAGdnfQBnZ30AMTE3AEFBSgBRUVsAXl5uAGZmdgBmZnYAYWFxAFlZaABRUV8ATk5cAE5OXAAxMTcAPT1FAEdHUABOTlgAUFBbAExMWABGRlEAPT1GADk5QgA2Nj4ANjY+ADExNgA3Nz4AOztDAD08RAA6OUAANDM5ACwrMQAiIiYAHx8iABwcHgAcHB4AMTE2ADMxOAAwMDUALSwxACYmKQAfHyEAFxcYABAQEQAMDAwACgoKAAoKCgAxMTYALS0yACcnKgAfHyEAFhYYAA8PEAAKCwsACQkJAAgICAAICAgACAgIADExNgApKCwAHh4gABYWFwASEhIADw8QAA8PDwANDQ4ADA0NAAwMDQAMDA0AMTE2ACQkJwAZGhsAExMUABITEwATFBUAExQVABESEwAQERIAEBERABAREQAxMTYAISElABcXGQATExQAFRYWABcYGQAWGBoAFBYXABMVFgATFBYAExQWADExNgAgHyMAFhYXABQUFQAZGxwBHSAiARwfIAEWGRsAFBcZABQWGAAUFhgAMTE2AB8fIQAVFhYAFBUWABwfIQEiJyoDHyMmAhcaHAAUFxkAExYXABMWFwAxMTYAHx8iABYWFwATFBQAGx0gAiAkJwMcICQCFBYYABIUFgARExUAERMVADExNgAgHyIAFhYYABAREQAUFhcBFxocARUYGQEQERMADhASAA4PEQAODxEAMTE2AA==",
+  "morning|": "JSMcABUUEAAREAwAEhAMACMdFAQyKhwHLSUaBCIcFAEhHBQAIRwUACEcFAAlIxwAGBYSABMRDgASEQ0AFxMOARwYEAIcGBECGRYQABoWEAAbFhAAGxYQACUjHAAcGhUAFxURABQSDwATEQ4AEhAMABANCgAQDgoAEQ8LABIQDAASEAwAJSMcACAfGQAcGhYAGxkVABgWEgAVEw8AEg8NABAOCwAQDgsADw0KAA8NCgAmIxwAJiQeACYjHAAjIRwAIh8bACAdGQAcGRYAGhgUABoXFAAZFhMAGRYTACYjHAAtKiIAMy8nADUyKgA1MSkAMSwnACsmIgAkIR4AJCEdACQhHQAkIR0AJiMcADIwJwBAPTIATEg8AFJNQQBTTEIATkg/AEdBOgBCPDYAQTs1AEE7NQAmIxwAODUrAE9JPABpYlEBe3JhAYB1ZAF5bmAAbmZYAGphVQBnXlMAZ15TACYjHAA8OC4AW1RGAI2BbQKzposDtqeOAqKVfwCUiHUAj4NyAIh+bgCIfm4AJiMcAD05MABlXk0Aopd9A97Mqwbgz60EvK2VAaudhgCkl4EAnpJ9AJ6SfQAmIxwAPTowAGFbSwCeknoC1cOkBNTGpgO7rZEBrJ+HAKeagwCilYAAopWAACYjHAA8OC4AW1RHAIF4ZAGimH0BrKCGAaKXfwCZj3cAlYl0AJKGcgCShnIAJiMcADk2KwBPSjwAZmFOAHduXAB9dGEAfHNgAHZuXABwaFcAbWVVAG1lVQAmIxwAMzAnAEM/MwBOSjwAVlFCAFhTRABVUEEATUk8AEpGOQBGQjcARkI3ACYjHAAuKyIANTEoADk1LAA4NSsANTMoADAtJAAoJR4AJCIbACEfGQAhHxkAJiMcACglHgAoJR4AJiMcACAfGAAbGhQAFRQPAA4OCgALCwgACgkHAAoJBwAmIxwAISAZABwbFQAWFRAAEA8LAAoKBwAHBwUABgYEAAUFBAAEBAMABAQDACUjHAAdGxYAExIOAA0NCQAJCQcABwcFAAYGBAAFBAMABAQDAAQEAwAEBAMAJSMcABgXEgAODgsACQgGAAcHBQAHBgUABwYFAAYGBAAGBQQABgUEAAYFBAAlIxwAFRQQAAsLCAAICAYACgkHAAsLCAAMDAgADAsIAAwLCAAMCggADAoIACUjHAATEg8ACwsIAAsKBwAODQoAERALABMRDQATEAwAEhAMABIQDAASEAwAJSMcABIRDgANDAkADQwJABUSDQEbGBEBHRkSARoXEQAZFRAAGBUPABgVDwAlIxwAExIOAA4NCgAQDwsAHxsTAi0nGwQsJhsDIBsUAB4ZEwAeGRMAHhkTACUiHAATEg8ADw4LABEPCwAnIRcEOzIhCTYtHwUjHhYBIR0VACEdFQAhHRUAJiMcAA==",
+  "sunrise|": "Ix0VABQRDAAWEwwAHBcOACYeEgA1KBcAQTEbAFM+IQBeRiUAYkknAGJJJwAjHRUAFhMOABcTDQAcFw4AIhoPACkgEgA0JxUARTMcAEs3HgBPOh8ATzofACMdFQAaFhAAGBUOABwXDwAfGQ8AIhoPACUbDwAvIhMAMyUVADcoFgA3KBYAIx4WAB4aEgAbFxAAHxkRACEaEQAhGhAAIRkPACMaDwAkGxAAJBsQACQbEAAjHhYAIx4WACIdFQAgGxQAIx0UACMcFAAjGxIAJBsTACUcEwAlHBMAJRwTACMeFgApIxkALicbADAoHgAwJxwALCQaACYeFwAhGhQAIRsUACEbFAAhGxQAIx4WAC8oHAA7MiMARjopAEw+LABLPSwARzgpAD8yJQA6LiIAOS0iADktIgAjHhYAMywfAEk9KgBgTzcBcFxBAXNdQgFrVz4AZE85AF9MNwBcSTUAXEk1ACMeFgA3LyEAU0YxAIFsSwKmiV4DpohfApJ3VACFa00AgGVKAHthRwB7YUcAIx4WADgwIgBcTTYAlX1VA8qqcwXMqXUEqopjAZp9WQCTeFUAjnNSAI5zUgAjHhYAOTEiAFlNNQCSelUCw6NwBMWibwKqjGIAnIBbAJd7VwCTd1UAk3dVACMeFgA3MCEAVEcyAHhlRwGVfVYBnoRbAZV8VwCMclIAiW9PAIZtTQCGbU0AIx4WADQtIABJPisAX1A3AG9dQQB1YkQAcmBDAG1bQABmVTwAZFM6AGRTOgAjHhYAMCodAD81JQBJPysAUEQvAFJGMQBQQzAARz0rAEU6KQBCOCcAQjgnACMeFgAqJRoAMSseADUvIAA1LiAAMisfAC0nGwAlIRYAIh4VAB8bEwAfGxMAIx4WACUhFgAlIRcAIx8WAB8bEwAaFxAAFBIMAA4MCQALCgcACQkGAAkJBgAjHhYAIBwTABoYEAAVEw0ADw4JAAoKBgAHBwUABgYEAAUFAwAEBAMABAQDACMdFQAaGBEAEhELAA0MCAAJCQYABwcFAAYGBAAFBQMABAQDAAQEAwAEBAMAIx0VABcUDgAODQkACAgGAAcHBQAHBwUACAgFAAgIBQAICAUACAgFAAgIBQAjHRUAExIMAAsKBwAKCQYADg0IABIQCgAWEgsAGBMMABgUDAAYFAwAGBQMACMdFgASEAsADAsIABAOCQAYFQwAIBsPACgfEgAtIxMALiQUAC8kFAAvJBQAIx0VABEPCwAPDgkAFRMLACEcEAAtJBUAOCwZAEExGwBEMxwARjQcAEY0HAAjHRUAEhALABIQCgAaFg0AKSATADcrGQBFNR0AUDsgAFQ+IgBZQiMAWUIjACIdFQATEAsAFRILABsWDQAqIRMAOiwZAEg2HgBXQSIAXkYlAGNJJwBjSScAIx4WAA==",
+  "sunset|": "JBYNABUPCQAQDgcADgwGAA4MBQAPDQUAEA0FABAOBQARDgUAEg8FABIPBQAkFg0AGBEKABEOCAAQDQcADQwFAAwKBAAMCgQADAoEAAwKBAAMCgQADAoEACQXDQAcEwsAFQ8JABEOCAAPDAYADAoFAAkIAwAHBgIABwYCAAcGAgAHBgIAJBcNACEVDQAdEwsAGRAJABUOCAARCwYADAkFAAgGAwAGBQIABQQCAAUEAgAkFw0AJxgOACkXDgAnFg4AIxMMAB0PCgAXCwcAEAgFAA0GBAAMBQMADAUDACQXDQAtGhAANR0SADseEwA8HBIAORkQADQWDgArEQsAJw8KACUNCQAlDQkAJBcNADMdEQBDIhUAUSYYAFsnGQBcJRgAWSIWAFEcEwBKGREARhcQAEYXEAAkFw0AOB4SAFAmFwBsLRwAgDEgAIYxIAB+Lh4AdykbAHMmGQBvJBgAbyQYACQXDQA6IBMAWyoaAIw2IQC2PCcBuD0nAKM4JQCVMiEAjy8gAIstHgCLLR4AJBcNADsgFABiLBsAnzkkANtELAHbRS0BtT8oAKY4JQCgNCIAmjEhAJoxIQAkFw0AOyAUAF4rGgCZOCMAzUEqAcpCKgCuPCcAnzYkAJozIgCVMSEAlTEhACQXDQA4HxMAVCkZAHkyHwCVOCMAmzgkAJE0IgCGLx8Agy0eAIAsHQCALB0AJBcNADUeEQBIJRYAXCoaAGktHABtLBwAaioaAGMlFwBcIRUAWiAUAFogFAAkFw0AMBwQADwgEwBFIhUASCMVAEggFABEHRIAPRgPADoXDgA3FQ0ANxUNACQXDQAqGQ8ALhsQADAbEAAtGA8AKRUNACQRCwAcDQgAGQsHABYKBgAWCgYAJBcNACQXDQAiFg0AHxMLABkQCQATDAcADQgFAAgFAwAGBAIABAMCAAQDAgAkFw0AHxQMABgRCgARDQcACwkFAAYGAwADAwIAAgIBAAICAQABAQEAAQEBACQXDQAaEgsAEA0IAAoJBQAGBgMABAQCAAQEAgADAwIAAwIBAAICAQACAgEAJBcNABYQCQAMCwYACAgEAAgHBAAIBwMABwcDAAcGAwAGBQIABgUCAAYFAgAkFw0AFA8JAAwLBgAJCQQACwoEAAsKBAAMCgQACwkEAAoJAwAKCQMACgkDACQXDQASDggADAsGAAwKBQAODAUADw0FABANBQAPDQUADwwEAA8MBAAPDAQAJBcNABIOCAANCwYADQwFABAOBgARDwYAExAGABMPBQATDwUAFBAGABQQBgAkFw0AEg8IAA4MBgAODAUAEA4GABMQBgAUEQYAFREGABYSBgAXEwYAFxMGACQWDQATDwkADw0HAA0MBQAQDgYAEg8GABMQBgAUEAUAFBEGABURBgAVEQYAJBcNAA==",
+  "threePt|dkEdge": "NjY2ADExMQApKSkAHx8fABMTEwAKCgoABAQEAAEBAQABAQEAAQEBAAEBAQA2NjYAMDAwACYmJgAcHBwAERERAAgICAADAwMAAgICAAEBAQABAQEAAQEBADY2NgAvLy8AJSUlABoaGgAPDw8ACAgIAAQEBAADAwMAAgICAAEBAQABAQEANjY2AC8vLwAkJCQAGhoaAA4ODgAICAgABgYGAAMDAwACAgIAAgICAAICAgA2NjYALy8vACgoKAA2NjYIFhYWAggICAAGBgYABQUFAAQEBAADAwMAAwMDADY2NgAuLi4ALCwsAWNjYyYlJSUKCAgIAAcHBwAICAgABwcHAQYGBgEGBgYBNjY2AC4uLgAnJycALy8vBBQUFAEJCQkACQkJABYWFgcTExMHDAwMBAwMDAQ2NjYAMDAwACYmJgAdHR0AERERAAsLCwANDQ0BSEhIVUBAQFQqKiouKioqLjY2NgAxMTEAKSkpAB8fHwATExMADAwMAA4ODgJVVVWbQUFBfiMjIy0jIyMtNjY2ADMzMwAsLCwAIyMjABcXFwAODg4ACwsLASAgIBweHh4hEBAQDhAQEA42NjYANDQ0ADAwMAAnJycAGxsbABEREQAKCgoACQkJAQgICAIGBgYCBgYGAjY2NgA2NjYAMjIyACsrKwAhISEAFRUVAAsLCwAGBgYABQUFAAQEBAAEBAQANjY2ADg4OAA2NjYALy8vACUlJQAYGBgADg4OAAcHBwAEBAQABAQEAAQEBAA2NjYAOTk5ADg4OAAzMzMAKSkpAB0dHQAUFBQACgoKAAcHBwAGBgYABgYGADY2NgA7OzsAQEBAADc3NwAvLy8AJiYmABsbGwAODg4ACQkJAAcHBwAHBwcANjY2AD8/PwB7e3sMUVFRAzU1NQAtLS0AISEhABISEgALCwsACAgIAAgICAA2NjYARUVFAY2NjWSurq4mPT09AS8vLwAjIyMAExMTAA0NDQAJCQkACQkJADY2NgBFRUUBg4ODb7GxsSg+Pj4BLy8vACMjIwATExMADg4OAAsLCwALCwsANjY2AD8/PwB2dnYLS0tLAjU1NQArKysAHx8fABEREQAKCgoACAgIAAgICAA2NjYAOzs7AD4+PgE0NDQALi4uACUlJQAaGhoADQ0NAAoKCgAICAgACAgIADY2NgA4ODgANTU1ADAwMAAmJiYAHR0dABMTEwAJCQkABgYGAAQEBAAEBAQANjY2ADY2NgAyMjIALCwsAB8fHwAVFRUADAwMAAYGBgADAwMAAgICAAICAgA2NjYANDQ0AC8vLwAnJycAGxsbABAQEAAICAgAAwMDAAEBAQABAQEAAQEBADY2NgAzMzMALCwsACMjIwAXFxcADQ0NAAYGBgACAgIAAQEBAAEBAQABAQEANjY2AA==",
+  "threePt|softmetal": "QkJCATQ0NAApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgBCQkIBMzMzACgoKAAeHh4AExMTAAoKCgAFBQUABQUFAAQEBAAFBQUABQUFAEJCQgEyMjIALS0tACMjIwETExMACgoKAAcHBwAICAgACAgIAAoKCgEKCgoBQkJCATMzMwA3NzcBNTU1AxoaGgENDQ0ACgoKAA0NDQEREREBFRUVARUVFQFCQkIBNDQ0AEVFRQNUVFQIKSkpBBEREQEODg4AICAgAisrKwMxMTEEMTExBEJCQgE2NjYATk5OA2dnZws1NTUGFxcXAhoaGgJLS0sIWlpaCl5eXgpeXl4KQkJCATU1NQBEREQCU1NTBykpKQMaGhoCNTU1BpSUlBakpKQXmJiYEpiYmBJCQkIBNTU1ADk5OQE2NjYCISEhARwcHAJNTU0LwsLCKcPDwynDw8Mhw8PDIUJCQgE1NTUAMDAwACcnJwAaGhoAHR0dAkxMTA28vLwwv7+/LLm5uSC5ubkgQkJCATY2NgAuLi4AJSUlABsbGwAcHBwBPT09CI+PjyCcnJwhjIyMGYyMjBlCQkIBOjo6ADAwMAAoKCgAHx8fABsbGwAmJiYDV1dXDl5eXhBYWFgPWFhYD0JCQgFBQUEANjY2ACwsLAAkJCQAHBwcABkZGQEqKioEMTExBTQ0NAY0NDQGQkJCAU5OTgFFRUUBNDQ0ACkpKQAfHx8AGRkZABkZGQEeHh4CICAgAiAgIAJCQkIBX19fAmZmZgNISEgBMjIyACcnJwAiIiIAHh4eAB4eHgAeHh4BHh4eAUJCQgF5eXkFsLCwDHt7ewVGRkYBMzMzAC4uLgAnJycAJSUlACQkJAAkJCQAQkJCAZGRkQfKysoh1NTUFWpqagM/Pz8ANzc3ADAwMAAtLS0AKysrACsrKwBCQkIBo6OjCra2tjbCwsIpiYmJBkhISAA8PDwANTU1ADIyMgAvLy8ALy8vAEJCQgGlpaULtbW1OMLCwimRkZEGSEhIADw8PAA2NjYAMjIyADAwMAAwMDAAQkJCAZaWlgnLy8sg0tLSE2RkZAI+Pj4ANzc3ADAwMAAqKioAKSkpACkpKQBCQkIBe3t7Baurqwx1dXUFQ0NDATIyMgAuLi4AJiYmACMjIwAhISEAISEhAEJCQgFfX18CY2NjA0JCQgEvLy8AJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAQkJCAUxMTAFAQEABMDAwACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwBCQkIBPz8/ATMzMwAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEAEJCQgE3NzcALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAQkJCAQ==",
+  "brightRoom|": "MTExADw8PABJSUkAWlpaAG1tbQCFhYUAm5ubALOzswDDw8MAysrKAMrKygAxMTEAOzs7AEhISABWVlYAa2trAIGBgQCYmJgAsbGxALu7uwDCwsIAwsLCADExMQA7OzsARkZGAFRUVABmZmYAenp6AI6OjgCoqKgAs7OzALy8vAC8vLwAMTExADo6OgBGRkYAUVFRAF5eXgBubm4AgYGBAJaWlgCioqIAq6urAKurqwAxMTEAOjo6AEpKSgFVVVUBWlpaAGJiYgBwcHAAhISEAIyMjACTk5MAk5OTADExMQA6OjoBVVVVA2dnZwVdXV0CWFhYAGBgYABtbW0Ac3NzAHh4eAB4eHgAMTExADo6OgFbW1sGenp6DWJiYgRPT08BUFBQAFtbWwBiYmIAZmZmAGZmZgAxMTEAQEBAAXBwcAifn58Si4uLB3FxcQFycnIAg4ODAIqKigCPj48Aj4+PADExMQBDQ0MBc3NzBaKiogqYmJgEjo6OAZmZmQCysrIAvLy8AMXFxQDFxcUAMTExAERERABubm4Cj4+PA5iYmAGmpqYAwMDAAODg4ADo6OgA6OjoAOjo6AAxMTEARUVFAGRkZAGCgoIBnp6eALy8vADg4OAA6OjoAOjo6ADo6OgA6OjoADExMQBGRkYAYGBgAH9/fwCjo6MAzc3NAOjo6ADo6OgA6OjoAOjo6ADo6OgAMTExAEVFRQBgYGAAgYGBAKqqqgDV1dUA6OjoAOjo6ADo6OgA6OjoAOjo6AAxMTEAREREAF5eXgB9fX0AoqKiAM3NzQDo6OgA6OjoAOjo6ADo6OgA6OjoADExMQBBQUEAWFhYAHV1dQCWlpYAurq6AN/f3wDo6OgA6OjoAOjo6ADo6OgAMTExAD4+PgBTU1MAZ2dnAISEhACgoKAAv7+/AN3d3QDn5+cA6OjoAOjo6AAxMTEAOzs7AEdHRwBaWloAbW1tAIGBgQCYmJgAsbGxALu7uwDCwsIAwsLCADExMQA3NzcAPj4+AEhISABUVFQAYmJiAHFxcQCCgoIAiIiIAIyMjACMjIwAMTExADExMQA0NDQAOTk5AD4+PgBHR0cAT09PAFtbWwBiYmIAZWVlAGVlZQAxMTEANDQ0ADk5OQBAQEAASUlJAFRUVABeXl4Abm5uAHNzcwB3d3cAd3d3ADExMQA3NzcAPj4+AEdHRwBUVFQAYmJiAHBwcACCgoIAioqKAI+PjwCPj48AMTExADg4OABDQ0MATk5OAF5eXgBubm4AgICAAJSUlAChoaEAqKioAKioqAAxMTEAOjo6AEVFRQBUVFQAZmZmAHl5eQCNjY0ApqamALCwsAC4uLgAuLi4ADExMQA7OzsAR0dHAFdXVwBqamoAgICAAJeXlwCwsLAAubm5AMDAwADAwMAAMTExAA==",
+  "flat|": "MTExADExMQAxMTEAMjIyAEhPVASAprsrdnZ2fYumsDthcoEPUVxkB1FcZAcxMTEAMTExADExMQAyMjIAQERHAm6InhmXn59QeZyxJWN2hhBTXmcIU15nCDExMQAxMTEAMTExADExMQA3OToBTVZdBmh+kRRba3gMTVVcBUJHSwJCR0sCMTExADExMQAxMTEAMTExADMzMwA4OjsBQkdLAkRJTQM+QUQCOTs9ATk7PQExMTEAMTExADExMQAxMTEAMTExADIyMwA0NDUANjc4ATU2NwA1NjYANTY2ADExMQAxMTEAMTExADIyMgAxMTEAMTExADExMQAyMjIAMjIyADIyMgAyMjIAMTExADExMQAzMzMAOTk5ATs7OwE3NzcAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADo6OgFbW1sHbm5uDVpaWgc6OjoBMTExADExMQAxMTEAMTExADExMQAyMjIARkZGAqmpqS2JiYlorKysMUxMTAMyMjIAMjIyADExMQAxMTEAMTExADMzMwBTU1MFlpaWWQwMDPJwcHCDXV1dCDQ0NAAyMjIAMTExADExMQAxMTEAMzMzAEpKSgOqqqpETk5OqpqamlZXV1cGMzMzADIyMgAxMTEAMTExADExMQAyMjIAPz8/AXNzcw+ampoje3t7EkNDQwIyMjIAMjIyADExMQAxMTEAMTExADExMQA1NTUAQkJCAkdHRwI/Pz8BNDQ0ADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgAzMzMAMzMzADIyMgAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADMzMwAzMzMAMjIyADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQA0NDQAOTk5ATo6OgE3NzcAMjIyADExMQAxMTEAMTExADExMQAxMTEAMTExADc3NwFISEgDTk5OBENDQwI1NTUAMTExADExMQAxMTEAMTExADExMQAyMjIAOzs7AVZWVgZhYWEJT09PBDc3NwAxMTEAMTExADExMQAxMTEAMTExADIyMgA6OjoBVFRUBVxcXAdKSkoDNjY2ADExMQAxMTEAMTExADExMQAxMTEAMTExADc3NwBEREQCSEhIAz4+PgE0NDQAMjIzADIyMwAyMjMAMjIzADExMQAxMTEAMzMzADc3NwA3ODgBNTU2ADQ1NQA2NzgBNjc3ATU2NwA1NjcAMTExADExMQAxMTEAMjIyADMzMwA3ODoBQUZKAkRJTgM/Q0YCOz1AATs9QAExMTEAMTExADExMQAxMTEANzg6AUxUWwVnfI8TXW98DlBaYgdGS1EDRktRAzExMQAxMTEAMTExADIyMgBAREgCbISZF5egoE59obQoZ32PFFdlcQpXZXEKMTExAA=="
+};
+var decoded = /* @__PURE__ */ new Map();
+function table(key) {
+  let t = decoded.get(key);
+  if (t) return t;
+  const s = TABLES[key];
+  if (!s) return void 0;
+  if (typeof atob === "function") {
+    const b = atob(s);
+    t = new Uint8Array(b.length);
+    for (let i2 = 0; i2 < b.length; i2++) t[i2] = b.charCodeAt(i2);
+  } else t = new Uint8Array(globalThis.Buffer.from(s, "base64"));
+  decoded.set(key, t);
+  return t;
+}
+function lightTable(rig, mat) {
+  const r = rig && TABLES[`${rig}|`] ? rig : "threePt";
+  const m = mat && mat !== "warmMatte" && TABLES[`${r}|${mat}`] ? mat : "";
+  return table(`${r}|${m}`);
+}
+function lightAt(t, dir, thetaDeg, phiDeg, out) {
+  const th = ((thetaDeg + (DIR[dir ?? "t"] ?? 0)) % 360 + 360) % 360;
+  const ti = th / 15, t0 = Math.floor(ti) % 24, t1 = (t0 + 1) % 24, ft = ti - Math.floor(ti);
+  const ph = Math.max(0, Math.min(85, phiDeg));
+  let p0 = 0;
+  while (p0 < PH.length - 2 && PH[p0 + 1] <= ph) p0++;
+  const fp = Math.max(0, Math.min(1, (ph - PH[p0]) / (PH[p0 + 1] - PH[p0])));
+  for (let c = 0; c < 4; c++) {
+    const v = (ti2, pi2) => t[(ti2 * PH.length + pi2) * 4 + c];
+    const a = v(t0, p0) * (1 - fp) + v(t0, p0 + 1) * fp, b = v(t1, p0) * (1 - fp) + v(t1, p0 + 1) * fp;
+    const q = a * (1 - ft) + b * ft;
+    out[c] = c < 3 ? q * 0.02 : q / 255;
+  }
+}
+function lightFace(t, out) {
+  const o = 24 * PH.length * 4;
+  for (let c = 0; c < 4; c++) out[c] = c < 3 ? t[o + c] * 0.02 : t[o + c] / 255;
+}
+var PROFILES = {
+  relaxedInset: [81, 73, 67.5, 61.5, 54.5, 50, 48, 42.5, 38, 34, 30.5, -40.5, -50, -50, -50, -48.5, -44.5, -40, -36, -28, -20, -14, -7, -1.5],
+  softRound: [80, 80, 68, -39, -53, -60.5, -60.5, -57, -52, -50, -49, -45.5, -39.5, -36, -32.5, -30.5, -26.5, -17.5, -18, -15, -10.5, -6.5, -3.5, -0.5],
+  convex: [4, 4, 4, 10.5, 16, 20, 23.5, 28.5, 32, 34.5, 37.5, 40, 43.5, 46.5, 49, 50, 50.5, 53.5, 58.5, 62.5, 69, 67, 39.5, 1],
+  coolSlant: [73.5, 69.5, 68, 67, 66.5, 66, 63, 51.5, 45, 33.5, 26.5, 11, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+};
+function bevelPhi(prst, t, hw) {
+  const u = Math.max(1e-3, Math.min(1, t));
+  const tab = prst ? PROFILES[prst] : void 0;
+  let tan;
+  if (tab) {
+    const p = Math.max(0, Math.min(tab.length - 1, u * 24 - 0.5)), i2 = Math.floor(p), f = p - i2;
+    const deg = tab[i2] * (1 - f) + tab[Math.min(tab.length - 1, i2 + 1)] * f;
+    tan = Math.tan(deg * Math.PI / 180);
+  } else if (prst === "angle") tan = 1;
+  else {
+    const s = 1 - u;
+    tan = s / Math.sqrt(Math.max(1e-6, 1 - s * s));
+  }
+  return Math.atan(tan * hw) * 180 / Math.PI;
+}
+
+// ../../../shared/drawingml/src/outline.ts
+var rect = (w, h) => ({
+  subs: [[{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }]],
+  fill: [true],
+  stroke: [true]
+});
+function presetOutline(prst, w, h, adj) {
+  if (!prst || prst === "rect") return rect(w, h);
+  const names = adj ? Object.keys(adj) : void 0;
+  const g = evalPreset(prst, w, h, names?.map((n) => adj[n]), names);
+  if (!g || !g.subs.length) return rect(w, h);
+  return { subs: g.subs, fill: g.fill.map((f) => f !== null), stroke: g.stroke };
+}
+
+// ../../../shared/drawingml/src/raster.ts
+function newMask(w, h) {
+  return { w, h, a: new Float32Array(Math.max(0, w * h)) };
+}
+var IDENTITY = [1, 0, 0, 1, 0, 0];
+function mulAffine(m, n) {
+  return [
+    m[0] * n[0] + m[2] * n[1],
+    m[1] * n[0] + m[3] * n[1],
+    m[0] * n[2] + m[2] * n[3],
+    m[1] * n[2] + m[3] * n[3],
+    m[0] * n[4] + m[2] * n[5] + m[4],
+    m[1] * n[4] + m[3] * n[5] + m[5]
+  ];
+}
+var apply = (m, x2, y) => [m[0] * x2 + m[2] * y + m[4], m[1] * x2 + m[3] * y + m[5]];
+function flattenPath(subs, m = IDENTITY, tol = 0.35) {
+  const out = [];
+  const scale = Math.max(1e-9, Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3]));
+  for (const sub of subs) {
+    const poly2 = [];
+    let cx = 0, cy = 0, sx = 0, sy = 0;
+    const push2 = (x2, y) => {
+      const p = apply(m, x2, y);
+      poly2.push(p[0], p[1]);
+    };
+    for (const s of sub) {
+      switch (s.c) {
+        case "M":
+          if (poly2.length >= 6) {
+            out.push(poly2.splice(0));
+          } else poly2.length = 0;
+          cx = sx = s.x;
+          cy = sy = s.y;
+          push2(s.x, s.y);
+          break;
+        case "L":
+          cx = s.x;
+          cy = s.y;
+          push2(s.x, s.y);
+          break;
+        case "C": {
+          const len = (Math.hypot(s.x1 - cx, s.y1 - cy) + Math.hypot(s.x2 - s.x1, s.y2 - s.y1) + Math.hypot(s.x - s.x2, s.y - s.y2)) * scale;
+          const n = Math.max(2, Math.min(256, Math.ceil(len / tol / 4)));
+          for (let i2 = 1; i2 <= n; i2++) {
+            const t = i2 / n, u = 1 - t;
+            push2(u * u * u * cx + 3 * u * u * t * s.x1 + 3 * u * t * t * s.x2 + t * t * t * s.x, u * u * u * cy + 3 * u * u * t * s.y1 + 3 * u * t * t * s.y2 + t * t * t * s.y);
+          }
+          cx = s.x;
+          cy = s.y;
+          break;
+        }
+        case "Q": {
+          const len = (Math.hypot(s.x1 - cx, s.y1 - cy) + Math.hypot(s.x - s.x1, s.y - s.y1)) * scale;
+          const n = Math.max(2, Math.min(256, Math.ceil(len / tol / 4)));
+          for (let i2 = 1; i2 <= n; i2++) {
+            const t = i2 / n, u = 1 - t;
+            push2(u * u * cx + 2 * u * t * s.x1 + t * t * s.x, u * u * cy + 2 * u * t * s.y1 + t * t * s.y);
+          }
+          cx = s.x;
+          cy = s.y;
+          break;
+        }
+        case "E": {
+          let a0 = s.a0, a1 = s.a1;
+          if (s.ccw) {
+            if (a1 > a0) a1 -= Math.PI * 2;
+          } else if (a1 < a0) a1 += Math.PI * 2;
+          const len = Math.abs(a1 - a0) * Math.max(s.rx, s.ry) * scale;
+          const n = Math.max(2, Math.min(512, Math.ceil(len / tol / 2)));
+          for (let i2 = 0; i2 <= n; i2++) {
+            const t = a0 + (a1 - a0) * i2 / n;
+            push2(s.cx + s.rx * Math.cos(t), s.cy + s.ry * Math.sin(t));
+          }
+          cx = s.cx + s.rx * Math.cos(a1);
+          cy = s.cy + s.ry * Math.sin(a1);
+          break;
+        }
+        case "Z":
+          cx = sx;
+          cy = sy;
+          break;
+      }
+    }
+    if (poly2.length >= 6) out.push(poly2);
+  }
+  return out;
+}
+function fillPolygons(mask, polys, evenOdd = false) {
+  const { w, h, a } = mask;
+  const SUB = 4;
+  const edges = [];
+  for (const p of polys) {
+    const n = p.length / 2;
+    for (let i2 = 0; i2 < n; i2++) {
+      const x0 = p[2 * i2], y0 = p[2 * i2 + 1], x1 = p[2 * ((i2 + 1) % n)], y1 = p[2 * ((i2 + 1) % n) + 1];
+      if (y0 === y1) continue;
+      edges.push(y0 < y1 ? { x0, y0, x1, y1, dir: 1 } : { x0: x1, y0: y1, x1: x0, y1: y0, dir: -1 });
+    }
+  }
+  if (!edges.length) return mask;
+  const row = new Float32Array(w + 1);
+  const xs = [];
+  let ymin = h, ymax = 0;
+  for (const e of edges) {
+    ymin = Math.min(ymin, e.y0);
+    ymax = Math.max(ymax, e.y1);
+  }
+  const r0 = Math.max(0, Math.floor(ymin)), r1 = Math.min(h - 1, Math.ceil(ymax));
+  for (let py = r0; py <= r1; py++) {
+    row.fill(0);
+    for (let s = 0; s < SUB; s++) {
+      const y = py + (s + 0.5) / SUB;
+      xs.length = 0;
+      for (const e of edges) {
+        if (y < e.y0 || y >= e.y1) continue;
+        xs.push({ x: e.x0 + (y - e.y0) / (e.y1 - e.y0) * (e.x1 - e.x0), d: e.dir });
+      }
+      if (!xs.length) continue;
+      xs.sort((p, q) => p.x - q.x);
+      let wind = 0;
+      for (let k = 0; k < xs.length - 1; k++) {
+        wind += evenOdd ? 1 : xs[k].d;
+        const inside = evenOdd ? wind % 2 !== 0 : wind !== 0;
+        if (!inside) continue;
+        const xa = Math.max(0, xs[k].x), xb = Math.min(w, xs[k + 1].x);
+        if (xb <= xa) continue;
+        const ia = Math.floor(xa), ib = Math.floor(xb);
+        if (ia === ib) {
+          row[ia] += (xb - xa) / SUB;
+          continue;
+        }
+        row[ia] += (ia + 1 - xa) / SUB;
+        for (let ix = ia + 1; ix < ib; ix++) row[ix] += 1 / SUB;
+        if (ib < w) row[ib] += (xb - ib) / SUB;
+      }
+    }
+    const o = py * w;
+    for (let x2 = 0; x2 < w; x2++) a[o + x2] = Math.min(1, a[o + x2] + row[x2]);
+  }
+  return mask;
+}
+function gaussianBlur(m, sigma) {
+  if (sigma < 0.05) return { w: m.w, h: m.h, a: new Float32Array(m.a) };
+  const r = Math.max(1, Math.ceil(sigma * 3));
+  const k = new Float32Array(2 * r + 1);
+  let sum = 0;
+  for (let i2 = -r; i2 <= r; i2++) {
+    const v = Math.exp(-(i2 * i2) / (2 * sigma * sigma));
+    k[i2 + r] = v;
+    sum += v;
+  }
+  for (let i2 = 0; i2 < k.length; i2++) k[i2] /= sum;
+  const { w, h } = m;
+  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    for (let x2 = 0; x2 < w; x2++) {
+      let s = 0;
+      const lo = Math.max(-r, -x2), hi = Math.min(r, w - 1 - x2);
+      for (let i2 = lo; i2 <= hi; i2++) s += m.a[o + x2 + i2] * k[i2 + r];
+      tmp[o + x2] = s;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    const lo = Math.max(-r, -y), hi = Math.min(r, h - 1 - y);
+    for (let x2 = 0; x2 < w; x2++) {
+      let s = 0;
+      for (let i2 = lo; i2 <= hi; i2++) s += tmp[(y + i2) * w + x2] * k[i2 + r];
+      out[y * w + x2] = s;
+    }
+  }
+  return { w, h, a: out };
+}
+function distanceTo(m, inside) {
+  const { w, h } = m;
+  const INF = 1e20;
+  const f = new Float64Array(Math.max(w, h));
+  const d = new Float64Array(Math.max(w, h));
+  const v = new Int32Array(Math.max(w, h));
+  const z = new Float64Array(Math.max(w, h) + 1);
+  const g = new Float64Array(w * h);
+  for (let i2 = 0; i2 < w * h; i2++) g[i2] = m.a[i2] >= 0.5 === inside ? 0 : INF;
+  const pass = (n) => {
+    let k = 0;
+    v[0] = 0;
+    z[0] = -INF;
+    z[1] = INF;
+    for (let q = 1; q < n; q++) {
+      let s = (f[q] + q * q - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+      while (s <= z[k]) {
+        k--;
+        s = (f[q] + q * q - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+      }
+      k++;
+      v[k] = q;
+      z[k] = s;
+      z[k + 1] = INF;
+    }
+    k = 0;
+    for (let q = 0; q < n; q++) {
+      while (z[k + 1] < q) k++;
+      d[q] = (q - v[k]) * (q - v[k]) + f[v[k]];
+    }
+  };
+  for (let x2 = 0; x2 < w; x2++) {
+    for (let y = 0; y < h; y++) f[y] = g[y * w + x2];
+    pass(h);
+    for (let y = 0; y < h; y++) g[y * w + x2] = d[y];
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x2 = 0; x2 < w; x2++) f[x2] = g[y * w + x2];
+    pass(w);
+    for (let x2 = 0; x2 < w; x2++) g[y * w + x2] = d[x2];
+  }
+  const out = new Float32Array(w * h);
+  for (let i2 = 0; i2 < w * h; i2++) out[i2] = Math.sqrt(g[i2]);
+  return out;
+}
+function morph(m, r) {
+  const out = newMask(m.w, m.h);
+  if (Math.abs(r) < 0.01) {
+    out.a.set(m.a);
+    return out;
+  }
+  const p = Math.ceil(Math.abs(r)) + 2;
+  const pw = m.w + 2 * p, ph = m.h + 2 * p;
+  const pad2 = newMask(pw, ph);
+  for (let y = 0; y < m.h; y++) pad2.a.set(m.a.subarray(y * m.w, (y + 1) * m.w), (y + p) * pw + p);
+  const d = distanceTo(pad2, r > 0);
+  for (let y = 0; y < m.h; y++) {
+    for (let x2 = 0; x2 < m.w; x2++) {
+      const i2 = y * m.w + x2, dd = d[(y + p) * pw + x2 + p];
+      out.a[i2] = r > 0 ? Math.max(m.a[i2], Math.min(1, Math.max(0, r - dd + 0.5))) : Math.min(m.a[i2], Math.min(1, Math.max(0, dd + r + 0.5)));
+    }
+  }
+  return out;
+}
+function shiftMask(m, dx, dy, w = m.w, h = m.h) {
+  const out = newMask(w, h);
+  for (let y = 0; y < h; y++) {
+    const sy = y - dy;
+    const y0 = Math.floor(sy), fy = sy - y0;
+    for (let x2 = 0; x2 < w; x2++) {
+      const sx = x2 - dx;
+      const x0 = Math.floor(sx), fx = sx - x0;
+      const at = (xx, yy) => xx < 0 || yy < 0 || xx >= m.w || yy >= m.h ? 0 : m.a[yy * m.w + xx];
+      out.a[y * w + x2] = (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
+    }
+  }
+  return out;
+}
+function warpMask(m, inv, w, h) {
+  const out = newMask(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x2 = 0; x2 < w; x2++) {
+      const [sx0, sy0] = apply(inv, x2 + 0.5, y + 0.5);
+      const sx = sx0 - 0.5, sy = sy0 - 0.5;
+      const x0 = Math.floor(sx), y0 = Math.floor(sy), fx = sx - x0, fy = sy - y0;
+      const at = (xx, yy) => xx < 0 || yy < 0 || xx >= m.w || yy >= m.h ? 0 : m.a[yy * m.w + xx];
+      out.a[y * w + x2] = (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
+    }
+  }
+  return out;
+}
+function invertAffine(m) {
+  const det = m[0] * m[3] - m[1] * m[2] || 1e-12;
+  const a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+  return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+}
+
+// ../../../shared/drawingml/src/effects.ts
+function alignPoint(algn, x2, y, w, h) {
+  const a = algn ?? "b";
+  const fx = a === "tl" || a === "l" || a === "bl" ? 0 : a === "tr" || a === "r" || a === "br" ? 1 : 0.5;
+  const fy = a === "tl" || a === "t" || a === "tr" ? 0 : a === "bl" || a === "b" || a === "br" ? 1 : 0.5;
+  return [x2 + fx * w, y + fy * h];
+}
+function shadowAffine(s, box, ppt) {
+  const [ax, ay] = alignPoint(s.algn, box.x, box.y, box.w, box.h);
+  const sx = s.sx ?? 1, sy = s.sy ?? 1;
+  const kx = Math.tan((s.kxDeg ?? 0) * Math.PI / 180), ky = Math.tan((s.kyDeg ?? 0) * Math.PI / 180);
+  const a = s.dirDeg * Math.PI / 180;
+  const dx = s.distPt * ppt * Math.cos(a), dy = s.distPt * ppt * Math.sin(a);
+  const K5 = [1, ky, kx, 1, 0, 0];
+  const S = [sx, 0, 0, sy, 0, 0];
+  const toA = [1, 0, 0, 1, -ax, -ay];
+  const back = [1, 0, 0, 1, ax + dx, ay + dy];
+  return mulAffine(back, mulAffine(S, mulAffine(K5, toA)));
+}
+function outerShadowMask(sil, box, s, ppt) {
+  const m = shadowAffine(s, box, ppt);
+  const moved = warpMask(sil, invertAffine(m), sil.w, sil.h);
+  return gaussianBlur(moved, s.blurPt / 3 * ppt);
+}
+function innerShadowMask(sil, s, ppt) {
+  const a = s.dirDeg * Math.PI / 180;
+  const sh = shiftMask(sil, -s.distPt * ppt * Math.cos(a), -s.distPt * ppt * Math.sin(a));
+  const b = gaussianBlur(sh, s.blurPt / 3 * ppt);
+  const out = newMask(sil.w, sil.h);
+  for (let i2 = 0; i2 < out.a.length; i2++) out.a[i2] = sil.a[i2] * (1 - b.a[i2]);
+  return out;
+}
+function glowMask(sil, radPt, ppt) {
+  return gaussianBlur(morph(sil, radPt / 2 * ppt), radPt / 6 * ppt);
+}
+function softEdgeMask(sil, radPt, ppt) {
+  const e = gaussianBlur(morph(sil, -0.86 * radPt * ppt), radPt / 3 * ppt);
+  for (let i2 = 0; i2 < e.a.length; i2++) e.a[i2] = Math.min(e.a[i2], sil.a[i2]);
+  return e;
+}
+function reflectionAlpha(t, r) {
+  if (t < r.stPos) return r.stA;
+  if (t > r.endPos || r.endPos <= r.stPos) return t > r.endPos ? 0 : r.stA;
+  return r.stA + (r.endA - r.stA) * (t - r.stPos) / (r.endPos - r.stPos);
+}
+
+// ../../../shared/drawingml/src/color.ts
+var clamp01 = (v) => Math.max(0, Math.min(1, v));
+function srgbToLin(v) {
+  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+function linToSrgb(v) {
+  v = clamp01(v);
+  return v <= 31308e-7 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+}
+function hsl(c, f) {
+  const [rf, gf, bf] = c;
+  const max2 = Math.max(rf, gf, bf), min = Math.min(rf, gf, bf), d = max2 - min;
+  let h = 0, s = 0;
+  const l = (max2 + min) / 2;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max2 - min) : d / (max2 + min);
+    if (max2 === rf) h = (gf - bf) / d % 6;
+    else if (max2 === gf) h = (bf - rf) / d + 2;
+    else h = (rf - gf) / d + 4;
+    h /= 6;
+    if (h < 0) h += 1;
+  }
+  let [h2, s2, l2] = f(h, s, l);
+  h2 = (h2 % 1 + 1) % 1;
+  l2 = clamp01(l2);
+  const k = (1 - Math.abs(2 * l2 - 1)) * s2;
+  const x2 = k * (1 - Math.abs(h2 * 6 % 2 - 1));
+  const m = l2 - k / 2;
+  const seg = Math.floor(h2 * 6) % 6;
+  const [r2, g2, b22] = seg === 0 ? [k, x2, 0] : seg === 1 ? [x2, k, 0] : seg === 2 ? [0, k, x2] : seg === 3 ? [0, x2, k] : seg === 4 ? [x2, 0, k] : [k, 0, x2];
+  return [clamp01(r2 + m), clamp01(g2 + m), clamp01(b22 + m)];
+}
+function applyColorMods(c, mods) {
+  let srgbMode = false;
+  for (const [name, raw] of mods) {
+    if (name === "gamma") {
+      srgbMode = true;
+      continue;
+    }
+    if (name === "invGamma") {
+      srgbMode = false;
+      continue;
+    }
+    if (name === "comp") {
+      c = hsl(c, (h, s, l) => [h + 0.5, s, l]);
+      continue;
+    }
+    if (name === "inv") {
+      c = [1 - c[0], 1 - c[1], 1 - c[2]];
+      continue;
+    }
+    if (name === "gray") {
+      const y = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      c = [y, y, y];
+      continue;
+    }
+    if (raw === void 0 || !Number.isFinite(raw)) continue;
+    const val = raw / 1e5;
+    switch (name) {
+      case "shade":
+        c = c.map((v) => srgbMode ? v * val : linToSrgb(srgbToLin(v) * val));
+        break;
+      case "tint":
+        c = c.map((v) => srgbMode ? v * val + (1 - val) : linToSrgb(srgbToLin(v) * val + (1 - val)));
+        break;
+      case "lumMod":
+        c = hsl(c, (h, s, l) => [h, s, clamp01(l * val)]);
+        break;
+      case "lumOff":
+        c = hsl(c, (h, s, l) => [h, s, clamp01(l + val)]);
+        break;
+      case "lum":
+        c = hsl(c, (h, s) => [h, s, clamp01(val)]);
+        break;
+      case "satMod":
+        c = hsl(c, (h, s, l) => [h, Math.max(0, s * val), l]);
+        break;
+      case "satOff":
+        c = hsl(c, (h, s, l) => [h, Math.max(0, s + val), l]);
+        break;
+      case "sat":
+        c = hsl(c, (h, _s, l) => [h, Math.max(0, val), l]);
+        break;
+      case "hueMod":
+        c = hsl(c, (h, s, l) => [h * val, s, l]);
+        break;
+      case "hueOff":
+        c = hsl(c, (h, s, l) => [h + raw / 216e5, s, l]);
+        break;
+      case "hue":
+        c = hsl(c, (_h, s, l) => [raw / 216e5, s, l]);
+        break;
+      default:
+        break;
+    }
+  }
+  return c;
+}
+
+// ../../../shared/drawingml/src/bevel-word.ts
+var WORD_BEVEL = {
+  relaxedInset: "AQECAQMBBQEHAQoBDQEQARQBFwEbAR8BIQEjACQAJQAnACsAMQE1AzkDPAM7AjsBOwEDAQQBBQEGAQgACgAMAA8AEgAWARsBIQEmAioCLQEuADAANAA6AkEFRgdEBkADOwE7AQQDBgMGAgcBCAEKAAwADgASABgBHgElAi0CMgI1ATcBOQA+AkUGTgxQEE4MRQY9AjsBCAYKBQkCCgELAQsBDQEQARQCGgIhAyoDMgM4AzwBPwFDAkgFTgtPFU4aThNFCTwEOwERDBEHEQQQAg8BDgEOAhEDFQQbBSQFLgU3Az4CQgFEAUcCSgZQD00cTB9NFkMLOgQ6ARsUHQ0cChgGEgMPAg4BEQMWBB0EJgUwBDcDPQFAAEIBQQJEBkoNThZNHE4TRgk8AjsBIBskGCQTHQoVBRABDwERAhUCGgMiAykDMQI1ATcAOgA7AD8CRQVMDE8RSwxEBjwBOwEdHyUgJRcgDBkFEwERARMBFgIaAh8CJAIpAisBLgAvADAAMwA5AkAGQwhBBjwDOQE7ARUaGhwcFhoMGAYUAhQAFgAZARwBHgIgASABIQAiACMAJQApAC0BMwI2AzkDOQI5ATsBDg8VFRcNGQgZBBgBGQAaABwBHgIfAh0CGwAaABoAHAAfACIAJwEsATACMwI2AjgBOwEMChAKFAcXBBkCGgEcAB4AIAEhAiEDHQIYABUAFQAXABkAHQAhACcBLAExATUBOAE7AQwHDwUSAxYBGgAdACEAIgAjAiUCJQQfAhYAEgARABIAEwAYAB4BIwEpAS8BMwE3AToBDgYTAxYBGwEfACIAJQAoACwBLQIrBSMDEwAOAA0ADQAQABQAGQAgAScBLQEyATYBOgESBBoEIgImACoALAAwADMBNQM1BjILIgYPAAsACwALAA4BEAEWAR0CJAIrAjIBNwE7ARYFIQUqAjEANAA4ADsBPgJCBkQNQBItCxMACwAKAAoBDAEPARUCHAMjAyoCMAI1AjoBGAUoBTEDNwA8AEAAQgJGBkkMSxZGIDESEwAMAAsBCwENAhIDGAQfBCYDLQMyAzYCOwEeBisFMwI5AD8AQABEAkoITA9KGUUnLhgTAg0ADQENAREDFQMbBSEFJwUtBTIDNQI7ARwGKQMwAjYBOwA9AEIBSQVODE0SRx4yFRQCDAEMAg0CEAMXBB0EIwQrBDADMwM2AjoBFgQkAyoCLwA1ADcAOgA/A0EFRAtAEi0LFQENAQwBDQEQAhUCGwIiAykDLwMzAjYCOwERBBcEHQIiASgALQAwADMBNgI1BjIJJAUWARAADgAPAREBFAEaASECKAIvAjMCNgI7AQkCDgMSAhcBHQAhACUAJwAoASoEJwUgAxgBEwASABMBFAEXARsBIQEoAi4CMwE3ATsBBAEHAQoBDgESARYAGgAdASABIgIhAh4CGgAXABYAFwAZABwAIAElASoBLwEzAjYBOwECAAMBBgEJAQ0BEAEUARgBGwEeAh8CHQEbABoAGgAbAB4AIQAlASgBLQEyAjUCNwE7AQEAAgEDAQYBCQENARABEwEYARoBHQEfAR4AHgAfACAAIgAmACoBLwE0ATYBOAE5ATsB",
+  circle: "AgEDAQQBBgEIAQsBDQEQARMBFgEZABsBHgEhASMBJQEoASoBLQEvATIBNQE3ATkBOwEDAQQBBgEHAQkBCwENAQ8BEQAUARcBGgEdASABIwElASgBKgEsAS8BMQE0ATYBNwE6AQUCBwMHAQgBCgELAQwBDgEQARIBFgEZAhwCIAIjAiYCKQIrAi0CMAEyATQBNQE3ATsBCAUJBAoCCgELAQwBDQEOAhECFAIXAxsEHwQjBSYEKQQsBC4DMAMyAjMCNQI2AjcCOwEPCRAGEAQQAw8DDgIOAg8CEgMVBBkFHgUiBiYGKQYrBi0FLwQxBDMDNAM2AjcCNwI6ARcQGA0ZChcHFAQSAxACEQITAxYEGQQdBSEGJwYrBi0GLwUxBDMDNAM1AjUCNgI3AjsBHhcjFiMQHgoYBRQDEQEQARMCFQMZAx4DIQQmBCkEKwQuAzADMgIzAjUCNgI2AjcCOwEbHCQfIxUgDBwHFwITABMBFQEXARoCHQIgAiMCJwIpAiwCLgIwATEBMwE1ATYBNwI7ARMWGxwcEhwLGgYYAhYAFgAYABoBHQEgASIBJQEnASoBLAEuATABMgE0ATYBNwE4ATsBDgwVExgNGAgZBRkCGQEaABwAHgAhACMAJgAoACsALAAuATABMQEzATQBNgE3ATgBOwELBxAKFQcXBBoCGwEdAB8AIQAjACUAJwAqACwBLgEwADEAMwA0ADUANgE3ATgBOQE7AQsFDQURAxUCGQEdASEAJQAnACoALAAtAC8BMQEzATQBNQE2ATcAOAA4ATgBOQE5AToBDQUSAxUCGwEhACQAJwAqACwBLQEvATMCNgI4AjsCPAI8ATsBOwE7AToBOgE6AToBOwERBBoEIQImACoALAAvADIBNAE3AjsDPwVCBkUHRQdGB0UGQwVCBEADPwI+AjwBOwE7ARUFIQUqAzEBNAA4ADoAPgFCA0cFSgdNC04OTxJPEk8RTw9NDEoKRwdEBUEEPgI8ATsBGAYoBy8DNgE8AEAAQgFGA0oGTQtQEE8WTRxMIEsiSyBMG0wWTBJKDkYKQwY/AzsCOwEdBiwGNAI7AEEARABGAUoDTghPDk0VSxxKI0gqSCtJKEshTBtMFUoRSAxEB0AEPQE7AR0HKgQyAjkBPwBBAEMARwJMBk4KThBNFkocSiJKJUsgThpPFU4RSw1HCUMGPwM7ATsBGAUmBCwCMgA3ADcAOgA9AkACRQRIB0wJTA5OEU4SThFPD00MSglHCEMGQAM+AjwBOwASBBkEHwIkASkBLAAuADAANAE2AjoDPAQ/BkEGQwdDBkIGQQU/BD8DPQM8AjsBOgE7AQoDDgMTAhcCHAEfASMAJgApACsALgEwATMCNQI2AjcCNwI4AjgCOQE5ATkBOgE6ATsBBQEIAgsCDwESARcBGgEeACEAJAAmACkALAAuADAAMQEyATMBNAE1ATYBNwE4ATkBOwECAQQBBwEKAQ0BEQEVARgBGwAeACEAJAAmACkAKwAsAC4AMAExATMBNQE2ATgBOQE7AQEBAgEEAQcBCgENARABFAEYABoAHQAhACIAJQAnASkBKgEsAS4BMAEzATUBNwE4ATsB",
+  slope: "AQECAQMABQANARkCJgMxAjgBOwA8ADwAPAI6BDEDKAIdABcBFgEWARkBIgIsAzUDOwEDAQQBBgAJAA8AGgImAy8DNQI5ATsAPQFAAj8EOAQuAiQBHwAdABwAIQAqAzQFOAQ7AQUDBwMJAQwAEgAcAScDMAM2AjgBOQA8AUAEQwg/BzcELgEpACgAJwArADcFPwo7BTsBCQcNBw8DEAEXASACKAIwAzUDOAE4ATwCQwVICUgKQAY2AS8ALgAtADIBQwtIDj8GOwETDhgNGgcaAx4CJAIqAzADNQI4AToAPQJDBUkKSwxECDcBMgAwAC8ANQFID0wSPQU7AR4WIxMlDyMHIgQmAisBMwI3AjcBOAE6AkAESglNCUQFNwEvACsALAAvAUMOSRI6BDsBJBowGjAWKw0iBCMCKgIyAjcCOAE6ATwBQANFBkIFOwMxACcAIgAjACgAOAZACTsDOwElHy8cMRYuDiUDJAArATICNQI3AjgBOwE+Az4FNgQtAiMAHgAaABsAIAAqAzEENQQ7ARgaIBwkFiYNIwQlAC4BNgE6ATsAOgA6ATgDMwUqBCACGAATABEAEQAWAB8CKQMxBDsBEA8YFBwNHwchAyUBLQI0AjgBOgE7ADsBOQIyAyYDGQEPAAkABwAHAAsAFQEjAzEDOwENCxILFgcaBB8CKAIxAjcBOgE7ADoAOQE1Ai0DIQMUAgkABAACAAMABQAPASEEMQQ7AQwIEAcTBBYBIQIqAzIDNwM6ATsAPAA6ADYBLgMfAhICBwACAAEAAQADAA4BHgMvBTsBDAYQBBQCGgAmATECOgM7AzsAOQE4ATUCMwMqAx0CEgEHAAQAAwADAAUADwEcAywFOwEQBRYDHQEjACwBNgM+BT4DOwE7ADoBOAEyAykDHAIRAQkABgAFAQUACAAQAR0DLAQ7ARQGHAQjAi0BNgJBBUYGQwQ+AToAOAE3AjEDKQMeAhMADQAKAAkBCQEMARIBHAMpBToBGAYjBSoBNABBBEsHTAlGBT4BOgA4ATYCMAMpBCADFwESARECEgMTAxUCHAMkBC4EOgEaBiYELAA2AEYFTwlPCUYFPgI5ATgBNgIxAysDIwMcAxoDGwUeByAHIwYoBiwFMAQ7ARkGIgMpATQBQgNMB00JRQU+AToBOAE1AjMCKwMlAyIDIwcoCywNLw0xCi8IMAYxBDoBFQUbBCEBKwE2Aj8FRgdCBD8BOwA6ADcCMwMrAyMCIgMoCjESNxM4EjgOMgktAzADOgEPBBQDGQEgACsBNwM+BD8DPAI5ATcBNQIzAywCJQAlAi4LNRQ2FTYUNxExCCwCLwE7AQgCCwIPARUAIAErAjUDOwM7AToBOQA3ATQCLQIlASMCJwgrDy0SLhIuDioHKQIuAjsBAwEFAQgADgAXASQDLwQ2AzkBOgA6ATkCNQItAiYCIQMgBSAJIQshCyIJIwUnBCwDOwEBAAIABAAIABEBHgIsAzQDOAE7ADsAOgE4AjECKAIgAxsEGQUYBhkGHAUhBCcDLwM7AQEAAQACAAUADgEbAikDMwI5AToAPAA6ATkBNQMrAyICGQEVAxQDFAQYAiADKwI0AjsB",
+  cross: "EAEpATgBOQE5ATkBOQE5ATkBMgEWAQcBDgEoATgBOQE5ATkBOQE5ATkBOQE5ATkBOQEQASoBOAE5ATkBOQE5ATkBOQEuARMBCAEQASoBOAE5ATkBOQE5ATkBOQE5ATkBOQE5AREBKgE4ATkBOQE5ATkBOQE5AS4BEgEMARABKgE4ATkBOQE5ATkBOQE5ATkBOQE5ATkBEgIqATgBOQE5ATkBOQE5ATkBLAETAhICEgIqATgBOQE5ATkBOQE5ATkBOQE5ATkBOQEXAiwBOAE5ATkBOQE5ATkBOQEsAhQCGAIVAioCOAE5ATkBOQE5ATkBOQE5ATkBOQE5ARcCLQI4ATkBOQE5ATkBOQE5AS4BFQIcAxgCKwI4ATkBOQE5ATkBOQE5ATkBOQE5ATkBGAItATgBOQE5ATkBOQE5ATkBLwEXAh0CGgIsATgBOQE5ATkBOQE5ATkBOQE5ATkBOQEbAS4BOAE5ATkBOQE5ATkBOQEsARgBHgIaASsBOAE5ATkBOQE5ATkBOQE5ATkBOQE5ARwBLQE4ATkBOQE5ATkBOQE4AS4BGgEbARwBLgE4ATkBOQE5ATkBOQE5ATkBOQE5ATkBHQEvATgBOQE5ATkBOQE5ATkBMAEdARkBHAEvATgBOQE5ATkBOQE5ATkBOQE5ATkBOQEgATIBOQE5ATkBOQE5ATkBOQExAR8BFgEfATEBOAE5ATkBOQE5ATkBOQE5ATkBOQE5ASQBMwE5ATkBOQE5ATkBOQE5ATQBJAEYASEBMgE5ATkBOQE5ATkBOQE5ATkBOQE5ATkBJwE0ATkBOQE5ATkBOQE5ATkBNgEpARwBJAEzATkBOQE5ATkBOQE5ATkBOQE5ATkBOQEuADYBOQE5ATkBOQE5ATkBOQE3AS8AIAEsATYBOQE5ATkBOQE5ATkBOQE5ATkBOQE5ATYBOgE5ATkBOQE5ATkBOQE5ATkBOAAoATQBOQE5ATkBOQE5ATkBOQE5ATkBOQE5ATkBPAE8ATkBOQE5ATkBOQE5ATkBOwE+AS4COwE8ATkBOQE5ATkBOQE5ATkBOQE5ATkBOQFAAT0BOQE5ATkBOQE5ATkBOQE7AT4BMQI/AT4BOQE5ATkBOQE5ATkBOQE5ATkBOQE5AT0BPAE5ATkBOQE5ATkBOQE5AToBPQEwAjoBPAE5ATkBOQE5ATkBOQE5ATkBOQE5ATkBOAA5ATkBOQE5ATkBOQE5ATkBOQE4ASgBMgE6ATkBOQE5ATkBOQE5ATkBOQE5ATkBOQEuADYBOQE5ATkBOQE5ATkBOQE4AS4BHwEqATQBOQE5ATkBOQE5ATkBOQE5ATkBOQE5ASMBMAE4ATkBOQE5ATkBOQE5ATYBJwEUASABMAE4ATkBOQE5ATkBOQE5ATkBOQE5ATkBHQEtATgBOQE5ATkBOQE5ATkBNAEhAQ0BGAEtATgBOQE5ATkBOQE5ATkBOQE5ATkBOQEYASwBOQE5ATkBOQE5ATkBOQEyARwBCAEVASwBOAE5ATkBOQE5ATkBOQE5ATkBOQE5ARQBKwE4ATkBOQE5ATkBOQE5ATMBGQEGAQ8BKQE4ATkBOQE5ATkBOQE5ATkBOQE5ATkB",
+  angle: "DwEOAQ8BDwEPAQ4BDwEPAQ4BDwEPAQ4BDwEPAQ8BDwEPAQ8BDgEPAQ8BDgEPARwBOQEMAQwBDAEMAQwBDAEMAQwBDAEMAQwBDAEMAQwBDAEMAQwBDAEMAQwBDAEMAQwBGgE5AQsBCwELAQsBCwELAQsBCwELAQsBCwELAQsBCwELAQsBCwELAQsBCwELAQsBCwEXATkBCwILAgsCCwILAgsCCwILAgsCCwILAgsCCwILAgsCCwILAgsCCwILAgsCCwILAhkCOQEMAgwCDAIMAgwCDAIMAgwCDAIMAgwCDAIMAgwCDAIMAgwCDAIMAgwCDAIMAgwCGgI5AQ0CDQINAg0CDQINAg0CDQINAw0CDQINAg0CDQINAg0CDQINAg0CDQINAg0CDQIbAjkBDgIOAg4CDgIOAg4CDgIOAg4CDgIOAg4CDgIOAg4CDgIOAg4CDgIOAg4CDgIOAhsCOQEPAQ8BDwEPAQ8BDwEPAQ8BDwEPAQ8BDwEPAQ8BDwEPAQ8BDwEPAQ8BDwEPARABHAE5ARMBEgETARMBEgETARMBEwETARIBEwETARMBEwETARMBEwESARIBEwESARIBEwEdATkBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXASABOQEcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAJgE5ASIAIQAhACEAIQAhACEAIgAhACEAIQAhACEAIQAhACEAIQAhACEAIQAhACEAIgAqATkBJgAnACcAJgAnACcAJwAmACcAJgAnACcAJwAmACcAJwAnACcAJwAnACYAJwAmAC0AOQEvAC8ALwAvAC8ALgAvAC8ALwAvAC8ALwAuAC8ALgAvAC4ALwAvAC8ALwAuAC8AMwA5AToAOgA6ADoAOgA6ADoAOgA6ADoAOgA6ADoAOgA6ADoAOgA6ADoAOgA6ADoAOgA6ADkBQgBCAEIAQgBCAEIAQgBCAEIAQgBCAEIAQgBCAEIAQgBCAEIAQgBCAEIAQgBCAD8BOQFGAUYBRgFGAUYBRgFGAUYBRgFGAUYBRgFGAUYBRgFGAUYBRgFGAUYBRgFGAUYBQQE5AUIAQwBCAEIAQgBDAEIAQgBDAEIAQgBDAEIAQgBDAEIAQgBCAEMAQgBCAEMAQgA/ATkBOgA5ADoAOgA6ADoAOgA6ADkAOgA6ADkAOgA6ADkAOgA6ADoAOQA6ADoAOQA6ADoAOQEvAC8ALwAvAC8ALwAvAC8ALwAvAC8ALgAvAC8ALwAvAC8ALwAvAC8ALwAvAC8AMwA5ASMAIwAjACMAIwAjACMAIwAjACMAIwAjACMAIwAjACMAIwAjACMAIwAjACMAIwArATkBHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcACUBOQEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEXARcBFwEWARcBJAE5ARIBEgESARIBEgESARIBEgESARIBEgESARIBEgESARIBEgESARIBEgESARIBEgEfATkB",
+  softRound: "AgEEAAcAFQYbBBsBHAAdACEAIQAjACcBKAEsATEBNQE5Aj0DPwM/Az0CPAI7AToBOwEEAQYADAAbBiIFJAIoACsALQAvADAAMgE0ATcCOQI9BEIFRgdICEgHRQZBBD4CPAE7AQcCCgARACADLAUwAjIANQA3ADkAOwE/A0EERQZHCEoKTg1PD1ARTw9MC0YGQQM9ATsADQYRAxUAJQM0BTYBOgA+AD4AQgFGA0oHTQpODk8STxVOGE4aThpOF0wRRgtABTsCOwEWDRsHHgIrAjcDPQE/AEIAQwBFAUkFTAlODk8SThdNG0weTB9MH00bSxRFDD8GOwI7ASASJw4pBi4DNAM5ATsAPQBAAEIBRQNJB0sLTQ9OE04VThhOG00bTxdNEEcKQQU8ATsBIxcvFjEMMAQwATMANAA1ADcAOQA7AT4DQgRFBkYHSQpNDU4QTxBODkoKRgZBAzwBOwAgGC0dLhArBioBKQApACsAKwArAC0BLwEyAjQCOAI8BEAFRAdGB0YHQwVAAz0COwE7ABkSJRknESQFIAEeAB4AHgAeACABIQEkAScBKgEuATIBNgI6AzsDPAM7AjoCOgE6ATsBDwwYEhwNGgYWARMAEwAUABQAFgAYABwBIAAkACgAKwEvATIBNAE2ATgBOQE5AToBOwENCBMJFwgXBRIBDgANAA0ADwARARMBFwEbAR4BIQElASgBLAEvATEBNAE2ATcBOQE7AQ0GEgUUAxkGDgEKAAkACQEKAQsBDwETARYBGgEfASEBJgAqAC0ALwAxATQBNgE4AToBDgYSAxYDGQYNAAgABwAHAQcBCQEMAQ8BEgEWARoBHQEiACcAKgAtADABMwE1ATcBOgERBRQDGgYZBQ0ACAAHAAYABwAIAQoBDQEQARQBGAEcASABJQEpASwBLwEyATUBNwE7ARQFGwUgBxwFDwAKAAgABwEIAQoBDAEPARICFQIZAh0CIAIlAikBLAEwATMBNQE3ATsBFwYhBiUGIQUTAA0ACgAKAQoBDAEOARICFQQZBBwFHwUjBCYEKQMsAi8CMgI1AjcBOwEcBiQDKgYjBBQADwANAQwBDAENAhADEwQXBhsHIAgjCCYGKQUrAy4DMAI0AjUCOAE7ARoGJAQoBSUEFgAUAhEDDgMNAg4CEQMUBBcGGwggCCUHKQUsBC0DLwIxAjQCNgI3ATsBFgQeAyQDJAQXARgFFQcQBQ8EDwMSAxYDGAQcBCAEIgQnAyoDKwIuAjACMwI1AjcCOwEQBBQDGwUcBRcDGQcYCBQGEQQRAxMDFQMXAxoCHQIhAiQCKAErAS8BMQE0ATYBOAE7AQgCDAMSBBYFGAUYBRgGFgUUAxMDFAMWAxkCGwIeASIBJgEpAC0BMAEyATQBNgE4ATsBBAAHAQwDEwUWBRcEFwQWAxQCFAIVAhcCGgIeASEBJQEoACwALwAyADQANwA4ADoAOwECAAMACQISBxQFFQIVARYBFgEXARkBGwEeASIBJgEpAS0BMAEzADQBNgE3ATgBOQE7AQEAAgAGABQIFgMWARcAGAAZABsAHAAfASIBJwErAC8BMwA3ADgBOgE6AToBOgE6ATsB",
+  convex: "EAIfBi0FLwIvACsAJwAhABoBGAEVARIBEQEPAA4ADAAJAQYBBQEFAAUACwAWASgEOwEPAh8GKwYuAy0BKgAkAB8AGgEXARMBEQEPAQ0BCwEJAQcBBgEGAQYABwAMABcCJgU6AQ8CHQYpBi0ELAIpASUBIQEdARkCFQERAQ4BCwEJAQgBBwEHAQgBCQAMABEAGgEoAzsBEQMeBygHLAUtAysDKAMlBCEEHQQYBBQDEAMNAgsCCgEJAQoBCwEOABEAFgEeAigDOwEUBCIHLAcvBS8DLAQpBSYHIggeCBoHFgYSBBADDQIMAgwBDQEPARMCFwIcASIBKwM7ARQEJActBi8ELwMtBCoFJgYjCCAIGwcYBRQEEAMOAg0CDgIRAxQEGgUgBh8CIgEtAzoBFAQlBi0FMAMvAi4CKQMkBCAEHQUYBRQEEQQPAg0BDgIRAxUFGwghCSUJIgIiAC4DOgEWAyUGLgUxAi8BLAEoASMCHwIbAhgCFQISAhACDgIPAhIEFwceCyQNJQgiAiUALQI7ARUEIwctBTACMQEtACkAJAAhAR0BGwEYARUBEwERARECEwMWBhsJIAohBiACIwEsAjsBFAQiCC0GMAIyADAALgApACUAIgAfABwBGQEWARQBEwIUAxUEGAYbBRwDHgEkAS0COwEXBCYHMAUzAjUAMwAwACwAKQAnACQAIQEdARsBGAEWARUCFQIWAhYCFwAbACQBLgM7ARoFKgUzBDgBOQE0ATIBLwEsASsAKgAnACQAIAEdARsBGQEXARUBFQAXAB0AJgEwAzoBGwcpBjMEOgI+Aj8CPQE3ATUBMQEvACwBKAEmASMBIgAfARwBHAEaABsAIQApATEDOwEeBysGOARBA0cESgZIBkIEPQM5AjcCNAIzATABLQErASkBKAEmACQAJAAnAC0BMwM7ASAJLgg4BUQHTQ1QEU4QTA1JCUcHRQREA0ECPQE5ATUBMwExATEBLgAtAC8AMwE4AjsBIwowCDgGRgxNFkwdSx5MGk0UTxBPDE4ISgVGA0ECPgE8ATsAOQA3ADUANgA5AToCOwEoCzMFOQZGDkscSiRKI0sgTRtPFVAQTwxMCEgFRQNBAT8APgA8ADgANgA3ADsCOwI7ASgLNAY7BUcMTBZMHkweThlOFlAPTwxOCUgGRARBAT8APwA9ADoANgAxADUAOQI6AjsBJAgxBToERQZLC04QTRJJDkUJRghEBUEDPgM7AjoBOAA3ADQAMgAvACoALgA0AjcCOwEeByoHNAU9BEUFSAdEBj4EOgM2AjUBMwEyAS8BLQErACkBKAEmACQAIwAmAC0BMwI7ARkFJAguBjUEOgM8AzoCNQEyAC4ALAApACcAJAEiAR8BHQEcARoBGAAYABsAJAEtAzsBFQMiBi4GMwM0ATQAMQAuACoAJwAkACIAIAAdABoBFgETARABDwEOAA0AEgAcASkEOwEUAiMFLwU0AjIAMAArACgAIwEgAR0BGwEZARcAFQESAQ4BDAEKAQgABwAMABkCKQY6ARMCIQUsBS8DLwEsACkAJAAgAR0BGQEYARUAEwARAA8BDAEIAQYBBQAFAAoAFwIpBDsB",
+  coolSlant: "AQECAQIBAgEDAAQABgAKABAAFgEfASYCLgE0AjkBOwE7ADsAOwA7AToBOQE6ATkBOwECAQQCBQEFAQUABgAIAAoADwAVAR4CJgIuAjQCOAE6ATsAOwA7ADsAOwA7ADsAOgE7AQQCBgMGAgcBBwEIAAkACwAQABcBIAIoAy4DMwM2AjgCOQE5AToBOgE6ADsAOwA7ADsBBwUJBAkCCgILAQsBCwANABEBGgMiBikGLgQyAzYCOQE7ATsAPAA8ADsAOwA6AToBOwEQCxEIEQURBBADEAMPAg8BEwEdBScILAcwBTMDNgI4AToBOwA7ADsAOwA7ADoBOgE7ARoVHQ8eCx0JHQkaCBcGEgEUAhwFJggtBzAFNAM4AjgBOgE7ADoAOwA6ATkBOQE5ATsAIB8nGigUJxElESQSHgsUAhQBHAQkBioFLwQ0AzkBOgA8ADwAPAA7ADoBOQE6ATkBOwAhKCgiKhwpGCgYJRYdDBUDFAEaAiQDLAMyAjcBOgE7ATsAOgA6AToBOgE6AToBOwE7ARghHSEeGh4WIBQfEhwKGAMYAB4BJQErATECNQI4AjkBOQE6AToBOgE6ATsBOgE6ATsBDhMUFxYQGQ4bDB0JHQUbAhwAIAAnAS0CMgI1ATgBOgE6AToBOwE6AToBOgE6AToBOwENDREMEwgVBxYFFwQZAhoBHgEkASoBLwE0ATcBOgE6ATsAOwA6AToAOgE6AToBOgE7AQsHDgYPAxACEgISARUBGgEgASgBMQE2ADgBOQE5ATgBOAE5AToBOwA7AToBOgE6ATsBDQURBBQDFwIZARoAHAAgACcBLQI0AjgCOQE6ATsAOgE6ADoBOgA6AToBOwE7ADsAOwATBRoEIAIjACQAJQAnACoAMAE6BD8FQAQ+AjwBOgE6ADoBOgE6ADoAOwA7AToBOgE7ARgGIgUoAi0BLwAwADAAMwA8A0cJTQxLCkMFPAI6ATkBOgE6AToBOgA6ATsBOwE6ATsBHAYqBS8DNAA2ADcANwA5AUMFTxBPF08RRwg9AzkBOAE4ATkBOQE5ATkBOQE6ATkBOwEfBy0GMwI4AD0APAA7AD0BQwdNFE0eTxdHCz0DOAE4ATkBOQE6AToBOgE6AToBOQE7AR4IKgQxAjYAOgA6ADwAPABEBkwQThpOE0QKPAM6ATsAOwA7AToBOQE6AToBOgE6ATsBGwYlAykCLgEtAC0AMAAyADoCRwdODEwIQwU8AjoBOgE6AToBOgE5AToBOgE6ATsBOwATBBgEHQIgASMAJgAnACsAMAE3Az0FPQQ8AzsBOgE6AToBOwA6AToBOgE6AToBOgE7AAsDDgQSAhQBFwAZABwAIAAlACsBMQI1AjcCOQE6AToBOgE7AToBOgE6AToBOQE5ATsBBAIHAwkCCwEMAA8AEgAWABwAIwEpAS8CMwI3AjgBOgE6ATsAOwE6ADoBOwE6ATsBOwECAQMBBAEFAQcACAALABAAFgEeASQCKwIwAjUBOQE7ATwAPAA8ADwAPAA7ADoBOgE7AQEBAgECAQMBBAAGAAgADAASARkBIQIpAi8CNQI5ATsBOwA8ADwAOwA7ADoBOgE6ATsA",
+  divot: "AQECAQMBBAAHAAsBDwEUABgBHQEhASQAKAAyAzcCNwI4AjcCNAMvAiEAJQArATMCOwECAQQBBQEGAQcACgAOARIBFwEcASEBJwAuATQCOAM3AjUCNQM0Ay4BJQAlACsAMgM7AQQDBgMGAgcBCQALAA4AEgEYAh0CIgEnAS4CNAI3AjcCNwI3AjYDMAEpACgALAAyAjsBCAYKBQoCCgELAQwBDwEUAhoEIAUlBCkDLwI0AjgCOQE5ATgCNgIyAS0ALAAuATICOwEQDhIJEQUPAg4BDwERAhYEHQckCCkGLQMyAjcCOQE5ATkBOAI2AjICLwIvAjACMgM7ARoXHBIaChcGEwMQARECFgQdCCMJKAYrAzICOAE8ATsAOgA4ATUDMgMwAi8DMQMzAzsBIR8nHSUUHgsWBRICEAEVAxwEIgYnBCoBMAE3AToBOgA5ATgBNwIzAi4BLQEwAjQCOgEfJCgnJRggDRoGFAISABYBGwMgAyQCJwEtATQBOQI5ATgBOAI3AzMBLQAsADAANAI7ARYeHSQdFxsMGAUVARYAGgEeASIBJAAlACoAMQI2AzYDNgI3AjcCNAEvAC4AMAA1ATsBDxIWFxcOGAgYBBcBGQAcACEBJAElACQAKAAxAjUDNQM1AjYDNgIyAS4ALgAwADUBOwENDBEMEwYVAxcBGwEeACAAJAEnAigCIQAlADEDMwM0AzUDNQI3AjUBLwAxADQANwE7AQwIDwURAhUBGQAeASEBJQEnASsDKgQeACEAMwI4AjkBOQE4AjcCNQEwADIANQA3AToBDQYRBBQCGQEeASQAJwAsADABMAMvBSIAIAA0AzUCOAI5AjgCOgE2ATMANQA1ADcBOgESBRkEIAEmACoALgAxATQCNwQ5BjoIKQApADUDNQI2AjgCOAI3ATcBNgE3ATkBOQE7ARQFHwUnAjABNQA5AD4BQQRECUgQQg0xAigAMgI2AzgCNwE6AToBOQE7Aj4DPQM7AjsBFwYlBi4DNwA/AEMARwJLCE4RTRlGFDYHLAEwAjYDNgI4ATsBOQA7AUIGRQhCBj0COwEcBioFMgI7AEIARABIBEwLTRZLIEoaPAsxAjMCNgM3AjgBOQE4ADsCRQdKCkUGPgI7AB0GKgMxAjcAPAA/AUMCSglPEk4WTRVEDDoFNgI3AToBOwE5ATgAOwFDBkkJQwU9ATsAFwUiBCgCMAA2ADoAPABABEMGSAtJDUMKPQc4AjcBOQE6ATkBOQA5AT0CPgM+AzsBOwESBBgDHgIjASgALQAvADMBNgM5BD0GPwc+BjoDNwE4ATkCOQI3ATUANQA1ADcBOAE7AQoCDgMSAhYBHAEgACQAKAAsADABNAM4BDkENwM2AjUCNwI3AzYCMgAwADEAMwA2ATsBBAEHAgoBDQERARYBGwEgASQBKAEsAjECNAM2AzYCNQI2AjYDNQIxACwALQAxADUBOwECAAMBBgEJAQwBEQEWARsBHwEjAScBKwExATUCNwI2AjcCNwI1Ay8AKAAqADABMwI6AQEAAgADAQUBCQENARIBFwEcASABJAEmACoANAI4AjgCOAI1AjQELwMhACcALQE0AjsB",
+  riblet: "AQEDAQQBBQEHAAgBCgENAQ4BEQAUABkAHwEnAS8BNAA4ATkBNgIzAywDGgAdAC0COgECAQQBBQEGAQcBCAEKAQsBDQAPABMAGQAgAScBLQEyATUBNgI0AzIDLAIbAB8ALAM6AQUCBgIHAQgBCQEKAQoBCgELAQ0BEQEXAh8CJgItAjIBNgE3AjUDNAUpARwAHgAsAzsBBwQJBAkBCgEKAQsBCwELAQwBDwITAxoEIgUpBC4CMgE1ATcCNgM0AysBIgAkAC0COwEPCg4FDgMOAw0CDAMMAgwCDQIRAxgEIAYnBiwFLwIxATUBNgI2AzIDKwEnACoAMAI6ARgTGAoYBxYFFAQSBA8DDgIOAhEDFgQfBiYHLAUwAjMBNgE4ATcCMwMtAiYAKgIwAzoBHRwgFB8OHAkYBxUFEgQPAg8BEQIWAh4DJQUsAzABMwE2ATcCNgMyAy0CKAErAi8DOgEdIiAaIBIeDBoIFwYTAxEBEQETARcBHQIkAioCMQEzATYBNwI2AzMDLgIqASwBLwI7ARQcGBoYEBkLGggYBRYCFQEUABYAGgAfASUBKwEwATMBNgI3AjcDNAIwASwALAAwAToBDxEUERYLGAgZBRkEGAIYARgAGgAdACIAKAAtATIBNQI2AjYCNwM1AjAALAAtADIBOgENCxAIEwYWBBcCGgIaARsAHQAfACMAJwAtADIBNQE2AjYBNgI2AjUCMAAqAC0AMgE7AQwHDgQQAhQCGAEbAB4BHwAhASQAJwAqATABNgI6AjsBOwE6ATgBNgIzASkALQAzAjoBDQURBBUCGgIeACEAJAAmACcAKQAsADABNQI7Az4DPgI7AToBOQE5ATUALQAvADUCOgETBRsEIwImACkAKgAsAC0ALgAwADQAOwNBBUQGQgY/BDoCOAI4ATgBNgA0ADUANwE7ARgFJAUsAjEBMwA2ADcAOAA5ADsAQAJJB08NTw5JCUIFPQM7AToBOQA5ADoBOgE7ATsBGwYrBzIDOAE8AD8AQABBAEEAQwJIBlAPThhPFkoNQgc+AzsBOgA6ADwBPgJAAz8COwEgBjAFNgI8AD8AQgBDAEQARAJFA0gIThNNHU0cSxFECD4DPAE6ADkAOgE+A0MFQAM7AR4HLQQ0AjkAPgA/AEAAQQBCAUICRgZPEU4YThdKDUQHPwM7ATkBOAE6AT4CQAM+AjsAGgUoAy8CMwA2ADQANgA2ATUBOgE/AkkGTgxNDUcJQwU+AjoBOQE4ATgBOAE6AToBOgETBBoEHwIkASgBKgArACwALgAvADMBNwI+BUEGQQY/BDsCOgE5ATgBNQAzADMANgE7AQsDEAMVAhkBHQAfACEAIgAkACUAKQAtATICNwI6AzoDOQI4AjcCNgIxAC0ALgAyADsBBQEIAgsCDgERARQBFwEaABwAIAAjACcALAAxATYCOAM2AjUCNgM1Ay4AKAApADAAOwEDAQQBBwIJAQsBDgERARQBFgAaAB4AIwApAC4AMwE2AjcCNgI1AzMDLgEgACQALwI6AQEAAwEFAQcBCQELAQ0BDwERARQAGAAdACIBKQExATUBOQE4AjcCNAMtAxsAHwAuAzoB",
+  hardEdge: "AQEDAAQABwAVAiUFMQQ3AjgBOwA7ADkAOQI1Ay8DJAAkAC0CMwM2AjgBOwE6ATgBOwEDAQUBBwAMABgCJgUxBTUDOAE5ATsBOgE5AjYBMgAuADIAOgM+BT8FPQQ7AzsCOgE7AQUCCAIKARAAGwIoBTEFNQM3AToBOwA8ADsAOgE2ADYAPQRGCksOSgxGCUIFPgM8ATsBCgYQBhMDGQIjBC0FMwQ2AzcBOgE7ATsAOgE6ATcAOQJECU4VThlOFUwPRgk/BDwCOwEUDhoLHwclBS0FMwQ2AzgCOQE6AToBOQE5ATgBNQE5A0UMTRtMH04ZTBJHDEAGOgI7AR8UJhEsDjAKMQY0BDQCOAI5AToBOgE5AToBOQE2ATkCQwlOFk4aTxVLDUYJQQU7ATsBJBkwGDUTNg0xBDMDNQI5AjkAOwA8ADsAOgE4ATMBMgE5BEULSg1JC0UHQQU/AzsBOwEkHi4ZNRU3DTADMgI1AjgCOQI5ATkBOAE5AjcCMgAtADEANwM7BTsFOgM6AzoCOQE7ARoYJBkqEy4LLQQxATYCOQE5ATkBOAE3AjYDMwMrACYAJwAsATECMwI0AjUBNwE5ATsBEA4aEh4LIwYoAy8CNgI6ATsAOwE6ATcCNQMxBCcBHQAcACIAKAIrAi4CMgE3ATkBOwENCxMKGAcfBCYDMAM2AjoBOwA7ADkBNgIzAy8FIwEVABUAHgEkAigCLAIvAjQBOQE7AQsIEAYVBBsCKAMyAjgCOQE6ATkAOwE5ATYDMAUiAg8ADwAZAiECJgErATABNAE3ATsBCwYRBBUCHAArAzMDOAI6ATsAOgA5ATgCNQMwBSMDEAAOABcBHwIkASoBLwEyATYBOwEQBRUEGgEkATEEOAQ4ATkAOwE6ATgBNgI0BDAFJAMUABMAGAAdAiICJgIsAjECNgE7ARQGHAUhAisCOgc/BjkCOQA7ADwAOgA2ATQEMAYkAxcAFQAaASADJAMnAy0DMQI0AjoBGAYiBCkBMwJGDEUIOwI5ADkBPAE5ATcBNQMxBScDGwAZAB8DIwYmBSoFLgQxAzUCOgEaByQEKQE3A0wRRgg7AToBOgE6ATgBOAI2AzMEKgMjAiEDJQYpCCsILQYwBTMDNgM7ARgHIQQnATICSw9FBzsBOQE4AToBOgE4ATgBNQMxBS0GKQgoCCkHLQYwBTMENQM3AjoBFQUcAyIBKQA9CDwGOAI4ATkBOwA9ADwBOQE1AzUHMwwvDCoIKAUqBC4EMgM0AjYCOwEOBBMDFwEgAC4DNwM6AjoAOwA7ADoBOAE2AjQDNwg6DTUMLAUmAicBKwIvAjICNgI7AQgCCwIOABYAIgIuBDUDOAE6ADsAOwE5ATYCNAQ0BzUKMAkpBCQBJQEpAi4CMQI1AjsBAwEFAQgADgAbAioFMwQ3AjoBOwE6ATgCNQIzBDEFLgUrBCgCKAEpASwBMAE0ATYBOwEBAQIAAwAIABUCJgYxBDcBOgA+ADsAOQE1AjIELgMoAicBJwEpASwCLwEyATUBNwE7AQEAAQACAAUAFAMkBjAFNwI6AT0APAA7ADoBNQMrAyIAHwAmASsDMQE0ADcBNwE3ATsB",
+  artDeco: "BAAJARABGQEgAiMDIQcUAgcABgAIAAoBDgESARYBGwEfACQAKAAqAC4BMgE0ATgBOwEFAQoBEQEZASACJAQkBxcCCwAIAAkACgENARABFAEZAR4BIgEmASkBLQExATQBNwE6AQYBCwERARkBIgMnBiUGGwMQAAsACgALAQwBDwETAhgCHgIiAicCKgIuAjEBNAI3ATsBBwIMAhECGQMjBigIJwceBBUBDwANAAwBDgEQAhQDGgQfBSUFKQUtBDADMwI2AjcBOwEMBg8CFAIeBSYHKwgpByMFGwMVAhECDwIPAhEDFgQbBiIHKActBjAEMwM1AjcCOAI7ARINEAMVAh8EKgcsBi0GKwclBiAGFwQSAxACEgMWBRwGIwcpBy0GMQUzAzYCNgI4ATsBFRMSBBQBHgMoBSsFLgUuBzANKAwdBxYCEgEUAhcDHAQiBCgELAMvAzICNAI2AjgBOwEXFRUEFwEfASYCKwMsBC8IMQ8sDyAIFwITABQBGAIdAiECJgIrAi4BMQE1ATcBOAE7ARURFQUYASABJgErAioEKwgoCyQMHQcXAxUBFwAbASABJAEoASsBLgExATQBNgE4ATsBEQoWBhsBIgEpASwCKwMoBSQGIQcdBBkCGQEbAR4BIgEmASoBLAEvATIBNAE3ATgBOwERBxcEHwEoASwCLgMrBCIDHQIbAxoCGgIdASAAIwAnACsBLgExATIBNAE2ATYBOAE7AQ8EGAMiAisBMgExAi4EIwIZABcAGQEbAiABJgEpAC0ALwAzATUBNwE4ADgBOAE4AToBEgQbAyUCMQM3AzgDMwMnASAAHAAeACIBJQIqAS4BMwE2AjkCOwI7AjoBOgE6AToBOgEXBSIEMAM9BUUHRAY7BCwAJQAlACcAKwEvATUBOQI/BEMGRgdFBkMGQAQ9AzwCOgE7ARwGKwY4BkcMSxFKED0IMAEsAC8AMwA4ADsBQQNGB0sMThBPEk8RTQ1JCUQFQAM9ATsBHwcxCD4JTRRMH00YRAo4AjMANgA5AT0BQANGB0oOTRZMHUsgTB1NF0sQRgpBBTwCOwEmCDQGQQtMGEojTRtFDTgDMwA3AT0BPwJCBEcJSxFMG0sjSShLI0wbSxRGDEAGPAM7ASIIMgY/CU4TTR1NF0UMMwIxADQAOwA/AEICSQZMDU4VTR1LIUweThdKD0YKQQU8AjsBIActBTkFSQpOD0oOQQkvASoALgAzADcAOwA/A0MGSQpNEE8STxBNDUkJRAVAAzwBOwAYBSMELgM5BEEGQAc2BCkAIwAjACgAKwEvADMBNwM8BD8GQQdBBkAFPgQ9AjsBOwE7ARADGAQiAykDMQQzBS4EIwAcABoAHQAfASMBJgEqAS8BMwI2AjgCOQE5ATkBOQE5ATsBCwEUAh0CJQEqAywFJgUaAREAEQATABgBGgEeASIBJgEqAS0BMAEzATYBOAE5AToBOwEHAQ4BGQEiAScBKAMmBxQBCQAKAAwAEAEVARoBHgEiASYBKQEsAS8AMwA1ATcBNwE7AQUACwETARwBIwImBCEIEgIHAAcACQANAREBFgEaAR4AIgAmACsALAEvATMBNgE5ATsB"
+};
+
+// ../../../shared/drawingml/src/bevel.ts
+var wordTabs = /* @__PURE__ */ new Map();
+function wordTable(b) {
+  if (!b.word || b.rig && b.rig !== "threePt" || b.dir && b.dir !== "t" || b.material && b.material !== "warmMatte") return void 0;
+  const k = b.prst ?? "circle";
+  const raw = WORD_BEVEL[k];
+  if (!raw) return void 0;
+  let t = wordTabs.get(k);
+  if (!t) {
+    const bin = atob(raw);
+    t = new Uint8Array(bin.length);
+    for (let i2 = 0; i2 < bin.length; i2++) t[i2] = bin.charCodeAt(i2);
+    wordTabs.set(k, t);
+  }
+  return t;
+}
+function wordLight(t, thDeg, u, out) {
+  const NA = 24, NT = 24;
+  const th = (thDeg % 360 + 360) % 360;
+  const ai = th / 15 - 0.5, a0 = (Math.floor(ai) % NA + NA) % NA, a1 = (a0 + 1) % NA, fa = ai - Math.floor(ai);
+  const ti = Math.max(0, Math.min(NT - 1, u * NT - 0.5)), t0 = Math.floor(ti), t1 = Math.min(NT, t0 + 1), ft = ti - t0;
+  const at = (a, k, c) => t[(a * (NT + 1) + k) * 2 + c];
+  for (let c = 0; c < 2; c++) {
+    const v = (at(a0, t0, c) * (1 - ft) + at(a0, t1, c) * ft) * (1 - fa) + (at(a1, t0, c) * (1 - ft) + at(a1, t1, c) * ft) * fa;
+    if (c === 0) out[0] = out[1] = out[2] = v * 0.02;
+    else out[3] = v / 255;
+  }
+}
+var SRGB_LIN = new Float32Array(256);
+for (let v = 0; v < 256; v++) {
+  const x2 = v / 255;
+  SRGB_LIN[v] = x2 <= 0.04045 ? x2 / 12.92 : Math.pow((x2 + 0.055) / 1.055, 2.4);
+}
+var LIN_SRGB = new Uint8Array(4096);
+for (let i2 = 0; i2 < 4096; i2++) {
+  const x2 = i2 / 4095;
+  LIN_SRGB[i2] = Math.round(255 * (x2 <= 31308e-7 ? x2 * 12.92 : 1.055 * Math.pow(x2, 1 / 2.4) - 0.055));
+}
+function shadeBevel(rgba, sil, b) {
+  const wt = wordTable(b);
+  const tab = lightTable(b.rig, b.material);
+  if (!tab && !wt || !(b.w > 0.5)) return;
+  const { w: W, h: H } = sil;
+  const P2 = { w: W + 2, h: H + 2, a: new Float32Array((W + 2) * (H + 2)) };
+  for (let r = 0; r < H; r++) P2.a.set(sil.a.subarray(r * W, r * W + W), (r + 1) * (W + 2) + 1);
+  const pd = distanceTo(P2, false);
+  const dist = new Float32Array(W * H);
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) dist[r * W + c] = pd[(r + 1) * (W + 2) + c + 1];
+  const sm = gaussianBlur({ w: W, h: H, a: dist }, 1.2).a;
+  const hw = b.h / b.w;
+  const L = new Float32Array(4), face = new Float32Array(4);
+  if (wt) {
+    const o = 24 * 25 * 2 - 2;
+    face[0] = face[1] = face[2] = wt[o] * 0.02;
+    face[3] = wt[o + 1] / 255;
+  } else lightFace(tab, face);
+  for (let r = 0; r < H; r++) {
+    for (let c = 0; c < W; c++) {
+      const i2 = r * W + c, a = sil.a[i2];
+      if (a <= 0) continue;
+      const d = dist[i2];
+      let lt = face;
+      if (d < b.w) {
+        const g = (cc, rr) => sm[Math.min(H - 1, Math.max(0, rr)) * W + Math.min(W - 1, Math.max(0, cc))];
+        const gx = g(c + 1, r - 1) + 2 * g(c + 1, r) + g(c + 1, r + 1) - g(c - 1, r - 1) - 2 * g(c - 1, r) - g(c - 1, r + 1);
+        const gy = g(c - 1, r + 1) + 2 * g(c, r + 1) + g(c + 1, r + 1) - g(c - 1, r - 1) - 2 * g(c, r - 1) - g(c + 1, r - 1);
+        const th = Math.atan2(-gy, -gx) * 180 / Math.PI;
+        if (wt) wordLight(wt, th, d / b.w, L);
+        else {
+          const ph = bevelPhi(b.prst, d / b.w, hw);
+          lightAt(tab, b.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L);
+        }
+        lt = L;
+      }
+      const o = i2 * 4;
+      for (let k = 0; k < 3; k++) {
+        const v = SRGB_LIN[rgba[o + k]] * lt[k] + lt[3];
+        const nv = LIN_SRGB[Math.max(0, Math.min(4095, Math.round(v * 4095)))];
+        rgba[o + k] = a >= 1 ? nv : Math.round(rgba[o + k] + (nv - rgba[o + k]) * a);
+      }
+    }
+  }
+}
 
 // ../docx-layout/src/resolve.ts
 var TOGGLES2 = ["b", "bCs", "i", "iCs", "caps", "smallCaps", "strike", "dstrike", "outline", "shadow", "emboss", "imprint", "vanish"];
@@ -13944,54 +15294,15 @@ function shadingFill(shd, theme) {
 function resolveDrawingColor(spec, theme) {
   if (!spec) return void 0;
   const [head, mods] = spec.split("|");
-  let hex2 = head.startsWith("@") ? own2(theme.colors, own2(THEME_ALIAS, head.slice(1)) ?? head.slice(1)) : head;
+  const hex2 = head.startsWith("@") ? own2(theme.colors, own2(THEME_ALIAS, head.slice(1)) ?? head.slice(1)) : head;
   if (!hex2 || !/^[0-9A-Fa-f]{6}$/.test(hex2)) return void 0;
   if (!mods) return hex2.toUpperCase();
-  let [r, g, b] = rgb(hex2).map((v) => v / 255);
-  const toHsl = () => {
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-    const l = (mx + mn) / 2;
-    if (mx === mn) return [0, 0, l];
-    const d = mx - mn;
-    const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
-    const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    return [h / 6, s, l];
-  };
-  const fromHsl = (h, s, l) => {
-    if (s === 0) {
-      r = g = b = l;
-      return;
-    }
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const f = (t) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    r = f(h + 1 / 3);
-    g = f(h);
-    b = f(h - 1 / 3);
-  };
-  for (const m of mods.split(",")) {
-    const [k, vs] = m.split("=");
-    const v = parseInt(vs ?? "0", 10) / 1e5;
-    if (k === "lumMod" || k === "lumOff") {
-      const [h, s, l] = toHsl();
-      fromHsl(h, s, k === "lumMod" ? Math.min(1, l * v) : Math.min(1, l + v));
-    } else if (k === "tint") {
-      r = 1 - (1 - r) * v;
-      g = 1 - (1 - g) * v;
-      b = 1 - (1 - b) * v;
-    } else if (k === "shade") {
-      r *= v;
-      g *= v;
-      b *= v;
-    }
-  }
+  const list2 = mods.split(",").map((m) => {
+    const [k, v] = m.split("=");
+    const n = v === void 0 || v === "undefined" ? void 0 : parseInt(v, 10);
+    return [k, n !== void 0 && Number.isFinite(n) ? n : void 0];
+  });
+  const [r, g, b] = applyColorMods(rgb(hex2).map((v) => v / 255), list2);
   return toHex(r * 255, g * 255, b * 255);
 }
 
@@ -14202,13 +15513,13 @@ function withEmbeddedFonts(provider, embedded, makeFont) {
     } catch {
     }
   }
-  const cache = /* @__PURE__ */ new Map();
+  const cache2 = /* @__PURE__ */ new Map();
   return {
     face(family, bold, italic) {
       const fam = byFam.get(family.toLowerCase());
       if (!fam) return provider.face(family, bold, italic);
       const key = `${family.toLowerCase()}|${bold}|${italic}`;
-      if (cache.has(key)) return cache.get(key);
+      if (cache2.has(key)) return cache2.get(key);
       const want = bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
       const order = [want, bold ? "bold" : "regular", italic ? "italic" : "regular", "regular", "bold", "italic", "boldItalic"];
       let out = null;
@@ -14229,7 +15540,7 @@ function withEmbeddedFonts(provider, embedded, makeFont) {
         break;
       }
       if (out && (out.synthBold || out.synthItalic)) out = provider.face(family, bold, italic) ?? out;
-      cache.set(key, out);
+      cache2.set(key, out);
       return out;
     }
   };
@@ -15286,14 +16597,14 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz * 2 * 1331 / 2048) / 2 : sz;
   const shift = (rpr.position ?? 0) * 10;
   const tf = rpr.textFill;
-  const color = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
+  const color2 = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
   const u = rpr.u && rpr.u.val !== "none" && rpr.u.val !== "" ? { val: rpr.u.val, ...rpr.u.color && rpr.u.color !== "auto" ? { color: rpr.u.color } : {} } : void 0;
   const shd = shadingFill(rpr.shd, theme);
   const style = {
     rpr,
     sizePt,
-    color: color ?? (env.darkBackground ? "FFFFFF" : "000000"),
-    autoColor: !color,
+    color: color2 ?? (env.darkBackground ? "FFFFFF" : "000000"),
+    autoColor: !color2,
     bold: !!rpr.b,
     italic: !!rpr.i,
     underline: u,
@@ -16589,6 +17900,738 @@ var LineBreaker = class {
   }
 };
 
+// ../docx-layout/src/images.ts
+function jpegInfo(b) {
+  if (b[0] !== 255 || b[1] !== 216) return null;
+  let i2 = 2;
+  let adobe = false;
+  while (i2 + 4 < b.length) {
+    if (b[i2] !== 255) {
+      i2++;
+      continue;
+    }
+    const m = b[i2 + 1];
+    if (m === 255) {
+      i2++;
+      continue;
+    }
+    if (m === 216 || m === 1 || m >= 208 && m <= 215) {
+      i2 += 2;
+      continue;
+    }
+    const len = b[i2 + 2] << 8 | b[i2 + 3];
+    if (m === 238 && b[i2 + 4] === 65 && b[i2 + 5] === 100) adobe = true;
+    if (m >= 192 && m <= 207 && m !== 196 && m !== 200 && m !== 204) {
+      if (i2 + 9 >= b.length) return null;
+      const height = b[i2 + 5] << 8 | b[i2 + 6];
+      const width = b[i2 + 7] << 8 | b[i2 + 8];
+      const components = b[i2 + 9];
+      return { width, height, components, adobe };
+    }
+    i2 += 2 + len;
+  }
+  return null;
+}
+var PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+function decodePng(b) {
+  for (let k = 0; k < 8; k++) if (b[k] !== PNG_SIG[k]) return null;
+  const dv2 = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let pos = 8;
+  let width = 0, height = 0, depth = 8, ctype = 0, interlace = 0;
+  let palette = null;
+  let trns = null;
+  const idat = [];
+  while (pos + 8 <= b.length) {
+    const len = dv2.getUint32(pos);
+    const type = String.fromCharCode(b[pos + 4], b[pos + 5], b[pos + 6], b[pos + 7]);
+    const data8 = b.subarray(pos + 8, pos + 8 + len);
+    if (type === "IHDR") {
+      width = dv2.getUint32(pos + 8);
+      height = dv2.getUint32(pos + 12);
+      depth = b[pos + 16];
+      ctype = b[pos + 17];
+      interlace = b[pos + 20];
+    } else if (type === "PLTE") palette = data8;
+    else if (type === "tRNS") trns = data8;
+    else if (type === "IDAT") idat.push(data8);
+    else if (type === "IEND") break;
+    pos += 12 + len;
+  }
+  if (!width || !height) return null;
+  let total = 0;
+  for (const c of idat) total += c.length;
+  const z = new Uint8Array(total);
+  let o = 0;
+  for (const c of idat) {
+    z.set(c, o);
+    o += c.length;
+  }
+  let raw;
+  try {
+    raw = unzlibSync(z);
+  } catch {
+    return null;
+  }
+  const channels = ctype === 0 ? 1 : ctype === 2 ? 3 : ctype === 3 ? 1 : ctype === 4 ? 2 : 4;
+  const bitsPP = channels * depth;
+  const bpp = Math.max(1, bitsPP >> 3);
+  const out = new Uint8Array(width * height * 4);
+  const pass = (rp, w, h, put) => {
+    if (w === 0 || h === 0) return rp;
+    const stride = Math.ceil(w * bitsPP / 8);
+    let prev = new Uint8Array(stride);
+    for (let y = 0; y < h; y++) {
+      const ft = raw[rp++];
+      const line = raw.slice(rp, rp + stride);
+      rp += stride;
+      for (let i2 = 0; i2 < stride; i2++) {
+        const a = i2 >= bpp ? line[i2 - bpp] : 0;
+        const up = prev[i2];
+        const c = i2 >= bpp ? prev[i2 - bpp] : 0;
+        let v = line[i2];
+        if (ft === 1) v += a;
+        else if (ft === 2) v += up;
+        else if (ft === 3) v += a + up >> 1;
+        else if (ft === 4) {
+          const pp = a + up - c;
+          const pa = Math.abs(pp - a), pb = Math.abs(pp - up), pc = Math.abs(pp - c);
+          v += pa <= pb && pa <= pc ? a : pb <= pc ? up : c;
+        }
+        line[i2] = v & 255;
+      }
+      for (let x2 = 0; x2 < w; x2++) {
+        const rawSample = (ch) => {
+          if (depth === 8) return line[x2 * channels + ch];
+          if (depth === 16) {
+            const i2 = (x2 * channels + ch) * 2;
+            return line[i2] << 8 | line[i2 + 1];
+          }
+          const bit = (x2 * channels + ch) * depth;
+          const byte = line[bit >> 3];
+          const shift = 8 - depth - (bit & 7);
+          return byte >> shift & (1 << depth) - 1;
+        };
+        const sample = (ch) => {
+          if (depth === 8) return line[x2 * channels + ch];
+          if (depth === 16) return line[(x2 * channels + ch) * 2];
+          const v = rawSample(ch);
+          return ctype === 3 ? v : Math.round(v * 255 / ((1 << depth) - 1));
+        };
+        const key = (k) => trns[k * 2] << 8 | trns[k * 2 + 1];
+        let px;
+        if (ctype === 0) {
+          const g = sample(0);
+          const transparent = !!trns && trns.length >= 2 && key(0) === rawSample(0);
+          px = [g, g, g, transparent ? 0 : 255];
+        } else if (ctype === 2) {
+          const transparent = !!trns && trns.length >= 6 && key(0) === rawSample(0) && key(1) === rawSample(1) && key(2) === rawSample(2);
+          px = [sample(0), sample(1), sample(2), transparent ? 0 : 255];
+        } else if (ctype === 3) {
+          const i2 = sample(0);
+          px = palette ? [palette[i2 * 3] ?? 0, palette[i2 * 3 + 1] ?? 0, palette[i2 * 3 + 2] ?? 0, trns && i2 < trns.length ? trns[i2] : 255] : [0, 0, 0, 255];
+        } else if (ctype === 4) {
+          const g = sample(0);
+          px = [g, g, g, sample(1)];
+        } else px = [sample(0), sample(1), sample(2), sample(3)];
+        put(x2, y, px);
+      }
+      prev = line;
+    }
+    return rp;
+  };
+  const putAt = (ox, oy, dx, dy) => (x2, y, px) => {
+    const X = ox + x2 * dx, Y = oy + y * dy;
+    const k = (Y * width + X) * 4;
+    out[k] = px[0];
+    out[k + 1] = px[1];
+    out[k + 2] = px[2];
+    out[k + 3] = px[3];
+  };
+  if (!interlace) pass(0, width, height, putAt(0, 0, 1, 1));
+  else {
+    const passes = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
+    let rp = 0;
+    for (const [ox, oy, dx, dy] of passes) {
+      const w = Math.ceil((width - ox) / dx), h = Math.ceil((height - oy) / dy);
+      rp = pass(rp, w > 0 ? w : 0, h > 0 ? h : 0, putAt(ox, oy, dx, dy));
+    }
+  }
+  return { width, height, data: out };
+}
+function decodeGif(b) {
+  if (b[0] !== 71 || b[1] !== 73 || b[2] !== 70) return null;
+  const width = b[6] | b[7] << 8, height = b[8] | b[9] << 8;
+  const flags = b[10];
+  let pos = 13;
+  let gct = null;
+  if (flags & 128) {
+    const n = 3 * (1 << (flags & 7) + 1);
+    gct = b.subarray(pos, pos + n);
+    pos += n;
+  }
+  let transparent = -1;
+  const out = new Uint8Array(width * height * 4);
+  while (pos < b.length) {
+    const t = b[pos++];
+    if (t === 33) {
+      const label = b[pos++];
+      if (label === 249 && b[pos + 1] & 1) transparent = b[pos + 4];
+      while (pos < b.length && b[pos]) pos += b[pos] + 1;
+      pos++;
+    } else if (t === 44) {
+      const ix = b[pos] | b[pos + 1] << 8, iy = b[pos + 2] | b[pos + 3] << 8;
+      const iw = b[pos + 4] | b[pos + 5] << 8, ih = b[pos + 6] | b[pos + 7] << 8;
+      const lf = b[pos + 8];
+      pos += 9;
+      let ct = gct;
+      if (lf & 128) {
+        const n = 3 * (1 << (lf & 7) + 1);
+        ct = b.subarray(pos, pos + n);
+        pos += n;
+      }
+      const interlaced = !!(lf & 64);
+      const minCode = b[pos++];
+      if (!(minCode >= 1 && minCode <= 11)) return null;
+      const chunks = [];
+      while (pos < b.length && b[pos]) {
+        const n = b[pos];
+        for (let k = 1; k <= n; k++) chunks.push(b[pos + k]);
+        pos += n + 1;
+      }
+      pos++;
+      const idx = lzw(Uint8Array.from(chunks), minCode, iw * ih);
+      const rows = [];
+      if (interlaced) {
+        for (const [s, st] of [[0, 8], [4, 8], [2, 4], [1, 2]]) for (let r = s; r < ih; r += st) rows.push(r);
+      } else for (let r = 0; r < ih; r++) rows.push(r);
+      for (let r = 0; r < ih; r++) {
+        const yy = iy + rows[r];
+        if (yy >= height) continue;
+        for (let x2 = 0; x2 < iw; x2++) {
+          if (ix + x2 >= width) break;
+          const ci = idx[r * iw + x2] ?? 0;
+          const k = (yy * width + ix + x2) * 4;
+          if (ci === transparent || !ct) {
+            out[k + 3] = 0;
+            continue;
+          }
+          out[k] = ct[ci * 3];
+          out[k + 1] = ct[ci * 3 + 1];
+          out[k + 2] = ct[ci * 3 + 2];
+          out[k + 3] = 255;
+        }
+      }
+      return { width, height, data: out };
+    } else break;
+  }
+  return null;
+}
+function lzw(data8, minCode, n) {
+  const out = new Uint8Array(n);
+  const clear = 1 << minCode, eoi = clear + 1;
+  let size = minCode + 1;
+  let dict = [];
+  const reset = () => {
+    dict = [];
+    for (let i2 = 0; i2 < clear; i2++) dict[i2] = [i2];
+    dict[clear] = [];
+    dict[eoi] = [];
+    size = minCode + 1;
+  };
+  reset();
+  let bit = 0, o = 0;
+  let prev = null;
+  while (o < n) {
+    let code = 0;
+    for (let k = 0; k < size; k++) {
+      if (data8[bit + k >> 3] >> (bit + k & 7) & 1) code |= 1 << k;
+    }
+    bit += size;
+    if (bit > data8.length * 8) break;
+    if (code === clear) {
+      reset();
+      prev = null;
+      continue;
+    }
+    if (code === eoi) break;
+    let entry;
+    if (dict[code]) entry = dict[code];
+    else if (prev) entry = [...prev, prev[0]];
+    else break;
+    for (const v of entry) {
+      if (o < n) out[o++] = v;
+    }
+    if (prev) dict.push([...prev, entry[0]]);
+    prev = entry;
+    if (dict.length >= 1 << size && size < 12) size++;
+  }
+  return out;
+}
+function decodeBmp(b) {
+  if (b[0] !== 66 || b[1] !== 77) return null;
+  const dv2 = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const off = dv2.getUint32(10, true);
+  const width = dv2.getInt32(18, true);
+  let height = dv2.getInt32(22, true);
+  const bpp = dv2.getUint16(28, true);
+  const comp = dv2.getUint32(30, true);
+  if (comp !== 0 && comp !== 3) return null;
+  if (width <= 0 || height === 0) return null;
+  const topDown = height < 0;
+  height = Math.abs(height);
+  const stride = Math.ceil(width * bpp / 32) * 4;
+  const hdr = dv2.getUint32(14, true);
+  const palOff = 14 + hdr;
+  let masks = bpp === 16 ? [31744, 992, 31, 0] : [16711680, 65280, 255, 0];
+  if (comp === 3 && (bpp === 16 || bpp === 32)) masks = [dv2.getUint32(54, true), dv2.getUint32(58, true), dv2.getUint32(62, true), hdr >= 56 ? dv2.getUint32(66, true) : 0];
+  const chan = (v, m, dflt2) => {
+    if (!m) return dflt2;
+    let shift = 0;
+    while (!(m >>> shift & 1)) shift++;
+    const bits2 = Math.clz32(0) - Math.clz32(m >>> shift);
+    return Math.round(((v & m) >>> shift) * 255 / (2 ** bits2 - 1));
+  };
+  const out = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const row = off + (topDown ? y : height - 1 - y) * stride;
+    for (let x2 = 0; x2 < width; x2++) {
+      const k = (y * width + x2) * 4;
+      if (bpp === 24) {
+        const p = row + x2 * 3;
+        out[k] = b[p + 2];
+        out[k + 1] = b[p + 1];
+        out[k + 2] = b[p];
+        out[k + 3] = 255;
+      } else if (bpp === 16 || bpp === 32) {
+        const p = row + x2 * (bpp / 8);
+        const v = bpp === 16 ? b[p] | b[p + 1] << 8 : (b[p] | b[p + 1] << 8 | b[p + 2] << 16 | b[p + 3] << 24) >>> 0;
+        out[k] = chan(v, masks[0], 0);
+        out[k + 1] = chan(v, masks[1], 0);
+        out[k + 2] = chan(v, masks[2], 0);
+        out[k + 3] = chan(v, masks[3], 255);
+      } else if (bpp <= 8) {
+        const bit = x2 * bpp;
+        const v = b[row + (bit >> 3)] >> 8 - bpp - (bit & 7) & (1 << bpp) - 1;
+        const p = palOff + v * 4;
+        out[k] = b[p + 2];
+        out[k + 1] = b[p + 1];
+        out[k + 2] = b[p];
+        out[k + 3] = 255;
+      }
+    }
+  }
+  return { width, height, data: out };
+}
+function decodeRaster(b) {
+  return decodePng(b) ?? decodeGif(b) ?? decodeBmp(b) ?? decodeTiff(b);
+}
+function tiffLzw(data8, expected) {
+  const out = new Uint8Array(expected);
+  let o = 0;
+  let dict = [];
+  const reset = () => {
+    dict = [];
+    for (let i2 = 0; i2 < 256; i2++) dict[i2] = new Uint8Array([i2]);
+    dict[256] = new Uint8Array(0);
+    dict[257] = new Uint8Array(0);
+  };
+  reset();
+  let bitPos = 0, width = 9;
+  let prev = null;
+  const read = () => {
+    let v = 0;
+    for (let k = 0; k < width; k++) {
+      const byte = data8[bitPos + k >> 3];
+      if (byte === void 0) return 257;
+      v = v << 1 | byte >> 7 - (bitPos + k & 7) & 1;
+    }
+    bitPos += width;
+    return v;
+  };
+  while (o < expected) {
+    const code = read();
+    if (code === 257) break;
+    if (code === 256) {
+      reset();
+      width = 9;
+      prev = null;
+      continue;
+    }
+    let entry;
+    if (code < dict.length && dict[code]) entry = dict[code];
+    else if (prev) {
+      entry = new Uint8Array(prev.length + 1);
+      entry.set(prev);
+      entry[prev.length] = prev[0];
+    } else break;
+    for (let k = 0; k < entry.length && o < expected; k++) out[o++] = entry[k];
+    if (prev) {
+      const ne = new Uint8Array(prev.length + 1);
+      ne.set(prev);
+      ne[prev.length] = entry[0];
+      dict.push(ne);
+    }
+    prev = entry;
+    if (dict.length + 1 >= 1 << width && width < 12) width++;
+  }
+  return out;
+}
+function packBits(data8, expected) {
+  const out = new Uint8Array(expected);
+  let i2 = 0, o = 0;
+  while (i2 < data8.length && o < expected) {
+    const n = data8[i2++] << 24 >> 24;
+    if (n >= 0) {
+      for (let k = 0; k <= n && o < expected; k++) out[o++] = data8[i2++];
+    } else if (n !== -128) {
+      const v = data8[i2++];
+      for (let k = 0; k < 1 - n && o < expected; k++) out[o++] = v;
+    }
+  }
+  return out;
+}
+function decodeTiff(b) {
+  const le = b[0] === 73 && b[1] === 73;
+  const be = b[0] === 77 && b[1] === 77;
+  if (!le && !be) return null;
+  const dv2 = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const u162 = (o) => dv2.getUint16(o, le);
+  const u32 = (o) => dv2.getUint32(o, le);
+  if (u162(2) !== 42) return null;
+  const ifd = u32(4);
+  const n = u162(ifd);
+  const tags = /* @__PURE__ */ new Map();
+  const SIZES = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1 };
+  for (let i2 = 0; i2 < n; i2++) {
+    const e = ifd + 2 + i2 * 12;
+    const tag2 = u162(e), type = u162(e + 2), count = u32(e + 4);
+    const size = (SIZES[type] ?? 1) * count;
+    const base = size <= 4 ? e + 8 : u32(e + 8);
+    const vals = [];
+    for (let k = 0; k < Math.min(count, 1 << 20); k++) {
+      if (type === 3) vals.push(u162(base + k * 2));
+      else if (type === 4) vals.push(u32(base + k * 4));
+      else if (type === 1 || type === 7) vals.push(b[base + k]);
+      else if (type === 5) vals.push(u32(base + k * 8) / (u32(base + k * 8 + 4) || 1));
+    }
+    tags.set(tag2, vals);
+  }
+  const t = (k, d = 0) => tags.get(k)?.[0] ?? d;
+  const width = t(256), height = t(257);
+  const bps = tags.get(258) ?? [1];
+  const comp = t(259, 1);
+  const photo = t(262, 1);
+  const spp = t(277, 1);
+  const predictor = t(317, 1);
+  const planar = t(284, 1);
+  if (!width || !height || planar !== 1 || ![1, 5, 8, 32946, 32773].includes(comp)) return null;
+  const bits2 = bps[0] ?? 8;
+  const decode0 = (chunk, expected) => {
+    if (comp === 1) return chunk;
+    if (comp === 5) return tiffLzw(chunk, expected);
+    if (comp === 32773) return packBits(chunk, expected);
+    try {
+      return unzlibSync(chunk);
+    } catch {
+      return new Uint8Array(expected);
+    }
+  };
+  const ycc = photo === 6 && bits2 === 8 && spp === 3;
+  const sub = tags.get(530) ?? [2, 2];
+  const sh = ycc ? Math.max(1, sub[0] ?? 2) : 1, sv = ycc ? Math.max(1, sub[1] ?? 2) : 1;
+  const coef = tags.get(529) ?? [0.299, 0.587, 0.114];
+  const toRgb = (Y, cb, cr) => {
+    const lr = coef[0] ?? 0.299, lg = coef[1] ?? 0.587, lb = coef[2] ?? 0.114;
+    const R = Y + (cr - 128) * (2 - 2 * lr), B = Y + (cb - 128) * (2 - 2 * lb);
+    const G = (Y - lb * B - lr * R) / lg;
+    const c = (v) => Math.max(0, Math.min(255, Math.round(v)));
+    return [c(R), c(G), c(B)];
+  };
+  if (ycc && (sh > 1 || sv > 1)) {
+    if (tags.has(322)) return null;
+    const across = Math.ceil(width / sh), unit = sh * sv + 2, blockRow = across * unit, blockRows = Math.ceil(height / sv);
+    const data8 = new Uint8Array(blockRow * blockRows);
+    const rps = t(278, height);
+    let o = 0;
+    (tags.get(273) ?? []).forEach((off, i2) => {
+      if (o >= data8.length) return;
+      const rows = Math.min(rps, height - i2 * rps);
+      const exp = Math.ceil(rows / sv) * blockRow;
+      const d = decode0(b.subarray(off, off + (tags.get(279)?.[i2] ?? 0)), exp);
+      data8.set(d.subarray(0, Math.min(d.length, data8.length - o)), o);
+      o += exp;
+    });
+    const out2 = new Uint8Array(width * height * 4);
+    for (let by = 0; by < blockRows; by++) {
+      for (let bx = 0; bx < across; bx++) {
+        const u = by * blockRow + bx * unit;
+        const cb = data8[u + sh * sv], cr = data8[u + sh * sv + 1];
+        for (let j = 0; j < sv; j++) {
+          for (let i2 = 0; i2 < sh; i2++) {
+            const x2 = bx * sh + i2, y = by * sv + j;
+            if (x2 >= width || y >= height) continue;
+            const [R, G, B] = toRgb(data8[u + j * sh + i2], cb, cr);
+            const k = (y * width + x2) * 4;
+            out2[k] = R;
+            out2[k + 1] = G;
+            out2[k + 2] = B;
+            out2[k + 3] = 255;
+          }
+        }
+      }
+    }
+    return { width, height, data: out2 };
+  }
+  const rowBytes = Math.ceil(width * spp * bits2 / 8);
+  const raw = new Uint8Array(rowBytes * height);
+  const tiled = tags.has(322);
+  const offs = tags.get(tiled ? 324 : 273) ?? [];
+  const counts = tags.get(tiled ? 325 : 279) ?? [];
+  const decode = decode0;
+  if (!tiled) {
+    const rps = t(278, height);
+    let o = 0;
+    offs.forEach((off, i2) => {
+      if (o >= raw.length) return;
+      const rows = Math.min(rps, height - i2 * rps);
+      const d = decode(b.subarray(off, off + (counts[i2] ?? 0)), rows * rowBytes);
+      raw.set(d.subarray(0, Math.min(d.length, raw.length - o)), o);
+      o += rows * rowBytes;
+    });
+  } else {
+    const tw2 = t(322), th = t(323);
+    const tilesAcross = Math.ceil(width / tw2);
+    const tileRow = Math.ceil(tw2 * spp * bits2 / 8);
+    offs.forEach((off, i2) => {
+      const d = decode(b.subarray(off, off + (counts[i2] ?? 0)), tileRow * th);
+      const tx = i2 % tilesAcross * tw2, ty = Math.floor(i2 / tilesAcross) * th;
+      for (let y = 0; y < th && ty + y < height; y++) {
+        const dst = (ty + y) * rowBytes + Math.floor(tx * spp * bits2 / 8);
+        const len = Math.min(tileRow, rowBytes - Math.floor(tx * spp * bits2 / 8));
+        raw.set(d.subarray(y * tileRow, y * tileRow + len), dst);
+      }
+    });
+  }
+  if (predictor === 2 && bits2 === 8) {
+    for (let y = 0; y < height; y++) {
+      for (let x2 = spp; x2 < width * spp; x2++) raw[y * rowBytes + x2] = raw[y * rowBytes + x2] + raw[y * rowBytes + x2 - spp] & 255;
+    }
+  } else if (predictor === 2 && bits2 === 16) {
+    const get = (o) => le ? raw[o] | raw[o + 1] << 8 : raw[o] << 8 | raw[o + 1];
+    const set = (o, v) => {
+      if (le) {
+        raw[o] = v & 255;
+        raw[o + 1] = v >> 8;
+      } else {
+        raw[o] = v >> 8;
+        raw[o + 1] = v & 255;
+      }
+    };
+    for (let y = 0; y < height; y++) {
+      for (let s = spp; s < width * spp; s++) {
+        const o = y * rowBytes + s * 2;
+        set(o, get(o) + get(o - spp * 2) & 65535);
+      }
+    }
+  }
+  const out = new Uint8Array(width * height * 4);
+  const cmap = tags.get(320);
+  for (let y = 0; y < height; y++) {
+    for (let x2 = 0; x2 < width; x2++) {
+      const k = (y * width + x2) * 4;
+      const sample = (c) => {
+        if (bits2 === 8) return raw[y * rowBytes + x2 * spp + c];
+        if (bits2 === 16) return raw[y * rowBytes + (x2 * spp + c) * 2 + (le ? 1 : 0)];
+        const bit = (x2 * spp + c) * bits2;
+        const v = raw[y * rowBytes + (bit >> 3)] >> 8 - bits2 - (bit & 7) & (1 << bits2) - 1;
+        return v;
+      };
+      if (ycc) {
+        const [R, G, B] = toRgb(sample(0), sample(1), sample(2));
+        out[k] = R;
+        out[k + 1] = G;
+        out[k + 2] = B;
+        out[k + 3] = 255;
+      } else if (photo === 2 || photo === 6) {
+        out[k] = sample(0);
+        out[k + 1] = sample(1);
+        out[k + 2] = sample(2);
+        out[k + 3] = spp >= 4 ? sample(3) : 255;
+      } else if (photo === 3 && cmap) {
+        const i2 = sample(0), nColors = 1 << bits2;
+        out[k] = cmap[i2] >> 8;
+        out[k + 1] = cmap[nColors + i2] >> 8;
+        out[k + 2] = cmap[2 * nColors + i2] >> 8;
+        out[k + 3] = 255;
+      } else if (photo === 5) {
+        const c = sample(0), m = sample(1), yy = sample(2), kk = sample(3);
+        out[k] = 255 - Math.min(255, c + kk);
+        out[k + 1] = 255 - Math.min(255, m + kk);
+        out[k + 2] = 255 - Math.min(255, yy + kk);
+        out[k + 3] = 255;
+      } else {
+        const max2 = bits2 >= 8 ? 255 : (1 << bits2) - 1;
+        let g = Math.round(sample(0) * 255 / max2);
+        if (photo === 0) g = 255 - g;
+        out[k] = g;
+        out[k + 1] = g;
+        out[k + 2] = g;
+        out[k + 3] = spp >= 2 ? sample(1) : 255;
+      }
+    }
+  }
+  return { width, height, data: out };
+}
+function effectLine(fx) {
+  if (fx.gain === void 0 && !fx.bright) return null;
+  const s = fx.gain ?? 1, b = fx.bright ?? 0;
+  return { slope: s, off: 0.5 - 0.5 * s + b / 2 * (1 + s) };
+}
+function applyImageEffects(rgba, fx) {
+  const ln2 = effectLine(fx);
+  const map = new Uint8Array(256);
+  for (let v = 0; v < 256; v++) {
+    const y = ln2 ? (v / 255 * ln2.slope + ln2.off) * 255 : v;
+    map[v] = Math.max(0, Math.min(255, fx.floor ? Math.floor(y + 1e-9) : Math.round(y)));
+  }
+  const thr = fx.biLevel !== void 0 ? fx.biLevel * 255 : -1;
+  for (let i2 = 0; i2 < rgba.length; i2 += 4) {
+    let r = rgba[i2], g = rgba[i2 + 1], b = rgba[i2 + 2];
+    if (fx.gray) r = g = b = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    r = map[r];
+    g = map[g];
+    b = map[b];
+    if (thr >= 0) r = g = b = 0.2126 * r + 0.7152 * g + 0.0722 * b >= thr ? 255 : 0;
+    rgba[i2] = r;
+    rgba[i2 + 1] = g;
+    rgba[i2 + 2] = b;
+  }
+}
+function effectDecode(fx, components) {
+  if (fx.gray || fx.biLevel !== void 0 || components === 4) return null;
+  const ln2 = effectLine(fx);
+  if (!ln2) return null;
+  const d = [ln2.off, ln2.off + ln2.slope];
+  return components === 1 ? d : [...d, ...d, ...d];
+}
+function applyPictureAdjust(d, o) {
+  const hex2 = (s) => [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  if (o.clrChange) {
+    const [fr, fg, fb] = hex2(o.clrChange.from), [tr, tg, tb] = hex2(o.clrChange.to);
+    const ta = Math.round(o.clrChange.toAlpha * 255);
+    for (let i2 = 0; i2 < d.length; i2 += 4) {
+      if (Math.abs(d[i2] - fr) <= 2 && Math.abs(d[i2 + 1] - fg) <= 2 && Math.abs(d[i2 + 2] - fb) <= 2) {
+        d[i2] = tr;
+        d[i2 + 1] = tg;
+        d[i2 + 2] = tb;
+        d[i2 + 3] = Math.round(d[i2 + 3] * ta / 255);
+      }
+    }
+  }
+  if (o.duotone) {
+    const [a, b] = [hex2(o.duotone[0]), hex2(o.duotone[1])];
+    for (let i2 = 0; i2 < d.length; i2 += 4) {
+      const t = (0.2126 * d[i2] + 0.7152 * d[i2 + 1] + 0.0722 * d[i2 + 2]) / 255;
+      d[i2] = Math.round(a[0] + (b[0] - a[0]) * t);
+      d[i2 + 1] = Math.round(a[1] + (b[1] - a[1]) * t);
+      d[i2 + 2] = Math.round(a[2] + (b[2] - a[2]) * t);
+    }
+  }
+  if (o.alpha !== void 0) for (let i2 = 3; i2 < d.length; i2 += 4) d[i2] = Math.round(d[i2] * o.alpha);
+}
+
+// ../docx-layout/src/picture.ts
+var EMU_PT = 12700;
+function color(c, theme) {
+  if (!c) return void 0;
+  const { spec, alpha } = dmlColorSpec(c);
+  const hex2 = resolveDrawingColor(spec, theme);
+  return hex2 ? { color: hex2, alpha } : void 0;
+}
+function pictureLook(im, theme) {
+  const f = im.format;
+  if (!f) return void 0;
+  const out = {};
+  if (f.geom && f.geom !== "rect" && f.geom !== "custom") out.geom = { prst: f.geom, ...f.adj ? { adj: f.adj } : {} };
+  const ln2 = f.line;
+  if (ln2 && ln2.fill) {
+    const c = color(ln2.fill, theme);
+    if (c) {
+      out.line = { color: c.color, alpha: c.alpha, widthPt: (ln2.w ?? 9525) / EMU_PT };
+      if (ln2.dash && ln2.dash !== "solid") out.line.dash = ln2.dash;
+      if (ln2.cmpd && ln2.cmpd !== "sng") out.line.cmpd = ln2.cmpd;
+      if (ln2.cap) out.line.cap = ln2.cap;
+      if (ln2.join) out.line.join = ln2.join;
+    }
+  }
+  const fx = f.effects;
+  const s = fx.shadow;
+  if (s && (s.kind === "outer" || s.kind === "inner")) {
+    const c = color(s.color, theme);
+    if (c) {
+      out.shadow = {
+        kind: s.kind,
+        color: c.color,
+        alpha: c.alpha,
+        blurPt: (s.blurRad ?? 0) / EMU_PT,
+        distPt: (s.dist ?? 0) / EMU_PT,
+        dirDeg: (s.dir ?? 0) / 6e4,
+        ...s.sx !== void 0 ? { sx: s.sx / 1e5 } : {},
+        ...s.sy !== void 0 ? { sy: s.sy / 1e5 } : {},
+        ...s.kx ? { kxDeg: s.kx / 6e4 } : {},
+        ...s.ky ? { kyDeg: s.ky / 6e4 } : {},
+        ...s.algn ? { algn: s.algn } : {},
+        ...s.rotWithShape !== void 0 ? { rotWithShape: s.rotWithShape } : {}
+      };
+    }
+  }
+  if (fx.glow) {
+    const c = color(fx.glow.color, theme);
+    if (c) out.glow = { color: c.color, alpha: c.alpha, radPt: fx.glow.rad / EMU_PT };
+  }
+  if (fx.softEdge) out.softEdgePt = fx.softEdge / EMU_PT;
+  const td2 = f.threeD;
+  if (td2?.bevelT && (!td2.camera || td2.camera.prst === "orthographicFront") && !td2.camera?.rot) {
+    out.bevel = {
+      wPt: (td2.bevelT.w ?? 76200) / EMU_PT,
+      hPt: (td2.bevelT.h ?? 76200) / EMU_PT,
+      ...td2.bevelT.prst ? { prst: td2.bevelT.prst } : {},
+      ...td2.lightRig ? { rig: td2.lightRig.rig, dir: td2.lightRig.dir } : {},
+      ...td2.prstMaterial ? { material: td2.prstMaterial } : {}
+    };
+  }
+  const r = fx.reflection;
+  if (r) {
+    out.reflection = {
+      blurPt: (r.blurRad ?? 0) / EMU_PT,
+      stA: (r.stA ?? 1e5) / 1e5,
+      stPos: (r.stPos ?? 0) / 1e5,
+      endA: (r.endA ?? 0) / 1e5,
+      endPos: (r.endPos ?? 1e5) / 1e5,
+      distPt: (r.dist ?? 0) / EMU_PT,
+      dirDeg: (r.dir ?? 54e5) / 6e4,
+      sy: (r.sy ?? 1e5) / 1e5,
+      ...r.algn ? { algn: r.algn } : {},
+      ...r.rotWithShape !== void 0 ? { rotWithShape: r.rotWithShape } : {}
+    };
+  }
+  Object.assign(out, blipLook(f.blip, theme));
+  return Object.keys(out).length ? out : void 0;
+}
+function blipLook(b, theme) {
+  const out = {};
+  if (b.alphaModFix !== void 0 && b.alphaModFix < 1e5) out.alpha = b.alphaModFix / 1e5;
+  if (b.duotone) {
+    const c0 = color(b.duotone[0], theme), c1 = color(b.duotone[1], theme);
+    if (c0 && c1) out.duotone = [c0.color, c1.color];
+  }
+  if (b.clrChange) {
+    const from = color(b.clrChange.from, theme), to = color(b.clrChange.to, theme);
+    if (from && to) out.clrChange = { from: from.color, to: to.color, toAlpha: to.alpha };
+  }
+  return out;
+}
+
 // ../docx-layout/src/emf.ts
 var IDENT = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 var mul = (m, n) => ({
@@ -16737,7 +18780,7 @@ function renderEmf(ctx, bytes, dest) {
     }
     return c;
   };
-  const rect = (l, t, r, b) => poly2([[l, t], [r, t], [r, b], [l, b]], true);
+  const rect2 = (l, t, r, b) => poly2([[l, t], [r, t], [r, b], [l, b]], true);
   const ellipse = (l, t, r, b) => {
     const K5 = 0.5523;
     const cx = (l + r) / 2, cy = (t + b) / 2, rx = (r - l) / 2, ry = (b - t) / 2;
@@ -16919,10 +18962,10 @@ function renderEmf(ctx, bytes, dest) {
         break;
       }
       case 43:
-        draw(rect(i322(r), i322(r + 4), i322(r + 8), i322(r + 12)), true);
+        draw(rect2(i322(r), i322(r + 4), i322(r + 8), i322(r + 12)), true);
         break;
       case 44:
-        draw(rect(i322(r), i322(r + 4), i322(r + 8), i322(r + 12)), true);
+        draw(rect2(i322(r), i322(r + 4), i322(r + 8), i322(r + 12)), true);
         break;
       // ROUNDRECT ≈ ret.
       case 42:
@@ -17681,11 +19724,11 @@ function paintInlineObject(ctx, out, g, x0, baseY0) {
   if (obj.image && isEmf(obj.image.data)) {
     const im = obj.image;
     const r = { x: x2, y: baseY - shift - im.heightTwips, w: im.widthTwips, h: im.heightTwips };
-    out.push({ t: "clip", op: "push", ...r }, ...renderEmf(ctx, im.data, r), { t: "clip", op: "pop" });
+    out.push({ t: "clip", op: "push", ...r, src: im }, ...renderEmf(ctx, im.data, r), { t: "clip", op: "pop" });
   } else if (obj.image && isWmf(obj.image.data)) {
     const im = obj.image;
     const r = { x: x2, y: baseY - shift - im.heightTwips, w: im.widthTwips, h: im.heightTwips };
-    out.push({ t: "clip", op: "push", ...r }, ...renderWmf(ctx, im.data, r), { t: "clip", op: "pop" });
+    out.push({ t: "clip", op: "push", ...r, src: im }, ...renderWmf(ctx, im.data, r), { t: "clip", op: "pop" });
   } else if (obj.image) {
     const im = obj.image;
     out.push({
@@ -17698,7 +19741,11 @@ function paintInlineObject(ctx, out, g, x0, baseY0) {
       ...im.crop ? { crop: im.crop } : {},
       ...im.style?.rot ? { rot: im.style.rot } : {},
       ...im.style?.flipH ? { flipH: true } : {},
-      ...im.style?.flipV ? { flipV: true } : {}
+      ...im.style?.flipV ? { flipV: true } : {},
+      ...(() => {
+        const pic = pictureLook(im, ctx.fmt.theme);
+        return pic ? { pic } : {};
+      })()
     });
   } else if (obj.shape) {
     const s = obj.shape;
@@ -17735,12 +19782,12 @@ function paintDecorations(out, all, frameX, baseY, line) {
     const sz = st.sizePt * 20;
     const y = baseY - st.shift + m.underlinePos * sz;
     const w = Math.max(0.5, m.underlineThick * st.sizePt);
-    const color = st.underline.color ?? st.color;
+    const color2 = st.underline.color ?? st.color;
     const val = st.underline.val;
     if (val === "words" && s.g.kind === "space") continue;
     const dash = val.startsWith("dotted") ? "dotted" : val.startsWith("dash") ? "dashed" : void 0;
-    out.push({ t: "line", x1: s.x0, y1: y, x2: s.x1, y2: y, color, widthPt: val === "thick" ? w * 2 : w, ...dash ? { dash } : {} });
-    if (val === "double") out.push({ t: "line", x1: s.x0, y1: y + w * 20 * 2, x2: s.x1, y2: y + w * 20 * 2, color, widthPt: w });
+    out.push({ t: "line", x1: s.x0, y1: y, x2: s.x1, y2: y, color: color2, widthPt: val === "thick" ? w * 2 : w, ...dash ? { dash } : {} });
+    if (val === "double") out.push({ t: "line", x1: s.x0, y1: y + w * 20 * 2, x2: s.x1, y2: y + w * 20 * 2, color: color2, widthPt: w });
   }
   for (const s of segs((g) => g.style.strike || g.style.dstrike)) {
     const st = s.g.style;
@@ -17840,20 +19887,20 @@ function borderPaintWidth(b) {
 }
 function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   if (!b || b.val === "none" || b.val === "nil") return;
-  const color = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
+  const color2 = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const w = borderPaintWidth(b);
   const dash = BORDER_DASH[b.val];
   if (dash) {
-    out.push({ t: "line", x1, y1, x2, y2, color, widthPt: w / 20, dash });
+    out.push({ t: "line", x1, y1, x2, y2, color: color2, widthPt: w / 20, dash });
     return;
   }
   if (x1 !== x2 && y1 !== y2) {
-    out.push({ t: "line", x1, y1, x2, y2, color, widthPt: w / 20 });
+    out.push({ t: "line", x1, y1, x2, y2, color: color2, widthPt: w / 20 });
     return;
   }
   const horizontal = Math.abs(y2 - y1) < Math.abs(x2 - x1);
   if (b.val === "wave" || b.val === "doubleWave") {
-    paintWave(out, b.val === "doubleWave", color, w, horizontal, x1, y1, x2, y2);
+    paintWave(out, b.val === "doubleWave", color2, w, horizontal, x1, y1, x2, y2);
     return;
   }
   const bands = borderBands(b.val, w);
@@ -17862,7 +19909,7 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   let pos = -total / 2;
   for (const band of flip ? [...bands].reverse() : bands) {
     if (band.c) {
-      const fill = band.c === "light" ? toWhite(color, 192 / 255) : band.c === "mid" ? toWhite(color, 96 / 255) : color;
+      const fill = band.c === "light" ? toWhite(color2, 192 / 255) : band.c === "mid" ? toWhite(color2, 96 / 255) : color2;
       if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band.t, fill });
       else out.push({ t: "rect", x: x1 + pos, y: Math.min(y1, y2), w: band.t, h: Math.abs(y2 - y1), fill });
     }
@@ -17870,7 +19917,7 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   }
   void BORDER_SINGLE_LIKE;
 }
-function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
+function paintWave(out, double, color2, w, horizontal, x1, y1, x2, y2) {
   const h = Math.max(60, w * 3), period = h * 2, lw = Math.max(0.5, w / 20 / 1.5);
   const len = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
   const waves = double ? [-h / 4, h / 4] : [0];
@@ -17881,7 +19928,7 @@ function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
       const a = Math.min(s, len);
       cmds.push(horizontal ? { op: cmds.length ? "L" : "M", x: Math.min(x1, x2) + a, y: y1 + off + d } : { op: cmds.length ? "L" : "M", x: x1 + off + d, y: Math.min(y1, y2) + a });
     }
-    out.push({ t: "path", cmds, stroke: { color, widthPt: lw } });
+    out.push({ t: "path", cmds, stroke: { color: color2, widthPt: lw } });
   }
 }
 function paintParaBox(ctx, out, p, pBdr, left, right, top, bottom, drawTop, drawBottom, between = false) {
@@ -17926,12 +19973,12 @@ function pageBorderItems(ctx, pb, g, surround) {
   const left = page ? sp(pb.left) : g.marL - sp(pb.left) - thick(pb.left);
   const right = page ? g.pageW - sp(pb.right) : g.pageW - g.marR + sp(pb.right) + thick(pb.right);
   const out = [];
-  const color = (b) => resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
+  const color2 = (b) => resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const bands = (b) => b.val === "double" ? [[0, lw(b)], [2 * lw(b), 3 * lw(b)]] : [[0, lw(b)]];
-  if (on(pb.top)) for (const [a, z] of bands(pb.top)) out.push({ t: "rect", x: left, y: top + a, w: right - left, h: z - a, fill: color(pb.top) });
-  if (on(pb.bottom)) for (const [a, z] of bands(pb.bottom)) out.push({ t: "rect", x: left, y: bottom - z, w: right - left, h: z - a, fill: color(pb.bottom) });
-  if (on(pb.left)) for (const [a, z] of bands(pb.left)) out.push({ t: "rect", x: left + a, y: top, w: z - a, h: bottom - top, fill: color(pb.left) });
-  if (on(pb.right)) for (const [a, z] of bands(pb.right)) out.push({ t: "rect", x: right - z, y: top, w: z - a, h: bottom - top, fill: color(pb.right) });
+  if (on(pb.top)) for (const [a, z] of bands(pb.top)) out.push({ t: "rect", x: left, y: top + a, w: right - left, h: z - a, fill: color2(pb.top) });
+  if (on(pb.bottom)) for (const [a, z] of bands(pb.bottom)) out.push({ t: "rect", x: left, y: bottom - z, w: right - left, h: z - a, fill: color2(pb.bottom) });
+  if (on(pb.left)) for (const [a, z] of bands(pb.left)) out.push({ t: "rect", x: left + a, y: top, w: z - a, h: bottom - top, fill: color2(pb.left) });
+  if (on(pb.right)) for (const [a, z] of bands(pb.right)) out.push({ t: "rect", x: right - z, y: top, w: z - a, h: bottom - top, fill: color2(pb.right) });
   return out;
 }
 
@@ -18307,18 +20354,18 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const g1 = boundaryWidths(cells, nCols, (c) => m.get(c).min, () => true);
   const minOf = (c) => m.get(c).min;
   if (all.length && all.every((c) => prefOf(c.tcW) === "pct")) {
-    const T3 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
-    const p2 = boundaryWidths(cells, nCols, (c) => T3 * c.tcW.w / 5e3);
-    let room = T3;
+    const T4 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
+    const p2 = boundaryWidths(cells, nCols, (c) => T4 * c.tcW.w / 5e3);
+    let room = T4;
     for (let j = 0; j < nCols; j++) {
       p2[j] = Math.max(0, Math.min(p2[j], room));
       room -= p2[j];
     }
     fitPctMins(p2, all, minOf, g1, () => true);
     const sp = p2.reduce((a, b) => a + b, 0);
-    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T3, base);
+    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T4, base);
     if (sp > cap + 0.5) return p2.map((x2) => x2 * cap / sp);
-    return sp > 0 && T3 > sp + 0.5 ? p2.map((x2) => x2 * T3 / sp) : p2;
+    return sp > 0 && T4 > sp + 0.5 ? p2.map((x2) => x2 * T4 / sp) : p2;
   }
   const frac = Array.from({ length: nCols }, (_, j) => {
     const own4 = all.filter((c) => c.span === 1 && c.col === j);
@@ -18326,23 +20373,23 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     return Math.max(...own4.filter((c) => prefOf(c.tcW) === "pct").map((c) => c.tcW.w / 5e3));
   });
   const isPct = frac.map((f) => f > 0);
-  const kind = (c, T3) => {
+  const kind = (c, T4) => {
     const k = prefOf(c.tcW);
-    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T3 * c.tcW.w / 5e3 };
+    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T4 * c.tcW.w / 5e3 };
     return { k, w: k === "dxa" ? c.tcW.w : 0 };
   };
   const sumOf = (v, pick) => v.reduce((a, x2, j) => a + (pick(j) ? x2 : 0), 0);
   const gMax = boundaryWidths(cells, nCols, (c) => m.get(c).max, () => true);
-  const g3of = (T3) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T3);
+  const g3of = (T4) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T4);
     return q.k === "dxa" ? Math.max(q.w, m.get(c).min) : m.get(c).min;
-  }, (c) => kind(c, T3).k !== "dxa");
-  const g4of = (T3) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T3), mm = m.get(c);
+  }, (c) => kind(c, T4).k !== "dxa");
+  const g4of = (T4) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T4), mm = m.get(c);
     return q.k === "dxa" ? Math.max(q.w, mm.min) : q.k === "auto" ? mm.max : mm.min;
-  }, (c) => kind(c, T3).k !== "dxa");
-  let T2 = T0;
-  if (T2 === void 0) {
+  }, (c) => kind(c, T4).k !== "dxa");
+  let T3 = T0;
+  if (T3 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
     const fr = Math.min(1, frac.reduce((a, b) => a + b, 0));
@@ -18351,14 +20398,14 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
       for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac[j]);
       if (fr < 1) t = Math.max(t, rest / (1 - fr));
     }
-    T2 = Math.min(t, avail);
+    T3 = Math.min(t, avail);
   }
   const explicit = T0 !== void 0;
   const p = new Array(nCols).fill(0);
   if (isPct.some(Boolean)) {
-    let room = T2 - sumOf(g1, (j) => !isPct[j]);
+    let room = T3 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p[j] = Math.max(0, Math.min(frac[j] * T2, room));
+      p[j] = Math.max(0, Math.min(frac[j] * T3, room));
       room -= p[j];
     }
     fitPctMins(p, all.filter((c) => c.span === 1), minOf, g1, (k) => isPct[k]);
@@ -18366,15 +20413,15 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const np = (j) => !isPct[j];
   if (!isPct.some((x2) => !x2)) {
     const sp = sumOf(p, () => true);
-    return sp > 0 && T2 > sp + 0.5 ? p.map((x2) => x2 * T2 / sp) : p;
+    return sp > 0 && T3 > sp + 0.5 ? p.map((x2) => x2 * T3 / sp) : p;
   }
-  let R = T2 - sumOf(p, () => true);
-  const g3 = g3of(T2), g4 = g4of(T2);
+  let R = T3 - sumOf(p, () => true);
+  const g3 = g3of(T3), g4 = g4of(T3);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp = (a, b, t) => a.map((x2, j) => isPct[j] ? p[j] : x2 + (b[j] - x2) * t);
   if (R >= S4 - 0.5) {
     const covered = (j) => all.some((c) => c.col <= j && c.col + c.span > j);
-    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T2).k !== "auto"));
+    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T3).k !== "auto"));
     let grow = auto;
     if (!grow.some(Boolean)) grow = isPct.map((x2, j) => !x2 && covered(j));
     const wsum = sumOf(g4, (j) => grow[j]);
@@ -18383,19 +20430,19 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   }
   if (R >= S3) return lerp(g3, g4, (R - S3) / (S4 - S3));
   if (R >= S1) return lerp(g1, g3, S3 > S1 ? (R - S1) / (S3 - S1) : 0);
-  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T2 > avail) && S1 > avail + 0.5) {
+  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T3 > avail) && S1 > avail + 0.5) {
     const pad2 = Array.from({ length: nCols }, (_, j) => Math.max(0, ...all.filter((c) => c.span === 1 && c.col === j).map((c) => c.pad ?? 0)));
     const inner = g1.map((x2, j) => Math.max(0, x2 - pad2[j]));
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x2, j) => x2 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
   if (explicit) {
-    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T2 <= avail + 0.5 : T2 < avail - 0.5))) return g3.map((x2, j) => isPct[j] ? p[j] : x2);
-    R += avail - T2;
-    T2 = avail;
+    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T3 <= avail + 0.5 : T3 < avail - 0.5))) return g3.map((x2, j) => isPct[j] ? p[j] : x2);
+    R += avail - T3;
+    T3 = avail;
   }
   const sg = docGrid.reduce((a, b) => a + b, 0);
-  if (!isPct.some(Boolean) && Math.abs(sg - T2) <= Math.max(20, 5e-3 * T2)) return docGrid.map((x2) => x2 * T2 / sg);
+  if (!isPct.some(Boolean) && Math.abs(sg - T3) <= Math.max(20, 5e-3 * T3)) return docGrid.map((x2) => x2 * T3 / sg);
   return g1.map((x2, j) => isPct[j] ? p[j] : S1 > 0 ? x2 * R / S1 : x2);
 }
 function measureCell(ctx, cell, r, mar) {
@@ -18499,18 +20546,18 @@ function isHiddenRow(ctx, row) {
   }));
 }
 function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
-  const table = table0.rows.some((r) => r.trPr?.hidden) ? { ...table0, rows: table0.rows.filter((r) => !isHiddenRow(ctx, r)) } : table0;
+  const table2 = table0.rows.some((r) => r.trPr?.hidden) ? { ...table0, rows: table0.rows.filter((r) => !isHiddenRow(ctx, r)) } : table0;
   const theme = ctx.fmt.theme;
-  const direct = table.tblPr ?? {};
+  const direct = table2.tblPr ?? {};
   const style = ctx.resolver.tableStyle(direct.tblStyle);
   const tblPr = mergeTblPr(style.tblPr, direct);
   const look = { ...DEFAULT_LOOK, ...direct.tblLook ?? style.tblPr.tblLook ?? {} };
   const defMar = style.hasStyle ? 0 : 108;
   const noVaSp = ctx.fmt.settings.compatibilityMode < 15 && !!ctx.fmt.settings.compat["doNotVertAlignCellWithSp"];
   const vaOf = (c, v) => noVaSp && c?.shape ? void 0 : v;
-  const nRows = table.rows.length;
-  const usedCols = Math.max(1, ...table.rows.map((r) => r.cells.reduce((s, c) => s + Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1), 0) + (r.trPr?.gridBefore ?? 0) + (r.trPr?.gridAfter ?? 0)));
-  let docGrid = table.gridColsTwips.slice();
+  const nRows = table2.rows.length;
+  const usedCols = Math.max(1, ...table2.rows.map((r) => r.cells.reduce((s, c) => s + Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1), 0) + (r.trPr?.gridBefore ?? 0) + (r.trPr?.gridAfter ?? 0)));
+  let docGrid = table2.gridColsTwips.slice();
   if (!docGrid.length || docGrid.every((g) => g <= 0)) {
     const total = widthTw(tblPr.tblW, frameWidth) || frameWidth;
     docGrid = Array.from({ length: usedCols }, () => total / usedCols);
@@ -18520,7 +20567,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   }
   const nCols = docGrid.length;
   const slots = [];
-  table.rows.forEach((row, ri) => {
+  table2.rows.forEach((row, ri) => {
     const rowSlots = [];
     let col = row.trPr?.gridBefore ?? 0;
     for (const cell of row.cells) {
@@ -18557,7 +20604,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const colBand = Math.max(1, tblPr.tblStyleColBandSize ?? 1);
   const condFor = (ri, s) => {
     const out = ["wholeTable"];
-    const firstRow = look.firstRow && ri === 0 || !!table.rows[ri]?.trPr?.tblHeader && look.firstRow;
+    const firstRow = look.firstRow && ri === 0 || !!table2.rows[ri]?.trPr?.tblHeader && look.firstRow;
     const lastRow = look.lastRow && ri === nRows - 1;
     const firstCol = look.firstColumn && s.lcol === 0;
     const lastCol = look.lastColumn && s.lcol + s.span >= nCols;
@@ -18597,7 +20644,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     }
   }
   const tblBorders = (rtl ? swapLR(tblPr.tblBorders) : tblPr.tblBorders) ?? {};
-  const exBorders = (ri) => rtl ? swapLR(table.rows[ri]?.tblPrEx?.tblBorders) : table.rows[ri]?.tblPrEx?.tblBorders;
+  const exBorders = (ri) => rtl ? swapLR(table2.rows[ri]?.tblPrEx?.tblBorders) : table2.rows[ri]?.tblPrEx?.tblBorders;
   const cellMarOf = (m) => rtl ? swapLR(m) : m;
   const edge = (s, side) => {
     const own4 = resolved.get(s)?.tcPr.tcBorders?.[side];
@@ -18628,7 +20675,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const row0 = slots[0] ?? [];
   const sFirst = row0[0], sLast = row0[row0.length - 1];
   const marOf = (s, side) => {
-    const ex = table.rows[s.row]?.tblPrEx;
+    const ex = table2.rows[s.row]?.tblPrEx;
     const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? cellMarOf(ex?.tblCellMar)?.[side] ?? cellMarOf(tblPr.tblCellMar)?.[side];
     return widthTw(m, frameWidth) ?? defMar;
   };
@@ -18637,10 +20684,10 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const effL = sFirst ? Math.max(marOf(sFirst, "left"), bL / 2) : 108;
   const effR = sLast ? Math.max(marOf(sLast, "right"), bR / 2) : 108;
   const base = legacy ? frameWidth + effL + effR : frameWidth - (bL + bR) / 2;
-  const spacingOf = (ri) => widthTw(table.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, frameWidth) ?? 0;
+  const spacingOf = (ri) => widthTw(table2.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, frameWidth) ?? 0;
   const rawMeasure = /* @__PURE__ */ new Map();
   const padOf = (s) => ["left", "right"].reduce((a, side) => a + (spacingOf(s.row) > 0 ? marOf(s, side) : Math.max(marOf(s, side), borderWidth(edge(s, side)) / 2)), 0);
-  const rawOf = (s) => {
+  const rawOf2 = (s) => {
     let mm = rawMeasure.get(s);
     if (!mm) rawMeasure.set(s, mm = measureCell(ctx, s.cell, resolved.get(s), padOf(s)));
     return mm;
@@ -18666,21 +20713,21 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
           const w = vh + 6 + padOf(s);
           return { min: w + ex, max: w + ex };
         }
-        const mm = rawOf(s);
-        const fits = () => mm.max + rs.reduce((a, o) => a + (o === s ? 0 : rawOf(o).min), 0) <= base;
+        const mm = rawOf2(s);
+        const fits = () => mm.max + rs.reduce((a, o) => a + (o === s ? 0 : rawOf2(o).min), 0) <= base;
         const min = noWrap && fits() ? mm.max : Math.max(mm.min, floorW);
         return { min: min + ex, max: Math.max(mm.max, min) + ex };
       };
       return { col: s.col, span: s.span, ...tcW ? { tcW } : {}, measure: measure2, ...floorW ? { floor: true } : {}, pad: padOf(s) + ex };
     });
-    const tr = table.rows[ri]?.trPr;
+    const tr = table2.rows[ri]?.trPr;
     if (tr?.gridBefore && tr.wBefore?.type === "dxa" && tr.wBefore.w > 0) out.unshift({ col: 0, span: tr.gridBefore, tcW: tr.wBefore, measure: () => ({ min: 0, max: 0 }) });
     const end = rs.length ? rs[rs.length - 1].col + rs[rs.length - 1].span : 0;
     if (tr?.gridAfter && tr.wAfter?.type === "dxa" && tr.wAfter.w > 0) out.push({ col: end, span: tr.gridAfter, tcW: tr.wAfter, measure: () => ({ min: 0, max: 0 }) });
     return out;
   });
   const floating = !!tblPr.tblpPr && tblPr.tblpPr.tblpYSpec !== "inline";
-  const jc = floating ? void 0 : tblPr.jc ?? table.rows[0]?.trPr?.jc;
+  const jc = floating ? void 0 : tblPr.jc ?? table2.rows[0]?.trPr?.jc;
   const indent = floating || jc === "center" || jc === "right" || jc === "end" ? 0 : widthTw(tblPr.tblInd, frameWidth) ?? 0;
   const maxInd = legacy && jc === "center" && !floating ? widthTw(tblPr.tblInd, frameWidth) ?? 0 : indent;
   const grid = columnWidths(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === "fixed", base, base - maxInd);
@@ -18693,16 +20740,16 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   if (rtl && !floating && jc !== "center") x2 = jc === "right" || jc === "end" ? frameX + (legacy ? -effL : bL / 2) : frameX + frameWidth - indent - width + (legacy ? effR : -bR / 2);
   const rowByRow = legacy && !floating && !!ctx.fmt.settings.compat["alignTablesRowByRow"];
   const rowShift = (ri) => {
-    const rjc = table.rows[ri]?.trPr?.jc ?? jc;
+    const rjc = table2.rows[ri]?.trPr?.jc ?? jc;
     const rs = slots[ri] ?? [];
     if (!rowByRow || !rs.length || rjc !== "center" && rjc !== "right" && rjc !== "end") return 0;
     const c0 = colX[Math.min(rs[0].col, nCols)], c1 = colX[Math.min(rs[rs.length - 1].col + rs[rs.length - 1].span, nCols)];
     const want = rjc === "center" ? frameX + (frameWidth - (c1 - c0)) / 2 : frameX + frameWidth - (c1 - c0) + effR;
     return want - (x2 + c0);
   };
-  const separated = !!tblPr.tblCellSpacing || table.rows.some((r) => !!r.trPr?.tblCellSpacing);
-  const spRow = (ri) => widthTw(table.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, width) ?? 0;
-  const spTbl = widthTw(tblPr.tblCellSpacing ?? table.rows.find((r) => r.trPr?.tblCellSpacing)?.trPr?.tblCellSpacing, width) ?? 0;
+  const separated = !!tblPr.tblCellSpacing || table2.rows.some((r) => !!r.trPr?.tblCellSpacing);
+  const spRow = (ri) => widthTw(table2.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, width) ?? 0;
+  const spTbl = widthTw(tblPr.tblCellSpacing ?? table2.rows.find((r) => r.trPr?.tblCellSpacing)?.trPr?.tblCellSpacing, width) ?? 0;
   const outerB = (ri, side) => exBorders(ri)?.[side] ?? tblBorders[side];
   const sepTop = [], sepBottom = [], sepWT = [], sepWB = [];
   if (separated) {
@@ -18733,7 +20780,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     return layoutCell(s.cell, 0, Math.max(1, avail, longest), env, cref);
   };
   const rowHeights = [];
-  table.rows.forEach((row, ri) => {
+  table2.rows.forEach((row, ri) => {
     const ex = row.tblPrEx;
     const trp = { ...style.trPr, ...look.firstRow && ri === 0 ? style.cond.firstRow?.trPr : void 0, ...row.trPr };
     let contentH = 0;
@@ -19578,6 +21625,38 @@ function liftFrames(blocks, stops) {
 
 // ../docx-layout/src/engine.ts
 var balKey = (g) => g.balKey ?? g.index;
+function polyBandIntervals(poly2, ya, yb) {
+  const iv = [];
+  const n = poly2.length;
+  for (let i2 = 0; i2 < n; i2++) {
+    const [x0, y0] = poly2[i2], [x1, y1] = poly2[(i2 + 1) % n];
+    const lo = Math.max(ya, Math.min(y0, y1)), hi = Math.min(yb, Math.max(y0, y1));
+    if (lo > hi) continue;
+    if (y0 === y1) {
+      iv.push([Math.min(x0, x1), Math.max(x0, x1)]);
+      continue;
+    }
+    const xa = x0 + (lo - y0) / (y1 - y0) * (x1 - x0), xb = x0 + (hi - y0) / (y1 - y0) * (x1 - x0);
+    iv.push([Math.min(xa, xb), Math.max(xa, xb)]);
+  }
+  for (const yy of [ya, yb]) {
+    const xs = [];
+    for (let i2 = 0; i2 < n; i2++) {
+      const [x0, y0] = poly2[i2], [x1, y1] = poly2[(i2 + 1) % n];
+      if (y0 <= yy !== y1 <= yy) xs.push(x0 + (yy - y0) / (y1 - y0) * (x1 - x0));
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) iv.push([xs[k], xs[k + 1]]);
+  }
+  iv.sort((a, b) => a[0] - b[0]);
+  const out = [];
+  for (const [a, b] of iv) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1] + 1e-6) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
 var CHAP_SEP = { hyphen: "-", period: ".", colon: ":", emDash: "\u2014", enDash: "\u2013" };
 var sameChapters = (a, b) => a.size === b.size && [...a].every(([k, v]) => {
@@ -20821,14 +22900,14 @@ var Engine = class {
     return { after: 0, afterAuto: false, ...this.rowEndNeighbor(), contextual: false };
   }
   /** O "depois" do parágrafo antes da tabela some (contextual com o 1º parágrafo dela)? */
-  dropsAfterBeforeTable(prev, table) {
+  dropsAfterBeforeTable(prev, table2) {
     if (!prev.contextual) return false;
-    const f = this.firstParaNeighbor([table]);
+    const f = this.firstParaNeighbor([table2]);
     return !!f && f.styleId === prev.styleId;
   }
   /** Registra os vizinhos de cada célula da tabela (`prev` = parágrafo antes dela). */
-  assignCellNeighbors(table, prev) {
-    table.rows.forEach((row, ri) => row.cells.forEach((cell, ci) => {
+  assignCellNeighbors(table2, prev) {
+    table2.rows.forEach((row, ri) => row.cells.forEach((cell, ci) => {
       const pv = ci > 0 ? this.lastParaNeighbor(this.cellBlocks(row.cells[ci - 1])) : ri > 0 ? this.rowEndNeighbor() : prev;
       const nx = ci + 1 < row.cells.length ? this.firstParaNeighbor(this.cellBlocks(row.cells[ci + 1])) : this.rowEndNeighbor();
       this.cellNb.set(cell, { ...pv ? { prev: pv } : {}, ...nx ? { next: nx } : {} });
@@ -21678,11 +23757,11 @@ var Engine = class {
     }
   }
   // ───────────────────────── tabelas no corpo ─────────────────────────
-  placeTable(table, ref, blockIdx = -1) {
-    if (table.rows.every((r) => isHiddenRow(this.ctx, r))) return;
+  placeTable(table2, ref, blockIdx = -1) {
+    if (table2.rows.every((r) => isHiddenRow(this.ctx, r))) return;
     this.sectGapAfter = null;
     const fr = this.colFrame();
-    const fp = table.tblPr?.tblpPr;
+    const fp = table2.tblPr?.tblpPr;
     if (fp && fp.tblpYSpec !== "inline") {
       const textAnchor = fp.vertAnchor !== "page" && fp.vertAnchor !== "margin";
       if (textAnchor) {
@@ -21704,7 +23783,7 @@ var Engine = class {
         return;
       }
       if (blockIdx >= 0) this.placedTables.add(blockIdx);
-      const t2 = layoutTable(this.ctx, table, 0, fr.w, (cell, cx, cw, cenv, cref) => this.layoutCell(cell, cx, cw, cenv, cref, this.cur), ref);
+      const t2 = layoutTable(this.ctx, table2, 0, fr.w, (cell, cx, cw, cenv, cref) => this.layoutCell(cell, cx, cw, cenv, cref, this.cur), ref);
       const items = [];
       let flowY = this.y;
       if (textAnchor) {
@@ -21748,13 +23827,13 @@ var Engine = class {
     }
     this.floatTableGap = false;
     if (this.prev) {
-      this.y += this.atTop || this.dropsAfterBeforeTable(this.prev, table) ? 0 : this.prev.after;
+      this.y += this.atTop || this.dropsAfterBeforeTable(this.prev, table2) ? 0 : this.prev.after;
     }
-    this.assignCellNeighbors(table, this.prev ? { ...this.prev.styleId ? { styleId: this.prev.styleId } : {} } : void 0);
+    this.assignCellNeighbors(table2, this.prev ? { ...this.prev.styleId ? { styleId: this.prev.styleId } : {} } : void 0);
     this.prev = null;
     this.firstInDoc = false;
     this.topGapPrevAfter = null;
-    const t = layoutTable(this.ctx, table, fr.x, fr.w, (cell, cx, cw, cenv, cref) => this.layoutCell(cell, cx, cw, cenv, cref, this.cur), ref);
+    const t = layoutTable(this.ctx, table2, fr.x, fr.w, (cell, cx, cw, cenv, cref) => this.layoutCell(cell, cx, cw, cenv, cref, this.cur), ref);
     if (blockIdx >= 0) this.pinFloatsOverTable(t, blockIdx);
     this.lastRowEmit = null;
     const headerRows = [];
@@ -22179,7 +24258,14 @@ var Engine = class {
       if (f.bodyOnly && this.inHf) continue;
       const top = f.y - f.distT, bottom = f.y + f.h + f.distB;
       if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
-      const fl2 = f.x - f.distL - frameX, fr = f.x + f.w + f.distR - frameX;
+      let parts;
+      if (f.poly) {
+        const band = polyBandIntervals(f.poly, y, y + lineH);
+        if (!band.length) continue;
+        const hull = [[band[0][0], band[band.length - 1][1]]];
+        parts = (f.wrap === "through" ? band : hull).map(([a, b]) => [a - f.distL - frameX, b + f.distR - frameX]);
+      }
+      const fl2 = parts ? parts[0][0] : f.x - f.distL - frameX, fr = parts ? parts[parts.length - 1][1] : f.x + f.w + f.distR - frameX;
       if (fr <= tl || fl2 >= tr) continue;
       if (f.wrap === "topAndBottom") {
         skipTo = Math.max(skipTo ?? 0, bottom);
@@ -22187,24 +24273,23 @@ var Engine = class {
       }
       hit = true;
       minBottom = Math.min(minBottom, bottom);
-      let bl = fl2, bh = fr;
       const side = f.side ?? "bothSides";
-      if (side === "left") bh = Infinity;
-      else if (side === "right") bl = -Infinity;
-      else if (side === "largest") {
-        if (fl2 - tl >= tr - fr) bh = Infinity;
-        else bl = -Infinity;
-      }
-      const next = [];
-      for (const [a, b] of free) {
-        if (bh <= a || bl >= b) {
-          next.push([a, b]);
-          continue;
+      let blocks = parts && side === "bothSides" ? parts : [[fl2, fr]];
+      if (side === "left") blocks = [[fl2, Infinity]];
+      else if (side === "right") blocks = [[-Infinity, fr]];
+      else if (side === "largest") blocks = [fl2 - tl >= tr - fr ? [fl2, Infinity] : [-Infinity, fr]];
+      for (const [bl, bh] of blocks) {
+        const next = [];
+        for (const [a, b] of free) {
+          if (bh <= a || bl >= b) {
+            next.push([a, b]);
+            continue;
+          }
+          if (bl > a) next.push([a, bl]);
+          if (bh < b) next.push([bh, b]);
         }
-        if (bl > a) next.push([a, bl]);
-        if (bh < b) next.push([bh, b]);
+        free = next;
       }
-      free = next;
     }
     if (hit) {
       const col = this.colFrame();
@@ -22262,6 +24347,9 @@ var Engine = class {
   }
   placeFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, clampBottom, paraRef) {
     const g = ps.geom;
+    if (run.image?.floating && run.image.format?.docPr.hidden) {
+      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: [] }, obj: { run, x: 0, y: 0, w: 0, h: 0, layer: "front", hf: this.inHf } };
+    }
     const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
     let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
     let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
@@ -22353,7 +24441,16 @@ var Engine = class {
     const target = this.inHf ? behind ? ps.hfBehind : ps.hfFront : behind ? ps.behind : ps.front;
     if (tbFinal) tbContent = tbFinal(x2, y);
     const items = this.paintObject(run, x2, y, w, h, tbContent, ps);
-    const obj = { run, x: x2, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf };
+    const obj = {
+      run,
+      x: x2,
+      y,
+      w,
+      h,
+      layer: behind ? "behind" : "front",
+      hf: this.inHf,
+      frame: { colX, colW, paraTop: paraRef ?? paraTop, pageW: g.pageW, pageH: g.pageH, marL: g.marL, marR: g.marR, marT: g.marT, marB: g.marB, bodyTop: Math.max(g.marT, ps.bodyTop ?? g.marT) }
+    };
     (ps.page.objects ??= []).push(obj);
     const frameFlow = this.inHf && !!run.textbox && FRAME_INFO.has(run.textbox);
     let inFlow;
@@ -22372,6 +24469,7 @@ var Engine = class {
       const bx = wb ? x2 + w * wb.x0 : x2, by = wb ? y + h * wb.y0 : y;
       const bw = wb ? w * (wb.x1 - wb.x0) : w, bh = wb ? h * (wb.y1 - wb.y0) : h;
       const fb = { x: bx, y: by, w: bw, h: bh, wrap: anchor.wrap, side: anchor.wrapText ?? "bothSides", distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 };
+      if (anchor.wrapPoly && wb) fb.poly = anchor.wrapPoly.map(([u, v]) => [x2 + w * u, y + h * v]);
       if (hfLegacy) fb.bodyOnly = true;
       box = fb;
     }
@@ -22441,9 +24539,9 @@ var Engine = class {
     const out = [];
     const theme = this.ctx.fmt.theme;
     if (run.image && isEmf(run.image.data)) {
-      out.push({ t: "clip", op: "push", x: x2, y, w, h }, ...renderEmf(this.ctx, run.image.data, { x: x2, y, w, h }), { t: "clip", op: "pop" });
+      out.push({ t: "clip", op: "push", x: x2, y, w, h, src: run.image }, ...renderEmf(this.ctx, run.image.data, { x: x2, y, w, h }), { t: "clip", op: "pop" });
     } else if (run.image && isWmf(run.image.data)) {
-      out.push({ t: "clip", op: "push", x: x2, y, w, h }, ...renderWmf(this.ctx, run.image.data, { x: x2, y, w, h }), { t: "clip", op: "pop" });
+      out.push({ t: "clip", op: "push", x: x2, y, w, h, src: run.image }, ...renderWmf(this.ctx, run.image.data, { x: x2, y, w, h }), { t: "clip", op: "pop" });
     } else if (run.image) {
       const im = run.image;
       out.push({
@@ -22456,7 +24554,11 @@ var Engine = class {
         ...im.crop ? { crop: im.crop } : {},
         ...im.style?.rot ? { rot: im.style.rot } : {},
         ...im.style?.flipH ? { flipH: true } : {},
-        ...im.style?.flipV ? { flipV: true } : {}
+        ...im.style?.flipV ? { flipV: true } : {},
+        ...(() => {
+          const pic = pictureLook(im, theme);
+          return pic ? { pic } : {};
+        })()
       });
     } else if (run.shape) {
       const s = run.shape.style;
@@ -22650,7 +24752,7 @@ function lineRecord(ref, p, line, frameX, top, frameW) {
     ...frameW !== void 0 ? { frame: { l: frameX - x2, r: frameX + frameW - x2 }, pfmt: pfmtOf(p) } : {}
   };
 }
-function revisionBarItems(lines, x2, color) {
+function revisionBarItems(lines, x2, color2) {
   const all = [...lines].sort((a, b) => a.y - b.y);
   const segs = [];
   all.forEach((l, i2) => {
@@ -22663,7 +24765,7 @@ function revisionBarItems(lines, x2, color) {
     if (last && top <= last[1] + 20) last[1] = Math.max(last[1], bottom);
     else segs.push([top, bottom]);
   });
-  return segs.map(([y0, y1]) => ({ t: "rect", x: x2, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color }));
+  return segs.map(([y0, y1]) => ({ t: "rect", x: x2, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color2 }));
 }
 function cullOffPage(items, pageW, pageH) {
   const stack = [];
@@ -22766,623 +24868,225 @@ var BORDER_DASHES = {
   bdrDashSmall: (w) => [25 * w / 6, 5 * w / 6]
 };
 
-// ../docx-layout/src/images.ts
-function jpegInfo(b) {
-  if (b[0] !== 255 || b[1] !== 216) return null;
-  let i2 = 2;
-  let adobe = false;
-  while (i2 + 4 < b.length) {
-    if (b[i2] !== 255) {
-      i2++;
-      continue;
+// ../docx-layout/src/pdf-picture.ts
+var T = 20;
+var PPT = 200 / 72;
+function shapeSubs(look, w, h, flipH, flipV) {
+  const o = presetOutline(look?.geom?.prst, w, h, look?.geom?.adj);
+  const subs = o.subs.filter((_, i2) => o.fill[i2] !== false);
+  if (!flipH && !flipV) return subs;
+  const fx = (x2) => flipH ? w - x2 : x2, fy = (y) => flipV ? h - y : y;
+  return subs.map((sub) => sub.map((s) => {
+    switch (s.c) {
+      case "M":
+      case "L":
+        return { ...s, x: fx(s.x), y: fy(s.y) };
+      case "C":
+        return { ...s, x1: fx(s.x1), y1: fy(s.y1), x2: fx(s.x2), y2: fy(s.y2), x: fx(s.x), y: fy(s.y) };
+      case "Q":
+        return { ...s, x1: fx(s.x1), y1: fy(s.y1), x: fx(s.x), y: fy(s.y) };
+      case "E": {
+        const a0 = flipH ? Math.PI - s.a0 : s.a0, a1 = flipH ? Math.PI - s.a1 : s.a1;
+        return { ...s, cx: fx(s.cx), cy: fy(s.cy), a0: flipV ? -a0 : a0, a1: flipV ? -a1 : a1, ccw: flipH !== flipV ? !s.ccw : !!s.ccw };
+      }
+      default:
+        return s;
     }
-    const m = b[i2 + 1];
-    if (m === 255) {
-      i2++;
-      continue;
-    }
-    if (m === 216 || m === 1 || m >= 208 && m <= 215) {
-      i2 += 2;
-      continue;
-    }
-    const len = b[i2 + 2] << 8 | b[i2 + 3];
-    if (m === 238 && b[i2 + 4] === 65 && b[i2 + 5] === 100) adobe = true;
-    if (m >= 192 && m <= 207 && m !== 196 && m !== 200 && m !== 204) {
-      if (i2 + 9 >= b.length) return null;
-      const height = b[i2 + 5] << 8 | b[i2 + 6];
-      const width = b[i2 + 7] << 8 | b[i2 + 8];
-      const components = b[i2 + 9];
-      return { width, height, components, adobe };
-    }
-    i2 += 2 + len;
-  }
-  return null;
+  }));
 }
-var PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
-function decodePng(b) {
-  for (let k = 0; k < 8; k++) if (b[k] !== PNG_SIG[k]) return null;
-  const dv2 = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  let pos = 8;
-  let width = 0, height = 0, depth = 8, ctype = 0, interlace = 0;
-  let palette = null;
-  let trns = null;
-  const idat = [];
-  while (pos + 8 <= b.length) {
-    const len = dv2.getUint32(pos);
-    const type = String.fromCharCode(b[pos + 4], b[pos + 5], b[pos + 6], b[pos + 7]);
-    const data8 = b.subarray(pos + 8, pos + 8 + len);
-    if (type === "IHDR") {
-      width = dv2.getUint32(pos + 8);
-      height = dv2.getUint32(pos + 12);
-      depth = b[pos + 16];
-      ctype = b[pos + 17];
-      interlace = b[pos + 20];
-    } else if (type === "PLTE") palette = data8;
-    else if (type === "tRNS") trns = data8;
-    else if (type === "IDAT") idat.push(data8);
-    else if (type === "IEND") break;
-    pos += 12 + len;
-  }
-  if (!width || !height) return null;
-  let total = 0;
-  for (const c of idat) total += c.length;
-  const z = new Uint8Array(total);
-  let o = 0;
-  for (const c of idat) {
-    z.set(c, o);
-    o += c.length;
-  }
-  let raw;
-  try {
-    raw = unzlibSync(z);
-  } catch {
-    return null;
-  }
-  const channels = ctype === 0 ? 1 : ctype === 2 ? 3 : ctype === 3 ? 1 : ctype === 4 ? 2 : 4;
-  const bitsPP = channels * depth;
-  const bpp = Math.max(1, bitsPP >> 3);
-  const out = new Uint8Array(width * height * 4);
-  const pass = (rp, w, h, put) => {
-    if (w === 0 || h === 0) return rp;
-    const stride = Math.ceil(w * bitsPP / 8);
-    let prev = new Uint8Array(stride);
-    for (let y = 0; y < h; y++) {
-      const ft = raw[rp++];
-      const line = raw.slice(rp, rp + stride);
-      rp += stride;
-      for (let i2 = 0; i2 < stride; i2++) {
-        const a = i2 >= bpp ? line[i2 - bpp] : 0;
-        const up = prev[i2];
-        const c = i2 >= bpp ? prev[i2 - bpp] : 0;
-        let v = line[i2];
-        if (ft === 1) v += a;
-        else if (ft === 2) v += up;
-        else if (ft === 3) v += a + up >> 1;
-        else if (ft === 4) {
-          const pp = a + up - c;
-          const pa = Math.abs(pp - a), pb = Math.abs(pp - up), pc = Math.abs(pp - c);
-          v += pa <= pb && pa <= pc ? a : pb <= pc ? up : c;
-        }
-        line[i2] = v & 255;
-      }
-      for (let x2 = 0; x2 < w; x2++) {
-        const rawSample = (ch) => {
-          if (depth === 8) return line[x2 * channels + ch];
-          if (depth === 16) {
-            const i2 = (x2 * channels + ch) * 2;
-            return line[i2] << 8 | line[i2 + 1];
-          }
-          const bit = (x2 * channels + ch) * depth;
-          const byte = line[bit >> 3];
-          const shift = 8 - depth - (bit & 7);
-          return byte >> shift & (1 << depth) - 1;
-        };
-        const sample = (ch) => {
-          if (depth === 8) return line[x2 * channels + ch];
-          if (depth === 16) return line[(x2 * channels + ch) * 2];
-          const v = rawSample(ch);
-          return ctype === 3 ? v : Math.round(v * 255 / ((1 << depth) - 1));
-        };
-        const key = (k) => trns[k * 2] << 8 | trns[k * 2 + 1];
-        let px;
-        if (ctype === 0) {
-          const g = sample(0);
-          const transparent = !!trns && trns.length >= 2 && key(0) === rawSample(0);
-          px = [g, g, g, transparent ? 0 : 255];
-        } else if (ctype === 2) {
-          const transparent = !!trns && trns.length >= 6 && key(0) === rawSample(0) && key(1) === rawSample(1) && key(2) === rawSample(2);
-          px = [sample(0), sample(1), sample(2), transparent ? 0 : 255];
-        } else if (ctype === 3) {
-          const i2 = sample(0);
-          px = palette ? [palette[i2 * 3] ?? 0, palette[i2 * 3 + 1] ?? 0, palette[i2 * 3 + 2] ?? 0, trns && i2 < trns.length ? trns[i2] : 255] : [0, 0, 0, 255];
-        } else if (ctype === 4) {
-          const g = sample(0);
-          px = [g, g, g, sample(1)];
-        } else px = [sample(0), sample(1), sample(2), sample(3)];
-        put(x2, y, px);
-      }
-      prev = line;
-    }
-    return rp;
-  };
-  const putAt = (ox, oy, dx, dy) => (x2, y, px) => {
-    const X = ox + x2 * dx, Y = oy + y * dy;
-    const k = (Y * width + X) * 4;
-    out[k] = px[0];
-    out[k + 1] = px[1];
-    out[k + 2] = px[2];
-    out[k + 3] = px[3];
-  };
-  if (!interlace) pass(0, width, height, putAt(0, 0, 1, 1));
-  else {
-    const passes = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
-    let rp = 0;
-    for (const [ox, oy, dx, dy] of passes) {
-      const w = Math.ceil((width - ox) / dx), h = Math.ceil((height - oy) / dy);
-      rp = pass(rp, w > 0 ? w : 0, h > 0 ? h : 0, putAt(ox, oy, dx, dy));
-    }
-  }
-  return { width, height, data: out };
-}
-function decodeGif(b) {
-  if (b[0] !== 71 || b[1] !== 73 || b[2] !== 70) return null;
-  const width = b[6] | b[7] << 8, height = b[8] | b[9] << 8;
-  const flags = b[10];
-  let pos = 13;
-  let gct = null;
-  if (flags & 128) {
-    const n = 3 * (1 << (flags & 7) + 1);
-    gct = b.subarray(pos, pos + n);
-    pos += n;
-  }
-  let transparent = -1;
-  const out = new Uint8Array(width * height * 4);
-  while (pos < b.length) {
-    const t = b[pos++];
-    if (t === 33) {
-      const label = b[pos++];
-      if (label === 249 && b[pos + 1] & 1) transparent = b[pos + 4];
-      while (pos < b.length && b[pos]) pos += b[pos] + 1;
-      pos++;
-    } else if (t === 44) {
-      const ix = b[pos] | b[pos + 1] << 8, iy = b[pos + 2] | b[pos + 3] << 8;
-      const iw = b[pos + 4] | b[pos + 5] << 8, ih = b[pos + 6] | b[pos + 7] << 8;
-      const lf = b[pos + 8];
-      pos += 9;
-      let ct = gct;
-      if (lf & 128) {
-        const n = 3 * (1 << (lf & 7) + 1);
-        ct = b.subarray(pos, pos + n);
-        pos += n;
-      }
-      const interlaced = !!(lf & 64);
-      const minCode = b[pos++];
-      if (!(minCode >= 1 && minCode <= 11)) return null;
-      const chunks = [];
-      while (pos < b.length && b[pos]) {
-        const n = b[pos];
-        for (let k = 1; k <= n; k++) chunks.push(b[pos + k]);
-        pos += n + 1;
-      }
-      pos++;
-      const idx = lzw(Uint8Array.from(chunks), minCode, iw * ih);
-      const rows = [];
-      if (interlaced) {
-        for (const [s, st] of [[0, 8], [4, 8], [2, 4], [1, 2]]) for (let r = s; r < ih; r += st) rows.push(r);
-      } else for (let r = 0; r < ih; r++) rows.push(r);
-      for (let r = 0; r < ih; r++) {
-        const yy = iy + rows[r];
-        if (yy >= height) continue;
-        for (let x2 = 0; x2 < iw; x2++) {
-          if (ix + x2 >= width) break;
-          const ci = idx[r * iw + x2] ?? 0;
-          const k = (yy * width + ix + x2) * 4;
-          if (ci === transparent || !ct) {
-            out[k + 3] = 0;
-            continue;
-          }
-          out[k] = ct[ci * 3];
-          out[k + 1] = ct[ci * 3 + 1];
-          out[k + 2] = ct[ci * 3 + 2];
-          out[k + 3] = 255;
-        }
-      }
-      return { width, height, data: out };
-    } else break;
-  }
-  return null;
-}
-function lzw(data8, minCode, n) {
-  const out = new Uint8Array(n);
-  const clear = 1 << minCode, eoi = clear + 1;
-  let size = minCode + 1;
-  let dict = [];
-  const reset = () => {
-    dict = [];
-    for (let i2 = 0; i2 < clear; i2++) dict[i2] = [i2];
-    dict[clear] = [];
-    dict[eoi] = [];
-    size = minCode + 1;
-  };
-  reset();
-  let bit = 0, o = 0;
-  let prev = null;
-  while (o < n) {
-    let code = 0;
-    for (let k = 0; k < size; k++) {
-      if (data8[bit + k >> 3] >> (bit + k & 7) & 1) code |= 1 << k;
-    }
-    bit += size;
-    if (bit > data8.length * 8) break;
-    if (code === clear) {
-      reset();
-      prev = null;
-      continue;
-    }
-    if (code === eoi) break;
-    let entry;
-    if (dict[code]) entry = dict[code];
-    else if (prev) entry = [...prev, prev[0]];
-    else break;
-    for (const v of entry) {
-      if (o < n) out[o++] = v;
-    }
-    if (prev) dict.push([...prev, entry[0]]);
-    prev = entry;
-    if (dict.length >= 1 << size && size < 12) size++;
+var rgb2 = (hex2) => [parseInt(hex2.slice(0, 2), 16), parseInt(hex2.slice(2, 4), 16), parseInt(hex2.slice(4, 6), 16)];
+function colored(m, hex2, alpha) {
+  const out = new Uint8Array(m.w * m.h * 4);
+  const [r, g, b] = rgb2(hex2);
+  for (let i2 = 0; i2 < m.a.length; i2++) {
+    out[i2 * 4] = r;
+    out[i2 * 4 + 1] = g;
+    out[i2 * 4 + 2] = b;
+    out[i2 * 4 + 3] = Math.round(Math.max(0, Math.min(1, m.a[i2] * alpha)) * 255);
   }
   return out;
 }
-function decodeBmp(b) {
-  if (b[0] !== 66 || b[1] !== 77) return null;
-  const dv2 = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  const off = dv2.getUint32(10, true);
-  const width = dv2.getInt32(18, true);
-  let height = dv2.getInt32(22, true);
-  const bpp = dv2.getUint16(28, true);
-  const comp = dv2.getUint32(30, true);
-  if (comp !== 0 && comp !== 3) return null;
-  if (width <= 0 || height === 0) return null;
-  const topDown = height < 0;
-  height = Math.abs(height);
-  const stride = Math.ceil(width * bpp / 32) * 4;
-  const hdr = dv2.getUint32(14, true);
-  const palOff = 14 + hdr;
-  let masks = bpp === 16 ? [31744, 992, 31, 0] : [16711680, 65280, 255, 0];
-  if (comp === 3 && (bpp === 16 || bpp === 32)) masks = [dv2.getUint32(54, true), dv2.getUint32(58, true), dv2.getUint32(62, true), hdr >= 56 ? dv2.getUint32(66, true) : 0];
-  const chan = (v, m, dflt2) => {
-    if (!m) return dflt2;
-    let shift = 0;
-    while (!(m >>> shift & 1)) shift++;
-    const bits2 = Math.clz32(0) - Math.clz32(m >>> shift);
-    return Math.round(((v & m) >>> shift) * 255 / (2 ** bits2 - 1));
+function bounds(look, w, h) {
+  let x0 = 0, y0 = 0, x1 = w, y1 = h;
+  const grow = (a, b, c, d) => {
+    x0 = Math.min(x0, a);
+    y0 = Math.min(y0, b);
+    x1 = Math.max(x1, c);
+    y1 = Math.max(y1, d);
   };
-  const out = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y++) {
-    const row = off + (topDown ? y : height - 1 - y) * stride;
-    for (let x2 = 0; x2 < width; x2++) {
-      const k = (y * width + x2) * 4;
-      if (bpp === 24) {
-        const p = row + x2 * 3;
-        out[k] = b[p + 2];
-        out[k + 1] = b[p + 1];
-        out[k + 2] = b[p];
-        out[k + 3] = 255;
-      } else if (bpp === 16 || bpp === 32) {
-        const p = row + x2 * (bpp / 8);
-        const v = bpp === 16 ? b[p] | b[p + 1] << 8 : (b[p] | b[p + 1] << 8 | b[p + 2] << 16 | b[p + 3] << 24) >>> 0;
-        out[k] = chan(v, masks[0], 0);
-        out[k + 1] = chan(v, masks[1], 0);
-        out[k + 2] = chan(v, masks[2], 0);
-        out[k + 3] = chan(v, masks[3], 255);
-      } else if (bpp <= 8) {
-        const bit = x2 * bpp;
-        const v = b[row + (bit >> 3)] >> 8 - bpp - (bit & 7) & (1 << bpp) - 1;
-        const p = palOff + v * 4;
-        out[k] = b[p + 2];
-        out[k + 1] = b[p + 1];
-        out[k + 2] = b[p];
-        out[k + 3] = 255;
+  if (look.line) {
+    const lw = look.line.widthPt;
+    grow(-lw, -lw, w + lw, h + lw);
+  }
+  if (look.glow) {
+    const r2 = look.glow.radPt;
+    grow(-r2, -r2, w + r2, h + r2);
+  }
+  const s = look.shadow;
+  if (s?.kind === "outer") {
+    const a = s.dirDeg * Math.PI / 180, dx = s.distPt * Math.cos(a), dy = s.distPt * Math.sin(a);
+    const sx = Math.abs(s.sx ?? 1), sy = Math.abs(s.sy ?? 1);
+    const k = Math.abs(Math.tan((s.kxDeg ?? 0) * Math.PI / 180)) * h + Math.abs(Math.tan((s.kyDeg ?? 0) * Math.PI / 180)) * w;
+    const m = s.blurPt + k + Math.max(w, h) * Math.max(0, Math.max(sx, sy) - 1);
+    const flip = s.sy !== void 0 && s.sy < 0 ? h : 0;
+    grow(dx - m, dy - m - flip, w + dx + m, h + dy + m + flip);
+  }
+  const r = look.reflection;
+  if (r) {
+    const a = r.dirDeg * Math.PI / 180;
+    const dx = r.distPt * Math.cos(a), dy = r.distPt * Math.sin(a);
+    const lw = look.line?.widthPt ?? 0;
+    grow(dx - r.blurPt - lw, h + dy - r.blurPt, w + dx + r.blurPt + lw, 2 * h + dy + r.blurPt + lw);
+  }
+  return { x0, y0, x1, y1 };
+}
+function paintPicturePdf(page, it, env) {
+  const look = it.pic ?? {};
+  const w = it.w / T, h = it.h / T;
+  const rot = (it.rot ?? 0) * Math.PI / 180, cos = Math.cos(rot), sin = Math.sin(rot);
+  const cx = it.x / T + w / 2, cy = it.y / T + h / 2;
+  const M = [cos, sin, -sin, cos, cx - cos * w / 2 + sin * h / 2, cy - sin * w / 2 - cos * h / 2];
+  const P2 = (x2, y) => [M[0] * x2 + M[2] * y + M[4], M[1] * x2 + M[3] * y + M[5]];
+  const rectMatrix = (x2, y, rw, rh) => [M[0] * rw, M[1] * rw, M[2] * rh, M[3] * rh, M[0] * x2 + M[2] * y + M[4], M[1] * x2 + M[3] * y + M[5]];
+  const draw = (img2, m) => page.drawImageMatrix(img2, m[0], m[1], m[2], m[3], m[4], m[5]);
+  const subs = shapeSubs(look, w, h, !!it.flipH, !!it.flipV);
+  const polysLocal = flattenPath(subs, [1, 0, 0, 1, 0, 0], 0.2);
+  const cmds = (polys) => {
+    const out = [];
+    for (const p of polys) {
+      for (let i2 = 0; i2 < p.length; i2 += 2) {
+        const [x2, y] = P2(p[i2], p[i2 + 1]);
+        out.push({ op: i2 ? "L" : "M", x: x2, y });
+      }
+      out.push({ op: "Z" });
+    }
+    return out;
+  };
+  const bb = bounds(look, w, h);
+  let ppt = PPT;
+  const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+  if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+  const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+  const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+  const needSil = !!(look.shadow || look.glow || look.softEdgePt);
+  const sil = needSil ? fillPolygons(newMask(W, H), flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35)) : null;
+  const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+  const layerMatrix = rectMatrix(bb.x0, bb.y0, W / ppt, H / ppt);
+  const s = look.shadow;
+  if (s?.kind === "outer" && sil) {
+    const dir = s.rotWithShape ? s.dirDeg : s.dirDeg - (it.rot ?? 0);
+    const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+    draw(env.embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
+  if (look.glow && sil) draw(env.embedRgba(colored(glowMask(sil, look.glow.radPt, ppt), look.glow.color, look.glow.alpha), W, H), layerMatrix);
+  const crop = it.crop ?? { l: 0, t: 0, r: 0, b: 0 };
+  const fw = w / Math.max(0.01, 1 - crop.l - crop.r), fh = h / Math.max(0.01, 1 - crop.t - crop.b);
+  const fx0 = -crop.l * fw, fy0 = -crop.t * fh;
+  const imgRect = () => {
+    const x2 = it.flipH ? w - fx0 - fw : fx0, y = it.flipV ? h - fy0 - fh : fy0;
+    const m = rectMatrix(it.flipH ? x2 + fw : x2, it.flipV ? y + fh : y, it.flipH ? -fw : fw, it.flipV ? -fh : fh);
+    return m;
+  };
+  const softMask = () => {
+    if (!look.softEdgePt || !sil) return null;
+    const m = softEdgeMask(sil, look.softEdgePt, ppt);
+    const iw = Math.max(1, Math.round(fw * ppt)), ih = Math.max(1, Math.round(fh * ppt));
+    const alpha = new Uint8Array(iw * ih);
+    for (let y = 0; y < ih; y++) {
+      for (let x2 = 0; x2 < iw; x2++) {
+        const lx = (it.flipH ? w - (fx0 + (x2 + 0.5) / ppt) : fx0 + (x2 + 0.5) / ppt) * ppt + ox;
+        const ly = (it.flipV ? h - (fy0 + (y + 0.5) / ppt) : fy0 + (y + 0.5) / ppt) * ppt + oy;
+        const xi = Math.floor(lx), yi = Math.floor(ly);
+        alpha[y * iw + x2] = xi < 0 || yi < 0 || xi >= W || yi >= H ? 0 : Math.round(m.a[yi * W + xi] * 255);
       }
     }
-  }
-  return { width, height, data: out };
-}
-function decodeRaster(b) {
-  return decodePng(b) ?? decodeGif(b) ?? decodeBmp(b) ?? decodeTiff(b);
-}
-function tiffLzw(data8, expected) {
-  const out = new Uint8Array(expected);
-  let o = 0;
-  let dict = [];
-  const reset = () => {
-    dict = [];
-    for (let i2 = 0; i2 < 256; i2++) dict[i2] = new Uint8Array([i2]);
-    dict[256] = new Uint8Array(0);
-    dict[257] = new Uint8Array(0);
+    return { alpha, width: iw, height: ih };
   };
-  reset();
-  let bitPos = 0, width = 9;
-  let prev = null;
-  const read = () => {
-    let v = 0;
-    for (let k = 0; k < width; k++) {
-      const byte = data8[bitPos + k >> 3];
-      if (byte === void 0) return 257;
-      v = v << 1 | byte >> 7 - (bitPos + k & 7) & 1;
+  const r = look.reflection;
+  if (r) {
+    const a = r.dirDeg * Math.PI / 180;
+    const dy = r.distPt * Math.sin(a), dx = r.distPt * Math.cos(a);
+    const iw = Math.max(1, Math.round(fw * ppt)), ih = Math.max(1, Math.round(fh * ppt));
+    const alpha = new Uint8Array(iw * ih);
+    const shapeM = fillPolygons(newMask(iw, ih), flattenPath(subs, [ppt, 0, 0, ppt, -fx0 * ppt, -fy0 * ppt], 0.35));
+    const soft = look.softEdgePt ? softEdgeMask(shapeM, look.softEdgePt, ppt) : shapeM;
+    for (let y = 0; y < ih; y++) {
+      const ly = fy0 + (y + 0.5) / ppt;
+      const t = (h - ly) / h;
+      const al = reflectionAlpha(t, r);
+      for (let x2 = 0; x2 < iw; x2++) alpha[y * iw + x2] = Math.round(soft.a[y * iw + x2] * al * 255);
     }
-    bitPos += width;
-    return v;
-  };
-  while (o < expected) {
-    const code = read();
-    if (code === 257) break;
-    if (code === 256) {
-      reset();
-      width = 9;
-      prev = null;
-      continue;
-    }
-    let entry;
-    if (code < dict.length && dict[code]) entry = dict[code];
-    else if (prev) {
-      entry = new Uint8Array(prev.length + 1);
-      entry.set(prev);
-      entry[prev.length] = prev[0];
-    } else break;
-    for (let k = 0; k < entry.length && o < expected; k++) out[o++] = entry[k];
-    if (prev) {
-      const ne = new Uint8Array(prev.length + 1);
-      ne.set(prev);
-      ne[prev.length] = entry[0];
-      dict.push(ne);
-    }
-    prev = entry;
-    if (dict.length + 1 >= 1 << width && width < 12) width++;
-  }
-  return out;
-}
-function packBits(data8, expected) {
-  const out = new Uint8Array(expected);
-  let i2 = 0, o = 0;
-  while (i2 < data8.length && o < expected) {
-    const n = data8[i2++] << 24 >> 24;
-    if (n >= 0) {
-      for (let k = 0; k <= n && o < expected; k++) out[o++] = data8[i2++];
-    } else if (n !== -128) {
-      const v = data8[i2++];
-      for (let k = 0; k < 1 - n && o < expected; k++) out[o++] = v;
+    const img2 = env.masked(alpha, iw, ih);
+    if (img2) {
+      const m = rectMatrix(fx0 + dx, 2 * h - fy0 + dy, fw, -fh);
+      draw(img2, m);
     }
   }
-  return out;
-}
-function decodeTiff(b) {
-  const le = b[0] === 73 && b[1] === 73;
-  const be = b[0] === 77 && b[1] === 77;
-  if (!le && !be) return null;
-  const dv2 = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  const u162 = (o) => dv2.getUint16(o, le);
-  const u32 = (o) => dv2.getUint32(o, le);
-  if (u162(2) !== 42) return null;
-  const ifd = u32(4);
-  const n = u162(ifd);
-  const tags = /* @__PURE__ */ new Map();
-  const SIZES = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1 };
-  for (let i2 = 0; i2 < n; i2++) {
-    const e = ifd + 2 + i2 * 12;
-    const tag2 = u162(e), type = u162(e + 2), count = u32(e + 4);
-    const size = (SIZES[type] ?? 1) * count;
-    const base = size <= 4 ? e + 8 : u32(e + 8);
-    const vals = [];
-    for (let k = 0; k < Math.min(count, 1 << 20); k++) {
-      if (type === 3) vals.push(u162(base + k * 2));
-      else if (type === 4) vals.push(u32(base + k * 4));
-      else if (type === 1 || type === 7) vals.push(b[base + k]);
-      else if (type === 5) vals.push(u32(base + k * 8) / (u32(base + k * 8 + 4) || 1));
+  const src = look.bevel ? env.rgba() : null;
+  if (look.bevel && src) {
+    const shapeM = sil ?? fillPolygons(newMask(W, H), flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35));
+    const alphaM = look.softEdgePt ? softEdgeMask(shapeM, look.softEdgePt, ppt) : shapeM;
+    const px = new Uint8Array(W * H * 4);
+    for (let y = 0; y < H; y++) {
+      for (let x2 = 0; x2 < W; x2++) {
+        const k = y * W + x2;
+        if (shapeM.a[k] <= 0) continue;
+        let lx = (x2 + 0.5 - ox) / ppt, ly = (y + 0.5 - oy) / ppt;
+        if (it.flipH) lx = w - lx;
+        if (it.flipV) ly = h - ly;
+        const u = (lx - fx0) / fw, v = (ly - fy0) / fh;
+        if (u < 0 || v < 0 || u >= 1 || v >= 1) continue;
+        const si = (Math.min(src.height - 1, Math.floor(v * src.height)) * src.width + Math.min(src.width - 1, Math.floor(u * src.width))) * 4;
+        px[k * 4] = src.data[si];
+        px[k * 4 + 1] = src.data[si + 1];
+        px[k * 4 + 2] = src.data[si + 2];
+        px[k * 4 + 3] = Math.round(src.data[si + 3] * Math.min(1, alphaM.a[k]));
+      }
     }
-    tags.set(tag2, vals);
+    shadeBevel(px, shapeM, { w: look.bevel.wPt * ppt, h: look.bevel.hPt * ppt, prst: look.bevel.prst, rig: look.bevel.rig, dir: look.bevel.dir, material: look.bevel.material, word: true });
+    draw(env.embedRgba(px, W, H), layerMatrix);
   }
-  const t = (k, d = 0) => tags.get(k)?.[0] ?? d;
-  const width = t(256), height = t(257);
-  const bps = tags.get(258) ?? [1];
-  const comp = t(259, 1);
-  const photo = t(262, 1);
-  const spp = t(277, 1);
-  const predictor = t(317, 1);
-  const planar = t(284, 1);
-  if (!width || !height || planar !== 1 || ![1, 5, 8, 32946, 32773].includes(comp)) return null;
-  const bits2 = bps[0] ?? 8;
-  const decode0 = (chunk, expected) => {
-    if (comp === 1) return chunk;
-    if (comp === 5) return tiffLzw(chunk, expected);
-    if (comp === 32773) return packBits(chunk, expected);
-    try {
-      return unzlibSync(chunk);
-    } catch {
-      return new Uint8Array(expected);
-    }
-  };
-  const ycc = photo === 6 && bits2 === 8 && spp === 3;
-  const sub = tags.get(530) ?? [2, 2];
-  const sh = ycc ? Math.max(1, sub[0] ?? 2) : 1, sv = ycc ? Math.max(1, sub[1] ?? 2) : 1;
-  const coef = tags.get(529) ?? [0.299, 0.587, 0.114];
-  const toRgb = (Y, cb, cr) => {
-    const lr = coef[0] ?? 0.299, lg = coef[1] ?? 0.587, lb = coef[2] ?? 0.114;
-    const R = Y + (cr - 128) * (2 - 2 * lr), B = Y + (cb - 128) * (2 - 2 * lb);
-    const G = (Y - lb * B - lr * R) / lg;
-    const c = (v) => Math.max(0, Math.min(255, Math.round(v)));
-    return [c(R), c(G), c(B)];
-  };
-  if (ycc && (sh > 1 || sv > 1)) {
-    if (tags.has(322)) return null;
-    const across = Math.ceil(width / sh), unit = sh * sv + 2, blockRow = across * unit, blockRows = Math.ceil(height / sv);
-    const data8 = new Uint8Array(blockRow * blockRows);
-    const rps = t(278, height);
-    let o = 0;
-    (tags.get(273) ?? []).forEach((off, i2) => {
-      if (o >= data8.length) return;
-      const rows = Math.min(rps, height - i2 * rps);
-      const exp = Math.ceil(rows / sv) * blockRow;
-      const d = decode0(b.subarray(off, off + (tags.get(279)?.[i2] ?? 0)), exp);
-      data8.set(d.subarray(0, Math.min(d.length, data8.length - o)), o);
-      o += exp;
+  const sm = look.bevel && src ? null : softMask();
+  const img = look.bevel && src ? null : sm ? env.masked(sm.alpha, sm.width, sm.height) : env.image();
+  if (img) {
+    page.pushClipPath(cmds(polysLocal));
+    draw(img, imgRect());
+    page.popClip();
+  }
+  if (s?.kind === "inner" && sil) {
+    const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+    draw(env.embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
+  const ln2 = look.line;
+  if (ln2 && ln2.widthPt > 0) {
+    const outer = [];
+    const big = [[bb.x0 - 10, bb.y0 - 10], [bb.x1 + 10, bb.y0 - 10], [bb.x1 + 10, bb.y1 + 10], [bb.x0 - 10, bb.y1 + 10]];
+    big.forEach(([x2, y], i2) => {
+      const [px, py] = P2(x2, y);
+      outer.push({ op: i2 ? "L" : "M", x: px, y: py });
     });
-    const out2 = new Uint8Array(width * height * 4);
-    for (let by = 0; by < blockRows; by++) {
-      for (let bx = 0; bx < across; bx++) {
-        const u = by * blockRow + bx * unit;
-        const cb = data8[u + sh * sv], cr = data8[u + sh * sv + 1];
-        for (let j = 0; j < sv; j++) {
-          for (let i2 = 0; i2 < sh; i2++) {
-            const x2 = bx * sh + i2, y = by * sv + j;
-            if (x2 >= width || y >= height) continue;
-            const [R, G, B] = toRgb(data8[u + j * sh + i2], cb, cr);
-            const k = (y * width + x2) * 4;
-            out2[k] = R;
-            out2[k + 1] = G;
-            out2[k + 2] = B;
-            out2[k + 3] = 255;
-          }
-        }
-      }
-    }
-    return { width, height, data: out2 };
+    outer.push({ op: "Z" });
+    page.pushClipPath([...outer, ...cmds(polysLocal)], true);
+    const dash = ln2.dash ? DASH[ln2.dash]?.map((v) => v * ln2.widthPt) : void 0;
+    page.withAlpha(void 0, ln2.alpha < 1 ? ln2.alpha : void 0, () => page.path(cmds(polysLocal), void 0, { color: rgb2(ln2.color).map((v) => v / 255), widthPt: 2 * ln2.widthPt, ...dash ? { dash } : {} }));
+    page.popClip();
   }
-  const rowBytes = Math.ceil(width * spp * bits2 / 8);
-  const raw = new Uint8Array(rowBytes * height);
-  const tiled = tags.has(322);
-  const offs = tags.get(tiled ? 324 : 273) ?? [];
-  const counts = tags.get(tiled ? 325 : 279) ?? [];
-  const decode = decode0;
-  if (!tiled) {
-    const rps = t(278, height);
-    let o = 0;
-    offs.forEach((off, i2) => {
-      if (o >= raw.length) return;
-      const rows = Math.min(rps, height - i2 * rps);
-      const d = decode(b.subarray(off, off + (counts[i2] ?? 0)), rows * rowBytes);
-      raw.set(d.subarray(0, Math.min(d.length, raw.length - o)), o);
-      o += rows * rowBytes;
-    });
-  } else {
-    const tw2 = t(322), th = t(323);
-    const tilesAcross = Math.ceil(width / tw2);
-    const tileRow = Math.ceil(tw2 * spp * bits2 / 8);
-    offs.forEach((off, i2) => {
-      const d = decode(b.subarray(off, off + (counts[i2] ?? 0)), tileRow * th);
-      const tx = i2 % tilesAcross * tw2, ty = Math.floor(i2 / tilesAcross) * th;
-      for (let y = 0; y < th && ty + y < height; y++) {
-        const dst = (ty + y) * rowBytes + Math.floor(tx * spp * bits2 / 8);
-        const len = Math.min(tileRow, rowBytes - Math.floor(tx * spp * bits2 / 8));
-        raw.set(d.subarray(y * tileRow, y * tileRow + len), dst);
-      }
-    });
-  }
-  if (predictor === 2 && bits2 === 8) {
-    for (let y = 0; y < height; y++) {
-      for (let x2 = spp; x2 < width * spp; x2++) raw[y * rowBytes + x2] = raw[y * rowBytes + x2] + raw[y * rowBytes + x2 - spp] & 255;
-    }
-  } else if (predictor === 2 && bits2 === 16) {
-    const get = (o) => le ? raw[o] | raw[o + 1] << 8 : raw[o] << 8 | raw[o + 1];
-    const set = (o, v) => {
-      if (le) {
-        raw[o] = v & 255;
-        raw[o + 1] = v >> 8;
-      } else {
-        raw[o] = v >> 8;
-        raw[o + 1] = v & 255;
-      }
-    };
-    for (let y = 0; y < height; y++) {
-      for (let s = spp; s < width * spp; s++) {
-        const o = y * rowBytes + s * 2;
-        set(o, get(o) + get(o - spp * 2) & 65535);
-      }
-    }
-  }
-  const out = new Uint8Array(width * height * 4);
-  const cmap = tags.get(320);
-  for (let y = 0; y < height; y++) {
-    for (let x2 = 0; x2 < width; x2++) {
-      const k = (y * width + x2) * 4;
-      const sample = (c) => {
-        if (bits2 === 8) return raw[y * rowBytes + x2 * spp + c];
-        if (bits2 === 16) return raw[y * rowBytes + (x2 * spp + c) * 2 + (le ? 1 : 0)];
-        const bit = (x2 * spp + c) * bits2;
-        const v = raw[y * rowBytes + (bit >> 3)] >> 8 - bits2 - (bit & 7) & (1 << bits2) - 1;
-        return v;
-      };
-      if (ycc) {
-        const [R, G, B] = toRgb(sample(0), sample(1), sample(2));
-        out[k] = R;
-        out[k + 1] = G;
-        out[k + 2] = B;
-        out[k + 3] = 255;
-      } else if (photo === 2 || photo === 6) {
-        out[k] = sample(0);
-        out[k + 1] = sample(1);
-        out[k + 2] = sample(2);
-        out[k + 3] = spp >= 4 ? sample(3) : 255;
-      } else if (photo === 3 && cmap) {
-        const i2 = sample(0), nColors = 1 << bits2;
-        out[k] = cmap[i2] >> 8;
-        out[k + 1] = cmap[nColors + i2] >> 8;
-        out[k + 2] = cmap[2 * nColors + i2] >> 8;
-        out[k + 3] = 255;
-      } else if (photo === 5) {
-        const c = sample(0), m = sample(1), yy = sample(2), kk = sample(3);
-        out[k] = 255 - Math.min(255, c + kk);
-        out[k + 1] = 255 - Math.min(255, m + kk);
-        out[k + 2] = 255 - Math.min(255, yy + kk);
-        out[k + 3] = 255;
-      } else {
-        const max2 = bits2 >= 8 ? 255 : (1 << bits2) - 1;
-        let g = Math.round(sample(0) * 255 / max2);
-        if (photo === 0) g = 255 - g;
-        out[k] = g;
-        out[k + 1] = g;
-        out[k + 2] = g;
-        out[k + 3] = spp >= 2 ? sample(1) : 255;
-      }
-    }
-  }
-  return { width, height, data: out };
+  void gaussianBlur;
 }
-function effectLine(fx) {
-  if (fx.gain === void 0 && !fx.bright) return null;
-  const s = fx.gain ?? 1, b = fx.bright ?? 0;
-  return { slope: s, off: 0.5 - 0.5 * s + b / 2 * (1 + s) };
-}
-function applyImageEffects(rgba, fx) {
-  const ln2 = effectLine(fx);
-  const map = new Uint8Array(256);
-  for (let v = 0; v < 256; v++) {
-    const y = ln2 ? (v / 255 * ln2.slope + ln2.off) * 255 : v;
-    map[v] = Math.max(0, Math.min(255, fx.floor ? Math.floor(y + 1e-9) : Math.round(y)));
-  }
-  const thr = fx.biLevel !== void 0 ? fx.biLevel * 255 : -1;
-  for (let i2 = 0; i2 < rgba.length; i2 += 4) {
-    let r = rgba[i2], g = rgba[i2 + 1], b = rgba[i2 + 2];
-    if (fx.gray) r = g = b = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
-    r = map[r];
-    g = map[g];
-    b = map[b];
-    if (thr >= 0) r = g = b = 0.2126 * r + 0.7152 * g + 0.0722 * b >= thr ? 255 : 0;
-    rgba[i2] = r;
-    rgba[i2 + 1] = g;
-    rgba[i2 + 2] = b;
-  }
-}
-function effectDecode(fx, components) {
-  if (fx.gray || fx.biLevel !== void 0 || components === 4) return null;
-  const ln2 = effectLine(fx);
-  if (!ln2) return null;
-  const d = [ln2.off, ln2.off + ln2.slope];
-  return components === 1 ? d : [...d, ...d, ...d];
-}
+var DASH = {
+  sysDot: [1, 1],
+  sysDash: [3, 1],
+  dash: [4, 3],
+  dashDot: [4, 3, 1, 3],
+  lgDash: [8, 3],
+  lgDashDot: [8, 3, 1, 3],
+  lgDashDotDot: [8, 3, 1, 3, 1, 3],
+  sysDashDot: [3, 1, 1, 1],
+  sysDashDotDot: [3, 1, 1, 1, 1, 1]
+};
 
 // ../docx-layout/src/pdf.ts
-var T = 20;
+var T2 = 20;
 function renderPdf(result, opts = {}) {
   const doc = new PdfDocument({ compress: opts.compress ?? true });
   const fonts = /* @__PURE__ */ new Map();
@@ -23438,10 +25142,73 @@ function renderPdf(result, opts = {}) {
     images.set(img, h);
     return h;
   };
+  const rgbaOf = (it) => {
+    const img = it.image;
+    let r = null;
+    try {
+      const jp = jpegInfo(img.data);
+      const d = jp ? null : decodeRaster(img.data);
+      if (d) r = { data: new Uint8Array(d.data), width: d.width, height: d.height };
+      else {
+        const ext = opts.decodeImage?.(img);
+        if (ext) r = { data: new Uint8Array(ext.rgba), width: ext.width, height: ext.height };
+      }
+    } catch {
+      r = null;
+    }
+    if (!r) return null;
+    if (img.effects) applyImageEffects(r.data, img.effects);
+    if (it.pic) applyPictureAdjust(r.data, it.pic);
+    return r;
+  };
+  const adjusted2 = /* @__PURE__ */ new Map();
+  const pictureEnv = (it) => {
+    const look = it.pic;
+    const needPixels = !!(look && (look.alpha !== void 0 || look.duotone || look.clrChange));
+    return {
+      image: () => {
+        if (!needPixels) return imageFor(it.image);
+        const key = JSON.stringify([look?.alpha, look?.duotone, look?.clrChange]);
+        let byImg = adjustedFor.get(it.image);
+        if (!byImg) {
+          byImg = /* @__PURE__ */ new Map();
+          adjustedFor.set(it.image, byImg);
+        }
+        if (byImg.has(key)) return byImg.get(key) ?? null;
+        const r = rgbaOf(it);
+        const h = r ? doc.embedRgba(r.data, r.width, r.height) : imageFor(it.image);
+        byImg.set(key, h);
+        return h;
+      },
+      rgba: () => rgbaOf(it),
+      masked: (alpha, mw, mh) => {
+        const jp = jpegInfo(it.image.data);
+        if (jp && !needPixels) {
+          const fx = it.image.effects;
+          const dec = fx ? effectDecode(fx, jp.components) : null;
+          if (!fx || dec) return doc.embedJpeg(it.image.data, jp.width, jp.height, jp.components, jp.adobe, dec ?? void 0, { alpha, width: mw, height: mh });
+        }
+        const r = rgbaOf(it);
+        if (!r) return imageFor(it.image);
+        for (let y = 0; y < r.height; y++) {
+          const my = Math.min(mh - 1, Math.floor((y + 0.5) / r.height * mh));
+          for (let x2 = 0; x2 < r.width; x2++) {
+            const mx = Math.min(mw - 1, Math.floor((x2 + 0.5) / r.width * mw));
+            const k = (y * r.width + x2) * 4 + 3;
+            r.data[k] = Math.round(r.data[k] * alpha[my * mw + mx] / 255);
+          }
+        }
+        return doc.embedRgba(r.data, r.width, r.height);
+      },
+      embedRgba: (d, w, h) => doc.embedRgba(d, w, h)
+    };
+  };
+  const adjustedFor = /* @__PURE__ */ new Map();
+  void adjusted2;
   for (const lp of result.pages) {
-    const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
-    if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt));
+    const page = doc.addPage(lp.widthTw / T2, lp.heightTw / T2);
+    if (lp.background) page.fillRect(0, 0, lp.widthTw / T2, lp.heightTw / T2, hexColor(lp.background));
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
   }
   return doc.build();
 }
@@ -23472,7 +25239,7 @@ function glyphsAsPath(page, it) {
   const upm = font.metrics.unitsPerEm;
   const s = it.sizePt / upm, sx = s * (it.scaleX ?? 1);
   const skew = it.synthItalic ? 0.2 : 0;
-  const base = it.y / T;
+  const base = it.y / T2;
   const cmds = [];
   for (const g of it.glyphs) {
     const gid = g.gid ?? font.glyphId(g.cp);
@@ -23480,7 +25247,7 @@ function glyphsAsPath(page, it) {
     if (layers) {
       for (const L of layers) {
         const lc2 = [];
-        if (!outlineInto(lc2, font, L.glyphId, g.x / T, base, sx, s, skew)) continue;
+        if (!outlineInto(lc2, font, L.glyphId, g.x / T2, base, sx, s, skew)) continue;
         if (!lc2.length) continue;
         const a = L.alpha * (it.alpha ?? 1);
         page.withAlpha(a < 1 ? a : void 0, void 0, () => page.path(lc2, hexColor(L.color ?? it.color)));
@@ -23489,7 +25256,7 @@ function glyphsAsPath(page, it) {
     }
     const ol = font.glyphOutline(gid);
     if (!ol) return false;
-    const ox = g.x / T;
+    const ox = g.x / T2;
     const X = (x2, y) => ox + x2 * sx + skew * y * s;
     const Y = (y) => base - y * s;
     let px = 0, py = 0;
@@ -23508,12 +25275,12 @@ function glyphsAsPath(page, it) {
     }
   }
   if (!cmds.length) return true;
-  const color = hexColor(it.color);
-  const stroke = it.synthBold ? { color, widthPt: it.sizePt * 0.03 } : void 0;
-  page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color, stroke));
+  const color2 = hexColor(it.color);
+  const stroke = it.synthBold ? { color: color2, widthPt: it.sizePt * 0.03 } : void 0;
+  page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color2, stroke));
   return true;
 }
-function paintItem(page, it, fontFor, imageFor, shade) {
+function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
   switch (it.t) {
     case "glyphs": {
       if (it.asPath && glyphsAsPath(page, it)) return;
@@ -23530,7 +25297,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
         const f = pua ? fontFor(it.face, true) ?? ef : ef;
         const placed = all.slice(i2, j).map((g) => {
           const { gid } = f.encode(g.cp);
-          return { gid, codePoint: g.cp, xPt: g.x / T, baselineFromTopPt: it.y / T };
+          return { gid, codePoint: g.cp, xPt: g.x / T2, baselineFromTopPt: it.y / T2 };
         });
         page.withAlpha(it.alpha, it.alpha, () => page.glyphs(f, pdfSize, hexColor(it.color), placed, {
           ...it.scaleX ? { scaleX: it.scaleX } : {},
@@ -23544,17 +25311,21 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       return;
     }
     case "rect":
-      page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T, it.y / T, it.w / T, it.h / T, hexColor(it.fill)));
+      page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T2, it.y / T2, it.w / T2, it.h / T2, hexColor(it.fill)));
       return;
     case "line": {
       const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash ? BORDER_DASHES[it.dash]?.(it.widthPt) : void 0;
-      page.line(it.x1 / T, it.y1 / T, it.x2 / T, it.y2 / T, hexColor(it.color), it.widthPt, dash);
+      page.line(it.x1 / T2, it.y1 / T2, it.x2 / T2, it.y2 / T2, hexColor(it.color), it.widthPt, dash);
       return;
     }
     case "image": {
+      if (pictureEnv && (it.pic || it.crop && (it.rot || it.flipH || it.flipV))) {
+        paintPicturePdf(page, it, pictureEnv(it));
+        return;
+      }
       const h = imageFor(it.image);
       if (!h) return;
-      let x2 = it.x / T, y = it.y / T, w = it.w / T, hh = it.h / T;
+      let x2 = it.x / T2, y = it.y / T2, w = it.w / T2, hh = it.h / T2;
       const crop = it.crop;
       if (crop && (crop.l || crop.t || crop.r || crop.b)) {
         page.pushClipRect(x2, y, w, hh);
@@ -23575,7 +25346,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : void 0;
       const stroke = it.stroke && /^[0-9A-Fa-f]{6}$/.test(it.stroke.color) ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {} } : void 0;
       if (!fill && !stroke && !it.grad) return;
-      const x2 = it.x / T, y = it.y / T, w = it.w / T, h = it.h / T;
+      const x2 = it.x / T2, y = it.y / T2, w = it.w / T2, h = it.h / T2;
       const isLine = st.geom === "line" || st.geom.startsWith("straightConnector");
       const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
       let parts;
@@ -23589,7 +25360,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
         parts = [{ cmds: presetPath(st.geom, x2, y, w, h, { ...st.adj ? { adj: st.adj } : {}, ...xf }), fill: !OPEN_PRESETS.has(st.geom), stroke: true, evenOdd: false }];
       }
       if (it.shadow) {
-        const dx = it.shadow.dx / T, dy = it.shadow.dy / T;
+        const dx = it.shadow.dx / T2, dy = it.shadow.dy / T2;
         const col = hexColor(it.shadow.color);
         for (const p of parts) {
           if (!p.fill && !stroke) continue;
@@ -23613,7 +25384,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
     case "path": {
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : void 0;
       const stroke = it.stroke ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {} } : void 0;
-      const cmds = it.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { op: "C", x1: c.x1 / T, y1: c.y1 / T, x2: c.x2 / T, y2: c.y2 / T, x: c.x / T, y: c.y / T } : { op: c.op, x: c.x / T, y: c.y / T });
+      const cmds = it.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { op: "C", x1: c.x1 / T2, y1: c.y1 / T2, x2: c.x2 / T2, y2: c.y2 / T2, x: c.x / T2, y: c.y / T2 } : { op: c.op, x: c.x / T2, y: c.y / T2 });
       page.path(cmds, fill, stroke);
       return;
     }
@@ -23624,11 +25395,11 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       }
       const [a, b, c, d, e, f] = it.m;
       const H = page.heightPt;
-      page.pushTransform(a, -b, -c, d, c * H + e / T, H - d * H - f / T);
+      page.pushTransform(a, -b, -c, d, c * H + e / T2, H - d * H - f / T2);
       return;
     }
     case "clip":
-      if (it.op === "push") page.pushClipRect((it.x ?? 0) / T, (it.y ?? 0) / T, (it.w ?? 0) / T, (it.h ?? 0) / T);
+      if (it.op === "push") page.pushClipRect((it.x ?? 0) / T2, (it.y ?? 0) / T2, (it.w ?? 0) / T2, (it.h ?? 0) / T2);
       else page.popClip();
       return;
   }
@@ -23651,10 +25422,275 @@ function rotatePath(cmds, cx, cy, deg) {
   });
 }
 function linePath(x2, y, w, h, line, flipH = false, flipV = false) {
-  if (line) return [{ op: "M", x: x2 + line.x1 / T, y: y + line.y1 / T }, { op: "L", x: x2 + line.x2 / T, y: y + line.y2 / T }];
+  if (line) return [{ op: "M", x: x2 + line.x1 / T2, y: y + line.y1 / T2 }, { op: "L", x: x2 + line.x2 / T2, y: y + line.y2 / T2 }];
   const [x1, x22] = flipH ? [x2 + w, x2] : [x2, x2 + w];
   const [y1, y2] = flipV ? [y + h, y] : [y, y + h];
   return [{ op: "M", x: x1, y: y1 }, { op: "L", x: x22, y: y2 }];
+}
+
+// ../docx-layout/src/canvas-picture.ts
+function canvas(w, h) {
+  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  return c;
+}
+var ctx2d = (c) => c.getContext("2d");
+var cache = /* @__PURE__ */ new WeakMap();
+function needsPicturePainter(it) {
+  return !!it.pic || !!it.image.effects || !!(it.crop && (it.crop.l || it.crop.t || it.crop.r || it.crop.b) && (it.rot || it.flipH || it.flipV));
+}
+var DASH2 = {
+  sysDot: [1, 1],
+  sysDash: [3, 1],
+  dash: [4, 3],
+  dashDot: [4, 3, 1, 3],
+  lgDash: [8, 3],
+  lgDashDot: [8, 3, 1, 3],
+  lgDashDotDot: [8, 3, 1, 3, 1, 3],
+  sysDashDot: [3, 1, 1, 1],
+  sysDashDotDot: [3, 1, 1, 1, 1, 1]
+};
+function bounds2(look, w, h) {
+  let x0 = 0, y0 = 0, x1 = w, y1 = h;
+  const grow = (a, b, c, d) => {
+    x0 = Math.min(x0, a);
+    y0 = Math.min(y0, b);
+    x1 = Math.max(x1, c);
+    y1 = Math.max(y1, d);
+  };
+  if (!look) return { x0, y0, x1, y1 };
+  if (look.line) {
+    const lw = look.line.widthPt;
+    grow(-lw, -lw, w + lw, h + lw);
+  }
+  if (look.glow) {
+    const r2 = look.glow.radPt;
+    grow(-r2, -r2, w + r2, h + r2);
+  }
+  const s = look.shadow;
+  if (s?.kind === "outer") {
+    const a = s.dirDeg * Math.PI / 180, dx = s.distPt * Math.cos(a), dy = s.distPt * Math.sin(a);
+    const sx = Math.abs(s.sx ?? 1), sy = Math.abs(s.sy ?? 1);
+    const k = Math.abs(Math.tan((s.kxDeg ?? 0) * Math.PI / 180)) * h + Math.abs(Math.tan((s.kyDeg ?? 0) * Math.PI / 180)) * w;
+    const m = s.blurPt + k + Math.max(w, h) * Math.max(0, Math.max(sx, sy) - 1) + (sy < 0 || (s.sy ?? 1) < 0 ? h : 0);
+    grow(dx - m, dy - m - (s.sy !== void 0 && s.sy < 0 ? h : 0), w + dx + m, h + dy + m + (s.sy !== void 0 && s.sy < 0 ? h : 0));
+  }
+  const r = look.reflection;
+  if (r) {
+    const a = r.dirDeg * Math.PI / 180;
+    const dx = r.distPt * Math.cos(a), dy = r.distPt * Math.sin(a);
+    const lw = look.line?.widthPt ?? 0;
+    grow(dx - r.blurPt - lw, h + dy - r.blurPt, w + dx + r.blurPt + lw, 2 * h + dy + r.blurPt + lw);
+  }
+  return { x0, y0, x1, y1 };
+}
+function shapeSubs2(look, w, h, flipH, flipV) {
+  const o = presetOutline(look?.geom?.prst, w, h, look?.geom?.adj);
+  const subs = o.subs.filter((_, i2) => o.fill[i2] !== false);
+  if (!flipH && !flipV) return subs;
+  const fx = (x2) => flipH ? w - x2 : x2, fy = (y) => flipV ? h - y : y;
+  return subs.map((sub) => sub.map((s) => {
+    switch (s.c) {
+      case "M":
+      case "L":
+        return { ...s, x: fx(s.x), y: fy(s.y) };
+      case "C":
+        return { ...s, x1: fx(s.x1), y1: fy(s.y1), x2: fx(s.x2), y2: fy(s.y2), x: fx(s.x), y: fy(s.y) };
+      case "Q":
+        return { ...s, x1: fx(s.x1), y1: fy(s.y1), x: fx(s.x), y: fy(s.y) };
+      case "E": {
+        const a0 = flipH ? Math.PI - s.a0 : s.a0, a1 = flipH ? Math.PI - s.a1 : s.a1;
+        const b0 = flipV ? -a0 : a0, b1 = flipV ? -a1 : a1;
+        return { ...s, cx: fx(s.cx), cy: fy(s.cy), a0: b0, a1: b1, ccw: flipH !== flipV ? !s.ccw : !!s.ccw };
+      }
+      default:
+        return s;
+    }
+  }));
+}
+function tracePath(c, polys) {
+  c.beginPath();
+  for (const p of polys) {
+    c.moveTo(p[0], p[1]);
+    for (let i2 = 2; i2 < p.length; i2 += 2) c.lineTo(p[i2], p[i2 + 1]);
+    c.closePath();
+  }
+}
+var rgb3 = (hex2) => [parseInt(hex2.slice(0, 2), 16), parseInt(hex2.slice(2, 4), 16), parseInt(hex2.slice(4, 6), 16)];
+function maskToCanvas(m, hex2, alpha) {
+  const c = canvas(m.w, m.h);
+  const x2 = ctx2d(c);
+  const img = x2.createImageData(m.w, m.h);
+  const [r, g, b] = rgb3(hex2);
+  for (let i2 = 0; i2 < m.a.length; i2++) {
+    const k = i2 * 4;
+    img.data[k] = r;
+    img.data[k + 1] = g;
+    img.data[k + 2] = b;
+    img.data[k + 3] = Math.round(Math.max(0, Math.min(1, m.a[i2] * alpha)) * 255);
+  }
+  x2.putImageData(img, 0, 0);
+  return c;
+}
+var adjusted = /* @__PURE__ */ new WeakMap();
+function adjustedBitmap(it, bmp) {
+  const look = it.pic, fx = it.image.effects;
+  if (!fx && look?.alpha === void 0 && !look?.duotone && !look?.clrChange) return bmp;
+  const key = JSON.stringify([fx, look?.alpha, look?.duotone, look?.clrChange]);
+  let m = adjusted.get(it.image);
+  if (!m) {
+    m = /* @__PURE__ */ new Map();
+    adjusted.set(it.image, m);
+  }
+  const hit = m.get(key);
+  if (hit) return hit;
+  const c = canvas(Math.max(1, bmp.width), Math.max(1, bmp.height));
+  const x2 = ctx2d(c);
+  x2.drawImage(bmp, 0, 0);
+  const img = x2.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  if (fx) applyImageEffects(d, fx);
+  if (look) applyPictureAdjust(d, look);
+  x2.putImageData(img, 0, 0);
+  m.set(key, c);
+  return c;
+}
+function buildLayer(it, bmp, ppt0) {
+  const look = it.pic;
+  const w = it.w / 20, h = it.h / 20;
+  const bb = bounds2(look, w, h);
+  let ppt = ppt0;
+  const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+  if (area > 12e6) ppt *= Math.sqrt(12e6 / area);
+  const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+  const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+  const subs = shapeSubs2(look, w, h, !!it.flipH, !!it.flipV);
+  const polys = flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35);
+  const pic = canvas(W, H);
+  const pc = ctx2d(pic);
+  pc.save();
+  tracePath(pc, polys);
+  pc.clip();
+  const crop = it.crop ?? { l: 0, t: 0, r: 0, b: 0 };
+  const fw = w / Math.max(0.01, 1 - crop.l - crop.r), fh = h / Math.max(0.01, 1 - crop.t - crop.b);
+  pc.translate(ox + w / 2 * ppt, oy + h / 2 * ppt);
+  pc.scale(it.flipH ? -1 : 1, it.flipV ? -1 : 1);
+  const src = adjustedBitmap(it, bmp);
+  pc.imageSmoothingEnabled = true;
+  pc.imageSmoothingQuality = "high";
+  pc.drawImage(src, (-w / 2 - crop.l * fw) * ppt, (-h / 2 - crop.t * fh) * ppt, fw * ppt, fh * ppt);
+  pc.restore();
+  if (look?.bevel) {
+    const img = pc.getImageData(0, 0, W, H);
+    const shapeM = fillPolygons(newMask(W, H), polys);
+    shadeBevel(img.data, shapeM, { w: look.bevel.wPt * ppt, h: look.bevel.hPt * ppt, prst: look.bevel.prst, rig: look.bevel.rig, dir: look.bevel.dir, material: look.bevel.material, word: true });
+    pc.putImageData(img, 0, 0);
+  }
+  const sil = fillPolygons(newMask(W, H), polys);
+  if (look?.softEdgePt || look?.shadow || look?.glow) {
+    const a = pc.getImageData(0, 0, W, H).data;
+    for (let i2 = 0; i2 < sil.a.length; i2++) sil.a[i2] = Math.min(sil.a[i2], a[i2 * 4 + 3] / 255 / (look?.alpha ?? 1));
+  }
+  const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+  const shape = canvas(W, H);
+  const sc = ctx2d(shape);
+  sc.drawImage(pic, 0, 0);
+  if (look?.shadow?.kind === "inner") {
+    const s2 = look.shadow;
+    const m = innerShadowMask(sil, { blurPt: s2.blurPt, distPt: s2.distPt, dirDeg: s2.dirDeg }, ppt);
+    sc.drawImage(maskToCanvas(m, s2.color, s2.alpha), 0, 0);
+  }
+  if (look?.line && look.line.widthPt > 0) {
+    const ln2 = look.line;
+    const lc2 = canvas(W, H), lx = ctx2d(lc2);
+    tracePath(lx, polys);
+    lx.lineWidth = 2 * ln2.widthPt * ppt;
+    lx.lineJoin = ln2.join === "round" ? "round" : ln2.join === "bevel" ? "bevel" : "miter";
+    lx.lineCap = ln2.cap === "rnd" ? "round" : ln2.cap === "sq" ? "square" : "butt";
+    const dash = ln2.dash ? DASH2[ln2.dash] : void 0;
+    if (dash) lx.setLineDash(dash.map((v) => v * ln2.widthPt * ppt));
+    lx.strokeStyle = `#${ln2.color}`;
+    lx.globalAlpha = ln2.alpha;
+    lx.stroke();
+    lx.globalAlpha = 1;
+    lx.globalCompositeOperation = "destination-out";
+    tracePath(lx, polys);
+    lx.fill();
+    sc.drawImage(lc2, 0, 0);
+  }
+  if (look?.softEdgePt) {
+    const m = softEdgeMask(sil, look.softEdgePt, ppt);
+    const img = sc.getImageData(0, 0, W, H);
+    for (let i2 = 0; i2 < m.a.length; i2++) img.data[i2 * 4 + 3] = Math.round(img.data[i2 * 4 + 3] * m.a[i2]);
+    sc.putImageData(img, 0, 0);
+  }
+  const out = canvas(W, H);
+  const o = ctx2d(out);
+  const s = look?.shadow;
+  if (s?.kind === "outer") {
+    const dir = s.rotWithShape === false || s.rotWithShape === void 0 ? s.dirDeg - (it.rot ?? 0) : s.dirDeg;
+    const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+    o.drawImage(maskToCanvas(m, s.color, s.alpha), 0, 0);
+  }
+  if (look?.glow) o.drawImage(maskToCanvas(glowMask(sil, look.glow.radPt, ppt), look.glow.color, look.glow.alpha), 0, 0);
+  const r = look?.reflection;
+  if (r) {
+    const rc = canvas(W, H), rx = ctx2d(rc);
+    const a = r.dirDeg * Math.PI / 180;
+    const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+    rx.translate(dx, 2 * (oy + h * ppt) + dy);
+    rx.scale(1, -1);
+    rx.drawImage(shape, 0, 0);
+    const img = rx.getImageData(0, 0, W, H);
+    const top = oy + h * ppt + dy;
+    for (let y = 0; y < H; y++) {
+      const t = (y + 0.5 - top) / (h * ppt);
+      const al = t < 0 ? 0 : reflectionAlpha(t, r);
+      for (let x2 = 0; x2 < W; x2++) img.data[(y * W + x2) * 4 + 3] = Math.round(img.data[(y * W + x2) * 4 + 3] * al);
+    }
+    if (r.blurPt > 0) {
+      const ch = [0, 1, 2, 3].map((k) => {
+        const m = newMask(W, H);
+        for (let i2 = 0; i2 < m.a.length; i2++) m.a[i2] = (k === 3 ? img.data[i2 * 4 + 3] : img.data[i2 * 4 + k] * img.data[i2 * 4 + 3] / 255) / 255;
+        return gaussianBlur(m, r.blurPt / 3 * ppt).a;
+      });
+      for (let i2 = 0; i2 < W * H; i2++) {
+        const al = ch[3][i2];
+        img.data[i2 * 4 + 3] = Math.round(al * 255);
+        for (let k = 0; k < 3; k++) img.data[i2 * 4 + k] = al > 0 ? Math.round(ch[k][i2] / al * 255) : 0;
+      }
+    }
+    rx.setTransform(1, 0, 0, 1, 0, 0);
+    rx.putImageData(img, 0, 0);
+    o.drawImage(rc, 0, 0);
+  }
+  o.drawImage(shape, 0, 0);
+  return { c: out, x0: bb.x0, y0: bb.y0, ppt };
+}
+function paintPicture(ctx, it, bmp) {
+  const b = bmp;
+  const m = ctx.getTransform();
+  const ppt = Math.max(0.5, Math.min(12, Math.hypot(m.a, m.b) * 20));
+  const key = JSON.stringify([it.pic, it.crop, it.flipH, it.flipV, it.w, it.h, it.rot ?? 0, Math.round(ppt * 50)]);
+  let byImg = cache.get(it.image);
+  if (!byImg) {
+    byImg = /* @__PURE__ */ new Map();
+    cache.set(it.image, byImg);
+  }
+  let layer = byImg.get(key);
+  if (!layer) {
+    if (byImg.size > 8) byImg.clear();
+    layer = buildLayer(it, b, ppt);
+    byImg.set(key, layer);
+  }
+  ctx.save();
+  ctx.translate(it.x + it.w / 2, it.y + it.h / 2);
+  if (it.rot) ctx.rotate(it.rot * Math.PI / 180);
+  const s = 20 / layer.ppt;
+  ctx.drawImage(layer.c, layer.x0 * 20 - it.w / 2, layer.y0 * 20 - it.h / 2, layer.c.width * s, layer.c.height * s);
+  ctx.restore();
 }
 
 // ../docx-layout/src/canvas.ts
@@ -23727,6 +25763,10 @@ function paintItems(ctx, items, env, opts = {}) {
       case "image": {
         const bmp = env.image(it.image);
         if (!bmp) break;
+        if (needsPicturePainter(it)) {
+          paintPicture(ctx, it, bmp);
+          break;
+        }
         let x2 = it.x, y = it.y, w = it.w, h = it.h;
         const crop = it.crop;
         const cropped = !!crop && !!(crop.l || crop.t || crop.r || crop.b);
@@ -23759,7 +25799,7 @@ function paintItems(ctx, items, env, opts = {}) {
         const stroke = it.stroke && HEX6.test(it.stroke.color) ? it.stroke : void 0;
         if (!fill && !stroke) break;
         ctx.beginPath();
-        tracePath(ctx, it.cmds);
+        tracePath2(ctx, it.cmds);
         if (fill) {
           ctx.fillStyle = fill;
           ctx.fill("nonzero");
@@ -23801,12 +25841,12 @@ function paintGlyphs(ctx, it, env) {
   const f = env.fontOf(it.face);
   const font = it.face.font;
   ctx.font = `${f.italic ? "italic " : ""}${f.weight} ${it.sizePt * 20}px ${f.family}`;
-  const color = env.color(it.color);
-  ctx.fillStyle = color;
+  const color2 = env.color(it.color);
+  ctx.fillStyle = color2;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   if (it.synthBold) {
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = color2;
     ctx.lineWidth = it.sizePt / 35 * 20;
     ctx.lineJoin = "miter";
   }
@@ -23848,9 +25888,9 @@ function paintGlyphs(ctx, it, env) {
 function batchable(cp) {
   return cp >= 32 && cp < 768 || cp >= 880 && cp < 1424 || cp >= 8192 && cp < 8304 && cp !== 8204 && cp !== 8205 || cp >= 8352 && cp < 8400;
 }
-function strokeWith(ctx, color, widthPt, dash) {
+function strokeWith(ctx, color2, widthPt, dash) {
   const w = Math.max(0.25, widthPt);
-  ctx.strokeStyle = color;
+  ctx.strokeStyle = color2;
   const m = ctx.getTransform();
   const px = Math.hypot(m.a, m.b) || 1;
   ctx.lineWidth = Math.max(w * 20, 1 / px);
@@ -23867,7 +25907,7 @@ function paintShape(ctx, it, env, base) {
   let cmds = shapePath(it.style.geom, it.x, it.y, it.w, it.h, it.line, !!it.style.flipH, !!it.style.flipV);
   if (it.style.rot) cmds = rotatePath2(cmds, it.x + it.w / 2, it.y + it.h / 2, it.style.rot);
   ctx.beginPath();
-  tracePath(ctx, cmds);
+  tracePath2(ctx, cmds);
   if (fill && it.style.geom !== "line") {
     ctx.globalAlpha = base * (it.style.fillAlpha ?? 1);
     ctx.fillStyle = fill;
@@ -23879,7 +25919,7 @@ function paintShape(ctx, it, env, base) {
   }
   ctx.globalAlpha = base;
 }
-function tracePath(ctx, cmds) {
+function tracePath2(ctx, cmds) {
   for (const c of cmds) {
     if (c.op === "M") ctx.moveTo(c.x, c.y);
     else if (c.op === "L") ctx.lineTo(c.x, c.y);
@@ -24357,13 +26397,13 @@ var ViewerFonts = class {
   }
   /** Provedor do motor (com cache por chamada de layout). */
   provider() {
-    const cache = /* @__PURE__ */ new Map();
+    const cache2 = /* @__PURE__ */ new Map();
     return {
       face: (family, bold, italic) => {
         const key = `${family}|${bold ? 1 : 0}${italic ? 1 : 0}`;
-        if (cache.has(key)) return cache.get(key);
+        if (cache2.has(key)) return cache2.get(key);
         const out = this.face(family, bold, italic);
-        cache.set(key, out);
+        cache2.set(key, out);
         return out;
       }
     };
@@ -24475,10 +26515,10 @@ function outlineLevel(p, styles) {
 }
 function levelResolver(full) {
   const styles = full.formatting ? new StyleResolver2(full.formatting) : null;
-  const cache = /* @__PURE__ */ new Map();
+  const cache2 = /* @__PURE__ */ new Map();
   return (p) => {
-    if (!cache.has(p)) cache.set(p, outlineLevel(p, styles));
-    return cache.get(p);
+    if (!cache2.has(p)) cache2.set(p, outlineLevel(p, styles));
+    return cache2.get(p);
   };
 }
 function collectAnnotations(full, layout) {
@@ -25527,13 +27567,13 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     while (list2.length < count) {
       const div = document.createElement("div");
       div.className = "udv-tile";
-      const canvas = document.createElement("canvas");
-      canvas.setAttribute("aria-hidden", "true");
+      const canvas2 = document.createElement("canvas");
+      canvas2.setAttribute("aria-hidden", "true");
       const text = document.createElement("div");
       text.className = "udv-text";
-      div.append(canvas, text);
+      div.append(canvas2, text);
       el2.appendChild(div);
-      list2.push({ div, canvas, text, top: 0, h: 0 });
+      list2.push({ div, canvas: canvas2, text, top: 0, h: 0 });
     }
     list2.forEach((t, k) => {
       t.top = k * TILE_PX;
@@ -25967,8 +28007,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     const page = el2 ? this.pageEls.indexOf(el2) : -1;
     const p = this.layout?.pages[page];
     if (!el2 || !p) return;
-    const rect = el2.getBoundingClientRect();
-    const x2 = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * this.pageHeightTw(page);
+    const rect2 = el2.getBoundingClientRect();
+    const x2 = (e.clientX - rect2.left) / rect2.width * p.widthTw, y = (e.clientY - rect2.top) / rect2.height * this.pageHeightTw(page);
     for (const c of this.notes.comments) {
       if (c.rects.some((r) => r.page === page && x2 >= r.x && x2 <= r.x + r.w && y >= r.y && y <= r.y + r.h)) {
         this.selectComment(c.id);
@@ -26284,7 +28324,7 @@ for (const name of ["udv-download", "udv-print"]) {
     } else log(`${name}: ${d.filename ?? "PDF"} (${size} bytes)`);
   });
 }
-function apply() {
+function apply2() {
   const no = $("nocontrols").checked;
   dv.toggleAttribute("nocontrols", no);
   const view = $("view").value;
@@ -26297,13 +28337,13 @@ function apply() {
     dv.toggleAttribute(`no${i2.dataset["t"]}`, i2.checked);
     if (i2.checked) off += ` no${i2.dataset["t"]}`;
   }
-  const color = $("vColor").value, prog = $("vProgress").value, bg = $("vBg").value;
+  const color2 = $("vColor").value, prog = $("vProgress").value, bg = $("vBg").value;
   const size = $("vSize").value, ph = $("vPh").value;
   const outs = document.querySelectorAll(".var output");
   outs[3].value = `${size}px`;
   outs[4].value = `${ph}px`;
   const vars = [];
-  if (color !== "#ffffff") vars.push(`  --udv-controls-color: ${color};`);
+  if (color2 !== "#ffffff") vars.push(`  --udv-controls-color: ${color2};`);
   if (prog !== "#ffffff") vars.push(`  --udv-progress-color: ${prog};`);
   if (bg !== "#2b2b2b") vars.push(`  --udv-background: ${bg};`);
   if (size !== "22") vars.push(`  --udv-controls-size: ${size}px;`);
@@ -26317,8 +28357,8 @@ ${vars.join("\n")}
 ${css2}</style>
 ` : "") + `<universal-document-viewer src="contrato.docx"${view !== "print" ? ` view="${view}"` : ""}${noselect ? " noselect" : ""}${no ? " nocontrols" : off}></universal-document-viewer>`;
 }
-document.querySelector("aside").addEventListener("input", apply);
-apply();
+document.querySelector("aside").addEventListener("input", apply2);
+apply2();
 /*! @license
  * Padrões de hifenização "Hyphenation patterns for Portuguese" (hyph-utf8, hyph-pt.tex, versão 1.4 2024-07-13)
  * https://github.com/hyphenation/tex-hyphen — sha256 do arquivo de origem:

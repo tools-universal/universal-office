@@ -10618,7 +10618,7 @@ var PptxPackage = class _PptxPackage {
   }
 };
 
-// ../slides-core/src/preset-defs.ts
+// ../../../shared/drawingml/src/preset-defs.ts
 var PRESET_DEFS = {
   accentBorderCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2|l t r b",
   accentBorderCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3|l t r b",
@@ -10809,7 +10809,7 @@ var PRESET_DEFS = {
   wedgeRoundRectCallout: "adj1=val -20833;adj2=val 62500;adj3=val 16667|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;dq=*/ dxPos h w;ady=abs dyPos;adq=abs dq;dz=+- ady 0 adq;xg1=?: dxPos 7 2;xg2=?: dxPos 10 5;x1=*/ w xg1 12;x2=*/ w xg2 12;yg1=?: dyPos 7 2;yg2=?: dyPos 10 5;y1=*/ h yg1 12;y2=*/ h yg2 12;t1=?: dxPos l xPos;xl=?: dz l t1;t2=?: dyPos x1 xPos;xt=?: dz t2 x1;t3=?: dxPos xPos r;xr=?: dz r t3;t4=?: dyPos xPos x1;xb=?: dz t4 x1;t5=?: dxPos y1 yPos;yl=?: dz y1 t5;t6=?: dyPos t yPos;yt=?: dz t6 t;t7=?: dxPos yPos y1;yr=?: dz y1 t7;t8=?: dyPos yPos b;yb=?: dz t8 b;u1=*/ ss adj3 100000;u2=+- r 0 u1;v2=+- b 0 u1;il=*/ u1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l u1;A u1 u1 cd2 cd4;L x1 t;L xt yt;L x2 t;L u2 t;A u1 u1 3cd4 cd4;L r y1;L xr yr;L r y2;L r v2;A u1 u1 0 cd4;L x2 b;L xb yb;L x1 b;L u1 b;A u1 u1 cd4 cd4;L l y2;L xl yl;L l y1;Z|il il ir ib"
 };
 
-// ../slides-core/src/preset-engine.ts
+// ../../../shared/drawingml/src/preset-engine.ts
 var parsed = /* @__PURE__ */ new Map();
 function parseDef(name) {
   if (parsed.has(name)) return parsed.get(name);
@@ -11048,6 +11048,581 @@ function evalPreset(name, w, h, adj, adjNames) {
     out.stroke.push(p.stroke);
   }
   return out;
+}
+
+// ../../../shared/drawingml/src/geometry.ts
+function regularPolygon(n, w, h) {
+  const pts = [];
+  for (let i2 = 0; i2 < n; i2++) {
+    const a = -Math.PI / 2 + i2 * 2 * Math.PI / n;
+    pts.push({ x: w / 2 + w / 2 * Math.cos(a), y: h / 2 + h / 2 * Math.sin(a) });
+  }
+  return pts;
+}
+function fitToBox(pts, w, h) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const sw = maxX - minX || 1, sh = maxY - minY || 1;
+  return pts.map((p) => ({ x: (p.x - minX) / sw * w, y: (p.y - minY) / sh * h }));
+}
+var ADJUSTED_OFFICIAL = /* @__PURE__ */ new Set([
+  "frame",
+  "roundRect",
+  "triangle",
+  "parallelogram",
+  "trapezoid",
+  "pentagon",
+  "hexagon",
+  "star5",
+  "rightArrow",
+  "leftArrow",
+  "upArrow",
+  "downArrow",
+  "chevron",
+  "pie",
+  "arc",
+  "blockArc",
+  "octagon",
+  "donut",
+  "moon",
+  "sun",
+  "can",
+  "cube"
+]);
+function presetPath(geom, w, h, adj, adjNames) {
+  const ss = Math.min(w, h);
+  if (geom && (adj?.length && ADJUSTED_OFFICIAL.has(geom) || geom === "arc")) {
+    const g = evalPreset(geom, w, h, adj, adjNames);
+    if (g && g.subs.length) {
+      const out = { kind: "path", subs: g.subs, subLum: g.fill };
+      if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
+      return out;
+    }
+  }
+  switch (geom) {
+    case "frame": {
+      const t = ss * ((adj?.[0] ?? 12500) / 1e5);
+      return {
+        kind: "path",
+        fillRule: "evenodd",
+        subs: [
+          [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
+          [{ c: "M", x: t, y: t }, { c: "L", x: w - t, y: t }, { c: "L", x: w - t, y: h - t }, { c: "L", x: t, y: h - t }, { c: "Z" }]
+        ]
+      };
+    }
+    case "ellipse":
+      return { kind: "ellipse" };
+    case "roundRect":
+      return { kind: "roundRect", r: ss * ((adj?.[0] ?? 16667) / 1e5) };
+    case "triangle":
+      return { kind: "poly", points: [{ x: w / 2, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
+    case "rtTriangle":
+      return { kind: "poly", points: [{ x: 0, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
+    case "diamond":
+      return { kind: "poly", points: [{ x: w / 2, y: 0 }, { x: w, y: h / 2 }, { x: w / 2, y: h }, { x: 0, y: h / 2 }] };
+    case "parallelogram": {
+      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
+      return { kind: "poly", points: [{ x: d, y: 0 }, { x: w, y: 0 }, { x: w - d, y: h }, { x: 0, y: h }] };
+    }
+    case "trapezoid": {
+      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
+      return { kind: "poly", points: [{ x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
+    }
+    case "pentagon":
+      return { kind: "poly", points: fitToBox(regularPolygon(5, w, h), w, h) };
+    case "hexagon": {
+      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
+      return {
+        kind: "poly",
+        points: [
+          { x: d, y: 0 },
+          { x: w - d, y: 0 },
+          { x: w, y: h / 2 },
+          { x: w - d, y: h },
+          { x: d, y: h },
+          { x: 0, y: h / 2 }
+        ]
+      };
+    }
+    case "star5": {
+      const inner = (adj?.[0] ?? 19098) / 5e4;
+      const pts = [];
+      for (let i2 = 0; i2 < 10; i2++) {
+        const a = -Math.PI / 2 + i2 * Math.PI / 5;
+        const fx = i2 % 2 === 0 ? 1 : inner;
+        pts.push({ x: w / 2 + w / 2 * fx * Math.cos(a), y: h / 2 + h / 2 * fx * Math.sin(a) });
+      }
+      return { kind: "poly", points: fitToBox(pts, w, h) };
+    }
+    // setas em bloco (adj1=50000 → haste com metade da altura; adj2=50000 →
+    // cabeça com comprimento ss/2)
+    case "rightArrow": {
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = h * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
+      return {
+        kind: "poly",
+        points: [
+          { x: 0, y: t },
+          { x: w - hd, y: t },
+          { x: w - hd, y: 0 },
+          { x: w, y: h / 2 },
+          { x: w - hd, y: h },
+          { x: w - hd, y: h - t },
+          { x: 0, y: h - t }
+        ]
+      };
+    }
+    case "leftArrow": {
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = h * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
+      return {
+        kind: "poly",
+        points: [
+          { x: w, y: t },
+          { x: hd, y: t },
+          { x: hd, y: 0 },
+          { x: 0, y: h / 2 },
+          { x: hd, y: h },
+          { x: hd, y: h - t },
+          { x: w, y: h - t }
+        ]
+      };
+    }
+    case "upArrow": {
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = w * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
+      return {
+        kind: "poly",
+        points: [
+          { x: t, y: h },
+          { x: t, y: hd },
+          { x: 0, y: hd },
+          { x: w / 2, y: 0 },
+          { x: w, y: hd },
+          { x: w - t, y: hd },
+          { x: w - t, y: h }
+        ]
+      };
+    }
+    case "downArrow": {
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = w * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
+      return {
+        kind: "poly",
+        points: [
+          { x: t, y: 0 },
+          { x: t, y: h - hd },
+          { x: 0, y: h - hd },
+          { x: w / 2, y: h },
+          { x: w, y: h - hd },
+          { x: w - t, y: h - hd },
+          { x: w - t, y: 0 }
+        ]
+      };
+    }
+    case "chevron": {
+      const d = ss * ((adj?.[0] ?? 5e4) / 1e5);
+      return {
+        kind: "poly",
+        points: [
+          { x: 0, y: 0 },
+          { x: w - d, y: 0 },
+          { x: w, y: h / 2 },
+          { x: w - d, y: h },
+          { x: 0, y: h },
+          { x: d, y: h / 2 }
+        ]
+      };
+    }
+    case "pie":
+      return {
+        kind: "pie",
+        startDeg: (adj?.[0] ?? 0) / 6e4,
+        endDeg: (adj?.[1] ?? 162e5) / 6e4
+      };
+    case "line":
+    case "straightConnector1":
+      return { kind: "line", x1: 0, y1: 0, x2: w, y2: h };
+    case "bentConnector2":
+      return { kind: "path", subs: [[{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }]] };
+    case "bentConnector3":
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: 0 },
+          { c: "L", x: w / 2, y: 0 },
+          { c: "L", x: w / 2, y: h },
+          { c: "L", x: w, y: h }
+        ]]
+      };
+    case "bentConnector4":
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: 0 },
+          { c: "L", x: w / 2, y: 0 },
+          { c: "L", x: w / 2, y: h / 2 },
+          { c: "L", x: w, y: h / 2 },
+          { c: "L", x: w, y: h }
+        ]]
+      };
+    case "curvedConnector2":
+    case "curvedConnector3":
+    case "curvedConnector4":
+    case "curvedConnector5":
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: 0 },
+          { c: "C", x1: w / 2, y1: 0, x2: w / 2, y2: h, x: w, y: h }
+        ]]
+      };
+    case "arc": {
+      return {
+        kind: "path",
+        subs: [[
+          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: -Math.PI / 2, a1: 0 }
+        ]]
+      };
+    }
+    case "blockArc": {
+      const t = ss * 0.25;
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: h / 2 },
+          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: Math.PI, a1: Math.PI * 2 },
+          { c: "L", x: w - t, y: h / 2 },
+          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI, ccw: true },
+          { c: "Z" }
+        ]]
+      };
+    }
+    case "octagon": {
+      const d = ss * 0.29289;
+      return {
+        kind: "poly",
+        points: [
+          { x: d, y: 0 },
+          { x: w - d, y: 0 },
+          { x: w, y: d },
+          { x: w, y: h - d },
+          { x: w - d, y: h },
+          { x: d, y: h },
+          { x: 0, y: h - d },
+          { x: 0, y: d }
+        ]
+      };
+    }
+    case "donut": {
+      const t = ss * ((adj?.[0] ?? 25e3) / 1e5);
+      return {
+        kind: "path",
+        fillRule: "evenodd",
+        subs: [
+          [{ c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: 0, a1: Math.PI * 2 }, { c: "Z" }],
+          [{ c: "E", cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI * 2 }, { c: "Z" }]
+        ]
+      };
+    }
+    case "moon": {
+      const irx = w * 0.5;
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: w, y: 0 },
+          { c: "E", cx: w, cy: h / 2, rx: w, ry: h / 2, a0: -Math.PI / 2, a1: -Math.PI * 1.5, ccw: true },
+          { c: "E", cx: w, cy: h / 2, rx: irx, ry: h * 0.4, a0: Math.PI / 2, a1: -Math.PI / 2, ccw: false },
+          { c: "Z" }
+        ]]
+      };
+    }
+    case "heart": {
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: w / 2, y: h * 0.3 },
+          { c: "C", x1: w * 0.5, y1: h * 0.12, x2: w * 0.38, y2: h * 0.01, x: w * 0.26, y: h * 0.01 },
+          { c: "C", x1: w * 0.1, y1: h * 0.01, x2: 0, y2: h * 0.14, x: 0, y: h * 0.31 },
+          { c: "C", x1: 0, y1: h * 0.51, x2: w * 0.18, y2: h * 0.66, x: w / 2, y: h },
+          { c: "C", x1: w * 0.82, y1: h * 0.66, x2: w, y2: h * 0.51, x: w, y: h * 0.31 },
+          { c: "C", x1: w, y1: h * 0.14, x2: w * 0.9, y2: h * 0.01, x: w * 0.74, y: h * 0.01 },
+          { c: "C", x1: w * 0.62, y1: h * 0.01, x2: w * 0.5, y2: h * 0.12, x: w / 2, y: h * 0.3 },
+          { c: "Z" }
+        ]]
+      };
+    }
+    case "lightningBolt": {
+      const u = (px, py) => ({ x: px / 21600 * w, y: py / 21600 * h });
+      const pts = [
+        u(8472, 0),
+        u(12860, 6080),
+        u(11050, 6797),
+        u(16577, 12007),
+        u(14767, 12877),
+        u(21600, 21600),
+        u(10800, 14915),
+        u(12482, 14072),
+        u(7602, 8382),
+        u(9722, 7292),
+        u(0, 3890)
+      ];
+      return { kind: "poly", points: pts };
+    }
+    case "sun": {
+      const cx = w / 2, cy = h / 2;
+      const rx = w * 0.28, ry = h * 0.28;
+      const brx = w * 0.32, bry = h * 0.32;
+      const subs = [
+        [{ c: "E", cx, cy, rx, ry, a0: 0, a1: Math.PI * 2 }, { c: "Z" }]
+      ];
+      for (let i2 = 0; i2 < 8; i2++) {
+        const a = i2 * Math.PI / 4;
+        const spread = 0.35;
+        subs.push([
+          { c: "M", x: cx + Math.cos(a) * (w / 2), y: cy + Math.sin(a) * (h / 2) },
+          { c: "L", x: cx + Math.cos(a + spread) * brx, y: cy + Math.sin(a + spread) * bry },
+          { c: "L", x: cx + Math.cos(a - spread) * brx, y: cy + Math.sin(a - spread) * bry },
+          { c: "Z" }
+        ]);
+      }
+      return { kind: "path", subs };
+    }
+    case "can": {
+      const ry = ss * 0.125;
+      return {
+        kind: "path",
+        subs: [
+          [
+            // corpo: laterais + fundo arqueado + topo arqueado (contorno completo)
+            { c: "M", x: 0, y: ry },
+            { c: "L", x: 0, y: h - ry },
+            { c: "E", cx: w / 2, cy: h - ry, rx: w / 2, ry, a0: Math.PI, a1: 0, ccw: true },
+            { c: "L", x: w, y: ry },
+            { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI, ccw: true },
+            { c: "Z" }
+          ],
+          [
+            // tampa (elipse completa — o stroke marca a boca do cilindro)
+            { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI * 2 },
+            { c: "Z" }
+          ]
+        ],
+        subLum: [0, 0.4]
+        // tampa: lighten
+      };
+    }
+    case "cube": {
+      const d = ss * 0.25;
+      return {
+        kind: "path",
+        subs: [
+          [
+            // face frontal
+            { c: "M", x: 0, y: d },
+            { c: "L", x: w - d, y: d },
+            { c: "L", x: w - d, y: h },
+            { c: "L", x: 0, y: h },
+            { c: "Z" }
+          ],
+          [
+            // face superior (mais clara)
+            { c: "M", x: 0, y: d },
+            { c: "L", x: d, y: 0 },
+            { c: "L", x: w, y: 0 },
+            { c: "L", x: w - d, y: d },
+            { c: "Z" }
+          ],
+          [
+            // face lateral direita (mais escura)
+            { c: "M", x: w - d, y: d },
+            { c: "L", x: w, y: 0 },
+            { c: "L", x: w, y: h - d },
+            { c: "L", x: w - d, y: h },
+            { c: "Z" }
+          ]
+        ],
+        subLum: [0, 0.2, -0.2]
+        // topo lightenLess, lado darkenLess
+      };
+    }
+    default:
+      if (geom?.startsWith("actionButton")) {
+        const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
+        const glyph = actionGlyph(geom, cx, cy, g);
+        const lums = glyph.map((_, i2) => geom === "actionButtonDocument" && i2 === 1 ? 0 : -0.4);
+        return {
+          kind: "path",
+          subs: [
+            [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
+            ...glyph
+          ],
+          subLum: [0, ...lums]
+        };
+      }
+      if (geom && geom !== "rect") {
+        const g = evalPreset(geom, w, h, adj, adjNames);
+        if (g && g.subs.length) {
+          const out = { kind: "path", subs: g.subs, subLum: g.fill };
+          if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
+          return out;
+        }
+      }
+      return { kind: "rect" };
+  }
+}
+function actionGlyph(geom, cx, cy, g) {
+  const tri = (dir) => [
+    { c: "M", x: cx + dir * g, y: cy },
+    { c: "L", x: cx - dir * g, y: cy - g },
+    { c: "L", x: cx - dir * g, y: cy + g },
+    { c: "Z" }
+  ];
+  const bar = (x2) => [
+    { c: "M", x: x2 - g * 0.18, y: cy - g },
+    { c: "L", x: x2 + g * 0.18, y: cy - g },
+    { c: "L", x: x2 + g * 0.18, y: cy + g },
+    { c: "L", x: x2 - g * 0.18, y: cy + g },
+    { c: "Z" }
+  ];
+  switch (geom) {
+    case "actionButtonForwardNext":
+      return [tri(1)];
+    case "actionButtonBackPrevious":
+      return [tri(-1)];
+    case "actionButtonBeginning":
+      return [bar(cx - g), tri(-1)];
+    case "actionButtonEnd":
+      return [tri(1), bar(cx + g)];
+    case "actionButtonReturn":
+      return [[
+        { c: "M", x: cx - g * 0.15, y: cy - g },
+        // ponta da seta (esq)
+        { c: "L", x: cx + g * 0.45, y: cy - g * 0.35 },
+        { c: "L", x: cx + g * 0.1, y: cy - g * 0.35 },
+        { c: "C", x1: cx + g * 0.1, y1: cy + g * 0.35, x2: cx - g * 0.1, y2: cy + g * 0.55, x: cx - g * 0.35, y: cy + g * 0.55 },
+        { c: "L", x: cx - g, y: cy + g * 0.55 },
+        { c: "L", x: cx - g, y: cy + g },
+        { c: "L", x: cx - g * 0.35, y: cy + g },
+        { c: "C", x1: cx + g * 0.35, y1: cy + g, x2: cx + g * 0.55, y2: cy + g * 0.4, x: cx + g * 0.55, y: cy - g * 0.35 },
+        { c: "L", x: cx + g * 0.75, y: cy - g * 0.35 },
+        { c: "Z" }
+      ]];
+    case "actionButtonDocument": {
+      return [
+        [
+          { c: "M", x: cx - g * 0.7, y: cy - g },
+          { c: "L", x: cx + g * 0.25, y: cy - g },
+          { c: "L", x: cx + g * 0.7, y: cy - g * 0.55 },
+          { c: "L", x: cx + g * 0.7, y: cy + g },
+          { c: "L", x: cx - g * 0.7, y: cy + g },
+          { c: "Z" }
+        ],
+        [
+          // dobra do canto (recorte)
+          { c: "M", x: cx + g * 0.25, y: cy - g },
+          { c: "L", x: cx + g * 0.25, y: cy - g * 0.55 },
+          { c: "L", x: cx + g * 0.7, y: cy - g * 0.55 },
+          { c: "Z" }
+        ]
+      ];
+    }
+    default:
+      return [tri(1)];
+  }
+}
+
+// ../../../shared/drawingml/src/light3d.ts
+var PH = [0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 85];
+var DIR = { t: 0, tl: 45, l: 90, bl: 135, b: 180, br: -135, r: -90, tr: -45 };
+var TABLES = {
+  "threePt|": "Ozs7ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA7OzsAMDAwACgoKAAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADs7OwAvLy8AKCgoAB4eHgAREREACgoKAAcHBwAHBwcABwcHAAcHBwAHBwcAOzs7ADAwMAArKysBIyMjARMTEwELCwsACQkJAAoKCgAMDAwBDg4OAQ4ODgE7OzsAMTExAC8vLwEqKioDFhYWAg0NDQEMDAwAExMTARkZGQIcHBwCHBwcAjs7OwAxMTEAMTExAjAwMAQaGhoDDw8PARAQEAEjIyMDKioqBC4uLgQuLi4EOzs7ADExMQAwMDABLCwsAxgYGAIQEBABGhoaAjg4OAhDQ0MJQ0NDB0NDQwc7OzsAMjIyAC0tLQElJSUBGBgYARISEgEfHx8EREREDkxMTA5OTk4MTk5ODDs7OwAyMjIALCwsACMjIwAXFxcAFBQUAR4eHgU/Pz8RRkZGD0ZGRgxGRkYMOzs7ADQ0NAAtLS0AJCQkABoaGgAWFhYBGxsbAywsLAsxMTEMMTExCTExMQk7OzsANjY2ADAwMAAoKCgAHh4eABcXFwAWFhYBIiIiBSMjIwYiIiIGIiIiBjs7OwA5OTkAMzMzACwsLAAkJCQAGxsbABUVFQAYGBgCGRkZAhkZGQMZGRkDOzs7AD8/PwE7OzsAMjIyACgoKAAfHx8AGBgYABQUFAEUFBQBFRUVARUVFQE7OzsARkZGAUlJSQE7OzsBMDAwACcnJwAhISEAHBwcABoaGgAZGRkAGRkZADs7OwBPT08CX19fBU5OTgI6OjoAMjIyAC4uLgAnJycAIyMjACIiIgAiIiIAOzs7AFdXVwN7e3sMa2trCEtLSwE8PDwANzc3ADAwMAAsLCwAKSkpACkpKQA7OzsAXV1dBJGRkRODg4MOWFhYAkNDQwA8PDwANTU1ADIyMgAvLy8ALy8vADs7OwBdXV0EkJCQE4ODgw9ZWVkDQ0NDADw8PAA2NjYAMjIyADAwMAAwMDAAOzs7AFhYWAR5eXkLZmZmB0lJSQE8PDwANzc3ADAwMAAqKioAKSkpACkpKQA7OzsAT09PAl1dXQVLS0sCOTk5ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADs7OwBFRUUBRUVFATc3NwEsLCwAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAOzs7AD09PQE3NzcALi4uACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA7OzsAODg4ADExMQAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADs7OwA0NDQALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAOzs7AA==",
+  "threePt|matte": "NjY2ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA2NjYAMDAwACcnJwAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADY2NgAvLy8AJSUlABsbGwAQEBAACgoKAAcHBwAHBwcABwcHAAYGBgAGBgYANjY2AC8vLwAkJCQAGhoaAA8PDwAKCgoACQkJAAkJCQAKCgoACwsLAAsLCwA2NjYALy8vACQkJAAZGRkADw8PAAsLCwALCwsADQ0NABAQEAATExMAExMTADY2NgAuLi4AJCQkABoaGgAQEBAACwsLAAwMDAAUFBQAFxcXABoaGgAaGhoANjY2AC4uLgAlJSUAGxsbABAQEAAMDAwADw8PABkZGQAfHx8AIiIiACIiIgA2NjYAMDAwACcnJwAdHR0AExMTAA0NDQAPDw8AGRkZABwcHAAfHx8AHx8fADY2NgAxMTEAKSkpACAgIAAWFhYADw8PAA4ODgAVFRUAGRkZABwcHAAcHBwANjY2ADMzMwAsLCwAJCQkABoaGgATExMADw8PAA8PDwASEhIAFBQUABQUFAA2NjYANDQ0ADAwMAAoKCgAHh4eABUVFQAQEBAAEBAQABAQEAAPDw8ADw8PADY2NgA2NjYAMzMzACwsLAAkJCQAGxsbABISEgAPDw8ADw8PAA8PDwAPDw8ANjY2ADg4OAA2NjYAMTExACgoKAAfHx8AGBgYABEREQAPDw8ADw8PAA8PDwA2NjYAOTk5ADk5OQA1NTUALy8vACcnJwAhISEAGxsbABgYGAAXFxcAFxcXADY2NgA6OjoAOzs7ADg4OAA1NTUAMjIyAC4uLgAnJycAIyMjACEhIQAhISEANjY2ADs7OwA8PDwAOjo6ADw8PAA7OzsANzc3ADAwMAAsLCwAKSkpACkpKQA2NjYAPDw8AD4+PgA9PT0APz8/AEBAQAA8PDwANTU1ADIyMgAvLy8ALy8vADY2NgA7OzsAPDw8ADw8PABAQEAAQEBAADw8PAA2NjYAMjIyADAwMAAwMDAANjY2ADo6OgA7OzsAOTk5ADs7OwA7OzsANzc3ADAwMAAqKioAKSkpACkpKQA2NjYAOjo6ADk5OQA2NjYANDQ0ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADY2NgA4ODgANjY2ADExMQArKysAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUANjY2ADY2NgAzMzMALS0tACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA2NjYANDQ0ADAwMAAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADY2NgAzMzMALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIANjY2AA==",
+  "threePt|plastic": "ODg4ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA4ODgAMDAwACcnJwAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADg4OAAvLy8AJycnAB0dHQAREREACgoKAAcHBwAHBwcABwcHAAcHBwAHBwcAODg4AC8vLwAsLCwBJiYmAhMTEwELCwsACQkJAAoKCgALCwsADQ0NAQ0NDQE4ODgAMDAwADMzMwI7OzsKHBwcBA0NDQELCwsAEhISARkZGQIcHBwCHBwcAjg4OAAwMDAAODg4A0lJSRAkJCQHDw8PAQ8PDwEpKSkFMjIyBzY2Ngc2NjYHODg4AC8vLwA0NDQCOzs7CBwcHAMQEBABHR0dA1FRURZeXl4WWlpaEFpaWhA4ODgAMTExAC4uLgEoKCgCGBgYAREREQEoKCgJd3d3N39/fzZ6enopenp6KTg4OAAxMTEAKysrACIiIgAXFxcAFBQUAScnJwtzc3NEe3t7PW5ubidubm4nODg4ADMzMwAsLCwAJCQkABoaGgAWFhYBICAgBUdHRyVQUFAnSkpKG0pKShs4ODgANDQ0ADAwMAAoKCgAHh4eABcXFwAWFhYBLCwsCy8vLw4tLS0MLS0tDDg4OAA3NzcAMzMzACwsLAAkJCQAGxsbABQUFAAYGBgCGxsbAxwcHAMcHBwDODg4AD09PQA5OTkAMTExACgoKAAfHx8AGBgYABISEgATExMBFBQUARQUFAE4ODgAREREAUdHRwE5OTkALy8vACcnJwAhISEAGxsbABkZGQAYGBgAGBgYADg4OABPT08CbGxsCFFRUQM4ODgAMjIyAC4uLgAnJycAIyMjACEhIQAhISEAODg4AF5eXgSurq4iiIiIEk1NTQI7OzsANzc3ADAwMAAsLCwAKSkpACkpKQA4ODgAaWlpB6enp0e6uroxYWFhBEJCQgA8PDwANTU1ADIyMgAvLy8ALy8vADg4OABqamoHpaWlSbm5uTJkZGQEQkJCADw8PAA2NjYAMjIyADAwMAAwMDAAODg4AGFhYQWrq6shgICAEEpKSgE7OzsANzc3ADAwMAAqKioAKSkpACkpKQA4ODgAUVFRA2lpaQhMTEwCODg4ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADg4OABDQ0MBREREATU1NQAsLCwAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAODg4ADo6OgA1NTUALS0tACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA4ODgANTU1ADAwMAAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADg4OAAzMzMALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAODg4AA==",
+  "threePt|metal": "Ojo6ADExMQApKSkAICAgABYWFgAODg4ACQkJAQcHBwYICAgTCQkJIAkJCSA6OjoAMDAwACcnJwAeHh4AFBQUAAwMDAAICAgBCwsLBw0NDQ8PDw8ZDw8PGTo6OgAwMDAAKSkpAB8fHwESEhIACwsLAAoKCgEQEBAIExMTFBYWFigWFhYoOjo6ADAwMAAyMjICMjIyCBgYGAINDQ0BDQ0NARQUFAkbGxsdICAgOyAgIDs6OjoAMTExAENDQwhXV1cwJycnDxEREQIPDw8BIyMjFC4uLi8zMzNOMzMzTjo6OgAxMTEATU1NDm5ublc1NTUfFBQUAxcXFwRCQkI7UVFRYFNTU3lTU1N5Ojo6ADExMQBCQkIHVlZWJigoKAwVFRUDKysrFTU1NcUAAAD/BQUF+QUFBfk6OjoAMjIyADQ0NAIyMjIFHR0dAhcXFwM8PDw5AAAA/wAAAP8AAAD/AAAA/zo6OgAxMTEALCwsACMjIwAYGBgAGhoaBDk5OUMAAAD/AAAA/wAAAP8AAAD/Ojo6ADMzMwAsLCwAJSUlABoaGgAaGhoCMjIyIQMDA/wAAAD/AAAA/wAAAP86OjoANTU1ADAwMAAoKCgAHx8fABoaGgEhISEIRUVFa0VFRaU8PDy6PDw8ujo6OgA5OTkAMzMzACwsLAAlJSUAHR0dABkZGQIqKioWLy8vLDExMUAxMTFAOjo6AEJCQgE7OzsBMTExACkpKQAhISEAHBwcAR8fHwcmJiYXKSkpIykpKSM6OjoAT09PA1RUVAQ/Pz8BLy8vACkpKQAmJiYBKCgoBSoqKgsrKysRKysrETo6OgBnZ2cJmpqaJWlpaQo9PT0BNDQ0ADMzMwE0NDQFNjY2Czc3NxM3NzcTOjo6AH9/fxQ+Pj66kZGRX19fXwY9PT0APT09AT09PQVAQEALQUFBFEFBQRQ6OjoAlJSUIAAAAP8EBAT6hISEEkRERAFCQkIBQ0NDBUVFRQtGRkYTRkZGEzo6OgCVlZUgAAAA/wICAvyHh4cVREREAUJCQgFDQ0MFRUVFCUZGRg5GRkYOOjo6AISEhBZCQkK3mpqaVVpaWgU9PT0APDw8AT8/PwVAQEANQEBAE0BAQBM6OjoAaGhoCpWVlSViYmIKPDw8ATMzMwAzMzMBNTU1BTc3Nwo3NzcQNzc3EDo6OgBOTk4DU1NTBDk5OQEsLCwAKCgoACYmJgEoKCgGKSkpDSoqKhYqKioWOjo6AEBAQAE4ODgALS0tACQkJAAeHh4AGhoaARsbGwYcHBwPHR0dHB0dHRw6OjoANzc3ADAwMAAoKCgAHx8fABcXFwAREREBEBAQBxAQEA8QEBAbEBAQGzo6OgAzMzMALCwsACQkJAAbGxsAEhISAA0NDQEKCgoHCgoKDQkJCRQJCQkUOjo6AA==",
+  "threePt|flat": "MTExADExMQAxMTEAMTExADExMQAuLi4AKysrACAgIAAXFxcAERERABEREQAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAICAgABkZGQAUFBQAFBQUADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAfHx8AFxcXABAQEAAQEBAAMTExADExMQAxMTEAMjIyADExMQAvLy8AKysrACAgIAAWFhYADg4OAA4ODgAxMTEAMTExADIyMgBJSUkDOzs7AS8vLwArKysAHx8fABcXFwAQEBAAEBAQADExMQAxMTEANTU1AH9/fxVVVVUGLy8vACsrKwAhISEAGhoaABQUFAAUFBQAMTExADExMQAyMjIAPz8/ATY2NgAuLi4AKysrACwsLAEgICACFhYWARYWFgExMTEAMTExADExMQAxMTEAMTExAC8vLwAuLi4Ab29vIWJiYiJBQUESQUFBEjExMQAxMTEAMTExADExMQAxMTEALy8vADExMQGdnZ1NeHh4Pz09PRM9PT0TMTExADExMQAxMTEAMTExADExMQAvLy8ALS0tAEZGRgg9PT0KIiIiBCIiIgQxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAJCQkAB4eHgEXFxcAFxcXADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAjIyMAHR0dABkZGQAZGRkAMTExADExMQAxMTEAMTExADExMQAuLi4AKysrACMjIwAbGxsAFhYWABYWFgAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAIyMjAB4eHgAZGRkAGRkZADExMQAxMTEAMjIyADExMQAxMTEALy8vACsrKwAiIiIAHBwcABcXFwAXFxcAMTExADIyMgBHR0cCODg4ATExMQAvLy8AKysrACMjIwAbGxsAFhYWABYWFgAxMTEAMzMzAJ+fnyZnZ2cLMTExAC8vLwArKysAIiIiABwcHAAXFxcAFxcXADExMQAzMzMAp6enLGlpaQwyMjIALy8vACsrKwAiIiIAHR0dABoaGgAaGhoAMTExADIyMgBGRkYCNjY2ADExMQAuLi4AKysrACMjIwAaGhoAFxcXABcXFwAxMTEAMTExADIyMgAxMTEAMTExAC8vLwArKysAIiIiABwcHAAYGBgAGBgYADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAhISEAGhoaABUVFQAVFRUAMTExADExMQAxMTEAMTExADExMQAvLy8AKysrACEhIQAZGRkAEhISABISEgAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAICAgABkZGQASEhIAEhISADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAgICAAGhoaABUVFQAVFRUAMTExAA==",
+  "threePt|softEdge": "NjY2ADExMQApKSkAICAgABYWFgAODg4ACgoKAQgICAcJCQkZCQkJKwkJCSs2NjYAMDAwACcnJwAdHR0AExMTAAwMDAAICAgBDAwMCA0NDRIPDw8gDw8PIDY2NgAvLy8AJSUlABsbGwAREREACwsLAAoKCgEQEBAJFBQUFxYWFjAWFhYwNjY2AC8vLwAkJCQAGxsbABAQEAALCwsADQ0NARMTEwgaGhoaHR0dOh0dHTo2NjYALy8vACgoKAA3NzcIGRkZAgwMDAAODg4BGxsbCSQkJBgpKSkzKSkpMzY2NgAuLi4ALCwsAWZmZiYpKSkKDAwMABAQEAElJSUJLy8vFTQ0NCQ0NDQkNjY2AC4uLgAoKCgAMTExBBcXFwEODg4AFBQUAUFBQRtPT089SEhIS0hISEs2NjYAMDAwACcnJwAeHh4AFBQUAA8PDwAbGxsEXV1dlzk5OcBISEimSEhIpjY2NgAxMTEAKSkpACAgIAAXFxcAERERABoaGgURERHtDQ0N8Tc3N7U3Nze1NjY2ADMzMwAsLCwAJCQkABsbGwAUFBQAFhYWAklJST5WVlZwRkZGa0ZGRms2NjYANDQ0ADAwMAAoKCgAHx8fABgYGAAUFBQBJCQkDCoqKhwqKiotKioqLTY2NgA2NjYAMzMzACwsLAAlJSUAHR0dABYWFgEaGhoGHx8fDCEhIRQhISEUNjY2ADg4OAA2NjYAMTExACoqKgAiIiIAHBwcARsbGwUgICAQIyMjGSMjIxk2NjYAOTk5ADk5OQA1NTUALy8vACkpKQAnJycBKSkpBSoqKgsrKysSKysrEjY2NgA7OzsAQUFBADk5OQA2NjYANTU1ADMzMwE2NjYGNzc3DTg4OBc4ODgXNjY2AD8/PwB7e3sMVFRUAz09PQA9PT0APT09AUBAQAVBQUEOQUFBGkFBQRo2NjYARUVFAY2NjWSxsbEmRkZGAUJCQgBCQkIBRkZGBkdHRw1HR0cXR0dHFzY2NgBFRUUBg4ODb7S0tChGRkYBQkJCAEJCQgFFRUUFR0dHCkhISBFISEgRNjY2AD8/PwB4eHgLTU1NAj09PQA9PT0APT09AT8/PwVDQ0MPQkJCGEJCQhg2NjYAOzs7AD8/PwE2NjYANTU1ADQ0NAAzMzMBNTU1Bjc3Nww4ODgUODg4FDY2NgA4ODgANjY2ADExMQAsLCwAKSkpACcnJwEpKSkHKysrDywsLB4sLCweNjY2ADY2NgAzMzMALS0tACQkJAAeHh4AGhoaARwcHAYeHh4THh4eJh4eHiY2NjYANDQ0ADAwMAAoKCgAHx8fABcXFwAREREBEBAQBxERERIQEBAlEBAQJTY2NgAzMzMALCwsACQkJAAbGxsAEhISAA0NDQELCwsHCgoKDwkJCRsJCQkbNjY2AA==",
+  "threePt|powder": "bm5uclpaWlxERERALy8vLCAgICAVFRUcDAwMHggICDEGBgZOBQUFYQUFBWFubm5yWFhYWEJCQj0tLS0rHR0dHxAQEBkJCQkcCgoKOAoKCksJCQleCQkJXm5ubnJXV1dXQEBAQCwsLC4aGhofERERGg0NDSEODg5ADQ0NWAsLC3ELCwtxbm5uclZWVlY/Pz9DLS0tNBsbGyQSEhIfERERKBEREUMQEBBhEBAQgBAQEIBubm5yV1dXV0NDQ0cxMTE5HR0dKRUVFSQUFBQtFhYWUBcXF2wVFRWHFRUVh25ubnJXV1dXQ0NDSTIyMj4fHx8wFhYWKhkZGTYeHh5gICAgdh8fH4gfHx+Ibm5uclhYWFhFRUVJNDQ0PiMjIzIbGxs0Hx8fTSkpKYMoKCiqJSUlvCUlJbxubm5yW1tbW0ZGRkg2NjY7JycnNiEhIT8oKChpMDAwvh8fH90NDQ3wDQ0N8G5ubnJcXFxeSkpKSDg4ODkqKio1IyMjQiQkJGsqKirLDg4O7wMDA/wDAwP8bm5ucmBgYGFNTU1IPDw8NywsLDIkJCQ4ISEhUiIiIoYiIiKsHx8fxx8fH8dubm5yZWVlZ1RUVE9BQUE5MDAwLyQkJC8dHR04GxsbXBkZGXEWFhaEFhYWhG5ubnJra2tvXV1dWUtLS0I3Nzc0KCgoLh0dHTEXFxdJFxcXWBYWFmUWFhZlbm5ucnFxcXlpaWlqV1dXUkJCQj0vLy81IyMjNhoaGkcWFhZeFhYWahYWFmpubm5yb29vhXR0dH9mZmZpT09PTzo6OkIwMDBEJSUlVyEhIWIdHR1sHR0dbG5ubnJlZWWPXV1dmG5uboZhYWFnT09PWD8/P1YwMDBlKSkpciMjI34jIyN+bm5ucl9fX5dHR0exU1NTpG9vb4VgYGBuTExMZTo6Om8vLy9+KSkpiikpKYpubm5yWVlZnTs7O75DQ0O1XFxcmWlpaX1TU1NvPT09eDY2NoEwMDCLMDAwi25ubnJZWVmdPDw8vUJCQrZbW1uaaWlpfVNTU28+Pj54ODg4fzMzM4YzMzOGbm5ucl1dXZhLS0usV1dXn29vb4RdXV1tS0tLZDg4OHAtLS2BKioqiSoqKolubm5yZ2dnjWFhYZVwcHCAX19fZ05OTlg+Pj5WLy8vZysrK3InJyd7Jycne25ubnJzc3OBcXFxfF9fX2JJSUlKOzs7Qi8vL0UjIyNaHh4eaRsbG3cbGxt3bm5ucm9vb3VhYWFjTk5OSzg4ODcrKyswICAgNRgYGEsTExNfEBAQchAQEHJubm5yZ2dna1ZWVlJBQUE6Li4uLCEhISYWFhYpDg4OPwsLC1AKCgpjCgoKY25ubnJgYGBiTExMRjc3NzAmJiYlGhoaIBISEiMLCws2CAgIQwcHB08HBwdPbm5ucg==",
+  "balanced|": "MjIyASoqKgAlJSUAHx8fABoaGgAcHBwBIiIiAyoqKgQoKCgCJiYmASYmJgEyMjIBKSkpACIiIgAbGxsAFhYWABYWFgEbGxsDFxcXBBQUFAITExMCExMTAjIyMgEpKSkAIiIiABsbGwAWFhYAFRUVARgYGAIWFhYCEhISAQ4ODgEODg4BMjIyAS0tLQAnJycAIyMjAB0dHQAaGhoAGxsbARoaGgEWFhYBFBQUARQUFAEyMjIBNDQ0ATIyMgErKysAJycnACIiIgAfHx8AHR0dABsbGwAZGRkAGRkZADIyMgE8PDwCQUFBAjk5OQAzMzMALS0tACcnJwAhISEAICAgAB8fHwAfHx8AMjIyAUdHRwNYWFgFTU1NAj4+PgA4ODgAMjIyACoqKgAlJSUAIyMjACMjIwAyMjIBUFBQBHR0dAtoaGgFTU1NAUBAQAA7OzsAMzMzADAwMAAtLS0ALS0tADIyMgFWVlYFiYmJEX19fQlWVlYBRkZGAEBAQAA3NzcAMzMzADAwMAAwMDAAMjIyAVVVVQWNjY0SgICACldXVwFGRkYAQEBAADk5OQAzMzMALy8vAC8vLwAyMjIBT09PBHZ2dgtqamoGTU1NAUFBQQA7OzsAMzMzAC8vLwAsLCwALCwsADIyMgFGRkYDWVlZBU5OTgJAQEAAODg4ADMzMwAqKioAKCgoACYmJgAmJiYAMjIyAT09PQJCQkICODg4ADIyMgAtLS0AKCgoACEhIQAcHBwAGxsbABsbGwAyMjIBNzc3ATMzMwEtLS0AKCgoACIiIgAcHBwAFhYWABMTEwASEhIAEhISADIyMgE0NDQAMjIyAC8vLwAqKioAJSUlAB4eHgAWFhYAExMTABEREQAREREAMjIyATMzMwAzMzMAMzMzAC4uLgApKSkAIiIiABsbGwAXFxcAFBQUABQUFAAyMjIBMzMzADU1NQA1NTUAMjIyACwsLAAmJiYAHR0dABsbGwAbGxsAGxsbADIyMgEzMzMANTU1ADk5OQA9PT0BNjY2ASoqKgAnJycAKSkpACoqKgAqKioAMjIyATIyMgA2NjYAQ0NDAVRUVAVLS0sENzc3ATU1NQA2NjYANzc3ADc3NwAyMjIBMTExADY2NgBISEgCY2NjC2BgYAtFRUUCPDw8ADw8PAA9PT0APT09ADIyMgEwMDAANDQ0AEJCQgJZWVkJV1dXCURERAI+Pj4AQkJCAEZGRgBGRkYAMjIyAS8vLwAvLy8ANTU1ATw8PAM6OjoDODg4AUFBQQBHR0cAS0tLAEtLSwAyMjIBLS0tACwsLAAqKioAJiYmASYmJgEwMDABQEBAAURERAFHR0cBR0dHATIyMgEsLCwAKCgoACMjIwAeHh4AHx8fASoqKgI4ODgCOjo6Ajs7OwE7OzsBMjIyAQ==",
+  "soft|": "MDAwADMzMwAyMjIAMDAwAC0tLQArKysAKSkpACYmJgAkJCQAIyMjACMjIwAwMDAAMDAwAC4uLgAsLCwAKioqACcnJwAjIyMAICAgAB8fHwAeHh4AHh4eADAwMAAuLi4AKysrACgoKAAlJSUAISEhAB4eHgAaGhoAGRkZABgYGAAYGBgAMDAwACwsLAApKSkAJSUlACEhIQAdHR0AGRkZABYWFgAUFBQAEhISABISEgAwMDAAKysrACcnJwAiIiIAHh4eABkZGQAVFRUAEhISABAQEAAPDw8ADw8PADAwMAAqKioAJSUlACEhIQAbGxsAFxcXABMTEwAPDw8ADg4OAA4ODgAODg4AMDAwACkpKQAkJCQAHh4eABkZGQAVFRUAERERAA4ODgAMDAwADAwMAAwMDAAwMDAAKSkpACMjIwAeHh4AGRkZABQUFAAQEBAADQ0NAAwMDAALCwsACwsLADAwMAApKSkAJCQkAB4eHgAZGRkAFBQUABAQEAANDQ0ADAwMAAsLCwALCwsAMDAwACkpKQAkJCQAHx8fABoaGgAWFhYAEhISAA4ODgAMDAwADAwMAAwMDAAwMDAAKioqACYmJgAhISEAHBwcABgYGAATExMAEBAQAA8PDwAODg4ADg4OADAwMAArKysAJycnACQkJAAfHx8AGhoaABcXFwATExMAEhISABEREQAREREAMDAwACwsLAApKSkAJiYmACIiIgAeHh4AGxsbABcXFwAWFhYAFRUVABUVFQAwMDAALi4uACwsLAApKSkAJiYmACMjIwAgICAAHBwcABsbGwAbGxsAGxsbADAwMAAwMDAALy8vAC0tLQArKysAKCgoACYmJgAiIiIAISEhACAgIAAgICAAMDAwADMzMwA0NDQAMjIyADAwMAAuLi4ALCwsACgoKAAnJycAJiYmACYmJgAwMDAAODg4AT4+PgE6OjoANTU1ADQ0NAAxMTEALy8vAC0tLQArKysAKysrADAwMAA+Pj4BTk5OA0lJSQI+Pj4BODg4ADY2NgAzMzMAMjIyADExMQAxMTEAMDAwAENDQwJeXl4GXV1dBUdHRwE8PDwAOTk5ADg4OAA2NjYANTU1ADU1NQAwMDAARUVFAmtrawlubm4IT09PAj8/PwA7OzsAOjo6ADk5OQA3NzcANzc3ADAwMABEREQCaGhoCGpqagdMTEwCPj4+ADs7OwA4ODgANzc3ADY2NgA2NjYAMDAwAEFBQQJZWVkFVlZWBENDQwE7OzsAODg4ADY2NgA1NTUANDQ0ADQ0NAAwMDAAPDw8AUZGRgJDQ0MBOjo6ADY2NgA1NTUAMjIyADAwMAAvLy8ALy8vADAwMAA3NzcBOTk5ATY2NgAzMzMAMTExAC8vLwAsLCwAKysrACsrKwArKysAMDAwAA==",
+  "harsh|": "ISEhABISEgAHBwcABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAhISEAExMTAAgICAAFBQUABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEACEhIQAVFRUACwsLAAgICAAGBgYABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQAISEhABcXFwAODg4ADQ0NAAsLCwAKCgoACAgIAAcHBwAGBgYABQUFAAUFBQAhISEAGhoaABISEgASEhIAEhISABEREQAREREADw8PAA4ODgAODg4ADg4OACEhIQAeHh4AGBgYABkZGQAbGxsAHBwcABwcHAAcHBwAGxsbABsbGwAbGxsAISEhACMjIwAiIiIAIiIiACYmJgApKSkAKSkpACkpKQApKSkAKSkpACkpKQAhISEAJycnADAwMAE8PDwCPDw8Ajg4OAE1NTUANzc3ADc3NwA3NzcANzc3ACEhIQAsLCwAQEBAAWVlZQZubm4GWlpaAkZGRgBAQEAAQEBAAEBAQABAQEAAISEhAC8vLwBPT08Bh4eHCZycnAqGhoYEZWVlAF9fXwBbW1sAWFhYAFhYWAAhISEAMzMzAFJSUgGMjIwGpaWlBpWVlQJ/f38AfHx8AHp6egB3d3cAd3d3ACEhIQA0NDQAU1NTAXt7ewKRkZECkpKSAY2NjQCQkJAAjo6OAIyMjACMjIwAISEhADU1NQBSUlIBd3d3AYqKigGPj48AkpKSAJOTkwCRkZEAj4+PAI+PjwAhISEANDQ0AFNTUwGCgoIDmZmZA5OTkwGKiooAiIiIAIeHhwCFhYUAhYWFACEhIQAxMTEAUVFRAY+PjwimpqYIkZGRA3Z2dgBxcXEAb29vAG1tbQBtbW0AISEhAC4uLgBLS0sBfX19CIyMjAl1dXUDWFhYAFFRUQBPT08ATU1NAE1NTQAhISEAKioqADk5OQFVVVUEV1dXBEhISAE9PT0APT09AD09PQA8PDwAPDw8ACEhIQAlJSUAKioqADAwMAExMTEBMjIyADExMQAxMTEAMTExADExMQAxMTEAISEhACAgIAAdHR0AHx8fACEhIQAjIyMAJSUlACQkJAAjIyMAIyMjACMjIwAhISEAHBwcABYWFgAWFhYAGBgYABgYGAAYGBgAFhYWABYWFgAVFRUAFRUVACEhIQAZGRkAERERABAQEAAPDw8ADg4OAA0NDQAMDAwACwsLAAoKCgAKCgoAISEhABYWFgANDQ0ACwsLAAkJCQAHBwcABgYGAAUFBQAEBAQABAQEAAQEBAAhISEAFBQUAAoKCgAHBwcABQUFAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEACEhIQASEhIACAgIAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQAISEhAA==",
+  "glow|": "MTExAD8/PwBPT08AcnJyAa2trQbBwcEGqKioApmZmQCbm5sAnJycAJycnAAxMTEAPT09AE5OTgBqamoBlZWVA6urqwSenp4BlJSUAJWVlQCXl5cAl5eXADExMQA8PDwASUlJAFtbWwB0dHQBg4ODAYSEhACHh4cAiIiIAIqKigCKiooAMTExADo6OgBFRUUAT09PAFtbWwBlZWUAa2trAHFxcQBzc3MAdXV1AHV1dQAxMTEANzc3AD4+PgBFRUUATExMAFJSUgBYWFgAXFxcAF1dXQBeXl4AXl5eADExMQA0NDQANzc3ADo6OgA+Pj4AQUFBAERERABGRkYARkZGAEZGRgBGRkYAMTExADExMQAxMTEAMjIyADIyMgAyMjIAMjIyADIyMgAyMjIAMjIyADIyMgAxMTEANjY2ADs7OwA/Pz8AREREAElJSQBMTEwAT09PAFBQUABQUFAAUFBQADExMQA6OjoAREREAE9PTwBbW1sAZGRkAGxsbABzc3MAdnZ2AHd3dwB3d3cAMTExAD4+PgBPT08AX19fAHR0dACEhIQAj4+PAJeXlwCcnJwAnp6eAJ6engAxMTEAQUFBAFVVVQBycnIAmpqaAbW1tQK4uLgBuLi4ALy8vAC/v78Av7+/ADExMQBDQ0MAXFxcAIWFhQHPz88G4eHhCOTk5ALS0tIA1NTUANbW1gDW1tYAMTExAERERABeXl4AkJCQAt7e3gvc3NwN5OTkBN7e3gDd3d0A39/fAN/f3wAxMTEAQ0NDAFxcXACFhYUBz8/PBuHh4Qjk5OQC09PTANTU1ADW1tYA1tbWADExMQBBQUEAVVVVAHFxcQCampoCtra2Arm5uQG6uroAvb29AL+/vwC/v78AMTExAD4+PgBPT08AYGBgAHNzcwCDg4MAjo6OAJaWlgCcnJwAnp6eAJ6engAxMTEAOjo6AEVFRQBQUFAAWlpaAGRkZABsbGwAc3NzAHV1dQB3d3cAd3d3ADExMQA1NTUAOzs7AEBAQABEREQASUlJAE1NTQBOTk4AT09PAFBQUABQUFAAMTExADExMQAxMTEAMjIyADIyMgAyMjIAMjIyADIyMgAyMjIAMjIyADIyMgAxMTEANDQ0ADc3NwA7OzsAPj4+AEFBQQBDQ0MARUVFAEZGRgBGRkYARkZGADExMQA3NzcAPj4+AEZGRgBMTEwAU1NTAFhYWABcXFwAXFxcAF1dXQBdXV0AMTExADo6OgBFRUUAT09PAFxcXABmZmYAbGxsAHJycgB1dXUAdnZ2AHZ2dgAxMTEAPDw8AElJSQBbW1sAdHR0AYODgwGEhIQAhYWFAIeHhwCIiIgAiIiIADExMQA9PT0AT09PAGlpaQGVlZUDqqqqBJ6engGUlJQAlJSUAJWVlQCVlZUAMTExAA==",
+  "twoPt|": "NDQ0ACsrKwAjIyMAGxsbABMTEwAMDAwABwcHAAYGBgAGBgYABgYGAAYGBgA0NDQALCwsACUlJQAdHR0AFhYWAA4ODgAJCQkABQUFAAQEBAAEBAQABAQEADQ0NAAuLi4AJycnACAgIAAYGBgAERERAAwMDAAHBwcABgYGAAUFBQAFBQUANDQ0ADExMQApKSkAIyMjAB0dHQAYGBgAEhISAA0NDQALCwsACQkJAAkJCQA0NDQANTU1ATAwMAAoKCgAJCQkACAgIAAbGxsAFBQUABISEgAQEBAAEBAQADQ0NAA7OzsBOzs7ATExMQAsLCwAKCgoACQkJAAeHh4AGxsbABoaGgAaGhoANDQ0AERERAJLS0sDQEBAATU1NQAwMDAALS0tACYmJgAjIyMAISEhACEhIQA0NDQAS0tLA15eXgdUVFQEPz8/ATc3NwAzMzMALS0tACoqKgAoKCgAKCgoADQ0NABQUFAEbm5uC2NjYwZHR0cBOzs7ADc3NwAwMDAALS0tACsrKwArKysANDQ0AFFRUQRxcXELZGRkB0dHRwE7OzsANzc3ADExMQAtLS0AKysrACsrKwA0NDQATU1NA2RkZAdUVFQEPz8/ATY2NgAzMzMALS0tACoqKgAoKCgAKCgoADQ0NABHR0cCUlJSA0VFRQE3NzcAMDAwAC0tLQAnJycAJSUlACMjIwAjIyMANDQ0AD8/PwFBQUEBOTk5ADExMQApKSkAJCQkAB4eHgAbGxsAGhoaABoaGgA0NDQAOTk5ATg4OAAyMjIALCwsACcnJwAgICAAGRkZABcXFwAVFRUAFRUVADQ0NAA1NTUAMjIyAC4uLgAoKCgAIiIiABwcHAAVFRUAEhISABAQEAAQEBAANDQ0ADIyMgAuLi4AKSkpACMjIwAdHR0AFxcXABAQEAANDQ0ADAwMAAwMDAA0NDQAMDAwACwsLAAnJycAICAgABgYGAASEhIADAwMAAoKCgAKCgoACgoKADQ0NAAuLi4AKioqACcnJwEeHh4AFRUVAA4ODgAMDAwADAwMAAwMDAAMDAwANDQ0AC0tLQArKysAKSkpAR4eHgETExMADQ0NAA0NDQANDQ0ADQ0NAA0NDQA0NDQAKysrACkpKQEoKCgCHh4eARISEgEODg4ADg4OAA4ODgAODg4ADg4OADQ0NAArKysAJiYmACMjIwEZGRkBEBAQAA0NDQANDQ0ADQ0NAA0NDQANDQ0ANDQ0ACoqKgAjIyMAHx8fARQUFAAODg4ADAwMAAwMDAAMDAwADAwMAAwMDAA0NDQAKioqACIiIgAaGhoAERERAAwMDAAKCgoACgoKAAoKCgAKCgoACgoKADQ0NAAqKioAIiIiABoaGgASEhIADAwMAAgICAAICAgACAgIAAgICAAICAgANDQ0AA==",
+  "freezing|": "FRslAAwQFgAMERUAEBkfASE4SgcwVHQPME9tCCY8UQElOU4AJjpQACY6UAAVGyUADhIYAA0RFwAPFhwAFSIsAhwwPwQfMUIDHS49AB4uPgAeLz8AHi8/ABYbJQAQFBwADhMZAA8UGwAQFyAAERojAREaIwESHCYAFB8pABUhKwAVISsAFhslABIXIQAQFB0AEhYgABEWIQAQFSAADxQeAA8VHgAPFh8ADxYfAA8WHwAWGyYAFhsmABUZJgAUGCMAFRgmABQXJgATFiMAExckABMXJAATFyMAExcjABYbJgAZHy0AHSIzAB4jNQAdIDUAGx0xABcYKwAUFSQAFBUlABQVJQAUFSUAFhsmAB0jNAAkK0AAKzFMAC0zUgAsMlMAKi5OACYoRwAjJUIAIyRBACMkQQAWGyYAHyY4ACszTwA5Q2gAQk17AURNfgBBRngAOz9uADk8agA2OmcANjpnABYbJgAhKTwAMjpbAExajQFhb7MCYm62AlZgogBPVpMATFKNAElOhwBJTocAFhsmACMqPQA3QmUAWGiiAneL3QV4it4DZHK6AVtlqgBXYaMAVF2dAFRdnQAWGyYAIyo+ADdBYgBWZp4CcobSA3OH1AJlcrwAXGirAFpkpwBXYaIAV2GiABYbJgAiKjwAMz5bAEdWgQFZaaIBXW2rAVdnogBSYJkAUV2VAE9bkgBPW5IAFhsmACAoOQAsNk8AOUVnAEJQdwBEVH0ARFJ8AEJMdgA+SHAAPEZtADxGbQAWGyYAHSUzACYvQwAsN04AMDtWADE8WAAwOlUAKzRNACkySgAoMEYAKDBGABYbJgAaIS4AHiY1ACApOQAhKTgAHyc1ABsjMAAXHSgAFRskABMZIQATGSEAFhsmABcdKAAXHigAFhwmABMZIAAQFRsADBEVAAkMDgAHCgsABggKAAYICgAWGyYAExkhABAWHQANEhYACg0QAAcKCgAFBwcABAYGAAMFBQADBAQAAwQEABUbJQARFR0ACw8TAAgMDQAGCQkABQcHAAQGBgADBQUAAwQEAAMEBAADBAQAFRslAA4SGAAJDA4ABggJAAUHBwAFBwcABQcIAAUHCAAFBwgABQcIAAUHCAAVGyUADRAVAAcKCwAGCQoACAwNAAkOEAALEBMACxEUAAsRFQALERUACxEVABYbJQAMDxMACAsNAAkNDwAMExYAEBgdABIcIgATHiYAEx4mABMeJgATHiYAFRslAAsOEgAJDQ8ACxIUABMeJAEaKjUBHi89ARwsOAAcKzgAGyo4ABsqOAAVGyUACw8TAAoOEgAOFhsAHjE+BCxKYwguS2YFIzhLASE1RwAiNUgAIjVIABUbJQAMDxQACxAUAA8ZHgEkPFEIOGKKEzdfggsoP1UBJzxRACc7UQAnO1EAFhsmAA==",
+  "contrasting|": "MTExADExMQAzMzMARkZGAmlpaQxpaWkLSUlJAzU1NQAxMTEAMTExADExMQAxMTEAMTExADMzMwBAQEABWVlZBltbWwdCQkICNDQ0ADIyMgAxMTEAMTExADExMQAxMTEAMjIyADY2NgBBQUECQkJCAjg4OAEyMjIAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgA3NzcAQEBAAUJCQgI5OTkBMjIyADIyMgAxMTEAMTExADExMQAxMTEAMjIyAD4+PgFYWFgGXV1dCEdHRwI0NDQAMjIyADExMQAxMTEAMTExADExMQAzMzMAQkJCAmdnZwtsbGwNTk5OBDY2NgAyMjIAMTExADExMQAxMTEAMTExADMzMwA+Pj4BV1dXBl5eXghGRkYCNDQ0ADIyMgAxMTEAMTExADExMQAxMTEAMjIyADY2NgBAQEACQkJCAjk5OQEyMjIAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgA3NzcBQEBAAkJCQgI5OTkBMjIyADIyMgAxMTEAMTExADExMQAxMTEAMjIyAD8/PwFZWVkGXFxcB0NDQwIzMzMAMjIyADExMQAxMTEAMTExAA==",
+  "flood|": "JCQkAA8PDwAICAgABgYGAAYGBgAFBQUABQUFAAQEBAADAwMAAwMDAAMDAwAjIyMAEBAQAAgICAAEBAQABAQEAAMDAwACAgIAAgICAAEBAQABAQEAAQEBACQkJAAREREACgoKAAUFBQACAgIAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAJCQkABMTEwAMDAwACAgIAAQEBAADAwMAAgICAAEBAQABAQEAAQEBAAEBAQAkJCQAFhYWAA8PDwALCwsACgoKAAkJCQAICAgABgYGAAUFBQAFBQUABQUFACQkJAAbGxsAExMTABEREQASEhIAExMTABMTEwAREREAERERABAQEAAQEBAAJCQkACEhIQAdHR0AHBwcAB4eHgAgICAAIiIiACEhIQAhISEAICAgACAgIAAkJCQAKCgoAC4uLgA5OTkBQEBAAUBAQAA+Pj4APDw8ADs7OwA5OTkAOTk5ACQkJAAvLy8ARUVFAW5ubgWGhoYFgYGBAnd3dwB3d3cAdnZ2AHR0dAB0dHQAJCQkADY2NgBgYGACra2tC9zc3A3W1tYFtbW1ALW1tQC3t7cAtra2ALa2tgAkJCQAPDw8AHBwcALZ2dkO2dnZEOLi4gbn5+cB6OjoAOjo6ADo6OgA6OjoACQkJABBQUEAeXl5Ad7e3gnb29sO4uLiBufn5wHo6OgA6OjoAOjo6ADo6OgAJCQkAEJCQgB4eHgB39/fCNnZ2RDg4OAI5+fnAejo6ADo6OgA6OjoAOjo6AAkJCQAQEBAAHNzcwHZ2dkG2NjYEd3d3Qvm5uYC6OjoAOjo6ADo6OgA6OjoACQkJAA9PT0AZmZmALKysgPg4OAJ4uLiBubm5gHU1NQA0dHRAM7OzgDOzs4AJCQkADk5OQBYWFgAgYGBAaampgKtra0Bo6OjAJubmwCXl5cAlJSUAJSUlAAkJCQAMzMzAEhISABgYGABaWlpAWpqagBmZmYAXl5eAF5eXgBdXV0AXV1dACQkJAAsLCwAOzs7AUtLSwJKSkoBRkZGAEdHRwBISEgASEhIAEdHRwBHR0cAJCQkACUlJQAuLi4BOzs7BD09PQM0NDQBLy8vAC4uLgAsLCwALCwsACwsLAAkJCQAHx8fACAgIAEsLCwFKysrAyEhIQEaGhoAGBgYABcXFwAXFxcAFxcXACQkJAAZGRkAFBQUARgYGAIYGBgCFRUVABQUFAAUFBQAExMTABMTEwATExMAJCQkABUVFQANDQ0AEBAQAREREQAQEBAAEBAQABAQEAAPDw8ADw8PAA8PDwAkJCQAERERAAoKCgALCwsADAwMAAwMDAAMDAwADAwMAAsLCwALCwsACwsLACQkJAAPDw8ACQkJAAkJCQAJCQkACAgIAAgICAAICAgABwcHAAcHBwAHBwcAJCQkAA==",
+  "chilly|": "MTE2ACEhJAAXFxkAEBESAA4PEAAOEBAADQ4QAAoMDQAJCwwACQoLAAkKCwAxMTYAJCQoABoZHAATExUADQ0OAAkKCgAICQkABgcIAAYHBwAGBwcABgcHADExNgApKS4AHx8jABcXGQAQEBEACgoLAAYGBgADBAQAAwMEAAMEBAADBAQAMTE2AC4uMwAnJiwAICAkABcXGgAQEBMACgoLAAYGBwAEBAUABAQEAAQEBAAxMTYAMzM5ADIyOQAuLTUAJyctACAfJAAYGBwAERETAA8PEgAODhAADg4QADExNwA5OEAAPT1GAD8/SQA8PEYANjY/AC4uNwAlJS0AJCQrACMjKQAjIykAMTE3AD4+RgBISFMAUU9dAFRUYQBQUF8ASkpZAEFBTgA9PUkAPDxIADw8SAAxMTcAQkJLAFRTYABkZHUAbG1/AG1tgABmZXkAW1tuAFdXaQBWVWcAVlVnADExNgBFRE0AW1tqAHd4iwGKi6MBiomlAX9+lwBwcIcAa2uBAGhofgBoaH4AMTE2AEdHTwBjYnEAg4OWAZ6dtwKenrsBjIypAIB+mAB4eJAAcnKKAHJyigAxMTYAR0ZPAF9fbgCBgZQBmJmxAZiYswGKi6UAfX2VAHd3jwBycokAcnKJADExNwBFQ00AWlpnAHBwgQCAgJUBg4OZAHp6kABvb4UAa2uBAGdnfQBnZ30AMTE3AEFBSgBRUVsAXl5uAGZmdgBmZnYAYWFxAFlZaABRUV8ATk5cAE5OXAAxMTcAPT1FAEdHUABOTlgAUFBbAExMWABGRlEAPT1GADk5QgA2Nj4ANjY+ADExNgA3Nz4AOztDAD08RAA6OUAANDM5ACwrMQAiIiYAHx8iABwcHgAcHB4AMTE2ADMxOAAwMDUALSwxACYmKQAfHyEAFxcYABAQEQAMDAwACgoKAAoKCgAxMTYALS0yACcnKgAfHyEAFhYYAA8PEAAKCwsACQkJAAgICAAICAgACAgIADExNgApKCwAHh4gABYWFwASEhIADw8QAA8PDwANDQ4ADA0NAAwMDQAMDA0AMTE2ACQkJwAZGhsAExMUABITEwATFBUAExQVABESEwAQERIAEBERABAREQAxMTYAISElABcXGQATExQAFRYWABcYGQAWGBoAFBYXABMVFgATFBYAExQWADExNgAgHyMAFhYXABQUFQAZGxwBHSAiARwfIAEWGRsAFBcZABQWGAAUFhgAMTE2AB8fIQAVFhYAFBUWABwfIQEiJyoDHyMmAhcaHAAUFxkAExYXABMWFwAxMTYAHx8iABYWFwATFBQAGx0gAiAkJwMcICQCFBYYABIUFgARExUAERMVADExNgAgHyIAFhYYABAREQAUFhcBFxocARUYGQEQERMADhASAA4PEQAODxEAMTE2AA==",
+  "morning|": "JSMcABUUEAAREAwAEhAMACMdFAQyKhwHLSUaBCIcFAEhHBQAIRwUACEcFAAlIxwAGBYSABMRDgASEQ0AFxMOARwYEAIcGBECGRYQABoWEAAbFhAAGxYQACUjHAAcGhUAFxURABQSDwATEQ4AEhAMABANCgAQDgoAEQ8LABIQDAASEAwAJSMcACAfGQAcGhYAGxkVABgWEgAVEw8AEg8NABAOCwAQDgsADw0KAA8NCgAmIxwAJiQeACYjHAAjIRwAIh8bACAdGQAcGRYAGhgUABoXFAAZFhMAGRYTACYjHAAtKiIAMy8nADUyKgA1MSkAMSwnACsmIgAkIR4AJCEdACQhHQAkIR0AJiMcADIwJwBAPTIATEg8AFJNQQBTTEIATkg/AEdBOgBCPDYAQTs1AEE7NQAmIxwAODUrAE9JPABpYlEBe3JhAYB1ZAF5bmAAbmZYAGphVQBnXlMAZ15TACYjHAA8OC4AW1RGAI2BbQKzposDtqeOAqKVfwCUiHUAj4NyAIh+bgCIfm4AJiMcAD05MABlXk0Aopd9A97Mqwbgz60EvK2VAaudhgCkl4EAnpJ9AJ6SfQAmIxwAPTowAGFbSwCeknoC1cOkBNTGpgO7rZEBrJ+HAKeagwCilYAAopWAACYjHAA8OC4AW1RHAIF4ZAGimH0BrKCGAaKXfwCZj3cAlYl0AJKGcgCShnIAJiMcADk2KwBPSjwAZmFOAHduXAB9dGEAfHNgAHZuXABwaFcAbWVVAG1lVQAmIxwAMzAnAEM/MwBOSjwAVlFCAFhTRABVUEEATUk8AEpGOQBGQjcARkI3ACYjHAAuKyIANTEoADk1LAA4NSsANTMoADAtJAAoJR4AJCIbACEfGQAhHxkAJiMcACglHgAoJR4AJiMcACAfGAAbGhQAFRQPAA4OCgALCwgACgkHAAoJBwAmIxwAISAZABwbFQAWFRAAEA8LAAoKBwAHBwUABgYEAAUFBAAEBAMABAQDACUjHAAdGxYAExIOAA0NCQAJCQcABwcFAAYGBAAFBAMABAQDAAQEAwAEBAMAJSMcABgXEgAODgsACQgGAAcHBQAHBgUABwYFAAYGBAAGBQQABgUEAAYFBAAlIxwAFRQQAAsLCAAICAYACgkHAAsLCAAMDAgADAsIAAwLCAAMCggADAoIACUjHAATEg8ACwsIAAsKBwAODQoAERALABMRDQATEAwAEhAMABIQDAASEAwAJSMcABIRDgANDAkADQwJABUSDQEbGBEBHRkSARoXEQAZFRAAGBUPABgVDwAlIxwAExIOAA4NCgAQDwsAHxsTAi0nGwQsJhsDIBsUAB4ZEwAeGRMAHhkTACUiHAATEg8ADw4LABEPCwAnIRcEOzIhCTYtHwUjHhYBIR0VACEdFQAhHRUAJiMcAA==",
+  "sunrise|": "Ix0VABQRDAAWEwwAHBcOACYeEgA1KBcAQTEbAFM+IQBeRiUAYkknAGJJJwAjHRUAFhMOABcTDQAcFw4AIhoPACkgEgA0JxUARTMcAEs3HgBPOh8ATzofACMdFQAaFhAAGBUOABwXDwAfGQ8AIhoPACUbDwAvIhMAMyUVADcoFgA3KBYAIx4WAB4aEgAbFxAAHxkRACEaEQAhGhAAIRkPACMaDwAkGxAAJBsQACQbEAAjHhYAIx4WACIdFQAgGxQAIx0UACMcFAAjGxIAJBsTACUcEwAlHBMAJRwTACMeFgApIxkALicbADAoHgAwJxwALCQaACYeFwAhGhQAIRsUACEbFAAhGxQAIx4WAC8oHAA7MiMARjopAEw+LABLPSwARzgpAD8yJQA6LiIAOS0iADktIgAjHhYAMywfAEk9KgBgTzcBcFxBAXNdQgFrVz4AZE85AF9MNwBcSTUAXEk1ACMeFgA3LyEAU0YxAIFsSwKmiV4DpohfApJ3VACFa00AgGVKAHthRwB7YUcAIx4WADgwIgBcTTYAlX1VA8qqcwXMqXUEqopjAZp9WQCTeFUAjnNSAI5zUgAjHhYAOTEiAFlNNQCSelUCw6NwBMWibwKqjGIAnIBbAJd7VwCTd1UAk3dVACMeFgA3MCEAVEcyAHhlRwGVfVYBnoRbAZV8VwCMclIAiW9PAIZtTQCGbU0AIx4WADQtIABJPisAX1A3AG9dQQB1YkQAcmBDAG1bQABmVTwAZFM6AGRTOgAjHhYAMCodAD81JQBJPysAUEQvAFJGMQBQQzAARz0rAEU6KQBCOCcAQjgnACMeFgAqJRoAMSseADUvIAA1LiAAMisfAC0nGwAlIRYAIh4VAB8bEwAfGxMAIx4WACUhFgAlIRcAIx8WAB8bEwAaFxAAFBIMAA4MCQALCgcACQkGAAkJBgAjHhYAIBwTABoYEAAVEw0ADw4JAAoKBgAHBwUABgYEAAUFAwAEBAMABAQDACMdFQAaGBEAEhELAA0MCAAJCQYABwcFAAYGBAAFBQMABAQDAAQEAwAEBAMAIx0VABcUDgAODQkACAgGAAcHBQAHBwUACAgFAAgIBQAICAUACAgFAAgIBQAjHRUAExIMAAsKBwAKCQYADg0IABIQCgAWEgsAGBMMABgUDAAYFAwAGBQMACMdFgASEAsADAsIABAOCQAYFQwAIBsPACgfEgAtIxMALiQUAC8kFAAvJBQAIx0VABEPCwAPDgkAFRMLACEcEAAtJBUAOCwZAEExGwBEMxwARjQcAEY0HAAjHRUAEhALABIQCgAaFg0AKSATADcrGQBFNR0AUDsgAFQ+IgBZQiMAWUIjACIdFQATEAsAFRILABsWDQAqIRMAOiwZAEg2HgBXQSIAXkYlAGNJJwBjSScAIx4WAA==",
+  "sunset|": "JBYNABUPCQAQDgcADgwGAA4MBQAPDQUAEA0FABAOBQARDgUAEg8FABIPBQAkFg0AGBEKABEOCAAQDQcADQwFAAwKBAAMCgQADAoEAAwKBAAMCgQADAoEACQXDQAcEwsAFQ8JABEOCAAPDAYADAoFAAkIAwAHBgIABwYCAAcGAgAHBgIAJBcNACEVDQAdEwsAGRAJABUOCAARCwYADAkFAAgGAwAGBQIABQQCAAUEAgAkFw0AJxgOACkXDgAnFg4AIxMMAB0PCgAXCwcAEAgFAA0GBAAMBQMADAUDACQXDQAtGhAANR0SADseEwA8HBIAORkQADQWDgArEQsAJw8KACUNCQAlDQkAJBcNADMdEQBDIhUAUSYYAFsnGQBcJRgAWSIWAFEcEwBKGREARhcQAEYXEAAkFw0AOB4SAFAmFwBsLRwAgDEgAIYxIAB+Lh4AdykbAHMmGQBvJBgAbyQYACQXDQA6IBMAWyoaAIw2IQC2PCcBuD0nAKM4JQCVMiEAjy8gAIstHgCLLR4AJBcNADsgFABiLBsAnzkkANtELAHbRS0BtT8oAKY4JQCgNCIAmjEhAJoxIQAkFw0AOyAUAF4rGgCZOCMAzUEqAcpCKgCuPCcAnzYkAJozIgCVMSEAlTEhACQXDQA4HxMAVCkZAHkyHwCVOCMAmzgkAJE0IgCGLx8Agy0eAIAsHQCALB0AJBcNADUeEQBIJRYAXCoaAGktHABtLBwAaioaAGMlFwBcIRUAWiAUAFogFAAkFw0AMBwQADwgEwBFIhUASCMVAEggFABEHRIAPRgPADoXDgA3FQ0ANxUNACQXDQAqGQ8ALhsQADAbEAAtGA8AKRUNACQRCwAcDQgAGQsHABYKBgAWCgYAJBcNACQXDQAiFg0AHxMLABkQCQATDAcADQgFAAgFAwAGBAIABAMCAAQDAgAkFw0AHxQMABgRCgARDQcACwkFAAYGAwADAwIAAgIBAAICAQABAQEAAQEBACQXDQAaEgsAEA0IAAoJBQAGBgMABAQCAAQEAgADAwIAAwIBAAICAQACAgEAJBcNABYQCQAMCwYACAgEAAgHBAAIBwMABwcDAAcGAwAGBQIABgUCAAYFAgAkFw0AFA8JAAwLBgAJCQQACwoEAAsKBAAMCgQACwkEAAoJAwAKCQMACgkDACQXDQASDggADAsGAAwKBQAODAUADw0FABANBQAPDQUADwwEAA8MBAAPDAQAJBcNABIOCAANCwYADQwFABAOBgARDwYAExAGABMPBQATDwUAFBAGABQQBgAkFw0AEg8IAA4MBgAODAUAEA4GABMQBgAUEQYAFREGABYSBgAXEwYAFxMGACQWDQATDwkADw0HAA0MBQAQDgYAEg8GABMQBgAUEAUAFBEGABURBgAVEQYAJBcNAA==",
+  "threePt|dkEdge": "NjY2ADExMQApKSkAHx8fABMTEwAKCgoABAQEAAEBAQABAQEAAQEBAAEBAQA2NjYAMDAwACYmJgAcHBwAERERAAgICAADAwMAAgICAAEBAQABAQEAAQEBADY2NgAvLy8AJSUlABoaGgAPDw8ACAgIAAQEBAADAwMAAgICAAEBAQABAQEANjY2AC8vLwAkJCQAGhoaAA4ODgAICAgABgYGAAMDAwACAgIAAgICAAICAgA2NjYALy8vACgoKAA2NjYIFhYWAggICAAGBgYABQUFAAQEBAADAwMAAwMDADY2NgAuLi4ALCwsAWNjYyYlJSUKCAgIAAcHBwAICAgABwcHAQYGBgEGBgYBNjY2AC4uLgAnJycALy8vBBQUFAEJCQkACQkJABYWFgcTExMHDAwMBAwMDAQ2NjYAMDAwACYmJgAdHR0AERERAAsLCwANDQ0BSEhIVUBAQFQqKiouKioqLjY2NgAxMTEAKSkpAB8fHwATExMADAwMAA4ODgJVVVWbQUFBfiMjIy0jIyMtNjY2ADMzMwAsLCwAIyMjABcXFwAODg4ACwsLASAgIBweHh4hEBAQDhAQEA42NjYANDQ0ADAwMAAnJycAGxsbABEREQAKCgoACQkJAQgICAIGBgYCBgYGAjY2NgA2NjYAMjIyACsrKwAhISEAFRUVAAsLCwAGBgYABQUFAAQEBAAEBAQANjY2ADg4OAA2NjYALy8vACUlJQAYGBgADg4OAAcHBwAEBAQABAQEAAQEBAA2NjYAOTk5ADg4OAAzMzMAKSkpAB0dHQAUFBQACgoKAAcHBwAGBgYABgYGADY2NgA7OzsAQEBAADc3NwAvLy8AJiYmABsbGwAODg4ACQkJAAcHBwAHBwcANjY2AD8/PwB7e3sMUVFRAzU1NQAtLS0AISEhABISEgALCwsACAgIAAgICAA2NjYARUVFAY2NjWSurq4mPT09AS8vLwAjIyMAExMTAA0NDQAJCQkACQkJADY2NgBFRUUBg4ODb7GxsSg+Pj4BLy8vACMjIwATExMADg4OAAsLCwALCwsANjY2AD8/PwB2dnYLS0tLAjU1NQArKysAHx8fABEREQAKCgoACAgIAAgICAA2NjYAOzs7AD4+PgE0NDQALi4uACUlJQAaGhoADQ0NAAoKCgAICAgACAgIADY2NgA4ODgANTU1ADAwMAAmJiYAHR0dABMTEwAJCQkABgYGAAQEBAAEBAQANjY2ADY2NgAyMjIALCwsAB8fHwAVFRUADAwMAAYGBgADAwMAAgICAAICAgA2NjYANDQ0AC8vLwAnJycAGxsbABAQEAAICAgAAwMDAAEBAQABAQEAAQEBADY2NgAzMzMALCwsACMjIwAXFxcADQ0NAAYGBgACAgIAAQEBAAEBAQABAQEANjY2AA==",
+  "threePt|softmetal": "QkJCATQ0NAApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgBCQkIBMzMzACgoKAAeHh4AExMTAAoKCgAFBQUABQUFAAQEBAAFBQUABQUFAEJCQgEyMjIALS0tACMjIwETExMACgoKAAcHBwAICAgACAgIAAoKCgEKCgoBQkJCATMzMwA3NzcBNTU1AxoaGgENDQ0ACgoKAA0NDQEREREBFRUVARUVFQFCQkIBNDQ0AEVFRQNUVFQIKSkpBBEREQEODg4AICAgAisrKwMxMTEEMTExBEJCQgE2NjYATk5OA2dnZws1NTUGFxcXAhoaGgJLS0sIWlpaCl5eXgpeXl4KQkJCATU1NQBEREQCU1NTBykpKQMaGhoCNTU1BpSUlBakpKQXmJiYEpiYmBJCQkIBNTU1ADk5OQE2NjYCISEhARwcHAJNTU0LwsLCKcPDwynDw8Mhw8PDIUJCQgE1NTUAMDAwACcnJwAaGhoAHR0dAkxMTA28vLwwv7+/LLm5uSC5ubkgQkJCATY2NgAuLi4AJSUlABsbGwAcHBwBPT09CI+PjyCcnJwhjIyMGYyMjBlCQkIBOjo6ADAwMAAoKCgAHx8fABsbGwAmJiYDV1dXDl5eXhBYWFgPWFhYD0JCQgFBQUEANjY2ACwsLAAkJCQAHBwcABkZGQEqKioEMTExBTQ0NAY0NDQGQkJCAU5OTgFFRUUBNDQ0ACkpKQAfHx8AGRkZABkZGQEeHh4CICAgAiAgIAJCQkIBX19fAmZmZgNISEgBMjIyACcnJwAiIiIAHh4eAB4eHgAeHh4BHh4eAUJCQgF5eXkFsLCwDHt7ewVGRkYBMzMzAC4uLgAnJycAJSUlACQkJAAkJCQAQkJCAZGRkQfKysoh1NTUFWpqagM/Pz8ANzc3ADAwMAAtLS0AKysrACsrKwBCQkIBo6OjCra2tjbCwsIpiYmJBkhISAA8PDwANTU1ADIyMgAvLy8ALy8vAEJCQgGlpaULtbW1OMLCwimRkZEGSEhIADw8PAA2NjYAMjIyADAwMAAwMDAAQkJCAZaWlgnLy8sg0tLSE2RkZAI+Pj4ANzc3ADAwMAAqKioAKSkpACkpKQBCQkIBe3t7Baurqwx1dXUFQ0NDATIyMgAuLi4AJiYmACMjIwAhISEAISEhAEJCQgFfX18CY2NjA0JCQgEvLy8AJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAQkJCAUxMTAFAQEABMDAwACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwBCQkIBPz8/ATMzMwAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEAEJCQgE3NzcALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAQkJCAQ==",
+  "brightRoom|": "MTExADw8PABJSUkAWlpaAG1tbQCFhYUAm5ubALOzswDDw8MAysrKAMrKygAxMTEAOzs7AEhISABWVlYAa2trAIGBgQCYmJgAsbGxALu7uwDCwsIAwsLCADExMQA7OzsARkZGAFRUVABmZmYAenp6AI6OjgCoqKgAs7OzALy8vAC8vLwAMTExADo6OgBGRkYAUVFRAF5eXgBubm4AgYGBAJaWlgCioqIAq6urAKurqwAxMTEAOjo6AEpKSgFVVVUBWlpaAGJiYgBwcHAAhISEAIyMjACTk5MAk5OTADExMQA6OjoBVVVVA2dnZwVdXV0CWFhYAGBgYABtbW0Ac3NzAHh4eAB4eHgAMTExADo6OgFbW1sGenp6DWJiYgRPT08BUFBQAFtbWwBiYmIAZmZmAGZmZgAxMTEAQEBAAXBwcAifn58Si4uLB3FxcQFycnIAg4ODAIqKigCPj48Aj4+PADExMQBDQ0MBc3NzBaKiogqYmJgEjo6OAZmZmQCysrIAvLy8AMXFxQDFxcUAMTExAERERABubm4Cj4+PA5iYmAGmpqYAwMDAAODg4ADo6OgA6OjoAOjo6AAxMTEARUVFAGRkZAGCgoIBnp6eALy8vADg4OAA6OjoAOjo6ADo6OgA6OjoADExMQBGRkYAYGBgAH9/fwCjo6MAzc3NAOjo6ADo6OgA6OjoAOjo6ADo6OgAMTExAEVFRQBgYGAAgYGBAKqqqgDV1dUA6OjoAOjo6ADo6OgA6OjoAOjo6AAxMTEAREREAF5eXgB9fX0AoqKiAM3NzQDo6OgA6OjoAOjo6ADo6OgA6OjoADExMQBBQUEAWFhYAHV1dQCWlpYAurq6AN/f3wDo6OgA6OjoAOjo6ADo6OgAMTExAD4+PgBTU1MAZ2dnAISEhACgoKAAv7+/AN3d3QDn5+cA6OjoAOjo6AAxMTEAOzs7AEdHRwBaWloAbW1tAIGBgQCYmJgAsbGxALu7uwDCwsIAwsLCADExMQA3NzcAPj4+AEhISABUVFQAYmJiAHFxcQCCgoIAiIiIAIyMjACMjIwAMTExADExMQA0NDQAOTk5AD4+PgBHR0cAT09PAFtbWwBiYmIAZWVlAGVlZQAxMTEANDQ0ADk5OQBAQEAASUlJAFRUVABeXl4Abm5uAHNzcwB3d3cAd3d3ADExMQA3NzcAPj4+AEdHRwBUVFQAYmJiAHBwcACCgoIAioqKAI+PjwCPj48AMTExADg4OABDQ0MATk5OAF5eXgBubm4AgICAAJSUlAChoaEAqKioAKioqAAxMTEAOjo6AEVFRQBUVFQAZmZmAHl5eQCNjY0ApqamALCwsAC4uLgAuLi4ADExMQA7OzsAR0dHAFdXVwBqamoAgICAAJeXlwCwsLAAubm5AMDAwADAwMAAMTExAA==",
+  "flat|": "MTExADExMQAxMTEAMjIyAEhPVASAprsrdnZ2fYumsDthcoEPUVxkB1FcZAcxMTEAMTExADExMQAyMjIAQERHAm6InhmXn59QeZyxJWN2hhBTXmcIU15nCDExMQAxMTEAMTExADExMQA3OToBTVZdBmh+kRRba3gMTVVcBUJHSwJCR0sCMTExADExMQAxMTEAMTExADMzMwA4OjsBQkdLAkRJTQM+QUQCOTs9ATk7PQExMTEAMTExADExMQAxMTEAMTExADIyMwA0NDUANjc4ATU2NwA1NjYANTY2ADExMQAxMTEAMTExADIyMgAxMTEAMTExADExMQAyMjIAMjIyADIyMgAyMjIAMTExADExMQAzMzMAOTk5ATs7OwE3NzcAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADo6OgFbW1sHbm5uDVpaWgc6OjoBMTExADExMQAxMTEAMTExADExMQAyMjIARkZGAqmpqS2JiYlorKysMUxMTAMyMjIAMjIyADExMQAxMTEAMTExADMzMwBTU1MFlpaWWQwMDPJwcHCDXV1dCDQ0NAAyMjIAMTExADExMQAxMTEAMzMzAEpKSgOqqqpETk5OqpqamlZXV1cGMzMzADIyMgAxMTEAMTExADExMQAyMjIAPz8/AXNzcw+ampoje3t7EkNDQwIyMjIAMjIyADExMQAxMTEAMTExADExMQA1NTUAQkJCAkdHRwI/Pz8BNDQ0ADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgAzMzMAMzMzADIyMgAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADMzMwAzMzMAMjIyADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQA0NDQAOTk5ATo6OgE3NzcAMjIyADExMQAxMTEAMTExADExMQAxMTEAMTExADc3NwFISEgDTk5OBENDQwI1NTUAMTExADExMQAxMTEAMTExADExMQAyMjIAOzs7AVZWVgZhYWEJT09PBDc3NwAxMTEAMTExADExMQAxMTEAMTExADIyMgA6OjoBVFRUBVxcXAdKSkoDNjY2ADExMQAxMTEAMTExADExMQAxMTEAMTExADc3NwBEREQCSEhIAz4+PgE0NDQAMjIzADIyMwAyMjMAMjIzADExMQAxMTEAMzMzADc3NwA3ODgBNTU2ADQ1NQA2NzgBNjc3ATU2NwA1NjcAMTExADExMQAxMTEAMjIyADMzMwA3ODoBQUZKAkRJTgM/Q0YCOz1AATs9QAExMTEAMTExADExMQAxMTEANzg6AUxUWwVnfI8TXW98DlBaYgdGS1EDRktRAzExMQAxMTEAMTExADIyMgBAREgCbISZF5egoE59obQoZ32PFFdlcQpXZXEKMTExAA=="
+};
+var decoded2 = /* @__PURE__ */ new Map();
+function table(key) {
+  let t = decoded2.get(key);
+  if (t) return t;
+  const s = TABLES[key];
+  if (!s) return void 0;
+  if (typeof atob === "function") {
+    const b = atob(s);
+    t = new Uint8Array(b.length);
+    for (let i2 = 0; i2 < b.length; i2++) t[i2] = b.charCodeAt(i2);
+  } else t = new Uint8Array(globalThis.Buffer.from(s, "base64"));
+  decoded2.set(key, t);
+  return t;
+}
+function lightTable(rig, mat) {
+  const r = rig && TABLES[`${rig}|`] ? rig : "threePt";
+  const m = mat && mat !== "warmMatte" && TABLES[`${r}|${mat}`] ? mat : "";
+  return table(`${r}|${m}`);
+}
+function lightAt(t, dir, thetaDeg, phiDeg, out) {
+  const th = ((thetaDeg + (DIR[dir ?? "t"] ?? 0)) % 360 + 360) % 360;
+  const ti = th / 15, t0 = Math.floor(ti) % 24, t1 = (t0 + 1) % 24, ft = ti - Math.floor(ti);
+  const ph = Math.max(0, Math.min(85, phiDeg));
+  let p0 = 0;
+  while (p0 < PH.length - 2 && PH[p0 + 1] <= ph) p0++;
+  const fp = Math.max(0, Math.min(1, (ph - PH[p0]) / (PH[p0 + 1] - PH[p0])));
+  for (let c = 0; c < 4; c++) {
+    const v = (ti2, pi2) => t[(ti2 * PH.length + pi2) * 4 + c];
+    const a = v(t0, p0) * (1 - fp) + v(t0, p0 + 1) * fp, b = v(t1, p0) * (1 - fp) + v(t1, p0 + 1) * fp;
+    const q = a * (1 - ft) + b * ft;
+    out[c] = c < 3 ? q * 0.02 : q / 255;
+  }
+}
+function lightFace(t, out) {
+  const o = 24 * PH.length * 4;
+  for (let c = 0; c < 4; c++) out[c] = c < 3 ? t[o + c] * 0.02 : t[o + c] / 255;
+}
+var PROFILES = {
+  relaxedInset: [81, 73, 67.5, 61.5, 54.5, 50, 48, 42.5, 38, 34, 30.5, -40.5, -50, -50, -50, -48.5, -44.5, -40, -36, -28, -20, -14, -7, -1.5],
+  softRound: [80, 80, 68, -39, -53, -60.5, -60.5, -57, -52, -50, -49, -45.5, -39.5, -36, -32.5, -30.5, -26.5, -17.5, -18, -15, -10.5, -6.5, -3.5, -0.5],
+  convex: [4, 4, 4, 10.5, 16, 20, 23.5, 28.5, 32, 34.5, 37.5, 40, 43.5, 46.5, 49, 50, 50.5, 53.5, 58.5, 62.5, 69, 67, 39.5, 1],
+  coolSlant: [73.5, 69.5, 68, 67, 66.5, 66, 63, 51.5, 45, 33.5, 26.5, 11, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+};
+function bevelPhi(prst, t, hw) {
+  const u = Math.max(1e-3, Math.min(1, t));
+  const tab = prst ? PROFILES[prst] : void 0;
+  let tan;
+  if (tab) {
+    const p = Math.max(0, Math.min(tab.length - 1, u * 24 - 0.5)), i2 = Math.floor(p), f = p - i2;
+    const deg = tab[i2] * (1 - f) + tab[Math.min(tab.length - 1, i2 + 1)] * f;
+    tan = Math.tan(deg * Math.PI / 180);
+  } else if (prst === "angle") tan = 1;
+  else {
+    const s = 1 - u;
+    tan = s / Math.sqrt(Math.max(1e-6, 1 - s * s));
+  }
+  return Math.atan(tan * hw) * 180 / Math.PI;
 }
 
 // ../slides-core/src/theme.ts
@@ -26344,494 +26919,6 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   return { lines, totalH };
 }
 
-// ../slides-core/src/geometry.ts
-function regularPolygon(n, w, h) {
-  const pts = [];
-  for (let i2 = 0; i2 < n; i2++) {
-    const a = -Math.PI / 2 + i2 * 2 * Math.PI / n;
-    pts.push({ x: w / 2 + w / 2 * Math.cos(a), y: h / 2 + h / 2 * Math.sin(a) });
-  }
-  return pts;
-}
-function fitToBox(pts, w, h) {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const p of pts) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
-  }
-  const sw = maxX - minX || 1, sh = maxY - minY || 1;
-  return pts.map((p) => ({ x: (p.x - minX) / sw * w, y: (p.y - minY) / sh * h }));
-}
-var ADJUSTED_OFFICIAL = /* @__PURE__ */ new Set([
-  "frame",
-  "roundRect",
-  "triangle",
-  "parallelogram",
-  "trapezoid",
-  "pentagon",
-  "hexagon",
-  "star5",
-  "rightArrow",
-  "leftArrow",
-  "upArrow",
-  "downArrow",
-  "chevron",
-  "pie",
-  "arc",
-  "blockArc",
-  "octagon",
-  "donut",
-  "moon",
-  "sun",
-  "can",
-  "cube"
-]);
-function presetPath(geom, w, h, adj, adjNames) {
-  const ss = Math.min(w, h);
-  if (geom && (adj?.length && ADJUSTED_OFFICIAL.has(geom) || geom === "arc")) {
-    const g = evalPreset(geom, w, h, adj, adjNames);
-    if (g && g.subs.length) {
-      const out = { kind: "path", subs: g.subs, subLum: g.fill };
-      if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
-      return out;
-    }
-  }
-  switch (geom) {
-    case "frame": {
-      const t = ss * ((adj?.[0] ?? 12500) / 1e5);
-      return {
-        kind: "path",
-        fillRule: "evenodd",
-        subs: [
-          [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
-          [{ c: "M", x: t, y: t }, { c: "L", x: w - t, y: t }, { c: "L", x: w - t, y: h - t }, { c: "L", x: t, y: h - t }, { c: "Z" }]
-        ]
-      };
-    }
-    case "ellipse":
-      return { kind: "ellipse" };
-    case "roundRect":
-      return { kind: "roundRect", r: ss * ((adj?.[0] ?? 16667) / 1e5) };
-    case "triangle":
-      return { kind: "poly", points: [{ x: w / 2, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
-    case "rtTriangle":
-      return { kind: "poly", points: [{ x: 0, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
-    case "diamond":
-      return { kind: "poly", points: [{ x: w / 2, y: 0 }, { x: w, y: h / 2 }, { x: w / 2, y: h }, { x: 0, y: h / 2 }] };
-    case "parallelogram": {
-      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
-      return { kind: "poly", points: [{ x: d, y: 0 }, { x: w, y: 0 }, { x: w - d, y: h }, { x: 0, y: h }] };
-    }
-    case "trapezoid": {
-      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
-      return { kind: "poly", points: [{ x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
-    }
-    case "pentagon":
-      return { kind: "poly", points: fitToBox(regularPolygon(5, w, h), w, h) };
-    case "hexagon": {
-      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
-      return {
-        kind: "poly",
-        points: [
-          { x: d, y: 0 },
-          { x: w - d, y: 0 },
-          { x: w, y: h / 2 },
-          { x: w - d, y: h },
-          { x: d, y: h },
-          { x: 0, y: h / 2 }
-        ]
-      };
-    }
-    case "star5": {
-      const inner = (adj?.[0] ?? 19098) / 5e4;
-      const pts = [];
-      for (let i2 = 0; i2 < 10; i2++) {
-        const a = -Math.PI / 2 + i2 * Math.PI / 5;
-        const fx = i2 % 2 === 0 ? 1 : inner;
-        pts.push({ x: w / 2 + w / 2 * fx * Math.cos(a), y: h / 2 + h / 2 * fx * Math.sin(a) });
-      }
-      return { kind: "poly", points: fitToBox(pts, w, h) };
-    }
-    // setas em bloco (adj1=50000 → haste com metade da altura; adj2=50000 →
-    // cabeça com comprimento ss/2)
-    case "rightArrow": {
-      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
-      const t = h * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
-      return {
-        kind: "poly",
-        points: [
-          { x: 0, y: t },
-          { x: w - hd, y: t },
-          { x: w - hd, y: 0 },
-          { x: w, y: h / 2 },
-          { x: w - hd, y: h },
-          { x: w - hd, y: h - t },
-          { x: 0, y: h - t }
-        ]
-      };
-    }
-    case "leftArrow": {
-      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
-      const t = h * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
-      return {
-        kind: "poly",
-        points: [
-          { x: w, y: t },
-          { x: hd, y: t },
-          { x: hd, y: 0 },
-          { x: 0, y: h / 2 },
-          { x: hd, y: h },
-          { x: hd, y: h - t },
-          { x: w, y: h - t }
-        ]
-      };
-    }
-    case "upArrow": {
-      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
-      const t = w * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
-      return {
-        kind: "poly",
-        points: [
-          { x: t, y: h },
-          { x: t, y: hd },
-          { x: 0, y: hd },
-          { x: w / 2, y: 0 },
-          { x: w, y: hd },
-          { x: w - t, y: hd },
-          { x: w - t, y: h }
-        ]
-      };
-    }
-    case "downArrow": {
-      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
-      const t = w * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
-      return {
-        kind: "poly",
-        points: [
-          { x: t, y: 0 },
-          { x: t, y: h - hd },
-          { x: 0, y: h - hd },
-          { x: w / 2, y: h },
-          { x: w, y: h - hd },
-          { x: w - t, y: h - hd },
-          { x: w - t, y: 0 }
-        ]
-      };
-    }
-    case "chevron": {
-      const d = ss * ((adj?.[0] ?? 5e4) / 1e5);
-      return {
-        kind: "poly",
-        points: [
-          { x: 0, y: 0 },
-          { x: w - d, y: 0 },
-          { x: w, y: h / 2 },
-          { x: w - d, y: h },
-          { x: 0, y: h },
-          { x: d, y: h / 2 }
-        ]
-      };
-    }
-    case "pie":
-      return {
-        kind: "pie",
-        startDeg: (adj?.[0] ?? 0) / 6e4,
-        endDeg: (adj?.[1] ?? 162e5) / 6e4
-      };
-    case "line":
-    case "straightConnector1":
-      return { kind: "line", x1: 0, y1: 0, x2: w, y2: h };
-    case "bentConnector2":
-      return { kind: "path", subs: [[{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }]] };
-    case "bentConnector3":
-      return {
-        kind: "path",
-        subs: [[
-          { c: "M", x: 0, y: 0 },
-          { c: "L", x: w / 2, y: 0 },
-          { c: "L", x: w / 2, y: h },
-          { c: "L", x: w, y: h }
-        ]]
-      };
-    case "bentConnector4":
-      return {
-        kind: "path",
-        subs: [[
-          { c: "M", x: 0, y: 0 },
-          { c: "L", x: w / 2, y: 0 },
-          { c: "L", x: w / 2, y: h / 2 },
-          { c: "L", x: w, y: h / 2 },
-          { c: "L", x: w, y: h }
-        ]]
-      };
-    case "curvedConnector2":
-    case "curvedConnector3":
-    case "curvedConnector4":
-    case "curvedConnector5":
-      return {
-        kind: "path",
-        subs: [[
-          { c: "M", x: 0, y: 0 },
-          { c: "C", x1: w / 2, y1: 0, x2: w / 2, y2: h, x: w, y: h }
-        ]]
-      };
-    case "arc": {
-      return {
-        kind: "path",
-        subs: [[
-          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: -Math.PI / 2, a1: 0 }
-        ]]
-      };
-    }
-    case "blockArc": {
-      const t = ss * 0.25;
-      return {
-        kind: "path",
-        subs: [[
-          { c: "M", x: 0, y: h / 2 },
-          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: Math.PI, a1: Math.PI * 2 },
-          { c: "L", x: w - t, y: h / 2 },
-          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI, ccw: true },
-          { c: "Z" }
-        ]]
-      };
-    }
-    case "octagon": {
-      const d = ss * 0.29289;
-      return {
-        kind: "poly",
-        points: [
-          { x: d, y: 0 },
-          { x: w - d, y: 0 },
-          { x: w, y: d },
-          { x: w, y: h - d },
-          { x: w - d, y: h },
-          { x: d, y: h },
-          { x: 0, y: h - d },
-          { x: 0, y: d }
-        ]
-      };
-    }
-    case "donut": {
-      const t = ss * ((adj?.[0] ?? 25e3) / 1e5);
-      return {
-        kind: "path",
-        fillRule: "evenodd",
-        subs: [
-          [{ c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: 0, a1: Math.PI * 2 }, { c: "Z" }],
-          [{ c: "E", cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI * 2 }, { c: "Z" }]
-        ]
-      };
-    }
-    case "moon": {
-      const irx = w * 0.5;
-      return {
-        kind: "path",
-        subs: [[
-          { c: "M", x: w, y: 0 },
-          { c: "E", cx: w, cy: h / 2, rx: w, ry: h / 2, a0: -Math.PI / 2, a1: -Math.PI * 1.5, ccw: true },
-          { c: "E", cx: w, cy: h / 2, rx: irx, ry: h * 0.4, a0: Math.PI / 2, a1: -Math.PI / 2, ccw: false },
-          { c: "Z" }
-        ]]
-      };
-    }
-    case "heart": {
-      return {
-        kind: "path",
-        subs: [[
-          { c: "M", x: w / 2, y: h * 0.3 },
-          { c: "C", x1: w * 0.5, y1: h * 0.12, x2: w * 0.38, y2: h * 0.01, x: w * 0.26, y: h * 0.01 },
-          { c: "C", x1: w * 0.1, y1: h * 0.01, x2: 0, y2: h * 0.14, x: 0, y: h * 0.31 },
-          { c: "C", x1: 0, y1: h * 0.51, x2: w * 0.18, y2: h * 0.66, x: w / 2, y: h },
-          { c: "C", x1: w * 0.82, y1: h * 0.66, x2: w, y2: h * 0.51, x: w, y: h * 0.31 },
-          { c: "C", x1: w, y1: h * 0.14, x2: w * 0.9, y2: h * 0.01, x: w * 0.74, y: h * 0.01 },
-          { c: "C", x1: w * 0.62, y1: h * 0.01, x2: w * 0.5, y2: h * 0.12, x: w / 2, y: h * 0.3 },
-          { c: "Z" }
-        ]]
-      };
-    }
-    case "lightningBolt": {
-      const u = (px, py) => ({ x: px / 21600 * w, y: py / 21600 * h });
-      const pts = [
-        u(8472, 0),
-        u(12860, 6080),
-        u(11050, 6797),
-        u(16577, 12007),
-        u(14767, 12877),
-        u(21600, 21600),
-        u(10800, 14915),
-        u(12482, 14072),
-        u(7602, 8382),
-        u(9722, 7292),
-        u(0, 3890)
-      ];
-      return { kind: "poly", points: pts };
-    }
-    case "sun": {
-      const cx = w / 2, cy = h / 2;
-      const rx = w * 0.28, ry = h * 0.28;
-      const brx = w * 0.32, bry = h * 0.32;
-      const subs = [
-        [{ c: "E", cx, cy, rx, ry, a0: 0, a1: Math.PI * 2 }, { c: "Z" }]
-      ];
-      for (let i2 = 0; i2 < 8; i2++) {
-        const a = i2 * Math.PI / 4;
-        const spread = 0.35;
-        subs.push([
-          { c: "M", x: cx + Math.cos(a) * (w / 2), y: cy + Math.sin(a) * (h / 2) },
-          { c: "L", x: cx + Math.cos(a + spread) * brx, y: cy + Math.sin(a + spread) * bry },
-          { c: "L", x: cx + Math.cos(a - spread) * brx, y: cy + Math.sin(a - spread) * bry },
-          { c: "Z" }
-        ]);
-      }
-      return { kind: "path", subs };
-    }
-    case "can": {
-      const ry = ss * 0.125;
-      return {
-        kind: "path",
-        subs: [
-          [
-            // corpo: laterais + fundo arqueado + topo arqueado (contorno completo)
-            { c: "M", x: 0, y: ry },
-            { c: "L", x: 0, y: h - ry },
-            { c: "E", cx: w / 2, cy: h - ry, rx: w / 2, ry, a0: Math.PI, a1: 0, ccw: true },
-            { c: "L", x: w, y: ry },
-            { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI, ccw: true },
-            { c: "Z" }
-          ],
-          [
-            // tampa (elipse completa — o stroke marca a boca do cilindro)
-            { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI * 2 },
-            { c: "Z" }
-          ]
-        ],
-        subLum: [0, 0.4]
-        // tampa: lighten
-      };
-    }
-    case "cube": {
-      const d = ss * 0.25;
-      return {
-        kind: "path",
-        subs: [
-          [
-            // face frontal
-            { c: "M", x: 0, y: d },
-            { c: "L", x: w - d, y: d },
-            { c: "L", x: w - d, y: h },
-            { c: "L", x: 0, y: h },
-            { c: "Z" }
-          ],
-          [
-            // face superior (mais clara)
-            { c: "M", x: 0, y: d },
-            { c: "L", x: d, y: 0 },
-            { c: "L", x: w, y: 0 },
-            { c: "L", x: w - d, y: d },
-            { c: "Z" }
-          ],
-          [
-            // face lateral direita (mais escura)
-            { c: "M", x: w - d, y: d },
-            { c: "L", x: w, y: 0 },
-            { c: "L", x: w, y: h - d },
-            { c: "L", x: w - d, y: h },
-            { c: "Z" }
-          ]
-        ],
-        subLum: [0, 0.2, -0.2]
-        // topo lightenLess, lado darkenLess
-      };
-    }
-    default:
-      if (geom?.startsWith("actionButton")) {
-        const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
-        const glyph = actionGlyph(geom, cx, cy, g);
-        const lums = glyph.map((_, i2) => geom === "actionButtonDocument" && i2 === 1 ? 0 : -0.4);
-        return {
-          kind: "path",
-          subs: [
-            [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
-            ...glyph
-          ],
-          subLum: [0, ...lums]
-        };
-      }
-      if (geom && geom !== "rect") {
-        const g = evalPreset(geom, w, h, adj, adjNames);
-        if (g && g.subs.length) {
-          const out = { kind: "path", subs: g.subs, subLum: g.fill };
-          if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
-          return out;
-        }
-      }
-      return { kind: "rect" };
-  }
-}
-function actionGlyph(geom, cx, cy, g) {
-  const tri = (dir) => [
-    { c: "M", x: cx + dir * g, y: cy },
-    { c: "L", x: cx - dir * g, y: cy - g },
-    { c: "L", x: cx - dir * g, y: cy + g },
-    { c: "Z" }
-  ];
-  const bar = (x2) => [
-    { c: "M", x: x2 - g * 0.18, y: cy - g },
-    { c: "L", x: x2 + g * 0.18, y: cy - g },
-    { c: "L", x: x2 + g * 0.18, y: cy + g },
-    { c: "L", x: x2 - g * 0.18, y: cy + g },
-    { c: "Z" }
-  ];
-  switch (geom) {
-    case "actionButtonForwardNext":
-      return [tri(1)];
-    case "actionButtonBackPrevious":
-      return [tri(-1)];
-    case "actionButtonBeginning":
-      return [bar(cx - g), tri(-1)];
-    case "actionButtonEnd":
-      return [tri(1), bar(cx + g)];
-    case "actionButtonReturn":
-      return [[
-        { c: "M", x: cx - g * 0.15, y: cy - g },
-        // ponta da seta (esq)
-        { c: "L", x: cx + g * 0.45, y: cy - g * 0.35 },
-        { c: "L", x: cx + g * 0.1, y: cy - g * 0.35 },
-        { c: "C", x1: cx + g * 0.1, y1: cy + g * 0.35, x2: cx - g * 0.1, y2: cy + g * 0.55, x: cx - g * 0.35, y: cy + g * 0.55 },
-        { c: "L", x: cx - g, y: cy + g * 0.55 },
-        { c: "L", x: cx - g, y: cy + g },
-        { c: "L", x: cx - g * 0.35, y: cy + g },
-        { c: "C", x1: cx + g * 0.35, y1: cy + g, x2: cx + g * 0.55, y2: cy + g * 0.4, x: cx + g * 0.55, y: cy - g * 0.35 },
-        { c: "L", x: cx + g * 0.75, y: cy - g * 0.35 },
-        { c: "Z" }
-      ]];
-    case "actionButtonDocument": {
-      return [
-        [
-          { c: "M", x: cx - g * 0.7, y: cy - g },
-          { c: "L", x: cx + g * 0.25, y: cy - g },
-          { c: "L", x: cx + g * 0.7, y: cy - g * 0.55 },
-          { c: "L", x: cx + g * 0.7, y: cy + g },
-          { c: "L", x: cx - g * 0.7, y: cy + g },
-          { c: "Z" }
-        ],
-        [
-          // dobra do canto (recorte)
-          { c: "M", x: cx + g * 0.25, y: cy - g },
-          { c: "L", x: cx + g * 0.25, y: cy - g * 0.55 },
-          { c: "L", x: cx + g * 0.7, y: cy - g * 0.55 },
-          { c: "Z" }
-        ]
-      ];
-    }
-    default:
-      return [tri(1)];
-  }
-}
-
 // ../slides-core/src/eot.ts
 var EOT_MAGIC = 20556;
 var TTEMBED_TTCOMPRESSED = 4;
@@ -28083,93 +28170,6 @@ function paintWarpedText(ctx, prst, adj, fromWordArt, lines, bx, by, bw, bh, pxP
     }
   });
   ctx.restore();
-}
-
-// ../slides-core/src/light3d.ts
-var PH = [0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 85];
-var DIR = { t: 0, tl: 45, l: 90, bl: 135, b: 180, br: -135, r: -90, tr: -45 };
-var TABLES = {
-  "threePt|": "Ozs7ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA7OzsAMDAwACgoKAAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADs7OwAvLy8AKCgoAB4eHgAREREACgoKAAcHBwAHBwcABwcHAAcHBwAHBwcAOzs7ADAwMAArKysBIyMjARMTEwELCwsACQkJAAoKCgAMDAwBDg4OAQ4ODgE7OzsAMTExAC8vLwEqKioDFhYWAg0NDQEMDAwAExMTARkZGQIcHBwCHBwcAjs7OwAxMTEAMTExAjAwMAQaGhoDDw8PARAQEAEjIyMDKioqBC4uLgQuLi4EOzs7ADExMQAwMDABLCwsAxgYGAIQEBABGhoaAjg4OAhDQ0MJQ0NDB0NDQwc7OzsAMjIyAC0tLQElJSUBGBgYARISEgEfHx8EREREDkxMTA5OTk4MTk5ODDs7OwAyMjIALCwsACMjIwAXFxcAFBQUAR4eHgU/Pz8RRkZGD0ZGRgxGRkYMOzs7ADQ0NAAtLS0AJCQkABoaGgAWFhYBGxsbAywsLAsxMTEMMTExCTExMQk7OzsANjY2ADAwMAAoKCgAHh4eABcXFwAWFhYBIiIiBSMjIwYiIiIGIiIiBjs7OwA5OTkAMzMzACwsLAAkJCQAGxsbABUVFQAYGBgCGRkZAhkZGQMZGRkDOzs7AD8/PwE7OzsAMjIyACgoKAAfHx8AGBgYABQUFAEUFBQBFRUVARUVFQE7OzsARkZGAUlJSQE7OzsBMDAwACcnJwAhISEAHBwcABoaGgAZGRkAGRkZADs7OwBPT08CX19fBU5OTgI6OjoAMjIyAC4uLgAnJycAIyMjACIiIgAiIiIAOzs7AFdXVwN7e3sMa2trCEtLSwE8PDwANzc3ADAwMAAsLCwAKSkpACkpKQA7OzsAXV1dBJGRkRODg4MOWFhYAkNDQwA8PDwANTU1ADIyMgAvLy8ALy8vADs7OwBdXV0EkJCQE4ODgw9ZWVkDQ0NDADw8PAA2NjYAMjIyADAwMAAwMDAAOzs7AFhYWAR5eXkLZmZmB0lJSQE8PDwANzc3ADAwMAAqKioAKSkpACkpKQA7OzsAT09PAl1dXQVLS0sCOTk5ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADs7OwBFRUUBRUVFATc3NwEsLCwAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAOzs7AD09PQE3NzcALi4uACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA7OzsAODg4ADExMQAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADs7OwA0NDQALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAOzs7AA==",
-  "threePt|matte": "NjY2ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA2NjYAMDAwACcnJwAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADY2NgAvLy8AJSUlABsbGwAQEBAACgoKAAcHBwAHBwcABwcHAAYGBgAGBgYANjY2AC8vLwAkJCQAGhoaAA8PDwAKCgoACQkJAAkJCQAKCgoACwsLAAsLCwA2NjYALy8vACQkJAAZGRkADw8PAAsLCwALCwsADQ0NABAQEAATExMAExMTADY2NgAuLi4AJCQkABoaGgAQEBAACwsLAAwMDAAUFBQAFxcXABoaGgAaGhoANjY2AC4uLgAlJSUAGxsbABAQEAAMDAwADw8PABkZGQAfHx8AIiIiACIiIgA2NjYAMDAwACcnJwAdHR0AExMTAA0NDQAPDw8AGRkZABwcHAAfHx8AHx8fADY2NgAxMTEAKSkpACAgIAAWFhYADw8PAA4ODgAVFRUAGRkZABwcHAAcHBwANjY2ADMzMwAsLCwAJCQkABoaGgATExMADw8PAA8PDwASEhIAFBQUABQUFAA2NjYANDQ0ADAwMAAoKCgAHh4eABUVFQAQEBAAEBAQABAQEAAPDw8ADw8PADY2NgA2NjYAMzMzACwsLAAkJCQAGxsbABISEgAPDw8ADw8PAA8PDwAPDw8ANjY2ADg4OAA2NjYAMTExACgoKAAfHx8AGBgYABEREQAPDw8ADw8PAA8PDwA2NjYAOTk5ADk5OQA1NTUALy8vACcnJwAhISEAGxsbABgYGAAXFxcAFxcXADY2NgA6OjoAOzs7ADg4OAA1NTUAMjIyAC4uLgAnJycAIyMjACEhIQAhISEANjY2ADs7OwA8PDwAOjo6ADw8PAA7OzsANzc3ADAwMAAsLCwAKSkpACkpKQA2NjYAPDw8AD4+PgA9PT0APz8/AEBAQAA8PDwANTU1ADIyMgAvLy8ALy8vADY2NgA7OzsAPDw8ADw8PABAQEAAQEBAADw8PAA2NjYAMjIyADAwMAAwMDAANjY2ADo6OgA7OzsAOTk5ADs7OwA7OzsANzc3ADAwMAAqKioAKSkpACkpKQA2NjYAOjo6ADk5OQA2NjYANDQ0ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADY2NgA4ODgANjY2ADExMQArKysAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUANjY2ADY2NgAzMzMALS0tACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA2NjYANDQ0ADAwMAAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADY2NgAzMzMALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIANjY2AA==",
-  "threePt|plastic": "ODg4ADExMQApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgA4ODgAMDAwACcnJwAdHR0AExMTAAoKCgAFBQUABAQEAAQEBAAEBAQABAQEADg4OAAvLy8AJycnAB0dHQAREREACgoKAAcHBwAHBwcABwcHAAcHBwAHBwcAODg4AC8vLwAsLCwBJiYmAhMTEwELCwsACQkJAAoKCgALCwsADQ0NAQ0NDQE4ODgAMDAwADMzMwI7OzsKHBwcBA0NDQELCwsAEhISARkZGQIcHBwCHBwcAjg4OAAwMDAAODg4A0lJSRAkJCQHDw8PAQ8PDwEpKSkFMjIyBzY2Ngc2NjYHODg4AC8vLwA0NDQCOzs7CBwcHAMQEBABHR0dA1FRURZeXl4WWlpaEFpaWhA4ODgAMTExAC4uLgEoKCgCGBgYAREREQEoKCgJd3d3N39/fzZ6enopenp6KTg4OAAxMTEAKysrACIiIgAXFxcAFBQUAScnJwtzc3NEe3t7PW5ubidubm4nODg4ADMzMwAsLCwAJCQkABoaGgAWFhYBICAgBUdHRyVQUFAnSkpKG0pKShs4ODgANDQ0ADAwMAAoKCgAHh4eABcXFwAWFhYBLCwsCy8vLw4tLS0MLS0tDDg4OAA3NzcAMzMzACwsLAAkJCQAGxsbABQUFAAYGBgCGxsbAxwcHAMcHBwDODg4AD09PQA5OTkAMTExACgoKAAfHx8AGBgYABISEgATExMBFBQUARQUFAE4ODgAREREAUdHRwE5OTkALy8vACcnJwAhISEAGxsbABkZGQAYGBgAGBgYADg4OABPT08CbGxsCFFRUQM4ODgAMjIyAC4uLgAnJycAIyMjACEhIQAhISEAODg4AF5eXgSurq4iiIiIEk1NTQI7OzsANzc3ADAwMAAsLCwAKSkpACkpKQA4ODgAaWlpB6enp0e6uroxYWFhBEJCQgA8PDwANTU1ADIyMgAvLy8ALy8vADg4OABqamoHpaWlSbm5uTJkZGQEQkJCADw8PAA2NjYAMjIyADAwMAAwMDAAODg4AGFhYQWrq6shgICAEEpKSgE7OzsANzc3ADAwMAAqKioAKSkpACkpKQA4ODgAUVFRA2lpaQhMTEwCODg4ADIyMgAuLi4AJiYmACMjIwAhISEAISEhADg4OABDQ0MBREREATU1NQAsLCwAJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAODg4ADo6OgA1NTUALS0tACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwA4ODgANTU1ADAwMAAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEADg4OAAzMzMALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAODg4AA==",
-  "threePt|metal": "Ojo6ADExMQApKSkAICAgABYWFgAODg4ACQkJAQcHBwYICAgTCQkJIAkJCSA6OjoAMDAwACcnJwAeHh4AFBQUAAwMDAAICAgBCwsLBw0NDQ8PDw8ZDw8PGTo6OgAwMDAAKSkpAB8fHwESEhIACwsLAAoKCgEQEBAIExMTFBYWFigWFhYoOjo6ADAwMAAyMjICMjIyCBgYGAINDQ0BDQ0NARQUFAkbGxsdICAgOyAgIDs6OjoAMTExAENDQwhXV1cwJycnDxEREQIPDw8BIyMjFC4uLi8zMzNOMzMzTjo6OgAxMTEATU1NDm5ublc1NTUfFBQUAxcXFwRCQkI7UVFRYFNTU3lTU1N5Ojo6ADExMQBCQkIHVlZWJigoKAwVFRUDKysrFTU1NcUAAAD/BQUF+QUFBfk6OjoAMjIyADQ0NAIyMjIFHR0dAhcXFwM8PDw5AAAA/wAAAP8AAAD/AAAA/zo6OgAxMTEALCwsACMjIwAYGBgAGhoaBDk5OUMAAAD/AAAA/wAAAP8AAAD/Ojo6ADMzMwAsLCwAJSUlABoaGgAaGhoCMjIyIQMDA/wAAAD/AAAA/wAAAP86OjoANTU1ADAwMAAoKCgAHx8fABoaGgEhISEIRUVFa0VFRaU8PDy6PDw8ujo6OgA5OTkAMzMzACwsLAAlJSUAHR0dABkZGQIqKioWLy8vLDExMUAxMTFAOjo6AEJCQgE7OzsBMTExACkpKQAhISEAHBwcAR8fHwcmJiYXKSkpIykpKSM6OjoAT09PA1RUVAQ/Pz8BLy8vACkpKQAmJiYBKCgoBSoqKgsrKysRKysrETo6OgBnZ2cJmpqaJWlpaQo9PT0BNDQ0ADMzMwE0NDQFNjY2Czc3NxM3NzcTOjo6AH9/fxQ+Pj66kZGRX19fXwY9PT0APT09AT09PQVAQEALQUFBFEFBQRQ6OjoAlJSUIAAAAP8EBAT6hISEEkRERAFCQkIBQ0NDBUVFRQtGRkYTRkZGEzo6OgCVlZUgAAAA/wICAvyHh4cVREREAUJCQgFDQ0MFRUVFCUZGRg5GRkYOOjo6AISEhBZCQkK3mpqaVVpaWgU9PT0APDw8AT8/PwVAQEANQEBAE0BAQBM6OjoAaGhoCpWVlSViYmIKPDw8ATMzMwAzMzMBNTU1BTc3Nwo3NzcQNzc3EDo6OgBOTk4DU1NTBDk5OQEsLCwAKCgoACYmJgEoKCgGKSkpDSoqKhYqKioWOjo6AEBAQAE4ODgALS0tACQkJAAeHh4AGhoaARsbGwYcHBwPHR0dHB0dHRw6OjoANzc3ADAwMAAoKCgAHx8fABcXFwAREREBEBAQBxAQEA8QEBAbEBAQGzo6OgAzMzMALCwsACQkJAAbGxsAEhISAA0NDQEKCgoHCgoKDQkJCRQJCQkUOjo6AA==",
-  "threePt|flat": "MTExADExMQAxMTEAMTExADExMQAuLi4AKysrACAgIAAXFxcAERERABEREQAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAICAgABkZGQAUFBQAFBQUADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAfHx8AFxcXABAQEAAQEBAAMTExADExMQAxMTEAMjIyADExMQAvLy8AKysrACAgIAAWFhYADg4OAA4ODgAxMTEAMTExADIyMgBJSUkDOzs7AS8vLwArKysAHx8fABcXFwAQEBAAEBAQADExMQAxMTEANTU1AH9/fxVVVVUGLy8vACsrKwAhISEAGhoaABQUFAAUFBQAMTExADExMQAyMjIAPz8/ATY2NgAuLi4AKysrACwsLAEgICACFhYWARYWFgExMTEAMTExADExMQAxMTEAMTExAC8vLwAuLi4Ab29vIWJiYiJBQUESQUFBEjExMQAxMTEAMTExADExMQAxMTEALy8vADExMQGdnZ1NeHh4Pz09PRM9PT0TMTExADExMQAxMTEAMTExADExMQAvLy8ALS0tAEZGRgg9PT0KIiIiBCIiIgQxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAJCQkAB4eHgEXFxcAFxcXADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAjIyMAHR0dABkZGQAZGRkAMTExADExMQAxMTEAMTExADExMQAuLi4AKysrACMjIwAbGxsAFhYWABYWFgAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAIyMjAB4eHgAZGRkAGRkZADExMQAxMTEAMjIyADExMQAxMTEALy8vACsrKwAiIiIAHBwcABcXFwAXFxcAMTExADIyMgBHR0cCODg4ATExMQAvLy8AKysrACMjIwAbGxsAFhYWABYWFgAxMTEAMzMzAJ+fnyZnZ2cLMTExAC8vLwArKysAIiIiABwcHAAXFxcAFxcXADExMQAzMzMAp6enLGlpaQwyMjIALy8vACsrKwAiIiIAHR0dABoaGgAaGhoAMTExADIyMgBGRkYCNjY2ADExMQAuLi4AKysrACMjIwAaGhoAFxcXABcXFwAxMTEAMTExADIyMgAxMTEAMTExAC8vLwArKysAIiIiABwcHAAYGBgAGBgYADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAhISEAGhoaABUVFQAVFRUAMTExADExMQAxMTEAMTExADExMQAvLy8AKysrACEhIQAZGRkAEhISABISEgAxMTEAMTExADExMQAxMTEAMTExAC8vLwArKysAICAgABkZGQASEhIAEhISADExMQAxMTEAMTExADExMQAxMTEALy8vACsrKwAgICAAGhoaABUVFQAVFRUAMTExAA==",
-  "threePt|softEdge": "NjY2ADExMQApKSkAICAgABYWFgAODg4ACgoKAQgICAcJCQkZCQkJKwkJCSs2NjYAMDAwACcnJwAdHR0AExMTAAwMDAAICAgBDAwMCA0NDRIPDw8gDw8PIDY2NgAvLy8AJSUlABsbGwAREREACwsLAAoKCgEQEBAJFBQUFxYWFjAWFhYwNjY2AC8vLwAkJCQAGxsbABAQEAALCwsADQ0NARMTEwgaGhoaHR0dOh0dHTo2NjYALy8vACgoKAA3NzcIGRkZAgwMDAAODg4BGxsbCSQkJBgpKSkzKSkpMzY2NgAuLi4ALCwsAWZmZiYpKSkKDAwMABAQEAElJSUJLy8vFTQ0NCQ0NDQkNjY2AC4uLgAoKCgAMTExBBcXFwEODg4AFBQUAUFBQRtPT089SEhIS0hISEs2NjYAMDAwACcnJwAeHh4AFBQUAA8PDwAbGxsEXV1dlzk5OcBISEimSEhIpjY2NgAxMTEAKSkpACAgIAAXFxcAERERABoaGgURERHtDQ0N8Tc3N7U3Nze1NjY2ADMzMwAsLCwAJCQkABsbGwAUFBQAFhYWAklJST5WVlZwRkZGa0ZGRms2NjYANDQ0ADAwMAAoKCgAHx8fABgYGAAUFBQBJCQkDCoqKhwqKiotKioqLTY2NgA2NjYAMzMzACwsLAAlJSUAHR0dABYWFgEaGhoGHx8fDCEhIRQhISEUNjY2ADg4OAA2NjYAMTExACoqKgAiIiIAHBwcARsbGwUgICAQIyMjGSMjIxk2NjYAOTk5ADk5OQA1NTUALy8vACkpKQAnJycBKSkpBSoqKgsrKysSKysrEjY2NgA7OzsAQUFBADk5OQA2NjYANTU1ADMzMwE2NjYGNzc3DTg4OBc4ODgXNjY2AD8/PwB7e3sMVFRUAz09PQA9PT0APT09AUBAQAVBQUEOQUFBGkFBQRo2NjYARUVFAY2NjWSxsbEmRkZGAUJCQgBCQkIBRkZGBkdHRw1HR0cXR0dHFzY2NgBFRUUBg4ODb7S0tChGRkYBQkJCAEJCQgFFRUUFR0dHCkhISBFISEgRNjY2AD8/PwB4eHgLTU1NAj09PQA9PT0APT09AT8/PwVDQ0MPQkJCGEJCQhg2NjYAOzs7AD8/PwE2NjYANTU1ADQ0NAAzMzMBNTU1Bjc3Nww4ODgUODg4FDY2NgA4ODgANjY2ADExMQAsLCwAKSkpACcnJwEpKSkHKysrDywsLB4sLCweNjY2ADY2NgAzMzMALS0tACQkJAAeHh4AGhoaARwcHAYeHh4THh4eJh4eHiY2NjYANDQ0ADAwMAAoKCgAHx8fABcXFwAREREBEBAQBxERERIQEBAlEBAQJTY2NgAzMzMALCwsACQkJAAbGxsAEhISAA0NDQELCwsHCgoKDwkJCRsJCQkbNjY2AA==",
-  "threePt|powder": "bm5uclpaWlxERERALy8vLCAgICAVFRUcDAwMHggICDEGBgZOBQUFYQUFBWFubm5yWFhYWEJCQj0tLS0rHR0dHxAQEBkJCQkcCgoKOAoKCksJCQleCQkJXm5ubnJXV1dXQEBAQCwsLC4aGhofERERGg0NDSEODg5ADQ0NWAsLC3ELCwtxbm5uclZWVlY/Pz9DLS0tNBsbGyQSEhIfERERKBEREUMQEBBhEBAQgBAQEIBubm5yV1dXV0NDQ0cxMTE5HR0dKRUVFSQUFBQtFhYWUBcXF2wVFRWHFRUVh25ubnJXV1dXQ0NDSTIyMj4fHx8wFhYWKhkZGTYeHh5gICAgdh8fH4gfHx+Ibm5uclhYWFhFRUVJNDQ0PiMjIzIbGxs0Hx8fTSkpKYMoKCiqJSUlvCUlJbxubm5yW1tbW0ZGRkg2NjY7JycnNiEhIT8oKChpMDAwvh8fH90NDQ3wDQ0N8G5ubnJcXFxeSkpKSDg4ODkqKio1IyMjQiQkJGsqKirLDg4O7wMDA/wDAwP8bm5ucmBgYGFNTU1IPDw8NywsLDIkJCQ4ISEhUiIiIoYiIiKsHx8fxx8fH8dubm5yZWVlZ1RUVE9BQUE5MDAwLyQkJC8dHR04GxsbXBkZGXEWFhaEFhYWhG5ubnJra2tvXV1dWUtLS0I3Nzc0KCgoLh0dHTEXFxdJFxcXWBYWFmUWFhZlbm5ucnFxcXlpaWlqV1dXUkJCQj0vLy81IyMjNhoaGkcWFhZeFhYWahYWFmpubm5yb29vhXR0dH9mZmZpT09PTzo6OkIwMDBEJSUlVyEhIWIdHR1sHR0dbG5ubnJlZWWPXV1dmG5uboZhYWFnT09PWD8/P1YwMDBlKSkpciMjI34jIyN+bm5ucl9fX5dHR0exU1NTpG9vb4VgYGBuTExMZTo6Om8vLy9+KSkpiikpKYpubm5yWVlZnTs7O75DQ0O1XFxcmWlpaX1TU1NvPT09eDY2NoEwMDCLMDAwi25ubnJZWVmdPDw8vUJCQrZbW1uaaWlpfVNTU28+Pj54ODg4fzMzM4YzMzOGbm5ucl1dXZhLS0usV1dXn29vb4RdXV1tS0tLZDg4OHAtLS2BKioqiSoqKolubm5yZ2dnjWFhYZVwcHCAX19fZ05OTlg+Pj5WLy8vZysrK3InJyd7Jycne25ubnJzc3OBcXFxfF9fX2JJSUlKOzs7Qi8vL0UjIyNaHh4eaRsbG3cbGxt3bm5ucm9vb3VhYWFjTk5OSzg4ODcrKyswICAgNRgYGEsTExNfEBAQchAQEHJubm5yZ2dna1ZWVlJBQUE6Li4uLCEhISYWFhYpDg4OPwsLC1AKCgpjCgoKY25ubnJgYGBiTExMRjc3NzAmJiYlGhoaIBISEiMLCws2CAgIQwcHB08HBwdPbm5ucg==",
-  "balanced|": "MjIyASoqKgAlJSUAHx8fABoaGgAcHBwBIiIiAyoqKgQoKCgCJiYmASYmJgEyMjIBKSkpACIiIgAbGxsAFhYWABYWFgEbGxsDFxcXBBQUFAITExMCExMTAjIyMgEpKSkAIiIiABsbGwAWFhYAFRUVARgYGAIWFhYCEhISAQ4ODgEODg4BMjIyAS0tLQAnJycAIyMjAB0dHQAaGhoAGxsbARoaGgEWFhYBFBQUARQUFAEyMjIBNDQ0ATIyMgErKysAJycnACIiIgAfHx8AHR0dABsbGwAZGRkAGRkZADIyMgE8PDwCQUFBAjk5OQAzMzMALS0tACcnJwAhISEAICAgAB8fHwAfHx8AMjIyAUdHRwNYWFgFTU1NAj4+PgA4ODgAMjIyACoqKgAlJSUAIyMjACMjIwAyMjIBUFBQBHR0dAtoaGgFTU1NAUBAQAA7OzsAMzMzADAwMAAtLS0ALS0tADIyMgFWVlYFiYmJEX19fQlWVlYBRkZGAEBAQAA3NzcAMzMzADAwMAAwMDAAMjIyAVVVVQWNjY0SgICACldXVwFGRkYAQEBAADk5OQAzMzMALy8vAC8vLwAyMjIBT09PBHZ2dgtqamoGTU1NAUFBQQA7OzsAMzMzAC8vLwAsLCwALCwsADIyMgFGRkYDWVlZBU5OTgJAQEAAODg4ADMzMwAqKioAKCgoACYmJgAmJiYAMjIyAT09PQJCQkICODg4ADIyMgAtLS0AKCgoACEhIQAcHBwAGxsbABsbGwAyMjIBNzc3ATMzMwEtLS0AKCgoACIiIgAcHBwAFhYWABMTEwASEhIAEhISADIyMgE0NDQAMjIyAC8vLwAqKioAJSUlAB4eHgAWFhYAExMTABEREQAREREAMjIyATMzMwAzMzMAMzMzAC4uLgApKSkAIiIiABsbGwAXFxcAFBQUABQUFAAyMjIBMzMzADU1NQA1NTUAMjIyACwsLAAmJiYAHR0dABsbGwAbGxsAGxsbADIyMgEzMzMANTU1ADk5OQA9PT0BNjY2ASoqKgAnJycAKSkpACoqKgAqKioAMjIyATIyMgA2NjYAQ0NDAVRUVAVLS0sENzc3ATU1NQA2NjYANzc3ADc3NwAyMjIBMTExADY2NgBISEgCY2NjC2BgYAtFRUUCPDw8ADw8PAA9PT0APT09ADIyMgEwMDAANDQ0AEJCQgJZWVkJV1dXCURERAI+Pj4AQkJCAEZGRgBGRkYAMjIyAS8vLwAvLy8ANTU1ATw8PAM6OjoDODg4AUFBQQBHR0cAS0tLAEtLSwAyMjIBLS0tACwsLAAqKioAJiYmASYmJgEwMDABQEBAAURERAFHR0cBR0dHATIyMgEsLCwAKCgoACMjIwAeHh4AHx8fASoqKgI4ODgCOjo6Ajs7OwE7OzsBMjIyAQ==",
-  "soft|": "MDAwADMzMwAyMjIAMDAwAC0tLQArKysAKSkpACYmJgAkJCQAIyMjACMjIwAwMDAAMDAwAC4uLgAsLCwAKioqACcnJwAjIyMAICAgAB8fHwAeHh4AHh4eADAwMAAuLi4AKysrACgoKAAlJSUAISEhAB4eHgAaGhoAGRkZABgYGAAYGBgAMDAwACwsLAApKSkAJSUlACEhIQAdHR0AGRkZABYWFgAUFBQAEhISABISEgAwMDAAKysrACcnJwAiIiIAHh4eABkZGQAVFRUAEhISABAQEAAPDw8ADw8PADAwMAAqKioAJSUlACEhIQAbGxsAFxcXABMTEwAPDw8ADg4OAA4ODgAODg4AMDAwACkpKQAkJCQAHh4eABkZGQAVFRUAERERAA4ODgAMDAwADAwMAAwMDAAwMDAAKSkpACMjIwAeHh4AGRkZABQUFAAQEBAADQ0NAAwMDAALCwsACwsLADAwMAApKSkAJCQkAB4eHgAZGRkAFBQUABAQEAANDQ0ADAwMAAsLCwALCwsAMDAwACkpKQAkJCQAHx8fABoaGgAWFhYAEhISAA4ODgAMDAwADAwMAAwMDAAwMDAAKioqACYmJgAhISEAHBwcABgYGAATExMAEBAQAA8PDwAODg4ADg4OADAwMAArKysAJycnACQkJAAfHx8AGhoaABcXFwATExMAEhISABEREQAREREAMDAwACwsLAApKSkAJiYmACIiIgAeHh4AGxsbABcXFwAWFhYAFRUVABUVFQAwMDAALi4uACwsLAApKSkAJiYmACMjIwAgICAAHBwcABsbGwAbGxsAGxsbADAwMAAwMDAALy8vAC0tLQArKysAKCgoACYmJgAiIiIAISEhACAgIAAgICAAMDAwADMzMwA0NDQAMjIyADAwMAAuLi4ALCwsACgoKAAnJycAJiYmACYmJgAwMDAAODg4AT4+PgE6OjoANTU1ADQ0NAAxMTEALy8vAC0tLQArKysAKysrADAwMAA+Pj4BTk5OA0lJSQI+Pj4BODg4ADY2NgAzMzMAMjIyADExMQAxMTEAMDAwAENDQwJeXl4GXV1dBUdHRwE8PDwAOTk5ADg4OAA2NjYANTU1ADU1NQAwMDAARUVFAmtrawlubm4IT09PAj8/PwA7OzsAOjo6ADk5OQA3NzcANzc3ADAwMABEREQCaGhoCGpqagdMTEwCPj4+ADs7OwA4ODgANzc3ADY2NgA2NjYAMDAwAEFBQQJZWVkFVlZWBENDQwE7OzsAODg4ADY2NgA1NTUANDQ0ADQ0NAAwMDAAPDw8AUZGRgJDQ0MBOjo6ADY2NgA1NTUAMjIyADAwMAAvLy8ALy8vADAwMAA3NzcBOTk5ATY2NgAzMzMAMTExAC8vLwAsLCwAKysrACsrKwArKysAMDAwAA==",
-  "harsh|": "ISEhABISEgAHBwcABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAhISEAExMTAAgICAAFBQUABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEACEhIQAVFRUACwsLAAgICAAGBgYABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQAISEhABcXFwAODg4ADQ0NAAsLCwAKCgoACAgIAAcHBwAGBgYABQUFAAUFBQAhISEAGhoaABISEgASEhIAEhISABEREQAREREADw8PAA4ODgAODg4ADg4OACEhIQAeHh4AGBgYABkZGQAbGxsAHBwcABwcHAAcHBwAGxsbABsbGwAbGxsAISEhACMjIwAiIiIAIiIiACYmJgApKSkAKSkpACkpKQApKSkAKSkpACkpKQAhISEAJycnADAwMAE8PDwCPDw8Ajg4OAE1NTUANzc3ADc3NwA3NzcANzc3ACEhIQAsLCwAQEBAAWVlZQZubm4GWlpaAkZGRgBAQEAAQEBAAEBAQABAQEAAISEhAC8vLwBPT08Bh4eHCZycnAqGhoYEZWVlAF9fXwBbW1sAWFhYAFhYWAAhISEAMzMzAFJSUgGMjIwGpaWlBpWVlQJ/f38AfHx8AHp6egB3d3cAd3d3ACEhIQA0NDQAU1NTAXt7ewKRkZECkpKSAY2NjQCQkJAAjo6OAIyMjACMjIwAISEhADU1NQBSUlIBd3d3AYqKigGPj48AkpKSAJOTkwCRkZEAj4+PAI+PjwAhISEANDQ0AFNTUwGCgoIDmZmZA5OTkwGKiooAiIiIAIeHhwCFhYUAhYWFACEhIQAxMTEAUVFRAY+PjwimpqYIkZGRA3Z2dgBxcXEAb29vAG1tbQBtbW0AISEhAC4uLgBLS0sBfX19CIyMjAl1dXUDWFhYAFFRUQBPT08ATU1NAE1NTQAhISEAKioqADk5OQFVVVUEV1dXBEhISAE9PT0APT09AD09PQA8PDwAPDw8ACEhIQAlJSUAKioqADAwMAExMTEBMjIyADExMQAxMTEAMTExADExMQAxMTEAISEhACAgIAAdHR0AHx8fACEhIQAjIyMAJSUlACQkJAAjIyMAIyMjACMjIwAhISEAHBwcABYWFgAWFhYAGBgYABgYGAAYGBgAFhYWABYWFgAVFRUAFRUVACEhIQAZGRkAERERABAQEAAPDw8ADg4OAA0NDQAMDAwACwsLAAoKCgAKCgoAISEhABYWFgANDQ0ACwsLAAkJCQAHBwcABgYGAAUFBQAEBAQABAQEAAQEBAAhISEAFBQUAAoKCgAHBwcABQUFAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEACEhIQASEhIACAgIAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQAISEhAA==",
-  "glow|": "MTExAD8/PwBPT08AcnJyAa2trQbBwcEGqKioApmZmQCbm5sAnJycAJycnAAxMTEAPT09AE5OTgBqamoBlZWVA6urqwSenp4BlJSUAJWVlQCXl5cAl5eXADExMQA8PDwASUlJAFtbWwB0dHQBg4ODAYSEhACHh4cAiIiIAIqKigCKiooAMTExADo6OgBFRUUAT09PAFtbWwBlZWUAa2trAHFxcQBzc3MAdXV1AHV1dQAxMTEANzc3AD4+PgBFRUUATExMAFJSUgBYWFgAXFxcAF1dXQBeXl4AXl5eADExMQA0NDQANzc3ADo6OgA+Pj4AQUFBAERERABGRkYARkZGAEZGRgBGRkYAMTExADExMQAxMTEAMjIyADIyMgAyMjIAMjIyADIyMgAyMjIAMjIyADIyMgAxMTEANjY2ADs7OwA/Pz8AREREAElJSQBMTEwAT09PAFBQUABQUFAAUFBQADExMQA6OjoAREREAE9PTwBbW1sAZGRkAGxsbABzc3MAdnZ2AHd3dwB3d3cAMTExAD4+PgBPT08AX19fAHR0dACEhIQAj4+PAJeXlwCcnJwAnp6eAJ6engAxMTEAQUFBAFVVVQBycnIAmpqaAbW1tQK4uLgBuLi4ALy8vAC/v78Av7+/ADExMQBDQ0MAXFxcAIWFhQHPz88G4eHhCOTk5ALS0tIA1NTUANbW1gDW1tYAMTExAERERABeXl4AkJCQAt7e3gvc3NwN5OTkBN7e3gDd3d0A39/fAN/f3wAxMTEAQ0NDAFxcXACFhYUBz8/PBuHh4Qjk5OQC09PTANTU1ADW1tYA1tbWADExMQBBQUEAVVVVAHFxcQCampoCtra2Arm5uQG6uroAvb29AL+/vwC/v78AMTExAD4+PgBPT08AYGBgAHNzcwCDg4MAjo6OAJaWlgCcnJwAnp6eAJ6engAxMTEAOjo6AEVFRQBQUFAAWlpaAGRkZABsbGwAc3NzAHV1dQB3d3cAd3d3ADExMQA1NTUAOzs7AEBAQABEREQASUlJAE1NTQBOTk4AT09PAFBQUABQUFAAMTExADExMQAxMTEAMjIyADIyMgAyMjIAMjIyADIyMgAyMjIAMjIyADIyMgAxMTEANDQ0ADc3NwA7OzsAPj4+AEFBQQBDQ0MARUVFAEZGRgBGRkYARkZGADExMQA3NzcAPj4+AEZGRgBMTEwAU1NTAFhYWABcXFwAXFxcAF1dXQBdXV0AMTExADo6OgBFRUUAT09PAFxcXABmZmYAbGxsAHJycgB1dXUAdnZ2AHZ2dgAxMTEAPDw8AElJSQBbW1sAdHR0AYODgwGEhIQAhYWFAIeHhwCIiIgAiIiIADExMQA9PT0AT09PAGlpaQGVlZUDqqqqBJ6engGUlJQAlJSUAJWVlQCVlZUAMTExAA==",
-  "twoPt|": "NDQ0ACsrKwAjIyMAGxsbABMTEwAMDAwABwcHAAYGBgAGBgYABgYGAAYGBgA0NDQALCwsACUlJQAdHR0AFhYWAA4ODgAJCQkABQUFAAQEBAAEBAQABAQEADQ0NAAuLi4AJycnACAgIAAYGBgAERERAAwMDAAHBwcABgYGAAUFBQAFBQUANDQ0ADExMQApKSkAIyMjAB0dHQAYGBgAEhISAA0NDQALCwsACQkJAAkJCQA0NDQANTU1ATAwMAAoKCgAJCQkACAgIAAbGxsAFBQUABISEgAQEBAAEBAQADQ0NAA7OzsBOzs7ATExMQAsLCwAKCgoACQkJAAeHh4AGxsbABoaGgAaGhoANDQ0AERERAJLS0sDQEBAATU1NQAwMDAALS0tACYmJgAjIyMAISEhACEhIQA0NDQAS0tLA15eXgdUVFQEPz8/ATc3NwAzMzMALS0tACoqKgAoKCgAKCgoADQ0NABQUFAEbm5uC2NjYwZHR0cBOzs7ADc3NwAwMDAALS0tACsrKwArKysANDQ0AFFRUQRxcXELZGRkB0dHRwE7OzsANzc3ADExMQAtLS0AKysrACsrKwA0NDQATU1NA2RkZAdUVFQEPz8/ATY2NgAzMzMALS0tACoqKgAoKCgAKCgoADQ0NABHR0cCUlJSA0VFRQE3NzcAMDAwAC0tLQAnJycAJSUlACMjIwAjIyMANDQ0AD8/PwFBQUEBOTk5ADExMQApKSkAJCQkAB4eHgAbGxsAGhoaABoaGgA0NDQAOTk5ATg4OAAyMjIALCwsACcnJwAgICAAGRkZABcXFwAVFRUAFRUVADQ0NAA1NTUAMjIyAC4uLgAoKCgAIiIiABwcHAAVFRUAEhISABAQEAAQEBAANDQ0ADIyMgAuLi4AKSkpACMjIwAdHR0AFxcXABAQEAANDQ0ADAwMAAwMDAA0NDQAMDAwACwsLAAnJycAICAgABgYGAASEhIADAwMAAoKCgAKCgoACgoKADQ0NAAuLi4AKioqACcnJwEeHh4AFRUVAA4ODgAMDAwADAwMAAwMDAAMDAwANDQ0AC0tLQArKysAKSkpAR4eHgETExMADQ0NAA0NDQANDQ0ADQ0NAA0NDQA0NDQAKysrACkpKQEoKCgCHh4eARISEgEODg4ADg4OAA4ODgAODg4ADg4OADQ0NAArKysAJiYmACMjIwEZGRkBEBAQAA0NDQANDQ0ADQ0NAA0NDQANDQ0ANDQ0ACoqKgAjIyMAHx8fARQUFAAODg4ADAwMAAwMDAAMDAwADAwMAAwMDAA0NDQAKioqACIiIgAaGhoAERERAAwMDAAKCgoACgoKAAoKCgAKCgoACgoKADQ0NAAqKioAIiIiABoaGgASEhIADAwMAAgICAAICAgACAgIAAgICAAICAgANDQ0AA==",
-  "freezing|": "FRslAAwQFgAMERUAEBkfASE4SgcwVHQPME9tCCY8UQElOU4AJjpQACY6UAAVGyUADhIYAA0RFwAPFhwAFSIsAhwwPwQfMUIDHS49AB4uPgAeLz8AHi8/ABYbJQAQFBwADhMZAA8UGwAQFyAAERojAREaIwESHCYAFB8pABUhKwAVISsAFhslABIXIQAQFB0AEhYgABEWIQAQFSAADxQeAA8VHgAPFh8ADxYfAA8WHwAWGyYAFhsmABUZJgAUGCMAFRgmABQXJgATFiMAExckABMXJAATFyMAExcjABYbJgAZHy0AHSIzAB4jNQAdIDUAGx0xABcYKwAUFSQAFBUlABQVJQAUFSUAFhsmAB0jNAAkK0AAKzFMAC0zUgAsMlMAKi5OACYoRwAjJUIAIyRBACMkQQAWGyYAHyY4ACszTwA5Q2gAQk17AURNfgBBRngAOz9uADk8agA2OmcANjpnABYbJgAhKTwAMjpbAExajQFhb7MCYm62AlZgogBPVpMATFKNAElOhwBJTocAFhsmACMqPQA3QmUAWGiiAneL3QV4it4DZHK6AVtlqgBXYaMAVF2dAFRdnQAWGyYAIyo+ADdBYgBWZp4CcobSA3OH1AJlcrwAXGirAFpkpwBXYaIAV2GiABYbJgAiKjwAMz5bAEdWgQFZaaIBXW2rAVdnogBSYJkAUV2VAE9bkgBPW5IAFhsmACAoOQAsNk8AOUVnAEJQdwBEVH0ARFJ8AEJMdgA+SHAAPEZtADxGbQAWGyYAHSUzACYvQwAsN04AMDtWADE8WAAwOlUAKzRNACkySgAoMEYAKDBGABYbJgAaIS4AHiY1ACApOQAhKTgAHyc1ABsjMAAXHSgAFRskABMZIQATGSEAFhsmABcdKAAXHigAFhwmABMZIAAQFRsADBEVAAkMDgAHCgsABggKAAYICgAWGyYAExkhABAWHQANEhYACg0QAAcKCgAFBwcABAYGAAMFBQADBAQAAwQEABUbJQARFR0ACw8TAAgMDQAGCQkABQcHAAQGBgADBQUAAwQEAAMEBAADBAQAFRslAA4SGAAJDA4ABggJAAUHBwAFBwcABQcIAAUHCAAFBwgABQcIAAUHCAAVGyUADRAVAAcKCwAGCQoACAwNAAkOEAALEBMACxEUAAsRFQALERUACxEVABYbJQAMDxMACAsNAAkNDwAMExYAEBgdABIcIgATHiYAEx4mABMeJgATHiYAFRslAAsOEgAJDQ8ACxIUABMeJAEaKjUBHi89ARwsOAAcKzgAGyo4ABsqOAAVGyUACw8TAAoOEgAOFhsAHjE+BCxKYwguS2YFIzhLASE1RwAiNUgAIjVIABUbJQAMDxQACxAUAA8ZHgEkPFEIOGKKEzdfggsoP1UBJzxRACc7UQAnO1EAFhsmAA==",
-  "contrasting|": "MTExADExMQAzMzMARkZGAmlpaQxpaWkLSUlJAzU1NQAxMTEAMTExADExMQAxMTEAMTExADMzMwBAQEABWVlZBltbWwdCQkICNDQ0ADIyMgAxMTEAMTExADExMQAxMTEAMjIyADY2NgBBQUECQkJCAjg4OAEyMjIAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgA3NzcAQEBAAUJCQgI5OTkBMjIyADIyMgAxMTEAMTExADExMQAxMTEAMjIyAD4+PgFYWFgGXV1dCEdHRwI0NDQAMjIyADExMQAxMTEAMTExADExMQAzMzMAQkJCAmdnZwtsbGwNTk5OBDY2NgAyMjIAMTExADExMQAxMTEAMTExADMzMwA+Pj4BV1dXBl5eXghGRkYCNDQ0ADIyMgAxMTEAMTExADExMQAxMTEAMjIyADY2NgBAQEACQkJCAjk5OQEyMjIAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADQ0NAA0NDQAMzMzADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgA3NzcBQEBAAkJCQgI5OTkBMjIyADIyMgAxMTEAMTExADExMQAxMTEAMjIyAD8/PwFZWVkGXFxcB0NDQwIzMzMAMjIyADExMQAxMTEAMTExAA==",
-  "flood|": "JCQkAA8PDwAICAgABgYGAAYGBgAFBQUABQUFAAQEBAADAwMAAwMDAAMDAwAjIyMAEBAQAAgICAAEBAQABAQEAAMDAwACAgIAAgICAAEBAQABAQEAAQEBACQkJAAREREACgoKAAUFBQACAgIAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAJCQkABMTEwAMDAwACAgIAAQEBAADAwMAAgICAAEBAQABAQEAAQEBAAEBAQAkJCQAFhYWAA8PDwALCwsACgoKAAkJCQAICAgABgYGAAUFBQAFBQUABQUFACQkJAAbGxsAExMTABEREQASEhIAExMTABMTEwAREREAERERABAQEAAQEBAAJCQkACEhIQAdHR0AHBwcAB4eHgAgICAAIiIiACEhIQAhISEAICAgACAgIAAkJCQAKCgoAC4uLgA5OTkBQEBAAUBAQAA+Pj4APDw8ADs7OwA5OTkAOTk5ACQkJAAvLy8ARUVFAW5ubgWGhoYFgYGBAnd3dwB3d3cAdnZ2AHR0dAB0dHQAJCQkADY2NgBgYGACra2tC9zc3A3W1tYFtbW1ALW1tQC3t7cAtra2ALa2tgAkJCQAPDw8AHBwcALZ2dkO2dnZEOLi4gbn5+cB6OjoAOjo6ADo6OgA6OjoACQkJABBQUEAeXl5Ad7e3gnb29sO4uLiBufn5wHo6OgA6OjoAOjo6ADo6OgAJCQkAEJCQgB4eHgB39/fCNnZ2RDg4OAI5+fnAejo6ADo6OgA6OjoAOjo6AAkJCQAQEBAAHNzcwHZ2dkG2NjYEd3d3Qvm5uYC6OjoAOjo6ADo6OgA6OjoACQkJAA9PT0AZmZmALKysgPg4OAJ4uLiBubm5gHU1NQA0dHRAM7OzgDOzs4AJCQkADk5OQBYWFgAgYGBAaampgKtra0Bo6OjAJubmwCXl5cAlJSUAJSUlAAkJCQAMzMzAEhISABgYGABaWlpAWpqagBmZmYAXl5eAF5eXgBdXV0AXV1dACQkJAAsLCwAOzs7AUtLSwJKSkoBRkZGAEdHRwBISEgASEhIAEdHRwBHR0cAJCQkACUlJQAuLi4BOzs7BD09PQM0NDQBLy8vAC4uLgAsLCwALCwsACwsLAAkJCQAHx8fACAgIAEsLCwFKysrAyEhIQEaGhoAGBgYABcXFwAXFxcAFxcXACQkJAAZGRkAFBQUARgYGAIYGBgCFRUVABQUFAAUFBQAExMTABMTEwATExMAJCQkABUVFQANDQ0AEBAQAREREQAQEBAAEBAQABAQEAAPDw8ADw8PAA8PDwAkJCQAERERAAoKCgALCwsADAwMAAwMDAAMDAwADAwMAAsLCwALCwsACwsLACQkJAAPDw8ACQkJAAkJCQAJCQkACAgIAAgICAAICAgABwcHAAcHBwAHBwcAJCQkAA==",
-  "chilly|": "MTE2ACEhJAAXFxkAEBESAA4PEAAOEBAADQ4QAAoMDQAJCwwACQoLAAkKCwAxMTYAJCQoABoZHAATExUADQ0OAAkKCgAICQkABgcIAAYHBwAGBwcABgcHADExNgApKS4AHx8jABcXGQAQEBEACgoLAAYGBgADBAQAAwMEAAMEBAADBAQAMTE2AC4uMwAnJiwAICAkABcXGgAQEBMACgoLAAYGBwAEBAUABAQEAAQEBAAxMTYAMzM5ADIyOQAuLTUAJyctACAfJAAYGBwAERETAA8PEgAODhAADg4QADExNwA5OEAAPT1GAD8/SQA8PEYANjY/AC4uNwAlJS0AJCQrACMjKQAjIykAMTE3AD4+RgBISFMAUU9dAFRUYQBQUF8ASkpZAEFBTgA9PUkAPDxIADw8SAAxMTcAQkJLAFRTYABkZHUAbG1/AG1tgABmZXkAW1tuAFdXaQBWVWcAVlVnADExNgBFRE0AW1tqAHd4iwGKi6MBiomlAX9+lwBwcIcAa2uBAGhofgBoaH4AMTE2AEdHTwBjYnEAg4OWAZ6dtwKenrsBjIypAIB+mAB4eJAAcnKKAHJyigAxMTYAR0ZPAF9fbgCBgZQBmJmxAZiYswGKi6UAfX2VAHd3jwBycokAcnKJADExNwBFQ00AWlpnAHBwgQCAgJUBg4OZAHp6kABvb4UAa2uBAGdnfQBnZ30AMTE3AEFBSgBRUVsAXl5uAGZmdgBmZnYAYWFxAFlZaABRUV8ATk5cAE5OXAAxMTcAPT1FAEdHUABOTlgAUFBbAExMWABGRlEAPT1GADk5QgA2Nj4ANjY+ADExNgA3Nz4AOztDAD08RAA6OUAANDM5ACwrMQAiIiYAHx8iABwcHgAcHB4AMTE2ADMxOAAwMDUALSwxACYmKQAfHyEAFxcYABAQEQAMDAwACgoKAAoKCgAxMTYALS0yACcnKgAfHyEAFhYYAA8PEAAKCwsACQkJAAgICAAICAgACAgIADExNgApKCwAHh4gABYWFwASEhIADw8QAA8PDwANDQ4ADA0NAAwMDQAMDA0AMTE2ACQkJwAZGhsAExMUABITEwATFBUAExQVABESEwAQERIAEBERABAREQAxMTYAISElABcXGQATExQAFRYWABcYGQAWGBoAFBYXABMVFgATFBYAExQWADExNgAgHyMAFhYXABQUFQAZGxwBHSAiARwfIAEWGRsAFBcZABQWGAAUFhgAMTE2AB8fIQAVFhYAFBUWABwfIQEiJyoDHyMmAhcaHAAUFxkAExYXABMWFwAxMTYAHx8iABYWFwATFBQAGx0gAiAkJwMcICQCFBYYABIUFgARExUAERMVADExNgAgHyIAFhYYABAREQAUFhcBFxocARUYGQEQERMADhASAA4PEQAODxEAMTE2AA==",
-  "morning|": "JSMcABUUEAAREAwAEhAMACMdFAQyKhwHLSUaBCIcFAEhHBQAIRwUACEcFAAlIxwAGBYSABMRDgASEQ0AFxMOARwYEAIcGBECGRYQABoWEAAbFhAAGxYQACUjHAAcGhUAFxURABQSDwATEQ4AEhAMABANCgAQDgoAEQ8LABIQDAASEAwAJSMcACAfGQAcGhYAGxkVABgWEgAVEw8AEg8NABAOCwAQDgsADw0KAA8NCgAmIxwAJiQeACYjHAAjIRwAIh8bACAdGQAcGRYAGhgUABoXFAAZFhMAGRYTACYjHAAtKiIAMy8nADUyKgA1MSkAMSwnACsmIgAkIR4AJCEdACQhHQAkIR0AJiMcADIwJwBAPTIATEg8AFJNQQBTTEIATkg/AEdBOgBCPDYAQTs1AEE7NQAmIxwAODUrAE9JPABpYlEBe3JhAYB1ZAF5bmAAbmZYAGphVQBnXlMAZ15TACYjHAA8OC4AW1RGAI2BbQKzposDtqeOAqKVfwCUiHUAj4NyAIh+bgCIfm4AJiMcAD05MABlXk0Aopd9A97Mqwbgz60EvK2VAaudhgCkl4EAnpJ9AJ6SfQAmIxwAPTowAGFbSwCeknoC1cOkBNTGpgO7rZEBrJ+HAKeagwCilYAAopWAACYjHAA8OC4AW1RHAIF4ZAGimH0BrKCGAaKXfwCZj3cAlYl0AJKGcgCShnIAJiMcADk2KwBPSjwAZmFOAHduXAB9dGEAfHNgAHZuXABwaFcAbWVVAG1lVQAmIxwAMzAnAEM/MwBOSjwAVlFCAFhTRABVUEEATUk8AEpGOQBGQjcARkI3ACYjHAAuKyIANTEoADk1LAA4NSsANTMoADAtJAAoJR4AJCIbACEfGQAhHxkAJiMcACglHgAoJR4AJiMcACAfGAAbGhQAFRQPAA4OCgALCwgACgkHAAoJBwAmIxwAISAZABwbFQAWFRAAEA8LAAoKBwAHBwUABgYEAAUFBAAEBAMABAQDACUjHAAdGxYAExIOAA0NCQAJCQcABwcFAAYGBAAFBAMABAQDAAQEAwAEBAMAJSMcABgXEgAODgsACQgGAAcHBQAHBgUABwYFAAYGBAAGBQQABgUEAAYFBAAlIxwAFRQQAAsLCAAICAYACgkHAAsLCAAMDAgADAsIAAwLCAAMCggADAoIACUjHAATEg8ACwsIAAsKBwAODQoAERALABMRDQATEAwAEhAMABIQDAASEAwAJSMcABIRDgANDAkADQwJABUSDQEbGBEBHRkSARoXEQAZFRAAGBUPABgVDwAlIxwAExIOAA4NCgAQDwsAHxsTAi0nGwQsJhsDIBsUAB4ZEwAeGRMAHhkTACUiHAATEg8ADw4LABEPCwAnIRcEOzIhCTYtHwUjHhYBIR0VACEdFQAhHRUAJiMcAA==",
-  "sunrise|": "Ix0VABQRDAAWEwwAHBcOACYeEgA1KBcAQTEbAFM+IQBeRiUAYkknAGJJJwAjHRUAFhMOABcTDQAcFw4AIhoPACkgEgA0JxUARTMcAEs3HgBPOh8ATzofACMdFQAaFhAAGBUOABwXDwAfGQ8AIhoPACUbDwAvIhMAMyUVADcoFgA3KBYAIx4WAB4aEgAbFxAAHxkRACEaEQAhGhAAIRkPACMaDwAkGxAAJBsQACQbEAAjHhYAIx4WACIdFQAgGxQAIx0UACMcFAAjGxIAJBsTACUcEwAlHBMAJRwTACMeFgApIxkALicbADAoHgAwJxwALCQaACYeFwAhGhQAIRsUACEbFAAhGxQAIx4WAC8oHAA7MiMARjopAEw+LABLPSwARzgpAD8yJQA6LiIAOS0iADktIgAjHhYAMywfAEk9KgBgTzcBcFxBAXNdQgFrVz4AZE85AF9MNwBcSTUAXEk1ACMeFgA3LyEAU0YxAIFsSwKmiV4DpohfApJ3VACFa00AgGVKAHthRwB7YUcAIx4WADgwIgBcTTYAlX1VA8qqcwXMqXUEqopjAZp9WQCTeFUAjnNSAI5zUgAjHhYAOTEiAFlNNQCSelUCw6NwBMWibwKqjGIAnIBbAJd7VwCTd1UAk3dVACMeFgA3MCEAVEcyAHhlRwGVfVYBnoRbAZV8VwCMclIAiW9PAIZtTQCGbU0AIx4WADQtIABJPisAX1A3AG9dQQB1YkQAcmBDAG1bQABmVTwAZFM6AGRTOgAjHhYAMCodAD81JQBJPysAUEQvAFJGMQBQQzAARz0rAEU6KQBCOCcAQjgnACMeFgAqJRoAMSseADUvIAA1LiAAMisfAC0nGwAlIRYAIh4VAB8bEwAfGxMAIx4WACUhFgAlIRcAIx8WAB8bEwAaFxAAFBIMAA4MCQALCgcACQkGAAkJBgAjHhYAIBwTABoYEAAVEw0ADw4JAAoKBgAHBwUABgYEAAUFAwAEBAMABAQDACMdFQAaGBEAEhELAA0MCAAJCQYABwcFAAYGBAAFBQMABAQDAAQEAwAEBAMAIx0VABcUDgAODQkACAgGAAcHBQAHBwUACAgFAAgIBQAICAUACAgFAAgIBQAjHRUAExIMAAsKBwAKCQYADg0IABIQCgAWEgsAGBMMABgUDAAYFAwAGBQMACMdFgASEAsADAsIABAOCQAYFQwAIBsPACgfEgAtIxMALiQUAC8kFAAvJBQAIx0VABEPCwAPDgkAFRMLACEcEAAtJBUAOCwZAEExGwBEMxwARjQcAEY0HAAjHRUAEhALABIQCgAaFg0AKSATADcrGQBFNR0AUDsgAFQ+IgBZQiMAWUIjACIdFQATEAsAFRILABsWDQAqIRMAOiwZAEg2HgBXQSIAXkYlAGNJJwBjSScAIx4WAA==",
-  "sunset|": "JBYNABUPCQAQDgcADgwGAA4MBQAPDQUAEA0FABAOBQARDgUAEg8FABIPBQAkFg0AGBEKABEOCAAQDQcADQwFAAwKBAAMCgQADAoEAAwKBAAMCgQADAoEACQXDQAcEwsAFQ8JABEOCAAPDAYADAoFAAkIAwAHBgIABwYCAAcGAgAHBgIAJBcNACEVDQAdEwsAGRAJABUOCAARCwYADAkFAAgGAwAGBQIABQQCAAUEAgAkFw0AJxgOACkXDgAnFg4AIxMMAB0PCgAXCwcAEAgFAA0GBAAMBQMADAUDACQXDQAtGhAANR0SADseEwA8HBIAORkQADQWDgArEQsAJw8KACUNCQAlDQkAJBcNADMdEQBDIhUAUSYYAFsnGQBcJRgAWSIWAFEcEwBKGREARhcQAEYXEAAkFw0AOB4SAFAmFwBsLRwAgDEgAIYxIAB+Lh4AdykbAHMmGQBvJBgAbyQYACQXDQA6IBMAWyoaAIw2IQC2PCcBuD0nAKM4JQCVMiEAjy8gAIstHgCLLR4AJBcNADsgFABiLBsAnzkkANtELAHbRS0BtT8oAKY4JQCgNCIAmjEhAJoxIQAkFw0AOyAUAF4rGgCZOCMAzUEqAcpCKgCuPCcAnzYkAJozIgCVMSEAlTEhACQXDQA4HxMAVCkZAHkyHwCVOCMAmzgkAJE0IgCGLx8Agy0eAIAsHQCALB0AJBcNADUeEQBIJRYAXCoaAGktHABtLBwAaioaAGMlFwBcIRUAWiAUAFogFAAkFw0AMBwQADwgEwBFIhUASCMVAEggFABEHRIAPRgPADoXDgA3FQ0ANxUNACQXDQAqGQ8ALhsQADAbEAAtGA8AKRUNACQRCwAcDQgAGQsHABYKBgAWCgYAJBcNACQXDQAiFg0AHxMLABkQCQATDAcADQgFAAgFAwAGBAIABAMCAAQDAgAkFw0AHxQMABgRCgARDQcACwkFAAYGAwADAwIAAgIBAAICAQABAQEAAQEBACQXDQAaEgsAEA0IAAoJBQAGBgMABAQCAAQEAgADAwIAAwIBAAICAQACAgEAJBcNABYQCQAMCwYACAgEAAgHBAAIBwMABwcDAAcGAwAGBQIABgUCAAYFAgAkFw0AFA8JAAwLBgAJCQQACwoEAAsKBAAMCgQACwkEAAoJAwAKCQMACgkDACQXDQASDggADAsGAAwKBQAODAUADw0FABANBQAPDQUADwwEAA8MBAAPDAQAJBcNABIOCAANCwYADQwFABAOBgARDwYAExAGABMPBQATDwUAFBAGABQQBgAkFw0AEg8IAA4MBgAODAUAEA4GABMQBgAUEQYAFREGABYSBgAXEwYAFxMGACQWDQATDwkADw0HAA0MBQAQDgYAEg8GABMQBgAUEAUAFBEGABURBgAVEQYAJBcNAA==",
-  "threePt|dkEdge": "NjY2ADExMQApKSkAHx8fABMTEwAKCgoABAQEAAEBAQABAQEAAQEBAAEBAQA2NjYAMDAwACYmJgAcHBwAERERAAgICAADAwMAAgICAAEBAQABAQEAAQEBADY2NgAvLy8AJSUlABoaGgAPDw8ACAgIAAQEBAADAwMAAgICAAEBAQABAQEANjY2AC8vLwAkJCQAGhoaAA4ODgAICAgABgYGAAMDAwACAgIAAgICAAICAgA2NjYALy8vACgoKAA2NjYIFhYWAggICAAGBgYABQUFAAQEBAADAwMAAwMDADY2NgAuLi4ALCwsAWNjYyYlJSUKCAgIAAcHBwAICAgABwcHAQYGBgEGBgYBNjY2AC4uLgAnJycALy8vBBQUFAEJCQkACQkJABYWFgcTExMHDAwMBAwMDAQ2NjYAMDAwACYmJgAdHR0AERERAAsLCwANDQ0BSEhIVUBAQFQqKiouKioqLjY2NgAxMTEAKSkpAB8fHwATExMADAwMAA4ODgJVVVWbQUFBfiMjIy0jIyMtNjY2ADMzMwAsLCwAIyMjABcXFwAODg4ACwsLASAgIBweHh4hEBAQDhAQEA42NjYANDQ0ADAwMAAnJycAGxsbABEREQAKCgoACQkJAQgICAIGBgYCBgYGAjY2NgA2NjYAMjIyACsrKwAhISEAFRUVAAsLCwAGBgYABQUFAAQEBAAEBAQANjY2ADg4OAA2NjYALy8vACUlJQAYGBgADg4OAAcHBwAEBAQABAQEAAQEBAA2NjYAOTk5ADg4OAAzMzMAKSkpAB0dHQAUFBQACgoKAAcHBwAGBgYABgYGADY2NgA7OzsAQEBAADc3NwAvLy8AJiYmABsbGwAODg4ACQkJAAcHBwAHBwcANjY2AD8/PwB7e3sMUVFRAzU1NQAtLS0AISEhABISEgALCwsACAgIAAgICAA2NjYARUVFAY2NjWSurq4mPT09AS8vLwAjIyMAExMTAA0NDQAJCQkACQkJADY2NgBFRUUBg4ODb7GxsSg+Pj4BLy8vACMjIwATExMADg4OAAsLCwALCwsANjY2AD8/PwB2dnYLS0tLAjU1NQArKysAHx8fABEREQAKCgoACAgIAAgICAA2NjYAOzs7AD4+PgE0NDQALi4uACUlJQAaGhoADQ0NAAoKCgAICAgACAgIADY2NgA4ODgANTU1ADAwMAAmJiYAHR0dABMTEwAJCQkABgYGAAQEBAAEBAQANjY2ADY2NgAyMjIALCwsAB8fHwAVFRUADAwMAAYGBgADAwMAAgICAAICAgA2NjYANDQ0AC8vLwAnJycAGxsbABAQEAAICAgAAwMDAAEBAQABAQEAAQEBADY2NgAzMzMALCwsACMjIwAXFxcADQ0NAAYGBgACAgIAAQEBAAEBAQABAQEANjY2AA==",
-  "threePt|softmetal": "QkJCATQ0NAApKSkAICAgABUVFQAMDAwABgYGAAMDAwACAgIAAgICAAICAgBCQkIBMzMzACgoKAAeHh4AExMTAAoKCgAFBQUABQUFAAQEBAAFBQUABQUFAEJCQgEyMjIALS0tACMjIwETExMACgoKAAcHBwAICAgACAgIAAoKCgEKCgoBQkJCATMzMwA3NzcBNTU1AxoaGgENDQ0ACgoKAA0NDQEREREBFRUVARUVFQFCQkIBNDQ0AEVFRQNUVFQIKSkpBBEREQEODg4AICAgAisrKwMxMTEEMTExBEJCQgE2NjYATk5OA2dnZws1NTUGFxcXAhoaGgJLS0sIWlpaCl5eXgpeXl4KQkJCATU1NQBEREQCU1NTBykpKQMaGhoCNTU1BpSUlBakpKQXmJiYEpiYmBJCQkIBNTU1ADk5OQE2NjYCISEhARwcHAJNTU0LwsLCKcPDwynDw8Mhw8PDIUJCQgE1NTUAMDAwACcnJwAaGhoAHR0dAkxMTA28vLwwv7+/LLm5uSC5ubkgQkJCATY2NgAuLi4AJSUlABsbGwAcHBwBPT09CI+PjyCcnJwhjIyMGYyMjBlCQkIBOjo6ADAwMAAoKCgAHx8fABsbGwAmJiYDV1dXDl5eXhBYWFgPWFhYD0JCQgFBQUEANjY2ACwsLAAkJCQAHBwcABkZGQEqKioEMTExBTQ0NAY0NDQGQkJCAU5OTgFFRUUBNDQ0ACkpKQAfHx8AGRkZABkZGQEeHh4CICAgAiAgIAJCQkIBX19fAmZmZgNISEgBMjIyACcnJwAiIiIAHh4eAB4eHgAeHh4BHh4eAUJCQgF5eXkFsLCwDHt7ewVGRkYBMzMzAC4uLgAnJycAJSUlACQkJAAkJCQAQkJCAZGRkQfKysoh1NTUFWpqagM/Pz8ANzc3ADAwMAAtLS0AKysrACsrKwBCQkIBo6OjCra2tjbCwsIpiYmJBkhISAA8PDwANTU1ADIyMgAvLy8ALy8vAEJCQgGlpaULtbW1OMLCwimRkZEGSEhIADw8PAA2NjYAMjIyADAwMAAwMDAAQkJCAZaWlgnLy8sg0tLSE2RkZAI+Pj4ANzc3ADAwMAAqKioAKSkpACkpKQBCQkIBe3t7Baurqwx1dXUFQ0NDATIyMgAuLi4AJiYmACMjIwAhISEAISEhAEJCQgFfX18CY2NjA0JCQgEvLy8AJiYmACIiIgAaGhoAFxcXABUVFQAVFRUAQkJCAUxMTAFAQEABMDAwACMjIwAcHBwAFhYWAA8PDwAMDAwACwsLAAsLCwBCQkIBPz8/ATMzMwAoKCgAHx8fABYWFgANDQ0ABwcHAAUFBQAEBAQABAQEAEJCQgE3NzcALCwsACQkJAAbGxsAERERAAkJCQAEBAQAAgICAAICAgACAgIAQkJCAQ==",
-  "brightRoom|": "MTExADw8PABJSUkAWlpaAG1tbQCFhYUAm5ubALOzswDDw8MAysrKAMrKygAxMTEAOzs7AEhISABWVlYAa2trAIGBgQCYmJgAsbGxALu7uwDCwsIAwsLCADExMQA7OzsARkZGAFRUVABmZmYAenp6AI6OjgCoqKgAs7OzALy8vAC8vLwAMTExADo6OgBGRkYAUVFRAF5eXgBubm4AgYGBAJaWlgCioqIAq6urAKurqwAxMTEAOjo6AEpKSgFVVVUBWlpaAGJiYgBwcHAAhISEAIyMjACTk5MAk5OTADExMQA6OjoBVVVVA2dnZwVdXV0CWFhYAGBgYABtbW0Ac3NzAHh4eAB4eHgAMTExADo6OgFbW1sGenp6DWJiYgRPT08BUFBQAFtbWwBiYmIAZmZmAGZmZgAxMTEAQEBAAXBwcAifn58Si4uLB3FxcQFycnIAg4ODAIqKigCPj48Aj4+PADExMQBDQ0MBc3NzBaKiogqYmJgEjo6OAZmZmQCysrIAvLy8AMXFxQDFxcUAMTExAERERABubm4Cj4+PA5iYmAGmpqYAwMDAAODg4ADo6OgA6OjoAOjo6AAxMTEARUVFAGRkZAGCgoIBnp6eALy8vADg4OAA6OjoAOjo6ADo6OgA6OjoADExMQBGRkYAYGBgAH9/fwCjo6MAzc3NAOjo6ADo6OgA6OjoAOjo6ADo6OgAMTExAEVFRQBgYGAAgYGBAKqqqgDV1dUA6OjoAOjo6ADo6OgA6OjoAOjo6AAxMTEAREREAF5eXgB9fX0AoqKiAM3NzQDo6OgA6OjoAOjo6ADo6OgA6OjoADExMQBBQUEAWFhYAHV1dQCWlpYAurq6AN/f3wDo6OgA6OjoAOjo6ADo6OgAMTExAD4+PgBTU1MAZ2dnAISEhACgoKAAv7+/AN3d3QDn5+cA6OjoAOjo6AAxMTEAOzs7AEdHRwBaWloAbW1tAIGBgQCYmJgAsbGxALu7uwDCwsIAwsLCADExMQA3NzcAPj4+AEhISABUVFQAYmJiAHFxcQCCgoIAiIiIAIyMjACMjIwAMTExADExMQA0NDQAOTk5AD4+PgBHR0cAT09PAFtbWwBiYmIAZWVlAGVlZQAxMTEANDQ0ADk5OQBAQEAASUlJAFRUVABeXl4Abm5uAHNzcwB3d3cAd3d3ADExMQA3NzcAPj4+AEdHRwBUVFQAYmJiAHBwcACCgoIAioqKAI+PjwCPj48AMTExADg4OABDQ0MATk5OAF5eXgBubm4AgICAAJSUlAChoaEAqKioAKioqAAxMTEAOjo6AEVFRQBUVFQAZmZmAHl5eQCNjY0ApqamALCwsAC4uLgAuLi4ADExMQA7OzsAR0dHAFdXVwBqamoAgICAAJeXlwCwsLAAubm5AMDAwADAwMAAMTExAA==",
-  "flat|": "MTExADExMQAxMTEAMjIyAEhPVASAprsrdnZ2fYumsDthcoEPUVxkB1FcZAcxMTEAMTExADExMQAyMjIAQERHAm6InhmXn59QeZyxJWN2hhBTXmcIU15nCDExMQAxMTEAMTExADExMQA3OToBTVZdBmh+kRRba3gMTVVcBUJHSwJCR0sCMTExADExMQAxMTEAMTExADMzMwA4OjsBQkdLAkRJTQM+QUQCOTs9ATk7PQExMTEAMTExADExMQAxMTEAMTExADIyMwA0NDUANjc4ATU2NwA1NjYANTY2ADExMQAxMTEAMTExADIyMgAxMTEAMTExADExMQAyMjIAMjIyADIyMgAyMjIAMTExADExMQAzMzMAOTk5ATs7OwE3NzcAMjIyADExMQAxMTEAMTExADExMQAxMTEAMjIyADo6OgFbW1sHbm5uDVpaWgc6OjoBMTExADExMQAxMTEAMTExADExMQAyMjIARkZGAqmpqS2JiYlorKysMUxMTAMyMjIAMjIyADExMQAxMTEAMTExADMzMwBTU1MFlpaWWQwMDPJwcHCDXV1dCDQ0NAAyMjIAMTExADExMQAxMTEAMzMzAEpKSgOqqqpETk5OqpqamlZXV1cGMzMzADIyMgAxMTEAMTExADExMQAyMjIAPz8/AXNzcw+ampoje3t7EkNDQwIyMjIAMjIyADExMQAxMTEAMTExADExMQA1NTUAQkJCAkdHRwI/Pz8BNDQ0ADExMQAxMTEAMTExADExMQAxMTEAMTExADIyMgAzMzMAMzMzADIyMgAxMTEAMTExADExMQAxMTEAMTExADExMQAxMTEAMjIyADMzMwAzMzMAMjIyADExMQAxMTEAMTExADExMQAxMTEAMTExADExMQA0NDQAOTk5ATo6OgE3NzcAMjIyADExMQAxMTEAMTExADExMQAxMTEAMTExADc3NwFISEgDTk5OBENDQwI1NTUAMTExADExMQAxMTEAMTExADExMQAyMjIAOzs7AVZWVgZhYWEJT09PBDc3NwAxMTEAMTExADExMQAxMTEAMTExADIyMgA6OjoBVFRUBVxcXAdKSkoDNjY2ADExMQAxMTEAMTExADExMQAxMTEAMTExADc3NwBEREQCSEhIAz4+PgE0NDQAMjIzADIyMwAyMjMAMjIzADExMQAxMTEAMzMzADc3NwA3ODgBNTU2ADQ1NQA2NzgBNjc3ATU2NwA1NjcAMTExADExMQAxMTEAMjIyADMzMwA3ODoBQUZKAkRJTgM/Q0YCOz1AATs9QAExMTEAMTExADExMQAxMTEANzg6AUxUWwVnfI8TXW98DlBaYgdGS1EDRktRAzExMQAxMTEAMTExADIyMgBAREgCbISZF5egoE59obQoZ32PFFdlcQpXZXEKMTExAA=="
-};
-var decoded2 = /* @__PURE__ */ new Map();
-function table(key) {
-  let t = decoded2.get(key);
-  if (t) return t;
-  const s = TABLES[key];
-  if (!s) return void 0;
-  if (typeof atob === "function") {
-    const b = atob(s);
-    t = new Uint8Array(b.length);
-    for (let i2 = 0; i2 < b.length; i2++) t[i2] = b.charCodeAt(i2);
-  } else t = new Uint8Array(globalThis.Buffer.from(s, "base64"));
-  decoded2.set(key, t);
-  return t;
-}
-function lightTable(rig, mat) {
-  const r = rig && TABLES[`${rig}|`] ? rig : "threePt";
-  const m = mat && mat !== "warmMatte" && TABLES[`${r}|${mat}`] ? mat : "";
-  return table(`${r}|${m}`);
-}
-function lightAt(t, dir, thetaDeg, phiDeg, out) {
-  const th = ((thetaDeg + (DIR[dir ?? "t"] ?? 0)) % 360 + 360) % 360;
-  const ti = th / 15, t0 = Math.floor(ti) % 24, t1 = (t0 + 1) % 24, ft = ti - Math.floor(ti);
-  const ph = Math.max(0, Math.min(85, phiDeg));
-  let p0 = 0;
-  while (p0 < PH.length - 2 && PH[p0 + 1] <= ph) p0++;
-  const fp = Math.max(0, Math.min(1, (ph - PH[p0]) / (PH[p0 + 1] - PH[p0])));
-  for (let c = 0; c < 4; c++) {
-    const v = (ti2, pi2) => t[(ti2 * PH.length + pi2) * 4 + c];
-    const a = v(t0, p0) * (1 - fp) + v(t0, p0 + 1) * fp, b = v(t1, p0) * (1 - fp) + v(t1, p0 + 1) * fp;
-    const q = a * (1 - ft) + b * ft;
-    out[c] = c < 3 ? q * 0.02 : q / 255;
-  }
-}
-function lightFace(t, out) {
-  const o = 24 * PH.length * 4;
-  for (let c = 0; c < 4; c++) out[c] = c < 3 ? t[o + c] * 0.02 : t[o + c] / 255;
-}
-var PROFILES = {
-  relaxedInset: [81, 73, 67.5, 61.5, 54.5, 50, 48, 42.5, 38, 34, 30.5, -40.5, -50, -50, -50, -48.5, -44.5, -40, -36, -28, -20, -14, -7, -1.5],
-  softRound: [80, 80, 68, -39, -53, -60.5, -60.5, -57, -52, -50, -49, -45.5, -39.5, -36, -32.5, -30.5, -26.5, -17.5, -18, -15, -10.5, -6.5, -3.5, -0.5],
-  convex: [4, 4, 4, 10.5, 16, 20, 23.5, 28.5, 32, 34.5, 37.5, 40, 43.5, 46.5, 49, 50, 50.5, 53.5, 58.5, 62.5, 69, 67, 39.5, 1],
-  coolSlant: [73.5, 69.5, 68, 67, 66.5, 66, 63, 51.5, 45, 33.5, 26.5, 11, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-};
-function bevelPhi(prst, t, hw) {
-  const u = Math.max(1e-3, Math.min(1, t));
-  const tab = prst ? PROFILES[prst] : void 0;
-  let tan;
-  if (tab) {
-    const p = Math.max(0, Math.min(tab.length - 1, u * 24 - 0.5)), i2 = Math.floor(p), f = p - i2;
-    const deg = tab[i2] * (1 - f) + tab[Math.min(tab.length - 1, i2 + 1)] * f;
-    tan = Math.tan(deg * Math.PI / 180);
-  } else if (prst === "angle") tan = 1;
-  else {
-    const s = 1 - u;
-    tan = s / Math.sqrt(Math.max(1e-6, 1 - s * s));
-  }
-  return Math.atan(tan * hw) * 180 / Math.PI;
 }
 
 // ../slides-core/src/render.ts
