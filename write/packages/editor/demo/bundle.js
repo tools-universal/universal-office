@@ -1,5 +1,7 @@
 import {
   GLOW_SIZES,
+  GRADIENT_PRESETS,
+  GRADIENT_VARIANTS,
   PdfDocument,
   RECOLOR_PRESETS,
   REFLECTION_PRESETS,
@@ -34,6 +36,7 @@ import {
   hexColor,
   hyphenationPatternId,
   hyphenatorFor,
+  imagePixelInfo,
   inheritedPPr,
   layoutDocument,
   lineHeightPt,
@@ -41,15 +44,19 @@ import {
   mergePPr,
   numberedItems,
   outlineParagraphs,
+  pageFillFrom,
   paintItems,
+  paintPageBackground,
   paragraphAtPath,
+  patternRows,
   renderPdf,
   resolveColor,
   resolveDrawingColor,
+  themeTintShade,
   withEmbeddedFonts,
   wrapContour,
   zFor
-} from "./chunks/chunk-HFOD5YAK.js";
+} from "./chunks/chunk-HHIK5RSP.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -60,7 +67,7 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-OFF7V7WN.js";
+} from "./chunks/chunk-57KHIMCT.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -70,10 +77,14 @@ import {
   NOTE_REF_TEXT,
   NOTE_STYLES,
   SORT_MERGED_ERROR,
+  WATERMARK_GALLERY,
+  WATERMARK_TEXTS,
+  WORD_PATTERNS,
   acceptRevisions,
   addStylesXml,
   applyParaProps,
   applyRunProps,
+  autoTextBox,
   blankDocxPackage,
   builtinDisplayName,
   builtinStyle,
@@ -99,6 +110,7 @@ import {
   dropUnusedHfParts,
   ensureNoteParts,
   ensureTableStyle,
+  explicitTextBox,
   finalBlocks,
   finalParagraphs,
   formulaInstr,
@@ -111,6 +123,7 @@ import {
   insertRun,
   insertSectionBreak,
   insertText,
+  isWatermarkXml,
   isWordBinary,
   loadBuiltinTableStyles,
   markSectionBreaks,
@@ -138,10 +151,13 @@ import {
   patchStylePPr,
   patchStyleRPr,
   patchStyleXml,
+  patternGif,
   pickLabels,
+  pictureBox,
   presetColumns,
   propsAt,
   putStyle,
+  readBodyFragment,
   readEmbeddedFonts,
   readFullDocument,
   readHeaderFooterPart,
@@ -150,6 +166,7 @@ import {
   readStyleSheet,
   readStylesXml,
   readTrackRevisions,
+  readWatermarkXml,
   rejectRevisions,
   revisionAt,
   revisionAuthors,
@@ -178,12 +195,17 @@ import {
   trackInsertText,
   trackSplitParagraph,
   uiLang,
+  vmlColor,
+  vmlColorAttr,
+  watermarkRunXml,
   withoutRevisions,
   writeDefaultTabStop,
+  writeDisplayBackgroundShape,
   writeDocument,
   writeEvenAndOddHeaders,
+  writePageBackground,
   zipSync
-} from "./chunks/chunk-YGIGW6V3.js";
+} from "./chunks/chunk-MVJSDZBR.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -612,6 +634,118 @@ function toMarkdown(doc, opts = {}) {
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
+// src/cover-templates.ts
+var COVER_TEMPLATES = [
+  { id: "band", name: { en: "Band", pt: "Faixa" } },
+  { id: "sidebar", name: { en: "Sidebar", pt: "Lateral" } },
+  { id: "frame", name: { en: "Frame", pt: "Moldura" } },
+  { id: "block", name: { en: "Block", pt: "Bloco" } },
+  { id: "minimal", name: { en: "Minimal", pt: "Minimalista" } },
+  { id: "base", name: { en: "Base", pt: "Base" } },
+  { id: "duotone", name: { en: "Duotone", pt: "Duas Cores" } },
+  { id: "diagonal", name: { en: "Diagonal", pt: "Diagonal" } }
+];
+function coverPlaceholders(lang) {
+  return lang === "pt" ? { title: "[T\xEDtulo do documento]", subtitle: "[Subt\xEDtulo do documento]", author: "[Nome do autor]", date: "[Data]", company: "[Nome da empresa]", summary: "[Resumo do documento: um par\xE1grafo curto sobre o conte\xFAdo.]" } : { title: "[Document title]", subtitle: "[Document subtitle]", author: "[Author name]", date: "[Date]", company: "[Company name]", summary: "[Document summary: a short paragraph about the contents.]" };
+}
+var COVER_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"';
+var EMU = 12700;
+var zOrder = 0;
+var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var tw = (pt2) => Math.max(0, Math.round(pt2 * 20));
+function inkXml(ink, env) {
+  switch (ink) {
+    case "white":
+      return '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
+    case "accent1":
+      return `<w:color w:val="${env.accent1}" w:themeColor="accent1"/>`;
+    case "accent2":
+      return `<w:color w:val="${env.accent2}" w:themeColor="accent2"/>`;
+    case "grey":
+      return '<w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>';
+    default:
+      return '<w:color w:val="262626" w:themeColor="text1" w:themeTint="D9"/>';
+  }
+}
+function para(text, o, env) {
+  const ppr = `<w:pPr><w:spacing w:before="${tw(o.before ?? 0)}" w:after="0" w:line="240" w:lineRule="auto"/>` + (o.indLeft ? `<w:ind w:left="${tw(o.indLeft)}"/>` : "") + (o.jc && o.jc !== "left" ? `<w:jc w:val="${o.jc}"/>` : "") + "</w:pPr>";
+  const rpr = "<w:rPr>" + (o.major ? '<w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>' : "") + (o.bold ? "<w:b/><w:bCs/>" : "") + (o.caps ? "<w:caps/>" : "") + inkXml(o.ink, env) + `<w:sz w:val="${Math.round(o.size * 2)}"/><w:szCs w:val="${Math.round(o.size * 2)}"/></w:rPr>`;
+  return `<w:p>${ppr}<w:r>${rpr}<w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
+}
+function shape(env, o) {
+  const id = env.drawingId();
+  const fill = !o.fill || o.fill === "none" ? "<a:noFill/>" : `<a:solidFill><a:schemeClr val="${o.fill}">${o.tint ? `<a:lumMod val="${Math.round((1 - o.tint) * 1e5)}"/><a:lumOff val="${Math.round(o.tint * 1e5)}"/>` : ""}</a:schemeClr></a:solidFill>`;
+  const ln = o.line ? `<a:ln w="${Math.round(o.line.widthPt * EMU)}"><a:solidFill><a:schemeClr val="${o.line.color}"/></a:solidFill></a:ln>` : "<a:ln><a:noFill/></a:ln>";
+  const cx = Math.round(o.w * EMU), cy = Math.round(o.h * EMU);
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25165e4 + 1024 * ++zOrder}" behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Ret\xE2ngulo" : "Rectangle"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm${o.flipH ? ' flipH="1"' : ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${o.geom ?? "rect"}"><a:avLst/></a:prstGeom>${fill}${ln}</wps:spPr><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+}
+function textBox(env, o, paras) {
+  const id = env.drawingId();
+  const cx = Math.round(o.w * EMU), cy = Math.round(o.h * EMU);
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25168e4 + 1024 * ++zOrder}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${paras}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${o.anchor ?? "t"}" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+}
+function infoBox(env, x, y, w, ink, jc = "left") {
+  const f = env.fields;
+  const lines = para(f.author, { size: 12, ink, jc, bold: true }, env) + para(f.date, { size: 11, ink, jc, before: 4 }, env) + para(f.company, { size: 11, ink, jc, before: 4 }, env);
+  return textBox(env, { x, y, w, h: 66, anchor: "b" }, lines);
+}
+function coverXml(id, env) {
+  const { page: P, fields: f } = env;
+  const cw = P.w - P.left - P.right;
+  const sdtId = env.drawingId();
+  zOrder = 0;
+  const open = `<w:sdt><w:sdtPr><w:id w:val="${sdtId}"/><w:docPartObj><w:docPartGallery w:val="Cover Pages"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtContent>`;
+  const close = '<w:p><w:r><w:br w:type="page"/></w:r></w:p></w:sdtContent></w:sdt>';
+  const anchorPara = (runs) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>${runs}</w:p>`;
+  const at = (y) => Math.max(0, y - P.top - 14);
+  const bottomY = P.h - P.bottom - 66;
+  let body = "";
+  switch (id) {
+    case "band": {
+      const by = P.h * 0.3;
+      body = anchorPara(shape(env, { x: 0, y: by, w: P.w, h: 160, fill: "accent1" }) + infoBox(env, P.left, bottomY, cw, "dark")) + para(f.title, { size: 40, ink: "white", before: at(by + 30), major: true }, env) + para(f.subtitle, { size: 16, ink: "white", before: 10 }, env) + para(f.summary, { size: 11, ink: "grey", before: 70 }, env);
+      break;
+    }
+    case "sidebar": {
+      const side = 110;
+      const ind = Math.max(0, side + 30 - P.left);
+      body = anchorPara(shape(env, { x: 0, y: 0, w: side, h: P.h, fill: "accent1" }) + infoBox(env, P.left + ind, bottomY, cw - ind, "dark")) + para(f.title, { size: 44, ink: "accent1", before: at(P.h * 0.32), indLeft: ind, major: true }, env) + para(f.subtitle, { size: 16, ink: "dark", before: 12, indLeft: ind }, env) + para(f.summary, { size: 11, ink: "grey", before: 30, indLeft: ind }, env);
+      break;
+    }
+    case "frame": {
+      body = anchorPara(shape(env, { x: 30, y: 30, w: P.w - 60, h: P.h - 60, fill: "none", line: { color: "accent1", widthPt: 3 } }) + shape(env, { x: P.w / 2 - 40, y: P.h * 0.38 + 66, w: 80, h: 3, fill: "accent2" }) + infoBox(env, P.left, bottomY, cw, "dark", "center")) + para(f.title, { size: 40, ink: "accent1", before: at(P.h * 0.38 - 10), jc: "center", major: true }, env) + para(f.subtitle, { size: 16, ink: "dark", before: 30, jc: "center" }, env) + para(f.summary, { size: 11, ink: "grey", before: 24, jc: "center" }, env);
+      break;
+    }
+    case "block": {
+      const by = P.h * 0.28;
+      body = anchorPara(shape(env, { x: P.left, y: by, w: cw, h: 200, fill: "accent1" }) + infoBox(env, P.left, bottomY, cw, "grey", "center")) + para(f.title, { size: 40, ink: "white", before: at(by + 50), jc: "center", major: true }, env) + para(f.subtitle, { size: 16, ink: "white", before: 12, jc: "center" }, env) + para(f.summary, { size: 11, ink: "grey", before: 100, jc: "center" }, env);
+      break;
+    }
+    case "minimal": {
+      const ty = P.h * 0.36;
+      body = anchorPara(shape(env, { x: P.left, y: ty - 18, w: 60, h: 4, fill: "accent1" }) + infoBox(env, P.left, bottomY, cw, "grey")) + para(f.title, { size: 36, ink: "dark", before: at(ty), major: true }, env) + para(f.subtitle, { size: 16, ink: "grey", before: 10 }, env) + para(f.summary, { size: 11, ink: "grey", before: 30 }, env);
+      break;
+    }
+    case "base": {
+      const by = P.h * 0.7;
+      body = anchorPara(shape(env, { x: 0, y: by, w: P.w, h: P.h - by, fill: "accent1" }) + infoBox(env, P.left, bottomY, cw, "white")) + para(f.title, { size: 42, ink: "accent1", before: at(P.h * 0.3), major: true }, env) + para(f.subtitle, { size: 16, ink: "dark", before: 12 }, env) + para(f.summary, { size: 11, ink: "grey", before: 30 }, env);
+      break;
+    }
+    case "duotone": {
+      const top = P.h * 0.45;
+      body = anchorPara(shape(env, { x: 0, y: 0, w: P.w, h: top, fill: "accent1" }) + shape(env, { x: 0, y: top, w: P.w, h: 8, fill: "accent2" }) + infoBox(env, P.left, bottomY, cw, "dark")) + para(f.title, { size: 40, ink: "white", before: at(top - 120), major: true }, env) + para(f.subtitle, { size: 16, ink: "white", before: 10 }, env) + para(f.summary, { size: 11, ink: "grey", before: 70 }, env);
+      break;
+    }
+    case "diagonal": {
+      body = anchorPara(shape(env, { x: 0, y: P.h * 0.55, w: P.w * 0.8, h: P.h * 0.45, geom: "rtTriangle", fill: "accent1" }) + shape(env, { x: 0, y: P.h * 0.72, w: P.w * 0.5, h: P.h * 0.28, geom: "rtTriangle", fill: "accent2" }) + infoBox(env, P.w * 0.45, bottomY, P.w * 0.55 - P.right, "dark", "right")) + para(f.title, { size: 42, ink: "accent1", before: at(P.h * 0.22), major: true }, env) + para(f.subtitle, { size: 16, ink: "dark", before: 12 }, env) + para(f.summary, { size: 11, ink: "grey", before: 30 }, env);
+      break;
+    }
+    default:
+      return null;
+  }
+  return open + body + close;
+}
+
 // src/notes.ts
 var NOTE_DEFAULTS = {
   footnote: { position: "pageBottom", numberFormat: "decimal", startAt: 1, restart: "continuous", columns: 0 },
@@ -722,18 +856,18 @@ var isHiddenBookmark = (name) => name.startsWith("_");
 function bookmarksIn(paras) {
   const open = /* @__PURE__ */ new Map();
   const out = [];
-  paras.forEach((p, para2) => {
+  paras.forEach((p, para3) => {
     let offset = 0;
     for (const r of p.runs) {
       const b = r.bookmark;
       if (b && !b.end) {
-        const loc = { name: b.name, id: b.id, start: { para: para2, offset }, end: { para: para2, offset } };
+        const loc = { name: b.name, id: b.id, start: { para: para3, offset }, end: { para: para3, offset } };
         open.set(b.id, loc);
         out.push(loc);
       } else if (b?.end) {
         const loc = open.get(b.id);
         if (loc) {
-          loc.end = { para: para2, offset };
+          loc.end = { para: para3, offset };
           open.delete(b.id);
         }
       }
@@ -1178,8 +1312,8 @@ function styleProps(ds, theme, id) {
   const def = sheet.styles[id];
   const dd = sheet.docDefaults;
   if (def?.type === "character") {
-    const para2 = res.paraStyle(void 0);
-    return { pPr: mergePPr(dd.pPr, para2.pPr), rPr: cascadeRPr(dd.rPr, [para2.rPr, res.charStyle(id)], void 0), kind: "character" };
+    const para3 = res.paraStyle(void 0);
+    return { pPr: mergePPr(dd.pPr, para3.pPr), rPr: cascadeRPr(dd.rPr, [para3.rPr, res.charStyle(id)], void 0), kind: "character" };
   }
   const ps = res.paraStyle(id);
   const kind = def?.link && sheet.styles[def.link]?.type === "character" ? "linked" : "paragraph";
@@ -1225,9 +1359,9 @@ function resolveStyleId(xml, id) {
   const b = builtinStyles().find((x) => idOf(x.xml) === id || x.twin && idOf(x.twin) === id);
   if (!b) return id;
   const twin = b.twin && idOf(b.twin) === id;
-  const para2 = idx.styles.find((s) => s.name.toLowerCase() === b.name.toLowerCase());
-  if (!para2) return id;
-  return twin ? para2.link ?? id : para2.id;
+  const para3 = idx.styles.find((s) => s.name.toLowerCase() === b.name.toLowerCase());
+  if (!para3) return id;
+  return twin ? para3.link ?? id : para3.id;
 }
 function ensureDefined(ds, xml, id, used) {
   const idx = readStyleIndex(xml);
@@ -1236,8 +1370,8 @@ function ensureDefined(ds, xml, id, used) {
   if (cur) {
     if (used && cur.semiHidden && cur.unhideWhenUsed) {
       let out2 = putStyle(xml, id, patchStyleXml(styleRaw(xml, id), { semiHidden: false }));
-      const tw = cur.link ? has(cur.link) : void 0;
-      if (tw?.semiHidden) out2 = putStyle(out2, tw.id, patchStyleXml(styleRaw(out2, tw.id), { semiHidden: false }));
+      const tw2 = cur.link ? has(cur.link) : void 0;
+      if (tw2?.semiHidden) out2 = putStyle(out2, tw2.id, patchStyleXml(styleRaw(out2, tw2.id), { semiHidden: false }));
       return out2;
     }
     return xml;
@@ -1487,11 +1621,11 @@ function hfTemplates(gallery) {
 function galleryKind(gallery) {
   return gallery === "footer" || gallery === "pageBottom" ? "footer" : gallery === "pageCurrent" ? null : "header";
 }
-var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+var esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc2(text)}</w:t></w:r>`;
 var field = (instr, shown, rPr = "") => {
   const r = rPr ? `<w:rPr>${rPr}</w:rPr>` : "";
-  return `<w:r>${r}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r}<w:instrText xml:space="preserve"> ${esc(instr)} </w:instrText></w:r><w:r>${r}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc(shown)}</w:t></w:r><w:r>${r}<w:fldChar w:fldCharType="end"/></w:r>`;
+  return `<w:r>${r}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r}<w:instrText xml:space="preserve"> ${esc2(instr)} </w:instrText></w:r><w:r>${r}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc2(shown)}</w:t></w:r><w:r>${r}<w:fldChar w:fldCharType="end"/></w:r>`;
 };
 var page = (rPr = "") => field("PAGE   \\* MERGEFORMAT", "1", rPr);
 var pages = (rPr = "") => field("NUMPAGES   \\* MERGEFORMAT", "1", rPr);
@@ -1501,8 +1635,8 @@ var WHITE = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
 function placeholderText(lang) {
   return lang === "pt" ? "[Digite aqui]" : "[Type here]";
 }
-function para(env, body, pPr = "") {
-  const style = env.styleId ? `<w:pStyle w:val="${esc(env.styleId)}"/>` : "";
+function para2(env, body, pPr = "") {
+  const style = env.styleId ? `<w:pStyle w:val="${esc2(env.styleId)}"/>` : "";
   return `<w:p><w:pPr>${style}${pPr}</w:pPr>${body}</w:p>`;
 }
 function pageNumberSdt(env, gallery, inner) {
@@ -1531,19 +1665,19 @@ function hfTemplateXml(gallery, id, env) {
     const isH = gallery === "header";
     switch (id) {
       case "blank":
-        return para(env, run(ph));
+        return para2(env, run(ph));
       case "blank3":
-        return para(env, three);
+        return para2(env, three);
       case "title":
-        return para(env, run(title, `<w:smallCaps/>${color(env.accent)}<w:sz w:val="28"/><w:szCs w:val="28"/>`), `${bdr("bottom", 12, env.accent)}<w:jc w:val="center"/>`);
+        return para2(env, run(title, `<w:smallCaps/>${color(env.accent)}<w:sz w:val="28"/><w:szCs w:val="28"/>`), `${bdr("bottom", 12, env.accent)}<w:jc w:val="center"/>`);
       case "rule":
-        return isH ? para(env, run(title, "<w:b/>") + ptab("right") + run(author, color(env.accent)), bdr("bottom", 6, "A6A6A6", false)) : para(env, run(title, color(env.accent)) + ptab("right") + page("<w:b/>"), bdr("top", 6, "A6A6A6", false));
+        return isH ? para2(env, run(title, "<w:b/>") + ptab("right") + run(author, color(env.accent)), bdr("bottom", 6, "A6A6A6", false)) : para2(env, run(title, color(env.accent)) + ptab("right") + page("<w:b/>"), bdr("top", 6, "A6A6A6", false));
       case "band":
-        return isH ? para(env, run(title, `<w:b/>${WHITE}`) + ptab("right") + run(author, WHITE), `${shd}<w:spacing w:before="60" w:after="60"/>`) : para(env, run(title, WHITE) + ptab("right") + page(`<w:b/>${WHITE}`), `${shd}<w:spacing w:before="60" w:after="60"/>`);
+        return isH ? para2(env, run(title, `<w:b/>${WHITE}`) + ptab("right") + run(author, WHITE), `${shd}<w:spacing w:before="60" w:after="60"/>`) : para2(env, run(title, WHITE) + ptab("right") + page(`<w:b/>${WHITE}`), `${shd}<w:spacing w:before="60" w:after="60"/>`);
       case "accent":
-        return isH ? para(env, run(title, `<w:b/>${color(env.accent)}`), bdr("left", 24, env.accent)) : para(env, run("\u2014 ", color(env.accent)) + page(`<w:b/>${color(env.accent)}<w:sz w:val="24"/><w:szCs w:val="24"/>`) + run(" \u2014", color(env.accent)), '<w:jc w:val="center"/>');
+        return isH ? para2(env, run(title, `<w:b/>${color(env.accent)}`), bdr("left", 24, env.accent)) : para2(env, run("\u2014 ", color(env.accent)) + page(`<w:b/>${color(env.accent)}<w:sz w:val="24"/><w:szCs w:val="24"/>`) + run(" \u2014", color(env.accent)), '<w:jc w:val="center"/>');
       case "pageXofY":
-        return isH ? null : para(env, pageXofY(env, "<w:b/>"), '<w:jc w:val="center"/>');
+        return isH ? null : para2(env, pageXofY(env, "<w:b/>"), '<w:jc w:val="center"/>');
       default:
         return null;
     }
@@ -1555,41 +1689,41 @@ function hfTemplateXml(gallery, id, env) {
     let inner;
     switch (id) {
       case "plainLeft":
-        inner = para(env, page());
+        inner = para2(env, page());
         break;
       case "plainCenter":
-        inner = para(env, page(), jc("center"));
+        inner = para2(env, page(), jc("center"));
         break;
       case "plainRight":
-        inner = para(env, page(), jc("right"));
+        inner = para2(env, page(), jc("right"));
         break;
       case "pageXofY":
-        inner = para(env, pageXofY(env, "<w:b/>"), jc("right"));
+        inner = para2(env, pageXofY(env, "<w:b/>"), jc("right"));
         break;
       case "accentRule":
-        inner = para(env, page(`<w:b/>${color(env.accent)}`), `${bdr(top ? "bottom" : "top", 12, env.accent)}${jc("right")}`);
+        inner = para2(env, page(`<w:b/>${color(env.accent)}`), `${bdr(top ? "bottom" : "top", 12, env.accent)}${jc("right")}`);
         break;
       case "brackets":
-        inner = para(env, run("[ ") + page() + run(" ]"), jc("center"));
+        inner = para2(env, run("[ ") + page() + run(" ]"), jc("center"));
         break;
       default:
         inner = null;
     }
-    return inner ? pageNumberSdt(env, g, inner + para(env, "")) : null;
+    return inner ? pageNumberSdt(env, g, inner + para2(env, "")) : null;
   }
   if (gallery === "pageMargin") {
     const box = id === "right" ? marginBox(env, "right", false) : id === "left" ? marginBox(env, "left", false) : id === "circle" ? marginBox(env, "right", true) : null;
-    return box ? pageNumberSdt(env, "Margins", para(env, box)) : null;
+    return box ? pageNumberSdt(env, "Margins", para2(env, box)) : null;
   }
   switch (id) {
     case "plain":
-      return para(env, page());
+      return para2(env, page());
     case "pageXofY":
-      return para(env, pageXofY(env));
+      return para2(env, pageXofY(env));
     case "brackets":
-      return para(env, run("[") + page() + run("]"));
+      return para2(env, run("[") + page() + run("]"));
     case "dashes":
-      return para(env, run("\u2013 ") + page() + run(" \u2013"));
+      return para2(env, run("\u2013 ") + page() + run(" \u2013"));
     default:
       return null;
   }
@@ -1668,7 +1802,7 @@ var COLOR_NAMES = {
   "000000": ["Black", "Preto"],
   FFFFFF: ["White", "Branco"]
 };
-var len = (tw, lang) => lang === "pt" ? `${(Math.round(tw / 1440 * 2.54 * 100) / 100).toLocaleString("pt-BR")} cm` : `${Math.round(tw / 1440 * 100) / 100}"`;
+var len = (tw2, lang) => lang === "pt" ? `${(Math.round(tw2 / 1440 * 2.54 * 100) / 100).toLocaleString("pt-BR")} cm` : `${Math.round(tw2 / 1440 * 100) / 100}"`;
 var pt = (v, lang) => `${lang === "pt" ? String(v).replace(".", ",") : v} pt`;
 function runParts(old, now, lang) {
   const en = lang === "en";
@@ -2274,10 +2408,10 @@ var LangResolver = class {
     this.styleCache.set(id, out);
     return out;
   }
-  run(run2, para2) {
+  run(run2, para3) {
     const rpr = run2.rpr;
     const ch = this.style(rpr?.rStyle);
-    const ps = this.style(para2.props.styleId ?? para2.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
+    const ps = this.style(para3.props.styleId ?? para3.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
     const dd = this.sheet?.docDefaults.rPr;
     return {
       lang: rpr?.lang?.val ?? ch.lang ?? ps.lang ?? dd?.lang?.val ?? this.fallback,
@@ -2286,14 +2420,14 @@ var LangResolver = class {
   }
 };
 var skipRun = (r) => !!(r.field || r.fieldResult || r.noteRef || r.custom || r.image || r.textbox || r.shape || r.group || r.math || r.props.isMath || r.formField || r.props.del);
-function spellSpans(para2, langs) {
-  const full = para2.runs.map((r) => r.text).join("");
+function spellSpans(para3, langs) {
+  const full = para3.runs.map((r) => r.text).join("");
   if (!/\p{L}/u.test(full)) return [];
   const byLang = /* @__PURE__ */ new Map();
   let at = 0;
-  for (const r of para2.runs) {
+  for (const r of para3.runs) {
     const n = r.text.length;
-    const { lang, noProof } = langs.run(r, para2);
+    const { lang, noProof } = langs.run(r, para3);
     if (!skipRun(r) && !noProof) {
       let arr = byLang.get(lang);
       if (!arr) {
@@ -2338,30 +2472,30 @@ var ParagraphSpell = class {
     this.queue.clear();
   }
   /** Erros do parágrafo, ou undefined se ainda não revisado. */
-  get(para2) {
-    const spans = spellSpans(para2, this.langs());
+  get(para3) {
+    const spans = spellSpans(para3, this.langs());
     if (!spans.length) return [];
     const key = keyOf2(spans);
-    const hit = this.byPara.get(para2);
+    const hit = this.byPara.get(para3);
     if (hit?.key === key) return hit.list;
     const known = this.byKey.get(key);
     if (known) {
-      this.byPara.set(para2, { key, list: known });
+      this.byPara.set(para3, { key, list: known });
       return known;
     }
-    this.queue.set(para2, spans);
+    this.queue.set(para3, spans);
     this.schedule();
     return hit?.list;
   }
   /** Revisão imediata (diálogo F7): espera o motor. */
-  async check(para2) {
-    const spans = spellSpans(para2, this.langs());
+  async check(para3) {
+    const spans = spellSpans(para3, this.langs());
     if (!spans.length) return [];
     const key = keyOf2(spans);
-    const hit = this.byPara.get(para2);
+    const hit = this.byPara.get(para3);
     if (hit?.key === key) return hit.list;
     const list = await this.run(spans);
-    this.store(para2, key, list);
+    this.store(para3, key, list);
     return list;
   }
   schedule() {
@@ -2376,7 +2510,7 @@ var ParagraphSpell = class {
     this.queue.clear();
     const gen = this.generation;
     let changed = false;
-    for (const [para2, spans] of batch) {
+    for (const [para3, spans] of batch) {
       let list;
       try {
         list = await this.run(spans);
@@ -2384,13 +2518,13 @@ var ParagraphSpell = class {
         continue;
       }
       if (gen !== this.generation) return;
-      this.store(para2, keyOf2(spans), list);
+      this.store(para3, keyOf2(spans), list);
       changed = true;
     }
     if (changed) this.onUpdate();
   }
-  store(para2, key, list) {
-    this.byPara.set(para2, { key, list });
+  store(para3, key, list) {
+    this.byPara.set(para3, { key, list });
     if (this.byKey.size > 4e3) this.byKey.clear();
     this.byKey.set(key, list);
   }
@@ -2516,7 +2650,7 @@ function bookmarkMarks(blocks) {
   const starts = /* @__PURE__ */ new Map();
   const ends = /* @__PURE__ */ new Map();
   const names = /* @__PURE__ */ new Map();
-  const para2 = (p, block) => {
+  const para3 = (p, block) => {
     let offset = 0;
     for (const r of p.runs) {
       const bm = r.bookmark;
@@ -2532,7 +2666,7 @@ function bookmarkMarks(blocks) {
   };
   const walk = (bs, block) => {
     bs.forEach((b, i) => {
-      if (b.type === "paragraph") para2(b.paragraph, block ?? i);
+      if (b.type === "paragraph") para3(b.paragraph, block ?? i);
       else for (const row of b.rows) for (const c of row.cells) walk(cellBlocks(c), block ?? i);
     });
   };
@@ -2894,7 +3028,7 @@ var deleteRange2 = (m, range) => {
   return guardRuns(m, r.start.para, r.end.para, () => deleteRange(m, range));
 };
 var splitParagraph2 = (m, pos) => guardRuns(m, pos.para, pos.para, () => splitParagraph(m, pos));
-var mergeWithPrevious2 = (m, para2) => guardRuns(m, para2 - 1, para2, () => mergeWithPrevious(m, para2));
+var mergeWithPrevious2 = (m, para3) => guardRuns(m, para3 - 1, para3, () => mergeWithPrevious(m, para3));
 var applyRunProps2 = (m, range, patch) => {
   const r = normalizeRange(range);
   guardRuns(m, r.start.para, r.end.para, () => applyRunProps(m, range, patch));
@@ -2915,11 +3049,11 @@ var legacyTabs = (stops) => {
   const out = (stops ?? []).flatMap((t) => t.align === "left" || t.align === "center" || t.align === "right" || t.align === "decimal" ? [{ posTwips: t.posTwips, align: t.align === "decimal" ? "right" : t.align, ...t.leader ? { leader: "dot" } : {} }] : []);
   return out.length ? out : void 0;
 };
-function collapseCustomChars(line, para2) {
+function collapseCustomChars(line, para3) {
   const cs = line.chars;
   if (!cs?.length) return;
   let acc = 0;
-  for (const r of para2.runs) {
+  for (const r of para3.runs) {
     const a = acc;
     acc += r.text.length;
     if (!r.custom) continue;
@@ -2958,24 +3092,33 @@ var Registry = class {
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
   register(family, variant, font) {
     (this.sets[family] ??= {})[variant] = font;
+    this.lower = void 0;
     this.version++;
   }
   has(family) {
-    return this.sets[family] !== void 0 || this.sets[family.split(" ")[0]] !== void 0;
+    return this.get(family) !== void 0 || this.get(family.split(" ")[0]) !== void 0;
   }
   families() {
     return Object.keys(this.sets);
   }
   delete(family) {
     delete this.sets[family];
+    this.lower = void 0;
     this.version++;
   }
+  /** nome em minúsculas → nome registrado (o Word ignora maiúsculas no nome da fonte:
+   *  a galeria de marcas-d'água grava font-family "calibri") */
+  lower;
   get(family) {
-    return this.sets[family];
+    const s = this.sets[family];
+    if (s) return s;
+    this.lower ??= new Map(Object.keys(this.sets).map((k2) => [k2.toLowerCase(), k2]));
+    const k = this.lower.get(family.toLowerCase());
+    return k === void 0 ? void 0 : this.sets[k];
   }
   resolve(family, variant) {
-    if (family && !this.sets[family]) this.onMiss?.(family);
-    const requested = family ? this.sets[family] ?? this.sets[family.split(" ")[0]] : void 0;
+    if (family && !this.get(family)) this.onMiss?.(family);
+    const requested = family ? this.get(family) ?? this.get(family.split(" ")[0]) : void 0;
     if (family && requested && !requested[variant]) this.onMissVariant?.(family, variant);
     const def = this.sets[DEFAULT_FONT] ?? this.sets["Aptos"];
     return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular;
@@ -3229,7 +3372,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-7MDY6LNV.js");
+    const { setupChrome } = await import("./chunks/chrome-H32SLWIQ.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -3266,7 +3409,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-7MDY6LNV.js").then((m) => {
+      void import("./chunks/chrome-H32SLWIQ.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -3731,6 +3874,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.editsSinceLoad = 0;
     this.revAuthors = revisionAuthors(this.fullDoc);
     this.fullDoc.sources?.baseline();
+    this.bgAtLoad = bgKey(this.fullDoc.background ?? null);
+    this.bgWritten = void 0;
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-protected", {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() }
@@ -4113,14 +4258,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const p = this.model?.paragraphs[this.selection.focus.para];
     const st = p ? this.styleOf(p) : void 0;
     const dd = this.docDefaults();
-    const para2 = { ...p?.props ?? {} };
-    if (para2.alignment === void 0) para2.alignment = st?.alignment;
+    const para3 = { ...p?.props ?? {} };
+    if (para3.alignment === void 0) para3.alignment = st?.alignment;
     const look = this.docStyles.xml && (run2.fontAscii === void 0 || run2.szHalfPt === void 0) ? styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, run2.charStyle ?? p?.props.styleId ?? this.docStyles.defaultParagraph()) : null;
     if (run2.fontAscii === void 0) run2.fontAscii = look?.fontFamily ?? st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
     if (run2.szHalfPt === void 0) {
       run2.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
-    return { run: run2, para: para2, view: this.view, marks: this.showMarks, table: this.getTableState() };
+    return { run: run2, para: para3, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
   toggleRunProp(key) {
     const cur = this.pendingProps ?? this.currentProps();
@@ -4932,11 +5077,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   applyPainter() {
     if (!this.painterProps || !this.model) return;
-    const { run: run2, para: para2 } = this.painterProps;
+    const { run: run2, para: para3 } = this.painterProps;
     this.painterProps = null;
     this.snapshot();
     if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run2));
-    this.applyPara(this.range(), paraFormatting(para2));
+    this.applyPara(this.range(), paraFormatting(para3));
     this.refresh();
   }
   // localizar / substituir
@@ -5253,8 +5398,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   pageBorderTargets(applyTo) {
     const m = this.bodyModel();
     if (applyTo === "document") return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
-    const para2 = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
-    return [sectionSectPr(m, sectionIndexAt(m, Math.min(para2, m.paragraphs.length - 1)))];
+    const para3 = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
+    return [sectionSectPr(m, sectionIndexAt(m, Math.min(para3, m.paragraphs.length - 1)))];
   }
   /** Bordas de página da seção do cursor (Bordas e Sombreamento › Borda da Página); null = nenhuma. */
   getPageBorders() {
@@ -5381,8 +5526,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   getSection() {
     const m = this.bodyModel();
     if (!m) return null;
-    const para2 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
-    const k = sectionIndexAt(m, para2);
+    const para3 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const k = sectionIndexAt(m, para3);
     const sp = sectionSectPr(m, k);
     return {
       index: k,
@@ -5457,8 +5602,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const { para: para2, offset } = this.selection.focus;
-    const p = this.model.paragraphs[para2];
+    const { para: para3, offset } = this.selection.focus;
+    const p = this.model.paragraphs[para3];
     let acc = 0;
     let inserted = false;
     for (let ri = 0; ri <= p.runs.length; ri++) {
@@ -5485,7 +5630,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       acc = re;
     }
     if (!inserted) return;
-    const np = { para: para2, offset: offset + display.length };
+    const np = { para: para3, offset: offset + display.length };
     this.selection = { anchor: np, focus: np };
     this.refresh();
   }
@@ -5544,10 +5689,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         rows.push({ name: b.name, hidden: isHiddenBookmark(b.name), text: textBetween(s.paras, b.start, b.end), k: s.body ? [b.start.para, b.start.offset] : [s.key, b.start.para, b.start.offset] });
       }
     }
-    for (const [name, para2] of this.bookmarkParas) {
+    for (const [name, para3] of this.bookmarkParas) {
       if (seen.has(name.toLowerCase())) continue;
       seen.add(name.toLowerCase());
-      rows.push({ name, hidden: isHiddenBookmark(name), text: "", k: [para2 - 0.25, 0] });
+      rows.push({ name, hidden: isHiddenBookmark(name), text: "", k: [para3 - 0.25, 0] });
     }
     const vis = rows.filter((r) => opts.hidden || !r.hidden);
     const cmpK = (a, b) => {
@@ -5633,9 +5778,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.chromeSync?.();
       return true;
     }
-    const para2 = [...this.bookmarkParas].find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
-    if (para2 === void 0 || !this.toBody()) return false;
-    this.goToBodyPara(Math.min(para2, this.model.paragraphs.length - 1), 0, 0, false);
+    const para3 = [...this.bookmarkParas].find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+    if (para3 === void 0 || !this.toBody()) return false;
+    this.goToBodyPara(Math.min(para3, this.model.paragraphs.length - 1), 0, 0, false);
     return true;
   }
   /** "Mostrar indicadores": colchetes cinza em volta dos trechos (I no de ponto) —
@@ -5760,11 +5905,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Indicador _Ref que cobre exatamente [from, to] do parágrafo (reaproveitado,
    *  como o Word na 2ª referência ao mesmo destino — oráculo xr-h-twice) ou um novo. */
-  refBookmark(paras, para2, from, to, prefix = "_Ref") {
-    const hit = bookmarksIn(paras).find((b) => b.name.startsWith(prefix) && b.start.para === para2 && b.end.para === para2 && b.start.offset === from && b.end.offset === to);
+  refBookmark(paras, para3, from, to, prefix = "_Ref") {
+    const hit = bookmarksIn(paras).find((b) => b.name.startsWith(prefix) && b.start.para === para3 && b.end.para === para3 && b.start.offset === from && b.end.offset === to);
     if (hit) return hit.name;
     const name = this.newHiddenName(prefix);
-    addBookmarkMarks(paras, name, this.newBookmarkId(), { para: para2, offset: from }, { para: para2, offset: to });
+    addBookmarkMarks(paras, name, this.newBookmarkId(), { para: para3, offset: from }, { para: para3, offset: to });
     return name;
   }
   /**
@@ -5805,8 +5950,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return this.insertRefFields(target, opts, true);
     } else {
-      const para2 = this.paraOfItem(opts.item);
-      const p = ps[para2];
+      const para3 = this.paraOfItem(opts.item);
+      const p = ps[para3];
       if (!p) return false;
       this.snapshot();
       const len2 = paraLength(p);
@@ -5819,7 +5964,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
         [from, to] = captionRange(opts.kind, len2, seqEnd < 0 ? len2 : seqEnd);
       }
-      target = this.refBookmark(ps, para2, from, to);
+      target = this.refBookmark(ps, para3, from, to);
       return this.insertRefFields(target, opts, true);
     }
     if (!target) return false;
@@ -6419,22 +6564,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.tableSel = null;
       const ps = this.model.paragraphs;
       const at = a.beforePara;
-      const para2 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
-      ps.splice(at, 0, para2);
+      const para3 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
+      ps.splice(at, 0, para3);
       for (const x of this.tableAnchors) if (x !== a && x.beforePara >= at) x.beforePara++;
       for (const f of this.floatImages) if (f.para >= at) f.para++;
       if (position === "above") a.beforePara++;
       else this.keepTableWithNext(a.table);
-      caret = { para: at, offset: paraLength(para2) };
+      caret = { para: at, offset: paraLength(para3) };
     } else if (target === "image") {
       const img = this.selectedInlineImage();
       const ps = this.model.paragraphs;
       const at = position === "above" ? img.para : img.para + 1;
-      const para2 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
+      const para3 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
       if (position === "below") ps[img.para].props = { ...ps[img.para].props, keepNext: true };
-      ps.splice(at, 0, para2);
+      ps.splice(at, 0, para3);
       this.shiftAnchors(at - 1, 1);
-      caret = { para: at, offset: paraLength(para2) };
+      caret = { para: at, offset: paraLength(para3) };
     } else {
       if (this.hasSelection()) {
         const p = this.deleteSelection();
@@ -6551,11 +6696,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let link = opts.address?.trim() ?? "";
     this.snapshot();
     if (!link && opts.anchor) {
-      const para2 = this.paraOfItem(opts.anchor);
-      if (para2 >= 0 && !this.cellEdit && !this.noteEdit && !this.hfEdit && !this.tbEdit) {
-        const p = this.model.paragraphs[para2];
+      const para3 = this.paraOfItem(opts.anchor);
+      if (para3 >= 0 && !this.cellEdit && !this.noteEdit && !this.hfEdit && !this.tbEdit) {
+        const p = this.model.paragraphs[para3];
         if (!p) return false;
-        link = `#${this.refBookmark(this.model.paragraphs, para2, 0, paraLength(p), "_Toc")}`;
+        link = `#${this.refBookmark(this.model.paragraphs, para3, 0, paraLength(p), "_Toc")}`;
       } else link = `#${opts.anchor}`;
     }
     if (!link) {
@@ -6646,8 +6791,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) return null;
     const scale = PX_PER_TWIP * this.zoom;
     for (let pi = 0; pi < this.model.paragraphs.length; pi++) {
-      const para2 = this.model.paragraphs[pi];
-      const has = para2.runs.some((r) => r.props.commentIds?.includes(id));
+      const para3 = this.model.paragraphs[pi];
+      const has = para3.runs.some((r) => r.props.commentIds?.includes(id));
       if (!has) continue;
       const line = this.layoutCache[pi]?.lines[0];
       if (!line) return null;
@@ -6661,8 +6806,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     if (this.eng) {
       for (const el of this.eng.lines) {
-        const para2 = el.para;
-        if (!para2?.runs.some((r) => r.props.commentIds?.includes(id))) continue;
+        const para3 = el.para;
+        if (!para3?.runs.some((r) => r.props.commentIds?.includes(id))) continue;
         const canvas = this.canvases[el.page];
         if (!canvas) return null;
         return { topPx: canvas.offsetTop + el.line.y * scale, heightPx: el.line.height * scale, page: el.page };
@@ -7101,8 +7246,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   clampPos(p) {
     const paras = this.model.paragraphs;
-    const para2 = Math.min(p.para, paras.length - 1);
-    return this.canonPos({ para: para2, offset: Math.min(para2 === p.para ? p.offset : 0, paraLength(paras[para2])) });
+    const para3 = Math.min(p.para, paras.length - 1);
+    return this.canonPos({ para: para3, offset: Math.min(para3 === p.para ? p.offset : 0, paraLength(paras[para3])) });
   }
   /** Seleciona a próxima revisão depois do cursor (recomeça do início). */
   nextChange() {
@@ -7150,9 +7295,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const out = [];
     if (!this.eng) return out;
     const scale = PX_PER_TWIP * this.zoom;
-    this.revisionSpans().forEach(({ span, para: para2 }, index) => {
+    this.revisionSpans().forEach(({ span, para: para3 }, index) => {
       for (const el of this.eng.lines) {
-        if (el.para !== para2) continue;
+        if (el.para !== para3) continue;
         if (!span.mark && span.kind !== "paraFormat" && (el.line.end < span.start || el.line.start > Math.max(span.start, span.end - 1))) continue;
         const canvas = this.canvases[el.page];
         if (!canvas) break;
@@ -7249,8 +7394,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const { para: para2, offset } = this.selection.focus;
-    const p = this.model.paragraphs[para2];
+    const { para: para3, offset } = this.selection.focus;
+    const p = this.model.paragraphs[para3];
     let acc = 0;
     let inserted = false;
     for (let ri = 0; ri <= p.runs.length; ri++) {
@@ -7287,7 +7432,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       acc = re;
     }
     if (!inserted) return;
-    this.selection = { anchor: { para: para2, offset: offset + 1 }, focus: { para: para2, offset: offset + 1 } };
+    this.selection = { anchor: { para: para3, offset: offset + 1 }, focus: { para: para3, offset: offset + 1 } };
     this.refresh();
   }
   /** Abre o seletor de arquivo para TROCAR a imagem flutuante selecionada
@@ -7423,6 +7568,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       notes: this.notesOut(blocks)
     });
     if (this.evenOdd !== null) writeEvenAndOddHeaders(pkg, this.evenOdd);
+    const bg = this.fullDoc?.background ?? null;
+    if (bgKey(bg) !== this.bgAtLoad || this.bgWritten) {
+      this.bgWritten = writePageBackground(pkg, bg, this.bgWritten);
+      if (bg) writeDisplayBackgroundShape(pkg, true);
+    }
     const usedRids = new Set(sections.flatMap((s) => [...s.headerRefs, ...s.footerRefs].map((r) => r.rid)));
     const goneRids = new Set([...this.hfRidsAtLoad].filter((r) => !usedRids.has(r)));
     if (goneRids.size) dropUnusedHfParts(pkg, goneRids);
@@ -7785,6 +7935,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
+      // Cor da Página (w:background) e a exibição do fundo (w:displayBackgroundShape)
+      bg: this.fullDoc?.background ?? null,
+      bgd: !!this.fullDoc?.formatting?.settings.displayBackgroundShape,
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
       ...deep ? {
         hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
@@ -7913,6 +8066,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (state.sv !== void 0 && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== void 0 && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
+    this.restorePageBackground(state.bg, state.bgd);
     if (!this.tbEdit) {
       for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
       if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
@@ -7932,8 +8086,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   clampSel(s) {
     const ps = this.model.paragraphs;
     const c = (p) => {
-      const para2 = Math.max(0, Math.min(p.para, ps.length - 1));
-      return { para: para2, offset: Math.max(0, Math.min(p.offset, paraLength(ps[para2]))) };
+      const para3 = Math.max(0, Math.min(p.para, ps.length - 1));
+      return { para: para3, offset: Math.max(0, Math.min(p.offset, paraLength(ps[para3]))) };
     };
     return { anchor: c(s.anchor), focus: c(s.focus) };
   }
@@ -8014,8 +8168,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.hasSelection()) {
       const r = this.runBefore(this.selection.focus);
       if (r?.noteRef) {
-        const { para: para2, offset } = this.selection.focus;
-        this.selection = { anchor: { para: para2, offset: offset - r.text.length }, focus: { para: para2, offset } };
+        const { para: para3, offset } = this.selection.focus;
+        this.selection = { anchor: { para: para3, offset: offset - r.text.length }, focus: { para: para3, offset } };
         this.refreshSelection();
         return;
       }
@@ -8030,26 +8184,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     } else {
-      const { para: para2, offset } = this.selection.focus;
-      const prev = para2 > 0 ? this.model.paragraphs[para2 - 1] : null;
+      const { para: para3, offset } = this.selection.focus;
+      const prev = para3 > 0 ? this.model.paragraphs[para3 - 1] : null;
       if (offset > 0) {
         const pos = deleteRange2(this.model, {
-          start: { para: para2, offset: offset - 1 },
-          end: { para: para2, offset }
+          start: { para: para3, offset: offset - 1 },
+          end: { para: para3, offset }
         });
         this.selection = { anchor: pos, focus: pos };
       } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
         const len2 = paraLength(prev);
         let pos;
-        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para2 - 1, offset: len2 - 1 }, end: { para: para2 - 1, offset: len2 } });
-        else if (para2 > 1) {
-          pos = mergeWithPrevious2(this.model, para2 - 1);
-          this.shiftAnchors(para2 - 2, -1);
-        } else pos = { para: para2 - 1, offset: 0 };
+        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para3 - 1, offset: len2 - 1 }, end: { para: para3 - 1, offset: len2 } });
+        else if (para3 > 1) {
+          pos = mergeWithPrevious2(this.model, para3 - 1);
+          this.shiftAnchors(para3 - 2, -1);
+        } else pos = { para: para3 - 1, offset: 0 };
         this.selection = { anchor: pos, focus: pos };
-      } else if (para2 > 0) {
-        const pos = mergeWithPrevious2(this.model, para2);
-        this.shiftAnchors(para2 - 1, -1);
+      } else if (para3 > 0) {
+        const pos = mergeWithPrevious2(this.model, para3);
+        this.shiftAnchors(para3 - 1, -1);
         this.selection = { anchor: pos, focus: pos };
       } else {
         this.undoStack.pop();
@@ -8071,12 +8225,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     } else {
-      const { para: para2, offset } = this.selection.focus;
-      const len2 = paraLength(this.model.paragraphs[para2]);
+      const { para: para3, offset } = this.selection.focus;
+      const len2 = paraLength(this.model.paragraphs[para3]);
       if (offset < len2) {
-        deleteRange2(this.model, { start: { para: para2, offset }, end: { para: para2, offset: offset + 1 } });
-      } else if (para2 < this.model.paragraphs.length - 1) {
-        mergeWithPrevious2(this.model, para2 + 1);
+        deleteRange2(this.model, { start: { para: para3, offset }, end: { para: para3, offset: offset + 1 } });
+      } else if (para3 < this.model.paragraphs.length - 1) {
+        mergeWithPrevious2(this.model, para3 + 1);
       } else {
         this.undoStack.pop();
         return;
@@ -8092,9 +8246,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    */
   trackedKey(dir) {
     const paras = this.model.paragraphs;
-    const { para: para2 } = this.selection.focus;
+    const { para: para3 } = this.selection.focus;
     let k = this.selection.focus.offset;
-    const p = paras[para2];
+    const p = paras[para3];
     const len2 = paraLength(p);
     const deleted = (i) => {
       let acc = 0;
@@ -8112,43 +8266,43 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     if (dir < 0) {
       if (k > 0 && deleted(k - 1) && !this.hiddenChar(p, k - 1)) {
-        go({ para: para2, offset: k - 1 });
+        go({ para: para3, offset: k - 1 });
         return;
       }
       while (k > 0 && this.hiddenChar(p, k - 1)) k--;
     } else {
       if (k < len2 && deleted(k) && !this.hiddenChar(p, k)) {
-        go({ para: para2, offset: k + 1 });
+        go({ para: para3, offset: k + 1 });
         return;
       }
       while (k < len2 && this.hiddenChar(p, k)) k++;
     }
     let range;
-    if (dir < 0 && k > 0) range = { start: { para: para2, offset: k - 1 }, end: { para: para2, offset: k } };
-    else if (dir > 0 && k < len2) range = { start: { para: para2, offset: k }, end: { para: para2, offset: k + 1 } };
-    else if (dir < 0 && para2 > 0) {
-      const prev = paras[para2 - 1];
+    if (dir < 0 && k > 0) range = { start: { para: para3, offset: k - 1 }, end: { para: para3, offset: k } };
+    else if (dir > 0 && k < len2) range = { start: { para: para3, offset: k }, end: { para: para3, offset: k + 1 } };
+    else if (dir < 0 && para3 > 0) {
+      const prev = paras[para3 - 1];
       const pl = paraLength(prev);
       if (prev.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
-        if (pl > 0) range = { start: { para: para2 - 1, offset: pl - 1 }, end: { para: para2 - 1, offset: pl } };
-        else if (para2 > 1 && !paras[para2 - 2].props.markDel) range = { start: { para: para2 - 2, offset: paraLength(paras[para2 - 2]) }, end: { para: para2 - 1, offset: 0 } };
+        if (pl > 0) range = { start: { para: para3 - 1, offset: pl - 1 }, end: { para: para3 - 1, offset: pl } };
+        else if (para3 > 1 && !paras[para3 - 2].props.markDel) range = { start: { para: para3 - 2, offset: paraLength(paras[para3 - 2]) }, end: { para: para3 - 1, offset: 0 } };
         else return;
       } else {
         if (prev.props.markDel) {
-          go({ para: para2 - 1, offset: pl });
+          go({ para: para3 - 1, offset: pl });
           return;
         }
-        range = { start: { para: para2 - 1, offset: pl }, end: { para: para2, offset: 0 } };
+        range = { start: { para: para3 - 1, offset: pl }, end: { para: para3, offset: 0 } };
       }
-    } else if (dir > 0 && para2 < paras.length - 1) {
+    } else if (dir > 0 && para3 < paras.length - 1) {
       if (p.props.markDel) {
-        go({ para: para2 + 1, offset: 0 });
+        go({ para: para3 + 1, offset: 0 });
         return;
       }
-      range = { start: { para: para2, offset: len2 }, end: { para: para2 + 1, offset: 0 } };
+      range = { start: { para: para3, offset: len2 }, end: { para: para3 + 1, offset: 0 } };
     } else return;
     this.snapshot();
-    if (range.start.para === range.end.para) this.noteParaEdit(para2);
+    if (range.start.para === range.end.para) this.noteParaEdit(para3);
     const pos = this.trackedDelete(range, dir < 0 ? "start" : "end");
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -8157,12 +8311,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Próxima fronteira de palavra a partir do caret. */
   moveWord(dir, extend) {
     if (!this.model) return;
-    let { para: para2, offset } = this.selection.focus;
-    const text = paraText(this.model.paragraphs[para2]);
+    let { para: para3, offset } = this.selection.focus;
+    const text = paraText(this.model.paragraphs[para3]);
     if (dir === 1) {
       if (offset >= text.length) {
-        if (para2 < this.model.paragraphs.length - 1) {
-          para2++;
+        if (para3 < this.model.paragraphs.length - 1) {
+          para3++;
           offset = 0;
         }
       } else {
@@ -8171,16 +8325,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     } else {
       if (offset === 0) {
-        if (para2 > 0) {
-          para2--;
-          offset = paraLength(this.model.paragraphs[para2]);
+        if (para3 > 0) {
+          para3--;
+          offset = paraLength(this.model.paragraphs[para3]);
         }
       } else {
         while (offset > 0 && /\s/.test(text[offset - 1])) offset--;
         while (offset > 0 && /\S/.test(text[offset - 1])) offset--;
       }
     }
-    const focus = { para: para2, offset };
+    const focus = { para: para3, offset };
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.refreshSelection();
     this.scrollCaretIntoView();
@@ -8206,42 +8360,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.pendingProps = null;
       return;
     }
-    let { para: para2, offset } = this.selection.focus;
+    let { para: para3, offset } = this.selection.focus;
     const len2 = (i) => paraLength(this.model.paragraphs[i]);
     const hid = (i, o) => this.hiddenChar(this.model.paragraphs[i], o);
     if (dir === "left") {
       if (offset > 0) {
         offset--;
-        while (offset > 0 && hid(para2, offset - 1)) offset--;
-      } else if (para2 > 0) {
-        para2--;
-        offset = len2(para2);
+        while (offset > 0 && hid(para3, offset - 1)) offset--;
+      } else if (para3 > 0) {
+        para3--;
+        offset = len2(para3);
       }
     } else if (dir === "right") {
-      while (offset < len2(para2) && hid(para2, offset)) offset++;
-      if (offset < len2(para2)) offset++;
-      else if (para2 < this.model.paragraphs.length - 1) {
-        para2++;
+      while (offset < len2(para3) && hid(para3, offset)) offset++;
+      if (offset < len2(para3)) offset++;
+      else if (para3 < this.model.paragraphs.length - 1) {
+        para3++;
         offset = 0;
       }
     } else if (dir === "home" || dir === "end") {
-      const line = this.lineOf({ para: para2, offset });
+      const line = this.lineOf({ para: para3, offset });
       if (line) offset = dir === "home" ? line.rich.start : this.lineEndOffset(line);
     } else {
-      const line = this.lineOf({ para: para2, offset });
+      const line = this.lineOf({ para: para3, offset });
       if (line) {
-        const x = this.caretX({ para: para2, offset }, line);
+        const x = this.caretX({ para: para3, offset }, line);
         const all = this.allLines();
         const idx = all.indexOf(line);
         const target = all[idx + (dir === "down" ? 1 : -1)];
         if (target) {
           const hit = this.hitLineX(target, x);
-          para2 = target.para;
+          para3 = target.para;
           offset = hit;
         }
       }
     }
-    const focus = this.canonPos({ para: para2, offset });
+    const focus = this.canonPos({ para: para3, offset });
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.pendingProps = null;
     this.refreshSelection();
@@ -8414,9 +8568,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
       if (e.ctrlKey && this.model) {
-        const para2 = this.model.paragraphs[hit.para];
+        const para3 = this.model.paragraphs[hit.para];
         let acc = 0;
-        for (const run2 of para2?.runs ?? []) {
+        for (const run2 of para3?.runs ?? []) {
           const end = acc + run2.text.length;
           if (hit.offset >= acc && hit.offset <= end && run2.props.link) {
             if (/^(https?|mailto):/.test(run2.props.link)) {
@@ -8431,9 +8585,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
       if (this.model) {
-        const para2 = this.model.paragraphs[hit.para];
+        const para3 = this.model.paragraphs[hit.para];
         let acc = 0;
-        for (const run2 of para2?.runs ?? []) {
+        for (const run2 of para3?.runs ?? []) {
           const end = acc + run2.text.length;
           if (hit.offset >= acc && hit.offset < end && run2.props.commentIds?.length) {
             this.dispatchEvent(new CustomEvent("uw-comment-click", {
@@ -8766,11 +8920,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.chromeSync?.();
           return;
         }
-        const para2 = this.model?.paragraphs[this.selection.focus.para];
-        if (para2?.props.numbering && this.selection.focus.offset === 0) {
-          const lvl = Math.max(0, Math.min(2, para2.props.numbering.ilvl + (e.shiftKey ? -1 : 1)));
+        const para3 = this.model?.paragraphs[this.selection.focus.para];
+        if (para3?.props.numbering && this.selection.focus.offset === 0) {
+          const lvl = Math.max(0, Math.min(2, para3.props.numbering.ilvl + (e.shiftKey ? -1 : 1)));
           this.formatPara({
-            numbering: { ...para2.props.numbering, ilvl: lvl },
+            numbering: { ...para3.props.numbering, ilvl: lvl },
             indentLeftTwips: 720 * (lvl + 1)
           });
         } else if (!e.shiftKey) this.type("	");
@@ -9754,6 +9908,513 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.refresh();
     if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
   }
+  // ───────────────── Plano de Fundo da Página (guia Design) ─────────────────
+  // Regras medidas no Word (write/tools/page-lab; memória word-page-background-facts e
+  // word-watermark-facts). Cor da Página: w:background + w:displayBackgroundShape (a tela
+  // só mostra com ela; o PDF sempre). Marca-d'água: VML no 1º parágrafo dos TRÊS
+  // cabeçalhos da seção do cursor (even/default/first), num passo de desfazer.
+  /** w:background como o documento abriu (para gravar só se mudou). */
+  bgAtLoad = null;
+  /** imagem do fundo que a última gravação acrescentou ao pacote (sai na próxima) */
+  bgWritten;
+  /** Cor da Página atual (null = Sem Cor). */
+  pageBackground() {
+    const bg = this.fullDoc?.background;
+    if (!bg) return null;
+    const shown = !!this.fullDoc?.formatting?.settings.displayBackgroundShape;
+    const t = bg.themeTint ? 1 - parseInt(bg.themeTint, 16) / 255 : void 0;
+    const sh = bg.themeShade ? 1 - parseInt(bg.themeShade, 16) / 255 : void 0;
+    const { image, ...fill } = bg.fill ?? {};
+    return {
+      ...bg.color ? { color: bg.color.toUpperCase() } : {},
+      ...bg.themeColor ? { themeColor: bg.themeColor } : {},
+      ...t !== void 0 ? { tint: Math.round(t * 100) / 100 } : {},
+      ...sh !== void 0 ? { shade: Math.round(sh * 100) / 100 } : {},
+      ...bg.fill ? { fill: { ...fill, ...image ? { hasImage: true } : {} } } : {},
+      shown
+    };
+  }
+  /**
+   * Cor da Página: RRGGBB, uma cor do tema ({ themeColor, tint | shade }, como a paleta)
+   * ou null = Sem Cor. O Word grava `<w:background w:color>` (com themeColor/Tint/Shade)
+   * e liga a exibição do fundo (w:displayBackgroundShape).
+   */
+  setPageColor(color2) {
+    if (!this.model || this.locked()) return;
+    if (color2 === null) {
+      this.applyPageBackground(null);
+      return;
+    }
+    if (typeof color2 === "string") {
+      this.applyPageBackground({ color: color2.replace(/^#/, "").toUpperCase() });
+      return;
+    }
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const ts = themeTintShade(color2);
+    const colors = Object.fromEntries(Object.entries(theme?.colors ?? {}).map(([k, v]) => [k, String(v).replace(/^#/, "")]));
+    const hex = themeHex(colors, color2.themeColor, ts.themeTint, ts.themeShade);
+    this.applyPageBackground({ color: hex, themeColor: color2.themeColor, ...ts });
+  }
+  /** Efeitos de Preenchimento (gradiente, padrão, imagem, textura) — null tira o fundo. */
+  setPageFill(fill) {
+    if (!this.model || this.locked()) return;
+    if (!fill) {
+      this.applyPageBackground(null);
+      return;
+    }
+    const bg = pageFillFrom(fill, uiLang(this), (prst) => {
+      const rows = patternRows(prst);
+      return rows ? patternGif(rows) : null;
+    });
+    if (bg) this.applyPageBackground(bg);
+  }
+  /** Predefinições de gradiente (próprias), variantes por estilo e padrões, para o diálogo. */
+  pageFillOptions() {
+    const lang = uiLang(this);
+    return {
+      presets: GRADIENT_PRESETS.map((p) => ({ id: p.id, name: p.name[lang], stops: p.stops })),
+      variants: { ...GRADIENT_VARIANTS },
+      patterns: WORD_PATTERNS.map((p) => ({ id: p.prst, name: p.title[lang].trim() }))
+    };
+  }
+  /** Troca o w:background (um passo de desfazer) e liga a exibição do fundo na tela. */
+  applyPageBackground(bg) {
+    if (!this.fullDoc) return;
+    this.snapshot();
+    if (bg) this.fullDoc.background = bg;
+    else delete this.fullDoc.background;
+    const f = this.fullDoc.formatting ?? (this.newFormatting ??= emptyFormatting());
+    if (bg) f.settings.displayBackgroundShape = true;
+    this.engPageCache.clear();
+    this.refresh();
+  }
+  /** Volta o fundo do estado de desfazer. */
+  restorePageBackground(bg, shown) {
+    if (!this.fullDoc || bg === void 0) return;
+    if (bg) this.fullDoc.background = bg;
+    else delete this.fullDoc.background;
+    const f = this.fullDoc.formatting ?? this.newFormatting;
+    if (f && shown !== void 0) f.settings.displayBackgroundShape = shown;
+    this.engPageCache.clear();
+  }
+  // ── marca-d'água ──
+  /** XML do objeto (w:pict/w:drawing) de origem de um run, se houver. */
+  runObjXml(run2) {
+    const store = this.fullDoc?.sources;
+    const sid = run2.props.src;
+    if (!store || sid === void 0) return void 0;
+    const src = store.runs.get(sid);
+    return src?.obj ?? (src?.objHead !== void 0 ? store.runs.get(src.objHead)?.obj : void 0);
+  }
+  /** O run é a marca-d'água do Word (PowerPlusWaterMarkObject / WordPictureWatermark)? */
+  isWatermarkRun(run2) {
+    if (!run2.textbox?.vml && !run2.image?.vml) return false;
+    return isWatermarkXml(this.runObjXml(run2));
+  }
+  /** Marca-d'água da seção do cursor (do cabeçalho padrão; senão do primeiro com uma). */
+  watermark() {
+    const c = this.hfContext();
+    if (!c) return null;
+    for (const type of ["default", "first", "even"]) {
+      const p = this.hfPartFor(c.sec, "header", type);
+      const paras = p ? this.hfParts.get(p.key)?.paras : void 0;
+      for (const para3 of paras ?? []) {
+        for (const run2 of para3.runs) {
+          if (!this.isWatermarkRun(run2)) continue;
+          const info = readWatermarkXml(this.runObjXml(run2), vmlColor);
+          if (info) return info.kind === "picture" && run2.image ? { ...info, image: run2.image.data } : info;
+        }
+      }
+    }
+    return null;
+  }
+  /** Textos da lista do diálogo Marca-d'Água Personalizada (idioma da interface). */
+  watermarkTexts() {
+    return WATERMARK_TEXTS[uiLang(this)];
+  }
+  /** Itens da galeria (texto e categoria no idioma da interface). */
+  watermarkGallery() {
+    const lang = uiLang(this);
+    const cat = { confidential: { en: "Confidential", pt: "Confidencial" }, disclaimers: { en: "Disclaimers", pt: "Avisos de Isen\xE7\xE3o de Responsabilidade" }, urgent: { en: "Urgent", pt: "Urgente" } };
+    return WATERMARK_GALLERY.map((g) => ({ ...g, label: `${g.text[lang]} ${g.layout === "diagonal" ? 1 : 2}`, categoryLabel: cat[g.category][lang] }));
+  }
+  /**
+   * Marca-d'água: um item da galeria (id) ou a do diálogo Personalizada. Vai no 1º
+   * parágrafo dos três cabeçalhos da seção do cursor (as partes que faltam são
+   * criadas; as vinculadas são compartilhadas), trocando a que houver. Um passo.
+   */
+  setWatermark(spec) {
+    if (!this.model || this.locked()) return;
+    const c = this.hfContext();
+    if (!c) return;
+    const lang = uiLang(this);
+    const sp = sectionSectPr(this.bodyModel(), c.sec);
+    const contentW = (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips) / 20;
+    let wm;
+    let box;
+    if (typeof spec === "string") {
+      const g = WATERMARK_GALLERY.find((x) => x.id === spec);
+      if (!g) return;
+      wm = { kind: "text", text: g.text[lang], font: "calibri", color: "C0C0C0", semitransparent: true, layout: g.layout };
+      box = { widthPt: g.box[lang][0], heightPt: g.box[lang][1] };
+    } else if (spec.kind === "text") {
+      if (!spec.text.trim()) return;
+      wm = spec;
+      box = spec.sizePt ? this.watermarkTextBox(spec.text, spec.font, spec.sizePt) : autoTextBox(spec.text, spec.layout, contentW);
+    } else {
+      const info = imagePixelInfo(spec.data);
+      if (!info) return;
+      wm = spec;
+      box = pictureBox({ w: info.w * 72 / info.dpi, h: info.h * 72 / info.dpi }, spec.scale, contentW);
+    }
+    this.editSectionHeaders(c.sec, (paras, path) => {
+      for (const p of paras) p.runs = p.runs.filter((r) => !this.isWatermarkRun(r));
+      const run2 = this.watermarkRun(wm, box, path);
+      if (run2) {
+        if (!paras.length) paras.push(...this.newHfParas("header"));
+        paras[0].runs.unshift(run2);
+      }
+    });
+  }
+  /** Remover Marca-d'Água: de TODOS os cabeçalhos do documento (Word, oráculo wm-remove-multi). */
+  removeWatermark() {
+    if (!this.model || this.locked()) return;
+    const keys = [...this.hfParts.entries()].filter(([k, p]) => k.startsWith("header:") && p.paras?.some((q) => q.runs.some((r) => this.isWatermarkRun(r)))).map(([k]) => k);
+    if (!keys.length) return;
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    this.snapshot(false, keys);
+    for (const k of keys) {
+      const part = this.hfParts.get(k);
+      for (const p of part.paras) p.runs = p.runs.filter((r) => !this.isWatermarkRun(r));
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+  /** Caixa da marca com tamanho explícito: avanço do texto e altura (winAscent+winDescent). */
+  watermarkTextBox(text, font, sizePt) {
+    const prov = this.liveFontProvider();
+    const face = prov.face(font, false, false) ?? prov.face("Calibri", false, false);
+    if (!face) return { widthPt: sizePt * text.length * 0.6, heightPt: sizePt * 1.2 };
+    let tw2 = 0;
+    for (const ch of text) tw2 += face.font.advanceTwips(ch.codePointAt(0), sizePt);
+    const fm = face.font.metrics, u = fm.unitsPerEm || 1e3;
+    const line = ((fm.usWinAscent || fm.ascender) + (fm.usWinDescent || -fm.descender)) / u;
+    return explicitTextBox(tw2 / 20, sizePt, line);
+  }
+  /** Run da marca-d'água para a parte `path` (a imagem ganha relação e mídia já no pacote). */
+  watermarkRun(spec, box, path) {
+    const pkg = this.pkg ?? (this.pkg = DocxPackage.empty());
+    let rid;
+    if (spec.kind === "picture") rid = this.addPartImage(path, spec.data, spec.ext);
+    const used = pkg.partNames().filter((n) => /^word\/(header|footer)\d*\.xml$/.test(n)).map((n) => pkg.getPartText(n) ?? "").join("") + [...this.hfParts.values()].flatMap((p) => p.paras ?? []).flatMap((q) => q.runs).map((r) => this.runObjXml(r) ?? "").join("");
+    let spid = 1025;
+    for (const mm of used.matchAll(/_x0000_s(\d+)/g)) spid = Math.max(spid, parseInt(mm[1], 10) + 1);
+    const ids = { n: 1e8 + Math.floor(Math.random() * 899999999), spid, anchorId: Math.floor(Math.random() * 2147483647).toString(16).toUpperCase().padStart(8, "0") };
+    const runXml = watermarkRunXml(spec, box, ids, rid, vmlColorAttr);
+    const read = readHeaderFooterPart(pkg, path, void 0, hfPartXml("header", `<w:p>${runXml}</w:p>`));
+    const run2 = read?.paras[0]?.runs.find((r) => r.textbox || r.image);
+    if (!run2) return null;
+    const store = this.fullDoc?.sources;
+    if (store) {
+      const id = store.id();
+      store.runs.set(id, { rPr: "<w:rPr><w:noProof/></w:rPr>", obj: /<w:pict\b[\s\S]*<\/w:pict>/.exec(runXml)[0] });
+      run2.props = { ...run2.props, src: id };
+    }
+    return run2;
+  }
+  /** Relação de imagem nova na parte (headerN.xml.rels), com a mídia e o tipo de conteúdo. */
+  addPartImage(path, data, ext0) {
+    const pkg = this.pkg;
+    const ext = ext0.toLowerCase() === "jpg" ? "jpeg" : ext0.toLowerCase();
+    let n = 1;
+    while (pkg.getPart(`word/media/image${n}.${ext}`)) n++;
+    pkg.setPart(`word/media/image${n}.${ext}`, data);
+    const relsPath = `word/_rels/${path.split("/").pop()}.rels`;
+    let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    let k = 1;
+    while (new RegExp(`Id="rId${k}"`).test(rels)) k++;
+    rels = rels.replace("</Relationships>", () => `<Relationship Id="rId${k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${n}.${ext}"/></Relationships>`);
+    pkg.setPartText(relsPath, rels);
+    const ct = pkg.getPartText("[Content_Types].xml");
+    const mime = { png: "image/png", jpeg: "image/jpeg", gif: "image/gif", bmp: "image/bmp", tif: "image/tiff", tiff: "image/tiff" };
+    if (ct && !new RegExp(`<Default Extension="${ext}"`, "i").test(ct)) {
+      pkg.setPartText("[Content_Types].xml", ct.replace(/(<Types\b[^>]*>)/, (t) => `${t}<Default Extension="${ext}" ContentType="${mime[ext] ?? `image/${ext}`}"/>`));
+    }
+    return `rId${k}`;
+  }
+  /**
+   * Os três cabeçalhos (even/default/first) da seção `sec` — a parte dela ou a herdada,
+   * criando na própria seção a que nenhuma anterior tem — num passo de desfazer
+   * (Word: a marca-d'água entra nos três; oráculo page-lab, corpus 106/110).
+   */
+  editSectionHeaders(sec, fn) {
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    const m = this.bodyModel();
+    const keys = /* @__PURE__ */ new Set();
+    for (const type of ["even", "default", "first"]) {
+      const p = this.hfPartFor(sec, "header", type);
+      if (p) keys.add(p.key);
+    }
+    this.snapshot(false, [...keys]);
+    const done = /* @__PURE__ */ new Set();
+    for (const type of ["even", "default", "first"]) {
+      let key = this.hfPartFor(sec, "header", type)?.key;
+      if (!key) {
+        const target = this.newHfTarget("header");
+        this.createHfPart("header", target, null);
+        this.refsOfSection(m, sec, "header").push({ kind: "header", type, rid: target.rid });
+        key = `header:${target.rid}`;
+      }
+      if (done.has(key)) continue;
+      done.add(key);
+      const part = this.hfParts.get(key);
+      if (!part.paras) part.paras = this.newHfParas("header");
+      fn(part.paras, part.path);
+      part.blocks = reconcileBlocks(part.blocks, part.paras, true);
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+  // ── Folha de Rosto ──
+  /** Modelos da galeria Folha de Rosto (próprios; nomes no idioma da interface). */
+  coverPages() {
+    const lang = uiLang(this);
+    return COVER_TEMPLATES.map((t) => ({ id: t.id, name: t.name[lang] }));
+  }
+  /** O documento tem uma folha de rosto (w:sdt "Cover Pages")? */
+  hasCoverPage() {
+    return this.coverParaIndexes().length > 0;
+  }
+  /** Índices (no modelo do corpo) dos parágrafos da folha de rosto — os do sdt "Cover Pages". */
+  coverParaIndexes() {
+    const store = this.fullDoc?.sources;
+    const story = store?.stories.get("word/document.xml");
+    if (!story || !this.model) return [];
+    const ids = /* @__PURE__ */ new Set();
+    const walk = (gs, inCover) => {
+      for (const g of gs) {
+        const cover = inCover || g.wrapOpen !== void 0 && /<w:docPartGallery\s+w:val="Cover Pages"/.test(g.wrapOpen);
+        if (cover) for (const id of g.blocks) ids.add(id);
+        if (g.inner) walk(g.inner, cover);
+      }
+    };
+    walk(story.groups, false);
+    if (!ids.size) return [];
+    const m = this.bodyModel();
+    const out = [];
+    m.paragraphs.forEach((p, i) => {
+      if (p.props.src !== void 0 && ids.has(p.props.src)) out.push(i);
+    });
+    return out;
+  }
+  /** Tira os parágrafos da folha de rosto atual do modelo (sem passo de desfazer). */
+  dropCoverPage() {
+    const idx = this.coverParaIndexes();
+    if (!idx.length) return false;
+    const m = this.bodyModel();
+    for (let k = idx.length - 1; k >= 0; k--) {
+      const i = idx[k];
+      m.paragraphs.splice(i, 1);
+      this.shiftAnchors(i, -1);
+    }
+    if (!m.paragraphs.length) m.paragraphs.push({ runs: [], props: {} });
+    return true;
+  }
+  /** Ambiente dos modelos: página da 1ª seção, cores do tema e os campos (propriedades). */
+  coverEnv() {
+    const lang = uiLang(this);
+    const sp = sectionSectPr(this.bodyModel(), 0);
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const col = (k, d) => String(theme?.colors?.[k] ?? d).replace(/^#/, "").toUpperCase();
+    const core = this.pkg?.getPartText("docProps/core.xml") ?? "";
+    const app = this.pkg?.getPartText("docProps/app.xml") ?? "";
+    const prop = (xml, tag) => {
+      const m = new RegExp(`<${tag}[^>]*>([^<]*)<`).exec(xml);
+      return m ? m[1].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").trim() : "";
+    };
+    const ph = coverPlaceholders(lang);
+    const fields = {
+      title: prop(core, "dc:title") || ph.title,
+      subtitle: prop(core, "dc:subject") || ph.subtitle,
+      author: prop(core, "dc:creator") || ph.author,
+      date: ph.date,
+      company: prop(app, "Company") || ph.company,
+      summary: prop(core, "dc:description") || ph.summary
+    };
+    return {
+      lang,
+      page: { w: sp.pageWidthTwips / 20, h: sp.pageHeightTwips / 20, top: sp.marginTopTwips / 20, bottom: sp.marginBottomTwips / 20, left: sp.marginLeftTwips / 20, right: sp.marginRightTwips / 20 },
+      accent1: col("accent1", "156082"),
+      accent2: col("accent2", "E97132"),
+      fields,
+      drawingId: () => 1 + Math.floor(Math.random() * 2147483646)
+    };
+  }
+  /**
+   * Insere a folha de rosto `id` no INÍCIO do documento (troca a que houver), num
+   * w:sdt "Cover Pages" que termina com a quebra de página, e liga Primeira Página
+   * Diferente na 1ª seção (o Word: corpus 3/3) — o cabeçalho não aparece na capa.
+   * Um passo de desfazer; o título (espaço reservado) fica selecionado.
+   */
+  insertCoverPage(id) {
+    if (!this.canInsertSectionBreak()) return;
+    const env = this.coverEnv();
+    const xml = coverXml(id, env);
+    if (!xml) return;
+    const pkg = this.pkg ?? (this.pkg = DocxPackage.empty());
+    const store = this.fullDoc?.sources;
+    const read = readBodyFragment(pkg, store, xml, COVER_NS);
+    if (!read) return;
+    this.snapshot();
+    this.dropCoverPage();
+    const m = this.model;
+    const paras = read.blocks.flatMap((b) => b.type === "paragraph" ? [b.paragraph] : []);
+    this.syncRunRPr(paras);
+    m.paragraphs.splice(0, 0, ...paras);
+    this.shiftAnchors(-1, paras.length);
+    const story = store?.stories.get("word/document.xml");
+    if (story) story.groups.unshift(...read.groups);
+    store?.baseline();
+    sectionSectPr(m, 0).titlePg = true;
+    const ti = paras.findIndex((p) => paraText(p) === env.fields.title);
+    const at = Math.max(0, ti);
+    const len2 = ti >= 0 && /^\[.*\]$/.test(env.fields.title) ? env.fields.title.length : 0;
+    this.selection = { anchor: { para: at, offset: 0 }, focus: { para: at, offset: len2 } };
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Remover Folha de Rosto Atual (o sdt "Cover Pages" inteiro). false sem folha de rosto. */
+  removeCoverPage() {
+    if (!this.canInsertSectionBreak() || !this.hasCoverPage()) return false;
+    this.snapshot();
+    this.dropCoverPage();
+    this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.engPageCache.clear();
+    this.refresh();
+    return true;
+  }
+  /** Miniatura da folha de rosto `id` (página inteira) num canvas de `cssWidth` px. */
+  paintCoverTemplate(id, canvas, cssWidth) {
+    if (!this.model || !this.fonts) return false;
+    const xml = coverXml(id, this.coverEnv());
+    const read = xml ? readBodyFragment(this.pkg ?? DocxPackage.empty(), void 0, xml, COVER_NS) : void 0;
+    if (!read) return false;
+    const sp = { ...sectionSectPr(this.bodyModel(), 0), titlePg: false };
+    delete sp.pgBorders;
+    return this.paintPreviewPage(read.blocks, sp, {}, canvas, cssWidth);
+  }
+  /** Miniatura de uma marca-d'água da galeria (página inteira) num canvas de `cssWidth` px. */
+  paintWatermarkTemplate(id, canvas, cssWidth) {
+    if (!this.model || !this.fonts) return false;
+    const g = WATERMARK_GALLERY.find((x) => x.id === id);
+    if (!g) return false;
+    const lang = uiLang(this);
+    const xml = watermarkRunXml(
+      { kind: "text", text: g.text[lang], font: "calibri", color: "C0C0C0", semitransparent: true, layout: g.layout },
+      { widthPt: g.box[lang][0], heightPt: g.box[lang][1] },
+      { n: 1, spid: 1025, anchorId: "00000001" },
+      void 0,
+      vmlColorAttr
+    );
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), "word/uw-preview.xml", void 0, hfPartXml("header", `<w:p>${xml}</w:p>`));
+    if (!read) return false;
+    const sp = { pageWidthTwips: 12240, pageHeightTwips: 15840, marginLeftTwips: 1440, marginRightTwips: 1440, marginTopTwips: 1440, marginBottomTwips: 1440, headerDistanceTwips: 720, footerDistanceTwips: 720 };
+    return this.paintPreviewPage([{ type: "paragraph", paragraph: { runs: [], props: {} } }], sp, { default: read.blocks }, canvas, cssWidth);
+  }
+  /** Diagrama uma página de prévia (corpo + cabeçalho) e a pinta inteira no canvas. */
+  paintPreviewPage(blocks, sp, headerBlocks, canvas, cssWidth) {
+    const full = {
+      ...this.fullDoc ?? {},
+      blocks,
+      sections: [{
+        sectPr: sp,
+        blockStart: 0,
+        blockEnd: Math.max(0, blocks.length - 1),
+        headers: {},
+        footers: {},
+        headerRefs: [],
+        footerRefs: [],
+        headerBlocks,
+        footerBlocks: {}
+      }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      bookmarks: /* @__PURE__ */ new Map(),
+      background: void 0,
+      ...this.fullDoc?.formatting ? {} : { formatting: this.newFormatting ?? emptyFormatting() }
+    };
+    let page2;
+    try {
+      page2 = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: void 0 }).pages[0];
+    } catch {
+      return false;
+    }
+    if (!page2) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / page2.widthTw;
+    canvas.width = Math.max(1, Math.round(page2.widthTw * scale * dpr));
+    canvas.height = Math.max(1, Math.round(page2.heightTw * scale * dpr));
+    canvas.style.width = `${Math.round(page2.widthTw * scale)}px`;
+    canvas.style.height = `${Math.round(page2.heightTw * scale)}px`;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintItems(ctx, page2.items, this.enginePaintEnv(), {});
+    return true;
+  }
+  // ── Página em Branco ──
+  /**
+   * Página em Branco (Inserir › Páginas): divide o parágrafo no cursor (com seleção, no
+   * INÍCIO dela, sem apagar) e põe [quebra, ¶ vazio, quebra] — o cursor fica no ¶ vazio,
+   * que leva as props do parágrafo. No fim do documento só [quebra, ¶]; no início, só
+   * [¶, quebra] antes do texto, com o cursor onde estava. Um passo (oráculo page-lab bp-*).
+   */
+  insertBlankPage() {
+    if (!this.canInsertSectionBreak()) return;
+    const m = this.model;
+    const pos = normalizeRange(this.range()).start;
+    const last = m.paragraphs.length - 1;
+    const atEnd = pos.para === last && pos.offset >= paraText(m.paragraphs[last]).length && !this.tableAnchors.some((a) => a.beforePara > last);
+    const atStart = pos.para === 0 && pos.offset === 0 && !this.tableAnchors.some((a) => a.beforePara === 0);
+    this.snapshot();
+    const brk = () => ({ runs: [{ text: "\f", props: { ...DEFAULT_RUN_PROPS } }], props: {} });
+    const empty = (from) => {
+      const { sectionBreak: _sb, src: _src, ...props } = from.props;
+      return { runs: [], props };
+    };
+    const P = m.paragraphs[pos.para];
+    if (atStart) {
+      m.paragraphs.splice(0, 0, empty(P), brk());
+      this.shiftAnchors(-1, 2);
+      this.selection = { anchor: { para: 2, offset: 0 }, focus: { para: 2, offset: 0 } };
+    } else if (atEnd) {
+      m.paragraphs.splice(last + 1, 0, brk(), empty(P));
+      this.selection = { anchor: { para: last + 2, offset: 0 }, focus: { para: last + 2, offset: 0 } };
+    } else {
+      const tail = this.splitAt(pos);
+      this.shiftAnchors(pos.para, 1);
+      const at = tail.para;
+      m.paragraphs.splice(at, 0, brk(), empty(P), brk());
+      this.shiftAnchors(at - 1, 3);
+      this.selection = { anchor: { para: at + 1, offset: 0 }, focus: { para: at + 1, offset: 0 } };
+    }
+    this.pendingProps = null;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
    *  nº de páginas/panes) e posiciona o HF apenas na banda da página ativa. */
   layoutHfEdit() {
@@ -10190,7 +10851,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         line: p.props.lineTwentieths ?? st?.lineTwentieths ?? dd.para.lineTwentieths ?? (hasStyles ? 240 : 259),
         lineRule: "auto"
       };
-      const qDev = (tw) => Math.round(tw / 2.4) * 2.4;
+      const qDev = (tw2) => Math.round(tw2 / 2.4) * 2.4;
       const spaceBefore = qDev(p.props.spaceBeforeTwips ?? st?.spaceBeforeTwips ?? dd.para.spaceBeforeTwips ?? 0);
       const spaceAfter = qDev(p.props.spaceAfterTwips ?? st?.spaceAfterTwips ?? dd.para.spaceAfterTwips ?? (hasStyles ? 0 : 160));
       if (isPaged && p.props.pageBreakBefore && y > marginT) newPage();
@@ -10299,8 +10960,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.footnoteHits = [];
     if (this.fullDoc) {
       this.layoutCache.forEach((pl, pi) => {
-        const para2 = this.model.paragraphs[pi];
-        for (const run2 of para2.runs) {
+        const para3 = this.model.paragraphs[pi];
+        for (const run2 of para3.runs) {
           if (run2.noteRef?.kind === "footnote") {
             const pg = pl.lines[0]?.page ?? 0;
             this.footnoteHits.push({ page: pg, id: run2.noteRef.id });
@@ -12360,8 +13021,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const sx = crop ? Math.round(Math.max(0, s.l) / 1e5 * id.width) : 0, sy = crop ? Math.round(Math.max(0, s.t) / 1e5 * id.height) : 0;
       const sw = crop ? Math.max(1, Math.round((1 - (Math.max(0, s.l) + Math.max(0, s.r)) / 1e5) * id.width)) : id.width;
       const sh = crop ? Math.max(1, Math.round((1 - (Math.max(0, s.t) + Math.max(0, s.b)) / 1e5) * id.height)) : id.height;
-      const tw = Math.max(1, Math.round(f.cx / 914400 * o.ppi)), th = Math.max(1, Math.round(f.cy / 914400 * o.ppi));
-      const w = Math.min(sw, tw), h = Math.min(sh, th);
+      const tw2 = Math.max(1, Math.round(f.cx / 914400 * o.ppi)), th = Math.max(1, Math.round(f.cy / 914400 * o.ppi));
+      const w = Math.min(sw, tw2), h = Math.min(sh, th);
       if (w === sw && h === sh && !crop) continue;
       const src = new OffscreenCanvas(id.width, id.height);
       src.getContext("2d").putImageData(id, 0, 0);
@@ -12876,8 +13537,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!first || ls.some((l) => l.page !== ls[0].page || !l.eng)) return null;
     const pg = ls[0].page;
     const page2 = eng.result.pages[pg];
-    const para2 = this.model.paragraphs[pi];
-    const synth = this.synthLayout(para2, this.pageSections[pg] ?? 0);
+    const para3 = this.model.paragraphs[pi];
+    const synth = this.synthLayout(para3, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
     const sp = synth.pages[0];
     if (sp.lines.length !== ls.length) return null;
@@ -12929,10 +13590,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const b = h?.before;
     if (!h || !b || !eng || this.cellEdit || !this.model) return false;
     const t0 = performance.now();
-    const para2 = this.model.paragraphs[h.para];
-    if (!para2) return false;
-    this.syncRunRPr([para2]);
-    const synth = this.synthLayout(para2, this.pageSections[b.page] ?? 0);
+    const para3 = this.model.paragraphs[h.para];
+    if (!para3) return false;
+    this.syncRunRPr([para3]);
+    const synth = this.synthLayout(para3, this.pageSections[b.page] ?? 0);
     if (!synth || synth.pages.length !== 1) return false;
     const sp = synth.pages[0];
     if (sp.lines.length !== b.heights.length || sp.lines.some((l, i) => Math.abs(l.height - b.heights[i]) > 0.01)) return false;
@@ -12947,12 +13608,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       baseline: l.baseline + b.dy,
       ...l.chars ? { chars: l.chars.map((c) => ({ o: c.o, x: c.x + b.dx, w: c.w })) } : {}
     }));
-    if (para2.runs.some((r) => r.custom)) for (const l of lines) collapseCustomChars(l, para2);
+    if (para3.runs.some((r) => r.custom)) for (const l of lines) collapseCustomChars(l, para3);
     page2.lines.splice(b.lineAt, lines.length, ...lines);
     const loc = { kind: "body", para: h.para };
     let k = eng.lines.findIndex((el) => el.page === b.page && el.line.ref === b.ref);
-    if (k >= 0) eng.lines.splice(k, lines.length, ...lines.map((line) => ({ line, page: b.page, loc, para: para2 })));
-    const len2 = paraLength(para2);
+    if (k >= 0) eng.lines.splice(k, lines.length, ...lines.map((line) => ({ line, page: b.page, loc, para: para3 })));
+    const len2 = paraLength(para3);
     this.layoutCache[h.para] = {
       spans: [],
       charAdvances: [],
@@ -13046,9 +13707,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     pages2.forEach((p, pg) => {
       for (const l of p.lines) {
         const loc = locateRef(l.ref, doc.origins);
-        const para2 = this.lineParagraph(loc, doc, p.section);
-        if (para2?.runs.some((r) => r.custom)) collapseCustomChars(l, para2);
-        lines.push({ line: l, page: pg, loc, para: para2 });
+        const para3 = this.lineParagraph(loc, doc, p.section);
+        if (para3?.runs.some((r) => r.custom)) collapseCustomChars(l, para3);
+        lines.push({ line: l, page: pg, loc, para: para3 });
       }
     });
     const hfItems = pages2.map((p) => Math.min(p.hfItems ?? 0, p.items.length));
@@ -13114,11 +13775,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const ctx = off.getContext("2d");
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    if (!this.hfCapturing) {
-      ctx.fillStyle = page2.background ? `#${page2.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
-      ctx.fillRect(0, 0, w, h);
-    }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if (!this.hfCapturing) {
+      if (this.printRender) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, page2.widthTw, page2.heightTw);
+      } else paintPageBackground(ctx, page2, this.enginePaintEnv(), { devicePxTw: 1 / (PX_PER_TWIP * this.zoom), screen: true, paper: this.pageDark ? "#1e1e1e" : "#ffffff" });
+    }
     if (this.gridlines && !this.printRender && !this.hfCapturing && page2.cells?.length) this.paintGridlines(ctx, page2.cells, scale);
     if (this.docGrid && !this.printRender && !this.hfCapturing) this.paintDocGrid(ctx, pg, scale);
     const env = this.enginePaintEnv();
@@ -13223,8 +13886,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const body = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit;
       const secOf = (k) => body ? this.sectionIndexForPara(k) : this.pageSections[pg] ?? 0;
       this.layoutCache.forEach((pl, pi) => {
-        const para2 = this.model.paragraphs[pi];
-        const text = paraText(para2);
+        const para3 = this.model.paragraphs[pi];
+        const text = paraText(para3);
         pl.lines.forEach((line, li) => {
           if (line.page !== pg || !line.eng) return;
           const fs = Math.max(160, line.heightTwips * 0.6);
@@ -13243,9 +13906,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           }
           if (li === pl.lines.length - 1) {
             ctx.textAlign = "left";
-            const x = this.caretX({ para: pi, offset: paraLength(para2) }, line);
+            const x = this.caretX({ para: pi, offset: paraLength(para3) }, line);
             const nextType = (k) => this.sectionStarts[this.sectionIndexForPara(k) + 1]?.section.sectPr.type ?? "nextPage";
-            if (body && para2.props.sectionBreak) {
+            if (body && para3.props.sectionBreak) {
               this.paintBreakMark(ctx, x + 20, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi), true);
             } else if (breakOnly) {
             } else {
@@ -13267,10 +13930,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     for (const el of eng.lines) {
       if (el.page !== pg || el.loc.kind === "other") continue;
-      const para2 = el.para;
-      if (!para2) continue;
+      const para3 = el.para;
+      if (!para3) continue;
       let acc = 0;
-      for (const run2 of para2.runs) {
+      for (const run2 of para3.runs) {
         const a = acc;
         acc += run2.text.length;
         const field2 = !!run2.field || !!run2.fieldResult;
@@ -13297,7 +13960,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
     ctx.textAlign = "center";
-    const tw = ctx.measureText(label).width + 120;
+    const tw2 = ctx.measureText(label).width + 120;
     const mid = (x0 + right) / 2;
     const y = baseline - fs * 0.3;
     ctx.strokeStyle = ctx.fillStyle;
@@ -13305,10 +13968,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.setLineDash([16, 24]);
     for (const dy of double ? [-14, 14] : [0]) {
       ctx.beginPath();
-      if (tw < right - x0) {
+      if (tw2 < right - x0) {
         ctx.moveTo(x0, y + dy);
-        ctx.lineTo(mid - tw / 2, y + dy);
-        ctx.moveTo(mid + tw / 2, y + dy);
+        ctx.lineTo(mid - tw2 / 2, y + dy);
+        ctx.moveTo(mid + tw2 / 2, y + dy);
         ctx.lineTo(right, y + dy);
       } else {
         ctx.moveTo(x0, y + dy);
@@ -13316,7 +13979,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       ctx.stroke();
     }
-    if (tw < right - x0) ctx.fillText(label, mid, baseline);
+    if (tw2 < right - x0) ctx.fillText(label, mid, baseline);
     ctx.restore();
   }
   /** Borda direita da coluna (da seção) em que está x. */
@@ -13406,8 +14069,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   spellingAtCaret() {
     if (!this.model || !this.spellActive()) return null;
     const pos = this.selection.focus;
-    const para2 = this.model.paragraphs[pos.para];
-    const m = para2 && misspellingAt(this.ensureSpell()?.get(para2), pos.offset);
+    const para3 = this.model.paragraphs[pos.para];
+    const m = para3 && misspellingAt(this.ensureSpell()?.get(para3), pos.offset);
     return m ? { ...m, para: pos.para } : null;
   }
   /** Sugestões do Hunspell para a palavra (até `limit`, como o menu do Word). */
@@ -13418,8 +14081,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Troca a palavra errada (se ela ainda está lá) — desfazível. */
   replaceSpelling(m, text) {
     if (!this.model || this.locked()) return false;
-    const para2 = this.model.paragraphs[m.para];
-    if (!para2 || paraText(para2).slice(m.start, m.end) !== m.word) return false;
+    const para3 = this.model.paragraphs[m.para];
+    if (!para3 || paraText(para3).slice(m.start, m.end) !== m.word) return false;
     this.snapshot();
     const range = { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } };
     const pos = this.tracking ? this.trackedDelete(range, "end") : deleteRange2(this.model, range);
@@ -13470,10 +14133,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const page2 = this.eng.result.pages[pg];
     for (const el of this.eng.lines) {
       if (el.page !== pg || el.loc.kind === "other") continue;
-      const para2 = el.para;
-      if (!para2?.runs.some((r) => r.custom)) continue;
+      const para3 = el.para;
+      if (!para3?.runs.some((r) => r.custom)) continue;
       let acc = 0;
-      for (const run2 of para2.runs) {
+      for (const run2 of para3.runs) {
         const a = acc;
         acc += run2.text.length;
         if (!run2.custom) continue;
@@ -13732,16 +14395,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return documentOutline(doc.full).flatMap((h) => {
       const o = doc.origins[h.block];
       if (o?.kind !== "para") return [];
-      const para2 = b.model.paragraphs[o.para];
-      return para2 ? [{ index: 0, level: h.level, text: h.text, para: o.para, page: pages2.get(para2) ?? -1 }] : [];
+      const para3 = b.model.paragraphs[o.para];
+      return para3 ? [{ index: 0, level: h.level, text: h.text, para: o.para, page: pages2.get(para3) ?? -1 }] : [];
     }).map((h, i) => ({ ...h, index: i }));
   }
   /** Índice (em getHeadings) do título da seção onde está o cursor; -1 antes do 1º. */
   currentHeading(heads = this.getHeadings()) {
-    const para2 = this.navCaretPara();
+    const para3 = this.navCaretPara();
     let cur = -1;
     for (const h of heads) {
-      if (h.para <= para2) cur = h.index;
+      if (h.para <= para3) cur = h.index;
       else break;
     }
     return cur;
@@ -13775,8 +14438,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!h || !this.toBody()) return;
     this.goToBodyPara(h.para, 0, 0, true);
   }
-  goToBodyPara(para2, start, end, top) {
-    this.selection = { anchor: { para: para2, offset: start }, focus: { para: para2, offset: end } };
+  goToBodyPara(para3, start, end, top) {
+    this.selection = { anchor: { para: para3, offset: start }, focus: { para: para3, offset: end } };
     this.pendingProps = null;
     this.refreshSelection();
     this.revealCaret(top);
@@ -13829,8 +14492,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const [k, v] of this.bookmarkParas) if (map[v] !== void 0) this.bookmarkParas.set(k, map[v]);
     this.tableAnchors.sort((a, b) => a.beforePara - b.beforePara);
   }
-  goToBodyParaAfterEdit(para2) {
-    this.selection = { anchor: { para: para2, offset: 0 }, focus: { para: para2, offset: 0 } };
+  goToBodyParaAfterEdit(para3) {
+    this.selection = { anchor: { para: para3, offset: 0 }, focus: { para: para3, offset: 0 } };
     this.pendingProps = null;
     this.refresh();
     this.revealCaret(false);
@@ -14061,10 +14724,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     canvas.style.width = `${Math.round(p.widthTw * scale)}px`;
     canvas.style.height = `${Math.round(p.heightTw * scale)}px`;
     const ctx = canvas.getContext("2d");
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = p.background ? `#${p.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
-    ctx.fillRect(0, 0, w, h);
     ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintPageBackground(ctx, p, this.enginePaintEnv(), { devicePxTw: 1 / scale, screen: true, paper: this.pageDark ? "#1e1e1e" : "#ffffff" });
     paintItems(ctx, p.items, this.enginePaintEnv(), {});
     return true;
   }
@@ -14472,8 +15133,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   noteTipAt(e) {
     if (!this.eng || !this.fullDoc || this.view === "read") return null;
     const el = this.engLineAt(e);
-    const para2 = el?.para;
-    if (!el || !para2 || el.loc.kind !== "body" && el.loc.kind !== "cell" || !para2.runs.some((r) => r.noteRef)) return null;
+    const para3 = el?.para;
+    if (!el || !para3 || el.loc.kind !== "body" && el.loc.kind !== "cell" || !para3.runs.some((r) => r.noteRef)) return null;
     const rect = this.canvases[el.page]?.getBoundingClientRect();
     if (!rect) return null;
     const scale = PX_PER_TWIP * this.zoom;
@@ -14481,7 +15142,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const l = el.line;
     if (yT < l.y || yT > l.y + l.height) return null;
     let acc = 0;
-    for (const r of para2.runs) {
+    for (const r of para3.runs) {
       if (r.noteRef) {
         const box = (l.chars ?? []).filter((c) => c.o === acc);
         if (box.some((c) => xT >= c.x - 20 && xT <= c.x + c.w + 20)) {
@@ -15063,17 +15724,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     }
     const styleId = this.tableStyleId("Table Grid") ?? null;
-    let { para: para2, offset } = this.selection.focus;
+    let { para: para3, offset } = this.selection.focus;
     if (offset > 0) {
-      splitParagraph2(this.model, { para: para2, offset });
-      this.shiftAnchors(para2, 1);
-      para2++;
+      splitParagraph2(this.model, { para: para3, offset });
+      this.shiftAnchors(para3, 1);
+      para3++;
     }
     const ce = this.cellEdit;
     if (ce) {
       const me = ce.hops[ce.hops.length - 1];
       const path = ce.hops.slice(0, -1);
-      const target = ce.cell.paragraphs[para2];
+      const target = ce.cell.paragraphs[para3];
       this.exitCell();
       const outer = this.tableAt(ce.anchor, path);
       const g = outer ? table_ops_exports.cellAt(table_ops_exports.mapTable(outer), me.r, me.c) : void 0;
@@ -15089,7 +15750,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.refresh();
       return;
     }
-    const p = this.model.paragraphs[para2];
+    const p = this.model.paragraphs[para3];
     const ind = this.paraIndent(p);
     const t = table_ops_exports.newTable(rows, cols, {
       availTwips: this.contentWidthTwips() - ind,
@@ -15098,9 +15759,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       autofit: opts.autofit,
       colTwips: opts.colWidthTwips
     });
-    let at = this.tableAnchors.findIndex((a) => a.beforePara > para2);
+    let at = this.tableAnchors.findIndex((a) => a.beforePara > para3);
     if (at < 0) at = this.tableAnchors.length;
-    this.tableAnchors.splice(at, 0, { beforePara: para2, table: t });
+    this.tableAnchors.splice(at, 0, { beforePara: para3, table: t });
     this.enterCellAt(at, [], 0, 0, false, false);
     this.autoCaptionTable();
     this.refresh();
@@ -16023,11 +16684,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Texto e HTML de uma tabela (células por tabulação, linhas por quebra — como o Word põe no texto). */
   static tableClipText(t) {
-    const esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const text = t.rows.map((row) => row.cells.map((c) => cellText(c).replace(/\n/g, " ")).join("	")).join("\n");
     const html = '<table border="1" style="border-collapse:collapse">' + t.rows.map((row) => "<tr>" + row.cells.map((c) => {
       const span = (c.tcPr?.gridSpan ?? 1) > 1 ? ` colspan="${c.tcPr.gridSpan}"` : "";
-      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc2(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
+      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc3(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
     }).join("") + "</tr>").join("") + "</table>";
     return { text, html };
   }
@@ -16067,15 +16728,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const pos = this.deleteSelection();
         this.selection = { anchor: pos, focus: pos };
       }
-      let { para: para2, offset } = this.selection.focus;
+      let { para: para3, offset } = this.selection.focus;
       if (offset > 0) {
-        splitParagraph2(this.model, { para: para2, offset });
-        this.shiftAnchors(para2, 1);
-        para2++;
+        splitParagraph2(this.model, { para: para3, offset });
+        this.shiftAnchors(para3, 1);
+        para3++;
       }
-      let at = this.tableAnchors.findIndex((a) => a.beforePara > para2);
+      let at = this.tableAnchors.findIndex((a) => a.beforePara > para3);
       if (at < 0) at = this.tableAnchors.length;
-      this.tableAnchors.splice(at, 0, { beforePara: para2, table: table_ops_exports.cloneTable(src) });
+      this.tableAnchors.splice(at, 0, { beforePara: para3, table: table_ops_exports.cloneTable(src) });
       this.enterCellAt(at, [], 0, 0, false, false);
       this.refresh();
       this.scrollCaretIntoView();
@@ -16807,11 +17468,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return true;
     }
-    const para2 = where === "after" ? a.beforePara : a.beforePara - 1;
-    if (para2 < 0 || !this.cellEdit) return true;
+    const para3 = where === "after" ? a.beforePara : a.beforePara - 1;
+    if (para3 < 0 || !this.cellEdit) return true;
     this.exitCell();
     const ps = this.model.paragraphs;
-    const p = Math.min(para2, ps.length - 1);
+    const p = Math.min(para3, ps.length - 1);
     let offset = where === "after" ? 0 : paraLength(ps[p]);
     const pl = this.layoutCache[p]?.lines ?? [];
     const line = where === "after" ? pl[0] : pl[pl.length - 1];
@@ -17487,13 +18148,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   paintLine(ctx, pl, line, scale, sel, hasSel) {
-    const para2 = this.model.paragraphs[line.para];
-    const st = this.styleOf(para2);
-    const effBorders = para2.props.borders ?? st?.borders;
-    const effShading = para2.props.shadingHex ?? st?.shadingHex;
-    const effIndentL = para2.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
-    const effIndentR = para2.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
-    if (effShading || para2.props.boxBorder || effBorders) {
+    const para3 = this.model.paragraphs[line.para];
+    const st = this.styleOf(para3);
+    const effBorders = para3.props.borders ?? st?.borders;
+    const effShading = para3.props.shadingHex ?? st?.shadingHex;
+    const effIndentL = para3.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
+    const effIndentR = para3.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
+    if (effShading || para3.props.boxBorder || effBorders) {
       const s = this.sect();
       const marginL = this.view === "print" || this.view === "read" ? s.marginLeftTwips : 600;
       const colX = marginL + effIndentL;
@@ -17514,10 +18175,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           (line.heightTwips + exT + exB) * scale
         );
       }
-      if (effBorders || para2.props.boxBorder) {
+      if (effBorders || para3.props.boxBorder) {
         const isFirst = line.rich.start === 0;
         const isLast = line.rich.end === pl.charAdvances.length;
-        const fallback = para2.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
+        const fallback = para3.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b = effBorders ?? {
           top: fallback,
           bottom: fallback,
@@ -17569,7 +18230,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let x = line.xTwips;
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run2 = para2.runs[span.runIndex ?? seg.spanIndex];
+      const run2 = para3.runs[span.runIndex ?? seg.spanIndex];
       const rv = run2?.props.del ?? run2?.props.ins;
       const props = run2 && rv && this.markupMode !== "original" ? { ...run2.props, color: this.authorColor(rv.author), ...run2.props.del ? { strike: true } : { underline: true, underlineStyle: void 0 } } : run2?.props;
       if (run2?.custom) {
@@ -18086,10 +18747,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     for (const pl of this.layoutCache) {
       for (const line of pl.lines) {
-        const para2 = this.model.paragraphs[line.para];
-        if (!para2) continue;
+        const para3 = this.model.paragraphs[line.para];
+        if (!para3) continue;
         const page2 = pages2[line.page];
-        if (page2) emitParaLine(page2, pl, line, para2.runs);
+        if (page2) emitParaLine(page2, pl, line, para3.runs);
       }
     }
     for (const tl of this.tableLayouts) {
@@ -18267,13 +18928,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Versão PDF do paintLine: texto + decorações de parágrafo/run. */
   pdfPaintLine(doc, page2, emb, pl, line) {
     const T2 = TWIPS_PER_PT;
-    const para2 = this.model.paragraphs[line.para];
-    const st = this.styleOf(para2);
-    const effBorders = para2.props.borders ?? st?.borders;
-    const effShading = para2.props.shadingHex ?? st?.shadingHex;
-    const effIndentL = para2.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
-    const effIndentR = para2.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
-    if (effShading || para2.props.boxBorder || effBorders) {
+    const para3 = this.model.paragraphs[line.para];
+    const st = this.styleOf(para3);
+    const effBorders = para3.props.borders ?? st?.borders;
+    const effShading = para3.props.shadingHex ?? st?.shadingHex;
+    const effIndentL = para3.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
+    const effIndentR = para3.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
+    if (effShading || para3.props.boxBorder || effBorders) {
       const s = this.sect();
       const colX = s.marginLeftTwips + effIndentL;
       const colW = this.contentWidthTwips() - effIndentL - effIndentR;
@@ -18293,8 +18954,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           hexColor(effShading)
         );
       }
-      if (effBorders || para2.props.boxBorder) {
-        const fallback = para2.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
+      if (effBorders || para3.props.boxBorder) {
+        const fallback = para3.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b = effBorders ?? { top: fallback, bottom: fallback, left: fallback, right: fallback };
         const spL = (b.left?.spacePt ?? 0) * T2, spR = (b.right?.spacePt ?? 0) * T2;
         const spT = (b.top?.spacePt ?? 0) * T2, spB = (b.bottom?.spacePt ?? 0) * T2;
@@ -18317,7 +18978,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let x = line.xTwips;
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run2 = para2.runs[span.runIndex ?? seg.spanIndex];
+      const run2 = para3.runs[span.runIndex ?? seg.spanIndex];
       const props = run2?.props;
       if (run2?.custom) {
         const globalStart2 = pl.spanCharStart[seg.spanIndex] + seg.start;
@@ -18593,6 +19254,9 @@ function dataUrlToBytes(dataUrl) {
   return out;
 }
 customElements.define("universal-write", UniversalWriteElement);
+function bgKey(bg) {
+  return JSON.stringify(bg, (_k, v) => v instanceof Uint8Array ? `#${v.length}:${v[0]}:${v[v.length >> 1]}:${v[v.length - 1]}` : v);
+}
 
 // src/mention-plugin.ts
 var LABELS = {
@@ -18840,7 +19504,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-SWTSJU2X.js");
+  const { appFor } = await import("./chunks/chrome-app-AVMFWOG5.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

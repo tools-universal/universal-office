@@ -6,13 +6,15 @@ import {
   hostOf,
   isDark,
   originStore
-} from "./chunk-4SV3XBPK.js";
+} from "./chunk-3KZGN2VB.js";
 import {
   ASPECT_RATIOS,
   BEVEL_PRESETS,
   BRIGHT_CONTRAST_STEPS,
   CROP_SHAPES,
   GLOW_SIZES,
+  GRADIENT_PRESETS,
+  GRADIENT_VARIANTS,
   LINE_DASHES,
   LINE_WEIGHTS_PT,
   POSITION_PRESETS,
@@ -31,9 +33,13 @@ import {
   adjustTemperature,
   applyBlipFx,
   glowPreset,
+  gradientGeometry,
+  gradientTileRgba,
   paintPicture,
+  patternRgba,
+  patternRows,
   presetOutline
-} from "./chunk-HFOD5YAK.js";
+} from "./chunk-HHIK5RSP.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -62,17 +68,20 @@ import {
   themePaletteColors,
   tileGrid,
   toggleMenu
-} from "./chunk-OFF7V7WN.js";
+} from "./chunk-57KHIMCT.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
+  WATERMARK_TEXTS,
   newTableStyleXml,
+  oneColorGradientColor2,
   patchTableStyleXml,
   pickLabels,
   readStyleSheet,
+  resolveColor2,
   retitleTableStyleXml,
   uiLang
-} from "./chunk-YGIGW6V3.js";
+} from "./chunk-MVJSDZBR.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -1793,13 +1802,13 @@ var tableShadingMenu = (env, ctx) => [{
         ctx.after();
       }
     });
-    const cap = (en, pt) => {
+    const cap2 = (en, pt) => {
       const d3 = document.createElement("div");
       d3.textContent = ctx.registry.text(L2(en, pt));
       d3.style.cssText = "font-size:12px;opacity:.8;margin:6px 0 4px";
       return d3;
     };
-    box.append(cap("Theme Colors", "Cores do Tema"), theme, cap("Standard Colors", "Cores Padr\xE3o"), std);
+    box.append(cap2("Theme Colors", "Cores do Tema"), theme, cap2("Standard Colors", "Cores Padr\xE3o"), std);
     return box;
   }
 }, "-", { id: "table:shading:none", label: L2("No Color", "Sem Cor"), icon: "format_color_reset", onClick: () => {
@@ -1937,9 +1946,9 @@ var borderStylesMenu = (env, ctx) => [{
 var tableMenu = (env, ctx) => [{
   content: (close) => {
     const box = document.createElement("div");
-    const cap = document.createElement("div");
-    cap.style.cssText = "font-size:12.5px;margin-bottom:6px";
-    cap.textContent = env.app.ui.L.rows(1, 1);
+    const cap2 = document.createElement("div");
+    cap2.style.cssText = "font-size:12.5px;margin-bottom:6px";
+    cap2.textContent = env.app.ui.L.rows(1, 1);
     const g2 = document.createElement("div");
     g2.style.cssText = "display:grid;grid-template-columns:repeat(10,18px);gap:3px";
     const cells = [];
@@ -1947,7 +1956,7 @@ var tableMenu = (env, ctx) => [{
       const cell = document.createElement("div");
       cell.style.cssText = "width:18px;height:18px;border:1px solid currentColor;opacity:.35;border-radius:2px;cursor:pointer";
       cell.addEventListener("mouseenter", () => {
-        cap.textContent = env.app.ui.L.rows(r5, c4);
+        cap2.textContent = env.app.ui.L.rows(r5, c4);
         cells.forEach((x2, i5) => {
           const rr = Math.floor(i5 / 10) + 1, cc = i5 % 10 + 1;
           x2.style.opacity = rr <= r5 && cc <= c4 ? "1" : ".35";
@@ -1962,7 +1971,7 @@ var tableMenu = (env, ctx) => [{
       cells.push(cell);
       g2.appendChild(cell);
     }
-    box.append(cap, g2);
+    box.append(cap2, g2);
     return box;
   }
 }, "-", "table:insertDlg", "table:fromText", "table:excel", "-", {
@@ -2193,12 +2202,12 @@ function templateTiles(env, ctx, gallery, wide) {
         b3.title = t5.name;
         b3.setAttribute("aria-label", t5.name);
         b3.style.cssText = "display:flex;flex-direction:column;gap:4px;align-items:stretch;padding:6px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left";
-        const cap = document.createElement("span");
-        cap.textContent = t5.name;
-        cap.style.cssText = "font-size:12px;opacity:.8";
+        const cap2 = document.createElement("span");
+        cap2.textContent = t5.name;
+        cap2.style.cssText = "font-size:12px;opacity:.8";
         const cv = document.createElement("canvas");
         cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
-        b3.append(cap, cv);
+        b3.append(cap2, cv);
         b3.addEventListener("mousedown", (e6) => e6.preventDefault());
         b3.addEventListener("click", () => {
           close();
@@ -3318,6 +3327,507 @@ function effectsMenu(env, ctx) {
   });
 }
 
+// src/chrome-page.ts
+var L6 = (en, pt) => ({ en, pt });
+var tr3 = (lang, en, pt) => pickLabels(lang, { en, pt });
+function registerPageCommands(reg, ed, app, ctl) {
+  const api = ed;
+  const has = (m2) => () => typeof api[m2] === "function";
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
+  reg.add(
+    edit({ id: "page:noColor", label: L6("No Color", "Sem Cor"), icon: "format_color_reset", supports: has("setPageColor"), run: () => ed.setPageColor(null) }),
+    edit({ id: "dlg:pageFill", label: L6("Fill Effects\u2026", "Efeitos de Preenchimento\u2026"), icon: "gradient", supports: has("setPageFill"), run: () => ctl.pageBgDialog("fill") }),
+    edit({ id: "dlg:watermark", label: L6("Custom Watermark\u2026", "Personalizar Marca-d'\xC1gua\u2026"), icon: "branding_watermark", supports: has("setWatermark"), run: () => ctl.pageBgDialog("watermark") }),
+    edit({ id: "watermark:remove", label: L6("Remove Watermark", "Remover Marca-d'\xC1gua"), icon: "delete", supports: has("removeWatermark"), isEnabled: () => !!ed.watermark(), run: () => ed.removeWatermark() }),
+    edit({ id: "cover:remove", label: L6("Remove Current Cover Page", "Remover Folha de Rosto Atual"), icon: "delete", supports: has("removeCoverPage"), isEnabled: () => ed.hasCoverPage(), run: () => {
+      ed.removeCoverPage();
+    } }),
+    edit({ id: "blankPage", label: L6("Blank Page", "P\xE1gina em Branco"), tip: L6("Insert a new blank page at the cursor", "Insere uma p\xE1gina em branco no cursor"), icon: "note_add", supports: has("insertBlankPage"), run: () => ed.insertBlankPage() })
+  );
+}
+var cap = (ctx, en, pt) => {
+  const d3 = document.createElement("div");
+  d3.textContent = ctx.registry.text(L6(en, pt));
+  d3.style.cssText = "font-size:12px;opacity:.8;margin:6px 0 4px";
+  return d3;
+};
+function pageColorMenu(env, ctx) {
+  const more = {
+    id: "page:moreColors",
+    icon: "palette",
+    label: L6("More Colors\u2026", "Mais Cores\u2026"),
+    onClick: () => {
+      const input = document.createElement("input");
+      input.type = "color";
+      const cur = env.ed.pageBackground()?.color;
+      if (cur) input.value = `#${cur.toLowerCase()}`;
+      input.style.cssText = "position:fixed;left:-100px;top:0;opacity:0";
+      ctx.layer.appendChild(input);
+      input.addEventListener("change", () => {
+        env.ed.setPageColor(input.value.slice(1).toUpperCase());
+        input.remove();
+        ctx.after();
+      });
+      input.addEventListener("blur", () => setTimeout(() => input.remove(), 1e3));
+      input.click();
+    }
+  };
+  return [{
+    content: (close) => {
+      const colors = env.ed.documentThemeColors();
+      const box = document.createElement("div");
+      box.className = "uw-page-color";
+      const theme = colorGrid({
+        colors: themePaletteColors(colors),
+        columns: 10,
+        close,
+        onPick: (v2) => {
+          const p3 = parseThemePick(v2, colors);
+          if (!p3) return;
+          const frac = (h3) => h3 ? Math.round((1 - parseInt(h3, 16) / 255) * 1e3) / 1e3 : void 0;
+          const tint = frac(p3.tint), shade = frac(p3.shade);
+          env.ed.setPageColor({ themeColor: p3.themeColor, ...tint !== void 0 ? { tint } : {}, ...shade !== void 0 ? { shade } : {} });
+          ctx.after();
+        }
+      });
+      const std = colorGrid({
+        colors: STANDARD_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })),
+        columns: 10,
+        close,
+        onPick: (h3) => {
+          env.ed.setPageColor(h3);
+          ctx.after();
+        }
+      });
+      box.append(cap(ctx, "Theme Colors", "Cores do Tema"), theme, cap(ctx, "Standard Colors", "Cores Padr\xE3o"), std);
+      return box;
+    }
+  }, "-", "page:noColor", more, "dlg:pageFill"];
+}
+function watermarkMenu(env, ctx) {
+  return [{
+    content: (close) => {
+      const box = document.createElement("div");
+      box.className = "uw-wm-gallery";
+      box.style.cssText = "padding:4px 6px;max-height:440px;overflow:auto";
+      let cat = "";
+      let grid2 = null;
+      for (const g2 of env.ed.watermarkGallery()) {
+        if (g2.categoryLabel !== cat) {
+          cat = g2.categoryLabel;
+          const h3 = document.createElement("div");
+          h3.textContent = cat;
+          h3.style.cssText = "font-size:12px;font-weight:600;opacity:.8;margin:8px 0 4px";
+          grid2 = document.createElement("div");
+          grid2.style.cssText = "display:grid;grid-template-columns:repeat(4, 88px);gap:6px";
+          box.append(h3, grid2);
+        }
+        const b3 = document.createElement("button");
+        b3.type = "button";
+        b3.dataset["watermark"] = g2.id;
+        b3.title = g2.label;
+        b3.setAttribute("aria-label", g2.label);
+        b3.style.cssText = "display:flex;flex-direction:column;gap:3px;align-items:center;padding:4px;border-radius:6px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit";
+        const cv = document.createElement("canvas");
+        cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
+        const t5 = document.createElement("span");
+        t5.textContent = g2.label;
+        t5.style.cssText = "font-size:10.5px;opacity:.8;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+        b3.append(cv, t5);
+        b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+        b3.addEventListener("click", () => {
+          close();
+          env.ed.setWatermark(g2.id);
+          ctx.after();
+        });
+        grid2.append(b3);
+        requestAnimationFrame(() => {
+          env.ed.paintWatermarkTemplate(g2.id, cv, 68);
+        });
+      }
+      return box;
+    }
+  }, "-", "dlg:watermark", "watermark:remove"];
+}
+function coverPageMenu(env, ctx) {
+  return [{
+    content: (close) => {
+      const grid2 = document.createElement("div");
+      grid2.className = "uw-cover-gallery";
+      grid2.style.cssText = "display:grid;grid-template-columns:repeat(4, 88px);gap:8px;padding:6px;max-height:460px;overflow:auto";
+      for (const c4 of env.ed.coverPages()) {
+        const b3 = document.createElement("button");
+        b3.type = "button";
+        b3.dataset["cover"] = c4.id;
+        b3.title = c4.name;
+        b3.setAttribute("aria-label", c4.name);
+        b3.style.cssText = "display:flex;flex-direction:column;gap:4px;align-items:center;padding:6px 4px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit";
+        const cv = document.createElement("canvas");
+        cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
+        const t5 = document.createElement("span");
+        t5.textContent = c4.name;
+        t5.style.cssText = "font-size:12px;opacity:.85";
+        b3.append(cv, t5);
+        b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+        b3.addEventListener("click", () => {
+          close();
+          env.ed.insertCoverPage(c4.id);
+          ctx.after();
+        });
+        grid2.append(b3);
+        requestAnimationFrame(() => {
+          env.ed.paintCoverTemplate(c4.id, cv, 74);
+        });
+      }
+      return grid2;
+    }
+  }, "-", "cover:remove"];
+}
+var el3 = (tag, props = {}, ...kids) => {
+  const { style, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (style) e6.style.cssText = style;
+  e6.append(...kids);
+  return e6;
+};
+var radio2 = (name, value, label, on) => el3("label", { className: "uo-check" }, el3("input", { type: "radio", name, value, checked: on }), label);
+var check2 = (name, label, on) => el3("label", { className: "uo-check" }, el3("input", { type: "checkbox", name, checked: on }), label);
+var colorInput = (name, hex) => el3("input", { type: "color", name, value: `#${hex.toLowerCase()}`, style: "width:56px;height:28px;padding:0 2px" });
+var hexOf = (i5) => i5.value.slice(1).toUpperCase();
+function paintRgba(cv, rgba, w2, h3, cssW, cssH) {
+  cv.width = w2;
+  cv.height = h3;
+  cv.style.width = `${cssW}px`;
+  cv.style.height = `${cssH}px`;
+  const x2 = cv.getContext("2d");
+  const id = x2.createImageData(w2, h3);
+  id.data.set(rgba);
+  x2.putImageData(id, 0, 0);
+}
+var sniffExt = (d3) => d3[0] === 255 && d3[1] === 216 ? "jpeg" : d3[0] === 71 && d3[1] === 73 ? "gif" : d3[0] === 66 && d3[1] === 77 ? "bmp" : "png";
+function pickImage(onPick) {
+  const input = el3("input", { type: "file", accept: "image/png,image/jpeg,image/gif,image/bmp", style: "position:fixed;left:-100px;top:0;opacity:0" });
+  document.body.append(input);
+  input.addEventListener("change", async () => {
+    const f3 = input.files?.[0];
+    input.remove();
+    if (!f3) return;
+    const data = new Uint8Array(await f3.arrayBuffer());
+    onPick({ data, ext: (f3.name.split(".").pop() ?? "png").toLowerCase(), name: f3.name });
+  });
+  input.click();
+}
+var STYLES = [
+  ["horizontal", "Horizontal", "Horizontal"],
+  ["vertical", "Vertical", "Vertical"],
+  ["diagonalUp", "Diagonal up", "Diagonal para cima"],
+  ["diagonalDown", "Diagonal down", "Diagonal para baixo"],
+  ["fromCorner", "From corner", "Do canto"],
+  ["fromCenter", "From center", "Do centro"]
+];
+async function pageFillDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const opts = ed.pageFillOptions();
+  const cur = ed.pageBackground();
+  const f3 = cur?.fill;
+  const isGrad = f3?.type === "gradient" || f3?.type === "gradientRadial";
+  const oneM = /^\s*fill(?:\s+(darken|lighten)\((\d+)\))?\s*$/i.exec(f3?.color2 ?? "");
+  const cMode = isGrad && f3?.colors ? "preset" : isGrad && oneM ? "one" : "two";
+  const color1 = f3?.color ?? cur?.color ?? "4472C4";
+  const c1 = colorInput("c1", color1);
+  const c22 = colorInput("c2", isGrad && !oneM && f3?.color2 ? resolveColor2(f3.color2, color1) : "FFFFFF");
+  const deg0 = !oneM?.[1] ? 0.5 : oneM[1].toLowerCase() === "darken" ? Number(oneM[2]) / 510 : 1 - Number(oneM[2]) / 510;
+  const degree = el3("input", { type: "range", name: "degree", min: "0", max: "1", step: "0.01", value: String(Math.round(deg0 * 100) / 100), style: "width:140px" });
+  const preset = el3("select", { name: "preset" });
+  for (const p3 of opts.presets) preset.append(el3("option", { value: p3.id, textContent: p3.name }));
+  const curPreset = f3?.colors ? opts.presets.find((p3) => p3.stops.length === f3.colors.length && p3.stops.every((s4, i5) => s4.color.toUpperCase() === f3.colors[i5].color.toUpperCase())) : void 0;
+  if (curPreset) preset.value = curPreset.id;
+  let style0 = "horizontal", variant = 1;
+  if (isGrad) {
+    for (const [st] of STYLES) for (let v2 = 1; v2 <= GRADIENT_VARIANTS[st]; v2++) {
+      const g2 = gradientGeometry(st, v2);
+      const fp = (p3) => p3 ? p3.join(",") : "";
+      if (g2.type === f3.type && (g2.angle ?? 0) === (f3.angle ?? 0) && (g2.focus ?? 0) === (f3.focus ?? 0) && !!g2.gradientCenter === !!f3.gradientCenter && fp(g2.focusPosition) === fp(f3.focusPosition)) {
+        style0 = st;
+        variant = v2;
+      }
+    }
+  }
+  const modes = el3(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:6px" },
+    radio2("cmode", "one", tr3(lang, "One color", "Uma cor"), cMode === "one"),
+    radio2("cmode", "two", tr3(lang, "Two colors", "Duas cores"), cMode === "two"),
+    radio2("cmode", "preset", tr3(lang, "Preset", "Predefini\xE7\xE3o"), cMode === "preset")
+  );
+  const colorsRow = el3(
+    "div",
+    { className: "uo-dialog-grid" },
+    el3("span", {}, tr3(lang, "Color 1", "Cor 1")),
+    c1,
+    el3("span", {}, tr3(lang, "Color 2", "Cor 2")),
+    c22,
+    el3("span", {}, tr3(lang, "Dark \u2194 Light", "Escuro \u2194 Claro")),
+    degree,
+    el3("span", {}, tr3(lang, "Preset colors", "Cores predefinidas")),
+    preset
+  );
+  const styles2 = el3(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:4px" },
+    ...STYLES.map(([v2, en, pt]) => radio2("gstyle", v2, tr3(lang, en, pt), v2 === style0))
+  );
+  const variants = el3("div", { style: "display:grid;grid-template-columns:repeat(2, auto);gap:6px" });
+  const sample = el3("canvas", { style: "border:1px solid rgba(127,127,127,.4)" });
+  const gStyle = () => styles2.querySelector("input:checked")?.value ?? "horizontal";
+  const cmode = () => modes.querySelector("input:checked")?.value ?? "two";
+  const paintOf = (style, v2) => {
+    const geo = gradientGeometry(style, v2);
+    const m2 = cmode();
+    const pre = GRADIENT_PRESETS.find((p3) => p3.id === preset.value) ?? GRADIENT_PRESETS[0];
+    const a3 = m2 === "preset" ? pre.stops[0].color : hexOf(c1);
+    const b3 = m2 === "one" ? resolveColor2(oneColorGradientColor2(Number(degree.value)), a3) : m2 === "two" ? hexOf(c22) : pre.stops[pre.stops.length - 1].color;
+    return { type: geo.type, c1: a3, c2: b3, angle: geo.angle ?? 0, focus: geo.focus ?? 0, ...geo.focusPosition ? { focusPosition: geo.focusPosition } : {}, ...geo.gradientCenter ? { gradientCenter: true } : {}, ...m2 === "preset" ? { stops: pre.stops } : {} };
+  };
+  const refreshGradient = () => {
+    const m2 = cmode();
+    c22.disabled = m2 !== "two";
+    degree.disabled = m2 !== "one";
+    preset.disabled = m2 !== "preset";
+    c1.disabled = m2 === "preset";
+    const style = gStyle();
+    const n5 = GRADIENT_VARIANTS[style];
+    if (variant > n5) variant = 1;
+    variants.replaceChildren();
+    for (let v2 = 1; v2 <= n5; v2++) {
+      const cv = el3("canvas", { style: `cursor:pointer;border:2px solid ${v2 === variant ? "var(--u-color-primary,#005bc0)" : "transparent"}` });
+      cv.title = `${tr3(lang, "Variant", "Variante")} ${v2}`;
+      paintRgba(cv, gradientTileRgba(paintOf(style, v2), 64, 48), 64, 48, 64, 48);
+      cv.addEventListener("click", () => {
+        variant = v2;
+        refreshGradient();
+      });
+      variants.append(cv);
+    }
+    paintRgba(sample, gradientTileRgba(paintOf(style, variant), 96, 72), 96, 72, 96, 72);
+  };
+  const gradBody = el3(
+    "div",
+    { style: "display:grid;grid-template-columns:auto auto;gap:14px 18px;align-items:start" },
+    el3("div", { style: "display:flex;flex-direction:column;gap:8px" }, el3("strong", {}, tr3(lang, "Colors", "Cores")), modes, colorsRow),
+    el3("div", { style: "display:flex;flex-direction:column;gap:8px" }, el3("strong", {}, tr3(lang, "Sample", "Amostra")), sample),
+    el3("div", { style: "display:flex;flex-direction:column;gap:8px" }, el3("strong", {}, tr3(lang, "Shading styles", "Estilos de sombreamento")), styles2),
+    el3("div", { style: "display:flex;flex-direction:column;gap:8px" }, el3("strong", {}, tr3(lang, "Variants", "Varia\xE7\xF5es")), variants)
+  );
+  gradBody.addEventListener("change", refreshGradient);
+  degree.addEventListener("input", refreshGradient);
+  const isPat = f3?.type === "pattern";
+  let pattern = (isPat ? opts.patterns.find((p3) => p3.name === f3.title?.trim())?.id : void 0) ?? opts.patterns[0].id;
+  const fg = colorInput("fg", isPat && f3.color ? f3.color : "000000"), bg = colorInput("bg", isPat ? resolveColor2(f3.color2, f3.color ?? "000000") : "FFFFFF");
+  const patGrid = el3("div", { style: "display:grid;grid-template-columns:repeat(8, auto);gap:4px" });
+  const patSample = el3("canvas", { style: "border:1px solid rgba(127,127,127,.4);image-rendering:pixelated" });
+  const patName = el3("span", { style: "font-size:12px;opacity:.85" });
+  const patPaint = (prst) => ({ type: "pattern", c1: hexOf(fg), c2: hexOf(bg), angle: 0, focus: 0, pattern: patternRows(prst) ?? [] });
+  const tileRgba = (rgba8, reps) => {
+    const n5 = 8 * reps, out = new Uint8Array(n5 * n5 * 4);
+    for (let y3 = 0; y3 < n5; y3++) for (let x2 = 0; x2 < n5; x2++) out.set(rgba8.subarray((y3 % 8 * 8 + x2 % 8) * 4, (y3 % 8 * 8 + x2 % 8) * 4 + 4), (y3 * n5 + x2) * 4);
+    return out;
+  };
+  const refreshPattern = () => {
+    patGrid.replaceChildren();
+    for (const p3 of opts.patterns) {
+      const cv = el3("canvas", { style: `cursor:pointer;image-rendering:pixelated;border:2px solid ${p3.id === pattern ? "var(--u-color-primary,#005bc0)" : "rgba(127,127,127,.3)"}` });
+      cv.title = p3.name;
+      paintRgba(cv, tileRgba(patternRgba(patPaint(p3.id)), 3), 24, 24, 24, 24);
+      cv.addEventListener("click", () => {
+        pattern = p3.id;
+        refreshPattern();
+      });
+      patGrid.append(cv);
+    }
+    patName.textContent = opts.patterns.find((p3) => p3.id === pattern)?.name ?? "";
+    paintRgba(patSample, tileRgba(patternRgba(patPaint(pattern)), 12), 96, 96, 96, 96);
+  };
+  const patBody = el3(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px" },
+    el3("strong", {}, tr3(lang, "Pattern", "Padr\xE3o")),
+    patGrid,
+    patName,
+    el3("div", { className: "uo-dialog-grid" }, el3("span", {}, tr3(lang, "Foreground", "Primeiro plano")), fg, el3("span", {}, tr3(lang, "Background", "Plano de fundo")), bg),
+    el3("strong", {}, tr3(lang, "Sample", "Amostra")),
+    patSample
+  );
+  fg.addEventListener("input", refreshPattern);
+  bg.addEventListener("input", refreshPattern);
+  const files = { texture: null, picture: null };
+  const imgPane = (kind) => {
+    const prev = el3("img", { alt: "", style: "max-width:280px;max-height:180px;border:1px solid rgba(127,127,127,.4);display:none" });
+    const name = el3("span", { style: "font-size:12px;opacity:.85" });
+    const btn2 = el3("button", { type: "button", className: "uo-pill", textContent: kind === "texture" ? tr3(lang, "Other Texture\u2026", "Outra Textura\u2026") : tr3(lang, "Select Picture\u2026", "Selecionar Imagem\u2026") });
+    btn2.addEventListener("click", () => pickImage((file) => {
+      files[kind] = file;
+      name.textContent = file.name;
+      prev.src = URL.createObjectURL(new Blob([file.data.slice().buffer]));
+      prev.style.display = "block";
+    }));
+    const note = kind === "texture" ? tr3(lang, "The image repeats across the page at its natural size.", "A imagem se repete pela p\xE1gina no tamanho natural.") : tr3(lang, "The picture repeats across the page, as in the desktop app.", "A imagem se repete pela p\xE1gina, como no aplicativo de mesa.");
+    return el3("div", { style: "display:flex;flex-direction:column;gap:10px;align-items:flex-start" }, btn2, name, prev, el3("span", { style: "font-size:12px;opacity:.7" }, note));
+  };
+  const tabs = dialogTabs([
+    { id: "gradient", label: tr3(lang, "Gradient", "Gradiente"), body: gradBody },
+    { id: "texture", label: tr3(lang, "Texture", "Textura"), body: imgPane("texture") },
+    { id: "pattern", label: tr3(lang, "Pattern", "Padr\xE3o"), body: patBody },
+    { id: "picture", label: tr3(lang, "Picture", "Imagem"), body: imgPane("picture") }
+  ], cur?.fill?.type === "pattern" ? "pattern" : cur?.fill?.type === "tile" ? "texture" : cur?.fill?.type === "frame" ? "picture" : "gradient");
+  const h3 = openDialog({
+    title: tr3(lang, "Fill Effects", "Efeitos de Preenchimento"),
+    icon: "gradient",
+    body: tabs.el,
+    layer: env.layer,
+    lang,
+    width: 560,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  refreshGradient();
+  refreshPattern();
+  if (await h3.result !== "ok") return;
+  let input = null;
+  switch (tabs.current()) {
+    case "gradient": {
+      const m2 = cmode(), style = gStyle();
+      input = m2 === "one" ? { type: "gradient", colors: "one", color: hexOf(c1), degree: Number(degree.value), style, variant } : m2 === "two" ? { type: "gradient", colors: "two", color: hexOf(c1), color2: hexOf(c22), style, variant } : { type: "gradient", colors: "preset", preset: preset.value, style, variant };
+      break;
+    }
+    case "pattern":
+      input = { type: "pattern", pattern, color: hexOf(fg), background: hexOf(bg) };
+      break;
+    case "texture":
+      if (files.texture) input = { type: "texture", ...files.texture };
+      break;
+    case "picture":
+      if (files.picture) input = { type: "picture", ...files.picture };
+      break;
+  }
+  if (input) ed.setPageFill(input);
+}
+async function watermarkDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const cur = ed.watermark();
+  const none = radio2("wmkind", "none", tr3(lang, "No watermark", "Sem marca-d'\xE1gua"), !cur);
+  const pic = radio2("wmkind", "picture", tr3(lang, "Picture watermark", "Marca-d'\xE1gua de imagem"), cur?.kind === "picture");
+  const txt = radio2("wmkind", "text", tr3(lang, "Text watermark", "Marca-d'\xE1gua de texto"), cur?.kind === "text");
+  let image = cur?.kind === "picture" && cur.image ? { data: cur.image, ext: sniffExt(cur.image), name: cur.title } : null;
+  const picName = el3("span", { style: "font-size:12px;opacity:.85", textContent: image?.name ?? "" });
+  const picBtn = el3("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Select Picture\u2026", "Selecionar Imagem\u2026") });
+  picBtn.addEventListener("click", () => pickImage((f3) => {
+    image = f3;
+    picName.textContent = f3.name;
+    pic.querySelector("input").checked = true;
+    sync();
+  }));
+  const scale = el3("select", { name: "scale" });
+  for (const [v2, t5] of [["auto", tr3(lang, "Auto", "Autom\xE1tico")], ["500", "500%"], ["200", "200%"], ["150", "150%"], ["100", "100%"], ["50", "50%"]]) scale.append(el3("option", { value: v2, textContent: t5 }));
+  const washout = check2("washout", tr3(lang, "Washout", "Desbotar"), cur?.kind === "picture" ? cur.washout : true);
+  const langSel = el3("select", { name: "wmlang" });
+  for (const [v2, t5] of [["pt", "Portugu\xEAs (Brasil)"], ["en", tr3(lang, "English (United States)", "Ingl\xEAs (Estados Unidos)")]]) langSel.append(el3("option", { value: v2, textContent: t5 }));
+  langSel.value = cur?.kind === "text" && cur.lang ? cur.lang.toLowerCase().startsWith("pt") ? "pt" : "en" : lang;
+  const list = el3("datalist", { id: "uw-wm-texts" });
+  const text = el3("input", { type: "text", name: "wmtext", value: cur?.kind === "text" ? cur.text : WATERMARK_TEXTS[langSel.value][0] ?? "", style: "width:220px" });
+  text.setAttribute("list", "uw-wm-texts");
+  const fillTexts = () => list.replaceChildren(...WATERMARK_TEXTS[langSel.value].map((t5) => el3("option", { value: t5 })));
+  fillTexts();
+  langSel.addEventListener("change", fillTexts);
+  const font = el3("select", { name: "wmfont", style: "width:220px" });
+  const known = ed.knownFontFamilies();
+  const want = cur?.kind === "text" ? cur.font : "Calibri";
+  const font0 = known.find((k2) => k2.toLowerCase() === want.toLowerCase()) ?? want;
+  for (const f3 of [.../* @__PURE__ */ new Set([font0, ...known])]) font.append(el3("option", { value: f3, textContent: f3 }));
+  font.value = font0;
+  const size = el3("select", { name: "wmsize" });
+  for (const s4 of ["auto", "36", "40", "44", "48", "54", "60", "66", "72", "80", "90", "96", "105", "120", "144"]) size.append(el3("option", { value: s4, textContent: s4 === "auto" ? tr3(lang, "Auto", "Autom\xE1tico") : s4 }));
+  size.value = cur?.kind === "text" && cur.sizePt ? String(cur.sizePt) : "auto";
+  const color = colorInput("wmcolor", cur?.kind === "text" ? cur.color : "C0C0C0");
+  const semi = check2("semi", tr3(lang, "Semitransparent", "Semitransparente"), cur?.kind === "text" ? cur.semitransparent : true);
+  const diag = radio2("wmlayout", "diagonal", tr3(lang, "Diagonal", "Diagonal"), cur?.kind !== "text" || cur.layout === "diagonal");
+  const horiz = radio2("wmlayout", "horizontal", tr3(lang, "Horizontal", "Horizontal"), cur?.kind === "text" && cur.layout === "horizontal");
+  const picPane = el3(
+    "div",
+    { className: "uo-dialog-grid", style: "padding-left:24px" },
+    el3("span", {}, ""),
+    el3("div", { style: "display:flex;gap:8px;align-items:center" }, picBtn, picName),
+    el3("span", {}, tr3(lang, "Scale", "Escala")),
+    el3("div", { style: "display:flex;gap:12px;align-items:center" }, scale, washout)
+  );
+  const txtPane = el3(
+    "div",
+    { className: "uo-dialog-grid", style: "padding-left:24px" },
+    el3("span", {}, tr3(lang, "Language", "Idioma")),
+    langSel,
+    el3("span", {}, tr3(lang, "Text", "Texto")),
+    el3("div", {}, text, list),
+    el3("span", {}, tr3(lang, "Font", "Fonte")),
+    font,
+    el3("span", {}, tr3(lang, "Size", "Tamanho")),
+    size,
+    el3("span", {}, tr3(lang, "Color", "Cor")),
+    el3("div", { style: "display:flex;gap:12px;align-items:center" }, color, semi),
+    el3("span", {}, tr3(lang, "Layout", "Layout")),
+    el3("div", { style: "display:flex;gap:12px" }, diag, horiz)
+  );
+  const body = el3("div", { style: "display:flex;flex-direction:column;gap:10px" }, none, pic, picPane, txt, txtPane);
+  const kind = () => body.querySelector('input[name="wmkind"]:checked')?.value ?? "none";
+  const sync = () => {
+    for (const x2 of picPane.querySelectorAll("input,select,button")) x2.disabled = kind() !== "picture";
+    for (const x2 of txtPane.querySelectorAll("input,select")) x2.disabled = kind() !== "text";
+  };
+  body.addEventListener("change", sync);
+  sync();
+  const apply = () => {
+    const k2 = kind();
+    if (k2 === "none") {
+      ed.removeWatermark();
+      return;
+    }
+    if (k2 === "picture") {
+      if (!image) return;
+      ed.setWatermark({ kind: "picture", data: image.data, ext: image.ext, title: image.name.replace(/\.[^.]+$/, ""), washout: washout.querySelector("input").checked, ...scale.value !== "auto" ? { scale: Number(scale.value) } : {} });
+      return;
+    }
+    if (!text.value.trim()) return;
+    const spec = {
+      kind: "text",
+      text: text.value.trim(),
+      font: font.value || "Calibri",
+      color: hexOf(color),
+      semitransparent: semi.querySelector("input").checked,
+      layout: body.querySelector('input[name="wmlayout"]:checked')?.value ?? "diagonal",
+      lang: langSel.value === "pt" ? "pt-BR" : "en-US",
+      ...size.value !== "auto" ? { sizePt: Number(size.value) } : {}
+    };
+    ed.setWatermark(spec);
+  };
+  const h3 = openDialog({
+    title: tr3(lang, "Printed Watermark", "Marca-d'\xE1gua Impressa"),
+    icon: "branding_watermark",
+    body,
+    layer: env.layer,
+    lang,
+    width: 480,
+    actions: [{ id: "apply", label: tr3(lang, "Apply", "Aplicar") }, { id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }],
+    onAction: (id) => {
+      if (id === "apply") {
+        apply();
+        return false;
+      }
+      return void 0;
+    }
+  });
+  if (await h3.result !== "ok") return;
+  apply();
+}
+
 // src/chrome-commands.ts
 var ZOOMS = [50, 75, 90, 100, 125, 150, 200];
 function registerWriteCommands(reg, ed, app, ctl) {
@@ -3328,11 +3838,11 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const notComparing = () => !app.comparing;
   const run = () => ctl.state().run;
   const para = () => ctl.state().para;
-  const L8 = app.ui.L;
+  const L9 = app.ui.L;
   const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
   const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
   const resolved = (n5, accept) => {
-    ctl.flash(accept ? L8.revAccepted(Number(n5) || 0) : L8.revRejected(Number(n5) || 0));
+    ctl.flash(accept ? L9.revAccepted(Number(n5) || 0) : L9.revRejected(Number(n5) || 0));
   };
   const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
@@ -3406,7 +3916,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "header", label: { en: "Header", pt: "Cabe\xE7alho" }, icon: "vertical_align_top", run: () => ed.enterHeaderFooter("header") }),
     edit({ id: "footer", label: { en: "Footer", pt: "Rodap\xE9" }, icon: "vertical_align_bottom", run: () => ed.enterHeaderFooter("footer") }),
     { id: "hf:close", label: { en: "Close Header and Footer", pt: "Fechar Cabe\xE7alho e Rodap\xE9" }, icon: "close", run: () => ed.exitHeaderFooter(), isEnabled: () => ed.editingHeaderFooter() !== null },
-    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L8.tocUpdated : L8.noToc) }),
+    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L9.tocUpdated : L9.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: "footnote", label: { en: "Footnote", pt: "Nota de rodap\xE9" }, tip: { en: "Insert footnote", pt: "Inserir nota de rodap\xE9" }, icon: "notes", shortcut: "Ctrl+Alt+F", supports: has("insertFootnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertFootnote") }),
     edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertEndnote") }),
@@ -3444,7 +3954,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "caption", label: { en: "Insert Caption", pt: "Inserir Legenda" }, tip: { en: "Add a numbered caption to a picture, table or equation", pt: "Adicionar uma legenda numerada a imagem, tabela ou equa\xE7\xE3o" }, icon: "subtitles", supports: has("insertCaption"), isEnabled: () => !!ed.captionTarget() || ed.canInsertField(), run: () => ctl.refsDialog("caption") }),
     edit({ id: "tof", label: { en: "Insert Table of Figures", pt: "Inserir \xCDndice de Ilustra\xE7\xF5es" }, tip: { en: "List of the captions of a label", pt: "Lista das legendas de um r\xF3tulo" }, icon: "list_alt", supports: has("insertTableOfFigures"), isEnabled: () => ed.canInsertField(), run: () => ctl.refsDialog("tof") }),
     edit({ id: "tof:update", label: { en: "Update Table", pt: "Atualizar Tabela" }, tip: { en: "Update the table of figures", pt: "Atualizar o \xEDndice de ilustra\xE7\xF5es" }, icon: "autorenew", supports: has("updateTableOfFigures"), run: () => {
-      if (!ed.updateTableOfFigures()) ctl.flash(L8.noTof);
+      if (!ed.updateTableOfFigures()) ctl.flash(L9.noTof);
     } }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -3536,8 +4046,6 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "dlg:paragraph", label: { en: "Paragraph\u2026", pt: "Par\xE1grafo\u2026" }, tip: { en: "Paragraph settings", pt: "Configura\xE7\xF5es de par\xE1grafo" }, icon: "format_textdirection_l_to_r", run: () => ctl.paragraphDialog() }),
     edit({ id: "dlg:tabs", label: { en: "Tabs\u2026", pt: "Tabula\xE7\xE3o\u2026" }, tip: { en: "Tab stops of the paragraph and the default tab stop", pt: "Tabula\xE7\xF5es do par\xE1grafo e a tabula\xE7\xE3o padr\xE3o" }, icon: "keyboard_tab", supports: has("setTabStops"), run: () => ctl.tabsDialog() }),
     edit({ id: "dlg:page", label: { en: "Page setup\u2026", pt: "Configurar p\xE1gina\u2026" }, icon: "settings", run: () => ctl.pageDialog() }),
-    edit({ id: "pageColor", label: { en: "Page Color", pt: "Cor da P\xE1gina" }, icon: "format_color_fill", supports: has("setPageColor"), run: () => call("setPageColor") }),
-    edit({ id: "watermark", label: { en: "Watermark", pt: "Marca d\u2019\xC1gua" }, icon: "branding_watermark", supports: has("setWatermark"), run: () => call("setWatermark") }),
     edit({ id: "hyphenation", label: { en: "Hyphenation", pt: "Hifeniza\xE7\xE3o" }, icon: "horizontal_rule", supports: has("setHyphenation"), run: () => call("setHyphenation") }),
     // ── Revisão ──
     { id: "comment:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous comment", pt: "Coment\xE1rio anterior" }, icon: "navigate_before", run: () => stepComment(-1), isEnabled: () => ed.getComments().length > 0 },
@@ -3575,10 +4083,10 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
     edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
     { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
-      if (!call("previousChange")) ctl.flash(L8.noMoreRevisions);
+      if (!call("previousChange")) ctl.flash(L9.noMoreRevisions);
     }, isEnabled: hasRevisions },
     { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
-      if (!call("nextChange")) ctl.flash(L8.noMoreRevisions);
+      if (!call("nextChange")) ctl.flash(L9.noMoreRevisions);
     }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
@@ -3593,6 +4101,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
   registerHfCommands(reg, ed, app, ctl);
   registerPictureCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
+  registerPageCommands(reg, ed, app, ctl);
   function stepComment(dir) {
     const cs = ed.getComments();
     if (!cs.length) return;
@@ -3605,7 +4114,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
 var HL_CSS = Object.fromEntries(HIGHLIGHT_COLORS.map((h3) => [h3.value, h3.css]));
 
 // src/chrome-refs.ts
-var el3 = (tag, props = {}, ...kids) => {
+var el4 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
@@ -3613,19 +4122,19 @@ var el3 = (tag, props = {}, ...kids) => {
   return e6;
 };
 var select2 = (opts, value) => {
-  const s4 = el3("select");
-  for (const [v2, t5] of opts) s4.append(el3("option", { value: v2, textContent: t5 }));
+  const s4 = el4("select");
+  for (const [v2, t5] of opts) s4.append(el4("option", { value: v2, textContent: t5 }));
   s4.value = value;
   return s4;
 };
-var check2 = (label, on) => {
-  const input = el3("input", { type: "checkbox", checked: on });
-  return { box: el3("label", { className: "uo-check" }, input, label), input };
+var check3 = (label, on) => {
+  const input = el4("input", { type: "checkbox", checked: on });
+  return { box: el4("label", { className: "uo-check" }, input, label), input };
 };
-var field = (label, ...kids) => el3("label", { className: "uo-field" }, el3("span", {}, label), ...kids);
-var button = (label) => el3("button", { type: "button", className: "uo-pill", textContent: label });
+var field = (label, ...kids) => el4("label", { className: "uo-field" }, el4("span", {}, label), ...kids);
+var button = (label) => el4("button", { type: "button", className: "uo-pill", textContent: label });
 function listBox(height = 180) {
-  const box = el3("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
+  const box = el4("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
   box.setAttribute("role", "listbox");
   let items = [];
   let cur;
@@ -3663,7 +4172,7 @@ function listBox(height = 180) {
       rows.length = 0;
       box.replaceChildren(...list.map((it) => {
         const head = it.id.startsWith("#");
-        const r5 = el3("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
+        const r5 = el4("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
         r5.setAttribute("role", head ? "presentation" : "option");
         if (!head) {
           r5.addEventListener("click", () => {
@@ -3694,28 +4203,28 @@ function listBox(height = 180) {
 var T2 = (env) => (en, pt) => pickLabels(env.lang, { en, pt });
 async function bookmarkDialog(env) {
   const t5 = T2(env), ed = env.ed;
-  const name = el3("input", { type: "text", maxLength: 40, spellcheck: false });
+  const name = el4("input", { type: "text", maxLength: 40, spellcheck: false });
   const list = listBox(170);
-  const byName = el3("input", { type: "radio", name: "bmsort", checked: true });
-  const byLoc = el3("input", { type: "radio", name: "bmsort" });
-  const hidden = check2(t5("Hidden bookmarks", "Indicadores ocultos"), false);
-  const show = check2(t5("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
+  const byName = el4("input", { type: "radio", name: "bmsort", checked: true });
+  const byLoc = el4("input", { type: "radio", name: "bmsort" });
+  const hidden = check3(t5("Hidden bookmarks", "Indicadores ocultos"), false);
+  const show = check3(t5("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
   const fill = (keep) => {
     const bms = ed.getBookmarks({ hidden: hidden.input.checked, sort: byLoc.checked ? "location" : "name" });
     list.set(bms.map((b3) => ({ id: b3.name, text: b3.name })), keep ?? null);
     sync();
   };
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:340px" },
     field(t5("Bookmark name:", "Nome do indicador:"), name),
     list.el,
-    el3(
+    el4(
       "div",
       { style: "display:flex;gap:14px;align-items:center;font-size:13px" },
       t5("Sort by:", "Classificar por:"),
-      el3("label", { className: "uo-check" }, byName, t5("Name", "Nome")),
-      el3("label", { className: "uo-check" }, byLoc, t5("Location", "Local"))
+      el4("label", { className: "uo-check" }, byName, t5("Name", "Nome")),
+      el4("label", { className: "uo-check" }, byLoc, t5("Location", "Local"))
     ),
     hidden.box,
     show.box
@@ -3815,13 +4324,13 @@ async function crossRefDialog(env) {
     ...labels.map((l3) => [`caption:${l3}`, l3])
   ];
   const type = select2(types, "heading");
-  const kind = el3("select");
-  const link = check2(t5("Insert as hyperlink", "Inserir como hiperlink"), true);
-  const pos = check2(t5("Include above/below", "Incluir acima/abaixo"), false);
-  const sep = el3("input", { type: "text", maxLength: 5, style: "width:60px" });
-  const sepBox = check2(t5("Separate numbers with", "Separar n\xFAmeros com"), false);
+  const kind = el4("select");
+  const link = check3(t5("Insert as hyperlink", "Inserir como hiperlink"), true);
+  const pos = check3(t5("Include above/below", "Incluir acima/abaixo"), false);
+  const sep = el4("input", { type: "text", maxLength: 5, style: "width:60px" });
+  const sepBox = check3(t5("Separate numbers with", "Separar n\xFAmeros com"), false);
   const list = listBox(200);
-  const forWhich = el3("span");
+  const forWhich = el4("span");
   const cur = () => {
     const v2 = type.value;
     return v2.startsWith("caption:") ? { type: "caption", label: v2.slice(8) } : { type: v2 };
@@ -3846,7 +4355,7 @@ async function crossRefDialog(env) {
     const c4 = cur();
     const kinds = ed.crossReferenceKinds(c4.type);
     const keep = kinds.includes(kind.value) ? kind.value : kinds[0];
-    kind.replaceChildren(...kinds.map((k2) => el3("option", { value: k2, textContent: KIND_LABEL(t5, c4.type, k2) })));
+    kind.replaceChildren(...kinds.map((k2) => el4("option", { value: k2, textContent: KIND_LABEL(t5, c4.type, k2) })));
     kind.value = keep;
     forWhich.textContent = forLabel(c4);
     list.set(ed.getCrossReferenceItems(c4.type, c4.label));
@@ -3862,18 +4371,18 @@ async function crossRefDialog(env) {
   type.addEventListener("change", refill);
   kind.addEventListener("change", syncOpts);
   sepBox.input.addEventListener("change", syncOpts);
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:420px" },
-    el3(
+    el4(
       "div",
       { style: "display:grid;grid-template-columns:1fr 1fr;gap:10px" },
       field(t5("Reference type:", "Tipo de refer\xEAncia:"), type),
       field(t5("Insert reference to:", "Inserir refer\xEAncia para:"), kind)
     ),
-    el3("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
-    el3("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
-    el3("div", { style: "font-size:13px" }, forWhich),
+    el4("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
+    el4("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
+    el4("div", { style: "font-size:13px" }, forWhich),
     list.el
   );
   const insert = () => {
@@ -3918,7 +4427,7 @@ async function numberingDialog(env, label) {
   const t5 = T2(env), ed = env.ed;
   const cur = ed.getCaptionNumbering(label);
   const fmt = select2(FORMATS, cur.format);
-  const chap = check2(t5("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
+  const chap = check3(t5("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
   const levels = select2(Array.from({ length: 9 }, (_2, i5) => [String(i5 + 1), t5(`Heading ${i5 + 1}`, `T\xEDtulo ${i5 + 1}`)]), String(cur.chapter?.level ?? 1));
   const seps = select2([
     ["hyphen", t5("- (hyphen)", "- (h\xEDfen)")],
@@ -3933,14 +4442,14 @@ async function numberingDialog(env, label) {
   };
   chap.input.addEventListener("change", sync);
   sync();
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
     field(t5("Format:", "Formato:"), fmt),
     chap.box,
     field(t5("Chapter starts with style:", "Cap\xEDtulo come\xE7a com estilo:"), levels),
     field(t5("Use separator:", "Usar separador:"), seps),
-    el3("div", { style: "font-size:12px;opacity:.75" }, t5("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
+    el4("div", { style: "font-size:12px;opacity:.75" }, t5("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
   );
   const h3 = openDialog({
     title: t5("Caption Numbering", "Numera\xE7\xE3o de Legenda"),
@@ -3959,7 +4468,7 @@ async function autoCaptionDialog(env) {
   const t5 = T2(env), ed = env.ed;
   const cur = ed.getAutoCaption()?.table;
   const labels = ed.getCaptionLabels();
-  const on = check2(t5("Table", "Tabela"), !!cur);
+  const on = check3(t5("Table", "Tabela"), !!cur);
   const label = select2(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
   const pos = select2([["above", t5("Above item", "Acima do item")], ["below", t5("Below item", "Abaixo do item")]], cur?.position ?? "above");
   const sync = () => {
@@ -3968,10 +4477,10 @@ async function autoCaptionDialog(env) {
   };
   on.input.addEventListener("change", sync);
   sync();
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
-    el3("div", { style: "font-size:13px" }, t5("Add caption when inserting:", "Adicionar legenda ao inserir:")),
+    el4("div", { style: "font-size:13px" }, t5("Add caption when inserting:", "Adicionar legenda ao inserir:")),
     on.box,
     field(t5("Use label:", "Usar r\xF3tulo:"), label),
     field(t5("Position:", "Posi\xE7\xE3o:"), pos)
@@ -3992,16 +4501,16 @@ async function captionDialog(env) {
   const t5 = T2(env), ed = env.ed;
   const target = ed.captionTarget();
   const labels = () => ed.getCaptionLabels();
-  const labelSel = el3("select");
+  const labelSel = el4("select");
   const fillLabels = (keep) => {
-    labelSel.replaceChildren(...labels().map((l3) => el3("option", { value: l3.name, textContent: l3.name })));
+    labelSel.replaceChildren(...labels().map((l3) => el4("option", { value: l3.name, textContent: l3.name })));
     labelSel.value = keep && labels().some((l3) => l3.name === keep) ? keep : (target === "table" ? labels().find((l3) => l3.position === "above")?.name : void 0) ?? labels()[0].name;
   };
   fillLabels();
   const pos = select2([["above", t5("Above selected item", "Acima do item selecionado")], ["below", t5("Below selected item", "Abaixo do item selecionado")]], "below");
   pos.disabled = !target;
-  const excl = check2(t5("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
-  const caption = el3("input", { type: "text" });
+  const excl = check3(t5("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
+  const caption = el4("input", { type: "text" });
   let prefix = "";
   const syncPrefix = () => {
     const l3 = labelSel.value;
@@ -4044,14 +4553,14 @@ async function captionDialog(env) {
   autoBtn.addEventListener("click", () => {
     void autoCaptionDialog(env);
   });
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:400px" },
     field(t5("Caption:", "Legenda:"), caption),
-    el3("strong", { style: "font-size:13px" }, t5("Options", "Op\xE7\xF5es")),
-    el3("div", { className: "uo-dialog-grid" }, el3("span", {}, t5("Label:", "R\xF3tulo:")), labelSel, el3("span", {}, t5("Position:", "Posi\xE7\xE3o:")), pos),
+    el4("strong", { style: "font-size:13px" }, t5("Options", "Op\xE7\xF5es")),
+    el4("div", { className: "uo-dialog-grid" }, el4("span", {}, t5("Label:", "R\xF3tulo:")), labelSel, el4("span", {}, t5("Position:", "Posi\xE7\xE3o:")), pos),
     excl.box,
-    el3("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
+    el4("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
   );
   syncPrefix();
   const h3 = openDialog({
@@ -4074,10 +4583,10 @@ async function tofDialog(env) {
   const t5 = T2(env), ed = env.ed;
   const cur = ed.getTableOfFiguresOptions();
   const labels = ed.getCaptionLabels();
-  const pages = check2(t5("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
-  const right = check2(t5("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
+  const pages = check3(t5("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
+  const right = check3(t5("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
   const leader = select2([["none", t5("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
-  const links = check2(t5("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
+  const links = check3(t5("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
   const format = select2([
     ["template", t5("From template", "Do modelo")],
     ["classic", t5("Classic", "Cl\xE1ssico")],
@@ -4087,16 +4596,16 @@ async function tofDialog(env) {
     ["simple", t5("Simple", "Simples")]
   ], "template");
   const label = select2([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
-  const incl = check2(t5("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
-  const preview2 = el3("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
+  const incl = check3(t5("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
+  const preview2 = el4("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
   const paint = () => {
     const lab = label.value;
     const lead = { none: " ", dot: ".", hyphen: "-", underscore: "_" }[leader.value] ?? ".";
     preview2.replaceChildren(...[1, 2, 3, 4].map((n5) => {
       const txt = `${incl.input.checked ? `${lab} ${n5}: ` : ""}${t5("Text", "Texto")}`;
-      const row2 = el3("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el3("span", {}, txt));
-      if (pages.input.checked && right.input.checked) row2.append(el3("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el3("span", {}, String(n5 * 2 - 1)));
-      else if (pages.input.checked) row2.append(el3("span", {}, String(n5 * 2 - 1)));
+      const row2 = el4("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el4("span", {}, txt));
+      if (pages.input.checked && right.input.checked) row2.append(el4("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el4("span", {}, String(n5 * 2 - 1)));
+      else if (pages.input.checked) row2.append(el4("span", {}, String(n5 * 2 - 1)));
       return row2;
     }));
     right.input.disabled = !pages.input.checked;
@@ -4107,19 +4616,19 @@ async function tofDialog(env) {
   paint();
   const modify = button(t5("Modify\u2026", "Modificar\u2026"));
   modify.addEventListener("click", () => env.modifyStyle?.(ed.ensureBuiltinStyle("table of figures")));
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:440px" },
-    el3("strong", { style: "font-size:13px" }, t5("Print Preview", "Visualizar Impress\xE3o")),
+    el4("strong", { style: "font-size:13px" }, t5("Print Preview", "Visualizar Impress\xE3o")),
     preview2,
     pages.box,
     right.box,
     field(t5("Tab leader:", "Preenchimento de tabula\xE7\xE3o:"), leader),
     links.box,
-    el3("strong", { style: "font-size:13px" }, t5("General", "Geral")),
-    el3("div", { className: "uo-dialog-grid" }, el3("span", {}, t5("Formats:", "Formatos:")), format, el3("span", {}, t5("Caption label:", "Nome da legenda:")), label),
+    el4("strong", { style: "font-size:13px" }, t5("General", "Geral")),
+    el4("div", { className: "uo-dialog-grid" }, el4("span", {}, t5("Formats:", "Formatos:")), format, el4("span", {}, t5("Caption label:", "Nome da legenda:")), label),
     incl.box,
-    el3("div", {}, modify)
+    el4("div", {}, modify)
   );
   const h3 = openDialog({
     title: t5("Table of Figures", "\xCDndice de Ilustra\xE7\xF5es"),
@@ -4146,12 +4655,12 @@ async function hyperlinkDialog(env) {
   const t5 = T2(env), ed = env.ed;
   const cur = ed.getLink();
   const sel4 = ed.selectedText();
-  const display = el3("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
-  const tip = el3("input", { type: "text", value: cur?.tip ?? "" });
+  const display = el4("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
+  const tip = el4("input", { type: "text", value: cur?.tip ?? "" });
   const isMail = !!cur?.address?.startsWith("mailto:");
-  const address = el3("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
-  const mail = el3("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
-  const subject = el3("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
+  const address = el4("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
+  const mail = el4("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
+  const subject = el4("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
   const targets = ed.getLinkTargets();
   const place = listBox(220);
   const items = [
@@ -4163,16 +4672,16 @@ async function hyperlinkDialog(env) {
   ];
   place.set(items.map((x2, i5) => ({ id: x2.id || `#sec${i5}`, text: x2.text })), cur?.anchor && items.some((x2) => x2.id === cur.anchor) ? cur.anchor : "_top");
   const panes = {
-    web: el3("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("Address:", "Endere\xE7o:"), address)),
-    place: el3("div", { style: "display:flex;flex-direction:column;gap:6px" }, el3("span", { style: "font-size:13px" }, t5("Select a place in this document:", "Selecione um local neste documento:")), place.el),
-    mail: el3("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("E-mail address:", "Endere\xE7o de email:"), mail), field(t5("Subject:", "Assunto:"), subject))
+    web: el4("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("Address:", "Endere\xE7o:"), address)),
+    place: el4("div", { style: "display:flex;flex-direction:column;gap:6px" }, el4("span", { style: "font-size:13px" }, t5("Select a place in this document:", "Selecione um local neste documento:")), place.el),
+    mail: el4("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("E-mail address:", "Endere\xE7o de email:"), mail), field(t5("Subject:", "Assunto:"), subject))
   };
   const tabs = dialogTabs([
     { id: "web", label: t5("Existing File or Web Page", "P\xE1gina da Web ou arquivo"), body: panes.web },
     { id: "place", label: t5("Place in This Document", "Colocar neste documento"), body: panes.place },
     { id: "mail", label: t5("E-mail Address", "Endere\xE7o de email"), body: panes.mail }
   ], cur?.anchor ? "place" : isMail ? "mail" : "web");
-  const body = el3(
+  const body = el4(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:460px" },
     field(t5("Text to display:", "Texto para exibi\xE7\xE3o:"), display),
@@ -4231,7 +4740,7 @@ function refsDialog(env, kind) {
 }
 
 // src/chrome-dialogs.ts
-var el4 = (tag, props = {}, ...kids) => {
+var el5 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
@@ -4239,84 +4748,84 @@ var el4 = (tag, props = {}, ...kids) => {
   return e6;
 };
 var select3 = (name, opts, value) => {
-  const s4 = el4("select", { name });
-  for (const [v2, t5] of opts) s4.append(el4("option", { value: v2, textContent: t5 }));
+  const s4 = el5("select", { name });
+  for (const [v2, t5] of opts) s4.append(el5("option", { value: v2, textContent: t5 }));
   s4.value = value;
   return s4;
 };
-var check3 = (name, label, on) => {
-  const i5 = el4("input", { type: "checkbox", name, checked: on });
-  return el4("label", { className: "uo-check" }, i5, label);
+var check4 = (name, label, on) => {
+  const i5 = el5("input", { type: "checkbox", name, checked: on });
+  return el5("label", { className: "uo-check" }, i5, label);
 };
-var tr3 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var tr4 = (lang, en, pt) => pickLabels(lang, { en, pt });
 async function authorDialog(env) {
   if (env.ed.hasAuthor()) return true;
-  const L8 = env.app.ui.L;
-  const name = await promptDialog({ title: L8.authorTitle, label: L8.authorText, ok: L8.authorOk, layer: env.layer, lang: env.lang });
+  const L9 = env.app.ui.L;
+  const name = await promptDialog({ title: L9.authorTitle, label: L9.authorText, ok: L9.authorOk, layer: env.layer, lang: env.lang });
   if (!name?.trim()) return false;
   env.ed.author = name.trim();
   originStore.set("uw-author", env.ed.author);
   return true;
 }
 async function commentDialog(env) {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   if (!env.ed.selectedText()) {
-    env.app.ui.flash(L8.selectToComment);
+    env.app.ui.flash(L9.selectToComment);
     return;
   }
   if (!await authorDialog(env)) return;
-  const text = await promptDialog({ title: L8.commentTitle, label: L8.commentText, multiline: true, ok: L8.commentAdd, layer: env.layer, lang: env.lang });
+  const text = await promptDialog({ title: L9.commentTitle, label: L9.commentText, multiline: true, ok: L9.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
-  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L8.selectToComment : L8.commentAdded);
+  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L9.selectToComment : L9.commentAdded);
 }
 async function fontDialog(env, families) {
-  const L8 = env.app.ui.L, lang = env.lang;
+  const L9 = env.app.ui.L, lang = env.lang;
   const r5 = env.state().run;
   const cur = r5.fontAscii ?? "";
   const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
   const font = select3("font", fams.map((f3) => [f3, f3]), cur);
-  const size = el4("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r5.szHalfPt ?? 22) / 2) });
-  const color = el4("input", { type: "color", name: "color", value: `#${r5.color && /^[0-9a-f]{6}$/i.test(r5.color) ? r5.color : "000000"}` });
+  const size = el5("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r5.szHalfPt ?? 22) / 2) });
+  const color = el5("input", { type: "color", name: "color", value: `#${r5.color && /^[0-9a-f]{6}$/i.test(r5.color) ? r5.color : "000000"}` });
   color.style.cssText = "width:48px;height:32px;padding:2px;border-radius:8px";
   const spacing = select3("spacing", [
     ["0", "Normal"],
-    ["20", tr3(lang, "Expanded 1 pt", "Expandido 1 pt")],
-    ["40", tr3(lang, "Expanded 2 pt", "Expandido 2 pt")],
-    ["-10", tr3(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
-    ["-20", tr3(lang, "Condensed 1 pt", "Condensado 1 pt")]
+    ["20", tr4(lang, "Expanded 1 pt", "Expandido 1 pt")],
+    ["40", tr4(lang, "Expanded 2 pt", "Expandido 2 pt")],
+    ["-10", tr4(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
+    ["-20", tr4(lang, "Condensed 1 pt", "Condensado 1 pt")]
   ], String(r5.charSpacingTwips ?? 0));
   const flags = {
-    bold: [tr3(lang, "Bold", "Negrito"), !!r5.bold],
-    italic: [tr3(lang, "Italic", "It\xE1lico"), !!r5.italic],
-    underline: [tr3(lang, "Underline", "Sublinhado"), !!r5.underline],
-    strike: [tr3(lang, "Strikethrough", "Tachado"), !!r5.strike],
-    sup: [tr3(lang, "Superscript", "Sobrescrito"), r5.vertAlign === "superscript"],
-    sub: [tr3(lang, "Subscript", "Subscrito"), r5.vertAlign === "subscript"],
-    allCaps: [tr3(lang, "All caps", "Todas em mai\xFAsculas"), !!r5.allCaps],
-    smallCaps: [tr3(lang, "Small caps", "Versalete"), !!r5.smallCaps]
+    bold: [tr4(lang, "Bold", "Negrito"), !!r5.bold],
+    italic: [tr4(lang, "Italic", "It\xE1lico"), !!r5.italic],
+    underline: [tr4(lang, "Underline", "Sublinhado"), !!r5.underline],
+    strike: [tr4(lang, "Strikethrough", "Tachado"), !!r5.strike],
+    sup: [tr4(lang, "Superscript", "Sobrescrito"), r5.vertAlign === "superscript"],
+    sub: [tr4(lang, "Subscript", "Subscrito"), r5.vertAlign === "subscript"],
+    allCaps: [tr4(lang, "All caps", "Todas em mai\xFAsculas"), !!r5.allCaps],
+    smallCaps: [tr4(lang, "Small caps", "Versalete"), !!r5.smallCaps]
   };
-  const grid2 = el4(
+  const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el4("span", {}, L8.fontDlg),
+    el5("span", {}, L9.fontDlg),
     font,
-    el4("span", {}, L8.size),
+    el5("span", {}, L9.size),
     size,
-    el4("span", {}, L8.color),
+    el5("span", {}, L9.color),
     color,
-    el4("span", {}, L8.charSpacing),
+    el5("span", {}, L9.charSpacing),
     spacing
   );
-  const fx = el4("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
-  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check3(k2, label, on));
-  const body = el4("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el4("strong", {}, L8.effects), fx);
+  const fx = el5("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
+  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check4(k2, label, on));
+  const body = el5("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el5("strong", {}, L9.effects), fx);
   const h3 = openDialog({
-    title: L8.fontDlg,
+    title: L9.fontDlg,
     body,
     layer: env.layer,
     lang,
     width: 440,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ed = env.ed;
@@ -4340,24 +4849,24 @@ var parseUnit = (v2, u3) => {
   const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
   return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
 };
-var unitInput = (name, tw, u3, lang, min) => el4("input", { type: "text", name, value: fmtUnit(tw, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
+var unitInput = (name, tw, u3, lang, min) => el5("input", { type: "text", name, value: fmtUnit(tw, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
 async function paragraphDialog(env) {
-  const L8 = env.app.ui.L, lang = env.lang;
+  const L9 = env.app.ui.L, lang = env.lang;
   const p3 = env.state().para;
   const u3 = unitOf(lang);
   const ind = env.ed.getParagraphIndents();
   const align = select3("align", [
-    ["left", tr3(lang, "Left", "Esquerda")],
-    ["center", tr3(lang, "Centered", "Centralizada")],
-    ["right", tr3(lang, "Right", "Direita")],
-    ["both", tr3(lang, "Justified", "Justificada")]
+    ["left", tr4(lang, "Left", "Esquerda")],
+    ["center", tr4(lang, "Centered", "Centralizada")],
+    ["right", tr4(lang, "Right", "Direita")],
+    ["both", tr4(lang, "Justified", "Justificada")]
   ], p3.alignment ?? "left");
   const left = unitInput("left", ind.left, u3, lang);
   const right = unitInput("right", ind.right, u3, lang);
   const special = select3("special", [
-    ["none", tr3(lang, "(none)", "(nenhum)")],
-    ["firstLine", tr3(lang, "First line", "Primeira linha")],
-    ["hanging", tr3(lang, "Hanging", "Deslocamento")]
+    ["none", tr4(lang, "(none)", "(nenhum)")],
+    ["firstLine", tr4(lang, "First line", "Primeira linha")],
+    ["hanging", tr4(lang, "Hanging", "Deslocamento")]
   ], !ind.firstLine ? "none" : ind.firstLine > 0 ? "firstLine" : "hanging");
   const by = unitInput("by", Math.abs(ind.firstLine), u3, lang);
   const syncBy = () => {
@@ -4371,40 +4880,40 @@ async function paragraphDialog(env) {
     by.disabled = true;
   }
   const pt = (tw) => String(Math.round((tw ?? 0) / 2) / 10);
-  const before = el4("input", { type: "number", name: "before", min: "0", step: "6", value: pt(p3.spaceBeforeTwips) });
-  const after = el4("input", { type: "number", name: "after", min: "0", step: "6", value: pt(p3.spaceAfterTwips) });
-  const dec = tr3(lang, ".", ",");
+  const before = el5("input", { type: "number", name: "before", min: "0", step: "6", value: pt(p3.spaceBeforeTwips) });
+  const after = el5("input", { type: "number", name: "after", min: "0", step: "6", value: pt(p3.spaceAfterTwips) });
+  const dec = tr4(lang, ".", ",");
   const line2 = select3(
     "line",
     [["240", `1${dec}0`], ["259", `1${dec}08`], ["276", `1${dec}15`], ["360", `1${dec}5`], ["480", `2${dec}0`]],
     String(p3.lineTwentieths ?? 259)
   );
-  const withUnit = (i5) => el4("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
-  const grid2 = el4(
+  const withUnit = (i5) => el5("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
+  const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el4("span", {}, L8.alignment),
+    el5("span", {}, L9.alignment),
     align,
-    el4("span", {}, tr3(lang, "Left indent", "Recuo \xE0 esquerda")),
+    el5("span", {}, tr4(lang, "Left indent", "Recuo \xE0 esquerda")),
     withUnit(left),
-    el4("span", {}, tr3(lang, "Right indent", "Recuo \xE0 direita")),
+    el5("span", {}, tr4(lang, "Right indent", "Recuo \xE0 direita")),
     withUnit(right),
-    el4("span", {}, L8.specialIndent),
-    el4("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
-    el4("span", {}, L8.before),
+    el5("span", {}, L9.specialIndent),
+    el5("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
+    el5("span", {}, L9.before),
     before,
-    el4("span", {}, L8.after),
+    el5("span", {}, L9.after),
     after,
-    el4("span", {}, L8.lineSpacing),
+    el5("span", {}, L9.lineSpacing),
     line2
   );
   const h3 = openDialog({
-    title: L8.paraDlg,
+    title: L9.paraDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "tabs", label: tr3(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   const res = await h3.result;
   if (res !== "ok" && res !== "tabs") return;
@@ -4424,41 +4933,41 @@ async function paragraphDialog(env) {
   if (res === "tabs") await tabsDialog(env);
 }
 async function tabsDialog(env) {
-  const lang = env.lang, ed = env.ed, L8 = env.app.ui.L;
+  const lang = env.lang, ed = env.ed, L9 = env.app.ui.L;
   const u3 = unitOf(lang);
   const cur = ed.getTabStops();
   let tabs = cur.tabs.map((t5) => ({ ...t5 }));
   const cleared = [];
-  const pos = el4("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
-  pos.setAttribute("aria-label", tr3(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
-  const list = el4("select", { name: "list", size: 6, style: "width:100%;height:132px" });
+  const pos = el5("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
+  pos.setAttribute("aria-label", tr4(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
+  const list = el5("select", { name: "list", size: 6, style: "width:100%;height:132px" });
   const def = unitInput("default", cur.defaultTabTwips, u3, lang);
-  const clearedEl = el4("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
+  const clearedEl = el5("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
   const radios2 = (name, opts, value) => {
-    const box = el4("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
+    const box = el5("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
     for (const [v2, t5] of opts) {
-      const i5 = el4("input", { type: "radio", name, value: v2, checked: v2 === value });
-      box.append(el4("label", { className: "uo-check" }, i5, t5));
+      const i5 = el5("input", { type: "radio", name, value: v2, checked: v2 === value });
+      box.append(el5("label", { className: "uo-check" }, i5, t5));
     }
     return box;
   };
   const alignBox = radios2("align", [
-    ["left", tr3(lang, "Left", "Esquerdo")],
-    ["center", tr3(lang, "Center", "Centralizado")],
-    ["right", tr3(lang, "Right", "Direito")],
-    ["decimal", tr3(lang, "Decimal", "Decimal")],
-    ["bar", tr3(lang, "Bar", "Barra")]
+    ["left", tr4(lang, "Left", "Esquerdo")],
+    ["center", tr4(lang, "Center", "Centralizado")],
+    ["right", tr4(lang, "Right", "Direito")],
+    ["decimal", tr4(lang, "Decimal", "Decimal")],
+    ["bar", tr4(lang, "Bar", "Barra")]
   ], "left");
-  const leaderBox = radios2("leader", [["", tr3(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
+  const leaderBox = radios2("leader", [["", tr4(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
   const val = (name) => alignBox.parentElement?.querySelector(`input[name="${name}"]:checked`)?.value ?? body.querySelector(`input[name="${name}"]:checked`)?.value ?? "";
   const setRadio = (name, v2) => {
     for (const i5 of body.querySelectorAll(`input[name="${name}"]`)) i5.checked = i5.value === v2;
   };
   const render = (keep) => {
     tabs.sort((a3, b3) => a3.pos - b3.pos);
-    list.replaceChildren(...tabs.map((t5) => el4("option", { value: String(t5.pos), textContent: `${fmtUnit(t5.pos, u3, lang)} ${u3.name}` })));
+    list.replaceChildren(...tabs.map((t5) => el5("option", { value: String(t5.pos), textContent: `${fmtUnit(t5.pos, u3, lang)} ${u3.name}` })));
     if (keep !== void 0) list.value = String(keep);
-    clearedEl.textContent = cleared.length ? `${tr3(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x2) => `${fmtUnit(x2, u3, lang)} ${u3.name}`).join("; ")}` : "";
+    clearedEl.textContent = cleared.length ? `${tr4(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x2) => `${fmtUnit(x2, u3, lang)} ${u3.name}`).join("; ")}` : "";
   };
   list.addEventListener("change", () => {
     const t5 = tabs.find((x2) => String(x2.pos) === list.value);
@@ -4467,9 +4976,9 @@ async function tabsDialog(env) {
     setRadio("align", t5.align);
     setRadio("leader", t5.leader === "dot" || t5.leader === "hyphen" || t5.leader === "underscore" ? t5.leader : "");
   });
-  const setBtn = el4("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Set", "Definir") });
-  const clrBtn = el4("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Clear", "Limpar") });
-  const allBtn = el4("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Clear All", "Limpar Tudo") });
+  const setBtn = el5("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Set", "Definir") });
+  const clrBtn = el5("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear", "Limpar") });
+  const allBtn = el5("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear All", "Limpar Tudo") });
   const define = () => {
     const p3 = parseUnit(pos.value, u3);
     if (!Number.isFinite(p3)) return false;
@@ -4506,29 +5015,29 @@ async function tabsDialog(env) {
       define();
     }
   });
-  const left = el4(
+  const left = el5(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0" },
-    el4("span", {}, tr3(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
+    el5("span", {}, tr4(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
     pos,
     list
   );
-  const right = el4(
+  const right = el5(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;flex:1 1 0" },
-    el4("span", {}, tr3(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
-    el4("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
+    el5("span", {}, tr4(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
+    el5("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
     clearedEl
   );
-  const body = el4(
+  const body = el5(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el4("div", { style: "display:flex;gap:16px" }, left, right),
-    el4("strong", {}, tr3(lang, "Alignment", "Alinhamento")),
+    el5("div", { style: "display:flex;gap:16px" }, left, right),
+    el5("strong", {}, tr4(lang, "Alignment", "Alinhamento")),
     alignBox,
-    el4("strong", {}, tr3(lang, "Leader", "Preenchimento")),
+    el5("strong", {}, tr4(lang, "Leader", "Preenchimento")),
     leaderBox,
-    el4("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
+    el5("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
   );
   render();
   if (tabs[0]) {
@@ -4536,12 +5045,12 @@ async function tabsDialog(env) {
     list.dispatchEvent(new Event("change"));
   }
   const h3 = openDialog({
-    title: tr3(lang, "Tabs", "Tabula\xE7\xE3o"),
+    title: tr4(lang, "Tabs", "Tabula\xE7\xE3o"),
     body,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   setTimeout(() => pos.focus(), 0);
   if (await h3.result !== "ok") return;
@@ -4552,17 +5061,17 @@ async function tabsDialog(env) {
   if (!same) ed.setTabStops(tabs);
 }
 var applyToSelect = (lang, hasSel, value) => select3("applyTo", [
-  ["section", tr3(lang, "This section", "Esta se\xE7\xE3o")],
-  ["forward", tr3(lang, "This point forward", "Deste ponto em diante")],
-  ["document", tr3(lang, "Whole document", "No documento inteiro")],
-  ...hasSel ? [["selection", tr3(lang, "Selected text", "Texto selecionado")]] : []
+  ["section", tr4(lang, "This section", "Esta se\xE7\xE3o")],
+  ["forward", tr4(lang, "This point forward", "Deste ponto em diante")],
+  ["document", tr4(lang, "Whole document", "No documento inteiro")],
+  ...hasSel ? [["selection", tr4(lang, "Selected text", "Texto selecionado")]] : []
 ], value);
 async function pageDialog(env) {
-  const L8 = env.app.ui.L, lang = env.lang;
+  const L9 = env.app.ui.L, lang = env.lang;
   const u3 = unitOf(lang);
-  const orient = select3("orientation", [["portrait", tr3(lang, "Portrait", "Retrato")], ["landscape", tr3(lang, "Landscape", "Paisagem")]], "portrait");
-  const size = select3("size", [["A4", "A4"], ["Letter", tr3(lang, "Letter", "Carta")]], "A4");
-  const margins = select3("margins", [["normal", "Normal"], ["narrow", tr3(lang, "Narrow", "Estreita")], ["wide", tr3(lang, "Wide", "Larga")], ["custom", tr3(lang, "Custom", "Personalizadas")]], "normal");
+  const orient = select3("orientation", [["portrait", tr4(lang, "Portrait", "Retrato")], ["landscape", tr4(lang, "Landscape", "Paisagem")]], "portrait");
+  const size = select3("size", [["A4", "A4"], ["Letter", tr4(lang, "Letter", "Carta")]], "A4");
+  const margins = select3("margins", [["normal", "Normal"], ["narrow", tr4(lang, "Narrow", "Estreita")], ["wide", tr4(lang, "Wide", "Larga")], ["custom", tr4(lang, "Custom", "Personalizadas")]], "normal");
   const s4 = env.ed.getSection();
   const cm = s4 ? { ...s4.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s4) {
@@ -4579,34 +5088,34 @@ async function pageDialog(env) {
   });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
   const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, "section");
-  const withUnit = (i5) => el4("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
-  const grid2 = el4(
+  const withUnit = (i5) => el5("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
+  const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el4("span", {}, L8.orientation),
+    el5("span", {}, L9.orientation),
     orient,
-    el4("span", {}, L8.paper),
+    el5("span", {}, L9.paper),
     size,
-    el4("span", {}, L8.margins),
+    el5("span", {}, L9.margins),
     margins,
-    el4("span", {}, tr3(lang, "Top", "Superior")),
+    el5("span", {}, tr4(lang, "Top", "Superior")),
     withUnit(mt),
-    el4("span", {}, tr3(lang, "Bottom", "Inferior")),
+    el5("span", {}, tr4(lang, "Bottom", "Inferior")),
     withUnit(mb),
-    el4("span", {}, tr3(lang, "Left", "Esquerda")),
+    el5("span", {}, tr4(lang, "Left", "Esquerda")),
     withUnit(ml),
-    el4("span", {}, tr3(lang, "Right", "Direita")),
+    el5("span", {}, tr4(lang, "Right", "Direita")),
     withUnit(mr),
-    el4("span", {}, tr3(lang, "Apply to", "Aplicar a")),
+    el5("span", {}, tr4(lang, "Apply to", "Aplicar a")),
     applyTo
   );
   const h3 = openDialog({
-    title: L8.pageDlg,
+    title: L9.pageDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 420,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const all = applyTo.value !== "section";
@@ -4641,10 +5150,10 @@ async function columnsDialog(env) {
     const w2 = Math.round((W - st.space * (n5 - 1)) / n5);
     st.widths = Array.from({ length: n5 }, (_2, i5) => ({ widthTwips: w2, spaceTwips: i5 < n5 - 1 ? st.space : 0 }));
   };
-  const presets = el4("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const presets = el5("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
   const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
   const presetBtns = PRESETS.map(([id, en, pt, n5]) => {
-    const b3 = el4("button", { type: "button", textContent: tr3(lang, en, pt), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    const b3 = el5("button", { type: "button", textContent: tr4(lang, en, pt), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
     b3.addEventListener("click", () => {
       st.count = n5;
       if (id === "left" || id === "right") {
@@ -4661,13 +5170,13 @@ async function columnsDialog(env) {
     presets.append(b3);
     return [id, b3];
   });
-  const count = el4("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
-  const sep = check3("sep", tr3(lang, "Line between", "Linha entre colunas"), st.sep);
-  const equal = check3("equal", tr3(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
-  const rows = el4("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const count = el5("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check4("sep", tr4(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check4("equal", tr4(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el5("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
-  const newCol = check3("newCol", tr3(lang, "Start new column", "Iniciar nova coluna"), false);
-  const preview2 = el4("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const newCol = check4("newCol", tr4(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview2 = el5("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
   const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
   function render() {
     count.value = String(st.count);
@@ -4681,22 +5190,22 @@ async function columnsDialog(env) {
       b3.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
       b3.setAttribute("aria-pressed", String(on));
     }
-    rows.replaceChildren(el4("strong", {}, "#"), el4("strong", {}, tr3(lang, "Width", "Largura")), el4("strong", {}, tr3(lang, "Spacing", "Espa\xE7amento")));
+    rows.replaceChildren(el5("strong", {}, "#"), el5("strong", {}, tr4(lang, "Width", "Largura")), el5("strong", {}, tr4(lang, "Spacing", "Espa\xE7amento")));
     st.widths.slice(0, Math.max(1, st.count)).forEach((c4, i5) => {
       const last = i5 === st.count - 1;
-      const wIn = el4("input", { type: "number", step: unit.step, min: "0", value: fmt(c4.widthTwips), disabled: st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
-      const sIn = el4("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt(c4.spaceTwips), disabled: last || st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
-      wIn.setAttribute("aria-label", `${tr3(lang, "Width", "Largura")} ${i5 + 1}`);
-      sIn.setAttribute("aria-label", `${tr3(lang, "Spacing", "Espa\xE7amento")} ${i5 + 1}`);
+      const wIn = el5("input", { type: "number", step: unit.step, min: "0", value: fmt(c4.widthTwips), disabled: st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
+      const sIn = el5("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt(c4.spaceTwips), disabled: last || st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
+      wIn.setAttribute("aria-label", `${tr4(lang, "Width", "Largura")} ${i5 + 1}`);
+      sIn.setAttribute("aria-label", `${tr4(lang, "Spacing", "Espa\xE7amento")} ${i5 + 1}`);
       wIn.addEventListener("change", () => setWidth(i5, parse(wIn.value)));
       sIn.addEventListener("change", () => setSpace(i5, parse(sIn.value)));
-      rows.append(el4("span", {}, `${i5 + 1}:`), el4("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el4("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+      rows.append(el5("span", {}, `${i5 + 1}:`), el5("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el5("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
     });
     preview2.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c4, i5) => {
-      const col = el4("div", { style: `flex:${c4.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      const col = el5("div", { style: `flex:${c4.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
       if (i5 === st.count - 1) return [col];
-      const gap = el4("div", { style: `flex:${Math.max(1, c4.spaceTwips)} 0 0;display:flex;justify-content:center` });
-      if (box("sep").checked) gap.append(el4("div", { style: "width:1px;background:currentColor" }));
+      const gap = el5("div", { style: `flex:${Math.max(1, c4.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el5("div", { style: "width:1px;background:currentColor" }));
       return [col, gap];
     }));
   }
@@ -4765,27 +5274,27 @@ async function columnsDialog(env) {
     equalize();
   }
   render();
-  const body = el4(
+  const body = el5(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el4("strong", {}, tr3(lang, "Presets", "Predefini\xE7\xF5es")),
+    el5("strong", {}, tr4(lang, "Presets", "Predefini\xE7\xF5es")),
     presets,
-    el4(
+    el5(
       "div",
       { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
-      el4("label", { style: "display:flex;gap:8px;align-items:center" }, tr3(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      el5("label", { style: "display:flex;gap:8px;align-items:center" }, tr4(lang, "Number of columns", "N\xFAmero de colunas"), count),
       sep
     ),
-    el4("strong", {}, tr3(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    el5("strong", {}, tr4(lang, "Width and spacing", "Largura e espa\xE7amento")),
     rows,
     equal,
-    el4("div", { className: "uo-dialog-grid" }, el4("span", {}, tr3(lang, "Apply to", "Aplicar a")), applyTo),
+    el5("div", { className: "uo-dialog-grid" }, el5("span", {}, tr4(lang, "Apply to", "Aplicar a")), applyTo),
     newCol,
-    el4("strong", {}, tr3(lang, "Preview", "Visualiza\xE7\xE3o")),
+    el5("strong", {}, tr4(lang, "Preview", "Visualiza\xE7\xE3o")),
     preview2
   );
   const h3 = openDialog({
-    title: tr3(lang, "Columns", "Colunas"),
+    title: tr4(lang, "Columns", "Colunas"),
     icon: "view_column_2",
     body,
     layer: env.layer,
@@ -4804,20 +5313,20 @@ async function columnsDialog(env) {
   });
 }
 function wordCountDialog(env) {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const s4 = env.ed.stats();
-  const fmt = (n5) => n5.toLocaleString(tr3(env.lang, "en-US", "pt-BR"));
-  const grid2 = el4(
+  const fmt = (n5) => n5.toLocaleString(tr4(env.lang, "en-US", "pt-BR"));
+  const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el4("span", {}, L8.pages),
-    el4("strong", {}, fmt(s4.pages)),
-    el4("span", {}, L8.words),
-    el4("strong", {}, fmt(s4.words)),
-    el4("span", {}, L8.chars),
-    el4("strong", {}, fmt(s4.chars))
+    el5("span", {}, L9.pages),
+    el5("strong", {}, fmt(s4.pages)),
+    el5("span", {}, L9.words),
+    el5("strong", {}, fmt(s4.words)),
+    el5("span", {}, L9.chars),
+    el5("strong", {}, fmt(s4.chars))
   );
-  openDialog({ title: L8.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
+  openDialog({ title: L9.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
 }
 var SHORTCUTS = [
   ["Ctrl+O", "Open", "Abrir"],
@@ -4840,20 +5349,20 @@ var SHORTCUTS = [
   ["Ctrl+scroll", "Zoom", "Zoom"]
 ];
 function shortcutsDialog(env) {
-  const grid2 = el4("div", { className: "uo-dialog-grid" });
+  const grid2 = el5("div", { className: "uo-dialog-grid" });
   grid2.style.gridTemplateColumns = "auto 1fr";
   for (const [k2, en, pt] of SHORTCUTS) {
-    grid2.append(el4("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el4("span", {}, tr3(env.lang, en, pt)));
+    grid2.append(el5("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el5("span", {}, tr4(env.lang, en, pt)));
   }
   openDialog({ title: env.app.ui.L.shortcutsTitle, body: grid2, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
-  const L8 = env.app.ui.L;
-  openDialog({ title: L8.aboutTitle, icon: "info", body: L8.aboutText, layer: env.layer, lang: env.lang, width: 400 });
+  const L9 = env.app.ui.L;
+  openDialog({ title: L9.aboutTitle, icon: "info", body: L9.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
 async function spellingDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const done = tr3(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
+  const done = tr4(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
   const skip = /* @__PURE__ */ new Set();
   const always = /* @__PURE__ */ new Map();
   let cur = await ed.nextMisspelling(skip);
@@ -4861,18 +5370,18 @@ async function spellingDialog(env) {
     env.app.ui.flash(done);
     return;
   }
-  const word = el4("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
-  const info = el4("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
-  const list = el4("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
+  const word = el5("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
+  const info = el5("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
+  const list = el5("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
   const show = async (m2) => {
     word.textContent = m2.word;
-    info.textContent = tr3(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
+    info.textContent = tr4(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
     const sug = await ed.spellingSuggestions(m2, 8);
-    list.replaceChildren(...sug.length ? sug.map((x2) => el4("option", { value: x2, textContent: x2 })) : [el4("option", { value: "", disabled: true, textContent: tr3(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
+    list.replaceChildren(...sug.length ? sug.map((x2) => el5("option", { value: x2, textContent: x2 })) : [el5("option", { value: "", disabled: true, textContent: tr4(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
     list.selectedIndex = sug.length ? 0 : -1;
   };
   await show(cur);
-  const body = el4("div", {}, word, info, el4("div", { style: "font-size:12px;margin-bottom:4px" }, tr3(lang, "Suggestions", "Sugest\xF5es")), list);
+  const body = el5("div", {}, word, info, el5("div", { style: "font-size:12px;margin-bottom:4px" }, tr4(lang, "Suggestions", "Sugest\xF5es")), list);
   const next = async () => {
     cur = await ed.nextMisspelling(skip);
     while (cur && always.has(cur.word)) {
@@ -4909,7 +5418,7 @@ async function spellingDialog(env) {
     void step("change");
   });
   const h3 = openDialog({
-    title: tr3(lang, "Spelling", "Ortografia"),
+    title: tr4(lang, "Spelling", "Ortografia"),
     icon: "spellcheck",
     body,
     layer: env.layer,
@@ -4930,17 +5439,17 @@ async function spellingDialog(env) {
   });
   await h3.result;
 }
-var radio2 = (name, value, label, on) => el4("label", { className: "uo-check" }, el4("input", { type: "radio", name, value, checked: on }), label);
+var radio3 = (name, value, label, on) => el5("label", { className: "uo-check" }, el5("input", { type: "radio", name, value, checked: on }), label);
 async function notesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T4 = (en, pt) => tr3(lang, en, pt);
+  const T4 = (en, pt) => tr4(lang, en, pt);
   let kind = ed.editingNote()?.kind ?? "footnote";
   const st = { footnote: ed.getNoteOptions("footnote"), endnote: ed.getNoteOptions("endnote") };
-  const fnRadio = radio2("kind", "footnote", T4("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
-  const enRadio = radio2("kind", "endnote", T4("Endnotes:", "Notas de fim:"), kind === "endnote");
+  const fnRadio = radio3("kind", "footnote", T4("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
+  const enRadio = radio3("kind", "endnote", T4("Endnotes:", "Notas de fim:"), kind === "endnote");
   const fnPos = select3("fnPos", [["pageBottom", T4("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T4("Below text", "Abaixo do texto")]], st.footnote.position);
   const enPos = select3("enPos", [["docEnd", T4("End of document", "Fim do documento")], ["sectEnd", T4("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
-  const convert = el4("button", { type: "button", className: "uo-pill", textContent: T4("Convert\u2026", "Converter\u2026") });
+  const convert = el5("button", { type: "button", className: "uo-pill", textContent: T4("Convert\u2026", "Converter\u2026") });
   const columns = select3("columns", [["0", T4("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T4("1 column", "1 coluna")], ["2", T4("2 columns", "2 colunas")], ["3", T4("3 columns", "3 colunas")], ["4", T4("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
   const format = select3("format", [
     ["decimal", "1, 2, 3, \u2026"],
@@ -4950,18 +5459,18 @@ async function notesDialog(env) {
     ["upperRoman", "I, II, III, \u2026"],
     ["chicago", "*, \u2020, \u2021, \xA7, \u2026"]
   ], st[kind].numberFormat);
-  const mark = el4("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
+  const mark = el5("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
   mark.setAttribute("aria-label", T4("Custom mark", "Marca personalizada"));
-  const symbols = el4("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
+  const symbols = el5("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
   for (const ch of ["*", "\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "#", "\u203B", "\xB9", "\xB2", "\xB3"]) {
-    const b3 = el4("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
+    const b3 = el5("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
     b3.addEventListener("click", () => {
       mark.value += ch;
       mark.focus();
     });
     symbols.append(b3);
   }
-  const startAt = el4("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
+  const startAt = el5("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
   const restart = select3("restart", [["continuous", T4("Continuous", "Cont\xEDnua")], ["eachSect", T4("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T4("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
   const scope = select3("scope", [["document", T4("Whole document", "Todo o documento")], ["section", T4("This section", "Esta se\xE7\xE3o")]], "document");
   const show = () => {
@@ -4993,18 +5502,18 @@ async function notesDialog(env) {
     startAt.disabled = restart.value !== "continuous";
   });
   show();
-  const grid2 = (...rows) => el4("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el4("span", {}, label), el4("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
-  const body = el4(
+  const grid2 = (...rows) => el5("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el5("span", {}, label), el5("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
+  const body = el5(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el4("strong", {}, T4("Location", "Local")),
-    el4("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
-    el4("div", {}, convert),
-    el4("strong", {}, T4("Footnote layout", "Layout de nota de rodap\xE9")),
+    el5("strong", {}, T4("Location", "Local")),
+    el5("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
+    el5("div", {}, convert),
+    el5("strong", {}, T4("Footnote layout", "Layout de nota de rodap\xE9")),
     grid2([T4("Columns:", "Colunas:"), columns]),
-    el4("strong", {}, T4("Format", "Formato")),
+    el5("strong", {}, T4("Format", "Formato")),
     grid2([T4("Number format:", "Formato do n\xFAmero:"), format], [T4("Custom mark:", "Marca personalizada:"), mark], [T4("Symbol:", "S\xEDmbolo:"), symbols], [T4("Start at:", "Iniciar em:"), startAt], [T4("Numbering:", "Numera\xE7\xE3o:"), restart]),
-    el4("strong", {}, T4("Apply changes", "Aplicar altera\xE7\xF5es")),
+    el5("strong", {}, T4("Apply changes", "Aplicar altera\xE7\xF5es")),
     grid2([T4("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
   );
   convert.addEventListener("click", () => {
@@ -5038,7 +5547,7 @@ async function notesDialog(env) {
 }
 async function convertNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T4 = (en, pt) => tr3(lang, en, pt);
+  const T4 = (en, pt) => tr4(lang, en, pt);
   const nf = ed.noteCount("footnote"), ne = ed.noteCount("endnote");
   const opts = [
     ["toEndnotes", T4("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
@@ -5046,8 +5555,8 @@ async function convertNotesDialog(env) {
     ["swap", T4("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
   ];
   const first = opts.find((o6) => o6[2])?.[0];
-  const body = el4("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
-    const r5 = radio2("convert", v3, label, v3 === first);
+  const body = el5("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
+    const r5 = radio3("convert", v3, label, v3 === first);
     r5.querySelector("input").disabled = !on;
     return r5;
   }));
@@ -5066,17 +5575,17 @@ async function convertNotesDialog(env) {
 }
 async function showNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T4 = (en, pt) => tr3(lang, en, pt);
+  const T4 = (en, pt) => tr4(lang, en, pt);
   if (ed.editingNote() || !ed.noteCount("footnote") || !ed.noteCount("endnote")) {
     ed.showNotes();
     return;
   }
-  const body = el4(
+  const body = el5(
     "div",
     { style: "display:flex;flex-direction:column;gap:8px" },
-    el4("span", {}, T4("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
-    radio2("area", "footnote", T4("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
-    radio2("area", "endnote", T4("View endnote area", "Exibir \xE1rea de notas de fim"), false)
+    el5("span", {}, T4("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
+    radio3("area", "footnote", T4("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
+    radio3("area", "endnote", T4("View endnote area", "Exibir \xE1rea de notas de fim"), false)
   );
   const h3 = openDialog({
     title: T4("Show Notes", "Mostrar Notas"),
@@ -5171,7 +5680,7 @@ var LABELS = {
     expand: "Expandir"
   }
 };
-var el5 = (tag, cls, text) => {
+var el6 = (tag, cls, text) => {
   const e6 = document.createElement(tag);
   if (cls) e6.className = cls;
   if (text !== void 0) e6.textContent = text;
@@ -5265,20 +5774,20 @@ var NavPane = class {
     });
   }
   build() {
-    const L8 = this.L;
-    const body = el5("div", "uw-nav");
-    const box = el5("div", "uw-nav-search");
-    const ic = el5("span", "uw-nav-search-ic");
+    const L9 = this.L;
+    const body = el6("div", "uw-nav");
+    const box = el6("div", "uw-nav-search");
+    const ic = el6("span", "uw-nav-search-ic");
     ic.innerHTML = symbol("search");
-    this.input = el5("input", "uw-nav-input");
+    this.input = el6("input", "uw-nav-input");
     this.input.type = "search";
-    this.input.placeholder = L8.search;
-    this.input.setAttribute("aria-label", L8.search);
+    this.input.placeholder = L9.search;
+    this.input.setAttribute("aria-label", L9.search);
     this.input.dataset["a"] = "nav:search";
-    const optBtn = el5("button", "uo-btn uw-nav-opt");
+    const optBtn = el6("button", "uo-btn uw-nav-opt");
     optBtn.type = "button";
-    optBtn.title = L8.options;
-    optBtn.setAttribute("aria-label", L8.options);
+    optBtn.title = L9.options;
+    optBtn.setAttribute("aria-label", L9.options);
     optBtn.dataset["a"] = "nav:options";
     optBtn.innerHTML = symbol("arrow_drop_down");
     optBtn.addEventListener("click", () => this.optionsMenu(optBtn));
@@ -5300,27 +5809,27 @@ var NavPane = class {
         } else this.env.ed.focusEditor();
       }
     });
-    const st = el5("div", "uw-nav-status");
-    this.status = el5("span", "uw-nav-count");
-    const prev = el5("button", "uo-btn uw-nav-step");
+    const st = el6("div", "uw-nav-status");
+    this.status = el6("span", "uw-nav-count");
+    const prev = el6("button", "uo-btn uw-nav-step");
     prev.type = "button";
-    prev.title = L8.prev;
-    prev.setAttribute("aria-label", L8.prev);
+    prev.title = L9.prev;
+    prev.setAttribute("aria-label", L9.prev);
     prev.innerHTML = symbol("keyboard_arrow_up");
     prev.dataset["a"] = "nav:prev";
     prev.addEventListener("click", () => this.step(-1));
-    const next = el5("button", "uo-btn uw-nav-step");
+    const next = el6("button", "uo-btn uw-nav-step");
     next.type = "button";
-    next.title = L8.next;
-    next.setAttribute("aria-label", L8.next);
+    next.title = L9.next;
+    next.setAttribute("aria-label", L9.next);
     next.innerHTML = symbol("keyboard_arrow_down");
     next.dataset["a"] = "nav:next";
     next.addEventListener("click", () => this.step(1));
     st.append(this.status, prev, next);
-    const tabs = el5("div", "uw-nav-tabs");
+    const tabs = el6("div", "uw-nav-tabs");
     tabs.setAttribute("role", "tablist");
     for (const t5 of ["headings", "pages", "results"]) {
-      const b3 = el5("button", "uw-nav-tab", L8[t5]);
+      const b3 = el6("button", "uw-nav-tab", L9[t5]);
       b3.type = "button";
       b3.setAttribute("role", "tab");
       b3.dataset["a"] = `nav:tab:${t5}`;
@@ -5331,11 +5840,11 @@ var NavPane = class {
       this.tabs.set(t5, b3);
       tabs.appendChild(b3);
     }
-    this.bodyEl = el5("div", "uw-nav-body");
+    this.bodyEl = el6("div", "uw-nav-body");
     body.append(box, st, tabs, this.bodyEl);
     const pane = openPane({
       id: "navigation",
-      title: L8.title,
+      title: L9.title,
       lang: this.env.lang,
       layer: this.env.layer,
       frame: this.env.frame,
@@ -5362,7 +5871,7 @@ var NavPane = class {
     this.env.app.prefs.set("navPane", "1");
   }
   optionsMenu(anchor) {
-    const L8 = this.L;
+    const L9 = this.L;
     const flag = (k2, label) => ({
       id: `nav:${k2}`,
       label,
@@ -5373,13 +5882,13 @@ var NavPane = class {
       }
     });
     openMenu([
-      flag("matchCase", L8.matchCase),
-      flag("wholeWord", L8.wholeWord),
-      flag("highlight", L8.highlight),
-      flag("incremental", L8.incremental),
+      flag("matchCase", L9.matchCase),
+      flag("wholeWord", L9.wholeWord),
+      flag("highlight", L9.highlight),
+      flag("incremental", L9.incremental),
       { sep: true },
-      { id: "nav:replace", label: L8.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
-      { id: "nav:clear", label: L8.clear, icon: "close", onClick: () => {
+      { id: "nav:replace", label: L9.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
+      { id: "nav:clear", label: L9.clear, icon: "close", onClick: () => {
         this.input.value = "";
         this.runSearch(true);
       }, disabled: !this.query }
@@ -5403,7 +5912,7 @@ var NavPane = class {
   }
   refresh() {
     if (!this.pane) return;
-    const L8 = this.L;
+    const L9 = this.L;
     const ed = this.env.ed;
     this.pane.place();
     this.heads = ed.getHeadings();
@@ -5413,7 +5922,7 @@ var NavPane = class {
     }
     const n5 = this.results.length;
     this.status.parentElement.hidden = !this.query;
-    this.status.textContent = !this.query ? "" : !n5 ? L8.results0 : this.current >= 0 ? L8.result(this.current + 1, n5) : L8.resultsN(n5);
+    this.status.textContent = !this.query ? "" : !n5 ? L9.results0 : this.current >= 0 ? L9.result(this.current + 1, n5) : L9.resultsN(n5);
     for (const b3 of this.status.parentElement.querySelectorAll("button")) b3.disabled = !n5;
     if (this.tab === "headings") this.renderHeadings();
     else if (this.tab === "pages") this.renderPages();
@@ -5441,13 +5950,13 @@ var NavPane = class {
     return roots;
   }
   renderHeadings() {
-    const L8 = this.L;
+    const L9 = this.L;
     const ed = this.env.ed;
-    const list = el5("div", "uw-nav-tree");
+    const list = el6("div", "uw-nav-tree");
     list.setAttribute("role", "tree");
     if (!this.heads.length) {
       this.treeSig = "";
-      this.bodyEl.replaceChildren(el5("p", "uw-nav-empty", L8.noHeadings));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noHeadings));
       return;
     }
     const cur = ed.currentHeading(this.heads);
@@ -5467,19 +5976,19 @@ var NavPane = class {
       const kids = node.kids.filter((k2) => k2.h.level <= this.maxLevel);
       const key = this.keyOf(h3);
       const closed = this.collapsed.has(key);
-      const r5 = el5("div", "uw-nav-row");
+      const r5 = el6("div", "uw-nav-row");
       r5.setAttribute("role", "treeitem");
       r5.dataset["index"] = String(h3.index);
       r5.style.paddingLeft = `${4 + depth * 14}px`;
       r5.classList.toggle("uo-on", h3.index === cur);
       r5.classList.toggle("uw-nav-hit", hit.has(h3.index));
       if (kids.length) r5.setAttribute("aria-expanded", String(!closed));
-      const tw = el5("button", "uw-nav-twisty");
+      const tw = el6("button", "uw-nav-twisty");
       tw.type = "button";
       tw.tabIndex = -1;
       if (kids.length) {
         tw.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
-        tw.title = closed ? L8.expand : L8.collapse;
+        tw.title = closed ? L9.expand : L9.collapse;
         tw.addEventListener("click", (e6) => {
           e6.stopPropagation();
           if (closed) this.collapsed.delete(key);
@@ -5487,7 +5996,7 @@ var NavPane = class {
           this.refresh();
         });
       } else tw.classList.add("uw-nav-leaf");
-      const label = el5("span", "uw-nav-label", h3.text);
+      const label = el6("span", "uw-nav-label", h3.text);
       label.title = h3.text;
       r5.append(tw, label);
       r5.addEventListener("click", () => {
@@ -5564,7 +6073,7 @@ var NavPane = class {
     this.bodyEl.querySelector(".uw-nav-tree")?.classList.remove("uw-nav-drop-end");
   }
   headingMenu(h3, x2, y3) {
-    const L8 = this.L;
+    const L9 = this.L;
     const ed = this.env.ed;
     const ro = ed.isProtected();
     const done = (ok) => {
@@ -5572,52 +6081,52 @@ var NavPane = class {
       this.refresh();
     };
     const levels = () => [
-      { id: "nav:levels:all", label: L8.all, checked: this.maxLevel === 9, onClick: () => {
+      { id: "nav:levels:all", label: L9.all, checked: this.maxLevel === 9, onClick: () => {
         this.maxLevel = 9;
         this.refresh();
       } },
-      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L8.level(n5), checked: this.maxLevel === n5, onClick: () => {
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L9.level(n5), checked: this.maxLevel === n5, onClick: () => {
         this.maxLevel = n5;
         this.refresh();
       } }))
     ];
     openMenu([
-      { id: "nav:promote", label: L8.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
-      { id: "nav:demote", label: L8.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
+      { id: "nav:promote", label: L9.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
+      { id: "nav:demote", label: L9.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
       { sep: true },
-      { id: "nav:newBefore", label: L8.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
-      { id: "nav:newAfter", label: L8.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
-      { id: "nav:newSub", label: L8.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
-      { id: "nav:delete", label: L8.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
+      { id: "nav:newBefore", label: L9.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
+      { id: "nav:newAfter", label: L9.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
+      { id: "nav:newSub", label: L9.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
+      { id: "nav:delete", label: L9.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
       { sep: true },
-      { id: "nav:select", label: L8.select, icon: "select_all", onClick: () => {
+      { id: "nav:select", label: L9.select, icon: "select_all", onClick: () => {
         ed.selectHeading(h3.index);
         this.env.after();
       } },
       { sep: true },
-      { id: "nav:expandAll", label: L8.expandAll, icon: "unfold_more", onClick: () => {
+      { id: "nav:expandAll", label: L9.expandAll, icon: "unfold_more", onClick: () => {
         this.collapsed.clear();
         this.refresh();
       } },
-      { id: "nav:collapseAll", label: L8.collapseAll, icon: "unfold_less", onClick: () => {
+      { id: "nav:collapseAll", label: L9.collapseAll, icon: "unfold_less", onClick: () => {
         for (const x3 of this.heads) this.collapsed.add(this.keyOf(x3));
         this.refresh();
       } },
-      { id: "nav:levels", label: L8.showLevels, submenu: levels }
+      { id: "nav:levels", label: L9.showLevels, submenu: levels }
     ], { x: x2, y: y3 }, { layer: this.env.layer, lang: this.env.lang });
   }
   // ───── Páginas ─────
   renderPages() {
-    const L8 = this.L;
+    const L9 = this.L;
     const ed = this.env.ed;
     const total = ed.layoutPageCount();
     if (!total) {
-      this.bodyEl.replaceChildren(el5("p", "uw-nav-empty", L8.noPages));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noPages));
       return;
     }
     const only = this.query ? new Set(this.results.map((r5) => r5.page).filter((p3) => p3 >= 0)) : null;
     if (only && !only.size) {
-      this.bodyEl.replaceChildren(el5("p", "uw-nav-empty", L8.noMatch));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noMatch));
       return;
     }
     const cur = ed.currentPage() - 1;
@@ -5625,7 +6134,7 @@ var NavPane = class {
     const want = [...Array(total).keys()].filter((i5) => !only || only.has(i5));
     const sig = want.join(",");
     if (!grid2 || grid2.dataset["sig"] !== sig) {
-      grid2 = el5("div", "uw-nav-pages");
+      grid2 = el6("div", "uw-nav-pages");
       grid2.dataset["sig"] = sig;
       this.io?.disconnect();
       this.thumbs.clear();
@@ -5633,13 +6142,13 @@ var NavPane = class {
         for (const e6 of ents) if (e6.isIntersecting) this.paintThumb(+e6.target.dataset["page"]);
       }, { root: this.bodyEl, rootMargin: "200px" });
       for (const i5 of want) {
-        const item = el5("button", "uw-nav-page");
+        const item = el6("button", "uw-nav-page");
         item.type = "button";
         item.dataset["page"] = String(i5);
         item.dataset["a"] = `nav:page:${i5 + 1}`;
-        item.title = L8.page(i5 + 1);
-        const c4 = el5("canvas", "uw-nav-thumb");
-        const num2 = el5("span", "uw-nav-pnum", String(i5 + 1));
+        item.title = L9.page(i5 + 1);
+        const c4 = el6("canvas", "uw-nav-thumb");
+        const num2 = el6("span", "uw-nav-pnum", String(i5 + 1));
         item.append(c4, num2);
         item.addEventListener("click", () => {
           ed.goToPage(i5);
@@ -5665,24 +6174,24 @@ var NavPane = class {
   }
   // ───── Resultados ─────
   renderResults() {
-    const L8 = this.L;
+    const L9 = this.L;
     if (!this.query) {
-      this.bodyEl.replaceChildren(el5("p", "uw-nav-empty", L8.noSearch));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noSearch));
       return;
     }
     if (!this.results.length) {
-      this.bodyEl.replaceChildren(el5("p", "uw-nav-empty", L8.noMatch));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noMatch));
       return;
     }
-    const list = el5("div", "uw-nav-results");
+    const list = el6("div", "uw-nav-results");
     list.setAttribute("role", "list");
     for (const r5 of this.results) {
-      const b3 = el5("button", "uw-nav-result");
+      const b3 = el6("button", "uw-nav-result");
       b3.type = "button";
       b3.setAttribute("role", "listitem");
       b3.dataset["a"] = `nav:result:${r5.index + 1}`;
       b3.classList.toggle("uo-on", r5.index === this.current);
-      b3.append(document.createTextNode(r5.before), el5("strong", void 0, r5.match), document.createTextNode(r5.after));
+      b3.append(document.createTextNode(r5.before), el6("strong", void 0, r5.match), document.createTextNode(r5.after));
       b3.addEventListener("click", () => {
         this.current = r5.index;
         this.env.ed.goToSearchResult(r5.index);
@@ -5696,25 +6205,25 @@ var NavPane = class {
 };
 
 // src/chrome-ruler.ts
-var L6 = (en, pt) => ({ en, pt });
+var L7 = (en, pt) => ({ en, pt });
 var TIPS = {
-  firstLine: L6("First Line Indent", "Recuo da Primeira Linha"),
-  hanging: L6("Hanging Indent", "Recuo Deslocado"),
-  left: L6("Left Indent", "Recuo \xE0 Esquerda"),
-  right: L6("Right Indent", "Recuo \xE0 Direita"),
-  marginL: L6("Left Margin", "Margem Esquerda"),
-  marginR: L6("Right Margin", "Margem Direita"),
-  marginT: L6("Top Margin", "Margem Superior"),
-  marginB: L6("Bottom Margin", "Margem Inferior"),
-  column: L6("Move Column", "Mover Coluna"),
-  cell: L6("Move Table Column", "Mover Coluna da Tabela"),
-  row: L6("Adjust Table Row", "Ajustar Linha da Tabela"),
+  firstLine: L7("First Line Indent", "Recuo da Primeira Linha"),
+  hanging: L7("Hanging Indent", "Recuo Deslocado"),
+  left: L7("Left Indent", "Recuo \xE0 Esquerda"),
+  right: L7("Right Indent", "Recuo \xE0 Direita"),
+  marginL: L7("Left Margin", "Margem Esquerda"),
+  marginR: L7("Right Margin", "Margem Direita"),
+  marginT: L7("Top Margin", "Margem Superior"),
+  marginB: L7("Bottom Margin", "Margem Inferior"),
+  column: L7("Move Column", "Mover Coluna"),
+  cell: L7("Move Table Column", "Mover Coluna da Tabela"),
+  row: L7("Adjust Table Row", "Ajustar Linha da Tabela"),
   tab: {
-    left: L6("Left Tab", "Tabula\xE7\xE3o Esquerda"),
-    center: L6("Center Tab", "Tabula\xE7\xE3o Centralizada"),
-    right: L6("Right Tab", "Tabula\xE7\xE3o Direita"),
-    decimal: L6("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
-    bar: L6("Bar Tab", "Barra de Tabula\xE7\xE3o")
+    left: L7("Left Tab", "Tabula\xE7\xE3o Esquerda"),
+    center: L7("Center Tab", "Tabula\xE7\xE3o Centralizada"),
+    right: L7("Right Tab", "Tabula\xE7\xE3o Direita"),
+    decimal: L7("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
+    bar: L7("Bar Tab", "Barra de Tabula\xE7\xE3o")
   }
 };
 var MIN_TEXT = 720;
@@ -5744,7 +6253,7 @@ var RulerUI = class {
     this.guide = document.createElement("div");
     this.guide.className = "uw-ruler-guide";
     this.guide.hidden = true;
-    for (const el11 of [this.h.el, this.vbox]) el11.addEventListener("mousedown", (e6) => e6.preventDefault());
+    for (const el12 of [this.h.el, this.vbox]) el12.addEventListener("mousedown", (e6) => e6.preventDefault());
   }
   env;
   h;
@@ -6001,14 +6510,14 @@ var FindPanel = class {
   constructor(ed, app, layer) {
     this.ed = ed;
     this.app = app;
-    const L8 = app.ui.L;
-    const el11 = document.createElement("div");
-    el11.className = "uw-find";
-    el11.setAttribute("role", "dialog");
-    el11.setAttribute("aria-label", L8.findTitle);
-    el11.setAttribute("part", "find");
-    el11.hidden = true;
-    el11.innerHTML = `
+    const L9 = app.ui.L;
+    const el12 = document.createElement("div");
+    el12.className = "uw-find";
+    el12.setAttribute("role", "dialog");
+    el12.setAttribute("aria-label", L9.findTitle);
+    el12.setAttribute("part", "find");
+    el12.hidden = true;
+    el12.innerHTML = `
       <div class="uw-find-head"><strong></strong>
         <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
       <input type="text" data-a="find:text" />
@@ -6017,21 +6526,21 @@ var FindPanel = class {
         <button type="button" class="uo-pill" data-a="find:next"></button>
         <button type="button" class="uo-pill" data-a="find:one"></button>
         <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-    el11.querySelector("strong").textContent = L8.findTitle;
-    this.find = el11.querySelector('[data-a="find:text"]');
-    this.repl = el11.querySelector('[data-a="find:replace"]');
-    this.msg = el11.querySelector(".uw-find-msg");
-    this.find.placeholder = L8.find;
-    this.repl.placeholder = L8.replaceWith;
+    el12.querySelector("strong").textContent = L9.findTitle;
+    this.find = el12.querySelector('[data-a="find:text"]');
+    this.repl = el12.querySelector('[data-a="find:replace"]');
+    this.msg = el12.querySelector(".uw-find-msg");
+    this.find.placeholder = L9.find;
+    this.repl.placeholder = L9.replaceWith;
     const b3 = (id, label, fn) => {
-      const x2 = el11.querySelector(`[data-a="find:${id}"]`);
+      const x2 = el12.querySelector(`[data-a="find:${id}"]`);
       x2.textContent = label;
       x2.addEventListener("click", fn);
     };
-    b3("next", L8.findNext, () => this.next());
-    b3("one", L8.replace, () => this.replaceOne());
-    b3("all", L8.replaceAll, () => this.replaceAll());
-    el11.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
+    b3("next", L9.findNext, () => this.next());
+    b3("one", L9.replace, () => this.replaceOne());
+    b3("all", L9.replaceAll, () => this.replaceAll());
+    el12.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
     for (const i5 of [this.find, this.repl]) {
       i5.addEventListener("keydown", (e6) => {
         if (e6.key === "Escape") {
@@ -6049,8 +6558,8 @@ var FindPanel = class {
       this.msg.textContent = "";
       this.find.classList.remove("uw-miss");
     });
-    layer.appendChild(el11);
-    this.el = el11;
+    layer.appendChild(el12);
+    this.el = el12;
   }
   ed;
   app;
@@ -6099,16 +6608,16 @@ var CommentCards = class {
     this.ed = ed;
     this.app = app;
     this.after = after;
-    const el11 = document.createElement("div");
-    el11.className = "uw-comments";
-    el11.setAttribute("part", "comments");
+    const el12 = document.createElement("div");
+    el12.className = "uw-comments";
+    el12.setAttribute("part", "comments");
     for (const t5 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-      el11.addEventListener(t5, (e6) => {
+      el12.addEventListener(t5, (e6) => {
         if (t5 !== "wheel") e6.stopPropagation();
       }, { passive: t5 === "wheel" });
     }
-    root.appendChild(el11);
-    this.el = el11;
+    root.appendChild(el12);
+    this.el = el12;
   }
   ed;
   app;
@@ -6130,7 +6639,7 @@ var CommentCards = class {
   render() {
     const pages = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
     const print = this.ed.getView() === "print";
-    const L8 = this.app.ui.L;
+    const L9 = this.app.ui.L;
     const mode = this.ed.getMarkupMode();
     const mk = this.ed.getMarkupOptions();
     const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
@@ -6162,9 +6671,9 @@ var CommentCards = class {
       card.className = `uw-card${active.has(c4.id) ? " active" : ""}`;
       card.dataset["commentId"] = String(c4.id);
       card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L8.deleteComment}">${symbol("delete")}</button></div>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L9.deleteComment}">${symbol("delete")}</button></div>
         <div class="txt"></div>`;
-      card.querySelector(".who").textContent = c4.author ?? L8.anonymous;
+      card.querySelector(".who").textContent = c4.author ?? L9.anonymous;
       card.querySelector(".txt").textContent = c4.text;
       card.querySelector("button").addEventListener("click", (e6) => {
         e6.stopPropagation();
@@ -6190,8 +6699,8 @@ var CommentCards = class {
       card.className = "uw-card uw-rev-card";
       card.style.setProperty("--uw-rev", `#${r5.color}`);
       card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
-        <button type="button" class="uo-btn" data-a="rev:accept" title="${L8.revAccept}">${symbol("check")}</button>
-        <button type="button" class="uo-btn" data-a="rev:reject" title="${L8.revReject}">${symbol("close")}</button></div>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L9.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L9.revReject}">${symbol("close")}</button></div>
         <div class="txt"></div>`;
       card.querySelector(".who").textContent = r5.author;
       card.querySelector(".when").textContent = revisionTime(r5.date, uiLang(this.ed));
@@ -6200,7 +6709,7 @@ var CommentCards = class {
         const [head, ...rest] = r5.description.split(": ");
         txt.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
       } else {
-        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L8.revParaDeleted : L8.revDeleted}: ` }), r5.text);
+        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L9.revParaDeleted : L9.revDeleted}: ` }), r5.text);
       }
       const [acc, rej] = card.querySelectorAll("button");
       acc.addEventListener("click", (e6) => {
@@ -6395,7 +6904,7 @@ var ReviewPane = class {
     const pane = this.pane;
     if (!pane) return;
     pane.place();
-    const L8 = this.app.ui.L;
+    const L9 = this.app.ui.L;
     const lang = uiLang(this.ed);
     const revs = this.ed.getRevisions();
     const comments = this.app.commentsVisible ? this.ed.getComments() : [];
@@ -6406,17 +6915,17 @@ var ReviewPane = class {
       else if (r5.kind === "delete") n5.del++;
       else n5.fmt++;
     }
-    pane.setTitle(`${L8.revPane}: ${L8.revCount(revs.length)}`);
+    pane.setTitle(`${L9.revPane}: ${L9.revCount(revs.length)}`);
     const sum = document.createElement("div");
     sum.className = "uw-review-sum";
-    sum.textContent = [`${L8.revInsertions}: ${n5.ins}`, `${L8.revDeletions}: ${n5.del}`, `${L8.revMoves}: ${n5.move}`, `${L8.revFormatting}: ${n5.fmt}`, `${L8.revComments}: ${comments.length}`].join(" \xB7 ");
+    sum.textContent = [`${L9.revInsertions}: ${n5.ins}`, `${L9.revDeletions}: ${n5.del}`, `${L9.revMoves}: ${n5.move}`, `${L9.revFormatting}: ${n5.fmt}`, `${L9.revComments}: ${comments.length}`].join(" \xB7 ");
     const list = document.createElement("ul");
     list.className = "uw-review-list";
     revs.forEach((r5, i5) => {
       const li = document.createElement("li");
       li.className = "uw-rev";
       li.style.setProperty("--uw-rev", `#${r5.color}`);
-      const what = r5.move ? r5.kind === "delete" ? L8.revMovedFrom : L8.revMovedTo : r5.kind === "insert" ? r5.mark ? L8.revParaInserted : L8.revInserted : r5.kind === "delete" ? r5.mark ? L8.revParaDeleted : L8.revDeleted : L8.revFormatted;
+      const what = r5.move ? r5.kind === "delete" ? L9.revMovedFrom : L9.revMovedTo : r5.kind === "insert" ? r5.mark ? L9.revParaInserted : L9.revInserted : r5.kind === "delete" ? r5.mark ? L9.revParaDeleted : L9.revDeleted : L9.revFormatted;
       li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
         <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
         <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
@@ -6425,8 +6934,8 @@ var ReviewPane = class {
       li.querySelector(".when").textContent = revisionTime(r5.date, lang);
       li.querySelector(".txt").textContent = r5.description ? r5.description.replace(/^[^:]*:\s*/, "") : r5.text;
       const [acc, rej] = li.querySelectorAll("button");
-      acc.title = L8.revAccept;
-      rej.title = L8.revReject;
+      acc.title = L9.revAccept;
+      rej.title = L9.revReject;
       acc.addEventListener("click", (e6) => {
         e6.stopPropagation();
         if (this.ed.acceptRevisionAt(i5)) this.after();
@@ -6445,8 +6954,8 @@ var ReviewPane = class {
       const li = document.createElement("li");
       li.className = "uw-rev uw-rev-comment";
       li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
-      li.querySelector(".who").textContent = c4.author ?? L8.anonymous;
-      li.querySelector(".what").textContent = L8.revComments;
+      li.querySelector(".who").textContent = c4.author ?? L9.anonymous;
+      li.querySelector(".what").textContent = L9.revComments;
       li.querySelector(".txt").textContent = c4.text;
       li.addEventListener("click", () => {
         this.app.activeCommentIds = [c4.id];
@@ -6458,7 +6967,7 @@ var ReviewPane = class {
     if (!revs.length && !comments.length) {
       const li = document.createElement("li");
       li.className = "uw-rev-empty";
-      li.textContent = L8.revNone;
+      li.textContent = L9.revNone;
       list.appendChild(li);
     }
     pane.body.replaceChildren(sum, list);
@@ -6466,8 +6975,8 @@ var ReviewPane = class {
 };
 
 // src/chrome-table-style.ts
-var tr4 = (lang, en, pt) => pickLabels(lang, { en, pt });
-var el6 = (tag, props = {}, ...kids) => {
+var tr5 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var el7 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
@@ -6475,8 +6984,8 @@ var el6 = (tag, props = {}, ...kids) => {
   return e6;
 };
 var sel2 = (name, opts, value, style = "") => {
-  const s4 = el6("select", { name, style });
-  for (const [v2, t5] of opts) s4.append(el6("option", { value: v2, selected: v2 === value }, t5));
+  const s4 = el7("select", { name, style });
+  for (const [v2, t5] of opts) s4.append(el7("option", { value: v2, selected: v2 === value }, t5));
   return s4;
 };
 var COND_LABELS = {
@@ -6522,25 +7031,25 @@ async function tableStyleDialog(env, mode, nameOrId) {
     if (!cur) return;
     draft = cur.xml;
   } else {
-    const name2 = tr4(lang, "Style1", "Estilo1");
+    const name2 = tr5(lang, "Style1", "Estilo1");
     draft = newTableStyleXml({ id: ed.newTableStyleId(name2), name: name2, basedOn: normalId });
   }
   const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
   const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
-  const name = el6("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
-  const base = sel2("ts-base", [["", tr4(lang, "(no style)", "(sem estilo)")], ...bases.map((b3) => [b3.id, b3.name])], headBase, "width:100%");
-  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c5) => [c5, tr4(lang, ...COND_LABELS[c5])]), "wholeTable", "width:100%");
-  const font = el6("input", { type: "text", name: "ts-font", placeholder: tr4(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
-  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr4(lang, ".", ","))])], "", "width:70px");
-  const tog = (label, title) => el6("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
-  const bBtn = tog("B", tr4(lang, "Bold", "Negrito")), iBtn = tog("I", tr4(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr4(lang, "Underline", "Sublinhado"));
+  const name = el7("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
+  const base = sel2("ts-base", [["", tr5(lang, "(no style)", "(sem estilo)")], ...bases.map((b3) => [b3.id, b3.name])], headBase, "width:100%");
+  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c5) => [c5, tr5(lang, ...COND_LABELS[c5])]), "wholeTable", "width:100%");
+  const font = el7("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
+  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr5(lang, ".", ","))])], "", "width:70px");
+  const tog = (label, title) => el7("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
+  const bBtn = tog("B", tr5(lang, "Bold", "Negrito")), iBtn = tog("I", tr5(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr5(lang, "Underline", "Sublinhado"));
   bBtn.style.fontWeight = "700";
   iBtn.style.fontStyle = "italic";
   uBtn.style.textDecoration = "underline";
-  const color = el6("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
-  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt]) => [v2, tr4(lang, en, pt)]), "single");
+  const color = el7("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt]) => [v2, tr5(lang, en, pt)]), "single");
   const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz, t5]) => [String(sz), `${t5} pt`]), "4");
-  const bColor = el6("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bColor = el7("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const sideBtns = [
     ["top", "Top", "Superior"],
     ["bottom", "Bottom", "Inferior"],
@@ -6551,26 +7060,26 @@ async function tableStyleDialog(env, mode, nameOrId) {
     ["none", "None", "Nenhuma"],
     ["all", "All", "Todas"]
   ].map(([s4, en, pt]) => {
-    const b3 = el6("button", { type: "button", className: "uo-pill", textContent: tr4(lang, en, pt), style: "padding:3px 9px" });
+    const b3 = el7("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt), style: "padding:3px 9px" });
     b3.dataset["side"] = s4;
     return b3;
   });
-  const fillOn = el6("input", { type: "checkbox", name: "ts-fill-on" });
-  const fill = el6("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const fillOn = el7("input", { type: "checkbox", name: "ts-fill-on" });
+  const fill = el7("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const align = sel2("ts-align", [
     ["", "\u2014"],
-    ["left|top", tr4(lang, "Top left", "Em cima, \xE0 esquerda")],
-    ["center|top", tr4(lang, "Top center", "Em cima, centralizado")],
-    ["right|top", tr4(lang, "Top right", "Em cima, \xE0 direita")],
-    ["left|center", tr4(lang, "Center left", "No centro, \xE0 esquerda")],
-    ["center|center", tr4(lang, "Center", "No centro")],
-    ["right|center", tr4(lang, "Center right", "No centro, \xE0 direita")],
-    ["left|bottom", tr4(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
-    ["center|bottom", tr4(lang, "Bottom center", "Embaixo, centralizado")],
-    ["right|bottom", tr4(lang, "Bottom right", "Embaixo, \xE0 direita")]
+    ["left|top", tr5(lang, "Top left", "Em cima, \xE0 esquerda")],
+    ["center|top", tr5(lang, "Top center", "Em cima, centralizado")],
+    ["right|top", tr5(lang, "Top right", "Em cima, \xE0 direita")],
+    ["left|center", tr5(lang, "Center left", "No centro, \xE0 esquerda")],
+    ["center|center", tr5(lang, "Center", "No centro")],
+    ["right|center", tr5(lang, "Center right", "No centro, \xE0 direita")],
+    ["left|bottom", tr5(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
+    ["center|bottom", tr5(lang, "Bottom center", "Embaixo, centralizado")],
+    ["right|bottom", tr5(lang, "Bottom right", "Embaixo, \xE0 direita")]
   ], "");
   const dpr = window.devicePixelRatio || 1;
-  const cv = el6("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
+  const cv = el7("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
   const c4 = () => cond.value;
   const sync = () => {
     const st = condState(draft, c4());
@@ -6620,24 +7129,24 @@ async function tableStyleDialog(env, mode, nameOrId) {
     draft = retitleTableStyleXml(draft, { basedOn: base.value || null });
     sync();
   });
-  const row2 = (...kids) => el6("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-  const lbl = (t5, ctl) => el6("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t5, ctl);
-  const body = el6(
+  const row2 = (...kids) => el7("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+  const lbl = (t5, ctl) => el7("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t5, ctl);
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el6("strong", {}, tr4(lang, "Properties", "Propriedades")),
-    row2(lbl(tr4(lang, "Name:", "Nome:"), name), lbl(tr4(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr4(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr4(lang, "Style based on:", "Estilo baseado em:"), base)),
-    el6("strong", {}, tr4(lang, "Formatting", "Formata\xE7\xE3o")),
-    lbl(tr4(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
-    row2(font, size, bBtn, iBtn, uBtn, el6("span", {}, tr4(lang, "Color", "Cor")), color),
+    el7("strong", {}, tr5(lang, "Properties", "Propriedades")),
+    row2(lbl(tr5(lang, "Name:", "Nome:"), name), lbl(tr5(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr5(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr5(lang, "Style based on:", "Estilo baseado em:"), base)),
+    el7("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
+    lbl(tr5(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
+    row2(font, size, bBtn, iBtn, uBtn, el7("span", {}, tr5(lang, "Color", "Cor")), color),
     row2(bStyle, bWidth, bColor, ...sideBtns),
-    row2(el6("label", { className: "uo-check" }, fillOn, tr4(lang, "Fill", "Preenchimento")), fill, el6("span", {}, tr4(lang, "Alignment", "Alinhamento")), align),
+    row2(el7("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el7("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
     cv,
-    el6("label", { className: "uo-check" }, el6("input", { type: "radio", name: "ts-where", checked: true }), tr4(lang, "Only in this document", "Somente neste documento"))
+    el7("label", { className: "uo-check" }, el7("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
   );
   sync();
   const h3 = openDialog({
-    title: mode === "new" ? tr4(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr4(lang, "Modify Style", "Modificar Estilo"),
+    title: mode === "new" ? tr5(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr5(lang, "Modify Style", "Modificar Estilo"),
     body,
     layer: env.layer,
     lang,
@@ -6657,46 +7166,46 @@ async function tableStyleDialog(env, mode, nameOrId) {
 
 // src/chrome-table-dialogs.ts
 var NUMBER_FORMATS = ["#.##0", "#.##0,00", "R$ #.##0,00;(R$ #.##0,00)", "0", "0%", "0,00", "0,00%"];
-var el7 = (tag, props = {}, ...kids) => {
+var el8 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
   e6.append(...kids);
   return e6;
 };
-var tr5 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var tr6 = (lang, en, pt) => pickLabels(lang, { en, pt });
 function radios(name, opts, value) {
-  const box = el7("div", { style: "display:flex;flex-direction:column;gap:6px" });
+  const box = el8("div", { style: "display:flex;flex-direction:column;gap:6px" });
   for (const [v2, t5] of opts) {
-    const i5 = el7("input", { type: "radio", name, value: v2, checked: v2 === value });
-    box.append(el7("label", { className: "uo-check" }, i5, t5));
+    const i5 = el8("input", { type: "radio", name, value: v2, checked: v2 === value });
+    box.append(el8("label", { className: "uo-check" }, i5, t5));
   }
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
-var num = (name, value, min = 1, max = 63) => el7("input", { type: "number", name, min: String(min), max: String(max), step: "1", value: String(value) });
-var cmText = (lang, tw) => (Math.round(tw / 1440 * 254) / 100).toFixed(2).replace(".", tr5(lang, ".", ","));
-var cmInput = (lang, name, tw) => el7("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw)} cm`, style: "width:96px" });
+var num = (name, value, min = 1, max = 63) => el8("input", { type: "number", name, min: String(min), max: String(max), step: "1", value: String(value) });
+var cmText = (lang, tw) => (Math.round(tw / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
+var cmInput = (lang, name, tw) => el8("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw)} cm`, style: "width:96px" });
 var twOf = (s4) => {
   const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
 };
-var section2 = (title, ...kids) => el7("div", { style: "display:flex;flex-direction:column;gap:8px" }, el7("strong", {}, title), ...kids);
+var section2 = (title, ...kids) => el8("div", { style: "display:flex;flex-direction:column;gap:8px" }, el8("strong", {}, title), ...kids);
 async function ask(env, title, body, width = 400) {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const h3 = openDialog({
     title,
     body,
     layer: env.layer,
     lang: env.lang,
     width,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   return await h3.result === "ok";
 }
 function separatorPicker(lang, name, value, other, paraLabel) {
-  const opts = [["paragraph", paraLabel], ["tab", tr5(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr5(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr5(lang, "Other:", "Outro:")]];
+  const opts = [["paragraph", paraLabel], ["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr6(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr6(lang, "Other:", "Outro:")]];
   const r5 = radios(name, opts, value);
-  const otherIn = el7("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
+  const otherIn = el8("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
   r5.el.lastElementChild.append(otherIn);
   otherIn.addEventListener("input", () => {
     r5.el.querySelector('input[value="other"]').checked = true;
@@ -6709,12 +7218,12 @@ function separatorPicker(lang, name, value, other, paraLabel) {
 }
 function autofitPicker(lang, value, colTw) {
   const r5 = radios("autofit", [
-    ["fixed", tr5(lang, "Fixed column width:", "Largura fixa da coluna:")],
-    ["content", tr5(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
-    ["window", tr5(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
+    ["fixed", tr6(lang, "Fixed column width:", "Largura fixa da coluna:")],
+    ["content", tr6(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
+    ["window", tr6(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
   ], value);
-  const auto = tr5(lang, "Auto", "Autom\xE1tico");
-  const w2 = el7("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
+  const auto = tr6(lang, "Auto", "Autom\xE1tico");
+  const w2 = el8("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
   r5.el.firstElementChild.append(w2);
   const read = () => {
     const a3 = r5.value();
@@ -6730,31 +7239,31 @@ async function tableDialog(env, kind, arg) {
       const mem = env.app.prefs.get("tableDims")?.split("x").map(Number);
       const cols = num("cols", mem?.[0] || 5), rows = num("rows", mem?.[1] || 2, 1, 32767);
       const af = autofitPicker(lang, "fixed");
-      const remember = el7("input", { type: "checkbox", name: "remember", checked: !!mem });
-      const body = el7(
+      const remember = el8("input", { type: "checkbox", name: "remember", checked: !!mem });
+      const body = el8(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr5(lang, "Table size", "Tamanho da tabela"), el7(
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el8(
           "div",
           { className: "uo-dialog-grid" },
-          el7("span", {}, tr5(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el8("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el7("span", {}, tr5(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el8("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         )),
-        section2(tr5(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        el7("label", { className: "uo-check" }, remember, tr5(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
+        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        el8("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
       );
-      if (!await ask(env, tr5(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
+      if (!await ask(env, tr6(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
       const c4 = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r5 = Math.max(1, parseInt(rows.value, 10) || 1);
       env.app.prefs.set("tableDims", remember.checked ? `${c4}x${r5}` : "");
       ed.insertTable(r5, c4, af.read());
       return;
     }
     case "fromText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr5(lang, "Paragraphs", "Par\xE1grafos"));
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraphs", "Par\xE1grafos"));
       const cols = num("cols", 2);
-      const rowsOut = el7("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
+      const rowsOut = el8("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
       const af = autofitPicker(lang, "fixed");
       const guess = ed.textToTableGuess();
       if (guess) {
@@ -6771,71 +7280,71 @@ async function tableDialog(env, kind, arg) {
       };
       sep.el.addEventListener("change", recount);
       cols.addEventListener("input", recount);
-      const body = el7(
+      const body = el8(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr5(lang, "Table size", "Tamanho da tabela"), el7(
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el8(
           "div",
           { className: "uo-dialog-grid" },
-          el7("span", {}, tr5(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el8("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el7("span", {}, tr5(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el8("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rowsOut
         )),
-        section2(tr5(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        section2(tr5(lang, "Separate text at", "Separar texto em"), sep.el)
+        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        section2(tr6(lang, "Separate text at", "Separar texto em"), sep.el)
       );
-      if (!await ask(env, tr5(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
+      if (!await ask(env, tr6(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
       ed.convertTextToTable({ separator: sep.read(), cols: parseInt(cols.value, 10) || 1, ...af.read() });
       return;
     }
     case "toText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr5(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
-      const body = section2(tr5(lang, "Separate text with", "Separar texto com"), sep.el);
-      if (!await ask(env, tr5(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
+      const body = section2(tr6(lang, "Separate text with", "Separar texto com"), sep.el);
+      if (!await ask(env, tr6(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
       ed.convertTableToText(sep.read());
       return;
     }
     case "insertCells": {
       const r5 = radios("shift", [
-        ["right", tr5(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
-        ["down", tr5(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
-        ["row", tr5(lang, "Insert entire row", "Inserir linha inteira")],
-        ["column", tr5(lang, "Insert entire column", "Inserir coluna inteira")]
+        ["right", tr6(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
+        ["down", tr6(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
+        ["row", tr6(lang, "Insert entire row", "Inserir linha inteira")],
+        ["column", tr6(lang, "Insert entire column", "Inserir coluna inteira")]
       ], "down");
-      if (!await ask(env, tr5(lang, "Insert Cells", "Inserir C\xE9lulas"), r5.el, 340)) return;
+      if (!await ask(env, tr6(lang, "Insert Cells", "Inserir C\xE9lulas"), r5.el, 340)) return;
       ed.insertCells(r5.value());
       return;
     }
     case "deleteCells": {
       const r5 = radios("shift", [
-        ["left", tr5(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
-        ["up", tr5(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
-        ["row", tr5(lang, "Delete entire row", "Excluir linha inteira")],
-        ["column", tr5(lang, "Delete entire column", "Excluir coluna inteira")]
+        ["left", tr6(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
+        ["up", tr6(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
+        ["row", tr6(lang, "Delete entire row", "Excluir linha inteira")],
+        ["column", tr6(lang, "Delete entire column", "Excluir coluna inteira")]
       ], "left");
-      if (!await ask(env, tr5(lang, "Delete Cells", "Excluir C\xE9lulas"), r5.el, 340)) return;
+      if (!await ask(env, tr6(lang, "Delete Cells", "Excluir C\xE9lulas"), r5.el, 340)) return;
       ed.deleteCells(r5.value());
       return;
     }
     case "split": {
       const s4 = ed.getTableState();
       const cols = num("cols", 2), rows = num("rows", 1, 1, 32767);
-      const merge = el7("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
-      const body = el7(
+      const merge = el8("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
+      const body = el8(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        el7(
+        el8(
           "div",
           { className: "uo-dialog-grid" },
-          el7("span", {}, tr5(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el8("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el7("span", {}, tr5(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el8("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         ),
-        el7("label", { className: "uo-check" }, merge, tr5(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
+        el8("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
       );
-      if (!await ask(env, tr5(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
+      if (!await ask(env, tr6(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
       ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
       return;
     }
@@ -6846,31 +7355,31 @@ async function tableDialog(env, kind, arg) {
       const top = cmInput(lang, "top", w2(mar.top)), bottom = cmInput(lang, "bottom", w2(mar.bottom));
       const left = cmInput(lang, "left", w2(mar.left, 108)), right = cmInput(lang, "right", w2(mar.right, 108));
       const spTw = s4?.tblPr.tblCellSpacing?.type === "dxa" ? s4.tblPr.tblCellSpacing.w * 2 : 0;
-      const allow = el7("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
+      const allow = el8("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
       const spacing = cmInput(lang, "spacing", spTw);
-      const resize = el7("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
-      const body = el7(
+      const resize = el8("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
+      const body = el8(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr5(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el7(
+        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el8(
           "div",
           { className: "uo-dialog-grid" },
-          el7("span", {}, tr5(lang, "Top:", "Superior:")),
+          el8("span", {}, tr6(lang, "Top:", "Superior:")),
           top,
-          el7("span", {}, tr5(lang, "Left:", "Esquerda:")),
+          el8("span", {}, tr6(lang, "Left:", "Esquerda:")),
           left,
-          el7("span", {}, tr5(lang, "Bottom:", "Inferior:")),
+          el8("span", {}, tr6(lang, "Bottom:", "Inferior:")),
           bottom,
-          el7("span", {}, tr5(lang, "Right:", "Direita:")),
+          el8("span", {}, tr6(lang, "Right:", "Direita:")),
           right
         )),
         section2(
-          tr5(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
-          el7("div", { style: "display:flex;align-items:center;gap:8px" }, el7("label", { className: "uo-check" }, allow, tr5(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
+          tr6(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
+          el8("div", { style: "display:flex;align-items:center;gap:8px" }, el8("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
         ),
-        section2(tr5(lang, "Options", "Op\xE7\xF5es"), el7("label", { className: "uo-check" }, resize, tr5(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
+        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el8("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
       );
-      if (!await ask(env, tr5(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
+      if (!await ask(env, tr6(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
       ed.setTableCellMargins(
         { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
         allow.checked ? twOf(spacing.value) ?? 0 : 0,
@@ -6897,23 +7406,23 @@ async function tableDialog(env, kind, arg) {
     case "properties:alt":
       return propertiesDialog(env, kind === "properties" ? "table" : kind.slice(11));
     case "formula": {
-      const formula = el7("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
-      const fmt = el7("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
-      const fmtList = el7(
+      const formula = el8("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
+      const fmt = el8("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
+      const fmtList = el8(
         "select",
         { name: "format-list", style: "width:28px" },
-        el7("option", { value: "" }, ""),
-        ...NUMBER_FORMATS.map((f3) => el7("option", { value: f3 }, f3))
+        el8("option", { value: "" }, ""),
+        ...NUMBER_FORMATS.map((f3) => el8("option", { value: f3 }, f3))
       );
       fmtList.addEventListener("change", () => {
         fmt.value = fmtList.value;
         fmtList.value = "";
       });
-      const fn = el7(
+      const fn = el8(
         "select",
         { name: "function" },
-        el7("option", { value: "" }, tr5(lang, "Paste function", "Colar fun\xE7\xE3o")),
-        ...FORMULA_FUNCTIONS.map((f3) => el7("option", { value: f3 }, f3))
+        el8("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
+        ...FORMULA_FUNCTIONS.map((f3) => el8("option", { value: f3 }, f3))
       );
       fn.addEventListener("change", () => {
         if (!fn.value) return;
@@ -6924,49 +7433,49 @@ async function tableDialog(env, kind, arg) {
         formula.setSelectionRange(a3 + ins.length - 1, a3 + ins.length - 1);
         fn.value = "";
       });
-      const body = el7(
+      const body = el8(
         "div",
         { style: "display:flex;flex-direction:column;gap:12px" },
-        el7("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr5(lang, "Formula:", "F\xF3rmula:"), formula),
-        el7(
+        el8("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
+        el8(
           "label",
           { style: "display:flex;flex-direction:column;gap:4px" },
-          tr5(lang, "Number format:", "Formato do n\xFAmero:"),
-          el7("div", { style: "display:flex;gap:4px" }, fmt, fmtList)
+          tr6(lang, "Number format:", "Formato do n\xFAmero:"),
+          el8("div", { style: "display:flex;gap:4px" }, fmt, fmtList)
         ),
-        el7("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
+        el8("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
       );
       queueMicrotask(() => {
         formula.focus();
         formula.setSelectionRange(formula.value.length, formula.value.length);
       });
-      if (!await ask(env, tr5(lang, "Formula", "F\xF3rmula"), body, 380)) return;
+      if (!await ask(env, tr6(lang, "Formula", "F\xF3rmula"), body, 380)) return;
       ed.insertFormula(formula.value, fmt.value.trim() || void 0);
       return;
     }
   }
 }
 var sel3 = (name, opts, value) => {
-  const s4 = el7("select", { name });
-  for (const [v2, t5] of opts) s4.append(el7("option", { value: v2, selected: v2 === value }, t5));
+  const s4 = el8("select", { name });
+  for (const [v2, t5] of opts) s4.append(el8("option", { value: v2, selected: v2 === value }, t5));
   return s4;
 };
-var line = (...kids) => el7("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-var check4 = (name, on, label) => {
-  const box = el7("input", { type: "checkbox", name, checked: on });
-  return { el: el7("label", { className: "uo-check" }, box, label), box };
+var line = (...kids) => el8("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+var check5 = (name, on, label) => {
+  const box = el8("input", { type: "checkbox", name, checked: on });
+  return { el: el8("label", { className: "uo-check" }, box, label), box };
 };
 function radiosRow(name, opts, value) {
-  const box = el7("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
-  for (const [v2, t5] of opts) box.append(el7("label", { className: "uo-check" }, el7("input", { type: "radio", name, value: v2, checked: v2 === value }), t5));
+  const box = el8("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
+  for (const [v2, t5] of opts) box.append(el8("label", { className: "uo-check" }, el8("input", { type: "radio", name, value: v2, checked: v2 === value }), t5));
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
 function widthField(lang, name, w2, defTw) {
   const on = !!w2 && (w2.type === "dxa" || w2.type === "pct") && w2.w > 0;
-  const c4 = check4(`${name}-on`, on, tr5(lang, "Preferred width:", "Largura preferencial:"));
-  const unit = sel3(`${name}-unit`, [["dxa", tr5(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr5(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
-  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr5(lang, ".", ","));
-  const val = el7("input", {
+  const c4 = check5(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
+  const unit = sel3(`${name}-unit`, [["dxa", tr6(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr6(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
+  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr6(lang, ".", ","));
+  const val = el8("input", {
     type: "text",
     name,
     inputMode: "decimal",
@@ -6990,7 +7499,7 @@ function widthField(lang, name, w2, defTw) {
     const tw = twOf(val.value);
     return tw && tw > 0 ? { w: tw, type: "dxa" } : null;
   };
-  return { el: line(c4.el, val, el7("span", {}, tr5(lang, "Measure in:", "Medir em:")), unit), read };
+  return { el: line(c4.el, val, el8("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
 }
 async function propertiesDialog(env, tab) {
   const lang = env.lang, ed = env.ed;
@@ -6999,17 +7508,17 @@ async function propertiesDialog(env, tab) {
   const t5 = s4.tblPr, rp = s4.trPr, cp = s4.tcPr;
   const tWidth = widthField(lang, "tw", t5.tblW, s4.availTwips);
   const curAlign = t5.jc === "center" || t5.jc === "right" ? t5.jc : "left";
-  const align = radiosRow("talign", [["left", tr5(lang, "Left", "Esquerda")], ["center", tr5(lang, "Center", "Centralizado")], ["right", tr5(lang, "Right", "Direita")]], curAlign);
+  const align = radiosRow("talign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Center", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], curAlign);
   const indent = cmInput(lang, "tind", t5.tblInd?.type === "dxa" ? t5.tblInd.w : 0);
   const syncInd = () => {
     indent.disabled = align.value() !== "left";
   };
   align.el.addEventListener("change", syncInd);
   syncInd();
-  const wrap = radiosRow("twrap", [["none", tr5(lang, "None", "Nenhuma")], ["around", tr5(lang, "Around", "Ao redor")]], t5.tblpPr ? "around" : "none");
+  const wrap = radiosRow("twrap", [["none", tr6(lang, "None", "Nenhuma")], ["around", tr6(lang, "Around", "Ao redor")]], t5.tblpPr ? "around" : "none");
   let position = t5.tblpPr ? { ...t5.tblpPr } : void 0;
   let overlap;
-  const posBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Positioning\u2026", "Posicionamento\u2026") });
+  const posBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
   const syncWrap = () => {
     posBtn.disabled = wrap.value() !== "around";
   };
@@ -7024,73 +7533,73 @@ async function propertiesDialog(env, tab) {
       }
     });
   });
-  const optBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const optBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   optBtn.addEventListener("click", () => {
     void tableDialog(env, "margins");
   });
-  const tableTab = el7(
+  const tableTab = el8(
     "div",
     {},
-    section2(tr5(lang, "Size", "Tamanho"), tWidth.el),
-    section2(tr5(lang, "Alignment", "Alinhamento"), line(align.el, el7("span", {}, tr5(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
-    section2(tr5(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
-    el7("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
+    section2(tr6(lang, "Size", "Tamanho"), tWidth.el),
+    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el8("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
+    section2(tr6(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
+    el8("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
   );
-  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr5(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr5(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
-  const hOn = check4("rh-on", !!rp.trHeight, tr5(lang, "Specify height:", "Especificar altura:"));
+  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr6(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr6(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
+  const hOn = check5("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
   const hVal = cmInput(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
-  const hRule = sel3("rh-rule", [["atLeast", tr5(lang, "At least", "Pelo menos")], ["exact", tr5(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
+  const hRule = sel3("rh-rule", [["atLeast", tr6(lang, "At least", "Pelo menos")], ["exact", tr6(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
   const syncH = () => {
     hVal.disabled = hRule.disabled = !hOn.box.checked;
   };
   hOn.box.addEventListener("change", syncH);
   syncH();
-  const brk = check4("r-break", !rp.cantSplit, tr5(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
-  const hdr = check4("r-header", !!rp.tblHeader, tr5(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
-  const rowTab = el7(
+  const brk = check5("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
+  const hdr = check5("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
+  const rowTab = el8(
     "div",
     {},
-    el7("strong", {}, rowsLabel),
-    section2(tr5(lang, "Size", "Tamanho"), line(hOn.el, hVal, el7("span", {}, tr5(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
-    section2(tr5(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
+    el8("strong", {}, rowsLabel),
+    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el8("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
   );
-  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr5(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr5(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
+  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr6(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr6(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
   const tcW = cp.tcW?.type === "dxa" || cp.tcW?.type === "pct" ? cp.tcW : void 0;
   const cWidth = widthField(lang, "cw", tcW, s4.colWidth);
-  const colTab = el7("div", {}, el7("strong", {}, colsLabel), section2(tr5(lang, "Size", "Tamanho"), cWidth.el));
+  const colTab = el8("div", {}, el8("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
   const kWidth = widthField(lang, "kw", tcW, s4.colWidth);
   const curV = cp.vAlign === "center" || cp.vAlign === "bottom" ? cp.vAlign : "top";
-  const vAlign = radiosRow("kva", [["top", tr5(lang, "Top", "Superior")], ["center", tr5(lang, "Center", "Centralizado")], ["bottom", tr5(lang, "Bottom", "Inferior")]], curV);
+  const vAlign = radiosRow("kva", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Center", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")]], curV);
   let cellOpts;
-  const cellBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const cellBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   cellBtn.addEventListener("click", () => {
     void cellOptionsDialog(env, cp, t5).then((r5) => {
       if (r5) cellOpts = r5;
     });
   });
-  const cellTab = el7(
+  const cellTab = el8(
     "div",
     {},
-    section2(tr5(lang, "Size", "Tamanho"), kWidth.el),
-    section2(tr5(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
-    el7("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
+    section2(tr6(lang, "Size", "Tamanho"), kWidth.el),
+    section2(tr6(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
+    el8("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
   );
-  const title = el7("input", { type: "text", name: "alt-title", value: t5.tblCaption ?? "", style: "width:100%" });
-  const descr = el7("textarea", { name: "alt-descr", value: t5.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
-  const altTab = el7(
+  const title = el8("input", { type: "text", name: "alt-title", value: t5.tblCaption ?? "", style: "width:100%" });
+  const descr = el8("textarea", { name: "alt-descr", value: t5.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
+  const altTab = el8(
     "div",
     {},
-    el7("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr5(lang, "Title", "T\xEDtulo"), title),
-    el7("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr5(lang, "Description", "Descri\xE7\xE3o"), descr)
+    el8("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
+    el8("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
   );
   const tabs = dialogTabs([
-    { id: "table", label: tr5(lang, "Table", "Tabela"), body: tableTab },
-    { id: "row", label: tr5(lang, "Row", "Linha"), body: rowTab },
-    { id: "column", label: tr5(lang, "Column", "Coluna"), body: colTab },
-    { id: "cell", label: tr5(lang, "Cell", "C\xE9lula"), body: cellTab },
-    { id: "alt", label: tr5(lang, "Alt Text", "Texto Alt"), body: altTab }
+    { id: "table", label: tr6(lang, "Table", "Tabela"), body: tableTab },
+    { id: "row", label: tr6(lang, "Row", "Linha"), body: rowTab },
+    { id: "column", label: tr6(lang, "Column", "Coluna"), body: colTab },
+    { id: "cell", label: tr6(lang, "Cell", "C\xE9lula"), body: cellTab },
+    { id: "alt", label: tr6(lang, "Alt Text", "Texto Alt"), body: altTab }
   ], tab);
-  if (!await ask(env, tr5(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
+  if (!await ask(env, tr6(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
   const sameW = (a3, b3) => a3 === null ? !b3 || b3.type === "auto" || b3.type === "nil" || !b3.w : !!b3 && a3.type === b3.type && a3.w === b3.w;
   const out = {};
   const tb = {};
@@ -7133,22 +7642,22 @@ async function propertiesDialog(env, tab) {
 async function positioningDialog(env, pos, overlap) {
   const lang = env.lang;
   const hSpecs = [
-    ["left", tr5(lang, "Left", "Esquerda")],
-    ["center", tr5(lang, "Center", "Centralizado")],
-    ["right", tr5(lang, "Right", "Direita")],
-    ["inside", tr5(lang, "Inside", "Interna")],
-    ["outside", tr5(lang, "Outside", "Externa")]
+    ["left", tr6(lang, "Left", "Esquerda")],
+    ["center", tr6(lang, "Center", "Centralizado")],
+    ["right", tr6(lang, "Right", "Direita")],
+    ["inside", tr6(lang, "Inside", "Interna")],
+    ["outside", tr6(lang, "Outside", "Externa")]
   ];
   const vSpecs = [
-    ["top", tr5(lang, "Top", "Superior")],
-    ["center", tr5(lang, "Center", "Centralizado")],
-    ["bottom", tr5(lang, "Bottom", "Inferior")],
-    ["inside", tr5(lang, "Inside", "Interna")],
-    ["outside", tr5(lang, "Outside", "Externa")]
+    ["top", tr6(lang, "Top", "Superior")],
+    ["center", tr6(lang, "Center", "Centralizado")],
+    ["bottom", tr6(lang, "Bottom", "Inferior")],
+    ["inside", tr6(lang, "Inside", "Interna")],
+    ["outside", tr6(lang, "Outside", "Externa")]
   ];
   const combo = (name, specs, spec, tw) => {
-    const input = el7("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw ?? 0)} cm` });
-    const list = el7("select", { name: `${name}-list`, style: "width:28px" }, el7("option", { value: "" }, ""), ...specs.map(([v3, x2]) => el7("option", { value: v3 }, x2)));
+    const input = el8("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw ?? 0)} cm` });
+    const list = el8("select", { name: `${name}-list`, style: "width:28px" }, el8("option", { value: "" }, ""), ...specs.map(([v3, x2]) => el8("option", { value: v3 }, x2)));
     list.addEventListener("change", () => {
       if (list.value) input.value = specs.find(([v3]) => v3 === list.value)[1];
       list.value = "";
@@ -7157,41 +7666,41 @@ async function positioningDialog(env, pos, overlap) {
       const hit = specs.find(([, x2]) => x2.toLowerCase() === input.value.trim().toLowerCase());
       return hit ? { spec: hit[0] } : { tw: twOf(input.value) ?? 0 };
     };
-    return { el: el7("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
+    return { el: el8("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
   };
   const hPos = combo("hpos", hSpecs, pos.tblpXSpec, pos.tblpX);
-  const hRel = sel3("hrel", [["text", tr5(lang, "Column", "Coluna")], ["margin", tr5(lang, "Margin", "Margem")], ["page", tr5(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
+  const hRel = sel3("hrel", [["text", tr6(lang, "Column", "Coluna")], ["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
   const vPos = combo("vpos", vSpecs, pos.tblpYSpec, pos.tblpY);
-  const vRel = sel3("vrel", [["margin", tr5(lang, "Margin", "Margem")], ["page", tr5(lang, "Page", "P\xE1gina")], ["text", tr5(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
+  const vRel = sel3("vrel", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["text", tr6(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
   const top = cmInput(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput(lang, "dbottom", pos.bottomFromText ?? 0);
   const left = cmInput(lang, "dleft", pos.leftFromText ?? 0), right = cmInput(lang, "dright", pos.rightFromText ?? 0);
-  const move = check4("move", (pos.vertAnchor ?? "text") === "text", tr5(lang, "Move with text", "Mover com texto"));
+  const move = check5("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
   move.box.addEventListener("change", () => {
     vRel.value = move.box.checked ? "text" : "margin";
   });
   vRel.addEventListener("change", () => {
     move.box.checked = vRel.value === "text";
   });
-  const ov = check4("overlap", overlap, tr5(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
-  const grid2 = (...kids) => el7("div", { className: "uo-dialog-grid" }, ...kids);
-  const body = el7(
+  const ov = check5("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
+  const grid2 = (...kids) => el8("div", { className: "uo-dialog-grid" }, ...kids);
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr5(lang, "Horizontal", "Horizontal"), grid2(el7("span", {}, tr5(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el7("span", {}, tr5(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
-    section2(tr5(lang, "Vertical", "Vertical"), grid2(el7("span", {}, tr5(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el7("span", {}, tr5(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
-    section2(tr5(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
-      el7("span", {}, tr5(lang, "Top:", "Superior:")),
+    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el8("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el8("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
+    section2(tr6(lang, "Vertical", "Vertical"), grid2(el8("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el8("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
+    section2(tr6(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
+      el8("span", {}, tr6(lang, "Top:", "Superior:")),
       top,
-      el7("span", {}, tr5(lang, "Left:", "Esquerda:")),
+      el8("span", {}, tr6(lang, "Left:", "Esquerda:")),
       left,
-      el7("span", {}, tr5(lang, "Bottom:", "Inferior:")),
+      el8("span", {}, tr6(lang, "Bottom:", "Inferior:")),
       bottom,
-      el7("span", {}, tr5(lang, "Right:", "Direita:")),
+      el8("span", {}, tr6(lang, "Right:", "Direita:")),
       right
     )),
-    section2(tr5(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
   );
-  if (!await ask(env, tr5(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
+  if (!await ask(env, tr6(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
   const h3 = hPos.read(), v2 = vPos.read();
   const nz = (x2) => x2 ? x2 : void 0;
   const out = {
@@ -7214,7 +7723,7 @@ async function cellOptionsDialog(env, cp, t5) {
   const tm = t5.tblCellMar ?? {};
   const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
   const own = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
-  const same = check4("same", !own, tr5(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
+  const same = check5("same", !own, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
   const m2 = cp.tcMar ?? {};
   const top = cmInput(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
   const left = cmInput(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput(lang, "right", w2(m2.right, w2(tm.right, 108)));
@@ -7223,26 +7732,26 @@ async function cellOptionsDialog(env, cp, t5) {
   };
   same.box.addEventListener("change", syncM);
   syncM();
-  const wrap = check4("wrap", !cp.noWrap, tr5(lang, "Wrap text", "Quebrar texto automaticamente"));
-  const fit = check4("fit", !!cp.tcFitText, tr5(lang, "Fit text", "Ajustar texto"));
-  const body = el7(
+  const wrap = check5("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
+  const fit = check5("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr5(lang, "Cell margins", "Margens da c\xE9lula"), same.el, el7(
+    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same.el, el8(
       "div",
       { className: "uo-dialog-grid" },
-      el7("span", {}, tr5(lang, "Top:", "Superior:")),
+      el8("span", {}, tr6(lang, "Top:", "Superior:")),
       top,
-      el7("span", {}, tr5(lang, "Left:", "Esquerda:")),
+      el8("span", {}, tr6(lang, "Left:", "Esquerda:")),
       left,
-      el7("span", {}, tr5(lang, "Bottom:", "Inferior:")),
+      el8("span", {}, tr6(lang, "Bottom:", "Inferior:")),
       bottom,
-      el7("span", {}, tr5(lang, "Right:", "Direita:")),
+      el8("span", {}, tr6(lang, "Right:", "Direita:")),
       right
     )),
-    section2(tr5(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
   );
-  if (!await ask(env, tr5(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
+  if (!await ask(env, tr6(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
   return {
     margins: same.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
     wrap: wrap.box.checked,
@@ -7257,30 +7766,30 @@ async function sortDialog(env) {
   if (!info) return;
   if (info.mergeError) {
     const h3 = openDialog({
-      title: tr5(lang, "Sort", "Classificar"),
+      title: tr6(lang, "Sort", "Classificar"),
       icon: "warning",
       layer: env.layer,
       lang,
-      body: tr5(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
+      body: tr6(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
     });
     await h3.result;
     return;
   }
-  const types = [["text", tr5(lang, "Text", "Texto")], ["number", tr5(lang, "Number", "N\xFAmero")], ["date", tr5(lang, "Date", "Data")]];
-  const none = tr5(lang, "(none)", "(nenhum)");
-  const header = radiosRow("hdr", [["yes", tr5(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr5(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
+  const types = [["text", tr6(lang, "Text", "Texto")], ["number", tr6(lang, "Number", "N\xFAmero")], ["date", tr6(lang, "Date", "Data")]];
+  const none = tr6(lang, "(none)", "(nenhum)");
+  const header = radiosRow("hdr", [["yes", tr6(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr6(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
   const isHeader = () => header.value() === "yes";
   const labels = () => info.columns.map((c4, i5) => {
-    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr5(lang, "Paragraphs", "Par\xE1grafos") : tr5(lang, `Field ${i5 + 1}`, `Campo ${i5 + 1}`);
-    return isHeader() && c4.text ? c4.text : tr5(lang, `Column ${i5 + 1}`, `Coluna ${i5 + 1}`);
+    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr6(lang, "Paragraphs", "Par\xE1grafos") : tr6(lang, `Field ${i5 + 1}`, `Campo ${i5 + 1}`);
+    return isHeader() && c4.text ? c4.text : tr6(lang, `Column ${i5 + 1}`, `Coluna ${i5 + 1}`);
   });
   const keyRow = (n5) => {
-    const col = el7("select", { name: `k${n5}-col`, style: "min-width:160px" });
+    const col = el8("select", { name: `k${n5}-col`, style: "min-width:160px" });
     const type = sel3(`k${n5}-type`, types, "text");
-    const dir = radiosRow(`k${n5}-dir`, [["asc", tr5(lang, "Ascending", "Crescente")], ["desc", tr5(lang, "Descending", "Decrescente")]], "asc");
+    const dir = radiosRow(`k${n5}-dir`, [["asc", tr6(lang, "Ascending", "Crescente")], ["desc", tr6(lang, "Descending", "Decrescente")]], "asc");
     const fill = () => {
       const cur = col.value;
-      col.replaceChildren(...n5 > 0 ? [el7("option", { value: "" }, none)] : [], ...labels().map((l3, i5) => el7("option", { value: String(i5) }, l3)));
+      col.replaceChildren(...n5 > 0 ? [el8("option", { value: "" }, none)] : [], ...labels().map((l3, i5) => el8("option", { value: String(i5) }, l3)));
       col.value = cur && [...col.options].some((o6) => o6.value === cur) ? cur : n5 > 0 ? "" : "0";
     };
     const sync = () => {
@@ -7298,9 +7807,9 @@ async function sortDialog(env) {
       guess();
       sync();
     });
-    const title = n5 === 0 ? tr5(lang, "Sort by", "Classificar por") : tr5(lang, "Then by", "E depois por");
+    const title = n5 === 0 ? tr6(lang, "Sort by", "Classificar por") : tr6(lang, "Then by", "E depois por");
     return {
-      el: section2(title, line(col, el7("span", {}, tr5(lang, "Type:", "Tipo:")), type), dir.el),
+      el: section2(title, line(col, el8("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
       fill: () => {
         fill();
         sync();
@@ -7310,7 +7819,7 @@ async function sortDialog(env) {
   };
   const keys = [keyRow(0), keyRow(1), keyRow(2)];
   header.el.addEventListener("change", () => keys.forEach((k2) => k2.fill()));
-  const opts = el7("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const opts = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   opts.addEventListener("click", () => {
     void sortOptionsDialog(env, info.kind === "paragraphs", separator, caseSensitive).then((r5) => {
       if (!r5) return;
@@ -7320,41 +7829,41 @@ async function sortDialog(env) {
       keys.forEach((k2) => k2.fill());
     });
   });
-  const body = el7(
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
     ...keys.map((k2) => k2.el),
-    section2(tr5(lang, "My list has", "Minha lista tem"), header.el),
-    el7("div", { style: "display:flex;justify-content:flex-end" }, opts)
+    section2(tr6(lang, "My list has", "Minha lista tem"), header.el),
+    el8("div", { style: "display:flex;justify-content:flex-end" }, opts)
   );
-  if (!await ask(env, tr5(lang, "Sort", "Classificar"), body, 460)) return;
+  if (!await ask(env, tr6(lang, "Sort", "Classificar"), body, 460)) return;
   const ks = keys.map((k2) => k2.read()).filter((k2) => !!k2);
   if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
 }
 async function sortOptionsDialog(env, paragraphs, sep, cs) {
   const lang = env.lang;
   const cur = sep === void 0 ? "tab" : typeof sep === "string" ? sep : "other";
-  const r5 = radiosRow("ssep", [["tab", tr5(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr5(lang, "Commas", "V\xEDrgulas")], ["other", tr5(lang, "Other:", "Outro:")]], cur);
-  const other = el7("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
+  const r5 = radiosRow("ssep", [["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr6(lang, "Commas", "V\xEDrgulas")], ["other", tr6(lang, "Other:", "Outro:")]], cur);
+  const other = el8("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
   other.addEventListener("input", () => {
     r5.el.querySelector('input[value="other"]').checked = true;
   });
-  const use = check4("fields", sep !== void 0, tr5(lang, "Sort by fields", "Classificar por campos"));
-  const csBox = check4("case", cs, tr5(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
-  const body = el7(
+  const use = check5("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
+  const csBox = check5("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
+  const body = el8(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    ...paragraphs ? [section2(tr5(lang, "Separate fields at", "Separar campos em"), use.el, line(r5.el, other))] : [],
-    section2(tr5(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
+    ...paragraphs ? [section2(tr6(lang, "Separate fields at", "Separar campos em"), use.el, line(r5.el, other))] : [],
+    section2(tr6(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
   );
-  if (!await ask(env, tr5(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
+  if (!await ask(env, tr6(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
   const v2 = r5.value();
   const separator = !paragraphs || !use.box.checked ? void 0 : v2 === "other" ? { char: other.value || "-" } : v2;
   return { separator, caseSensitive: csBox.box.checked };
 }
 
 // src/chrome-picture-pane.ts
-var el8 = (tag, props = {}, ...kids) => {
+var el9 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
@@ -7368,7 +7877,7 @@ var withAlpha = (c4, pct) => ({ ...c4, mods: [...(c4.mods ?? []).filter((m2) => 
 var noAlpha = (c4) => ({ ...c4, mods: (c4.mods ?? []).filter((m2) => m2[0] !== "alpha") });
 function toggleFormatPane(env, tab, onClose) {
   const { ed, lang } = env;
-  const tr7 = (en, pt2) => pickLabels(lang, { en, pt: pt2 });
+  const tr8 = (en, pt2) => pickLabels(lang, { en, pt: pt2 });
   const cur = paneOpen("pic-format");
   if (cur) {
     cur.close();
@@ -7377,9 +7886,9 @@ function toggleFormatPane(env, tab, onClose) {
   const fmt = () => ed.selectedImage()?.format ?? null;
   const off = () => !ed.selectedImage() || ed.isProtected();
   const syncers = [];
-  const dec = tr7(".", ",");
+  const dec = tr8(".", ",");
   const num2 = (label, unit, get, set, o6 = {}) => {
-    const input = el8("input", { type: "text", inputMode: "decimal", style: "width:76px" });
+    const input = el9("input", { type: "text", inputMode: "decimal", style: "width:76px" });
     input.setAttribute("aria-label", label);
     const digits = o6.digits ?? 1;
     const show2 = () => {
@@ -7410,8 +7919,8 @@ function toggleFormatPane(env, tab, onClose) {
       env.after();
       sync();
     };
-    const up = el8("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
-    const dn = el8("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const up = el9("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const dn = el9("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
     up.innerHTML = symbol("keyboard_arrow_up");
     dn.innerHTML = symbol("keyboard_arrow_down");
     for (const [b3, d3] of [[up, 1], [dn, -1]]) {
@@ -7419,12 +7928,12 @@ function toggleFormatPane(env, tab, onClose) {
       b3.addEventListener("click", () => step(d3));
     }
     syncers.push(show2);
-    return row2(label, el8("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el8("span", { style: "display:inline-flex;flex-direction:column" }, up, dn)));
+    return row2(label, el9("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el9("span", { style: "display:inline-flex;flex-direction:column" }, up, dn)));
   };
   const choice = (label, opts, get, set) => {
-    const s4 = el8("select", { style: "max-width:150px" });
+    const s4 = el9("select", { style: "max-width:150px" });
     s4.setAttribute("aria-label", label);
-    for (const [v2, t5] of opts) s4.append(el8("option", { value: v2, textContent: t5 }));
+    for (const [v2, t5] of opts) s4.append(el9("option", { value: v2, textContent: t5 }));
     s4.addEventListener("change", () => {
       set(s4.value);
       env.after();
@@ -7438,9 +7947,9 @@ function toggleFormatPane(env, tab, onClose) {
     return row2(label, s4);
   };
   const color = (label, get, set) => {
-    const b3 = el8("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+    const b3 = el9("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
     b3.setAttribute("aria-label", label);
-    const chip = el8("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
+    const chip = el9("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
     b3.append(chip);
     b3.insertAdjacentHTML("beforeend", symbol("arrow_drop_down"));
     b3.addEventListener("mousedown", (e6) => e6.preventDefault());
@@ -7467,13 +7976,13 @@ function toggleFormatPane(env, tab, onClose) {
     });
     return row2(label, b3);
   };
-  const row2 = (label, ctl) => el8("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el8("span", { textContent: label }), ctl);
+  const row2 = (label, ctl) => el9("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el9("span", { textContent: label }), ctl);
   const section4 = (title2, open, ...kids) => {
-    const d3 = el8("details", { open, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el8("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
-    d3.append(el8("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
+    const d3 = el9("details", { open, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el9("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
+    d3.append(el9("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
     return d3;
   };
-  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr7("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i5) => [i5.id, i5.label])], () => "", (v2) => {
+  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr8("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i5) => [i5.id, i5.label])], () => "", (v2) => {
     if (v2) set(v2 === "none" ? null : v2);
   });
   const line2 = () => fmt()?.line ?? void 0;
@@ -7481,20 +7990,20 @@ function toggleFormatPane(env, tab, onClose) {
     const base = line2()?.fill ? { ...line2() } : { w: 9525, fill: { kind: "schemeClr", val: "tx1" } };
     ed.setImageFormat({ line: { ...base, ...ch } });
   };
-  const lineTab = el8(
+  const lineTab = el9(
     "div",
     {},
     section4(
-      tr7("Line", "Linha"),
+      tr8("Line", "Linha"),
       true,
-      choice(tr7("Line", "Linha"), [["none", tr7("No line", "Sem linha")], ["solid", tr7("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? ed.setImageFormat({ line: { ...line2() ?? {}, fill: null } }) : setLine({})),
-      color(tr7("Color", "Cor"), () => line2()?.fill ?? void 0, (c4) => setLine({ fill: withAlpha(c4, alphaOf(line2()?.fill ?? void 0)) })),
-      num2(tr7("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
-      num2(tr7("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
-      choice(tr7("Compound type", "Tipo composto"), [["sng", tr7("Single", "Simples")], ["dbl", tr7("Double", "Duplo")], ["thickThin", tr7("Thick Thin", "Grosso Fino")], ["thinThick", tr7("Thin Thick", "Fino Grosso")], ["tri", tr7("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
-      choice(tr7("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
-      choice(tr7("Cap type", "Tipo de extremidade"), [["sq", tr7("Square", "Quadrado")], ["rnd", tr7("Round", "Arredondado")], ["flat", tr7("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
-      choice(tr7("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr7("Round", "Arredondada")], ["bevel", tr7("Bevel", "Chanfrada")], ["miter", tr7("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
+      choice(tr8("Line", "Linha"), [["none", tr8("No line", "Sem linha")], ["solid", tr8("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? ed.setImageFormat({ line: { ...line2() ?? {}, fill: null } }) : setLine({})),
+      color(tr8("Color", "Cor"), () => line2()?.fill ?? void 0, (c4) => setLine({ fill: withAlpha(c4, alphaOf(line2()?.fill ?? void 0)) })),
+      num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
+      num2(tr8("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
+      choice(tr8("Compound type", "Tipo composto"), [["sng", tr8("Single", "Simples")], ["dbl", tr8("Double", "Duplo")], ["thickThin", tr8("Thick Thin", "Grosso Fino")], ["thinThick", tr8("Thin Thick", "Fino Grosso")], ["tri", tr8("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
+      choice(tr8("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
+      choice(tr8("Cap type", "Tipo de extremidade"), [["sq", tr8("Square", "Quadrado")], ["rnd", tr8("Round", "Arredondado")], ["flat", tr8("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
+      choice(tr8("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr8("Round", "Arredondada")], ["bevel", tr8("Bevel", "Chanfrada")], ["miter", tr8("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
     )
   );
   const fx = () => fmt()?.effects;
@@ -7518,77 +8027,77 @@ function toggleFormatPane(env, tab, onClose) {
     const base = td() ?? { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" } };
     ed.setImageFormat({ threeD: { ...base, ...ch } });
   };
-  const bevelOpts = [["", tr7("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b3) => [b3.prst, pickLabels(lang, b3.label)])];
+  const bevelOpts = [["", tr8("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b3) => [b3.prst, pickLabels(lang, b3.label)])];
   const bevel = (which, title2) => [
     choice(title2, bevelOpts, () => td()?.[which] ? td()[which].prst ?? "circle" : "", (v2) => setTd({ [which]: v2 ? { ...td()?.[which] ?? {}, prst: v2 === "circle" ? void 0 : v2 } : void 0 })),
-    num2(tr7("Width", "Largura"), "pt", () => td()?.[which] ? (td()[which].w ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, w: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 }),
-    num2(tr7("Height", "Altura"), "pt", () => td()?.[which] ? (td()[which].h ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, h: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 })
+    num2(tr8("Width", "Largura"), "pt", () => td()?.[which] ? (td()[which].w ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, w: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 }),
+    num2(tr8("Height", "Altura"), "pt", () => td()?.[which] ? (td()[which].h ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, h: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 })
   ];
   const rot = () => td()?.camera?.rot ?? { lat: 0, lon: 0, rev: 0 };
   const setRot = (k2, deg) => {
     const cam = td()?.camera ?? { prst: "orthographicFront" };
     setTd({ camera: { ...cam, rot: { ...rot(), [k2]: Math.round((deg % 360 + 360) % 360 * ANG) } } });
   };
-  const effectsTab = el8(
+  const effectsTab = el9(
     "div",
     {},
     section4(
-      tr7("Shadow", "Sombra"),
+      tr8("Shadow", "Sombra"),
       true,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("shadow", id), tr7("No Shadow", "Sem Sombra")),
-      color(tr7("Color", "Cor"), () => sh()?.color, (c4) => setSh({ color: withAlpha(c4, alphaOf(sh()?.color)) })),
-      num2(tr7("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
-      num2(tr7("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
-      num2(tr7("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
-      num2(tr7("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
-      num2(tr7("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 200 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("shadow", id), tr8("No Shadow", "Sem Sombra")),
+      color(tr8("Color", "Cor"), () => sh()?.color, (c4) => setSh({ color: withAlpha(c4, alphaOf(sh()?.color)) })),
+      num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
+      num2(tr8("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
+      num2(tr8("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
+      num2(tr8("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
+      num2(tr8("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 200 })
     ),
     section4(
-      tr7("Reflection", "Reflexo"),
+      tr8("Reflection", "Reflexo"),
       false,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("reflection", id), tr7("No Reflection", "Sem Reflexo")),
-      num2(tr7("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
-      num2(tr7("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
-      num2(tr7("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
-      num2(tr7("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("reflection", id), tr8("No Reflection", "Sem Reflexo")),
+      num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
+      num2(tr8("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
+      num2(tr8("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
+      num2(tr8("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 })
     ),
     section4(
-      tr7("Glow", "Brilho"),
+      tr8("Glow", "Brilho"),
       false,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r5, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r5 / EMU_PT} pt, ${tr7("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => ed.setImageEffect("glow", id), tr7("No Glow", "Sem Brilho")),
-      color(tr7("Color", "Cor"), () => gl()?.color, (c4) => setGl({ color: withAlpha(c4, alphaOf(gl()?.color)) })),
-      num2(tr7("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT) }), { min: 0, max: 150 }),
-      num2(tr7("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r5, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r5 / EMU_PT} pt, ${tr8("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => ed.setImageEffect("glow", id), tr8("No Glow", "Sem Brilho")),
+      color(tr8("Color", "Cor"), () => gl()?.color, (c4) => setGl({ color: withAlpha(c4, alphaOf(gl()?.color)) })),
+      num2(tr8("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT) }), { min: 0, max: 150 }),
+      num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
     ),
     section4(
-      tr7("Soft Edges", "Bordas Suaves"),
+      tr8("Soft Edges", "Bordas Suaves"),
       false,
-      num2(tr7("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT : 0, (v2) => ed.setImageFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT) : null }), { min: 0, max: 100 })
+      num2(tr8("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT : 0, (v2) => ed.setImageFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT) : null }), { min: 0, max: 100 })
     ),
     section4(
-      tr7("3-D Format", "Formato 3D"),
+      tr8("3-D Format", "Formato 3D"),
       false,
-      ...bevel("bevelT", tr7("Top bevel", "Bisel superior")),
-      ...bevel("bevelB", tr7("Bottom bevel", "Bisel inferior")),
-      color(tr7("Depth color", "Cor da profundidade"), () => td()?.extrusionClr, (c4) => setTd({ extrusionClr: c4 })),
-      num2(tr7("Depth size", "Tamanho da profundidade"), "pt", () => (td()?.extrusionH ?? 0) / EMU_PT, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
-      color(tr7("Contour color", "Cor do contorno"), () => td()?.contourClr, (c4) => setTd({ contourClr: c4 })),
-      num2(tr7("Contour size", "Tamanho do contorno"), "pt", () => (td()?.contourW ?? 0) / EMU_PT, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
-      choice(tr7("Material", "Material"), [["warmMatte", tr7("Warm Matte", "Fosco Quente")], ["matte", tr7("Matte", "Fosco")], ["plastic", tr7("Plastic", "Pl\xE1stico")], ["metal", tr7("Metal", "Metal")], ["dkEdge", tr7("Dark Edge", "Borda Escura")], ["softEdge", tr7("Soft Edge", "Borda Suave")], ["flat", tr7("Flat", "Plano")], ["legacyWireframe", tr7("Wire Frame", "Estrutura de Arame")], ["powder", tr7("Powder", "P\xF3")], ["translucentPowder", tr7("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr7("Clear", "Transparente")], ["softmetal", tr7("Soft Metal", "Metal Suave")]], () => td()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
-      choice(tr7("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr7("Three Point", "Tr\xEAs Pontos")], ["balanced", tr7("Balanced", "Balanceado")], ["soft", tr7("Soft", "Suave")], ["harsh", tr7("Harsh", "Forte")], ["flood", tr7("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr7("Contrasting", "Contrastante")], ["morning", tr7("Morning", "Manh\xE3")], ["sunrise", tr7("Sunrise", "Nascer do Sol")], ["sunset", tr7("Sunset", "P\xF4r do Sol")], ["chilly", tr7("Chilly", "Frio")], ["freezing", tr7("Freezing", "Congelante")], ["flat", tr7("Flat", "Plano")], ["twoPt", tr7("Two Point", "Dois Pontos")], ["glow", tr7("Glow", "Brilho")], ["brightRoom", tr7("Bright Room", "Sala Iluminada")]], () => td()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td()?.lightRig ?? { dir: "t" }, rig: v2 } }))
+      ...bevel("bevelT", tr8("Top bevel", "Bisel superior")),
+      ...bevel("bevelB", tr8("Bottom bevel", "Bisel inferior")),
+      color(tr8("Depth color", "Cor da profundidade"), () => td()?.extrusionClr, (c4) => setTd({ extrusionClr: c4 })),
+      num2(tr8("Depth size", "Tamanho da profundidade"), "pt", () => (td()?.extrusionH ?? 0) / EMU_PT, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
+      color(tr8("Contour color", "Cor do contorno"), () => td()?.contourClr, (c4) => setTd({ contourClr: c4 })),
+      num2(tr8("Contour size", "Tamanho do contorno"), "pt", () => (td()?.contourW ?? 0) / EMU_PT, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
+      choice(tr8("Material", "Material"), [["warmMatte", tr8("Warm Matte", "Fosco Quente")], ["matte", tr8("Matte", "Fosco")], ["plastic", tr8("Plastic", "Pl\xE1stico")], ["metal", tr8("Metal", "Metal")], ["dkEdge", tr8("Dark Edge", "Borda Escura")], ["softEdge", tr8("Soft Edge", "Borda Suave")], ["flat", tr8("Flat", "Plano")], ["legacyWireframe", tr8("Wire Frame", "Estrutura de Arame")], ["powder", tr8("Powder", "P\xF3")], ["translucentPowder", tr8("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr8("Clear", "Transparente")], ["softmetal", tr8("Soft Metal", "Metal Suave")]], () => td()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
+      choice(tr8("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr8("Three Point", "Tr\xEAs Pontos")], ["balanced", tr8("Balanced", "Balanceado")], ["soft", tr8("Soft", "Suave")], ["harsh", tr8("Harsh", "Forte")], ["flood", tr8("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr8("Contrasting", "Contrastante")], ["morning", tr8("Morning", "Manh\xE3")], ["sunrise", tr8("Sunrise", "Nascer do Sol")], ["sunset", tr8("Sunset", "P\xF4r do Sol")], ["chilly", tr8("Chilly", "Frio")], ["freezing", tr8("Freezing", "Congelante")], ["flat", tr8("Flat", "Plano")], ["twoPt", tr8("Two Point", "Dois Pontos")], ["glow", tr8("Glow", "Brilho")], ["brightRoom", tr8("Bright Room", "Sala Iluminada")]], () => td()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td()?.lightRig ?? { dir: "t" }, rig: v2 } }))
     ),
     section4(
-      tr7("3-D Rotation", "Rota\xE7\xE3o 3D"),
+      tr8("3-D Rotation", "Rota\xE7\xE3o 3D"),
       false,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("rotation", id), tr7("No Rotation", "Sem Rota\xE7\xE3o")),
-      num2(tr7("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
-      num2(tr7("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
-      num2(tr7("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
-      num2(tr7("Perspective", "Perspectiva"), "\xB0", () => (td()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("rotation", id), tr8("No Rotation", "Sem Rota\xE7\xE3o")),
+      num2(tr8("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
+      num2(tr8("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
+      num2(tr8("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
+      num2(tr8("Perspective", "Perspectiva"), "\xB0", () => (td()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
     )
   );
-  const title = el8("input", { type: "text", style: "width:100%;box-sizing:border-box" });
-  const descr = el8("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
+  const title = el9("input", { type: "text", style: "width:100%;box-sizing:border-box" });
+  const descr = el9("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
   title.addEventListener("change", () => {
     ed.setImageAltText({ title: title.value });
     env.after();
@@ -7607,14 +8116,14 @@ function toggleFormatPane(env, tab, onClose) {
     }
     title.disabled = descr.disabled = off();
   });
-  const layoutTab = el8(
+  const layoutTab = el9(
     "div",
     {},
     section4(
-      tr7("Alt Text", "Texto Alt"),
+      tr8("Alt Text", "Texto Alt"),
       true,
-      el8("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr7("Title", "T\xEDtulo"), title),
-      el8("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr7("Description", "Descri\xE7\xE3o"), descr)
+      el9("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Title", "T\xEDtulo"), title),
+      el9("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Description", "Descri\xE7\xE3o"), descr)
     )
   );
   const a14 = () => fmt()?.blip.a14;
@@ -7634,95 +8143,95 @@ function toggleFormatPane(env, tab, onClose) {
     const t5 = (o6.fh / 2 - o6.oy - o6.h / 2) / o6.fh, b3 = (o6.fh / 2 + o6.oy - o6.h / 2) / o6.fh;
     ed.setImageCrop({ l: l3, t: t5, r: r5, b: b3 });
   };
-  const pictureTab = el8(
+  const pictureTab = el9(
     "div",
     {},
     section4(
-      tr7("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
+      tr8("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
       true,
-      num2(tr7("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
+      num2(tr8("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num2(tr7("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
+      num2(tr8("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num2(tr7("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
+      num2(tr8("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 })
     ),
     section4(
-      tr7("Picture Color", "Cor da Imagem"),
+      tr8("Picture Color", "Cor da Imagem"),
       false,
-      num2(tr7("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
+      num2(tr8("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: 0, max: 400 }),
-      num2(tr7("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
+      num2(tr8("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
         env.after();
         sync();
       }), { min: 1500, max: 11500, step: 100, digits: 0 })
     ),
     section4(
-      tr7("Picture Transparency", "Transpar\xEAncia da Imagem"),
+      tr8("Picture Transparency", "Transpar\xEAncia da Imagem"),
       false,
-      num2(tr7("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
+      num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
     ),
     section4(
-      tr7("Crop", "Cortar"),
+      tr8("Crop", "Cortar"),
       false,
-      el8("div", { textContent: tr7("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
-      num2(tr7("Width", "Largura"), "cm", () => {
+      el9("div", { textContent: tr8("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
+      num2(tr8("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fw) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fw: pt(v2), fh: g2.fh * (pt(v2) / g2.fw) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num2(tr7("Height", "Altura"), "cm", () => {
+      num2(tr8("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fh) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fh: pt(v2), fw: g2.fw * (pt(v2) / g2.fh) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num2(tr7("Offset X", "Deslocamento X"), "cm", () => {
+      num2(tr8("Offset X", "Deslocamento X"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.ox) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, ox: pt(v2) });
       }, { step: 0.1, digits: 2 }),
-      num2(tr7("Offset Y", "Deslocamento Y"), "cm", () => {
+      num2(tr8("Offset Y", "Deslocamento Y"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.oy) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, oy: pt(v2) });
       }, { step: 0.1, digits: 2 }),
-      el8("div", { textContent: tr7("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
-      num2(tr7("Width", "Largura"), "cm", () => {
+      el9("div", { textContent: tr8("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
+      num2(tr8("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.w) : void 0;
       }, (v2) => ed.setImageSize({ widthPt: pt(v2), heightPt: ed.selectedImage().heightPt }), { min: 0.01, step: 0.1, digits: 2 }),
-      num2(tr7("Height", "Altura"), "cm", () => {
+      num2(tr8("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.h) : void 0;
       }, (v2) => ed.setImageSize({ heightPt: pt(v2), widthPt: ed.selectedImage().widthPt }), { min: 0.01, step: 0.1, digits: 2 })
     )
   );
   const tabs = [
-    ["line", tr7("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
-    ["effects", tr7("Effects", "Efeitos"), "auto_awesome", effectsTab],
-    ["layout", tr7("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
-    ["picture", tr7("Picture", "Imagem"), "image", pictureTab]
+    ["line", tr8("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
+    ["effects", tr8("Effects", "Efeitos"), "auto_awesome", effectsTab],
+    ["layout", tr8("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
+    ["picture", tr8("Picture", "Imagem"), "image", pictureTab]
   ];
-  const head = el8("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
+  const head = el9("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
   head.setAttribute("role", "tablist");
   const btns = tabs.map(([id, label, icon, panel]) => {
-    const b3 = el8("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
+    const b3 = el9("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
     b3.innerHTML = symbol(icon);
     b3.setAttribute("role", "tab");
     b3.setAttribute("aria-label", label);
@@ -7732,8 +8241,8 @@ function toggleFormatPane(env, tab, onClose) {
     panel.setAttribute("role", "tabpanel");
     return b3;
   });
-  const empty = el8("p", { textContent: tr7("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
-  const body = el8("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t5) => t5[3]));
+  const empty = el9("p", { textContent: tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
+  const body = el9("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t5) => t5[3]));
   head.append(...btns);
   const show = (id) => {
     tabs.forEach(([tid, , , panel], i5) => {
@@ -7754,25 +8263,25 @@ function toggleFormatPane(env, tab, onClose) {
 }
 
 // src/chrome-picture-dialogs.ts
-var el9 = (tag, props = {}, ...kids) => {
+var el10 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
   e6.append(...kids);
   return e6;
 };
-var tr6 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var tr7 = (lang, en, pt) => pickLabels(lang, { en, pt });
 var select4 = (name, opts, value) => {
-  const s4 = el9("select", { name });
-  for (const [v2, t5] of opts) s4.append(el9("option", { value: v2, textContent: t5 }));
+  const s4 = el10("select", { name });
+  for (const [v2, t5] of opts) s4.append(el10("option", { value: v2, textContent: t5 }));
   s4.value = opts.some(([v2]) => v2 === value) ? value : opts[0]?.[0] ?? "";
   return s4;
 };
-var check5 = (name, label, on) => {
-  const input = el9("input", { type: "checkbox", name, checked: on });
-  return { el: el9("label", { className: "uo-check" }, input, label), input };
+var check6 = (name, label, on) => {
+  const input = el10("input", { type: "checkbox", name, checked: on });
+  return { el: el10("label", { className: "uo-check" }, input, label), input };
 };
-var cmText2 = (lang, pt) => `${(Math.round(pt / 72 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","))} cm`;
+var cmText2 = (lang, pt) => `${(Math.round(pt / 72 * 254) / 100).toFixed(2).replace(".", tr7(lang, ".", ","))} cm`;
 var ptOf = (s4) => {
   const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n5) ? n5 / 2.54 * 72 : void 0;
@@ -7781,41 +8290,41 @@ var numOf = (s4) => {
   const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n5) ? n5 : void 0;
 };
-var cmInput2 = (lang, name, pt) => el9("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt), style: "width:92px" });
-var row = (...kids) => el9("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-var section3 = (title, ...kids) => el9("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el9("legend", { textContent: title }), ...kids);
-var radio3 = (name, value, label, on) => {
-  const input = el9("input", { type: "radio", name, value, checked: on });
-  return { el: el9("label", { className: "uo-check" }, input, label), input };
+var cmInput2 = (lang, name, pt) => el10("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt), style: "width:92px" });
+var row = (...kids) => el10("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+var section3 = (title, ...kids) => el10("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el10("legend", { textContent: title }), ...kids);
+var radio4 = (name, value, label, on) => {
+  const input = el10("input", { type: "radio", name, value, checked: on });
+  return { el: el10("label", { className: "uo-check" }, input, label), input };
 };
 var H_REFS = (lang) => [
-  ["margin", tr6(lang, "Margin", "Margem")],
-  ["page", tr6(lang, "Page", "P\xE1gina")],
-  ["column", tr6(lang, "Column", "Coluna")],
-  ["character", tr6(lang, "Character", "Caractere")],
-  ["leftMargin", tr6(lang, "Left Margin", "Margem Esquerda")],
-  ["rightMargin", tr6(lang, "Right Margin", "Margem Direita")],
-  ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")],
-  ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]
+  ["margin", tr7(lang, "Margin", "Margem")],
+  ["page", tr7(lang, "Page", "P\xE1gina")],
+  ["column", tr7(lang, "Column", "Coluna")],
+  ["character", tr7(lang, "Character", "Caractere")],
+  ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")],
+  ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")],
+  ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")],
+  ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]
 ];
 var V_REFS = (lang) => [
-  ["margin", tr6(lang, "Margin", "Margem")],
-  ["page", tr6(lang, "Page", "P\xE1gina")],
-  ["paragraph", tr6(lang, "Paragraph", "Par\xE1grafo")],
-  ["line", tr6(lang, "Line", "Linha")],
-  ["topMargin", tr6(lang, "Top Margin", "Margem Superior")],
-  ["bottomMargin", tr6(lang, "Bottom Margin", "Margem Inferior")],
-  ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")],
-  ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]
+  ["margin", tr7(lang, "Margin", "Margem")],
+  ["page", tr7(lang, "Page", "P\xE1gina")],
+  ["paragraph", tr7(lang, "Paragraph", "Par\xE1grafo")],
+  ["line", tr7(lang, "Line", "Linha")],
+  ["topMargin", tr7(lang, "Top Margin", "Margem Superior")],
+  ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")],
+  ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")],
+  ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]
 ];
 var WRAP_STYLES = (lang) => [
-  ["inline", tr6(lang, "In line with text", "Alinhado ao texto")],
-  ["square", tr6(lang, "Square", "Quadrado")],
-  ["tight", tr6(lang, "Tight", "Comprimido")],
-  ["through", tr6(lang, "Through", "Atrav\xE9s")],
-  ["topAndBottom", tr6(lang, "Top and bottom", "Superior e inferior")],
-  ["behind", tr6(lang, "Behind text", "Atr\xE1s do texto")],
-  ["front", tr6(lang, "In front of text", "Na frente do texto")]
+  ["inline", tr7(lang, "In line with text", "Alinhado ao texto")],
+  ["square", tr7(lang, "Square", "Quadrado")],
+  ["tight", tr7(lang, "Tight", "Comprimido")],
+  ["through", tr7(lang, "Through", "Atrav\xE9s")],
+  ["topAndBottom", tr7(lang, "Top and bottom", "Superior e inferior")],
+  ["behind", tr7(lang, "Behind text", "Atr\xE1s do texto")],
+  ["front", tr7(lang, "In front of text", "Na frente do texto")]
 ];
 async function pictureLayoutDialog(env, tab) {
   const { ed, lang } = env;
@@ -7827,48 +8336,48 @@ async function pictureLayoutDialog(env, tab) {
   const ph = f3.posH, pv = f3.posV;
   const hMode = !ph ? "abs" : ph.align === "inside" || ph.align === "outside" ? "book" : ph.align !== void 0 ? "align" : ph.pct !== void 0 ? "rel" : "abs";
   const vMode = !pv ? "abs" : pv.align !== void 0 ? "align" : pv.pct !== void 0 ? "rel" : "abs";
-  const hAlign = select4("hAlign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Centered", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], ph?.align ?? "left");
+  const hAlign = select4("hAlign", [["left", tr7(lang, "Left", "Esquerda")], ["center", tr7(lang, "Centered", "Centralizado")], ["right", tr7(lang, "Right", "Direita")]], ph?.align ?? "left");
   const hAlignRef = select4("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hBook = select4("hBook", [["inside", tr6(lang, "Inside", "Interna")], ["outside", tr6(lang, "Outside", "Externa")]], ph?.align ?? "inside");
-  const hBookRef = select4("hBookRef", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
+  const hBook = select4("hBook", [["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], ph?.align ?? "inside");
+  const hBookRef = select4("hBookRef", [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
   const hAbs = cmInput2(lang, "hAbs", pt(ph?.offset ?? 0));
   const hAbsRef = select4("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hRel = el9("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const hRel = el10("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const hRelRef = select4("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
-  const vAlign = select4("vAlign", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Centered", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")], ["inside", tr6(lang, "Inside", "Interna")], ["outside", tr6(lang, "Outside", "Externa")]], pv?.align ?? "top");
+  const vAlign = select4("vAlign", [["top", tr7(lang, "Top", "Superior")], ["center", tr7(lang, "Centered", "Centralizado")], ["bottom", tr7(lang, "Bottom", "Inferior")], ["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], pv?.align ?? "top");
   const vAlignRef = select4("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
   const vAbs = cmInput2(lang, "vAbs", pt(pv?.offset ?? 0));
   const vAbsRef = select4("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
-  const vRel = el9("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const vRel = el10("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const vRelRef = select4("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
-  const hR = { align: radio3("h", "align", tr6(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio3("h", "book", tr6(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio3("h", "abs", tr6(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio3("h", "rel", tr6(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
-  const vR = { align: radio3("v", "align", tr6(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio3("v", "abs", tr6(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio3("v", "rel", tr6(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
-  const moveWith = check5("moveWith", tr6(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
-  const lockAnchor = check5("lockAnchor", tr6(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
-  const overlap = check5("overlap", tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
-  const inCell = check5("inCell", tr6(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
-  const rel = tr6(lang, "relative to", "relativo a");
-  const posBody = el9(
+  const hR = { align: radio4("h", "align", tr7(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio4("h", "book", tr7(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio4("h", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio4("h", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
+  const vR = { align: radio4("v", "align", tr7(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio4("v", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio4("v", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
+  const moveWith = check6("moveWith", tr7(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
+  const lockAnchor = check6("lockAnchor", tr7(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
+  const overlap = check6("overlap", tr7(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
+  const inCell = check6("inCell", tr7(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
+  const rel = tr7(lang, "relative to", "relativo a");
+  const posBody = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(
-      tr6(lang, "Horizontal", "Horizontal"),
+      tr7(lang, "Horizontal", "Horizontal"),
       row(hR.align.el, hAlign, rel, hAlignRef),
-      row(hR.book.el, hBook, tr6(lang, "of", "de"), hBookRef),
-      row(hR.abs.el, hAbs, tr6(lang, "to the right of", "\xE0 direita de"), hAbsRef),
+      row(hR.book.el, hBook, tr7(lang, "of", "de"), hBookRef),
+      row(hR.abs.el, hAbs, tr7(lang, "to the right of", "\xE0 direita de"), hAbsRef),
       row(hR.rel.el, hRel, rel, hRelRef)
     ),
     section3(
-      tr6(lang, "Vertical", "Vertical"),
+      tr7(lang, "Vertical", "Vertical"),
       row(vR.align.el, vAlign, rel, vAlignRef),
-      row(vR.abs.el, vAbs, tr6(lang, "below", "abaixo de"), vAbsRef),
+      row(vR.abs.el, vAbs, tr7(lang, "below", "abaixo de"), vAbsRef),
       row(vR.rel.el, vRel, rel, vRelRef)
     ),
-    section3(tr6(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
+    section3(tr7(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
   );
   for (const i5 of posBody.querySelectorAll("input,select")) i5.disabled = !anchored;
-  const wrapR = WRAP_STYLES(lang).map(([k2, t5]) => ({ k: k2, ...radio3("wrap", k2, t5, f3.wrap === k2) }));
-  const sides = [["bothSides", tr6(lang, "Both sides", "Ambos os lados")], ["left", tr6(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr6(lang, "Right only", "Somente \xE0 direita")], ["largest", tr6(lang, "Largest only", "Somente no maior")]].map(([k2, t5]) => ({ k: k2, ...radio3("side", k2, t5, f3.wrapText === k2) }));
+  const wrapR = WRAP_STYLES(lang).map(([k2, t5]) => ({ k: k2, ...radio4("wrap", k2, t5, f3.wrap === k2) }));
+  const sides = [["bothSides", tr7(lang, "Both sides", "Ambos os lados")], ["left", tr7(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr7(lang, "Right only", "Somente \xE0 direita")], ["largest", tr7(lang, "Largest only", "Somente no maior")]].map(([k2, t5]) => ({ k: k2, ...radio4("side", k2, t5, f3.wrapText === k2) }));
   const dT = cmInput2(lang, "dT", pt(f3.dist.t)), dB = cmInput2(lang, "dB", pt(f3.dist.b)), dL = cmInput2(lang, "dL", pt(f3.dist.l)), dR = cmInput2(lang, "dR", pt(f3.dist.r));
   const syncWrap = () => {
     const w2 = wrapR.find((r5) => r5.input.checked)?.k ?? f3.wrap;
@@ -7879,34 +8388,34 @@ async function pictureLayoutDialog(env, tab) {
   };
   for (const r5 of wrapR) r5.input.addEventListener("change", syncWrap);
   syncWrap();
-  const wrapBody = el9(
+  const wrapBody = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr6(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el9("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r5) => r5.el))),
-    section3(tr6(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
+    section3(tr7(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el10("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r5) => r5.el))),
+    section3(tr7(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
     section3(
-      tr6(lang, "Distance from text", "Dist\xE2ncia do texto"),
-      row(tr6(lang, "Top", "Superior"), dT, tr6(lang, "Left", "Esquerda"), dL),
-      row(tr6(lang, "Bottom", "Inferior"), dB, tr6(lang, "Right", "Direita"), dR)
+      tr7(lang, "Distance from text", "Dist\xE2ncia do texto"),
+      row(tr7(lang, "Top", "Superior"), dT, tr7(lang, "Left", "Esquerda"), dL),
+      row(tr7(lang, "Bottom", "Inferior"), dB, tr7(lang, "Right", "Direita"), dR)
     )
   );
   const nat = st.naturalPt;
   const hAbsSz = cmInput2(lang, "hAbsSz", st.heightPt), wAbsSz = cmInput2(lang, "wAbsSz", st.widthPt);
   const relV = f3.sizeRelV?.pct ? f3.sizeRelV : null, relH = f3.sizeRelH?.pct ? f3.sizeRelH : null;
-  const hRelSz = el9("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const wRelSz = el9("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const sizeRefsV = [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["topMargin", tr6(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr6(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]];
-  const sizeRefsH = [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["leftMargin", tr6(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr6(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]];
+  const hRelSz = el10("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const wRelSz = el10("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const sizeRefsV = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["topMargin", tr7(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
+  const sizeRefsH = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
   const hRelRefSz = select4("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
   const wRelRefSz = select4("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
-  const szH = { abs: radio3("szh", "abs", tr6(lang, "Absolute", "Absoluta"), !relV), rel: radio3("szh", "rel", tr6(lang, "Relative", "Relativa"), !!relV) };
-  const szW = { abs: radio3("szw", "abs", tr6(lang, "Absolute", "Absoluta"), !relH), rel: radio3("szw", "rel", tr6(lang, "Relative", "Relativa"), !!relH) };
-  const rotIn = el9("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
-  const relOrig = check5("relOrig", tr6(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
-  const lockAsp = check5("lockAsp", tr6(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
+  const szH = { abs: radio4("szh", "abs", tr7(lang, "Absolute", "Absoluta"), !relV), rel: radio4("szh", "rel", tr7(lang, "Relative", "Relativa"), !!relV) };
+  const szW = { abs: radio4("szw", "abs", tr7(lang, "Absolute", "Absoluta"), !relH), rel: radio4("szw", "rel", tr7(lang, "Relative", "Relativa"), !!relH) };
+  const rotIn = el10("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
+  const relOrig = check6("relOrig", tr7(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
+  const lockAsp = check6("lockAsp", tr7(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
   const base = () => relOrig.input.checked && nat ? nat : { w: st.widthPt, h: st.heightPt };
-  const scH = el9("input", { type: "text", name: "scH", value: "", style: "width:72px" });
-  const scW = el9("input", { type: "text", name: "scW", value: "", style: "width:72px" });
+  const scH = el10("input", { type: "text", name: "scH", value: "", style: "width:72px" });
+  const scW = el10("input", { type: "text", name: "scW", value: "", style: "width:72px" });
   const showScale = () => {
     const b3 = base();
     const h4 = ptOf(hAbsSz.value) ?? st.heightPt, w2 = ptOf(wAbsSz.value) ?? st.widthPt;
@@ -7935,7 +8444,7 @@ async function pictureLayoutDialog(env, tab) {
   };
   scH.addEventListener("change", () => fromScale("h"));
   scW.addEventListener("change", () => fromScale("w"));
-  const reset = el9("button", { type: "button", className: "uo-btn", textContent: tr6(lang, "Reset", "Redefinir"), disabled: !nat });
+  const reset = el10("button", { type: "button", className: "uo-btn", textContent: tr7(lang, "Reset", "Redefinir"), disabled: !nat });
   reset.addEventListener("click", () => {
     if (!nat) return;
     hAbsSz.value = cmText2(lang, nat.h);
@@ -7945,32 +8454,32 @@ async function pictureLayoutDialog(env, tab) {
     showScale();
   });
   for (const i5 of [hRelSz, hRelRefSz, wRelSz, wRelRefSz, szH.rel.input, szW.rel.input]) i5.disabled = !anchored;
-  const sizeBody = el9(
+  const sizeBody = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr6(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
-    section3(tr6(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
-    section3(tr6(lang, "Rotate", "Girar"), row(tr6(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
-    section3(tr6(lang, "Scale", "Escala"), row(tr6(lang, "Height:", "Altura:"), scH, tr6(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
-    section3(tr6(lang, "Original size", "Tamanho original"), row(
-      el9("span", { textContent: `${tr6(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
-      el9("span", { textContent: `${tr6(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
+    section3(tr7(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
+    section3(tr7(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
+    section3(tr7(lang, "Rotate", "Girar"), row(tr7(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
+    section3(tr7(lang, "Scale", "Escala"), row(tr7(lang, "Height:", "Altura:"), scH, tr7(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
+    section3(tr7(lang, "Original size", "Tamanho original"), row(
+      el10("span", { textContent: `${tr7(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
+      el10("span", { textContent: `${tr7(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
       reset
     ))
   );
   const tabs = dialogTabs([
-    { id: "position", label: tr6(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
-    { id: "wrap", label: tr6(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
-    { id: "size", label: tr6(lang, "Size", "Tamanho"), body: sizeBody }
+    { id: "position", label: tr7(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
+    { id: "wrap", label: tr7(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
+    { id: "size", label: tr7(lang, "Size", "Tamanho"), body: sizeBody }
   ], tab);
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr6(lang, "Layout", "Layout"),
+    title: tr7(lang, "Layout", "Layout"),
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 560,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const o6 = {};
@@ -8017,8 +8526,8 @@ async function pictureLayoutDialog(env, tab) {
 async function pictureCompressDialog(env) {
   const { ed, lang } = env;
   if (!ed.selectedImage()) return;
-  const only = check5("only", tr6(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
-  const crop = check5("crop", tr6(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
+  const only = check6("only", tr7(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
+  const crop = check6("crop", tr7(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
   const RES = [
     ["hifi", Infinity, "High fidelity: preserves quality of the original picture", "Alta fidelidade: preserva a qualidade da imagem original"],
     ["hd", 330, "HD (330 ppi): good quality for high-definition (HD) displays", "HD (330 ppi): boa qualidade para monitores de alta defini\xE7\xE3o (HD)"],
@@ -8027,21 +8536,21 @@ async function pictureCompressDialog(env) {
     ["email", 96, "E-mail (96 ppi): minimize document size for sharing", "Email (96 ppi): minimizar o tamanho do documento para compartilhamento"],
     ["default", 220, "Use default resolution", "Usar a resolu\xE7\xE3o padr\xE3o"]
   ];
-  const res = RES.map(([k2, ppi2, en, pt]) => ({ ppi: ppi2, ...radio3("res", k2, tr6(lang, en, pt), k2 === "default") }));
-  const body = el9(
+  const res = RES.map(([k2, ppi2, en, pt]) => ({ ppi: ppi2, ...radio4("res", k2, tr7(lang, en, pt), k2 === "default") }));
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr6(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
-    section3(tr6(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r5) => r5.el))
+    section3(tr7(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
+    section3(tr7(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r5) => r5.el))
   );
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr6(lang, "Compress Pictures", "Compactar Imagens"),
+    title: tr7(lang, "Compress Pictures", "Compactar Imagens"),
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ppi = res.find((r5) => r5.input.checked)?.ppi ?? 220;
@@ -8095,7 +8604,7 @@ var PictureUI = class {
       return;
     }
     const btn2 = (label, icon, run) => {
-      const b3 = el9("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+      const b3 = el10("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
       b3.innerHTML = symbol(icon) + (icon === "keyboard_arrow_up" || icon === "keyboard_arrow_down" ? "" : `<span>${label}</span>`);
       b3.setAttribute("aria-label", label);
       b3.addEventListener("mousedown", (e6) => e6.preventDefault());
@@ -8106,15 +8615,15 @@ var PictureUI = class {
       });
       return b3;
     };
-    const showAll = btn2(tr6(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
-    const hideAll = btn2(tr6(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
-    const up = btn2(tr6(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
-    const down = btn2(tr6(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
-    const bar = el9("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el9("span", { style: "flex:1" }), up, down);
-    const list = el9("div", { style: "display:flex;flex-direction:column;gap:1px" });
+    const showAll = btn2(tr7(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
+    const hideAll = btn2(tr7(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
+    const up = btn2(tr7(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
+    const down = btn2(tr7(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
+    const bar = el10("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el10("span", { style: "flex:1" }), up, down);
+    const list = el10("div", { style: "display:flex;flex-direction:column;gap:1px" });
     list.setAttribute("role", "listbox");
-    const empty = el9("p", { textContent: tr6(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
-    const body = el9("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
+    const empty = el10("p", { textContent: tr7(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
+    const body = el10("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
     let editing = false;
     const sync = () => {
       if (editing) return;
@@ -8125,12 +8634,12 @@ var PictureUI = class {
       const sel4 = items.find((i5) => i5.selected);
       up.disabled = down.disabled = off || !sel4;
       list.replaceChildren(...items.map((it) => {
-        const row2 = el9("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
+        const row2 = el10("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
         row2.setAttribute("role", "option");
         row2.setAttribute("aria-selected", String(it.selected));
         row2.dataset["key"] = it.key;
-        const name = el9("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
-        const eye = el9("button", { type: "button", className: "uo-btn", title: it.hidden ? tr6(lang, "Show", "Mostrar") : tr6(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
+        const name = el10("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
+        const eye = el10("button", { type: "button", className: "uo-btn", title: it.hidden ? tr7(lang, "Show", "Mostrar") : tr7(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
         eye.innerHTML = symbol(it.hidden ? "visibility_off" : "visibility");
         eye.disabled = off;
         eye.addEventListener("mousedown", (e6) => e6.preventDefault());
@@ -8149,7 +8658,7 @@ var PictureUI = class {
         row2.addEventListener("dblclick", () => {
           if (off) return;
           editing = true;
-          const input = el9("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
+          const input = el10("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
           const done = (ok) => {
             if (!editing) return;
             editing = false;
@@ -8197,13 +8706,13 @@ var PictureUI = class {
       cur.close();
       return;
     }
-    const intro = el9("p", { textContent: tr6(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
-    const text = el9("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
+    const intro = el10("p", { textContent: tr7(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
+    const text = el10("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
     text.dataset["a"] = "pic:alt:text";
-    const deco = check5("decorative", tr6(lang, "Mark as decorative", "Marcar como decorativa"), false);
-    const note = el9("p", { textContent: tr6(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
-    const empty = el9("p", { textContent: tr6(lang, "Select a picture to add alt text.", "Selecione uma imagem para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
-    const body = el9("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
+    const deco = check6("decorative", tr7(lang, "Mark as decorative", "Marcar como decorativa"), false);
+    const note = el10("p", { textContent: tr7(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
+    const empty = el10("p", { textContent: tr7(lang, "Select a picture to add alt text.", "Selecione uma imagem para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
+    const body = el10("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
     let last = null;
     const sync = () => {
       const st = ed.selectedImage();
@@ -8690,7 +9199,7 @@ var sizeWidget = (env, variant) => ({
         const half = env.ctl.state().run.szHalfPt;
         if (half && env.root.activeElement !== input) input.value = fmt(half / 2);
         const ok = canEdit(env);
-        for (const el11 of wrap.querySelectorAll("input,button")) el11.disabled = !ok;
+        for (const el12 of wrap.querySelectorAll("input,button")) el12.disabled = !ok;
       }
     };
   }
@@ -8728,23 +9237,23 @@ var moreColors = (ctx, label, onPick) => ({
   }
 });
 var colorMenu2 = (env, ctx) => {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const pick = (hex) => {
     env.app.lastColor = hex;
     env.ed.setColor(hex);
     ctx.after();
   };
   return [
-    { id: "color:auto", label: L8.automatic, swatch: "#000000", onClick: () => {
+    { id: "color:auto", label: L9.automatic, swatch: "#000000", onClick: () => {
       env.ed.setColor(void 0);
       ctx.after();
     } },
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().run.color, onPick: pick, close }) },
-    moreColors(ctx, L8.moreColors, pick)
+    moreColors(ctx, L9.moreColors, pick)
   ];
 };
 var highlightMenu = (env, ctx) => {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   return [
     { content: (close) => colorGrid({
       colors: HIGHLIGHT_COLORS.map((h3) => ({ value: h3.value, css: h3.css, title: ctx.registry.text(h3.label) })),
@@ -8757,14 +9266,14 @@ var highlightMenu = (env, ctx) => {
       },
       close
     }) },
-    { id: "highlight:none", label: L8.noColor, swatch: "", onClick: () => {
+    { id: "highlight:none", label: L9.noColor, swatch: "", onClick: () => {
       env.ed.setHighlight(void 0);
       ctx.after();
     } }
   ];
 };
 var shadingMenu = (env, ctx) => {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const pick = (hex) => {
     env.app.lastShading = hex;
     env.ed.setShading(hex);
@@ -8772,11 +9281,11 @@ var shadingMenu = (env, ctx) => {
   };
   return [
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().para.shadingHex, onPick: pick, close }) },
-    { id: "shading:none", label: L8.noColor, swatch: "", onClick: () => {
+    { id: "shading:none", label: L9.noColor, swatch: "", onClick: () => {
       env.ed.setShading(void 0);
       ctx.after();
     } },
-    moreColors(ctx, L8.moreColors, pick)
+    moreColors(ctx, L9.moreColors, pick)
   ];
 };
 var lineSpacingMenu = (env, ctx) => {
@@ -9014,6 +9523,13 @@ function menus(env, ctx) {
     symbols: sub({ en: "Special characters", pt: "Caracteres especiais" }, "special_character", () => symbolMenu(env, ctx), "symbols"),
     breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", breaksMenu, "breaks"),
     columns: sub({ en: "Columns", pt: "Colunas" }, "view_column_2", columnsMenu, "columns"),
+    cover: { ...sub({ en: "Cover page", pt: "Folha de rosto" }, "auto_stories", () => coverPageMenu(env, ctx), "cover:menu"), hidden: typeof env.ed.insertCoverPage !== "function" },
+    // Plano de Fundo da Página (guia Design da ribbon)
+    background: { ...sub({ en: "Page background", pt: "Plano de fundo da p\xE1gina" }, "format_color_fill", () => [
+      sub({ en: "Watermark", pt: "Marca-d'\xE1gua" }, "branding_watermark", () => watermarkMenu(env, ctx), "watermark:menu"),
+      sub({ en: "Page color", pt: "Cor da p\xE1gina" }, "format_color_fill", () => pageColorMenu(env, ctx), "pageColor:menu"),
+      "dlg:pageBorders"
+    ], "background"), hidden: typeof env.ed.setPageColor !== "function" },
     // Cabeçalho, Rodapé e Número de Página com as galerias de modelos; opções e vínculo no diálogo
     hf: sub({ en: "Headers & footers", pt: "Cabe\xE7alhos e rodap\xE9s" }, "call_to_action", () => [
       sub({ en: "Header", pt: "Cabe\xE7alho" }, "vertical_align_top", () => hfGalleryMenu(env, ctx, "header"), "hf:headerMenu"),
@@ -9153,8 +9669,8 @@ function compactLayout(env, ctx) {
       { id: "file", label: { en: "File", pt: "Arquivo" }, items: () => fileMenu(m2) },
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "view:outline", "view:draft", "focus", "-", "view:ruler", "view:gridlines", "view:navpane", "view:bookmarks", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
-      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", "textbox", m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
+      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", "textbox", m2.symbols] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -9202,7 +9718,7 @@ function compactLayout(env, ctx) {
     ]
   };
 }
-var L7 = (en, pt) => ({ en, pt });
+var L8 = (en, pt) => ({ en, pt });
 var large2 = (cmd) => ({ cmd, size: "large" });
 function ribbonLayout(env, ctx) {
   const m2 = menus(env, ctx);
@@ -9211,22 +9727,22 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L7("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L8("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L7("Home", "P\xE1gina Inicial"),
+        label: L8("Home", "P\xE1gina Inicial"),
         groups: [
-          { id: "clipboard", label: L7("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
+          { id: "clipboard", label: L8("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
             { split: "paste", size: "large", menu: ["paste", "pastePlain"] },
             { rows: [["cut"], ["copy"], ["painter"]] }
           ] },
-          { id: "font", label: L7("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
+          { id: "font", label: L8("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L7("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L8("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu2(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
-          { id: "paragraph", label: L7("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
+          { id: "paragraph", label: L8("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
             { rows: [
               ["list:bullet", "list:decimal", "outdent", "indent", "sort", "marks"],
               [
@@ -9234,67 +9750,78 @@ function ribbonLayout(env, ctx) {
                 "align:center",
                 "align:right",
                 "align:both",
-                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L7("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
+                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L8("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
                 { split: "shading", menu: () => shadingMenu(env, ctx) },
                 "borders"
               ]
             ] }
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
-          { id: "styles", label: L7("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
-          { id: "editing", label: L7("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
+          { id: "styles", label: L8("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
+          { id: "editing", label: L8("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L7("Insert", "Inserir"),
+        label: L8("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L7("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+          { id: "pages", label: L8("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L8("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
+            large2("blankPage"),
             large2("pagebreak"),
-            { menu: breaksMenu, id: "breaks", label: L7("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+            { menu: breaksMenu, id: "breaks", label: L8("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
           ] },
-          { id: "objects", label: L7("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
-            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L7("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+          { id: "objects", label: L8("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L8("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large2("image")
           ] },
           // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
-          { id: "links", label: L7("Links", "Links"), icon: "link", prio: 5, cells: [large2("link"), large2("bookmark"), large2("crossref")] },
-          { id: "comments", label: L7("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large2("comment")] },
-          { id: "hf", label: L7("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
-            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L7("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
-            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L7("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
-            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L7("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
+          { id: "links", label: L8("Links", "Links"), icon: "link", prio: 5, cells: [large2("link"), large2("bookmark"), large2("crossref")] },
+          { id: "comments", label: L8("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large2("comment")] },
+          { id: "hf", label: L8("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
+            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L8("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
+            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L8("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
+            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L8("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
           ] },
-          { id: "text", label: L7("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
+          { id: "text", label: L8("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
             large2("textbox"),
-            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L7("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L8("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+          ] }
+        ]
+      },
+      {
+        // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
+        // Documento (temas, conjuntos de estilos) entra quando chegar
+        id: "design",
+        label: L8("Design", "Design"),
+        groups: [
+          { id: "background", label: L8("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L8("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
+            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L8("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
+            { cmd: "dlg:pageBorders", size: "large" }
           ] }
         ]
       },
       {
         id: "layout",
-        label: L7("Layout", "Layout"),
+        label: L8("Layout", "Layout"),
         groups: [
-          { id: "pagesetup", label: L7("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
-            { menu: () => marginsMenu(env, ctx), id: "margins", label: L7("Margins", "Margens"), icon: "margin", size: "large" },
-            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L7("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
-            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L7("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: columnsMenu, id: "columns", label: L7("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
-            { rows: [[{ menu: breaksMenu, id: "breaks", label: L7("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"], [{ cmd: "dlg:pageBorders", label: true }]] }
+          { id: "pagesetup", label: L8("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
+            { menu: () => marginsMenu(env, ctx), id: "margins", label: L8("Margins", "Margens"), icon: "margin", size: "large" },
+            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L8("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
+            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L8("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
+            { menu: columnsMenu, id: "columns", label: L8("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+            { rows: [[{ menu: breaksMenu, id: "breaks", label: L8("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
           ] },
-          { id: "paragraph", label: L7("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L7("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
+          { id: "paragraph", label: L8("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L8("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
             { rows: [
               [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
-              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L7("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
-              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L7("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
+              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L8("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
+              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L8("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
             ] }
-          ] },
-          { id: "background", label: L7("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { cmd: "pageColor", size: "large" },
-            { cmd: "watermark", size: "large" }
           ] }
         ]
       },
@@ -9302,18 +9829,18 @@ function ribbonLayout(env, ctx) {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: "references",
-        label: L7("References", "Refer\xEAncias"),
+        label: L8("References", "Refer\xEAncias"),
         groups: [
-          { id: "toc", label: L7("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large2("toc")] },
-          { id: "footnotes", label: L7("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+          { id: "toc", label: L8("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large2("toc")] },
+          { id: "footnotes", label: L8("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
             large2("footnote"),
             { rows: [
               [{ cmd: "endnote", label: true }],
-              [{ menu: noteNavMenu, id: "note:nav", label: L7("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L8("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
               [{ cmd: "note:show", label: true }]
             ] }
           ] },
-          { id: "captions", label: L7("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
+          { id: "captions", label: L8("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
             large2("caption"),
             { rows: [[{ cmd: "tof", label: true }], [{ cmd: "tof:update", label: true }], [{ cmd: "crossref", label: true }]] }
           ] }
@@ -9321,86 +9848,86 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "mailings",
-        label: L7("Mailings", "Correspond\xEAncias"),
+        label: L8("Mailings", "Correspond\xEAncias"),
         groups: [
-          { id: "merge", label: L7("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large2("mailmerge"), large2("mergefield")] }
+          { id: "merge", label: L8("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large2("mailmerge"), large2("mergefield")] }
         ]
       },
       {
         id: "review",
-        label: L7("Review", "Revis\xE3o"),
+        label: L8("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L7("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large2("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
-          { id: "comments", label: L7("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
+          { id: "proofing", label: L8("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large2("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
+          { id: "comments", label: L8("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large2("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L7("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+          { id: "tracking", label: L8("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
             large2("trackChanges"),
             { rows: [
-              [{ menu: markupModes, id: "markupMode", label: L7("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
-              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L7("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ menu: markupModes, id: "markupMode", label: L8("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L8("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
               [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
             ] }
           ] },
-          { id: "changes", label: L7("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+          { id: "changes", label: L8("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
             { split: "change:accept", menu: acceptItems, size: "large" },
             { split: "change:reject", menu: rejectItems, size: "large" },
             { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
           ] },
-          { id: "document", label: L7("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large2("compare"), large2("enableEditing")] }
+          { id: "document", label: L8("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large2("compare"), large2("enableEditing")] }
         ]
       },
       {
         id: "view",
-        label: L7("View", "Exibir"),
+        label: L8("View", "Exibir"),
         groups: [
-          { id: "views", label: L7("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
+          { id: "views", label: L8("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
             large2("view:read"),
             large2("view:print"),
             large2("view:web"),
             { rows: [[{ cmd: "view:outline", label: true }], [{ cmd: "view:draft", label: true }]] },
             large2("focus")
           ] },
-          { id: "show", label: L7("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
+          { id: "show", label: L8("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
             { rows: [[{ cmd: "view:ruler", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:navpane", label: true }]] },
             { rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] },
             { rows: [[{ cmd: "view:bookmarks", label: true }]] }
           ] },
-          { id: "zoom", label: L7("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
-            { menu: m2.zoomItems, id: "zoom", label: L7("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+          { id: "zoom", label: L8("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
+            { menu: m2.zoomItems, id: "zoom", label: L8("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
             large2("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "appearance", label: L7("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env, ctx), id: "theme", label: L7("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L7("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L7("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L8("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env, ctx), id: "theme", label: L8("Theme", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L8("Accent", "Destaque"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L8("Toolbar", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "hf-tools",
-        label: L7("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
+        label: L8("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
         contextual: () => env.ed.editingHeaderFooter() !== null,
         groups: hfToolsGroups(env, ctx)
       },
       {
         id: "table-design",
-        label: L7("Table Design", "Design da Tabela"),
+        label: L8("Table Design", "Design da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableDesignGroups(env, ctx)
       },
       {
         id: "table-layout",
-        label: L7("Table Layout", "Layout da Tabela"),
+        label: L8("Table Layout", "Layout da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableLayoutGroups(env)
       },
       {
         id: "image-tools",
-        label: L7("Picture Format", "Formato da Imagem"),
+        label: L8("Picture Format", "Formato da Imagem"),
         contextual: () => {
           const f3 = env.ed.selectedImage;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -9700,11 +10227,11 @@ function renderTile(env, tile, s4, W, H2) {
   tile.replaceChildren();
   const cv = document.createElement("canvas");
   cv.className = "uw-style-sample";
-  const cap = document.createElement("span");
-  cap.className = "uw-style-cap";
-  cap.textContent = s4.name;
+  const cap2 = document.createElement("span");
+  cap2.className = "uw-style-cap";
+  cap2.textContent = s4.name;
   if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: W - 4, h: H2 - 22, maxPx: 22, paper: true, align: false });
-  tile.append(cv, cap);
+  tile.append(cv, cap2);
 }
 function styleGalleryItem(env, ui) {
   const W = 84, H2 = 64;
@@ -9757,40 +10284,40 @@ function styleNames(env) {
   return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
 }
 function galleryMenu(env, ui, s4) {
-  const L8 = pickLabels(env.lang, T3);
+  const L9 = pickLabels(env.lang, T3);
   const ok = canEdit2(env);
   const out = [
-    { id: "style:update", icon: "refresh", label: L8.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+    { id: "style:update", icon: "refresh", label: L9.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
       env.ed.updateStyleFromSelection(s4.id);
       env.after();
     } },
-    { id: "style:modify", icon: "edit", label: L8.modifyDots, disabled: !ok, onClick: () => {
+    { id: "style:modify", icon: "edit", label: L9.modifyDots, disabled: !ok, onClick: () => {
       void ui.styleDialog("modify", s4.id);
     } },
-    { id: "style:rename", icon: "drive_file_rename_outline", label: L8.rename, disabled: !ok, onClick: () => {
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L9.rename, disabled: !ok, onClick: () => {
       void ui.rename(s4);
     } },
-    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L8.removeFromGallery, disabled: !ok, onClick: () => {
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L9.removeFromGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, false);
       env.after();
-    } } : { id: "style:togallery", icon: "bookmark_add", label: L8.addGallery, disabled: !ok, onClick: () => {
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L9.addGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, true);
       env.after();
     } }
   ];
   if (!s4.builtIn) {
-    out.push("-", { id: "style:delete", icon: "delete", label: L8.del(s4.name), disabled: !ok, onClick: () => {
+    out.push("-", { id: "style:delete", icon: "delete", label: L9.del(s4.name), disabled: !ok, onClick: () => {
       void ui.remove(s4);
     } });
   }
   return out;
 }
-var colorName = (hex, L8) => hex ? `#${hex}` : L8.auto;
+var colorName = (hex, L9) => hex ? `#${hex}` : L9.auto;
 function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
-  const L8 = pickLabels(env.lang, T3);
+  const L9 = pickLabels(env.lang, T3);
   if (!look) return s4.name;
   const parts = [];
-  const d3 = L8.d;
+  const d3 = L9.d;
   parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
   if (look.bold) parts.push(d3.bold);
   if (look.italic) parts.push(d3.italic);
@@ -9798,15 +10325,15 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   if (look.strike) parts.push(d3.strike);
   if (look.allCaps) parts.push(d3.caps);
   if (look.smallCaps) parts.push(d3.smallCaps);
-  if (look.color) parts.push(d3.color(colorName(look.color, L8)));
+  if (look.color) parts.push(d3.color(colorName(look.color, L9)));
   if (s4.kind !== "character") {
-    if (look.alignment !== "left") parts.push({ center: L8.center, right: L8.right, both: L8.justify }[look.alignment]);
-    if (look.lineTwentieths !== void 0) parts.push(d3.line(L8.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.alignment !== "left") parts.push({ center: L9.center, right: L9.right, both: L9.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L9.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
     if (look.spaceBeforeTwips) parts.push(d3.before(ptOf2(look.spaceBeforeTwips)));
     if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf2(look.spaceAfterTwips)));
     if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
   }
-  parts.push(d3.style(L8.kind[s4.kind]));
+  parts.push(d3.style(L9.kind[s4.kind]));
   if (s4.quick) parts.push(d3.gallery);
   parts.push(d3.priority(s4.priority + 1));
   const nm = names ?? styleNames(env);
@@ -9817,13 +10344,13 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
 ${parts.join(", ")}`;
 }
 function describeDirect(env, run, para) {
-  const L8 = pickLabels(env.lang, T3);
-  const d3 = L8.d;
+  const L9 = pickLabels(env.lang, T3);
+  const d3 = L9.d;
   const parts = [];
   if (para) {
     const a3 = para["alignment"];
-    if (a3) parts.push({ left: L8.left, center: L8.center, right: L8.right, both: L8.justify }[a3] ?? a3);
-    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L8.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
+    if (a3) parts.push({ left: L9.left, center: L9.center, right: L9.right, both: L9.justify }[a3] ?? a3);
+    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L9.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
     if (para["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf2(para["spaceBeforeTwips"])));
     if (para["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf2(para["spaceAfterTwips"])));
     if (para["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
@@ -9841,14 +10368,14 @@ function describeDirect(env, run, para) {
     if (run["strike"] || run["doubleStrike"]) parts.push(d3.strike);
     if (run["allCaps"]) parts.push(d3.caps);
     if (run["smallCaps"]) parts.push(d3.smallCaps);
-    if (run["color"]) parts.push(d3.color(colorName(run["color"], L8)));
+    if (run["color"]) parts.push(d3.color(colorName(run["color"], L9)));
     if (run["highlight"]) parts.push(d3.highlight);
     if (run["vertAlign"]) parts.push(run["vertAlign"] === "superscript" ? d3.sup : d3.sub);
     if (run["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf2(run["charSpacingTwips"]))));
   }
-  return parts.length ? parts.join(", ") : L8.noDirect;
+  return parts.length ? parts.join(", ") : L9.noDirect;
 }
-var el10 = (tag, props = {}, ...kids) => {
+var el11 = (tag, props = {}, ...kids) => {
   const { cls, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (cls) e6.className = cls;
@@ -9932,11 +10459,11 @@ var StylesUI = class {
       return;
     }
     const { env } = this;
-    const L8 = this.L;
-    const body = el10("div", { cls: "uw-styles" });
+    const L9 = this.L;
+    const body = el11("div", { cls: "uw-styles" });
     const sel4 = (name, opts2, v2, on) => {
-      const s4 = el10("select", { name });
-      for (const [k2, t5] of opts2) s4.append(el10("option", { value: k2, textContent: t5 }));
+      const s4 = el11("select", { name });
+      for (const [k2, t5] of opts2) s4.append(el11("option", { value: k2, textContent: t5 }));
       s4.value = v2;
       s4.addEventListener("change", () => {
         on(s4.value);
@@ -9945,12 +10472,12 @@ var StylesUI = class {
       });
       return s4;
     };
-    const opts = el10(
+    const opts = el11(
       "div",
       { cls: "uw-styles-opts" },
       sel4(
         "filter",
-        [["recommended", L8.recommended], ["inUse", L8.inUse], ["document", L8.inDoc], ["all", L8.all]],
+        [["recommended", L9.recommended], ["inUse", L9.inUse], ["document", L9.inDoc], ["all", L9.all]],
         this.filter,
         (v2) => {
           this.filter = v2;
@@ -9959,7 +10486,7 @@ var StylesUI = class {
       ),
       sel4(
         "sort",
-        [["prio", L8.asRecommended], ["alpha", L8.alphabetical]],
+        [["prio", L9.asRecommended], ["alpha", L9.alphabetical]],
         this.alpha ? "alpha" : "prio",
         (v2) => {
           this.alpha = v2 === "alpha";
@@ -9967,19 +10494,19 @@ var StylesUI = class {
         }
       )
     );
-    const prev = el10("input", { type: "checkbox", checked: this.preview });
+    const prev = el11("input", { type: "checkbox", checked: this.preview });
     prev.addEventListener("change", () => {
       this.preview = prev.checked;
       env.app.prefs.set("stylesPreview", prev.checked ? "1" : "");
       this.lastKey = "";
       this.renderList();
     });
-    this.listEl = el10("div", { cls: "uw-styles-list" });
+    this.listEl = el11("div", { cls: "uw-styles-list" });
     this.listEl.setAttribute("role", "listbox");
-    body.append(opts, this.listEl, el10("label", { cls: "uo-check uw-styles-prev" }, prev, L8.preview));
-    const foot = el10("div");
+    body.append(opts, this.listEl, el11("label", { cls: "uo-check uw-styles-prev" }, prev, L9.preview));
+    const foot = el11("div");
     const btn2 = (icon, label, a3, fn) => {
-      const b3 = el10("button", { type: "button", cls: "uo-btn", title: label });
+      const b3 = el11("button", { type: "button", cls: "uo-btn", title: label });
       b3.dataset["a"] = a3;
       b3.setAttribute("aria-label", label);
       b3.innerHTML = symbol(icon);
@@ -9987,14 +10514,14 @@ var StylesUI = class {
       return b3;
     };
     foot.append(
-      btn2("add", L8.newStyle, "styles:new", () => {
+      btn2("add", L9.newStyle, "styles:new", () => {
         void this.styleDialog("new");
       }),
-      btn2("manage_search", L8.inspector, "styles:inspector", () => this.toggleInspector())
+      btn2("manage_search", L9.inspector, "styles:inspector", () => this.toggleInspector())
     );
     this.pane = openPane({
       id: "styles",
-      title: L8.pane,
+      title: L9.pane,
       lang: env.lang,
       layer: env.layer,
       width: 280,
@@ -10027,22 +10554,22 @@ var StylesUI = class {
     const ok = canEdit2(env);
     const names = styleNames(env);
     box.replaceChildren(...list.map((s4) => {
-      const row2 = el10("div", { cls: "uw-style-row" });
+      const row2 = el11("div", { cls: "uw-style-row" });
       row2.dataset["id"] = s4.id;
       row2.setAttribute("role", "option");
       row2.title = describeStyle(env, s4, void 0, names);
       const on = s4.id === cur.character || s4.id === cur.paragraph && !list.some((x2) => x2.id === cur.character);
       row2.classList.toggle("uo-on", on);
       row2.setAttribute("aria-selected", String(on));
-      const name = el10("span", { cls: "uw-style-name" });
+      const name = el11("span", { cls: "uw-style-name" });
       if (this.preview) {
         const look = env.ed.styleFormatting(s4.id);
         const cv = document.createElement("canvas");
         if (look) drawSample(cv, env.ed, look, { text: s4.name, w: 190, h: 24, maxPx: 18, minPx: 9, autoColor: getComputedStyle(box).color });
         name.append(cv);
       } else name.textContent = s4.name;
-      const mark = el10("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
-      const more = el10("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
+      const mark = el11("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
+      const more = el11("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
       more.innerHTML = symbol("arrow_drop_down");
       more.addEventListener("mousedown", (e6) => e6.preventDefault());
       more.addEventListener("click", (e6) => {
@@ -10072,10 +10599,10 @@ var StylesUI = class {
       return;
     }
     const { env } = this;
-    const L8 = this.L;
-    const body = el10("div", { cls: "uw-insp" });
+    const L9 = this.L;
+    const body = el11("div", { cls: "uw-insp" });
     const row2 = (value, icon, tip, a3, fn) => {
-      const b3 = el10("button", { type: "button", cls: "uo-btn", title: tip });
+      const b3 = el11("button", { type: "button", cls: "uo-btn", title: tip });
       b3.dataset["a"] = a3;
       b3.setAttribute("aria-label", tip);
       b3.innerHTML = symbol(icon);
@@ -10084,39 +10611,39 @@ var StylesUI = class {
         fn();
         env.after();
       });
-      return el10("div", { cls: "uw-insp-row" }, value, b3);
+      return el11("div", { cls: "uw-insp-row" }, value, b3);
     };
-    const box = () => el10("div", { cls: "uw-insp-val" });
+    const box = () => el11("div", { cls: "uw-insp-val" });
     const r5 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
     body.append(
-      el10("div", { cls: "uw-insp-h", textContent: L8.paraFmt }),
-      row2(r5.pStyle, "format_clear", L8.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
-      row2(r5.pDirect, "format_clear", L8.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
-      el10("div", { cls: "uw-insp-h", textContent: L8.textFmt }),
-      row2(r5.tStyle, "format_clear", L8.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
-      row2(r5.tDirect, "format_clear", L8.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+      el11("div", { cls: "uw-insp-h", textContent: L9.paraFmt }),
+      row2(r5.pStyle, "format_clear", L9.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+      row2(r5.pDirect, "format_clear", L9.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+      el11("div", { cls: "uw-insp-h", textContent: L9.textFmt }),
+      row2(r5.tStyle, "format_clear", L9.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+      row2(r5.tDirect, "format_clear", L9.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
     );
     this.inspRows = r5;
-    const foot = el10("div");
+    const foot = el11("div");
     const pill = (label, a3, fn) => {
-      const b3 = el10("button", { type: "button", cls: "uo-pill", textContent: label });
+      const b3 = el11("button", { type: "button", cls: "uo-pill", textContent: label });
       b3.dataset["a"] = a3;
       b3.addEventListener("mousedown", (e6) => e6.preventDefault());
       b3.addEventListener("click", fn);
       return b3;
     };
     foot.append(
-      pill(L8.newStyle, "insp:new", () => {
+      pill(L9.newStyle, "insp:new", () => {
         void this.styleDialog("new");
       }),
-      pill(L8.clearAll, "insp:clearAll", () => {
+      pill(L9.clearAll, "insp:clearAll", () => {
         env.ed.clearFormatting();
         env.after();
       })
     );
     this.inspector = openPane({
       id: "styleInspector",
-      title: L8.inspector,
+      title: L9.inspector,
       lang: env.lang,
       layer: env.layer,
       width: 300,
@@ -10168,31 +10695,31 @@ var StylesUI = class {
   /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
   async quickCreate() {
     const { env } = this;
-    const L8 = this.L;
+    const L9 = this.L;
     if (!canEdit2(env)) return;
-    const input = el10("input", { type: "text", value: this.freeName() });
+    const input = el11("input", { type: "text", value: this.freeName() });
     const look = this.selectionLook();
     const cv = document.createElement("canvas");
     if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: 360, h: 56, maxPx: 30, paper: true, align: true });
-    const msg = el10("div", { cls: "uw-style-msg" });
-    const body = el10("div", { cls: "uw-style-quick" }, el10("label", { cls: "uo-field" }, el10("span", { textContent: L8.name }), input), cv, msg);
+    const msg = el11("div", { cls: "uw-style-msg" });
+    const body = el11("div", { cls: "uw-style-quick" }, el11("label", { cls: "uo-field" }, el11("span", { textContent: L9.name }), input), cv, msg);
     let action = null;
     const h3 = openDialog({
-      title: L8.newStyleTitle,
+      title: L9.newStyleTitle,
       body,
       layer: env.layer,
       lang: env.lang,
       width: 420,
-      actions: [{ id: "modify", label: L8.modify }, { id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }],
+      actions: [{ id: "modify", label: L9.modify }, { id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }],
       onAction: (id) => {
         if (id === "cancel") return true;
         const name = input.value.trim();
         if (!name) {
-          msg.textContent = L8.empty;
+          msg.textContent = L9.empty;
           return false;
         }
         if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
-          msg.textContent = L8.nameTaken;
+          msg.textContent = L9.nameTaken;
           return false;
         }
         return true;
@@ -10223,7 +10750,7 @@ var StylesUI = class {
   async styleDialog(mode, id, presetName) {
     const { env } = this;
     const ed = env.ed;
-    const L8 = this.L;
+    const L9 = this.L;
     if (!canEdit2(env)) return;
     const all = ed.listStyles("all");
     const info = id ? all.find((s4) => s4.id === id) : void 0;
@@ -10235,25 +10762,25 @@ var StylesUI = class {
     if (!startLook) return;
     const start = draftOf(startLook);
     const draft = { ...start };
-    const nameIn = el10("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
-    const typeSel = el10("select", { name: "type" });
-    for (const [k2, t5] of [["linked", L8.linked], ["paragraph", L8.paragraph], ["character", L8.character]]) typeSel.append(el10("option", { value: k2, textContent: t5 }));
+    const nameIn = el11("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
+    const typeSel = el11("select", { name: "type" });
+    for (const [k2, t5] of [["linked", L9.linked], ["paragraph", L9.paragraph], ["character", L9.character]]) typeSel.append(el11("option", { value: k2, textContent: t5 }));
     typeSel.value = kind;
     typeSel.disabled = mode === "modify";
-    const baseSel = el10("select", { name: "basedOn" });
-    const nextSel = el10("select", { name: "next" });
+    const baseSel = el11("select", { name: "basedOn" });
+    const nextSel = el11("select", { name: "next" });
     const fillBases = () => {
       baseSel.replaceChildren();
       nextSel.replaceChildren();
       const paraStyles = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
       const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
       const opts = kind === "character" ? charStyles : paraStyles;
-      if (kind === "character") baseSel.append(el10("option", { value: "", textContent: L8.none }));
-      for (const s4 of opts) baseSel.append(el10("option", { value: s4.id, textContent: s4.name }));
+      if (kind === "character") baseSel.append(el11("option", { value: "", textContent: L9.none }));
+      for (const s4 of opts) baseSel.append(el11("option", { value: s4.id, textContent: s4.name }));
       baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
       if (kind !== "character") {
-        nextSel.append(el10("option", { value: "", textContent: nameIn.value.trim() || L8.none }));
-        for (const s4 of paraStyles) nextSel.append(el10("option", { value: s4.id, textContent: s4.name }));
+        nextSel.append(el11("option", { value: "", textContent: nameIn.value.trim() || L9.none }));
+        for (const s4 of paraStyles) nextSel.append(el11("option", { value: s4.id, textContent: s4.name }));
         nextSel.value = info?.next && info.next !== id ? info.next : "";
       }
       nextSel.disabled = kind === "character";
@@ -10265,13 +10792,13 @@ var StylesUI = class {
       refresh();
     });
     const families = await ed.listAvailableFonts();
-    const fontSel = el10("select", { name: "font" });
-    for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el10("option", { value: f3, textContent: f3 }));
+    const fontSel = el11("select", { name: "font" });
+    for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el11("option", { value: f3, textContent: f3 }));
     fontSel.value = draft.fontAscii;
-    const sizeIn = el10("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
+    const sizeIn = el11("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
     sizeIn.style.width = "64px";
     const tog = (k2, icon, tip) => {
-      const b3 = el10("button", { type: "button", cls: "uo-btn", title: tip });
+      const b3 = el11("button", { type: "button", cls: "uo-btn", title: tip });
       b3.dataset["a"] = `dlg:${k2}`;
       b3.innerHTML = symbol(icon);
       const upd = () => {
@@ -10286,10 +10813,10 @@ var StylesUI = class {
       upd();
       return b3;
     };
-    const colorIn = el10("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+    const colorIn = el11("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
     colorIn.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
     const alignBtns = ["left", "center", "right", "both"].map((a3) => {
-      const b3 = el10("button", { type: "button", cls: "uo-btn", title: { left: L8.left, center: L8.center, right: L8.right, both: L8.justify }[a3] });
+      const b3 = el11("button", { type: "button", cls: "uo-btn", title: { left: L9.left, center: L9.center, right: L9.right, both: L9.justify }[a3] });
       b3.dataset["a"] = `dlg:align:${a3}`;
       b3.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
       b3.addEventListener("click", () => {
@@ -10301,14 +10828,14 @@ var StylesUI = class {
     });
     const syncAlign = () => alignBtns.forEach((b3, i5) => b3.classList.toggle("uo-on", ["left", "center", "right", "both"][i5] === draft.alignment));
     syncAlign();
-    const lineSel = el10("select", { name: "line" });
-    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el10("option", { value: String(v2), textContent: L8.lines[v2] }));
+    const lineSel = el11("select", { name: "line" });
+    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el11("option", { value: String(v2), textContent: L9.lines[v2] }));
     if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
-      lineSel.append(el10("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
+      lineSel.append(el11("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
     }
     lineSel.value = String(draft.lineTwentieths ?? 240);
     const num2 = (v2, step, name2) => {
-      const i5 = el10("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
+      const i5 = el11("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
       i5.style.width = "72px";
       return i5;
     };
@@ -10330,16 +10857,16 @@ var StylesUI = class {
       read();
       refresh();
     });
-    const formatBtn = el10("button", { type: "button", cls: "uo-pill", textContent: `${L8.format} \u25BE` });
+    const formatBtn = el11("button", { type: "button", cls: "uo-pill", textContent: `${L9.format} \u25BE` });
     formatBtn.dataset["a"] = "dlg:format";
     formatBtn.addEventListener("click", (e6) => {
       e6.stopPropagation();
       const r5 = formatBtn.getBoundingClientRect();
       openMenu([
-        { id: "dlg:format:font", icon: "text_format", label: L8.fontDots, onClick: () => {
+        { id: "dlg:format:font", icon: "text_format", label: L9.fontDots, onClick: () => {
           void this.fontSub(draft).then(refresh);
         } },
-        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L8.paraDots, disabled: kind === "character", onClick: () => {
+        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L9.paraDots, disabled: kind === "character", onClick: () => {
           void this.paraSub(draft).then(() => {
             syncAlign();
             beforeIn.value = String(ptOf2(draft.spaceBeforeTwips));
@@ -10353,13 +10880,13 @@ var StylesUI = class {
     });
     const cv = document.createElement("canvas");
     cv.className = "uw-style-prev";
-    const desc = el10("div", { cls: "uw-style-desc" });
-    const quick = el10("input", { type: "checkbox", checked: info?.quick ?? true });
-    const auto = el10("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
-    const msg = el10("div", { cls: "uw-style-msg" });
+    const desc = el11("div", { cls: "uw-style-desc" });
+    const quick = el11("input", { type: "checkbox", checked: info?.quick ?? true });
+    const auto = el11("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
+    const msg = el11("div", { cls: "uw-style-msg" });
     const refresh = () => {
       const look = lookOfDraft(draft, startLook);
-      drawPreview(cv, ed, look, L8, kind);
+      drawPreview(cv, ed, look, L9, kind);
       const fake = {
         id: id ?? "",
         name: nameIn.value.trim() || "\u2026",
@@ -10385,78 +10912,78 @@ var StylesUI = class {
       refresh();
     });
     for (const i5 of [baseSel, nextSel, quick, auto]) i5.addEventListener("change", refresh);
-    const grid2 = el10(
+    const grid2 = el11(
       "div",
       { cls: "uo-dialog-grid" },
-      el10("span", { textContent: L8.name }),
+      el11("span", { textContent: L9.name }),
       nameIn,
-      el10("span", { textContent: L8.type }),
+      el11("span", { textContent: L9.type }),
       typeSel,
-      el10("span", { textContent: L8.basedOn }),
+      el11("span", { textContent: L9.basedOn }),
       baseSel,
-      el10("span", { textContent: L8.next }),
+      el11("span", { textContent: L9.next }),
       nextSel
     );
-    const fmtRow1 = el10(
+    const fmtRow1 = el11(
       "div",
       { cls: "uw-style-fmt" },
       fontSel,
       sizeIn,
-      tog("bold", "format_bold", L8.bold),
-      tog("italic", "format_italic", L8.italic),
-      tog("underline", "format_underlined", L8.underline),
+      tog("bold", "format_bold", L9.bold),
+      tog("italic", "format_italic", L9.italic),
+      tog("underline", "format_underlined", L9.underline),
       colorIn
     );
-    const fmtRow2 = el10("div", { cls: "uw-style-fmt" }, ...alignBtns, el10("span", { textContent: L8.lineSpacing }), lineSel);
-    const fmtRow3 = el10(
+    const fmtRow2 = el11("div", { cls: "uw-style-fmt" }, ...alignBtns, el11("span", { textContent: L9.lineSpacing }), lineSel);
+    const fmtRow3 = el11(
       "div",
       { cls: "uw-style-fmt" },
-      el10("span", { textContent: L8.before }),
+      el11("span", { textContent: L9.before }),
       beforeIn,
-      el10("span", { textContent: L8.after }),
+      el11("span", { textContent: L9.after }),
       afterIn,
-      el10("span", { textContent: L8.indentLeft }),
+      el11("span", { textContent: L9.indentLeft }),
       indentIn
     );
-    const checks = el10(
+    const checks = el11(
       "div",
       { cls: "uw-style-checks" },
-      el10("label", { cls: "uo-check" }, quick, L8.addToGallery),
-      el10("label", { cls: "uo-check" }, auto, L8.autoUpdate)
+      el11("label", { cls: "uo-check" }, quick, L9.addToGallery),
+      el11("label", { cls: "uo-check" }, auto, L9.autoUpdate)
     );
-    const body = el10(
+    const body = el11(
       "div",
       { cls: "uw-style-dlg" },
-      el10("strong", { textContent: L8.properties }),
+      el11("strong", { textContent: L9.properties }),
       grid2,
-      el10("strong", { textContent: L8.formatting }),
+      el11("strong", { textContent: L9.formatting }),
       fmtRow1,
       fmtRow2,
       fmtRow3,
       cv,
       desc,
       checks,
-      el10("div", {}, formatBtn),
+      el11("div", {}, formatBtn),
       msg
     );
     refresh();
     const h3 = openDialog({
-      title: mode === "new" ? L8.newStyleTitle : L8.modifyTitle,
+      title: mode === "new" ? L9.newStyleTitle : L9.modifyTitle,
       body,
       layer: env.layer,
       lang: env.lang,
       width: 560,
-      actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }],
+      actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }],
       onAction: (a3) => {
         if (a3 !== "ok") return true;
         read();
         const name2 = nameIn.value.trim();
         if (!name2) {
-          msg.textContent = L8.empty;
+          msg.textContent = L9.empty;
           return false;
         }
         if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
-          msg.textContent = L8.nameTaken;
+          msg.textContent = L9.nameTaken;
           return false;
         }
         return true;
@@ -10483,79 +11010,79 @@ var StylesUI = class {
   }
   /** Formatar › Fonte… (rascunho do estilo). */
   async fontSub(d3) {
-    const L8 = this.L;
+    const L9 = this.L;
     const box = (k2, label) => {
-      const i5 = el10("input", { type: "checkbox", checked: !!d3[k2] });
+      const i5 = el11("input", { type: "checkbox", checked: !!d3[k2] });
       i5.name = k2;
-      return el10("label", { cls: "uo-check" }, i5, label);
+      return el11("label", { cls: "uo-check" }, i5, label);
     };
-    const spacing = el10("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf2(d3.charSpacingTwips)) });
-    const body = el10(
+    const spacing = el11("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf2(d3.charSpacingTwips)) });
+    const body = el11(
       "div",
       { cls: "uw-style-sub" },
-      el10(
+      el11(
         "div",
         { cls: "uw-style-fx" },
-        box("bold", L8.bold),
-        box("italic", L8.italic),
-        box("underline", L8.underline),
-        box("strike", L8.strike),
-        box("allCaps", L8.caps),
-        box("smallCaps", L8.smallCaps)
+        box("bold", L9.bold),
+        box("italic", L9.italic),
+        box("underline", L9.underline),
+        box("strike", L9.strike),
+        box("allCaps", L9.caps),
+        box("smallCaps", L9.smallCaps)
       ),
-      el10("label", { cls: "uo-field" }, el10("span", { textContent: `${L8.charSpacing} (pt)` }), spacing)
+      el11("label", { cls: "uo-field" }, el11("span", { textContent: `${L9.charSpacing} (pt)` }), spacing)
     );
-    const h3 = openDialog({ title: L8.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }] });
+    const h3 = openDialog({ title: L9.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }] });
     if (await h3.result !== "ok") return;
     for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
     d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
   }
   /** Formatar › Parágrafo… (recuos à direita e especial). */
   async paraSub(d3) {
-    const L8 = this.L;
-    const right = el10("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
-    const special = el10("select", { name: "special" });
-    for (const [k2, t5] of [["none", L8.none], ["firstLine", L8.firstLine], ["hanging", L8.hanging]]) special.append(el10("option", { value: k2, textContent: t5 }));
+    const L9 = this.L;
+    const right = el11("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
+    const special = el11("select", { name: "special" });
+    for (const [k2, t5] of [["none", L9.none], ["firstLine", L9.firstLine], ["hanging", L9.hanging]]) special.append(el11("option", { value: k2, textContent: t5 }));
     special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
-    const by = el10("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
-    const body = el10(
+    const by = el11("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
+    const body = el11(
       "div",
       { cls: "uo-dialog-grid" },
-      el10("span", { textContent: L8.indentRight }),
+      el11("span", { textContent: L9.indentRight }),
       right,
-      el10("span", { textContent: L8.special }),
+      el11("span", { textContent: L9.special }),
       special,
-      el10("span", { textContent: L8.by }),
+      el11("span", { textContent: L9.by }),
       by
     );
-    const h3 = openDialog({ title: L8.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }] });
+    const h3 = openDialog({ title: L9.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }] });
     if (await h3.result !== "ok") return;
     d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
     const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
     d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
   }
   async rename(s4) {
-    const L8 = this.L;
-    const v2 = await promptDialog({ title: L8.renameTitle, label: L8.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+    const L9 = this.L;
+    const v2 = await promptDialog({ title: L9.renameTitle, label: L9.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
     if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
-    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L8.nameTaken);
+    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L9.nameTaken);
     this.env.after();
   }
   async remove(s4) {
-    const L8 = this.L;
+    const L9 = this.L;
     const h3 = openDialog({
-      title: L8.del(s4.name).replace(/…$/, ""),
-      body: L8.delConfirm(s4.name),
+      title: L9.del(s4.name).replace(/…$/, ""),
+      body: L9.delConfirm(s4.name),
       layer: this.env.layer,
       lang: this.env.lang,
       icon: "delete",
-      actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.delete, primary: true }]
+      actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.delete, primary: true }]
     });
     if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
     this.env.after();
   }
 };
-function drawPreview(cv, ed, look, L8, kind) {
+function drawPreview(cv, ed, look, L9, kind) {
   const W = 508, H2 = 96;
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   cv.width = W * dpr;
@@ -10569,13 +11096,13 @@ function drawPreview(cv, ed, look, L8, kind) {
   c4.fillRect(0, 0, W, H2);
   c4.fillStyle = "#a0a0a0";
   c4.font = "9px sans-serif";
-  c4.fillText(L8.prevPara, 8, 14);
+  c4.fillText(L9.prevPara, 8, 14);
   const inner = document.createElement("canvas");
-  drawSample(inner, ed, look, { text: kind === "character" ? L8.sample.split(" ").slice(0, 4).join(" ") : L8.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  drawSample(inner, ed, look, { text: kind === "character" ? L9.sample.split(" ").slice(0, 4).join(" ") : L9.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
   c4.drawImage(inner, 8, 22, W - 16, 46);
   c4.fillStyle = "#a0a0a0";
   c4.font = "9px sans-serif";
-  c4.fillText(L8.prevPara, 8, 84);
+  c4.fillText(L9.prevPara, 8, 84);
 }
 
 // src/chrome.ts
@@ -11118,6 +11645,9 @@ var WriteChrome = class {
         const dlg = { pageNumbers: pageNumberFormatDialog, dateTime: dateTimeDialog, alignTab: alignTabDialog, options: hfOptionsDialog }[kind];
         void dlg(d3()).then(() => this.after());
       },
+      pageBgDialog: (kind) => {
+        void (kind === "fill" ? pageFillDialog : watermarkDialog)(d3()).then(() => this.after());
+      },
       pictureDialogOpen: (kind) => kind === "selection" ? !!this.pictures?.selectionOpen : kind === "alt" ? !!this.pictures?.altOpen : kind.startsWith("format:") ? !!this.pictures?.formatOpen : false,
       pictureDialog: (kind) => {
         if (kind === "alt") this.pictures?.toggleAlt();
@@ -11214,22 +11744,22 @@ var WriteChrome = class {
   }
   // ───── Modo Protegido ─────
   makeProtectedBar() {
-    const el11 = document.createElement("div");
-    el11.className = "uw-protbar";
-    el11.setAttribute("part", "protected-bar");
-    el11.setAttribute("role", "alert");
-    el11.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+    const el12 = document.createElement("div");
+    el12.className = "uw-protbar";
+    el12.setAttribute("part", "protected-bar");
+    el12.setAttribute("role", "alert");
+    el12.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
       <span><b></b> \u2014 </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-    el11.querySelector("b").textContent = this.L.protectedTitle;
-    el11.querySelector("span").append(this.L.protectedText);
-    const b3 = el11.querySelector("button");
+    el12.querySelector("b").textContent = this.L.protectedTitle;
+    el12.querySelector("span").append(this.L.protectedText);
+    const b3 = el12.querySelector("button");
     b3.textContent = this.L.enableEditing;
     b3.addEventListener("click", () => {
       this.app.enableEditing();
       this.after();
     });
-    el11.hidden = true;
-    return el11;
+    el12.hidden = true;
+    return el12;
   }
   // ───── localizar ─────
   openFind(replace) {
@@ -11286,7 +11816,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-6Q7B3W7A.js");
+    await import("./src-F75Y4OOR.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");

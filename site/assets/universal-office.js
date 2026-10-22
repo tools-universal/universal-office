@@ -558,40 +558,40 @@ var init_browser = __esm({
         if (t22[i7].s > maxSym)
           maxSym = t22[i7].s;
       }
-      var tr7 = new u16(maxSym + 1);
-      var mbt = ln(t6[i1 - 1], tr7, 0);
+      var tr8 = new u16(maxSym + 1);
+      var mbt = ln(t6[i1 - 1], tr8, 0);
       if (mbt > mb) {
         var i7 = 0, dt = 0;
         var lft = mbt - mb, cst = 1 << lft;
         t22.sort(function(a3, b5) {
-          return tr7[b5.s] - tr7[a3.s] || a3.f - b5.f;
+          return tr8[b5.s] - tr8[a3.s] || a3.f - b5.f;
         });
         for (; i7 < s4; ++i7) {
           var i2_1 = t22[i7].s;
-          if (tr7[i2_1] > mb) {
-            dt += cst - (1 << mbt - tr7[i2_1]);
-            tr7[i2_1] = mb;
+          if (tr8[i2_1] > mb) {
+            dt += cst - (1 << mbt - tr8[i2_1]);
+            tr8[i2_1] = mb;
           } else
             break;
         }
         dt >>= lft;
         while (dt > 0) {
           var i2_2 = t22[i7].s;
-          if (tr7[i2_2] < mb)
-            dt -= 1 << mb - tr7[i2_2]++ - 1;
+          if (tr8[i2_2] < mb)
+            dt -= 1 << mb - tr8[i2_2]++ - 1;
           else
             ++i7;
         }
         for (; i7 >= 0 && dt; --i7) {
           var i2_3 = t22[i7].s;
-          if (tr7[i2_3] == mb) {
-            --tr7[i2_3];
+          if (tr8[i2_3] == mb) {
+            --tr8[i2_3];
             ++dt;
           }
         }
         mbt = mb;
       }
-      return { t: new u8(tr7), l: mbt };
+      return { t: new u8(tr8), l: mbt };
     };
     ln = function(n5, l3, d3) {
       return n5.s == -1 ? Math.max(ln(n5.l, l3, d3 + 1), ln(n5.r, l3, d3 + 1)) : l3[n5.s] = d3;
@@ -1243,15 +1243,15 @@ function parseXml(xml, opts = {}) {
         if (xml[i7 + 1] !== ">") error("esperava />");
         i7 += 2;
         scope();
-        const el13 = { name, attrs: attrs3, children: [] };
-        if (RAW_CAPTURE.has(name)) el13.raw = xml.slice(elStart, i7);
+        const el14 = { name, attrs: attrs3, children: [] };
+        if (RAW_CAPTURE.has(name)) el14.raw = xml.slice(elStart, i7);
         if (pos) {
-          el13.s = elStart;
-          el13.cs = i7;
-          el13.ce = i7;
-          el13.e = i7;
+          el14.s = elStart;
+          el14.cs = i7;
+          el14.ce = i7;
+          el14.e = i7;
         }
-        return el13;
+        return el14;
       }
       if (xml[i7] === ">") {
         i7++;
@@ -1283,15 +1283,15 @@ function parseXml(xml, opts = {}) {
         const contentEnd = i7;
         const close = xml.indexOf(">", i7);
         i7 = close + 1;
-        const el13 = { name, attrs: attrs3, children: children2 };
-        if (RAW_CAPTURE.has(name)) el13.raw = xml.slice(elStart, i7);
+        const el14 = { name, attrs: attrs3, children: children2 };
+        if (RAW_CAPTURE.has(name)) el14.raw = xml.slice(elStart, i7);
         if (pos) {
-          el13.s = elStart;
-          el13.cs = contentStart;
-          el13.ce = contentEnd;
-          el13.e = i7;
+          el14.s = elStart;
+          el14.cs = contentStart;
+          el14.ce = contentEnd;
+          el14.e = i7;
         }
-        return el13;
+        return el14;
       }
       if (xml.startsWith("<!--", i7)) {
         i7 = xml.indexOf("-->", i7) + 3;
@@ -1317,17 +1317,17 @@ function parseXml(xml, opts = {}) {
   const root = parseElement(NO_RENAMES);
   return root;
 }
-function childElements(el13, name) {
-  return el13.children.filter(
+function childElements(el14, name) {
+  return el14.children.filter(
     (c5) => typeof c5 !== "string" && (name === void 0 || c5.name === name)
   );
 }
-function firstChild(el13, name) {
-  return childElements(el13, name)[0];
+function firstChild(el14, name) {
+  return childElements(el14, name)[0];
 }
-function textContent(el13) {
+function textContent(el14) {
   let out = "";
-  for (const c5 of el13.children) {
+  for (const c5 of el14.children) {
     out += typeof c5 === "string" ? c5 : textContent(c5);
   }
   return out;
@@ -1426,11 +1426,11 @@ var init_fonts = __esm({
 });
 
 // ../docx-core/src/ooxml/props.ts
-function readRevisionInfo(el13) {
-  const info = { author: el13.attrs["w:author"] ?? "" };
-  if (el13.attrs["w:date"]) info.date = el13.attrs["w:date"];
-  if (el13.attrs["w16du:dateUtc"]) info.dateUtc = el13.attrs["w16du:dateUtc"];
-  if (el13.name === "w:moveFrom" || el13.name === "w:moveTo") info.move = true;
+function readRevisionInfo(el14) {
+  const info = { author: el14.attrs["w:author"] ?? "" };
+  if (el14.attrs["w:date"]) info.date = el14.attrs["w:date"];
+  if (el14.attrs["w16du:dateUtc"]) info.dateUtc = el14.attrs["w16du:dateUtc"];
+  if (el14.name === "w:moveFrom" || el14.name === "w:moveTo") info.move = true;
   return info;
 }
 function measureTwips(v2) {
@@ -1454,46 +1454,46 @@ function measureTwips(v2) {
       return Math.round(n5);
   }
 }
-function onOffVal(el13) {
-  const v2 = el13.attrs["w:val"];
+function onOffVal(el14) {
+  const v2 = el14.attrs["w:val"];
   return !(v2 === "0" || v2 === "false" || v2 === "off" || v2 === "none");
 }
-function colorOf(el13) {
+function colorOf(el14) {
   const c5 = {};
-  if (el13.attrs["w:val"] !== void 0) c5.val = el13.attrs["w:val"];
-  if (el13.attrs["w:themeColor"]) c5.themeColor = el13.attrs["w:themeColor"];
-  if (el13.attrs["w:themeTint"]) c5.themeTint = el13.attrs["w:themeTint"];
-  if (el13.attrs["w:themeShade"]) c5.themeShade = el13.attrs["w:themeShade"];
+  if (el14.attrs["w:val"] !== void 0) c5.val = el14.attrs["w:val"];
+  if (el14.attrs["w:themeColor"]) c5.themeColor = el14.attrs["w:themeColor"];
+  if (el14.attrs["w:themeTint"]) c5.themeTint = el14.attrs["w:themeTint"];
+  if (el14.attrs["w:themeShade"]) c5.themeShade = el14.attrs["w:themeShade"];
   return c5;
 }
-function readBorder(el13) {
-  if (!el13) return void 0;
-  const b5 = { val: el13.attrs["w:val"] ?? "single" };
-  const sz = int(el13.attrs["w:sz"]);
+function readBorder(el14) {
+  if (!el14) return void 0;
+  const b5 = { val: el14.attrs["w:val"] ?? "single" };
+  const sz = int(el14.attrs["w:sz"]);
   if (sz !== void 0) b5.sz = sz;
-  const space = int(el13.attrs["w:space"]);
+  const space = int(el14.attrs["w:space"]);
   if (space !== void 0) b5.space = space;
-  if (el13.attrs["w:color"]) b5.color = el13.attrs["w:color"];
-  if (el13.attrs["w:themeColor"]) b5.themeColor = el13.attrs["w:themeColor"];
-  if (el13.attrs["w:themeTint"]) b5.themeTint = el13.attrs["w:themeTint"];
-  if (el13.attrs["w:themeShade"]) b5.themeShade = el13.attrs["w:themeShade"];
-  if (el13.attrs["w:shadow"] !== void 0) b5.shadow = onOffAttr(el13.attrs["w:shadow"]);
-  if (el13.attrs["w:frame"] !== void 0) b5.frame = onOffAttr(el13.attrs["w:frame"]);
+  if (el14.attrs["w:color"]) b5.color = el14.attrs["w:color"];
+  if (el14.attrs["w:themeColor"]) b5.themeColor = el14.attrs["w:themeColor"];
+  if (el14.attrs["w:themeTint"]) b5.themeTint = el14.attrs["w:themeTint"];
+  if (el14.attrs["w:themeShade"]) b5.themeShade = el14.attrs["w:themeShade"];
+  if (el14.attrs["w:shadow"] !== void 0) b5.shadow = onOffAttr(el14.attrs["w:shadow"]);
+  if (el14.attrs["w:frame"] !== void 0) b5.frame = onOffAttr(el14.attrs["w:frame"]);
   return b5;
 }
-function readShading(el13) {
-  if (!el13) return void 0;
+function readShading(el14) {
+  if (!el14) return void 0;
   const s4 = {};
   for (const k2 of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
-    const v2 = el13.attrs[`w:${k2}`];
+    const v2 = el14.attrs[`w:${k2}`];
     if (v2 !== void 0) s4[k2] = v2;
   }
   return s4;
 }
-function readWidth(el13) {
-  if (!el13) return void 0;
-  const type = el13.attrs["w:type"] ?? "dxa";
-  const raw = el13.attrs["w:w"] ?? "0";
+function readWidth(el14) {
+  if (!el14) return void 0;
+  const type = el14.attrs["w:type"] ?? "dxa";
+  const raw = el14.attrs["w:w"] ?? "0";
   let w2;
   if (raw.endsWith("%")) w2 = Math.round(parseFloat(raw) * 50);
   else w2 = type === "dxa" ? measureTwips(raw) ?? 0 : int(raw) ?? 0;
@@ -1502,83 +1502,83 @@ function readWidth(el13) {
 function readRPr(rPr) {
   if (!rPr) return void 0;
   const p3 = {};
-  for (const el13 of childElements(rPr)) {
-    const val3 = el13.attrs["w:val"];
-    switch (el13.name) {
+  for (const el14 of childElements(rPr)) {
+    const val3 = el14.attrs["w:val"];
+    switch (el14.name) {
       case "w:rStyle":
         if (val3) p3.rStyle = val3;
         break;
       case "w:rFonts": {
         const f3 = {};
         for (const k2 of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
-          const v2 = el13.attrs[`w:${k2}`];
+          const v2 = el14.attrs[`w:${k2}`];
           if (v2 !== void 0) f3[k2] = v2;
         }
         p3.rFonts = f3;
         break;
       }
       case "w:b":
-        p3.b = onOffVal(el13);
+        p3.b = onOffVal(el14);
         break;
       case "w:bCs":
-        p3.bCs = onOffVal(el13);
+        p3.bCs = onOffVal(el14);
         break;
       case "w:i":
-        p3.i = onOffVal(el13);
+        p3.i = onOffVal(el14);
         break;
       case "w:iCs":
-        p3.iCs = onOffVal(el13);
+        p3.iCs = onOffVal(el14);
         break;
       case "w:caps":
-        p3.caps = onOffVal(el13);
+        p3.caps = onOffVal(el14);
         break;
       case "w:smallCaps":
-        p3.smallCaps = onOffVal(el13);
+        p3.smallCaps = onOffVal(el14);
         break;
       case "w:strike":
-        p3.strike = onOffVal(el13);
+        p3.strike = onOffVal(el14);
         break;
       case "w:dstrike":
-        p3.dstrike = onOffVal(el13);
+        p3.dstrike = onOffVal(el14);
         break;
       case "w:outline":
-        p3.outline = onOffVal(el13);
+        p3.outline = onOffVal(el14);
         break;
       case "w:shadow":
-        p3.shadow = onOffVal(el13);
+        p3.shadow = onOffVal(el14);
         break;
       case "w:emboss":
-        p3.emboss = onOffVal(el13);
+        p3.emboss = onOffVal(el14);
         break;
       case "w:imprint":
-        p3.imprint = onOffVal(el13);
+        p3.imprint = onOffVal(el14);
         break;
       case "w:vanish":
-        p3.vanish = onOffVal(el13);
+        p3.vanish = onOffVal(el14);
         break;
       case "w:specVanish":
-        p3.specVanish = onOffVal(el13);
+        p3.specVanish = onOffVal(el14);
         break;
       case "w:webHidden":
-        p3.webHidden = onOffVal(el13);
+        p3.webHidden = onOffVal(el14);
         break;
       case "w:noProof":
-        p3.noProof = onOffVal(el13);
+        p3.noProof = onOffVal(el14);
         break;
       case "w:snapToGrid":
-        p3.snapToGrid = onOffVal(el13);
+        p3.snapToGrid = onOffVal(el14);
         break;
       case "w:rtl":
-        p3.rtl = onOffVal(el13);
+        p3.rtl = onOffVal(el14);
         break;
       case "w:cs":
-        p3.cs = onOffVal(el13);
+        p3.cs = onOffVal(el14);
         break;
       case "w:color":
-        p3.color = colorOf(el13);
+        p3.color = colorOf(el14);
         break;
       case "w14:textFill": {
-        const solid = firstChild(el13, "w14:solidFill");
+        const solid = firstChild(el14, "w14:solidFill");
         const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
         if (clr) {
           const tf = {};
@@ -1588,22 +1588,22 @@ function readRPr(rPr) {
           const a3 = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
           if (a3 !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a3, 10) || 0) / 1e5);
           p3.textFill = tf;
-        } else if (firstChild(el13, "w14:noFill")) p3.textFill = { alpha: 0 };
+        } else if (firstChild(el14, "w14:noFill")) p3.textFill = { alpha: 0 };
         break;
       }
       case "w14:ligatures":
-        p3.ligatures = el13.attrs["w14:val"] ?? "standard";
+        p3.ligatures = el14.attrs["w14:val"] ?? "standard";
         break;
       case "w:rPrChange":
-        p3.change = { ...readRevisionInfo(el13), rPr: readRPr(firstChild(el13, "w:rPr")) ?? {} };
+        p3.change = { ...readRevisionInfo(el14), rPr: readRPr(firstChild(el14, "w:rPr")) ?? {} };
         break;
       case "w14:shadow": {
-        const emu = (k2) => (parseInt(el13.attrs[k2] ?? "0", 10) || 0) / 12700;
-        p3.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el13.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
+        const emu = (k2) => (parseInt(el14.attrs[k2] ?? "0", 10) || 0) / 12700;
+        p3.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el14.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
         break;
       }
       case "w14:textOutline":
-        p3.textOutline = !firstChild(el13, "w14:noFill") && !!(firstChild(el13, "w14:solidFill") ?? firstChild(el13, "w14:gradFill"));
+        p3.textOutline = !firstChild(el14, "w14:noFill") && !!(firstChild(el14, "w14:solidFill") ?? firstChild(el14, "w14:gradFill"));
         break;
       case "w:spacing": {
         const n5 = measureTwips(val3);
@@ -1640,8 +1640,8 @@ function readRPr(rPr) {
         break;
       case "w:u": {
         const u3 = { val: val3 ?? "single" };
-        if (el13.attrs["w:color"]) u3.color = el13.attrs["w:color"];
-        if (el13.attrs["w:themeColor"]) u3.themeColor = el13.attrs["w:themeColor"];
+        if (el14.attrs["w:color"]) u3.color = el14.attrs["w:color"];
+        if (el14.attrs["w:themeColor"]) u3.themeColor = el14.attrs["w:themeColor"];
         p3.u = u3;
         break;
       }
@@ -1649,10 +1649,10 @@ function readRPr(rPr) {
         if (val3) p3.effect = val3;
         break;
       case "w:bdr":
-        p3.bdr = readBorder(el13);
+        p3.bdr = readBorder(el14);
         break;
       case "w:shd":
-        p3.shd = readShading(el13);
+        p3.shd = readShading(el14);
         break;
       case "w:vertAlign":
         if (val3 === "superscript" || val3 === "subscript" || val3 === "baseline") p3.vertAlign = val3;
@@ -1662,9 +1662,9 @@ function readRPr(rPr) {
         break;
       case "w:lang": {
         const l3 = {};
-        if (el13.attrs["w:val"]) l3.val = el13.attrs["w:val"];
-        if (el13.attrs["w:eastAsia"]) l3.eastAsia = el13.attrs["w:eastAsia"];
-        if (el13.attrs["w:bidi"]) l3.bidi = el13.attrs["w:bidi"];
+        if (el14.attrs["w:val"]) l3.val = el14.attrs["w:val"];
+        if (el14.attrs["w:eastAsia"]) l3.eastAsia = el14.attrs["w:eastAsia"];
+        if (el14.attrs["w:bidi"]) l3.bidi = el14.attrs["w:bidi"];
         p3.lang = l3;
         break;
       }
@@ -1672,11 +1672,11 @@ function readRPr(rPr) {
   }
   return p3;
 }
-function readPBdr(el13) {
-  if (!el13) return void 0;
+function readPBdr(el14) {
+  if (!el14) return void 0;
   const b5 = {};
   for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
-    const e8 = readBorder(firstChild(el13, `w:${side}`) ?? (side === "left" ? firstChild(el13, "w:start") : side === "right" ? firstChild(el13, "w:end") : void 0));
+    const e8 = readBorder(firstChild(el14, `w:${side}`) ?? (side === "left" ? firstChild(el14, "w:start") : side === "right" ? firstChild(el14, "w:end") : void 0));
     if (e8) b5[side] = e8;
   }
   return b5;
@@ -1684,62 +1684,62 @@ function readPBdr(el13) {
 function readPPr(pPr) {
   if (!pPr) return void 0;
   const p3 = {};
-  for (const el13 of childElements(pPr)) {
-    const val3 = el13.attrs["w:val"];
-    switch (el13.name) {
+  for (const el14 of childElements(pPr)) {
+    const val3 = el14.attrs["w:val"];
+    switch (el14.name) {
       case "w:pStyle":
         if (val3) p3.pStyle = val3;
         break;
       case "w:keepNext":
-        p3.keepNext = onOffVal(el13);
+        p3.keepNext = onOffVal(el14);
         break;
       case "w:keepLines":
-        p3.keepLines = onOffVal(el13);
+        p3.keepLines = onOffVal(el14);
         break;
       case "w:pageBreakBefore":
-        p3.pageBreakBefore = onOffVal(el13);
+        p3.pageBreakBefore = onOffVal(el14);
         break;
       case "w:widowControl":
-        p3.widowControl = onOffVal(el13);
+        p3.widowControl = onOffVal(el14);
         break;
       case "w:suppressLineNumbers":
-        p3.suppressLineNumbers = onOffVal(el13);
+        p3.suppressLineNumbers = onOffVal(el14);
         break;
       case "w:suppressAutoHyphens":
-        p3.suppressAutoHyphens = onOffVal(el13);
+        p3.suppressAutoHyphens = onOffVal(el14);
         break;
       case "w:kinsoku":
-        p3.kinsoku = onOffVal(el13);
+        p3.kinsoku = onOffVal(el14);
         break;
       case "w:wordWrap":
-        p3.wordWrap = onOffVal(el13);
+        p3.wordWrap = onOffVal(el14);
         break;
       case "w:overflowPunct":
-        p3.overflowPunct = onOffVal(el13);
+        p3.overflowPunct = onOffVal(el14);
         break;
       case "w:autoSpaceDE":
-        p3.autoSpaceDE = onOffVal(el13);
+        p3.autoSpaceDE = onOffVal(el14);
         break;
       case "w:autoSpaceDN":
-        p3.autoSpaceDN = onOffVal(el13);
+        p3.autoSpaceDN = onOffVal(el14);
         break;
       case "w:bidi":
-        p3.bidi = onOffVal(el13);
+        p3.bidi = onOffVal(el14);
         break;
       case "w:adjustRightInd":
-        p3.adjustRightInd = onOffVal(el13);
+        p3.adjustRightInd = onOffVal(el14);
         break;
       case "w:snapToGrid":
-        p3.snapToGrid = onOffVal(el13);
+        p3.snapToGrid = onOffVal(el14);
         break;
       case "w:contextualSpacing":
-        p3.contextualSpacing = onOffVal(el13);
+        p3.contextualSpacing = onOffVal(el14);
         break;
       case "w:mirrorIndents":
-        p3.mirrorIndents = onOffVal(el13);
+        p3.mirrorIndents = onOffVal(el14);
         break;
       case "w:suppressOverlap":
-        p3.suppressOverlap = onOffVal(el13);
+        p3.suppressOverlap = onOffVal(el14);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
@@ -1754,22 +1754,22 @@ function readPPr(pPr) {
       }
       case "w:numPr": {
         const numPr = {};
-        const numId = int(firstChild(el13, "w:numId")?.attrs["w:val"]);
-        const ilvl = int(firstChild(el13, "w:ilvl")?.attrs["w:val"]);
+        const numId = int(firstChild(el14, "w:numId")?.attrs["w:val"]);
+        const ilvl = int(firstChild(el14, "w:ilvl")?.attrs["w:val"]);
         if (numId !== void 0) numPr.numId = numId;
         if (ilvl !== void 0) numPr.ilvl = ilvl;
         p3.numPr = numPr;
         break;
       }
       case "w:pBdr":
-        p3.pBdr = readPBdr(el13);
+        p3.pBdr = readPBdr(el14);
         break;
       case "w:shd":
-        p3.shd = readShading(el13);
+        p3.shd = readShading(el14);
         break;
       case "w:tabs": {
         const tabs = [];
-        for (const t6 of childElements(el13, "w:tab")) {
+        for (const t6 of childElements(el14, "w:tab")) {
           let v2 = t6.attrs["w:val"] ?? "left";
           if (v2 === "start") v2 = "left";
           if (v2 === "end") v2 = "right";
@@ -1786,7 +1786,7 @@ function readPPr(pPr) {
       }
       case "w:spacing": {
         const s4 = {};
-        const a3 = el13.attrs;
+        const a3 = el14.attrs;
         const before = measureTwips(a3["w:before"]);
         if (before !== void 0) s4.before = before;
         const after = measureTwips(a3["w:after"]);
@@ -1806,7 +1806,7 @@ function readPPr(pPr) {
       }
       case "w:ind": {
         const s4 = {};
-        const a3 = el13.attrs;
+        const a3 = el14.attrs;
         const left = measureTwips(a3["w:left"] ?? a3["w:start"]);
         if (left !== void 0) s4.left = left;
         const right = measureTwips(a3["w:right"] ?? a3["w:end"]);
@@ -1823,7 +1823,7 @@ function readPPr(pPr) {
         break;
       }
       case "w:framePr": {
-        const a3 = el13.attrs;
+        const a3 = el14.attrs;
         const f3 = {};
         const dc = a3["w:dropCap"];
         if (dc === "none" || dc === "drop" || dc === "margin") f3.dropCap = dc;
@@ -1841,8 +1841,8 @@ function readPPr(pPr) {
         break;
       }
       case "w:rPr":
-        p3.rPr = readRPr(el13);
-        for (const c5 of childElements(el13)) {
+        p3.rPr = readRPr(el14);
+        for (const c5 of childElements(el14)) {
           if (c5.name === "w:del" || c5.name === "w:moveFrom") {
             p3.markDeleted = true;
             p3.markDel = readRevisionInfo(c5);
@@ -1850,14 +1850,14 @@ function readPPr(pPr) {
         }
         break;
       case "w:pPrChange":
-        p3.change = { ...readRevisionInfo(el13), pPr: readPPr(firstChild(el13, "w:pPr")) ?? {} };
+        p3.change = { ...readRevisionInfo(el14), pPr: readPPr(firstChild(el14, "w:pPr")) ?? {} };
         break;
     }
   }
   return p3;
 }
-function readBorders(el13) {
-  if (!el13) return void 0;
+function readBorders(el14) {
+  if (!el14) return void 0;
   const b5 = {};
   const map = [
     ["top", ["w:top"]],
@@ -1871,7 +1871,7 @@ function readBorders(el13) {
   ];
   for (const [k2, names] of map) {
     for (const n5 of names) {
-      const e8 = readBorder(firstChild(el13, n5));
+      const e8 = readBorder(firstChild(el14, n5));
       if (e8) {
         b5[k2] = e8;
         break;
@@ -1880,30 +1880,30 @@ function readBorders(el13) {
   }
   return b5;
 }
-function readCellMar(el13) {
-  if (!el13) return void 0;
+function readCellMar(el14) {
+  if (!el14) return void 0;
   const m2 = {};
-  const t6 = readWidth(firstChild(el13, "w:top"));
+  const t6 = readWidth(firstChild(el14, "w:top"));
   if (t6) m2.top = t6;
-  const l3 = readWidth(firstChild(el13, "w:left") ?? firstChild(el13, "w:start"));
+  const l3 = readWidth(firstChild(el14, "w:left") ?? firstChild(el14, "w:start"));
   if (l3) m2.left = l3;
-  const b5 = readWidth(firstChild(el13, "w:bottom"));
+  const b5 = readWidth(firstChild(el14, "w:bottom"));
   if (b5) m2.bottom = b5;
-  const r6 = readWidth(firstChild(el13, "w:right") ?? firstChild(el13, "w:end"));
+  const r6 = readWidth(firstChild(el14, "w:right") ?? firstChild(el14, "w:end"));
   if (r6) m2.right = r6;
   return m2;
 }
 function readTblPr(tblPr) {
   if (!tblPr) return void 0;
   const p3 = {};
-  for (const el13 of childElements(tblPr)) {
-    const val3 = el13.attrs["w:val"];
-    switch (el13.name) {
+  for (const el14 of childElements(tblPr)) {
+    const val3 = el14.attrs["w:val"];
+    switch (el14.name) {
       case "w:tblStyle":
         if (val3) p3.tblStyle = val3;
         break;
       case "w:tblpPr": {
-        const a3 = el13.attrs;
+        const a3 = el14.attrs;
         const t6 = {};
         for (const k2 of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
           const n5 = measureTwips(a3[`w:${k2}`]);
@@ -1922,7 +1922,7 @@ function readTblPr(tblPr) {
         if (val3) p3.tblOverlap = val3;
         break;
       case "w:bidiVisual":
-        p3.bidiVisual = onOffVal(el13);
+        p3.bidiVisual = onOffVal(el14);
         break;
       case "w:tblStyleRowBandSize": {
         const n5 = int(val3);
@@ -1935,25 +1935,25 @@ function readTblPr(tblPr) {
         break;
       }
       case "w:tblW":
-        p3.tblW = readWidth(el13);
+        p3.tblW = readWidth(el14);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
         break;
       case "w:tblCellSpacing":
-        p3.tblCellSpacing = readWidth(el13);
+        p3.tblCellSpacing = readWidth(el14);
         break;
       case "w:tblInd":
-        p3.tblInd = readWidth(el13);
+        p3.tblInd = readWidth(el14);
         break;
       case "w:tblBorders":
-        p3.tblBorders = readBorders(el13);
+        p3.tblBorders = readBorders(el14);
         break;
       case "w:shd":
-        p3.shd = readShading(el13);
+        p3.shd = readShading(el14);
         break;
       case "w:tblLayout":
-        p3.tblLayout = el13.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        p3.tblLayout = el14.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
         break;
       case "w:tblCaption":
         if (val3 !== void 0) p3.tblCaption = val3;
@@ -1962,10 +1962,10 @@ function readTblPr(tblPr) {
         if (val3 !== void 0) p3.tblDescription = val3;
         break;
       case "w:tblCellMar":
-        p3.tblCellMar = readCellMar(el13);
+        p3.tblCellMar = readCellMar(el14);
         break;
       case "w:tblLook": {
-        const a3 = el13.attrs;
+        const a3 = el14.attrs;
         const look = {};
         const hex2 = parseInt(a3["w:val"] ?? "", 16);
         if (Number.isFinite(hex2)) {
@@ -1989,9 +1989,9 @@ function readTblPr(tblPr) {
 function readTrPr(trPr) {
   if (!trPr) return void 0;
   const p3 = {};
-  for (const el13 of childElements(trPr)) {
-    const val3 = el13.attrs["w:val"];
-    switch (el13.name) {
+  for (const el14 of childElements(trPr)) {
+    const val3 = el14.attrs["w:val"];
+    switch (el14.name) {
       case "w:cnfStyle":
         if (val3) p3.cnfStyle = val3;
         break;
@@ -2006,31 +2006,31 @@ function readTrPr(trPr) {
         break;
       }
       case "w:wBefore":
-        p3.wBefore = readWidth(el13);
+        p3.wBefore = readWidth(el14);
         break;
       case "w:wAfter":
-        p3.wAfter = readWidth(el13);
+        p3.wAfter = readWidth(el14);
         break;
       case "w:cantSplit":
-        p3.cantSplit = onOffVal(el13);
+        p3.cantSplit = onOffVal(el14);
         break;
       case "w:trHeight": {
         const v2 = measureTwips(val3) ?? 0;
-        const r6 = el13.attrs["w:hRule"];
+        const r6 = el14.attrs["w:hRule"];
         p3.trHeight = { val: v2, hRule: r6 === "exact" || r6 === "auto" ? r6 : "atLeast" };
         break;
       }
       case "w:tblHeader":
-        p3.tblHeader = onOffVal(el13);
+        p3.tblHeader = onOffVal(el14);
         break;
       case "w:tblCellSpacing":
-        p3.tblCellSpacing = readWidth(el13);
+        p3.tblCellSpacing = readWidth(el14);
         break;
       case "w:jc":
         if (val3) p3.jc = val3;
         break;
       case "w:hidden":
-        p3.hidden = onOffVal(el13);
+        p3.hidden = onOffVal(el14);
         break;
     }
   }
@@ -2039,14 +2039,14 @@ function readTrPr(trPr) {
 function readTcPr(tcPr) {
   if (!tcPr) return void 0;
   const p3 = {};
-  for (const el13 of childElements(tcPr)) {
-    const val3 = el13.attrs["w:val"];
-    switch (el13.name) {
+  for (const el14 of childElements(tcPr)) {
+    const val3 = el14.attrs["w:val"];
+    switch (el14.name) {
       case "w:cnfStyle":
         if (val3) p3.cnfStyle = val3;
         break;
       case "w:tcW":
-        p3.tcW = readWidth(el13);
+        p3.tcW = readWidth(el14);
         break;
       case "w:gridSpan": {
         const n5 = int(val3);
@@ -2060,28 +2060,28 @@ function readTcPr(tcPr) {
         p3.vMerge = val3 === "restart" ? "restart" : "continue";
         break;
       case "w:tcBorders":
-        p3.tcBorders = readBorders(el13);
+        p3.tcBorders = readBorders(el14);
         break;
       case "w:shd":
-        p3.shd = readShading(el13);
+        p3.shd = readShading(el14);
         break;
       case "w:noWrap":
-        p3.noWrap = onOffVal(el13);
+        p3.noWrap = onOffVal(el14);
         break;
       case "w:tcMar":
-        p3.tcMar = readCellMar(el13);
+        p3.tcMar = readCellMar(el14);
         break;
       case "w:textDirection":
         if (val3) p3.textDirection = val3;
         break;
       case "w:tcFitText":
-        p3.tcFitText = onOffVal(el13);
+        p3.tcFitText = onOffVal(el14);
         break;
       case "w:vAlign":
         if (val3 === "top" || val3 === "center" || val3 === "bottom" || val3 === "both") p3.vAlign = val3;
         break;
       case "w:hideMark":
-        p3.hideMark = onOffVal(el13);
+        p3.hideMark = onOffVal(el14);
         break;
     }
   }
@@ -2164,24 +2164,24 @@ function readStyleSheet(xml) {
   }
   return sheet;
 }
-function readLevel(el13) {
-  const ilvl = parseInt(el13.attrs["w:ilvl"] ?? "0", 10) || 0;
+function readLevel(el14) {
+  const ilvl = parseInt(el14.attrs["w:ilvl"] ?? "0", 10) || 0;
   const lvl = { ilvl };
-  const v2 = (n5) => firstChild(el13, n5)?.attrs["w:val"];
+  const v2 = (n5) => firstChild(el14, n5)?.attrs["w:val"];
   const start = v2("w:start");
   if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el13, "w:numFmt");
+  const fmtEl = firstChild(el14, "w:numFmt");
   if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
   if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
   const restart = v2("w:lvlRestart");
   if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
   const ps = v2("w:pStyle");
   if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el13, "w:isLgl");
+  const isLgl = firstChild(el14, "w:isLgl");
   if (isLgl) lvl.isLgl = onOffVal(isLgl);
   const suff = v2("w:suff");
   if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el13, "w:lvlText");
+  const lt = firstChild(el14, "w:lvlText");
   if (lt) {
     if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
     if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
@@ -2190,9 +2190,9 @@ function readLevel(el13) {
   if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
   const jc = v2("w:lvlJc");
   if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el13, "w:pPr"));
+  const pPr = readPPr(firstChild(el14, "w:pPr"));
   if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el13, "w:rPr"));
+  const rPr = readRPr(firstChild(el14, "w:rPr"));
   if (rPr) lvl.rPr = rPr;
   return lvl;
 }
@@ -2215,8 +2215,8 @@ function readNumbering(xml) {
     const blip = find(pb, "a:blip");
     const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
     if (rid) bullet.rid = rid;
-    const shape = find(pb, "v:shape");
-    const style = shape?.attrs["style"] ?? "";
+    const shape2 = find(pb, "v:shape");
+    const style = shape2?.attrs["style"] ?? "";
     const w2 = /width:\s*([0-9.]+)pt/.exec(style);
     const h3 = /height:\s*([0-9.]+)pt/.exec(style);
     if (w2) bullet.widthPt = parseFloat(w2[1]);
@@ -2269,16 +2269,16 @@ function readTheme(xml) {
   };
   const fontScheme = find(root, "a:fontScheme");
   for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el13 = fontScheme && firstChild(fontScheme, tag2);
-    if (!el13) continue;
+    const el14 = fontScheme && firstChild(fontScheme, tag2);
+    if (!el14) continue;
     const set = theme[key];
-    const latin = firstChild(el13, "a:latin")?.attrs["typeface"];
+    const latin = firstChild(el14, "a:latin")?.attrs["typeface"];
     if (latin) set.latin = latin;
-    const ea = firstChild(el13, "a:ea")?.attrs["typeface"];
+    const ea = firstChild(el14, "a:ea")?.attrs["typeface"];
     if (ea) set.ea = ea;
-    const cs = firstChild(el13, "a:cs")?.attrs["typeface"];
+    const cs = firstChild(el14, "a:cs")?.attrs["typeface"];
     if (cs) set.cs = cs;
-    for (const f3 of childElements(el13, "a:font")) {
+    for (const f3 of childElements(el14, "a:font")) {
       if (f3.attrs["script"] && f3.attrs["typeface"]) set.scripts[f3.attrs["script"]] = f3.attrs["typeface"];
     }
   }
@@ -2296,10 +2296,10 @@ function readTheme(xml) {
   }
   return theme;
 }
-function readNoteProps(el13) {
-  if (!el13) return void 0;
+function readNoteProps(el14) {
+  if (!el14) return void 0;
   const out = {};
-  const v2 = (n5) => firstChild(el13, n5)?.attrs["w:val"];
+  const v2 = (n5) => firstChild(el14, n5)?.attrs["w:val"];
   const pos = v2("w:pos");
   if (pos) out.pos = pos;
   const fmt2 = v2("w:numFmt");
@@ -2445,28 +2445,28 @@ var init_parts = __esm({
 });
 
 // ../docx-core/src/drawing.ts
-function findDeep(el13, name) {
-  for (const c5 of childElements(el13)) {
+function findDeep(el14, name) {
+  for (const c5 of childElements(el14)) {
     if (c5.name === name) return c5;
     const f3 = findDeep(c5, name);
     if (f3) return f3;
   }
   return void 0;
 }
-function textOf(el13) {
+function textOf(el14) {
   let s4 = "";
-  for (const c5 of el13.children) s4 += typeof c5 === "string" ? c5 : textOf(c5);
+  for (const c5 of el14.children) s4 += typeof c5 === "string" ? c5 : textOf(c5);
   return s4;
 }
-function readPos(el13, defFrom) {
-  const pos = { relativeFrom: el13?.attrs["relativeFrom"] ?? defFrom };
-  if (!el13) return pos;
-  const align = firstChild(el13, "wp:align");
+function readPos(el14, defFrom) {
+  const pos = { relativeFrom: el14?.attrs["relativeFrom"] ?? defFrom };
+  if (!el14) return pos;
+  const align = firstChild(el14, "wp:align");
   if (align) pos.align = textOf(align).trim();
-  const off = firstChild(el13, "wp:posOffset");
+  const off = firstChild(el14, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct = firstChild(el13, "wp14:pctPosHOffset") ?? firstChild(el13, "wp14:pctPosVOffset");
-  if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
+  const pct2 = firstChild(el14, "wp14:pctPosHOffset") ?? firstChild(el14, "wp14:pctPosVOffset");
+  if (pct2) pos.pct = parseInt(textOf(pct2).trim(), 10) || 0;
   return pos;
 }
 function anchorChild(anchor, name) {
@@ -2474,11 +2474,11 @@ function anchorChild(anchor, name) {
   if (direct) return direct;
   for (const ac of childElements(anchor, "mc:AlternateContent")) {
     const choice = firstChild(ac, "mc:Choice");
-    const el13 = (choice && firstChild(choice, name)) ?? (() => {
+    const el14 = (choice && firstChild(choice, name)) ?? (() => {
       const fb = firstChild(ac, "mc:Fallback");
       return fb && firstChild(fb, name);
     })();
-    if (el13) return el13;
+    if (el14) return el14;
   }
   return void 0;
 }
@@ -2559,9 +2559,9 @@ function readWpAnchor(anchor) {
   }
   return out;
 }
-function srgbOf(el13, theme) {
-  if (!el13) return void 0;
-  const c5 = firstChild(el13, "a:srgbClr") ?? firstChild(el13, "a:schemeClr") ?? firstChild(el13, "a:sysClr") ?? firstChild(el13, "a:prstClr");
+function srgbOf(el14, theme) {
+  if (!el14) return void 0;
+  const c5 = firstChild(el14, "a:srgbClr") ?? firstChild(el14, "a:schemeClr") ?? firstChild(el14, "a:sysClr") ?? firstChild(el14, "a:prstClr");
   if (!c5) return void 0;
   let hex2;
   if (c5.name === "a:srgbClr") hex2 = c5.attrs["val"];
@@ -2758,11 +2758,11 @@ function vmlColor(v2) {
   }
   return own(VML_COLORS, s4);
 }
-function vmlShapeStyle(el13, geom) {
+function vmlShapeStyle(el14, geom) {
   const st = { geom };
-  const a3 = el13.attrs;
-  const fillEl = firstChild(el13, "v:fill");
-  const strokeEl = firstChild(el13, "v:stroke");
+  const a3 = el14.attrs;
+  const fillEl = firstChild(el14, "v:fill");
+  const strokeEl = firstChild(el14, "v:stroke");
   const filled = a3["filled"] ?? fillEl?.attrs["on"];
   if (filled !== "f" && filled !== "false") {
     const fc = vmlColor(fillEl?.attrs["color"] ?? a3["fillcolor"]) ?? (a3["fillcolor"] === void 0 && !fillEl ? "FFFFFF" : void 0);
@@ -2860,8 +2860,8 @@ function readCustGeom(cg, cx, cy) {
     }
   };
   for (const lst of ["a:avLst", "a:gdLst"]) {
-    const el13 = firstChild(cg, lst);
-    for (const gd of el13 ? childElements(el13, "a:gd") : []) {
+    const el14 = firstChild(cg, lst);
+    for (const gd of el14 ? childElements(el14, "a:gd") : []) {
       const name = gd.attrs["name"];
       if (name) v2[name] = evalGd(gd.attrs["fmla"] ?? "val 0");
     }
@@ -2876,7 +2876,7 @@ function readCustGeom(cg, cx, cy) {
       stroke: p3.attrs["stroke"] !== "0" && p3.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el13) => childElements(el13, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
+    const pts = (el14) => childElements(el14, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
     for (const c5 of childElements(p3)) {
       switch (c5.name) {
         case "a:moveTo":
@@ -2970,8 +2970,8 @@ function dmlColorSpec(c5) {
   if (mods.length) head += `|${mods.join(",")}`;
   return { spec: head, alpha };
 }
-function findDeep2(el13, name) {
-  for (const c5 of childElements(el13)) {
+function findDeep2(el14, name) {
+  for (const c5 of childElements(el14)) {
     if (c5.name === name) return c5;
     const f3 = findDeep2(c5, name);
     if (f3) return f3;
@@ -2989,15 +2989,15 @@ function partsOf(raw) {
   const blip = blipFill && firstChild(blipFill, "a:blip");
   return { root, container, pic, spPr, blipFill, blip };
 }
-function readPos2(el13) {
-  if (!el13) return void 0;
-  const p3 = { relativeFrom: el13.attrs["relativeFrom"] ?? "column" };
-  const al = firstChild(el13, "wp:align");
+function readPos2(el14) {
+  if (!el14) return void 0;
+  const p3 = { relativeFrom: el14.attrs["relativeFrom"] ?? "column" };
+  const al = firstChild(el14, "wp:align");
   if (al) p3.align = textContent(al).trim();
-  const off = firstChild(el13, "wp:posOffset");
+  const off = firstChild(el14, "wp:posOffset");
   if (off) p3.offset = int2(textContent(off).trim());
-  const pct = firstChild(el13, "wp14:pctPosHOffset") ?? firstChild(el13, "wp14:pctPosVOffset");
-  if (pct) p3.pct = int2(textContent(pct).trim());
+  const pct2 = firstChild(el14, "wp14:pctPosHOffset") ?? firstChild(el14, "wp14:pctPosVOffset");
+  if (pct2) p3.pct = int2(textContent(pct2).trim());
   return p3;
 }
 function readPicLine(ln2) {
@@ -3020,8 +3020,8 @@ function readPicLine(ln2) {
   }
   return out;
 }
-function rawOf(_parent, el13) {
-  return rawSrc.slice(el13.s, el13.e);
+function rawOf(_parent, el14) {
+  return rawSrc.slice(el14.s, el14.e);
 }
 function readShadow(k2) {
   const kind = k2.name === "a:outerShdw" ? "outer" : k2.name === "a:innerShdw" ? "inner" : "prst";
@@ -3036,10 +3036,10 @@ function readShadow(k2) {
   if (a3["prst"]) s4.prst = a3["prst"];
   return s4;
 }
-function readEffects(el13) {
+function readEffects(el14) {
   const fx = {};
-  if (!el13) return fx;
-  for (const k2 of childElements(el13)) {
+  if (!el14) return fx;
+  for (const k2 of childElements(el14)) {
     if (k2.name === "a:outerShdw" || k2.name === "a:innerShdw" || k2.name === "a:prstShdw") fx.shadow = readShadow(k2);
     else if (k2.name === "a:glow") fx.glow = { rad: int2(k2.attrs["rad"]), color: readDmlColor(k2) ?? { kind: "srgbClr", val: "000000" } };
     else if (k2.name === "a:softEdge") fx.softEdge = int2(k2.attrs["rad"]);
@@ -3050,12 +3050,12 @@ function readEffects(el13) {
       if (a3["algn"]) r6.algn = a3["algn"];
       if (a3["rotWithShape"] !== void 0) r6.rotWithShape = bool(a3["rotWithShape"]);
       fx.reflection = r6;
-    } else (fx.otherRaw ??= []).push(rawOf(el13, k2));
+    } else (fx.otherRaw ??= []).push(rawOf(el14, k2));
   }
   return fx;
 }
-function readRot(el13) {
-  return el13 ? { lat: int2(el13.attrs["lat"]), lon: int2(el13.attrs["lon"]), rev: int2(el13.attrs["rev"]) } : void 0;
+function readRot(el14) {
+  return el14 ? { lat: int2(el14.attrs["lat"]), lon: int2(el14.attrs["lon"]), rev: int2(el14.attrs["rev"]) } : void 0;
 }
 function read3D(scene, sp3d) {
   if (!scene && !sp3d) return void 0;
@@ -3156,10 +3156,10 @@ function readPictureFormat(raw) {
   }
   const poly2 = wrapEl && firstChild(wrapEl, "wp:wrapPolygon");
   const sizeRel = (n5, k2) => {
-    const el13 = firstChild(c5, n5);
-    if (!el13) return void 0;
-    const v2 = firstChild(el13, k2);
-    return { relativeFrom: el13.attrs["relativeFrom"] ?? "page", pct: v2 ? int2(textContent(v2).trim()) : 0 };
+    const el14 = firstChild(c5, n5);
+    if (!el14) return void 0;
+    const v2 = firstChild(el14, k2);
+    return { relativeFrom: el14.attrs["relativeFrom"] ?? "page", pct: v2 ? int2(textContent(v2).trim()) : 0 };
   };
   const spPr = p3.spPr;
   const xfrm = spPr && firstChild(spPr, "a:xfrm");
@@ -3316,8 +3316,8 @@ function convertContainer(raw, ch) {
   const p3 = partsOf(raw);
   const c5 = p3.container;
   const slice = (n5) => {
-    const el13 = firstChild(c5, n5);
-    return el13 ? raw.slice(el13.s, el13.e) : "";
+    const el14 = firstChild(c5, n5);
+    return el14 ? raw.slice(el14.s, el14.e) : "";
   };
   const keep = slice("wp:extent") + slice("wp:effectExtent");
   const tail = slice("wp:docPr") + slice("wp:cNvGraphicFramePr") + slice("a:graphic");
@@ -3468,21 +3468,21 @@ function patchDecorative(raw, on) {
   for (const which of ["docPr", "cNvPr"]) {
     const p3 = partsOf(xml);
     const nv = p3.pic && firstChild(p3.pic, "pic:nvPicPr");
-    const el13 = which === "docPr" ? firstChild(p3.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
-    if (!el13) continue;
+    const el14 = which === "docPr" ? firstChild(p3.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
+    if (!el14) continue;
     const patch2 = new XmlPatch(xml);
-    const ext = firstChild(el13, "a:extLst");
+    const ext = firstChild(el14, "a:extLst");
     const decExt = ext && childElements(ext, "a:ext").find((e8) => e8.attrs["uri"] === "{C183D7F6-B498-43B3-948B-1728B52AA6E4}");
     if (on) {
       if (decExt) continue;
       const nsA = which === "docPr" ? ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' : "";
       if (ext) patch2.insertAt(ext.ce, ADEC_EXT);
       else {
-        const hl = childElements(el13).filter((k2) => k2.name === "a:hlinkClick" || k2.name === "a:hlinkHover").pop();
+        const hl = childElements(el14).filter((k2) => k2.name === "a:hlinkClick" || k2.name === "a:hlinkHover").pop();
         const lst = `<a:extLst${nsA}>${ADEC_EXT}</a:extLst>`;
         if (hl) patch2.insertAt(hl.e, lst);
-        else if (el13.cs === el13.e) patch2.setContent(el13, lst);
-        else patch2.insertAt(el13.ce, lst);
+        else if (el14.cs === el14.e) patch2.setContent(el14, lst);
+        else patch2.insertAt(el14.ce, lst);
       }
     } else if (decExt) {
       if (childElements(ext).length === 1) patch2.remove(ext);
@@ -3518,8 +3518,8 @@ function patchPic(raw, ch) {
     }
     if (ch.line !== void 0) patch2.putChild(sp, "a:ln", ch.line ? picLineXml(ch.line) : "", SPPR_ORDER);
     if (ch.shadow !== void 0 || ch.reflection !== void 0 || ch.glow !== void 0 || ch.softEdge !== void 0) {
-      const el13 = firstChild(sp, "a:effectLst");
-      const fx = readEffects(el13);
+      const el14 = firstChild(sp, "a:effectLst");
+      const fx = readEffects(el14);
       if (ch.shadow !== void 0) {
         if (ch.shadow) fx.shadow = ch.shadow;
         else delete fx.shadow;
@@ -3608,23 +3608,23 @@ var init_picture_xml = __esm({
       src;
       edits = [];
       /** fim da tag de abertura (posição logo depois do '>'). */
-      static openEnd(el13) {
-        return el13.cs ?? el13.e;
+      static openEnd(el14) {
+        return el14.cs ?? el14.e;
       }
-      replace(el13, text) {
-        this.edits.push({ s: el13.s, e: el13.e, text });
+      replace(el14, text) {
+        this.edits.push({ s: el14.s, e: el14.e, text });
       }
-      remove(el13) {
-        this.replace(el13, "");
+      remove(el14) {
+        this.replace(el14, "");
       }
       insertAt(at, text) {
         this.edits.push({ s: at, e: at, text });
       }
       /** troca a tag de abertura (atributos novos, valores escapados). */
-      setAttrs(el13, set) {
-        const end = _XmlPatch.openEnd(el13);
-        const selfClose = el13.cs === el13.e;
-        let tag2 = this.src.slice(el13.s, end);
+      setAttrs(el14, set) {
+        const end = _XmlPatch.openEnd(el14);
+        const selfClose = el14.cs === el14.e;
+        let tag2 = this.src.slice(el14.s, end);
         for (const [k2, v2] of Object.entries(set)) {
           const re = new RegExp(`\\s${k2.replace(/[:.]/g, "\\$&")}="[^"]*"`);
           if (v2 === void 0) {
@@ -3635,15 +3635,15 @@ var init_picture_xml = __esm({
           if (re.test(tag2)) tag2 = tag2.replace(re, () => a3);
           else tag2 = tag2.replace(selfClose ? /\s*\/>$/ : />$/, (m2) => `${a3}${m2.trim() === "/>" ? "/>" : ">"}`);
         }
-        this.edits.push({ s: el13.s, e: end, text: tag2 });
+        this.edits.push({ s: el14.s, e: end, text: tag2 });
       }
       /** conteúdo inteiro de um elemento (vira <x ...>conteúdo</x>). */
-      setContent(el13, inner) {
-        if (el13.cs === el13.e) {
-          const tag2 = this.src.slice(el13.s, el13.e).replace(/\s*\/>$/, ">");
+      setContent(el14, inner) {
+        if (el14.cs === el14.e) {
+          const tag2 = this.src.slice(el14.s, el14.e).replace(/\s*\/>$/, ">");
           const name = /^<([^\s/>]+)/.exec(tag2)[1];
-          this.edits.push({ s: el13.s, e: el13.e, text: `${tag2}${inner}</${name}>` });
-        } else this.edits.push({ s: el13.cs, e: el13.ce, text: inner });
+          this.edits.push({ s: el14.s, e: el14.e, text: `${tag2}${inner}</${name}>` });
+        } else this.edits.push({ s: el14.cs, e: el14.ce, text: inner });
       }
       /** insere `xml` como filho de `parent` na posição da ordem do esquema. */
       insertChild(parent, name, xml, order2) {
@@ -3700,8 +3700,8 @@ var init_picture_xml = __esm({
     DEFAULT_WRAP_POLYGON = [[0, 0], [0, 21300], [21375, 21300], [21375, 0], [0, 0]];
     posXml = (tag2, p3) => {
       if (p3.align === void 0 && p3.pct !== void 0) {
-        const pct = tag2 === "wp:positionH" ? "wp14:pctPosHOffset" : "wp14:pctPosVOffset";
-        return `<mc:AlternateContent><mc:Choice Requires="wp14"><${tag2} relativeFrom="${p3.relativeFrom}"><${pct}>${Math.round(p3.pct)}</${pct}></${tag2}></mc:Choice><mc:Fallback><${tag2} relativeFrom="page"><wp:posOffset>${Math.round(p3.fallback ?? 0)}</wp:posOffset></${tag2}></mc:Fallback></mc:AlternateContent>`;
+        const pct2 = tag2 === "wp:positionH" ? "wp14:pctPosHOffset" : "wp14:pctPosVOffset";
+        return `<mc:AlternateContent><mc:Choice Requires="wp14"><${tag2} relativeFrom="${p3.relativeFrom}"><${pct2}>${Math.round(p3.pct)}</${pct2}></${tag2}></mc:Choice><mc:Fallback><${tag2} relativeFrom="page"><wp:posOffset>${Math.round(p3.fallback ?? 0)}</wp:posOffset></${tag2}></mc:Fallback></mc:AlternateContent>`;
       }
       const inner = p3.align !== void 0 ? `<wp:align>${p3.align}</wp:align>` : `<wp:posOffset>${Math.round(p3.offset ?? 0)}</wp:posOffset>`;
       return `<${tag2} relativeFrom="${p3.relativeFrom}">${inner}</${tag2}>`;
@@ -3719,8 +3719,8 @@ function vmlFixed(v2) {
   const n5 = v2.endsWith("f") ? parseInt(v2, 10) / 65536 : parseFloat(v2);
   return Number.isFinite(n5) ? n5 : void 0;
 }
-function vmlImageEffects(el13) {
-  const a3 = el13.attrs;
+function vmlImageEffects(el14) {
+  const a3 = el14.attrs;
   const fx = {};
   const gain = vmlFixed(a3["gain"]), bl = vmlFixed(a3["blacklevel"]);
   if (gain !== void 0 && gain !== 1) fx.gain = gain;
@@ -3751,16 +3751,16 @@ function blipImageEffects(blip) {
     ...bi ? { biLevel: int3(bi.attrs["thresh"], "50000") } : {}
   });
 }
-function readBorderEdge(el13) {
-  if (!el13) return void 0;
-  const style = el13.attrs["w:val"];
+function readBorderEdge(el14) {
+  if (!el14) return void 0;
+  const style = el14.attrs["w:val"];
   if (!style || style === "none" || style === "nil") return void 0;
-  const color3 = el13.attrs["w:color"];
+  const color3 = el14.attrs["w:color"];
   return {
     style,
-    sizeEighthPt: parseInt(el13.attrs["w:sz"] ?? "4", 10),
+    sizeEighthPt: parseInt(el14.attrs["w:sz"] ?? "4", 10),
     color: color3 && color3 !== "auto" ? color3 : void 0,
-    spacePt: parseInt(el13.attrs["w:space"] ?? "0", 10)
+    spacePt: parseInt(el14.attrs["w:space"] ?? "0", 10)
   };
 }
 function runPropsFromRPr(rpr) {
@@ -3862,17 +3862,17 @@ function paraPropsFromPPr(ppr) {
   if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
-function findDeep3(el13, name) {
-  for (const c5 of childElements(el13)) {
+function findDeep3(el14, name) {
+  for (const c5 of childElements(el14)) {
     if (c5.name === name) return c5;
     const found = findDeep3(c5, name);
     if (found) return found;
   }
   return void 0;
 }
-function tagObjectRuns(list, from, el13) {
+function tagObjectRuns(list, from, el14) {
   if (!list) return;
-  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el13 : true;
+  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el14 : true;
 }
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep3(pic, "a:blip");
@@ -3964,7 +3964,7 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   if (obj.name === "wpg:wgp" || obj.name === "wpg:grpSp" || obj.name === "wpc:wpc") {
     const grpSpPr = firstChild(obj, "wpg:grpSpPr");
     const xfrm = grpSpPr && firstChild(grpSpPr, "a:xfrm");
-    const n5 = (el13, k2) => parseInt(el13?.attrs[k2] ?? "0", 10) || 0;
+    const n5 = (el14, k2) => parseInt(el14?.attrs[k2] ?? "0", 10) || 0;
     const chOff = xfrm && firstChild(xfrm, "a:chOff");
     const chExt = xfrm && firstChild(xfrm, "a:chExt");
     const ext = xfrm && firstChild(xfrm, "a:ext");
@@ -3996,18 +3996,18 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   }
   return void 0;
 }
-function dmlRunColor(el13) {
-  const c5 = el13 && (firstChild(el13, "a:srgbClr") ?? firstChild(el13, "a:sysClr") ?? firstChild(el13, "a:schemeClr") ?? firstChild(el13, "a:prstClr"));
+function dmlRunColor(el14) {
+  const c5 = el14 && (firstChild(el14, "a:srgbClr") ?? firstChild(el14, "a:sysClr") ?? firstChild(el14, "a:schemeClr") ?? firstChild(el14, "a:prstClr"));
   if (!c5) return void 0;
   if (c5.name === "a:srgbClr") return { val: (c5.attrs["val"] ?? "000000").toUpperCase() };
   if (c5.name === "a:sysClr") return { val: (c5.attrs["lastClr"] ?? (c5.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
   if (c5.name === "a:prstClr") return { val: c5.attrs["val"] === "white" ? "FFFFFF" : "000000" };
   const spec = { themeColor: c5.attrs["val"] ?? "tx1" };
-  const frac = (k2) => {
+  const frac2 = (k2) => {
     const m2 = firstChild(c5, k2);
     return m2 ? Math.round((parseInt(m2.attrs["val"] ?? "100000", 10) || 0) / 1e5 * 255).toString(16).padStart(2, "0").toUpperCase() : void 0;
   };
-  const t6 = frac("a:tint"), sh = frac("a:shade");
+  const t6 = frac2("a:tint"), sh = frac2("a:shade");
   if (t6) spec.themeTint = t6;
   if (sh) spec.themeShade = sh;
   return spec;
@@ -4047,7 +4047,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u3 && u3 !== "none" ? { u: { val: u3 === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num3 = (el13) => parseInt(el13?.attrs["val"] ?? "0", 10) || 0;
+  const num3 = (el14) => parseInt(el14?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -4067,8 +4067,8 @@ function dmlParagraphs(body, styleEl, txFill) {
     const szPt = Math.max(mark2.sz ?? 36, ...runs.map((r6) => r6.rpr?.sz ?? 0)) / 2;
     const gap = (tag2) => {
       const e8 = pPr && firstChild(pPr, tag2);
-      const pts = e8 && firstChild(e8, "a:spcPts"), pct = e8 && firstChild(e8, "a:spcPct");
-      return pts ? Math.round(num3(pts) / 5) : pct ? Math.round(num3(pct) / 1e5 * 1.2 * szPt * 20) : 0;
+      const pts = e8 && firstChild(e8, "a:spcPts"), pct2 = e8 && firstChild(e8, "a:spcPct");
+      return pts ? Math.round(num3(pts) / 5) : pct2 ? Math.round(num3(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
     };
     const ln2 = pPr && firstChild(pPr, "a:lnSpc");
     const lnPct = ln2 && firstChild(ln2, "a:spcPct"), lnPts = ln2 && firstChild(ln2, "a:spcPts");
@@ -4112,7 +4112,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
     const c5 = fills.attrs["meth"] === "cycle" ? cs[i7 % cs.length] : cs[Math.min(i7, cs.length - 1)];
     txFill.set(pt2.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c5] }));
   }
-  const n5 = (el13, k2) => (parseInt(el13?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP;
+  const n5 = (el14, k2) => (parseInt(el14?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP;
   const rect2 = (xf) => {
     const off = firstChild(xf, "a:off"), e8 = firstChild(xf, "a:ext");
     return { x: n5(off, "x"), y: n5(off, "y"), w: n5(e8, "cx"), h: n5(e8, "cy") };
@@ -4220,39 +4220,36 @@ function syncImageFromXml(img) {
 }
 function readVmlRuns(container, ctx, inline) {
   const out = [];
-  const shapeOf = (el13, inGroup) => {
-    const st = parseVmlStyle(el13.attrs["style"]);
+  const shapeOf = (el14, inGroup) => {
+    const st = parseVmlStyle(el14.attrs["style"]);
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w2 = vmlLenTwips(st["width"]) ?? 0;
     let h3 = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el13, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep3(el14, "w10:wrap"));
     if (inGroup) {
       w2 = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h3 = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep3(el13, "v:textpath");
+    const textpath = findDeep3(el14, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
-      const sh = vmlShapeStyle(el13, "rect");
-      let color3 = sh.fill ?? "000000";
+      const sh = vmlShapeStyle(el14, "rect");
+      const color3 = sh.fill ?? "000000";
       const a3 = sh.fillAlpha;
-      if (a3 !== void 0 && a3 < 1) {
-        const mix2 = (i7) => Math.round(parseInt(color3.slice(i7, i7 + 2), 16) * a3 + 255 * (1 - a3));
-        color3 = [0, 2, 4].map((i7) => mix2(i7).toString(16).padStart(2, "0")).join("").toUpperCase();
-      }
       const rpr = {
         ...famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {},
         color: { val: color3 },
         sz: 72,
+        ...a3 !== void 0 && a3 < 1 ? { textFill: { color: color3, alpha: Math.max(0, a3) } } : {},
         .../bold|[6-9]00/.test(tps["font-weight"] ?? "") ? { b: true } : {},
         .../italic/.test(tps["font-style"] ?? "") ? { i: true } : {}
       };
       const wppr = { jc: "center", spacing: { before: 0, after: 0, line: 240, lineRule: "auto" } };
-      const para2 = { runs: [{ text, props: runPropsFromRPr(rpr), rpr }], props: paraPropsFromPPr(wppr), ppr: wppr };
-      const tb = { paras: [para2], blocks: [{ type: "paragraph", paragraph: para2 }], widthTwips: w2, heightTwips: h3, vml: true, insets: { l: 0, t: 0, r: 0, b: 0 }, vAnchor: "ctr", wordArt: "textPlain" };
+      const para3 = { runs: [{ text, props: runPropsFromRPr(rpr), rpr }], props: paraPropsFromPPr(wppr), ppr: wppr };
+      const tb = { paras: [para3], blocks: [{ type: "paragraph", paragraph: para3 }], widthTwips: w2, heightTwips: h3, vml: true, insets: { l: 0, t: 0, r: 0, b: 0 }, vAnchor: "ctr", wordArt: "textPlain" };
       const rot = parseFloat(st["rotation"] ?? "0");
       if (rot) tb.rot = rot;
       const run3 = { text: OBJ, textbox: tb };
@@ -4267,7 +4264,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       return run3;
     }
-    const imagedata = firstChild(el13, "v:imagedata");
+    const imagedata = firstChild(el14, "v:imagedata");
     const rid = imagedata?.attrs["r:id"] ?? imagedata?.attrs["r:pict"];
     let run2;
     if (rid) {
@@ -4285,7 +4282,7 @@ function readVmlRuns(container, ctx, inline) {
       if (fx) image.effects = fx;
       run2 = { text: OBJ, image };
     } else {
-      const txb = firstChild(el13, "v:textbox");
+      const txb = firstChild(el14, "v:textbox");
       const content = txb && firstChild(txb, "w:txbxContent");
       if (content) {
         const tb = { paras: [], widthTwips: w2, heightTwips: h3, vml: true };
@@ -4295,32 +4292,32 @@ function readVmlRuns(container, ctx, inline) {
         tb.insets = { l: ins(0, 144), t: ins(1, 72), r: ins(2, 144), b: ins(3, 72) };
         const tbStyle = parseVmlStyle(txb.attrs["style"]);
         if (tbStyle["mso-fit-shape-to-text"] === "t") tb.autoFit = true;
-        if (parseVmlStyle(el13.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
-        const sh = vmlShapeStyle(el13, "rect");
+        if (parseVmlStyle(el14.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
+        const sh = vmlShapeStyle(el14, "rect");
         if (sh.fill || sh.line) tb.shape = sh;
         run2 = { text: OBJ, textbox: tb };
       } else {
-        const tag2 = el13.name.replace(/^v:/, "");
-        const type = el13.attrs["type"] ?? "";
-        const declared = el13.attrs["fillcolor"] || el13.attrs["strokecolor"] || el13.attrs["filled"] || el13.attrs["stroked"] || firstChild(el13, "v:fill") || firstChild(el13, "v:stroke");
+        const tag2 = el14.name.replace(/^v:/, "");
+        const type = el14.attrs["type"] ?? "";
+        const declared = el14.attrs["fillcolor"] || el14.attrs["strokecolor"] || el14.attrs["filled"] || el14.attrs["stroked"] || firstChild(el14, "v:fill") || firstChild(el14, "v:stroke");
         if (tag2 === "shape" && (type.includes("_x0000_t75") || !declared)) {
           return void 0;
         }
         const geom = tag2 === "oval" ? "ellipse" : tag2 === "roundrect" ? "roundRect" : tag2 === "line" || type.includes("_x0000_t32") ? "line" : "rect";
-        const style = vmlShapeStyle(el13, geom);
+        const style = vmlShapeStyle(el14, geom);
         if (geom === "line") delete style.fill;
-        const shape = { style, widthTwips: w2, heightTwips: h3 };
-        if (el13.attrs["o:hr"] === "t") shape.hr = true;
+        const shape2 = { style, widthTwips: w2, heightTwips: h3 };
+        if (el14.attrs["o:hr"] === "t") shape2.hr = true;
         if (tag2 === "line") {
           const pt2 = (s4) => (s4 ?? "0,0").split(",").map((v2) => vmlLenTwips(v2.trim()) ?? 0);
-          const [x1 = 0, y1 = 0] = pt2(el13.attrs["from"]);
-          const [x22 = 0, y22 = 0] = pt2(el13.attrs["to"]);
-          shape.line = { x1, y1, x2: x22, y2: y22 };
-          shape.widthTwips = Math.abs(x22 - x1);
-          shape.heightTwips = Math.abs(y22 - y1);
+          const [x1 = 0, y1 = 0] = pt2(el14.attrs["from"]);
+          const [x22 = 0, y22 = 0] = pt2(el14.attrs["to"]);
+          shape2.line = { x1, y1, x2: x22, y2: y22 };
+          shape2.widthTwips = Math.abs(x22 - x1);
+          shape2.heightTwips = Math.abs(y22 - y1);
           if (!anchor && !inGroup) anchor = vmlAnchor({ ...st, position: "absolute" });
         }
-        run2 = { text: OBJ, shape };
+        run2 = { text: OBJ, shape: shape2 };
       }
     }
     const target = run2.image ?? run2.textbox ?? run2.shape;
@@ -4338,17 +4335,17 @@ function readVmlRuns(container, ctx, inline) {
     }
     return run2;
   };
-  for (const el13 of childElements(container)) {
-    if (el13.name === "v:shapetype" || el13.name.startsWith("o:") || el13.name.startsWith("w10:")) continue;
-    if (el13.name === "v:group") {
-      const st = parseVmlStyle(el13.attrs["style"]);
+  for (const el14 of childElements(container)) {
+    if (el14.name === "v:shapetype" || el14.name.startsWith("o:") || el14.name.startsWith("w10:")) continue;
+    if (el14.name === "v:group") {
+      const st = parseVmlStyle(el14.attrs["style"]);
       const w2 = vmlLenTwips(st["width"]) ?? 0;
       const h3 = vmlLenTwips(st["height"]) ?? 0;
-      const cs = (el13.attrs["coordsize"] ?? "1000,1000").split(",").map((v2) => parseFloat(v2) || 1e3);
-      const co = (el13.attrs["coordorigin"] ?? "0,0").split(",").map((v2) => parseFloat(v2) || 0);
+      const cs = (el14.attrs["coordsize"] ?? "1000,1000").split(",").map((v2) => parseFloat(v2) || 1e3);
+      const co = (el14.attrs["coordorigin"] ?? "0,0").split(",").map((v2) => parseFloat(v2) || 0);
       const sx = w2 / (cs[0] || 1), sy = h3 / (cs[1] || 1);
       const items = [];
-      for (const c5 of childElements(el13)) {
+      for (const c5 of childElements(el14)) {
         if (!c5.name.startsWith("v:") || c5.name === "v:shapetype") continue;
         const cst = parseVmlStyle(c5.attrs["style"]);
         const r6 = shapeOf(c5, { sx, sy });
@@ -4360,7 +4357,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       if (!items.length) continue;
       const group2 = { widthTwips: w2, heightTwips: h3, items };
-      const anchor = vmlAnchor(st, findDeep3(el13, "w10:wrap"));
+      const anchor = vmlAnchor(st, findDeep3(el14, "w10:wrap"));
       if (anchor) {
         group2.floating = true;
         group2.anchor = anchor;
@@ -4368,8 +4365,8 @@ function readVmlRuns(container, ctx, inline) {
       out.push({ text: OBJ, group: group2 });
       continue;
     }
-    if (el13.name.startsWith("v:")) {
-      const r6 = shapeOf(el13);
+    if (el14.name.startsWith("v:")) {
+      const r6 = shapeOf(el14);
       if (r6) {
         if (inline && r6.image) {
           delete r6.image.floating;
@@ -4387,9 +4384,9 @@ function readVmlRuns(container, ctx, inline) {
   }
   return out;
 }
-function textContentOf(el13) {
+function textContentOf(el14) {
   let out = "";
-  for (const c5 of el13.children) out += typeof c5 === "string" ? c5 : textContentOf(c5);
+  for (const c5 of el14.children) out += typeof c5 === "string" ? c5 : textContentOf(c5);
   return out;
 }
 function runTarget(ctx, runs) {
@@ -4553,8 +4550,8 @@ function parseCustomInlineTag(tag2) {
     return void 0;
   }
 }
-function readMathNodes(el13, out = []) {
-  for (const c5 of childElements(el13)) {
+function readMathNodes(el14, out = []) {
+  for (const c5 of childElements(el14)) {
     switch (c5.name) {
       case "m:r":
       case "w:r": {
@@ -4605,9 +4602,9 @@ function readMathNodes(el13, out = []) {
   }
   return out;
 }
-function collectMathText(el13) {
+function collectMathText(el14) {
   let out = "";
-  for (const c5 of el13.children) {
+  for (const c5 of el14.children) {
     if (typeof c5 === "string") continue;
     if (c5.name === "m:t") out += textContentOf(c5);
     else out += collectMathText(c5);
@@ -4868,30 +4865,30 @@ function readParagraph(pEl, ctx) {
   }
   const instr = collectInstrText(pEl);
   if (/\bTOC\b/.test(instr)) props.tocInstr = instr.trim();
-  const para2 = { runs, props };
-  if (ppr) para2.ppr = ppr;
-  if (capture) captureParagraph(para2, pEl, pPrEl, segs, ctx.sources, ctx.sourceXml);
-  return para2;
+  const para3 = { runs, props };
+  if (ppr) para3.ppr = ppr;
+  if (capture) captureParagraph(para3, pEl, pPrEl, segs, ctx.sources, ctx.sourceXml);
+  return para3;
 }
-function captureParagraph(para2, pEl, pPrEl, segs, store, xml) {
+function captureParagraph(para3, pEl, pPrEl, segs, store, xml) {
   const last = segs[segs.length - 1];
-  if (last && last.to < para2.runs.length) {
-    last.to = para2.runs.length;
+  if (last && last.to < para3.runs.length) {
+    last.to = para3.runs.length;
     last.seg.open = true;
   }
   let objHead = 0;
   for (const { seg, from, to } of segs) {
     if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) {
-      seg.link = para2.runs[from]?.props.link ?? "";
-      seg.tip = para2.runs[from]?.props.linkTip ?? "";
+      seg.link = para3.runs[from]?.props.link ?? "";
+      seg.tip = para3.runs[from]?.props.linkTip ?? "";
     }
     for (let i7 = from; i7 < to; i7++) {
-      const run2 = para2.runs[i7];
+      const run2 = para3.runs[i7];
       const sid = store.id();
-      const el13 = rPrElOf(run2);
+      const el14 = rPrElOf(run2);
       const obj = objElOf(run2);
       store.runs.set(sid, {
-        ...el13 ? { rPr: xml.slice(el13.s, el13.e) } : {},
+        ...el14 ? { rPr: xml.slice(el14.s, el14.e) } : {},
         ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
       });
       if (obj && obj !== true) objHead = sid;
@@ -4900,7 +4897,7 @@ function captureParagraph(para2, pEl, pPrEl, segs, store, xml) {
     }
   }
   const selfClosing = pEl.cs === pEl.e;
-  store.addPara(para2, {
+  store.addPara(para3, {
     raw: xml.slice(pEl.s, pEl.e),
     at: pEl.s,
     open: selfClosing ? xml.slice(pEl.s, pEl.e).replace(/\s*\/>$/, ">") : xml.slice(pEl.s, pEl.cs),
@@ -4908,9 +4905,9 @@ function captureParagraph(para2, pEl, pPrEl, segs, store, xml) {
     segs: segs.map((x3) => x3.seg)
   });
 }
-function collectInstrText(el13) {
+function collectInstrText(el14) {
   let out = "";
-  for (const c5 of el13.children) {
+  for (const c5 of el14.children) {
     if (typeof c5 === "string") continue;
     if (c5.name === "w:instrText") out += textContentOf(c5);
     else out += collectInstrText(c5);
@@ -5049,8 +5046,8 @@ var init_document = __esm({
     EMU_PER_TWIP = 635;
     RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
     rPrElOf = (r6) => r6?.[RPR_EL];
-    setRPrEl = (r6, el13) => {
-      if (el13) r6[RPR_EL] = el13;
+    setRPrEl = (r6, el14) => {
+      if (el14) r6[RPR_EL] = el14;
     };
     OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
     objElOf = (r6) => r6[OBJ_EL];
@@ -5058,8 +5055,8 @@ var init_document = __esm({
     OBJ = "\uFFFC";
     isObjectRun = (r6) => !!(r6.image || r6.textbox || r6.shape || r6.group);
     CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
-    tw = (el13, attr, fallback) => {
-      const v2 = el13?.attrs[attr];
+    tw = (el14, attr2, fallback) => {
+      const v2 = el14?.attrs[attr2];
       return v2 === void 0 ? fallback : parseInt(v2, 10);
     };
   }
@@ -5069,23 +5066,23 @@ var init_document = __esm({
 function readStyleRunProps(rPr) {
   const p3 = {};
   if (!rPr) return p3;
-  for (const el13 of childElements(rPr)) {
-    const val3 = el13.attrs["w:val"];
-    switch (el13.name) {
+  for (const el14 of childElements(rPr)) {
+    const val3 = el14.attrs["w:val"];
+    switch (el14.name) {
       case "w:b":
-        p3.bold = onOff(el13);
+        p3.bold = onOff(el14);
         break;
       case "w:i":
-        p3.italic = onOff(el13);
+        p3.italic = onOff(el14);
         break;
       case "w:caps":
-        p3.allCaps = onOff(el13);
+        p3.allCaps = onOff(el14);
         break;
       case "w:smallCaps":
-        p3.smallCaps = onOff(el13);
+        p3.smallCaps = onOff(el14);
         break;
       case "w:strike":
-        p3.strike = onOff(el13);
+        p3.strike = onOff(el14);
         break;
       case "w:sz":
         if (val3) p3.szHalfPt = parseInt(val3, 10);
@@ -5094,7 +5091,7 @@ function readStyleRunProps(rPr) {
         if (val3 && val3 !== "auto") p3.color = val3;
         break;
       case "w:rFonts":
-        if (el13.attrs["w:ascii"]) p3.fontAscii = el13.attrs["w:ascii"];
+        if (el14.attrs["w:ascii"]) p3.fontAscii = el14.attrs["w:ascii"];
         break;
       case "w:u":
         p3.underline = val3 !== "none";
@@ -5186,9 +5183,9 @@ var init_styles = __esm({
     "use strict";
     init_xml();
     init_document();
-    onOff = (el13) => {
-      if (!el13) return void 0;
-      const v2 = el13.attrs["w:val"];
+    onOff = (el14) => {
+      if (!el14) return void 0;
+      const v2 = el14.attrs["w:val"];
       return v2 !== "0" && v2 !== "false" && v2 !== "none";
     };
   }
@@ -5294,8 +5291,8 @@ function setKid(kids, order2, name, xml) {
   kids.splice(pos, 0, { name, raw: xml });
 }
 function patch(raw, cur, read, gen, order2, keys, emptyOk = false) {
-  const { open: open2, close, kids: k0, el: el13 } = splitElement(raw);
-  const base = read(el13) ?? {};
+  const { open: open2, close, kids: k0, el: el14 } = splitElement(raw);
+  const base = read(el14) ?? {};
   const now = cur ?? {};
   const kids = k0.map((k2) => ({ name: k2.name, raw: k2.raw }));
   let changed = false;
@@ -5598,10 +5595,10 @@ function doomedMarks(model, start, end) {
   if (cmpPos(start, end) >= 0) return out;
   const starts = /* @__PURE__ */ new Map();
   const fields = [];
-  model.paragraphs.forEach((p3, para2) => {
+  model.paragraphs.forEach((p3, para3) => {
     let offset = 0;
     for (const r6 of p3.runs) {
-      const at = { para: para2, offset };
+      const at = { para: para3, offset };
       if (r6.bookmark) {
         if (!r6.bookmark.end) starts.set(r6.bookmark.id, { run: r6, at });
         else {
@@ -5663,9 +5660,9 @@ function rebuildDelete(p3, from, to, doomed) {
   }
   p3.runs = out;
 }
-function mergeWithPrevious(model, para2) {
-  const prev = model.paragraphs[para2 - 1];
-  const cur = model.paragraphs[para2];
+function mergeWithPrevious(model, para3) {
+  const prev = model.paragraphs[para3 - 1];
+  const cur = model.paragraphs[para3];
   const offset = paraLength(prev);
   prev.runs = [...prev.runs, ...cur.runs];
   prev.props = { ...cur.props };
@@ -5673,9 +5670,9 @@ function mergeWithPrevious(model, para2) {
   else delete prev.ppr;
   if (cur.pprEdited) prev.pprEdited = true;
   else delete prev.pprEdited;
-  model.paragraphs.splice(para2, 1);
+  model.paragraphs.splice(para3, 1);
   normalizeParagraph(prev);
-  return { para: para2 - 1, offset };
+  return { para: para3 - 1, offset };
 }
 function applyRunProps(model, range, patch2) {
   const { start, end } = normalizeRange(range);
@@ -6213,21 +6210,21 @@ function revisionAuthors(full) {
   const add = (r6) => {
     if (r6 && !seen.has(r6.author)) seen.add(r6.author);
   };
-  const para2 = (p3) => {
+  const para3 = (p3) => {
     add(p3.props.pfmt);
     for (const r6 of p3.runs) {
       add(r6.props.del);
       add(r6.props.ins);
       add(r6.props.fmt);
       if (r6.textbox?.blocks) blocks(r6.textbox.blocks);
-      else if (r6.textbox?.paras) r6.textbox.paras.forEach(para2);
+      else if (r6.textbox?.paras) r6.textbox.paras.forEach(para3);
     }
     add(p3.props.markIns);
     add(p3.props.markDel);
   };
   const blocks = (bs) => {
     for (const b5 of bs) {
-      if (b5.type === "paragraph") para2(b5.paragraph);
+      if (b5.type === "paragraph") para3(b5.paragraph);
       else for (const row2 of b5.rows) for (const cell of row2.cells) blocks(cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })));
     }
   };
@@ -6465,7 +6462,7 @@ function patchSettingsNotes(xml, props) {
       const next = `<${tag2}>${p3}${refs || seps}</${tag2}>`;
       if (next !== whole) out = out.slice(0, m2.index) + next + out.slice(m2.index + whole.length);
     } else {
-      const el13 = `<${tag2}>${notePropsInner(want ?? void 0)}${seps}</${tag2}>`;
+      const el14 = `<${tag2}>${notePropsInner(want ?? void 0)}${seps}</${tag2}>`;
       const enAt = kind === "footnote" ? out.indexOf("<w:endnotePr") : -1;
       let at = enAt;
       if (at < 0) {
@@ -6475,7 +6472,7 @@ function patchSettingsNotes(xml, props) {
         }
       }
       if (at < 0) at = out.lastIndexOf("</w:settings>");
-      out = out.slice(0, at) + el13 + out.slice(at);
+      out = out.slice(0, at) + el14 + out.slice(at);
     }
   }
   return out;
@@ -6541,13 +6538,13 @@ var init_notes = __esm({
 
 // ../docx-core/src/lossless.ts
 function splitElement(raw) {
-  const el13 = parseXml(raw, { positions: true });
-  if (el13.cs === el13.e) {
+  const el14 = parseXml(raw, { positions: true });
+  if (el14.cs === el14.e) {
     const open2 = raw.replace(/\s*\/>\s*$/, ">");
-    return { open: open2, close: `</${el13.name}>`, kids: [], el: el13 };
+    return { open: open2, close: `</${el14.name}>`, kids: [], el: el14 };
   }
-  const kids = childElements(el13).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
-  return { open: raw.slice(0, el13.cs), close: raw.slice(el13.ce), kids, el: el13 };
+  const kids = childElements(el14).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
+  return { open: raw.slice(0, el14.cs), close: raw.slice(el14.ce), kids, el: el14 };
 }
 function setKid2(kids, order2, name, xml) {
   const at = kids.findIndex((k2) => k2.name === name);
@@ -6645,9 +6642,9 @@ function changeRPrRaw(kids) {
 function patchRPr(raw, run2) {
   const p3 = run2.props;
   if (raw === void 0) return rPrFromProps(p3);
-  const { open: open2, close, kids, el: el13 } = splitElement(raw);
+  const { open: open2, close, kids, el: el14 } = splitElement(raw);
   const edited = run2.rprEdited && run2.rpr ? run2.rpr : void 0;
-  const base = editBaseProps(run2, edited ?? readRPr(el13));
+  const base = editBaseProps(run2, edited ?? readRPr(el14));
   if (base.fmt && !p3.fmt) {
     const old = changeRPrRaw(kids);
     if (old && sameJson2(runFormatting(p3), runFormatting(editBaseProps(run2, readRPr(old.el))))) return patchRPr(old.raw, run2);
@@ -6773,12 +6770,12 @@ function markRPr(raw, pp) {
   const rest = kids.filter((k2) => !MARK_REVS.has(k2.name)).map((k2) => k2.raw).join("");
   return mark2 || rest ? `${open2}${mark2}${rest}${close}` : null;
 }
-function patchPPr(raw, para2, sect, ids = DEFAULT_NUM_IDS) {
-  const p3 = para2.props;
+function patchPPr(raw, para3, sect, ids = DEFAULT_NUM_IDS) {
+  const p3 = para3.props;
   if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
-  const { open: open2, close, kids, el: el13 } = splitElement(raw);
-  const edited = para2.pprEdited && para2.ppr ? para2.ppr : void 0;
-  const base = paraPropsFromPPr(edited ?? readPPr(el13));
+  const { open: open2, close, kids, el: el14 } = splitElement(raw);
+  const edited = para3.pprEdited && para3.ppr ? para3.ppr : void 0;
+  const base = paraPropsFromPPr(edited ?? readPPr(el14));
   if (base.pfmt && !p3.pfmt) {
     const ch = kids.find((k2) => k2.name === "w:pPrChange");
     const old = ch && splitElement(ch.raw).kids.find((k2) => k2.name === "w:pPr");
@@ -6788,7 +6785,7 @@ function patchPPr(raw, para2, sect, ids = DEFAULT_NUM_IDS) {
       const keep = kids.filter((k2) => k2.name === "w:rPr" || k2.name === "w:sectPr");
       const all = [...oldKids, ...keep];
       if (!all.length) return pPrFromProps(p3, sect ?? "", ids);
-      return patchPPr(`<w:pPr>${all.map((k2) => k2.raw).join("")}</w:pPr>`, para2, sect, ids);
+      return patchPPr(`<w:pPr>${all.map((k2) => k2.raw).join("")}</w:pPr>`, para3, sect, ids);
     }
   }
   let changed = edited ? dropCleared(kids, PPR_FIELD, edited) : false;
@@ -6805,7 +6802,7 @@ function patchPPr(raw, para2, sect, ids = DEFAULT_NUM_IDS) {
   if (!eq(p3.borders, base.borders) || !!p3.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
   if (p3.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
   if (!eq(p3.numbering, base.numbering)) {
-    const numPr = el13.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
+    const numPr = el14.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
     const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
     if (!p3.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
     else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p3.numbering.kind) {
@@ -6872,9 +6869,9 @@ function colsXml(cols, raw) {
     if (!cols.widths?.length) return `${head}/>`;
     return `${head} w:equalWidth="0">${cols.widths.map((c5) => `<w:col w:w="${c5.widthTwips}" w:space="${c5.spaceTwips}"/>`).join("")}</w:cols>`;
   }
-  const el13 = raw ? splitElement(raw).el : void 0;
-  const sep = el13?.attrs["w:sep"];
-  const space = el13?.attrs["w:space"] ?? "708";
+  const el14 = raw ? splitElement(raw).el : void 0;
+  const sep = el14?.attrs["w:sep"];
+  const space = el14?.attrs["w:space"] ?? "708";
   return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc3(space)}"/>`;
 }
 function pgNumTypeXml(s4, raw = "") {
@@ -6888,8 +6885,8 @@ function pgNumTypeXml(s4, raw = "") {
   return /^<w:pgNumType\s*\/>$/.test(xml) ? null : xml;
 }
 function patchSectPr(raw, cur, refs) {
-  const { open: open2, close, kids, el: el13 } = splitElement(raw);
-  const base = readSectPr(el13);
+  const { open: open2, close, kids, el: el14 } = splitElement(raw);
+  const base = readSectPr(el14);
   let changed = false;
   const set = (name, xml) => {
     changed = true;
@@ -7320,14 +7317,346 @@ var init_source = __esm({
   }
 });
 
+// ../docx-core/src/page-background.ts
+function readPageBackground(bg, resolveImage) {
+  const out = {};
+  for (const k2 of ["color", "themeColor", "themeTint", "themeShade"]) {
+    const v2 = bg.attrs[`w:${k2}`];
+    if (v2) out[k2] = v2;
+  }
+  const vbg = firstChild(bg, "v:background");
+  const vf = vbg && firstChild(vbg, "v:fill");
+  const type = vf?.attrs["type"];
+  if (vbg && vf && (type === "gradient" || type === "gradientRadial" || type === "pattern" || type === "frame" || type === "tile")) {
+    const f3 = { type };
+    const c1 = vmlColor(vbg.attrs["fillcolor"]);
+    if (c1) f3.color = c1;
+    if (vf.attrs["color2"]) f3.color2 = vf.attrs["color2"];
+    if (vf.attrs["angle"]) f3.angle = parseFloat(vf.attrs["angle"]);
+    const fo = pct(vf.attrs["focus"]);
+    if (fo !== void 0) f3.focus = fo;
+    const fp = vf.attrs["focusposition"];
+    if (fp !== void 0 && fp !== "") {
+      const [x3 = "", y3 = ""] = fp.split(",");
+      f3.focusPosition = [x3.trim() ? frac(x3.trim()) : 0, y3.trim() ? frac(y3.trim()) : 0];
+    }
+    if (firstChild(vf, "o:fill")?.attrs["type"] === "gradientCenter") f3.gradientCenter = true;
+    const colors = vf.attrs["colors"];
+    if (colors) {
+      const stops = colors.split(";").map((s4) => s4.trim().split(/\s+/)).filter((p3) => p3.length >= 2).map(([pos, col]) => ({ pos: frac(pos), color: vmlColor(col) ?? "000000" }));
+      if (stops.length) f3.colors = stops;
+    }
+    if (vf.attrs["method"]) f3.method = vf.attrs["method"];
+    if (vf.attrs["o:title"] !== void 0) f3.title = vf.attrs["o:title"];
+    const rid = vf.attrs["r:id"];
+    const img = rid ? resolveImage(rid) : void 0;
+    if (img) f3.image = img;
+    if (vbg.attrs["o:targetscreensize"]) f3.targetScreen = true;
+    out.fill = f3;
+  }
+  return Object.keys(out).length ? out : void 0;
+}
+function vmlColorAttr(hex2) {
+  const h3 = hex2.replace(/^#/, "").toUpperCase();
+  const name = NAMED[h3];
+  if (name) return name;
+  const l3 = h3.toLowerCase();
+  return l3[0] === l3[1] && l3[2] === l3[3] && l3[4] === l3[5] ? `#${l3[0]}${l3[2]}${l3[4]}` : `#${l3}`;
+}
+function pageBackgroundXml(bg, rid) {
+  const f3 = bg.fill;
+  const image = f3 && (f3.type === "frame" || f3.type === "tile");
+  const color3 = image ? "FFFFFF" : bg.color ?? f3?.color ?? "FFFFFF";
+  const attrs3 = `w:color="${color3.toUpperCase()}"` + (bg.themeColor && !f3 ? ` w:themeColor="${bg.themeColor}"` : "") + (bg.themeTint && !f3 ? ` w:themeTint="${bg.themeTint}"` : "") + (bg.themeShade && !f3 ? ` w:themeShade="${bg.themeShade}"` : "");
+  if (!f3) return `<w:background ${attrs3}/>`;
+  const vbg = '<v:background id="_x0000_s1025" o:bwmode="white"' + (!image && f3.color ? ` fillcolor="${vmlColorAttr(f3.color)}"` : "") + (f3.type === "gradient" || f3.type === "gradientRadial" || f3.type === "frame" ? ' o:targetscreensize="1024,768"' : "") + ">";
+  let fill = "<v:fill";
+  if (rid) fill += ` r:id="${rid}"`;
+  if (f3.title !== void 0 && (f3.type === "pattern" || image)) fill += ` o:title="${escAttr2(f3.title)}"`;
+  if (f3.color2 !== void 0) fill += ` color2="${escAttr2(f3.color2)}"`;
+  if (f3.colors?.length) fill += ` colors="${f3.colors.map((s4) => `${s4.pos === 0 ? "0" : s4.pos === 1 ? "1" : `${Math.round(s4.pos * 65536)}f`} ${vmlColorAttr(s4.color)}`).join(";")}"`;
+  if (f3.angle) fill += ` angle="${Math.round(f3.angle)}"`;
+  if (f3.method) fill += ` method="${escAttr2(f3.method)}"`;
+  if (f3.focusPosition) {
+    const [x3, y3] = f3.focusPosition;
+    fill += ` focusposition="${x3 ? fracAttr(x3) : ""}${y3 ? `,${fracAttr(y3)}` : ""}" focussize=""`;
+  }
+  if (f3.focus) fill += ` focus="${pctAttr(f3.focus)}"`;
+  fill += ` type="${f3.type}"`;
+  fill += f3.gradientCenter ? '><o:fill v:ext="view" type="gradientCenter"/></v:fill>' : "/>";
+  return `<w:background ${attrs3}>${vbg}${fill}</v:background></w:background>`;
+}
+function writePageBackground(pkg, bg, prev) {
+  const path = partByRelType(pkg, "officeDocument", "word/document.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) return void 0;
+  const relsPath = path.replace(/([^/]+)$/, "_rels/$1.rels");
+  let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  if (prev) {
+    const rel = new RegExp(`<Relationship\\b[^>]*\\bId="${prev.rid}"[^>]*/>`).exec(rels);
+    if (rel) rels = rels.slice(0, rel.index) + rels.slice(rel.index + rel[0].length);
+    pkg.removePart(prev.media);
+  }
+  let added;
+  const old = /<w:background\b[^>]*?(?:\/>|>[\s\S]*?<\/w:background>)/.exec(xml);
+  const oldRid = old ? /\br:id="([^"]+)"/.exec(old[0])?.[1] : void 0;
+  if (old) xml = xml.slice(0, old.index) + xml.slice(old.index + old[0].length);
+  let rid;
+  const img = bg?.fill?.image;
+  if (img) {
+    const ext = img.ext.toLowerCase() === "jpg" ? "jpeg" : img.ext.toLowerCase();
+    let n5 = 1;
+    while (pkg.getPart(`word/media/image${n5}.${ext}`)) n5++;
+    const target = `media/image${n5}.${ext}`;
+    pkg.setPart(`word/${target}`, img.data);
+    let k2 = 1;
+    while (new RegExp(`Id="rId${k2}"`).test(rels)) k2++;
+    rid = `rId${k2}`;
+    added = { rid, media: `word/${target}` };
+    rels = rels.replace("</Relationships>", () => `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`);
+    let ct = pkg.getPartText("[Content_Types].xml") ?? "";
+    if (ct && !new RegExp(`<Default Extension="${ext}"`, "i").test(ct)) {
+      ct = ct.replace(/(<Types\b[^>]*>)/, `$1<Default Extension="${ext}" ContentType="${MIME[ext] ?? `image/${ext}`}"/>`);
+      pkg.setPartText("[Content_Types].xml", ct);
+    }
+  }
+  if (bg) {
+    const el14 = pageBackgroundXml(bg, rid);
+    const m2 = /<w:document\b[^>]*>/.exec(xml);
+    if (m2) {
+      let tag2 = m2[0];
+      if (bg.fill) {
+        for (const [p3, uri] of NS) if (!new RegExp(`\\sxmlns:${p3}=`).test(tag2)) tag2 = tag2.replace(/>$/, ` xmlns:${p3}="${uri}">`);
+      }
+      xml = xml.slice(0, m2.index) + tag2 + el14 + xml.slice(m2.index + m2[0].length);
+    }
+  }
+  if (oldRid && !new RegExp(`"${oldRid}"`).test(xml)) {
+    const rel = new RegExp(`<Relationship\\b[^>]*\\bId="${oldRid}"[^>]*/>`).exec(rels);
+    if (rel) rels = rels.slice(0, rel.index) + rels.slice(rel.index + rel[0].length);
+  }
+  pkg.setPartText(path, xml);
+  if (img || oldRid || prev) pkg.setPartText(relsPath, rels);
+  return added;
+}
+function patternGif(rows) {
+  const idx = [];
+  for (let y3 = 0; y3 < 8; y3++) for (let x3 = 0; x3 < 8; x3++) idx.push((rows[y3] ?? 0) >> 7 - x3 & 1 ? 0 : 1);
+  const comment = "Software: Microsoft Office";
+  const head = [
+    ..."GIF87a".split("").map((c5) => c5.charCodeAt(0)),
+    8,
+    0,
+    8,
+    0,
+    119,
+    1,
+    0,
+    33,
+    254,
+    comment.length,
+    ...comment.split("").map((c5) => c5.charCodeAt(0)),
+    0,
+    44,
+    0,
+    0,
+    0,
+    0,
+    8,
+    0,
+    8,
+    0,
+    128,
+    255,
+    255,
+    255,
+    0,
+    0,
+    0
+  ];
+  const lzw2 = lzwEncode(idx, 2);
+  const body = [2];
+  for (let i7 = 0; i7 < lzw2.length; i7 += 255) {
+    const blk = lzw2.slice(i7, i7 + 255);
+    body.push(blk.length, ...blk);
+  }
+  body.push(0, 59);
+  return Uint8Array.from([...head, ...body]);
+}
+function lzwEncode(data8, minCode) {
+  const clear = 1 << minCode, eoi = clear + 1;
+  const out = [];
+  let cur = 0, bits2 = 0;
+  let size = minCode + 1;
+  const emit = (code) => {
+    cur |= code << bits2;
+    bits2 += size;
+    while (bits2 >= 8) {
+      out.push(cur & 255);
+      cur >>= 8;
+      bits2 -= 8;
+    }
+  };
+  let dict = /* @__PURE__ */ new Map();
+  let next = eoi + 1;
+  const reset = () => {
+    dict = /* @__PURE__ */ new Map();
+    next = eoi + 1;
+    size = minCode + 1;
+  };
+  emit(clear);
+  reset();
+  let w2 = String(data8[0]);
+  for (let i7 = 1; i7 < data8.length; i7++) {
+    const k2 = String(data8[i7]);
+    const wk = `${w2},${k2}`;
+    if (dict.has(wk)) {
+      w2 = wk;
+      continue;
+    }
+    emit(w2.includes(",") ? dict.get(w2) : Number(w2));
+    dict.set(wk, next++);
+    if (next > 1 << size && size < 12) size++;
+    if (next >= 4095) {
+      emit(clear);
+      reset();
+    }
+    w2 = k2;
+  }
+  emit(w2.includes(",") ? dict.get(w2) : Number(w2));
+  emit(eoi);
+  if (bits2 > 0) out.push(cur & 255);
+  return out;
+}
+function oneColorGradientColor2(degree) {
+  const d3 = Math.max(0, Math.min(1, degree));
+  if (Math.abs(d3 - 0.5) < 1e-6) return "fill";
+  return d3 < 0.5 ? `fill darken(${Math.round(510 * d3)})` : `fill lighten(${Math.round(510 * (1 - d3))})`;
+}
+function resolveColor2(color22, color1) {
+  if (!color22) return "FFFFFF";
+  const m2 = /^\s*fill(?:\s+(darken|lighten)\((\d+)\))?\s*$/i.exec(color22);
+  if (!m2) return vmlColor(color22) ?? "FFFFFF";
+  if (!m2[1]) return color1;
+  const n5 = Math.max(0, Math.min(255, parseInt(m2[2], 10)));
+  const c5 = [0, 2, 4].map((i7) => parseInt(color1.slice(i7, i7 + 2), 16));
+  const r6 = m2[1].toLowerCase() === "darken" ? c5.map((v2) => Math.floor(v2 * n5 / 255)) : c5.map((v2) => 255 - Math.floor((255 - v2) * n5 / 255));
+  return r6.map((v2) => v2.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+var pct, frac, NAMED, escAttr2, pctAttr, fracAttr, NS, MIME, WORD_PATTERNS;
+var init_page_background = __esm({
+  "../docx-core/src/page-background.ts"() {
+    "use strict";
+    init_xml();
+    init_drawing();
+    init_parts();
+    pct = (v2) => {
+      if (v2 === void 0 || v2 === "") return void 0;
+      const s4 = v2.trim();
+      if (s4.endsWith("%")) return parseFloat(s4);
+      if (s4.endsWith("f")) return parseInt(s4, 10) / 65536 * 100;
+      const n5 = parseFloat(s4);
+      return Number.isFinite(n5) ? n5 * 100 : void 0;
+    };
+    frac = (v2) => v2.endsWith("f") ? parseInt(v2, 10) / 65536 : parseFloat(v2);
+    NAMED = {
+      "000000": "black",
+      "FFFFFF": "white",
+      "FF0000": "red",
+      "008000": "green",
+      "0000FF": "blue",
+      "FFFF00": "yellow",
+      "808080": "gray",
+      "C0C0C0": "silver",
+      "000080": "navy",
+      "800000": "maroon",
+      "008080": "teal",
+      "808000": "olive",
+      "800080": "purple",
+      "FF00FF": "fuchsia",
+      "00FFFF": "aqua",
+      "00FF00": "lime"
+    };
+    escAttr2 = (s4) => s4.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    pctAttr = (v2) => `${Math.round(v2 * 100) / 100}%`;
+    fracAttr = (v2) => v2 === 0 ? "0" : v2 === 1 ? "1" : String(Math.round(v2 * 1e3) / 1e3).replace(/^0\./, ".");
+    NS = [
+      ["v", "urn:schemas-microsoft-com:vml"],
+      ["o", "urn:schemas-microsoft-com:office:office"],
+      ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"]
+    ];
+    MIME = {
+      png: "image/png",
+      jpeg: "image/jpeg",
+      jpg: "image/jpeg",
+      gif: "image/gif",
+      bmp: "image/bmp",
+      tif: "image/tiff",
+      tiff: "image/tiff",
+      emf: "image/x-emf",
+      wmf: "image/x-wmf"
+    };
+    WORD_PATTERNS = [
+      { prst: "pct5", title: { pt: " 5%", en: "5%" } },
+      { prst: "pct10", title: { pt: " 10%", en: "10%" } },
+      { prst: "pct20", title: { pt: " 20%", en: "20%" } },
+      { prst: "pct25", title: { pt: " 25%", en: "25%" } },
+      { prst: "pct30", title: { pt: " 30%", en: "30%" } },
+      { prst: "pct40", title: { pt: " 40%", en: "40%" } },
+      { prst: "pct50", title: { pt: " 50%", en: "50%" } },
+      { prst: "pct60", title: { pt: " 60%", en: "60%" } },
+      { prst: "pct70", title: { pt: " 70%", en: "70%" } },
+      { prst: "pct75", title: { pt: " 75%", en: "75%" } },
+      { prst: "pct80", title: { pt: " 80%", en: "80%" } },
+      { prst: "pct90", title: { pt: " 90%", en: "90%" } },
+      { prst: "dkHorz", title: { pt: " Escuras", en: "Dark horizontal" } },
+      { prst: "dkVert", title: { pt: " escura", en: "Dark vertical" } },
+      { prst: "dkDnDiag", title: { pt: " Escuras para baixo", en: "Dark downward diagonal" } },
+      { prst: "dkUpDiag", title: { pt: " Escuras para cima", en: "Dark upward diagonal" } },
+      { prst: "smCheck", title: { pt: "Quadriculado pequeno", en: "Small checker board" } },
+      { prst: "trellis", title: { pt: "Treli\xE7a", en: "Trellis" } },
+      { prst: "ltHorz", title: { pt: " Claras", en: "Light horizontal" } },
+      { prst: "ltVert", title: { pt: " clara", en: "Light vertical" } },
+      { prst: "ltDnDiag", title: { pt: " Claras para baixo", en: "Light downward diagonal" } },
+      { prst: "ltUpDiag", title: { pt: " Claras para cima", en: "Light upward diagonal" } },
+      { prst: "smGrid", title: { pt: "Grade fechada", en: "Small grid" } },
+      { prst: "dotDmnd", title: { pt: "Losango pontilhado", en: "Dotted diamond" } },
+      { prst: "wdDnDiag", title: { pt: " Largas para baixo", en: "Wide downward diagonal" } },
+      { prst: "wdUpDiag", title: { pt: " Largas para cima", en: "Wide upward diagonal" } },
+      { prst: "dashUpDiag", title: { pt: " Barras", en: "Dashed upward diagonal" } },
+      { prst: "dashDnDiag", title: { pt: " Barras invertidas", en: "Dashed downward diagonal" } },
+      { prst: "narVert", title: { pt: " estreita", en: "Narrow vertical" } },
+      { prst: "narHorz", title: { pt: " Estreitas", en: "Narrow horizontal" } },
+      { prst: "dashVert", title: { pt: " alternando linhas verticais", en: "Dashed vertical" } },
+      { prst: "dashHorz", title: { pt: " alternando linhas horizontais", en: "Dashed horizontal" } },
+      { prst: "lgConfetti", title: { pt: "Confetes grandes", en: "Large confetti" } },
+      { prst: "lgGrid", title: { pt: "Grade aberta", en: "Large grid" } },
+      { prst: "horzBrick", title: { pt: "Tijolo na horizontal", en: "Horizontal brick" } },
+      { prst: "lgCheck", title: { pt: "Quadriculado grande", en: "Large checker board" } },
+      { prst: "smConfetti", title: { pt: "Confetes pequenos", en: "Small confetti" } },
+      { prst: "zigZag", title: { pt: "Ziguezague", en: "Zig zag" } },
+      { prst: "solidDmnd", title: { pt: "Losango s\xF3lido", en: "Solid diamond" } },
+      { prst: "diagBrick", title: { pt: "Tijolo na diagonal", en: "Diagonal brick" } },
+      { prst: "openDmnd", title: { pt: "Contorno de losango", en: "Outlined diamond" } },
+      { prst: "plaid", title: { pt: "Xadrez", en: "Plaid" } },
+      { prst: "sphere", title: { pt: "Esfera", en: "Sphere" } },
+      { prst: "weave", title: { pt: "Tran\xE7a", en: "Weave" } },
+      { prst: "dotGrid", title: { pt: "Grade pontilhada", en: "Dotted grid" } },
+      { prst: "divot", title: { pt: "Malha", en: "Divot" } },
+      { prst: "shingle", title: { pt: "Telhas", en: "Shingle" } },
+      { prst: "wave", title: { pt: "Ondulado", en: "Wave" } }
+    ];
+  }
+});
+
 // ../docx-core/src/fulldoc.ts
-function readBorderSet(el13, inside) {
-  if (!el13) return void 0;
+function readBorderSet(el14, inside) {
+  if (!el14) return void 0;
   const out = {};
   const sides = inside ? ["top", "left", "bottom", "right", "insideH", "insideV"] : ["top", "left", "bottom", "right"];
   let any = false;
   for (const side of sides) {
-    const edge = readBorderEdge(firstChild(el13, `w:${side}`));
+    const edge = readBorderEdge(firstChild(el14, `w:${side}`));
     if (edge) {
       out[side] = edge;
       any = true;
@@ -7335,9 +7664,9 @@ function readBorderSet(el13, inside) {
   }
   return any ? out : void 0;
 }
-function unwrap(el13, name) {
+function unwrap(el14, name) {
   const out = [];
-  for (const c5 of childElements(el13)) {
+  for (const c5 of childElements(el14)) {
     if (c5.name === name) out.push(c5);
     else if (c5.name === "w:sdt") {
       const content = firstChild(c5, "w:sdtContent");
@@ -7346,7 +7675,7 @@ function unwrap(el13, name) {
   }
   return out;
 }
-function unwrapRaw(el13, name, skip, xml) {
+function unwrapRaw(el14, name, skip, xml) {
   const out = [];
   let pending2 = [];
   const walk = (container, top) => {
@@ -7377,7 +7706,7 @@ function unwrapRaw(el13, name, skip, xml) {
       pending2.push({ raw: xml.slice(c5.s, c5.e) });
     }
   };
-  walk(el13, true);
+  walk(el14, true);
   if (pending2.length && out.length) out[out.length - 1].post.push(...pending2);
   return out;
 }
@@ -7395,14 +7724,14 @@ function readBlocksOf(container, ctx) {
 }
 function readTable(tblEl, ctx) {
   const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
-  const slice = (el13) => el13 && xml !== void 0 ? xml.slice(el13.s, el13.e) : void 0;
-  const openOf = (el13) => xml.slice(el13.s, el13.cs === el13.e ? el13.e : el13.cs).replace(/\s*\/>$/, ">");
+  const slice = (el14) => el14 && xml !== void 0 ? xml.slice(el14.s, el14.e) : void 0;
+  const openOf = (el14) => xml.slice(el14.s, el14.cs === el14.e ? el14.e : el14.cs).replace(/\s*\/>$/, ">");
   const grid2 = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid2 ? childElements(grid2, "w:gridCol").map((c5) => parseInt(c5.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, "w:tblBorders"), true);
   const rows = [];
-  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el13) => ({ el: el13, pre: [], post: [] }));
+  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el14) => ({ el: el14, pre: [], post: [] }));
   for (const trW of wrapped(tblEl, "w:tr", ["w:tblPr", "w:tblGrid"])) {
     const trEl = trW.el;
     const cells = [];
@@ -7545,6 +7874,26 @@ function readHeaderFooterPart(pkg, path, store, xml0) {
   };
   walk(blocks);
   return { paras, blocks };
+}
+function readBodyFragment(pkg, store, inner, ns) {
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r
+<w:document ${ns}><w:body>${inner}</w:body></w:document>`;
+  const root = parseXml(xml, { positions: !!store });
+  const body = firstChild(root, "w:body");
+  if (!body) return void 0;
+  const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
+  ctx.readBlocks = readBlocksOf;
+  if (!store) return { blocks: readBlocksOf(body, ctx), groups: [] };
+  ctx.sources = store;
+  ctx.sourceXml = xml;
+  const groups = [];
+  const blocks = [];
+  for (const c5 of childElements(body)) {
+    const produced = readBlocksOf({ name: body.name, attrs: {}, children: [c5] }, ctx);
+    groups.push(groupOf(xml, c5, produced, store));
+    blocks.push(...produced);
+  }
+  return { blocks, groups };
 }
 function readNotesPart(pkg, path, elementName, blocksOut, store, special) {
   const out = /* @__PURE__ */ new Map();
@@ -7703,8 +8052,8 @@ function readFullDocument(pkg, opts = {}) {
   for (const child of bodyKids) {
     const before = blocks.length;
     if (child.name === "w:p") {
-      const para2 = readParagraph(child, ctx);
-      blocks.push({ type: "paragraph", paragraph: para2 });
+      const para3 = readParagraph(child, ctx);
+      blocks.push({ type: "paragraph", paragraph: para3 });
       const pPr = firstChild(child, "w:pPr");
       const sectEl = pPr && firstChild(pPr, "w:sectPr");
       if (sectEl) closeSection(sectEl, blocks.length - 1);
@@ -7759,19 +8108,14 @@ function readFullDocument(pkg, opts = {}) {
     endnoteBlocks,
     noteSpecialIds,
     ...readCoreProps(pkg),
-    ...readBackground(root),
+    ...readBackground(root, ctx),
     ...store ? { sources: store } : {}
   };
 }
-function readBackground(root) {
+function readBackground(root, ctx) {
   const bg = firstChild(root, "w:background");
-  if (!bg) return {};
-  const out = {};
-  for (const k2 of ["color", "themeColor", "themeTint", "themeShade"]) {
-    const v2 = bg.attrs[`w:${k2}`];
-    if (v2) out[k2] = v2;
-  }
-  return Object.keys(out).length ? { background: out } : {};
+  const out = bg ? readPageBackground(bg, (rid) => ctx.resolveImage(rid)) : void 0;
+  return out ? { background: out } : {};
 }
 function readCoreProps(pkg) {
   const xml = pkg.getPartText("docProps/core.xml");
@@ -7844,6 +8188,7 @@ var init_fulldoc = __esm({
     init_props();
     init_parts();
     init_source();
+    init_page_background();
     wrapIds = 0;
     wrapOf = (w2) => ({ ...w2.pre.length ? { pre: w2.pre } : {}, ...w2.post.length ? { post: w2.post } : {} });
   }
@@ -7862,9 +8207,9 @@ function sectionRanges(model) {
   out.push({ start, end: Math.max(start, model.paragraphs.length - 1) });
   return out;
 }
-function sectionIndexAt(model, para2) {
+function sectionIndexAt(model, para3) {
   const rs = sectionRanges(model);
-  const k2 = rs.findIndex((r6) => para2 <= r6.end);
+  const k2 = rs.findIndex((r6) => para3 <= r6.end);
   return k2 < 0 ? rs.length - 1 : k2;
 }
 function sectionSectPr(model, k2) {
@@ -8021,6 +8366,28 @@ function writeEvenAndOddHeaders(pkg, on) {
   }
   pkg.setPartText(path, xml);
 }
+function writeDisplayBackgroundShape(pkg, on) {
+  const path = partByRelType(pkg, "settings", "word/settings.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!on) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText("word/settings.xml");
+    if (!xml) return;
+  }
+  const cur = /<w:displayBackgroundShape\b[^>]*?(?:\/>|>[\s\S]*?<\/w:displayBackgroundShape>)/.exec(xml);
+  const isOn = !!cur && !/w:val="(?:0|false|off)"/.test(cur[0]);
+  if (isOn === on) return;
+  if (cur) xml = xml.slice(0, cur.index) + (on ? "<w:displayBackgroundShape/>" : "") + xml.slice(cur.index + cur[0].length);
+  else {
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) return;
+    let at = root.cs;
+    for (const k2 of childElements(root)) if (BEFORE_DISPLAY_BG.has(k2.name)) at = Math.max(at, k2.e);
+    xml = xml.slice(0, at) + "<w:displayBackgroundShape/>" + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
 function ensureSettingsPart(pkg) {
   if (pkg.getPart("word/settings.xml")) return;
   pkg.setPartText("word/settings.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:settings>');
@@ -8040,7 +8407,7 @@ function ensureSettingsPart(pkg) {
     ));
   }
 }
-var BEFORE_DEFAULT_TAB, BEFORE_EVEN_ODD;
+var BEFORE_DEFAULT_TAB, BEFORE_EVEN_ODD, BEFORE_DISPLAY_BG;
 var init_settings_xml = __esm({
   "../docx-core/src/settings-xml.ts"() {
     "use strict";
@@ -8098,6 +8465,104 @@ var init_settings_xml = __esm({
       "w:clickAndTypeStyle",
       "w:defaultTableStyle"
     ]);
+    BEFORE_DISPLAY_BG = /* @__PURE__ */ new Set(["w:writeProtection", "w:view", "w:zoom", "w:removePersonalInformation", "w:removeDateAndTime", "w:doNotDisplayPageBoundaries"]);
+  }
+});
+
+// ../docx-core/src/watermark.ts
+function watermarkRunXml(spec, box, ids, rid, vmlColor2 = (h3) => `#${h3.toLowerCase()}`) {
+  const head = `<w:r><w:rPr><w:noProof/></w:rPr><w:pict w14:anchorId="${ids.anchorId}">`;
+  if (spec.kind === "picture") {
+    const fx = spec.washout ? ' gain="19661f" blacklevel="22938f"' : "";
+    return `${head}${SHAPETYPE_PICTURE}<v:shape id="WordPictureWatermark${ids.n}" o:spid="_x0000_s${ids.spid}" type="#_x0000_t75" style="position:absolute;margin-left:0;margin-top:0;width:${ptv(box.widthPt)};height:${ptv(box.heightPt)};z-index:-251657216;${POS}" o:allowincell="f"><v:imagedata r:id="${rid ?? ""}" o:title="${esc4(spec.title)}"${fx}/><w10:wrap anchorx="margin" anchory="margin"/></v:shape></w:pict></w:r>`;
+  }
+  const rot = spec.layout === "diagonal" ? "rotation:315;" : "";
+  const size = spec.sizePt ? `${Math.round(spec.sizePt * 100) / 100}pt` : "1pt";
+  return `${head}${SHAPETYPE_TEXT}<v:shape id="PowerPlusWaterMarkObject${ids.n}" o:spid="_x0000_s${ids.spid}" type="#_x0000_t136" alt="" style="position:absolute;margin-left:0;margin-top:0;width:${ptv(box.widthPt)};height:${ptv(box.heightPt)};${rot}z-index:-251657216;mso-wrap-edited:f;mso-width-percent:0;mso-height-percent:0;${POS};mso-width-percent:0;mso-height-percent:0" o:allowincell="f" fillcolor="${vmlColor2(spec.color)}" stroked="f">${spec.semitransparent ? '<v:fill opacity=".5"/>' : ""}<v:textpath style="font-family:&quot;${esc4(spec.font)}&quot;;font-size:${size}" string="${esc4(spec.text)}"/><w10:wrap anchorx="margin" anchory="margin"/></v:shape></w:pict></w:r>`;
+}
+function isWatermarkXml(xml) {
+  return !!xml && /\bid="(?:PowerPlusWaterMarkObject|WordPictureWatermark)\d*"/.test(xml);
+}
+function readWatermarkXml(xml, color3) {
+  const shape2 = /<v:shape\b[^>]*\bid="(PowerPlusWaterMarkObject|WordPictureWatermark)\d*"[^>]*>[\s\S]*?<\/v:shape>/.exec(xml);
+  if (!shape2) return null;
+  const tag2 = /<v:shape\b[^>]*>/.exec(shape2[0])[0];
+  const style = attr(tag2, "style") ?? "";
+  const widthPt = ptOf(styleProp(style, "width")), heightPt = ptOf(styleProp(style, "height"));
+  if (shape2[1] === "WordPictureWatermark") {
+    const img = /<v:imagedata\b[^>]*>/.exec(shape2[0])?.[0] ?? "";
+    return { kind: "picture", rid: attr(img, "r:id") ?? "", title: attr(img, "o:title") ?? "", washout: /\bgain=/.test(img) || /\bblacklevel=/.test(img), widthPt, heightPt };
+  }
+  const tp = /<v:textpath\b[^>]*>/.exec(shape2[0])?.[0] ?? "";
+  const tps = attr(tp, "style") ?? "";
+  const font = (styleProp(tps, "font-family") ?? "Calibri").replace(/^["']|["']$/g, "");
+  const fs = parseFloat(styleProp(tps, "font-size") ?? "1");
+  const fill = /<v:fill\b[^>]*>/.exec(shape2[0])?.[0] ?? "";
+  const op = attr(fill, "opacity");
+  const rot = parseFloat(styleProp(style, "rotation") ?? "0");
+  return {
+    kind: "text",
+    text: attr(tp, "string") ?? "",
+    font,
+    ...fs > 1 ? { sizePt: fs } : {},
+    color: color3(attr(tag2, "fillcolor")) ?? "C0C0C0",
+    semitransparent: !!op && (op.endsWith("f") ? parseInt(op, 10) / 65536 : parseFloat(op)) < 1,
+    layout: rot && Math.round((rot % 180 + 180) % 180) !== 0 ? "diagonal" : "horizontal",
+    widthPt,
+    heightPt
+  };
+}
+function autoTextBox(text, layout, contentWidthPt) {
+  const n5 = Math.max(1, text.replace(/\s+/g, "").length);
+  const aspect = n5 / 3;
+  if (layout === "horizontal") return { widthPt: round2(contentWidthPt), heightPt: round2(contentWidthPt / aspect) };
+  const h3 = DIAG_FIT * contentWidthPt * Math.SQRT2 / (aspect + 1);
+  return { widthPt: round2(aspect * h3), heightPt: round2(h3) };
+}
+function explicitTextBox(advancePt, sizePt, lineFactor) {
+  return { widthPt: Math.max(1, Math.round(advancePt)), heightPt: Math.max(1, Math.round(sizePt * lineFactor)) };
+}
+function pictureBox(naturalPt, scale, contentWidthPt) {
+  if (naturalPt.w <= 0 || naturalPt.h <= 0) return { widthPt: contentWidthPt, heightPt: contentWidthPt };
+  if (!scale) return { widthPt: round2(contentWidthPt), heightPt: round2(contentWidthPt * naturalPt.h / naturalPt.w) };
+  return { widthPt: round2(naturalPt.w * scale / 100), heightPt: round2(naturalPt.h * scale / 100) };
+}
+var SHAPETYPE_TEXT, SHAPETYPE_PICTURE, POS, esc4, ptv, attr, styleProp, ptOf, DIAG_FIT, round2, D, WATERMARK_GALLERY, WATERMARK_TEXTS;
+var init_watermark = __esm({
+  "../docx-core/src/watermark.ts"() {
+    "use strict";
+    SHAPETYPE_TEXT = '<v:shapetype id="_x0000_t136" coordsize="21600,21600" o:spt="136" adj="10800" path="m@7,l@8,m@5,21600l@6,21600e"><v:formulas><v:f eqn="sum #0 0 10800"/><v:f eqn="prod #0 2 1"/><v:f eqn="sum 21600 0 @1"/><v:f eqn="sum 0 0 @2"/><v:f eqn="sum 21600 0 @3"/><v:f eqn="if @0 @3 0"/><v:f eqn="if @0 21600 @1"/><v:f eqn="if @0 0 @2"/><v:f eqn="if @0 @4 21600"/><v:f eqn="mid @5 @6"/><v:f eqn="mid @8 @5"/><v:f eqn="mid @7 @8"/><v:f eqn="mid @6 @7"/><v:f eqn="sum @6 0 @5"/></v:formulas><v:path textpathok="t" o:connecttype="custom" o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800" o:connectangles="270,180,90,0"/><v:textpath on="t" fitshape="t"/><v:handles><v:h position="#0,bottomRight" xrange="6629,14971"/></v:handles><o:lock v:ext="edit" text="t" shapetype="t"/></v:shapetype>';
+    SHAPETYPE_PICTURE = '<v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype>';
+    POS = "mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin";
+    esc4 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    ptv = (v2) => `${Math.round(v2 * 100) / 100}pt`;
+    attr = (xml, name) => {
+      const m2 = new RegExp(`\\s${name}="([^"]*)"`).exec(xml);
+      return m2 ? m2[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&") : void 0;
+    };
+    styleProp = (style, k2) => new RegExp(`(?:^|;)\\s*${k2}\\s*:\\s*([^;]+)`).exec(style)?.[1]?.trim();
+    ptOf = (v2) => v2 ? parseFloat(v2) * (v2.endsWith("in") ? 72 : v2.endsWith("cm") ? 72 / 2.54 : v2.endsWith("mm") ? 72 / 25.4 : 1) : 0;
+    DIAG_FIT = 466.55 / 468;
+    round2 = (v2) => Math.round(v2 * 100) / 100;
+    D = (aspectBox) => aspectBox;
+    WATERMARK_GALLERY = [
+      { id: "confidential1", category: "confidential", text: { pt: "CONFIDENCIAL", en: "CONFIDENTIAL" }, layout: "diagonal", box: { pt: [527.85, 131.95], en: D([527.85, 131.95]) } },
+      { id: "confidential2", category: "confidential", text: { pt: "CONFIDENCIAL", en: "CONFIDENTIAL" }, layout: "horizontal", box: { pt: [468, 117], en: [468, 117] } },
+      { id: "donotcopy1", category: "confidential", text: { pt: "N\xC3O COPIAR", en: "DO NOT COPY" }, layout: "diagonal", box: { pt: [494.9, 164.95], en: [494.9, 164.95] } },
+      { id: "donotcopy2", category: "confidential", text: { pt: "N\xC3O COPIAR", en: "DO NOT COPY" }, layout: "horizontal", box: { pt: [467.95, 155.95], en: [467.95, 155.95] } },
+      { id: "draft1", category: "disclaimers", text: { pt: "RASCUNHO", en: "DRAFT" }, layout: "diagonal", box: { pt: [412.4, 247.45], en: [412.4, 247.45] } },
+      { id: "draft2", category: "disclaimers", text: { pt: "RASCUNHO", en: "DRAFT" }, layout: "horizontal", box: { pt: [468, 280.8], en: [468, 280.8] } },
+      { id: "sample1", category: "disclaimers", text: { pt: "EXEMPLO", en: "SAMPLE" }, layout: "diagonal", box: { pt: [461.85, 197.95], en: [439.9, 219.95] } },
+      { id: "sample2", category: "disclaimers", text: { pt: "EXEMPLO", en: "SAMPLE" }, layout: "horizontal", box: { pt: [467.95, 200.55], en: [468, 234] } },
+      { id: "asap1", category: "urgent", text: { pt: "ASAP", en: "ASAP" }, layout: "diagonal", box: { pt: [377.05, 282.8], en: [377.05, 282.8] } },
+      { id: "asap2", category: "urgent", text: { pt: "ASAP", en: "ASAP" }, layout: "horizontal", box: { pt: [468, 351], en: [468, 351] } },
+      { id: "urgent1", category: "urgent", text: { pt: "URGENTE", en: "URGENT" }, layout: "diagonal", box: { pt: [439.9, 219.95], en: [439.9, 219.95] } },
+      { id: "urgent2", category: "urgent", text: { pt: "URGENTE", en: "URGENT" }, layout: "horizontal", box: { pt: [468, 234], en: [468, 234] } }
+    ];
+    WATERMARK_TEXTS = {
+      en: ["ASAP", "CONFIDENTIAL", "COPY", "DO NOT COPY", "DRAFT", "ORIGINAL", "PERSONAL", "SAMPLE", "TOP SECRET", "URGENT"],
+      pt: ["ASAP", "CONFIDENCIAL", "C\xD3PIA", "EXEMPLO", "N\xC3O COPIAR", "ORIGINAL", "PESSOAL", "RASCUNHO", "ULTRASSECRETO", "URGENTE"]
+    };
   }
 });
 
@@ -8172,9 +8637,9 @@ function oleObjectXml(run2) {
   mediaOut.push({ rid: ridImg, path: `word/media/wnimage${n5}.${img.ext}`, data: img.data, ext: img.ext });
   mediaOut.push({ rid: ridOle, path: `word/embeddings/wnobject${n5}.${ole.ext}`, data: ole.data, ext: ole.ext, relType: REL_PACKAGE, mime: OLE_MIME[ole.ext] ?? "application/octet-stream" });
   const w2 = Math.round(img.widthTwips / 2) / 10, h3 = Math.round(img.heightTwips / 2) / 10;
-  const shape = `_x0000_i${1025 + n5}`;
+  const shape2 = `_x0000_i${1025 + n5}`;
   const objId = `_${String(18e8 + n5 * 7919).slice(0, 10)}`;
-  return `<w:object xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" w:dxaOrig="${Math.round(img.widthTwips)}" w:dyaOrig="${Math.round(img.heightTwips)}"><v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype><v:shape id="${shape}" type="#_x0000_t75" style="width:${w2}pt;height:${h3}pt" o:ole=""><v:imagedata r:id="${ridImg}" o:title=""/></v:shape><o:OLEObject Type="Embed" ProgID="${escAttr2(ole.progId)}" ShapeID="${shape}" DrawAspect="Content" ObjectID="${objId}" r:id="${ridOle}"/></w:object>`;
+  return `<w:object xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" w:dxaOrig="${Math.round(img.widthTwips)}" w:dyaOrig="${Math.round(img.heightTwips)}"><v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype><v:shape id="${shape2}" type="#_x0000_t75" style="width:${w2}pt;height:${h3}pt" o:ole=""><v:imagedata r:id="${ridImg}" o:title=""/></v:shape><o:OLEObject Type="Embed" ProgID="${escAttr3(ole.progId)}" ShapeID="${shape2}" DrawAspect="Content" ObjectID="${objId}" r:id="${ridOle}"/></w:object>`;
 }
 function patchDrawingGeometry(raw, obj) {
   const cx = Math.round(obj.widthTwips * EMU_PER_TWIP);
@@ -8233,8 +8698,8 @@ function pictureXml(img, source) {
   let xml = patchDrawingGeometry(!img.edited && source ? source : img.rawDrawingXml, img);
   if (xml.includes('r:embed="uw:media"')) xml = xml.replace(/r:embed="uw:media"/g, () => `r:embed="${mediaRelId(img.data, img.ext)}"`);
   if (xml.includes('r:embed="uw:layer"') && img.layer) {
-    const L8 = img.layer;
-    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L8.data, L8.ext, L8.ext === "wdp" ? REL_HDPHOTO : REL_IMAGE)}"`);
+    const L9 = img.layer;
+    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L9.data, L9.ext, L9.ext === "wdp" ? REL_HDPHOTO : REL_IMAGE)}"`);
   }
   return xml;
 }
@@ -8311,7 +8776,7 @@ function textXml(text, deleted = false) {
     else if (seg === "\u2028") parts.push('<w:br w:clear="all"/>');
     else if (seg.length > 0) {
       const space = seg !== seg.trim() ? ' xml:space="preserve"' : "";
-      parts.push(`<${t6}${space}>${esc4(seg)}</${t6}>`);
+      parts.push(`<${t6}${space}>${esc5(seg)}</${t6}>`);
     }
   }
   return parts.join("");
@@ -8319,11 +8784,11 @@ function textXml(text, deleted = false) {
 function markXml2(run2) {
   if (run2.bookmark) {
     const b5 = run2.bookmark;
-    return b5.end ? `<w:bookmarkEnd w:id="${b5.id}"/>` : `<w:bookmarkStart w:id="${b5.id}" w:name="${escAttr2(b5.name)}"/>`;
+    return b5.end ? `<w:bookmarkEnd w:id="${b5.id}"/>` : `<w:bookmarkStart w:id="${b5.id}" w:name="${escAttr3(b5.name)}"/>`;
   }
   if (run2.fieldBegin !== void 0) {
     const rpr = rPrXml(run2);
-    return fldCharXml(rpr, "begin") + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc4(run2.fieldBegin)}</w:instrText></w:r>` + fldCharXml(rpr, "separate");
+    return fldCharXml(rpr, "begin") + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc5(run2.fieldBegin)}</w:instrText></w:r>` + fldCharXml(rpr, "separate");
   }
   if (run2.fieldEnd) return fldCharXml(rPrXml(run2), "end");
   return void 0;
@@ -8343,7 +8808,7 @@ function runXml(run2) {
       text: run2.custom.fallbackText,
       props: run2.props
     };
-    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr2(run2.custom.fallbackText)}"/><w:tag w:val="${escAttr2(tag2)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
+    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr3(run2.custom.fallbackText)}"/><w:tag w:val="${escAttr3(tag2)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
   }
   if (active && (run2.image || run2.textbox || run2.shape || run2.group)) {
     const x3 = objectXml(run2);
@@ -8374,15 +8839,15 @@ function runXml(run2) {
   }
   if (active && run2.ptab) {
     const t6 = run2.ptab;
-    return `<w:r>${rpr}<w:ptab w:relativeTo="${escAttr2(t6.relativeTo)}" w:alignment="${escAttr2(t6.alignment)}"${t6.leader ? ` w:leader="${escAttr2(t6.leader)}"` : ""}/></w:r>`;
+    return `<w:r>${rpr}<w:ptab w:relativeTo="${escAttr3(t6.relativeTo)}" w:alignment="${escAttr3(t6.alignment)}"${t6.leader ? ` w:leader="${escAttr3(t6.leader)}"` : ""}/></w:r>`;
   }
   if (active && run2.symFont && run2.text.length === 1) {
     const code = run2.text.charCodeAt(0);
     const hex2 = (code >= 61440 && code <= 61695 ? code & 255 : code).toString(16).toUpperCase().padStart(4, "0");
-    return `<w:r>${rpr}<w:sym w:font="${escAttr2(run2.symFont)}" w:char="${hex2}"/></w:r>`;
+    return `<w:r>${rpr}<w:sym w:font="${escAttr3(run2.symFont)}" w:char="${hex2}"/></w:r>`;
   }
   if (active && (run2.math || run2.props.isMath)) {
-    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc4(run2.text)}</m:t></m:r></m:oMath>`;
+    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc5(run2.text)}</m:t></m:r></m:oMath>`;
   }
   return `<w:r>${rpr}${textXml(run2.text, !!run2.props.del)}</w:r>`;
 }
@@ -8393,14 +8858,14 @@ function fieldOrRunXml(r6) {
     const result = fieldResultXml(r6);
     if (/\\h\b/i.test(r6.field) || r6.props.src === void 0 && (r6.fieldResult?.length ?? 0) > 1) {
       const rpr2 = rPrXml(r6);
-      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc4(r6.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "separate") + result + fldCharXml(rpr2, "end");
+      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc5(r6.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "separate") + result + fldCharXml(rpr2, "end");
     }
-    return `<w:fldSimple w:instr="${escAttr2(r6.field)}">${result}</w:fldSimple>`;
+    return `<w:fldSimple w:instr="${escAttr3(r6.field)}">${result}</w:fldSimple>`;
   }
   const rpr = rPrXml(r6);
   const ch = (type) => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
   const it = r6.props.del ? "w:delInstrText" : "w:instrText";
-  return ch("begin") + `<w:r>${rpr}<${it} xml:space="preserve">${esc4(r6.field)}</${it}></w:r>` + ch("separate") + runXml(r6) + ch("end");
+  return ch("begin") + `<w:r>${rpr}<${it} xml:space="preserve">${esc5(r6.field)}</${it}></w:r>` + ch("separate") + runXml(r6) + ch("end");
 }
 function fieldResultXml(r6) {
   if (r6.props.src !== void 0 || !r6.fieldResult?.length) return runXml(r6);
@@ -8432,7 +8897,7 @@ function revisionRuns(items) {
 function formulaFieldXml(r6) {
   const rpr = rPrXml(r6);
   const wrap = (inner, pr = rpr) => `<w:r>${pr}${inner}</w:r>`;
-  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc4(r6.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r6.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
+  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc5(r6.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r6.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
 }
 function withNoProof(rpr) {
   if (!rpr || rpr === "<w:rPr/>") return "<w:rPr><w:noProof/></w:rPr>";
@@ -8447,7 +8912,7 @@ function linkRelId(url) {
   let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
   for (const m2 of rels.matchAll(/<Relationship\b[^>]*>/g)) {
     const tag2 = m2[0];
-    if (/TargetMode="External"/.test(tag2) && /\/hyperlink"/.test(tag2) && tag2.includes(`Target="${escAttr2(url)}"`)) {
+    if (/TargetMode="External"/.test(tag2) && /\/hyperlink"/.test(tag2) && tag2.includes(`Target="${escAttr3(url)}"`)) {
       return /\bId="([^"]+)"/.exec(tag2)?.[1];
     }
   }
@@ -8456,7 +8921,7 @@ function linkRelId(url) {
   const id = `rIdWnLink${n5}`;
   rels = rels.replace(
     "</Relationships>",
-    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escAttr2(url)}" TargetMode="External"/></Relationships>`
+    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escAttr3(url)}" TargetMode="External"/></Relationships>`
   );
   pkg.setPartText(relsPath, rels);
   return id;
@@ -8484,11 +8949,11 @@ function genRuns(items, inWrapper = false) {
     while (j < items.length && sameLink(j)) j++;
     const inner = revisionRuns(items.slice(i7, j));
     const tip = items[i7].run.props.linkTip;
-    const attr = link.startsWith("#") ? ` w:anchor="${escAttr2(link.slice(1))}"` : (() => {
+    const attr2 = link.startsWith("#") ? ` w:anchor="${escAttr3(link.slice(1))}"` : (() => {
       const id = linkRelId(link);
       return id ? ` r:id="${id}"` : "";
     })();
-    out.push(attr ? `<w:hyperlink${attr}${tip ? ` w:tooltip="${escAttr2(tip)}"` : ""} w:history="1">${inner}</w:hyperlink>` : inner);
+    out.push(attr2 ? `<w:hyperlink${attr2}${tip ? ` w:tooltip="${escAttr3(tip)}"` : ""} w:history="1">${inner}</w:hyperlink>` : inner);
     i7 = j;
   }
   return out.join("");
@@ -8511,11 +8976,11 @@ function commentMarks(runs, skip) {
   }
   return { before, after };
 }
-function runsLossless(para2, src, pid, last) {
+function runsLossless(para3, src, pid, last) {
   const lossless = active;
   const store = lossless.store;
   const segs = src.segs;
-  const cur = para2.runs;
+  const cur = para3.runs;
   const where = /* @__PURE__ */ new Map();
   segs.forEach((g2, gi) => g2.sids.forEach((sid, k2) => where.set(sid, [gi, k2])));
   const base = /* @__PURE__ */ new Map();
@@ -8607,9 +9072,9 @@ function runsLossless(para2, src, pid, last) {
   if (last) flushZero(segs.length);
   return out;
 }
-function paraSectPr(para2, rawPPr) {
+function paraSectPr(para3, rawPPr) {
   const rawSect = rawPPr ? splitElement(rawPPr).kids.find((k2) => k2.name === "w:sectPr")?.raw : void 0;
-  const sb = para2.props.sectionBreak;
+  const sb = para3.props.sectionBreak;
   if (!sb) return rawSect ? null : void 0;
   return sectionBreakXml(sb, rawSect);
 }
@@ -8618,47 +9083,47 @@ function sectionBreakXml(sb, rawSect) {
   const base = rawSect ?? sb.raw;
   return base ? patchSectPr(base, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
 }
-function paraXml(para2) {
-  if (!active) return paraXmlRuns(para2);
+function paraXml(para3) {
+  if (!active) return paraXmlRuns(para3);
   const prev = active.paraRuns;
-  active.paraRuns = para2.runs;
+  active.paraRuns = para3.runs;
   try {
-    return paraXmlRuns(para2);
+    return paraXmlRuns(para3);
   } finally {
     active.paraRuns = prev;
   }
 }
-function paraXmlRuns(para2) {
-  const src = active && para2.props.src !== void 0 ? active.store.paras.get(para2.props.src) : void 0;
+function paraXmlRuns(para3) {
+  const src = active && para3.props.src !== void 0 ? active.store.paras.get(para3.props.src) : void 0;
   if (!active || !src) {
-    const marks = commentMarks(para2.runs, active?.store.commentIds);
-    const items = para2.runs.map((run2, i7) => ({ run: run2, before: marks.before[i7], after: marks.after[i7] }));
-    if (!active) return paraXmlInner(para2, revisionRuns(items));
-    const fmt2 = para2.props.fmtSrc !== void 0 ? active.store.paras.get(para2.props.fmtSrc) : void 0;
+    const marks = commentMarks(para3.runs, active?.store.commentIds);
+    const items = para3.runs.map((run2, i7) => ({ run: run2, before: marks.before[i7], after: marks.after[i7] }));
+    if (!active) return paraXmlInner(para3, revisionRuns(items));
+    const fmt2 = para3.props.fmtSrc !== void 0 ? active.store.paras.get(para3.props.fmtSrc) : void 0;
     if (fmt2) {
-      const ppr3 = patchPPr(fmt2.pPr, para2, paraSectPr(para2, fmt2.pPr), active.numIds);
+      const ppr3 = patchPPr(fmt2.pPr, para3, paraSectPr(para3, fmt2.pPr), active.numIds);
       if (ppr3.genNumbering) active.genNumbering = true;
       return `<w:p>${ppr3.xml}${genRuns(items)}</w:p>`;
     }
-    const ppr2 = pPrFromProps(para2.props, para2.props.sectionBreak ? sectionBreakXml(para2.props.sectionBreak) : "", active.numIds);
+    const ppr2 = pPrFromProps(para3.props, para3.props.sectionBreak ? sectionBreakXml(para3.props.sectionBreak) : "", active.numIds);
     if (ppr2.genNumbering) active.genNumbering = true;
     return `<w:p>${ppr2.xml}${genRuns(items)}</w:p>`;
   }
-  const id = para2.props.src;
+  const id = para3.props.src;
   const first = !active.claimed.has(id);
   active.claimed.add(id);
   const left = (active.remaining.get(id) ?? 1) - 1;
   active.remaining.set(id, left);
   const last = left <= 0;
-  if (first && last && active.store.pristine(para2)) return src.raw;
-  const ppr = patchPPr(src.pPr, para2, paraSectPr(para2, src.pPr), active.numIds);
+  if (first && last && active.store.pristine(para3)) return src.raw;
+  const ppr = patchPPr(src.pPr, para3, paraSectPr(para3, src.pPr), active.numIds);
   if (ppr.genNumbering) active.genNumbering = true;
-  return `${first ? src.open : "<w:p>"}${ppr.xml}${runsLossless(para2, src, id, last)}</w:p>`;
+  return `${first ? src.open : "<w:p>"}${ppr.xml}${runsLossless(para3, src, id, last)}</w:p>`;
 }
-function paraXmlInner(para2, runsXml) {
-  const pp = para2.props;
+function paraXmlInner(para3, runsXml) {
+  const pp = para3.props;
   const ppr = [];
-  if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr2(pp.styleId)}"/>`);
+  if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr3(pp.styleId)}"/>`);
   if (pp.keepNext) ppr.push("<w:keepNext/>");
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];
@@ -8679,7 +9144,7 @@ function paraXmlInner(para2, runsXml) {
     for (const side of ["top", "left", "bottom", "right"]) {
       const e8 = pp.borders[side];
       if (!e8) continue;
-      inner2 += `<w:${side} w:val="${escAttr2(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="${e8.spacePt}" w:color="${e8.color ? escAttr2(e8.color) : "auto"}"/>`;
+      inner2 += `<w:${side} w:val="${escAttr3(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="${e8.spacePt}" w:color="${e8.color ? escAttr3(e8.color) : "auto"}"/>`;
     }
     if (inner2) ppr.push(`<w:pBdr>${inner2}</w:pBdr>`);
   } else if (pp.boxBorder) {
@@ -8689,7 +9154,7 @@ function paraXmlInner(para2, runsXml) {
     );
   }
   if (pp.shadingHex) {
-    ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr2(pp.shadingHex)}"/>`);
+    ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(pp.shadingHex)}"/>`);
   }
   if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
     const line2 = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
@@ -8730,7 +9195,7 @@ function sectPrInner(s4, refs = []) {
   return `${refsXml}${notes}${type}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}${fnCols}`;
 }
 function borderXml2(tag2, e8) {
-  return `<w:${tag2} w:val="${escAttr2(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr2(e8.color) : "auto"}"/>`;
+  return `<w:${tag2} w:val="${escAttr3(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr3(e8.color) : "auto"}"/>`;
 }
 function borderSetXml(wrap, b5, sides) {
   let inner = "";
@@ -8795,7 +9260,7 @@ function tblPrXml2(t6) {
   return "<w:tblPr>" + (total ? `<w:tblW w:w="${total}" w:type="dxa"/>` : "") + (t6.borders ? borderSetXml("tblBorders", t6.borders, TBL_SIDES) : "") + "</w:tblPr>";
 }
 function tcPrXml2(cell) {
-  return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr2(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
+  return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
 }
 function storyBlocksXml(story, blocks, store) {
   countCopies(blocks, active.remaining);
@@ -8930,21 +9395,21 @@ function groupsXml(groups, blocks, store) {
   return out;
 }
 function countCopies(blocks, out) {
-  const para2 = (p3) => {
+  const para3 = (p3) => {
     if (p3.props.src !== void 0) out.set(p3.props.src, (out.get(p3.props.src) ?? 0) + 1);
     for (const r6 of p3.runs) {
       for (const tb of r6.textbox ? [r6.textbox] : (r6.group?.items ?? []).map((it) => it.run.textbox)) {
         if (!tb) continue;
         if (tb.blocks?.length) countCopies(tb.blocks, out);
-        else tb.paras.forEach(para2);
+        else tb.paras.forEach(para3);
       }
     }
   };
   for (const b5 of blocks) {
-    if (b5.type === "paragraph") para2(b5.paragraph);
+    if (b5.type === "paragraph") para3(b5.paragraph);
     else for (const row2 of b5.rows) for (const c5 of row2.cells) {
       if (c5.blocks?.length) countCopies(c5.blocks, out);
-      else c5.paragraphs.forEach(para2);
+      else c5.paragraphs.forEach(para3);
     }
   }
 }
@@ -8973,7 +9438,18 @@ function withNamespaces(open2, rootName, content = "") {
     ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
     ["wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"],
     // w15:footnoteColumns no sectPr (colunas da área de notas)
-    ...content.includes("<w15:") ? [["w15", "http://schemas.microsoft.com/office/word/2012/wordml"]] : []
+    ...content.includes("<w15:") ? [["w15", "http://schemas.microsoft.com/office/word/2012/wordml"]] : [],
+    // VML/DrawingML novos (marca-d'água, folha de rosto) numa parte de outro programa
+    ...[
+      ["v", "urn:schemas-microsoft-com:vml", /<v:/],
+      ["o", "urn:schemas-microsoft-com:office:office", /\so:\w+=|<o:/],
+      ["w10", "urn:schemas-microsoft-com:office:word", /<w10:/],
+      ["w14", "http://schemas.microsoft.com/office/word/2010/wordml", /\sw14:\w+=|<w14:/],
+      ["mc", "http://schemas.openxmlformats.org/markup-compatibility/2006", /<mc:/],
+      ["wps", "http://schemas.microsoft.com/office/word/2010/wordprocessingShape", /<wps:|Requires="wps"/],
+      ["a", "http://schemas.openxmlformats.org/drawingml/2006/main", /<a:/]
+      // (só o prefixo usado e não declarado em lugar nenhum: o Word declara `a` no a:graphic)
+    ].filter(([pfx, , re]) => re.test(content) && !content.includes(`xmlns:${pfx}=`)).map(([pfx, uri]) => [pfx, uri])
   ];
   for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag2)) tag2 += ` xmlns:${pfx}="${uri}"`;
   return open2.slice(0, at) + tag2 + open2.slice(end);
@@ -9014,7 +9490,7 @@ function serializeHfPart(kind, paragraphs) {
   const tag2 = kind === "header" ? "w:hdr" : "w:ftr";
   takeUsedDateUtc();
   const body = paragraphs.map(paraXml).join("");
-  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<${tag2} ${W_NS_HF}>`, tag2) + body + `</${tag2}>`;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<${tag2} ${HF_NS}>`, tag2) + body + `</${tag2}>`;
 }
 function patchComments(pkg, comments) {
   const xml = pkg.getPartText("word/comments.xml");
@@ -9117,7 +9593,7 @@ function writeParts(pkg, model, hfParts, opts, store) {
           const root = hf.kind === "header" ? "w:hdr" : "w:ftr";
           takeUsedDateUtc();
           const body = storyBlocksXml(story2, blocks, store);
-          const xml = revRoot(withNamespaces(story2.open, root), root) + body + story2.close;
+          const xml = revRoot(withNamespaces(story2.open, root, body), root) + body + story2.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
           active.relsPath = relsPath2;
         } else {
@@ -9240,19 +9716,20 @@ function writeParts(pkg, model, hfParts, opts, store) {
     pkg.setPartText(ctPath, ct);
   }
 }
-var esc4, escAttr2, mediaOut, drawingId, active, REL_PACKAGE, OLE_MIME, REL_IMAGE, REL_HDPHOTO, MEDIA_MIME, isObjectRun2, freshId, fldCharXml, revKey, isAtomic, W_NS, W15_NS, TBL_SIDES, CELL_SIDES, legacyOrTypedTblPr, gridOf, gridXml, blockXml, blockId, noteXml, numberingNums, W_NS_HF, commentXml;
+var esc5, escAttr3, mediaOut, drawingId, active, REL_PACKAGE, OLE_MIME, REL_IMAGE, REL_HDPHOTO, MEDIA_MIME, isObjectRun2, freshId, fldCharXml, revKey, isAtomic, W_NS, W15_NS, TBL_SIDES, CELL_SIDES, legacyOrTypedTblPr, gridOf, gridXml, blockXml, blockId, noteXml, numberingNums, W_NS_HF, commentXml;
 var init_serialize = __esm({
   "../docx-core/src/serialize.ts"() {
     "use strict";
     init_xml();
     init_document();
     init_notes();
+    init_hf_ops();
     init_source();
     init_lossless();
     init_table_xml();
     init_rev_xml();
-    esc4 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    escAttr2 = (s4) => esc4(s4).replace(/"/g, "&quot;");
+    esc5 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    escAttr3 = (s4) => esc5(s4).replace(/"/g, "&quot;");
     mediaOut = [];
     drawingId = 0;
     active = null;
@@ -9282,7 +9759,7 @@ var init_serialize = __esm({
     noteXml = (kind, id, blocks) => `<w:${kind} w:id="${id}">${blocks.length ? blocks.map(blockXml).join("") : "<w:p/>"}</w:${kind}>`;
     numberingNums = (ids) => `<w:num w:numId="${ids.bullet}"><w:abstractNumId w:val="${ids.bullet}"/></w:num><w:num w:numId="${ids.decimal}"><w:abstractNumId w:val="${ids.decimal}"/></w:num>`;
     W_NS_HF = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
-    commentXml = (c5) => `<w:comment w:id="${c5.id}" w:author="${escAttr2(c5.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc4(c5.text)}</w:t></w:r></w:p></w:comment>`;
+    commentXml = (c5) => `<w:comment w:id="${c5.id}" w:author="${escAttr3(c5.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc5(c5.text)}</w:t></w:r></w:p></w:comment>`;
   }
 });
 
@@ -9532,7 +10009,7 @@ function styleIdFromName(name, taken) {
   for (let i7 = 0; ; i7++) if (!taken.has(`${base}${i7}`)) return `${base}${i7}`;
 }
 function newStyleXml(o7) {
-  return `<w:style w:type="${o7.type}"${o7.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc5(o7.id)}"><w:name w:val="${esc5(o7.name)}"/>` + (o7.basedOn ? `<w:basedOn w:val="${esc5(o7.basedOn)}"/>` : "") + (o7.next ? `<w:next w:val="${esc5(o7.next)}"/>` : "") + (o7.link ? `<w:link w:val="${esc5(o7.link)}"/>` : "") + (o7.autoRedefine ? "<w:autoRedefine/>" : "") + (o7.uiPriority !== void 0 ? `<w:uiPriority w:val="${o7.uiPriority}"/>` : "") + (o7.semiHidden ? "<w:semiHidden/>" : "") + (o7.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o7.qFormat ? "<w:qFormat/>" : "") + (o7.pPr ?? "") + (o7.rPr ?? "") + "</w:style>";
+  return `<w:style w:type="${o7.type}"${o7.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc6(o7.id)}"><w:name w:val="${esc6(o7.name)}"/>` + (o7.basedOn ? `<w:basedOn w:val="${esc6(o7.basedOn)}"/>` : "") + (o7.next ? `<w:next w:val="${esc6(o7.next)}"/>` : "") + (o7.link ? `<w:link w:val="${esc6(o7.link)}"/>` : "") + (o7.autoRedefine ? "<w:autoRedefine/>" : "") + (o7.uiPriority !== void 0 ? `<w:uiPriority w:val="${o7.uiPriority}"/>` : "") + (o7.semiHidden ? "<w:semiHidden/>" : "") + (o7.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o7.qFormat ? "<w:qFormat/>" : "") + (o7.pPr ?? "") + (o7.rPr ?? "") + "</w:style>";
 }
 function patchStyleXml(raw, h3) {
   const { open: open2, close, kids } = splitElement(raw);
@@ -9541,7 +10018,7 @@ function patchStyleXml(raw, h3) {
   const set = (n5, xml) => setKid2(kids, STYLE_ORDER, n5, xml);
   const v2 = (n5, x3) => {
     if (x3 === void 0) return;
-    set(n5, x3 === null ? null : `<${n5} w:val="${esc5(x3)}"/>`);
+    set(n5, x3 === null ? null : `<${n5} w:val="${esc6(x3)}"/>`);
   };
   if (h3.name !== void 0) v2("w:name", h3.name);
   v2("w:aliases", h3.aliases);
@@ -9580,7 +10057,7 @@ function patchStyleRPr(raw, f3) {
       let x3 = cur;
       for (const [theme, plain2] of [["w:asciiTheme", "w:ascii"], ["w:hAnsiTheme", "w:hAnsi"]]) {
         const re = new RegExp(`\\s${theme}="[^"]*"`);
-        if (re.test(x3) && !new RegExp(`\\s${plain2}="`).test(x3)) x3 = x3.replace(re, () => ` ${plain2}="${esc5(f3.fontAscii)}"`);
+        if (re.test(x3) && !new RegExp(`\\s${plain2}="`).test(x3)) x3 = x3.replace(re, () => ` ${plain2}="${esc6(f3.fontAscii)}"`);
       }
       set("w:rFonts", withAttrs(x3, "w:rFonts", {
         "w:ascii": f3.fontAscii,
@@ -9595,7 +10072,7 @@ function patchStyleRPr(raw, f3) {
   tog("w:caps", f3.allCaps);
   tog("w:smallCaps", f3.smallCaps);
   tog("w:strike", f3.strike);
-  if (f3.color !== void 0) set("w:color", f3.color === null ? null : `<w:color w:val="${esc5(f3.color)}"/>`);
+  if (f3.color !== void 0) set("w:color", f3.color === null ? null : `<w:color w:val="${esc6(f3.color)}"/>`);
   if (f3.charSpacingTwips !== void 0) set("w:spacing", f3.charSpacingTwips === null ? null : `<w:spacing w:val="${f3.charSpacingTwips}"/>`);
   if (f3.szHalfPt !== void 0) set("w:sz", f3.szHalfPt === null ? null : `<w:sz w:val="${f3.szHalfPt}"/>`);
   if (f3.underline !== void 0) set("w:u", f3.underline === null ? null : `<w:u w:val="${f3.underline ? "single" : "none"}"/>`);
@@ -9654,21 +10131,21 @@ function builtinDisplayName(name, lang) {
 }
 function builtinXml(xml, opts = {}) {
   let out = xml;
-  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc5(opts.id)}"`);
+  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc6(opts.id)}"`);
   for (const [from, to] of Object.entries(opts.refs ?? {})) {
-    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a3, b5) => a3 + esc5(to) + b5);
+    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a3, b5) => a3 + esc6(to) + b5);
   }
   if (opts.used && /<w:unhideWhenUsed\/>/.test(out)) out = out.replace("<w:semiHidden/>", "");
   return out;
 }
-var esc5, STYLE_ORDER, RPR_ORDER2, PPR_ORDER2, val2, onOff4, truthy, RUN_KEYS, PARA_KEYS, hasRunChanges, hasParaChanges, joinKids, kidRaw2, byName, EXTRA_PT, EN_WORDS, EN_WHOLE;
+var esc6, STYLE_ORDER, RPR_ORDER2, PPR_ORDER2, val2, onOff4, truthy, RUN_KEYS, PARA_KEYS, hasRunChanges, hasParaChanges, joinKids, kidRaw2, byName, EXTRA_PT, EN_WORDS, EN_WHOLE;
 var init_style_sheet = __esm({
   "../docx-core/src/style-sheet.ts"() {
     "use strict";
     init_xml();
     init_lossless();
     init_word_styles();
-    esc5 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    esc6 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     STYLE_ORDER = [
       "w:name",
       "w:aliases",
@@ -9773,9 +10250,9 @@ var init_style_sheet = __esm({
       "w:sectPr",
       "w:pPrChange"
     ];
-    val2 = (el13, n5) => firstChild(el13, n5)?.attrs["w:val"];
-    onOff4 = (el13, n5) => {
-      const k2 = firstChild(el13, n5);
+    val2 = (el14, n5) => firstChild(el14, n5)?.attrs["w:val"];
+    onOff4 = (el14, n5) => {
+      const k2 = firstChild(el14, n5);
       if (!k2) return false;
       const v2 = k2.attrs["w:val"];
       return v2 === void 0 || v2 !== "0" && v2 !== "false" && v2 !== "off";
@@ -10678,28 +11155,28 @@ function readRect(r6, o7) {
   return { l: r6.i32(o7), t: r6.i32(o7 + 4), r: r6.i32(o7 + 8), b: r6.i32(o7 + 12) };
 }
 function readSpContainer(rec) {
-  const shape = { spid: 0, type: 0, flags: 0, props: /* @__PURE__ */ new Map() };
+  const shape2 = { spid: 0, type: 0, flags: 0, props: /* @__PURE__ */ new Map() };
   for (const c5 of children(rec)) {
     switch (c5.type) {
       case OA.FSP:
-        shape.type = c5.inst;
-        shape.spid = c5.r.u32(c5.start);
-        shape.flags = c5.r.u32(c5.start + 4);
+        shape2.type = c5.inst;
+        shape2.spid = c5.r.u32(c5.start);
+        shape2.flags = c5.r.u32(c5.start + 4);
         break;
       case OA.FSPGR:
-        shape.groupRect = readRect(c5.r, c5.start);
+        shape2.groupRect = readRect(c5.r, c5.start);
         break;
       case OA.FOPT:
       case OA.SecondaryFOPT:
       case OA.TertiaryFOPT:
-        readFopt(c5, shape.props);
+        readFopt(c5, shape2.props);
         break;
       case OA.ChildAnchor:
-        shape.childAnchor = readRect(c5.r, c5.start);
+        shape2.childAnchor = readRect(c5.r, c5.start);
         break;
     }
   }
-  return shape;
+  return shape2;
 }
 function readSpgrContainer(rec, depth = 0) {
   const kids = children(rec);
@@ -12874,26 +13351,26 @@ function stripInvalid(s4) {
 function escText(s4) {
   return stripInvalid(s4).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function escAttr3(s4) {
+function escAttr4(s4) {
   return escText(s4).replace(/"/g, "&quot;");
 }
 function attrs2(obj) {
   let out = "";
   for (const [k2, v2] of Object.entries(obj)) {
     if (v2 === void 0 || v2 === null || v2 === false) continue;
-    out += ` ${k2}="${escAttr3(v2 === true ? "1" : String(v2))}"`;
+    out += ` ${k2}="${escAttr4(v2 === true ? "1" : String(v2))}"`;
   }
   return out;
 }
 function el(name, a3 = {}, content = "") {
   return content ? `<${name}${attrs2(a3)}>${content}</${name}>` : `<${name}${attrs2(a3)}/>`;
 }
-var XML_DECL, NS, CONTENT_NS;
+var XML_DECL, NS2, CONTENT_NS;
 var init_xmlw = __esm({
   "../docx-core/src/doc/xmlw.ts"() {
     "use strict";
     XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
-    NS = {
+    NS2 = {
       w: "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
       r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
@@ -12914,20 +13391,20 @@ var init_xmlw = __esm({
     };
     CONTENT_NS = attrs2({
       "xmlns:wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
-      "xmlns:mc": NS.mc,
-      "xmlns:o": NS.o,
-      "xmlns:r": NS.r,
-      "xmlns:m": NS.m,
-      "xmlns:v": NS.v,
-      "xmlns:wp14": NS.wp14,
-      "xmlns:wp": NS.wp,
-      "xmlns:w10": NS.w10,
-      "xmlns:w": NS.w,
-      "xmlns:w14": NS.w14,
-      "xmlns:wpg": NS.wpg,
-      "xmlns:wps": NS.wps,
-      "xmlns:a": NS.a,
-      "xmlns:pic": NS.pic,
+      "xmlns:mc": NS2.mc,
+      "xmlns:o": NS2.o,
+      "xmlns:r": NS2.r,
+      "xmlns:m": NS2.m,
+      "xmlns:v": NS2.v,
+      "xmlns:wp14": NS2.wp14,
+      "xmlns:wp": NS2.wp,
+      "xmlns:w10": NS2.w10,
+      "xmlns:w": NS2.w,
+      "xmlns:w14": NS2.w14,
+      "xmlns:wpg": NS2.wpg,
+      "xmlns:wps": NS2.wps,
+      "xmlns:a": NS2.a,
+      "xmlns:pic": NS2.pic,
       "mc:Ignorable": "w14 wp14"
     });
   }
@@ -13489,7 +13966,7 @@ function buildNumbering(r6, ctx) {
     }
     x3 += el("w:num", { "w:numId": i7 + 1 }, c5);
   });
-  return `${XML_DECL}<w:numbering xmlns:w="${NS.w}" xmlns:r="${NS.r}">${x3}</w:numbering>`;
+  return `${XML_DECL}<w:numbering xmlns:w="${NS2.w}" xmlns:r="${NS2.r}">${x3}</w:numbering>`;
 }
 var hex8;
 var init_numbering = __esm({
@@ -13632,7 +14109,7 @@ function buildSettings(r6, o7) {
   if (o7.endnotes) x3 += '<w:endnotePr><w:endnote w:id="-1"/><w:endnote w:id="0"/></w:endnotePr>';
   x3 += compatXml(dop, feLayout);
   if (!dop.includeSubdocsInStats) x3 += "<w:doNotIncludeSubdocsInStats/>";
-  return `${XML_DECL}<w:settings${attrs2({ "xmlns:w": NS.w, "xmlns:r": NS.r, "xmlns:m": NS.m })}>${x3}</w:settings>`;
+  return `${XML_DECL}<w:settings${attrs2({ "xmlns:w": NS2.w, "xmlns:r": NS2.r, "xmlns:m": NS2.m })}>${x3}</w:settings>`;
 }
 var COMPAT;
 var init_settings = __esm({
@@ -13851,7 +14328,7 @@ function buildStyles(r6, ctx, ids, numIdOf) {
     x3 += `<w:style w:type="table" w:default="1" w:styleId="${freeId("TableNormal")}"><w:name w:val="Normal Table"/><w:semiHidden/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>`;
   }
   if (!has(107, 4)) x3 += `<w:style w:type="numbering" w:default="1" w:styleId="${freeId("NoList")}"><w:name w:val="No List"/><w:semiHidden/></w:style>`;
-  return `${XML_DECL}<w:styles${attrs2({ "xmlns:w": NS.w, "xmlns:r": NS.r })}>${x3}</w:styles>`;
+  return `${XML_DECL}<w:styles${attrs2({ "xmlns:w": NS2.w, "xmlns:r": NS2.r })}>${x3}</w:styles>`;
 }
 var STI_NAMES, SPECIAL_IDS, STI_EXTRA;
 var init_styles_xml = __esm({
@@ -14074,15 +14551,15 @@ var init_styles_xml = __esm({
 });
 
 // ../docx-core/src/doc/pictures.ts
-function picFxOf(shape) {
-  if (!shape) return void 0;
+function picFxOf(shape2) {
+  if (!shape2) return void 0;
   const fx = {};
-  const ct = shape.props.get(264)?.value, br = shape.props.get(265)?.value;
+  const ct = shape2.props.get(264)?.value, br = shape2.props.get(265)?.value;
   const gain = ct !== void 0 ? (ct >>> 0) / 65536 : 1;
   const bl = br !== void 0 ? (br | 0) / 65536 : 0;
   if (Math.abs(gain - 1) > 1e-6) fx.contrast = Math.round((gain >= 1 ? 1 - 1 / gain : gain - 1) * 1e5);
   if (bl) fx.bright = Math.round(2 * bl * 1e5);
-  const bb = shape.props.get(319)?.value;
+  const bb = shape2.props.get(319)?.value;
   const flag = (bit) => bb !== void 0 && (bb >>> bit + 16 & 1) === 1 && (bb >>> bit & 1) === 1;
   if (flag(2)) fx.gray = true;
   if (flag(1)) fx.biLevel = true;
@@ -14114,10 +14591,10 @@ function readInlinePicture(r6, fc) {
   const hTw = (dyaGoal - cropT - cropB) * my / 1e3;
   const info = { cx: Math.max(1, wTw) * EMU_PER_TWIP2, cy: Math.max(1, hTw) * EMU_PER_TWIP2, name };
   const recs = recsIn(d3, o7, end);
-  let shape;
+  let shape2;
   const bses = [];
   for (const rec of recs) {
-    if (rec.type === OA.SpContainer && !shape) shape = readSpContainer(rec);
+    if (rec.type === OA.SpContainer && !shape2) shape2 = readSpContainer(rec);
     else if (rec.type === OA.FBSE) {
       const bse = readFbse(rec);
       let blip;
@@ -14129,17 +14606,17 @@ function readInlinePicture(r6, fc) {
       if (blip) bses.push(blip);
     }
   }
-  const pib = shape?.props.get(260)?.value ?? 1;
+  const pib = shape2?.props.get(260)?.value ?? 1;
   info.blip = bses[pib - 1] ?? bses[0];
-  const fx = picFxOf(shape);
+  const fx = picFxOf(shape2);
   if (fx) info.fx = fx;
-  if (shape) {
-    const f3 = (id) => ((shape.props.get(id)?.value ?? 0) | 0) / 65536;
+  if (shape2) {
+    const f3 = (id) => ((shape2.props.get(id)?.value ?? 0) | 0) / 65536;
     const c5 = { t: f3(256), b: f3(257), l: f3(258), r: f3(259) };
     if (c5.t || c5.b || c5.l || c5.r) info.crop = c5;
   }
-  if (shape && !info.blip && (shape.props.has(915) || shape.props.has(916) || shape.props.has(918))) {
-    const pv = (k2) => shape.props.get(k2)?.value;
+  if (shape2 && !info.blip && (shape2.props.has(915) || shape2.props.has(916) || shape2.props.has(918))) {
+    const pv = (k2) => shape2.props.get(k2)?.value;
     const fill = pv(385);
     info.hr = {
       align: ["left", "center", "right"][pv(916) ?? 1] ?? "center",
@@ -14159,8 +14636,8 @@ function blipAt(r6, stream, off) {
   if (!rec || rec.type < 61464 || rec.type > 61719) return void 0;
   return decodeBlip(rec, r6.blipBudget);
 }
-function shapeBlip(r6, shape) {
-  const pib = shape.props.get(260);
+function shapeBlip(r6, shape2) {
+  const pib = shape2.props.get(260);
   if (!pib || !pib.value) return void 0;
   const bse = r6.bse(pib.value);
   if (!bse) return void 0;
@@ -14617,8 +15094,8 @@ function cellShd(tap, i7) {
   };
   return pick(tap.shdRaw) ?? pick(tap.shdDef) ?? pick(tap.shd80);
 }
-function oaString(shape, id) {
-  const c5 = shape.props.get(id)?.complex;
+function oaString(shape2, id) {
+  const c5 = shape2.props.get(id)?.complex;
   if (!c5 || c5.length < 2) return void 0;
   let s4 = "";
   for (let i7 = 0; i7 + 1 < c5.length; i7 += 2) {
@@ -14628,17 +15105,17 @@ function oaString(shape, id) {
   }
   return s4;
 }
-function wordArtXml(shape, box, child, id) {
-  const text = oaString(shape, 192);
+function wordArtXml(shape2, box, child, id) {
+  const text = oaString(shape2, 192);
   if (!text) return void 0;
-  const pv = (k2) => shape.props.get(k2)?.value;
-  const font = oaString(shape, 197);
+  const pv = (k2) => shape2.props.get(k2)?.value;
+  const font = oaString(shape2, 197);
   const sizeRaw = pv(195);
   const size = sizeRaw !== void 0 ? Math.max(1, Math.round(sizeRaw / 65536 * 2)) : 72;
   const filled = oaFlag(pv(447), 4) ?? true;
   const rPr = (font ? el("w:rFonts", { "w:ascii": font, "w:hAnsi": font, "w:cs": font }) : "") + (filled ? el("w:color", { "w:val": oaColor(pv(385), 16777215) }) : "") + el("w:sz", { "w:val": size }) + el("w:szCs", { "w:val": size });
   const paras = text.split(/\r\n|\r|\n/).map((line2) => `<w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${rPr}</w:rPr><w:t xml:space="preserve">${escText(line2)}</w:t></w:r></w:p>`).join("");
-  const spPr = xfrmXml("a:xfrm", box, shape) + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln>';
+  const spPr = xfrmXml("a:xfrm", box, shape2) + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln>';
   const bodyPr = el(
     "wps:bodyPr",
     { rot: 0, vert: "horz", wrap: "none", lIns: 0, tIns: 0, rIns: 0, bIns: 0, fromWordArt: 1, anchor: "ctr", anchorCtr: 0 },
@@ -14655,8 +15132,8 @@ function oaColor(v2, def) {
   if (v2 === void 0 || v2 >>> 24 !== 0) return hex(def);
   return hex((v2 & 255) << 16 | v2 & 65280 | v2 >> 16 & 255);
 }
-function oaFillXml(shape) {
-  const pv = (k2) => shape.props.get(k2)?.value;
+function oaFillXml(shape2) {
+  const pv = (k2) => shape2.props.get(k2)?.value;
   const c1 = oaColor(pv(385), 16777215);
   const type = pv(384) ?? 0;
   if (type !== 4 && type !== 7) return `<a:solidFill><a:srgbClr val="${c1}"/></a:solidFill>`;
@@ -14667,7 +15144,7 @@ function oaFillXml(shape) {
     return hex(ch(n5 >>> 16) << 16 | ch(n5 >>> 8 & 255) << 8 | ch(n5 & 255));
   };
   let base = [[0, c1], [1, col(pv(387))]];
-  const arr = shape.props.get(407)?.complex;
+  const arr = shape2.props.get(407)?.complex;
   if (arr && arr.length >= 6) {
     const dv = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
     const n5 = dv.getUint16(0, true), cb = dv.getUint16(4, true);
@@ -14689,9 +15166,9 @@ function oaFillXml(shape) {
   const gs = stops.map(([q, c5]) => `<a:gs pos="${Math.round(Math.max(0, Math.min(1, q)) * 1e4) * 10}"><a:srgbClr val="${c5}"/></a:gs>`).join("");
   return `<a:gradFill rotWithShape="1"><a:gsLst>${gs}</a:gsLst><a:lin ang="${Math.round(ang)}" scaled="${type === 7 ? 1 : 0}"/></a:gradFill>`;
 }
-function backgroundXml(shape) {
-  if (!shape) return "";
-  const pv = (k2) => shape.props.get(k2)?.value;
+function backgroundXml(shape2) {
+  if (!shape2) return "";
+  const pv = (k2) => shape2.props.get(k2)?.value;
   if ((pv(384) ?? 0) !== 0 || oaFlag(pv(447), 4) === false) return "";
   const c5 = pv(385);
   if (c5 === void 0 || c5 >>> 24 !== 0) return "";
@@ -14713,23 +15190,23 @@ function hrVml(pic) {
   };
   return `<w:pict>${el("v:rect", a3)}</w:pict>`;
 }
-function xfrmXml(name, b5, shape, ch, extraFlipV = false) {
-  const rotRaw = shape.props.get(4)?.value ?? 0;
+function xfrmXml(name, b5, shape2, ch, extraFlipV = false) {
+  const rotRaw = shape2.props.get(4)?.value ?? 0;
   const rot = Math.round((rotRaw | 0) / 65536 * 6e4);
   const a3 = {
     rot: rot ? (rot % 216e5 + 216e5) % 216e5 : void 0,
-    flipH: shape.flags & FSP.flipH ? 1 : void 0,
+    flipH: shape2.flags & FSP.flipH ? 1 : void 0,
     // a preset pode ser o espelho vertical da geometria binária (preset-map)
-    flipV: !!(shape.flags & FSP.flipV) !== extraFlipV ? 1 : void 0
+    flipV: !!(shape2.flags & FSP.flipV) !== extraFlipV ? 1 : void 0
   };
   const n5 = (v2) => Math.round(v2);
   let c5 = `<a:off x="${n5(b5.x)}" y="${n5(b5.y)}"/><a:ext cx="${Math.max(0, n5(b5.cx))}" cy="${Math.max(0, n5(b5.cy))}"/>`;
   if (ch) c5 += `<a:chOff x="${n5(ch.x)}" y="${n5(ch.y)}"/><a:chExt cx="${Math.max(0, n5(ch.cx))}" cy="${Math.max(0, n5(ch.cy))}"/>`;
   return el(name, a3, c5);
 }
-function cropOf(shape) {
+function cropOf(shape2) {
   const f3 = (id) => {
-    const v2 = shape.props.get(id)?.value ?? 0;
+    const v2 = shape2.props.get(id)?.value ?? 0;
     return (v2 | 0) / 65536;
   };
   const c5 = { t: f3(256), b: f3(257), l: f3(258), r: f3(259) };
@@ -14745,7 +15222,7 @@ function picGraphic(id, name, rid, cx, cy, pic) {
   }
   return `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr>${el("pic:cNvPr", { id: 0, name })}<pic:cNvPicPr/></pic:nvPicPr><pic:blipFill>${el("a:blip", { "r:embed": rid }, blipKids || void 0)}${src}<a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic>` + (id < 0 ? "" : "");
 }
-var EMU_PER_TWIP3, PartRels, MIME, DocxWriter, FRAME_KEYS, INDENT_SPRMS, keyIds, keySeq, RunBuf;
+var EMU_PER_TWIP3, PartRels, MIME2, DocxWriter, FRAME_KEYS, INDENT_SPRMS, keyIds, keySeq, RunBuf;
 var init_docx_writer = __esm({
   "../docx-core/src/doc/docx-writer.ts"() {
     "use strict";
@@ -14773,7 +15250,7 @@ var init_docx_writer = __esm({
         const hit = this.byKey.get(key);
         if (hit) return hit;
         const id = `rId${++this.n}`;
-        this.items.push(el("Relationship", { Id: id, Type: `${NS.relType}/${type}`, Target: target, TargetMode: external ? "External" : void 0 }));
+        this.items.push(el("Relationship", { Id: id, Type: `${NS2.relType}/${type}`, Target: target, TargetMode: external ? "External" : void 0 }));
         this.byKey.set(key, id);
         return id;
       }
@@ -14781,10 +15258,10 @@ var init_docx_writer = __esm({
         return this.items.length;
       }
       xml() {
-        return `${XML_DECL}<Relationships xmlns="${NS.rel}">${this.items.join("")}</Relationships>`;
+        return `${XML_DECL}<Relationships xmlns="${NS2.rel}">${this.items.join("")}</Relationships>`;
       }
     };
-    MIME = {
+    MIME2 = {
       png: "image/png",
       jpeg: "image/jpeg",
       jpg: "image/jpeg",
@@ -14910,10 +15387,10 @@ var init_docx_writer = __esm({
         rootRels2.add("officeDocument", "word/document.xml");
         if (opts.docProps !== false) rootRels2.add("extended-properties", "docProps/app.xml");
         this.files.set("_rels/.rels", rootRels2.xml());
-        let ct = `${XML_DECL}<Types xmlns="${NS.ct}">`;
+        let ct = `${XML_DECL}<Types xmlns="${NS2.ct}">`;
         ct += el("Default", { Extension: "rels", ContentType: "application/vnd.openxmlformats-package.relationships+xml" });
         ct += el("Default", { Extension: "xml", ContentType: "application/xml" });
-        for (const ext of this.mediaExt) ct += el("Default", { Extension: ext, ContentType: MIME[ext] ?? "application/octet-stream" });
+        for (const ext of this.mediaExt) ct += el("Default", { Extension: ext, ContentType: MIME2[ext] ?? "application/octet-stream" });
         for (const [part, type] of this.overrides) ct += el("Override", { PartName: part, ContentType: type });
         ct += "</Types>";
         const zip = {};
@@ -14941,7 +15418,7 @@ var init_docx_writer = __esm({
           c5 += el("w:sig", { "w:usb0": h3(f3.sig[0]), "w:usb1": h3(f3.sig[1]), "w:usb2": h3(f3.sig[2]), "w:usb3": h3(f3.sig[3]), "w:csb0": h3(f3.sig[4]), "w:csb1": h3(f3.sig[5]) });
           x3 += el("w:font", { "w:name": f3.name }, c5);
         }
-        return `${XML_DECL}<w:fonts xmlns:w="${NS.w}" xmlns:r="${NS.r}">${x3}</w:fonts>`;
+        return `${XML_DECL}<w:fonts xmlns:w="${NS2.w}" xmlns:r="${NS2.r}">${x3}</w:fonts>`;
       }
       // ───────────────────────────── histórias ─────────────────────────────
       renderMain(rels) {
@@ -15558,9 +16035,9 @@ var init_docx_writer = __esm({
       }
       anchorDrawing(f3, ctx) {
         const r6 = this.r;
-        const shape = r6.shape(f3.spid, ctx.hdr);
-        if (!shape || r6.masters.has(shape.spid)) return "";
-        const pv = (id2) => shape.props.get(id2)?.value;
+        const shape2 = r6.shape(f3.spid, ctx.hdr);
+        if (!shape2 || r6.masters.has(shape2.spid)) return "";
+        const pv = (id2) => shape2.props.get(id2)?.value;
         const cx = Math.max(1, (f3.xaRight - f3.xaLeft) * EMU_PER_TWIP3);
         const cy = Math.max(1, (f3.yaBottom - f3.yaTop) * EMU_PER_TWIP3);
         const relH = ["margin", "page", "column"][f3.bx] ?? "column";
@@ -15594,7 +16071,7 @@ var init_docx_writer = __esm({
         const dist = (id2, def) => pv(id2) ?? def;
         const id = ++this.docPrId;
         const name = `Forma ${id}`;
-        const graphic = this.shapeGraphic(shape, f3, ctx, id, name, cx, cy);
+        const graphic = this.shapeGraphic(shape2, f3, ctx, id, name, cx, cy);
         if (!graphic) return "";
         if (posrelh === 3 && posrelv === 3 && !posh && !posv && f3.xaLeft === 0 && f3.yaTop === 0) {
           return "<w:drawing>" + el(
@@ -15612,7 +16089,7 @@ var init_docx_writer = __esm({
           distR: dist(902, 114300),
           // ordem Z = ordem das formas no desenho (DgContainer), como o z-index do VML do Word
           simplePos: 0,
-          relativeHeight: 251658240 + (shape.z ?? id) * 1024,
+          relativeHeight: 251658240 + (shape2.z ?? id) * 1024,
           behindDoc: behind ? 1 : 0,
           locked: f3.anchorLock ? 1 : 0,
           layoutInCell: oaFlag(g2, 15) ?? true ? 1 : 0,
@@ -15625,46 +16102,46 @@ var init_docx_writer = __esm({
         ) + "</w:drawing>";
       }
       /** a:graphic para uma forma flutuante: imagem, forma/caixa de texto ou grupo. */
-      shapeGraphic(shape, f3, ctx, id, name, cx, cy) {
-        if (shape.children && shape.flags & FSP.group) {
-          const g2 = shape.groupRect ?? { l: 0, t: 0, r: cx, b: cy };
-          const xfrm = xfrmXml("a:xfrm", { x: 0, y: 0, cx, cy }, shape, { x: g2.l, y: g2.t, cx: g2.r - g2.l, cy: g2.b - g2.t });
-          const kids = shape.children.map((c5) => this.childShapeXml(c5, ctx)).join("");
+      shapeGraphic(shape2, f3, ctx, id, name, cx, cy) {
+        if (shape2.children && shape2.flags & FSP.group) {
+          const g2 = shape2.groupRect ?? { l: 0, t: 0, r: cx, b: cy };
+          const xfrm = xfrmXml("a:xfrm", { x: 0, y: 0, cx, cy }, shape2, { x: g2.l, y: g2.t, cx: g2.r - g2.l, cy: g2.b - g2.t });
+          const kids = shape2.children.map((c5) => this.childShapeXml(c5, ctx)).join("");
           return `<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"><wpg:wgp><wpg:cNvGrpSpPr/><wpg:grpSpPr>${xfrm}</wpg:grpSpPr>${kids}</wpg:wgp></a:graphicData></a:graphic>`;
         }
-        const blip = shapeBlip(this.r, shape);
+        const blip = shapeBlip(this.r, shape2);
         const stories = ctx.hdr ? this.txbxHdr : this.txbxMain;
-        const story = stories.get(shape.spid) ?? stories.get(f3.spid);
+        const story = stories.get(shape2.spid) ?? stories.get(f3.spid);
         if (blip && !story) {
           const rid = ctx.rels.add("image", this.mediaTarget(blip));
-          return picGraphic(id, name, rid, cx, cy, { cx, cy, blip, crop: cropOf(shape), fx: picFxOf(shape) });
+          return picGraphic(id, name, rid, cx, cy, { cx, cy, blip, crop: cropOf(shape2), fx: picFxOf(shape2) });
         }
-        return '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">' + this.wspXml(shape, ctx, { x: 0, y: 0, cx, cy }, story, false) + "</a:graphicData></a:graphic>";
+        return '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">' + this.wspXml(shape2, ctx, { x: 0, y: 0, cx, cy }, story, false) + "</a:graphicData></a:graphic>";
       }
       /** Forma dentro de grupo (coordenadas no espaço filho do grupo). */
-      childShapeXml(shape, ctx) {
-        const a3 = shape.childAnchor ?? { l: 0, t: 0, r: 0, b: 0 };
+      childShapeXml(shape2, ctx) {
+        const a3 = shape2.childAnchor ?? { l: 0, t: 0, r: 0, b: 0 };
         const box = { x: a3.l, y: a3.t, cx: Math.max(0, a3.r - a3.l), cy: Math.max(0, a3.b - a3.t) };
-        if (shape.children && shape.flags & FSP.group) {
-          const g2 = shape.groupRect ?? { l: a3.l, t: a3.t, r: a3.r, b: a3.b };
-          const xfrm = xfrmXml("a:xfrm", box, shape, { x: g2.l, y: g2.t, cx: g2.r - g2.l, cy: g2.b - g2.t });
-          const kids = shape.children.map((c5) => this.childShapeXml(c5, ctx)).join("");
+        if (shape2.children && shape2.flags & FSP.group) {
+          const g2 = shape2.groupRect ?? { l: a3.l, t: a3.t, r: a3.r, b: a3.b };
+          const xfrm = xfrmXml("a:xfrm", box, shape2, { x: g2.l, y: g2.t, cx: g2.r - g2.l, cy: g2.b - g2.t });
+          const kids = shape2.children.map((c5) => this.childShapeXml(c5, ctx)).join("");
           return `<wpg:grpSp><wpg:cNvGrpSpPr/><wpg:grpSpPr>${xfrm}</wpg:grpSpPr>${kids}</wpg:grpSp>`;
         }
         const id = ++this.docPrId;
-        const blip = shapeBlip(this.r, shape);
-        const story = (ctx.hdr ? this.txbxHdr : this.txbxMain).get(shape.spid);
+        const blip = shapeBlip(this.r, shape2);
+        const story = (ctx.hdr ? this.txbxHdr : this.txbxMain).get(shape2.spid);
         if (blip && !story) {
           const rid = ctx.rels.add("image", this.mediaTarget(blip));
-          return `<pic:pic><pic:nvPicPr>${el("pic:cNvPr", { id, name: `Imagem ${id}` })}<pic:cNvPicPr/></pic:nvPicPr><pic:blipFill>${el("a:blip", { "r:embed": rid })}<a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr>${xfrmXml("a:xfrm", box, shape)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>`;
+          return `<pic:pic><pic:nvPicPr>${el("pic:cNvPr", { id, name: `Imagem ${id}` })}<pic:cNvPicPr/></pic:nvPicPr><pic:blipFill>${el("a:blip", { "r:embed": rid })}<a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr>${xfrmXml("a:xfrm", box, shape2)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>`;
         }
-        return this.wspXml(shape, ctx, box, story, true, id);
+        return this.wspXml(shape2, ctx, box, story, true, id);
       }
       /** wps:wsp: geometria predefinida, preenchimento, linha e (opcional) caixa de texto. */
-      wspXml(shape, ctx, box, story, child, id) {
-        const pv = (k2) => shape.props.get(k2)?.value;
-        if (isWordArtType(shape.type) && !story) {
-          const art = wordArtXml(shape, box, child, id);
+      wspXml(shape2, ctx, box, story, child, id) {
+        const pv = (k2) => shape2.props.get(k2)?.value;
+        if (isWordArtType(shape2.type) && !story) {
+          const art = wordArtXml(shape2, box, child, id);
           if (art) return art;
         }
         const adjust = [];
@@ -15672,14 +16149,14 @@ var init_docx_writer = __esm({
           const v2 = pv(327 + i7);
           adjust.push(v2 === void 0 ? void 0 : v2 | 0);
         }
-        const geo = presetFor(shape.type, adjust, box.cx || 1, box.cy || 1) ?? { prst: "rect", av: [] };
-        const isLine = shape.type === 20 || isConnectorType(shape.type);
+        const geo = presetFor(shape2.type, adjust, box.cx || 1, box.cy || 1) ?? { prst: "rect", av: [] };
+        const isLine = shape2.type === 20 || isConnectorType(shape2.type);
         const filled = oaFlag(pv(447), 4) ?? !isLine;
         const lined = oaFlag(pv(511), 3) ?? true;
         const lineWidth = pv(459) ?? 9525;
         const av = geo.av.map((g2) => el("a:gd", { name: g2.name, fmla: `val ${g2.val}` })).join("");
-        let spPr = xfrmXml("a:xfrm", box, shape, void 0, !!geo.flipV) + `<a:prstGeom prst="${geo.prst}">${av ? `<a:avLst>${av}</a:avLst>` : "<a:avLst/>"}</a:prstGeom>`;
-        if (!isLine) spPr += filled ? oaFillXml(shape) : "<a:noFill/>";
+        let spPr = xfrmXml("a:xfrm", box, shape2, void 0, !!geo.flipV) + `<a:prstGeom prst="${geo.prst}">${av ? `<a:avLst>${av}</a:avLst>` : "<a:avLst/>"}</a:prstGeom>`;
+        if (!isLine) spPr += filled ? oaFillXml(shape2) : "<a:noFill/>";
         if (lined) {
           const dash = ["solid", "sysDash", "sysDot", "sysDashDot", "sysDashDotDot", "dot", "dash", "lgDash", "dashDot", "lgDashDot", "lgDashDotDot"][pv(462) ?? 0] ?? "solid";
           const arrow = (v2) => v2 ? ["none", "triangle", "stealth", "diamond", "oval", "arrow"][v2] ?? "triangle" : void 0;
@@ -15853,8 +16330,8 @@ var init_docx_writer = __esm({
           if (tap.noAllowOverlap) x3 += '<w:tblOverlap w:val="never"/>';
         }
         if (tap.bidi) x3 += "<w:bidiVisual/>";
-        const tw2 = centeredW !== void 0 && tap.tableWidth?.fts === 3 && tap.tableWidth.w > centeredW ? { fts: 3, w: centeredW } : tap.tableWidth;
-        x3 += widthXml2("w:tblW", tw2) || el("w:tblW", { "w:w": 0, "w:type": "auto" });
+        const tw3 = centeredW !== void 0 && tap.tableWidth?.fts === 3 && tap.tableWidth.w > centeredW ? { fts: 3, w: centeredW } : tap.tableWidth;
+        x3 += widthXml2("w:tblW", tw3) || el("w:tblW", { "w:w": 0, "w:type": "auto" });
         if (tap.jc) x3 += el("w:jc", { "w:val": ["left", "center", "right"][tap.jc] ?? "left" });
         if (tap.spacing) x3 += el("w:tblCellSpacing", { "w:w": tap.spacing, "w:type": "dxa" });
         const ind = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tableIndent(tap);
@@ -16334,8 +16811,8 @@ function rebuildGrid(t6, rows, tol = 3) {
 }
 function widenTblW(t6, rows) {
   const w2 = Math.max(...rows.map((r6) => r6.before + sum(r6.cells.map((c5) => c5.w)) + r6.after));
-  const tw2 = t6.tblPr?.tblW;
-  if (tw2?.type === "pct") return;
+  const tw3 = t6.tblPr?.tblW;
+  if (tw3?.type === "pct") return;
   (t6.tblPr ??= {}).tblW = { w: Math.round(w2), type: "dxa" };
 }
 function equalWidths(total, n5) {
@@ -16349,7 +16826,7 @@ function newTable(rows, cols, o7) {
   const widths = o7.colTwips ? Array(cols).fill(Math.round(o7.colTwips)) : equalWidths(Math.max(cols, Math.round(o7.availTwips) - 10), cols);
   const pref = o7.colTwips ? widths : equalWidths(Math.max(cols, Math.round(o7.prefTwips ?? o7.availTwips + (o7.indTwips ?? 0)) - 10), cols);
   const total = sum(pref);
-  const pct = pref.map((w2) => Math.round(w2 / total * 5e3));
+  const pct2 = pref.map((w2) => Math.round(w2 / total * 5e3));
   const tblPr = {};
   if (o7.styleId !== null) tblPr.tblStyle = o7.styleId ?? "Tabelacomgrade";
   tblPr.tblW = o7.autofit === "window" ? { w: 5e3, type: "pct" } : { w: 0, type: "auto" };
@@ -16358,7 +16835,7 @@ function newTable(rows, cols, o7) {
   const mk = () => ({
     cells: widths.map((w2, i7) => {
       const paragraph = o7.para?.() ?? emptyPara();
-      const tcW = o7.autofit === "content" ? { w: 0, type: "auto" } : o7.autofit === "window" ? { w: pct[i7], type: "pct" } : { w: pref[i7] ?? w2, type: "dxa" };
+      const tcW = o7.autofit === "content" ? { w: 0, type: "auto" } : o7.autofit === "window" ? { w: pct2[i7], type: "pct" } : { w: pref[i7] ?? w2, type: "dxa" };
       const cell = { paragraphs: [paragraph], tables: [], gridSpan: 1, tcPr: { tcW }, blocks: [{ type: "paragraph", paragraph }] };
       syncLegacyCell(cell);
       return cell;
@@ -17323,9 +17800,9 @@ function directional(m2, env, dir) {
   return out;
 }
 function formatFormulaResult(v2, fmt2) {
-  const cap = fmt2.prefix ? Math.max(2, fmt2.decimals) : Math.max(2, fmt2.decimals);
+  const cap2 = fmt2.prefix ? Math.max(2, fmt2.decimals) : Math.max(2, fmt2.decimals);
   let d3 = 0;
-  while (d3 < cap && Math.abs(roundAway(v2, d3) - v2) > 1e-9) d3++;
+  while (d3 < cap2 && Math.abs(roundAway(v2, d3) - v2) > 1e-9) d3++;
   if (fmt2.prefix) d3 = Math.max(d3, fmt2.decimals);
   const r6 = roundAway(v2, d3);
   const [ip, dp] = Math.abs(r6).toFixed(d3).split(".");
@@ -17568,7 +18045,7 @@ function patchBorderSet(raw, tag2, b5) {
 function patchTcPr2(raw, f3, bordersHere) {
   const o7 = el2(raw, "w:tcPr");
   if (bordersHere && f3.borders && Object.keys(f3.borders).length) setKid2(o7.kids, TCPR_ORDER2, "w:tcBorders", patchBorderSet(kid(o7.kids, "w:tcBorders"), "w:tcBorders", f3.borders) || null);
-  if (f3.fill !== void 0) setKid2(o7.kids, TCPR_ORDER2, "w:shd", f3.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc6(f3.fill)}"/>`);
+  if (f3.fill !== void 0) setKid2(o7.kids, TCPR_ORDER2, "w:shd", f3.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc7(f3.fill)}"/>`);
   if (f3.vAlign !== void 0) setKid2(o7.kids, TCPR_ORDER2, "w:vAlign", f3.vAlign === null || f3.vAlign === "top" ? null : `<w:vAlign w:val="${f3.vAlign}"/>`);
   return join2(o7);
 }
@@ -17617,15 +18094,15 @@ function patchTableStyleXml(raw, cond, f3) {
   return o7.open + o7.kids.map((k2) => k2.raw).join("") + o7.close;
 }
 function newTableStyleXml(o7) {
-  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc6(o7.id)}"><w:name w:val="${esc6(o7.name)}"/>` + (o7.basedOn ? `<w:basedOn w:val="${esc6(o7.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
+  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc7(o7.id)}"><w:name w:val="${esc7(o7.name)}"/>` + (o7.basedOn ? `<w:basedOn w:val="${esc7(o7.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
 }
 function retitleTableStyleXml(raw, h3) {
   const o7 = splitElement(raw);
-  if (h3.name !== void 0) setKid2(o7.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc6(h3.name)}"/>`);
-  if (h3.basedOn !== void 0) setKid2(o7.kids, STYLE_ORDER, "w:basedOn", h3.basedOn ? `<w:basedOn w:val="${esc6(h3.basedOn)}"/>` : null);
+  if (h3.name !== void 0) setKid2(o7.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc7(h3.name)}"/>`);
+  if (h3.basedOn !== void 0) setKid2(o7.kids, STYLE_ORDER, "w:basedOn", h3.basedOn ? `<w:basedOn w:val="${esc7(h3.basedOn)}"/>` : null);
   return o7.open + o7.kids.map((k2) => k2.raw).join("") + o7.close;
 }
-var TABLE_STYLE_CONDS, COND_ORDER, TSPR_ORDER, TBLPR_ORDER2, TCPR_ORDER2, SIDES2, esc6, join2, kid;
+var TABLE_STYLE_CONDS, COND_ORDER, TSPR_ORDER, TBLPR_ORDER2, TCPR_ORDER2, SIDES2, esc7, join2, kid;
 var init_table_style_edit = __esm({
   "../docx-core/src/table-style-edit.ts"() {
     "use strict";
@@ -17638,7 +18115,7 @@ var init_table_style_edit = __esm({
     TBLPR_ORDER2 = ["w:tblStyle", "w:tblpPr", "w:tblOverlap", "w:bidiVisual", "w:tblStyleRowBandSize", "w:tblStyleColBandSize", "w:tblW", "w:jc", "w:tblCellSpacing", "w:tblInd", "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook"];
     TCPR_ORDER2 = ["w:cnfStyle", "w:tcW", "w:gridSpan", "w:hMerge", "w:vMerge", "w:tcBorders", "w:shd", "w:noWrap", "w:tcMar", "w:textDirection", "w:tcFitText", "w:vAlign", "w:hideMark"];
     SIDES2 = ["top", "left", "bottom", "right", "insideH", "insideV"];
-    esc6 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    esc7 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     join2 = (o7) => o7.kids.length ? o7.open + o7.kids.map((k2) => k2.raw).join("") + o7.close : "";
     kid = (kids, n5) => kids.find((k2) => k2.name === n5)?.raw;
   }
@@ -17844,8 +18321,8 @@ function themeHex(colors, themeColor, tint, shade) {
   return (ch(h3 + 1 / 3) + ch(h3) + ch(h3 - 1 / 3)).toUpperCase();
 }
 function materializeStyleXml(xml, colors) {
-  const attr = (tag2, name) => new RegExp(`${name}="([^"]*)"`).exec(tag2)?.[1];
-  return xml.replace(/w:color="~"([^/>]*)/g, (_m, rest) => `w:color="${themeHex(colors, attr(rest, "w:themeColor") ?? "text1", attr(rest, "w:themeTint"), attr(rest, "w:themeShade"))}"${rest}`).replace(/w:fill="~"([^/>]*)/g, (_m, rest) => `w:fill="${themeHex(colors, attr(rest, "w:themeFill") ?? "background1", attr(rest, "w:themeFillTint"), attr(rest, "w:themeFillShade"))}"${rest}`);
+  const attr2 = (tag2, name) => new RegExp(`${name}="([^"]*)"`).exec(tag2)?.[1];
+  return xml.replace(/w:color="~"([^/>]*)/g, (_m, rest) => `w:color="${themeHex(colors, attr2(rest, "w:themeColor") ?? "text1", attr2(rest, "w:themeTint"), attr2(rest, "w:themeShade"))}"${rest}`).replace(/w:fill="~"([^/>]*)/g, (_m, rest) => `w:fill="${themeHex(colors, attr2(rest, "w:themeFill") ?? "background1", attr2(rest, "w:themeFillTint"), attr2(rest, "w:themeFillShade"))}"${rest}`);
 }
 function styleDefOf(xml) {
   const sheet = readStyleSheet(`<w:styles ${W2}>${xml}</w:styles>`);
@@ -17958,6 +18435,7 @@ var init_core = __esm({
     init_document();
     init_props();
     init_parts();
+    init_drawing();
     init_fulldoc();
     init_notes();
     init_model_ops();
@@ -17965,6 +18443,8 @@ var init_core = __esm({
     init_revisions();
     init_rev_xml();
     init_settings_xml();
+    init_page_background();
+    init_watermark();
     init_hf_ops();
     init_serialize();
     init_styles();
@@ -18149,10 +18629,10 @@ function paraInner(p3, ctx) {
 function paraHtml(p3, ctx) {
   const inner = paraInner(p3, ctx);
   const st = paraStyles(p3);
-  const attr = st ? ` style="${st}"` : "";
+  const attr2 = st ? ` style="${st}"` : "";
   const lvl = headingLevel(p3);
-  if (lvl) return `<h${lvl}${attr}>${inner}</h${lvl}>`;
-  return `<p${attr}>${inner}</p>`;
+  if (lvl) return `<h${lvl}${attr2}>${inner}</h${lvl}>`;
+  return `<p${attr2}>${inner}</p>`;
 }
 function tableHtml(t6, ctx) {
   let html = "<table>";
@@ -18537,16 +19017,16 @@ function readListStyle(ls2) {
 }
 function collectStyles(container, index) {
   if (!container) return;
-  for (const el13 of childElements(container)) {
-    if (el13.name === "style:style") {
-      const name = el13.attrs["style:name"];
-      if (name) index.styles.set(name, readRawStyle(el13));
-    } else if (el13.name === "style:default-style") {
-      const family = el13.attrs["style:family"];
-      if (family) index.defaults.set(family, readRawStyle(el13));
-    } else if (el13.name === "text:list-style") {
-      const name = el13.attrs["style:name"];
-      if (name) index.listStyles.set(name, readListStyle(el13));
+  for (const el14 of childElements(container)) {
+    if (el14.name === "style:style") {
+      const name = el14.attrs["style:name"];
+      if (name) index.styles.set(name, readRawStyle(el14));
+    } else if (el14.name === "style:default-style") {
+      const family = el14.attrs["style:family"];
+      if (family) index.defaults.set(family, readRawStyle(el14));
+    } else if (el14.name === "text:list-style") {
+      const name = el14.attrs["style:name"];
+      if (name) index.listStyles.set(name, readListStyle(el14));
     }
   }
 }
@@ -18563,10 +19043,10 @@ function buildStyleIndex(contentRoot, stylesRoot) {
   collectStyles(firstChild(contentRoot, "office:automatic-styles"), index);
   return index;
 }
-function readTextProps(el13) {
+function readTextProps(el14) {
   const p3 = {};
-  if (!el13) return p3;
-  const a3 = el13.attrs;
+  if (!el14) return p3;
+  const a3 = el14.attrs;
   if (a3["fo:font-weight"] !== void 0) p3.bold = isTrue(a3["fo:font-weight"]);
   if (a3["fo:font-style"] !== void 0) p3.italic = a3["fo:font-style"] === "italic" || a3["fo:font-style"] === "oblique";
   const uStyle = a3["style:text-underline-style"];
@@ -18590,10 +19070,10 @@ function readTextProps(el13) {
   }
   return p3;
 }
-function readParaPropsStyle(el13) {
+function readParaPropsStyle(el14) {
   const p3 = {};
-  if (!el13) return p3;
-  const a3 = el13.attrs;
+  if (!el14) return p3;
+  const a3 = el14.attrs;
   switch (a3["fo:text-align"]) {
     case "start":
     case "left":
@@ -18761,27 +19241,27 @@ function getParaStyle(ctx, p3, parentStyleName) {
   return name;
 }
 function paraStyleXml(name, p3, parentStyleName) {
-  const para2 = [];
-  if (p3.alignment === "center") para2.push(`fo:text-align="center"`);
-  else if (p3.alignment === "right") para2.push(`fo:text-align="end"`);
-  else if (p3.alignment === "both") para2.push(`fo:text-align="justify"`);
-  else if (p3.alignment === "left") para2.push(`fo:text-align="start"`);
-  if (p3.indentLeftTwips) para2.push(`fo:margin-left="${twipsToPt2(p3.indentLeftTwips)}"`);
-  if (p3.indentRightTwips) para2.push(`fo:margin-right="${twipsToPt2(p3.indentRightTwips)}"`);
-  if (p3.indentFirstLineTwips) para2.push(`fo:text-indent="${twipsToPt2(p3.indentFirstLineTwips)}"`);
-  if (p3.spaceBeforeTwips) para2.push(`fo:margin-top="${twipsToPt2(p3.spaceBeforeTwips)}"`);
-  if (p3.spaceAfterTwips) para2.push(`fo:margin-bottom="${twipsToPt2(p3.spaceAfterTwips)}"`);
-  if (p3.shadingHex) para2.push(`fo:background-color="#${p3.shadingHex}"`);
-  if (p3.pageBreakBefore) para2.push(`fo:break-before="page"`);
+  const para3 = [];
+  if (p3.alignment === "center") para3.push(`fo:text-align="center"`);
+  else if (p3.alignment === "right") para3.push(`fo:text-align="end"`);
+  else if (p3.alignment === "both") para3.push(`fo:text-align="justify"`);
+  else if (p3.alignment === "left") para3.push(`fo:text-align="start"`);
+  if (p3.indentLeftTwips) para3.push(`fo:margin-left="${twipsToPt2(p3.indentLeftTwips)}"`);
+  if (p3.indentRightTwips) para3.push(`fo:margin-right="${twipsToPt2(p3.indentRightTwips)}"`);
+  if (p3.indentFirstLineTwips) para3.push(`fo:text-indent="${twipsToPt2(p3.indentFirstLineTwips)}"`);
+  if (p3.spaceBeforeTwips) para3.push(`fo:margin-top="${twipsToPt2(p3.spaceBeforeTwips)}"`);
+  if (p3.spaceAfterTwips) para3.push(`fo:margin-bottom="${twipsToPt2(p3.spaceAfterTwips)}"`);
+  if (p3.shadingHex) para3.push(`fo:background-color="#${p3.shadingHex}"`);
+  if (p3.pageBreakBefore) para3.push(`fo:break-before="page"`);
   if (p3.borders) {
     const b5 = p3.borders;
     const edge = (e8) => `${eighthPtToPt(e8.sizeEighthPt).toFixed(2)}pt ${cssStyle(e8.style)} #${e8.color ?? "000000"}`;
-    if (b5.top) para2.push(`fo:border-top="${edge(b5.top)}"`);
-    if (b5.bottom) para2.push(`fo:border-bottom="${edge(b5.bottom)}"`);
-    if (b5.left) para2.push(`fo:border-left="${edge(b5.left)}"`);
-    if (b5.right) para2.push(`fo:border-right="${edge(b5.right)}"`);
+    if (b5.top) para3.push(`fo:border-top="${edge(b5.top)}"`);
+    if (b5.bottom) para3.push(`fo:border-bottom="${edge(b5.bottom)}"`);
+    if (b5.left) para3.push(`fo:border-left="${edge(b5.left)}"`);
+    if (b5.right) para3.push(`fo:border-right="${edge(b5.right)}"`);
   }
-  const attrs3 = para2.length ? ` ${para2.join(" ")}` : "";
+  const attrs3 = para3.length ? ` ${para3.join(" ")}` : "";
   const parent = parentStyleName ? ` style:parent-style-name="${xmlEscape(parentStyleName)}"` : "";
   return `<style:style style:name="${name}" style:family="paragraph"${parent}><style:paragraph-properties${attrs3}/></style:style>`;
 }
@@ -18885,9 +19365,9 @@ function textFrameXml(tb, ctx) {
   ctx.frames = (ctx.frames ?? 0) + 1;
   return `<draw:frame draw:name="Moldura${ctx.frames}" text:anchor-type="${at}"${pos} svg:width="${twipsToCm(tb.widthTwips)}" svg:height="${twipsToCm(tb.heightTwips)}"><draw:text-box>${out.join("")}</draw:text-box></draw:frame>`;
 }
-function paragraphXml(para2, ctx, opts) {
-  const styleName2 = getParaStyle(ctx, para2.props, opts.parentStyleName);
-  const inner = para2.runs.map((r6) => runXml2(r6, ctx)).join("");
+function paragraphXml(para3, ctx, opts) {
+  const styleName2 = getParaStyle(ctx, para3.props, opts.parentStyleName);
+  const inner = para3.runs.map((r6) => runXml2(r6, ctx)).join("");
   if (opts.asHeading) {
     return `<text:h text:style-name="${styleName2}" text:outline-level="${opts.asHeading}">${inner}</text:h>`;
   }
@@ -18901,12 +19381,12 @@ function headingLevelOf(p3) {
   if (m2) return Math.min(6, parseInt(m2[1], 10));
   return 0;
 }
-function emitParagraph(para2, out, ctx) {
-  const lvl = headingLevelOf(para2);
+function emitParagraph(para3, out, ctx) {
+  const lvl = headingLevelOf(para3);
   if (lvl) {
-    out.push(paragraphXml(para2, ctx, { parentStyleName: `Heading_20_${lvl}`, asHeading: lvl }));
+    out.push(paragraphXml(para3, ctx, { parentStyleName: `Heading_20_${lvl}`, asHeading: lvl }));
   } else {
-    out.push(paragraphXml(para2, ctx, { parentStyleName: "Standard" }));
+    out.push(paragraphXml(para3, ctx, { parentStyleName: "Standard" }));
   }
 }
 function emitList(items, out, ctx) {
@@ -19034,10 +19514,10 @@ function contentXml(doc, ctx) {
     ...ctx.paraStyleDefs.map((s4) => s4.xml),
     ...ctx.runStyleDefs.map((s4) => s4.xml)
   ].join("");
-  return `<?xml version="1.0" encoding="UTF-8"?><office:document-content ${NS2} office:version="1.3"><office:automatic-styles>${autoStyles}</office:automatic-styles><office:body><office:text>${body.join("")}</office:text></office:body></office:document-content>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><office:document-content ${NS3} office:version="1.3"><office:automatic-styles>${autoStyles}</office:automatic-styles><office:body><office:text>${body.join("")}</office:text></office:body></office:document-content>`;
 }
 function stylesXml(doc) {
-  return `<?xml version="1.0" encoding="UTF-8"?><office:document-styles ${NS2} office:version="1.3"><office:styles>${styleStandardXml()}</office:styles><office:automatic-styles>${pageLayoutXml(doc)}</office:automatic-styles><office:master-styles>${masterStyleXml()}</office:master-styles></office:document-styles>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><office:document-styles ${NS3} office:version="1.3"><office:styles>${styleStandardXml()}</office:styles><office:automatic-styles>${pageLayoutXml(doc)}</office:automatic-styles><office:master-styles>${masterStyleXml()}</office:master-styles></office:document-styles>`;
 }
 function manifestXml(pictures) {
   const picEntries = pictures.map((p3) => {
@@ -19070,7 +19550,7 @@ function writeOdt(doc, options = {}) {
   for (const pic of ctx.pictures) parts[pic.path] = pic.data;
   return writeZip(parts);
 }
-var ENC, MIMETYPE, HIGHLIGHTS2, NS2;
+var ENC, MIMETYPE, HIGHLIGHTS2, NS3;
 var init_write_odt = __esm({
   "../docx-core/src/odf/write-odt.ts"() {
     "use strict";
@@ -19096,7 +19576,7 @@ var init_write_odt = __esm({
       black: "#000000",
       white: "#ffffff"
     };
-    NS2 = [
+    NS3 = [
       `xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"`,
       `xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"`,
       `xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"`,
@@ -19164,22 +19644,22 @@ function readOdt(bytes) {
     bookmarks: /* @__PURE__ */ new Map()
   };
 }
-function readBodyChild(el13, blocks, ctx, listDepth) {
-  switch (el13.name) {
+function readBodyChild(el14, blocks, ctx, listDepth) {
+  switch (el14.name) {
     case "text:p":
-      blocks.push({ type: "paragraph", paragraph: readParagraph2(el13, ctx, void 0) });
+      blocks.push({ type: "paragraph", paragraph: readParagraph2(el14, ctx, void 0) });
       break;
     case "text:h":
-      blocks.push({ type: "paragraph", paragraph: readHeading(el13, ctx) });
+      blocks.push({ type: "paragraph", paragraph: readHeading(el14, ctx) });
       break;
     case "text:list":
-      readList(el13, blocks, ctx, listDepth);
+      readList(el14, blocks, ctx, listDepth);
       break;
     case "table:table":
-      blocks.push(readTable2(el13, ctx));
+      blocks.push(readTable2(el14, ctx));
       break;
     case "text:section":
-      for (const c5 of childElements(el13)) readBodyChild(c5, blocks, ctx, listDepth);
+      for (const c5 of childElements(el14)) readBodyChild(c5, blocks, ctx, listDepth);
       break;
     case "text:soft-page-break":
     case "text:sequence-decls":
@@ -19341,9 +19821,9 @@ function flattenNoteBody(noteBody) {
   }
   return { name: "span", attrs: {}, children: children2 };
 }
-function readAnnotation(el13, ctx) {
-  const author = firstChild(el13, "dc:creator");
-  const paras = childElements(el13, "text:p");
+function readAnnotation(el14, ctx) {
+  const author = firstChild(el14, "dc:creator");
+  const paras = childElements(el14, "text:p");
   const text = paras.map((p3) => {
     const r6 = [];
     collectRuns(p3, r6, ctx, { ...DEFAULT_RUN_PROPS }, void 0);
@@ -19353,9 +19833,9 @@ function readAnnotation(el13, ctx) {
   if (author) info.author = textOf2(author);
   ctx.comments.push(info);
 }
-function textOf2(el13) {
+function textOf2(el14) {
   let out = "";
-  for (const c5 of el13.children) out += typeof c5 === "string" ? c5 : textOf2(c5);
+  for (const c5 of el14.children) out += typeof c5 === "string" ? c5 : textOf2(c5);
   return out;
 }
 function readList(listEl, blocks, ctx, depth) {
@@ -19433,8 +19913,8 @@ function collectRows(tblEl) {
 }
 function readColumns(tblEl, ctx) {
   const widths = [];
-  const visit = (el13) => {
-    for (const c5 of childElements(el13)) {
+  const visit = (el14) => {
+    for (const c5 of childElements(el14)) {
       if (c5.name === "table:table-column") {
         const repeat = parseInt(c5.attrs["table:number-columns-repeated"] ?? "1", 10);
         const w2 = columnWidth(c5, ctx.styleIndex);
@@ -19582,13 +20062,13 @@ function bordersFromStyle(index, styleName2) {
   const all = parseBorder(a3["fo:border"]);
   const out = {};
   let any = false;
-  for (const [side, attr] of [
+  for (const [side, attr2] of [
     ["top", "fo:border-top"],
     ["left", "fo:border-left"],
     ["bottom", "fo:border-bottom"],
     ["right", "fo:border-right"]
   ]) {
-    const edge = parseBorder(a3[attr]) ?? all;
+    const edge = parseBorder(a3[attr2]) ?? all;
     if (edge) {
       out[side] = edge;
       any = true;
@@ -19649,25 +20129,25 @@ function cellPropsEl(index, styleName2, seen = /* @__PURE__ */ new Set()) {
   return raw.cell ?? cellPropsEl(index, raw.parent, seen);
 }
 function cellShading(index, styleName2) {
-  const el13 = cellPropsEl(index, styleName2);
-  const bg = el13?.attrs["fo:background-color"];
+  const el14 = cellPropsEl(index, styleName2);
+  const bg = el14?.attrs["fo:background-color"];
   if (bg && bg !== "transparent") return bg.replace(/^#/, "").toUpperCase();
   return void 0;
 }
 function cellBorders(index, styleName2) {
-  const el13 = cellPropsEl(index, styleName2);
-  if (!el13) return void 0;
-  const a3 = el13.attrs;
+  const el14 = cellPropsEl(index, styleName2);
+  if (!el14) return void 0;
+  const a3 = el14.attrs;
   const all = parseBorder(a3["fo:border"]);
   const out = {};
   let any = false;
-  for (const [side, attr] of [
+  for (const [side, attr2] of [
     ["top", "fo:border-top"],
     ["left", "fo:border-left"],
     ["bottom", "fo:border-bottom"],
     ["right", "fo:border-right"]
   ]) {
-    const edge = parseBorder(a3[attr]) ?? all;
+    const edge = parseBorder(a3[attr2]) ?? all;
     if (edge) {
       out[side] = edge;
       any = true;
@@ -19762,436 +20242,6 @@ var init_src = __esm({
     init_core();
     init_export();
     init_odf();
-  }
-});
-
-// src/picture-ops.ts
-function effectExtentOf(f3) {
-  const { cx, cy } = f3;
-  let l3 = 0, t6 = 0, r6 = 0, b5 = 0;
-  const grow = (L8, T7, R2, B2) => {
-    l3 = Math.max(l3, L8);
-    t6 = Math.max(t6, T7);
-    r6 = Math.max(r6, R2);
-    b5 = Math.max(b5, B2);
-  };
-  let ex = 0, ey = 0;
-  if (f3.rot) {
-    const a3 = f3.rot / 6e4 * Math.PI / 180;
-    const bw = Math.abs(cx * Math.cos(a3)) + Math.abs(cy * Math.sin(a3));
-    const bh = Math.abs(cx * Math.sin(a3)) + Math.abs(cy * Math.cos(a3));
-    ex = (bw - cx) / 2;
-    ey = (bh - cy) / 2;
-    grow(ex, ey, ex, ey);
-  }
-  const ln2 = f3.line;
-  if (ln2 && ln2.fill !== null && (ln2.fill !== void 0 || ln2.fillRaw)) {
-    const w2 = ln2.w ?? 9525;
-    grow(ex + w2, ey + w2, ex + w2, ey + w2);
-  }
-  const fx = f3.effects;
-  const s4 = fx.shadow;
-  if (s4 && s4.kind === "outer") {
-    const blur = s4.blurRad ?? 0, d3 = s4.dist ?? 0;
-    const a3 = (s4.dir ?? 0) / 6e4 * Math.PI / 180;
-    const dx = d3 * Math.cos(a3), dy = d3 * Math.sin(a3);
-    const sx = (s4.sx ?? 1e5) / 1e5, sy = (s4.sy ?? 1e5) / 1e5;
-    const kx = Math.tan((s4.kx ?? 0) / 6e4 * Math.PI / 180), ky = Math.tan((s4.ky ?? 0) / 6e4 * Math.PI / 180);
-    const al = s4.algn ?? "b";
-    const ax = al.includes("l") ? 0 : al.includes("r") ? 1 : 0.5;
-    const ay = al.startsWith("t") ? 0 : al.startsWith("b") ? 1 : 0.5;
-    const corners = [[0, 0], [cx, 0], [0, cy], [cx, cy]].map(([x3, y3]) => {
-      const px = ax * cx + (x3 - ax * cx) * sx + (y3 - ay * cy) * kx * sy;
-      const py = ay * cy + (y3 - ay * cy) * sy + (x3 - ax * cx) * ky * sx;
-      return [px + dx, py + dy];
-    });
-    const xs = corners.map((c5) => c5[0]), ys = corners.map((c5) => c5[1]);
-    grow(blur - Math.min(...xs), blur - Math.min(...ys), Math.max(...xs) - cx + blur, Math.max(...ys) - cy + blur);
-  }
-  if (fx.glow) grow(fx.glow.rad + ex, fx.glow.rad + ey, fx.glow.rad + ex, fx.glow.rad + ey);
-  const rf = fx.reflection;
-  if (rf) {
-    const blur = rf.blurRad ?? 0;
-    const span = (rf.endPos ?? 1e5) / 1e5 * cy;
-    grow(blur, 0, blur, (rf.dist ?? 0) + span + blur * 4);
-  }
-  return { l: up(l3), t: up(t6), r: up(r6), b: up(b5) };
-}
-function zFor(op, mine, others) {
-  const all = others.filter((v2) => v2 !== mine).sort((a3, b5) => a3 - b5);
-  if (!all.length) return mine;
-  const max2 = all[all.length - 1], min = all[0];
-  if (op === "front") return max2 + 1024;
-  if (op === "back") return min - 1025;
-  if (op === "forward") {
-    const above = all.filter((v2) => v2 > mine);
-    if (!above.length) return mine;
-    const next = above[0], after = above[1];
-    return after === void 0 ? next + 1024 : Math.floor((next + after) / 2);
-  }
-  const below = all.filter((v2) => v2 < mine);
-  if (!below.length) return mine;
-  const prev = below[below.length - 1], before = below[below.length - 2];
-  return before === void 0 ? prev - 1025 : Math.floor((prev + before) / 2);
-}
-function fillFitCrop(mode, box, natural) {
-  const boxA = box.cx / box.cy, imgA = natural.w / natural.h;
-  const r6 = { l: 0, t: 0, r: 0, b: 0 };
-  if (Math.abs(boxA - imgA) < 1e-9) return r6;
-  const wide = boxA > imgA;
-  if (mode === "fill") {
-    if (wide) r6.t = r6.b = Math.round((1 - imgA / boxA) / 2 * 1e5);
-    else r6.l = r6.r = Math.round((1 - boxA / imgA) / 2 * 1e5);
-  } else {
-    if (wide) r6.l = r6.r = -Math.round((boxA / imgA - 1) / 2 * 1e5);
-    else r6.t = r6.b = -Math.round((imgA / boxA - 1) / 2 * 1e5);
-  }
-  return r6;
-}
-function aspectCrop(f3, ratio2) {
-  const s4 = f3.srcRect;
-  const visW = 1 - (s4.l + s4.r) / 1e5, visH = 1 - (s4.t + s4.b) / 1e5;
-  const fullW = f3.cx / visW, fullH = f3.cy / visH;
-  let cx = f3.cx, cy = f3.cy;
-  if (cx / cy > ratio2) cx = cy * ratio2;
-  else cy = cx / ratio2;
-  const dx = (f3.cx - cx) / 2 / fullW, dy = (f3.cy - cy) / 2 / fullH;
-  return {
-    crop: { l: Math.round(s4.l + dx * 1e5), r: Math.round(s4.r + dx * 1e5), t: Math.round(s4.t + dy * 1e5), b: Math.round(s4.b + dy * 1e5) },
-    cx: Math.round(cx),
-    cy: Math.round(cy)
-  };
-}
-function bevel3D(prst) {
-  return { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" }, bevelT: prst === "circle" ? {} : { prst } };
-}
-var STEP, up, Z_FIRST, ASPECT_RATIOS, CROP_SHAPES, black, SHADOW_PRESETS, refl, REFLECTION_PRESETS, SOFT_EDGE_PRESETS, GLOW_SIZES, glowPreset, BEVEL_PRESETS, ROTATION_PRESETS, SATURATION_PRESETS, TEMPERATURE_PRESETS, SHARPEN_PRESETS, BRIGHT_CONTRAST_STEPS, TRANSPARENCY_PRESETS, scheme, darkOf, RECOLOR_PRESETS, LINE_WEIGHTS_PT, LINE_DASHES, POSITION_PRESETS;
-var init_picture_ops = __esm({
-  "src/picture-ops.ts"() {
-    "use strict";
-    STEP = 19050;
-    up = (v2) => v2 <= 0.5 ? 0 : Math.ceil(v2 / STEP - 1e-6) * STEP;
-    Z_FIRST = 251658240;
-    ASPECT_RATIOS = [
-      { id: "1:1", group: "square", w: 1, h: 1 },
-      { id: "2:3", group: "portrait", w: 2, h: 3 },
-      { id: "3:4", group: "portrait", w: 3, h: 4 },
-      { id: "3:5", group: "portrait", w: 3, h: 5 },
-      { id: "4:5", group: "portrait", w: 4, h: 5 },
-      { id: "3:2", group: "landscape", w: 3, h: 2 },
-      { id: "4:3", group: "landscape", w: 4, h: 3 },
-      { id: "5:3", group: "landscape", w: 5, h: 3 },
-      { id: "5:4", group: "landscape", w: 5, h: 4 },
-      { id: "16:9", group: "landscape", w: 16, h: 9 },
-      { id: "16:10", group: "landscape", w: 16, h: 10 }
-    ];
-    CROP_SHAPES = [
-      { label: { en: "Rectangles", pt: "Ret\xE2ngulos" }, shapes: [
-        ["rect", "Rectangle", "Ret\xE2ngulo"],
-        ["roundRect", "Rectangle: Rounded Corners", "Ret\xE2ngulo: Cantos Arredondados"],
-        ["snip1Rect", "Rectangle: Single Corner Snipped", "Ret\xE2ngulo: \xDAnico Canto Recortado"],
-        ["snip2SameRect", "Rectangle: Top Corners Snipped", "Ret\xE2ngulo: Cantos Superiores Recortados"],
-        ["snip2DiagRect", "Rectangle: Diagonal Corners Snipped", "Ret\xE2ngulo: Cantos Diagonais Recortados"],
-        ["snipRoundRect", "Rectangle: Top Corners One Rounded and One Snipped", "Ret\xE2ngulo: Cantos Superiores, Um Arredondado e Um Recortado"],
-        ["round1Rect", "Rectangle: Single Corner Rounded", "Ret\xE2ngulo: \xDAnico Canto Arredondado"],
-        ["round2SameRect", "Rectangle: Top Corners Rounded", "Ret\xE2ngulo: Cantos Superiores Arredondados"],
-        ["round2DiagRect", "Rectangle: Diagonal Corners Rounded", "Ret\xE2ngulo: Cantos Diagonais Arredondados"]
-      ] },
-      { label: { en: "Basic Shapes", pt: "Formas B\xE1sicas" }, shapes: [
-        ["ellipse", "Oval", "Elipse"],
-        ["triangle", "Isosceles Triangle", "Tri\xE2ngulo Is\xF3sceles"],
-        ["rtTriangle", "Right Triangle", "Tri\xE2ngulo Ret\xE2ngulo"],
-        ["parallelogram", "Parallelogram", "Paralelogramo"],
-        ["trapezoid", "Trapezoid", "Trapezoide"],
-        ["diamond", "Diamond", "Losango"],
-        ["pentagon", "Regular Pentagon", "Pent\xE1gono Regular"],
-        ["hexagon", "Hexagon", "Hex\xE1gono"],
-        ["heptagon", "Heptagon", "Hept\xE1gono"],
-        ["octagon", "Octagon", "Oct\xF3gono"],
-        ["decagon", "Decagon", "Dec\xE1gono"],
-        ["dodecagon", "Dodecagon", "Dodec\xE1gono"],
-        ["pie", "Partial Circle", "C\xEDrculo Parcial"],
-        ["chord", "Chord", "Corda"],
-        ["teardrop", "Teardrop", "L\xE1grima"],
-        ["frame", "Frame", "Moldura"],
-        ["halfFrame", "Half Frame", "Meia Moldura"],
-        ["corner", "L-Shape", "Forma em L"],
-        ["diagStripe", "Diagonal Stripe", "Faixa Diagonal"],
-        ["plus", "Cross", "Cruz"],
-        ["plaque", "Plaque", "Placa"],
-        ["can", "Cylinder", "Cilindro"],
-        ["cube", "Cube", "Cubo"],
-        ["bevel", "Rectangle: Beveled", "Ret\xE2ngulo: Chanfrado"],
-        ["donut", "Circle: Hollow", "C\xEDrculo: Vazado"],
-        ["noSmoking", '"No" Symbol', 'S\xEDmbolo "N\xE3o"'],
-        ["blockArc", "Block Arc", "Arco Fechado"],
-        ["foldedCorner", "Rectangle: Folded Corner", "Ret\xE2ngulo: Canto Dobrado"],
-        ["smileyFace", "Smiley Face", "Rosto Feliz"],
-        ["heart", "Heart", "Cora\xE7\xE3o"],
-        ["lightningBolt", "Lightning Bolt", "Raio"],
-        ["sun", "Sun", "Sol"],
-        ["moon", "Moon", "Lua"],
-        ["cloud", "Cloud", "Nuvem"],
-        ["arc", "Arc", "Arco"],
-        ["bracketPair", "Double Bracket", "Colchetes Duplos"],
-        ["bracePair", "Double Brace", "Chaves Duplas"],
-        ["leftBracket", "Left Bracket", "Colchete Esquerdo"],
-        ["rightBracket", "Right Bracket", "Colchete Direito"],
-        ["leftBrace", "Left Brace", "Chave Esquerda"],
-        ["rightBrace", "Right Brace", "Chave Direita"]
-      ] },
-      { label: { en: "Block Arrows", pt: "Setas Largas" }, shapes: [
-        ["rightArrow", "Arrow: Right", "Seta: para a Direita"],
-        ["leftArrow", "Arrow: Left", "Seta: para a Esquerda"],
-        ["upArrow", "Arrow: Up", "Seta: para Cima"],
-        ["downArrow", "Arrow: Down", "Seta: para Baixo"],
-        ["leftRightArrow", "Arrow: Left-Right", "Seta: Esquerda e Direita"],
-        ["upDownArrow", "Arrow: Up-Down", "Seta: para Cima e para Baixo"],
-        ["quadArrow", "Arrow: Quad", "Seta: Cruzada"],
-        ["leftRightUpArrow", "Arrow: Left-Right-Up", "Seta: para a Esquerda, para a Direita e para Cima"],
-        ["bentArrow", "Arrow: Bent", "Seta: Dobrada"],
-        ["uturnArrow", "Arrow: U-Turn", "Seta: em Forma de U"],
-        ["leftUpArrow", "Arrow: Left-Up", "Seta: para a Esquerda e para Cima"],
-        ["bentUpArrow", "Arrow: Bent-Up", "Seta: Dobrada para Cima"],
-        ["curvedRightArrow", "Arrow: Curved Right", "Seta: Curvada para a Direita"],
-        ["curvedLeftArrow", "Arrow: Curved Left", "Seta: Curvada para a Esquerda"],
-        ["curvedUpArrow", "Arrow: Curved Up", "Seta: Curvada para Cima"],
-        ["curvedDownArrow", "Arrow: Curved Down", "Seta: Curvada para Baixo"],
-        ["stripedRightArrow", "Arrow: Striped Right", "Seta: Listrada para a Direita"],
-        ["notchedRightArrow", "Arrow: Notched Right", "Seta: Entalhada para a Direita"],
-        ["homePlate", "Arrow: Pentagon", "Seta: Pent\xE1gono"],
-        ["chevron", "Arrow: Chevron", "Seta: Divisa"],
-        ["rightArrowCallout", "Callout: Right Arrow", "Texto Explicativo: Seta para a Direita"],
-        ["downArrowCallout", "Callout: Down Arrow", "Texto Explicativo: Seta para Baixo"],
-        ["leftArrowCallout", "Callout: Left Arrow", "Texto Explicativo: Seta para a Esquerda"],
-        ["upArrowCallout", "Callout: Up Arrow", "Texto Explicativo: Seta para Cima"],
-        ["leftRightArrowCallout", "Callout: Left-Right Arrow", "Texto Explicativo: Seta para a Esquerda e para a Direita"],
-        ["quadArrowCallout", "Callout: Quad Arrow", "Texto Explicativo: Seta Cruzada"],
-        ["circularArrow", "Arrow: Circular", "Seta: Circular"]
-      ] },
-      { label: { en: "Equation Shapes", pt: "Formas de Equa\xE7\xE3o" }, shapes: [
-        ["mathPlus", "Plus Sign", "Sinal de Adi\xE7\xE3o"],
-        ["mathMinus", "Minus Sign", "Sinal de Subtra\xE7\xE3o"],
-        ["mathMultiply", "Multiplication Sign", "Sinal de Multiplica\xE7\xE3o"],
-        ["mathDivide", "Division Sign", "Sinal de Divis\xE3o"],
-        ["mathEqual", "Equals", "Igual a"],
-        ["mathNotEqual", "Not Equal", "Diferente de"]
-      ] },
-      { label: { en: "Flowchart", pt: "Fluxograma" }, shapes: [
-        ["Process", "Process", "Processo"],
-        ["AlternateProcess", "Alternate Process", "Processo Alternativo"],
-        ["Decision", "Decision", "Decis\xE3o"],
-        ["InputOutput", "Data", "Dados"],
-        ["PredefinedProcess", "Predefined Process", "Processo Predefinido"],
-        ["InternalStorage", "Internal Storage", "Armazenamento Interno"],
-        ["Document", "Document", "Documento"],
-        ["Multidocument", "Multidocument", "V\xE1rios Documentos"],
-        ["Terminator", "Terminator", "Termina\xE7\xE3o"],
-        ["Preparation", "Preparation", "Prepara\xE7\xE3o"],
-        ["ManualInput", "Manual Input", "Entrada Manual"],
-        ["ManualOperation", "Manual Operation", "Opera\xE7\xE3o Manual"],
-        ["Connector", "Connector", "Conector"],
-        ["OffpageConnector", "Off-page Connector", "Conector Fora da P\xE1gina"],
-        ["PunchedCard", "Card", "Cart\xE3o"],
-        ["PunchedTape", "Punched Tape", "Fita Perfurada"],
-        ["SummingJunction", "Summing Junction", "Jun\xE7\xE3o de Soma"],
-        ["Or", "Or", "Ou"],
-        ["Collate", "Collate", "Agrupar"],
-        ["Sort", "Sort", "Classificar"],
-        ["Extract", "Extract", "Extrair"],
-        ["Merge", "Merge", "Mesclar"],
-        ["OnlineStorage", "Stored Data", "Dados Armazenados"],
-        ["Delay", "Delay", "Atraso"],
-        ["MagneticTape", "Sequential Access Storage", "Armazenamento de Acesso Sequencial"],
-        ["MagneticDisk", "Magnetic Disk", "Disco Magn\xE9tico"],
-        ["MagneticDrum", "Direct Access Storage", "Armazenamento de Acesso Direto"],
-        ["Display", "Display", "Exibir"]
-      ].map(([k2, en, pt2]) => [`flowChart${k2}`, `Flowchart: ${en}`, `Fluxograma: ${pt2}`]) },
-      { label: { en: "Stars and Banners", pt: "Estrelas e Faixas" }, shapes: [
-        ["irregularSeal1", "Explosion: 8 Points", "Explos\xE3o: 8 Pontos"],
-        ["irregularSeal2", "Explosion: 14 Points", "Explos\xE3o: 14 Pontos"],
-        ["star4", "Star: 4 Points", "Estrela: 4 Pontas"],
-        ["star5", "Star: 5 Points", "Estrela: 5 Pontas"],
-        ["star6", "Star: 6 Points", "Estrela: 6 Pontas"],
-        ["star7", "Star: 7 Points", "Estrela: 7 Pontas"],
-        ["star8", "Star: 8 Points", "Estrela: 8 Pontas"],
-        ["star10", "Star: 10 Points", "Estrela: 10 Pontas"],
-        ["star12", "Star: 12 Points", "Estrela: 12 Pontas"],
-        ["star16", "Star: 16 Points", "Estrela: 16 Pontas"],
-        ["star24", "Star: 24 Points", "Estrela: 24 Pontas"],
-        ["star32", "Star: 32 Points", "Estrela: 32 Pontas"],
-        ["ribbon2", "Ribbon: Tilted Up", "Faixa: Inclinada para Cima"],
-        ["ribbon", "Ribbon: Tilted Down", "Faixa: Inclinada para Baixo"],
-        ["ellipseRibbon2", "Ribbon: Curved and Tilted Up", "Faixa: Curvada e Inclinada para Cima"],
-        ["ellipseRibbon", "Ribbon: Curved and Tilted Down", "Faixa: Curvada e Inclinada para Baixo"],
-        ["verticalScroll", "Scroll: Vertical", "Rolagem: Vertical"],
-        ["horizontalScroll", "Scroll: Horizontal", "Rolagem: Horizontal"],
-        ["wave", "Wave", "Onda"],
-        ["doubleWave", "Double Wave", "Onda Dupla"]
-      ] },
-      { label: { en: "Callouts", pt: "Textos Explicativos" }, shapes: [
-        ["wedgeRectCallout", "Speech Bubble: Rectangle", "Bal\xE3o de Fala: Ret\xE2ngulo"],
-        ["wedgeRoundRectCallout", "Speech Bubble: Rectangle with Corners Rounded", "Bal\xE3o de Fala: Ret\xE2ngulo com Cantos Arredondados"],
-        ["wedgeEllipseCallout", "Speech Bubble: Oval", "Bal\xE3o de Fala: Oval"],
-        ["cloudCallout", "Thought Bubble: Cloud", "Bal\xE3o de Pensamento: Nuvem"],
-        ["borderCallout1", "Callout: Line", "Texto Explicativo: Linha"],
-        ["borderCallout2", "Callout: Bent Line", "Texto Explicativo: Linha Dobrada"],
-        ["borderCallout3", "Callout: Double Bent Line", "Texto Explicativo: Linha Dobrada Dupla"],
-        ["accentCallout1", "Callout: Line with Accent Bar", "Texto Explicativo: Linha com Barra de \xCAnfase"],
-        ["accentCallout2", "Callout: Bent Line with Accent Bar", "Texto Explicativo: Linha Dobrada com Barra de \xCAnfase"],
-        ["accentCallout3", "Callout: Double Bent Line with Accent Bar", "Texto Explicativo: Linha Dobrada Dupla com Barra de \xCAnfase"],
-        ["callout1", "Callout: Line with No Border", "Texto Explicativo: Linha sem Borda"],
-        ["callout2", "Callout: Bent Line with No Border", "Texto Explicativo: Linha Dobrada sem Borda"],
-        ["callout3", "Callout: Double Bent Line with No Border", "Texto Explicativo: Linha Dobrada Dupla sem Borda"],
-        ["accentBorderCallout1", "Callout: Line with Border and Accent Bar", "Texto Explicativo: Linha com Borda e Barra de \xCAnfase"],
-        ["accentBorderCallout2", "Callout: Bent Line with Border and Accent Bar", "Texto Explicativo: Linha Dobrada com Borda e Barra de \xCAnfase"],
-        ["accentBorderCallout3", "Callout: Double Bent Line with Border and Accent Bar", "Texto Explicativo: Linha Dobrada Dupla com Borda e Barra de \xCAnfase"]
-      ] }
-    ];
-    black = (alpha) => ({ kind: "prstClr", val: "black", ...alpha !== void 0 ? { mods: [["alpha", alpha]] } : {} });
-    SHADOW_PRESETS = [
-      { id: "outer-br", group: "outer", label: { en: "Offset: Bottom Right", pt: "Deslocamento: Inferior Direito" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 27e5, algn: "tl", color: black(4e4) } },
-      { id: "outer-b", group: "outer", label: { en: "Offset: Bottom", pt: "Deslocamento: Inferior" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 54e5, algn: "t", color: black(4e4) } },
-      { id: "outer-bl", group: "outer", label: { en: "Offset: Bottom Left", pt: "Deslocamento: Inferior Esquerdo" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 81e5, algn: "tr", color: black(4e4) } },
-      { id: "outer-r", group: "outer", label: { en: "Offset: Right", pt: "Deslocamento: Direita" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, algn: "l", color: black(4e4) } },
-      { id: "outer-c", group: "outer", label: { en: "Offset: Center", pt: "Deslocamento: Centro" }, shadow: { kind: "outer", blurRad: 63500, sx: 102e3, sy: 102e3, algn: "ctr", color: black(4e4) } },
-      { id: "outer-l", group: "outer", label: { en: "Offset: Left", pt: "Deslocamento: Esquerda" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 108e5, algn: "r", color: black(4e4) } },
-      { id: "outer-tr", group: "outer", label: { en: "Offset: Top Right", pt: "Deslocamento: Superior Direito" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 189e5, algn: "bl", color: black(4e4) } },
-      { id: "outer-t", group: "outer", label: { en: "Offset: Top", pt: "Deslocamento: Superior" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 162e5, color: black(4e4) } },
-      { id: "outer-tl", group: "outer", label: { en: "Offset: Top Left", pt: "Deslocamento: Superior Esquerdo" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 135e5, algn: "br", color: black(4e4) } },
-      { id: "inner-tl", group: "inner", label: { en: "Inside: Top Left", pt: "Interna: Superior Esquerda" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 135e5, color: black(5e4) } },
-      { id: "inner-t", group: "inner", label: { en: "Inside: Top", pt: "Interna: Superior" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 162e5, color: black(5e4) } },
-      { id: "inner-tr", group: "inner", label: { en: "Inside: Top Right", pt: "Interna: Superior Direita" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 189e5, color: black(5e4) } },
-      { id: "inner-l", group: "inner", label: { en: "Inside: Left", pt: "Interna: Esquerda" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 108e5, color: black(5e4) } },
-      { id: "inner-c", group: "inner", label: { en: "Inside: Center", pt: "Interna: Centro" }, shadow: { kind: "inner", blurRad: 114300, color: black() } },
-      { id: "inner-r", group: "inner", label: { en: "Inside: Right", pt: "Interna: Direita" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, color: black(5e4) } },
-      { id: "inner-bl", group: "inner", label: { en: "Inside: Bottom Left", pt: "Interna: Inferior Esquerda" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 81e5, color: black(5e4) } },
-      { id: "inner-b", group: "inner", label: { en: "Inside: Bottom", pt: "Interna: Inferior" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 54e5, color: black(5e4) } },
-      { id: "inner-br", group: "inner", label: { en: "Inside: Bottom Right", pt: "Interna: Inferior Direita" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 27e5, color: black(5e4) } },
-      { id: "persp-ul", group: "persp", label: { en: "Perspective: Upper Left", pt: "Perspectiva: Superior Esquerda" }, shadow: { kind: "outer", blurRad: 76200, dir: 135e5, sy: 23e3, kx: 12e5, algn: "br", color: black(2e4) } },
-      { id: "persp-ur", group: "persp", label: { en: "Perspective: Upper Right", pt: "Perspectiva: Superior Direita" }, shadow: { kind: "outer", blurRad: 76200, dir: 189e5, sy: 23e3, kx: -12e5, algn: "bl", color: black(2e4) } },
-      { id: "persp-below", group: "persp", label: { en: "Perspective: Below", pt: "Perspectiva: Abaixo" }, shadow: { kind: "outer", blurRad: 152400, dist: 317500, dir: 54e5, sx: 9e4, sy: -19e3, color: black(15e3) } },
-      { id: "persp-ll", group: "persp", label: { en: "Perspective: Lower Left", pt: "Perspectiva: Inferior Esquerda" }, shadow: { kind: "outer", blurRad: 76200, dist: 12700, dir: 81e5, sy: -23e3, kx: 800400, algn: "br", color: black(2e4) } },
-      { id: "persp-lr", group: "persp", label: { en: "Perspective: Lower Right", pt: "Perspectiva: Inferior Direita" }, shadow: { kind: "outer", blurRad: 76200, dist: 12700, dir: 27e5, sy: -23e3, kx: -800400, algn: "bl", color: black(2e4) } }
-    ];
-    refl = (stA, endA, endPos, dist) => ({
-      blurRad: 6350,
-      stA,
-      endA,
-      endPos,
-      ...dist ? { dist } : {},
-      dir: 54e5,
-      sy: -1e5,
-      algn: "bl",
-      rotWithShape: false
-    });
-    REFLECTION_PRESETS = [
-      { id: "tight-touch", label: { en: "Tight Reflection: Touching", pt: "Reflexo Justo: Encostado" }, reflection: refl(52e3, 300, 35e3) },
-      { id: "half-touch", label: { en: "Half Reflection: Touching", pt: "Meio Reflexo: Encostado" }, reflection: refl(5e4, 300, 55e3) },
-      { id: "full-touch", label: { en: "Full Reflection: Touching", pt: "Reflexo Total: Encostado" }, reflection: refl(5e4, 300, 9e4) },
-      { id: "tight-4", label: { en: "Tight Reflection: 4 pt offset", pt: "Reflexo Justo: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 38500, 50800) },
-      { id: "half-4", label: { en: "Half Reflection: 4 pt offset", pt: "Meio Reflexo: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 55500, 50800) },
-      { id: "full-4", label: { en: "Full Reflection: 4 pt offset", pt: "Reflexo Total: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 9e4, 50800) },
-      { id: "tight-8", label: { en: "Tight Reflection: 8 pt offset", pt: "Reflexo Justo: Deslocamento de 8 pt" }, reflection: refl(5e4, 275, 4e4, 101600) },
-      { id: "half-8", label: { en: "Half Reflection: 8 pt offset", pt: "Meio Reflexo: Deslocamento de 8 pt" }, reflection: refl(5e4, 300, 55500, 101600) },
-      { id: "full-8", label: { en: "Full Reflection: 8 pt offset", pt: "Reflexo Total: Deslocamento de 8 pt" }, reflection: refl(5e4, 295, 92e3, 101600) }
-    ];
-    SOFT_EDGE_PRESETS = [12700, 31750, 63500, 127e3, 317500, 635e3];
-    GLOW_SIZES = [63500, 101600, 139700, 228600];
-    glowPreset = (rad, accent2) => ({ rad, color: { kind: "schemeClr", val: `accent${accent2}`, mods: [["alpha", 4e4]] } });
-    BEVEL_PRESETS = [
-      { prst: "circle", label: { en: "Circle", pt: "C\xEDrculo" } },
-      { prst: "relaxedInset", label: { en: "Relaxed Inset", pt: "Inser\xE7\xE3o Leve" } },
-      { prst: "cross", label: { en: "Cross", pt: "Cruz" } },
-      { prst: "coolSlant", label: { en: "Cool Slant", pt: "Inclina\xE7\xE3o Suave" } },
-      { prst: "angle", label: { en: "Angle", pt: "\xC2ngulo" } },
-      { prst: "softRound", label: { en: "Soft Round", pt: "Arredondamento Suave" } },
-      { prst: "convex", label: { en: "Convex", pt: "Convexo" } },
-      { prst: "slope", label: { en: "Slope", pt: "Declive" } },
-      { prst: "divot", label: { en: "Divot", pt: "Torr\xE3o" } },
-      { prst: "riblet", label: { en: "Riblet", pt: "Ondulado" } },
-      { prst: "hardEdge", label: { en: "Hard Edge", pt: "Borda R\xEDgida" } },
-      { prst: "artDeco", label: { en: "Art Deco", pt: "Art D\xE9co" } }
-    ];
-    ROTATION_PRESETS = [
-      { group: "parallel", prst: "isometricLeftDown", label: { en: "Isometric: Left Down", pt: "Isom\xE9trica: Esquerda para Baixo" } },
-      { group: "parallel", prst: "isometricRightUp", label: { en: "Isometric: Right Up", pt: "Isom\xE9trica: Direita para Cima" } },
-      { group: "parallel", prst: "isometricTopUp", label: { en: "Isometric: Top Up", pt: "Isom\xE9trica: Superior para Cima" } },
-      { group: "parallel", prst: "isometricBottomDown", label: { en: "Isometric: Bottom Down", pt: "Isom\xE9trica: Inferior para Baixo" } },
-      { group: "parallel", prst: "isometricOffAxis1Left", label: { en: "Off Axis 1: Left", pt: "Fora do Eixo 1: Esquerda" } },
-      { group: "parallel", prst: "isometricOffAxis1Right", label: { en: "Off Axis 1: Right", pt: "Fora do Eixo 1: Direita" } },
-      { group: "parallel", prst: "isometricOffAxis1Top", label: { en: "Off Axis 1: Top", pt: "Fora do Eixo 1: Superior" } },
-      { group: "parallel", prst: "isometricOffAxis2Left", label: { en: "Off Axis 2: Left", pt: "Fora do Eixo 2: Esquerda" } },
-      { group: "parallel", prst: "isometricOffAxis2Right", label: { en: "Off Axis 2: Right", pt: "Fora do Eixo 2: Direita" } },
-      { group: "parallel", prst: "isometricOffAxis2Top", label: { en: "Off Axis 2: Top", pt: "Fora do Eixo 2: Superior" } },
-      { group: "perspective", prst: "perspectiveFront", label: { en: "Perspective: Front", pt: "Perspectiva: Frente" } },
-      { group: "perspective", prst: "perspectiveLeft", label: { en: "Perspective: Left", pt: "Perspectiva: Esquerda" } },
-      { group: "perspective", prst: "perspectiveRight", label: { en: "Perspective: Right", pt: "Perspectiva: Direita" } },
-      { group: "perspective", prst: "perspectiveBelow", label: { en: "Perspective: Below", pt: "Perspectiva: Abaixo" } },
-      { group: "perspective", prst: "perspectiveAbove", label: { en: "Perspective: Above", pt: "Perspectiva: Acima" } },
-      { group: "perspective", prst: "perspectiveAboveLeftFacing", label: { en: "Perspective: Above Left", pt: "Perspectiva: Acima \xE0 Esquerda" } },
-      { group: "perspective", prst: "perspectiveAboveRightFacing", label: { en: "Perspective: Above Right", pt: "Perspectiva: Acima \xE0 Direita" } },
-      { group: "perspective", prst: "perspectiveContrastingLeftFacing", label: { en: "Perspective: Contrasting Left", pt: "Perspectiva: Contrastante \xE0 Esquerda" } },
-      { group: "perspective", prst: "perspectiveContrastingRightFacing", label: { en: "Perspective: Contrasting Right", pt: "Perspectiva: Contrastante \xE0 Direita" } },
-      { group: "perspective", prst: "perspectiveHeroicLeftFacing", label: { en: "Perspective: Heroic Left", pt: "Perspectiva: Heroica \xE0 Esquerda" } },
-      { group: "perspective", prst: "perspectiveHeroicRightFacing", label: { en: "Perspective: Heroic Right", pt: "Perspectiva: Heroica \xE0 Direita" } },
-      { group: "perspective", prst: "perspectiveHeroicExtremeLeftFacing", label: { en: "Perspective: Heroic Extreme Left", pt: "Perspectiva: Heroica Extrema \xE0 Esquerda" } },
-      { group: "perspective", prst: "perspectiveHeroicExtremeRightFacing", label: { en: "Perspective: Heroic Extreme Right", pt: "Perspectiva: Heroica Extrema \xE0 Direita" } },
-      { group: "perspective", prst: "perspectiveRelaxed", label: { en: "Perspective: Relaxed", pt: "Perspectiva: Relaxada" } },
-      { group: "perspective", prst: "perspectiveRelaxedModerately", label: { en: "Perspective: Relaxed Moderately", pt: "Perspectiva: Moderadamente Relaxada" } },
-      { group: "oblique", prst: "obliqueTopLeft", label: { en: "Oblique: Top Left", pt: "Obl\xEDqua: Superior \xE0 Esquerda" } },
-      { group: "oblique", prst: "obliqueTopRight", label: { en: "Oblique: Top Right", pt: "Obl\xEDqua: Superior \xE0 Direita" } },
-      { group: "oblique", prst: "obliqueBottomLeft", label: { en: "Oblique: Bottom Left", pt: "Obl\xEDqua: Inferior \xE0 Esquerda" } },
-      { group: "oblique", prst: "obliqueBottomRight", label: { en: "Oblique: Bottom Right", pt: "Obl\xEDqua: Inferior \xE0 Direita" } }
-    ];
-    SATURATION_PRESETS = [0, 33e3, 66e3, 1e5, 2e5, 3e5, 4e5];
-    TEMPERATURE_PRESETS = [4700, 5300, 5900, 6500, 7200, 8800, 11200];
-    SHARPEN_PRESETS = [-5e4, -25e3, 0, 25e3, 5e4];
-    BRIGHT_CONTRAST_STEPS = [-4e4, -2e4, 0, 2e4, 4e4];
-    TRANSPARENCY_PRESETS = [0, 15, 30, 50, 65, 80, 95];
-    scheme = (val3, mods = []) => ({ kind: "schemeClr", val: val3, ...mods.length ? { mods } : {} });
-    darkOf = (val3) => scheme(val3, [["shade", 45e3], ["satMod", 135e3]]);
-    RECOLOR_PRESETS = [
-      { id: "none", group: "mode", label: { en: "No Recolor", pt: "Sem Recolorir" }, fx: {} },
-      { id: "grayscale", group: "mode", label: { en: "Grayscale", pt: "Escala de Cinza" }, fx: { grayscl: true } },
-      { id: "sepia", group: "mode", label: { en: "Sepia", pt: "S\xE9pia" }, fx: { duotone: [{ kind: "prstClr", val: "black" }, { kind: "srgbClr", val: "D9C3A5", mods: [["tint", 5e4], ["satMod", 18e4]] }] } },
-      { id: "washout", group: "mode", label: { en: "Washout", pt: "Desbotar" }, fx: { lum: { bright: 7e4, contrast: -7e4 } } },
-      { id: "bw25", group: "mode", label: { en: "Black and White: 25%", pt: "Preto e Branco: 25%" }, fx: { biLevel: 25e3 } },
-      { id: "bw50", group: "mode", label: { en: "Black and White: 50%", pt: "Preto e Branco: 50%" }, fx: { biLevel: 5e4 } },
-      { id: "bw75", group: "mode", label: { en: "Black and White: 75%", pt: "Preto e Branco: 75%" }, fx: { biLevel: 75e3 } },
-      ...["tx2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6"].map((c5, i7) => ({
-        id: `dark-${c5}`,
-        group: "dark",
-        label: i7 === 0 ? { en: "Text color 2 Dark", pt: "Cor do texto 2 Escuro" } : { en: `Accent color ${i7} Dark`, pt: `Cor de \xEAnfase ${i7} Escuro` },
-        fx: { duotone: [{ kind: "prstClr", val: "black" }, darkOf(c5)] }
-      })),
-      ...["bg2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6"].map((c5, i7) => ({
-        id: `light-${c5}`,
-        group: "light",
-        label: i7 === 0 ? { en: "Background color 2 Light", pt: "Cor do plano de fundo 2 Claro" } : { en: `Accent color ${i7} Light`, pt: `Cor de \xEAnfase ${i7} Claro` },
-        fx: { duotone: [darkOf(c5), { kind: "prstClr", val: "white" }] }
-      }))
-    ];
-    LINE_WEIGHTS_PT = [0.25, 0.5, 0.75, 1, 1.5, 2.25, 3, 4.5, 6];
-    LINE_DASHES = [
-      { val: "solid", label: { en: "Solid", pt: "S\xF3lido" } },
-      { val: "sysDot", label: { en: "Round Dot", pt: "Ponto Redondo" } },
-      { val: "sysDash", label: { en: "Square Dot", pt: "Ponto Quadrado" } },
-      { val: "dash", label: { en: "Dash", pt: "Tra\xE7o" } },
-      { val: "dashDot", label: { en: "Dash Dot", pt: "Tra\xE7o Ponto" } },
-      { val: "lgDash", label: { en: "Long Dash", pt: "Tra\xE7o Longo" } },
-      { val: "lgDashDot", label: { en: "Long Dash Dot", pt: "Tra\xE7o Longo Ponto" } },
-      { val: "lgDashDotDot", label: { en: "Long Dash Dot Dot", pt: "Tra\xE7o Longo Ponto Ponto" } }
-    ];
-    POSITION_PRESETS = (() => {
-      const H2 = [["left", "Esquerda", "Left"], ["center", "Centro", "Center"], ["right", "Direita", "Right"]];
-      const V2 = [["top", "Superior", "Top"], ["center", "Meio", "Middle"], ["bottom", "Inferior", "Bottom"]];
-      const out = [];
-      for (const [v2, vp, ve] of V2) for (const [h3, hp, he] of H2) {
-        out.push({ id: `${v2}-${h3}`, h: h3, v: v2, label: { en: `Position in ${ve} ${he} with Square Text Wrapping`, pt: `Posi\xE7\xE3o ${vp === "Meio" ? "no Meio" : vp === "Superior" ? "Superior" : "Inferior"} ${hp === "Centro" ? "no Centro" : hp === "Esquerda" ? "\xE0 Esquerda" : "\xE0 Direita"} com Quebra Autom\xE1tica de Texto Quadrada` } });
-      }
-      return out;
-    })();
   }
 });
 
@@ -21069,12 +21119,12 @@ function adjustTemperature(d3, kelvin) {
   const t6 = (m2 - m0) / (m1 - m0);
   const DR = r0 + (r1 - r0) * t6, DB2 = b0 + (b1 - b0) * t6;
   const DG = -(0.2126 * DR + 0.0722 * DB2) / 0.7152;
-  const D2 = [DR, DG, DB2];
+  const D3 = [DR, DG, DB2];
   const lut = [0, 1, 2].map((c5) => {
     const l3 = new Uint8Array(256);
     for (let v2 = 0; v2 < 256; v2++) {
       const x3 = v2 / 255;
-      l3[v2] = clamp8(v2 + D2[c5] * (1 - (1 - x3) * (1 - x3)));
+      l3[v2] = clamp8(v2 + D3[c5] * (1 - (1 - x3) * (1 - x3)));
     }
     return l3;
   });
@@ -21407,6 +21457,75 @@ var init_contour = __esm({
   }
 });
 
+// ../../../shared/drawingml/src/patterns.ts
+function patternRows(prst) {
+  const hex2 = PRESET_PATTERNS[prst];
+  if (!hex2) return void 0;
+  return Array.from({ length: 8 }, (_2, i7) => parseInt(hex2.slice(i7 * 2, i7 * 2 + 2), 16));
+}
+var PRESET_PATTERNS;
+var init_patterns = __esm({
+  "../../../shared/drawingml/src/patterns.ts"() {
+    "use strict";
+    PRESET_PATTERNS = {
+      pct5: "8000000008000000",
+      pct10: "8000080080000800",
+      pct20: "8800220088002200",
+      pct25: "8822882288228822",
+      pct30: "aa44aa11aa44aa11",
+      pct40: "aa55aa51aa55aa15",
+      pct50: "aa55aa55aa55aa55",
+      pct60: "ee55bb55ee55bb55",
+      pct70: "77dd77dd77dd77dd",
+      pct75: "77ffddff77ffddff",
+      pct80: "effffeffeffffeff",
+      pct90: "fffffff7ffffff7f",
+      horz: "ff00000000000000",
+      vert: "8080808080808080",
+      ltHorz: "ff000000ff000000",
+      ltVert: "8888888888888888",
+      dkHorz: "ffff0000ffff0000",
+      dkVert: "cccccccccccccccc",
+      narHorz: "ff00ff00ff00ff00",
+      narVert: "5555555555555555",
+      dashHorz: "f00000000f000000",
+      dashVert: "8080808008080808",
+      cross: "ff80808080808080",
+      dnDiag: "8040201008040201",
+      upDiag: "0102040810204080",
+      ltDnDiag: "8844221188442211",
+      ltUpDiag: "1122448811224488",
+      dkDnDiag: "cc663399cc663399",
+      dkUpDiag: "3366cc993366cc99",
+      wdDnDiag: "c1e070381c0e0783",
+      wdUpDiag: "83070e1c3870e0c1",
+      dashDnDiag: "0000884422110000",
+      dashUpDiag: "0000112244880000",
+      diagCross: "8142241818244281",
+      smCheck: "9966669999666699",
+      lgCheck: "f0f0f0f00f0f0f0f",
+      smGrid: "ff888888ff888888",
+      lgGrid: "ff80808080808080",
+      dotGrid: "aa00800080008000",
+      smConfetti: "8008400210012004",
+      lgConfetti: "b130031bd8c00c8d",
+      horzBrick: "ff808080ff080808",
+      diagBrick: "0102040818244281",
+      solidDmnd: "10387cfe7c381000",
+      openDmnd: "8244281028448201",
+      dotDmnd: "8000220008002200",
+      plaid: "aa55aa55f0f0f0f0",
+      sphere: "77898f8f7798f8f8",
+      weave: "8854224588142251",
+      divot: "0010081000800180",
+      shingle: "038448300c020101",
+      wave: "001825c0001825c0",
+      trellis: "ff66ff99ff66ff99",
+      zigZag: "8142241881422418"
+    };
+  }
+});
+
 // ../../../shared/drawingml/src/bevel-word.ts
 var WORD_BEVEL;
 var init_bevel_word = __esm({
@@ -21468,7 +21587,7 @@ function shadeBevel(rgba, sil, b5) {
   for (let r6 = 0; r6 < H2; r6++) for (let c5 = 0; c5 < W3; c5++) dist[r6 * W3 + c5] = pd[(r6 + 1) * (W3 + 2) + c5 + 1];
   const sm = gaussianBlur({ w: W3, h: H2, a: dist }, 1.2).a;
   const hw = b5.h / b5.w;
-  const L8 = new Float32Array(4), face = new Float32Array(4);
+  const L9 = new Float32Array(4), face = new Float32Array(4);
   if (wt) {
     const o7 = 24 * 25 * 2 - 2;
     face[0] = face[1] = face[2] = wt[o7] * 0.02;
@@ -21485,12 +21604,12 @@ function shadeBevel(rgba, sil, b5) {
         const gx = g2(c5 + 1, r6 - 1) + 2 * g2(c5 + 1, r6) + g2(c5 + 1, r6 + 1) - g2(c5 - 1, r6 - 1) - 2 * g2(c5 - 1, r6) - g2(c5 - 1, r6 + 1);
         const gy = g2(c5 - 1, r6 + 1) + 2 * g2(c5, r6 + 1) + g2(c5 + 1, r6 + 1) - g2(c5 - 1, r6 - 1) - 2 * g2(c5, r6 - 1) - g2(c5 + 1, r6 - 1);
         const th = Math.atan2(-gy, -gx) * 180 / Math.PI;
-        if (wt) wordLight(wt, th, d3 / b5.w, L8);
+        if (wt) wordLight(wt, th, d3 / b5.w, L9);
         else {
           const ph = bevelPhi(b5.prst, d3 / b5.w, hw);
-          lightAt(tab, b5.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L8);
+          lightAt(tab, b5.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L9);
         }
-        lt = L8;
+        lt = L9;
       }
       const o7 = i7 * 4;
       for (let k2 = 0; k2 < 3; k2++) {
@@ -21532,7 +21651,514 @@ var init_src2 = __esm({
     init_adjust();
     init_color();
     init_contour();
+    init_patterns();
     init_bevel();
+  }
+});
+
+// src/page-design.ts
+function gradientGeometry(style, variant) {
+  const v2 = Math.max(1, Math.min(GRADIENT_VARIANTS[style], Math.round(variant))) - 1;
+  const pick = (arr) => arr[v2];
+  switch (style) {
+    case "horizontal":
+      return { type: "gradient", focus: pick([100, 0, 50, -50]) };
+    case "vertical":
+      return { type: "gradient", angle: -90, focus: pick([100, 0, -50, 50]) };
+    case "diagonalUp":
+      return { type: "gradient", angle: -135, focus: pick([100, 0, -50, 50]) };
+    case "diagonalDown":
+      return { type: "gradient", angle: -45, focus: pick([0, 100, -50, 50]) };
+    case "fromCorner": {
+      const fp = pick([void 0, [1, 0], [0, 1], [1, 1]]);
+      return { type: "gradientRadial", focus: 100, gradientCenter: true, ...fp ? { focusPosition: fp } : {} };
+    }
+    case "fromCenter":
+      return { type: "gradientRadial", focusPosition: [0.5, 0.5], focus: pick([100, 0]) };
+  }
+}
+function pageFillFrom(input, lang, patternGif2) {
+  if (input.type === "pattern") {
+    const p3 = WORD_PATTERNS.find((x3) => x3.prst === input.pattern);
+    const gif = patternGif2(input.pattern);
+    if (!p3 || !gif) return null;
+    return { color: input.color, fill: { type: "pattern", color: input.color, color2: `#${input.background.toLowerCase()}`, title: p3.title[lang], image: { data: gif, ext: "gif" } } };
+  }
+  if (input.type === "picture" || input.type === "texture") {
+    const ext = input.ext.toLowerCase() === "jpg" ? "jpeg" : input.ext.toLowerCase();
+    return { fill: { type: input.type === "picture" ? "frame" : "tile", title: input.name.replace(/\.[^.]+$/, ""), image: { data: input.data, ext } } };
+  }
+  if (input.type !== "gradient") return null;
+  const geo = gradientGeometry(input.style, input.variant);
+  if (input.colors === "one") {
+    return { color: input.color, fill: { ...geo, color: input.color, color2: oneColorGradientColor2(input.degree), method: "linear sigma" } };
+  }
+  if (input.colors === "two") {
+    return { color: input.color, fill: { ...geo, color: input.color, color2: `#${input.color2.toLowerCase()}` } };
+  }
+  const pre = GRADIENT_PRESETS.find((p3) => p3.id === input.preset) ?? GRADIENT_PRESETS[0];
+  const first = pre.stops[0].color, last = pre.stops[pre.stops.length - 1].color;
+  return { color: first, fill: { ...geo, color: first, color2: `#${last.toLowerCase()}`, colors: pre.stops, method: "none" } };
+}
+function themeTintShade(ref) {
+  const hex2 = (v2) => Math.round(Math.max(0, Math.min(255, v2))).toString(16).toUpperCase().padStart(2, "0");
+  if (ref.tint && ref.tint > 0) return { themeTint: hex2(255 * (1 - ref.tint)) };
+  if (ref.shade && ref.shade > 0) return { themeShade: hex2(255 * (1 - ref.shade)) };
+  return {};
+}
+var GRADIENT_VARIANTS, GRADIENT_PRESETS;
+var init_page_design = __esm({
+  "src/page-design.ts"() {
+    "use strict";
+    init_src();
+    GRADIENT_VARIANTS = {
+      horizontal: 4,
+      vertical: 4,
+      diagonalUp: 4,
+      diagonalDown: 4,
+      fromCorner: 4,
+      fromCenter: 2
+    };
+    GRADIENT_PRESETS = [
+      { id: "mist", name: { en: "Mist", pt: "N\xE9voa" }, stops: [{ pos: 0, color: "EEF2F7" }, { pos: 1, color: "B8C6D9" }] },
+      { id: "sand", name: { en: "Sand", pt: "Areia" }, stops: [{ pos: 0, color: "FBF3E4" }, { pos: 0.6, color: "EAD6B0" }, { pos: 1, color: "C9A66B" }] },
+      { id: "lavender", name: { en: "Lavender", pt: "Lavanda" }, stops: [{ pos: 0, color: "F4EEFB" }, { pos: 1, color: "B9A2DD" }] },
+      { id: "mint", name: { en: "Mint", pt: "Menta" }, stops: [{ pos: 0, color: "EAF8F1" }, { pos: 1, color: "8FD3B6" }] },
+      { id: "coral", name: { en: "Coral", pt: "Coral" }, stops: [{ pos: 0, color: "FFF1EC" }, { pos: 0.5, color: "FFB49A" }, { pos: 1, color: "E8735A" }] },
+      { id: "slate", name: { en: "Slate", pt: "Ard\xF3sia" }, stops: [{ pos: 0, color: "5B6B7F" }, { pos: 1, color: "1F2A38" }] },
+      { id: "aurora", name: { en: "Aurora", pt: "Aurora" }, stops: [{ pos: 0, color: "163A5F" }, { pos: 0.45, color: "1D8C82" }, { pos: 1, color: "B9E77A" }] },
+      { id: "citrus", name: { en: "Citrus", pt: "C\xEDtrico" }, stops: [{ pos: 0, color: "FFF9C4" }, { pos: 0.5, color: "FFD54F" }, { pos: 1, color: "FF9F43" }] }
+    ];
+  }
+});
+
+// src/picture-ops.ts
+function effectExtentOf(f3) {
+  const { cx, cy } = f3;
+  let l3 = 0, t6 = 0, r6 = 0, b5 = 0;
+  const grow = (L9, T7, R2, B2) => {
+    l3 = Math.max(l3, L9);
+    t6 = Math.max(t6, T7);
+    r6 = Math.max(r6, R2);
+    b5 = Math.max(b5, B2);
+  };
+  let ex = 0, ey = 0;
+  if (f3.rot) {
+    const a3 = f3.rot / 6e4 * Math.PI / 180;
+    const bw = Math.abs(cx * Math.cos(a3)) + Math.abs(cy * Math.sin(a3));
+    const bh = Math.abs(cx * Math.sin(a3)) + Math.abs(cy * Math.cos(a3));
+    ex = (bw - cx) / 2;
+    ey = (bh - cy) / 2;
+    grow(ex, ey, ex, ey);
+  }
+  const ln2 = f3.line;
+  if (ln2 && ln2.fill !== null && (ln2.fill !== void 0 || ln2.fillRaw)) {
+    const w2 = ln2.w ?? 9525;
+    grow(ex + w2, ey + w2, ex + w2, ey + w2);
+  }
+  const fx = f3.effects;
+  const s4 = fx.shadow;
+  if (s4 && s4.kind === "outer") {
+    const blur = s4.blurRad ?? 0, d3 = s4.dist ?? 0;
+    const a3 = (s4.dir ?? 0) / 6e4 * Math.PI / 180;
+    const dx = d3 * Math.cos(a3), dy = d3 * Math.sin(a3);
+    const sx = (s4.sx ?? 1e5) / 1e5, sy = (s4.sy ?? 1e5) / 1e5;
+    const kx = Math.tan((s4.kx ?? 0) / 6e4 * Math.PI / 180), ky = Math.tan((s4.ky ?? 0) / 6e4 * Math.PI / 180);
+    const al = s4.algn ?? "b";
+    const ax = al.includes("l") ? 0 : al.includes("r") ? 1 : 0.5;
+    const ay = al.startsWith("t") ? 0 : al.startsWith("b") ? 1 : 0.5;
+    const corners = [[0, 0], [cx, 0], [0, cy], [cx, cy]].map(([x3, y3]) => {
+      const px = ax * cx + (x3 - ax * cx) * sx + (y3 - ay * cy) * kx * sy;
+      const py = ay * cy + (y3 - ay * cy) * sy + (x3 - ax * cx) * ky * sx;
+      return [px + dx, py + dy];
+    });
+    const xs = corners.map((c5) => c5[0]), ys = corners.map((c5) => c5[1]);
+    grow(blur - Math.min(...xs), blur - Math.min(...ys), Math.max(...xs) - cx + blur, Math.max(...ys) - cy + blur);
+  }
+  if (fx.glow) grow(fx.glow.rad + ex, fx.glow.rad + ey, fx.glow.rad + ex, fx.glow.rad + ey);
+  const rf = fx.reflection;
+  if (rf) {
+    const blur = rf.blurRad ?? 0;
+    const span = (rf.endPos ?? 1e5) / 1e5 * cy;
+    grow(blur, 0, blur, (rf.dist ?? 0) + span + blur * 4);
+  }
+  return { l: up(l3), t: up(t6), r: up(r6), b: up(b5) };
+}
+function zFor(op, mine, others) {
+  const all = others.filter((v2) => v2 !== mine).sort((a3, b5) => a3 - b5);
+  if (!all.length) return mine;
+  const max2 = all[all.length - 1], min = all[0];
+  if (op === "front") return max2 + 1024;
+  if (op === "back") return min - 1025;
+  if (op === "forward") {
+    const above = all.filter((v2) => v2 > mine);
+    if (!above.length) return mine;
+    const next = above[0], after = above[1];
+    return after === void 0 ? next + 1024 : Math.floor((next + after) / 2);
+  }
+  const below = all.filter((v2) => v2 < mine);
+  if (!below.length) return mine;
+  const prev = below[below.length - 1], before = below[below.length - 2];
+  return before === void 0 ? prev - 1025 : Math.floor((prev + before) / 2);
+}
+function fillFitCrop(mode, box, natural) {
+  const boxA = box.cx / box.cy, imgA = natural.w / natural.h;
+  const r6 = { l: 0, t: 0, r: 0, b: 0 };
+  if (Math.abs(boxA - imgA) < 1e-9) return r6;
+  const wide = boxA > imgA;
+  if (mode === "fill") {
+    if (wide) r6.t = r6.b = Math.round((1 - imgA / boxA) / 2 * 1e5);
+    else r6.l = r6.r = Math.round((1 - boxA / imgA) / 2 * 1e5);
+  } else {
+    if (wide) r6.l = r6.r = -Math.round((boxA / imgA - 1) / 2 * 1e5);
+    else r6.t = r6.b = -Math.round((imgA / boxA - 1) / 2 * 1e5);
+  }
+  return r6;
+}
+function aspectCrop(f3, ratio2) {
+  const s4 = f3.srcRect;
+  const visW = 1 - (s4.l + s4.r) / 1e5, visH = 1 - (s4.t + s4.b) / 1e5;
+  const fullW = f3.cx / visW, fullH = f3.cy / visH;
+  let cx = f3.cx, cy = f3.cy;
+  if (cx / cy > ratio2) cx = cy * ratio2;
+  else cy = cx / ratio2;
+  const dx = (f3.cx - cx) / 2 / fullW, dy = (f3.cy - cy) / 2 / fullH;
+  return {
+    crop: { l: Math.round(s4.l + dx * 1e5), r: Math.round(s4.r + dx * 1e5), t: Math.round(s4.t + dy * 1e5), b: Math.round(s4.b + dy * 1e5) },
+    cx: Math.round(cx),
+    cy: Math.round(cy)
+  };
+}
+function bevel3D(prst) {
+  return { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" }, bevelT: prst === "circle" ? {} : { prst } };
+}
+var STEP, up, Z_FIRST, ASPECT_RATIOS, CROP_SHAPES, black, SHADOW_PRESETS, refl, REFLECTION_PRESETS, SOFT_EDGE_PRESETS, GLOW_SIZES, glowPreset, BEVEL_PRESETS, ROTATION_PRESETS, SATURATION_PRESETS, TEMPERATURE_PRESETS, SHARPEN_PRESETS, BRIGHT_CONTRAST_STEPS, TRANSPARENCY_PRESETS, scheme, darkOf, RECOLOR_PRESETS, LINE_WEIGHTS_PT, LINE_DASHES, POSITION_PRESETS;
+var init_picture_ops = __esm({
+  "src/picture-ops.ts"() {
+    "use strict";
+    STEP = 19050;
+    up = (v2) => v2 <= 0.5 ? 0 : Math.ceil(v2 / STEP - 1e-6) * STEP;
+    Z_FIRST = 251658240;
+    ASPECT_RATIOS = [
+      { id: "1:1", group: "square", w: 1, h: 1 },
+      { id: "2:3", group: "portrait", w: 2, h: 3 },
+      { id: "3:4", group: "portrait", w: 3, h: 4 },
+      { id: "3:5", group: "portrait", w: 3, h: 5 },
+      { id: "4:5", group: "portrait", w: 4, h: 5 },
+      { id: "3:2", group: "landscape", w: 3, h: 2 },
+      { id: "4:3", group: "landscape", w: 4, h: 3 },
+      { id: "5:3", group: "landscape", w: 5, h: 3 },
+      { id: "5:4", group: "landscape", w: 5, h: 4 },
+      { id: "16:9", group: "landscape", w: 16, h: 9 },
+      { id: "16:10", group: "landscape", w: 16, h: 10 }
+    ];
+    CROP_SHAPES = [
+      { label: { en: "Rectangles", pt: "Ret\xE2ngulos" }, shapes: [
+        ["rect", "Rectangle", "Ret\xE2ngulo"],
+        ["roundRect", "Rectangle: Rounded Corners", "Ret\xE2ngulo: Cantos Arredondados"],
+        ["snip1Rect", "Rectangle: Single Corner Snipped", "Ret\xE2ngulo: \xDAnico Canto Recortado"],
+        ["snip2SameRect", "Rectangle: Top Corners Snipped", "Ret\xE2ngulo: Cantos Superiores Recortados"],
+        ["snip2DiagRect", "Rectangle: Diagonal Corners Snipped", "Ret\xE2ngulo: Cantos Diagonais Recortados"],
+        ["snipRoundRect", "Rectangle: Top Corners One Rounded and One Snipped", "Ret\xE2ngulo: Cantos Superiores, Um Arredondado e Um Recortado"],
+        ["round1Rect", "Rectangle: Single Corner Rounded", "Ret\xE2ngulo: \xDAnico Canto Arredondado"],
+        ["round2SameRect", "Rectangle: Top Corners Rounded", "Ret\xE2ngulo: Cantos Superiores Arredondados"],
+        ["round2DiagRect", "Rectangle: Diagonal Corners Rounded", "Ret\xE2ngulo: Cantos Diagonais Arredondados"]
+      ] },
+      { label: { en: "Basic Shapes", pt: "Formas B\xE1sicas" }, shapes: [
+        ["ellipse", "Oval", "Elipse"],
+        ["triangle", "Isosceles Triangle", "Tri\xE2ngulo Is\xF3sceles"],
+        ["rtTriangle", "Right Triangle", "Tri\xE2ngulo Ret\xE2ngulo"],
+        ["parallelogram", "Parallelogram", "Paralelogramo"],
+        ["trapezoid", "Trapezoid", "Trapezoide"],
+        ["diamond", "Diamond", "Losango"],
+        ["pentagon", "Regular Pentagon", "Pent\xE1gono Regular"],
+        ["hexagon", "Hexagon", "Hex\xE1gono"],
+        ["heptagon", "Heptagon", "Hept\xE1gono"],
+        ["octagon", "Octagon", "Oct\xF3gono"],
+        ["decagon", "Decagon", "Dec\xE1gono"],
+        ["dodecagon", "Dodecagon", "Dodec\xE1gono"],
+        ["pie", "Partial Circle", "C\xEDrculo Parcial"],
+        ["chord", "Chord", "Corda"],
+        ["teardrop", "Teardrop", "L\xE1grima"],
+        ["frame", "Frame", "Moldura"],
+        ["halfFrame", "Half Frame", "Meia Moldura"],
+        ["corner", "L-Shape", "Forma em L"],
+        ["diagStripe", "Diagonal Stripe", "Faixa Diagonal"],
+        ["plus", "Cross", "Cruz"],
+        ["plaque", "Plaque", "Placa"],
+        ["can", "Cylinder", "Cilindro"],
+        ["cube", "Cube", "Cubo"],
+        ["bevel", "Rectangle: Beveled", "Ret\xE2ngulo: Chanfrado"],
+        ["donut", "Circle: Hollow", "C\xEDrculo: Vazado"],
+        ["noSmoking", '"No" Symbol', 'S\xEDmbolo "N\xE3o"'],
+        ["blockArc", "Block Arc", "Arco Fechado"],
+        ["foldedCorner", "Rectangle: Folded Corner", "Ret\xE2ngulo: Canto Dobrado"],
+        ["smileyFace", "Smiley Face", "Rosto Feliz"],
+        ["heart", "Heart", "Cora\xE7\xE3o"],
+        ["lightningBolt", "Lightning Bolt", "Raio"],
+        ["sun", "Sun", "Sol"],
+        ["moon", "Moon", "Lua"],
+        ["cloud", "Cloud", "Nuvem"],
+        ["arc", "Arc", "Arco"],
+        ["bracketPair", "Double Bracket", "Colchetes Duplos"],
+        ["bracePair", "Double Brace", "Chaves Duplas"],
+        ["leftBracket", "Left Bracket", "Colchete Esquerdo"],
+        ["rightBracket", "Right Bracket", "Colchete Direito"],
+        ["leftBrace", "Left Brace", "Chave Esquerda"],
+        ["rightBrace", "Right Brace", "Chave Direita"]
+      ] },
+      { label: { en: "Block Arrows", pt: "Setas Largas" }, shapes: [
+        ["rightArrow", "Arrow: Right", "Seta: para a Direita"],
+        ["leftArrow", "Arrow: Left", "Seta: para a Esquerda"],
+        ["upArrow", "Arrow: Up", "Seta: para Cima"],
+        ["downArrow", "Arrow: Down", "Seta: para Baixo"],
+        ["leftRightArrow", "Arrow: Left-Right", "Seta: Esquerda e Direita"],
+        ["upDownArrow", "Arrow: Up-Down", "Seta: para Cima e para Baixo"],
+        ["quadArrow", "Arrow: Quad", "Seta: Cruzada"],
+        ["leftRightUpArrow", "Arrow: Left-Right-Up", "Seta: para a Esquerda, para a Direita e para Cima"],
+        ["bentArrow", "Arrow: Bent", "Seta: Dobrada"],
+        ["uturnArrow", "Arrow: U-Turn", "Seta: em Forma de U"],
+        ["leftUpArrow", "Arrow: Left-Up", "Seta: para a Esquerda e para Cima"],
+        ["bentUpArrow", "Arrow: Bent-Up", "Seta: Dobrada para Cima"],
+        ["curvedRightArrow", "Arrow: Curved Right", "Seta: Curvada para a Direita"],
+        ["curvedLeftArrow", "Arrow: Curved Left", "Seta: Curvada para a Esquerda"],
+        ["curvedUpArrow", "Arrow: Curved Up", "Seta: Curvada para Cima"],
+        ["curvedDownArrow", "Arrow: Curved Down", "Seta: Curvada para Baixo"],
+        ["stripedRightArrow", "Arrow: Striped Right", "Seta: Listrada para a Direita"],
+        ["notchedRightArrow", "Arrow: Notched Right", "Seta: Entalhada para a Direita"],
+        ["homePlate", "Arrow: Pentagon", "Seta: Pent\xE1gono"],
+        ["chevron", "Arrow: Chevron", "Seta: Divisa"],
+        ["rightArrowCallout", "Callout: Right Arrow", "Texto Explicativo: Seta para a Direita"],
+        ["downArrowCallout", "Callout: Down Arrow", "Texto Explicativo: Seta para Baixo"],
+        ["leftArrowCallout", "Callout: Left Arrow", "Texto Explicativo: Seta para a Esquerda"],
+        ["upArrowCallout", "Callout: Up Arrow", "Texto Explicativo: Seta para Cima"],
+        ["leftRightArrowCallout", "Callout: Left-Right Arrow", "Texto Explicativo: Seta para a Esquerda e para a Direita"],
+        ["quadArrowCallout", "Callout: Quad Arrow", "Texto Explicativo: Seta Cruzada"],
+        ["circularArrow", "Arrow: Circular", "Seta: Circular"]
+      ] },
+      { label: { en: "Equation Shapes", pt: "Formas de Equa\xE7\xE3o" }, shapes: [
+        ["mathPlus", "Plus Sign", "Sinal de Adi\xE7\xE3o"],
+        ["mathMinus", "Minus Sign", "Sinal de Subtra\xE7\xE3o"],
+        ["mathMultiply", "Multiplication Sign", "Sinal de Multiplica\xE7\xE3o"],
+        ["mathDivide", "Division Sign", "Sinal de Divis\xE3o"],
+        ["mathEqual", "Equals", "Igual a"],
+        ["mathNotEqual", "Not Equal", "Diferente de"]
+      ] },
+      { label: { en: "Flowchart", pt: "Fluxograma" }, shapes: [
+        ["Process", "Process", "Processo"],
+        ["AlternateProcess", "Alternate Process", "Processo Alternativo"],
+        ["Decision", "Decision", "Decis\xE3o"],
+        ["InputOutput", "Data", "Dados"],
+        ["PredefinedProcess", "Predefined Process", "Processo Predefinido"],
+        ["InternalStorage", "Internal Storage", "Armazenamento Interno"],
+        ["Document", "Document", "Documento"],
+        ["Multidocument", "Multidocument", "V\xE1rios Documentos"],
+        ["Terminator", "Terminator", "Termina\xE7\xE3o"],
+        ["Preparation", "Preparation", "Prepara\xE7\xE3o"],
+        ["ManualInput", "Manual Input", "Entrada Manual"],
+        ["ManualOperation", "Manual Operation", "Opera\xE7\xE3o Manual"],
+        ["Connector", "Connector", "Conector"],
+        ["OffpageConnector", "Off-page Connector", "Conector Fora da P\xE1gina"],
+        ["PunchedCard", "Card", "Cart\xE3o"],
+        ["PunchedTape", "Punched Tape", "Fita Perfurada"],
+        ["SummingJunction", "Summing Junction", "Jun\xE7\xE3o de Soma"],
+        ["Or", "Or", "Ou"],
+        ["Collate", "Collate", "Agrupar"],
+        ["Sort", "Sort", "Classificar"],
+        ["Extract", "Extract", "Extrair"],
+        ["Merge", "Merge", "Mesclar"],
+        ["OnlineStorage", "Stored Data", "Dados Armazenados"],
+        ["Delay", "Delay", "Atraso"],
+        ["MagneticTape", "Sequential Access Storage", "Armazenamento de Acesso Sequencial"],
+        ["MagneticDisk", "Magnetic Disk", "Disco Magn\xE9tico"],
+        ["MagneticDrum", "Direct Access Storage", "Armazenamento de Acesso Direto"],
+        ["Display", "Display", "Exibir"]
+      ].map(([k2, en, pt2]) => [`flowChart${k2}`, `Flowchart: ${en}`, `Fluxograma: ${pt2}`]) },
+      { label: { en: "Stars and Banners", pt: "Estrelas e Faixas" }, shapes: [
+        ["irregularSeal1", "Explosion: 8 Points", "Explos\xE3o: 8 Pontos"],
+        ["irregularSeal2", "Explosion: 14 Points", "Explos\xE3o: 14 Pontos"],
+        ["star4", "Star: 4 Points", "Estrela: 4 Pontas"],
+        ["star5", "Star: 5 Points", "Estrela: 5 Pontas"],
+        ["star6", "Star: 6 Points", "Estrela: 6 Pontas"],
+        ["star7", "Star: 7 Points", "Estrela: 7 Pontas"],
+        ["star8", "Star: 8 Points", "Estrela: 8 Pontas"],
+        ["star10", "Star: 10 Points", "Estrela: 10 Pontas"],
+        ["star12", "Star: 12 Points", "Estrela: 12 Pontas"],
+        ["star16", "Star: 16 Points", "Estrela: 16 Pontas"],
+        ["star24", "Star: 24 Points", "Estrela: 24 Pontas"],
+        ["star32", "Star: 32 Points", "Estrela: 32 Pontas"],
+        ["ribbon2", "Ribbon: Tilted Up", "Faixa: Inclinada para Cima"],
+        ["ribbon", "Ribbon: Tilted Down", "Faixa: Inclinada para Baixo"],
+        ["ellipseRibbon2", "Ribbon: Curved and Tilted Up", "Faixa: Curvada e Inclinada para Cima"],
+        ["ellipseRibbon", "Ribbon: Curved and Tilted Down", "Faixa: Curvada e Inclinada para Baixo"],
+        ["verticalScroll", "Scroll: Vertical", "Rolagem: Vertical"],
+        ["horizontalScroll", "Scroll: Horizontal", "Rolagem: Horizontal"],
+        ["wave", "Wave", "Onda"],
+        ["doubleWave", "Double Wave", "Onda Dupla"]
+      ] },
+      { label: { en: "Callouts", pt: "Textos Explicativos" }, shapes: [
+        ["wedgeRectCallout", "Speech Bubble: Rectangle", "Bal\xE3o de Fala: Ret\xE2ngulo"],
+        ["wedgeRoundRectCallout", "Speech Bubble: Rectangle with Corners Rounded", "Bal\xE3o de Fala: Ret\xE2ngulo com Cantos Arredondados"],
+        ["wedgeEllipseCallout", "Speech Bubble: Oval", "Bal\xE3o de Fala: Oval"],
+        ["cloudCallout", "Thought Bubble: Cloud", "Bal\xE3o de Pensamento: Nuvem"],
+        ["borderCallout1", "Callout: Line", "Texto Explicativo: Linha"],
+        ["borderCallout2", "Callout: Bent Line", "Texto Explicativo: Linha Dobrada"],
+        ["borderCallout3", "Callout: Double Bent Line", "Texto Explicativo: Linha Dobrada Dupla"],
+        ["accentCallout1", "Callout: Line with Accent Bar", "Texto Explicativo: Linha com Barra de \xCAnfase"],
+        ["accentCallout2", "Callout: Bent Line with Accent Bar", "Texto Explicativo: Linha Dobrada com Barra de \xCAnfase"],
+        ["accentCallout3", "Callout: Double Bent Line with Accent Bar", "Texto Explicativo: Linha Dobrada Dupla com Barra de \xCAnfase"],
+        ["callout1", "Callout: Line with No Border", "Texto Explicativo: Linha sem Borda"],
+        ["callout2", "Callout: Bent Line with No Border", "Texto Explicativo: Linha Dobrada sem Borda"],
+        ["callout3", "Callout: Double Bent Line with No Border", "Texto Explicativo: Linha Dobrada Dupla sem Borda"],
+        ["accentBorderCallout1", "Callout: Line with Border and Accent Bar", "Texto Explicativo: Linha com Borda e Barra de \xCAnfase"],
+        ["accentBorderCallout2", "Callout: Bent Line with Border and Accent Bar", "Texto Explicativo: Linha Dobrada com Borda e Barra de \xCAnfase"],
+        ["accentBorderCallout3", "Callout: Double Bent Line with Border and Accent Bar", "Texto Explicativo: Linha Dobrada Dupla com Borda e Barra de \xCAnfase"]
+      ] }
+    ];
+    black = (alpha) => ({ kind: "prstClr", val: "black", ...alpha !== void 0 ? { mods: [["alpha", alpha]] } : {} });
+    SHADOW_PRESETS = [
+      { id: "outer-br", group: "outer", label: { en: "Offset: Bottom Right", pt: "Deslocamento: Inferior Direito" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 27e5, algn: "tl", color: black(4e4) } },
+      { id: "outer-b", group: "outer", label: { en: "Offset: Bottom", pt: "Deslocamento: Inferior" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 54e5, algn: "t", color: black(4e4) } },
+      { id: "outer-bl", group: "outer", label: { en: "Offset: Bottom Left", pt: "Deslocamento: Inferior Esquerdo" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 81e5, algn: "tr", color: black(4e4) } },
+      { id: "outer-r", group: "outer", label: { en: "Offset: Right", pt: "Deslocamento: Direita" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, algn: "l", color: black(4e4) } },
+      { id: "outer-c", group: "outer", label: { en: "Offset: Center", pt: "Deslocamento: Centro" }, shadow: { kind: "outer", blurRad: 63500, sx: 102e3, sy: 102e3, algn: "ctr", color: black(4e4) } },
+      { id: "outer-l", group: "outer", label: { en: "Offset: Left", pt: "Deslocamento: Esquerda" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 108e5, algn: "r", color: black(4e4) } },
+      { id: "outer-tr", group: "outer", label: { en: "Offset: Top Right", pt: "Deslocamento: Superior Direito" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 189e5, algn: "bl", color: black(4e4) } },
+      { id: "outer-t", group: "outer", label: { en: "Offset: Top", pt: "Deslocamento: Superior" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 162e5, color: black(4e4) } },
+      { id: "outer-tl", group: "outer", label: { en: "Offset: Top Left", pt: "Deslocamento: Superior Esquerdo" }, shadow: { kind: "outer", blurRad: 50800, dist: 38100, dir: 135e5, algn: "br", color: black(4e4) } },
+      { id: "inner-tl", group: "inner", label: { en: "Inside: Top Left", pt: "Interna: Superior Esquerda" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 135e5, color: black(5e4) } },
+      { id: "inner-t", group: "inner", label: { en: "Inside: Top", pt: "Interna: Superior" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 162e5, color: black(5e4) } },
+      { id: "inner-tr", group: "inner", label: { en: "Inside: Top Right", pt: "Interna: Superior Direita" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 189e5, color: black(5e4) } },
+      { id: "inner-l", group: "inner", label: { en: "Inside: Left", pt: "Interna: Esquerda" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 108e5, color: black(5e4) } },
+      { id: "inner-c", group: "inner", label: { en: "Inside: Center", pt: "Interna: Centro" }, shadow: { kind: "inner", blurRad: 114300, color: black() } },
+      { id: "inner-r", group: "inner", label: { en: "Inside: Right", pt: "Interna: Direita" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, color: black(5e4) } },
+      { id: "inner-bl", group: "inner", label: { en: "Inside: Bottom Left", pt: "Interna: Inferior Esquerda" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 81e5, color: black(5e4) } },
+      { id: "inner-b", group: "inner", label: { en: "Inside: Bottom", pt: "Interna: Inferior" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 54e5, color: black(5e4) } },
+      { id: "inner-br", group: "inner", label: { en: "Inside: Bottom Right", pt: "Interna: Inferior Direita" }, shadow: { kind: "inner", blurRad: 63500, dist: 50800, dir: 27e5, color: black(5e4) } },
+      { id: "persp-ul", group: "persp", label: { en: "Perspective: Upper Left", pt: "Perspectiva: Superior Esquerda" }, shadow: { kind: "outer", blurRad: 76200, dir: 135e5, sy: 23e3, kx: 12e5, algn: "br", color: black(2e4) } },
+      { id: "persp-ur", group: "persp", label: { en: "Perspective: Upper Right", pt: "Perspectiva: Superior Direita" }, shadow: { kind: "outer", blurRad: 76200, dir: 189e5, sy: 23e3, kx: -12e5, algn: "bl", color: black(2e4) } },
+      { id: "persp-below", group: "persp", label: { en: "Perspective: Below", pt: "Perspectiva: Abaixo" }, shadow: { kind: "outer", blurRad: 152400, dist: 317500, dir: 54e5, sx: 9e4, sy: -19e3, color: black(15e3) } },
+      { id: "persp-ll", group: "persp", label: { en: "Perspective: Lower Left", pt: "Perspectiva: Inferior Esquerda" }, shadow: { kind: "outer", blurRad: 76200, dist: 12700, dir: 81e5, sy: -23e3, kx: 800400, algn: "br", color: black(2e4) } },
+      { id: "persp-lr", group: "persp", label: { en: "Perspective: Lower Right", pt: "Perspectiva: Inferior Direita" }, shadow: { kind: "outer", blurRad: 76200, dist: 12700, dir: 27e5, sy: -23e3, kx: -800400, algn: "bl", color: black(2e4) } }
+    ];
+    refl = (stA, endA, endPos, dist) => ({
+      blurRad: 6350,
+      stA,
+      endA,
+      endPos,
+      ...dist ? { dist } : {},
+      dir: 54e5,
+      sy: -1e5,
+      algn: "bl",
+      rotWithShape: false
+    });
+    REFLECTION_PRESETS = [
+      { id: "tight-touch", label: { en: "Tight Reflection: Touching", pt: "Reflexo Justo: Encostado" }, reflection: refl(52e3, 300, 35e3) },
+      { id: "half-touch", label: { en: "Half Reflection: Touching", pt: "Meio Reflexo: Encostado" }, reflection: refl(5e4, 300, 55e3) },
+      { id: "full-touch", label: { en: "Full Reflection: Touching", pt: "Reflexo Total: Encostado" }, reflection: refl(5e4, 300, 9e4) },
+      { id: "tight-4", label: { en: "Tight Reflection: 4 pt offset", pt: "Reflexo Justo: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 38500, 50800) },
+      { id: "half-4", label: { en: "Half Reflection: 4 pt offset", pt: "Meio Reflexo: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 55500, 50800) },
+      { id: "full-4", label: { en: "Full Reflection: 4 pt offset", pt: "Reflexo Total: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 9e4, 50800) },
+      { id: "tight-8", label: { en: "Tight Reflection: 8 pt offset", pt: "Reflexo Justo: Deslocamento de 8 pt" }, reflection: refl(5e4, 275, 4e4, 101600) },
+      { id: "half-8", label: { en: "Half Reflection: 8 pt offset", pt: "Meio Reflexo: Deslocamento de 8 pt" }, reflection: refl(5e4, 300, 55500, 101600) },
+      { id: "full-8", label: { en: "Full Reflection: 8 pt offset", pt: "Reflexo Total: Deslocamento de 8 pt" }, reflection: refl(5e4, 295, 92e3, 101600) }
+    ];
+    SOFT_EDGE_PRESETS = [12700, 31750, 63500, 127e3, 317500, 635e3];
+    GLOW_SIZES = [63500, 101600, 139700, 228600];
+    glowPreset = (rad, accent2) => ({ rad, color: { kind: "schemeClr", val: `accent${accent2}`, mods: [["alpha", 4e4]] } });
+    BEVEL_PRESETS = [
+      { prst: "circle", label: { en: "Circle", pt: "C\xEDrculo" } },
+      { prst: "relaxedInset", label: { en: "Relaxed Inset", pt: "Inser\xE7\xE3o Leve" } },
+      { prst: "cross", label: { en: "Cross", pt: "Cruz" } },
+      { prst: "coolSlant", label: { en: "Cool Slant", pt: "Inclina\xE7\xE3o Suave" } },
+      { prst: "angle", label: { en: "Angle", pt: "\xC2ngulo" } },
+      { prst: "softRound", label: { en: "Soft Round", pt: "Arredondamento Suave" } },
+      { prst: "convex", label: { en: "Convex", pt: "Convexo" } },
+      { prst: "slope", label: { en: "Slope", pt: "Declive" } },
+      { prst: "divot", label: { en: "Divot", pt: "Torr\xE3o" } },
+      { prst: "riblet", label: { en: "Riblet", pt: "Ondulado" } },
+      { prst: "hardEdge", label: { en: "Hard Edge", pt: "Borda R\xEDgida" } },
+      { prst: "artDeco", label: { en: "Art Deco", pt: "Art D\xE9co" } }
+    ];
+    ROTATION_PRESETS = [
+      { group: "parallel", prst: "isometricLeftDown", label: { en: "Isometric: Left Down", pt: "Isom\xE9trica: Esquerda para Baixo" } },
+      { group: "parallel", prst: "isometricRightUp", label: { en: "Isometric: Right Up", pt: "Isom\xE9trica: Direita para Cima" } },
+      { group: "parallel", prst: "isometricTopUp", label: { en: "Isometric: Top Up", pt: "Isom\xE9trica: Superior para Cima" } },
+      { group: "parallel", prst: "isometricBottomDown", label: { en: "Isometric: Bottom Down", pt: "Isom\xE9trica: Inferior para Baixo" } },
+      { group: "parallel", prst: "isometricOffAxis1Left", label: { en: "Off Axis 1: Left", pt: "Fora do Eixo 1: Esquerda" } },
+      { group: "parallel", prst: "isometricOffAxis1Right", label: { en: "Off Axis 1: Right", pt: "Fora do Eixo 1: Direita" } },
+      { group: "parallel", prst: "isometricOffAxis1Top", label: { en: "Off Axis 1: Top", pt: "Fora do Eixo 1: Superior" } },
+      { group: "parallel", prst: "isometricOffAxis2Left", label: { en: "Off Axis 2: Left", pt: "Fora do Eixo 2: Esquerda" } },
+      { group: "parallel", prst: "isometricOffAxis2Right", label: { en: "Off Axis 2: Right", pt: "Fora do Eixo 2: Direita" } },
+      { group: "parallel", prst: "isometricOffAxis2Top", label: { en: "Off Axis 2: Top", pt: "Fora do Eixo 2: Superior" } },
+      { group: "perspective", prst: "perspectiveFront", label: { en: "Perspective: Front", pt: "Perspectiva: Frente" } },
+      { group: "perspective", prst: "perspectiveLeft", label: { en: "Perspective: Left", pt: "Perspectiva: Esquerda" } },
+      { group: "perspective", prst: "perspectiveRight", label: { en: "Perspective: Right", pt: "Perspectiva: Direita" } },
+      { group: "perspective", prst: "perspectiveBelow", label: { en: "Perspective: Below", pt: "Perspectiva: Abaixo" } },
+      { group: "perspective", prst: "perspectiveAbove", label: { en: "Perspective: Above", pt: "Perspectiva: Acima" } },
+      { group: "perspective", prst: "perspectiveAboveLeftFacing", label: { en: "Perspective: Above Left", pt: "Perspectiva: Acima \xE0 Esquerda" } },
+      { group: "perspective", prst: "perspectiveAboveRightFacing", label: { en: "Perspective: Above Right", pt: "Perspectiva: Acima \xE0 Direita" } },
+      { group: "perspective", prst: "perspectiveContrastingLeftFacing", label: { en: "Perspective: Contrasting Left", pt: "Perspectiva: Contrastante \xE0 Esquerda" } },
+      { group: "perspective", prst: "perspectiveContrastingRightFacing", label: { en: "Perspective: Contrasting Right", pt: "Perspectiva: Contrastante \xE0 Direita" } },
+      { group: "perspective", prst: "perspectiveHeroicLeftFacing", label: { en: "Perspective: Heroic Left", pt: "Perspectiva: Heroica \xE0 Esquerda" } },
+      { group: "perspective", prst: "perspectiveHeroicRightFacing", label: { en: "Perspective: Heroic Right", pt: "Perspectiva: Heroica \xE0 Direita" } },
+      { group: "perspective", prst: "perspectiveHeroicExtremeLeftFacing", label: { en: "Perspective: Heroic Extreme Left", pt: "Perspectiva: Heroica Extrema \xE0 Esquerda" } },
+      { group: "perspective", prst: "perspectiveHeroicExtremeRightFacing", label: { en: "Perspective: Heroic Extreme Right", pt: "Perspectiva: Heroica Extrema \xE0 Direita" } },
+      { group: "perspective", prst: "perspectiveRelaxed", label: { en: "Perspective: Relaxed", pt: "Perspectiva: Relaxada" } },
+      { group: "perspective", prst: "perspectiveRelaxedModerately", label: { en: "Perspective: Relaxed Moderately", pt: "Perspectiva: Moderadamente Relaxada" } },
+      { group: "oblique", prst: "obliqueTopLeft", label: { en: "Oblique: Top Left", pt: "Obl\xEDqua: Superior \xE0 Esquerda" } },
+      { group: "oblique", prst: "obliqueTopRight", label: { en: "Oblique: Top Right", pt: "Obl\xEDqua: Superior \xE0 Direita" } },
+      { group: "oblique", prst: "obliqueBottomLeft", label: { en: "Oblique: Bottom Left", pt: "Obl\xEDqua: Inferior \xE0 Esquerda" } },
+      { group: "oblique", prst: "obliqueBottomRight", label: { en: "Oblique: Bottom Right", pt: "Obl\xEDqua: Inferior \xE0 Direita" } }
+    ];
+    SATURATION_PRESETS = [0, 33e3, 66e3, 1e5, 2e5, 3e5, 4e5];
+    TEMPERATURE_PRESETS = [4700, 5300, 5900, 6500, 7200, 8800, 11200];
+    SHARPEN_PRESETS = [-5e4, -25e3, 0, 25e3, 5e4];
+    BRIGHT_CONTRAST_STEPS = [-4e4, -2e4, 0, 2e4, 4e4];
+    TRANSPARENCY_PRESETS = [0, 15, 30, 50, 65, 80, 95];
+    scheme = (val3, mods = []) => ({ kind: "schemeClr", val: val3, ...mods.length ? { mods } : {} });
+    darkOf = (val3) => scheme(val3, [["shade", 45e3], ["satMod", 135e3]]);
+    RECOLOR_PRESETS = [
+      { id: "none", group: "mode", label: { en: "No Recolor", pt: "Sem Recolorir" }, fx: {} },
+      { id: "grayscale", group: "mode", label: { en: "Grayscale", pt: "Escala de Cinza" }, fx: { grayscl: true } },
+      { id: "sepia", group: "mode", label: { en: "Sepia", pt: "S\xE9pia" }, fx: { duotone: [{ kind: "prstClr", val: "black" }, { kind: "srgbClr", val: "D9C3A5", mods: [["tint", 5e4], ["satMod", 18e4]] }] } },
+      { id: "washout", group: "mode", label: { en: "Washout", pt: "Desbotar" }, fx: { lum: { bright: 7e4, contrast: -7e4 } } },
+      { id: "bw25", group: "mode", label: { en: "Black and White: 25%", pt: "Preto e Branco: 25%" }, fx: { biLevel: 25e3 } },
+      { id: "bw50", group: "mode", label: { en: "Black and White: 50%", pt: "Preto e Branco: 50%" }, fx: { biLevel: 5e4 } },
+      { id: "bw75", group: "mode", label: { en: "Black and White: 75%", pt: "Preto e Branco: 75%" }, fx: { biLevel: 75e3 } },
+      ...["tx2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6"].map((c5, i7) => ({
+        id: `dark-${c5}`,
+        group: "dark",
+        label: i7 === 0 ? { en: "Text color 2 Dark", pt: "Cor do texto 2 Escuro" } : { en: `Accent color ${i7} Dark`, pt: `Cor de \xEAnfase ${i7} Escuro` },
+        fx: { duotone: [{ kind: "prstClr", val: "black" }, darkOf(c5)] }
+      })),
+      ...["bg2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6"].map((c5, i7) => ({
+        id: `light-${c5}`,
+        group: "light",
+        label: i7 === 0 ? { en: "Background color 2 Light", pt: "Cor do plano de fundo 2 Claro" } : { en: `Accent color ${i7} Light`, pt: `Cor de \xEAnfase ${i7} Claro` },
+        fx: { duotone: [darkOf(c5), { kind: "prstClr", val: "white" }] }
+      }))
+    ];
+    LINE_WEIGHTS_PT = [0.25, 0.5, 0.75, 1, 1.5, 2.25, 3, 4.5, 6];
+    LINE_DASHES = [
+      { val: "solid", label: { en: "Solid", pt: "S\xF3lido" } },
+      { val: "sysDot", label: { en: "Round Dot", pt: "Ponto Redondo" } },
+      { val: "sysDash", label: { en: "Square Dot", pt: "Ponto Quadrado" } },
+      { val: "dash", label: { en: "Dash", pt: "Tra\xE7o" } },
+      { val: "dashDot", label: { en: "Dash Dot", pt: "Tra\xE7o Ponto" } },
+      { val: "lgDash", label: { en: "Long Dash", pt: "Tra\xE7o Longo" } },
+      { val: "lgDashDot", label: { en: "Long Dash Dot", pt: "Tra\xE7o Longo Ponto" } },
+      { val: "lgDashDotDot", label: { en: "Long Dash Dot Dot", pt: "Tra\xE7o Longo Ponto Ponto" } }
+    ];
+    POSITION_PRESETS = (() => {
+      const H2 = [["left", "Esquerda", "Left"], ["center", "Centro", "Center"], ["right", "Direita", "Right"]];
+      const V2 = [["top", "Superior", "Top"], ["center", "Meio", "Middle"], ["bottom", "Inferior", "Bottom"]];
+      const out = [];
+      for (const [v2, vp, ve] of V2) for (const [h3, hp, he] of H2) {
+        out.push({ id: `${v2}-${h3}`, h: h3, v: v2, label: { en: `Position in ${ve} ${he} with Square Text Wrapping`, pt: `Posi\xE7\xE3o ${vp === "Meio" ? "no Meio" : vp === "Superior" ? "Superior" : "Inferior"} ${hp === "Centro" ? "no Centro" : hp === "Esquerda" ? "\xE0 Esquerda" : "\xE0 Direita"} com Quebra Autom\xE1tica de Texto Quadrada` } });
+      }
+      return out;
+    })();
   }
 });
 
@@ -24109,7 +24735,7 @@ function addRel(pkg, part, type, target) {
   while (used.has(`rId${n5}`)) n5++;
   const id = `rId${n5}`;
   xml = xml.replace(/<Relationships\b([^>]*?)\s*\/>/, "<Relationships$1></Relationships>");
-  xml = xml.replace(/<\/Relationships>\s*$/, `<Relationship Id="${id}" Type="${type}" Target="${escAttr4(target)}"/></Relationships>`);
+  xml = xml.replace(/<\/Relationships>\s*$/, `<Relationship Id="${id}" Type="${type}" Target="${escAttr5(target)}"/></Relationships>`);
   pkg.setPartText(path, xml);
   return id;
 }
@@ -24213,14 +24839,14 @@ function writeDocxSettings(pkg, settings2) {
     ensureOverride(pkg, path, "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml");
   }
   for (const name of ["w:embedTrueTypeFonts", "w:embedSystemFonts", "w:saveSubsetFonts"]) {
-    for (let el13 = findElement(xml, name); el13; el13 = findElement(xml, name)) xml = xml.slice(0, el13.start) + xml.slice(el13.end);
+    for (let el14 = findElement(xml, name); el14; el14 = findElement(xml, name)) xml = xml.slice(0, el14.start) + xml.slice(el14.end);
   }
   if (settings2.embed) {
     const flags = "<w:embedTrueTypeFonts/>" + (settings2.skipCommonFonts ? "" : "<w:embedSystemFonts/>") + (settings2.subset ? "<w:saveSubsetFonts/>" : "");
     let at = -1;
     for (const n5 of SETTINGS_BEFORE) {
-      const el13 = findElement(xml, `w:${n5}`);
-      if (el13) at = Math.max(at, el13.end);
+      const el14 = findElement(xml, `w:${n5}`);
+      if (el14) at = Math.max(at, el14.end);
     }
     if (at < 0) {
       const root = /<w:settings\b[^>]*>/.exec(xml);
@@ -24262,23 +24888,23 @@ function writeDocxEmbedding(pkg, plan, settings2) {
       const id = addRel(pkg, tablePath, REL_FONT, part.slice(tablePath.lastIndexOf("/") + 1));
       embeds += `<${W_EMBED[f3.variant]} r:id="${id}"${f3.subsetted ? ' w:subsetted="1"' : ""} w:fontKey="${key}"/>`;
     }
-    const re = new RegExp(`<w:font\\b[^>]*w:name="${escRe(escAttr4(family))}"[^>]*?(\\/>|>[\\s\\S]*?<\\/w:font>)`, "i");
+    const re = new RegExp(`<w:font\\b[^>]*w:name="${escRe(escAttr5(family))}"[^>]*?(\\/>|>[\\s\\S]*?<\\/w:font>)`, "i");
     const m2 = re.exec(table2);
     if (m2) {
-      const el13 = m2[0];
-      const merged = el13.endsWith("/>") ? `${el13.slice(0, -2)}>${embeds}</w:font>` : el13.replace(/<\/w:font>$/, `${embeds}</w:font>`);
-      table2 = table2.replace(el13, merged);
+      const el14 = m2[0];
+      const merged = el14.endsWith("/>") ? `${el14.slice(0, -2)}>${embeds}</w:font>` : el14.replace(/<\/w:font>$/, `${embeds}</w:font>`);
+      table2 = table2.replace(el14, merged);
     } else {
       const panose = faces[0].info.panose;
       table2 = table2.replace(
         /<\/w:fonts>\s*$/,
-        `<w:font w:name="${escAttr4(family)}"><w:panose1 w:val="${panose}"/><w:charset w:val="00"/><w:family w:val="auto"/><w:pitch w:val="variable"/>${embeds}</w:font></w:fonts>`
+        `<w:font w:name="${escAttr5(family)}"><w:panose1 w:val="${panose}"/><w:charset w:val="00"/><w:family w:val="auto"/><w:pitch w:val="variable"/>${embeds}</w:font></w:fonts>`
       );
     }
   }
   pkg.setPartText(tablePath, table2);
 }
-var REL3, REL_FONT, W_NS2, CT_ODTTF, VARIANT_ORDER, W_EMBED, escAttr4, unescAttr, escRe, DOCX_MAIN, SETTINGS_BEFORE;
+var REL3, REL_FONT, W_NS2, CT_ODTTF, VARIANT_ORDER, W_EMBED, escAttr5, unescAttr, escRe, DOCX_MAIN, SETTINGS_BEFORE;
 var init_ooxml = __esm({
   "../../../shared/fonts/src/ooxml.ts"() {
     "use strict";
@@ -24293,7 +24919,7 @@ var init_ooxml = __esm({
       italic: "w:embedItalic",
       boldItalic: "w:embedBoldItalic"
     };
-    escAttr4 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    escAttr5 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     unescAttr = (s4) => s4.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&apos;/g, "'").replace(/&amp;/g, "&");
     escRe = (s4) => s4.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     DOCX_MAIN = "word/document.xml";
@@ -25704,18 +26330,18 @@ function joinDeleted(carried, next) {
   out[REV_JOINS] = [carried.reduce((n5, r6) => n5 + r6.text.length, 0)];
   return out;
 }
-function revisionRanges(rd, para2) {
+function revisionRanges(rd, para3) {
   if (!rd.barColor()) return null;
   const ranges = [];
   let acc = 0;
-  for (const r6 of para2.runs) {
+  for (const r6 of para3.runs) {
     const rs = acc;
     acc += r6.text.length;
     if (rd.barFor(r6.props.ins, "insDel") || rd.barFor(r6.props.del, "insDel") || rd.barFor(r6.props.fmt, "fmt")) ranges.push([rs, acc, rd.run(r6) === "hide"]);
   }
-  if (rd.mode === "simple") for (const k2 of para2[REV_JOINS] ?? []) ranges.push([k2, k2, true]);
-  const whole = rd.barFor(para2.props.pfmt, "fmt");
-  const mark2 = rd.barFor(para2.props.markIns, "insDel") || rd.barFor(para2.props.markDel, "insDel");
+  if (rd.mode === "simple") for (const k2 of para3[REV_JOINS] ?? []) ranges.push([k2, k2, true]);
+  const whole = rd.barFor(para3.props.pfmt, "fmt");
+  const mark2 = rd.barFor(para3.props.markIns, "insDel") || rd.barFor(para3.props.markDel, "insDel");
   return ranges.length || whole || mark2 ? { ranges, whole, mark: mark2 } : null;
 }
 var AUTHOR_PALETTE, MOVE_COLOR, BAR_COLOR, SIMPLE_BAR_COLOR, BAR_WIDTH, RevisionDisplay, REV_JOINS;
@@ -25797,20 +26423,20 @@ var init_revisions2 = __esm({
         return directRPr({ ...run2, props: { ...f3.old, ...p3.src !== void 0 ? { src: p3.src } : {}, ...p3.link ? { link: p3.link } : {} } });
       }
       /** Parágrafo a diagramar: no modo Original, com a formatação de antes. */
-      paragraph(para2) {
-        const f3 = para2.props.pfmt;
-        if (this.mode !== "original" || !f3) return para2;
-        const c5 = para2.ppr?.change;
-        const meta = { ...para2.props.src !== void 0 ? { src: para2.props.src } : {}, ...para2.props.sectionBreak ? { sectionBreak: para2.props.sectionBreak } : {} };
+      paragraph(para3) {
+        const f3 = para3.props.pfmt;
+        if (this.mode !== "original" || !f3) return para3;
+        const c5 = para3.ppr?.change;
+        const meta = { ...para3.props.src !== void 0 ? { src: para3.props.src } : {}, ...para3.props.sectionBreak ? { sectionBreak: para3.props.sectionBreak } : {} };
         if (c5 && c5.author === f3.author && c5.date === f3.date && JSON.stringify(paraPropsFromPPr(c5.pPr)) === JSON.stringify(f3.old)) {
-          const ppr = { ...c5.pPr, ...para2.ppr?.rPr ? { rPr: para2.ppr.rPr } : {} };
-          return { ...para2, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
+          const ppr = { ...c5.pPr, ...para3.ppr?.rPr ? { rPr: para3.ppr.rPr } : {} };
+          return { ...para3, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
         }
-        return { ...para2, ppr: directPPr({ ...para2, props: { ...f3.old, ...meta } }), props: { ...f3.old, ...meta } };
+        return { ...para3, ppr: directPPr({ ...para3, props: { ...f3.old, ...meta } }), props: { ...f3.old, ...meta } };
       }
       /** A marca deste parágrafo some (o texto vai para o seguinte) nesta visão? */
-      markGone(para2) {
-        const { markDel, markIns } = para2.props;
+      markGone(para3) {
+        const { markDel, markIns } = para3.props;
         if (this.mode === "original") return !!markIns;
         if (!markDel) return false;
         return this.mode !== "all" || !this.shown(markDel, "insDel");
@@ -25907,10 +26533,10 @@ function directRPr(run2) {
   }
   return base;
 }
-function directPPr(para2) {
-  const base = para2.ppr ? { ...para2.ppr } : {};
-  const p3 = para2.props;
-  const orig = paraPropsFromPPr(para2.ppr);
+function directPPr(para3) {
+  const base = para3.ppr ? { ...para3.ppr } : {};
+  const p3 = para3.props;
+  const orig = paraPropsFromPPr(para3.ppr);
   if (!eq2(p3.alignment, orig.alignment)) {
     if (p3.alignment) base.jc = p3.alignment;
     else delete base.jc;
@@ -25921,7 +26547,7 @@ function directPPr(para2) {
   }
   if (!eq2(p3.numbering, orig.numbering)) {
     if (!p3.numbering) base.numPr = { numId: 0 };
-    else if (para2.ppr?.numPr?.numId) base.numPr = { ...para2.ppr.numPr, ilvl: p3.numbering.ilvl };
+    else if (para3.ppr?.numPr?.numId) base.numPr = { ...para3.ppr.numPr, ilvl: p3.numbering.ilvl };
     else base.numPr = { numId: p3.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p3.numbering.ilvl };
   }
   if (p3.indentLeftTwips !== orig.indentLeftTwips || p3.indentRightTwips !== orig.indentRightTwips || p3.indentFirstLineTwips !== orig.indentFirstLineTwips) {
@@ -26322,7 +26948,7 @@ var init_math = __esm({
     K2 = { leading: 0, axis: 1, numUp: 28, numUpD: 29, denDown: 30, denDownD: 31, numGap: 32, numGapD: 33, rule: 34, denGap: 35, denGapD: 36 };
     CM = { 0: 300, 1: 585, 28: 1200, 29: 1550, 30: 1030, 31: 1370, 32: 133, 33: 260, 34: 133, 35: 133, 36: 260 };
     infoCache = /* @__PURE__ */ new WeakMap();
-    q600 = (tw2) => Math.ceil(tw2 / 2.4 - 1e-6) * 2.4;
+    q600 = (tw3) => Math.ceil(tw3 / 2.4 - 1e-6) * 2.4;
     REL4 = new Set(Array.from("=<>\u2264\u2265\u2260\u2248\u2261\u223C\u2243\u2245\u221D\u2190\u2192\u2194\u21D0\u21D2\u21D4\u2208\u2209\u220B\u2282\u2283\u2286\u2287\u226A\u226B\u2254").map((c5) => c5.codePointAt(0)));
     BIN = new Set(Array.from("+-\u2212\xB1\u2213\xD7\xF7\xB7\u2217\u2218\u2219\u2229\u222A\u2227\u2228\u2295\u2297\u2296*").map((c5) => c5.codePointAt(0)));
     OPEN = new Set(Array.from("([{\u27E8\u2308\u230A").map((c5) => c5.codePointAt(0)));
@@ -26602,8 +27228,8 @@ function isHyperlinkStyle(ctx, id) {
 function wordWidth(units, sizePt, upm) {
   return Math.floor(units * sizePt * 4096 / upm + 1e-7) * WORD_UNIT;
 }
-function toWordUnit(tw2) {
-  return Math.round(tw2 / WORD_UNIT) * WORD_UNIT;
+function toWordUnit(tw3) {
+  return Math.round(tw3 / WORD_UNIT) * WORD_UNIT;
 }
 function scaledUnits(units, font, w2) {
   const avg = font.metrics.xAvgCharWidth;
@@ -26627,34 +27253,34 @@ function advanceTwips(ctx, face, cp, sizePt, w2 = 100) {
     if (typeof sw === "string") return advanceTwips(ctx, face, sw.codePointAt(0), sizePt, w2) * (cp === 8239 ? 0.5 : 1);
     return sw * sizePt * 20 * w2 / 100;
   }
-  let frac = 1;
+  let frac2 = 1;
   if (gid !== 0 && (cp === 8194 || cp === 8195 || cp === 8197)) {
     const dg = f3.glyphId(cp === 8194 ? 8211 : 8212);
     if (dg) {
       gid = dg;
-      frac = cp === 8197 ? 1 / 4 : 1;
+      frac2 = cp === 8197 ? 1 / 4 : 1;
     }
   }
-  const units = f3.advanceWidth(gid) * frac + extra;
+  const units = f3.advanceWidth(gid) * frac2 + extra;
   if (ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device") {
     return wordWidth(w2 !== 100 ? scaledUnits(units, f3, w2) : units, sizePt, f3.metrics.unitsPerEm);
   }
   return roundAdvance(ctx, units * emOf(ctx, sizePt) * 20 / f3.metrics.unitsPerEm) * w2 / 100;
 }
-function roundAdvance(ctx, tw2) {
+function roundAdvance(ctx, tw3) {
   switch (ctx.opts.advanceRound) {
     case "twip":
-      return Math.round(tw2);
+      return Math.round(tw3);
     case "twipFloor":
-      return Math.floor(tw2);
+      return Math.floor(tw3);
     case "twipCeil":
-      return Math.ceil(tw2);
+      return Math.ceil(tw3);
     case "dev600":
-      return Math.round(tw2 / 2.4) * 2.4;
+      return Math.round(tw3 / 2.4) * 2.4;
     case "half":
-      return Math.round(tw2 * 2) / 2;
+      return Math.round(tw3 * 2) / 2;
     default:
-      return tw2;
+      return tw3;
   }
 }
 function kernGlyphs(ctx, face, g1, g2, sizePt) {
@@ -26766,10 +27392,10 @@ function fieldRuns(ctx, run2, env, at) {
   }
   return null;
 }
-function displayRuns(ctx, para2, env) {
+function displayRuns(ctx, para3, env) {
   const out = [];
   let offset = 0;
-  para2.runs.forEach((run2, idx) => {
+  para3.runs.forEach((run2, idx) => {
     if (isMarkRun2(run2)) return;
     if (run2.formField?.type === "checkBox") out.push({ run: run2, idx, offset });
     else if (run2.formField?.type === "dropDown" && run2.formField.entries) {
@@ -26809,9 +27435,9 @@ function eastAsianBreakRules(ctx, rpr) {
   if (!isCjkLang(rpr)) return false;
   return ctx.fmt.settings.compatibilityMode >= 15 || docEastAsiaCjk(ctx);
 }
-function resolvePPr(ctx, para2, env) {
+function resolvePPr(ctx, para3, env) {
   const dd = ctx.resolver.docDefaults;
-  const direct = directPPr(para2);
+  const direct = directPPr(para3);
   const styleId = ctx.resolver.paraStyleId(direct.pStyle);
   const st = ctx.resolver.paraStyle(styleId);
   let ppr = mergePPr(dd.pPr, env.tablePPr);
@@ -26841,18 +27467,18 @@ function resolvePPr(ctx, para2, env) {
   return { ppr, styleId, styleRPr: st.rPr };
 }
 function paraVisibility(ctx, para0, env) {
-  const para2 = ctx.rev.paragraph(para0);
-  const { ppr, styleRPr } = resolvePPr(ctx, para2, env);
+  const para3 = ctx.rev.paragraph(para0);
+  const { ppr, styleRPr } = resolvePPr(ctx, para3, env);
   const dd = ctx.resolver.docDefaults;
   const runRPr = (rpr) => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(ctx, para2, env).some(({ run: run2 }) => !!(run2.text || run2.image || run2.shape || run2.group || run2.textbox || run2.formField?.type === "checkBox" || run2.custom || run2.ptab || run2.noteRef) && ctx.rev.run(run2) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run2))));
+  const visible = displayRuns(ctx, para3, env).some(({ run: run2 }) => !!(run2.text || run2.image || run2.shape || run2.group || run2.textbox || run2.formField?.type === "checkBox" || run2.custom || run2.ptab || run2.noteRef) && ctx.rev.run(run2) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run2))));
   return { markHidden, visible };
 }
 function prepareParagraph(ctx, para0, env0) {
-  const para2 = ctx.rev.paragraph(para0);
-  const { ppr, styleId, styleRPr } = resolvePPr(ctx, para2, env0);
+  const para3 = ctx.rev.paragraph(para0);
+  const { ppr, styleId, styleRPr } = resolvePPr(ctx, para3, env0);
   const shd = ppr.shd;
   const paraFill = shadingFill(shd, ctx.fmt.theme);
   const env = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
@@ -26996,7 +27622,7 @@ function prepareParagraph(ctx, para0, env0) {
     flushSeg();
   };
   let pendingNote;
-  for (const { run: run2, idx, offset } of displayRuns(ctx, para2, env)) {
+  for (const { run: run2, idx, offset } of displayRuns(ctx, para3, env)) {
     const rev2 = ctx.rev.run(run2);
     if (rev2 === "hide") continue;
     const direct = ctx.rev.directRPr(run2);
@@ -27099,9 +27725,9 @@ function prepareParagraph(ctx, para0, env0) {
       continue;
     }
     const before = glyphs.length;
-    pushChars(run2.text, run2, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para2.runs[idx]?.field ?? ""));
+    pushChars(run2.text, run2, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para3.runs[idx]?.field ?? ""));
     if (GLUED_FIELD.has(run2)) for (let k2 = before + 1; k2 < glyphs.length; k2++) glyphs[k2].glue = true;
-    if (/_MARK\s*$/.test(para2.runs[idx]?.field ?? "")) for (let k2 = before; k2 < glyphs.length; k2++) glyphs[k2].offset = offset;
+    if (/_MARK\s*$/.test(para3.runs[idx]?.field ?? "")) for (let k2 = before; k2 < glyphs.length; k2++) glyphs[k2].offset = offset;
     if (pendingNote !== void 0 && glyphs.length > before) {
       glyphs[before].noteId = pendingNote;
       pendingNote = void 0;
@@ -27211,9 +27837,9 @@ function prepareParagraph(ctx, para0, env0) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
   }
-  const revBars = revisionRanges(ctx.rev, para2);
+  const revBars = revisionRanges(ctx.rev, para3);
   return {
-    para: para2,
+    para: para3,
     ppr,
     styleId,
     markStyle,
@@ -28352,12 +28978,12 @@ function decodeTiff(b5) {
       o7 += rows * rowBytes;
     });
   } else {
-    const tw2 = t6(322), th = t6(323);
-    const tilesAcross = Math.ceil(width / tw2);
-    const tileRow = Math.ceil(tw2 * spp * bits2 / 8);
+    const tw3 = t6(322), th = t6(323);
+    const tilesAcross = Math.ceil(width / tw3);
+    const tileRow = Math.ceil(tw3 * spp * bits2 / 8);
     offs.forEach((off, i7) => {
       const d3 = decode(b5.subarray(off, off + (counts[i7] ?? 0)), tileRow * th);
-      const tx2 = i7 % tilesAcross * tw2, ty = Math.floor(i7 / tilesAcross) * th;
+      const tx2 = i7 % tilesAcross * tw3, ty = Math.floor(i7 / tilesAcross) * th;
       for (let y3 = 0; y3 < th && ty + y3 < height; y3++) {
         const dst = (ty + y3) * rowBytes + Math.floor(tx2 * spp * bits2 / 8);
         const len2 = Math.min(tileRow, rowBytes - Math.floor(tx2 * spp * bits2 / 8));
@@ -28470,11 +29096,11 @@ function effectDecode(fx, components) {
 function applyPictureAdjust(d3, o7) {
   const hex2 = (s4) => [parseInt(s4.slice(0, 2), 16), parseInt(s4.slice(2, 4), 16), parseInt(s4.slice(4, 6), 16)];
   if (o7.clrChange) {
-    const [fr, fg, fb] = hex2(o7.clrChange.from), [tr7, tg, tb] = hex2(o7.clrChange.to);
+    const [fr, fg, fb] = hex2(o7.clrChange.from), [tr8, tg, tb] = hex2(o7.clrChange.to);
     const ta = Math.round(o7.clrChange.toAlpha * 255);
     for (let i7 = 0; i7 < d3.length; i7 += 4) {
       if (Math.abs(d3[i7] - fr) <= 2 && Math.abs(d3[i7 + 1] - fg) <= 2 && Math.abs(d3[i7 + 2] - fb) <= 2) {
-        d3[i7] = tr7;
+        d3[i7] = tr8;
         d3[i7 + 1] = tg;
         d3[i7 + 2] = tb;
         d3[i7 + 3] = Math.round(d3[i7 + 3] * ta / 255);
@@ -29787,33 +30413,33 @@ function paintDecorations(out, all, frameX, baseY, line2) {
 }
 function borderWidth(b5) {
   if (!b5 || b5.val === "none" || b5.val === "nil") return 0;
-  const tw2 = Math.floor(Math.max(1, b5.sz ?? 4) * 2.5 + 1e-9);
+  const tw3 = Math.floor(Math.max(1, b5.sz ?? 4) * 2.5 + 1e-9);
   switch (b5.val) {
     case "double":
-      return tw2 * 3;
+      return tw3 * 3;
     case "thinThickSmallGap":
     case "thickThinSmallGap":
-      return tw2 + 40;
+      return tw3 + 40;
     // as outras compostas: a soma das faixas que o Word desenha (sonda de bordas do table-lab)
     case "triple":
-      return tw2 * 5;
+      return tw3 * 5;
     case "thinThickThinSmallGap":
-      return tw2 + 58;
+      return tw3 + 58;
     case "thinThickMediumGap":
     case "thickThinMediumGap":
-      return tw2 * 2;
+      return tw3 * 2;
     case "thinThickThinMediumGap":
-      return tw2 * 3;
+      return tw3 * 3;
     case "thinThickLargeGap":
     case "thickThinLargeGap":
-      return tw2 + 43;
+      return tw3 + 43;
     case "thinThickThinLargeGap":
-      return tw2 * 2 + 58;
+      return tw3 * 2 + 58;
     case "threeDEmboss":
     case "threeDEngrave":
-      return tw2 + 2 * Math.max(14, Math.floor(tw2 / 2));
+      return tw3 + 2 * Math.max(14, Math.floor(tw3 / 2));
     default:
-      return tw2;
+      return tw3;
   }
 }
 function borderBands(val3, w2) {
@@ -29983,7 +30609,7 @@ var init_paint = __esm({
 
 // ../docx-layout/src/datefmt.ts
 function formatWordDate(d3, picture, lang = "pt-BR") {
-  const L8 = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L9 = lang.toLowerCase().startsWith("en") ? EN : PT;
   let out = "";
   let i7 = 0;
   const run2 = (ch) => {
@@ -30001,19 +30627,19 @@ function formatWordDate(d3, picture, lang = "pt-BR") {
     }
     const lower = picture.slice(i7, i7 + 5).toLowerCase();
     if (lower === "am/pm") {
-      out += L8 === EN ? d3.getHours() >= 12 ? "PM" : "AM" : "";
+      out += L9 === EN ? d3.getHours() >= 12 ? "PM" : "AM" : "";
       i7 += 5;
       continue;
     }
     if (c5 === "d" || c5 === "D") {
       const n5 = run2(c5);
-      out += n5 >= 4 ? L8.days[d3.getDay()] : n5 === 3 ? L8.daysShort[d3.getDay()] : n5 === 2 ? pad(d3.getDate(), 2) : String(d3.getDate());
+      out += n5 >= 4 ? L9.days[d3.getDay()] : n5 === 3 ? L9.daysShort[d3.getDay()] : n5 === 2 ? pad(d3.getDate(), 2) : String(d3.getDate());
       i7 += n5;
       continue;
     }
     if (c5 === "M") {
       const n5 = run2(c5);
-      out += n5 >= 4 ? L8.months[d3.getMonth()] : n5 === 3 ? L8.monthsShort[d3.getMonth()] : n5 === 2 ? pad(d3.getMonth() + 1, 2) : String(d3.getMonth() + 1);
+      out += n5 >= 4 ? L9.months[d3.getMonth()] : n5 === 3 ? L9.monthsShort[d3.getMonth()] : n5 === 2 ? pad(d3.getMonth() + 1, 2) : String(d3.getMonth() + 1);
       i7 += n5;
       continue;
     }
@@ -30055,9 +30681,9 @@ function formatWordDate(d3, picture, lang = "pt-BR") {
 }
 function dateFieldValue(instr, now, lang = "pt-BR") {
   const name = instr.trim().split(/\s+/)[0].toUpperCase();
-  const L8 = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L9 = lang.toLowerCase().startsWith("en") ? EN : PT;
   const m2 = /\\@\s*(?:"([^"]*)"|(\S+))/.exec(instr);
-  const picture = m2 ? m2[1] ?? m2[2] ?? "" : name === "TIME" ? L8.time : L8.date;
+  const picture = m2 ? m2[1] ?? m2[2] ?? "" : name === "TIME" ? L9.time : L9.date;
   let v2 = formatWordDate(now, picture, lang);
   const fmt2 = /\\\*\s*(\w+)/g;
   let f3;
@@ -30289,11 +30915,11 @@ function boundaryWidths(cells, nCols, v2, spread) {
   }
   return w2;
 }
-function fitPctMins(p3, cells, minOf, colMin, pct) {
+function fitPctMins(p3, cells, minOf, colMin, pct2) {
   for (let it = 0; it < 2 * p3.length + 2; it++) {
     let worst, need = 1e-6;
     for (const c5 of cells) {
-      if (!pct(c5.col)) continue;
+      if (!pct2(c5.col)) continue;
       const d3 = minOf(c5) - p3.slice(c5.col, c5.col + c5.span).reduce((a3, x3) => a3 + x3, 0);
       if (d3 > need) {
         need = d3;
@@ -30302,7 +30928,7 @@ function fitPctMins(p3, cells, minOf, colMin, pct) {
     }
     if (!worst) break;
     const s4 = worst.col, e8 = Math.min(p3.length, worst.col + worst.span);
-    const others = p3.map((_2, k2) => k2).filter((k2) => (k2 < s4 || k2 >= e8) && pct(k2) && p3[k2] > colMin[k2] + 1e-6);
+    const others = p3.map((_2, k2) => k2).filter((k2) => (k2 < s4 || k2 >= e8) && pct2(k2) && p3[k2] > colMin[k2] + 1e-6);
     const have = p3.slice(s4, e8).reduce((a3, x3) => a3 + x3, 0);
     for (let k2 = s4; k2 < e8; k2++) p3[k2] = p3[k2] + (have > 0 ? need * p3[k2] / have : need / (e8 - s4));
     if (!others.length) continue;
@@ -30339,8 +30965,8 @@ function columnWidths2(cells, nCols, docGrid, tblW, fixed, base, avail) {
   return columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail).map((x3) => Math.round(x3));
 }
 function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
-  const tw2 = prefOf(tblW);
-  const T0 = tw2 === "dxa" ? tblW.w : tw2 === "pct" ? base * tblW.w / 5e3 : void 0;
+  const tw3 = prefOf(tblW);
+  const T0 = tw3 === "dxa" ? tblW.w : tw3 === "pct" ? base * tblW.w / 5e3 : void 0;
   const all = cells.flat();
   if (fixed) {
     const gridSum = (c5) => docGrid.slice(c5.col, c5.col + c5.span).reduce((a3, b5) => a3 + b5, 0);
@@ -30366,16 +30992,16 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     }
     fitPctMins(p4, all, minOf, g1, () => true);
     const sp = p4.reduce((a3, b5) => a3 + b5, 0);
-    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T8, base);
-    if (sp > cap + 0.5) return p4.map((x3) => x3 * cap / sp);
+    const cap2 = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T8, base);
+    if (sp > cap2 + 0.5) return p4.map((x3) => x3 * cap2 / sp);
     return sp > 0 && T8 > sp + 0.5 ? p4.map((x3) => x3 * T8 / sp) : p4;
   }
-  const frac = Array.from({ length: nCols }, (_2, j) => {
+  const frac2 = Array.from({ length: nCols }, (_2, j) => {
     const own4 = all.filter((c5) => c5.span === 1 && c5.col === j);
     if (!own4.some((c5) => prefOf(c5.tcW) === "pct") || own4.some((c5) => prefOf(c5.tcW) === "dxa")) return 0;
     return Math.max(...own4.filter((c5) => prefOf(c5.tcW) === "pct").map((c5) => c5.tcW.w / 5e3));
   });
-  const isPct = frac.map((f3) => f3 > 0);
+  const isPct = frac2.map((f3) => f3 > 0);
   const kind = (c5, T8) => {
     const k2 = prefOf(c5.tcW);
     if (k2 === "pct") return c5.span === 1 && isPct[c5.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T8 * c5.tcW.w / 5e3 };
@@ -30395,10 +31021,10 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   if (T7 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
-    const fr = Math.min(1, frac.reduce((a3, b5) => a3 + b5, 0));
+    const fr = Math.min(1, frac2.reduce((a3, b5) => a3 + b5, 0));
     let t6 = rest;
     if (fr > 0) {
-      for (let j = 0; j < nCols; j++) if (isPct[j]) t6 = Math.max(t6, gMax[j] / frac[j]);
+      for (let j = 0; j < nCols; j++) if (isPct[j]) t6 = Math.max(t6, gMax[j] / frac2[j]);
       if (fr < 1) t6 = Math.max(t6, rest / (1 - fr));
     }
     T7 = Math.min(t6, avail);
@@ -30408,7 +31034,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   if (isPct.some(Boolean)) {
     let room = T7 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p3[j] = Math.max(0, Math.min(frac[j] * T7, room));
+      p3[j] = Math.max(0, Math.min(frac2[j] * T7, room));
       room -= p3[j];
     }
     fitPctMins(p3, all.filter((c5) => c5.span === 1), minOf, g1, (k2) => isPct[k2]);
@@ -30440,7 +31066,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     return g1.map((x3, j) => x3 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
   if (explicit) {
-    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T7 <= avail + 0.5 : T7 < avail - 0.5))) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
+    if (!(S1 > avail + 0.5 && (tw3 === "pct" ? T7 <= avail + 0.5 : T7 < avail - 0.5))) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
     R2 += avail - T7;
     T7 = avail;
   }
@@ -30474,18 +31100,18 @@ function measureCell(ctx, cell, r6, mar) {
   });
   return { min: Math.max(6, Math.ceil(min - 1e-6)) + mar, max: Math.max(6, Math.ceil(max2 - 1e-6)) + mar };
 }
-function anchoredWidth(ctx, para2) {
+function anchoredWidth(ctx, para3) {
   let w2 = 0;
-  for (const run2 of para2.runs) {
+  for (const run2 of para3.runs) {
     const t6 = run2.image ?? run2.shape ?? run2.group ?? run2.textbox;
     const anc = t6?.anchor;
     if (!t6?.floating || !anc || anc.wrap === "none" || anc.wrap === "inline" || anc.layoutInCell === false) continue;
     let ow = t6.widthTwips;
     const tb = run2.textbox;
     if (tb?.autoFit && tb.noWrap) {
-      let tw2 = 0;
-      for (const tp of tb.paras) tw2 = Math.max(tw2, paraContentWidths(prepareParagraph(ctx, tp, {}), ctx.fmt.settings.defaultTabStop).max);
-      ow = tw2 + (tb.insets?.l ?? 144) + (tb.insets?.r ?? 144);
+      let tw3 = 0;
+      for (const tp of tb.paras) tw3 = Math.max(tw3, paraContentWidths(prepareParagraph(ctx, tp, {}), ctx.fmt.settings.defaultTabStop).max);
+      ow = tw3 + (tb.insets?.l ?? 144) + (tb.insets?.r ?? 144);
     }
     w2 = Math.max(w2, ow);
   }
@@ -30723,10 +31349,10 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       };
       return { col: s4.col, span: s4.span, ...tcW ? { tcW } : {}, measure, ...floorW ? { floor: true } : {}, pad: padOf(s4) + ex };
     });
-    const tr7 = table2.rows[ri]?.trPr;
-    if (tr7?.gridBefore && tr7.wBefore?.type === "dxa" && tr7.wBefore.w > 0) out.unshift({ col: 0, span: tr7.gridBefore, tcW: tr7.wBefore, measure: () => ({ min: 0, max: 0 }) });
+    const tr8 = table2.rows[ri]?.trPr;
+    if (tr8?.gridBefore && tr8.wBefore?.type === "dxa" && tr8.wBefore.w > 0) out.unshift({ col: 0, span: tr8.gridBefore, tcW: tr8.wBefore, measure: () => ({ min: 0, max: 0 }) });
     const end = rs.length ? rs[rs.length - 1].col + rs[rs.length - 1].span : 0;
-    if (tr7?.gridAfter && tr7.wAfter?.type === "dxa" && tr7.wAfter.w > 0) out.push({ col: end, span: tr7.gridAfter, tcW: tr7.wAfter, measure: () => ({ min: 0, max: 0 }) });
+    if (tr8?.gridAfter && tr8.wAfter?.type === "dxa" && tr8.wAfter.w > 0) out.push({ col: end, span: tr8.gridAfter, tcW: tr8.wAfter, measure: () => ({ min: 0, max: 0 }) });
     return out;
   });
   const floating = !!tblPr.tblpPr && tblPr.tblpPr.tblpYSpec !== "inline";
@@ -31405,7 +32031,7 @@ function gradientSamples(stops, n5 = 512) {
   }
   return out;
 }
-function gradientGeometry(g2, box, pathBox) {
+function gradientGeometry2(g2, box, pathBox) {
   const withShape = g2.rotWithShape !== false;
   const b5 = withShape ? box : { x: pathBox.x0, y: pathBox.y0, w: pathBox.x1 - pathBox.x0, h: pathBox.y1 - pathBox.y0 };
   const cx = b5.x + b5.w / 2, cy = b5.y + b5.h / 2;
@@ -31481,8 +32107,8 @@ function groupChild(gr, item, x3, y3, w2, h3) {
   if (r0.textbox) {
     const tb = { ...r0.textbox };
     if (tb.shape) tb.shape = xf(tb.shape);
-    const tr7 = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
-    if (tr7) tb.rot = tr7;
+    const tr8 = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
+    if (tr8) tb.rot = tr8;
     run2.textbox = tb;
   }
   if (r0.group) run2.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
@@ -31539,6 +32165,183 @@ var init_geometry = __esm({
     pin = (lo, v2, hi) => Math.max(lo, Math.min(hi, v2));
     OPEN_PRESETS = /* @__PURE__ */ new Set(["line", "straightConnector1", "bentConnector3", "bentConnector2", "curvedConnector3"]);
     hexRgb = (h3) => [parseInt(h3.slice(0, 2), 16), parseInt(h3.slice(2, 4), 16), parseInt(h3.slice(4, 6), 16)];
+  }
+});
+
+// ../docx-layout/src/page-fill.ts
+function resolvePageFill(bg, pageColor) {
+  const f3 = bg.fill;
+  if (!f3) return void 0;
+  const c1 = (f3.color ?? pageColor ?? "FFFFFF").toUpperCase();
+  const out = {
+    type: f3.type,
+    c1,
+    c2: resolveColor2(f3.color2, c1),
+    angle: f3.angle ?? 0,
+    focus: f3.focus ?? 0,
+    ...f3.colors?.length ? { stops: f3.colors } : {},
+    ...f3.focusPosition ? { focusPosition: f3.focusPosition } : {},
+    ...f3.gradientCenter ? { gradientCenter: true } : {}
+  };
+  if (f3.image) {
+    const info = imagePixelInfo(f3.image.data);
+    out.image = { data: f3.image.data, ext: f3.image.ext, widthTwips: info ? info.w * 1440 / info.dpi : 1440, heightTwips: info ? info.h * 1440 / info.dpi : 1440 };
+    if (info) out.imagePx = info;
+    if (f3.type === "pattern") {
+      const rows = patternRowsFromImage(f3.image.data);
+      if (rows) out.pattern = rows;
+    }
+  }
+  if (f3.type === "pattern" && !out.pattern) return void 0;
+  if ((f3.type === "frame" || f3.type === "tile") && !out.imagePx) return void 0;
+  return out;
+}
+function fillParam(f3, x3, y3, pdfCorner = false) {
+  const fo = f3.focus;
+  if (f3.type === "gradientRadial") {
+    if (f3.gradientCenter) {
+      const qx = pdfCorner ? x3 : tri(x3), qy = pdfCorner ? y3 : tri(y3);
+      const [fx2, fy2] = f3.focusPosition ?? [0, 0];
+      const p4 = Math.max(Math.abs(qx - fx2), Math.abs(qy - fy2));
+      return fo > 0 ? p4 : 1 - p4;
+    }
+    const [fx, fy] = f3.focusPosition ?? [0.5, 0.5];
+    const p3 = Math.min(1, Math.max(Math.abs(x3 - fx) / Math.max(fx, 1 - fx, 1e-6), Math.abs(y3 - fy) / Math.max(fy, 1 - fy, 1e-6)));
+    return fo > 0 ? p3 : 1 - p3;
+  }
+  let a3 = (f3.angle % 360 + 360) % 360;
+  if (a3 > 180) a3 -= 360;
+  if (near(a3, 0) || near(Math.abs(a3), 180)) return fo > 0 ? tri(y3) : 1 - tri(y3);
+  if (near(Math.abs(a3), 90)) return fo >= 75 || fo < 0 ? tri(x3) : 1 - tri(x3);
+  if (near(a3, -135) || near(a3, 45)) {
+    const q2 = (x3 + y3) / 2;
+    if (fo >= 75) return tri(q2);
+    if (fo > 0) return 1 - tri(fract(2 * q2));
+    if (fo < 0) return tri(fract(2 * q2));
+    return 1 - tri(q2);
+  }
+  if (near(a3, -45) || near(a3, 135)) {
+    const v2 = x3 - y3;
+    const base = 1 - Math.abs(((v2 + 1.5) % 2 + 2) % 2 - 1);
+    if (fo >= 75) return 1 - base;
+    if (fo > 0) return tri(fract(v2));
+    if (fo < 0) return 1 - tri(fract(v2));
+    return base;
+  }
+  const r6 = a3 * Math.PI / 180;
+  const dx = -Math.sin(r6), dy = Math.cos(r6);
+  const lo = Math.min(0, dx) + Math.min(0, dy), hi = Math.max(0, dx) + Math.max(0, dy);
+  const q = hi > lo ? (x3 * dx + y3 * dy - lo) / (hi - lo) : 0;
+  return fo > 0 ? tri(q) : 1 - tri(q);
+}
+function ramp(f3, n5) {
+  const stops = f3.stops?.length ? f3.stops : [{ pos: 0, color: f3.c1 }, { pos: 1, color: f3.c2 }];
+  return gradientSamples(stops, n5);
+}
+function gradientTilePx(f3, pdf) {
+  return pdf && f3.type === "gradientRadial" && f3.gradientCenter ? { w: 512, h: 384 } : { w: 1024, h: 768 };
+}
+function gradientTileRgba(f3, w2, h3, pdf = false) {
+  const N2 = 1024;
+  const lut = ramp(f3, N2);
+  const out = new Uint8Array(w2 * h3 * 4);
+  const corner = pdf && f3.type === "gradientRadial" && !!f3.gradientCenter;
+  for (let j = 0; j < h3; j++) {
+    const y3 = h3 > 1 ? j / (h3 - 1) : 0;
+    for (let i7 = 0; i7 < w2; i7++) {
+      const x3 = w2 > 1 ? i7 / (w2 - 1) : 0;
+      const k2 = Math.max(0, Math.min(N2 - 1, Math.round(fillParam(f3, x3, y3, corner) * (N2 - 1)))) * 3;
+      const o7 = (j * w2 + i7) * 4;
+      out[o7] = lut[k2];
+      out[o7 + 1] = lut[k2 + 1];
+      out[o7 + 2] = lut[k2 + 2];
+      out[o7 + 3] = 255;
+    }
+  }
+  return out;
+}
+function patternRgba(f3) {
+  const out = new Uint8Array(64 * 4);
+  const fg = hexRgb2(f3.c1), bg = hexRgb2(f3.c2);
+  for (let y3 = 0; y3 < 8; y3++) {
+    for (let x3 = 0; x3 < 8; x3++) {
+      const on = (f3.pattern?.[y3] ?? 0) >> 7 - x3 & 1;
+      const c5 = on ? fg : bg;
+      const o7 = (y3 * 8 + x3) * 4;
+      out[o7] = c5[0];
+      out[o7 + 1] = c5[1];
+      out[o7 + 2] = c5[2];
+      out[o7 + 3] = 255;
+    }
+  }
+  return out;
+}
+function pageFillTileTw(f3, devicePxTw, patternPxTw, pdf = false) {
+  if (f3.type === "gradient" || f3.type === "gradientRadial") {
+    const t6 = gradientTilePx(f3, pdf);
+    return { w: t6.w * devicePxTw, h: t6.h * devicePxTw };
+  }
+  if (f3.type === "pattern") return f3.pattern ? { w: 8 * patternPxTw, h: 8 * patternPxTw } : null;
+  const px = f3.imagePx;
+  if (!px || px.w <= 0 || px.h <= 0) return null;
+  if (f3.type === "frame") return { w: px.w * devicePxTw, h: px.h * devicePxTw };
+  const dpi = px.dpi > 0 ? px.dpi : 96;
+  return { w: px.w * 1440 / dpi, h: px.h * 1440 / dpi };
+}
+function imagePixelInfo(b5) {
+  if (b5[0] === 137 && b5[1] === 80) {
+    const w2 = (b5[16] << 24 | b5[17] << 16 | b5[18] << 8 | b5[19]) >>> 0, h3 = (b5[20] << 24 | b5[21] << 16 | b5[22] << 8 | b5[23]) >>> 0;
+    let dpi = 96;
+    for (let i7 = 8; i7 + 8 < b5.length; ) {
+      const len2 = (b5[i7] << 24 | b5[i7 + 1] << 16 | b5[i7 + 2] << 8 | b5[i7 + 3]) >>> 0;
+      const type = String.fromCharCode(b5[i7 + 4], b5[i7 + 5], b5[i7 + 6], b5[i7 + 7]);
+      if (type === "pHYs" && b5[i7 + 16] === 1) dpi = Math.round(((b5[i7 + 8] << 24 | b5[i7 + 9] << 16 | b5[i7 + 10] << 8 | b5[i7 + 11]) >>> 0) * 0.0254);
+      if (type === "IDAT" || type === "IEND") break;
+      i7 += 12 + len2;
+    }
+    return { w: w2, h: h3, dpi };
+  }
+  const jp = jpegInfo(b5);
+  if (jp) {
+    let dpi = 96;
+    if (b5[2] === 255 && b5[3] === 224 && b5[6] === 74 && b5[7] === 70 && b5[13] === 1) dpi = b5[14] << 8 | b5[15];
+    return { w: jp.width, h: jp.height, dpi: dpi || 96 };
+  }
+  if (b5[0] === 71 && b5[1] === 73 && b5[2] === 70) return { w: b5[6] | b5[7] << 8, h: b5[8] | b5[9] << 8, dpi: 96 };
+  if (b5[0] === 66 && b5[1] === 77) {
+    const w2 = b5[18] | b5[19] << 8 | b5[20] << 16, h3 = Math.abs(b5[22] | b5[23] << 8 | b5[24] << 16 | b5[25] << 24 | 0);
+    const ppm = (b5[38] | b5[39] << 8 | b5[40] << 16 | b5[41] << 24) >>> 0;
+    return { w: w2, h: h3, dpi: ppm ? Math.round(ppm * 0.0254) : 96 };
+  }
+  const png = decodePng(b5);
+  return png ? { w: png.width, h: png.height, dpi: 96 } : null;
+}
+function patternRowsFromImage(b5) {
+  const img = decodeGif(b5) ?? decodePng(b5);
+  if (!img || img.width < 8 || img.height < 8) return void 0;
+  const rows = [];
+  for (let y3 = 0; y3 < 8; y3++) {
+    let r6 = 0;
+    for (let x3 = 0; x3 < 8; x3++) {
+      const o7 = (y3 * img.width + x3) * 4;
+      const lum = 0.299 * img.data[o7] + 0.587 * img.data[o7 + 1] + 0.114 * img.data[o7 + 2];
+      if (lum >= 128) r6 |= 128 >> x3;
+    }
+    rows.push(r6);
+  }
+  return rows;
+}
+var tri, fract, near, hexRgb2;
+var init_page_fill = __esm({
+  "../docx-layout/src/page-fill.ts"() {
+    "use strict";
+    init_src();
+    init_geometry();
+    init_images();
+    tri = (q) => 1 - Math.abs(1 - 2 * q);
+    fract = (v2) => v2 - Math.floor(v2);
+    near = (a3, b5) => Math.abs(a3 - b5) < 0.5;
+    hexRgb2 = (h3) => [parseInt(h3.slice(0, 2), 16) || 0, parseInt(h3.slice(2, 4), 16) || 0, parseInt(h3.slice(4, 6), 16) || 0];
   }
 });
 
@@ -31622,8 +32425,8 @@ function liftFrames(blocks, stops) {
         const prevRuns = c5?.runs ?? [];
         const runs = [...prevRuns, run2];
         const base = c5 ? c5.para : src;
-        const para2 = { ...base, runs: [...base.runs, run2] };
-        c5 = { runs, para: para2 };
+        const para3 = { ...base, runs: [...base.runs, run2] };
+        c5 = { runs, para: para3 };
         anchorCache.set(src, c5);
       }
       out[k2] = { ...cur, paragraph: c5.para };
@@ -31817,8 +32620,8 @@ function vertRef(from, g2, ps, paraTop) {
 }
 function tbInsets(tb, theme, w2, h3) {
   const ins0 = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
-  const tr7 = tb.geom && w2 !== void 0 && h3 !== void 0 ? textRectInsets(tb.geom, w2, h3) : null;
-  const ins = tr7 ? { l: ins0.l + tr7.l, t: ins0.t + tr7.t, r: ins0.r + tr7.r, b: ins0.b + tr7.b } : ins0;
+  const tr8 = tb.geom && w2 !== void 0 && h3 !== void 0 ? textRectInsets(tb.geom, w2, h3) : null;
+  const ins = tr8 ? { l: ins0.l + tr8.l, t: ins0.t + tr8.t, r: ins0.r + tr8.r, b: ins0.b + tr8.b } : ins0;
   const li = tb.lineInset;
   const lw = li ? li.w ?? (li.ref ? theme?.lineWidthsPt?.[li.ref - 1] ?? [1, 1.5, 2][li.ref - 1] ?? 0.75 : 0) : tb.shape?.line?.widthPt ?? 0;
   const half = lw * 10;
@@ -31844,8 +32647,8 @@ function textRectInsets(g2, w2, h3) {
       return null;
   }
 }
-function alignPos(align, offset, base, span, size, pct, pageSpan, e0 = 0, e1 = 0) {
-  if (align && (e0 || e1)) return alignPos(align, offset, base, span, size + e0 + e1, pct, pageSpan) + e0;
+function alignPos(align, offset, base, span, size, pct2, pageSpan, e0 = 0, e1 = 0) {
+  if (align && (e0 || e1)) return alignPos(align, offset, base, span, size + e0 + e1, pct2, pageSpan) + e0;
   if (align) {
     switch (align) {
       case "center":
@@ -31858,7 +32661,7 @@ function alignPos(align, offset, base, span, size, pct, pageSpan, e0 = 0, e1 = 0
         return base;
     }
   }
-  if (pct !== void 0) return base + pct / 1e5 * pageSpan;
+  if (pct2 !== void 0) return base + pct2 / 1e5 * pageSpan;
   return base + (offset ?? 0);
 }
 function lineRecord(ref, p3, line2, frameX, top, frameW) {
@@ -31990,6 +32793,33 @@ function scratchPage(ps) {
     notes: []
   };
 }
+function rotatedInkY(items, m2, cx, cy, rotDeg) {
+  const r6 = rotDeg * Math.PI / 180, cs = Math.cos(r6), sn = Math.sin(r6);
+  let lo = Infinity, hi = -Infinity;
+  for (const it of items) {
+    if (it.t !== "glyphs") continue;
+    const font = it.face.font;
+    if (!font.glyphOutline) continue;
+    const k2 = it.sizePt * 20 / (font.metrics.unitsPerEm || 1e3);
+    const sxg = it.scaleX ?? 1;
+    for (const g2 of it.glyphs) {
+      const ol = font.glyphOutline(g2.gid ?? font.glyphId(g2.cp));
+      if (!ol) continue;
+      for (const c5 of ol) {
+        if (c5.op === "Z") continue;
+        const pts = c5.op === "Q" ? [[c5.cx, c5.cy], [c5.x, c5.y]] : [[c5.x, c5.y]];
+        for (const [px, py] of pts) {
+          const lx = g2.x + px * k2 * sxg, ly = it.y - py * k2;
+          const X = m2[0] * lx + m2[2] * ly + m2[4], Y = m2[1] * lx + m2[3] * ly + m2[5];
+          const Yr = cy + (X - cx) * sn + (Y - cy) * cs;
+          if (Yr < lo) lo = Yr;
+          if (Yr > hi) hi = Yr;
+        }
+      }
+    }
+  }
+  return lo <= hi ? { lo, hi } : null;
+}
 var balKey, zItems, CHAP_SEP, sameChapters, COL_SEP_W, Engine, PFMT, pfmtOf, ABSOLUTE_V, WRAPPING, MIN_GAP;
 var init_engine = __esm({
   "../docx-layout/src/engine.ts"() {
@@ -32010,6 +32840,7 @@ var init_engine = __esm({
     init_wmf();
     init_geometry();
     init_picture();
+    init_page_fill();
     init_frames();
     balKey = (g2) => g2.balKey ?? g2.index;
     zItems = (objs) => [...objs].sort((a3, b5) => a3.z - b5.z || a3.seq - b5.seq).flatMap((o7) => o7.items);
@@ -32197,8 +33028,8 @@ var init_engine = __esm({
           const saved = this.ctx.numbering;
           const st = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
           this.ctx.numbering = st;
-          const num3 = (para2) => {
-            const n5 = resolvePPr(this.ctx, para2, {}).ppr.numPr;
+          const num3 = (para3) => {
+            const n5 = resolvePPr(this.ctx, para3, {}).ppr.numPr;
             return n5?.numId ? st.next(n5.numId, n5.ilvl ?? 0) : null;
           };
           const visit = (b5) => {
@@ -32380,6 +33211,8 @@ var init_engine = __esm({
         }
         const bgSpec = full.background;
         const bg = bgSpec ? resolveColor({ ...bgSpec.color ? { val: bgSpec.color } : {}, ...bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}, ...bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}, ...bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {} }, this.ctx.fmt.theme) : void 0;
+        const bgFill = bgSpec?.fill ? resolvePageFill(bgSpec, bg) : void 0;
+        const bgShow = !!this.ctx.fmt.settings.displayBackgroundShape;
         const pages2 = this.pages.map((ps) => {
           const late = (arr) => {
             const keep = [], front = [], back = [];
@@ -32419,6 +33252,8 @@ var init_engine = __esm({
           }
           ps.page.hfItems = hfLayer.length;
           if (bg && bg.toUpperCase() !== "FFFFFF" && bg !== "auto") ps.page.background = bg;
+          if (bgFill) ps.page.backgroundFill = bgFill;
+          if (bgShow && (ps.page.background || bgFill)) ps.page.backgroundShow = true;
           return ps.page;
         });
         return { pages: pages2, warnings: [...this.ctx.warnings] };
@@ -32857,14 +33692,14 @@ var init_engine = __esm({
             if (this.ctx.rev.markGone(b5.paragraph) && this.noShownRuns(b5.paragraph) && !join4 && !delRuns) return;
             const merged = delRuns ? joinDeleted(delRuns, b5.paragraph) : b5.paragraph;
             delRuns = null;
-            const para2 = join4 ? this.joinHidden(join4, merged, env) : merged;
-            const p3 = prepareParagraph(this.ctx, para2, { ...env, noPageBreaks: true, ...join4 ? { numbering: false } : {} });
+            const para3 = join4 ? this.joinHidden(join4, merged, env) : merged;
+            const p3 = prepareParagraph(this.ctx, para3, { ...env, noPageBreaks: true, ...join4 ? { numbering: false } : {} });
             if (join4) p3.marker = join4.marker;
             join4 = null;
             if (p3.markStyle.hidden && bi < n5 - 1) {
               if (!p3.glyphs.length) return;
               if (blocks[bi + 1].type === "paragraph") {
-                join4 = { para: para2, marker: p3.marker };
+                join4 = { para: para3, marker: p3.marker };
                 return;
               }
             }
@@ -33227,8 +34062,8 @@ var init_engine = __esm({
         const styles9 = this.ctx.fmt.styles.styles;
         const sid = Object.values(styles9).find((d3) => d3.type === "character" && d3.name?.toLowerCase() === "line number")?.styleId;
         const rpr = sid ? { rStyle: sid } : {};
-        const para2 = { runs: [{ text: String(this.lnCount), props: runPropsFromRPr(rpr), rpr }], props: {}, ppr: {} };
-        const np = prepareParagraph(this.ctx, para2, { numbering: false });
+        const para3 = { runs: [{ text: String(this.lnCount), props: runPropsFromRPr(rpr), rpr }], props: {}, ppr: {} };
+        const np = prepareParagraph(this.ctx, para3, { numbering: false });
         const line2 = new LineBreaker(this.ctx, np).next({ left: 0, right: 2e4 });
         const x3 = colX - ln2.distance - line2.width;
         paintLine(this.ctx, this.cur.body, line2, x3, baseline - line2.baseline);
@@ -33300,8 +34135,8 @@ var init_engine = __esm({
         const env = { field: this.fieldValue(this.cur, blockIdx) };
         const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
         this.pendingDel = null;
-        const para2 = join4 ? this.joinHidden(join4, merged, env) : merged;
-        const p3 = prepareParagraph(this.ctx, para2, join4 ? { ...env, numbering: false } : env);
+        const para3 = join4 ? this.joinHidden(join4, merged, env) : merged;
+        const p3 = prepareParagraph(this.ctx, para3, join4 ? { ...env, numbering: false } : env);
         if (join4) p3.marker = join4.marker;
         if (p3.marker?.chapter !== void 0 && p3.styleId) {
           const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p3.styleId]?.name ?? "")?.[1];
@@ -33312,7 +34147,7 @@ var init_engine = __esm({
         if (p3.markStyle.hidden && blockIdx < g2.blocks[1]) {
           if (!p3.glyphs.length) return;
           if (this.full.blocks[blockIdx + 1]?.type === "paragraph") {
-            this.pendingJoin = { para: para2, marker: p3.marker };
+            this.pendingJoin = { para: para3, marker: p3.marker };
             return;
           }
         }
@@ -33709,10 +34544,10 @@ var init_engine = __esm({
       rowNoteIds(row2) {
         const ids = [];
         for (const l3 of row2.lines) {
-          const para2 = this.paraByRef(l3.ref);
-          if (!para2) continue;
+          const para3 = this.paraByRef(l3.ref);
+          if (!para3) continue;
           let off = 0;
-          for (const r6 of para2.runs) {
+          for (const r6 of para3.runs) {
             const len2 = r6.text.length;
             const id = r6.noteRef?.kind === "footnote" ? r6.noteRef.id : void 0;
             if (id !== void 0 && off + Math.max(len2, 1) > l3.start && off < Math.max(l3.end, l3.start + 1) && !ids.includes(id) && !this.cur.notes.some((n5) => n5.id === id)) ids.push(id);
@@ -33984,7 +34819,7 @@ var init_engine = __esm({
             const t6 = layoutTable(this.ctx, nb, 0, width, (cell, cx, cw, cenv, cref) => this.layoutCell(cell, cx, cw, cenv, cref), "preview");
             const r0 = t6.rows[0];
             if (!r0) return 0;
-            const startNeed = (r6, cap) => r6.cantSplit || (r6.natural ?? r6.height) < r6.height ? r6.height : Math.min(r6.height, cap);
+            const startNeed = (r6, cap2) => r6.cantSplit || (r6.natural ?? r6.height) < r6.height ? r6.height : Math.min(r6.height, cap2);
             const r1 = t6.rows[1];
             let chain = 0, k2 = 0;
             while (t6.rows[k2]?.keepNext && t6.rows[k2 + 1]) {
@@ -34510,16 +35345,16 @@ var init_engine = __esm({
         if (!floats.length) return frame2;
         const { left, right } = frame2;
         const crossed = right < left;
-        let tl = left, tr7 = right;
+        let tl = left, tr8 = right;
         if (crossed) {
           const col = this.colFrame();
           if (Math.abs(frameX - col.x) < 0.5) {
             tl = Math.min(left, 0);
-            tr7 = Math.max(left, col.w);
-          } else tr7 = left;
+            tr8 = Math.max(left, col.w);
+          } else tr8 = left;
         }
         let skipTo;
-        let free = [[tl, tr7]];
+        let free = [[tl, tr8]];
         let hit = false;
         let minBottom = Infinity;
         for (const f3 of floats) {
@@ -34535,7 +35370,7 @@ var init_engine = __esm({
             parts = (f3.wrap === "through" ? band : hull).map(([a3, b5]) => [a3 - f3.distL - frameX, b5 + f3.distR - frameX]);
           }
           const fl2 = parts ? parts[0][0] : f3.x - f3.distL - frameX, fr = parts ? parts[parts.length - 1][1] : f3.x + f3.w + f3.distR - frameX;
-          if (fr <= tl || fl2 >= tr7) continue;
+          if (fr <= tl || fl2 >= tr8) continue;
           if (f3.wrap === "topAndBottom") {
             skipTo = Math.max(skipTo ?? 0, bottom);
             continue;
@@ -34546,7 +35381,7 @@ var init_engine = __esm({
           let blocks = parts && side === "bothSides" ? parts : [[fl2, fr]];
           if (side === "left") blocks = [[fl2, Infinity]];
           else if (side === "right") blocks = [[-Infinity, fr]];
-          else if (side === "largest") blocks = [fl2 - tl >= tr7 - fr ? [fl2, Infinity] : [-Infinity, fr]];
+          else if (side === "largest") blocks = [fl2 - tl >= tr8 - fr ? [fl2, Infinity] : [-Infinity, fr]];
           for (const [bl, bh] of blocks) {
             const next = [];
             for (const [a3, b5] of free) {
@@ -34563,7 +35398,7 @@ var init_engine = __esm({
         if (hit) {
           const col = this.colFrame();
           const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
-          const ext = (a3, b5) => cR === Infinity ? [a3, b5] : [a3 <= tl + 0.5 ? Math.min(a3, cL) : a3, b5 >= tr7 - 0.5 ? Math.max(b5, cR) : b5];
+          const ext = (a3, b5) => cR === Infinity ? [a3, b5] : [a3 <= tl + 0.5 ? Math.min(a3, cL) : a3, b5 >= tr8 - 0.5 ? Math.max(b5, cR) : b5];
           free = free.filter(([a3, b5]) => {
             const [ea, eb] = ext(a3, b5);
             return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP;
@@ -34847,12 +35682,28 @@ var init_engine = __esm({
           if (tbContent) {
             const ins = tbInsets(tb, this.ctx.fmt.theme, w2, h3);
             const rot = tb.rot ?? s4?.rot ?? 0;
-            if (rot) out.push({ t: "xform", op: "push", m: rotation(x3 + w2 / 2, y3 + h3 / 2, rot) });
+            let art = null;
             if (tb.wordArt && tbContent.lines.length) {
               const x0 = Math.min(...tbContent.lines.map((l3) => l3.x)), x1 = Math.max(...tbContent.lines.map((l3) => l3.x + l3.width));
               const iw = Math.max(1, w2 - ins.l - ins.r), ih = Math.max(1, h3 - ins.t - ins.b);
               const sx = iw / Math.max(1, x1 - x0), sy = ih / Math.max(1, tbContent.height);
-              out.push({ t: "xform", op: "push", m: [sx, 0, 0, sy, x3 + ins.l - x0 * sx, y3 + ins.t] });
+              art = { m: [sx, 0, 0, sy, x3 + ins.l - x0 * sx, y3 + ins.t], dy: 0 };
+              const g0 = tb.vml ? tbContent.items.find((it) => it.t === "glyphs") : void 0;
+              if (g0 && tbContent.lines.length === 1) {
+                const fm = g0.face.font.metrics, u3 = fm.unitsPerEm || 1e3;
+                const desc = (fm.usWinDescent || -fm.descender) / u3;
+                const sy2 = ih / Math.max(1, g0.sizePt * 20);
+                art.m = [sx, 0, 0, sy2, x3 + ins.l - x0 * sx, y3 + ins.t + ih - ih * desc - g0.y * sy2];
+                if (rot % 180 !== 0 && tb.anchor?.posV.align === "center") {
+                  const ink = rotatedInkY(tbContent.items, art.m, x3 + w2 / 2, y3 + h3 / 2, rot);
+                  if (ink) art.dy = y3 + h3 / 2 - (ink.lo + ink.hi) / 2;
+                }
+              }
+            }
+            if (art?.dy) out.push({ t: "xform", op: "push", m: [1, 0, 0, 1, 0, art.dy] });
+            if (rot) out.push({ t: "xform", op: "push", m: rotation(x3 + w2 / 2, y3 + h3 / 2, rot) });
+            if (art) {
+              out.push({ t: "xform", op: "push", m: art.m });
               for (const it of tbContent.items) out.push(it.t === "glyphs" ? { ...it, asPath: true } : it);
               out.push({ t: "xform", op: "pop" });
             } else {
@@ -34881,6 +35732,7 @@ var init_engine = __esm({
               out.push({ t: "clip", op: "pop" });
             }
             if (rot) out.push({ t: "xform", op: "pop" });
+            if (art?.dy) out.push({ t: "xform", op: "pop" });
           }
         } else if (run2.group) {
           const gr = run2.group;
@@ -35268,9 +36120,20 @@ function renderPdf(result, opts = {}) {
   };
   const adjustedFor = /* @__PURE__ */ new Map();
   void adjusted2;
+  const bgImages = /* @__PURE__ */ new Map();
+  const bgImage = (key, make) => {
+    let h3 = bgImages.get(key);
+    if (!h3) {
+      const r6 = make();
+      h3 = doc.embedRgba(r6.rgba, r6.w, r6.h);
+      bgImages.set(key, h3);
+    }
+    return h3;
+  };
   for (const lp of result.pages) {
     const page2 = doc.addPage(lp.widthTw / T2, lp.heightTw / T2);
     if (lp.background) page2.fillRect(0, 0, lp.widthTw / T2, lp.heightTw / T2, hexColor(lp.background));
+    if (lp.backgroundFill) paintFillPdf(page2, lp, lp.backgroundFill, bgImage, imageFor);
     for (const it of lp.items) paintItem(page2, it, fontFor, imageFor, (g2, smp) => doc.addShading(g2, smp, page2.heightPt), pictureEnv);
   }
   return doc.build();
@@ -35308,12 +36171,12 @@ function glyphsAsPath(page2, it) {
     const gid = g2.gid ?? font.glyphId(g2.cp);
     const layers = it.colr ? font.colorLayers?.(gid) : null;
     if (layers) {
-      for (const L8 of layers) {
+      for (const L9 of layers) {
         const lc2 = [];
-        if (!outlineInto(lc2, font, L8.glyphId, g2.x / T2, base, sx, s4, skew)) continue;
+        if (!outlineInto(lc2, font, L9.glyphId, g2.x / T2, base, sx, s4, skew)) continue;
         if (!lc2.length) continue;
-        const a3 = L8.alpha * (it.alpha ?? 1);
-        page2.withAlpha(a3 < 1 ? a3 : void 0, void 0, () => page2.path(lc2, hexColor(L8.color ?? it.color)));
+        const a3 = L9.alpha * (it.alpha ?? 1);
+        page2.withAlpha(a3 < 1 ? a3 : void 0, void 0, () => page2.path(lc2, hexColor(L9.color ?? it.color)));
       }
       continue;
     }
@@ -35433,7 +36296,7 @@ function paintItem(page2, it, fontFor, imageFor, shade, pictureEnv) {
       }
       if (it.grad) {
         const pb = pathBounds(parts.flatMap((p3) => p3.cmds));
-        const g2 = gradientGeometry(it.grad, { x: x3, y: y3, w: w2, h: h3, rot: st.rot ?? 0 }, pb);
+        const g2 = gradientGeometry2(it.grad, { x: x3, y: y3, w: w2, h: h3, rot: st.rot ?? 0 }, pb);
         const sh = shade(g2, gradientSamples(it.grad.stops, it.grad.path ? 256 : 512));
         for (const p3 of parts) if (p3.fill) page2.withAlpha(st.fillAlpha, void 0, () => page2.fillShaded(p3.cmds, sh, p3.evenOdd));
         if (stroke) {
@@ -35469,16 +36332,16 @@ function paintItem(page2, it, fontFor, imageFor, shade, pictureEnv) {
 }
 function rotatePath(cmds, cx, cy, deg) {
   const r6 = deg * Math.PI / 180, c5 = Math.cos(r6), s4 = Math.sin(r6);
-  const tr7 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
+  const tr8 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
   return cmds.map((m2) => {
     if (m2.op === "M" || m2.op === "L") {
-      const [x3, y3] = tr7(m2.x, m2.y);
+      const [x3, y3] = tr8(m2.x, m2.y);
       return { op: m2.op, x: x3, y: y3 };
     }
     if (m2.op === "C") {
-      const [x1, y1] = tr7(m2.x1, m2.y1);
-      const [x22, y22] = tr7(m2.x2, m2.y2);
-      const [x3, y3] = tr7(m2.x, m2.y);
+      const [x1, y1] = tr8(m2.x1, m2.y1);
+      const [x22, y22] = tr8(m2.x2, m2.y2);
+      const [x3, y3] = tr8(m2.x, m2.y);
       return { op: "C", x1, y1, x2: x22, y2: y22, x: x3, y: y3 };
     }
     return m2;
@@ -35490,12 +36353,40 @@ function linePath(x3, y3, w2, h3, line2, flipH = false, flipV = false) {
   const [y1, y22] = flipV ? [y3 + h3, y3] : [y3, y3 + h3];
   return [{ op: "M", x: x1, y: y1 }, { op: "L", x: x22, y: y22 }];
 }
+function paintFillPdf(page2, lp, f3, bgImage, imageFor) {
+  const tile = pageFillTileTw(f3, 2.4, 20, true);
+  if (!tile) return;
+  let img = null;
+  let tw3 = tile.w / T2, th = tile.h / T2;
+  if (f3.type === "gradient" || f3.type === "gradientRadial") {
+    const pw = Math.max(2, Math.round(tw3 * 96 / 72)), ph = Math.max(2, Math.round(th * 96 / 72));
+    img = bgImage(
+      `g|${JSON.stringify([f3.type, f3.c1, f3.c2, f3.stops, f3.angle, f3.focus, f3.focusPosition, f3.gradientCenter])}|${pw}x${ph}`,
+      () => ({ rgba: gradientTileRgba(f3, pw, ph, true), w: pw, h: ph })
+    );
+  } else if (f3.type === "pattern") {
+    const base = patternRgba(f3);
+    img = bgImage(`p|${f3.c1}|${f3.c2}|${f3.pattern?.join(",")}`, () => {
+      const rgba = new Uint8Array(64 * 64 * 4);
+      for (let y3 = 0; y3 < 64; y3++) for (let x3 = 0; x3 < 64; x3++) rgba.set(base.subarray((y3 % 8 * 8 + x3 % 8) * 4, (y3 % 8 * 8 + x3 % 8) * 4 + 4), (y3 * 64 + x3) * 4);
+      return { rgba, w: 64, h: 64 };
+    });
+    tw3 *= 8;
+    th *= 8;
+  } else if (f3.image) img = imageFor(f3.image);
+  if (!img || tw3 <= 0 || th <= 0) return;
+  const W3 = lp.widthTw / T2, H2 = lp.heightTw / T2;
+  page2.pushClipRect(0, 0, W3, H2);
+  for (let y3 = 0; y3 < H2; y3 += th) for (let x3 = 0; x3 < W3; x3 += tw3) page2.drawImage(img, x3, y3, tw3, th);
+  page2.popClip();
+}
 var T2;
 var init_pdf = __esm({
   "../docx-layout/src/pdf.ts"() {
     "use strict";
     init_tree();
     init_pdf_writer();
+    init_page_fill();
     init_pdf_picture();
     init_geometry();
     init_fonts3();
@@ -35655,8 +36546,8 @@ function buildLayer(it, bmp, ppt0) {
     for (let i7 = 0; i7 < sil.a.length; i7++) sil.a[i7] = Math.min(sil.a[i7], a3[i7 * 4 + 3] / 255 / (look?.alpha ?? 1));
   }
   const box = { x: ox, y: oy, w: w2 * ppt, h: h3 * ppt };
-  const shape = canvas(W3, H2);
-  const sc = ctx2d(shape);
+  const shape2 = canvas(W3, H2);
+  const sc = ctx2d(shape2);
   sc.drawImage(pic, 0, 0);
   if (look?.shadow?.kind === "inner") {
     const s5 = look.shadow;
@@ -35703,7 +36594,7 @@ function buildLayer(it, bmp, ppt0) {
     const dx = r6.distPt * Math.cos(a3) * ppt, dy = r6.distPt * Math.sin(a3) * ppt;
     rx.translate(dx, 2 * (oy + h3 * ppt) + dy);
     rx.scale(1, -1);
-    rx.drawImage(shape, 0, 0);
+    rx.drawImage(shape2, 0, 0);
     const img = rx.getImageData(0, 0, W3, H2);
     const top = oy + h3 * ppt + dy;
     for (let y3 = 0; y3 < H2; y3++) {
@@ -35727,7 +36618,7 @@ function buildLayer(it, bmp, ppt0) {
     rx.putImageData(img, 0, 0);
     o7.drawImage(rc, 0, 0);
   }
-  o7.drawImage(shape, 0, 0);
+  o7.drawImage(shape2, 0, 0);
   return { c: out, x0: bb.x0, y0: bb.y0, ppt };
 }
 function paintPicture(ctx, it, bmp) {
@@ -35778,6 +36669,61 @@ var init_canvas_picture = __esm({
 });
 
 // ../docx-layout/src/canvas.ts
+function rgbaCanvas(rgba, w2, h3) {
+  const c5 = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(w2, h3) : typeof document !== "undefined" ? Object.assign(document.createElement("canvas"), { width: w2, height: h3 }) : null;
+  const x3 = c5?.getContext("2d");
+  if (!c5 || !x3) return null;
+  const id = x3.createImageData(w2, h3);
+  id.data.set(rgba);
+  x3.putImageData(id, 0, 0);
+  return c5;
+}
+function paintPageBackground(ctx, page2, env, opts) {
+  const show = !opts.screen || !!page2.backgroundShow;
+  const f3 = show ? page2.backgroundFill : void 0;
+  const solid = show && page2.background && !(f3 && (f3.type === "frame" || f3.type === "tile")) ? `#${page2.background}` : f3 && (f3.type === "frame" || f3.type === "tile") ? "#ffffff" : opts.paper;
+  ctx.fillStyle = solid;
+  ctx.fillRect(0, 0, page2.widthTw, page2.heightTw);
+  if (!f3) return;
+  const tile = pageFillTileTw(f3, opts.devicePxTw, opts.devicePxTw);
+  if (!tile) return;
+  let src = null;
+  let srcW = 1, srcH = 1;
+  if (f3.type === "gradient" || f3.type === "gradientRadial") {
+    const t6 = gradientTilePx(f3, false);
+    const key = `g|${JSON.stringify([f3.type, f3.c1, f3.c2, f3.stops, f3.angle, f3.focus, f3.focusPosition, f3.gradientCenter])}`;
+    src = fillTiles.get(key) ?? null;
+    if (!src) {
+      src = rgbaCanvas(gradientTileRgba(f3, t6.w, t6.h), t6.w, t6.h);
+      if (src) fillTiles.set(key, src);
+    }
+    srcW = t6.w;
+    srcH = t6.h;
+  } else if (f3.type === "pattern") {
+    const key = `p|${f3.c1}|${f3.c2}|${f3.pattern?.join(",")}`;
+    src = fillTiles.get(key) ?? null;
+    if (!src) {
+      src = rgbaCanvas(patternRgba(f3), 8, 8);
+      if (src) fillTiles.set(key, src);
+    }
+    srcW = 8;
+    srcH = 8;
+  } else if (f3.image) {
+    src = env.image(f3.image);
+    srcW = f3.imagePx?.w ?? 1;
+    srcH = f3.imagePx?.h ?? 1;
+  }
+  if (!src) return;
+  if (fillTiles.size > 32) fillTiles.clear();
+  const pat = ctx.createPattern(src, "repeat");
+  if (!pat) return;
+  pat.setTransform(new DOMMatrix([tile.w / srcW, 0, 0, tile.h / srcH, 0, 0]));
+  ctx.save();
+  if (f3.type === "pattern") ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, page2.widthTw, page2.heightTw);
+  ctx.restore();
+}
 function paintItems(ctx, items, env, opts = {}) {
   const from = opts.from ?? 0;
   const to = Math.min(items.length, opts.to ?? items.length);
@@ -36011,16 +36957,16 @@ function tracePath2(ctx, cmds) {
 }
 function rotatePath2(cmds, cx, cy, deg) {
   const r6 = deg * Math.PI / 180, c5 = Math.cos(r6), s4 = Math.sin(r6);
-  const tr7 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
+  const tr8 = (x3, y3) => [cx + (x3 - cx) * c5 - (y3 - cy) * s4, cy + (x3 - cx) * s4 + (y3 - cy) * c5];
   return cmds.map((m2) => {
     if (m2.op === "M" || m2.op === "L") {
-      const [x3, y3] = tr7(m2.x, m2.y);
+      const [x3, y3] = tr8(m2.x, m2.y);
       return { op: m2.op, x: x3, y: y3 };
     }
     if (m2.op === "C") {
-      const [x1, y1] = tr7(m2.x1, m2.y1);
-      const [x22, y22] = tr7(m2.x2, m2.y2);
-      const [x3, y3] = tr7(m2.x, m2.y);
+      const [x1, y1] = tr8(m2.x1, m2.y1);
+      const [x22, y22] = tr8(m2.x2, m2.y2);
+      const [x3, y3] = tr8(m2.x, m2.y);
       return { op: "C", x1, y1, x2: x22, y2: y22, x: x3, y: y3 };
     }
     return m2;
@@ -36061,13 +37007,15 @@ function shapePath(geom, x3, y3, w2, h3, line2, flipH = false, flipV = false) {
   }
   return [{ op: "M", x: x3, y: y3 }, { op: "L", x: x3 + w2, y: y3 }, { op: "L", x: x3 + w2, y: y3 + h3 }, { op: "L", x: x3, y: y3 + h3 }, { op: "Z" }];
 }
-var HEX6, K4;
+var HEX6, fillTiles, K4;
 var init_canvas = __esm({
   "../docx-layout/src/canvas.ts"() {
     "use strict";
     init_tree();
     init_canvas_picture();
+    init_page_fill();
     HEX6 = /^[0-9A-Fa-f]{6}$/;
+    fillTiles = /* @__PURE__ */ new Map();
     K4 = 0.5523;
   }
 });
@@ -36209,15 +37157,15 @@ var init_outline2 = __esm({
 });
 
 // ../docx-layout/src/paraformat.ts
-function inheritedPPr(fmt2, para2) {
-  const d3 = directPPr(para2);
+function inheritedPPr(fmt2, para3) {
+  const d3 = directPPr(para3);
   const base = {};
   if (d3.pStyle !== void 0) base.pStyle = d3.pStyle;
   if (d3.numPr) base.numPr = d3.numPr;
   return resolvePPr(ctxOf(fmt2), { runs: [], ppr: base, props: paraPropsFromPPr(base) }, {}).ppr;
 }
-function effectivePPr(fmt2, para2) {
-  return resolvePPr(ctxOf(fmt2), para2, {}).ppr;
+function effectivePPr(fmt2, para3) {
+  return resolvePPr(ctxOf(fmt2), para3, {}).ppr;
 }
 var NO_FONTS2, CTX, ctxOf;
 var init_paraformat = __esm({
@@ -36250,6 +37198,7 @@ var init_src4 = __esm({
     init_pdf();
     init_hyphenate();
     init_canvas();
+    init_page_fill();
     init_canvas_picture();
     init_picture();
     init_refs();
@@ -36276,8 +37225,8 @@ function browserUiLang() {
   }
   return DEFAULT_UI_LANG;
 }
-function uiLang(el13) {
-  const forced = el13?.getAttribute("lang");
+function uiLang(el14) {
+  const forced = el14?.getAttribute("lang");
   if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
   return browserUiLang();
 }
@@ -36309,25 +37258,25 @@ var init_viewer_controls = __esm({
 // ../../../shared/ui/src/font-embedding-dialog.ts
 function openFontEmbeddingDialog(opts) {
   const { app, settings: settings2 } = opts;
-  const L8 = pickLabels(opts.lang, LABELS);
+  const L9 = pickLabels(opts.lang, LABELS);
   const dlg = document.createElement("dialog");
   dlg.className = "uo-font-embedding";
   dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
-  const common = join3(COMMON_FONTS[app], L8);
+  const common = join3(COMMON_FONTS[app], L9);
   dlg.innerHTML = `
     <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
-      <strong style="font-size:1.1em">${L8.title}</strong>
-      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L8.embed}</span></label>
+      <strong style="font-size:1.1em">${L9.title}</strong>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L9.embed}</span></label>
       <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
         <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
-          <span>${L8.subset} <small style="opacity:.7">${L8.subsetNote}</small></span></label>
+          <span>${L9.subset} <small style="opacity:.7">${L9.subsetNote}</small></span></label>
         ${app === "write" ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
-               <span>${L8.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L8.neverEmbedded(common)}</small>`}
+               <span>${L9.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L9.neverEmbedded(common)}</small>`}
       </div>
-      <small style="opacity:.7">${L8.note}</small>
+      <small style="opacity:.7">${L9.note}</small>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-        <button value="cancel" type="submit">${L8.cancel}</button>
-        <button value="ok" type="submit">${L8.ok}</button>
+        <button value="cancel" type="submit">${L9.cancel}</button>
+        <button value="ok" type="submit">${L9.ok}</button>
       </div>
     </form>`;
   const box = (n5) => dlg.querySelector(`input[name="${n5}"]`);
@@ -36336,7 +37285,7 @@ function openFontEmbeddingDialog(opts) {
   subset.checked = settings2.subset;
   if (skipCommon) skipCommon.checked = settings2.skipCommonFonts;
   const sync = () => {
-    for (const el13 of dlg.querySelectorAll("[data-sub] input")) el13.disabled = !embed.checked;
+    for (const el14 of dlg.querySelectorAll("[data-sub] input")) el14.disabled = !embed.checked;
     dlg.querySelector("[data-sub]").style.opacity = embed.checked ? "1" : ".5";
   };
   embed.addEventListener("change", sync);
@@ -36356,16 +37305,16 @@ function openFontEmbeddingDialog(opts) {
   });
 }
 function describeFontEmbedding(detail, lang) {
-  const L8 = pickLabels(lang, LABELS);
+  const L9 = pickLabels(lang, LABELS);
   const parts = [];
-  if (detail.embedded.length) parts.push(`${L8.embedded}: ${join3(detail.embedded, L8)}`);
+  if (detail.embedded.length) parts.push(`${L9.embedded}: ${join3(detail.embedded, L9)}`);
   const by = /* @__PURE__ */ new Map();
   for (const s4 of detail.skipped) {
     if (s4.reason === "already-embedded") continue;
-    const r6 = L8.reasons[s4.reason];
+    const r6 = L9.reasons[s4.reason];
     by.set(r6, [...by.get(r6) ?? [], s4.family]);
   }
-  if (by.size) parts.push(`${L8.notEmbedded}: ${[...by].map(([r6, fs]) => `${join3(fs, L8)} (${r6})`).join("; ")}`);
+  if (by.size) parts.push(`${L9.notEmbedded}: ${[...by].map(([r6, fs]) => `${join3(fs, L9)} (${r6})`).join("; ")}`);
   return parts.join(" \xB7 ");
 }
 var LABELS, join3;
@@ -36406,7 +37355,7 @@ var init_font_embedding_dialog = __esm({
         notEmbedded: "n\xE3o incorporadas"
       }
     };
-    join3 = (xs, L8) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L8.and} ${xs[xs.length - 1]}`;
+    join3 = (xs, L9) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L9.and} ${xs[xs.length - 1]}`;
   }
 });
 
@@ -36711,6 +37660,7 @@ var init_symbols = __esm({
       "format_underlined": "M240-120Q223-120 211.5-131.5Q200-143 200-160Q200-177 211.5-188.5Q223-200 240-200H720Q737-200 748.5-188.5Q760-177 760-160Q760-143 748.5-131.5Q737-120 720-120ZM267-510V-789Q267-810 282.5-825Q298-840 319-840Q340-840 355-825Q370-810 370-789V-504Q370-448 398-413Q426-378 480-378Q534-378 562-413Q590-448 590-504V-789Q590-810 605.5-825Q621-840 642-840Q663-840 678-825Q693-810 693-789V-510Q693-406 637-343Q581-280 480-280Q379-280 323-343Q267-406 267-510Z",
       "functions": "M500-480 253-708Q247-714 243.5-721.5Q240-729 240-737V-760Q240-777 251.5-788.5Q263-800 280-800H660Q685-800 702.5-782.5Q720-765 720-740Q720-715 702.5-697.5Q685-680 660-680H431L615-509Q628-497 628-480Q628-463 615-451L431-280H660Q685-280 702.5-262.5Q720-245 720-220Q720-195 702.5-177.5Q685-160 660-160H269Q257-160 248.5-168.5Q240-177 240-189V-227Q240-233 242-238.5Q244-244 249-249Z",
       "gpp_maybe": "M480-320Q497-320 508.5-331.5Q520-343 520-360Q520-377 508.5-388.5Q497-400 480-400Q463-400 451.5-388.5Q440-377 440-360Q440-343 451.5-331.5Q463-320 480-320ZM520-520V-640Q520-657 508.5-668.5Q497-680 480-680Q463-680 451.5-668.5Q440-657 440-640V-520Q440-503 451.5-491.5Q463-480 480-480Q497-480 508.5-491.5Q520-503 520-520ZM455-88Q320-133 240-254.5Q160-376 160-516V-705Q160-730 174.5-750Q189-770 212-779L452-869Q466-874 480-874Q494-874 508-869L748-779Q771-770 785.5-750Q800-730 800-705V-516Q800-376 720-254.5Q640-133 505-88Q499-86 493-85Q487-84 480-84Q473-84 467-85Q461-86 455-88ZM480-164Q584-197 652-296Q720-395 720-516V-705Q720-705 720-705Q720-705 720-705L480-795Q480-795 480-795Q480-795 480-795L240-705Q240-705 240-705Q240-705 240-705V-516Q240-395 308-296Q376-197 480-164ZM480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Z",
+      "gradient": "M440-440V-520H520V-440ZM360-360V-440H440V-360ZM520-360V-440H600V-360ZM600-440V-520H680V-440ZM280-440V-520H360V-440ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM280-200H360V-280H280ZM440-200H520V-280H440ZM760-200V-280ZM200-280H280V-360H360V-280H440V-360H520V-280H600V-360H680V-280H760V-360H680V-440H760V-520V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-440H280V-360H200ZM200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM760-440V-360V-440ZM600-280V-200H680V-280Z",
       "grid_4x4": "M200-200H120Q103-200 91.5-211.5Q80-223 80-240Q80-257 91.5-268.5Q103-280 120-280H200V-440H120Q103-440 91.5-451.5Q80-463 80-480Q80-497 91.5-508.5Q103-520 120-520H200V-680H120Q103-680 91.5-691.5Q80-703 80-720Q80-737 91.5-748.5Q103-760 120-760H200V-840Q200-857 211.5-868.5Q223-880 240-880Q257-880 268.5-868.5Q280-857 280-840V-760H440V-840Q440-857 451.5-868.5Q463-880 480-880Q497-880 508.5-868.5Q520-857 520-840V-760H680V-840Q680-857 691.5-868.5Q703-880 720-880Q737-880 748.5-868.5Q760-857 760-840V-760H840Q857-760 868.5-748.5Q880-737 880-720Q880-703 868.5-691.5Q857-680 840-680H760V-520H840Q857-520 868.5-508.5Q880-497 880-480Q880-463 868.5-451.5Q857-440 840-440H760V-280H840Q857-280 868.5-268.5Q880-257 880-240Q880-223 868.5-211.5Q857-200 840-200H760V-120Q760-103 748.5-91.5Q737-80 720-80Q703-80 691.5-91.5Q680-103 680-120V-200H520V-120Q520-103 508.5-91.5Q497-80 480-80Q463-80 451.5-91.5Q440-103 440-120V-200H280V-120Q280-103 268.5-91.5Q257-80 240-80Q223-80 211.5-91.5Q200-103 200-120ZM280-280H440V-440H280ZM520-280H680V-440H520ZM280-520H440V-680H280ZM520-520H680V-680H520Z",
       "grid_on": "M200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H333V-333H200V-200Q200-200 200-200Q200-200 200-200ZM413-200H547V-333H413ZM627-200H760Q760-200 760-200Q760-200 760-200V-333H627ZM200-413H333V-547H200ZM413-413H547V-547H413ZM627-413H760V-547H627ZM200-627H333V-760H200Q200-760 200-760Q200-760 200-760ZM413-627H547V-760H413ZM627-627H760V-760Q760-760 760-760Q760-760 760-760H627Z",
       "grid_view": "M200-520Q167-520 143.5-543.5Q120-567 120-600V-760Q120-793 143.5-816.5Q167-840 200-840H360Q393-840 416.5-816.5Q440-793 440-760V-600Q440-567 416.5-543.5Q393-520 360-520ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-360Q120-393 143.5-416.5Q167-440 200-440H360Q393-440 416.5-416.5Q440-393 440-360V-200Q440-167 416.5-143.5Q393-120 360-120ZM600-520Q567-520 543.5-543.5Q520-567 520-600V-760Q520-793 543.5-816.5Q567-840 600-840H760Q793-840 816.5-816.5Q840-793 840-760V-600Q840-567 816.5-543.5Q793-520 760-520ZM600-120Q567-120 543.5-143.5Q520-167 520-200V-360Q520-393 543.5-416.5Q567-440 600-440H760Q793-440 816.5-416.5Q840-393 840-360V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-600H360V-760H200ZM600-600H760V-760H600ZM600-200H760V-360H600ZM200-200H360V-360H200ZM600-600ZM600-360ZM360-360ZM360-600Z",
@@ -36912,8 +37862,8 @@ function place(menu, at) {
   menu.style.left = `${Math.max(8, x3)}px`;
   menu.style.top = `${Math.max(8, y3)}px`;
 }
-function focusables(el13) {
-  return [...el13.querySelectorAll(":scope > .uo-menu-item:not([disabled])")];
+function focusables(el14) {
+  return [...el14.querySelectorAll(":scope > .uo-menu-item:not([disabled])")];
 }
 function build(items, level, opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
@@ -36978,11 +37928,11 @@ function build(items, level, opts) {
       closeFrom(level + 1);
       const sub = resolveItems(it.submenu, opts);
       if (!sub.length) return;
-      const el13 = build(sub, level + 1, opts);
-      (opts.layer ?? document.body).appendChild(el13);
-      place(el13, { anchor: b5, side: "right" });
-      stack.push({ el: el13, items: sub, parentBtn: b5 });
-      if (focus) focusables(el13)[0]?.focus();
+      const el14 = build(sub, level + 1, opts);
+      (opts.layer ?? document.body).appendChild(el14);
+      place(el14, { anchor: b5, side: "right" });
+      stack.push({ el: el14, items: sub, parentBtn: b5 });
+      if (focus) focusables(el14)[0]?.focus();
     };
     b5.addEventListener("click", (e8) => {
       e8.stopPropagation();
@@ -37007,13 +37957,13 @@ function openMenu(src, at, opts = {}) {
   closeMenus();
   const items = resolveItems(src, opts);
   if (!items.length) return null;
-  const el13 = build(items, 0, opts);
-  (opts.layer ?? document.body).appendChild(el13);
-  place(el13, at);
-  stack = [{ el: el13, items }];
+  const el14 = build(items, 0, opts);
+  (opts.layer ?? document.body).appendChild(el14);
+  place(el14, at);
+  stack = [{ el: el14, items }];
   rootOpts = opts;
   rootAnchor = "anchor" in at ? at.anchor : null;
-  if (opts.focus) focusables(el13)[0]?.focus();
+  if (opts.focus) focusables(el14)[0]?.focus();
   const inMenus = (e8) => {
     const path = e8.composedPath();
     return stack.some((l3) => path.includes(l3.el)) || !!rootAnchor && path.includes(rootAnchor);
@@ -37100,7 +38050,7 @@ function openMenu(src, at, opts = {}) {
     window.removeEventListener("resize", onBlur);
     window.removeEventListener("blur", onBlur);
   };
-  return el13;
+  return el14;
 }
 var stack, rootOpts, rootAnchor, detach, hoverTimer, labelText;
 var init_menu = __esm({
@@ -37124,21 +38074,21 @@ function closeDialogs(layer) {
 }
 function openDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
-  const L8 = pickLabels(lang, LABELS2);
+  const L9 = pickLabels(lang, LABELS2);
   const dlg = document.createElement("dialog");
   dlg.className = "uo-dialog";
   dlg.setAttribute("part", "dialog");
   if (opts.width) dlg.style.width = `${opts.width}px`;
   const head = document.createElement("div");
   head.className = "uo-dialog-head";
-  head.innerHTML = `${opts.icon ? `<span class="uo-dialog-icon">${symbol(opts.icon)}</span>` : ""}<span class="uo-dialog-title"></span><button type="button" class="uo-btn uo-dialog-x" title="${L8.close}">${symbol("close")}</button>`;
+  head.innerHTML = `${opts.icon ? `<span class="uo-dialog-icon">${symbol(opts.icon)}</span>` : ""}<span class="uo-dialog-title"></span><button type="button" class="uo-btn uo-dialog-x" title="${L9.close}">${symbol("close")}</button>`;
   head.querySelector(".uo-dialog-title").textContent = txt(opts.title, lang);
   const body = document.createElement("div");
   body.className = "uo-dialog-body";
   if (typeof opts.body === "string") body.textContent = opts.body;
   else body.appendChild(opts.body);
   dlg.append(head, body);
-  const actions = opts.actions ?? [{ id: "ok", label: L8.ok, primary: true }];
+  const actions = opts.actions ?? [{ id: "ok", label: L9.ok, primary: true }];
   if (actions.length) {
     const bar = document.createElement("div");
     bar.className = "uo-dialog-actions";
@@ -37205,7 +38155,7 @@ function openDialog(opts) {
 }
 async function promptDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
-  const L8 = pickLabels(lang, LABELS2);
+  const L9 = pickLabels(lang, LABELS2);
   const box = document.createElement("label");
   box.className = "uo-field";
   if (opts.label) {
@@ -37222,13 +38172,13 @@ async function promptDialog(opts) {
     body: box,
     layer: opts.layer,
     lang,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: opts.ok ?? L8.ok, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: opts.ok ?? L9.ok, primary: true }]
   });
   return await h3.result === "ok" ? input.value : null;
 }
 function dialogTabs(tabs, selected) {
-  const el13 = document.createElement("div");
-  el13.className = "uo-dtabs";
+  const el14 = document.createElement("div");
+  el14.className = "uo-dtabs";
   const strip = document.createElement("div");
   strip.className = "uo-dtabs-strip";
   strip.setAttribute("role", "tablist");
@@ -37269,8 +38219,8 @@ function dialogTabs(tabs, selected) {
     });
   }
   select5(cur);
-  el13.append(strip, panes2);
-  return { el: el13, select: select5, current: () => cur };
+  el14.append(strip, panes2);
+  return { el: el14, select: select5, current: () => cur };
 }
 function showToast(layer, message, ms = 2600) {
   layer.querySelector(":scope > .uo-toast")?.remove();
@@ -37513,7 +38463,7 @@ function renderGallery(cfg, ctx, inline) {
           b5.className = "uo-menu-item";
           if (m2.id) b5.dataset["a"] = m2.id;
           b5.disabled = !!m2.disabled;
-          b5.innerHTML = `<span class="lead">${m2.icon ? symbol(m2.icon) : ""}</span><span class="lb">${esc7(m2.label === void 0 ? "" : t6(m2.label))}</span>` + (m2.shortcut ? `<span class="sc">${esc7(m2.shortcut)}</span>` : "");
+          b5.innerHTML = `<span class="lead">${m2.icon ? symbol(m2.icon) : ""}</span><span class="lb">${esc9(m2.label === void 0 ? "" : t6(m2.label))}</span>` + (m2.shortcut ? `<span class="sc">${esc9(m2.shortcut)}</span>` : "");
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
           b5.addEventListener("click", () => {
             closeGallery();
@@ -37668,9 +38618,9 @@ var init_gallery = __esm({
 });
 
 // ../../../shared/ui/src/toolbar/items.ts
-function ripple(el13) {
-  if (customElements.get("u-ripple") && !el13.querySelector(":scope > u-ripple")) {
-    el13.appendChild(document.createElement("u-ripple"));
+function ripple(el14) {
+  if (customElements.get("u-ripple") && !el14.querySelector(":scope > u-ripple")) {
+    el14.appendChild(document.createElement("u-ripple"));
   }
 }
 function button(cls) {
@@ -37720,7 +38670,7 @@ function renderItem(item, ctx, defSize = "small") {
     b6.dataset["a"] = cmd;
     b6.title = reg.tooltip(cmd);
     b6.setAttribute("aria-label", reg.label(cmd));
-    b6.innerHTML = (icon ? symbol(icon) : "") + (showLabel2 || !icon ? `<span class="uo-lbl">${esc7(reg.label(cmd))}</span>` : "") + (c5?.color ? '<span class="uo-swbar"></span>' : "");
+    b6.innerHTML = (icon ? symbol(icon) : "") + (showLabel2 || !icon ? `<span class="uo-lbl">${esc9(reg.label(cmd))}</span>` : "") + (c5?.color ? '<span class="uo-swbar"></span>' : "");
     ripple(b6);
     b6.addEventListener("click", () => {
       void reg.run(cmd);
@@ -37780,7 +38730,7 @@ function renderItem(item, ctx, defSize = "small") {
   b5.setAttribute("aria-label", label);
   b5.setAttribute("aria-haspopup", "menu");
   const head = m2.text ? '<span class="uo-drop-text"></span>' : symbol(m2.icon);
-  b5.innerHTML = head + (showLabel ? `<span class="uo-lbl">${esc7(label)}</span>` : "") + CHEV();
+  b5.innerHTML = head + (showLabel ? `<span class="uo-lbl">${esc9(label)}</span>` : "") + CHEV();
   ripple(b5);
   const textEl = b5.querySelector(".uo-drop-text");
   b5.addEventListener("click", (e8) => {
@@ -37807,7 +38757,7 @@ function renderItem(item, ctx, defSize = "small") {
     }
   };
 }
-function esc7(s4) {
+function esc9(s4) {
   return s4.replace(/[<>&"]/g, (c5) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c5] ?? c5);
 }
 var CHEV;
@@ -37984,12 +38934,12 @@ function createCompactBar(container, cfg, ctx) {
   root.append(titlebar, row2);
   container.appendChild(root);
   const groups = cfg.groups.map((def) => {
-    const el13 = document.createElement("div");
-    el13.className = "uo-g";
-    el13.dataset["g"] = def.id;
+    const el14 = document.createElement("div");
+    el14.className = "uo-g";
+    el14.dataset["g"] = def.id;
     const items = (def.items ?? []).map((it) => renderItem(it, ctx));
-    for (const r6 of items) el13.appendChild(r6.el);
-    return { def, el: el13, items, width: 0, visible: true };
+    for (const r6 of items) el14.appendChild(r6.el);
+    return { def, el: el14, items, width: 0, visible: true };
   });
   const syncGroups = () => {
     let changed = false;
@@ -38133,11 +39083,11 @@ var init_compact = __esm({
 // ../../../shared/ui/src/toolbar/ribbon.ts
 function renderGroup(def, ctx) {
   const reg = ctx.registry;
-  const el13 = document.createElement("div");
-  el13.className = "uo-rgroup";
-  el13.dataset["g"] = def.id;
-  el13.setAttribute("role", "group");
-  el13.setAttribute("aria-label", reg.text(def.label));
+  const el14 = document.createElement("div");
+  el14.className = "uo-rgroup";
+  el14.dataset["g"] = def.id;
+  el14.setAttribute("role", "group");
+  el14.setAttribute("aria-label", reg.text(def.label));
   const body = document.createElement("div");
   body.className = "uo-rgroup-body";
   const items = [];
@@ -38165,7 +39115,7 @@ function renderGroup(def, ctx) {
   }
   const foot = document.createElement("div");
   foot.className = "uo-rgroup-foot";
-  foot.innerHTML = `<span class="uo-rgroup-lbl">${esc7(reg.text(def.label))}</span>`;
+  foot.innerHTML = `<span class="uo-rgroup-lbl">${esc9(reg.text(def.label))}</span>`;
   if (def.launcher) {
     const id = def.launcher;
     const b5 = document.createElement("button");
@@ -38189,8 +39139,8 @@ function renderGroup(def, ctx) {
       }
     });
   }
-  el13.append(body, foot);
-  return { def, el: el13, items, width: 0, visible: true };
+  el14.append(body, foot);
+  return { def, el: el14, items, width: 0, visible: true };
 }
 function createRibbon(container, cfg, ctx) {
   const reg = ctx.registry;
@@ -38305,7 +39255,7 @@ function createRibbon(container, cfg, ctx) {
     b5.className = "uo-btn uo-btn-lg uo-btn-lbl uo-rtrig";
     b5.dataset["g"] = g2.def.id;
     b5.title = reg.text(g2.def.label);
-    b5.innerHTML = symbol(g2.def.icon ?? "more_horiz") + `<span class="uo-lbl">${esc7(reg.text(g2.def.label))}</span><span class="uo-chev">${symbol("arrow_drop_down")}</span>`;
+    b5.innerHTML = symbol(g2.def.icon ?? "more_horiz") + `<span class="uo-lbl">${esc9(reg.text(g2.def.label))}</span><span class="uo-chev">${symbol("arrow_drop_down")}</span>`;
     b5.addEventListener("mousedown", (e8) => e8.preventDefault());
     b5.addEventListener("click", (e8) => {
       e8.stopPropagation();
@@ -38324,7 +39274,7 @@ function createRibbon(container, cfg, ctx) {
     b5.className = "uo-btn uo-btn-lg uo-btn-lbl uo-rtrig";
     b5.dataset["a"] = "more";
     b5.title = reg.text(L_MORE2);
-    b5.innerHTML = symbol("more_horiz") + `<span class="uo-lbl">${esc7(reg.text(L_MORE2))}</span>`;
+    b5.innerHTML = symbol("more_horiz") + `<span class="uo-lbl">${esc9(reg.text(L_MORE2))}</span>`;
     b5.addEventListener("mousedown", (e8) => e8.preventDefault());
     b5.addEventListener("click", (e8) => {
       e8.stopPropagation();
@@ -38582,18 +39532,18 @@ function openPane(o7) {
     return cur;
   }
   const lang = o7.lang ?? DEFAULT_UI_LANG;
-  const L8 = pickLabels(lang, LABELS3);
+  const L9 = pickLabels(lang, LABELS3);
   const txt2 = (l3) => typeof l3 === "string" ? l3 : pickLabels(lang, l3);
   const width = o7.width ?? 300;
   const height = o7.height ?? 220;
   const dock = o7.dock ?? "right";
-  const el13 = document.createElement("aside");
-  el13.className = "uo-pane";
-  el13.dataset["pane"] = o7.id;
-  el13.dataset["dock"] = dock;
-  el13.setAttribute("part", "pane");
-  el13.setAttribute("role", "complementary");
-  if (dock !== "bottom") el13.style.width = `${width}px`;
+  const el14 = document.createElement("aside");
+  el14.className = "uo-pane";
+  el14.dataset["pane"] = o7.id;
+  el14.dataset["dock"] = dock;
+  el14.setAttribute("part", "pane");
+  el14.setAttribute("role", "complementary");
+  if (dock !== "bottom") el14.style.width = `${width}px`;
   const head = document.createElement("div");
   head.className = "uo-pane-head";
   const title = document.createElement("span");
@@ -38603,40 +39553,40 @@ function openPane(o7) {
   x3.type = "button";
   x3.className = "uo-btn uo-pane-x";
   x3.dataset["a"] = `pane:${o7.id}:close`;
-  x3.title = L8.close;
-  x3.setAttribute("aria-label", L8.close);
+  x3.title = L9.close;
+  x3.setAttribute("aria-label", L9.close);
   x3.innerHTML = symbol("close");
   head.append(title, x3);
   const body = o7.body;
   body.classList.add("uo-pane-body");
-  el13.append(head, body);
+  el14.append(head, body);
   if (o7.footer) {
     o7.footer.classList.add("uo-pane-foot");
-    el13.appendChild(o7.footer);
+    el14.appendChild(o7.footer);
   }
-  el13.setAttribute("aria-label", txt2(o7.title));
-  o7.layer.appendChild(el13);
+  el14.setAttribute("aria-label", txt2(o7.title));
+  o7.layer.appendChild(el14);
   const place2 = () => {
     const r6 = o7.frame();
     const top = Math.max(0, r6.top), bottom = Math.min(r6.bottom, window.innerHeight);
     if (dock === "bottom") {
       const h3 = Math.min(height, Math.max(120, bottom - top));
-      el13.style.top = `${bottom - h3}px`;
-      el13.style.height = `${h3}px`;
-      el13.style.left = `${Math.max(0, r6.left)}px`;
-      el13.style.width = `${r6.width}px`;
+      el14.style.top = `${bottom - h3}px`;
+      el14.style.height = `${h3}px`;
+      el14.style.left = `${Math.max(0, r6.left)}px`;
+      el14.style.width = `${r6.width}px`;
       return;
     }
-    el13.style.top = `${top}px`;
-    el13.style.height = `${Math.max(120, bottom - top)}px`;
-    el13.style.left = `${Math.max(0, dock === "left" ? r6.left : r6.right - width)}px`;
+    el14.style.top = `${top}px`;
+    el14.style.height = `${Math.max(120, bottom - top)}px`;
+    el14.style.left = `${Math.max(0, dock === "left" ? r6.left : r6.right - width)}px`;
   };
   let open2 = true;
   const onWin = () => place2();
   window.addEventListener("resize", onWin);
   window.addEventListener("scroll", onWin, true);
   const handle = {
-    el: el13,
+    el: el14,
     body,
     get open() {
       return open2;
@@ -38644,7 +39594,7 @@ function openPane(o7) {
     place: place2,
     setTitle: (t6) => {
       title.textContent = txt2(t6);
-      el13.setAttribute("aria-label", txt2(t6));
+      el14.setAttribute("aria-label", txt2(t6));
     },
     close: () => {
       if (!open2) return;
@@ -38652,13 +39602,13 @@ function openPane(o7) {
       panes.delete(o7.id);
       window.removeEventListener("resize", onWin);
       window.removeEventListener("scroll", onWin, true);
-      el13.remove();
+      el14.remove();
       o7.onClose?.();
     }
   };
   x3.addEventListener("click", () => handle.close());
-  el13.addEventListener("keydown", (e8) => {
-    if (e8.key === "Escape" && e8.target === el13) handle.close();
+  el14.addEventListener("keydown", (e8) => {
+    if (e8.key === "Escape" && e8.target === el14) handle.close();
   });
   panes.set(o7.id, handle);
   place2();
@@ -38678,12 +39628,12 @@ var init_pane = __esm({
 // ../../../shared/ui/src/toolbar/ruler.ts
 function createRuler(opts) {
   const horiz = opts.orientation === "horizontal";
-  const L8 = pickLabels(opts.lang ?? DEFAULT_UI_LANG, LABELS4);
+  const L9 = pickLabels(opts.lang ?? DEFAULT_UI_LANG, LABELS4);
   const txt2 = (l3) => l3 === void 0 ? "" : typeof l3 === "string" ? l3 : pickLabels(opts.lang ?? DEFAULT_UI_LANG, l3);
-  const el13 = document.createElement("div");
-  el13.className = `uo-ruler uo-ruler-${horiz ? "h" : "v"}`;
-  el13.setAttribute("part", `ruler ruler-${horiz ? "h" : "v"}`);
-  el13.setAttribute("role", "presentation");
+  const el14 = document.createElement("div");
+  el14.className = `uo-ruler uo-ruler-${horiz ? "h" : "v"}`;
+  el14.setAttribute("part", `ruler ruler-${horiz ? "h" : "v"}`);
+  el14.setAttribute("role", "presentation");
   const canvas2 = document.createElement("canvas");
   canvas2.className = "uo-ruler-canvas";
   let selBtn = null;
@@ -38697,9 +39647,9 @@ function createRuler(opts) {
       selector = SELECTOR_ORDER[(SELECTOR_ORDER.indexOf(selector) + 1) % SELECTOR_ORDER.length];
       paintSelector();
     });
-    el13.appendChild(selBtn);
+    el14.appendChild(selBtn);
   }
-  el13.appendChild(canvas2);
+  el14.appendChild(canvas2);
   let model = null;
   let pending2;
   let drag = null;
@@ -38707,7 +39657,7 @@ function createRuler(opts) {
   let dpr = 1;
   const probe = document.createElement("span");
   probe.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden";
-  el13.appendChild(probe);
+  el14.appendChild(probe);
   const colors = () => {
     const v2 = (n5, d3) => {
       probe.style.color = `var(${n5}, ${d3})`;
@@ -38724,7 +39674,7 @@ function createRuler(opts) {
     };
   };
   const toTw = (px) => (px - (model?.offset ?? 0)) / (model?.scale || 1);
-  const toPx = (tw2) => (model?.offset ?? 0) + tw2 * (model?.scale ?? 1);
+  const toPx = (tw3) => (model?.offset ?? 0) + tw3 * (model?.scale ?? 1);
   const axis = (e8) => {
     const r6 = canvas2.getBoundingClientRect();
     return horiz ? { a: e8.clientX - r6.left, c: e8.clientY - r6.top } : { a: e8.clientY - r6.top, c: e8.clientX - r6.left };
@@ -38738,7 +39688,7 @@ function createRuler(opts) {
   };
   function paintSelector() {
     if (!selBtn) return;
-    selBtn.title = `${L8[selector]} \u2014 ${L8.selector}`;
+    selBtn.title = `${L9[selector]} \u2014 ${L9.selector}`;
     selBtn.setAttribute("aria-label", selBtn.title);
     const c5 = document.createElement("canvas");
     const s4 = 16, r6 = window.devicePixelRatio || 1;
@@ -38758,7 +39708,7 @@ function createRuler(opts) {
     g2.strokeStyle = ink;
     g2.fillStyle = fill;
     g2.lineWidth = 1;
-    const tri = (down, cy) => {
+    const tri2 = (down, cy) => {
       g2.beginPath();
       if (down) {
         g2.moveTo(x3 - 4.5, cy - 3.5);
@@ -38775,13 +39725,13 @@ function createRuler(opts) {
     };
     switch (kind) {
       case "first-line":
-        tri(true, y3);
+        tri2(true, y3);
         break;
       case "hanging":
-        tri(false, y3);
+        tri2(false, y3);
         break;
       case "right-indent":
-        tri(false, y3);
+        tri2(false, y3);
         break;
       case "left-indent":
         g2.fillRect(x3 - 4.5, y3 - 3, 9, 6);
@@ -38932,20 +39882,20 @@ function createRuler(opts) {
       const v2 = (drag.pos - model.zero) / unitTw;
       const label = `${(Math.round(v2 * 100) / 100).toLocaleString(opts.lang === "pt" ? "pt-BR" : "en-US")} ${model.unit === "cm" ? "cm" : '"'}`;
       g2.font = `${Math.max(9, Math.round(T7 * 0.45))}px var(--uo-font, "Segoe UI", system-ui, sans-serif)`;
-      const tw2 = g2.measureText(label).width + 8;
-      const lx = Math.min(len2 - tw2 - 2, Math.max(2, x3 + 6));
+      const tw3 = g2.measureText(label).width + 8;
+      const lx = Math.min(len2 - tw3 - 2, Math.max(2, x3 + 6));
       g2.fillStyle = col.accent;
       if (!horiz) {
         g2.save();
-        g2.translate(lx + tw2 / 2, mid);
+        g2.translate(lx + tw3 / 2, mid);
         g2.rotate(-Math.PI / 2);
-        g2.translate(-(lx + tw2 / 2), -mid);
+        g2.translate(-(lx + tw3 / 2), -mid);
       }
       g2.globalAlpha = 0.92;
-      g2.fillRect(lx, band.c0 + 1, tw2, band.c1 - band.c0 - 2);
+      g2.fillRect(lx, band.c0 + 1, tw3, band.c1 - band.c0 - 2);
       g2.globalAlpha = 1;
       g2.fillStyle = col.fill;
-      g2.fillText(label, lx + tw2 / 2, mid + 0.5);
+      g2.fillText(label, lx + tw3 / 2, mid + 0.5);
       if (!horiz) g2.restore();
     }
   }
@@ -38993,10 +39943,10 @@ function createRuler(opts) {
       paint();
     }
   });
-  const snap = (tw2, free) => {
-    if (free || !model) return Math.round(tw2);
+  const snap = (tw3, free) => {
+    if (free || !model) return Math.round(tw3);
     const st = rulerStep(model.unit);
-    return Math.round(model.zero + Math.round((tw2 - model.zero) / st) * st);
+    return Math.round(model.zero + Math.round((tw3 - model.zero) / st) * st);
   };
   const clamp = (m2, v2) => Math.max(m2.min ?? -Infinity, Math.min(m2.max ?? Infinity, v2));
   canvas2.addEventListener("pointerdown", (e8) => {
@@ -39005,17 +39955,17 @@ function createRuler(opts) {
     const { a: a3, c: c5 } = axis(e8);
     let m2 = markerAt(a3, c5);
     let provisional;
-    const tw2 = toTw(a3);
+    const tw3 = toTw(a3);
     if (!m2) {
       const ta = model.textArea;
-      if (!horiz || !ta || tw2 < ta[0] || tw2 > ta[1] || !opts.onAddTab) return;
+      if (!horiz || !ta || tw3 < ta[0] || tw3 > ta[1] || !opts.onAddTab) return;
       if (selector === "first-line" || selector === "hanging") {
         const target = model.markers.find((x3) => x3.kind === selector);
         if (!target) return;
         m2 = target;
       } else {
         provisional = selector;
-        m2 = { id: "__new", kind: `tab-${selector}`, pos: snap(tw2, e8.altKey), removable: true, min: ta[0], max: ta[1] };
+        m2 = { id: "__new", kind: `tab-${selector}`, pos: snap(tw3, e8.altKey), removable: true, min: ta[0], max: ta[1] };
       }
     }
     const base = /* @__PURE__ */ new Map();
@@ -39024,7 +39974,7 @@ function createRuler(opts) {
       if (g2) base.set(id, g2.pos);
     }
     const startPos = provisional ? m2.pos : m2.pos;
-    drag = { m: m2, start: startPos, pos: provisional || m2.kind === "first-line" || m2.kind === "hanging" ? clamp(m2, snap(tw2, e8.altKey)) : m2.pos, off: false, moved: !!provisional, base, provisional };
+    drag = { m: m2, start: startPos, pos: provisional || m2.kind === "first-line" || m2.kind === "hanging" ? clamp(m2, snap(tw3, e8.altKey)) : m2.pos, off: false, moved: !!provisional, base, provisional };
     if (!provisional && (m2.kind === "first-line" || m2.kind === "hanging") && Math.abs(drag.pos - m2.pos) > 1) drag.moved = true;
     canvas2.setPointerCapture(e8.pointerId);
     opts.onDrag?.(m2, drag.pos);
@@ -39046,7 +39996,7 @@ function createRuler(opts) {
     if (pending2 !== void 0) {
       model = pending2;
       pending2 = void 0;
-      el13.hidden = !model;
+      el14.hidden = !model;
     }
     if (!d3) return;
     try {
@@ -39076,19 +40026,19 @@ function createRuler(opts) {
     if (!model || !opts.onDblClick) return;
     const { a: a3, c: c5 } = axis(e8);
     const m2 = markerAt(a3, c5);
-    const tw2 = toTw(a3);
+    const tw3 = toTw(a3);
     if (m2) {
-      opts.onDblClick(m2, tw2);
+      opts.onDblClick(m2, tw3);
       return;
     }
-    const inShade = model.shaded.some(([x3, y3]) => tw2 >= x3 && tw2 <= y3) || tw2 < 0 || tw2 > model.length;
-    opts.onDblClick(inShade ? "margin" : "track", tw2);
+    const inShade = model.shaded.some(([x3, y3]) => tw3 >= x3 && tw3 <= y3) || tw3 < 0 || tw3 > model.length;
+    opts.onDblClick(inShade ? "margin" : "track", tw3);
   });
   const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => paint()) : null;
   ro?.observe(canvas2);
   paintSelector();
   return {
-    el: el13,
+    el: el14,
     get selector() {
       return selector;
     },
@@ -39098,12 +40048,12 @@ function createRuler(opts) {
         return;
       }
       model = m2;
-      el13.hidden = !m2;
+      el14.hidden = !m2;
       paint();
     },
     destroy() {
       ro?.disconnect();
-      el13.remove();
+      el14.remove();
     }
   };
 }
@@ -39814,7 +40764,7 @@ function M(t6, i7, s4 = t6, e8) {
   const o7 = a2(i7) ? void 0 : i7._$litDirective$;
   return h3?.constructor !== o7 && (h3?._$AO?.(false), void 0 === o7 ? h3 = void 0 : (h3 = new o7(t6), h3._$AT(t6, s4, e8)), void 0 !== e8 ? (s4._$Co ??= [])[e8] = h3 : s4._$Cl = h3), void 0 !== h3 && (i7 = M(t6, h3._$AS(t6, i7.values), h3, e8)), i7;
 }
-var t2, i4, s2, e3, h2, o3, n3, r3, l2, c4, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T4, E, A, C, P2, N, S2, R, k, H, I, L, z, Z, B, D;
+var t2, i4, s2, e3, h2, o3, n3, r3, l2, c4, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T4, E, A, C, P2, N, S2, R, k, H, I, L, z, Z, B, D2;
 var init_lit_html = __esm({
   "../../node_modules/lit-html/lit-html.js"() {
     t2 = globalThis;
@@ -40050,7 +41000,7 @@ var init_lit_html = __esm({
     };
     B = t2.litHtmlPolyfillSupport;
     B?.(S2, k), (t2.litHtmlVersions ??= []).push("3.3.3");
-    D = (t6, i7, s4) => {
+    D2 = (t6, i7, s4) => {
       const e8 = s4?.renderBefore ?? i7;
       let h3 = e8._$litPart$;
       if (void 0 === h3) {
@@ -40081,7 +41031,7 @@ var init_lit_element = __esm({
       }
       update(t6) {
         const r6 = this.render();
-        this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t6), this._$Do = D(r6, this.renderRoot, this.renderOptions);
+        this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t6), this._$Do = D2(r6, this.renderRoot, this.renderOptions);
       }
       connectedCallback() {
         super.connectedCallback(), this._$Do?.setConnected(true);
@@ -40466,8 +41416,8 @@ var init_ripple = __esm({
 });
 
 // src/chrome-host.ts
-function hostOf(el13) {
-  return el13.host ?? null;
+function hostOf(el14) {
+  return el14.host ?? null;
 }
 function bindHostFonts(host) {
   if (!host?.listFonts || !host.resolveFonts) return;
@@ -44041,8 +44991,8 @@ var init_chrome_theme = __esm({
 });
 
 // src/chrome-store.ts
-function instanceStore(el13) {
-  const key = () => el13.getAttribute("storage-key") || el13.id || null;
+function instanceStore(el14) {
+  const key = () => el14.getAttribute("storage-key") || el14.id || null;
   return {
     get: (name) => {
       const k2 = key();
@@ -44093,7 +45043,7 @@ function appFor(ed) {
   }
   return a3;
 }
-var MIME2, picker, WriteApp, apps;
+var MIME3, picker, WriteApp, apps;
 var init_chrome_app = __esm({
   "src/chrome-app.ts"() {
     "use strict";
@@ -44103,7 +45053,7 @@ var init_chrome_app = __esm({
     init_chrome_recents();
     init_chrome_theme();
     init_chrome_store();
-    MIME2 = {
+    MIME3 = {
       docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       odt: "application/vnd.oasis.opendocument.text"
     };
@@ -44340,7 +45290,7 @@ var init_chrome_app = __esm({
         if (p3.showOpenFilePicker) {
           try {
             const [h3] = await p3.showOpenFilePicker({
-              types: [{ description: "Documents", accept: { [MIME2.docx]: [".docx"], [MIME2.odt]: [".odt"], "application/msword": [".doc"] } }]
+              types: [{ description: "Documents", accept: { [MIME3.docx]: [".docx"], [MIME3.odt]: [".odt"], "application/msword": [".doc"] } }]
             });
             await this.openFile(await h3.getFile(), h3);
           } catch {
@@ -44380,7 +45330,7 @@ var init_chrome_app = __esm({
       /** Salva; true = gravado (cancelado/falhou: false, segue pendente). */
       async save(saveAs) {
         if (this.requestFromHost("save", { saveAs, format: this.format })) return true;
-        const L8 = this.ui?.L;
+        const L9 = this.ui?.L;
         let fmt2 = this.format;
         const host = hostOf(this.ed);
         const seq = this.changeSeq;
@@ -44400,7 +45350,7 @@ var init_chrome_app = __esm({
             this.setTitle(name);
             this.setDirty(this.changeSeq !== seq);
             this.lastAutosave = Date.now();
-            if (L8) this.ui?.flash(L8.saved(fmt2) + this.takeFontNote());
+            if (L9) this.ui?.flash(L9.saved(fmt2) + this.takeFontNote());
             return true;
           } catch {
             return false;
@@ -44411,8 +45361,8 @@ var init_chrome_app = __esm({
           try {
             if (!this.fileHandle || saveAs) {
               const types = [
-                { description: "DOCX document", accept: { [MIME2.docx]: [".docx"] } },
-                { description: "OpenDocument Text", accept: { [MIME2.odt]: [".odt"] } }
+                { description: "DOCX document", accept: { [MIME3.docx]: [".docx"] } },
+                { description: "OpenDocument Text", accept: { [MIME3.odt]: [".odt"] } }
               ];
               if (fmt2 === "odt") types.reverse();
               this.fileHandle = await p3.showSaveFilePicker({ suggestedName: `${this.docName}.${fmt2}`, types });
@@ -44435,13 +45385,13 @@ var init_chrome_app = __esm({
             }
             this.setDirty(this.changeSeq !== seq);
             this.lastAutosave = Date.now();
-            if (L8) this.ui?.flash(L8.saved(fmt2) + this.takeFontNote());
+            if (L9) this.ui?.flash(L9.saved(fmt2) + this.takeFontNote());
             return true;
           } catch {
             return false;
           }
         }
-        download(await this.bytesFor(fmt2), `${this.docName}.${fmt2}`, MIME2[fmt2]);
+        download(await this.bytesFor(fmt2), `${this.docName}.${fmt2}`, MIME3[fmt2]);
         this.setDirty(false);
         const note = this.takeFontNote();
         if (note) this.ui?.flash(note.slice(3));
@@ -44453,8 +45403,8 @@ var init_chrome_app = __esm({
       set autosaveMinutes(n5) {
         this.autosaveSession = String(n5);
         this.prefs.set("autosave", String(n5));
-        const L8 = this.ui?.L;
-        if (L8) this.ui?.flash(n5 <= 0 ? L8.autosaveOff : L8.autosaveEvery(String(n5)));
+        const L9 = this.ui?.L;
+        if (L9) this.ui?.flash(n5 <= 0 ? L9.autosaveOff : L9.autosaveEvery(String(n5)));
       }
       /** Salvamento automático (AutoRecuperação do Word: 10 min por padrão). */
       autosaveSession = null;
@@ -44516,7 +45466,7 @@ var init_chrome_app = __esm({
             download(await this.ed.exportMarkdown(n5, slim ? { images: "omit" } : {}), `${n5}${suf}.md`, "text/markdown;charset=utf-8");
             break;
           case "odt":
-            download(this.ed.exportOdt(), `${n5}.odt`, MIME2.odt);
+            download(this.ed.exportOdt(), `${n5}.odt`, MIME3.odt);
             break;
           case "xps":
             download(this.ed.exportXps(), `${n5}.xps`, "application/vnd.ms-xpsdocument");
@@ -44542,16 +45492,16 @@ var init_chrome_app = __esm({
       async askUpdateFields() {
         const ui = this.ui;
         if (!ui) return;
-        const L8 = ui.L;
+        const L9 = ui.L;
         const r6 = await openDialog({
-          title: L8.fieldsTitle,
+          title: L9.fieldsTitle,
           icon: "gpp_maybe",
-          body: L8.fieldsText,
+          body: L9.fieldsText,
           layer: ui.layer,
           lang: this.lang,
-          actions: [{ id: "no", label: L8.notNow }, { id: "update", label: L8.updateFields, primary: true }]
+          actions: [{ id: "no", label: L9.notNow }, { id: "update", label: L9.updateFields, primary: true }]
         }).result;
-        if (r6 === "update") ui.flash(this.ed.updateToc() ? L8.fieldsUpdated : L8.noFields);
+        if (r6 === "update") ui.flash(this.ed.updateToc() ? L9.fieldsUpdated : L9.noFields);
         this.ed.focusEditor();
       }
       get lang() {
@@ -44559,21 +45509,21 @@ var init_chrome_app = __esm({
       }
       // ───── comparar ─────
       async pickForCompare() {
-        const L8 = this.ui?.L;
+        const L9 = this.ui?.L;
         const host = hostOf(this.ed);
         if (host?.openFileForCompare || host?.openFile) {
           try {
-            const r6 = host.openFileForCompare ? await host.openFileForCompare(L8?.compareWith ?? "Compare with\u2026") : await host.openFile();
+            const r6 = host.openFileForCompare ? await host.openFileForCompare(L9?.compareWith ?? "Compare with\u2026") : await host.openFile();
             return r6 ? { name: r6.name, bytes: r6.bytes instanceof Uint8Array ? r6.bytes : new Uint8Array(r6.bytes) } : null;
           } catch {
-            if (L8) this.ui?.flash(`\u26A0 ${L8.readFailed}`);
+            if (L9) this.ui?.flash(`\u26A0 ${L9.readFailed}`);
             return null;
           }
         }
         const p3 = picker();
         if (p3.showOpenFilePicker) {
           try {
-            const [h3] = await p3.showOpenFilePicker({ types: [{ description: "DOCX document", accept: { [MIME2.docx]: [".docx"] } }] });
+            const [h3] = await p3.showOpenFilePicker({ types: [{ description: "DOCX document", accept: { [MIME3.docx]: [".docx"] } }] });
             const f3 = await h3.getFile();
             return { name: f3.name, bytes: new Uint8Array(await f3.arrayBuffer()) };
           } catch {
@@ -45023,15 +45973,15 @@ async function bordersShadingDialog(env, tab = "borders") {
   const sApply = sel("s-apply", applyOpts, inTable ? ts.cells ? "cell" : "table" : "paragraph");
   const swatch = el3("div", { style: "width:180px;height:70px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 30%, transparent)" });
   const syncShd = () => {
-    const para2 = sApply.value === "paragraph";
-    patStyle.disabled = para2;
-    patColor.el.toggleAttribute("disabled", para2);
+    const para3 = sApply.value === "paragraph";
+    patStyle.disabled = para3;
+    patColor.el.toggleAttribute("disabled", para3);
     const f4 = fill.value().hex, pc2 = patColor.value().hex;
     const bg = f4 === "auto" ? "#ffffff" : `#${f4}`;
     const fg = pc2 === "auto" ? "#000000" : `#${pc2}`;
-    const v2 = para2 ? "clear" : patStyle.value;
-    const pct = v2 === "solid" ? 100 : /^pct(\d+)/.test(v2) ? +v2.slice(3) + (v2 === "pct12" || v2 === "pct37" || v2 === "pct62" || v2 === "pct87" ? 0.5 : 0) : 0;
-    swatch.style.background = pct ? `color-mix(in srgb, ${fg} ${pct}%, ${bg})` : v2 === "clear" ? bg : `repeating-linear-gradient(${/vert/i.test(v2) ? 90 : /diag/i.test(v2) ? 45 : 0}deg, ${fg} 0 ${/thin/.test(v2) ? 1 : 2}px, ${bg} ${/thin/.test(v2) ? 1 : 2}px 4px)`;
+    const v2 = para3 ? "clear" : patStyle.value;
+    const pct2 = v2 === "solid" ? 100 : /^pct(\d+)/.test(v2) ? +v2.slice(3) + (v2 === "pct12" || v2 === "pct37" || v2 === "pct62" || v2 === "pct87" ? 0.5 : 0) : 0;
+    swatch.style.background = pct2 ? `color-mix(in srgb, ${fg} ${pct2}%, ${bg})` : v2 === "clear" ? bg : `repeating-linear-gradient(${/vert/i.test(v2) ? 90 : /diag/i.test(v2) ? 45 : 0}deg, ${fg} 0 ${/thin/.test(v2) ? 1 : 2}px, ${bg} ${/thin/.test(v2) ? 1 : 2}px 4px)`;
   };
   for (const c5 of [fill, patColor]) c5.onChange(syncShd);
   patStyle.addEventListener("change", syncShd);
@@ -45576,13 +46526,13 @@ var init_chrome_table = __esm({
             ctx.after();
           }
         });
-        const cap = (en, pt2) => {
+        const cap2 = (en, pt2) => {
           const d3 = document.createElement("div");
           d3.textContent = ctx.registry.text(L2(en, pt2));
           d3.style.cssText = "font-size:12px;opacity:.8;margin:6px 0 4px";
           return d3;
         };
-        box.append(cap("Theme Colors", "Cores do Tema"), theme, cap("Standard Colors", "Cores Padr\xE3o"), std);
+        box.append(cap2("Theme Colors", "Cores do Tema"), theme, cap2("Standard Colors", "Cores Padr\xE3o"), std);
         return box;
       }
     }, "-", { id: "table:shading:none", label: L2("No Color", "Sem Cor"), icon: "format_color_reset", onClick: () => {
@@ -45697,9 +46647,9 @@ var init_chrome_table = __esm({
     tableMenu = (env, ctx) => [{
       content: (close) => {
         const box = document.createElement("div");
-        const cap = document.createElement("div");
-        cap.style.cssText = "font-size:12.5px;margin-bottom:6px";
-        cap.textContent = env.app.ui.L.rows(1, 1);
+        const cap2 = document.createElement("div");
+        cap2.style.cssText = "font-size:12.5px;margin-bottom:6px";
+        cap2.textContent = env.app.ui.L.rows(1, 1);
         const g2 = document.createElement("div");
         g2.style.cssText = "display:grid;grid-template-columns:repeat(10,18px);gap:3px";
         const cells = [];
@@ -45707,7 +46657,7 @@ var init_chrome_table = __esm({
           const cell = document.createElement("div");
           cell.style.cssText = "width:18px;height:18px;border:1px solid currentColor;opacity:.35;border-radius:2px;cursor:pointer";
           cell.addEventListener("mouseenter", () => {
-            cap.textContent = env.app.ui.L.rows(r6, c5);
+            cap2.textContent = env.app.ui.L.rows(r6, c5);
             cells.forEach((x3, i7) => {
               const rr = Math.floor(i7 / 10) + 1, cc = i7 % 10 + 1;
               x3.style.opacity = rr <= r6 && cc <= c5 ? "1" : ".35";
@@ -45722,7 +46672,7 @@ var init_chrome_table = __esm({
           cells.push(cell);
           g2.appendChild(cell);
         }
-        box.append(cap, g2);
+        box.append(cap2, g2);
         return box;
       }
     }, "-", "table:insertDlg", "table:fromText", "table:excel", "-", {
@@ -45753,8 +46703,8 @@ var init_chrome_table = __esm({
         input.title = ctx.registry.text(which === "height" ? L2("Table Row Height", "Altura da Linha da Tabela") : L2("Table Column Width", "Largura da Coluna da Tabela"));
         input.setAttribute("aria-label", input.title);
         const dec = ctx.registry.text(L2(".", ","));
-        const cm = (tw3) => `${(Math.round(tw3 / 1440 * 254) / 100).toFixed(2).replace(".", dec)} cm`;
-        const tw2 = (s4) => {
+        const cm = (tw4) => `${(Math.round(tw4 / 1440 * 254) / 100).toFixed(2).replace(".", dec)} cm`;
+        const tw3 = (s4) => {
           const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.]/g, ""));
           return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
         };
@@ -45768,7 +46718,7 @@ var init_chrome_table = __esm({
           ctx.after();
         };
         const apply2 = () => {
-          const v2 = tw2(input.value);
+          const v2 = tw3(input.value);
           if (v2 !== void 0) set(v2);
         };
         input.addEventListener("change", apply2);
@@ -45916,12 +46866,12 @@ function templateTiles(env, ctx, gallery, wide) {
         b5.title = t6.name;
         b5.setAttribute("aria-label", t6.name);
         b5.style.cssText = "display:flex;flex-direction:column;gap:4px;align-items:stretch;padding:6px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left";
-        const cap = document.createElement("span");
-        cap.textContent = t6.name;
-        cap.style.cssText = "font-size:12px;opacity:.8";
+        const cap2 = document.createElement("span");
+        cap2.textContent = t6.name;
+        cap2.style.cssText = "font-size:12px;opacity:.8";
         const cv = document.createElement("canvas");
         cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
-        b5.append(cap, cv);
+        b5.append(cap2, cv);
         b5.addEventListener("mousedown", (e8) => e8.preventDefault());
         b5.addEventListener("click", () => {
           close();
@@ -45974,7 +46924,7 @@ function distanceWidget(env, which) {
       input.inputMode = "decimal";
       input.style.width = "64px";
       input.setAttribute("aria-label", title);
-      const fmt2 = (tw2) => `${(Math.round(tw2 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 })} ${u3.name}`;
+      const fmt2 = (tw3) => `${(Math.round(tw3 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 })} ${u3.name}`;
       const apply2 = () => {
         const n5 = parseFloat(input.value.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
         if (Number.isFinite(n5) && n5 >= 0) env.ed.setHeaderFooterDistance({ [which]: Math.round(n5 * u3.tw) });
@@ -46176,7 +47126,7 @@ async function hfOptionsDialog(env) {
   const o7 = ed.getHeaderFooterOptions();
   if (!o7) return;
   const u3 = lang === "pt" ? { tw: 1440 / 2.54, name: "cm" } : { tw: 1440, name: '"' };
-  const fmt2 = (tw2) => (Math.round(tw2 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
+  const fmt2 = (tw3) => (Math.round(tw3 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
   const parse = (v2) => {
     const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
     return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
@@ -47015,7 +47965,7 @@ var init_chrome_picture = __esm({
         input.setAttribute("aria-label", input.title);
         const dec = ctx.registry.text(L5(".", ","));
         const cm = (pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", dec)} cm`;
-        const ptOf3 = (s4) => {
+        const ptOf4 = (s4) => {
           const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.]/g, ""));
           return Number.isFinite(n5) ? n5 / 2.54 * 72 : void 0;
         };
@@ -47028,7 +47978,7 @@ var init_chrome_picture = __esm({
           ctx.after();
         };
         const apply2 = () => {
-          const v2 = ptOf3(input.value);
+          const v2 = ptOf4(input.value);
           if (v2 !== void 0) set(v2);
         };
         input.addEventListener("change", apply2);
@@ -47072,6 +48022,518 @@ var init_chrome_picture = __esm({
   }
 });
 
+// src/chrome-page.ts
+function registerPageCommands(reg, ed, app, ctl) {
+  const api = ed;
+  const has = (m2) => () => typeof api[m2] === "function";
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit3() && c5.isEnabled() : canEdit3 });
+  reg.add(
+    edit({ id: "page:noColor", label: L6("No Color", "Sem Cor"), icon: "format_color_reset", supports: has("setPageColor"), run: () => ed.setPageColor(null) }),
+    edit({ id: "dlg:pageFill", label: L6("Fill Effects\u2026", "Efeitos de Preenchimento\u2026"), icon: "gradient", supports: has("setPageFill"), run: () => ctl.pageBgDialog("fill") }),
+    edit({ id: "dlg:watermark", label: L6("Custom Watermark\u2026", "Personalizar Marca-d'\xC1gua\u2026"), icon: "branding_watermark", supports: has("setWatermark"), run: () => ctl.pageBgDialog("watermark") }),
+    edit({ id: "watermark:remove", label: L6("Remove Watermark", "Remover Marca-d'\xC1gua"), icon: "delete", supports: has("removeWatermark"), isEnabled: () => !!ed.watermark(), run: () => ed.removeWatermark() }),
+    edit({ id: "cover:remove", label: L6("Remove Current Cover Page", "Remover Folha de Rosto Atual"), icon: "delete", supports: has("removeCoverPage"), isEnabled: () => ed.hasCoverPage(), run: () => {
+      ed.removeCoverPage();
+    } }),
+    edit({ id: "blankPage", label: L6("Blank Page", "P\xE1gina em Branco"), tip: L6("Insert a new blank page at the cursor", "Insere uma p\xE1gina em branco no cursor"), icon: "note_add", supports: has("insertBlankPage"), run: () => ed.insertBlankPage() })
+  );
+}
+function pageColorMenu(env, ctx) {
+  const more = {
+    id: "page:moreColors",
+    icon: "palette",
+    label: L6("More Colors\u2026", "Mais Cores\u2026"),
+    onClick: () => {
+      const input = document.createElement("input");
+      input.type = "color";
+      const cur = env.ed.pageBackground()?.color;
+      if (cur) input.value = `#${cur.toLowerCase()}`;
+      input.style.cssText = "position:fixed;left:-100px;top:0;opacity:0";
+      ctx.layer.appendChild(input);
+      input.addEventListener("change", () => {
+        env.ed.setPageColor(input.value.slice(1).toUpperCase());
+        input.remove();
+        ctx.after();
+      });
+      input.addEventListener("blur", () => setTimeout(() => input.remove(), 1e3));
+      input.click();
+    }
+  };
+  return [{
+    content: (close) => {
+      const colors = env.ed.documentThemeColors();
+      const box = document.createElement("div");
+      box.className = "uw-page-color";
+      const theme = colorGrid({
+        colors: themePaletteColors(colors),
+        columns: 10,
+        close,
+        onPick: (v2) => {
+          const p3 = parseThemePick(v2, colors);
+          if (!p3) return;
+          const frac2 = (h3) => h3 ? Math.round((1 - parseInt(h3, 16) / 255) * 1e3) / 1e3 : void 0;
+          const tint = frac2(p3.tint), shade = frac2(p3.shade);
+          env.ed.setPageColor({ themeColor: p3.themeColor, ...tint !== void 0 ? { tint } : {}, ...shade !== void 0 ? { shade } : {} });
+          ctx.after();
+        }
+      });
+      const std = colorGrid({
+        colors: STANDARD_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })),
+        columns: 10,
+        close,
+        onPick: (h3) => {
+          env.ed.setPageColor(h3);
+          ctx.after();
+        }
+      });
+      box.append(cap(ctx, "Theme Colors", "Cores do Tema"), theme, cap(ctx, "Standard Colors", "Cores Padr\xE3o"), std);
+      return box;
+    }
+  }, "-", "page:noColor", more, "dlg:pageFill"];
+}
+function watermarkMenu(env, ctx) {
+  return [{
+    content: (close) => {
+      const box = document.createElement("div");
+      box.className = "uw-wm-gallery";
+      box.style.cssText = "padding:4px 6px;max-height:440px;overflow:auto";
+      let cat = "";
+      let grid2 = null;
+      for (const g2 of env.ed.watermarkGallery()) {
+        if (g2.categoryLabel !== cat) {
+          cat = g2.categoryLabel;
+          const h3 = document.createElement("div");
+          h3.textContent = cat;
+          h3.style.cssText = "font-size:12px;font-weight:600;opacity:.8;margin:8px 0 4px";
+          grid2 = document.createElement("div");
+          grid2.style.cssText = "display:grid;grid-template-columns:repeat(4, 88px);gap:6px";
+          box.append(h3, grid2);
+        }
+        const b5 = document.createElement("button");
+        b5.type = "button";
+        b5.dataset["watermark"] = g2.id;
+        b5.title = g2.label;
+        b5.setAttribute("aria-label", g2.label);
+        b5.style.cssText = "display:flex;flex-direction:column;gap:3px;align-items:center;padding:4px;border-radius:6px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit";
+        const cv = document.createElement("canvas");
+        cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
+        const t6 = document.createElement("span");
+        t6.textContent = g2.label;
+        t6.style.cssText = "font-size:10.5px;opacity:.8;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+        b5.append(cv, t6);
+        b5.addEventListener("mousedown", (e8) => e8.preventDefault());
+        b5.addEventListener("click", () => {
+          close();
+          env.ed.setWatermark(g2.id);
+          ctx.after();
+        });
+        grid2.append(b5);
+        requestAnimationFrame(() => {
+          env.ed.paintWatermarkTemplate(g2.id, cv, 68);
+        });
+      }
+      return box;
+    }
+  }, "-", "dlg:watermark", "watermark:remove"];
+}
+function coverPageMenu(env, ctx) {
+  return [{
+    content: (close) => {
+      const grid2 = document.createElement("div");
+      grid2.className = "uw-cover-gallery";
+      grid2.style.cssText = "display:grid;grid-template-columns:repeat(4, 88px);gap:8px;padding:6px;max-height:460px;overflow:auto";
+      for (const c5 of env.ed.coverPages()) {
+        const b5 = document.createElement("button");
+        b5.type = "button";
+        b5.dataset["cover"] = c5.id;
+        b5.title = c5.name;
+        b5.setAttribute("aria-label", c5.name);
+        b5.style.cssText = "display:flex;flex-direction:column;gap:4px;align-items:center;padding:6px 4px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit";
+        const cv = document.createElement("canvas");
+        cv.style.cssText = "display:block;border:1px solid rgba(127,127,127,.25);background:#fff";
+        const t6 = document.createElement("span");
+        t6.textContent = c5.name;
+        t6.style.cssText = "font-size:12px;opacity:.85";
+        b5.append(cv, t6);
+        b5.addEventListener("mousedown", (e8) => e8.preventDefault());
+        b5.addEventListener("click", () => {
+          close();
+          env.ed.insertCoverPage(c5.id);
+          ctx.after();
+        });
+        grid2.append(b5);
+        requestAnimationFrame(() => {
+          env.ed.paintCoverTemplate(c5.id, cv, 74);
+        });
+      }
+      return grid2;
+    }
+  }, "-", "cover:remove"];
+}
+function paintRgba(cv, rgba, w2, h3, cssW, cssH) {
+  cv.width = w2;
+  cv.height = h3;
+  cv.style.width = `${cssW}px`;
+  cv.style.height = `${cssH}px`;
+  const x3 = cv.getContext("2d");
+  const id = x3.createImageData(w2, h3);
+  id.data.set(rgba);
+  x3.putImageData(id, 0, 0);
+}
+function pickImage(onPick) {
+  const input = el5("input", { type: "file", accept: "image/png,image/jpeg,image/gif,image/bmp", style: "position:fixed;left:-100px;top:0;opacity:0" });
+  document.body.append(input);
+  input.addEventListener("change", async () => {
+    const f3 = input.files?.[0];
+    input.remove();
+    if (!f3) return;
+    const data8 = new Uint8Array(await f3.arrayBuffer());
+    onPick({ data: data8, ext: (f3.name.split(".").pop() ?? "png").toLowerCase(), name: f3.name });
+  });
+  input.click();
+}
+async function pageFillDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const opts = ed.pageFillOptions();
+  const cur = ed.pageBackground();
+  const f3 = cur?.fill;
+  const isGrad = f3?.type === "gradient" || f3?.type === "gradientRadial";
+  const oneM = /^\s*fill(?:\s+(darken|lighten)\((\d+)\))?\s*$/i.exec(f3?.color2 ?? "");
+  const cMode = isGrad && f3?.colors ? "preset" : isGrad && oneM ? "one" : "two";
+  const color1 = f3?.color ?? cur?.color ?? "4472C4";
+  const c1 = colorInput("c1", color1);
+  const c22 = colorInput("c2", isGrad && !oneM && f3?.color2 ? resolveColor2(f3.color2, color1) : "FFFFFF");
+  const deg0 = !oneM?.[1] ? 0.5 : oneM[1].toLowerCase() === "darken" ? Number(oneM[2]) / 510 : 1 - Number(oneM[2]) / 510;
+  const degree = el5("input", { type: "range", name: "degree", min: "0", max: "1", step: "0.01", value: String(Math.round(deg0 * 100) / 100), style: "width:140px" });
+  const preset = el5("select", { name: "preset" });
+  for (const p3 of opts.presets) preset.append(el5("option", { value: p3.id, textContent: p3.name }));
+  const curPreset = f3?.colors ? opts.presets.find((p3) => p3.stops.length === f3.colors.length && p3.stops.every((s4, i7) => s4.color.toUpperCase() === f3.colors[i7].color.toUpperCase())) : void 0;
+  if (curPreset) preset.value = curPreset.id;
+  let style0 = "horizontal", variant = 1;
+  if (isGrad) {
+    for (const [st] of STYLES) for (let v2 = 1; v2 <= GRADIENT_VARIANTS[st]; v2++) {
+      const g2 = gradientGeometry(st, v2);
+      const fp = (p3) => p3 ? p3.join(",") : "";
+      if (g2.type === f3.type && (g2.angle ?? 0) === (f3.angle ?? 0) && (g2.focus ?? 0) === (f3.focus ?? 0) && !!g2.gradientCenter === !!f3.gradientCenter && fp(g2.focusPosition) === fp(f3.focusPosition)) {
+        style0 = st;
+        variant = v2;
+      }
+    }
+  }
+  const modes = el5(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:6px" },
+    radio2("cmode", "one", tr3(lang, "One color", "Uma cor"), cMode === "one"),
+    radio2("cmode", "two", tr3(lang, "Two colors", "Duas cores"), cMode === "two"),
+    radio2("cmode", "preset", tr3(lang, "Preset", "Predefini\xE7\xE3o"), cMode === "preset")
+  );
+  const colorsRow = el5(
+    "div",
+    { className: "uo-dialog-grid" },
+    el5("span", {}, tr3(lang, "Color 1", "Cor 1")),
+    c1,
+    el5("span", {}, tr3(lang, "Color 2", "Cor 2")),
+    c22,
+    el5("span", {}, tr3(lang, "Dark \u2194 Light", "Escuro \u2194 Claro")),
+    degree,
+    el5("span", {}, tr3(lang, "Preset colors", "Cores predefinidas")),
+    preset
+  );
+  const styles9 = el5(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:4px" },
+    ...STYLES.map(([v2, en, pt2]) => radio2("gstyle", v2, tr3(lang, en, pt2), v2 === style0))
+  );
+  const variants = el5("div", { style: "display:grid;grid-template-columns:repeat(2, auto);gap:6px" });
+  const sample = el5("canvas", { style: "border:1px solid rgba(127,127,127,.4)" });
+  const gStyle = () => styles9.querySelector("input:checked")?.value ?? "horizontal";
+  const cmode = () => modes.querySelector("input:checked")?.value ?? "two";
+  const paintOf = (style, v2) => {
+    const geo = gradientGeometry(style, v2);
+    const m2 = cmode();
+    const pre = GRADIENT_PRESETS.find((p3) => p3.id === preset.value) ?? GRADIENT_PRESETS[0];
+    const a3 = m2 === "preset" ? pre.stops[0].color : hexOf(c1);
+    const b5 = m2 === "one" ? resolveColor2(oneColorGradientColor2(Number(degree.value)), a3) : m2 === "two" ? hexOf(c22) : pre.stops[pre.stops.length - 1].color;
+    return { type: geo.type, c1: a3, c2: b5, angle: geo.angle ?? 0, focus: geo.focus ?? 0, ...geo.focusPosition ? { focusPosition: geo.focusPosition } : {}, ...geo.gradientCenter ? { gradientCenter: true } : {}, ...m2 === "preset" ? { stops: pre.stops } : {} };
+  };
+  const refreshGradient = () => {
+    const m2 = cmode();
+    c22.disabled = m2 !== "two";
+    degree.disabled = m2 !== "one";
+    preset.disabled = m2 !== "preset";
+    c1.disabled = m2 === "preset";
+    const style = gStyle();
+    const n5 = GRADIENT_VARIANTS[style];
+    if (variant > n5) variant = 1;
+    variants.replaceChildren();
+    for (let v2 = 1; v2 <= n5; v2++) {
+      const cv = el5("canvas", { style: `cursor:pointer;border:2px solid ${v2 === variant ? "var(--u-color-primary,#005bc0)" : "transparent"}` });
+      cv.title = `${tr3(lang, "Variant", "Variante")} ${v2}`;
+      paintRgba(cv, gradientTileRgba(paintOf(style, v2), 64, 48), 64, 48, 64, 48);
+      cv.addEventListener("click", () => {
+        variant = v2;
+        refreshGradient();
+      });
+      variants.append(cv);
+    }
+    paintRgba(sample, gradientTileRgba(paintOf(style, variant), 96, 72), 96, 72, 96, 72);
+  };
+  const gradBody = el5(
+    "div",
+    { style: "display:grid;grid-template-columns:auto auto;gap:14px 18px;align-items:start" },
+    el5("div", { style: "display:flex;flex-direction:column;gap:8px" }, el5("strong", {}, tr3(lang, "Colors", "Cores")), modes, colorsRow),
+    el5("div", { style: "display:flex;flex-direction:column;gap:8px" }, el5("strong", {}, tr3(lang, "Sample", "Amostra")), sample),
+    el5("div", { style: "display:flex;flex-direction:column;gap:8px" }, el5("strong", {}, tr3(lang, "Shading styles", "Estilos de sombreamento")), styles9),
+    el5("div", { style: "display:flex;flex-direction:column;gap:8px" }, el5("strong", {}, tr3(lang, "Variants", "Varia\xE7\xF5es")), variants)
+  );
+  gradBody.addEventListener("change", refreshGradient);
+  degree.addEventListener("input", refreshGradient);
+  const isPat = f3?.type === "pattern";
+  let pattern = (isPat ? opts.patterns.find((p3) => p3.name === f3.title?.trim())?.id : void 0) ?? opts.patterns[0].id;
+  const fg = colorInput("fg", isPat && f3.color ? f3.color : "000000"), bg = colorInput("bg", isPat ? resolveColor2(f3.color2, f3.color ?? "000000") : "FFFFFF");
+  const patGrid = el5("div", { style: "display:grid;grid-template-columns:repeat(8, auto);gap:4px" });
+  const patSample = el5("canvas", { style: "border:1px solid rgba(127,127,127,.4);image-rendering:pixelated" });
+  const patName = el5("span", { style: "font-size:12px;opacity:.85" });
+  const patPaint = (prst) => ({ type: "pattern", c1: hexOf(fg), c2: hexOf(bg), angle: 0, focus: 0, pattern: patternRows(prst) ?? [] });
+  const tileRgba = (rgba8, reps) => {
+    const n5 = 8 * reps, out = new Uint8Array(n5 * n5 * 4);
+    for (let y3 = 0; y3 < n5; y3++) for (let x3 = 0; x3 < n5; x3++) out.set(rgba8.subarray((y3 % 8 * 8 + x3 % 8) * 4, (y3 % 8 * 8 + x3 % 8) * 4 + 4), (y3 * n5 + x3) * 4);
+    return out;
+  };
+  const refreshPattern = () => {
+    patGrid.replaceChildren();
+    for (const p3 of opts.patterns) {
+      const cv = el5("canvas", { style: `cursor:pointer;image-rendering:pixelated;border:2px solid ${p3.id === pattern ? "var(--u-color-primary,#005bc0)" : "rgba(127,127,127,.3)"}` });
+      cv.title = p3.name;
+      paintRgba(cv, tileRgba(patternRgba(patPaint(p3.id)), 3), 24, 24, 24, 24);
+      cv.addEventListener("click", () => {
+        pattern = p3.id;
+        refreshPattern();
+      });
+      patGrid.append(cv);
+    }
+    patName.textContent = opts.patterns.find((p3) => p3.id === pattern)?.name ?? "";
+    paintRgba(patSample, tileRgba(patternRgba(patPaint(pattern)), 12), 96, 96, 96, 96);
+  };
+  const patBody = el5(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px" },
+    el5("strong", {}, tr3(lang, "Pattern", "Padr\xE3o")),
+    patGrid,
+    patName,
+    el5("div", { className: "uo-dialog-grid" }, el5("span", {}, tr3(lang, "Foreground", "Primeiro plano")), fg, el5("span", {}, tr3(lang, "Background", "Plano de fundo")), bg),
+    el5("strong", {}, tr3(lang, "Sample", "Amostra")),
+    patSample
+  );
+  fg.addEventListener("input", refreshPattern);
+  bg.addEventListener("input", refreshPattern);
+  const files = { texture: null, picture: null };
+  const imgPane = (kind) => {
+    const prev = el5("img", { alt: "", style: "max-width:280px;max-height:180px;border:1px solid rgba(127,127,127,.4);display:none" });
+    const name = el5("span", { style: "font-size:12px;opacity:.85" });
+    const btn2 = el5("button", { type: "button", className: "uo-pill", textContent: kind === "texture" ? tr3(lang, "Other Texture\u2026", "Outra Textura\u2026") : tr3(lang, "Select Picture\u2026", "Selecionar Imagem\u2026") });
+    btn2.addEventListener("click", () => pickImage((file) => {
+      files[kind] = file;
+      name.textContent = file.name;
+      prev.src = URL.createObjectURL(new Blob([file.data.slice().buffer]));
+      prev.style.display = "block";
+    }));
+    const note = kind === "texture" ? tr3(lang, "The image repeats across the page at its natural size.", "A imagem se repete pela p\xE1gina no tamanho natural.") : tr3(lang, "The picture repeats across the page, as in the desktop app.", "A imagem se repete pela p\xE1gina, como no aplicativo de mesa.");
+    return el5("div", { style: "display:flex;flex-direction:column;gap:10px;align-items:flex-start" }, btn2, name, prev, el5("span", { style: "font-size:12px;opacity:.7" }, note));
+  };
+  const tabs = dialogTabs([
+    { id: "gradient", label: tr3(lang, "Gradient", "Gradiente"), body: gradBody },
+    { id: "texture", label: tr3(lang, "Texture", "Textura"), body: imgPane("texture") },
+    { id: "pattern", label: tr3(lang, "Pattern", "Padr\xE3o"), body: patBody },
+    { id: "picture", label: tr3(lang, "Picture", "Imagem"), body: imgPane("picture") }
+  ], cur?.fill?.type === "pattern" ? "pattern" : cur?.fill?.type === "tile" ? "texture" : cur?.fill?.type === "frame" ? "picture" : "gradient");
+  const h3 = openDialog({
+    title: tr3(lang, "Fill Effects", "Efeitos de Preenchimento"),
+    icon: "gradient",
+    body: tabs.el,
+    layer: env.layer,
+    lang,
+    width: 560,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  refreshGradient();
+  refreshPattern();
+  if (await h3.result !== "ok") return;
+  let input = null;
+  switch (tabs.current()) {
+    case "gradient": {
+      const m2 = cmode(), style = gStyle();
+      input = m2 === "one" ? { type: "gradient", colors: "one", color: hexOf(c1), degree: Number(degree.value), style, variant } : m2 === "two" ? { type: "gradient", colors: "two", color: hexOf(c1), color2: hexOf(c22), style, variant } : { type: "gradient", colors: "preset", preset: preset.value, style, variant };
+      break;
+    }
+    case "pattern":
+      input = { type: "pattern", pattern, color: hexOf(fg), background: hexOf(bg) };
+      break;
+    case "texture":
+      if (files.texture) input = { type: "texture", ...files.texture };
+      break;
+    case "picture":
+      if (files.picture) input = { type: "picture", ...files.picture };
+      break;
+  }
+  if (input) ed.setPageFill(input);
+}
+async function watermarkDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const cur = ed.watermark();
+  const none = radio2("wmkind", "none", tr3(lang, "No watermark", "Sem marca-d'\xE1gua"), !cur);
+  const pic = radio2("wmkind", "picture", tr3(lang, "Picture watermark", "Marca-d'\xE1gua de imagem"), cur?.kind === "picture");
+  const txt2 = radio2("wmkind", "text", tr3(lang, "Text watermark", "Marca-d'\xE1gua de texto"), cur?.kind === "text");
+  let image = cur?.kind === "picture" && cur.image ? { data: cur.image, ext: sniffExt(cur.image), name: cur.title } : null;
+  const picName = el5("span", { style: "font-size:12px;opacity:.85", textContent: image?.name ?? "" });
+  const picBtn = el5("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Select Picture\u2026", "Selecionar Imagem\u2026") });
+  picBtn.addEventListener("click", () => pickImage((f3) => {
+    image = f3;
+    picName.textContent = f3.name;
+    pic.querySelector("input").checked = true;
+    sync();
+  }));
+  const scale = el5("select", { name: "scale" });
+  for (const [v2, t6] of [["auto", tr3(lang, "Auto", "Autom\xE1tico")], ["500", "500%"], ["200", "200%"], ["150", "150%"], ["100", "100%"], ["50", "50%"]]) scale.append(el5("option", { value: v2, textContent: t6 }));
+  const washout = check2("washout", tr3(lang, "Washout", "Desbotar"), cur?.kind === "picture" ? cur.washout : true);
+  const langSel = el5("select", { name: "wmlang" });
+  for (const [v2, t6] of [["pt", "Portugu\xEAs (Brasil)"], ["en", tr3(lang, "English (United States)", "Ingl\xEAs (Estados Unidos)")]]) langSel.append(el5("option", { value: v2, textContent: t6 }));
+  langSel.value = cur?.kind === "text" && cur.lang ? cur.lang.toLowerCase().startsWith("pt") ? "pt" : "en" : lang;
+  const list = el5("datalist", { id: "uw-wm-texts" });
+  const text = el5("input", { type: "text", name: "wmtext", value: cur?.kind === "text" ? cur.text : WATERMARK_TEXTS[langSel.value][0] ?? "", style: "width:220px" });
+  text.setAttribute("list", "uw-wm-texts");
+  const fillTexts = () => list.replaceChildren(...WATERMARK_TEXTS[langSel.value].map((t6) => el5("option", { value: t6 })));
+  fillTexts();
+  langSel.addEventListener("change", fillTexts);
+  const font = el5("select", { name: "wmfont", style: "width:220px" });
+  const known = ed.knownFontFamilies();
+  const want = cur?.kind === "text" ? cur.font : "Calibri";
+  const font0 = known.find((k2) => k2.toLowerCase() === want.toLowerCase()) ?? want;
+  for (const f3 of [.../* @__PURE__ */ new Set([font0, ...known])]) font.append(el5("option", { value: f3, textContent: f3 }));
+  font.value = font0;
+  const size = el5("select", { name: "wmsize" });
+  for (const s4 of ["auto", "36", "40", "44", "48", "54", "60", "66", "72", "80", "90", "96", "105", "120", "144"]) size.append(el5("option", { value: s4, textContent: s4 === "auto" ? tr3(lang, "Auto", "Autom\xE1tico") : s4 }));
+  size.value = cur?.kind === "text" && cur.sizePt ? String(cur.sizePt) : "auto";
+  const color3 = colorInput("wmcolor", cur?.kind === "text" ? cur.color : "C0C0C0");
+  const semi = check2("semi", tr3(lang, "Semitransparent", "Semitransparente"), cur?.kind === "text" ? cur.semitransparent : true);
+  const diag = radio2("wmlayout", "diagonal", tr3(lang, "Diagonal", "Diagonal"), cur?.kind !== "text" || cur.layout === "diagonal");
+  const horiz = radio2("wmlayout", "horizontal", tr3(lang, "Horizontal", "Horizontal"), cur?.kind === "text" && cur.layout === "horizontal");
+  const picPane = el5(
+    "div",
+    { className: "uo-dialog-grid", style: "padding-left:24px" },
+    el5("span", {}, ""),
+    el5("div", { style: "display:flex;gap:8px;align-items:center" }, picBtn, picName),
+    el5("span", {}, tr3(lang, "Scale", "Escala")),
+    el5("div", { style: "display:flex;gap:12px;align-items:center" }, scale, washout)
+  );
+  const txtPane = el5(
+    "div",
+    { className: "uo-dialog-grid", style: "padding-left:24px" },
+    el5("span", {}, tr3(lang, "Language", "Idioma")),
+    langSel,
+    el5("span", {}, tr3(lang, "Text", "Texto")),
+    el5("div", {}, text, list),
+    el5("span", {}, tr3(lang, "Font", "Fonte")),
+    font,
+    el5("span", {}, tr3(lang, "Size", "Tamanho")),
+    size,
+    el5("span", {}, tr3(lang, "Color", "Cor")),
+    el5("div", { style: "display:flex;gap:12px;align-items:center" }, color3, semi),
+    el5("span", {}, tr3(lang, "Layout", "Layout")),
+    el5("div", { style: "display:flex;gap:12px" }, diag, horiz)
+  );
+  const body = el5("div", { style: "display:flex;flex-direction:column;gap:10px" }, none, pic, picPane, txt2, txtPane);
+  const kind = () => body.querySelector('input[name="wmkind"]:checked')?.value ?? "none";
+  const sync = () => {
+    for (const x3 of picPane.querySelectorAll("input,select,button")) x3.disabled = kind() !== "picture";
+    for (const x3 of txtPane.querySelectorAll("input,select")) x3.disabled = kind() !== "text";
+  };
+  body.addEventListener("change", sync);
+  sync();
+  const apply2 = () => {
+    const k2 = kind();
+    if (k2 === "none") {
+      ed.removeWatermark();
+      return;
+    }
+    if (k2 === "picture") {
+      if (!image) return;
+      ed.setWatermark({ kind: "picture", data: image.data, ext: image.ext, title: image.name.replace(/\.[^.]+$/, ""), washout: washout.querySelector("input").checked, ...scale.value !== "auto" ? { scale: Number(scale.value) } : {} });
+      return;
+    }
+    if (!text.value.trim()) return;
+    const spec = {
+      kind: "text",
+      text: text.value.trim(),
+      font: font.value || "Calibri",
+      color: hexOf(color3),
+      semitransparent: semi.querySelector("input").checked,
+      layout: body.querySelector('input[name="wmlayout"]:checked')?.value ?? "diagonal",
+      lang: langSel.value === "pt" ? "pt-BR" : "en-US",
+      ...size.value !== "auto" ? { sizePt: Number(size.value) } : {}
+    };
+    ed.setWatermark(spec);
+  };
+  const h3 = openDialog({
+    title: tr3(lang, "Printed Watermark", "Marca-d'\xE1gua Impressa"),
+    icon: "branding_watermark",
+    body,
+    layer: env.layer,
+    lang,
+    width: 480,
+    actions: [{ id: "apply", label: tr3(lang, "Apply", "Aplicar") }, { id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }],
+    onAction: (id) => {
+      if (id === "apply") {
+        apply2();
+        return false;
+      }
+      return void 0;
+    }
+  });
+  if (await h3.result !== "ok") return;
+  apply2();
+}
+var L6, tr3, cap, el5, radio2, check2, colorInput, hexOf, sniffExt, STYLES;
+var init_chrome_page = __esm({
+  "src/chrome-page.ts"() {
+    "use strict";
+    init_src5();
+    init_src4();
+    init_src();
+    init_src2();
+    init_page_design();
+    L6 = (en, pt2) => ({ en, pt: pt2 });
+    tr3 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    cap = (ctx, en, pt2) => {
+      const d3 = document.createElement("div");
+      d3.textContent = ctx.registry.text(L6(en, pt2));
+      d3.style.cssText = "font-size:12px;opacity:.8;margin:6px 0 4px";
+      return d3;
+    };
+    el5 = (tag2, props = {}, ...kids) => {
+      const { style, ...rest } = props;
+      const e8 = Object.assign(document.createElement(tag2), rest);
+      if (style) e8.style.cssText = style;
+      e8.append(...kids);
+      return e8;
+    };
+    radio2 = (name, value, label, on) => el5("label", { className: "uo-check" }, el5("input", { type: "radio", name, value, checked: on }), label);
+    check2 = (name, label, on) => el5("label", { className: "uo-check" }, el5("input", { type: "checkbox", name, checked: on }), label);
+    colorInput = (name, hex2) => el5("input", { type: "color", name, value: `#${hex2.toLowerCase()}`, style: "width:56px;height:28px;padding:0 2px" });
+    hexOf = (i7) => i7.value.slice(1).toUpperCase();
+    sniffExt = (d3) => d3[0] === 255 && d3[1] === 216 ? "jpeg" : d3[0] === 71 && d3[1] === 73 ? "gif" : d3[0] === 66 && d3[1] === 77 ? "bmp" : "png";
+    STYLES = [
+      ["horizontal", "Horizontal", "Horizontal"],
+      ["vertical", "Vertical", "Vertical"],
+      ["diagonalUp", "Diagonal up", "Diagonal para cima"],
+      ["diagonalDown", "Diagonal down", "Diagonal para baixo"],
+      ["fromCorner", "From corner", "Do canto"],
+      ["fromCenter", "From center", "Do centro"]
+    ];
+  }
+});
+
 // src/chrome-commands.ts
 function registerWriteCommands(reg, ed, app, ctl) {
   const api = ed;
@@ -47080,12 +48542,12 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const canEdit3 = () => !app.comparing && !ed.isProtected();
   const notComparing = () => !app.comparing;
   const run2 = () => ctl.state().run;
-  const para2 = () => ctl.state().para;
-  const L8 = app.ui.L;
+  const para3 = () => ctl.state().para;
+  const L9 = app.ui.L;
   const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
   const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
   const resolved = (n5, accept) => {
-    ctl.flash(accept ? L8.revAccepted(Number(n5) || 0) : L8.revRejected(Number(n5) || 0));
+    ctl.flash(accept ? L9.revAccepted(Number(n5) || 0) : L9.revRejected(Number(n5) || 0));
   };
   const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit3() && c5.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
@@ -47159,7 +48621,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "header", label: { en: "Header", pt: "Cabe\xE7alho" }, icon: "vertical_align_top", run: () => ed.enterHeaderFooter("header") }),
     edit({ id: "footer", label: { en: "Footer", pt: "Rodap\xE9" }, icon: "vertical_align_bottom", run: () => ed.enterHeaderFooter("footer") }),
     { id: "hf:close", label: { en: "Close Header and Footer", pt: "Fechar Cabe\xE7alho e Rodap\xE9" }, icon: "close", run: () => ed.exitHeaderFooter(), isEnabled: () => ed.editingHeaderFooter() !== null },
-    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L8.tocUpdated : L8.noToc) }),
+    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L9.tocUpdated : L9.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: "footnote", label: { en: "Footnote", pt: "Nota de rodap\xE9" }, tip: { en: "Insert footnote", pt: "Inserir nota de rodap\xE9" }, icon: "notes", shortcut: "Ctrl+Alt+F", supports: has("insertFootnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertFootnote") }),
     edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertEndnote") }),
@@ -47197,7 +48659,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "caption", label: { en: "Insert Caption", pt: "Inserir Legenda" }, tip: { en: "Add a numbered caption to a picture, table or equation", pt: "Adicionar uma legenda numerada a imagem, tabela ou equa\xE7\xE3o" }, icon: "subtitles", supports: has("insertCaption"), isEnabled: () => !!ed.captionTarget() || ed.canInsertField(), run: () => ctl.refsDialog("caption") }),
     edit({ id: "tof", label: { en: "Insert Table of Figures", pt: "Inserir \xCDndice de Ilustra\xE7\xF5es" }, tip: { en: "List of the captions of a label", pt: "Lista das legendas de um r\xF3tulo" }, icon: "list_alt", supports: has("insertTableOfFigures"), isEnabled: () => ed.canInsertField(), run: () => ctl.refsDialog("tof") }),
     edit({ id: "tof:update", label: { en: "Update Table", pt: "Atualizar Tabela" }, tip: { en: "Update the table of figures", pt: "Atualizar o \xEDndice de ilustra\xE7\xF5es" }, icon: "autorenew", supports: has("updateTableOfFigures"), run: () => {
-      if (!ed.updateTableOfFigures()) ctl.flash(L8.noTof);
+      if (!ed.updateTableOfFigures()) ctl.flash(L9.noTof);
     } }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -47278,19 +48740,17 @@ function registerWriteCommands(reg, ed, app, ctl) {
       icon: a3 === "both" ? "format_align_justify" : `format_align_${a3}`,
       shortcut: sc,
       run: () => ed.setAlignment(a3),
-      isChecked: () => (para2().alignment ?? "left") === a3
+      isChecked: () => (para3().alignment ?? "left") === a3
     })),
-    edit({ id: "list:bullet", label: { en: "Bullets", pt: "Marcadores" }, icon: "format_list_bulleted", run: () => ed.toggleList("bullet"), isChecked: () => para2().numbering?.kind === "bullet" }),
-    edit({ id: "list:decimal", label: { en: "Numbering", pt: "Numera\xE7\xE3o" }, icon: "format_list_numbered", run: () => ed.toggleList("decimal"), isChecked: () => para2().numbering?.kind === "decimal" }),
+    edit({ id: "list:bullet", label: { en: "Bullets", pt: "Marcadores" }, icon: "format_list_bulleted", run: () => ed.toggleList("bullet"), isChecked: () => para3().numbering?.kind === "bullet" }),
+    edit({ id: "list:decimal", label: { en: "Numbering", pt: "Numera\xE7\xE3o" }, icon: "format_list_numbered", run: () => ed.toggleList("decimal"), isChecked: () => para3().numbering?.kind === "decimal" }),
     edit({ id: "outdent", label: { en: "Decrease indent", pt: "Diminuir Recuo" }, icon: "format_indent_decrease", run: () => ed.indent(-1) }),
     edit({ id: "indent", label: { en: "Increase indent", pt: "Aumentar Recuo" }, icon: "format_indent_increase", run: () => ed.indent(1) }),
     edit({ id: "shading", label: { en: "Shading", pt: "Sombreamento" }, icon: "format_color_fill", run: () => ed.setShading(app.lastShading), color: () => `#${app.lastShading}` }),
-    edit({ id: "borders", label: { en: "Borders", pt: "Bordas" }, icon: "border_outer", run: () => ed.toggleBorder(), isChecked: () => !!para2().boxBorder }),
+    edit({ id: "borders", label: { en: "Borders", pt: "Bordas" }, icon: "border_outer", run: () => ed.toggleBorder(), isChecked: () => !!para3().boxBorder }),
     edit({ id: "dlg:paragraph", label: { en: "Paragraph\u2026", pt: "Par\xE1grafo\u2026" }, tip: { en: "Paragraph settings", pt: "Configura\xE7\xF5es de par\xE1grafo" }, icon: "format_textdirection_l_to_r", run: () => ctl.paragraphDialog() }),
     edit({ id: "dlg:tabs", label: { en: "Tabs\u2026", pt: "Tabula\xE7\xE3o\u2026" }, tip: { en: "Tab stops of the paragraph and the default tab stop", pt: "Tabula\xE7\xF5es do par\xE1grafo e a tabula\xE7\xE3o padr\xE3o" }, icon: "keyboard_tab", supports: has("setTabStops"), run: () => ctl.tabsDialog() }),
     edit({ id: "dlg:page", label: { en: "Page setup\u2026", pt: "Configurar p\xE1gina\u2026" }, icon: "settings", run: () => ctl.pageDialog() }),
-    edit({ id: "pageColor", label: { en: "Page Color", pt: "Cor da P\xE1gina" }, icon: "format_color_fill", supports: has("setPageColor"), run: () => call("setPageColor") }),
-    edit({ id: "watermark", label: { en: "Watermark", pt: "Marca d\u2019\xC1gua" }, icon: "branding_watermark", supports: has("setWatermark"), run: () => call("setWatermark") }),
     edit({ id: "hyphenation", label: { en: "Hyphenation", pt: "Hifeniza\xE7\xE3o" }, icon: "horizontal_rule", supports: has("setHyphenation"), run: () => call("setHyphenation") }),
     // ── Revisão ──
     { id: "comment:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous comment", pt: "Coment\xE1rio anterior" }, icon: "navigate_before", run: () => stepComment(-1), isEnabled: () => ed.getComments().length > 0 },
@@ -47328,10 +48788,10 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
     edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
     { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
-      if (!call("previousChange")) ctl.flash(L8.noMoreRevisions);
+      if (!call("previousChange")) ctl.flash(L9.noMoreRevisions);
     }, isEnabled: hasRevisions },
     { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
-      if (!call("nextChange")) ctl.flash(L8.noMoreRevisions);
+      if (!call("nextChange")) ctl.flash(L9.noMoreRevisions);
     }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
@@ -47346,6 +48806,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
   registerHfCommands(reg, ed, app, ctl);
   registerPictureCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
+  registerPageCommands(reg, ed, app, ctl);
   function stepComment(dir) {
     const cs = ed.getComments();
     if (!cs.length) return;
@@ -47363,6 +48824,7 @@ var init_chrome_commands = __esm({
     init_chrome_table();
     init_chrome_hf();
     init_chrome_picture();
+    init_chrome_page();
     init_chrome_picture_adjust();
     ZOOMS = [50, 75, 90, 100, 125, 150, 200];
     HL_CSS = Object.fromEntries(HIGHLIGHT_COLORS.map((h3) => [h3.value, h3.css]));
@@ -47371,7 +48833,7 @@ var init_chrome_commands = __esm({
 
 // src/chrome-refs.ts
 function listBox(height = 180) {
-  const box = el5("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
+  const box = el6("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
   box.setAttribute("role", "listbox");
   let items = [];
   let cur;
@@ -47409,7 +48871,7 @@ function listBox(height = 180) {
       rows.length = 0;
       box.replaceChildren(...list.map((it) => {
         const head = it.id.startsWith("#");
-        const r6 = el5("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
+        const r6 = el6("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
         r6.setAttribute("role", head ? "presentation" : "option");
         if (!head) {
           r6.addEventListener("click", () => {
@@ -47439,28 +48901,28 @@ function listBox(height = 180) {
 }
 async function bookmarkDialog(env) {
   const t6 = T5(env), ed = env.ed;
-  const name = el5("input", { type: "text", maxLength: 40, spellcheck: false });
+  const name = el6("input", { type: "text", maxLength: 40, spellcheck: false });
   const list = listBox(170);
-  const byName2 = el5("input", { type: "radio", name: "bmsort", checked: true });
-  const byLoc = el5("input", { type: "radio", name: "bmsort" });
-  const hidden = check2(t6("Hidden bookmarks", "Indicadores ocultos"), false);
-  const show = check2(t6("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
+  const byName2 = el6("input", { type: "radio", name: "bmsort", checked: true });
+  const byLoc = el6("input", { type: "radio", name: "bmsort" });
+  const hidden = check3(t6("Hidden bookmarks", "Indicadores ocultos"), false);
+  const show = check3(t6("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
   const fill = (keep) => {
     const bms = ed.getBookmarks({ hidden: hidden.input.checked, sort: byLoc.checked ? "location" : "name" });
     list.set(bms.map((b5) => ({ id: b5.name, text: b5.name })), keep ?? null);
     sync();
   };
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:340px" },
     field2(t6("Bookmark name:", "Nome do indicador:"), name),
     list.el,
-    el5(
+    el6(
       "div",
       { style: "display:flex;gap:14px;align-items:center;font-size:13px" },
       t6("Sort by:", "Classificar por:"),
-      el5("label", { className: "uo-check" }, byName2, t6("Name", "Nome")),
-      el5("label", { className: "uo-check" }, byLoc, t6("Location", "Local"))
+      el6("label", { className: "uo-check" }, byName2, t6("Name", "Nome")),
+      el6("label", { className: "uo-check" }, byLoc, t6("Location", "Local"))
     ),
     hidden.box,
     show.box
@@ -47532,13 +48994,13 @@ async function crossRefDialog(env) {
     ...labels.map((l3) => [`caption:${l3}`, l3])
   ];
   const type = select2(types, "heading");
-  const kind = el5("select");
-  const link = check2(t6("Insert as hyperlink", "Inserir como hiperlink"), true);
-  const pos = check2(t6("Include above/below", "Incluir acima/abaixo"), false);
-  const sep = el5("input", { type: "text", maxLength: 5, style: "width:60px" });
-  const sepBox = check2(t6("Separate numbers with", "Separar n\xFAmeros com"), false);
+  const kind = el6("select");
+  const link = check3(t6("Insert as hyperlink", "Inserir como hiperlink"), true);
+  const pos = check3(t6("Include above/below", "Incluir acima/abaixo"), false);
+  const sep = el6("input", { type: "text", maxLength: 5, style: "width:60px" });
+  const sepBox = check3(t6("Separate numbers with", "Separar n\xFAmeros com"), false);
   const list = listBox(200);
-  const forWhich = el5("span");
+  const forWhich = el6("span");
   const cur = () => {
     const v2 = type.value;
     return v2.startsWith("caption:") ? { type: "caption", label: v2.slice(8) } : { type: v2 };
@@ -47563,7 +49025,7 @@ async function crossRefDialog(env) {
     const c5 = cur();
     const kinds = ed.crossReferenceKinds(c5.type);
     const keep = kinds.includes(kind.value) ? kind.value : kinds[0];
-    kind.replaceChildren(...kinds.map((k2) => el5("option", { value: k2, textContent: KIND_LABEL(t6, c5.type, k2) })));
+    kind.replaceChildren(...kinds.map((k2) => el6("option", { value: k2, textContent: KIND_LABEL(t6, c5.type, k2) })));
     kind.value = keep;
     forWhich.textContent = forLabel(c5);
     list.set(ed.getCrossReferenceItems(c5.type, c5.label));
@@ -47579,18 +49041,18 @@ async function crossRefDialog(env) {
   type.addEventListener("change", refill);
   kind.addEventListener("change", syncOpts);
   sepBox.input.addEventListener("change", syncOpts);
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:420px" },
-    el5(
+    el6(
       "div",
       { style: "display:grid;grid-template-columns:1fr 1fr;gap:10px" },
       field2(t6("Reference type:", "Tipo de refer\xEAncia:"), type),
       field2(t6("Insert reference to:", "Inserir refer\xEAncia para:"), kind)
     ),
-    el5("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
-    el5("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
-    el5("div", { style: "font-size:13px" }, forWhich),
+    el6("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
+    el6("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
+    el6("div", { style: "font-size:13px" }, forWhich),
     list.el
   );
   const insert = () => {
@@ -47634,7 +49096,7 @@ async function numberingDialog(env, label) {
   const t6 = T5(env), ed = env.ed;
   const cur = ed.getCaptionNumbering(label);
   const fmt2 = select2(FORMATS, cur.format);
-  const chap = check2(t6("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
+  const chap = check3(t6("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
   const levels = select2(Array.from({ length: 9 }, (_2, i7) => [String(i7 + 1), t6(`Heading ${i7 + 1}`, `T\xEDtulo ${i7 + 1}`)]), String(cur.chapter?.level ?? 1));
   const seps = select2([
     ["hyphen", t6("- (hyphen)", "- (h\xEDfen)")],
@@ -47649,14 +49111,14 @@ async function numberingDialog(env, label) {
   };
   chap.input.addEventListener("change", sync);
   sync();
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
     field2(t6("Format:", "Formato:"), fmt2),
     chap.box,
     field2(t6("Chapter starts with style:", "Cap\xEDtulo come\xE7a com estilo:"), levels),
     field2(t6("Use separator:", "Usar separador:"), seps),
-    el5("div", { style: "font-size:12px;opacity:.75" }, t6("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
+    el6("div", { style: "font-size:12px;opacity:.75" }, t6("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
   );
   const h3 = openDialog({
     title: t6("Caption Numbering", "Numera\xE7\xE3o de Legenda"),
@@ -47675,7 +49137,7 @@ async function autoCaptionDialog(env) {
   const t6 = T5(env), ed = env.ed;
   const cur = ed.getAutoCaption()?.table;
   const labels = ed.getCaptionLabels();
-  const on = check2(t6("Table", "Tabela"), !!cur);
+  const on = check3(t6("Table", "Tabela"), !!cur);
   const label = select2(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
   const pos = select2([["above", t6("Above item", "Acima do item")], ["below", t6("Below item", "Abaixo do item")]], cur?.position ?? "above");
   const sync = () => {
@@ -47684,10 +49146,10 @@ async function autoCaptionDialog(env) {
   };
   on.input.addEventListener("change", sync);
   sync();
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
-    el5("div", { style: "font-size:13px" }, t6("Add caption when inserting:", "Adicionar legenda ao inserir:")),
+    el6("div", { style: "font-size:13px" }, t6("Add caption when inserting:", "Adicionar legenda ao inserir:")),
     on.box,
     field2(t6("Use label:", "Usar r\xF3tulo:"), label),
     field2(t6("Position:", "Posi\xE7\xE3o:"), pos)
@@ -47708,16 +49170,16 @@ async function captionDialog(env) {
   const t6 = T5(env), ed = env.ed;
   const target = ed.captionTarget();
   const labels = () => ed.getCaptionLabels();
-  const labelSel = el5("select");
+  const labelSel = el6("select");
   const fillLabels = (keep) => {
-    labelSel.replaceChildren(...labels().map((l3) => el5("option", { value: l3.name, textContent: l3.name })));
+    labelSel.replaceChildren(...labels().map((l3) => el6("option", { value: l3.name, textContent: l3.name })));
     labelSel.value = keep && labels().some((l3) => l3.name === keep) ? keep : (target === "table" ? labels().find((l3) => l3.position === "above")?.name : void 0) ?? labels()[0].name;
   };
   fillLabels();
   const pos = select2([["above", t6("Above selected item", "Acima do item selecionado")], ["below", t6("Below selected item", "Abaixo do item selecionado")]], "below");
   pos.disabled = !target;
-  const excl = check2(t6("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
-  const caption = el5("input", { type: "text" });
+  const excl = check3(t6("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
+  const caption = el6("input", { type: "text" });
   let prefix = "";
   const syncPrefix = () => {
     const l3 = labelSel.value;
@@ -47760,14 +49222,14 @@ async function captionDialog(env) {
   autoBtn.addEventListener("click", () => {
     void autoCaptionDialog(env);
   });
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:400px" },
     field2(t6("Caption:", "Legenda:"), caption),
-    el5("strong", { style: "font-size:13px" }, t6("Options", "Op\xE7\xF5es")),
-    el5("div", { className: "uo-dialog-grid" }, el5("span", {}, t6("Label:", "R\xF3tulo:")), labelSel, el5("span", {}, t6("Position:", "Posi\xE7\xE3o:")), pos),
+    el6("strong", { style: "font-size:13px" }, t6("Options", "Op\xE7\xF5es")),
+    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t6("Label:", "R\xF3tulo:")), labelSel, el6("span", {}, t6("Position:", "Posi\xE7\xE3o:")), pos),
     excl.box,
-    el5("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
+    el6("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
   );
   syncPrefix();
   const h3 = openDialog({
@@ -47790,10 +49252,10 @@ async function tofDialog(env) {
   const t6 = T5(env), ed = env.ed;
   const cur = ed.getTableOfFiguresOptions();
   const labels = ed.getCaptionLabels();
-  const pages2 = check2(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
-  const right = check2(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
+  const pages2 = check3(t6("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
+  const right = check3(t6("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
   const leader = select2([["none", t6("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
-  const links = check2(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
+  const links = check3(t6("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
   const format = select2([
     ["template", t6("From template", "Do modelo")],
     ["classic", t6("Classic", "Cl\xE1ssico")],
@@ -47803,16 +49265,16 @@ async function tofDialog(env) {
     ["simple", t6("Simple", "Simples")]
   ], "template");
   const label = select2([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
-  const incl = check2(t6("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
-  const preview2 = el5("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
+  const incl = check3(t6("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
+  const preview2 = el6("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
   const paint = () => {
     const lab = label.value;
     const lead = { none: " ", dot: ".", hyphen: "-", underscore: "_" }[leader.value] ?? ".";
     preview2.replaceChildren(...[1, 2, 3, 4].map((n5) => {
       const txt2 = `${incl.input.checked ? `${lab} ${n5}: ` : ""}${t6("Text", "Texto")}`;
-      const row2 = el5("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el5("span", {}, txt2));
-      if (pages2.input.checked && right.input.checked) row2.append(el5("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el5("span", {}, String(n5 * 2 - 1)));
-      else if (pages2.input.checked) row2.append(el5("span", {}, String(n5 * 2 - 1)));
+      const row2 = el6("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el6("span", {}, txt2));
+      if (pages2.input.checked && right.input.checked) row2.append(el6("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el6("span", {}, String(n5 * 2 - 1)));
+      else if (pages2.input.checked) row2.append(el6("span", {}, String(n5 * 2 - 1)));
       return row2;
     }));
     right.input.disabled = !pages2.input.checked;
@@ -47823,19 +49285,19 @@ async function tofDialog(env) {
   paint();
   const modify = button2(t6("Modify\u2026", "Modificar\u2026"));
   modify.addEventListener("click", () => env.modifyStyle?.(ed.ensureBuiltinStyle("table of figures")));
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:440px" },
-    el5("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
+    el6("strong", { style: "font-size:13px" }, t6("Print Preview", "Visualizar Impress\xE3o")),
     preview2,
     pages2.box,
     right.box,
     field2(t6("Tab leader:", "Preenchimento de tabula\xE7\xE3o:"), leader),
     links.box,
-    el5("strong", { style: "font-size:13px" }, t6("General", "Geral")),
-    el5("div", { className: "uo-dialog-grid" }, el5("span", {}, t6("Formats:", "Formatos:")), format, el5("span", {}, t6("Caption label:", "Nome da legenda:")), label),
+    el6("strong", { style: "font-size:13px" }, t6("General", "Geral")),
+    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t6("Formats:", "Formatos:")), format, el6("span", {}, t6("Caption label:", "Nome da legenda:")), label),
     incl.box,
-    el5("div", {}, modify)
+    el6("div", {}, modify)
   );
   const h3 = openDialog({
     title: t6("Table of Figures", "\xCDndice de Ilustra\xE7\xF5es"),
@@ -47862,12 +49324,12 @@ async function hyperlinkDialog(env) {
   const t6 = T5(env), ed = env.ed;
   const cur = ed.getLink();
   const sel4 = ed.selectedText();
-  const display = el5("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
-  const tip = el5("input", { type: "text", value: cur?.tip ?? "" });
+  const display = el6("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
+  const tip = el6("input", { type: "text", value: cur?.tip ?? "" });
   const isMail = !!cur?.address?.startsWith("mailto:");
-  const address = el5("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
-  const mail = el5("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
-  const subject = el5("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
+  const address = el6("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
+  const mail = el6("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
+  const subject = el6("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
   const targets = ed.getLinkTargets();
   const place2 = listBox(220);
   const items = [
@@ -47879,16 +49341,16 @@ async function hyperlinkDialog(env) {
   ];
   place2.set(items.map((x3, i7) => ({ id: x3.id || `#sec${i7}`, text: x3.text })), cur?.anchor && items.some((x3) => x3.id === cur.anchor) ? cur.anchor : "_top");
   const panes2 = {
-    web: el5("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("Address:", "Endere\xE7o:"), address)),
-    place: el5("div", { style: "display:flex;flex-direction:column;gap:6px" }, el5("span", { style: "font-size:13px" }, t6("Select a place in this document:", "Selecione um local neste documento:")), place2.el),
-    mail: el5("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("E-mail address:", "Endere\xE7o de email:"), mail), field2(t6("Subject:", "Assunto:"), subject))
+    web: el6("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("Address:", "Endere\xE7o:"), address)),
+    place: el6("div", { style: "display:flex;flex-direction:column;gap:6px" }, el6("span", { style: "font-size:13px" }, t6("Select a place in this document:", "Selecione um local neste documento:")), place2.el),
+    mail: el6("div", { style: "display:flex;flex-direction:column;gap:10px" }, field2(t6("E-mail address:", "Endere\xE7o de email:"), mail), field2(t6("Subject:", "Assunto:"), subject))
   };
   const tabs = dialogTabs([
     { id: "web", label: t6("Existing File or Web Page", "P\xE1gina da Web ou arquivo"), body: panes2.web },
     { id: "place", label: t6("Place in This Document", "Colocar neste documento"), body: panes2.place },
     { id: "mail", label: t6("E-mail Address", "Endere\xE7o de email"), body: panes2.mail }
   ], cur?.anchor ? "place" : isMail ? "mail" : "web");
-  const body = el5(
+  const body = el6(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:460px" },
     field2(t6("Text to display:", "Texto para exibi\xE7\xE3o:"), display),
@@ -47945,12 +49407,12 @@ function refsDialog(env, kind) {
       return hyperlinkDialog(env);
   }
 }
-var el5, select2, check2, field2, button2, T5, KIND_LABEL, FORMATS;
+var el6, select2, check3, field2, button2, T5, KIND_LABEL, FORMATS;
 var init_chrome_refs = __esm({
   "src/chrome-refs.ts"() {
     "use strict";
     init_src5();
-    el5 = (tag2, props = {}, ...kids) => {
+    el6 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -47958,17 +49420,17 @@ var init_chrome_refs = __esm({
       return e8;
     };
     select2 = (opts, value) => {
-      const s4 = el5("select");
-      for (const [v2, t6] of opts) s4.append(el5("option", { value: v2, textContent: t6 }));
+      const s4 = el6("select");
+      for (const [v2, t6] of opts) s4.append(el6("option", { value: v2, textContent: t6 }));
       s4.value = value;
       return s4;
     };
-    check2 = (label, on) => {
-      const input = el5("input", { type: "checkbox", checked: on });
-      return { box: el5("label", { className: "uo-check" }, input, label), input };
+    check3 = (label, on) => {
+      const input = el6("input", { type: "checkbox", checked: on });
+      return { box: el6("label", { className: "uo-check" }, input, label), input };
     };
-    field2 = (label, ...kids) => el5("label", { className: "uo-field" }, el5("span", {}, label), ...kids);
-    button2 = (label) => el5("button", { type: "button", className: "uo-pill", textContent: label });
+    field2 = (label, ...kids) => el6("label", { className: "uo-field" }, el6("span", {}, label), ...kids);
+    button2 = (label) => el6("button", { type: "button", className: "uo-pill", textContent: label });
     T5 = (env) => (en, pt2) => pickLabels(env.lang, { en, pt: pt2 });
     KIND_LABEL = (t6, type, k2) => {
       const what = type === "heading" ? t6("Heading", "t\xEDtulo") : type === "bookmark" ? t6("Bookmark", "indicador") : t6("Paragraph", "par\xE1grafo");
@@ -48005,72 +49467,72 @@ var init_chrome_refs = __esm({
 // src/chrome-dialogs.ts
 async function authorDialog(env) {
   if (env.ed.hasAuthor()) return true;
-  const L8 = env.app.ui.L;
-  const name = await promptDialog({ title: L8.authorTitle, label: L8.authorText, ok: L8.authorOk, layer: env.layer, lang: env.lang });
+  const L9 = env.app.ui.L;
+  const name = await promptDialog({ title: L9.authorTitle, label: L9.authorText, ok: L9.authorOk, layer: env.layer, lang: env.lang });
   if (!name?.trim()) return false;
   env.ed.author = name.trim();
   originStore.set("uw-author", env.ed.author);
   return true;
 }
 async function commentDialog(env) {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   if (!env.ed.selectedText()) {
-    env.app.ui.flash(L8.selectToComment);
+    env.app.ui.flash(L9.selectToComment);
     return;
   }
   if (!await authorDialog(env)) return;
-  const text = await promptDialog({ title: L8.commentTitle, label: L8.commentText, multiline: true, ok: L8.commentAdd, layer: env.layer, lang: env.lang });
+  const text = await promptDialog({ title: L9.commentTitle, label: L9.commentText, multiline: true, ok: L9.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
-  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L8.selectToComment : L8.commentAdded);
+  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L9.selectToComment : L9.commentAdded);
 }
 async function fontDialog(env, families) {
-  const L8 = env.app.ui.L, lang = env.lang;
+  const L9 = env.app.ui.L, lang = env.lang;
   const r6 = env.state().run;
   const cur = r6.fontAscii ?? "";
   const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
   const font = select3("font", fams.map((f3) => [f3, f3]), cur);
-  const size = el6("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r6.szHalfPt ?? 22) / 2) });
-  const color3 = el6("input", { type: "color", name: "color", value: `#${r6.color && /^[0-9a-f]{6}$/i.test(r6.color) ? r6.color : "000000"}` });
+  const size = el7("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r6.szHalfPt ?? 22) / 2) });
+  const color3 = el7("input", { type: "color", name: "color", value: `#${r6.color && /^[0-9a-f]{6}$/i.test(r6.color) ? r6.color : "000000"}` });
   color3.style.cssText = "width:48px;height:32px;padding:2px;border-radius:8px";
   const spacing = select3("spacing", [
     ["0", "Normal"],
-    ["20", tr3(lang, "Expanded 1 pt", "Expandido 1 pt")],
-    ["40", tr3(lang, "Expanded 2 pt", "Expandido 2 pt")],
-    ["-10", tr3(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
-    ["-20", tr3(lang, "Condensed 1 pt", "Condensado 1 pt")]
+    ["20", tr4(lang, "Expanded 1 pt", "Expandido 1 pt")],
+    ["40", tr4(lang, "Expanded 2 pt", "Expandido 2 pt")],
+    ["-10", tr4(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
+    ["-20", tr4(lang, "Condensed 1 pt", "Condensado 1 pt")]
   ], String(r6.charSpacingTwips ?? 0));
   const flags = {
-    bold: [tr3(lang, "Bold", "Negrito"), !!r6.bold],
-    italic: [tr3(lang, "Italic", "It\xE1lico"), !!r6.italic],
-    underline: [tr3(lang, "Underline", "Sublinhado"), !!r6.underline],
-    strike: [tr3(lang, "Strikethrough", "Tachado"), !!r6.strike],
-    sup: [tr3(lang, "Superscript", "Sobrescrito"), r6.vertAlign === "superscript"],
-    sub: [tr3(lang, "Subscript", "Subscrito"), r6.vertAlign === "subscript"],
-    allCaps: [tr3(lang, "All caps", "Todas em mai\xFAsculas"), !!r6.allCaps],
-    smallCaps: [tr3(lang, "Small caps", "Versalete"), !!r6.smallCaps]
+    bold: [tr4(lang, "Bold", "Negrito"), !!r6.bold],
+    italic: [tr4(lang, "Italic", "It\xE1lico"), !!r6.italic],
+    underline: [tr4(lang, "Underline", "Sublinhado"), !!r6.underline],
+    strike: [tr4(lang, "Strikethrough", "Tachado"), !!r6.strike],
+    sup: [tr4(lang, "Superscript", "Sobrescrito"), r6.vertAlign === "superscript"],
+    sub: [tr4(lang, "Subscript", "Subscrito"), r6.vertAlign === "subscript"],
+    allCaps: [tr4(lang, "All caps", "Todas em mai\xFAsculas"), !!r6.allCaps],
+    smallCaps: [tr4(lang, "Small caps", "Versalete"), !!r6.smallCaps]
   };
-  const grid2 = el6(
+  const grid2 = el7(
     "div",
     { className: "uo-dialog-grid" },
-    el6("span", {}, L8.fontDlg),
+    el7("span", {}, L9.fontDlg),
     font,
-    el6("span", {}, L8.size),
+    el7("span", {}, L9.size),
     size,
-    el6("span", {}, L8.color),
+    el7("span", {}, L9.color),
     color3,
-    el6("span", {}, L8.charSpacing),
+    el7("span", {}, L9.charSpacing),
     spacing
   );
-  const fx = el6("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
-  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check3(k2, label, on));
-  const body = el6("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el6("strong", {}, L8.effects), fx);
+  const fx = el7("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
+  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check4(k2, label, on));
+  const body = el7("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el7("strong", {}, L9.effects), fx);
   const h3 = openDialog({
-    title: L8.fontDlg,
+    title: L9.fontDlg,
     body,
     layer: env.layer,
     lang,
     width: 440,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ed = env.ed;
@@ -48089,22 +49551,22 @@ async function fontDialog(env, families) {
   if (cs !== (r6.charSpacingTwips ?? 0)) ed.setCharSpacing(cs || void 0);
 }
 async function paragraphDialog(env) {
-  const L8 = env.app.ui.L, lang = env.lang;
+  const L9 = env.app.ui.L, lang = env.lang;
   const p3 = env.state().para;
   const u3 = unitOf(lang);
   const ind = env.ed.getParagraphIndents();
   const align = select3("align", [
-    ["left", tr3(lang, "Left", "Esquerda")],
-    ["center", tr3(lang, "Centered", "Centralizada")],
-    ["right", tr3(lang, "Right", "Direita")],
-    ["both", tr3(lang, "Justified", "Justificada")]
+    ["left", tr4(lang, "Left", "Esquerda")],
+    ["center", tr4(lang, "Centered", "Centralizada")],
+    ["right", tr4(lang, "Right", "Direita")],
+    ["both", tr4(lang, "Justified", "Justificada")]
   ], p3.alignment ?? "left");
   const left = unitInput("left", ind.left, u3, lang);
   const right = unitInput("right", ind.right, u3, lang);
   const special = select3("special", [
-    ["none", tr3(lang, "(none)", "(nenhum)")],
-    ["firstLine", tr3(lang, "First line", "Primeira linha")],
-    ["hanging", tr3(lang, "Hanging", "Deslocamento")]
+    ["none", tr4(lang, "(none)", "(nenhum)")],
+    ["firstLine", tr4(lang, "First line", "Primeira linha")],
+    ["hanging", tr4(lang, "Hanging", "Deslocamento")]
   ], !ind.firstLine ? "none" : ind.firstLine > 0 ? "firstLine" : "hanging");
   const by = unitInput("by", Math.abs(ind.firstLine), u3, lang);
   const syncBy = () => {
@@ -48117,41 +49579,41 @@ async function paragraphDialog(env) {
     by.value = "";
     by.disabled = true;
   }
-  const pt2 = (tw2) => String(Math.round((tw2 ?? 0) / 2) / 10);
-  const before = el6("input", { type: "number", name: "before", min: "0", step: "6", value: pt2(p3.spaceBeforeTwips) });
-  const after = el6("input", { type: "number", name: "after", min: "0", step: "6", value: pt2(p3.spaceAfterTwips) });
-  const dec = tr3(lang, ".", ",");
+  const pt2 = (tw3) => String(Math.round((tw3 ?? 0) / 2) / 10);
+  const before = el7("input", { type: "number", name: "before", min: "0", step: "6", value: pt2(p3.spaceBeforeTwips) });
+  const after = el7("input", { type: "number", name: "after", min: "0", step: "6", value: pt2(p3.spaceAfterTwips) });
+  const dec = tr4(lang, ".", ",");
   const line2 = select3(
     "line",
     [["240", `1${dec}0`], ["259", `1${dec}08`], ["276", `1${dec}15`], ["360", `1${dec}5`], ["480", `2${dec}0`]],
     String(p3.lineTwentieths ?? 259)
   );
-  const withUnit = (i7) => el6("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
-  const grid2 = el6(
+  const withUnit = (i7) => el7("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
+  const grid2 = el7(
     "div",
     { className: "uo-dialog-grid" },
-    el6("span", {}, L8.alignment),
+    el7("span", {}, L9.alignment),
     align,
-    el6("span", {}, tr3(lang, "Left indent", "Recuo \xE0 esquerda")),
+    el7("span", {}, tr4(lang, "Left indent", "Recuo \xE0 esquerda")),
     withUnit(left),
-    el6("span", {}, tr3(lang, "Right indent", "Recuo \xE0 direita")),
+    el7("span", {}, tr4(lang, "Right indent", "Recuo \xE0 direita")),
     withUnit(right),
-    el6("span", {}, L8.specialIndent),
-    el6("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
-    el6("span", {}, L8.before),
+    el7("span", {}, L9.specialIndent),
+    el7("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
+    el7("span", {}, L9.before),
     before,
-    el6("span", {}, L8.after),
+    el7("span", {}, L9.after),
     after,
-    el6("span", {}, L8.lineSpacing),
+    el7("span", {}, L9.lineSpacing),
     line2
   );
   const h3 = openDialog({
-    title: L8.paraDlg,
+    title: L9.paraDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "tabs", label: tr3(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   const res = await h3.result;
   if (res !== "ok" && res !== "tabs") return;
@@ -48171,41 +49633,41 @@ async function paragraphDialog(env) {
   if (res === "tabs") await tabsDialog(env);
 }
 async function tabsDialog(env) {
-  const lang = env.lang, ed = env.ed, L8 = env.app.ui.L;
+  const lang = env.lang, ed = env.ed, L9 = env.app.ui.L;
   const u3 = unitOf(lang);
   const cur = ed.getTabStops();
   let tabs = cur.tabs.map((t6) => ({ ...t6 }));
   const cleared = [];
-  const pos = el6("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
-  pos.setAttribute("aria-label", tr3(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
-  const list = el6("select", { name: "list", size: 6, style: "width:100%;height:132px" });
+  const pos = el7("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
+  pos.setAttribute("aria-label", tr4(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
+  const list = el7("select", { name: "list", size: 6, style: "width:100%;height:132px" });
   const def = unitInput("default", cur.defaultTabTwips, u3, lang);
-  const clearedEl = el6("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
+  const clearedEl = el7("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
   const radios2 = (name, opts, value) => {
-    const box = el6("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
+    const box = el7("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
     for (const [v2, t6] of opts) {
-      const i7 = el6("input", { type: "radio", name, value: v2, checked: v2 === value });
-      box.append(el6("label", { className: "uo-check" }, i7, t6));
+      const i7 = el7("input", { type: "radio", name, value: v2, checked: v2 === value });
+      box.append(el7("label", { className: "uo-check" }, i7, t6));
     }
     return box;
   };
   const alignBox = radios2("align", [
-    ["left", tr3(lang, "Left", "Esquerdo")],
-    ["center", tr3(lang, "Center", "Centralizado")],
-    ["right", tr3(lang, "Right", "Direito")],
-    ["decimal", tr3(lang, "Decimal", "Decimal")],
-    ["bar", tr3(lang, "Bar", "Barra")]
+    ["left", tr4(lang, "Left", "Esquerdo")],
+    ["center", tr4(lang, "Center", "Centralizado")],
+    ["right", tr4(lang, "Right", "Direito")],
+    ["decimal", tr4(lang, "Decimal", "Decimal")],
+    ["bar", tr4(lang, "Bar", "Barra")]
   ], "left");
-  const leaderBox = radios2("leader", [["", tr3(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
+  const leaderBox = radios2("leader", [["", tr4(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
   const val3 = (name) => alignBox.parentElement?.querySelector(`input[name="${name}"]:checked`)?.value ?? body.querySelector(`input[name="${name}"]:checked`)?.value ?? "";
   const setRadio = (name, v2) => {
     for (const i7 of body.querySelectorAll(`input[name="${name}"]`)) i7.checked = i7.value === v2;
   };
   const render = (keep) => {
     tabs.sort((a3, b5) => a3.pos - b5.pos);
-    list.replaceChildren(...tabs.map((t6) => el6("option", { value: String(t6.pos), textContent: `${fmtUnit(t6.pos, u3, lang)} ${u3.name}` })));
+    list.replaceChildren(...tabs.map((t6) => el7("option", { value: String(t6.pos), textContent: `${fmtUnit(t6.pos, u3, lang)} ${u3.name}` })));
     if (keep !== void 0) list.value = String(keep);
-    clearedEl.textContent = cleared.length ? `${tr3(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x3) => `${fmtUnit(x3, u3, lang)} ${u3.name}`).join("; ")}` : "";
+    clearedEl.textContent = cleared.length ? `${tr4(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x3) => `${fmtUnit(x3, u3, lang)} ${u3.name}`).join("; ")}` : "";
   };
   list.addEventListener("change", () => {
     const t6 = tabs.find((x3) => String(x3.pos) === list.value);
@@ -48214,9 +49676,9 @@ async function tabsDialog(env) {
     setRadio("align", t6.align);
     setRadio("leader", t6.leader === "dot" || t6.leader === "hyphen" || t6.leader === "underscore" ? t6.leader : "");
   });
-  const setBtn = el6("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Set", "Definir") });
-  const clrBtn = el6("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Clear", "Limpar") });
-  const allBtn = el6("button", { type: "button", className: "uo-pill", textContent: tr3(lang, "Clear All", "Limpar Tudo") });
+  const setBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Set", "Definir") });
+  const clrBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear", "Limpar") });
+  const allBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr4(lang, "Clear All", "Limpar Tudo") });
   const define = () => {
     const p3 = parseUnit(pos.value, u3);
     if (!Number.isFinite(p3)) return false;
@@ -48253,29 +49715,29 @@ async function tabsDialog(env) {
       define();
     }
   });
-  const left = el6(
+  const left = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0" },
-    el6("span", {}, tr3(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
+    el7("span", {}, tr4(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
     pos,
     list
   );
-  const right = el6(
+  const right = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;flex:1 1 0" },
-    el6("span", {}, tr3(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
-    el6("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
+    el7("span", {}, tr4(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
+    el7("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
     clearedEl
   );
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el6("div", { style: "display:flex;gap:16px" }, left, right),
-    el6("strong", {}, tr3(lang, "Alignment", "Alinhamento")),
+    el7("div", { style: "display:flex;gap:16px" }, left, right),
+    el7("strong", {}, tr4(lang, "Alignment", "Alinhamento")),
     alignBox,
-    el6("strong", {}, tr3(lang, "Leader", "Preenchimento")),
+    el7("strong", {}, tr4(lang, "Leader", "Preenchimento")),
     leaderBox,
-    el6("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
+    el7("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
   );
   render();
   if (tabs[0]) {
@@ -48283,12 +49745,12 @@ async function tabsDialog(env) {
     list.dispatchEvent(new Event("change"));
   }
   const h3 = openDialog({
-    title: tr3(lang, "Tabs", "Tabula\xE7\xE3o"),
+    title: tr4(lang, "Tabs", "Tabula\xE7\xE3o"),
     body,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   setTimeout(() => pos.focus(), 0);
   if (await h3.result !== "ok") return;
@@ -48299,11 +49761,11 @@ async function tabsDialog(env) {
   if (!same2) ed.setTabStops(tabs);
 }
 async function pageDialog(env) {
-  const L8 = env.app.ui.L, lang = env.lang;
+  const L9 = env.app.ui.L, lang = env.lang;
   const u3 = unitOf(lang);
-  const orient = select3("orientation", [["portrait", tr3(lang, "Portrait", "Retrato")], ["landscape", tr3(lang, "Landscape", "Paisagem")]], "portrait");
-  const size = select3("size", [["A4", "A4"], ["Letter", tr3(lang, "Letter", "Carta")]], "A4");
-  const margins = select3("margins", [["normal", "Normal"], ["narrow", tr3(lang, "Narrow", "Estreita")], ["wide", tr3(lang, "Wide", "Larga")], ["custom", tr3(lang, "Custom", "Personalizadas")]], "normal");
+  const orient = select3("orientation", [["portrait", tr4(lang, "Portrait", "Retrato")], ["landscape", tr4(lang, "Landscape", "Paisagem")]], "portrait");
+  const size = select3("size", [["A4", "A4"], ["Letter", tr4(lang, "Letter", "Carta")]], "A4");
+  const margins = select3("margins", [["normal", "Normal"], ["narrow", tr4(lang, "Narrow", "Estreita")], ["wide", tr4(lang, "Wide", "Larga")], ["custom", tr4(lang, "Custom", "Personalizadas")]], "normal");
   const s4 = env.ed.getSection();
   const cm = s4 ? { ...s4.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s4) {
@@ -48320,34 +49782,34 @@ async function pageDialog(env) {
   });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
   const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, "section");
-  const withUnit = (i7) => el6("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
-  const grid2 = el6(
+  const withUnit = (i7) => el7("span", { style: "display:flex;gap:4px;align-items:center" }, i7, u3.name);
+  const grid2 = el7(
     "div",
     { className: "uo-dialog-grid" },
-    el6("span", {}, L8.orientation),
+    el7("span", {}, L9.orientation),
     orient,
-    el6("span", {}, L8.paper),
+    el7("span", {}, L9.paper),
     size,
-    el6("span", {}, L8.margins),
+    el7("span", {}, L9.margins),
     margins,
-    el6("span", {}, tr3(lang, "Top", "Superior")),
+    el7("span", {}, tr4(lang, "Top", "Superior")),
     withUnit(mt),
-    el6("span", {}, tr3(lang, "Bottom", "Inferior")),
+    el7("span", {}, tr4(lang, "Bottom", "Inferior")),
     withUnit(mb),
-    el6("span", {}, tr3(lang, "Left", "Esquerda")),
+    el7("span", {}, tr4(lang, "Left", "Esquerda")),
     withUnit(ml),
-    el6("span", {}, tr3(lang, "Right", "Direita")),
+    el7("span", {}, tr4(lang, "Right", "Direita")),
     withUnit(mr),
-    el6("span", {}, tr3(lang, "Apply to", "Aplicar a")),
+    el7("span", {}, tr4(lang, "Apply to", "Aplicar a")),
     applyTo
   );
   const h3 = openDialog({
-    title: L8.pageDlg,
+    title: L9.pageDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 420,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.apply, primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const all = applyTo.value !== "section";
@@ -48366,7 +49828,7 @@ async function columnsDialog(env) {
   if (!s4) return;
   const W3 = s4.columns.contentWidthTwips;
   const unit = lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
-  const fmt2 = (tw2) => String(Math.round(tw2 / unit.tw * 100) / 100);
+  const fmt2 = (tw3) => String(Math.round(tw3 / unit.tw * 100) / 100);
   const parse = (v2) => Math.round(parseFloat(v2.replace(",", ".")) * unit.tw);
   const MIN = 720;
   const st = {
@@ -48382,10 +49844,10 @@ async function columnsDialog(env) {
     const w2 = Math.round((W3 - st.space * (n5 - 1)) / n5);
     st.widths = Array.from({ length: n5 }, (_2, i7) => ({ widthTwips: w2, spaceTwips: i7 < n5 - 1 ? st.space : 0 }));
   };
-  const presets = el6("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const presets = el7("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
   const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
   const presetBtns = PRESETS.map(([id, en, pt2, n5]) => {
-    const b5 = el6("button", { type: "button", textContent: tr3(lang, en, pt2), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    const b5 = el7("button", { type: "button", textContent: tr4(lang, en, pt2), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
     b5.addEventListener("click", () => {
       st.count = n5;
       if (id === "left" || id === "right") {
@@ -48402,13 +49864,13 @@ async function columnsDialog(env) {
     presets.append(b5);
     return [id, b5];
   });
-  const count = el6("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
-  const sep = check3("sep", tr3(lang, "Line between", "Linha entre colunas"), st.sep);
-  const equal = check3("equal", tr3(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
-  const rows = el6("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const count = el7("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check4("sep", tr4(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check4("equal", tr4(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el7("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
-  const newCol = check3("newCol", tr3(lang, "Start new column", "Iniciar nova coluna"), false);
-  const preview2 = el6("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const newCol = check4("newCol", tr4(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview2 = el7("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
   const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
   function render() {
     count.value = String(st.count);
@@ -48422,22 +49884,22 @@ async function columnsDialog(env) {
       b5.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
       b5.setAttribute("aria-pressed", String(on));
     }
-    rows.replaceChildren(el6("strong", {}, "#"), el6("strong", {}, tr3(lang, "Width", "Largura")), el6("strong", {}, tr3(lang, "Spacing", "Espa\xE7amento")));
+    rows.replaceChildren(el7("strong", {}, "#"), el7("strong", {}, tr4(lang, "Width", "Largura")), el7("strong", {}, tr4(lang, "Spacing", "Espa\xE7amento")));
     st.widths.slice(0, Math.max(1, st.count)).forEach((c5, i7) => {
       const last = i7 === st.count - 1;
-      const wIn = el6("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
-      const sIn = el6("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
-      wIn.setAttribute("aria-label", `${tr3(lang, "Width", "Largura")} ${i7 + 1}`);
-      sIn.setAttribute("aria-label", `${tr3(lang, "Spacing", "Espa\xE7amento")} ${i7 + 1}`);
+      const wIn = el7("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      const sIn = el7("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      wIn.setAttribute("aria-label", `${tr4(lang, "Width", "Largura")} ${i7 + 1}`);
+      sIn.setAttribute("aria-label", `${tr4(lang, "Spacing", "Espa\xE7amento")} ${i7 + 1}`);
       wIn.addEventListener("change", () => setWidth(i7, parse(wIn.value)));
       sIn.addEventListener("change", () => setSpace(i7, parse(sIn.value)));
-      rows.append(el6("span", {}, `${i7 + 1}:`), el6("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el6("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+      rows.append(el7("span", {}, `${i7 + 1}:`), el7("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el7("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
     });
     preview2.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c5, i7) => {
-      const col = el6("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      const col = el7("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
       if (i7 === st.count - 1) return [col];
-      const gap = el6("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
-      if (box("sep").checked) gap.append(el6("div", { style: "width:1px;background:currentColor" }));
+      const gap = el7("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el7("div", { style: "width:1px;background:currentColor" }));
       return [col, gap];
     }));
   }
@@ -48506,27 +49968,27 @@ async function columnsDialog(env) {
     equalize();
   }
   render();
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el6("strong", {}, tr3(lang, "Presets", "Predefini\xE7\xF5es")),
+    el7("strong", {}, tr4(lang, "Presets", "Predefini\xE7\xF5es")),
     presets,
-    el6(
+    el7(
       "div",
       { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
-      el6("label", { style: "display:flex;gap:8px;align-items:center" }, tr3(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      el7("label", { style: "display:flex;gap:8px;align-items:center" }, tr4(lang, "Number of columns", "N\xFAmero de colunas"), count),
       sep
     ),
-    el6("strong", {}, tr3(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    el7("strong", {}, tr4(lang, "Width and spacing", "Largura e espa\xE7amento")),
     rows,
     equal,
-    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, tr3(lang, "Apply to", "Aplicar a")), applyTo),
+    el7("div", { className: "uo-dialog-grid" }, el7("span", {}, tr4(lang, "Apply to", "Aplicar a")), applyTo),
     newCol,
-    el6("strong", {}, tr3(lang, "Preview", "Visualiza\xE7\xE3o")),
+    el7("strong", {}, tr4(lang, "Preview", "Visualiza\xE7\xE3o")),
     preview2
   );
   const h3 = openDialog({
-    title: tr3(lang, "Columns", "Colunas"),
+    title: tr4(lang, "Columns", "Colunas"),
     icon: "view_column_2",
     body,
     layer: env.layer,
@@ -48545,36 +50007,36 @@ async function columnsDialog(env) {
   });
 }
 function wordCountDialog(env) {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const s4 = env.ed.stats();
-  const fmt2 = (n5) => n5.toLocaleString(tr3(env.lang, "en-US", "pt-BR"));
-  const grid2 = el6(
+  const fmt2 = (n5) => n5.toLocaleString(tr4(env.lang, "en-US", "pt-BR"));
+  const grid2 = el7(
     "div",
     { className: "uo-dialog-grid" },
-    el6("span", {}, L8.pages),
-    el6("strong", {}, fmt2(s4.pages)),
-    el6("span", {}, L8.words),
-    el6("strong", {}, fmt2(s4.words)),
-    el6("span", {}, L8.chars),
-    el6("strong", {}, fmt2(s4.chars))
+    el7("span", {}, L9.pages),
+    el7("strong", {}, fmt2(s4.pages)),
+    el7("span", {}, L9.words),
+    el7("strong", {}, fmt2(s4.words)),
+    el7("span", {}, L9.chars),
+    el7("strong", {}, fmt2(s4.chars))
   );
-  openDialog({ title: L8.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
+  openDialog({ title: L9.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
 }
 function shortcutsDialog(env) {
-  const grid2 = el6("div", { className: "uo-dialog-grid" });
+  const grid2 = el7("div", { className: "uo-dialog-grid" });
   grid2.style.gridTemplateColumns = "auto 1fr";
   for (const [k2, en, pt2] of SHORTCUTS) {
-    grid2.append(el6("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el6("span", {}, tr3(env.lang, en, pt2)));
+    grid2.append(el7("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el7("span", {}, tr4(env.lang, en, pt2)));
   }
   openDialog({ title: env.app.ui.L.shortcutsTitle, body: grid2, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
-  const L8 = env.app.ui.L;
-  openDialog({ title: L8.aboutTitle, icon: "info", body: L8.aboutText, layer: env.layer, lang: env.lang, width: 400 });
+  const L9 = env.app.ui.L;
+  openDialog({ title: L9.aboutTitle, icon: "info", body: L9.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
 async function spellingDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const done = tr3(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
+  const done = tr4(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
   const skip = /* @__PURE__ */ new Set();
   const always = /* @__PURE__ */ new Map();
   let cur = await ed.nextMisspelling(skip);
@@ -48582,18 +50044,18 @@ async function spellingDialog(env) {
     env.app.ui.flash(done);
     return;
   }
-  const word = el6("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
-  const info = el6("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
-  const list = el6("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
+  const word = el7("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
+  const info = el7("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
+  const list = el7("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
   const show = async (m2) => {
     word.textContent = m2.word;
-    info.textContent = tr3(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
+    info.textContent = tr4(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
     const sug = await ed.spellingSuggestions(m2, 8);
-    list.replaceChildren(...sug.length ? sug.map((x3) => el6("option", { value: x3, textContent: x3 })) : [el6("option", { value: "", disabled: true, textContent: tr3(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
+    list.replaceChildren(...sug.length ? sug.map((x3) => el7("option", { value: x3, textContent: x3 })) : [el7("option", { value: "", disabled: true, textContent: tr4(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
     list.selectedIndex = sug.length ? 0 : -1;
   };
   await show(cur);
-  const body = el6("div", {}, word, info, el6("div", { style: "font-size:12px;margin-bottom:4px" }, tr3(lang, "Suggestions", "Sugest\xF5es")), list);
+  const body = el7("div", {}, word, info, el7("div", { style: "font-size:12px;margin-bottom:4px" }, tr4(lang, "Suggestions", "Sugest\xF5es")), list);
   const next = async () => {
     cur = await ed.nextMisspelling(skip);
     while (cur && always.has(cur.word)) {
@@ -48630,7 +50092,7 @@ async function spellingDialog(env) {
     void step("change");
   });
   const h3 = openDialog({
-    title: tr3(lang, "Spelling", "Ortografia"),
+    title: tr4(lang, "Spelling", "Ortografia"),
     icon: "spellcheck",
     body,
     layer: env.layer,
@@ -48653,14 +50115,14 @@ async function spellingDialog(env) {
 }
 async function notesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T7 = (en, pt2) => tr3(lang, en, pt2);
+  const T7 = (en, pt2) => tr4(lang, en, pt2);
   let kind = ed.editingNote()?.kind ?? "footnote";
   const st = { footnote: ed.getNoteOptions("footnote"), endnote: ed.getNoteOptions("endnote") };
-  const fnRadio = radio2("kind", "footnote", T7("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
-  const enRadio = radio2("kind", "endnote", T7("Endnotes:", "Notas de fim:"), kind === "endnote");
+  const fnRadio = radio3("kind", "footnote", T7("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
+  const enRadio = radio3("kind", "endnote", T7("Endnotes:", "Notas de fim:"), kind === "endnote");
   const fnPos = select3("fnPos", [["pageBottom", T7("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T7("Below text", "Abaixo do texto")]], st.footnote.position);
   const enPos = select3("enPos", [["docEnd", T7("End of document", "Fim do documento")], ["sectEnd", T7("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
-  const convert = el6("button", { type: "button", className: "uo-pill", textContent: T7("Convert\u2026", "Converter\u2026") });
+  const convert = el7("button", { type: "button", className: "uo-pill", textContent: T7("Convert\u2026", "Converter\u2026") });
   const columns = select3("columns", [["0", T7("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T7("1 column", "1 coluna")], ["2", T7("2 columns", "2 colunas")], ["3", T7("3 columns", "3 colunas")], ["4", T7("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
   const format = select3("format", [
     ["decimal", "1, 2, 3, \u2026"],
@@ -48670,18 +50132,18 @@ async function notesDialog(env) {
     ["upperRoman", "I, II, III, \u2026"],
     ["chicago", "*, \u2020, \u2021, \xA7, \u2026"]
   ], st[kind].numberFormat);
-  const mark2 = el6("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
+  const mark2 = el7("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
   mark2.setAttribute("aria-label", T7("Custom mark", "Marca personalizada"));
-  const symbols = el6("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
+  const symbols = el7("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
   for (const ch of ["*", "\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "#", "\u203B", "\xB9", "\xB2", "\xB3"]) {
-    const b5 = el6("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
+    const b5 = el7("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
     b5.addEventListener("click", () => {
       mark2.value += ch;
       mark2.focus();
     });
     symbols.append(b5);
   }
-  const startAt = el6("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
+  const startAt = el7("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
   const restart = select3("restart", [["continuous", T7("Continuous", "Cont\xEDnua")], ["eachSect", T7("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T7("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
   const scope = select3("scope", [["document", T7("Whole document", "Todo o documento")], ["section", T7("This section", "Esta se\xE7\xE3o")]], "document");
   const show = () => {
@@ -48713,18 +50175,18 @@ async function notesDialog(env) {
     startAt.disabled = restart.value !== "continuous";
   });
   show();
-  const grid2 = (...rows) => el6("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el6("span", {}, label), el6("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
-  const body = el6(
+  const grid2 = (...rows) => el7("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el7("span", {}, label), el7("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el6("strong", {}, T7("Location", "Local")),
-    el6("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
-    el6("div", {}, convert),
-    el6("strong", {}, T7("Footnote layout", "Layout de nota de rodap\xE9")),
+    el7("strong", {}, T7("Location", "Local")),
+    el7("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
+    el7("div", {}, convert),
+    el7("strong", {}, T7("Footnote layout", "Layout de nota de rodap\xE9")),
     grid2([T7("Columns:", "Colunas:"), columns]),
-    el6("strong", {}, T7("Format", "Formato")),
+    el7("strong", {}, T7("Format", "Formato")),
     grid2([T7("Number format:", "Formato do n\xFAmero:"), format], [T7("Custom mark:", "Marca personalizada:"), mark2], [T7("Symbol:", "S\xEDmbolo:"), symbols], [T7("Start at:", "Iniciar em:"), startAt], [T7("Numbering:", "Numera\xE7\xE3o:"), restart]),
-    el6("strong", {}, T7("Apply changes", "Aplicar altera\xE7\xF5es")),
+    el7("strong", {}, T7("Apply changes", "Aplicar altera\xE7\xF5es")),
     grid2([T7("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
   );
   convert.addEventListener("click", () => {
@@ -48758,7 +50220,7 @@ async function notesDialog(env) {
 }
 async function convertNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T7 = (en, pt2) => tr3(lang, en, pt2);
+  const T7 = (en, pt2) => tr4(lang, en, pt2);
   const nf = ed.noteCount("footnote"), ne = ed.noteCount("endnote");
   const opts = [
     ["toEndnotes", T7("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
@@ -48766,8 +50228,8 @@ async function convertNotesDialog(env) {
     ["swap", T7("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
   ];
   const first = opts.find((o7) => o7[2])?.[0];
-  const body = el6("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
-    const r6 = radio2("convert", v3, label, v3 === first);
+  const body = el7("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
+    const r6 = radio3("convert", v3, label, v3 === first);
     r6.querySelector("input").disabled = !on;
     return r6;
   }));
@@ -48786,17 +50248,17 @@ async function convertNotesDialog(env) {
 }
 async function showNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T7 = (en, pt2) => tr3(lang, en, pt2);
+  const T7 = (en, pt2) => tr4(lang, en, pt2);
   if (ed.editingNote() || !ed.noteCount("footnote") || !ed.noteCount("endnote")) {
     ed.showNotes();
     return;
   }
-  const body = el6(
+  const body = el7(
     "div",
     { style: "display:flex;flex-direction:column;gap:8px" },
-    el6("span", {}, T7("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
-    radio2("area", "footnote", T7("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
-    radio2("area", "endnote", T7("View endnote area", "Exibir \xE1rea de notas de fim"), false)
+    el7("span", {}, T7("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
+    radio3("area", "footnote", T7("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
+    radio3("area", "endnote", T7("View endnote area", "Exibir \xE1rea de notas de fim"), false)
   );
   const h3 = openDialog({
     title: T7("Show Notes", "Mostrar Notas"),
@@ -48811,13 +50273,13 @@ async function showNotesDialog(env) {
   const v2 = body.querySelector('input[name="area"]:checked')?.value;
   ed.showNotes(v2 ?? "footnote");
 }
-var el6, select3, check3, tr3, unitOf, fmtUnit, parseUnit, unitInput, applyToSelect, SHORTCUTS, radio2;
+var el7, select3, check4, tr4, unitOf, fmtUnit, parseUnit, unitInput, applyToSelect, SHORTCUTS, radio3;
 var init_chrome_dialogs = __esm({
   "src/chrome-dialogs.ts"() {
     "use strict";
     init_src5();
     init_chrome_store();
-    el6 = (tag2, props = {}, ...kids) => {
+    el7 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -48825,28 +50287,28 @@ var init_chrome_dialogs = __esm({
       return e8;
     };
     select3 = (name, opts, value) => {
-      const s4 = el6("select", { name });
-      for (const [v2, t6] of opts) s4.append(el6("option", { value: v2, textContent: t6 }));
+      const s4 = el7("select", { name });
+      for (const [v2, t6] of opts) s4.append(el7("option", { value: v2, textContent: t6 }));
       s4.value = value;
       return s4;
     };
-    check3 = (name, label, on) => {
-      const i7 = el6("input", { type: "checkbox", name, checked: on });
-      return el6("label", { className: "uo-check" }, i7, label);
+    check4 = (name, label, on) => {
+      const i7 = el7("input", { type: "checkbox", name, checked: on });
+      return el7("label", { className: "uo-check" }, i7, label);
     };
-    tr3 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    tr4 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
     unitOf = (lang) => lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
-    fmtUnit = (tw2, u3, lang) => (Math.round(tw2 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
+    fmtUnit = (tw3, u3, lang) => (Math.round(tw3 / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
     parseUnit = (v2, u3) => {
       const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
       return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
     };
-    unitInput = (name, tw2, u3, lang, min) => el6("input", { type: "text", name, value: fmtUnit(tw2, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
+    unitInput = (name, tw3, u3, lang, min) => el7("input", { type: "text", name, value: fmtUnit(tw3, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
     applyToSelect = (lang, hasSel, value) => select3("applyTo", [
-      ["section", tr3(lang, "This section", "Esta se\xE7\xE3o")],
-      ["forward", tr3(lang, "This point forward", "Deste ponto em diante")],
-      ["document", tr3(lang, "Whole document", "No documento inteiro")],
-      ...hasSel ? [["selection", tr3(lang, "Selected text", "Texto selecionado")]] : []
+      ["section", tr4(lang, "This section", "Esta se\xE7\xE3o")],
+      ["forward", tr4(lang, "This point forward", "Deste ponto em diante")],
+      ["document", tr4(lang, "Whole document", "No documento inteiro")],
+      ...hasSel ? [["selection", tr4(lang, "Selected text", "Texto selecionado")]] : []
     ], value);
     SHORTCUTS = [
       ["Ctrl+O", "Open", "Abrir"],
@@ -48868,12 +50330,12 @@ var init_chrome_dialogs = __esm({
       ["Ctrl+Shift+8", "Formatting marks", "Marcas de formata\xE7\xE3o"],
       ["Ctrl+scroll", "Zoom", "Zoom"]
     ];
-    radio2 = (name, value, label, on) => el6("label", { className: "uo-check" }, el6("input", { type: "radio", name, value, checked: on }), label);
+    radio3 = (name, value, label, on) => el7("label", { className: "uo-check" }, el7("input", { type: "radio", name, value, checked: on }), label);
   }
 });
 
 // src/chrome-nav.ts
-var LABELS5, el7, NavPane;
+var LABELS5, el8, NavPane;
 var init_chrome_nav = __esm({
   "src/chrome-nav.ts"() {
     "use strict";
@@ -48956,7 +50418,7 @@ var init_chrome_nav = __esm({
         expand: "Expandir"
       }
     };
-    el7 = (tag2, cls, text) => {
+    el8 = (tag2, cls, text) => {
       const e8 = document.createElement(tag2);
       if (cls) e8.className = cls;
       if (text !== void 0) e8.textContent = text;
@@ -49050,20 +50512,20 @@ var init_chrome_nav = __esm({
         });
       }
       build() {
-        const L8 = this.L;
-        const body = el7("div", "uw-nav");
-        const box = el7("div", "uw-nav-search");
-        const ic = el7("span", "uw-nav-search-ic");
+        const L9 = this.L;
+        const body = el8("div", "uw-nav");
+        const box = el8("div", "uw-nav-search");
+        const ic = el8("span", "uw-nav-search-ic");
         ic.innerHTML = symbol("search");
-        this.input = el7("input", "uw-nav-input");
+        this.input = el8("input", "uw-nav-input");
         this.input.type = "search";
-        this.input.placeholder = L8.search;
-        this.input.setAttribute("aria-label", L8.search);
+        this.input.placeholder = L9.search;
+        this.input.setAttribute("aria-label", L9.search);
         this.input.dataset["a"] = "nav:search";
-        const optBtn = el7("button", "uo-btn uw-nav-opt");
+        const optBtn = el8("button", "uo-btn uw-nav-opt");
         optBtn.type = "button";
-        optBtn.title = L8.options;
-        optBtn.setAttribute("aria-label", L8.options);
+        optBtn.title = L9.options;
+        optBtn.setAttribute("aria-label", L9.options);
         optBtn.dataset["a"] = "nav:options";
         optBtn.innerHTML = symbol("arrow_drop_down");
         optBtn.addEventListener("click", () => this.optionsMenu(optBtn));
@@ -49085,27 +50547,27 @@ var init_chrome_nav = __esm({
             } else this.env.ed.focusEditor();
           }
         });
-        const st = el7("div", "uw-nav-status");
-        this.status = el7("span", "uw-nav-count");
-        const prev = el7("button", "uo-btn uw-nav-step");
+        const st = el8("div", "uw-nav-status");
+        this.status = el8("span", "uw-nav-count");
+        const prev = el8("button", "uo-btn uw-nav-step");
         prev.type = "button";
-        prev.title = L8.prev;
-        prev.setAttribute("aria-label", L8.prev);
+        prev.title = L9.prev;
+        prev.setAttribute("aria-label", L9.prev);
         prev.innerHTML = symbol("keyboard_arrow_up");
         prev.dataset["a"] = "nav:prev";
         prev.addEventListener("click", () => this.step(-1));
-        const next = el7("button", "uo-btn uw-nav-step");
+        const next = el8("button", "uo-btn uw-nav-step");
         next.type = "button";
-        next.title = L8.next;
-        next.setAttribute("aria-label", L8.next);
+        next.title = L9.next;
+        next.setAttribute("aria-label", L9.next);
         next.innerHTML = symbol("keyboard_arrow_down");
         next.dataset["a"] = "nav:next";
         next.addEventListener("click", () => this.step(1));
         st.append(this.status, prev, next);
-        const tabs = el7("div", "uw-nav-tabs");
+        const tabs = el8("div", "uw-nav-tabs");
         tabs.setAttribute("role", "tablist");
         for (const t6 of ["headings", "pages", "results"]) {
-          const b5 = el7("button", "uw-nav-tab", L8[t6]);
+          const b5 = el8("button", "uw-nav-tab", L9[t6]);
           b5.type = "button";
           b5.setAttribute("role", "tab");
           b5.dataset["a"] = `nav:tab:${t6}`;
@@ -49116,11 +50578,11 @@ var init_chrome_nav = __esm({
           this.tabs.set(t6, b5);
           tabs.appendChild(b5);
         }
-        this.bodyEl = el7("div", "uw-nav-body");
+        this.bodyEl = el8("div", "uw-nav-body");
         body.append(box, st, tabs, this.bodyEl);
         const pane = openPane({
           id: "navigation",
-          title: L8.title,
+          title: L9.title,
           lang: this.env.lang,
           layer: this.env.layer,
           frame: this.env.frame,
@@ -49147,7 +50609,7 @@ var init_chrome_nav = __esm({
         this.env.app.prefs.set("navPane", "1");
       }
       optionsMenu(anchor) {
-        const L8 = this.L;
+        const L9 = this.L;
         const flag = (k2, label) => ({
           id: `nav:${k2}`,
           label,
@@ -49158,13 +50620,13 @@ var init_chrome_nav = __esm({
           }
         });
         openMenu([
-          flag("matchCase", L8.matchCase),
-          flag("wholeWord", L8.wholeWord),
-          flag("highlight", L8.highlight),
-          flag("incremental", L8.incremental),
+          flag("matchCase", L9.matchCase),
+          flag("wholeWord", L9.wholeWord),
+          flag("highlight", L9.highlight),
+          flag("incremental", L9.incremental),
           { sep: true },
-          { id: "nav:replace", label: L8.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
-          { id: "nav:clear", label: L8.clear, icon: "close", onClick: () => {
+          { id: "nav:replace", label: L9.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
+          { id: "nav:clear", label: L9.clear, icon: "close", onClick: () => {
             this.input.value = "";
             this.runSearch(true);
           }, disabled: !this.query }
@@ -49188,7 +50650,7 @@ var init_chrome_nav = __esm({
       }
       refresh() {
         if (!this.pane) return;
-        const L8 = this.L;
+        const L9 = this.L;
         const ed = this.env.ed;
         this.pane.place();
         this.heads = ed.getHeadings();
@@ -49198,7 +50660,7 @@ var init_chrome_nav = __esm({
         }
         const n5 = this.results.length;
         this.status.parentElement.hidden = !this.query;
-        this.status.textContent = !this.query ? "" : !n5 ? L8.results0 : this.current >= 0 ? L8.result(this.current + 1, n5) : L8.resultsN(n5);
+        this.status.textContent = !this.query ? "" : !n5 ? L9.results0 : this.current >= 0 ? L9.result(this.current + 1, n5) : L9.resultsN(n5);
         for (const b5 of this.status.parentElement.querySelectorAll("button")) b5.disabled = !n5;
         if (this.tab === "headings") this.renderHeadings();
         else if (this.tab === "pages") this.renderPages();
@@ -49226,13 +50688,13 @@ var init_chrome_nav = __esm({
         return roots;
       }
       renderHeadings() {
-        const L8 = this.L;
+        const L9 = this.L;
         const ed = this.env.ed;
-        const list = el7("div", "uw-nav-tree");
+        const list = el8("div", "uw-nav-tree");
         list.setAttribute("role", "tree");
         if (!this.heads.length) {
           this.treeSig = "";
-          this.bodyEl.replaceChildren(el7("p", "uw-nav-empty", L8.noHeadings));
+          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L9.noHeadings));
           return;
         }
         const cur = ed.currentHeading(this.heads);
@@ -49252,29 +50714,29 @@ var init_chrome_nav = __esm({
           const kids = node.kids.filter((k2) => k2.h.level <= this.maxLevel);
           const key = this.keyOf(h3);
           const closed = this.collapsed.has(key);
-          const r6 = el7("div", "uw-nav-row");
+          const r6 = el8("div", "uw-nav-row");
           r6.setAttribute("role", "treeitem");
           r6.dataset["index"] = String(h3.index);
           r6.style.paddingLeft = `${4 + depth * 14}px`;
           r6.classList.toggle("uo-on", h3.index === cur);
           r6.classList.toggle("uw-nav-hit", hit.has(h3.index));
           if (kids.length) r6.setAttribute("aria-expanded", String(!closed));
-          const tw2 = el7("button", "uw-nav-twisty");
-          tw2.type = "button";
-          tw2.tabIndex = -1;
+          const tw3 = el8("button", "uw-nav-twisty");
+          tw3.type = "button";
+          tw3.tabIndex = -1;
           if (kids.length) {
-            tw2.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
-            tw2.title = closed ? L8.expand : L8.collapse;
-            tw2.addEventListener("click", (e8) => {
+            tw3.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
+            tw3.title = closed ? L9.expand : L9.collapse;
+            tw3.addEventListener("click", (e8) => {
               e8.stopPropagation();
               if (closed) this.collapsed.delete(key);
               else this.collapsed.add(key);
               this.refresh();
             });
-          } else tw2.classList.add("uw-nav-leaf");
-          const label = el7("span", "uw-nav-label", h3.text);
+          } else tw3.classList.add("uw-nav-leaf");
+          const label = el8("span", "uw-nav-label", h3.text);
           label.title = h3.text;
-          r6.append(tw2, label);
+          r6.append(tw3, label);
           r6.addEventListener("click", () => {
             ed.goToHeading(h3.index);
             this.refresh();
@@ -49349,7 +50811,7 @@ var init_chrome_nav = __esm({
         this.bodyEl.querySelector(".uw-nav-tree")?.classList.remove("uw-nav-drop-end");
       }
       headingMenu(h3, x3, y3) {
-        const L8 = this.L;
+        const L9 = this.L;
         const ed = this.env.ed;
         const ro = ed.isProtected();
         const done = (ok) => {
@@ -49357,52 +50819,52 @@ var init_chrome_nav = __esm({
           this.refresh();
         };
         const levels = () => [
-          { id: "nav:levels:all", label: L8.all, checked: this.maxLevel === 9, onClick: () => {
+          { id: "nav:levels:all", label: L9.all, checked: this.maxLevel === 9, onClick: () => {
             this.maxLevel = 9;
             this.refresh();
           } },
-          ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L8.level(n5), checked: this.maxLevel === n5, onClick: () => {
+          ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L9.level(n5), checked: this.maxLevel === n5, onClick: () => {
             this.maxLevel = n5;
             this.refresh();
           } }))
         ];
         openMenu([
-          { id: "nav:promote", label: L8.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
-          { id: "nav:demote", label: L8.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
+          { id: "nav:promote", label: L9.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
+          { id: "nav:demote", label: L9.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
           { sep: true },
-          { id: "nav:newBefore", label: L8.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
-          { id: "nav:newAfter", label: L8.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
-          { id: "nav:newSub", label: L8.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
-          { id: "nav:delete", label: L8.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
+          { id: "nav:newBefore", label: L9.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
+          { id: "nav:newAfter", label: L9.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
+          { id: "nav:newSub", label: L9.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
+          { id: "nav:delete", label: L9.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
           { sep: true },
-          { id: "nav:select", label: L8.select, icon: "select_all", onClick: () => {
+          { id: "nav:select", label: L9.select, icon: "select_all", onClick: () => {
             ed.selectHeading(h3.index);
             this.env.after();
           } },
           { sep: true },
-          { id: "nav:expandAll", label: L8.expandAll, icon: "unfold_more", onClick: () => {
+          { id: "nav:expandAll", label: L9.expandAll, icon: "unfold_more", onClick: () => {
             this.collapsed.clear();
             this.refresh();
           } },
-          { id: "nav:collapseAll", label: L8.collapseAll, icon: "unfold_less", onClick: () => {
+          { id: "nav:collapseAll", label: L9.collapseAll, icon: "unfold_less", onClick: () => {
             for (const x4 of this.heads) this.collapsed.add(this.keyOf(x4));
             this.refresh();
           } },
-          { id: "nav:levels", label: L8.showLevels, submenu: levels }
+          { id: "nav:levels", label: L9.showLevels, submenu: levels }
         ], { x: x3, y: y3 }, { layer: this.env.layer, lang: this.env.lang });
       }
       // ───── Páginas ─────
       renderPages() {
-        const L8 = this.L;
+        const L9 = this.L;
         const ed = this.env.ed;
         const total = ed.layoutPageCount();
         if (!total) {
-          this.bodyEl.replaceChildren(el7("p", "uw-nav-empty", L8.noPages));
+          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L9.noPages));
           return;
         }
         const only = this.query ? new Set(this.results.map((r6) => r6.page).filter((p3) => p3 >= 0)) : null;
         if (only && !only.size) {
-          this.bodyEl.replaceChildren(el7("p", "uw-nav-empty", L8.noMatch));
+          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L9.noMatch));
           return;
         }
         const cur = ed.currentPage() - 1;
@@ -49410,7 +50872,7 @@ var init_chrome_nav = __esm({
         const want = [...Array(total).keys()].filter((i7) => !only || only.has(i7));
         const sig = want.join(",");
         if (!grid2 || grid2.dataset["sig"] !== sig) {
-          grid2 = el7("div", "uw-nav-pages");
+          grid2 = el8("div", "uw-nav-pages");
           grid2.dataset["sig"] = sig;
           this.io?.disconnect();
           this.thumbs.clear();
@@ -49418,13 +50880,13 @@ var init_chrome_nav = __esm({
             for (const e8 of ents) if (e8.isIntersecting) this.paintThumb(+e8.target.dataset["page"]);
           }, { root: this.bodyEl, rootMargin: "200px" });
           for (const i7 of want) {
-            const item = el7("button", "uw-nav-page");
+            const item = el8("button", "uw-nav-page");
             item.type = "button";
             item.dataset["page"] = String(i7);
             item.dataset["a"] = `nav:page:${i7 + 1}`;
-            item.title = L8.page(i7 + 1);
-            const c5 = el7("canvas", "uw-nav-thumb");
-            const num3 = el7("span", "uw-nav-pnum", String(i7 + 1));
+            item.title = L9.page(i7 + 1);
+            const c5 = el8("canvas", "uw-nav-thumb");
+            const num3 = el8("span", "uw-nav-pnum", String(i7 + 1));
             item.append(c5, num3);
             item.addEventListener("click", () => {
               ed.goToPage(i7);
@@ -49450,24 +50912,24 @@ var init_chrome_nav = __esm({
       }
       // ───── Resultados ─────
       renderResults() {
-        const L8 = this.L;
+        const L9 = this.L;
         if (!this.query) {
-          this.bodyEl.replaceChildren(el7("p", "uw-nav-empty", L8.noSearch));
+          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L9.noSearch));
           return;
         }
         if (!this.results.length) {
-          this.bodyEl.replaceChildren(el7("p", "uw-nav-empty", L8.noMatch));
+          this.bodyEl.replaceChildren(el8("p", "uw-nav-empty", L9.noMatch));
           return;
         }
-        const list = el7("div", "uw-nav-results");
+        const list = el8("div", "uw-nav-results");
         list.setAttribute("role", "list");
         for (const r6 of this.results) {
-          const b5 = el7("button", "uw-nav-result");
+          const b5 = el8("button", "uw-nav-result");
           b5.type = "button";
           b5.setAttribute("role", "listitem");
           b5.dataset["a"] = `nav:result:${r6.index + 1}`;
           b5.classList.toggle("uo-on", r6.index === this.current);
-          b5.append(document.createTextNode(r6.before), el7("strong", void 0, r6.match), document.createTextNode(r6.after));
+          b5.append(document.createTextNode(r6.before), el8("strong", void 0, r6.match), document.createTextNode(r6.after));
           b5.addEventListener("click", () => {
             this.current = r6.index;
             this.env.ed.goToSearchResult(r6.index);
@@ -49483,30 +50945,30 @@ var init_chrome_nav = __esm({
 });
 
 // src/chrome-ruler.ts
-var L6, TIPS, MIN_TEXT, RulerUI;
+var L7, TIPS, MIN_TEXT, RulerUI;
 var init_chrome_ruler = __esm({
   "src/chrome-ruler.ts"() {
     "use strict";
     init_src5();
-    L6 = (en, pt2) => ({ en, pt: pt2 });
+    L7 = (en, pt2) => ({ en, pt: pt2 });
     TIPS = {
-      firstLine: L6("First Line Indent", "Recuo da Primeira Linha"),
-      hanging: L6("Hanging Indent", "Recuo Deslocado"),
-      left: L6("Left Indent", "Recuo \xE0 Esquerda"),
-      right: L6("Right Indent", "Recuo \xE0 Direita"),
-      marginL: L6("Left Margin", "Margem Esquerda"),
-      marginR: L6("Right Margin", "Margem Direita"),
-      marginT: L6("Top Margin", "Margem Superior"),
-      marginB: L6("Bottom Margin", "Margem Inferior"),
-      column: L6("Move Column", "Mover Coluna"),
-      cell: L6("Move Table Column", "Mover Coluna da Tabela"),
-      row: L6("Adjust Table Row", "Ajustar Linha da Tabela"),
+      firstLine: L7("First Line Indent", "Recuo da Primeira Linha"),
+      hanging: L7("Hanging Indent", "Recuo Deslocado"),
+      left: L7("Left Indent", "Recuo \xE0 Esquerda"),
+      right: L7("Right Indent", "Recuo \xE0 Direita"),
+      marginL: L7("Left Margin", "Margem Esquerda"),
+      marginR: L7("Right Margin", "Margem Direita"),
+      marginT: L7("Top Margin", "Margem Superior"),
+      marginB: L7("Bottom Margin", "Margem Inferior"),
+      column: L7("Move Column", "Mover Coluna"),
+      cell: L7("Move Table Column", "Mover Coluna da Tabela"),
+      row: L7("Adjust Table Row", "Ajustar Linha da Tabela"),
       tab: {
-        left: L6("Left Tab", "Tabula\xE7\xE3o Esquerda"),
-        center: L6("Center Tab", "Tabula\xE7\xE3o Centralizada"),
-        right: L6("Right Tab", "Tabula\xE7\xE3o Direita"),
-        decimal: L6("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
-        bar: L6("Bar Tab", "Barra de Tabula\xE7\xE3o")
+        left: L7("Left Tab", "Tabula\xE7\xE3o Esquerda"),
+        center: L7("Center Tab", "Tabula\xE7\xE3o Centralizada"),
+        right: L7("Right Tab", "Tabula\xE7\xE3o Direita"),
+        decimal: L7("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
+        bar: L7("Bar Tab", "Barra de Tabula\xE7\xE3o")
       }
     };
     MIN_TEXT = 720;
@@ -49536,7 +50998,7 @@ var init_chrome_ruler = __esm({
         this.guide = document.createElement("div");
         this.guide.className = "uw-ruler-guide";
         this.guide.hidden = true;
-        for (const el13 of [this.h.el, this.vbox]) el13.addEventListener("mousedown", (e8) => e8.preventDefault());
+        for (const el14 of [this.h.el, this.vbox]) el14.addEventListener("mousedown", (e8) => e8.preventDefault());
       }
       env;
       h;
@@ -49807,14 +51269,14 @@ var init_chrome_panels = __esm({
       constructor(ed, app, layer) {
         this.ed = ed;
         this.app = app;
-        const L8 = app.ui.L;
-        const el13 = document.createElement("div");
-        el13.className = "uw-find";
-        el13.setAttribute("role", "dialog");
-        el13.setAttribute("aria-label", L8.findTitle);
-        el13.setAttribute("part", "find");
-        el13.hidden = true;
-        el13.innerHTML = `
+        const L9 = app.ui.L;
+        const el14 = document.createElement("div");
+        el14.className = "uw-find";
+        el14.setAttribute("role", "dialog");
+        el14.setAttribute("aria-label", L9.findTitle);
+        el14.setAttribute("part", "find");
+        el14.hidden = true;
+        el14.innerHTML = `
       <div class="uw-find-head"><strong></strong>
         <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
       <input type="text" data-a="find:text" />
@@ -49823,21 +51285,21 @@ var init_chrome_panels = __esm({
         <button type="button" class="uo-pill" data-a="find:next"></button>
         <button type="button" class="uo-pill" data-a="find:one"></button>
         <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-        el13.querySelector("strong").textContent = L8.findTitle;
-        this.find = el13.querySelector('[data-a="find:text"]');
-        this.repl = el13.querySelector('[data-a="find:replace"]');
-        this.msg = el13.querySelector(".uw-find-msg");
-        this.find.placeholder = L8.find;
-        this.repl.placeholder = L8.replaceWith;
+        el14.querySelector("strong").textContent = L9.findTitle;
+        this.find = el14.querySelector('[data-a="find:text"]');
+        this.repl = el14.querySelector('[data-a="find:replace"]');
+        this.msg = el14.querySelector(".uw-find-msg");
+        this.find.placeholder = L9.find;
+        this.repl.placeholder = L9.replaceWith;
         const b5 = (id, label, fn) => {
-          const x3 = el13.querySelector(`[data-a="find:${id}"]`);
+          const x3 = el14.querySelector(`[data-a="find:${id}"]`);
           x3.textContent = label;
           x3.addEventListener("click", fn);
         };
-        b5("next", L8.findNext, () => this.next());
-        b5("one", L8.replace, () => this.replaceOne());
-        b5("all", L8.replaceAll, () => this.replaceAll());
-        el13.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
+        b5("next", L9.findNext, () => this.next());
+        b5("one", L9.replace, () => this.replaceOne());
+        b5("all", L9.replaceAll, () => this.replaceAll());
+        el14.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
         for (const i7 of [this.find, this.repl]) {
           i7.addEventListener("keydown", (e8) => {
             if (e8.key === "Escape") {
@@ -49855,8 +51317,8 @@ var init_chrome_panels = __esm({
           this.msg.textContent = "";
           this.find.classList.remove("uw-miss");
         });
-        layer.appendChild(el13);
-        this.el = el13;
+        layer.appendChild(el14);
+        this.el = el14;
       }
       ed;
       app;
@@ -49905,16 +51367,16 @@ var init_chrome_panels = __esm({
         this.ed = ed;
         this.app = app;
         this.after = after;
-        const el13 = document.createElement("div");
-        el13.className = "uw-comments";
-        el13.setAttribute("part", "comments");
+        const el14 = document.createElement("div");
+        el14.className = "uw-comments";
+        el14.setAttribute("part", "comments");
         for (const t6 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-          el13.addEventListener(t6, (e8) => {
+          el14.addEventListener(t6, (e8) => {
             if (t6 !== "wheel") e8.stopPropagation();
           }, { passive: t6 === "wheel" });
         }
-        root.appendChild(el13);
-        this.el = el13;
+        root.appendChild(el14);
+        this.el = el14;
       }
       ed;
       app;
@@ -49936,7 +51398,7 @@ var init_chrome_panels = __esm({
       render() {
         const pages2 = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
         const print = this.ed.getView() === "print";
-        const L8 = this.app.ui.L;
+        const L9 = this.app.ui.L;
         const mode = this.ed.getMarkupMode();
         const mk = this.ed.getMarkupOptions();
         const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
@@ -49968,9 +51430,9 @@ var init_chrome_panels = __esm({
           card.className = `uw-card${active2.has(c5.id) ? " active" : ""}`;
           card.dataset["commentId"] = String(c5.id);
           card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c5.id}" title="${L8.deleteComment}">${symbol("delete")}</button></div>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c5.id}" title="${L9.deleteComment}">${symbol("delete")}</button></div>
         <div class="txt"></div>`;
-          card.querySelector(".who").textContent = c5.author ?? L8.anonymous;
+          card.querySelector(".who").textContent = c5.author ?? L9.anonymous;
           card.querySelector(".txt").textContent = c5.text;
           card.querySelector("button").addEventListener("click", (e8) => {
             e8.stopPropagation();
@@ -49996,8 +51458,8 @@ var init_chrome_panels = __esm({
           card.className = "uw-card uw-rev-card";
           card.style.setProperty("--uw-rev", `#${r6.color}`);
           card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
-        <button type="button" class="uo-btn" data-a="rev:accept" title="${L8.revAccept}">${symbol("check")}</button>
-        <button type="button" class="uo-btn" data-a="rev:reject" title="${L8.revReject}">${symbol("close")}</button></div>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L9.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L9.revReject}">${symbol("close")}</button></div>
         <div class="txt"></div>`;
           card.querySelector(".who").textContent = r6.author;
           card.querySelector(".when").textContent = revisionTime(r6.date, uiLang(this.ed));
@@ -50006,7 +51468,7 @@ var init_chrome_panels = __esm({
             const [head, ...rest] = r6.description.split(": ");
             txt2.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
           } else {
-            txt2.append(Object.assign(document.createElement("b"), { textContent: `${r6.mark ? L8.revParaDeleted : L8.revDeleted}: ` }), r6.text);
+            txt2.append(Object.assign(document.createElement("b"), { textContent: `${r6.mark ? L9.revParaDeleted : L9.revDeleted}: ` }), r6.text);
           }
           const [acc, rej] = card.querySelectorAll("button");
           acc.addEventListener("click", (e8) => {
@@ -50069,15 +51531,15 @@ var init_chrome_panels = __esm({
         this.slider.addEventListener("input", () => ed.setZoom(Number(this.slider.value) / 100));
         this.slider.addEventListener("change", () => ctx.after());
         const zi = renderItem("zoomin", ctx);
-        const pct = document.createElement("button");
-        pct.type = "button";
-        pct.className = "uo-btn uw-zoom-pct";
-        pct.dataset["a"] = "zoom";
-        pct.title = ctx.registry.text({ en: "Zoom", pt: "Zoom" });
-        pct.addEventListener("mousedown", (e8) => e8.preventDefault());
-        pct.addEventListener("click", (e8) => {
+        const pct2 = document.createElement("button");
+        pct2.type = "button";
+        pct2.className = "uo-btn uw-zoom-pct";
+        pct2.dataset["a"] = "zoom";
+        pct2.title = ctx.registry.text({ en: "Zoom", pt: "Zoom" });
+        pct2.addEventListener("mousedown", (e8) => e8.preventDefault());
+        pct2.addEventListener("click", (e8) => {
           e8.stopPropagation();
-          toggleMenu(pct, () => ZOOMS.map((z2) => ({
+          toggleMenu(pct2, () => ZOOMS.map((z2) => ({
             label: `${z2}%`,
             checked: Math.round(ed.getZoom() * 100) === z2,
             onClick: () => {
@@ -50086,10 +51548,10 @@ var init_chrome_panels = __esm({
             }
           })), ctx);
         });
-        this.items.push(zo, zi, { el: pct, visible: () => true, sync: () => {
-          pct.textContent = `${Math.round(ed.getZoom() * 100)}%`;
+        this.items.push(zo, zi, { el: pct2, visible: () => true, sync: () => {
+          pct2.textContent = `${Math.round(ed.getZoom() * 100)}%`;
         } });
-        bar.append(zo.el, this.slider, zi.el, pct);
+        bar.append(zo.el, this.slider, zi.el, pct2);
         container.appendChild(bar);
       }
       ed;
@@ -50203,7 +51665,7 @@ var init_chrome_review = __esm({
         const pane = this.pane;
         if (!pane) return;
         pane.place();
-        const L8 = this.app.ui.L;
+        const L9 = this.app.ui.L;
         const lang = uiLang(this.ed);
         const revs = this.ed.getRevisions();
         const comments = this.app.commentsVisible ? this.ed.getComments() : [];
@@ -50214,17 +51676,17 @@ var init_chrome_review = __esm({
           else if (r6.kind === "delete") n5.del++;
           else n5.fmt++;
         }
-        pane.setTitle(`${L8.revPane}: ${L8.revCount(revs.length)}`);
+        pane.setTitle(`${L9.revPane}: ${L9.revCount(revs.length)}`);
         const sum2 = document.createElement("div");
         sum2.className = "uw-review-sum";
-        sum2.textContent = [`${L8.revInsertions}: ${n5.ins}`, `${L8.revDeletions}: ${n5.del}`, `${L8.revMoves}: ${n5.move}`, `${L8.revFormatting}: ${n5.fmt}`, `${L8.revComments}: ${comments.length}`].join(" \xB7 ");
+        sum2.textContent = [`${L9.revInsertions}: ${n5.ins}`, `${L9.revDeletions}: ${n5.del}`, `${L9.revMoves}: ${n5.move}`, `${L9.revFormatting}: ${n5.fmt}`, `${L9.revComments}: ${comments.length}`].join(" \xB7 ");
         const list = document.createElement("ul");
         list.className = "uw-review-list";
         revs.forEach((r6, i7) => {
           const li = document.createElement("li");
           li.className = "uw-rev";
           li.style.setProperty("--uw-rev", `#${r6.color}`);
-          const what = r6.move ? r6.kind === "delete" ? L8.revMovedFrom : L8.revMovedTo : r6.kind === "insert" ? r6.mark ? L8.revParaInserted : L8.revInserted : r6.kind === "delete" ? r6.mark ? L8.revParaDeleted : L8.revDeleted : L8.revFormatted;
+          const what = r6.move ? r6.kind === "delete" ? L9.revMovedFrom : L9.revMovedTo : r6.kind === "insert" ? r6.mark ? L9.revParaInserted : L9.revInserted : r6.kind === "delete" ? r6.mark ? L9.revParaDeleted : L9.revDeleted : L9.revFormatted;
           li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
         <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
         <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
@@ -50233,8 +51695,8 @@ var init_chrome_review = __esm({
           li.querySelector(".when").textContent = revisionTime(r6.date, lang);
           li.querySelector(".txt").textContent = r6.description ? r6.description.replace(/^[^:]*:\s*/, "") : r6.text;
           const [acc, rej] = li.querySelectorAll("button");
-          acc.title = L8.revAccept;
-          rej.title = L8.revReject;
+          acc.title = L9.revAccept;
+          rej.title = L9.revReject;
           acc.addEventListener("click", (e8) => {
             e8.stopPropagation();
             if (this.ed.acceptRevisionAt(i7)) this.after();
@@ -50253,8 +51715,8 @@ var init_chrome_review = __esm({
           const li = document.createElement("li");
           li.className = "uw-rev uw-rev-comment";
           li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
-          li.querySelector(".who").textContent = c5.author ?? L8.anonymous;
-          li.querySelector(".what").textContent = L8.revComments;
+          li.querySelector(".who").textContent = c5.author ?? L9.anonymous;
+          li.querySelector(".what").textContent = L9.revComments;
           li.querySelector(".txt").textContent = c5.text;
           li.addEventListener("click", () => {
             this.app.activeCommentIds = [c5.id];
@@ -50266,7 +51728,7 @@ var init_chrome_review = __esm({
         if (!revs.length && !comments.length) {
           const li = document.createElement("li");
           li.className = "uw-rev-empty";
-          li.textContent = L8.revNone;
+          li.textContent = L9.revNone;
           list.appendChild(li);
         }
         pane.body.replaceChildren(sum2, list);
@@ -50304,25 +51766,25 @@ async function tableStyleDialog(env, mode, nameOrId) {
     if (!cur) return;
     draft = cur.xml;
   } else {
-    const name2 = tr4(lang, "Style1", "Estilo1");
+    const name2 = tr5(lang, "Style1", "Estilo1");
     draft = newTableStyleXml({ id: ed.newTableStyleId(name2), name: name2, basedOn: normalId });
   }
   const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
   const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
-  const name = el8("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
-  const base = sel2("ts-base", [["", tr4(lang, "(no style)", "(sem estilo)")], ...bases.map((b5) => [b5.id, b5.name])], headBase, "width:100%");
-  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c6) => [c6, tr4(lang, ...COND_LABELS[c6])]), "wholeTable", "width:100%");
-  const font = el8("input", { type: "text", name: "ts-font", placeholder: tr4(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
-  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr4(lang, ".", ","))])], "", "width:70px");
-  const tog = (label, title) => el8("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
-  const bBtn = tog("B", tr4(lang, "Bold", "Negrito")), iBtn = tog("I", tr4(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr4(lang, "Underline", "Sublinhado"));
+  const name = el9("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
+  const base = sel2("ts-base", [["", tr5(lang, "(no style)", "(sem estilo)")], ...bases.map((b5) => [b5.id, b5.name])], headBase, "width:100%");
+  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c6) => [c6, tr5(lang, ...COND_LABELS[c6])]), "wholeTable", "width:100%");
+  const font = el9("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
+  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr5(lang, ".", ","))])], "", "width:70px");
+  const tog = (label, title) => el9("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
+  const bBtn = tog("B", tr5(lang, "Bold", "Negrito")), iBtn = tog("I", tr5(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr5(lang, "Underline", "Sublinhado"));
   bBtn.style.fontWeight = "700";
   iBtn.style.fontStyle = "italic";
   uBtn.style.textDecoration = "underline";
-  const color3 = el8("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
-  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt2]) => [v2, tr4(lang, en, pt2)]), "single");
+  const color3 = el9("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt2]) => [v2, tr5(lang, en, pt2)]), "single");
   const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz, t6]) => [String(sz), `${t6} pt`]), "4");
-  const bColor = el8("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bColor = el9("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const sideBtns = [
     ["top", "Top", "Superior"],
     ["bottom", "Bottom", "Inferior"],
@@ -50333,26 +51795,26 @@ async function tableStyleDialog(env, mode, nameOrId) {
     ["none", "None", "Nenhuma"],
     ["all", "All", "Todas"]
   ].map(([s4, en, pt2]) => {
-    const b5 = el8("button", { type: "button", className: "uo-pill", textContent: tr4(lang, en, pt2), style: "padding:3px 9px" });
+    const b5 = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt2), style: "padding:3px 9px" });
     b5.dataset["side"] = s4;
     return b5;
   });
-  const fillOn = el8("input", { type: "checkbox", name: "ts-fill-on" });
-  const fill = el8("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const fillOn = el9("input", { type: "checkbox", name: "ts-fill-on" });
+  const fill = el9("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const align = sel2("ts-align", [
     ["", "\u2014"],
-    ["left|top", tr4(lang, "Top left", "Em cima, \xE0 esquerda")],
-    ["center|top", tr4(lang, "Top center", "Em cima, centralizado")],
-    ["right|top", tr4(lang, "Top right", "Em cima, \xE0 direita")],
-    ["left|center", tr4(lang, "Center left", "No centro, \xE0 esquerda")],
-    ["center|center", tr4(lang, "Center", "No centro")],
-    ["right|center", tr4(lang, "Center right", "No centro, \xE0 direita")],
-    ["left|bottom", tr4(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
-    ["center|bottom", tr4(lang, "Bottom center", "Embaixo, centralizado")],
-    ["right|bottom", tr4(lang, "Bottom right", "Embaixo, \xE0 direita")]
+    ["left|top", tr5(lang, "Top left", "Em cima, \xE0 esquerda")],
+    ["center|top", tr5(lang, "Top center", "Em cima, centralizado")],
+    ["right|top", tr5(lang, "Top right", "Em cima, \xE0 direita")],
+    ["left|center", tr5(lang, "Center left", "No centro, \xE0 esquerda")],
+    ["center|center", tr5(lang, "Center", "No centro")],
+    ["right|center", tr5(lang, "Center right", "No centro, \xE0 direita")],
+    ["left|bottom", tr5(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
+    ["center|bottom", tr5(lang, "Bottom center", "Embaixo, centralizado")],
+    ["right|bottom", tr5(lang, "Bottom right", "Embaixo, \xE0 direita")]
   ], "");
   const dpr = window.devicePixelRatio || 1;
-  const cv = el8("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
+  const cv = el9("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
   const c5 = () => cond.value;
   const sync = () => {
     const st = condState(draft, c5());
@@ -50402,24 +51864,24 @@ async function tableStyleDialog(env, mode, nameOrId) {
     draft = retitleTableStyleXml(draft, { basedOn: base.value || null });
     sync();
   });
-  const row2 = (...kids) => el8("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-  const lbl = (t6, ctl) => el8("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t6, ctl);
-  const body = el8(
+  const row2 = (...kids) => el9("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+  const lbl = (t6, ctl) => el9("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t6, ctl);
+  const body = el9(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el8("strong", {}, tr4(lang, "Properties", "Propriedades")),
-    row2(lbl(tr4(lang, "Name:", "Nome:"), name), lbl(tr4(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr4(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr4(lang, "Style based on:", "Estilo baseado em:"), base)),
-    el8("strong", {}, tr4(lang, "Formatting", "Formata\xE7\xE3o")),
-    lbl(tr4(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
-    row2(font, size, bBtn, iBtn, uBtn, el8("span", {}, tr4(lang, "Color", "Cor")), color3),
+    el9("strong", {}, tr5(lang, "Properties", "Propriedades")),
+    row2(lbl(tr5(lang, "Name:", "Nome:"), name), lbl(tr5(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr5(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr5(lang, "Style based on:", "Estilo baseado em:"), base)),
+    el9("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
+    lbl(tr5(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
+    row2(font, size, bBtn, iBtn, uBtn, el9("span", {}, tr5(lang, "Color", "Cor")), color3),
     row2(bStyle, bWidth, bColor, ...sideBtns),
-    row2(el8("label", { className: "uo-check" }, fillOn, tr4(lang, "Fill", "Preenchimento")), fill, el8("span", {}, tr4(lang, "Alignment", "Alinhamento")), align),
+    row2(el9("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el9("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
     cv,
-    el8("label", { className: "uo-check" }, el8("input", { type: "radio", name: "ts-where", checked: true }), tr4(lang, "Only in this document", "Somente neste documento"))
+    el9("label", { className: "uo-check" }, el9("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
   );
   sync();
   const h3 = openDialog({
-    title: mode === "new" ? tr4(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr4(lang, "Modify Style", "Modificar Estilo"),
+    title: mode === "new" ? tr5(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr5(lang, "Modify Style", "Modificar Estilo"),
     body,
     layer: env.layer,
     lang,
@@ -50436,15 +51898,15 @@ async function tableStyleDialog(env, mode, nameOrId) {
   const baseName = bases.find((b5) => b5.id === base.value)?.name;
   ed.saveTableStyle(draft, { apply: false, basedOnName: baseName });
 }
-var tr4, el8, sel2, COND_LABELS;
+var tr5, el9, sel2, COND_LABELS;
 var init_chrome_table_style = __esm({
   "src/chrome-table-style.ts"() {
     "use strict";
     init_src5();
     init_src();
     init_chrome_borders();
-    tr4 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    el8 = (tag2, props = {}, ...kids) => {
+    tr5 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    el9 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -50452,8 +51914,8 @@ var init_chrome_table_style = __esm({
       return e8;
     };
     sel2 = (name, opts, value, style = "") => {
-      const s4 = el8("select", { name, style });
-      for (const [v2, t6] of opts) s4.append(el8("option", { value: v2, selected: v2 === value }, t6));
+      const s4 = el9("select", { name, style });
+      for (const [v2, t6] of opts) s4.append(el9("option", { value: v2, selected: v2 === value }, t6));
       return s4;
     };
     COND_LABELS = {
@@ -50476,29 +51938,29 @@ var init_chrome_table_style = __esm({
 
 // src/chrome-table-dialogs.ts
 function radios(name, opts, value) {
-  const box = el9("div", { style: "display:flex;flex-direction:column;gap:6px" });
+  const box = el10("div", { style: "display:flex;flex-direction:column;gap:6px" });
   for (const [v2, t6] of opts) {
-    const i7 = el9("input", { type: "radio", name, value: v2, checked: v2 === value });
-    box.append(el9("label", { className: "uo-check" }, i7, t6));
+    const i7 = el10("input", { type: "radio", name, value: v2, checked: v2 === value });
+    box.append(el10("label", { className: "uo-check" }, i7, t6));
   }
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
 async function ask(env, title, body, width = 400) {
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const h3 = openDialog({
     title,
     body,
     layer: env.layer,
     lang: env.lang,
     width,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   return await h3.result === "ok";
 }
 function separatorPicker(lang, name, value, other, paraLabel) {
-  const opts = [["paragraph", paraLabel], ["tab", tr5(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr5(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr5(lang, "Other:", "Outro:")]];
+  const opts = [["paragraph", paraLabel], ["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr6(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr6(lang, "Other:", "Outro:")]];
   const r6 = radios(name, opts, value);
-  const otherIn = el9("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
+  const otherIn = el10("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
   r6.el.lastElementChild.append(otherIn);
   otherIn.addEventListener("input", () => {
     r6.el.querySelector('input[value="other"]').checked = true;
@@ -50511,17 +51973,17 @@ function separatorPicker(lang, name, value, other, paraLabel) {
 }
 function autofitPicker(lang, value, colTw) {
   const r6 = radios("autofit", [
-    ["fixed", tr5(lang, "Fixed column width:", "Largura fixa da coluna:")],
-    ["content", tr5(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
-    ["window", tr5(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
+    ["fixed", tr6(lang, "Fixed column width:", "Largura fixa da coluna:")],
+    ["content", tr6(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
+    ["window", tr6(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
   ], value);
-  const auto = tr5(lang, "Auto", "Autom\xE1tico");
-  const w2 = el9("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
+  const auto = tr6(lang, "Auto", "Autom\xE1tico");
+  const w2 = el10("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
   r6.el.firstElementChild.append(w2);
   const read = () => {
     const a3 = r6.value();
-    const tw2 = a3 === "fixed" && w2.value.trim() !== auto ? twOf(w2.value) : void 0;
-    return { autofit: a3, ...tw2 && tw2 > 0 ? { colWidthTwips: tw2 } : {} };
+    const tw3 = a3 === "fixed" && w2.value.trim() !== auto ? twOf(w2.value) : void 0;
+    return { autofit: a3, ...tw3 && tw3 > 0 ? { colWidthTwips: tw3 } : {} };
   };
   return { el: r6.el, read };
 }
@@ -50532,31 +51994,31 @@ async function tableDialog(env, kind, arg) {
       const mem = env.app.prefs.get("tableDims")?.split("x").map(Number);
       const cols = num2("cols", mem?.[0] || 5), rows = num2("rows", mem?.[1] || 2, 1, 32767);
       const af = autofitPicker(lang, "fixed");
-      const remember = el9("input", { type: "checkbox", name: "remember", checked: !!mem });
-      const body = el9(
+      const remember = el10("input", { type: "checkbox", name: "remember", checked: !!mem });
+      const body = el10(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr5(lang, "Table size", "Tamanho da tabela"), el9(
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el10(
           "div",
           { className: "uo-dialog-grid" },
-          el9("span", {}, tr5(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el9("span", {}, tr5(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         )),
-        section2(tr5(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        el9("label", { className: "uo-check" }, remember, tr5(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
+        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        el10("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
       );
-      if (!await ask(env, tr5(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
+      if (!await ask(env, tr6(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
       const c5 = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r6 = Math.max(1, parseInt(rows.value, 10) || 1);
       env.app.prefs.set("tableDims", remember.checked ? `${c5}x${r6}` : "");
       ed.insertTable(r6, c5, af.read());
       return;
     }
     case "fromText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr5(lang, "Paragraphs", "Par\xE1grafos"));
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraphs", "Par\xE1grafos"));
       const cols = num2("cols", 2);
-      const rowsOut = el9("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
+      const rowsOut = el10("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
       const af = autofitPicker(lang, "fixed");
       const guess = ed.textToTableGuess();
       if (guess) {
@@ -50573,71 +52035,71 @@ async function tableDialog(env, kind, arg) {
       };
       sep.el.addEventListener("change", recount);
       cols.addEventListener("input", recount);
-      const body = el9(
+      const body = el10(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr5(lang, "Table size", "Tamanho da tabela"), el9(
+        section2(tr6(lang, "Table size", "Tamanho da tabela"), el10(
           "div",
           { className: "uo-dialog-grid" },
-          el9("span", {}, tr5(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el9("span", {}, tr5(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rowsOut
         )),
-        section2(tr5(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        section2(tr5(lang, "Separate text at", "Separar texto em"), sep.el)
+        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        section2(tr6(lang, "Separate text at", "Separar texto em"), sep.el)
       );
-      if (!await ask(env, tr5(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
+      if (!await ask(env, tr6(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
       ed.convertTextToTable({ separator: sep.read(), cols: parseInt(cols.value, 10) || 1, ...af.read() });
       return;
     }
     case "toText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr5(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
-      const body = section2(tr5(lang, "Separate text with", "Separar texto com"), sep.el);
-      if (!await ask(env, tr5(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
+      const body = section2(tr6(lang, "Separate text with", "Separar texto com"), sep.el);
+      if (!await ask(env, tr6(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
       ed.convertTableToText(sep.read());
       return;
     }
     case "insertCells": {
       const r6 = radios("shift", [
-        ["right", tr5(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
-        ["down", tr5(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
-        ["row", tr5(lang, "Insert entire row", "Inserir linha inteira")],
-        ["column", tr5(lang, "Insert entire column", "Inserir coluna inteira")]
+        ["right", tr6(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
+        ["down", tr6(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
+        ["row", tr6(lang, "Insert entire row", "Inserir linha inteira")],
+        ["column", tr6(lang, "Insert entire column", "Inserir coluna inteira")]
       ], "down");
-      if (!await ask(env, tr5(lang, "Insert Cells", "Inserir C\xE9lulas"), r6.el, 340)) return;
+      if (!await ask(env, tr6(lang, "Insert Cells", "Inserir C\xE9lulas"), r6.el, 340)) return;
       ed.insertCells(r6.value());
       return;
     }
     case "deleteCells": {
       const r6 = radios("shift", [
-        ["left", tr5(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
-        ["up", tr5(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
-        ["row", tr5(lang, "Delete entire row", "Excluir linha inteira")],
-        ["column", tr5(lang, "Delete entire column", "Excluir coluna inteira")]
+        ["left", tr6(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
+        ["up", tr6(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
+        ["row", tr6(lang, "Delete entire row", "Excluir linha inteira")],
+        ["column", tr6(lang, "Delete entire column", "Excluir coluna inteira")]
       ], "left");
-      if (!await ask(env, tr5(lang, "Delete Cells", "Excluir C\xE9lulas"), r6.el, 340)) return;
+      if (!await ask(env, tr6(lang, "Delete Cells", "Excluir C\xE9lulas"), r6.el, 340)) return;
       ed.deleteCells(r6.value());
       return;
     }
     case "split": {
       const s4 = ed.getTableState();
       const cols = num2("cols", 2), rows = num2("rows", 1, 1, 32767);
-      const merge = el9("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
-      const body = el9(
+      const merge = el10("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
+      const body = el10(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        el9(
+        el10(
           "div",
           { className: "uo-dialog-grid" },
-          el9("span", {}, tr5(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el10("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el9("span", {}, tr5(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el10("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         ),
-        el9("label", { className: "uo-check" }, merge, tr5(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
+        el10("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
       );
-      if (!await ask(env, tr5(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
+      if (!await ask(env, tr6(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
       ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
       return;
     }
@@ -50648,31 +52110,31 @@ async function tableDialog(env, kind, arg) {
       const top = cmInput(lang, "top", w2(mar.top)), bottom = cmInput(lang, "bottom", w2(mar.bottom));
       const left = cmInput(lang, "left", w2(mar.left, 108)), right = cmInput(lang, "right", w2(mar.right, 108));
       const spTw = s4?.tblPr.tblCellSpacing?.type === "dxa" ? s4.tblPr.tblCellSpacing.w * 2 : 0;
-      const allow = el9("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
+      const allow = el10("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
       const spacing = cmInput(lang, "spacing", spTw);
-      const resize = el9("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
-      const body = el9(
+      const resize = el10("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
+      const body = el10(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr5(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el9(
+        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el10(
           "div",
           { className: "uo-dialog-grid" },
-          el9("span", {}, tr5(lang, "Top:", "Superior:")),
+          el10("span", {}, tr6(lang, "Top:", "Superior:")),
           top,
-          el9("span", {}, tr5(lang, "Left:", "Esquerda:")),
+          el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
           left,
-          el9("span", {}, tr5(lang, "Bottom:", "Inferior:")),
+          el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
           bottom,
-          el9("span", {}, tr5(lang, "Right:", "Direita:")),
+          el10("span", {}, tr6(lang, "Right:", "Direita:")),
           right
         )),
         section2(
-          tr5(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
-          el9("div", { style: "display:flex;align-items:center;gap:8px" }, el9("label", { className: "uo-check" }, allow, tr5(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
+          tr6(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
+          el10("div", { style: "display:flex;align-items:center;gap:8px" }, el10("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
         ),
-        section2(tr5(lang, "Options", "Op\xE7\xF5es"), el9("label", { className: "uo-check" }, resize, tr5(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
+        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el10("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
       );
-      if (!await ask(env, tr5(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
+      if (!await ask(env, tr6(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
       ed.setTableCellMargins(
         { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
         allow.checked ? twOf(spacing.value) ?? 0 : 0,
@@ -50699,23 +52161,23 @@ async function tableDialog(env, kind, arg) {
     case "properties:alt":
       return propertiesDialog(env, kind === "properties" ? "table" : kind.slice(11));
     case "formula": {
-      const formula = el9("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
-      const fmt2 = el9("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
-      const fmtList = el9(
+      const formula = el10("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
+      const fmt2 = el10("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
+      const fmtList = el10(
         "select",
         { name: "format-list", style: "width:28px" },
-        el9("option", { value: "" }, ""),
-        ...NUMBER_FORMATS.map((f3) => el9("option", { value: f3 }, f3))
+        el10("option", { value: "" }, ""),
+        ...NUMBER_FORMATS.map((f3) => el10("option", { value: f3 }, f3))
       );
       fmtList.addEventListener("change", () => {
         fmt2.value = fmtList.value;
         fmtList.value = "";
       });
-      const fn = el9(
+      const fn = el10(
         "select",
         { name: "function" },
-        el9("option", { value: "" }, tr5(lang, "Paste function", "Colar fun\xE7\xE3o")),
-        ...FORMULA_FUNCTIONS.map((f3) => el9("option", { value: f3 }, f3))
+        el10("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
+        ...FORMULA_FUNCTIONS.map((f3) => el10("option", { value: f3 }, f3))
       );
       fn.addEventListener("change", () => {
         if (!fn.value) return;
@@ -50726,39 +52188,39 @@ async function tableDialog(env, kind, arg) {
         formula.setSelectionRange(a3 + ins.length - 1, a3 + ins.length - 1);
         fn.value = "";
       });
-      const body = el9(
+      const body = el10(
         "div",
         { style: "display:flex;flex-direction:column;gap:12px" },
-        el9("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr5(lang, "Formula:", "F\xF3rmula:"), formula),
-        el9(
+        el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
+        el10(
           "label",
           { style: "display:flex;flex-direction:column;gap:4px" },
-          tr5(lang, "Number format:", "Formato do n\xFAmero:"),
-          el9("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
+          tr6(lang, "Number format:", "Formato do n\xFAmero:"),
+          el10("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
         ),
-        el9("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
+        el10("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
       );
       queueMicrotask(() => {
         formula.focus();
         formula.setSelectionRange(formula.value.length, formula.value.length);
       });
-      if (!await ask(env, tr5(lang, "Formula", "F\xF3rmula"), body, 380)) return;
+      if (!await ask(env, tr6(lang, "Formula", "F\xF3rmula"), body, 380)) return;
       ed.insertFormula(formula.value, fmt2.value.trim() || void 0);
       return;
     }
   }
 }
 function radiosRow(name, opts, value) {
-  const box = el9("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
-  for (const [v2, t6] of opts) box.append(el9("label", { className: "uo-check" }, el9("input", { type: "radio", name, value: v2, checked: v2 === value }), t6));
+  const box = el10("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
+  for (const [v2, t6] of opts) box.append(el10("label", { className: "uo-check" }, el10("input", { type: "radio", name, value: v2, checked: v2 === value }), t6));
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
 function widthField(lang, name, w2, defTw) {
   const on = !!w2 && (w2.type === "dxa" || w2.type === "pct") && w2.w > 0;
-  const c5 = check4(`${name}-on`, on, tr5(lang, "Preferred width:", "Largura preferencial:"));
-  const unit = sel3(`${name}-unit`, [["dxa", tr5(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr5(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
-  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr5(lang, ".", ","));
-  const val3 = el9("input", {
+  const c5 = check5(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
+  const unit = sel3(`${name}-unit`, [["dxa", tr6(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr6(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
+  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr6(lang, ".", ","));
+  const val3 = el10("input", {
     type: "text",
     name,
     inputMode: "decimal",
@@ -50779,10 +52241,10 @@ function widthField(lang, name, w2, defTw) {
       const n5 = parseFloat(val3.value.replace(",", ".").replace(/[^0-9.]/g, ""));
       return Number.isFinite(n5) && n5 > 0 ? { w: Math.round(n5 * 50), type: "pct" } : null;
     }
-    const tw2 = twOf(val3.value);
-    return tw2 && tw2 > 0 ? { w: tw2, type: "dxa" } : null;
+    const tw3 = twOf(val3.value);
+    return tw3 && tw3 > 0 ? { w: tw3, type: "dxa" } : null;
   };
-  return { el: line(c5.el, val3, el9("span", {}, tr5(lang, "Measure in:", "Medir em:")), unit), read };
+  return { el: line(c5.el, val3, el10("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
 }
 async function propertiesDialog(env, tab) {
   const lang = env.lang, ed = env.ed;
@@ -50791,17 +52253,17 @@ async function propertiesDialog(env, tab) {
   const t6 = s4.tblPr, rp = s4.trPr, cp = s4.tcPr;
   const tWidth = widthField(lang, "tw", t6.tblW, s4.availTwips);
   const curAlign = t6.jc === "center" || t6.jc === "right" ? t6.jc : "left";
-  const align = radiosRow("talign", [["left", tr5(lang, "Left", "Esquerda")], ["center", tr5(lang, "Center", "Centralizado")], ["right", tr5(lang, "Right", "Direita")]], curAlign);
+  const align = radiosRow("talign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Center", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], curAlign);
   const indent = cmInput(lang, "tind", t6.tblInd?.type === "dxa" ? t6.tblInd.w : 0);
   const syncInd = () => {
     indent.disabled = align.value() !== "left";
   };
   align.el.addEventListener("change", syncInd);
   syncInd();
-  const wrap = radiosRow("twrap", [["none", tr5(lang, "None", "Nenhuma")], ["around", tr5(lang, "Around", "Ao redor")]], t6.tblpPr ? "around" : "none");
+  const wrap = radiosRow("twrap", [["none", tr6(lang, "None", "Nenhuma")], ["around", tr6(lang, "Around", "Ao redor")]], t6.tblpPr ? "around" : "none");
   let position = t6.tblpPr ? { ...t6.tblpPr } : void 0;
   let overlap;
-  const posBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Positioning\u2026", "Posicionamento\u2026") });
+  const posBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
   const syncWrap = () => {
     posBtn.disabled = wrap.value() !== "around";
   };
@@ -50816,78 +52278,78 @@ async function propertiesDialog(env, tab) {
       }
     });
   });
-  const optBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const optBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   optBtn.addEventListener("click", () => {
     void tableDialog(env, "margins");
   });
-  const tableTab = el9(
+  const tableTab = el10(
     "div",
     {},
-    section2(tr5(lang, "Size", "Tamanho"), tWidth.el),
-    section2(tr5(lang, "Alignment", "Alinhamento"), line(align.el, el9("span", {}, tr5(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
-    section2(tr5(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
-    el9("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
+    section2(tr6(lang, "Size", "Tamanho"), tWidth.el),
+    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el10("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
+    section2(tr6(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
+    el10("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
   );
-  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr5(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr5(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
-  const hOn = check4("rh-on", !!rp.trHeight, tr5(lang, "Specify height:", "Especificar altura:"));
+  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr6(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr6(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
+  const hOn = check5("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
   const hVal = cmInput(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
-  const hRule = sel3("rh-rule", [["atLeast", tr5(lang, "At least", "Pelo menos")], ["exact", tr5(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
+  const hRule = sel3("rh-rule", [["atLeast", tr6(lang, "At least", "Pelo menos")], ["exact", tr6(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
   const syncH = () => {
     hVal.disabled = hRule.disabled = !hOn.box.checked;
   };
   hOn.box.addEventListener("change", syncH);
   syncH();
-  const brk = check4("r-break", !rp.cantSplit, tr5(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
-  const hdr = check4("r-header", !!rp.tblHeader, tr5(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
-  const rowTab = el9(
+  const brk = check5("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
+  const hdr = check5("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
+  const rowTab = el10(
     "div",
     {},
-    el9("strong", {}, rowsLabel),
-    section2(tr5(lang, "Size", "Tamanho"), line(hOn.el, hVal, el9("span", {}, tr5(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
-    section2(tr5(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
+    el10("strong", {}, rowsLabel),
+    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el10("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
   );
-  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr5(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr5(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
+  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr6(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr6(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
   const tcW = cp.tcW?.type === "dxa" || cp.tcW?.type === "pct" ? cp.tcW : void 0;
   const cWidth = widthField(lang, "cw", tcW, s4.colWidth);
-  const colTab = el9("div", {}, el9("strong", {}, colsLabel), section2(tr5(lang, "Size", "Tamanho"), cWidth.el));
+  const colTab = el10("div", {}, el10("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
   const kWidth = widthField(lang, "kw", tcW, s4.colWidth);
   const curV = cp.vAlign === "center" || cp.vAlign === "bottom" ? cp.vAlign : "top";
-  const vAlign = radiosRow("kva", [["top", tr5(lang, "Top", "Superior")], ["center", tr5(lang, "Center", "Centralizado")], ["bottom", tr5(lang, "Bottom", "Inferior")]], curV);
+  const vAlign = radiosRow("kva", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Center", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")]], curV);
   let cellOpts;
-  const cellBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const cellBtn = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   cellBtn.addEventListener("click", () => {
     void cellOptionsDialog(env, cp, t6).then((r6) => {
       if (r6) cellOpts = r6;
     });
   });
-  const cellTab = el9(
+  const cellTab = el10(
     "div",
     {},
-    section2(tr5(lang, "Size", "Tamanho"), kWidth.el),
-    section2(tr5(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
-    el9("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
+    section2(tr6(lang, "Size", "Tamanho"), kWidth.el),
+    section2(tr6(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
+    el10("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
   );
-  const title = el9("input", { type: "text", name: "alt-title", value: t6.tblCaption ?? "", style: "width:100%" });
-  const descr = el9("textarea", { name: "alt-descr", value: t6.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
-  const altTab = el9(
+  const title = el10("input", { type: "text", name: "alt-title", value: t6.tblCaption ?? "", style: "width:100%" });
+  const descr = el10("textarea", { name: "alt-descr", value: t6.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
+  const altTab = el10(
     "div",
     {},
-    el9("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr5(lang, "Title", "T\xEDtulo"), title),
-    el9("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr5(lang, "Description", "Descri\xE7\xE3o"), descr)
+    el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
+    el10("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
   );
   const tabs = dialogTabs([
-    { id: "table", label: tr5(lang, "Table", "Tabela"), body: tableTab },
-    { id: "row", label: tr5(lang, "Row", "Linha"), body: rowTab },
-    { id: "column", label: tr5(lang, "Column", "Coluna"), body: colTab },
-    { id: "cell", label: tr5(lang, "Cell", "C\xE9lula"), body: cellTab },
-    { id: "alt", label: tr5(lang, "Alt Text", "Texto Alt"), body: altTab }
+    { id: "table", label: tr6(lang, "Table", "Tabela"), body: tableTab },
+    { id: "row", label: tr6(lang, "Row", "Linha"), body: rowTab },
+    { id: "column", label: tr6(lang, "Column", "Coluna"), body: colTab },
+    { id: "cell", label: tr6(lang, "Cell", "C\xE9lula"), body: cellTab },
+    { id: "alt", label: tr6(lang, "Alt Text", "Texto Alt"), body: altTab }
   ], tab);
-  if (!await ask(env, tr5(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
+  if (!await ask(env, tr6(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
   const sameW = (a3, b5) => a3 === null ? !b5 || b5.type === "auto" || b5.type === "nil" || !b5.w : !!b5 && a3.type === b5.type && a3.w === b5.w;
   const out = {};
   const tb = {};
-  const tw2 = tWidth.read();
-  if (!sameW(tw2, t6.tblW)) tb.width = tw2;
+  const tw3 = tWidth.read();
+  if (!sameW(tw3, t6.tblW)) tb.width = tw3;
   const al = align.value();
   if (al !== curAlign) tb.align = al;
   const ind = twOf(indent.value) ?? 0;
@@ -50925,22 +52387,22 @@ async function propertiesDialog(env, tab) {
 async function positioningDialog(env, pos, overlap) {
   const lang = env.lang;
   const hSpecs = [
-    ["left", tr5(lang, "Left", "Esquerda")],
-    ["center", tr5(lang, "Center", "Centralizado")],
-    ["right", tr5(lang, "Right", "Direita")],
-    ["inside", tr5(lang, "Inside", "Interna")],
-    ["outside", tr5(lang, "Outside", "Externa")]
+    ["left", tr6(lang, "Left", "Esquerda")],
+    ["center", tr6(lang, "Center", "Centralizado")],
+    ["right", tr6(lang, "Right", "Direita")],
+    ["inside", tr6(lang, "Inside", "Interna")],
+    ["outside", tr6(lang, "Outside", "Externa")]
   ];
   const vSpecs = [
-    ["top", tr5(lang, "Top", "Superior")],
-    ["center", tr5(lang, "Center", "Centralizado")],
-    ["bottom", tr5(lang, "Bottom", "Inferior")],
-    ["inside", tr5(lang, "Inside", "Interna")],
-    ["outside", tr5(lang, "Outside", "Externa")]
+    ["top", tr6(lang, "Top", "Superior")],
+    ["center", tr6(lang, "Center", "Centralizado")],
+    ["bottom", tr6(lang, "Bottom", "Inferior")],
+    ["inside", tr6(lang, "Inside", "Interna")],
+    ["outside", tr6(lang, "Outside", "Externa")]
   ];
-  const combo = (name, specs, spec, tw2) => {
-    const input = el9("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw2 ?? 0)} cm` });
-    const list = el9("select", { name: `${name}-list`, style: "width:28px" }, el9("option", { value: "" }, ""), ...specs.map(([v3, x3]) => el9("option", { value: v3 }, x3)));
+  const combo = (name, specs, spec, tw3) => {
+    const input = el10("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw3 ?? 0)} cm` });
+    const list = el10("select", { name: `${name}-list`, style: "width:28px" }, el10("option", { value: "" }, ""), ...specs.map(([v3, x3]) => el10("option", { value: v3 }, x3)));
     list.addEventListener("change", () => {
       if (list.value) input.value = specs.find(([v3]) => v3 === list.value)[1];
       list.value = "";
@@ -50949,41 +52411,41 @@ async function positioningDialog(env, pos, overlap) {
       const hit = specs.find(([, x3]) => x3.toLowerCase() === input.value.trim().toLowerCase());
       return hit ? { spec: hit[0] } : { tw: twOf(input.value) ?? 0 };
     };
-    return { el: el9("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
+    return { el: el10("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
   };
   const hPos = combo("hpos", hSpecs, pos.tblpXSpec, pos.tblpX);
-  const hRel = sel3("hrel", [["text", tr5(lang, "Column", "Coluna")], ["margin", tr5(lang, "Margin", "Margem")], ["page", tr5(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
+  const hRel = sel3("hrel", [["text", tr6(lang, "Column", "Coluna")], ["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
   const vPos = combo("vpos", vSpecs, pos.tblpYSpec, pos.tblpY);
-  const vRel = sel3("vrel", [["margin", tr5(lang, "Margin", "Margem")], ["page", tr5(lang, "Page", "P\xE1gina")], ["text", tr5(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
+  const vRel = sel3("vrel", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["text", tr6(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
   const top = cmInput(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput(lang, "dbottom", pos.bottomFromText ?? 0);
   const left = cmInput(lang, "dleft", pos.leftFromText ?? 0), right = cmInput(lang, "dright", pos.rightFromText ?? 0);
-  const move = check4("move", (pos.vertAnchor ?? "text") === "text", tr5(lang, "Move with text", "Mover com texto"));
+  const move = check5("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
   move.box.addEventListener("change", () => {
     vRel.value = move.box.checked ? "text" : "margin";
   });
   vRel.addEventListener("change", () => {
     move.box.checked = vRel.value === "text";
   });
-  const ov = check4("overlap", overlap, tr5(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
-  const grid2 = (...kids) => el9("div", { className: "uo-dialog-grid" }, ...kids);
-  const body = el9(
+  const ov = check5("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
+  const grid2 = (...kids) => el10("div", { className: "uo-dialog-grid" }, ...kids);
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr5(lang, "Horizontal", "Horizontal"), grid2(el9("span", {}, tr5(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el9("span", {}, tr5(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
-    section2(tr5(lang, "Vertical", "Vertical"), grid2(el9("span", {}, tr5(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el9("span", {}, tr5(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
-    section2(tr5(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
-      el9("span", {}, tr5(lang, "Top:", "Superior:")),
+    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el10("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el10("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
+    section2(tr6(lang, "Vertical", "Vertical"), grid2(el10("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el10("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
+    section2(tr6(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
+      el10("span", {}, tr6(lang, "Top:", "Superior:")),
       top,
-      el9("span", {}, tr5(lang, "Left:", "Esquerda:")),
+      el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
       left,
-      el9("span", {}, tr5(lang, "Bottom:", "Inferior:")),
+      el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
       bottom,
-      el9("span", {}, tr5(lang, "Right:", "Direita:")),
+      el10("span", {}, tr6(lang, "Right:", "Direita:")),
       right
     )),
-    section2(tr5(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
   );
-  if (!await ask(env, tr5(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
+  if (!await ask(env, tr6(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
   const h3 = hPos.read(), v2 = vPos.read();
   const nz = (x3) => x3 ? x3 : void 0;
   const out = {
@@ -51006,7 +52468,7 @@ async function cellOptionsDialog(env, cp, t6) {
   const tm = t6.tblCellMar ?? {};
   const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
   const own4 = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
-  const same2 = check4("same", !own4, tr5(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
+  const same2 = check5("same", !own4, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
   const m2 = cp.tcMar ?? {};
   const top = cmInput(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
   const left = cmInput(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput(lang, "right", w2(m2.right, w2(tm.right, 108)));
@@ -51015,26 +52477,26 @@ async function cellOptionsDialog(env, cp, t6) {
   };
   same2.box.addEventListener("change", syncM);
   syncM();
-  const wrap = check4("wrap", !cp.noWrap, tr5(lang, "Wrap text", "Quebrar texto automaticamente"));
-  const fit = check4("fit", !!cp.tcFitText, tr5(lang, "Fit text", "Ajustar texto"));
-  const body = el9(
+  const wrap = check5("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
+  const fit = check5("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr5(lang, "Cell margins", "Margens da c\xE9lula"), same2.el, el9(
+    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same2.el, el10(
       "div",
       { className: "uo-dialog-grid" },
-      el9("span", {}, tr5(lang, "Top:", "Superior:")),
+      el10("span", {}, tr6(lang, "Top:", "Superior:")),
       top,
-      el9("span", {}, tr5(lang, "Left:", "Esquerda:")),
+      el10("span", {}, tr6(lang, "Left:", "Esquerda:")),
       left,
-      el9("span", {}, tr5(lang, "Bottom:", "Inferior:")),
+      el10("span", {}, tr6(lang, "Bottom:", "Inferior:")),
       bottom,
-      el9("span", {}, tr5(lang, "Right:", "Direita:")),
+      el10("span", {}, tr6(lang, "Right:", "Direita:")),
       right
     )),
-    section2(tr5(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
+    section2(tr6(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
   );
-  if (!await ask(env, tr5(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
+  if (!await ask(env, tr6(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
   return {
     margins: same2.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
     wrap: wrap.box.checked,
@@ -51049,30 +52511,30 @@ async function sortDialog(env) {
   if (!info) return;
   if (info.mergeError) {
     const h3 = openDialog({
-      title: tr5(lang, "Sort", "Classificar"),
+      title: tr6(lang, "Sort", "Classificar"),
       icon: "warning",
       layer: env.layer,
       lang,
-      body: tr5(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
+      body: tr6(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
     });
     await h3.result;
     return;
   }
-  const types = [["text", tr5(lang, "Text", "Texto")], ["number", tr5(lang, "Number", "N\xFAmero")], ["date", tr5(lang, "Date", "Data")]];
-  const none = tr5(lang, "(none)", "(nenhum)");
-  const header = radiosRow("hdr", [["yes", tr5(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr5(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
+  const types = [["text", tr6(lang, "Text", "Texto")], ["number", tr6(lang, "Number", "N\xFAmero")], ["date", tr6(lang, "Date", "Data")]];
+  const none = tr6(lang, "(none)", "(nenhum)");
+  const header = radiosRow("hdr", [["yes", tr6(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr6(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
   const isHeader = () => header.value() === "yes";
   const labels = () => info.columns.map((c5, i7) => {
-    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr5(lang, "Paragraphs", "Par\xE1grafos") : tr5(lang, `Field ${i7 + 1}`, `Campo ${i7 + 1}`);
-    return isHeader() && c5.text ? c5.text : tr5(lang, `Column ${i7 + 1}`, `Coluna ${i7 + 1}`);
+    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr6(lang, "Paragraphs", "Par\xE1grafos") : tr6(lang, `Field ${i7 + 1}`, `Campo ${i7 + 1}`);
+    return isHeader() && c5.text ? c5.text : tr6(lang, `Column ${i7 + 1}`, `Coluna ${i7 + 1}`);
   });
   const keyRow = (n5) => {
-    const col = el9("select", { name: `k${n5}-col`, style: "min-width:160px" });
+    const col = el10("select", { name: `k${n5}-col`, style: "min-width:160px" });
     const type = sel3(`k${n5}-type`, types, "text");
-    const dir = radiosRow(`k${n5}-dir`, [["asc", tr5(lang, "Ascending", "Crescente")], ["desc", tr5(lang, "Descending", "Decrescente")]], "asc");
+    const dir = radiosRow(`k${n5}-dir`, [["asc", tr6(lang, "Ascending", "Crescente")], ["desc", tr6(lang, "Descending", "Decrescente")]], "asc");
     const fill = () => {
       const cur = col.value;
-      col.replaceChildren(...n5 > 0 ? [el9("option", { value: "" }, none)] : [], ...labels().map((l3, i7) => el9("option", { value: String(i7) }, l3)));
+      col.replaceChildren(...n5 > 0 ? [el10("option", { value: "" }, none)] : [], ...labels().map((l3, i7) => el10("option", { value: String(i7) }, l3)));
       col.value = cur && [...col.options].some((o7) => o7.value === cur) ? cur : n5 > 0 ? "" : "0";
     };
     const sync = () => {
@@ -51090,9 +52552,9 @@ async function sortDialog(env) {
       guess();
       sync();
     });
-    const title = n5 === 0 ? tr5(lang, "Sort by", "Classificar por") : tr5(lang, "Then by", "E depois por");
+    const title = n5 === 0 ? tr6(lang, "Sort by", "Classificar por") : tr6(lang, "Then by", "E depois por");
     return {
-      el: section2(title, line(col, el9("span", {}, tr5(lang, "Type:", "Tipo:")), type), dir.el),
+      el: section2(title, line(col, el10("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
       fill: () => {
         fill();
         sync();
@@ -51102,7 +52564,7 @@ async function sortDialog(env) {
   };
   const keys = [keyRow(0), keyRow(1), keyRow(2)];
   header.el.addEventListener("change", () => keys.forEach((k2) => k2.fill()));
-  const opts = el9("button", { type: "button", className: "uo-pill", textContent: tr5(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const opts = el10("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   opts.addEventListener("click", () => {
     void sortOptionsDialog(env, info.kind === "paragraphs", separator, caseSensitive).then((r6) => {
       if (!r6) return;
@@ -51112,39 +52574,39 @@ async function sortDialog(env) {
       keys.forEach((k2) => k2.fill());
     });
   });
-  const body = el9(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
     ...keys.map((k2) => k2.el),
-    section2(tr5(lang, "My list has", "Minha lista tem"), header.el),
-    el9("div", { style: "display:flex;justify-content:flex-end" }, opts)
+    section2(tr6(lang, "My list has", "Minha lista tem"), header.el),
+    el10("div", { style: "display:flex;justify-content:flex-end" }, opts)
   );
-  if (!await ask(env, tr5(lang, "Sort", "Classificar"), body, 460)) return;
+  if (!await ask(env, tr6(lang, "Sort", "Classificar"), body, 460)) return;
   const ks = keys.map((k2) => k2.read()).filter((k2) => !!k2);
   if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
 }
 async function sortOptionsDialog(env, paragraphs, sep, cs) {
   const lang = env.lang;
   const cur = sep === void 0 ? "tab" : typeof sep === "string" ? sep : "other";
-  const r6 = radiosRow("ssep", [["tab", tr5(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr5(lang, "Commas", "V\xEDrgulas")], ["other", tr5(lang, "Other:", "Outro:")]], cur);
-  const other = el9("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
+  const r6 = radiosRow("ssep", [["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr6(lang, "Commas", "V\xEDrgulas")], ["other", tr6(lang, "Other:", "Outro:")]], cur);
+  const other = el10("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
   other.addEventListener("input", () => {
     r6.el.querySelector('input[value="other"]').checked = true;
   });
-  const use = check4("fields", sep !== void 0, tr5(lang, "Sort by fields", "Classificar por campos"));
-  const csBox = check4("case", cs, tr5(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
-  const body = el9(
+  const use = check5("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
+  const csBox = check5("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    ...paragraphs ? [section2(tr5(lang, "Separate fields at", "Separar campos em"), use.el, line(r6.el, other))] : [],
-    section2(tr5(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
+    ...paragraphs ? [section2(tr6(lang, "Separate fields at", "Separar campos em"), use.el, line(r6.el, other))] : [],
+    section2(tr6(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
   );
-  if (!await ask(env, tr5(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
+  if (!await ask(env, tr6(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
   const v2 = r6.value();
   const separator = !paragraphs || !use.box.checked ? void 0 : v2 === "other" ? { char: other.value || "-" } : v2;
   return { separator, caseSensitive: csBox.box.checked };
 }
-var NUMBER_FORMATS, el9, tr5, num2, cmText, cmInput, twOf, section2, sel3, line, check4;
+var NUMBER_FORMATS, el10, tr6, num2, cmText, cmInput, twOf, section2, sel3, line, check5;
 var init_chrome_table_dialogs = __esm({
   "src/chrome-table-dialogs.ts"() {
     "use strict";
@@ -51153,31 +52615,31 @@ var init_chrome_table_dialogs = __esm({
     init_chrome_borders();
     init_chrome_table_style();
     NUMBER_FORMATS = ["#.##0", "#.##0,00", "R$ #.##0,00;(R$ #.##0,00)", "0", "0%", "0,00", "0,00%"];
-    el9 = (tag2, props = {}, ...kids) => {
+    el10 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
       e8.append(...kids);
       return e8;
     };
-    tr5 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
-    num2 = (name, value, min = 1, max2 = 63) => el9("input", { type: "number", name, min: String(min), max: String(max2), step: "1", value: String(value) });
-    cmText = (lang, tw2) => (Math.round(tw2 / 1440 * 254) / 100).toFixed(2).replace(".", tr5(lang, ".", ","));
-    cmInput = (lang, name, tw2) => el9("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw2)} cm`, style: "width:96px" });
+    tr6 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    num2 = (name, value, min = 1, max2 = 63) => el10("input", { type: "number", name, min: String(min), max: String(max2), step: "1", value: String(value) });
+    cmText = (lang, tw3) => (Math.round(tw3 / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
+    cmInput = (lang, name, tw3) => el10("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw3)} cm`, style: "width:96px" });
     twOf = (s4) => {
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
     };
-    section2 = (title, ...kids) => el9("div", { style: "display:flex;flex-direction:column;gap:8px" }, el9("strong", {}, title), ...kids);
+    section2 = (title, ...kids) => el10("div", { style: "display:flex;flex-direction:column;gap:8px" }, el10("strong", {}, title), ...kids);
     sel3 = (name, opts, value) => {
-      const s4 = el9("select", { name });
-      for (const [v2, t6] of opts) s4.append(el9("option", { value: v2, selected: v2 === value }, t6));
+      const s4 = el10("select", { name });
+      for (const [v2, t6] of opts) s4.append(el10("option", { value: v2, selected: v2 === value }, t6));
       return s4;
     };
-    line = (...kids) => el9("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-    check4 = (name, on, label) => {
-      const box = el9("input", { type: "checkbox", name, checked: on });
-      return { el: el9("label", { className: "uo-check" }, box, label), box };
+    line = (...kids) => el10("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+    check5 = (name, on, label) => {
+      const box = el10("input", { type: "checkbox", name, checked: on });
+      return { el: el10("label", { className: "uo-check" }, box, label), box };
     };
   }
 });
@@ -51185,7 +52647,7 @@ var init_chrome_table_dialogs = __esm({
 // src/chrome-picture-pane.ts
 function toggleFormatPane(env, tab, onClose) {
   const { ed, lang } = env;
-  const tr7 = (en, pt3) => pickLabels(lang, { en, pt: pt3 });
+  const tr8 = (en, pt3) => pickLabels(lang, { en, pt: pt3 });
   const cur = paneOpen("pic-format");
   if (cur) {
     cur.close();
@@ -51194,9 +52656,9 @@ function toggleFormatPane(env, tab, onClose) {
   const fmt2 = () => ed.selectedImage()?.format ?? null;
   const off = () => !ed.selectedImage() || ed.isProtected();
   const syncers = [];
-  const dec = tr7(".", ",");
+  const dec = tr8(".", ",");
   const num3 = (label, unit, get, set, o7 = {}) => {
-    const input = el10("input", { type: "text", inputMode: "decimal", style: "width:76px" });
+    const input = el11("input", { type: "text", inputMode: "decimal", style: "width:76px" });
     input.setAttribute("aria-label", label);
     const digits = o7.digits ?? 1;
     const show2 = () => {
@@ -51227,8 +52689,8 @@ function toggleFormatPane(env, tab, onClose) {
       env.after();
       sync();
     };
-    const up2 = el10("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
-    const dn = el10("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const up2 = el11("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const dn = el11("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
     up2.innerHTML = symbol("keyboard_arrow_up");
     dn.innerHTML = symbol("keyboard_arrow_down");
     for (const [b5, d3] of [[up2, 1], [dn, -1]]) {
@@ -51236,12 +52698,12 @@ function toggleFormatPane(env, tab, onClose) {
       b5.addEventListener("click", () => step(d3));
     }
     syncers.push(show2);
-    return row2(label, el10("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el10("span", { style: "display:inline-flex;flex-direction:column" }, up2, dn)));
+    return row2(label, el11("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el11("span", { style: "display:inline-flex;flex-direction:column" }, up2, dn)));
   };
   const choice = (label, opts, get, set) => {
-    const s4 = el10("select", { style: "max-width:150px" });
+    const s4 = el11("select", { style: "max-width:150px" });
     s4.setAttribute("aria-label", label);
-    for (const [v2, t6] of opts) s4.append(el10("option", { value: v2, textContent: t6 }));
+    for (const [v2, t6] of opts) s4.append(el11("option", { value: v2, textContent: t6 }));
     s4.addEventListener("change", () => {
       set(s4.value);
       env.after();
@@ -51255,9 +52717,9 @@ function toggleFormatPane(env, tab, onClose) {
     return row2(label, s4);
   };
   const color3 = (label, get, set) => {
-    const b5 = el10("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+    const b5 = el11("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
     b5.setAttribute("aria-label", label);
-    const chip = el10("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
+    const chip = el11("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
     b5.append(chip);
     b5.insertAdjacentHTML("beforeend", symbol("arrow_drop_down"));
     b5.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -51284,13 +52746,13 @@ function toggleFormatPane(env, tab, onClose) {
     });
     return row2(label, b5);
   };
-  const row2 = (label, ctl) => el10("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el10("span", { textContent: label }), ctl);
+  const row2 = (label, ctl) => el11("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el11("span", { textContent: label }), ctl);
   const section4 = (title2, open2, ...kids) => {
-    const d3 = el10("details", { open: open2, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el10("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
-    d3.append(el10("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
+    const d3 = el11("details", { open: open2, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el11("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
+    d3.append(el11("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
     return d3;
   };
-  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr7("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i7) => [i7.id, i7.label])], () => "", (v2) => {
+  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr8("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i7) => [i7.id, i7.label])], () => "", (v2) => {
     if (v2) set(v2 === "none" ? null : v2);
   });
   const line2 = () => fmt2()?.line ?? void 0;
@@ -51298,20 +52760,20 @@ function toggleFormatPane(env, tab, onClose) {
     const base = line2()?.fill ? { ...line2() } : { w: 9525, fill: { kind: "schemeClr", val: "tx1" } };
     ed.setImageFormat({ line: { ...base, ...ch } });
   };
-  const lineTab = el10(
+  const lineTab = el11(
     "div",
     {},
     section4(
-      tr7("Line", "Linha"),
+      tr8("Line", "Linha"),
       true,
-      choice(tr7("Line", "Linha"), [["none", tr7("No line", "Sem linha")], ["solid", tr7("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? ed.setImageFormat({ line: { ...line2() ?? {}, fill: null } }) : setLine({})),
-      color3(tr7("Color", "Cor"), () => line2()?.fill ?? void 0, (c5) => setLine({ fill: withAlpha(c5, alphaOf(line2()?.fill ?? void 0)) })),
-      num3(tr7("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
-      num3(tr7("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT2 : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
-      choice(tr7("Compound type", "Tipo composto"), [["sng", tr7("Single", "Simples")], ["dbl", tr7("Double", "Duplo")], ["thickThin", tr7("Thick Thin", "Grosso Fino")], ["thinThick", tr7("Thin Thick", "Fino Grosso")], ["tri", tr7("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
-      choice(tr7("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
-      choice(tr7("Cap type", "Tipo de extremidade"), [["sq", tr7("Square", "Quadrado")], ["rnd", tr7("Round", "Arredondado")], ["flat", tr7("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
-      choice(tr7("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr7("Round", "Arredondada")], ["bevel", tr7("Bevel", "Chanfrada")], ["miter", tr7("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
+      choice(tr8("Line", "Linha"), [["none", tr8("No line", "Sem linha")], ["solid", tr8("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? ed.setImageFormat({ line: { ...line2() ?? {}, fill: null } }) : setLine({})),
+      color3(tr8("Color", "Cor"), () => line2()?.fill ?? void 0, (c5) => setLine({ fill: withAlpha(c5, alphaOf(line2()?.fill ?? void 0)) })),
+      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
+      num3(tr8("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT2 : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
+      choice(tr8("Compound type", "Tipo composto"), [["sng", tr8("Single", "Simples")], ["dbl", tr8("Double", "Duplo")], ["thickThin", tr8("Thick Thin", "Grosso Fino")], ["thinThick", tr8("Thin Thick", "Fino Grosso")], ["tri", tr8("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
+      choice(tr8("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
+      choice(tr8("Cap type", "Tipo de extremidade"), [["sq", tr8("Square", "Quadrado")], ["rnd", tr8("Round", "Arredondado")], ["flat", tr8("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
+      choice(tr8("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr8("Round", "Arredondada")], ["bevel", tr8("Bevel", "Chanfrada")], ["miter", tr8("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
     )
   );
   const fx = () => fmt2()?.effects;
@@ -51335,77 +52797,77 @@ function toggleFormatPane(env, tab, onClose) {
     const base = td2() ?? { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" } };
     ed.setImageFormat({ threeD: { ...base, ...ch } });
   };
-  const bevelOpts = [["", tr7("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b5) => [b5.prst, pickLabels(lang, b5.label)])];
+  const bevelOpts = [["", tr8("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b5) => [b5.prst, pickLabels(lang, b5.label)])];
   const bevel = (which, title2) => [
     choice(title2, bevelOpts, () => td2()?.[which] ? td2()[which].prst ?? "circle" : "", (v2) => setTd({ [which]: v2 ? { ...td2()?.[which] ?? {}, prst: v2 === "circle" ? void 0 : v2 } : void 0 })),
-    num3(tr7("Width", "Largura"), "pt", () => td2()?.[which] ? (td2()[which].w ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, w: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 }),
-    num3(tr7("Height", "Altura"), "pt", () => td2()?.[which] ? (td2()[which].h ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, h: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 })
+    num3(tr8("Width", "Largura"), "pt", () => td2()?.[which] ? (td2()[which].w ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, w: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 }),
+    num3(tr8("Height", "Altura"), "pt", () => td2()?.[which] ? (td2()[which].h ?? 76200) / EMU_PT2 : void 0, (v2) => setTd({ [which]: { ...td2()?.[which] ?? {}, h: Math.round(v2 * EMU_PT2) } }), { min: 0, max: 1584, step: 1 })
   ];
   const rot = () => td2()?.camera?.rot ?? { lat: 0, lon: 0, rev: 0 };
   const setRot = (k2, deg) => {
     const cam = td2()?.camera ?? { prst: "orthographicFront" };
     setTd({ camera: { ...cam, rot: { ...rot(), [k2]: Math.round((deg % 360 + 360) % 360 * ANG) } } });
   };
-  const effectsTab = el10(
+  const effectsTab = el11(
     "div",
     {},
     section4(
-      tr7("Shadow", "Sombra"),
+      tr8("Shadow", "Sombra"),
       true,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("shadow", id), tr7("No Shadow", "Sem Sombra")),
-      color3(tr7("Color", "Cor"), () => sh()?.color, (c5) => setSh({ color: withAlpha(c5, alphaOf(sh()?.color)) })),
-      num3(tr7("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
-      num3(tr7("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
-      num3(tr7("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
-      num3(tr7("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
-      num3(tr7("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 200 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("shadow", id), tr8("No Shadow", "Sem Sombra")),
+      color3(tr8("Color", "Cor"), () => sh()?.color, (c5) => setSh({ color: withAlpha(c5, alphaOf(sh()?.color)) })),
+      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
+      num3(tr8("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
+      num3(tr8("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
+      num3(tr8("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
+      num3(tr8("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT2 : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 200 })
     ),
     section4(
-      tr7("Reflection", "Reflexo"),
+      tr8("Reflection", "Reflexo"),
       false,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("reflection", id), tr7("No Reflection", "Sem Reflexo")),
-      num3(tr7("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
-      num3(tr7("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
-      num3(tr7("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
-      num3(tr7("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("reflection", id), tr8("No Reflection", "Sem Reflexo")),
+      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
+      num3(tr8("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
+      num3(tr8("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 }),
+      num3(tr8("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT2 : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT2) }), { min: 0, max: 100 })
     ),
     section4(
-      tr7("Glow", "Brilho"),
+      tr8("Glow", "Brilho"),
       false,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r6, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r6 / EMU_PT2} pt, ${tr7("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => ed.setImageEffect("glow", id), tr7("No Glow", "Sem Brilho")),
-      color3(tr7("Color", "Cor"), () => gl()?.color, (c5) => setGl({ color: withAlpha(c5, alphaOf(gl()?.color)) })),
-      num3(tr7("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT2 : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 150 }),
-      num3(tr7("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r6, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r6 / EMU_PT2} pt, ${tr8("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => ed.setImageEffect("glow", id), tr8("No Glow", "Sem Brilho")),
+      color3(tr8("Color", "Cor"), () => gl()?.color, (c5) => setGl({ color: withAlpha(c5, alphaOf(gl()?.color)) })),
+      num3(tr8("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT2 : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT2) }), { min: 0, max: 150 }),
+      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
     ),
     section4(
-      tr7("Soft Edges", "Bordas Suaves"),
+      tr8("Soft Edges", "Bordas Suaves"),
       false,
-      num3(tr7("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT2 : 0, (v2) => ed.setImageFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT2) : null }), { min: 0, max: 100 })
+      num3(tr8("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT2 : 0, (v2) => ed.setImageFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT2) : null }), { min: 0, max: 100 })
     ),
     section4(
-      tr7("3-D Format", "Formato 3D"),
+      tr8("3-D Format", "Formato 3D"),
       false,
-      ...bevel("bevelT", tr7("Top bevel", "Bisel superior")),
-      ...bevel("bevelB", tr7("Bottom bevel", "Bisel inferior")),
-      color3(tr7("Depth color", "Cor da profundidade"), () => td2()?.extrusionClr, (c5) => setTd({ extrusionClr: c5 })),
-      num3(tr7("Depth size", "Tamanho da profundidade"), "pt", () => (td2()?.extrusionH ?? 0) / EMU_PT2, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
-      color3(tr7("Contour color", "Cor do contorno"), () => td2()?.contourClr, (c5) => setTd({ contourClr: c5 })),
-      num3(tr7("Contour size", "Tamanho do contorno"), "pt", () => (td2()?.contourW ?? 0) / EMU_PT2, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
-      choice(tr7("Material", "Material"), [["warmMatte", tr7("Warm Matte", "Fosco Quente")], ["matte", tr7("Matte", "Fosco")], ["plastic", tr7("Plastic", "Pl\xE1stico")], ["metal", tr7("Metal", "Metal")], ["dkEdge", tr7("Dark Edge", "Borda Escura")], ["softEdge", tr7("Soft Edge", "Borda Suave")], ["flat", tr7("Flat", "Plano")], ["legacyWireframe", tr7("Wire Frame", "Estrutura de Arame")], ["powder", tr7("Powder", "P\xF3")], ["translucentPowder", tr7("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr7("Clear", "Transparente")], ["softmetal", tr7("Soft Metal", "Metal Suave")]], () => td2()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
-      choice(tr7("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr7("Three Point", "Tr\xEAs Pontos")], ["balanced", tr7("Balanced", "Balanceado")], ["soft", tr7("Soft", "Suave")], ["harsh", tr7("Harsh", "Forte")], ["flood", tr7("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr7("Contrasting", "Contrastante")], ["morning", tr7("Morning", "Manh\xE3")], ["sunrise", tr7("Sunrise", "Nascer do Sol")], ["sunset", tr7("Sunset", "P\xF4r do Sol")], ["chilly", tr7("Chilly", "Frio")], ["freezing", tr7("Freezing", "Congelante")], ["flat", tr7("Flat", "Plano")], ["twoPt", tr7("Two Point", "Dois Pontos")], ["glow", tr7("Glow", "Brilho")], ["brightRoom", tr7("Bright Room", "Sala Iluminada")]], () => td2()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td2()?.lightRig ?? { dir: "t" }, rig: v2 } }))
+      ...bevel("bevelT", tr8("Top bevel", "Bisel superior")),
+      ...bevel("bevelB", tr8("Bottom bevel", "Bisel inferior")),
+      color3(tr8("Depth color", "Cor da profundidade"), () => td2()?.extrusionClr, (c5) => setTd({ extrusionClr: c5 })),
+      num3(tr8("Depth size", "Tamanho da profundidade"), "pt", () => (td2()?.extrusionH ?? 0) / EMU_PT2, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
+      color3(tr8("Contour color", "Cor do contorno"), () => td2()?.contourClr, (c5) => setTd({ contourClr: c5 })),
+      num3(tr8("Contour size", "Tamanho do contorno"), "pt", () => (td2()?.contourW ?? 0) / EMU_PT2, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT2) }), { min: 0, max: 1584 }),
+      choice(tr8("Material", "Material"), [["warmMatte", tr8("Warm Matte", "Fosco Quente")], ["matte", tr8("Matte", "Fosco")], ["plastic", tr8("Plastic", "Pl\xE1stico")], ["metal", tr8("Metal", "Metal")], ["dkEdge", tr8("Dark Edge", "Borda Escura")], ["softEdge", tr8("Soft Edge", "Borda Suave")], ["flat", tr8("Flat", "Plano")], ["legacyWireframe", tr8("Wire Frame", "Estrutura de Arame")], ["powder", tr8("Powder", "P\xF3")], ["translucentPowder", tr8("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr8("Clear", "Transparente")], ["softmetal", tr8("Soft Metal", "Metal Suave")]], () => td2()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
+      choice(tr8("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr8("Three Point", "Tr\xEAs Pontos")], ["balanced", tr8("Balanced", "Balanceado")], ["soft", tr8("Soft", "Suave")], ["harsh", tr8("Harsh", "Forte")], ["flood", tr8("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr8("Contrasting", "Contrastante")], ["morning", tr8("Morning", "Manh\xE3")], ["sunrise", tr8("Sunrise", "Nascer do Sol")], ["sunset", tr8("Sunset", "P\xF4r do Sol")], ["chilly", tr8("Chilly", "Frio")], ["freezing", tr8("Freezing", "Congelante")], ["flat", tr8("Flat", "Plano")], ["twoPt", tr8("Two Point", "Dois Pontos")], ["glow", tr8("Glow", "Brilho")], ["brightRoom", tr8("Bright Room", "Sala Iluminada")]], () => td2()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td2()?.lightRig ?? { dir: "t" }, rig: v2 } }))
     ),
     section4(
-      tr7("3-D Rotation", "Rota\xE7\xE3o 3D"),
+      tr8("3-D Rotation", "Rota\xE7\xE3o 3D"),
       false,
-      presetRow(tr7("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("rotation", id), tr7("No Rotation", "Sem Rota\xE7\xE3o")),
-      num3(tr7("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
-      num3(tr7("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
-      num3(tr7("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
-      num3(tr7("Perspective", "Perspectiva"), "\xB0", () => (td2()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td2()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("rotation", id), tr8("No Rotation", "Sem Rota\xE7\xE3o")),
+      num3(tr8("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
+      num3(tr8("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
+      num3(tr8("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
+      num3(tr8("Perspective", "Perspectiva"), "\xB0", () => (td2()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td2()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
     )
   );
-  const title = el10("input", { type: "text", style: "width:100%;box-sizing:border-box" });
-  const descr = el10("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
+  const title = el11("input", { type: "text", style: "width:100%;box-sizing:border-box" });
+  const descr = el11("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
   title.addEventListener("change", () => {
     ed.setImageAltText({ title: title.value });
     env.after();
@@ -51424,14 +52886,14 @@ function toggleFormatPane(env, tab, onClose) {
     }
     title.disabled = descr.disabled = off();
   });
-  const layoutTab = el10(
+  const layoutTab = el11(
     "div",
     {},
     section4(
-      tr7("Alt Text", "Texto Alt"),
+      tr8("Alt Text", "Texto Alt"),
       true,
-      el10("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr7("Title", "T\xEDtulo"), title),
-      el10("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr7("Description", "Descri\xE7\xE3o"), descr)
+      el11("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Title", "T\xEDtulo"), title),
+      el11("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr8("Description", "Descri\xE7\xE3o"), descr)
     )
   );
   const a14 = () => fmt2()?.blip.a14;
@@ -51451,95 +52913,95 @@ function toggleFormatPane(env, tab, onClose) {
     const t6 = (o7.fh / 2 - o7.oy - o7.h / 2) / o7.fh, b5 = (o7.fh / 2 + o7.oy - o7.h / 2) / o7.fh;
     ed.setImageCrop({ l: l3, t: t6, r: r6, b: b5 });
   };
-  const pictureTab = el10(
+  const pictureTab = el11(
     "div",
     {},
     section4(
-      tr7("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
+      tr8("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
       true,
-      num3(tr7("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
+      num3(tr8("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num3(tr7("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
+      num3(tr8("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num3(tr7("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
+      num3(tr8("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 })
     ),
     section4(
-      tr7("Picture Color", "Cor da Imagem"),
+      tr8("Picture Color", "Cor da Imagem"),
       false,
-      num3(tr7("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
+      num3(tr8("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: 0, max: 400 }),
-      num3(tr7("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
+      num3(tr8("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
         env.after();
         sync();
       }), { min: 1500, max: 11500, step: 100, digits: 0 })
     ),
     section4(
-      tr7("Picture Transparency", "Transpar\xEAncia da Imagem"),
+      tr8("Picture Transparency", "Transpar\xEAncia da Imagem"),
       false,
-      num3(tr7("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt2()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
+      num3(tr8("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt2()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
     ),
     section4(
-      tr7("Crop", "Cortar"),
+      tr8("Crop", "Cortar"),
       false,
-      el10("div", { textContent: tr7("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
-      num3(tr7("Width", "Largura"), "cm", () => {
+      el11("div", { textContent: tr8("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
+      num3(tr8("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fw) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fw: pt2(v2), fh: g2.fh * (pt2(v2) / g2.fw) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num3(tr7("Height", "Altura"), "cm", () => {
+      num3(tr8("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fh) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fh: pt2(v2), fw: g2.fw * (pt2(v2) / g2.fh) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num3(tr7("Offset X", "Deslocamento X"), "cm", () => {
+      num3(tr8("Offset X", "Deslocamento X"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.ox) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, ox: pt2(v2) });
       }, { step: 0.1, digits: 2 }),
-      num3(tr7("Offset Y", "Deslocamento Y"), "cm", () => {
+      num3(tr8("Offset Y", "Deslocamento Y"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.oy) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, oy: pt2(v2) });
       }, { step: 0.1, digits: 2 }),
-      el10("div", { textContent: tr7("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
-      num3(tr7("Width", "Largura"), "cm", () => {
+      el11("div", { textContent: tr8("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
+      num3(tr8("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.w) : void 0;
       }, (v2) => ed.setImageSize({ widthPt: pt2(v2), heightPt: ed.selectedImage().heightPt }), { min: 0.01, step: 0.1, digits: 2 }),
-      num3(tr7("Height", "Altura"), "cm", () => {
+      num3(tr8("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.h) : void 0;
       }, (v2) => ed.setImageSize({ heightPt: pt2(v2), widthPt: ed.selectedImage().widthPt }), { min: 0.01, step: 0.1, digits: 2 })
     )
   );
   const tabs = [
-    ["line", tr7("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
-    ["effects", tr7("Effects", "Efeitos"), "auto_awesome", effectsTab],
-    ["layout", tr7("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
-    ["picture", tr7("Picture", "Imagem"), "image", pictureTab]
+    ["line", tr8("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
+    ["effects", tr8("Effects", "Efeitos"), "auto_awesome", effectsTab],
+    ["layout", tr8("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
+    ["picture", tr8("Picture", "Imagem"), "image", pictureTab]
   ];
-  const head = el10("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
+  const head = el11("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
   head.setAttribute("role", "tablist");
   const btns = tabs.map(([id, label, icon, panel]) => {
-    const b5 = el10("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
+    const b5 = el11("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
     b5.innerHTML = symbol(icon);
     b5.setAttribute("role", "tab");
     b5.setAttribute("aria-label", label);
@@ -51549,8 +53011,8 @@ function toggleFormatPane(env, tab, onClose) {
     panel.setAttribute("role", "tabpanel");
     return b5;
   });
-  const empty = el10("p", { textContent: tr7("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
-  const body = el10("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t6) => t6[3]));
+  const empty = el11("p", { textContent: tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
+  const body = el11("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t6) => t6[3]));
   head.append(...btns);
   const show = (id) => {
     tabs.forEach(([tid, , , panel], i7) => {
@@ -51569,14 +53031,14 @@ function toggleFormatPane(env, tab, onClose) {
   sync();
   return { sync, show };
 }
-var el10, EMU_PT2, ANG, alphaOf, withAlpha, noAlpha;
+var el11, EMU_PT2, ANG, alphaOf, withAlpha, noAlpha;
 var init_chrome_picture_pane = __esm({
   "src/chrome-picture-pane.ts"() {
     "use strict";
     init_src5();
     init_chrome_picture();
     init_picture_ops();
-    el10 = (tag2, props = {}, ...kids) => {
+    el11 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
@@ -51586,7 +53048,7 @@ var init_chrome_picture_pane = __esm({
     EMU_PT2 = 12700;
     ANG = 6e4;
     alphaOf = (c5) => (c5?.mods?.find((m2) => m2[0] === "alpha")?.[1] ?? 1e5) / 1e3;
-    withAlpha = (c5, pct) => ({ ...c5, mods: [...(c5.mods ?? []).filter((m2) => m2[0] !== "alpha"), ...pct < 100 ? [["alpha", Math.round(pct * 1e3)]] : []] });
+    withAlpha = (c5, pct2) => ({ ...c5, mods: [...(c5.mods ?? []).filter((m2) => m2[0] !== "alpha"), ...pct2 < 100 ? [["alpha", Math.round(pct2 * 1e3)]] : []] });
     noAlpha = (c5) => ({ ...c5, mods: (c5.mods ?? []).filter((m2) => m2[0] !== "alpha") });
   }
 });
@@ -51602,48 +53064,48 @@ async function pictureLayoutDialog(env, tab) {
   const ph = f3.posH, pv = f3.posV;
   const hMode = !ph ? "abs" : ph.align === "inside" || ph.align === "outside" ? "book" : ph.align !== void 0 ? "align" : ph.pct !== void 0 ? "rel" : "abs";
   const vMode = !pv ? "abs" : pv.align !== void 0 ? "align" : pv.pct !== void 0 ? "rel" : "abs";
-  const hAlign = select4("hAlign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Centered", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], ph?.align ?? "left");
+  const hAlign = select4("hAlign", [["left", tr7(lang, "Left", "Esquerda")], ["center", tr7(lang, "Centered", "Centralizado")], ["right", tr7(lang, "Right", "Direita")]], ph?.align ?? "left");
   const hAlignRef = select4("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hBook = select4("hBook", [["inside", tr6(lang, "Inside", "Interna")], ["outside", tr6(lang, "Outside", "Externa")]], ph?.align ?? "inside");
-  const hBookRef = select4("hBookRef", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
+  const hBook = select4("hBook", [["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], ph?.align ?? "inside");
+  const hBookRef = select4("hBookRef", [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
   const hAbs = cmInput2(lang, "hAbs", pt2(ph?.offset ?? 0));
   const hAbsRef = select4("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hRel = el11("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const hRel = el12("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const hRelRef = select4("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
-  const vAlign = select4("vAlign", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Centered", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")], ["inside", tr6(lang, "Inside", "Interna")], ["outside", tr6(lang, "Outside", "Externa")]], pv?.align ?? "top");
+  const vAlign = select4("vAlign", [["top", tr7(lang, "Top", "Superior")], ["center", tr7(lang, "Centered", "Centralizado")], ["bottom", tr7(lang, "Bottom", "Inferior")], ["inside", tr7(lang, "Inside", "Interna")], ["outside", tr7(lang, "Outside", "Externa")]], pv?.align ?? "top");
   const vAlignRef = select4("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
   const vAbs = cmInput2(lang, "vAbs", pt2(pv?.offset ?? 0));
   const vAbsRef = select4("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
-  const vRel = el11("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const vRel = el12("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
   const vRelRef = select4("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
-  const hR = { align: radio3("h", "align", tr6(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio3("h", "book", tr6(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio3("h", "abs", tr6(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio3("h", "rel", tr6(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
-  const vR = { align: radio3("v", "align", tr6(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio3("v", "abs", tr6(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio3("v", "rel", tr6(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
-  const moveWith = check5("moveWith", tr6(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
-  const lockAnchor = check5("lockAnchor", tr6(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
-  const overlap = check5("overlap", tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
-  const inCell = check5("inCell", tr6(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
-  const rel = tr6(lang, "relative to", "relativo a");
-  const posBody = el11(
+  const hR = { align: radio4("h", "align", tr7(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio4("h", "book", tr7(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio4("h", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio4("h", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
+  const vR = { align: radio4("v", "align", tr7(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio4("v", "abs", tr7(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio4("v", "rel", tr7(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
+  const moveWith = check6("moveWith", tr7(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
+  const lockAnchor = check6("lockAnchor", tr7(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
+  const overlap = check6("overlap", tr7(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
+  const inCell = check6("inCell", tr7(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
+  const rel = tr7(lang, "relative to", "relativo a");
+  const posBody = el12(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(
-      tr6(lang, "Horizontal", "Horizontal"),
+      tr7(lang, "Horizontal", "Horizontal"),
       row(hR.align.el, hAlign, rel, hAlignRef),
-      row(hR.book.el, hBook, tr6(lang, "of", "de"), hBookRef),
-      row(hR.abs.el, hAbs, tr6(lang, "to the right of", "\xE0 direita de"), hAbsRef),
+      row(hR.book.el, hBook, tr7(lang, "of", "de"), hBookRef),
+      row(hR.abs.el, hAbs, tr7(lang, "to the right of", "\xE0 direita de"), hAbsRef),
       row(hR.rel.el, hRel, rel, hRelRef)
     ),
     section3(
-      tr6(lang, "Vertical", "Vertical"),
+      tr7(lang, "Vertical", "Vertical"),
       row(vR.align.el, vAlign, rel, vAlignRef),
-      row(vR.abs.el, vAbs, tr6(lang, "below", "abaixo de"), vAbsRef),
+      row(vR.abs.el, vAbs, tr7(lang, "below", "abaixo de"), vAbsRef),
       row(vR.rel.el, vRel, rel, vRelRef)
     ),
-    section3(tr6(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
+    section3(tr7(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
   );
   for (const i7 of posBody.querySelectorAll("input,select")) i7.disabled = !anchored;
-  const wrapR = WRAP_STYLES(lang).map(([k2, t6]) => ({ k: k2, ...radio3("wrap", k2, t6, f3.wrap === k2) }));
-  const sides = [["bothSides", tr6(lang, "Both sides", "Ambos os lados")], ["left", tr6(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr6(lang, "Right only", "Somente \xE0 direita")], ["largest", tr6(lang, "Largest only", "Somente no maior")]].map(([k2, t6]) => ({ k: k2, ...radio3("side", k2, t6, f3.wrapText === k2) }));
+  const wrapR = WRAP_STYLES(lang).map(([k2, t6]) => ({ k: k2, ...radio4("wrap", k2, t6, f3.wrap === k2) }));
+  const sides = [["bothSides", tr7(lang, "Both sides", "Ambos os lados")], ["left", tr7(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr7(lang, "Right only", "Somente \xE0 direita")], ["largest", tr7(lang, "Largest only", "Somente no maior")]].map(([k2, t6]) => ({ k: k2, ...radio4("side", k2, t6, f3.wrapText === k2) }));
   const dT = cmInput2(lang, "dT", pt2(f3.dist.t)), dB = cmInput2(lang, "dB", pt2(f3.dist.b)), dL = cmInput2(lang, "dL", pt2(f3.dist.l)), dR = cmInput2(lang, "dR", pt2(f3.dist.r));
   const syncWrap = () => {
     const w2 = wrapR.find((r6) => r6.input.checked)?.k ?? f3.wrap;
@@ -51654,49 +53116,49 @@ async function pictureLayoutDialog(env, tab) {
   };
   for (const r6 of wrapR) r6.input.addEventListener("change", syncWrap);
   syncWrap();
-  const wrapBody = el11(
+  const wrapBody = el12(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr6(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el11("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r6) => r6.el))),
-    section3(tr6(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
+    section3(tr7(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el12("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r6) => r6.el))),
+    section3(tr7(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
     section3(
-      tr6(lang, "Distance from text", "Dist\xE2ncia do texto"),
-      row(tr6(lang, "Top", "Superior"), dT, tr6(lang, "Left", "Esquerda"), dL),
-      row(tr6(lang, "Bottom", "Inferior"), dB, tr6(lang, "Right", "Direita"), dR)
+      tr7(lang, "Distance from text", "Dist\xE2ncia do texto"),
+      row(tr7(lang, "Top", "Superior"), dT, tr7(lang, "Left", "Esquerda"), dL),
+      row(tr7(lang, "Bottom", "Inferior"), dB, tr7(lang, "Right", "Direita"), dR)
     )
   );
   const nat = st.naturalPt;
   const hAbsSz = cmInput2(lang, "hAbsSz", st.heightPt), wAbsSz = cmInput2(lang, "wAbsSz", st.widthPt);
   const relV = f3.sizeRelV?.pct ? f3.sizeRelV : null, relH = f3.sizeRelH?.pct ? f3.sizeRelH : null;
-  const hRelSz = el11("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const wRelSz = el11("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const sizeRefsV = [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["topMargin", tr6(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr6(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]];
-  const sizeRefsH = [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["leftMargin", tr6(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr6(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]];
+  const hRelSz = el12("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const wRelSz = el12("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const sizeRefsV = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["topMargin", tr7(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
+  const sizeRefsH = [["margin", tr7(lang, "Margin", "Margem")], ["page", tr7(lang, "Page", "P\xE1gina")], ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]];
   const hRelRefSz = select4("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
   const wRelRefSz = select4("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
-  const szH = { abs: radio3("szh", "abs", tr6(lang, "Absolute", "Absoluta"), !relV), rel: radio3("szh", "rel", tr6(lang, "Relative", "Relativa"), !!relV) };
-  const szW = { abs: radio3("szw", "abs", tr6(lang, "Absolute", "Absoluta"), !relH), rel: radio3("szw", "rel", tr6(lang, "Relative", "Relativa"), !!relH) };
-  const rotIn = el11("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
-  const relOrig = check5("relOrig", tr6(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
-  const lockAsp = check5("lockAsp", tr6(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
+  const szH = { abs: radio4("szh", "abs", tr7(lang, "Absolute", "Absoluta"), !relV), rel: radio4("szh", "rel", tr7(lang, "Relative", "Relativa"), !!relV) };
+  const szW = { abs: radio4("szw", "abs", tr7(lang, "Absolute", "Absoluta"), !relH), rel: radio4("szw", "rel", tr7(lang, "Relative", "Relativa"), !!relH) };
+  const rotIn = el12("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
+  const relOrig = check6("relOrig", tr7(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
+  const lockAsp = check6("lockAsp", tr7(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
   const base = () => relOrig.input.checked && nat ? nat : { w: st.widthPt, h: st.heightPt };
-  const scH = el11("input", { type: "text", name: "scH", value: "", style: "width:72px" });
-  const scW = el11("input", { type: "text", name: "scW", value: "", style: "width:72px" });
+  const scH = el12("input", { type: "text", name: "scH", value: "", style: "width:72px" });
+  const scW = el12("input", { type: "text", name: "scW", value: "", style: "width:72px" });
   const showScale = () => {
     const b5 = base();
-    const h4 = ptOf(hAbsSz.value) ?? st.heightPt, w2 = ptOf(wAbsSz.value) ?? st.widthPt;
+    const h4 = ptOf2(hAbsSz.value) ?? st.heightPt, w2 = ptOf2(wAbsSz.value) ?? st.widthPt;
     scH.value = `${Math.round(h4 / b5.h * 100)}%`;
     scW.value = `${Math.round(w2 / b5.w * 100)}%`;
   };
   showScale();
   relOrig.input.addEventListener("change", showScale);
   hAbsSz.addEventListener("change", () => {
-    const h4 = ptOf(hAbsSz.value);
+    const h4 = ptOf2(hAbsSz.value);
     if (h4 !== void 0 && lockAsp.input.checked && st.heightPt) wAbsSz.value = cmText2(lang, st.widthPt * h4 / st.heightPt);
     showScale();
   });
   wAbsSz.addEventListener("change", () => {
-    const w2 = ptOf(wAbsSz.value);
+    const w2 = ptOf2(wAbsSz.value);
     if (w2 !== void 0 && lockAsp.input.checked && st.widthPt) hAbsSz.value = cmText2(lang, st.heightPt * w2 / st.widthPt);
     showScale();
   });
@@ -51710,7 +53172,7 @@ async function pictureLayoutDialog(env, tab) {
   };
   scH.addEventListener("change", () => fromScale("h"));
   scW.addEventListener("change", () => fromScale("w"));
-  const reset = el11("button", { type: "button", className: "uo-btn", textContent: tr6(lang, "Reset", "Redefinir"), disabled: !nat });
+  const reset = el12("button", { type: "button", className: "uo-btn", textContent: tr7(lang, "Reset", "Redefinir"), disabled: !nat });
   reset.addEventListener("click", () => {
     if (!nat) return;
     hAbsSz.value = cmText2(lang, nat.h);
@@ -51720,32 +53182,32 @@ async function pictureLayoutDialog(env, tab) {
     showScale();
   });
   for (const i7 of [hRelSz, hRelRefSz, wRelSz, wRelRefSz, szH.rel.input, szW.rel.input]) i7.disabled = !anchored;
-  const sizeBody = el11(
+  const sizeBody = el12(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr6(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
-    section3(tr6(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
-    section3(tr6(lang, "Rotate", "Girar"), row(tr6(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
-    section3(tr6(lang, "Scale", "Escala"), row(tr6(lang, "Height:", "Altura:"), scH, tr6(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
-    section3(tr6(lang, "Original size", "Tamanho original"), row(
-      el11("span", { textContent: `${tr6(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
-      el11("span", { textContent: `${tr6(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
+    section3(tr7(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
+    section3(tr7(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
+    section3(tr7(lang, "Rotate", "Girar"), row(tr7(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
+    section3(tr7(lang, "Scale", "Escala"), row(tr7(lang, "Height:", "Altura:"), scH, tr7(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
+    section3(tr7(lang, "Original size", "Tamanho original"), row(
+      el12("span", { textContent: `${tr7(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
+      el12("span", { textContent: `${tr7(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
       reset
     ))
   );
   const tabs = dialogTabs([
-    { id: "position", label: tr6(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
-    { id: "wrap", label: tr6(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
-    { id: "size", label: tr6(lang, "Size", "Tamanho"), body: sizeBody }
+    { id: "position", label: tr7(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
+    { id: "wrap", label: tr7(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
+    { id: "size", label: tr7(lang, "Size", "Tamanho"), body: sizeBody }
   ], tab);
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr6(lang, "Layout", "Layout"),
+    title: tr7(lang, "Layout", "Layout"),
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 560,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const o7 = {};
@@ -51757,7 +53219,7 @@ async function pictureLayoutDialog(env, tab) {
     if (side && side !== f3.wrapText) o7.wrapText = side;
     const dist = {};
     for (const [k2, inp, cur] of [["t", dT, f3.dist.t], ["b", dB, f3.dist.b], ["l", dL, f3.dist.l], ["r", dR, f3.dist.r]]) {
-      const v2 = ptOf(inp.value);
+      const v2 = ptOf2(inp.value);
       if (v2 !== void 0 && Math.abs(v2 - cur / 12700) > 0.01) dist[k2] = v2;
     }
     if (Object.keys(dist).length) o7.distPt = dist;
@@ -51767,21 +53229,21 @@ async function pictureLayoutDialog(env, tab) {
     if (hm === "align") o7.posH = { relativeFrom: hAlignRef.value, align: hAlign.value };
     else if (hm === "book") o7.posH = { relativeFrom: hBookRef.value, align: hBook.value };
     else if (hm === "rel") o7.posH = { relativeFrom: hRelRef.value, pct: numOf(hRel.value) ?? 0 };
-    else o7.posH = { relativeFrom: hAbsRef.value, offsetPt: ptOf(hAbs.value) ?? 0 };
+    else o7.posH = { relativeFrom: hAbsRef.value, offsetPt: ptOf2(hAbs.value) ?? 0 };
     const vm = Object.entries(vR).find(([, r6]) => r6.input.checked)?.[0];
     if (vm === "align") o7.posV = { relativeFrom: vAlignRef.value, align: vAlign.value };
     else if (vm === "rel") o7.posV = { relativeFrom: vRelRef.value, pct: numOf(vRel.value) ?? 0 };
-    else o7.posV = { relativeFrom: vAbsRef.value, offsetPt: ptOf(vAbs.value) ?? 0 };
+    else o7.posV = { relativeFrom: vAbsRef.value, offsetPt: ptOf2(vAbs.value) ?? 0 };
     o7.lockAnchor = lockAnchor.input.checked;
     o7.allowOverlap = overlap.input.checked;
     o7.layoutInCell = inCell.input.checked;
-    if (moveWith.input.checked !== st.moveWithText && vm === "abs") o7.posV = { relativeFrom: moveWith.input.checked ? "paragraph" : "page", offsetPt: ptOf(vAbs.value) ?? 0 };
+    if (moveWith.input.checked !== st.moveWithText && vm === "abs") o7.posV = { relativeFrom: moveWith.input.checked ? "paragraph" : "page", offsetPt: ptOf2(vAbs.value) ?? 0 };
     o7.relHeight = szH.rel.input.checked ? { relativeFrom: hRelRefSz.value, pct: numOf(hRelSz.value) ?? 0 } : relV ? null : void 0;
     o7.relWidth = szW.rel.input.checked ? { relativeFrom: wRelRefSz.value, pct: numOf(wRelSz.value) ?? 0 } : relH ? null : void 0;
     if (o7.relHeight === void 0) delete o7.relHeight;
     if (o7.relWidth === void 0) delete o7.relWidth;
   }
-  const hh = ptOf(hAbsSz.value), ww = ptOf(wAbsSz.value);
+  const hh = ptOf2(hAbsSz.value), ww = ptOf2(wAbsSz.value);
   if (hh !== void 0 && Math.abs(hh - st.heightPt) > 0.01) o7.heightPt = hh;
   if (ww !== void 0 && Math.abs(ww - st.widthPt) > 0.01) o7.widthPt = ww;
   if (lockAsp.input.checked !== st.lockAspect) o7.lockAspect = lockAsp.input.checked;
@@ -51792,8 +53254,8 @@ async function pictureLayoutDialog(env, tab) {
 async function pictureCompressDialog(env) {
   const { ed, lang } = env;
   if (!ed.selectedImage()) return;
-  const only = check5("only", tr6(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
-  const crop = check5("crop", tr6(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
+  const only = check6("only", tr7(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
+  const crop = check6("crop", tr7(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
   const RES = [
     ["hifi", Infinity, "High fidelity: preserves quality of the original picture", "Alta fidelidade: preserva a qualidade da imagem original"],
     ["hd", 330, "HD (330 ppi): good quality for high-definition (HD) displays", "HD (330 ppi): boa qualidade para monitores de alta defini\xE7\xE3o (HD)"],
@@ -51802,52 +53264,52 @@ async function pictureCompressDialog(env) {
     ["email", 96, "E-mail (96 ppi): minimize document size for sharing", "Email (96 ppi): minimizar o tamanho do documento para compartilhamento"],
     ["default", 220, "Use default resolution", "Usar a resolu\xE7\xE3o padr\xE3o"]
   ];
-  const res = RES.map(([k2, ppi2, en, pt2]) => ({ ppi: ppi2, ...radio3("res", k2, tr6(lang, en, pt2), k2 === "default") }));
-  const body = el11(
+  const res = RES.map(([k2, ppi2, en, pt2]) => ({ ppi: ppi2, ...radio4("res", k2, tr7(lang, en, pt2), k2 === "default") }));
+  const body = el12(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr6(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
-    section3(tr6(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r6) => r6.el))
+    section3(tr7(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
+    section3(tr7(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r6) => r6.el))
   );
-  const L8 = env.app.ui.L;
+  const L9 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr6(lang, "Compress Pictures", "Compactar Imagens"),
+    title: tr7(lang, "Compress Pictures", "Compactar Imagens"),
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ppi = res.find((r6) => r6.input.checked)?.ppi ?? 220;
   await ed.compressImages({ ppi, deleteCropped: crop.input.checked, all: !only.input.checked });
 }
-var el11, tr6, select4, check5, cmText2, ptOf, numOf, cmInput2, row, section3, radio3, H_REFS, V_REFS, WRAP_STYLES, PictureUI;
+var el12, tr7, select4, check6, cmText2, ptOf2, numOf, cmInput2, row, section3, radio4, H_REFS, V_REFS, WRAP_STYLES, PictureUI;
 var init_chrome_picture_dialogs = __esm({
   "src/chrome-picture-dialogs.ts"() {
     "use strict";
     init_src5();
     init_chrome_picture_pane();
-    el11 = (tag2, props = {}, ...kids) => {
+    el12 = (tag2, props = {}, ...kids) => {
       const { style, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (style) e8.style.cssText = style;
       e8.append(...kids);
       return e8;
     };
-    tr6 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
+    tr7 = (lang, en, pt2) => pickLabels(lang, { en, pt: pt2 });
     select4 = (name, opts, value) => {
-      const s4 = el11("select", { name });
-      for (const [v2, t6] of opts) s4.append(el11("option", { value: v2, textContent: t6 }));
+      const s4 = el12("select", { name });
+      for (const [v2, t6] of opts) s4.append(el12("option", { value: v2, textContent: t6 }));
       s4.value = opts.some(([v2]) => v2 === value) ? value : opts[0]?.[0] ?? "";
       return s4;
     };
-    check5 = (name, label, on) => {
-      const input = el11("input", { type: "checkbox", name, checked: on });
-      return { el: el11("label", { className: "uo-check" }, input, label), input };
+    check6 = (name, label, on) => {
+      const input = el12("input", { type: "checkbox", name, checked: on });
+      return { el: el12("label", { className: "uo-check" }, input, label), input };
     };
-    cmText2 = (lang, pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","))} cm`;
-    ptOf = (s4) => {
+    cmText2 = (lang, pt2) => `${(Math.round(pt2 / 72 * 254) / 100).toFixed(2).replace(".", tr7(lang, ".", ","))} cm`;
+    ptOf2 = (s4) => {
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? n5 / 2.54 * 72 : void 0;
     };
@@ -51855,41 +53317,41 @@ var init_chrome_picture_dialogs = __esm({
       const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
       return Number.isFinite(n5) ? n5 : void 0;
     };
-    cmInput2 = (lang, name, pt2) => el11("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt2), style: "width:92px" });
-    row = (...kids) => el11("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-    section3 = (title, ...kids) => el11("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el11("legend", { textContent: title }), ...kids);
-    radio3 = (name, value, label, on) => {
-      const input = el11("input", { type: "radio", name, value, checked: on });
-      return { el: el11("label", { className: "uo-check" }, input, label), input };
+    cmInput2 = (lang, name, pt2) => el12("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt2), style: "width:92px" });
+    row = (...kids) => el12("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+    section3 = (title, ...kids) => el12("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el12("legend", { textContent: title }), ...kids);
+    radio4 = (name, value, label, on) => {
+      const input = el12("input", { type: "radio", name, value, checked: on });
+      return { el: el12("label", { className: "uo-check" }, input, label), input };
     };
     H_REFS = (lang) => [
-      ["margin", tr6(lang, "Margin", "Margem")],
-      ["page", tr6(lang, "Page", "P\xE1gina")],
-      ["column", tr6(lang, "Column", "Coluna")],
-      ["character", tr6(lang, "Character", "Caractere")],
-      ["leftMargin", tr6(lang, "Left Margin", "Margem Esquerda")],
-      ["rightMargin", tr6(lang, "Right Margin", "Margem Direita")],
-      ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")],
-      ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]
+      ["margin", tr7(lang, "Margin", "Margem")],
+      ["page", tr7(lang, "Page", "P\xE1gina")],
+      ["column", tr7(lang, "Column", "Coluna")],
+      ["character", tr7(lang, "Character", "Caractere")],
+      ["leftMargin", tr7(lang, "Left Margin", "Margem Esquerda")],
+      ["rightMargin", tr7(lang, "Right Margin", "Margem Direita")],
+      ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")],
+      ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]
     ];
     V_REFS = (lang) => [
-      ["margin", tr6(lang, "Margin", "Margem")],
-      ["page", tr6(lang, "Page", "P\xE1gina")],
-      ["paragraph", tr6(lang, "Paragraph", "Par\xE1grafo")],
-      ["line", tr6(lang, "Line", "Linha")],
-      ["topMargin", tr6(lang, "Top Margin", "Margem Superior")],
-      ["bottomMargin", tr6(lang, "Bottom Margin", "Margem Inferior")],
-      ["insideMargin", tr6(lang, "Inside Margin", "Margem Interna")],
-      ["outsideMargin", tr6(lang, "Outside Margin", "Margem Externa")]
+      ["margin", tr7(lang, "Margin", "Margem")],
+      ["page", tr7(lang, "Page", "P\xE1gina")],
+      ["paragraph", tr7(lang, "Paragraph", "Par\xE1grafo")],
+      ["line", tr7(lang, "Line", "Linha")],
+      ["topMargin", tr7(lang, "Top Margin", "Margem Superior")],
+      ["bottomMargin", tr7(lang, "Bottom Margin", "Margem Inferior")],
+      ["insideMargin", tr7(lang, "Inside Margin", "Margem Interna")],
+      ["outsideMargin", tr7(lang, "Outside Margin", "Margem Externa")]
     ];
     WRAP_STYLES = (lang) => [
-      ["inline", tr6(lang, "In line with text", "Alinhado ao texto")],
-      ["square", tr6(lang, "Square", "Quadrado")],
-      ["tight", tr6(lang, "Tight", "Comprimido")],
-      ["through", tr6(lang, "Through", "Atrav\xE9s")],
-      ["topAndBottom", tr6(lang, "Top and bottom", "Superior e inferior")],
-      ["behind", tr6(lang, "Behind text", "Atr\xE1s do texto")],
-      ["front", tr6(lang, "In front of text", "Na frente do texto")]
+      ["inline", tr7(lang, "In line with text", "Alinhado ao texto")],
+      ["square", tr7(lang, "Square", "Quadrado")],
+      ["tight", tr7(lang, "Tight", "Comprimido")],
+      ["through", tr7(lang, "Through", "Atrav\xE9s")],
+      ["topAndBottom", tr7(lang, "Top and bottom", "Superior e inferior")],
+      ["behind", tr7(lang, "Behind text", "Atr\xE1s do texto")],
+      ["front", tr7(lang, "In front of text", "Na frente do texto")]
     ];
     PictureUI = class {
       constructor(env) {
@@ -51939,7 +53401,7 @@ var init_chrome_picture_dialogs = __esm({
           return;
         }
         const btn2 = (label, icon, run2) => {
-          const b5 = el11("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+          const b5 = el12("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
           b5.innerHTML = symbol(icon) + (icon === "keyboard_arrow_up" || icon === "keyboard_arrow_down" ? "" : `<span>${label}</span>`);
           b5.setAttribute("aria-label", label);
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -51950,15 +53412,15 @@ var init_chrome_picture_dialogs = __esm({
           });
           return b5;
         };
-        const showAll = btn2(tr6(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
-        const hideAll = btn2(tr6(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
-        const up2 = btn2(tr6(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
-        const down = btn2(tr6(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
-        const bar = el11("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el11("span", { style: "flex:1" }), up2, down);
-        const list = el11("div", { style: "display:flex;flex-direction:column;gap:1px" });
+        const showAll = btn2(tr7(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
+        const hideAll = btn2(tr7(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
+        const up2 = btn2(tr7(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
+        const down = btn2(tr7(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
+        const bar = el12("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el12("span", { style: "flex:1" }), up2, down);
+        const list = el12("div", { style: "display:flex;flex-direction:column;gap:1px" });
         list.setAttribute("role", "listbox");
-        const empty = el11("p", { textContent: tr6(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
-        const body = el11("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
+        const empty = el12("p", { textContent: tr7(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
+        const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
         let editing = false;
         const sync = () => {
           if (editing) return;
@@ -51969,12 +53431,12 @@ var init_chrome_picture_dialogs = __esm({
           const sel4 = items.find((i7) => i7.selected);
           up2.disabled = down.disabled = off || !sel4;
           list.replaceChildren(...items.map((it) => {
-            const row2 = el11("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
+            const row2 = el12("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
             row2.setAttribute("role", "option");
             row2.setAttribute("aria-selected", String(it.selected));
             row2.dataset["key"] = it.key;
-            const name = el11("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
-            const eye = el11("button", { type: "button", className: "uo-btn", title: it.hidden ? tr6(lang, "Show", "Mostrar") : tr6(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
+            const name = el12("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
+            const eye = el12("button", { type: "button", className: "uo-btn", title: it.hidden ? tr7(lang, "Show", "Mostrar") : tr7(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
             eye.innerHTML = symbol(it.hidden ? "visibility_off" : "visibility");
             eye.disabled = off;
             eye.addEventListener("mousedown", (e8) => e8.preventDefault());
@@ -51993,7 +53455,7 @@ var init_chrome_picture_dialogs = __esm({
             row2.addEventListener("dblclick", () => {
               if (off) return;
               editing = true;
-              const input = el11("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
+              const input = el12("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
               const done = (ok) => {
                 if (!editing) return;
                 editing = false;
@@ -52041,13 +53503,13 @@ var init_chrome_picture_dialogs = __esm({
           cur.close();
           return;
         }
-        const intro = el11("p", { textContent: tr6(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
-        const text = el11("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
+        const intro = el12("p", { textContent: tr7(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
+        const text = el12("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
         text.dataset["a"] = "pic:alt:text";
-        const deco = check5("decorative", tr6(lang, "Mark as decorative", "Marcar como decorativa"), false);
-        const note = el11("p", { textContent: tr6(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
-        const empty = el11("p", { textContent: tr6(lang, "Select a picture to add alt text.", "Selecione uma imagem para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
-        const body = el11("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
+        const deco = check6("decorative", tr7(lang, "Mark as decorative", "Marcar como decorativa"), false);
+        const note = el12("p", { textContent: tr7(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
+        const empty = el12("p", { textContent: tr7(lang, "Select a picture to add alt text.", "Selecione uma imagem para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
+        const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
         let last = null;
         const sync = () => {
           const st = ed.selectedImage();
@@ -52556,7 +54018,7 @@ var init_chrome_widgets = __esm({
             const half = env.ctl.state().run.szHalfPt;
             if (half && env.root.activeElement !== input) input.value = fmt2(half / 2);
             const ok = canEdit(env);
-            for (const el13 of wrap.querySelectorAll("input,button")) el13.disabled = !ok;
+            for (const el14 of wrap.querySelectorAll("input,button")) el14.disabled = !ok;
           }
         };
       }
@@ -52594,23 +54056,23 @@ var init_chrome_widgets = __esm({
       }
     });
     colorMenu2 = (env, ctx) => {
-      const L8 = env.app.ui.L;
+      const L9 = env.app.ui.L;
       const pick = (hex2) => {
         env.app.lastColor = hex2;
         env.ed.setColor(hex2);
         ctx.after();
       };
       return [
-        { id: "color:auto", label: L8.automatic, swatch: "#000000", onClick: () => {
+        { id: "color:auto", label: L9.automatic, swatch: "#000000", onClick: () => {
           env.ed.setColor(void 0);
           ctx.after();
         } },
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().run.color, onPick: pick, close }) },
-        moreColors(ctx, L8.moreColors, pick)
+        moreColors(ctx, L9.moreColors, pick)
       ];
     };
     highlightMenu = (env, ctx) => {
-      const L8 = env.app.ui.L;
+      const L9 = env.app.ui.L;
       return [
         { content: (close) => colorGrid({
           colors: HIGHLIGHT_COLORS.map((h3) => ({ value: h3.value, css: h3.css, title: ctx.registry.text(h3.label) })),
@@ -52623,14 +54085,14 @@ var init_chrome_widgets = __esm({
           },
           close
         }) },
-        { id: "highlight:none", label: L8.noColor, swatch: "", onClick: () => {
+        { id: "highlight:none", label: L9.noColor, swatch: "", onClick: () => {
           env.ed.setHighlight(void 0);
           ctx.after();
         } }
       ];
     };
     shadingMenu = (env, ctx) => {
-      const L8 = env.app.ui.L;
+      const L9 = env.app.ui.L;
       const pick = (hex2) => {
         env.app.lastShading = hex2;
         env.ed.setShading(hex2);
@@ -52638,11 +54100,11 @@ var init_chrome_widgets = __esm({
       };
       return [
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().para.shadingHex, onPick: pick, close }) },
-        { id: "shading:none", label: L8.noColor, swatch: "", onClick: () => {
+        { id: "shading:none", label: L9.noColor, swatch: "", onClick: () => {
           env.ed.setShading(void 0);
           ctx.after();
         } },
-        moreColors(ctx, L8.moreColors, pick)
+        moreColors(ctx, L9.moreColors, pick)
       ];
     };
     lineSpacingMenu = (env, ctx) => {
@@ -52875,6 +54337,13 @@ function menus(env, ctx) {
     symbols: sub({ en: "Special characters", pt: "Caracteres especiais" }, "special_character", () => symbolMenu(env, ctx), "symbols"),
     breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", breaksMenu, "breaks"),
     columns: sub({ en: "Columns", pt: "Colunas" }, "view_column_2", columnsMenu, "columns"),
+    cover: { ...sub({ en: "Cover page", pt: "Folha de rosto" }, "auto_stories", () => coverPageMenu(env, ctx), "cover:menu"), hidden: typeof env.ed.insertCoverPage !== "function" },
+    // Plano de Fundo da Página (guia Design da ribbon)
+    background: { ...sub({ en: "Page background", pt: "Plano de fundo da p\xE1gina" }, "format_color_fill", () => [
+      sub({ en: "Watermark", pt: "Marca-d'\xE1gua" }, "branding_watermark", () => watermarkMenu(env, ctx), "watermark:menu"),
+      sub({ en: "Page color", pt: "Cor da p\xE1gina" }, "format_color_fill", () => pageColorMenu(env, ctx), "pageColor:menu"),
+      "dlg:pageBorders"
+    ], "background"), hidden: typeof env.ed.setPageColor !== "function" },
     // Cabeçalho, Rodapé e Número de Página com as galerias de modelos; opções e vínculo no diálogo
     hf: sub({ en: "Headers & footers", pt: "Cabe\xE7alhos e rodap\xE9s" }, "call_to_action", () => [
       sub({ en: "Header", pt: "Cabe\xE7alho" }, "vertical_align_top", () => hfGalleryMenu(env, ctx, "header"), "hf:headerMenu"),
@@ -52986,8 +54455,8 @@ function compactLayout(env, ctx) {
       { id: "file", label: { en: "File", pt: "Arquivo" }, items: () => fileMenu(m2) },
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "view:outline", "view:draft", "focus", "-", "view:ruler", "view:gridlines", "view:navpane", "view:bookmarks", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
-      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", "textbox", m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
+      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", "textbox", m2.symbols] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -53042,22 +54511,22 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L7("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L8("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L7("Home", "P\xE1gina Inicial"),
+        label: L8("Home", "P\xE1gina Inicial"),
         groups: [
-          { id: "clipboard", label: L7("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
+          { id: "clipboard", label: L8("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
             { split: "paste", size: "large", menu: ["paste", "pastePlain"] },
             { rows: [["cut"], ["copy"], ["painter"]] }
           ] },
-          { id: "font", label: L7("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
+          { id: "font", label: L8("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L7("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L8("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu2(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
-          { id: "paragraph", label: L7("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
+          { id: "paragraph", label: L8("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
             { rows: [
               ["list:bullet", "list:decimal", "outdent", "indent", "sort", "marks"],
               [
@@ -53065,67 +54534,78 @@ function ribbonLayout(env, ctx) {
                 "align:center",
                 "align:right",
                 "align:both",
-                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L7("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
+                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L8("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
                 { split: "shading", menu: () => shadingMenu(env, ctx) },
                 "borders"
               ]
             ] }
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
-          { id: "styles", label: L7("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
-          { id: "editing", label: L7("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
+          { id: "styles", label: L8("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
+          { id: "editing", label: L8("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L7("Insert", "Inserir"),
+        label: L8("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L7("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+          { id: "pages", label: L8("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L8("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
+            large2("blankPage"),
             large2("pagebreak"),
-            { menu: breaksMenu, id: "breaks", label: L7("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+            { menu: breaksMenu, id: "breaks", label: L8("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
           ] },
-          { id: "objects", label: L7("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
-            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L7("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+          { id: "objects", label: L8("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L8("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large2("image")
           ] },
           // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
-          { id: "links", label: L7("Links", "Links"), icon: "link", prio: 5, cells: [large2("link"), large2("bookmark"), large2("crossref")] },
-          { id: "comments", label: L7("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large2("comment")] },
-          { id: "hf", label: L7("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
-            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L7("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
-            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L7("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
-            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L7("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
+          { id: "links", label: L8("Links", "Links"), icon: "link", prio: 5, cells: [large2("link"), large2("bookmark"), large2("crossref")] },
+          { id: "comments", label: L8("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large2("comment")] },
+          { id: "hf", label: L8("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
+            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L8("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
+            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L8("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
+            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L8("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
           ] },
-          { id: "text", label: L7("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
+          { id: "text", label: L8("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
             large2("textbox"),
-            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L7("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L8("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+          ] }
+        ]
+      },
+      {
+        // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
+        // Documento (temas, conjuntos de estilos) entra quando chegar
+        id: "design",
+        label: L8("Design", "Design"),
+        groups: [
+          { id: "background", label: L8("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L8("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
+            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L8("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
+            { cmd: "dlg:pageBorders", size: "large" }
           ] }
         ]
       },
       {
         id: "layout",
-        label: L7("Layout", "Layout"),
+        label: L8("Layout", "Layout"),
         groups: [
-          { id: "pagesetup", label: L7("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
-            { menu: () => marginsMenu(env, ctx), id: "margins", label: L7("Margins", "Margens"), icon: "margin", size: "large" },
-            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L7("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
-            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L7("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: columnsMenu, id: "columns", label: L7("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
-            { rows: [[{ menu: breaksMenu, id: "breaks", label: L7("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"], [{ cmd: "dlg:pageBorders", label: true }]] }
+          { id: "pagesetup", label: L8("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
+            { menu: () => marginsMenu(env, ctx), id: "margins", label: L8("Margins", "Margens"), icon: "margin", size: "large" },
+            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L8("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
+            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L8("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
+            { menu: columnsMenu, id: "columns", label: L8("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+            { rows: [[{ menu: breaksMenu, id: "breaks", label: L8("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
           ] },
-          { id: "paragraph", label: L7("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L7("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
+          { id: "paragraph", label: L8("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L8("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
             { rows: [
               [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
-              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L7("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
-              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L7("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
+              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L8("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
+              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L8("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
             ] }
-          ] },
-          { id: "background", label: L7("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { cmd: "pageColor", size: "large" },
-            { cmd: "watermark", size: "large" }
           ] }
         ]
       },
@@ -53133,18 +54613,18 @@ function ribbonLayout(env, ctx) {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: "references",
-        label: L7("References", "Refer\xEAncias"),
+        label: L8("References", "Refer\xEAncias"),
         groups: [
-          { id: "toc", label: L7("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large2("toc")] },
-          { id: "footnotes", label: L7("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+          { id: "toc", label: L8("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large2("toc")] },
+          { id: "footnotes", label: L8("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
             large2("footnote"),
             { rows: [
               [{ cmd: "endnote", label: true }],
-              [{ menu: noteNavMenu, id: "note:nav", label: L7("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L8("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
               [{ cmd: "note:show", label: true }]
             ] }
           ] },
-          { id: "captions", label: L7("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
+          { id: "captions", label: L8("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
             large2("caption"),
             { rows: [[{ cmd: "tof", label: true }], [{ cmd: "tof:update", label: true }], [{ cmd: "crossref", label: true }]] }
           ] }
@@ -53152,86 +54632,86 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "mailings",
-        label: L7("Mailings", "Correspond\xEAncias"),
+        label: L8("Mailings", "Correspond\xEAncias"),
         groups: [
-          { id: "merge", label: L7("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large2("mailmerge"), large2("mergefield")] }
+          { id: "merge", label: L8("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large2("mailmerge"), large2("mergefield")] }
         ]
       },
       {
         id: "review",
-        label: L7("Review", "Revis\xE3o"),
+        label: L8("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L7("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large2("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
-          { id: "comments", label: L7("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
+          { id: "proofing", label: L8("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large2("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
+          { id: "comments", label: L8("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large2("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L7("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+          { id: "tracking", label: L8("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
             large2("trackChanges"),
             { rows: [
-              [{ menu: markupModes, id: "markupMode", label: L7("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
-              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L7("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ menu: markupModes, id: "markupMode", label: L8("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L8("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
               [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
             ] }
           ] },
-          { id: "changes", label: L7("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+          { id: "changes", label: L8("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
             { split: "change:accept", menu: acceptItems, size: "large" },
             { split: "change:reject", menu: rejectItems, size: "large" },
             { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
           ] },
-          { id: "document", label: L7("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large2("compare"), large2("enableEditing")] }
+          { id: "document", label: L8("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large2("compare"), large2("enableEditing")] }
         ]
       },
       {
         id: "view",
-        label: L7("View", "Exibir"),
+        label: L8("View", "Exibir"),
         groups: [
-          { id: "views", label: L7("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
+          { id: "views", label: L8("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
             large2("view:read"),
             large2("view:print"),
             large2("view:web"),
             { rows: [[{ cmd: "view:outline", label: true }], [{ cmd: "view:draft", label: true }]] },
             large2("focus")
           ] },
-          { id: "show", label: L7("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
+          { id: "show", label: L8("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
             { rows: [[{ cmd: "view:ruler", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:navpane", label: true }]] },
             { rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] },
             { rows: [[{ cmd: "view:bookmarks", label: true }]] }
           ] },
-          { id: "zoom", label: L7("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
-            { menu: m2.zoomItems, id: "zoom", label: L7("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+          { id: "zoom", label: L8("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
+            { menu: m2.zoomItems, id: "zoom", label: L8("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
             large2("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "appearance", label: L7("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env, ctx), id: "theme", label: L7("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L7("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L7("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L8("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env, ctx), id: "theme", label: L8("Theme", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L8("Accent", "Destaque"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L8("Toolbar", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "hf-tools",
-        label: L7("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
+        label: L8("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
         contextual: () => env.ed.editingHeaderFooter() !== null,
         groups: hfToolsGroups(env, ctx)
       },
       {
         id: "table-design",
-        label: L7("Table Design", "Design da Tabela"),
+        label: L8("Table Design", "Design da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableDesignGroups(env, ctx)
       },
       {
         id: "table-layout",
-        label: L7("Table Layout", "Layout da Tabela"),
+        label: L8("Table Layout", "Layout da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableLayoutGroups(env)
       },
       {
         id: "image-tools",
-        label: L7("Picture Format", "Formato da Imagem"),
+        label: L8("Picture Format", "Formato da Imagem"),
         contextual: () => {
           const f3 = env.ed.selectedImage;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -53241,7 +54721,7 @@ function ribbonLayout(env, ctx) {
     ]
   };
 }
-var breaksMenu, noteNavMenu, columnsMenu, markupModes, acceptItems, rejectItems, MODE_LABELS, fileMenu, L7, large2;
+var breaksMenu, noteNavMenu, columnsMenu, markupModes, acceptItems, rejectItems, MODE_LABELS, fileMenu, L8, large2;
 var init_chrome_layout = __esm({
   "src/chrome-layout.ts"() {
     "use strict";
@@ -53249,6 +54729,7 @@ var init_chrome_layout = __esm({
     init_chrome_table();
     init_chrome_hf();
     init_chrome_picture();
+    init_chrome_page();
     init_chrome_commands();
     breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
     noteNavMenu = () => ["note:next", "note:prev", "note:nextEnd", "note:prevEnd"];
@@ -53278,7 +54759,7 @@ var init_chrome_layout = __esm({
       "-",
       m2.autosave
     ];
-    L7 = (en, pt2) => ({ en, pt: pt2 });
+    L8 = (en, pt2) => ({ en, pt: pt2 });
     large2 = (cmd) => ({ cmd, size: "large" });
   }
 });
@@ -53309,8 +54790,8 @@ function drawSample(canvas2, ed, look, o7) {
   c5.textBaseline = "alphabetic";
   let text = look.allCaps ? o7.text.toUpperCase() : o7.text;
   if (look.smallCaps && !look.allCaps) text = text.toUpperCase();
-  const tw2 = c5.measureText(text).width;
-  const x3 = o7.align && look.alignment === "center" ? Math.max(4, (o7.w - tw2) / 2) : o7.align && look.alignment === "right" ? Math.max(4, o7.w - tw2 - 4) : 4;
+  const tw3 = c5.measureText(text).width;
+  const x3 = o7.align && look.alignment === "center" ? Math.max(4, (o7.w - tw3) / 2) : o7.align && look.alignment === "right" ? Math.max(4, o7.w - tw3 - 4) : 4;
   const y3 = Math.round(o7.h / 2 + px * 0.33);
   if (look.borderTop || look.borderBottom) {
     c5.strokeStyle = (look.borderTop ?? look.borderBottom ?? "").split(" ").pop() ?? "#000";
@@ -53330,7 +54811,7 @@ function drawSample(canvas2, ed, look, o7) {
   }
   c5.fillText(text, x3, y3);
   if (look.underline || look.strike) {
-    c5.fillRect(x3, look.strike ? y3 - px * 0.3 : y3 + Math.max(1, px * 0.08), Math.min(tw2, o7.w - x3), Math.max(1, px / 16));
+    c5.fillRect(x3, look.strike ? y3 - px * 0.3 : y3 + Math.max(1, px * 0.08), Math.min(tw3, o7.w - x3), Math.max(1, px / 16));
   }
 }
 function renderTile(env, tile, s4, W3, H2) {
@@ -53338,11 +54819,11 @@ function renderTile(env, tile, s4, W3, H2) {
   tile.replaceChildren();
   const cv = document.createElement("canvas");
   cv.className = "uw-style-sample";
-  const cap = document.createElement("span");
-  cap.className = "uw-style-cap";
-  cap.textContent = s4.name;
+  const cap2 = document.createElement("span");
+  cap2.className = "uw-style-cap";
+  cap2.textContent = s4.name;
   if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: W3 - 4, h: H2 - 22, maxPx: 22, paper: true, align: false });
-  tile.append(cv, cap);
+  tile.append(cv, cap2);
 }
 function styleGalleryItem(env, ui) {
   const W3 = 84, H2 = 64;
@@ -53395,39 +54876,39 @@ function styleNames(env) {
   return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
 }
 function galleryMenu(env, ui, s4) {
-  const L8 = pickLabels(env.lang, T6);
+  const L9 = pickLabels(env.lang, T6);
   const ok = canEdit2(env);
   const out = [
-    { id: "style:update", icon: "refresh", label: L8.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+    { id: "style:update", icon: "refresh", label: L9.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
       env.ed.updateStyleFromSelection(s4.id);
       env.after();
     } },
-    { id: "style:modify", icon: "edit", label: L8.modifyDots, disabled: !ok, onClick: () => {
+    { id: "style:modify", icon: "edit", label: L9.modifyDots, disabled: !ok, onClick: () => {
       void ui.styleDialog("modify", s4.id);
     } },
-    { id: "style:rename", icon: "drive_file_rename_outline", label: L8.rename, disabled: !ok, onClick: () => {
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L9.rename, disabled: !ok, onClick: () => {
       void ui.rename(s4);
     } },
-    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L8.removeFromGallery, disabled: !ok, onClick: () => {
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L9.removeFromGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, false);
       env.after();
-    } } : { id: "style:togallery", icon: "bookmark_add", label: L8.addGallery, disabled: !ok, onClick: () => {
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L9.addGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, true);
       env.after();
     } }
   ];
   if (!s4.builtIn) {
-    out.push("-", { id: "style:delete", icon: "delete", label: L8.del(s4.name), disabled: !ok, onClick: () => {
+    out.push("-", { id: "style:delete", icon: "delete", label: L9.del(s4.name), disabled: !ok, onClick: () => {
       void ui.remove(s4);
     } });
   }
   return out;
 }
 function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
-  const L8 = pickLabels(env.lang, T6);
+  const L9 = pickLabels(env.lang, T6);
   if (!look) return s4.name;
   const parts = [];
-  const d3 = L8.d;
+  const d3 = L9.d;
   parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
   if (look.bold) parts.push(d3.bold);
   if (look.italic) parts.push(d3.italic);
@@ -53435,15 +54916,15 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   if (look.strike) parts.push(d3.strike);
   if (look.allCaps) parts.push(d3.caps);
   if (look.smallCaps) parts.push(d3.smallCaps);
-  if (look.color) parts.push(d3.color(colorName(look.color, L8)));
+  if (look.color) parts.push(d3.color(colorName(look.color, L9)));
   if (s4.kind !== "character") {
-    if (look.alignment !== "left") parts.push({ center: L8.center, right: L8.right, both: L8.justify }[look.alignment]);
-    if (look.lineTwentieths !== void 0) parts.push(d3.line(L8.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
-    if (look.spaceBeforeTwips) parts.push(d3.before(ptOf2(look.spaceBeforeTwips)));
-    if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf2(look.spaceAfterTwips)));
+    if (look.alignment !== "left") parts.push({ center: L9.center, right: L9.right, both: L9.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L9.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.spaceBeforeTwips) parts.push(d3.before(ptOf3(look.spaceBeforeTwips)));
+    if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf3(look.spaceAfterTwips)));
     if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
   }
-  parts.push(d3.style(L8.kind[s4.kind]));
+  parts.push(d3.style(L9.kind[s4.kind]));
   if (s4.quick) parts.push(d3.gallery);
   parts.push(d3.priority(s4.priority + 1));
   const nm = names ?? styleNames(env);
@@ -53453,22 +54934,22 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   return `${s4.name}
 ${parts.join(", ")}`;
 }
-function describeDirect(env, run2, para2) {
-  const L8 = pickLabels(env.lang, T6);
-  const d3 = L8.d;
+function describeDirect(env, run2, para3) {
+  const L9 = pickLabels(env.lang, T6);
+  const d3 = L9.d;
   const parts = [];
-  if (para2) {
-    const a3 = para2["alignment"];
-    if (a3) parts.push({ left: L8.left, center: L8.center, right: L8.right, both: L8.justify }[a3] ?? a3);
-    if (para2["lineTwentieths"] !== void 0) parts.push(d3.line(L8.lines[para2["lineTwentieths"]] ?? String(para2["lineTwentieths"])));
-    if (para2["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf2(para2["spaceBeforeTwips"])));
-    if (para2["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf2(para2["spaceAfterTwips"])));
-    if (para2["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para2["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
-    if (para2["numbering"]) parts.push(d3.numbering);
-    if (para2["borders"]) parts.push(d3.borders);
-    if (para2["shadingHex"]) parts.push(d3.shading);
-    if (para2["tabStops"]) parts.push(d3.tabs);
-    if (para2["pageBreakBefore"]) parts.push(d3.pageBreak);
+  if (para3) {
+    const a3 = para3["alignment"];
+    if (a3) parts.push({ left: L9.left, center: L9.center, right: L9.right, both: L9.justify }[a3] ?? a3);
+    if (para3["lineTwentieths"] !== void 0) parts.push(d3.line(L9.lines[para3["lineTwentieths"]] ?? String(para3["lineTwentieths"])));
+    if (para3["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf3(para3["spaceBeforeTwips"])));
+    if (para3["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf3(para3["spaceAfterTwips"])));
+    if (para3["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para3["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
+    if (para3["numbering"]) parts.push(d3.numbering);
+    if (para3["borders"]) parts.push(d3.borders);
+    if (para3["shadingHex"]) parts.push(d3.shading);
+    if (para3["tabStops"]) parts.push(d3.tabs);
+    if (para3["pageBreakBefore"]) parts.push(d3.pageBreak);
   } else {
     if (run2["fontAscii"]) parts.push(d3.font(run2["fontAscii"]));
     if (run2["szHalfPt"] !== void 0) parts.push(d3.pt(run2["szHalfPt"] / 2));
@@ -53478,14 +54959,14 @@ function describeDirect(env, run2, para2) {
     if (run2["strike"] || run2["doubleStrike"]) parts.push(d3.strike);
     if (run2["allCaps"]) parts.push(d3.caps);
     if (run2["smallCaps"]) parts.push(d3.smallCaps);
-    if (run2["color"]) parts.push(d3.color(colorName(run2["color"], L8)));
+    if (run2["color"]) parts.push(d3.color(colorName(run2["color"], L9)));
     if (run2["highlight"]) parts.push(d3.highlight);
     if (run2["vertAlign"]) parts.push(run2["vertAlign"] === "superscript" ? d3.sup : d3.sub);
-    if (run2["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf2(run2["charSpacingTwips"]))));
+    if (run2["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf3(run2["charSpacingTwips"]))));
   }
-  return parts.length ? parts.join(", ") : L8.noDirect;
+  return parts.length ? parts.join(", ") : L9.noDirect;
 }
-function diff(a3, b5, para2) {
+function diff(a3, b5, para3) {
   const f3 = {};
   const keys = [
     "fontAscii",
@@ -53498,7 +54979,7 @@ function diff(a3, b5, para2) {
     "smallCaps",
     "color",
     "charSpacingTwips",
-    ...para2 ? ["alignment", "spaceBeforeTwips", "spaceAfterTwips", "lineTwentieths", "indentLeftTwips", "indentRightTwips", "indentFirstLineTwips"] : []
+    ...para3 ? ["alignment", "spaceBeforeTwips", "spaceAfterTwips", "lineTwentieths", "indentLeftTwips", "indentRightTwips", "indentFirstLineTwips"] : []
   ];
   for (const k2 of keys) {
     if (a3[k2] === b5[k2]) continue;
@@ -53506,7 +54987,7 @@ function diff(a3, b5, para2) {
   }
   return f3;
 }
-function drawPreview(cv, ed, look, L8, kind) {
+function drawPreview(cv, ed, look, L9, kind) {
   const W3 = 508, H2 = 96;
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   cv.width = W3 * dpr;
@@ -53520,15 +55001,15 @@ function drawPreview(cv, ed, look, L8, kind) {
   c5.fillRect(0, 0, W3, H2);
   c5.fillStyle = "#a0a0a0";
   c5.font = "9px sans-serif";
-  c5.fillText(L8.prevPara, 8, 14);
+  c5.fillText(L9.prevPara, 8, 14);
   const inner = document.createElement("canvas");
-  drawSample(inner, ed, look, { text: kind === "character" ? L8.sample.split(" ").slice(0, 4).join(" ") : L8.sample, w: W3 - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  drawSample(inner, ed, look, { text: kind === "character" ? L9.sample.split(" ").slice(0, 4).join(" ") : L9.sample, w: W3 - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
   c5.drawImage(inner, 8, 22, W3 - 16, 46);
   c5.fillStyle = "#a0a0a0";
   c5.font = "9px sans-serif";
-  c5.fillText(L8.prevPara, 8, 84);
+  c5.fillText(L9.prevPara, 8, 84);
 }
-var T6, SAMPLE2, canEdit2, ptOf2, cmOf, colorName, el12, draftOf, lookOfDraft, StylesUI;
+var T6, SAMPLE2, canEdit2, ptOf3, cmOf, colorName, el13, draftOf, lookOfDraft, StylesUI;
 var init_chrome_styles = __esm({
   "src/chrome-styles.ts"() {
     "use strict";
@@ -53765,10 +55246,10 @@ var init_chrome_styles = __esm({
     };
     SAMPLE2 = "AaBbCcDd";
     canEdit2 = (env) => !env.app.comparing && !env.ed.isProtected();
-    ptOf2 = (tw2) => Math.round(tw2 / 2) / 10;
-    cmOf = (tw2, dec) => (Math.round(tw2 / 567 * 100) / 100).toFixed(2).replace(/\.?0+$/, "").replace(".", dec);
-    colorName = (hex2, L8) => hex2 ? `#${hex2}` : L8.auto;
-    el12 = (tag2, props = {}, ...kids) => {
+    ptOf3 = (tw3) => Math.round(tw3 / 2) / 10;
+    cmOf = (tw3, dec) => (Math.round(tw3 / 567 * 100) / 100).toFixed(2).replace(/\.?0+$/, "").replace(".", dec);
+    colorName = (hex2, L9) => hex2 ? `#${hex2}` : L9.auto;
+    el13 = (tag2, props = {}, ...kids) => {
       const { cls, ...rest } = props;
       const e8 = Object.assign(document.createElement(tag2), rest);
       if (cls) e8.className = cls;
@@ -53831,11 +55312,11 @@ var init_chrome_styles = __esm({
           return;
         }
         const { env } = this;
-        const L8 = this.L;
-        const body = el12("div", { cls: "uw-styles" });
+        const L9 = this.L;
+        const body = el13("div", { cls: "uw-styles" });
         const sel4 = (name, opts2, v2, on) => {
-          const s4 = el12("select", { name });
-          for (const [k2, t6] of opts2) s4.append(el12("option", { value: k2, textContent: t6 }));
+          const s4 = el13("select", { name });
+          for (const [k2, t6] of opts2) s4.append(el13("option", { value: k2, textContent: t6 }));
           s4.value = v2;
           s4.addEventListener("change", () => {
             on(s4.value);
@@ -53844,12 +55325,12 @@ var init_chrome_styles = __esm({
           });
           return s4;
         };
-        const opts = el12(
+        const opts = el13(
           "div",
           { cls: "uw-styles-opts" },
           sel4(
             "filter",
-            [["recommended", L8.recommended], ["inUse", L8.inUse], ["document", L8.inDoc], ["all", L8.all]],
+            [["recommended", L9.recommended], ["inUse", L9.inUse], ["document", L9.inDoc], ["all", L9.all]],
             this.filter,
             (v2) => {
               this.filter = v2;
@@ -53858,7 +55339,7 @@ var init_chrome_styles = __esm({
           ),
           sel4(
             "sort",
-            [["prio", L8.asRecommended], ["alpha", L8.alphabetical]],
+            [["prio", L9.asRecommended], ["alpha", L9.alphabetical]],
             this.alpha ? "alpha" : "prio",
             (v2) => {
               this.alpha = v2 === "alpha";
@@ -53866,19 +55347,19 @@ var init_chrome_styles = __esm({
             }
           )
         );
-        const prev = el12("input", { type: "checkbox", checked: this.preview });
+        const prev = el13("input", { type: "checkbox", checked: this.preview });
         prev.addEventListener("change", () => {
           this.preview = prev.checked;
           env.app.prefs.set("stylesPreview", prev.checked ? "1" : "");
           this.lastKey = "";
           this.renderList();
         });
-        this.listEl = el12("div", { cls: "uw-styles-list" });
+        this.listEl = el13("div", { cls: "uw-styles-list" });
         this.listEl.setAttribute("role", "listbox");
-        body.append(opts, this.listEl, el12("label", { cls: "uo-check uw-styles-prev" }, prev, L8.preview));
-        const foot = el12("div");
+        body.append(opts, this.listEl, el13("label", { cls: "uo-check uw-styles-prev" }, prev, L9.preview));
+        const foot = el13("div");
         const btn2 = (icon, label, a3, fn) => {
-          const b5 = el12("button", { type: "button", cls: "uo-btn", title: label });
+          const b5 = el13("button", { type: "button", cls: "uo-btn", title: label });
           b5.dataset["a"] = a3;
           b5.setAttribute("aria-label", label);
           b5.innerHTML = symbol(icon);
@@ -53886,14 +55367,14 @@ var init_chrome_styles = __esm({
           return b5;
         };
         foot.append(
-          btn2("add", L8.newStyle, "styles:new", () => {
+          btn2("add", L9.newStyle, "styles:new", () => {
             void this.styleDialog("new");
           }),
-          btn2("manage_search", L8.inspector, "styles:inspector", () => this.toggleInspector())
+          btn2("manage_search", L9.inspector, "styles:inspector", () => this.toggleInspector())
         );
         this.pane = openPane({
           id: "styles",
-          title: L8.pane,
+          title: L9.pane,
           lang: env.lang,
           layer: env.layer,
           width: 280,
@@ -53926,22 +55407,22 @@ var init_chrome_styles = __esm({
         const ok = canEdit2(env);
         const names = styleNames(env);
         box.replaceChildren(...list.map((s4) => {
-          const row2 = el12("div", { cls: "uw-style-row" });
+          const row2 = el13("div", { cls: "uw-style-row" });
           row2.dataset["id"] = s4.id;
           row2.setAttribute("role", "option");
           row2.title = describeStyle(env, s4, void 0, names);
           const on = s4.id === cur.character || s4.id === cur.paragraph && !list.some((x3) => x3.id === cur.character);
           row2.classList.toggle("uo-on", on);
           row2.setAttribute("aria-selected", String(on));
-          const name = el12("span", { cls: "uw-style-name" });
+          const name = el13("span", { cls: "uw-style-name" });
           if (this.preview) {
             const look = env.ed.styleFormatting(s4.id);
             const cv = document.createElement("canvas");
             if (look) drawSample(cv, env.ed, look, { text: s4.name, w: 190, h: 24, maxPx: 18, minPx: 9, autoColor: getComputedStyle(box).color });
             name.append(cv);
           } else name.textContent = s4.name;
-          const mark2 = el12("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
-          const more = el12("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
+          const mark2 = el13("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
+          const more = el13("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
           more.innerHTML = symbol("arrow_drop_down");
           more.addEventListener("mousedown", (e8) => e8.preventDefault());
           more.addEventListener("click", (e8) => {
@@ -53971,10 +55452,10 @@ var init_chrome_styles = __esm({
           return;
         }
         const { env } = this;
-        const L8 = this.L;
-        const body = el12("div", { cls: "uw-insp" });
+        const L9 = this.L;
+        const body = el13("div", { cls: "uw-insp" });
         const row2 = (value, icon, tip, a3, fn) => {
-          const b5 = el12("button", { type: "button", cls: "uo-btn", title: tip });
+          const b5 = el13("button", { type: "button", cls: "uo-btn", title: tip });
           b5.dataset["a"] = a3;
           b5.setAttribute("aria-label", tip);
           b5.innerHTML = symbol(icon);
@@ -53983,39 +55464,39 @@ var init_chrome_styles = __esm({
             fn();
             env.after();
           });
-          return el12("div", { cls: "uw-insp-row" }, value, b5);
+          return el13("div", { cls: "uw-insp-row" }, value, b5);
         };
-        const box = () => el12("div", { cls: "uw-insp-val" });
+        const box = () => el13("div", { cls: "uw-insp-val" });
         const r6 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
         body.append(
-          el12("div", { cls: "uw-insp-h", textContent: L8.paraFmt }),
-          row2(r6.pStyle, "format_clear", L8.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
-          row2(r6.pDirect, "format_clear", L8.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
-          el12("div", { cls: "uw-insp-h", textContent: L8.textFmt }),
-          row2(r6.tStyle, "format_clear", L8.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
-          row2(r6.tDirect, "format_clear", L8.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+          el13("div", { cls: "uw-insp-h", textContent: L9.paraFmt }),
+          row2(r6.pStyle, "format_clear", L9.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+          row2(r6.pDirect, "format_clear", L9.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+          el13("div", { cls: "uw-insp-h", textContent: L9.textFmt }),
+          row2(r6.tStyle, "format_clear", L9.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+          row2(r6.tDirect, "format_clear", L9.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
         );
         this.inspRows = r6;
-        const foot = el12("div");
+        const foot = el13("div");
         const pill = (label, a3, fn) => {
-          const b5 = el12("button", { type: "button", cls: "uo-pill", textContent: label });
+          const b5 = el13("button", { type: "button", cls: "uo-pill", textContent: label });
           b5.dataset["a"] = a3;
           b5.addEventListener("mousedown", (e8) => e8.preventDefault());
           b5.addEventListener("click", fn);
           return b5;
         };
         foot.append(
-          pill(L8.newStyle, "insp:new", () => {
+          pill(L9.newStyle, "insp:new", () => {
             void this.styleDialog("new");
           }),
-          pill(L8.clearAll, "insp:clearAll", () => {
+          pill(L9.clearAll, "insp:clearAll", () => {
             env.ed.clearFormatting();
             env.after();
           })
         );
         this.inspector = openPane({
           id: "styleInspector",
-          title: L8.inspector,
+          title: L9.inspector,
           lang: env.lang,
           layer: env.layer,
           width: 300,
@@ -54067,31 +55548,31 @@ var init_chrome_styles = __esm({
       /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
       async quickCreate() {
         const { env } = this;
-        const L8 = this.L;
+        const L9 = this.L;
         if (!canEdit2(env)) return;
-        const input = el12("input", { type: "text", value: this.freeName() });
+        const input = el13("input", { type: "text", value: this.freeName() });
         const look = this.selectionLook();
         const cv = document.createElement("canvas");
         if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: 360, h: 56, maxPx: 30, paper: true, align: true });
-        const msg = el12("div", { cls: "uw-style-msg" });
-        const body = el12("div", { cls: "uw-style-quick" }, el12("label", { cls: "uo-field" }, el12("span", { textContent: L8.name }), input), cv, msg);
+        const msg = el13("div", { cls: "uw-style-msg" });
+        const body = el13("div", { cls: "uw-style-quick" }, el13("label", { cls: "uo-field" }, el13("span", { textContent: L9.name }), input), cv, msg);
         let action = null;
         const h3 = openDialog({
-          title: L8.newStyleTitle,
+          title: L9.newStyleTitle,
           body,
           layer: env.layer,
           lang: env.lang,
           width: 420,
-          actions: [{ id: "modify", label: L8.modify }, { id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }],
+          actions: [{ id: "modify", label: L9.modify }, { id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }],
           onAction: (id) => {
             if (id === "cancel") return true;
             const name = input.value.trim();
             if (!name) {
-              msg.textContent = L8.empty;
+              msg.textContent = L9.empty;
               return false;
             }
             if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
-              msg.textContent = L8.nameTaken;
+              msg.textContent = L9.nameTaken;
               return false;
             }
             return true;
@@ -54122,7 +55603,7 @@ var init_chrome_styles = __esm({
       async styleDialog(mode, id, presetName) {
         const { env } = this;
         const ed = env.ed;
-        const L8 = this.L;
+        const L9 = this.L;
         if (!canEdit2(env)) return;
         const all = ed.listStyles("all");
         const info = id ? all.find((s4) => s4.id === id) : void 0;
@@ -54134,25 +55615,25 @@ var init_chrome_styles = __esm({
         if (!startLook) return;
         const start = draftOf(startLook);
         const draft = { ...start };
-        const nameIn = el12("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
-        const typeSel = el12("select", { name: "type" });
-        for (const [k2, t6] of [["linked", L8.linked], ["paragraph", L8.paragraph], ["character", L8.character]]) typeSel.append(el12("option", { value: k2, textContent: t6 }));
+        const nameIn = el13("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
+        const typeSel = el13("select", { name: "type" });
+        for (const [k2, t6] of [["linked", L9.linked], ["paragraph", L9.paragraph], ["character", L9.character]]) typeSel.append(el13("option", { value: k2, textContent: t6 }));
         typeSel.value = kind;
         typeSel.disabled = mode === "modify";
-        const baseSel = el12("select", { name: "basedOn" });
-        const nextSel = el12("select", { name: "next" });
+        const baseSel = el13("select", { name: "basedOn" });
+        const nextSel = el13("select", { name: "next" });
         const fillBases = () => {
           baseSel.replaceChildren();
           nextSel.replaceChildren();
           const paraStyles2 = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
           const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
           const opts = kind === "character" ? charStyles : paraStyles2;
-          if (kind === "character") baseSel.append(el12("option", { value: "", textContent: L8.none }));
-          for (const s4 of opts) baseSel.append(el12("option", { value: s4.id, textContent: s4.name }));
+          if (kind === "character") baseSel.append(el13("option", { value: "", textContent: L9.none }));
+          for (const s4 of opts) baseSel.append(el13("option", { value: s4.id, textContent: s4.name }));
           baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
           if (kind !== "character") {
-            nextSel.append(el12("option", { value: "", textContent: nameIn.value.trim() || L8.none }));
-            for (const s4 of paraStyles2) nextSel.append(el12("option", { value: s4.id, textContent: s4.name }));
+            nextSel.append(el13("option", { value: "", textContent: nameIn.value.trim() || L9.none }));
+            for (const s4 of paraStyles2) nextSel.append(el13("option", { value: s4.id, textContent: s4.name }));
             nextSel.value = info?.next && info.next !== id ? info.next : "";
           }
           nextSel.disabled = kind === "character";
@@ -54164,13 +55645,13 @@ var init_chrome_styles = __esm({
           refresh();
         });
         const families = await ed.listAvailableFonts();
-        const fontSel = el12("select", { name: "font" });
-        for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el12("option", { value: f3, textContent: f3 }));
+        const fontSel = el13("select", { name: "font" });
+        for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el13("option", { value: f3, textContent: f3 }));
         fontSel.value = draft.fontAscii;
-        const sizeIn = el12("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
+        const sizeIn = el13("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
         sizeIn.style.width = "64px";
         const tog = (k2, icon, tip) => {
-          const b5 = el12("button", { type: "button", cls: "uo-btn", title: tip });
+          const b5 = el13("button", { type: "button", cls: "uo-btn", title: tip });
           b5.dataset["a"] = `dlg:${k2}`;
           b5.innerHTML = symbol(icon);
           const upd = () => {
@@ -54185,10 +55666,10 @@ var init_chrome_styles = __esm({
           upd();
           return b5;
         };
-        const colorIn = el12("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+        const colorIn = el13("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
         colorIn.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
         const alignBtns = ["left", "center", "right", "both"].map((a3) => {
-          const b5 = el12("button", { type: "button", cls: "uo-btn", title: { left: L8.left, center: L8.center, right: L8.right, both: L8.justify }[a3] });
+          const b5 = el13("button", { type: "button", cls: "uo-btn", title: { left: L9.left, center: L9.center, right: L9.right, both: L9.justify }[a3] });
           b5.dataset["a"] = `dlg:align:${a3}`;
           b5.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
           b5.addEventListener("click", () => {
@@ -54200,19 +55681,19 @@ var init_chrome_styles = __esm({
         });
         const syncAlign = () => alignBtns.forEach((b5, i7) => b5.classList.toggle("uo-on", ["left", "center", "right", "both"][i7] === draft.alignment));
         syncAlign();
-        const lineSel = el12("select", { name: "line" });
-        for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el12("option", { value: String(v2), textContent: L8.lines[v2] }));
+        const lineSel = el13("select", { name: "line" });
+        for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el13("option", { value: String(v2), textContent: L9.lines[v2] }));
         if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
-          lineSel.append(el12("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
+          lineSel.append(el13("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
         }
         lineSel.value = String(draft.lineTwentieths ?? 240);
         const num3 = (v2, step, name2) => {
-          const i7 = el12("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
+          const i7 = el13("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
           i7.style.width = "72px";
           return i7;
         };
-        const beforeIn = num3(ptOf2(draft.spaceBeforeTwips), "6", "before");
-        const afterIn = num3(ptOf2(draft.spaceAfterTwips), "6", "after");
+        const beforeIn = num3(ptOf3(draft.spaceBeforeTwips), "6", "before");
+        const afterIn = num3(ptOf3(draft.spaceAfterTwips), "6", "after");
         const indentIn = num3(Math.round(draft.indentLeftTwips / 567 * 100) / 100, "0.25", "indentLeft");
         const read = () => {
           draft.fontAscii = fontSel.value;
@@ -54229,20 +55710,20 @@ var init_chrome_styles = __esm({
           read();
           refresh();
         });
-        const formatBtn = el12("button", { type: "button", cls: "uo-pill", textContent: `${L8.format} \u25BE` });
+        const formatBtn = el13("button", { type: "button", cls: "uo-pill", textContent: `${L9.format} \u25BE` });
         formatBtn.dataset["a"] = "dlg:format";
         formatBtn.addEventListener("click", (e8) => {
           e8.stopPropagation();
           const r6 = formatBtn.getBoundingClientRect();
           openMenu([
-            { id: "dlg:format:font", icon: "text_format", label: L8.fontDots, onClick: () => {
+            { id: "dlg:format:font", icon: "text_format", label: L9.fontDots, onClick: () => {
               void this.fontSub(draft).then(refresh);
             } },
-            { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L8.paraDots, disabled: kind === "character", onClick: () => {
+            { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L9.paraDots, disabled: kind === "character", onClick: () => {
               void this.paraSub(draft).then(() => {
                 syncAlign();
-                beforeIn.value = String(ptOf2(draft.spaceBeforeTwips));
-                afterIn.value = String(ptOf2(draft.spaceAfterTwips));
+                beforeIn.value = String(ptOf3(draft.spaceBeforeTwips));
+                afterIn.value = String(ptOf3(draft.spaceAfterTwips));
                 indentIn.value = String(Math.round(draft.indentLeftTwips / 567 * 100) / 100);
                 lineSel.value = String(draft.lineTwentieths ?? 240);
                 refresh();
@@ -54252,13 +55733,13 @@ var init_chrome_styles = __esm({
         });
         const cv = document.createElement("canvas");
         cv.className = "uw-style-prev";
-        const desc = el12("div", { cls: "uw-style-desc" });
-        const quick = el12("input", { type: "checkbox", checked: info?.quick ?? true });
-        const auto = el12("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
-        const msg = el12("div", { cls: "uw-style-msg" });
+        const desc = el13("div", { cls: "uw-style-desc" });
+        const quick = el13("input", { type: "checkbox", checked: info?.quick ?? true });
+        const auto = el13("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
+        const msg = el13("div", { cls: "uw-style-msg" });
         const refresh = () => {
           const look = lookOfDraft(draft, startLook);
-          drawPreview(cv, ed, look, L8, kind);
+          drawPreview(cv, ed, look, L9, kind);
           const fake = {
             id: id ?? "",
             name: nameIn.value.trim() || "\u2026",
@@ -54284,78 +55765,78 @@ var init_chrome_styles = __esm({
           refresh();
         });
         for (const i7 of [baseSel, nextSel, quick, auto]) i7.addEventListener("change", refresh);
-        const grid2 = el12(
+        const grid2 = el13(
           "div",
           { cls: "uo-dialog-grid" },
-          el12("span", { textContent: L8.name }),
+          el13("span", { textContent: L9.name }),
           nameIn,
-          el12("span", { textContent: L8.type }),
+          el13("span", { textContent: L9.type }),
           typeSel,
-          el12("span", { textContent: L8.basedOn }),
+          el13("span", { textContent: L9.basedOn }),
           baseSel,
-          el12("span", { textContent: L8.next }),
+          el13("span", { textContent: L9.next }),
           nextSel
         );
-        const fmtRow1 = el12(
+        const fmtRow1 = el13(
           "div",
           { cls: "uw-style-fmt" },
           fontSel,
           sizeIn,
-          tog("bold", "format_bold", L8.bold),
-          tog("italic", "format_italic", L8.italic),
-          tog("underline", "format_underlined", L8.underline),
+          tog("bold", "format_bold", L9.bold),
+          tog("italic", "format_italic", L9.italic),
+          tog("underline", "format_underlined", L9.underline),
           colorIn
         );
-        const fmtRow2 = el12("div", { cls: "uw-style-fmt" }, ...alignBtns, el12("span", { textContent: L8.lineSpacing }), lineSel);
-        const fmtRow3 = el12(
+        const fmtRow2 = el13("div", { cls: "uw-style-fmt" }, ...alignBtns, el13("span", { textContent: L9.lineSpacing }), lineSel);
+        const fmtRow3 = el13(
           "div",
           { cls: "uw-style-fmt" },
-          el12("span", { textContent: L8.before }),
+          el13("span", { textContent: L9.before }),
           beforeIn,
-          el12("span", { textContent: L8.after }),
+          el13("span", { textContent: L9.after }),
           afterIn,
-          el12("span", { textContent: L8.indentLeft }),
+          el13("span", { textContent: L9.indentLeft }),
           indentIn
         );
-        const checks = el12(
+        const checks = el13(
           "div",
           { cls: "uw-style-checks" },
-          el12("label", { cls: "uo-check" }, quick, L8.addToGallery),
-          el12("label", { cls: "uo-check" }, auto, L8.autoUpdate)
+          el13("label", { cls: "uo-check" }, quick, L9.addToGallery),
+          el13("label", { cls: "uo-check" }, auto, L9.autoUpdate)
         );
-        const body = el12(
+        const body = el13(
           "div",
           { cls: "uw-style-dlg" },
-          el12("strong", { textContent: L8.properties }),
+          el13("strong", { textContent: L9.properties }),
           grid2,
-          el12("strong", { textContent: L8.formatting }),
+          el13("strong", { textContent: L9.formatting }),
           fmtRow1,
           fmtRow2,
           fmtRow3,
           cv,
           desc,
           checks,
-          el12("div", {}, formatBtn),
+          el13("div", {}, formatBtn),
           msg
         );
         refresh();
         const h3 = openDialog({
-          title: mode === "new" ? L8.newStyleTitle : L8.modifyTitle,
+          title: mode === "new" ? L9.newStyleTitle : L9.modifyTitle,
           body,
           layer: env.layer,
           lang: env.lang,
           width: 560,
-          actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }],
+          actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }],
           onAction: (a3) => {
             if (a3 !== "ok") return true;
             read();
             const name2 = nameIn.value.trim();
             if (!name2) {
-              msg.textContent = L8.empty;
+              msg.textContent = L9.empty;
               return false;
             }
             if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
-              msg.textContent = L8.nameTaken;
+              msg.textContent = L9.nameTaken;
               return false;
             }
             return true;
@@ -54382,73 +55863,73 @@ var init_chrome_styles = __esm({
       }
       /** Formatar › Fonte… (rascunho do estilo). */
       async fontSub(d3) {
-        const L8 = this.L;
+        const L9 = this.L;
         const box = (k2, label) => {
-          const i7 = el12("input", { type: "checkbox", checked: !!d3[k2] });
+          const i7 = el13("input", { type: "checkbox", checked: !!d3[k2] });
           i7.name = k2;
-          return el12("label", { cls: "uo-check" }, i7, label);
+          return el13("label", { cls: "uo-check" }, i7, label);
         };
-        const spacing = el12("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf2(d3.charSpacingTwips)) });
-        const body = el12(
+        const spacing = el13("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf3(d3.charSpacingTwips)) });
+        const body = el13(
           "div",
           { cls: "uw-style-sub" },
-          el12(
+          el13(
             "div",
             { cls: "uw-style-fx" },
-            box("bold", L8.bold),
-            box("italic", L8.italic),
-            box("underline", L8.underline),
-            box("strike", L8.strike),
-            box("allCaps", L8.caps),
-            box("smallCaps", L8.smallCaps)
+            box("bold", L9.bold),
+            box("italic", L9.italic),
+            box("underline", L9.underline),
+            box("strike", L9.strike),
+            box("allCaps", L9.caps),
+            box("smallCaps", L9.smallCaps)
           ),
-          el12("label", { cls: "uo-field" }, el12("span", { textContent: `${L8.charSpacing} (pt)` }), spacing)
+          el13("label", { cls: "uo-field" }, el13("span", { textContent: `${L9.charSpacing} (pt)` }), spacing)
         );
-        const h3 = openDialog({ title: L8.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }] });
+        const h3 = openDialog({ title: L9.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }] });
         if (await h3.result !== "ok") return;
         for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
         d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
       }
       /** Formatar › Parágrafo… (recuos à direita e especial). */
       async paraSub(d3) {
-        const L8 = this.L;
-        const right = el12("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
-        const special = el12("select", { name: "special" });
-        for (const [k2, t6] of [["none", L8.none], ["firstLine", L8.firstLine], ["hanging", L8.hanging]]) special.append(el12("option", { value: k2, textContent: t6 }));
+        const L9 = this.L;
+        const right = el13("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
+        const special = el13("select", { name: "special" });
+        for (const [k2, t6] of [["none", L9.none], ["firstLine", L9.firstLine], ["hanging", L9.hanging]]) special.append(el13("option", { value: k2, textContent: t6 }));
         special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
-        const by = el12("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
-        const body = el12(
+        const by = el13("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
+        const body = el13(
           "div",
           { cls: "uo-dialog-grid" },
-          el12("span", { textContent: L8.indentRight }),
+          el13("span", { textContent: L9.indentRight }),
           right,
-          el12("span", { textContent: L8.special }),
+          el13("span", { textContent: L9.special }),
           special,
-          el12("span", { textContent: L8.by }),
+          el13("span", { textContent: L9.by }),
           by
         );
-        const h3 = openDialog({ title: L8.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.ok, primary: true }] });
+        const h3 = openDialog({ title: L9.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }] });
         if (await h3.result !== "ok") return;
         d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
         const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
         d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
       }
       async rename(s4) {
-        const L8 = this.L;
-        const v2 = await promptDialog({ title: L8.renameTitle, label: L8.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+        const L9 = this.L;
+        const v2 = await promptDialog({ title: L9.renameTitle, label: L9.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
         if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
-        if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L8.nameTaken);
+        if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L9.nameTaken);
         this.env.after();
       }
       async remove(s4) {
-        const L8 = this.L;
+        const L9 = this.L;
         const h3 = openDialog({
-          title: L8.del(s4.name).replace(/…$/, ""),
-          body: L8.delConfirm(s4.name),
+          title: L9.del(s4.name).replace(/…$/, ""),
+          body: L9.delConfirm(s4.name),
           layer: this.env.layer,
           lang: this.env.lang,
           icon: "delete",
-          actions: [{ id: "cancel", label: L8.cancel }, { id: "ok", label: L8.delete, primary: true }]
+          actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.delete, primary: true }]
         });
         if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
         this.env.after();
@@ -55113,7 +56594,7 @@ var init_diff = __esm({
 });
 
 // ../compare/src/universal-write-diff.ts
-var s_, LABELS7, Base, HIGHLIGHT3, hex6, MIME3, STYLE2, UniversalWriteDiffElement;
+var s_, LABELS7, Base, HIGHLIGHT3, hex6, MIME4, STYLE2, UniversalWriteDiffElement;
 var init_universal_write_diff = __esm({
   "../compare/src/universal-write-diff.ts"() {
     "use strict";
@@ -55174,7 +56655,7 @@ var init_universal_write_diff = __esm({
       white: "#ffffff"
     };
     hex6 = (s4) => s4 && /^[0-9a-fA-F]{6}$/.test(s4) ? `#${s4}` : null;
-    MIME3 = {
+    MIME4 = {
       png: "image/png",
       jpeg: "image/jpeg",
       jpg: "image/jpeg",
@@ -55465,7 +56946,7 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         header.className = "uwd-header";
         const statsBox = doc.createElement("div");
         statsBox.className = "uwd-stats";
-        const L8 = this._L;
+        const L9 = this._L;
         const stat = (cls, label, n5) => {
           if (n5 === 0) return;
           const s4 = doc.createElement("span");
@@ -55473,13 +56954,13 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
           s4.textContent = label(n5);
           statsBox.append(s4);
         };
-        stat("ins", L8.inserted, stats.inserted);
-        stat("del", L8.deleted, stats.deleted);
-        stat("chg", L8.changed, stats.changed);
-        stat("fmt", L8.formatOnly, stats.formatOnly);
+        stat("ins", L9.inserted, stats.inserted);
+        stat("del", L9.deleted, stats.deleted);
+        stat("chg", L9.changed, stats.changed);
+        stat("fmt", L9.formatOnly, stats.formatOnly);
         if (statsBox.childElementCount === 0) {
           const s4 = doc.createElement("span");
-          s4.textContent = L8.identical;
+          s4.textContent = L9.identical;
           statsBox.append(s4);
         }
         header.append(statsBox);
@@ -55487,7 +56968,7 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         spacer.className = "uwd-spacer";
         header.append(spacer);
         const toggle = doc.createElement("button");
-        toggle.textContent = L8.onlyChanges;
+        toggle.textContent = L9.onlyChanges;
         toggle.dataset["on"] = this.view === "diffs" ? "1" : "0";
         toggle.addEventListener("click", () => {
           this.view = this.view === "diffs" ? "all" : "diffs";
@@ -55495,8 +56976,8 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
         header.append(toggle);
         const close = doc.createElement("button");
         close.className = "uwd-close";
-        close.title = L8.close;
-        close.setAttribute("aria-label", L8.close);
+        close.title = L9.close;
+        close.setAttribute("aria-label", L9.close);
         close.textContent = "\u2715";
         close.addEventListener("click", () => {
           this.dispatchEvent(new CustomEvent("close-request", { bubbles: true, composed: true }));
@@ -55581,24 +57062,24 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
       }
       // ─────────────── blocos ───────────────
       _renderParagraph(doc, p3, marks) {
-        const el13 = doc.createElement("div");
-        el13.className = "uwd-para";
+        const el14 = doc.createElement("div");
+        el14.className = "uwd-para";
         const pr = p3.props;
         if (pr.alignment && pr.alignment !== "left") {
-          el13.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
+          el14.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
         }
-        if (pr.indentLeftTwips) el13.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
-        if (pr.indentRightTwips) el13.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
-        if (pr.indentFirstLineTwips) el13.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
-        if (pr.spaceBeforeTwips) el13.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
-        if (pr.spaceAfterTwips) el13.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
+        if (pr.indentLeftTwips) el14.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
+        if (pr.indentRightTwips) el14.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
+        if (pr.indentFirstLineTwips) el14.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
+        if (pr.spaceBeforeTwips) el14.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
+        if (pr.spaceAfterTwips) el14.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
         const shd = hex6(pr.shadingHex);
-        if (shd) el13.style.background = shd;
+        if (shd) el14.style.background = shd;
         if (pr.numbering) {
           const marker = doc.createElement("span");
           marker.textContent = pr.numbering.kind === "bullet" ? "\u2022 " : "# ";
           marker.style.paddingLeft = `${pr.numbering.ilvl * 18}pt`;
-          el13.append(marker);
+          el14.append(marker);
         }
         let offset = 0;
         for (const r6 of p3.runs) {
@@ -55608,15 +57089,15 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             end: Math.min(len2, m2.endCh - offset),
             kind: m2.kind
           })).sort((x3, y3) => x3.start - y3.start);
-          el13.append(...this._renderRun(doc, r6, runMarks));
+          el14.append(...this._renderRun(doc, r6, runMarks));
           offset += len2;
         }
-        return el13;
+        return el14;
       }
       _renderRun(doc, r6, marks) {
         if (r6.image) {
           const img = doc.createElement("img");
-          const mime = MIME3[r6.image.ext.toLowerCase()] ?? "application/octet-stream";
+          const mime = MIME4[r6.image.ext.toLowerCase()] ?? "application/octet-stream";
           const bytes = r6.image.data;
           const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
           const url = URL.createObjectURL(new Blob([buf], { type: mime }));
@@ -55694,12 +57175,12 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             }
           }
         }
-        const el13 = doc.createElement("table");
-        el13.className = "uwd-table";
+        const el14 = doc.createElement("table");
+        el14.className = "uwd-table";
         for (let ri = 0; ri < t6.rows.length; ri++) {
-          const tr7 = doc.createElement("tr");
+          const tr8 = doc.createElement("tr");
           const kind = rowKind.get(ri);
-          if (kind && kind !== "equal") tr7.className = `uwd-row--${kind}`;
+          if (kind && kind !== "equal") tr8.className = `uwd-row--${kind}`;
           for (const c5 of t6.rows[ri].cells) {
             const td2 = doc.createElement("td");
             if (c5.gridSpan > 1) td2.colSpan = c5.gridSpan;
@@ -55707,11 +57188,11 @@ tr.uwd-row--format { background: var(--uwd-minor-bg); }
             if (cellShd2) td2.style.background = cellShd2;
             for (const cp of c5.paragraphs) td2.append(this._renderParagraph(doc, cp, []));
             for (const nested of c5.tables) td2.append(this._renderTable(doc, nested, side, null));
-            tr7.append(td2);
+            tr8.append(td2);
           }
-          el13.append(tr7);
+          el14.append(tr8);
         }
-        return el13;
+        return el14;
       }
     };
     if (typeof customElements !== "undefined" && !customElements.get("universal-write-diff")) {
@@ -55798,6 +57279,7 @@ var init_chrome = __esm({
     init_chrome_picture();
     init_chrome_table();
     init_chrome_hf();
+    init_chrome_page();
     init_chrome_labels();
     init_chrome_layout();
     init_chrome_panels();
@@ -56329,6 +57811,9 @@ var init_chrome = __esm({
             const dlg = { pageNumbers: pageNumberFormatDialog, dateTime: dateTimeDialog, alignTab: alignTabDialog, options: hfOptionsDialog }[kind];
             void dlg(d3()).then(() => this.after());
           },
+          pageBgDialog: (kind) => {
+            void (kind === "fill" ? pageFillDialog : watermarkDialog)(d3()).then(() => this.after());
+          },
           pictureDialogOpen: (kind) => kind === "selection" ? !!this.pictures?.selectionOpen : kind === "alt" ? !!this.pictures?.altOpen : kind.startsWith("format:") ? !!this.pictures?.formatOpen : false,
           pictureDialog: (kind) => {
             if (kind === "alt") this.pictures?.toggleAlt();
@@ -56425,22 +57910,22 @@ var init_chrome = __esm({
       }
       // ───── Modo Protegido ─────
       makeProtectedBar() {
-        const el13 = document.createElement("div");
-        el13.className = "uw-protbar";
-        el13.setAttribute("part", "protected-bar");
-        el13.setAttribute("role", "alert");
-        el13.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+        const el14 = document.createElement("div");
+        el14.className = "uw-protbar";
+        el14.setAttribute("part", "protected-bar");
+        el14.setAttribute("role", "alert");
+        el14.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
       <span><b></b> \u2014 </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-        el13.querySelector("b").textContent = this.L.protectedTitle;
-        el13.querySelector("span").append(this.L.protectedText);
-        const b5 = el13.querySelector("button");
+        el14.querySelector("b").textContent = this.L.protectedTitle;
+        el14.querySelector("span").append(this.L.protectedText);
+        const b5 = el14.querySelector("button");
         b5.textContent = this.L.enableEditing;
         b5.addEventListener("click", () => {
           this.app.enableEditing();
           this.after();
         });
-        el13.hidden = true;
-        return el13;
+        el14.hidden = true;
+        return el14;
       }
       // ───── localizar ─────
       openFind(replace) {
@@ -56760,6 +58245,122 @@ var init_chrome = __esm({
 
 // src/universal-write.ts
 init_src();
+init_src2();
+
+// src/cover-templates.ts
+var COVER_TEMPLATES = [
+  { id: "band", name: { en: "Band", pt: "Faixa" } },
+  { id: "sidebar", name: { en: "Sidebar", pt: "Lateral" } },
+  { id: "frame", name: { en: "Frame", pt: "Moldura" } },
+  { id: "block", name: { en: "Block", pt: "Bloco" } },
+  { id: "minimal", name: { en: "Minimal", pt: "Minimalista" } },
+  { id: "base", name: { en: "Base", pt: "Base" } },
+  { id: "duotone", name: { en: "Duotone", pt: "Duas Cores" } },
+  { id: "diagonal", name: { en: "Diagonal", pt: "Diagonal" } }
+];
+function coverPlaceholders(lang) {
+  return lang === "pt" ? { title: "[T\xEDtulo do documento]", subtitle: "[Subt\xEDtulo do documento]", author: "[Nome do autor]", date: "[Data]", company: "[Nome da empresa]", summary: "[Resumo do documento: um par\xE1grafo curto sobre o conte\xFAdo.]" } : { title: "[Document title]", subtitle: "[Document subtitle]", author: "[Author name]", date: "[Date]", company: "[Company name]", summary: "[Document summary: a short paragraph about the contents.]" };
+}
+var COVER_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"';
+var EMU = 12700;
+var zOrder = 0;
+var esc8 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var tw2 = (pt2) => Math.max(0, Math.round(pt2 * 20));
+function inkXml(ink, env) {
+  switch (ink) {
+    case "white":
+      return '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
+    case "accent1":
+      return `<w:color w:val="${env.accent1}" w:themeColor="accent1"/>`;
+    case "accent2":
+      return `<w:color w:val="${env.accent2}" w:themeColor="accent2"/>`;
+    case "grey":
+      return '<w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>';
+    default:
+      return '<w:color w:val="262626" w:themeColor="text1" w:themeTint="D9"/>';
+  }
+}
+function para(text, o7, env) {
+  const ppr = `<w:pPr><w:spacing w:before="${tw2(o7.before ?? 0)}" w:after="0" w:line="240" w:lineRule="auto"/>` + (o7.indLeft ? `<w:ind w:left="${tw2(o7.indLeft)}"/>` : "") + (o7.jc && o7.jc !== "left" ? `<w:jc w:val="${o7.jc}"/>` : "") + "</w:pPr>";
+  const rpr = "<w:rPr>" + (o7.major ? '<w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>' : "") + (o7.bold ? "<w:b/><w:bCs/>" : "") + (o7.caps ? "<w:caps/>" : "") + inkXml(o7.ink, env) + `<w:sz w:val="${Math.round(o7.size * 2)}"/><w:szCs w:val="${Math.round(o7.size * 2)}"/></w:rPr>`;
+  return `<w:p>${ppr}<w:r>${rpr}<w:t xml:space="preserve">${esc8(text)}</w:t></w:r></w:p>`;
+}
+function shape(env, o7) {
+  const id = env.drawingId();
+  const fill = !o7.fill || o7.fill === "none" ? "<a:noFill/>" : `<a:solidFill><a:schemeClr val="${o7.fill}">${o7.tint ? `<a:lumMod val="${Math.round((1 - o7.tint) * 1e5)}"/><a:lumOff val="${Math.round(o7.tint * 1e5)}"/>` : ""}</a:schemeClr></a:solidFill>`;
+  const ln2 = o7.line ? `<a:ln w="${Math.round(o7.line.widthPt * EMU)}"><a:solidFill><a:schemeClr val="${o7.line.color}"/></a:solidFill></a:ln>` : "<a:ln><a:noFill/></a:ln>";
+  const cx = Math.round(o7.w * EMU), cy = Math.round(o7.h * EMU);
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25165e4 + 1024 * ++zOrder}" behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o7.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o7.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Ret\xE2ngulo" : "Rectangle"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm${o7.flipH ? ' flipH="1"' : ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${o7.geom ?? "rect"}"><a:avLst/></a:prstGeom>${fill}${ln2}</wps:spPr><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+}
+function textBox(env, o7, paras) {
+  const id = env.drawingId();
+  const cx = Math.round(o7.w * EMU), cy = Math.round(o7.h * EMU);
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25168e4 + 1024 * ++zOrder}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o7.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o7.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${paras}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${o7.anchor ?? "t"}" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+}
+function infoBox(env, x3, y3, w2, ink, jc = "left") {
+  const f3 = env.fields;
+  const lines = para(f3.author, { size: 12, ink, jc, bold: true }, env) + para(f3.date, { size: 11, ink, jc, before: 4 }, env) + para(f3.company, { size: 11, ink, jc, before: 4 }, env);
+  return textBox(env, { x: x3, y: y3, w: w2, h: 66, anchor: "b" }, lines);
+}
+function coverXml(id, env) {
+  const { page: P3, fields: f3 } = env;
+  const cw = P3.w - P3.left - P3.right;
+  const sdtId = env.drawingId();
+  zOrder = 0;
+  const open2 = `<w:sdt><w:sdtPr><w:id w:val="${sdtId}"/><w:docPartObj><w:docPartGallery w:val="Cover Pages"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtContent>`;
+  const close = '<w:p><w:r><w:br w:type="page"/></w:r></w:p></w:sdtContent></w:sdt>';
+  const anchorPara = (runs) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>${runs}</w:p>`;
+  const at = (y3) => Math.max(0, y3 - P3.top - 14);
+  const bottomY = P3.h - P3.bottom - 66;
+  let body = "";
+  switch (id) {
+    case "band": {
+      const by = P3.h * 0.3;
+      body = anchorPara(shape(env, { x: 0, y: by, w: P3.w, h: 160, fill: "accent1" }) + infoBox(env, P3.left, bottomY, cw, "dark")) + para(f3.title, { size: 40, ink: "white", before: at(by + 30), major: true }, env) + para(f3.subtitle, { size: 16, ink: "white", before: 10 }, env) + para(f3.summary, { size: 11, ink: "grey", before: 70 }, env);
+      break;
+    }
+    case "sidebar": {
+      const side = 110;
+      const ind = Math.max(0, side + 30 - P3.left);
+      body = anchorPara(shape(env, { x: 0, y: 0, w: side, h: P3.h, fill: "accent1" }) + infoBox(env, P3.left + ind, bottomY, cw - ind, "dark")) + para(f3.title, { size: 44, ink: "accent1", before: at(P3.h * 0.32), indLeft: ind, major: true }, env) + para(f3.subtitle, { size: 16, ink: "dark", before: 12, indLeft: ind }, env) + para(f3.summary, { size: 11, ink: "grey", before: 30, indLeft: ind }, env);
+      break;
+    }
+    case "frame": {
+      body = anchorPara(shape(env, { x: 30, y: 30, w: P3.w - 60, h: P3.h - 60, fill: "none", line: { color: "accent1", widthPt: 3 } }) + shape(env, { x: P3.w / 2 - 40, y: P3.h * 0.38 + 66, w: 80, h: 3, fill: "accent2" }) + infoBox(env, P3.left, bottomY, cw, "dark", "center")) + para(f3.title, { size: 40, ink: "accent1", before: at(P3.h * 0.38 - 10), jc: "center", major: true }, env) + para(f3.subtitle, { size: 16, ink: "dark", before: 30, jc: "center" }, env) + para(f3.summary, { size: 11, ink: "grey", before: 24, jc: "center" }, env);
+      break;
+    }
+    case "block": {
+      const by = P3.h * 0.28;
+      body = anchorPara(shape(env, { x: P3.left, y: by, w: cw, h: 200, fill: "accent1" }) + infoBox(env, P3.left, bottomY, cw, "grey", "center")) + para(f3.title, { size: 40, ink: "white", before: at(by + 50), jc: "center", major: true }, env) + para(f3.subtitle, { size: 16, ink: "white", before: 12, jc: "center" }, env) + para(f3.summary, { size: 11, ink: "grey", before: 100, jc: "center" }, env);
+      break;
+    }
+    case "minimal": {
+      const ty = P3.h * 0.36;
+      body = anchorPara(shape(env, { x: P3.left, y: ty - 18, w: 60, h: 4, fill: "accent1" }) + infoBox(env, P3.left, bottomY, cw, "grey")) + para(f3.title, { size: 36, ink: "dark", before: at(ty), major: true }, env) + para(f3.subtitle, { size: 16, ink: "grey", before: 10 }, env) + para(f3.summary, { size: 11, ink: "grey", before: 30 }, env);
+      break;
+    }
+    case "base": {
+      const by = P3.h * 0.7;
+      body = anchorPara(shape(env, { x: 0, y: by, w: P3.w, h: P3.h - by, fill: "accent1" }) + infoBox(env, P3.left, bottomY, cw, "white")) + para(f3.title, { size: 42, ink: "accent1", before: at(P3.h * 0.3), major: true }, env) + para(f3.subtitle, { size: 16, ink: "dark", before: 12 }, env) + para(f3.summary, { size: 11, ink: "grey", before: 30 }, env);
+      break;
+    }
+    case "duotone": {
+      const top = P3.h * 0.45;
+      body = anchorPara(shape(env, { x: 0, y: 0, w: P3.w, h: top, fill: "accent1" }) + shape(env, { x: 0, y: top, w: P3.w, h: 8, fill: "accent2" }) + infoBox(env, P3.left, bottomY, cw, "dark")) + para(f3.title, { size: 40, ink: "white", before: at(top - 120), major: true }, env) + para(f3.subtitle, { size: 16, ink: "white", before: 10 }, env) + para(f3.summary, { size: 11, ink: "grey", before: 70 }, env);
+      break;
+    }
+    case "diagonal": {
+      body = anchorPara(shape(env, { x: 0, y: P3.h * 0.55, w: P3.w * 0.8, h: P3.h * 0.45, geom: "rtTriangle", fill: "accent1" }) + shape(env, { x: 0, y: P3.h * 0.72, w: P3.w * 0.5, h: P3.h * 0.28, geom: "rtTriangle", fill: "accent2" }) + infoBox(env, P3.w * 0.45, bottomY, P3.w * 0.55 - P3.right, "dark", "right")) + para(f3.title, { size: 42, ink: "accent1", before: at(P3.h * 0.22), major: true }, env) + para(f3.subtitle, { size: 16, ink: "dark", before: 12 }, env) + para(f3.summary, { size: 11, ink: "grey", before: 30 }, env);
+      break;
+    }
+    default:
+      return null;
+  }
+  return open2 + body + close;
+}
+
+// src/universal-write.ts
+init_page_design();
 init_picture_ops();
 init_src2();
 
@@ -56875,18 +58476,18 @@ var isHiddenBookmark = (name) => name.startsWith("_");
 function bookmarksIn(paras) {
   const open2 = /* @__PURE__ */ new Map();
   const out = [];
-  paras.forEach((p3, para2) => {
+  paras.forEach((p3, para3) => {
     let offset = 0;
     for (const r6 of p3.runs) {
       const b5 = r6.bookmark;
       if (b5 && !b5.end) {
-        const loc = { name: b5.name, id: b5.id, start: { para: para2, offset }, end: { para: para2, offset } };
+        const loc = { name: b5.name, id: b5.id, start: { para: para3, offset }, end: { para: para3, offset } };
         open2.set(b5.id, loc);
         out.push(loc);
       } else if (b5?.end) {
         const loc = open2.get(b5.id);
         if (loc) {
-          loc.end = { para: para2, offset };
+          loc.end = { para: para3, offset };
           open2.delete(b5.id);
         }
       }
@@ -56915,8 +58516,8 @@ function addBookmarkMarks(paras, name, id, start, end) {
   const pa = paras[a3.para], pb = paras[b5.para];
   if (comparePos(a3, b5) === 0) {
     const i7 = insertIndex(pa, a3.offset);
-    const near2 = pa.runs[i7] ?? pa.runs[i7 - 1];
-    pa.runs.splice(i7, 0, mark(id, name, false, near2?.props), mark(id, name, true, near2?.props));
+    const near3 = pa.runs[i7] ?? pa.runs[i7 - 1];
+    pa.runs.splice(i7, 0, mark(id, name, false, near3?.props), mark(id, name, true, near3?.props));
     return;
   }
   const ie = splitAt(pb, b5.offset);
@@ -57333,8 +58934,8 @@ function styleProps(ds, theme, id) {
   const def = sheet.styles[id];
   const dd = sheet.docDefaults;
   if (def?.type === "character") {
-    const para2 = res.paraStyle(void 0);
-    return { pPr: mergePPr(dd.pPr, para2.pPr), rPr: cascadeRPr(dd.rPr, [para2.rPr, res.charStyle(id)], void 0), kind: "character" };
+    const para3 = res.paraStyle(void 0);
+    return { pPr: mergePPr(dd.pPr, para3.pPr), rPr: cascadeRPr(dd.rPr, [para3.rPr, res.charStyle(id)], void 0), kind: "character" };
   }
   const ps = res.paraStyle(id);
   const kind = def?.link && sheet.styles[def.link]?.type === "character" ? "linked" : "paragraph";
@@ -57380,9 +58981,9 @@ function resolveStyleId(xml, id) {
   const b5 = builtinStyles().find((x3) => idOf(x3.xml) === id || x3.twin && idOf(x3.twin) === id);
   if (!b5) return id;
   const twin = b5.twin && idOf(b5.twin) === id;
-  const para2 = idx.styles.find((s4) => s4.name.toLowerCase() === b5.name.toLowerCase());
-  if (!para2) return id;
-  return twin ? para2.link ?? id : para2.id;
+  const para3 = idx.styles.find((s4) => s4.name.toLowerCase() === b5.name.toLowerCase());
+  if (!para3) return id;
+  return twin ? para3.link ?? id : para3.id;
 }
 function ensureDefined(ds, xml, id, used) {
   const idx = readStyleIndex(xml);
@@ -57391,8 +58992,8 @@ function ensureDefined(ds, xml, id, used) {
   if (cur) {
     if (used && cur.semiHidden && cur.unhideWhenUsed) {
       let out2 = putStyle(xml, id, patchStyleXml(styleRaw(xml, id), { semiHidden: false }));
-      const tw2 = cur.link ? has(cur.link) : void 0;
-      if (tw2?.semiHidden) out2 = putStyle(out2, tw2.id, patchStyleXml(styleRaw(out2, tw2.id), { semiHidden: false }));
+      const tw3 = cur.link ? has(cur.link) : void 0;
+      if (tw3?.semiHidden) out2 = putStyle(out2, tw3.id, patchStyleXml(styleRaw(out2, tw3.id), { semiHidden: false }));
       return out2;
     }
     return xml;
@@ -57650,11 +59251,11 @@ function hfTemplates(gallery) {
 function galleryKind(gallery) {
   return gallery === "footer" || gallery === "pageBottom" ? "footer" : gallery === "pageCurrent" ? null : "header";
 }
-var esc8 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc8(text)}</w:t></w:r>`;
+var esc10 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc10(text)}</w:t></w:r>`;
 var field = (instr, shown, rPr = "") => {
   const r6 = rPr ? `<w:rPr>${rPr}</w:rPr>` : "";
-  return `<w:r>${r6}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r6}<w:instrText xml:space="preserve"> ${esc8(instr)} </w:instrText></w:r><w:r>${r6}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc8(shown)}</w:t></w:r><w:r>${r6}<w:fldChar w:fldCharType="end"/></w:r>`;
+  return `<w:r>${r6}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r6}<w:instrText xml:space="preserve"> ${esc10(instr)} </w:instrText></w:r><w:r>${r6}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc10(shown)}</w:t></w:r><w:r>${r6}<w:fldChar w:fldCharType="end"/></w:r>`;
 };
 var page = (rPr = "") => field("PAGE   \\* MERGEFORMAT", "1", rPr);
 var pages = (rPr = "") => field("NUMPAGES   \\* MERGEFORMAT", "1", rPr);
@@ -57664,8 +59265,8 @@ var WHITE2 = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
 function placeholderText(lang) {
   return lang === "pt" ? "[Digite aqui]" : "[Type here]";
 }
-function para(env, body, pPr = "") {
-  const style = env.styleId ? `<w:pStyle w:val="${esc8(env.styleId)}"/>` : "";
+function para2(env, body, pPr = "") {
+  const style = env.styleId ? `<w:pStyle w:val="${esc10(env.styleId)}"/>` : "";
   return `<w:p><w:pPr>${style}${pPr}</w:pPr>${body}</w:p>`;
 }
 function pageNumberSdt(env, gallery, inner) {
@@ -57694,19 +59295,19 @@ function hfTemplateXml(gallery, id, env) {
     const isH = gallery === "header";
     switch (id) {
       case "blank":
-        return para(env, run(ph));
+        return para2(env, run(ph));
       case "blank3":
-        return para(env, three);
+        return para2(env, three);
       case "title":
-        return para(env, run(title, `<w:smallCaps/>${color2(env.accent)}<w:sz w:val="28"/><w:szCs w:val="28"/>`), `${bdr("bottom", 12, env.accent)}<w:jc w:val="center"/>`);
+        return para2(env, run(title, `<w:smallCaps/>${color2(env.accent)}<w:sz w:val="28"/><w:szCs w:val="28"/>`), `${bdr("bottom", 12, env.accent)}<w:jc w:val="center"/>`);
       case "rule":
-        return isH ? para(env, run(title, "<w:b/>") + ptab("right") + run(author, color2(env.accent)), bdr("bottom", 6, "A6A6A6", false)) : para(env, run(title, color2(env.accent)) + ptab("right") + page("<w:b/>"), bdr("top", 6, "A6A6A6", false));
+        return isH ? para2(env, run(title, "<w:b/>") + ptab("right") + run(author, color2(env.accent)), bdr("bottom", 6, "A6A6A6", false)) : para2(env, run(title, color2(env.accent)) + ptab("right") + page("<w:b/>"), bdr("top", 6, "A6A6A6", false));
       case "band":
-        return isH ? para(env, run(title, `<w:b/>${WHITE2}`) + ptab("right") + run(author, WHITE2), `${shd}<w:spacing w:before="60" w:after="60"/>`) : para(env, run(title, WHITE2) + ptab("right") + page(`<w:b/>${WHITE2}`), `${shd}<w:spacing w:before="60" w:after="60"/>`);
+        return isH ? para2(env, run(title, `<w:b/>${WHITE2}`) + ptab("right") + run(author, WHITE2), `${shd}<w:spacing w:before="60" w:after="60"/>`) : para2(env, run(title, WHITE2) + ptab("right") + page(`<w:b/>${WHITE2}`), `${shd}<w:spacing w:before="60" w:after="60"/>`);
       case "accent":
-        return isH ? para(env, run(title, `<w:b/>${color2(env.accent)}`), bdr("left", 24, env.accent)) : para(env, run("\u2014 ", color2(env.accent)) + page(`<w:b/>${color2(env.accent)}<w:sz w:val="24"/><w:szCs w:val="24"/>`) + run(" \u2014", color2(env.accent)), '<w:jc w:val="center"/>');
+        return isH ? para2(env, run(title, `<w:b/>${color2(env.accent)}`), bdr("left", 24, env.accent)) : para2(env, run("\u2014 ", color2(env.accent)) + page(`<w:b/>${color2(env.accent)}<w:sz w:val="24"/><w:szCs w:val="24"/>`) + run(" \u2014", color2(env.accent)), '<w:jc w:val="center"/>');
       case "pageXofY":
-        return isH ? null : para(env, pageXofY(env, "<w:b/>"), '<w:jc w:val="center"/>');
+        return isH ? null : para2(env, pageXofY(env, "<w:b/>"), '<w:jc w:val="center"/>');
       default:
         return null;
     }
@@ -57718,41 +59319,41 @@ function hfTemplateXml(gallery, id, env) {
     let inner;
     switch (id) {
       case "plainLeft":
-        inner = para(env, page());
+        inner = para2(env, page());
         break;
       case "plainCenter":
-        inner = para(env, page(), jc("center"));
+        inner = para2(env, page(), jc("center"));
         break;
       case "plainRight":
-        inner = para(env, page(), jc("right"));
+        inner = para2(env, page(), jc("right"));
         break;
       case "pageXofY":
-        inner = para(env, pageXofY(env, "<w:b/>"), jc("right"));
+        inner = para2(env, pageXofY(env, "<w:b/>"), jc("right"));
         break;
       case "accentRule":
-        inner = para(env, page(`<w:b/>${color2(env.accent)}`), `${bdr(top ? "bottom" : "top", 12, env.accent)}${jc("right")}`);
+        inner = para2(env, page(`<w:b/>${color2(env.accent)}`), `${bdr(top ? "bottom" : "top", 12, env.accent)}${jc("right")}`);
         break;
       case "brackets":
-        inner = para(env, run("[ ") + page() + run(" ]"), jc("center"));
+        inner = para2(env, run("[ ") + page() + run(" ]"), jc("center"));
         break;
       default:
         inner = null;
     }
-    return inner ? pageNumberSdt(env, g2, inner + para(env, "")) : null;
+    return inner ? pageNumberSdt(env, g2, inner + para2(env, "")) : null;
   }
   if (gallery === "pageMargin") {
     const box = id === "right" ? marginBox(env, "right", false) : id === "left" ? marginBox(env, "left", false) : id === "circle" ? marginBox(env, "right", true) : null;
-    return box ? pageNumberSdt(env, "Margins", para(env, box)) : null;
+    return box ? pageNumberSdt(env, "Margins", para2(env, box)) : null;
   }
   switch (id) {
     case "plain":
-      return para(env, page());
+      return para2(env, page());
     case "pageXofY":
-      return para(env, pageXofY(env));
+      return para2(env, pageXofY(env));
     case "brackets":
-      return para(env, run("[") + page() + run("]"));
+      return para2(env, run("[") + page() + run("]"));
     case "dashes":
-      return para(env, run("\u2013 ") + page() + run(" \u2013"));
+      return para2(env, run("\u2013 ") + page() + run(" \u2013"));
     default:
       return null;
   }
@@ -57762,10 +59363,10 @@ var BAND = {
   pt: { header: "Cabe\xE7alho", footer: "Rodap\xE9", first: "da Primeira P\xE1gina", even: "de P\xE1gina Par", odd: "de P\xE1gina \xCDmpar", section: "Se\xE7\xE3o", same: "Mesmo que o Anterior" }
 };
 function hfBandLabel(kind, type, evenOdd, sec, count, lang) {
-  const L8 = BAND[lang];
-  const variant = type === "first" ? L8.first : type === "even" ? L8.even : evenOdd ? L8.odd : "";
-  const base = lang === "pt" ? `${L8[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L8[kind]}`;
-  return count > 1 ? `${base} -${L8.section} ${sec + 1}-` : base;
+  const L9 = BAND[lang];
+  const variant = type === "first" ? L9.first : type === "even" ? L9.even : evenOdd ? L9.odd : "";
+  const base = lang === "pt" ? `${L9[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L9[kind]}`;
+  return count > 1 ? `${base} -${L9.section} ${sec + 1}-` : base;
 }
 function sameAsPreviousLabel(lang) {
   return BAND[lang].same;
@@ -57831,7 +59432,7 @@ var COLOR_NAMES2 = {
   "000000": ["Black", "Preto"],
   FFFFFF: ["White", "Branco"]
 };
-var len = (tw2, lang) => lang === "pt" ? `${(Math.round(tw2 / 1440 * 2.54 * 100) / 100).toLocaleString("pt-BR")} cm` : `${Math.round(tw2 / 1440 * 100) / 100}"`;
+var len = (tw3, lang) => lang === "pt" ? `${(Math.round(tw3 / 1440 * 2.54 * 100) / 100).toLocaleString("pt-BR")} cm` : `${Math.round(tw3 / 1440 * 100) / 100}"`;
 var pt = (v2, lang) => `${lang === "pt" ? String(v2).replace(".", ",") : v2} pt`;
 function runParts(old, now, lang) {
   const en = lang === "en";
@@ -58349,7 +59950,7 @@ init_src();
 // src/ole-sheet.ts
 init_src();
 init_src5();
-var NS3 = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+var NS4 = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 var RNS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 var XML2 = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
 function blankXlsx(lang) {
@@ -58358,10 +59959,10 @@ function blankXlsx(lang) {
   pkg.setPartText("[Content_Types].xml", XML2 + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
   pkg.setPartText("_rels/.rels", XML2 + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
   const name = pickLabels(lang, { en: "Sheet1", pt: "Planilha1" });
-  pkg.setPartText("xl/workbook.xml", XML2 + `<workbook xmlns="${NS3}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  pkg.setPartText("xl/workbook.xml", XML2 + `<workbook xmlns="${NS4}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   pkg.setPartText("xl/_rels/workbook.xml.rels", XML2 + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
-  pkg.setPartText("xl/worksheets/sheet1.xml", XML2 + `<worksheet xmlns="${NS3}" xmlns:r="${RNS}"><dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/></worksheet>`);
-  pkg.setPartText("xl/styles.xml", XML2 + `<styleSheet xmlns="${NS3}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  pkg.setPartText("xl/worksheets/sheet1.xml", XML2 + `<worksheet xmlns="${NS4}" xmlns:r="${RNS}"><dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/></worksheet>`);
+  pkg.setPartText("xl/styles.xml", XML2 + `<styleSheet xmlns="${NS4}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
   return pkg.save();
 }
 async function sheetAvailable(loader) {
@@ -58374,9 +59975,9 @@ async function sheetAvailable(loader) {
   }
   return !!customElements.get("universal-sheet");
 }
-function usedSize(el13, minCols, minRows) {
+function usedSize(el14, minCols, minRows) {
   let cols = minCols, rows = minRows;
-  for (const c5 of el13.debugCellDisplays(60, 400)) {
+  for (const c5 of el14.debugCellDisplays(60, 400)) {
     if (!c5.display) continue;
     const m2 = /^([A-Z]+)(\d+)$/.exec(c5.ref);
     if (!m2) continue;
@@ -58393,11 +59994,11 @@ async function previewPng(canvas2, w2, h3) {
   return { png, widthTwips: Math.round((w2 || canvas2.width) * 15), heightTwips: Math.round((h3 || canvas2.height) * 15) };
 }
 async function editSpreadsheet(layer, lang, xlsx) {
-  const el13 = document.createElement("universal-sheet");
-  el13.setAttribute("lang", lang);
-  el13.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
+  const el14 = document.createElement("universal-sheet");
+  el14.setAttribute("lang", lang);
+  el14.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
   const body = document.createElement("div");
-  body.append(el13);
+  body.append(el14);
   let saved = null;
   const h3 = openDialog({
     title: pickLabels(lang, { en: "Excel Spreadsheet", pt: "Planilha do Excel" }),
@@ -58409,10 +60010,10 @@ async function editSpreadsheet(layer, lang, xlsx) {
     onAction: (id) => {
       if (id !== "ok") return;
       try {
-        const out = el13.saveXlsx();
-        const { cols, rows } = usedSize(el13, 3, 4);
+        const out = el14.saveXlsx();
+        const { cols, rows } = usedSize(el14, 3, 4);
         const canvas2 = document.createElement("canvas");
-        const d3 = el13.renderRegionToCanvas(0, canvas2, cols, rows);
+        const d3 = el14.renderRegionToCanvas(0, canvas2, cols, rows);
         saved = { xlsx: out, canvas: canvas2, w: d3.w, h: d3.h };
       } catch (err2) {
         console.error(err2);
@@ -58421,7 +60022,7 @@ async function editSpreadsheet(layer, lang, xlsx) {
     }
   });
   await new Promise((r6) => requestAnimationFrame(r6));
-  el13.loadXlsx(xlsx);
+  el14.loadXlsx(xlsx);
   if (await h3.result !== "ok" || !saved) return null;
   const s4 = saved;
   return { xlsx: s4.xlsx, ...await previewPng(s4.canvas, s4.w, s4.h) };
@@ -58451,10 +60052,10 @@ var LangResolver = class {
     this.styleCache.set(id, out);
     return out;
   }
-  run(run2, para2) {
+  run(run2, para3) {
     const rpr = run2.rpr;
     const ch = this.style(rpr?.rStyle);
-    const ps = this.style(para2.props.styleId ?? para2.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
+    const ps = this.style(para3.props.styleId ?? para3.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
     const dd = this.sheet?.docDefaults.rPr;
     return {
       lang: rpr?.lang?.val ?? ch.lang ?? ps.lang ?? dd?.lang?.val ?? this.fallback,
@@ -58463,14 +60064,14 @@ var LangResolver = class {
   }
 };
 var skipRun = (r6) => !!(r6.field || r6.fieldResult || r6.noteRef || r6.custom || r6.image || r6.textbox || r6.shape || r6.group || r6.math || r6.props.isMath || r6.formField || r6.props.del);
-function spellSpans(para2, langs) {
-  const full = para2.runs.map((r6) => r6.text).join("");
+function spellSpans(para3, langs) {
+  const full = para3.runs.map((r6) => r6.text).join("");
   if (!/\p{L}/u.test(full)) return [];
   const byLang = /* @__PURE__ */ new Map();
   let at = 0;
-  for (const r6 of para2.runs) {
+  for (const r6 of para3.runs) {
     const n5 = r6.text.length;
-    const { lang, noProof } = langs.run(r6, para2);
+    const { lang, noProof } = langs.run(r6, para3);
     if (!skipRun(r6) && !noProof) {
       let arr = byLang.get(lang);
       if (!arr) {
@@ -58515,30 +60116,30 @@ var ParagraphSpell = class {
     this.queue.clear();
   }
   /** Erros do parágrafo, ou undefined se ainda não revisado. */
-  get(para2) {
-    const spans = spellSpans(para2, this.langs());
+  get(para3) {
+    const spans = spellSpans(para3, this.langs());
     if (!spans.length) return [];
     const key = keyOf3(spans);
-    const hit = this.byPara.get(para2);
+    const hit = this.byPara.get(para3);
     if (hit?.key === key) return hit.list;
     const known = this.byKey.get(key);
     if (known) {
-      this.byPara.set(para2, { key, list: known });
+      this.byPara.set(para3, { key, list: known });
       return known;
     }
-    this.queue.set(para2, spans);
+    this.queue.set(para3, spans);
     this.schedule();
     return hit?.list;
   }
   /** Revisão imediata (diálogo F7): espera o motor. */
-  async check(para2) {
-    const spans = spellSpans(para2, this.langs());
+  async check(para3) {
+    const spans = spellSpans(para3, this.langs());
     if (!spans.length) return [];
     const key = keyOf3(spans);
-    const hit = this.byPara.get(para2);
+    const hit = this.byPara.get(para3);
     if (hit?.key === key) return hit.list;
     const list = await this.run(spans);
-    this.store(para2, key, list);
+    this.store(para3, key, list);
     return list;
   }
   schedule() {
@@ -58553,7 +60154,7 @@ var ParagraphSpell = class {
     this.queue.clear();
     const gen = this.generation;
     let changed = false;
-    for (const [para2, spans] of batch) {
+    for (const [para3, spans] of batch) {
       let list;
       try {
         list = await this.run(spans);
@@ -58561,13 +60162,13 @@ var ParagraphSpell = class {
         continue;
       }
       if (gen !== this.generation) return;
-      this.store(para2, keyOf3(spans), list);
+      this.store(para3, keyOf3(spans), list);
       changed = true;
     }
     if (changed) this.onUpdate();
   }
-  store(para2, key, list) {
-    this.byPara.set(para2, { key, list });
+  store(para3, key, list) {
+    this.byPara.set(para3, { key, list });
     if (this.byKey.size > 4e3) this.byKey.clear();
     this.byKey.set(key, list);
   }
@@ -58694,7 +60295,7 @@ function bookmarkMarks(blocks) {
   const starts = /* @__PURE__ */ new Map();
   const ends = /* @__PURE__ */ new Map();
   const names = /* @__PURE__ */ new Map();
-  const para2 = (p3, block) => {
+  const para3 = (p3, block) => {
     let offset = 0;
     for (const r6 of p3.runs) {
       const bm = r6.bookmark;
@@ -58710,7 +60311,7 @@ function bookmarkMarks(blocks) {
   };
   const walk = (bs, block) => {
     bs.forEach((b5, i7) => {
-      if (b5.type === "paragraph") para2(b5.paragraph, block ?? i7);
+      if (b5.type === "paragraph") para3(b5.paragraph, block ?? i7);
       else for (const row2 of b5.rows) for (const c5 of row2.cells) walk(cellBlocks(c5), block ?? i7);
     });
   };
@@ -58926,35 +60527,35 @@ function shiftPageItem(it, dx, dy) {
     }
   }
 }
-var near = (a3, b5) => a3 === b5 || a3 !== void 0 && b5 !== void 0 && Math.abs(a3 - b5) < 0.01;
+var near2 = (a3, b5) => a3 === b5 || a3 !== void 0 && b5 !== void 0 && Math.abs(a3 - b5) < 0.01;
 function sameItem(a3, b5) {
   if (a3.t !== b5.t) return false;
   switch (a3.t) {
     case "glyphs": {
       const o7 = b5;
-      if (a3.face !== o7.face || a3.sizePt !== o7.sizePt || a3.color !== o7.color || !near(a3.y, o7.y) || a3.glyphs.length !== o7.glyphs.length || a3.scaleX !== o7.scaleX || !!a3.synthBold !== !!o7.synthBold || !!a3.synthItalic !== !!o7.synthItalic) return false;
-      for (let i7 = 0; i7 < a3.glyphs.length; i7++) if (a3.glyphs[i7].cp !== o7.glyphs[i7].cp || !near(a3.glyphs[i7].x, o7.glyphs[i7].x)) return false;
+      if (a3.face !== o7.face || a3.sizePt !== o7.sizePt || a3.color !== o7.color || !near2(a3.y, o7.y) || a3.glyphs.length !== o7.glyphs.length || a3.scaleX !== o7.scaleX || !!a3.synthBold !== !!o7.synthBold || !!a3.synthItalic !== !!o7.synthItalic) return false;
+      for (let i7 = 0; i7 < a3.glyphs.length; i7++) if (a3.glyphs[i7].cp !== o7.glyphs[i7].cp || !near2(a3.glyphs[i7].x, o7.glyphs[i7].x)) return false;
       return true;
     }
     case "rect": {
       const o7 = b5;
-      return a3.fill === o7.fill && a3.alpha === o7.alpha && near(a3.x, o7.x) && near(a3.y, o7.y) && near(a3.w, o7.w) && near(a3.h, o7.h);
+      return a3.fill === o7.fill && a3.alpha === o7.alpha && near2(a3.x, o7.x) && near2(a3.y, o7.y) && near2(a3.w, o7.w) && near2(a3.h, o7.h);
     }
     case "line": {
       const o7 = b5;
-      return a3.color === o7.color && a3.widthPt === o7.widthPt && a3.dash === o7.dash && near(a3.x1, o7.x1) && near(a3.y1, o7.y1) && near(a3.x2, o7.x2) && near(a3.y2, o7.y2);
+      return a3.color === o7.color && a3.widthPt === o7.widthPt && a3.dash === o7.dash && near2(a3.x1, o7.x1) && near2(a3.y1, o7.y1) && near2(a3.x2, o7.x2) && near2(a3.y2, o7.y2);
     }
     case "image": {
       const o7 = b5;
-      return a3.image === o7.image && near(a3.x, o7.x) && near(a3.y, o7.y) && near(a3.w, o7.w) && near(a3.h, o7.h);
+      return a3.image === o7.image && near2(a3.x, o7.x) && near2(a3.y, o7.y) && near2(a3.w, o7.w) && near2(a3.h, o7.h);
     }
     case "shape": {
       const o7 = b5;
-      return a3.style === o7.style && near(a3.x, o7.x) && near(a3.y, o7.y) && near(a3.w, o7.w) && near(a3.h, o7.h);
+      return a3.style === o7.style && near2(a3.x, o7.x) && near2(a3.y, o7.y) && near2(a3.w, o7.w) && near2(a3.h, o7.h);
     }
     case "clip": {
       const o7 = b5;
-      return a3.op === o7.op && near(a3.x, o7.x) && near(a3.y, o7.y) && near(a3.w, o7.w) && near(a3.h, o7.h);
+      return a3.op === o7.op && near2(a3.x, o7.x) && near2(a3.y, o7.y) && near2(a3.w, o7.w) && near2(a3.h, o7.h);
     }
     default:
       return JSON.stringify(a3) === JSON.stringify(b5);
@@ -59010,7 +60611,7 @@ function sectionColumns(sp, sec) {
   } else out.push({ x: marL, w: contentW });
   return out;
 }
-var STYLES = {
+var STYLES2 = {
   "Ttulo1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
   "Heading1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
   "Ttulo2": { sizePt: 16, bold: false, color: "0F4761", spaceBeforeTwips: 160 },
@@ -59072,7 +60673,7 @@ var deleteRange2 = (m2, range) => {
   return guardRuns(m2, r6.start.para, r6.end.para, () => deleteRange(m2, range));
 };
 var splitParagraph2 = (m2, pos) => guardRuns(m2, pos.para, pos.para, () => splitParagraph(m2, pos));
-var mergeWithPrevious2 = (m2, para2) => guardRuns(m2, para2 - 1, para2, () => mergeWithPrevious(m2, para2));
+var mergeWithPrevious2 = (m2, para3) => guardRuns(m2, para3 - 1, para3, () => mergeWithPrevious(m2, para3));
 var applyRunProps2 = (m2, range, patch2) => {
   const r6 = normalizeRange(range);
   guardRuns(m2, r6.start.para, r6.end.para, () => applyRunProps(m2, range, patch2));
@@ -59093,11 +60694,11 @@ var legacyTabs = (stops) => {
   const out = (stops ?? []).flatMap((t6) => t6.align === "left" || t6.align === "center" || t6.align === "right" || t6.align === "decimal" ? [{ posTwips: t6.posTwips, align: t6.align === "decimal" ? "right" : t6.align, ...t6.leader ? { leader: "dot" } : {} }] : []);
   return out.length ? out : void 0;
 };
-function collapseCustomChars(line2, para2) {
+function collapseCustomChars(line2, para3) {
   const cs = line2.chars;
   if (!cs?.length) return;
   let acc = 0;
-  for (const r6 of para2.runs) {
+  for (const r6 of para3.runs) {
     const a3 = acc;
     acc += r6.text.length;
     if (!r6.custom) continue;
@@ -59136,24 +60737,33 @@ var Registry = class {
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
   register(family, variant, font) {
     (this.sets[family] ??= {})[variant] = font;
+    this.lower = void 0;
     this.version++;
   }
   has(family) {
-    return this.sets[family] !== void 0 || this.sets[family.split(" ")[0]] !== void 0;
+    return this.get(family) !== void 0 || this.get(family.split(" ")[0]) !== void 0;
   }
   families() {
     return Object.keys(this.sets);
   }
   delete(family) {
     delete this.sets[family];
+    this.lower = void 0;
     this.version++;
   }
+  /** nome em minúsculas → nome registrado (o Word ignora maiúsculas no nome da fonte:
+   *  a galeria de marcas-d'água grava font-family "calibri") */
+  lower;
   get(family) {
-    return this.sets[family];
+    const s4 = this.sets[family];
+    if (s4) return s4;
+    this.lower ??= new Map(Object.keys(this.sets).map((k3) => [k3.toLowerCase(), k3]));
+    const k2 = this.lower.get(family.toLowerCase());
+    return k2 === void 0 ? void 0 : this.sets[k2];
   }
   resolve(family, variant) {
-    if (family && !this.sets[family]) this.onMiss?.(family);
-    const requested = family ? this.sets[family] ?? this.sets[family.split(" ")[0]] : void 0;
+    if (family && !this.get(family)) this.onMiss?.(family);
+    const requested = family ? this.get(family) ?? this.get(family.split(" ")[0]) : void 0;
     if (family && requested && !requested[variant]) this.onMissVariant?.(family, variant);
     const def = this.sets[DEFAULT_FONT] ?? this.sets["Aptos"];
     return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular;
@@ -59909,6 +61519,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.editsSinceLoad = 0;
     this.revAuthors = revisionAuthors(this.fullDoc);
     this.fullDoc.sources?.baseline();
+    this.bgAtLoad = bgKey(this.fullDoc.background ?? null);
+    this.bgWritten = void 0;
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-protected", {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() }
@@ -60291,14 +61903,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const p3 = this.model?.paragraphs[this.selection.focus.para];
     const st = p3 ? this.styleOf(p3) : void 0;
     const dd = this.docDefaults();
-    const para2 = { ...p3?.props ?? {} };
-    if (para2.alignment === void 0) para2.alignment = st?.alignment;
+    const para3 = { ...p3?.props ?? {} };
+    if (para3.alignment === void 0) para3.alignment = st?.alignment;
     const look = this.docStyles.xml && (run2.fontAscii === void 0 || run2.szHalfPt === void 0) ? styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, run2.charStyle ?? p3?.props.styleId ?? this.docStyles.defaultParagraph()) : null;
     if (run2.fontAscii === void 0) run2.fontAscii = look?.fontFamily ?? st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
     if (run2.szHalfPt === void 0) {
       run2.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
-    return { run: run2, para: para2, view: this.view, marks: this.showMarks, table: this.getTableState() };
+    return { run: run2, para: para3, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
   toggleRunProp(key) {
     const cur = this.pendingProps ?? this.currentProps();
@@ -61110,11 +62722,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   applyPainter() {
     if (!this.painterProps || !this.model) return;
-    const { run: run2, para: para2 } = this.painterProps;
+    const { run: run2, para: para3 } = this.painterProps;
     this.painterProps = null;
     this.snapshot();
     if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run2));
-    this.applyPara(this.range(), paraFormatting(para2));
+    this.applyPara(this.range(), paraFormatting(para3));
     this.refresh();
   }
   // localizar / substituir
@@ -61431,8 +63043,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   pageBorderTargets(applyTo) {
     const m2 = this.bodyModel();
     if (applyTo === "document") return sectionRanges(m2).map((r6) => r6.sb?.sectPr ?? m2.sectPr);
-    const para2 = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
-    return [sectionSectPr(m2, sectionIndexAt(m2, Math.min(para2, m2.paragraphs.length - 1)))];
+    const para3 = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
+    return [sectionSectPr(m2, sectionIndexAt(m2, Math.min(para3, m2.paragraphs.length - 1)))];
   }
   /** Bordas de página da seção do cursor (Bordas e Sombreamento › Borda da Página); null = nenhuma. */
   getPageBorders() {
@@ -61559,8 +63171,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   getSection() {
     const m2 = this.bodyModel();
     if (!m2) return null;
-    const para2 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
-    const k2 = sectionIndexAt(m2, para2);
+    const para3 = this.noteEdit ? this.noteEdit.saved.selection.focus.para : this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const k2 = sectionIndexAt(m2, para3);
     const sp = sectionSectPr(m2, k2);
     return {
       index: k2,
@@ -61635,8 +63247,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const { para: para2, offset } = this.selection.focus;
-    const p3 = this.model.paragraphs[para2];
+    const { para: para3, offset } = this.selection.focus;
+    const p3 = this.model.paragraphs[para3];
     let acc = 0;
     let inserted = false;
     for (let ri = 0; ri <= p3.runs.length; ri++) {
@@ -61663,7 +63275,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       acc = re;
     }
     if (!inserted) return;
-    const np = { para: para2, offset: offset + display.length };
+    const np = { para: para3, offset: offset + display.length };
     this.selection = { anchor: np, focus: np };
     this.refresh();
   }
@@ -61722,10 +63334,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         rows.push({ name: b5.name, hidden: isHiddenBookmark(b5.name), text: textBetween(s4.paras, b5.start, b5.end), k: s4.body ? [b5.start.para, b5.start.offset] : [s4.key, b5.start.para, b5.start.offset] });
       }
     }
-    for (const [name, para2] of this.bookmarkParas) {
+    for (const [name, para3] of this.bookmarkParas) {
       if (seen.has(name.toLowerCase())) continue;
       seen.add(name.toLowerCase());
-      rows.push({ name, hidden: isHiddenBookmark(name), text: "", k: [para2 - 0.25, 0] });
+      rows.push({ name, hidden: isHiddenBookmark(name), text: "", k: [para3 - 0.25, 0] });
     }
     const vis = rows.filter((r6) => opts.hidden || !r6.hidden);
     const cmpK = (a3, b5) => {
@@ -61811,9 +63423,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.chromeSync?.();
       return true;
     }
-    const para2 = [...this.bookmarkParas].find(([k2]) => k2.toLowerCase() === name.toLowerCase())?.[1];
-    if (para2 === void 0 || !this.toBody()) return false;
-    this.goToBodyPara(Math.min(para2, this.model.paragraphs.length - 1), 0, 0, false);
+    const para3 = [...this.bookmarkParas].find(([k2]) => k2.toLowerCase() === name.toLowerCase())?.[1];
+    if (para3 === void 0 || !this.toBody()) return false;
+    this.goToBodyPara(Math.min(para3, this.model.paragraphs.length - 1), 0, 0, false);
     return true;
   }
   /** "Mostrar indicadores": colchetes cinza em volta dos trechos (I no de ponto) —
@@ -61854,18 +63466,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.strokeStyle = this.pageDark ? "#9aa0a6" : "#808080";
     ctx.lineWidth = 14;
-    for (const el13 of this.eng.lines) {
-      if (el13.page !== pg || !el13.para || el13.loc.kind === "other") continue;
+    for (const el14 of this.eng.lines) {
+      if (el14.page !== pg || !el14.para || el14.loc.kind === "other") continue;
       let acc = 0;
-      const runs = el13.para.runs;
+      const runs = el14.para.runs;
       for (let i7 = 0; i7 < runs.length; i7++) {
         const r6 = runs[i7];
         const at = acc;
         acc += r6.text.length;
         if (!r6.bookmark || isHiddenBookmark(r6.bookmark.name)) continue;
-        if (at < el13.line.start || at > el13.line.end || at === el13.line.end && at < paraLength(el13.para) && !r6.bookmark.end) continue;
-        const x3 = caretXIn(el13.line, at);
-        const y0 = el13.line.y + 10, y1 = el13.line.y + el13.line.height - 10, w2 = 50;
+        if (at < el14.line.start || at > el14.line.end || at === el14.line.end && at < paraLength(el14.para) && !r6.bookmark.end) continue;
+        const x3 = caretXIn(el14.line, at);
+        const y0 = el14.line.y + 10, y1 = el14.line.y + el14.line.height - 10, w2 = 50;
         const point = !r6.bookmark.end && runs[i7 + 1]?.bookmark?.end && runs[i7 + 1].bookmark.id === r6.bookmark.id;
         ctx.beginPath();
         ctx.moveTo(x3, y0);
@@ -61938,11 +63550,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Indicador _Ref que cobre exatamente [from, to] do parágrafo (reaproveitado,
    *  como o Word na 2ª referência ao mesmo destino — oráculo xr-h-twice) ou um novo. */
-  refBookmark(paras, para2, from, to, prefix = "_Ref") {
-    const hit = bookmarksIn(paras).find((b5) => b5.name.startsWith(prefix) && b5.start.para === para2 && b5.end.para === para2 && b5.start.offset === from && b5.end.offset === to);
+  refBookmark(paras, para3, from, to, prefix = "_Ref") {
+    const hit = bookmarksIn(paras).find((b5) => b5.name.startsWith(prefix) && b5.start.para === para3 && b5.end.para === para3 && b5.start.offset === from && b5.end.offset === to);
     if (hit) return hit.name;
     const name = this.newHiddenName(prefix);
-    addBookmarkMarks(paras, name, this.newBookmarkId(), { para: para2, offset: from }, { para: para2, offset: to });
+    addBookmarkMarks(paras, name, this.newBookmarkId(), { para: para3, offset: from }, { para: para3, offset: to });
     return name;
   }
   /**
@@ -61983,8 +63595,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return this.insertRefFields(target, opts, true);
     } else {
-      const para2 = this.paraOfItem(opts.item);
-      const p3 = ps[para2];
+      const para3 = this.paraOfItem(opts.item);
+      const p3 = ps[para3];
       if (!p3) return false;
       this.snapshot();
       const len2 = paraLength(p3);
@@ -61997,7 +63609,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
         [from, to] = captionRange(opts.kind, len2, seqEnd < 0 ? len2 : seqEnd);
       }
-      target = this.refBookmark(ps, para2, from, to);
+      target = this.refBookmark(ps, para3, from, to);
       return this.insertRefFields(target, opts, true);
     }
     if (!target) return false;
@@ -62597,22 +64209,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.tableSel = null;
       const ps = this.model.paragraphs;
       const at = a3.beforePara;
-      const para2 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
-      ps.splice(at, 0, para2);
+      const para3 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
+      ps.splice(at, 0, para3);
       for (const x3 of this.tableAnchors) if (x3 !== a3 && x3.beforePara >= at) x3.beforePara++;
       for (const f3 of this.floatImages) if (f3.para >= at) f3.para++;
       if (position === "above") a3.beforePara++;
       else this.keepTableWithNext(a3.table);
-      caret = { para: at, offset: paraLength(para2) };
+      caret = { para: at, offset: paraLength(para3) };
     } else if (target === "image") {
       const img = this.selectedInlineImage();
       const ps = this.model.paragraphs;
       const at = position === "above" ? img.para : img.para + 1;
-      const para2 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
+      const para3 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
       if (position === "below") ps[img.para].props = { ...ps[img.para].props, keepNext: true };
-      ps.splice(at, 0, para2);
+      ps.splice(at, 0, para3);
       this.shiftAnchors(at - 1, 1);
-      caret = { para: at, offset: paraLength(para2) };
+      caret = { para: at, offset: paraLength(para3) };
     } else {
       if (this.hasSelection()) {
         const p3 = this.deleteSelection();
@@ -62729,11 +64341,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let link = opts.address?.trim() ?? "";
     this.snapshot();
     if (!link && opts.anchor) {
-      const para2 = this.paraOfItem(opts.anchor);
-      if (para2 >= 0 && !this.cellEdit && !this.noteEdit && !this.hfEdit && !this.tbEdit) {
-        const p3 = this.model.paragraphs[para2];
+      const para3 = this.paraOfItem(opts.anchor);
+      if (para3 >= 0 && !this.cellEdit && !this.noteEdit && !this.hfEdit && !this.tbEdit) {
+        const p3 = this.model.paragraphs[para3];
         if (!p3) return false;
-        link = `#${this.refBookmark(this.model.paragraphs, para2, 0, paraLength(p3), "_Toc")}`;
+        link = `#${this.refBookmark(this.model.paragraphs, para3, 0, paraLength(p3), "_Toc")}`;
       } else link = `#${opts.anchor}`;
     }
     if (!link) {
@@ -62824,8 +64436,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) return null;
     const scale = PX_PER_TWIP * this.zoom;
     for (let pi = 0; pi < this.model.paragraphs.length; pi++) {
-      const para2 = this.model.paragraphs[pi];
-      const has = para2.runs.some((r6) => r6.props.commentIds?.includes(id));
+      const para3 = this.model.paragraphs[pi];
+      const has = para3.runs.some((r6) => r6.props.commentIds?.includes(id));
       if (!has) continue;
       const line2 = this.layoutCache[pi]?.lines[0];
       if (!line2) return null;
@@ -62838,12 +64450,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       };
     }
     if (this.eng) {
-      for (const el13 of this.eng.lines) {
-        const para2 = el13.para;
-        if (!para2?.runs.some((r6) => r6.props.commentIds?.includes(id))) continue;
-        const canvas2 = this.canvases[el13.page];
+      for (const el14 of this.eng.lines) {
+        const para3 = el14.para;
+        if (!para3?.runs.some((r6) => r6.props.commentIds?.includes(id))) continue;
+        const canvas2 = this.canvases[el14.page];
         if (!canvas2) return null;
-        return { topPx: canvas2.offsetTop + el13.line.y * scale, heightPx: el13.line.height * scale, page: el13.page };
+        return { topPx: canvas2.offsetTop + el14.line.y * scale, heightPx: el14.line.height * scale, page: el14.page };
       }
       return null;
     }
@@ -63279,8 +64891,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   clampPos(p3) {
     const paras = this.model.paragraphs;
-    const para2 = Math.min(p3.para, paras.length - 1);
-    return this.canonPos({ para: para2, offset: Math.min(para2 === p3.para ? p3.offset : 0, paraLength(paras[para2])) });
+    const para3 = Math.min(p3.para, paras.length - 1);
+    return this.canonPos({ para: para3, offset: Math.min(para3 === p3.para ? p3.offset : 0, paraLength(paras[para3])) });
   }
   /** Seleciona a próxima revisão depois do cursor (recomeça do início). */
   nextChange() {
@@ -63328,13 +64940,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const out = [];
     if (!this.eng) return out;
     const scale = PX_PER_TWIP * this.zoom;
-    this.revisionSpans().forEach(({ span, para: para2 }, index) => {
-      for (const el13 of this.eng.lines) {
-        if (el13.para !== para2) continue;
-        if (!span.mark && span.kind !== "paraFormat" && (el13.line.end < span.start || el13.line.start > Math.max(span.start, span.end - 1))) continue;
-        const canvas2 = this.canvases[el13.page];
+    this.revisionSpans().forEach(({ span, para: para3 }, index) => {
+      for (const el14 of this.eng.lines) {
+        if (el14.para !== para3) continue;
+        if (!span.mark && span.kind !== "paraFormat" && (el14.line.end < span.start || el14.line.start > Math.max(span.start, span.end - 1))) continue;
+        const canvas2 = this.canvases[el14.page];
         if (!canvas2) break;
-        out.push({ index, topPx: canvas2.offsetTop + el13.line.y * scale, heightPx: el13.line.height * scale, page: el13.page });
+        out.push({ index, topPx: canvas2.offsetTop + el14.line.y * scale, heightPx: el14.line.height * scale, page: el14.page });
         break;
       }
     });
@@ -63373,19 +64985,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   rasterizeSvg(img) {
     const text = new TextDecoder().decode(img.svg);
     const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
-    const el13 = new Image();
-    el13.onload = () => {
+    const el14 = new Image();
+    el14.onload = () => {
       try {
         const SS = 3;
-        const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el13.width) * PX_PER_TWIP * SS)));
-        const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el13.height) * PX_PER_TWIP * SS)));
+        const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el14.width) * PX_PER_TWIP * SS)));
+        const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el14.height) * PX_PER_TWIP * SS)));
         const oc = document.createElement("canvas");
         oc.width = wPx;
         oc.height = hPx;
         const octx = oc.getContext("2d");
         octx.imageSmoothingEnabled = true;
         octx.imageSmoothingQuality = "high";
-        octx.drawImage(el13, 0, 0, wPx, hPx);
+        octx.drawImage(el14, 0, 0, wPx, hPx);
         void createImageBitmap(oc).then((bmp) => {
           this.bitmaps.set(img, bmp);
           this.imagesVersion++;
@@ -63396,11 +65008,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       URL.revokeObjectURL(url);
     };
-    el13.onerror = () => {
+    el14.onerror = () => {
       this.bitmaps.set(img, void 0);
       URL.revokeObjectURL(url);
     };
-    el13.src = url;
+    el14.src = url;
   }
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
   async insertImage(data8, ext, obj) {
@@ -63427,8 +65039,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const { para: para2, offset } = this.selection.focus;
-    const p3 = this.model.paragraphs[para2];
+    const { para: para3, offset } = this.selection.focus;
+    const p3 = this.model.paragraphs[para3];
     let acc = 0;
     let inserted = false;
     for (let ri = 0; ri <= p3.runs.length; ri++) {
@@ -63465,7 +65077,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       acc = re;
     }
     if (!inserted) return;
-    this.selection = { anchor: { para: para2, offset: offset + 1 }, focus: { para: para2, offset: offset + 1 } };
+    this.selection = { anchor: { para: para3, offset: offset + 1 }, focus: { para: para3, offset: offset + 1 } };
     this.refresh();
   }
   /** Abre o seletor de arquivo para TROCAR a imagem flutuante selecionada
@@ -63601,6 +65213,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       notes: this.notesOut(blocks)
     });
     if (this.evenOdd !== null) writeEvenAndOddHeaders(pkg, this.evenOdd);
+    const bg = this.fullDoc?.background ?? null;
+    if (bgKey(bg) !== this.bgAtLoad || this.bgWritten) {
+      this.bgWritten = writePageBackground(pkg, bg, this.bgWritten);
+      if (bg) writeDisplayBackgroundShape(pkg, true);
+    }
     const usedRids = new Set(sections.flatMap((s4) => [...s4.headerRefs, ...s4.footerRefs].map((r6) => r6.rid)));
     const goneRids = new Set([...this.hfRidsAtLoad].filter((r6) => !usedRids.has(r6)));
     if (goneRids.size) dropUnusedHfParts(pkg, goneRids);
@@ -63963,6 +65580,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sv: this.docStyles.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
+      // Cor da Página (w:background) e a exibição do fundo (w:displayBackgroundShape)
+      bg: this.fullDoc?.background ?? null,
+      bgd: !!this.fullDoc?.formatting?.settings.displayBackgroundShape,
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
       ...deep ? {
         hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
@@ -64091,6 +65711,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (state2.sv !== void 0 && this.docStyles.restore(state2.sv)) this.syncStyleSheet();
     if (state2.np) this.noteSettings = state2.np;
     if (state2.dt !== void 0 && state2.dt !== this.defaultTabStop()) this.applyDefaultTab(state2.dt);
+    this.restorePageBackground(state2.bg, state2.bgd);
     if (!this.tbEdit) {
       for (const [k2, b5] of state2.hx ?? []) this.restoreHfPart(k2, b5);
       if (state2.hp) this.restoreHfPart(state2.hp.k, state2.hp.b);
@@ -64110,8 +65731,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   clampSel(s4) {
     const ps = this.model.paragraphs;
     const c5 = (p3) => {
-      const para2 = Math.max(0, Math.min(p3.para, ps.length - 1));
-      return { para: para2, offset: Math.max(0, Math.min(p3.offset, paraLength(ps[para2]))) };
+      const para3 = Math.max(0, Math.min(p3.para, ps.length - 1));
+      return { para: para3, offset: Math.max(0, Math.min(p3.offset, paraLength(ps[para3]))) };
     };
     return { anchor: c5(s4.anchor), focus: c5(s4.focus) };
   }
@@ -64192,8 +65813,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.hasSelection()) {
       const r6 = this.runBefore(this.selection.focus);
       if (r6?.noteRef) {
-        const { para: para2, offset } = this.selection.focus;
-        this.selection = { anchor: { para: para2, offset: offset - r6.text.length }, focus: { para: para2, offset } };
+        const { para: para3, offset } = this.selection.focus;
+        this.selection = { anchor: { para: para3, offset: offset - r6.text.length }, focus: { para: para3, offset } };
         this.refreshSelection();
         return;
       }
@@ -64208,26 +65829,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     } else {
-      const { para: para2, offset } = this.selection.focus;
-      const prev = para2 > 0 ? this.model.paragraphs[para2 - 1] : null;
+      const { para: para3, offset } = this.selection.focus;
+      const prev = para3 > 0 ? this.model.paragraphs[para3 - 1] : null;
       if (offset > 0) {
         const pos = deleteRange2(this.model, {
-          start: { para: para2, offset: offset - 1 },
-          end: { para: para2, offset }
+          start: { para: para3, offset: offset - 1 },
+          end: { para: para3, offset }
         });
         this.selection = { anchor: pos, focus: pos };
       } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
         const len2 = paraLength(prev);
         let pos;
-        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para2 - 1, offset: len2 - 1 }, end: { para: para2 - 1, offset: len2 } });
-        else if (para2 > 1) {
-          pos = mergeWithPrevious2(this.model, para2 - 1);
-          this.shiftAnchors(para2 - 2, -1);
-        } else pos = { para: para2 - 1, offset: 0 };
+        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para3 - 1, offset: len2 - 1 }, end: { para: para3 - 1, offset: len2 } });
+        else if (para3 > 1) {
+          pos = mergeWithPrevious2(this.model, para3 - 1);
+          this.shiftAnchors(para3 - 2, -1);
+        } else pos = { para: para3 - 1, offset: 0 };
         this.selection = { anchor: pos, focus: pos };
-      } else if (para2 > 0) {
-        const pos = mergeWithPrevious2(this.model, para2);
-        this.shiftAnchors(para2 - 1, -1);
+      } else if (para3 > 0) {
+        const pos = mergeWithPrevious2(this.model, para3);
+        this.shiftAnchors(para3 - 1, -1);
         this.selection = { anchor: pos, focus: pos };
       } else {
         this.undoStack.pop();
@@ -64249,12 +65870,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     } else {
-      const { para: para2, offset } = this.selection.focus;
-      const len2 = paraLength(this.model.paragraphs[para2]);
+      const { para: para3, offset } = this.selection.focus;
+      const len2 = paraLength(this.model.paragraphs[para3]);
       if (offset < len2) {
-        deleteRange2(this.model, { start: { para: para2, offset }, end: { para: para2, offset: offset + 1 } });
-      } else if (para2 < this.model.paragraphs.length - 1) {
-        mergeWithPrevious2(this.model, para2 + 1);
+        deleteRange2(this.model, { start: { para: para3, offset }, end: { para: para3, offset: offset + 1 } });
+      } else if (para3 < this.model.paragraphs.length - 1) {
+        mergeWithPrevious2(this.model, para3 + 1);
       } else {
         this.undoStack.pop();
         return;
@@ -64270,9 +65891,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    */
   trackedKey(dir) {
     const paras = this.model.paragraphs;
-    const { para: para2 } = this.selection.focus;
+    const { para: para3 } = this.selection.focus;
     let k2 = this.selection.focus.offset;
-    const p3 = paras[para2];
+    const p3 = paras[para3];
     const len2 = paraLength(p3);
     const deleted = (i7) => {
       let acc = 0;
@@ -64290,43 +65911,43 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     if (dir < 0) {
       if (k2 > 0 && deleted(k2 - 1) && !this.hiddenChar(p3, k2 - 1)) {
-        go({ para: para2, offset: k2 - 1 });
+        go({ para: para3, offset: k2 - 1 });
         return;
       }
       while (k2 > 0 && this.hiddenChar(p3, k2 - 1)) k2--;
     } else {
       if (k2 < len2 && deleted(k2) && !this.hiddenChar(p3, k2)) {
-        go({ para: para2, offset: k2 + 1 });
+        go({ para: para3, offset: k2 + 1 });
         return;
       }
       while (k2 < len2 && this.hiddenChar(p3, k2)) k2++;
     }
     let range;
-    if (dir < 0 && k2 > 0) range = { start: { para: para2, offset: k2 - 1 }, end: { para: para2, offset: k2 } };
-    else if (dir > 0 && k2 < len2) range = { start: { para: para2, offset: k2 }, end: { para: para2, offset: k2 + 1 } };
-    else if (dir < 0 && para2 > 0) {
-      const prev = paras[para2 - 1];
+    if (dir < 0 && k2 > 0) range = { start: { para: para3, offset: k2 - 1 }, end: { para: para3, offset: k2 } };
+    else if (dir > 0 && k2 < len2) range = { start: { para: para3, offset: k2 }, end: { para: para3, offset: k2 + 1 } };
+    else if (dir < 0 && para3 > 0) {
+      const prev = paras[para3 - 1];
       const pl = paraLength(prev);
       if (prev.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
-        if (pl > 0) range = { start: { para: para2 - 1, offset: pl - 1 }, end: { para: para2 - 1, offset: pl } };
-        else if (para2 > 1 && !paras[para2 - 2].props.markDel) range = { start: { para: para2 - 2, offset: paraLength(paras[para2 - 2]) }, end: { para: para2 - 1, offset: 0 } };
+        if (pl > 0) range = { start: { para: para3 - 1, offset: pl - 1 }, end: { para: para3 - 1, offset: pl } };
+        else if (para3 > 1 && !paras[para3 - 2].props.markDel) range = { start: { para: para3 - 2, offset: paraLength(paras[para3 - 2]) }, end: { para: para3 - 1, offset: 0 } };
         else return;
       } else {
         if (prev.props.markDel) {
-          go({ para: para2 - 1, offset: pl });
+          go({ para: para3 - 1, offset: pl });
           return;
         }
-        range = { start: { para: para2 - 1, offset: pl }, end: { para: para2, offset: 0 } };
+        range = { start: { para: para3 - 1, offset: pl }, end: { para: para3, offset: 0 } };
       }
-    } else if (dir > 0 && para2 < paras.length - 1) {
+    } else if (dir > 0 && para3 < paras.length - 1) {
       if (p3.props.markDel) {
-        go({ para: para2 + 1, offset: 0 });
+        go({ para: para3 + 1, offset: 0 });
         return;
       }
-      range = { start: { para: para2, offset: len2 }, end: { para: para2 + 1, offset: 0 } };
+      range = { start: { para: para3, offset: len2 }, end: { para: para3 + 1, offset: 0 } };
     } else return;
     this.snapshot();
-    if (range.start.para === range.end.para) this.noteParaEdit(para2);
+    if (range.start.para === range.end.para) this.noteParaEdit(para3);
     const pos = this.trackedDelete(range, dir < 0 ? "start" : "end");
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -64335,12 +65956,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Próxima fronteira de palavra a partir do caret. */
   moveWord(dir, extend) {
     if (!this.model) return;
-    let { para: para2, offset } = this.selection.focus;
-    const text = paraText(this.model.paragraphs[para2]);
+    let { para: para3, offset } = this.selection.focus;
+    const text = paraText(this.model.paragraphs[para3]);
     if (dir === 1) {
       if (offset >= text.length) {
-        if (para2 < this.model.paragraphs.length - 1) {
-          para2++;
+        if (para3 < this.model.paragraphs.length - 1) {
+          para3++;
           offset = 0;
         }
       } else {
@@ -64349,16 +65970,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     } else {
       if (offset === 0) {
-        if (para2 > 0) {
-          para2--;
-          offset = paraLength(this.model.paragraphs[para2]);
+        if (para3 > 0) {
+          para3--;
+          offset = paraLength(this.model.paragraphs[para3]);
         }
       } else {
         while (offset > 0 && /\s/.test(text[offset - 1])) offset--;
         while (offset > 0 && /\S/.test(text[offset - 1])) offset--;
       }
     }
-    const focus = { para: para2, offset };
+    const focus = { para: para3, offset };
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.refreshSelection();
     this.scrollCaretIntoView();
@@ -64384,42 +66005,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.pendingProps = null;
       return;
     }
-    let { para: para2, offset } = this.selection.focus;
+    let { para: para3, offset } = this.selection.focus;
     const len2 = (i7) => paraLength(this.model.paragraphs[i7]);
     const hid = (i7, o7) => this.hiddenChar(this.model.paragraphs[i7], o7);
     if (dir === "left") {
       if (offset > 0) {
         offset--;
-        while (offset > 0 && hid(para2, offset - 1)) offset--;
-      } else if (para2 > 0) {
-        para2--;
-        offset = len2(para2);
+        while (offset > 0 && hid(para3, offset - 1)) offset--;
+      } else if (para3 > 0) {
+        para3--;
+        offset = len2(para3);
       }
     } else if (dir === "right") {
-      while (offset < len2(para2) && hid(para2, offset)) offset++;
-      if (offset < len2(para2)) offset++;
-      else if (para2 < this.model.paragraphs.length - 1) {
-        para2++;
+      while (offset < len2(para3) && hid(para3, offset)) offset++;
+      if (offset < len2(para3)) offset++;
+      else if (para3 < this.model.paragraphs.length - 1) {
+        para3++;
         offset = 0;
       }
     } else if (dir === "home" || dir === "end") {
-      const line2 = this.lineOf({ para: para2, offset });
+      const line2 = this.lineOf({ para: para3, offset });
       if (line2) offset = dir === "home" ? line2.rich.start : this.lineEndOffset(line2);
     } else {
-      const line2 = this.lineOf({ para: para2, offset });
+      const line2 = this.lineOf({ para: para3, offset });
       if (line2) {
-        const x3 = this.caretX({ para: para2, offset }, line2);
+        const x3 = this.caretX({ para: para3, offset }, line2);
         const all = this.allLines();
         const idx = all.indexOf(line2);
         const target = all[idx + (dir === "down" ? 1 : -1)];
         if (target) {
           const hit = this.hitLineX(target, x3);
-          para2 = target.para;
+          para3 = target.para;
           offset = hit;
         }
       }
     }
-    const focus = this.canonPos({ para: para2, offset });
+    const focus = this.canonPos({ para: para3, offset });
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.pendingProps = null;
     this.refreshSelection();
@@ -64592,9 +66213,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
       if (e8.ctrlKey && this.model) {
-        const para2 = this.model.paragraphs[hit.para];
+        const para3 = this.model.paragraphs[hit.para];
         let acc = 0;
-        for (const run2 of para2?.runs ?? []) {
+        for (const run2 of para3?.runs ?? []) {
           const end = acc + run2.text.length;
           if (hit.offset >= acc && hit.offset <= end && run2.props.link) {
             if (/^(https?|mailto):/.test(run2.props.link)) {
@@ -64609,9 +66230,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
       if (this.model) {
-        const para2 = this.model.paragraphs[hit.para];
+        const para3 = this.model.paragraphs[hit.para];
         let acc = 0;
-        for (const run2 of para2?.runs ?? []) {
+        for (const run2 of para3?.runs ?? []) {
           const end = acc + run2.text.length;
           if (hit.offset >= acc && hit.offset < end && run2.props.commentIds?.length) {
             this.dispatchEvent(new CustomEvent("uw-comment-click", {
@@ -64944,11 +66565,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.chromeSync?.();
           return;
         }
-        const para2 = this.model?.paragraphs[this.selection.focus.para];
-        if (para2?.props.numbering && this.selection.focus.offset === 0) {
-          const lvl = Math.max(0, Math.min(2, para2.props.numbering.ilvl + (e8.shiftKey ? -1 : 1)));
+        const para3 = this.model?.paragraphs[this.selection.focus.para];
+        if (para3?.props.numbering && this.selection.focus.offset === 0) {
+          const lvl = Math.max(0, Math.min(2, para3.props.numbering.ilvl + (e8.shiftKey ? -1 : 1)));
           this.formatPara({
-            numbering: { ...para2.props.numbering, ilvl: lvl },
+            numbering: { ...para3.props.numbering, ilvl: lvl },
             indentLeftTwips: 720 * (lvl + 1)
           });
         } else if (!e8.shiftKey) this.type("	");
@@ -65113,7 +66734,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         indentRightTwips: docStyle.para.indentRightTwips
       };
     }
-    return STYLES[p3.props.styleId];
+    return STYLES2[p3.props.styleId];
   }
   /** Escala das minúsculas em small caps (versaletes). ~0.8 do tamanho, como o
    *  Word: a maiúscula reduzida fica um pouco menor que a maiúscula cheia. */
@@ -65932,6 +67553,513 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.refresh();
     if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
   }
+  // ───────────────── Plano de Fundo da Página (guia Design) ─────────────────
+  // Regras medidas no Word (write/tools/page-lab; memória word-page-background-facts e
+  // word-watermark-facts). Cor da Página: w:background + w:displayBackgroundShape (a tela
+  // só mostra com ela; o PDF sempre). Marca-d'água: VML no 1º parágrafo dos TRÊS
+  // cabeçalhos da seção do cursor (even/default/first), num passo de desfazer.
+  /** w:background como o documento abriu (para gravar só se mudou). */
+  bgAtLoad = null;
+  /** imagem do fundo que a última gravação acrescentou ao pacote (sai na próxima) */
+  bgWritten;
+  /** Cor da Página atual (null = Sem Cor). */
+  pageBackground() {
+    const bg = this.fullDoc?.background;
+    if (!bg) return null;
+    const shown = !!this.fullDoc?.formatting?.settings.displayBackgroundShape;
+    const t6 = bg.themeTint ? 1 - parseInt(bg.themeTint, 16) / 255 : void 0;
+    const sh = bg.themeShade ? 1 - parseInt(bg.themeShade, 16) / 255 : void 0;
+    const { image, ...fill } = bg.fill ?? {};
+    return {
+      ...bg.color ? { color: bg.color.toUpperCase() } : {},
+      ...bg.themeColor ? { themeColor: bg.themeColor } : {},
+      ...t6 !== void 0 ? { tint: Math.round(t6 * 100) / 100 } : {},
+      ...sh !== void 0 ? { shade: Math.round(sh * 100) / 100 } : {},
+      ...bg.fill ? { fill: { ...fill, ...image ? { hasImage: true } : {} } } : {},
+      shown
+    };
+  }
+  /**
+   * Cor da Página: RRGGBB, uma cor do tema ({ themeColor, tint | shade }, como a paleta)
+   * ou null = Sem Cor. O Word grava `<w:background w:color>` (com themeColor/Tint/Shade)
+   * e liga a exibição do fundo (w:displayBackgroundShape).
+   */
+  setPageColor(color3) {
+    if (!this.model || this.locked()) return;
+    if (color3 === null) {
+      this.applyPageBackground(null);
+      return;
+    }
+    if (typeof color3 === "string") {
+      this.applyPageBackground({ color: color3.replace(/^#/, "").toUpperCase() });
+      return;
+    }
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const ts = themeTintShade(color3);
+    const colors = Object.fromEntries(Object.entries(theme?.colors ?? {}).map(([k2, v2]) => [k2, String(v2).replace(/^#/, "")]));
+    const hex2 = themeHex(colors, color3.themeColor, ts.themeTint, ts.themeShade);
+    this.applyPageBackground({ color: hex2, themeColor: color3.themeColor, ...ts });
+  }
+  /** Efeitos de Preenchimento (gradiente, padrão, imagem, textura) — null tira o fundo. */
+  setPageFill(fill) {
+    if (!this.model || this.locked()) return;
+    if (!fill) {
+      this.applyPageBackground(null);
+      return;
+    }
+    const bg = pageFillFrom(fill, uiLang(this), (prst) => {
+      const rows = patternRows(prst);
+      return rows ? patternGif(rows) : null;
+    });
+    if (bg) this.applyPageBackground(bg);
+  }
+  /** Predefinições de gradiente (próprias), variantes por estilo e padrões, para o diálogo. */
+  pageFillOptions() {
+    const lang = uiLang(this);
+    return {
+      presets: GRADIENT_PRESETS.map((p3) => ({ id: p3.id, name: p3.name[lang], stops: p3.stops })),
+      variants: { ...GRADIENT_VARIANTS },
+      patterns: WORD_PATTERNS.map((p3) => ({ id: p3.prst, name: p3.title[lang].trim() }))
+    };
+  }
+  /** Troca o w:background (um passo de desfazer) e liga a exibição do fundo na tela. */
+  applyPageBackground(bg) {
+    if (!this.fullDoc) return;
+    this.snapshot();
+    if (bg) this.fullDoc.background = bg;
+    else delete this.fullDoc.background;
+    const f3 = this.fullDoc.formatting ?? (this.newFormatting ??= emptyFormatting());
+    if (bg) f3.settings.displayBackgroundShape = true;
+    this.engPageCache.clear();
+    this.refresh();
+  }
+  /** Volta o fundo do estado de desfazer. */
+  restorePageBackground(bg, shown) {
+    if (!this.fullDoc || bg === void 0) return;
+    if (bg) this.fullDoc.background = bg;
+    else delete this.fullDoc.background;
+    const f3 = this.fullDoc.formatting ?? this.newFormatting;
+    if (f3 && shown !== void 0) f3.settings.displayBackgroundShape = shown;
+    this.engPageCache.clear();
+  }
+  // ── marca-d'água ──
+  /** XML do objeto (w:pict/w:drawing) de origem de um run, se houver. */
+  runObjXml(run2) {
+    const store = this.fullDoc?.sources;
+    const sid = run2.props.src;
+    if (!store || sid === void 0) return void 0;
+    const src = store.runs.get(sid);
+    return src?.obj ?? (src?.objHead !== void 0 ? store.runs.get(src.objHead)?.obj : void 0);
+  }
+  /** O run é a marca-d'água do Word (PowerPlusWaterMarkObject / WordPictureWatermark)? */
+  isWatermarkRun(run2) {
+    if (!run2.textbox?.vml && !run2.image?.vml) return false;
+    return isWatermarkXml(this.runObjXml(run2));
+  }
+  /** Marca-d'água da seção do cursor (do cabeçalho padrão; senão do primeiro com uma). */
+  watermark() {
+    const c5 = this.hfContext();
+    if (!c5) return null;
+    for (const type of ["default", "first", "even"]) {
+      const p3 = this.hfPartFor(c5.sec, "header", type);
+      const paras = p3 ? this.hfParts.get(p3.key)?.paras : void 0;
+      for (const para3 of paras ?? []) {
+        for (const run2 of para3.runs) {
+          if (!this.isWatermarkRun(run2)) continue;
+          const info = readWatermarkXml(this.runObjXml(run2), vmlColor);
+          if (info) return info.kind === "picture" && run2.image ? { ...info, image: run2.image.data } : info;
+        }
+      }
+    }
+    return null;
+  }
+  /** Textos da lista do diálogo Marca-d'Água Personalizada (idioma da interface). */
+  watermarkTexts() {
+    return WATERMARK_TEXTS[uiLang(this)];
+  }
+  /** Itens da galeria (texto e categoria no idioma da interface). */
+  watermarkGallery() {
+    const lang = uiLang(this);
+    const cat = { confidential: { en: "Confidential", pt: "Confidencial" }, disclaimers: { en: "Disclaimers", pt: "Avisos de Isen\xE7\xE3o de Responsabilidade" }, urgent: { en: "Urgent", pt: "Urgente" } };
+    return WATERMARK_GALLERY.map((g2) => ({ ...g2, label: `${g2.text[lang]} ${g2.layout === "diagonal" ? 1 : 2}`, categoryLabel: cat[g2.category][lang] }));
+  }
+  /**
+   * Marca-d'água: um item da galeria (id) ou a do diálogo Personalizada. Vai no 1º
+   * parágrafo dos três cabeçalhos da seção do cursor (as partes que faltam são
+   * criadas; as vinculadas são compartilhadas), trocando a que houver. Um passo.
+   */
+  setWatermark(spec) {
+    if (!this.model || this.locked()) return;
+    const c5 = this.hfContext();
+    if (!c5) return;
+    const lang = uiLang(this);
+    const sp = sectionSectPr(this.bodyModel(), c5.sec);
+    const contentW = (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips) / 20;
+    let wm;
+    let box;
+    if (typeof spec === "string") {
+      const g2 = WATERMARK_GALLERY.find((x3) => x3.id === spec);
+      if (!g2) return;
+      wm = { kind: "text", text: g2.text[lang], font: "calibri", color: "C0C0C0", semitransparent: true, layout: g2.layout };
+      box = { widthPt: g2.box[lang][0], heightPt: g2.box[lang][1] };
+    } else if (spec.kind === "text") {
+      if (!spec.text.trim()) return;
+      wm = spec;
+      box = spec.sizePt ? this.watermarkTextBox(spec.text, spec.font, spec.sizePt) : autoTextBox(spec.text, spec.layout, contentW);
+    } else {
+      const info = imagePixelInfo(spec.data);
+      if (!info) return;
+      wm = spec;
+      box = pictureBox({ w: info.w * 72 / info.dpi, h: info.h * 72 / info.dpi }, spec.scale, contentW);
+    }
+    this.editSectionHeaders(c5.sec, (paras, path) => {
+      for (const p3 of paras) p3.runs = p3.runs.filter((r6) => !this.isWatermarkRun(r6));
+      const run2 = this.watermarkRun(wm, box, path);
+      if (run2) {
+        if (!paras.length) paras.push(...this.newHfParas("header"));
+        paras[0].runs.unshift(run2);
+      }
+    });
+  }
+  /** Remover Marca-d'Água: de TODOS os cabeçalhos do documento (Word, oráculo wm-remove-multi). */
+  removeWatermark() {
+    if (!this.model || this.locked()) return;
+    const keys = [...this.hfParts.entries()].filter(([k2, p3]) => k2.startsWith("header:") && p3.paras?.some((q) => q.runs.some((r6) => this.isWatermarkRun(r6)))).map(([k2]) => k2);
+    if (!keys.length) return;
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    this.snapshot(false, keys);
+    for (const k2 of keys) {
+      const part = this.hfParts.get(k2);
+      for (const p3 of part.paras) p3.runs = p3.runs.filter((r6) => !this.isWatermarkRun(r6));
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+  /** Caixa da marca com tamanho explícito: avanço do texto e altura (winAscent+winDescent). */
+  watermarkTextBox(text, font, sizePt) {
+    const prov = this.liveFontProvider();
+    const face = prov.face(font, false, false) ?? prov.face("Calibri", false, false);
+    if (!face) return { widthPt: sizePt * text.length * 0.6, heightPt: sizePt * 1.2 };
+    let tw3 = 0;
+    for (const ch of text) tw3 += face.font.advanceTwips(ch.codePointAt(0), sizePt);
+    const fm = face.font.metrics, u3 = fm.unitsPerEm || 1e3;
+    const line2 = ((fm.usWinAscent || fm.ascender) + (fm.usWinDescent || -fm.descender)) / u3;
+    return explicitTextBox(tw3 / 20, sizePt, line2);
+  }
+  /** Run da marca-d'água para a parte `path` (a imagem ganha relação e mídia já no pacote). */
+  watermarkRun(spec, box, path) {
+    const pkg = this.pkg ?? (this.pkg = DocxPackage.empty());
+    let rid;
+    if (spec.kind === "picture") rid = this.addPartImage(path, spec.data, spec.ext);
+    const used = pkg.partNames().filter((n5) => /^word\/(header|footer)\d*\.xml$/.test(n5)).map((n5) => pkg.getPartText(n5) ?? "").join("") + [...this.hfParts.values()].flatMap((p3) => p3.paras ?? []).flatMap((q) => q.runs).map((r6) => this.runObjXml(r6) ?? "").join("");
+    let spid = 1025;
+    for (const mm of used.matchAll(/_x0000_s(\d+)/g)) spid = Math.max(spid, parseInt(mm[1], 10) + 1);
+    const ids = { n: 1e8 + Math.floor(Math.random() * 899999999), spid, anchorId: Math.floor(Math.random() * 2147483647).toString(16).toUpperCase().padStart(8, "0") };
+    const runXml3 = watermarkRunXml(spec, box, ids, rid, vmlColorAttr);
+    const read = readHeaderFooterPart(pkg, path, void 0, hfPartXml("header", `<w:p>${runXml3}</w:p>`));
+    const run2 = read?.paras[0]?.runs.find((r6) => r6.textbox || r6.image);
+    if (!run2) return null;
+    const store = this.fullDoc?.sources;
+    if (store) {
+      const id = store.id();
+      store.runs.set(id, { rPr: "<w:rPr><w:noProof/></w:rPr>", obj: /<w:pict\b[\s\S]*<\/w:pict>/.exec(runXml3)[0] });
+      run2.props = { ...run2.props, src: id };
+    }
+    return run2;
+  }
+  /** Relação de imagem nova na parte (headerN.xml.rels), com a mídia e o tipo de conteúdo. */
+  addPartImage(path, data8, ext0) {
+    const pkg = this.pkg;
+    const ext = ext0.toLowerCase() === "jpg" ? "jpeg" : ext0.toLowerCase();
+    let n5 = 1;
+    while (pkg.getPart(`word/media/image${n5}.${ext}`)) n5++;
+    pkg.setPart(`word/media/image${n5}.${ext}`, data8);
+    const relsPath = `word/_rels/${path.split("/").pop()}.rels`;
+    let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    let k2 = 1;
+    while (new RegExp(`Id="rId${k2}"`).test(rels)) k2++;
+    rels = rels.replace("</Relationships>", () => `<Relationship Id="rId${k2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${n5}.${ext}"/></Relationships>`);
+    pkg.setPartText(relsPath, rels);
+    const ct = pkg.getPartText("[Content_Types].xml");
+    const mime = { png: "image/png", jpeg: "image/jpeg", gif: "image/gif", bmp: "image/bmp", tif: "image/tiff", tiff: "image/tiff" };
+    if (ct && !new RegExp(`<Default Extension="${ext}"`, "i").test(ct)) {
+      pkg.setPartText("[Content_Types].xml", ct.replace(/(<Types\b[^>]*>)/, (t6) => `${t6}<Default Extension="${ext}" ContentType="${mime[ext] ?? `image/${ext}`}"/>`));
+    }
+    return `rId${k2}`;
+  }
+  /**
+   * Os três cabeçalhos (even/default/first) da seção `sec` — a parte dela ou a herdada,
+   * criando na própria seção a que nenhuma anterior tem — num passo de desfazer
+   * (Word: a marca-d'água entra nos três; oráculo page-lab, corpus 106/110).
+   */
+  editSectionHeaders(sec, fn) {
+    const hf = this.hfEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage } : null;
+    if (hf) this.exitHeaderFooter(true, false);
+    const m2 = this.bodyModel();
+    const keys = /* @__PURE__ */ new Set();
+    for (const type of ["even", "default", "first"]) {
+      const p3 = this.hfPartFor(sec, "header", type);
+      if (p3) keys.add(p3.key);
+    }
+    this.snapshot(false, [...keys]);
+    const done = /* @__PURE__ */ new Set();
+    for (const type of ["even", "default", "first"]) {
+      let key = this.hfPartFor(sec, "header", type)?.key;
+      if (!key) {
+        const target = this.newHfTarget("header");
+        this.createHfPart("header", target, null);
+        this.refsOfSection(m2, sec, "header").push({ kind: "header", type, rid: target.rid });
+        key = `header:${target.rid}`;
+      }
+      if (done.has(key)) continue;
+      done.add(key);
+      const part = this.hfParts.get(key);
+      if (!part.paras) part.paras = this.newHfParas("header");
+      fn(part.paras, part.path);
+      part.blocks = reconcileBlocks(part.blocks, part.paras, true);
+      this.dirtyHf.add(part.path);
+    }
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    if (hf) this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
+  }
+  // ── Folha de Rosto ──
+  /** Modelos da galeria Folha de Rosto (próprios; nomes no idioma da interface). */
+  coverPages() {
+    const lang = uiLang(this);
+    return COVER_TEMPLATES.map((t6) => ({ id: t6.id, name: t6.name[lang] }));
+  }
+  /** O documento tem uma folha de rosto (w:sdt "Cover Pages")? */
+  hasCoverPage() {
+    return this.coverParaIndexes().length > 0;
+  }
+  /** Índices (no modelo do corpo) dos parágrafos da folha de rosto — os do sdt "Cover Pages". */
+  coverParaIndexes() {
+    const store = this.fullDoc?.sources;
+    const story = store?.stories.get("word/document.xml");
+    if (!story || !this.model) return [];
+    const ids = /* @__PURE__ */ new Set();
+    const walk = (gs, inCover) => {
+      for (const g2 of gs) {
+        const cover = inCover || g2.wrapOpen !== void 0 && /<w:docPartGallery\s+w:val="Cover Pages"/.test(g2.wrapOpen);
+        if (cover) for (const id of g2.blocks) ids.add(id);
+        if (g2.inner) walk(g2.inner, cover);
+      }
+    };
+    walk(story.groups, false);
+    if (!ids.size) return [];
+    const m2 = this.bodyModel();
+    const out = [];
+    m2.paragraphs.forEach((p3, i7) => {
+      if (p3.props.src !== void 0 && ids.has(p3.props.src)) out.push(i7);
+    });
+    return out;
+  }
+  /** Tira os parágrafos da folha de rosto atual do modelo (sem passo de desfazer). */
+  dropCoverPage() {
+    const idx = this.coverParaIndexes();
+    if (!idx.length) return false;
+    const m2 = this.bodyModel();
+    for (let k2 = idx.length - 1; k2 >= 0; k2--) {
+      const i7 = idx[k2];
+      m2.paragraphs.splice(i7, 1);
+      this.shiftAnchors(i7, -1);
+    }
+    if (!m2.paragraphs.length) m2.paragraphs.push({ runs: [], props: {} });
+    return true;
+  }
+  /** Ambiente dos modelos: página da 1ª seção, cores do tema e os campos (propriedades). */
+  coverEnv() {
+    const lang = uiLang(this);
+    const sp = sectionSectPr(this.bodyModel(), 0);
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const col = (k2, d3) => String(theme?.colors?.[k2] ?? d3).replace(/^#/, "").toUpperCase();
+    const core = this.pkg?.getPartText("docProps/core.xml") ?? "";
+    const app = this.pkg?.getPartText("docProps/app.xml") ?? "";
+    const prop = (xml, tag2) => {
+      const m2 = new RegExp(`<${tag2}[^>]*>([^<]*)<`).exec(xml);
+      return m2 ? m2[1].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").trim() : "";
+    };
+    const ph = coverPlaceholders(lang);
+    const fields = {
+      title: prop(core, "dc:title") || ph.title,
+      subtitle: prop(core, "dc:subject") || ph.subtitle,
+      author: prop(core, "dc:creator") || ph.author,
+      date: ph.date,
+      company: prop(app, "Company") || ph.company,
+      summary: prop(core, "dc:description") || ph.summary
+    };
+    return {
+      lang,
+      page: { w: sp.pageWidthTwips / 20, h: sp.pageHeightTwips / 20, top: sp.marginTopTwips / 20, bottom: sp.marginBottomTwips / 20, left: sp.marginLeftTwips / 20, right: sp.marginRightTwips / 20 },
+      accent1: col("accent1", "156082"),
+      accent2: col("accent2", "E97132"),
+      fields,
+      drawingId: () => 1 + Math.floor(Math.random() * 2147483646)
+    };
+  }
+  /**
+   * Insere a folha de rosto `id` no INÍCIO do documento (troca a que houver), num
+   * w:sdt "Cover Pages" que termina com a quebra de página, e liga Primeira Página
+   * Diferente na 1ª seção (o Word: corpus 3/3) — o cabeçalho não aparece na capa.
+   * Um passo de desfazer; o título (espaço reservado) fica selecionado.
+   */
+  insertCoverPage(id) {
+    if (!this.canInsertSectionBreak()) return;
+    const env = this.coverEnv();
+    const xml = coverXml(id, env);
+    if (!xml) return;
+    const pkg = this.pkg ?? (this.pkg = DocxPackage.empty());
+    const store = this.fullDoc?.sources;
+    const read = readBodyFragment(pkg, store, xml, COVER_NS);
+    if (!read) return;
+    this.snapshot();
+    this.dropCoverPage();
+    const m2 = this.model;
+    const paras = read.blocks.flatMap((b5) => b5.type === "paragraph" ? [b5.paragraph] : []);
+    this.syncRunRPr(paras);
+    m2.paragraphs.splice(0, 0, ...paras);
+    this.shiftAnchors(-1, paras.length);
+    const story = store?.stories.get("word/document.xml");
+    if (story) story.groups.unshift(...read.groups);
+    store?.baseline();
+    sectionSectPr(m2, 0).titlePg = true;
+    const ti = paras.findIndex((p3) => paraText(p3) === env.fields.title);
+    const at = Math.max(0, ti);
+    const len2 = ti >= 0 && /^\[.*\]$/.test(env.fields.title) ? env.fields.title.length : 0;
+    this.selection = { anchor: { para: at, offset: 0 }, focus: { para: at, offset: len2 } };
+    this.sectionEff.clear();
+    this.engPageCache.clear();
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Remover Folha de Rosto Atual (o sdt "Cover Pages" inteiro). false sem folha de rosto. */
+  removeCoverPage() {
+    if (!this.canInsertSectionBreak() || !this.hasCoverPage()) return false;
+    this.snapshot();
+    this.dropCoverPage();
+    this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
+    this.engPageCache.clear();
+    this.refresh();
+    return true;
+  }
+  /** Miniatura da folha de rosto `id` (página inteira) num canvas de `cssWidth` px. */
+  paintCoverTemplate(id, canvas2, cssWidth) {
+    if (!this.model || !this.fonts) return false;
+    const xml = coverXml(id, this.coverEnv());
+    const read = xml ? readBodyFragment(this.pkg ?? DocxPackage.empty(), void 0, xml, COVER_NS) : void 0;
+    if (!read) return false;
+    const sp = { ...sectionSectPr(this.bodyModel(), 0), titlePg: false };
+    delete sp.pgBorders;
+    return this.paintPreviewPage(read.blocks, sp, {}, canvas2, cssWidth);
+  }
+  /** Miniatura de uma marca-d'água da galeria (página inteira) num canvas de `cssWidth` px. */
+  paintWatermarkTemplate(id, canvas2, cssWidth) {
+    if (!this.model || !this.fonts) return false;
+    const g2 = WATERMARK_GALLERY.find((x3) => x3.id === id);
+    if (!g2) return false;
+    const lang = uiLang(this);
+    const xml = watermarkRunXml(
+      { kind: "text", text: g2.text[lang], font: "calibri", color: "C0C0C0", semitransparent: true, layout: g2.layout },
+      { widthPt: g2.box[lang][0], heightPt: g2.box[lang][1] },
+      { n: 1, spid: 1025, anchorId: "00000001" },
+      void 0,
+      vmlColorAttr
+    );
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), "word/uw-preview.xml", void 0, hfPartXml("header", `<w:p>${xml}</w:p>`));
+    if (!read) return false;
+    const sp = { pageWidthTwips: 12240, pageHeightTwips: 15840, marginLeftTwips: 1440, marginRightTwips: 1440, marginTopTwips: 1440, marginBottomTwips: 1440, headerDistanceTwips: 720, footerDistanceTwips: 720 };
+    return this.paintPreviewPage([{ type: "paragraph", paragraph: { runs: [], props: {} } }], sp, { default: read.blocks }, canvas2, cssWidth);
+  }
+  /** Diagrama uma página de prévia (corpo + cabeçalho) e a pinta inteira no canvas. */
+  paintPreviewPage(blocks, sp, headerBlocks, canvas2, cssWidth) {
+    const full = {
+      ...this.fullDoc ?? {},
+      blocks,
+      sections: [{
+        sectPr: sp,
+        blockStart: 0,
+        blockEnd: Math.max(0, blocks.length - 1),
+        headers: {},
+        footers: {},
+        headerRefs: [],
+        footerRefs: [],
+        headerBlocks,
+        footerBlocks: {}
+      }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      bookmarks: /* @__PURE__ */ new Map(),
+      background: void 0,
+      ...this.fullDoc?.formatting ? {} : { formatting: this.newFormatting ?? emptyFormatting() }
+    };
+    let page2;
+    try {
+      page2 = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: void 0 }).pages[0];
+    } catch {
+      return false;
+    }
+    if (!page2) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / page2.widthTw;
+    canvas2.width = Math.max(1, Math.round(page2.widthTw * scale * dpr));
+    canvas2.height = Math.max(1, Math.round(page2.heightTw * scale * dpr));
+    canvas2.style.width = `${Math.round(page2.widthTw * scale)}px`;
+    canvas2.style.height = `${Math.round(page2.heightTw * scale)}px`;
+    const ctx = canvas2.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas2.width, canvas2.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintItems(ctx, page2.items, this.enginePaintEnv(), {});
+    return true;
+  }
+  // ── Página em Branco ──
+  /**
+   * Página em Branco (Inserir › Páginas): divide o parágrafo no cursor (com seleção, no
+   * INÍCIO dela, sem apagar) e põe [quebra, ¶ vazio, quebra] — o cursor fica no ¶ vazio,
+   * que leva as props do parágrafo. No fim do documento só [quebra, ¶]; no início, só
+   * [¶, quebra] antes do texto, com o cursor onde estava. Um passo (oráculo page-lab bp-*).
+   */
+  insertBlankPage() {
+    if (!this.canInsertSectionBreak()) return;
+    const m2 = this.model;
+    const pos = normalizeRange(this.range()).start;
+    const last = m2.paragraphs.length - 1;
+    const atEnd = pos.para === last && pos.offset >= paraText(m2.paragraphs[last]).length && !this.tableAnchors.some((a3) => a3.beforePara > last);
+    const atStart = pos.para === 0 && pos.offset === 0 && !this.tableAnchors.some((a3) => a3.beforePara === 0);
+    this.snapshot();
+    const brk = () => ({ runs: [{ text: "\f", props: { ...DEFAULT_RUN_PROPS } }], props: {} });
+    const empty = (from) => {
+      const { sectionBreak: _sb, src: _src, ...props } = from.props;
+      return { runs: [], props };
+    };
+    const P3 = m2.paragraphs[pos.para];
+    if (atStart) {
+      m2.paragraphs.splice(0, 0, empty(P3), brk());
+      this.shiftAnchors(-1, 2);
+      this.selection = { anchor: { para: 2, offset: 0 }, focus: { para: 2, offset: 0 } };
+    } else if (atEnd) {
+      m2.paragraphs.splice(last + 1, 0, brk(), empty(P3));
+      this.selection = { anchor: { para: last + 2, offset: 0 }, focus: { para: last + 2, offset: 0 } };
+    } else {
+      const tail = this.splitAt(pos);
+      this.shiftAnchors(pos.para, 1);
+      const at = tail.para;
+      m2.paragraphs.splice(at, 0, brk(), empty(P3), brk());
+      this.shiftAnchors(at - 1, 3);
+      this.selection = { anchor: { para: at + 1, offset: 0 }, focus: { para: at + 1, offset: 0 } };
+    }
+    this.pendingProps = null;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
    *  nº de páginas/panes) e posiciona o HF apenas na banda da página ativa. */
   layoutHfEdit() {
@@ -66368,7 +68496,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         line: p3.props.lineTwentieths ?? st?.lineTwentieths ?? dd.para.lineTwentieths ?? (hasStyles ? 240 : 259),
         lineRule: "auto"
       };
-      const qDev = (tw2) => Math.round(tw2 / 2.4) * 2.4;
+      const qDev = (tw3) => Math.round(tw3 / 2.4) * 2.4;
       const spaceBefore = qDev(p3.props.spaceBeforeTwips ?? st?.spaceBeforeTwips ?? dd.para.spaceBeforeTwips ?? 0);
       const spaceAfter = qDev(p3.props.spaceAfterTwips ?? st?.spaceAfterTwips ?? dd.para.spaceAfterTwips ?? (hasStyles ? 0 : 160));
       if (isPaged && p3.props.pageBreakBefore && y3 > marginT) newPage();
@@ -66477,8 +68605,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.footnoteHits = [];
     if (this.fullDoc) {
       this.layoutCache.forEach((pl, pi) => {
-        const para2 = this.model.paragraphs[pi];
-        for (const run2 of para2.runs) {
+        const para3 = this.model.paragraphs[pi];
+        for (const run2 of para3.runs) {
           if (run2.noteRef?.kind === "footnote") {
             const pg = pl.lines[0]?.page ?? 0;
             this.footnoteHits.push({ page: pg, id: run2.noteRef.id });
@@ -67462,13 +69590,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   applyResize(obj, d3, dxT, dyT, lockAspect, fromCenter = false, rotDeg = 0) {
     const MIN = 120;
     const hn = d3.handle;
-    let L8 = -d3.startW / 2, R2 = d3.startW / 2, T7 = -d3.startH / 2, B2 = d3.startH / 2;
+    let L9 = -d3.startW / 2, R2 = d3.startW / 2, T7 = -d3.startH / 2, B2 = d3.startH / 2;
     if (hn.includes("e")) {
       R2 += dxT;
-      if (fromCenter) L8 -= dxT;
+      if (fromCenter) L9 -= dxT;
     }
     if (hn.includes("w")) {
-      L8 += dxT;
+      L9 += dxT;
       if (fromCenter) R2 -= dxT;
     }
     if (hn.includes("s")) {
@@ -67480,24 +69608,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (fromCenter) B2 -= dyT;
     }
     if (lockAspect && hn.length === 2 && d3.startW > 0 && d3.startH > 0) {
-      const rw = (R2 - L8) / d3.startW, rh = (B2 - T7) / d3.startH;
+      const rw = (R2 - L9) / d3.startW, rh = (B2 - T7) / d3.startH;
       const r6 = Math.abs(rw - 1) >= Math.abs(rh - 1) ? rw : rh;
       const nw = d3.startW * r6, nh = d3.startH * r6;
       if (fromCenter) {
-        L8 = -nw / 2;
+        L9 = -nw / 2;
         R2 = nw / 2;
         T7 = -nh / 2;
         B2 = nh / 2;
       } else {
-        if (hn.includes("w")) L8 = R2 - nw;
-        else R2 = L8 + nw;
+        if (hn.includes("w")) L9 = R2 - nw;
+        else R2 = L9 + nw;
         if (hn.includes("n")) T7 = B2 - nh;
         else B2 = T7 + nh;
       }
     }
-    const w2 = Math.max(MIN, R2 - L8), h3 = Math.max(MIN, B2 - T7);
+    const w2 = Math.max(MIN, R2 - L9), h3 = Math.max(MIN, B2 - T7);
     const a3 = rotDeg * Math.PI / 180;
-    const cxl = (L8 + R2) / 2, cyl = (T7 + B2) / 2;
+    const cxl = (L9 + R2) / 2, cyl = (T7 + B2) / 2;
     const cx = cxl * Math.cos(a3) - cyl * Math.sin(a3), cy = cxl * Math.sin(a3) + cyl * Math.cos(a3);
     obj.widthTwips = Math.round(w2);
     obj.heightTwips = Math.round(h3);
@@ -67589,17 +69717,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const rx = (ev.clientX - sx) / scale, ry = (ev.clientY - sy) / scale;
       const ar = -rot * Math.PI / 180;
       const dx = rx * Math.cos(ar) - ry * Math.sin(ar), dy = rx * Math.sin(ar) + ry * Math.cos(ar);
-      let { L: L8, R: R2, T: T7, B: B2, fL, fT } = g0;
+      let { L: L9, R: R2, T: T7, B: B2, fL, fT } = g0;
       if (handle === "pan") {
         fL += dx;
         fT += dy;
       } else {
-        if (handle.includes("w")) L8 = Math.min(R2 - MIN, L8 + dx);
-        if (handle.includes("e")) R2 = Math.max(L8 + MIN, R2 + dx);
+        if (handle.includes("w")) L9 = Math.min(R2 - MIN, L9 + dx);
+        if (handle.includes("e")) R2 = Math.max(L9 + MIN, R2 + dx);
         if (handle.includes("n")) T7 = Math.min(B2 - MIN, T7 + dy);
         if (handle.includes("s")) B2 = Math.max(T7 + MIN, B2 + dy);
       }
-      const dl = (L8 - fL) / g0.fW, dr = (fL + g0.fW - R2) / g0.fW, dt = (T7 - fT) / g0.fH, db2 = (fT + g0.fH - B2) / g0.fH;
+      const dl = (L9 - fL) / g0.fW, dr = (fL + g0.fW - R2) / g0.fW, dt = (T7 - fT) / g0.fH, db2 = (fT + g0.fH - B2) / g0.fH;
       crop = {
         l: pic.format.flipH ? dr : dl,
         r: pic.format.flipH ? dl : dr,
@@ -67607,8 +69735,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         b: pic.format.flipV ? dt : db2
       };
       pic.crop = crop;
-      const w2 = R2 - L8, hh = B2 - T7;
-      const a3 = rot * Math.PI / 180, cxl = (L8 + R2) / 2, cyl = (T7 + B2) / 2;
+      const w2 = R2 - L9, hh = B2 - T7;
+      const a3 = rot * Math.PI / 180, cxl = (L9 + R2) / 2, cyl = (T7 + B2) / 2;
       const cx = cxl * Math.cos(a3) - cyl * Math.sin(a3), cy = cxl * Math.sin(a3) + cyl * Math.cos(a3);
       pic.widthTwips = Math.round(w2);
       pic.heightTwips = Math.round(hh);
@@ -67677,19 +69805,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.strokeStyle = "#2b579a";
     ctx.strokeRect(s4(g2.L), s4(g2.T), s4(g2.R - g2.L), s4(g2.B - g2.T));
     const len2 = 12 * dpr, th = 4 * dpr;
-    const L8 = s4(g2.L), R2 = s4(g2.R), T7 = s4(g2.T), B2 = s4(g2.B), mx = (L8 + R2) / 2, my = (T7 + B2) / 2;
+    const L9 = s4(g2.L), R2 = s4(g2.R), T7 = s4(g2.T), B2 = s4(g2.B), mx = (L9 + R2) / 2, my = (T7 + B2) / 2;
     const bars = [
-      [L8, T7, len2, th],
-      [L8, T7, th, len2],
+      [L9, T7, len2, th],
+      [L9, T7, th, len2],
       [R2 - len2, T7, len2, th],
       [R2 - th, T7, th, len2],
-      [L8, B2 - th, len2, th],
-      [L8, B2 - len2, th, len2],
+      [L9, B2 - th, len2, th],
+      [L9, B2 - len2, th, len2],
       [R2 - len2, B2 - th, len2, th],
       [R2 - th, B2 - len2, th, len2],
       [mx - len2 / 2, T7, len2, th],
       [mx - len2 / 2, B2 - th, len2, th],
-      [L8, my - len2 / 2, th, len2],
+      [L9, my - len2 / 2, th, len2],
       [R2 - th, my - len2 / 2, th, len2]
     ];
     ctx.fillStyle = "#ffffff";
@@ -68320,13 +70448,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!run2 || this.locked()) return;
     const img = run2.image, f3 = img.format;
     const cur = f3.blip.a14 ?? {};
-    const pct = (v2, d3) => v2 === void 0 ? d3 : Math.round(v2 * 1e5);
+    const pct2 = (v2, d3) => v2 === void 0 ? d3 : Math.round(v2 * 1e5);
     const next = {
       saturation: o7.saturation !== void 0 ? Math.round(o7.saturation * 1e5) : cur.saturation,
       colorTemp: o7.temperature !== void 0 ? Math.round(o7.temperature) : cur.colorTemp,
-      sharpen: pct(o7.sharpen, cur.sharpen),
-      bright: pct(o7.bright, cur.bright),
-      contrast: pct(o7.contrast, cur.contrast)
+      sharpen: pct2(o7.sharpen, cur.sharpen),
+      bright: pct2(o7.bright, cur.bright),
+      contrast: pct2(o7.contrast, cur.contrast)
     };
     if (next.saturation === 1e5) delete next.saturation;
     if (next.colorTemp === 6500) delete next.colorTemp;
@@ -68369,9 +70497,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.afterPictureEdit();
   }
   /** Transparência (0..100 %): a:alphaModFix. */
-  setImageTransparency(pct) {
+  setImageTransparency(pct2) {
     this.editPicture((f3) => {
-      const amt = Math.round((100 - Math.max(0, Math.min(100, pct))) * 1e3);
+      const amt = Math.round((100 - Math.max(0, Math.min(100, pct2))) * 1e3);
       const { a14: _a2, ...fx } = f3.blip;
       void _a2;
       if ((f3.blip.alphaModFix ?? 1e5) === amt) return null;
@@ -68538,8 +70666,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const sx = crop ? Math.round(Math.max(0, s4.l) / 1e5 * id.width) : 0, sy = crop ? Math.round(Math.max(0, s4.t) / 1e5 * id.height) : 0;
       const sw = crop ? Math.max(1, Math.round((1 - (Math.max(0, s4.l) + Math.max(0, s4.r)) / 1e5) * id.width)) : id.width;
       const sh = crop ? Math.max(1, Math.round((1 - (Math.max(0, s4.t) + Math.max(0, s4.b)) / 1e5) * id.height)) : id.height;
-      const tw2 = Math.max(1, Math.round(f3.cx / 914400 * o7.ppi)), th = Math.max(1, Math.round(f3.cy / 914400 * o7.ppi));
-      const w2 = Math.min(sw, tw2), h3 = Math.min(sh, th);
+      const tw3 = Math.max(1, Math.round(f3.cx / 914400 * o7.ppi)), th = Math.max(1, Math.round(f3.cy / 914400 * o7.ppi));
+      const w2 = Math.min(sw, tw3), h3 = Math.min(sh, th);
       if (w2 === sw && h3 === sh && !crop) continue;
       const src = new OffscreenCanvas(id.width, id.height);
       src.getContext("2d").putImageData(id, 0, 0);
@@ -68950,10 +71078,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const eng = this.eng;
     const t6 = this.tableAnchors[anchor]?.table;
     if (!t6) return null;
-    const els = eng.lines.filter((el13) => el13.loc.kind === "cell" && el13.loc.anchor === anchor);
+    const els = eng.lines.filter((el14) => el14.loc.kind === "cell" && el14.loc.anchor === anchor);
     if (!els.length) return null;
     const pg = els[0].page;
-    if (els.some((el13) => el13.page !== pg)) return null;
+    if (els.some((el14) => el14.page !== pg)) return null;
     const page2 = eng.result.pages[pg];
     const synth = this.synthLayout(t6, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
@@ -68971,7 +71099,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
     const start = findItems(page2.items, want, eng.hfItems[pg] ?? 0);
     const lineAt = page2.lines.indexOf(els[0].line);
-    if (start < 0 || lineAt < 0 || els.some((el13, i7) => page2.lines[lineAt + i7] !== el13.line)) return null;
+    if (start < 0 || lineAt < 0 || els.some((el14, i7) => page2.lines[lineAt + i7] !== el14.line)) return null;
     return { page: pg, dx, dy, start, count: want.length, lineAt, lineCount: els.length, bottom: itemsBottom(sp), root: els[0].line.ref.split("/")[0] };
   }
   /** Edição numa célula: troca só os itens/linhas da tabela se a altura dela
@@ -69004,7 +71132,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ...l3.chars ? { chars: l3.chars.map((c5) => ({ o: c5.o, x: c5.x + b5.dx, w: c5.w })) } : {}
     }));
     page2.lines.splice(b5.lineAt, b5.lineCount, ...lines);
-    const k2 = eng.lines.findIndex((el13) => el13.page === b5.page && el13.loc.kind === "cell" && el13.loc.anchor === h3.anchor);
+    const k2 = eng.lines.findIndex((el14) => el14.page === b5.page && el14.loc.kind === "cell" && el14.loc.anchor === h3.anchor);
     if (k2 < 0) return false;
     const sec = eng.result.pages[b5.page].section;
     eng.lines.splice(k2, b5.lineCount, ...lines.map((line2) => {
@@ -69054,8 +71182,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!first || ls2.some((l3) => l3.page !== ls2[0].page || !l3.eng)) return null;
     const pg = ls2[0].page;
     const page2 = eng.result.pages[pg];
-    const para2 = this.model.paragraphs[pi];
-    const synth = this.synthLayout(para2, this.pageSections[pg] ?? 0);
+    const para3 = this.model.paragraphs[pi];
+    const synth = this.synthLayout(para3, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
     const sp = synth.pages[0];
     if (sp.lines.length !== ls2.length) return null;
@@ -69107,10 +71235,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const b5 = h3?.before;
     if (!h3 || !b5 || !eng || this.cellEdit || !this.model) return false;
     const t0 = performance.now();
-    const para2 = this.model.paragraphs[h3.para];
-    if (!para2) return false;
-    this.syncRunRPr([para2]);
-    const synth = this.synthLayout(para2, this.pageSections[b5.page] ?? 0);
+    const para3 = this.model.paragraphs[h3.para];
+    if (!para3) return false;
+    this.syncRunRPr([para3]);
+    const synth = this.synthLayout(para3, this.pageSections[b5.page] ?? 0);
     if (!synth || synth.pages.length !== 1) return false;
     const sp = synth.pages[0];
     if (sp.lines.length !== b5.heights.length || sp.lines.some((l3, i7) => Math.abs(l3.height - b5.heights[i7]) > 0.01)) return false;
@@ -69125,12 +71253,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       baseline: l3.baseline + b5.dy,
       ...l3.chars ? { chars: l3.chars.map((c5) => ({ o: c5.o, x: c5.x + b5.dx, w: c5.w })) } : {}
     }));
-    if (para2.runs.some((r6) => r6.custom)) for (const l3 of lines) collapseCustomChars(l3, para2);
+    if (para3.runs.some((r6) => r6.custom)) for (const l3 of lines) collapseCustomChars(l3, para3);
     page2.lines.splice(b5.lineAt, lines.length, ...lines);
     const loc = { kind: "body", para: h3.para };
-    let k2 = eng.lines.findIndex((el13) => el13.page === b5.page && el13.line.ref === b5.ref);
-    if (k2 >= 0) eng.lines.splice(k2, lines.length, ...lines.map((line2) => ({ line: line2, page: b5.page, loc, para: para2 })));
-    const len2 = paraLength(para2);
+    let k2 = eng.lines.findIndex((el14) => el14.page === b5.page && el14.line.ref === b5.ref);
+    if (k2 >= 0) eng.lines.splice(k2, lines.length, ...lines.map((line2) => ({ line: line2, page: b5.page, loc, para: para3 })));
+    const len2 = paraLength(para3);
     this.layoutCache[h3.para] = {
       spans: [],
       charAdvances: [],
@@ -69167,35 +71295,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const hfWhich = this.hfEdit ? this.hfEdit.kind === "header" ? "hdr" : "ftr" : null;
     let hfPage = this.hfActivePage;
     if (hfWhich) {
-      const shows = (pg) => this.eng.lines.some((el13) => el13.page === pg && el13.loc.kind === "hf" && el13.loc.which === hfWhich && !!el13.para && paras.includes(el13.para));
+      const shows = (pg) => this.eng.lines.some((el14) => el14.page === pg && el14.loc.kind === "hf" && el14.loc.which === hfWhich && !!el14.para && paras.includes(el14.para));
       if (!shows(hfPage)) {
-        const other = this.eng.lines.find((el13) => el13.loc.kind === "hf" && el13.loc.which === hfWhich && !!el13.para && paras.includes(el13.para));
+        const other = this.eng.lines.find((el14) => el14.loc.kind === "hf" && el14.loc.which === hfWhich && !!el14.para && paras.includes(el14.para));
         if (other) this.hfActivePage = hfPage = other.page;
       }
     }
-    for (const el13 of this.eng.lines) {
+    for (const el14 of this.eng.lines) {
       let pi = -1;
       if (hfWhich) {
-        if (el13.page === hfPage && el13.loc.kind === "hf" && el13.loc.which === hfWhich && el13.para) pi = paras.indexOf(el13.para);
+        if (el14.page === hfPage && el14.loc.kind === "hf" && el14.loc.which === hfWhich && el14.para) pi = paras.indexOf(el14.para);
       } else if (this.noteEdit) {
         const ne = this.noteEdit;
-        if (el13.loc.kind === "note" && el13.loc.note === ne.kind && el13.loc.id === ne.id && el13.para) pi = paras.indexOf(el13.para);
+        if (el14.loc.kind === "note" && el14.loc.note === ne.kind && el14.loc.id === ne.id && el14.para) pi = paras.indexOf(el14.para);
       } else if (!ce) {
-        if (el13.loc.kind === "body") pi = el13.loc.para;
-      } else if (el13.loc.kind === "cell" && el13.loc.anchor === ce.anchor && sameHops(el13.loc.hops, ce.hops)) {
-        const blk = blocksOfCell[el13.loc.block];
+        if (el14.loc.kind === "body") pi = el14.loc.para;
+      } else if (el14.loc.kind === "cell" && el14.loc.anchor === ce.anchor && sameHops(el14.loc.hops, ce.hops)) {
+        const blk = blocksOfCell[el14.loc.block];
         if (blk?.type === "paragraph") pi = paras.indexOf(blk.paragraph);
       }
       const pl = pi >= 0 ? this.layoutCache[pi] : void 0;
       if (!pl) continue;
-      const l3 = el13.line;
+      const l3 = el14.line;
       if (pl.lines.some((x3) => x3.rich.start === l3.start && x3.rich.end === l3.end)) continue;
       const len2 = paraLength(paras[pi]);
       const clamp = (o7) => Math.max(0, Math.min(len2, o7));
       pl.lines.push({
         para: pi,
         rich: { start: clamp(l3.start), end: clamp(l3.end), widthTwips: l3.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
-        page: el13.page,
+        page: el14.page,
         xTwips: l3.x,
         yTwips: l3.y,
         heightTwips: l3.height,
@@ -69224,9 +71352,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     pages2.forEach((p3, pg) => {
       for (const l3 of p3.lines) {
         const loc = locateRef(l3.ref, doc.origins);
-        const para2 = this.lineParagraph(loc, doc, p3.section);
-        if (para2?.runs.some((r6) => r6.custom)) collapseCustomChars(l3, para2);
-        lines.push({ line: l3, page: pg, loc, para: para2 });
+        const para3 = this.lineParagraph(loc, doc, p3.section);
+        if (para3?.runs.some((r6) => r6.custom)) collapseCustomChars(l3, para3);
+        lines.push({ line: l3, page: pg, loc, para: para3 });
       }
     });
     const hfItems = pages2.map((p3) => Math.min(p3.hfItems ?? 0, p3.items.length));
@@ -69292,11 +71420,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const ctx = off.getContext("2d");
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    if (!this.hfCapturing) {
-      ctx.fillStyle = page2.background ? `#${page2.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
-      ctx.fillRect(0, 0, w2, h3);
-    }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if (!this.hfCapturing) {
+      if (this.printRender) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, page2.widthTw, page2.heightTw);
+      } else paintPageBackground(ctx, page2, this.enginePaintEnv(), { devicePxTw: 1 / (PX_PER_TWIP * this.zoom), screen: true, paper: this.pageDark ? "#1e1e1e" : "#ffffff" });
+    }
     if (this.gridlines && !this.printRender && !this.hfCapturing && page2.cells?.length) this.paintGridlines(ctx, page2.cells, scale);
     if (this.docGrid && !this.printRender && !this.hfCapturing) this.paintDocGrid(ctx, pg, scale);
     const env = this.enginePaintEnv();
@@ -69325,10 +71455,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const o7 = page2.objects?.find((x3) => x3.run === run2);
     if (!o7) return null;
     const items = page2.items;
-    const near2 = (a3, b5) => a3 !== void 0 && Math.abs(a3 - b5) < 0.5;
+    const near3 = (a3, b5) => a3 !== void 0 && Math.abs(a3 - b5) < 0.5;
     for (let i7 = 0; i7 < items.length; i7++) {
       const it = items[i7];
-      if (it.t !== "clip" || it.op !== "push" || !near2(it.x, o7.x) || !near2(it.y, o7.y) || !near2(it.w, o7.w) || !near2(it.h, o7.h)) continue;
+      if (it.t !== "clip" || it.op !== "push" || !near3(it.x, o7.x) || !near3(it.y, o7.y) || !near3(it.w, o7.w) || !near3(it.h, o7.h)) continue;
       let depth = 0;
       for (let j = i7; j < items.length; j++) {
         const x3 = items[j];
@@ -69401,8 +71531,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const body = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit;
       const secOf = (k2) => body ? this.sectionIndexForPara(k2) : this.pageSections[pg] ?? 0;
       this.layoutCache.forEach((pl, pi) => {
-        const para2 = this.model.paragraphs[pi];
-        const text = paraText(para2);
+        const para3 = this.model.paragraphs[pi];
+        const text = paraText(para3);
         pl.lines.forEach((line2, li) => {
           if (line2.page !== pg || !line2.eng) return;
           const fs = Math.max(160, line2.heightTwips * 0.6);
@@ -69421,9 +71551,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           }
           if (li === pl.lines.length - 1) {
             ctx.textAlign = "left";
-            const x3 = this.caretX({ para: pi, offset: paraLength(para2) }, line2);
+            const x3 = this.caretX({ para: pi, offset: paraLength(para3) }, line2);
             const nextType = (k2) => this.sectionStarts[this.sectionIndexForPara(k2) + 1]?.section.sectPr.type ?? "nextPage";
-            if (body && para2.props.sectionBreak) {
+            if (body && para3.props.sectionBreak) {
               this.paintBreakMark(ctx, x3 + 20, this.columnRightAt(secOf(pi), x3), line2.baselineTwips, fs, nextType(pi), true);
             } else if (breakOnly) {
             } else {
@@ -69443,39 +71573,39 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
       ctx.textAlign = "left";
     }
-    for (const el13 of eng.lines) {
-      if (el13.page !== pg || el13.loc.kind === "other") continue;
-      const para2 = el13.para;
-      if (!para2) continue;
+    for (const el14 of eng.lines) {
+      if (el14.page !== pg || el14.loc.kind === "other") continue;
+      const para3 = el14.para;
+      if (!para3) continue;
       let acc = 0;
-      for (const run2 of para2.runs) {
+      for (const run2 of para3.runs) {
         const a3 = acc;
         acc += run2.text.length;
         const field3 = !!run2.field || !!run2.fieldResult;
         const comment = !!run2.props.commentIds?.length;
         if (!field3 && !comment) continue;
         let x1 = Infinity, x22 = -Infinity;
-        for (const c5 of el13.line.chars ?? []) {
+        for (const c5 of el14.line.chars ?? []) {
           if (c5.o < a3 || c5.o >= acc) continue;
           x1 = Math.min(x1, c5.x);
           x22 = Math.max(x22, c5.x + c5.w);
         }
         if (!(x22 > x1)) continue;
         ctx.fillStyle = comment ? "rgba(255, 187, 0, 0.28)" : this.pageDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)";
-        ctx.fillRect(x1, el13.line.y, x22 - x1, el13.line.height);
+        ctx.fillRect(x1, el14.line.y, x22 - x1, el14.line.height);
       }
     }
   }
   /** Marca de quebra com "mostrar marcas": linha pontilhada (dupla na de seção)
    *  até o fim da coluna com o nome no meio — adorno de tela (não vai ao PDF). */
   paintBreakMark(ctx, x0, x1, baseline, fs, kind, double) {
-    const L8 = pickLabels(this, BREAK_MARK_LABELS);
-    const label = kind === "page" ? L8.page : kind === "column" ? L8.column : `${L8.section} (${L8[kind]})`;
+    const L9 = pickLabels(this, BREAK_MARK_LABELS);
+    const label = kind === "page" ? L9.page : kind === "column" ? L9.column : `${L9.section} (${L9[kind]})`;
     const right = Math.max(x1, x0 + 600);
     ctx.save();
     ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
     ctx.textAlign = "center";
-    const tw2 = ctx.measureText(label).width + 120;
+    const tw3 = ctx.measureText(label).width + 120;
     const mid = (x0 + right) / 2;
     const y3 = baseline - fs * 0.3;
     ctx.strokeStyle = ctx.fillStyle;
@@ -69483,10 +71613,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.setLineDash([16, 24]);
     for (const dy of double ? [-14, 14] : [0]) {
       ctx.beginPath();
-      if (tw2 < right - x0) {
+      if (tw3 < right - x0) {
         ctx.moveTo(x0, y3 + dy);
-        ctx.lineTo(mid - tw2 / 2, y3 + dy);
-        ctx.moveTo(mid + tw2 / 2, y3 + dy);
+        ctx.lineTo(mid - tw3 / 2, y3 + dy);
+        ctx.moveTo(mid + tw3 / 2, y3 + dy);
         ctx.lineTo(right, y3 + dy);
       } else {
         ctx.moveTo(x0, y3 + dy);
@@ -69494,7 +71624,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       ctx.stroke();
     }
-    if (tw2 < right - x0) ctx.fillText(label, mid, baseline);
+    if (tw3 < right - x0) ctx.fillText(label, mid, baseline);
     ctx.restore();
   }
   /** Borda direita da coluna (da seção) em que está x. */
@@ -69551,11 +71681,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ctx.save();
     ctx.strokeStyle = this.pageDark ? "#ff6b6b" : "#e81123";
     ctx.lineWidth = 11;
-    for (const el13 of this.eng.lines) {
-      if (el13.page !== pg || el13.loc.kind === "other" || !el13.para) continue;
-      const list = spell.get(el13.para);
+    for (const el14 of this.eng.lines) {
+      if (el14.page !== pg || el14.loc.kind === "other" || !el14.para) continue;
+      const list = spell.get(el14.para);
       if (!list?.length) continue;
-      const chars = el13.line.chars ?? [];
+      const chars = el14.line.chars ?? [];
       for (const m2 of list) {
         let x1 = Infinity, x22 = -Infinity;
         for (const c5 of chars) {
@@ -69564,7 +71694,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           x22 = Math.max(x22, c5.x + c5.w);
         }
         if (!(x22 > x1)) continue;
-        wavePath(ctx, x1, x22, el13.line.baseline + 50);
+        wavePath(ctx, x1, x22, el14.line.baseline + 50);
         ctx.stroke();
       }
     }
@@ -69584,8 +71714,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   spellingAtCaret() {
     if (!this.model || !this.spellActive()) return null;
     const pos = this.selection.focus;
-    const para2 = this.model.paragraphs[pos.para];
-    const m2 = para2 && misspellingAt(this.ensureSpell()?.get(para2), pos.offset);
+    const para3 = this.model.paragraphs[pos.para];
+    const m2 = para3 && misspellingAt(this.ensureSpell()?.get(para3), pos.offset);
     return m2 ? { ...m2, para: pos.para } : null;
   }
   /** Sugestões do Hunspell para a palavra (até `limit`, como o menu do Word). */
@@ -69596,8 +71726,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Troca a palavra errada (se ela ainda está lá) — desfazível. */
   replaceSpelling(m2, text) {
     if (!this.model || this.locked()) return false;
-    const para2 = this.model.paragraphs[m2.para];
-    if (!para2 || paraText(para2).slice(m2.start, m2.end) !== m2.word) return false;
+    const para3 = this.model.paragraphs[m2.para];
+    if (!para3 || paraText(para3).slice(m2.start, m2.end) !== m2.word) return false;
     this.snapshot();
     const range = { start: { para: m2.para, offset: m2.start }, end: { para: m2.para, offset: m2.end } };
     const pos = this.tracking ? this.trackedDelete(range, "end") : deleteRange2(this.model, range);
@@ -69646,19 +71776,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  motor diagramou (o motor não conhece a medida do plugin). */
   paintEngineInlines(ctx, pg, scale) {
     const page2 = this.eng.result.pages[pg];
-    for (const el13 of this.eng.lines) {
-      if (el13.page !== pg || el13.loc.kind === "other") continue;
-      const para2 = el13.para;
-      if (!para2?.runs.some((r6) => r6.custom)) continue;
+    for (const el14 of this.eng.lines) {
+      if (el14.page !== pg || el14.loc.kind === "other") continue;
+      const para3 = el14.para;
+      if (!para3?.runs.some((r6) => r6.custom)) continue;
       let acc = 0;
-      for (const run2 of para2.runs) {
+      for (const run2 of para3.runs) {
         const a3 = acc;
         acc += run2.text.length;
         if (!run2.custom) continue;
         const renderer = this.inlineRenderers.get(run2.custom.type)?.renderer;
-        const c5 = el13.line.chars?.find((k2) => k2.o === a3);
+        const c5 = el14.line.chars?.find((k2) => k2.o === a3);
         if (!renderer?.draw || !c5) continue;
-        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el13.line.baseline) < 400 && it.glyphs.some((g2) => Math.abs(g2.x - c5.x) < 0.5));
+        const gr = page2.items.find((it) => it.t === "glyphs" && Math.abs(it.y - el14.line.baseline) < 400 && it.glyphs.some((g2) => Math.abs(g2.x - c5.x) < 0.5));
         const run0 = gr?.t === "glyphs" ? gr : null;
         const sizePt = run0?.sizePt ?? (run2.props.szHalfPt ?? 22) / 2;
         const css2 = run0 ? this.enginePaintEnv().fontOf(run0.face) : { family: DEFAULT_FONT_CSS, weight: 400, italic: false };
@@ -69672,7 +71802,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const ink = this.inkColor(run0?.color ?? run2.props.color);
         ctx.save();
         ctx.fillStyle = this.pageDark ? "#1e1e1e" : "#ffffff";
-        ctx.fillRect(c5.x * scale, el13.line.y * scale, c5.w * scale, el13.line.height * scale);
+        ctx.fillRect(c5.x * scale, el14.line.y * scale, c5.w * scale, el14.line.height * scale);
         ctx.font = `${css2.italic ? "italic " : ""}${css2.weight} ${sizePt * TWIPS_PER_PT * scale}px ${css2.family}`;
         ctx.fillStyle = ink;
         renderer.draw({
@@ -69683,10 +71813,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           measureText,
           ctx,
           xTwips: c5.x,
-          yTwips: el13.line.y,
-          baselineTwips: el13.line.baseline,
+          yTwips: el14.line.y,
+          baselineTwips: el14.line.baseline,
           widthTwips: c5.w,
-          heightTwips: el13.line.height,
+          heightTwips: el14.line.height,
           scale,
           dark: this.pageDark,
           color: ink
@@ -69910,16 +72040,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return documentOutline(doc.full).flatMap((h3) => {
       const o7 = doc.origins[h3.block];
       if (o7?.kind !== "para") return [];
-      const para2 = b5.model.paragraphs[o7.para];
-      return para2 ? [{ index: 0, level: h3.level, text: h3.text, para: o7.para, page: pages2.get(para2) ?? -1 }] : [];
+      const para3 = b5.model.paragraphs[o7.para];
+      return para3 ? [{ index: 0, level: h3.level, text: h3.text, para: o7.para, page: pages2.get(para3) ?? -1 }] : [];
     }).map((h3, i7) => ({ ...h3, index: i7 }));
   }
   /** Índice (em getHeadings) do título da seção onde está o cursor; -1 antes do 1º. */
   currentHeading(heads = this.getHeadings()) {
-    const para2 = this.navCaretPara();
+    const para3 = this.navCaretPara();
     let cur = -1;
     for (const h3 of heads) {
-      if (h3.para <= para2) cur = h3.index;
+      if (h3.para <= para3) cur = h3.index;
       else break;
     }
     return cur;
@@ -69953,8 +72083,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!h3 || !this.toBody()) return;
     this.goToBodyPara(h3.para, 0, 0, true);
   }
-  goToBodyPara(para2, start, end, top) {
-    this.selection = { anchor: { para: para2, offset: start }, focus: { para: para2, offset: end } };
+  goToBodyPara(para3, start, end, top) {
+    this.selection = { anchor: { para: para3, offset: start }, focus: { para: para3, offset: end } };
     this.pendingProps = null;
     this.refreshSelection();
     this.revealCaret(top);
@@ -70007,8 +72137,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const [k2, v2] of this.bookmarkParas) if (map[v2] !== void 0) this.bookmarkParas.set(k2, map[v2]);
     this.tableAnchors.sort((a3, b5) => a3.beforePara - b5.beforePara);
   }
-  goToBodyParaAfterEdit(para2) {
-    this.selection = { anchor: { para: para2, offset: 0 }, focus: { para: para2, offset: 0 } };
+  goToBodyParaAfterEdit(para3) {
+    this.selection = { anchor: { para: para3, offset: 0 }, focus: { para: para3, offset: 0 } };
     this.pendingProps = null;
     this.refresh();
     this.revealCaret(false);
@@ -70239,10 +72369,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     canvas2.style.width = `${Math.round(p3.widthTw * scale)}px`;
     canvas2.style.height = `${Math.round(p3.heightTw * scale)}px`;
     const ctx = canvas2.getContext("2d");
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = p3.background ? `#${p3.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
-    ctx.fillRect(0, 0, w2, h3);
     ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintPageBackground(ctx, p3, this.enginePaintEnv(), { devicePxTw: 1 / scale, screen: true, paper: this.pageDark ? "#1e1e1e" : "#ffffff" });
     paintItems(ctx, p3.items, this.enginePaintEnv(), {});
     return true;
   }
@@ -70437,8 +72565,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!eng || !page2) return null;
     const which = kind === "header" ? "hdr" : "ftr";
     let type;
-    for (const el13 of eng.lines) if (el13.page === pg && el13.loc.kind === "hf" && el13.loc.which === which) {
-      type = el13.loc.part;
+    for (const el14 of eng.lines) if (el14.page === pg && el14.loc.kind === "hf" && el14.loc.which === which) {
+      type = el14.loc.part;
       break;
     }
     if (!type) {
@@ -70462,10 +72590,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const which = kind === "header" ? "hdr" : "ftr";
     let top = kind === "header" ? 0 : pageH - sp.marginBottomTwips;
     let bottom = kind === "header" ? sp.marginTopTwips : pageH;
-    for (const el13 of this.eng?.lines ?? []) {
-      if (el13.page !== pg || el13.loc.kind !== "hf" || el13.loc.which !== which) continue;
-      if (kind === "header") bottom = Math.max(bottom, el13.line.y + el13.line.height);
-      else top = Math.min(top, el13.line.y);
+    for (const el14 of this.eng?.lines ?? []) {
+      if (el14.page !== pg || el14.loc.kind !== "hf" || el14.loc.which !== which) continue;
+      if (kind === "header") bottom = Math.max(bottom, el14.line.y + el14.line.height);
+      else top = Math.min(top, el14.line.y);
     }
     return { top, bottom };
   }
@@ -70482,15 +72610,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const yT = (e8.clientY - rect2.top) / scale;
       let best = null;
       let bestD = Infinity;
-      for (const el13 of eng.lines) {
-        if (el13.page !== pg || el13.loc.kind === "other") continue;
-        const l3 = el13.line;
+      for (const el14 of eng.lines) {
+        if (el14.page !== pg || el14.loc.kind === "other") continue;
+        const l3 = el14.line;
         const dy = yT < l3.y ? l3.y - yT : yT > l3.y + l3.height ? yT - (l3.y + l3.height) : 0;
         const dx = xT < l3.x ? l3.x - xT : xT > l3.x + l3.width ? xT - (l3.x + l3.width) : 0;
         const d3 = dy * 4 + dx;
         if (d3 < bestD) {
           bestD = d3;
-          best = el13;
+          best = el14;
         }
       }
       return best;
@@ -70501,19 +72629,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  clicada (o hitTest depois acha o offset nas linhas do modelo em edição). */
   routeEngineClick(e8) {
     if (!this.eng || this.hfEdit || this.tbEdit || this.locked()) return;
-    const el13 = this.engLineAt(e8);
-    if (!el13) return;
-    if (el13.loc.kind === "note") {
+    const el14 = this.engLineAt(e8);
+    if (!el14) return;
+    if (el14.loc.kind === "note") {
       const ne = this.noteEdit;
-      if (!ne || ne.kind !== el13.loc.note || ne.id !== el13.loc.id) this.enterNote(el13.loc.note, el13.loc.id);
+      if (!ne || ne.kind !== el14.loc.note || ne.id !== el14.loc.id) this.enterNote(el14.loc.note, el14.loc.id);
       return;
     }
     if (this.noteEdit) this.exitNote();
-    if (el13.loc.kind === "cell") {
+    if (el14.loc.kind === "cell") {
       const ce = this.cellEdit;
-      if (ce && ce.anchor === el13.loc.anchor && sameHops(ce.hops, el13.loc.hops)) return;
-      this.enterCell(el13.loc.anchor, el13.loc.hops);
-    } else if (el13.loc.kind === "body" && this.cellEdit) {
+      if (ce && ce.anchor === el14.loc.anchor && sameHops(ce.hops, el14.loc.hops)) return;
+      this.enterCell(el14.loc.anchor, el14.loc.hops);
+    } else if (el14.loc.kind === "body" && this.cellEdit) {
       this.exitCell();
       this.refreshSelection();
     }
@@ -70649,17 +72777,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Texto da nota cuja referência está sob o ponteiro (null = nenhuma). */
   noteTipAt(e8) {
     if (!this.eng || !this.fullDoc || this.view === "read") return null;
-    const el13 = this.engLineAt(e8);
-    const para2 = el13?.para;
-    if (!el13 || !para2 || el13.loc.kind !== "body" && el13.loc.kind !== "cell" || !para2.runs.some((r6) => r6.noteRef)) return null;
-    const rect2 = this.canvases[el13.page]?.getBoundingClientRect();
+    const el14 = this.engLineAt(e8);
+    const para3 = el14?.para;
+    if (!el14 || !para3 || el14.loc.kind !== "body" && el14.loc.kind !== "cell" || !para3.runs.some((r6) => r6.noteRef)) return null;
+    const rect2 = this.canvases[el14.page]?.getBoundingClientRect();
     if (!rect2) return null;
     const scale = PX_PER_TWIP * this.zoom;
     const xT = (e8.clientX - rect2.left) / scale, yT = (e8.clientY - rect2.top) / scale;
-    const l3 = el13.line;
+    const l3 = el14.line;
     if (yT < l3.y || yT > l3.y + l3.height) return null;
     let acc = 0;
-    for (const r6 of para2.runs) {
+    for (const r6 of para3.runs) {
       if (r6.noteRef) {
         const box = (l3.chars ?? []).filter((c5) => c5.o === acc);
         if (box.some((c5) => xT >= c5.x - 20 && xT <= c5.x + c5.w + 20)) {
@@ -71035,10 +73163,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!ce || !this.eng) return false;
     const prefix = ce.hops.slice(0, -1);
     const seen = [];
-    for (const el13 of this.eng.lines) {
-      if (el13.loc.kind !== "cell" || el13.loc.anchor !== ce.anchor || el13.loc.hops.length !== ce.hops.length) continue;
-      if (!sameHops(el13.loc.hops.slice(0, -1), prefix)) continue;
-      const h3 = el13.loc.hops[el13.loc.hops.length - 1];
+    for (const el14 of this.eng.lines) {
+      if (el14.loc.kind !== "cell" || el14.loc.anchor !== ce.anchor || el14.loc.hops.length !== ce.hops.length) continue;
+      if (!sameHops(el14.loc.hops.slice(0, -1), prefix)) continue;
+      const h3 = el14.loc.hops[el14.loc.hops.length - 1];
       if (!seen.some((s4) => s4.r === h3.r && s4.c === h3.c)) seen.push(h3);
     }
     seen.sort((a3, b5) => a3.r - b5.r || a3.c - b5.c);
@@ -71241,17 +73369,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     }
     const styleId = this.tableStyleId("Table Grid") ?? null;
-    let { para: para2, offset } = this.selection.focus;
+    let { para: para3, offset } = this.selection.focus;
     if (offset > 0) {
-      splitParagraph2(this.model, { para: para2, offset });
-      this.shiftAnchors(para2, 1);
-      para2++;
+      splitParagraph2(this.model, { para: para3, offset });
+      this.shiftAnchors(para3, 1);
+      para3++;
     }
     const ce = this.cellEdit;
     if (ce) {
       const me = ce.hops[ce.hops.length - 1];
       const path = ce.hops.slice(0, -1);
-      const target = ce.cell.paragraphs[para2];
+      const target = ce.cell.paragraphs[para3];
       this.exitCell();
       const outer = this.tableAt(ce.anchor, path);
       const g2 = outer ? table_ops_exports.cellAt(table_ops_exports.mapTable(outer), me.r, me.c) : void 0;
@@ -71267,7 +73395,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.refresh();
       return;
     }
-    const p3 = this.model.paragraphs[para2];
+    const p3 = this.model.paragraphs[para3];
     const ind = this.paraIndent(p3);
     const t6 = table_ops_exports.newTable(rows, cols, {
       availTwips: this.contentWidthTwips() - ind,
@@ -71276,9 +73404,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       autofit: opts.autofit,
       colTwips: opts.colWidthTwips
     });
-    let at = this.tableAnchors.findIndex((a3) => a3.beforePara > para2);
+    let at = this.tableAnchors.findIndex((a3) => a3.beforePara > para3);
     if (at < 0) at = this.tableAnchors.length;
-    this.tableAnchors.splice(at, 0, { beforePara: para2, table: t6 });
+    this.tableAnchors.splice(at, 0, { beforePara: para3, table: t6 });
     this.enterCellAt(at, [], 0, 0, false, false);
     this.autoCaptionTable();
     this.refresh();
@@ -72079,7 +74207,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   async insertQuickTable(id) {
     if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
     const pt2 = uiLang(this) === "pt";
-    const tr7 = (en, p3) => pt2 ? p3 : en;
+    const tr8 = (en, p3) => pt2 ? p3 : en;
     let rows;
     let style;
     let merge = [];
@@ -72107,41 +74235,41 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       case "tabular":
         rows = [
-          [tr7("Item", "Item"), tr7("Needed", "Necess\xE1rio")],
-          [tr7("Notebooks", "Cadernos"), "12"],
-          [tr7("Pens", "Canetas"), "30"],
-          [tr7("Folders", "Pastas"), "8"],
-          [tr7("Sticky notes", "Blocos adesivos"), "15"],
-          [tr7("Staplers", "Grampeadores"), "3"]
+          [tr8("Item", "Item"), tr8("Needed", "Necess\xE1rio")],
+          [tr8("Notebooks", "Cadernos"), "12"],
+          [tr8("Pens", "Canetas"), "30"],
+          [tr8("Folders", "Pastas"), "8"],
+          [tr8("Sticky notes", "Blocos adesivos"), "15"],
+          [tr8("Staplers", "Grampeadores"), "3"]
         ];
         style = "List Table 4 Accent 1";
         break;
       case "matrix":
         rows = [
-          [tr7("Region", "Regi\xE3o"), "T1", "T2", "T3", "T4"],
-          [tr7("North", "Norte"), "120", "135", "150", "162"],
-          [tr7("South", "Sul"), "98", "104", "117", "125"],
-          [tr7("East", "Leste"), "143", "139", "151", "170"],
-          [tr7("West", "Oeste"), "87", "96", "101", "110"]
+          [tr8("Region", "Regi\xE3o"), "T1", "T2", "T3", "T4"],
+          [tr8("North", "Norte"), "120", "135", "150", "162"],
+          [tr8("South", "Sul"), "98", "104", "117", "125"],
+          [tr8("East", "Leste"), "143", "139", "151", "170"],
+          [tr8("West", "Oeste"), "87", "96", "101", "110"]
         ];
         style = "Grid Table 4 Accent 1";
         break;
       case "subheads":
         rows = [
-          [tr7("Course", "Curso"), tr7("Students", "Alunos"), tr7("Change", "Varia\xE7\xE3o")],
-          [tr7("Undergraduate", "Gradua\xE7\xE3o"), "", ""],
-          [tr7("Engineering", "Engenharia"), "420", "+12"],
-          [tr7("Design", "Design"), "185", "+4"],
-          [tr7("Graduate", "P\xF3s-gradua\xE7\xE3o"), "", ""],
-          [tr7("Data science", "Ci\xEAncia de dados"), "96", "+21"],
-          [tr7("Management", "Gest\xE3o"), "133", "-3"],
-          [tr7("Total", "Total"), "834", "+34"]
+          [tr8("Course", "Curso"), tr8("Students", "Alunos"), tr8("Change", "Varia\xE7\xE3o")],
+          [tr8("Undergraduate", "Gradua\xE7\xE3o"), "", ""],
+          [tr8("Engineering", "Engenharia"), "420", "+12"],
+          [tr8("Design", "Design"), "185", "+4"],
+          [tr8("Graduate", "P\xF3s-gradua\xE7\xE3o"), "", ""],
+          [tr8("Data science", "Ci\xEAncia de dados"), "96", "+21"],
+          [tr8("Management", "Gest\xE3o"), "133", "-3"],
+          [tr8("Total", "Total"), "834", "+34"]
         ];
         style = "Plain Table 2";
         break;
       case "double":
         rows = [
-          [tr7("Team", "Equipe"), tr7("Points", "Pontos"), "", tr7("Team", "Equipe"), tr7("Points", "Pontos")],
+          [tr8("Team", "Equipe"), tr8("Points", "Pontos"), "", tr8("Team", "Equipe"), tr8("Points", "Pontos")],
           ["A", "18", "", "E", "12"],
           ["B", "16", "", "F", "11"],
           ["C", "14", "", "G", "9"],
@@ -72201,11 +74329,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Texto e HTML de uma tabela (células por tabulação, linhas por quebra — como o Word põe no texto). */
   static tableClipText(t6) {
-    const esc9 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc11 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const text = t6.rows.map((row2) => row2.cells.map((c5) => cellText(c5).replace(/\n/g, " ")).join("	")).join("\n");
     const html = '<table border="1" style="border-collapse:collapse">' + t6.rows.map((row2) => "<tr>" + row2.cells.map((c5) => {
       const span = (c5.tcPr?.gridSpan ?? 1) > 1 ? ` colspan="${c5.tcPr.gridSpan}"` : "";
-      return `<td${span}>${c5.paragraphs.map((p3) => `<p>${esc9(p3.runs.map((r6) => r6.text).join(""))}</p>`).join("")}</td>`;
+      return `<td${span}>${c5.paragraphs.map((p3) => `<p>${esc11(p3.runs.map((r6) => r6.text).join(""))}</p>`).join("")}</td>`;
     }).join("") + "</tr>").join("") + "</table>";
     return { text, html };
   }
@@ -72245,15 +74373,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const pos = this.deleteSelection();
         this.selection = { anchor: pos, focus: pos };
       }
-      let { para: para2, offset } = this.selection.focus;
+      let { para: para3, offset } = this.selection.focus;
       if (offset > 0) {
-        splitParagraph2(this.model, { para: para2, offset });
-        this.shiftAnchors(para2, 1);
-        para2++;
+        splitParagraph2(this.model, { para: para3, offset });
+        this.shiftAnchors(para3, 1);
+        para3++;
       }
-      let at = this.tableAnchors.findIndex((a3) => a3.beforePara > para2);
+      let at = this.tableAnchors.findIndex((a3) => a3.beforePara > para3);
       if (at < 0) at = this.tableAnchors.length;
-      this.tableAnchors.splice(at, 0, { beforePara: para2, table: table_ops_exports.cloneTable(src) });
+      this.tableAnchors.splice(at, 0, { beforePara: para3, table: table_ops_exports.cloneTable(src) });
       this.enterCellAt(at, [], 0, 0, false, false);
       this.refresh();
       this.scrollCaretIntoView();
@@ -72313,10 +74441,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const occ = [];
       let nCols = 0;
       const cells = [];
-      trs.forEach((tr7, r6) => {
+      trs.forEach((tr8, r6) => {
         occ[r6] ??= [];
         let c5 = 0;
-        for (const td2 of [...tr7.children].filter((x3) => x3.tagName === "TD" || x3.tagName === "TH")) {
+        for (const td2 of [...tr8.children].filter((x3) => x3.tagName === "TD" || x3.tagName === "TH")) {
           while (occ[r6][c5]) c5++;
           const cs = Math.max(1, Math.min(63, parseInt(td2.getAttribute("colspan") ?? "1", 10) || 1));
           const rs = Math.max(1, parseInt(td2.getAttribute("rowspan") ?? "1", 10) || 1);
@@ -72985,11 +75113,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return true;
     }
-    const para2 = where === "after" ? a3.beforePara : a3.beforePara - 1;
-    if (para2 < 0 || !this.cellEdit) return true;
+    const para3 = where === "after" ? a3.beforePara : a3.beforePara - 1;
+    if (para3 < 0 || !this.cellEdit) return true;
     this.exitCell();
     const ps = this.model.paragraphs;
-    const p3 = Math.min(para2, ps.length - 1);
+    const p3 = Math.min(para3, ps.length - 1);
     let offset = where === "after" ? 0 : paraLength(ps[p3]);
     const pl = this.layoutCache[p3]?.lines ?? [];
     const line2 = where === "after" ? pl[0] : pl[pl.length - 1];
@@ -73665,13 +75793,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   paintLine(ctx, pl, line2, scale, sel4, hasSel) {
-    const para2 = this.model.paragraphs[line2.para];
-    const st = this.styleOf(para2);
-    const effBorders = para2.props.borders ?? st?.borders;
-    const effShading = para2.props.shadingHex ?? st?.shadingHex;
-    const effIndentL = para2.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
-    const effIndentR = para2.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
-    if (effShading || para2.props.boxBorder || effBorders) {
+    const para3 = this.model.paragraphs[line2.para];
+    const st = this.styleOf(para3);
+    const effBorders = para3.props.borders ?? st?.borders;
+    const effShading = para3.props.shadingHex ?? st?.shadingHex;
+    const effIndentL = para3.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
+    const effIndentR = para3.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
+    if (effShading || para3.props.boxBorder || effBorders) {
       const s4 = this.sect();
       const marginL = this.view === "print" || this.view === "read" ? s4.marginLeftTwips : 600;
       const colX = marginL + effIndentL;
@@ -73692,10 +75820,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           (line2.heightTwips + exT + exB) * scale
         );
       }
-      if (effBorders || para2.props.boxBorder) {
+      if (effBorders || para3.props.boxBorder) {
         const isFirst = line2.rich.start === 0;
         const isLast = line2.rich.end === pl.charAdvances.length;
-        const fallback = para2.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
+        const fallback = para3.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b5 = effBorders ?? {
           top: fallback,
           bottom: fallback,
@@ -73747,7 +75875,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let x3 = line2.xTwips;
     for (const seg of line2.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run2 = para2.runs[span.runIndex ?? seg.spanIndex];
+      const run2 = para3.runs[span.runIndex ?? seg.spanIndex];
       const rv = run2?.props.del ?? run2?.props.ins;
       const props = run2 && rv && this.markupMode !== "original" ? { ...run2.props, color: this.authorColor(rv.author), ...run2.props.del ? { strike: true } : { underline: true, underlineStyle: void 0 } } : run2?.props;
       if (run2?.custom) {
@@ -74264,10 +76392,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     for (const pl of this.layoutCache) {
       for (const line2 of pl.lines) {
-        const para2 = this.model.paragraphs[line2.para];
-        if (!para2) continue;
+        const para3 = this.model.paragraphs[line2.para];
+        if (!para3) continue;
         const page2 = pages2[line2.page];
-        if (page2) emitParaLine(page2, pl, line2, para2.runs);
+        if (page2) emitParaLine(page2, pl, line2, para3.runs);
       }
     }
     for (const tl of this.tableLayouts) {
@@ -74445,13 +76573,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Versão PDF do paintLine: texto + decorações de parágrafo/run. */
   pdfPaintLine(doc, page2, emb, pl, line2) {
     const T7 = TWIPS_PER_PT;
-    const para2 = this.model.paragraphs[line2.para];
-    const st = this.styleOf(para2);
-    const effBorders = para2.props.borders ?? st?.borders;
-    const effShading = para2.props.shadingHex ?? st?.shadingHex;
-    const effIndentL = para2.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
-    const effIndentR = para2.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
-    if (effShading || para2.props.boxBorder || effBorders) {
+    const para3 = this.model.paragraphs[line2.para];
+    const st = this.styleOf(para3);
+    const effBorders = para3.props.borders ?? st?.borders;
+    const effShading = para3.props.shadingHex ?? st?.shadingHex;
+    const effIndentL = para3.props.indentLeftTwips ?? st?.indentLeftTwips ?? 0;
+    const effIndentR = para3.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
+    if (effShading || para3.props.boxBorder || effBorders) {
       const s4 = this.sect();
       const colX = s4.marginLeftTwips + effIndentL;
       const colW = this.contentWidthTwips() - effIndentL - effIndentR;
@@ -74471,8 +76599,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           hexColor(effShading)
         );
       }
-      if (effBorders || para2.props.boxBorder) {
-        const fallback = para2.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
+      if (effBorders || para3.props.boxBorder) {
+        const fallback = para3.props.boxBorder && !effBorders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
         const b5 = effBorders ?? { top: fallback, bottom: fallback, left: fallback, right: fallback };
         const spL = (b5.left?.spacePt ?? 0) * T7, spR = (b5.right?.spacePt ?? 0) * T7;
         const spT = (b5.top?.spacePt ?? 0) * T7, spB = (b5.bottom?.spacePt ?? 0) * T7;
@@ -74495,7 +76623,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let x3 = line2.xTwips;
     for (const seg of line2.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run2 = para2.runs[span.runIndex ?? seg.spanIndex];
+      const run2 = para3.runs[span.runIndex ?? seg.spanIndex];
       const props = run2?.props;
       if (run2?.custom) {
         const globalStart2 = pl.spanCharStart[seg.spanIndex] + seg.start;
@@ -74771,6 +76899,9 @@ function dataUrlToBytes(dataUrl) {
   return out;
 }
 customElements.define("universal-write", UniversalWriteElement);
+function bgKey(bg) {
+  return JSON.stringify(bg, (_k, v2) => v2 instanceof Uint8Array ? `#${v2.length}:${v2[0]}:${v2[v2.length >> 1]}:${v2[v2.length - 1]}` : v2);
+}
 
 // src/mention-plugin.ts
 init_src5();
@@ -74838,10 +76969,10 @@ function setupMentionAutocomplete(editor, options, prefix) {
     popup.replaceChildren();
     popup.hidden = !active2;
     if (!active2) return;
-    const L8 = labels();
-    popup.setAttribute("aria-label", L8.menu);
+    const L9 = labels();
+    popup.setAttribute("aria-label", L9.menu);
     const heading = document.createElement("div");
-    heading.textContent = query ? `${prefix}${query}` : L8.choose;
+    heading.textContent = query ? `${prefix}${query}` : L9.choose;
     Object.assign(heading.style, {
       padding: "6px 10px 8px",
       color: "#5f6368",
@@ -74851,7 +76982,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     popup.append(heading);
     if (items.length === 0) {
       const empty = document.createElement("div");
-      empty.textContent = options.emptyLabel ?? L8.empty;
+      empty.textContent = options.emptyLabel ?? L9.empty;
       Object.assign(empty.style, { padding: "10px", color: "#6b7280" });
       popup.append(empty);
       return;

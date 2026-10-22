@@ -2265,8 +2265,8 @@ function readPos(el, defFrom) {
   if (align) pos.align = textOf(align).trim();
   const off = firstChild(el, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct = firstChild(el, "wp14:pctPosHOffset") ?? firstChild(el, "wp14:pctPosVOffset");
-  if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
+  const pct2 = firstChild(el, "wp14:pctPosHOffset") ?? firstChild(el, "wp14:pctPosVOffset");
+  if (pct2) pos.pct = parseInt(textOf(pct2).trim(), 10) || 0;
   return pos;
 }
 function anchorChild(anchor, name) {
@@ -2772,8 +2772,8 @@ function readPos2(el) {
   if (al) p.align = textContent(al).trim();
   const off = firstChild(el, "wp:posOffset");
   if (off) p.offset = int2(textContent(off).trim());
-  const pct = firstChild(el, "wp14:pctPosHOffset") ?? firstChild(el, "wp14:pctPosVOffset");
-  if (pct) p.pct = int2(textContent(pct).trim());
+  const pct2 = firstChild(el, "wp14:pctPosHOffset") ?? firstChild(el, "wp14:pctPosVOffset");
+  if (pct2) p.pct = int2(textContent(pct2).trim());
   return p;
 }
 function readPicLine(ln2) {
@@ -3300,11 +3300,11 @@ function dmlRunColor(el) {
   if (c.name === "a:sysClr") return { val: (c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
   if (c.name === "a:prstClr") return { val: c.attrs["val"] === "white" ? "FFFFFF" : "000000" };
   const spec = { themeColor: c.attrs["val"] ?? "tx1" };
-  const frac = (k) => {
+  const frac2 = (k) => {
     const m = firstChild(c, k);
     return m ? Math.round((parseInt(m.attrs["val"] ?? "100000", 10) || 0) / 1e5 * 255).toString(16).padStart(2, "0").toUpperCase() : void 0;
   };
-  const t = frac("a:tint"), sh = frac("a:shade");
+  const t = frac2("a:tint"), sh = frac2("a:shade");
   if (t) spec.themeTint = t;
   if (sh) spec.themeShade = sh;
   return spec;
@@ -3364,8 +3364,8 @@ function dmlParagraphs(body, styleEl, txFill) {
     const szPt = Math.max(mark.sz ?? 36, ...runs.map((r) => r.rpr?.sz ?? 0)) / 2;
     const gap = (tag) => {
       const e = pPr && firstChild(pPr, tag);
-      const pts = e && firstChild(e, "a:spcPts"), pct = e && firstChild(e, "a:spcPct");
-      return pts ? Math.round(num(pts) / 5) : pct ? Math.round(num(pct) / 1e5 * 1.2 * szPt * 20) : 0;
+      const pts = e && firstChild(e, "a:spcPts"), pct2 = e && firstChild(e, "a:spcPct");
+      return pts ? Math.round(num(pts) / 5) : pct2 ? Math.round(num(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
     };
     const ln2 = pPr && firstChild(pPr, "a:lnSpc");
     const lnPct = ln2 && firstChild(ln2, "a:spcPct"), lnPts = ln2 && firstChild(ln2, "a:spcPts");
@@ -3515,16 +3515,13 @@ function readVmlRuns(container, ctx, inline) {
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
       const sh = vmlShapeStyle(el, "rect");
-      let color = sh.fill ?? "000000";
+      const color = sh.fill ?? "000000";
       const a = sh.fillAlpha;
-      if (a !== void 0 && a < 1) {
-        const mix = (i2) => Math.round(parseInt(color.slice(i2, i2 + 2), 16) * a + 255 * (1 - a));
-        color = [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
-      }
       const rpr = {
         ...famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {},
         color: { val: color },
         sz: 72,
+        ...a !== void 0 && a < 1 ? { textFill: { color, alpha: Math.max(0, a) } } : {},
         .../bold|[6-9]00/.test(tps["font-weight"] ?? "") ? { b: true } : {},
         .../italic/.test(tps["font-style"] ?? "") ? { i: true } : {}
       };
@@ -4664,6 +4661,55 @@ function tableSig(t) {
   return sigHash(JSON.stringify(t, sigReplacer));
 }
 
+// ../docx-core/src/page-background.ts
+var pct = (v) => {
+  if (v === void 0 || v === "") return void 0;
+  const s = v.trim();
+  if (s.endsWith("%")) return parseFloat(s);
+  if (s.endsWith("f")) return parseInt(s, 10) / 65536 * 100;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n * 100 : void 0;
+};
+var frac = (v) => v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
+function readPageBackground(bg, resolveImage) {
+  const out = {};
+  for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
+    const v = bg.attrs[`w:${k}`];
+    if (v) out[k] = v;
+  }
+  const vbg = firstChild(bg, "v:background");
+  const vf = vbg && firstChild(vbg, "v:fill");
+  const type = vf?.attrs["type"];
+  if (vbg && vf && (type === "gradient" || type === "gradientRadial" || type === "pattern" || type === "frame" || type === "tile")) {
+    const f = { type };
+    const c1 = vmlColor(vbg.attrs["fillcolor"]);
+    if (c1) f.color = c1;
+    if (vf.attrs["color2"]) f.color2 = vf.attrs["color2"];
+    if (vf.attrs["angle"]) f.angle = parseFloat(vf.attrs["angle"]);
+    const fo = pct(vf.attrs["focus"]);
+    if (fo !== void 0) f.focus = fo;
+    const fp = vf.attrs["focusposition"];
+    if (fp !== void 0 && fp !== "") {
+      const [x2 = "", y = ""] = fp.split(",");
+      f.focusPosition = [x2.trim() ? frac(x2.trim()) : 0, y.trim() ? frac(y.trim()) : 0];
+    }
+    if (firstChild(vf, "o:fill")?.attrs["type"] === "gradientCenter") f.gradientCenter = true;
+    const colors = vf.attrs["colors"];
+    if (colors) {
+      const stops = colors.split(";").map((s) => s.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([pos, col]) => ({ pos: frac(pos), color: vmlColor(col) ?? "000000" }));
+      if (stops.length) f.colors = stops;
+    }
+    if (vf.attrs["method"]) f.method = vf.attrs["method"];
+    if (vf.attrs["o:title"] !== void 0) f.title = vf.attrs["o:title"];
+    const rid = vf.attrs["r:id"];
+    const img = rid ? resolveImage(rid) : void 0;
+    if (img) f.image = img;
+    if (vbg.attrs["o:targetscreensize"]) f.targetScreen = true;
+    out.fill = f;
+  }
+  return Object.keys(out).length ? out : void 0;
+}
+
 // ../docx-core/src/fulldoc.ts
 function readBorderSet(el, inside) {
   if (!el) return void 0;
@@ -5091,19 +5137,14 @@ function readFullDocument(pkg, opts = {}) {
     endnoteBlocks,
     noteSpecialIds,
     ...readCoreProps(pkg),
-    ...readBackground(root),
+    ...readBackground(root, ctx),
     ...store ? { sources: store } : {}
   };
 }
-function readBackground(root) {
+function readBackground(root, ctx) {
   const bg = firstChild(root, "w:background");
-  if (!bg) return {};
-  const out = {};
-  for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
-    const v = bg.attrs[`w:${k}`];
-    if (v) out[k] = v;
-  }
-  return Object.keys(out).length ? { background: out } : {};
+  const out = bg ? readPageBackground(bg, (rid) => ctx.resolveImage(rid)) : void 0;
+  return out ? { background: out } : {};
 }
 function readCoreProps(pkg) {
   const xml = pkg.getPartText("docProps/core.xml");

@@ -2536,8 +2536,8 @@ function readPos(el2, defFrom) {
   if (align) pos.align = textOf(align).trim();
   const off = firstChild(el2, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
-  if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
+  const pct2 = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
+  if (pct2) pos.pct = parseInt(textOf(pct2).trim(), 10) || 0;
   return pos;
 }
 function anchorChild(anchor, name) {
@@ -3056,8 +3056,8 @@ function readPos2(el2) {
   if (al) p.align = textContent(al).trim();
   const off = firstChild(el2, "wp:posOffset");
   if (off) p.offset = int2(textContent(off).trim());
-  const pct = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
-  if (pct) p.pct = int2(textContent(pct).trim());
+  const pct2 = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
+  if (pct2) p.pct = int2(textContent(pct2).trim());
   return p;
 }
 function readPicLine(ln2) {
@@ -3595,11 +3595,11 @@ function dmlRunColor(el2) {
   if (c.name === "a:sysClr") return { val: (c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
   if (c.name === "a:prstClr") return { val: c.attrs["val"] === "white" ? "FFFFFF" : "000000" };
   const spec = { themeColor: c.attrs["val"] ?? "tx1" };
-  const frac = (k) => {
+  const frac2 = (k) => {
     const m = firstChild(c, k);
     return m ? Math.round((parseInt(m.attrs["val"] ?? "100000", 10) || 0) / 1e5 * 255).toString(16).padStart(2, "0").toUpperCase() : void 0;
   };
-  const t = frac("a:tint"), sh = frac("a:shade");
+  const t = frac2("a:tint"), sh = frac2("a:shade");
   if (t) spec.themeTint = t;
   if (sh) spec.themeShade = sh;
   return spec;
@@ -3659,8 +3659,8 @@ function dmlParagraphs(body, styleEl, txFill) {
     const szPt = Math.max(mark.sz ?? 36, ...runs.map((r) => r.rpr?.sz ?? 0)) / 2;
     const gap = (tag2) => {
       const e = pPr && firstChild(pPr, tag2);
-      const pts = e && firstChild(e, "a:spcPts"), pct = e && firstChild(e, "a:spcPct");
-      return pts ? Math.round(num(pts) / 5) : pct ? Math.round(num(pct) / 1e5 * 1.2 * szPt * 20) : 0;
+      const pts = e && firstChild(e, "a:spcPts"), pct2 = e && firstChild(e, "a:spcPct");
+      return pts ? Math.round(num(pts) / 5) : pct2 ? Math.round(num(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
     };
     const ln2 = pPr && firstChild(pPr, "a:lnSpc");
     const lnPct = ln2 && firstChild(ln2, "a:spcPct"), lnPts = ln2 && firstChild(ln2, "a:spcPts");
@@ -3810,16 +3810,13 @@ function readVmlRuns(container, ctx, inline) {
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
       const sh = vmlShapeStyle(el2, "rect");
-      let color2 = sh.fill ?? "000000";
+      const color2 = sh.fill ?? "000000";
       const a = sh.fillAlpha;
-      if (a !== void 0 && a < 1) {
-        const mix = (i2) => Math.round(parseInt(color2.slice(i2, i2 + 2), 16) * a + 255 * (1 - a));
-        color2 = [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
-      }
       const rpr = {
         ...famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {},
         color: { val: color2 },
         sz: 72,
+        ...a !== void 0 && a < 1 ? { textFill: { color: color2, alpha: Math.max(0, a) } } : {},
         .../bold|[6-9]00/.test(tps["font-weight"] ?? "") ? { b: true } : {},
         .../italic/.test(tps["font-style"] ?? "") ? { i: true } : {}
       };
@@ -4939,6 +4936,65 @@ function tableSig(t) {
   return sigHash(JSON.stringify(t, sigReplacer));
 }
 
+// ../docx-core/src/page-background.ts
+var pct = (v) => {
+  if (v === void 0 || v === "") return void 0;
+  const s = v.trim();
+  if (s.endsWith("%")) return parseFloat(s);
+  if (s.endsWith("f")) return parseInt(s, 10) / 65536 * 100;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n * 100 : void 0;
+};
+var frac = (v) => v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
+function readPageBackground(bg, resolveImage) {
+  const out = {};
+  for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
+    const v = bg.attrs[`w:${k}`];
+    if (v) out[k] = v;
+  }
+  const vbg = firstChild(bg, "v:background");
+  const vf = vbg && firstChild(vbg, "v:fill");
+  const type = vf?.attrs["type"];
+  if (vbg && vf && (type === "gradient" || type === "gradientRadial" || type === "pattern" || type === "frame" || type === "tile")) {
+    const f = { type };
+    const c1 = vmlColor(vbg.attrs["fillcolor"]);
+    if (c1) f.color = c1;
+    if (vf.attrs["color2"]) f.color2 = vf.attrs["color2"];
+    if (vf.attrs["angle"]) f.angle = parseFloat(vf.attrs["angle"]);
+    const fo = pct(vf.attrs["focus"]);
+    if (fo !== void 0) f.focus = fo;
+    const fp = vf.attrs["focusposition"];
+    if (fp !== void 0 && fp !== "") {
+      const [x2 = "", y = ""] = fp.split(",");
+      f.focusPosition = [x2.trim() ? frac(x2.trim()) : 0, y.trim() ? frac(y.trim()) : 0];
+    }
+    if (firstChild(vf, "o:fill")?.attrs["type"] === "gradientCenter") f.gradientCenter = true;
+    const colors = vf.attrs["colors"];
+    if (colors) {
+      const stops = colors.split(";").map((s) => s.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([pos, col]) => ({ pos: frac(pos), color: vmlColor(col) ?? "000000" }));
+      if (stops.length) f.colors = stops;
+    }
+    if (vf.attrs["method"]) f.method = vf.attrs["method"];
+    if (vf.attrs["o:title"] !== void 0) f.title = vf.attrs["o:title"];
+    const rid = vf.attrs["r:id"];
+    const img = rid ? resolveImage(rid) : void 0;
+    if (img) f.image = img;
+    if (vbg.attrs["o:targetscreensize"]) f.targetScreen = true;
+    out.fill = f;
+  }
+  return Object.keys(out).length ? out : void 0;
+}
+function resolveColor2(color2, color1) {
+  if (!color2) return "FFFFFF";
+  const m = /^\s*fill(?:\s+(darken|lighten)\((\d+)\))?\s*$/i.exec(color2);
+  if (!m) return vmlColor(color2) ?? "FFFFFF";
+  if (!m[1]) return color1;
+  const n = Math.max(0, Math.min(255, parseInt(m[2], 10)));
+  const c = [0, 2, 4].map((i2) => parseInt(color1.slice(i2, i2 + 2), 16));
+  const r = m[1].toLowerCase() === "darken" ? c.map((v) => Math.floor(v * n / 255)) : c.map((v) => 255 - Math.floor((255 - v) * n / 255));
+  return r.map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 // ../docx-core/src/fulldoc.ts
 function readBorderSet(el2, inside) {
   if (!el2) return void 0;
@@ -5366,19 +5422,14 @@ function readFullDocument(pkg, opts = {}) {
     endnoteBlocks,
     noteSpecialIds,
     ...readCoreProps(pkg),
-    ...readBackground(root),
+    ...readBackground(root, ctx),
     ...store ? { sources: store } : {}
   };
 }
-function readBackground(root) {
+function readBackground(root, ctx) {
   const bg = firstChild(root, "w:background");
-  if (!bg) return {};
-  const out = {};
-  for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
-    const v = bg.attrs[`w:${k}`];
-    if (v) out[k] = v;
-  }
-  return Object.keys(out).length ? { background: out } : {};
+  const out = bg ? readPageBackground(bg, (rid) => ctx.resolveImage(rid)) : void 0;
+  return out ? { background: out } : {};
 }
 function readCoreProps(pkg) {
   const xml = pkg.getPartText("docProps/core.xml");
@@ -16718,15 +16769,15 @@ function advanceTwips(ctx, face, cp, sizePt, w = 100) {
     if (typeof sw === "string") return advanceTwips(ctx, face, sw.codePointAt(0), sizePt, w) * (cp === 8239 ? 0.5 : 1);
     return sw * sizePt * 20 * w / 100;
   }
-  let frac = 1;
+  let frac2 = 1;
   if (gid !== 0 && (cp === 8194 || cp === 8195 || cp === 8197)) {
     const dg = f.glyphId(cp === 8194 ? 8211 : 8212);
     if (dg) {
       gid = dg;
-      frac = cp === 8197 ? 1 / 4 : 1;
+      frac2 = cp === 8197 ? 1 / 4 : 1;
     }
   }
-  const units = f.advanceWidth(gid) * frac + extra;
+  const units = f.advanceWidth(gid) * frac2 + extra;
   if (ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device") {
     return wordWidth(w !== 100 ? scaledUnits(units, f, w) : units, sizePt, f.metrics.unitsPerEm);
   }
@@ -20286,11 +20337,11 @@ function boundaryWidths(cells, nCols, v, spread) {
   return w;
 }
 var prefOf = (w) => w && w.w > 0 && (w.type === "dxa" || w.type === "pct") ? w.type : "auto";
-function fitPctMins(p, cells, minOf, colMin, pct) {
+function fitPctMins(p, cells, minOf, colMin, pct2) {
   for (let it = 0; it < 2 * p.length + 2; it++) {
     let worst, need = 1e-6;
     for (const c of cells) {
-      if (!pct(c.col)) continue;
+      if (!pct2(c.col)) continue;
       const d = minOf(c) - p.slice(c.col, c.col + c.span).reduce((a, x2) => a + x2, 0);
       if (d > need) {
         need = d;
@@ -20299,7 +20350,7 @@ function fitPctMins(p, cells, minOf, colMin, pct) {
     }
     if (!worst) break;
     const s = worst.col, e = Math.min(p.length, worst.col + worst.span);
-    const others = p.map((_, k) => k).filter((k) => (k < s || k >= e) && pct(k) && p[k] > colMin[k] + 1e-6);
+    const others = p.map((_, k) => k).filter((k) => (k < s || k >= e) && pct2(k) && p[k] > colMin[k] + 1e-6);
     const have = p.slice(s, e).reduce((a, x2) => a + x2, 0);
     for (let k = s; k < e; k++) p[k] = p[k] + (have > 0 ? need * p[k] / have : need / (e - s));
     if (!others.length) continue;
@@ -20367,12 +20418,12 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     if (sp > cap + 0.5) return p2.map((x2) => x2 * cap / sp);
     return sp > 0 && T4 > sp + 0.5 ? p2.map((x2) => x2 * T4 / sp) : p2;
   }
-  const frac = Array.from({ length: nCols }, (_, j) => {
+  const frac2 = Array.from({ length: nCols }, (_, j) => {
     const own4 = all.filter((c) => c.span === 1 && c.col === j);
     if (!own4.some((c) => prefOf(c.tcW) === "pct") || own4.some((c) => prefOf(c.tcW) === "dxa")) return 0;
     return Math.max(...own4.filter((c) => prefOf(c.tcW) === "pct").map((c) => c.tcW.w / 5e3));
   });
-  const isPct = frac.map((f) => f > 0);
+  const isPct = frac2.map((f) => f > 0);
   const kind = (c, T4) => {
     const k = prefOf(c.tcW);
     if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T4 * c.tcW.w / 5e3 };
@@ -20392,10 +20443,10 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   if (T3 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
-    const fr = Math.min(1, frac.reduce((a, b) => a + b, 0));
+    const fr = Math.min(1, frac2.reduce((a, b) => a + b, 0));
     let t = rest;
     if (fr > 0) {
-      for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac[j]);
+      for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac2[j]);
       if (fr < 1) t = Math.max(t, rest / (1 - fr));
     }
     T3 = Math.min(t, avail);
@@ -20405,7 +20456,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   if (isPct.some(Boolean)) {
     let room = T3 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p[j] = Math.max(0, Math.min(frac[j] * T3, room));
+      p[j] = Math.max(0, Math.min(frac2[j] * T3, room));
       room -= p[j];
     }
     fitPctMins(p, all.filter((c) => c.span === 1), minOf, g1, (k) => isPct[k]);
@@ -21521,6 +21572,174 @@ function custPaths(cust, x2, y, w, h, opts = {}) {
   });
 }
 
+// ../docx-layout/src/page-fill.ts
+function resolvePageFill(bg, pageColor) {
+  const f = bg.fill;
+  if (!f) return void 0;
+  const c1 = (f.color ?? pageColor ?? "FFFFFF").toUpperCase();
+  const out = {
+    type: f.type,
+    c1,
+    c2: resolveColor2(f.color2, c1),
+    angle: f.angle ?? 0,
+    focus: f.focus ?? 0,
+    ...f.colors?.length ? { stops: f.colors } : {},
+    ...f.focusPosition ? { focusPosition: f.focusPosition } : {},
+    ...f.gradientCenter ? { gradientCenter: true } : {}
+  };
+  if (f.image) {
+    const info = imagePixelInfo(f.image.data);
+    out.image = { data: f.image.data, ext: f.image.ext, widthTwips: info ? info.w * 1440 / info.dpi : 1440, heightTwips: info ? info.h * 1440 / info.dpi : 1440 };
+    if (info) out.imagePx = info;
+    if (f.type === "pattern") {
+      const rows = patternRowsFromImage(f.image.data);
+      if (rows) out.pattern = rows;
+    }
+  }
+  if (f.type === "pattern" && !out.pattern) return void 0;
+  if ((f.type === "frame" || f.type === "tile") && !out.imagePx) return void 0;
+  return out;
+}
+var tri = (q) => 1 - Math.abs(1 - 2 * q);
+var fract = (v) => v - Math.floor(v);
+var near = (a, b) => Math.abs(a - b) < 0.5;
+function fillParam(f, x2, y, pdfCorner = false) {
+  const fo = f.focus;
+  if (f.type === "gradientRadial") {
+    if (f.gradientCenter) {
+      const qx = pdfCorner ? x2 : tri(x2), qy = pdfCorner ? y : tri(y);
+      const [fx2, fy2] = f.focusPosition ?? [0, 0];
+      const p2 = Math.max(Math.abs(qx - fx2), Math.abs(qy - fy2));
+      return fo > 0 ? p2 : 1 - p2;
+    }
+    const [fx, fy] = f.focusPosition ?? [0.5, 0.5];
+    const p = Math.min(1, Math.max(Math.abs(x2 - fx) / Math.max(fx, 1 - fx, 1e-6), Math.abs(y - fy) / Math.max(fy, 1 - fy, 1e-6)));
+    return fo > 0 ? p : 1 - p;
+  }
+  let a = (f.angle % 360 + 360) % 360;
+  if (a > 180) a -= 360;
+  if (near(a, 0) || near(Math.abs(a), 180)) return fo > 0 ? tri(y) : 1 - tri(y);
+  if (near(Math.abs(a), 90)) return fo >= 75 || fo < 0 ? tri(x2) : 1 - tri(x2);
+  if (near(a, -135) || near(a, 45)) {
+    const q2 = (x2 + y) / 2;
+    if (fo >= 75) return tri(q2);
+    if (fo > 0) return 1 - tri(fract(2 * q2));
+    if (fo < 0) return tri(fract(2 * q2));
+    return 1 - tri(q2);
+  }
+  if (near(a, -45) || near(a, 135)) {
+    const v = x2 - y;
+    const base = 1 - Math.abs(((v + 1.5) % 2 + 2) % 2 - 1);
+    if (fo >= 75) return 1 - base;
+    if (fo > 0) return tri(fract(v));
+    if (fo < 0) return 1 - tri(fract(v));
+    return base;
+  }
+  const r = a * Math.PI / 180;
+  const dx = -Math.sin(r), dy = Math.cos(r);
+  const lo = Math.min(0, dx) + Math.min(0, dy), hi = Math.max(0, dx) + Math.max(0, dy);
+  const q = hi > lo ? (x2 * dx + y * dy - lo) / (hi - lo) : 0;
+  return fo > 0 ? tri(q) : 1 - tri(q);
+}
+function ramp(f, n) {
+  const stops = f.stops?.length ? f.stops : [{ pos: 0, color: f.c1 }, { pos: 1, color: f.c2 }];
+  return gradientSamples(stops, n);
+}
+function gradientTilePx(f, pdf) {
+  return pdf && f.type === "gradientRadial" && f.gradientCenter ? { w: 512, h: 384 } : { w: 1024, h: 768 };
+}
+function gradientTileRgba(f, w, h, pdf = false) {
+  const N = 1024;
+  const lut = ramp(f, N);
+  const out = new Uint8Array(w * h * 4);
+  const corner = pdf && f.type === "gradientRadial" && !!f.gradientCenter;
+  for (let j = 0; j < h; j++) {
+    const y = h > 1 ? j / (h - 1) : 0;
+    for (let i2 = 0; i2 < w; i2++) {
+      const x2 = w > 1 ? i2 / (w - 1) : 0;
+      const k = Math.max(0, Math.min(N - 1, Math.round(fillParam(f, x2, y, corner) * (N - 1)))) * 3;
+      const o = (j * w + i2) * 4;
+      out[o] = lut[k];
+      out[o + 1] = lut[k + 1];
+      out[o + 2] = lut[k + 2];
+      out[o + 3] = 255;
+    }
+  }
+  return out;
+}
+function patternRgba(f) {
+  const out = new Uint8Array(64 * 4);
+  const fg = hexRgb2(f.c1), bg = hexRgb2(f.c2);
+  for (let y = 0; y < 8; y++) {
+    for (let x2 = 0; x2 < 8; x2++) {
+      const on = (f.pattern?.[y] ?? 0) >> 7 - x2 & 1;
+      const c = on ? fg : bg;
+      const o = (y * 8 + x2) * 4;
+      out[o] = c[0];
+      out[o + 1] = c[1];
+      out[o + 2] = c[2];
+      out[o + 3] = 255;
+    }
+  }
+  return out;
+}
+var hexRgb2 = (h) => [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
+function pageFillTileTw(f, devicePxTw, patternPxTw, pdf = false) {
+  if (f.type === "gradient" || f.type === "gradientRadial") {
+    const t = gradientTilePx(f, pdf);
+    return { w: t.w * devicePxTw, h: t.h * devicePxTw };
+  }
+  if (f.type === "pattern") return f.pattern ? { w: 8 * patternPxTw, h: 8 * patternPxTw } : null;
+  const px = f.imagePx;
+  if (!px || px.w <= 0 || px.h <= 0) return null;
+  if (f.type === "frame") return { w: px.w * devicePxTw, h: px.h * devicePxTw };
+  const dpi = px.dpi > 0 ? px.dpi : 96;
+  return { w: px.w * 1440 / dpi, h: px.h * 1440 / dpi };
+}
+function imagePixelInfo(b) {
+  if (b[0] === 137 && b[1] === 80) {
+    const w = (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, h = (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0;
+    let dpi = 96;
+    for (let i2 = 8; i2 + 8 < b.length; ) {
+      const len = (b[i2] << 24 | b[i2 + 1] << 16 | b[i2 + 2] << 8 | b[i2 + 3]) >>> 0;
+      const type = String.fromCharCode(b[i2 + 4], b[i2 + 5], b[i2 + 6], b[i2 + 7]);
+      if (type === "pHYs" && b[i2 + 16] === 1) dpi = Math.round(((b[i2 + 8] << 24 | b[i2 + 9] << 16 | b[i2 + 10] << 8 | b[i2 + 11]) >>> 0) * 0.0254);
+      if (type === "IDAT" || type === "IEND") break;
+      i2 += 12 + len;
+    }
+    return { w, h, dpi };
+  }
+  const jp = jpegInfo(b);
+  if (jp) {
+    let dpi = 96;
+    if (b[2] === 255 && b[3] === 224 && b[6] === 74 && b[7] === 70 && b[13] === 1) dpi = b[14] << 8 | b[15];
+    return { w: jp.width, h: jp.height, dpi: dpi || 96 };
+  }
+  if (b[0] === 71 && b[1] === 73 && b[2] === 70) return { w: b[6] | b[7] << 8, h: b[8] | b[9] << 8, dpi: 96 };
+  if (b[0] === 66 && b[1] === 77) {
+    const w = b[18] | b[19] << 8 | b[20] << 16, h = Math.abs(b[22] | b[23] << 8 | b[24] << 16 | b[25] << 24 | 0);
+    const ppm = (b[38] | b[39] << 8 | b[40] << 16 | b[41] << 24) >>> 0;
+    return { w, h, dpi: ppm ? Math.round(ppm * 0.0254) : 96 };
+  }
+  const png = decodePng(b);
+  return png ? { w: png.width, h: png.height, dpi: 96 } : null;
+}
+function patternRowsFromImage(b) {
+  const img = decodeGif(b) ?? decodePng(b);
+  if (!img || img.width < 8 || img.height < 8) return void 0;
+  const rows = [];
+  for (let y = 0; y < 8; y++) {
+    let r = 0;
+    for (let x2 = 0; x2 < 8; x2++) {
+      const o = (y * img.width + x2) * 4;
+      const lum = 0.299 * img.data[o] + 0.587 * img.data[o + 1] + 0.114 * img.data[o + 2];
+      if (lum >= 128) r |= 128 >> x2;
+    }
+    rows.push(r);
+  }
+  return rows;
+}
+
 // ../docx-layout/src/frames.ts
 var FRAME_INFO = /* @__PURE__ */ new WeakMap();
 var FRAME_SKIP = /* @__PURE__ */ new WeakSet();
@@ -22111,6 +22330,8 @@ var Engine = class {
     }
     const bgSpec = full.background;
     const bg = bgSpec ? resolveColor({ ...bgSpec.color ? { val: bgSpec.color } : {}, ...bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}, ...bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}, ...bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {} }, this.ctx.fmt.theme) : void 0;
+    const bgFill = bgSpec?.fill ? resolvePageFill(bgSpec, bg) : void 0;
+    const bgShow = !!this.ctx.fmt.settings.displayBackgroundShape;
     const pages = this.pages.map((ps) => {
       const late = (arr) => {
         const keep = [], front = [], back = [];
@@ -22150,6 +22371,8 @@ var Engine = class {
       }
       ps.page.hfItems = hfLayer.length;
       if (bg && bg.toUpperCase() !== "FFFFFF" && bg !== "auto") ps.page.background = bg;
+      if (bgFill) ps.page.backgroundFill = bgFill;
+      if (bgShow && (ps.page.background || bgFill)) ps.page.backgroundShow = true;
       return ps.page;
     });
     return { pages, warnings: [...this.ctx.warnings] };
@@ -24578,12 +24801,28 @@ var Engine = class {
       if (tbContent) {
         const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
         const rot = tb.rot ?? s?.rot ?? 0;
-        if (rot) out.push({ t: "xform", op: "push", m: rotation(x2 + w / 2, y + h / 2, rot) });
+        let art = null;
         if (tb.wordArt && tbContent.lines.length) {
           const x0 = Math.min(...tbContent.lines.map((l) => l.x)), x1 = Math.max(...tbContent.lines.map((l) => l.x + l.width));
           const iw = Math.max(1, w - ins.l - ins.r), ih = Math.max(1, h - ins.t - ins.b);
           const sx = iw / Math.max(1, x1 - x0), sy = ih / Math.max(1, tbContent.height);
-          out.push({ t: "xform", op: "push", m: [sx, 0, 0, sy, x2 + ins.l - x0 * sx, y + ins.t] });
+          art = { m: [sx, 0, 0, sy, x2 + ins.l - x0 * sx, y + ins.t], dy: 0 };
+          const g0 = tb.vml ? tbContent.items.find((it) => it.t === "glyphs") : void 0;
+          if (g0 && tbContent.lines.length === 1) {
+            const fm = g0.face.font.metrics, u = fm.unitsPerEm || 1e3;
+            const desc = (fm.usWinDescent || -fm.descender) / u;
+            const sy2 = ih / Math.max(1, g0.sizePt * 20);
+            art.m = [sx, 0, 0, sy2, x2 + ins.l - x0 * sx, y + ins.t + ih - ih * desc - g0.y * sy2];
+            if (rot % 180 !== 0 && tb.anchor?.posV.align === "center") {
+              const ink = rotatedInkY(tbContent.items, art.m, x2 + w / 2, y + h / 2, rot);
+              if (ink) art.dy = y + h / 2 - (ink.lo + ink.hi) / 2;
+            }
+          }
+        }
+        if (art?.dy) out.push({ t: "xform", op: "push", m: [1, 0, 0, 1, 0, art.dy] });
+        if (rot) out.push({ t: "xform", op: "push", m: rotation(x2 + w / 2, y + h / 2, rot) });
+        if (art) {
+          out.push({ t: "xform", op: "push", m: art.m });
           for (const it of tbContent.items) out.push(it.t === "glyphs" ? { ...it, asPath: true } : it);
           out.push({ t: "xform", op: "pop" });
         } else {
@@ -24612,6 +24851,7 @@ var Engine = class {
           out.push({ t: "clip", op: "pop" });
         }
         if (rot) out.push({ t: "xform", op: "pop" });
+        if (art?.dy) out.push({ t: "xform", op: "pop" });
       }
     } else if (run.group) {
       const gr = run.group;
@@ -24703,8 +24943,8 @@ function textRectInsets(g, w, h) {
       return null;
   }
 }
-function alignPos(align, offset, base, span, size, pct, pageSpan, e0 = 0, e1 = 0) {
-  if (align && (e0 || e1)) return alignPos(align, offset, base, span, size + e0 + e1, pct, pageSpan) + e0;
+function alignPos(align, offset, base, span, size, pct2, pageSpan, e0 = 0, e1 = 0) {
+  if (align && (e0 || e1)) return alignPos(align, offset, base, span, size + e0 + e1, pct2, pageSpan) + e0;
   if (align) {
     switch (align) {
       case "center":
@@ -24717,7 +24957,7 @@ function alignPos(align, offset, base, span, size, pct, pageSpan, e0 = 0, e1 = 0
         return base;
     }
   }
-  if (pct !== void 0) return base + pct / 1e5 * pageSpan;
+  if (pct2 !== void 0) return base + pct2 / 1e5 * pageSpan;
   return base + (offset ?? 0);
 }
 var PFMT = /* @__PURE__ */ new WeakMap();
@@ -24857,6 +25097,33 @@ function scratchPage(ps) {
     floats: [...ps.floats],
     notes: []
   };
+}
+function rotatedInkY(items, m, cx, cy, rotDeg) {
+  const r = rotDeg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+  let lo = Infinity, hi = -Infinity;
+  for (const it of items) {
+    if (it.t !== "glyphs") continue;
+    const font = it.face.font;
+    if (!font.glyphOutline) continue;
+    const k = it.sizePt * 20 / (font.metrics.unitsPerEm || 1e3);
+    const sxg = it.scaleX ?? 1;
+    for (const g of it.glyphs) {
+      const ol = font.glyphOutline(g.gid ?? font.glyphId(g.cp));
+      if (!ol) continue;
+      for (const c of ol) {
+        if (c.op === "Z") continue;
+        const pts = c.op === "Q" ? [[c.cx, c.cy], [c.x, c.y]] : [[c.x, c.y]];
+        for (const [px, py] of pts) {
+          const lx = g.x + px * k * sxg, ly = it.y - py * k;
+          const X = m[0] * lx + m[2] * ly + m[4], Y = m[1] * lx + m[3] * ly + m[5];
+          const Yr = cy + (X - cx) * sn + (Y - cy) * cs;
+          if (Yr < lo) lo = Yr;
+          if (Yr > hi) hi = Yr;
+        }
+      }
+    }
+  }
+  return lo <= hi ? { lo, hi } : null;
 }
 
 // ../docx-layout/src/tree.ts
@@ -25205,9 +25472,20 @@ function renderPdf(result, opts = {}) {
   };
   const adjustedFor = /* @__PURE__ */ new Map();
   void adjusted2;
+  const bgImages = /* @__PURE__ */ new Map();
+  const bgImage = (key, make) => {
+    let h = bgImages.get(key);
+    if (!h) {
+      const r = make();
+      h = doc.embedRgba(r.rgba, r.w, r.h);
+      bgImages.set(key, h);
+    }
+    return h;
+  };
   for (const lp of result.pages) {
     const page = doc.addPage(lp.widthTw / T2, lp.heightTw / T2);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T2, lp.heightTw / T2, hexColor(lp.background));
+    if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
     for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
   }
   return doc.build();
@@ -25426,6 +25704,33 @@ function linePath(x2, y, w, h, line, flipH = false, flipV = false) {
   const [x1, x22] = flipH ? [x2 + w, x2] : [x2, x2 + w];
   const [y1, y2] = flipV ? [y + h, y] : [y, y + h];
   return [{ op: "M", x: x1, y: y1 }, { op: "L", x: x22, y: y2 }];
+}
+function paintFillPdf(page, lp, f, bgImage, imageFor) {
+  const tile = pageFillTileTw(f, 2.4, 20, true);
+  if (!tile) return;
+  let img = null;
+  let tw2 = tile.w / T2, th = tile.h / T2;
+  if (f.type === "gradient" || f.type === "gradientRadial") {
+    const pw = Math.max(2, Math.round(tw2 * 96 / 72)), ph = Math.max(2, Math.round(th * 96 / 72));
+    img = bgImage(
+      `g|${JSON.stringify([f.type, f.c1, f.c2, f.stops, f.angle, f.focus, f.focusPosition, f.gradientCenter])}|${pw}x${ph}`,
+      () => ({ rgba: gradientTileRgba(f, pw, ph, true), w: pw, h: ph })
+    );
+  } else if (f.type === "pattern") {
+    const base = patternRgba(f);
+    img = bgImage(`p|${f.c1}|${f.c2}|${f.pattern?.join(",")}`, () => {
+      const rgba = new Uint8Array(64 * 64 * 4);
+      for (let y = 0; y < 64; y++) for (let x2 = 0; x2 < 64; x2++) rgba.set(base.subarray((y % 8 * 8 + x2 % 8) * 4, (y % 8 * 8 + x2 % 8) * 4 + 4), (y * 64 + x2) * 4);
+      return { rgba, w: 64, h: 64 };
+    });
+    tw2 *= 8;
+    th *= 8;
+  } else if (f.image) img = imageFor(f.image);
+  if (!img || tw2 <= 0 || th <= 0) return;
+  const W = lp.widthTw / T2, H = lp.heightTw / T2;
+  page.pushClipRect(0, 0, W, H);
+  for (let y = 0; y < H; y += th) for (let x2 = 0; x2 < W; x2 += tw2) page.drawImage(img, x2, y, tw2, th);
+  page.popClip();
 }
 
 // ../docx-layout/src/canvas-picture.ts
@@ -25695,6 +26000,62 @@ function paintPicture(ctx, it, bmp) {
 
 // ../docx-layout/src/canvas.ts
 var HEX6 = /^[0-9A-Fa-f]{6}$/;
+var fillTiles = /* @__PURE__ */ new Map();
+function rgbaCanvas(rgba, w, h) {
+  const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(w, h) : typeof document !== "undefined" ? Object.assign(document.createElement("canvas"), { width: w, height: h }) : null;
+  const x2 = c?.getContext("2d");
+  if (!c || !x2) return null;
+  const id = x2.createImageData(w, h);
+  id.data.set(rgba);
+  x2.putImageData(id, 0, 0);
+  return c;
+}
+function paintPageBackground(ctx, page, env, opts) {
+  const show = !opts.screen || !!page.backgroundShow;
+  const f = show ? page.backgroundFill : void 0;
+  const solid = show && page.background && !(f && (f.type === "frame" || f.type === "tile")) ? `#${page.background}` : f && (f.type === "frame" || f.type === "tile") ? "#ffffff" : opts.paper;
+  ctx.fillStyle = solid;
+  ctx.fillRect(0, 0, page.widthTw, page.heightTw);
+  if (!f) return;
+  const tile = pageFillTileTw(f, opts.devicePxTw, opts.devicePxTw);
+  if (!tile) return;
+  let src = null;
+  let srcW = 1, srcH = 1;
+  if (f.type === "gradient" || f.type === "gradientRadial") {
+    const t = gradientTilePx(f, false);
+    const key = `g|${JSON.stringify([f.type, f.c1, f.c2, f.stops, f.angle, f.focus, f.focusPosition, f.gradientCenter])}`;
+    src = fillTiles.get(key) ?? null;
+    if (!src) {
+      src = rgbaCanvas(gradientTileRgba(f, t.w, t.h), t.w, t.h);
+      if (src) fillTiles.set(key, src);
+    }
+    srcW = t.w;
+    srcH = t.h;
+  } else if (f.type === "pattern") {
+    const key = `p|${f.c1}|${f.c2}|${f.pattern?.join(",")}`;
+    src = fillTiles.get(key) ?? null;
+    if (!src) {
+      src = rgbaCanvas(patternRgba(f), 8, 8);
+      if (src) fillTiles.set(key, src);
+    }
+    srcW = 8;
+    srcH = 8;
+  } else if (f.image) {
+    src = env.image(f.image);
+    srcW = f.imagePx?.w ?? 1;
+    srcH = f.imagePx?.h ?? 1;
+  }
+  if (!src) return;
+  if (fillTiles.size > 32) fillTiles.clear();
+  const pat = ctx.createPattern(src, "repeat");
+  if (!pat) return;
+  pat.setTransform(new DOMMatrix([tile.w / srcW, 0, 0, tile.h / srcH, 0, 0]));
+  ctx.save();
+  if (f.type === "pattern") ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, page.widthTw, page.heightTw);
+  ctx.restore();
+}
 var K4 = 0.5523;
 function paintItems(ctx, items, env, opts = {}) {
   const from = opts.from ?? 0;
@@ -26969,8 +27330,8 @@ var DocumentControls = class {
     if (!this.bar.enabled) return;
     const h = this.host, L = this.labels, b = this.bar;
     const n = h.count();
-    const frac = h.progress();
-    b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100), text: h.positionText() });
+    const frac2 = h.progress();
+    b.setProgress(frac2, { label: L.progress, min: 0, max: 100, now: Math.round(frac2 * 100), text: h.positionText() });
     const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab(), cmOpen = h.commentsOpen(), view = h.view();
     const avail = CONTROL_ITEMS.map((it) => h.available(it) ? 1 : 0).join("");
     const counter = h.counter();
@@ -26991,14 +27352,14 @@ var DocumentControls = class {
     this.last = state;
     b.applyVisibility((it) => n > 0 && h.available(it));
     b.setCounter(counter);
-    const pct = `${Math.round(z.factor * 100)}%`;
+    const pct2 = `${Math.round(z.factor * 100)}%`;
     b.setButton("prev", { label: L.prev });
     b.setButton("next", { label: L.next });
     b.setButton("outline", { label: L.outline, pressed: tab === "outline" });
     b.setButton("thumbnails", { label: L.thumbnails, pressed: tab === "pages" });
     b.setButton("comments", { label: L.comments, pressed: cmOpen });
     b.setButton("zoom-out", { label: L.zoomOut });
-    b.setButton("zoom-level", { label: `${L.zoom}: ${pct}`, text: pct, expanded: this.menuFor?.button === "zoom-level" });
+    b.setButton("zoom-level", { label: `${L.zoom}: ${pct2}`, text: pct2, expanded: this.menuFor?.button === "zoom-level" });
     b.setButton("zoom-in", { label: L.zoomIn });
     b.setButton("view", { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === "view" });
     b.setButton("download", { label: L.download });
@@ -27706,9 +28067,13 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.fillStyle = p.background ? `#${p.background}` : "#ffffff";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, w, h);
     ctx.setTransform(sc, 0, 0, sc, 0, -topTw * sc);
+    try {
+      paintPageBackground(ctx, p, this.paintEnv(), { devicePxTw: (window.devicePixelRatio || 1) / sc, screen: true, paper: "#ffffff" });
+    } catch {
+    }
     try {
       paintItems(ctx, p.items, this.paintEnv());
     } catch {

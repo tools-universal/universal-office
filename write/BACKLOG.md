@@ -82,7 +82,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Caixa de texto | ◐ inserir; Painel de Seleção | em curso |
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | em curso |
-| Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | em curso |
+| Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | feito |
 | Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | — |
 | Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | — |
 | Exibir | Estrutura de Tópicos e Rascunho no ribbon (os modos já existem); Lado a Lado; Uma Página/Várias Páginas/Largura da Página; Dividir; Nova Janela/Organizar Tudo/Rolagem Sincronizada | — |
@@ -135,6 +135,8 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Imagem | Rotação 3D/perspectiva: gravada e preservada, mas desenhada plana |
 | Imagem | Fora desta frente: Remover Plano de Fundo, Efeitos Artísticos (os do arquivo seguem visíveis), Layout da Imagem (SmartArt), Alterar Imagem de Imagens Online/Ícones, Definir como Layout Padrão |
 | Imagem | Charts e slides-core ainda têm cópias próprias da matemática de cor; migrar para `shared/drawingml` |
+| Página | Guia Design: faltam Temas do documento (cores, fontes, efeitos) e conjuntos de estilos — frente própria |
+| Página | Tamanho "Auto" da marca-d'água personalizada foi inferido, não medido; hex de cor de tema pode diferir ±1 |
 
 ### Fora do escopo
 

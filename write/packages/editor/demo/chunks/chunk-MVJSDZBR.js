@@ -2375,8 +2375,8 @@ function readPos(el3, defFrom) {
   if (align) pos.align = textOf(align).trim();
   const off = firstChild(el3, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct = firstChild(el3, "wp14:pctPosHOffset") ?? firstChild(el3, "wp14:pctPosVOffset");
-  if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
+  const pct2 = firstChild(el3, "wp14:pctPosHOffset") ?? firstChild(el3, "wp14:pctPosVOffset");
+  if (pct2) pos.pct = parseInt(textOf(pct2).trim(), 10) || 0;
   return pos;
 }
 function anchorChild(anchor, name) {
@@ -2983,8 +2983,8 @@ function readPos2(el3) {
   if (al) p.align = textContent(al).trim();
   const off = firstChild(el3, "wp:posOffset");
   if (off) p.offset = int2(textContent(off).trim());
-  const pct = firstChild(el3, "wp14:pctPosHOffset") ?? firstChild(el3, "wp14:pctPosVOffset");
-  if (pct) p.pct = int2(textContent(pct).trim());
+  const pct2 = firstChild(el3, "wp14:pctPosHOffset") ?? firstChild(el3, "wp14:pctPosVOffset");
+  if (pct2) p.pct = int2(textContent(pct2).trim());
   return p;
 }
 function readPicLine(ln2) {
@@ -3305,8 +3305,8 @@ function wrapXml(kind, wrapText, polygon) {
 }
 var posXml = (tag, p) => {
   if (p.align === void 0 && p.pct !== void 0) {
-    const pct = tag === "wp:positionH" ? "wp14:pctPosHOffset" : "wp14:pctPosVOffset";
-    return `<mc:AlternateContent><mc:Choice Requires="wp14"><${tag} relativeFrom="${p.relativeFrom}"><${pct}>${Math.round(p.pct)}</${pct}></${tag}></mc:Choice><mc:Fallback><${tag} relativeFrom="page"><wp:posOffset>${Math.round(p.fallback ?? 0)}</wp:posOffset></${tag}></mc:Fallback></mc:AlternateContent>`;
+    const pct2 = tag === "wp:positionH" ? "wp14:pctPosHOffset" : "wp14:pctPosVOffset";
+    return `<mc:AlternateContent><mc:Choice Requires="wp14"><${tag} relativeFrom="${p.relativeFrom}"><${pct2}>${Math.round(p.pct)}</${pct2}></${tag}></mc:Choice><mc:Fallback><${tag} relativeFrom="page"><wp:posOffset>${Math.round(p.fallback ?? 0)}</wp:posOffset></${tag}></mc:Fallback></mc:AlternateContent>`;
   }
   const inner = p.align !== void 0 ? `<wp:align>${p.align}</wp:align>` : `<wp:posOffset>${Math.round(p.offset ?? 0)}</wp:posOffset>`;
   return `<${tag} relativeFrom="${p.relativeFrom}">${inner}</${tag}>`;
@@ -3911,11 +3911,11 @@ function dmlRunColor(el3) {
   if (c.name === "a:sysClr") return { val: (c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
   if (c.name === "a:prstClr") return { val: c.attrs["val"] === "white" ? "FFFFFF" : "000000" };
   const spec = { themeColor: c.attrs["val"] ?? "tx1" };
-  const frac = (k) => {
+  const frac2 = (k) => {
     const m = firstChild(c, k);
     return m ? Math.round((parseInt(m.attrs["val"] ?? "100000", 10) || 0) / 1e5 * 255).toString(16).padStart(2, "0").toUpperCase() : void 0;
   };
-  const t = frac("a:tint"), sh = frac("a:shade");
+  const t = frac2("a:tint"), sh = frac2("a:shade");
   if (t) spec.themeTint = t;
   if (sh) spec.themeShade = sh;
   return spec;
@@ -3975,8 +3975,8 @@ function dmlParagraphs(body, styleEl, txFill) {
     const szPt = Math.max(mark.sz ?? 36, ...runs.map((r) => r.rpr?.sz ?? 0)) / 2;
     const gap = (tag) => {
       const e = pPr && firstChild(pPr, tag);
-      const pts = e && firstChild(e, "a:spcPts"), pct = e && firstChild(e, "a:spcPct");
-      return pts ? Math.round(num2(pts) / 5) : pct ? Math.round(num2(pct) / 1e5 * 1.2 * szPt * 20) : 0;
+      const pts = e && firstChild(e, "a:spcPts"), pct2 = e && firstChild(e, "a:spcPct");
+      return pts ? Math.round(num2(pts) / 5) : pct2 ? Math.round(num2(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
     };
     const ln2 = pPr && firstChild(pPr, "a:lnSpc");
     const lnPct = ln2 && firstChild(ln2, "a:spcPct"), lnPts = ln2 && firstChild(ln2, "a:spcPts");
@@ -4145,16 +4145,13 @@ function readVmlRuns(container, ctx, inline) {
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
       const sh = vmlShapeStyle(el3, "rect");
-      let color = sh.fill ?? "000000";
+      const color = sh.fill ?? "000000";
       const a = sh.fillAlpha;
-      if (a !== void 0 && a < 1) {
-        const mix = (i2) => Math.round(parseInt(color.slice(i2, i2 + 2), 16) * a + 255 * (1 - a));
-        color = [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
-      }
       const rpr = {
         ...famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {},
         color: { val: color },
         sz: 72,
+        ...a !== void 0 && a < 1 ? { textFill: { color, alpha: Math.max(0, a) } } : {},
         .../bold|[6-9]00/.test(tps["font-weight"] ?? "") ? { b: true } : {},
         .../italic/.test(tps["font-style"] ?? "") ? { i: true } : {}
       };
@@ -4867,8 +4864,8 @@ function buildReadContext(pkg, relsPath) {
     }
   };
 }
-var tw = (el3, attr, fallback) => {
-  const v = el3?.attrs[attr];
+var tw = (el3, attr2, fallback) => {
+  const v = el3?.attrs[attr2];
   return v === void 0 ? fallback : parseInt(v, 10);
 };
 function readSectPr(sectEl) {
@@ -7131,6 +7128,329 @@ function tableSig(t) {
   return sigHash(JSON.stringify(t, sigReplacer));
 }
 
+// ../docx-core/src/page-background.ts
+var pct = (v) => {
+  if (v === void 0 || v === "") return void 0;
+  const s = v.trim();
+  if (s.endsWith("%")) return parseFloat(s);
+  if (s.endsWith("f")) return parseInt(s, 10) / 65536 * 100;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n * 100 : void 0;
+};
+var frac = (v) => v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
+function readPageBackground(bg, resolveImage) {
+  const out = {};
+  for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
+    const v = bg.attrs[`w:${k}`];
+    if (v) out[k] = v;
+  }
+  const vbg = firstChild(bg, "v:background");
+  const vf = vbg && firstChild(vbg, "v:fill");
+  const type = vf?.attrs["type"];
+  if (vbg && vf && (type === "gradient" || type === "gradientRadial" || type === "pattern" || type === "frame" || type === "tile")) {
+    const f = { type };
+    const c1 = vmlColor(vbg.attrs["fillcolor"]);
+    if (c1) f.color = c1;
+    if (vf.attrs["color2"]) f.color2 = vf.attrs["color2"];
+    if (vf.attrs["angle"]) f.angle = parseFloat(vf.attrs["angle"]);
+    const fo = pct(vf.attrs["focus"]);
+    if (fo !== void 0) f.focus = fo;
+    const fp = vf.attrs["focusposition"];
+    if (fp !== void 0 && fp !== "") {
+      const [x2 = "", y = ""] = fp.split(",");
+      f.focusPosition = [x2.trim() ? frac(x2.trim()) : 0, y.trim() ? frac(y.trim()) : 0];
+    }
+    if (firstChild(vf, "o:fill")?.attrs["type"] === "gradientCenter") f.gradientCenter = true;
+    const colors = vf.attrs["colors"];
+    if (colors) {
+      const stops = colors.split(";").map((s) => s.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([pos, col]) => ({ pos: frac(pos), color: vmlColor(col) ?? "000000" }));
+      if (stops.length) f.colors = stops;
+    }
+    if (vf.attrs["method"]) f.method = vf.attrs["method"];
+    if (vf.attrs["o:title"] !== void 0) f.title = vf.attrs["o:title"];
+    const rid = vf.attrs["r:id"];
+    const img = rid ? resolveImage(rid) : void 0;
+    if (img) f.image = img;
+    if (vbg.attrs["o:targetscreensize"]) f.targetScreen = true;
+    out.fill = f;
+  }
+  return Object.keys(out).length ? out : void 0;
+}
+var NAMED = {
+  "000000": "black",
+  "FFFFFF": "white",
+  "FF0000": "red",
+  "008000": "green",
+  "0000FF": "blue",
+  "FFFF00": "yellow",
+  "808080": "gray",
+  "C0C0C0": "silver",
+  "000080": "navy",
+  "800000": "maroon",
+  "008080": "teal",
+  "808000": "olive",
+  "800080": "purple",
+  "FF00FF": "fuchsia",
+  "00FFFF": "aqua",
+  "00FF00": "lime"
+};
+function vmlColorAttr(hex2) {
+  const h = hex2.replace(/^#/, "").toUpperCase();
+  const name = NAMED[h];
+  if (name) return name;
+  const l = h.toLowerCase();
+  return l[0] === l[1] && l[2] === l[3] && l[4] === l[5] ? `#${l[0]}${l[2]}${l[4]}` : `#${l}`;
+}
+var escAttr2 = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+var pctAttr = (v) => `${Math.round(v * 100) / 100}%`;
+var fracAttr = (v) => v === 0 ? "0" : v === 1 ? "1" : String(Math.round(v * 1e3) / 1e3).replace(/^0\./, ".");
+function pageBackgroundXml(bg, rid) {
+  const f = bg.fill;
+  const image = f && (f.type === "frame" || f.type === "tile");
+  const color = image ? "FFFFFF" : bg.color ?? f?.color ?? "FFFFFF";
+  const attrs3 = `w:color="${color.toUpperCase()}"` + (bg.themeColor && !f ? ` w:themeColor="${bg.themeColor}"` : "") + (bg.themeTint && !f ? ` w:themeTint="${bg.themeTint}"` : "") + (bg.themeShade && !f ? ` w:themeShade="${bg.themeShade}"` : "");
+  if (!f) return `<w:background ${attrs3}/>`;
+  const vbg = '<v:background id="_x0000_s1025" o:bwmode="white"' + (!image && f.color ? ` fillcolor="${vmlColorAttr(f.color)}"` : "") + (f.type === "gradient" || f.type === "gradientRadial" || f.type === "frame" ? ' o:targetscreensize="1024,768"' : "") + ">";
+  let fill = "<v:fill";
+  if (rid) fill += ` r:id="${rid}"`;
+  if (f.title !== void 0 && (f.type === "pattern" || image)) fill += ` o:title="${escAttr2(f.title)}"`;
+  if (f.color2 !== void 0) fill += ` color2="${escAttr2(f.color2)}"`;
+  if (f.colors?.length) fill += ` colors="${f.colors.map((s) => `${s.pos === 0 ? "0" : s.pos === 1 ? "1" : `${Math.round(s.pos * 65536)}f`} ${vmlColorAttr(s.color)}`).join(";")}"`;
+  if (f.angle) fill += ` angle="${Math.round(f.angle)}"`;
+  if (f.method) fill += ` method="${escAttr2(f.method)}"`;
+  if (f.focusPosition) {
+    const [x2, y] = f.focusPosition;
+    fill += ` focusposition="${x2 ? fracAttr(x2) : ""}${y ? `,${fracAttr(y)}` : ""}" focussize=""`;
+  }
+  if (f.focus) fill += ` focus="${pctAttr(f.focus)}"`;
+  fill += ` type="${f.type}"`;
+  fill += f.gradientCenter ? '><o:fill v:ext="view" type="gradientCenter"/></v:fill>' : "/>";
+  return `<w:background ${attrs3}>${vbg}${fill}</v:background></w:background>`;
+}
+var NS = [
+  ["v", "urn:schemas-microsoft-com:vml"],
+  ["o", "urn:schemas-microsoft-com:office:office"],
+  ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"]
+];
+var MIME = {
+  png: "image/png",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+  emf: "image/x-emf",
+  wmf: "image/x-wmf"
+};
+function writePageBackground(pkg, bg, prev) {
+  const path = partByRelType(pkg, "officeDocument", "word/document.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) return void 0;
+  const relsPath = path.replace(/([^/]+)$/, "_rels/$1.rels");
+  let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  if (prev) {
+    const rel = new RegExp(`<Relationship\\b[^>]*\\bId="${prev.rid}"[^>]*/>`).exec(rels);
+    if (rel) rels = rels.slice(0, rel.index) + rels.slice(rel.index + rel[0].length);
+    pkg.removePart(prev.media);
+  }
+  let added;
+  const old = /<w:background\b[^>]*?(?:\/>|>[\s\S]*?<\/w:background>)/.exec(xml);
+  const oldRid = old ? /\br:id="([^"]+)"/.exec(old[0])?.[1] : void 0;
+  if (old) xml = xml.slice(0, old.index) + xml.slice(old.index + old[0].length);
+  let rid;
+  const img = bg?.fill?.image;
+  if (img) {
+    const ext = img.ext.toLowerCase() === "jpg" ? "jpeg" : img.ext.toLowerCase();
+    let n = 1;
+    while (pkg.getPart(`word/media/image${n}.${ext}`)) n++;
+    const target = `media/image${n}.${ext}`;
+    pkg.setPart(`word/${target}`, img.data);
+    let k = 1;
+    while (new RegExp(`Id="rId${k}"`).test(rels)) k++;
+    rid = `rId${k}`;
+    added = { rid, media: `word/${target}` };
+    rels = rels.replace("</Relationships>", () => `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`);
+    let ct = pkg.getPartText("[Content_Types].xml") ?? "";
+    if (ct && !new RegExp(`<Default Extension="${ext}"`, "i").test(ct)) {
+      ct = ct.replace(/(<Types\b[^>]*>)/, `$1<Default Extension="${ext}" ContentType="${MIME[ext] ?? `image/${ext}`}"/>`);
+      pkg.setPartText("[Content_Types].xml", ct);
+    }
+  }
+  if (bg) {
+    const el3 = pageBackgroundXml(bg, rid);
+    const m = /<w:document\b[^>]*>/.exec(xml);
+    if (m) {
+      let tag = m[0];
+      if (bg.fill) {
+        for (const [p, uri] of NS) if (!new RegExp(`\\sxmlns:${p}=`).test(tag)) tag = tag.replace(/>$/, ` xmlns:${p}="${uri}">`);
+      }
+      xml = xml.slice(0, m.index) + tag + el3 + xml.slice(m.index + m[0].length);
+    }
+  }
+  if (oldRid && !new RegExp(`"${oldRid}"`).test(xml)) {
+    const rel = new RegExp(`<Relationship\\b[^>]*\\bId="${oldRid}"[^>]*/>`).exec(rels);
+    if (rel) rels = rels.slice(0, rel.index) + rels.slice(rel.index + rel[0].length);
+  }
+  pkg.setPartText(path, xml);
+  if (img || oldRid || prev) pkg.setPartText(relsPath, rels);
+  return added;
+}
+var WORD_PATTERNS = [
+  { prst: "pct5", title: { pt: " 5%", en: "5%" } },
+  { prst: "pct10", title: { pt: " 10%", en: "10%" } },
+  { prst: "pct20", title: { pt: " 20%", en: "20%" } },
+  { prst: "pct25", title: { pt: " 25%", en: "25%" } },
+  { prst: "pct30", title: { pt: " 30%", en: "30%" } },
+  { prst: "pct40", title: { pt: " 40%", en: "40%" } },
+  { prst: "pct50", title: { pt: " 50%", en: "50%" } },
+  { prst: "pct60", title: { pt: " 60%", en: "60%" } },
+  { prst: "pct70", title: { pt: " 70%", en: "70%" } },
+  { prst: "pct75", title: { pt: " 75%", en: "75%" } },
+  { prst: "pct80", title: { pt: " 80%", en: "80%" } },
+  { prst: "pct90", title: { pt: " 90%", en: "90%" } },
+  { prst: "dkHorz", title: { pt: " Escuras", en: "Dark horizontal" } },
+  { prst: "dkVert", title: { pt: " escura", en: "Dark vertical" } },
+  { prst: "dkDnDiag", title: { pt: " Escuras para baixo", en: "Dark downward diagonal" } },
+  { prst: "dkUpDiag", title: { pt: " Escuras para cima", en: "Dark upward diagonal" } },
+  { prst: "smCheck", title: { pt: "Quadriculado pequeno", en: "Small checker board" } },
+  { prst: "trellis", title: { pt: "Treli\xE7a", en: "Trellis" } },
+  { prst: "ltHorz", title: { pt: " Claras", en: "Light horizontal" } },
+  { prst: "ltVert", title: { pt: " clara", en: "Light vertical" } },
+  { prst: "ltDnDiag", title: { pt: " Claras para baixo", en: "Light downward diagonal" } },
+  { prst: "ltUpDiag", title: { pt: " Claras para cima", en: "Light upward diagonal" } },
+  { prst: "smGrid", title: { pt: "Grade fechada", en: "Small grid" } },
+  { prst: "dotDmnd", title: { pt: "Losango pontilhado", en: "Dotted diamond" } },
+  { prst: "wdDnDiag", title: { pt: " Largas para baixo", en: "Wide downward diagonal" } },
+  { prst: "wdUpDiag", title: { pt: " Largas para cima", en: "Wide upward diagonal" } },
+  { prst: "dashUpDiag", title: { pt: " Barras", en: "Dashed upward diagonal" } },
+  { prst: "dashDnDiag", title: { pt: " Barras invertidas", en: "Dashed downward diagonal" } },
+  { prst: "narVert", title: { pt: " estreita", en: "Narrow vertical" } },
+  { prst: "narHorz", title: { pt: " Estreitas", en: "Narrow horizontal" } },
+  { prst: "dashVert", title: { pt: " alternando linhas verticais", en: "Dashed vertical" } },
+  { prst: "dashHorz", title: { pt: " alternando linhas horizontais", en: "Dashed horizontal" } },
+  { prst: "lgConfetti", title: { pt: "Confetes grandes", en: "Large confetti" } },
+  { prst: "lgGrid", title: { pt: "Grade aberta", en: "Large grid" } },
+  { prst: "horzBrick", title: { pt: "Tijolo na horizontal", en: "Horizontal brick" } },
+  { prst: "lgCheck", title: { pt: "Quadriculado grande", en: "Large checker board" } },
+  { prst: "smConfetti", title: { pt: "Confetes pequenos", en: "Small confetti" } },
+  { prst: "zigZag", title: { pt: "Ziguezague", en: "Zig zag" } },
+  { prst: "solidDmnd", title: { pt: "Losango s\xF3lido", en: "Solid diamond" } },
+  { prst: "diagBrick", title: { pt: "Tijolo na diagonal", en: "Diagonal brick" } },
+  { prst: "openDmnd", title: { pt: "Contorno de losango", en: "Outlined diamond" } },
+  { prst: "plaid", title: { pt: "Xadrez", en: "Plaid" } },
+  { prst: "sphere", title: { pt: "Esfera", en: "Sphere" } },
+  { prst: "weave", title: { pt: "Tran\xE7a", en: "Weave" } },
+  { prst: "dotGrid", title: { pt: "Grade pontilhada", en: "Dotted grid" } },
+  { prst: "divot", title: { pt: "Malha", en: "Divot" } },
+  { prst: "shingle", title: { pt: "Telhas", en: "Shingle" } },
+  { prst: "wave", title: { pt: "Ondulado", en: "Wave" } }
+];
+function patternGif(rows) {
+  const idx = [];
+  for (let y = 0; y < 8; y++) for (let x2 = 0; x2 < 8; x2++) idx.push((rows[y] ?? 0) >> 7 - x2 & 1 ? 0 : 1);
+  const comment = "Software: Microsoft Office";
+  const head = [
+    ..."GIF87a".split("").map((c) => c.charCodeAt(0)),
+    8,
+    0,
+    8,
+    0,
+    119,
+    1,
+    0,
+    33,
+    254,
+    comment.length,
+    ...comment.split("").map((c) => c.charCodeAt(0)),
+    0,
+    44,
+    0,
+    0,
+    0,
+    0,
+    8,
+    0,
+    8,
+    0,
+    128,
+    255,
+    255,
+    255,
+    0,
+    0,
+    0
+  ];
+  const lzw = lzwEncode(idx, 2);
+  const body = [2];
+  for (let i2 = 0; i2 < lzw.length; i2 += 255) {
+    const blk = lzw.slice(i2, i2 + 255);
+    body.push(blk.length, ...blk);
+  }
+  body.push(0, 59);
+  return Uint8Array.from([...head, ...body]);
+}
+function lzwEncode(data, minCode) {
+  const clear = 1 << minCode, eoi = clear + 1;
+  const out = [];
+  let cur = 0, bits2 = 0;
+  let size = minCode + 1;
+  const emit = (code) => {
+    cur |= code << bits2;
+    bits2 += size;
+    while (bits2 >= 8) {
+      out.push(cur & 255);
+      cur >>= 8;
+      bits2 -= 8;
+    }
+  };
+  let dict = /* @__PURE__ */ new Map();
+  let next = eoi + 1;
+  const reset = () => {
+    dict = /* @__PURE__ */ new Map();
+    next = eoi + 1;
+    size = minCode + 1;
+  };
+  emit(clear);
+  reset();
+  let w = String(data[0]);
+  for (let i2 = 1; i2 < data.length; i2++) {
+    const k = String(data[i2]);
+    const wk = `${w},${k}`;
+    if (dict.has(wk)) {
+      w = wk;
+      continue;
+    }
+    emit(w.includes(",") ? dict.get(w) : Number(w));
+    dict.set(wk, next++);
+    if (next > 1 << size && size < 12) size++;
+    if (next >= 4095) {
+      emit(clear);
+      reset();
+    }
+    w = k;
+  }
+  emit(w.includes(",") ? dict.get(w) : Number(w));
+  emit(eoi);
+  if (bits2 > 0) out.push(cur & 255);
+  return out;
+}
+function oneColorGradientColor2(degree) {
+  const d = Math.max(0, Math.min(1, degree));
+  if (Math.abs(d - 0.5) < 1e-6) return "fill";
+  return d < 0.5 ? `fill darken(${Math.round(510 * d)})` : `fill lighten(${Math.round(510 * (1 - d))})`;
+}
+function resolveColor2(color2, color1) {
+  if (!color2) return "FFFFFF";
+  const m = /^\s*fill(?:\s+(darken|lighten)\((\d+)\))?\s*$/i.exec(color2);
+  if (!m) return vmlColor(color2) ?? "FFFFFF";
+  if (!m[1]) return color1;
+  const n = Math.max(0, Math.min(255, parseInt(m[2], 10)));
+  const c = [0, 2, 4].map((i2) => parseInt(color1.slice(i2, i2 + 2), 16));
+  const r = m[1].toLowerCase() === "darken" ? c.map((v) => Math.floor(v * n / 255)) : c.map((v) => 255 - Math.floor((255 - v) * n / 255));
+  return r.map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 // ../docx-core/src/fulldoc.ts
 function readBorderSet(el3, inside) {
   if (!el3) return void 0;
@@ -7359,6 +7679,26 @@ function readHeaderFooterPart(pkg, path, store, xml0) {
   walk(blocks);
   return { paras, blocks };
 }
+function readBodyFragment(pkg, store, inner, ns) {
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r
+<w:document ${ns}><w:body>${inner}</w:body></w:document>`;
+  const root = parseXml(xml, { positions: !!store });
+  const body = firstChild(root, "w:body");
+  if (!body) return void 0;
+  const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
+  ctx.readBlocks = readBlocksOf;
+  if (!store) return { blocks: readBlocksOf(body, ctx), groups: [] };
+  ctx.sources = store;
+  ctx.sourceXml = xml;
+  const groups = [];
+  const blocks = [];
+  for (const c of childElements(body)) {
+    const produced = readBlocksOf({ name: body.name, attrs: {}, children: [c] }, ctx);
+    groups.push(groupOf(xml, c, produced, store));
+    blocks.push(...produced);
+  }
+  return { blocks, groups };
+}
 function readNotesPart(pkg, path, elementName, blocksOut, store, special) {
   const out = /* @__PURE__ */ new Map();
   const xml = pkg.getPartText(path);
@@ -7572,19 +7912,14 @@ function readFullDocument(pkg, opts = {}) {
     endnoteBlocks,
     noteSpecialIds,
     ...readCoreProps(pkg),
-    ...readBackground(root),
+    ...readBackground(root, ctx),
     ...store ? { sources: store } : {}
   };
 }
-function readBackground(root) {
+function readBackground(root, ctx) {
   const bg = firstChild(root, "w:background");
-  if (!bg) return {};
-  const out = {};
-  for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
-    const v = bg.attrs[`w:${k}`];
-    if (v) out[k] = v;
-  }
-  return Object.keys(out).length ? { background: out } : {};
+  const out = bg ? readPageBackground(bg, (rid) => ctx.resolveImage(rid)) : void 0;
+  return out ? { background: out } : {};
 }
 function readCoreProps(pkg) {
   const xml = pkg.getPartText("docProps/core.xml");
@@ -7916,6 +8251,29 @@ function writeEvenAndOddHeaders(pkg, on) {
   }
   pkg.setPartText(path, xml);
 }
+var BEFORE_DISPLAY_BG = /* @__PURE__ */ new Set(["w:writeProtection", "w:view", "w:zoom", "w:removePersonalInformation", "w:removeDateAndTime", "w:doNotDisplayPageBoundaries"]);
+function writeDisplayBackgroundShape(pkg, on) {
+  const path = partByRelType(pkg, "settings", "word/settings.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    if (!on) return;
+    ensureSettingsPart(pkg);
+    xml = pkg.getPartText("word/settings.xml");
+    if (!xml) return;
+  }
+  const cur = /<w:displayBackgroundShape\b[^>]*?(?:\/>|>[\s\S]*?<\/w:displayBackgroundShape>)/.exec(xml);
+  const isOn = !!cur && !/w:val="(?:0|false|off)"/.test(cur[0]);
+  if (isOn === on) return;
+  if (cur) xml = xml.slice(0, cur.index) + (on ? "<w:displayBackgroundShape/>" : "") + xml.slice(cur.index + cur[0].length);
+  else {
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) return;
+    let at = root.cs;
+    for (const k of childElements(root)) if (BEFORE_DISPLAY_BG.has(k.name)) at = Math.max(at, k.e);
+    xml = xml.slice(0, at) + "<w:displayBackgroundShape/>" + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
 function ensureSettingsPart(pkg) {
   if (pkg.getPart("word/settings.xml")) return;
   pkg.setPartText("word/settings.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:settings>');
@@ -7935,6 +8293,97 @@ function ensureSettingsPart(pkg) {
     ));
   }
 }
+
+// ../docx-core/src/watermark.ts
+var SHAPETYPE_TEXT = '<v:shapetype id="_x0000_t136" coordsize="21600,21600" o:spt="136" adj="10800" path="m@7,l@8,m@5,21600l@6,21600e"><v:formulas><v:f eqn="sum #0 0 10800"/><v:f eqn="prod #0 2 1"/><v:f eqn="sum 21600 0 @1"/><v:f eqn="sum 0 0 @2"/><v:f eqn="sum 21600 0 @3"/><v:f eqn="if @0 @3 0"/><v:f eqn="if @0 21600 @1"/><v:f eqn="if @0 0 @2"/><v:f eqn="if @0 @4 21600"/><v:f eqn="mid @5 @6"/><v:f eqn="mid @8 @5"/><v:f eqn="mid @7 @8"/><v:f eqn="mid @6 @7"/><v:f eqn="sum @6 0 @5"/></v:formulas><v:path textpathok="t" o:connecttype="custom" o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800" o:connectangles="270,180,90,0"/><v:textpath on="t" fitshape="t"/><v:handles><v:h position="#0,bottomRight" xrange="6629,14971"/></v:handles><o:lock v:ext="edit" text="t" shapetype="t"/></v:shapetype>';
+var SHAPETYPE_PICTURE = '<v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype>';
+var POS = "mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin";
+var esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var ptv = (v) => `${Math.round(v * 100) / 100}pt`;
+function watermarkRunXml(spec, box, ids, rid, vmlColor2 = (h) => `#${h.toLowerCase()}`) {
+  const head = `<w:r><w:rPr><w:noProof/></w:rPr><w:pict w14:anchorId="${ids.anchorId}">`;
+  if (spec.kind === "picture") {
+    const fx = spec.washout ? ' gain="19661f" blacklevel="22938f"' : "";
+    return `${head}${SHAPETYPE_PICTURE}<v:shape id="WordPictureWatermark${ids.n}" o:spid="_x0000_s${ids.spid}" type="#_x0000_t75" style="position:absolute;margin-left:0;margin-top:0;width:${ptv(box.widthPt)};height:${ptv(box.heightPt)};z-index:-251657216;${POS}" o:allowincell="f"><v:imagedata r:id="${rid ?? ""}" o:title="${esc4(spec.title)}"${fx}/><w10:wrap anchorx="margin" anchory="margin"/></v:shape></w:pict></w:r>`;
+  }
+  const rot = spec.layout === "diagonal" ? "rotation:315;" : "";
+  const size = spec.sizePt ? `${Math.round(spec.sizePt * 100) / 100}pt` : "1pt";
+  return `${head}${SHAPETYPE_TEXT}<v:shape id="PowerPlusWaterMarkObject${ids.n}" o:spid="_x0000_s${ids.spid}" type="#_x0000_t136" alt="" style="position:absolute;margin-left:0;margin-top:0;width:${ptv(box.widthPt)};height:${ptv(box.heightPt)};${rot}z-index:-251657216;mso-wrap-edited:f;mso-width-percent:0;mso-height-percent:0;${POS};mso-width-percent:0;mso-height-percent:0" o:allowincell="f" fillcolor="${vmlColor2(spec.color)}" stroked="f">${spec.semitransparent ? '<v:fill opacity=".5"/>' : ""}<v:textpath style="font-family:&quot;${esc4(spec.font)}&quot;;font-size:${size}" string="${esc4(spec.text)}"/><w10:wrap anchorx="margin" anchory="margin"/></v:shape></w:pict></w:r>`;
+}
+function isWatermarkXml(xml) {
+  return !!xml && /\bid="(?:PowerPlusWaterMarkObject|WordPictureWatermark)\d*"/.test(xml);
+}
+var attr = (xml, name) => {
+  const m = new RegExp(`\\s${name}="([^"]*)"`).exec(xml);
+  return m ? m[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&") : void 0;
+};
+var styleProp = (style, k) => new RegExp(`(?:^|;)\\s*${k}\\s*:\\s*([^;]+)`).exec(style)?.[1]?.trim();
+var ptOf = (v) => v ? parseFloat(v) * (v.endsWith("in") ? 72 : v.endsWith("cm") ? 72 / 2.54 : v.endsWith("mm") ? 72 / 25.4 : 1) : 0;
+function readWatermarkXml(xml, color) {
+  const shape = /<v:shape\b[^>]*\bid="(PowerPlusWaterMarkObject|WordPictureWatermark)\d*"[^>]*>[\s\S]*?<\/v:shape>/.exec(xml);
+  if (!shape) return null;
+  const tag = /<v:shape\b[^>]*>/.exec(shape[0])[0];
+  const style = attr(tag, "style") ?? "";
+  const widthPt = ptOf(styleProp(style, "width")), heightPt = ptOf(styleProp(style, "height"));
+  if (shape[1] === "WordPictureWatermark") {
+    const img = /<v:imagedata\b[^>]*>/.exec(shape[0])?.[0] ?? "";
+    return { kind: "picture", rid: attr(img, "r:id") ?? "", title: attr(img, "o:title") ?? "", washout: /\bgain=/.test(img) || /\bblacklevel=/.test(img), widthPt, heightPt };
+  }
+  const tp = /<v:textpath\b[^>]*>/.exec(shape[0])?.[0] ?? "";
+  const tps = attr(tp, "style") ?? "";
+  const font = (styleProp(tps, "font-family") ?? "Calibri").replace(/^["']|["']$/g, "");
+  const fs = parseFloat(styleProp(tps, "font-size") ?? "1");
+  const fill = /<v:fill\b[^>]*>/.exec(shape[0])?.[0] ?? "";
+  const op = attr(fill, "opacity");
+  const rot = parseFloat(styleProp(style, "rotation") ?? "0");
+  return {
+    kind: "text",
+    text: attr(tp, "string") ?? "",
+    font,
+    ...fs > 1 ? { sizePt: fs } : {},
+    color: color(attr(tag, "fillcolor")) ?? "C0C0C0",
+    semitransparent: !!op && (op.endsWith("f") ? parseInt(op, 10) / 65536 : parseFloat(op)) < 1,
+    layout: rot && Math.round((rot % 180 + 180) % 180) !== 0 ? "diagonal" : "horizontal",
+    widthPt,
+    heightPt
+  };
+}
+var DIAG_FIT = 466.55 / 468;
+function autoTextBox(text, layout, contentWidthPt) {
+  const n = Math.max(1, text.replace(/\s+/g, "").length);
+  const aspect = n / 3;
+  if (layout === "horizontal") return { widthPt: round2(contentWidthPt), heightPt: round2(contentWidthPt / aspect) };
+  const h = DIAG_FIT * contentWidthPt * Math.SQRT2 / (aspect + 1);
+  return { widthPt: round2(aspect * h), heightPt: round2(h) };
+}
+function explicitTextBox(advancePt, sizePt, lineFactor) {
+  return { widthPt: Math.max(1, Math.round(advancePt)), heightPt: Math.max(1, Math.round(sizePt * lineFactor)) };
+}
+function pictureBox(naturalPt, scale, contentWidthPt) {
+  if (naturalPt.w <= 0 || naturalPt.h <= 0) return { widthPt: contentWidthPt, heightPt: contentWidthPt };
+  if (!scale) return { widthPt: round2(contentWidthPt), heightPt: round2(contentWidthPt * naturalPt.h / naturalPt.w) };
+  return { widthPt: round2(naturalPt.w * scale / 100), heightPt: round2(naturalPt.h * scale / 100) };
+}
+var round2 = (v) => Math.round(v * 100) / 100;
+var D = (aspectBox) => aspectBox;
+var WATERMARK_GALLERY = [
+  { id: "confidential1", category: "confidential", text: { pt: "CONFIDENCIAL", en: "CONFIDENTIAL" }, layout: "diagonal", box: { pt: [527.85, 131.95], en: D([527.85, 131.95]) } },
+  { id: "confidential2", category: "confidential", text: { pt: "CONFIDENCIAL", en: "CONFIDENTIAL" }, layout: "horizontal", box: { pt: [468, 117], en: [468, 117] } },
+  { id: "donotcopy1", category: "confidential", text: { pt: "N\xC3O COPIAR", en: "DO NOT COPY" }, layout: "diagonal", box: { pt: [494.9, 164.95], en: [494.9, 164.95] } },
+  { id: "donotcopy2", category: "confidential", text: { pt: "N\xC3O COPIAR", en: "DO NOT COPY" }, layout: "horizontal", box: { pt: [467.95, 155.95], en: [467.95, 155.95] } },
+  { id: "draft1", category: "disclaimers", text: { pt: "RASCUNHO", en: "DRAFT" }, layout: "diagonal", box: { pt: [412.4, 247.45], en: [412.4, 247.45] } },
+  { id: "draft2", category: "disclaimers", text: { pt: "RASCUNHO", en: "DRAFT" }, layout: "horizontal", box: { pt: [468, 280.8], en: [468, 280.8] } },
+  { id: "sample1", category: "disclaimers", text: { pt: "EXEMPLO", en: "SAMPLE" }, layout: "diagonal", box: { pt: [461.85, 197.95], en: [439.9, 219.95] } },
+  { id: "sample2", category: "disclaimers", text: { pt: "EXEMPLO", en: "SAMPLE" }, layout: "horizontal", box: { pt: [467.95, 200.55], en: [468, 234] } },
+  { id: "asap1", category: "urgent", text: { pt: "ASAP", en: "ASAP" }, layout: "diagonal", box: { pt: [377.05, 282.8], en: [377.05, 282.8] } },
+  { id: "asap2", category: "urgent", text: { pt: "ASAP", en: "ASAP" }, layout: "horizontal", box: { pt: [468, 351], en: [468, 351] } },
+  { id: "urgent1", category: "urgent", text: { pt: "URGENTE", en: "URGENT" }, layout: "diagonal", box: { pt: [439.9, 219.95], en: [439.9, 219.95] } },
+  { id: "urgent2", category: "urgent", text: { pt: "URGENTE", en: "URGENT" }, layout: "horizontal", box: { pt: [468, 234], en: [468, 234] } }
+];
+var WATERMARK_TEXTS = {
+  en: ["ASAP", "CONFIDENTIAL", "COPY", "DO NOT COPY", "DRAFT", "ORIGINAL", "PERSONAL", "SAMPLE", "TOP SECRET", "URGENT"],
+  pt: ["ASAP", "CONFIDENCIAL", "C\xD3PIA", "EXEMPLO", "N\xC3O COPIAR", "ORIGINAL", "PESSOAL", "RASCUNHO", "ULTRASSECRETO", "URGENTE"]
+};
 
 // ../docx-core/src/hf-ops.ts
 var HF_NS = 'xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 w15 wp14"';
@@ -7985,8 +8434,8 @@ function pageNumberGroupIds(story) {
 }
 
 // ../docx-core/src/serialize.ts
-var esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-var escAttr2 = (s) => esc4(s).replace(/"/g, "&quot;");
+var esc5 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var escAttr3 = (s) => esc5(s).replace(/"/g, "&quot;");
 var mediaOut = [];
 var drawingId = 0;
 var active = null;
@@ -8014,7 +8463,7 @@ function oleObjectXml(run) {
   const w = Math.round(img.widthTwips / 2) / 10, h = Math.round(img.heightTwips / 2) / 10;
   const shape = `_x0000_i${1025 + n}`;
   const objId = `_${String(18e8 + n * 7919).slice(0, 10)}`;
-  return `<w:object xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" w:dxaOrig="${Math.round(img.widthTwips)}" w:dyaOrig="${Math.round(img.heightTwips)}"><v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype><v:shape id="${shape}" type="#_x0000_t75" style="width:${w}pt;height:${h}pt" o:ole=""><v:imagedata r:id="${ridImg}" o:title=""/></v:shape><o:OLEObject Type="Embed" ProgID="${escAttr2(ole.progId)}" ShapeID="${shape}" DrawAspect="Content" ObjectID="${objId}" r:id="${ridOle}"/></w:object>`;
+  return `<w:object xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" w:dxaOrig="${Math.round(img.widthTwips)}" w:dyaOrig="${Math.round(img.heightTwips)}"><v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype><v:shape id="${shape}" type="#_x0000_t75" style="width:${w}pt;height:${h}pt" o:ole=""><v:imagedata r:id="${ridImg}" o:title=""/></v:shape><o:OLEObject Type="Embed" ProgID="${escAttr3(ole.progId)}" ShapeID="${shape}" DrawAspect="Content" ObjectID="${objId}" r:id="${ridOle}"/></w:object>`;
 }
 function patchDrawingGeometry(raw, obj) {
   const cx = Math.round(obj.widthTwips * EMU_PER_TWIP);
@@ -8156,7 +8605,7 @@ function textXml(text, deleted = false) {
     else if (seg === "\u2028") parts.push('<w:br w:clear="all"/>');
     else if (seg.length > 0) {
       const space = seg !== seg.trim() ? ' xml:space="preserve"' : "";
-      parts.push(`<${t}${space}>${esc4(seg)}</${t}>`);
+      parts.push(`<${t}${space}>${esc5(seg)}</${t}>`);
     }
   }
   return parts.join("");
@@ -8165,11 +8614,11 @@ var fldCharXml = (rpr, type) => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/>
 function markXml2(run) {
   if (run.bookmark) {
     const b = run.bookmark;
-    return b.end ? `<w:bookmarkEnd w:id="${b.id}"/>` : `<w:bookmarkStart w:id="${b.id}" w:name="${escAttr2(b.name)}"/>`;
+    return b.end ? `<w:bookmarkEnd w:id="${b.id}"/>` : `<w:bookmarkStart w:id="${b.id}" w:name="${escAttr3(b.name)}"/>`;
   }
   if (run.fieldBegin !== void 0) {
     const rpr = rPrXml(run);
-    return fldCharXml(rpr, "begin") + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc4(run.fieldBegin)}</w:instrText></w:r>` + fldCharXml(rpr, "separate");
+    return fldCharXml(rpr, "begin") + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc5(run.fieldBegin)}</w:instrText></w:r>` + fldCharXml(rpr, "separate");
   }
   if (run.fieldEnd) return fldCharXml(rPrXml(run), "end");
   return void 0;
@@ -8189,7 +8638,7 @@ function runXml(run) {
       text: run.custom.fallbackText,
       props: run.props
     };
-    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr2(run.custom.fallbackText)}"/><w:tag w:val="${escAttr2(tag)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
+    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr3(run.custom.fallbackText)}"/><w:tag w:val="${escAttr3(tag)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
   }
   if (active && (run.image || run.textbox || run.shape || run.group)) {
     const x2 = objectXml(run);
@@ -8220,15 +8669,15 @@ function runXml(run) {
   }
   if (active && run.ptab) {
     const t = run.ptab;
-    return `<w:r>${rpr}<w:ptab w:relativeTo="${escAttr2(t.relativeTo)}" w:alignment="${escAttr2(t.alignment)}"${t.leader ? ` w:leader="${escAttr2(t.leader)}"` : ""}/></w:r>`;
+    return `<w:r>${rpr}<w:ptab w:relativeTo="${escAttr3(t.relativeTo)}" w:alignment="${escAttr3(t.alignment)}"${t.leader ? ` w:leader="${escAttr3(t.leader)}"` : ""}/></w:r>`;
   }
   if (active && run.symFont && run.text.length === 1) {
     const code = run.text.charCodeAt(0);
     const hex2 = (code >= 61440 && code <= 61695 ? code & 255 : code).toString(16).toUpperCase().padStart(4, "0");
-    return `<w:r>${rpr}<w:sym w:font="${escAttr2(run.symFont)}" w:char="${hex2}"/></w:r>`;
+    return `<w:r>${rpr}<w:sym w:font="${escAttr3(run.symFont)}" w:char="${hex2}"/></w:r>`;
   }
   if (active && (run.math || run.props.isMath)) {
-    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc4(run.text)}</m:t></m:r></m:oMath>`;
+    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc5(run.text)}</m:t></m:r></m:oMath>`;
   }
   return `<w:r>${rpr}${textXml(run.text, !!run.props.del)}</w:r>`;
 }
@@ -8239,14 +8688,14 @@ function fieldOrRunXml(r) {
     const result = fieldResultXml(r);
     if (/\\h\b/i.test(r.field) || r.props.src === void 0 && (r.fieldResult?.length ?? 0) > 1) {
       const rpr2 = rPrXml(r);
-      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc4(r.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "separate") + result + fldCharXml(rpr2, "end");
+      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc5(r.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "separate") + result + fldCharXml(rpr2, "end");
     }
-    return `<w:fldSimple w:instr="${escAttr2(r.field)}">${result}</w:fldSimple>`;
+    return `<w:fldSimple w:instr="${escAttr3(r.field)}">${result}</w:fldSimple>`;
   }
   const rpr = rPrXml(r);
   const ch = (type) => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
   const it = r.props.del ? "w:delInstrText" : "w:instrText";
-  return ch("begin") + `<w:r>${rpr}<${it} xml:space="preserve">${esc4(r.field)}</${it}></w:r>` + ch("separate") + runXml(r) + ch("end");
+  return ch("begin") + `<w:r>${rpr}<${it} xml:space="preserve">${esc5(r.field)}</${it}></w:r>` + ch("separate") + runXml(r) + ch("end");
 }
 function fieldResultXml(r) {
   if (r.props.src !== void 0 || !r.fieldResult?.length) return runXml(r);
@@ -8279,7 +8728,7 @@ function revisionRuns(items) {
 function formulaFieldXml(r) {
   const rpr = rPrXml(r);
   const wrap = (inner, pr = rpr) => `<w:r>${pr}${inner}</w:r>`;
-  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc4(r.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
+  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc5(r.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
 }
 function withNoProof(rpr) {
   if (!rpr || rpr === "<w:rPr/>") return "<w:rPr><w:noProof/></w:rPr>";
@@ -8294,7 +8743,7 @@ function linkRelId(url) {
   let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
   for (const m of rels.matchAll(/<Relationship\b[^>]*>/g)) {
     const tag = m[0];
-    if (/TargetMode="External"/.test(tag) && /\/hyperlink"/.test(tag) && tag.includes(`Target="${escAttr2(url)}"`)) {
+    if (/TargetMode="External"/.test(tag) && /\/hyperlink"/.test(tag) && tag.includes(`Target="${escAttr3(url)}"`)) {
       return /\bId="([^"]+)"/.exec(tag)?.[1];
     }
   }
@@ -8303,7 +8752,7 @@ function linkRelId(url) {
   const id = `rIdWnLink${n}`;
   rels = rels.replace(
     "</Relationships>",
-    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escAttr2(url)}" TargetMode="External"/></Relationships>`
+    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escAttr3(url)}" TargetMode="External"/></Relationships>`
   );
   pkg.setPartText(relsPath, rels);
   return id;
@@ -8331,11 +8780,11 @@ function genRuns(items, inWrapper = false) {
     while (j < items.length && sameLink(j)) j++;
     const inner = revisionRuns(items.slice(i2, j));
     const tip = items[i2].run.props.linkTip;
-    const attr = link.startsWith("#") ? ` w:anchor="${escAttr2(link.slice(1))}"` : (() => {
+    const attr2 = link.startsWith("#") ? ` w:anchor="${escAttr3(link.slice(1))}"` : (() => {
       const id = linkRelId(link);
       return id ? ` r:id="${id}"` : "";
     })();
-    out.push(attr ? `<w:hyperlink${attr}${tip ? ` w:tooltip="${escAttr2(tip)}"` : ""} w:history="1">${inner}</w:hyperlink>` : inner);
+    out.push(attr2 ? `<w:hyperlink${attr2}${tip ? ` w:tooltip="${escAttr3(tip)}"` : ""} w:history="1">${inner}</w:hyperlink>` : inner);
     i2 = j;
   }
   return out.join("");
@@ -8506,7 +8955,7 @@ function paraXmlRuns(para) {
 function paraXmlInner(para, runsXml) {
   const pp = para.props;
   const ppr = [];
-  if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr2(pp.styleId)}"/>`);
+  if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr3(pp.styleId)}"/>`);
   if (pp.keepNext) ppr.push("<w:keepNext/>");
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];
@@ -8527,7 +8976,7 @@ function paraXmlInner(para, runsXml) {
     for (const side of ["top", "left", "bottom", "right"]) {
       const e = pp.borders[side];
       if (!e) continue;
-      inner2 += `<w:${side} w:val="${escAttr2(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? escAttr2(e.color) : "auto"}"/>`;
+      inner2 += `<w:${side} w:val="${escAttr3(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? escAttr3(e.color) : "auto"}"/>`;
     }
     if (inner2) ppr.push(`<w:pBdr>${inner2}</w:pBdr>`);
   } else if (pp.boxBorder) {
@@ -8537,7 +8986,7 @@ function paraXmlInner(para, runsXml) {
     );
   }
   if (pp.shadingHex) {
-    ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr2(pp.shadingHex)}"/>`);
+    ppr.push(`<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(pp.shadingHex)}"/>`);
   }
   if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
     const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
@@ -8580,7 +9029,7 @@ function sectPrInner(s, refs = []) {
   return `${refsXml}${notes}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}${fnCols}`;
 }
 function borderXml2(tag, e) {
-  return `<w:${tag} w:val="${escAttr2(e.style)}" w:sz="${e.sizeEighthPt}" w:space="0" w:color="${e.color ? escAttr2(e.color) : "auto"}"/>`;
+  return `<w:${tag} w:val="${escAttr3(e.style)}" w:sz="${e.sizeEighthPt}" w:space="0" w:color="${e.color ? escAttr3(e.color) : "auto"}"/>`;
 }
 function borderSetXml(wrap, b, sides) {
   let inner = "";
@@ -8650,7 +9099,7 @@ function tblPrXml2(t) {
 }
 var gridXml = (t) => `<w:tblGrid>${t.gridColsTwips.map((w) => `<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
 function tcPrXml2(cell) {
-  return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr2(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
+  return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr3(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
 }
 var blockXml = (b) => b.type === "table" ? tableXml(b) : paraXml(b.paragraph);
 var blockId = (b) => b.type === "table" ? b.src : b.paragraph.props.src;
@@ -8831,7 +9280,18 @@ function withNamespaces(open, rootName, content = "") {
     ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
     ["wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"],
     // w15:footnoteColumns no sectPr (colunas da área de notas)
-    ...content.includes("<w15:") ? [["w15", "http://schemas.microsoft.com/office/word/2012/wordml"]] : []
+    ...content.includes("<w15:") ? [["w15", "http://schemas.microsoft.com/office/word/2012/wordml"]] : [],
+    // VML/DrawingML novos (marca-d'água, folha de rosto) numa parte de outro programa
+    ...[
+      ["v", "urn:schemas-microsoft-com:vml", /<v:/],
+      ["o", "urn:schemas-microsoft-com:office:office", /\so:\w+=|<o:/],
+      ["w10", "urn:schemas-microsoft-com:office:word", /<w10:/],
+      ["w14", "http://schemas.microsoft.com/office/word/2010/wordml", /\sw14:\w+=|<w14:/],
+      ["mc", "http://schemas.openxmlformats.org/markup-compatibility/2006", /<mc:/],
+      ["wps", "http://schemas.microsoft.com/office/word/2010/wordprocessingShape", /<wps:|Requires="wps"/],
+      ["a", "http://schemas.openxmlformats.org/drawingml/2006/main", /<a:/]
+      // (só o prefixo usado e não declarado em lugar nenhum: o Word declara `a` no a:graphic)
+    ].filter(([pfx, , re]) => re.test(content) && !content.includes(`xmlns:${pfx}=`)).map(([pfx, uri]) => [pfx, uri])
   ];
   for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag)) tag += ` xmlns:${pfx}="${uri}"`;
   return open.slice(0, at) + tag + open.slice(end);
@@ -8874,9 +9334,9 @@ function serializeHfPart(kind, paragraphs) {
   const tag = kind === "header" ? "w:hdr" : "w:ftr";
   takeUsedDateUtc();
   const body = paragraphs.map(paraXml).join("");
-  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<${tag} ${W_NS_HF}>`, tag) + body + `</${tag}>`;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<${tag} ${HF_NS}>`, tag) + body + `</${tag}>`;
 }
-var commentXml = (c) => `<w:comment w:id="${c.id}" w:author="${escAttr2(c.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc4(c.text)}</w:t></w:r></w:p></w:comment>`;
+var commentXml = (c) => `<w:comment w:id="${c.id}" w:author="${escAttr3(c.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc5(c.text)}</w:t></w:r></w:p></w:comment>`;
 function patchComments(pkg, comments) {
   const xml = pkg.getPartText("word/comments.xml");
   const want = new Map(comments.map((c) => [c.id, c]));
@@ -8978,7 +9438,7 @@ function writeParts(pkg, model, hfParts, opts, store) {
           const root = hf.kind === "header" ? "w:hdr" : "w:ftr";
           takeUsedDateUtc();
           const body = storyBlocksXml(story2, blocks, store);
-          const xml = revRoot(withNamespaces(story2.open, root), root) + body + story2.close;
+          const xml = revRoot(withNamespaces(story2.open, root, body), root) + body + story2.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
           active.relsPath = relsPath2;
         } else {
@@ -9251,7 +9711,7 @@ function blankDocxPackage() {
 }
 
 // ../docx-core/src/style-sheet.ts
-var esc5 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var esc6 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 var STYLE_ORDER = [
   "w:name",
   "w:aliases",
@@ -9447,7 +9907,7 @@ function styleIdFromName(name, taken) {
   for (let i2 = 0; ; i2++) if (!taken.has(`${base}${i2}`)) return `${base}${i2}`;
 }
 function newStyleXml(o) {
-  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc5(o.id)}"><w:name w:val="${esc5(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc5(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc5(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc5(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
+  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc6(o.id)}"><w:name w:val="${esc6(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc6(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc6(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc6(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
 }
 function patchStyleXml(raw, h) {
   const { open, close, kids } = splitElement(raw);
@@ -9456,7 +9916,7 @@ function patchStyleXml(raw, h) {
   const set = (n, xml) => setKid2(kids, STYLE_ORDER, n, xml);
   const v = (n, x2) => {
     if (x2 === void 0) return;
-    set(n, x2 === null ? null : `<${n} w:val="${esc5(x2)}"/>`);
+    set(n, x2 === null ? null : `<${n} w:val="${esc6(x2)}"/>`);
   };
   if (h.name !== void 0) v("w:name", h.name);
   v("w:aliases", h.aliases);
@@ -9501,7 +9961,7 @@ function patchStyleRPr(raw, f) {
       let x2 = cur;
       for (const [theme, plain2] of [["w:asciiTheme", "w:ascii"], ["w:hAnsiTheme", "w:hAnsi"]]) {
         const re = new RegExp(`\\s${theme}="[^"]*"`);
-        if (re.test(x2) && !new RegExp(`\\s${plain2}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain2}="${esc5(f.fontAscii)}"`);
+        if (re.test(x2) && !new RegExp(`\\s${plain2}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain2}="${esc6(f.fontAscii)}"`);
       }
       set("w:rFonts", withAttrs(x2, "w:rFonts", {
         "w:ascii": f.fontAscii,
@@ -9516,7 +9976,7 @@ function patchStyleRPr(raw, f) {
   tog("w:caps", f.allCaps);
   tog("w:smallCaps", f.smallCaps);
   tog("w:strike", f.strike);
-  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc5(f.color)}"/>`);
+  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc6(f.color)}"/>`);
   if (f.charSpacingTwips !== void 0) set("w:spacing", f.charSpacingTwips === null ? null : `<w:spacing w:val="${f.charSpacingTwips}"/>`);
   if (f.szHalfPt !== void 0) set("w:sz", f.szHalfPt === null ? null : `<w:sz w:val="${f.szHalfPt}"/>`);
   if (f.underline !== void 0) set("w:u", f.underline === null ? null : `<w:u w:val="${f.underline ? "single" : "none"}"/>`);
@@ -9584,9 +10044,9 @@ function builtinDisplayName(name, lang) {
 }
 function builtinXml(xml, opts = {}) {
   let out = xml;
-  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc5(opts.id)}"`);
+  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc6(opts.id)}"`);
   for (const [from, to] of Object.entries(opts.refs ?? {})) {
-    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc5(to) + b);
+    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc6(to) + b);
   }
   if (opts.used && /<w:unhideWhenUsed\/>/.test(out)) out = out.replace("<w:semiHidden/>", "");
   return out;
@@ -12568,14 +13028,14 @@ function stripInvalid(s) {
 function escText(s) {
   return stripInvalid(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function escAttr3(s) {
+function escAttr4(s) {
   return escText(s).replace(/"/g, "&quot;");
 }
 function attrs2(obj) {
   let out = "";
   for (const [k, v] of Object.entries(obj)) {
     if (v === void 0 || v === null || v === false) continue;
-    out += ` ${k}="${escAttr3(v === true ? "1" : String(v))}"`;
+    out += ` ${k}="${escAttr4(v === true ? "1" : String(v))}"`;
   }
   return out;
 }
@@ -12583,7 +13043,7 @@ function el(name, a = {}, content = "") {
   return content ? `<${name}${attrs2(a)}>${content}</${name}>` : `<${name}${attrs2(a)}/>`;
 }
 var XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
-var NS = {
+var NS2 = {
   w: "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
   r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
   wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
@@ -12604,20 +13064,20 @@ var NS = {
 };
 var CONTENT_NS = attrs2({
   "xmlns:wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
-  "xmlns:mc": NS.mc,
-  "xmlns:o": NS.o,
-  "xmlns:r": NS.r,
-  "xmlns:m": NS.m,
-  "xmlns:v": NS.v,
-  "xmlns:wp14": NS.wp14,
-  "xmlns:wp": NS.wp,
-  "xmlns:w10": NS.w10,
-  "xmlns:w": NS.w,
-  "xmlns:w14": NS.w14,
-  "xmlns:wpg": NS.wpg,
-  "xmlns:wps": NS.wps,
-  "xmlns:a": NS.a,
-  "xmlns:pic": NS.pic,
+  "xmlns:mc": NS2.mc,
+  "xmlns:o": NS2.o,
+  "xmlns:r": NS2.r,
+  "xmlns:m": NS2.m,
+  "xmlns:v": NS2.v,
+  "xmlns:wp14": NS2.wp14,
+  "xmlns:wp": NS2.wp,
+  "xmlns:w10": NS2.w10,
+  "xmlns:w": NS2.w,
+  "xmlns:w14": NS2.w14,
+  "xmlns:wpg": NS2.wpg,
+  "xmlns:wps": NS2.wps,
+  "xmlns:a": NS2.a,
+  "xmlns:pic": NS2.pic,
   "mc:Ignorable": "w14 wp14"
 });
 
@@ -13170,7 +13630,7 @@ function buildNumbering(r, ctx) {
     }
     x2 += el("w:num", { "w:numId": i2 + 1 }, c);
   });
-  return `${XML_DECL}<w:numbering xmlns:w="${NS.w}" xmlns:r="${NS.r}">${x2}</w:numbering>`;
+  return `${XML_DECL}<w:numbering xmlns:w="${NS2.w}" xmlns:r="${NS2.r}">${x2}</w:numbering>`;
 }
 
 // ../docx-core/src/doc/settings.ts
@@ -13369,7 +13829,7 @@ function buildSettings(r, o) {
   if (o.endnotes) x2 += '<w:endnotePr><w:endnote w:id="-1"/><w:endnote w:id="0"/></w:endnotePr>';
   x2 += compatXml(dop, feLayout);
   if (!dop.includeSubdocsInStats) x2 += "<w:doNotIncludeSubdocsInStats/>";
-  return `${XML_DECL}<w:settings${attrs2({ "xmlns:w": NS.w, "xmlns:r": NS.r, "xmlns:m": NS.m })}>${x2}</w:settings>`;
+  return `${XML_DECL}<w:settings${attrs2({ "xmlns:w": NS2.w, "xmlns:r": NS2.r, "xmlns:m": NS2.m })}>${x2}</w:settings>`;
 }
 
 // ../docx-core/src/doc/styles-xml.ts
@@ -13721,7 +14181,7 @@ function buildStyles(r, ctx, ids, numIdOf) {
     x2 += `<w:style w:type="table" w:default="1" w:styleId="${freeId("TableNormal")}"><w:name w:val="Normal Table"/><w:semiHidden/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>`;
   }
   if (!has(107, 4)) x2 += `<w:style w:type="numbering" w:default="1" w:styleId="${freeId("NoList")}"><w:name w:val="No List"/><w:semiHidden/></w:style>`;
-  return `${XML_DECL}<w:styles${attrs2({ "xmlns:w": NS.w, "xmlns:r": NS.r })}>${x2}</w:styles>`;
+  return `${XML_DECL}<w:styles${attrs2({ "xmlns:w": NS2.w, "xmlns:r": NS2.r })}>${x2}</w:styles>`;
 }
 
 // ../docx-core/src/doc/pictures.ts
@@ -14165,7 +14625,7 @@ var PartRels = class {
     const hit = this.byKey.get(key);
     if (hit) return hit;
     const id = `rId${++this.n}`;
-    this.items.push(el("Relationship", { Id: id, Type: `${NS.relType}/${type}`, Target: target, TargetMode: external ? "External" : void 0 }));
+    this.items.push(el("Relationship", { Id: id, Type: `${NS2.relType}/${type}`, Target: target, TargetMode: external ? "External" : void 0 }));
     this.byKey.set(key, id);
     return id;
   }
@@ -14173,10 +14633,10 @@ var PartRels = class {
     return this.items.length;
   }
   xml() {
-    return `${XML_DECL}<Relationships xmlns="${NS.rel}">${this.items.join("")}</Relationships>`;
+    return `${XML_DECL}<Relationships xmlns="${NS2.rel}">${this.items.join("")}</Relationships>`;
   }
 };
-var MIME = {
+var MIME2 = {
   png: "image/png",
   jpeg: "image/jpeg",
   jpg: "image/jpeg",
@@ -14302,10 +14762,10 @@ var DocxWriter = class {
     rootRels.add("officeDocument", "word/document.xml");
     if (opts.docProps !== false) rootRels.add("extended-properties", "docProps/app.xml");
     this.files.set("_rels/.rels", rootRels.xml());
-    let ct = `${XML_DECL}<Types xmlns="${NS.ct}">`;
+    let ct = `${XML_DECL}<Types xmlns="${NS2.ct}">`;
     ct += el("Default", { Extension: "rels", ContentType: "application/vnd.openxmlformats-package.relationships+xml" });
     ct += el("Default", { Extension: "xml", ContentType: "application/xml" });
-    for (const ext of this.mediaExt) ct += el("Default", { Extension: ext, ContentType: MIME[ext] ?? "application/octet-stream" });
+    for (const ext of this.mediaExt) ct += el("Default", { Extension: ext, ContentType: MIME2[ext] ?? "application/octet-stream" });
     for (const [part, type] of this.overrides) ct += el("Override", { PartName: part, ContentType: type });
     ct += "</Types>";
     const zip = {};
@@ -14333,7 +14793,7 @@ var DocxWriter = class {
       c += el("w:sig", { "w:usb0": h(f.sig[0]), "w:usb1": h(f.sig[1]), "w:usb2": h(f.sig[2]), "w:usb3": h(f.sig[3]), "w:csb0": h(f.sig[4]), "w:csb1": h(f.sig[5]) });
       x2 += el("w:font", { "w:name": f.name }, c);
     }
-    return `${XML_DECL}<w:fonts xmlns:w="${NS.w}" xmlns:r="${NS.r}">${x2}</w:fonts>`;
+    return `${XML_DECL}<w:fonts xmlns:w="${NS2.w}" xmlns:r="${NS2.r}">${x2}</w:fonts>`;
   }
   // ───────────────────────────── histórias ─────────────────────────────
   renderMain(rels) {
@@ -15963,7 +16423,7 @@ function newTable(rows, cols, o) {
   const widths = o.colTwips ? Array(cols).fill(Math.round(o.colTwips)) : equalWidths(Math.max(cols, Math.round(o.availTwips) - 10), cols);
   const pref = o.colTwips ? widths : equalWidths(Math.max(cols, Math.round(o.prefTwips ?? o.availTwips + (o.indTwips ?? 0)) - 10), cols);
   const total = sum(pref);
-  const pct = pref.map((w) => Math.round(w / total * 5e3));
+  const pct2 = pref.map((w) => Math.round(w / total * 5e3));
   const tblPr = {};
   if (o.styleId !== null) tblPr.tblStyle = o.styleId ?? "Tabelacomgrade";
   tblPr.tblW = o.autofit === "window" ? { w: 5e3, type: "pct" } : { w: 0, type: "auto" };
@@ -15972,7 +16432,7 @@ function newTable(rows, cols, o) {
   const mk = () => ({
     cells: widths.map((w, i2) => {
       const paragraph = o.para?.() ?? emptyPara();
-      const tcW = o.autofit === "content" ? { w: 0, type: "auto" } : o.autofit === "window" ? { w: pct[i2], type: "pct" } : { w: pref[i2] ?? w, type: "dxa" };
+      const tcW = o.autofit === "content" ? { w: 0, type: "auto" } : o.autofit === "window" ? { w: pct2[i2], type: "pct" } : { w: pref[i2] ?? w, type: "dxa" };
       const cell = { paragraphs: [paragraph], tables: [], gridSpan: 1, tcPr: { tcW }, blocks: [{ type: "paragraph", paragraph }] };
       syncLegacyCell(cell);
       return cell;
@@ -17138,7 +17598,7 @@ var TSPR_ORDER = ["w:pPr", "w:rPr", "w:tblPr", "w:trPr", "w:tcPr"];
 var TBLPR_ORDER2 = ["w:tblStyle", "w:tblpPr", "w:tblOverlap", "w:bidiVisual", "w:tblStyleRowBandSize", "w:tblStyleColBandSize", "w:tblW", "w:jc", "w:tblCellSpacing", "w:tblInd", "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook"];
 var TCPR_ORDER2 = ["w:cnfStyle", "w:tcW", "w:gridSpan", "w:hMerge", "w:vMerge", "w:tcBorders", "w:shd", "w:noWrap", "w:tcMar", "w:textDirection", "w:tcFitText", "w:vAlign", "w:hideMark"];
 var SIDES2 = ["top", "left", "bottom", "right", "insideH", "insideV"];
-var esc6 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var esc7 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 function el2(raw, tag) {
   return raw ? splitElement(raw) : { open: `<${tag}>`, close: `</${tag}>`, kids: [] };
 }
@@ -17156,7 +17616,7 @@ function patchBorderSet(raw, tag, b) {
 function patchTcPr2(raw, f, bordersHere) {
   const o = el2(raw, "w:tcPr");
   if (bordersHere && f.borders && Object.keys(f.borders).length) setKid2(o.kids, TCPR_ORDER2, "w:tcBorders", patchBorderSet(kid(o.kids, "w:tcBorders"), "w:tcBorders", f.borders) || null);
-  if (f.fill !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:shd", f.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc6(f.fill)}"/>`);
+  if (f.fill !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:shd", f.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc7(f.fill)}"/>`);
   if (f.vAlign !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:vAlign", f.vAlign === null || f.vAlign === "top" ? null : `<w:vAlign w:val="${f.vAlign}"/>`);
   return join2(o);
 }
@@ -17205,12 +17665,12 @@ function patchTableStyleXml(raw, cond, f) {
   return o.open + o.kids.map((k) => k.raw).join("") + o.close;
 }
 function newTableStyleXml(o) {
-  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc6(o.id)}"><w:name w:val="${esc6(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc6(o.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
+  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc7(o.id)}"><w:name w:val="${esc7(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc7(o.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
 }
 function retitleTableStyleXml(raw, h) {
   const o = splitElement(raw);
-  if (h.name !== void 0) setKid2(o.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc6(h.name)}"/>`);
-  if (h.basedOn !== void 0) setKid2(o.kids, STYLE_ORDER, "w:basedOn", h.basedOn ? `<w:basedOn w:val="${esc6(h.basedOn)}"/>` : null);
+  if (h.name !== void 0) setKid2(o.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc7(h.name)}"/>`);
+  if (h.basedOn !== void 0) setKid2(o.kids, STYLE_ORDER, "w:basedOn", h.basedOn ? `<w:basedOn w:val="${esc7(h.basedOn)}"/>` : null);
   return o.open + o.kids.map((k) => k.raw).join("") + o.close;
 }
 
@@ -17298,8 +17758,8 @@ function themeHex(colors, themeColor, tint, shade) {
   return (ch(h + 1 / 3) + ch(h) + ch(h - 1 / 3)).toUpperCase();
 }
 function materializeStyleXml(xml, colors) {
-  const attr = (tag, name) => new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1];
-  return xml.replace(/w:color="~"([^/>]*)/g, (_m, rest) => `w:color="${themeHex(colors, attr(rest, "w:themeColor") ?? "text1", attr(rest, "w:themeTint"), attr(rest, "w:themeShade"))}"${rest}`).replace(/w:fill="~"([^/>]*)/g, (_m, rest) => `w:fill="${themeHex(colors, attr(rest, "w:themeFill") ?? "background1", attr(rest, "w:themeFillTint"), attr(rest, "w:themeFillShade"))}"${rest}`);
+  const attr2 = (tag, name) => new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1];
+  return xml.replace(/w:color="~"([^/>]*)/g, (_m, rest) => `w:color="${themeHex(colors, attr2(rest, "w:themeColor") ?? "text1", attr2(rest, "w:themeTint"), attr2(rest, "w:themeShade"))}"${rest}`).replace(/w:fill="~"([^/>]*)/g, (_m, rest) => `w:fill="${themeHex(colors, attr2(rest, "w:themeFill") ?? "background1", attr2(rest, "w:themeFillTint"), attr2(rest, "w:themeFillShade"))}"${rest}`);
 }
 function styleDefOf(xml) {
   const sheet = readStyleSheet(`<w:styles ${W2}>${xml}</w:styles>`);
@@ -17398,6 +17858,7 @@ export {
   firstChild,
   readEmbeddedFonts,
   readStyleSheet,
+  vmlColor,
   dmlColorSpec,
   readPictureFormat,
   DEFAULT_WRAP_POLYGON,
@@ -17454,8 +17915,15 @@ export {
   noteMarkField,
   noteRefRun,
   newNoteParagraphs,
+  vmlColorAttr,
+  writePageBackground,
+  WORD_PATTERNS,
+  patternGif,
+  oneColorGradientColor2,
+  resolveColor2,
   markSectionBreaks,
   readHeaderFooterPart,
+  readBodyFragment,
   noteRefIds,
   readFullDocument,
   COLUMN_SPACE_DEFAULT,
@@ -17474,6 +17942,15 @@ export {
   setOrientation,
   writeDefaultTabStop,
   writeEvenAndOddHeaders,
+  writeDisplayBackgroundShape,
+  watermarkRunXml,
+  isWatermarkXml,
+  readWatermarkXml,
+  autoTextBox,
+  explicitTextBox,
+  pictureBox,
+  WATERMARK_GALLERY,
+  WATERMARK_TEXTS,
   hfPartXml,
   copyHfPartXml,
   dropUnusedHfParts,
