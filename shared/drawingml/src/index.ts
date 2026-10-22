@@ -6,3 +6,11 @@ export { presetPath, type PresetPath, type Pt, type PathSeg } from './geometry.j
 export { evalPreset, hasPresetDef, presetGuides, presetTextRect, customGuides, arcToSeg, type PresetGeometry } from './preset-engine.js';
 export { PRESET_DEFS } from './preset-defs.js';
 export { lightTable, lightAt, lightFace, bevelPhi } from './light3d.js';
+// - rasterização sem DOM (máscaras, desfoque, distância) e os efeitos de imagem
+//   (sombra, sombra interna, brilho, bordas suaves, reflexo) medidos no Word.
+export { presetOutline, type Outline } from './outline.js';
+export {
+  newMask, flattenPath, fillPolygons, gaussianBlur, distanceTo, morph, shiftMask, warpMask, invertAffine, mulAffine, IDENTITY,
+  type Mask, type Affine,
+} from './raster.js';
+export { alignPoint, shadowAffine, outerShadowMask, innerShadowMask, glowMask, softEdgeMask, reflectionAlpha, type ShadowSpec } from './effects.js';

@@ -1,0 +1,21 @@
+{
+    "name":  "fx-refl-4-50-0",
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  144,
+                       "Height":  108,
+                       "ScaleWidth":  40,
+                       "ScaleHeight":  40,
+                       "LockAspectRatio":  -1,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}

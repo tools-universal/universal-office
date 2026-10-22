@@ -64,6 +64,16 @@ const state = () => page.evaluate(() => {
 
 const c = await picCenter();
 if (!c) { console.log('sem imagem'); await browser.close(); process.exit(1); }
+if (scenario === 'view') {
+  // só o desenho da imagem (recorte da página em volta dela)
+  const r = { x: Math.max(0, c.x - c.w), y: Math.max(0, c.y - c.h), width: c.w * 2, height: c.h * 2.4 };
+  const f = path.join(out, `view-${doc}.png`);
+  await page.screenshot({ path: f, clip: r });
+  console.log('captura', f);
+  if (logs.length) console.log(['ERROS:', ...logs].join('\n'));
+  await browser.close();
+  process.exit(0);
+}
 await page.mouse.click(c.x, c.y);
 await page.waitForTimeout(400);
 console.log('selecionada:', JSON.stringify(await state()));

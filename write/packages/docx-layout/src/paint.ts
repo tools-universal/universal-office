@@ -2,7 +2,8 @@ import type { BorderSpec, PBdr } from '@universal-office/docx-core';
 import type { Line, PlacedGlyph } from './lines.js';
 import type { PreparedPara, Glyph } from './para.js';
 import { WORD_UNIT } from './para.js';
-import type { PageItem, GlyphRunItem } from './tree.js';
+import type { PageItem, GlyphRunItem, PictureLook } from './tree.js';
+import { pictureLook } from './picture.js';
 import { faceMetrics } from './fonts.js';
 import { resolveColor, shadingFill, fontOfSlot } from './resolve.js';
 import type { DocContext } from './context.js';
@@ -210,6 +211,7 @@ function paintInlineObject(ctx: DocContext, out: PageItem[], g: Glyph, x0: numbe
       ...(im.style?.rot ? { rot: im.style.rot } : {}),
       ...(im.style?.flipH ? { flipH: true } : {}),
       ...(im.style?.flipV ? { flipV: true } : {}),
+      ...((): { pic?: PictureLook } => { const pic = pictureLook(im, ctx.fmt.theme); return pic ? { pic } : {}; })(),
     });
   } else if (obj.shape) {
     const s = obj.shape;

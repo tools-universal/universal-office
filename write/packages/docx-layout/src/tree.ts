@@ -69,6 +69,25 @@ export interface ImageItem {
   rot?: number;
   flipH?: boolean;
   flipV?: boolean;
+  /** Formato da Imagem (cores já resolvidas): forma, contorno, efeitos e ajustes */
+  pic?: PictureLook;
+}
+
+/** Aparência da imagem além do bitmap (Formato da Imagem), resolvida no layout. */
+export interface PictureLook {
+  /** Cortar para Forma: a forma predefinida (sem = retângulo) */
+  geom?: { prst: string; adj?: Record<string, number> };
+  /** contorno: todo do lado de FORA da forma (medido) */
+  line?: { color: string; alpha: number; widthPt: number; dash?: string; cmpd?: string; cap?: string; join?: string };
+  shadow?: { kind: 'outer' | 'inner'; color: string; alpha: number; blurPt: number; distPt: number; dirDeg: number; sx?: number; sy?: number; kxDeg?: number; kyDeg?: number; algn?: string; rotWithShape?: boolean };
+  glow?: { color: string; alpha: number; radPt: number };
+  softEdgePt?: number;
+  reflection?: { blurPt: number; stA: number; stPos: number; endA: number; endPos: number; distPt: number; dirDeg: number; sy: number; algn?: string; rotWithShape?: boolean };
+  /** ajustes do a:blip que o Word aplica aos pixels (os de a:lum/grayscl/biLevel
+   *  ficam em image.effects) */
+  alpha?: number;
+  duotone?: [string, string];
+  clrChange?: { from: string; to: string; toAlpha: number };
 }
 
 export interface ShapeItem {

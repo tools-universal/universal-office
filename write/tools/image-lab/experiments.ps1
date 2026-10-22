@@ -296,3 +296,20 @@ $E['p3d-17'] = @{ Op = { param($c) Mso $c 'TextWrappingSquare'; $s = Shp $c; $s.
 $E['p3d-18'] = @{ Op = { param($c) Mso $c 'TextWrappingSquare'; $s = Shp $c; $s.ThreeD.SetThreeDFormat(18) } }
 $E['p3d-19'] = @{ Op = { param($c) Mso $c 'TextWrappingSquare'; $s = Shp $c; $s.ThreeD.SetThreeDFormat(19) } }
 $E['p3d-20'] = @{ Op = { param($c) Mso $c 'TextWrappingSquare'; $s = Shp $c; $s.ThreeD.SetThreeDFormat(20) } }
+
+# ---- lote 3: varreduras de efeito para medir o desenho (PDF) ----
+foreach ($b in @(2, 4, 8, 16)) {
+  $E[('fx-shblur-' + $b)] = @{ B = $b; Op = { param($c) $s = $c.ish.Shadow; $s.Visible = -1; $s.Style = 2; $s.Blur = $c.ex.B; $s.OffsetX = 0; $s.OffsetY = 0; $s.Size = 100; $s.Transparency = 0.4; $s.ForeColor.RGB = 0 } }
+}
+foreach ($r in @(4, 8, 16, 32)) {
+  $E[('fx-glow-' + $r)] = @{ R = $r; Op = { param($c) $g = $c.ish.Glow; $g.Radius = $c.ex.R; $g.Color.RGB = 255; $g.Transparency = 0 } }
+}
+foreach ($r in @(1, 2.5, 5, 10, 20)) {
+  $E[('fx-soft-' + $r)] = @{ R = $r; Op = { param($c) $c.ish.SoftEdge.Radius = $c.ex.R } }
+}
+foreach ($v in @(@(0, 50, 0), @(4, 50, 0), @(0, 100, 0), @(0, 50, 10))) {
+  $E[('fx-refl-' + $v[0] + '-' + $v[1] + '-' + $v[2])] = @{ V = $v; Op = { param($c) $r = $c.ish.Reflection; $r.Type = 1; $r.Blur = $c.ex.V[0]; $r.Size = $c.ex.V[1]; $r.Offset = $c.ex.V[2]; $r.Transparency = 0.5 } }
+}
+foreach ($v in @(@(4, 0), @(8, 4))) {
+  $E[('fx-inner-' + $v[0] + '-' + $v[1])] = @{ V = $v; Op = { param($c) $s = $c.ish.Shadow; $s.Visible = -1; $s.Style = 1; $s.Blur = $c.ex.V[0]; $s.OffsetX = $c.ex.V[1]; $s.OffsetY = 0; $s.Transparency = 0.5; $s.ForeColor.RGB = 0 } }
+}

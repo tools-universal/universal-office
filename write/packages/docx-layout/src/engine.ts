@@ -9,7 +9,7 @@ import { LineBreaker, type Line } from './lines.js';
 import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.js';
 import { dateFieldValue } from './datefmt.js';
 import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, LATE_ITEMS, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
-import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, LineParaFormat, PlacedObject } from './tree.js';
+import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, LineParaFormat, PlacedObject, PictureLook } from './tree.js';
 import { BAR_WIDTH, barX, joinDeleted } from './revisions.js';
 import { resolveColor, resolveDrawingColor, shadingFill } from './resolve.js';
 import { formatNumber } from './numbering.js';
@@ -17,6 +17,7 @@ import { NumberingState, type NumberMarker } from './numbering.js';
 import { isEmf, renderEmf } from './emf.js';
 import { isWmf, renderWmf } from './wmf.js';
 import { groupChild, shapeExtras } from './geometry.js';
+import { pictureLook } from './picture.js';
 import { liftFrames, FRAME_SKIP, FRAME_CARRY, FRAME_INFO } from './frames.js';
 
 /**
@@ -3333,6 +3334,7 @@ class Engine {
         ...(im.style?.rot ? { rot: im.style.rot } : {}),
         ...(im.style?.flipH ? { flipH: true } : {}),
         ...(im.style?.flipV ? { flipV: true } : {}),
+        ...((): { pic?: PictureLook } => { const pic = pictureLook(im, theme); return pic ? { pic } : {}; })(),
       });
     } else if (run.shape) {
       const s = run.shape.style;

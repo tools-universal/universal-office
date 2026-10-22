@@ -14,6 +14,7 @@
   "dependencies": {
     "@universal-office/docx-core": "*",
     "fflate": "^0.8.2",
-    "@universal-office/fonts": "file:../../../shared/fonts"
+    "@universal-office/fonts": "file:../../../shared/fonts",
+    "@universal-office/drawingml": "file:../../../shared/drawingml"
   }
 }

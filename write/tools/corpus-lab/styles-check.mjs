@@ -40,6 +40,7 @@ await build({
     '@universal-office/docx-core': join(ed, 'docx-core', 'src', 'index.ts'),
     '@universal-office/docx-layout': join(ed, 'docx-layout', 'src', 'index.ts'),
     '@universal-office/fonts': join(repoRoot, 'shared', 'fonts', 'src', 'index.ts'),
+    '@universal-office/drawingml': join(repoRoot, 'shared', 'drawingml', 'src', 'index.ts'),
     '@universal-office/ui': join(repoRoot, 'shared', 'ui', 'src', 'index.ts'),
     '@universal-office/collation': join(repoRoot, 'sheet', 'packages', 'calc', 'src', 'collation.ts'),
     '@universal-office/compare': join(ed, 'compare', 'src', 'index.ts'),

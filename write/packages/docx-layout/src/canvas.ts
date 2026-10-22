@@ -1,5 +1,6 @@
 import type { InlineImage } from '@universal-office/docx-core';
 import { BORDER_DASHES } from './tree.js';
+import { needsPicturePainter, paintPicture } from './canvas-picture.js';
 import type { PageItem, GlyphRunItem, ShapeItem } from './tree.js';
 import type { FontFace as EngineFontFace } from './fonts.js';
 
@@ -109,6 +110,8 @@ export function paintItems(
       case 'image': {
         const bmp = env.image(it.image);
         if (!bmp) break;
+        // Formato da Imagem (forma, contorno, efeitos, ajustes): camada composta
+        if (needsPicturePainter(it)) { paintPicture(ctx, it, bmp); break; }
         let x = it.x, y = it.y, w = it.w, h = it.h;
         const crop = it.crop;
         const cropped = !!crop && !!(crop.l || crop.t || crop.r || crop.b);
