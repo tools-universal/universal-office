@@ -188,9 +188,14 @@ export async function fontDialog(env: DialogEnv, families: string[]): Promise<vo
     el('div', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Preview', 'Visualização'), sample));
   const h = openDialog({
     title: tr(lang, 'Font', 'Fonte'), body, layer: env.layer, lang, width: 560,
-    actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: 'OK', primary: true }],
+    actions: [
+      ...(typeof ed.setDefaultFont === 'function' && !ed.isProtected() ? [{ id: 'default', label: tr(lang, 'Set As Default', 'Definir como Padrão') }] : []),
+      { id: 'cancel', label: L.cancel }, { id: 'ok', label: 'OK', primary: true },
+    ],
   });
-  if ((await h.result) !== 'ok') return;
+  const res = await h.result;
+  if (res === 'default') { setAsDefault(); return; }
+  if (res !== 'ok') return;
 
   // ── aplica só o que mudou ──
   const f: FontFormat = {};
@@ -221,4 +226,25 @@ export async function fontDialog(env: DialogEnv, families: string[]): Promise<vo
   const kv = kernOn.input.checked ? Math.max(1, Math.round((Number.isFinite(num(kernBy.value)) ? num(kernBy.value) : curSize) * 2)) : 0;
   if (kv !== kern) f.kernMinHalfPt = kv;
   if (Object.keys(f).length) ed.setFontFormat(f);
+
+  /** Definir como Padrão: o que o diálogo mostra e difere do estilo Normal entra nele (medido). */
+  function setAsDefault(): void {
+    const def = ed.listStyles('all').find((x) => x.isDefault && x.kind !== 'character');
+    const look = def ? ed.styleFormatting(def.id) : null;
+    const d: FontFormat = {};
+    const fam = font.value.trim() || curFont;
+    if (!look || fam !== look.fontFamily) d.fontFamily = fam;
+    const sz = num(size.value);
+    if (Number.isFinite(sz) && (!look || Math.abs(sz - look.sizePt) > 0.01)) d.sizePt = sz;
+    const b = fstyle.value.includes('b'), i = fstyle.value.includes('i');
+    if (!look || b !== look.bold) d.bold = b;
+    if (!look || i !== look.italic) d.italic = i;
+    const c = color.value();
+    if (c.hex !== 'auto' && (!look || c.hex.toUpperCase() !== (look.color ?? '').toUpperCase())) d.color = apiColor(c);
+    if (!look || (ul.value !== 'none') !== look.underline) d.underline = ul.value as FontFormat['underline'];
+    if (!look || fx.strike.input.checked !== look.strike) d.strike = fx.strike.input.checked;
+    if (!look || fx.caps.input.checked !== look.allCaps) d.allCaps = fx.caps.input.checked;
+    if (!look || fx.small.input.checked !== look.smallCaps) d.smallCaps = fx.small.input.checked;
+    if (Object.keys(d).length) ed.setDefaultFont(d);
+  }
 }

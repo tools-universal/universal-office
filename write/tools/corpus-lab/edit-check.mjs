@@ -1805,6 +1805,16 @@ if (want('home')) {
   check('home: Linha Horizontal grava o v:rect o:hr do Word num parágrafo próprio',
     /<w:p><w:r><w:pict><v:rect id="_x0000_i1025" style="width:0;height:1\.5pt" o:hralign="center" o:hrstd="t" o:hr="t" fillcolor="#a0a0a0" stroked="f"\/><\/w:pict><\/w:r><\/w:p>/.test(x), null);
   check('home: o motor desenha a linha (retângulo cinza com relevo)', (await items('i.t === "rect" && i.fill === "A0A0A0"')) >= 3, null);
+  // Pincel de Formatação: duplo clique trava (dois trechos), Esc solta; não copia a origem do run
+  await js('e.setSelection({ para: 0, offset: 0 }, { para: 0, offset: 2 }); e.copyFormat(true);');
+  check('home: pincel travado fica ativo', (await js('return e.painterSticky();')) === true, null);
+  await js('e.cancelFormatPainter();');
+  check('home: Esc/cancelar solta o pincel', (await js('return e.painterActive();')) === false, null);
+  // Definir como Padrão: a fonte vai para o rPr do estilo Normal (medido), não para o w:docDefaults
+  await js('e.setDefaultFont({ fontFamily: "Georgia", sizePt: 14 });');
+  const sx = (await page.evaluate((n) => window.ed.savedParts(n), ['word/styles.xml']))['word/styles.xml'] ?? '';
+  const normal = /<w:style w:type="paragraph" w:default="1"[^>]*>[\s\S]*?<\/w:style>/.exec(sx)?.[0] ?? '';
+  check('home: Definir como Padrão grava fonte e tamanho no Normal', /<w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"\/>/.test(normal) && /<w:sz w:val="28"\/>/.test(normal), normal.slice(0, 300));
   await saveDoc('home-font');
 }
 

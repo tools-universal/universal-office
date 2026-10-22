@@ -98,6 +98,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   const run = (): SelState['run'] => ctl.state().run;
   const para = (): SelState['para'] => ctl.state().para;
   const L = app.ui!.L;
+  let painterClick = 0;
 
   // controle de alterações
   const markup = (): { insertionsDeletions: boolean; formatting: boolean; balloons: string; authors: string[] | null } =>
@@ -137,7 +138,15 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     { id: 'selectAll', label: { en: 'Select all', pt: 'Selecionar tudo' }, icon: 'select_all', shortcut: 'Ctrl+A', run: () => ed.selectAll(), isEnabled: notComparing },
     { id: 'find', label: { en: 'Find', pt: 'Localizar' }, icon: 'search', shortcut: 'Ctrl+F', run: () => ctl.find(false), isEnabled: notComparing },
     { id: 'replace', label: { en: 'Replace', pt: 'Substituir' }, icon: 'find_replace', shortcut: 'Ctrl+H', run: () => ctl.find(true), isEnabled: canEdit },
-    edit({ id: 'painter', label: { en: 'Format Painter', pt: 'Pincel de Formatação' }, icon: 'format_paint', run: () => ed.copyFormat(), isChecked: () => ed.painterActive() }),
+    // Pincel: um clique = uma vez; duplo clique trava (até Esc ou outro clique) — como o Word
+    edit({ id: 'painter', label: { en: 'Format Painter', pt: 'Pincel de Formatação' }, tip: { en: 'Format Painter (double-click to apply to several places; Esc ends)', pt: 'Pincel de Formatação (clique duplo para aplicar em vários lugares; Esc encerra)' }, icon: 'format_paint',
+      run: () => {
+        const now = Date.now();
+        if (now - painterClick < 450 && ed.painterActive()) ed.copyFormat(true);
+        else if (ed.painterActive()) ed.cancelFormatPainter();
+        else ed.copyFormat();
+        painterClick = now;
+      }, isChecked: () => ed.painterActive() }),
 
     // ── Exibir ──
     ...(['print', 'web', 'read', 'outline', 'draft'] as ViewMode[]).map((v): Command => ({

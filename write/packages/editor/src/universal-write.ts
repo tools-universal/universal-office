@@ -85,6 +85,7 @@ import {
   newRevision,
   readTrackRevisions,
   paraFormatting,
+  runFormatting,
   paragraphHasRevisions,
   withoutRevisions,
   type RevisionInfo,
@@ -3046,6 +3047,28 @@ export class UniversalWriteElement extends HTMLElement {
     return true;
   }
 
+  /**
+   * "Definir como Padrão" do diálogo Fonte (medido: SetAsTemplateDefault grava a
+   * fonte no rPr do estilo PADRÃO de parágrafo — o Normal —, não no w:docDefaults):
+   * fonte, tamanho, estilo, cor e efeitos do diálogo entram no Normal.
+   */
+  setDefaultFont(f: FontFormat): boolean {
+    if (!this.stylesEditable()) return false;
+    const format: StyleFormat = {};
+    if (f.fontFamily !== undefined) format.fontAscii = f.fontFamily;
+    if (f.sizePt !== undefined) format.szHalfPt = Math.round(f.sizePt * 2);
+    if (f.bold !== undefined) format.bold = f.bold;
+    if (f.italic !== undefined) format.italic = f.italic;
+    if (f.underline !== undefined) format.underline = f.underline !== 'none';
+    if (f.strike !== undefined) format.strike = f.strike;
+    if (f.allCaps !== undefined) format.allCaps = f.allCaps;
+    if (f.smallCaps !== undefined) format.smallCaps = f.smallCaps;
+    if (f.color !== undefined) format.color = f.color === null ? null : this.colorPick(f.color).hex;
+    if (f.spacingTwips !== undefined) format.charSpacingTwips = f.spacingTwips || null;
+    if (f.fontFamily !== undefined) void this.ensureFontLoaded(f.fontFamily);
+    return this.modifyStyle(this.docStyles.defaultParagraph(), { format });
+  }
+
   /** "Atualizar <estilo> para Corresponder à Seleção": a formatação direta do
    *  parágrafo atual (a de parágrafo e a de caractere uniforme) entra no estilo
    *  e sai do parágrafo. Padrão: o estilo do parágrafo atual. */
@@ -3298,21 +3321,37 @@ export class UniversalWriteElement extends HTMLElement {
 
   // pincel de formatação
   private painterProps: { run: RunProps; para: ParaProps } | null = null;
-  copyFormat(): void {
+  /** pincel travado (duplo clique no botão, como o Word): segue ativo até Esc ou outro clique */
+  private painterLock = false;
+  /** Pincel de Formatação: copia a formatação do cursor/seleção; `sticky` = duplo clique
+   *  (fica ativo para vários trechos até Esc ou cancelFormatPainter). */
+  copyFormat(sticky = false): void {
     if (!this.model) return;
     this.painterProps = {
-      run: this.currentProps(),
-      para: { ...this.model.paragraphs[this.selection.focus.para]!.props },
+      // só formatação: a origem, o link, os comentários e as revisões não se copiam
+      run: runFormatting(this.currentProps()),
+      para: paraFormatting({ ...this.model.paragraphs[this.selection.focus.para]!.props }),
     };
+    this.painterLock = sticky;
+    this.onSelectionChange?.(); this.chromeSync?.();
   }
   painterActive(): boolean { return this.painterProps !== null; }
+  /** O pincel está travado (duplo clique)? */
+  painterSticky(): boolean { return this.painterProps !== null && this.painterLock; }
+  /** Desliga o pincel (Esc). */
+  cancelFormatPainter(): void {
+    if (!this.painterProps) return;
+    this.painterProps = null;
+    this.painterLock = false;
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
   private applyPainter(): void {
     if (!this.painterProps || !this.model) return;
     const { run, para } = this.painterProps;
-    this.painterProps = null;
+    if (!this.painterLock) this.painterProps = null;
     this.snapshot();
-    if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run));
-    this.applyPara(this.range(), paraFormatting(para));
+    if (this.hasSelection()) this.applyRun(this.range(), run);
+    this.applyPara(this.range(), para);
     this.refresh();
   }
 
@@ -7932,6 +7971,7 @@ export class UniversalWriteElement extends HTMLElement {
         this.onSelectionChange?.(); this.chromeSync?.();
         return;
       }
+      if (k === 'Escape' && this.painterProps) { e.preventDefault(); this.cancelFormatPainter(); return; }
       if (k === 'Escape' && (this.drawMode || this.linkFrom)) { e.preventDefault(); this.cancelDrawTextbox(); this.cancelTextboxLink(); return; }
       // objeto flutuante selecionado: Esc desseleciona, Del remove, setas nudge
       if (this.floatSel && !this.tbEdit && this.selectedFloat()) {

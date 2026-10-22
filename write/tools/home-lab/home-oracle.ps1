@@ -34,10 +34,15 @@ try {
     try {
       $doc = $app.Documents.Add()
       if ($ex.Contains('Compat')) { $doc.SetCompatibilityMode([int]$ex.Compat) }
+      $script:SKIPSAVE = $false
       $res = & $ex.Run $app $doc
       if ($res -eq $null) { $res = [ordered]@{} }
-      $doc.SaveAs2([string]($base + '.docx'), 16)
-      if ($Pdf -or $ex.Contains('Pdf')) { $doc.ExportAsFixedFormat([string]($base + '.pdf'), 17) }
+      # o experimento fechou o documento e gravou o proprio (ex.: modelo temporario)
+      if ($script:SKIPSAVE) { $doc = $null }
+      else {
+        $doc.SaveAs2([string]($base + '.docx'), 16)
+        if ($Pdf -or $ex.Contains('Pdf')) { $doc.ExportAsFixedFormat([string]($base + '.pdf'), 17) }
+      }
       Write-Utf8 ($base + '.json') ($res | ConvertTo-Json -Depth 8)
       Emit ("ok " + $ex.Name)
     } catch {
