@@ -7,8 +7,10 @@ import {
   REFLECTION_PRESETS,
   RevisionDisplay,
   SHADOW_PRESETS,
+  SHAPE_STYLE_PRESETS,
   SfntFont,
   StyleResolver,
+  TEXTBOX_TEMPLATES,
   TWIPS_PER_PT,
   Z_FIRST,
   adjustBrightnessContrast,
@@ -33,11 +35,13 @@ import {
   formatNumber,
   formatWordDate,
   glowPreset,
+  gradientVariations,
   hexColor,
   hyphenationPatternId,
   hyphenatorFor,
   imagePixelInfo,
   inheritedPPr,
+  isShapeFill,
   layoutDocument,
   lineHeightPt,
   loadHyphenation,
@@ -52,11 +56,13 @@ import {
   renderPdf,
   resolveColor,
   resolveDrawingColor,
+  shapeStyleIndex,
+  textboxTemplateSpec,
   themeTintShade,
   withEmbeddedFonts,
   wrapContour,
   zFor
-} from "./chunks/chunk-HHIK5RSP.js";
+} from "./chunks/chunk-MOVDDWNT.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -67,13 +73,16 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-57KHIMCT.js";
+} from "./chunks/chunk-HZ4N6OND.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
   DEFAULT_RUN_PROPS,
+  DEFAULT_TEXTBOX_BODY,
   DEFAULT_WRAP_POLYGON,
   DocxPackage,
+  NEW_TEXTBOX_FILL,
+  NEW_TEXTBOX_LINE,
   NOTE_REF_TEXT,
   NOTE_STYLES,
   SORT_MERGED_ERROR,
@@ -113,6 +122,7 @@ import {
   explicitTextBox,
   finalBlocks,
   finalParagraphs,
+  forEachTextbox,
   formulaInstr,
   formulaResultText,
   hasParaChanges,
@@ -133,6 +143,7 @@ import {
   newPictureXml,
   newRevision,
   newStyleXml,
+  newTextboxDrawingXml,
   normalizeParagraph,
   normalizeRange,
   noteMarkField,
@@ -148,6 +159,7 @@ import {
   parseSortNumber,
   patchPicture,
   patchSettingsNotes,
+  patchShape,
   patchStylePPr,
   patchStyleRPr,
   patchStyleXml,
@@ -162,6 +174,7 @@ import {
   readFullDocument,
   readHeaderFooterPart,
   readPictureFormat,
+  readShapeFormat,
   readStyleIndex,
   readStyleSheet,
   readStylesXml,
@@ -174,6 +187,7 @@ import {
   sectionRanges,
   sectionRefs,
   sectionSectPr,
+  serializeBlocks,
   setLatentQFormat,
   setOrientation,
   sortParagraphsOrder,
@@ -186,6 +200,7 @@ import {
   styleKid,
   styleRaw,
   syncImageFromXml,
+  syncShapeFromXml,
   table_ops_exports,
   themeHex,
   trackApplyParaProps,
@@ -205,7 +220,7 @@ import {
   writeEvenAndOddHeaders,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-MVJSDZBR.js";
+} from "./chunks/chunk-UKAC2AZH.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -2986,6 +3001,15 @@ var HIGHLIGHTS2 = {
   darkYellow: "#808000",
   lightGray: "#c0c0c0"
 };
+function shiftEngLine(l, dx, dy) {
+  return { ...l, x: l.x + dx, y: l.y + dy, baseline: l.baseline + dy, ...l.chars ? { chars: l.chars.map((c) => ({ ...c, x: c.x + dx })) } : {} };
+}
+var xfApply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+function xfInvert(m, x, y) {
+  const det = m[0] * m[3] - m[1] * m[2];
+  const dx = x - m[4], dy = y - m[5];
+  return [(m[3] * dx - m[2] * dy) / det, (-m[1] * dx + m[0] * dy) / det];
+}
 var refsOfSection = (s) => ({
   headerRefs: s.headerRefs.map((r) => ({ kind: "header", type: r.type, rid: r.rid })),
   footerRefs: s.footerRefs.map((r) => ({ kind: "footer", type: r.type, rid: r.rid }))
@@ -3372,7 +3396,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-H32SLWIQ.js");
+    const { setupChrome } = await import("./chunks/chrome-JY7HS352.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -3409,7 +3433,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-H32SLWIQ.js").then((m) => {
+      void import("./chunks/chrome-JY7HS352.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -4091,16 +4115,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (relayout) this.refresh();
     if (!silent) this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
   }
-  /** Entra na edição do conteúdo de uma caixa de texto flutuante. hostRun é o
-   *  run que carrega `.textbox`; rectTwips é o retângulo ancorado (coords de
-   *  página, twips); caret opcional posiciona o cursor no ponto do clique. */
-  enterTextbox(hostRun, rectTwips, pageIdx, caret) {
-    if (!this.model || !hostRun.textbox || this.tbEdit || this.locked()) return;
+  /** Entra na edição do conteúdo de uma caixa de texto. `focusRun` é o run que
+   *  carrega a caixa clicada (numa cadeia vinculada, o conteúdo é o da 1ª caixa);
+   *  rectTwips é o retângulo dela (coords de página, twips); caret opcional
+   *  posiciona o cursor. Desfazer: a pilha é a do documento (medido: uma só). */
+  enterTextbox(focusRun, rectTwips, pageIdx, caret) {
+    if (!this.model || !focusRun.textbox || this.tbEdit || this.locked()) return;
     if (this.cellEdit) {
       this.exitCell();
       this.refreshSelection();
     }
     this.floatSel = null;
+    const chain = this.textboxChain(focusRun.textbox);
+    const hostRun = chain && this.runOfTextbox(chain[0]) || focusRun;
     const tb = hostRun.textbox;
     for (const p of tb.paras) {
       for (const run2 of p.runs) {
@@ -4109,24 +4136,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
     }
-    this.tbSnapshotSuppress = hostRun;
-    this.paint();
-    this.tbSnapshotSuppress = null;
-    this.tbBgSnapshots = this.canvases.map((c) => {
-      const snap = document.createElement("canvas");
-      snap.width = c.width;
-      snap.height = c.height;
-      if (c.width > 1) snap.getContext("2d").drawImage(c, 0, 0);
-      return snap;
-    });
+    if (!this.engineCanRun()) {
+      this.tbSnapshotSuppress = hostRun;
+      this.paint();
+      this.tbSnapshotSuppress = null;
+      this.tbBgSnapshots = this.canvases.map((c) => {
+        const snap = document.createElement("canvas");
+        snap.width = c.width;
+        snap.height = c.height;
+        if (c.width > 1) snap.getContext("2d").drawImage(c, 0, 0);
+        return snap;
+      });
+    }
     this.savedForTb = {
       model: this.model,
       tableAnchors: this.tableAnchors,
       sectionStarts: this.sectionStarts,
       floatImages: this.floatImages,
       selection: this.selection,
-      undoStack: this.undoStack,
-      redoStack: this.redoStack,
       pageCount: this.pageCount,
       pageSections: [...this.pageSections]
     };
@@ -4134,17 +4161,105 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.tableAnchors = [];
     this.sectionStarts = [];
     this.floatImages = [];
-    this.tbEdit = { hostRun, rectTwips, pageIdx };
+    this.tbEdit = { hostRun, focusRun, ...chain ? { chain } : {}, rectTwips, pageIdx };
     const start = caret ?? { para: 0, offset: 0 };
     this.selection = { anchor: start, focus: start };
-    this.undoStack = [];
-    this.redoStack = [];
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
     this.refresh();
     this.focusEditor();
     this.dispatchEvent(new CustomEvent("uw-tbmode", { detail: { active: true } }));
   }
-  exitTextbox() {
+  /** Blocos do corpo (com as tabelas), do estado vivo. */
+  bodyBlocks() {
+    const b = this.bodyState();
+    const body = [];
+    b.model.paragraphs.forEach((paragraph, pi) => {
+      for (const a of b.tableAnchors) if (a.beforePara === pi) body.push(a.table);
+      body.push({ type: "paragraph", paragraph });
+    });
+    for (const a of b.tableAnchors) if (a.beforePara >= b.model.paragraphs.length) body.push(a.table);
+    return body;
+  }
+  /** Runs das caixas de texto do contexto de fora da caixa (o corpo, ou a parte de
+   *  cabeçalho/rodapé em edição — `model` é o modelo dela), na ordem do documento:
+   *  a pilha de desfazer guarda a caixa em edição pela ordem nesta lista. */
+  contextTextboxRuns(model) {
+    const blocks = this.hfEdit ? model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })) : this.bodyBlocks();
+    const runs = [];
+    forEachTextbox(blocks, (_t, r) => runs.push(r));
+    return runs;
+  }
+  /** Blocos da história em que a caixa mora (corpo — com as tabelas — ou a parte de
+   *  cabeçalho/rodapé), do estado vivo. */
+  storyBlocksOf(tb) {
+    const body = this.bodyBlocks();
+    let found = false;
+    forEachTextbox(body, (t) => {
+      if (t === tb) found = true;
+    });
+    if (found) return body;
+    for (const s of this.fullDoc?.sections ?? []) {
+      for (const set of [s.headers, s.footers]) {
+        for (const paras of Object.values(set)) {
+          if (!paras) continue;
+          const bs = paras.map((paragraph) => ({ type: "paragraph", paragraph }));
+          let hit = false;
+          forEachTextbox(bs, (t) => {
+            if (t === tb) hit = true;
+          });
+          if (hit) return bs;
+        }
+      }
+    }
+    return body;
+  }
+  /** Caixas da cadeia vinculada da caixa (a 1ª primeiro), ou undefined. */
+  textboxChain(tb) {
+    if (tb.story === void 0 && !tb.link) return void 0;
+    const blocks = this.storyBlocksOf(tb);
+    const heads = /* @__PURE__ */ new Map();
+    const links = [];
+    forEachTextbox(blocks, (t) => {
+      if (t.link) links.push(t);
+      else if (t.story !== void 0 && !heads.has(t.story)) heads.set(t.story, t);
+    });
+    const id = tb.link ? tb.link.id : tb.story;
+    const head = heads.get(id);
+    const ms = links.filter((l) => l.link.id === id).sort((a, b) => a.link.seq - b.link.seq);
+    return head && ms.length ? [head, ...ms] : void 0;
+  }
+  /** Tira a caixa da cadeia vinculada dela antes de excluí-la: o texto continua nas que
+   *  ficam — excluir a 1ª passa o conteúdo (e a história) para a seguinte; as de depois
+   *  sobem uma posição. */
+  unchainTextbox(tb) {
+    const chain = this.textboxChain(tb);
+    if (!chain) return;
+    const id = chain[0].story;
+    const rest = chain.filter((t) => t !== tb);
+    const set = (t, story) => {
+      const r = this.runOfTextbox(t);
+      if (r?.textbox?.rawDrawingXml) this.applyDrawingXml(r, patchShape(r.textbox.rawDrawingXml, { story }), false);
+    };
+    if (tb === chain[0]) {
+      const next = rest[0];
+      next.paras = tb.paras;
+      if (tb.blocks) next.blocks = tb.blocks;
+      else delete next.blocks;
+      set(next, rest.length > 1 ? { kind: "txbx", id, content: "<w:p/>" } : { kind: "txbx", content: "<w:p/>" });
+    } else if (rest.length === 1) set(rest[0], { kind: "txbx" });
+    rest.slice(1).forEach((t, k) => set(t, { kind: "linked", id, seq: k + 1 }));
+  }
+  /** Run que carrega a caixa (na história dela). */
+  runOfTextbox(tb) {
+    let out;
+    forEachTextbox(this.storyBlocksOf(tb), (t, r) => {
+      if (t === tb) out = r;
+    });
+    return out;
+  }
+  /** Sai da edição da caixa (`silent`: sem rediagramar — desfazer/refazer, que
+   *  rediagrama depois de restaurar). */
+  exitTextbox(silent = false) {
     if (!this.tbEdit || !this.savedForTb) return;
     const tbx = this.tbEdit.hostRun.textbox;
     if (tbx?.blocks) tbx.blocks = reconcileBlocks(tbx.blocks, tbx.paras, true);
@@ -4154,11 +4269,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.sectionStarts = this.savedForTb.sectionStarts;
     this.floatImages = this.savedForTb.floatImages;
     this.selection = this.savedForTb.selection;
-    this.undoStack = this.savedForTb.undoStack;
-    this.redoStack = this.savedForTb.redoStack;
     this.savedForTb = null;
     this.tbEdit = null;
-    this.refresh();
+    if (!silent) this.refresh();
     this.dispatchEvent(new CustomEvent("uw-tbmode", { detail: { active: false } }));
   }
   /** Desloca âncoras de tabela quando parágrafos entram/saem (as seções saem do
@@ -5202,8 +5315,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const tables = this.cellEdit || this.hfEdit || this.tbEdit ? [] : this.tableAnchors.filter((a) => a.beforePara > start.para && a.beforePara <= end.para).map((a) => ({ before: a.beforePara - start.para, table: table_ops_exports.cloneTable(a.table) }));
     return { text, paras, ...tables.length ? { tables } : {} };
   }
+  /** Cópia profunda do run de um objeto de desenho (os bytes das imagens são os mesmos). */
+  static cloneDrawingRun(r) {
+    return structuredClone(r);
+  }
   /** Copia a seleção: texto p/ o sistema + cópia RICA interna (preserva origem). */
   async copy() {
+    const fs = this.floatSel;
+    if (fs && !this.tbEdit && (fs.textbox || fs.shape || fs.group || fs.image?.floating) && _UniversalWriteElement.rawOf(fs)) {
+      this.richClip = { text: "", paras: [], drawing: _UniversalWriteElement.cloneDrawingRun(fs) };
+      try {
+        await navigator.clipboard?.writeText("");
+      } catch {
+      }
+      return;
+    }
     const cells = this.cellsClip();
     if (cells) {
       const { text, html } = _UniversalWriteElement.tableClipText(cells.table);
@@ -5222,6 +5348,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Recorta a seleção. */
   async cut() {
+    const fs = this.floatSel;
+    if (fs && !this.tbEdit && (fs.textbox || fs.shape || fs.group || fs.image?.floating) && !this.locked()) {
+      await this.copy();
+      if (this.richClip?.drawing) this.deleteSelectedFloat();
+      return;
+    }
     if (this.tableSel && !this.locked()) {
       const c = this.cellsClip();
       await this.copy();
@@ -5250,6 +5382,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.locked()) return;
     try {
       const t = await navigator.clipboard?.readText();
+      if (!t && this.richClip?.drawing) {
+        this.pasteDrawing(this.richClip.drawing);
+        return;
+      }
       if (!t && this.richClip?.text === "" && this.richClip.paras.some((p) => p.runs.some((r) => r.noteRef))) {
         this.insertRich(this.richClip);
         this.onSelectionChange?.();
@@ -5263,6 +5399,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.chromeSync?.();
     } catch {
     }
+  }
+  /** Cola o objeto de desenho copiado: uma cópia nova (id e nome de desenho novos), ancorada
+   *  no parágrafo do cursor na mesma posição relativa, e fica selecionada. */
+  pasteDrawing(src) {
+    if (!this.model || this.locked() || this.tbEdit) return;
+    const run2 = _UniversalWriteElement.cloneDrawingRun(src);
+    const obj = run2.textbox ?? run2.shape ?? run2.group ?? run2.image;
+    const id = this.nextDrawingId();
+    if (obj.rawDrawingXml) {
+      obj.rawDrawingXml = obj.rawDrawingXml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a) => `${a}${id}"`).replace(/(<wp:docPr\b[^>]*?\bname=")([^"]*?)\s*\d*"/, (_m, a, n) => `${a}${n} ${id}"`);
+      obj.edited = true;
+    }
+    this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    const at = this.selection.focus;
+    const p = this.model.paragraphs[at.para];
+    p.runs.splice(insertIndex(p, at.offset), 0, run2);
+    this.floatSel = run2;
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   /** Cola a cópia rica: células (linhas inteiras numa tabela entram como linhas novas; senão substituem) ou parágrafos. */
   pasteRich(clip) {
@@ -7779,7 +7937,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   stats() {
     let words = 0, chars = 0;
     const ne = this.noteEdit;
-    const model = ne ? ne.saved.model : this.model;
+    const model = ne ? ne.saved.model : this.tbEdit && this.savedForTb ? this.savedForTb.model : this.model;
     if (model) {
       for (const p of model.paragraphs) {
         const t = this.plainTextSlice(p, 0, paraLength(p));
@@ -7913,8 +8071,30 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   imgPoolIdx = /* @__PURE__ */ new WeakMap();
   /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre).
    *  `parts`: conteúdo de partes de cabeçalho/rodapé (chave "kind:rId") que o passo muda. */
-  stringifyState(deep = false, parts = []) {
-    const own = this.tbEdit;
+  stringifyState(deep = false, parts = [], extra) {
+    if (this.tbEdit && this.savedForTb) {
+      const te = this.tbEdit, sb2 = this.savedForTb;
+      const cur = { model: this.model, selection: this.selection, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts, floatImages: this.floatImages };
+      const runs = this.contextTextboxRuns(sb2.model);
+      const info = { h: runs.indexOf(te.hostRun), f: runs.indexOf(te.focusRun), pg: te.pageIdx, s: this.selection };
+      this.tbEdit = null;
+      this.model = sb2.model;
+      this.selection = sb2.selection;
+      this.tableAnchors = sb2.tableAnchors;
+      this.sectionStarts = sb2.sectionStarts;
+      this.floatImages = sb2.floatImages;
+      try {
+        return this.stringifyState(deep, parts, { ...extra, te: info });
+      } finally {
+        this.tbEdit = te;
+        this.model = cur.model;
+        this.selection = cur.selection;
+        this.tableAnchors = cur.tableAnchors;
+        this.sectionStarts = cur.sectionStarts;
+        this.floatImages = cur.floatImages;
+      }
+    }
+    const own = null;
     const ce = own ? null : this.cellEdit;
     const ne = own ? null : this.noteEdit;
     const he = own ? null : this.hfEdit;
@@ -7957,7 +8137,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       // conteúdo dela e o cursor nela
       nt: ne ? { k: ne.kind, id: ne.id, p: this.model.paragraphs, s: this.selection } : void 0,
       // opções de nota do documento (settings)
-      np: own ? void 0 : this.noteSettings
+      np: own ? void 0 : this.noteSettings,
+      // objeto de desenho selecionado (a ordem dele no contexto)
+      fs: this.floatSel && !ce && !ne ? (() => {
+        const i = this.contextDrawingRuns(this.model).indexOf(this.floatSel);
+        return i >= 0 ? i : void 0;
+      })() : void 0,
+      ...extra
     }, (key, value) => {
       if (value instanceof Uint8Array) {
         let idx = this.imgPoolIdx.get(value);
@@ -7996,15 +8182,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   popHistory(from, to) {
     if (!this.model || from.length === 0) return;
-    this.floatSel = null;
     const state = this.parseState(from.pop());
-    const hf = this.hfEdit && !this.tbEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage, key: `${this.hfEdit.kind}:${this.hfEdit.rid}`, sel: this.selection } : null;
     const partKeys = [...state.hp ? [state.hp.k] : [], ...(state.hx ?? []).map(([k]) => k)];
+    let pushed = false;
+    if (this.tbEdit) {
+      to.push(this.stringifyState(!!state.hf, partKeys));
+      pushed = true;
+      this.exitTextbox(true);
+    }
+    const hf = this.hfEdit && !this.tbEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage, key: `${this.hfEdit.kind}:${this.hfEdit.rid}`, sel: this.selection } : null;
     if (!this.hfEdit && !this.tbEdit && state.nt) {
       const ne = this.noteEdit;
       if (ne?.kind !== state.nt.k || ne?.id !== state.nt.id) this.enterNote(state.nt.k, state.nt.id, "end");
     }
-    to.push(this.stringifyState(!!state.hf, partKeys));
+    if (!pushed) to.push(this.stringifyState(!!state.hf, partKeys));
+    this.floatSel = null;
     if (hf) this.exitHeaderFooter(true, false);
     if (state.hf) {
       state.hf.forEach((sets, si) => {
@@ -8018,12 +8210,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (const r of [...sec.headerRefs, ...sec.footerRefs]) this.dirtyHf.add(r.path);
       });
     }
-    if (this.tbEdit) {
-      const linked = this.model.paragraphs;
-      linked.splice(0, linked.length, ...state.m.paragraphs);
-      this.model = { ...state.m, paragraphs: linked };
-      this.selection = state.s;
-    } else {
+    {
       const wasCell = !!this.cellEdit;
       const wasNote = this.noteEdit;
       this.cellEdit = null;
@@ -8067,11 +8254,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== void 0 && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
     this.restorePageBackground(state.bg, state.bgd);
-    if (!this.tbEdit) {
-      for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
-      if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
-      if (state.eo !== void 0 && state.eo !== this.evenOddHeaders()) this.setEvenOddFlag(state.eo);
-    }
+    for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
+    if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
+    if (state.eo !== void 0 && state.eo !== this.evenOddHeaders()) this.setEvenOddFlag(state.eo);
     if (hf && !this.noteEdit && !this.cellEdit) {
       this.refresh();
       this.enterHeaderFooter(hf.kind, Math.min(hf.page, Math.max(0, this.pageCount - 1)), true);
@@ -8081,6 +8266,30 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (!this.hfEdit) this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
     }
     this.refresh();
+    if (state.te) this.reenterTextbox(state.te);
+    else if (state.fs !== void 0) {
+      const r = this.contextDrawingRuns(this.model)[state.fs];
+      if (r) {
+        this.floatSel = r;
+        this.refreshSelection();
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+      }
+    }
+  }
+  /** Volta à edição da caixa (ordem dela na história do contexto atual) depois de um
+   *  desfazer/refazer — a mesma página, o cursor de então. */
+  reenterTextbox(te) {
+    if (!this.model) return;
+    const runs = this.contextTextboxRuns(this.model);
+    const focus = runs[te.f] ?? runs[te.h];
+    if (!focus?.textbox) return;
+    const o = this.engObjectOf(focus, this.hfEdit ? te.pg : void 0);
+    this.enterTextbox(focus, o ? { x: o.x, y: o.y, w: o.w, h: o.h } : { x: 0, y: 0, w: focus.textbox.widthTwips, h: focus.textbox.heightTwips }, o?.page ?? te.pg);
+    if (this.tbEdit) {
+      this.selection = this.clampSel(te.s);
+      this.refresh();
+    }
   }
   /** Seleção dentro do modelo atual (parágrafos/offsets existentes). */
   clampSel(s) {
@@ -8135,11 +8344,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.clearSelectedCells(false);
       this.tableSel = null;
     } else if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
+    let replaced;
     if (this.hasSelection()) {
+      const st = normalizeRange(this.range()).start;
+      replaced = propsAt(this.model, { para: st.para, offset: st.offset + 1 });
       const pos2 = this.deleteSelection();
       this.selection = { anchor: pos2, focus: pos2 };
     }
-    const props = this.pendingProps ?? this.propsAfterNoteRef();
+    const props = this.pendingProps ?? this.propsAfterNoteRef() ?? replaced;
     const pos = this.insertTyped(this.selection.focus, text, props);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
@@ -8466,6 +8678,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (this.tableMouseDown(e)) return;
       if (e.button === 0 && !this.protectedMode) {
+        if (this.drawMouseDown(e) || this.linkMouseDown(e)) {
+          this.focusEditor();
+          return;
+        }
         if (this.editingWrapPoints()) {
           if (this.wrapPointsMouseDown(e)) {
             this.focusEditor();
@@ -8488,16 +8704,36 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.startFloatDrag(e, hn === "rot" ? "rotate" : "resize", hn);
           return;
         }
+        if (this.tbEdit && this.eng) {
+          const af = this.activeFloat();
+          if (af && this.onObjectBorder(e, af)) {
+            this.focusEditor();
+            this.startFloatDrag(e, "move", "");
+            return;
+          }
+        }
         if (!(this.tbEdit && this.pointInTbRect(e))) {
           if (this.tbEdit) this.exitTextbox();
           let tbHit = this.hitTextbox(e);
           const fh0 = tbHit && this.eng ? this.hitFloat(e, "image") : null;
           if (tbHit && fh0?.kind === "image" && fh0.rect.w * fh0.rect.h < tbHit.rect.w * tbHit.rect.h) tbHit = null;
+          if (tbHit && this.eng && this.onObjectBorder(e, { page: tbHit.page, rect: tbHit.rect, rot: tbHit.hostRun.textbox?.rot })) {
+            if (this.floatSel !== tbHit.hostRun) {
+              this.floatSel = tbHit.hostRun;
+              this.refreshSelection();
+            }
+            this.focusEditor();
+            this.startFloatDrag(e, "move", "");
+            this.onSelectionChange?.();
+            this.chromeSync?.();
+            return;
+          }
           if (tbHit) {
+            if (this.floatSel) this.floatSel = null;
             this.enterTextbox(tbHit.hostRun, tbHit.rect, tbHit.page);
           } else {
             const fh = fh0 ?? this.hitFloat(e) ?? this.hitInlinePic(e);
-            if (fh && fh.kind === "image") {
+            if (fh) {
               if (this.floatSel !== fh.run) {
                 this.floatSel = fh.run;
                 this.refreshSelection();
@@ -8517,7 +8753,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
       if (e.button === 2 && !this.tbEdit && this.model) {
-        const ph = this.hitFloat(e, "image") ?? this.hitInlinePic(e);
+        const fh2 = this.hitFloat(e);
+        const ph = (fh2 && fh2.kind !== "textbox" ? fh2 : null) ?? this.hitInlinePic(e);
         if (ph) {
           if (ph.inline) this.selectInlineRun(ph.run);
           else {
@@ -8635,7 +8872,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const plain = this.plainPasteNext;
       this.plainPasteNext = false;
       const html = plain ? "" : e.clipboardData?.getData("text/html") ?? "";
-      if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, "\n")) this.pasteRich(this.richClip);
+      if (!plain && !text && this.richClip?.drawing) this.pasteDrawing(this.richClip.drawing);
+      else if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, "\n")) this.pasteRich(this.richClip);
       else if (/<table[\s>]/i.test(html) && this.pasteHtmlTables(html)) {
       } else if (text) this.pasteText(text);
       this.onSelectionChange?.();
@@ -8932,8 +9170,23 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.chromeSync?.();
         return;
       }
+      if (k === "Escape" && (this.drawMode || this.linkFrom)) {
+        e.preventDefault();
+        this.cancelDrawTextbox();
+        this.cancelTextboxLink();
+        return;
+      }
       if (this.floatSel && !this.tbEdit && this.selectedFloat()) {
         const inline = !!this.floatSel.image && !this.floatSel.image.floating;
+        const sel = this.floatSel;
+        if (sel.textbox && k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !this.locked()) {
+          const h0 = this.selectedFloat();
+          const paras = (this.textboxChain(sel.textbox)?.[0] ?? sel.textbox).paras;
+          const last = Math.max(0, paras.length - 1);
+          this.floatSel = null;
+          this.enterTextbox(sel, h0.rect, h0.page, { para: last, offset: paras[last] ? paraLength(paras[last]) : 0 });
+          return;
+        }
         if ((k === "Escape" || k === "Enter") && this.croppingImage()) {
           e.preventDefault();
           this.endImageCrop();
@@ -8970,11 +9223,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             const ox = obj.offsetXTwips ?? 0, oy = obj.offsetYTwips ?? 0;
             const dx = k === "ArrowLeft" ? -step : k === "ArrowRight" ? step : 0;
             const dy = k === "ArrowUp" ? -step : k === "ArrowDown" ? step : 0;
-            const pic = h.kind === "image" ? obj : null;
             const fr = this.engObjectFrame(h.run);
-            if (pic?.format && pic.rawDrawingXml && fr) {
-              const ph = this.posFor(pic.format.posH, "h", h.rect.x + dx, fr), pv = this.posFor(pic.format.posV, "v", h.rect.y + dy, fr);
-              this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml, { ...dx && ph ? { posH: ph } : {}, ...dy && pv ? { posV: pv } : {} }), false);
+            const fmt = _UniversalWriteElement.rawOf(h.run) ? this.formatOf(h.run) : void 0;
+            if (fmt && fr) {
+              const ph = this.posFor(fmt.posH, "h", h.rect.x + dx, fr), pv = this.posFor(fmt.posV, "v", h.rect.y + dy, fr);
+              this.applyDrawingXml(h.run, this.patchDrawing(h.run, { ...dx && ph ? { posH: ph } : {}, ...dy && pv ? { posV: pv } : {} }), false);
             } else {
               obj.offsetXTwips = ox + dx;
               obj.offsetYTwips = oy + dy;
@@ -8988,7 +9241,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (k === "Escape" && this.tbEdit) {
         e.preventDefault();
+        const run2 = this.tbEdit.focusRun;
         this.exitTextbox();
+        if (this.eng && this.enumFloats().some((h) => h.run === run2)) {
+          this.floatSel = run2;
+          this.refreshSelection();
+        }
         this.onSelectionChange?.();
         this.chromeSync?.();
         return;
@@ -11437,6 +11695,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) return null;
     const inHf = !!this.hfEdit;
     const scale = PX_PER_TWIP * this.zoom;
+    if (this.eng) {
+      const mine = new Set(this.contextTextboxRuns(this.tbEdit && this.savedForTb ? this.savedForTb.model : this.model));
+      let best = null;
+      let bestZ = -Infinity;
+      this.eng.result.pages.forEach((page2, pg) => {
+        if (inHf && pg !== this.hfActivePage) return;
+        const cv = this.canvases[pg];
+        if (!cv) return;
+        const cr = cv.getBoundingClientRect();
+        if (e.clientY < cr.top || e.clientY > cr.bottom || e.clientX < cr.left || e.clientX > cr.right) return;
+        const xT = (e.clientX - cr.left) / scale, yT = (e.clientY - cr.top) / scale;
+        for (const o of page2.objects ?? []) {
+          const tb = o.run.textbox;
+          if (!tb || !o.content || o.hf !== inHf || !mine.has(o.run)) continue;
+          const rot = (tb.rot ?? 0) * Math.PI / 180;
+          const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+          const dx = xT - cx, dy = yT - cy;
+          const lx = dx * Math.cos(rot) + dy * Math.sin(rot), ly = -dx * Math.sin(rot) + dy * Math.cos(rot);
+          const tol = 5 / scale;
+          if (Math.abs(lx) > o.w / 2 + tol || Math.abs(ly) > o.h / 2 + tol) continue;
+          const z = (o.layer === "front" ? 2 ** 40 : 0) + (tb.anchor?.relativeHeight ?? 0);
+          if (z >= bestZ) {
+            bestZ = z;
+            best = { hostRun: o.run, rect: { x: o.x, y: o.y, w: o.w, h: o.h }, page: pg };
+          }
+        }
+      });
+      return best;
+    }
     const paras = this.model.paragraphs;
     for (let pi = 0; pi < paras.length; pi++) {
       for (const r of paras[pi].runs) {
@@ -11499,15 +11786,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.tbEdit || !this.model) return [];
     const out = [];
     if (this.eng) {
-      const onPage = this.hfEdit ? this.hfActivePage : void 0;
-      for (const p of this.model.paragraphs) {
-        for (const r of p.runs) {
-          const obj = r.image?.floating ? r.image : r.textbox;
-          if (!obj) continue;
-          const er = this.engObjectOf(r, onPage);
-          if (er) out.push({ run: r, obj, kind: r.textbox ? "textbox" : "image", page: er.page, rect: { x: er.x, y: er.y, w: er.w, h: er.h } });
+      const mine = new Set(this.contextDrawingRuns(this.model));
+      const inHf = !!this.hfEdit;
+      this.eng.result.pages.forEach((page2, pg) => {
+        if (inHf && pg !== this.hfActivePage) return;
+        for (const o of page2.objects ?? []) {
+          const r = o.run;
+          if (o.hf !== inHf || !mine.has(r) || out.some((h) => h.run === r)) continue;
+          const kind = r.image ? "image" : r.textbox ? "textbox" : r.shape ? "shape" : r.group ? "group" : null;
+          const obj = r.image ?? r.textbox ?? r.shape ?? r.group;
+          if (!kind || !obj) continue;
+          const rot = _UniversalWriteElement.runRot(r);
+          out.push({ run: r, obj, kind, page: pg, rect: { x: o.x, y: o.y, w: o.w, h: o.h }, ...rot ? { rot } : {} });
         }
-      }
+      });
       return out;
     }
     if (this.hfEdit) {
@@ -11596,7 +11888,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const run2 = this.floatSel;
     const fl = this.enumFloats().find((h) => h.run === run2);
     if (fl) {
-      const rot = run2.image?.style?.rot;
+      const rot = _UniversalWriteElement.runRot(run2);
       return rot ? { ...fl, rot } : fl;
     }
     if (!run2.image || run2.image.floating) return null;
@@ -11641,14 +11933,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  selecionada (floatSel). Assim o redimensionamento coexiste com a edição. */
   activeFloat() {
     if (this.tbEdit) {
-      const tb = this.tbEdit.hostRun.textbox;
+      const tb = this.tbEdit.focusRun.textbox;
       if (!tb) return null;
+      const rot = tb.rot ?? 0;
       return {
-        run: this.tbEdit.hostRun,
+        run: this.tbEdit.focusRun,
         obj: tb,
         kind: "textbox",
         page: this.tbEdit.pageIdx,
-        rect: { ...this.tbEdit.rectTwips }
+        rect: { ...this.tbEdit.rectTwips },
+        ...rot ? { rot } : {}
       };
     }
     return this.selectedFloat();
@@ -11666,11 +11960,50 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (h.rect.w * h.rect.h >= 0.55 * pageW * pageH) continue;
       const xT = (e.clientX - rect.left) / scale;
       const yT = (e.clientY - rect.top) / scale;
-      if (xT >= h.rect.x && xT <= h.rect.x + h.rect.w && yT >= h.rect.y && yT <= h.rect.y + h.rect.h) {
+      const l = _UniversalWriteElement.localPoint(h, xT, yT);
+      if (Math.abs(l.x) <= h.rect.w / 2 && Math.abs(l.y) <= h.rect.h / 2) {
         best = h;
       }
     }
     return best;
+  }
+  /** Ponto da página (twips) no referencial do objeto: relativo ao centro, sem o giro. */
+  static localPoint(h, xT, yT) {
+    const a = -(h.rot ?? 0) * Math.PI / 180;
+    const dx = xT - (h.rect.x + h.rect.w / 2), dy = yT - (h.rect.y + h.rect.h / 2);
+    return { x: dx * Math.cos(a) - dy * Math.sin(a), y: dx * Math.sin(a) + dy * Math.cos(a) };
+  }
+  /** O ponteiro está na BORDA do objeto (faixa de alguns px dos dois lados do contorno)?
+   *  Na caixa de texto, a borda seleciona a forma e o miolo edita o texto (como no Word). */
+  onObjectBorder(e, h) {
+    const cv = this.canvases[h.page];
+    if (!cv) return false;
+    const r = cv.getBoundingClientRect(), scale = PX_PER_TWIP * this.zoom;
+    const l = _UniversalWriteElement.localPoint(h, (e.clientX - r.left) / scale, (e.clientY - r.top) / scale);
+    const tol = 5 / scale;
+    const ax = Math.abs(l.x), ay = Math.abs(l.y), hw = h.rect.w / 2, hh = h.rect.h / 2;
+    if (ax > hw + tol || ay > hh + tol) return false;
+    return ax >= hw - tol || ay >= hh - tol;
+  }
+  /** Giro (graus, horário) do objeto de desenho do run. */
+  static runRot(r) {
+    return r.image?.style?.rot ?? r.textbox?.rot ?? r.shape?.style.rot ?? r.group?.rot ?? 0;
+  }
+  /** Runs dos objetos de desenho ancorados de um contexto: o corpo (com as tabelas) ou,
+   *  no cabeçalho/rodapé em edição, os parágrafos dele (`model`). */
+  contextDrawingRuns(model) {
+    const out = [];
+    const visit = (blocks) => {
+      for (const b of blocks) {
+        if (b.type === "paragraph") {
+          for (const r of b.paragraph.runs) if (r.image?.floating || r.textbox || r.shape || r.group) out.push(r);
+        } else if (b.type === "table") {
+          for (const row of b.rows) for (const c of row.cells) visit(cellBlocks(c));
+        }
+      }
+    };
+    visit(this.hfEdit ? model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })) : this.bodyBlocks());
+    return out;
   }
   /** Distância (px de tela) da alça de girar acima da borda de cima. */
   static ROT_HANDLE_GAP = 22;
@@ -11695,7 +12028,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sw: at(-w / 2, hh / 2),
       w: at(-w / 2, 0)
     };
-    if (h.kind === "image" && !this.tbEdit) out["rot"] = at(0, -hh / 2 - _UniversalWriteElement.ROT_HANDLE_GAP);
+    if (h.kind === "image" ? !this.tbEdit : !h.inline && !!_UniversalWriteElement.rawOf(h.run) && !!this.formatOf(h.run)) out["rot"] = at(0, -hh / 2 - _UniversalWriteElement.ROT_HANDLE_GAP);
     return out;
   }
   /** Nome do handle sob o ponteiro (ou null). */
@@ -11728,15 +12061,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     e.preventDefault();
     const scale = PX_PER_TWIP * this.zoom;
     const obj = h.obj;
-    const editingTb = this.tbEdit && obj === this.tbEdit.hostRun.textbox ? this.tbEdit : null;
+    const editingTb = this.tbEdit && obj === this.tbEdit.focusRun.textbox ? this.tbEdit : null;
     const pic = h.kind === "image" && !editingTb && obj.format ? obj : null;
+    const dml = !pic && h.kind !== "image" && !h.inline && _UniversalWriteElement.rawOf(h.run) && this.formatOf(h.run) ? h.run : null;
     if (h.inline && mode === "move") {
       this.startInlineDrag(e, h);
       return;
     }
     this.snapshot();
     const startRect = editingTb ? { ...editingTb.rectTwips } : null;
-    if (mode === "resize" && editingTb) obj.autoFit = false;
+    if (mode === "resize" && editingTb && !dml) obj.autoFit = false;
     const startW = editingTb ? editingTb.rectTwips.w : obj.widthTwips;
     const startH = editingTb ? editingTb.rectTwips.h : obj.heightTwips;
     const startRot = h.rot ?? 0;
@@ -11770,6 +12104,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (ev.shiftKey) rot = Math.round(rot / 15) * 15;
         d.rot = (rot % 360 + 360) % 360;
         if (pic) pic.style = { ...startStyle ?? { geom: "rect" }, rot: d.rot };
+        else if (h.run.textbox) h.run.textbox.rot = d.rot;
+        else if (h.run.shape) h.run.shape.style = { ...h.run.shape.style, rot: d.rot };
+        else if (h.run.group) h.run.group.rot = d.rot;
       } else if (mode === "move") {
         obj.offsetXTwips = Math.round(d.startOX + (ev.clientX - d.startClientX) / scale);
         obj.offsetYTwips = Math.round(d.startOY + (ev.clientY - d.startClientY) / scale);
@@ -11777,7 +12114,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const rx = (ev.clientX - d.startClientX) / scale, ry = (ev.clientY - d.startClientY) / scale;
         const ar = -startRot * Math.PI / 180;
         const dxT = rx * Math.cos(ar) - ry * Math.sin(ar), dyT = rx * Math.sin(ar) + ry * Math.cos(ar);
-        const lock = h.kind === "image" && (pic?.format?.noChangeAspect ?? true) !== ev.shiftKey;
+        const lock = h.kind === "image" ? (pic?.format?.noChangeAspect ?? true) !== ev.shiftKey : !!(dml && this.formatOf(dml)?.noChangeAspect) !== ev.shiftKey;
         this.applyResize(obj, d, dxT, dyT, lock, ev.ctrlKey, startRot);
       }
       if (engStart && mode !== "rotate") this.moveAnchorTo(obj, engStart.x + (obj.offsetXTwips ?? 0) - d.startOX, engStart.y + (obj.offsetYTwips ?? 0) - d.startOY);
@@ -11805,6 +12142,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (!moved) this.undoStack.pop();
       else {
         if (pic) this.commitPictureDrag(pic, h, engStart, frame0, d);
+        else if (dml) this.commitDrawingDrag(dml, engStart, frame0, d);
         this.dispatchEvent(new CustomEvent("uw-change"));
       }
       this.onSelectionChange?.();
@@ -11837,6 +12175,32 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml, ch), true);
     void h;
+  }
+  /** Fim do arrasto de uma forma, caixa de texto ou grupo: tamanho, giro e posição vão
+   *  para o XML (nas mesmas referências), como na imagem. */
+  commitDrawingDrag(run2, engStart, frame, d) {
+    const f = this.formatOf(run2);
+    const obj = run2.textbox ?? run2.shape ?? run2.group;
+    if (!f || !obj) return;
+    const ch = {};
+    if (d.mode === "rotate") ch.rot = Math.round(d.rot * 6e4) % 216e5;
+    else {
+      ch.size = { cx: Math.round(obj.widthTwips * 635), cy: Math.round(obj.heightTwips * 635) };
+      if (f.sizeRelH?.pct) ch.sizeRelH = { relativeFrom: f.sizeRelH.relativeFrom, pct: 0 };
+      if (f.sizeRelV?.pct) ch.sizeRelV = { relativeFrom: f.sizeRelV.relativeFrom, pct: 0 };
+    }
+    if (engStart && frame && d.mode !== "rotate" && !f.inline) {
+      const x = engStart.x + (obj.offsetXTwips ?? 0) - d.startOX;
+      const y = engStart.y + (obj.offsetYTwips ?? 0) - d.startOY;
+      const nh = this.posFor(f.posH, "h", x, frame), nv = this.posFor(f.posV, "v", y, frame);
+      if (nh) ch.posH = nh;
+      if (nv) ch.posV = nv;
+    }
+    if (run2.group) {
+      run2.group.widthTwips = d.startW;
+      run2.group.heightTwips = d.startH;
+    }
+    this.applyDrawingXml(run2, this.patchDrawing(run2, ch), true);
   }
   /** Posição `xy` (twips de página) na referência de `cur` (deslocamento; % fica %). */
   posFor(cur, axis, xy, frame) {
@@ -12342,6 +12706,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const run2 = this.floatSel;
     if (!run2 || !this.model) return;
     this.snapshot();
+    if (run2.textbox) this.unchainTextbox(run2.textbox);
+    let done = false;
     for (const p of this.model.paragraphs) {
       const idx = p.runs.indexOf(run2);
       if (idx >= 0) {
@@ -12351,8 +12717,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.selection = { anchor: { para: pi, offset: off }, focus: { para: pi, offset: off } };
         }
         p.runs.splice(idx, 1);
+        done = true;
         break;
       }
+    }
+    if (!done && !this.hfEdit) {
+      const visit = (blocks) => {
+        for (const b of blocks) {
+          if (b.type === "paragraph") {
+            const i = b.paragraph.runs.indexOf(run2);
+            if (i >= 0) {
+              b.paragraph.runs.splice(i, 1);
+              return true;
+            }
+          } else if (b.type === "table") {
+            for (const row of b.rows) for (const c of row.cells) if (visit(cellBlocks(c))) return true;
+          }
+        }
+        return false;
+      };
+      visit(this.bodyBlocks());
     }
     this.floatImages = this.floatImages.filter((f) => f.run !== run2);
     this.floatSel = null;
@@ -12383,26 +12767,727 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     img.edited = true;
     syncImageFromXml(img);
   }
-  static EXTENT_KEYS = ["size", "rot", "line", "shadow", "reflection", "glow", "softEdge", "threeD", "wrap"];
+  static EXTENT_KEYS = ["size", "rot", "line", "shadow", "reflection", "glow", "softEdge", "threeD", "wrap", "stylePreset"];
   /** Uma edição da imagem selecionada (um passo de desfazer). `fn` devolve null
    *  quando não há o que mudar. */
-  editPicture(fn) {
-    const run2 = this.picRun();
-    if (!run2 || this.locked()) return false;
-    const img = run2.image;
-    const ch = fn(img.format, img, run2);
-    if (!ch) return false;
+  // ───────────────────────── Formato da Forma (API) ─────────────────────────
+  /** Forma, caixa de texto ou grupo selecionado (ou a caixa em edição) — null para
+   *  imagem ou nada. */
+  selectedShape() {
+    const run2 = this.drawRun();
+    if (!run2 || run2.image) return null;
+    const f = this.formatOf(run2);
+    const sf = "fill" in f ? f : null;
+    const kind = run2.group ? "group" : run2.textbox ? "textbox" : "shape";
+    const tb = run2.textbox;
+    const chain = tb ? this.textboxChain(tb) : void 0;
+    const b = sf?.body;
+    const out = {
+      kind,
+      inline: f.inline,
+      wrap: f.wrap,
+      widthPt: f.cx / 12700,
+      heightPt: f.cy / 12700,
+      rotation: f.rot / 6e4,
+      flipH: f.flipH,
+      flipV: f.flipV,
+      lockAspect: f.noChangeAspect,
+      moveWithText: !f.inline && (f.posV?.relativeFrom === "paragraph" || f.posV?.relativeFrom === "line"),
+      lockAnchor: f.locked,
+      name: f.docPr.name ?? "",
+      altText: f.docPr.descr ?? "",
+      decorative: !!f.docPr.decorative,
+      geometry: f.geom ?? "",
+      styleIndex: sf ? shapeStyleIndex(_UniversalWriteElement.rawOf(run2)) : 0,
+      editingText: !!this.tbEdit && this.tbEdit.focusRun === run2,
+      format: f
+    };
+    if (b) {
+      out.text = {
+        marginsPt: { l: b.lIns / 12700, t: b.tIns / 12700, r: b.rIns / 12700, b: b.bIns / 12700 },
+        anchor: b.anchor,
+        direction: b.vert,
+        wrap: b.wrap !== "none",
+        autofit: b.autofit,
+        upright: b.upright
+      };
+    }
+    if (tb) out.link = { next: !!chain && chain.indexOf(tb) < chain.length - 1, previous: !!chain && chain.indexOf(tb) > 0 };
+    return out;
+  }
+  /** Preenchimento da Forma: uma cor (DmlColor), um preenchimento completo (degradê,
+   *  padrão…) ou null (Sem Preenchimento). */
+  setShapeFill(fill) {
+    const f = fill === null ? { kind: "none" } : isShapeFill(fill) ? fill : { kind: "solid", color: fill };
+    this.editDrawing((cur, run2) => run2.group ? null : { fill: f });
+  }
+  /** Preenchimento da Forma › Imagem (esticada) ou Textura (`tile`: ladrilhos no tamanho
+   *  natural, a partir do canto de cima à esquerda). */
+  async setShapePictureFill(data, ext, tile = false) {
+    const run2 = this.drawRun();
+    if (!run2 || run2.image || run2.group || this.locked()) return;
+    const copy = new Uint8Array(data);
+    this.editDrawing(() => ({ fill: { kind: "picture", embed: "uw:fill", ...tile ? { tile: { tx: 0, ty: 0, sx: 1e5, sy: 1e5, flip: "none", algn: "tl" } } : {} } }));
+    const st = run2.textbox ? run2.textbox.shape ??= { geom: "rect" } : run2.shape?.style;
+    if (st) {
+      st.blip = { image: { data: copy, ext }, ...tile ? { tile: { tx: 0, ty: 0, sx: 1e5, sy: 1e5, algn: "tl", flip: "none" } } : {} };
+      this.refresh();
+    }
+  }
+  /** Contorno da Forma: cor (null = Sem Contorno), espessura (pt), tracejado e linha
+   *  composta. Sem contorno antes, a cor padrão é a do texto (tx1) e a espessura 0,75 pt. */
+  setShapeOutline(o) {
+    this.editDrawing((f, run2) => {
+      if (run2.group) return null;
+      if (o.color === null) return f.line?.fill === null ? null : { outline: null };
+      const base = f.line && f.line.fill ? { ...f.line } : { w: f.line?.w ?? 9525, fill: { kind: "schemeClr", val: "tx1" } };
+      if (o.color) base.fill = o.color;
+      if (o.weightPt !== void 0) base.w = Math.max(0, Math.round(o.weightPt * 12700));
+      if (o.dash !== void 0) {
+        if (o.dash === "solid") delete base.dash;
+        else base.dash = o.dash;
+      }
+      if (o.compound !== void 0) {
+        if (o.compound === "sng") delete base.cmpd;
+        else base.cmpd = o.compound;
+      }
+      return { outline: base };
+    });
+  }
+  /** Efeitos de Forma (sombra, reflexo, brilho, bordas suaves, bisel, rotação 3D) — as
+   *  mesmas predefinições dos Efeitos de Imagem. */
+  setShapeEffect(kind, preset) {
+    if (this.drawRun()?.image) return;
+    this.setImageEffect(kind, preset);
+  }
+  /** Formatar Forma (painel): valores exatos do contorno, sombra, reflexo, brilho, bordas
+   *  suaves e 3D (EMU; null tira, ausente fica). */
+  setShapeFormat(o) {
+    if (this.drawRun()?.image) return;
+    const { line, ...rest } = o;
+    this.editDrawing((_f, run2) => run2.group ? null : { ...rest, ...line !== void 0 ? { outline: line } : {} });
+  }
+  /** Galeria Estilos de Forma: o estilo `n` (1..77) — preenchimento, contorno e efeitos
+   *  pelas referências ao tema (1–42) ou explícitos (43–77), como o Word grava. */
+  setShapeStyle(n) {
+    const p = SHAPE_STYLE_PRESETS[n - 1];
+    if (!p) return;
+    this.editDrawing((_f, run2) => run2.group ? null : { stylePreset: { spPr: p[0], style: p[1] } });
+  }
+  /** Alterar Forma: troca a forma predefinida (o texto vai no retângulo de texto dela). */
+  changeShape(prst) {
+    this.editDrawing((f, run2) => run2.group || f.geom === prst ? null : { geom: { prst } });
+  }
+  /** Caixa de texto: margens internas (pt), alinhamento vertical, direção do texto,
+   *  quebra do texto na forma, autoajuste ("Redimensionar a forma para ajustar o texto")
+   *  e "Não girar o texto". */
+  setTextboxOptions(o) {
+    this.editDrawing((f) => {
+      const b = f.body;
+      if (!b) return null;
+      const body = {};
+      const m = o.marginsPt;
+      if (m?.l !== void 0) body.lIns = Math.round(m.l * 12700);
+      if (m?.t !== void 0) body.tIns = Math.round(m.t * 12700);
+      if (m?.r !== void 0) body.rIns = Math.round(m.r * 12700);
+      if (m?.b !== void 0) body.bIns = Math.round(m.b * 12700);
+      if (o.anchor !== void 0) body.anchor = o.anchor;
+      if (o.direction !== void 0) body.vert = o.direction;
+      if (o.wrap !== void 0) body.wrap = o.wrap ? "square" : "none";
+      if (o.autofit !== void 0) body.autofit = o.autofit;
+      if (o.upright !== void 0) body.upright = o.upright;
+      const changed = Object.keys(body).some((k) => body[k] !== b[k]);
+      return changed ? { body } : null;
+    });
+  }
+  // Organizar e Tamanho: as mesmas operações da imagem, na forma selecionada
+  /** Quebra de Texto Automática da forma. */
+  setShapeWrap(kind) {
+    if (!this.drawRun()?.image) this.setImageWrap(kind);
+  }
+  /** Galeria Posição ('inline' ou "<top|center|bottom>-<left|center|right>"). */
+  setShapePosition(preset) {
+    if (!this.drawRun()?.image) this.setImagePosition(preset);
+  }
+  /** Mover com o Texto × Corrigir Posição na Página. */
+  setShapeMoveWithText(on) {
+    if (!this.drawRun()?.image) this.setImageMoveWithText(on);
+  }
+  /** Bloquear âncora. */
+  setShapeLockAnchor(on) {
+    if (!this.drawRun()?.image) this.setImageLockAnchor(on);
+  }
+  /** Alinhar em relação à margem (padrão) ou à página. */
+  alignShape(kind, relativeTo) {
+    if (!this.drawRun()?.image) this.alignImage(kind, relativeTo);
+  }
+  /** Altura/Largura (pt). */
+  setShapeSize(o) {
+    if (!this.drawRun()?.image) this.setImageSize(o);
+  }
+  /** Giro absoluto (graus, horário). */
+  setShapeRotation(deg) {
+    if (!this.drawRun()?.image) this.setImageRotation(deg);
+  }
+  /** Girar 90° à direita (+90) ou à esquerda (−90). */
+  rotateShape(deg) {
+    if (!this.drawRun()?.image) this.rotateImage(deg);
+  }
+  /** Inverter na horizontal/vertical. */
+  flipShape(axis) {
+    if (!this.drawRun()?.image) this.flipImage(axis);
+  }
+  /** Texto Alt. */
+  setShapeAltText(o) {
+    if (!this.drawRun()?.image) this.setImageAltText(o);
+  }
+  /** Avançar/Recuar (ordem z) e frente/trás do texto. */
+  arrangeShape(op) {
+    if (!this.drawRun()?.image) this.arrangeImage(op);
+  }
+  /** Diálogo Layout (Posição, Quebra Automática de Texto, Tamanho) num passo de desfazer. */
+  setShapeLayout(o) {
+    if (!this.drawRun()?.image) this.setImageLayout(o);
+  }
+  /** Editar Texto: a caixa de texto selecionada passa a editar o texto (cursor no fim). */
+  editSelectedTextbox() {
+    const run2 = this.floatSel;
+    if (!run2?.textbox || this.locked()) return false;
+    const h = this.selectedFloat();
+    const paras = (this.textboxChain(run2.textbox)?.[0] ?? run2.textbox).paras;
+    const last = Math.max(0, paras.length - 1);
+    this.floatSel = null;
+    this.enterTextbox(run2, h ? h.rect : { x: 0, y: 0, w: run2.textbox.widthTwips, h: run2.textbox.heightTwips }, h?.page ?? 0, { para: last, offset: paras[last] ? paraLength(paras[last]) : 0 });
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return !!this.tbEdit;
+  }
+  /** Exclui a forma/caixa/grupo selecionado (a caixa em edição também). */
+  deleteSelectedShape() {
+    const run2 = this.drawRun();
+    if (!run2 || run2.image || this.locked()) return;
+    if (this.tbEdit) {
+      this.exitTextbox(true);
+      this.floatSel = run2;
+    }
+    this.deleteSelectedFloat();
+  }
+  // ───────────────────────── Inserir › Caixa de Texto ─────────────────────────
+  /** Galeria Caixa de Texto: os modelos (nomes no idioma da interface) e, depois, os do
+   *  usuário (Salvar Seleção na Galeria de Caixas de Texto — `user: true`). */
+  textboxTemplates() {
+    const lang = uiLang(this);
+    return [
+      ...TEXTBOX_TEMPLATES.map((t) => ({ id: t.id, name: t.name[lang] })),
+      ...this.userTextboxes().map((u) => ({ id: u.id, name: u.name, user: true }))
+    ];
+  }
+  /** Itens da galeria do usuário: o w:drawing da caixa (com o conteúdo) e o nome. */
+  userTextboxes() {
+    const host = this.host;
+    let json = null;
+    try {
+      json = host?.loadTextboxGallery ? host.loadTextboxGallery() : localStorage.getItem("uw:textbox-gallery");
+    } catch {
+      json = null;
+    }
+    try {
+      const v = JSON.parse(json ?? "[]");
+      return Array.isArray(v) ? v.filter((x) => !!x && typeof x.id === "string" && typeof x.xml === "string" && x.xml.startsWith("<w:drawing")) : [];
+    } catch {
+      return [];
+    }
+  }
+  storeUserTextboxes(items) {
+    const host = this.host;
+    const json = JSON.stringify(items);
+    try {
+      if (host?.saveTextboxGallery) host.saveTextboxGallery(json);
+      else localStorage.setItem("uw:textbox-gallery", json);
+    } catch {
+    }
+  }
+  /** Salvar Seleção na Galeria de Caixas de Texto: a caixa selecionada (formato, tamanho,
+   *  posição e texto) vira um item da galeria do usuário. */
+  saveSelectionToTextboxGallery(name) {
+    const run2 = this.drawRun();
+    const tb = run2?.textbox;
+    const raw = run2 && _UniversalWriteElement.rawOf(run2);
+    if (!tb || !raw || !this.model) return false;
+    const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
+    const doc = serializeBlocks(blocks, this.model.sectPr);
+    const body = /<w:body>([\s\S]*?)<w:sectPr\b/.exec(doc)?.[1] ?? "<w:p/>";
+    const xml = raw.replace(/<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/, () => `<w:txbxContent>${body}</w:txbxContent>`);
+    const f = this.formatOf(run2);
+    const items = this.userTextboxes();
+    items.push({ id: `user:${Date.now().toString(36)}`, name: (name ?? "").trim() || f?.docPr.name || "Text Box", xml });
+    this.storeUserTextboxes(items);
+    return true;
+  }
+  /** Tira um item da galeria do usuário. */
+  removeTextboxGalleryItem(id) {
+    this.storeUserTextboxes(this.userTextboxes().filter((u) => u.id !== id));
+  }
+  /** Variações do degradê do Preenchimento da Forma (claras e escuras), a partir da cor
+   *  do preenchimento atual (ou Ênfase 1). */
+  shapeGradientVariations() {
+    const st = this.selectedShape();
+    const f = st && "fill" in st.format ? st.format.fill : null;
+    const base = f?.kind === "solid" ? { ...f.color, mods: (f.color.mods ?? []).filter(([k]) => k !== "alpha") } : { kind: "schemeClr", val: "accent1" };
+    return gradientVariations(base);
+  }
+  /** Maior id de desenho (wp:docPr) do documento + 1 — o Word numera o nome da forma
+   *  nova com ele ("Caixa de Texto N"). */
+  nextDrawingId() {
+    let max = 0;
+    const scan = (x) => {
+      if (!x) return;
+      for (const m of x.matchAll(/<wp:docPr\b[^>]*?\bid="(\d+)"/g)) max = Math.max(max, Number(m[1]));
+    };
+    const visit = (blocks) => {
+      for (const b of blocks) {
+        if (b.type === "paragraph") {
+          for (const r of b.paragraph.runs) {
+            scan(_UniversalWriteElement.rawOf(r));
+            if (r.textbox) visit(r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph })));
+          }
+        } else if (b.type === "table") for (const row of b.rows) for (const c of row.cells) visit(cellBlocks(c));
+      }
+    };
+    visit(this.bodyBlocks());
+    for (const sct of this.fullDoc?.sections ?? []) {
+      for (const set of [sct.headers, sct.footers]) for (const ps of Object.values(set)) if (ps) visit(ps.map((paragraph) => ({ type: "paragraph", paragraph })));
+    }
+    return max >= 2147483646 ? 1 + Math.floor(Math.random() * 2147483646) : max + 1;
+  }
+  /** Parte do tema do documento (rel do document.xml), se houver. */
+  themePartPath() {
+    const rels = this.pkg?.getPartText("word/_rels/document.xml.rels");
+    const m = rels && /<Relationship\b[^>]*Type="[^"]*\/theme"[^>]*>/.exec(rels)?.[0];
+    const t = m && /Target="([^"]+)"/.exec(m)?.[1];
+    return t ? `word/${t.replace(/^\/?word\//, "").replace(/^\.\//, "")}` : null;
+  }
+  /** Caixa de texto padrão do documento (tema: a:objectDefaults/a:txDef, gravada por
+   *  "Definir como Caixa de Texto Padrão"): os filhos do spPr e os atributos do bodyPr. */
+  textboxDefaults() {
+    const path = this.themePartPath();
+    const x = path ? this.pkg?.getPartText(path) : void 0;
+    const td = x && /<a:objectDefaults>[\s\S]*?<a:txDef>([\s\S]*?)<\/a:txDef>/.exec(x)?.[1];
+    if (!td) return null;
+    const spPr = /<a:spPr>([\s\S]*?)<\/a:spPr>|<a:spPr\/>/.exec(td)?.[1] ?? "";
+    const bp = /<a:bodyPr\b([^>]*?)\/?>/.exec(td)?.[1] ?? "";
+    const at = (n) => new RegExp(`\\s${n}="([^"]*)"`).exec(bp)?.[1];
+    const body = {};
+    for (const k of ["lIns", "tIns", "rIns", "bIns"]) {
+      const v = at(k);
+      if (v !== void 0) body[k] = Number(v);
+    }
+    const vert = at("vert");
+    if (vert) body.vert = vert;
+    const wrap = at("wrap");
+    if (wrap === "none" || wrap === "square") body.wrap = wrap;
+    const anchor = at("anchor");
+    if (anchor === "t" || anchor === "ctr" || anchor === "b") body.anchor = anchor;
+    if (/<a:spAutoFit\/>/.test(td)) body.autofit = "shape";
+    return { spPr, body };
+  }
+  /** Definir como Caixa de Texto Padrão: o preenchimento, o contorno, os efeitos e as
+   *  margens/direção da caixa selecionada vão para o tema (a:objectDefaults/a:txDef, como
+   *  o Word) e valem para as caixas novas desenhadas. */
+  setAsDefaultTextbox() {
+    const run2 = this.drawRun();
+    const raw = run2?.textbox ? _UniversalWriteElement.rawOf(run2) : void 0;
+    const path = this.themePartPath();
+    const theme = path ? this.pkg?.getPartText(path) : void 0;
+    const f = run2 && this.formatOf(run2);
+    if (!raw || !theme || !path || !f?.body || this.locked()) return false;
+    const sp = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
+    const spIn = sp.replace(/<a:xfrm\b[\s\S]*?<\/a:xfrm>|<a:xfrm\/>/, "").replace(/<a:prstGeom\b[\s\S]*?<\/a:prstGeom>|<a:prstGeom\b[^>]*\/>|<a:custGeom\b[\s\S]*?<\/a:custGeom>/, "");
+    const b = f.body, d = DEFAULT_TEXTBOX_BODY;
+    const ins = ["lIns", "tIns", "rIns", "bIns"].filter((k) => b[k] !== d[k]).map((k) => ` ${k}="${b[k]}"`).join("");
+    const attrs = `vert="${b.vert}" wrap="${b.wrap}"${ins}${b.anchor !== "t" ? ` anchor="${b.anchor}"` : ""} rtlCol="0"`;
+    const body = b.autofit === "shape" ? `<a:bodyPr ${attrs}><a:spAutoFit/></a:bodyPr>` : `<a:bodyPr ${attrs}/>`;
+    const txDef = `<a:txDef><a:spPr>${spIn}</a:spPr>${body}<a:lstStyle/></a:txDef>`;
+    let next;
+    if (/<a:objectDefaults\/>/.test(theme)) next = theme.replace(/<a:objectDefaults\/>/, () => `<a:objectDefaults>${txDef}</a:objectDefaults>`);
+    else if (/<a:txDef>[\s\S]*?<\/a:txDef>/.test(theme)) next = theme.replace(/<a:txDef>[\s\S]*?<\/a:txDef>/, () => txDef);
+    else if (/<a:objectDefaults>/.test(theme)) next = theme.replace(/<\/a:objectDefaults>/, () => `${txDef}</a:objectDefaults>`);
+    else next = theme.replace(/<\/a:themeElements>/, () => `</a:themeElements><a:objectDefaults>${txDef}</a:objectDefaults>`);
+    this.pkg.setPartText(path, next);
+    this.dispatchEvent(new CustomEvent("uw-change"));
+    return true;
+  }
+  /** XML do w:drawing de uma caixa de texto nova (id e nome novos, por cima das outras). */
+  newTextboxXml(o) {
+    const id = this.nextDrawingId();
+    const zs = this.zValues();
+    const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
+    const name = `${uiLang(this) === "pt" ? "Caixa de Texto" : "Text Box"} ${id}`;
+    const t = o.template;
+    if (t) {
+      return {
+        id,
+        xml: newTextboxDrawingXml({
+          id,
+          name,
+          cx: t.cx,
+          cy: t.cy,
+          posH: t.posH,
+          posV: t.posV,
+          relativeHeight: z,
+          wrap: t.wrap,
+          ...t.sizeRelH ? { sizeRelH: t.sizeRelH } : {},
+          ...t.sizeRelV ? { sizeRelV: t.sizeRelV } : {},
+          fill: t.fill,
+          line: t.line,
+          body: { ...t.body },
+          content: t.content
+        })
+      };
+    }
+    const def = this.textboxDefaults();
+    return {
+      id,
+      xml: newTextboxDrawingXml({
+        id,
+        name,
+        cx: o.cx,
+        cy: o.cy,
+        relativeHeight: z,
+        ...def ? { spPrRaw: def.spPr } : { fill: NEW_TEXTBOX_FILL, line: NEW_TEXTBOX_LINE },
+        body: { ...def?.body ?? {}, ...o.vert ? { vert: o.vert } : {} },
+        content: o.content
+      })
+    };
+  }
+  /** Run de caixa de texto a partir do XML do w:drawing (lido como o do arquivo). */
+  textboxRunFromXml(drawing) {
+    const xml = `<w:p><w:r><w:rPr><w:noProof/></w:rPr>${drawing}</w:r></w:p>`;
+    const read = readHeaderFooterPart(this.pkg ?? DocxPackage.empty(), "word/uw-template.xml", void 0, hfPartXml("header", xml));
+    const run2 = read?.paras[0]?.runs.find((r) => r.textbox);
+    if (!run2?.textbox) return null;
+    run2.textbox.edited = true;
+    return run2;
+  }
+  /** Coloca o run de um objeto novo no cursor (o corpo, a célula ou o cabeçalho em edição). */
+  placeAnchorRun(run2) {
+    if (this.hasSelection()) {
+      const pos = this.deleteSelection();
+      this.selection = { anchor: pos, focus: pos };
+    }
+    const at = this.selection.focus;
+    run2.props = { ...this.newRunProps(this.pendingProps ?? this.currentProps()), noProof: true };
+    const p = this.model.paragraphs[at.para];
+    p.runs.splice(insertIndex(p, at.offset), 0, run2);
+  }
+  /** Inserir › Caixa de Texto: o modelo `id` da galeria (caixa ancorada no parágrafo do
+   *  cursor) — fica em edição com o texto de exemplo selecionado, para digitar por cima. */
+  insertTextbox(id = "simple") {
+    if (!this.model || this.locked() || this.tbEdit || this.noteEdit) return false;
+    const accent = this.documentThemeColors()["accent1"] ?? "156082";
+    let xml;
+    const user = id.startsWith("user:") ? this.userTextboxes().find((u) => u.id === id) : void 0;
+    if (user) {
+      const nid = this.nextDrawingId();
+      const zs = this.zValues();
+      const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
+      xml = user.xml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a) => `${a}${nid}"`).replace(/(<wp:docPr\b[^>]*?\bname=")[^"]*"/, (_m, a) => `${a}${uiLang(this) === "pt" ? "Caixa de Texto" : "Text Box"} ${nid}"`).replace(/\brelativeHeight="\d+"/, () => `relativeHeight="${z}"`);
+    } else {
+      const spec = textboxTemplateSpec(id, { accent, lang: uiLang(this) });
+      if (!spec) return false;
+      xml = this.newTextboxXml({ cx: spec.cx, cy: spec.cy, content: spec.content, template: spec }).xml;
+    }
+    const run2 = this.textboxRunFromXml(xml);
+    if (!run2) return false;
     this.snapshot();
-    const extent = _UniversalWriteElement.EXTENT_KEYS.some((k) => k in ch);
-    this.applyPictureXml(img, patchPicture(img.rawDrawingXml, ch), extent);
+    if (this.cellEdit) this.exitCell();
+    this.placeAnchorRun(run2);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-change"));
+    const o = this.engObjectOf(run2, this.hfEdit ? this.hfActivePage : void 0);
+    if (o) {
+      this.enterTextbox(run2, { x: o.x, y: o.y, w: o.w, h: o.h }, o.page);
+      const first = run2.textbox.paras.findIndex((q) => paraLength(q) > 0);
+      if (this.tbEdit && first >= 0) {
+        this.selection = { anchor: { para: first, offset: 0 }, focus: { para: first, offset: paraLength(run2.textbox.paras[first]) } };
+        this.refresh();
+      }
+    }
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Desenhar Caixa de Texto (horizontal ou vertical): o próximo arrasto na página
+   *  desenha a caixa (um clique: 1 pol × 1 pol). Esc cancela. */
+  drawMode = null;
+  drawTextbox(vertical = false) {
+    if (!this.model || this.locked() || this.view !== "print") return;
+    if (this.tbEdit) this.exitTextbox();
+    this.floatSel = null;
+    this.drawMode = { vertical };
+    this.style.cursor = "crosshair";
+    this.chromeSync?.();
+  }
+  /** Desenhando uma caixa de texto (o próximo arrasto)? */
+  drawingTextbox() {
+    return !!this.drawMode;
+  }
+  cancelDrawTextbox() {
+    if (!this.drawMode) return;
+    this.drawMode = null;
+    this.style.cursor = "";
+    this.chromeSync?.();
+  }
+  /** Arrasto do Desenhar Caixa de Texto: o retângulo na página; ao soltar, a caixa nova
+   *  ancorada no parágrafo do ponto (posição relativa à coluna e ao parágrafo). */
+  drawMouseDown(e) {
+    const dm = this.drawMode;
+    if (!dm || e.button !== 0) return false;
+    const scale = PX_PER_TWIP * this.zoom;
+    const page2 = this.canvases.findIndex((c) => {
+      const r = c.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    if (page2 < 0) {
+      this.cancelDrawTextbox();
+      return true;
+    }
+    e.preventDefault();
+    const cr = this.canvases[page2].getBoundingClientRect();
+    const at = (ev) => ({ x: (ev.clientX - cr.left) / scale, y: (ev.clientY - cr.top) / scale });
+    const p0 = at(e);
+    let p1 = p0;
+    const anchorPos = this.hitTest(e);
+    const ghost = document.createElement("div");
+    ghost.style.cssText = "position:fixed;border:1px solid #2b579a;pointer-events:none;z-index:10";
+    const show = () => {
+      const x = Math.min(p0.x, p1.x), y = Math.min(p0.y, p1.y), w = Math.abs(p1.x - p0.x), h = Math.abs(p1.y - p0.y);
+      Object.assign(ghost.style, { left: `${cr.left + x * scale}px`, top: `${cr.top + y * scale}px`, width: `${w * scale}px`, height: `${h * scale}px` });
+    };
+    (this.shadowRoot ?? this).appendChild(ghost);
+    show();
+    const move = (ev) => {
+      p1 = at(ev);
+      show();
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      ghost.remove();
+      this.drawMode = null;
+      this.style.cursor = "";
+      let x = Math.min(p0.x, p1.x), y = Math.min(p0.y, p1.y), w = Math.abs(p1.x - p0.x), h = Math.abs(p1.y - p0.y);
+      if (w < 60 && h < 60) {
+        w = 1440;
+        h = 1440;
+        x = p0.x;
+        y = p0.y;
+      }
+      this.createDrawnTextbox(page2, { x, y, w, h }, dm.vertical, anchorPos);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return true;
+  }
+  createDrawnTextbox(page2, r, vertical, anchorPos) {
+    if (!this.model) return;
+    const { xml } = this.newTextboxXml({ cx: Math.round(r.w * 635), cy: Math.round(r.h * 635), content: "<w:p/>", ...vertical ? { vert: "eaVert" } : {} });
+    const run2 = this.textboxRunFromXml(xml);
+    if (!run2) return;
+    this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    if (anchorPos && !this.cellEdit) this.selection = { anchor: { para: anchorPos.para, offset: 0 }, focus: { para: anchorPos.para, offset: 0 } };
+    else {
+      const f = this.selection.focus;
+      this.selection = { anchor: f, focus: f };
+    }
+    this.placeAnchorRun(run2);
+    this.refresh();
+    const fr = this.engObjectFrame(run2);
+    if (fr) {
+      this.applyDrawingXml(run2, patchShape(run2.textbox.rawDrawingXml, { posH: { relativeFrom: "column", offset: Math.round((r.x - fr.colX) * 635) }, posV: { relativeFrom: "paragraph", offset: Math.round((r.y - fr.paraTop) * 635) } }), false);
+      this.refresh();
+    }
+    this.dispatchEvent(new CustomEvent("uw-change"));
+    const o = this.engObjectOf(run2, this.hfEdit ? this.hfActivePage : void 0);
+    if (o) this.enterTextbox(run2, { x: o.x, y: o.y, w: o.w, h: o.h }, o.page);
+    void page2;
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  // ───────────────────────── Criar / Quebrar Vínculo ─────────────────────────
+  /** Criar Vínculo: o próximo clique numa caixa de texto VAZIA a liga depois da
+   *  selecionada (o texto continua nela). Esc ou clique fora cancela. */
+  linkFrom = null;
+  createTextboxLink() {
+    const st = this.selectedShape();
+    const run2 = this.drawRun();
+    if (!st || st.kind !== "textbox" || st.link?.next || !run2?.textbox?.rawDrawingXml || this.locked()) return false;
+    if (this.tbEdit) {
+      this.exitTextbox();
+      this.floatSel = run2;
+    }
+    this.linkFrom = run2;
+    this.style.cursor = "copy";
+    this.chromeSync?.();
+    return true;
+  }
+  /** Esperando o clique da caixa seguinte (Criar Vínculo)? */
+  linkingTextbox() {
+    return !!this.linkFrom;
+  }
+  cancelTextboxLink() {
+    if (!this.linkFrom) return;
+    this.linkFrom = null;
+    this.style.cursor = "";
+    this.chromeSync?.();
+  }
+  /** Motivo de a caixa não poder ser a seguinte (null = pode): ter texto, já estar numa
+   *  cadeia, ser a mesma, morar em outra história ou ser VML. */
+  linkRefusal(from, to) {
+    const t = to.textbox;
+    if (!t?.rawDrawingXml || to === from) return "same";
+    if (t.story !== void 0 || t.link) return "linked";
+    if (t.paras.some((q) => paraLength(q) > 0) || (t.blocks ?? []).some((b) => b.type !== "paragraph")) return "notEmpty";
+    const mine = this.contextDrawingRuns(this.model);
+    if (!mine.includes(to) || !mine.includes(from)) return "story";
+    return null;
+  }
+  /** Liga a caixa `to` (vazia) depois de `from` — um passo de desfazer. */
+  linkTextboxes(from, to) {
+    if (this.linkRefusal(from, to)) return false;
+    const ftb = from.textbox;
+    const chain = this.textboxChain(ftb);
+    const ids = this.contextDrawingRuns(this.model).map((r) => r.textbox?.story ?? r.textbox?.link?.id ?? 0);
+    const id = chain ? chain[0].story : Math.max(0, ...ids) + 1;
+    const seq = chain ? chain.length : 1;
+    this.snapshot();
+    if (!chain) this.applyDrawingXml(from, patchShape(ftb.rawDrawingXml, { story: { kind: "txbx", id } }), false);
+    to.textbox.paras = [];
+    delete to.textbox.blocks;
+    this.applyDrawingXml(to, patchShape(to.textbox.rawDrawingXml, { story: { kind: "linked", id, seq } }), false);
     this.afterPictureEdit();
     return true;
+  }
+  /** Liga a caixa de texto da lista do Painel de Seleção (`key`) depois da selecionada. */
+  linkTextboxTo(key) {
+    const from = this.drawRun();
+    const to = this.paneRun(key);
+    return !!from?.textbox && !!to && this.linkTextboxes(from, to);
+  }
+  /** Clique no modo Criar Vínculo: liga, avisa (caixa com texto) ou cancela. */
+  linkMouseDown(e) {
+    const from = this.linkFrom;
+    if (!from || e.button !== 0) return false;
+    e.preventDefault();
+    const hit = this.hitTextbox(e)?.hostRun ?? this.hitFloat(e, "textbox")?.run ?? null;
+    this.linkFrom = null;
+    this.style.cursor = "";
+    if (hit) {
+      const why = this.linkRefusal(from, hit);
+      if (why) this.dispatchEvent(new CustomEvent("uw-blocked", { detail: { reason: why === "notEmpty" ? "linkTargetNotEmpty" : "linkTarget" } }));
+      else this.linkTextboxes(from, hit);
+    }
+    this.chromeSync?.();
+    return true;
+  }
+  /** Quebrar Vínculo: as caixas depois da selecionada saem da cadeia (vazias) e o texto
+   *  fica nas de antes (medido: link-break). */
+  breakTextboxLink() {
+    const run2 = this.drawRun();
+    const tb = run2?.textbox;
+    const chain = tb && this.textboxChain(tb);
+    if (!tb || !chain || this.locked()) return false;
+    const k = chain.indexOf(tb);
+    if (k < 0 || k === chain.length - 1) return false;
+    this.snapshot();
+    for (const t of chain.slice(k + 1)) {
+      const r = this.runOfTextbox(t);
+      if (!r?.textbox?.rawDrawingXml) continue;
+      t.paras = [{ runs: [], props: {} }];
+      delete t.blocks;
+      this.applyDrawingXml(r, patchShape(r.textbox.rawDrawingXml, { story: { kind: "txbx", content: "<w:p/>" } }), false);
+    }
+    if (k === 0) {
+      const r = this.runOfTextbox(chain[0]);
+      if (r?.textbox?.rawDrawingXml) this.applyDrawingXml(r, patchShape(r.textbox.rawDrawingXml, { story: { kind: "txbx" } }), false);
+    }
+    this.afterPictureEdit();
+    return true;
+  }
+  editPicture(fn) {
+    return this.editDrawing((f, run2) => fn(f, run2.image, run2), true);
   }
   afterPictureEdit() {
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-change"));
     this.onSelectionChange?.();
     this.chromeSync?.();
+  }
+  /** Run do objeto de desenho selecionado com XML DrawingML editável: imagem, forma,
+   *  caixa de texto (a selecionada ou a em edição) ou grupo. */
+  drawRun() {
+    const r = this.floatSel ?? this.tbEdit?.focusRun ?? null;
+    if (!r) return null;
+    if (r.image) return r.image.rawDrawingXml && r.image.format ? r : null;
+    return this.formatOf(r) ? r : null;
+  }
+  /** XML cru do w:drawing do objeto do run. */
+  static rawOf(r) {
+    return (r.image ?? r.textbox ?? r.shape ?? r.group)?.rawDrawingXml;
+  }
+  fmtCache = null;
+  /** Formatação tipada do objeto: a da imagem, ou a lida do XML da forma/caixa/grupo. */
+  formatOf(r) {
+    if (r.image) return r.image.format;
+    const raw = _UniversalWriteElement.rawOf(r);
+    if (!raw) return void 0;
+    if (this.fmtCache?.raw === raw) return this.fmtCache.f;
+    const f = r.group ? readPictureFormat(raw, { anyShape: true }) : readShapeFormat(raw);
+    if (f) this.fmtCache = { raw, f };
+    return f;
+  }
+  /** XML do objeto com as mudanças (imagem: patchPicture; forma/grupo: patchShape). */
+  patchDrawing(r, ch) {
+    const raw = _UniversalWriteElement.rawOf(r);
+    return r.image ? patchPicture(raw, ch) : patchShape(raw, ch);
+  }
+  /** Grava o XML novo no objeto e relê os campos de layout; com `extent`, refaz o
+   *  wp:effectExtent (na forma o contorno é centrado na borda: metade para fora). A
+   *  forma/caixa/grupo editado tem o VML de reserva refeito na gravação. */
+  applyDrawingXml(run2, xml, extent) {
+    if (run2.image) {
+      this.applyPictureXml(run2.image, xml, extent);
+      return;
+    }
+    let x = xml;
+    if (extent) {
+      const f = readPictureFormat(x, { anyShape: true });
+      if (f) {
+        const half = f.line?.w !== void 0 ? { ...f, line: { ...f.line, w: f.line.w / 2 } } : f;
+        const ee = effectExtentOf(half), cur = f.effectExtent;
+        if (ee.l !== cur.l || ee.t !== cur.t || ee.r !== cur.r || ee.b !== cur.b) x = patchPicture(x, { effectExtent: ee });
+      }
+    }
+    const obj = run2.textbox ?? run2.shape ?? run2.group;
+    obj.rawDrawingXml = x;
+    obj.edited = true;
+    syncShapeFromXml(run2);
+  }
+  /** Uma edição do objeto de desenho selecionado (um passo de desfazer); `fn` devolve
+   *  null quando não há o que mudar. `imageOnly`: só vale para imagem. */
+  editDrawing(fn, imageOnly = false) {
+    const run2 = imageOnly ? this.picRun() : this.drawRun();
+    if (!run2 || this.locked()) return false;
+    const f = this.formatOf(run2);
+    if (!f) return false;
+    const ch = fn(f, run2);
+    if (!ch) return false;
+    this.snapshot();
+    const extent = _UniversalWriteElement.EXTENT_KEYS.some((k) => k in ch);
+    this.applyDrawingXml(run2, this.patchDrawing(run2, ch), extent);
+    this.afterPictureEdit();
+    return true;
   }
   /** Imagem selecionada (Formato da Imagem) ou null. */
   selectedImage() {
@@ -12457,7 +13542,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Exclui a imagem selecionada. */
   deleteSelectedImage() {
-    if (!this.floatSel?.image || this.locked()) return;
+    if (!this.floatSel || this.locked()) return;
     this.deleteSelectedFloat();
   }
   /** Maior relativeHeight dos flutuantes do contexto (para um objeto novo). */
@@ -12477,26 +13562,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  Superior e Inferior, Atrás do Texto, Na Frente do Texto). Da linha para fora,
    *  a imagem fica onde estava (deslocamento relativo à coluna e ao parágrafo). */
   setImageWrap(kind) {
-    const run2 = this.picRun();
+    const run2 = this.drawRun();
     if (!run2 || this.locked()) return;
-    const img = run2.image, f = img.format;
+    const f = this.formatOf(run2);
     if (f.wrap === kind) return;
-    const poly = kind === "tight" || kind === "through" ? this.pictureContour(img) : null;
+    const poly = run2.image && (kind === "tight" || kind === "through") ? this.pictureContour(run2.image) : null;
     const polygon = poly ? { polygon: { edited: false, pts: poly } } : {};
     if (!f.inline || kind === "inline") {
-      this.editPicture(() => ({ wrap: kind, ...polygon }));
+      this.editDrawing(() => ({ wrap: kind, ...polygon }));
       return;
     }
     const h = this.selectedFloat();
     const zs = this.zValues(run2);
     const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
     this.snapshot();
-    this.applyPictureXml(img, patchPicture(img.rawDrawingXml, { wrap: kind, at: { x: 0, y: 0 }, newRelativeHeight: z, ...polygon }), true);
+    this.applyDrawingXml(run2, this.patchDrawing(run2, { wrap: kind, at: { x: 0, y: 0 }, newRelativeHeight: z, ...polygon }), true);
     this.refresh();
     const fr = this.engObjectFrame(run2);
     if (h && fr) {
       const x = Math.round((h.rect.x - fr.colX) * 635), y = Math.round((h.rect.y - fr.paraTop) * 635);
-      this.applyPictureXml(img, patchPicture(img.rawDrawingXml, { posH: { relativeFrom: "column", offset: x }, posV: { relativeFrom: "paragraph", offset: y } }), false);
+      this.applyDrawingXml(run2, this.patchDrawing(run2, { posH: { relativeFrom: "column", offset: x }, posV: { relativeFrom: "paragraph", offset: y } }), false);
     }
     this.afterPictureEdit();
   }
@@ -12527,22 +13612,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const [v, hh] = preset.split("-");
-    const run2 = this.picRun();
+    const run2 = this.drawRun();
     if (!run2 || this.locked()) return;
-    const f = run2.image.format;
+    const f = this.formatOf(run2);
     if (f.wrap !== "square") this.setImageWrap("square");
-    this.editPicture(() => ({ posH: { relativeFrom: "margin", align: hh }, posV: { relativeFrom: "margin", align: v } }));
+    this.editDrawing(() => ({ posH: { relativeFrom: "margin", align: hh }, posV: { relativeFrom: "margin", align: v } }));
   }
   /** Mover com o Texto (posição vertical relativa ao parágrafo) × Corrigir Posição
    *  na Página (relativa à página) — a imagem não sai do lugar. */
   setImageMoveWithText(on) {
-    const run2 = this.picRun();
+    const run2 = this.drawRun();
     if (!run2) return;
-    const f = run2.image.format;
+    const f = this.formatOf(run2);
     if (f.inline) return;
     const fr = this.engObjectFrame(run2);
     const h = this.selectedFloat();
-    this.editPicture(() => {
+    this.editDrawing(() => {
       const to = on ? "paragraph" : "page";
       if (!fr || !h) return { posV: { relativeFrom: to, offset: f.posV?.offset ?? 0 } };
       return { posV: this.posFor({ relativeFrom: to, offset: 0 }, "v", h.rect.y, fr) };
@@ -12550,33 +13635,42 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Bloquear âncora. */
   // ───────────────────────── Painel de Seleção ─────────────────────────
-  /** Imagens flutuantes (DrawingML) do documento para o Painel de Seleção, da frente
-   *  para trás (relativeHeight), com nome (docPr) e visibilidade (docPr hidden). */
+  /** Objetos de desenho (DrawingML) do contexto para o Painel de Seleção — imagens
+   *  flutuantes, caixas de texto, formas e grupos —, da frente para trás (relativeHeight),
+   *  com nome (docPr), visibilidade (docPr hidden) e tipo. */
   selectionPaneItems() {
     const out = [];
-    let n = 0;
-    for (const p of this.model?.paragraphs ?? []) {
-      for (const r of p.runs) {
-        const f = r.image?.format;
-        if (!f || f.inline || !r.image.rawDrawingXml) continue;
-        n++;
-        out.push({ key: f.docPr.id ?? `#${n}`, name: f.docPr.name ?? "", hidden: !!f.docPr.hidden, selected: this.floatSel === r, z: f.relativeHeight ?? 0 });
-      }
-    }
+    const cur = this.floatSel ?? this.tbEdit?.focusRun ?? null;
+    this.paneRuns().forEach(({ run: r, key, f }) => {
+      out.push({
+        key,
+        name: f.docPr.name ?? "",
+        hidden: !!f.docPr.hidden,
+        selected: cur === r,
+        kind: r.image ? "image" : r.textbox ? "textbox" : r.group ? "group" : "shape",
+        z: f.relativeHeight ?? 0
+      });
+    });
     out.sort((x, y) => y.z - x.z);
     return out.map(({ z: _z, ...o }) => o);
   }
-  paneRun(key) {
+  /** Os objetos do painel com a chave (docPr id) e a formatação. */
+  paneRuns() {
+    const model = this.tbEdit && this.savedForTb ? this.savedForTb.model : this.model;
+    if (!model) return [];
+    const out = [];
     let n = 0;
-    for (const p of this.model?.paragraphs ?? []) {
-      for (const r of p.runs) {
-        const f = r.image?.format;
-        if (!f || f.inline || !r.image.rawDrawingXml) continue;
-        n++;
-        if ((f.docPr.id ?? `#${n}`) === key) return r;
-      }
+    for (const r of this.contextDrawingRuns(model)) {
+      if (!_UniversalWriteElement.rawOf(r)) continue;
+      const f = this.formatOf(r);
+      if (!f || r.image && f.inline) continue;
+      n++;
+      out.push({ run: r, key: f.docPr.id ?? `#${n}`, f });
     }
-    return null;
+    return out;
+  }
+  paneRun(key) {
+    return this.paneRuns().find((x) => x.key === key)?.run ?? null;
   }
   /** Seleciona o objeto da lista (oculto também: sem alças na página). */
   selectPaneItem(key) {
@@ -12584,38 +13678,39 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!r) return;
     this.endImageCrop();
     this.endEditWrapPoints();
+    if (this.tbEdit) this.exitTextbox();
     this.floatSel = r;
     this.refreshSelection();
     this.onSelectionChange?.();
     this.chromeSync?.();
   }
-  /** Renomeia (docPr name, e o do pic:cNvPr acompanha). */
+  /** Renomeia (docPr name; o do pic:cNvPr/VML acompanha). */
   renamePaneItem(key, name) {
     const r = this.paneRun(key);
-    const img = r?.image;
-    if (!img?.rawDrawingXml || this.locked() || !name.trim() || img.format.docPr.name === name) return;
+    const f = r && this.formatOf(r);
+    if (!r || !f || this.locked() || !name.trim() || f.docPr.name === name) return;
     this.snapshot();
-    this.applyPictureXml(img, patchPicture(img.rawDrawingXml, { name: name.trim() }), false);
+    this.applyDrawingXml(r, this.patchDrawing(r, { name: name.trim() }), false);
     this.afterPictureEdit();
   }
   /** Mostrar/ocultar (docPr hidden): oculta não desenha nem afasta o texto. */
   setPaneItemHidden(key, hidden) {
     if (this.locked()) return;
-    const runs = key === null ? this.selectionPaneItems().map((i) => this.paneRun(i.key)) : [this.paneRun(key)];
-    const todo = runs.filter((r) => !!r?.image?.rawDrawingXml && !!r.image.format.docPr.hidden !== hidden);
+    const runs = key === null ? this.paneRuns().map((x) => x.run) : [this.paneRun(key)];
+    const todo = runs.filter((r) => !!r && !!this.formatOf(r) && !!this.formatOf(r).docPr.hidden !== hidden);
     if (!todo.length) return;
     this.snapshot();
-    for (const r of todo) this.applyPictureXml(r.image, patchPicture(r.image.rawDrawingXml, { hidden }), false);
+    for (const r of todo) this.applyDrawingXml(r, this.patchDrawing(r, { hidden }), false);
     this.afterPictureEdit();
   }
   /** Alinhar (Organizar › Alinhar) em relação à margem (padrão) ou à página: o
    *  botão grava `<wp:align>` relativo a elas (medido: align-ui-left). Só imagens
    *  flutuantes. */
   alignImage(kind, relativeTo) {
-    const run2 = this.picRun();
-    if (!run2 || run2.image.format.inline) return;
+    const run2 = this.drawRun();
+    if (!run2 || this.formatOf(run2).inline) return;
     const rel = relativeTo ?? this.imageAlignTo;
-    this.editPicture((f) => {
+    this.editDrawing((f) => {
       if (kind === "left" || kind === "center" || kind === "right") {
         if (f.posH?.relativeFrom === rel && f.posH.align === kind) return null;
         return { posH: { relativeFrom: rel, align: kind } };
@@ -12628,11 +13723,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Alinhar à Página × Alinhar à Margem (vale para os próximos Alinhar). */
   imageAlignTo = "margin";
   setImageLockAnchor(on) {
-    this.editPicture((f) => f.inline ? null : { locked: on });
+    this.editDrawing((f) => f.inline ? null : { locked: on });
   }
   /** Altura/Largura (pontos). Com a proporção travada, mudar uma muda a outra. */
   setImageSize(o) {
-    this.editPicture((f) => {
+    this.editDrawing((f) => {
       const lock = o.lockAspect ?? f.noChangeAspect;
       let cx = f.cx, cy = f.cy;
       if (o.widthPt !== void 0) {
@@ -12655,20 +13750,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Giro absoluto (graus, horário). */
   setImageRotation(deg) {
     const r = Math.round((deg % 360 + 360) % 360 * 6e4) % 216e5;
-    this.editPicture((f) => f.rot === r ? null : { rot: r });
+    this.editDrawing((f) => f.rot === r ? null : { rot: r });
   }
   /** Girar 90° à direita (+90) ou à esquerda (−90). */
   rotateImage(deg) {
-    const f = this.picRun()?.image?.format;
+    const r = this.drawRun();
+    const f = r && this.formatOf(r);
     if (f) this.setImageRotation(f.rot / 6e4 + deg);
   }
   /** Inverter na horizontal/vertical. */
   flipImage(axis) {
-    this.editPicture((f) => axis === "h" ? { flipH: !f.flipH } : { flipV: !f.flipV });
+    this.editDrawing((f) => axis === "h" ? { flipH: !f.flipH } : { flipV: !f.flipV });
   }
   /** Texto Alt: descrição e "Marcar como decorativa". */
   setImageAltText(o) {
-    this.editPicture((f) => {
+    this.editDrawing((f) => {
       const ch = {};
       if (o.text !== void 0 && o.text !== (f.docPr.descr ?? "")) ch.descr = o.text;
       if (o.title !== void 0 && o.title !== (f.docPr.title ?? "")) ch.title = o.title;
@@ -12683,9 +13779,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Avançar/Recuar: ordem entre os flutuantes (relativeHeight) e frente/trás do texto. */
   arrangeImage(op) {
-    const run2 = this.picRun();
+    const run2 = this.drawRun();
     if (!run2) return;
-    const f = run2.image.format;
+    const f = this.formatOf(run2);
     if (f.inline) return;
     if (op === "frontOfText") {
       if (f.wrap === "behind") this.setImageWrap("front");
@@ -12697,7 +13793,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     const mine = f.relativeHeight ?? Z_FIRST;
     const z = zFor(op, mine, this.zValues(run2));
-    this.editPicture(() => z === mine ? null : { relativeHeight: z });
+    this.editDrawing(() => z === mine ? null : { relativeHeight: z });
   }
   /** Cortar › Preencher / Ajustar: a imagem cobre (ou cabe) no quadro atual. */
   cropImageFillFit(mode) {
@@ -12720,7 +13816,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Borda da Imagem: cor (null = Sem Contorno), espessura (pt) e tracejado. Sem
    *  contorno antes, a cor padrão é a do texto (tx1) e a espessura 0,75 pt. */
   setImageBorder(o) {
-    this.editPicture((f) => {
+    this.editDrawing((f) => {
       if (o.color === null) return f.line?.fill === null ? null : { line: { ...f.line ?? {}, fill: null } };
       const base = f.line && f.line.fill ? { ...f.line } : { w: 9525, fill: { kind: "schemeClr", val: "tx1" } };
       if (o.color) base.fill = o.color;
@@ -12738,10 +13834,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
      *  brilho, bordas suaves e 3D (EMU/60000 avos de grau, como o XML; null tira,
      *  ausente fica). */
   setImageFormat(o) {
-    this.editPicture(() => Object.keys(o).length ? { ...o } : null);
+    this.editDrawing(() => Object.keys(o).length ? { ...o } : null);
   }
   setImageEffect(kind, preset) {
-    this.editPicture((f) => {
+    this.editDrawing((f) => {
       switch (kind) {
         case "shadow": {
           const p = preset ? SHADOW_PRESETS.find((x) => x.id === preset) : void 0;
@@ -13050,12 +14146,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  passo de desfazer. Posições em pontos relativas à referência dada; `pct` em %
    *  da referência (sai com a posição absoluta de reserva, como o Word). */
   setImageLayout(o) {
-    const run2 = this.picRun();
+    const run2 = this.drawRun();
     if (!run2 || this.locked()) return;
     const mark2 = this.undoStack.length;
-    if (o.wrap !== void 0 && o.wrap !== run2.image.format.wrap) this.setImageWrap(o.wrap);
+    if (o.wrap !== void 0 && o.wrap !== this.formatOf(run2).wrap) this.setImageWrap(o.wrap);
     const fr = this.engObjectFrame(run2);
-    this.editPicture((f) => {
+    this.editDrawing((f) => {
       const ch = {};
       const anchor = !f.inline;
       if (anchor) {
@@ -13092,7 +14188,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return Object.keys(ch).length ? ch : null;
     });
     if (o.moveWithText !== void 0) {
-      const f = run2.image.format;
+      const f = this.formatOf(run2);
       const cur = f.posV?.relativeFrom === "paragraph" || f.posV?.relativeFrom === "line";
       if (!f.inline && cur !== o.moveWithText) this.setImageMoveWithText(o.moveWithText);
     }
@@ -13133,18 +14229,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       let best = null;
       if (this.eng) {
         let bestD = Infinity;
+        let bestX = xT;
         for (const line of this.allLines()) {
           if (line.page !== pg) continue;
           const l = line.eng;
+          const [px, py] = line.xf ? xfInvert(line.xf, xT, yT) : [xT, yT];
           const x0 = l?.x ?? line.xTwips, x1 = x0 + (l?.width ?? 0);
-          const dy = yT < line.yTwips ? line.yTwips - yT : yT > line.yTwips + line.heightTwips ? yT - line.yTwips - line.heightTwips : 0;
-          const dx = xT < x0 ? x0 - xT : xT > x1 ? xT - x1 : 0;
+          const dy = py < line.yTwips ? line.yTwips - py : py > line.yTwips + line.heightTwips ? py - line.yTwips - line.heightTwips : 0;
+          const dx = px < x0 ? x0 - px : px > x1 ? px - x1 : 0;
           const d = dy * 4 + dx;
           if (d < bestD) {
             bestD = d;
             best = line;
+            bestX = px;
           }
         }
+        if (best) return { para: best.para, offset: this.hitLineX(best, bestX) };
       } else {
         for (const line of this.allLines()) {
           if (line.page !== pg) continue;
@@ -13226,7 +14326,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** O motor diagrama e pinta o canvas agora? */
   engineActive() {
-    return !this.legacyRequested() && !this.engineFailed && this.forceLegacy === 0 && !!this.model && !!this.fonts && (this.view === "print" || this.view === "read") && !this.tbEdit;
+    return this.engineCanRun();
+  }
+  /** O motor pode diagramar agora? (a caixa de texto em edição também vai por ele:
+   *  o texto dela é diagramado no lugar, como no PDF) */
+  engineCanRun() {
+    return !this.legacyRequested() && !this.engineFailed && this.forceLegacy === 0 && !!this.model && !!this.fonts && (this.view === "print" || this.view === "read");
   }
   /** Exportações que leem o layout legado (XPS, PDF de reserva) o refazem
    *  durante a chamada e devolvem o motor depois. */
@@ -13415,7 +14520,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   noteParaEdit(pi) {
     this.fastHint = null;
     this.fastTable = null;
-    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit || this.noteEdit) return;
+    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit || this.noteEdit || this.tbEdit) return;
     if ((this.markupMode === "all" || this.markupMode === "simple") && (this.tracking || this.model.paragraphs[pi] && paragraphHasRevisions(this.model.paragraphs[pi]))) return;
     try {
       if (this.cellEdit) this.fastTable = { anchor: this.cellEdit.anchor, before: this.fastBeforeTable(this.cellEdit.anchor) };
@@ -13645,6 +14750,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.eng || !this.model) return;
     const paras = this.model.paragraphs;
     this.layoutCache = paras.map(() => ({ spans: [], charAdvances: [], lines: [], spanCharStart: [] }));
+    if (this.tbEdit) {
+      this.rebuildTextboxLines();
+      return;
+    }
     const ce = this.cellEdit;
     const blocksOfCell = ce ? cellBlocks(ce.cell) : [];
     const hfWhich = this.hfEdit ? this.hfEdit.kind === "header" ? "hdr" : "ftr" : null;
@@ -13687,6 +14796,60 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         eng: l
       });
     }
+    paras.forEach((p, pi) => {
+      const ls = this.layoutCache[pi].lines;
+      if (!ls.length) return;
+      ls[0].rich.start = 0;
+      ls[ls.length - 1].rich.end = paraLength(p);
+    });
+  }
+  /**
+   * Linhas da caixa de texto em edição (e das caixas vinculadas a ela) a partir dos
+   * objetos que o motor posicionou: refs "txbx/bN…" nos blocos da 1ª caixa da cadeia;
+   * a matriz de cada caixa leva as coordenadas do texto à página (sem giro: as linhas
+   * já vão em coordenadas de página). No cabeçalho/rodapé, a página da edição.
+   */
+  rebuildTextboxLines() {
+    const te = this.tbEdit;
+    const paras = this.model.paragraphs;
+    const head = te.hostRun.textbox;
+    const members = new Set(te.chain ?? [head]);
+    const blocks = head.blocks ?? head.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
+    const pages2 = this.eng.result.pages;
+    let rect = null;
+    pages2.forEach((page2, pg) => {
+      if (this.hfEdit && pg !== te.pageIdx) return;
+      for (const o of page2.objects ?? []) {
+        const t = o.run.textbox;
+        if (!t || !members.has(t) || !o.content) continue;
+        if (o.run === te.focusRun && pg === te.pageIdx) rect = { x: o.x, y: o.y, w: o.w, h: o.h };
+        const [a, b, c, d, e, f] = o.content.xf;
+        const plain = Math.abs(a - 1) < 1e-9 && Math.abs(d - 1) < 1e-9 && Math.abs(b) < 1e-9 && Math.abs(c) < 1e-9;
+        for (const l0 of o.content.lines) {
+          const para3 = paragraphAtPath(blocks, l0.ref.split("/").slice(1));
+          const pi = para3 ? paras.indexOf(para3) : -1;
+          const pl = pi >= 0 ? this.layoutCache[pi] : void 0;
+          if (!pl) continue;
+          const l = plain ? shiftEngLine(l0, e, f) : l0;
+          if (pl.lines.some((x) => x.rich.start === l.start && x.rich.end === l.end && x.page === pg)) continue;
+          const len2 = paraLength(paras[pi]);
+          const clamp = (v) => Math.max(0, Math.min(len2, v));
+          pl.lines.push({
+            para: pi,
+            rich: { start: clamp(l.start), end: clamp(l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+            page: pg,
+            xTwips: l.x,
+            yTwips: l.y,
+            heightTwips: l.height,
+            baselineTwips: l.baseline,
+            justifyExtraPerSpace: 0,
+            eng: l,
+            ...plain ? {} : { xf: o.content.xf }
+          });
+        }
+      }
+    });
+    if (rect) te.rectTwips = rect;
     paras.forEach((p, pi) => {
       const ls = this.layoutCache[pi].lines;
       if (!ls.length) return;
@@ -14052,6 +15215,36 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         wavePath(ctx, x1, x2, el.line.baseline + 50);
         ctx.stroke();
       }
+    }
+    const heads = /* @__PURE__ */ new Map();
+    for (const o of this.eng.result.pages[pg]?.objects ?? []) {
+      const tb = o.run.textbox;
+      if (!tb || !o.content?.lines.length) continue;
+      let head = tb;
+      if (tb.link) {
+        head = heads.get(tb.link.id) ?? this.textboxChain(tb)?.[0] ?? tb;
+        heads.set(tb.link.id, head);
+      }
+      const blocks = head.blocks ?? head.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
+      ctx.save();
+      ctx.transform(...o.content.xf);
+      for (const l of o.content.lines) {
+        const para3 = paragraphAtPath(blocks, l.ref.split("/").slice(1));
+        const list = para3 && spell.get(para3);
+        if (!list?.length) continue;
+        for (const m of list) {
+          let x1 = Infinity, x2 = -Infinity;
+          for (const c of l.chars ?? []) {
+            if (c.o < m.start || c.o >= m.end) continue;
+            x1 = Math.min(x1, c.x);
+            x2 = Math.max(x2, c.x + c.w);
+          }
+          if (!(x2 > x1)) continue;
+          wavePath(ctx, x1, x2, l.baseline + 50);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -14886,7 +16079,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (to <= from && !past) continue;
         const x1 = this.caretX({ para: pi, offset: from }, line);
         const x2 = this.caretX({ para: pi, offset: to }, line) + (past ? 80 : 0);
+        if (line.xf) {
+          ctx.save();
+          ctx.transform(...line.xf);
+        }
         ctx.fillRect(x1, line.yTwips, Math.max(0, x2 - x1), line.heightTwips);
+        if (line.xf) ctx.restore();
       }
     }
   }
@@ -18079,11 +19277,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             this.paintWrapPoints(ctx, h, scale, dpr);
             return this.paintCaretOnly(ctxs, scales, dpr, hasSel);
           }
+          const round = pic || h.kind !== "image" && !!_UniversalWriteElement.rawOf(h.run) && !!this.formatOf(h.run);
           ctx.save();
           ctx.translate(cx, cy);
           if (h.rot) ctx.rotate(h.rot * Math.PI / 180);
           ctx.strokeStyle = "#2b579a";
-          if (!pic) ctx.setLineDash([4, 3]);
+          if (this.tbEdit) ctx.setLineDash([4, 3]);
           ctx.lineWidth = Math.max(1, dpr);
           ctx.strokeRect(-w / 2, -hh / 2, w, hh);
           ctx.setLineDash([]);
@@ -18100,7 +19299,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           ];
           ctx.fillStyle = "#ffffff";
           for (const [px, py] of pts) {
-            if (pic) {
+            if (round) {
               ctx.beginPath();
               ctx.arc(px, py, hs / 2 + 0.5 * dpr, 0, Math.PI * 2);
               ctx.fill();
@@ -18110,7 +19309,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               ctx.strokeRect(px - hs / 2, py - hs / 2, hs, hs);
             }
           }
-          if (pic) {
+          if (round) {
             const gy = -hh / 2 - _UniversalWriteElement.ROT_HANDLE_GAP * dpr;
             const r = 5 * dpr;
             ctx.beginPath();
@@ -18140,9 +19339,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const ctx = ctxs[cpg];
         if (ctx) {
           const scale = scales[cpg];
-          const x = this.caretX(this.selection.focus, line) * scale;
           ctx.fillStyle = this.pageDark ? "#e8eaed" : "#000";
-          ctx.fillRect(x, line.yTwips * scale, Math.max(1, dpr), line.heightTwips * scale);
+          if (line.xf) {
+            const cx = this.caretX(this.selection.focus, line);
+            const [ax, ay] = xfApply(line.xf, cx, line.yTwips), [bx, by] = xfApply(line.xf, cx, line.yTwips + line.heightTwips);
+            ctx.save();
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = Math.max(1, dpr);
+            ctx.beginPath();
+            ctx.moveTo(ax * scale, ay * scale);
+            ctx.lineTo(bx * scale, by * scale);
+            ctx.stroke();
+            ctx.restore();
+          } else {
+            const x = this.caretX(this.selection.focus, line) * scale;
+            ctx.fillRect(x, line.yTwips * scale, Math.max(1, dpr), line.heightTwips * scale);
+          }
         }
       }
     }
@@ -19504,7 +20716,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-AVMFWOG5.js");
+  const { appFor } = await import("./chunks/chrome-app-BFE7KAOR.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

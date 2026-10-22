@@ -1461,10 +1461,10 @@ var EMBED_TAGS = {
   "w:embedBoldItalic": "boldItalic"
 };
 function deobfuscateFont(data8, fontKey) {
-  const hex2 = fontKey.replace(/[{}-]/g, "");
-  if (hex2.length < 32) return data8;
+  const hex3 = fontKey.replace(/[{}-]/g, "");
+  if (hex3.length < 32) return data8;
   const key = new Uint8Array(16);
-  for (let i2 = 0; i2 < 16; i2++) key[i2] = parseInt(hex2.slice(i2 * 2, i2 * 2 + 2), 16);
+  for (let i2 = 0; i2 < 16; i2++) key[i2] = parseInt(hex3.slice(i2 * 2, i2 * 2 + 2), 16);
   key.reverse();
   const out = data8.slice();
   const n = Math.min(32, out.length);
@@ -1505,1011 +1505,62 @@ function readEmbeddedFonts(pkg) {
   return out;
 }
 
-// ../docx-core/src/ooxml/props.ts
-function readRevisionInfo(el2) {
-  const info = { author: el2.attrs["w:author"] ?? "" };
-  if (el2.attrs["w:date"]) info.date = el2.attrs["w:date"];
-  if (el2.attrs["w16du:dateUtc"]) info.dateUtc = el2.attrs["w16du:dateUtc"];
-  if (el2.name === "w:moveFrom" || el2.name === "w:moveTo") info.move = true;
-  return info;
-}
-var int = (v) => {
-  if (v === void 0 || v === "") return void 0;
-  const n = parseInt(v, 10);
-  return Number.isFinite(n) ? n : void 0;
-};
-function measureTwips(v) {
-  if (v === void 0 || v === "") return void 0;
-  const m = /^(-?[0-9.]+)(mm|cm|in|pt|pc|pi)?$/.exec(v.trim());
-  if (!m) return void 0;
-  const n = parseFloat(m[1]);
-  switch (m[2]) {
-    case "mm":
-      return Math.round(n / 25.4 * 1440);
-    case "cm":
-      return Math.round(n / 2.54 * 1440);
-    case "in":
-      return Math.round(n * 1440);
-    case "pt":
-      return Math.round(n * 20);
-    case "pc":
-    case "pi":
-      return Math.round(n * 240);
-    default:
-      return Math.round(n);
-  }
-}
-function onOffVal(el2) {
-  const v = el2.attrs["w:val"];
-  return !(v === "0" || v === "false" || v === "off" || v === "none");
-}
-function colorOf(el2) {
-  const c = {};
-  if (el2.attrs["w:val"] !== void 0) c.val = el2.attrs["w:val"];
-  if (el2.attrs["w:themeColor"]) c.themeColor = el2.attrs["w:themeColor"];
-  if (el2.attrs["w:themeTint"]) c.themeTint = el2.attrs["w:themeTint"];
-  if (el2.attrs["w:themeShade"]) c.themeShade = el2.attrs["w:themeShade"];
-  return c;
-}
-function readBorder(el2) {
-  if (!el2) return void 0;
-  const b = { val: el2.attrs["w:val"] ?? "single" };
-  const sz = int(el2.attrs["w:sz"]);
-  if (sz !== void 0) b.sz = sz;
-  const space = int(el2.attrs["w:space"]);
-  if (space !== void 0) b.space = space;
-  if (el2.attrs["w:color"]) b.color = el2.attrs["w:color"];
-  if (el2.attrs["w:themeColor"]) b.themeColor = el2.attrs["w:themeColor"];
-  if (el2.attrs["w:themeTint"]) b.themeTint = el2.attrs["w:themeTint"];
-  if (el2.attrs["w:themeShade"]) b.themeShade = el2.attrs["w:themeShade"];
-  if (el2.attrs["w:shadow"] !== void 0) b.shadow = onOffAttr(el2.attrs["w:shadow"]);
-  if (el2.attrs["w:frame"] !== void 0) b.frame = onOffAttr(el2.attrs["w:frame"]);
-  return b;
-}
-var onOffAttr = (v) => !(v === "0" || v === "false" || v === "off");
-function readShading(el2) {
-  if (!el2) return void 0;
-  const s = {};
-  for (const k of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
-    const v = el2.attrs[`w:${k}`];
-    if (v !== void 0) s[k] = v;
-  }
-  return s;
-}
-function readWidth(el2) {
-  if (!el2) return void 0;
-  const type = el2.attrs["w:type"] ?? "dxa";
-  const raw = el2.attrs["w:w"] ?? "0";
-  let w;
-  if (raw.endsWith("%")) w = Math.round(parseFloat(raw) * 50);
-  else w = type === "dxa" ? measureTwips(raw) ?? 0 : int(raw) ?? 0;
-  return { w, type: type === "pct" || type === "auto" || type === "nil" ? type : "dxa" };
-}
-function readRPr(rPr) {
-  if (!rPr) return void 0;
-  const p = {};
-  for (const el2 of childElements(rPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
-      case "w:rStyle":
-        if (val) p.rStyle = val;
-        break;
-      case "w:rFonts": {
-        const f = {};
-        for (const k of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
-          const v = el2.attrs[`w:${k}`];
-          if (v !== void 0) f[k] = v;
-        }
-        p.rFonts = f;
-        break;
-      }
-      case "w:b":
-        p.b = onOffVal(el2);
-        break;
-      case "w:bCs":
-        p.bCs = onOffVal(el2);
-        break;
-      case "w:i":
-        p.i = onOffVal(el2);
-        break;
-      case "w:iCs":
-        p.iCs = onOffVal(el2);
-        break;
-      case "w:caps":
-        p.caps = onOffVal(el2);
-        break;
-      case "w:smallCaps":
-        p.smallCaps = onOffVal(el2);
-        break;
-      case "w:strike":
-        p.strike = onOffVal(el2);
-        break;
-      case "w:dstrike":
-        p.dstrike = onOffVal(el2);
-        break;
-      case "w:outline":
-        p.outline = onOffVal(el2);
-        break;
-      case "w:shadow":
-        p.shadow = onOffVal(el2);
-        break;
-      case "w:emboss":
-        p.emboss = onOffVal(el2);
-        break;
-      case "w:imprint":
-        p.imprint = onOffVal(el2);
-        break;
-      case "w:vanish":
-        p.vanish = onOffVal(el2);
-        break;
-      case "w:specVanish":
-        p.specVanish = onOffVal(el2);
-        break;
-      case "w:webHidden":
-        p.webHidden = onOffVal(el2);
-        break;
-      case "w:noProof":
-        p.noProof = onOffVal(el2);
-        break;
-      case "w:snapToGrid":
-        p.snapToGrid = onOffVal(el2);
-        break;
-      case "w:rtl":
-        p.rtl = onOffVal(el2);
-        break;
-      case "w:cs":
-        p.cs = onOffVal(el2);
-        break;
-      case "w:color":
-        p.color = colorOf(el2);
-        break;
-      case "w14:textFill": {
-        const solid = firstChild(el2, "w14:solidFill");
-        const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
-        if (clr) {
-          const tf = {};
-          const v = clr.attrs["w14:val"];
-          if (clr.name === "w14:srgbClr" && v) tf.color = v.toUpperCase();
-          else if (v) tf.themeColor = v;
-          const a = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
-          if (a !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a, 10) || 0) / 1e5);
-          p.textFill = tf;
-        } else if (firstChild(el2, "w14:noFill")) p.textFill = { alpha: 0 };
-        break;
-      }
-      case "w14:ligatures":
-        p.ligatures = el2.attrs["w14:val"] ?? "standard";
-        break;
-      case "w:rPrChange":
-        p.change = { ...readRevisionInfo(el2), rPr: readRPr(firstChild(el2, "w:rPr")) ?? {} };
-        break;
-      case "w14:shadow": {
-        const emu = (k) => (parseInt(el2.attrs[k] ?? "0", 10) || 0) / 12700;
-        p.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el2.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
-        break;
-      }
-      case "w14:textOutline":
-        p.textOutline = !firstChild(el2, "w14:noFill") && !!(firstChild(el2, "w14:solidFill") ?? firstChild(el2, "w14:gradFill"));
-        break;
-      case "w:spacing": {
-        const n = measureTwips(val);
-        if (n !== void 0) p.spacing = n;
-        break;
-      }
-      case "w:w": {
-        const n = int(val?.replace("%", ""));
-        if (n !== void 0) p.w = n;
-        break;
-      }
-      case "w:kern": {
-        const n = int(val);
-        if (n !== void 0) p.kern = n;
-        break;
-      }
-      case "w:position": {
-        const n = int(val);
-        if (n !== void 0) p.position = n;
-        break;
-      }
-      case "w:sz": {
-        const n = int(val);
-        if (n !== void 0) p.sz = n;
-        break;
-      }
-      case "w:szCs": {
-        const n = int(val);
-        if (n !== void 0) p.szCs = n;
-        break;
-      }
-      case "w:highlight":
-        if (val) p.highlight = val;
-        break;
-      case "w:u": {
-        const u = { val: val ?? "single" };
-        if (el2.attrs["w:color"]) u.color = el2.attrs["w:color"];
-        if (el2.attrs["w:themeColor"]) u.themeColor = el2.attrs["w:themeColor"];
-        p.u = u;
-        break;
-      }
-      case "w:effect":
-        if (val) p.effect = val;
-        break;
-      case "w:bdr":
-        p.bdr = readBorder(el2);
-        break;
-      case "w:shd":
-        p.shd = readShading(el2);
-        break;
-      case "w:vertAlign":
-        if (val === "superscript" || val === "subscript" || val === "baseline") p.vertAlign = val;
-        break;
-      case "w:em":
-        if (val) p.em = val;
-        break;
-      case "w:lang": {
-        const l = {};
-        if (el2.attrs["w:val"]) l.val = el2.attrs["w:val"];
-        if (el2.attrs["w:eastAsia"]) l.eastAsia = el2.attrs["w:eastAsia"];
-        if (el2.attrs["w:bidi"]) l.bidi = el2.attrs["w:bidi"];
-        p.lang = l;
-        break;
-      }
-    }
-  }
-  return p;
-}
-function readPBdr(el2) {
-  if (!el2) return void 0;
-  const b = {};
-  for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
-    const e = readBorder(firstChild(el2, `w:${side}`) ?? (side === "left" ? firstChild(el2, "w:start") : side === "right" ? firstChild(el2, "w:end") : void 0));
-    if (e) b[side] = e;
-  }
-  return b;
-}
-var TAB_VALS = /* @__PURE__ */ new Set(["left", "center", "right", "decimal", "bar", "clear", "num", "start", "end"]);
-var LEADERS = /* @__PURE__ */ new Set(["none", "dot", "hyphen", "underscore", "heavy", "middleDot"]);
-function readPPr(pPr) {
-  if (!pPr) return void 0;
-  const p = {};
-  for (const el2 of childElements(pPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
-      case "w:pStyle":
-        if (val) p.pStyle = val;
-        break;
-      case "w:keepNext":
-        p.keepNext = onOffVal(el2);
-        break;
-      case "w:keepLines":
-        p.keepLines = onOffVal(el2);
-        break;
-      case "w:pageBreakBefore":
-        p.pageBreakBefore = onOffVal(el2);
-        break;
-      case "w:widowControl":
-        p.widowControl = onOffVal(el2);
-        break;
-      case "w:suppressLineNumbers":
-        p.suppressLineNumbers = onOffVal(el2);
-        break;
-      case "w:suppressAutoHyphens":
-        p.suppressAutoHyphens = onOffVal(el2);
-        break;
-      case "w:kinsoku":
-        p.kinsoku = onOffVal(el2);
-        break;
-      case "w:wordWrap":
-        p.wordWrap = onOffVal(el2);
-        break;
-      case "w:overflowPunct":
-        p.overflowPunct = onOffVal(el2);
-        break;
-      case "w:autoSpaceDE":
-        p.autoSpaceDE = onOffVal(el2);
-        break;
-      case "w:autoSpaceDN":
-        p.autoSpaceDN = onOffVal(el2);
-        break;
-      case "w:bidi":
-        p.bidi = onOffVal(el2);
-        break;
-      case "w:adjustRightInd":
-        p.adjustRightInd = onOffVal(el2);
-        break;
-      case "w:snapToGrid":
-        p.snapToGrid = onOffVal(el2);
-        break;
-      case "w:contextualSpacing":
-        p.contextualSpacing = onOffVal(el2);
-        break;
-      case "w:mirrorIndents":
-        p.mirrorIndents = onOffVal(el2);
-        break;
-      case "w:suppressOverlap":
-        p.suppressOverlap = onOffVal(el2);
-        break;
-      case "w:jc":
-        if (val) p.jc = val;
-        break;
-      case "w:textAlignment":
-        if (val) p.textAlignment = val;
-        break;
-      case "w:outlineLvl": {
-        const n = int(val);
-        if (n !== void 0) p.outlineLvl = n;
-        break;
-      }
-      case "w:numPr": {
-        const numPr = {};
-        const numId = int(firstChild(el2, "w:numId")?.attrs["w:val"]);
-        const ilvl = int(firstChild(el2, "w:ilvl")?.attrs["w:val"]);
-        if (numId !== void 0) numPr.numId = numId;
-        if (ilvl !== void 0) numPr.ilvl = ilvl;
-        p.numPr = numPr;
-        break;
-      }
-      case "w:pBdr":
-        p.pBdr = readPBdr(el2);
-        break;
-      case "w:shd":
-        p.shd = readShading(el2);
-        break;
-      case "w:tabs": {
-        const tabs = [];
-        for (const t of childElements(el2, "w:tab")) {
-          let v = t.attrs["w:val"] ?? "left";
-          if (v === "start") v = "left";
-          if (v === "end") v = "right";
-          if (!TAB_VALS.has(v)) continue;
-          const pos = measureTwips(t.attrs["w:pos"]);
-          if (pos === void 0) continue;
-          const tab = { val: v, pos };
-          const leader = t.attrs["w:leader"];
-          if (leader && LEADERS.has(leader)) tab.leader = leader;
-          tabs.push(tab);
-        }
-        p.tabs = tabs;
-        break;
-      }
-      case "w:spacing": {
-        const s = {};
-        const a = el2.attrs;
-        const before = measureTwips(a["w:before"]);
-        if (before !== void 0) s.before = before;
-        const after = measureTwips(a["w:after"]);
-        if (after !== void 0) s.after = after;
-        const bl = int(a["w:beforeLines"]);
-        if (bl !== void 0) s.beforeLines = bl;
-        const al = int(a["w:afterLines"]);
-        if (al !== void 0) s.afterLines = al;
-        if (a["w:beforeAutospacing"] !== void 0) s.beforeAutospacing = onOffAttr(a["w:beforeAutospacing"]);
-        if (a["w:afterAutospacing"] !== void 0) s.afterAutospacing = onOffAttr(a["w:afterAutospacing"]);
-        const line = measureTwips(a["w:line"]);
-        if (line !== void 0) s.line = line;
-        const rule = a["w:lineRule"];
-        if (rule === "auto" || rule === "exact" || rule === "atLeast") s.lineRule = rule;
-        p.spacing = s;
-        break;
-      }
-      case "w:ind": {
-        const s = {};
-        const a = el2.attrs;
-        const left = measureTwips(a["w:left"] ?? a["w:start"]);
-        if (left !== void 0) s.left = left;
-        const right = measureTwips(a["w:right"] ?? a["w:end"]);
-        if (right !== void 0) s.right = right;
-        const hanging = measureTwips(a["w:hanging"]);
-        if (hanging !== void 0) s.hanging = hanging;
-        const firstLine = measureTwips(a["w:firstLine"]);
-        if (firstLine !== void 0) s.firstLine = firstLine;
-        for (const k of ["leftChars", "rightChars", "hangingChars", "firstLineChars"]) {
-          const n = int(a[`w:${k}`] ?? (k === "leftChars" ? a["w:startChars"] : k === "rightChars" ? a["w:endChars"] : void 0));
-          if (n !== void 0) s[k] = n;
-        }
-        p.ind = s;
-        break;
-      }
-      case "w:framePr": {
-        const a = el2.attrs;
-        const f = {};
-        const dc = a["w:dropCap"];
-        if (dc === "none" || dc === "drop" || dc === "margin") f.dropCap = dc;
-        for (const k of ["lines", "w", "h", "hSpace", "vSpace", "x", "y"]) {
-          const n = k === "lines" ? int(a[`w:${k}`]) : measureTwips(a[`w:${k}`]);
-          if (n !== void 0) f[k] = n;
-        }
-        const hr = a["w:hRule"];
-        if (hr === "auto" || hr === "exact" || hr === "atLeast") f.hRule = hr;
-        for (const k of ["wrap", "hAnchor", "vAnchor", "xAlign", "yAlign"]) {
-          if (a[`w:${k}`]) f[k] = a[`w:${k}`];
-        }
-        if (a["w:anchorLock"] !== void 0) f.anchorLock = onOffAttr(a["w:anchorLock"]);
-        p.framePr = f;
-        break;
-      }
-      case "w:rPr":
-        p.rPr = readRPr(el2);
-        for (const c of childElements(el2)) {
-          if (c.name === "w:del" || c.name === "w:moveFrom") {
-            p.markDeleted = true;
-            p.markDel = readRevisionInfo(c);
-          } else if (c.name === "w:ins" || c.name === "w:moveTo") p.markIns = readRevisionInfo(c);
-        }
-        break;
-      case "w:pPrChange":
-        p.change = { ...readRevisionInfo(el2), pPr: readPPr(firstChild(el2, "w:pPr")) ?? {} };
-        break;
-    }
-  }
-  return p;
-}
-function readBorders(el2) {
-  if (!el2) return void 0;
-  const b = {};
-  const map = [
-    ["top", ["w:top"]],
-    ["left", ["w:left", "w:start"]],
-    ["bottom", ["w:bottom"]],
-    ["right", ["w:right", "w:end"]],
-    ["insideH", ["w:insideH"]],
-    ["insideV", ["w:insideV"]],
-    ["tl2br", ["w:tl2br"]],
-    ["tr2bl", ["w:tr2bl"]]
-  ];
-  for (const [k, names] of map) {
-    for (const n of names) {
-      const e = readBorder(firstChild(el2, n));
-      if (e) {
-        b[k] = e;
-        break;
-      }
-    }
-  }
-  return b;
-}
-function readCellMar(el2) {
-  if (!el2) return void 0;
-  const m = {};
-  const t = readWidth(firstChild(el2, "w:top"));
-  if (t) m.top = t;
-  const l = readWidth(firstChild(el2, "w:left") ?? firstChild(el2, "w:start"));
-  if (l) m.left = l;
-  const b = readWidth(firstChild(el2, "w:bottom"));
-  if (b) m.bottom = b;
-  const r = readWidth(firstChild(el2, "w:right") ?? firstChild(el2, "w:end"));
-  if (r) m.right = r;
-  return m;
-}
-function readTblPr(tblPr) {
-  if (!tblPr) return void 0;
-  const p = {};
-  for (const el2 of childElements(tblPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
-      case "w:tblStyle":
-        if (val) p.tblStyle = val;
-        break;
-      case "w:tblpPr": {
-        const a = el2.attrs;
-        const t = {};
-        for (const k of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
-          const n = measureTwips(a[`w:${k}`]);
-          if (n !== void 0) t[k] = n;
-        }
-        const va = a["w:vertAnchor"];
-        if (va === "text" || va === "margin" || va === "page") t.vertAnchor = va;
-        const ha = a["w:horzAnchor"];
-        if (ha === "text" || ha === "margin" || ha === "page") t.horzAnchor = ha;
-        if (a["w:tblpXSpec"]) t.tblpXSpec = a["w:tblpXSpec"];
-        if (a["w:tblpYSpec"]) t.tblpYSpec = a["w:tblpYSpec"];
-        p.tblpPr = t;
-        break;
-      }
-      case "w:tblOverlap":
-        if (val) p.tblOverlap = val;
-        break;
-      case "w:bidiVisual":
-        p.bidiVisual = onOffVal(el2);
-        break;
-      case "w:tblStyleRowBandSize": {
-        const n = int(val);
-        if (n !== void 0) p.tblStyleRowBandSize = n;
-        break;
-      }
-      case "w:tblStyleColBandSize": {
-        const n = int(val);
-        if (n !== void 0) p.tblStyleColBandSize = n;
-        break;
-      }
-      case "w:tblW":
-        p.tblW = readWidth(el2);
-        break;
-      case "w:jc":
-        if (val) p.jc = val;
-        break;
-      case "w:tblCellSpacing":
-        p.tblCellSpacing = readWidth(el2);
-        break;
-      case "w:tblInd":
-        p.tblInd = readWidth(el2);
-        break;
-      case "w:tblBorders":
-        p.tblBorders = readBorders(el2);
-        break;
-      case "w:shd":
-        p.shd = readShading(el2);
-        break;
-      case "w:tblLayout":
-        p.tblLayout = el2.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
-        break;
-      case "w:tblCaption":
-        if (val !== void 0) p.tblCaption = val;
-        break;
-      case "w:tblDescription":
-        if (val !== void 0) p.tblDescription = val;
-        break;
-      case "w:tblCellMar":
-        p.tblCellMar = readCellMar(el2);
-        break;
-      case "w:tblLook": {
-        const a = el2.attrs;
-        const look = {};
-        const hex2 = parseInt(a["w:val"] ?? "", 16);
-        if (Number.isFinite(hex2)) {
-          look.firstRow = (hex2 & 32) !== 0;
-          look.lastRow = (hex2 & 64) !== 0;
-          look.firstColumn = (hex2 & 128) !== 0;
-          look.lastColumn = (hex2 & 256) !== 0;
-          look.noHBand = (hex2 & 512) !== 0;
-          look.noVBand = (hex2 & 1024) !== 0;
-        }
-        for (const k of ["firstRow", "lastRow", "firstColumn", "lastColumn", "noHBand", "noVBand"]) {
-          if (a[`w:${k}`] !== void 0) look[k] = onOffAttr(a[`w:${k}`]);
-        }
-        p.tblLook = look;
-        break;
-      }
-    }
-  }
-  return p;
-}
-function readTrPr(trPr) {
-  if (!trPr) return void 0;
-  const p = {};
-  for (const el2 of childElements(trPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
-      case "w:cnfStyle":
-        if (val) p.cnfStyle = val;
-        break;
-      case "w:gridBefore": {
-        const n = int(val);
-        if (n !== void 0) p.gridBefore = n;
-        break;
-      }
-      case "w:gridAfter": {
-        const n = int(val);
-        if (n !== void 0) p.gridAfter = n;
-        break;
-      }
-      case "w:wBefore":
-        p.wBefore = readWidth(el2);
-        break;
-      case "w:wAfter":
-        p.wAfter = readWidth(el2);
-        break;
-      case "w:cantSplit":
-        p.cantSplit = onOffVal(el2);
-        break;
-      case "w:trHeight": {
-        const v = measureTwips(val) ?? 0;
-        const r = el2.attrs["w:hRule"];
-        p.trHeight = { val: v, hRule: r === "exact" || r === "auto" ? r : "atLeast" };
-        break;
-      }
-      case "w:tblHeader":
-        p.tblHeader = onOffVal(el2);
-        break;
-      case "w:tblCellSpacing":
-        p.tblCellSpacing = readWidth(el2);
-        break;
-      case "w:jc":
-        if (val) p.jc = val;
-        break;
-      case "w:hidden":
-        p.hidden = onOffVal(el2);
-        break;
-    }
-  }
-  return p;
-}
-function readTcPr(tcPr) {
-  if (!tcPr) return void 0;
-  const p = {};
-  for (const el2 of childElements(tcPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
-      case "w:cnfStyle":
-        if (val) p.cnfStyle = val;
-        break;
-      case "w:tcW":
-        p.tcW = readWidth(el2);
-        break;
-      case "w:gridSpan": {
-        const n = int(val);
-        if (n !== void 0) p.gridSpan = n;
-        break;
-      }
-      case "w:hMerge":
-        p.hMerge = val === "restart" ? "restart" : "continue";
-        break;
-      case "w:vMerge":
-        p.vMerge = val === "restart" ? "restart" : "continue";
-        break;
-      case "w:tcBorders":
-        p.tcBorders = readBorders(el2);
-        break;
-      case "w:shd":
-        p.shd = readShading(el2);
-        break;
-      case "w:noWrap":
-        p.noWrap = onOffVal(el2);
-        break;
-      case "w:tcMar":
-        p.tcMar = readCellMar(el2);
-        break;
-      case "w:textDirection":
-        if (val) p.textDirection = val;
-        break;
-      case "w:tcFitText":
-        p.tcFitText = onOffVal(el2);
-        break;
-      case "w:vAlign":
-        if (val === "top" || val === "center" || val === "bottom" || val === "both") p.vAlign = val;
-        break;
-      case "w:hideMark":
-        p.hideMark = onOffVal(el2);
-        break;
-    }
-  }
-  return p;
-}
-
-// ../docx-core/src/ooxml/parts.ts
-function readStyleSheet(xml) {
-  const sheet = { docDefaults: {}, styles: {}, defaults: {} };
-  if (!xml) return sheet;
-  const root = parseXml(xml);
-  const dd = firstChild(root, "w:docDefaults");
-  if (dd) {
-    const rPr = readRPr(firstChild(firstChild(dd, "w:rPrDefault") ?? dd, "w:rPr"));
-    const pPr = readPPr(firstChild(firstChild(dd, "w:pPrDefault") ?? dd, "w:pPr"));
-    if (rPr) sheet.docDefaults.rPr = rPr;
-    if (pPr) sheet.docDefaults.pPr = pPr;
-  }
-  for (const st of childElements(root, "w:style")) {
-    const id = st.attrs["w:styleId"];
-    const type = st.attrs["w:type"] ?? "paragraph";
-    if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
-    const def = { styleId: id, type };
-    const val = (n) => firstChild(st, n)?.attrs["w:val"];
-    const name = val("w:name");
-    if (name !== void 0) def.name = name;
-    const basedOn = val("w:basedOn");
-    if (basedOn) def.basedOn = basedOn;
-    const next = val("w:next");
-    if (next) def.next = next;
-    const link = val("w:link");
-    if (link) def.link = link;
-    const d = st.attrs["w:default"];
-    if (d === "1" || d === "true" || d === "on") {
-      def.isDefault = true;
-      sheet.defaults[type] ??= id;
-    }
-    const pPr = readPPr(firstChild(st, "w:pPr"));
-    if (pPr) def.pPr = pPr;
-    const rPr = readRPr(firstChild(st, "w:rPr"));
-    if (rPr) def.rPr = rPr;
-    const tblPr = readTblPr(firstChild(st, "w:tblPr"));
-    if (tblPr) def.tblPr = tblPr;
-    const trPr = readTrPr(firstChild(st, "w:trPr"));
-    if (trPr) def.trPr = trPr;
-    const tcPr = readTcPr(firstChild(st, "w:tcPr"));
-    if (tcPr) def.tcPr = tcPr;
-    for (const tsp of childElements(st, "w:tblStylePr")) {
-      const t = tsp.attrs["w:type"];
-      if (!t) continue;
-      const part = {};
-      const a = readPPr(firstChild(tsp, "w:pPr"));
-      if (a) part.pPr = a;
-      const b = readRPr(firstChild(tsp, "w:rPr"));
-      if (b) part.rPr = b;
-      const c = readTblPr(firstChild(tsp, "w:tblPr"));
-      if (c) part.tblPr = c;
-      const e = readTrPr(firstChild(tsp, "w:trPr"));
-      if (e) part.trPr = e;
-      const f = readTcPr(firstChild(tsp, "w:tcPr"));
-      if (f) part.tcPr = f;
-      (def.tblStylePr ??= {})[t] = part;
-    }
-    if (!sheet.styles[id]) sheet.styles[id] = def;
-  }
-  return sheet;
-}
-function readLevel(el2) {
-  const ilvl = parseInt(el2.attrs["w:ilvl"] ?? "0", 10) || 0;
-  const lvl = { ilvl };
-  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
-  const start = v("w:start");
-  if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el2, "w:numFmt");
-  if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
-  if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
-  const restart = v("w:lvlRestart");
-  if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
-  const ps = v("w:pStyle");
-  if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el2, "w:isLgl");
-  if (isLgl) lvl.isLgl = onOffVal(isLgl);
-  const suff = v("w:suff");
-  if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el2, "w:lvlText");
-  if (lt) {
-    if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
-    if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
-  }
-  const pic = v("w:lvlPicBulletId");
-  if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
-  const jc = v("w:lvlJc");
-  if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el2, "w:pPr"));
-  if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el2, "w:rPr"));
-  if (rPr) lvl.rPr = rPr;
-  return lvl;
-}
-function readNumbering(xml) {
-  const out = { abstractNums: {}, nums: {}, picBullets: {} };
-  if (!xml) return out;
-  const root = parseXml(xml);
-  for (const pb of childElements(root, "w:numPicBullet")) {
-    const id = parseInt(pb.attrs["w:numPicBulletId"] ?? "-1", 10);
-    const bullet = { id };
-    const find = (e, name) => {
-      for (const c of childElements(e)) {
-        if (c.name === name) return c;
-        const f = find(c, name);
-        if (f) return f;
-      }
-      return void 0;
-    };
-    const img = find(pb, "v:imagedata");
-    const blip = find(pb, "a:blip");
-    const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
-    if (rid) bullet.rid = rid;
-    const shape = find(pb, "v:shape");
-    const style = shape?.attrs["style"] ?? "";
-    const w = /width:\s*([0-9.]+)pt/.exec(style);
-    const h = /height:\s*([0-9.]+)pt/.exec(style);
-    if (w) bullet.widthPt = parseFloat(w[1]);
-    if (h) bullet.heightPt = parseFloat(h[1]);
-    out.picBullets[id] = bullet;
-  }
-  for (const an of childElements(root, "w:abstractNum")) {
-    const id = parseInt(an.attrs["w:abstractNumId"] ?? "-1", 10);
-    const a = { abstractNumId: id, levels: {} };
-    const mlt = firstChild(an, "w:multiLevelType")?.attrs["w:val"];
-    if (mlt) a.multiLevelType = mlt;
-    const sl = firstChild(an, "w:styleLink")?.attrs["w:val"];
-    if (sl) a.styleLink = sl;
-    const nsl = firstChild(an, "w:numStyleLink")?.attrs["w:val"];
-    if (nsl) a.numStyleLink = nsl;
-    for (const lvl of childElements(an, "w:lvl")) {
-      const l = readLevel(lvl);
-      a.levels[l.ilvl] = l;
-    }
-    out.abstractNums[id] = a;
-  }
-  for (const num of childElements(root, "w:num")) {
-    const numId = parseInt(num.attrs["w:numId"] ?? "-1", 10);
-    const abs = parseInt(firstChild(num, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
-    const inst = { numId, abstractNumId: abs, overrides: {} };
-    for (const ov of childElements(num, "w:lvlOverride")) {
-      const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
-      const o = {};
-      const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
-      if (so !== void 0) o.startOverride = parseInt(so, 10);
-      const lvl = firstChild(ov, "w:lvl");
-      if (lvl) o.lvl = readLevel(lvl);
-      inst.overrides[ilvl] = o;
-    }
-    out.nums[numId] = inst;
-  }
-  return out;
-}
-function readTheme(xml) {
-  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: {} };
-  if (!xml) return theme;
-  const root = parseXml(xml);
-  const find = (e, name) => {
-    for (const c of childElements(e)) {
-      if (c.name === name) return c;
-      const f = find(c, name);
-      if (f) return f;
-    }
-    return void 0;
-  };
-  const fontScheme = find(root, "a:fontScheme");
-  for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el2 = fontScheme && firstChild(fontScheme, tag2);
-    if (!el2) continue;
-    const set = theme[key];
-    const latin = firstChild(el2, "a:latin")?.attrs["typeface"];
-    if (latin) set.latin = latin;
-    const ea = firstChild(el2, "a:ea")?.attrs["typeface"];
-    if (ea) set.ea = ea;
-    const cs = firstChild(el2, "a:cs")?.attrs["typeface"];
-    if (cs) set.cs = cs;
-    for (const f of childElements(el2, "a:font")) {
-      if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
-    }
-  }
-  const lnList = find(root, "a:lnStyleLst");
-  if (lnList) theme.lineWidthsPt = childElements(lnList, "a:ln").map((l) => (parseInt(l.attrs["w"] ?? "0", 10) || 0) / 12700);
-  const clr = find(root, "a:clrScheme");
-  if (clr) {
-    for (const c of childElements(clr)) {
-      const key = c.name.replace(/^a:/, "");
-      const srgb = firstChild(c, "a:srgbClr")?.attrs["val"];
-      const sys = firstChild(c, "a:sysClr");
-      const v = srgb ?? sys?.attrs["lastClr"] ?? (sys?.attrs["val"] === "window" ? "FFFFFF" : sys?.attrs["val"] === "windowText" ? "000000" : void 0);
-      if (v) theme.colors[key] = v.toUpperCase();
-    }
-  }
-  return theme;
-}
-function readNoteProps(el2) {
-  if (!el2) return void 0;
-  const out = {};
-  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
-  const pos = v("w:pos");
-  if (pos) out.pos = pos;
-  const fmt2 = v("w:numFmt");
-  if (fmt2) out.numFmt = fmt2;
-  const start = parseInt(v("w:numStart") ?? "", 10);
-  if (Number.isFinite(start)) out.numStart = start;
-  const rs = v("w:numRestart");
-  if (rs === "continuous" || rs === "eachSect" || rs === "eachPage") out.numRestart = rs;
-  return Object.keys(out).length ? out : void 0;
-}
-var ROOT_COMPAT_FLAGS = /* @__PURE__ */ new Set([
-  "w:doNotUseHTMLParagraphAutoSpacing",
-  "w:doNotExpandShiftReturn",
-  "w:ulTrailSpace",
-  "w:spaceForUL",
-  "w:balanceSingleByteDoubleByteWidth",
-  "w:adjustLineHeightInTable",
-  "w:doNotSuppressParagraphBorders",
-  "w:noSpaceRaiseLower",
-  "w:suppressSpBfAfterPgBrk",
-  "w:suppressTopSpacing",
-  "w:doNotUseIndentAsNumberingTabStop"
-]);
-function readSettings(xml) {
-  const s = {
-    defaultTabStop: 720,
-    compatibilityMode: xml ? 12 : 15,
-    compat: {},
-    evenAndOddHeaders: false,
-    mirrorMargins: false,
-    autoHyphenation: false,
-    doNotHyphenateCaps: false,
-    displayBackgroundShape: false,
-    updateFields: false
-  };
-  if (!xml) return s;
-  const root = parseXml(xml);
-  const on = (n) => {
-    const e = firstChild(root, n);
-    return e ? onOffVal(e) : false;
-  };
-  const dts = measureTwips(firstChild(root, "w:defaultTabStop")?.attrs["w:val"]);
-  if (dts !== void 0 && dts > 0) s.defaultTabStop = dts;
-  s.evenAndOddHeaders = on("w:evenAndOddHeaders");
-  s.mirrorMargins = on("w:mirrorMargins");
-  s.autoHyphenation = on("w:autoHyphenation");
-  s.doNotHyphenateCaps = on("w:doNotHyphenateCaps");
-  s.displayBackgroundShape = on("w:displayBackgroundShape");
-  s.updateFields = on("w:updateFields");
-  if (on("w:bordersDoNotSurroundHeader")) s.bordersDoNotSurroundHeader = true;
-  if (on("w:bordersDoNotSurroundFooter")) s.bordersDoNotSurroundFooter = true;
-  const fnPr = readNoteProps(firstChild(root, "w:footnotePr"));
-  if (fnPr) s.footnotePr = fnPr;
-  const enPr = readNoteProps(firstChild(root, "w:endnotePr"));
-  if (enPr) s.endnotePr = enPr;
-  const hz = measureTwips(firstChild(root, "w:hyphenationZone")?.attrs["w:val"]);
-  if (hz !== void 0) s.hyphenationZone = hz;
-  const chl = firstChild(root, "w:consecutiveHyphenLimit")?.attrs["w:val"];
-  if (chl !== void 0) s.consecutiveHyphenLimit = parseInt(chl, 10);
-  const csc = firstChild(root, "w:characterSpacingControl")?.attrs["w:val"];
-  if (csc) s.characterSpacingControl = csc;
-  const tfl = firstChild(root, "w:themeFontLang");
-  if (tfl) {
-    s.themeFontLang = {};
-    if (tfl.attrs["w:val"]) s.themeFontLang.val = tfl.attrs["w:val"];
-    if (tfl.attrs["w:eastAsia"]) s.themeFontLang.eastAsia = tfl.attrs["w:eastAsia"];
-    if (tfl.attrs["w:bidi"]) s.themeFontLang.bidi = tfl.attrs["w:bidi"];
-  }
-  for (const c of childElements(root)) {
-    if (ROOT_COMPAT_FLAGS.has(c.name)) s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
-  }
-  const compat = firstChild(root, "w:compat");
-  if (compat) {
-    for (const c of childElements(compat)) {
-      if (c.name === "w:compatSetting") {
-        if (c.attrs["w:name"] === "compatibilityMode" && c.attrs["w:uri"] === "http://schemas.microsoft.com/office/word") {
-          const n = parseInt(c.attrs["w:val"] ?? "", 10);
-          if (Number.isFinite(n)) s.compatibilityMode = n;
-        }
-        continue;
-      }
-      s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
-    }
-  }
-  return s;
-}
-function readFontTable(xml) {
-  const out = {};
-  if (!xml) return out;
-  const root = parseXml(xml);
-  for (const f of childElements(root, "w:font")) {
-    const name = f.attrs["w:name"];
-    if (!name) continue;
-    const info = { name };
-    const v = (n) => firstChild(f, n)?.attrs["w:val"];
-    const alt = v("w:altName");
-    if (alt) info.altName = alt;
-    const pan = v("w:panose1");
-    if (pan) info.panose1 = pan;
-    const cs = v("w:charset");
-    if (cs) info.charset = cs;
-    const fam = v("w:family");
-    if (fam) info.family = fam;
-    const pitch = v("w:pitch");
-    if (pitch) info.pitch = pitch;
-    const sig = firstChild(f, "w:sig");
-    if (sig) {
-      info.sig = {};
-      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
-    }
-    out[name] = info;
-  }
-  return out;
-}
-function partByRelType(pkg, type, fallback) {
-  const rels = pkg.getPartText("word/_rels/document.xml.rels");
-  if (rels) {
-    for (const rel of childElements(parseXml(rels), "Relationship")) {
-      if ((rel.attrs["Type"] ?? "").endsWith(`/${type}`) && rel.attrs["Target"] && rel.attrs["TargetMode"] !== "External") {
-        const t = rel.attrs["Target"].replace(/^\.\//, "");
-        return t.startsWith("/") ? t.slice(1) : `word/${t}`;
-      }
-    }
-  }
-  return fallback;
-}
-function readDocFormatting(pkg) {
-  return {
-    styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
-    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
-    theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
-    settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
-    fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
-  };
-}
-
 // ../docx-core/src/drawing.ts
+function readShapeFx(eff) {
+  const num2 = (v, d = 0) => {
+    const n = parseInt(v ?? "", 10);
+    return Number.isFinite(n) ? n : d;
+  };
+  const pt = (v) => num2(v) / 12700;
+  const deg = (v) => num2(v) / 6e4;
+  const fx = {};
+  const glow = firstChild(eff, "a:glow");
+  const gc = glow && srgbOf(glow);
+  if (glow && gc) fx.glow = { radPt: pt(glow.attrs["rad"]), color: gc.hex, alpha: gc.alpha ?? 1 };
+  const se = firstChild(eff, "a:softEdge");
+  if (se && num2(se.attrs["rad"]) > 0) fx.softEdgePt = pt(se.attrs["rad"]);
+  const inner = firstChild(eff, "a:innerShdw");
+  const ic = inner && srgbOf(inner);
+  if (inner && ic) fx.inner = { blurPt: pt(inner.attrs["blurRad"]), distPt: pt(inner.attrs["dist"]), dirDeg: deg(inner.attrs["dir"]), color: ic.hex, alpha: ic.alpha ?? 1 };
+  const refl = firstChild(eff, "a:reflection");
+  if (refl) {
+    const a = refl.attrs;
+    fx.reflection = {
+      blurPt: pt(a["blurRad"]),
+      stA: num2(a["stA"], 1e5) / 1e5,
+      stPos: num2(a["stPos"], 0) / 1e5,
+      endA: num2(a["endA"], 0) / 1e5,
+      endPos: num2(a["endPos"], 1e5) / 1e5,
+      distPt: pt(a["dist"]),
+      dirDeg: deg(a["dir"]),
+      sy: num2(a["sy"], 1e5) / 1e5,
+      ...a["algn"] ? { algn: a["algn"] } : {},
+      ...a["rotWithShape"] !== void 0 ? { rotWithShape: a["rotWithShape"] === "1" || a["rotWithShape"] === "true" } : {}
+    };
+  }
+  const out = firstChild(eff, "a:outerShdw");
+  const oc = out && srgbOf(out);
+  if (out && oc) {
+    const a = out.attrs;
+    const sx = num2(a["sx"], 1e5), sy = num2(a["sy"], 1e5), kx = num2(a["kx"]), ky = num2(a["ky"]);
+    if (sx !== 1e5 || sy !== 1e5 || kx || ky || Object.keys(fx).length) {
+      fx.outer = {
+        blurPt: pt(a["blurRad"]),
+        distPt: pt(a["dist"]),
+        dirDeg: deg(a["dir"]),
+        color: oc.hex,
+        alpha: oc.alpha ?? 1,
+        ...sx !== 1e5 ? { sx: sx / 1e5 } : {},
+        ...sy !== 1e5 ? { sy: sy / 1e5 } : {},
+        ...kx ? { kxDeg: kx / 6e4 } : {},
+        ...ky ? { kyDeg: ky / 6e4 } : {},
+        algn: a["algn"] ?? "b",
+        rotWithShape: a["rotWithShape"] !== "0" && a["rotWithShape"] !== "false"
+      };
+    }
+  }
+  return Object.keys(fx).length ? fx : void 0;
+}
 var EMU_PER_TWIP_D = 635;
 var emuTw = (v) => {
   if (v === void 0 || v === "") return void 0;
@@ -2635,20 +1686,20 @@ function srgbOf(el2, theme) {
   if (!el2) return void 0;
   const c = firstChild(el2, "a:srgbClr") ?? firstChild(el2, "a:schemeClr") ?? firstChild(el2, "a:sysClr") ?? firstChild(el2, "a:prstClr");
   if (!c) return void 0;
-  let hex2;
-  if (c.name === "a:srgbClr") hex2 = c.attrs["val"];
-  else if (c.name === "a:sysClr") hex2 = c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000");
+  let hex3;
+  if (c.name === "a:srgbClr") hex3 = c.attrs["val"];
+  else if (c.name === "a:sysClr") hex3 = c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000");
   else if (c.name === "a:schemeClr") {
     const key = c.attrs["val"] ?? "";
     const map = { tx1: "dk1", bg1: "lt1", tx2: "dk2", bg2: "lt2" };
-    hex2 = own(theme, own(map, key) ?? key) ?? `@${key}`;
+    hex3 = own(theme, own(map, key) ?? key) ?? `@${key}`;
   } else if (c.name === "a:prstClr") {
     const named = { black: "000000", white: "FFFFFF", red: "FF0000", green: "00FF00", blue: "0000FF", yellow: "FFFF00", gray: "808080" };
-    hex2 = own(named, c.attrs["val"] ?? "") ?? "000000";
+    hex3 = own(named, c.attrs["val"] ?? "") ?? "000000";
   }
-  if (!hex2) return void 0;
+  if (!hex3) return void 0;
   const alphaEl = firstChild(c, "a:alpha");
-  const out = { hex: hex2.startsWith("@") ? hex2 : hex2.toUpperCase() };
+  const out = { hex: hex3.startsWith("@") ? hex3 : hex3.toUpperCase() };
   if (alphaEl) out.alpha = (parseInt(alphaEl.attrs["val"] ?? "100000", 10) || 0) / 1e5;
   const mods = childElements(c).filter((m) => m.name !== "a:alpha").map((m) => `${m.name.slice(2)}=${m.attrs["val"]}`);
   if (mods.length) out.hex = `${out.hex}|${mods.join(",")}`;
@@ -2708,15 +1759,32 @@ function readSpPr(spPr, styleEl) {
       }
       st.fill = from.hex;
     }
-  } else if (styleEl) {
+  } else if (firstChild(spPr, "a:pattFill")) {
+    const pf = firstChild(spPr, "a:pattFill");
+    const fg = srgbOf(firstChild(pf, "a:fgClr")), bg = srgbOf(firstChild(pf, "a:bgClr"));
+    st.pattern = { prst: pf.attrs["prst"] ?? "pct5", fg: fg?.hex ?? "000000", bg: bg?.hex ?? "FFFFFF" };
+    st.fill = st.pattern.bg;
+  } else if (styleEl && !firstChild(spPr, "a:blipFill") && !firstChild(spPr, "a:grpFill")) {
     const fillRef = firstChild(styleEl, "a:fillRef");
-    if (fillRef && fillRef.attrs["idx"] !== "0") {
+    const idx = parseInt(fillRef?.attrs["idx"] ?? "0", 10) || 0;
+    if (fillRef && idx !== 0) {
       const c = srgbOf(fillRef);
-      if (c) st.fill = c.hex;
+      if (c) {
+        st.fill = c.hex;
+        if (idx !== 1 && idx !== 1001) st.fillRef = { idx, color: c.hex };
+      }
     }
   }
+  const effRef = styleEl && !firstChild(spPr, "a:effectLst") ? firstChild(styleEl, "a:effectRef") : void 0;
+  const effIdx = parseInt(effRef?.attrs["idx"] ?? "0", 10) || 0;
+  if (effRef && effIdx > 0) {
+    const c = srgbOf(effRef);
+    if (c) st.effectRef = { idx: effIdx, color: c.hex };
+  }
   const eff = firstChild(spPr, "a:effectLst");
-  const shd = eff && firstChild(eff, "a:outerShdw");
+  const shapeFx = eff ? readShapeFx(eff) : void 0;
+  if (shapeFx) st.fx = shapeFx;
+  const shd = eff && !shapeFx?.outer ? firstChild(eff, "a:outerShdw") : void 0;
   if (shd) {
     const c = srgbOf(shd);
     const dist = (parseInt(shd.attrs["dist"] ?? "0", 10) || 0) / EMU_PER_TWIP_D;
@@ -2903,7 +1971,7 @@ function readCustGeom(cg, cx, cy) {
     v[`hd${k}`] = h / k;
     v[`ssd${k}`] = ss / k;
   }
-  const num = (s) => {
+  const num2 = (s) => {
     if (s === void 0) return 0;
     const n = Number(s);
     return Number.isFinite(n) ? n : own(v, s) ?? 0;
@@ -2911,7 +1979,7 @@ function readCustGeom(cg, cx, cy) {
   const rad = (a) => a / 6e4 * (Math.PI / 180);
   const evalGd = (f) => {
     const [op, ...a] = f.trim().split(/\s+/);
-    const [x2 = 0, y = 0, z = 0] = a.map(num);
+    const [x2 = 0, y = 0, z = 0] = a.map(num2);
     switch (op) {
       case "*/":
         return z ? x2 * y / z : 0;
@@ -2962,13 +2030,13 @@ function readCustGeom(cg, cx, cy) {
   const pl = firstChild(cg, "a:pathLst");
   for (const p of pl ? childElements(pl, "a:path") : []) {
     const path = {
-      w: num(p.attrs["w"]) || w,
-      h: num(p.attrs["h"]) || h,
+      w: num2(p.attrs["w"]) || w,
+      h: num2(p.attrs["h"]) || h,
       fill: p.attrs["fill"] !== "none",
       stroke: p.attrs["stroke"] !== "0" && p.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el2) => childElements(el2, "a:pt").map((q) => [num(q.attrs["x"]), num(q.attrs["y"])]);
+    const pts = (el2) => childElements(el2, "a:pt").map((q) => [num2(q.attrs["x"]), num2(q.attrs["y"])]);
     for (const c of childElements(p)) {
       switch (c.name) {
         case "a:moveTo":
@@ -2984,7 +2052,7 @@ function readCustGeom(cg, cx, cy) {
           path.cmds.push({ op: "Q", pts: pts(c) });
           break;
         case "a:arcTo":
-          path.cmds.push({ op: "A", wR: num(c.attrs["wR"]), hR: num(c.attrs["hR"]), st: num(c.attrs["stAng"]) / 6e4, sw: num(c.attrs["swAng"]) / 6e4 });
+          path.cmds.push({ op: "A", wR: num2(c.attrs["wR"]), hR: num2(c.attrs["hR"]), st: num2(c.attrs["stAng"]) / 6e4, sw: num2(c.attrs["swAng"]) / 6e4 });
           break;
         case "a:close":
           path.cmds.push({ op: "Z" });
@@ -2997,6 +2065,89 @@ function readCustGeom(cg, cx, cy) {
 }
 
 // ../docx-core/src/picture-xml.ts
+var XmlPatch = class _XmlPatch {
+  constructor(src) {
+    this.src = src;
+  }
+  src;
+  edits = [];
+  /** fim da tag de abertura (posição logo depois do '>'). */
+  static openEnd(el2) {
+    return el2.cs ?? el2.e;
+  }
+  replace(el2, text) {
+    this.edits.push({ s: el2.s, e: el2.e, text });
+  }
+  remove(el2) {
+    this.replace(el2, "");
+  }
+  insertAt(at, text) {
+    this.edits.push({ s: at, e: at, text });
+  }
+  /** troca a tag de abertura (atributos novos, valores escapados). */
+  setAttrs(el2, set) {
+    const end = _XmlPatch.openEnd(el2);
+    const selfClose = el2.cs === el2.e;
+    let tag2 = this.src.slice(el2.s, end);
+    for (const [k, v] of Object.entries(set)) {
+      const re = new RegExp(`\\s${k.replace(/[:.]/g, "\\$&")}="[^"]*"`);
+      if (v === void 0) {
+        tag2 = tag2.replace(re, "");
+        continue;
+      }
+      const a = ` ${k}="${escAttr(String(v))}"`;
+      if (re.test(tag2)) tag2 = tag2.replace(re, () => a);
+      else tag2 = tag2.replace(selfClose ? /\s*\/>$/ : />$/, (m) => `${a}${m.trim() === "/>" ? "/>" : ">"}`);
+    }
+    this.edits.push({ s: el2.s, e: end, text: tag2 });
+  }
+  /** conteúdo inteiro de um elemento (vira <x ...>conteúdo</x>). */
+  setContent(el2, inner) {
+    if (el2.cs === el2.e) {
+      const tag2 = this.src.slice(el2.s, el2.e).replace(/\s*\/>$/, ">");
+      const name = /^<([^\s/>]+)/.exec(tag2)[1];
+      this.edits.push({ s: el2.s, e: el2.e, text: `${tag2}${inner}</${name}>` });
+    } else this.edits.push({ s: el2.cs, e: el2.ce, text: inner });
+  }
+  /** insere `xml` como filho de `parent` na posição da ordem do esquema. */
+  insertChild(parent, name, xml, order) {
+    const rank = order.indexOf(name);
+    const kids = childElements(parent);
+    const after = kids.filter((k) => order.indexOf(k.name) >= 0 && order.indexOf(k.name) <= rank).pop();
+    if (after) {
+      this.insertAt(after.e, xml);
+      return;
+    }
+    if (parent.cs === parent.e) {
+      this.setContent(parent, xml);
+      return;
+    }
+    this.insertAt(parent.cs, xml);
+  }
+  /** troca (ou insere, ou remove com xml vazio) o filho `name` de `parent`. */
+  putChild(parent, name, xml, order) {
+    const cur = firstChild(parent, name);
+    if (cur) {
+      this.replace(cur, xml);
+      return;
+    }
+    if (xml) this.insertChild(parent, name, xml, order);
+  }
+  apply() {
+    const ed = [...this.edits].sort((a, b) => b.s - a.s || b.e - a.e);
+    let out = this.src;
+    for (const x2 of ed) out = out.slice(0, x2.s) + x2.text + out.slice(x2.e);
+    return out;
+  }
+};
+function escAttr(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+var ANCHOR_ORDER = ["wp:simplePos", "wp:positionH", "wp:positionV", "wp:extent", "wp:effectExtent", "wp:wrapNone", "wp:wrapSquare", "wp:wrapTight", "wp:wrapThrough", "wp:wrapTopAndBottom", "wp:docPr", "wp:cNvGraphicFramePr", "a:graphic", "wp14:sizeRelH", "wp14:sizeRelV"];
+var INLINE_ORDER = ["wp:extent", "wp:effectExtent", "wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"];
+var SPPR_ORDER = ["a:xfrm", "a:custGeom", "a:prstGeom", "a:noFill", "a:solidFill", "a:gradFill", "a:blipFill", "a:pattFill", "a:grpFill", "a:ln", "a:effectLst", "a:effectDag", "a:scene3d", "a:sp3d", "a:extLst"];
+var EFFECT_ORDER = ["a:blur", "a:fillOverlay", "a:glow", "a:innerShdw", "a:outerShdw", "a:prstShdw", "a:reflection", "a:softEdge"];
+var BLIPFILL_ORDER = ["a:blip", "a:srcRect", "a:tile", "a:stretch"];
 var WRAP_NAMES = ["wp:wrapNone", "wp:wrapSquare", "wp:wrapTight", "wp:wrapThrough", "wp:wrapTopAndBottom"];
 var COLOR_NAMES = ["a:srgbClr", "a:schemeClr", "a:prstClr", "a:sysClr", "a:scrgbClr", "a:hslClr"];
 function readDmlColor(parent) {
@@ -3011,6 +2162,11 @@ function readDmlColor(parent) {
   if (mods.length) out.mods = mods;
   return out;
 }
+function dmlColorXml(c) {
+  const attrs2 = ` val="${escAttr(c.val)}"${c.lastClr ? ` lastClr="${c.lastClr}"` : ""}`;
+  const mods = (c.mods ?? []).map(([n, v]) => n === "gray" || n === "comp" || n === "inv" || n === "gamma" || n === "invGamma" ? `<a:${n}/>` : `<a:${n} val="${v}"/>`).join("");
+  return mods ? `<a:${c.kind}${attrs2}>${mods}</a:${c.kind}>` : `<a:${c.kind}${attrs2}/>`;
+}
 var PRST_RGB = { black: "000000", white: "FFFFFF", red: "FF0000", green: "008000", blue: "0000FF", yellow: "FFFF00", gray: "808080" };
 var SCHEME_ALIAS = { tx1: "dk1", bg1: "lt1", tx2: "dk2", bg2: "lt2" };
 function dmlColorSpec(c) {
@@ -3024,7 +2180,7 @@ function dmlColorSpec(c) {
   if (mods.length) head += `|${mods.join(",")}`;
   return { spec: head, alpha };
 }
-var int2 = (v, d = 0) => {
+var int = (v, d = 0) => {
   if (v === void 0) return d;
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? n : d;
@@ -3044,10 +2200,12 @@ function partsOf(raw) {
   if (!container) throw new Error("w:drawing sem wp:inline/wp:anchor");
   const gd = findDeep2(container, "a:graphicData");
   const pic = gd && firstChild(gd, "pic:pic");
-  const spPr = pic && firstChild(pic, "pic:spPr");
+  const wsp = !pic && gd ? firstChild(gd, "wps:wsp") : void 0;
+  const wgp = !pic && !wsp && gd ? firstChild(gd, "wpg:wgp") : void 0;
+  const spPr = pic ? firstChild(pic, "pic:spPr") : wsp ? firstChild(wsp, "wps:spPr") : wgp && firstChild(wgp, "wpg:grpSpPr");
   const blipFill = pic && firstChild(pic, "pic:blipFill");
   const blip = blipFill && firstChild(blipFill, "a:blip");
-  return { root, container, pic, spPr, blipFill, blip };
+  return { root, container, pic, wsp, wgp, spPr, blipFill, blip };
 }
 function readPos2(el2) {
   if (!el2) return void 0;
@@ -3055,15 +2213,15 @@ function readPos2(el2) {
   const al = firstChild(el2, "wp:align");
   if (al) p.align = textContent(al).trim();
   const off = firstChild(el2, "wp:posOffset");
-  if (off) p.offset = int2(textContent(off).trim());
+  if (off) p.offset = int(textContent(off).trim());
   const pct2 = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
-  if (pct2) p.pct = int2(textContent(pct2).trim());
+  if (pct2) p.pct = int(textContent(pct2).trim());
   return p;
 }
 function readPicLine(ln2) {
   if (!ln2) return void 0;
   const out = {};
-  if (ln2.attrs["w"] !== void 0) out.w = int2(ln2.attrs["w"]);
+  if (ln2.attrs["w"] !== void 0) out.w = int(ln2.attrs["w"]);
   if (ln2.attrs["cap"]) out.cap = ln2.attrs["cap"];
   if (ln2.attrs["cmpd"]) out.cmpd = ln2.attrs["cmpd"];
   if (ln2.attrs["algn"]) out.algn = ln2.attrs["algn"];
@@ -3075,7 +2233,7 @@ function readPicLine(ln2) {
     else if (k.name === "a:round" || k.name === "a:bevel") out.join = k.name.slice(2);
     else if (k.name === "a:miter") {
       out.join = "miter";
-      if (k.attrs["lim"]) out.miterLim = int2(k.attrs["lim"]);
+      if (k.attrs["lim"]) out.miterLim = int(k.attrs["lim"]);
     } else if (k.name === "a:headEnd" || k.name === "a:tailEnd" || k.name === "a:extLst") out.tailRaw = (out.tailRaw ?? "") + rawOf(ln2, k);
   }
   return out;
@@ -3088,10 +2246,10 @@ function readShadow(k) {
   const kind = k.name === "a:outerShdw" ? "outer" : k.name === "a:innerShdw" ? "inner" : "prst";
   const s = { kind, color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
   const a = k.attrs;
-  if (a["blurRad"] !== void 0) s.blurRad = int2(a["blurRad"]);
-  if (a["dist"] !== void 0) s.dist = int2(a["dist"]);
-  if (a["dir"] !== void 0) s.dir = int2(a["dir"]);
-  for (const n of ["sx", "sy", "kx", "ky"]) if (a[n] !== void 0) s[n] = int2(a[n]);
+  if (a["blurRad"] !== void 0) s.blurRad = int(a["blurRad"]);
+  if (a["dist"] !== void 0) s.dist = int(a["dist"]);
+  if (a["dir"] !== void 0) s.dir = int(a["dir"]);
+  for (const n of ["sx", "sy", "kx", "ky"]) if (a[n] !== void 0) s[n] = int(a[n]);
   if (a["algn"]) s.algn = a["algn"];
   if (a["rotWithShape"] !== void 0) s.rotWithShape = bool(a["rotWithShape"]);
   if (a["prst"]) s.prst = a["prst"];
@@ -3102,12 +2260,12 @@ function readEffects(el2) {
   if (!el2) return fx;
   for (const k of childElements(el2)) {
     if (k.name === "a:outerShdw" || k.name === "a:innerShdw" || k.name === "a:prstShdw") fx.shadow = readShadow(k);
-    else if (k.name === "a:glow") fx.glow = { rad: int2(k.attrs["rad"]), color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
-    else if (k.name === "a:softEdge") fx.softEdge = int2(k.attrs["rad"]);
+    else if (k.name === "a:glow") fx.glow = { rad: int(k.attrs["rad"]), color: readDmlColor(k) ?? { kind: "srgbClr", val: "000000" } };
+    else if (k.name === "a:softEdge") fx.softEdge = int(k.attrs["rad"]);
     else if (k.name === "a:reflection") {
       const r = {};
       const a = k.attrs;
-      for (const n of ["blurRad", "stA", "stPos", "endA", "endPos", "dist", "dir", "fadeDir", "sx", "sy", "kx", "ky"]) if (a[n] !== void 0) r[n] = int2(a[n]);
+      for (const n of ["blurRad", "stA", "stPos", "endA", "endPos", "dist", "dir", "fadeDir", "sx", "sy", "kx", "ky"]) if (a[n] !== void 0) r[n] = int(a[n]);
       if (a["algn"]) r.algn = a["algn"];
       if (a["rotWithShape"] !== void 0) r.rotWithShape = bool(a["rotWithShape"]);
       fx.reflection = r;
@@ -3116,7 +2274,7 @@ function readEffects(el2) {
   return fx;
 }
 function readRot(el2) {
-  return el2 ? { lat: int2(el2.attrs["lat"]), lon: int2(el2.attrs["lon"]), rev: int2(el2.attrs["rev"]) } : void 0;
+  return el2 ? { lat: int(el2.attrs["lat"]), lon: int(el2.attrs["lon"]), rev: int(el2.attrs["rev"]) } : void 0;
 }
 function read3D(scene, sp3d) {
   if (!scene && !sp3d) return void 0;
@@ -3124,8 +2282,8 @@ function read3D(scene, sp3d) {
   const cam = scene && firstChild(scene, "a:camera");
   if (cam) {
     t.camera = { prst: cam.attrs["prst"] ?? "orthographicFront" };
-    if (cam.attrs["fov"] !== void 0) t.camera.fov = int2(cam.attrs["fov"]);
-    if (cam.attrs["zoom"] !== void 0) t.camera.zoom = int2(cam.attrs["zoom"]);
+    if (cam.attrs["fov"] !== void 0) t.camera.fov = int(cam.attrs["fov"]);
+    if (cam.attrs["zoom"] !== void 0) t.camera.zoom = int(cam.attrs["zoom"]);
     const r = readRot(firstChild(cam, "a:rot"));
     if (r) t.camera.rot = r;
   }
@@ -3137,16 +2295,16 @@ function read3D(scene, sp3d) {
   }
   if (sp3d) {
     const bv = (b) => b && {
-      ...b.attrs["w"] !== void 0 ? { w: int2(b.attrs["w"]) } : {},
-      ...b.attrs["h"] !== void 0 ? { h: int2(b.attrs["h"]) } : {},
+      ...b.attrs["w"] !== void 0 ? { w: int(b.attrs["w"]) } : {},
+      ...b.attrs["h"] !== void 0 ? { h: int(b.attrs["h"]) } : {},
       ...b.attrs["prst"] ? { prst: b.attrs["prst"] } : {}
     };
     const bt = bv(firstChild(sp3d, "a:bevelT")), bb = bv(firstChild(sp3d, "a:bevelB"));
     if (bt) t.bevelT = bt;
     if (bb) t.bevelB = bb;
-    if (sp3d.attrs["extrusionH"] !== void 0) t.extrusionH = int2(sp3d.attrs["extrusionH"]);
-    if (sp3d.attrs["contourW"] !== void 0) t.contourW = int2(sp3d.attrs["contourW"]);
-    if (sp3d.attrs["z"] !== void 0) t.z = int2(sp3d.attrs["z"]);
+    if (sp3d.attrs["extrusionH"] !== void 0) t.extrusionH = int(sp3d.attrs["extrusionH"]);
+    if (sp3d.attrs["contourW"] !== void 0) t.contourW = int(sp3d.attrs["contourW"]);
+    if (sp3d.attrs["z"] !== void 0) t.z = int(sp3d.attrs["z"]);
     if (sp3d.attrs["prstMaterial"]) t.prstMaterial = sp3d.attrs["prstMaterial"];
     const ec2 = readDmlColor(firstChild(sp3d, "a:extrusionClr"));
     if (ec2) t.extrusionClr = ec2;
@@ -3159,10 +2317,10 @@ function readBlip(blip) {
   const fx = {};
   if (!blip) return fx;
   for (const k of childElements(blip)) {
-    if (k.name === "a:alphaModFix") fx.alphaModFix = int2(k.attrs["amt"], 1e5);
-    else if (k.name === "a:lum") fx.lum = { ...k.attrs["bright"] !== void 0 ? { bright: int2(k.attrs["bright"]) } : {}, ...k.attrs["contrast"] !== void 0 ? { contrast: int2(k.attrs["contrast"]) } : {} };
+    if (k.name === "a:alphaModFix") fx.alphaModFix = int(k.attrs["amt"], 1e5);
+    else if (k.name === "a:lum") fx.lum = { ...k.attrs["bright"] !== void 0 ? { bright: int(k.attrs["bright"]) } : {}, ...k.attrs["contrast"] !== void 0 ? { contrast: int(k.attrs["contrast"]) } : {} };
     else if (k.name === "a:grayscl") fx.grayscl = true;
-    else if (k.name === "a:biLevel") fx.biLevel = int2(k.attrs["thresh"], 5e4);
+    else if (k.name === "a:biLevel") fx.biLevel = int(k.attrs["thresh"], 5e4);
     else if (k.name === "a:duotone") {
       const cs = childElements(k).filter((c) => COLOR_NAMES.includes(c.name));
       const wrap = (c) => readDmlColor({ name: "x", attrs: {}, children: c ? [c] : [] }) ?? { kind: "srgbClr", val: "000000" };
@@ -3178,12 +2336,12 @@ function readBlip(blip) {
         if (layer.attrs["r:embed"]) a14.layerRid = layer.attrs["r:embed"];
         for (const ie of childElements(layer, "a14:imgEffect")) {
           for (const e of childElements(ie)) {
-            if (e.name === "a14:saturation") a14.saturation = int2(e.attrs["sat"], 1e5);
-            else if (e.name === "a14:colorTemperature") a14.colorTemp = int2(e.attrs["colorTemp"], 6500);
-            else if (e.name === "a14:sharpenSoften") a14.sharpen = int2(e.attrs["amount"]);
+            if (e.name === "a14:saturation") a14.saturation = int(e.attrs["sat"], 1e5);
+            else if (e.name === "a14:colorTemperature") a14.colorTemp = int(e.attrs["colorTemp"], 6500);
+            else if (e.name === "a14:sharpenSoften") a14.sharpen = int(e.attrs["amount"]);
             else if (e.name === "a14:brightnessContrast") {
-              a14.bright = int2(e.attrs["bright"]);
-              a14.contrast = int2(e.attrs["contrast"]);
+              a14.bright = int(e.attrs["bright"]);
+              a14.contrast = int(e.attrs["contrast"]);
             } else (a14.otherRaw ??= []).push(rawOf(blip, e));
           }
         }
@@ -3193,14 +2351,14 @@ function readBlip(blip) {
   }
   return fx;
 }
-function readPictureFormat(raw) {
+function readPictureFormat(raw, opts = {}) {
   let p;
   try {
     p = partsOf(raw);
   } catch {
     return void 0;
   }
-  if (!p.pic) return void 0;
+  if (!p.pic && !(opts.anyShape && (p.wsp || p.wgp))) return void 0;
   rawSrc = raw;
   const c = p.container;
   const inline = c.name === "wp:inline";
@@ -3220,7 +2378,7 @@ function readPictureFormat(raw) {
     const el2 = firstChild(c, n);
     if (!el2) return void 0;
     const v = firstChild(el2, k);
-    return { relativeFrom: el2.attrs["relativeFrom"] ?? "page", pct: v ? int2(textContent(v).trim()) : 0 };
+    return { relativeFrom: el2.attrs["relativeFrom"] ?? "page", pct: v ? int(textContent(v).trim()) : 0 };
   };
   const spPr = p.spPr;
   const xfrm = spPr && firstChild(spPr, "a:xfrm");
@@ -3238,10 +2396,10 @@ function readPictureFormat(raw) {
     inline,
     wrap,
     wrapText: wrapEl?.attrs["wrapText"] ?? "bothSides",
-    dist: { t: int2(a["distT"]), b: int2(a["distB"]), l: int2(a["distL"]), r: int2(a["distR"]) },
-    cx: int2(ext?.attrs["cx"]),
-    cy: int2(ext?.attrs["cy"]),
-    effectExtent: { l: int2(ee?.attrs["l"]), t: int2(ee?.attrs["t"]), r: int2(ee?.attrs["r"]), b: int2(ee?.attrs["b"]) },
+    dist: { t: int(a["distT"]), b: int(a["distB"]), l: int(a["distL"]), r: int(a["distR"]) },
+    cx: int(ext?.attrs["cx"]),
+    cy: int(ext?.attrs["cy"]),
+    effectExtent: { l: int(ee?.attrs["l"]), t: int(ee?.attrs["t"]), r: int(ee?.attrs["r"]), b: int(ee?.attrs["b"]) },
     locked: bool(a["locked"]),
     layoutInCell: bool(a["layoutInCell"], true),
     allowOverlap: bool(a["allowOverlap"], true),
@@ -3255,10 +2413,10 @@ function readPictureFormat(raw) {
       ...decor && bool(decor.attrs["val"], true) ? { decorative: true } : {}
     },
     noChangeAspect: bool(locks?.attrs["noChangeAspect"]),
-    rot: int2(xfrm?.attrs["rot"]),
+    rot: int(xfrm?.attrs["rot"]),
     flipH: bool(xfrm?.attrs["flipH"]),
     flipV: bool(xfrm?.attrs["flipV"]),
-    srcRect: { l: int2(src?.attrs["l"]), t: int2(src?.attrs["t"]), r: int2(src?.attrs["r"]), b: int2(src?.attrs["b"]) },
+    srcRect: { l: int(src?.attrs["l"]), t: int(src?.attrs["t"]), r: int(src?.attrs["r"]), b: int(src?.attrs["b"]) },
     geom: prst?.attrs["prst"] ?? (spPr && firstChild(spPr, "a:custGeom") ? "custom" : "rect"),
     effects: readEffects(spPr && firstChild(spPr, "a:effectLst")),
     blip: readBlip(p.blip)
@@ -3267,13 +2425,13 @@ function readPictureFormat(raw) {
     const ph = readPos2(anchorChild(c, "wp:positionH")), pv = readPos2(anchorChild(c, "wp:positionV"));
     if (ph) out.posH = ph;
     if (pv) out.posV = pv;
-    if (a["relativeHeight"] !== void 0) out.relativeHeight = int2(a["relativeHeight"]);
+    if (a["relativeHeight"] !== void 0) out.relativeHeight = int(a["relativeHeight"]);
     const sh = sizeRel("wp14:sizeRelH", "wp14:pctWidth"), sv = sizeRel("wp14:sizeRelV", "wp14:pctHeight");
     if (sh) out.sizeRelH = sh;
     if (sv) out.sizeRelV = sv;
   }
   if (poly2) {
-    const pts = childElements(poly2).map((pt) => [int2(pt.attrs["x"]), int2(pt.attrs["y"])]);
+    const pts = childElements(poly2).map((pt) => [int(pt.attrs["x"]), int(pt.attrs["y"])]);
     out.polygon = { edited: bool(poly2.attrs["edited"]), pts };
   }
   if (Object.keys(adj).length) out.adj = adj;
@@ -3285,6 +2443,1756 @@ function readPictureFormat(raw) {
   if (p.blip?.attrs["r:embed"]) out.embed = p.blip.attrs["r:embed"];
   rawSrc = "";
   return out;
+}
+function picLineXml(l) {
+  const attrs2 = `${l.w !== void 0 ? ` w="${Math.round(l.w)}"` : ""}${l.cap ? ` cap="${l.cap}"` : ""}${l.cmpd ? ` cmpd="${l.cmpd}"` : ""}${l.algn ? ` algn="${l.algn}"` : ""}`;
+  let inner = "";
+  if (l.fill === null) inner += "<a:noFill/>";
+  else if (l.fill) inner += `<a:solidFill>${dmlColorXml(l.fill)}</a:solidFill>`;
+  else if (l.fillRaw) inner += l.fillRaw;
+  if (l.dash) inner += `<a:prstDash val="${l.dash}"/>`;
+  if (l.join === "round") inner += "<a:round/>";
+  else if (l.join === "bevel") inner += "<a:bevel/>";
+  else if (l.join === "miter") inner += l.miterLim !== void 0 ? `<a:miter lim="${l.miterLim}"/>` : "<a:miter/>";
+  if (l.tailRaw) inner += l.tailRaw;
+  return inner ? `<a:ln${attrs2}>${inner}</a:ln>` : `<a:ln${attrs2}/>`;
+}
+var num = (k, v) => v === void 0 ? "" : ` ${k}="${Math.round(v)}"`;
+function shadowXml(s) {
+  const tag2 = s.kind === "outer" ? "a:outerShdw" : s.kind === "inner" ? "a:innerShdw" : "a:prstShdw";
+  const attrs2 = (s.kind === "prst" ? ` prst="${s.prst ?? "shdw1"}"` : num("blurRad", s.blurRad)) + num("dist", s.dist) + num("dir", s.dir) + (s.kind === "outer" ? num("sx", s.sx) + num("sy", s.sy) + num("kx", s.kx) + num("ky", s.ky) + (s.algn ? ` algn="${s.algn}"` : "") + (s.rotWithShape !== void 0 ? ` rotWithShape="${s.rotWithShape ? 1 : 0}"` : "") : "");
+  return `<${tag2}${attrs2}>${dmlColorXml(s.color)}</${tag2}>`;
+}
+function reflectionXml(r) {
+  return `<a:reflection${num("blurRad", r.blurRad)}${num("stA", r.stA)}${num("stPos", r.stPos)}${num("endA", r.endA)}${num("endPos", r.endPos)}${num("dist", r.dist)}${num("dir", r.dir)}${num("fadeDir", r.fadeDir)}${num("sx", r.sx)}${num("sy", r.sy)}${num("kx", r.kx)}${num("ky", r.ky)}${r.algn ? ` algn="${r.algn}"` : ""}${r.rotWithShape !== void 0 ? ` rotWithShape="${r.rotWithShape ? 1 : 0}"` : ""}/>`;
+}
+function effectLstXml(fx) {
+  const kids = [];
+  for (const raw of fx.otherRaw ?? []) kids.push([/^<([^\s/>]+)/.exec(raw)?.[1] ?? "a:blur", raw]);
+  if (fx.glow) kids.push(["a:glow", `<a:glow rad="${Math.round(fx.glow.rad)}">${dmlColorXml(fx.glow.color)}</a:glow>`]);
+  if (fx.shadow) kids.push([fx.shadow.kind === "outer" ? "a:outerShdw" : fx.shadow.kind === "inner" ? "a:innerShdw" : "a:prstShdw", shadowXml(fx.shadow)]);
+  if (fx.reflection) kids.push(["a:reflection", reflectionXml(fx.reflection)]);
+  if (fx.softEdge !== void 0) kids.push(["a:softEdge", `<a:softEdge rad="${Math.round(fx.softEdge)}"/>`]);
+  kids.sort((a, b) => EFFECT_ORDER.indexOf(a[0]) - EFFECT_ORDER.indexOf(b[0]));
+  return kids.length ? `<a:effectLst>${kids.map((k) => k[1]).join("")}</a:effectLst>` : "";
+}
+var rotXml = (r) => r ? `<a:rot lat="${r.lat}" lon="${r.lon}" rev="${r.rev}"/>` : "";
+function scene3dXml(t) {
+  if (!t.camera && !t.lightRig) return "";
+  const cam = t.camera ?? { prst: "orthographicFront" };
+  const lr = t.lightRig ?? { rig: "threePt", dir: "t" };
+  const camAttrs = `prst="${cam.prst}"${num("fov", cam.fov)}${num("zoom", cam.zoom)}`;
+  return `<a:scene3d>${cam.rot ? `<a:camera ${camAttrs}>${rotXml(cam.rot)}</a:camera>` : `<a:camera ${camAttrs}/>`}${lr.rot ? `<a:lightRig rig="${lr.rig}" dir="${lr.dir}">${rotXml(lr.rot)}</a:lightRig>` : `<a:lightRig rig="${lr.rig}" dir="${lr.dir}"/>`}</a:scene3d>`;
+}
+function sp3dXml(t) {
+  const attrs2 = `${num("z", t.z)}${num("extrusionH", t.extrusionH)}${num("contourW", t.contourW)}${t.prstMaterial ? ` prstMaterial="${t.prstMaterial}"` : ""}`;
+  const bv = (n, b) => b ? `<a:${n}${num("w", b.w)}${num("h", b.h)}${b.prst ? ` prst="${b.prst}"` : ""}/>` : "";
+  const inner = bv("bevelT", t.bevelT) + bv("bevelB", t.bevelB) + (t.extrusionClr ? `<a:extrusionClr>${dmlColorXml(t.extrusionClr)}</a:extrusionClr>` : "") + (t.contourClr ? `<a:contourClr>${dmlColorXml(t.contourClr)}</a:contourClr>` : "");
+  if (!attrs2 && !inner) return "";
+  return inner ? `<a:sp3d${attrs2}>${inner}</a:sp3d>` : `<a:sp3d${attrs2}/>`;
+}
+var A14 = 'xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"';
+var ADEC_EXT = '<a:ext uri="{C183D7F6-B498-43B3-948B-1728B52AA6E4}"><adec:decorative xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative" val="1"/></a:ext>';
+var IMGPROPS_URI = "{BEBA8EAE-BF5A-486C-A8C5-ECC9F3942E4B}";
+function a14Xml(a) {
+  const fx = [];
+  for (const raw of a.otherRaw ?? []) fx.push(raw);
+  if (a.saturation !== void 0) fx.push(`<a14:saturation sat="${a.saturation}"/>`);
+  if (a.colorTemp !== void 0) fx.push(`<a14:colorTemperature colorTemp="${a.colorTemp}"/>`);
+  if (a.sharpen !== void 0) fx.push(`<a14:sharpenSoften amount="${a.sharpen}"/>`);
+  if (a.bright !== void 0 || a.contrast !== void 0) fx.push(`<a14:brightnessContrast${a.bright ? ` bright="${a.bright}"` : ""}${a.contrast ? ` contrast="${a.contrast}"` : ""}/>`);
+  if (!fx.length) return "";
+  return `<a:ext uri="${IMGPROPS_URI}"><a14:imgProps ${A14}><a14:imgLayer${a.layerRid ? ` r:embed="${a.layerRid}"` : ""}>${fx.map((f) => `<a14:imgEffect>${f}</a14:imgEffect>`).join("")}</a14:imgLayer></a14:imgProps></a:ext>`;
+}
+function blipFxKids(fx) {
+  const out = [];
+  if (fx.clrChange) out.push(["a:clrChange", `<a:clrChange${fx.clrChange.useA !== void 0 ? ` useA="${fx.clrChange.useA ? 1 : 0}"` : ""}><a:clrFrom>${dmlColorXml(fx.clrChange.from)}</a:clrFrom><a:clrTo>${dmlColorXml(fx.clrChange.to)}</a:clrTo></a:clrChange>`]);
+  if (fx.duotone) out.push(["a:duotone", `<a:duotone>${dmlColorXml(fx.duotone[0])}${dmlColorXml(fx.duotone[1])}</a:duotone>`]);
+  if (fx.grayscl) out.push(["a:grayscl", "<a:grayscl/>"]);
+  if (fx.biLevel !== void 0) out.push(["a:biLevel", `<a:biLevel thresh="${fx.biLevel}"/>`]);
+  if (fx.lum && (fx.lum.bright || fx.lum.contrast)) out.push(["a:lum", `<a:lum${fx.lum.bright ? ` bright="${fx.lum.bright}"` : ""}${fx.lum.contrast ? ` contrast="${fx.lum.contrast}"` : ""}/>`]);
+  if (fx.alphaModFix !== void 0 && fx.alphaModFix < 1e5) out.push(["a:alphaModFix", `<a:alphaModFix amt="${fx.alphaModFix}"/>`]);
+  return out;
+}
+var DEFAULT_WRAP_POLYGON = [[0, 0], [0, 21300], [21375, 21300], [21375, 0], [0, 0]];
+function polygonXml(poly2) {
+  const [first, ...rest] = poly2.pts;
+  return `<wp:wrapPolygon edited="${poly2.edited ? 1 : 0}"><wp:start x="${first?.[0] ?? 0}" y="${first?.[1] ?? 0}"/>${rest.map(([x2, y]) => `<wp:lineTo x="${x2}" y="${y}"/>`).join("")}</wp:wrapPolygon>`;
+}
+function wrapXml(kind, wrapText, polygon) {
+  switch (kind) {
+    case "square":
+      return `<wp:wrapSquare wrapText="${wrapText}"/>`;
+    case "tight":
+    case "through": {
+      const tag2 = kind === "tight" ? "wp:wrapTight" : "wp:wrapThrough";
+      return `<${tag2} wrapText="${wrapText}">${polygonXml(polygon ?? { edited: false, pts: DEFAULT_WRAP_POLYGON })}</${tag2}>`;
+    }
+    case "topAndBottom":
+      return "<wp:wrapTopAndBottom/>";
+    default:
+      return "<wp:wrapNone/>";
+  }
+}
+var posXml = (tag2, p) => {
+  if (p.align === void 0 && p.pct !== void 0) {
+    const pct2 = tag2 === "wp:positionH" ? "wp14:pctPosHOffset" : "wp14:pctPosVOffset";
+    return `<mc:AlternateContent><mc:Choice Requires="wp14"><${tag2} relativeFrom="${p.relativeFrom}"><${pct2}>${Math.round(p.pct)}</${pct2}></${tag2}></mc:Choice><mc:Fallback><${tag2} relativeFrom="page"><wp:posOffset>${Math.round(p.fallback ?? 0)}</wp:posOffset></${tag2}></mc:Fallback></mc:AlternateContent>`;
+  }
+  const inner = p.align !== void 0 ? `<wp:align>${p.align}</wp:align>` : `<wp:posOffset>${Math.round(p.offset ?? 0)}</wp:posOffset>`;
+  return `<${tag2} relativeFrom="${p.relativeFrom}">${inner}</${tag2}>`;
+};
+function posHolder(c, tag2) {
+  return firstChild(c, tag2) ?? childElements(c, "mc:AlternateContent").find((ac) => findDeep2(ac, tag2));
+}
+var sizeRelXml = (tag2, r) => {
+  const k = tag2 === "wp14:sizeRelH" ? "wp14:pctWidth" : "wp14:pctHeight";
+  return `<${tag2} relativeFrom="${r.relativeFrom}"><${k}>${Math.round(r.pct)}</${k}></${tag2}>`;
+};
+function convertContainer(raw, ch) {
+  const p = partsOf(raw);
+  const c = p.container;
+  const slice = (n) => {
+    const el2 = firstChild(c, n);
+    return el2 ? raw.slice(el2.s, el2.e) : "";
+  };
+  const keep = slice("wp:extent") + slice("wp:effectExtent");
+  const tail = slice("wp:docPr") + slice("wp:cNvGraphicFramePr") + slice("a:graphic");
+  const head = raw.slice(0, c.s), foot = raw.slice(c.e);
+  const pfx = /^<([^:\s>]+):/.exec(raw.slice(c.s))?.[1] ?? "wp";
+  const fix = (s) => pfx === "wp" ? s : s.replace(/<(\/?)wp:/g, `<$1${pfx}:`);
+  if (ch.wrap === "inline") {
+    return head + fix(`<wp:inline distT="0" distB="0" distL="0" distR="0">${keep}${tail}</wp:inline>`) + foot;
+  }
+  const kind = ch.wrap;
+  const at = ch.at ?? { x: 0, y: 0 };
+  const wrapText = ch.wrapText ?? "bothSides";
+  const behind = kind === "behind" || kind === "tight" || kind === "through";
+  const z = ch.newRelativeHeight ?? 251658240;
+  return head + fix(`<wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${z}" behindDoc="${behind ? 1 : 0}" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/>` + posXml("wp:positionH", { relativeFrom: "column", offset: at.x }) + posXml("wp:positionV", { relativeFrom: "paragraph", offset: at.y }) + keep + wrapXml(kind, wrapText, void 0) + tail + '<wp14:sizeRelH relativeFrom="page"><wp14:pctWidth>0</wp14:pctWidth></wp14:sizeRelH><wp14:sizeRelV relativeFrom="page"><wp14:pctHeight>0</wp14:pctHeight></wp14:sizeRelV></wp:anchor>') + foot;
+}
+function patchPicture(raw, ch) {
+  let xml = raw;
+  if (ch.wrap !== void 0) {
+    const cur = readPictureFormat(xml);
+    if (cur) {
+      if (ch.wrap === "inline" !== cur.inline) xml = convertContainer(xml, ch);
+      else if (!cur.inline && ch.wrap !== cur.wrap) xml = switchWrap(xml, cur, ch.wrap);
+    }
+  }
+  xml = patchContainer(xml, ch);
+  xml = patchNvPr(xml, ch);
+  if (ch.decorative !== void 0) xml = patchDecorative(xml, ch.decorative);
+  if (ch.noChangeAspect !== void 0) xml = patchLocks(xml, ch.noChangeAspect);
+  xml = patchPic(xml, ch);
+  if (ch.embed) xml = patchBlipAttrs(xml, ch.embed);
+  if (ch.blipFx) xml = patchBlipFx(xml, ch.blipFx);
+  if (ch.a14 !== void 0) xml = patchA14(xml, ch.a14);
+  return xml;
+}
+function switchWrap(raw, cur, kind) {
+  const p = partsOf(raw);
+  const c = p.container;
+  const patch = new XmlPatch(raw);
+  const old = childElements(c).find((k) => WRAP_NAMES.includes(k.name));
+  const xml = wrapXml(kind, cur.wrapText, cur.polygon);
+  if (old) patch.replace(old, xml);
+  else patch.insertChild(c, "wp:wrapNone", xml, ANCHOR_ORDER);
+  const behind = kind === "behind" || kind === "tight" || kind === "through";
+  if (cur.behindDoc !== behind) patch.setAttrs(c, { behindDoc: behind ? 1 : 0 });
+  return patch.apply();
+}
+function patchContainer(raw, ch) {
+  const p = partsOf(raw);
+  const c = p.container;
+  const anchor = c.name !== "wp:inline";
+  const patch = new XmlPatch(raw);
+  const attrs2 = {};
+  if (ch.dist) {
+    for (const [k, v] of Object.entries(ch.dist)) if (v !== void 0) attrs2[`dist${k.toUpperCase()}`] = Math.round(v);
+  }
+  if (anchor) {
+    if (ch.locked !== void 0) attrs2["locked"] = ch.locked ? 1 : 0;
+    if (ch.layoutInCell !== void 0) attrs2["layoutInCell"] = ch.layoutInCell ? 1 : 0;
+    if (ch.allowOverlap !== void 0) attrs2["allowOverlap"] = ch.allowOverlap ? 1 : 0;
+    if (ch.behindDoc !== void 0) attrs2["behindDoc"] = ch.behindDoc ? 1 : 0;
+    if (ch.relativeHeight !== void 0) attrs2["relativeHeight"] = Math.round(ch.relativeHeight);
+  }
+  if (Object.keys(attrs2).length) patch.setAttrs(c, attrs2);
+  const order = anchor ? ANCHOR_ORDER : INLINE_ORDER;
+  if (anchor) {
+    for (const [tag2, pos] of [["wp:positionH", ch.posH], ["wp:positionV", ch.posV]]) {
+      if (!pos) continue;
+      const cur = posHolder(c, tag2);
+      if (cur) patch.replace(cur, posXml(tag2, pos));
+      else patch.insertChild(c, tag2, posXml(tag2, pos), ANCHOR_ORDER);
+    }
+    const wrapEl = childElements(c).find((k) => WRAP_NAMES.includes(k.name));
+    if (wrapEl && wrapEl.name !== "wp:wrapNone" && wrapEl.name !== "wp:wrapTopAndBottom") {
+      const poly2 = wrapEl.name === "wp:wrapTight" || wrapEl.name === "wp:wrapThrough";
+      if (ch.polygon !== void 0 && poly2) {
+        const wt = ch.wrapText ?? wrapEl.attrs["wrapText"] ?? "bothSides";
+        const tag2 = wrapEl.name;
+        patch.replace(wrapEl, `<${tag2} wrapText="${wt}">${polygonXml(ch.polygon ?? { edited: false, pts: DEFAULT_WRAP_POLYGON })}</${tag2}>`);
+      } else if (ch.wrapText !== void 0) patch.setAttrs(wrapEl, { wrapText: ch.wrapText });
+    }
+    if (ch.sizeRelH !== void 0) patch.putChild(c, "wp14:sizeRelH", ch.sizeRelH ? sizeRelXml("wp14:sizeRelH", ch.sizeRelH) : "", ANCHOR_ORDER);
+    if (ch.sizeRelV !== void 0) patch.putChild(c, "wp14:sizeRelV", ch.sizeRelV ? sizeRelXml("wp14:sizeRelV", ch.sizeRelV) : "", ANCHOR_ORDER);
+  }
+  if (ch.size) {
+    const ext = firstChild(c, "wp:extent");
+    if (ext) patch.setAttrs(ext, { cx: Math.round(ch.size.cx), cy: Math.round(ch.size.cy) });
+    else patch.insertChild(c, "wp:extent", `<wp:extent cx="${Math.round(ch.size.cx)}" cy="${Math.round(ch.size.cy)}"/>`, order);
+  }
+  if (ch.effectExtent) {
+    const e = ch.effectExtent;
+    const ee = firstChild(c, "wp:effectExtent");
+    const vals = { l: Math.round(e.l), t: Math.round(e.t), r: Math.round(e.r), b: Math.round(e.b) };
+    if (ee) patch.setAttrs(ee, vals);
+    else patch.insertChild(c, "wp:effectExtent", `<wp:effectExtent l="${vals.l}" t="${vals.t}" r="${vals.r}" b="${vals.b}"/>`, order);
+  }
+  return patch.apply();
+}
+function patchLocks(raw, on) {
+  const p = partsOf(raw);
+  const c = p.container;
+  const patch = new XmlPatch(raw);
+  const locks = findDeep2(c, "a:graphicFrameLocks");
+  if (locks) patch.setAttrs(locks, { noChangeAspect: on ? 1 : void 0 });
+  else if (on) {
+    const fp = firstChild(c, "wp:cNvGraphicFramePr");
+    const lx = '<a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>';
+    if (fp) patch.setContent(fp, lx);
+    else patch.insertChild(c, "wp:cNvGraphicFramePr", `<wp:cNvGraphicFramePr>${lx}</wp:cNvGraphicFramePr>`, c.name === "wp:inline" ? INLINE_ORDER : ANCHOR_ORDER);
+  }
+  const nv = p.wsp && firstChild(p.wsp, "wps:cNvSpPr");
+  if (nv) {
+    const sl = firstChild(nv, "a:spLocks");
+    if (sl) {
+      const others = Object.keys(sl.attrs).filter((k) => k !== "noChangeAspect");
+      if (!on && !others.length && sl.cs === sl.e) patch.remove(sl);
+      else patch.setAttrs(sl, { noChangeAspect: on ? 1 : void 0 });
+    } else if (on) {
+      if (nv.cs === nv.e) patch.setContent(nv, '<a:spLocks noChangeAspect="1"/>');
+      else patch.insertAt(nv.cs, '<a:spLocks noChangeAspect="1"/>');
+    }
+  }
+  return patch.apply();
+}
+function patchNvPr(raw, ch) {
+  const set = {};
+  if (ch.name !== void 0) set["name"] = ch.name;
+  if (ch.descr !== void 0) set["descr"] = ch.descr || void 0;
+  if (ch.title !== void 0) set["title"] = ch.title || void 0;
+  if (ch.hidden !== void 0) set["hidden"] = ch.hidden ? 1 : void 0;
+  if (!Object.keys(set).length) return raw;
+  const p = partsOf(raw);
+  const docPr = firstChild(p.container, "wp:docPr");
+  if (!docPr) return raw;
+  const nv = p.pic && firstChild(p.pic, "pic:nvPicPr");
+  const cNvPr = nv && firstChild(nv, "pic:cNvPr");
+  const patch = new XmlPatch(raw);
+  patch.setAttrs(docPr, set);
+  if (cNvPr) {
+    const nset = { ...set };
+    delete nset["hidden"];
+    if ((ch.descr || ch.title) && !cNvPr.attrs["name"]) nset["name"] = ch.name ?? docPr.attrs["name"] ?? "";
+    if (Object.keys(nset).length) patch.setAttrs(cNvPr, nset);
+  }
+  return patch.apply();
+}
+function patchDecorative(raw, on) {
+  let xml = raw;
+  if (on) {
+    const p = partsOf(xml);
+    const docPr = firstChild(p.container, "wp:docPr");
+    const nv = p.pic && firstChild(p.pic, "pic:nvPicPr");
+    const cNvPr = nv && firstChild(nv, "pic:cNvPr");
+    if (docPr && cNvPr && !cNvPr.attrs["name"] && docPr.attrs["name"]) {
+      const patch = new XmlPatch(xml);
+      patch.setAttrs(cNvPr, { name: docPr.attrs["name"] });
+      xml = patch.apply();
+    }
+  }
+  for (const which of ["docPr", "cNvPr"]) {
+    const p = partsOf(xml);
+    const nv = p.pic && firstChild(p.pic, "pic:nvPicPr");
+    const el2 = which === "docPr" ? firstChild(p.container, "wp:docPr") : nv && firstChild(nv, "pic:cNvPr");
+    if (!el2) continue;
+    const patch = new XmlPatch(xml);
+    const ext = firstChild(el2, "a:extLst");
+    const decExt = ext && childElements(ext, "a:ext").find((e) => e.attrs["uri"] === "{C183D7F6-B498-43B3-948B-1728B52AA6E4}");
+    if (on) {
+      if (decExt) continue;
+      const nsA = which === "docPr" ? ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' : "";
+      if (ext) patch.insertAt(ext.ce, ADEC_EXT);
+      else {
+        const hl = childElements(el2).filter((k) => k.name === "a:hlinkClick" || k.name === "a:hlinkHover").pop();
+        const lst = `<a:extLst${nsA}>${ADEC_EXT}</a:extLst>`;
+        if (hl) patch.insertAt(hl.e, lst);
+        else if (el2.cs === el2.e) patch.setContent(el2, lst);
+        else patch.insertAt(el2.ce, lst);
+      }
+    } else if (decExt) {
+      if (childElements(ext).length === 1) patch.remove(ext);
+      else patch.remove(decExt);
+    }
+    xml = patch.apply();
+  }
+  return xml;
+}
+function patchPic(raw, ch) {
+  const p = partsOf(raw);
+  if (!p.pic && !p.wsp && !p.wgp) return raw;
+  const patch = new XmlPatch(raw);
+  const sp = p.spPr;
+  if (sp) {
+    rawSrc = raw;
+    const xfrm = firstChild(sp, "a:xfrm");
+    const xa = {};
+    if (ch.rot !== void 0) xa["rot"] = ch.rot ? Math.round(ch.rot) : void 0;
+    if (ch.flipH !== void 0) xa["flipH"] = ch.flipH ? 1 : void 0;
+    if (ch.flipV !== void 0) xa["flipV"] = ch.flipV ? 1 : void 0;
+    if (xfrm) {
+      if (Object.keys(xa).length) patch.setAttrs(xfrm, xa);
+      const ext = firstChild(xfrm, "a:ext");
+      if (ext && ch.size) patch.setAttrs(ext, { cx: Math.round(ch.size.cx), cy: Math.round(ch.size.cy) });
+    }
+    if (ch.geom) {
+      const adj = Object.entries(ch.geom.adj ?? {}).map(([n, v]) => `<a:gd name="${n}" fmla="val ${Math.round(v)}"/>`).join("");
+      const g = `<a:prstGeom prst="${ch.geom.prst}"><a:avLst${adj ? `>${adj}</a:avLst>` : "/>"}</a:prstGeom>`;
+      const cust = firstChild(sp, "a:custGeom");
+      if (cust) patch.replace(cust, g);
+      else patch.putChild(sp, "a:prstGeom", g, SPPR_ORDER);
+    }
+    if (ch.line !== void 0) patch.putChild(sp, "a:ln", ch.line ? picLineXml(ch.line) : "", SPPR_ORDER);
+    if (ch.shadow !== void 0 || ch.reflection !== void 0 || ch.glow !== void 0 || ch.softEdge !== void 0) {
+      const el2 = firstChild(sp, "a:effectLst");
+      const fx = readEffects(el2);
+      if (ch.shadow !== void 0) {
+        if (ch.shadow) fx.shadow = ch.shadow;
+        else delete fx.shadow;
+      }
+      if (ch.reflection !== void 0) {
+        if (ch.reflection) fx.reflection = ch.reflection;
+        else delete fx.reflection;
+      }
+      if (ch.glow !== void 0) {
+        if (ch.glow) fx.glow = ch.glow;
+        else delete fx.glow;
+      }
+      if (ch.softEdge !== void 0) {
+        if (ch.softEdge) fx.softEdge = ch.softEdge;
+        else delete fx.softEdge;
+      }
+      patch.putChild(sp, "a:effectLst", effectLstXml(fx), SPPR_ORDER);
+    }
+    if (ch.threeD !== void 0) {
+      patch.putChild(sp, "a:scene3d", ch.threeD ? scene3dXml(ch.threeD) : "", SPPR_ORDER);
+      patch.putChild(sp, "a:sp3d", ch.threeD ? sp3dXml(ch.threeD) : "", SPPR_ORDER);
+    }
+    rawSrc = "";
+  }
+  const bf = p.blipFill;
+  if (bf && ch.srcRect) {
+    const s = ch.srcRect;
+    const attrs2 = `${s.l ? ` l="${Math.round(s.l)}"` : ""}${s.t ? ` t="${Math.round(s.t)}"` : ""}${s.r ? ` r="${Math.round(s.r)}"` : ""}${s.b ? ` b="${Math.round(s.b)}"` : ""}`;
+    patch.putChild(bf, "a:srcRect", `<a:srcRect${attrs2}/>`, BLIPFILL_ORDER);
+  }
+  return patch.apply();
+}
+function patchBlipAttrs(raw, embed) {
+  const p = partsOf(raw);
+  if (!p.blip) return raw;
+  const patch = new XmlPatch(raw);
+  patch.setAttrs(p.blip, { "r:embed": embed });
+  return patch.apply();
+}
+function patchBlipFx(raw, fx) {
+  const p = partsOf(raw);
+  const blip = p.blip;
+  if (!blip) return raw;
+  const patch = new XmlPatch(raw);
+  const managed = /* @__PURE__ */ new Set(["a:alphaModFix", "a:lum", "a:grayscl", "a:biLevel", "a:duotone", "a:clrChange"]);
+  for (const k of childElements(blip)) if (managed.has(k.name)) patch.remove(k);
+  const xml = blipFxKids(fx).map((k) => k[1]).join("");
+  if (xml) {
+    const ext = firstChild(blip, "a:extLst");
+    if (ext) patch.insertAt(ext.s, xml);
+    else if (blip.cs === blip.e) patch.setContent(blip, xml);
+    else patch.insertAt(blip.ce, xml);
+  }
+  return patch.apply();
+}
+function patchA14(raw, a14) {
+  const p = partsOf(raw);
+  const blip = p.blip;
+  if (!blip) return raw;
+  const patch = new XmlPatch(raw);
+  const ext = firstChild(blip, "a:extLst");
+  const props = ext && childElements(ext, "a:ext").find((e) => e.attrs["uri"] === IMGPROPS_URI);
+  const xml = a14 ? a14Xml(a14) : "";
+  if (props) patch.replace(props, xml);
+  else if (xml) {
+    if (ext) patch.insertAt(ext.cs, xml);
+    else if (blip.cs === blip.e) patch.setContent(blip, `<a:extLst>${xml}</a:extLst>`);
+    else patch.insertAt(blip.ce, `<a:extLst>${xml}</a:extLst>`);
+  }
+  return patch.apply();
+}
+
+// ../docx-core/src/shape-xml.ts
+var int2 = (v, d = 0) => {
+  if (v === void 0) return d;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : d;
+};
+var bool2 = (v, d = false) => v === void 0 ? d : v === "1" || v === "true" || v === "on";
+var DEFAULT_TEXTBOX_BODY = {
+  lIns: 91440,
+  tIns: 45720,
+  rIns: 91440,
+  bIns: 45720,
+  anchor: "t",
+  anchorCtr: false,
+  vert: "horz",
+  wrap: "square",
+  autofit: "none",
+  upright: false,
+  rot: 0
+};
+function readBody(b) {
+  if (!b) return void 0;
+  const a = b.attrs;
+  const anc = a["anchor"];
+  return {
+    lIns: int2(a["lIns"], 91440),
+    tIns: int2(a["tIns"], 45720),
+    rIns: int2(a["rIns"], 91440),
+    bIns: int2(a["bIns"], 45720),
+    anchor: anc === "ctr" || anc === "b" ? anc : "t",
+    anchorCtr: bool2(a["anchorCtr"]),
+    vert: a["vert"] ?? "horz",
+    wrap: a["wrap"] === "none" ? "none" : "square",
+    autofit: firstChild(b, "a:spAutoFit") ? "shape" : firstChild(b, "a:normAutofit") ? "norm" : "none",
+    upright: bool2(a["upright"]),
+    rot: int2(a["rot"])
+  };
+}
+function shapeFillXml(f) {
+  switch (f.kind) {
+    case "none":
+      return "<a:noFill/>";
+    case "style":
+      return "";
+    case "solid":
+      return `<a:solidFill>${dmlColorXml(f.color)}</a:solidFill>`;
+    case "gradient": {
+      const gs = f.stops.map((s) => `<a:gs pos="${Math.round(s.pos)}">${dmlColorXml(s.color)}</a:gs>`).join("");
+      const shade = f.path ? `<a:path path="${f.path.path}">${f.path.fillToRect ? `<a:fillToRect l="${f.path.fillToRect.l}" t="${f.path.fillToRect.t}" r="${f.path.fillToRect.r}" b="${f.path.fillToRect.b}"/>` : ""}</a:path>` : f.lin ? `<a:lin ang="${Math.round(f.lin.ang)}" scaled="${f.lin.scaled ? 1 : 0}"/>` : "";
+      return `<a:gradFill${f.flip ? ` flip="${f.flip}"` : ""}${f.rotWithShape !== void 0 ? ` rotWithShape="${f.rotWithShape ? 1 : 0}"` : ""}><a:gsLst>${gs}</a:gsLst>${shade}${f.tileRect ? "<a:tileRect/>" : ""}</a:gradFill>`;
+    }
+    case "pattern":
+      return `<a:pattFill prst="${f.prst}"><a:fgClr>${dmlColorXml(f.fg)}</a:fgClr><a:bgClr>${dmlColorXml(f.bg)}</a:bgClr></a:pattFill>`;
+    case "picture": {
+      const blip = f.alpha !== void 0 && f.alpha < 1e5 ? `<a:blip r:embed="${f.embed}"><a:alphaModFix amt="${Math.round(f.alpha)}"/></a:blip>` : `<a:blip r:embed="${f.embed}"/>`;
+      const t = f.tile;
+      return `<a:blipFill>${blip}${t ? `<a:tile tx="${t.tx}" ty="${t.ty}" sx="${t.sx}" sy="${t.sy}" flip="${t.flip}" algn="${t.algn}"/>` : "<a:stretch><a:fillRect/></a:stretch>"}</a:blipFill>`;
+    }
+    case "raw":
+      return f.xml;
+  }
+}
+function styleRefsXml(s) {
+  const c = (x2) => x2 ? dmlColorXml(x2) : '<a:scrgbClr r="0" g="0" b="0"/>';
+  return `<wps:style><a:lnRef idx="${s.ln.idx}">${c(s.ln.color)}</a:lnRef><a:fillRef idx="${s.fill.idx}">${c(s.fill.color)}</a:fillRef><a:effectRef idx="${s.effect.idx}">${c(s.effect.color)}</a:effectRef><a:fontRef idx="${s.font.idx}">${s.font.color ? dmlColorXml(s.font.color) : ""}</a:fontRef></wps:style>`;
+}
+function bodyPrXml(b) {
+  return `<wps:bodyPr rot="${b.rot}" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="${b.vert}" wrap="${b.wrap}" lIns="${Math.round(b.lIns)}" tIns="${Math.round(b.tIns)}" rIns="${Math.round(b.rIns)}" bIns="${Math.round(b.bIns)}" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="${b.anchor}" anchorCtr="${b.anchorCtr ? 1 : 0}" forceAA="0"${b.upright ? ' upright="1"' : ""} compatLnSpc="1"><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp>${b.autofit === "shape" ? "<a:spAutoFit/>" : b.autofit === "norm" ? "<a:normAutofit/>" : "<a:noAutofit/>"}</wps:bodyPr>`;
+}
+var FILL_NAMES = ["a:noFill", "a:solidFill", "a:gradFill", "a:blipFill", "a:pattFill", "a:grpFill"];
+var WSP_ORDER = ["wps:cNvPr", "wps:cNvSpPr", "wps:cNvCnPr", "wps:nvPr", "wps:spPr", "wps:style", "wps:extLst", "wps:txbx", "wps:linkedTxbx", "wps:bodyPr"];
+function patchShape(raw, ch) {
+  let xml = patchPicture(raw, ch);
+  if (ch.stylePreset) xml = patchStylePreset(xml, ch.stylePreset);
+  if (ch.outline !== void 0) xml = patchOutline(xml, ch.outline, readPictureFormat(raw, { anyShape: true })?.line);
+  if (ch.fill !== void 0) xml = patchFill(xml, ch.fill);
+  if (ch.style !== void 0) xml = patchStyle(xml, ch.style);
+  if (ch.body) xml = patchBody(xml, ch.body);
+  if (ch.story) xml = patchStory(xml, ch.story);
+  return xml;
+}
+function patchFill(raw, f) {
+  const p = partsOf(raw);
+  const sp = p.spPr;
+  if (!sp) return raw;
+  const patch = new XmlPatch(raw);
+  const cur = childElements(sp).filter((k) => FILL_NAMES.includes(k.name));
+  const xml = shapeFillXml(f);
+  if (cur.length) {
+    patch.replace(cur[0], xml);
+    for (const k of cur.slice(1)) patch.remove(k);
+  } else if (xml) patch.insertChild(sp, "a:solidFill", xml, SPPR_ORDER);
+  return patch.apply();
+}
+function patchStylePreset(raw, sp) {
+  const p = partsOf(raw);
+  if (!p.wsp || !p.spPr) return raw;
+  const patch = new XmlPatch(raw);
+  const kids = childElements(p.spPr);
+  const old = kids.filter((k) => FILL_NAMES.includes(k.name) || k.name === "a:ln");
+  for (const k of old) patch.remove(k);
+  const geom = kids.filter((k) => k.name === "a:xfrm" || k.name === "a:prstGeom" || k.name === "a:custGeom").pop();
+  if (geom) patch.insertAt(geom.e, sp.spPr);
+  else if (p.spPr.cs === p.spPr.e) patch.setContent(p.spPr, sp.spPr);
+  else patch.insertAt(p.spPr.cs, sp.spPr);
+  patch.putChild(p.wsp, "wps:style", sp.style, WSP_ORDER);
+  return patch.apply();
+}
+function patchStyle(raw, s) {
+  const p = partsOf(raw);
+  if (!p.wsp) return raw;
+  const patch = new XmlPatch(raw);
+  patch.putChild(p.wsp, "wps:style", s ? styleRefsXml(s) : "", WSP_ORDER);
+  return patch.apply();
+}
+function patchBody(raw, b) {
+  const p = partsOf(raw);
+  if (!p.wsp) return raw;
+  const el2 = firstChild(p.wsp, "wps:bodyPr");
+  const cur = readBody(el2) ?? { ...DEFAULT_TEXTBOX_BODY };
+  const next = { ...cur, ...b };
+  const patch = new XmlPatch(raw);
+  if (!el2) {
+    patch.insertChild(p.wsp, "wps:bodyPr", bodyPrXml(next), WSP_ORDER);
+    return patch.apply();
+  }
+  const set = {};
+  const map = [
+    ["lIns", "lIns", (v) => Math.round(v)],
+    ["tIns", "tIns", (v) => Math.round(v)],
+    ["rIns", "rIns", (v) => Math.round(v)],
+    ["bIns", "bIns", (v) => Math.round(v)],
+    ["anchor", "anchor", (v) => v],
+    ["anchorCtr", "anchorCtr", (v) => v ? 1 : 0],
+    ["vert", "vert", (v) => v],
+    ["wrap", "wrap", (v) => v],
+    ["upright", "upright", (v) => v ? 1 : void 0],
+    ["rot", "rot", (v) => v]
+  ];
+  for (const [k, attr, f] of map) if (b[k] !== void 0 && b[k] !== cur[k]) set[attr] = f(b[k]);
+  if (Object.keys(set).length) patch.setAttrs(el2, set);
+  if (b.autofit !== void 0 && b.autofit !== cur.autofit) {
+    const fitXml = b.autofit === "shape" ? "<a:spAutoFit/>" : b.autofit === "norm" ? "<a:normAutofit/>" : "<a:noAutofit/>";
+    const old = childElements(el2).find((k) => k.name === "a:spAutoFit" || k.name === "a:noAutofit" || k.name === "a:normAutofit");
+    if (old) patch.replace(old, fitXml);
+    else if (el2.cs === el2.e) patch.setContent(el2, fitXml);
+    else patch.insertAt(el2.ce, fitXml);
+  }
+  return patch.apply();
+}
+function patchStory(raw, s) {
+  const p = partsOf(raw);
+  if (!p.wsp) return raw;
+  const txbx = firstChild(p.wsp, "wps:txbx"), linked = firstChild(p.wsp, "wps:linkedTxbx");
+  const cur = txbx ?? linked;
+  if (!cur) return raw;
+  const patch = new XmlPatch(raw);
+  if (s.kind === "linked") patch.replace(cur, `<wps:linkedTxbx id="${s.id}" seq="${s.seq}"/>`);
+  else if (txbx && s.content === void 0) patch.setAttrs(txbx, { id: s.id });
+  else patch.replace(cur, `<wps:txbx${s.id !== void 0 ? ` id="${s.id}"` : ""}><w:txbxContent>${s.content ?? "<w:p/>"}</w:txbxContent></wps:txbx>`);
+  return patch.apply();
+}
+var NEW_TEXTBOX_LINE = { w: 6350, fill: { kind: "prstClr", val: "black" } };
+var NEW_TEXTBOX_FILL = { kind: "solid", color: { kind: "schemeClr", val: "lt1" } };
+var posXml2 = (tag2, p) => {
+  if (p.align === void 0 && p.pct !== void 0) {
+    const pct2 = tag2 === "wp:positionH" ? "wp14:pctPosHOffset" : "wp14:pctPosVOffset";
+    return `<mc:AlternateContent><mc:Choice Requires="wp14"><${tag2} relativeFrom="${p.relativeFrom}"><${pct2}>${Math.round(p.pct)}</${pct2}></${tag2}></mc:Choice><mc:Fallback><${tag2} relativeFrom="page"><wp:posOffset>${Math.round(p.fallback ?? 0)}</wp:posOffset></${tag2}></mc:Fallback></mc:AlternateContent>`;
+  }
+  return `<${tag2} relativeFrom="${p.relativeFrom}">${p.align !== void 0 ? `<wp:align>${p.align}</wp:align>` : `<wp:posOffset>${Math.round(p.offset ?? 0)}</wp:posOffset>`}</${tag2}>`;
+};
+function newTextboxDrawingXml(o) {
+  const cx = Math.round(o.cx), cy = Math.round(o.cy);
+  const d = o.dist ?? { t: 0, b: 0, l: 114300, r: 114300 };
+  const wrap = o.wrap === "square" ? '<wp:wrapSquare wrapText="bothSides"/>' : o.wrap === "topAndBottom" ? "<wp:wrapTopAndBottom/>" : "<wp:wrapNone/>";
+  const ln2 = o.line === null ? "<a:ln><a:noFill/></a:ln>" : picLineXmlLocal(o.line ?? NEW_TEXTBOX_LINE);
+  const fill = shapeFillXml(o.fill ?? NEW_TEXTBOX_FILL);
+  const geom = o.geom ?? { prst: "rect" };
+  const adj = Object.entries(geom.adj ?? {}).map(([n, v]) => `<a:gd name="${n}" fmla="val ${Math.round(v)}"/>`).join("");
+  const story = o.linked ? `<wps:linkedTxbx id="${o.linked.id}" seq="${o.linked.seq}"/>` : `<wps:txbx><w:txbxContent>${o.content || "<w:p/>"}</w:txbxContent></wps:txbx>`;
+  return `<w:drawing><wp:anchor distT="${d.t}" distB="${d.b}" distL="${d.l}" distR="${d.r}" simplePos="0" relativeHeight="${o.relativeHeight}" behindDoc="${o.behindDoc ? 1 : 0}" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/>` + posXml2("wp:positionH", o.posH ?? { relativeFrom: "column", offset: 0 }) + posXml2("wp:positionV", o.posV ?? { relativeFrom: "paragraph", offset: 0 }) + `<wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/>${wrap}<wp:docPr id="${o.id}" name="${escAttr(o.name)}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${geom.prst}"><a:avLst${adj ? `>${adj}</a:avLst>` : "/>"}</a:prstGeom>${o.spPrRaw ?? `${fill}${ln2}${o.spPrExtra ?? ""}`}</wps:spPr>` + (o.style ? styleRefsXml(o.style) : "") + story + bodyPrXml({ ...DEFAULT_TEXTBOX_BODY, ...o.body ?? {} }) + "</wps:wsp></a:graphicData></a:graphic>" + (o.sizeRelH ? `<wp14:sizeRelH relativeFrom="${o.sizeRelH.relativeFrom}"><wp14:pctWidth>${Math.round(o.sizeRelH.pct)}</wp14:pctWidth></wp14:sizeRelH>` : "") + (o.sizeRelV ? `<wp14:sizeRelV relativeFrom="${o.sizeRelV.relativeFrom}"><wp14:pctHeight>${Math.round(o.sizeRelV.pct)}</wp14:pctHeight></wp14:sizeRelV>` : "") + "</wp:anchor></w:drawing>";
+}
+function picLineXmlLocal(l) {
+  const attrs2 = `${l.w !== void 0 ? ` w="${Math.round(l.w)}"` : ""}${l.cap ? ` cap="${l.cap}"` : ""}${l.cmpd ? ` cmpd="${l.cmpd}"` : ""}${l.algn ? ` algn="${l.algn}"` : ""}`;
+  let inner = "";
+  if (l.fill === null) inner += "<a:noFill/>";
+  else if (l.fill) inner += `<a:solidFill>${dmlColorXml(l.fill)}</a:solidFill>`;
+  else if (l.fillRaw) inner += l.fillRaw;
+  if (l.dash) inner += `<a:prstDash val="${l.dash}"/>`;
+  if (l.join === "round") inner += "<a:round/>";
+  else if (l.join === "bevel") inner += "<a:bevel/>";
+  else if (l.join === "miter") inner += l.miterLim !== void 0 ? `<a:miter lim="${l.miterLim}"/>` : "<a:miter/>";
+  if (l.tailRaw) inner += l.tailRaw;
+  return inner ? `<a:ln${attrs2}>${inner}</a:ln>` : `<a:ln${attrs2}/>`;
+}
+var HIDDEN_LINE_URI = "{91240B29-F687-4F45-9708-019B960494DF}";
+function hiddenLineXml(prev) {
+  const w = prev?.w !== void 0 ? ` w="${Math.round(prev.w)}"` : "";
+  const fill = prev?.fill ? `<a:solidFill>${dmlColorXml(prev.fill)}</a:solidFill>` : '<a:solidFill><a:prstClr val="black"/></a:solidFill>';
+  return {
+    ln: `<a:ln${w}><a:noFill/></a:ln>`,
+    ext: `<a:ext uri="${HIDDEN_LINE_URI}"><a14:hiddenLine xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"${w}>${fill}</a14:hiddenLine></a:ext>`
+  };
+}
+function patchOutline(raw, line, prev) {
+  const p = partsOf(raw);
+  const sp = p.spPr;
+  if (!sp) return raw;
+  const patch = new XmlPatch(raw);
+  const ext = firstChild(sp, "a:extLst");
+  const hid = ext && childElements(ext, "a:ext").find((e) => e.attrs["uri"] === HIDDEN_LINE_URI);
+  if (line === null) {
+    const h = hiddenLineXml(prev && prev.fill !== null ? prev : { w: prev?.w ?? 6350 });
+    patch.putChild(sp, "a:ln", h.ln, SPPR_ORDER);
+    if (hid) patch.replace(hid, h.ext);
+    else if (ext) patch.insertAt(ext.ce, h.ext);
+    else patch.insertChild(sp, "a:extLst", `<a:extLst>${h.ext}</a:extLst>`, SPPR_ORDER);
+  } else {
+    patch.putChild(sp, "a:ln", picLineXmlLocal(line), SPPR_ORDER);
+    if (hid) {
+      if (childElements(ext).length === 1) patch.remove(ext);
+      else patch.remove(hid);
+    }
+  }
+  return patch.apply();
+}
+
+// ../docx-core/src/vml-shape.ts
+var EMU_PER_TWIP = 635;
+var emu = (v) => {
+  const t = vmlLenTwips(v);
+  return t === void 0 ? void 0 : Math.round(t * EMU_PER_TWIP);
+};
+var REL_H = { text: "column", page: "page", margin: "margin", char: "character", "left-margin-area": "leftMargin", "right-margin-area": "rightMargin", "inner-margin-area": "insideMargin", "outer-margin-area": "outsideMargin" };
+var REL_V = { text: "paragraph", page: "page", margin: "margin", line: "line", "top-margin-area": "topMargin", "bottom-margin-area": "bottomMargin", "inner-margin-area": "insideMargin", "outer-margin-area": "outsideMargin" };
+var FLOW = { "vertical|bottom-to-top": "vert270", "vertical|top-to-bottom": "mongolianVert", "vertical|": "vert", "vertical-ideographic|": "eaVert" };
+var frac = (v) => {
+  if (!v) return void 0;
+  const n = v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
+  return Number.isFinite(n) ? n : void 0;
+};
+var rgb = (hex3, alpha) => ({ kind: "srgbClr", val: hex3, ...alpha !== void 0 && alpha < 0.999 ? { mods: [["alpha", Math.round(alpha * 1e5)]] } : {} });
+function vmlTextboxToDrawing(el2, id, lang = "pt") {
+  const a = el2.attrs;
+  const st = parseVmlStyle(a["style"]);
+  if (st["position"] !== "absolute") return void 0;
+  const txb = firstChild(el2, "v:textbox");
+  if (!txb) return void 0;
+  const cx = emu(st["width"]) ?? 0, cy = emu(st["height"]) ?? 0;
+  if (!(cx > 0) || !(cy > 0)) return void 0;
+  const pos = (axis) => {
+    const rel = st[`mso-position-${axis === "h" ? "horizontal" : "vertical"}-relative`] ?? "text";
+    const relativeFrom = (axis === "h" ? REL_H : REL_V)[rel] ?? (axis === "h" ? "column" : "paragraph");
+    const al = st[`mso-position-${axis === "h" ? "horizontal" : "vertical"}`];
+    if (al && al !== "absolute") return { relativeFrom, align: al };
+    const off = (emu(st[axis === "h" ? "margin-left" : "margin-top"]) ?? 0) + (emu(st[axis === "h" ? "left" : "top"]) ?? 0);
+    return { relativeFrom, offset: off };
+  };
+  const z = parseInt(st["z-index"] ?? "0", 10) || 0;
+  const wrapEl = firstChild(el2, "w10:wrap");
+  const wt = wrapEl?.attrs["type"];
+  const dist = (k) => emu(st[`mso-wrap-distance-${k}`]) ?? (k === "left" || k === "right" ? 114300 : 0);
+  const fillEl = firstChild(el2, "v:fill");
+  const filled = a["filled"] ?? fillEl?.attrs["on"];
+  let fill;
+  if (filled === "f" || filled === "false") fill = { kind: "none" };
+  else {
+    const c1 = vmlColor(fillEl?.attrs["color"] ?? a["fillcolor"]) ?? "FFFFFF";
+    const op = frac(fillEl?.attrs["opacity"]);
+    if (fillEl?.attrs["type"] === "gradient" || fillEl?.attrs["type"] === "gradientRadial") {
+      const c2 = vmlColor(fillEl.attrs["color2"]) ?? "FFFFFF";
+      const ang = parseFloat(fillEl.attrs["angle"] ?? "0") || 0;
+      fill = { kind: "gradient", stops: [{ pos: 0, color: rgb(c1, op) }, { pos: 1e5, color: rgb(c2, op) }], lin: { ang: Math.round(((90 - ang) % 360 + 360) % 360 * 6e4), scaled: true }, rotWithShape: true };
+    } else fill = { kind: "solid", color: rgb(c1, op) };
+  }
+  const strokeEl = firstChild(el2, "v:stroke");
+  const stroked = a["stroked"] ?? strokeEl?.attrs["on"];
+  const sw = a["strokeweight"] ?? strokeEl?.attrs["weight"];
+  const w = sw ? emu(/[a-z]$/.test(sw) ? sw : `${sw}pt`) ?? 9525 : 9525;
+  let line;
+  if (stroked === "f" || stroked === "false") line = null;
+  else {
+    line = { w, fill: rgb(vmlColor(strokeEl?.attrs["color"] ?? a["strokecolor"]) ?? "000000") };
+    const d = strokeEl?.attrs["dashstyle"];
+    if (d && d !== "solid") line.dash = d;
+    const ls = strokeEl?.attrs["linestyle"];
+    if (ls && ls !== "single") line.cmpd = { thinThin: "dbl", thinThick: "thinThick", thickThin: "thickThin", thickBetweenThin: "tri" }[ls];
+  }
+  const ts = parseVmlStyle(txb.attrs["style"]);
+  const ins = (txb.attrs["inset"] ?? "").split(",");
+  const inset = (i2, d) => {
+    const v = ins[i2]?.trim();
+    return v ? emu(v) ?? d : d;
+  };
+  const va = st["v-text-anchor"] ?? "";
+  const vert = ts["layout-flow"] ? FLOW[`${ts["layout-flow"]}|${ts["mso-layout-flow-alt"] ?? ""}`] ?? FLOW[`${ts["layout-flow"]}|`] : void 0;
+  const geom = el2.name === "v:roundrect" ? { prst: "roundRect", adj: { adj: Math.round((frac(a["arcsize"]) ?? 0.1667) * 1e5) } } : el2.name === "v:oval" ? { prst: "ellipse" } : { prst: "rect" };
+  const vmlName = a["id"] && !/^_x0000_/.test(a["id"]) ? a["id"] : void 0;
+  let xml = newTextboxDrawingXml({
+    id,
+    name: vmlName ?? `${lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id}`,
+    cx,
+    cy,
+    posH: pos("h"),
+    posV: pos("v"),
+    relativeHeight: Math.abs(z),
+    behindDoc: z < 0,
+    wrap: wt === "square" ? "square" : wt === "topAndBottom" ? "topAndBottom" : "none",
+    dist: { t: dist("top"), b: dist("bottom"), l: dist("left"), r: dist("right") },
+    fill,
+    line,
+    geom,
+    body: {
+      lIns: inset(0, 91440),
+      tIns: inset(1, 45720),
+      rIns: inset(2, 91440),
+      bIns: inset(3, 45720),
+      anchor: va.startsWith("middle") ? "ctr" : va.startsWith("bottom") ? "b" : "t",
+      ...vert ? { vert } : {},
+      ...st["mso-wrap-style"] === "none" ? { wrap: "none" } : {},
+      ...ts["mso-fit-shape-to-text"] === "t" ? { autofit: "shape" } : {}
+    },
+    content: "<w:p/>"
+  });
+  const rot = parseFloat(st["rotation"] ?? "0") || 0;
+  const flip = st["flip"] ?? "";
+  const alt = a["alt"];
+  xml = patchShape(xml, {
+    ...wt === "tight" || wt === "through" ? { wrap: wt } : {},
+    ...rot ? { rot: Math.round((rot % 360 + 360) % 360 * 6e4) } : {},
+    ...flip.includes("x") ? { flipH: true } : {},
+    ...flip.includes("y") ? { flipV: true } : {},
+    ...alt ? { descr: alt } : {},
+    ...a["o:title"] ? { title: a["o:title"] } : {},
+    ...st["visibility"] === "hidden" ? { hidden: true } : {}
+  });
+  return xml;
+}
+function vmlSingleTextbox(pict) {
+  const shapes = childElements(pict).filter((k) => k.name !== "v:shapetype" && k.name.startsWith("v:"));
+  return shapes.length === 1 && firstChild(shapes[0], "v:textbox") ? shapes[0] : void 0;
+}
+
+// ../docx-core/src/ooxml/props.ts
+function readRevisionInfo(el2) {
+  const info = { author: el2.attrs["w:author"] ?? "" };
+  if (el2.attrs["w:date"]) info.date = el2.attrs["w:date"];
+  if (el2.attrs["w16du:dateUtc"]) info.dateUtc = el2.attrs["w16du:dateUtc"];
+  if (el2.name === "w:moveFrom" || el2.name === "w:moveTo") info.move = true;
+  return info;
+}
+var int3 = (v) => {
+  if (v === void 0 || v === "") return void 0;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : void 0;
+};
+function measureTwips(v) {
+  if (v === void 0 || v === "") return void 0;
+  const m = /^(-?[0-9.]+)(mm|cm|in|pt|pc|pi)?$/.exec(v.trim());
+  if (!m) return void 0;
+  const n = parseFloat(m[1]);
+  switch (m[2]) {
+    case "mm":
+      return Math.round(n / 25.4 * 1440);
+    case "cm":
+      return Math.round(n / 2.54 * 1440);
+    case "in":
+      return Math.round(n * 1440);
+    case "pt":
+      return Math.round(n * 20);
+    case "pc":
+    case "pi":
+      return Math.round(n * 240);
+    default:
+      return Math.round(n);
+  }
+}
+function onOffVal(el2) {
+  const v = el2.attrs["w:val"];
+  return !(v === "0" || v === "false" || v === "off" || v === "none");
+}
+function colorOf(el2) {
+  const c = {};
+  if (el2.attrs["w:val"] !== void 0) c.val = el2.attrs["w:val"];
+  if (el2.attrs["w:themeColor"]) c.themeColor = el2.attrs["w:themeColor"];
+  if (el2.attrs["w:themeTint"]) c.themeTint = el2.attrs["w:themeTint"];
+  if (el2.attrs["w:themeShade"]) c.themeShade = el2.attrs["w:themeShade"];
+  return c;
+}
+function readBorder(el2) {
+  if (!el2) return void 0;
+  const b = { val: el2.attrs["w:val"] ?? "single" };
+  const sz = int3(el2.attrs["w:sz"]);
+  if (sz !== void 0) b.sz = sz;
+  const space = int3(el2.attrs["w:space"]);
+  if (space !== void 0) b.space = space;
+  if (el2.attrs["w:color"]) b.color = el2.attrs["w:color"];
+  if (el2.attrs["w:themeColor"]) b.themeColor = el2.attrs["w:themeColor"];
+  if (el2.attrs["w:themeTint"]) b.themeTint = el2.attrs["w:themeTint"];
+  if (el2.attrs["w:themeShade"]) b.themeShade = el2.attrs["w:themeShade"];
+  if (el2.attrs["w:shadow"] !== void 0) b.shadow = onOffAttr(el2.attrs["w:shadow"]);
+  if (el2.attrs["w:frame"] !== void 0) b.frame = onOffAttr(el2.attrs["w:frame"]);
+  return b;
+}
+var onOffAttr = (v) => !(v === "0" || v === "false" || v === "off");
+function readShading(el2) {
+  if (!el2) return void 0;
+  const s = {};
+  for (const k of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
+    const v = el2.attrs[`w:${k}`];
+    if (v !== void 0) s[k] = v;
+  }
+  return s;
+}
+function readWidth(el2) {
+  if (!el2) return void 0;
+  const type = el2.attrs["w:type"] ?? "dxa";
+  const raw = el2.attrs["w:w"] ?? "0";
+  let w;
+  if (raw.endsWith("%")) w = Math.round(parseFloat(raw) * 50);
+  else w = type === "dxa" ? measureTwips(raw) ?? 0 : int3(raw) ?? 0;
+  return { w, type: type === "pct" || type === "auto" || type === "nil" ? type : "dxa" };
+}
+function readRPr(rPr) {
+  if (!rPr) return void 0;
+  const p = {};
+  for (const el2 of childElements(rPr)) {
+    const val = el2.attrs["w:val"];
+    switch (el2.name) {
+      case "w:rStyle":
+        if (val) p.rStyle = val;
+        break;
+      case "w:rFonts": {
+        const f = {};
+        for (const k of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
+          const v = el2.attrs[`w:${k}`];
+          if (v !== void 0) f[k] = v;
+        }
+        p.rFonts = f;
+        break;
+      }
+      case "w:b":
+        p.b = onOffVal(el2);
+        break;
+      case "w:bCs":
+        p.bCs = onOffVal(el2);
+        break;
+      case "w:i":
+        p.i = onOffVal(el2);
+        break;
+      case "w:iCs":
+        p.iCs = onOffVal(el2);
+        break;
+      case "w:caps":
+        p.caps = onOffVal(el2);
+        break;
+      case "w:smallCaps":
+        p.smallCaps = onOffVal(el2);
+        break;
+      case "w:strike":
+        p.strike = onOffVal(el2);
+        break;
+      case "w:dstrike":
+        p.dstrike = onOffVal(el2);
+        break;
+      case "w:outline":
+        p.outline = onOffVal(el2);
+        break;
+      case "w:shadow":
+        p.shadow = onOffVal(el2);
+        break;
+      case "w:emboss":
+        p.emboss = onOffVal(el2);
+        break;
+      case "w:imprint":
+        p.imprint = onOffVal(el2);
+        break;
+      case "w:vanish":
+        p.vanish = onOffVal(el2);
+        break;
+      case "w:specVanish":
+        p.specVanish = onOffVal(el2);
+        break;
+      case "w:webHidden":
+        p.webHidden = onOffVal(el2);
+        break;
+      case "w:noProof":
+        p.noProof = onOffVal(el2);
+        break;
+      case "w:snapToGrid":
+        p.snapToGrid = onOffVal(el2);
+        break;
+      case "w:rtl":
+        p.rtl = onOffVal(el2);
+        break;
+      case "w:cs":
+        p.cs = onOffVal(el2);
+        break;
+      case "w:color":
+        p.color = colorOf(el2);
+        break;
+      case "w14:textFill": {
+        const solid = firstChild(el2, "w14:solidFill");
+        const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
+        if (clr) {
+          const tf = {};
+          const v = clr.attrs["w14:val"];
+          if (clr.name === "w14:srgbClr" && v) tf.color = v.toUpperCase();
+          else if (v) tf.themeColor = v;
+          const a = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
+          if (a !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a, 10) || 0) / 1e5);
+          p.textFill = tf;
+        } else if (firstChild(el2, "w14:noFill")) p.textFill = { alpha: 0 };
+        break;
+      }
+      case "w14:ligatures":
+        p.ligatures = el2.attrs["w14:val"] ?? "standard";
+        break;
+      case "w:rPrChange":
+        p.change = { ...readRevisionInfo(el2), rPr: readRPr(firstChild(el2, "w:rPr")) ?? {} };
+        break;
+      case "w14:shadow": {
+        const emu2 = (k) => (parseInt(el2.attrs[k] ?? "0", 10) || 0) / 12700;
+        p.textShadow = { blur: emu2("w14:blurRad"), dist: emu2("w14:dist"), dir: (parseInt(el2.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
+        break;
+      }
+      case "w14:textOutline":
+        p.textOutline = !firstChild(el2, "w14:noFill") && !!(firstChild(el2, "w14:solidFill") ?? firstChild(el2, "w14:gradFill"));
+        break;
+      case "w:spacing": {
+        const n = measureTwips(val);
+        if (n !== void 0) p.spacing = n;
+        break;
+      }
+      case "w:w": {
+        const n = int3(val?.replace("%", ""));
+        if (n !== void 0) p.w = n;
+        break;
+      }
+      case "w:kern": {
+        const n = int3(val);
+        if (n !== void 0) p.kern = n;
+        break;
+      }
+      case "w:position": {
+        const n = int3(val);
+        if (n !== void 0) p.position = n;
+        break;
+      }
+      case "w:sz": {
+        const n = int3(val);
+        if (n !== void 0) p.sz = n;
+        break;
+      }
+      case "w:szCs": {
+        const n = int3(val);
+        if (n !== void 0) p.szCs = n;
+        break;
+      }
+      case "w:highlight":
+        if (val) p.highlight = val;
+        break;
+      case "w:u": {
+        const u = { val: val ?? "single" };
+        if (el2.attrs["w:color"]) u.color = el2.attrs["w:color"];
+        if (el2.attrs["w:themeColor"]) u.themeColor = el2.attrs["w:themeColor"];
+        p.u = u;
+        break;
+      }
+      case "w:effect":
+        if (val) p.effect = val;
+        break;
+      case "w:bdr":
+        p.bdr = readBorder(el2);
+        break;
+      case "w:shd":
+        p.shd = readShading(el2);
+        break;
+      case "w:vertAlign":
+        if (val === "superscript" || val === "subscript" || val === "baseline") p.vertAlign = val;
+        break;
+      case "w:em":
+        if (val) p.em = val;
+        break;
+      case "w:lang": {
+        const l = {};
+        if (el2.attrs["w:val"]) l.val = el2.attrs["w:val"];
+        if (el2.attrs["w:eastAsia"]) l.eastAsia = el2.attrs["w:eastAsia"];
+        if (el2.attrs["w:bidi"]) l.bidi = el2.attrs["w:bidi"];
+        p.lang = l;
+        break;
+      }
+    }
+  }
+  return p;
+}
+function readPBdr(el2) {
+  if (!el2) return void 0;
+  const b = {};
+  for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
+    const e = readBorder(firstChild(el2, `w:${side}`) ?? (side === "left" ? firstChild(el2, "w:start") : side === "right" ? firstChild(el2, "w:end") : void 0));
+    if (e) b[side] = e;
+  }
+  return b;
+}
+var TAB_VALS = /* @__PURE__ */ new Set(["left", "center", "right", "decimal", "bar", "clear", "num", "start", "end"]);
+var LEADERS = /* @__PURE__ */ new Set(["none", "dot", "hyphen", "underscore", "heavy", "middleDot"]);
+function readPPr(pPr) {
+  if (!pPr) return void 0;
+  const p = {};
+  for (const el2 of childElements(pPr)) {
+    const val = el2.attrs["w:val"];
+    switch (el2.name) {
+      case "w:pStyle":
+        if (val) p.pStyle = val;
+        break;
+      case "w:keepNext":
+        p.keepNext = onOffVal(el2);
+        break;
+      case "w:keepLines":
+        p.keepLines = onOffVal(el2);
+        break;
+      case "w:pageBreakBefore":
+        p.pageBreakBefore = onOffVal(el2);
+        break;
+      case "w:widowControl":
+        p.widowControl = onOffVal(el2);
+        break;
+      case "w:suppressLineNumbers":
+        p.suppressLineNumbers = onOffVal(el2);
+        break;
+      case "w:suppressAutoHyphens":
+        p.suppressAutoHyphens = onOffVal(el2);
+        break;
+      case "w:kinsoku":
+        p.kinsoku = onOffVal(el2);
+        break;
+      case "w:wordWrap":
+        p.wordWrap = onOffVal(el2);
+        break;
+      case "w:overflowPunct":
+        p.overflowPunct = onOffVal(el2);
+        break;
+      case "w:autoSpaceDE":
+        p.autoSpaceDE = onOffVal(el2);
+        break;
+      case "w:autoSpaceDN":
+        p.autoSpaceDN = onOffVal(el2);
+        break;
+      case "w:bidi":
+        p.bidi = onOffVal(el2);
+        break;
+      case "w:adjustRightInd":
+        p.adjustRightInd = onOffVal(el2);
+        break;
+      case "w:snapToGrid":
+        p.snapToGrid = onOffVal(el2);
+        break;
+      case "w:contextualSpacing":
+        p.contextualSpacing = onOffVal(el2);
+        break;
+      case "w:mirrorIndents":
+        p.mirrorIndents = onOffVal(el2);
+        break;
+      case "w:suppressOverlap":
+        p.suppressOverlap = onOffVal(el2);
+        break;
+      case "w:jc":
+        if (val) p.jc = val;
+        break;
+      case "w:textAlignment":
+        if (val) p.textAlignment = val;
+        break;
+      case "w:outlineLvl": {
+        const n = int3(val);
+        if (n !== void 0) p.outlineLvl = n;
+        break;
+      }
+      case "w:numPr": {
+        const numPr = {};
+        const numId = int3(firstChild(el2, "w:numId")?.attrs["w:val"]);
+        const ilvl = int3(firstChild(el2, "w:ilvl")?.attrs["w:val"]);
+        if (numId !== void 0) numPr.numId = numId;
+        if (ilvl !== void 0) numPr.ilvl = ilvl;
+        p.numPr = numPr;
+        break;
+      }
+      case "w:pBdr":
+        p.pBdr = readPBdr(el2);
+        break;
+      case "w:shd":
+        p.shd = readShading(el2);
+        break;
+      case "w:tabs": {
+        const tabs = [];
+        for (const t of childElements(el2, "w:tab")) {
+          let v = t.attrs["w:val"] ?? "left";
+          if (v === "start") v = "left";
+          if (v === "end") v = "right";
+          if (!TAB_VALS.has(v)) continue;
+          const pos = measureTwips(t.attrs["w:pos"]);
+          if (pos === void 0) continue;
+          const tab = { val: v, pos };
+          const leader = t.attrs["w:leader"];
+          if (leader && LEADERS.has(leader)) tab.leader = leader;
+          tabs.push(tab);
+        }
+        p.tabs = tabs;
+        break;
+      }
+      case "w:spacing": {
+        const s = {};
+        const a = el2.attrs;
+        const before = measureTwips(a["w:before"]);
+        if (before !== void 0) s.before = before;
+        const after = measureTwips(a["w:after"]);
+        if (after !== void 0) s.after = after;
+        const bl = int3(a["w:beforeLines"]);
+        if (bl !== void 0) s.beforeLines = bl;
+        const al = int3(a["w:afterLines"]);
+        if (al !== void 0) s.afterLines = al;
+        if (a["w:beforeAutospacing"] !== void 0) s.beforeAutospacing = onOffAttr(a["w:beforeAutospacing"]);
+        if (a["w:afterAutospacing"] !== void 0) s.afterAutospacing = onOffAttr(a["w:afterAutospacing"]);
+        const line = measureTwips(a["w:line"]);
+        if (line !== void 0) s.line = line;
+        const rule = a["w:lineRule"];
+        if (rule === "auto" || rule === "exact" || rule === "atLeast") s.lineRule = rule;
+        p.spacing = s;
+        break;
+      }
+      case "w:ind": {
+        const s = {};
+        const a = el2.attrs;
+        const left = measureTwips(a["w:left"] ?? a["w:start"]);
+        if (left !== void 0) s.left = left;
+        const right = measureTwips(a["w:right"] ?? a["w:end"]);
+        if (right !== void 0) s.right = right;
+        const hanging = measureTwips(a["w:hanging"]);
+        if (hanging !== void 0) s.hanging = hanging;
+        const firstLine = measureTwips(a["w:firstLine"]);
+        if (firstLine !== void 0) s.firstLine = firstLine;
+        for (const k of ["leftChars", "rightChars", "hangingChars", "firstLineChars"]) {
+          const n = int3(a[`w:${k}`] ?? (k === "leftChars" ? a["w:startChars"] : k === "rightChars" ? a["w:endChars"] : void 0));
+          if (n !== void 0) s[k] = n;
+        }
+        p.ind = s;
+        break;
+      }
+      case "w:framePr": {
+        const a = el2.attrs;
+        const f = {};
+        const dc = a["w:dropCap"];
+        if (dc === "none" || dc === "drop" || dc === "margin") f.dropCap = dc;
+        for (const k of ["lines", "w", "h", "hSpace", "vSpace", "x", "y"]) {
+          const n = k === "lines" ? int3(a[`w:${k}`]) : measureTwips(a[`w:${k}`]);
+          if (n !== void 0) f[k] = n;
+        }
+        const hr = a["w:hRule"];
+        if (hr === "auto" || hr === "exact" || hr === "atLeast") f.hRule = hr;
+        for (const k of ["wrap", "hAnchor", "vAnchor", "xAlign", "yAlign"]) {
+          if (a[`w:${k}`]) f[k] = a[`w:${k}`];
+        }
+        if (a["w:anchorLock"] !== void 0) f.anchorLock = onOffAttr(a["w:anchorLock"]);
+        p.framePr = f;
+        break;
+      }
+      case "w:rPr":
+        p.rPr = readRPr(el2);
+        for (const c of childElements(el2)) {
+          if (c.name === "w:del" || c.name === "w:moveFrom") {
+            p.markDeleted = true;
+            p.markDel = readRevisionInfo(c);
+          } else if (c.name === "w:ins" || c.name === "w:moveTo") p.markIns = readRevisionInfo(c);
+        }
+        break;
+      case "w:pPrChange":
+        p.change = { ...readRevisionInfo(el2), pPr: readPPr(firstChild(el2, "w:pPr")) ?? {} };
+        break;
+    }
+  }
+  return p;
+}
+function readBorders(el2) {
+  if (!el2) return void 0;
+  const b = {};
+  const map = [
+    ["top", ["w:top"]],
+    ["left", ["w:left", "w:start"]],
+    ["bottom", ["w:bottom"]],
+    ["right", ["w:right", "w:end"]],
+    ["insideH", ["w:insideH"]],
+    ["insideV", ["w:insideV"]],
+    ["tl2br", ["w:tl2br"]],
+    ["tr2bl", ["w:tr2bl"]]
+  ];
+  for (const [k, names] of map) {
+    for (const n of names) {
+      const e = readBorder(firstChild(el2, n));
+      if (e) {
+        b[k] = e;
+        break;
+      }
+    }
+  }
+  return b;
+}
+function readCellMar(el2) {
+  if (!el2) return void 0;
+  const m = {};
+  const t = readWidth(firstChild(el2, "w:top"));
+  if (t) m.top = t;
+  const l = readWidth(firstChild(el2, "w:left") ?? firstChild(el2, "w:start"));
+  if (l) m.left = l;
+  const b = readWidth(firstChild(el2, "w:bottom"));
+  if (b) m.bottom = b;
+  const r = readWidth(firstChild(el2, "w:right") ?? firstChild(el2, "w:end"));
+  if (r) m.right = r;
+  return m;
+}
+function readTblPr(tblPr) {
+  if (!tblPr) return void 0;
+  const p = {};
+  for (const el2 of childElements(tblPr)) {
+    const val = el2.attrs["w:val"];
+    switch (el2.name) {
+      case "w:tblStyle":
+        if (val) p.tblStyle = val;
+        break;
+      case "w:tblpPr": {
+        const a = el2.attrs;
+        const t = {};
+        for (const k of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
+          const n = measureTwips(a[`w:${k}`]);
+          if (n !== void 0) t[k] = n;
+        }
+        const va = a["w:vertAnchor"];
+        if (va === "text" || va === "margin" || va === "page") t.vertAnchor = va;
+        const ha = a["w:horzAnchor"];
+        if (ha === "text" || ha === "margin" || ha === "page") t.horzAnchor = ha;
+        if (a["w:tblpXSpec"]) t.tblpXSpec = a["w:tblpXSpec"];
+        if (a["w:tblpYSpec"]) t.tblpYSpec = a["w:tblpYSpec"];
+        p.tblpPr = t;
+        break;
+      }
+      case "w:tblOverlap":
+        if (val) p.tblOverlap = val;
+        break;
+      case "w:bidiVisual":
+        p.bidiVisual = onOffVal(el2);
+        break;
+      case "w:tblStyleRowBandSize": {
+        const n = int3(val);
+        if (n !== void 0) p.tblStyleRowBandSize = n;
+        break;
+      }
+      case "w:tblStyleColBandSize": {
+        const n = int3(val);
+        if (n !== void 0) p.tblStyleColBandSize = n;
+        break;
+      }
+      case "w:tblW":
+        p.tblW = readWidth(el2);
+        break;
+      case "w:jc":
+        if (val) p.jc = val;
+        break;
+      case "w:tblCellSpacing":
+        p.tblCellSpacing = readWidth(el2);
+        break;
+      case "w:tblInd":
+        p.tblInd = readWidth(el2);
+        break;
+      case "w:tblBorders":
+        p.tblBorders = readBorders(el2);
+        break;
+      case "w:shd":
+        p.shd = readShading(el2);
+        break;
+      case "w:tblLayout":
+        p.tblLayout = el2.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        break;
+      case "w:tblCaption":
+        if (val !== void 0) p.tblCaption = val;
+        break;
+      case "w:tblDescription":
+        if (val !== void 0) p.tblDescription = val;
+        break;
+      case "w:tblCellMar":
+        p.tblCellMar = readCellMar(el2);
+        break;
+      case "w:tblLook": {
+        const a = el2.attrs;
+        const look = {};
+        const hex3 = parseInt(a["w:val"] ?? "", 16);
+        if (Number.isFinite(hex3)) {
+          look.firstRow = (hex3 & 32) !== 0;
+          look.lastRow = (hex3 & 64) !== 0;
+          look.firstColumn = (hex3 & 128) !== 0;
+          look.lastColumn = (hex3 & 256) !== 0;
+          look.noHBand = (hex3 & 512) !== 0;
+          look.noVBand = (hex3 & 1024) !== 0;
+        }
+        for (const k of ["firstRow", "lastRow", "firstColumn", "lastColumn", "noHBand", "noVBand"]) {
+          if (a[`w:${k}`] !== void 0) look[k] = onOffAttr(a[`w:${k}`]);
+        }
+        p.tblLook = look;
+        break;
+      }
+    }
+  }
+  return p;
+}
+function readTrPr(trPr) {
+  if (!trPr) return void 0;
+  const p = {};
+  for (const el2 of childElements(trPr)) {
+    const val = el2.attrs["w:val"];
+    switch (el2.name) {
+      case "w:cnfStyle":
+        if (val) p.cnfStyle = val;
+        break;
+      case "w:gridBefore": {
+        const n = int3(val);
+        if (n !== void 0) p.gridBefore = n;
+        break;
+      }
+      case "w:gridAfter": {
+        const n = int3(val);
+        if (n !== void 0) p.gridAfter = n;
+        break;
+      }
+      case "w:wBefore":
+        p.wBefore = readWidth(el2);
+        break;
+      case "w:wAfter":
+        p.wAfter = readWidth(el2);
+        break;
+      case "w:cantSplit":
+        p.cantSplit = onOffVal(el2);
+        break;
+      case "w:trHeight": {
+        const v = measureTwips(val) ?? 0;
+        const r = el2.attrs["w:hRule"];
+        p.trHeight = { val: v, hRule: r === "exact" || r === "auto" ? r : "atLeast" };
+        break;
+      }
+      case "w:tblHeader":
+        p.tblHeader = onOffVal(el2);
+        break;
+      case "w:tblCellSpacing":
+        p.tblCellSpacing = readWidth(el2);
+        break;
+      case "w:jc":
+        if (val) p.jc = val;
+        break;
+      case "w:hidden":
+        p.hidden = onOffVal(el2);
+        break;
+    }
+  }
+  return p;
+}
+function readTcPr(tcPr) {
+  if (!tcPr) return void 0;
+  const p = {};
+  for (const el2 of childElements(tcPr)) {
+    const val = el2.attrs["w:val"];
+    switch (el2.name) {
+      case "w:cnfStyle":
+        if (val) p.cnfStyle = val;
+        break;
+      case "w:tcW":
+        p.tcW = readWidth(el2);
+        break;
+      case "w:gridSpan": {
+        const n = int3(val);
+        if (n !== void 0) p.gridSpan = n;
+        break;
+      }
+      case "w:hMerge":
+        p.hMerge = val === "restart" ? "restart" : "continue";
+        break;
+      case "w:vMerge":
+        p.vMerge = val === "restart" ? "restart" : "continue";
+        break;
+      case "w:tcBorders":
+        p.tcBorders = readBorders(el2);
+        break;
+      case "w:shd":
+        p.shd = readShading(el2);
+        break;
+      case "w:noWrap":
+        p.noWrap = onOffVal(el2);
+        break;
+      case "w:tcMar":
+        p.tcMar = readCellMar(el2);
+        break;
+      case "w:textDirection":
+        if (val) p.textDirection = val;
+        break;
+      case "w:tcFitText":
+        p.tcFitText = onOffVal(el2);
+        break;
+      case "w:vAlign":
+        if (val === "top" || val === "center" || val === "bottom" || val === "both") p.vAlign = val;
+        break;
+      case "w:hideMark":
+        p.hideMark = onOffVal(el2);
+        break;
+    }
+  }
+  return p;
+}
+
+// ../docx-core/src/ooxml/parts.ts
+function readStyleSheet(xml) {
+  const sheet = { docDefaults: {}, styles: {}, defaults: {} };
+  if (!xml) return sheet;
+  const root = parseXml(xml);
+  const dd = firstChild(root, "w:docDefaults");
+  if (dd) {
+    const rPr = readRPr(firstChild(firstChild(dd, "w:rPrDefault") ?? dd, "w:rPr"));
+    const pPr = readPPr(firstChild(firstChild(dd, "w:pPrDefault") ?? dd, "w:pPr"));
+    if (rPr) sheet.docDefaults.rPr = rPr;
+    if (pPr) sheet.docDefaults.pPr = pPr;
+  }
+  for (const st of childElements(root, "w:style")) {
+    const id = st.attrs["w:styleId"];
+    const type = st.attrs["w:type"] ?? "paragraph";
+    if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
+    const def = { styleId: id, type };
+    const val = (n) => firstChild(st, n)?.attrs["w:val"];
+    const name = val("w:name");
+    if (name !== void 0) def.name = name;
+    const basedOn = val("w:basedOn");
+    if (basedOn) def.basedOn = basedOn;
+    const next = val("w:next");
+    if (next) def.next = next;
+    const link = val("w:link");
+    if (link) def.link = link;
+    const d = st.attrs["w:default"];
+    if (d === "1" || d === "true" || d === "on") {
+      def.isDefault = true;
+      sheet.defaults[type] ??= id;
+    }
+    const pPr = readPPr(firstChild(st, "w:pPr"));
+    if (pPr) def.pPr = pPr;
+    const rPr = readRPr(firstChild(st, "w:rPr"));
+    if (rPr) def.rPr = rPr;
+    const tblPr = readTblPr(firstChild(st, "w:tblPr"));
+    if (tblPr) def.tblPr = tblPr;
+    const trPr = readTrPr(firstChild(st, "w:trPr"));
+    if (trPr) def.trPr = trPr;
+    const tcPr = readTcPr(firstChild(st, "w:tcPr"));
+    if (tcPr) def.tcPr = tcPr;
+    for (const tsp of childElements(st, "w:tblStylePr")) {
+      const t = tsp.attrs["w:type"];
+      if (!t) continue;
+      const part = {};
+      const a = readPPr(firstChild(tsp, "w:pPr"));
+      if (a) part.pPr = a;
+      const b = readRPr(firstChild(tsp, "w:rPr"));
+      if (b) part.rPr = b;
+      const c = readTblPr(firstChild(tsp, "w:tblPr"));
+      if (c) part.tblPr = c;
+      const e = readTrPr(firstChild(tsp, "w:trPr"));
+      if (e) part.trPr = e;
+      const f = readTcPr(firstChild(tsp, "w:tcPr"));
+      if (f) part.tcPr = f;
+      (def.tblStylePr ??= {})[t] = part;
+    }
+    if (!sheet.styles[id]) sheet.styles[id] = def;
+  }
+  return sheet;
+}
+function readLevel(el2) {
+  const ilvl = parseInt(el2.attrs["w:ilvl"] ?? "0", 10) || 0;
+  const lvl = { ilvl };
+  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
+  const start = v("w:start");
+  if (start !== void 0) lvl.start = parseInt(start, 10);
+  const fmtEl = firstChild(el2, "w:numFmt");
+  if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
+  if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
+  const restart = v("w:lvlRestart");
+  if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
+  const ps = v("w:pStyle");
+  if (ps) lvl.pStyle = ps;
+  const isLgl = firstChild(el2, "w:isLgl");
+  if (isLgl) lvl.isLgl = onOffVal(isLgl);
+  const suff = v("w:suff");
+  if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
+  const lt = firstChild(el2, "w:lvlText");
+  if (lt) {
+    if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
+    if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
+  }
+  const pic = v("w:lvlPicBulletId");
+  if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
+  const jc = v("w:lvlJc");
+  if (jc) lvl.lvlJc = jc;
+  const pPr = readPPr(firstChild(el2, "w:pPr"));
+  if (pPr) lvl.pPr = pPr;
+  const rPr = readRPr(firstChild(el2, "w:rPr"));
+  if (rPr) lvl.rPr = rPr;
+  return lvl;
+}
+function readNumbering(xml) {
+  const out = { abstractNums: {}, nums: {}, picBullets: {} };
+  if (!xml) return out;
+  const root = parseXml(xml);
+  for (const pb of childElements(root, "w:numPicBullet")) {
+    const id = parseInt(pb.attrs["w:numPicBulletId"] ?? "-1", 10);
+    const bullet = { id };
+    const find = (e, name) => {
+      for (const c of childElements(e)) {
+        if (c.name === name) return c;
+        const f = find(c, name);
+        if (f) return f;
+      }
+      return void 0;
+    };
+    const img = find(pb, "v:imagedata");
+    const blip = find(pb, "a:blip");
+    const rid = img?.attrs["r:id"] ?? blip?.attrs["r:embed"];
+    if (rid) bullet.rid = rid;
+    const shape = find(pb, "v:shape");
+    const style = shape?.attrs["style"] ?? "";
+    const w = /width:\s*([0-9.]+)pt/.exec(style);
+    const h = /height:\s*([0-9.]+)pt/.exec(style);
+    if (w) bullet.widthPt = parseFloat(w[1]);
+    if (h) bullet.heightPt = parseFloat(h[1]);
+    out.picBullets[id] = bullet;
+  }
+  for (const an of childElements(root, "w:abstractNum")) {
+    const id = parseInt(an.attrs["w:abstractNumId"] ?? "-1", 10);
+    const a = { abstractNumId: id, levels: {} };
+    const mlt = firstChild(an, "w:multiLevelType")?.attrs["w:val"];
+    if (mlt) a.multiLevelType = mlt;
+    const sl = firstChild(an, "w:styleLink")?.attrs["w:val"];
+    if (sl) a.styleLink = sl;
+    const nsl = firstChild(an, "w:numStyleLink")?.attrs["w:val"];
+    if (nsl) a.numStyleLink = nsl;
+    for (const lvl of childElements(an, "w:lvl")) {
+      const l = readLevel(lvl);
+      a.levels[l.ilvl] = l;
+    }
+    out.abstractNums[id] = a;
+  }
+  for (const num2 of childElements(root, "w:num")) {
+    const numId = parseInt(num2.attrs["w:numId"] ?? "-1", 10);
+    const abs = parseInt(firstChild(num2, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
+    const inst = { numId, abstractNumId: abs, overrides: {} };
+    for (const ov of childElements(num2, "w:lvlOverride")) {
+      const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
+      const o = {};
+      const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
+      if (so !== void 0) o.startOverride = parseInt(so, 10);
+      const lvl = firstChild(ov, "w:lvl");
+      if (lvl) o.lvl = readLevel(lvl);
+      inst.overrides[ilvl] = o;
+    }
+    out.nums[numId] = inst;
+  }
+  return out;
+}
+function readTheme(xml) {
+  const theme = { major: { scripts: {} }, minor: { scripts: {} }, colors: {} };
+  if (!xml) return theme;
+  const root = parseXml(xml);
+  const find = (e, name) => {
+    for (const c of childElements(e)) {
+      if (c.name === name) return c;
+      const f = find(c, name);
+      if (f) return f;
+    }
+    return void 0;
+  };
+  const fontScheme = find(root, "a:fontScheme");
+  for (const [key, tag2] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
+    const el2 = fontScheme && firstChild(fontScheme, tag2);
+    if (!el2) continue;
+    const set = theme[key];
+    const latin = firstChild(el2, "a:latin")?.attrs["typeface"];
+    if (latin) set.latin = latin;
+    const ea = firstChild(el2, "a:ea")?.attrs["typeface"];
+    if (ea) set.ea = ea;
+    const cs = firstChild(el2, "a:cs")?.attrs["typeface"];
+    if (cs) set.cs = cs;
+    for (const f of childElements(el2, "a:font")) {
+      if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
+    }
+  }
+  const lnList = find(root, "a:lnStyleLst");
+  if (lnList) theme.lineWidthsPt = childElements(lnList, "a:ln").map((l) => (parseInt(l.attrs["w"] ?? "0", 10) || 0) / 12700);
+  const asSpPr = (kids) => readSpPr({ name: "a:spPr", attrs: {}, children: kids });
+  const fills = find(root, "a:fillStyleLst");
+  if (fills) theme.fillStyles = childElements(fills).map((f) => asSpPr([f]));
+  const bgFills = find(root, "a:bgFillStyleLst");
+  if (bgFills) theme.bgFillStyles = childElements(bgFills).map((f) => asSpPr([f]));
+  const effects = find(root, "a:effectStyleLst");
+  if (effects) theme.effectStyles = childElements(effects, "a:effectStyle").map((e) => asSpPr(childElements(e, "a:effectLst")).shadow);
+  const clr = find(root, "a:clrScheme");
+  if (clr) {
+    for (const c of childElements(clr)) {
+      const key = c.name.replace(/^a:/, "");
+      const srgb = firstChild(c, "a:srgbClr")?.attrs["val"];
+      const sys = firstChild(c, "a:sysClr");
+      const v = srgb ?? sys?.attrs["lastClr"] ?? (sys?.attrs["val"] === "window" ? "FFFFFF" : sys?.attrs["val"] === "windowText" ? "000000" : void 0);
+      if (v) theme.colors[key] = v.toUpperCase();
+    }
+  }
+  return theme;
+}
+function readNoteProps(el2) {
+  if (!el2) return void 0;
+  const out = {};
+  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
+  const pos = v("w:pos");
+  if (pos) out.pos = pos;
+  const fmt2 = v("w:numFmt");
+  if (fmt2) out.numFmt = fmt2;
+  const start = parseInt(v("w:numStart") ?? "", 10);
+  if (Number.isFinite(start)) out.numStart = start;
+  const rs = v("w:numRestart");
+  if (rs === "continuous" || rs === "eachSect" || rs === "eachPage") out.numRestart = rs;
+  return Object.keys(out).length ? out : void 0;
+}
+var ROOT_COMPAT_FLAGS = /* @__PURE__ */ new Set([
+  "w:doNotUseHTMLParagraphAutoSpacing",
+  "w:doNotExpandShiftReturn",
+  "w:ulTrailSpace",
+  "w:spaceForUL",
+  "w:balanceSingleByteDoubleByteWidth",
+  "w:adjustLineHeightInTable",
+  "w:doNotSuppressParagraphBorders",
+  "w:noSpaceRaiseLower",
+  "w:suppressSpBfAfterPgBrk",
+  "w:suppressTopSpacing",
+  "w:doNotUseIndentAsNumberingTabStop"
+]);
+function readSettings(xml) {
+  const s = {
+    defaultTabStop: 720,
+    compatibilityMode: xml ? 12 : 15,
+    compat: {},
+    evenAndOddHeaders: false,
+    mirrorMargins: false,
+    autoHyphenation: false,
+    doNotHyphenateCaps: false,
+    displayBackgroundShape: false,
+    updateFields: false
+  };
+  if (!xml) return s;
+  const root = parseXml(xml);
+  const on = (n) => {
+    const e = firstChild(root, n);
+    return e ? onOffVal(e) : false;
+  };
+  const dts = measureTwips(firstChild(root, "w:defaultTabStop")?.attrs["w:val"]);
+  if (dts !== void 0 && dts > 0) s.defaultTabStop = dts;
+  s.evenAndOddHeaders = on("w:evenAndOddHeaders");
+  s.mirrorMargins = on("w:mirrorMargins");
+  s.autoHyphenation = on("w:autoHyphenation");
+  s.doNotHyphenateCaps = on("w:doNotHyphenateCaps");
+  s.displayBackgroundShape = on("w:displayBackgroundShape");
+  s.updateFields = on("w:updateFields");
+  if (on("w:bordersDoNotSurroundHeader")) s.bordersDoNotSurroundHeader = true;
+  if (on("w:bordersDoNotSurroundFooter")) s.bordersDoNotSurroundFooter = true;
+  const fnPr = readNoteProps(firstChild(root, "w:footnotePr"));
+  if (fnPr) s.footnotePr = fnPr;
+  const enPr = readNoteProps(firstChild(root, "w:endnotePr"));
+  if (enPr) s.endnotePr = enPr;
+  const hz = measureTwips(firstChild(root, "w:hyphenationZone")?.attrs["w:val"]);
+  if (hz !== void 0) s.hyphenationZone = hz;
+  const chl = firstChild(root, "w:consecutiveHyphenLimit")?.attrs["w:val"];
+  if (chl !== void 0) s.consecutiveHyphenLimit = parseInt(chl, 10);
+  const csc = firstChild(root, "w:characterSpacingControl")?.attrs["w:val"];
+  if (csc) s.characterSpacingControl = csc;
+  const tfl = firstChild(root, "w:themeFontLang");
+  if (tfl) {
+    s.themeFontLang = {};
+    if (tfl.attrs["w:val"]) s.themeFontLang.val = tfl.attrs["w:val"];
+    if (tfl.attrs["w:eastAsia"]) s.themeFontLang.eastAsia = tfl.attrs["w:eastAsia"];
+    if (tfl.attrs["w:bidi"]) s.themeFontLang.bidi = tfl.attrs["w:bidi"];
+  }
+  for (const c of childElements(root)) {
+    if (ROOT_COMPAT_FLAGS.has(c.name)) s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
+  }
+  const compat = firstChild(root, "w:compat");
+  if (compat) {
+    for (const c of childElements(compat)) {
+      if (c.name === "w:compatSetting") {
+        if (c.attrs["w:name"] === "compatibilityMode" && c.attrs["w:uri"] === "http://schemas.microsoft.com/office/word") {
+          const n = parseInt(c.attrs["w:val"] ?? "", 10);
+          if (Number.isFinite(n)) s.compatibilityMode = n;
+        }
+        continue;
+      }
+      s.compat[c.name.replace(/^w:/, "")] = onOffVal(c);
+    }
+  }
+  return s;
+}
+function readFontTable(xml) {
+  const out = {};
+  if (!xml) return out;
+  const root = parseXml(xml);
+  for (const f of childElements(root, "w:font")) {
+    const name = f.attrs["w:name"];
+    if (!name) continue;
+    const info = { name };
+    const v = (n) => firstChild(f, n)?.attrs["w:val"];
+    const alt = v("w:altName");
+    if (alt) info.altName = alt;
+    const pan = v("w:panose1");
+    if (pan) info.panose1 = pan;
+    const cs = v("w:charset");
+    if (cs) info.charset = cs;
+    const fam = v("w:family");
+    if (fam) info.family = fam;
+    const pitch = v("w:pitch");
+    if (pitch) info.pitch = pitch;
+    const sig = firstChild(f, "w:sig");
+    if (sig) {
+      info.sig = {};
+      for (const [k, val] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val;
+    }
+    out[name] = info;
+  }
+  return out;
+}
+function partByRelType(pkg, type, fallback) {
+  const rels = pkg.getPartText("word/_rels/document.xml.rels");
+  if (rels) {
+    for (const rel of childElements(parseXml(rels), "Relationship")) {
+      if ((rel.attrs["Type"] ?? "").endsWith(`/${type}`) && rel.attrs["Target"] && rel.attrs["TargetMode"] !== "External") {
+        const t = rel.attrs["Target"].replace(/^\.\//, "");
+        return t.startsWith("/") ? t.slice(1) : `word/${t}`;
+      }
+    }
+  }
+  return fallback;
+}
+function readDocFormatting(pkg) {
+  return {
+    styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
+    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
+    theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
+    settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
+    fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
+  };
 }
 
 // ../docx-core/src/document.ts
@@ -3326,14 +4234,14 @@ function blipFxImageEffects(b) {
 }
 function blipImageEffects(blip) {
   const lum = firstChild(blip, "a:lum"), bi = firstChild(blip, "a:biLevel");
-  const int3 = (v, d) => parseInt(v ?? d, 10) || 0;
+  const int4 = (v, d) => parseInt(v ?? d, 10) || 0;
   return blipFxImageEffects({
-    ...lum ? { lum: { bright: int3(lum.attrs["bright"], "0"), contrast: int3(lum.attrs["contrast"], "0") } } : {},
+    ...lum ? { lum: { bright: int4(lum.attrs["bright"], "0"), contrast: int4(lum.attrs["contrast"], "0") } } : {},
     ...firstChild(blip, "a:grayscl") ? { grayscl: true } : {},
-    ...bi ? { biLevel: int3(bi.attrs["thresh"], "50000") } : {}
+    ...bi ? { biLevel: int4(bi.attrs["thresh"], "50000") } : {}
   });
 }
-var EMU_PER_TWIP = 635;
+var EMU_PER_TWIP2 = 635;
 function readBorderEdge(el2) {
   if (!el2) return void 0;
   const style = el2.attrs["w:val"];
@@ -3500,19 +4408,24 @@ function bodyPrOf(tb, bodyPr) {
   if (bodyPr.attrs["wrap"] === "none") tb.noWrap = true;
   const insTw = (name, def) => {
     const v = bodyPr.attrs[name];
-    return v !== void 0 ? Math.round(parseInt(v, 10) / EMU_PER_TWIP) : def;
+    return v !== void 0 ? Math.round(parseInt(v, 10) / EMU_PER_TWIP2) : def;
   };
   tb.insets = { l: insTw("lIns", 144), t: insTw("tIns", 72), r: insTw("rIns", 144), b: insTw("bIns", 72) };
   const anc = bodyPr.attrs["anchor"];
   if (anc === "t" || anc === "ctr" || anc === "b") tb.vAnchor = anc;
+  const vert = bodyPr.attrs["vert"];
+  if (vert && vert !== "horz") tb.vert = vert;
+  if (bodyPr.attrs["upright"] === "1" || bodyPr.attrs["upright"] === "true") tb.upright = true;
   if (bodyPr.attrs["fromWordArt"] === "1" || bodyPr.attrs["fromWordArt"] === "true") {
     tb.wordArt = firstChild(bodyPr, "a:prstTxWarp")?.attrs["prst"] ?? "textPlain";
   }
 }
 function textboxBlocks(txbx, ctx, tb) {
   if (ctx.readBlocks) {
-    const blocks = ctx.readBlocks(txbx, ctx);
+    const read = ctx.readBlocksGrouped ? ctx.readBlocksGrouped(txbx, ctx) : { blocks: ctx.readBlocks(txbx, ctx) };
+    const blocks = read.blocks;
     tb.blocks = blocks;
+    if (read.groups && ctx.sources) ctx.sources.addTextboxGroups(tb, read.groups);
     const paras = [];
     const walk = (bs) => {
       for (const b of bs) {
@@ -3536,11 +4449,36 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
     const style = readSpPr(spPr, firstChild(obj, "wps:style"));
     const txbx = firstChild(obj, "wps:txbx");
     const content = txbx && firstChild(txbx, "w:txbxContent");
-    if (content) {
+    const linked = !content ? firstChild(obj, "wps:linkedTxbx") : void 0;
+    if (content || linked) {
       const tb = { paras: [], widthTwips: wTw, heightTwips: hTw };
-      textboxBlocks(content, ctx, tb);
+      if (content) {
+        textboxBlocks(content, ctx, tb);
+        const sid = parseInt(txbx.attrs["id"] ?? "", 10);
+        if (Number.isFinite(sid)) tb.story = sid;
+      } else {
+        tb.paras = [];
+        tb.blocks = [];
+        tb.link = { id: parseInt(linked.attrs["id"] ?? "0", 10) || 0, seq: parseInt(linked.attrs["seq"] ?? "1", 10) || 1 };
+      }
       bodyPrOf(tb, firstChild(obj, "wps:bodyPr"));
-      if (style.fill || style.line || style.gradient) tb.shape = style;
+      const fontRef = firstChild(firstChild(obj, "wps:style") ?? obj, "a:fontRef");
+      const fc = fontRef ? readSpPr({ name: "wps:spPr", attrs: {}, children: [{ name: "a:solidFill", attrs: {}, children: childElements(fontRef) }] }).fill : void 0;
+      if (fc) tb.fontColor = fc;
+      const bf = spPr && firstChild(spPr, "a:blipFill");
+      const blip = bf && firstChild(bf, "a:blip");
+      const media = blip?.attrs["r:embed"] ? ctx.resolveImage(blip.attrs["r:embed"]) : void 0;
+      if (bf && media) {
+        const tile = firstChild(bf, "a:tile");
+        const n = (k, d) => parseInt(tile?.attrs[k] ?? String(d), 10) || 0;
+        const amf = blip && firstChild(blip, "a:alphaModFix");
+        style.blip = {
+          image: { data: media.data, ext: media.ext },
+          ...tile ? { tile: { tx: n("tx", 0), ty: n("ty", 0), sx: n("sx", 1e5), sy: n("sy", 1e5), algn: tile.attrs["algn"] ?? "tl", flip: tile.attrs["flip"] ?? "none" } } : {},
+          ...amf ? { alpha: (parseInt(amf.attrs["amt"] ?? "100000", 10) || 0) / 1e5 } : {}
+        };
+      }
+      if (style.fill || style.line || style.gradient || style.blip || style.pattern || style.effectRef) tb.shape = style;
       tb.lineInset = style.lineInset ?? {};
       if (style.geom && style.geom !== "rect" && style.geom !== "custom") tb.geom = { prst: style.geom, ...style.adj ? { adj: style.adj } : {} };
       if (style.rot || style.flipV) tb.rot = ((style.rot ?? 0) + (style.flipV ? 180 : 0)) % 360;
@@ -3562,8 +4500,8 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
     const ext = xfrm && firstChild(xfrm, "a:ext");
     const cw = n(chExt, "cx") || n(ext, "cx");
     const ch = n(chExt, "cy") || n(ext, "cy");
-    const sx = cw ? wTw * EMU_PER_TWIP / cw : 1;
-    const sy = ch ? hTw * EMU_PER_TWIP / ch : 1;
+    const sx = cw ? wTw * EMU_PER_TWIP2 / cw : 1;
+    const sy = ch ? hTw * EMU_PER_TWIP2 / ch : 1;
     const items = [];
     for (const child of childElements(obj)) {
       if (!["wps:wsp", "pic:pic", "wpg:grpSp"].includes(child.name)) continue;
@@ -3571,10 +4509,10 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
       const cx = cpr && firstChild(cpr, "a:xfrm");
       const off = cx && firstChild(cx, "a:off");
       const cext = cx && firstChild(cx, "a:ext");
-      const x2 = (n(off, "x") - n(chOff, "x")) * sx / EMU_PER_TWIP;
-      const y = (n(off, "y") - n(chOff, "y")) * sy / EMU_PER_TWIP;
-      const w = n(cext, "cx") * sx / EMU_PER_TWIP;
-      const h = n(cext, "cy") * sy / EMU_PER_TWIP;
+      const x2 = (n(off, "x") - n(chOff, "x")) * sx / EMU_PER_TWIP2;
+      const y = (n(off, "y") - n(chOff, "y")) * sy / EMU_PER_TWIP2;
+      const w = n(cext, "cx") * sx / EMU_PER_TWIP2;
+      const h = n(cext, "cy") * sy / EMU_PER_TWIP2;
       const run = readGraphicObject(child, ctx, w, h);
       if (run) items.push({ x: x2, y, w, h, run: { ...run, props: { ...DEFAULT_RUN_PROPS } } });
     }
@@ -3595,11 +4533,11 @@ function dmlRunColor(el2) {
   if (c.name === "a:sysClr") return { val: (c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
   if (c.name === "a:prstClr") return { val: c.attrs["val"] === "white" ? "FFFFFF" : "000000" };
   const spec = { themeColor: c.attrs["val"] ?? "tx1" };
-  const frac2 = (k) => {
+  const frac3 = (k) => {
     const m = firstChild(c, k);
     return m ? Math.round((parseInt(m.attrs["val"] ?? "100000", 10) || 0) / 1e5 * 255).toString(16).padStart(2, "0").toUpperCase() : void 0;
   };
-  const t = frac2("a:tint"), sh = frac2("a:shade");
+  const t = frac3("a:tint"), sh = frac3("a:shade");
   if (t) spec.themeTint = t;
   if (sh) spec.themeShade = sh;
   return spec;
@@ -3639,7 +4577,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u && u !== "none" ? { u: { val: u === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num = (el2) => parseInt(el2?.attrs["val"] ?? "0", 10) || 0;
+  const num2 = (el2) => parseInt(el2?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -3660,21 +4598,21 @@ function dmlParagraphs(body, styleEl, txFill) {
     const gap = (tag2) => {
       const e = pPr && firstChild(pPr, tag2);
       const pts = e && firstChild(e, "a:spcPts"), pct2 = e && firstChild(e, "a:spcPct");
-      return pts ? Math.round(num(pts) / 5) : pct2 ? Math.round(num(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
+      return pts ? Math.round(num2(pts) / 5) : pct2 ? Math.round(num2(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
     };
     const ln2 = pPr && firstChild(pPr, "a:lnSpc");
     const lnPct = ln2 && firstChild(ln2, "a:spcPct"), lnPts = ln2 && firstChild(ln2, "a:spcPts");
     const algn = pPr?.attrs["algn"];
-    const emu = (k2) => Math.round((parseInt(pPr?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP);
-    const indent = emu("indent");
+    const emu2 = (k2) => Math.round((parseInt(pPr?.attrs[k2] ?? "0", 10) || 0) / EMU_PER_TWIP2);
+    const indent = emu2("indent");
     const ppr = {
       jc: algn === "ctr" ? "center" : algn === "r" ? "right" : algn === "just" ? "both" : algn === "dist" ? "distribute" : "left",
       spacing: {
         before: k === 0 && !edges ? 0 : gap("a:spcBef"),
         after: k === aps.length - 1 && !edges ? 0 : gap("a:spcAft"),
-        ...lnPts ? { line: Math.round(num(lnPts) / 5), lineRule: "exact" } : { line: lnPct ? Math.round(240 * num(lnPct) / 1e5) : 240, lineRule: "auto" }
+        ...lnPts ? { line: Math.round(num2(lnPts) / 5), lineRule: "exact" } : { line: lnPct ? Math.round(240 * num2(lnPct) / 1e5) : 240, lineRule: "auto" }
       },
-      ind: { left: emu("marL"), right: 0, ...indent < 0 ? { hanging: -indent } : { firstLine: indent } },
+      ind: { left: emu2("marL"), right: 0, ...indent < 0 ? { hanging: -indent } : { firstLine: indent } },
       contextualSpacing: false,
       rPr: mark
     };
@@ -3704,7 +4642,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
     const c = fills.attrs["meth"] === "cycle" ? cs[i2 % cs.length] : cs[Math.min(i2, cs.length - 1)];
     txFill.set(pt.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c] }));
   }
-  const n = (el2, k) => (parseInt(el2?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
+  const n = (el2, k) => (parseInt(el2?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP2;
   const rect2 = (xf) => {
     const off = firstChild(xf, "a:off"), e = firstChild(xf, "a:ext");
     return { x: n(off, "x"), y: n(off, "y"), w: n(e, "cx"), h: n(e, "cy") };
@@ -3745,8 +4683,8 @@ function readDrawingRun(drawing, ctx) {
   const container = anchorEl ?? firstChild(drawing, "wp:inline");
   if (!container) return void 0;
   const extent = firstChild(container, "wp:extent");
-  const wTw = parseInt(extent?.attrs["cx"] ?? "0", 10) / EMU_PER_TWIP;
-  const hTw = parseInt(extent?.attrs["cy"] ?? "0", 10) / EMU_PER_TWIP;
+  const wTw = parseInt(extent?.attrs["cx"] ?? "0", 10) / EMU_PER_TWIP2;
+  const hTw = parseInt(extent?.attrs["cy"] ?? "0", 10) / EMU_PER_TWIP2;
   const gd = findDeep3(container, "a:graphicData");
   const obj = gd && childElements(gd).find((c) => ["pic:pic", "wps:wsp", "wpg:wgp", "wpc:wpc"].includes(c.name));
   const dgm = !obj && /\/drawingml\/2006\/diagram$/.test(gd?.attrs["uri"] ?? "");
@@ -3757,12 +4695,12 @@ function readDrawingRun(drawing, ctx) {
   const target = run.image ?? run.textbox ?? run.shape ?? run.group;
   const ee = !anchorEl ? firstChild(container, "wp:effectExtent") : void 0;
   if (ee && (run.image || run.shape)) {
-    const e = (k) => (parseInt(ee.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
+    const e = (k) => (parseInt(ee.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP2;
     const v = { l: e("l"), t: e("t"), r: e("r"), b: e("b") };
     if (v.l || v.t || v.r || v.b) (run.image ?? run.shape).inlineEffect = v;
   }
   if (ee && run.group) {
-    const e = (k) => (parseInt(ee.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
+    const e = (k) => (parseInt(ee.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP2;
     for (const it of run.group.items) {
       it.x += e("l");
       it.y += e("t");
@@ -3775,6 +4713,10 @@ function readDrawingRun(drawing, ctx) {
     target.anchor = anchor;
     if (anchor.behindDoc && (run.image || run.textbox)) (run.image ?? run.textbox).behindDoc = true;
   }
+  const docPr = firstChild(container, "wp:docPr");
+  if (docPr && /^(1|true)$/.test(docPr.attrs["hidden"] ?? "") && (run.textbox || run.shape || run.group)) (run.textbox ?? run.shape ?? run.group).hidden = true;
+  if (drawing.raw && run.shape) run.shape.rawDrawingXml = drawing.raw;
+  if (drawing.raw && run.group) run.group.rawDrawingXml = drawing.raw;
   for (const t of [run.image, run.textbox]) {
     if (!t) continue;
     if (anchor) {
@@ -3866,8 +4808,21 @@ function readVmlRuns(container, ctx, inline) {
         const tbStyle = parseVmlStyle(txb.attrs["style"]);
         if (tbStyle["mso-fit-shape-to-text"] === "t") tb.autoFit = true;
         if (parseVmlStyle(el2.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
+        const flow = tbStyle["layout-flow"], alt = tbStyle["mso-layout-flow-alt"];
+        if (flow === "vertical") tb.vert = alt === "bottom-to-top" ? "vert270" : alt === "top-to-bottom" ? "mongolianVert" : "vert";
+        else if (flow === "vertical-ideographic") tb.vert = "eaVert";
+        const va = st["v-text-anchor"];
+        if (va === "middle" || va === "middle-center" || va === "middle-baseline") tb.vAnchor = "ctr";
+        else if (va === "bottom" || va === "bottom-center" || va === "bottom-baseline") tb.vAnchor = "b";
+        if (el2.attrs["id"]) tb.vmlId = el2.attrs["id"];
+        const next = tbStyle["mso-next-textbox"];
+        if (next) tb.vmlNext = next.replace(/^#/, "");
         const sh = vmlShapeStyle(el2, "rect");
         if (sh.fill || sh.line) tb.shape = sh;
+        if (!inGroup && vmlSingleTextbox(container) === el2) {
+          const raw = vmlTextboxToDrawing(el2, 1 + (parseInt((el2.attrs["o:spid"] ?? "").replace(/\D/g, ""), 10) || 0));
+          if (raw) tb.rawDrawingXml = raw;
+        }
         run = { text: OBJ, textbox: tb };
       } else {
         const tag2 = el2.name.replace(/^v:/, "");
@@ -4152,8 +5107,8 @@ function readMathNodes(el2, out = []) {
       case "m:f": {
         const fPr = firstChild(c, "m:fPr");
         const type = fPr ? firstChild(fPr, "m:type")?.attrs["m:val"] : void 0;
-        const num = firstChild(c, "m:num"), den = firstChild(c, "m:den");
-        out.push({ t: "f", num: num ? readMathNodes(num) : [], den: den ? readMathNodes(den) : [], ...type ? { type } : {} });
+        const num2 = firstChild(c, "m:num"), den = firstChild(c, "m:den");
+        out.push({ t: "f", num: num2 ? readMathNodes(num2) : [], den: den ? readMathNodes(den) : [], ...type ? { type } : {} });
         break;
       }
       case "m:d": {
@@ -4303,8 +5258,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         text += "\xAD";
         break;
       case "w:sym": {
-        const hex2 = child.attrs["w:char"] ?? "F0B7";
-        let code = parseInt(hex2, 16);
+        const hex3 = child.attrs["w:char"] ?? "F0B7";
+        let code = parseInt(hex3, 16);
         if (code <= 255) code |= 61440;
         const font = child.attrs["w:font"];
         flush();
@@ -4549,17 +5504,17 @@ function readSectPr(sectEl) {
   };
   const type = sectEl && firstChild(sectEl, "w:type")?.attrs["w:val"];
   if (type === "continuous" || type === "evenPage" || type === "oddPage" || type === "nextColumn") sect.type = type;
-  const num = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
-  if (num > 1) {
+  const num2 = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
+  if (num2 > 1) {
     sect.cols = {
-      count: num,
+      count: num2,
       spaceTwips: parseInt(colsEl.attrs["w:space"] ?? "720", 10),
       sep: colsEl.attrs["w:sep"] === "true" || colsEl.attrs["w:sep"] === "1"
     };
     const eq2 = colsEl.attrs["w:equalWidth"];
     const defs = childElements(colsEl, "w:col");
-    if ((eq2 === "0" || eq2 === "false") && defs.length >= num) {
-      sect.cols.widths = defs.slice(0, num).map((c) => ({
+    if ((eq2 === "0" || eq2 === "false") && defs.length >= num2) {
+      sect.cols.widths = defs.slice(0, num2).map((c) => ({
         widthTwips: parseInt(c.attrs["w:w"] ?? "0", 10) || 0,
         spaceTwips: parseInt(c.attrs["w:space"] ?? "0", 10) || 0
       }));
@@ -4802,6 +5757,15 @@ var SourceStore = class {
   tcs = /* @__PURE__ */ new Map();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   stories = /* @__PURE__ */ new Map();
+  /** Conteúdo de caixa de texto (w:txbxContent) com algo além de w:p/w:tbl (sdt/
+   *  customXml de bloco): os filhos como grupos — a caixa editada reembrulha como o
+   *  corpo. */
+  txbx = /* @__PURE__ */ new WeakMap();
+  txbxGroups = [];
+  addTextboxGroups(tb, groups) {
+    this.txbx.set(tb, groups);
+    this.txbxGroups.push(groups);
+  }
   /** Por caminho da parte de notas (word/footnotes.xml, word/endnotes.xml). */
   noteParts = /* @__PURE__ */ new Map();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
@@ -4899,6 +5863,7 @@ var SourceStore = class {
     };
     for (const s of this.stories.values()) if (inGroups(s.groups)) return true;
     for (const c of this.tcs.values()) if (inGroups(c.groups)) return true;
+    for (const g of this.txbxGroups) if (inGroups(g)) return true;
     const sids = new Set(around.map((r) => r?.props.src).filter((x2) => x2 !== void 0));
     return !!sids.size && !!this.paras.get(id)?.segs.some((s) => plainTextSdt(s.wrapOpen) && s.sids.some((x2) => sids.has(x2)));
   }
@@ -4945,7 +5910,7 @@ var pct = (v) => {
   const n = parseFloat(s);
   return Number.isFinite(n) ? n * 100 : void 0;
 };
-var frac = (v) => v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
+var frac2 = (v) => v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
 function readPageBackground(bg, resolveImage) {
   const out = {};
   for (const k of ["color", "themeColor", "themeTint", "themeShade"]) {
@@ -4966,12 +5931,12 @@ function readPageBackground(bg, resolveImage) {
     const fp = vf.attrs["focusposition"];
     if (fp !== void 0 && fp !== "") {
       const [x2 = "", y = ""] = fp.split(",");
-      f.focusPosition = [x2.trim() ? frac(x2.trim()) : 0, y.trim() ? frac(y.trim()) : 0];
+      f.focusPosition = [x2.trim() ? frac2(x2.trim()) : 0, y.trim() ? frac2(y.trim()) : 0];
     }
     if (firstChild(vf, "o:fill")?.attrs["type"] === "gradientCenter") f.gradientCenter = true;
     const colors = vf.attrs["colors"];
     if (colors) {
-      const stops = colors.split(";").map((s) => s.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([pos, col]) => ({ pos: frac(pos), color: vmlColor(col) ?? "000000" }));
+      const stops = colors.split(";").map((s) => s.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([pos, col]) => ({ pos: frac2(pos), color: vmlColor(col) ?? "000000" }));
       if (stops.length) f.colors = stops;
     }
     if (vf.attrs["method"]) f.method = vf.attrs["method"];
@@ -5058,6 +6023,18 @@ function unwrapRaw(el2, name, skip, xml) {
   return out;
 }
 var wrapOf = (w) => ({ ...w.pre.length ? { pre: w.pre } : {}, ...w.post.length ? { post: w.post } : {} });
+function readBlocksGrouped(container, ctx) {
+  const xml = ctx.sources && container.s !== void 0 ? ctx.sourceXml : void 0;
+  const kids = xml !== void 0 ? childElements(container) : [];
+  if (xml === void 0 || !kids.some((k) => k.name !== "w:p" && k.name !== "w:tbl")) return { blocks: readBlocksOf(container, ctx) };
+  const blocks = [], groups = [];
+  for (const k of kids) {
+    const produced = readBlocksOf({ name: container.name, attrs: {}, children: [k] }, ctx);
+    groups.push(groupOf(xml, k, produced, ctx.sources));
+    blocks.push(...produced);
+  }
+  return { blocks, groups };
+}
 function readBlocksOf(container, ctx) {
   const out = [];
   for (const c of childElements(container)) {
@@ -5178,6 +6155,48 @@ function groupOf(xml, child, produced, store) {
   }
   return g;
 }
+function forEachTextbox(blocks, fn) {
+  const runs = (rs) => {
+    for (const r of rs) {
+      if (r.textbox) {
+        fn(r.textbox, r);
+        walk(r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph })));
+      }
+      for (const it of r.group?.items ?? []) runs([it.run]);
+    }
+  };
+  const walk = (bs) => {
+    for (const b of bs) {
+      if (b.type === "paragraph") runs(b.paragraph.runs);
+      else for (const row of b.rows) for (const c of row.cells) walk(c.blocks ?? c.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })));
+    }
+  };
+  walk(blocks);
+}
+function linkVmlTextboxes(blocks) {
+  const byId = /* @__PURE__ */ new Map();
+  const targets = /* @__PURE__ */ new Set();
+  let maxStory = 0;
+  forEachTextbox(blocks, (tb) => {
+    if (tb.vmlId) byId.set(tb.vmlId, tb);
+    if (tb.vmlNext) targets.add(tb.vmlNext);
+    if (tb.story !== void 0) maxStory = Math.max(maxStory, tb.story);
+  });
+  if (!targets.size) return;
+  forEachTextbox(blocks, (tb) => {
+    if (!tb.vmlNext || tb.vmlId && targets.has(tb.vmlId) || tb.story !== void 0) return;
+    const id = ++maxStory;
+    tb.story = id;
+    let seq = 0;
+    const seen = /* @__PURE__ */ new Set([tb]);
+    for (let cur = byId.get(tb.vmlNext); cur && !seen.has(cur); cur = cur.vmlNext ? byId.get(cur.vmlNext) : void 0) {
+      seen.add(cur);
+      cur.link = { id, seq: ++seq };
+      cur.paras = [];
+      cur.blocks = [];
+    }
+  });
+}
 function readHeaderFooterPart(pkg, path, store, xml0) {
   const xml = xml0 ?? pkg.getPartText(path);
   if (!xml) return void 0;
@@ -5185,6 +6204,7 @@ function readHeaderFooterPart(pkg, path, store, xml0) {
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  ctx.readBlocksGrouped = readBlocksGrouped;
   let blocks;
   if (!store) blocks = readBlocksOf(root, ctx);
   else {
@@ -5199,6 +6219,7 @@ function readHeaderFooterPart(pkg, path, store, xml0) {
     }
     store.stories.set(path, story);
   }
+  linkVmlTextboxes(blocks);
   const paras = [];
   const walk = (bs) => {
     for (const bl of bs) {
@@ -5217,6 +6238,7 @@ function readNotesPart(pkg, path, elementName, blocksOut, store, special) {
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  ctx.readBlocksGrouped = readBlocksGrouped;
   const part = store ? { open: xml.slice(0, root.cs), close: xml.slice(root.ce), items: [], refsAtLoad: /* @__PURE__ */ new Set() } : void 0;
   if (store) {
     ctx.sources = store;
@@ -5279,6 +6301,7 @@ function readFullDocument(pkg, opts = {}) {
   if (!body) throw new Error("w:document sem w:body");
   const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
   ctx.readBlocks = readBlocksOf;
+  ctx.readBlocksGrouped = readBlocksGrouped;
   const story = store ? storyOf(docXml, body) : void 0;
   if (store) {
     ctx.sources = store;
@@ -5393,6 +6416,7 @@ function readFullDocument(pkg, opts = {}) {
     closeSection(firstChild(body, "w:sectPr") ?? { name: "w:sectPr", attrs: {}, children: [] }, blocks.length - 1);
   }
   if (blocks.length === 0) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
+  linkVmlTextboxes(blocks);
   const comments = readComments(pkg);
   if (store) {
     for (const c of comments) store.commentIds.add(c.id);
@@ -8469,14 +9493,14 @@ function stripInvalid(s) {
 function escText(s) {
   return stripInvalid(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function escAttr(s) {
+function escAttr2(s) {
   return escText(s).replace(/"/g, "&quot;");
 }
 function attrs(obj) {
   let out = "";
   for (const [k, v] of Object.entries(obj)) {
     if (v === void 0 || v === null || v === false) continue;
-    out += ` ${k}="${escAttr(v === true ? "1" : String(v))}"`;
+    out += ` ${k}="${escAttr2(v === true ? "1" : String(v))}"`;
   }
   return out;
 }
@@ -9640,7 +10664,7 @@ function picFxOf(shape) {
   if (flag(1)) fx.biLevel = true;
   return Object.keys(fx).length ? fx : void 0;
 }
-var EMU_PER_TWIP2 = 635;
+var EMU_PER_TWIP3 = 635;
 function readInlinePicture(r, fc) {
   const data8 = r.data;
   if (!data8 || fc < 0 || fc + 68 > data8.length) return void 0;
@@ -9665,7 +10689,7 @@ function readInlinePicture(r, fc) {
   }
   const wTw = (dxaGoal - cropL - cropR) * mx / 1e3;
   const hTw = (dyaGoal - cropT - cropB) * my / 1e3;
-  const info = { cx: Math.max(1, wTw) * EMU_PER_TWIP2, cy: Math.max(1, hTw) * EMU_PER_TWIP2, name };
+  const info = { cx: Math.max(1, wTw) * EMU_PER_TWIP3, cy: Math.max(1, hTw) * EMU_PER_TWIP3, name };
   const recs = recsIn(d, o, end);
   let shape;
   const bses = [];
@@ -10056,7 +11080,7 @@ var DML_DEFAULTS = {
 };
 
 // ../docx-core/src/doc/docx-writer.ts
-var EMU_PER_TWIP3 = 635;
+var EMU_PER_TWIP4 = 635;
 var PartRels = class {
   items = [];
   n = 0;
@@ -10854,8 +11878,8 @@ var DocxWriter = class {
     const shape = r.shape(f.spid, ctx.hdr);
     if (!shape || r.masters.has(shape.spid)) return "";
     const pv = (id2) => shape.props.get(id2)?.value;
-    const cx = Math.max(1, (f.xaRight - f.xaLeft) * EMU_PER_TWIP3);
-    const cy = Math.max(1, (f.yaBottom - f.yaTop) * EMU_PER_TWIP3);
+    const cx = Math.max(1, (f.xaRight - f.xaLeft) * EMU_PER_TWIP4);
+    const cy = Math.max(1, (f.yaBottom - f.yaTop) * EMU_PER_TWIP4);
     const relH = ["margin", "page", "column"][f.bx] ?? "column";
     const relV = ["margin", "page", "paragraph"][f.by] ?? "paragraph";
     const posrelh = pv(912), posrelv = pv(914), posh = pv(911), posv = pv(913);
@@ -10863,8 +11887,8 @@ var DocxWriter = class {
     const relVName = posrelv !== void 0 ? ["margin", "page", "paragraph", "line", "topMargin", "bottomMargin", "insideMargin", "outsideMargin"][posrelv] ?? relV : relV;
     const hAlign = posh ? ["", "left", "center", "right", "inside", "outside"][posh] : "";
     const vAlign = posv ? ["", "top", "center", "bottom", "inside", "outside"][posv] : "";
-    const positionH = `<wp:positionH relativeFrom="${relHName}">${hAlign ? `<wp:align>${hAlign}</wp:align>` : `<wp:posOffset>${f.xaLeft * EMU_PER_TWIP3}</wp:posOffset>`}</wp:positionH>`;
-    const positionV = `<wp:positionV relativeFrom="${relVName}">${vAlign ? `<wp:align>${vAlign}</wp:align>` : `<wp:posOffset>${f.yaTop * EMU_PER_TWIP3}</wp:posOffset>`}</wp:positionV>`;
+    const positionH = `<wp:positionH relativeFrom="${relHName}">${hAlign ? `<wp:align>${hAlign}</wp:align>` : `<wp:posOffset>${f.xaLeft * EMU_PER_TWIP4}</wp:posOffset>`}</wp:positionH>`;
+    const positionV = `<wp:positionV relativeFrom="${relVName}">${vAlign ? `<wp:align>${vAlign}</wp:align>` : `<wp:posOffset>${f.yaTop * EMU_PER_TWIP4}</wp:posOffset>`}</wp:positionV>`;
     const wrapText = ["bothSides", "left", "right", "largest"][f.wrk] ?? "bothSides";
     let wrap;
     switch (f.wr) {
@@ -11402,7 +12426,7 @@ function backgroundXml(shape) {
 }
 function hrVml(pic) {
   const hr = pic.hr;
-  const pt = (emu) => String(Math.round(emu / 12700 * 10) / 10);
+  const pt = (emu2) => String(Math.round(emu2 / 12700 * 10) / 10);
   const a = {
     style: `width:${pt(pic.cx)}pt;height:${pt(pic.cy)}pt`,
     "o:hrpct": hr.pct,
@@ -11927,8 +12951,8 @@ function browserEnvironment() {
 // ../../../shared/fonts/src/sfnt.ts
 var tag = (v, p) => String.fromCharCode(v.getUint8(p), v.getUint8(p + 1), v.getUint8(p + 2), v.getUint8(p + 3));
 function tableOf(v, base, want) {
-  const num = v.getUint16(base + 4);
-  for (let i2 = 0; i2 < num; i2++) {
+  const num2 = v.getUint16(base + 4);
+  for (let i2 = 0; i2 < num2; i2++) {
     const p = base + 12 + i2 * 16;
     if (tag(v, p) === want) return { off: v.getUint32(p + 8), len: v.getUint32(p + 12) };
   }
@@ -11975,15 +12999,15 @@ function standaloneFace(bytes, wantPostscript) {
       }
     }
   }
-  const num = v.getUint16(base + 4);
+  const num2 = v.getUint16(base + 4);
   const recs = [];
-  for (let i2 = 0; i2 < num; i2++) {
+  for (let i2 = 0; i2 < num2; i2++) {
     const o = base + 12 + i2 * 16;
     const off = v.getUint32(o + 8), len = v.getUint32(o + 12);
     if (off + len > bytes.length) throw new RangeError("tabela fora do arquivo");
     recs.push({ o, off, len });
   }
-  const headerLen = 12 + num * 16;
+  const headerLen = 12 + num2 * 16;
   const out = new Uint8Array(recs.reduce((n, r) => n + (r.len + 3 & ~3), headerLen));
   const ov = new DataView(out.buffer);
   out.set(bytes.subarray(base, base + 12), 0);
@@ -12498,8 +13522,8 @@ function checksum(buf, off, len) {
 }
 function buildSfnt(sfntVersion, tables) {
   tables.sort((a, b) => a.tag < b.tag ? -1 : 1);
-  const num = tables.length;
-  const headerSize = 12 + num * 16;
+  const num2 = tables.length;
+  const headerSize = 12 + num2 * 16;
   let offset = headerSize;
   const layout = tables.map((t) => {
     const o = offset;
@@ -12509,12 +13533,12 @@ function buildSfnt(sfntVersion, tables) {
   const out = new Uint8Array(offset);
   const dv2 = new DataView(out.buffer);
   dv2.setUint32(0, sfntVersion);
-  dv2.setUint16(4, num);
-  const maxPow = Math.floor(Math.log2(num));
+  dv2.setUint16(4, num2);
+  const maxPow = Math.floor(Math.log2(num2));
   const searchRange = 2 ** maxPow * 16;
   dv2.setUint16(6, searchRange);
   dv2.setUint16(8, maxPow);
-  dv2.setUint16(10, num * 16 - searchRange);
+  dv2.setUint16(10, num2 * 16 - searchRange);
   let p = 12;
   for (const t of layout) {
     out.set(t.data, t.offset);
@@ -13049,8 +14073,8 @@ var SfntFont = class {
           continue;
         }
         const r = c.colors + (c.firstColor + pal) * 4;
-        const hex2 = (o) => v.getUint8(r + o).toString(16).padStart(2, "0").toUpperCase();
-        out.push({ glyphId: v.getUint16(q), color: hex2(2) + hex2(1) + hex2(0), alpha: v.getUint8(r + 3) / 255 });
+        const hex3 = (o) => v.getUint8(r + o).toString(16).padStart(2, "0").toUpperCase();
+        out.push({ glyphId: v.getUint16(q), color: hex3(2) + hex3(1) + hex3(0), alpha: v.getUint8(r + 3) / 255 });
       }
       return out.length ? out : null;
     }
@@ -13467,8 +14491,8 @@ var PdfWriter = class {
     return this.bodies.length;
   }
   /** Define o corpo de um objeto já alocado (entre `obj`/`endobj`). */
-  define(num, body) {
-    this.bodies[num - 1] = typeof body === "string" ? new ByteBuilder().str(body).toUint8Array() : body;
+  define(num2, body) {
+    this.bodies[num2 - 1] = typeof body === "string" ? new ByteBuilder().str(body).toUint8Array() : body;
   }
   /** Atalho: aloca e define um dicionário a partir de uma string `<< ... >>`. */
   addDict(dict) {
@@ -13486,7 +14510,7 @@ var PdfWriter = class {
     this.defineStream(n, dict, data8, opts);
     return n;
   }
-  defineStream(num, dict, data8, opts = {}) {
+  defineStream(num2, dict, data8, opts = {}) {
     let payload = data8;
     let filter = "";
     if (this.compress && (opts.allowCompress ?? true) && data8.length > 64) {
@@ -13501,7 +14525,7 @@ stream
 `;
     const b = new ByteBuilder();
     b.str(head).bytes(payload).str("\nendstream");
-    this.define(num, b.toUint8Array());
+    this.define(num2, b.toUint8Array());
   }
   /** Monta o arquivo PDF completo, com xref clássico e trailer. `root` = obj do /Catalog. */
   build(root) {
@@ -13660,8 +14684,8 @@ var WORD_WINGDINGS_UNICODE = {
 function rgb255(r, g, b) {
   return [r / 255, g / 255, b / 255];
 }
-function hexColor(hex2) {
-  const h = hex2.replace("#", "");
+function hexColor(hex3) {
+  const h = hex3.replace("#", "");
   return rgb255(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16));
 }
 var MAX_REAL = 1e9;
@@ -13918,13 +14942,13 @@ var PdfDocument = class {
    * transparência preservam o recorte no PDF.
    */
   embedRgba(rgba, widthPx, heightPx) {
-    const rgb4 = new Uint8Array(widthPx * heightPx * 3);
+    const rgb5 = new Uint8Array(widthPx * heightPx * 3);
     const alpha = new Uint8Array(widthPx * heightPx);
     let hasAlpha = false;
     for (let i2 = 0, j = 0, k = 0; i2 < rgba.length; i2 += 4, j += 3, k++) {
-      rgb4[j] = rgba[i2];
-      rgb4[j + 1] = rgba[i2 + 1];
-      rgb4[j + 2] = rgba[i2 + 2];
+      rgb5[j] = rgba[i2];
+      rgb5[j + 1] = rgba[i2 + 1];
+      rgb5[j + 2] = rgba[i2 + 2];
       const a = rgba[i2 + 3];
       alpha[k] = a;
       if (a !== 255) hasAlpha = true;
@@ -13939,7 +14963,7 @@ var PdfDocument = class {
     }
     const objNum = this.writer.addStream(
       `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8${smask}`,
-      rgb4
+      rgb5
     );
     const handle = { resourceName: `Im${this.images.length}`, objNum };
     this.images.push({ handle, objNum });
@@ -14317,6 +15341,14 @@ function presetVals(def, w, h, adj, adjNames) {
   });
   for (const [n, f] of def.gd) vars.set(n, evalFormula(f, val));
   return val;
+}
+function presetTextRect(name, w, h, adj, adjNames) {
+  const def = name ? parseDef(name) : null;
+  if (!def?.rect) return null;
+  const val = presetVals(def, w, h, adj, adjNames);
+  const [l, t, r, b] = def.rect.map(val);
+  if (!(r > l) || !(b > t)) return null;
+  return { l, t, r, b };
 }
 function evalPreset(name, w, h, adj, adjNames) {
   const def = parseDef(name);
@@ -14901,6 +15933,69 @@ function applyColorMods(c, mods) {
   return c;
 }
 
+// ../../../shared/drawingml/src/patterns.ts
+var PRESET_PATTERNS = {
+  pct5: "8000000008000000",
+  pct10: "8000080080000800",
+  pct20: "8800220088002200",
+  pct25: "8822882288228822",
+  pct30: "aa44aa11aa44aa11",
+  pct40: "aa55aa51aa55aa15",
+  pct50: "aa55aa55aa55aa55",
+  pct60: "ee55bb55ee55bb55",
+  pct70: "77dd77dd77dd77dd",
+  pct75: "77ffddff77ffddff",
+  pct80: "effffeffeffffeff",
+  pct90: "fffffff7ffffff7f",
+  horz: "ff00000000000000",
+  vert: "8080808080808080",
+  ltHorz: "ff000000ff000000",
+  ltVert: "8888888888888888",
+  dkHorz: "ffff0000ffff0000",
+  dkVert: "cccccccccccccccc",
+  narHorz: "ff00ff00ff00ff00",
+  narVert: "5555555555555555",
+  dashHorz: "f00000000f000000",
+  dashVert: "8080808008080808",
+  cross: "ff80808080808080",
+  dnDiag: "8040201008040201",
+  upDiag: "0102040810204080",
+  ltDnDiag: "8844221188442211",
+  ltUpDiag: "1122448811224488",
+  dkDnDiag: "cc663399cc663399",
+  dkUpDiag: "3366cc993366cc99",
+  wdDnDiag: "c1e070381c0e0783",
+  wdUpDiag: "83070e1c3870e0c1",
+  dashDnDiag: "0000884422110000",
+  dashUpDiag: "0000112244880000",
+  diagCross: "8142241818244281",
+  smCheck: "9966669999666699",
+  lgCheck: "f0f0f0f00f0f0f0f",
+  smGrid: "ff888888ff888888",
+  lgGrid: "ff80808080808080",
+  dotGrid: "aa00800080008000",
+  smConfetti: "8008400210012004",
+  lgConfetti: "b130031bd8c00c8d",
+  horzBrick: "ff808080ff080808",
+  diagBrick: "0102040818244281",
+  solidDmnd: "10387cfe7c381000",
+  openDmnd: "8244281028448201",
+  dotDmnd: "8000220008002200",
+  plaid: "aa55aa55f0f0f0f0",
+  sphere: "77898f8f7798f8f8",
+  weave: "8854224588142251",
+  divot: "0010081000800180",
+  shingle: "038448300c020101",
+  wave: "001825c0001825c0",
+  trellis: "ff66ff99ff66ff99",
+  zigZag: "8142241881422418"
+};
+function patternRows(prst) {
+  const hex3 = PRESET_PATTERNS[prst];
+  if (!hex3) return void 0;
+  return Array.from({ length: 8 }, (_, i2) => parseInt(hex3.slice(i2 * 2, i2 * 2 + 2), 16));
+}
+
 // ../../../shared/drawingml/src/bevel-word.ts
 var WORD_BEVEL = {
   relaxedInset: "AQECAQMBBQEHAQoBDQEQARQBFwEbAR8BIQEjACQAJQAnACsAMQE1AzkDPAM7AjsBOwEDAQQBBQEGAQgACgAMAA8AEgAWARsBIQEmAioCLQEuADAANAA6AkEFRgdEBkADOwE7AQQDBgMGAgcBCAEKAAwADgASABgBHgElAi0CMgI1ATcBOQA+AkUGTgxQEE4MRQY9AjsBCAYKBQkCCgELAQsBDQEQARQCGgIhAyoDMgM4AzwBPwFDAkgFTgtPFU4aThNFCTwEOwERDBEHEQQQAg8BDgEOAhEDFQQbBSQFLgU3Az4CQgFEAUcCSgZQD00cTB9NFkMLOgQ6ARsUHQ0cChgGEgMPAg4BEQMWBB0EJgUwBDcDPQFAAEIBQQJEBkoNThZNHE4TRgk8AjsBIBskGCQTHQoVBRABDwERAhUCGgMiAykDMQI1ATcAOgA7AD8CRQVMDE8RSwxEBjwBOwEdHyUgJRcgDBkFEwERARMBFgIaAh8CJAIpAisBLgAvADAAMwA5AkAGQwhBBjwDOQE7ARUaGhwcFhoMGAYUAhQAFgAZARwBHgIgASABIQAiACMAJQApAC0BMwI2AzkDOQI5ATsBDg8VFRcNGQgZBBgBGQAaABwBHgIfAh0CGwAaABoAHAAfACIAJwEsATACMwI2AjgBOwEMChAKFAcXBBkCGgEcAB4AIAEhAiEDHQIYABUAFQAXABkAHQAhACcBLAExATUBOAE7AQwHDwUSAxYBGgAdACEAIgAjAiUCJQQfAhYAEgARABIAEwAYAB4BIwEpAS8BMwE3AToBDgYTAxYBGwEfACIAJQAoACwBLQIrBSMDEwAOAA0ADQAQABQAGQAgAScBLQEyATYBOgESBBoEIgImACoALAAwADMBNQM1BjILIgYPAAsACwALAA4BEAEWAR0CJAIrAjIBNwE7ARYFIQUqAjEANAA4ADsBPgJCBkQNQBItCxMACwAKAAoBDAEPARUCHAMjAyoCMAI1AjoBGAUoBTEDNwA8AEAAQgJGBkkMSxZGIDESEwAMAAsBCwENAhIDGAQfBCYDLQMyAzYCOwEeBisFMwI5AD8AQABEAkoITA9KGUUnLhgTAg0ADQENAREDFQMbBSEFJwUtBTIDNQI7ARwGKQMwAjYBOwA9AEIBSQVODE0SRx4yFRQCDAEMAg0CEAMXBB0EIwQrBDADMwM2AjoBFgQkAyoCLwA1ADcAOgA/A0EFRAtAEi0LFQENAQwBDQEQAhUCGwIiAykDLwMzAjYCOwERBBcEHQIiASgALQAwADMBNgI1BjIJJAUWARAADgAPAREBFAEaASECKAIvAjMCNgI7AQkCDgMSAhcBHQAhACUAJwAoASoEJwUgAxgBEwASABMBFAEXARsBIQEoAi4CMwE3ATsBBAEHAQoBDgESARYAGgAdASABIgIhAh4CGgAXABYAFwAZABwAIAElASoBLwEzAjYBOwECAAMBBgEJAQ0BEAEUARgBGwEeAh8CHQEbABoAGgAbAB4AIQAlASgBLQEyAjUCNwE7AQEAAgEDAQYBCQENARABEwEYARoBHQEfAR4AHgAfACAAIgAmACoBLwE0ATYBOAE5ATsB",
@@ -14999,6 +16094,76 @@ function shadeBevel(rgba, sil, b) {
       }
     }
   }
+}
+
+// ../docx-layout/src/chain.ts
+var CONTINUATION = /* @__PURE__ */ new WeakSet();
+function indexChains(full) {
+  const out = /* @__PURE__ */ new Map();
+  const scan = (blocks) => {
+    const heads = /* @__PURE__ */ new Map();
+    const links = [];
+    forEachTextbox(blocks, (tb) => {
+      if (tb.link) links.push(tb);
+      else if (tb.story !== void 0 && !heads.has(tb.story)) heads.set(tb.story, tb);
+    });
+    if (!links.length) return;
+    for (const [id, head] of heads) {
+      const ms = links.filter((l) => l.link.id === id).sort((a, b) => a.link.seq - b.link.seq);
+      if (!ms.length) continue;
+      const chain = { members: [head, ...ms] };
+      for (const m of chain.members) out.set(m, chain);
+    }
+  };
+  scan(full.blocks);
+  const seen = /* @__PURE__ */ new Set();
+  for (const s of full.sections) {
+    for (const set of [s.headerBlocks, s.footerBlocks]) {
+      for (const bs of Object.values(set ?? {})) {
+        if (bs && !seen.has(bs)) {
+          seen.add(bs);
+          scan(bs);
+        }
+      }
+    }
+  }
+  return out;
+}
+function sliceParagraphFrom(p, offset) {
+  const runs = [];
+  let pos = 0;
+  for (const r of p.runs) {
+    const len = r.text.length;
+    if (pos + len <= offset) {
+      pos += len;
+      continue;
+    }
+    if (pos >= offset || r.field || r.fieldResult || r.image || r.textbox || r.shape || r.group || r.custom || r.math) runs.push(r);
+    else runs.push({ ...r, text: r.text.slice(offset - pos) });
+    pos += len;
+  }
+  const out = { ...p, runs };
+  CONTINUATION.add(out);
+  return out;
+}
+function topBlockOf(ref) {
+  const m = /^[^/]+\/b(\d+)/.exec(ref);
+  return m ? +m[1] : -1;
+}
+function topRowOf(ref) {
+  const m = /^[^/]+\/b\d+\/r(\d+)\//.exec(ref);
+  return m ? +m[1] : -1;
+}
+function remapLines(lines, map, cont, rows = 0) {
+  return lines.map((l) => {
+    const m = /^([^/]+)\/b(\d+)(.*)$/.exec(l.ref);
+    if (!m) return l;
+    const j = +m[2];
+    const tail = j === 0 && rows ? m[3].replace(/^\/r(\d+)/, (_s, r) => `/r${+r + rows}`) : m[3];
+    const ref = `${m[1]}/b${map[j] ?? j}${tail}`;
+    if (j !== 0 || !cont || m[3]) return ref === l.ref ? l : { ...l, ref };
+    return { ...l, ref, start: l.start + cont, end: l.end + cont, ...l.chars ? { chars: l.chars.map((c) => ({ ...c, o: c.o + cont })) } : {} };
+  });
 }
 
 // ../docx-layout/src/resolve.ts
@@ -15269,16 +16434,16 @@ var THEME_ALIAS = {
   tx2: "dk2",
   bg2: "lt2"
 };
-function rgb(hex2) {
-  return [parseInt(hex2.slice(0, 2), 16), parseInt(hex2.slice(2, 4), 16), parseInt(hex2.slice(4, 6), 16)];
+function rgb2(hex3) {
+  return [parseInt(hex3.slice(0, 2), 16), parseInt(hex3.slice(2, 4), 16), parseInt(hex3.slice(4, 6), 16)];
 }
 function toHex(r, g, b) {
   const c = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
   return (c(r) + c(g) + c(b)).toUpperCase();
 }
-function applyTintShade(hex2, tint, shade) {
-  if (!tint && !shade) return hex2.toUpperCase();
-  const [r, g, b] = rgb(hex2).map((v) => v / 255);
+function applyTintShade(hex3, tint, shade) {
+  if (!tint && !shade) return hex3.toUpperCase();
+  const [r, g, b] = rgb2(hex3).map((v) => v / 255);
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
   let l = (mx + mn) / 2;
   let h = 0, s = 0;
@@ -15345,15 +16510,15 @@ function shadingFill(shd, theme) {
 function resolveDrawingColor(spec, theme) {
   if (!spec) return void 0;
   const [head, mods] = spec.split("|");
-  const hex2 = head.startsWith("@") ? own2(theme.colors, own2(THEME_ALIAS, head.slice(1)) ?? head.slice(1)) : head;
-  if (!hex2 || !/^[0-9A-Fa-f]{6}$/.test(hex2)) return void 0;
-  if (!mods) return hex2.toUpperCase();
+  const hex3 = head.startsWith("@") ? own2(theme.colors, own2(THEME_ALIAS, head.slice(1)) ?? head.slice(1)) : head;
+  if (!hex3 || !/^[0-9A-Fa-f]{6}$/.test(hex3)) return void 0;
+  if (!mods) return hex3.toUpperCase();
   const list2 = mods.split(",").map((m) => {
     const [k, v] = m.split("=");
     const n = v === void 0 || v === "undefined" ? void 0 : parseInt(v, 10);
     return [k, n !== void 0 && Number.isFinite(n) ? n : void 0];
   });
-  const [r, g, b] = applyColorMods(rgb(hex2).map((v) => v / 255), list2);
+  const [r, g, b] = applyColorMods(rgb2(hex3).map((v) => v / 255), list2);
   return toHex(r * 255, g * 255, b * 255);
 }
 
@@ -16422,9 +17587,9 @@ function fracBox(env, f, lvl, scale, off) {
   const display = lvl === "D";
   const inner = display ? "T" : "S";
   const iscale = display ? scale : scale * (info.scriptPct / 100);
-  const num = rowBox(mathAtoms(env, f.num, inner, iscale, off));
+  const num2 = rowBox(mathAtoms(env, f.num, inner, iscale, off));
   const den = rowBox(mathAtoms(env, f.den, inner, iscale, off));
-  const first = num.items[0] ?? den.items[0];
+  const first = num2.items[0] ?? den.items[0];
   const size = first ? first.sizePt * (scale / iscale) : st.sizePt * scale;
   const em = size * 20;
   const c = (i2) => kEm(info, i2) * em;
@@ -16433,24 +17598,24 @@ function fracBox(env, f, lvl, scale, off) {
   const ruleQ = noBar ? 0 : q600(rule);
   let numShift = c(display ? K2.numUpD : K2.numUp);
   let denShift = c(display ? K2.denDownD : K2.denDown);
-  numShift = Math.max(numShift, axis + rule / 2 + c(display ? K2.numGapD : K2.numGap) + num.bottom);
+  numShift = Math.max(numShift, axis + rule / 2 + c(display ? K2.numGapD : K2.numGap) + num2.bottom);
   denShift = Math.max(denShift, den.top + c(display ? K2.denGapD : K2.denGap) - (axis - rule / 2));
   const numQ = q600(numShift), denQ = q600(denShift);
-  const w = Math.max(num.w, den.w);
-  const nx = (w - num.w) / 2, dx = (w - den.w) / 2;
+  const w = Math.max(num2.w, den.w);
+  const nx = (w - num2.w) / 2, dx = (w - den.w) / 2;
   const box = {
     w,
     items: [
-      ...num.items.map((it) => ({ ...it, x: it.x + nx, y: it.y - numQ })),
+      ...num2.items.map((it) => ({ ...it, x: it.x + nx, y: it.y - numQ })),
       ...den.items.map((it) => ({ ...it, x: it.x + dx, y: it.y + denQ }))
     ],
     rules: [
-      ...num.rules.map((r) => ({ ...r, x: r.x + nx, y: r.y - numQ })),
+      ...num2.rules.map((r) => ({ ...r, x: r.x + nx, y: r.y - numQ })),
       ...den.rules.map((r) => ({ ...r, x: r.x + dx, y: r.y + denQ }))
     ],
-    top: numQ + num.top,
+    top: numQ + num2.top,
     bottom: denQ + den.bottom,
-    lineTop: numQ + num.top + c(K2.leading),
+    lineTop: numQ + num2.top + c(K2.leading),
     lineBottom: denShift + den.bottom
   };
   if (!noBar) box.rules.push({ x: 0, y: -(axis + ruleQ / 2), w, h: ruleQ, color: st.color });
@@ -16654,8 +17819,8 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const style = {
     rpr,
     sizePt,
-    color: color2 ?? (env.darkBackground ? "FFFFFF" : "000000"),
-    autoColor: !color2,
+    color: color2 ?? env.defaultColor ?? (env.darkBackground ? "FFFFFF" : "000000"),
+    autoColor: !color2 && !env.defaultColor,
     bold: !!rpr.b,
     italic: !!rpr.i,
     underline: u,
@@ -16769,15 +17934,15 @@ function advanceTwips(ctx, face, cp, sizePt, w = 100) {
     if (typeof sw === "string") return advanceTwips(ctx, face, sw.codePointAt(0), sizePt, w) * (cp === 8239 ? 0.5 : 1);
     return sw * sizePt * 20 * w / 100;
   }
-  let frac2 = 1;
+  let frac3 = 1;
   if (gid !== 0 && (cp === 8194 || cp === 8195 || cp === 8197)) {
     const dg = f.glyphId(cp === 8194 ? 8211 : 8212);
     if (dg) {
       gid = dg;
-      frac2 = cp === 8197 ? 1 / 4 : 1;
+      frac3 = cp === 8197 ? 1 / 4 : 1;
     }
   }
-  const units = f.advanceWidth(gid) * frac2 + extra;
+  const units = f.advanceWidth(gid) * frac3 + extra;
   if (ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device") {
     return wordWidth(w !== 100 ? scaledUnits(units, f, w) : units, sizePt, f.metrics.unitsPerEm);
   }
@@ -16929,9 +18094,9 @@ function displayRuns(ctx, para, env) {
   });
   return out;
 }
-function isDark(hex2) {
-  if (!hex2 || !/^[0-9A-Fa-f]{6}/.test(hex2)) return false;
-  const r = parseInt(hex2.slice(0, 2), 16), g = parseInt(hex2.slice(2, 4), 16), b = parseInt(hex2.slice(4, 6), 16);
+function isDark(hex3) {
+  if (!hex3 || !/^[0-9A-Fa-f]{6}/.test(hex3)) return false;
+  const r = parseInt(hex3.slice(0, 2), 16), g = parseInt(hex3.slice(2, 4), 16), b = parseInt(hex3.slice(4, 6), 16);
   return 0.299 * r + 0.587 * g + 0.114 * b < 80;
 }
 var NO_LINE_END = "$([{\xA3\xA5\u2018\u201C\u3008\u300A\u300C\u300E\u3010\u3014\u3016\u301D\uFE59\uFE5B\uFE5D\uFF04\uFF08\uFF3B\uFF5B\uFF62\uFFE1\uFFE5\uFFE6";
@@ -17334,7 +18499,7 @@ function prepareParagraph(ctx, para0, env0) {
   markHyphenation(ctx, ppr, glyphs, mathRuns);
   let marker;
   const numId = ppr.numPr?.numId;
-  if (numId && env.numbering !== false) {
+  if (numId && env.numbering !== false && !env.continuation) {
     let nm = ctx.numbering.next(numId, ppr.numPr?.ilvl ?? 0);
     if (!nm && (numId === 1001 || numId === 1002)) {
       const ilvl = ppr.numPr?.ilvl ?? 0;
@@ -17363,7 +18528,7 @@ function prepareParagraph(ctx, para0, env0) {
   let jc = ppr.jc ?? "left";
   if (jc === "start") jc = "left";
   if (jc === "end") jc = "right";
-  let firstLine = ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0;
+  let firstLine = env.continuation ? 0 : ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0;
   if (mathJc && !glyphs.some((g) => !mathRuns.has(g.runIdx) && g.kind !== "lb" && g.kind !== "pb" && g.kind !== "space" && !(g.kind === "obj" && g.adv === 0))) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
@@ -17383,11 +18548,11 @@ function prepareParagraph(ctx, para0, env0) {
     firstLine,
     jc,
     tabs: (ppr.tabs ?? []).filter((t) => t.val !== "clear"),
-    spaceBefore: sp.before ?? 0,
+    spaceBefore: env.continuation ? 0 : sp.before ?? 0,
     spaceAfter: sp.after ?? 0,
     // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
     // w:before/w:after explícitos (oráculo autosphtml)
-    beforeAuto: !!sp.beforeAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
+    beforeAuto: !env.continuation && !!sp.beforeAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
     afterAuto: !!sp.afterAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
     lineRule: sp.lineRule ?? "auto",
     line: sp.line ?? 240,
@@ -17395,7 +18560,7 @@ function prepareParagraph(ctx, para0, env0) {
     keepNext: !!ppr.keepNext,
     keepLines: !!ppr.keepLines,
     widowControl: ppr.widowControl ?? false,
-    pageBreakBefore: !!ppr.pageBreakBefore,
+    pageBreakBefore: !env.continuation && !!ppr.pageBreakBefore,
     empty: glyphs.every((g) => g.kind === "pb" || g.kind === "obj" && !!(g.obj?.image?.floating || g.obj?.shape?.floating || g.obj?.group?.floating || g.obj?.textbox?.floating))
   };
   void settings;
@@ -17983,6 +19148,14 @@ function jpegInfo(b) {
   }
   return null;
 }
+function imagePixelSize(b) {
+  const jp = jpegInfo(b);
+  if (jp) return { width: jp.width, height: jp.height };
+  if (b.length > 24 && b[0] === 137 && b[1] === 80) return { width: (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, height: (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0 };
+  if (b.length > 10 && b[0] === 71 && b[1] === 73) return { width: b[6] | b[7] << 8, height: b[8] | b[9] << 8 };
+  if (b.length > 26 && b[0] === 66 && b[1] === 77) return { width: Math.abs(b[18] | b[19] << 8 | b[20] << 16 | b[21] << 24), height: Math.abs(b[22] | b[23] << 8 | b[24] << 16 | b[25] << 24) };
+  return null;
+}
 var PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
 function decodePng(b) {
   for (let k = 0; k < 8; k++) if (b[k] !== PNG_SIG[k]) return null;
@@ -18566,9 +19739,9 @@ function effectDecode(fx, components) {
   return components === 1 ? d : [...d, ...d, ...d];
 }
 function applyPictureAdjust(d, o) {
-  const hex2 = (s) => [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  const hex3 = (s) => [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
   if (o.clrChange) {
-    const [fr, fg, fb] = hex2(o.clrChange.from), [tr, tg, tb] = hex2(o.clrChange.to);
+    const [fr, fg, fb] = hex3(o.clrChange.from), [tr, tg, tb] = hex3(o.clrChange.to);
     const ta = Math.round(o.clrChange.toAlpha * 255);
     for (let i2 = 0; i2 < d.length; i2 += 4) {
       if (Math.abs(d[i2] - fr) <= 2 && Math.abs(d[i2 + 1] - fg) <= 2 && Math.abs(d[i2 + 2] - fb) <= 2) {
@@ -18580,7 +19753,7 @@ function applyPictureAdjust(d, o) {
     }
   }
   if (o.duotone) {
-    const [a, b] = [hex2(o.duotone[0]), hex2(o.duotone[1])];
+    const [a, b] = [hex3(o.duotone[0]), hex3(o.duotone[1])];
     for (let i2 = 0; i2 < d.length; i2 += 4) {
       const t = (0.2126 * d[i2] + 0.7152 * d[i2 + 1] + 0.0722 * d[i2 + 2]) / 255;
       d[i2] = Math.round(a[0] + (b[0] - a[0]) * t);
@@ -18596,8 +19769,8 @@ var EMU_PT = 12700;
 function color(c, theme) {
   if (!c) return void 0;
   const { spec, alpha } = dmlColorSpec(c);
-  const hex2 = resolveDrawingColor(spec, theme);
-  return hex2 ? { color: hex2, alpha } : void 0;
+  const hex3 = resolveDrawingColor(spec, theme);
+  return hex3 ? { color: hex3, alpha } : void 0;
 }
 function pictureLook(im, theme) {
   const f = im.format;
@@ -19921,8 +21094,8 @@ function borderBands(val, w) {
       return [ink(w)];
   }
 }
-var toWhite = (hex2, f) => {
-  const n = parseInt(hex2, 16);
+var toWhite = (hex3, f) => {
+  const n = parseInt(hex3, 16);
   return [n >> 16 & 255, n >> 8 & 255, n & 255].map((v) => Math.round(v + (255 - v) * f).toString(16).padStart(2, "0")).join("").toUpperCase();
 };
 var BORDER_DASH = {
@@ -20418,12 +21591,12 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     if (sp > cap + 0.5) return p2.map((x2) => x2 * cap / sp);
     return sp > 0 && T4 > sp + 0.5 ? p2.map((x2) => x2 * T4 / sp) : p2;
   }
-  const frac2 = Array.from({ length: nCols }, (_, j) => {
+  const frac3 = Array.from({ length: nCols }, (_, j) => {
     const own4 = all.filter((c) => c.span === 1 && c.col === j);
     if (!own4.some((c) => prefOf(c.tcW) === "pct") || own4.some((c) => prefOf(c.tcW) === "dxa")) return 0;
     return Math.max(...own4.filter((c) => prefOf(c.tcW) === "pct").map((c) => c.tcW.w / 5e3));
   });
-  const isPct = frac2.map((f) => f > 0);
+  const isPct = frac3.map((f) => f > 0);
   const kind = (c, T4) => {
     const k = prefOf(c.tcW);
     if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T4 * c.tcW.w / 5e3 };
@@ -20443,10 +21616,10 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   if (T3 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
-    const fr = Math.min(1, frac2.reduce((a, b) => a + b, 0));
+    const fr = Math.min(1, frac3.reduce((a, b) => a + b, 0));
     let t = rest;
     if (fr > 0) {
-      for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac2[j]);
+      for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac3[j]);
       if (fr < 1) t = Math.max(t, rest / (1 - fr));
     }
     T3 = Math.min(t, avail);
@@ -20456,7 +21629,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   if (isPct.some(Boolean)) {
     let room = T3 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p[j] = Math.max(0, Math.min(frac2[j] * T3, room));
+      p[j] = Math.max(0, Math.min(frac3[j] * T3, room));
       room -= p[j];
     }
     fitPctMins(p, all.filter((c) => c.span === 1), minOf, g1, (k) => isPct[k]);
@@ -21482,8 +22655,129 @@ function gradientGeometry(g, box, pathBox) {
   const [x1, y1] = rotPt(cx + dx * t1, cy + dy * t1);
   return { kind: "axial", x0, y0, x1, y1 };
 }
-function shapeExtras(s, theme) {
+function patternRaster(p, x2, y, w, h, px, k = 1) {
+  const rows = patternRows(p.prst);
+  if (!rows || w <= 0 || h <= 0) return null;
+  const i0 = Math.floor(x2 / px), j0 = Math.floor(y / px);
+  const W = Math.max(1, Math.ceil((x2 + w) / px) - i0), H = Math.max(1, Math.ceil((y + h) / px) - j0);
+  const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
+  const RW = W * k, RH = H * k;
+  const data8 = new Uint8Array(RW * RH * 4);
+  for (let y2 = 0; y2 < RH; y2++) {
+    const j = Math.floor(y2 / k);
+    const row = rows[((j0 + j) % 8 + 8) % 8];
+    for (let x22 = 0; x22 < RW; x22++) {
+      const i2 = Math.floor(x22 / k);
+      const on = row >> 7 - ((i0 + i2) % 8 + 8) % 8 & 1;
+      const c = on ? fg : bg, q = (y2 * RW + x22) * 4;
+      data8[q] = c[0];
+      data8[q + 1] = c[1];
+      data8[q + 2] = c[2];
+      data8[q + 3] = 255;
+    }
+  }
+  return { data: data8, w: RW, h: RH, x: i0 * px, y: j0 * px, cells: { w: W, h: H } };
+}
+function blipTiles(b, x2, y, w, h, emu2, natural) {
+  const t = b.tile;
+  if (!t || !natural) return [{ x: x2, y, w, h }];
+  const tw2 = natural.width * 9525 * emu2 * (t.sx / 1e5), th = natural.height * 9525 * emu2 * (t.sy / 1e5);
+  if (!(tw2 > 0) || !(th > 0)) return [{ x: x2, y, w, h }];
+  const a = t.algn ?? "tl";
+  const ax = a === "tr" || a === "r" || a === "br" ? x2 + w - tw2 : a === "t" || a === "ctr" || a === "b" ? x2 + (w - tw2) / 2 : x2;
+  const ay = a.startsWith("b") ? y + h - th : a === "l" || a === "ctr" || a === "r" ? y + (h - th) / 2 : y;
+  const ox = ax + t.tx * emu2, oy = ay + t.ty * emu2;
+  const sx0 = ox - Math.ceil((ox - x2) / tw2) * tw2, sy0 = oy - Math.ceil((oy - y) / th) * th;
+  const out = [];
+  for (let ty = sy0; ty < y + h && out.length < 4e3; ty += th) for (let tx = sx0; tx < x2 + w; tx += tw2) out.push({ x: tx, y: ty, w: tw2, h: th });
+  return out;
+}
+function isRectGradient(g) {
+  return !!g && (g.path === "rect" || g.path === "shape");
+}
+function rectGradientRaster(g, w, h, ppu) {
+  const W = Math.max(1, Math.min(2e3, Math.round(w * ppu))), H = Math.max(1, Math.min(2e3, Math.round(h * ppu)));
+  const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
+  const fx0 = f.l * W, fx1 = (1 - f.r) * W, fy0 = f.t * H, fy1 = (1 - f.b) * H;
+  const smp = gradientSamples(g.stops, 256);
+  const data8 = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const py = y + 0.5;
+    const ty = py < fy0 ? (fy0 - py) / Math.max(1e-6, fy0) : py > fy1 ? (py - fy1) / Math.max(1e-6, H - fy1) : 0;
+    for (let x2 = 0; x2 < W; x2++) {
+      const px = x2 + 0.5;
+      const tx = px < fx0 ? (fx0 - px) / Math.max(1e-6, fx0) : px > fx1 ? (px - fx1) / Math.max(1e-6, W - fx1) : 0;
+      const t = Math.min(1, Math.max(tx, ty));
+      const i2 = Math.round(t * 255) * 3, k = (y * W + x2) * 4;
+      data8[k] = smp[i2];
+      data8[k + 1] = smp[i2 + 1];
+      data8[k + 2] = smp[i2 + 2];
+      data8[k + 3] = 255;
+    }
+  }
+  return { data: data8, w: W, h: H };
+}
+function substPhClr(spec, color2) {
+  if (!spec.startsWith("@phClr")) return spec;
+  const mods = spec.split("|")[1];
+  if (!mods) return color2;
+  const [base, cm] = color2.split("|");
+  return `${base}|${[cm, mods].filter(Boolean).join(",")}`;
+}
+function withThemeStyles(s, theme) {
+  let out = s;
+  if (s.fillRef) {
+    const list2 = s.fillRef.idx >= 1e3 ? theme.bgFillStyles : theme.fillStyles;
+    const ts = list2?.[s.fillRef.idx % 1e3 - 1];
+    if (ts) {
+      const c = s.fillRef.color;
+      out = {
+        ...out,
+        ...ts.fill ? { fill: substPhClr(ts.fill, c) } : {},
+        ...ts.gradient ? { gradient: { ...ts.gradient, from: substPhClr(ts.gradient.from, c), to: substPhClr(ts.gradient.to, c), ...ts.gradient.stops ? { stops: ts.gradient.stops.map((x2) => ({ ...x2, color: substPhClr(x2.color, c) })) } : {} } } : {},
+        ...ts.pattern ? { pattern: { ...ts.pattern, fg: substPhClr(ts.pattern.fg, c), bg: substPhClr(ts.pattern.bg, c) } } : {}
+      };
+    }
+  }
+  if (s.effectRef && !s.shadow) {
+    const sh = theme.effectStyles?.[s.effectRef.idx - 1];
+    if (sh) out = { ...out, shadow: { ...sh, color: substPhClr(sh.color, s.effectRef.color) } };
+  }
+  return out;
+}
+function shapeExtras(s0, theme) {
+  const s = withThemeStyles(s0, theme);
   const out = {};
+  if (s.fx) {
+    const f = s.fx, c = (x2) => resolveDrawingColor(x2, theme) ?? "000000";
+    const fx = {};
+    if (f.inner) fx.shadow = { kind: "inner", color: c(f.inner.color), alpha: f.inner.alpha, blurPt: f.inner.blurPt, distPt: f.inner.distPt, dirDeg: f.inner.dirDeg };
+    else if (f.outer) {
+      const o = f.outer;
+      fx.shadow = {
+        kind: "outer",
+        color: c(o.color),
+        alpha: o.alpha,
+        blurPt: o.blurPt,
+        distPt: o.distPt,
+        dirDeg: o.dirDeg,
+        ...o.sx !== void 0 ? { sx: o.sx } : {},
+        ...o.sy !== void 0 ? { sy: o.sy } : {},
+        ...o.kxDeg ? { kxDeg: o.kxDeg } : {},
+        ...o.kyDeg ? { kyDeg: o.kyDeg } : {},
+        ...o.algn ? { algn: o.algn } : {},
+        ...o.rotWithShape !== void 0 ? { rotWithShape: o.rotWithShape } : {}
+      };
+    }
+    if (f.glow) fx.glow = { color: c(f.glow.color), alpha: f.glow.alpha, radPt: f.glow.radPt };
+    if (f.softEdgePt) fx.softEdgePt = f.softEdgePt;
+    if (f.reflection) fx.reflection = { ...f.reflection };
+    if (Object.keys(fx).length) out.fx = fx;
+  }
+  if (s.pattern) {
+    out.pattern = { prst: s.pattern.prst, fg: resolveDrawingColor(s.pattern.fg, theme) ?? "000000", bg: resolveDrawingColor(s.pattern.bg, theme) ?? "FFFFFF" };
+  }
+  if (s.blip) out.blip = s.blip;
   const g = s.gradient;
   if (g?.stops && g.stops.length) {
     out.grad = {
@@ -22147,13 +23441,13 @@ var Engine = class {
       const saved = this.ctx.numbering;
       const st = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       this.ctx.numbering = st;
-      const num = (para) => {
+      const num2 = (para) => {
         const n = resolvePPr(this.ctx, para, {}).ppr.numPr;
         return n?.numId ? st.next(n.numId, n.ilvl ?? 0) : null;
       };
       const visit = (b) => {
         if (b.type === "paragraph") {
-          num(b.paragraph);
+          num2(b.paragraph);
           return;
         }
         for (const row of b.rows) {
@@ -22162,7 +23456,7 @@ var Engine = class {
       };
       try {
         this.full.blocks.forEach((b, i2) => {
-          if (b.type === "paragraph") out.set(i2, num(b.paragraph));
+          if (b.type === "paragraph") out.set(i2, num2(b.paragraph));
           else visit(b);
         });
       } finally {
@@ -22678,9 +23972,9 @@ var Engine = class {
       if (name === "NOTEREF") return this.noteRefValue(instr ?? "", block, at);
       if (name === "STYLEREF") return this.styleRefValue(instr ?? "", block);
       if (name === "PAGE") {
-        const num = formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
+        const num2 = formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
         const chap = ps.geom.chap ? this.chapterOf(ps.geom.chap.level, this.pages.indexOf(ps)) : void 0;
-        return chap !== void 0 ? chap + ps.geom.chap.sep + num : num;
+        return chap !== void 0 ? chap + ps.geom.chap.sep + num2 : num2;
       }
       if (name === "NUMPAGES") {
         this.usedNumPages = true;
@@ -22812,7 +24106,7 @@ var Engine = class {
         const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
         const para = join ? this.joinHidden(join, merged, env) : merged;
-        const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {} });
+        const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {}, ...CONTINUATION.has(para) ? { continuation: true } : {} });
         if (join) p.marker = join.marker;
         join = null;
         if (p.markStyle.hidden && bi < n - 1) {
@@ -24558,6 +25852,108 @@ var Engine = class {
     }
     return last;
   }
+  /** Ambiente do texto da caixa: fundo escuro (cor automática branca) e a cor do
+   *  wps:style/a:fontRef para o texto sem cor (medido: estilo de forma "preenchido"). */
+  tbEnv(tb) {
+    const theme = this.ctx.fmt.theme;
+    const fc = tb.fontColor ? resolveDrawingColor(tb.fontColor, theme) : void 0;
+    const s = tb.shape;
+    const solid = s && !s.gradient && !s.pattern && !s.blip && !s.fillRef ? s.fill : void 0;
+    return { darkBackground: isDark(resolveDrawingColor(solid, theme)), ...fc ? { defaultColor: fc } : {} };
+  }
+  /** cadeias de caixas vinculadas (montadas na 1ª caixa que precisa) */
+  chains = null;
+  /** conteúdo de cada caixa de uma cadeia (diagramado uma vez por passada) */
+  chainSlices = /* @__PURE__ */ new Map();
+  chainOf(tb) {
+    if (tb.story === void 0 && !tb.link) return void 0;
+    this.chains ??= indexChains(this.full);
+    return this.chains.get(tb);
+  }
+  /**
+   * Pedaço do conteúdo da cadeia que cabe na caixa `tb`: o conteúdo da 1ª caixa é
+   * diagramado na largura de cada caixa, em ordem; o corte (o mesmo da linha de tabela
+   * partida: viúvas/órfãs, espaço depois) manda o resto para a seguinte, que quebra de
+   * novo na largura dela — o parágrafo partido continua sem recuo da 1ª linha e sem
+   * espaço antes. A última fica com tudo o que sobra (transborda). Oráculo txbxlink.
+   */
+  chainSlice(chain, tb, env0) {
+    let slices = this.chainSlices.get(chain);
+    if (!slices) {
+      const out = /* @__PURE__ */ new Map();
+      slices = out;
+      this.chainSlices.set(chain, out);
+      const theme = this.ctx.fmt.theme;
+      const head = chain.members[0];
+      let rem = head.blocks ?? head.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
+      let map = rem.map((_, i2) => i2);
+      let cont = 0, rows = 0;
+      const empty = () => ({ items: [], lines: [], height: 0 });
+      chain.members.forEach((m, k) => {
+        if (!rem.length) {
+          out.set(m, empty());
+          return;
+        }
+        const fr = tbFrame(m, theme, m.widthTwips, m.heightTwips);
+        const env = { ...env0, ...this.tbEnv(m) };
+        const blocks = rem, curMap = map, curCont = cont, curRows = rows;
+        const c = this.ctx.pure(() => this.layoutStatic(blocks, 0, Math.max(1, fr.iw), env, "txbx"));
+        const ci = curCont ? c.paras?.get("txbx/b0") : void 0;
+        if (ci) c.paras.set("txbx/b0", { ...ci, lines: ci.lines + 1 });
+        let slice = c;
+        rem = [];
+        if (k < chain.members.length - 1) {
+          let parts = splitContent(c, fr.ih);
+          if (!parts) {
+            out.set(m, empty());
+            rem = blocks;
+            return;
+          }
+          let cut = parts[0].height;
+          let moved = c.lines.filter((l) => l.y >= cut - 0.01);
+          let first = moved.length ? moved.reduce((a, b) => b.y < a.y ? b : a) : void 0;
+          let row = first ? topRowOf(first.ref) : -1;
+          if (first && row >= 0) {
+            const jt = topBlockOf(first.ref), r0 = row;
+            const nr = c.nest?.find((n) => n.lines.some((l) => topBlockOf(l.ref) === jt && topRowOf(l.ref) === r0));
+            if (nr && nr.top < cut - 0.01) {
+              const p2 = nr.top > 0.5 ? splitContent(c, nr.top) : null;
+              if (!p2) {
+                out.set(m, empty());
+                rem = blocks;
+                return;
+              }
+              parts = p2;
+              cut = p2[0].height;
+              moved = c.lines.filter((l) => l.y >= cut - 0.01);
+              first = moved.reduce((a, b) => b.y < a.y ? b : a);
+              row = topRowOf(first.ref);
+            }
+          }
+          if (first) {
+            slice = { ...parts[0], height: cut };
+            const j = Math.max(0, topBlockOf(first.ref));
+            const off = /^[^/]+\/b\d+$/.test(first.ref) ? first.start : 0;
+            map = curMap.slice(j);
+            const pb = blocks[j];
+            cont = 0;
+            rows = 0;
+            if (off > 0 && pb?.type === "paragraph") {
+              cont = (j === 0 ? curCont : 0) + off;
+              rem = [{ type: "paragraph", paragraph: sliceParagraphFrom(pb.paragraph, off) }, ...blocks.slice(j + 1)];
+            } else if (row > 0 && pb?.type === "table") {
+              rows = (j === 0 ? curRows : 0) + row;
+              rem = [{ ...pb, rows: pb.rows.slice(row) }, ...blocks.slice(j + 1)];
+            } else {
+              rem = blocks.slice(j);
+            }
+          }
+        }
+        out.set(m, { ...slice, lines: remapLines(slice.lines, curMap, curCont, curRows) });
+      });
+    }
+    return slices.get(tb) ?? { items: [], lines: [], height: 0 };
+  }
   placeFloats(p, ps, colX, colW, paraTop, flowItems, yOrigin, paraRef) {
     for (const g of p.glyphs) {
       const run = g.obj;
@@ -24570,7 +25966,7 @@ var Engine = class {
   }
   placeFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, clampBottom, paraRef) {
     const g = ps.geom;
-    if (run.image?.floating && run.image.format?.docPr.hidden) {
+    if (run.image?.floating && run.image.format?.docPr.hidden || run.textbox?.hidden || run.shape?.hidden || run.group?.hidden) {
       return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: [] }, obj: { run, x: 0, y: 0, w: 0, h: 0, layer: "front", hf: this.inHf } };
     }
     const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
@@ -24580,12 +25976,16 @@ var Engine = class {
     const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
     let tbContent = null;
     let tbFinal = null;
-    if (run.textbox) {
+    const chain = run.textbox ? this.chainOf(run.textbox) : void 0;
+    if (run.textbox && chain) {
+      tbContent = this.chainSlice(chain, run.textbox, { field: this.fieldValue(ps), ...this.inHf ? { hf: true } : {} });
+    } else if (run.textbox) {
       const tb = run.textbox;
-      const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
+      const fr = tbFrame(tb, this.ctx.fmt.theme, w, h);
+      const ins = fr.ins;
       const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
-      let inner = w - ins.l - ins.r;
+      const env = { field: this.fieldValue(ps), ...this.tbEnv(tb), ...this.inHf ? { hf: true } : {} };
+      let inner = fr.iw;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
         const probe = this.ctx.pure(() => this.layoutStatic(blocks, 0, colW, env, "txbx"));
@@ -24607,16 +26007,19 @@ var Engine = class {
       }
       const iw = Math.max(1, inner);
       tbContent = this.ctx.pure(() => this.layoutStatic(blocks, 0, iw, env, "txbx"));
-      tbFinal = (bx, by) => {
-        const prevDx = this.staticDx;
-        this.staticDx = bx + ins.l;
-        try {
-          return this.layoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.t);
-        } finally {
-          this.staticDx = prevDx;
-        }
-      };
-      if (tb.autoFit) h = tbContent.height + ins.t + ins.b;
+      if (!fr.rot) {
+        tbFinal = (bx, by) => {
+          const prevDx = this.staticDx;
+          this.staticDx = bx + ins.l;
+          try {
+            return this.layoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.t);
+          } finally {
+            this.staticDx = prevDx;
+          }
+        };
+      }
+      if (tb.autoFit && fr.rot) w = verticalHeight(tbContent) + ins.t + ins.b;
+      else if (tb.autoFit) h = tbContent.height + ins.t + ins.b;
       if (fi) h = fi.hRule === "exact" ? fi.h : fi.hRule === "atLeast" ? Math.max(fi.h, tbContent.height) : tbContent.height;
     }
     let x2, y;
@@ -24674,6 +26077,7 @@ var Engine = class {
       hf: this.inHf,
       frame: { colX, colW, paraTop: paraRef ?? paraTop, pageW: g.pageW, pageH: g.pageH, marL: g.marL, marR: g.marR, marT: g.marT, marB: g.marB, bodyTop: Math.max(g.marT, ps.bodyTop ?? g.marT) }
     };
+    if (run.textbox && tbContent) obj.content = tbContentPlacement(run.textbox, this.ctx.fmt.theme, x2, y, w, h, tbContent);
     (ps.page.objects ??= []).push(obj);
     const frameFlow = this.inHf && !!run.textbox && FRAME_INFO.has(run.textbox);
     let inFlow;
@@ -24749,9 +26153,9 @@ var Engine = class {
       const x2 = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
       let tc = null;
       if (r.textbox) {
-        const ins = tbInsets(r.textbox, this.ctx.fmt.theme, w, h);
         const blocks = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-        tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, "itb", ps);
+        const chain = this.chainOf(r.textbox);
+        tc = chain ? this.chainSlice(chain, r.textbox, {}) : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, w, h).iw), { ...this.tbEnv(r.textbox) }, "itb", ps);
       }
       const drawn = this.paintObject(r, x2, y, w, h, tc, ps ?? this.cur);
       if (out === this.cur.body) this.cur.front.push({ z: 0, seq: this.zSeq++, items: drawn });
@@ -24785,21 +26189,22 @@ var Engine = class {
       });
     } else if (run.shape) {
       const s = run.shape.style;
-      const fill = resolveDrawingColor(s.fill, theme);
+      const fill = resolveDrawingColor(withThemeStyles(s, theme).fill, theme);
       const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
       const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw, ...s.line.dash ? { dash: s.line.dash } : {} } : void 0;
       out.push({ t: "shape", x: x2, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...run.shape.line ? { line: run.shape.line } : {}, ...shapeExtras(s, theme) });
     } else if (run.textbox) {
       const tb = run.textbox;
       const s = tb.shape;
-      if (s && (s.fill || s.line)) {
-        const fill = resolveDrawingColor(s.fill, theme);
+      if (s && (s.fill || s.line || s.gradient || s.pattern || s.blip)) {
+        const fill = resolveDrawingColor(withThemeStyles(s, theme).fill, theme);
         const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
-        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw } : void 0;
+        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw, ...s.line.dash ? { dash: s.line.dash } : {} } : void 0;
         out.push({ t: "shape", x: x2, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...shapeExtras(s, theme) });
       }
       if (tbContent) {
-        const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
+        const fr = tbFrame(tb, this.ctx.fmt.theme, w, h);
+        const ins = fr.ins;
         const rot = tb.rot ?? s?.rot ?? 0;
         let art = null;
         if (tb.wordArt && tbContent.lines.length) {
@@ -24825,6 +26230,10 @@ var Engine = class {
           out.push({ t: "xform", op: "push", m: art.m });
           for (const it of tbContent.items) out.push(it.t === "glyphs" ? { ...it, asPath: true } : it);
           out.push({ t: "xform", op: "pop" });
+        } else if (fr.rot) {
+          out.push({ t: "clip", op: "push", x: x2, y, w, h });
+          out.push(...verticalContent(tbContent, fr, tb.vAnchor, x2, y, w, h));
+          out.push({ t: "clip", op: "pop" });
         } else {
           let dy = y + ins.t;
           const free = h - ins.t - ins.b - tbContent.height;
@@ -24859,9 +26268,9 @@ var Engine = class {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x2, y, w, h);
         let tc = null;
         if (r.textbox) {
-          const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} }, "grp", ps);
+          const chain = this.chainOf(item.run.textbox);
+          tc = chain ? this.chainSlice(chain, item.run.textbox, { field: this.fieldValue(ps), ...this.inHf ? { hf: true } : {} }) : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, iw, ih).iw), { field: this.fieldValue(ps), ...this.tbEnv(r.textbox), ...this.inHf ? { hf: true } : {} }, "grp", ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }
@@ -24923,7 +26332,73 @@ function tbInsets(tb, theme, w, h) {
   const half = lw * 10;
   return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
 }
+function vertKind(v) {
+  switch (v) {
+    case "vert":
+    case "eaVert":
+      return 90;
+    case "vert270":
+      return 270;
+    case "mongolianVert":
+    case "wordArtVert":
+    case "wordArtVertRtl":
+      return -90;
+    default:
+      return 0;
+  }
+}
+function tbFrame(tb, theme, w, h) {
+  const p = tbInsets(tb, theme, w, h);
+  const rot = vertKind(tb.vert);
+  if (rot === 90) return { ins: { l: p.t, t: p.r, r: p.b, b: p.l }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  if (rot === 270) return { ins: { l: p.b, t: p.l, r: p.t, b: p.r }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  if (rot === -90) return { ins: { l: p.t, t: p.l, r: p.b, b: p.r }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  return { ins: p, iw: w - p.l - p.r, ih: h - p.t - p.b, rot };
+}
+function verticalMatrix(rot, x2, y, w, h) {
+  return rot === 270 ? [0, -1, 1, 0, x2, y + h] : [0, 1, -1, 0, x2 + w, y];
+}
+var VERT_PITCH = 1 / 36.8;
+function verticalBands(c) {
+  const ls = [...c.lines].sort((a, b) => a.y - b.y);
+  let acc = 0;
+  return ls.map((l) => {
+    const b = { y0: l.y, y1: l.y + l.height, add: acc };
+    acc += l.height * VERT_PITCH;
+    return b;
+  });
+}
+function verticalHeight(c) {
+  return c.height + c.lines.reduce((a, l) => a + l.height * VERT_PITCH, 0);
+}
+function verticalContent(c, fr, vAnchor, x2, y, w, h) {
+  const lh = w;
+  let dy = fr.ins.t;
+  const free = lh - fr.ins.t - fr.ins.b - verticalHeight(c);
+  if (vAnchor === "ctr" && free > 0) dy += free / 2;
+  else if (vAnchor === "b" && free > 0) dy += free;
+  const out = [{ t: "xform", op: "push", m: verticalMatrix(fr.rot, x2, y, w, h) }];
+  const bands = verticalBands(c);
+  const shiftOf = (y0, y1) => {
+    const mid = (y0 + y1) / 2;
+    const b = bands.find((q) => mid >= q.y0 - 0.5 && mid <= q.y1 + 0.5) ?? [...bands].reverse().find((q) => q.y0 <= mid);
+    const add = b?.add ?? 0;
+    if (fr.rot !== -90) return dy + add;
+    const a0 = (b ? b.y0 : y0) + add, a1 = (b ? b.y1 : y1) + add;
+    return lh - (dy + a1) - a0 + add;
+  };
+  for (const it of c.items) {
+    const r = it;
+    const d = it.t === "glyphs" ? shiftOf(it.y, it.y) : it.t === "line" ? shiftOf(Math.min(it.y1, it.y2), Math.max(it.y1, it.y2)) : r.y !== void 0 ? shiftOf(r.y, r.y + (r.h ?? 0)) : dy;
+    out.push(shiftItem(it, d, fr.ins.l));
+  }
+  out.push({ t: "xform", op: "pop" });
+  return out;
+}
 function textRectInsets(g, w, h) {
+  const names = g.adj ? Object.keys(g.adj) : void 0;
+  const tr = presetTextRect(g.prst, w, h, names?.map((n) => g.adj[n]), names);
+  if (tr) return { l: tr.l, t: tr.t, r: w - tr.r, b: h - tr.b };
   switch (g.prst) {
     case "roundRect": {
       const i2 = Math.min(w, h) * (g.adj?.["adj"] ?? 16667) / 1e5 * 0.29289;
@@ -25055,6 +26530,34 @@ function cullOffPage(items, pageW, pageH) {
   if (!outside.size) return items;
   return items.filter((it) => !outside.has(it) || it.t === "glyphs" && !!it.lineBox && lineIn.has(it.lineBox.line));
 }
+var mulM = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+function tbContentPlacement(tb, theme, x2, y, w, h, c) {
+  const fr = tbFrame(tb, theme, w, h);
+  const ins = fr.ins;
+  const rot = tb.upright ? 0 : tb.rot ?? tb.shape?.rot ?? 0;
+  const around = rot ? rotation(x2 + w / 2, y + h / 2, rot) : [1, 0, 0, 1, 0, 0];
+  if (tb.wordArt) return { lines: [], xf: around };
+  if (!fr.rot) {
+    let dy2 = ins.t;
+    const free2 = h - ins.t - ins.b - c.height;
+    if (tb.vAnchor === "ctr" && free2 > 0) dy2 += free2 / 2;
+    else if (tb.vAnchor === "b" && free2 > 0) dy2 += free2;
+    return { lines: c.lines, xf: mulM(around, [1, 0, 0, 1, x2 + ins.l, y + dy2]) };
+  }
+  const lh = w;
+  let dy = ins.t;
+  const free = lh - ins.t - ins.b - verticalHeight(c);
+  if (tb.vAnchor === "ctr" && free > 0) dy += free / 2;
+  else if (tb.vAnchor === "b" && free > 0) dy += free;
+  const bands = verticalBands(c);
+  const lines = c.lines.map((l) => {
+    const b = bands.find((q) => Math.abs(q.y0 - l.y) < 0.01);
+    const add = b?.add ?? 0;
+    const sh = fr.rot === -90 ? lh - (dy + l.y + add + l.height) - l.y : dy + add;
+    return { ...l, x: l.x + ins.l, y: l.y + sh, baseline: l.baseline + sh, ...l.chars ? { chars: l.chars.map((q) => ({ ...q, x: q.x + ins.l })) } : {} };
+  });
+  return { lines, xf: mulM(around, verticalMatrix(fr.rot, x2, y, w, h)) };
+}
 function rotation(cx, cy, deg) {
   const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
   return [c, s, -s, c, cx - cx * c + cy * s, cy - cx * s - cy * c];
@@ -25161,10 +26664,10 @@ function shapeSubs(look, w, h, flipH, flipV) {
     }
   }));
 }
-var rgb2 = (hex2) => [parseInt(hex2.slice(0, 2), 16), parseInt(hex2.slice(2, 4), 16), parseInt(hex2.slice(4, 6), 16)];
-function colored(m, hex2, alpha) {
+var rgb3 = (hex3) => [parseInt(hex3.slice(0, 2), 16), parseInt(hex3.slice(2, 4), 16), parseInt(hex3.slice(4, 6), 16)];
+function colored(m, hex3, alpha) {
   const out = new Uint8Array(m.w * m.h * 4);
-  const [r, g, b] = rgb2(hex2);
+  const [r, g, b] = rgb3(hex3);
   for (let i2 = 0; i2 < m.a.length; i2++) {
     out[i2 * 4] = r;
     out[i2 * 4 + 1] = g;
@@ -25206,6 +26709,72 @@ function bounds(look, w, h) {
     grow(dx - r.blurPt - lw, h + dy - r.blurPt, w + dx + r.blurPt + lw, 2 * h + dy + r.blurPt + lw);
   }
   return { x0, y0, x1, y1 };
+}
+function paintShapeEffectsPdf(page, it, embedRgba, drawBody) {
+  const fx = it.fx ?? {};
+  const st = it.style;
+  const w = it.w / T, h = it.h / T;
+  const rot = (st.rot ?? 0) * Math.PI / 180, cos = Math.cos(rot), sin = Math.sin(rot);
+  const cx = it.x / T + w / 2, cy = it.y / T + h / 2;
+  const M = [cos, sin, -sin, cos, cx - cos * w / 2 + sin * h / 2, cy - sin * w / 2 - cos * h / 2];
+  const rectMatrix = (x2, y, rw, rh) => [M[0] * rw, M[1] * rw, M[2] * rh, M[3] * rh, M[0] * x2 + M[2] * y + M[4], M[1] * x2 + M[3] * y + M[5]];
+  const draw = (img, m) => page.drawImageMatrix(img, m[0], m[1], m[2], m[3], m[4], m[5]);
+  const lw0 = it.stroke?.widthPt ?? 0;
+  const look = { ...fx, geom: { prst: st.geom === "custom" ? "rect" : st.geom, ...st.adj ? { adj: st.adj } : {} }, ...lw0 ? { line: { color: "000000", alpha: 1, widthPt: lw0 / 2 } } : {} };
+  const bb = bounds(look, w, h);
+  let ppt = PPT;
+  const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+  if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+  const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+  const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+  const subs = shapeSubs(look, w, h, !!st.flipH, !!st.flipV);
+  const area0 = fillPolygons(newMask(W, H), flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35));
+  const filled = !!(it.fill || it.grad || it.pattern || it.blip);
+  const lwPx = (it.stroke?.widthPt ?? 0) * ppt;
+  let sil = area0;
+  if (!filled && lwPx > 0) {
+    const r2 = Math.max(1, lwPx / 2);
+    const outer = morph(area0, r2), inner = morph(area0, -r2);
+    sil = newMask(W, H);
+    for (let i2 = 0; i2 < sil.a.length; i2++) sil.a[i2] = Math.max(0, outer.a[i2] - inner.a[i2]);
+  }
+  const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+  const layerMatrix = rectMatrix(bb.x0, bb.y0, W / ppt, H / ppt);
+  const fillHex = it.fill ?? it.grad?.stops[0]?.color ?? it.pattern?.fg ?? it.stroke?.color ?? "FFFFFF";
+  const s = fx.shadow;
+  if (s?.kind === "outer") {
+    const dir = s.rotWithShape ? s.dirDeg : s.dirDeg - (st.rot ?? 0);
+    const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+    draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
+  if (fx.glow) draw(embedRgba(colored(glowMask(sil, fx.glow.radPt, ppt), fx.glow.color, fx.glow.alpha), W, H), layerMatrix);
+  const soft = fx.softEdgePt ? softEdgeMask(sil, fx.softEdgePt, ppt) : null;
+  const r = fx.reflection;
+  if (r) {
+    const a = r.dirDeg * Math.PI / 180;
+    const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+    let m = newMask(W, H);
+    const src = soft ?? sil;
+    const top = oy + h * ppt + dy;
+    for (let y = 0; y < H; y++) {
+      const sy = Math.round(2 * (oy + h * ppt) + dy - y - 1);
+      const t = (y + 0.5 - top) / (h * ppt);
+      const al = t < 0 ? 0 : reflectionAlpha(t, r);
+      if (sy < 0 || sy >= H || al <= 0) continue;
+      for (let x2 = 0; x2 < W; x2++) {
+        const sx = Math.round(x2 - dx);
+        if (sx >= 0 && sx < W) m.a[y * W + x2] = src.a[sy * W + sx] * al;
+      }
+    }
+    if (r.blurPt > 0) m = gaussianBlur(m, r.blurPt / 3 * ppt);
+    draw(embedRgba(colored(m, fillHex, 1), W, H), layerMatrix);
+  }
+  if (soft) draw(embedRgba(colored(soft, fillHex, st.fillAlpha ?? 1), W, H), layerMatrix);
+  else drawBody();
+  if (s?.kind === "inner" && filled) {
+    const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+    draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
 }
 function paintPicturePdf(page, it, env) {
   const look = it.pic ?? {};
@@ -25335,7 +26904,7 @@ function paintPicturePdf(page, it, env) {
     outer.push({ op: "Z" });
     page.pushClipPath([...outer, ...cmds(polysLocal)], true);
     const dash = ln2.dash ? DASH[ln2.dash]?.map((v) => v * ln2.widthPt) : void 0;
-    page.withAlpha(void 0, ln2.alpha < 1 ? ln2.alpha : void 0, () => page.path(cmds(polysLocal), void 0, { color: rgb2(ln2.color).map((v) => v / 255), widthPt: 2 * ln2.widthPt, ...dash ? { dash } : {} }));
+    page.withAlpha(void 0, ln2.alpha < 1 ? ln2.alpha : void 0, () => page.path(cmds(polysLocal), void 0, { color: rgb3(ln2.color).map((v) => v / 255), widthPt: 2 * ln2.widthPt, ...dash ? { dash } : {} }));
     page.popClip();
   }
   void gaussianBlur;
@@ -25486,7 +27055,7 @@ function renderPdf(result, opts = {}) {
     const page = doc.addPage(lp.widthTw / T2, lp.heightTw / T2);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T2, lp.heightTw / T2, hexColor(lp.background));
     if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h));
   }
   return doc.build();
 }
@@ -25558,7 +27127,7 @@ function glyphsAsPath(page, it) {
   page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color2, stroke));
   return true;
 }
-function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
+function paintItem(page, it, fontFor, imageFor, shade, pictureEnv, embedRgba) {
   switch (it.t) {
     case "glyphs": {
       if (it.asPath && glyphsAsPath(page, it)) return;
@@ -25620,10 +27189,14 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
       return;
     }
     case "shape": {
+      if (it.fx && embedRgba && it.style.geom !== "line") {
+        paintShapeEffectsPdf(page, it, embedRgba, () => paintItem(page, { ...it, fx: void 0, shadow: void 0 }, fontFor, imageFor, shade, pictureEnv, embedRgba));
+        return;
+      }
       const st = it.style;
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : void 0;
       const stroke = it.stroke && /^[0-9A-Fa-f]{6}$/.test(it.stroke.color) ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {} } : void 0;
-      if (!fill && !stroke && !it.grad) return;
+      if (!fill && !stroke && !it.grad && !it.pattern && !it.blip) return;
       const x2 = it.x / T2, y = it.y / T2, w = it.w / T2, h = it.h / T2;
       const isLine = st.geom === "line" || st.geom.startsWith("straightConnector");
       const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
@@ -25645,6 +27218,41 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
           const sc = p.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { ...c, x1: c.x1 + dx, y1: c.y1 + dy, x2: c.x2 + dx, y2: c.y2 + dy, x: c.x + dx, y: c.y + dy } : { ...c, x: c.x + dx, y: c.y + dy });
           page.withAlpha(it.shadow.alpha, it.shadow.alpha, () => page.path(sc, p.fill && (fill || it.grad) ? col : void 0, p.stroke && stroke ? { ...stroke, color: col } : void 0, p.evenOdd));
         }
+      }
+      if ((it.pattern || it.blip) && embedRgba) {
+        const fillParts = parts.filter((p) => p.fill);
+        for (const p of fillParts) {
+          page.pushClipPath(p.cmds, p.evenOdd);
+          if (it.pattern) {
+            const pr = patternRaster(it.pattern, x2, y, w, h, 0.75, 4);
+            if (pr) page.drawImage(embedRgba(pr.data, pr.w, pr.h), pr.x, pr.y, pr.cells.w * 0.75, pr.cells.h * 0.75);
+          } else if (it.blip) {
+            const im = imageFor(it.blip.image);
+            const nat = imagePixelSize(it.blip.image.data);
+            if (im) page.withAlpha(it.blip.alpha, void 0, () => {
+              for (const t of blipTiles(it.blip, x2, y, w, h, 1 / 12700, nat)) page.drawImage(im, t.x, t.y, t.w, t.h);
+            });
+          }
+          page.popClip();
+        }
+        if (stroke) {
+          for (const p of parts) if (p.stroke) page.withAlpha(void 0, st.line?.alpha, () => page.path(p.cmds, void 0, stroke));
+        }
+        return;
+      }
+      if (it.grad && isRectGradient(it.grad) && embedRgba) {
+        const r = rectGradientRaster(it.grad, w, h, 2);
+        const im = embedRgba(r.data, r.w, r.h);
+        for (const p of parts) {
+          if (!p.fill) continue;
+          page.pushClipPath(p.cmds, p.evenOdd);
+          page.withAlpha(st.fillAlpha, void 0, () => page.drawImageTransformed(im, x2, y, w, h, st.rot ?? 0, !!st.flipH, !!st.flipV));
+          page.popClip();
+        }
+        if (stroke) {
+          for (const p of parts) if (p.stroke) page.withAlpha(void 0, st.line?.alpha, () => page.path(p.cmds, void 0, stroke));
+        }
+        return;
       }
       if (it.grad) {
         const pb = pathBounds(parts.flatMap((p) => p.cmds));
@@ -25823,12 +27431,12 @@ function tracePath(c, polys) {
     c.closePath();
   }
 }
-var rgb3 = (hex2) => [parseInt(hex2.slice(0, 2), 16), parseInt(hex2.slice(2, 4), 16), parseInt(hex2.slice(4, 6), 16)];
-function maskToCanvas(m, hex2, alpha) {
+var rgb4 = (hex3) => [parseInt(hex3.slice(0, 2), 16), parseInt(hex3.slice(2, 4), 16), parseInt(hex3.slice(4, 6), 16)];
+function maskToCanvas(m, hex3, alpha) {
   const c = canvas(m.w, m.h);
   const x2 = ctx2d(c);
   const img = x2.createImageData(m.w, m.h);
-  const [r, g, b] = rgb3(hex2);
+  const [r, g, b] = rgb4(hex3);
   for (let i2 = 0; i2 < m.a.length; i2++) {
     const k = i2 * 4;
     img.data[k] = r;
@@ -25973,6 +27581,97 @@ function buildLayer(it, bmp, ppt0) {
   }
   o.drawImage(shape, 0, 0);
   return { c: out, x0: bb.x0, y0: bb.y0, ppt };
+}
+var shapeCache = /* @__PURE__ */ new Map();
+function paintShapeEffects(ctx, it, drawBody) {
+  const fx = it.fx ?? {};
+  const m0 = ctx.getTransform();
+  let ppt = Math.max(0.5, Math.min(8, Math.hypot(m0.a, m0.b) * 20));
+  const w = it.w / 20, h = it.h / 20;
+  const lw = it.stroke?.widthPt ?? 0;
+  const look = { ...fx, ...lw ? { line: { color: "000000", alpha: 1, widthPt: lw / 2 } } : {} };
+  const key = JSON.stringify([it.style, it.fill, it.stroke, it.grad, it.pattern, fx, it.w, it.h, it.blip ? it.blip.image.data.length : 0, Math.round(ppt * 50)]);
+  let layer = shapeCache.get(key);
+  if (!layer) {
+    const bb = bounds2(look, w, h);
+    const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+    if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+    const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+    const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+    const body = canvas(W, H);
+    const bc = ctx2d(body);
+    bc.translate(ox, oy);
+    drawBody(bc, ppt / 20);
+    bc.setTransform(1, 0, 0, 1, 0, 0);
+    const sil = newMask(W, H);
+    {
+      const d = bc.getImageData(0, 0, W, H).data;
+      for (let i2 = 0; i2 < sil.a.length; i2++) sil.a[i2] = d[i2 * 4 + 3] / 255;
+    }
+    const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+    const s = fx.shadow;
+    if (s?.kind === "inner" && (it.fill || it.grad || it.pattern || it.blip)) {
+      const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+      bc.globalCompositeOperation = "source-atop";
+      bc.drawImage(maskToCanvas(m, s.color, s.alpha), 0, 0);
+      bc.globalCompositeOperation = "source-over";
+    }
+    if (fx.softEdgePt) {
+      const m = softEdgeMask(sil, fx.softEdgePt, ppt);
+      const img = bc.getImageData(0, 0, W, H);
+      for (let i2 = 0; i2 < m.a.length; i2++) img.data[i2 * 4 + 3] = Math.round(img.data[i2 * 4 + 3] * m.a[i2]);
+      bc.putImageData(img, 0, 0);
+    }
+    const out = canvas(W, H);
+    const o = ctx2d(out);
+    if (s?.kind === "outer") {
+      const dir = s.rotWithShape === false || s.rotWithShape === void 0 ? s.dirDeg - (it.style.rot ?? 0) : s.dirDeg;
+      const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+      o.drawImage(maskToCanvas(m, s.color, s.alpha), 0, 0);
+    }
+    if (fx.glow) o.drawImage(maskToCanvas(glowMask(sil, fx.glow.radPt, ppt), fx.glow.color, fx.glow.alpha), 0, 0);
+    const r = fx.reflection;
+    if (r) {
+      const rc = canvas(W, H), rx = ctx2d(rc);
+      const a = r.dirDeg * Math.PI / 180;
+      const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+      rx.translate(dx, 2 * (oy + h * ppt) + dy);
+      rx.scale(1, -1);
+      rx.drawImage(body, 0, 0);
+      rx.setTransform(1, 0, 0, 1, 0, 0);
+      const img = rx.getImageData(0, 0, W, H);
+      const top = oy + h * ppt + dy;
+      for (let y = 0; y < H; y++) {
+        const t = (y + 0.5 - top) / (h * ppt);
+        const al = t < 0 ? 0 : reflectionAlpha(t, r);
+        for (let x2 = 0; x2 < W; x2++) img.data[(y * W + x2) * 4 + 3] = Math.round(img.data[(y * W + x2) * 4 + 3] * al);
+      }
+      if (r.blurPt > 0) {
+        const ch = [0, 1, 2, 3].map((k) => {
+          const m = newMask(W, H);
+          for (let i2 = 0; i2 < m.a.length; i2++) m.a[i2] = (k === 3 ? img.data[i2 * 4 + 3] : img.data[i2 * 4 + k] * img.data[i2 * 4 + 3] / 255) / 255;
+          return gaussianBlur(m, r.blurPt / 3 * ppt).a;
+        });
+        for (let i2 = 0; i2 < W * H; i2++) {
+          const al = ch[3][i2];
+          img.data[i2 * 4 + 3] = Math.round(al * 255);
+          for (let k = 0; k < 3; k++) img.data[i2 * 4 + k] = al > 0 ? Math.round(ch[k][i2] / al * 255) : 0;
+        }
+      }
+      rx.putImageData(img, 0, 0);
+      o.drawImage(rc, 0, 0);
+    }
+    o.drawImage(body, 0, 0);
+    layer = { c: out, x0: bb.x0, y0: bb.y0, ppt };
+    if (shapeCache.size > 32) shapeCache.clear();
+    shapeCache.set(key, layer);
+  }
+  ctx.save();
+  ctx.translate(it.x + it.w / 2, it.y + it.h / 2);
+  if (it.style.rot) ctx.rotate(it.style.rot * Math.PI / 180);
+  const sc = 20 / layer.ppt;
+  ctx.drawImage(layer.c, layer.x0 * 20 - it.w / 2, layer.y0 * 20 - it.h / 2, layer.c.width * sc, layer.c.height * sc);
+  ctx.restore();
 }
 function paintPicture(ctx, it, bmp) {
   const b = bmp;
@@ -26262,23 +27961,137 @@ function strokeWith(ctx, color2, widthPt, dash) {
   ctx.setLineDash([]);
 }
 function paintShape(ctx, it, env, base) {
+  if (it.fx && it.style.geom !== "line") {
+    const local = { ...it, x: 0, y: 0, style: { ...it.style, rot: 0 }, fx: void 0, shadow: void 0 };
+    paintShapeEffects(ctx, it, (c, s) => {
+      c.scale(s, s);
+      paintShape(c, local, env, 1);
+    });
+    return;
+  }
+  const st = it.style;
   const fill = it.fill && HEX6.test(it.fill) ? env.color(it.fill) : void 0;
   const stroke = it.stroke && HEX6.test(it.stroke.color) ? it.stroke : void 0;
-  if (!fill && !stroke) return;
-  let cmds = shapePath(it.style.geom, it.x, it.y, it.w, it.h, it.line, !!it.style.flipH, !!it.style.flipV);
-  if (it.style.rot) cmds = rotatePath2(cmds, it.x + it.w / 2, it.y + it.h / 2, it.style.rot);
-  ctx.beginPath();
-  tracePath2(ctx, cmds);
-  if (fill && it.style.geom !== "line") {
-    ctx.globalAlpha = base * (it.style.fillAlpha ?? 1);
+  if (!fill && !stroke && !it.grad && !it.pattern && !it.blip) return;
+  const { x: x2, y, w, h } = it;
+  const isLine = st.geom === "line" || st.geom.startsWith("straightConnector");
+  const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
+  let parts;
+  if (isLine) {
+    let cmds = shapePath("line", x2, y, w, h, it.line, !!st.flipH, !!st.flipV);
+    if (st.rot) cmds = rotatePath2(cmds, x2 + w / 2, y + h / 2, st.rot);
+    parts = [{ cmds, fill: false, stroke: true, evenOdd: false }];
+  } else if (st.geom === "custom" && st.cust) {
+    parts = custPaths(st.cust, x2, y, w, h, xf).map((p) => ({ cmds: p.cmds, fill: p.fill, stroke: p.stroke, evenOdd: true }));
+  } else {
+    parts = [{ cmds: presetPath(st.geom, x2, y, w, h, { ...st.adj ? { adj: st.adj } : {}, ...xf }), fill: !OPEN_PRESETS.has(st.geom), stroke: true, evenOdd: false }];
+  }
+  const fillPart = (p) => {
+    ctx.beginPath();
+    tracePath2(ctx, p.cmds);
+    ctx.fill(p.evenOdd ? "evenodd" : "nonzero");
+  };
+  const strokePart = (p) => {
+    ctx.beginPath();
+    tracePath2(ctx, p.cmds);
+    strokeWith(ctx, env.color(stroke.color), stroke.widthPt, stroke.dash);
+  };
+  if (it.shadow && HEX6.test(it.shadow.color)) {
+    ctx.save();
+    ctx.translate(it.shadow.dx, it.shadow.dy);
+    ctx.globalAlpha = base * (it.shadow.alpha ?? 1);
+    ctx.fillStyle = env.color(it.shadow.color);
+    for (const p of parts) {
+      if (p.fill && (fill || it.grad || it.pattern || it.blip)) fillPart(p);
+      if (p.stroke && stroke) {
+        ctx.beginPath();
+        tracePath2(ctx, p.cmds);
+        strokeWith(ctx, env.color(it.shadow.color), stroke.widthPt, stroke.dash);
+      }
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = base * (st.fillAlpha ?? 1);
+  if (it.pattern || it.blip) {
+    for (const p of parts) {
+      if (!p.fill) continue;
+      ctx.save();
+      ctx.beginPath();
+      tracePath2(ctx, p.cmds);
+      ctx.clip(p.evenOdd ? "evenodd" : "nonzero");
+      if (it.pattern) {
+        const pr = patternRaster({ ...it.pattern, fg: it.pattern.fg, bg: it.pattern.bg }, x2, y, w, h, 15);
+        if (pr) {
+          const c = rgbaCanvasThemed(pr.data, pr.w, pr.h, env, it.pattern);
+          ctx.imageSmoothingEnabled = false;
+          if (c) ctx.drawImage(c, pr.x, pr.y, pr.cells.w * 15, pr.cells.h * 15);
+        }
+      } else if (it.blip) {
+        const bmp = env.image(it.blip.image);
+        if (bmp) {
+          ctx.globalAlpha = base * (it.blip.alpha ?? 1);
+          for (const t of blipTiles(it.blip, x2, y, w, h, 1 / 635, imagePixelSize(it.blip.image.data))) ctx.drawImage(bmp, t.x, t.y, t.w, t.h);
+        }
+      }
+      ctx.restore();
+    }
+  } else if (it.grad && isRectGradient(it.grad)) {
+    const r = rectGradientRaster(it.grad, w / 20, h / 20, 2);
+    const c = rgbaCanvasThemed(r.data, r.w, r.h, env, null);
+    for (const p of parts) {
+      if (!p.fill || !c) continue;
+      ctx.save();
+      ctx.beginPath();
+      tracePath2(ctx, p.cmds);
+      ctx.clip(p.evenOdd ? "evenodd" : "nonzero");
+      ctx.translate(x2 + w / 2, y + h / 2);
+      if (st.rot) ctx.rotate(st.rot * Math.PI / 180);
+      ctx.scale(st.flipH ? -1 : 1, st.flipV ? -1 : 1);
+      ctx.drawImage(c, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+  } else if (it.grad) {
+    const pb = pathBounds(parts.flatMap((p) => p.cmds));
+    const g = gradientGeometry(it.grad, { x: x2, y, w, h, rot: st.rot ?? 0 }, pb);
+    const smp = gradientSamples(it.grad.stops, 64);
+    const cg = g.kind === "axial" ? ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1) : ctx.createRadialGradient(g.x0, g.y0, 0, g.x0, g.y0, g.r);
+    for (let i2 = 0; i2 < 64; i2++) cg.addColorStop(i2 / 63, env.color(hex2(smp[i2 * 3]) + hex2(smp[i2 * 3 + 1]) + hex2(smp[i2 * 3 + 2])));
+    ctx.fillStyle = cg;
+    for (const p of parts) if (p.fill) fillPart(p);
+  } else if (fill) {
     ctx.fillStyle = fill;
-    ctx.fill("nonzero");
+    for (const p of parts) if (p.fill) fillPart(p);
   }
   if (stroke) {
-    ctx.globalAlpha = base * (it.style.line?.alpha ?? 1);
-    strokeWith(ctx, env.color(stroke.color), stroke.widthPt, stroke.dash);
+    ctx.globalAlpha = base * (st.line?.alpha ?? 1);
+    for (const p of parts) if (p.stroke) strokePart(p);
   }
   ctx.globalAlpha = base;
+}
+var hex2 = (n) => n.toString(16).padStart(2, "0").toUpperCase();
+function rgbaCanvasThemed(data8, w, h, env, p) {
+  const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(w, h) : Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const x2 = c.getContext("2d");
+  if (!x2) return null;
+  const img = x2.createImageData(w, h);
+  img.data.set(data8);
+  const fg = p ? env.color(p.fg) : "", bg = p ? env.color(p.bg) : "";
+  if (p && (fg !== `#${p.fg}` || bg !== `#${p.bg}`)) {
+    const parse = (s) => {
+      const m = /^#?([0-9a-f]{6})$/i.exec(s);
+      return m ? [0, 2, 4].map((i2) => parseInt(m[1].slice(i2, i2 + 2), 16)) : null;
+    };
+    const f = parse(fg), b = parse(bg), f0 = parse(p.fg);
+    if (f && b) for (let i2 = 0; i2 < img.data.length; i2 += 4) {
+      const on = img.data[i2] === f0[0] && img.data[i2 + 1] === f0[1] && img.data[i2 + 2] === f0[2];
+      const c2 = on ? f : b;
+      img.data[i2] = c2[0];
+      img.data[i2 + 1] = c2[1];
+      img.data[i2 + 2] = c2[2];
+    }
+  }
+  x2.putImageData(img, 0, 0);
+  return c;
 }
 function tracePath2(ctx, cmds) {
   for (const c of cmds) {
@@ -27330,8 +29143,8 @@ var DocumentControls = class {
     if (!this.bar.enabled) return;
     const h = this.host, L = this.labels, b = this.bar;
     const n = h.count();
-    const frac2 = h.progress();
-    b.setProgress(frac2, { label: L.progress, min: 0, max: 100, now: Math.round(frac2 * 100), text: h.positionText() });
+    const frac3 = h.progress();
+    b.setProgress(frac3, { label: L.progress, min: 0, max: 100, now: Math.round(frac3 * 100), text: h.positionText() });
     const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab(), cmOpen = h.commentsOpen(), view = h.view();
     const avail = CONTROL_ITEMS.map((it) => h.available(it) ? 1 : 0).join("");
     const counter = h.counter();
@@ -27974,7 +29787,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     return {
       fontOf: (face) => this.fonts.cssOf(face),
       image: (img) => this.bitmapFor(img),
-      color: (hex2) => `#${hex2}`
+      color: (hex3) => `#${hex3}`
     };
   }
   para = (ref) => {
@@ -28147,9 +29960,9 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       b.style.width = `${w}px`;
       b.style.height = `${h}px`;
       b.appendChild(document.createElement("canvas"));
-      const num = document.createElement("span");
-      num.textContent = String(i2 + 1);
-      this.thumbs.append(b, num);
+      const num2 = document.createElement("span");
+      num2.textContent = String(i2 + 1);
+      this.thumbs.append(b, num2);
       this.thumbEls.push(b);
     }
     this.labelPanels();

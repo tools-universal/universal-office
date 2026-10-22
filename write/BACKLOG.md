@@ -79,7 +79,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 |---|---|---|
 | Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | feito |
 | Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | feito |
-| Caixa de texto | ◐ inserir; Painel de Seleção | em curso |
+| Caixa de texto | ◐ inserir; Painel de Seleção | feito |
 | Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | em curso |
 | Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | feito |

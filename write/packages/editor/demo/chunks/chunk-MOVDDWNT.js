@@ -1,12 +1,13 @@
 import {
   subsetTrueType
-} from "./chunk-57KHIMCT.js";
+} from "./chunk-HZ4N6OND.js";
 import {
   DEFAULT_RUN_PROPS,
   WORD_PATTERNS,
   blipFxImageEffects,
   dmlColorSpec,
   editBaseProps,
+  forEachTextbox,
   oneColorGradientColor2,
   paraPropsFromPPr,
   resolveColor2,
@@ -14,7 +15,7 @@ import {
   runPropsFromRPr,
   unzlibSync,
   zlibSync
-} from "./chunk-MVJSDZBR.js";
+} from "./chunk-UKAC2AZH.js";
 
 // ../../../shared/drawingml/src/preset-defs.ts
 var PRESET_DEFS = {
@@ -326,6 +327,14 @@ function presetVals(def, w, h, adj, adjNames) {
   for (const [n, f] of def.gd) vars.set(n, evalFormula(f, val));
   return val;
 }
+function presetTextRect(name, w, h, adj, adjNames) {
+  const def = name ? parseDef(name) : null;
+  if (!def?.rect) return null;
+  const val = presetVals(def, w, h, adj, adjNames);
+  const [l, t, r, b] = def.rect.map(val);
+  if (!(r > l) || !(b > t)) return null;
+  return { l, t, r, b };
+}
 function evalPreset(name, w, h, adj, adjNames) {
   const def = parseDef(name);
   if (!def) return null;
@@ -584,10 +593,10 @@ function adjustSharpen(d, w, h, amount) {
   }
   const n = w * h, y = new Uint8ClampedArray(n * 4);
   for (let i = 0; i < n; i++) y[i * 4] = y[i * 4 + 1] = y[i * 4 + 2] = 0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2];
-  const yb = blurRgb(y, w, h, sigma), k = 0.65 * Math.exp(1.7 * a), T3 = 2.5;
+  const yb = blurRgb(y, w, h, sigma), k = 0.65 * Math.exp(1.7 * a), T4 = 2.5;
   for (let i = 0; i < n; i++) {
     const x = 0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2] - yb[i * 3];
-    const dl = Math.abs(x) <= T3 ? 0 : k * (x - Math.sign(x) * T3);
+    const dl = Math.abs(x) <= T4 ? 0 : k * (x - Math.sign(x) * T4);
     if (dl) for (let c = 0; c < 3; c++) d[i * 4 + c] = clamp8(d[i * 4 + c] + dl);
   }
 }
@@ -732,6 +741,87 @@ function patternRows(prst) {
   if (!hex) return void 0;
   return Array.from({ length: 8 }, (_, i) => parseInt(hex.slice(i * 2, i * 2 + 2), 16));
 }
+
+// ../../../shared/drawingml/src/shape-styles.ts
+var SHAPE_STYLE_PRESETS = [
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="dk1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="dk1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent2"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent2"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent3"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent3"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent4"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent4"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent5"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent5"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent6"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="lt1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent6"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="dk1"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="dk1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="dk1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent1"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent2"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent2"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent2"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent3"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent3"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent3"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent4"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent4"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent4"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent5"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent5"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent5"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="2"><a:schemeClr val="accent6"><a:shade val="15000"/></a:schemeClr></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent6"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent6"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="dk1"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="dk1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent2"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent2"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent3"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent3"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent4"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent4"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent5"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent5"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="3"><a:schemeClr val="lt1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent6"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent6"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="dk1"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="dk1"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="dk1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent2"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent2"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent2"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent3"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent3"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent3"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent4"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent4"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent4"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent5"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent5"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent5"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent6"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent6"/></a:fillRef><a:effectRef idx="1"><a:schemeClr val="accent6"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="dk1"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="dk1"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="dk1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent2"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent2"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="accent2"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent3"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent3"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="accent3"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent4"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent4"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="accent4"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent5"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent5"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="accent5"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="1"><a:schemeClr val="accent6"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent6"/></a:fillRef><a:effectRef idx="2"><a:schemeClr val="accent6"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="dk1"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="dk1"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="dk1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="accent2"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent2"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="accent2"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="accent3"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent3"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="accent3"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="accent4"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent4"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="accent4"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="accent5"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent5"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="accent5"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:ln/>", '<wps:style><a:lnRef idx="0"><a:schemeClr val="accent6"/></a:lnRef><a:fillRef idx="3"><a:schemeClr val="accent6"/></a:fillRef><a:effectRef idx="3"><a:schemeClr val="accent6"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent1"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent2"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent3"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent4"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent5"/></a:fontRef></wps:style>'],
+  ["<a:noFill/><a:ln><a:noFill/></a:ln>", '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent6"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="dk1"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="dk1"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent1"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent2"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent3"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent3"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent4"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent4"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent5"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent5"/></a:fontRef></wps:style>'],
+  ['<a:noFill/><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent6"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="accent6"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="dk1"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent1"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent2"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent3"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent4"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent5"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent6"><a:alpha val="50000"/></a:schemeClr></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="dk1"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent3"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent4"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent5"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:solidFill><a:schemeClr val="accent6"/></a:solidFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="dk1"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="dk1"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="dk1"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent1"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="accent1"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent1"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent2"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="accent2"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent2"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent3"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="accent3"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent3"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent4"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="accent4"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent4"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent5"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="accent5"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent5"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>'],
+  ['<a:gradFill flip="none" rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent6"><a:lumMod val="67000"/></a:schemeClr></a:gs><a:gs pos="48000"><a:schemeClr val="accent6"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent6"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="1"/><a:tileRect/></a:gradFill><a:ln><a:noFill/></a:ln>', '<wps:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></wps:style>']
+];
 
 // ../../../shared/drawingml/src/light3d.ts
 var PH = [0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 85];
@@ -1411,9 +1501,9 @@ var up = (v) => v <= 0.5 ? 0 : Math.ceil(v / STEP - 1e-6) * STEP;
 function effectExtentOf(f) {
   const { cx, cy } = f;
   let l = 0, t = 0, r = 0, b = 0;
-  const grow = (L, T3, R, B) => {
+  const grow = (L, T4, R, B) => {
     l = Math.max(l, L);
-    t = Math.max(t, T3);
+    t = Math.max(t, T4);
     r = Math.max(r, R);
     b = Math.max(b, B);
   };
@@ -1731,7 +1821,7 @@ var REFLECTION_PRESETS = [
 ];
 var SOFT_EDGE_PRESETS = [12700, 31750, 63500, 127e3, 317500, 635e3];
 var GLOW_SIZES = [63500, 101600, 139700, 228600];
-var glowPreset = (rad, accent) => ({ rad, color: { kind: "schemeClr", val: `accent${accent}`, mods: [["alpha", 4e4]] } });
+var glowPreset = (rad, accent2) => ({ rad, color: { kind: "schemeClr", val: `accent${accent2}`, mods: [["alpha", 4e4]] } });
 var BEVEL_PRESETS = [
   { prst: "circle", label: { en: "Circle", pt: "C\xEDrculo" } },
   { prst: "relaxedInset", label: { en: "Relaxed Inset", pt: "Inser\xE7\xE3o Leve" } },
@@ -1828,6 +1918,148 @@ var POSITION_PRESETS = (() => {
   }
   return out;
 })();
+
+// src/shape-ops.ts
+function isShapeFill(x) {
+  return ["none", "style", "solid", "gradient", "pattern", "picture", "raw"].includes(x.kind);
+}
+var squash = (s) => s.replace(/>\s+</g, "><").replace(/\s+/g, " ");
+function shapeStyleIndex(raw) {
+  const style = /<wps:style>[\s\S]*?<\/wps:style>/.exec(raw)?.[0];
+  if (!style) return 0;
+  const st = squash(style);
+  const sp = /<wps:spPr\b[^>]*>([\s\S]*?)<\/wps:spPr>/.exec(raw)?.[1] ?? "";
+  const fillLn = squash(sp.replace(/^[\s\S]*?(<\/a:prstGeom>|<\/a:custGeom>|<a:prstGeom\b[^>]*\/>)/, "")).replace(/<a:effectLst[\s\S]*$|<a:scene3d[\s\S]*$|<a:sp3d[\s\S]*$|<a:extLst[\s\S]*$/, "");
+  for (let i = 0; i < SHAPE_STYLE_PRESETS.length; i++) {
+    const [p, s] = SHAPE_STYLE_PRESETS[i];
+    if (s === st && p === fillLn) return i + 1;
+  }
+  return 0;
+}
+var T = (en, pt) => ({ en, pt });
+var TEXTBOX_TEMPLATES = [
+  { id: "simple", name: T("Simple text box", "Caixa de texto simples") },
+  { id: "quote", name: T("Accent quote", "Cita\xE7\xE3o em destaque") },
+  { id: "sidebarRight", name: T("Sidebar, right", "Barra lateral \xE0 direita") },
+  { id: "sidebarLeft", name: T("Sidebar, left", "Barra lateral \xE0 esquerda") },
+  { id: "band", name: T("Title band", "Faixa com t\xEDtulo") },
+  { id: "note", name: T("Note", "Nota") }
+];
+var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+var para = (body, pPr = "", rPr = "") => `<w:p><w:pPr>${pPr}${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}</w:pPr>${body}</w:p>`;
+var sz = (half) => `<w:sz w:val="${half}"/><w:szCs w:val="${half}"/>`;
+var accent = (k = 1) => ({ kind: "schemeClr", val: `accent${k}` });
+var WHITE = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
+var ACCENT = (hex) => `<w:color w:val="${hex}" w:themeColor="accent1"/>`;
+function texts(lang) {
+  return lang === "pt" ? {
+    body: "[Use este espa\xE7o para destacar um ponto-chave do documento. Para mover a caixa de texto, arraste a borda dela.]",
+    quote: "[\u201CChame a aten\xE7\xE3o do leitor com uma cita\xE7\xE3o marcante do documento.\u201D]",
+    source: "[Cite a fonte aqui.]",
+    title: "[T\xEDtulo da barra lateral]",
+    side: "[A barra lateral \xE9 um bom lugar para informa\xE7\xF5es complementares: uma lista de pontos, um resumo ou uma dica. Ela fica junto \xE0 margem e acompanha a p\xE1gina.]",
+    note: "[Nota]"
+  } : {
+    body: "[Use this space to highlight a key point from your document. To move this text box, drag its border.]",
+    quote: "[\u201CGrab your reader\u2019s attention with a great quote from the document.\u201D]",
+    source: "[Cite your source here.]",
+    title: "[Sidebar title]",
+    side: "[A sidebar is a good place for supporting information: a list of points, a summary or a tip. It sits by the margin and stays with the page.]",
+    note: "[Note]"
+  };
+}
+function textboxTemplateSpec(id, env) {
+  const t = texts(env.lang);
+  const pad2 = 0.1 * 914400;
+  switch (id) {
+    case "simple":
+      return {
+        cx: Math.round(2.5 * 914400),
+        cy: Math.round(1 * 914400),
+        posH: { relativeFrom: "margin", align: "center" },
+        posV: { relativeFrom: "paragraph", offset: 0 },
+        wrap: "square",
+        fill: { kind: "solid", color: { kind: "schemeClr", val: "lt1" } },
+        line: { w: 6350, fill: { kind: "prstClr", val: "black" } },
+        body: { lIns: 91440, tIns: 45720, rIns: 91440, bIns: 45720, autofit: "shape" },
+        content: para(run(t.body))
+      };
+    case "quote":
+      return {
+        cx: Math.round(3 * 914400),
+        cy: Math.round(1.2 * 914400),
+        sizeRelH: { relativeFrom: "margin", pct: 55e3 },
+        posH: { relativeFrom: "margin", align: "right" },
+        posV: { relativeFrom: "paragraph", offset: 0 },
+        wrap: "square",
+        fill: { kind: "none" },
+        line: null,
+        body: { lIns: 182880, tIns: 182880, rIns: 182880, bIns: 182880, autofit: "shape" },
+        content: para(run(t.quote, `<w:i/><w:iCs/>${ACCENT(env.accent)}${sz(28)}`), `<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${env.accent}" w:themeColor="accent1"/></w:pBdr><w:spacing w:after="120"/>`, `<w:i/><w:iCs/>${ACCENT(env.accent)}${sz(28)}`) + para(run(t.source, sz(18)), `<w:jc w:val="right"/>`, sz(18))
+      };
+    case "sidebarRight":
+    case "sidebarLeft": {
+      const right = id === "sidebarRight";
+      return {
+        cx: Math.round(2.2 * 914400),
+        cy: Math.round(9 * 914400),
+        sizeRelH: { relativeFrom: "page", pct: 28e3 },
+        sizeRelV: { relativeFrom: "page", pct: 1e5 },
+        posH: { relativeFrom: "page", align: right ? "right" : "left" },
+        posV: { relativeFrom: "page", align: "top" },
+        wrap: "square",
+        fill: { kind: "solid", color: accent() },
+        line: null,
+        body: { lIns: 228600, tIns: 914400, rIns: 228600, bIns: 457200, autofit: "none" },
+        content: para(run(t.title, `<w:b/><w:bCs/>${WHITE}${sz(32)}`), '<w:spacing w:after="240"/>', `<w:b/><w:bCs/>${WHITE}${sz(32)}`) + para(run(t.side, `${WHITE}${sz(22)}`), "", `${WHITE}${sz(22)}`)
+      };
+    }
+    case "band":
+      return {
+        cx: Math.round(6 * 914400),
+        cy: Math.round(1.1 * 914400),
+        sizeRelH: { relativeFrom: "margin", pct: 1e5 },
+        posH: { relativeFrom: "margin", align: "center" },
+        posV: { relativeFrom: "paragraph", offset: 0 },
+        wrap: "topAndBottom",
+        fill: { kind: "solid", color: { kind: "schemeClr", val: "accent1", mods: [["lumMod", 2e4], ["lumOff", 8e4]] } },
+        line: null,
+        body: { lIns: pad2 * 2, tIns: pad2, rIns: pad2 * 2, bIns: pad2, autofit: "shape" },
+        content: para(run(t.title, `<w:b/><w:bCs/>${ACCENT(env.accent)}${sz(26)}`), '<w:spacing w:after="60"/>', `<w:b/><w:bCs/>${ACCENT(env.accent)}${sz(26)}`) + para(run(t.body))
+      };
+    case "note":
+      return {
+        cx: Math.round(2 * 914400),
+        cy: Math.round(1.4 * 914400),
+        posH: { relativeFrom: "margin", align: "right" },
+        posV: { relativeFrom: "paragraph", offset: 0 },
+        wrap: "square",
+        fill: { kind: "solid", color: { kind: "schemeClr", val: "accent4", mods: [["lumMod", 2e4], ["lumOff", 8e4]] } },
+        line: { w: 12700, fill: { kind: "schemeClr", val: "accent4" } },
+        body: { lIns: 91440, tIns: 91440, rIns: 91440, bIns: 91440, autofit: "shape" },
+        content: para(run(t.note, `<w:b/><w:bCs/>${sz(20)}`), '<w:spacing w:after="60"/>', `<w:b/><w:bCs/>${sz(20)}`) + para(run(t.body, sz(18)), "", sz(18))
+      };
+  }
+  return null;
+}
+function gradientVariations(base) {
+  const mod = (m) => ({ ...base, mods: [...base.mods ?? [], ...m] });
+  const light = [mod([["tint", 66e3], ["satMod", 16e4]]), mod([["tint", 44500], ["satMod", 16e4]]), mod([["tint", 23500], ["satMod", 16e4]])];
+  const dark = [mod([["shade", 3e4], ["satMod", 115e3]]), mod([["shade", 67500], ["satMod", 115e3]]), mod([["shade", 1e5], ["satMod", 115e3]])];
+  const dirs = [["down", 54e5], ["right", 0], ["up", 162e5], ["left", 108e5]];
+  const out = [];
+  for (const [isDark2, stops] of [[false, light], [true, dark]]) {
+    for (const [d, ang] of dirs) {
+      out.push({
+        id: `${isDark2 ? "dark" : "light"}-${d}`,
+        dark: isDark2,
+        fill: { kind: "gradient", stops: [{ pos: 0, color: stops[0] }, { pos: 5e4, color: stops[1] }, { pos: 1e5, color: stops[2] }], lin: { ang, scaled: true }, rotWithShape: true, flip: "none", tileRect: true }
+      });
+    }
+  }
+  return out;
+}
 
 // ../docx-layout/src/typography/font/gpos.ts
 var kernKey = (g1, g2) => g1 * 65536 + g2;
@@ -4461,11 +4693,11 @@ function emptyFormatting() {
   };
 }
 var eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-function directRPr(run) {
-  const base = run.rpr ? { ...run.rpr } : {};
-  const p = run.props;
-  const orig = editBaseProps(run, run.rpr);
-  if (!run.rpr) {
+function directRPr(run2) {
+  const base = run2.rpr ? { ...run2.rpr } : {};
+  const p = run2.props;
+  const orig = editBaseProps(run2, run2.rpr);
+  if (!run2.rpr) {
     if (p.bold) base.b = true;
     if (p.italic) base.i = true;
     if (p.underline && !(p.link && !p.underlineStyle && !p.underlineColor)) base.u = { val: p.underlineStyle ?? "single", ...p.underlineColor ? { color: p.underlineColor } : {} };
@@ -4518,10 +4750,10 @@ function directRPr(run) {
   }
   return base;
 }
-function directPPr(para) {
-  const base = para.ppr ? { ...para.ppr } : {};
-  const p = para.props;
-  const orig = paraPropsFromPPr(para.ppr);
+function directPPr(para2) {
+  const base = para2.ppr ? { ...para2.ppr } : {};
+  const p = para2.props;
+  const orig = paraPropsFromPPr(para2.ppr);
   if (!eq(p.alignment, orig.alignment)) {
     if (p.alignment) base.jc = p.alignment;
     else delete base.jc;
@@ -4532,7 +4764,7 @@ function directPPr(para) {
   }
   if (!eq(p.numbering, orig.numbering)) {
     if (!p.numbering) base.numPr = { numId: 0 };
-    else if (para.ppr?.numPr?.numId) base.numPr = { ...para.ppr.numPr, ilvl: p.numbering.ilvl };
+    else if (para2.ppr?.numPr?.numId) base.numPr = { ...para2.ppr.numPr, ilvl: p.numbering.ilvl };
     else base.numPr = { numId: p.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p.numbering.ilvl };
   }
   if (p.indentLeftTwips !== orig.indentLeftTwips || p.indentRightTwips !== orig.indentRightTwips || p.indentFirstLineTwips !== orig.indentFirstLineTwips) {
@@ -4651,8 +4883,8 @@ var RevisionDisplay = class {
     return this.colors[author] ?? authorColor(this.order, author);
   }
   /** O run aparece? Marcado? (texto inserido/excluído) */
-  run(run) {
-    const { ins, del } = run.props;
+  run(run2) {
+    const { ins, del } = run2.props;
     if (!ins && !del) return null;
     if (this.mode === "original") return ins ? "hide" : null;
     const marks = this.mode === "all";
@@ -4664,29 +4896,29 @@ var RevisionDisplay = class {
     return { color: ins.move ? MOVE_COLOR : this.color(ins.author), kind: "ins", move: !!ins.move };
   }
   /** rPr direto a desenhar: no modo Original, o de antes da formatação controlada. */
-  directRPr(run) {
-    const f = run.props.fmt;
-    if (this.mode !== "original" || !f) return directRPr(run);
-    const c = run.rpr?.change;
+  directRPr(run2) {
+    const f = run2.props.fmt;
+    if (this.mode !== "original" || !f) return directRPr(run2);
+    const c = run2.rpr?.change;
     if (c && c.author === f.author && c.date === f.date && JSON.stringify(runPropsFromRPr(c.rPr)) === JSON.stringify(f.old)) return { ...c.rPr };
-    const p = run.props;
-    return directRPr({ ...run, props: { ...f.old, ...p.src !== void 0 ? { src: p.src } : {}, ...p.link ? { link: p.link } : {} } });
+    const p = run2.props;
+    return directRPr({ ...run2, props: { ...f.old, ...p.src !== void 0 ? { src: p.src } : {}, ...p.link ? { link: p.link } : {} } });
   }
   /** Parágrafo a diagramar: no modo Original, com a formatação de antes. */
-  paragraph(para) {
-    const f = para.props.pfmt;
-    if (this.mode !== "original" || !f) return para;
-    const c = para.ppr?.change;
-    const meta = { ...para.props.src !== void 0 ? { src: para.props.src } : {}, ...para.props.sectionBreak ? { sectionBreak: para.props.sectionBreak } : {} };
+  paragraph(para2) {
+    const f = para2.props.pfmt;
+    if (this.mode !== "original" || !f) return para2;
+    const c = para2.ppr?.change;
+    const meta = { ...para2.props.src !== void 0 ? { src: para2.props.src } : {}, ...para2.props.sectionBreak ? { sectionBreak: para2.props.sectionBreak } : {} };
     if (c && c.author === f.author && c.date === f.date && JSON.stringify(paraPropsFromPPr(c.pPr)) === JSON.stringify(f.old)) {
-      const ppr = { ...c.pPr, ...para.ppr?.rPr ? { rPr: para.ppr.rPr } : {} };
-      return { ...para, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
+      const ppr = { ...c.pPr, ...para2.ppr?.rPr ? { rPr: para2.ppr.rPr } : {} };
+      return { ...para2, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
     }
-    return { ...para, ppr: directPPr({ ...para, props: { ...f.old, ...meta } }), props: { ...f.old, ...meta } };
+    return { ...para2, ppr: directPPr({ ...para2, props: { ...f.old, ...meta } }), props: { ...f.old, ...meta } };
   }
   /** A marca deste parágrafo some (o texto vai para o seguinte) nesta visão? */
-  markGone(para) {
-    const { markDel, markIns } = para.props;
+  markGone(para2) {
+    const { markDel, markIns } = para2.props;
     if (this.mode === "original") return !!markIns;
     if (!markDel) return false;
     return this.mode !== "all" || !this.shown(markDel, "insDel");
@@ -4708,18 +4940,18 @@ function joinDeleted(carried, next) {
   out[REV_JOINS] = [carried.reduce((n, r) => n + r.text.length, 0)];
   return out;
 }
-function revisionRanges(rd, para) {
+function revisionRanges(rd, para2) {
   if (!rd.barColor()) return null;
   const ranges = [];
   let acc = 0;
-  for (const r of para.runs) {
+  for (const r of para2.runs) {
     const rs = acc;
     acc += r.text.length;
     if (rd.barFor(r.props.ins, "insDel") || rd.barFor(r.props.del, "insDel") || rd.barFor(r.props.fmt, "fmt")) ranges.push([rs, acc, rd.run(r) === "hide"]);
   }
-  if (rd.mode === "simple") for (const k of para[REV_JOINS] ?? []) ranges.push([k, k, true]);
-  const whole = rd.barFor(para.props.pfmt, "fmt");
-  const mark = rd.barFor(para.props.markIns, "insDel") || rd.barFor(para.props.markDel, "insDel");
+  if (rd.mode === "simple") for (const k of para2[REV_JOINS] ?? []) ranges.push([k, k, true]);
+  const whole = rd.barFor(para2.props.pfmt, "fmt");
+  const mark = rd.barFor(para2.props.markIns, "insDel") || rd.barFor(para2.props.markDel, "insDel");
   return ranges.length || whole || mark ? { ranges, whole, mark } : null;
 }
 
@@ -4971,9 +5203,9 @@ function fallbackOrder(cp, font) {
 }
 function resolveRunStyle(ctx, rpr, env, link) {
   const theme = ctx.fmt.theme;
-  const sz = (rpr.sz ?? 20) / 2;
+  const sz2 = (rpr.sz ?? 20) / 2;
   const va = rpr.vertAlign;
-  const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz * 2 * 1331 / 2048) / 2 : sz;
+  const sizePt = va === "superscript" || va === "subscript" ? Math.round(sz2 * 2 * 1331 / 2048) / 2 : sz2;
   const shift = (rpr.position ?? 0) * 10;
   const tf = rpr.textFill;
   const color2 = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
@@ -4982,8 +5214,8 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const style = {
     rpr,
     sizePt,
-    color: color2 ?? (env.darkBackground ? "FFFFFF" : "000000"),
-    autoColor: !color2,
+    color: color2 ?? env.defaultColor ?? (env.darkBackground ? "FFFFFF" : "000000"),
+    autoColor: !color2 && !env.defaultColor,
     bold: !!rpr.b,
     italic: !!rpr.i,
     underline: u,
@@ -4999,7 +5231,7 @@ function resolveRunStyle(ctx, rpr, env, link) {
   };
   if (va === "superscript" || va === "subscript") {
     const face = faceFor(ctx, rpr, 65, style);
-    style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz, sizePt) * 20 : -subscriptDropPt(face.family, sz) * 20;
+    style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz2, sizePt) * 20 : -subscriptDropPt(face.family, sz2) * 20;
   }
   return style;
 }
@@ -5218,42 +5450,42 @@ function kernTwips(ctx, face, cp, next, sizePt) {
   if (ctx.opts.advanceEm === "device") return k;
   return k * sizePt / deviceEmPt(sizePt);
 }
-function fieldRuns(ctx, run, env, at) {
-  const instr = (run.field ?? "").trim();
+function fieldRuns(ctx, run2, env, at) {
+  const instr = (run2.field ?? "").trim();
   const name = instr.split(/\s+/)[0]?.toUpperCase() ?? "";
   if (["PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "NOTEREF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE"].includes(name) || name.endsWith("_MARK") || name === "STYLEREF" && !env.hf) {
     const v = env.field?.(name, instr, at);
     if (v !== void 0) {
-      ctx.opts.onField?.(run, v);
-      const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
+      ctx.opts.onField?.(run2, v);
+      const base = run2.fieldResult?.find((r) => !r.image && !r.textbox) ?? run2;
       const out = { ...base, text: v, field: void 0, fieldResult: void 0 };
       if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
       return [out];
     }
   }
-  if (run.fieldResult?.length) {
-    if (!run.fieldResult.some((r) => r.field !== void 0)) return run.fieldResult;
-    return run.fieldResult.flatMap((r) => r.field !== void 0 ? fieldRuns(ctx, r, env, at) ?? (r.text ? [r] : []) : [r]);
+  if (run2.fieldResult?.length) {
+    if (!run2.fieldResult.some((r) => r.field !== void 0)) return run2.fieldResult;
+    return run2.fieldResult.flatMap((r) => r.field !== void 0 ? fieldRuns(ctx, r, env, at) ?? (r.text ? [r] : []) : [r]);
   }
   return null;
 }
 var isMarkRun = (r) => !!(r.bookmark || r.fieldBegin !== void 0 || r.fieldEnd);
-function displayRuns(ctx, para, env) {
+function displayRuns(ctx, para2, env) {
   const out = [];
   let offset = 0;
-  para.runs.forEach((run, idx) => {
-    if (isMarkRun(run)) return;
-    if (run.formField?.type === "checkBox") out.push({ run, idx, offset });
-    else if (run.formField?.type === "dropDown" && run.formField.entries) {
-      const text = run.formField.entries[run.formField.selected ?? 0] ?? "";
-      if (text) out.push({ run: { ...run, text, field: void 0, fieldResult: void 0, formField: void 0 }, idx, offset });
-    } else if (run.field !== void 0) {
-      const fr = fieldRuns(ctx, run, env, offset);
+  para2.runs.forEach((run2, idx) => {
+    if (isMarkRun(run2)) return;
+    if (run2.formField?.type === "checkBox") out.push({ run: run2, idx, offset });
+    else if (run2.formField?.type === "dropDown" && run2.formField.entries) {
+      const text = run2.formField.entries[run2.formField.selected ?? 0] ?? "";
+      if (text) out.push({ run: { ...run2, text, field: void 0, fieldResult: void 0, formField: void 0 }, idx, offset });
+    } else if (run2.field !== void 0) {
+      const fr = fieldRuns(ctx, run2, env, offset);
       if (fr) {
         for (const r of fr) out.push({ run: r, idx, offset });
-      } else if (run.text) out.push({ run, idx, offset });
-    } else out.push({ run, idx, offset });
-    offset += run.text.length;
+      } else if (run2.text) out.push({ run: run2, idx, offset });
+    } else out.push({ run: run2, idx, offset });
+    offset += run2.text.length;
   });
   return out;
 }
@@ -5294,9 +5526,9 @@ var hangPunct = (rpr, alt) => {
   return HANG_BASE + HANG_CLOSE + HANG_QUOTES + (/^zh-(tw|hk|mo)/i.test(ea) ? "" : "%");
 };
 var SPACE_LIKE = /* @__PURE__ */ new Set([32, 8194, 8195, 8197, 8203, 12288]);
-function resolvePPr(ctx, para, env) {
+function resolvePPr(ctx, para2, env) {
   const dd = ctx.resolver.docDefaults;
-  const direct = directPPr(para);
+  const direct = directPPr(para2);
   const styleId = ctx.resolver.paraStyleId(direct.pStyle);
   const st = ctx.resolver.paraStyle(styleId);
   let ppr = mergePPr(dd.pPr, env.tablePPr);
@@ -5326,18 +5558,18 @@ function resolvePPr(ctx, para, env) {
   return { ppr, styleId, styleRPr: st.rPr };
 }
 function paraVisibility(ctx, para0, env) {
-  const para = ctx.rev.paragraph(para0);
-  const { ppr, styleRPr } = resolvePPr(ctx, para, env);
+  const para2 = ctx.rev.paragraph(para0);
+  const { ppr, styleRPr } = resolvePPr(ctx, para2, env);
   const dd = ctx.resolver.docDefaults;
   const runRPr = (rpr) => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(ctx, para, env).some(({ run }) => !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === "checkBox" || run.custom || run.ptab || run.noteRef) && ctx.rev.run(run) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run))));
+  const visible = displayRuns(ctx, para2, env).some(({ run: run2 }) => !!(run2.text || run2.image || run2.shape || run2.group || run2.textbox || run2.formField?.type === "checkBox" || run2.custom || run2.ptab || run2.noteRef) && ctx.rev.run(run2) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run2))));
   return { markHidden, visible };
 }
 function prepareParagraph(ctx, para0, env0) {
-  const para = ctx.rev.paragraph(para0);
-  const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
+  const para2 = ctx.rev.paragraph(para0);
+  const { ppr, styleId, styleRPr } = resolvePPr(ctx, para2, env0);
   const shd = ppr.shd;
   const paraFill = shadingFill(shd, ctx.fmt.theme);
   const env = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
@@ -5349,7 +5581,7 @@ function prepareParagraph(ctx, para0, env0) {
   const markStyle = resolveRunStyle(ctx, markRpr, env);
   const markFace = faceFor(ctx, markRpr, 32, markStyle);
   const glyphs = [];
-  const pushChars = (text, run, rpr, style, offset0, runIdx, formText = false) => {
+  const pushChars = (text, run2, rpr, style, offset0, runIdx, formText = false) => {
     let t = text;
     if (rpr.caps) t = t.toUpperCase();
     const chars = Array.from(t);
@@ -5393,7 +5625,7 @@ function prepareParagraph(ctx, para0, env0) {
       } else if (rpr.smallCaps && !rpr.caps && cp === 32) {
         size = Math.round(style.sizePt * 2 * 0.8) / 2;
       }
-      const face = faceFor(ctx, rpr, kind === "lb" ? 32 : shownCp, style, run.symFont);
+      const face = faceFor(ctx, rpr, kind === "lb" ? 32 : shownCp, style, run2.symFont);
       const m = faceMetrics(notdefPua(face, shownCp) ? faceFor(ctx, rpr, 65, style).font : face.font);
       let adv = 0;
       let kernAdj;
@@ -5438,8 +5670,8 @@ function prepareParagraph(ctx, para0, env0) {
   };
   let mathJc;
   const mathRuns = /* @__PURE__ */ new Set();
-  const pushMath = (run, runIdx, offset0) => {
-    const zone = run.math;
+  const pushMath = (run2, runIdx, offset0) => {
+    const zone = run2.math;
     mathJc = zone.jc ?? "centerGroup";
     mathRuns.add(runIdx);
     const menv = {
@@ -5454,7 +5686,7 @@ function prepareParagraph(ctx, para0, env0) {
       adv: (face, cp, size) => advanceTwips(ctx, face, cp, size),
       kern: (face, cp, next, size) => kernTwips(ctx, face, cp, next, size)
     };
-    const last = Math.max(0, run.text.length - 1);
+    const last = Math.max(0, run2.text.length - 1);
     const off = { n: 0 };
     let seg = [];
     const flushSeg = () => {
@@ -5481,13 +5713,13 @@ function prepareParagraph(ctx, para0, env0) {
     flushSeg();
   };
   let pendingNote;
-  for (const { run, idx, offset } of displayRuns(ctx, para, env)) {
-    const rev = ctx.rev.run(run);
+  for (const { run: run2, idx, offset } of displayRuns(ctx, para2, env)) {
+    const rev = ctx.rev.run(run2);
     if (rev === "hide") continue;
-    const direct = ctx.rev.directRPr(run);
-    if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
+    const direct = ctx.rev.directRPr(run2);
+    if (run2.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
-    const style = resolveRunStyle(ctx, rpr, env, run.props.link);
+    const style = resolveRunStyle(ctx, rpr, env, run2.props.link);
     if (style.hidden) continue;
     if (rev) {
       style.color = rev.color;
@@ -5498,18 +5730,18 @@ function prepareParagraph(ctx, para0, env0) {
         style.dstrike = rev.move;
       }
     }
-    if (run.image || run.shape || run.group || run.textbox) {
-      const floating = run.image?.floating ?? run.shape?.floating ?? run.group?.floating ?? run.textbox?.floating;
+    if (run2.image || run2.shape || run2.group || run2.textbox) {
+      const floating = run2.image?.floating ?? run2.shape?.floating ?? run2.group?.floating ?? run2.textbox?.floating;
       const face = faceFor(ctx, rpr, 32, style);
       if (floating) {
-        glyphs.push({ kind: "obj", ch: "", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: false, obj: run, sizePt: style.sizePt });
+        glyphs.push({ kind: "obj", ch: "", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: false, obj: run2, sizePt: style.sizePt });
         continue;
       }
-      const ie = run.image?.inlineEffect ?? run.shape?.inlineEffect;
-      const w = (run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0) + (ie ? ie.l + ie.r : 0);
-      const h = (run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0) + (ie ? ie.t + ie.b : 0);
-      if (run.shape?.hr) {
-        glyphs.push({ kind: "obj", ch: "\uFFFC", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, obj: run, sizePt: style.sizePt, hr: h });
+      const ie = run2.image?.inlineEffect ?? run2.shape?.inlineEffect;
+      const w = (run2.image?.widthTwips ?? run2.shape?.widthTwips ?? run2.group?.widthTwips ?? run2.textbox?.widthTwips ?? 0) + (ie ? ie.l + ie.r : 0);
+      const h = (run2.image?.heightTwips ?? run2.shape?.heightTwips ?? run2.group?.heightTwips ?? run2.textbox?.heightTwips ?? 0) + (ie ? ie.t + ie.b : 0);
+      if (run2.shape?.hr) {
+        glyphs.push({ kind: "obj", ch: "\uFFFC", cp: 65532, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, obj: run2, sizePt: style.sizePt, hr: h });
         continue;
       }
       const m = faceMetrics(face.font);
@@ -5526,14 +5758,14 @@ function prepareParagraph(ctx, para0, env0) {
         offset,
         runIdx: idx,
         breakAfter: true,
-        obj: run,
+        obj: run2,
         sizePt: style.sizePt
       });
       continue;
     }
-    if (run.formField?.type === "checkBox") {
+    if (run2.formField?.type === "checkBox") {
       const face = faceFor(ctx, rpr, 32, style);
-      const size = run.formField.sizeAuto || !run.formField.sizeHalfPt ? style.sizePt : run.formField.sizeHalfPt / 2;
+      const size = run2.formField.sizeAuto || !run2.formField.sizeHalfPt ? style.sizePt : run2.formField.sizeHalfPt / 2;
       const side = 1.07 * size * 20;
       const fm = faceMetrics(face.font);
       glyphs.push({
@@ -5549,44 +5781,44 @@ function prepareParagraph(ctx, para0, env0) {
         runIdx: idx,
         breakAfter: false,
         sizePt: style.sizePt,
-        box: { side, checked: !!run.formField.checked }
+        box: { side, checked: !!run2.formField.checked }
       });
       continue;
     }
-    if (run.custom) {
+    if (run2.custom) {
       const face = faceFor(ctx, rpr, 32, style);
-      const text = run.custom.fallbackText || " ";
-      pushChars(text, run, rpr, style, offset, idx);
+      const text = run2.custom.fallbackText || " ";
+      pushChars(text, run2, rpr, style, offset, idx);
       continue;
     }
-    if (run.ptab) {
+    if (run2.ptab) {
       const face = faceFor(ctx, rpr, 32, style);
-      glyphs.push({ kind: "tab", ch: "	", cp: 9, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, ptab: run.ptab, sizePt: style.sizePt });
+      glyphs.push({ kind: "tab", ch: "	", cp: 9, face, style, adv: 0, asc: 0, desc: 0, offset, runIdx: idx, breakAfter: true, ptab: run2.ptab, sizePt: style.sizePt });
       continue;
     }
-    if (run.noteRef) {
-      const { kind, id, custom } = run.noteRef;
+    if (run2.noteRef) {
+      const { kind, id, custom } = run2.noteRef;
       const mark = ctx.noteMark(kind, id, custom);
       if (custom) {
         if (kind === "footnote") pendingNote = id;
         continue;
       }
       const before2 = glyphs.length;
-      pushChars(mark, run, rpr, style, offset, idx);
+      pushChars(mark, run2, rpr, style, offset, idx);
       for (let k = before2; k < glyphs.length; k++) {
         glyphs[k].offset = offset;
         if (kind === "footnote") glyphs[k].noteId = id;
       }
       continue;
     }
-    if (run.math) {
-      pushMath(run, idx, offset);
+    if (run2.math) {
+      pushMath(run2, idx, offset);
       continue;
     }
     const before = glyphs.length;
-    pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ""));
-    if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
-    if (/_MARK\s*$/.test(para.runs[idx]?.field ?? "")) for (let k = before; k < glyphs.length; k++) glyphs[k].offset = offset;
+    pushChars(run2.text, run2, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para2.runs[idx]?.field ?? ""));
+    if (GLUED_FIELD.has(run2)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
+    if (/_MARK\s*$/.test(para2.runs[idx]?.field ?? "")) for (let k = before; k < glyphs.length; k++) glyphs[k].offset = offset;
     if (pendingNote !== void 0 && glyphs.length > before) {
       glyphs[before].noteId = pendingNote;
       pendingNote = void 0;
@@ -5662,7 +5894,7 @@ function prepareParagraph(ctx, para0, env0) {
   markHyphenation(ctx, ppr, glyphs, mathRuns);
   let marker;
   const numId = ppr.numPr?.numId;
-  if (numId && env.numbering !== false) {
+  if (numId && env.numbering !== false && !env.continuation) {
     let nm = ctx.numbering.next(numId, ppr.numPr?.ilvl ?? 0);
     if (!nm && (numId === 1001 || numId === 1002)) {
       const ilvl = ppr.numPr?.ilvl ?? 0;
@@ -5691,14 +5923,14 @@ function prepareParagraph(ctx, para0, env0) {
   let jc = ppr.jc ?? "left";
   if (jc === "start") jc = "left";
   if (jc === "end") jc = "right";
-  let firstLine = ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0;
+  let firstLine = env.continuation ? 0 : ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0;
   if (mathJc && !glyphs.some((g) => !mathRuns.has(g.runIdx) && g.kind !== "lb" && g.kind !== "pb" && g.kind !== "space" && !(g.kind === "obj" && g.adv === 0))) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
   }
-  const revBars = revisionRanges(ctx.rev, para);
+  const revBars = revisionRanges(ctx.rev, para2);
   return {
-    para,
+    para: para2,
     ppr,
     styleId,
     markStyle,
@@ -5711,11 +5943,11 @@ function prepareParagraph(ctx, para0, env0) {
     firstLine,
     jc,
     tabs: (ppr.tabs ?? []).filter((t) => t.val !== "clear"),
-    spaceBefore: sp.before ?? 0,
+    spaceBefore: env.continuation ? 0 : sp.before ?? 0,
     spaceAfter: sp.after ?? 0,
     // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
     // w:before/w:after explícitos (oráculo autosphtml)
-    beforeAuto: !!sp.beforeAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
+    beforeAuto: !env.continuation && !!sp.beforeAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
     afterAuto: !!sp.afterAutospacing && !settings.compat["doNotUseHTMLParagraphAutoSpacing"],
     lineRule: sp.lineRule ?? "auto",
     line: sp.line ?? 240,
@@ -5723,7 +5955,7 @@ function prepareParagraph(ctx, para0, env0) {
     keepNext: !!ppr.keepNext,
     keepLines: !!ppr.keepLines,
     widowControl: ppr.widowControl ?? false,
-    pageBreakBefore: !!ppr.pageBreakBefore,
+    pageBreakBefore: !env.continuation && !!ppr.pageBreakBefore,
     empty: glyphs.every((g) => g.kind === "pb" || g.kind === "obj" && !!(g.obj?.image?.floating || g.obj?.shape?.floating || g.obj?.group?.floating || g.obj?.textbox?.floating))
   };
   void settings;
@@ -5917,7 +6149,7 @@ function formatWordDate(d, picture, lang = "pt-BR") {
   const L = lang.toLowerCase().startsWith("en") ? EN : PT;
   let out = "";
   let i = 0;
-  const run = (ch) => {
+  const run2 = (ch) => {
     let n = 0;
     while (picture[i + n] === ch) n++;
     return n;
@@ -5937,44 +6169,44 @@ function formatWordDate(d, picture, lang = "pt-BR") {
       continue;
     }
     if (c === "d" || c === "D") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 4 ? L.days[d.getDay()] : n === 3 ? L.daysShort[d.getDay()] : n === 2 ? pad(d.getDate(), 2) : String(d.getDate());
       i += n;
       continue;
     }
     if (c === "M") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 4 ? L.months[d.getMonth()] : n === 3 ? L.monthsShort[d.getMonth()] : n === 2 ? pad(d.getMonth() + 1, 2) : String(d.getMonth() + 1);
       i += n;
       continue;
     }
     if (c === "y" || c === "Y") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 3 ? String(d.getFullYear()) : pad(d.getFullYear() % 100, 2);
       i += n;
       continue;
     }
     if (c === "H") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 2 ? pad(d.getHours(), 2) : String(d.getHours());
       i += n;
       continue;
     }
     if (c === "h") {
-      const n = run(c);
+      const n = run2(c);
       const h = d.getHours() % 12 || 12;
       out += n >= 2 ? pad(h, 2) : String(h);
       i += n;
       continue;
     }
     if (c === "m") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 2 ? pad(d.getMinutes(), 2) : String(d.getMinutes());
       i += n;
       continue;
     }
     if (c === "s" || c === "S") {
-      const n = run(c);
+      const n = run2(c);
       out += n >= 2 ? pad(d.getSeconds(), 2) : String(d.getSeconds());
       i += n;
       continue;
@@ -6256,8 +6488,129 @@ function gradientGeometry2(g, box, pathBox) {
   const [x1, y1] = rotPt(cx + dx * t1, cy + dy * t1);
   return { kind: "axial", x0, y0, x1, y1 };
 }
-function shapeExtras(s, theme) {
+function patternRaster(p, x, y, w, h, px, k = 1) {
+  const rows = patternRows(p.prst);
+  if (!rows || w <= 0 || h <= 0) return null;
+  const i0 = Math.floor(x / px), j0 = Math.floor(y / px);
+  const W = Math.max(1, Math.ceil((x + w) / px) - i0), H = Math.max(1, Math.ceil((y + h) / px) - j0);
+  const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
+  const RW = W * k, RH = H * k;
+  const data = new Uint8Array(RW * RH * 4);
+  for (let y2 = 0; y2 < RH; y2++) {
+    const j = Math.floor(y2 / k);
+    const row = rows[((j0 + j) % 8 + 8) % 8];
+    for (let x2 = 0; x2 < RW; x2++) {
+      const i = Math.floor(x2 / k);
+      const on = row >> 7 - ((i0 + i) % 8 + 8) % 8 & 1;
+      const c = on ? fg : bg, q = (y2 * RW + x2) * 4;
+      data[q] = c[0];
+      data[q + 1] = c[1];
+      data[q + 2] = c[2];
+      data[q + 3] = 255;
+    }
+  }
+  return { data, w: RW, h: RH, x: i0 * px, y: j0 * px, cells: { w: W, h: H } };
+}
+function blipTiles(b, x, y, w, h, emu, natural) {
+  const t = b.tile;
+  if (!t || !natural) return [{ x, y, w, h }];
+  const tw = natural.width * 9525 * emu * (t.sx / 1e5), th = natural.height * 9525 * emu * (t.sy / 1e5);
+  if (!(tw > 0) || !(th > 0)) return [{ x, y, w, h }];
+  const a = t.algn ?? "tl";
+  const ax = a === "tr" || a === "r" || a === "br" ? x + w - tw : a === "t" || a === "ctr" || a === "b" ? x + (w - tw) / 2 : x;
+  const ay = a.startsWith("b") ? y + h - th : a === "l" || a === "ctr" || a === "r" ? y + (h - th) / 2 : y;
+  const ox = ax + t.tx * emu, oy = ay + t.ty * emu;
+  const sx0 = ox - Math.ceil((ox - x) / tw) * tw, sy0 = oy - Math.ceil((oy - y) / th) * th;
+  const out = [];
+  for (let ty = sy0; ty < y + h && out.length < 4e3; ty += th) for (let tx = sx0; tx < x + w; tx += tw) out.push({ x: tx, y: ty, w: tw, h: th });
+  return out;
+}
+function isRectGradient(g) {
+  return !!g && (g.path === "rect" || g.path === "shape");
+}
+function rectGradientRaster(g, w, h, ppu) {
+  const W = Math.max(1, Math.min(2e3, Math.round(w * ppu))), H = Math.max(1, Math.min(2e3, Math.round(h * ppu)));
+  const f = g.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
+  const fx0 = f.l * W, fx1 = (1 - f.r) * W, fy0 = f.t * H, fy1 = (1 - f.b) * H;
+  const smp = gradientSamples(g.stops, 256);
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const py = y + 0.5;
+    const ty = py < fy0 ? (fy0 - py) / Math.max(1e-6, fy0) : py > fy1 ? (py - fy1) / Math.max(1e-6, H - fy1) : 0;
+    for (let x = 0; x < W; x++) {
+      const px = x + 0.5;
+      const tx = px < fx0 ? (fx0 - px) / Math.max(1e-6, fx0) : px > fx1 ? (px - fx1) / Math.max(1e-6, W - fx1) : 0;
+      const t = Math.min(1, Math.max(tx, ty));
+      const i = Math.round(t * 255) * 3, k = (y * W + x) * 4;
+      data[k] = smp[i];
+      data[k + 1] = smp[i + 1];
+      data[k + 2] = smp[i + 2];
+      data[k + 3] = 255;
+    }
+  }
+  return { data, w: W, h: H };
+}
+function substPhClr(spec, color2) {
+  if (!spec.startsWith("@phClr")) return spec;
+  const mods = spec.split("|")[1];
+  if (!mods) return color2;
+  const [base, cm] = color2.split("|");
+  return `${base}|${[cm, mods].filter(Boolean).join(",")}`;
+}
+function withThemeStyles(s, theme) {
+  let out = s;
+  if (s.fillRef) {
+    const list = s.fillRef.idx >= 1e3 ? theme.bgFillStyles : theme.fillStyles;
+    const ts = list?.[s.fillRef.idx % 1e3 - 1];
+    if (ts) {
+      const c = s.fillRef.color;
+      out = {
+        ...out,
+        ...ts.fill ? { fill: substPhClr(ts.fill, c) } : {},
+        ...ts.gradient ? { gradient: { ...ts.gradient, from: substPhClr(ts.gradient.from, c), to: substPhClr(ts.gradient.to, c), ...ts.gradient.stops ? { stops: ts.gradient.stops.map((x) => ({ ...x, color: substPhClr(x.color, c) })) } : {} } } : {},
+        ...ts.pattern ? { pattern: { ...ts.pattern, fg: substPhClr(ts.pattern.fg, c), bg: substPhClr(ts.pattern.bg, c) } } : {}
+      };
+    }
+  }
+  if (s.effectRef && !s.shadow) {
+    const sh = theme.effectStyles?.[s.effectRef.idx - 1];
+    if (sh) out = { ...out, shadow: { ...sh, color: substPhClr(sh.color, s.effectRef.color) } };
+  }
+  return out;
+}
+function shapeExtras(s0, theme) {
+  const s = withThemeStyles(s0, theme);
   const out = {};
+  if (s.fx) {
+    const f = s.fx, c = (x) => resolveDrawingColor(x, theme) ?? "000000";
+    const fx = {};
+    if (f.inner) fx.shadow = { kind: "inner", color: c(f.inner.color), alpha: f.inner.alpha, blurPt: f.inner.blurPt, distPt: f.inner.distPt, dirDeg: f.inner.dirDeg };
+    else if (f.outer) {
+      const o = f.outer;
+      fx.shadow = {
+        kind: "outer",
+        color: c(o.color),
+        alpha: o.alpha,
+        blurPt: o.blurPt,
+        distPt: o.distPt,
+        dirDeg: o.dirDeg,
+        ...o.sx !== void 0 ? { sx: o.sx } : {},
+        ...o.sy !== void 0 ? { sy: o.sy } : {},
+        ...o.kxDeg ? { kxDeg: o.kxDeg } : {},
+        ...o.kyDeg ? { kyDeg: o.kyDeg } : {},
+        ...o.algn ? { algn: o.algn } : {},
+        ...o.rotWithShape !== void 0 ? { rotWithShape: o.rotWithShape } : {}
+      };
+    }
+    if (f.glow) fx.glow = { color: c(f.glow.color), alpha: f.glow.alpha, radPt: f.glow.radPt };
+    if (f.softEdgePt) fx.softEdgePt = f.softEdgePt;
+    if (f.reflection) fx.reflection = { ...f.reflection };
+    if (Object.keys(fx).length) out.fx = fx;
+  }
+  if (s.pattern) {
+    out.pattern = { prst: s.pattern.prst, fg: resolveDrawingColor(s.pattern.fg, theme) ?? "000000", bg: resolveDrawingColor(s.pattern.bg, theme) ?? "FFFFFF" };
+  }
+  if (s.blip) out.blip = s.blip;
   const g = s.gradient;
   if (g?.stops && g.stops.length) {
     out.grad = {
@@ -6295,18 +6648,18 @@ function groupChild(gr, item, x, y, w, h) {
     return { ...st, rot: r, flipH: !!st.flipH !== !!gr.flipH, flipV: !!st.flipV !== !!gr.flipV };
   };
   const r0 = item.run;
-  const run = { ...r0 };
-  if (r0.shape) run.shape = { ...r0.shape, style: xf(r0.shape.style) };
-  if (r0.image) run.image = { ...r0.image, style: xf(r0.image.style ?? { geom: "rect" }) };
+  const run2 = { ...r0 };
+  if (r0.shape) run2.shape = { ...r0.shape, style: xf(r0.shape.style) };
+  if (r0.image) run2.image = { ...r0.image, style: xf(r0.image.style ?? { geom: "rect" }) };
   if (r0.textbox) {
     const tb = { ...r0.textbox };
     if (tb.shape) tb.shape = xf(tb.shape);
     const tr = ((mirror ? -(tb.rot ?? 0) : tb.rot ?? 0) + (gr.rot ?? 0)) % 360;
     if (tr) tb.rot = tr;
-    run.textbox = tb;
+    run2.textbox = tb;
   }
-  if (r0.group) run.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
-  return { run, x: ix, y: iy, w: iw, h: ih };
+  if (r0.group) run2.group = { ...r0.group, rot: ((r0.group.rot ?? 0) + (gr.rot ?? 0)) % 360, flipH: !!r0.group.flipH !== !!gr.flipH, flipV: !!r0.group.flipV !== !!gr.flipV };
+  return { run: run2, x: ix, y: iy, w: iw, h: ih };
 }
 function custPaths(cust, x, y, w, h, opts = {}) {
   const r = (opts.rot ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
@@ -6376,6 +6729,14 @@ function jpegInfo(b) {
     }
     i += 2 + len;
   }
+  return null;
+}
+function imagePixelSize(b) {
+  const jp = jpegInfo(b);
+  if (jp) return { width: jp.width, height: jp.height };
+  if (b.length > 24 && b[0] === 137 && b[1] === 80) return { width: (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, height: (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0 };
+  if (b.length > 10 && b[0] === 71 && b[1] === 73) return { width: b[6] | b[7] << 8, height: b[8] | b[9] << 8 };
+  if (b.length > 26 && b[0] === 66 && b[1] === 77) return { width: Math.abs(b[18] | b[19] << 8 | b[20] << 16 | b[21] << 24), height: Math.abs(b[22] | b[23] << 8 | b[24] << 16 | b[25] << 24) };
   return null;
 }
 var PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -7154,6 +7515,76 @@ function patternRowsFromImage(b) {
   return rows;
 }
 
+// ../docx-layout/src/chain.ts
+var CONTINUATION = /* @__PURE__ */ new WeakSet();
+function indexChains(full) {
+  const out = /* @__PURE__ */ new Map();
+  const scan = (blocks) => {
+    const heads = /* @__PURE__ */ new Map();
+    const links = [];
+    forEachTextbox(blocks, (tb) => {
+      if (tb.link) links.push(tb);
+      else if (tb.story !== void 0 && !heads.has(tb.story)) heads.set(tb.story, tb);
+    });
+    if (!links.length) return;
+    for (const [id, head] of heads) {
+      const ms = links.filter((l) => l.link.id === id).sort((a, b) => a.link.seq - b.link.seq);
+      if (!ms.length) continue;
+      const chain = { members: [head, ...ms] };
+      for (const m of chain.members) out.set(m, chain);
+    }
+  };
+  scan(full.blocks);
+  const seen = /* @__PURE__ */ new Set();
+  for (const s of full.sections) {
+    for (const set of [s.headerBlocks, s.footerBlocks]) {
+      for (const bs of Object.values(set ?? {})) {
+        if (bs && !seen.has(bs)) {
+          seen.add(bs);
+          scan(bs);
+        }
+      }
+    }
+  }
+  return out;
+}
+function sliceParagraphFrom(p, offset) {
+  const runs = [];
+  let pos = 0;
+  for (const r of p.runs) {
+    const len = r.text.length;
+    if (pos + len <= offset) {
+      pos += len;
+      continue;
+    }
+    if (pos >= offset || r.field || r.fieldResult || r.image || r.textbox || r.shape || r.group || r.custom || r.math) runs.push(r);
+    else runs.push({ ...r, text: r.text.slice(offset - pos) });
+    pos += len;
+  }
+  const out = { ...p, runs };
+  CONTINUATION.add(out);
+  return out;
+}
+function topBlockOf(ref) {
+  const m = /^[^/]+\/b(\d+)/.exec(ref);
+  return m ? +m[1] : -1;
+}
+function topRowOf(ref) {
+  const m = /^[^/]+\/b\d+\/r(\d+)\//.exec(ref);
+  return m ? +m[1] : -1;
+}
+function remapLines(lines, map, cont, rows = 0) {
+  return lines.map((l) => {
+    const m = /^([^/]+)\/b(\d+)(.*)$/.exec(l.ref);
+    if (!m) return l;
+    const j = +m[2];
+    const tail = j === 0 && rows ? m[3].replace(/^\/r(\d+)/, (_s, r) => `/r${+r + rows}`) : m[3];
+    const ref = `${m[1]}/b${map[j] ?? j}${tail}`;
+    if (j !== 0 || !cont || m[3]) return ref === l.ref ? l : { ...l, ref };
+    return { ...l, ref, start: l.start + cont, end: l.end + cont, ...l.chars ? { chars: l.chars.map((c) => ({ ...c, o: c.o + cont })) } : {} };
+  });
+}
+
 // ../docx-layout/src/lines.ts
 var FIXED_SPACE = (cp) => cp >= 8192 && cp <= 8202 || cp === 12288;
 var FIT_EPS = 1e-3;
@@ -7614,11 +8045,11 @@ var LineBreaker = class {
     if (emptyLine) {
       const mm = faceMetrics(p.markFace.font);
       const va = p.markStyle.rpr.vertAlign;
-      const sz = (va === "superscript" || va === "subscript" ? (p.markStyle.rpr.sz ?? 20) / 2 : p.markStyle.sizePt) * 20;
+      const sz2 = (va === "superscript" || va === "subscript" ? (p.markStyle.rpr.sz ?? 20) / 2 : p.markStyle.sizePt) * 20;
       const sh = va ? 0 : p.markStyle.shift;
       const [ea, ed] = shadowExtent(p.markStyle);
-      asc = Math.max(0, mm.ascent * sz + ea + sh);
-      desc = Math.max(0, mm.descent * sz + ed - sh);
+      asc = Math.max(0, mm.ascent * sz2 + ea + sh);
+      desc = Math.max(0, mm.descent * sz2 + ed - sh);
     }
     if (tAsc + tDesc === 0) {
       const mm = faceMetrics(p.markFace.font);
@@ -8735,11 +9166,11 @@ function paintLine(ctx, out, line, frameX, top) {
     const asc = m.ascent * st.sizePt * 20, desc = m.descent * st.sizePt * 20;
     out.push({ t: "rect", x: frameX + pg.x, y: baseY - asc, w: pg.w, h: asc + desc, fill });
   }
-  let run = null;
+  let run2 = null;
   let runKey = "";
   const flush = () => {
-    if (run && run.glyphs.length) out.push(run);
-    run = null;
+    if (run2 && run2.glyphs.length) out.push(run2);
+    run2 = null;
     runKey = "";
   };
   for (const pg of all) {
@@ -8769,7 +9200,7 @@ function paintLine(ctx, out, line, frameX, top) {
     if (key !== runKey) {
       flush();
       runKey = key;
-      run = {
+      run2 = {
         t: "glyphs",
         face: g.face,
         sizePt: g.sizePt,
@@ -8788,8 +9219,8 @@ function paintLine(ctx, out, line, frameX, top) {
       };
     }
     const cp = g.kind === "shy" ? 45 : g.cp;
-    run.glyphs.push({ cp, x: frameX + pg.x });
-    run.text += String.fromCodePoint(cp);
+    run2.glyphs.push({ cp, x: frameX + pg.x });
+    run2.text += String.fromCodePoint(cp);
   }
   flush();
   paintDecorations(out, all, frameX, baseY, line);
@@ -8811,7 +9242,7 @@ function paintLeader(ctx, out, pg, frameX, baseY, all) {
   const fv = frameX / 2.4, ff = Math.floor(fv);
   const fx = Math.abs(fv - ff - 0.5) < 1e-6 ? ff + ff % 2 : Math.round(fv);
   const x0 = displayEnd(ctx, all, pg, fx), x1 = fx + Math.round((pg.x + pg.w) / 2.4);
-  const run = {
+  const run2 = {
     t: "glyphs",
     face,
     sizePt: g.sizePt,
@@ -8822,10 +9253,10 @@ function paintLeader(ctx, out, pg, frameX, baseY, all) {
     ...scale !== 1 ? { scaleX: scale } : {}
   };
   for (let k = Math.ceil(x0 / step); (k + 1) * step <= x1; k++) {
-    run.glyphs.push({ cp, x: k * step * 2.4 });
-    run.text += ch;
+    run2.glyphs.push({ cp, x: k * step * 2.4 });
+    run2.text += ch;
   }
-  if (run.glyphs.length) out.push(run);
+  if (run2.glyphs.length) out.push(run2);
 }
 function displayEnd(ctx, all, tab, fx) {
   const i = all.indexOf(tab);
@@ -8847,14 +9278,14 @@ function displayEnd(ctx, all, tab, fx) {
   return px + seg(u);
 }
 function paintMath(out, box, frameX, x, baseY, line, lineId) {
-  let run = null;
+  let run2 = null;
   let key = "";
   for (const it of box.items) {
     const k = `${it.face.key}|${it.sizePt}|${it.style.color}|${it.y}`;
-    if (!run || k !== key) {
-      if (run) out.push(run);
+    if (!run2 || k !== key) {
+      if (run2) out.push(run2);
       key = k;
-      run = {
+      run2 = {
         t: "glyphs",
         face: it.face,
         sizePt: it.sizePt,
@@ -8865,10 +9296,10 @@ function paintMath(out, box, frameX, x, baseY, line, lineId) {
         lineBox: { asc: line.baseline + it.y, desc: line.height - line.baseline - it.y, lead: x + it.x, line: lineId }
       };
     }
-    run.glyphs.push({ cp: it.cp, x: frameX + x + it.x });
-    run.text += String.fromCodePoint(it.cp);
+    run2.glyphs.push({ cp: it.cp, x: frameX + x + it.x });
+    run2.text += String.fromCodePoint(it.cp);
   }
-  if (run) out.push(run);
+  if (run2) out.push(run2);
   for (const r of box.rules) out.push({ t: "rect", x: frameX + x + r.x, y: baseY + r.y, w: r.w, h: r.h, fill: r.color });
 }
 function paintCheckBox(out, g, x, baseY) {
@@ -8948,8 +9379,8 @@ function paintDecorations(out, all, frameX, baseY, line) {
   for (const s of segs((g) => !!g.style.underline && g.style.underline.val !== "none")) {
     const st = s.g.style;
     const m = faceMetrics(s.g.face.font);
-    const sz = st.sizePt * 20;
-    const y = baseY - st.shift + m.underlinePos * sz;
+    const sz2 = st.sizePt * 20;
+    const y = baseY - st.shift + m.underlinePos * sz2;
     const w = Math.max(0.5, m.underlineThick * st.sizePt);
     const color2 = st.underline.color ?? st.color;
     const val = st.underline.val;
@@ -9416,18 +9847,18 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const g1 = boundaryWidths(cells, nCols, (c) => m.get(c).min, () => true);
   const minOf = (c) => m.get(c).min;
   if (all.length && all.every((c) => prefOf(c.tcW) === "pct")) {
-    const T4 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
-    const p2 = boundaryWidths(cells, nCols, (c) => T4 * c.tcW.w / 5e3);
-    let room = T4;
+    const T5 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
+    const p2 = boundaryWidths(cells, nCols, (c) => T5 * c.tcW.w / 5e3);
+    let room = T5;
     for (let j = 0; j < nCols; j++) {
       p2[j] = Math.max(0, Math.min(p2[j], room));
       room -= p2[j];
     }
     fitPctMins(p2, all, minOf, g1, () => true);
     const sp = p2.reduce((a, b) => a + b, 0);
-    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T4, base);
+    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T5, base);
     if (sp > cap + 0.5) return p2.map((x) => x * cap / sp);
-    return sp > 0 && T4 > sp + 0.5 ? p2.map((x) => x * T4 / sp) : p2;
+    return sp > 0 && T5 > sp + 0.5 ? p2.map((x) => x * T5 / sp) : p2;
   }
   const frac = Array.from({ length: nCols }, (_, j) => {
     const own3 = all.filter((c) => c.span === 1 && c.col === j);
@@ -9435,23 +9866,23 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     return Math.max(...own3.filter((c) => prefOf(c.tcW) === "pct").map((c) => c.tcW.w / 5e3));
   });
   const isPct = frac.map((f) => f > 0);
-  const kind = (c, T4) => {
+  const kind = (c, T5) => {
     const k = prefOf(c.tcW);
-    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T4 * c.tcW.w / 5e3 };
+    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T5 * c.tcW.w / 5e3 };
     return { k, w: k === "dxa" ? c.tcW.w : 0 };
   };
   const sumOf = (v, pick) => v.reduce((a, x, j) => a + (pick(j) ? x : 0), 0);
   const gMax = boundaryWidths(cells, nCols, (c) => m.get(c).max, () => true);
-  const g3of = (T4) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T4);
+  const g3of = (T5) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T5);
     return q.k === "dxa" ? Math.max(q.w, m.get(c).min) : m.get(c).min;
-  }, (c) => kind(c, T4).k !== "dxa");
-  const g4of = (T4) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T4), mm = m.get(c);
+  }, (c) => kind(c, T5).k !== "dxa");
+  const g4of = (T5) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T5), mm = m.get(c);
     return q.k === "dxa" ? Math.max(q.w, mm.min) : q.k === "auto" ? mm.max : mm.min;
-  }, (c) => kind(c, T4).k !== "dxa");
-  let T3 = T0;
-  if (T3 === void 0) {
+  }, (c) => kind(c, T5).k !== "dxa");
+  let T4 = T0;
+  if (T4 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
     const fr = Math.min(1, frac.reduce((a, b) => a + b, 0));
@@ -9460,14 +9891,14 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
       for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac[j]);
       if (fr < 1) t = Math.max(t, rest / (1 - fr));
     }
-    T3 = Math.min(t, avail);
+    T4 = Math.min(t, avail);
   }
   const explicit = T0 !== void 0;
   const p = new Array(nCols).fill(0);
   if (isPct.some(Boolean)) {
-    let room = T3 - sumOf(g1, (j) => !isPct[j]);
+    let room = T4 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p[j] = Math.max(0, Math.min(frac[j] * T3, room));
+      p[j] = Math.max(0, Math.min(frac[j] * T4, room));
       room -= p[j];
     }
     fitPctMins(p, all.filter((c) => c.span === 1), minOf, g1, (k) => isPct[k]);
@@ -9475,15 +9906,15 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const np = (j) => !isPct[j];
   if (!isPct.some((x) => !x)) {
     const sp = sumOf(p, () => true);
-    return sp > 0 && T3 > sp + 0.5 ? p.map((x) => x * T3 / sp) : p;
+    return sp > 0 && T4 > sp + 0.5 ? p.map((x) => x * T4 / sp) : p;
   }
-  let R = T3 - sumOf(p, () => true);
-  const g3 = g3of(T3), g4 = g4of(T3);
+  let R = T4 - sumOf(p, () => true);
+  const g3 = g3of(T4), g4 = g4of(T4);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp = (a, b, t) => a.map((x, j) => isPct[j] ? p[j] : x + (b[j] - x) * t);
   if (R >= S4 - 0.5) {
     const covered = (j) => all.some((c) => c.col <= j && c.col + c.span > j);
-    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T3).k !== "auto"));
+    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T4).k !== "auto"));
     let grow = auto;
     if (!grow.some(Boolean)) grow = isPct.map((x, j) => !x && covered(j));
     const wsum = sumOf(g4, (j) => grow[j]);
@@ -9492,19 +9923,19 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   }
   if (R >= S3) return lerp(g3, g4, (R - S3) / (S4 - S3));
   if (R >= S1) return lerp(g1, g3, S3 > S1 ? (R - S1) / (S3 - S1) : 0);
-  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T3 > avail) && S1 > avail + 0.5) {
+  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T4 > avail) && S1 > avail + 0.5) {
     const pad2 = Array.from({ length: nCols }, (_, j) => Math.max(0, ...all.filter((c) => c.span === 1 && c.col === j).map((c) => c.pad ?? 0)));
     const inner = g1.map((x, j) => Math.max(0, x - pad2[j]));
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x, j) => x - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
   if (explicit) {
-    if (!(S1 > avail + 0.5 && (tw === "pct" ? T3 <= avail + 0.5 : T3 < avail - 0.5))) return g3.map((x, j) => isPct[j] ? p[j] : x);
-    R += avail - T3;
-    T3 = avail;
+    if (!(S1 > avail + 0.5 && (tw === "pct" ? T4 <= avail + 0.5 : T4 < avail - 0.5))) return g3.map((x, j) => isPct[j] ? p[j] : x);
+    R += avail - T4;
+    T4 = avail;
   }
   const sg = docGrid.reduce((a, b) => a + b, 0);
-  if (!isPct.some(Boolean) && Math.abs(sg - T3) <= Math.max(20, 5e-3 * T3)) return docGrid.map((x) => x * T3 / sg);
+  if (!isPct.some(Boolean) && Math.abs(sg - T4) <= Math.max(20, 5e-3 * T4)) return docGrid.map((x) => x * T4 / sg);
   return g1.map((x, j) => isPct[j] ? p[j] : S1 > 0 ? x * R / S1 : x);
 }
 function measureCell(ctx, cell, r, mar) {
@@ -9533,14 +9964,14 @@ function measureCell(ctx, cell, r, mar) {
   });
   return { min: Math.max(6, Math.ceil(min - 1e-6)) + mar, max: Math.max(6, Math.ceil(max - 1e-6)) + mar };
 }
-function anchoredWidth(ctx, para) {
+function anchoredWidth(ctx, para2) {
   let w = 0;
-  for (const run of para.runs) {
-    const t = run.image ?? run.shape ?? run.group ?? run.textbox;
+  for (const run2 of para2.runs) {
+    const t = run2.image ?? run2.shape ?? run2.group ?? run2.textbox;
     const anc = t?.anchor;
     if (!t?.floating || !anc || anc.wrap === "none" || anc.wrap === "inline" || anc.layoutInCell === false) continue;
     let ow = t.widthTwips;
-    const tb = run.textbox;
+    const tb = run2.textbox;
     if (tb?.autoFit && tb.noWrap) {
       let tw = 0;
       for (const tp of tb.paras) tw = Math.max(tw, paraContentWidths(prepareParagraph(ctx, tp, {}), ctx.fmt.settings.defaultTabStop).max);
@@ -10293,9 +10724,9 @@ function frameRun(paras, f) {
     }
   };
   FRAME_INFO.set(tb, { autoWidth: !f.w, hRule: hRule === "exact" && f.h ? "exact" : hRule === "auto" || !f.h ? "auto" : "atLeast", h: f.h ?? 0 });
-  const run = { text: "\uFFFC", props: { ...DEFAULT_RUN_PROPS }, textbox: tb };
-  runCache.set(paras[0], run);
-  return run;
+  const run2 = { text: "\uFFFC", props: { ...DEFAULT_RUN_PROPS }, textbox: tb };
+  runCache.set(paras[0], run2);
+  return run2;
 }
 function liftFrames(blocks, stops) {
   let out = null;
@@ -10313,7 +10744,7 @@ function liftFrames(blocks, stops) {
       group.push(n.paragraph);
     }
     for (const p of group) FRAME_SKIP.add(p);
-    const run = frameRun(group, f);
+    const run2 = frameRun(group, f);
     let k = j;
     while (k < blocks.length && !stops?.has(k - 1)) {
       const n = blocks[k];
@@ -10326,16 +10757,16 @@ function liftFrames(blocks, stops) {
       const cur = out[k];
       const src = cur.paragraph;
       let c = anchorCache.get(src);
-      if (!c || !c.runs.includes(run)) {
+      if (!c || !c.runs.includes(run2)) {
         const prevRuns = c?.runs ?? [];
-        const runs = [...prevRuns, run];
+        const runs = [...prevRuns, run2];
         const base = c ? c.para : src;
-        const para = { ...base, runs: [...base.runs, run] };
-        c = { runs, para };
+        const para2 = { ...base, runs: [...base.runs, run2] };
+        c = { runs, para: para2 };
         anchorCache.set(src, c);
       }
       out[k] = { ...cur, paragraph: c.para };
-    } else FRAME_CARRY.set(group[0], run);
+    } else FRAME_CARRY.set(group[0], run2);
     i = j - 1;
   }
   return out ?? blocks;
@@ -10646,8 +11077,8 @@ var Engine = class {
       const saved = this.ctx.numbering;
       const st = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       this.ctx.numbering = st;
-      const num = (para) => {
-        const n = resolvePPr(this.ctx, para, {}).ppr.numPr;
+      const num = (para2) => {
+        const n = resolvePPr(this.ctx, para2, {}).ppr.numPr;
         return n?.numId ? st.next(n.numId, n.ilvl ?? 0) : null;
       };
       const visit = (b) => {
@@ -10995,9 +11426,9 @@ var Engine = class {
     const late = this.lateFloats.get(this.pages.length - 1);
     if (late) {
       const fr = this.colFrame();
-      for (const run of late) {
-        this.placeFloat(run, this.cur, fr.x, fr.w, this.cur.bodyTop, this.cur.body, 0);
-        this.prePlaced.add(run);
+      for (const run2 of late) {
+        this.placeFloat(run2, this.cur, fr.x, fr.w, this.cur.bodyTop, this.cur.body, 0);
+        this.prePlaced.add(run2);
       }
     }
     for (const [bi, lt] of this.lateTables) {
@@ -11274,12 +11705,12 @@ var Engine = class {
       for (const b of blocks) {
         if (b.type !== "paragraph") continue;
         const carry = FRAME_CARRY.get(b.paragraph);
-        for (const run of FRAME_SKIP.has(b.paragraph) ? carry ? [carry] : [] : b.paragraph.runs) {
-          const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-          const anc = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
+        for (const run2 of FRAME_SKIP.has(b.paragraph) ? carry ? [carry] : [] : b.paragraph.runs) {
+          const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+          const anc = run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
           if (!fl || !anc || !ABSOLUTE_V.has(anc.posV.relativeFrom ?? "") || this.onlyTextFloats) continue;
-          this.placeFloat(run, ps, x, width, yOrigin, items, yOrigin);
-          this.prePlaced.add(run);
+          this.placeFloat(run2, ps, x, width, yOrigin, items, yOrigin);
+          this.prePlaced.add(run2);
         }
       }
     }
@@ -11310,14 +11741,14 @@ var Engine = class {
         if (this.ctx.rev.markGone(b.paragraph) && this.noShownRuns(b.paragraph) && !join && !delRuns) return;
         const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
-        const para = join ? this.joinHidden(join, merged, env) : merged;
-        const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {} });
+        const para2 = join ? this.joinHidden(join, merged, env) : merged;
+        const p = prepareParagraph(this.ctx, para2, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {}, ...CONTINUATION.has(para2) ? { continuation: true } : {} });
         if (join) p.marker = join.marker;
         join = null;
         if (p.markStyle.hidden && bi < n - 1) {
           if (!p.glyphs.length) return;
           if (blocks[bi + 1].type === "paragraph") {
-            join = { para, marker: p.marker };
+            join = { para: para2, marker: p.marker };
             return;
           }
         }
@@ -11354,15 +11785,15 @@ var Engine = class {
         if (this.inCell && !cellShape) cellShape = p.glyphs.some((g) => !!(g.obj?.image?.floating || g.obj?.shape?.floating || g.obj?.group?.floating || g.obj?.textbox?.floating));
         if (cellAnch) {
           for (const g of p.glyphs) {
-            const run = g.obj;
-            if (!run || this.prePlaced.has(run) || !(run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating)) continue;
-            if (this.onlyTextFloats && !followsText(floatAnchor(run))) continue;
+            const run2 = g.obj;
+            if (!run2 || this.prePlaced.has(run2) || !(run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating)) continue;
+            if (this.onlyTextFloats && !followsText(floatAnchor(run2))) continue;
             const its = [];
-            const rc = this.placeFloat(run, ps, x + this.staticDx, width, yOrigin + top, its, yOrigin, void 0, yOrigin + paraRefS);
-            const mk = { z: floatAnchor(run)?.relativeHeight ?? 0, seq: this.zSeq++, behind: rc.obj.layer === "behind" };
+            const rc = this.placeFloat(run2, ps, x + this.staticDx, width, yOrigin + top, its, yOrigin, void 0, yOrigin + paraRefS);
+            const mk = { z: floatAnchor(run2)?.relativeHeight ?? 0, seq: this.zSeq++, behind: rc.obj.layer === "behind" };
             for (const it of its) LATE_ITEMS.set(it, mk);
             cellAnch.push(...its);
-            if (rc.box && !floatAnchor(run)?.simplePos) {
+            if (rc.box && !floatAnchor(run2)?.simplePos) {
               cellFloats.push({ ...rc.box, x: rc.box.x - this.staticDx, y: rc.box.y - yOrigin });
               floatBottom = Math.max(floatBottom, rc.obj.y - yOrigin + rc.obj.h);
             }
@@ -11680,8 +12111,8 @@ var Engine = class {
     const styles = this.ctx.fmt.styles.styles;
     const sid = Object.values(styles).find((d) => d.type === "character" && d.name?.toLowerCase() === "line number")?.styleId;
     const rpr = sid ? { rStyle: sid } : {};
-    const para = { runs: [{ text: String(this.lnCount), props: runPropsFromRPr(rpr), rpr }], props: {}, ppr: {} };
-    const np = prepareParagraph(this.ctx, para, { numbering: false });
+    const para2 = { runs: [{ text: String(this.lnCount), props: runPropsFromRPr(rpr), rpr }], props: {}, ppr: {} };
+    const np = prepareParagraph(this.ctx, para2, { numbering: false });
     const line = new LineBreaker(this.ctx, np).next({ left: 0, right: 2e4 });
     const x = colX - ln.distance - line.width;
     paintLine(this.ctx, this.cur.body, line, x, baseline - line.baseline);
@@ -11753,8 +12184,8 @@ var Engine = class {
     const env = { field: this.fieldValue(this.cur, blockIdx) };
     const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
-    const para = join ? this.joinHidden(join, merged, env) : merged;
-    const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
+    const para2 = join ? this.joinHidden(join, merged, env) : merged;
+    const p = prepareParagraph(this.ctx, para2, join ? { ...env, numbering: false } : env);
     if (join) p.marker = join.marker;
     if (p.marker?.chapter !== void 0 && p.styleId) {
       const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p.styleId]?.name ?? "")?.[1];
@@ -11765,7 +12196,7 @@ var Engine = class {
     if (p.markStyle.hidden && blockIdx < g.blocks[1]) {
       if (!p.glyphs.length) return;
       if (this.full.blocks[blockIdx + 1]?.type === "paragraph") {
-        this.pendingJoin = { para, marker: p.marker };
+        this.pendingJoin = { para: para2, marker: p.marker };
         return;
       }
     }
@@ -12162,10 +12593,10 @@ var Engine = class {
   rowNoteIds(row) {
     const ids = [];
     for (const l of row.lines) {
-      const para = this.paraByRef(l.ref);
-      if (!para) continue;
+      const para2 = this.paraByRef(l.ref);
+      if (!para2) continue;
       let off = 0;
-      for (const r of para.runs) {
+      for (const r of para2.runs) {
         const len = r.text.length;
         const id = r.noteRef?.kind === "footnote" ? r.noteRef.id : void 0;
         if (id !== void 0 && off + Math.max(len, 1) > l.start && off < Math.max(l.end, l.start + 1) && !ids.includes(id) && !this.cur.notes.some((n) => n.id === id)) ids.push(id);
@@ -12728,9 +13159,9 @@ var Engine = class {
   pinFloatsOverTable(t, blockIdx) {
     const nb = this.full.blocks[blockIdx + 1];
     if (!nb || nb.type !== "paragraph") return;
-    const runs = nb.paragraph.runs.filter((run) => {
-      const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-      const anc = floatAnchor(run);
+    const runs = nb.paragraph.runs.filter((run2) => {
+      const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+      const anc = floatAnchor(run2);
       return !!fl && !!anc && WRAPPING.has(anc.wrap ?? "") && !anc.simplePos && (anc.posV.relativeFrom ?? "paragraph") === "paragraph" && anc.posV.align === void 0 && anc.posV.pct === void 0 && (anc.posV.offset ?? 0) < 0;
     });
     if (!runs.length) return;
@@ -12743,10 +13174,10 @@ var Engine = class {
     const fr = this.colFrame();
     const g = this.cur.geom;
     let newTop = top;
-    for (const run of runs) {
-      const anc = floatAnchor(run);
-      const w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
-      const h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
+    for (const run2 of runs) {
+      const anc = floatAnchor(run2);
+      const w = run2.image?.widthTwips ?? run2.shape?.widthTwips ?? run2.group?.widthTwips ?? run2.textbox?.widthTwips ?? 0;
+      const h = run2.image?.heightTwips ?? run2.shape?.heightTwips ?? run2.group?.heightTwips ?? run2.textbox?.heightTwips ?? 0;
       const y = Math.max(this.floatMinY(this.cur), anchorTop0 + (anc.posV.offset ?? 0));
       const hRef = horizRef(anc.posH.relativeFrom ?? "column", g, fr.x, fr.w);
       const x = alignPos(anc.posH.align, anc.posH.offset, hRef.x, hRef.w, w, anc.posH.pct, g.pageW, anc.effectExtent?.l, anc.effectExtent?.r);
@@ -12756,7 +13187,7 @@ var Engine = class {
       const overV = by0 - (anc.distT ?? 0) < top + H && by1 + (anc.distB ?? 0) > top;
       const overH = bx0 - (anc.distL ?? 0) < t.x + t.width && bx1 + (anc.distR ?? 0) > t.x;
       if (!overV || !overH) continue;
-      this.pinnedFloats.set(run, { ps: this.cur, y });
+      this.pinnedFloats.set(run2, { ps: this.cur, y });
       newTop = Math.max(newTop, by1 + (anc.distB ?? 0));
     }
     if (newTop > top) this.y = newTop;
@@ -13057,34 +13488,140 @@ var Engine = class {
     }
     return last;
   }
+  /** Ambiente do texto da caixa: fundo escuro (cor automática branca) e a cor do
+   *  wps:style/a:fontRef para o texto sem cor (medido: estilo de forma "preenchido"). */
+  tbEnv(tb) {
+    const theme = this.ctx.fmt.theme;
+    const fc = tb.fontColor ? resolveDrawingColor(tb.fontColor, theme) : void 0;
+    const s = tb.shape;
+    const solid = s && !s.gradient && !s.pattern && !s.blip && !s.fillRef ? s.fill : void 0;
+    return { darkBackground: isDark(resolveDrawingColor(solid, theme)), ...fc ? { defaultColor: fc } : {} };
+  }
+  /** cadeias de caixas vinculadas (montadas na 1ª caixa que precisa) */
+  chains = null;
+  /** conteúdo de cada caixa de uma cadeia (diagramado uma vez por passada) */
+  chainSlices = /* @__PURE__ */ new Map();
+  chainOf(tb) {
+    if (tb.story === void 0 && !tb.link) return void 0;
+    this.chains ??= indexChains(this.full);
+    return this.chains.get(tb);
+  }
+  /**
+   * Pedaço do conteúdo da cadeia que cabe na caixa `tb`: o conteúdo da 1ª caixa é
+   * diagramado na largura de cada caixa, em ordem; o corte (o mesmo da linha de tabela
+   * partida: viúvas/órfãs, espaço depois) manda o resto para a seguinte, que quebra de
+   * novo na largura dela — o parágrafo partido continua sem recuo da 1ª linha e sem
+   * espaço antes. A última fica com tudo o que sobra (transborda). Oráculo txbxlink.
+   */
+  chainSlice(chain, tb, env0) {
+    let slices = this.chainSlices.get(chain);
+    if (!slices) {
+      const out = /* @__PURE__ */ new Map();
+      slices = out;
+      this.chainSlices.set(chain, out);
+      const theme = this.ctx.fmt.theme;
+      const head = chain.members[0];
+      let rem = head.blocks ?? head.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
+      let map = rem.map((_, i) => i);
+      let cont = 0, rows = 0;
+      const empty = () => ({ items: [], lines: [], height: 0 });
+      chain.members.forEach((m, k) => {
+        if (!rem.length) {
+          out.set(m, empty());
+          return;
+        }
+        const fr = tbFrame(m, theme, m.widthTwips, m.heightTwips);
+        const env = { ...env0, ...this.tbEnv(m) };
+        const blocks = rem, curMap = map, curCont = cont, curRows = rows;
+        const c = this.ctx.pure(() => this.layoutStatic(blocks, 0, Math.max(1, fr.iw), env, "txbx"));
+        const ci = curCont ? c.paras?.get("txbx/b0") : void 0;
+        if (ci) c.paras.set("txbx/b0", { ...ci, lines: ci.lines + 1 });
+        let slice = c;
+        rem = [];
+        if (k < chain.members.length - 1) {
+          let parts = splitContent(c, fr.ih);
+          if (!parts) {
+            out.set(m, empty());
+            rem = blocks;
+            return;
+          }
+          let cut = parts[0].height;
+          let moved = c.lines.filter((l) => l.y >= cut - 0.01);
+          let first = moved.length ? moved.reduce((a, b) => b.y < a.y ? b : a) : void 0;
+          let row = first ? topRowOf(first.ref) : -1;
+          if (first && row >= 0) {
+            const jt = topBlockOf(first.ref), r0 = row;
+            const nr = c.nest?.find((n) => n.lines.some((l) => topBlockOf(l.ref) === jt && topRowOf(l.ref) === r0));
+            if (nr && nr.top < cut - 0.01) {
+              const p2 = nr.top > 0.5 ? splitContent(c, nr.top) : null;
+              if (!p2) {
+                out.set(m, empty());
+                rem = blocks;
+                return;
+              }
+              parts = p2;
+              cut = p2[0].height;
+              moved = c.lines.filter((l) => l.y >= cut - 0.01);
+              first = moved.reduce((a, b) => b.y < a.y ? b : a);
+              row = topRowOf(first.ref);
+            }
+          }
+          if (first) {
+            slice = { ...parts[0], height: cut };
+            const j = Math.max(0, topBlockOf(first.ref));
+            const off = /^[^/]+\/b\d+$/.test(first.ref) ? first.start : 0;
+            map = curMap.slice(j);
+            const pb = blocks[j];
+            cont = 0;
+            rows = 0;
+            if (off > 0 && pb?.type === "paragraph") {
+              cont = (j === 0 ? curCont : 0) + off;
+              rem = [{ type: "paragraph", paragraph: sliceParagraphFrom(pb.paragraph, off) }, ...blocks.slice(j + 1)];
+            } else if (row > 0 && pb?.type === "table") {
+              rows = (j === 0 ? curRows : 0) + row;
+              rem = [{ ...pb, rows: pb.rows.slice(row) }, ...blocks.slice(j + 1)];
+            } else {
+              rem = blocks.slice(j);
+            }
+          }
+        }
+        out.set(m, { ...slice, lines: remapLines(slice.lines, curMap, curCont, curRows) });
+      });
+    }
+    return slices.get(tb) ?? { items: [], lines: [], height: 0 };
+  }
   placeFloats(p, ps, colX, colW, paraTop, flowItems, yOrigin, paraRef) {
     for (const g of p.glyphs) {
-      const run = g.obj;
-      if (!run) continue;
-      const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-      if (!fl || this.prePlaced.has(run)) continue;
-      if (this.onlyTextFloats && !followsText(floatAnchor(run))) continue;
-      this.placeFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, void 0, paraRef);
+      const run2 = g.obj;
+      if (!run2) continue;
+      const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+      if (!fl || this.prePlaced.has(run2)) continue;
+      if (this.onlyTextFloats && !followsText(floatAnchor(run2))) continue;
+      this.placeFloat(run2, ps, colX, colW, paraTop, flowItems, yOrigin, void 0, paraRef);
     }
   }
-  placeFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, clampBottom, paraRef) {
+  placeFloat(run2, ps, colX, colW, paraTop, flowItems, yOrigin, clampBottom, paraRef) {
     const g = ps.geom;
-    if (run.image?.floating && run.image.format?.docPr.hidden) {
-      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: [] }, obj: { run, x: 0, y: 0, w: 0, h: 0, layer: "front", hf: this.inHf } };
+    if (run2.image?.floating && run2.image.format?.docPr.hidden || run2.textbox?.hidden || run2.shape?.hidden || run2.group?.hidden) {
+      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: [] }, obj: { run: run2, x: 0, y: 0, w: 0, h: 0, layer: "front", hf: this.inHf } };
     }
-    const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
-    let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
-    let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
+    const anchor = run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
+    let w = run2.image?.widthTwips ?? run2.shape?.widthTwips ?? run2.group?.widthTwips ?? run2.textbox?.widthTwips ?? 0;
+    let h = run2.image?.heightTwips ?? run2.shape?.heightTwips ?? run2.group?.heightTwips ?? run2.textbox?.heightTwips ?? 0;
     const wrapsText = !!anchor && anchor.wrap !== "none";
-    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
+    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run2.image?.behindDoc || !!run2.textbox?.behindDoc);
     let tbContent = null;
     let tbFinal = null;
-    if (run.textbox) {
-      const tb = run.textbox;
-      const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
+    const chain = run2.textbox ? this.chainOf(run2.textbox) : void 0;
+    if (run2.textbox && chain) {
+      tbContent = this.chainSlice(chain, run2.textbox, { field: this.fieldValue(ps), ...this.inHf ? { hf: true } : {} });
+    } else if (run2.textbox) {
+      const tb = run2.textbox;
+      const fr = tbFrame(tb, this.ctx.fmt.theme, w, h);
+      const ins = fr.ins;
       const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
-      let inner = w - ins.l - ins.r;
+      const env = { field: this.fieldValue(ps), ...this.tbEnv(tb), ...this.inHf ? { hf: true } : {} };
+      let inner = fr.iw;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
         const probe = this.ctx.pure(() => this.layoutStatic(blocks, 0, colW, env, "txbx"));
@@ -13106,16 +13643,19 @@ var Engine = class {
       }
       const iw = Math.max(1, inner);
       tbContent = this.ctx.pure(() => this.layoutStatic(blocks, 0, iw, env, "txbx"));
-      tbFinal = (bx, by) => {
-        const prevDx = this.staticDx;
-        this.staticDx = bx + ins.l;
-        try {
-          return this.layoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.t);
-        } finally {
-          this.staticDx = prevDx;
-        }
-      };
-      if (tb.autoFit) h = tbContent.height + ins.t + ins.b;
+      if (!fr.rot) {
+        tbFinal = (bx, by) => {
+          const prevDx = this.staticDx;
+          this.staticDx = bx + ins.l;
+          try {
+            return this.layoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.t);
+          } finally {
+            this.staticDx = prevDx;
+          }
+        };
+      }
+      if (tb.autoFit && fr.rot) w = verticalHeight(tbContent) + ins.t + ins.b;
+      else if (tb.autoFit) h = tbContent.height + ins.t + ins.b;
       if (fi) h = fi.hRule === "exact" ? fi.h : fi.hRule === "atLeast" ? Math.max(fi.h, tbContent.height) : tbContent.height;
     }
     let x, y;
@@ -13125,7 +13665,7 @@ var Engine = class {
     } else {
       const hRef = horizRef(anchor?.posH.relativeFrom ?? "column", g, colX, colW);
       x = alignPos(anchor?.posH.align, anchor?.posH.offset, hRef.x, hRef.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
-      const pin2 = this.pinnedFloats.get(run);
+      const pin2 = this.pinnedFloats.get(run2);
       if (pin2 && pin2.ps === ps) y = pin2.y;
       else {
         const vFrom0 = anchor?.posV.relativeFrom ?? "paragraph";
@@ -13153,18 +13693,18 @@ var Engine = class {
       y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef, 0, h, void 0, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
       if (anchor && WRAPPING.has(anchor.wrap) && (vFrom === "paragraph" || vFrom === "line")) y = Math.max(y, yOrigin);
       if (tbFinal) tbContent = this.ctx.pure(() => tbFinal(x, y));
-      const cellItems = this.paintObject(run, x, y, w, h, tbContent, ps);
+      const cellItems = this.paintObject(run2, x, y, w, h, tbContent, ps);
       if (behind) flowItems.unshift(...cellItems);
       else flowItems.push(...cellItems);
       const wb = anchor && (anchor.wrap === "tight" || anchor.wrap === "through") ? anchor.wrapBox : void 0;
       const cbox = anchor && WRAPPING.has(anchor.wrap) && anchor.layoutInCell !== false ? { x: wb ? x + w * wb.x0 : x, y: wb ? y + h * wb.y0 : y, w: wb ? w * (wb.x1 - wb.x0) : w, h: wb ? h * (wb.y1 - wb.y0) : h, wrap: anchor.wrap, side: anchor.wrapText ?? "bothSides", distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 } : void 0;
-      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run, x, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf }, ...cbox ? { box: cbox } : {} };
+      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run: run2, x, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf }, ...cbox ? { box: cbox } : {} };
     }
     const target = this.inHf ? behind ? ps.hfBehind : ps.hfFront : behind ? ps.behind : ps.front;
     if (tbFinal) tbContent = tbFinal(x, y);
-    const items = this.paintObject(run, x, y, w, h, tbContent, ps);
+    const items = this.paintObject(run2, x, y, w, h, tbContent, ps);
     const obj = {
-      run,
+      run: run2,
       x,
       y,
       w,
@@ -13173,8 +13713,9 @@ var Engine = class {
       hf: this.inHf,
       frame: { colX, colW, paraTop: paraRef ?? paraTop, pageW: g.pageW, pageH: g.pageH, marL: g.marL, marR: g.marR, marT: g.marT, marB: g.marB, bodyTop: Math.max(g.marT, ps.bodyTop ?? g.marT) }
     };
+    if (run2.textbox && tbContent) obj.content = tbContentPlacement(run2.textbox, this.ctx.fmt.theme, x, y, w, h, tbContent);
     (ps.page.objects ??= []).push(obj);
-    const frameFlow = this.inHf && !!run.textbox && FRAME_INFO.has(run.textbox);
+    const frameFlow = this.inHf && !!run2.textbox && FRAME_INFO.has(run2.textbox);
     let inFlow;
     if (frameFlow) {
       const rel = yOrigin ? items.map((it) => shiftItem(it, -yOrigin)) : items;
@@ -13197,11 +13738,11 @@ var Engine = class {
     }
     if (box) {
       ps.floats.push(box);
-      if (!this.inHf && !followsText(anchor) && !this.prePlaced.has(run)) {
+      if (!this.inHf && !followsText(anchor) && !this.prePlaced.has(run2)) {
         const pi = this.pages.indexOf(ps);
         const b = box;
         const hit = pi >= 0 && ps.page.lines.some((l) => !/^(hdr|ftr|txbx)/.test(l.ref) && l.y + l.height > b.y - b.distT && l.y < b.y + b.h + b.distB && b.x + b.w + b.distR > ps.geom.marL && b.x - b.distL < ps.geom.pageW - ps.geom.marR);
-        if (hit) (this.lateFound.get(pi) ?? this.lateFound.set(pi, []).get(pi)).push(run);
+        if (hit) (this.lateFound.get(pi) ?? this.lateFound.set(pi, []).get(pi)).push(run2);
       }
     }
     return { ps, target, zobj, obj, ...box ? { box } : {}, ...inFlow ? { inFlow } : {} };
@@ -13227,13 +13768,13 @@ var Engine = class {
     const out = [];
     let flow;
     for (const g of p.glyphs) {
-      const run = g.obj;
-      if (!run) continue;
-      const fl = run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating;
-      const anc = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
-      if (!fl || !anc || !WRAPPING.has(anc.wrap ?? "") || this.prePlaced.has(run)) continue;
+      const run2 = g.obj;
+      if (!run2) continue;
+      const fl = run2.image?.floating || run2.shape?.floating || run2.group?.floating || run2.textbox?.floating;
+      const anc = run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
+      if (!fl || !anc || !WRAPPING.has(anc.wrap ?? "") || this.prePlaced.has(run2)) continue;
       flow ??= this.ctx.saveFlow();
-      out.push({ ...this.placeFloat(run, ps, colX, colW, paraTop, ps.body, 0, clampBottom !== void 0 && followsText(anc) ? clampBottom : void 0, paraRef), flow });
+      out.push({ ...this.placeFloat(run2, ps, colX, colW, paraTop, ps.body, 0, clampBottom !== void 0 && followsText(anc) ? clampBottom : void 0, paraRef), flow });
     }
     return out;
   }
@@ -13248,24 +13789,24 @@ var Engine = class {
       const x = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
       let tc = null;
       if (r.textbox) {
-        const ins = tbInsets(r.textbox, this.ctx.fmt.theme, w, h);
         const blocks = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-        tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, "itb", ps);
+        const chain = this.chainOf(r.textbox);
+        tc = chain ? this.chainSlice(chain, r.textbox, {}) : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, w, h).iw), { ...this.tbEnv(r.textbox) }, "itb", ps);
       }
       const drawn = this.paintObject(r, x, y, w, h, tc, ps ?? this.cur);
       if (out === this.cur.body) this.cur.front.push({ z: 0, seq: this.zSeq++, items: drawn });
       else out.push(...drawn);
     }
   }
-  paintObject(run, x, y, w, h, tbContent, ps = this.cur, inGroup = false) {
+  paintObject(run2, x, y, w, h, tbContent, ps = this.cur, inGroup = false) {
     const out = [];
     const theme = this.ctx.fmt.theme;
-    if (run.image && isEmf(run.image.data)) {
-      out.push({ t: "clip", op: "push", x, y, w, h, src: run.image }, ...renderEmf(this.ctx, run.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
-    } else if (run.image && isWmf(run.image.data)) {
-      out.push({ t: "clip", op: "push", x, y, w, h, src: run.image }, ...renderWmf(this.ctx, run.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
-    } else if (run.image) {
-      const im = run.image;
+    if (run2.image && isEmf(run2.image.data)) {
+      out.push({ t: "clip", op: "push", x, y, w, h, src: run2.image }, ...renderEmf(this.ctx, run2.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
+    } else if (run2.image && isWmf(run2.image.data)) {
+      out.push({ t: "clip", op: "push", x, y, w, h, src: run2.image }, ...renderWmf(this.ctx, run2.image.data, { x, y, w, h }), { t: "clip", op: "pop" });
+    } else if (run2.image) {
+      const im = run2.image;
       out.push({
         t: "image",
         x,
@@ -13282,23 +13823,24 @@ var Engine = class {
           return pic ? { pic } : {};
         })()
       });
-    } else if (run.shape) {
-      const s = run.shape.style;
-      const fill = resolveDrawingColor(s.fill, theme);
+    } else if (run2.shape) {
+      const s = run2.shape.style;
+      const fill = resolveDrawingColor(withThemeStyles(s, theme).fill, theme);
       const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
       const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw, ...s.line.dash ? { dash: s.line.dash } : {} } : void 0;
-      out.push({ t: "shape", x, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...run.shape.line ? { line: run.shape.line } : {}, ...shapeExtras(s, theme) });
-    } else if (run.textbox) {
-      const tb = run.textbox;
+      out.push({ t: "shape", x, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...run2.shape.line ? { line: run2.shape.line } : {}, ...shapeExtras(s, theme) });
+    } else if (run2.textbox) {
+      const tb = run2.textbox;
       const s = tb.shape;
-      if (s && (s.fill || s.line)) {
-        const fill = resolveDrawingColor(s.fill, theme);
+      if (s && (s.fill || s.line || s.gradient || s.pattern || s.blip)) {
+        const fill = resolveDrawingColor(withThemeStyles(s, theme).fill, theme);
         const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
-        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw } : void 0;
+        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? "000000", widthPt: lw, ...s.line.dash ? { dash: s.line.dash } : {} } : void 0;
         out.push({ t: "shape", x, y, w, h, style: s, ...fill ? { fill } : {}, ...stroke ? { stroke } : {}, ...shapeExtras(s, theme) });
       }
       if (tbContent) {
-        const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
+        const fr = tbFrame(tb, this.ctx.fmt.theme, w, h);
+        const ins = fr.ins;
         const rot = tb.rot ?? s?.rot ?? 0;
         let art = null;
         if (tb.wordArt && tbContent.lines.length) {
@@ -13324,6 +13866,10 @@ var Engine = class {
           out.push({ t: "xform", op: "push", m: art.m });
           for (const it of tbContent.items) out.push(it.t === "glyphs" ? { ...it, asPath: true } : it);
           out.push({ t: "xform", op: "pop" });
+        } else if (fr.rot) {
+          out.push({ t: "clip", op: "push", x, y, w, h });
+          out.push(...verticalContent(tbContent, fr, tb.vAnchor, x, y, w, h));
+          out.push({ t: "clip", op: "pop" });
         } else {
           let dy = y + ins.t;
           const free = h - ins.t - ins.b - tbContent.height;
@@ -13352,15 +13898,15 @@ var Engine = class {
         if (rot) out.push({ t: "xform", op: "pop" });
         if (art?.dy) out.push({ t: "xform", op: "pop" });
       }
-    } else if (run.group) {
-      const gr = run.group;
+    } else if (run2.group) {
+      const gr = run2.group;
       for (const item of gr.items) {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x, y, w, h);
         let tc = null;
         if (r.textbox) {
-          const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} }, "grp", ps);
+          const chain = this.chainOf(item.run.textbox);
+          tc = chain ? this.chainSlice(chain, item.run.textbox, { field: this.fieldValue(ps), ...this.inHf ? { hf: true } : {} }) : this.layoutStatic(blocks, 0, Math.max(1, tbFrame(r.textbox, this.ctx.fmt.theme, iw, ih).iw), { field: this.fieldValue(ps), ...this.tbEnv(r.textbox), ...this.inHf ? { hf: true } : {} }, "grp", ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }
@@ -13422,7 +13968,73 @@ function tbInsets(tb, theme, w, h) {
   const half = lw * 10;
   return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
 }
+function vertKind(v) {
+  switch (v) {
+    case "vert":
+    case "eaVert":
+      return 90;
+    case "vert270":
+      return 270;
+    case "mongolianVert":
+    case "wordArtVert":
+    case "wordArtVertRtl":
+      return -90;
+    default:
+      return 0;
+  }
+}
+function tbFrame(tb, theme, w, h) {
+  const p = tbInsets(tb, theme, w, h);
+  const rot = vertKind(tb.vert);
+  if (rot === 90) return { ins: { l: p.t, t: p.r, r: p.b, b: p.l }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  if (rot === 270) return { ins: { l: p.b, t: p.l, r: p.t, b: p.r }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  if (rot === -90) return { ins: { l: p.t, t: p.l, r: p.b, b: p.r }, iw: h - p.t - p.b, ih: w - p.l - p.r, rot };
+  return { ins: p, iw: w - p.l - p.r, ih: h - p.t - p.b, rot };
+}
+function verticalMatrix(rot, x, y, w, h) {
+  return rot === 270 ? [0, -1, 1, 0, x, y + h] : [0, 1, -1, 0, x + w, y];
+}
+var VERT_PITCH = 1 / 36.8;
+function verticalBands(c) {
+  const ls = [...c.lines].sort((a, b) => a.y - b.y);
+  let acc = 0;
+  return ls.map((l) => {
+    const b = { y0: l.y, y1: l.y + l.height, add: acc };
+    acc += l.height * VERT_PITCH;
+    return b;
+  });
+}
+function verticalHeight(c) {
+  return c.height + c.lines.reduce((a, l) => a + l.height * VERT_PITCH, 0);
+}
+function verticalContent(c, fr, vAnchor, x, y, w, h) {
+  const lh = w;
+  let dy = fr.ins.t;
+  const free = lh - fr.ins.t - fr.ins.b - verticalHeight(c);
+  if (vAnchor === "ctr" && free > 0) dy += free / 2;
+  else if (vAnchor === "b" && free > 0) dy += free;
+  const out = [{ t: "xform", op: "push", m: verticalMatrix(fr.rot, x, y, w, h) }];
+  const bands = verticalBands(c);
+  const shiftOf = (y0, y1) => {
+    const mid = (y0 + y1) / 2;
+    const b = bands.find((q) => mid >= q.y0 - 0.5 && mid <= q.y1 + 0.5) ?? [...bands].reverse().find((q) => q.y0 <= mid);
+    const add = b?.add ?? 0;
+    if (fr.rot !== -90) return dy + add;
+    const a0 = (b ? b.y0 : y0) + add, a1 = (b ? b.y1 : y1) + add;
+    return lh - (dy + a1) - a0 + add;
+  };
+  for (const it of c.items) {
+    const r = it;
+    const d = it.t === "glyphs" ? shiftOf(it.y, it.y) : it.t === "line" ? shiftOf(Math.min(it.y1, it.y2), Math.max(it.y1, it.y2)) : r.y !== void 0 ? shiftOf(r.y, r.y + (r.h ?? 0)) : dy;
+    out.push(shiftItem(it, d, fr.ins.l));
+  }
+  out.push({ t: "xform", op: "pop" });
+  return out;
+}
 function textRectInsets(g, w, h) {
+  const names = g.adj ? Object.keys(g.adj) : void 0;
+  const tr = presetTextRect(g.prst, w, h, names?.map((n) => g.adj[n]), names);
+  if (tr) return { l: tr.l, t: tr.t, r: w - tr.r, b: h - tr.b };
   switch (g.prst) {
     case "roundRect": {
       const i = Math.min(w, h) * (g.adj?.["adj"] ?? 16667) / 1e5 * 0.29289;
@@ -13554,6 +14166,34 @@ function cullOffPage(items, pageW, pageH) {
   if (!outside.size) return items;
   return items.filter((it) => !outside.has(it) || it.t === "glyphs" && !!it.lineBox && lineIn.has(it.lineBox.line));
 }
+var mulM = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+function tbContentPlacement(tb, theme, x, y, w, h, c) {
+  const fr = tbFrame(tb, theme, w, h);
+  const ins = fr.ins;
+  const rot = tb.upright ? 0 : tb.rot ?? tb.shape?.rot ?? 0;
+  const around = rot ? rotation(x + w / 2, y + h / 2, rot) : [1, 0, 0, 1, 0, 0];
+  if (tb.wordArt) return { lines: [], xf: around };
+  if (!fr.rot) {
+    let dy2 = ins.t;
+    const free2 = h - ins.t - ins.b - c.height;
+    if (tb.vAnchor === "ctr" && free2 > 0) dy2 += free2 / 2;
+    else if (tb.vAnchor === "b" && free2 > 0) dy2 += free2;
+    return { lines: c.lines, xf: mulM(around, [1, 0, 0, 1, x + ins.l, y + dy2]) };
+  }
+  const lh = w;
+  let dy = ins.t;
+  const free = lh - ins.t - ins.b - verticalHeight(c);
+  if (tb.vAnchor === "ctr" && free > 0) dy += free / 2;
+  else if (tb.vAnchor === "b" && free > 0) dy += free;
+  const bands = verticalBands(c);
+  const lines = c.lines.map((l) => {
+    const b = bands.find((q) => Math.abs(q.y0 - l.y) < 0.01);
+    const add = b?.add ?? 0;
+    const sh = fr.rot === -90 ? lh - (dy + l.y + add + l.height) - l.y : dy + add;
+    return { ...l, x: l.x + ins.l, y: l.y + sh, baseline: l.baseline + sh, ...l.chars ? { chars: l.chars.map((q) => ({ ...q, x: q.x + ins.l })) } : {} };
+  });
+  return { lines, xf: mulM(around, verticalMatrix(fr.rot, x, y, w, h)) };
+}
 function rotation(cx, cy, deg) {
   const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
   return [c, s, -s, c, cx - cx * c + cy * s, cy - cx * s - cy * c];
@@ -13570,8 +14210,8 @@ function shiftLineXY(l, dx, dy) {
 }
 var WRAPPING = /* @__PURE__ */ new Set(["square", "tight", "through", "topAndBottom"]);
 var MIN_GAP = 359.5;
-function floatAnchor(run) {
-  return run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
+function floatAnchor(run2) {
+  return run2.image?.anchor ?? run2.shape?.anchor ?? run2.group?.anchor ?? run2.textbox?.anchor;
 }
 function followsText(a) {
   return !!a && !a.simplePos && !ABSOLUTE_V.has(a.posV.relativeFrom ?? "paragraph");
@@ -13635,7 +14275,7 @@ var BORDER_DASHES = {
 };
 
 // ../docx-layout/src/pdf-picture.ts
-var T = 20;
+var T2 = 20;
 var PPT = 200 / 72;
 function shapeSubs(look, w, h, flipH, flipV) {
   const o = presetOutline(look?.geom?.prst, w, h, look?.geom?.adj);
@@ -13706,11 +14346,77 @@ function bounds(look, w, h) {
   }
   return { x0, y0, x1, y1 };
 }
+function paintShapeEffectsPdf(page, it, embedRgba, drawBody) {
+  const fx = it.fx ?? {};
+  const st = it.style;
+  const w = it.w / T2, h = it.h / T2;
+  const rot = (st.rot ?? 0) * Math.PI / 180, cos = Math.cos(rot), sin = Math.sin(rot);
+  const cx = it.x / T2 + w / 2, cy = it.y / T2 + h / 2;
+  const M = [cos, sin, -sin, cos, cx - cos * w / 2 + sin * h / 2, cy - sin * w / 2 - cos * h / 2];
+  const rectMatrix = (x, y, rw, rh) => [M[0] * rw, M[1] * rw, M[2] * rh, M[3] * rh, M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
+  const draw = (img, m) => page.drawImageMatrix(img, m[0], m[1], m[2], m[3], m[4], m[5]);
+  const lw0 = it.stroke?.widthPt ?? 0;
+  const look = { ...fx, geom: { prst: st.geom === "custom" ? "rect" : st.geom, ...st.adj ? { adj: st.adj } : {} }, ...lw0 ? { line: { color: "000000", alpha: 1, widthPt: lw0 / 2 } } : {} };
+  const bb = bounds(look, w, h);
+  let ppt = PPT;
+  const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+  if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+  const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+  const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+  const subs = shapeSubs(look, w, h, !!st.flipH, !!st.flipV);
+  const area0 = fillPolygons(newMask(W, H), flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35));
+  const filled = !!(it.fill || it.grad || it.pattern || it.blip);
+  const lwPx = (it.stroke?.widthPt ?? 0) * ppt;
+  let sil = area0;
+  if (!filled && lwPx > 0) {
+    const r2 = Math.max(1, lwPx / 2);
+    const outer = morph(area0, r2), inner = morph(area0, -r2);
+    sil = newMask(W, H);
+    for (let i = 0; i < sil.a.length; i++) sil.a[i] = Math.max(0, outer.a[i] - inner.a[i]);
+  }
+  const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+  const layerMatrix = rectMatrix(bb.x0, bb.y0, W / ppt, H / ppt);
+  const fillHex = it.fill ?? it.grad?.stops[0]?.color ?? it.pattern?.fg ?? it.stroke?.color ?? "FFFFFF";
+  const s = fx.shadow;
+  if (s?.kind === "outer") {
+    const dir = s.rotWithShape ? s.dirDeg : s.dirDeg - (st.rot ?? 0);
+    const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+    draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
+  if (fx.glow) draw(embedRgba(colored(glowMask(sil, fx.glow.radPt, ppt), fx.glow.color, fx.glow.alpha), W, H), layerMatrix);
+  const soft = fx.softEdgePt ? softEdgeMask(sil, fx.softEdgePt, ppt) : null;
+  const r = fx.reflection;
+  if (r) {
+    const a = r.dirDeg * Math.PI / 180;
+    const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+    let m = newMask(W, H);
+    const src = soft ?? sil;
+    const top = oy + h * ppt + dy;
+    for (let y = 0; y < H; y++) {
+      const sy = Math.round(2 * (oy + h * ppt) + dy - y - 1);
+      const t = (y + 0.5 - top) / (h * ppt);
+      const al = t < 0 ? 0 : reflectionAlpha(t, r);
+      if (sy < 0 || sy >= H || al <= 0) continue;
+      for (let x = 0; x < W; x++) {
+        const sx = Math.round(x - dx);
+        if (sx >= 0 && sx < W) m.a[y * W + x] = src.a[sy * W + sx] * al;
+      }
+    }
+    if (r.blurPt > 0) m = gaussianBlur(m, r.blurPt / 3 * ppt);
+    draw(embedRgba(colored(m, fillHex, 1), W, H), layerMatrix);
+  }
+  if (soft) draw(embedRgba(colored(soft, fillHex, st.fillAlpha ?? 1), W, H), layerMatrix);
+  else drawBody();
+  if (s?.kind === "inner" && filled) {
+    const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+    draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
+}
 function paintPicturePdf(page, it, env) {
   const look = it.pic ?? {};
-  const w = it.w / T, h = it.h / T;
+  const w = it.w / T2, h = it.h / T2;
   const rot = (it.rot ?? 0) * Math.PI / 180, cos = Math.cos(rot), sin = Math.sin(rot);
-  const cx = it.x / T + w / 2, cy = it.y / T + h / 2;
+  const cx = it.x / T2 + w / 2, cy = it.y / T2 + h / 2;
   const M = [cos, sin, -sin, cos, cx - cos * w / 2 + sin * h / 2, cy - sin * w / 2 - cos * h / 2];
   const P = (x, y) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
   const rectMatrix = (x, y, rw, rh) => [M[0] * rw, M[1] * rw, M[2] * rh, M[3] * rh, M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
@@ -13852,7 +14558,7 @@ var DASH = {
 };
 
 // ../docx-layout/src/pdf.ts
-var T2 = 20;
+var T3 = 20;
 function renderPdf(result, opts = {}) {
   const doc = new PdfDocument({ compress: opts.compress ?? true });
   const fonts = /* @__PURE__ */ new Map();
@@ -13982,10 +14688,10 @@ function renderPdf(result, opts = {}) {
     return h;
   };
   for (const lp of result.pages) {
-    const page = doc.addPage(lp.widthTw / T2, lp.heightTw / T2);
-    if (lp.background) page.fillRect(0, 0, lp.widthTw / T2, lp.heightTw / T2, hexColor(lp.background));
+    const page = doc.addPage(lp.widthTw / T3, lp.heightTw / T3);
+    if (lp.background) page.fillRect(0, 0, lp.widthTw / T3, lp.heightTw / T3, hexColor(lp.background));
     if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h));
   }
   return doc.build();
 }
@@ -14016,7 +14722,7 @@ function glyphsAsPath(page, it) {
   const upm = font.metrics.unitsPerEm;
   const s = it.sizePt / upm, sx = s * (it.scaleX ?? 1);
   const skew = it.synthItalic ? 0.2 : 0;
-  const base = it.y / T2;
+  const base = it.y / T3;
   const cmds = [];
   for (const g of it.glyphs) {
     const gid = g.gid ?? font.glyphId(g.cp);
@@ -14024,7 +14730,7 @@ function glyphsAsPath(page, it) {
     if (layers) {
       for (const L of layers) {
         const lc = [];
-        if (!outlineInto(lc, font, L.glyphId, g.x / T2, base, sx, s, skew)) continue;
+        if (!outlineInto(lc, font, L.glyphId, g.x / T3, base, sx, s, skew)) continue;
         if (!lc.length) continue;
         const a = L.alpha * (it.alpha ?? 1);
         page.withAlpha(a < 1 ? a : void 0, void 0, () => page.path(lc, hexColor(L.color ?? it.color)));
@@ -14033,7 +14739,7 @@ function glyphsAsPath(page, it) {
     }
     const ol = font.glyphOutline(gid);
     if (!ol) return false;
-    const ox = g.x / T2;
+    const ox = g.x / T3;
     const X = (x, y) => ox + x * sx + skew * y * s;
     const Y = (y) => base - y * s;
     let px = 0, py = 0;
@@ -14057,7 +14763,7 @@ function glyphsAsPath(page, it) {
   page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color2, stroke));
   return true;
 }
-function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
+function paintItem(page, it, fontFor, imageFor, shade, pictureEnv, embedRgba) {
   switch (it.t) {
     case "glyphs": {
       if (it.asPath && glyphsAsPath(page, it)) return;
@@ -14074,7 +14780,7 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
         const f = pua ? fontFor(it.face, true) ?? ef : ef;
         const placed = all.slice(i, j).map((g) => {
           const { gid } = f.encode(g.cp);
-          return { gid, codePoint: g.cp, xPt: g.x / T2, baselineFromTopPt: it.y / T2 };
+          return { gid, codePoint: g.cp, xPt: g.x / T3, baselineFromTopPt: it.y / T3 };
         });
         page.withAlpha(it.alpha, it.alpha, () => page.glyphs(f, pdfSize, hexColor(it.color), placed, {
           ...it.scaleX ? { scaleX: it.scaleX } : {},
@@ -14088,11 +14794,11 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
       return;
     }
     case "rect":
-      page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T2, it.y / T2, it.w / T2, it.h / T2, hexColor(it.fill)));
+      page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T3, it.y / T3, it.w / T3, it.h / T3, hexColor(it.fill)));
       return;
     case "line": {
       const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash ? BORDER_DASHES[it.dash]?.(it.widthPt) : void 0;
-      page.line(it.x1 / T2, it.y1 / T2, it.x2 / T2, it.y2 / T2, hexColor(it.color), it.widthPt, dash);
+      page.line(it.x1 / T3, it.y1 / T3, it.x2 / T3, it.y2 / T3, hexColor(it.color), it.widthPt, dash);
       return;
     }
     case "image": {
@@ -14102,7 +14808,7 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
       }
       const h = imageFor(it.image);
       if (!h) return;
-      let x = it.x / T2, y = it.y / T2, w = it.w / T2, hh = it.h / T2;
+      let x = it.x / T3, y = it.y / T3, w = it.w / T3, hh = it.h / T3;
       const crop = it.crop;
       if (crop && (crop.l || crop.t || crop.r || crop.b)) {
         page.pushClipRect(x, y, w, hh);
@@ -14119,11 +14825,15 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
       return;
     }
     case "shape": {
+      if (it.fx && embedRgba && it.style.geom !== "line") {
+        paintShapeEffectsPdf(page, it, embedRgba, () => paintItem(page, { ...it, fx: void 0, shadow: void 0 }, fontFor, imageFor, shade, pictureEnv, embedRgba));
+        return;
+      }
       const st = it.style;
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : void 0;
       const stroke = it.stroke && /^[0-9A-Fa-f]{6}$/.test(it.stroke.color) ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {} } : void 0;
-      if (!fill && !stroke && !it.grad) return;
-      const x = it.x / T2, y = it.y / T2, w = it.w / T2, h = it.h / T2;
+      if (!fill && !stroke && !it.grad && !it.pattern && !it.blip) return;
+      const x = it.x / T3, y = it.y / T3, w = it.w / T3, h = it.h / T3;
       const isLine = st.geom === "line" || st.geom.startsWith("straightConnector");
       const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
       let parts;
@@ -14137,13 +14847,48 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
         parts = [{ cmds: presetPath(st.geom, x, y, w, h, { ...st.adj ? { adj: st.adj } : {}, ...xf }), fill: !OPEN_PRESETS.has(st.geom), stroke: true, evenOdd: false }];
       }
       if (it.shadow) {
-        const dx = it.shadow.dx / T2, dy = it.shadow.dy / T2;
+        const dx = it.shadow.dx / T3, dy = it.shadow.dy / T3;
         const col = hexColor(it.shadow.color);
         for (const p of parts) {
           if (!p.fill && !stroke) continue;
           const sc = p.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { ...c, x1: c.x1 + dx, y1: c.y1 + dy, x2: c.x2 + dx, y2: c.y2 + dy, x: c.x + dx, y: c.y + dy } : { ...c, x: c.x + dx, y: c.y + dy });
           page.withAlpha(it.shadow.alpha, it.shadow.alpha, () => page.path(sc, p.fill && (fill || it.grad) ? col : void 0, p.stroke && stroke ? { ...stroke, color: col } : void 0, p.evenOdd));
         }
+      }
+      if ((it.pattern || it.blip) && embedRgba) {
+        const fillParts = parts.filter((p) => p.fill);
+        for (const p of fillParts) {
+          page.pushClipPath(p.cmds, p.evenOdd);
+          if (it.pattern) {
+            const pr = patternRaster(it.pattern, x, y, w, h, 0.75, 4);
+            if (pr) page.drawImage(embedRgba(pr.data, pr.w, pr.h), pr.x, pr.y, pr.cells.w * 0.75, pr.cells.h * 0.75);
+          } else if (it.blip) {
+            const im = imageFor(it.blip.image);
+            const nat = imagePixelSize(it.blip.image.data);
+            if (im) page.withAlpha(it.blip.alpha, void 0, () => {
+              for (const t of blipTiles(it.blip, x, y, w, h, 1 / 12700, nat)) page.drawImage(im, t.x, t.y, t.w, t.h);
+            });
+          }
+          page.popClip();
+        }
+        if (stroke) {
+          for (const p of parts) if (p.stroke) page.withAlpha(void 0, st.line?.alpha, () => page.path(p.cmds, void 0, stroke));
+        }
+        return;
+      }
+      if (it.grad && isRectGradient(it.grad) && embedRgba) {
+        const r = rectGradientRaster(it.grad, w, h, 2);
+        const im = embedRgba(r.data, r.w, r.h);
+        for (const p of parts) {
+          if (!p.fill) continue;
+          page.pushClipPath(p.cmds, p.evenOdd);
+          page.withAlpha(st.fillAlpha, void 0, () => page.drawImageTransformed(im, x, y, w, h, st.rot ?? 0, !!st.flipH, !!st.flipV));
+          page.popClip();
+        }
+        if (stroke) {
+          for (const p of parts) if (p.stroke) page.withAlpha(void 0, st.line?.alpha, () => page.path(p.cmds, void 0, stroke));
+        }
+        return;
       }
       if (it.grad) {
         const pb = pathBounds(parts.flatMap((p) => p.cmds));
@@ -14161,7 +14906,7 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
     case "path": {
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : void 0;
       const stroke = it.stroke ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {} } : void 0;
-      const cmds = it.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { op: "C", x1: c.x1 / T2, y1: c.y1 / T2, x2: c.x2 / T2, y2: c.y2 / T2, x: c.x / T2, y: c.y / T2 } : { op: c.op, x: c.x / T2, y: c.y / T2 });
+      const cmds = it.cmds.map((c) => c.op === "Z" ? c : c.op === "C" ? { op: "C", x1: c.x1 / T3, y1: c.y1 / T3, x2: c.x2 / T3, y2: c.y2 / T3, x: c.x / T3, y: c.y / T3 } : { op: c.op, x: c.x / T3, y: c.y / T3 });
       page.path(cmds, fill, stroke);
       return;
     }
@@ -14172,11 +14917,11 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv) {
       }
       const [a, b, c, d, e, f] = it.m;
       const H = page.heightPt;
-      page.pushTransform(a, -b, -c, d, c * H + e / T2, H - d * H - f / T2);
+      page.pushTransform(a, -b, -c, d, c * H + e / T3, H - d * H - f / T3);
       return;
     }
     case "clip":
-      if (it.op === "push") page.pushClipRect((it.x ?? 0) / T2, (it.y ?? 0) / T2, (it.w ?? 0) / T2, (it.h ?? 0) / T2);
+      if (it.op === "push") page.pushClipRect((it.x ?? 0) / T3, (it.y ?? 0) / T3, (it.w ?? 0) / T3, (it.h ?? 0) / T3);
       else page.popClip();
       return;
   }
@@ -14199,7 +14944,7 @@ function rotatePath(cmds, cx, cy, deg) {
   });
 }
 function linePath(x, y, w, h, line, flipH = false, flipV = false) {
-  if (line) return [{ op: "M", x: x + line.x1 / T2, y: y + line.y1 / T2 }, { op: "L", x: x + line.x2 / T2, y: y + line.y2 / T2 }];
+  if (line) return [{ op: "M", x: x + line.x1 / T3, y: y + line.y1 / T3 }, { op: "L", x: x + line.x2 / T3, y: y + line.y2 / T3 }];
   const [x1, x2] = flipH ? [x + w, x] : [x, x + w];
   const [y1, y2] = flipV ? [y + h, y] : [y, y + h];
   return [{ op: "M", x: x1, y: y1 }, { op: "L", x: x2, y: y2 }];
@@ -14208,7 +14953,7 @@ function paintFillPdf(page, lp, f, bgImage, imageFor) {
   const tile = pageFillTileTw(f, 2.4, 20, true);
   if (!tile) return;
   let img = null;
-  let tw = tile.w / T2, th = tile.h / T2;
+  let tw = tile.w / T3, th = tile.h / T3;
   if (f.type === "gradient" || f.type === "gradientRadial") {
     const pw = Math.max(2, Math.round(tw * 96 / 72)), ph = Math.max(2, Math.round(th * 96 / 72));
     img = bgImage(
@@ -14226,7 +14971,7 @@ function paintFillPdf(page, lp, f, bgImage, imageFor) {
     th *= 8;
   } else if (f.image) img = imageFor(f.image);
   if (!img || tw <= 0 || th <= 0) return;
-  const W = lp.widthTw / T2, H = lp.heightTw / T2;
+  const W = lp.widthTw / T3, H = lp.heightTw / T3;
   page.pushClipRect(0, 0, W, H);
   for (let y = 0; y < H; y += th) for (let x = 0; x < W; x += tw) page.drawImage(img, x, y, tw, th);
   page.popClip();
@@ -14472,6 +15217,97 @@ function buildLayer(it, bmp, ppt0) {
   }
   o.drawImage(shape, 0, 0);
   return { c: out, x0: bb.x0, y0: bb.y0, ppt };
+}
+var shapeCache = /* @__PURE__ */ new Map();
+function paintShapeEffects(ctx, it, drawBody) {
+  const fx = it.fx ?? {};
+  const m0 = ctx.getTransform();
+  let ppt = Math.max(0.5, Math.min(8, Math.hypot(m0.a, m0.b) * 20));
+  const w = it.w / 20, h = it.h / 20;
+  const lw = it.stroke?.widthPt ?? 0;
+  const look = { ...fx, ...lw ? { line: { color: "000000", alpha: 1, widthPt: lw / 2 } } : {} };
+  const key = JSON.stringify([it.style, it.fill, it.stroke, it.grad, it.pattern, fx, it.w, it.h, it.blip ? it.blip.image.data.length : 0, Math.round(ppt * 50)]);
+  let layer = shapeCache.get(key);
+  if (!layer) {
+    const bb = bounds2(look, w, h);
+    const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+    if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+    const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+    const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+    const body = canvas(W, H);
+    const bc = ctx2d(body);
+    bc.translate(ox, oy);
+    drawBody(bc, ppt / 20);
+    bc.setTransform(1, 0, 0, 1, 0, 0);
+    const sil = newMask(W, H);
+    {
+      const d = bc.getImageData(0, 0, W, H).data;
+      for (let i = 0; i < sil.a.length; i++) sil.a[i] = d[i * 4 + 3] / 255;
+    }
+    const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+    const s = fx.shadow;
+    if (s?.kind === "inner" && (it.fill || it.grad || it.pattern || it.blip)) {
+      const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+      bc.globalCompositeOperation = "source-atop";
+      bc.drawImage(maskToCanvas(m, s.color, s.alpha), 0, 0);
+      bc.globalCompositeOperation = "source-over";
+    }
+    if (fx.softEdgePt) {
+      const m = softEdgeMask(sil, fx.softEdgePt, ppt);
+      const img = bc.getImageData(0, 0, W, H);
+      for (let i = 0; i < m.a.length; i++) img.data[i * 4 + 3] = Math.round(img.data[i * 4 + 3] * m.a[i]);
+      bc.putImageData(img, 0, 0);
+    }
+    const out = canvas(W, H);
+    const o = ctx2d(out);
+    if (s?.kind === "outer") {
+      const dir = s.rotWithShape === false || s.rotWithShape === void 0 ? s.dirDeg - (it.style.rot ?? 0) : s.dirDeg;
+      const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+      o.drawImage(maskToCanvas(m, s.color, s.alpha), 0, 0);
+    }
+    if (fx.glow) o.drawImage(maskToCanvas(glowMask(sil, fx.glow.radPt, ppt), fx.glow.color, fx.glow.alpha), 0, 0);
+    const r = fx.reflection;
+    if (r) {
+      const rc = canvas(W, H), rx = ctx2d(rc);
+      const a = r.dirDeg * Math.PI / 180;
+      const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+      rx.translate(dx, 2 * (oy + h * ppt) + dy);
+      rx.scale(1, -1);
+      rx.drawImage(body, 0, 0);
+      rx.setTransform(1, 0, 0, 1, 0, 0);
+      const img = rx.getImageData(0, 0, W, H);
+      const top = oy + h * ppt + dy;
+      for (let y = 0; y < H; y++) {
+        const t = (y + 0.5 - top) / (h * ppt);
+        const al = t < 0 ? 0 : reflectionAlpha(t, r);
+        for (let x = 0; x < W; x++) img.data[(y * W + x) * 4 + 3] = Math.round(img.data[(y * W + x) * 4 + 3] * al);
+      }
+      if (r.blurPt > 0) {
+        const ch = [0, 1, 2, 3].map((k) => {
+          const m = newMask(W, H);
+          for (let i = 0; i < m.a.length; i++) m.a[i] = (k === 3 ? img.data[i * 4 + 3] : img.data[i * 4 + k] * img.data[i * 4 + 3] / 255) / 255;
+          return gaussianBlur(m, r.blurPt / 3 * ppt).a;
+        });
+        for (let i = 0; i < W * H; i++) {
+          const al = ch[3][i];
+          img.data[i * 4 + 3] = Math.round(al * 255);
+          for (let k = 0; k < 3; k++) img.data[i * 4 + k] = al > 0 ? Math.round(ch[k][i] / al * 255) : 0;
+        }
+      }
+      rx.putImageData(img, 0, 0);
+      o.drawImage(rc, 0, 0);
+    }
+    o.drawImage(body, 0, 0);
+    layer = { c: out, x0: bb.x0, y0: bb.y0, ppt };
+    if (shapeCache.size > 32) shapeCache.clear();
+    shapeCache.set(key, layer);
+  }
+  ctx.save();
+  ctx.translate(it.x + it.w / 2, it.y + it.h / 2);
+  if (it.style.rot) ctx.rotate(it.style.rot * Math.PI / 180);
+  const sc = 20 / layer.ppt;
+  ctx.drawImage(layer.c, layer.x0 * 20 - it.w / 2, layer.y0 * 20 - it.h / 2, layer.c.width * sc, layer.c.height * sc);
+  ctx.restore();
 }
 function paintPicture(ctx, it, bmp) {
   const b = bmp;
@@ -14761,23 +15597,137 @@ function strokeWith(ctx, color2, widthPt, dash) {
   ctx.setLineDash([]);
 }
 function paintShape(ctx, it, env, base) {
+  if (it.fx && it.style.geom !== "line") {
+    const local = { ...it, x: 0, y: 0, style: { ...it.style, rot: 0 }, fx: void 0, shadow: void 0 };
+    paintShapeEffects(ctx, it, (c, s) => {
+      c.scale(s, s);
+      paintShape(c, local, env, 1);
+    });
+    return;
+  }
+  const st = it.style;
   const fill = it.fill && HEX6.test(it.fill) ? env.color(it.fill) : void 0;
   const stroke = it.stroke && HEX6.test(it.stroke.color) ? it.stroke : void 0;
-  if (!fill && !stroke) return;
-  let cmds = shapePath(it.style.geom, it.x, it.y, it.w, it.h, it.line, !!it.style.flipH, !!it.style.flipV);
-  if (it.style.rot) cmds = rotatePath2(cmds, it.x + it.w / 2, it.y + it.h / 2, it.style.rot);
-  ctx.beginPath();
-  tracePath2(ctx, cmds);
-  if (fill && it.style.geom !== "line") {
-    ctx.globalAlpha = base * (it.style.fillAlpha ?? 1);
+  if (!fill && !stroke && !it.grad && !it.pattern && !it.blip) return;
+  const { x, y, w, h } = it;
+  const isLine = st.geom === "line" || st.geom.startsWith("straightConnector");
+  const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
+  let parts;
+  if (isLine) {
+    let cmds = shapePath("line", x, y, w, h, it.line, !!st.flipH, !!st.flipV);
+    if (st.rot) cmds = rotatePath2(cmds, x + w / 2, y + h / 2, st.rot);
+    parts = [{ cmds, fill: false, stroke: true, evenOdd: false }];
+  } else if (st.geom === "custom" && st.cust) {
+    parts = custPaths(st.cust, x, y, w, h, xf).map((p) => ({ cmds: p.cmds, fill: p.fill, stroke: p.stroke, evenOdd: true }));
+  } else {
+    parts = [{ cmds: presetPath(st.geom, x, y, w, h, { ...st.adj ? { adj: st.adj } : {}, ...xf }), fill: !OPEN_PRESETS.has(st.geom), stroke: true, evenOdd: false }];
+  }
+  const fillPart = (p) => {
+    ctx.beginPath();
+    tracePath2(ctx, p.cmds);
+    ctx.fill(p.evenOdd ? "evenodd" : "nonzero");
+  };
+  const strokePart = (p) => {
+    ctx.beginPath();
+    tracePath2(ctx, p.cmds);
+    strokeWith(ctx, env.color(stroke.color), stroke.widthPt, stroke.dash);
+  };
+  if (it.shadow && HEX6.test(it.shadow.color)) {
+    ctx.save();
+    ctx.translate(it.shadow.dx, it.shadow.dy);
+    ctx.globalAlpha = base * (it.shadow.alpha ?? 1);
+    ctx.fillStyle = env.color(it.shadow.color);
+    for (const p of parts) {
+      if (p.fill && (fill || it.grad || it.pattern || it.blip)) fillPart(p);
+      if (p.stroke && stroke) {
+        ctx.beginPath();
+        tracePath2(ctx, p.cmds);
+        strokeWith(ctx, env.color(it.shadow.color), stroke.widthPt, stroke.dash);
+      }
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = base * (st.fillAlpha ?? 1);
+  if (it.pattern || it.blip) {
+    for (const p of parts) {
+      if (!p.fill) continue;
+      ctx.save();
+      ctx.beginPath();
+      tracePath2(ctx, p.cmds);
+      ctx.clip(p.evenOdd ? "evenodd" : "nonzero");
+      if (it.pattern) {
+        const pr = patternRaster({ ...it.pattern, fg: it.pattern.fg, bg: it.pattern.bg }, x, y, w, h, 15);
+        if (pr) {
+          const c = rgbaCanvasThemed(pr.data, pr.w, pr.h, env, it.pattern);
+          ctx.imageSmoothingEnabled = false;
+          if (c) ctx.drawImage(c, pr.x, pr.y, pr.cells.w * 15, pr.cells.h * 15);
+        }
+      } else if (it.blip) {
+        const bmp = env.image(it.blip.image);
+        if (bmp) {
+          ctx.globalAlpha = base * (it.blip.alpha ?? 1);
+          for (const t of blipTiles(it.blip, x, y, w, h, 1 / 635, imagePixelSize(it.blip.image.data))) ctx.drawImage(bmp, t.x, t.y, t.w, t.h);
+        }
+      }
+      ctx.restore();
+    }
+  } else if (it.grad && isRectGradient(it.grad)) {
+    const r = rectGradientRaster(it.grad, w / 20, h / 20, 2);
+    const c = rgbaCanvasThemed(r.data, r.w, r.h, env, null);
+    for (const p of parts) {
+      if (!p.fill || !c) continue;
+      ctx.save();
+      ctx.beginPath();
+      tracePath2(ctx, p.cmds);
+      ctx.clip(p.evenOdd ? "evenodd" : "nonzero");
+      ctx.translate(x + w / 2, y + h / 2);
+      if (st.rot) ctx.rotate(st.rot * Math.PI / 180);
+      ctx.scale(st.flipH ? -1 : 1, st.flipV ? -1 : 1);
+      ctx.drawImage(c, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+  } else if (it.grad) {
+    const pb = pathBounds(parts.flatMap((p) => p.cmds));
+    const g = gradientGeometry2(it.grad, { x, y, w, h, rot: st.rot ?? 0 }, pb);
+    const smp = gradientSamples(it.grad.stops, 64);
+    const cg = g.kind === "axial" ? ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1) : ctx.createRadialGradient(g.x0, g.y0, 0, g.x0, g.y0, g.r);
+    for (let i = 0; i < 64; i++) cg.addColorStop(i / 63, env.color(hex2(smp[i * 3]) + hex2(smp[i * 3 + 1]) + hex2(smp[i * 3 + 2])));
+    ctx.fillStyle = cg;
+    for (const p of parts) if (p.fill) fillPart(p);
+  } else if (fill) {
     ctx.fillStyle = fill;
-    ctx.fill("nonzero");
+    for (const p of parts) if (p.fill) fillPart(p);
   }
   if (stroke) {
-    ctx.globalAlpha = base * (it.style.line?.alpha ?? 1);
-    strokeWith(ctx, env.color(stroke.color), stroke.widthPt, stroke.dash);
+    ctx.globalAlpha = base * (st.line?.alpha ?? 1);
+    for (const p of parts) if (p.stroke) strokePart(p);
   }
   ctx.globalAlpha = base;
+}
+var hex2 = (n) => n.toString(16).padStart(2, "0").toUpperCase();
+function rgbaCanvasThemed(data, w, h, env, p) {
+  const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(w, h) : Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const x = c.getContext("2d");
+  if (!x) return null;
+  const img = x.createImageData(w, h);
+  img.data.set(data);
+  const fg = p ? env.color(p.fg) : "", bg = p ? env.color(p.bg) : "";
+  if (p && (fg !== `#${p.fg}` || bg !== `#${p.bg}`)) {
+    const parse = (s) => {
+      const m = /^#?([0-9a-f]{6})$/i.exec(s);
+      return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null;
+    };
+    const f = parse(fg), b = parse(bg), f0 = parse(p.fg);
+    if (f && b) for (let i = 0; i < img.data.length; i += 4) {
+      const on = img.data[i] === f0[0] && img.data[i + 1] === f0[1] && img.data[i + 2] === f0[2];
+      const c2 = on ? f : b;
+      img.data[i] = c2[0];
+      img.data[i + 1] = c2[1];
+      img.data[i + 2] = c2[2];
+    }
+  }
+  x.putImageData(img, 0, 0);
+  return c;
 }
 function tracePath2(ctx, cmds) {
   for (const c of cmds) {
@@ -14969,15 +15919,15 @@ var ctxOf = (fmt2) => {
   if (!c) CTX.set(fmt2, c = new DocContext(fmt2, NO_FONTS2));
   return c;
 };
-function inheritedPPr(fmt2, para) {
-  const d = directPPr(para);
+function inheritedPPr(fmt2, para2) {
+  const d = directPPr(para2);
   const base = {};
   if (d.pStyle !== void 0) base.pStyle = d.pStyle;
   if (d.numPr) base.numPr = d.numPr;
   return resolvePPr(ctxOf(fmt2), { runs: [], ppr: base, props: paraPropsFromPPr(base) }, {}).ppr;
 }
-function effectivePPr(fmt2, para) {
-  return resolvePPr(ctxOf(fmt2), para, {}).ppr;
+function effectivePPr(fmt2, para2) {
+  return resolvePPr(ctxOf(fmt2), para2, {}).ppr;
 }
 
 export {
@@ -14987,7 +15937,9 @@ export {
   adjustBrightnessContrast,
   adjustSharpen,
   wrapContour,
+  PRESET_PATTERNS,
   patternRows,
+  SHAPE_STYLE_PRESETS,
   GRADIENT_VARIANTS,
   gradientGeometry,
   GRADIENT_PRESETS,
@@ -15017,6 +15969,11 @@ export {
   LINE_WEIGHTS_PT,
   LINE_DASHES,
   POSITION_PRESETS,
+  isShapeFill,
+  shapeStyleIndex,
+  TEXTBOX_TEMPLATES,
+  textboxTemplateSpec,
+  gradientVariations,
   SfntFont,
   deviceEmPt,
   lineHeightPt,

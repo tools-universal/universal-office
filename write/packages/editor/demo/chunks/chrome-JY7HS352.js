@@ -6,7 +6,7 @@ import {
   hostOf,
   isDark,
   originStore
-} from "./chunk-3KZGN2VB.js";
+} from "./chunk-HM6P72E3.js";
 import {
   ASPECT_RATIOS,
   BEVEL_PRESETS,
@@ -18,11 +18,13 @@ import {
   LINE_DASHES,
   LINE_WEIGHTS_PT,
   POSITION_PRESETS,
+  PRESET_PATTERNS,
   RECOLOR_PRESETS,
   REFLECTION_PRESETS,
   ROTATION_PRESETS,
   SATURATION_PRESETS,
   SHADOW_PRESETS,
+  SHAPE_STYLE_PRESETS,
   SHARPEN_PRESETS,
   SOFT_EDGE_PRESETS,
   TEMPERATURE_PRESETS,
@@ -38,8 +40,9 @@ import {
   paintPicture,
   patternRgba,
   patternRows,
-  presetOutline
-} from "./chunk-HHIK5RSP.js";
+  presetOutline,
+  textboxTemplateSpec
+} from "./chunk-MOVDDWNT.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -68,7 +71,7 @@ import {
   themePaletteColors,
   tileGrid,
   toggleMenu
-} from "./chunk-57KHIMCT.js";
+} from "./chunk-HZ4N6OND.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
@@ -81,7 +84,7 @@ import {
   resolveColor2,
   retitleTableStyleXml,
   uiLang
-} from "./chunk-MVJSDZBR.js";
+} from "./chunk-UKAC2AZH.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -2288,7 +2291,7 @@ function distanceWidget(env, which) {
   };
 }
 function hfToolsGroups(env, ctx) {
-  const large3 = (cmd) => ({ cmd, size: "large" });
+  const large4 = (cmd) => ({ cmd, size: "large" });
   return [
     { id: "hf-hf", label: L3("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 6, cells: [
       { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L3("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
@@ -2296,13 +2299,13 @@ function hfToolsGroups(env, ctx) {
       { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L3("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
     ] },
     { id: "hf-insert", label: L3("Insert", "Inserir"), icon: "calendar_today", prio: 5, cells: [
-      large3("dlg:dateTime"),
+      large4("dlg:dateTime"),
       { menu: docInfoMenu, id: "hf:docinfo", label: L3("Document Info", "Informa\xE7\xF5es do Documento"), icon: "info", size: "large" },
-      large3("image")
+      large4("image")
     ] },
     { id: "hf-nav", label: L3("Navigation", "Navega\xE7\xE3o"), icon: "swap_vert", prio: 4, cells: [
-      large3("hf:gotoHeader"),
-      large3("hf:gotoFooter"),
+      large4("hf:gotoHeader"),
+      large4("hf:gotoFooter"),
       { rows: [[{ cmd: "hf:prev", label: true }], [{ cmd: "hf:next", label: true }], [{ cmd: "hf:link", label: true }]] }
     ] },
     { id: "hf-options", label: L3("Options", "Op\xE7\xF5es"), icon: "tune", prio: 4, cells: [
@@ -2311,7 +2314,7 @@ function hfToolsGroups(env, ctx) {
     { id: "hf-position", label: L3("Position", "Posi\xE7\xE3o"), icon: "height", prio: 3, cells: [
       { rows: [[distanceWidget(env, "header")], [distanceWidget(env, "footer")], [{ cmd: "dlg:alignTab", label: true }]] }
     ] },
-    { id: "hf-close", label: L3("Close", "Fechar"), icon: "close", prio: 9, cells: [large3("hf:close")] }
+    { id: "hf-close", label: L3("Close", "Fechar"), icon: "close", prio: 9, cells: [large4("hf:close")] }
   ];
 }
 var el2 = (tag, props = {}, ...kids) => {
@@ -3179,11 +3182,12 @@ function borderMenu(env, ctx) {
     }
   ];
 }
-function effectsMenu(env, ctx) {
+function effectsMenu(env, ctx, shape = false) {
   const ed = env.ed;
+  const setFx = (kind, preset) => shape ? ed.setShapeEffect(kind, preset) : ed.setImageEffect(kind, preset);
   const t5 = (l3) => ctx.registry.text(l3);
   const base = accentOf(env);
-  const fx = () => ed.selectedImage()?.format.effects;
+  const fx = () => shape ? ed.selectedShape()?.format.effects : ed.selectedImage()?.format.effects;
   const grid2 = (sections, look, pick, selected, cols) => (close) => tileGrid({
     sections,
     tile: { w: 64, h: 56 },
@@ -3236,7 +3240,7 @@ function effectsMenu(env, ctx) {
           { label: L5("Outer", "Externa"), items: SHADOW_PRESETS.filter((p3) => p3.group === "outer").map((p3) => ({ id: p3.id, label: p3.label })) },
           { label: L5("Inner", "Interna"), items: SHADOW_PRESETS.filter((p3) => p3.group === "inner").map((p3) => ({ id: p3.id, label: p3.label })) },
           { label: L5("Perspective", "Perspectiva"), items: SHADOW_PRESETS.filter((p3) => p3.group === "persp").map((p3) => ({ id: p3.id, label: p3.label })) }
-        ], shadowLook, (id) => ed.setImageEffect("shadow", id === "none" ? null : id), curShadow(), 3)
+        ], shadowLook, (id) => setFx("shadow", id === "none" ? null : id), curShadow(), 3)
       }]
     },
     {
@@ -3252,7 +3256,7 @@ function effectsMenu(env, ctx) {
           if (!p3) return null;
           const r5 = p3.reflection;
           return { reflection: { blurPt: (r5.blurRad ?? 0) / 12700, stA: (r5.stA ?? 1e5) / 1e5, stPos: 0, endA: (r5.endA ?? 0) / 1e5, endPos: (r5.endPos ?? 1e5) / 1e5, distPt: (r5.dist ?? 0) / 12700, dirDeg: 90, sy: -1 } };
-        }, (id) => ed.setImageEffect("reflection", id === "none" ? null : id), curRefl(), 3)
+        }, (id) => setFx("reflection", id === "none" ? null : id), curRefl(), 3)
       }]
     },
     {
@@ -3272,7 +3276,7 @@ function effectsMenu(env, ctx) {
         ], (id) => {
           const m2 = /^glow-(\d+)-(\d)$/.exec(id);
           return m2 ? { glow: { color: accentOf(env, Number(m2[2])), alpha: 0.4, radPt: GLOW_SIZES[Number(m2[1])] / 12700 / 1.6 } } : null;
-        }, (id) => ed.setImageEffect("glow", id === "none" ? null : id), void 0, 6)
+        }, (id) => setFx("glow", id === "none" ? null : id), void 0, 6)
       }]
     },
     {
@@ -3283,7 +3287,7 @@ function effectsMenu(env, ctx) {
         content: grid2([
           { label: L5("No Soft Edges", "Sem Bordas Suaves"), items: [none("No Soft Edges", "Sem Bordas Suaves")] },
           { label: L5("Soft Edge Variations", "Varia\xE7\xF5es de Bordas Suaves"), items: SOFT_EDGE_PRESETS.map((v2) => ({ id: String(v2), label: L5(`${v2 / 12700} Point`, `${String(v2 / 12700).replace(".", ",")} Ponto`) })) }
-        ], (id) => id === "none" ? null : { softEdgePt: Number(id) / 12700 / 2.5 }, (id) => ed.setImageEffect("softEdge", id === "none" ? null : id), fx()?.softEdge ? String(fx().softEdge) : "none", 3)
+        ], (id) => id === "none" ? null : { softEdgePt: Number(id) / 12700 / 2.5 }, (id) => setFx("softEdge", id === "none" ? null : id), fx()?.softEdge ? String(fx().softEdge) : "none", 3)
       }]
     },
     {
@@ -3294,7 +3298,7 @@ function effectsMenu(env, ctx) {
         content: grid2([
           { label: L5("No Bevel", "Sem Bisel"), items: [none("No Bevel", "Sem Bisel")] },
           { label: L5("Bevel", "Bisel"), items: BEVEL_PRESETS.map((p3) => ({ id: p3.prst, label: p3.label })) }
-        ], () => null, (id) => ed.setImageEffect("bevel", id === "none" ? null : id), void 0, 4)
+        ], () => null, (id) => setFx("bevel", id === "none" ? null : id), void 0, 4)
       }]
     },
     {
@@ -3307,7 +3311,7 @@ function effectsMenu(env, ctx) {
           { label: L5("Parallel", "Paralelo"), items: ROTATION_PRESETS.filter((p3) => p3.group === "parallel").map((p3) => ({ id: p3.prst, label: p3.label })) },
           { label: L5("Perspective", "Perspectiva"), items: ROTATION_PRESETS.filter((p3) => p3.group === "perspective").map((p3) => ({ id: p3.prst, label: p3.label })) },
           { label: L5("Oblique", "Obl\xEDqua"), items: ROTATION_PRESETS.filter((p3) => p3.group === "oblique").map((p3) => ({ id: p3.prst, label: p3.label })) }
-        ], () => null, (id) => ed.setImageEffect("rotation", id === "none" ? null : id), void 0, 4)
+        ], () => null, (id) => setFx("rotation", id === "none" ? null : id), void 0, 4)
       }]
     }
   ];
@@ -3828,6 +3832,671 @@ async function watermarkDialog(env) {
   apply();
 }
 
+// src/chrome-shape.ts
+var L7 = (en, pt) => ({ en, pt });
+var WRAPS2 = [
+  ["inline", "In Line with Text", "Alinhado ao Texto", "format_align_left"],
+  ["square", "Square", "Quadrado", "wrap_text"],
+  ["tight", "Tight", "Comprimido", "wrap_text"],
+  ["through", "Through", "Atrav\xE9s", "wrap_text"],
+  ["topAndBottom", "Top and Bottom", "Superior e Inferior", "vertical_align_center"],
+  ["behind", "Behind Text", "Atr\xE1s do Texto", "flip_to_back"],
+  ["front", "In Front of Text", "Na Frente do Texto", "flip_to_front"]
+];
+var ALIGNS2 = [
+  ["left", "Align Left", "Alinhar \xE0 Esquerda", "align_horizontal_left"],
+  ["center", "Align Center", "Centralizar", "align_horizontal_center"],
+  ["right", "Align Right", "Alinhar \xE0 Direita", "align_horizontal_right"],
+  ["top", "Align Top", "Alinhar Acima", "align_vertical_top"],
+  ["middle", "Align Middle", "Alinhar ao Meio", "align_vertical_center"],
+  ["bottom", "Align Bottom", "Alinhar Parte Inferior", "align_vertical_bottom"]
+];
+var DIRS = [
+  ["horz", "Horizontal", "Horizontal", "format_textdirection_l_to_r"],
+  ["vert", "Rotate all text 90\xB0", "Girar todo o texto 90\xB0", "text_rotation_down"],
+  ["vert270", "Rotate all text 270\xB0", "Girar todo o texto 270\xB0", "text_rotate_up"]
+];
+var ANCHORS = [
+  ["t", "Top", "Superior", "vertical_align_top"],
+  ["ctr", "Middle", "Meio", "vertical_align_center"],
+  ["b", "Bottom", "Inferior", "vertical_align_bottom"]
+];
+function pickImage2(cb) {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "image/*";
+  inp.addEventListener("change", () => {
+    const f3 = inp.files?.[0];
+    if (!f3) return;
+    void f3.arrayBuffer().then((b3) => cb(new Uint8Array(b3), (f3.name.split(".").pop() || "png").toLowerCase()));
+  });
+  inp.click();
+}
+function registerShapeCommands(reg, ed, app, ctl) {
+  const api = ed;
+  const has = (m2) => () => typeof api[m2] === "function";
+  const shp = () => typeof api["selectedShape"] === "function" ? ed.selectedShape() : null;
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const on = () => canEdit3() && !!shp();
+  const floating = () => on() && !shp().inline;
+  const box = () => on() && !!shp().text;
+  const s4 = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => on() && c4.isEnabled() : on });
+  const cmds = [
+    // ── Inserir › Caixa de Texto: desenhar ──
+    {
+      id: "textbox:draw",
+      label: L7("Draw Text Box", "Desenhar Caixa de Texto"),
+      icon: "draw",
+      supports: has("drawTextbox"),
+      isEnabled: canEdit3,
+      isChecked: () => typeof api["drawingTextbox"] === "function" && ed.drawingTextbox(),
+      run: () => ed.drawingTextbox() ? ed.cancelDrawTextbox() : ed.drawTextbox(false)
+    },
+    { id: "textbox:drawVertical", label: L7("Draw Vertical Text Box", "Desenhar Caixa de Texto Vertical"), icon: "text_rotate_vertical", supports: has("drawTextbox"), isEnabled: canEdit3, run: () => ed.drawTextbox(true) },
+    // ── Organizar ──
+    ...WRAPS2.map(([k2, en, pt, icon]) => s4({ id: `shp:wrap:${k2}`, label: L7(en, pt), icon, supports: has("setShapeWrap"), run: () => ed.setShapeWrap(k2), isChecked: () => shp()?.wrap === k2 })),
+    s4({ id: "shp:wrap:moveWithText", label: L7("Move with Text", "Mover com o Texto"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
+    s4({ id: "shp:wrap:fixOnPage", label: L7("Fix Position on Page", "Corrigir Posi\xE7\xE3o na P\xE1gina"), supports: has("setShapeMoveWithText"), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp().inline && !shp().moveWithText }),
+    s4({ id: "shp:wrap:more", label: L7("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:wrap") }),
+    s4({ id: "shp:pos:inline", label: L7("In Line with Text", "Alinhado ao Texto"), icon: "format_align_left", supports: has("setShapePosition"), run: () => ed.setShapePosition("inline"), isChecked: () => !!shp()?.inline }),
+    ...POSITION_PRESETS.map((q) => s4({
+      id: `shp:pos:${q.id}`,
+      label: q.label,
+      icon: positionIcon2(q.v, q.h),
+      supports: has("setShapePosition"),
+      run: () => ed.setShapePosition(q.id),
+      isChecked: () => {
+        const f3 = shp()?.format;
+        return !!f3 && f3.wrap === "square" && f3.posH?.relativeFrom === "margin" && f3.posH.align === q.h && f3.posV?.relativeFrom === "margin" && f3.posV.align === q.v;
+      }
+    })),
+    s4({ id: "shp:pos:more", label: L7("More Layout Options\u2026", "Mais Op\xE7\xF5es de Layout..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:position") }),
+    s4({ id: "shp:forward", label: L7("Bring Forward", "Avan\xE7ar"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("forward") }),
+    s4({ id: "shp:front", label: L7("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("front") }),
+    s4({ id: "shp:frontOfText", label: L7("Bring in Front of Text", "Trazer para a Frente do Texto"), icon: "flip_to_front", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("frontOfText") }),
+    s4({ id: "shp:backward", label: L7("Send Backward", "Recuar"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("backward") }),
+    s4({ id: "shp:back", label: L7("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("back") }),
+    s4({ id: "shp:behindText", label: L7("Send Behind Text", "Enviar para Tr\xE1s do Texto"), icon: "flip_to_back", supports: has("arrangeShape"), isEnabled: floating, run: () => ed.arrangeShape("behindText") }),
+    s4({ id: "shp:rotate:right", label: L7("Rotate Right 90\xB0", "Girar 90\xB0 para a Direita"), icon: "rotate_right", supports: has("rotateShape"), run: () => ed.rotateShape(90) }),
+    s4({ id: "shp:rotate:left", label: L7("Rotate Left 90\xB0", "Girar 90\xB0 para a Esquerda"), icon: "rotate_left", supports: has("rotateShape"), run: () => ed.rotateShape(-90) }),
+    s4({ id: "shp:flip:v", label: L7("Flip Vertical", "Inverter Verticalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("v") }),
+    s4({ id: "shp:flip:h", label: L7("Flip Horizontal", "Inverter Horizontalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("h") }),
+    s4({ id: "shp:rotate:more", label: L7("More Rotation Options\u2026", "Mais Op\xE7\xF5es de Rota\xE7\xE3o..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
+    ...ALIGNS2.map(([k2, en, pt, icon]) => s4({ id: `shp:align:${k2}`, label: L7(en, pt), icon, supports: has("alignShape"), isEnabled: floating, run: () => ed.alignShape(k2) })),
+    s4({ id: "shp:layout", label: L7("Layout Options\u2026", "Layout..."), icon: "aspect_ratio", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
+    // ── Texto ──
+    ...DIRS.map(([k2, en, pt, icon]) => s4({ id: `shp:dir:${k2}`, label: L7(en, pt), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k2 }), isChecked: () => shp()?.text?.direction === k2 })),
+    ...ANCHORS.map(([k2, en, pt, icon]) => s4({ id: `shp:anchor:${k2}`, label: L7(en, pt), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k2 }), isChecked: () => shp()?.text?.anchor === k2 })),
+    s4({ id: "shp:textOptions", label: L7("Text Box Options\u2026", "Op\xE7\xF5es da Caixa de Texto..."), icon: "tune", supports: has("setTextboxOptions"), isEnabled: box, run: () => ctl.pictureDialog("format:layout") }),
+    s4({
+      id: "shp:link",
+      label: L7("Create Link", "Criar V\xEDnculo"),
+      tip: L7("Create Link: the text continues in the next text box you click (it must be empty)", "Criar V\xEDnculo: o texto continua na pr\xF3xima caixa de texto que voc\xEA clicar (ela precisa estar vazia)"),
+      icon: "link",
+      supports: has("createTextboxLink"),
+      isEnabled: () => box() && !shp().link?.next,
+      isChecked: () => typeof api["linkingTextbox"] === "function" && ed.linkingTextbox(),
+      run: () => ed.linkingTextbox() ? ed.cancelTextboxLink() : ed.createTextboxLink()
+    }),
+    s4({ id: "shp:unlink", label: L7("Break Link", "Quebrar V\xEDnculo"), icon: "link_off", supports: has("breakTextboxLink"), isEnabled: () => box() && !!shp().link?.next, run: () => ed.breakTextboxLink() }),
+    s4({ id: "shp:setDefault", label: L7("Set as Default Text Box", "Definir como Caixa de Texto Padr\xE3o"), icon: "check", supports: has("setAsDefaultTextbox"), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
+    // ── Estilos de Forma ──
+    s4({ id: "shp:fill:none", label: L7("No Fill", "Sem Preenchimento"), icon: "format_color_reset", supports: has("setShapeFill"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && "fill" in shp().format ? shp().format.fill.kind === "none" : false }),
+    s4({ id: "shp:outline:none", label: L7("No Outline", "Sem Contorno"), icon: "border_clear", supports: has("setShapeOutline"), isEnabled: () => shp()?.kind !== "group", run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
+    { id: "shp:format", label: L7("Format Shape\u2026", "Formatar Forma..."), icon: "tune", supports: has("setShapeFormat"), isEnabled: on, run: () => ctl.pictureDialog("format:line") },
+    s4({ id: "shp:editText", label: L7("Edit Text", "Editar Texto"), icon: "edit", supports: has("editSelectedTextbox"), isEnabled: () => box() && !shp().editingText, run: () => ed.editSelectedTextbox() }),
+    s4({ id: "shp:delete", label: L7("Delete", "Excluir"), icon: "delete", supports: has("deleteSelectedShape"), run: () => ed.deleteSelectedShape() }),
+    // ── Acessibilidade ──
+    s4({ id: "shp:alt", label: L7("Alt Text", "Texto Alt"), tip: L7("Alt Text: describe the shape for people who use screen readers", "Texto Alt: descreva a forma para quem usa leitor de tela"), icon: "accessibility_new", supports: has("setShapeAltText"), run: () => ctl.pictureDialog("alt") })
+  ];
+  reg.add(...cmds);
+}
+function positionIcon2(v2, h3) {
+  const x2 = h3 === "left" ? 240 : h3 === "center" ? 400 : 560, y3 = v2 === "top" ? -760 : v2 === "center" ? -560 : -360;
+  return `<path d="M160-80v-800h640v800H160Zm60-60h520v-680H220v680Z"/><path d="M${x2} ${y3}h160v120H${x2}z"/>`;
+}
+var shapeWrapMenu = () => [...WRAPS2.map(([k2]) => `shp:wrap:${k2}`), "-", "shp:wrap:moveWithText", "shp:wrap:fixOnPage", "-", "shp:wrap:more"];
+var shapePositionMenu = () => ["shp:pos:inline", "-", ...POSITION_PRESETS.map((q) => `shp:pos:${q.id}`), "-", "shp:pos:more"];
+var shapeRotateMenu = () => ["shp:rotate:right", "shp:rotate:left", "shp:flip:v", "shp:flip:h", "-", "shp:rotate:more"];
+var shapeAlignMenu = () => [...ALIGNS2.slice(0, 3).map(([k2]) => `shp:align:${k2}`), "-", ...ALIGNS2.slice(3).map(([k2]) => `shp:align:${k2}`), "-", "pic:align:to:page", "pic:align:to:margin"];
+var dirMenu = () => [...DIRS.map(([k2]) => `shp:dir:${k2}`), "-", "shp:textOptions"];
+var anchorMenu = () => [...ANCHORS.map(([k2]) => `shp:anchor:${k2}`), "-", "shp:textOptions"];
+function colorIn(xml) {
+  if (!xml) return null;
+  const m2 = /<a:(schemeClr|srgbClr|prstClr|sysClr) val="([^"]+)"(?:\/>|>([\s\S]*?)<\/a:\1>)/.exec(xml);
+  if (!m2) return null;
+  const mods = [...(m2[3] ?? "").matchAll(/<a:(\w+) val="(-?\d+)"\/>/g)].map((x2) => [x2[1], Number(x2[2])]);
+  return { kind: m2[1], val: m2[2], ...mods.length ? { mods } : {} };
+}
+function styleLook(n5, hex) {
+  const [sp, st] = SHAPE_STYLE_PRESETS[n5 - 1];
+  const ref = (tag) => /<a:(\w+Ref) idx="(\w+)">([\s\S]*?)<\/a:\1>/g;
+  const refs = /* @__PURE__ */ new Map();
+  for (const m2 of st.matchAll(ref(""))) refs.set(m2[1], { idx: m2[2], color: colorIn(m2[3]) });
+  const text = hex(refs.get("fontRef")?.color ?? { kind: "schemeClr", val: "dk1" }) ?? "000000";
+  let fill = null, line2 = null, lw = 1;
+  if (n5 <= 42) {
+    const fr = refs.get("fillRef"), lr = refs.get("lnRef");
+    const fc = fr?.color ? hex(fr.color) : void 0;
+    if (fc && fr.idx !== "0") fill = fr.idx === "1" ? [fc] : [lighten(fc, fr.idx === "2" ? 0.35 : 0.2), fc];
+    const lc = lr?.color ? hex(lr.color) : void 0;
+    if (lc && lr.idx !== "0") {
+      line2 = lc;
+      lw = lr.idx === "3" ? 2 : 1;
+    }
+  } else {
+    if (/^<a:solidFill>/.test(sp)) {
+      const c4 = colorIn(sp);
+      if (c4) fill = [hex(c4) ?? "FFFFFF"];
+    } else if (/^<a:gradFill/.test(sp)) {
+      const stops = [...sp.matchAll(/<a:gs pos="\d+">([\s\S]*?)<\/a:gs>/g)].map((g2) => colorIn(g2[1]));
+      fill = stops.filter((c4) => !!c4).map((c4) => hex(c4) ?? "FFFFFF");
+    }
+    const ln = /<a:ln\b[^>]*?(?:w="(\d+)")?[^>]*>([\s\S]*?)<\/a:ln>/.exec(sp);
+    if (ln && !/<a:noFill\/>/.test(ln[2])) {
+      const c4 = colorIn(ln[2]);
+      if (c4) {
+        line2 = hex(c4) ?? null;
+        lw = Math.max(1, Number(ln[1] ?? 12700) / 12700);
+      }
+    }
+  }
+  return { fill, line: line2, lw, text };
+}
+function lighten(hex, k2) {
+  const n5 = parseInt(hex, 16);
+  const ch = (s4) => Math.round((n5 >> s4 & 255) + (255 - (n5 >> s4 & 255)) * k2);
+  return [16, 8, 0].map((s4) => ch(s4).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+function styleThumb(tile, n5, hex) {
+  const W = 56, H2 = 40, dpr = Math.max(1, window.devicePixelRatio || 1);
+  const c4 = document.createElement("canvas");
+  c4.width = W * dpr;
+  c4.height = H2 * dpr;
+  c4.style.cssText = `width:${W}px;height:${H2}px;display:block;margin:auto`;
+  const x2 = c4.getContext("2d");
+  x2.scale(dpr, dpr);
+  const lk = styleLook(n5, hex);
+  const r5 = { x: 4, y: 4, w: W - 8, h: H2 - 8 };
+  if (lk.fill?.length) {
+    if (lk.fill.length > 1) {
+      const g2 = x2.createLinearGradient(0, r5.y, 0, r5.y + r5.h);
+      lk.fill.forEach((f3, i5) => g2.addColorStop(i5 / (lk.fill.length - 1), `#${f3}`));
+      x2.fillStyle = g2;
+    } else x2.fillStyle = `#${lk.fill[0]}`;
+    x2.fillRect(r5.x, r5.y, r5.w, r5.h);
+  }
+  if (lk.line) {
+    x2.strokeStyle = `#${lk.line}`;
+    x2.lineWidth = lk.lw;
+    x2.strokeRect(r5.x, r5.y, r5.w, r5.h);
+  }
+  x2.fillStyle = `#${lk.text}`;
+  x2.font = "12px sans-serif";
+  x2.textAlign = "center";
+  x2.textBaseline = "middle";
+  x2.fillText("Abc", W / 2, H2 / 2 + 1);
+  tile.replaceChildren(c4);
+}
+function templateThumb(tile, id, ed, lang) {
+  const W = 84, H2 = 108, dpr = Math.max(1, window.devicePixelRatio || 1);
+  const c4 = document.createElement("canvas");
+  c4.width = W * dpr;
+  c4.height = H2 * dpr;
+  c4.style.cssText = `width:${W}px;height:${H2}px;display:block;margin:auto`;
+  const x2 = c4.getContext("2d");
+  x2.scale(dpr, dpr);
+  x2.fillStyle = "#ffffff";
+  x2.fillRect(0, 0, W, H2);
+  x2.strokeStyle = "#c8c8c8";
+  x2.strokeRect(0.5, 0.5, W - 1, H2 - 1);
+  const accent = ed.documentThemeColors()["accent1"] ?? "156082";
+  const sp = textboxTemplateSpec(id, { accent, lang });
+  if (sp) {
+    const k2 = W / (8.5 * 914400);
+    const mw = 6.5 * 914400 * k2, ml = 914400 * k2;
+    let w2 = sp.sizeRelH ? sp.sizeRelH.pct / 1e5 * (sp.sizeRelH.relativeFrom === "page" ? W : mw) : sp.cx * k2;
+    let h3 = sp.sizeRelV ? sp.sizeRelV.pct / 1e5 * H2 : Math.min(sp.cy * k2, H2 * 0.4);
+    w2 = Math.min(w2, W);
+    h3 = Math.min(h3, H2);
+    const bx = sp.posH.relativeFrom === "page" ? sp.posH.align === "right" ? W - w2 : 0 : ml + (sp.posH.align === "right" ? mw - w2 : sp.posH.align === "center" ? (mw - w2) / 2 : 0);
+    const by = sp.posV.relativeFrom === "page" ? 0 : 24;
+    x2.fillStyle = "#d8d8d8";
+    for (let ly = 14; ly < H2 - 10; ly += 7) {
+      const inBox = ly >= by - 4 && ly <= by + h3 + 4;
+      if (inBox && sp.wrap !== "none") {
+        if (bx > ml + 8) x2.fillRect(ml, ly, bx - ml - 4, 2);
+        if (bx + w2 < ml + mw - 8) x2.fillRect(bx + w2 + 4, ly, ml + mw - bx - w2 - 4, 2);
+      } else x2.fillRect(ml, ly, mw, 2);
+    }
+    const hex = (cc) => ed.resolveDmlColor(cc);
+    const f3 = sp.fill;
+    x2.fillStyle = f3.kind === "solid" ? `#${hex(f3.color) ?? "ffffff"}` : "#ffffff";
+    x2.fillRect(bx, by, w2, h3);
+    if (sp.line) {
+      x2.strokeStyle = `#${hex(sp.line.fill) ?? "000000"}`;
+      x2.lineWidth = 1;
+      x2.strokeRect(bx + 0.5, by + 0.5, w2 - 1, h3 - 1);
+    }
+    const dark = f3.kind === "solid" && /accent1"?$/.test(JSON.stringify(f3.color.val)) && !(f3.color.mods ?? []).length;
+    x2.fillStyle = dark ? "rgba(255,255,255,.8)" : `#${accent}`;
+    for (let ly = by + 6; ly < by + h3 - 4 && ly < by + 40; ly += 6) x2.fillRect(bx + 5, ly, Math.max(4, w2 - 10), 2);
+  }
+  tile.replaceChildren(c4);
+}
+function textboxMenu(env, ctx) {
+  const ed = env.ed;
+  const lang = ctx.lang === "pt" ? "pt" : "en";
+  const all = ed.textboxTemplates();
+  const mine = all.filter((t5) => t5.user);
+  const isBox = () => typeof ed.selectedShape === "function" && ed.selectedShape()?.kind === "textbox" && !ed.isProtected();
+  return [
+    {
+      content: (close) => tileGrid({
+        sections: [
+          { label: L7("Built-In", "Internos"), items: all.filter((t5) => !t5.user).map((t5) => ({ id: t5.id, label: t5.name })) },
+          { label: L7("General", "Geral"), items: mine.map((t5) => ({ id: t5.id, label: t5.name })) }
+        ],
+        tile: { w: 92, h: 116 },
+        cols: 3,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        render: (tile, it) => it.id.startsWith("user:") ? userThumb(tile, it.label) : templateThumb(tile, it.id, ed, lang),
+        onPick: (id) => {
+          ed.insertTextbox(id);
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    "textbox:draw",
+    "textbox:drawVertical",
+    {
+      id: "textbox:save",
+      label: L7("Save Selection to Text Box Gallery\u2026", "Salvar Sele\xE7\xE3o na Galeria de Caixas de Texto..."),
+      icon: "save",
+      disabled: !isBox(),
+      onClick: () => {
+        void promptDialog({ title: L7("Create New Building Block", "Criar Novo Bloco de Constru\xE7\xE3o"), label: L7("Name", "Nome"), value: ed.selectedShape()?.name ?? "", layer: env.root.querySelector(".uw-layer") ?? void 0, lang }).then((n5) => {
+          if (n5 !== null) ed.saveSelectionToTextboxGallery(n5);
+          ctx.after();
+        });
+      }
+    },
+    ...mine.length ? [{
+      id: "textbox:remove",
+      label: L7("Remove from Gallery", "Remover da Galeria"),
+      icon: "delete",
+      submenu: () => mine.map((t5) => ({ id: `textbox:rm:${t5.id}`, label: t5.name, onClick: () => {
+        ed.removeTextboxGalleryItem(t5.id);
+        ctx.after();
+      } }))
+    }] : []
+  ];
+}
+function userThumb(tile, name) {
+  tile.innerHTML = `<span style="display:flex;align-items:center;justify-content:center;width:78px;height:96px;margin:auto;border:1px solid #c8c8c8;background:#fff;font-size:11px;color:#333;text-align:center;padding:4px;box-sizing:border-box;overflow:hidden">${name.replace(/[&<>"]/g, (c4) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c4])}</span>`;
+}
+function fillMenu(env, ctx) {
+  const ed = env.ed;
+  return [
+    {
+      content: (close) => {
+        const colors = ed.documentThemeColors();
+        return colorGrid({
+          colors: [...themePaletteColors(colors), ...STANDARD_COLORS.map((h3) => ({ value: h3, css: `#${h3}` }))],
+          columns: 10,
+          close,
+          onPick: (v2) => {
+            ed.setShapeFill(dmlFromPick(v2, colors));
+            ctx.after();
+          }
+        });
+      }
+    },
+    "shp:fill:none",
+    {
+      id: "shp:fill:more",
+      label: L7("More Fill Colors\u2026", "Mais Cores de Preenchimento..."),
+      icon: "palette",
+      onClick: () => {
+        const inp = document.createElement("input");
+        inp.type = "color";
+        inp.addEventListener("change", () => {
+          ed.setShapeFill({ kind: "srgbClr", val: inp.value.slice(1).toUpperCase() });
+          ctx.after();
+        });
+        inp.click();
+      }
+    },
+    { id: "shp:fill:picture", label: L7("Picture\u2026", "Imagem..."), icon: "image", onClick: () => pickImage2((d3, ext) => {
+      void ed.setShapePictureFill(d3, ext, false).then(() => ctx.after());
+    }) },
+    {
+      id: "shp:fill:gradient",
+      label: L7("Gradient", "Gradiente"),
+      icon: "format_color_fill",
+      submenu: () => [{
+        content: (close) => {
+          const vars = ed.shapeGradientVariations();
+          return tileGrid({
+            sections: [
+              { label: L7("Light Variations", "Varia\xE7\xF5es Claras"), items: vars.filter((v2) => !v2.dark).map((v2) => ({ id: v2.id, label: L7(v2.id, v2.id) })) },
+              { label: L7("Dark Variations", "Varia\xE7\xF5es Escuras"), items: vars.filter((v2) => v2.dark).map((v2) => ({ id: v2.id, label: L7(v2.id, v2.id) })) }
+            ],
+            tile: { w: 40, h: 40 },
+            cols: 4,
+            close,
+            text: (l3) => ctx.registry.text(l3),
+            render: (tile, it) => {
+              const v2 = vars.find((q) => q.id === it.id);
+              const f3 = v2.fill;
+              const cs = f3.stops.map((st) => `#${ed.resolveDmlColor(st.color) ?? "ffffff"}`);
+              const deg = 90 + (f3.lin?.ang ?? 0) / 6e4;
+              tile.innerHTML = `<span style="display:block;width:30px;height:30px;margin:auto;background:linear-gradient(${deg}deg,${cs.join(",")})"></span>`;
+            },
+            onPick: (id) => {
+              const v2 = vars.find((q) => q.id === id);
+              if (v2) ed.setShapeFill(v2.fill);
+              ctx.after();
+            }
+          });
+        }
+      }, "-", { id: "shp:fill:gradOptions", label: L7("More Gradients\u2026", "Mais Gradientes..."), icon: "tune", onClick: () => env.ctl.pictureDialog("format:line") }]
+    },
+    { id: "shp:fill:texture", label: L7("Texture\u2026", "Textura..."), icon: "grid_on", onClick: () => pickImage2((d3, ext) => {
+      void ed.setShapePictureFill(d3, ext, true).then(() => ctx.after());
+    }) }
+  ];
+}
+function outlineMenu(env, ctx) {
+  const ed = env.ed;
+  const st = () => ed.selectedShape();
+  return [
+    {
+      content: (close) => {
+        const colors = ed.documentThemeColors();
+        return colorGrid({
+          colors: [...themePaletteColors(colors), ...STANDARD_COLORS.map((h3) => ({ value: h3, css: `#${h3}` }))],
+          columns: 10,
+          close,
+          onPick: (v2) => {
+            ed.setShapeOutline({ color: dmlFromPick(v2, colors) });
+            ctx.after();
+          }
+        });
+      }
+    },
+    "shp:outline:none",
+    {
+      id: "shp:outline:more",
+      label: L7("More Outline Colors\u2026", "Mais Cores de Contorno..."),
+      icon: "palette",
+      onClick: () => {
+        const inp = document.createElement("input");
+        inp.type = "color";
+        inp.addEventListener("change", () => {
+          ed.setShapeOutline({ color: { kind: "srgbClr", val: inp.value.slice(1).toUpperCase() } });
+          ctx.after();
+        });
+        inp.click();
+      }
+    },
+    "-",
+    {
+      id: "shp:outline:weight",
+      label: L7("Weight", "Espessura"),
+      icon: "line_weight",
+      submenu: () => LINE_WEIGHTS_PT.map((w2) => ({
+        id: `shp:outline:w:${w2}`,
+        label: `${String(w2).replace(".", ctx.registry.text(L7(".", ",")))} pt`,
+        checked: !!st()?.format.line?.fill && Math.abs((st().format.line.w ?? 9525) / 12700 - w2) < 0.01,
+        onClick: () => {
+          ed.setShapeOutline({ weightPt: w2 });
+          ctx.after();
+        }
+      }))
+    },
+    {
+      id: "shp:outline:dash",
+      label: L7("Dashes", "Tracejados"),
+      icon: "line_style",
+      submenu: () => LINE_DASHES.map((d3) => ({
+        id: `shp:outline:d:${d3.val}`,
+        label: d3.label,
+        checked: (st()?.format.line?.dash ?? "solid") === d3.val,
+        onClick: () => {
+          ed.setShapeOutline({ dash: d3.val });
+          ctx.after();
+        }
+      }))
+    }
+  ];
+}
+function changeShapeMenu(env, ctx) {
+  return [{
+    id: "shp:change",
+    label: L7("Change Shape", "Alterar Forma"),
+    icon: "shapes",
+    submenu: () => [{
+      content: (close) => tileGrid({
+        sections: CROP_SHAPES.map((g2) => ({ label: g2.label, items: g2.shapes.map(([prst, en, pt]) => ({ id: prst, label: L7(en, pt) })) })),
+        tile: { w: 30, h: 26 },
+        cols: 10,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        render: (tile, it) => shapeThumb(tile, it.id),
+        onPick: (id) => {
+          env.ed.changeShape(id);
+          ctx.after();
+        }
+      })
+    }]
+  }];
+}
+function shapeStylesGallery(env) {
+  const ed = env.ed;
+  const items = () => SHAPE_STYLE_PRESETS.map((_2, i5) => ({ id: String(i5 + 1), label: L7(`Style ${i5 + 1}`, `Estilo ${i5 + 1}`), section: i5 < 42 ? "theme" : "presets" }));
+  return {
+    gallery: {
+      id: "shp:styles",
+      label: L7("Shape Styles", "Estilos de Forma"),
+      icon: "style",
+      tile: { w: 60, h: 44 },
+      rows: 1,
+      maxCols: 6,
+      minCols: 3,
+      expandCols: 7,
+      sections: [{ id: "theme", label: L7("Theme Styles", "Estilos do Tema") }, { id: "presets", label: L7("Presets", "Predefini\xE7\xF5es") }],
+      supports: () => typeof ed.setShapeStyle === "function",
+      isEnabled: () => !ed.isProtected() && !!ed.selectedShape() && ed.selectedShape().kind !== "group",
+      items,
+      version: () => JSON.stringify(ed.documentThemeColors()),
+      selected: () => {
+        const n5 = ed.selectedShape()?.styleIndex;
+        return n5 ? String(n5) : void 0;
+      },
+      render: (tile, it) => styleThumb(tile, Number(it.id), (c4) => ed.resolveDmlColor(c4)),
+      onPick: (id) => ed.setShapeStyle(Number(id)),
+      footer: () => ["shp:format"]
+    }
+  };
+}
+var measureWidget3 = (env, which) => ({
+  widget: (ctx) => {
+    const wrap = document.createElement("span");
+    wrap.style.cssText = "display:inline-flex;align-items:center;gap:4px";
+    const ic = document.createElement("span");
+    ic.innerHTML = symbol(which);
+    ic.style.cssText = "display:inline-flex;opacity:.8";
+    const input = document.createElement("input");
+    input.className = "uo-num";
+    input.inputMode = "decimal";
+    input.style.width = "64px";
+    input.title = ctx.registry.text(which === "height" ? L7("Shape Height", "Altura da Forma") : L7("Shape Width", "Largura da Forma"));
+    input.setAttribute("aria-label", input.title);
+    const dec = ctx.registry.text(L7(".", ","));
+    const cm = (pt) => `${(Math.round(pt / 72 * 254) / 100).toFixed(2).replace(".", dec)} cm`;
+    const ptOf3 = (v2) => {
+      const n5 = parseFloat(v2.replace(",", ".").replace(/[^0-9.]/g, ""));
+      return Number.isFinite(n5) ? n5 / 2.54 * 72 : void 0;
+    };
+    const cur = () => {
+      const s4 = env.ed.selectedShape();
+      return s4 ? which === "height" ? s4.heightPt : s4.widthPt : 0;
+    };
+    const set = (v2) => {
+      env.ed.setShapeSize(which === "height" ? { heightPt: Math.max(0.1, v2) } : { widthPt: Math.max(0.1, v2) });
+      ctx.after();
+    };
+    const apply = () => {
+      const v2 = ptOf3(input.value);
+      if (v2 !== void 0) set(v2);
+    };
+    input.addEventListener("change", apply);
+    input.addEventListener("keydown", (e6) => {
+      if (e6.key === "Enter") {
+        e6.preventDefault();
+        apply();
+      }
+    });
+    const up = document.createElement("button"), dn = document.createElement("button");
+    for (const [b3, d3, sy] of [[up, 1, "keyboard_arrow_up"], [dn, -1, "keyboard_arrow_down"]]) {
+      b3.type = "button";
+      b3.className = "uo-btn";
+      b3.style.cssText = "width:18px;height:14px;min-width:0;padding:0";
+      b3.innerHTML = symbol(sy);
+      b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+      b3.addEventListener("click", () => set(cur() + d3 * (72 / 25.4)));
+    }
+    const arrows = document.createElement("span");
+    arrows.style.cssText = "display:inline-flex;flex-direction:column";
+    arrows.append(up, dn);
+    wrap.append(ic, input, arrows);
+    return {
+      el: wrap,
+      visible: () => typeof env.ed.selectedShape === "function",
+      sync: () => {
+        const s4 = env.ed.selectedShape();
+        input.disabled = up.disabled = dn.disabled = !s4 || env.ed.isProtected();
+        if (document.activeElement !== input && env.ed.shadowRoot?.activeElement !== input) input.value = s4 ? cm(which === "height" ? s4.heightPt : s4.widthPt) : "";
+      }
+    };
+  }
+});
+var large2 = (cmd) => ({ cmd, size: "large" });
+function shapeFormatGroups(env, ctx) {
+  const has = (m2) => () => typeof env.ed[m2] === "function";
+  return [
+    { id: "shp-insert", label: L7("Insert Shapes", "Inserir Formas"), icon: "shapes", prio: 4, cells: [
+      { rows: [
+        [{ menu: () => changeShapeMenu(env, ctx), id: "shp:edit", label: L7("Edit Shape", "Editar Forma"), icon: "format_shapes", showLabel: true, supports: has("changeShape") }],
+        [{ split: "textbox:draw", menu: ["textbox:draw", "textbox:drawVertical"], label: true }]
+      ] }
+    ] },
+    { id: "shp-styles", label: L7("Shape Styles", "Estilos de Forma"), icon: "style", prio: 6, launcher: "shp:format", cells: [
+      shapeStylesGallery(env),
+      { rows: [
+        [{ menu: () => fillMenu(env, ctx), id: "shp:fill", label: L7("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", showLabel: true, supports: has("setShapeFill") }],
+        [{ menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L7("Shape Outline", "Contorno da Forma"), icon: "border_color", showLabel: true, supports: has("setShapeOutline") }],
+        [{ menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L7("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", showLabel: true, supports: has("setShapeEffect") }]
+      ] }
+    ] },
+    { id: "shp-text", label: L7("Text", "Texto"), icon: "text_fields", prio: 5, cells: [
+      { rows: [
+        [{ menu: dirMenu, id: "shp:dir", label: L7("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", showLabel: true, supports: has("setTextboxOptions") }],
+        [{ menu: anchorMenu, id: "shp:anchor", label: L7("Align Text", "Alinhar Texto"), icon: "vertical_align_center", showLabel: true, supports: has("setTextboxOptions") }],
+        [{ cmd: "shp:link", label: true }, { cmd: "shp:unlink" }]
+      ] }
+    ] },
+    { id: "shp-access", label: L7("Accessibility", "Acessibilidade"), icon: "accessibility_new", prio: 3, cells: [large2("shp:alt")] },
+    { id: "shp-arrange", label: L7("Arrange", "Organizar"), icon: "layers", prio: 6, cells: [
+      { menu: shapePositionMenu, id: "shp:position", label: L7("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", size: "large", supports: has("setShapePosition") },
+      { menu: shapeWrapMenu, id: "shp:wrap", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", size: "large", supports: has("setShapeWrap") },
+      { rows: [
+        [{ split: "shp:forward", menu: ["shp:forward", "shp:front", "shp:frontOfText"], label: true }],
+        [{ split: "shp:backward", menu: ["shp:backward", "shp:back", "shp:behindText"], label: true }]
+      ] },
+      { rows: [
+        [{ cmd: "pic:selectionPane", label: true }],
+        [{ menu: shapeAlignMenu, id: "shp:align", label: L7("Align", "Alinhar"), icon: "align_horizontal_left", showLabel: true, supports: has("alignShape") }],
+        [{ menu: shapeRotateMenu, id: "shp:rotate", label: L7("Rotate", "Girar"), icon: "rotate_90_degrees_cw", showLabel: true, supports: has("rotateShape") }]
+      ] }
+    ] },
+    { id: "shp-size", label: L7("Size", "Tamanho"), icon: "aspect_ratio", prio: 5, launcher: "shp:layout", cells: [
+      { rows: [[measureWidget3(env, "height")], [measureWidget3(env, "width")]] }
+    ] }
+  ];
+}
+function shapeCompactGroup(env, ctx) {
+  const sel4 = () => typeof env.ed.selectedShape === "function" && !!env.ed.selectedShape();
+  return {
+    id: "shape",
+    label: L7("Shape", "Forma"),
+    icon: "format_shapes",
+    prio: 7,
+    items: [
+      { menu: () => fillMenu(env, ctx), id: "shp:fill", label: L7("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", supports: sel4 },
+      { menu: () => outlineMenu(env, ctx), id: "shp:outline", label: L7("Shape Outline", "Contorno da Forma"), icon: "border_color", supports: sel4 },
+      { menu: () => effectsMenu(env, ctx, true), id: "shp:effects", label: L7("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", supports: sel4 },
+      { menu: () => [...dirMenu(), "-", ...anchorMenu(), "-", "shp:link", "shp:unlink"], id: "shp:text", label: L7("Text", "Texto"), icon: "text_fields", supports: sel4 },
+      { menu: shapeWrapMenu, id: "shp:wrap", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", supports: sel4 },
+      { menu: shapePositionMenu, id: "shp:position", label: L7("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", supports: sel4 },
+      { menu: () => ["shp:forward", "shp:front", "shp:frontOfText", "-", "shp:backward", "shp:back", "shp:behindText"], id: "shp:order", label: L7("Arrange", "Organizar"), icon: "layers", supports: sel4 },
+      { cmd: "shp:format" }
+    ]
+  };
+}
+function shapeMenu(env, ctx) {
+  return {
+    id: "shp:menu",
+    label: L7("Shape", "Forma"),
+    icon: "format_shapes",
+    submenu: () => [
+      { id: "shp:fillSub", label: L7("Shape Fill", "Preenchimento da Forma"), icon: "format_color_fill", submenu: () => fillMenu(env, ctx) },
+      { id: "shp:outlineSub", label: L7("Shape Outline", "Contorno da Forma"), icon: "border_color", submenu: () => outlineMenu(env, ctx) },
+      { id: "shp:effectsSub", label: L7("Shape Effects", "Efeitos de Forma"), icon: "auto_awesome", submenu: () => effectsMenu(env, ctx, true) },
+      ...changeShapeMenu(env, ctx),
+      "-",
+      { id: "shp:dirSub", label: L7("Text Direction", "Dire\xE7\xE3o do Texto"), icon: "text_rotate_vertical", submenu: dirMenu },
+      { id: "shp:anchorSub", label: L7("Align Text", "Alinhar Texto"), icon: "vertical_align_center", submenu: anchorMenu },
+      "shp:link",
+      "shp:unlink",
+      "-",
+      { id: "shp:wrapSub", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
+      { id: "shp:posSub", label: L7("Position", "Posi\xE7\xE3o"), icon: "picture_in_picture", submenu: shapePositionMenu },
+      { id: "shp:rotSub", label: L7("Rotate", "Girar"), icon: "rotate_90_degrees_cw", submenu: shapeRotateMenu },
+      "-",
+      "shp:alt",
+      "shp:layout",
+      "shp:format",
+      "-",
+      "shp:delete"
+    ]
+  };
+}
+function shapeContextItems() {
+  return [
+    "cut",
+    "copy",
+    "paste",
+    "-",
+    "shp:editText",
+    { id: "shp:ctx:front", label: L7("Bring to Front", "Trazer para a Frente"), icon: "flip_to_front", submenu: ["shp:front", "shp:forward", "shp:frontOfText"] },
+    { id: "shp:ctx:back", label: L7("Send to Back", "Enviar para Tr\xE1s"), icon: "flip_to_back", submenu: ["shp:back", "shp:backward", "shp:behindText"] },
+    "-",
+    "shp:link",
+    "shp:unlink",
+    { id: "shp:ctx:wrap", label: L7("Wrap Text", "Quebra de Texto Autom\xE1tica"), icon: "wrap_text", submenu: shapeWrapMenu },
+    "shp:alt",
+    "shp:setDefault",
+    "shp:layout",
+    "shp:format",
+    "-",
+    "shp:delete"
+  ];
+}
+
 // src/chrome-commands.ts
 var ZOOMS = [50, 75, 90, 100, 125, 150, 200];
 function registerWriteCommands(reg, ed, app, ctl) {
@@ -3838,11 +4507,11 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const notComparing = () => !app.comparing;
   const run = () => ctl.state().run;
   const para = () => ctl.state().para;
-  const L9 = app.ui.L;
+  const L10 = app.ui.L;
   const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
   const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
   const resolved = (n5, accept) => {
-    ctl.flash(accept ? L9.revAccepted(Number(n5) || 0) : L9.revRejected(Number(n5) || 0));
+    ctl.flash(accept ? L10.revAccepted(Number(n5) || 0) : L10.revRejected(Number(n5) || 0));
   };
   const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
@@ -3916,7 +4585,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "header", label: { en: "Header", pt: "Cabe\xE7alho" }, icon: "vertical_align_top", run: () => ed.enterHeaderFooter("header") }),
     edit({ id: "footer", label: { en: "Footer", pt: "Rodap\xE9" }, icon: "vertical_align_bottom", run: () => ed.enterHeaderFooter("footer") }),
     { id: "hf:close", label: { en: "Close Header and Footer", pt: "Fechar Cabe\xE7alho e Rodap\xE9" }, icon: "close", run: () => ed.exitHeaderFooter(), isEnabled: () => ed.editingHeaderFooter() !== null },
-    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L9.tocUpdated : L9.noToc) }),
+    edit({ id: "toc", label: { en: "Update table of contents", pt: "Atualizar sum\xE1rio" }, icon: "toc", run: () => ctl.flash(ed.updateToc() ? L10.tocUpdated : L10.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: "footnote", label: { en: "Footnote", pt: "Nota de rodap\xE9" }, tip: { en: "Insert footnote", pt: "Inserir nota de rodap\xE9" }, icon: "notes", shortcut: "Ctrl+Alt+F", supports: has("insertFootnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertFootnote") }),
     edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), isEnabled: () => ed.canInsertNote(), run: () => call("insertEndnote") }),
@@ -3954,7 +4623,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "caption", label: { en: "Insert Caption", pt: "Inserir Legenda" }, tip: { en: "Add a numbered caption to a picture, table or equation", pt: "Adicionar uma legenda numerada a imagem, tabela ou equa\xE7\xE3o" }, icon: "subtitles", supports: has("insertCaption"), isEnabled: () => !!ed.captionTarget() || ed.canInsertField(), run: () => ctl.refsDialog("caption") }),
     edit({ id: "tof", label: { en: "Insert Table of Figures", pt: "Inserir \xCDndice de Ilustra\xE7\xF5es" }, tip: { en: "List of the captions of a label", pt: "Lista das legendas de um r\xF3tulo" }, icon: "list_alt", supports: has("insertTableOfFigures"), isEnabled: () => ed.canInsertField(), run: () => ctl.refsDialog("tof") }),
     edit({ id: "tof:update", label: { en: "Update Table", pt: "Atualizar Tabela" }, tip: { en: "Update the table of figures", pt: "Atualizar o \xEDndice de ilustra\xE7\xF5es" }, icon: "autorenew", supports: has("updateTableOfFigures"), run: () => {
-      if (!ed.updateTableOfFigures()) ctl.flash(L9.noTof);
+      if (!ed.updateTableOfFigures()) ctl.flash(L10.noTof);
     } }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -4083,10 +4752,10 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
     edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
     { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
-      if (!call("previousChange")) ctl.flash(L9.noMoreRevisions);
+      if (!call("previousChange")) ctl.flash(L10.noMoreRevisions);
     }, isEnabled: hasRevisions },
     { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
-      if (!call("nextChange")) ctl.flash(L9.noMoreRevisions);
+      if (!call("nextChange")) ctl.flash(L10.noMoreRevisions);
     }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
@@ -4100,6 +4769,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
   registerTableCommands(reg, ed, app, ctl);
   registerHfCommands(reg, ed, app, ctl);
   registerPictureCommands(reg, ed, app, ctl);
+  registerShapeCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
   function stepComment(dir) {
@@ -4760,26 +5430,26 @@ var check4 = (name, label, on) => {
 var tr4 = (lang, en, pt) => pickLabels(lang, { en, pt });
 async function authorDialog(env) {
   if (env.ed.hasAuthor()) return true;
-  const L9 = env.app.ui.L;
-  const name = await promptDialog({ title: L9.authorTitle, label: L9.authorText, ok: L9.authorOk, layer: env.layer, lang: env.lang });
+  const L10 = env.app.ui.L;
+  const name = await promptDialog({ title: L10.authorTitle, label: L10.authorText, ok: L10.authorOk, layer: env.layer, lang: env.lang });
   if (!name?.trim()) return false;
   env.ed.author = name.trim();
   originStore.set("uw-author", env.ed.author);
   return true;
 }
 async function commentDialog(env) {
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   if (!env.ed.selectedText()) {
-    env.app.ui.flash(L9.selectToComment);
+    env.app.ui.flash(L10.selectToComment);
     return;
   }
   if (!await authorDialog(env)) return;
-  const text = await promptDialog({ title: L9.commentTitle, label: L9.commentText, multiline: true, ok: L9.commentAdd, layer: env.layer, lang: env.lang });
+  const text = await promptDialog({ title: L10.commentTitle, label: L10.commentText, multiline: true, ok: L10.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
-  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L9.selectToComment : L9.commentAdded);
+  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L10.selectToComment : L10.commentAdded);
 }
 async function fontDialog(env, families) {
-  const L9 = env.app.ui.L, lang = env.lang;
+  const L10 = env.app.ui.L, lang = env.lang;
   const r5 = env.state().run;
   const cur = r5.fontAscii ?? "";
   const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
@@ -4807,25 +5477,25 @@ async function fontDialog(env, families) {
   const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el5("span", {}, L9.fontDlg),
+    el5("span", {}, L10.fontDlg),
     font,
-    el5("span", {}, L9.size),
+    el5("span", {}, L10.size),
     size,
-    el5("span", {}, L9.color),
+    el5("span", {}, L10.color),
     color,
-    el5("span", {}, L9.charSpacing),
+    el5("span", {}, L10.charSpacing),
     spacing
   );
   const fx = el5("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
   for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check4(k2, label, on));
-  const body = el5("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el5("strong", {}, L9.effects), fx);
+  const body = el5("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el5("strong", {}, L10.effects), fx);
   const h3 = openDialog({
-    title: L9.fontDlg,
+    title: L10.fontDlg,
     body,
     layer: env.layer,
     lang,
     width: 440,
-    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
+    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ed = env.ed;
@@ -4851,7 +5521,7 @@ var parseUnit = (v2, u3) => {
 };
 var unitInput = (name, tw, u3, lang, min) => el5("input", { type: "text", name, value: fmtUnit(tw, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
 async function paragraphDialog(env) {
-  const L9 = env.app.ui.L, lang = env.lang;
+  const L10 = env.app.ui.L, lang = env.lang;
   const p3 = env.state().para;
   const u3 = unitOf(lang);
   const ind = env.ed.getParagraphIndents();
@@ -4892,28 +5562,28 @@ async function paragraphDialog(env) {
   const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el5("span", {}, L9.alignment),
+    el5("span", {}, L10.alignment),
     align,
     el5("span", {}, tr4(lang, "Left indent", "Recuo \xE0 esquerda")),
     withUnit(left),
     el5("span", {}, tr4(lang, "Right indent", "Recuo \xE0 direita")),
     withUnit(right),
-    el5("span", {}, L9.specialIndent),
+    el5("span", {}, L10.specialIndent),
     el5("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
-    el5("span", {}, L9.before),
+    el5("span", {}, L10.before),
     before,
-    el5("span", {}, L9.after),
+    el5("span", {}, L10.after),
     after,
-    el5("span", {}, L9.lineSpacing),
+    el5("span", {}, L10.lineSpacing),
     line2
   );
   const h3 = openDialog({
-    title: L9.paraDlg,
+    title: L10.paraDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
+    actions: [{ id: "tabs", label: tr4(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
   });
   const res = await h3.result;
   if (res !== "ok" && res !== "tabs") return;
@@ -4933,7 +5603,7 @@ async function paragraphDialog(env) {
   if (res === "tabs") await tabsDialog(env);
 }
 async function tabsDialog(env) {
-  const lang = env.lang, ed = env.ed, L9 = env.app.ui.L;
+  const lang = env.lang, ed = env.ed, L10 = env.app.ui.L;
   const u3 = unitOf(lang);
   const cur = ed.getTabStops();
   let tabs = cur.tabs.map((t5) => ({ ...t5 }));
@@ -5050,7 +5720,7 @@ async function tabsDialog(env) {
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
+    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
   });
   setTimeout(() => pos.focus(), 0);
   if (await h3.result !== "ok") return;
@@ -5067,7 +5737,7 @@ var applyToSelect = (lang, hasSel, value) => select3("applyTo", [
   ...hasSel ? [["selection", tr4(lang, "Selected text", "Texto selecionado")]] : []
 ], value);
 async function pageDialog(env) {
-  const L9 = env.app.ui.L, lang = env.lang;
+  const L10 = env.app.ui.L, lang = env.lang;
   const u3 = unitOf(lang);
   const orient = select3("orientation", [["portrait", tr4(lang, "Portrait", "Retrato")], ["landscape", tr4(lang, "Landscape", "Paisagem")]], "portrait");
   const size = select3("size", [["A4", "A4"], ["Letter", tr4(lang, "Letter", "Carta")]], "A4");
@@ -5092,11 +5762,11 @@ async function pageDialog(env) {
   const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el5("span", {}, L9.orientation),
+    el5("span", {}, L10.orientation),
     orient,
-    el5("span", {}, L9.paper),
+    el5("span", {}, L10.paper),
     size,
-    el5("span", {}, L9.margins),
+    el5("span", {}, L10.margins),
     margins,
     el5("span", {}, tr4(lang, "Top", "Superior")),
     withUnit(mt),
@@ -5110,12 +5780,12 @@ async function pageDialog(env) {
     applyTo
   );
   const h3 = openDialog({
-    title: L9.pageDlg,
+    title: L10.pageDlg,
     body: grid2,
     layer: env.layer,
     lang,
     width: 420,
-    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.apply, primary: true }]
+    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const all = applyTo.value !== "section";
@@ -5313,20 +5983,20 @@ async function columnsDialog(env) {
   });
 }
 function wordCountDialog(env) {
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   const s4 = env.ed.stats();
   const fmt = (n5) => n5.toLocaleString(tr4(env.lang, "en-US", "pt-BR"));
   const grid2 = el5(
     "div",
     { className: "uo-dialog-grid" },
-    el5("span", {}, L9.pages),
+    el5("span", {}, L10.pages),
     el5("strong", {}, fmt(s4.pages)),
-    el5("span", {}, L9.words),
+    el5("span", {}, L10.words),
     el5("strong", {}, fmt(s4.words)),
-    el5("span", {}, L9.chars),
+    el5("span", {}, L10.chars),
     el5("strong", {}, fmt(s4.chars))
   );
-  openDialog({ title: L9.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
+  openDialog({ title: L10.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
 }
 var SHORTCUTS = [
   ["Ctrl+O", "Open", "Abrir"],
@@ -5357,8 +6027,8 @@ function shortcutsDialog(env) {
   openDialog({ title: env.app.ui.L.shortcutsTitle, body: grid2, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
-  const L9 = env.app.ui.L;
-  openDialog({ title: L9.aboutTitle, icon: "info", body: L9.aboutText, layer: env.layer, lang: env.lang, width: 400 });
+  const L10 = env.app.ui.L;
+  openDialog({ title: L10.aboutTitle, icon: "info", body: L10.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
 async function spellingDialog(env) {
   const lang = env.lang, ed = env.ed;
@@ -5774,20 +6444,20 @@ var NavPane = class {
     });
   }
   build() {
-    const L9 = this.L;
+    const L10 = this.L;
     const body = el6("div", "uw-nav");
     const box = el6("div", "uw-nav-search");
     const ic = el6("span", "uw-nav-search-ic");
     ic.innerHTML = symbol("search");
     this.input = el6("input", "uw-nav-input");
     this.input.type = "search";
-    this.input.placeholder = L9.search;
-    this.input.setAttribute("aria-label", L9.search);
+    this.input.placeholder = L10.search;
+    this.input.setAttribute("aria-label", L10.search);
     this.input.dataset["a"] = "nav:search";
     const optBtn = el6("button", "uo-btn uw-nav-opt");
     optBtn.type = "button";
-    optBtn.title = L9.options;
-    optBtn.setAttribute("aria-label", L9.options);
+    optBtn.title = L10.options;
+    optBtn.setAttribute("aria-label", L10.options);
     optBtn.dataset["a"] = "nav:options";
     optBtn.innerHTML = symbol("arrow_drop_down");
     optBtn.addEventListener("click", () => this.optionsMenu(optBtn));
@@ -5813,15 +6483,15 @@ var NavPane = class {
     this.status = el6("span", "uw-nav-count");
     const prev = el6("button", "uo-btn uw-nav-step");
     prev.type = "button";
-    prev.title = L9.prev;
-    prev.setAttribute("aria-label", L9.prev);
+    prev.title = L10.prev;
+    prev.setAttribute("aria-label", L10.prev);
     prev.innerHTML = symbol("keyboard_arrow_up");
     prev.dataset["a"] = "nav:prev";
     prev.addEventListener("click", () => this.step(-1));
     const next = el6("button", "uo-btn uw-nav-step");
     next.type = "button";
-    next.title = L9.next;
-    next.setAttribute("aria-label", L9.next);
+    next.title = L10.next;
+    next.setAttribute("aria-label", L10.next);
     next.innerHTML = symbol("keyboard_arrow_down");
     next.dataset["a"] = "nav:next";
     next.addEventListener("click", () => this.step(1));
@@ -5829,7 +6499,7 @@ var NavPane = class {
     const tabs = el6("div", "uw-nav-tabs");
     tabs.setAttribute("role", "tablist");
     for (const t5 of ["headings", "pages", "results"]) {
-      const b3 = el6("button", "uw-nav-tab", L9[t5]);
+      const b3 = el6("button", "uw-nav-tab", L10[t5]);
       b3.type = "button";
       b3.setAttribute("role", "tab");
       b3.dataset["a"] = `nav:tab:${t5}`;
@@ -5844,7 +6514,7 @@ var NavPane = class {
     body.append(box, st, tabs, this.bodyEl);
     const pane = openPane({
       id: "navigation",
-      title: L9.title,
+      title: L10.title,
       lang: this.env.lang,
       layer: this.env.layer,
       frame: this.env.frame,
@@ -5871,7 +6541,7 @@ var NavPane = class {
     this.env.app.prefs.set("navPane", "1");
   }
   optionsMenu(anchor) {
-    const L9 = this.L;
+    const L10 = this.L;
     const flag = (k2, label) => ({
       id: `nav:${k2}`,
       label,
@@ -5882,13 +6552,13 @@ var NavPane = class {
       }
     });
     openMenu([
-      flag("matchCase", L9.matchCase),
-      flag("wholeWord", L9.wholeWord),
-      flag("highlight", L9.highlight),
-      flag("incremental", L9.incremental),
+      flag("matchCase", L10.matchCase),
+      flag("wholeWord", L10.wholeWord),
+      flag("highlight", L10.highlight),
+      flag("incremental", L10.incremental),
       { sep: true },
-      { id: "nav:replace", label: L9.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
-      { id: "nav:clear", label: L9.clear, icon: "close", onClick: () => {
+      { id: "nav:replace", label: L10.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
+      { id: "nav:clear", label: L10.clear, icon: "close", onClick: () => {
         this.input.value = "";
         this.runSearch(true);
       }, disabled: !this.query }
@@ -5912,7 +6582,7 @@ var NavPane = class {
   }
   refresh() {
     if (!this.pane) return;
-    const L9 = this.L;
+    const L10 = this.L;
     const ed = this.env.ed;
     this.pane.place();
     this.heads = ed.getHeadings();
@@ -5922,7 +6592,7 @@ var NavPane = class {
     }
     const n5 = this.results.length;
     this.status.parentElement.hidden = !this.query;
-    this.status.textContent = !this.query ? "" : !n5 ? L9.results0 : this.current >= 0 ? L9.result(this.current + 1, n5) : L9.resultsN(n5);
+    this.status.textContent = !this.query ? "" : !n5 ? L10.results0 : this.current >= 0 ? L10.result(this.current + 1, n5) : L10.resultsN(n5);
     for (const b3 of this.status.parentElement.querySelectorAll("button")) b3.disabled = !n5;
     if (this.tab === "headings") this.renderHeadings();
     else if (this.tab === "pages") this.renderPages();
@@ -5950,13 +6620,13 @@ var NavPane = class {
     return roots;
   }
   renderHeadings() {
-    const L9 = this.L;
+    const L10 = this.L;
     const ed = this.env.ed;
     const list = el6("div", "uw-nav-tree");
     list.setAttribute("role", "tree");
     if (!this.heads.length) {
       this.treeSig = "";
-      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noHeadings));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L10.noHeadings));
       return;
     }
     const cur = ed.currentHeading(this.heads);
@@ -5988,7 +6658,7 @@ var NavPane = class {
       tw.tabIndex = -1;
       if (kids.length) {
         tw.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
-        tw.title = closed ? L9.expand : L9.collapse;
+        tw.title = closed ? L10.expand : L10.collapse;
         tw.addEventListener("click", (e6) => {
           e6.stopPropagation();
           if (closed) this.collapsed.delete(key);
@@ -6073,7 +6743,7 @@ var NavPane = class {
     this.bodyEl.querySelector(".uw-nav-tree")?.classList.remove("uw-nav-drop-end");
   }
   headingMenu(h3, x2, y3) {
-    const L9 = this.L;
+    const L10 = this.L;
     const ed = this.env.ed;
     const ro = ed.isProtected();
     const done = (ok) => {
@@ -6081,52 +6751,52 @@ var NavPane = class {
       this.refresh();
     };
     const levels = () => [
-      { id: "nav:levels:all", label: L9.all, checked: this.maxLevel === 9, onClick: () => {
+      { id: "nav:levels:all", label: L10.all, checked: this.maxLevel === 9, onClick: () => {
         this.maxLevel = 9;
         this.refresh();
       } },
-      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L9.level(n5), checked: this.maxLevel === n5, onClick: () => {
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L10.level(n5), checked: this.maxLevel === n5, onClick: () => {
         this.maxLevel = n5;
         this.refresh();
       } }))
     ];
     openMenu([
-      { id: "nav:promote", label: L9.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
-      { id: "nav:demote", label: L9.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
+      { id: "nav:promote", label: L10.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
+      { id: "nav:demote", label: L10.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
       { sep: true },
-      { id: "nav:newBefore", label: L9.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
-      { id: "nav:newAfter", label: L9.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
-      { id: "nav:newSub", label: L9.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
-      { id: "nav:delete", label: L9.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
+      { id: "nav:newBefore", label: L10.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
+      { id: "nav:newAfter", label: L10.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
+      { id: "nav:newSub", label: L10.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
+      { id: "nav:delete", label: L10.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
       { sep: true },
-      { id: "nav:select", label: L9.select, icon: "select_all", onClick: () => {
+      { id: "nav:select", label: L10.select, icon: "select_all", onClick: () => {
         ed.selectHeading(h3.index);
         this.env.after();
       } },
       { sep: true },
-      { id: "nav:expandAll", label: L9.expandAll, icon: "unfold_more", onClick: () => {
+      { id: "nav:expandAll", label: L10.expandAll, icon: "unfold_more", onClick: () => {
         this.collapsed.clear();
         this.refresh();
       } },
-      { id: "nav:collapseAll", label: L9.collapseAll, icon: "unfold_less", onClick: () => {
+      { id: "nav:collapseAll", label: L10.collapseAll, icon: "unfold_less", onClick: () => {
         for (const x3 of this.heads) this.collapsed.add(this.keyOf(x3));
         this.refresh();
       } },
-      { id: "nav:levels", label: L9.showLevels, submenu: levels }
+      { id: "nav:levels", label: L10.showLevels, submenu: levels }
     ], { x: x2, y: y3 }, { layer: this.env.layer, lang: this.env.lang });
   }
   // ───── Páginas ─────
   renderPages() {
-    const L9 = this.L;
+    const L10 = this.L;
     const ed = this.env.ed;
     const total = ed.layoutPageCount();
     if (!total) {
-      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noPages));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L10.noPages));
       return;
     }
     const only = this.query ? new Set(this.results.map((r5) => r5.page).filter((p3) => p3 >= 0)) : null;
     if (only && !only.size) {
-      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noMatch));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L10.noMatch));
       return;
     }
     const cur = ed.currentPage() - 1;
@@ -6146,7 +6816,7 @@ var NavPane = class {
         item.type = "button";
         item.dataset["page"] = String(i5);
         item.dataset["a"] = `nav:page:${i5 + 1}`;
-        item.title = L9.page(i5 + 1);
+        item.title = L10.page(i5 + 1);
         const c4 = el6("canvas", "uw-nav-thumb");
         const num2 = el6("span", "uw-nav-pnum", String(i5 + 1));
         item.append(c4, num2);
@@ -6174,13 +6844,13 @@ var NavPane = class {
   }
   // ───── Resultados ─────
   renderResults() {
-    const L9 = this.L;
+    const L10 = this.L;
     if (!this.query) {
-      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noSearch));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L10.noSearch));
       return;
     }
     if (!this.results.length) {
-      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L9.noMatch));
+      this.bodyEl.replaceChildren(el6("p", "uw-nav-empty", L10.noMatch));
       return;
     }
     const list = el6("div", "uw-nav-results");
@@ -6205,25 +6875,25 @@ var NavPane = class {
 };
 
 // src/chrome-ruler.ts
-var L7 = (en, pt) => ({ en, pt });
+var L8 = (en, pt) => ({ en, pt });
 var TIPS = {
-  firstLine: L7("First Line Indent", "Recuo da Primeira Linha"),
-  hanging: L7("Hanging Indent", "Recuo Deslocado"),
-  left: L7("Left Indent", "Recuo \xE0 Esquerda"),
-  right: L7("Right Indent", "Recuo \xE0 Direita"),
-  marginL: L7("Left Margin", "Margem Esquerda"),
-  marginR: L7("Right Margin", "Margem Direita"),
-  marginT: L7("Top Margin", "Margem Superior"),
-  marginB: L7("Bottom Margin", "Margem Inferior"),
-  column: L7("Move Column", "Mover Coluna"),
-  cell: L7("Move Table Column", "Mover Coluna da Tabela"),
-  row: L7("Adjust Table Row", "Ajustar Linha da Tabela"),
+  firstLine: L8("First Line Indent", "Recuo da Primeira Linha"),
+  hanging: L8("Hanging Indent", "Recuo Deslocado"),
+  left: L8("Left Indent", "Recuo \xE0 Esquerda"),
+  right: L8("Right Indent", "Recuo \xE0 Direita"),
+  marginL: L8("Left Margin", "Margem Esquerda"),
+  marginR: L8("Right Margin", "Margem Direita"),
+  marginT: L8("Top Margin", "Margem Superior"),
+  marginB: L8("Bottom Margin", "Margem Inferior"),
+  column: L8("Move Column", "Mover Coluna"),
+  cell: L8("Move Table Column", "Mover Coluna da Tabela"),
+  row: L8("Adjust Table Row", "Ajustar Linha da Tabela"),
   tab: {
-    left: L7("Left Tab", "Tabula\xE7\xE3o Esquerda"),
-    center: L7("Center Tab", "Tabula\xE7\xE3o Centralizada"),
-    right: L7("Right Tab", "Tabula\xE7\xE3o Direita"),
-    decimal: L7("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
-    bar: L7("Bar Tab", "Barra de Tabula\xE7\xE3o")
+    left: L8("Left Tab", "Tabula\xE7\xE3o Esquerda"),
+    center: L8("Center Tab", "Tabula\xE7\xE3o Centralizada"),
+    right: L8("Right Tab", "Tabula\xE7\xE3o Direita"),
+    decimal: L8("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
+    bar: L8("Bar Tab", "Barra de Tabula\xE7\xE3o")
   }
 };
 var MIN_TEXT = 720;
@@ -6510,11 +7180,11 @@ var FindPanel = class {
   constructor(ed, app, layer) {
     this.ed = ed;
     this.app = app;
-    const L9 = app.ui.L;
+    const L10 = app.ui.L;
     const el12 = document.createElement("div");
     el12.className = "uw-find";
     el12.setAttribute("role", "dialog");
-    el12.setAttribute("aria-label", L9.findTitle);
+    el12.setAttribute("aria-label", L10.findTitle);
     el12.setAttribute("part", "find");
     el12.hidden = true;
     el12.innerHTML = `
@@ -6526,20 +7196,20 @@ var FindPanel = class {
         <button type="button" class="uo-pill" data-a="find:next"></button>
         <button type="button" class="uo-pill" data-a="find:one"></button>
         <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-    el12.querySelector("strong").textContent = L9.findTitle;
+    el12.querySelector("strong").textContent = L10.findTitle;
     this.find = el12.querySelector('[data-a="find:text"]');
     this.repl = el12.querySelector('[data-a="find:replace"]');
     this.msg = el12.querySelector(".uw-find-msg");
-    this.find.placeholder = L9.find;
-    this.repl.placeholder = L9.replaceWith;
+    this.find.placeholder = L10.find;
+    this.repl.placeholder = L10.replaceWith;
     const b3 = (id, label, fn) => {
       const x2 = el12.querySelector(`[data-a="find:${id}"]`);
       x2.textContent = label;
       x2.addEventListener("click", fn);
     };
-    b3("next", L9.findNext, () => this.next());
-    b3("one", L9.replace, () => this.replaceOne());
-    b3("all", L9.replaceAll, () => this.replaceAll());
+    b3("next", L10.findNext, () => this.next());
+    b3("one", L10.replace, () => this.replaceOne());
+    b3("all", L10.replaceAll, () => this.replaceAll());
     el12.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
     for (const i5 of [this.find, this.repl]) {
       i5.addEventListener("keydown", (e6) => {
@@ -6639,7 +7309,7 @@ var CommentCards = class {
   render() {
     const pages = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
     const print = this.ed.getView() === "print";
-    const L9 = this.app.ui.L;
+    const L10 = this.app.ui.L;
     const mode = this.ed.getMarkupMode();
     const mk = this.ed.getMarkupOptions();
     const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
@@ -6671,9 +7341,9 @@ var CommentCards = class {
       card.className = `uw-card${active.has(c4.id) ? " active" : ""}`;
       card.dataset["commentId"] = String(c4.id);
       card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L9.deleteComment}">${symbol("delete")}</button></div>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L10.deleteComment}">${symbol("delete")}</button></div>
         <div class="txt"></div>`;
-      card.querySelector(".who").textContent = c4.author ?? L9.anonymous;
+      card.querySelector(".who").textContent = c4.author ?? L10.anonymous;
       card.querySelector(".txt").textContent = c4.text;
       card.querySelector("button").addEventListener("click", (e6) => {
         e6.stopPropagation();
@@ -6699,8 +7369,8 @@ var CommentCards = class {
       card.className = "uw-card uw-rev-card";
       card.style.setProperty("--uw-rev", `#${r5.color}`);
       card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
-        <button type="button" class="uo-btn" data-a="rev:accept" title="${L9.revAccept}">${symbol("check")}</button>
-        <button type="button" class="uo-btn" data-a="rev:reject" title="${L9.revReject}">${symbol("close")}</button></div>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L10.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L10.revReject}">${symbol("close")}</button></div>
         <div class="txt"></div>`;
       card.querySelector(".who").textContent = r5.author;
       card.querySelector(".when").textContent = revisionTime(r5.date, uiLang(this.ed));
@@ -6709,7 +7379,7 @@ var CommentCards = class {
         const [head, ...rest] = r5.description.split(": ");
         txt.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
       } else {
-        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L9.revParaDeleted : L9.revDeleted}: ` }), r5.text);
+        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L10.revParaDeleted : L10.revDeleted}: ` }), r5.text);
       }
       const [acc, rej] = card.querySelectorAll("button");
       acc.addEventListener("click", (e6) => {
@@ -6904,7 +7574,7 @@ var ReviewPane = class {
     const pane = this.pane;
     if (!pane) return;
     pane.place();
-    const L9 = this.app.ui.L;
+    const L10 = this.app.ui.L;
     const lang = uiLang(this.ed);
     const revs = this.ed.getRevisions();
     const comments = this.app.commentsVisible ? this.ed.getComments() : [];
@@ -6915,17 +7585,17 @@ var ReviewPane = class {
       else if (r5.kind === "delete") n5.del++;
       else n5.fmt++;
     }
-    pane.setTitle(`${L9.revPane}: ${L9.revCount(revs.length)}`);
+    pane.setTitle(`${L10.revPane}: ${L10.revCount(revs.length)}`);
     const sum = document.createElement("div");
     sum.className = "uw-review-sum";
-    sum.textContent = [`${L9.revInsertions}: ${n5.ins}`, `${L9.revDeletions}: ${n5.del}`, `${L9.revMoves}: ${n5.move}`, `${L9.revFormatting}: ${n5.fmt}`, `${L9.revComments}: ${comments.length}`].join(" \xB7 ");
+    sum.textContent = [`${L10.revInsertions}: ${n5.ins}`, `${L10.revDeletions}: ${n5.del}`, `${L10.revMoves}: ${n5.move}`, `${L10.revFormatting}: ${n5.fmt}`, `${L10.revComments}: ${comments.length}`].join(" \xB7 ");
     const list = document.createElement("ul");
     list.className = "uw-review-list";
     revs.forEach((r5, i5) => {
       const li = document.createElement("li");
       li.className = "uw-rev";
       li.style.setProperty("--uw-rev", `#${r5.color}`);
-      const what = r5.move ? r5.kind === "delete" ? L9.revMovedFrom : L9.revMovedTo : r5.kind === "insert" ? r5.mark ? L9.revParaInserted : L9.revInserted : r5.kind === "delete" ? r5.mark ? L9.revParaDeleted : L9.revDeleted : L9.revFormatted;
+      const what = r5.move ? r5.kind === "delete" ? L10.revMovedFrom : L10.revMovedTo : r5.kind === "insert" ? r5.mark ? L10.revParaInserted : L10.revInserted : r5.kind === "delete" ? r5.mark ? L10.revParaDeleted : L10.revDeleted : L10.revFormatted;
       li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
         <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
         <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
@@ -6934,8 +7604,8 @@ var ReviewPane = class {
       li.querySelector(".when").textContent = revisionTime(r5.date, lang);
       li.querySelector(".txt").textContent = r5.description ? r5.description.replace(/^[^:]*:\s*/, "") : r5.text;
       const [acc, rej] = li.querySelectorAll("button");
-      acc.title = L9.revAccept;
-      rej.title = L9.revReject;
+      acc.title = L10.revAccept;
+      rej.title = L10.revReject;
       acc.addEventListener("click", (e6) => {
         e6.stopPropagation();
         if (this.ed.acceptRevisionAt(i5)) this.after();
@@ -6954,8 +7624,8 @@ var ReviewPane = class {
       const li = document.createElement("li");
       li.className = "uw-rev uw-rev-comment";
       li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
-      li.querySelector(".who").textContent = c4.author ?? L9.anonymous;
-      li.querySelector(".what").textContent = L9.revComments;
+      li.querySelector(".who").textContent = c4.author ?? L10.anonymous;
+      li.querySelector(".what").textContent = L10.revComments;
       li.querySelector(".txt").textContent = c4.text;
       li.addEventListener("click", () => {
         this.app.activeCommentIds = [c4.id];
@@ -6967,7 +7637,7 @@ var ReviewPane = class {
     if (!revs.length && !comments.length) {
       const li = document.createElement("li");
       li.className = "uw-rev-empty";
-      li.textContent = L9.revNone;
+      li.textContent = L10.revNone;
       list.appendChild(li);
     }
     pane.body.replaceChildren(sum, list);
@@ -7191,14 +7861,14 @@ var twOf = (s4) => {
 };
 var section2 = (title, ...kids) => el8("div", { style: "display:flex;flex-direction:column;gap:8px" }, el8("strong", {}, title), ...kids);
 async function ask(env, title, body, width = 400) {
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   const h3 = openDialog({
     title,
     body,
     layer: env.layer,
     lang: env.lang,
     width,
-    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   return await h3.result === "ok";
 }
@@ -7883,8 +8553,14 @@ function toggleFormatPane(env, tab, onClose) {
     cur.close();
     return null;
   }
+  const shape = !ed.selectedImage() && typeof ed.selectedShape === "function" && !!ed.selectedShape();
   const fmt = () => ed.selectedImage()?.format ?? null;
-  const off = () => !ed.selectedImage() || ed.isProtected();
+  const sfmt = () => ed.selectedShape()?.format ?? null;
+  const anyFmt = () => shape ? sfmt() : fmt();
+  const off = () => !(shape ? ed.selectedShape() : ed.selectedImage()) || ed.isProtected();
+  const setFormat = (o6) => shape ? ed.setShapeFormat(o6) : ed.setImageFormat(o6);
+  const setEffect = (k2, id) => shape ? ed.setShapeEffect(k2, id) : ed.setImageEffect(k2, id);
+  const setAlt = (o6) => shape ? ed.setShapeAltText(o6) : ed.setImageAltText(o6);
   const syncers = [];
   const dec = tr8(".", ",");
   const num2 = (label, unit, get, set, o6 = {}) => {
@@ -7985,18 +8661,126 @@ function toggleFormatPane(env, tab, onClose) {
   const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr8("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i5) => [i5.id, i5.label])], () => "", (v2) => {
     if (v2) set(v2 === "none" ? null : v2);
   });
-  const line2 = () => fmt()?.line ?? void 0;
+  const line2 = () => anyFmt()?.line ?? void 0;
   const setLine = (ch) => {
     const base = line2()?.fill ? { ...line2() } : { w: 9525, fill: { kind: "schemeClr", val: "tx1" } };
-    ed.setImageFormat({ line: { ...base, ...ch } });
+    setFormat({ line: { ...base, ...ch } });
   };
+  const fill = () => sfmt()?.fill;
+  const fillColor = () => {
+    const f3 = fill();
+    return f3?.kind === "solid" ? f3.color : f3?.kind === "pattern" ? f3.fg : void 0;
+  };
+  const grad = () => {
+    const f3 = fill();
+    return f3?.kind === "gradient" ? f3 : void 0;
+  };
+  const setGrad = (ch) => {
+    const base = grad() ?? ed.shapeGradientVariations()[0].fill;
+    ed.setShapeFill({ ...base, ...ch });
+  };
+  const patt = () => {
+    const f3 = fill();
+    return f3?.kind === "pattern" ? f3 : void 0;
+  };
+  const setPatt = (ch) => {
+    const base = patt() ?? { kind: "pattern", prst: "pct5", fg: { kind: "schemeClr", val: "accent1" }, bg: { kind: "schemeClr", val: "bg1" } };
+    ed.setShapeFill({ ...base, ...ch });
+  };
+  const pickPicture = (tile) => {
+    const inp = el9("input", { type: "file", accept: "image/*" });
+    inp.addEventListener("change", () => {
+      const f3 = inp.files?.[0];
+      if (f3) void f3.arrayBuffer().then((b3) => ed.setShapePictureFill(new Uint8Array(b3), (f3.name.split(".").pop() || "png").toLowerCase(), tile)).then(() => {
+        env.after();
+        sync();
+      });
+    });
+    inp.click();
+  };
+  const fillSection = section4(
+    tr8("Fill", "Preenchimento"),
+    true,
+    choice(
+      tr8("Fill", "Preenchimento"),
+      [["none", tr8("No fill", "Sem preenchimento")], ["solid", tr8("Solid fill", "Preenchimento s\xF3lido")], ["gradient", tr8("Gradient fill", "Preenchimento gradiente")], ["picture", tr8("Picture or texture fill", "Preenchimento com imagem ou textura")], ["pattern", tr8("Pattern fill", "Preenchimento de padr\xE3o")], ["style", tr8("Automatic", "Autom\xE1tico")]],
+      () => {
+        const k2 = fill()?.kind;
+        return k2 === "raw" ? "picture" : k2;
+      },
+      (v2) => {
+        if (v2 === "none") ed.setShapeFill(null);
+        else if (v2 === "solid") ed.setShapeFill(fillColor() ?? { kind: "schemeClr", val: "accent1" });
+        else if (v2 === "gradient") setGrad({});
+        else if (v2 === "pattern") setPatt({});
+        else if (v2 === "style") ed.setShapeFill({ kind: "style" });
+        else pickPicture(false);
+      }
+    ),
+    color(tr8("Color", "Cor"), () => fillColor(), (c4) => {
+      const f3 = fill();
+      if (f3?.kind === "pattern") setPatt({ fg: c4 });
+      else ed.setShapeFill({ kind: "solid", color: withAlpha(c4, alphaOf(fillColor())) });
+    }),
+    num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => {
+      const f3 = fill();
+      return f3?.kind === "solid" ? 100 - alphaOf(f3.color) : void 0;
+    }, (v2) => {
+      const f3 = fill();
+      if (f3?.kind === "solid") ed.setShapeFill({ kind: "solid", color: withAlpha(noAlpha(f3.color), 100 - v2) });
+    }, { min: 0, max: 100 }),
+    choice(tr8("Preset gradients", "Gradientes predefinidos"), [["", tr8("(choose)", "(escolher)")], ...ed.shapeGradientVariations().map((g2) => [g2.id, g2.id])], () => "", (v2) => {
+      const g2 = ed.shapeGradientVariations().find((x2) => x2.id === v2);
+      if (g2) ed.setShapeFill(g2.fill);
+    }),
+    choice(
+      tr8("Gradient type", "Tipo de gradiente"),
+      [["linear", tr8("Linear", "Linear")], ["circle", tr8("Radial", "Radial")], ["rect", tr8("Rectangular", "Retangular")], ["shape", tr8("Path", "Caminho")]],
+      () => {
+        const g2 = grad();
+        return g2 ? g2.path ? g2.path.path : "linear" : void 0;
+      },
+      (v2) => {
+        const g2 = grad();
+        if (!g2) return;
+        const { lin: _l, path: _p, ...rest } = g2;
+        void _l;
+        void _p;
+        setGrad(v2 === "linear" ? { ...rest, lin: { ang: 54e5, scaled: true } } : { ...rest, path: { path: v2, fillToRect: { l: 5e4, t: 5e4, r: 5e4, b: 5e4 } } });
+      }
+    ),
+    num2(tr8("Angle", "\xC2ngulo"), "\xB0", () => {
+      const g2 = grad();
+      return g2?.lin ? g2.lin.ang / ANG : void 0;
+    }, (v2) => {
+      const g2 = grad();
+      if (g2?.lin) setGrad({ lin: { ...g2.lin, ang: Math.round((v2 % 360 + 360) % 360 * ANG) } });
+    }, { min: 0, max: 359.9 }),
+    choice(tr8("Pattern", "Padr\xE3o"), Object.keys(PRESET_PATTERNS).map((k2) => [k2, k2]), () => patt()?.prst, (v2) => setPatt({ prst: v2 })),
+    color(tr8("Background", "Plano de fundo"), () => patt()?.bg, (c4) => setPatt({ bg: c4 })),
+    row2(tr8("Picture source", "Fonte da imagem"), el9(
+      "span",
+      { style: "display:inline-flex;gap:4px" },
+      (() => {
+        const b3 = el9("button", { type: "button", className: "uo-btn", textContent: tr8("Insert\u2026", "Inserir...") });
+        b3.addEventListener("click", () => pickPicture(false));
+        return b3;
+      })(),
+      (() => {
+        const b3 = el9("button", { type: "button", className: "uo-btn", textContent: tr8("Texture\u2026", "Textura...") });
+        b3.addEventListener("click", () => pickPicture(true));
+        return b3;
+      })()
+    ))
+  );
   const lineTab = el9(
     "div",
     {},
+    ...shape ? [fillSection] : [],
     section4(
       tr8("Line", "Linha"),
       true,
-      choice(tr8("Line", "Linha"), [["none", tr8("No line", "Sem linha")], ["solid", tr8("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? ed.setImageFormat({ line: { ...line2() ?? {}, fill: null } }) : setLine({})),
+      choice(tr8("Line", "Linha"), [["none", tr8("No line", "Sem linha")], ["solid", tr8("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? setFormat({ line: shape ? null : { ...line2() ?? {}, fill: null } }) : setLine({})),
       color(tr8("Color", "Cor"), () => line2()?.fill ?? void 0, (c4) => setLine({ fill: withAlpha(c4, alphaOf(line2()?.fill ?? void 0)) })),
       num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
       num2(tr8("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
@@ -8006,26 +8790,26 @@ function toggleFormatPane(env, tab, onClose) {
       choice(tr8("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr8("Round", "Arredondada")], ["bevel", tr8("Bevel", "Chanfrada")], ["miter", tr8("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
     )
   );
-  const fx = () => fmt()?.effects;
+  const fx = () => anyFmt()?.effects;
   const sh = () => fx()?.shadow;
   const setSh = (ch) => {
     const base = sh() ?? { kind: "outer", blurRad: 50800, dist: 38100, dir: 27e5, algn: "tl", rotWithShape: false, color: { kind: "prstClr", val: "black", mods: [["alpha", 4e4]] } };
-    ed.setImageFormat({ shadow: { ...base, ...ch } });
+    setFormat({ shadow: { ...base, ...ch } });
   };
   const rf = () => fx()?.reflection;
   const setRf = (ch) => {
     const base = rf() ?? { blurRad: 6350, stA: 5e4, endA: 300, endPos: 55e3, dir: 54e5, sy: -1e5, algn: "bl", rotWithShape: false };
-    ed.setImageFormat({ reflection: { ...base, ...ch } });
+    setFormat({ reflection: { ...base, ...ch } });
   };
   const gl = () => fx()?.glow;
   const setGl = (ch) => {
     const base = gl() ?? glowPreset(GLOW_SIZES[0], 1);
-    ed.setImageFormat({ glow: { ...base, ...ch } });
+    setFormat({ glow: { ...base, ...ch } });
   };
-  const td = () => fmt()?.threeD;
+  const td = () => anyFmt()?.threeD;
   const setTd = (ch) => {
     const base = td() ?? { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" } };
-    ed.setImageFormat({ threeD: { ...base, ...ch } });
+    setFormat({ threeD: { ...base, ...ch } });
   };
   const bevelOpts = [["", tr8("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b3) => [b3.prst, pickLabels(lang, b3.label)])];
   const bevel = (which, title2) => [
@@ -8044,7 +8828,7 @@ function toggleFormatPane(env, tab, onClose) {
     section4(
       tr8("Shadow", "Sombra"),
       true,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("shadow", id), tr8("No Shadow", "Sem Sombra")),
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("shadow", id), tr8("No Shadow", "Sem Sombra")),
       color(tr8("Color", "Cor"), () => sh()?.color, (c4) => setSh({ color: withAlpha(c4, alphaOf(sh()?.color)) })),
       num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
       num2(tr8("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
@@ -8055,7 +8839,7 @@ function toggleFormatPane(env, tab, onClose) {
     section4(
       tr8("Reflection", "Reflexo"),
       false,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("reflection", id), tr8("No Reflection", "Sem Reflexo")),
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("reflection", id), tr8("No Reflection", "Sem Reflexo")),
       num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
       num2(tr8("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
       num2(tr8("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
@@ -8064,7 +8848,7 @@ function toggleFormatPane(env, tab, onClose) {
     section4(
       tr8("Glow", "Brilho"),
       false,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r5, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r5 / EMU_PT} pt, ${tr8("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => ed.setImageEffect("glow", id), tr8("No Glow", "Sem Brilho")),
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r5, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r5 / EMU_PT} pt, ${tr8("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => setEffect("glow", id), tr8("No Glow", "Sem Brilho")),
       color(tr8("Color", "Cor"), () => gl()?.color, (c4) => setGl({ color: withAlpha(c4, alphaOf(gl()?.color)) })),
       num2(tr8("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT) }), { min: 0, max: 150 }),
       num2(tr8("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
@@ -8072,7 +8856,7 @@ function toggleFormatPane(env, tab, onClose) {
     section4(
       tr8("Soft Edges", "Bordas Suaves"),
       false,
-      num2(tr8("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT : 0, (v2) => ed.setImageFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT) : null }), { min: 0, max: 100 })
+      num2(tr8("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT : 0, (v2) => setFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT) : null }), { min: 0, max: 100 })
     ),
     section4(
       tr8("3-D Format", "Formato 3D"),
@@ -8089,7 +8873,7 @@ function toggleFormatPane(env, tab, onClose) {
     section4(
       tr8("3-D Rotation", "Rota\xE7\xE3o 3D"),
       false,
-      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => ed.setImageEffect("rotation", id), tr8("No Rotation", "Sem Rota\xE7\xE3o")),
+      presetRow(tr8("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => setEffect("rotation", id), tr8("No Rotation", "Sem Rota\xE7\xE3o")),
       num2(tr8("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
       num2(tr8("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
       num2(tr8("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
@@ -8099,16 +8883,16 @@ function toggleFormatPane(env, tab, onClose) {
   const title = el9("input", { type: "text", style: "width:100%;box-sizing:border-box" });
   const descr = el9("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
   title.addEventListener("change", () => {
-    ed.setImageAltText({ title: title.value });
+    setAlt({ title: title.value });
     env.after();
   });
   descr.addEventListener("change", () => {
-    ed.setImageAltText({ text: descr.value });
+    setAlt({ text: descr.value });
     env.after();
   });
   for (const i5 of [title, descr]) i5.addEventListener("keydown", (e6) => e6.stopPropagation());
   syncers.push(() => {
-    const st = ed.selectedImage();
+    const st = shape ? ed.selectedShape() : ed.selectedImage();
     const focused = [title, descr].some((i5) => document.activeElement === i5 || ed.shadowRoot?.activeElement === i5);
     if (!focused) {
       title.value = st?.format.docPr.title ?? "";
@@ -8116,9 +8900,37 @@ function toggleFormatPane(env, tab, onClose) {
     }
     title.disabled = descr.disabled = off();
   });
+  const tx = () => ed.selectedShape()?.text;
+  const check7 = (label, get, set) => {
+    const i5 = el9("input", { type: "checkbox" });
+    i5.addEventListener("change", () => {
+      set(i5.checked);
+      env.after();
+      sync();
+    });
+    syncers.push(() => {
+      i5.checked = !!get();
+      i5.disabled = off() || !tx();
+    });
+    return el9("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i5, label);
+  };
+  const textSection = section4(
+    tr8("Text Box", "Caixa de Texto"),
+    true,
+    choice(tr8("Vertical alignment", "Alinhamento vertical"), [["t", tr8("Top", "Superior")], ["ctr", tr8("Middle", "Meio")], ["b", tr8("Bottom", "Inferior")]], () => tx()?.anchor, (v2) => ed.setTextboxOptions({ anchor: v2 })),
+    choice(tr8("Text direction", "Dire\xE7\xE3o do texto"), [["horz", tr8("Horizontal", "Horizontal")], ["vert", tr8("Rotate all text 90\xB0", "Girar todo o texto 90\xB0")], ["vert270", tr8("Rotate all text 270\xB0", "Girar todo o texto 270\xB0")], ["eaVert", tr8("Stacked (East Asian)", "Empilhado (Leste Asi\xE1tico)")], ["wordArtVert", tr8("Stacked", "Empilhado")]], () => tx()?.direction, (v2) => ed.setTextboxOptions({ direction: v2 })),
+    check7(tr8("Do not rotate text", "N\xE3o girar o texto"), () => tx()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
+    check7(tr8("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
+    num2(tr8("Left margin", "Margem esquerda"), "cm", () => tx() ? tx().marginsPt.l / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { l: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num2(tr8("Right margin", "Margem direita"), "cm", () => tx() ? tx().marginsPt.r / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { r: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num2(tr8("Top margin", "Margem superior"), "cm", () => tx() ? tx().marginsPt.t / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { t: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num2(tr8("Bottom margin", "Margem inferior"), "cm", () => tx() ? tx().marginsPt.b / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { b: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    check7(tr8("Wrap text in shape", "Quebrar texto na forma"), () => tx()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
+  );
   const layoutTab = el9(
     "div",
     {},
+    ...shape ? [textSection] : [],
     section4(
       tr8("Alt Text", "Texto Alt"),
       true,
@@ -8226,7 +9038,7 @@ function toggleFormatPane(env, tab, onClose) {
     ["line", tr8("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
     ["effects", tr8("Effects", "Efeitos"), "auto_awesome", effectsTab],
     ["layout", tr8("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
-    ["picture", tr8("Picture", "Imagem"), "image", pictureTab]
+    ...shape ? [] : [["picture", tr8("Picture", "Imagem"), "image", pictureTab]]
   ];
   const head = el9("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
   head.setAttribute("role", "tablist");
@@ -8241,7 +9053,7 @@ function toggleFormatPane(env, tab, onClose) {
     panel.setAttribute("role", "tabpanel");
     return b3;
   });
-  const empty = el9("p", { textContent: tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
+  const empty = el9("p", { textContent: shape ? tr8("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr8("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
   const body = el9("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t5) => t5[3]));
   head.append(...btns);
   const show = (id) => {
@@ -8252,11 +9064,11 @@ function toggleFormatPane(env, tab, onClose) {
     });
   };
   const sync = () => {
-    empty.hidden = !!ed.selectedImage();
+    empty.hidden = !!(shape ? ed.selectedShape() : ed.selectedImage());
     for (const s4 of syncers) s4();
   };
-  show(tab);
-  openPane({ id: "pic-format", title: { en: "Format Picture", pt: "Formatar Imagem" }, lang, layer: env.layer, frame: env.frame, width: 320, body, onClose });
+  show(shape && tab === "picture" ? "line" : tab);
+  openPane({ id: "pic-format", title: shape ? { en: "Format Shape", pt: "Formatar Forma" } : { en: "Format Picture", pt: "Formatar Imagem" }, lang, layer: env.layer, frame: env.frame, width: 320, body, onClose });
   ed.classList.add("uw-has-pane");
   sync();
   return { sync, show };
@@ -8328,7 +9140,7 @@ var WRAP_STYLES = (lang) => [
 ];
 async function pictureLayoutDialog(env, tab) {
   const { ed, lang } = env;
-  const st = ed.selectedImage();
+  const st = ed.selectedImage() ?? ed.selectedShape();
   if (!st) return;
   const f3 = st.format;
   const pt = (emu) => emu / 12700;
@@ -8472,14 +9284,14 @@ async function pictureLayoutDialog(env, tab) {
     { id: "wrap", label: tr7(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
     { id: "size", label: tr7(lang, "Size", "Tamanho"), body: sizeBody }
   ], tab);
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   const h3 = openDialog({
     title: tr7(lang, "Layout", "Layout"),
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 560,
-    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const o6 = {};
@@ -8521,7 +9333,8 @@ async function pictureLayoutDialog(env, tab) {
   if (lockAsp.input.checked !== st.lockAspect) o6.lockAspect = lockAsp.input.checked;
   const rot = numOf(rotIn.value);
   if (rot !== void 0 && Math.abs(rot - st.rotation) > 0.01) o6.rotation = rot;
-  ed.setImageLayout(o6);
+  if (ed.selectedImage()) ed.setImageLayout(o6);
+  else ed.setShapeLayout(o6);
 }
 async function pictureCompressDialog(env) {
   const { ed, lang } = env;
@@ -8543,14 +9356,14 @@ async function pictureCompressDialog(env) {
     section3(tr7(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
     section3(tr7(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r5) => r5.el))
   );
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   const h3 = openDialog({
     title: tr7(lang, "Compress Pictures", "Compactar Imagens"),
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ppi = res.find((r5) => r5.input.checked)?.ppi ?? 220;
@@ -8711,11 +9524,11 @@ var PictureUI = class {
     text.dataset["a"] = "pic:alt:text";
     const deco = check6("decorative", tr7(lang, "Mark as decorative", "Marcar como decorativa"), false);
     const note = el10("p", { textContent: tr7(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
-    const empty = el10("p", { textContent: tr7(lang, "Select a picture to add alt text.", "Selecione uma imagem para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
+    const empty = el10("p", { textContent: tr7(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
     const body = el10("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
     let last = null;
     const sync = () => {
-      const st = ed.selectedImage();
+      const st = ed.selectedImage() ?? ed.selectedShape();
       empty.hidden = !!st;
       intro.hidden = text.hidden = deco.el.hidden = note.hidden = !st;
       const off = !st || ed.isProtected();
@@ -8729,11 +9542,15 @@ var PictureUI = class {
       }
       text.disabled = off || deco.input.checked;
     };
+    const setAlt = (o6) => {
+      if (ed.selectedImage()) ed.setImageAltText(o6);
+      else ed.setShapeAltText(o6);
+    };
     text.addEventListener("change", () => {
-      ed.setImageAltText({ text: text.value });
+      setAlt({ text: text.value });
     });
     deco.input.addEventListener("change", () => {
-      ed.setImageAltText({ decorative: deco.input.checked });
+      setAlt({ decorative: deco.input.checked });
       sync();
     });
     openPane({
@@ -9237,23 +10054,23 @@ var moreColors = (ctx, label, onPick) => ({
   }
 });
 var colorMenu2 = (env, ctx) => {
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   const pick = (hex) => {
     env.app.lastColor = hex;
     env.ed.setColor(hex);
     ctx.after();
   };
   return [
-    { id: "color:auto", label: L9.automatic, swatch: "#000000", onClick: () => {
+    { id: "color:auto", label: L10.automatic, swatch: "#000000", onClick: () => {
       env.ed.setColor(void 0);
       ctx.after();
     } },
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().run.color, onPick: pick, close }) },
-    moreColors(ctx, L9.moreColors, pick)
+    moreColors(ctx, L10.moreColors, pick)
   ];
 };
 var highlightMenu = (env, ctx) => {
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   return [
     { content: (close) => colorGrid({
       colors: HIGHLIGHT_COLORS.map((h3) => ({ value: h3.value, css: h3.css, title: ctx.registry.text(h3.label) })),
@@ -9266,14 +10083,14 @@ var highlightMenu = (env, ctx) => {
       },
       close
     }) },
-    { id: "highlight:none", label: L9.noColor, swatch: "", onClick: () => {
+    { id: "highlight:none", label: L10.noColor, swatch: "", onClick: () => {
       env.ed.setHighlight(void 0);
       ctx.after();
     } }
   ];
 };
 var shadingMenu = (env, ctx) => {
-  const L9 = env.app.ui.L;
+  const L10 = env.app.ui.L;
   const pick = (hex) => {
     env.app.lastShading = hex;
     env.ed.setShading(hex);
@@ -9281,11 +10098,11 @@ var shadingMenu = (env, ctx) => {
   };
   return [
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().para.shadingHex, onPick: pick, close }) },
-    { id: "shading:none", label: L9.noColor, swatch: "", onClick: () => {
+    { id: "shading:none", label: L10.noColor, swatch: "", onClick: () => {
       env.ed.setShading(void 0);
       ctx.after();
     } },
-    moreColors(ctx, L9.moreColors, pick)
+    moreColors(ctx, L10.moreColors, pick)
   ];
 };
 var lineSpacingMenu = (env, ctx) => {
@@ -9669,8 +10486,8 @@ function compactLayout(env, ctx) {
       { id: "file", label: { en: "File", pt: "Arquivo" }, items: () => fileMenu(m2) },
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "view:outline", "view:draft", "focus", "-", "view:ruler", "view:gridlines", "view:navpane", "view:bookmarks", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
-      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", "textbox", m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
+      { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", { id: "textbox:sub", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", submenu: () => textboxMenu(env, ctx) }, m2.symbols] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -9700,6 +10517,7 @@ function compactLayout(env, ctx) {
         "clear"
       ] },
       pictureCompactGroup(env, ctx),
+      shapeCompactGroup(env, ctx),
       { id: "extras", label: { en: "More tools", pt: "Mais ferramentas" }, icon: "more_horiz", prio: 0, items: [
         "strike",
         "sub",
@@ -9718,8 +10536,8 @@ function compactLayout(env, ctx) {
     ]
   };
 }
-var L8 = (en, pt) => ({ en, pt });
-var large2 = (cmd) => ({ cmd, size: "large" });
+var L9 = (en, pt) => ({ en, pt });
+var large3 = (cmd) => ({ cmd, size: "large" });
 function ribbonLayout(env, ctx) {
   const m2 = menus(env, ctx);
   const has = (meth) => () => typeof env.ed[meth] === "function";
@@ -9727,22 +10545,22 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L8("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L9("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L8("Home", "P\xE1gina Inicial"),
+        label: L9("Home", "P\xE1gina Inicial"),
         groups: [
-          { id: "clipboard", label: L8("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
+          { id: "clipboard", label: L9("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
             { split: "paste", size: "large", menu: ["paste", "pastePlain"] },
             { rows: [["cut"], ["copy"], ["painter"]] }
           ] },
-          { id: "font", label: L8("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
+          { id: "font", label: L9("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L8("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L9("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu2(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
-          { id: "paragraph", label: L8("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
+          { id: "paragraph", label: L9("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
             { rows: [
               ["list:bullet", "list:decimal", "outdent", "indent", "sort", "marks"],
               [
@@ -9750,44 +10568,44 @@ function ribbonLayout(env, ctx) {
                 "align:center",
                 "align:right",
                 "align:both",
-                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L8("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
+                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L9("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
                 { split: "shading", menu: () => shadingMenu(env, ctx) },
                 "borders"
               ]
             ] }
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
-          { id: "styles", label: L8("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
-          { id: "editing", label: L8("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
+          { id: "styles", label: L9("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
+          { id: "editing", label: L9("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L8("Insert", "Inserir"),
+        label: L9("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L8("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
-            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L8("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
-            large2("blankPage"),
-            large2("pagebreak"),
-            { menu: breaksMenu, id: "breaks", label: L8("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+          { id: "pages", label: L9("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L9("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
+            large3("blankPage"),
+            large3("pagebreak"),
+            { menu: breaksMenu, id: "breaks", label: L9("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
           ] },
-          { id: "objects", label: L8("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
-            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L8("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
-            large2("image")
+          { id: "objects", label: L9("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L9("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+            large3("image")
           ] },
           // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
-          { id: "links", label: L8("Links", "Links"), icon: "link", prio: 5, cells: [large2("link"), large2("bookmark"), large2("crossref")] },
-          { id: "comments", label: L8("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large2("comment")] },
-          { id: "hf", label: L8("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
-            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L8("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
-            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L8("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
-            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L8("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
+          { id: "links", label: L9("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
+          { id: "comments", label: L9("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
+          { id: "hf", label: L9("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
+            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L9("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
+            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L9("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
+            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L9("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
           ] },
-          { id: "text", label: L8("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
-            large2("textbox"),
-            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L8("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+          { id: "text", label: L9("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
+            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L9("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
+            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L9("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
           ] }
         ]
       },
@@ -9795,32 +10613,32 @@ function ribbonLayout(env, ctx) {
         // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
         // Documento (temas, conjuntos de estilos) entra quando chegar
         id: "design",
-        label: L8("Design", "Design"),
+        label: L9("Design", "Design"),
         groups: [
-          { id: "background", label: L8("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L8("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
-            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L8("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
+          { id: "background", label: L9("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L9("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
+            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L9("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
             { cmd: "dlg:pageBorders", size: "large" }
           ] }
         ]
       },
       {
         id: "layout",
-        label: L8("Layout", "Layout"),
+        label: L9("Layout", "Layout"),
         groups: [
-          { id: "pagesetup", label: L8("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
-            { menu: () => marginsMenu(env, ctx), id: "margins", label: L8("Margins", "Margens"), icon: "margin", size: "large" },
-            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L8("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
-            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L8("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: columnsMenu, id: "columns", label: L8("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
-            { rows: [[{ menu: breaksMenu, id: "breaks", label: L8("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
+          { id: "pagesetup", label: L9("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
+            { menu: () => marginsMenu(env, ctx), id: "margins", label: L9("Margins", "Margens"), icon: "margin", size: "large" },
+            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L9("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
+            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L9("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
+            { menu: columnsMenu, id: "columns", label: L9("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+            { rows: [[{ menu: breaksMenu, id: "breaks", label: L9("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
           ] },
-          { id: "paragraph", label: L8("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L8("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
+          { id: "paragraph", label: L9("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L9("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
             { rows: [
               [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
-              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L8("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
-              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L8("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
+              [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L9("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
+              [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L9("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
             ] }
           ] }
         ]
@@ -9829,110 +10647,119 @@ function ribbonLayout(env, ctx) {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: "references",
-        label: L8("References", "Refer\xEAncias"),
+        label: L9("References", "Refer\xEAncias"),
         groups: [
-          { id: "toc", label: L8("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large2("toc")] },
-          { id: "footnotes", label: L8("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
-            large2("footnote"),
+          { id: "toc", label: L9("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [large3("toc")] },
+          { id: "footnotes", label: L9("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+            large3("footnote"),
             { rows: [
               [{ cmd: "endnote", label: true }],
-              [{ menu: noteNavMenu, id: "note:nav", label: L8("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L9("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
               [{ cmd: "note:show", label: true }]
             ] }
           ] },
-          { id: "captions", label: L8("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
-            large2("caption"),
+          { id: "captions", label: L9("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
+            large3("caption"),
             { rows: [[{ cmd: "tof", label: true }], [{ cmd: "tof:update", label: true }], [{ cmd: "crossref", label: true }]] }
           ] }
         ]
       },
       {
         id: "mailings",
-        label: L8("Mailings", "Correspond\xEAncias"),
+        label: L9("Mailings", "Correspond\xEAncias"),
         groups: [
-          { id: "merge", label: L8("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large2("mailmerge"), large2("mergefield")] }
+          { id: "merge", label: L9("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
         ]
       },
       {
         id: "review",
-        label: L8("Review", "Revis\xE3o"),
+        label: L9("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L8("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large2("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
-          { id: "comments", label: L8("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
-            large2("comment"),
+          { id: "proofing", label: L9("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
+          { id: "comments", label: L9("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
+            large3("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L8("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
-            large2("trackChanges"),
+          { id: "tracking", label: L9("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+            large3("trackChanges"),
             { rows: [
-              [{ menu: markupModes, id: "markupMode", label: L8("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
-              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L8("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ menu: markupModes, id: "markupMode", label: L9("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L9("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
               [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
             ] }
           ] },
-          { id: "changes", label: L8("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+          { id: "changes", label: L9("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
             { split: "change:accept", menu: acceptItems, size: "large" },
             { split: "change:reject", menu: rejectItems, size: "large" },
             { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
           ] },
-          { id: "document", label: L8("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large2("compare"), large2("enableEditing")] }
+          { id: "document", label: L9("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
         ]
       },
       {
         id: "view",
-        label: L8("View", "Exibir"),
+        label: L9("View", "Exibir"),
         groups: [
-          { id: "views", label: L8("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
-            large2("view:read"),
-            large2("view:print"),
-            large2("view:web"),
+          { id: "views", label: L9("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
+            large3("view:read"),
+            large3("view:print"),
+            large3("view:web"),
             { rows: [[{ cmd: "view:outline", label: true }], [{ cmd: "view:draft", label: true }]] },
-            large2("focus")
+            large3("focus")
           ] },
-          { id: "show", label: L8("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
+          { id: "show", label: L9("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
             { rows: [[{ cmd: "view:ruler", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:navpane", label: true }]] },
             { rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] },
             { rows: [[{ cmd: "view:bookmarks", label: true }]] }
           ] },
-          { id: "zoom", label: L8("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
-            { menu: m2.zoomItems, id: "zoom", label: L8("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
-            large2("zoom100"),
+          { id: "zoom", label: L9("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
+            { menu: m2.zoomItems, id: "zoom", label: L9("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+            large3("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "appearance", label: L8("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env, ctx), id: "theme", label: L8("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L8("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L8("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L9("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env, ctx), id: "theme", label: L9("Theme", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L9("Accent", "Destaque"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L9("Toolbar", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "hf-tools",
-        label: L8("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
+        label: L9("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
         contextual: () => env.ed.editingHeaderFooter() !== null,
         groups: hfToolsGroups(env, ctx)
       },
       {
         id: "table-design",
-        label: L8("Table Design", "Design da Tabela"),
+        label: L9("Table Design", "Design da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableDesignGroups(env, ctx)
       },
       {
         id: "table-layout",
-        label: L8("Table Layout", "Layout da Tabela"),
+        label: L9("Table Layout", "Layout da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableLayoutGroups(env)
       },
       {
         id: "image-tools",
-        label: L8("Picture Format", "Formato da Imagem"),
+        label: L9("Picture Format", "Formato da Imagem"),
         contextual: () => {
           const f3 = env.ed.selectedImage;
           return typeof f3 === "function" && !!f3.call(env.ed);
         },
         groups: pictureFormatGroups(env, ctx)
+      },
+      {
+        id: "shape-tools",
+        label: L9("Shape Format", "Formato da Forma"),
+        contextual: () => {
+          const f3 = env.ed.selectedShape;
+          return typeof f3 === "function" && !!f3.call(env.ed);
+        },
+        groups: shapeFormatGroups(env, ctx)
       }
     ]
   };
@@ -10284,40 +11111,40 @@ function styleNames(env) {
   return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
 }
 function galleryMenu(env, ui, s4) {
-  const L9 = pickLabels(env.lang, T3);
+  const L10 = pickLabels(env.lang, T3);
   const ok = canEdit2(env);
   const out = [
-    { id: "style:update", icon: "refresh", label: L9.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+    { id: "style:update", icon: "refresh", label: L10.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
       env.ed.updateStyleFromSelection(s4.id);
       env.after();
     } },
-    { id: "style:modify", icon: "edit", label: L9.modifyDots, disabled: !ok, onClick: () => {
+    { id: "style:modify", icon: "edit", label: L10.modifyDots, disabled: !ok, onClick: () => {
       void ui.styleDialog("modify", s4.id);
     } },
-    { id: "style:rename", icon: "drive_file_rename_outline", label: L9.rename, disabled: !ok, onClick: () => {
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L10.rename, disabled: !ok, onClick: () => {
       void ui.rename(s4);
     } },
-    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L9.removeFromGallery, disabled: !ok, onClick: () => {
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L10.removeFromGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, false);
       env.after();
-    } } : { id: "style:togallery", icon: "bookmark_add", label: L9.addGallery, disabled: !ok, onClick: () => {
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L10.addGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, true);
       env.after();
     } }
   ];
   if (!s4.builtIn) {
-    out.push("-", { id: "style:delete", icon: "delete", label: L9.del(s4.name), disabled: !ok, onClick: () => {
+    out.push("-", { id: "style:delete", icon: "delete", label: L10.del(s4.name), disabled: !ok, onClick: () => {
       void ui.remove(s4);
     } });
   }
   return out;
 }
-var colorName = (hex, L9) => hex ? `#${hex}` : L9.auto;
+var colorName = (hex, L10) => hex ? `#${hex}` : L10.auto;
 function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
-  const L9 = pickLabels(env.lang, T3);
+  const L10 = pickLabels(env.lang, T3);
   if (!look) return s4.name;
   const parts = [];
-  const d3 = L9.d;
+  const d3 = L10.d;
   parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
   if (look.bold) parts.push(d3.bold);
   if (look.italic) parts.push(d3.italic);
@@ -10325,15 +11152,15 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   if (look.strike) parts.push(d3.strike);
   if (look.allCaps) parts.push(d3.caps);
   if (look.smallCaps) parts.push(d3.smallCaps);
-  if (look.color) parts.push(d3.color(colorName(look.color, L9)));
+  if (look.color) parts.push(d3.color(colorName(look.color, L10)));
   if (s4.kind !== "character") {
-    if (look.alignment !== "left") parts.push({ center: L9.center, right: L9.right, both: L9.justify }[look.alignment]);
-    if (look.lineTwentieths !== void 0) parts.push(d3.line(L9.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.alignment !== "left") parts.push({ center: L10.center, right: L10.right, both: L10.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L10.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
     if (look.spaceBeforeTwips) parts.push(d3.before(ptOf2(look.spaceBeforeTwips)));
     if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf2(look.spaceAfterTwips)));
     if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
   }
-  parts.push(d3.style(L9.kind[s4.kind]));
+  parts.push(d3.style(L10.kind[s4.kind]));
   if (s4.quick) parts.push(d3.gallery);
   parts.push(d3.priority(s4.priority + 1));
   const nm = names ?? styleNames(env);
@@ -10344,13 +11171,13 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
 ${parts.join(", ")}`;
 }
 function describeDirect(env, run, para) {
-  const L9 = pickLabels(env.lang, T3);
-  const d3 = L9.d;
+  const L10 = pickLabels(env.lang, T3);
+  const d3 = L10.d;
   const parts = [];
   if (para) {
     const a3 = para["alignment"];
-    if (a3) parts.push({ left: L9.left, center: L9.center, right: L9.right, both: L9.justify }[a3] ?? a3);
-    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L9.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
+    if (a3) parts.push({ left: L10.left, center: L10.center, right: L10.right, both: L10.justify }[a3] ?? a3);
+    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L10.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
     if (para["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf2(para["spaceBeforeTwips"])));
     if (para["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf2(para["spaceAfterTwips"])));
     if (para["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
@@ -10368,12 +11195,12 @@ function describeDirect(env, run, para) {
     if (run["strike"] || run["doubleStrike"]) parts.push(d3.strike);
     if (run["allCaps"]) parts.push(d3.caps);
     if (run["smallCaps"]) parts.push(d3.smallCaps);
-    if (run["color"]) parts.push(d3.color(colorName(run["color"], L9)));
+    if (run["color"]) parts.push(d3.color(colorName(run["color"], L10)));
     if (run["highlight"]) parts.push(d3.highlight);
     if (run["vertAlign"]) parts.push(run["vertAlign"] === "superscript" ? d3.sup : d3.sub);
     if (run["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf2(run["charSpacingTwips"]))));
   }
-  return parts.length ? parts.join(", ") : L9.noDirect;
+  return parts.length ? parts.join(", ") : L10.noDirect;
 }
 var el11 = (tag, props = {}, ...kids) => {
   const { cls, ...rest } = props;
@@ -10459,7 +11286,7 @@ var StylesUI = class {
       return;
     }
     const { env } = this;
-    const L9 = this.L;
+    const L10 = this.L;
     const body = el11("div", { cls: "uw-styles" });
     const sel4 = (name, opts2, v2, on) => {
       const s4 = el11("select", { name });
@@ -10477,7 +11304,7 @@ var StylesUI = class {
       { cls: "uw-styles-opts" },
       sel4(
         "filter",
-        [["recommended", L9.recommended], ["inUse", L9.inUse], ["document", L9.inDoc], ["all", L9.all]],
+        [["recommended", L10.recommended], ["inUse", L10.inUse], ["document", L10.inDoc], ["all", L10.all]],
         this.filter,
         (v2) => {
           this.filter = v2;
@@ -10486,7 +11313,7 @@ var StylesUI = class {
       ),
       sel4(
         "sort",
-        [["prio", L9.asRecommended], ["alpha", L9.alphabetical]],
+        [["prio", L10.asRecommended], ["alpha", L10.alphabetical]],
         this.alpha ? "alpha" : "prio",
         (v2) => {
           this.alpha = v2 === "alpha";
@@ -10503,7 +11330,7 @@ var StylesUI = class {
     });
     this.listEl = el11("div", { cls: "uw-styles-list" });
     this.listEl.setAttribute("role", "listbox");
-    body.append(opts, this.listEl, el11("label", { cls: "uo-check uw-styles-prev" }, prev, L9.preview));
+    body.append(opts, this.listEl, el11("label", { cls: "uo-check uw-styles-prev" }, prev, L10.preview));
     const foot = el11("div");
     const btn2 = (icon, label, a3, fn) => {
       const b3 = el11("button", { type: "button", cls: "uo-btn", title: label });
@@ -10514,14 +11341,14 @@ var StylesUI = class {
       return b3;
     };
     foot.append(
-      btn2("add", L9.newStyle, "styles:new", () => {
+      btn2("add", L10.newStyle, "styles:new", () => {
         void this.styleDialog("new");
       }),
-      btn2("manage_search", L9.inspector, "styles:inspector", () => this.toggleInspector())
+      btn2("manage_search", L10.inspector, "styles:inspector", () => this.toggleInspector())
     );
     this.pane = openPane({
       id: "styles",
-      title: L9.pane,
+      title: L10.pane,
       lang: env.lang,
       layer: env.layer,
       width: 280,
@@ -10599,7 +11426,7 @@ var StylesUI = class {
       return;
     }
     const { env } = this;
-    const L9 = this.L;
+    const L10 = this.L;
     const body = el11("div", { cls: "uw-insp" });
     const row2 = (value, icon, tip, a3, fn) => {
       const b3 = el11("button", { type: "button", cls: "uo-btn", title: tip });
@@ -10616,12 +11443,12 @@ var StylesUI = class {
     const box = () => el11("div", { cls: "uw-insp-val" });
     const r5 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
     body.append(
-      el11("div", { cls: "uw-insp-h", textContent: L9.paraFmt }),
-      row2(r5.pStyle, "format_clear", L9.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
-      row2(r5.pDirect, "format_clear", L9.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
-      el11("div", { cls: "uw-insp-h", textContent: L9.textFmt }),
-      row2(r5.tStyle, "format_clear", L9.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
-      row2(r5.tDirect, "format_clear", L9.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+      el11("div", { cls: "uw-insp-h", textContent: L10.paraFmt }),
+      row2(r5.pStyle, "format_clear", L10.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+      row2(r5.pDirect, "format_clear", L10.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+      el11("div", { cls: "uw-insp-h", textContent: L10.textFmt }),
+      row2(r5.tStyle, "format_clear", L10.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+      row2(r5.tDirect, "format_clear", L10.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
     );
     this.inspRows = r5;
     const foot = el11("div");
@@ -10633,17 +11460,17 @@ var StylesUI = class {
       return b3;
     };
     foot.append(
-      pill(L9.newStyle, "insp:new", () => {
+      pill(L10.newStyle, "insp:new", () => {
         void this.styleDialog("new");
       }),
-      pill(L9.clearAll, "insp:clearAll", () => {
+      pill(L10.clearAll, "insp:clearAll", () => {
         env.ed.clearFormatting();
         env.after();
       })
     );
     this.inspector = openPane({
       id: "styleInspector",
-      title: L9.inspector,
+      title: L10.inspector,
       lang: env.lang,
       layer: env.layer,
       width: 300,
@@ -10695,31 +11522,31 @@ var StylesUI = class {
   /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
   async quickCreate() {
     const { env } = this;
-    const L9 = this.L;
+    const L10 = this.L;
     if (!canEdit2(env)) return;
     const input = el11("input", { type: "text", value: this.freeName() });
     const look = this.selectionLook();
     const cv = document.createElement("canvas");
     if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: 360, h: 56, maxPx: 30, paper: true, align: true });
     const msg = el11("div", { cls: "uw-style-msg" });
-    const body = el11("div", { cls: "uw-style-quick" }, el11("label", { cls: "uo-field" }, el11("span", { textContent: L9.name }), input), cv, msg);
+    const body = el11("div", { cls: "uw-style-quick" }, el11("label", { cls: "uo-field" }, el11("span", { textContent: L10.name }), input), cv, msg);
     let action = null;
     const h3 = openDialog({
-      title: L9.newStyleTitle,
+      title: L10.newStyleTitle,
       body,
       layer: env.layer,
       lang: env.lang,
       width: 420,
-      actions: [{ id: "modify", label: L9.modify }, { id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }],
+      actions: [{ id: "modify", label: L10.modify }, { id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }],
       onAction: (id) => {
         if (id === "cancel") return true;
         const name = input.value.trim();
         if (!name) {
-          msg.textContent = L9.empty;
+          msg.textContent = L10.empty;
           return false;
         }
         if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
-          msg.textContent = L9.nameTaken;
+          msg.textContent = L10.nameTaken;
           return false;
         }
         return true;
@@ -10750,7 +11577,7 @@ var StylesUI = class {
   async styleDialog(mode, id, presetName) {
     const { env } = this;
     const ed = env.ed;
-    const L9 = this.L;
+    const L10 = this.L;
     if (!canEdit2(env)) return;
     const all = ed.listStyles("all");
     const info = id ? all.find((s4) => s4.id === id) : void 0;
@@ -10764,7 +11591,7 @@ var StylesUI = class {
     const draft = { ...start };
     const nameIn = el11("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
     const typeSel = el11("select", { name: "type" });
-    for (const [k2, t5] of [["linked", L9.linked], ["paragraph", L9.paragraph], ["character", L9.character]]) typeSel.append(el11("option", { value: k2, textContent: t5 }));
+    for (const [k2, t5] of [["linked", L10.linked], ["paragraph", L10.paragraph], ["character", L10.character]]) typeSel.append(el11("option", { value: k2, textContent: t5 }));
     typeSel.value = kind;
     typeSel.disabled = mode === "modify";
     const baseSel = el11("select", { name: "basedOn" });
@@ -10775,11 +11602,11 @@ var StylesUI = class {
       const paraStyles = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
       const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
       const opts = kind === "character" ? charStyles : paraStyles;
-      if (kind === "character") baseSel.append(el11("option", { value: "", textContent: L9.none }));
+      if (kind === "character") baseSel.append(el11("option", { value: "", textContent: L10.none }));
       for (const s4 of opts) baseSel.append(el11("option", { value: s4.id, textContent: s4.name }));
       baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
       if (kind !== "character") {
-        nextSel.append(el11("option", { value: "", textContent: nameIn.value.trim() || L9.none }));
+        nextSel.append(el11("option", { value: "", textContent: nameIn.value.trim() || L10.none }));
         for (const s4 of paraStyles) nextSel.append(el11("option", { value: s4.id, textContent: s4.name }));
         nextSel.value = info?.next && info.next !== id ? info.next : "";
       }
@@ -10813,10 +11640,10 @@ var StylesUI = class {
       upd();
       return b3;
     };
-    const colorIn = el11("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
-    colorIn.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
+    const colorIn2 = el11("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+    colorIn2.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
     const alignBtns = ["left", "center", "right", "both"].map((a3) => {
-      const b3 = el11("button", { type: "button", cls: "uo-btn", title: { left: L9.left, center: L9.center, right: L9.right, both: L9.justify }[a3] });
+      const b3 = el11("button", { type: "button", cls: "uo-btn", title: { left: L10.left, center: L10.center, right: L10.right, both: L10.justify }[a3] });
       b3.dataset["a"] = `dlg:align:${a3}`;
       b3.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
       b3.addEventListener("click", () => {
@@ -10829,7 +11656,7 @@ var StylesUI = class {
     const syncAlign = () => alignBtns.forEach((b3, i5) => b3.classList.toggle("uo-on", ["left", "center", "right", "both"][i5] === draft.alignment));
     syncAlign();
     const lineSel = el11("select", { name: "line" });
-    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el11("option", { value: String(v2), textContent: L9.lines[v2] }));
+    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el11("option", { value: String(v2), textContent: L10.lines[v2] }));
     if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
       lineSel.append(el11("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
     }
@@ -10846,27 +11673,27 @@ var StylesUI = class {
       draft.fontAscii = fontSel.value;
       const sz = parseFloat(sizeIn.value.replace(",", "."));
       if (sz > 0) draft.szHalfPt = Math.round(sz * 2);
-      const hex = colorIn.value.slice(1).toUpperCase();
+      const hex = colorIn2.value.slice(1).toUpperCase();
       if (hex !== (start.color ?? "000000") || draft.color !== start.color) draft.color = hex === "000000" && !start.color ? void 0 : hex;
       draft.lineTwentieths = Number(lineSel.value);
       draft.spaceBeforeTwips = Math.round(Number(beforeIn.value.replace(",", ".")) * 20) || 0;
       draft.spaceAfterTwips = Math.round(Number(afterIn.value.replace(",", ".")) * 20) || 0;
       draft.indentLeftTwips = Math.round(Number(indentIn.value.replace(",", ".")) * 567) || 0;
     };
-    for (const i5 of [fontSel, sizeIn, colorIn, lineSel, beforeIn, afterIn, indentIn]) i5.addEventListener("change", () => {
+    for (const i5 of [fontSel, sizeIn, colorIn2, lineSel, beforeIn, afterIn, indentIn]) i5.addEventListener("change", () => {
       read();
       refresh();
     });
-    const formatBtn = el11("button", { type: "button", cls: "uo-pill", textContent: `${L9.format} \u25BE` });
+    const formatBtn = el11("button", { type: "button", cls: "uo-pill", textContent: `${L10.format} \u25BE` });
     formatBtn.dataset["a"] = "dlg:format";
     formatBtn.addEventListener("click", (e6) => {
       e6.stopPropagation();
       const r5 = formatBtn.getBoundingClientRect();
       openMenu([
-        { id: "dlg:format:font", icon: "text_format", label: L9.fontDots, onClick: () => {
+        { id: "dlg:format:font", icon: "text_format", label: L10.fontDots, onClick: () => {
           void this.fontSub(draft).then(refresh);
         } },
-        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L9.paraDots, disabled: kind === "character", onClick: () => {
+        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L10.paraDots, disabled: kind === "character", onClick: () => {
           void this.paraSub(draft).then(() => {
             syncAlign();
             beforeIn.value = String(ptOf2(draft.spaceBeforeTwips));
@@ -10886,7 +11713,7 @@ var StylesUI = class {
     const msg = el11("div", { cls: "uw-style-msg" });
     const refresh = () => {
       const look = lookOfDraft(draft, startLook);
-      drawPreview(cv, ed, look, L9, kind);
+      drawPreview(cv, ed, look, L10, kind);
       const fake = {
         id: id ?? "",
         name: nameIn.value.trim() || "\u2026",
@@ -10915,13 +11742,13 @@ var StylesUI = class {
     const grid2 = el11(
       "div",
       { cls: "uo-dialog-grid" },
-      el11("span", { textContent: L9.name }),
+      el11("span", { textContent: L10.name }),
       nameIn,
-      el11("span", { textContent: L9.type }),
+      el11("span", { textContent: L10.type }),
       typeSel,
-      el11("span", { textContent: L9.basedOn }),
+      el11("span", { textContent: L10.basedOn }),
       baseSel,
-      el11("span", { textContent: L9.next }),
+      el11("span", { textContent: L10.next }),
       nextSel
     );
     const fmtRow1 = el11(
@@ -10929,34 +11756,34 @@ var StylesUI = class {
       { cls: "uw-style-fmt" },
       fontSel,
       sizeIn,
-      tog("bold", "format_bold", L9.bold),
-      tog("italic", "format_italic", L9.italic),
-      tog("underline", "format_underlined", L9.underline),
-      colorIn
+      tog("bold", "format_bold", L10.bold),
+      tog("italic", "format_italic", L10.italic),
+      tog("underline", "format_underlined", L10.underline),
+      colorIn2
     );
-    const fmtRow2 = el11("div", { cls: "uw-style-fmt" }, ...alignBtns, el11("span", { textContent: L9.lineSpacing }), lineSel);
+    const fmtRow2 = el11("div", { cls: "uw-style-fmt" }, ...alignBtns, el11("span", { textContent: L10.lineSpacing }), lineSel);
     const fmtRow3 = el11(
       "div",
       { cls: "uw-style-fmt" },
-      el11("span", { textContent: L9.before }),
+      el11("span", { textContent: L10.before }),
       beforeIn,
-      el11("span", { textContent: L9.after }),
+      el11("span", { textContent: L10.after }),
       afterIn,
-      el11("span", { textContent: L9.indentLeft }),
+      el11("span", { textContent: L10.indentLeft }),
       indentIn
     );
     const checks = el11(
       "div",
       { cls: "uw-style-checks" },
-      el11("label", { cls: "uo-check" }, quick, L9.addToGallery),
-      el11("label", { cls: "uo-check" }, auto, L9.autoUpdate)
+      el11("label", { cls: "uo-check" }, quick, L10.addToGallery),
+      el11("label", { cls: "uo-check" }, auto, L10.autoUpdate)
     );
     const body = el11(
       "div",
       { cls: "uw-style-dlg" },
-      el11("strong", { textContent: L9.properties }),
+      el11("strong", { textContent: L10.properties }),
       grid2,
-      el11("strong", { textContent: L9.formatting }),
+      el11("strong", { textContent: L10.formatting }),
       fmtRow1,
       fmtRow2,
       fmtRow3,
@@ -10968,22 +11795,22 @@ var StylesUI = class {
     );
     refresh();
     const h3 = openDialog({
-      title: mode === "new" ? L9.newStyleTitle : L9.modifyTitle,
+      title: mode === "new" ? L10.newStyleTitle : L10.modifyTitle,
       body,
       layer: env.layer,
       lang: env.lang,
       width: 560,
-      actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }],
+      actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }],
       onAction: (a3) => {
         if (a3 !== "ok") return true;
         read();
         const name2 = nameIn.value.trim();
         if (!name2) {
-          msg.textContent = L9.empty;
+          msg.textContent = L10.empty;
           return false;
         }
         if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
-          msg.textContent = L9.nameTaken;
+          msg.textContent = L10.nameTaken;
           return false;
         }
         return true;
@@ -11010,7 +11837,7 @@ var StylesUI = class {
   }
   /** Formatar › Fonte… (rascunho do estilo). */
   async fontSub(d3) {
-    const L9 = this.L;
+    const L10 = this.L;
     const box = (k2, label) => {
       const i5 = el11("input", { type: "checkbox", checked: !!d3[k2] });
       i5.name = k2;
@@ -11023,66 +11850,66 @@ var StylesUI = class {
       el11(
         "div",
         { cls: "uw-style-fx" },
-        box("bold", L9.bold),
-        box("italic", L9.italic),
-        box("underline", L9.underline),
-        box("strike", L9.strike),
-        box("allCaps", L9.caps),
-        box("smallCaps", L9.smallCaps)
+        box("bold", L10.bold),
+        box("italic", L10.italic),
+        box("underline", L10.underline),
+        box("strike", L10.strike),
+        box("allCaps", L10.caps),
+        box("smallCaps", L10.smallCaps)
       ),
-      el11("label", { cls: "uo-field" }, el11("span", { textContent: `${L9.charSpacing} (pt)` }), spacing)
+      el11("label", { cls: "uo-field" }, el11("span", { textContent: `${L10.charSpacing} (pt)` }), spacing)
     );
-    const h3 = openDialog({ title: L9.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }] });
+    const h3 = openDialog({ title: L10.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }] });
     if (await h3.result !== "ok") return;
     for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
     d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
   }
   /** Formatar › Parágrafo… (recuos à direita e especial). */
   async paraSub(d3) {
-    const L9 = this.L;
+    const L10 = this.L;
     const right = el11("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
     const special = el11("select", { name: "special" });
-    for (const [k2, t5] of [["none", L9.none], ["firstLine", L9.firstLine], ["hanging", L9.hanging]]) special.append(el11("option", { value: k2, textContent: t5 }));
+    for (const [k2, t5] of [["none", L10.none], ["firstLine", L10.firstLine], ["hanging", L10.hanging]]) special.append(el11("option", { value: k2, textContent: t5 }));
     special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
     const by = el11("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
     const body = el11(
       "div",
       { cls: "uo-dialog-grid" },
-      el11("span", { textContent: L9.indentRight }),
+      el11("span", { textContent: L10.indentRight }),
       right,
-      el11("span", { textContent: L9.special }),
+      el11("span", { textContent: L10.special }),
       special,
-      el11("span", { textContent: L9.by }),
+      el11("span", { textContent: L10.by }),
       by
     );
-    const h3 = openDialog({ title: L9.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.ok, primary: true }] });
+    const h3 = openDialog({ title: L10.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.ok, primary: true }] });
     if (await h3.result !== "ok") return;
     d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
     const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
     d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
   }
   async rename(s4) {
-    const L9 = this.L;
-    const v2 = await promptDialog({ title: L9.renameTitle, label: L9.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+    const L10 = this.L;
+    const v2 = await promptDialog({ title: L10.renameTitle, label: L10.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
     if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
-    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L9.nameTaken);
+    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L10.nameTaken);
     this.env.after();
   }
   async remove(s4) {
-    const L9 = this.L;
+    const L10 = this.L;
     const h3 = openDialog({
-      title: L9.del(s4.name).replace(/…$/, ""),
-      body: L9.delConfirm(s4.name),
+      title: L10.del(s4.name).replace(/…$/, ""),
+      body: L10.delConfirm(s4.name),
       layer: this.env.layer,
       lang: this.env.lang,
       icon: "delete",
-      actions: [{ id: "cancel", label: L9.cancel }, { id: "ok", label: L9.delete, primary: true }]
+      actions: [{ id: "cancel", label: L10.cancel }, { id: "ok", label: L10.delete, primary: true }]
     });
     if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
     this.env.after();
   }
 };
-function drawPreview(cv, ed, look, L9, kind) {
+function drawPreview(cv, ed, look, L10, kind) {
   const W = 508, H2 = 96;
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   cv.width = W * dpr;
@@ -11096,13 +11923,13 @@ function drawPreview(cv, ed, look, L9, kind) {
   c4.fillRect(0, 0, W, H2);
   c4.fillStyle = "#a0a0a0";
   c4.font = "9px sans-serif";
-  c4.fillText(L9.prevPara, 8, 14);
+  c4.fillText(L10.prevPara, 8, 14);
   const inner = document.createElement("canvas");
-  drawSample(inner, ed, look, { text: kind === "character" ? L9.sample.split(" ").slice(0, 4).join(" ") : L9.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  drawSample(inner, ed, look, { text: kind === "character" ? L10.sample.split(" ").slice(0, 4).join(" ") : L10.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
   c4.drawImage(inner, 8, 22, W - 16, 46);
   c4.fillStyle = "#a0a0a0";
   c4.font = "9px sans-serif";
-  c4.fillText(L9.prevPara, 8, 84);
+  c4.fillText(L10.prevPara, 8, 84);
 }
 
 // src/chrome.ts
@@ -11816,7 +12643,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-F75Y4OOR.js");
+    await import("./src-NOBQGUKT.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
@@ -11967,6 +12794,11 @@ var WriteChrome = class {
       const at = { x: e6.clientX, y: e6.clientY };
       if (typeof ed.selectedImage === "function" && ed.selectedImage()) {
         openMenu(pictureContextItems(), at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+        return;
+      }
+      const shp = typeof ed.selectedShape === "function" ? ed.selectedShape() : null;
+      if (shp && !shp.editingText) {
+        openMenu(shapeContextItems(), at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
         return;
       }
       const items = [

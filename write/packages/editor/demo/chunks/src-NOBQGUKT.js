@@ -5,7 +5,7 @@ import {
   paraText,
   pickLabels,
   readFullDocument
-} from "./chunk-MVJSDZBR.js";
+} from "./chunk-UKAC2AZH.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../compare/src/myers.ts
