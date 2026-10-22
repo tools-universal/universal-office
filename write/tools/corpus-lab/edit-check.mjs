@@ -1461,6 +1461,21 @@ if (want('textbox')) {
   objs = await ev('objects');
   check('galeria do usuário: salvar a caixa e inserir de novo (o texto vem junto)', ok && objs.length === nG + 1 && objs.filter((o) => o.text === textOf).length >= 2, { tpl, nG, n: objs.length });
   if (tpl) await call('removeTextboxGalleryItem', tpl.id);
+
+  // caixa de texto no cabeçalho: inserir, digitar, sair e gravar na parte do cabeçalho
+  r = await ev('blank');
+  await page.evaluate(() => { const e = document.querySelector('universal-write'); e.enterHeaderFooter('header', 0); });
+  ok = await call('insertTextbox', 'simple');
+  await page.keyboard.type('Caixa do cabecalho');
+  s = await st();
+  const inHf = s.tb && s.hf;
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => { const e = document.querySelector('universal-write'); if (e.editingHeaderFooter()) e.exitHeaderFooter(); });
+  const parts = await ev('savedParts', ['word/header1.xml', 'word/header2.xml', 'word/document.xml']);
+  const hx = Object.entries(parts).filter(([k]) => k.includes('header')).map(([, v]) => v ?? '').join('');
+  objs = await ev('objects');
+  check('caixa no cabeçalho: edita no lugar e grava na parte do cabeçalho (wps + VML)', ok && inHf && /<wps:txbx>[\s\S]*Caixa do cabecalho/.test(hx) && /<v:textbox[\s\S]*Caixa do cabecalho/.test(hx) && !(parts['word/document.xml'] ?? '').includes('Caixa do cabecalho') && objs.some((o) => o.hf && o.text === 'Caixa do cabecalho'), { ok, inHf, hx: hx.length });
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────
