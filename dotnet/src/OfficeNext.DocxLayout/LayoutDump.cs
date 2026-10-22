@@ -241,6 +241,32 @@ public static class LayoutDump
                     NumV(w, sh.Line.X1); NumV(w, sh.Line.Y1); NumV(w, sh.Line.X2); NumV(w, sh.Line.Y2);
                     w.WriteEndArray();
                 }
+                // padrão (a:pattFill) e imagem/textura (a:blipFill): só nos itens que os têm
+                if (sh.Pattern is { } pt)
+                {
+                    w.WriteStartObject("pattern");
+                    w.WriteString("prst", pt.Prst);
+                    w.WriteString("fg", pt.Fg);
+                    w.WriteString("bg", pt.Bg);
+                    w.WriteEndObject();
+                }
+                if (sh.Blip is { } bl)
+                {
+                    w.WriteStartObject("blip");
+                    w.WriteString("ext", bl.Image.Ext);
+                    w.WriteNumber("bytes", bl.Image.Data.Length);
+                    if (bl.Tile is not { } tl) w.WriteNull("tile");
+                    else
+                    {
+                        w.WriteStartObject("tile");
+                        Num(w, "tx", tl.Tx); Num(w, "ty", tl.Ty); Num(w, "sx", tl.Sx); Num(w, "sy", tl.Sy);
+                        w.WriteString("algn", tl.Algn);
+                        w.WriteString("flip", tl.Flip);
+                        w.WriteEndObject();
+                    }
+                    OptR4(w, "alpha", bl.Alpha);
+                    w.WriteEndObject();
+                }
                 break;
             case PathItem pa:
                 w.WriteStartArray("cmds");

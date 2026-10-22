@@ -160,9 +160,56 @@ public sealed class ShapeStyle
     public ShapeShadow? Shadow;
     /// <summary>espessura do contorno para o recuo do texto da caixa (oráculo txbxln)</summary>
     public LineInset? LineInset;
+    /// <summary>padrão (a:pattFill): predefinição e cores de frente/fundo (RRGGBB ou @esquema|mods)</summary>
+    public ShapePattern? Pattern;
+    /// <summary>imagem (a:blipFill): esticada (Imagem) ou em mosaico (Textura: a:tile em EMU e 1/1000 %)</summary>
+    public ShapeBlip? Blip;
+    /// <summary>wps:style/a:fillRef sem preenchimento no spPr: idx 2..3 (e 1002…) = estilo de
+    /// preenchimento do tema com a cor (phClr) — Estilos de Forma (oráculo textbox-lab style-*)</summary>
+    public StyleRef? FillRef;
+    /// <summary>wps:style/a:effectRef idx ≥ 1 (efeito do tema) com a cor</summary>
+    public StyleRef? EffectRef;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public ShapeStyle ShallowClone() => (ShapeStyle)MemberwiseClone();
+}
+
+/// <summary>Padrão (a:pattFill): predefinição e cores de frente/fundo (RRGGBB ou @esquema|mods).</summary>
+public sealed class ShapePattern
+{
+    public string Prst = "pct5";
+    public string Fg = "000000";
+    public string Bg = "FFFFFF";
+
+    /// <summary>Cópia rasa ({ ...x }).</summary>
+    public ShapePattern ShallowClone() => (ShapePattern)MemberwiseClone();
+}
+
+/// <summary>Imagem do a:blipFill: os bytes (Data/Ext de <see cref="InlineImage"/>), o mosaico
+/// (a:tile) e a opacidade (a:alphaModFix).</summary>
+public sealed class ShapeBlip
+{
+    public InlineImage Image = new();
+    public BlipTile? Tile;
+    public double? Alpha;
+}
+
+/// <summary>a:tile: deslocamento tx/ty (EMU), escala sx/sy (1/1000 %), alinhamento e espelho.</summary>
+public sealed class BlipTile
+{
+    public double Tx;
+    public double Ty;
+    public double Sx = 100000;
+    public double Sy = 100000;
+    public string Algn = "tl";
+    public string Flip = "none";
+}
+
+/// <summary>Referência a um estilo do tema (a:fillRef / a:effectRef): índice e a cor (phClr).</summary>
+public sealed class StyleRef
+{
+    public int Idx;
+    public string Color = "";
 }
 
 public static class DrawingReader
@@ -396,15 +443,36 @@ public static class DrawingReader
                 st.Fill = from.Value.Hex;
             }
         }
-        else if (styleEl is not null)
+        else if (FirstChild(spPr, "a:pattFill") is { } pf)
         {
-            // sem fill explícito: wps:style/a:fillRef (cor do tema)
+            var fg = SrgbOf(FirstChild(pf, "a:fgClr"));
+            var bg = SrgbOf(FirstChild(pf, "a:bgClr"));
+            st.Pattern = new ShapePattern { Prst = pf.Attr("prst") ?? "pct5", Fg = fg?.Hex ?? "000000", Bg = bg?.Hex ?? "FFFFFF" };
+            // a cor de fundo é a do preenchimento (texto automático continua preto — medido:
+            // padrão vermelho sobre branco não clareia o texto; pintores sem o padrão)
+            st.Fill = st.Pattern.Bg;
+        }
+        else if (styleEl is not null && FirstChild(spPr, "a:blipFill") is null && FirstChild(spPr, "a:grpFill") is null)
+        {
+            // sem fill explícito: wps:style/a:fillRef (cor do tema); idx 2/3 = degradês do tema
             var fillRef = FirstChild(styleEl, "a:fillRef");
-            if (fillRef is not null && fillRef.Attr("idx") != "0")
+            int idx = (int)Js.IntOr0(fillRef?.Attr("idx") ?? "0");
+            if (fillRef is not null && idx != 0)
             {
                 var c = SrgbOf(fillRef);
-                if (c is not null) st.Fill = c.Value.Hex;
+                if (c is not null)
+                {
+                    st.Fill = c.Value.Hex;
+                    if (idx != 1 && idx != 1001) st.FillRef = new StyleRef { Idx = idx, Color = c.Value.Hex };
+                }
             }
+        }
+        var effRef = styleEl is not null && FirstChild(spPr, "a:effectLst") is null ? FirstChild(styleEl, "a:effectRef") : null;
+        int effIdx = (int)Js.IntOr0(effRef?.Attr("idx") ?? "0");
+        if (effRef is not null && effIdx > 0)
+        {
+            var c = SrgbOf(effRef);
+            if (c is not null) st.EffectRef = new StyleRef { Idx = effIdx, Color = c.Value.Hex };
         }
         var eff = FirstChild(spPr, "a:effectLst");
         var shd = eff is not null ? FirstChild(eff, "a:outerShdw") : null;

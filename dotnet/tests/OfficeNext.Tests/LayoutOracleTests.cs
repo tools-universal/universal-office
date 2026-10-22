@@ -115,10 +115,20 @@ public class LayoutOracleTests
             : null;
         var res = DocxLayoutPipeline.Layout(File.ReadAllBytes(Path.Combine(LayoutParityTests.OracleDir, caseId + ".docx")), SystemFontProvider.Shared, opts);
         bool orderless = Orderless.Contains(caseId[(caseId.IndexOf('/') + 1)..]);
+        // texto girado (caixa vertical): a extração separa as linhas giradas (vlines)
+        bool vw = word.Pages.Any(p => p.VLines is not null);
         var r = orderless
             ? OracleCompare.CompareLines(ByColumn(word), ByColumn(OracleCompare.EngineLines(res)))
-            : OracleCompare.CompareLines(word, OracleCompare.EngineLines(res), ExactLeaders.Contains(g));
+            : OracleCompare.CompareLines(word, OracleCompare.EngineLines(res, vw), ExactLeaders.Contains(g));
         _out.WriteLine($"páginas W/O {r.PagesW}/{r.PagesO}, linhas {r.Matched}/{r.LinesW}, mesma página {r.SamePage}, Δy máx {r.MaxDy:0.###} pt");
+        if (vw)
+        {
+            var vr = OracleCompare.CompareVLines(word.Pages.Select(p => p.VLines ?? new List<OracleCompare.OVLine>()).ToList(), OracleCompare.EngineVLines(res));
+            _out.WriteLine($"linhas giradas {vr.Matched}/{vr.N}, Δx máx {vr.MaxDx:0.###} pt, Δ início máx {vr.MaxDy:0.###} pt");
+            Assert.True(vr.Matched == vr.N, $"linhas giradas casadas {vr.Matched}/{vr.N} (1ª diferença: {vr.FirstDiff})");
+            Assert.True(vr.MaxDx <= 0.6, $"Δx da linha de base girada {vr.MaxDx} pt > 0.6");
+            Assert.True(vr.MaxDy <= 0.6, $"Δ início da linha girada {vr.MaxDy} pt > 0.6");
+        }
         if (Sweeps.Contains(g) || g == "vertalign")
         {
             // vertalign: o deslocamento do sobrescrito muda o agrupamento em linhas da extração
@@ -194,7 +204,15 @@ internal static class OracleCompare
 {
     public sealed class OLine { public double Y, X0, X1, Size; public string Text = ""; }
     public sealed class OObj { public string T = ""; public double X0, Y0, X1, Y1; }
-    public sealed class OPage { public double W, H; public List<OLine> Lines = new(); public List<OObj> Objs = new(); }
+    /// <summary>Linha de texto GIRADO (caixa vertical) como a extração do PDF (pdftext.page_vlines):
+    /// X = linha de base na página, Y0/Y1 = origem do 1º e do último caractere, ângulo.</summary>
+    public sealed class OVLine { public double X, Y0, Y1, Angle, Size; public string Text = ""; }
+    public sealed class OPage
+    {
+        public double W, H; public List<OLine> Lines = new(); public List<OObj> Objs = new();
+        /// <summary>linhas giradas (nulo = a página não as tem no .word.json)</summary>
+        public List<OVLine>? VLines;
+    }
     public sealed class ODoc { public List<OPage> Pages = new(); }
 
     public static ODoc ReadOracle(string path)
@@ -217,6 +235,12 @@ internal static class OracleCompare
                         T = o.GetProperty("t").GetString() ?? "", X0 = o.GetProperty("x0").GetDouble(), Y0 = o.GetProperty("y0").GetDouble(),
                         X1 = o.GetProperty("x1").GetDouble(), Y1 = o.GetProperty("y1").GetDouble(),
                     });
+            if (p.TryGetProperty("vlines", out var vls) && vls.ValueKind == JsonValueKind.Array)
+                op.VLines = vls.EnumerateArray().Select(l => new OVLine
+                {
+                    X = l.GetProperty("x").GetDouble(), Y0 = l.GetProperty("y0").GetDouble(), Y1 = l.GetProperty("y1").GetDouble(),
+                    Angle = l.GetProperty("angle").GetDouble(), Size = l.GetProperty("size").GetDouble(), Text = l.GetProperty("text").GetString() ?? "",
+                }).ToList();
             outp.Pages.Add(op);
         }
         return outp;
@@ -241,8 +265,94 @@ internal static class OracleCompare
 
     private static readonly Regex Ws = new(@"\s", RegexOptions.CultureInvariant);
 
-    /// <summary>Linhas da árvore de layout (pt), agrupando glifos por baseline na ordem dos itens.</summary>
-    public static ODoc EngineLines(LayoutResult res)
+    private static double[] Mul(double[] m, double[] n) => new[]
+    {
+        m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+        m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5],
+    };
+
+    private static double[] Identity() => new double[] { 1, 0, 0, 1, 0, 0 };
+
+    /// <summary>Linhas giradas da árvore de layout (pt): glifos dentro de xform com giro de 90/270°.</summary>
+    public static List<List<OVLine>> EngineVLines(LayoutResult res)
+    {
+        return res.Pages.Select(p =>
+        {
+            var outp = new List<OVLine>();
+            var stack = new Stack<double[]>();
+            var m = Identity();
+            OVLine? cur = null;
+            foreach (var item in p.Items)
+            {
+                if (item is XformItem xf)
+                {
+                    if (xf.Op == "push") { stack.Push(m); m = Mul(m, xf.M ?? Identity()); }
+                    else m = stack.Count > 0 ? stack.Pop() : Identity();
+                    continue;
+                }
+                if (item is not GlyphRunItem it || it.AsPath) continue;
+                double ang = OfficeNext.Core.JsNumber.Round((Math.Atan2(m[1], m[0]) * 180) / Math.PI + 360) % 360;
+                if (ang == 0) continue;
+                foreach (var g in it.Glyphs)
+                {
+                    string ch = NormChar(g.Cp);
+                    if (ch.Length == 0 || Ws.IsMatch(ch) || g.Cp > 0xffff) continue;
+                    double px = (m[0] * g.X + m[2] * it.Y + m[4]) / 20, py = (m[1] * g.X + m[3] * it.Y + m[5]) / 20;
+                    double size = OfficeNext.Core.JsNumber.Round(it.SizePt / 0.12) * 0.12;
+                    if (cur is not null && cur.Angle == ang && Math.Abs(px - cur.X) <= Math.Max(1, 0.3 * size))
+                    {
+                        cur.Text += ch;
+                        cur.Y0 = Math.Min(cur.Y0, py); cur.Y1 = Math.Max(cur.Y1, py);
+                    }
+                    else
+                    {
+                        cur = new OVLine { X = px, Y0 = py, Y1 = py, Angle = ang, Size = size, Text = ch };
+                        outp.Add(cur);
+                    }
+                }
+            }
+            return outp;
+        }).ToList();
+    }
+
+    public sealed class VResult
+    {
+        public int N, Matched;
+        public double MaxDx, MaxDy;
+        public string? FirstDiff;
+    }
+
+    /// <summary>Casa as linhas giradas por texto (na ordem) e mede Δx (linha de base) e Δy0 (início).</summary>
+    public static VResult CompareVLines(List<List<OVLine>> word, List<List<OVLine>> ours)
+    {
+        var r = new VResult();
+        for (int pi = 0; pi < word.Count; pi++)
+        {
+            var ol = pi < ours.Count ? new List<OVLine>(ours[pi]) : new List<OVLine>();
+            foreach (var w in word[pi])
+            {
+                r.N++;
+                int k = ol.FindIndex(o => o.Text == w.Text && o.Angle == w.Angle && Math.Abs(o.X - w.X) < 6 && Math.Abs(o.Y0 - w.Y0) < 6);
+                if (k < 0)
+                {
+                    r.FirstDiff ??= $"p{pi + 1} x={w.X.ToString("0.0", CultureInfo.InvariantCulture)} {w.Angle}° \"{(w.Text.Length > 30 ? w.Text[..30] : w.Text)}\"";
+                    continue;
+                }
+                var o = ol[k];
+                ol.RemoveAt(k);
+                r.Matched++;
+                // y0 = o início da linha (a origem mais alta para 90°, a mais baixa para 270°)
+                double ws = w.Angle == 270 ? w.Y1 : w.Y0, os = o.Angle == 270 ? o.Y1 : o.Y0;
+                r.MaxDx = Math.Max(r.MaxDx, Math.Abs(o.X - w.X));
+                r.MaxDy = Math.Max(r.MaxDy, Math.Abs(os - ws));
+            }
+        }
+        return r;
+    }
+
+    /// <summary>Linhas da árvore de layout (pt), agrupando glifos por baseline na ordem dos itens.
+    /// <paramref name="skipRotated"/>: glifos em xform girado ficam de fora (vão em EngineVLines).</summary>
+    public static ODoc EngineLines(LayoutResult res, bool skipRotated = false)
     {
         var outp = new ODoc();
         foreach (var p in res.Pages)
@@ -250,8 +360,17 @@ internal static class OracleCompare
             var lines = new List<OLine>();
             var lastCp = new List<int>();
             OLine? cur = null;
+            var rotStack = new Stack<bool>();
+            bool rotated = false;
             foreach (var item in p.Items)
             {
+                if (skipRotated && item is XformItem xf)
+                {
+                    if (xf.Op == "push") { rotStack.Push(rotated); rotated = rotated || (xf.M is not null && Math.Abs(xf.M[1]) > 0.5); }
+                    else rotated = rotStack.Count > 0 && rotStack.Pop();
+                    continue;
+                }
+                if (rotated) continue;
                 // curvas (WordArt, texto semitransparente, emoji colorido, caixa girada):
                 // não é texto no PDF — nem no do Word
                 if (item is not GlyphRunItem it || it.AsPath) continue;

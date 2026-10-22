@@ -173,6 +173,11 @@ public sealed class ParaEnv
     public bool NoPageBreaks;
     /// <summary>dentro do cabeçalho/rodapé (inclusive caixas e células dele)</summary>
     public bool Hf;
+    /// <summary>cor do texto de cor automática (caixa de texto com wps:style/a:fontRef — RRGGBB)</summary>
+    public string? DefaultColor;
+    /// <summary>continuação de um parágrafo partido (caixa vinculada seguinte): sem marcador, sem
+    /// recuo da 1ª linha e sem espaço antes</summary>
+    public bool Continuation;
 
     public ParaEnv Clone() => (ParaEnv)MemberwiseClone();
 }
@@ -233,8 +238,8 @@ public static class Para
         {
             Rpr = rpr,
             SizePt = sizePt,
-            Color = color ?? (env.DarkBackground ? "FFFFFF" : "000000"),
-            AutoColor = color is null,
+            Color = color ?? env.DefaultColor ?? (env.DarkBackground ? "FFFFFF" : "000000"),
+            AutoColor = color is null && !Js.Truthy(env.DefaultColor),
             Bold = rpr.B == true,
             Italic = rpr.I == true,
             Underline = u,
@@ -1205,7 +1210,7 @@ public static class Para
         // marcador de numeração
         ParaMarker? marker = null;
         double? numId = ppr.NumPr?.NumId;
-        if (numId is { } nid && nid != 0 && !double.IsNaN(nid) && env.Numbering != false)
+        if (numId is { } nid && nid != 0 && !double.IsNaN(nid) && env.Numbering != false && !env.Continuation)
         {
             var nm = ctx.Numbering.Next(nid, ppr.NumPr?.Ilvl ?? 0);
             if (nm is null && (nid == 1001 || nid == 1002))
@@ -1249,7 +1254,7 @@ public static class Para
         string jc = ppr.Jc ?? "left";
         if (jc == "start") jc = "left";
         if (jc == "end") jc = "right";
-        double firstLine = ind.Hanging is { } hg ? -hg : (ind.FirstLine ?? 0);
+        double firstLine = env.Continuation ? 0 : ind.Hanging is { } hg ? -hg : (ind.FirstLine ?? 0);
         // equação de exibição sozinha no parágrafo: alinhada pelo m:jc (centerGroup: no
         // centro) entre os recuos, sem o da 1ª linha — o w:jc do parágrafo não vale (oráculo omath)
         if (mathJc is not null && !glyphs.Any(g => !mathRuns.Contains(g.RunIdx) && g.Kind != GlyphKind.Lb && g.Kind != GlyphKind.Pb && g.Kind != GlyphKind.Space && !(g.Kind == GlyphKind.Obj && g.Adv == 0)))
@@ -1267,11 +1272,11 @@ public static class Para
             FirstLine = firstLine,
             Jc = jc,
             Tabs = (ppr.Tabs ?? new List<TabSpec>()).Where(t => t.Val != "clear").ToList(),
-            SpaceBefore = spc.Before ?? 0,
+            SpaceBefore = env.Continuation ? 0 : spc.Before ?? 0,
             SpaceAfter = spc.After ?? 0,
             // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
             // w:before/w:after explícitos (oráculo autosphtml)
-            BeforeAuto = spc.BeforeAutospacing == true && !(settings.Compat.TryGetValue("doNotUseHTMLParagraphAutoSpacing", out var nhtml1) && nhtml1),
+            BeforeAuto = !env.Continuation && spc.BeforeAutospacing == true && !(settings.Compat.TryGetValue("doNotUseHTMLParagraphAutoSpacing", out var nhtml1) && nhtml1),
             AfterAuto = spc.AfterAutospacing == true && !(settings.Compat.TryGetValue("doNotUseHTMLParagraphAutoSpacing", out var nhtml2) && nhtml2),
             LineRule = spc.LineRule ?? "auto",
             Line = spc.Line ?? 240,
@@ -1279,7 +1284,7 @@ public static class Para
             KeepNext = ppr.KeepNext == true,
             KeepLines = ppr.KeepLines == true,
             WidowControl = ppr.WidowControl ?? false,
-            PageBreakBefore = ppr.PageBreakBefore == true,
+            PageBreakBefore = !env.Continuation && ppr.PageBreakBefore == true,
             Empty = glyphs.All(g => g.Kind == GlyphKind.Pb || (g.Kind == GlyphKind.Obj && g.Obj is not null
                 && (g.Obj.Image?.Floating == true || g.Obj.Shape?.Floating == true || g.Obj.Group?.Floating == true || g.Obj.Textbox?.Floating == true))),
         };

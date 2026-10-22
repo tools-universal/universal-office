@@ -12,8 +12,8 @@ formatos textuais e paridade estrutural nos PDFs. Sem dependências NuGet em
 | `OfficeNext.Core` | `OpcPackage` (ZIP lossless por parte, ordem preservada), `MiniXml` (porta do parser xml.ts), `JsNumber` (semântica numérica ECMAScript: toString/toFixed/round — a chave da paridade), unidades |
 | `OfficeNext.Docx` | Modelo + `ReadFullDocument` (paridade com docx-core: props OOXML tipadas `Ooxml/Props.cs`, partes de formatação `Ooxml/Parts.cs` — estilos/numeração/tema/settings/fontTable —, DrawingML/VML `Drawing.cs`, campos/resultado de campo/caixas/formas/grupos), fontes embutidas (`EmbeddedFonts`), `ModelOps` (insert/delete/props), serialização subset |
 | `OfficeNext.Layout` | Porta da base tipográfica do `@universal-office/docx-layout` (`src/typography`, fontes): `SfntFont` (cmap/hmtx/OS2/post, kerning GPOS + `kern` legado) e `SystemFontIndex` — índice das fontes INSTALADAS (Windows\Fonts, fontes do usuário, cache CloudFonts do Office), porta de `write/tools/corpus-lab/node-fonts.mjs` |
-| `OfficeNext.DocxLayout` | **Motor de layout do Write** — porta de `@universal-office/docx-layout`, um arquivo por módulo TS (`Resolve`, `Fonts`, `Numbering`, `Context`, `Para`, `Lines`, `Paint`, `Table`, `Engine`, `Tree`, `Images`, `Emf`, `Pdf`, `Picture`, `PdfPicture`): cascata OOXML, paginação, tabelas, cabeçalhos/rodapés, notas, flutuantes, campos; árvore de páginas em twips + renderizador PDF (Formato da Imagem: `PictureLook` no item de imagem, composição dos efeitos no PDF como o Word). `SystemFontProvider` (fontes da máquina), `DocxLayoutPipeline` (.docx → layout → PDF), `LayoutDump` (dump normalizado da paridade) |
-| `OfficeNext.DrawingML` | Porta de `shared/drawingml`: intérprete das formas predefinidas OFICIAIS (o próprio `preset-defs.ts` embutido como recurso — uma fonte só), `PresetOutline`, rasterização sem DOM (`Raster`: polígonos, desfoque gaussiano, distância, dilatação/erosão, afim), os efeitos medidos no Word (`Effects`: sombra externa/interna, brilho, bordas suaves, reflexo) e o chanfro 3D (`Light3D` + `Bevel`: tabelas do `light3d.ts` e do `bevel-word.ts` também embutidas) |
+| `OfficeNext.DocxLayout` | **Motor de layout do Write** — porta de `@universal-office/docx-layout`, um arquivo por módulo TS (`Resolve`, `Fonts`, `Numbering`, `Context`, `Para`, `Lines`, `Paint`, `Table`, `Engine`, `Chain`, `Tree`, `Images`, `Emf`, `Pdf`, `Picture`, `PdfPicture`): cascata OOXML, paginação, tabelas, cabeçalhos/rodapés, notas, flutuantes, campos; árvore de páginas em twips + renderizador PDF (Formato da Imagem: `PictureLook` no item de imagem, composição dos efeitos no PDF como o Word). `SystemFontProvider` (fontes da máquina), `DocxLayoutPipeline` (.docx → layout → PDF), `LayoutDump` (dump normalizado da paridade) |
+| `OfficeNext.DrawingML` | Porta de `shared/drawingml`: intérprete das formas predefinidas OFICIAIS (o próprio `preset-defs.ts` embutido como recurso — uma fonte só), `PresetOutline`, rasterização sem DOM (`Raster`: polígonos, desfoque gaussiano, distância, dilatação/erosão, afim), os efeitos medidos no Word (`Effects`: sombra externa/interna, brilho, bordas suaves, reflexo) e o chanfro 3D (`Light3D` + `Bevel`: tabelas do `light3d.ts` e do `bevel-word.ts` também embutidas) e os padrões do a:pattFill (`Patterns`: o `patterns.ts` embutido) |
 | `OfficeNext.DocBinary` | Conversor .doc (Word 97-2003) → .docx, paridade parte a parte com o JS |
 | `OfficeNext.CorpusLab` | Console do corpus lab (porta de `run-engine.mjs`): grava `LAB_DIR/<tag>/<id>/net.pdf` + `info.json` para o `compare.py --source net` |
 | `OfficeNext.Xlsx` | Modelo + readers (styles/theme/worksheet), **`Format.FormatValue` pt-BR** (porta fiel de format.ts, 74 casos do oráculo Excel + fuzz 20k vs JS), cirurgia `UpdateWorksheetXml` |
@@ -38,6 +38,9 @@ node tools/gen-parity-layout.mjs
 #    Formato da Imagem: entrada sintética (fixtures/input/pictures.docx) — depois
 #    gen-parity-layout (expected/layout-input) e gen-parity-pdf --only pictures.docx
 node tools/gen-parity-pictures.mjs
+#    caixas de texto (vinculadas, verticais, ocultas, padrão/imagem, Estilos de Forma,
+#    formas com texto): fixtures/input/textboxes.docx — depois gen-parity-layout
+node tools/gen-parity-textboxes.mjs
 
 # 2. build + testes
 cd dotnet
@@ -67,7 +70,7 @@ node ../tools/bench-export-pdf.mjs
   `tools/gen-parity-layout.mjs`): mesma estrutura (itens na mesma ordem, mesmas
   faces/textos) e números com ±0,05 twip. `LayoutOracleTests` espelha o
   `oracle.test.ts` (linhas, páginas e baseline contra o PDF do Word, mesmas
-  tolerâncias). Sem Arial/Calibri/Times New Roman instaladas os casos não são
+  tolerâncias; texto girado das caixas verticais pelas `vlines`). Sem Arial/Calibri/Times New Roman instaladas os casos não são
   avaliados — as fontes são lidas da máquina, nunca versionadas (CLAUDE.md).
   `EngineRulesTests` / `ImagesAndPdfRulesTests` espelham `engine.test.ts`,
   `images.test.ts` e o `writer.test.ts` do pdf (documentos e imagens sintéticos
@@ -75,7 +78,8 @@ node ../tools/bench-export-pdf.mjs
   (listas/SEQ/notas), hiperlinks, WordArt VML, decodificadores de imagem,
   números do PDF e ids de glifo. `Layout_Js_Net_Input` compara do mesmo jeito as
   entradas sintéticas fora do oráculo (`fixtures/expected/layout-input`, ex.:
-  `pictures.docx` — Formato da Imagem, com a chave `pic` dos itens de imagem);
+  `pictures.docx` — Formato da Imagem, com a chave `pic` dos itens de imagem;
+  `textboxes.docx` — caixas de texto, com `pattern`/`blip` nas formas que os têm);
   `DrawingMLTests` cobre o intérprete das formas, a rasterização e os efeitos.
 - **Velocidade** (medida em Release, warmup 3 + média 10): Pptx ~13–16× o node,
   Docx ~5×, Xlsx ~3× (piso: o caso já roda em ~4 ms); todos <100 ms nas fixtures.

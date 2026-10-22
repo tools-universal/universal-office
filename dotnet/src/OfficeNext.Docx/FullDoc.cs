@@ -130,6 +130,74 @@ public static class FullDocReader
         public List<Block> Blocks = new();
     }
 
+    /// <summary>
+    /// Cada caixa de texto dos blocos (parágrafos do topo, células, itens de grupo e
+    /// caixas dentro de caixas), na ordem do documento, com o run que a carrega.
+    /// </summary>
+    public static void ForEachTextbox(IReadOnlyList<Block> blocks, Action<DrawingTextbox, Run> fn)
+    {
+        void Walk(IEnumerable<Block> bs)
+        {
+            foreach (var b in bs)
+            {
+                if (b is ParagraphBlock pb) Runs(pb.Paragraph.Runs);
+                else if (b is TableBlock tb)
+                    foreach (var row in tb.Rows)
+                        foreach (var c in row.Cells)
+                            Walk(c.Blocks ?? c.Paragraphs.Select(p => (Block)new ParagraphBlock { Paragraph = p }));
+            }
+        }
+        void Runs(IEnumerable<Run> rs)
+        {
+            foreach (var r in rs)
+            {
+                if (r.Textbox is not null)
+                {
+                    fn(r.Textbox, r);
+                    Walk(r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }));
+                }
+                if (r.Group is not null) foreach (var it in r.Group.Items) Runs(new[] { it.Run });
+            }
+        }
+        Walk(blocks);
+    }
+
+    /// <summary>
+    /// Cadeias de caixas VML (v:textbox style="mso-next-textbox:#id"): viram a forma do
+    /// DrawingML — a 1ª ganha Story e as seguintes Link {Id, Seq} (sem conteúdo).
+    /// Ids de história livres a partir do maior wps:txbx@id da parte.
+    /// </summary>
+    public static void LinkVmlTextboxes(IReadOnlyList<Block> blocks)
+    {
+        var byId = new Dictionary<string, DrawingTextbox>(StringComparer.Ordinal);
+        var targets = new HashSet<string>(StringComparer.Ordinal);
+        int maxStory = 0;
+        ForEachTextbox(blocks, (tb, _) =>
+        {
+            if (Js.Truthy(tb.VmlId)) byId[tb.VmlId!] = tb;
+            if (Js.Truthy(tb.VmlNext)) targets.Add(tb.VmlNext!);
+            if (tb.Story is { } s) maxStory = Math.Max(maxStory, s);
+        });
+        if (targets.Count == 0) return;
+        ForEachTextbox(blocks, (tb, _) =>
+        {
+            // cabeça: tem próxima e ninguém aponta para ela
+            if (!Js.Truthy(tb.VmlNext) || (Js.Truthy(tb.VmlId) && targets.Contains(tb.VmlId!)) || tb.Story is not null) return;
+            int id = ++maxStory;
+            tb.Story = id;
+            int seq = 0;
+            var seen = new HashSet<DrawingTextbox>(ReferenceEqualityComparer.Instance) { tb };
+            for (var cur = byId.GetValueOrDefault(tb.VmlNext!); cur is not null && !seen.Contains(cur);
+                 cur = Js.Truthy(cur.VmlNext) ? byId.GetValueOrDefault(cur.VmlNext!) : null)
+            {
+                seen.Add(cur);
+                cur.Link = new TextboxLink { Id = id, Seq = ++seq };
+                cur.Paras = new List<Paragraph>();
+                cur.Blocks = new List<Block>();
+            }
+        });
+    }
+
     private static HfPart? ReadHeaderFooterPart(DocxPackage pkg, string path)
     {
         string? xml = pkg.GetPartText(path);
@@ -139,6 +207,7 @@ public static class FullDocReader
         var ctx = DocumentReader.BuildReadContext(pkg, $"word/_rels/{partName}.rels");
         ctx.ReadBlocks = ReadBlocksOf;
         var blocks = ReadBlocksOf(root, ctx);
+        LinkVmlTextboxes(blocks);
         // modelo de edição (achatado): parágrafos do topo + os das células
         var paras = new List<Paragraph>();
         void Walk(List<Block> bs)
@@ -341,6 +410,7 @@ public static class FullDocReader
         if (sections.Count == 0)
             CloseSection(FirstChild(body, "w:sectPr") ?? new XmlElement("w:sectPr"), blocksAll.Count - 1);
         if (blocksAll.Count == 0) blocksAll.Add(new ParagraphBlock { Paragraph = new Paragraph() });
+        LinkVmlTextboxes(blocksAll);
 
         var footnoteBlocks = new Dictionary<int, List<Block>>();
         var endnoteBlocks = new Dictionary<int, List<Block>>();

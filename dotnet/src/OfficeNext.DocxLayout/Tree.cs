@@ -9,7 +9,7 @@ namespace OfficeNext.DocxLayout;
 /// </summary>
 public abstract class PageItem
 {
-    /// <summary>Discriminante do JS: glyphs | rect | line | image | shape | path | clip.</summary>
+    /// <summary>Discriminante do JS: glyphs | rect | line | image | shape | path | clip | xform.</summary>
     public abstract string T { get; }
 
     /// <summary>Cópia rasa ({ ...it }).</summary>
@@ -191,6 +191,10 @@ public sealed class ShapeItem : PageItem
     public GradFill? Grad;
     /// <summary>sombra externa resolvida (deslocamento em twips)</summary>
     public ShapeShadow? Shadow;
+    /// <summary>padrão (a:pattFill) com as cores resolvidas: bitmap 8×8, 1 pixel = 0,75 pt</summary>
+    public ShapePattern? Pattern;
+    /// <summary>imagem (a:blipFill): esticada no quadro ou em mosaico (a:tile)</summary>
+    public ShapeBlip? Blip;
 }
 
 /// <summary>Degradê (a:gradFill): paradas (pos 0..1), a:lin (ângulo, scaled), rotWithShape, a:path.</summary>

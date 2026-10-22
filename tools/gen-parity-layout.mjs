@@ -16,6 +16,9 @@
 //     "warnings": [...] }
 // imagem com Formato da Imagem leva `pic` (forma, contorno, efeitos e ajustes do
 // a:blip, cores resolvidas; frações como sx/stA a 0,0001); as demais não têm a chave.
+// forma com padrão (a:pattFill) leva `pattern` (prst, cores resolvidas) e com imagem/textura
+// (a:blipFill) `blip` (ext, bytes, a:tile, alfa) — idem, só quando há; xform leva op e a
+// matriz (6 números a 0,0001).
 // números arredondados a 0,01 (recorte e alfas a 0,0001), -0 → 0; ordem de
 // chaves fixa; um item / uma linha de texto por linha do arquivo (diff
 // legível). Exceção do motor num caso: { "error": "<mensagem>" } e segue.
@@ -34,10 +37,10 @@ const oracleDir = join(root, 'write', 'packages', 'docx-layout', 'test', 'oracle
 const outDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout');
 // entradas sintéticas de paridade fora do oráculo (sem medida do Word): fixtures/input/<nome>.docx
 // → expected/layout-input/<nome>.layout.json, casos "input/<nome>" (Formato da Imagem:
-// tools/gen-parity-pictures.mjs)
+// tools/gen-parity-pictures.mjs; caixas de texto: tools/gen-parity-textboxes.mjs)
 const inputDir = join(root, 'dotnet', 'tests', 'fixtures', 'input');
 const inputOutDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout-input');
-const INPUT_CASES = ['input/pictures', 'input/page', 'input/page-pattern', 'input/page-frame', 'input/page-tile'];
+const INPUT_CASES = ['input/pictures', 'input/page', 'input/page-pattern', 'input/page-frame', 'input/page-tile', 'input/textboxes'];
 
 // ─────────────────────── normalização ───────────────────────
 
@@ -127,6 +130,19 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
       : null,
   });
 
+  // imagem do a:blipFill (Imagem/Textura): bytes, mosaico (a:tile) e opacidade
+  const blip = (b) => ({
+    ext: str(b.image?.ext, 'blip.image.ext'),
+    bytes: num(b.image?.data?.length, 'blip.image.data.length', 1),
+    tile: b.tile
+      ? {
+        tx: r(b.tile.tx, 'blip.tile.tx'), ty: r(b.tile.ty, 'blip.tile.ty'), sx: r(b.tile.sx, 'blip.tile.sx'), sy: r(b.tile.sy, 'blip.tile.sy'),
+        algn: str(b.tile.algn, 'blip.tile.algn'), flip: str(b.tile.flip, 'blip.tile.flip'),
+      }
+      : null,
+    alpha: optR4(b.alpha, 'blip.alpha'),
+  });
+
   const item = (it) => {
     switch (it.t) {
       case 'glyphs': {
@@ -187,6 +203,9 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
           fill: optStr(it.fill, 'fill'),
           stroke: stroke(it.stroke),
           line: l ? [r(l.x1, 'line.x1'), r(l.y1, 'line.y1'), r(l.x2, 'line.x2'), r(l.y2, 'line.y2')] : null,
+          // padrão (a:pattFill) e imagem/textura (a:blipFill): só nos itens que os têm
+          ...(it.pattern ? { pattern: { prst: str(it.pattern.prst, 'pattern.prst'), fg: str(it.pattern.fg, 'pattern.fg'), bg: str(it.pattern.bg, 'pattern.bg') } } : {}),
+          ...(it.blip ? { blip: blip(it.blip) } : {}),
         };
       }
       case 'path':

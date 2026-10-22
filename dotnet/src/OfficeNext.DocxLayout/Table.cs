@@ -31,6 +31,9 @@ public sealed class CellContent
     /// <summary>tem forma ancorada: com w:doNotVertAlignCellWithSp (modos ≤ 14) não alinha na
     /// vertical (oráculo vcfloat)</summary>
     public bool Shape;
+
+    /// <summary>Cópia rasa ({ ...c }).</summary>
+    public CellContent ShallowClone() => (CellContent)MemberwiseClone();
 }
 
 public sealed class NestRow
@@ -48,6 +51,9 @@ public sealed class ParaSplitInfo
     public double After;
     /// <summary>faixa da borda de baixo (pBdr) depois da última linha</summary>
     public double? Band;
+
+    /// <summary>Cópia rasa ({ ...info }).</summary>
+    public ParaSplitInfo ShallowClone() => (ParaSplitInfo)MemberwiseClone();
 }
 
 /// <summary>Ambiente de uma célula: pPr/rPr do estilo de tabela e fundo escuro.</summary>

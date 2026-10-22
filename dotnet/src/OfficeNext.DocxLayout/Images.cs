@@ -68,6 +68,18 @@ public static class Images
         return null;
     }
 
+    /// <summary>Tamanho em pixels de uma imagem raster pelo cabeçalho (PNG, JPEG, GIF, BMP).</summary>
+    public static (double Width, double Height)? ImagePixelSize(byte[] b)
+    {
+        var jp = JpegInfo(b);
+        if (jp is not null) return (jp.Width, jp.Height);
+        if (b.Length > 24 && b[0] == 0x89 && b[1] == 0x50) return ((uint)((b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19]), (uint)((b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]));
+        if (b.Length > 10 && b[0] == 0x47 && b[1] == 0x49) return (b[6] | (b[7] << 8), b[8] | (b[9] << 8));
+        // (int de 32 bits com sinal, como o | do JS: altura negativa = BMP de cima para baixo)
+        if (b.Length > 26 && b[0] == 0x42 && b[1] == 0x4d) return (Math.Abs((long)(b[18] | (b[19] << 8) | (b[20] << 16) | (b[21] << 24))), Math.Abs((long)(b[22] | (b[23] << 8) | (b[24] << 16) | (b[25] << 24))));
+        return null;
+    }
+
     private static readonly byte[] PngSig = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
 
     public static Rgba? DecodePng(byte[] b)

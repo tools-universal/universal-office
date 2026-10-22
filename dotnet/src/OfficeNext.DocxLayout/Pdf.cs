@@ -205,7 +205,8 @@ public static class PdfRenderer
             if (Js.Truthy(lp.Background)) page.FillRect(0, 0, lp.WidthTw / T, lp.HeightTw / T, HexColor(lp.Background!));
             if (lp.BackgroundFill is not null) PaintFillPdf(page, lp, lp.BackgroundFill, BgImage, ImageFor);
             foreach (var it in lp.Items) PaintItem(page, it, FontFor, ImageFor,
-                (g, smp) => doc.AddShading(new PdfShadingGeom(g.Radial, g.X0, g.Y0, g.X1, g.Y1, g.R), smp, page.HeightPt), PictureEnv);
+                (g, smp) => doc.AddShading(new PdfShadingGeom(g.Radial, g.X0, g.Y0, g.X1, g.Y1, g.R), smp, page.HeightPt), PictureEnv,
+                (d, w, h) => doc.EmbedRgba(d, w, h));
         }
         return doc.Build();
     }
@@ -335,7 +336,8 @@ public static class PdfRenderer
     }
 
     private static void PaintItem(PdfPage page, PageItem item, Func<FontFace, bool, EmbeddedFont?> fontFor, Func<InlineImage, PdfImage?> imageFor,
-        Func<GradGeom, byte[], PdfShading> shade, Func<ImageItem, PdfPictureEnv>? pictureEnv = null)
+        Func<GradGeom, byte[], PdfShading> shade, Func<ImageItem, PdfPictureEnv>? pictureEnv = null,
+        Func<byte[], int, int, PdfImage>? embedRgba = null)
     {
         switch (item)
         {
@@ -418,7 +420,7 @@ public static class PdfRenderer
                     var st = it.Style;
                     PdfColor? fill = it.Fill is not null && Hex6.IsMatch(it.Fill) ? HexColor(it.Fill) : null;
                     var stroke = StrokeOf(it.Stroke, validate: true);
-                    if (fill is null && stroke is null && it.Grad is null) return;
+                    if (fill is null && stroke is null && it.Grad is null && it.Pattern is null && it.Blip is null) return;
                     double x = it.X / T, y = it.Y / T, w = it.W / T, h = it.H / T;
                     bool isLine = st.Geom == "line" || st.Geom.StartsWith("straightConnector", StringComparison.Ordinal);
                     bool fH = st.FlipH == true, fV = st.FlipV == true;
@@ -457,6 +459,46 @@ public static class PdfRenderer
                             PathStroke? ss = p.Stroke && stroke is { } sk ? sk with { Color = col } : null;
                             page.WithAlpha(shw.Alpha, shw.Alpha, () => page.Path(sc, sf, ss, p.EvenOdd));
                         }
+                    }
+                    // padrão (a:pattFill) e imagem/textura (a:blipFill): raster recortado pelo caminho
+                    if ((it.Pattern is not null || it.Blip is not null) && embedRgba is not null)
+                    {
+                        foreach (var p in parts.Where(p => p.Fill).ToList())
+                        {
+                            page.PushClipPath(p.Cmds, p.EvenOdd);
+                            if (it.Pattern is not null)
+                            {
+                                var pr = Geometry.PatternRaster(it.Pattern, x, y, w, h, 0.75, 4);
+                                if (pr is not null) page.DrawImage(embedRgba(pr.Data, pr.W, pr.H), pr.X, pr.Y, pr.CellsW * 0.75, pr.CellsH * 0.75);
+                            }
+                            else if (it.Blip is { } bl)
+                            {
+                                var im = imageFor(bl.Image);
+                                var nat = Images.ImagePixelSize(bl.Image.Data);
+                                if (im is not null) page.WithAlpha(bl.Alpha, null, () =>
+                                {
+                                    foreach (var t in Geometry.BlipTiles(bl, x, y, w, h, 1.0 / 12700, nat)) page.DrawImage(im, t.X, t.Y, t.W, t.H);
+                                });
+                            }
+                            page.PopClip();
+                        }
+                        if (stroke is not null) foreach (var p in parts) if (p.Stroke) page.WithAlpha(null, st.Line?.Alpha, () => page.Path(p.Cmds, null, stroke));
+                        return;
+                    }
+                    // degradê em retângulos ("Do Centro"): raster no quadro da forma, girado com ela
+                    if (it.Grad is { } rg && Geometry.IsRectGradient(rg) && embedRgba is not null)
+                    {
+                        var r = Geometry.RectGradientRaster(rg, w, h, 2);
+                        var im = embedRgba(r.Data, r.W, r.H);
+                        foreach (var p in parts)
+                        {
+                            if (!p.Fill) continue;
+                            page.PushClipPath(p.Cmds, p.EvenOdd);
+                            page.WithAlpha(st.FillAlpha, null, () => page.DrawImageTransformed(im, x, y, w, h, st.Rot ?? 0, st.FlipH == true, st.FlipV == true));
+                            page.PopClip();
+                        }
+                        if (stroke is not null) foreach (var p in parts) if (p.Stroke) page.WithAlpha(null, st.Line?.Alpha, () => page.Path(p.Cmds, null, stroke));
+                        return;
                     }
                     if (it.Grad is { } grad)
                     {

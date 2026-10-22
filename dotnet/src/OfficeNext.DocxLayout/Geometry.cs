@@ -342,11 +342,171 @@ public static class Geometry
         return new GradGeom(false, ax0, ay0, ax1, ay1, 0);
     }
 
-    /// <summary>Degradê e sombra de um ShapeStyle com as cores do tema resolvidas (itens 'shape').</summary>
-    public static (GradFill? Grad, ShapeShadow? Shadow) ShapeExtras(ShapeStyle s, Theme theme)
+    /// <summary>Raster de um padrão (PatternRaster): RGBA, canto e tamanho em células.</summary>
+    public sealed record PatternRasterResult(byte[] Data, int W, int H, double X, double Y, int CellsW, int CellsH);
+
+    /// <summary>
+    /// Padrão (a:pattFill) num quadro: raster RGBA com 1 pixel do padrão por célula da grade
+    /// (<paramref name="px"/> unidades — 0,75 pt / 15 twips: 1/96 pol, medido no PDF do Word), a grade
+    /// alinhada à origem da página. Devolve o canto (na unidade do quadro) e o tamanho em células.
+    /// </summary>
+    public static PatternRasterResult? PatternRaster(ShapePattern p, double x, double y, double w, double h, double px, int k = 1)
     {
+        var rows = OfficeNext.DrawingML.Patterns.PatternRows(p.Prst);
+        // (NaN também sai: no JS daria um raster vazio de tamanho NaN)
+        if (rows is null || !(w > 0) || !(h > 0)) return null;
+        double i0 = Math.Floor(x / px), j0 = Math.Floor(y / px);
+        int W = (int)JsMax(1, Math.Ceiling((x + w) / px) - i0), H = (int)JsMax(1, Math.Ceiling((y + h) / px) - j0);
+        var fg = HexRgb(p.Fg);
+        var bg = HexRgb(p.Bg);
+        // k pixels por célula: sem a interpolação do visualizador borrando o padrão
+        int RW = W * k, RH = H * k;
+        var data = new byte[RW * RH * 4];
+        static byte U8(double v) => double.IsNaN(v) ? (byte)0 : (byte)v; // NaN num Uint8Array vira 0
+        for (int y2 = 0; y2 < RH; y2++)
+        {
+            int j = y2 / k;
+            int row = rows[(int)((((j0 + j) % 8) + 8) % 8)];
+            for (int x2 = 0; x2 < RW; x2++)
+            {
+                int i = x2 / k;
+                int on = (row >> (7 - (int)((((i0 + i) % 8) + 8) % 8))) & 1;
+                var c = on != 0 ? fg : bg;
+                int q = (y2 * RW + x2) * 4;
+                data[q] = U8(c[0]); data[q + 1] = U8(c[1]); data[q + 2] = U8(c[2]); data[q + 3] = 255;
+            }
+        }
+        return new PatternRasterResult(data, RW, RH, i0 * px, j0 * px, W, H);
+    }
+
+    /// <summary>
+    /// Imagem do a:blipFill no quadro: esticada (um retângulo) ou em mosaico (a:tile: escala
+    /// sx/sy em 1/1000 %, deslocamento tx/ty em EMU, alinhamento do 1º ladrilho; tamanho
+    /// natural a 96 ppp). <paramref name="emu"/> = unidades do quadro por EMU; <paramref name="natural"/> em pixels.
+    /// </summary>
+    public static List<(double X, double Y, double W, double H)> BlipTiles(ShapeBlip b, double x, double y, double w, double h, double emu, (double Width, double Height)? natural)
+    {
+        var t = b.Tile;
+        if (t is null || natural is not { } nat) return new() { (x, y, w, h) };
+        double tw = nat.Width * 9525 * emu * (t.Sx / 100000), th = nat.Height * 9525 * emu * (t.Sy / 100000);
+        if (!(tw > 0) || !(th > 0)) return new() { (x, y, w, h) };
+        string a = t.Algn ?? "tl";
+        double ax = a.Contains('r') ? x + w - tw : a is "t" or "ctr" or "b" ? x + (w - tw) / 2 : x;
+        double ay = a.StartsWith('b') ? y + h - th : a is "l" or "ctr" or "r" ? y + (h - th) / 2 : y;
+        double ox = ax + t.Tx * emu, oy = ay + t.Ty * emu;
+        double sx0 = ox - Math.Ceiling((ox - x) / tw) * tw, sy0 = oy - Math.Ceiling((oy - y) / th) * th;
+        var outp = new List<(double, double, double, double)>();
+        for (double ty = sy0; ty < y + h && outp.Count < 4000; ty += th)
+            for (double tx = sx0; tx < x + w; tx += tw) outp.Add((tx, ty, tw, th));
+        return outp;
+    }
+
+    /// <summary>Degradê em retângulos (a:path path="rect" | "shape"): o "Do Centro" do Word — anéis
+    /// retangulares do retângulo de foco (fillToRect) até as bordas do quadro.</summary>
+    public static bool IsRectGradient(GradFill? g) => g is not null && (g.Path == "rect" || g.Path == "shape");
+
+    /// <summary>Raster RGBA do degradê retangular no quadro (w × h unidades, <paramref name="ppu"/> pixels por unidade).</summary>
+    public static (byte[] Data, int W, int H) RectGradientRaster(GradFill g, double w, double h, double ppu)
+    {
+        int W = (int)JsMax(1, JsMin(2000, OfficeNext.Core.JsNumber.Round(w * ppu)));
+        int H = (int)JsMax(1, JsMin(2000, OfficeNext.Core.JsNumber.Round(h * ppu)));
+        var f = g.FillTo ?? new RectTw { L = 0.5, T = 0.5, R = 0.5, B = 0.5 };
+        double fx0 = f.L * W, fx1 = (1 - f.R) * W, fy0 = f.T * H, fy1 = (1 - f.B) * H;
+        var smp = GradientSamples(g.Stops, 256);
+        var data = new byte[W * H * 4];
+        for (int y = 0; y < H; y++)
+        {
+            double py = y + 0.5;
+            double ty = py < fy0 ? (fy0 - py) / JsMax(1e-6, fy0) : py > fy1 ? (py - fy1) / JsMax(1e-6, H - fy1) : 0;
+            for (int x = 0; x < W; x++)
+            {
+                double px = x + 0.5;
+                double tx = px < fx0 ? (fx0 - px) / JsMax(1e-6, fx0) : px > fx1 ? (px - fx1) / JsMax(1e-6, W - fx1) : 0;
+                double t = JsMin(1, JsMax(tx, ty));
+                double iv = OfficeNext.Core.JsNumber.Round(t * 255) * 3;
+                int k = (y * W + x) * 4;
+                // (índice fora da tabela — NaN, negativo: undefined no JS, 0 no Uint8Array)
+                bool ok = !double.IsNaN(iv) && iv >= 0 && iv + 2 < smp.Length;
+                int i = ok ? (int)iv : 0;
+                data[k] = ok ? smp[i] : (byte)0; data[k + 1] = ok ? smp[i + 1] : (byte)0; data[k + 2] = ok ? smp[i + 2] : (byte)0; data[k + 3] = 255;
+            }
+        }
+        return (data, W, H);
+    }
+
+    /// <summary>Cor do estilo do tema com a do marcador phClr trocada pela da referência (a do
+    /// fillRef/effectRef): os modificadores da referência e depois os do estilo.</summary>
+    public static string SubstPhClr(string spec, string color)
+    {
+        if (!spec.StartsWith("@phClr", StringComparison.Ordinal)) return spec;
+        var sp = spec.Split('|');
+        string? mods = sp.Length > 1 ? sp[1] : null;
+        if (string.IsNullOrEmpty(mods)) return color;
+        var cp = color.Split('|');
+        string bas = cp[0];
+        string? cm = cp.Length > 1 ? cp[1] : null;
+        return $"{bas}|{string.Join(",", new[] { cm, mods }.Where(Js.Truthy))}";
+    }
+
+    /// <summary>O ShapeStyle com o preenchimento e a sombra dos estilos do tema (fillRef idx 2/3 e
+    /// 1001…, effectRef) já postos — Estilos de Forma (oráculo textbox-lab style-*).</summary>
+    public static ShapeStyle WithThemeStyles(ShapeStyle s, Theme theme)
+    {
+        var outp = s;
+        if (s.FillRef is { } fr)
+        {
+            var list = fr.Idx >= 1000 ? theme.BgFillStyles : theme.FillStyles;
+            int li = (fr.Idx % 1000) - 1;
+            var ts = list is not null && li >= 0 && li < list.Count ? list[li] : null;
+            if (ts is not null)
+            {
+                string c = fr.Color;
+                outp = outp.ShallowClone();
+                if (Js.Truthy(ts.Fill)) outp.Fill = SubstPhClr(ts.Fill!, c);
+                if (ts.Gradient is { } tg)
+                {
+                    outp.Gradient = new ShapeGradient
+                    {
+                        From = SubstPhClr(tg.From, c), To = SubstPhClr(tg.To, c), AngleDeg = tg.AngleDeg,
+                        Stops = tg.Stops is not null ? tg.Stops.Select(x => new GradStop { Pos = x.Pos, Color = SubstPhClr(x.Color, c) }).ToList() : null,
+                        Scaled = tg.Scaled, RotWithShape = tg.RotWithShape, Path = tg.Path, FillTo = tg.FillTo,
+                    };
+                }
+                if (ts.Pattern is { } tp)
+                {
+                    var np = tp.ShallowClone();
+                    np.Fg = SubstPhClr(tp.Fg, c);
+                    np.Bg = SubstPhClr(tp.Bg, c);
+                    outp.Pattern = np;
+                }
+            }
+        }
+        if (s.EffectRef is { } er && s.Shadow is null)
+        {
+            var effs = theme.EffectStyles;
+            int ei = er.Idx - 1;
+            var sh = effs is not null && ei >= 0 && ei < effs.Count ? effs[ei] : null;
+            if (sh is not null)
+            {
+                if (ReferenceEquals(outp, s)) outp = outp.ShallowClone();
+                outp.Shadow = new ShapeShadow { Dx = sh.Dx, Dy = sh.Dy, Color = SubstPhClr(sh.Color, er.Color), Alpha = sh.Alpha, Blur = sh.Blur };
+            }
+        }
+        return outp;
+    }
+
+    /// <summary>Degradê, padrão, imagem e sombra de um ShapeStyle com as cores do tema resolvidas (itens 'shape').</summary>
+    public static (GradFill? Grad, ShapeShadow? Shadow, ShapePattern? Pattern, ShapeBlip? Blip) ShapeExtras(ShapeStyle s0, Theme theme)
+    {
+        var s = WithThemeStyles(s0, theme);
         GradFill? grad = null;
         ShapeShadow? shadow = null;
+        ShapePattern? pattern = null;
+        if (s.Pattern is { } pt)
+        {
+            pattern = new ShapePattern { Prst = pt.Prst, Fg = Resolve.ResolveDrawingColor(pt.Fg, theme) ?? "000000", Bg = Resolve.ResolveDrawingColor(pt.Bg, theme) ?? "FFFFFF" };
+        }
+        var blip = s.Blip;
         var g = s.Gradient;
         if (g?.Stops is { Count: > 0 } stops)
         {
@@ -365,7 +525,7 @@ public static class Geometry
             string? c = Resolve.ResolveDrawingColor(sh.Color, theme);
             if (c is not null) shadow = new ShapeShadow { Dx = sh.Dx, Dy = sh.Dy, Color = c, Alpha = sh.Alpha, Blur = sh.Blur };
         }
-        return (grad, shadow);
+        return (grad, shadow, pattern, blip);
     }
 
     // ───────────────────────── grupos girados/espelhados ─────────────────────────

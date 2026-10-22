@@ -150,6 +150,8 @@ public sealed class DrawingShape
     public RectTw? InlineEffect;
     /// <summary>linha horizontal VML (v:rect o:hr="t", "Inserir linha horizontal")</summary>
     public bool Hr;
+    /// <summary>wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto</summary>
+    public bool Hidden;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public DrawingShape ShallowClone() => (DrawingShape)MemberwiseClone();
@@ -215,9 +217,35 @@ public sealed class DrawingTextbox
     /// <summary>Blocos em ordem (parágrafos + tabelas) do txbxContent.</summary>
     public List<Block>? Blocks;
     public bool Vml;
+    /// <summary>wps:txbx@id — 1ª caixa de uma cadeia de caixas vinculadas (a história)</summary>
+    public int? Story;
+    /// <summary>wps:linkedTxbx — caixa seguinte de uma cadeia (sem conteúdo próprio): o id da
+    /// história e a posição na cadeia (1, 2…)</summary>
+    public TextboxLink? Link;
+    /// <summary>VML: id do v:shape e o da caixa seguinte (mso-next-textbox) — viram Story/Link
+    /// na leitura da parte (LinkVmlTextboxes)</summary>
+    public string? VmlId;
+    public string? VmlNext;
+    /// <summary>direção do texto (wps:bodyPr vert ≠ horz; VML layout-flow): vert, vert270,
+    /// eaVert, mongolianVert, wordArtVert, wordArtVertRtl</summary>
+    public string? Vert;
+    /// <summary>wps:bodyPr upright — o texto não gira com a forma</summary>
+    public bool Upright;
+    /// <summary>wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto</summary>
+    public bool Hidden;
+    /// <summary>cor do texto sem cor própria: a do wps:style/a:fontRef (medido: estilo de forma
+    /// com fontRef lt1 deixa o texto branco) — RRGGBB ou @esquema|mods</summary>
+    public string? FontColor;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public DrawingTextbox ShallowClone() => (DrawingTextbox)MemberwiseClone();
+}
+
+/// <summary>wps:linkedTxbx: o id da história e a posição na cadeia (1, 2…).</summary>
+public sealed class TextboxLink
+{
+    public int Id;
+    public int Seq;
 }
 
 /// <summary>Item de um grupo de desenho: retângulo relativo ao canto do grupo.</summary>
@@ -242,6 +270,8 @@ public sealed class DrawingGroup
     public double? Rot;
     public bool FlipH;
     public bool FlipV;
+    /// <summary>wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto</summary>
+    public bool Hidden;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public DrawingGroup ShallowClone() => (DrawingGroup)MemberwiseClone();

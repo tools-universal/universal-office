@@ -271,6 +271,9 @@ public static class DocumentReader
         tb.Insets = new TextboxInsets { L = InsTw("lIns", 144), T = InsTw("tIns", 72), R = InsTw("rIns", 144), B = InsTw("bIns", 72) };
         string? anc = bodyPr.Attr("anchor");
         if (anc is "t" or "ctr" or "b") tb.VAnchor = anc;
+        string? vert = bodyPr.Attr("vert");
+        if (Js.Truthy(vert) && vert != "horz") tb.Vert = vert;
+        if (bodyPr.Attr("upright") is "1" or "true") tb.Upright = true;
         if (bodyPr.Attr("fromWordArt") is "1" or "true")
         {
             tb.WordArt = FirstChild(bodyPr, "a:prstTxWarp")?.Attr("prst") ?? "textPlain";
@@ -321,12 +324,49 @@ public static class DocumentReader
             var style = DrawingReader.ReadSpPr(spPr, FirstChild(obj, "wps:style"));
             var txbx = FirstChild(obj, "wps:txbx");
             var content = txbx is not null ? FirstChild(txbx, "w:txbxContent") : null;
-            if (content is not null)
+            // caixa seguinte de uma cadeia vinculada: sem conteúdo próprio (o da 1ª flui nela)
+            var linked = content is null ? FirstChild(obj, "wps:linkedTxbx") : null;
+            if (content is not null || linked is not null)
             {
                 var tb = new DrawingTextbox { WidthTwips = wTw, HeightTwips = hTw };
-                TextboxBlocks(content, ctx, tb);
+                if (content is not null)
+                {
+                    TextboxBlocks(content, ctx, tb);
+                    double sid = Js.ParseInt(txbx!.Attr("id") ?? "");
+                    if (double.IsFinite(sid)) tb.Story = (int)sid;
+                }
+                else
+                {
+                    tb.Paras = new List<Paragraph>();
+                    tb.Blocks = new List<Block>();
+                    double lid = Js.IntOr0(linked!.Attr("id") ?? "0"), lseq = Js.IntOr0(linked.Attr("seq") ?? "1");
+                    tb.Link = new TextboxLink { Id = (int)lid, Seq = lseq != 0 ? (int)lseq : 1 };
+                }
                 BodyPrOf(tb, FirstChild(obj, "wps:bodyPr"));
-                if (Js.Truthy(style.Fill) || style.Line is not null || style.Gradient is not null) tb.Shape = style;
+                var fontRef = FirstChild(FirstChild(obj, "wps:style") ?? obj, "a:fontRef");
+                if (fontRef is not null)
+                {
+                    var sf = new XmlElement("a:solidFill");
+                    sf.Children.AddRange(ChildElements(fontRef));
+                    var sp = new XmlElement("wps:spPr");
+                    sp.Children.Add(sf);
+                    string? fc = DrawingReader.ReadSpPr(sp).Fill;
+                    if (Js.Truthy(fc)) tb.FontColor = fc;
+                }
+                // preenchimento de imagem (Imagem: esticada; Textura: a:tile)
+                var bf = spPr is not null ? FirstChild(spPr, "a:blipFill") : null;
+                var blip = bf is not null ? FirstChild(bf, "a:blip") : null;
+                var bmedia = Js.Truthy(blip?.Attr("r:embed")) ? ctx.ResolveImage(blip!.Attr("r:embed")!) : null;
+                if (bf is not null && bmedia is { } bm)
+                {
+                    var tile = FirstChild(bf, "a:tile");
+                    double N(string k, double d) => Js.IntOr0(tile?.Attr(k) ?? Js.Str(d));
+                    var amf = blip is not null ? FirstChild(blip, "a:alphaModFix") : null;
+                    style.Blip = new ShapeBlip { Image = new InlineImage { Data = bm.Data, Ext = bm.Ext } };
+                    if (tile is not null) style.Blip.Tile = new BlipTile { Tx = N("tx", 0), Ty = N("ty", 0), Sx = N("sx", 100000), Sy = N("sy", 100000), Algn = tile.Attr("algn") ?? "tl", Flip = tile.Attr("flip") ?? "none" };
+                    if (amf is not null) style.Blip.Alpha = Js.IntOr0(amf.Attr("amt") ?? "100000") / 100000;
+                }
+                if (Js.Truthy(style.Fill) || style.Line is not null || style.Gradient is not null || style.Blip is not null || style.Pattern is not null || style.EffectRef is not null) tb.Shape = style;
                 tb.LineInset = style.LineInset ?? new LineInset();
                 if (!string.IsNullOrEmpty(style.Geom) && style.Geom != "rect" && style.Geom != "custom") tb.Geom = new TextboxGeom { Prst = style.Geom, Adj = style.Adj };
                 // espelho vertical gira o texto 180° (o horizontal não o afeta): rot 180 + flipV fica
@@ -628,6 +668,14 @@ public static class DocumentReader
                 else run.Textbox!.BehindDoc = true;
             }
         }
+        // oculto (Painel de Seleção) — a imagem leva no Format.DocPr
+        var docPr = FirstChild(container, "wp:docPr");
+        if (docPr is not null && OneOrTrueRe.IsMatch(docPr.Attr("hidden") ?? "") && (run.Textbox is not null || run.Shape is not null || run.Group is not null))
+        {
+            if (run.Textbox is not null) run.Textbox.Hidden = true;
+            else if (run.Shape is not null) run.Shape.Hidden = true;
+            else run.Group!.Hidden = true;
+        }
         // campos legados usados pelo editor (relH/relV/offsets)
         if (anchor is not null)
         {
@@ -749,6 +797,17 @@ public static class DocumentReader
                     var tbStyle = DrawingReader.ParseVmlStyle(txb.Attr("style"));
                     if (SG(tbStyle, "mso-fit-shape-to-text") == "t") tb.AutoFit = true;
                     if (SG(DrawingReader.ParseVmlStyle(el.Attr("style")), "mso-wrap-style") == "none") tb.NoWrap = true;
+                    // direção (layout-flow) e alinhamento vertical (v-text-anchor) — oráculo textbox-lab
+                    string? flow = SG(tbStyle, "layout-flow"), alt = SG(tbStyle, "mso-layout-flow-alt");
+                    if (flow == "vertical") tb.Vert = alt == "bottom-to-top" ? "vert270" : alt == "top-to-bottom" ? "mongolianVert" : "vert";
+                    else if (flow == "vertical-ideographic") tb.Vert = "eaVert";
+                    string? va = SG(st, "v-text-anchor");
+                    if (va is "middle" or "middle-center" or "middle-baseline") tb.VAnchor = "ctr";
+                    else if (va is "bottom" or "bottom-center" or "bottom-baseline") tb.VAnchor = "b";
+                    // cadeia de caixas vinculadas (mso-next-textbox:#id): resolvida na leitura da parte
+                    if (Js.Truthy(el.Attr("id"))) tb.VmlId = el.Attr("id");
+                    string? next = SG(tbStyle, "mso-next-textbox");
+                    if (Js.Truthy(next)) tb.VmlNext = next!.StartsWith('#') ? next[1..] : next;
                     var sh = DrawingReader.VmlShapeStyle(el, "rect");
                     if (Js.Truthy(sh.Fill) || sh.Line is not null) tb.Shape = sh;
                     run = new Run { Text = Obj, Textbox = tb };

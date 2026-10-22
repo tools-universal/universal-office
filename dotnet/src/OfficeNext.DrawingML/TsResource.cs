@@ -5,7 +5,7 @@ namespace OfficeNext.DrawingML;
 
 /// <summary>
 /// Tabelas de texto lidas dos PRÓPRIOS fontes TS de shared/drawingml, embutidos como
-/// recurso (preset-defs.ts, light3d.ts, bevel-word.ts) — uma fonte só para JS e .NET:
+/// recurso (preset-defs.ts, light3d.ts, bevel-word.ts, patterns.ts) — uma fonte só para JS e .NET:
 /// as linhas <c>  nome: '…',</c> / <c>  'chave': '…',</c> de um objeto literal (sem
 /// escapes dentro das aspas, como os geradores gravam).
 /// </summary>

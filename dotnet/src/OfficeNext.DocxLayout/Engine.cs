@@ -1419,6 +1419,7 @@ internal sealed class Engine
                 var para = join is not null ? JoinHidden(join, merged, env) : merged;
                 ParaEnv penv = envNoBreaks;
                 if (join is not null) { penv = envNoBreaks.Clone(); penv.Numbering = false; }
+                if (Chain.IsContinuation(para)) { if (ReferenceEquals(penv, envNoBreaks)) penv = envNoBreaks.Clone(); penv.Continuation = true; }
                 var p = Para.PrepareParagraph(_ctx, para, penv);
                 if (join is not null) p.Marker = join.Marker;
                 join = null;
@@ -3948,6 +3949,109 @@ internal sealed class Engine
         return last;
     }
 
+    /// <summary>Ambiente do texto da caixa: fundo escuro (cor automática branca) e a cor do
+    /// wps:style/a:fontRef para o texto sem cor (medido: estilo de forma "preenchido") — postos
+    /// em <paramref name="env"/> (o { ...env, ...tbEnv(tb) } do JS).</summary>
+    private ParaEnv TbEnv(ParaEnv env, DrawingTextbox tb)
+    {
+        var theme = _ctx.Fmt.Theme;
+        string? fc = Js.Truthy(tb.FontColor) ? Resolve.ResolveDrawingColor(tb.FontColor, theme) : null;
+        // só o preenchimento SÓLIDO escuro clareia o texto automático (medido: degradê e padrão não)
+        var s = tb.Shape;
+        string? solid = s is not null && s.Gradient is null && s.Pattern is null && s.Blip is null && s.FillRef is null ? s.Fill : null;
+        env.DarkBackground = IsDark(Resolve.ResolveDrawingColor(solid, theme));
+        if (Js.Truthy(fc)) env.DefaultColor = fc;
+        return env;
+    }
+
+    /// <summary>cadeias de caixas vinculadas (montadas na 1ª caixa que precisa)</summary>
+    private Dictionary<DrawingTextbox, TextboxChain>? _chains;
+    /// <summary>conteúdo de cada caixa de uma cadeia (diagramado uma vez por passada)</summary>
+    private readonly Dictionary<TextboxChain, Dictionary<DrawingTextbox, CellContent>> _chainSlices = new(ReferenceEqualityComparer.Instance);
+
+    private TextboxChain? ChainOf(DrawingTextbox tb)
+    {
+        // (história 0 conta como sem história, como o !tb.story do JS)
+        if ((tb.Story ?? 0) == 0 && tb.Link is null) return null;
+        _chains ??= Chain.IndexChains(_full);
+        return _chains.TryGetValue(tb, out var c) ? c : null;
+    }
+
+    private static readonly Regex ChainBlockRefRe = new("^[^/]+/b[0-9]+$", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Pedaço do conteúdo da cadeia que cabe na caixa <paramref name="tb"/>: o conteúdo da 1ª caixa é
+    /// diagramado na largura de cada caixa, em ordem; o corte (o mesmo da linha de tabela
+    /// partida: viúvas/órfãs, espaço depois) manda o resto para a seguinte, que quebra de
+    /// novo na largura dela — o parágrafo partido continua sem recuo da 1ª linha e sem
+    /// espaço antes. A última fica com tudo o que sobra (transborda). Oráculo txbxlink.
+    /// </summary>
+    private CellContent ChainSlice(TextboxChain chain, DrawingTextbox tb, ParaEnv env0)
+    {
+        if (!_chainSlices.TryGetValue(chain, out var slices))
+        {
+            var outp = new Dictionary<DrawingTextbox, CellContent>(ReferenceEqualityComparer.Instance);
+            slices = outp;
+            _chainSlices[chain] = outp;
+            var theme = _ctx.Fmt.Theme;
+            var head = chain.Members[0];
+            List<Block> rem = head.Blocks ?? head.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
+            List<int> map = Enumerable.Range(0, rem.Count).ToList();
+            double cont = 0;
+            static CellContent Empty() => new CellContent();
+            for (int k = 0; k < chain.Members.Count; k++)
+            {
+                var m = chain.Members[k];
+                if (rem.Count == 0) { outp[m] = Empty(); continue; }
+                var fr = TbFrame(m, theme, m.WidthTwips, m.HeightTwips);
+                var env = TbEnv(env0.Clone(), m);
+                var blocks = rem;
+                var curMap = map;
+                double curCont = cont;
+                var c = _ctx.Pure(() => LayoutStatic(blocks, 0, Math.Max(1, fr.Iw), env, "txbx"));
+                // a 1ª linha da continuação não é a 1ª do parágrafo (viúvas/órfãs)
+                var ci = curCont != 0 && !double.IsNaN(curCont) && c.Paras is not null && c.Paras.TryGetValue("txbx/b0", out var cv) ? cv : null;
+                if (ci is not null) { var nci = ci.ShallowClone(); nci.Lines = ci.Lines + 1; c.Paras!["txbx/b0"] = nci; }
+                var slice = c;
+                rem = new List<Block>();
+                if (k < chain.Members.Count - 1)
+                {
+                    var parts = TableEngine.SplitContent(c, fr.Ih);
+                    // nem a 1ª linha coube: a caixa fica vazia e tudo segue
+                    if (parts is null) { outp[m] = Empty(); rem = blocks; continue; }
+                    double cut = parts.Value.A.Height;
+                    var moved = c.Lines.Where(l => l.Y >= cut - 0.01).ToList();
+                    if (moved.Count > 0)
+                    {
+                        slice = parts.Value.A.ShallowClone();
+                        slice.Height = cut;
+                        var first = moved.Aggregate((a, b) => b.Y < a.Y ? b : a);
+                        int j = Math.Max(0, Chain.TopBlockOf(first.Ref));
+                        // linha numa tabela: a tabela inteira vai para a próxima caixa
+                        double off = ChainBlockRefRe.IsMatch(first.Ref) ? first.Start : 0;
+                        map = curMap.Skip(j).ToList();
+                        var pb = j < blocks.Count ? blocks[j] : null;
+                        if (off > 0 && pb is ParagraphBlock ppb)
+                        {
+                            cont = (j == 0 ? curCont : 0) + off;
+                            rem = new List<Block> { new ParagraphBlock { Paragraph = Chain.SliceParagraphFrom(ppb.Paragraph, off) } };
+                            rem.AddRange(blocks.Skip(j + 1));
+                        }
+                        else
+                        {
+                            cont = 0;
+                            rem = blocks.Skip(j).ToList();
+                        }
+                    }
+                }
+                var sl = slice.ShallowClone();
+                sl.Lines = Chain.RemapLines(slice.Lines, curMap, curCont);
+                outp[m] = sl;
+            }
+        }
+        return slices.TryGetValue(tb, out var r) ? r : new CellContent();
+    }
+
     private static bool IsFloating(Run run) =>
         run.Image?.Floating == true || run.Shape?.Floating == true || run.Group?.Floating == true || run.Textbox?.Floating == true;
 
@@ -4032,7 +4136,8 @@ internal sealed class Engine
         var g = ps.Geom;
         // imagem flutuante oculta (Painel de Seleção, docPr hidden): não desenha nem
         // afasta o texto; a em linha continua (oráculo pichidden)
-        if (run.Image is { Floating: true, Format.DocPr.Hidden: true })
+        // caixa de texto, forma ou grupo oculto: idem (oráculo txbxhide)
+        if (run.Image is { Floating: true, Format.DocPr.Hidden: true } || run.Textbox?.Hidden == true || run.Shape?.Hidden == true || run.Group?.Hidden == true)
         {
             return new FloatReceipt
             {
@@ -4053,13 +4158,22 @@ internal sealed class Engine
         // diagramação final do conteúdo da caixa já no lugar: flutuantes DENTRO dela
         // ficam relativos à caixa (antes iam para a origem da página)
         Func<double, double, CellContent>? tbFinal = null;
-        if (run.Textbox is not null)
+        var chain = run.Textbox is not null ? ChainOf(run.Textbox) : null;
+        if (run.Textbox is not null && chain is not null)
+        {
+            // caixa de uma cadeia vinculada: o pedaço do conteúdo que cabe nela (oráculo txbxlink)
+            tbContent = ChainSlice(chain, run.Textbox, new ParaEnv { Field = FieldValue(ps), Hf = _inHf });
+        }
+        else if (run.Textbox is not null)
         {
             var tb = run.Textbox;
-            var ins = TbInsets(tb, _ctx.Fmt.Theme, w, h);
+            // margens e largura no referencial do TEXTO (direção vertical gira as margens)
+            var fr = TbFrame(tb, _ctx.Fmt.Theme, w, h);
+            var ins = fr.Ins;
             var blocks = tb.Blocks ?? tb.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-            var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)), Hf = _inHf };
-            double inner = w - ins.L - ins.R;
+            var env = TbEnv(new ParaEnv { Field = FieldValue(ps) }, tb);
+            env.Hf = _inHf;
+            double inner = fr.Iw;
             var fi = Frames.InfoOf(tb);
             if (fi?.AutoWidth == true)
             {
@@ -4087,15 +4201,21 @@ internal sealed class Engine
             }
             double iw = Math.Max(1, inner);
             tbContent = _ctx.Pure(() => LayoutStatic(blocks, 0, iw, env, "txbx"));
-            tbFinal = (bx, by) =>
+            // (texto vertical: girado na pintura; flutuantes dentro dele ficam na origem)
+            if (fr.Rot == 0)
             {
-                double prevDx = _staticDx;
-                _staticDx = bx + ins.L;
-                try { return LayoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.T); }
-                finally { _staticDx = prevDx; }
-            };
-            // ajuste automático: a altura é a do texto (o cy gravado pode estar desatualizado)
-            if (tb.AutoFit) h = tbContent.Height + ins.T + ins.B;
+                tbFinal = (bx, by) =>
+                {
+                    double prevDx = _staticDx;
+                    _staticDx = bx + ins.L;
+                    try { return LayoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.T); }
+                    finally { _staticDx = prevDx; }
+                };
+            }
+            // ajuste automático: a altura do texto vira a altura da caixa (o cy gravado pode estar
+            // desatualizado); no texto vertical, a LARGURA (oráculo txbxvert)
+            if (tb.AutoFit && fr.Rot != 0) w = VerticalHeight(tbContent) + ins.T + ins.B;
+            else if (tb.AutoFit) h = tbContent.Height + ins.T + ins.B;
             if (fi is not null) h = fi.HRule == "exact" ? fi.H : fi.HRule == "atLeast" ? Math.Max(fi.H, tbContent.Height) : tbContent.Height;
         }
         double x, y;
@@ -4239,9 +4359,10 @@ internal sealed class Engine
             CellContent? tc = null;
             if (r.Textbox is not null)
             {
-                var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme, w, h);
                 var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-                tc = LayoutStatic(blocks, 0, Math.Max(1, w - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "itb", ps);
+                var chain = ChainOf(r.Textbox);
+                tc = chain is not null ? ChainSlice(chain, r.Textbox, new ParaEnv())
+                    : LayoutStatic(blocks, 0, Math.Max(1, TbFrame(r.Textbox, _ctx.Fmt.Theme, w, h).Iw), TbEnv(new ParaEnv(), r.Textbox), "itb", ps);
             }
             var drawn = PaintObject(r, x, y, w, h, tc, ps ?? _cur);
             // no corpo, como os flutuantes: depois do texto da página (ordem do PDF do Word — oráculo inlinegrp)
@@ -4274,31 +4395,33 @@ internal sealed class Engine
         else if (run.Shape is not null)
         {
             var s = run.Shape.Style;
-            string? fill = Resolve.ResolveDrawingColor(s.Fill, theme);
+            string? fill = Resolve.ResolveDrawingColor(Geometry.WithThemeStyles(s, theme).Fill, theme);
             // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
             double? lw = s.Line?.Ref is { } sref && sref != 0 ? ThemeLineWidth(sref) ?? s.Line.WidthPt : s.Line?.WidthPt;
             var stroke = s.Line is not null
                 ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null }
                 : null;
-            var (sGrad, sShadow) = Geometry.ShapeExtras(s, theme);
-            outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line, Grad = sGrad, Shadow = sShadow });
+            var (sGrad, sShadow, sPattern, sBlip) = Geometry.ShapeExtras(s, theme);
+            outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line, Grad = sGrad, Shadow = sShadow, Pattern = sPattern, Blip = sBlip });
         }
         else if (run.Textbox is not null)
         {
             var tb = run.Textbox;
             var s = tb.Shape;
-            if (s is not null && (Js.Truthy(s.Fill) || s.Line is not null))
+            if (s is not null && (Js.Truthy(s.Fill) || s.Line is not null || s.Gradient is not null || s.Pattern is not null || s.Blip is not null))
             {
-                string? fill = Resolve.ResolveDrawingColor(s.Fill, theme);
+                string? fill = Resolve.ResolveDrawingColor(Geometry.WithThemeStyles(s, theme).Fill, theme);
                 // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
                 double? lw = s.Line?.Ref is { } tref && tref != 0 ? ThemeLineWidth(tref) ?? s.Line.WidthPt : s.Line?.WidthPt;
-                var stroke = s.Line is not null ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value } : null;
-                var (tGrad, tShadow) = Geometry.ShapeExtras(s, theme);
-                outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Grad = tGrad, Shadow = tShadow });
+                var stroke = s.Line is not null ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null } : null;
+                var (tGrad, tShadow, tPattern, tBlip) = Geometry.ShapeExtras(s, theme);
+                outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Grad = tGrad, Shadow = tShadow, Pattern = tPattern, Blip = tBlip });
             }
             if (tbContent is not null)
             {
-                var ins = TbInsets(tb, _ctx.Fmt.Theme, w, h);
+                // margens no referencial do texto (texto vertical: giradas com os lados da forma)
+                var fr = TbFrame(tb, _ctx.Fmt.Theme, w, h);
+                var ins = fr.Ins;
                 // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
                 double rot = tb.Rot ?? s?.Rot ?? 0;
                 bool rotOn = rot != 0 && !double.IsNaN(rot);
@@ -4339,6 +4462,13 @@ internal sealed class Engine
                     // o Word grava o texto do WordArt como CURVAS no PDF (não é texto extraível)
                     foreach (var it in tbContent.Items) outp.Add(it is GlyphRunItem g ? AsPathCopy(g) : it);
                     outp.Add(XformItem.Pop());
+                }
+                else if (fr.Rot != 0)
+                {
+                    // texto vertical: o conteúdo girado no quadro (margens giradas com os lados)
+                    outp.Add(ClipItem.Push(x, y, w, h));
+                    outp.AddRange(VerticalContent(tbContent, fr, tb.VAnchor, x, y, w, h));
+                    outp.Add(ClipItem.Pop());
                 }
                 else
                 {
@@ -4386,10 +4516,16 @@ internal sealed class Engine
                 CellContent? tc = null;
                 if (r.Textbox is not null)
                 {
-                    var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme, iw, ih);
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                     // campos (PAGE…) da caixa do grupo valem por página, como na caixa solta (oráculo hfgroup)
-                    tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { Field = FieldValue(ps ?? _cur), DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)), Hf = _inHf }, "grp", ps);
+                    var chain = ChainOf(r.Textbox);
+                    if (chain is not null) tc = ChainSlice(chain, r.Textbox, new ParaEnv { Field = FieldValue(ps ?? _cur), Hf = _inHf });
+                    else
+                    {
+                        var genv = TbEnv(new ParaEnv { Field = FieldValue(ps ?? _cur) }, r.Textbox);
+                        genv.Hf = _inHf;
+                        tc = LayoutStatic(blocks, 0, Math.Max(1, TbFrame(r.Textbox, _ctx.Fmt.Theme, iw, ih).Iw), genv, "grp", ps);
+                    }
                 }
                 outp.AddRange(PaintObject(r, ix, iy, iw, ih, tc, ps, true));
             }
@@ -4454,10 +4590,112 @@ internal sealed class Engine
         return half != 0 && !double.IsNaN(half) ? new TextboxInsets { L = ins.L + half, T = ins.T + half, R = ins.R + half, B = ins.B + half } : ins;
     }
 
+    /// <summary>Direção do texto da caixa: 0 horizontal; 90 girado no sentido horário (vert, eaVert);
+    /// 270 anti-horário (vert270); −90 girado no horário com as linhas da esquerda para a
+    /// direita (mongolianVert, wordArtVert, wordArtVertRtl) — oráculo txbxvert.</summary>
+    private static int VertKind(string? v) => v switch
+    {
+        "vert" or "eaVert" => 90,
+        "vert270" => 270,
+        "mongolianVert" or "wordArtVert" or "wordArtVertRtl" => -90,
+        _ => 0,
+    };
+
+    /// <summary>Quadro do texto da caixa: margens, largura/altura disponíveis e a direção (TbRot).</summary>
+    internal sealed record TbFrameInfo(TextboxInsets Ins, double Iw, double Ih, int Rot);
+
+    /// <summary>Quadro do texto da caixa w × h no referencial do TEXTO: as margens (a direção vertical as
+    /// gira com os lados da forma: em vert, a margem de cima vira a da esquerda do texto e a da
+    /// direita a de cima — oráculo txbxvert), a largura e a altura disponíveis.</summary>
+    internal static TbFrameInfo TbFrame(DrawingTextbox tb, Theme? theme, double w, double h)
+    {
+        var p = TbInsets(tb, theme, w, h);
+        int rot = VertKind(tb.Vert);
+        if (rot == 90) return new TbFrameInfo(new TextboxInsets { L = p.T, T = p.R, R = p.B, B = p.L }, h - p.T - p.B, w - p.L - p.R, rot);
+        if (rot == 270) return new TbFrameInfo(new TextboxInsets { L = p.B, T = p.L, R = p.T, B = p.R }, h - p.T - p.B, w - p.L - p.R, rot);
+        if (rot == -90) return new TbFrameInfo(new TextboxInsets { L = p.T, T = p.L, R = p.B, B = p.R }, h - p.T - p.B, w - p.L - p.R, rot);
+        return new TbFrameInfo(p, w - p.L - p.R, h - p.T - p.B, rot);
+    }
+
+    /// <summary>Matriz texto → página da caixa de texto vertical em (x, y, w, h).</summary>
+    internal static double[] VerticalMatrix(int rot, double x, double y, double w, double h) =>
+        rot == 270 ? new[] { 0, -1, 1, 0, x, y + h } : new[] { 0, 1, -1, 0, x + w, y };
+
+    /// <summary>Passo das linhas do texto vertical: o Word as afasta 1/32 do corpo a mais que na
+    /// horizontal (medido 8–24 pt, Arial/Times/Courier: ≈ altura da linha / 36,8) — oráculo txbxvert tp-*.</summary>
+    private const double VertPitch = 1 / 36.8;
+
+    /// <summary>Linhas do conteúdo na vertical: deslocamento acumulado (o passo maior) por faixa.</summary>
+    private static List<(double Y0, double Y1, double Add)> VerticalBands(CellContent c)
+    {
+        // (ordenação estável, como o sort do JS)
+        var ls = c.Lines.OrderBy(l => l.Y).ToList();
+        double acc = 0;
+        var outp = new List<(double, double, double)>(ls.Count);
+        foreach (var l in ls)
+        {
+            outp.Add((l.Y, l.Y + l.Height, acc));
+            acc += l.Height * VertPitch;
+        }
+        return outp;
+    }
+
+    /// <summary>Altura do conteúdo vertical com o passo maior das linhas.</summary>
+    internal static double VerticalHeight(CellContent c)
+    {
+        double a = 0;
+        foreach (var l in c.Lines) a += l.Height * VertPitch;
+        return c.Height + a;
+    }
+
+    /// <summary>Conteúdo de caixa com texto vertical: girado para a página e alinhado (t/ctr/b) no
+    /// referencial do texto; em −90 (mongolianVert…) cada linha vai para o lado oposto (as
+    /// linhas correm da esquerda para a direita com os caracteres girados no horário).</summary>
+    private static List<PageItem> VerticalContent(CellContent c, TbFrameInfo fr, string? vAnchor, double x, double y, double w, double h)
+    {
+        double lh = w;
+        double dy = fr.Ins.T;
+        double free = lh - fr.Ins.T - fr.Ins.B - VerticalHeight(c);
+        if (vAnchor == "ctr" && free > 0) dy += free / 2;
+        else if (vAnchor == "b" && free > 0) dy += free;
+        var outp = new List<PageItem> { XformItem.Push(VerticalMatrix(fr.Rot, x, y, w, h)) };
+        var bands = VerticalBands(c);
+        double ShiftOf(double y0, double y1)
+        {
+            double mid = (y0 + y1) / 2;
+            int bi = bands.FindIndex(q => mid >= q.Y0 - 0.5 && mid <= q.Y1 + 0.5);
+            if (bi < 0) bi = bands.FindLastIndex(q => q.Y0 <= mid);
+            double add = bi >= 0 ? bands[bi].Add : 0;
+            if (fr.Rot != -90) return dy + add;
+            double a0 = (bi >= 0 ? bands[bi].Y0 : y0) + add, a1 = (bi >= 0 ? bands[bi].Y1 : y1) + add;
+            // faixa [dy + a0, dy + a1] espelhada no quadro: começa em lh − (dy + a1)
+            return lh - (dy + a1) - a0 + add;
+        }
+        foreach (var it in c.Items)
+        {
+            double d = it switch
+            {
+                GlyphRunItem g => ShiftOf(g.Y, g.Y),
+                LineItem ln => ShiftOf(Math.Min(ln.Y1, ln.Y2), Math.Max(ln.Y1, ln.Y2)),
+                RectItem r => ShiftOf(r.Y, r.Y + r.H),
+                ImageItem im => ShiftOf(im.Y, im.Y + im.H),
+                ShapeItem sh => ShiftOf(sh.Y, sh.Y + sh.H),
+                ClipItem { Y: { } cy } ci => ShiftOf(cy, cy + (ci.H ?? 0)),
+                _ => dy,
+            };
+            outp.Add(TableEngine.ShiftItem(it, d, fr.Ins.L));
+        }
+        outp.Add(XformItem.Pop());
+        return outp;
+    }
+
     /// <summary>Retângulo de texto da forma predefinida (txRect das definições do DrawingML), como recuo
-    /// de cada lado da caixa w × h — o Word põe o texto nele (oráculo txrect)</summary>
+    /// de cada lado da caixa w × h — o Word põe o texto nele (oráculos txrect, txgeom)</summary>
     private static TextboxInsets? TextRectInsets(TextboxGeom g, double w, double h)
     {
+        var names = g.Adj is not null ? g.Adj.Keys.ToList() : null;
+        var tr = OfficeNext.DrawingML.PresetEngine.PresetTextRect(g.Prst, w, h, names?.Select(n => g.Adj![n]).ToList(), names);
+        if (tr is { } t) return new TextboxInsets { L = t.L, T = t.T, R = w - t.R, B = h - t.B };
         switch (g.Prst)
         {
             case "roundRect":

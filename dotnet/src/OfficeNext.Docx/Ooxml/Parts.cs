@@ -198,6 +198,12 @@ public sealed class Theme
     public Dictionary<string, string> Colors = new(StringComparer.Ordinal);
     /// <summary>espessuras (pt) das linhas do a:lnStyleLst — lnRef idx 1..3</summary>
     public List<double>? LineWidthsPt;
+    /// <summary>preenchimentos do a:fillStyleLst (fillRef idx 1..3) e do a:bgFillStyleLst (idx
+    /// 1001..1003), com a cor do marcador phClr (@phClr) — Estilos de Forma</summary>
+    public List<ShapeStyle>? FillStyles;
+    public List<ShapeStyle>? BgFillStyles;
+    /// <summary>sombras do a:effectStyleLst (effectRef idx 1..3; sem efeito = nulo)</summary>
+    public List<ShapeShadow?>? EffectStyles;
 }
 
 // ───────────────────────── configurações ─────────────────────────
@@ -468,6 +474,19 @@ public static class OoxmlParts
         }
         var lnList = Find(root, "a:lnStyleLst");
         if (lnList is not null) theme.LineWidthsPt = ChildElements(lnList, "a:ln").Select(l => Js.IntOr0(l.Attr("w") ?? "0") / 12700.0).ToList();
+        // estilos de preenchimento/efeito (fillRef/effectRef dos Estilos de Forma)
+        static ShapeStyle AsSpPr(IEnumerable<XmlElement> kids)
+        {
+            var sp = new XmlElement("a:spPr");
+            sp.Children.AddRange(kids);
+            return DrawingReader.ReadSpPr(sp);
+        }
+        var fills = Find(root, "a:fillStyleLst");
+        if (fills is not null) theme.FillStyles = ChildElements(fills).Select(f => AsSpPr(new[] { f })).ToList();
+        var bgFills = Find(root, "a:bgFillStyleLst");
+        if (bgFills is not null) theme.BgFillStyles = ChildElements(bgFills).Select(f => AsSpPr(new[] { f })).ToList();
+        var effects = Find(root, "a:effectStyleLst");
+        if (effects is not null) theme.EffectStyles = ChildElements(effects, "a:effectStyle").Select(e => AsSpPr(ChildElements(e, "a:effectLst")).Shadow).ToList();
         var clr = Find(root, "a:clrScheme");
         if (clr is not null)
         {
