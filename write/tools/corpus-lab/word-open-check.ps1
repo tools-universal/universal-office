@@ -26,6 +26,10 @@
 # -Textboxes: saida do lossless-check --textboxes (a caixa com texto alt "Caixa editada
 # (lossless)": o texto comeca com TBX, alinhada ao meio, contorno de 1,5 pt; e a caixa
 # nova com o texto "Caixa nova lossless").
+# -TocEdit: saida do lossless-check --toc (coluna 3 'new' = sumario novo da galeria no
+# inicio, com "Entrada lossless TOC", que o Word tem de ver como sumario; 'enter' =
+# paragrafo TOCNOVO no fim do sumario existente; coluna 4 = 1 se ha o campo TC
+# "Entrada lossless", que o Word tem de ler como campo TC).
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -39,7 +43,8 @@ param(
   [switch]$Toc,
   [switch]$Pictures,
   [switch]$Page,
-  [switch]$Textboxes
+  [switch]$Textboxes,
+  [switch]$TocEdit
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -119,6 +124,13 @@ foreach ($row in $rows) {
             if ($u -ge 0 -and $u + 1 -le $d.Sections.Count) { $script:hfUn = -not $d.Sections.Item($u + 1).Headers.Item(1).LinkToPrevious }
             if ($r -ge 0 -and $r + 1 -le $d.Sections.Count) { $script:hfRe = [bool]$d.Sections.Item($r + 1).Headers.Item(1).LinkToPrevious }
           }
+        }
+        if ($TocEdit) {
+          $txt = [string]$d.Content.Text
+          $script:tocNew = $txt.Contains('Entrada lossless TOC') -and $d.TablesOfContents.Count -gt 0
+          $script:tocEnter = $txt.Contains('TOCNOVO')
+          $script:tcOk = $false
+          foreach ($f in $d.Fields) { if ($f.Type -eq 9 -and ([string]$f.Code.Text).Contains('Entrada lossless')) { $script:tcOk = $true; break } }
         }
         if ($Toc) {
           $script:tocSame = $false; $script:tocInfo = ''
@@ -241,6 +253,11 @@ foreach ($row in $rows) {
     elseif ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }
     elseif ($Textboxes -and $script:tbx -ne 'ok') { $status = $script:tbx }
     elseif (-not $script:hasEdit) { $status = 'no-edit' }
+    elseif ($TocEdit -and $parts.Count -ge 4 -and $parts[2] -eq 'new' -and -not $script:tocNew) { $status = 'toc-new-missing' }
+    elseif ($TocEdit -and $parts.Count -ge 4 -and $parts[2] -eq 'enter' -and -not $script:tocEnter) { $status = 'toc-enter-missing' }
+    elseif ($TocEdit -and $parts.Count -ge 4 -and $parts[3] -eq '1' -and -not $script:tcOk) { $status = 'toc-tc-missing' }
+    elseif ($TocEdit -and [math]::Abs($script:pe - $script:po) -gt 4) { $status = 'para-count' }
+    elseif ($TocEdit) { $status = 'ok' }
     elseif ($Toc -and -not $script:tocSame) { $status = 'toc-differs'; $detail += $script:tocInfo }
     elseif ($Toc) { $status = 'ok' }
     elseif ($Refs -and -not $script:bm) { $status = 'no-bookmark' }

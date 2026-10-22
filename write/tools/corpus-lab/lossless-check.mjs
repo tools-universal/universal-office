@@ -73,6 +73,8 @@ const sectionsMode = args.includes('--sections');
 const tablesMode = args.includes('--tables');
 const notesMode = args.includes('--notes');
 const refsMode = args.includes('--refs');
+// --toc: frente Sumário (ver o bloco tocMode no laço)
+const tocMode = args.includes('--toc');
 
 /** Notas como o editor passa ao salvar: o conteúdo das referenciadas no corpo. */
 function notesOf(full) {
@@ -696,6 +698,38 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         tbxEdit = { added: !!nr, id, vml: !!tb.vml };
       }
     }
+    // --toc: frente Sumário como o editor — com sumário em controle de conteúdo, um
+    // parágrafo novo no fim dele (Enter no último: fica dentro); sem ele, um sumário
+    // novo da galeria no início do corpo (w:sdt docPartGallery "Table of Contents",
+    // título e campo TOC); e um campo TC e um nível de tópico direto (Adicionar Texto)
+    let tocEdit = null;
+    if (tocMode) {
+      const freeT = cands.filter((c, k) => k !== 2 && !b.full.sources.inPlainTextControl(c[0], c[0].runs));
+      const R = (text, extra = {}) => ({ text, props: { ...core.DEFAULT_RUN_PROPS }, ...extra });
+      const inToc = paras(b.full.blocks).filter((p) => p.props.blockSdt?.gallery === 'Table of Contents');
+      let mode;
+      if (inToc.length) {
+        const last = inToc[inToc.length - 1];
+        const bi = b.full.blocks.findIndex((x) => x.type === 'paragraph' && x.paragraph === last);
+        b.full.blocks.splice(bi + 1, 0, { type: 'paragraph', paragraph: { runs: [R('TOCNOVO')], props: { blockSdt: last.props.blockSdt } } });
+        mode = 'enter';
+      } else {
+        const sdt = { key: `lossless${n}`, gallery: 'Table of Contents', pr: `<w:sdtPr><w:id w:val="${1000000 + n}"/><w:docPartObj><w:docPartGallery w:val="Table of Contents"/><w:docPartUnique/></w:docPartObj></w:sdtPr>` };
+        const tocParas = [
+          { runs: [R('Sumário lossless')], props: { blockSdt: sdt } },
+          { runs: [R('', { fieldBegin: ' TOC \\o "1-3" \\h \\z \\u ' }), R('Entrada lossless TOC')], props: { blockSdt: sdt } },
+          { runs: [R('', { fieldEnd: true })], props: { blockSdt: sdt } },
+        ];
+        b.full.blocks.unshift(...tocParas.map((paragraph) => ({ type: 'paragraph', paragraph })));
+        mode = 'new';
+      }
+      model.paragraphs = paras(b.full.blocks);
+      ps.splice(0, ps.length, ...model.paragraphs);
+      let tc = false, lvl = false;
+      if (freeT[0]) { const p = freeT[0][0]; p.runs.push(R('', { field: ' TC "Entrada lossless" \\f C \\l "2" ' })); edited.push(p); tc = true; }
+      if (freeT[1]) { const p = freeT[1][0]; p.props = { ...p.props, outlineLvl: 1 }; edited.push(p); lvl = true; }
+      tocEdit = { mode, tc, lvl };
+    }
     // --page: por último (a folha de rosto entra antes dos parágrafos já editados)
     const pageEdit = pageMode ? editPage(b, n) : null;
     const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false, pageEdit ?? undefined);
@@ -715,7 +749,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     res.changedKids = changed;
     // (--tables: a tabela e o sectPr do corpo)
     // (--page: o sdt da folha de rosto e o sectPr da 1ª seção — o do corpo ou o do ¶ que a encerra)
-    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits + (tblEdit ? 2 : 0) + (pageEdit?.cover ? 2 : 0);
+    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits + (tblEdit ? 2 : 0) + (pageEdit?.cover ? 2 : 0) + (tocEdit ? 1 : 0);
     if (changed > allowed) res.issues.push(`changed:${changed}>${allowed}`);
     if (!xml.includes('XYZ') && cands[0]) res.issues.push('missing-edit');
     if (navEdit) {
@@ -864,6 +898,16 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (!back.footnotes.has(noteEdit.ids.footnote) || !back.endnotes.has(noteEdit.ids.endnote)) res.issues.push('notes-unread');
       res.notes = true;
     }
+    if (tocEdit) {
+      const cnt = (x) => (x.match(/<w:docPartGallery w:val="Table of Contents"\/>/g) ?? []).length;
+      if (tocEdit.mode === 'new') {
+        if (cnt(xml) !== cnt(orig.documentXml()) + 1) res.issues.push('toc-sdt-count');
+        if (!/<w:sdtContent><w:p><w:r><w:t>Sumário lossless<\/w:t><\/w:r><\/w:p>[\s\S]*?Entrada lossless TOC[\s\S]*?<w:fldChar w:fldCharType="end"\/><\/w:r><\/w:p><\/w:sdtContent><\/w:sdt>/.test(xml)) res.issues.push('toc-new-sdt');
+      } else if (!/TOCNOVO<\/w:t><\/w:r><\/w:p><\/w:sdtContent>/.test(xml)) res.issues.push('toc-enter-outside');
+      if (tocEdit.tc && !/<w:instrText xml:space="preserve"> TC "Entrada lossless" \\f C \\l "2" <\/w:instrText><\/w:r><w:r>(?:<w:rPr>(?:(?!<\/w:rPr>).)*<\/w:rPr>)?<w:fldChar w:fldCharType="end"\/>/.test(xml)) res.issues.push('toc-tc');
+      if (tocEdit.lvl && !xml.includes('<w:outlineLvl w:val="1"/>')) res.issues.push('toc-outline');
+      res.toc = tocEdit.mode;
+    }
     if (styleEdit) {
       const sa = orig.getPartText(stylesPath), sb = re.getPartText(stylesPath);
       const map = (x) => new Map(readStyleIndex(x).styles.map((s) => [s.id, x.slice(s.start, s.end)]));
@@ -878,7 +922,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit) && (!tocMode || tocEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));
@@ -886,6 +930,8 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (res.hf) res.hfCols = [res.hf.titlePg ? 1 : 0, res.hf.unlink, res.hf.relink];
       // --page: preenchimento esperado, marca-d'água e parágrafos da folha de rosto (word-open-check -Page)
       if (res.page) res.pageCols = [res.page.bg, res.page.wm, res.page.cover];
+      // --toc: o modo (sumário novo ou Enter no existente) e se houve TC (word-open-check -TocEdit)
+      if (tocEdit) res.tocCols = [tocEdit.mode, tocEdit.tc ? 1 : 0];
     }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
@@ -900,7 +946,7 @@ mkdirSync(join(LAB_DIR, 'report'), { recursive: true });
 writeFileSync(join(LAB_DIR, 'report', 'lossless.json'), JSON.stringify(results, null, 1));
 if (outDir) {
   writeFileSync(join(outDir, 'manifest.tsv'),
-    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}`).join('\n'), 'utf8');
+    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}${r.tocCols ? `\t${r.tocCols.join('\t')}` : ''}`).join('\n'), 'utf8');
 }
 const bad = results.filter((r) => !r.ok);
 const kinds = {};

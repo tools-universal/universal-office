@@ -201,7 +201,7 @@ and moves created by editing (cut and paste becomes a deletion plus an insertion
 | Characters | `toggleRunProp('bold' \| 'italic' \| 'underline' \| 'strike' \| 'allCaps' \| 'smallCaps')`, `toggleVertAlign('superscript' \| 'subscript')`, `setFontFamily(name)`, `setFontSize(pt)`, `growFont(±1)`, `setColor(hex)`, `setHighlight(name)`, `setLink(url)`, `setCharSpacing(twips)`, `changeCase('upper' \| 'lower')`, `clearFormatting()` |
 | Paragraphs | `applyStyle(styleId)`, `paragraphStyles()`, `setAlignment('left' \| 'center' \| 'right' \| 'both')`, `toggleList('bullet' \| 'decimal')`, `indent(±1)`, `setLineSpacing(line)`, `setSpaceBefore(twips)`, `setSpaceAfter(twips)`, `setSpecialIndent(...)`, `setIndentRight(twips)`, `setShading(hex)`, `toggleBorder()`; indents and tabs: see [Navigation](#navigation) |
 | Format painter | `copyFormat()`, `painterActive()` |
-| Insert | `insertImage(bytes, ext)`, `insertPageBreak()`, `insertField('PAGE' \| 'NUMPAGES' \| 'DATE')`, `updateToc()` |
+| Insert | `insertImage(bytes, ext)`, `insertPageBreak()`, `insertField('PAGE' \| 'NUMPAGES' \| 'DATE')`, `updateToc()` (see [Table of contents](#table-of-contents)) |
 | Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins, applyTo })` — for the section(s) the selection touches; `applyTo`: `'section'` (default) · `'document'` · `'forward'` (next-page section break at the caret) · `'selection'` (breaks before and after the selection). Changing the orientation rotates the margins. |
 | Sections and columns | `insertSectionBreak('nextPage' \| 'continuous' \| 'evenPage' \| 'oddPage' \| 'nextColumn')` (splits the paragraph; the new section before the caret copies the current one and takes its headers/footers), `insertColumnBreak()`, `setColumns('one' \| 'two' \| 'three' \| 'left' \| 'right')` (with selected text, only for it) or `setColumns({ count, spaceTwips, widths, sep, applyTo, startNewColumn })`, `getSection()` → `{ index, count, type, orientation, margins, columns }` |
 | Edit | `undo()`, `redo()`, `cut()`, `copy()`, `paste()`, `pastePlain()`, `pasteText(text)`, `selectAll()`, `selectedText()` |
@@ -550,8 +550,8 @@ text deletes the bookmark; cut and paste moves it, copy does not duplicate it.
 | Cross-reference | `getCrossReferenceItems(type, label?)` → `{ id, text }[]` for `'numbered' \| 'heading' \| 'bookmark' \| 'footnote' \| 'endnote' \| 'caption'`, `crossReferenceKinds(type)`, `insertCrossReference({ type, label?, item, kind, hyperlink = true, position, separator })` — kinds `'text' \| 'page' \| 'number' \| 'numberNoContext' \| 'numberFullContext' \| 'position' \| 'noteNumber' \| 'noteNumberFormatted' \| 'captionEntire' \| 'captionLabel' \| 'captionText'`; a hidden `_Ref` bookmark is created on the target (and reused by the next reference to it) |
 | Captions | `insertCaption({ label, title?, position?, excludeLabel?, numbering? })` — above or below the selected picture or table (`keepNext` like Word), otherwise at the caret; renumbers the following captions of the label. `getCaptionLabels()`, `addCaptionLabel(name)` · `deleteCaptionLabel(name)`, `getCaptionNumbering(label)` · `setCaptionNumbering(label, { format, chapter?: { level, separator } })` (formats `ARABIC`, `alphabetic`, `ALPHABETIC`, `roman`, `ROMAN`; chapter numbers through `STYLEREF n \s`), `captionTarget()`, `nextCaptionNumber(label)`, `getAutoCaption()` · `setAutoCaption({ table: { label, position } })` (caption new tables). `captionSettings` (get/set) holds the new labels, numbering and AutoCaption — the bars keep it per machine |
 | Table of figures | `insertTableOfFigures({ label, includeLabel, pageNumbers, rightAlign, leader, hyperlinks, format })` (`TOC \h \z \c "Figure"`; with the caret in a table of figures it is replaced), `updateTableOfFigures()` (the one at the caret, or all), `getTableOfFiguresOptions()` |
-| Table of contents | `updateToc()` rebuilds every `TOC` field (headings and figures) with the same engine: entries linked to hidden `_Toc` bookmarks with `PAGEREF` page numbers, the TOC N / Table of Figures styles and the existing right tab and leader |
-| Fields | `updateFields(scope = 'all')` — `'selection'` (what F9 does, like Word) updates the fields in the selection or at the caret; `'all'` every field: TOCs, table formulas and the cached results of `REF`, `PAGEREF`, `NOTEREF`, `SEQ` and `STYLEREF` (the `REF` result keeps the direct formatting of the bookmarked text). Returns how many changed |
+| Table of contents | the same engine as the table of figures — see [Table of contents](#table-of-contents) |
+| Fields | `updateFields(scope = 'all', toc = 'all')` — `'selection'` (what F9 does, like Word) updates the fields in the selection or at the caret; `'all'` every field: TOCs, table formulas and the cached results of `REF`, `PAGEREF`, `NOTEREF`, `SEQ` and `STYLEREF` (the `REF` result keeps the direct formatting of the bookmarked text); `toc: 'pages'` updates only the page numbers of the tables of contents. Returns how many changed |
 | Hyperlinks | `insertHyperlink({ address?, anchor?, tip?, text? })` — a web address, file or `mailto:`, or a place in the document (`anchor`: a bookmark, `'_top'`, or `'p:<paragraph>'` for a heading, which gets a hidden `_Toc` bookmark); `tip` is the ScreenTip (`w:tooltip`); the runs take the Hyperlink style. `getLink()` → `{ address?, anchor?, tip?, text }`, `getLinkTargets()` (headings and bookmarks), `removeLink()` |
 | Where | `canInsertField()` — `false` inside a plain-text, date, combo box or drop-down list content control: Word refuses fields and hyperlinks there (a file with one inside does not open), so cross-references, captions at the caret, tables of figures and hyperlinks do nothing there and the bars disable them |
 
@@ -573,6 +573,38 @@ leader, hyperlinks, formats, Modify the style) and **Link** (web page or file,
 place in this document, e-mail address, text to display, ScreenTip, Remove
 Link). Ctrl+click follows a link or a cross-reference inserted as a hyperlink.
 
+## Table of contents
+
+Tables of contents are `TOC` fields written the way Word writes them (measured
+against Word): entries in the TOC 1–9 styles with a right tab and leader, each
+one a hyperlink to a hidden `_Toc` bookmark on its heading with a `PAGEREF`
+page number. The gallery tables sit in a content control (`w:sdt` with
+`docPartGallery="Table of Contents"` and `docPartUnique`) with a TOC Heading
+paragraph; there is one gallery table per document, so a new one replaces it.
+With the caret inside, the control shows its frame and a tab with the gallery
+menu and **Update Table…** (screen only — never in the PDF, print or viewer).
+
+| Area | Methods |
+|---|---|
+| Gallery | `tocTemplates()` → `{ id, name }[]` (`'auto1'` "Contents", `'auto2'` "Table of Contents" — `TOC \o "1-3" \h \z \u` — and `'manual'`, typed entries with placeholders and a right-aligned leader tab), `insertTocTemplate(id)`, `paintTocTemplate(id, canvas, cssWidth)` (the thumbnail, drawn by the layout engine) |
+| Custom table | `insertTableOfContents(options, replace?)` — `{ pageNumbers, rightAlign, leader, hyperlinks, format, levels, useStyles, styles, outlineLevels, fields, fieldId }` → `\o "1-N"`, `\n`, `\p " "`, `\h`, `\z`, `\t "Style;level"`, `\u`, `\f [id]`; `format` (`'template'`, `'classic'`, `'distinctive'`, `'fancy'`, `'modern'`, `'formal'`, `'simple'`) rewrites the TOC 1–9 styles like Word. `replace`: `true` replaces the table at the caret (or the first), `false` inserts another one at the caret; omitted, the one at the caret is replaced. `getTableOfContentsOptions()` reads the table at the caret (or the first) |
+| Update | `updateToc(mode = 'all')` — `'pages'` updates only the page numbers (text typed in the entries stays, the `_Toc` bookmarks are kept); `'all'` rebuilds the entries. The table at the caret, or every `TOC` field (also the tables of figures) |
+| Remove | `removeTableOfContents()` — the content control with its heading, or the field; the `_Toc` bookmarks only the entries used go away. The table at the caret, or the first |
+| Add Text | `getTocLevel()` (0 = Do Not Show in Table of Contents, 1–9), `setTocLevel(level)` — Level N applies Heading N to a Normal or heading paragraph; Do Not Show turns a heading back into Normal; in other styles only the outline level changes (`w:outlineLvl`) |
+| Entry fields | `markTocEntry({ text, identifier = 'C', level = 1 })` inserts a `TC "text" \f C \l "N"` field at the end of the selection (Mark Table of Contents Entry); a table with `fields` (`\f`) lists them — `\f id` only the ones of that identifier, `\l "a-b"` the levels, `TC … \n` without the page number. `tocEntrySuggestion()` |
+| State | `hasTableOfContents()`, `inTableOfContents()` |
+
+The ribbon has **References › Table of Contents**: the **Table of Contents**
+gallery (with Custom Table of Contents and Remove Table of Contents), **Add
+Text** (Do Not Show, Level 1–N and Mark Table of Contents Entry) and **Update
+Table**, which asks — like Word — whether to update only the page numbers or
+the entire table (also F9 with a table in the selection and the button on the
+control's tab). The compact bar has them under **Insert › Table of contents**.
+The **Table of Contents** dialog has the print and web previews, page numbers,
+right alignment, tab leader, hyperlinks, formats, levels, **Options** (styles
+and their levels, outline levels, entry fields) and **Modify** (the TOC 1–9
+styles). Alt+Shift+O (Option+Shift+O on a Mac) marks an entry.
+
 ## Events
 
 | Event | `detail` | When |
@@ -591,6 +623,8 @@ Link). Ctrl+click follows a link or a cross-reference inserted as a hyperlink.
 | `uw-notemode` | `{ active, kind, id }` | Entered or left a footnote or endnote. |
 | `uw-bookmarks-change` | — | A bookmark was added, moved or deleted. |
 | `uw-caption-settings` | — | Caption labels, numbering or AutoCaption changed (save `captionSettings`). |
+| `uw-toc-update` | `{ scope: 'caret' \| 'selection' }` | Update Table on the content control's tab, or F9 with a table of contents in the selection. **Cancelable** — `preventDefault()` = the host asks (page numbers only or the entire table) and calls `updateToc(mode)` / `updateFields('selection', mode)`; otherwise the entire table is updated. |
+| `uw-toc-menu` | `{ x, y }` | The menu button on the table of contents control's tab was clicked (the bars open the gallery there). |
 | `uw-before-input` | `{ text }` | Text is about to be typed. **Cancelable.** |
 | `uw-input` | `{ text }` | Text was typed. |
 | `uw-comments-changed` | — | A comment was added or removed. |
@@ -664,7 +698,7 @@ Type `@` to open the suggestions (only when `source` is given).
 Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · R · J
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
 break), Shift+Enter (column break), ← → (word), Home · End (document, also from a table cell), Alt+F ·
-Alt+D (footnote, endnote; Esc inside a note goes back to its reference). F9 updates the fields in the selection (Ctrl+A, F9: all). With `topbar`, also O (open), S ·
+Alt+D (footnote, endnote; Esc inside a note goes back to its reference). F9 updates the fields in the selection (Ctrl+A, F9: all; with a table of contents it asks how — `uw-toc-update`). With `topbar`, also Alt+Shift+O (Mark Table of Contents Entry — Option+Shift+O on a Mac), O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
 dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts),
 Alt+1 · 2 · 3 (Heading 1–3), Shift+N (Normal), Space (clear character
