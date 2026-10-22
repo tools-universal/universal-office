@@ -1,0 +1,91 @@
+<!-- <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/> -->
+<mc:AlternateContent>
+  <mc:Choice Requires="wps">
+    <w:drawing>
+      <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+        <wp:simplePos x="0" y="0"/>
+        <wp:positionH relativeFrom="column">
+          <wp:posOffset>189865</wp:posOffset>
+        </wp:positionH>
+        <wp:positionV relativeFrom="paragraph">
+          <wp:posOffset>-1667510</wp:posOffset>
+        </wp:positionV>
+        <wp:extent cx="2286000" cy="1143000"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:wrapNone/>
+        <wp:docPr id="660748918" name="Caixa de Texto 1"/>
+        <wp:cNvGraphicFramePr/>
+        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+            <wps:wsp>
+              <wps:cNvSpPr txBox="1"/>
+              <wps:spPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="2286000" cy="1143000"/>
+                </a:xfrm>
+                <a:prstGeom prst="rect">
+                  <a:avLst/>
+                </a:prstGeom>
+                <a:solidFill>
+                  <a:schemeClr val="dk1"/>
+                </a:solidFill>
+                <a:ln>
+                  <a:noFill/>
+                </a:ln>
+              </wps:spPr>
+              <wps:style>
+                <a:lnRef idx="0">
+                  <a:scrgbClr r="0" g="0" b="0"/>
+                </a:lnRef>
+                <a:fillRef idx="0">
+                  <a:scrgbClr r="0" g="0" b="0"/>
+                </a:fillRef>
+                <a:effectRef idx="0">
+                  <a:scrgbClr r="0" g="0" b="0"/>
+                </a:effectRef>
+                <a:fontRef idx="minor">
+                  <a:schemeClr val="lt1"/>
+                </a:fontRef>
+              </wps:style>
+              <wps:txbx>
+                <w:txbxContent>
+                  <w:p>
+                    <w:r>
+                      <w:t>Texto da caixa de teste</w:t>
+                    </w:r>
+                  </w:p>
+                </w:txbxContent>
+              </wps:txbx>
+              <wps:bodyPr rot="0" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="t" anchorCtr="0" forceAA="0" compatLnSpc="1">
+                <a:prstTxWarp prst="textNoShape">
+                  <a:avLst/>
+                </a:prstTxWarp>
+                <a:noAutofit/>
+              </wps:bodyPr>
+            </wps:wsp>
+          </a:graphicData>
+        </a:graphic>
+      </wp:anchor>
+    </w:drawing>
+  </mc:Choice>
+  <mc:Fallback>
+    <w:pict>
+      <v:shapetype w14:anchorId="26AB6AE5" id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">
+        <v:stroke joinstyle="miter"/>
+        <v:path gradientshapeok="t" o:connecttype="rect"/>
+      </v:shapetype>
+      <v:shape id="Caixa de Texto 1" o:spid="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:14.95pt;margin-top:-131.3pt;width:180pt;height:90pt;z-index:251659264;visibility:visible;mso-wrap-style:square;mso-wrap-distance-left:9pt;mso-wrap-distance-top:0;mso-wrap-distance-right:9pt;mso-wrap-distance-bottom:0;mso-position-horizontal:absolute;mso-position-horizontal-relative:text;mso-position-vertical:absolute;mso-position-vertical-relative:text;v-text-anchor:top" o:gfxdata="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&#xA;" fillcolor="black [3200]" stroked="f">
+        <v:textbox>
+          <w:txbxContent>
+            <w:p>
+              <w:r>
+                <w:t>Texto da caixa de teste</w:t>
+              </w:r>
+            </w:p>
+          </w:txbxContent>
+        </v:textbox>
+      </v:shape>
+    </w:pict>
+  </mc:Fallback>
+</mc:AlternateContent>

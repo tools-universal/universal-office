@@ -9,8 +9,8 @@
 //   o MESMO caminho no worktree, para o build usar o código do worktree; se o
 //   caminho não existe no worktree (submódulo do vendor), fica o da principal.
 // Pastas locais fora do git de que o código depende (EXTRA, ex.: o lab de
-// fontes do Write) também entram por junção. --build compila fonts, charts, ui,
-// spell e write (o que os testes e o tsc consomem via dist/); --build-all
+// fontes do Write) também entram por junção. --build compila fonts, charts,
+// drawingml, ui, spell e write (o que os testes e o tsc consomem via dist/); --build-all
 // também slides e sheet. Os bundles versionados (demo/, site/assets) NÃO se
 // commitam do worktree: quem junta na main recompila.
 // NUNCA apagar o worktree com rm -rf: as junções levam à cópia principal.

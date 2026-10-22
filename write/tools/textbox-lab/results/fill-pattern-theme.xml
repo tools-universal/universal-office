@@ -1,0 +1,86 @@
+<!-- <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/> -->
+<!-- media: word/media/image1.gif 60 -->
+<mc:AlternateContent>
+  <mc:Choice Requires="wps">
+    <w:drawing>
+      <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+        <wp:simplePos x="0" y="0"/>
+        <wp:positionH relativeFrom="column">
+          <wp:posOffset>189865</wp:posOffset>
+        </wp:positionH>
+        <wp:positionV relativeFrom="paragraph">
+          <wp:posOffset>-1667510</wp:posOffset>
+        </wp:positionV>
+        <wp:extent cx="2286000" cy="1143000"/>
+        <wp:effectExtent l="0" t="0" r="19050" b="19050"/>
+        <wp:wrapNone/>
+        <wp:docPr id="1905375319" name="Caixa de Texto 1"/>
+        <wp:cNvGraphicFramePr/>
+        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+            <wps:wsp>
+              <wps:cNvSpPr txBox="1"/>
+              <wps:spPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="2286000" cy="1143000"/>
+                </a:xfrm>
+                <a:prstGeom prst="rect">
+                  <a:avLst/>
+                </a:prstGeom>
+                <a:pattFill prst="trellis">
+                  <a:fgClr>
+                    <a:schemeClr val="accent1"/>
+                  </a:fgClr>
+                  <a:bgClr>
+                    <a:schemeClr val="bg1"/>
+                  </a:bgClr>
+                </a:pattFill>
+                <a:ln w="6350">
+                  <a:solidFill>
+                    <a:prstClr val="black"/>
+                  </a:solidFill>
+                </a:ln>
+              </wps:spPr>
+              <wps:txbx>
+                <w:txbxContent>
+                  <w:p>
+                    <w:r>
+                      <w:t>Texto da caixa de teste</w:t>
+                    </w:r>
+                  </w:p>
+                </w:txbxContent>
+              </wps:txbx>
+              <wps:bodyPr rot="0" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="t" anchorCtr="0" forceAA="0" compatLnSpc="1">
+                <a:prstTxWarp prst="textNoShape">
+                  <a:avLst/>
+                </a:prstTxWarp>
+                <a:noAutofit/>
+              </wps:bodyPr>
+            </wps:wsp>
+          </a:graphicData>
+        </a:graphic>
+      </wp:anchor>
+    </w:drawing>
+  </mc:Choice>
+  <mc:Fallback>
+    <w:pict>
+      <v:shapetype w14:anchorId="035CC8F6" id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">
+        <v:stroke joinstyle="miter"/>
+        <v:path gradientshapeok="t" o:connecttype="rect"/>
+      </v:shapetype>
+      <v:shape id="Caixa de Texto 1" o:spid="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:14.95pt;margin-top:-131.3pt;width:180pt;height:90pt;z-index:251659264;visibility:visible;mso-wrap-style:square;mso-wrap-distance-left:9pt;mso-wrap-distance-top:0;mso-wrap-distance-right:9pt;mso-wrap-distance-bottom:0;mso-position-horizontal:absolute;mso-position-horizontal-relative:text;mso-position-vertical:absolute;mso-position-vertical-relative:text;v-text-anchor:top" o:gfxdata="UEsDBBQABgAIAAAAIQC2gziS/gAAAOEBAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbJSRQU7DMBBF&#xA;90jcwfIWJU67QAgl6YK0S0CoHGBkTxKLZGx5TGhvj5O2G0SRWNoz/78nu9wcxkFMGNg6quQqL6RA&#xA;0s5Y6ir5vt9lD1JwBDIwOMJKHpHlpr69KfdHjyxSmriSfYz+USnWPY7AufNIadK6MEJMx9ApD/oD&#xA;OlTrorhX2lFEilmcO2RdNtjC5xDF9pCuTyYBB5bi6bQ4syoJ3g9WQ0ymaiLzg5KdCXlKLjvcW893&#xA;SUOqXwnz5DrgnHtJTxOsQfEKIT7DmDSUCaxw7Rqn8787ZsmRM9e2VmPeBN4uqYvTtW7jvijg9N/y&#xA;JsXecLq0q+WD6m8AAAD//wMAUEsDBBQABgAIAAAAIQA4/SH/1gAAAJQBAAALAAAAX3JlbHMvLnJl&#xA;bHOkkMFqwzAMhu+DvYPRfXGawxijTi+j0GvpHsDYimMaW0Yy2fr2M4PBMnrbUb/Q94l/f/hMi1qR&#xA;JVI2sOt6UJgd+ZiDgffL8ekFlFSbvV0oo4EbChzGx4f9GRdb25HMsYhqlCwG5lrLq9biZkxWOiqY&#xA;22YiTra2kYMu1l1tQD30/bPm3wwYN0x18gb45AdQl1tp5j/sFB2T0FQ7R0nTNEV3j6o9feQzro1i&#xA;OWA14Fm+Q8a1a8+Bvu/d/dMb2JY5uiPbhG/ktn4cqGU/er3pcvwCAAD//wMAUEsDBBQABgAIAAAA&#xA;IQC1CAKMUwIAAMwEAAAOAAAAZHJzL2Uyb0RvYy54bWysVE2P2jAQvVfqf7B8LwksS7cRYUVZUVVC&#xA;uyux1Z4dxyZRHY9rGxL66zs2CaBte6l6cTye5/l4fpP5fdcochDW1aBzOh6llAjNoaz1LqffXtYf&#xA;7ihxnumSKdAip0fh6P3i/bt5azIxgQpUKSzBINplrclp5b3JksTxSjTMjcAIjU4JtmEeTbtLSsta&#xA;jN6oZJKms6QFWxoLXDiHpw8nJ13E+FIK7p+kdMITlVOszcfVxrUIa7KYs2xnmalq3pfB/qGKhtUa&#xA;k55DPTDPyN7Wv4Vqam7BgfQjDk0CUtZcxB6wm3H6ppttxYyIvSA5zpxpcv8vLH88bM2zJb77DB0+&#xA;YCCkNS5zeBj66aRtwhcrJehHCo9n2kTnCcfDyeRulqbo4ugbj6c3wcA4yeW6sc5/EdCQsMmpxXeJ&#xA;dLHDxvkTdICEbIZ5v66V6uHeCqVqF2/I3UrFyqJEBBrkwPBxGedC+1g/5j2jir/Ai90A7RF4acga&#xA;KlCatDmd3dymMasDVZeholgd9nDOWyjGv/fdXqEwnNJIwYXLsPNd0fUEF1AekXcLJ0k6w9c1xt0w&#xA;55+ZRQ0inzhX/gkXqQCLgX5HSQX255/OAx6lgV5KWtR0Tt2PPbOCEvVVo2g+jafTMATRmN5+nKBh&#xA;rz3FtUfvmxUgs2OcYMPjNuC9GrbSQvOK47cMWdHFNMfcOfXDduVPk4bjy8VyGUEoe+R5o7eGh9AD&#xA;ny/dK7NmeG9U1iMM6mfZG5WcsOGmhuXeg6yjhALBJ1Z73nFkogj78Q4zeW1H1OUntPgFAAD//wMA&#xA;UEsDBBQABgAIAAAAIQCO4Uxa4AAAAAsBAAAPAAAAZHJzL2Rvd25yZXYueG1sTI9BT4NAEIXvJv6H&#xA;zZh4axdpg4AsjTExaqMHqQePW3YEIjtL2C3Ff9/pqR7nzZs33ys2s+3FhKPvHCm4W0YgkGpnOmoU&#xA;fO2eFykIHzQZ3TtCBX/oYVNeXxU6N+5InzhVoREcQj7XCtoQhlxKX7dotV+6AYl3P260OvA4NtKM&#xA;+sjhtpdxFCXS6o74Q6sHfGqx/q0OljE+pnS7e1ll27cG3+/X1bqXr99K3d7Mjw8gAs7hYoYzPt9A&#xA;yUx7dyDjRa8gzjJ2KljESZyAYMcqPUt7llJWZFnI/x3KEwAAAP//AwBQSwECLQAUAAYACAAAACEA&#xA;toM4kv4AAADhAQAAEwAAAAAAAAAAAAAAAAAAAAAAW0NvbnRlbnRfVHlwZXNdLnhtbFBLAQItABQA&#xA;BgAIAAAAIQA4/SH/1gAAAJQBAAALAAAAAAAAAAAAAAAAAC8BAABfcmVscy8ucmVsc1BLAQItABQA&#xA;BgAIAAAAIQC1CAKMUwIAAMwEAAAOAAAAAAAAAAAAAAAAAC4CAABkcnMvZTJvRG9jLnhtbFBLAQIt&#xA;ABQABgAIAAAAIQCO4Uxa4AAAAAsBAAAPAAAAAAAAAAAAAAAAAK0EAABkcnMvZG93bnJldi54bWxQ&#xA;SwUGAAAAAAQABADzAAAAugUAAAAA&#xA;" fillcolor="#156082 [3204]" strokeweight=".5pt">
+        <v:fill r:id="rId4" o:title="" color2="white [3212]" type="pattern"/>
+        <v:textbox>
+          <w:txbxContent>
+            <w:p>
+              <w:r>
+                <w:t>Texto da caixa de teste</w:t>
+              </w:r>
+            </w:p>
+          </w:txbxContent>
+        </v:textbox>
+      </v:shape>
+    </w:pict>
+  </mc:Fallback>
+</mc:AlternateContent>

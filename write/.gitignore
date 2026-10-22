@@ -24,3 +24,5 @@ tools/table-lab/.out/
 tools/nav-lab/.out/
 # Oráculo da imagem — .docx/.pdf brutos do Word (os PDFs embutem fontes; os XML em results/ SÃO versionados)
 tools/image-lab/.out/
+# Oráculo da caixa de texto — idem
+tools/textbox-lab/.out/

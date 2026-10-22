@@ -1,0 +1,18 @@
+<!-- <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="12"/> -->
+<w:pict w14:anchorId="42488383">
+  <v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">
+    <v:stroke joinstyle="miter"/>
+    <v:path gradientshapeok="t" o:connecttype="rect"/>
+  </v:shapetype>
+  <v:shape id="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:100pt;margin-top:20pt;width:180pt;height:90pt;z-index:251658240;mso-wrap-style:tight">
+    <v:textbox>
+      <w:txbxContent>
+        <w:p>
+          <w:r>
+            <w:t>Texto da caixa de teste</w:t>
+          </w:r>
+        </w:p>
+      </w:txbxContent>
+    </v:textbox>
+  </v:shape>
+</w:pict>

@@ -1,0 +1,82 @@
+<!-- <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/> -->
+<mc:AlternateContent>
+  <mc:Choice Requires="wps">
+    <w:drawing>
+      <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+        <wp:simplePos x="0" y="0"/>
+        <wp:positionH relativeFrom="column">
+          <wp:posOffset>189865</wp:posOffset>
+        </wp:positionH>
+        <wp:positionV relativeFrom="paragraph">
+          <wp:posOffset>-1667510</wp:posOffset>
+        </wp:positionV>
+        <wp:extent cx="2286000" cy="1143000"/>
+        <wp:effectExtent l="0" t="171450" r="0" b="171450"/>
+        <wp:wrapNone/>
+        <wp:docPr id="985725988" name="Caixa de Texto 1"/>
+        <wp:cNvGraphicFramePr/>
+        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+            <wps:wsp>
+              <wps:cNvSpPr txBox="1"/>
+              <wps:spPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="2286000" cy="1143000"/>
+                </a:xfrm>
+                <a:prstGeom prst="rect">
+                  <a:avLst/>
+                </a:prstGeom>
+                <a:noFill/>
+                <a:ln w="6350">
+                  <a:solidFill>
+                    <a:prstClr val="black"/>
+                  </a:solidFill>
+                </a:ln>
+                <a:scene3d>
+                  <a:camera prst="isometricOffAxis4Left"/>
+                  <a:lightRig rig="threePt" dir="t"/>
+                </a:scene3d>
+              </wps:spPr>
+              <wps:txbx>
+                <w:txbxContent>
+                  <w:p>
+                    <w:r>
+                      <w:t>Texto da caixa de teste</w:t>
+                    </w:r>
+                  </w:p>
+                </w:txbxContent>
+              </wps:txbx>
+              <wps:bodyPr rot="0" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="t" anchorCtr="0" forceAA="0" compatLnSpc="1">
+                <a:prstTxWarp prst="textNoShape">
+                  <a:avLst/>
+                </a:prstTxWarp>
+                <a:noAutofit/>
+              </wps:bodyPr>
+            </wps:wsp>
+          </a:graphicData>
+        </a:graphic>
+      </wp:anchor>
+    </w:drawing>
+  </mc:Choice>
+  <mc:Fallback>
+    <w:pict>
+      <v:shapetype w14:anchorId="60007B37" id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">
+        <v:stroke joinstyle="miter"/>
+        <v:path gradientshapeok="t" o:connecttype="rect"/>
+      </v:shapetype>
+      <v:shape id="Caixa de Texto 1" o:spid="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:14.95pt;margin-top:-131.3pt;width:180pt;height:90pt;z-index:251659264;visibility:visible;mso-wrap-style:square;mso-wrap-distance-left:9pt;mso-wrap-distance-top:0;mso-wrap-distance-right:9pt;mso-wrap-distance-bottom:0;mso-position-horizontal:absolute;mso-position-horizontal-relative:text;mso-position-vertical:absolute;mso-position-vertical-relative:text;v-text-anchor:top" o:gfxdata="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&#xA;" filled="f" strokeweight=".5pt">
+        <v:fill o:detectmouseclick="t"/>
+        <v:textbox>
+          <w:txbxContent>
+            <w:p>
+              <w:r>
+                <w:t>Texto da caixa de teste</w:t>
+              </w:r>
+            </w:p>
+          </w:txbxContent>
+        </v:textbox>
+      </v:shape>
+    </w:pict>
+  </mc:Fallback>
+</mc:AlternateContent>

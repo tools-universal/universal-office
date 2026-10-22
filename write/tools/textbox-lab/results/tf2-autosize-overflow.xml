@@ -1,0 +1,78 @@
+<!-- <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/> -->
+<mc:AlternateContent>
+  <mc:Choice Requires="wps">
+    <w:drawing>
+      <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+        <wp:simplePos x="0" y="0"/>
+        <wp:positionH relativeFrom="column">
+          <wp:posOffset>189865</wp:posOffset>
+        </wp:positionH>
+        <wp:positionV relativeFrom="paragraph">
+          <wp:posOffset>-1667510</wp:posOffset>
+        </wp:positionV>
+        <wp:extent cx="2286000" cy="1143000"/>
+        <wp:effectExtent l="0" t="0" r="19050" b="19050"/>
+        <wp:wrapNone/>
+        <wp:docPr id="770994549" name="Caixa de Texto 1"/>
+        <wp:cNvGraphicFramePr/>
+        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+            <wps:wsp>
+              <wps:cNvSpPr txBox="1"/>
+              <wps:spPr>
+                <a:xfrm>
+                  <a:off x="0" y="0"/>
+                  <a:ext cx="2286000" cy="1143000"/>
+                </a:xfrm>
+                <a:prstGeom prst="rect">
+                  <a:avLst/>
+                </a:prstGeom>
+                <a:noFill/>
+                <a:ln w="6350">
+                  <a:solidFill>
+                    <a:prstClr val="black"/>
+                  </a:solidFill>
+                </a:ln>
+              </wps:spPr>
+              <wps:txbx>
+                <w:txbxContent>
+                  <w:p>
+                    <w:r>
+                      <w:t>Texto da caixa de teste</w:t>
+                    </w:r>
+                  </w:p>
+                </w:txbxContent>
+              </wps:txbx>
+              <wps:bodyPr rot="0" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="t" anchorCtr="0" forceAA="0" compatLnSpc="1">
+                <a:prstTxWarp prst="textNoShape">
+                  <a:avLst/>
+                </a:prstTxWarp>
+                <a:noAutofit/>
+              </wps:bodyPr>
+            </wps:wsp>
+          </a:graphicData>
+        </a:graphic>
+      </wp:anchor>
+    </w:drawing>
+  </mc:Choice>
+  <mc:Fallback>
+    <w:pict>
+      <v:shapetype w14:anchorId="00359A08" id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">
+        <v:stroke joinstyle="miter"/>
+        <v:path gradientshapeok="t" o:connecttype="rect"/>
+      </v:shapetype>
+      <v:shape id="Caixa de Texto 1" o:spid="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:14.95pt;margin-top:-131.3pt;width:180pt;height:90pt;z-index:251659264;visibility:visible;mso-wrap-style:square;mso-wrap-distance-left:9pt;mso-wrap-distance-top:0;mso-wrap-distance-right:9pt;mso-wrap-distance-bottom:0;mso-position-horizontal:absolute;mso-position-horizontal-relative:text;mso-position-vertical:absolute;mso-position-vertical-relative:text;v-text-anchor:top" o:gfxdata="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&#xA;" filled="f" strokeweight=".5pt">
+        <v:fill o:detectmouseclick="t"/>
+        <v:textbox>
+          <w:txbxContent>
+            <w:p>
+              <w:r>
+                <w:t>Texto da caixa de teste</w:t>
+              </w:r>
+            </w:p>
+          </w:txbxContent>
+        </v:textbox>
+      </v:shape>
+    </w:pict>
+  </mc:Fallback>
+</mc:AlternateContent>

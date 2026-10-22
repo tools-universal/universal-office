@@ -1,0 +1,105 @@
+{
+    "name":  "c12-orient",
+    "ok":  true,
+    "compat":  12,
+    "shapes":  [
+                   {
+                       "Name":  "Text Box 2",
+                       "Type":  17,
+                       "AutoShapeType":  1,
+                       "Left":  100,
+                       "Top":  20,
+                       "Width":  180,
+                       "Height":  90,
+                       "Rotation":  0,
+                       "RelativeHorizontalPosition":  2,
+                       "RelativeVerticalPosition":  2,
+                       "LockAnchor":  0,
+                       "LayoutInCell":  -1,
+                       "LockAspectRatio":  0,
+                       "AlternativeText":  "Caixa de Texto: Texto da caixa de teste",
+                       "Title":  null,
+                       "ZOrderPosition":  251658240,
+                       "Visible":  -1,
+                       "HorizontalFlip":  0,
+                       "VerticalFlip":  0,
+                       "ShapeStyle":  null,
+                       "LeftRelative":  -999999,
+                       "TopRelative":  -999999,
+                       "WidthRelative":  -999999,
+                       "HeightRelative":  -999999,
+                       "RelativeHorizontalSize":  1,
+                       "RelativeVerticalSize":  1,
+                       "wrap":  {
+                                    "type":  3,
+                                    "side":  0,
+                                    "t":  0,
+                                    "b":  0,
+                                    "l":  9,
+                                    "r":  9,
+                                    "allowOverlap":  -1
+                                },
+                       "textFrame":  {
+                                         "MarginLeft":  7.2,
+                                         "MarginRight":  7.2,
+                                         "MarginTop":  3.6,
+                                         "MarginBottom":  3.6,
+                                         "Orientation":  3,
+                                         "AutoSize":  0,
+                                         "WordWrap":  -1,
+                                         "VerticalAnchor":  1,
+                                         "HasText":  -1,
+                                         "Overflowing":  false,
+                                         "NoTextRotation":  null,
+                                         "text":  "Texto da caixa de teste\r",
+                                         "hasNext":  false,
+                                         "hasPrev":  false,
+                                         "containingRangeStart":  0,
+                                         "containingRangeEnd":  24
+                                     },
+                       "fill":  {
+                                    "visible":  -1,
+                                    "type":  1,
+                                    "transparency":  0,
+                                    "fore":  {
+                                                 "RGB":  16777215,
+                                                 "ObjectThemeColor":  -1,
+                                                 "SchemeColor":  null,
+                                                 "TintAndShade":  0,
+                                                 "Brightness":  null,
+                                                 "Type":  1
+                                             },
+                                    "back":  {
+                                                 "RGB":  16777215,
+                                                 "ObjectThemeColor":  -1,
+                                                 "SchemeColor":  null,
+                                                 "TintAndShade":  0,
+                                                 "Brightness":  null,
+                                                 "Type":  1
+                                             }
+                                },
+                       "line":  {
+                                    "visible":  -1,
+                                    "weight":  0.75,
+                                    "dash":  1,
+                                    "style":  1,
+                                    "transparency":  0,
+                                    "fore":  {
+                                                 "RGB":  0,
+                                                 "ObjectThemeColor":  -1,
+                                                 "SchemeColor":  null,
+                                                 "TintAndShade":  0,
+                                                 "Brightness":  null,
+                                                 "Type":  1
+                                             }
+                                },
+                       "anchorStart":  355,
+                       "anchorPara":  355,
+                       "pageLeft":  84.75,
+                       "pageTop":  151.5
+                   }
+               ],
+    "inline":  [
+
+               ]
+}
