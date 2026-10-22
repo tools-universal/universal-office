@@ -1,0 +1,38 @@
+[Figura] builtin=True style=0 chap=False lvl=1 sep=0 pos=1
+[Tabela] builtin=True style=0 chap=False lvl=1 sep=0 pos=0
+[Equação] builtin=True style=0 chap=False lvl=1 sep=0 pos=0
+auto [Tabela do Microsoft Word] ins=False label=
+auto [Microsoft Excel Chart] ins=False label=
+auto [OpenDocument Spreadsheet] ins=False label=
+auto [Microsoft Excel Worksheet] ins=False label=
+auto [Microsoft Excel 97-2003 Worksheet] ins=False label=
+auto [Microsoft Excel Binary Worksheet] ins=False label=
+auto [Microsoft Excel Macro-Enabled Worksheet] ins=False label=
+auto [Planilha OpenDocument] ins=False label=
+auto [Desenho OpenDocument] ins=False label=
+auto [Apresentação OpenDocument] ins=False label=
+auto [Fórmula OpenDocument] ins=False label=
+auto [Texto OpenDocument] ins=False label=
+auto [Microsoft Graph Chart] ins=False label=
+auto [Organization Chart Add-in for Microsoft Office programs] ins=False label=
+auto [Package] ins=False label=
+auto [Package] ins=False label=
+auto [Paintbrush Picture] ins=False label=
+auto [OpenDocument Presentation] ins=False label=
+auto [Microsoft PowerPoint Presentation] ins=False label=
+auto [Microsoft PowerPoint 97-2003 Presentation] ins=False label=
+auto [Microsoft PowerPoint Macro-Enabled Presentation] ins=False label=
+auto [Microsoft PowerPoint Slide] ins=False label=
+auto [Microsoft PowerPoint 97-2003 Slide] ins=False label=
+auto [Microsoft PowerPoint Macro-Enabled Slide] ins=False label=
+auto [Planilha OpenOffice.org 1.1] ins=False label=
+auto [Desenho OpenOffice.org 1.1] ins=False label=
+auto [Apresentação OpenOffice.org 1.1] ins=False label=
+auto [Fórmula OpenOffice.org 1.1] ins=False label=
+auto [Documento de texto OpenOffice.org 1.1] ins=False label=
+auto [System Monitor Control] ins=False label=
+auto [Windows Media Player] ins=False label=
+auto [Microsoft Word Document] ins=False label=
+auto [Microsoft Word 97 - 2003 Document] ins=False label=
+auto [Microsoft Word Macro-Enabled Document] ins=False label=
+auto [OpenDocument Text] ins=False label=
