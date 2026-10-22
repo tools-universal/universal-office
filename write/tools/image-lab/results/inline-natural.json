@@ -1,0 +1,21 @@
+{
+    "name":  "inline-natural",
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  360,
+                       "Height":  270,
+                       "ScaleWidth":  100,
+                       "ScaleHeight":  100,
+                       "LockAspectRatio":  0,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}

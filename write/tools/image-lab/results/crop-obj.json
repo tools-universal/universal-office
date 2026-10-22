@@ -1,0 +1,29 @@
+{
+    "name":  "crop-obj",
+    "crop0":  {
+                  "sw":  144,
+                  "px":  0,
+                  "py":  0,
+                  "pw":  144,
+                  "sh":  108,
+                  "ph":  108
+              },
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  100,
+                       "Height":  108,
+                       "ScaleWidth":  40,
+                       "ScaleHeight":  40,
+                       "LockAspectRatio":  -1,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}

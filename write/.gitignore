@@ -22,3 +22,5 @@ __pycache__/
 tools/table-lab/.out/
 # Oráculo da navegação (régua, grade, títulos) — idem
 tools/nav-lab/.out/
+# Oráculo da imagem — .docx/.pdf brutos do Word (os PDFs embutem fontes; os XML em results/ SÃO versionados)
+tools/image-lab/.out/

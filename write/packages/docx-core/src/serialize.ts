@@ -1,6 +1,6 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements } from './xml.js';
-import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
+import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
@@ -141,6 +141,71 @@ function patchDrawingGeometry(
   return out;
 }
 
+const REL_IMAGE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
+const REL_HDPHOTO = 'http://schemas.microsoft.com/office/2007/relationships/hdphoto';
+const MEDIA_MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', emf: 'image/x-emf', wmf: 'image/x-wmf', svg: 'image/svg+xml', wdp: 'image/vnd.ms-photo' };
+
+/**
+ * Rel de uma mídia NOVA (imagem trocada, processada, compactada, inserida) na
+ * parte em gravação: reusa a parte de word/media com os mesmos bytes e a rel que
+ * já aponta para ela; senão grava word/media/uwimageN.ext e acrescenta a rel e o
+ * tipo de conteúdo. Fora da gravação sem perdas, entra na fila do document.xml.
+ */
+function mediaRelId(data: Uint8Array, ext: string, relType = REL_IMAGE): string {
+  if (!active) {
+    const n = ++drawingId;
+    const rid = `rIdWnImg${n}`;
+    mediaOut.push({ rid, path: `word/media/wnimage${n}.${ext}`, data, ext, ...(relType !== REL_IMAGE ? { relType } : {}) });
+    return rid;
+  }
+  const { pkg, relsPath } = active;
+  let rels = pkg.getPartText(relsPath) ??
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  const same = (a: Uint8Array, b: Uint8Array): boolean => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 509) if (a[i] !== b[i]) return false;
+    return a[a.length - 1] === b[b.length - 1];
+  };
+  let part = pkg.partNames().find((p) => p.startsWith('word/media/') && same(pkg.getPart(p)!, data));
+  if (!part) {
+    let n = 1;
+    while (pkg.getPart(`word/media/uwimage${n}.${ext}`)) n++;
+    part = `word/media/uwimage${n}.${ext}`;
+    pkg.setPart(part, data);
+    let ct = pkg.getPartText('[Content_Types].xml') ?? '';
+    const e = part.slice(part.lastIndexOf('.') + 1);
+    if (ct && !new RegExp(`Extension="${e}"`, 'i').test(ct)) {
+      ct = ct.replace('</Types>', () => `<Default Extension="${e}" ContentType="${MEDIA_MIME[e.toLowerCase()] ?? `image/${e}`}"/></Types>`);
+      pkg.setPartText('[Content_Types].xml', ct);
+    }
+  }
+  const target = /^word\/_rels\/[^/]+$/.test(relsPath) ? part.replace(/^word\//, '') : `/${part}`;
+  for (const m of rels.matchAll(/<Relationship\b[^>]*>/g)) {
+    const tag = m[0];
+    if (tag.includes(`Target="${target}"`) && tag.includes(`Type="${relType}"`)) return /\bId="([^"]+)"/.exec(tag)![1]!;
+  }
+  let n = 1;
+  while (rels.includes(`Id="rIdUwImg${n}"`)) n++;
+  const id = `rIdUwImg${n}`;
+  rels = rels.replace('</Relationships>', () => `<Relationship Id="${id}" Type="${relType}" Target="${target}"/></Relationships>`);
+  pkg.setPartText(relsPath, rels);
+  return id;
+}
+
+/** Imagem com XML cru: o editado (img.edited) ou o de origem, com a geometria
+ *  atual e os marcadores de mídia nova resolvidos (r:embed="uw:media" → bytes de
+ *  img.data; "uw:layer" → o original da camada a14, img.layer). */
+function pictureXml(img: InlineImage, source?: string): string {
+  let xml = patchDrawingGeometry(!img.edited && source ? source : img.rawDrawingXml!, img);
+  if (xml.includes('r:embed="uw:media"')) xml = xml.replace(/r:embed="uw:media"/g, () => `r:embed="${mediaRelId(img.data, img.ext)}"`);
+  if (xml.includes('r:embed="uw:layer"') && img.layer) {
+    const L = img.layer;
+    xml = xml.replace(/r:embed="uw:layer"/g, () => `r:embed="${mediaRelId(L.data, L.ext, L.ext === 'wdp' ? REL_HDPHOTO : REL_IMAGE)}"`);
+  }
+  return xml;
+}
+
 /** Reemite o <w:drawing> CRU trocando o conteúdo de CADA <w:txbxContent> pelos
  *  parágrafos (possivelmente editados). Preserva shape/âncora/fill do original;
  *  campos (PAGE/NUMPAGES) voltam como fldSimple via paraXml. */
@@ -171,7 +236,7 @@ function objectXml(run: Run): string | undefined {
   const rpr = rPrXml(run);
   if (!head?.obj) {
     if (run.image?.ole && !run.image.rawDrawingXml) return `<w:r>${rpr}${oleObjectXml(run)}</w:r>`;
-    if (run.image?.rawDrawingXml) return `<w:r>${rpr}${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
+    if (run.image?.rawDrawingXml) return `<w:r>${rpr}${pictureXml(run.image)}</w:r>`;
     if (run.image) return `<w:r>${drawingXml(run)}</w:r>`;
     if (run.textbox?.rawDrawingXml) {
       return `<w:r>${rpr}${drawingWithParas(patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox), run.textbox.paras, run.textbox.blocks)}</w:r>`;
@@ -209,7 +274,8 @@ function objectXml(run: Run): string | undefined {
     }
   }
   const geo = members.length <= 1 ? run.image ?? run.textbox : undefined;
-  if (geo) xml = patchDrawingGeometry(xml, geo);
+  if (geo && run.image?.rawDrawingXml) xml = pictureXml(run.image, xml);
+  else if (geo) xml = patchDrawingGeometry(xml, geo);
   if (lossless.emittedObj.has(headSid!)) xml = freshDrawingIds(xml);
   lossless.emittedObj.add(headSid!);
   return `<w:r>${rpr}${xml}</w:r>`;
@@ -300,7 +366,7 @@ function runXml(run: Run): string {
     // reusa a mídia/rels existentes), com a geometria atual (mover/redimensionar).
     // Só reconstrói para imagens NOVAS.
     if (run.image.rawDrawingXml) {
-      return `<w:r>${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
+      return `<w:r>${pictureXml(run.image)}</w:r>`;
     }
     if (run.image.ole) return `<w:r>${oleObjectXml(run)}</w:r>`;
     return `<w:r>${drawingXml(run)}</w:r>`;

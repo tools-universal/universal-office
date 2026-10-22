@@ -1,0 +1,21 @@
+{
+    "name":  "scale",
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  180,
+                       "Height":  135,
+                       "ScaleWidth":  50,
+                       "ScaleHeight":  50,
+                       "LockAspectRatio":  -1,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}

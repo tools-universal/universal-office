@@ -1,0 +1,21 @@
+{
+    "name":  "ui-reset",
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  100,
+                       "Height":  83.3,
+                       "ScaleWidth":  31,
+                       "ScaleHeight":  31,
+                       "LockAspectRatio":  -1,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}

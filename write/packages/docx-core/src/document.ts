@@ -3,6 +3,7 @@ import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
 import { readRPr, readPPr, readBorder, readRevisionInfo, type RPr, type PPr, type BorderSpec, type RevisionInfo, type TabAlign } from './ooxml/props.js';
 import { readNoteProps, type NoteProps } from './ooxml/parts.js';
 import type { SourceStore, SegSource } from './source.js';
+import { readPictureFormat } from './picture-xml.js';
 import {
   readWpAnchor, readSpPr, parseVmlStyle, vmlAnchor, vmlLenTwips, vmlShapeStyle,
   type DrawingAnchor, type ShapeStyle,
@@ -125,6 +126,12 @@ export interface InlineImage {
   /** Objeto OLE incorporado (w:object/o:OLEObject Type="Embed"): o arquivo
    *  (planilha .xlsx…) e o ProgID; a imagem é a prévia que o Word mostra. */
   ole?: { progId: string; data: Uint8Array; ext: string };
+  /** O XML cru foi editado (Formato da Imagem): a gravação usa ele, não o de origem. */
+  edited?: boolean;
+  /** Original da camada a14:imgLayer criado/trocado pelo editor (r:embed="uw:layer"). */
+  layer?: { data: Uint8Array; ext: string };
+  /** Formatação da imagem lida do w:drawing (contorno, efeitos, 3D, ajustes, texto alt). */
+  format?: import('./picture-xml.js').PictureFormat;
 }
 
 /**
@@ -1075,7 +1082,33 @@ function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props
     }
     if (drawing.raw) t.rawDrawingXml = drawing.raw;
   }
+  // formatação da imagem (Formato da Imagem): contorno, efeitos, 3D, ajustes, texto alt
+  if (run.image && drawing.raw) {
+    const fmt = readPictureFormat(drawing.raw);
+    if (fmt) run.image.format = fmt;
+  }
   return run;
+}
+
+/**
+ * Relê os campos de layout de uma imagem a partir do XML cru (depois de uma
+ * edição do Formato da Imagem): tamanho, âncora, quebra, recorte, giro, efeitos e
+ * a formatação tipada. Bytes, camada, OLE e o próprio XML ficam como estão.
+ */
+export function syncImageFromXml(img: InlineImage): void {
+  if (!img.rawDrawingXml) return;
+  let root: XmlElement;
+  try { root = parseXml(img.rawDrawingXml); } catch { return; }
+  root.raw = img.rawDrawingXml;
+  const ctx = { resolveImage: () => ({ data: img.data, ext: img.ext }), resolveLink: () => undefined } as unknown as ReadContext;
+  const fresh = readDrawingRun(root, ctx)?.image;
+  if (!fresh) return;
+  const KEYS = ['widthTwips', 'heightTwips', 'floating', 'offsetXTwips', 'offsetYTwips', 'relH', 'relV', 'behindDoc', 'anchor', 'inlineEffect', 'crop', 'style', 'effects', 'format'] as const;
+  const dst = img as unknown as Record<string, unknown>, src = fresh as unknown as Record<string, unknown>;
+  for (const k of KEYS) {
+    if (src[k] === undefined) delete dst[k];
+    else dst[k] = src[k];
+  }
 }
 
 /** VML (w:pict / w:object) → runs. */

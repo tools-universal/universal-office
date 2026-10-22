@@ -3,6 +3,7 @@ export { readEmbeddedFonts, deobfuscateFont, type EmbeddedFont } from './fonts.j
 export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
 export {
   readDocument,
+  syncImageFromXml,
   DEFAULT_RUN_PROPS,
   type DocumentModel,
   type Paragraph,
@@ -144,6 +145,12 @@ export {
   type StyleMeta, type LatentMeta, type StyleType, type NewStyle, type StyleHead, type StyleFormat, type Change, type BuiltinStyle,
 } from './style-sheet.js';
 export { isWordBinary, convertDocToDocx, DocFormatError } from './doc/index.js';
+export {
+  readPictureFormat, patchPicture, newPictureXml, readDmlColor, dmlColorXml, dmlColorSpec, picLineXml, shadowXml, reflectionXml,
+  effectLstXml, scene3dXml, sp3dXml, readPicLine, DEFAULT_WRAP_POLYGON, EMU_PER_PT, EMU_PER_TW,
+  type PictureFormat, type PictureChange, type PicWrapKind, type PicPos, type PicLine, type PicShadow, type PicReflection,
+  type PicEffects, type Pic3D, type PicBlipFx, type DmlColor,
+} from './picture-xml.js';
 export * as tableOps from './table-ops.js';
 export type { CellRect, GridCell, TableMap, NewTableOptions, BorderKind, TextSeparator, MergeOptions, SplitOptions } from './table-ops.js';
 export { tblPrXml, trPrXml, tcPrXml as tcPrTypedXml, patchTblPr, patchTrPr, patchTcPr, deepEq } from './table-xml.js';

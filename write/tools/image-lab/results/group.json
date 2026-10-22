@@ -1,0 +1,80 @@
+{
+    "name":  "group",
+    "ok":  false,
+    "error":  "O recurso de agrupamento está desabilitado para as formas selecionadas.",
+    "inline":  [
+
+               ],
+    "shapes":  [
+                   {
+                       "Left":  -0.3,
+                       "Top":  -999999,
+                       "Width":  144,
+                       "Height":  108,
+                       "Rotation":  0,
+                       "RelativeHorizontalPosition":  2,
+                       "RelativeVerticalPosition":  2,
+                       "LockAnchor":  0,
+                       "LayoutInCell":  -1,
+                       "LockAspectRatio":  -1,
+                       "Name":  "Imagem 1",
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "ZOrderPosition":  1,
+                       "LeftRelative":  -999999,
+                       "TopRelative":  -999999,
+                       "WidthRelative":  -999999,
+                       "HeightRelative":  -999999,
+                       "RelativeHorizontalSize":  0,
+                       "RelativeVerticalSize":  0,
+                       "wrap":  {
+                                    "type":  0,
+                                    "side":  0,
+                                    "t":  0,
+                                    "b":  0,
+                                    "l":  9,
+                                    "r":  9,
+                                    "allowOverlap":  -1
+                                },
+                       "anchorStart":  467,
+                       "anchorPara":  467,
+                       "pageLeft":  237.75,
+                       "pageTop":  165.75
+                   },
+                   {
+                       "Left":  300,
+                       "Top":  40,
+                       "Width":  90,
+                       "Height":  68,
+                       "Rotation":  0,
+                       "RelativeHorizontalPosition":  2,
+                       "RelativeVerticalPosition":  2,
+                       "LockAnchor":  0,
+                       "LayoutInCell":  -1,
+                       "LockAspectRatio":  0,
+                       "Name":  "Imagem 2",
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "ZOrderPosition":  2,
+                       "LeftRelative":  -999999,
+                       "TopRelative":  -999999,
+                       "WidthRelative":  -999999,
+                       "HeightRelative":  -999999,
+                       "RelativeHorizontalSize":  0,
+                       "RelativeVerticalSize":  0,
+                       "wrap":  {
+                                    "type":  3,
+                                    "side":  0,
+                                    "t":  0,
+                                    "b":  0,
+                                    "l":  9,
+                                    "r":  9,
+                                    "allowOverlap":  -1
+                                },
+                       "anchorStart":  0,
+                       "anchorPara":  0,
+                       "pageLeft":  84.75,
+                       "pageTop":  70.5
+                   }
+               ]
+}

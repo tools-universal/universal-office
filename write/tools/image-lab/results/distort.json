@@ -1,0 +1,21 @@
+{
+    "name":  "distort",
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  200,
+                       "Height":  108,
+                       "ScaleWidth":  56,
+                       "ScaleHeight":  40,
+                       "LockAspectRatio":  0,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}

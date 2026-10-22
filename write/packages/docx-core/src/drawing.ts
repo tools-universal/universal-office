@@ -110,6 +110,20 @@ function readPos(el: XmlElement | undefined, defFrom: string): AnchorPos {
   return pos;
 }
 
+/** Filho do wp:anchor, também dentro de mc:AlternateContent (posição relativa em
+ *  %: o Word grava wp14:pctPosHOffset no mc:Choice e a posição absoluta no
+ *  mc:Fallback — oráculo image-lab pct-pos). */
+export function anchorChild(anchor: XmlElement, name: string): XmlElement | undefined {
+  const direct = firstChild(anchor, name);
+  if (direct) return direct;
+  for (const ac of childElements(anchor, 'mc:AlternateContent')) {
+    const choice = firstChild(ac, 'mc:Choice');
+    const el = (choice && firstChild(choice, name)) ?? (() => { const fb = firstChild(ac, 'mc:Fallback'); return fb && firstChild(fb, name); })();
+    if (el) return el;
+  }
+  return undefined;
+}
+
 /** Âncora de um wp:anchor (undefined para wp:inline). */
 export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | undefined {
   if (!anchor) return undefined;
@@ -137,8 +151,8 @@ export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | un
   }
   const out: DrawingAnchor = {
     wrap,
-    posH: readPos(firstChild(anchor, 'wp:positionH'), 'column'),
-    posV: readPos(firstChild(anchor, 'wp:positionV'), 'paragraph'),
+    posH: readPos(anchorChild(anchor, 'wp:positionH'), 'column'),
+    posV: readPos(anchorChild(anchor, 'wp:positionV'), 'paragraph'),
   };
   if (wrapText) out.wrapText = wrapText;
   if (wrapBox) out.wrapBox = wrapBox;

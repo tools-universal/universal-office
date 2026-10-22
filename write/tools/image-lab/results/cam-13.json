@@ -1,0 +1,44 @@
+{
+    "name":  "cam-13",
+    "ok":  true,
+    "inline":  [
+
+               ],
+    "shapes":  [
+                   {
+                       "Left":  -0.3,
+                       "Top":  -999999,
+                       "Width":  144,
+                       "Height":  108,
+                       "Rotation":  0,
+                       "RelativeHorizontalPosition":  2,
+                       "RelativeVerticalPosition":  2,
+                       "LockAnchor":  0,
+                       "LayoutInCell":  -1,
+                       "LockAspectRatio":  -1,
+                       "Name":  "Imagem 1",
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "ZOrderPosition":  1,
+                       "LeftRelative":  -999999,
+                       "TopRelative":  -999999,
+                       "WidthRelative":  -999999,
+                       "HeightRelative":  -999999,
+                       "RelativeHorizontalSize":  1,
+                       "RelativeVerticalSize":  1,
+                       "wrap":  {
+                                    "type":  0,
+                                    "side":  0,
+                                    "t":  0,
+                                    "b":  0,
+                                    "l":  9,
+                                    "r":  9,
+                                    "allowOverlap":  -1
+                                },
+                       "anchorStart":  466,
+                       "anchorPara":  466,
+                       "pageLeft":  242.25,
+                       "pageTop":  165.75
+                   }
+               ]
+}

@@ -1,0 +1,21 @@
+{
+    "name":  "fill-crop-tall",
+    "ok":  true,
+    "inline":  [
+                   {
+                       "Width":  144,
+                       "Height":  200,
+                       "ScaleWidth":  74,
+                       "ScaleHeight":  74,
+                       "LockAspectRatio":  0,
+                       "AlternativeText":  "",
+                       "Title":  "",
+                       "start":  466,
+                       "pageLeft":  84.75,
+                       "pageTop":  165.75
+                   }
+               ],
+    "shapes":  [
+
+               ]
+}
