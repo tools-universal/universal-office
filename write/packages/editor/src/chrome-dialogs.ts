@@ -64,47 +64,6 @@ export async function commentDialog(env: Env): Promise<void> {
   env.app.ui!.flash(env.ed.addComment(text.trim()) === null ? L.selectToComment : L.commentAdded);
 }
 
-export async function fontDialog(env: Env, families: string[]): Promise<void> {
-  const L = env.app.ui!.L, lang = env.lang;
-  const r = env.state().run;
-  const cur = (r.fontAscii as string | undefined) ?? '';
-  const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
-  const font = select('font', fams.map((f) => [f, f] as const), cur);
-  const size = el('input', { type: 'number', name: 'size', min: '1', max: '1638', step: '0.5', value: String(((r.szHalfPt as number | undefined) ?? 22) / 2) });
-  const color = el('input', { type: 'color', name: 'color', value: `#${(r.color as string | undefined) && /^[0-9a-f]{6}$/i.test(r.color as string) ? r.color : '000000'}` });
-  color.style.cssText = 'width:48px;height:32px;padding:2px;border-radius:8px';
-  const spacing = select('spacing', [['0', 'Normal'], ['20', tr(lang, 'Expanded 1 pt', 'Expandido 1 pt')], ['40', tr(lang, 'Expanded 2 pt', 'Expandido 2 pt')],
-    ['-10', tr(lang, 'Condensed 0.5 pt', 'Condensado 0,5 pt')], ['-20', tr(lang, 'Condensed 1 pt', 'Condensado 1 pt')]], String((r.charSpacingTwips as number | undefined) ?? 0));
-  const flags = {
-    bold: [tr(lang, 'Bold', 'Negrito'), !!r.bold], italic: [tr(lang, 'Italic', 'Itálico'), !!r.italic],
-    underline: [tr(lang, 'Underline', 'Sublinhado'), !!r.underline], strike: [tr(lang, 'Strikethrough', 'Tachado'), !!r.strike],
-    sup: [tr(lang, 'Superscript', 'Sobrescrito'), r.vertAlign === 'superscript'], sub: [tr(lang, 'Subscript', 'Subscrito'), r.vertAlign === 'subscript'],
-    allCaps: [tr(lang, 'All caps', 'Todas em maiúsculas'), !!r.allCaps], smallCaps: [tr(lang, 'Small caps', 'Versalete'), !!r.smallCaps],
-  } as const;
-  const grid = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, L.fontDlg), font, el('span', {}, L.size), size, el('span', {}, L.color), color, el('span', {}, L.charSpacing), spacing);
-  const fx = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px 16px' });
-  for (const [k, [label, on]] of Object.entries(flags)) fx.append(check(k, label, on));
-  const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' }, grid, el('strong', {}, L.effects), fx);
-  const h = openDialog({ title: L.fontDlg, body, layer: env.layer, lang, width: 440,
-    actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
-  if ((await h.result) !== 'ok') return;
-  const ed = env.ed;
-  const box = (k: string): boolean => (fx.querySelector(`input[name="${k}"]`) as HTMLInputElement).checked;
-  if (font.value && font.value !== cur) ed.setFontFamily(font.value);
-  const sz = parseFloat(size.value);
-  if (sz > 0 && sz * 2 !== r.szHalfPt) ed.setFontSize(sz);
-  const hex = color.value.slice(1).toUpperCase();
-  if (hex !== ((r.color as string | undefined) ?? '000000').toUpperCase()) ed.setColor(hex);
-  for (const k of ['bold', 'italic', 'underline', 'strike', 'allCaps', 'smallCaps'] as const) {
-    if (box(k) !== flags[k][1]) ed.toggleRunProp(k);
-  }
-  if (box('sup') !== flags.sup[1]) ed.toggleVertAlign('superscript');
-  else if (box('sub') !== flags.sub[1]) ed.toggleVertAlign('subscript');
-  const cs = Number(spacing.value);
-  if (cs !== ((r.charSpacingTwips as number | undefined) ?? 0)) ed.setCharSpacing(cs || undefined);
-}
-
 /** Unidade das medidas dos diálogos: cm (pt) ou polegadas (en), como a régua. */
 const unitOf = (lang: UiLang): { tw: number; name: string; step: string } =>
   lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };

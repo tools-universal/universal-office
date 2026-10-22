@@ -10,7 +10,7 @@ import { parseXml, childElements, type XmlElement } from './xml.js';
 import { readRPr, readPPr, type RPr, type PPr } from './ooxml/props.js';
 import {
   editBaseProps, paraPropsFromPPr, readSectPr,
-  type Run, type Paragraph, type RunProps, type ParaProps, type SectPr,
+  type Run, type Paragraph, type RunProps, type ParaProps, type SectPr, type ThemeColorAttrs,
 } from './document.js';
 import { pgBordersXml } from './table-xml.js';
 import { paraFormatting, runFormatting } from './revisions.js';
@@ -101,6 +101,15 @@ const kidRaw = (kids: Kid[], name: string): string => kids.find((k) => k.name ==
 const onOff = (name: string, v: boolean): string => (v ? `<${name}/>` : `<${name} w:val="0"/>`);
 const join = (open: string, kids: Kid[], close: string): string => (kids.length ? open + kids.map((k) => k.raw).join('') + close : '');
 
+/** Atributos de cor do tema (w:themeColor/w:themeTint/w:themeShade), como o Word grava. */
+const themeAttrs = (t: ThemeColorAttrs | undefined): string =>
+  t ? ` w:themeColor="${esc(t.themeColor)}"${t.tint ? ` w:themeTint="${esc(t.tint)}"` : ''}${t.shade ? ` w:themeShade="${esc(t.shade)}"` : ''}` : '';
+/** w:color das props (hex + tema). */
+const colorXml = (p: RunProps): string => `<w:color w:val="${esc(p.color!)}"${themeAttrs(p.colorTheme)}/>`;
+/** w:u das props (estilo, cor, tema). */
+const uXml = (p: RunProps): string =>
+  `<w:u w:val="${p.underlineStyle ?? 'single'}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ''}${themeAttrs(p.underlineTheme)}/>`;
+
 /** w:rPr gerado das props (run criado pela edição, sem XML de origem).
  *  linkAware: a cor/sublinhado que o leitor força em hyperlinks não viram rPr
  *  (o caminho antigo, sem fonte original, gravava as duas). */
@@ -115,16 +124,18 @@ export function rPrFromProps(p: RunProps, linkAware = true): string {
   if (p.strike) rpr.push('<w:strike/>');
   if (p.doubleStrike) rpr.push('<w:dstrike/>');
   if (p.noProof) rpr.push('<w:noProof/>');
+  if (p.hidden) rpr.push('<w:vanish/>');
   if (p.webHidden) rpr.push('<w:webHidden/>');
   // hyperlink: o leitor força cor/sublinhado nas props — não é formatação (oráculo hlink)
   const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
-  if (p.color && !(linkAware && p.link && p.color === '0563C1')) rpr.push(`<w:color w:val="${esc(p.color)}"/>`);
+  if (p.color && !(linkAware && p.link && p.color === '0563C1' && !p.colorTheme)) rpr.push(colorXml(p));
   if (p.charSpacingTwips) rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
+  if (p.scalePct !== undefined && p.scalePct !== 100) rpr.push(`<w:w w:val="${p.scalePct}"/>`);
+  if (p.kernHalfPt) rpr.push(`<w:kern w:val="${p.kernHalfPt}"/>`);
+  if (p.positionHalfPt) rpr.push(`<w:position w:val="${p.positionHalfPt}"/>`);
   if (p.szHalfPt !== undefined) rpr.push(`<w:sz w:val="${p.szHalfPt}"/><w:szCs w:val="${p.szHalfPt}"/>`);
   if (p.highlight) rpr.push(`<w:highlight w:val="${esc(p.highlight)}"/>`);
-  if (p.underline && !linkLook) {
-    rpr.push(`<w:u w:val="${p.underlineStyle ?? 'single'}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ''}/>`);
-  }
+  if (p.underline && !linkLook) rpr.push(uXml(p));
   if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
   // formatação controlada: o rPr de antes, por último (CT_RPr)
   if (p.fmt) rpr.push(`<w:rPrChange${revisionAttrs(p.fmt)}>${wrapIn('w:rPr', innerOf(rPrFromProps(p.fmt.old, linkAware)))}</w:rPrChange>`);
@@ -159,9 +170,10 @@ export function clearedRPr(rpr: RPr | undefined, fields?: readonly (keyof RunPro
 }
 /** Prop de edição do run ↔ campos do RPr. */
 const PROP_RPR: Partial<Record<keyof RunProps, string[]>> = {
-  bold: ['b', 'bCs'], italic: ['i', 'iCs'], underline: ['u'], underlineStyle: ['u'], underlineColor: ['u'], strike: ['strike'],
+  bold: ['b', 'bCs'], italic: ['i', 'iCs'], underline: ['u'], underlineStyle: ['u'], underlineColor: ['u'], underlineTheme: ['u'], strike: ['strike'],
   doubleStrike: ['dstrike'], allCaps: ['caps'], smallCaps: ['smallCaps'], vertAlign: ['vertAlign'], szHalfPt: ['sz', 'szCs'],
-  color: ['color'], highlight: ['highlight'], fontAscii: ['rFonts'], charSpacingTwips: ['spacing'],
+  color: ['color'], colorTheme: ['color'], highlight: ['highlight'], fontAscii: ['rFonts'], charSpacingTwips: ['spacing'],
+  hidden: ['vanish'], scalePct: ['w'], positionHalfPt: ['position'], kernHalfPt: ['kern'],
 };
 /** ppr sem a formatação direta de parágrafo (ficam pStyle, marca ¶ e revisão). */
 export function clearedPPr(ppr: PPr | undefined): PPr {
@@ -216,11 +228,14 @@ export function patchRPr(raw: string | undefined, run: Run): string {
   const set = (name: string, xml: string | null): void => { changed = true; setKid(kids, RPR_ORDER, name, xml); };
   if (p.bold !== base.bold) { set('w:b', onOff('w:b', p.bold)); set('w:bCs', onOff('w:bCs', p.bold)); }
   if (p.italic !== base.italic) { set('w:i', onOff('w:i', p.italic)); set('w:iCs', onOff('w:iCs', p.italic)); }
-  if (p.underline !== base.underline || p.underlineStyle !== base.underlineStyle || p.underlineColor !== base.underlineColor) {
-    set('w:u', p.underline
-      ? `<w:u w:val="${p.underlineStyle ?? 'single'}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ''}/>`
-      : '<w:u w:val="none"/>');
+  if (p.underline !== base.underline || p.underlineStyle !== base.underlineStyle || p.underlineColor !== base.underlineColor
+    || !sameJson(p.underlineTheme, base.underlineTheme)) {
+    set('w:u', p.underline ? uXml(p) : '<w:u w:val="none"/>');
   }
+  if (!!p.hidden !== !!base.hidden) set('w:vanish', p.hidden ? '<w:vanish/>' : null);
+  if ((p.scalePct ?? 100) !== (base.scalePct ?? 100)) set('w:w', p.scalePct !== undefined && p.scalePct !== 100 ? `<w:w w:val="${p.scalePct}"/>` : null);
+  if ((p.kernHalfPt ?? 0) !== (base.kernHalfPt ?? 0)) set('w:kern', p.kernHalfPt ? `<w:kern w:val="${p.kernHalfPt}"/>` : null);
+  if ((p.positionHalfPt ?? 0) !== (base.positionHalfPt ?? 0)) set('w:position', p.positionHalfPt ? `<w:position w:val="${p.positionHalfPt}"/>` : null);
   if (p.strike !== base.strike) set('w:strike', onOff('w:strike', p.strike));
   if (!!p.doubleStrike !== !!base.doubleStrike) set('w:dstrike', onOff('w:dstrike', !!p.doubleStrike));
   if (p.allCaps !== base.allCaps) set('w:caps', onOff('w:caps', p.allCaps));
@@ -230,7 +245,7 @@ export function patchRPr(raw: string | undefined, run: Run): string {
     set('w:sz', p.szHalfPt === undefined ? null : `<w:sz w:val="${p.szHalfPt}"/>`);
     set('w:szCs', p.szHalfPt === undefined ? null : `<w:szCs w:val="${p.szHalfPt}"/>`);
   }
-  if (p.color !== base.color) set('w:color', p.color === undefined ? null : `<w:color w:val="${esc(p.color)}"/>`);
+  if (p.color !== base.color || !sameJson(p.colorTheme, base.colorTheme)) set('w:color', p.color === undefined ? null : colorXml(p));
   if (p.highlight !== base.highlight) set('w:highlight', p.highlight === undefined ? null : `<w:highlight w:val="${esc(p.highlight)}"/>`);
   if (p.fontAscii !== base.fontAscii) {
     set('w:rFonts', p.fontAscii === undefined ? null : withAttrs(kidRaw(kids, 'w:rFonts'), 'w:rFonts', {
@@ -283,9 +298,10 @@ function pprBits(pp: ParaProps, ids: GenNumIds): Record<string, string | null> {
     : null;
   if (pp.borders) {
     let inner = '';
-    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+    for (const side of ['top', 'left', 'bottom', 'right', 'between', 'bar'] as const) {
       const e = pp.borders[side];
-      if (e) inner += `<w:${side} w:val="${esc(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc(e.color) : 'auto'}"/>`;
+      // w:bar não tem afastamento (o Word grava só val/sz/color)
+      if (e) inner += `<w:${side} w:val="${esc(e.style)}" w:sz="${e.sizeEighthPt}"${side === 'bar' ? '' : ` w:space="${e.spacePt}"`} w:color="${e.color ? esc(e.color) : 'auto'}"/>`;
     }
     out['w:pBdr'] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
   } else if (pp.boxBorder) {

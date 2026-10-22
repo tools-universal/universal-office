@@ -110,10 +110,10 @@ const sel = (name: string, opts: readonly (readonly [string, string])[], value: 
 };
 
 /** Cor escolhida: hex ("auto" = automática) e, se do tema, a referência. */
-interface Pick { hex: string; themeColor?: string; tint?: string; shade?: string }
+export interface Pick { hex: string; themeColor?: string; tint?: string; shade?: string }
 
 /** Botão de cor que abre a paleta do tema + padrão (+ Automática/Sem Cor). */
-function colorButton(env: DialogEnv, value: Pick, autoLabel: string): { el: HTMLElement; value: () => Pick; onChange: (f: () => void) => void } {
+export function colorButton(env: DialogEnv, value: Pick, autoLabel: string): { el: HTMLElement; value: () => Pick; onChange: (f: () => void) => void } {
   let cur = value;
   let changed = (): void => {};
   const swatch = el('span', { style: 'display:inline-block;width:28px;height:14px;border:1px solid currentColor;border-radius:2px' });

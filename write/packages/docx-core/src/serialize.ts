@@ -523,6 +523,8 @@ function runXml(run: Run): string {
   if ((run.textbox?.edited && run.textbox.rawDrawingXml) || (run.shape?.edited && run.shape.rawDrawingXml)) {
     return `<w:r>${rPrXml(run)}${onceShape((run.textbox ?? run.shape)!, editedShapeXml(run))}</w:r>`;
   }
+  // forma VML nova do editor (Linha Horizontal): o w:pict cru
+  if (run.shape?.rawVml) return `<w:r>${rPrXml(run)}${run.shape.rawVml}</w:r>`;
   // caixa de texto: reemite o <w:drawing> CRU com a geometria atual, trocando só
   // o <w:txbxContent> pelos parágrafos (possivelmente editados). Sem o cru (caixa
   // criada por nós), emite nada — evitando XML de shape inválido.
@@ -914,11 +916,11 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
   flag('w:suppressLineNumbers', pp.suppressLineNumbers);
   if (pp.borders) {
     let inner = '';
-    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+    for (const side of ['top', 'left', 'bottom', 'right', 'between', 'bar'] as const) {
       const e = pp.borders[side];
       if (!e) continue;
       inner += `<w:${side} w:val="${escAttr(e.style)}" w:sz="${e.sizeEighthPt}" ` +
-        `w:space="${e.spacePt}" w:color="${e.color ? escAttr(e.color) : 'auto'}"/>`;
+        `${side === 'bar' ? '' : `w:space="${e.spacePt}" `}w:color="${e.color ? escAttr(e.color) : 'auto'}"/>`;
     }
     if (inner) ppr.push(`<w:pBdr>${inner}</w:pBdr>`);
   } else if (pp.boxBorder) {

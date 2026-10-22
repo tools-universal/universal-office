@@ -20,6 +20,8 @@ import {
   type DocRange,
   type RunProps,
   type ParaProps,
+  type UnderlineStyle,
+  type ThemeColorAttrs,
   type BlockSdt,
   type Paragraph,
   type SectPr,
@@ -153,6 +155,7 @@ import {
 } from '@universal-office/docx-core';
 import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
+import { caseMapped } from './text-case.js';
 import { pageFillFrom, themeTintShade, GRADIENT_PRESETS, GRADIENT_VARIANTS, type PageFillInput, type PageBackgroundInfo, type ThemeColorRef, type GradientStyle } from './page-design.js';
 import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST, SHADOW_PRESETS, REFLECTION_PRESETS, GLOW_SIZES, glowPreset, bevel3D, RECOLOR_PRESETS } from './picture-ops.js';
 import { adjustSaturation, adjustTemperature, adjustSharpen, adjustBrightnessContrast, wrapContour, SHAPE_STYLE_PRESETS } from '@universal-office/drawingml';
@@ -2373,6 +2376,28 @@ export class UniversalWriteElement extends HTMLElement {
   getZoom(): number { return this.zoom; }
   toggleMarks(): boolean { this.showMarks = !this.showMarks; this.refreshView(); return this.showMarks; }
 
+  /** Seleção atual do texto (parágrafo do corpo, ou do cabeçalho/caixa/célula em edição, e
+   *  deslocamento em caracteres): âncora e foco. */
+  getSelection(): { anchor: DocPosition; focus: DocPosition } {
+    return { anchor: { ...this.selection.anchor }, focus: { ...this.selection.focus } };
+  }
+
+  /** Seleciona do `anchor` ao `focus` (sem `focus`: põe o cursor em `anchor`); as posições
+   *  são limitadas ao texto existente. */
+  setSelection(anchor: DocPosition, focus: DocPosition = anchor): void {
+    if (!this.model) return;
+    const clamp = (p: DocPosition): DocPosition => {
+      const para = Math.max(0, Math.min(this.model!.paragraphs.length - 1, Math.floor(p.para)));
+      return { para, offset: Math.max(0, Math.min(paraLength(this.model!.paragraphs[para]!), Math.floor(p.offset))) };
+    };
+    this.selection = { anchor: clamp(anchor), focus: clamp(focus) };
+    this.pendingProps = null;
+    this.floatSel = null;
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
   getSelectionState(): { run: RunProps; para: ParaProps; view: ViewMode; marks: boolean; table: TableState | null } {
     const run: RunProps = { ...(this.pendingProps ?? this.currentProps()) };
     const p = this.model?.paragraphs[this.selection.focus.para];
@@ -2395,9 +2420,113 @@ export class UniversalWriteElement extends HTMLElement {
     return { run, para, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
 
-  toggleRunProp(key: 'bold' | 'italic' | 'underline' | 'strike' | 'allCaps' | 'smallCaps'): void {
+  toggleRunProp(key: 'bold' | 'italic' | 'underline' | 'strike' | 'doubleStrike' | 'allCaps' | 'smallCaps' | 'hidden'): void {
+    if (key === 'underline') { this.toggleUnderline(); return; }
     const cur = this.pendingProps ?? this.currentProps();
-    this.formatRuns({ [key]: !cur[key] } as Partial<RunProps>);
+    const on = !cur[key];
+    // tachado e tachado duplo se excluem (diálogo Fonte do Word)
+    this.formatRuns({ [key]: on, ...(on && key === 'strike' ? { doubleStrike: false } : on && key === 'doubleStrike' ? { strike: false } : {}) } as Partial<RunProps>);
+  }
+
+  // ───────────────────────── Fonte: sublinhado, cores, maiúsculas ─────────────────────────
+  // Regras medidas no Word (write/tools/home-lab; memórias word-underline-facts e word-home-font-facts).
+
+  /** Estilo do botão Sublinhado: o último escolhido na sessão (simples de início), como o Word. */
+  private ulButton: UnderlineStyle = 'single';
+  /** O estilo que o botão Sublinhado (Ctrl+U) aplica. */
+  underlineButtonStyle(): UnderlineStyle { return this.ulButton; }
+
+  /** Sublinhado da seleção (ou do que vai ser digitado): um dos 17 estilos do w:u ou 'none'.
+   *  Escolher um estilo o torna o do botão. */
+  setUnderline(style: UnderlineStyle | 'none'): void {
+    if (style !== 'none') this.ulButton = style;
+    this.formatRuns(style === 'none' ? { underline: false } : { underline: true, underlineStyle: style === 'single' ? undefined : style });
+  }
+
+  /** Botão Sublinhado (Ctrl+U): tira quando TODA a seleção já tem o estilo do botão; senão
+   *  aplica esse estilo (medido: sobre duplo ou misto, o Word põe o simples). */
+  toggleUnderline(style: UnderlineStyle = this.ulButton): void {
+    const all = this.selectionEvery((p) => p.underline && (p.underlineStyle ?? 'single') === style);
+    this.formatRuns(all ? { underline: false } : { underline: true, underlineStyle: style === 'single' ? undefined : style });
+  }
+
+  /** Cor do sublinhado: RRGGBB, cor do tema ({ themeColor, tint | shade }, como a paleta) ou
+   *  null = Automática (a do texto). Texto sem sublinhado recebe o do botão. */
+  setUnderlineColor(color: string | ThemeColorRef | null): void {
+    const c = color === null ? null : this.colorPick(color);
+    const cur = this.pendingProps ?? this.currentProps();
+    this.formatRuns({
+      underlineColor: c?.hex, underlineTheme: c?.theme,
+      ...(cur.underline ? {} : { underline: true, underlineStyle: this.ulButton === 'single' ? undefined : this.ulButton }),
+    });
+  }
+
+  /** RRGGBB ou cor do tema → hex resolvido + atributos do tema (w:themeColor/Tint/Shade). */
+  private colorPick(color: string | ThemeColorRef): { hex: string; theme?: ThemeColorAttrs } {
+    if (typeof color === 'string') return { hex: color.replace(/^#/, '').toUpperCase() };
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const ts = themeTintShade(color);
+    const colors = Object.fromEntries(Object.entries(theme?.colors ?? {}).map(([k, v]) => [k, String(v).replace(/^#/, '')]));
+    return {
+      hex: themeHex(colors, color.themeColor, ts.themeTint, ts.themeShade),
+      theme: { themeColor: color.themeColor, ...(ts.themeTint ? { tint: ts.themeTint } : {}), ...(ts.themeShade ? { shade: ts.themeShade } : {}) },
+    };
+  }
+
+  /** Todo o texto da seleção (ou o ponto de digitação) satisfaz o predicado? */
+  private selectionEvery(pred: (p: RunProps) => boolean): boolean {
+    if (!this.model || !this.hasSelection()) return pred(this.pendingProps ?? this.currentProps());
+    const { start, end } = normalizeRange(this.range());
+    let any = false;
+    for (let pi = start.para; pi <= end.para; pi++) {
+      let acc = 0;
+      for (const run of this.model.paragraphs[pi]!.runs) {
+        const rs = acc, re = acc + run.text.length; acc = re;
+        const from = pi === start.para ? Math.max(start.offset, rs) : rs;
+        const to = pi === end.para ? Math.min(end.offset, re) : re;
+        if (to <= from || !run.text) continue;
+        any = true;
+        if (!pred(run.props)) return false;
+      }
+    }
+    return any || pred(this.currentProps());
+  }
+
+  /**
+   * Formatação de caractere de uma vez (diálogo Fonte), num só passo de desfazer:
+   * só os campos presentes mudam. Cores aceitam RRGGBB, cor do tema ou null (Automática).
+   */
+  setFontFormat(f: FontFormat): void {
+    const patch: Partial<RunProps> = {};
+    if (f.fontFamily !== undefined) { void this.ensureFontLoaded(f.fontFamily); patch.fontAscii = f.fontFamily; }
+    if (f.sizePt !== undefined) patch.szHalfPt = Math.round(f.sizePt * 2);
+    if (f.bold !== undefined) patch.bold = f.bold;
+    if (f.italic !== undefined) patch.italic = f.italic;
+    if (f.underline !== undefined) {
+      if (f.underline === 'none') patch.underline = false;
+      else { patch.underline = true; patch.underlineStyle = f.underline === 'single' ? undefined : f.underline; this.ulButton = f.underline; }
+    }
+    if (f.underlineColor !== undefined) {
+      const c = f.underlineColor === null ? null : this.colorPick(f.underlineColor);
+      patch.underlineColor = c?.hex; patch.underlineTheme = c?.theme;
+    }
+    if (f.color !== undefined) {
+      const c = f.color === null ? null : this.colorPick(f.color);
+      patch.color = c?.hex; patch.colorTheme = c?.theme;
+    }
+    if (f.strike !== undefined) patch.strike = f.strike;
+    if (f.doubleStrike !== undefined) patch.doubleStrike = f.doubleStrike;
+    if (f.superscript !== undefined || f.subscript !== undefined) {
+      patch.vertAlign = f.superscript ? 'superscript' : f.subscript ? 'subscript' : undefined;
+    }
+    if (f.smallCaps !== undefined) patch.smallCaps = f.smallCaps;
+    if (f.allCaps !== undefined) patch.allCaps = f.allCaps;
+    if (f.hidden !== undefined) patch.hidden = f.hidden;
+    if (f.scalePct !== undefined) patch.scalePct = f.scalePct === 100 ? undefined : f.scalePct;
+    if (f.spacingTwips !== undefined) patch.charSpacingTwips = f.spacingTwips || undefined;
+    if (f.positionHalfPt !== undefined) patch.positionHalfPt = f.positionHalfPt || undefined;
+    if (f.kernMinHalfPt !== undefined) patch.kernHalfPt = f.kernMinHalfPt || undefined;
+    if (Object.keys(patch).length) this.formatRuns(patch);
   }
   toggleVertAlign(kind: 'superscript' | 'subscript'): void {
     const cur = (this.pendingProps ?? this.currentProps()).vertAlign;
@@ -2587,7 +2716,12 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.model) this.refresh();
     });
   }
-  setColor(hex: string | undefined): void { this.formatRuns({ color: hex }); }
+  /** Cor da fonte: RRGGBB, cor do tema ({ themeColor, tint | shade }, como a paleta) ou
+   *  undefined = Automática. */
+  setColor(color: string | ThemeColorRef | undefined): void {
+    const c = color === undefined ? undefined : this.colorPick(color);
+    this.formatRuns({ color: c?.hex, colorTheme: c?.theme });
+  }
   setHighlight(name: string | undefined): void { this.formatRuns({ highlight: name }); }
   /** Limpar Toda a Formatação (Word: Selection.ClearFormatting): o trecho perde
    *  a formatação direta e o estilo de caractere; os parágrafos tocados voltam ao
@@ -2613,10 +2747,32 @@ export class UniversalWriteElement extends HTMLElement {
     else this.pendingProps = { ...DEFAULT_RUN_PROPS };
     this.applyPara(this.range(), { ...CLEARED_PARA, styleId: undefined });
   }
-  changeCase(mode: 'upper' | 'lower'): void {
+  /**
+   * Maiúsculas e Minúsculas (como o Word, medido): 'sentence' = Primeira letra da frase
+   * em maiúscula (depois de . ! ?), o resto minúsculo; 'title' = Colocar Cada Palavra em
+   * Maiúscula; 'toggle' = aLTERNAR; 'next' = Shift+F3 (sem minúsculas → minúsculas;
+   * 1ª letra maiúscula → MAIÚSCULAS; senão frase, se há . ! ?, ou título). Mudar o caso
+   * tira o "Todas em maiúsculas" (w:caps) do trecho.
+   */
+  changeCase(mode: 'upper' | 'lower' | 'sentence' | 'title' | 'toggle' | 'next'): void {
     if (!this.model || !this.hasSelection() || this.locked()) return;
-    this.snapshot();
     const { start, end } = normalizeRange(this.range());
+    // texto da seleção (\n entre parágrafos) — as regras olham o contexto
+    const parts: string[] = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const t = paraText(this.model.paragraphs[pi]!);
+      parts.push(t.slice(pi === start.para ? start.offset : 0, pi === end.para ? end.offset : t.length));
+    }
+    const all = parts.join('\n');
+    if (mode === 'next') {
+      const first = [...all].find((ch) => ch.toLowerCase() !== ch.toUpperCase());
+      if (all === all.toUpperCase()) mode = 'lower';
+      else if (first && first === first.toUpperCase()) mode = 'upper';
+      else mode = /[.!?]/.test(all) ? 'sentence' : 'title';
+    }
+    const out = caseMapped(all, mode);
+    this.snapshot();
+    let k = 0;
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi]!;
       let acc = 0;
@@ -2625,11 +2781,12 @@ export class UniversalWriteElement extends HTMLElement {
         const from = pi === start.para ? Math.max(start.offset, rs) : rs;
         const to = pi === end.para ? Math.min(end.offset, re) : re;
         if (to <= from) continue;
-        const seg = run.text.slice(from - rs, to - rs);
-        const tx = mode === 'upper' ? seg.toUpperCase() : seg.toLowerCase();
-        run.text = run.text.slice(0, from - rs) + tx + run.text.slice(to - rs);
+        run.text = run.text.slice(0, from - rs) + out.slice(k, k + (to - from)) + run.text.slice(to - rs);
+        k += to - from;
       }
+      k++; // o \n do parágrafo
     }
+    this.applyRun(this.range(), { allCaps: false });
     this.refresh();
   }
 
@@ -2758,8 +2915,8 @@ export class UniversalWriteElement extends HTMLElement {
     }
     const RUN_KEYS: (keyof RunProps)[] = [
       'szHalfPt', 'fontAscii', 'color', 'bold', 'italic', 'underline',
-      'underlineStyle', 'underlineColor', 'strike', 'doubleStrike',
-      'allCaps', 'smallCaps', 'vertAlign', 'highlight', 'charSpacingTwips',
+      'underlineStyle', 'underlineColor', 'underlineTheme', 'colorTheme', 'strike', 'doubleStrike',
+      'allCaps', 'smallCaps', 'vertAlign', 'highlight', 'charSpacingTwips', 'hidden', 'scalePct', 'positionHalfPt', 'kernHalfPt',
     ];
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model!.paragraphs[pi];
@@ -7673,6 +7830,21 @@ export class UniversalWriteElement extends HTMLElement {
           this.onSelectionChange?.(); this.chromeSync?.();
           return;
         }
+      }
+      // Ctrl+Shift+D/W/H/K/A: sublinhado duplo, só palavras, oculto, versalete, todas em
+      // maiúsculas; Shift+F3: alterna maiúsculas/minúsculas (atalhos do Word, pela tecla física)
+      if (ctrl && e.shiftKey && !e.altKey && !this.locked()) {
+        const sh = ({
+          KeyD: () => this.toggleUnderline('double'), KeyW: () => this.toggleUnderline('words'),
+          KeyH: () => this.toggleRunProp('hidden'), KeyK: () => this.toggleRunProp('smallCaps'), KeyA: () => this.toggleRunProp('allCaps'),
+        } as Record<string, () => void>)[e.code];
+        if (sh) { e.preventDefault(); sh(); this.onSelectionChange?.(); this.chromeSync?.(); return; }
+      }
+      if (k === 'F3' && e.shiftKey && !ctrl && !e.altKey && !this.locked()) {
+        e.preventDefault();
+        this.changeCase('next');
+        this.onSelectionChange?.(); this.chromeSync?.();
+        return;
       }
       // Ctrl+Alt+F / Ctrl+Alt+D: nota de rodapé / de fim (atalhos do Word)
       if (ctrl && e.altKey && !e.shiftKey && (k.toLowerCase() === 'f' || k.toLowerCase() === 'd')) {
@@ -16495,11 +16667,11 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Bordas do parágrafo (Bordas e Sombreamento, Aplicar a: Parágrafo); null = nenhuma. */
-  setParagraphBorders(sides: Partial<Record<'top' | 'left' | 'bottom' | 'right', BorderSpec | null>> | null): void {
+  setParagraphBorders(sides: Partial<Record<ParaBorderSide, BorderSpec | null>> | null): void {
     if (!sides) { this.formatPara({ borders: undefined, boxBorder: undefined }); return; }
     const cur = this.model?.paragraphs[this.selection.focus.para]?.props.borders ?? {};
     const out: NonNullable<ParaProps['borders']> = { ...cur };
-    for (const [side, b] of Object.entries(sides) as ['top' | 'left' | 'bottom' | 'right', BorderSpec | null | undefined][]) {
+    for (const [side, b] of Object.entries(sides) as [ParaBorderSide, BorderSpec | null | undefined][]) {
       if (b === undefined) continue;
       if (!b || b.val === 'none' || b.val === 'nil') delete out[side];
       // espaço até o texto: o do Word (1 pt em cima/embaixo, 4 pt dos lados)
@@ -16508,11 +16680,80 @@ export class UniversalWriteElement extends HTMLElement {
     this.formatPara({ borders: Object.keys(out).length ? out : undefined, boxBorder: undefined });
   }
 
+  /**
+   * Botão Bordas da Página Inicial nos parágrafos da seleção (medido no Word): cada item
+   * liga os lados dele (simples, ½ pt, automática; afastamento 1 pt em cima/embaixo/entre e
+   * 4 pt dos lados) ou, se TODOS os parágrafos já os têm, tira; 'none' tira tudo; 'inside'
+   * e 'insideH' = entre parágrafos (w:between); 'insideV' = barra (w:bar).
+   */
+  paragraphBorderPreset(kind: 'bottom' | 'top' | 'left' | 'right' | 'none' | 'all' | 'outside' | 'inside' | 'insideH' | 'insideV'): void {
+    if (!this.model || this.locked()) return;
+    if (kind === 'none') { this.setParagraphBorders(null); return; }
+    const sides: ParaBorderSide[] = ({
+      bottom: ['bottom'], top: ['top'], left: ['left'], right: ['right'], all: ['top', 'left', 'bottom', 'right', 'between'],
+      outside: ['top', 'left', 'bottom', 'right'], inside: ['between'], insideH: ['between'], insideV: ['bar'],
+    } as Record<string, ParaBorderSide[]>)[kind]!;
+    const { start, end } = normalizeRange(this.range());
+    const paras = this.model.paragraphs.slice(start.para, end.para + 1);
+    const has = paras.every((p) => sides.every((s) => !!p.props.borders?.[s]));
+    this.snapshot();
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi]!;
+      const out: NonNullable<ParaProps['borders']> = { ...(p.props.borders ?? {}) };
+      for (const s of sides) {
+        if (has) delete out[s];
+        else out[s] = { style: 'single', sizeEighthPt: 4, spacePt: s === 'left' || s === 'right' ? 4 : s === 'bar' ? 0 : 1 };
+      }
+      const at = { para: pi, offset: 0 };
+      this.applyPara({ start: at, end: at }, { borders: Object.keys(out).length ? out : undefined, boxBorder: undefined });
+    }
+    this.refresh();
+  }
+
+  /** Quais lados de borda TODOS os parágrafos da seleção têm (estado do botão Bordas). */
+  paragraphBorderSides(): ParaBorderSide[] {
+    if (!this.model) return [];
+    const { start, end } = normalizeRange(this.range());
+    const paras = this.model.paragraphs.slice(start.para, end.para + 1);
+    return (['top', 'left', 'bottom', 'right', 'between', 'bar'] as const).filter((s) => paras.every((p) => !!p.props.borders?.[s]));
+  }
+
+  /**
+   * Linha Horizontal (botão Bordas): substitui a seleção pela linha que o Word insere —
+   * `<w:pict><v:rect style="width:0;height:1.5pt" o:hralign="center" o:hrstd="t" o:hr="t"
+   * fillcolor="#a0a0a0" stroked="f"/></w:pict>` — num parágrafo próprio.
+   */
+  insertHorizontalLine(): void {
+    if (!this.model || this.locked() || !this.canInsertField()) return;
+    this.snapshot();
+    if (this.hasSelection()) { const pos = this.deleteSelection(); this.selection = { anchor: pos, focus: pos }; }
+    let pos = this.selection.focus;
+    const p = this.model.paragraphs[pos.para]!;
+    // a linha fica sozinha no parágrafo (o Word a quebra antes e depois)
+    if (pos.offset > 0) { this.shiftAnchors(pos.para, 1); pos = this.splitAt(pos); }
+    const run = this.hrRun(p.runs[insertIndex(p, pos.offset)]?.props ?? this.currentProps());
+    const target = this.model.paragraphs[pos.para]!;
+    if (paraLength(target) > 0) { this.shiftAnchors(pos.para, 1); this.splitAt(pos); }
+    this.model.paragraphs[pos.para]!.runs.splice(0, 0, run);
+    const next = Math.min(pos.para + 1, this.model.paragraphs.length - 1);
+    this.selection = { anchor: { para: next, offset: 0 }, focus: { para: next, offset: 0 } };
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Run da linha horizontal VML (o mesmo XML do Word; o leitor o reconhece como o:hr). */
+  private hrRun(props: RunProps): Run {
+    const xml = '<w:pict><v:rect id="_x0000_i1025" style="width:0;height:1.5pt" o:hralign="center" o:hrstd="t" o:hr="t" fillcolor="#a0a0a0" stroked="f"/></w:pict>';
+    const p = this.newRunProps(props);
+    delete p.src; // run novo: nada do XML de origem do vizinho
+    return { text: '￼', props: p, shape: { style: { fill: 'A0A0A0' }, widthTwips: 0, heightTwips: 30, hr: true, hrAlign: 'center', rawVml: xml } } as Run;
+  }
+
   /** Bordas do parágrafo do cursor como specs (diálogo). */
-  getParagraphBorders(): Partial<Record<'top' | 'left' | 'bottom' | 'right', BorderSpec>> {
+  getParagraphBorders(): Partial<Record<ParaBorderSide, BorderSpec>> {
     const b = this.model?.paragraphs[this.selection.focus.para]?.props.borders;
-    const out: Partial<Record<'top' | 'left' | 'bottom' | 'right', BorderSpec>> = {};
-    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+    const out: Partial<Record<ParaBorderSide, BorderSpec>> = {};
+    for (const side of ['top', 'left', 'bottom', 'right', 'between', 'bar'] as const) {
       const e = b?.[side];
       if (e) out[side] = { val: e.style, sz: e.sizeEighthPt, space: e.spacePt, color: e.color ?? 'auto' };
     }
@@ -19560,3 +19801,34 @@ customElements.define('universal-write', UniversalWriteElement);
 function bgKey(bg: PageBackground | null): string {
   return JSON.stringify(bg, (_k, v) => (v instanceof Uint8Array ? `#${v.length}:${v[0]}:${v[v.length >> 1]}:${v[v.length - 1]}` : v));
 }
+
+/** Formatação de caractere do diálogo Fonte (setFontFormat): só os campos presentes mudam. */
+export interface FontFormat {
+  fontFamily?: string;
+  sizePt?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: UnderlineStyle | 'none';
+  /** RRGGBB, cor do tema ou null = Automática */
+  underlineColor?: string | ThemeColorRef | null;
+  color?: string | ThemeColorRef | null;
+  strike?: boolean;
+  doubleStrike?: boolean;
+  superscript?: boolean;
+  subscript?: boolean;
+  smallCaps?: boolean;
+  allCaps?: boolean;
+  hidden?: boolean;
+  /** Escala (w:w), % */
+  scalePct?: number;
+  /** Espaçamento (w:spacing), twips; + expandido, − condensado */
+  spacingTwips?: number;
+  /** Posição (w:position), meios pontos; + elevado, − rebaixado */
+  positionHalfPt?: number;
+  /** Kerning a partir de (w:kern), meios pontos; 0 = sem */
+  kernMinHalfPt?: number;
+}
+
+
+/** Lado de borda de parágrafo (w:pBdr): os quatro, entre parágrafos e a barra vertical. */
+export type ParaBorderSide = 'top' | 'left' | 'bottom' | 'right' | 'between' | 'bar';

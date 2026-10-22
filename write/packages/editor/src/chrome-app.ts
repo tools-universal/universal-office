@@ -66,6 +66,8 @@ export class WriteApp {
   lastTableShading: string | { themeColor: string; tint?: string; shade?: string } = { themeColor: 'accent1', tint: '33' };
   lastTableShadingCss = '#C1E4F5';
   lastTableBorder: import('@universal-office/docx-core').BorderKind = 'all';
+  /** último item do botão Bordas da Página Inicial (Borda Inferior de início, como o Word) */
+  lastHomeBorder: import('@universal-office/docx-core').BorderKind = 'bottom';
   private fileHandle: FileSystemFileHandle | null = null;
   /** onde o host guarda o documento aberto/salvo por ele (Electron: caminho) */
   private hostPath: string | null = null;

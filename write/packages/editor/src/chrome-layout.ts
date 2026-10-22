@@ -5,7 +5,7 @@
 import type { BarContext, BarItem, CompactConfig, MenuEntry, MenuItem, RibbonConfig } from '@universal-office/ui';
 import type { WidgetEnv } from './chrome-widgets.js';
 import {
-  accentMenu, caseMenu, charSpacingMenu, colorMenu, fieldsMenu, fontWidget, highlightMenu, lineSpacingMenu,
+  accentMenu, caseMenu, charSpacingMenu, fieldsMenu, fontWidget, highlightMenu, lineSpacingMenu,
   marginsMenu, orientationMenu, paragraphSpacingMenu, saveWidget, shadingMenu, sizeMenu, sizeWidget,
   specialIndentMenu, styleWidget, symbolMenu, themeMenu, titleWidget, zoomItem,
 } from './chrome-widgets.js';
@@ -17,6 +17,7 @@ import { addTextMenu, tocGalleryMenu } from './chrome-toc.js';
 import { shapeCompactGroup, shapeFormatGroups, shapeMenu, textboxMenu } from './chrome-shape.js';
 import { hyphenationMenu, lineNumbersMenu, paragraphLayoutCells } from './chrome-textlayout.js';
 import { ZOOMS } from './chrome-commands.js';
+import { fontColorMenu, homeBordersMenu, underlineMenu } from './chrome-home.js';
 
 /** Submenus compartilhados pelas duas barras. */
 function menus(env: WidgetEnv, ctx: BarContext) {
@@ -68,8 +69,11 @@ function menus(env: WidgetEnv, ctx: BarContext) {
       '-', 'dlg:dateTime', sub({ en: 'Document info', pt: 'Informações do documento' }, 'info', docInfoMenu, 'hf:docinfo'), 'dlg:alignTab',
       '-', 'dlg:hfOptions', 'hf:link', 'hf:prev', 'hf:next', 'hf:showText', '-', 'hf:close',
     ], 'hf'),
-    text: sub({ en: 'Text', pt: 'Texto' }, 'format_bold', () => ['bold', 'italic', 'underline', 'strike', 'sup', 'sub', '-', 'grow', 'shrink', '-', 'allCaps', 'smallCaps', 'case:upper', 'case:lower'], 'text'),
-    color: sub({ en: 'Font color', pt: 'Cor da fonte' }, 'format_color_text', () => colorMenu(env, ctx), 'color'),
+    text: sub({ en: 'Text', pt: 'Texto' }, 'format_bold', () => ['bold', 'italic', 'underline', 'strike', 'doubleStrike', 'sup', 'sub', '-', 'grow', 'shrink', '-', 'allCaps', 'smallCaps', 'hidden',
+      { id: 'caseSub', label: { en: 'Change case', pt: 'Maiúsculas e minúsculas' }, icon: 'match_case', submenu: caseMenu }], 'text'),
+    color: sub({ en: 'Font color', pt: 'Cor da fonte' }, 'format_color_text', () => fontColorMenu(env, ctx), 'color'),
+    underline: sub({ en: 'Underline', pt: 'Sublinhado' }, 'format_underlined', () => underlineMenu(env, ctx), 'underlineMenu'),
+    borders: sub({ en: 'Borders', pt: 'Bordas' }, 'border_bottom', homeBordersMenu, 'homeBorders'),
     highlight: sub({ en: 'Highlight color', pt: 'Cor do realce' }, 'format_ink_highlighter', () => highlightMenu(env, ctx), 'highlightMenu'),
     styles: sub({ en: 'Paragraph styles', pt: 'Estilos de parágrafo' }, 'style', () => {
       const cur = (env.ctl.state().para.styleId as string | undefined) || 'Normal';
@@ -156,7 +160,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, m.toc, '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.underline, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, m.borders, 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', m.hyphenation, m.lineNumbers, '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -166,8 +170,9 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'font', label: { en: 'Font', pt: 'Fonte' }, icon: 'font_download', prio: 8, items: [fontWidget(env)] },
       { id: 'size', label: { en: 'Font size', pt: 'Tamanho da fonte' }, icon: 'format_size', prio: 7, items: [sizeWidget(env, 'steppers')] },
       { id: 'format', label: { en: 'Formatting', pt: 'Formatação' }, icon: 'format_bold', prio: 9, items: [
-        'bold', 'italic', 'underline',
-        { split: 'color', menu: () => colorMenu(env, ctx) },
+        'bold', 'italic',
+        { split: 'underline', menu: () => underlineMenu(env, ctx) },
+        { split: 'color', menu: () => fontColorMenu(env, ctx) },
         { split: 'highlight', menu: () => highlightMenu(env, ctx) },
       ] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, icon: 'link', prio: 5, items: ['link', 'comment', 'image', { menu: () => tableMenu(env, ctx), id: 'table:menu', label: { en: 'Table', pt: 'Tabela' }, icon: 'table', supports: () => typeof (env.ed as unknown as { insertTable?: unknown }).insertTable === 'function' }] },
@@ -181,7 +186,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'extras', label: { en: 'More tools', pt: 'Mais ferramentas' }, icon: 'more_horiz', prio: 0, items: [
         'strike', 'sub', 'sup',
         { menu: caseMenu, id: 'case', label: { en: 'Change case', pt: 'Maiúsculas e minúsculas' }, icon: 'match_case' },
-        { split: 'shading', menu: () => shadingMenu(env, ctx) }, 'borders', 'marks',
+        { split: 'shading', menu: () => shadingMenu(env, ctx) }, { split: 'home:borders', menu: homeBordersMenu }, 'marks',
         { menu: () => charSpacingMenu(env, ctx), id: 'charSpacing', label: { en: 'Character spacing', pt: 'Espaçamento entre caracteres' }, icon: 'format_letter_spacing' },
         { menu: () => specialIndentMenu(env, ctx), id: 'specialIndent', label: { en: 'Special indent', pt: 'Recuo especial' }, icon: 'format_indent_increase' },
         { menu: () => orientationMenu(env, ctx), id: 'orientation', label: { en: 'Orientation', pt: 'Orientação' }, icon: 'crop_rotate' },
@@ -213,7 +218,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           { id: 'font', label: L('Font', 'Fonte'), icon: 'text_format', prio: 8, launcher: 'dlg:font', cells: [
             { rows: [
               [fontWidget(env, 140), sizeWidget(env, 'dropdown'), 'grow', 'shrink', { menu: caseMenu, id: 'case', label: L('Change case', 'Maiúsculas e minúsculas'), icon: 'match_case' }, 'clear'],
-              ['bold', 'italic', 'underline', 'strike', 'sub', 'sup', { split: 'color', menu: () => colorMenu(env, ctx) }, { split: 'highlight', menu: () => highlightMenu(env, ctx) }],
+              ['bold', 'italic', { split: 'underline', menu: () => underlineMenu(env, ctx) }, 'strike', 'sub', 'sup', { split: 'color', menu: () => fontColorMenu(env, ctx) }, { split: 'highlight', menu: () => highlightMenu(env, ctx) }],
             ] },
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_align_left', prio: 7, launcher: 'dlg:paragraph', cells: [
@@ -221,7 +226,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
               ['list:bullet', 'list:decimal', 'outdent', 'indent', 'sort', 'marks'],
               ['align:left', 'align:center', 'align:right', 'align:both',
                 { menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: L('Line & paragraph spacing', 'Espaçamento entre linhas e parágrafos'), icon: 'format_line_spacing' },
-                { split: 'shading', menu: () => shadingMenu(env, ctx) }, 'borders'],
+                { split: 'shading', menu: () => shadingMenu(env, ctx) }, { split: 'home:borders', menu: homeBordersMenu }],
             ] },
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos

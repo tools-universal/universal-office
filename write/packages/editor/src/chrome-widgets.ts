@@ -218,15 +218,6 @@ const moreColors = (ctx: BarContext, label: string, onPick: (hex: string) => voi
   },
 });
 
-export const colorMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
-  const L = env.app.ui!.L;
-  const pick = (hex: string): void => { env.app.lastColor = hex; env.ed.setColor(hex); ctx.after(); };
-  return [
-    { id: 'color:auto', label: L.automatic, swatch: '#000000', onClick: () => { env.ed.setColor(undefined); ctx.after(); } },
-    { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h) => ({ value: h, css: `#${h}` })), selected: env.ctl.state().run.color as string | undefined, onPick: pick, close }) },
-    moreColors(ctx, L.moreColors, pick),
-  ];
-};
 
 export const highlightMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const L = env.app.ui!.L;
@@ -323,7 +314,8 @@ export const marginsMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
   '-', 'dlg:page',
 ];
 
-export const caseMenu = (): MenuEntry[] => ['case:upper', 'case:lower', '-', 'allCaps', 'smallCaps'];
+/** Maiúsculas e Minúsculas (os 5 itens do Word, na ordem dele). */
+export const caseMenu = (): MenuEntry[] => ['case:sentence', 'case:lower', 'case:upper', 'case:title', 'case:toggle'];
 
 export const fieldsMenu = (): MenuEntry[] => ['field:page', 'field:numpages', 'field:date', '-', 'fields:update'];
 

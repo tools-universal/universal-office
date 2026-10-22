@@ -18,7 +18,8 @@ import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
 import { refsDialog, hyperlinkDialog, type RefsEnv } from './chrome-refs.js';
 import { tocDialog, tocGalleryMenu, type TocEnv } from './chrome-toc.js';
-import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, fontDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { fontDialog } from './chrome-font.js';
+import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
 import { ReviewPane, type PaneDir } from './chrome-review.js';
@@ -276,7 +277,8 @@ interface ChromeHandle { sync: () => void }
 type Mode = 'compact' | 'ribbon';
 
 /** Atalhos que o próprio editor já trata (não roubar). */
-const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter', 'Ctrl+Alt+F', 'Ctrl+Alt+D']);
+const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter', 'Ctrl+Alt+F', 'Ctrl+Alt+D',
+  'Ctrl+Shift+D', 'Ctrl+Shift+W', 'Ctrl+Shift+H', 'Ctrl+Shift+K', 'Ctrl+Shift+A', 'Shift+F3']);
 
 /** Atalhos de APLICATIVO (valem até com o foco fora do documento). */
 const APP_SHORTCUTS = new Set(['open', 'save', 'saveAs', 'print', 'find', 'replace']);

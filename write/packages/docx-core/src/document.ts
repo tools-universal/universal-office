@@ -16,14 +16,39 @@ import {
  * no pacote (round-trip é responsabilidade do DocxPackage).
  */
 
+/** Estilos de sublinhado do w:u (os 17 do Word, menos none). */
+export type UnderlineStyle = 'single' | 'words' | 'double' | 'thick' | 'dotted' | 'dottedHeavy' | 'dash' | 'dashedHeavy'
+  | 'dashLong' | 'dashLongHeavy' | 'dotDash' | 'dashDotHeavy' | 'dotDotDash' | 'dashDotDotHeavy' | 'wave' | 'wavyHeavy' | 'wavyDouble';
+export const UNDERLINE_STYLES: readonly UnderlineStyle[] = ['single', 'words', 'double', 'thick', 'dotted', 'dottedHeavy', 'dash',
+  'dashedHeavy', 'dashLong', 'dashLongHeavy', 'dotDash', 'dashDotHeavy', 'dotDotDash', 'dashDotDotHeavy', 'wave', 'wavyHeavy', 'wavyDouble'];
+
+/** Cor do tema (w:themeColor + w:themeTint/w:themeShade em hex 00–FF); o hex resolvido vai ao lado. */
+export interface ThemeColorAttrs {
+  themeColor: string;
+  tint?: string;
+  shade?: string;
+}
+
 export interface RunProps {
   bold: boolean;
   italic: boolean;
   underline: boolean;
-  /** estilo do w:u quando underline=true (single é o padrão). */
-  underlineStyle?: 'single' | 'double' | 'dotted' | 'dash' | 'wave' | 'thick';
+  /** estilo do w:u quando underline=true (ausente = single). */
+  underlineStyle?: Exclude<UnderlineStyle, 'single'>;
   /** cor do sublinhado (w:u w:color), hex RRGGBB. */
   underlineColor?: string;
+  /** a cor do sublinhado é uma cor do tema (o hex em underlineColor). */
+  underlineTheme?: ThemeColorAttrs;
+  /** a cor da fonte é uma cor do tema (o hex em color). */
+  colorTheme?: ThemeColorAttrs;
+  /** w:vanish (texto oculto). */
+  hidden?: boolean;
+  /** w:w — escala horizontal (%), ausente = 100. */
+  scalePct?: number;
+  /** w:position — deslocamento vertical em meios pontos (+ sobe). */
+  positionHalfPt?: number;
+  /** w:kern — corpo mínimo (meios pontos) para o kerning; 0/ausente = sem. */
+  kernHalfPt?: number;
   strike: boolean;
   /** w:dstrike (tachado duplo). */
   doubleStrike?: boolean;
@@ -211,6 +236,14 @@ export interface DrawingShape {
   line?: { x1: number; y1: number; x2: number; y2: number };
   /** linha horizontal VML (v:rect o:hr="t", "Inserir linha horizontal") */
   hr?: boolean;
+  /** o:hrpct — largura em décimos de % da coluna (990 = 99%); 0/ausente com largura 0 = 100% */
+  hrPct?: number;
+  /** o:hrnoshade — sem o relevo (só o preenchimento) */
+  hrNoShade?: boolean;
+  /** o:hralign — left | center | right */
+  hrAlign?: string;
+  /** w:pict CRU de uma forma VML criada pelo editor (Linha Horizontal): a gravação o devolve como está */
+  rawVml?: string;
   /** wp:docPr hidden (Painel de Seleção): não desenha nem afasta o texto */
   hidden?: boolean;
   /** XML CRU do <w:drawing> (wps:wsp) — Formato da Forma e o salvar */
@@ -531,6 +564,10 @@ export interface ParagraphBorders {
   left?: BorderEdge;
   bottom?: BorderEdge;
   right?: BorderEdge;
+  /** entre parágrafos com as mesmas bordas (Bordas Internas) */
+  between?: BorderEdge;
+  /** barra vertical à esquerda (Borda Interna Vertical) — sem w:space */
+  bar?: BorderEdge;
 }
 
 export function readBorderEdge(el: XmlElement | undefined): BorderEdge | undefined {
@@ -663,9 +700,17 @@ export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   if (rpr.u) {
     const val = rpr.u.val;
     p.underline = val !== 'none' && val !== '';
-    if (val === 'double' || val === 'dotted' || val === 'dash' || val === 'wave' || val === 'thick') p.underlineStyle = val;
+    if (val !== 'single' && (UNDERLINE_STYLES as readonly string[]).includes(val)) p.underlineStyle = val as RunProps['underlineStyle'];
     if (rpr.u.color && rpr.u.color !== 'auto') p.underlineColor = rpr.u.color;
+    const ut = themeRefOf(rpr.u);
+    if (ut) p.underlineTheme = ut;
   }
+  const ct = rpr.color && themeRefOf(rpr.color);
+  if (ct) p.colorTheme = ct;
+  if (rpr.vanish !== undefined) p.hidden = rpr.vanish;
+  if (rpr.w !== undefined && rpr.w !== 100) p.scalePct = rpr.w;
+  if (rpr.position) p.positionHalfPt = rpr.position;
+  if (rpr.kern) p.kernHalfPt = rpr.kern;
   if (rpr.strike !== undefined) p.strike = rpr.strike;
   if (rpr.dstrike !== undefined) p.doubleStrike = rpr.dstrike;
   if (rpr.caps !== undefined) p.allCaps = rpr.caps;
@@ -679,6 +724,12 @@ export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
   if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
+}
+
+/** w:themeColor/Tint/Shade de um w:color ou w:u → referência do tema. */
+function themeRefOf(c: { themeColor?: string; themeTint?: string; themeShade?: string }): ThemeColorAttrs | undefined {
+  if (!c.themeColor) return undefined;
+  return { themeColor: c.themeColor, ...(c.themeTint ? { tint: c.themeTint } : {}), ...(c.themeShade ? { shade: c.themeShade } : {}) };
 }
 
 /** Só a autoria de uma revisão (sem o conteúdo antigo). */
@@ -748,7 +799,7 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
   if (ppr.pBdr) {
     props.boxBorder = true;
     const borders: ParagraphBorders = {};
-    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+    for (const side of ['top', 'left', 'bottom', 'right', 'between', 'bar'] as const) {
       const b = ppr.pBdr[side];
       if (!b || b.val === 'none' || b.val === 'nil') continue;
       borders[side] = {
@@ -1430,7 +1481,13 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
         const style = vmlShapeStyle(el, geom);
         if (geom === 'line') delete style.fill;
         const shape: DrawingShape = { style, widthTwips: w, heightTwips: h };
-        if (el.attrs['o:hr'] === 't') shape.hr = true;
+        if (el.attrs['o:hr'] === 't') {
+          shape.hr = true;
+          const pct = parseInt(el.attrs['o:hrpct'] ?? '', 10);
+          if (pct > 0) shape.hrPct = pct;
+          if (el.attrs['o:hrnoshade'] === 't') shape.hrNoShade = true;
+          if (el.attrs['o:hralign']) shape.hrAlign = el.attrs['o:hralign'];
+        }
         if (tag === 'line') {
           const pt = (s: string | undefined) => (s ?? '0,0').split(',').map((v) => vmlLenTwips(v.trim()) ?? 0);
           const [x1 = 0, y1 = 0] = pt(el.attrs['from']);

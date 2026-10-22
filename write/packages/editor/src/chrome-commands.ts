@@ -14,6 +14,7 @@ import { registerTocCommands, type TocDialogKind } from './chrome-toc.js';
 import { registerTextLayoutCommands, type TextLayoutDialogKind } from './chrome-textlayout.js';
 import { registerShapeCommands } from './chrome-shape.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
+import { registerHomeCommands, colorFromPick, pickHex } from './chrome-home.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -217,17 +218,19 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     // ── Formatar: fonte ──
     edit({ id: 'bold', label: { en: 'Bold', pt: 'Negrito' }, icon: 'format_bold', shortcut: 'Ctrl+B', run: () => ed.toggleRunProp('bold'), isChecked: () => !!run().bold }),
     edit({ id: 'italic', label: { en: 'Italic', pt: 'Itálico' }, icon: 'format_italic', shortcut: 'Ctrl+I', run: () => ed.toggleRunProp('italic'), isChecked: () => !!run().italic }),
-    edit({ id: 'underline', label: { en: 'Underline', pt: 'Sublinhado' }, icon: 'format_underlined', shortcut: 'Ctrl+U', run: () => ed.toggleRunProp('underline'), isChecked: () => !!run().underline }),
+    edit({ id: 'underline', label: { en: 'Underline', pt: 'Sublinhado' }, icon: 'format_underlined', shortcut: 'Ctrl+U', run: () => ed.toggleUnderline(), isChecked: () => !!run().underline }),
+    edit({ id: 'doubleStrike', label: { en: 'Double strikethrough', pt: 'Tachado duplo' }, icon: 'format_strikethrough', run: () => ed.toggleRunProp('doubleStrike'), isChecked: () => !!run().doubleStrike }),
+    edit({ id: 'hidden', label: { en: 'Hidden', pt: 'Oculto' }, icon: 'visibility_off', shortcut: 'Ctrl+Shift+H', run: () => ed.toggleRunProp('hidden'), isChecked: () => !!run().hidden }),
     edit({ id: 'strike', label: { en: 'Strikethrough', pt: 'Tachado' }, icon: 'format_strikethrough', run: () => ed.toggleRunProp('strike'), isChecked: () => !!run().strike }),
     edit({ id: 'sup', label: { en: 'Superscript', pt: 'Sobrescrito' }, icon: 'superscript', shortcut: 'Ctrl+Shift+=', run: () => ed.toggleVertAlign('superscript'), isChecked: () => run().vertAlign === 'superscript' }),
     edit({ id: 'sub', label: { en: 'Subscript', pt: 'Subscrito' }, icon: 'subscript', shortcut: 'Ctrl+=', run: () => ed.toggleVertAlign('subscript'), isChecked: () => run().vertAlign === 'subscript' }),
-    edit({ id: 'allCaps', label: { en: 'All caps', pt: 'Todas em maiúsculas' }, icon: 'uppercase', run: () => ed.toggleRunProp('allCaps'), isChecked: () => !!run().allCaps }),
-    edit({ id: 'smallCaps', label: { en: 'Small caps', pt: 'Versalete' }, icon: 'match_case', run: () => ed.toggleRunProp('smallCaps'), isChecked: () => !!run().smallCaps }),
+    edit({ id: 'allCaps', label: { en: 'All caps', pt: 'Todas em maiúsculas' }, icon: 'uppercase', shortcut: 'Ctrl+Shift+A', run: () => ed.toggleRunProp('allCaps'), isChecked: () => !!run().allCaps }),
+    edit({ id: 'smallCaps', label: { en: 'Small caps', pt: 'Versalete' }, icon: 'match_case', shortcut: 'Ctrl+Shift+K', run: () => ed.toggleRunProp('smallCaps'), isChecked: () => !!run().smallCaps }),
     edit({ id: 'case:upper', label: { en: 'UPPERCASE', pt: 'MAIÚSCULAS' }, run: () => ed.changeCase('upper') }),
     edit({ id: 'case:lower', label: { en: 'lowercase', pt: 'minúsculas' }, run: () => ed.changeCase('lower') }),
     edit({ id: 'grow', label: { en: 'Increase font size', pt: 'Aumentar Fonte' }, icon: 'text_increase', shortcut: 'Ctrl+]', run: () => ed.growFont(1) }),
     edit({ id: 'shrink', label: { en: 'Decrease font size', pt: 'Diminuir Fonte' }, icon: 'text_decrease', shortcut: 'Ctrl+[', run: () => ed.growFont(-1) }),
-    edit({ id: 'color', label: { en: 'Font color', pt: 'Cor da Fonte' }, icon: 'format_color_text', run: () => ed.setColor(app.lastColor), color: () => `#${app.lastColor}` }),
+    edit({ id: 'color', label: { en: 'Font color', pt: 'Cor da Fonte' }, icon: 'format_color_text', run: () => ed.setColor(colorFromPick(app.lastColor, ed.documentThemeColors())), color: () => `#${pickHex(app.lastColor, ed.documentThemeColors())}` }),
     edit({ id: 'highlight', label: { en: 'Text highlight color', pt: 'Cor do Realce do Texto' }, icon: 'format_ink_highlighter', run: () => ed.setHighlight(app.lastHighlight), color: () => HL_CSS[app.lastHighlight] }),
     edit({ id: 'clear', label: { en: 'Clear All Formatting', pt: 'Limpar Toda a Formatação' }, icon: 'format_clear', run: () => ed.clearFormatting() }),
     edit({ id: 'dlg:font', label: { en: 'Font…', pt: 'Fonte…' }, tip: { en: 'Font settings', pt: 'Configurações de fonte' }, icon: 'text_format', shortcut: 'Ctrl+D', run: () => ctl.fontDialog() }),
@@ -314,6 +317,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerShapeCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
+  registerHomeCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
   registerTextLayoutCommands(reg, ed, app, ctl);
 

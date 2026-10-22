@@ -233,14 +233,18 @@ export function directRPr(run: Run): RPr {
     if (p.bold) base.b = true;
     if (p.italic) base.i = true;
     // (hyperlink: o sublinhado simples forçado pelo leitor não é formatação — oráculo hlink)
-    if (p.underline && !(p.link && !p.underlineStyle && !p.underlineColor)) base.u = { val: p.underlineStyle ?? 'single', ...(p.underlineColor ? { color: p.underlineColor } : {}) };
+    if (p.underline && !(p.link && !p.underlineStyle && !p.underlineColor)) base.u = uSpec(p);
     if (p.strike) base.strike = true;
     if (p.doubleStrike) base.dstrike = true;
     if (p.allCaps) base.caps = true;
     if (p.smallCaps) base.smallCaps = true;
     if (p.vertAlign && p.vertAlign !== orig.vertAlign) base.vertAlign = p.vertAlign;
     if (p.szHalfPt !== undefined) base.sz = p.szHalfPt;
-    if (p.color && !(p.link && p.color === '0563C1')) base.color = { val: p.color };
+    if (p.color && !(p.link && p.color === '0563C1' && !p.colorTheme)) base.color = colorSpec(p);
+    if (p.hidden) base.vanish = true;
+    if (p.scalePct !== undefined && p.scalePct !== 100) base.w = p.scalePct;
+    if (p.positionHalfPt) base.position = p.positionHalfPt;
+    if (p.kernHalfPt) base.kern = p.kernHalfPt;
     if (p.highlight) base.highlight = p.highlight;
     if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
@@ -249,16 +253,20 @@ export function directRPr(run: Run): RPr {
   }
   if (p.bold !== orig.bold) base.b = p.bold;
   if (p.italic !== orig.italic) base.i = p.italic;
-  if (p.underline !== orig.underline || p.underlineStyle !== orig.underlineStyle || p.underlineColor !== orig.underlineColor) {
-    base.u = p.underline ? { val: p.underlineStyle ?? 'single', ...(p.underlineColor ? { color: p.underlineColor } : {}) } : { val: 'none' };
+  if (p.underline !== orig.underline || p.underlineStyle !== orig.underlineStyle || p.underlineColor !== orig.underlineColor || !eq(p.underlineTheme, orig.underlineTheme)) {
+    base.u = p.underline ? uSpec(p) : { val: 'none' };
   }
+  if (!!p.hidden !== !!orig.hidden) base.vanish = !!p.hidden;
+  if ((p.scalePct ?? 100) !== (orig.scalePct ?? 100)) { if (p.scalePct === undefined) delete base.w; else base.w = p.scalePct; }
+  if ((p.positionHalfPt ?? 0) !== (orig.positionHalfPt ?? 0)) { if (!p.positionHalfPt) delete base.position; else base.position = p.positionHalfPt; }
+  if ((p.kernHalfPt ?? 0) !== (orig.kernHalfPt ?? 0)) { if (!p.kernHalfPt) delete base.kern; else base.kern = p.kernHalfPt; }
   if (p.strike !== orig.strike) base.strike = p.strike;
   if (p.doubleStrike !== orig.doubleStrike) base.dstrike = !!p.doubleStrike;
   if (p.allCaps !== orig.allCaps) base.caps = p.allCaps;
   if (p.smallCaps !== orig.smallCaps) base.smallCaps = p.smallCaps;
   if (p.vertAlign !== orig.vertAlign) base.vertAlign = p.vertAlign ?? 'baseline';
   if (p.szHalfPt !== orig.szHalfPt) { if (p.szHalfPt === undefined) delete base.sz; else base.sz = p.szHalfPt; }
-  if (p.color !== orig.color) { if (p.color === undefined) delete base.color; else base.color = { val: p.color }; }
+  if (p.color !== orig.color || !eq(p.colorTheme, orig.colorTheme)) { if (p.color === undefined) delete base.color; else base.color = colorSpec(p); }
   if (p.highlight !== orig.highlight) { if (p.highlight === undefined) delete base.highlight; else base.highlight = p.highlight; }
   if (p.fontAscii !== orig.fontAscii) {
     if (p.fontAscii === undefined) delete base.rFonts;
@@ -268,6 +276,18 @@ export function directRPr(run: Run): RPr {
   if (p.charStyle !== orig.charStyle) { if (p.charStyle === undefined) delete base.rStyle; else base.rStyle = p.charStyle; }
   return base;
 }
+
+/** w:u tipado das props de edição (estilo, cor e cor do tema). */
+const uSpec = (p: Run['props']): NonNullable<RPr['u']> => ({
+  val: p.underlineStyle ?? 'single',
+  ...(p.underlineColor ? { color: p.underlineColor } : {}),
+  ...(p.underlineTheme ? { themeColor: p.underlineTheme.themeColor, ...(p.underlineTheme.tint ? { themeTint: p.underlineTheme.tint } : {}), ...(p.underlineTheme.shade ? { themeShade: p.underlineTheme.shade } : {}) } : {}),
+});
+/** w:color tipado das props de edição (hex + cor do tema). */
+const colorSpec = (p: Run['props']): NonNullable<RPr['color']> => ({
+  val: p.color!,
+  ...(p.colorTheme ? { themeColor: p.colorTheme.themeColor, ...(p.colorTheme.tint ? { themeTint: p.colorTheme.tint } : {}), ...(p.colorTheme.shade ? { themeShade: p.colorTheme.shade } : {}) } : {}),
+});
 
 /** pPr DIRETO efetivo (mesma lógica de directRPr para parágrafos). */
 export function directPPr(para: Paragraph): PPr {
@@ -311,7 +331,7 @@ export function directPPr(para: Paragraph): PPr {
     if (!p.borders) delete base.pBdr;
     else {
       base.pBdr = {};
-      for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+      for (const side of ['top', 'left', 'bottom', 'right', 'between', 'bar'] as const) {
         const e = p.borders[side];
         if (e) base.pBdr[side] = { val: e.style, sz: e.sizeEighthPt, space: e.spacePt, ...(e.color ? { color: e.color } : {}) };
       }

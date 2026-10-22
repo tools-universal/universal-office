@@ -118,7 +118,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,toc,page,textbox,textlayout,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,toc,page,textbox,textlayout,home,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -1734,6 +1734,80 @@ async function perfDoc(label, opener) {
   console.log(`perf ${label}: ${r.pages} pág., digitação mediana ${median} ms (máx ${sorted[sorted.length - 1]}), layout ${Math.round(last.layoutMs)} ms, pintura ${Math.round(last.paintMs)} ms [${t.ms.join(' ')}] modos ${t.stats.map((x) => x.mode[0]).join('')}`);
 }
 // ───────────── Página: Cor da Página, marca-d'água, folha de rosto, página em branco (frente Página) ─────────────
+if (want('home')) {
+  // ───────────── Página Inicial (write/tools/home-lab; memórias word-underline-facts e word-home-font-facts) ─────────────
+  const saveDir = opt('save-home');
+  const saveDoc = async (name) => { if (!saveDir) return; mkdirSync(saveDir, { recursive: true }); writeFileSync(join(saveDir, `${name}.docx`), Buffer.from(await ev('saveBase64'), 'base64')); };
+  const E = 'document.querySelector("universal-write")';
+  const js = (body) => page.evaluate(`(async () => { const e = ${E}; ${body} })()`);
+  const doc = async () => (await page.evaluate((n) => window.ed.savedParts(n), ['word/document.xml']))['word/document.xml'];
+  const items = (filter) => js(`return e.eng.result.pages[0].items.filter((i) => ${filter}).length;`);
+  await ev('blank');
+  await js('e.type("Alfa beta gama delta"); e.pressEnter(); e.type("Segundo paragrafo"); e.pressEnter(); e.type("Terceiro paragrafo"); e.pressEnter(); e.type("Quarto");');
+
+  // sublinhado com estilo: o XML do Word e o desenho (traços do pontilhado = vários retângulos)
+  await js('e.setSelection({ para: 0, offset: 0 }, { para: 0, offset: 4 }); e.setUnderline("dotted");');
+  let x = await doc();
+  check('home: sublinhado pontilhado grava <w:u w:val="dotted"/>', /<w:r><w:rPr><w:u w:val="dotted"\/><\/w:rPr><w:t>Alfa<\/w:t>/.test(x), x.slice(0, 300));
+  check('home: o motor desenha o pontilhado em traços (retângulos de 1,44 pt)', (await items('i.t === "rect" && Math.abs(i.w - 28.8) < 0.01')) >= 5, null);
+  check('home: o estilo escolhido vira o do botão Sublinhado', (await js('return e.underlineButtonStyle();')) === 'dotted', null);
+  // botão (Ctrl+U) sobre o estilo do botão: tira; sobre outro (duplo): troca pelo do botão (medido)
+  await js('e.toggleUnderline();');
+  x = await doc();
+  check('home: Ctrl+U sobre o estilo do botão tira o sublinhado', !/<w:u /.test(x.match(/<w:t>Alfa/) ? x.split('<w:t>Alfa')[0].slice(-80) : x), null);
+  await js('e.setUnderline("single"); e.toggleUnderline("double"); e.toggleUnderline();');
+  x = await doc();
+  check('home: o botão Sublinhado sobre duplo aplica o simples (como o Word)', /<w:u w:val="single"\/><\/w:rPr><w:t>Alfa/.test(x), null);
+  // cor do sublinhado do tema (accent2, 25% mais escura) e cor da fonte do tema
+  await js('e.setUnderlineColor({ themeColor: "accent2", shade: 0.25 }); e.setColor({ themeColor: "accent1" });');
+  x = await doc();
+  check('home: cor do sublinhado do tema grava w:color + w:themeColor + w:themeShade="BF"', /<w:u w:val="single" w:color="[0-9A-F]{6}" w:themeColor="accent2" w:themeShade="BF"\/>/.test(x), x.match(/<w:u [^>]*>/)?.[0]);
+  check('home: cor da fonte do tema grava w:color + w:themeColor', /<w:color w:val="[0-9A-F]{6}" w:themeColor="accent1"\/>/.test(x), x.match(/<w:color [^>]*>/)?.[0]);
+  // diálogo Fonte: tudo num passo (oculto, escala, espaçamento, posição, kerning)
+  await js('e.setSelection({ para: 0, offset: 5 }, { para: 0, offset: 9 }); e.setFontFormat({ hidden: true, scalePct: 150, spacingTwips: 20, positionHalfPt: 6, kernMinHalfPt: 24, doubleStrike: true });');
+  x = await doc();
+  check('home: setFontFormat grava dstrike/vanish/spacing/w/kern/position na ordem do CT_RPr',
+    /<w:rPr><w:dstrike\/><w:vanish\/><w:spacing w:val="20"\/><w:w w:val="150"\/><w:kern w:val="24"\/><w:position w:val="6"\/><\/w:rPr><w:t>beta<\/w:t>/.test(x), x.match(/<w:r><w:rPr><w:dstrike[\s\S]*?<\/w:r>/)?.[0]);
+  await js('e.undo();');
+  x = await doc();
+  check('home: um desfazer volta toda a formatação do diálogo', !/<w:vanish\/>|<w:dstrike\/>/.test(x), null);
+  // Maiúsculas e Minúsculas
+  await js('e.setSelection({ para: 1, offset: 0 }, { para: 1, offset: 17 }); e.changeCase("upper");');
+  check('home: MAIÚSCULAS', (await ev('text', 1)) === 'SEGUNDO PARAGRAFO', await ev('text', 1));
+  await js('e.changeCase("next");');
+  check('home: Shift+F3 depois de MAIÚSCULAS → minúsculas', (await ev('text', 1)) === 'segundo paragrafo', await ev('text', 1));
+  await js('e.changeCase("next");');
+  check('home: Shift+F3 sobre minúsculas sem ponto → Colocar Cada Palavra', (await ev('text', 1)) === 'Segundo Paragrafo', await ev('text', 1));
+  await js('e.changeCase("toggle");');
+  check('home: aLTERNAR', (await ev('text', 1)) === 'sEGUNDO pARAGRAFO', await ev('text', 1));
+  await js('e.changeCase("sentence");');
+  check('home: Primeira letra da frase', (await ev('text', 1)) === 'Segundo paragrafo', await ev('text', 1));
+  // atalhos do Word pela tecla física: Ctrl+Shift+D (duplo)
+  await js('e.setSelection({ para: 2, offset: 0 }, { para: 2, offset: 8 }); e.focusEditor();');
+  await page.keyboard.press('Control+Shift+KeyD');
+  x = await doc();
+  check('home: Ctrl+Shift+D aplica o sublinhado duplo', /<w:u w:val="double"\/><\/w:rPr><w:t>Terceiro<\/w:t>/.test(x), null);
+  // Bordas: Externas em 2 parágrafos (cada um com a caixa; o Word junta), alterna; Linha Horizontal
+  await js('e.setSelection({ para: 1, offset: 0 }, { para: 2, offset: 3 }); e.paragraphBorderPreset("outside");');
+  x = await doc();
+  const box = '<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="auto"/><w:left w:val="single" w:sz="4" w:space="4" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:space="1" w:color="auto"/><w:right w:val="single" w:sz="4" w:space="4" w:color="auto"/></w:pBdr>';
+  check('home: Bordas Externas gravam o w:pBdr do Word nos dois parágrafos', x.split(box).length === 3, null);
+  const lat = await js('const r = e.eng.result.pages[0].items.filter((i) => i.t === "rect" && i.w < 12 && i.h > 100).sort((a, b) => a.y - b.y); return r.length >= 4 ? Math.abs(r[2].y - (r[0].y + r[0].h)) : -1;');
+  check('home: as laterais do grupo seguem pelo espaço entre os parágrafos', lat >= 0 && lat < 1, lat);
+  await js('e.paragraphBorderPreset("outside");');
+  x = await doc();
+  check('home: Bordas Externas de novo tiram as bordas', !/<w:pBdr>/.test(x), null);
+  await js('e.paragraphBorderPreset("inside"); e.paragraphBorderPreset("insideV");');
+  x = await doc();
+  check('home: Bordas Internas = w:between; Interna Vertical = w:bar (sem w:space)', /<w:between w:val="single" w:sz="4" w:space="1" w:color="auto"\/><w:bar w:val="single" w:sz="4" w:color="auto"\/>/.test(x), null);
+  await js('e.paragraphBorderPreset("none"); e.setSelection({ para: 3, offset: 6 }); e.insertHorizontalLine();');
+  x = await doc();
+  check('home: Linha Horizontal grava o v:rect o:hr do Word num parágrafo próprio',
+    /<w:p><w:r><w:pict><v:rect id="_x0000_i1025" style="width:0;height:1\.5pt" o:hralign="center" o:hrstd="t" o:hr="t" fillcolor="#a0a0a0" stroked="f"\/><\/w:pict><\/w:r><\/w:p>/.test(x), null);
+  check('home: o motor desenha a linha (retângulo cinza com relevo)', (await items('i.t === "rect" && i.fill === "A0A0A0"')) >= 3, null);
+  await saveDoc('home-font');
+}
+
 if (want('page')) {
   // --save-page <pasta>: grava os .docx intermediários (conferência no Word: write/tools/page-lab/open-check.ps1)
   const saveDir = opt('save-page');

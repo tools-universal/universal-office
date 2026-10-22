@@ -150,7 +150,7 @@ const lookOn = (look: import('@universal-office/docx-core').TblLook | undefined,
 };
 
 type BorderKind = import('@universal-office/docx-core').BorderKind;
-const BORDERS: [BorderKind, string, string, string][] = [
+export const BORDERS: [BorderKind, string, string, string][] = [
   ['bottom', 'Bottom Border', 'Borda Inferior', 'border_bottom'], ['top', 'Top Border', 'Borda Superior', 'border_top'],
   ['left', 'Left Border', 'Borda Esquerda', 'border_left'], ['right', 'Right Border', 'Borda Direita', 'border_right'],
   ['none', 'No Border', 'Sem Borda', 'border_clear'], ['all', 'All Borders', 'Todas as Bordas', 'border_all'],
