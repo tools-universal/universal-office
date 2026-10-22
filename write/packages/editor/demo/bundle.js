@@ -9,7 +9,7 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-SXFO5MW3.js";
+} from "./chunks/chunk-WSGNNGEH.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -24,6 +24,7 @@ import {
   applyRunProps,
   blankDocxPackage,
   builtinDisplayName,
+  builtinStyle,
   builtinStyles,
   builtinXml,
   canSortTable,
@@ -53,6 +54,7 @@ import {
   hasParaChanges,
   hasRunChanges,
   hfPartXml,
+  insertIndex,
   insertPageBreakParagraph,
   insertRun,
   insertSectionBreak,
@@ -65,6 +67,7 @@ import {
   newNoteParagraphs,
   newRevision,
   newStyleXml,
+  normalizeParagraph,
   normalizeRange,
   noteMarkField,
   noteRefIds,
@@ -106,6 +109,7 @@ import {
   sortParagraphsOrder,
   sortTable,
   spanScope,
+  splitAt,
   splitParagraph,
   styleIdByName,
   styleIdFromName,
@@ -127,7 +131,7 @@ import {
   writeEvenAndOddHeaders,
   zipSync,
   zlibSync
-} from "./chunks/chunk-YWUJZRZU.js";
+} from "./chunks/chunk-PCIXABOT.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -656,6 +660,272 @@ function convertNoteContent(blocks, to, styles) {
       if (styles.from.ref && r.props.charStyle === styles.from.ref) r.props = { ...r.props, charStyle: styles.to.ref };
     }
   }
+}
+
+// src/references.ts
+function validBookmarkName(name) {
+  return name.length > 0 && name.length <= 40 && /^\p{L}[\p{L}\p{N}_]*$/u.test(name);
+}
+var isHiddenBookmark = (name) => name.startsWith("_");
+function bookmarksIn(paras) {
+  const open = /* @__PURE__ */ new Map();
+  const out = [];
+  paras.forEach((p, para2) => {
+    let offset = 0;
+    for (const r of p.runs) {
+      const b = r.bookmark;
+      if (b && !b.end) {
+        const loc = { name: b.name, id: b.id, start: { para: para2, offset }, end: { para: para2, offset } };
+        open.set(b.id, loc);
+        out.push(loc);
+      } else if (b?.end) {
+        const loc = open.get(b.id);
+        if (loc) {
+          loc.end = { para: para2, offset };
+          open.delete(b.id);
+        }
+      }
+      offset += r.text.length;
+    }
+  });
+  return out;
+}
+function findBookmark(paras, name) {
+  const k = name.toLowerCase();
+  return bookmarksIn(paras).find((b) => b.name.toLowerCase() === k);
+}
+function removeBookmarkMarks(paras, name) {
+  const k = name.toLowerCase();
+  const ids = /* @__PURE__ */ new Set();
+  for (const p of paras) for (const r of p.runs) if (r.bookmark && !r.bookmark.end && r.bookmark.name.toLowerCase() === k) ids.add(r.bookmark.id);
+  if (!ids.size) return false;
+  for (const p of paras) {
+    if (p.runs.some((r) => r.bookmark && ids.has(r.bookmark.id))) p.runs = p.runs.filter((r) => !(r.bookmark && ids.has(r.bookmark.id)));
+  }
+  return true;
+}
+var mark = (id, name, end, props) => ({ text: "", props: { ...DEFAULT_RUN_PROPS, ...props?.link ? { link: props.link, ...props.linkTip ? { linkTip: props.linkTip } : {} } : {} }, bookmark: { id, name, ...end ? { end: true } : {} } });
+function addBookmarkMarks(paras, name, id, start, end) {
+  const [a, b] = comparePos(start, end) <= 0 ? [start, end] : [end, start];
+  const pa = paras[a.para], pb = paras[b.para];
+  if (comparePos(a, b) === 0) {
+    const i = insertIndex(pa, a.offset);
+    const near2 = pa.runs[i] ?? pa.runs[i - 1];
+    pa.runs.splice(i, 0, mark(id, name, false, near2?.props), mark(id, name, true, near2?.props));
+    return;
+  }
+  const ie = splitAt(pb, b.offset);
+  pb.runs.splice(ie, 0, mark(id, name, true, pb.runs[ie - 1]?.props));
+  const is = insertIndex(pa, a.offset);
+  pa.runs.splice(is, 0, mark(id, name, false, pa.runs[is]?.props));
+}
+function textBetween(paras, start, end) {
+  let out = "";
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = paras[pi];
+    if (!p) break;
+    let acc = 0;
+    for (const r of p.runs) {
+      const rs = acc;
+      acc += r.text.length;
+      if (r.image || r.textbox || r.shape || r.group) continue;
+      const from = pi === start.para ? start.offset : 0, to = pi === end.para ? end.offset : Infinity;
+      out += r.text.slice(Math.max(0, from - rs), Math.max(0, to - rs));
+    }
+    if (pi < end.para) out += "\r";
+  }
+  return out;
+}
+function runsBetween(p, from, to) {
+  const out = [];
+  let acc = 0;
+  for (const r of p.runs) {
+    const rs = acc;
+    acc += r.text.length;
+    if (r.image || r.textbox || r.shape || r.group || r.bookmark || r.fieldBegin !== void 0 || r.fieldEnd) continue;
+    const t = r.text.slice(Math.max(0, from - rs), Math.max(0, to - rs));
+    if (!t) continue;
+    const props = { ...r.props };
+    for (const k of ["src", "link", "linkTip", "commentIds", "ins", "del", "fmt", "noProof", "webHidden"]) delete props[k];
+    if (r.noteRef) props.vertAlign = props.vertAlign ?? "superscript";
+    out.push({ text: t, props, ...r.rpr ? { rpr: r.rpr } : {} });
+  }
+  return out;
+}
+function maxBookmarkId(paras, xmls) {
+  let max = -1;
+  for (const p of paras) for (const r of p.runs) if (r.bookmark && r.bookmark.id > max) max = r.bookmark.id;
+  for (const x of xmls) {
+    if (!x) continue;
+    for (const m of x.matchAll(/<w:bookmarkStart\b[^>]*\bw:id="(\d+)"/g)) max = Math.max(max, +m[1]);
+  }
+  return max;
+}
+function hiddenBookmarkName(prefix, taken, seed) {
+  for (; ; ) {
+    const name = `${prefix}${String(seed.n++).padStart(9, "0").slice(-9)}`;
+    if (!taken(name)) return name;
+  }
+}
+function crossRefKinds(type) {
+  switch (type) {
+    case "numbered":
+    case "heading":
+    case "bookmark":
+      return ["text", "page", "number", "numberNoContext", "numberFullContext", "position"];
+    case "footnote":
+    case "endnote":
+      return ["noteNumber", "page", "position", "noteNumberFormatted"];
+    case "caption":
+      return ["captionEntire", "captionLabel", "captionText", "page", "position"];
+  }
+}
+function crossRefInstr(name, kind, opts = {}) {
+  const h = opts.hyperlink === false ? "" : " \\h";
+  switch (kind) {
+    case "page":
+      return ` PAGEREF ${name}${h} `;
+    case "number":
+      return ` REF ${name} \\r${h} `;
+    case "numberNoContext":
+      return ` REF ${name} \\n${h} `;
+    case "numberFullContext":
+      return ` REF ${name} \\w${h}${opts.separator !== void 0 && opts.separator !== "" ? ` \\d "${opts.separator}"` : ""} `;
+    case "position":
+      return ` REF ${name} \\p${h} `;
+    case "noteNumber":
+      return ` NOTEREF ${name}${h} `;
+    case "noteNumberFormatted":
+      return ` NOTEREF ${name} \\f${h} `;
+    default:
+      return ` REF ${name}${h} `;
+  }
+}
+function refFieldTarget(instr) {
+  const m = /^\s*(?:REF|PAGEREF|NOTEREF)\s+([^\s\\]+)/i.exec(instr ?? "");
+  return m ? m[1] : "";
+}
+function captionRange(kind, len2, seqEnd) {
+  if (kind === "captionLabel") return [0, Math.min(len2, seqEnd)];
+  if (kind === "captionText") return [Math.min(len2, seqEnd + 1), len2];
+  return [0, len2];
+}
+var CHAPTER_SEPARATOR_TEXT = {
+  hyphen: "\u2011",
+  period: ".",
+  colon: ":",
+  emDash: "\u2014",
+  enDash: "\u2013"
+};
+var BUILTIN_LABELS = [
+  { en: "Figure", pt: "Figura", position: "below" },
+  { en: "Table", pt: "Tabela", position: "above" },
+  { en: "Equation", pt: "Equa\xE7\xE3o", position: "above" }
+];
+function captionFields(label, n) {
+  const id = /\s/.test(label) ? `"${label}"` : label;
+  if (!n.chapter) return { seq: ` SEQ ${id} \\* ${n.format} ` };
+  return { chapter: ` STYLEREF ${n.chapter.level} \\s `, seq: ` SEQ ${id} \\* ${n.format} \\s ${n.chapter.level} ` };
+}
+function seqLabel(instr) {
+  const m = /^\s*SEQ\s+("([^"]+)"|\S+)/i.exec(instr ?? "");
+  return m ? m[2] ?? m[1] : "";
+}
+function parseTocInstr(instr) {
+  const o = {};
+  const q = (sw) => new RegExp(`\\\\${sw}\\s+"([^"]*)"`, "i").exec(instr)?.[1];
+  const has = (sw) => new RegExp(`\\\\${sw}(?![a-z"])`, "i").test(instr.replace(/"[^"]*"/g, '""'));
+  const ol = q("o");
+  if (ol !== void 0) {
+    const m = /(\d)\s*-\s*(\d)/.exec(ol);
+    o.outline = m ? [+m[1], +m[2]] : [1, 9];
+  } else if (has("o")) o.outline = [1, 9];
+  if (has("u")) o.outlineLevels = true;
+  const t = q("t");
+  if (t) {
+    const parts = t.split(/[;,]/);
+    o.styles = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) o.styles.push({ style: parts[i].trim(), level: parseInt(parts[i + 1], 10) || 1 });
+  }
+  const c = q("c"), a = q("a");
+  if (c !== void 0) {
+    o.caption = c;
+    o.includeLabel = true;
+  } else if (a !== void 0) {
+    o.caption = a;
+    o.includeLabel = false;
+  }
+  if (has("h")) o.hyperlinks = true;
+  if (has("n")) o.noPageNumbers = true;
+  const p = q("p");
+  if (p !== void 0) o.separator = p;
+  if (has("z")) o.hideInWeb = true;
+  return o;
+}
+function tocInstr(o) {
+  const parts = ["TOC"];
+  if (o.outline) parts.push(`\\o "${o.outline[0]}-${o.outline[1]}"`);
+  if (o.noPageNumbers) parts.push("\\n");
+  if (o.separator !== void 0) parts.push(`\\p "${o.separator}"`);
+  if (o.hyperlinks) parts.push("\\h");
+  if (o.hideInWeb) parts.push("\\z");
+  if (o.caption !== void 0) parts.push(`\\${o.includeLabel === false ? "a" : "c"} "${o.caption}"`);
+  if (o.styles?.length) parts.push(`\\t "${o.styles.map((s) => `${s.style};${s.level}`).join(";")}"`);
+  if (o.outlineLevels) parts.push("\\u");
+  return ` ${parts.join(" ")} `;
+}
+function tocEntryParagraphs(o, sources, look) {
+  const tabs = [{ posTwips: look.tabPos, align: "right", ...look.leader && look.leader !== "none" ? { leader: look.leader } : {} }];
+  return sources.map((s) => {
+    const link = o.hyperlinks ? { link: `#${s.bookmark}` } : {};
+    const web = o.hideInWeb ? { webHidden: true } : {};
+    const base = { ...DEFAULT_RUN_PROPS, ...link, noProof: true };
+    const runs = [];
+    if (s.number) {
+      runs.push({ text: s.number, props: { ...base, ...o.hyperlinks ? { charStyle: look.hyperlinkStyle } : {} }, inToc: true });
+      runs.push({ text: "	", props: { ...base, ...o.hyperlinks ? { charStyle: look.hyperlinkStyle } : {} }, inToc: true });
+    }
+    const text = s.text.replace(/[\t\n\f\u000B\r]/g, " ");
+    runs.push({ text, props: { ...base, ...o.hyperlinks ? { charStyle: look.hyperlinkStyle } : {} }, inToc: true });
+    if (!o.noPageNumbers) {
+      runs.push({ text: o.separator ?? "	", props: { ...base, ...web }, inToc: true });
+      const instr = ` PAGEREF ${s.bookmark} \\h `;
+      runs.push({ text: s.page, props: { ...base, ...web }, field: instr, fieldResult: [{ text: s.page, props: { ...base, ...web } }], inToc: true });
+    }
+    return { runs, props: { styleId: look.styleFor(s.level), tabStops: tabs } };
+  });
+}
+var TOF_EMPTY = {
+  en: "No table of figures entries found.",
+  pt: "Nenhuma entrada de \xEDndice de ilustra\xE7\xF5es foi encontrada."
+};
+var TOC_EMPTY = {
+  en: "No table of contents entries found.",
+  pt: "Nenhuma entrada de sum\xE1rio foi encontrada."
+};
+var TOF_FORMATS = {
+  template: { pPr: '<w:spacing w:after="0"/>', rPr: "" },
+  classic: { pPr: '<w:spacing w:after="0"/><w:ind w:left="440" w:hanging="440"/>', rPr: '<w:caps/><w:sz w:val="20"/><w:szCs w:val="20"/>' },
+  distinctive: { pPr: '<w:spacing w:after="0"/>', rPr: '<w:i/><w:iCs/><w:sz w:val="20"/><w:szCs w:val="20"/>' },
+  centered: { pPr: '<w:spacing w:after="0"/><w:ind w:left="440" w:hanging="440"/><w:jc w:val="center"/>', rPr: '<w:b/><w:bCs/><w:i/><w:iCs/><w:sz w:val="20"/><w:szCs w:val="20"/>' },
+  formal: { pPr: '<w:spacing w:after="0"/><w:ind w:left="440" w:hanging="440"/>', rPr: '<w:smallCaps/><w:sz w:val="20"/><w:szCs w:val="20"/>' },
+  simple: { pPr: '<w:spacing w:after="0"/><w:ind w:left="440" w:hanging="440"/>', rPr: '<w:b/><w:bCs/><w:sz w:val="20"/><w:szCs w:val="20"/>' }
+};
+function unlinkRuns(p, from, to, hyperlinkStyle) {
+  splitAt(p, to);
+  const i1 = splitAt(p, from);
+  let acc = 0;
+  p.runs.forEach((r, i) => {
+    const rs = acc;
+    acc += r.text.length;
+    if (i < i1 || rs >= to) return;
+    const props = { ...r.props };
+    delete props.link;
+    delete props.linkTip;
+    if (props.charStyle === hyperlinkStyle) delete props.charStyle;
+    r.props = props;
+  });
+  normalizeParagraph(p);
 }
 
 // ../docx-layout/src/typography/font/gpos.ts
@@ -3146,22 +3416,36 @@ var NumberingState = class _NumberingState {
       if (r === void 0 || ilvl < r) c[d] = void 0;
     }
     const lvlText = lvl.lvlTextNull ? "" : lvl.lvlText ?? "";
+    const fill = (t, own3) => t.replace(/%([1-9])/g, (_, k) => {
+      const l = parseInt(k, 10) - 1;
+      const n = c[l];
+      const v = n?.real ? n.v : lvlStart(l);
+      const fmt2 = own3.isLgl && l !== ilvl ? "decimal" : this.level(numId, l)?.numFmt ?? "decimal";
+      return formatNumber(v, fmt2 === "bullet" ? "decimal" : fmt2, this.lang);
+    });
     let text;
     let chapter;
     if (lvl.numFmt === "bullet") text = lvlText;
     else {
-      const subst = (s) => s.replace(/%([1-9])/g, (_, k) => {
-        const l = parseInt(k, 10) - 1;
-        const n = c[l];
-        const v = n?.real ? n.v : lvlStart(l);
-        const fmt2 = lvl.isLgl && l !== ilvl ? "decimal" : this.level(numId, l)?.numFmt ?? "decimal";
-        return formatNumber(v, fmt2 === "bullet" ? "decimal" : fmt2, this.lang);
-      });
-      text = subst(lvlText);
+      text = fill(lvlText, lvl);
       const a2 = lvlText.search(/%[1-9]/), b = lvlText.lastIndexOf("%");
-      if (a2 >= 0 && b >= a2) chapter = subst(lvlText.slice(a2, b + 2));
+      if (a2 >= 0 && b >= a2) chapter = fill(lvlText.slice(a2, b + 2), lvl);
     }
-    return { text, level: lvl, numId, ilvl, listKey: key, ...chapter !== void 0 ? { chapter } : {} };
+    const out = { text, level: lvl, numId, ilvl, listKey: key, ...chapter !== void 0 ? { chapter } : {} };
+    if (lvl.numFmt !== "bullet") {
+      const refs = (t) => [...t.matchAll(/%([1-9])/g)].map((m) => +m[1] - 1);
+      const parts = [text];
+      let cited = new Set(refs(lvlText));
+      for (let l = ilvl - 1; l >= 0 && !cited.has(l); l--) {
+        const pl = this.level(numId, l);
+        const pt2 = pl?.lvlTextNull ? "" : pl?.lvlText ?? "";
+        if (!pl || pl.numFmt === "bullet") break;
+        parts.unshift(fill(pt2, pl));
+        cited = /* @__PURE__ */ new Set([...cited, ...refs(pt2)]);
+      }
+      out.parts = parts;
+    }
+    return out;
   }
 };
 
@@ -3292,8 +3576,8 @@ function revisionRanges(rd, para2) {
   }
   if (rd.mode === "simple") for (const k of para2[REV_JOINS] ?? []) ranges.push([k, k, true]);
   const whole = rd.barFor(para2.props.pfmt, "fmt");
-  const mark = rd.barFor(para2.props.markIns, "insDel") || rd.barFor(para2.props.markDel, "insDel");
-  return ranges.length || whole || mark ? { ranges, whole, mark } : null;
+  const mark2 = rd.barFor(para2.props.markIns, "insDel") || rd.barFor(para2.props.markDel, "insDel");
+  return ranges.length || whole || mark2 ? { ranges, whole, mark: mark2 } : null;
 }
 
 // ../docx-layout/src/context.ts
@@ -3308,7 +3592,7 @@ var DocContext = class {
     this.resolver = new StyleResolver(fmt2);
     const ddFonts = fmt2.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt2.fontTable, void 0, fontOfSlot(ddFonts, "ascii", fmt2.theme) ?? fmt2.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {} };
+    this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}, ...opts.onField ? { onField: opts.onField } : {} };
     this.numbering = new NumberingState(fmt2.numbering, fmt2.styles.styles, this.opts.lang);
     this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
@@ -3334,14 +3618,19 @@ var DocContext = class {
   noteMarkOverride;
   /** contadores dos campos SEQ (ordem do documento) */
   seqCounters = /* @__PURE__ */ new Map();
+  /** títulos diagramados (níveis) e o ponto de cada SEQ — ver FlowState */
+  heads = [];
+  seqHeads = /* @__PURE__ */ new Map();
   /** Fotografia do estado que avança com o conteúdo. */
   saveFlow() {
-    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), notes: cloneNotes(this.notes) };
+    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), heads: [...this.heads], seqHeads: new Map(this.seqHeads), notes: cloneNotes(this.notes) };
   }
   /** Volta ao estado fotografado (a fotografia continua reutilizável). */
   restoreFlow(s) {
     this.numbering = s.numbering.clone();
     this.seqCounters = new Map(s.seq);
+    this.heads = [...s.heads];
+    this.seqHeads = new Map(s.seqHeads);
     this.notes = cloneNotes(s.notes);
   }
   /** Medição sem efeito colateral: não avança listas, SEQ nem números de nota. */
@@ -3382,6 +3671,13 @@ var DocContext = class {
   /** Marca já atribuída (sem numerar). */
   noteMarkOf(kind, id) {
     return this.notes.marks[kind].get(id);
+  }
+  /** Todas as marcas atribuídas ("f<id>"/"e<id>") — NOTEREF na passada seguinte. */
+  allNoteMarks() {
+    const out = /* @__PURE__ */ new Map();
+    for (const [id, m] of this.notes.marks.footnote) out.set(`f${id}`, m);
+    for (const [id, m] of this.notes.marks.endnote) out.set(`e${id}`, m);
+    return out;
   }
   /** Notas de fim referenciadas até aqui (ordem da 1ª referência). */
   get endnoteOrder() {
@@ -3535,6 +3831,7 @@ function directPPr(para2) {
     base.tabs = (p.tabStops ?? []).map((t) => ({ val: t.align, pos: t.posTwips, ...t.leader ? { leader: t.leader } : {} }));
   }
   if (!!p.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p.pageBreakBefore;
+  if (!!p.keepNext !== !!orig.keepNext) base.keepNext = !!p.keepNext;
   return base;
 }
 
@@ -4199,12 +4496,13 @@ function kernTwips(ctx, face, cp, next, sizePt) {
   if (ctx.opts.advanceEm === "device") return k;
   return k * sizePt / deviceEmPt(sizePt);
 }
-function fieldRuns(run2, env) {
+function fieldRuns(ctx, run2, env, at) {
   const instr = (run2.field ?? "").trim();
   const name = instr.split(/\s+/)[0]?.toUpperCase() ?? "";
-  if (["PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE"].includes(name) || name.endsWith("_MARK")) {
-    const v = env.field?.(name, instr);
+  if (["PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "NOTEREF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE"].includes(name) || name.endsWith("_MARK") || name === "STYLEREF" && !env.hf) {
+    const v = env.field?.(name, instr, at);
     if (v !== void 0) {
+      ctx.opts.onField?.(run2, v);
       const base = run2.fieldResult?.find((r) => !r.image && !r.textbox) ?? run2;
       const out = { ...base, text: v, field: void 0, fieldResult: void 0 };
       if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
@@ -4213,20 +4511,22 @@ function fieldRuns(run2, env) {
   }
   if (run2.fieldResult?.length) {
     if (!run2.fieldResult.some((r) => r.field !== void 0)) return run2.fieldResult;
-    return run2.fieldResult.flatMap((r) => r.field !== void 0 ? fieldRuns(r, env) ?? (r.text ? [r] : []) : [r]);
+    return run2.fieldResult.flatMap((r) => r.field !== void 0 ? fieldRuns(ctx, r, env, at) ?? (r.text ? [r] : []) : [r]);
   }
   return null;
 }
-function displayRuns(para2, env) {
+var isMarkRun = (r) => !!(r.bookmark || r.fieldBegin !== void 0 || r.fieldEnd);
+function displayRuns(ctx, para2, env) {
   const out = [];
   let offset = 0;
   para2.runs.forEach((run2, idx) => {
+    if (isMarkRun(run2)) return;
     if (run2.formField?.type === "checkBox") out.push({ run: run2, idx, offset });
     else if (run2.formField?.type === "dropDown" && run2.formField.entries) {
       const text = run2.formField.entries[run2.formField.selected ?? 0] ?? "";
       if (text) out.push({ run: { ...run2, text, field: void 0, fieldResult: void 0, formField: void 0 }, idx, offset });
     } else if (run2.field !== void 0) {
-      const fr = fieldRuns(run2, env);
+      const fr = fieldRuns(ctx, run2, env, offset);
       if (fr) {
         for (const r of fr) out.push({ run: r, idx, offset });
       } else if (run2.text) out.push({ run: run2, idx, offset });
@@ -4310,7 +4610,7 @@ function paraVisibility(ctx, para0, env) {
   const runRPr = (rpr) => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(para2, env).some(({ run: run2 }) => !!(run2.text || run2.image || run2.shape || run2.group || run2.textbox || run2.formField?.type === "checkBox" || run2.custom || run2.ptab || run2.noteRef) && ctx.rev.run(run2) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run2))));
+  const visible = displayRuns(ctx, para2, env).some(({ run: run2 }) => !!(run2.text || run2.image || run2.shape || run2.group || run2.textbox || run2.formField?.type === "checkBox" || run2.custom || run2.ptab || run2.noteRef) && ctx.rev.run(run2) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run2))));
   return { markHidden, visible };
 }
 function prepareParagraph(ctx, para0, env0) {
@@ -4459,7 +4759,7 @@ function prepareParagraph(ctx, para0, env0) {
     flushSeg();
   };
   let pendingNote;
-  for (const { run: run2, idx, offset } of displayRuns(para2, env)) {
+  for (const { run: run2, idx, offset } of displayRuns(ctx, para2, env)) {
     const rev = ctx.rev.run(run2);
     if (rev === "hide") continue;
     const direct = ctx.rev.directRPr(run2);
@@ -4544,13 +4844,13 @@ function prepareParagraph(ctx, para0, env0) {
     }
     if (run2.noteRef) {
       const { kind, id, custom } = run2.noteRef;
-      const mark = ctx.noteMark(kind, id, custom);
+      const mark2 = ctx.noteMark(kind, id, custom);
       if (custom) {
         if (kind === "footnote") pendingNote = id;
         continue;
       }
       const before2 = glyphs.length;
-      pushChars(mark, run2, rpr, style, offset, idx);
+      pushChars(mark2, run2, rpr, style, offset, idx);
       for (let k = before2; k < glyphs.length; k++) {
         glyphs[k].offset = offset;
         if (kind === "footnote") glyphs[k].noteId = id;
@@ -8264,6 +8564,7 @@ function layoutDocument(full0, provider, opts = {}) {
   let late = /* @__PURE__ */ new Map();
   let lateTables = /* @__PURE__ */ new Map();
   let noteMarks;
+  let noteRefs = /* @__PURE__ */ new Map();
   const newCtx = () => {
     const c = new DocContext(fmt2, provider, opts);
     if (noteMarks) c.noteMarkOverride = noteMarks;
@@ -8272,27 +8573,29 @@ function layoutDocument(full0, provider, opts = {}) {
   let chaps = /* @__PURE__ */ new Map();
   let last = null;
   for (let pass = 0; pass < 5; pass++) {
-    const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, /* @__PURE__ */ new Map(), noteRefs);
     eng.chaptersGuess = chaps;
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
+    const newNoteRefs = eng.usedNoteRef ? eng.ctx.allNoteMarks() : noteRefs;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
     const fix = eng.noteMarkFix();
     const newChaps = eng.usedChapter ? eng.chapterIndex() : chaps;
-    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix && (!eng.usedChapter || sameChapters(newChaps, chaps));
+    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && (!eng.usedNoteRef || sameMap(newNoteRefs, noteRefs)) && newLate === late && newLateTables === lateTables && !fix && (!eng.usedChapter || sameChapters(newChaps, chaps));
     if (stable) break;
     chaps = newChaps;
     total = result.pages.length;
     marks = newMarks;
+    noteRefs = newNoteRefs;
     late = newLate;
     lateTables = newLateTables;
     if (fix) noteMarks = fix;
   }
   const balance = /* @__PURE__ */ new Map();
   const runWith = (bal) => {
-    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal, noteRefs);
     eng.chaptersGuess = chaps;
     result = eng.run();
     return eng;
@@ -8337,7 +8640,7 @@ function sameMap(a, b) {
   return true;
 }
 var Engine = class {
-  constructor(ctx, full, totalPagesGuess, marksGuess = /* @__PURE__ */ new Map(), lateFloats = /* @__PURE__ */ new Map(), lateTables = /* @__PURE__ */ new Map(), balance = /* @__PURE__ */ new Map()) {
+  constructor(ctx, full, totalPagesGuess, marksGuess = /* @__PURE__ */ new Map(), lateFloats = /* @__PURE__ */ new Map(), lateTables = /* @__PURE__ */ new Map(), balance = /* @__PURE__ */ new Map(), noteRefGuess = /* @__PURE__ */ new Map()) {
     this.ctx = ctx;
     this.full = full;
     this.totalPagesGuess = totalPagesGuess;
@@ -8345,6 +8648,7 @@ var Engine = class {
     this.lateFloats = lateFloats;
     this.lateTables = lateTables;
     this.balance = balance;
+    this.noteRefGuess = noteRefGuess;
   }
   ctx;
   full;
@@ -8353,6 +8657,7 @@ var Engine = class {
   lateFloats;
   lateTables;
   balance;
+  noteRefGuess;
   pages = [];
   cur;
   col = 0;
@@ -8393,6 +8698,7 @@ var Engine = class {
   usedChapter = false;
   /** títulos numerados (estilo Título N) diagramados nesta passada: ref → nível e número */
   headingMarks = /* @__PURE__ */ new Map();
+  usedNoteRef = false;
   /** seções de várias colunas seguidas de seção contínua: o que ocupam na última página */
   balanceFound = /* @__PURE__ */ new Map();
   /** alturas usadas pelas colunas já encerradas na porção da seção nesta página */
@@ -8413,11 +8719,17 @@ var Engine = class {
   placedTables = /* @__PURE__ */ new Set();
   /** tabelas tardias (início da página) que partiram: a âncora vai para a continuação */
   lateSplit = /* @__PURE__ */ new Set();
-  /** SEQ id [\* formato] [\r n] [\c] [\h] — contadores na ordem do documento. */
+  /** SEQ id [\* formato] [\r n] [\c] [\h] [\s n] — contadores na ordem do documento;
+   *  \s n zera o contador se houve título de nível ≤ n desde a última vez que ele
+   *  contou (oráculo refs-lab, sr-*: um título 2 não zera o \s 1). */
   seqValue(instr) {
     const tok = instr.trim().split(/\s+/);
     const id = tok[1]?.toLowerCase();
     if (!id || id.startsWith("\\")) return void 0;
+    const reset = parseInt(/\\s\s*(\d)/i.exec(instr)?.[1] ?? "", 10);
+    const since = this.ctx.seqHeads.get(id) ?? 0;
+    if (reset && this.ctx.heads.slice(since).some((l) => l <= reset)) this.ctx.seqCounters.set(id, 0);
+    this.ctx.seqHeads.set(id, this.ctx.heads.length);
     let v = this.ctx.seqCounters.get(id) ?? 0;
     const r = /\\r\s*(\d+)/i.exec(instr);
     if (r) v = parseInt(r[1], 10);
@@ -8428,24 +8740,76 @@ var Engine = class {
     const map = { ARABIC: "decimal", ALPHABETIC: "upperLetter", alphabetic: "lowerLetter", ROMAN: "upperRoman", roman: "lowerRoman" };
     return formatNumber(v, map[fmt2] ?? "decimal", this.ctx.opts.lang);
   }
-  /** REF indicador: o texto do parágrafo do indicador (os do sumário cobrem o título inteiro). */
-  refValue(instr) {
+  /**
+   * "acima"/"abaixo" (REF/NOTEREF \p): o campo vem depois do indicador ou antes
+   * dele, na ordem do documento (oráculo refs-lab, xr-*-pos, xr-before). Sem a
+   * posição do campo (cabeçalho, caixa), mantém o cache.
+   */
+  positionWord(bm, block, at) {
+    const b = this.full.bookmarks?.get(bm);
+    if (b === void 0 || block === void 0 || block < 0) return void 0;
+    const off = this.full.bookmarkOffsets?.get(bm) ?? 0;
+    const below = block < b || block === b && at !== void 0 && at < off;
+    const pt2 = /^pt/i.test(this.ctx.opts.lang);
+    return below ? pt2 ? "abaixo" : "below" : pt2 ? "acima" : "above";
+  }
+  /** NOTEREF indicador: a marca da nota cuja referência está no trecho do indicador. */
+  noteRefValue(instr, block, at) {
+    const bm = instr.trim().split(/\s+/)[1];
+    if (!bm) return void 0;
+    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block, at);
+    const b = this.full.bookmarks?.get(bm);
+    const blk = b !== void 0 ? this.full.blocks[b] : void 0;
+    if (!blk || blk.type !== "paragraph") return void 0;
+    const from = this.full.bookmarkOffsets?.get(bm) ?? 0;
+    const end = this.full.bookmarkEnds?.get(bm);
+    const to = end && end.block === b ? end.offset : Infinity;
+    let acc = 0;
+    for (const r of blk.paragraph.runs) {
+      const rs = acc;
+      acc += r.text.length;
+      if (!r.noteRef || r.noteRef.custom || rs < from || rs > to || rs === to && to > from) continue;
+      this.usedNoteRef = true;
+      const { kind, id } = r.noteRef;
+      return this.ctx.noteMarkOf(kind, id) ?? this.noteRefGuess.get(`${kind[0]}${id}`);
+    }
+    return void 0;
+  }
+  /** REF indicador: o texto do trecho do indicador (sem o fim conhecido, o parágrafo
+   *  dele); \n \r \w = número do parágrafo; \p = acima/abaixo. */
+  refValue(instr, block, at) {
     const tok = instr.trim().split(/\s+/);
     const bm = tok[1];
-    if (!bm || /\\p\b/i.test(instr)) return void 0;
+    if (!bm) return void 0;
+    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block, at);
     if (/\\[nrw]\b/i.test(instr)) {
       const bi = this.full.bookmarks?.get(bm);
       if (bi === void 0 || this.full.blocks[bi]?.type !== "paragraph") return void 0;
-      const t = this.listNumberOf(bi);
-      return t ? t.replace(/\.+$/, "") : "0";
+      const m = this.listNumberOf(bi);
+      if (!m?.text) return "0";
+      const sep = /\\d\s+"([^"]*)"/i.exec(instr)?.[1];
+      const t = /\\w\b/i.test(instr) && m.parts ? m.parts.join(sep ?? "") : m.text;
+      return t.replace(/\.+$/, "");
     }
     const b = this.full.bookmarks?.get(bm);
     const blk = b !== void 0 ? this.full.blocks[b] : void 0;
     if (!blk || blk.type !== "paragraph") return void 0;
+    const end = this.full.bookmarkEnds?.get(bm);
+    const from = this.full.bookmarkOffsets?.get(bm);
+    if (end && from !== void 0 && end.block === b) {
+      let text2 = "", acc = 0;
+      for (const x of blk.paragraph.runs) {
+        const rs = acc;
+        acc += x.text.length;
+        if (x.image || x.textbox || x.shape || x.group) continue;
+        text2 += x.text.slice(Math.max(0, from - rs), Math.max(0, end.offset - rs));
+      }
+      return text2 || void 0;
+    }
     const text = blk.paragraph.runs.map((x) => x.field || x.image || x.textbox ? "" : x.text).join("").replace(/[\t\n\f\u000B]/g, " ").trim();
     return text || void 0;
   }
-  /** texto do número de lista de cada parágrafo do corpo (bloco → texto), na ordem do documento */
+  /** número de lista de cada parágrafo do corpo (bloco → marcador), na ordem do documento */
   listTexts;
   listNumberOf(block) {
     if (!this.listTexts) {
@@ -8455,7 +8819,7 @@ var Engine = class {
       this.ctx.numbering = st;
       const num = (para2) => {
         const n = resolvePPr(this.ctx, para2, {}).ppr.numPr;
-        return (n?.numId ? st.next(n.numId, n.ilvl ?? 0)?.text : void 0) ?? "";
+        return n?.numId ? st.next(n.numId, n.ilvl ?? 0) : null;
       };
       const visit = (b) => {
         if (b.type === "paragraph") {
@@ -8477,6 +8841,41 @@ var Engine = class {
       this.listTexts = out;
     }
     return this.listTexts.get(block);
+  }
+  /** Nível N do estilo de título interno do parágrafo ("heading N" — o próprio
+   *  estilo, como o STYLEREF procura), 0 = outro estilo. */
+  headingStyleLevel(p) {
+    const id = p.props.styleId ?? p.ppr?.pStyle;
+    const name = id ? this.ctx.fmt.styles.styles[id]?.name : void 0;
+    const m = name ? /^heading ([1-9])$/i.exec(name) : null;
+    return m ? +m[1] : 0;
+  }
+  /**
+   * STYLEREF n [\s|\n] no corpo: o título de nível n mais próximo ANTES do campo
+   * (no próprio parágrafo inclusive); sem nenhum, o primeiro depois (oráculo
+   * refs-lab, sr-*). Sem switch: o texto do título; \n: o número (sem ponto
+   * final; "0" sem número); \s: só os números ("Cap %1" → "1"). Sem título
+   * desse nível: a mensagem de erro do Word.
+   */
+  styleRefValue(instr, block) {
+    const n = parseInt(/^\s*STYLEREF\s+"?([1-9])"?/i.exec(instr)?.[1] ?? "", 10);
+    if (!n || block === void 0 || block < 0) return void 0;
+    const blocks = this.full.blocks;
+    const at = (i) => {
+      const b = blocks[i];
+      return b?.type === "paragraph" && this.headingStyleLevel(b.paragraph) === n;
+    };
+    let hit = -1;
+    for (let i = Math.min(block, blocks.length - 1); i >= 0 && hit < 0; i--) if (at(i)) hit = i;
+    for (let i = block + 1; i < blocks.length && hit < 0; i++) if (at(i)) hit = i;
+    if (hit < 0) return /^pt/i.test(this.ctx.opts.lang) ? "Erro! Nenhum texto com o estilo especificado foi encontrado no documento." : "Error! No text of specified style in document.";
+    const p = blocks[hit].paragraph;
+    if (/\\[sn]\b/i.test(instr)) {
+      const m = this.listNumberOf(hit);
+      if (!m?.text) return "0";
+      return (/\\s\b/i.test(instr) ? m.level.numFmt === "bullet" ? m.text : m.chapter ?? "" : m.text).replace(/\.+$/, "");
+    }
+    return p.runs.map((x) => x.image || x.textbox || x.shape || x.group ? "" : x.text).join("").replace(/[\t\n\f\u000B]/g, " ").trim();
   }
   /**
    * Reinício a cada página (w:numRestart eachPage): a marca de cada nota pela
@@ -8931,8 +9330,9 @@ var Engine = class {
     }
   }
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
-  fieldValue(ps) {
-    return (name, instr) => {
+  /** Valor dos campos dinâmicos; `block` = bloco do corpo onde o campo está (REF \p). */
+  fieldValue(ps, block) {
+    return (name, instr, at) => {
       if (name === "PAGEREF") {
         this.usedPageRef = true;
         const bm = (instr ?? "").trim().split(/\s+/)[1];
@@ -8940,7 +9340,9 @@ var Engine = class {
       }
       if (name === "SEQ") return this.seqValue(instr ?? "");
       if (name === "ENDNOTEREF_MARK" && this.curEndnote !== void 0) return this.ctx.noteMarkOf("endnote", this.curEndnote) ?? "";
-      if (name === "REF") return this.refValue(instr ?? "");
+      if (name === "REF") return this.refValue(instr ?? "", block, at);
+      if (name === "NOTEREF") return this.noteRefValue(instr ?? "", block, at);
+      if (name === "STYLEREF") return this.styleRefValue(instr ?? "", block);
       if (name === "PAGE") {
         const num = formatNumber(ps.page.number, ps.geom.pgFmt ?? "decimal", this.ctx.opts.lang);
         const chap = ps.geom.chap ? this.chapterOf(ps.geom.chap.level, this.pages.indexOf(ps)) : void 0;
@@ -9150,7 +9552,7 @@ var Engine = class {
               frame = this.wrapFrame(frame0, x, wY0 + y, lh2, wPs);
             }
           }
-          const mark = br.mark();
+          const mark2 = br.mark();
           let seg = this.pickSeg(br, frame);
           let line = br.next(seg.f);
           const textH = Math.min(line.height, line.baseline + line.desc);
@@ -9159,12 +9561,12 @@ var Engine = class {
             if (f2.skipTo !== void 0 && f2.skipTo - wY0 > y) {
               y = f2.skipTo - wY0;
               frame = this.wrapFrame(frame0, x, wY0 + y, markLineH(p), wPs);
-              br.reset(mark);
+              br.reset(mark2);
               seg = this.pickSeg(br, frame);
               line = br.next(seg.f);
             } else if (narrower(f2, frame)) {
               frame = f2;
-              br.reset(mark);
+              br.reset(mark2);
               seg = this.pickSeg(br, frame);
               line = br.next(seg.f);
             }
@@ -9497,7 +9899,7 @@ var Engine = class {
   }
   /** Nenhum run aparece nesta visão (todo o texto excluído — ou parágrafo vazio). */
   noShownRuns(p) {
-    return p.runs.every((r) => this.ctx.rev.run(r) === "hide");
+    return p.runs.every((r) => isMarkRun(r) || this.ctx.rev.run(r) === "hide");
   }
   placeParagraph(para0, ref, blockIdx, g) {
     if (FRAME_SKIP.has(para0)) {
@@ -9515,7 +9917,7 @@ var Engine = class {
     if (this.ctx.rev.markGone(para0) && this.noShownRuns(para0) && !this.pendingJoin && !this.pendingDel) return;
     const join = this.pendingJoin;
     this.pendingJoin = null;
-    const env = { field: this.fieldValue(this.cur) };
+    const env = { field: this.fieldValue(this.cur, blockIdx) };
     const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
     const para2 = join ? this.joinHidden(join, merged, env) : merged;
@@ -9525,6 +9927,8 @@ var Engine = class {
       const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p.styleId]?.name ?? "")?.[1];
       if (lv) this.headingMarks.set(ref, { level: +lv, text: p.marker.chapter });
     }
+    const hl = this.headingStyleLevel(para0);
+    if (hl) this.ctx.heads.push(hl);
     if (p.markStyle.hidden && blockIdx < g.blocks[1]) {
       if (!p.glyphs.length) return;
       if (this.full.blocks[blockIdx + 1]?.type === "paragraph") {
@@ -9682,7 +10086,7 @@ var Engine = class {
         this.y += pushGap;
         frame = frameHere();
       }
-      const mark = br.mark();
+      const mark2 = br.mark();
       let seg = this.pickSeg(br, frame);
       let line = br.next(seg.f);
       const textH = Math.min(line.height, line.baseline + line.desc);
@@ -9692,12 +10096,12 @@ var Engine = class {
         if (f2.skipTo !== void 0 && f2.skipTo > this.y) {
           this.y = f2.skipTo + (first ? selfGap : 0);
           frame = frameHere();
-          br.reset(mark);
+          br.reset(mark2);
           seg = this.pickSeg(br, frame);
           line = br.next(seg.f);
         } else if (narrower(f2, frame)) {
           frame = f2;
-          br.reset(mark);
+          br.reset(mark2);
           seg = this.pickSeg(br, frame);
           line = br.next(seg.f);
         }
@@ -9710,7 +10114,7 @@ var Engine = class {
           if (f0.skipTo === void 0 && !narrower(f0, frame)) {
             const yb = this.y;
             this.y = y0;
-            br.reset(mark);
+            br.reset(mark2);
             const seg0 = this.pickSeg(br, f0);
             const line0 = br.next(seg0.f);
             if (Math.min(line0.height, line0.baseline + line0.desc) <= textH2 + 0.5) {
@@ -9719,7 +10123,7 @@ var Engine = class {
               line = line0;
             } else {
               this.y = yb;
-              br.reset(mark);
+              br.reset(mark2);
               seg = this.pickSeg(br, frame);
               line = br.next(seg.f);
             }
@@ -9742,7 +10146,7 @@ var Engine = class {
           if (below < Infinity && below > this.y) {
             this.y = below;
             frame = frameHere();
-            br.reset(mark);
+            br.reset(mark2);
             seg = this.pickSeg(br, frame);
             line = br.next(seg.f);
           }
@@ -9759,7 +10163,7 @@ var Engine = class {
         if (below < Infinity && below > this.y) {
           this.y = below;
           frame = frameHere();
-          br.reset(mark);
+          br.reset(mark2);
           seg = this.pickSeg(br, frame);
           line = br.next(seg.f);
         }
@@ -9771,7 +10175,7 @@ var Engine = class {
         if (f3?.skipTo !== void 0 && f3.skipTo > this.y) {
           this.y = f3.skipTo + (first ? selfGap : 0);
           frame = frameHere();
-          br.reset(mark);
+          br.reset(mark2);
           seg = this.pickSeg(br, frame);
           line = br.next(seg.f);
         }
@@ -9826,7 +10230,7 @@ var Engine = class {
           nf = frameHere();
         }
         if (nf.left !== frame.left || nf.right !== frame.right || nf.segs || frame.segs) {
-          br.reset(mark);
+          br.reset(mark2);
           frame = nf;
           seg = this.pickSeg(br, nf);
           line = br.next(seg.f);
@@ -9906,12 +10310,12 @@ var Engine = class {
     let c = this.noteCache.get(key);
     if (!c) {
       const blocks = this.full.footnoteBlocks?.get(id) ?? (this.full.footnotes.get(id) ?? []).map((paragraph) => ({ type: "paragraph", paragraph }));
-      const mark = this.ctx.noteMarkOf("footnote", id) ?? "";
+      const mark2 = this.ctx.noteMarkOf("footnote", id) ?? "";
       const saved = this.ctx.numbering;
       this.ctx.numbering = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       try {
         c = this.layoutStatic(blocks, g.marL, w, {
-          field: (name) => name === "FOOTNOTEREF_MARK" ? mark : this.fieldValue(this.cur)(name)
+          field: (name) => name === "FOOTNOTEREF_MARK" ? mark2 : this.fieldValue(this.cur)(name)
         }, `fn${id}`);
       } finally {
         this.ctx.numbering = saved;
@@ -12586,6 +12990,44 @@ function documentOutline(full, opts = {}) {
   walk(full.blocks, true);
   return out;
 }
+function numberedItems(full, opts = {}) {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const out = [];
+  const walk = (blocks, top) => {
+    blocks.forEach((b, i) => {
+      if (b.type === "table") {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell), false);
+        return;
+      }
+      const n = resolvePPr(ctx, b.paragraph, {}).ppr.numPr;
+      const m = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0) : null;
+      if (!top || !m || m.level.numFmt === "bullet" || !m.text) return;
+      const text = headingText(b.paragraph);
+      if (text) out.push({ block: i, ilvl: m.ilvl, number: m.text, text });
+    });
+  };
+  walk(full.blocks, true);
+  return out;
+}
+function outlineParagraphs(full, opts = {}) {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const out = [];
+  const walk = (blocks, top) => {
+    blocks.forEach((b, i) => {
+      if (b.type === "table") {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell), top ?? i);
+        return;
+      }
+      const p = b.paragraph;
+      const { ppr } = resolvePPr(ctx, p, {});
+      const n = ppr.numPr;
+      const num = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0)?.text ?? "" : "";
+      out.push({ paragraph: p, block: top ?? i, level: outlineLevelOf(ctx, p, ppr), number: num });
+    });
+  };
+  walk(full.blocks, null);
+  return out;
+}
 
 // ../docx-layout/src/paraformat.ts
 var NO_FONTS2 = { face: () => null };
@@ -14117,13 +14559,53 @@ function buildEngineDoc(input) {
       if (b !== void 0) bookmarks.set(name, b);
     }
   }
+  const marks = bookmarkMarks(blocks);
+  const bookmarkOffsets = /* @__PURE__ */ new Map();
+  const bookmarkEnds = /* @__PURE__ */ new Map();
+  if (marks.starts.size) {
+    if (bookmarks === fullDoc?.bookmarks) bookmarks = new Map(bookmarks);
+    for (const [name, at] of marks.starts) {
+      bookmarks.set(name, at.block);
+      bookmarkOffsets.set(name, at.offset);
+    }
+    for (const [name, at] of marks.ends) bookmarkEnds.set(name, at);
+  }
   const full = {
     ...fullDoc ?? { footnotes: /* @__PURE__ */ new Map(), endnotes: /* @__PURE__ */ new Map(), comments: [], styles: /* @__PURE__ */ new Map() },
     blocks,
     sections: secs,
-    bookmarks
+    bookmarks,
+    bookmarkOffsets,
+    bookmarkEnds
   };
   return { full, origins, paraBlock, sectionMap };
+}
+function bookmarkMarks(blocks) {
+  const starts = /* @__PURE__ */ new Map();
+  const ends = /* @__PURE__ */ new Map();
+  const names = /* @__PURE__ */ new Map();
+  const para2 = (p, block) => {
+    let offset = 0;
+    for (const r of p.runs) {
+      const bm = r.bookmark;
+      if (bm && !bm.end && !starts.has(bm.name)) {
+        starts.set(bm.name, { block, offset });
+        names.set(bm.id, bm.name);
+      } else if (bm?.end) {
+        const n = names.get(bm.id);
+        if (n && !ends.has(n)) ends.set(n, { block, offset });
+      }
+      offset += r.text.length;
+    }
+  };
+  const walk = (bs, block) => {
+    bs.forEach((b, i) => {
+      if (b.type === "paragraph") para2(b.paragraph, block ?? i);
+      else for (const row of b.rows) for (const c of row.cells) walk(cellBlocks(c), block ?? i);
+    });
+  };
+  walk(blocks, null);
+  return { starts, ends };
 }
 function withPgBorders(s) {
   const pb = s.sectPr.pgBorders;
@@ -14815,7 +15297,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-VZP3CUV3.js");
+    const { setupChrome } = await import("./chunks/chrome-FFAQ2VHE.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -14852,7 +15334,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-VZP3CUV3.js").then((m) => {
+      void import("./chunks/chrome-FFAQ2VHE.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -15947,7 +16429,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Aplica hyperlink à seleção; sem seleção e com url, insere a url já linkada. */
   setLink(url) {
-    if (!this.model || this.locked()) return;
+    if (!this.model || this.locked() || url && !this.canInsertField()) return;
     this.snapshot();
     if (this.hasSelection()) {
       applyRunProps2(this.model, this.range(), { link: url || void 0 });
@@ -17075,57 +17557,1124 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.selection = { anchor: np, focus: np };
     this.refresh();
   }
-  // ───────────────── sumário (TOC) ─────────────────
-  /** Gera/atualiza o sumário a partir dos títulos, com páginas do NOSSO
-   *  layout e leader pontilhado — o equivalente do F9 do app de referência. */
-  updateToc() {
-    if (!this.model || this.locked()) return false;
-    const tocIdx = this.model.paragraphs.findIndex((p) => p.props.tocInstr);
-    if (tocIdx < 0) return false;
-    this.quietChange = true;
-    this.snapshot();
-    this.quietChange = false;
-    let end = tocIdx + 1;
-    while (end < this.model.paragraphs.length && (this.model.paragraphs[end].props.tocEntry || end === tocIdx + 1 && paraLength(this.model.paragraphs[end]) === 0 && !this.model.paragraphs[end].props.styleId)) end++;
-    const removed = end - (tocIdx + 1);
-    this.model.paragraphs.splice(tocIdx + 1, removed);
-    this.shiftAnchors(tocIdx, -removed);
-    const instr = this.model.paragraphs[tocIdx].props.tocInstr;
-    const range = instr.match(/\\o\s+"(\d)-(\d)"/);
-    const minLvl = range ? parseInt(range[1], 10) : 1;
-    const maxLvl = range ? parseInt(range[2], 10) : 3;
-    const s = this.sect();
-    const contentW = s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
-    const entries = [];
-    this.model.paragraphs.forEach((p, pi) => {
-      const m = p.props.styleId?.match(/^(?:Heading|Ttulo)(\d)$/);
-      if (!m) return;
-      const lvl = parseInt(m[1], 10);
-      if (lvl < minLvl || lvl > maxLvl) return;
-      const page2 = (this.layoutCache[pi]?.lines[0]?.page ?? 0) + 1;
-      const text = paraText(p).replace(/[\f\n]/g, "").trim();
-      if (!text) return;
-      entries.push({
-        runs: [{
-          text: `${text}	${page2}`,
-          props: { ...DEFAULT_RUN_PROPS, link: `#para:${pi}`, color: lvl === 1 ? void 0 : "444444" }
-        }],
-        props: {
-          tocEntry: true,
-          indentLeftTwips: (lvl - 1) * 220 || void 0,
-          spaceAfterTwips: 40,
-          tabStops: [{ posTwips: contentW, align: "right", leader: "dot" }]
+  // ───────────────── links e referências ─────────────────
+  // Indicadores (marcas de largura zero nos runs — Run.bookmark), Referência
+  // Cruzada (REF/PAGEREF/NOTEREF), legendas (SEQ/STYLEREF), índice de
+  // ilustrações e sumário (campo TOC que atravessa parágrafos: Run.fieldBegin /
+  // fieldEnd) e a atualização de campos (F9). Regras puras em references.ts;
+  // fatos medidos em write/tools/refs-lab (memória word-refs-oracle-facts).
+  /** "Mostrar indicadores" (colchetes cinza na tela — opção própria, como no Word). */
+  bookmarkMarksShown = false;
+  /** contador dos nomes ocultos novos (_Ref/_Toc + 9 dígitos, sequenciais na sessão) */
+  refSeed = { n: 243e6 + Math.floor(Math.random() * 4e5) };
+  /** próximo w:id de indicador livre (-1 = ainda não calculado) */
+  nextBmId = -1;
+  /** rótulos de legenda criados, numeração por rótulo e AutoLegenda (como o Word
+   *  guarda no Normal: a barra persiste — `captionSettings`) */
+  captionCfg = { labels: [], numbering: {} };
+  /** Listas de parágrafos com marcas de indicador e a ordem de cada uma no documento
+   *  (corpo por parágrafo; tabela pela âncora; notas e cabeçalhos/rodapés depois). */
+  markStories() {
+    const b = this.bodyState();
+    const out = [{ paras: b.model.paragraphs, key: -1, body: true }];
+    b.tableAnchors.forEach((a, ai) => {
+      a.table.rows.forEach((row, ri) => {
+        let col = row.trPr?.gridBefore ?? 0;
+        for (const c of row.cells) {
+          out.push({ paras: c.paragraphs, key: a.beforePara - 0.5, cell: { anchor: ai, hops: [{ r: ri, c: col }] } });
+          const nested = (t) => {
+            for (const r of t.rows) for (const x of r.cells) {
+              out.push({ paras: x.paragraphs, key: a.beforePara - 0.5 });
+              x.tables.forEach(nested);
+            }
+          };
+          c.tables.forEach(nested);
+          col += Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1);
         }
       });
     });
-    this.model.paragraphs.splice(tocIdx + 1, 0, ...entries);
-    this.shiftAnchors(tocIdx, entries.length);
+    let k = 1e9;
+    for (const m of [this.fullDoc?.footnotes, this.fullDoc?.endnotes]) m?.forEach((ps) => out.push({ paras: ps, key: k++ }));
+    for (const s of this.fullDoc?.sections ?? []) for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) out.push({ paras: ps, key: k++ });
+    const seen = /* @__PURE__ */ new Set();
+    return out.filter((s) => seen.has(s.paras) ? false : (seen.add(s.paras), true));
+  }
+  /** Indicadores do documento (diálogo Indicador): nome, oculto e texto do trecho;
+   *  `sort` 'name' (sem caixa, com acento — como o Word) ou 'location'. */
+  getBookmarks(opts = {}) {
+    const rows = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const s of this.markStories()) {
+      for (const b of bookmarksIn(s.paras)) {
+        const low = b.name.toLowerCase();
+        if (seen.has(low)) continue;
+        seen.add(low);
+        rows.push({ name: b.name, hidden: isHiddenBookmark(b.name), text: textBetween(s.paras, b.start, b.end), k: s.body ? [b.start.para, b.start.offset] : [s.key, b.start.para, b.start.offset] });
+      }
+    }
+    for (const [name, para2] of this.bookmarkParas) {
+      if (seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      rows.push({ name, hidden: isHiddenBookmark(name), text: "", k: [para2 - 0.25, 0] });
+    }
+    const vis = rows.filter((r) => opts.hidden || !r.hidden);
+    const cmpK = (a, b) => {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const d = (a[i] ?? -1) - (b[i] ?? -1);
+        if (d) return d;
+      }
+      return 0;
+    };
+    vis.sort((a, b) => opts.sort === "location" ? cmpK(a.k, b.k) : a.name.localeCompare(b.name, "pt-BR", { sensitivity: "accent" }));
+    return vis.map(({ k: _k, ...r }) => r);
+  }
+  /** Algum indicador com este nome (sem diferenciar maiúsculas)? */
+  hasBookmark(name) {
+    const low = name.toLowerCase();
+    if ([...this.bookmarkParas.keys()].some((k) => k.toLowerCase() === low)) return true;
+    return this.markStories().some((s) => !!findBookmark(s.paras, name));
+  }
+  /** w:id livre para um indicador novo (acima de todos os do documento, inclusive os crus). */
+  newBookmarkId() {
+    if (this.nextBmId < 0) {
+      const xmls = (this.pkg?.partNames() ?? []).filter((p) => /^word\/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml$/.test(p)).map((p) => this.pkg.getPartText(p));
+      this.nextBmId = maxBookmarkId(this.allParagraphs(), xmls) + 1;
+    }
+    return this.nextBmId++;
+  }
+  /** Nome oculto novo (_Ref/_Toc) que o documento ainda não usa. */
+  newHiddenName(prefix) {
+    return hiddenBookmarkName(prefix, (n) => this.hasBookmark(n), this.refSeed);
+  }
+  /** Tira as marcas do indicador `name` de todas as histórias. */
+  dropBookmark(name) {
+    let hit = false;
+    for (const s of this.markStories()) if (removeBookmarkMarks(s.paras, name)) hit = true;
+    for (const k of [...this.bookmarkParas.keys()]) if (k.toLowerCase() === name.toLowerCase()) {
+      this.bookmarkParas.delete(k);
+      hit = true;
+    }
+    return hit;
+  }
+  /**
+   * Adiciona o indicador `name` na seleção (ou no cursor: indicador de ponto). Nome
+   * repetido move o indicador (o Word não diferencia maiúsculas). false = nome
+   * inválido (começa com letra; letras, dígitos e `_`; até 40) ou edição bloqueada.
+   */
+  insertBookmark(name) {
+    if (!this.model || this.locked() || !validBookmarkName(name)) return false;
+    this.snapshot();
+    this.dropBookmark(name);
+    const { start, end } = normalizeRange(this.range());
+    addBookmarkMarks(this.model.paragraphs, name, this.newBookmarkId(), start, end);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-bookmarks-change"));
+    return true;
+  }
+  /** Exclui o indicador (o texto fica). */
+  deleteBookmark(name) {
+    if (!this.model || this.locked() || !this.hasBookmark(name)) return false;
+    this.snapshot();
+    this.dropBookmark(name);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-bookmarks-change"));
+    return true;
+  }
+  /** Ir para: seleciona o trecho do indicador (o de ponto: o cursor nele). */
+  goToBookmark(name) {
+    if (!this.model) return false;
+    for (const s of this.markStories()) {
+      const b = findBookmark(s.paras, name);
+      if (!b) continue;
+      if (s.body) {
+        if (!this.toBody()) return false;
+        this.goToBodyPara(b.start.para, b.start.offset, b.start.offset, false);
+        this.selection = { anchor: b.start, focus: b.end };
+      } else if (s.cell) {
+        if (!this.toBody() || !this.enterCell(s.cell.anchor, s.cell.hops, b.start)) return false;
+        this.selection = { anchor: b.start, focus: b.end };
+      } else return false;
+      this.pendingProps = null;
+      this.refreshSelection();
+      this.scrollCaretIntoView();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    const para2 = [...this.bookmarkParas].find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+    if (para2 === void 0 || !this.toBody()) return false;
+    this.goToBodyPara(Math.min(para2, this.model.paragraphs.length - 1), 0, 0, false);
+    return true;
+  }
+  /** "Mostrar indicadores": colchetes cinza em volta dos trechos (I no de ponto) —
+   *  só na tela, nunca no PDF/impressão. Sem argumento alterna. */
+  showBookmarks(on) {
+    this.bookmarkMarksShown = on ?? !this.bookmarkMarksShown;
+    this.refreshView();
+    return this.bookmarkMarksShown;
+  }
+  bookmarksShown() {
+    return this.bookmarkMarksShown;
+  }
+  /** O nome serve para um indicador (regras do Word: letra, letras/dígitos/_, até 40)? */
+  validBookmarkName(name) {
+    return validBookmarkName(name);
+  }
+  /** O que a Referência Cruzada pode inserir para o tipo (ordem do diálogo do Word). */
+  crossReferenceKinds(type) {
+    return crossRefKinds(type);
+  }
+  /** Próximo número da legenda do rótulo (o diálogo Legenda mostra "Figura N"). */
+  nextCaptionNumber(label) {
+    const want = label.toLowerCase();
+    let n = 0;
+    for (const p of this.bodyModel().paragraphs) for (const r of p.runs) if (seqLabel(r.field).toLowerCase() === want) n++;
+    const f = this.getCaptionNumbering(label).format;
+    const map = { ARABIC: "decimal", ALPHABETIC: "upperLetter", alphabetic: "lowerLetter", ROMAN: "upperRoman", roman: "lowerRoman" };
+    return formatNumber(n + 1, map[f] ?? "decimal");
+  }
+  /** Id no documento do estilo interno de nome canônico `name` ("table of figures",
+   *  "caption", "Hyperlink"…), definido se faltar — para os diálogos (Modificar). */
+  ensureBuiltinStyle(name) {
+    return this.builtinStyleId(name);
+  }
+  /** Colchetes dos indicadores nas linhas da página (adorno de tela). */
+  paintBookmarkMarks(ctx, pg) {
+    if (!this.bookmarkMarksShown || !this.eng) return;
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? "#9aa0a6" : "#808080";
+    ctx.lineWidth = 14;
+    for (const el of this.eng.lines) {
+      if (el.page !== pg || !el.para || el.loc.kind === "other") continue;
+      let acc = 0;
+      const runs = el.para.runs;
+      for (let i = 0; i < runs.length; i++) {
+        const r = runs[i];
+        const at = acc;
+        acc += r.text.length;
+        if (!r.bookmark || isHiddenBookmark(r.bookmark.name)) continue;
+        if (at < el.line.start || at > el.line.end || at === el.line.end && at < paraLength(el.para) && !r.bookmark.end) continue;
+        const x = caretXIn(el.line, at);
+        const y0 = el.line.y + 10, y1 = el.line.y + el.line.height - 10, w = 50;
+        const point = !r.bookmark.end && runs[i + 1]?.bookmark?.end && runs[i + 1].bookmark.id === r.bookmark.id;
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x, y1);
+        if (point) {
+          ctx.moveTo(x - w, y0);
+          ctx.lineTo(x + w, y0);
+          ctx.moveTo(x - w, y1);
+          ctx.lineTo(x + w, y1);
+          i++;
+        } else {
+          const d = r.bookmark.end ? -w : w;
+          ctx.moveTo(x, y0);
+          ctx.lineTo(x + d, y0);
+          ctx.moveTo(x, y1);
+          ctx.lineTo(x + d, y1);
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // ── referência cruzada
+  /**
+   * Itens do diálogo Referência Cruzada para um tipo (como o Word os lista —
+   * oráculo xr-items): títulos com recuo por nível, itens numerados com o número,
+   * indicadores visíveis por nome, notas "marca  texto", legendas do rótulo.
+   */
+  getCrossReferenceItems(type, label) {
+    const b = this.bodyState();
+    if (!b.model) return [];
+    const ps = b.model.paragraphs;
+    switch (type) {
+      case "heading": {
+        return this.getHeadings().map((h) => ({ id: `p:${h.para}`, text: `${"  ".repeat(Math.max(0, h.level - 1))}${h.text}` }));
+      }
+      case "numbered": {
+        const doc = this.eng && !this.hfEdit && !this.tbEdit && !this.cellEdit ? this.eng.doc : this.liveEngineDoc();
+        return numberedItems(doc.full).flatMap((n) => {
+          const o = doc.origins[n.block];
+          return o?.kind === "para" ? [{ id: `p:${o.para}`, text: `${"  ".repeat(n.ilvl)}${n.number} ${n.text}` }] : [];
+        });
+      }
+      case "bookmark":
+        return this.getBookmarks({ sort: "name" }).map((x) => ({ id: x.name, text: x.name }));
+      case "footnote":
+      case "endnote": {
+        const notes = type === "footnote" ? this.fullDoc?.footnotes : this.fullDoc?.endnotes;
+        const fmt2 = this.getNoteOptions(type).numberFormat;
+        let n = this.getNoteOptions(type).startAt - 1;
+        const seen = /* @__PURE__ */ new Set();
+        return this.noteRefs(type).flatMap((r) => {
+          if (seen.has(r.id)) return [];
+          seen.add(r.id);
+          const paras = notes?.get(r.id) ?? [];
+          const text = paras.map((p) => paraText(p).replace(NOTE_REF_TEXT, "")).join(" ").replace(/[\t\n]/g, " ").trim();
+          return [{ id: `n:${r.id}`, text: `${formatNumber(++n, fmt2)}  ${text}` }];
+        });
+      }
+      case "caption": {
+        const want = (label ?? "").toLowerCase();
+        return ps.flatMap((p, pi) => p.runs.some((r) => seqLabel(r.field).toLowerCase() === want && !!want) ? [{ id: `p:${pi}`, text: paraText(p).replace(/[\t\n\f]/g, " ").trim() }] : []);
+      }
+    }
+  }
+  /** Rótulos de legenda que têm itens no documento + os internos e os criados. */
+  paraOfItem(id) {
+    const m = /^p:(\d+)$/.exec(id);
+    return m ? +m[1] : -1;
+  }
+  /** Indicador _Ref que cobre exatamente [from, to] do parágrafo (reaproveitado,
+   *  como o Word na 2ª referência ao mesmo destino — oráculo xr-h-twice) ou um novo. */
+  refBookmark(paras, para2, from, to, prefix = "_Ref") {
+    const hit = bookmarksIn(paras).find((b) => b.name.startsWith(prefix) && b.start.para === para2 && b.end.para === para2 && b.start.offset === from && b.end.offset === to);
+    if (hit) return hit.name;
+    const name = this.newHiddenName(prefix);
+    addBookmarkMarks(paras, name, this.newBookmarkId(), { para: para2, offset: from }, { para: para2, offset: to });
+    return name;
+  }
+  /**
+   * Insere uma referência cruzada no cursor (diálogo Referência Cruzada): cria o
+   * _Ref oculto no destino (título, item, legenda, nota) ou usa o indicador e
+   * grava o campo como o Word (REF/PAGEREF/NOTEREF com \h, \r \n \w \d, \p, \f —
+   * oráculo xr-*). `position` acrescenta " acima/abaixo" (REF \p) depois.
+   */
+  insertCrossReference(opts) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    const body = this.bodyState();
+    let target = null;
+    const ps = body.model.paragraphs;
+    if (opts.type === "bookmark") target = this.hasBookmark(opts.item) ? opts.item : null;
+    else if (opts.type === "footnote" || opts.type === "endnote") {
+      const id = +(/^n:(\d+)$/.exec(opts.item)?.[1] ?? NaN);
+      const ref = this.noteRefs(opts.type).find((r) => r.id === id);
+      if (!ref) return false;
+      this.snapshot();
+      if (opts.kind === "page") {
+        const notes = opts.type === "footnote" ? this.fullDoc?.footnotes : this.fullDoc?.endnotes;
+        const np = notes?.get(id);
+        if (!np?.length) return false;
+        target = this.refBookmark(np, 0, 0, paraLength(np[0]));
+      } else {
+        const host = ref.cell ? resolveCell(body.tableAnchors[ref.cell.anchor].table, ref.cell.hops)?.paragraphs : ps;
+        if (!host) return false;
+        const run2 = host[ref.para]?.runs;
+        let len2 = 1, acc = 0;
+        for (const r of run2 ?? []) {
+          if (acc === ref.offset && r.noteRef) {
+            len2 = r.text.length;
+            break;
+          }
+          acc += r.text.length;
+        }
+        target = this.refBookmark(host, ref.para, ref.offset, ref.offset + len2);
+      }
+      return this.insertRefFields(target, opts, true);
+    } else {
+      const para2 = this.paraOfItem(opts.item);
+      const p = ps[para2];
+      if (!p) return false;
+      this.snapshot();
+      const len2 = paraLength(p);
+      let [from, to] = [0, len2];
+      if (opts.type === "caption") {
+        let acc = 0, seqEnd = -1;
+        for (const r of p.runs) {
+          acc += r.text.length;
+          if (seqEnd < 0 && seqLabel(r.field)) seqEnd = acc;
+        }
+        [from, to] = captionRange(opts.kind, len2, seqEnd < 0 ? len2 : seqEnd);
+      }
+      target = this.refBookmark(ps, para2, from, to);
+      return this.insertRefFields(target, opts, true);
+    }
+    if (!target) return false;
+    this.snapshot();
+    return this.insertRefFields(target, opts, true);
+  }
+  /** Os campos da referência no cursor (snapshot já tirado). */
+  insertRefFields(name, opts, snapshotted) {
+    if (!this.model) return false;
+    if (!snapshotted) this.snapshot();
+    if (this.hasSelection()) {
+      const pos2 = this.deleteSelection();
+      this.selection = { anchor: pos2, focus: pos2 };
+    }
+    const instrs = [crossRefInstr(name, opts.kind, { hyperlink: opts.hyperlink !== false, separator: opts.separator })];
+    if (opts.position && opts.kind !== "position") instrs.push(crossRefInstr(name, "position", { hyperlink: opts.hyperlink !== false }));
+    const added = /* @__PURE__ */ new Set();
+    let pos = this.selection.focus;
+    instrs.forEach((instr, i) => {
+      if (i > 0) pos = this.insertTyped(pos, " ");
+      const props = this.newRunProps(propsAt(this.model, pos));
+      const run2 = { text: "?", props, field: instr };
+      pos = this.insertWholeRun(pos, run2);
+      const p = this.model.paragraphs[pos.para];
+      let acc = 0;
+      for (const r of p.runs) {
+        acc += r.text.length;
+        if (acc === pos.offset && r.field === instr) {
+          added.add(r);
+          break;
+        }
+      }
+    });
+    this.selection = { anchor: pos, focus: pos };
+    this.refreshFieldCache(added);
+    const last = [...added].pop();
+    if (last) {
+      const p = this.model.paragraphs[pos.para];
+      let acc = 0;
+      for (const r of p.runs) {
+        acc += r.text.length;
+        if (r === last) {
+          this.selection = { anchor: { para: pos.para, offset: acc }, focus: { para: pos.para, offset: acc } };
+          break;
+        }
+      }
+    }
+    this.refresh();
+    return true;
+  }
+  // ── atualização de campos (F9)
+  /**
+   * Grava no run o valor que a diagramação completa calculou para cada campo
+   * dinâmico (REF, PAGEREF, NOTEREF, SEQ, STYLEREF…) — o resultado em cache que
+   * o arquivo leva. `only`: só estes runs. Devolve quantos mudaram.
+   */
+  refreshFieldCache(only) {
+    if (!this.model) return 0;
+    const values = /* @__PURE__ */ new Map();
+    this.syncRunRPr(this.bodyModel().paragraphs);
+    const doc = this.liveEngineDoc();
+    layoutDocument(doc.full, this.liveFontProvider(), { ...this.layoutOpts(), onField: (r, v) => {
+      if (!only || only.has(r)) values.set(r, v);
+    } });
+    let n = 0;
+    for (const [run2, v] of values) if (this.setFieldResult(run2, v)) n++;
+    return n;
+  }
+  /** Resultado novo de um campo: o texto e os runs formatados como o Word (REF copia a
+   *  formatação do trecho; PAGEREF/SEQ/STYLEREF com w:noProof; NOTEREF \f com o estilo
+   *  da referência de nota — oráculo refs-lab). */
+  setFieldResult(run2, v) {
+    const instr = run2.field ?? "";
+    const name = /^\s*(\w+)/.exec(instr)?.[1]?.toUpperCase() ?? "";
+    if (run2.props.src !== void 0 && !run2.fieldResult) {
+      if (run2.text === v) return false;
+      run2.text = v;
+      return true;
+    }
+    const before = run2.text + JSON.stringify(run2.fieldResult ?? null);
+    const base = { ...withoutRevisions(run2.props) };
+    delete base.src;
+    let result;
+    if (name === "REF" && !/\\[pnrw]\b/i.test(instr)) {
+      const target = refFieldTarget(instr);
+      let copied = null;
+      for (const s of this.markStories()) {
+        const b = findBookmark(s.paras, target);
+        if (b && b.start.para === b.end.para) {
+          copied = runsBetween(s.paras[b.start.para], b.start.offset, b.end.offset);
+          break;
+        }
+      }
+      result = copied?.length && copied.map((r) => r.text).join("") === v ? copied : [{ text: v, props: base }];
+    } else if (name === "PAGEREF" || name === "SEQ" || name === "STYLEREF") {
+      result = [{ text: v, props: { ...base, noProof: true } }];
+    } else if (name === "NOTEREF" && /\\f\b/i.test(instr)) {
+      const ref = this.noteRefStyleId(instr);
+      result = [{ text: v, props: { ...base, ...ref ? { charStyle: ref } : {} } }];
+    } else result = [{ text: v, props: base }];
+    run2.text = v;
+    if (run2.props.src === void 0) run2.fieldResult = result;
+    else if (run2.fieldResult) run2.fieldResult = result;
+    return before !== run2.text + JSON.stringify(run2.fieldResult ?? null);
+  }
+  /** Estilo de caractere da referência da nota do indicador (NOTEREF \f). */
+  noteRefStyleId(instr) {
+    const target = refFieldTarget(instr);
+    for (const s of this.markStories()) {
+      const b = findBookmark(s.paras, target);
+      if (!b) continue;
+      let acc = 0;
+      for (const r of s.paras[b.start.para]?.runs ?? []) {
+        if (acc >= b.start.offset && r.noteRef) return r.props.charStyle ?? r.rpr?.rStyle;
+        acc += r.text.length;
+      }
+    }
+    return void 0;
+  }
+  /** Campos do modelo em edição que cruzam a seleção (o cursor junto de um conta). */
+  fieldRunsInSelection() {
+    const out = /* @__PURE__ */ new Set();
+    if (!this.model) return out;
+    const { start, end } = normalizeRange(this.range());
+    for (let pi = start.para; pi <= end.para; pi++) {
+      let acc = 0;
+      for (const r of this.model.paragraphs[pi]?.runs ?? []) {
+        const rs = acc;
+        acc += r.text.length;
+        const a = pi === start.para ? start.offset : 0, z = pi === end.para ? end.offset : Infinity;
+        if (!r.field || rs > z || acc < a) continue;
+        out.add(r);
+        for (const x of r.fieldResult ?? []) if (x.field) out.add(x);
+      }
+    }
+    return out;
+  }
+  /**
+   * Atualizar campos (F9 = os da seleção, como o Word; "Atualizar campos" = todos):
+   * sumários e índices de ilustrações refeitos, fórmulas de tabela recalculadas e
+   * o resultado em cache de REF/PAGEREF/NOTEREF/SEQ/STYLEREF. Devolve quantos mudaram.
+   */
+  updateFields(scope = "all") {
+    if (!this.model || this.locked()) return 0;
+    const work = this.formulaWork(scope === "selection" ? this.fieldRunsInSelection() : void 0);
+    const tocs = this.tocFields().filter((t) => scope === "all" || this.tocInSelection(t));
+    this.quietChange = true;
+    this.snapshot();
+    this.quietChange = false;
+    for (const w of work) {
+      w.run.text = w.text;
+      delete w.run.fieldResult;
+    }
+    let n = work.length;
+    for (const t of tocs.reverse()) if (this.rebuildToc(t)) n++;
+    n += this.refreshFieldCache(scope === "selection" && !tocs.length ? this.fieldRunsInSelection() : void 0);
+    if (!n) {
+      this.undoStack.pop();
+      return 0;
+    }
+    const ps = this.model.paragraphs;
+    const fit = (q) => ({ para: Math.min(q.para, ps.length - 1), offset: Math.min(q.offset, paraLength(ps[Math.min(q.para, ps.length - 1)])) });
+    this.selection = { anchor: fit(this.selection.anchor), focus: fit(this.selection.focus) };
+    this.refresh();
+    return n;
+  }
+  /** Fórmulas de tabela (= …) a recalcular — de todas as tabelas ou só as `only`. */
+  formulaWork(only) {
+    const work = [];
+    const visit = (t) => {
+      const m = table_ops_exports.mapTable(t);
+      for (const row of m.rows) {
+        for (const g of row) {
+          for (const b of table_ops_exports.cellContent(g.cell)) {
+            if (b.type === "table") {
+              visit(b);
+              continue;
+            }
+            for (const run2 of b.paragraph.runs) {
+              if (!run2.field || !/^\s*=/.test(run2.field) || only && !only.has(run2)) continue;
+              const text = formulaResultText(run2.field, { table: t, r: g.ri, c: g.col });
+              if (text !== run2.text) work.push({ run: run2, text });
+            }
+          }
+        }
+      }
+    };
+    for (const a of this.bodyState().tableAnchors) visit(a.table);
+    return work;
+  }
+  // ── sumário e índice de ilustrações (o MESMO motor: campo TOC)
+  /** Campos TOC do corpo: parágrafos do começo e do fim, os runs de começo/fim e a instrução. */
+  tocFields() {
+    const ps = this.bodyModel().paragraphs;
+    const out = [];
+    const stack = [];
+    ps.forEach((p, pi) => {
+      for (const r of p.runs) {
+        if (r.fieldBegin !== void 0 || r.fieldOpen && r.field) stack.push({ para: pi, run: r, instr: r.fieldBegin ?? r.field });
+        else if (r.fieldEnd) {
+          const b = stack.pop();
+          if (b && /^\s*TOC\b/i.test(b.instr)) out.push({ begin: b.para, end: pi, beginRun: b.run, endRun: r, instr: b.instr });
+        }
+      }
+    });
+    for (const b of stack) if (/^\s*TOC\b/i.test(b.instr)) out.push({ begin: b.para, end: -1, beginRun: b.run, endRun: null, instr: b.instr });
+    return out.sort((a, b) => a.begin - b.begin);
+  }
+  tocInSelection(t) {
+    if (this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    const { start, end } = normalizeRange(this.range());
+    const last = t.end < 0 ? t.begin : t.end;
+    return start.para <= last && end.para >= t.begin;
+  }
+  /** O campo TOC (índice de ilustrações) onde está o cursor, ou o 1º do documento. */
+  tofAtCaret() {
+    const all = this.tocFields().filter((t) => parseTocInstr(t.instr).caption !== void 0);
+    return all.find((t) => this.tocInSelection(t)) ?? all[0];
+  }
+  /** Página exibida de um parágrafo do corpo (layout atual). */
+  pageLabelOf(p) {
+    const l = this.eng?.lines.find((x) => x.para === p);
+    const page2 = l ? this.eng.result.pages[l.page] : void 0;
+    return page2 ? String(page2.number) : "1";
+  }
+  /** Estilo do documento para um built-in (pelo w:name canônico), definido se faltar. */
+  builtinStyleId(name) {
+    const b = builtinStyle(name);
+    const pt2 = b ? /w:styleId="([^"]*)"/.exec(b.xml)?.[1] ?? name : name;
+    const id = resolveStyleId(this.docStyles.base(), pt2);
+    if (this.stylesEditable()) this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), id, true));
+    return id;
+  }
+  /**
+   * Fontes de um campo TOC (fora do próprio campo): legendas do rótulo (\c/\a) ou
+   * títulos (\o, \u, \t). Cria o _Toc oculto em cada uma (o Word recria todos a
+   * cada atualização — oráculo tof-update).
+   */
+  tocSources(o, skip) {
+    const ps = this.bodyModel().paragraphs;
+    const out = [];
+    const all = outlineParagraphs(this.liveEngineDoc().full);
+    const host = /* @__PURE__ */ new Map();
+    for (const s of this.markStories()) s.paras.forEach((p, i) => host.set(p, { paras: s.paras, idx: i }));
+    const inSkip = (p) => {
+      const h = host.get(p);
+      return !!skip && h?.paras === ps && h.idx >= skip[0] && h.idx <= skip[1];
+    };
+    const mark2 = (p) => {
+      const h = host.get(p);
+      return h ? this.refBookmark(h.paras, h.idx, 0, paraLength(p), "_Toc") : "";
+    };
+    if (o.caption !== void 0) {
+      const want = o.caption.toLowerCase();
+      for (const { paragraph: p } of all) {
+        if (inSkip(p)) continue;
+        let acc = 0, seqEnd = -1;
+        for (const r of p.runs) {
+          acc += r.text.length;
+          if (seqEnd < 0 && seqLabel(r.field).toLowerCase() === want) seqEnd = acc;
+        }
+        if (seqEnd < 0) continue;
+        const full = paraText(p);
+        const text = (o.includeLabel === false ? full.slice(seqEnd).replace(/^\s+/, "") : full).replace(/[\t\n\f\u000B]/g, " ").trim();
+        out.push({ level: 1, text, page: this.pageLabelOf(p), bookmark: mark2(p) });
+      }
+      return out;
+    }
+    const styleLevel = /* @__PURE__ */ new Map();
+    for (const s of o.styles ?? []) {
+      const meta = this.docStyles.byName(s.style) ?? this.docStyles.meta(s.style);
+      if (meta) styleLevel.set(meta.id, s.level);
+    }
+    for (const h of all) {
+      const p = h.paragraph;
+      if (inSkip(p)) continue;
+      let level = 0;
+      const sid = p.props.styleId ?? p.ppr?.pStyle;
+      if (sid && styleLevel.has(sid)) level = styleLevel.get(sid);
+      else if (h.level && o.outline && this.isHeadingStyle(sid, h.level) && h.level >= o.outline[0] && h.level <= o.outline[1]) level = h.level;
+      else if (h.level && o.outlineLevels && h.level >= (o.outline?.[0] ?? 1) && h.level <= (o.outline?.[1] ?? 9)) level = h.level;
+      if (!level) continue;
+      const text = paraText(p).replace(/[\t\n\f\u000B]/g, " ").trim();
+      if (!text) continue;
+      out.push({ level, text, ...h.number ? { number: h.number } : {}, page: this.pageLabelOf(p), bookmark: mark2(p) });
+    }
+    return out;
+  }
+  /** O estilo do parágrafo é (ou herda de) um título interno do nível? (\o sem \u) */
+  isHeadingStyle(id, level) {
+    let cur = id, guard = 0;
+    while (cur && guard++ < 12) {
+      const m = this.docStyles.meta(cur);
+      if (!m) return false;
+      if (m.name.toLowerCase() === `heading ${level}`) return true;
+      cur = m.basedOn;
+    }
+    return false;
+  }
+  /** Aparência das entradas: estilos, tabulação e preenchimento (o atual do índice, se houver). */
+  tocLook(o, current, leader) {
+    const sect = this.sect();
+    const width = sect.pageWidthTwips - sect.marginLeftTwips - sect.marginRightTwips;
+    const cur = current?.props.tabStops?.find((t) => t.align === "right");
+    const fig = o.caption !== void 0;
+    const ids = /* @__PURE__ */ new Map();
+    const styleFor = (level) => {
+      if (!ids.has(level)) ids.set(level, this.builtinStyleId(fig ? "table of figures" : `toc ${Math.min(9, Math.max(1, level))}`));
+      return ids.get(level);
+    };
+    return {
+      styleFor,
+      hyperlinkStyle: o.hyperlinks ? this.builtinStyleId("Hyperlink") : "",
+      tabPos: cur?.posTwips ?? width - 10,
+      leader: leader ?? (cur ? cur.leader ?? "none" : "dot")
+    };
+  }
+  /** Remove os _Toc que só as entradas antigas usavam (o Word recria todos). */
+  dropOldTocMarks(oldRuns) {
+    const names = /* @__PURE__ */ new Set();
+    const scan = (r) => {
+      if (r.props.link?.startsWith("#_Toc")) names.add(r.props.link.slice(1));
+      const t = refFieldTarget(r.field);
+      if (t.startsWith("_Toc")) names.add(t);
+      for (const x of r.fieldResult ?? []) scan(x);
+    };
+    oldRuns.forEach(scan);
+    if (!names.size) return;
+    const old = new Set(oldRuns);
+    for (const s of this.markStories()) for (const p of s.paras) for (const r of p.runs) {
+      if (old.has(r)) continue;
+      const t = r.props.link?.startsWith("#") ? r.props.link.slice(1) : refFieldTarget(r.field);
+      if (t) names.delete(t);
+    }
+    for (const n of names) this.dropBookmark(n);
+  }
+  /**
+   * Refaz as entradas de um campo TOC (atualizar sumário/índice): os parágrafos do
+   * começo ao fim do campo dão lugar às entradas novas (o texto antes do começo e
+   * depois do fim fica; o parágrafo do começo guarda a identidade dele).
+   */
+  rebuildToc(t, leader) {
+    const ps = this.bodyModel().paragraphs;
+    const bp = ps[t.begin];
+    if (!bp) return false;
+    const endPara = t.end < 0 ? t.begin : t.end;
+    const ep = ps[endPara];
+    const bi = bp.runs.indexOf(t.beginRun);
+    const ei = t.endRun ? ep.runs.indexOf(t.endRun) : -1;
+    const o = parseTocInstr(t.instr);
+    const oldRuns = [];
+    for (let pi = t.begin; pi <= endPara; pi++) for (const r of ps[pi].runs) oldRuns.push(r);
+    this.dropOldTocMarks(oldRuns);
+    const sources = this.tocSources(o, [t.begin, endPara]);
+    const look = this.tocLook(o, ps[t.begin + (bi >= 0 && bp.runs.slice(0, bi).some((r) => r.text) ? 1 : 0)], leader);
+    const entries = this.tocOrEmpty(o, sources, look);
+    const before = bi > 0 ? bp.runs.slice(0, bi) : [];
+    const after = ei >= 0 ? ep.runs.slice(ei) : [{ text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true }];
+    const begin = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldBegin: ` ${t.instr.trim()} ` };
+    const built = this.tocParagraphs(bp, ep, before, begin, entries, after, endPara === t.begin);
+    const removed = endPara - t.begin + 1;
+    ps.splice(t.begin, removed, ...built);
+    this.shiftAnchors(t.begin, built.length - removed);
+    return true;
+  }
+  /** Entradas do índice ou, sem fontes, o aviso do Word em negrito (oráculo tof-empty). */
+  tocOrEmpty(o, sources, look) {
+    if (sources.length) return tocEntryParagraphs(o, sources, look);
+    const msg = pickLabels(this, o.caption !== void 0 ? TOF_EMPTY : TOC_EMPTY);
+    return [{ runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} }];
+  }
+  /**
+   * Monta os parágrafos do campo TOC como o Word (oráculo tof-cursor-*): com texto
+   * antes do começo, o começo fica no fim desse parágrafo e as entradas vêm em
+   * parágrafos novos; senão o começo abre a 1ª entrada (no parágrafo de origem). O
+   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele.
+   */
+  tocParagraphs(bp, ep, before, begin, entries, after, same) {
+    const out = [];
+    const lead = before.some((r) => r.text || r.image || r.field);
+    const endProps = { ...ep.props };
+    if (same) delete endProps.src;
+    const first = { ...bp.props };
+    delete first.sectionBreak;
+    if (lead) {
+      bp.runs = [...before, begin];
+      bp.props = first;
+      out.push(bp, ...entries);
+    } else {
+      const e0 = entries[0];
+      bp.runs = [...before, begin, ...e0.runs];
+      bp.props = { ...e0.props, ...first.src !== void 0 ? { src: first.src } : {} };
+      delete bp.ppr;
+      bp.pprEdited = true;
+      out.push(bp, ...entries.slice(1));
+    }
+    if (same) out.push({ runs: after, props: endProps, ...ep.ppr ? { ppr: ep.ppr } : {} });
+    else {
+      ep.runs = after;
+      out.push(ep);
+    }
+    return out;
+  }
+  /**
+   * Insere o Índice de Ilustrações no cursor (diálogo Índice de Ilustrações):
+   * `TOC \h \z \c "Figura"` com as opções do Word (sem rótulo \a; sem números \n;
+   * sem alinhar \p " "; sem hiperlinks), _Toc ocultos nas legendas e o estilo
+   * "Índice de ilustrações" no formato escolhido (oráculo tof-*).
+   */
+  insertTableOfFigures(opts) {
+    if (!this.model || this.locked() || !opts.label || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    const o = {
+      caption: opts.label,
+      includeLabel: opts.includeLabel !== false,
+      hyperlinks: opts.hyperlinks !== false,
+      hideInWeb: opts.hyperlinks !== false,
+      ...opts.pageNumbers === false ? { noPageNumbers: true } : {},
+      ...opts.pageNumbers !== false && opts.rightAlign === false ? { separator: " " } : {}
+    };
+    this.snapshot();
+    const old = this.tofAtCaret();
+    if (old && this.tocInSelection(old)) {
+      this.applyTofFormat(opts.format ?? "template");
+      this.rebuildToc({ ...old, instr: tocInstr(o) }, opts.leader ?? "dot");
+      this.refreshFieldCache();
+      this.refresh();
+      return true;
+    }
+    if (this.hasSelection()) {
+      const p2 = this.deleteSelection();
+      this.selection = { anchor: p2, focus: p2 };
+    }
+    this.applyTofFormat(opts.format ?? "template");
+    const ps = this.model.paragraphs;
+    const at = this.selection.focus;
+    const p = ps[at.para];
+    const idx = insertIndex(p, at.offset);
+    const before = p.runs.slice(0, idx), after = p.runs.slice(idx);
+    const sources = this.tocSources(o, null);
+    const entries = this.tocOrEmpty(o, sources, this.tocLook(o, void 0, opts.leader ?? "dot"));
+    const begin = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldBegin: tocInstr(o) };
+    const end = { text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+    const built = this.tocParagraphs(p, p, before, begin, entries, [end, ...after], true);
+    ps.splice(at.para, 1, ...built);
+    this.shiftAnchors(at.para, built.length - 1);
+    const endAt = { para: at.para + built.length - 1, offset: 0 };
+    this.selection = { anchor: endAt, focus: endAt };
+    this.refreshFieldCache();
+    this.refresh();
+    return true;
+  }
+  /** Formatos do diálogo: o estilo "table of figures" recebe o pPr/rPr do formato. */
+  applyTofFormat(f) {
+    const id = this.builtinStyleId("table of figures");
+    if (f === "template" || !this.stylesEditable()) return;
+    const raw = styleRaw(this.docStyles.base(), id);
+    if (!raw) return;
+    const fm = TOF_FORMATS[f];
+    this.commitStyles(putStyle(this.docStyles.base(), id, patchStyleXml(raw, { pPr: `<w:pPr>${fm.pPr}</w:pPr>`, rPr: fm.rPr ? `<w:rPr>${fm.rPr}</w:rPr>` : null })));
+  }
+  /** Opções do índice de ilustrações onde está o cursor (ou do 1º) — o diálogo abre com elas. */
+  getTableOfFiguresOptions() {
+    const t = this.tofAtCaret();
+    if (!t) return null;
+    const o = parseTocInstr(t.instr);
+    const first = this.bodyModel().paragraphs[t.begin];
+    const tab = first?.props.tabStops?.find((x) => x.align === "right");
+    return {
+      label: o.caption ?? "",
+      includeLabel: o.includeLabel !== false,
+      pageNumbers: !o.noPageNumbers,
+      rightAlign: o.separator === void 0,
+      hyperlinks: !!o.hyperlinks,
+      leader: tab ? tab.leader ?? "none" : "dot"
+    };
+  }
+  /** Atualizar Tabela (grupo Legendas): o índice de ilustrações do cursor, ou todos. */
+  updateTableOfFigures() {
+    if (!this.model || this.locked()) return false;
+    const at = this.tofAtCaret();
+    const all = this.tocFields().filter((t) => parseTocInstr(t.instr).caption !== void 0);
+    const list = at && this.tocInSelection(at) ? [at] : all;
+    if (!list.length) return false;
+    this.quietChange = true;
+    this.snapshot();
+    this.quietChange = false;
+    for (const t of list.reverse()) this.rebuildToc(t);
+    this.refreshFieldCache();
+    this.refresh();
+    return true;
+  }
+  /**
+   * Atualiza os sumários (campos TOC com títulos) como o Word: entradas com
+   * hiperlink para _Toc ocultos nos títulos e PAGEREF, estilos Sumário N. A
+   * inserção do sumário é da frente Sumário, que reaproveita este motor.
+   */
+  updateToc() {
+    if (!this.model || this.locked()) return false;
+    const list = this.tocFields();
+    if (!list.length) return false;
+    this.quietChange = true;
+    this.snapshot();
+    this.quietChange = false;
+    for (const t of [...list].reverse()) this.rebuildToc(t);
+    this.refreshFieldCache();
+    this.refresh();
+    return true;
+  }
+  // ── legendas
+  /** Configuração das legendas (rótulos criados, numeração, AutoLegenda) — a barra a
+   *  guarda e devolve (como o Word no Normal, por máquina). */
+  get captionSettings() {
+    return JSON.parse(JSON.stringify(this.captionCfg));
+  }
+  set captionSettings(v) {
+    this.captionCfg = { labels: [...v?.labels ?? []], numbering: { ...v?.numbering ?? {} }, ...v?.auto ? { auto: v.auto } : {} };
+  }
+  /** Rótulos do diálogo Legenda: os internos (no idioma da interface), os criados e os
+   *  que o documento usa em campos SEQ. */
+  getCaptionLabels() {
+    const pt2 = uiLang(this) === "pt";
+    const out = BUILTIN_LABELS.map((b) => ({ name: pt2 ? b.pt : b.en, builtIn: true, position: b.position }));
+    const has = (n) => out.some((x) => x.name.toLowerCase() === n.toLowerCase());
+    for (const n of this.captionCfg.labels) if (!has(n)) out.push({ name: n, builtIn: false, position: "below" });
+    for (const p of this.allParagraphs()) for (const r of p.runs) {
+      const l = seqLabel(r.field);
+      if (l && !has(l)) out.push({ name: l, builtIn: false, position: "below" });
+    }
+    return out;
+  }
+  /** Novo Rótulo (fica nas configurações das legendas). */
+  addCaptionLabel(name) {
+    const n = name.trim();
+    if (!n || this.getCaptionLabels().some((x) => x.name.toLowerCase() === n.toLowerCase())) return false;
+    this.captionCfg.labels.push(n);
+    this.dispatchEvent(new CustomEvent("uw-caption-settings"));
+    return true;
+  }
+  /** Excluir Rótulo (só os criados). */
+  deleteCaptionLabel(name) {
+    const i = this.captionCfg.labels.findIndex((x) => x.toLowerCase() === name.toLowerCase());
+    if (i < 0) return false;
+    this.captionCfg.labels.splice(i, 1);
+    delete this.captionCfg.numbering[name];
+    this.dispatchEvent(new CustomEvent("uw-caption-settings"));
+    return true;
+  }
+  getCaptionNumbering(label) {
+    return this.captionCfg.numbering[label] ?? { format: "ARABIC" };
+  }
+  setCaptionNumbering(label, n) {
+    this.captionCfg.numbering[label] = n;
+    this.dispatchEvent(new CustomEvent("uw-caption-settings"));
+  }
+  /** O que a legenda legendaria agora: tabela (cursor nela), imagem selecionada ou nada. */
+  captionTarget() {
+    if (this.cellEdit || this.tableSel) return "table";
+    return this.selectedInlineImage() ? "image" : null;
+  }
+  /** Imagem inline sozinha na seleção (parágrafo e posição dela). */
+  selectedInlineImage() {
+    if (!this.model || !this.hasSelection()) return null;
+    const { start, end } = normalizeRange(this.range());
+    if (start.para !== end.para || end.offset - start.offset !== 1) return null;
+    let acc = 0;
+    for (const r of this.model.paragraphs[start.para]?.runs ?? []) {
+      if (acc === start.offset && r.image && !r.image.floating) return start;
+      acc += r.text.length;
+    }
+    return null;
+  }
+  /**
+   * Inserir Legenda (oráculo cap-*): parágrafo no estilo Legenda com o rótulo, o
+   * número (SEQ, e o capítulo por STYLEREF \s com o separador) e o texto. Com uma
+   * imagem ou tabela, acima ou abaixo dela (keepNext no de cima); sem objeto, no
+   * cursor, e o parágrafo ganha o estilo Legenda. As legendas seguintes do rótulo
+   * são renumeradas.
+   */
+  insertCaption(opts) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit) return false;
+    const label = opts.label.trim();
+    if (!label) return false;
+    const numbering = opts.numbering ?? this.getCaptionNumbering(label);
+    const target = this.captionTarget();
+    if (!target && !this.canInsertField()) return false;
+    const position = opts.position ?? (this.getCaptionLabels().find((l) => l.name === label)?.position ?? "below");
+    this.snapshot();
+    const style = this.builtinStyleId("caption");
+    const runs = this.captionRuns(label, numbering, opts);
+    const added = new Set(runs.filter((r) => r.field));
+    let caret;
+    if (target === "table") {
+      const anchor = this.cellEdit?.anchor ?? this.tableSel?.anchor ?? -1;
+      const a = this.tableAnchors[anchor];
+      if (!a) return false;
+      if (this.cellEdit) this.exitCell();
+      this.tableSel = null;
+      const ps = this.model.paragraphs;
+      const at = a.beforePara;
+      const para2 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
+      ps.splice(at, 0, para2);
+      for (const x of this.tableAnchors) if (x !== a && x.beforePara >= at) x.beforePara++;
+      for (const f of this.floatImages) if (f.para >= at) f.para++;
+      if (position === "above") a.beforePara++;
+      else this.keepTableWithNext(a.table);
+      caret = { para: at, offset: paraLength(para2) };
+    } else if (target === "image") {
+      const img = this.selectedInlineImage();
+      const ps = this.model.paragraphs;
+      const at = position === "above" ? img.para : img.para + 1;
+      const para2 = { runs, props: { styleId: style, ...position === "above" ? { keepNext: true } : {} } };
+      if (position === "below") ps[img.para].props = { ...ps[img.para].props, keepNext: true };
+      ps.splice(at, 0, para2);
+      this.shiftAnchors(at - 1, 1);
+      caret = { para: at, offset: paraLength(para2) };
+    } else {
+      if (this.hasSelection()) {
+        const p = this.deleteSelection();
+        this.selection = { anchor: p, focus: p };
+      }
+      let pos = this.selection.focus;
+      for (const r of runs) pos = r.field ? this.insertWholeRun(pos, r) : this.insertTyped(pos, r.text, r.props);
+      this.applyPara({ start: pos, end: pos }, { styleId: style });
+      caret = pos;
+      added.clear();
+      for (const r of this.model.paragraphs[pos.para].runs) if (r.field) added.add(r);
+    }
+    this.selection = { anchor: caret, focus: caret };
+    for (const p of this.model.paragraphs) for (const r of p.runs) if (seqLabel(r.field).toLowerCase() === label.toLowerCase()) added.add(r);
+    this.refreshFieldCache(added);
+    const fit = this.model.paragraphs[caret.para];
+    this.selection = { anchor: { para: caret.para, offset: Math.min(paraLength(fit), target ? paraLength(fit) : caret.offset) }, focus: { para: caret.para, offset: Math.min(paraLength(fit), target ? paraLength(fit) : caret.offset) } };
+    this.refresh();
+    return true;
+  }
+  /** Runs da legenda: "Rótulo " + [capítulo + separador] + número + texto. */
+  captionRuns(label, n, opts) {
+    const props = () => ({ ...DEFAULT_RUN_PROPS });
+    const f = captionFields(label, n);
+    const out = [];
+    if (!opts.excludeLabel) out.push({ text: `${label} `, props: props() });
+    if (f.chapter && n.chapter) {
+      out.push({ text: "0", props: props(), field: f.chapter, fieldResult: [{ text: "0", props: { ...props(), noProof: true } }] });
+      out.push({ text: CHAPTER_SEPARATOR_TEXT[n.chapter.separator], props: props() });
+    }
+    out.push({ text: "1", props: props(), field: f.seq, fieldResult: [{ text: "1", props: { ...props(), noProof: true } }] });
+    if (opts.title) out.push({ text: opts.title, props: props() });
+    return out;
+  }
+  /** Legenda abaixo da tabela: a última linha fica com a próxima (keepNext no
+   *  parágrafo da última célula — oráculo cap-tbl-below). */
+  keepTableWithNext(t) {
+    const row = t.rows[t.rows.length - 1];
+    const cell = row?.cells[row.cells.length - 1];
+    const p = cell?.paragraphs[cell.paragraphs.length - 1];
+    if (p) p.props = { ...p.props, keepNext: true };
+  }
+  /** AutoLegenda: o que ganha legenda sozinho ao ser inserido (como no Word, só a
+   *  tabela — a imagem não está na lista dele; oráculo cap-auto-table). */
+  getAutoCaption() {
+    return this.captionCfg.auto ? { ...this.captionCfg.auto } : void 0;
+  }
+  setAutoCaption(auto) {
+    if (auto?.table) this.captionCfg.auto = { table: { ...auto.table } };
+    else delete this.captionCfg.auto;
+    this.dispatchEvent(new CustomEvent("uw-caption-settings"));
+  }
+  /** Depois de inserir uma tabela: a legenda automática, com o cursor de volta na 1ª célula. */
+  autoCaptionTable() {
+    const a = this.captionCfg.auto?.table;
+    if (!a || !this.cellEdit) return;
+    const anchor = this.cellEdit.anchor, hops = this.cellEdit.hops.map((h) => ({ ...h }));
+    const before = this.undoStack.length;
+    this.insertCaption({ label: a.label, position: a.position });
+    if (this.undoStack.length > before) this.undoStack.length = before;
+    const shifted = a.position === "above" ? 1 : 0;
+    void shifted;
+    this.enterCell(anchor, hops);
+  }
+  // ── hiperlinks
+  /** Link sob o cursor/na seleção: endereço (ou destino interno), Dica de Tela e o texto do link. */
+  getLink() {
+    if (!this.model) return null;
+    const g = this.linkGroupAt();
+    if (!g) return null;
+    const p = this.model.paragraphs[g.para];
+    const link = g.link;
+    return {
+      ...link.startsWith("#") ? { anchor: link.slice(1) } : { address: link },
+      ...g.tip ? { tip: g.tip } : {},
+      text: paraText(p).slice(g.from, g.to)
+    };
+  }
+  /** Trecho do hiperlink que contém o cursor (ou o 1º caractere da seleção). */
+  linkGroupAt() {
+    const at = normalizeRange(this.range()).start;
+    const p = this.model?.paragraphs[at.para];
+    if (!p) return null;
+    let acc = 0;
+    const spans = [];
+    for (const r of p.runs) {
+      spans.push({ a: acc, z: acc + r.text.length, link: r.props.link, tip: r.props.linkTip });
+      acc += r.text.length;
+    }
+    const hit = spans.find((s) => s.link && s.a <= at.offset && at.offset <= s.z && s.z > s.a);
+    if (!hit) return null;
+    let from = hit.a, to = hit.z;
+    for (const s of spans) if (s.link === hit.link) {
+      if (s.z === from || s.a < from && s.z >= from) from = Math.min(from, s.a);
+    }
+    for (const s of spans) if (s.link === hit.link && s.a <= to && s.z > to) to = s.z;
+    return { para: at.para, from, to, link: hit.link, ...hit.tip ? { tip: hit.tip } : {} };
+  }
+  /** Destinos de "Neste documento": títulos e indicadores visíveis. */
+  getLinkTargets() {
+    return {
+      headings: this.getHeadings().map((h) => ({ id: `p:${h.para}`, level: h.level, text: h.text })),
+      bookmarks: this.getBookmarks({ sort: "name" }).map((b) => b.name)
+    };
+  }
+  /**
+   * Inserir/editar hiperlink (diálogo Link): endereço (web, arquivo, mailto:) ou
+   * destino no documento (indicador; título = _Toc oculto nele; "_top" = início),
+   * Dica de Tela (w:tooltip) e texto para exibição. Os runs levam o estilo
+   * Hyperlink, como o Word grava (oráculo hl-*).
+   */
+  insertHyperlink(opts) {
+    if (!this.model || this.locked() || !this.canInsertField()) return false;
+    let link = opts.address?.trim() ?? "";
+    this.snapshot();
+    if (!link && opts.anchor) {
+      const para2 = this.paraOfItem(opts.anchor);
+      if (para2 >= 0 && !this.cellEdit && !this.noteEdit && !this.hfEdit && !this.tbEdit) {
+        const p = this.model.paragraphs[para2];
+        if (!p) return false;
+        link = `#${this.refBookmark(this.model.paragraphs, para2, 0, paraLength(p), "_Toc")}`;
+      } else link = `#${opts.anchor}`;
+    }
+    if (!link) {
+      this.undoStack.pop();
+      return false;
+    }
+    const style = this.builtinStyleId("Hyperlink");
+    const patch = { link, linkTip: opts.tip || void 0, charStyle: style };
+    const g = !this.hasSelection() ? this.linkGroupAt() : null;
+    let range;
+    if (g) range = { start: { para: g.para, offset: g.from }, end: { para: g.para, offset: g.to } };
+    else range = normalizeRange(this.range());
+    const cur = paraText(this.model.paragraphs[range.start.para]).slice(range.start.offset, range.start.para === range.end.para ? range.end.offset : void 0);
+    const text = opts.text ?? (comparePos(range.start, range.end) === 0 ? opts.address ?? opts.anchor ?? "" : cur);
+    if (comparePos(range.start, range.end) === 0 || opts.text !== void 0 && text !== cur) {
+      let at = range.start;
+      if (comparePos(range.start, range.end) !== 0) {
+        this.selection = { anchor: range.start, focus: range.end };
+        at = this.deleteSelection();
+      }
+      const end = this.insertTyped(at, text, { ...propsAt(this.model, at), ...patch });
+      range = { start: at, end };
+    } else this.applyRun(range, patch);
+    this.selection = { anchor: range.end, focus: range.end };
+    this.refresh();
+    return true;
+  }
+  /** Remover Hiperlink: tira o link e o estilo Hyperlink (o texto fica — oráculo hl-remove). */
+  removeLink() {
+    if (!this.model || this.locked()) return false;
+    const g = !this.hasSelection() ? this.linkGroupAt() : null;
+    const range = g ? { start: { para: g.para, offset: g.from }, end: { para: g.para, offset: g.to } } : normalizeRange(this.range());
+    if (comparePos(range.start, range.end) === 0) return false;
+    this.snapshot();
+    const style = this.builtinStyleId("Hyperlink");
+    for (let pi = range.start.para; pi <= range.end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      const from = pi === range.start.para ? range.start.offset : 0, to = pi === range.end.para ? range.end.offset : paraLength(p);
+      unlinkRuns(p, from, to, style);
+    }
     this.refresh();
     return true;
   }
   /** Navega para um destino interno: "#para:N" ou "#bookmark". */
   navigateTo(link) {
     if (!link.startsWith("#")) return false;
+    if (/^#_top$/i.test(link) && this.toBody()) {
+      this.goToBodyPara(0, 0, 0, true);
+      return true;
+    }
+    if (!/^#para:\d+$/.test(link) && this.goToBookmark(link.slice(1))) return true;
     if (this.cellEdit) {
       this.exitCell();
       this.refreshSelection();
@@ -18886,12 +20435,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (const run2 of para2?.runs ?? []) {
           const end = acc + run2.text.length;
           if (hit.offset >= acc && hit.offset <= end && run2.props.link) {
-            if (/^https?:/.test(run2.props.link)) {
+            if (/^(https?|mailto):/.test(run2.props.link)) {
               window.open(run2.props.link, "_blank", "noopener");
               return;
             }
             if (this.navigateTo(run2.props.link)) return;
           }
+          const target = refFieldTarget(run2.field);
+          if (hit.offset >= acc && hit.offset <= end && target && /\\h\b/i.test(run2.field ?? "") && this.navigateTo(`#${target}`)) return;
           acc = end;
         }
       }
@@ -19109,7 +20660,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (k === "F9" && !ctrl && !e.altKey && !e.shiftKey) {
         e.preventDefault();
-        this.updateFields();
+        this.updateFields("selection");
         this.onSelectionChange?.();
         this.chromeSync?.();
         return;
@@ -22278,6 +23829,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.save();
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
+        this.paintBookmarkMarks(ctx, i);
         this.paintEngineSpelling(ctx, i);
         this.paintSearchHits(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
@@ -23684,19 +25236,34 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  caixa de texto e dentro de nota — oráculo notes-lab, fn-header) */
   canInsertNote() {
     if (!this.model || !this.fullDoc || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit || this.view === "read") return false;
-    const store = this.fullDoc.sources;
-    const { end } = normalizeRange(this.range());
-    const p = this.model.paragraphs[end.para];
-    if (!store || !p) return true;
-    const runAt = (o) => {
-      let acc = 0;
-      for (const r of p.runs) {
-        if (o >= acc && o < acc + r.text.length) return r;
-        acc += r.text.length;
-      }
-      return void 0;
-    };
-    return !store.inPlainTextControl(p, [runAt(end.offset - 1), runAt(end.offset)]);
+    return !this.inPlainTextControlAt([normalizeRange(this.range()).end]);
+  }
+  /** Pode inserir campo (referência cruzada, índice de ilustrações) ou hiperlink na
+   *  seleção? Não num controle de conteúdo de texto sem formatação (texto, data, caixa
+   *  de combinação, lista suspensa): o Word recusa e o arquivo com o campo/hiperlink
+   *  ali fica "corrompido" (corpus: lossless-check --refs × word-open-check -Refs). */
+  canInsertField() {
+    if (!this.model || this.locked() || this.view === "read") return false;
+    const { start, end } = normalizeRange(this.range());
+    return !this.inPlainTextControlAt(comparePos(start, end) === 0 ? [end] : [start, end]);
+  }
+  /** Alguma das posições está num controle de conteúdo de texto sem formatação? */
+  inPlainTextControlAt(at) {
+    const store = this.fullDoc?.sources;
+    if (!store || !this.model) return false;
+    return at.some((pos) => {
+      const p = this.model.paragraphs[pos.para];
+      if (!p) return false;
+      const runAt = (o) => {
+        let acc = 0;
+        for (const r of p.runs) {
+          if (o >= acc && o < acc + r.text.length) return r;
+          acc += r.text.length;
+        }
+        return void 0;
+      };
+      return store.inPlainTextControl(p, [runAt(pos.offset - 1), runAt(pos.offset)]);
+    });
   }
   /** Insere uma nota de rodapé no cursor (no FIM da seleção, sem apagá-la) e leva o
    *  cursor ao texto dela. `mark`: marca personalizada (não numerada). Devolve o id. */
@@ -23715,15 +25282,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.commitStyles(st.xml);
     if (this.pkg) ensureNoteParts(this.pkg);
     const id = nextNoteId(fd, kind);
-    const mark = opts.mark?.trim();
+    const mark2 = opts.mark?.trim();
     const ref = noteRefRun(kind, id, st.ref);
-    if (mark) ref.noteRef.custom = true;
+    if (mark2) ref.noteRef.custom = true;
     const { end } = normalizeRange(this.range());
     if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(end.para);
     let pos = this.insertWholeRun(end, ref);
-    if (mark) pos = this.insertTyped(pos, mark, { ...ref.props });
+    if (mark2) pos = this.insertTyped(pos, mark2, { ...ref.props });
     const paras = newNoteParagraphs(kind, st.text, st.ref);
-    if (mark) paras[0].runs[0] = { text: mark, props: { ...paras[0].runs[0].props } };
+    if (mark2) paras[0].runs[0] = { text: mark2, props: { ...paras[0].runs[0].props } };
     if (this.tracking) {
       const rev = this.newRev();
       for (const r of paras[0].runs) r.props = { ...r.props, ins: rev };
@@ -24172,6 +25739,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (at < 0) at = this.tableAnchors.length;
     this.tableAnchors.splice(at, 0, { beforePara: para2, table: t });
     this.enterCellAt(at, [], 0, 0, false, false);
+    this.autoCaptionTable();
     this.refresh();
     this.scrollCaretIntoView();
   }
@@ -25956,41 +27524,6 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.tableSel = null;
     this.insertFieldRun(instr, this.previewFormula(f, numberFormat || void 0));
     return true;
-  }
-  /** Atualiza os campos de fórmula de todas as tabelas (F9): devolve quantos mudaram. */
-  updateFields() {
-    if (!this.model || this.locked()) return 0;
-    const work = [];
-    const visit = (t) => {
-      const m = table_ops_exports.mapTable(t);
-      for (const row of m.rows) {
-        for (const g of row) {
-          for (const b of table_ops_exports.cellContent(g.cell)) {
-            if (b.type === "table") {
-              visit(b);
-              continue;
-            }
-            for (const run2 of b.paragraph.runs) {
-              if (!run2.field || !/^\s*=/.test(run2.field)) continue;
-              const text = formulaResultText(run2.field, { table: t, r: g.ri, c: g.col });
-              if (text !== run2.text) work.push({ run: run2, text });
-            }
-          }
-        }
-      }
-    };
-    for (const a of this.bodyState().tableAnchors) visit(a.table);
-    if (!work.length) return 0;
-    this.snapshot();
-    for (const w of work) {
-      w.run.text = w.text;
-      delete w.run.fieldResult;
-    }
-    const ps = this.model.paragraphs;
-    const fit = (q) => ({ para: q.para, offset: Math.min(q.offset, paraLength(ps[q.para] ?? ps[0])) });
-    this.selection = { anchor: fit(this.selection.anchor), focus: fit(this.selection.focus) };
-    this.refresh();
-    return work.length;
   }
   getTableState() {
     const tg = this.tableTarget();
@@ -27907,7 +29440,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-NVX22KJ2.js");
+  const { appFor } = await import("./chunks/chrome-app-ZFRJ5YYH.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

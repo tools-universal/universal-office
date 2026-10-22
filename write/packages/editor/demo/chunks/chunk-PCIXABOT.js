@@ -2845,6 +2845,7 @@ function blipImageEffects(blip) {
   if (bi) fx.biLevel = (parseInt(bi.attrs["thresh"] ?? "50000", 10) || 0) / 1e5;
   return Object.keys(fx).length ? fx : void 0;
 }
+var isMarkRun = (r) => !!(r.bookmark || r.fieldBegin !== void 0 || r.fieldEnd);
 var EMU_PER_TWIP = 635;
 function readBorderEdge(el3) {
   if (!el3) return void 0;
@@ -2950,6 +2951,7 @@ function paraPropsFromPPr(ppr) {
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
+  if (ppr.keepNext) props.keepNext = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
@@ -3481,7 +3483,10 @@ function runTarget(ctx, runs) {
 var isObjectRun = (r) => !!(r.image || r.textbox || r.shape || r.group);
 function closeField(ctx, runs) {
   const f = ctx.fieldStack.pop();
-  if (f.crossed) return;
+  if (f.crossed) {
+    if (ctx.sources) runTarget(ctx, runs)?.push({ text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true });
+    return;
+  }
   const textRuns = f.runs.filter((r) => !isObjectRun(r));
   const text = textRuns.map((r) => r.text).join("");
   const first = textRuns[0] ?? f.runs[0];
@@ -3511,9 +3516,26 @@ function readRunsInto(runs, container, ctx, inherit) {
       case "w:commentRangeEnd":
         ctx.activeComments?.delete(parseInt(child.attrs["w:id"] ?? "-1", 10));
         break;
-      case "w:bookmarkStart": {
-        const name = child.attrs["w:name"];
-        if (name) ctx.onBookmark?.(name, runs.reduce((n, r) => n + r.text.length, 0));
+      case "w:bookmarkStart":
+      case "w:bookmarkEnd": {
+        const end = child.name === "w:bookmarkEnd";
+        const id = parseInt(child.attrs["w:id"] ?? "", 10);
+        ctx.bookmarkIds ??= /* @__PURE__ */ new Map();
+        const name = end ? ctx.bookmarkIds.get(id) : child.attrs["w:name"];
+        if (!name) break;
+        const at = runs.reduce((n, r) => n + r.text.length, 0);
+        if (end) {
+          ctx.bookmarkIds.delete(id);
+          ctx.onBookmarkEnd?.(name, at);
+        } else {
+          if (Number.isFinite(id)) ctx.bookmarkIds.set(id, name);
+          ctx.onBookmark?.(name, at);
+        }
+        const top = ctx.fieldStack?.[ctx.fieldStack.length - 1];
+        if (ctx.sources && Number.isFinite(id) && (!top || top.crossed) && child.attrs["w:colFirst"] === void 0) {
+          const link = inherit?.link ? { link: inherit.link, ...inherit.tip ? { linkTip: inherit.tip } : {} } : {};
+          runs.push({ text: "", props: { ...DEFAULT_RUN_PROPS, ...link }, bookmark: { id, name, ...end ? { end: true } : {} } });
+        }
         break;
       }
       case "w:r":
@@ -3523,7 +3545,8 @@ function readRunsInto(runs, container, ctx, inherit) {
         const rid = child.attrs["r:id"];
         const anchor = child.attrs["w:anchor"];
         const link = rid && ctx.resolveLink(rid) || (anchor ? `#${anchor}` : void 0);
-        readRunsInto(runs, child, ctx, { ...inherit, link });
+        const tip = child.attrs["w:tooltip"];
+        readRunsInto(runs, child, ctx, { ...inherit, link, ...tip ? { tip } : {} });
         break;
       }
       case "w:fldSimple": {
@@ -3681,6 +3704,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
+    if (inherit.tip) rProps.linkTip = inherit.tip;
     rProps.underline = true;
     rProps.color ??= "0563C1";
   }
@@ -3909,15 +3933,16 @@ function readParagraph(pEl, ctx) {
   for (let i2 = stack.length - 1; i2 >= 0; i2--) {
     const f = stack[i2];
     if (f.phase !== "result" || f.crossed) continue;
-    if (i2 === stack.length - 1 && f.runs.length) {
+    if (i2 === stack.length - 1 && (f.runs.length || ctx.sources)) {
       const textRuns = f.runs.filter((r) => !isObjectRun(r));
       const first = textRuns[0] ?? f.runs[0];
       const run = {
         text: textRuns.map((r) => r.text).join(""),
         props: { ...first?.props ?? f.props },
         field: ` ${f.instr.trim()} `,
-        fieldResult: f.runs
+        fieldOpen: true
       };
+      if (f.runs.length) run.fieldResult = f.runs;
       const rpr = first?.rpr ?? f.rpr;
       if (rpr) run.rpr = rpr;
       runs.push(run);
@@ -3940,7 +3965,10 @@ function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
   }
   let objHead = 0;
   for (const { seg, from, to } of segs) {
-    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) seg.link = para.runs[from]?.props.link ?? "";
+    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) {
+      seg.link = para.runs[from]?.props.link ?? "";
+      seg.tip = para.runs[from]?.props.linkTip ?? "";
+    }
     for (let i2 = from; i2 < to; i2++) {
       const run = para.runs[i2];
       const sid = store.id();
@@ -4478,11 +4506,12 @@ function normalizeRange(r) {
 var sameRPr = (a, b) => a.rpr === b.rpr || JSON.stringify(a.rpr ?? null) === JSON.stringify(b.rpr ?? null);
 var textExtras = (run) => ({
   ...run.field ? { field: run.field } : {},
+  ...run.fieldOpen ? { fieldOpen: true } : {},
   ...run.rpr ? { rpr: run.rpr } : {},
   ...run.symFont ? { symFont: run.symFont } : {},
   ...run.inToc ? { inToc: run.inToc } : {}
 });
-var sameProps = (a, b) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.underlineStyle === b.underlineStyle && a.underlineColor === b.underlineColor && a.strike === b.strike && a.doubleStrike === b.doubleStrike && a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt && a.color === b.color && a.highlight === b.highlight && a.fontAscii === b.fontAscii && a.allCaps === b.allCaps && a.smallCaps === b.smallCaps && // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
+var sameProps = (a, b) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.underlineStyle === b.underlineStyle && a.underlineColor === b.underlineColor && a.strike === b.strike && a.doubleStrike === b.doubleStrike && a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt && a.color === b.color && a.highlight === b.highlight && a.fontAscii === b.fontAscii && a.allCaps === b.allCaps && a.smallCaps === b.smallCaps && a.link === b.link && a.linkTip === b.linkTip && a.charStyle === b.charStyle && !!a.noProof === !!b.noProof && !!a.webHidden === !!b.webHidden && // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
 a.src === b.src && sameComments(a.commentIds, b.commentIds) && // revisões: só a mesma (autor, data, movimentação) se funde — o Word grava um w:ins por autoria
 sameJson(a.ins, b.ins) && sameJson(a.del, b.del) && sameJson(a.fmt, b.fmt);
 var sameJson = (a, b) => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -4491,7 +4520,7 @@ var sameComments = (a, b) => {
   if (!a || !b || a.length !== b.length) return false;
   return a.every((v, i2) => v === b[i2]);
 };
-var isSpecial = (r) => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab);
+var isSpecial = (r) => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab) || isMarkRun(r);
 function normalizeParagraph(p) {
   const out = [];
   for (const run of p.runs) {
@@ -4523,13 +4552,19 @@ function splitAt(p, offset) {
 }
 function propsAt(model, pos) {
   const p = model.paragraphs[pos.para];
-  if (!p || p.runs.length === 0) return { ...DEFAULT_RUN_PROPS };
+  const runs = p?.runs.filter((r) => !isMarkRun(r)) ?? [];
+  if (!runs.length) return { ...DEFAULT_RUN_PROPS };
   let acc = 0;
-  for (const run of p.runs) {
+  for (const run of runs) {
     if (pos.offset <= acc + run.text.length) return withoutRevisions(run.props);
     acc += run.text.length;
   }
-  return withoutRevisions(p.runs[p.runs.length - 1].props);
+  return withoutRevisions(runs[runs.length - 1].props);
+}
+function insertIndex(p, offset) {
+  let idx = splitAt(p, offset);
+  while (idx < p.runs.length && (p.runs[idx].bookmark || p.runs[idx].fieldEnd)) idx++;
+  return idx;
 }
 function withoutRevisions(props) {
   const out = { ...props };
@@ -4553,21 +4588,21 @@ function insertText(model, pos, text, props) {
   const p = model.paragraphs[pos.para];
   const effective = props ?? propsAt(model, pos);
   const rpr = rprAt(model, pos);
-  const idx = splitAt(p, pos.offset);
+  const idx = insertIndex(p, pos.offset);
   p.runs.splice(idx, 0, { text, props: { ...effective }, ...rpr ? { rpr } : {} });
   normalizeParagraph(p);
   return { para: pos.para, offset: pos.offset + text.length };
 }
 function insertRun(model, pos, run) {
   const p = model.paragraphs[pos.para];
-  const idx = splitAt(p, pos.offset);
+  const idx = insertIndex(p, pos.offset);
   p.runs.splice(idx, 0, { ...run, props: { ...run.props } });
   normalizeParagraph(p);
   return { para: pos.para, offset: pos.offset + run.text.length };
 }
 function splitParagraph(model, pos) {
   const p = model.paragraphs[pos.para];
-  const idx = splitAt(p, pos.offset);
+  const idx = insertIndex(p, pos.offset);
   const tailRuns = p.runs.slice(idx);
   p.runs = p.runs.slice(0, idx);
   const tail = { runs: tailRuns, props: { ...p.props } };
@@ -4589,31 +4624,92 @@ function splitParagraph(model, pos) {
 }
 function deleteRange(model, range) {
   const { start, end } = normalizeRange(range);
+  const doomed = doomedMarks(model, start, end);
   if (start.para === end.para) {
     const p = model.paragraphs[start.para];
-    rebuildDelete(p, start.offset, end.offset);
+    rebuildDelete(p, start.offset, end.offset, doomed);
+    dropDoomed(model, doomed);
     normalizeParagraph(p);
     return start;
   }
   const first = model.paragraphs[start.para];
   const last = model.paragraphs[end.para];
-  rebuildDelete(first, start.offset, paraLength(first));
-  rebuildDelete(last, 0, end.offset);
-  first.runs = [...first.runs, ...last.runs];
+  rebuildDelete(first, start.offset, paraLength(first), doomed);
+  const kept = [];
+  for (let pi = start.para + 1; pi < end.para; pi++) {
+    for (const r of model.paragraphs[pi].runs) if ((isMarkRun(r) || r.text.length === 0 && isSpecial(r)) && !doomed.has(r)) kept.push(r);
+  }
+  rebuildDelete(last, 0, end.offset, doomed);
+  first.runs = [...first.runs, ...kept, ...last.runs];
   first.props = { ...last.props };
   if (last.ppr) first.ppr = last.ppr;
   else delete first.ppr;
   model.paragraphs.splice(start.para + 1, end.para - start.para);
+  dropDoomed(model, doomed);
   normalizeParagraph(first);
   return start;
 }
-function rebuildDelete(p, from, to) {
+var cmpPos = (a, b) => comparePos(a, b);
+function doomedMarks(model, start, end) {
+  const out = /* @__PURE__ */ new Set();
+  if (cmpPos(start, end) >= 0) return out;
+  const starts = /* @__PURE__ */ new Map();
+  const fields = [];
+  model.paragraphs.forEach((p, para) => {
+    let offset = 0;
+    for (const r of p.runs) {
+      const at = { para, offset };
+      if (r.bookmark) {
+        if (!r.bookmark.end) starts.set(r.bookmark.id, { run: r, at });
+        else {
+          const s = starts.get(r.bookmark.id);
+          if (s) {
+            const inside = (x2) => cmpPos(x2, start) >= 0 && cmpPos(x2, end) <= 0;
+            const point = cmpPos(s.at, at) === 0;
+            if (point ? cmpPos(at, start) > 0 && cmpPos(at, end) < 0 : inside(s.at) && inside(at)) {
+              out.add(s.run);
+              out.add(r);
+            }
+          }
+        }
+      } else if (r.fieldBegin !== void 0 || r.fieldOpen) fields.push({ run: r, at, begin: true });
+      else if (r.fieldEnd) fields.push({ run: r, at, begin: false });
+      offset += r.text.length;
+    }
+  });
+  const stack = [];
+  for (const f of fields) {
+    if (f.begin) {
+      stack.push(f);
+      continue;
+    }
+    const b = stack.pop();
+    if (!b || cmpPos(b.at, start) < 0) continue;
+    const gone = b.run.text.length > 0 ? cmpPos({ para: b.at.para, offset: b.at.offset + b.run.text.length }, end) <= 0 : cmpPos(f.at, end) <= 0;
+    if (gone) {
+      out.add(b.run);
+      out.add(f.run);
+    }
+  }
+  return out;
+}
+function dropDoomed(model, doomed) {
+  if (!doomed.size) return;
+  for (const p of model.paragraphs) {
+    if (p.runs.some((r) => doomed.has(r))) p.runs = p.runs.filter((r) => !doomed.has(r));
+  }
+}
+function rebuildDelete(p, from, to, doomed) {
   const out = [];
   let acc = 0;
   for (const run of p.runs) {
     const rs = acc;
     const re = acc + run.text.length;
     acc = re;
+    if (isMarkRun(run) || run.text.length === 0 && isSpecial(run)) {
+      if (!doomed?.has(run)) out.push(run);
+      continue;
+    }
     const keepHead = run.text.slice(0, Math.max(0, Math.min(from, re) - rs));
     const keepTail = re > to ? run.text.slice(Math.max(0, to - rs)) : "";
     const text = keepHead + keepTail;
@@ -5613,6 +5709,8 @@ function rPrFromProps(p, linkAware = true) {
   if (p.smallCaps) rpr.push("<w:smallCaps/>");
   if (p.strike) rpr.push("<w:strike/>");
   if (p.doubleStrike) rpr.push("<w:dstrike/>");
+  if (p.noProof) rpr.push("<w:noProof/>");
+  if (p.webHidden) rpr.push("<w:webHidden/>");
   const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
   if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc3(p.color)}"/>`);
   if (p.charSpacingTwips) rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
@@ -5805,6 +5903,7 @@ var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
 function pprBits(pp, ids) {
   const out = {};
   out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc3(pp.styleId)}"/>` : null;
+  out["w:keepNext"] = pp.keepNext ? "<w:keepNext/>" : null;
   out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
   out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`).join("") + "</w:tabs>" : null;
   out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
@@ -5830,6 +5929,7 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     if (x2) ppr.push(x2);
   };
   add("w:pStyle");
+  add("w:keepNext");
   add("w:pageBreakBefore");
   add("w:numPr");
   add("w:pBdr");
@@ -5898,6 +5998,7 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   const bits2 = pprBits(p, ids);
   if (p.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
   if (!!p.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
+  if (!!p.keepNext !== !!base.keepNext) set("w:keepNext", p.keepNext ? "<w:keepNext/>" : '<w:keepNext w:val="0"/>');
   if (!eq(p.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
   if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
   if (p.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
@@ -6542,11 +6643,15 @@ function readFullDocument(pkg, opts = {}) {
   const sections = [];
   const bookmarks = /* @__PURE__ */ new Map();
   const bookmarkOffsets = /* @__PURE__ */ new Map();
+  const bookmarkEnds = /* @__PURE__ */ new Map();
   ctx.onBookmark = (name, offset) => {
     if (!bookmarks.has(name)) {
       bookmarks.set(name, blocks.length);
       bookmarkOffsets.set(name, offset);
     }
+  };
+  ctx.onBookmarkEnd = (name, offset) => {
+    if (!bookmarkEnds.has(name)) bookmarkEnds.set(name, { block: blocks.length, offset });
   };
   let sectionStart = 0;
   const closeSection = (sectEl, endBlock) => {
@@ -6635,6 +6740,7 @@ function readFullDocument(pkg, opts = {}) {
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
+    bookmarkEnds,
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,
@@ -7177,7 +7283,22 @@ function textXml(text, deleted = false) {
   }
   return parts.join("");
 }
+var fldCharXml = (rpr, type) => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
+function markXml2(run) {
+  if (run.bookmark) {
+    const b = run.bookmark;
+    return b.end ? `<w:bookmarkEnd w:id="${b.id}"/>` : `<w:bookmarkStart w:id="${b.id}" w:name="${escAttr(b.name)}"/>`;
+  }
+  if (run.fieldBegin !== void 0) {
+    const rpr = rPrXml(run);
+    return fldCharXml(rpr, "begin") + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc4(run.fieldBegin)}</w:instrText></w:r>` + fldCharXml(rpr, "separate");
+  }
+  if (run.fieldEnd) return fldCharXml(rPrXml(run), "end");
+  return void 0;
+}
 function runXml(run) {
+  const mark = markXml2(run);
+  if (mark !== void 0) return mark;
   if (run.custom) {
     const type = run.custom.type;
     if (!/^[a-zA-Z0-9._-]+$/.test(type)) {
@@ -7237,12 +7358,21 @@ function fieldOrRunXml(r) {
   if (!r.field || active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field)) return runXml(r);
   if (!r.props.ins && !r.props.del) {
     if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
-    return `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`;
+    const result = fieldResultXml(r);
+    if (/\\h\b/i.test(r.field) || r.props.src === void 0 && (r.fieldResult?.length ?? 0) > 1) {
+      const rpr2 = rPrXml(r);
+      return fldCharXml(rpr2, "begin") + `<w:r>${rpr2}<w:instrText xml:space="preserve">${esc4(r.field)}</w:instrText></w:r>` + fldCharXml(rpr2, "separate") + result + fldCharXml(rpr2, "end");
+    }
+    return `<w:fldSimple w:instr="${escAttr(r.field)}">${result}</w:fldSimple>`;
   }
   const rpr = rPrXml(r);
   const ch = (type) => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
   const it = r.props.del ? "w:delInstrText" : "w:instrText";
   return ch("begin") + `<w:r>${rpr}<${it} xml:space="preserve">${esc4(r.field)}</${it}></w:r>` + ch("separate") + runXml(r) + ch("end");
+}
+function fieldResultXml(r) {
+  if (r.props.src !== void 0 || !r.fieldResult?.length) return runXml(r);
+  return r.fieldResult.map((x2) => runXml(x2)).join("");
 }
 var revKey = (r) => JSON.stringify(r ?? null);
 function revisionRuns(items) {
@@ -7313,13 +7443,21 @@ function genRuns(items, inWrapper = false) {
       continue;
     }
     let j = i2;
-    while (j < items.length && items[j].run.props.link === link) j++;
+    const sameLink = (k) => {
+      for (let m = k; m < items.length; m++) {
+        if (items[m].run.props.link === link) return true;
+        if (!isMarkRun(items[m].run)) return false;
+      }
+      return false;
+    };
+    while (j < items.length && sameLink(j)) j++;
     const inner = revisionRuns(items.slice(i2, j));
+    const tip = items[i2].run.props.linkTip;
     const attr = link.startsWith("#") ? ` w:anchor="${escAttr(link.slice(1))}"` : (() => {
       const id = linkRelId(link);
       return id ? ` r:id="${id}"` : "";
     })();
-    out.push(attr ? `<w:hyperlink${attr} w:history="1">${inner}</w:hyperlink>` : inner);
+    out.push(attr ? `<w:hyperlink${attr}${tip ? ` w:tooltip="${escAttr(tip)}"` : ""} w:history="1">${inner}</w:hyperlink>` : inner);
     i2 = j;
   }
   return out.join("");
@@ -7419,12 +7557,13 @@ function runsLossless(para, src, pid, last) {
         continue;
       }
       flushZero(loc[0]);
-      if (g.wrapOpen !== void 0 && (g.link === void 0 || r.props.link === g.link)) {
+      const sameWrap = (x2) => g.link === void 0 || x2.props.link === g.link && (x2.props.linkTip ?? "") === (g.tip ?? "");
+      if (g.wrapOpen !== void 0 && sameWrap(r)) {
         const own2 = new Set(g.sids);
         let j = i2;
-        while (j < cur.length && cur[j].props.src !== void 0 && own2.has(cur[j].props.src) && (g.link === void 0 || cur[j].props.link === g.link)) j++;
+        while (j < cur.length && cur[j].props.src !== void 0 && own2.has(cur[j].props.src) && sameWrap(cur[j])) j++;
         flushGen();
-        out += g.wrapOpen + genRuns(cur.slice(i2, j).map((run, k) => ({ run, before: marks.before[i2 + k], after: marks.after[i2 + k] })), true) + g.wrapClose;
+        out += g.wrapOpen + genRuns(cur.slice(i2, j).map((run, k) => ({ run, before: marks.before[i2 + k], after: marks.after[i2 + k] })), g.link !== void 0) + g.wrapClose;
         take(loc[0]);
         zp = loc[0] + 1;
         i2 = j;
@@ -7490,6 +7629,7 @@ function paraXmlInner(para, runsXml) {
   const pp = para.props;
   const ppr = [];
   if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr(pp.styleId)}"/>`);
+  if (pp.keepNext) ppr.push("<w:keepNext/>");
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];
     ppr.push(`<w:sectPr>${sectPrInner(pp.sectionBreak.sectPr, refs)}</w:sectPr>`);
@@ -7739,10 +7879,23 @@ function groupsXml(groups, blocks, store) {
       }
       if (g.wrapOpen !== void 0 && g.blocks[0] === id) {
         let j = i2;
-        while (j < blocks.length && (() => {
-          const x2 = blockId(blocks[j]);
+        const inGroup = (k) => {
+          const x2 = blockId(blocks[k]);
           return x2 !== void 0 && groupOf2.get(x2) === gi;
-        })()) j++;
+        };
+        while (j < blocks.length) {
+          if (inGroup(j)) {
+            j++;
+            continue;
+          }
+          let k = j;
+          while (k < blocks.length && blockId(blocks[k]) === void 0) k++;
+          if (k > j && k < blocks.length && inGroup(k)) {
+            j = k;
+            continue;
+          }
+          break;
+        }
         const inner = blocks.slice(i2, j);
         out += g.wrapOpen + (g.inner ? groupsXml(g.inner, inner, store) : inner.map(blockXml).join("")) + g.wrapClose;
         zp = gi + 1;
@@ -8528,6 +8681,9 @@ function builtins() {
     for (const [name, pt, xml, twin] of WORD_BUILTIN_STYLES) byName.set(name.toLowerCase(), { name, pt, xml, twin });
   }
   return byName;
+}
+function builtinStyle(name) {
+  return builtins().get(name.toLowerCase());
 }
 function builtinStyles() {
   return [...builtins().values()];
@@ -16373,7 +16529,10 @@ export {
   paraLength,
   comparePos,
   normalizeRange,
+  normalizeParagraph,
+  splitAt,
   propsAt,
+  insertIndex,
   withoutRevisions,
   insertText,
   insertRun,
@@ -16450,6 +16609,7 @@ export {
   hasParaChanges,
   patchStyleRPr,
   patchStylePPr,
+  builtinStyle,
   builtinStyles,
   builtinDisplayName,
   builtinXml,

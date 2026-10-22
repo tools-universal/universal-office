@@ -2829,6 +2829,7 @@ function paraPropsFromPPr(ppr) {
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
+  if (ppr.keepNext) props.keepNext = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
@@ -3360,7 +3361,10 @@ function runTarget(ctx, runs) {
 var isObjectRun = (r) => !!(r.image || r.textbox || r.shape || r.group);
 function closeField(ctx, runs) {
   const f = ctx.fieldStack.pop();
-  if (f.crossed) return;
+  if (f.crossed) {
+    if (ctx.sources) runTarget(ctx, runs)?.push({ text: "", props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true });
+    return;
+  }
   const textRuns = f.runs.filter((r) => !isObjectRun(r));
   const text = textRuns.map((r) => r.text).join("");
   const first = textRuns[0] ?? f.runs[0];
@@ -3390,9 +3394,26 @@ function readRunsInto(runs, container, ctx, inherit) {
       case "w:commentRangeEnd":
         ctx.activeComments?.delete(parseInt(child.attrs["w:id"] ?? "-1", 10));
         break;
-      case "w:bookmarkStart": {
-        const name = child.attrs["w:name"];
-        if (name) ctx.onBookmark?.(name, runs.reduce((n, r) => n + r.text.length, 0));
+      case "w:bookmarkStart":
+      case "w:bookmarkEnd": {
+        const end = child.name === "w:bookmarkEnd";
+        const id = parseInt(child.attrs["w:id"] ?? "", 10);
+        ctx.bookmarkIds ??= /* @__PURE__ */ new Map();
+        const name = end ? ctx.bookmarkIds.get(id) : child.attrs["w:name"];
+        if (!name) break;
+        const at = runs.reduce((n, r) => n + r.text.length, 0);
+        if (end) {
+          ctx.bookmarkIds.delete(id);
+          ctx.onBookmarkEnd?.(name, at);
+        } else {
+          if (Number.isFinite(id)) ctx.bookmarkIds.set(id, name);
+          ctx.onBookmark?.(name, at);
+        }
+        const top = ctx.fieldStack?.[ctx.fieldStack.length - 1];
+        if (ctx.sources && Number.isFinite(id) && (!top || top.crossed) && child.attrs["w:colFirst"] === void 0) {
+          const link = inherit?.link ? { link: inherit.link, ...inherit.tip ? { linkTip: inherit.tip } : {} } : {};
+          runs.push({ text: "", props: { ...DEFAULT_RUN_PROPS, ...link }, bookmark: { id, name, ...end ? { end: true } : {} } });
+        }
         break;
       }
       case "w:r":
@@ -3402,7 +3423,8 @@ function readRunsInto(runs, container, ctx, inherit) {
         const rid = child.attrs["r:id"];
         const anchor = child.attrs["w:anchor"];
         const link = rid && ctx.resolveLink(rid) || (anchor ? `#${anchor}` : void 0);
-        readRunsInto(runs, child, ctx, { ...inherit, link });
+        const tip = child.attrs["w:tooltip"];
+        readRunsInto(runs, child, ctx, { ...inherit, link, ...tip ? { tip } : {} });
         break;
       }
       case "w:fldSimple": {
@@ -3560,6 +3582,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
+    if (inherit.tip) rProps.linkTip = inherit.tip;
     rProps.underline = true;
     rProps.color ??= "0563C1";
   }
@@ -3788,15 +3811,16 @@ function readParagraph(pEl, ctx) {
   for (let i2 = stack.length - 1; i2 >= 0; i2--) {
     const f = stack[i2];
     if (f.phase !== "result" || f.crossed) continue;
-    if (i2 === stack.length - 1 && f.runs.length) {
+    if (i2 === stack.length - 1 && (f.runs.length || ctx.sources)) {
       const textRuns = f.runs.filter((r) => !isObjectRun(r));
       const first = textRuns[0] ?? f.runs[0];
       const run = {
         text: textRuns.map((r) => r.text).join(""),
         props: { ...first?.props ?? f.props },
         field: ` ${f.instr.trim()} `,
-        fieldResult: f.runs
+        fieldOpen: true
       };
+      if (f.runs.length) run.fieldResult = f.runs;
       const rpr = first?.rpr ?? f.rpr;
       if (rpr) run.rpr = rpr;
       runs.push(run);
@@ -3819,7 +3843,10 @@ function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
   }
   let objHead = 0;
   for (const { seg, from, to } of segs) {
-    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) seg.link = para.runs[from]?.props.link ?? "";
+    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) {
+      seg.link = para.runs[from]?.props.link ?? "";
+      seg.tip = para.runs[from]?.props.linkTip ?? "";
+    }
     for (let i2 = from; i2 < to; i2++) {
       const run = para.runs[i2];
       const sid = store.id();
@@ -4643,11 +4670,15 @@ function readFullDocument(pkg, opts = {}) {
   const sections = [];
   const bookmarks = /* @__PURE__ */ new Map();
   const bookmarkOffsets = /* @__PURE__ */ new Map();
+  const bookmarkEnds = /* @__PURE__ */ new Map();
   ctx.onBookmark = (name, offset) => {
     if (!bookmarks.has(name)) {
       bookmarks.set(name, blocks.length);
       bookmarkOffsets.set(name, offset);
     }
+  };
+  ctx.onBookmarkEnd = (name, offset) => {
+    if (!bookmarkEnds.has(name)) bookmarkEnds.set(name, { block: blocks.length, offset });
   };
   let sectionStart = 0;
   const closeSection = (sectEl, endBlock) => {
@@ -4736,6 +4767,7 @@ function readFullDocument(pkg, opts = {}) {
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
+    bookmarkEnds,
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,

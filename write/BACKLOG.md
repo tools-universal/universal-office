@@ -80,7 +80,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | feito |
 | Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | em curso |
 | Caixa de texto | ◐ inserir; Painel de Seleção | — |
-| Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | em curso |
+| Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
 | Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | — |
 | Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | — |
 | Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | — |
@@ -129,6 +129,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Notas | Fixtures de paridade `symnotdef/sn-arial` diferem entre JS e .NET (anterior às notas) |
 | Notas | O título do iniciador de Estilos repete o atalho: "Estilos (Ctrl+Alt+Shift+S) (Ctrl+Alt+Shift+S)" |
 | Cabeçalho e rodapé | A lista de formatos do diálogo Data e Hora vem das convenções de cada idioma (o COM não a expõe); um print do diálogo do Word fecharia a comparação |
+| Links e referências | `insertField` (PAGE/NUMPAGES/DATE) ainda não recusa campo dentro de controle de conteúdo de texto/data/combinação/lista (o Word acusa o arquivo de corrompido); usar o `canInsertField()` |
 
 ### Fora do escopo
 
