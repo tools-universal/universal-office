@@ -2927,13 +2927,12 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
-  if (ppr.tabs) {
-    const stops = ppr.tabs.filter((t) => t.pos > 0 && t.val !== "clear" && t.val !== "bar").map((t) => ({
+  if (ppr.tabs?.length) {
+    props.tabStops = ppr.tabs.map((t) => ({
       posTwips: t.pos,
-      align: t.val === "right" ? "right" : "left",
-      leader: t.leader === "dot" ? "dot" : void 0
+      align: t.val,
+      ...t.leader && t.leader !== "none" ? { leader: t.leader } : {}
     }));
-    if (stops.length) props.tabStops = stops;
   }
   if (ppr.pBdr) {
     props.boxBorder = true;
@@ -5834,12 +5833,12 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
-  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+  if (pp.indentLeftTwips !== void 0 || pp.indentRightTwips !== void 0 || pp.indentFirstLineTwips !== void 0) {
     let attrs3 = "";
-    if (pp.indentLeftTwips) attrs3 += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs3 += ` w:right="${pp.indentRightTwips}"`;
-    if (pp.indentFirstLineTwips) {
-      attrs3 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+    if (pp.indentLeftTwips !== void 0) attrs3 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips !== void 0) attrs3 += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips !== void 0) {
+      attrs3 += pp.indentFirstLineTwips >= 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
     }
     ppr.push(`<w:ind${attrs3}/>`);
   }
@@ -5907,7 +5906,7 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   }
   if (p.indentLeftTwips !== base.indentLeftTwips || p.indentRightTwips !== base.indentRightTwips || p.indentFirstLineTwips !== base.indentFirstLineTwips) {
     const f = p.indentFirstLineTwips;
-    set("w:ind", withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
+    const ind = withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
       "w:left": p.indentLeftTwips,
       "w:start": void 0,
       "w:right": p.indentRightTwips,
@@ -5918,7 +5917,8 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
       "w:hangingChars": void 0,
       "w:leftChars": void 0,
       "w:rightChars": void 0
-    }));
+    });
+    set("w:ind", /^<w:ind\s*\/>$/.test(ind) ? null : ind);
   }
   if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips) {
     const ch = {};
@@ -6868,6 +6868,66 @@ function setOrientation(sp, orientation) {
   }
 }
 
+// ../docx-core/src/settings-xml.ts
+var BEFORE_DEFAULT_TAB = /* @__PURE__ */ new Set([
+  "w:writeProtection",
+  "w:view",
+  "w:zoom",
+  "w:removePersonalInformation",
+  "w:removeDateAndTime",
+  "w:doNotDisplayPageBoundaries",
+  "w:displayBackgroundShape",
+  "w:printPostScriptOverText",
+  "w:printFractionalCharacterWidth",
+  "w:printFormsData",
+  "w:embedTrueTypeFonts",
+  "w:embedSystemFonts",
+  "w:saveSubsetFonts",
+  "w:saveFormsData",
+  "w:mirrorMargins",
+  "w:alignBordersAndEdges",
+  "w:bordersDoNotSurroundHeader",
+  "w:bordersDoNotSurroundFooter",
+  "w:gutterAtTop",
+  "w:hideSpellingErrors",
+  "w:hideGrammaticalErrors",
+  "w:activeWritingStyle",
+  "w:proofState",
+  "w:formsDesign",
+  "w:attachedTemplate",
+  "w:linkStyles",
+  "w:stylePaneFormatFilter",
+  "w:stylePaneSortMethod",
+  "w:documentType",
+  "w:mailMerge",
+  "w:revisionView",
+  "w:trackRevisions",
+  "w:doNotTrackMoves",
+  "w:doNotTrackFormatting",
+  "w:documentProtection",
+  "w:autoFormatOverride",
+  "w:styleLockTheme",
+  "w:styleLockQFSet"
+]);
+function writeDefaultTabStop(pkg, twips) {
+  const path = partByRelType(pkg, "settings", "word/settings.xml");
+  let xml = pkg.getPartText(path);
+  if (!xml) return;
+  const val3 = String(Math.round(twips));
+  const cur = /<w:defaultTabStop\b[^>]*?\/>/.exec(xml);
+  if (cur) {
+    if (new RegExp(`w:val="${val3}"`).test(cur[0])) return;
+    xml = xml.slice(0, cur.index) + `<w:defaultTabStop w:val="${val3}"/>` + xml.slice(cur.index + cur[0].length);
+  } else {
+    const root = parseXml(xml, { positions: true });
+    if (root.cs === root.e) return;
+    let at = root.cs;
+    for (const k of childElements(root)) if (BEFORE_DEFAULT_TAB.has(k.name)) at = Math.max(at, k.e);
+    xml = xml.slice(0, at) + `<w:defaultTabStop w:val="${val3}"/>` + xml.slice(at);
+  }
+  pkg.setPartText(path, xml);
+}
+
 // ../docx-core/src/serialize.ts
 var esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 var escAttr = (s) => esc4(s).replace(/"/g, "&quot;");
@@ -7343,12 +7403,12 @@ function paraXmlInner(para, runsXml) {
     const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
-  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+  if (pp.indentLeftTwips !== void 0 || pp.indentRightTwips !== void 0 || pp.indentFirstLineTwips !== void 0) {
     let attrs3 = "";
-    if (pp.indentLeftTwips) attrs3 += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs3 += ` w:right="${pp.indentRightTwips}"`;
-    if (pp.indentFirstLineTwips) {
-      attrs3 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+    if (pp.indentLeftTwips !== void 0) attrs3 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips !== void 0) attrs3 += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips !== void 0) {
+      attrs3 += pp.indentFirstLineTwips >= 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
     }
     ppr.push(`<w:ind${attrs3}/>`);
   }
@@ -16242,6 +16302,7 @@ export {
   columnsPresetOf,
   columnWidths,
   setOrientation,
+  writeDefaultTabStop,
   writeDocument,
   BLANK_STYLES_XML,
   blankDocxPackage,

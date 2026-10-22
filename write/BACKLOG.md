@@ -71,7 +71,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | feito |
 | Seções e colunas | ◐ quebra de seção e de coluna; Colunas | feito |
 | Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | feito |
-| Navegação | Painel de Navegação; Régua; Linhas de Grade | em curso |
+| Navegação | Painel de Navegação; Régua; Linhas de Grade | feito |
 
 ### Fase B — documento
 

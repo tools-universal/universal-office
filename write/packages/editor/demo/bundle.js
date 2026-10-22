@@ -9,7 +9,7 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-BHXX4LCT.js";
+} from "./chunks/chunk-IHJFRFO3.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -116,10 +116,11 @@ import {
   uiLang,
   unzlibSync,
   withoutRevisions,
+  writeDefaultTabStop,
   writeDocument,
   zipSync,
   zlibSync
-} from "./chunks/chunk-OY4FZEKX.js";
+} from "./chunks/chunk-YLWUQXXR.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -9110,7 +9111,7 @@ var Engine = class {
           const put = (l) => {
             paintLine(this.ctx, items, l, x, y);
             this.paintInlineDrawings(items, l, x, y, ps);
-            lines.push(lineRecord(`${ref}/b${bi}`, p, l, x, y));
+            lines.push(lineRecord(`${ref}/b${bi}`, p, l, x, y, width));
             lh = Math.max(lh, l.height);
           };
           put(line);
@@ -9565,7 +9566,7 @@ var Engine = class {
         if (this.cur.geom.lnNum && !p.ppr.suppressLineNumbers) this.paintLineNumber(f.frameX, f.y + f.line.baseline);
         paintLine(this.ctx, this.cur.body, f.line, f.frameX, f.y);
         this.paintInlineDrawings(this.cur.body, f.line, f.frameX, f.y, this.cur);
-        this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y));
+        this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y, this.colFrame().w));
       }
       const last = frag[frag.length - 1];
       let bottom = last.y + last.line.height;
@@ -11115,7 +11116,13 @@ function alignPos(align, offset, base, span, size, pct, pageSpan, e0 = 0, e1 = 0
   if (pct !== void 0) return base + pct / 1e5 * pageSpan;
   return base + (offset ?? 0);
 }
-function lineRecord(ref, p, line, frameX, top) {
+var PFMT = /* @__PURE__ */ new WeakMap();
+var pfmtOf = (p) => {
+  let f = PFMT.get(p);
+  if (!f) PFMT.set(p, f = { left: p.indLeft, right: p.indRight, firstLine: p.firstLine, tabs: p.tabs });
+  return f;
+};
+function lineRecord(ref, p, line, frameX, top, frameW) {
   const gs = p.glyphs;
   const first = gs[line.start];
   const lastG = gs[Math.max(line.start, line.end - 1)];
@@ -11125,17 +11132,20 @@ function lineRecord(ref, p, line, frameX, top) {
   const rb = p.revBars;
   const firstLine = line.start === 0, lastLine = line.end >= gs.length;
   const rev = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a, b, hidden]) => hidden ? a <= end && b >= start : a < end && b > start));
+  const x = frameX + line.xStart;
   return {
     ref,
     start,
     end,
-    x: frameX + line.xStart,
+    x,
     y: top,
     height: line.height,
     baseline: top + line.baseline,
     width: line.width,
     chars,
-    ...rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}
+    ...rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {},
+    // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
+    ...frameW !== void 0 ? { frame: { l: frameX - x, r: frameX + frameW - x }, pfmt: pfmtOf(p) } : {}
   };
 }
 function revisionBarItems(lines, x, color) {
@@ -12458,6 +12468,78 @@ function paragraphAtPath(blocks, path) {
   return null;
 }
 
+// ../docx-layout/src/outline.ts
+var NO_FONTS = { face: () => null };
+function headingText(p, caps) {
+  let s = "";
+  for (const r of p.runs) {
+    if (r.props.del) continue;
+    s += caps?.(r) ? r.text.toUpperCase() : r.text;
+  }
+  return s.replace(/[\u00ad\ufffc]/g, "").replace(/[\t\n\r\u000b\u000c]/g, " ").replace(/\s+/g, " ").trim();
+}
+var BUILTIN_HEADING = /^heading ([1-9])$/i;
+function outlineLevelOf(ctx, p, ppr = resolvePPr(ctx, p, {}).ppr) {
+  const chain = ctx.resolver.paraChain(ppr.pStyle ?? directStyle(p));
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const s = chain[i];
+    const m = BUILTIN_HEADING.exec(s.name ?? "");
+    if (m) return +m[1];
+    if (s.pPr?.outlineLvl !== void 0) break;
+  }
+  const lvl = ppr.outlineLvl;
+  return lvl !== void 0 && lvl >= 0 && lvl <= 8 ? lvl + 1 : 0;
+}
+var directStyle = (p) => p.props.styleId;
+function documentOutline(full, opts = {}) {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const dd = ctx.resolver.docDefaults;
+  const out = [];
+  const walk = (blocks, top) => {
+    blocks.forEach((b, i) => {
+      if (b.type === "table") {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell), false);
+        return;
+      }
+      const p = b.paragraph;
+      const { ppr, styleRPr } = resolvePPr(ctx, p, {});
+      const n = ppr.numPr;
+      const num = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0)?.text ?? "" : "";
+      if (!top) return;
+      const level = outlineLevelOf(ctx, p, ppr);
+      if (!level) return;
+      const caps = (r) => {
+        const d = directRPr(r);
+        return !!cascadeRPr(dd.rPr, [styleRPr, ctx.resolver.charStyle(d.rStyle)], d).caps;
+      };
+      const text = headingText(p, caps);
+      if (!text) return;
+      out.push({ block: i, level, text: num ? `${num} ${text}` : text, number: num });
+    });
+  };
+  walk(full.blocks, true);
+  return out;
+}
+
+// ../docx-layout/src/paraformat.ts
+var NO_FONTS2 = { face: () => null };
+var CTX = /* @__PURE__ */ new WeakMap();
+var ctxOf = (fmt2) => {
+  let c = CTX.get(fmt2);
+  if (!c) CTX.set(fmt2, c = new DocContext(fmt2, NO_FONTS2));
+  return c;
+};
+function inheritedPPr(fmt2, para) {
+  const d = directPPr(para);
+  const base = {};
+  if (d.pStyle !== void 0) base.pStyle = d.pStyle;
+  if (d.numPr) base.numPr = d.numPr;
+  return resolvePPr(ctxOf(fmt2), { runs: [], ppr: base, props: paraPropsFromPPr(base) }, {}).ppr;
+}
+function effectivePPr(fmt2, para) {
+  return resolvePPr(ctxOf(fmt2), para, {}).ppr;
+}
+
 // src/styles.ts
 var W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 var EMPTY_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -13257,6 +13339,126 @@ function buildXps(input) {
   return zipSync(z, { level: 6 });
 }
 
+// src/navigation.ts
+function tabInfo(t) {
+  const align = t.val === "center" || t.val === "right" || t.val === "decimal" || t.val === "bar" ? t.val : "left";
+  return { pos: Math.round(t.pos), align, ...t.leader && t.leader !== "none" ? { leader: t.leader } : {} };
+}
+var sameTab = (a, b) => Math.round(a.pos) === b.pos && tabInfo(a).align === b.align && (tabInfo(a).leader ?? "") === (b.leader ?? "");
+function tabsDirect(inherited, wanted) {
+  const inh = (inherited ?? []).filter((t) => t.val !== "clear");
+  const out = [];
+  const want = dedupeTabs(wanted);
+  for (const w of want) {
+    const h = inh.find((t) => Math.round(t.pos) === w.pos);
+    if (h && sameTab(h, w)) continue;
+    out.push({ posTwips: w.pos, align: w.align, ...w.leader ? { leader: w.leader } : {} });
+  }
+  for (const h of inh) {
+    const pos = Math.round(h.pos);
+    if (!want.some((w) => w.pos === pos)) out.push({ posTwips: pos, align: "clear" });
+  }
+  out.sort((a, b) => a.posTwips - b.posTwips);
+  return out.length ? out : void 0;
+}
+function dedupeTabs(tabs) {
+  const m = /* @__PURE__ */ new Map();
+  for (const t of tabs) m.set(Math.round(t.pos), { ...t, pos: Math.round(t.pos) });
+  return [...m.values()].sort((a, b) => a.pos - b.pos);
+}
+function indentsDirect(inherited, want) {
+  const inh = inherited ?? {};
+  const l = Math.round(want.left), r = Math.round(want.right), f = Math.round(want.firstLine);
+  const inhF = inh.hanging !== void 0 ? -inh.hanging : inh.firstLine ?? 0;
+  return {
+    indentLeftTwips: l === Math.round(inh.left ?? 0) ? void 0 : l,
+    indentRightTwips: r === Math.round(inh.right ?? 0) ? void 0 : r,
+    indentFirstLineTwips: f === Math.round(inhF) ? void 0 : f
+  };
+}
+function headingSpan(levels, i) {
+  const lv = levels[i] ?? 0;
+  if (!lv) return [i, i + 1];
+  let e = i + 1;
+  while (e < levels.length && !(levels[e] > 0 && levels[e] <= lv)) e++;
+  return [i, e];
+}
+function moveMap(n, s, e, t) {
+  const len2 = e - s;
+  const map = new Array(n);
+  for (let i = 0; i < n; i++) {
+    if (i >= s && i < e) map[i] = (t > e ? t - len2 : t) + (i - s);
+    else if (t > e && i >= e && i < t) map[i] = i - len2;
+    else if (t < s && i >= t && i < s) map[i] = i + len2;
+    else map[i] = i;
+  }
+  return map;
+}
+var WORD_CHAR = /[\p{L}\p{N}_]/u;
+function findInText(text, needle, opts = {}) {
+  if (!needle) return [];
+  const hay = opts.matchCase ? text : text.toLocaleLowerCase("pt-BR");
+  const nee = opts.matchCase ? needle : needle.toLocaleLowerCase("pt-BR");
+  const out = [];
+  let i = hay.indexOf(nee);
+  while (i >= 0) {
+    const ok = !opts.wholeWord || (i === 0 || !WORD_CHAR.test(text[i - 1])) && (i + needle.length >= text.length || !WORD_CHAR.test(text[i + needle.length]));
+    if (ok) {
+      out.push(i);
+      i = hay.indexOf(nee, i + Math.max(1, nee.length));
+    } else i = hay.indexOf(nee, i + 1);
+  }
+  return out;
+}
+function matchSnippet(text, start, end) {
+  const clean = (s) => s.replace(/[\t\n\r\u000b\u000c\ufffc]/g, " ");
+  let b = Math.max(0, start - 40);
+  if (b > 0) {
+    const sp = text.indexOf(" ", b);
+    b = sp >= 0 && sp < start ? sp + 1 : b;
+  }
+  let a = Math.min(text.length, end + 60);
+  if (a < text.length) {
+    const sp = text.lastIndexOf(" ", a);
+    a = sp > end ? sp : a;
+  }
+  return {
+    before: (b > 0 ? "\u2026" : "") + clean(text.slice(b, start)),
+    match: clean(text.slice(start, end)),
+    after: clean(text.slice(end, a)) + (a < text.length ? "\u2026" : "")
+  };
+}
+function drawingGridOf(settingsXml) {
+  const x = settingsXml ?? "";
+  const val = (name) => {
+    const m = new RegExp(`<w:${name}\\b[^>]*\\bw:val="(-?\\d+)"`).exec(x);
+    return m ? +m[1] : void 0;
+  };
+  const flag = new RegExp('<w:doNotUseMarginsForDrawingGridOrigin\\b(?![^>]*w:val="(?:0|false|off)")').test(x);
+  return {
+    hSpacing: Math.max(1, val("drawingGridHorizontalSpacing") ?? 180),
+    vSpacing: Math.max(1, val("drawingGridVerticalSpacing") ?? 180),
+    everyH: Math.max(0, val("displayHorizontalDrawingGridEvery") ?? 1),
+    everyV: Math.max(0, val("displayVerticalDrawingGridEvery") ?? 1),
+    fromMargins: !flag,
+    originX: val("drawingGridHorizontalOrigin") ?? 0,
+    originY: val("drawingGridVerticalOrigin") ?? 0
+  };
+}
+function gridLines(g, box, origin) {
+  const xs = [], ys = [];
+  const stepX = g.hSpacing * g.everyV, stepY = g.vSpacing * g.everyH;
+  if (stepX > 0) {
+    const k0 = Math.ceil((box.x0 - origin.x) / stepX - 1e-9);
+    for (let k = k0, x = origin.x + k * stepX; x <= box.x1 + 1e-6 && xs.length < 2e3; k++, x = origin.x + k * stepX) xs.push(x);
+  }
+  if (stepY > 0) {
+    const k0 = Math.ceil((box.y0 - origin.y) / stepY - 1e-9);
+    for (let k = k0, y = origin.y + k * stepY; y <= box.y1 + 1e-6 && ys.length < 2e3; k++, y = origin.y + k * stepY) ys.push(y);
+  }
+  return { xs, ys };
+}
+
 // src/edit-guard.ts
 var MARK3 = "\0uw-run:";
 var EXTRAS = ["image", "textbox", "shape", "group", "ptab", "fieldResult", "field", "noteRef", "custom", "symFont", "formField", "inToc"];
@@ -13919,6 +14121,25 @@ var NOTE_TIP_LABELS = {
   en: { empty: "(empty note)" },
   pt: { empty: "(nota vazia)" }
 };
+function sectionColumns(sp, sec) {
+  const marL = sp.marginLeftTwips;
+  const contentW = Math.max(720, sp.pageWidthTwips - marL - sp.marginRightTwips);
+  const n = Math.max(1, sp.cols?.count ?? 1);
+  const defs = sec?.sect?.colDefs;
+  const out = [];
+  if (n > 1 && defs && defs.length >= n && sec?.sect?.equalWidth === false) {
+    let x = marL;
+    for (const d of defs.slice(0, n)) {
+      out.push({ x, w: d.w });
+      x += d.w + d.space;
+    }
+  } else if (n > 1) {
+    const space = sp.cols?.spaceTwips ?? 720;
+    const w = (contentW - space * (n - 1)) / n;
+    for (let k = 0; k < n; k++) out.push({ x: marL + k * (w + space), w });
+  } else out.push({ x: marL, w: contentW });
+  return out;
+}
 var STYLES = {
   "Ttulo1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
   "Heading1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
@@ -13998,6 +14219,10 @@ var trackApplyRunProps2 = (m, range, patch, rev) => {
   guardRuns(m, r.start.para, r.end.para, () => trackApplyRunProps(m, range, patch, rev));
 };
 var cssFamily = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var legacyTabs = (stops) => {
+  const out = (stops ?? []).flatMap((t) => t.align === "left" || t.align === "center" || t.align === "right" || t.align === "decimal" ? [{ posTwips: t.posTwips, align: t.align === "decimal" ? "right" : t.align, ...t.leader ? { leader: "dot" } : {} }] : []);
+  return out.length ? out : void 0;
+};
 function collapseCustomChars(line, para) {
   const cs = line.chars;
   if (!cs?.length) return;
@@ -14312,7 +14537,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-IDCJK4EQ.js");
+    const { setupChrome } = await import("./chunks/chrome-XDI6HFKR.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -14349,7 +14574,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-IDCJK4EQ.js").then((m) => {
+      void import("./chunks/chrome-XDI6HFKR.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -17419,6 +17644,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const settingsXml = np !== this.noteSettingsLoaded ? pkg.getPartText("word/settings.xml") : void 0;
     if (settingsXml) pkg.setPartText("word/settings.xml", patchSettingsNotes(settingsXml, { footnote: this.noteSettings.footnote ?? null, endnote: this.noteSettings.endnote ?? null }));
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
+    if (this.defaultTab !== null) writeDefaultTabStop(pkg, this.defaultTab);
     addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
   }
@@ -17759,6 +17985,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       s: ce ? ce.saved.selection : ne ? ne.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
+      // tabulação padrão (diálogo Tabulação)
+      dt: this.defaultTabStop(),
       // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
       ...deep ? {
         hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
@@ -17883,6 +18111,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     if (state.sv !== void 0 && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     if (state.np) this.noteSettings = state.np;
+    if (state.dt !== void 0 && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
     this.refresh();
   }
   /** deleteRange com ajuste de âncoras de tabela/seção. */
@@ -19070,7 +19299,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans(p, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts, {
         availableTwips: contentW,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : [
+        tabStops: legacyTabs(p.props.tabStops) ?? [
           { posTwips: contentW / 2, align: "center" },
           { posTwips: contentW, align: "right" }
         ]
@@ -19127,7 +19356,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans(p, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts, {
         availableTwips: width,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : [
+        tabStops: legacyTabs(p.props.tabStops) ?? [
           { posTwips: width / 2, align: "center" },
           { posTwips: width, align: "right" }
         ]
@@ -19441,7 +19670,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         firstLineAvailableTwips: availFirst,
         tabOriginOffsetTwips: indent,
         firstLineTabOriginOffsetTwips: indent + firstDelta,
-        tabStops: p.props.tabStops,
+        tabStops: legacyTabs(p.props.tabStops),
         indentFirstKLines: dropCap ? { k: dropK, indentTwips: dropIndent } : void 0
       });
       const spanCharStart = [];
@@ -19641,7 +19870,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans({ runs: p.runs, props: p.props }, { skipFloating: true });
       const { lines } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs
+        tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs
       });
       for (const line of lines) {
         const lineSize = Math.max(line.maxSizePt, spans[0]?.sizePt ?? 11);
@@ -19734,7 +19963,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const stColor = this.styleOf(p)?.color;
       const { lines } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs
+        tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs
       });
       this.drawHfFloats(ctx, scale, runs, originXTwips, y, widthTwips, pageIdx, color, sp, floatMode);
       const font = this.fonts.resolve(void 0, "regular");
@@ -20532,6 +20761,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.newFormatting = null;
     this.engMissing.clear();
     this.engFontsAttempted.clear();
+    this.defaultTab = null;
+    this.searchHits.clear();
+    this.searchList = [];
+    this.searchCurrent = -1;
   }
   /** Estado do CORPO — na edição de célula o modelo é o da célula. */
   bodyModel() {
@@ -21040,7 +21273,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   engineBase(pg, page, w, h, scale) {
     const sup = this.tbSnapshotSuppress;
     const hfMode = !!this.hfEdit;
-    const key = `${this.eng.version}.${this.eng.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}`;
+    const key = `${this.eng.version}.${this.eng.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}|${this.docGrid && !this.printRender ? 1 : 0}`;
     const hit = this.engPageCache.get(pg);
     if (hit && hit.key === key) return hit.canvas;
     const off = hit?.canvas ?? document.createElement("canvas");
@@ -21055,6 +21288,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     if (this.gridlines && !this.printRender && !this.hfCapturing && page.cells?.length) this.paintGridlines(ctx, page.cells, scale);
+    if (this.docGrid && !this.printRender && !this.hfCapturing) this.paintDocGrid(ctx, pg, scale);
     const env = this.enginePaintEnv();
     const n = page.items.length;
     const hf = Math.min(this.eng.hfItems[pg] ?? 0, n);
@@ -21125,6 +21359,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
         this.paintEngineSpelling(ctx, i);
+        this.paintSearchHits(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
         else if (hasSel) this.paintEngineSelection(ctx, i, sel);
         this.paintTableAdorners(ctx, i);
@@ -21468,6 +21703,592 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   tableGridlinesShown() {
     return this.gridlines;
+  }
+  // ───────────── navegação: régua, títulos, busca, miniaturas, grade ─────────────
+  // Regras puras em navigation.ts; fatos do Word em write/tools/nav-lab.
+  /** Régua: a geometria no cursor — página, margens e colunas da seção, quadro
+   *  do parágrafo (coluna, célula, cabeçalho/rodapé ou caixa), recuos e
+   *  tabulações efetivos e as divisas da tabela. null sem documento ou nas
+   *  visões sem régua (Leitura e Estrutura de Tópicos, como o Word). */
+  getRulerInfo() {
+    if (!this.model || this.view === "read" || this.view === "outline") return null;
+    const focus = this.selection.focus;
+    const line = this.lineOf(focus);
+    const pg = line?.page ?? 0;
+    const sec = this.eng ? this.sectionOfPage(pg) : void 0;
+    const sp = sec?.sectPr ?? this.sect();
+    const margins = { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips };
+    const p = this.model.paragraphs[focus.para];
+    const eng = line?.eng;
+    let columns = sectionColumns(sp, sec);
+    let frame;
+    let indents;
+    let tabs;
+    if (eng?.frame && eng.pfmt) {
+      frame = { x0: eng.x + eng.frame.l, x1: eng.x + eng.frame.r };
+      indents = { left: eng.pfmt.left, right: eng.pfmt.right, firstLine: eng.pfmt.firstLine };
+      tabs = eng.pfmt.tabs.map(tabInfo);
+    } else {
+      const x0 = this.view === "print" ? sp.marginLeftTwips : 600;
+      frame = { x0, x1: x0 + this.contentWidthTwips() };
+      if (this.view !== "print") columns = [{ x: frame.x0, w: frame.x1 - frame.x0 }];
+      const ppr = p ? this.effectivePPrOf(p) : {};
+      const ind = ppr.ind ?? {};
+      indents = { left: ind.left ?? 0, right: ind.right ?? 0, firstLine: ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0 };
+      tabs = (ppr.tabs ?? []).filter((t) => t.val !== "clear").map(tabInfo);
+    }
+    const where = this.hfEdit ? this.hfEdit.kind : this.tbEdit ? "textbox" : this.cellEdit ? "cell" : "body";
+    let table = null;
+    if (this.cellEdit && this.eng && !this.hfEdit && !this.tbEdit) {
+      const ce = this.cellEdit;
+      const last = ce.hops[ce.hops.length - 1];
+      const boxes = this.tableBoxes(ce.anchor, ce.hops.slice(0, -1)).filter((b) => b.pg === pg);
+      const inRow = boxes.filter((b) => b.r === last.r).sort((a, b) => a.box.x - b.box.x);
+      const cols = inRow.map((b) => ({ x: b.box.x, boundary: b.c }));
+      const end = inRow[inRow.length - 1];
+      if (end) cols.push({ x: end.box.x + end.box.w, boundary: end.c + end.box.span });
+      const rows = /* @__PURE__ */ new Map();
+      for (const b of boxes) {
+        const r = rows.get(b.r);
+        if (r) {
+          r.top = Math.min(r.top, b.box.y);
+          r.bottom = Math.max(r.bottom, b.box.y + b.box.h);
+        } else rows.set(b.r, { top: b.box.y, bottom: b.box.y + b.box.h, row: b.r });
+      }
+      table = { cols, rows: [...rows.values()].sort((a, b) => a.top - b.top), current: inRow.findIndex((b) => b.c === last.c) };
+    }
+    return {
+      page: pg,
+      pageWidthTwips: sp.pageWidthTwips,
+      pageHeightTwips: sp.pageHeightTwips,
+      margins,
+      columns,
+      frame,
+      indents,
+      tabs,
+      defaultTabTwips: this.defaultTabStop(),
+      where,
+      table,
+      lineTop: line?.yTwips ?? margins.top,
+      readOnly: this.locked() || this.isComparing()
+    };
+  }
+  isComparing() {
+    return this.classList.contains("uw-comparing");
+  }
+  effectivePPrOf(p) {
+    return effectivePPr(this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting(), p);
+  }
+  inheritedPPrOf(p) {
+    return inheritedPPr(this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting(), p);
+  }
+  /** Recuos efetivos do parágrafo do cursor (twips, a partir do quadro; o
+   *  estilo e a lista incluídos) — diálogo Parágrafo. */
+  getParagraphIndents() {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const ind = p ? this.effectivePPrOf(p).ind ?? {} : {};
+    return { left: ind.left ?? 0, right: ind.right ?? 0, firstLine: ind.hanging !== void 0 ? -ind.hanging : ind.firstLine ?? 0 };
+  }
+  /** Recuos dos parágrafos selecionados (twips, a partir do quadro): o que não
+   *  vier fica como está. Como a régua do Word: valor absoluto em todos os
+   *  parágrafos da seleção, gravando só o que difere do herdado (oráculo
+   *  nav-lab ind-*). Um passo de desfazer. */
+  setParagraphIndents(ind) {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    this.snapshot();
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      const eff = this.effectivePPrOf(p).ind ?? {};
+      const want = {
+        left: ind.left ?? eff.left ?? 0,
+        right: ind.right ?? eff.right ?? 0,
+        firstLine: ind.firstLine ?? (eff.hanging !== void 0 ? -eff.hanging : eff.firstLine ?? 0)
+      };
+      const d = indentsDirect(this.inheritedPPrOf(p).ind, want);
+      if (d.indentLeftTwips === p.props.indentLeftTwips && d.indentRightTwips === p.props.indentRightTwips && d.indentFirstLineTwips === p.props.indentFirstLineTwips) continue;
+      this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, d);
+    }
+    this.refresh();
+  }
+  /** Tabulações efetivas do parágrafo do cursor (as do estilo e da lista
+   *  incluídas, sem as limpas) e a tabulação padrão do documento. */
+  getTabStops() {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const tabs = p ? (this.effectivePPrOf(p).tabs ?? []).filter((t) => t.val !== "clear").map(tabInfo) : [];
+    return { tabs: dedupeTabs(tabs), defaultTabTwips: this.defaultTabStop() };
+  }
+  /** Define as tabulações EFETIVAS dos parágrafos selecionados (a régua e o
+   *  diálogo Tabulação montam a lista e chamam aqui). Grava o mínimo, como o
+   *  Word: `clear` para herdada que sumiu, nada para igual à herdada (oráculo
+   *  nav-lab tab-*). `only`: só mexe nestas posições (tabulação marcada/movida
+   *  com vários parágrafos de tabulações diferentes selecionados). */
+  setTabStops(tabs, only) {
+    if (!this.model || this.locked()) return;
+    const { start, end } = normalizeRange(this.range());
+    this.snapshot();
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      let want = [...tabs];
+      if (only) {
+        const cur = (this.effectivePPrOf(p).tabs ?? []).filter((t) => t.val !== "clear").map(tabInfo);
+        const rm = new Set((only.remove ?? []).map((x) => Math.round(x)));
+        want = [...cur.filter((t) => !rm.has(t.pos)), ...only.add ?? []];
+      }
+      const d = tabsDirect(this.inheritedPPrOf(p).tabs, want);
+      if (JSON.stringify(d ?? null) === JSON.stringify(p.props.tabStops ?? null)) continue;
+      this.applyPara({ start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } }, { tabStops: d });
+    }
+    this.refresh();
+  }
+  /** Tabulação padrão do documento (twips; w:defaultTabStop — 708 no documento novo). */
+  defaultTab = null;
+  defaultTabStop() {
+    return this.defaultTab ?? this.fullDoc?.formatting?.settings.defaultTabStop ?? this.newFormatting?.settings.defaultTabStop ?? 708;
+  }
+  getDefaultTabStop() {
+    return this.defaultTabStop();
+  }
+  /** Muda a tabulação padrão (diálogo Tabulação): relayout e w:defaultTabStop no settings ao salvar. */
+  setDefaultTabStop(twips) {
+    if (!this.model || this.locked()) return;
+    const v = Math.max(1, Math.round(twips));
+    if (v === this.defaultTabStop()) return;
+    this.snapshot();
+    this.applyDefaultTab(v);
+    this.refresh();
+  }
+  applyDefaultTab(v) {
+    this.defaultTab = v;
+    const set = (f) => f ? { ...f, settings: { ...f.settings, defaultTabStop: v } } : void 0;
+    if (this.fullDoc?.formatting) this.fullDoc.formatting = set(this.fullDoc.formatting);
+    if (this.newFormatting) this.newFormatting = set(this.newFormatting) ?? null;
+    this.engPageCache.clear();
+  }
+  /** Arrasta uma divisa de COLUNA da tabela do cursor (régua): `boundary` é a
+   *  fronteira da grade (0 = borda esquerda) e `deltaTwips` o deslocamento —
+   *  as duas colunas vizinhas trocam largura, como arrastar a borda. */
+  resizeTableColumn(boundary, deltaTwips) {
+    const ce = this.cellEdit;
+    if (!ce || this.locked()) return false;
+    return this.resizeTableEdge("col", ce.anchor, ce.hops.slice(0, -1), boundary, Math.round(deltaTwips));
+  }
+  /** Arrasta a base da LINHA `row` da tabela do cursor (régua vertical): altura mínima. */
+  resizeTableRow(row, deltaTwips) {
+    const ce = this.cellEdit;
+    if (!ce || this.locked()) return false;
+    return this.resizeTableEdge("row", ce.anchor, ce.hops.slice(0, -1), row, Math.round(deltaTwips));
+  }
+  /** Títulos do corpo (aba Títulos do Painel de Navegação): nível 1–9, texto
+   *  como o Word mostra (número da lista + texto, maiúsculas aplicadas), o
+   *  parágrafo e a página. Títulos em tabela, cabeçalho ou caixa não entram. */
+  getHeadings() {
+    const b = this.bodyState();
+    if (!b.model) return [];
+    const doc = this.eng && !this.hfEdit && !this.tbEdit && !this.cellEdit ? this.eng.doc : this.liveEngineDoc();
+    const pages = /* @__PURE__ */ new Map();
+    if (this.eng) {
+      for (const l of this.eng.lines) if (l.loc.kind === "body" && l.para && !pages.has(l.para)) pages.set(l.para, l.page);
+    }
+    return documentOutline(doc.full).flatMap((h) => {
+      const o = doc.origins[h.block];
+      if (o?.kind !== "para") return [];
+      const para = b.model.paragraphs[o.para];
+      return para ? [{ index: 0, level: h.level, text: h.text, para: o.para, page: pages.get(para) ?? -1 }] : [];
+    }).map((h, i) => ({ ...h, index: i }));
+  }
+  /** Índice (em getHeadings) do título da seção onde está o cursor; -1 antes do 1º. */
+  currentHeading(heads = this.getHeadings()) {
+    const para = this.navCaretPara();
+    let cur = -1;
+    for (const h of heads) {
+      if (h.para <= para) cur = h.index;
+      else break;
+    }
+    return cur;
+  }
+  /** Parágrafo do corpo onde está o cursor para a árvore de títulos (na célula: logo antes da
+   *  tabela; na nota: o de onde se entrou; no cabeçalho: nenhum). */
+  navCaretPara() {
+    if (this.noteEdit) return this.noteEdit.saved.selection.focus.para;
+    if (this.hfEdit || this.tbEdit) return -1;
+    if (this.cellEdit) return (this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0) - 0.5;
+    return this.selection.focus.para;
+  }
+  /** Sai de célula/cabeçalho/caixa para operar no corpo. */
+  toBody() {
+    if (!this.model) return false;
+    if (this.noteEdit) this.exitNote();
+    if (this.tbEdit) this.exitTextbox();
+    if (this.hfEdit) this.exitHeaderFooter();
+    if (this.cellEdit) this.exitCell();
+    return !!this.model;
+  }
+  /** Níveis de tópico dos parágrafos do corpo (0 = corpo do texto). */
+  bodyLevels(heads) {
+    const lv = new Array(this.model.paragraphs.length).fill(0);
+    for (const h of heads) lv[h.para] = h.level;
+    return lv;
+  }
+  /** Vai ao título: cursor no começo dele, rolado para o alto da janela (como o painel do Word). */
+  goToHeading(index) {
+    const h = this.getHeadings()[index];
+    if (!h || !this.toBody()) return;
+    this.goToBodyPara(h.para, 0, 0, true);
+  }
+  goToBodyPara(para, start, end, top) {
+    this.selection = { anchor: { para, offset: start }, focus: { para, offset: end } };
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.revealCaret(top);
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Rola até o cursor: no alto da área visível (abaixo das barras) ou só se estiver fora. */
+  revealCaret(top) {
+    if (!top) {
+      this.scrollCaretIntoView();
+      return;
+    }
+    const line = this.lineOf(this.selection.focus);
+    const canvas = line ? this.canvases[line.page] : void 0;
+    if (!line || !canvas) return;
+    const scale = PX_PER_TWIP * this.zoom;
+    const bar = this.topbarEl.offsetHeight + (this.shadowRoot?.querySelector(".uw-hruler")?.offsetHeight ?? 0);
+    cancelAnimationFrame(this.scrollAnim);
+    this.scrollTop = Math.max(0, canvas.offsetTop + line.yTwips * scale - bar - 12);
+  }
+  /** Arrasta a seção do título `index` (o título e o que vem até o próximo de
+   *  nível igual ou maior, tabelas incluídas) para antes do título `before`
+   *  (getHeadings().length = fim do documento). Um passo de desfazer. */
+  moveHeading(index, before) {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h) return false;
+    const n = this.model.paragraphs.length;
+    const [s, e] = headingSpan(this.bodyLevels(heads), h.para);
+    const t = before >= heads.length ? n : heads[before]?.para ?? n;
+    if (t >= s && t <= e) return false;
+    this.snapshot();
+    const map = moveMap(n, s, e, t);
+    const ps = this.model.paragraphs;
+    const next = new Array(n);
+    ps.forEach((p, i) => {
+      next[map[i]] = p;
+    });
+    ps.splice(0, n, ...next);
+    this.remapBodyParas(map, n);
+    this.goToBodyParaAfterEdit(map[s]);
+    return true;
+  }
+  /** Atualiza âncoras de tabela, flutuantes e indicadores com a nova ordem
+   *  `map[velho] = novo` (a tabela fica logo depois do parágrafo que a precedia). */
+  remapBodyParas(map, n) {
+    for (const a of this.tableAnchors) a.beforePara = a.beforePara <= 0 ? 0 : a.beforePara > n ? a.beforePara : map[a.beforePara - 1] + 1;
+    for (const f of this.floatImages) if (map[f.para] !== void 0) f.para = map[f.para];
+    for (const [k, v] of this.bookmarkParas) if (map[v] !== void 0) this.bookmarkParas.set(k, map[v]);
+    this.tableAnchors.sort((a, b) => a.beforePara - b.beforePara);
+  }
+  goToBodyParaAfterEdit(para) {
+    this.selection = { anchor: { para, offset: 0 }, focus: { para, offset: 0 } };
+    this.pendingProps = null;
+    this.refresh();
+    this.revealCaret(false);
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Promove (-1) ou rebaixa (+1) o título e os subtítulos dele (estilos Título 1–9). */
+  shiftHeading(index, delta) {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h || delta < 0 && h.level <= 1 || delta > 0 && h.level >= 9) return false;
+    const lv = this.bodyLevels(heads);
+    const [s, e] = headingSpan(lv, h.para);
+    const styles = this.listStyles("all");
+    const idFor = (n) => styles.find((st) => st.rawName.toLowerCase() === `heading ${n}`)?.id;
+    const keep = this.selection;
+    this.snapshot();
+    for (let pi = s; pi < e; pi++) {
+      if (!lv[pi]) continue;
+      const to = Math.max(1, Math.min(9, lv[pi] + delta));
+      const id = idFor(to);
+      if (!id) continue;
+      this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+      this.applyStyleCore(id);
+    }
+    this.selection = keep;
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  promoteHeading(index) {
+    return this.shiftHeading(index, -1);
+  }
+  demoteHeading(index) {
+    return this.shiftHeading(index, 1);
+  }
+  /** Novo Título Antes/Depois (mesmo nível) ou Novo Subtítulo (nível + 1, no fim
+   *  da seção): parágrafo vazio com o estilo Título N e o cursor nele. */
+  insertHeading(index, where) {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h) return false;
+    const [, e] = headingSpan(this.bodyLevels(heads), h.para);
+    const at = where === "before" ? h.para : e;
+    const level = Math.min(9, h.level + (where === "sub" ? 1 : 0));
+    const id = this.listStyles("all").find((st) => st.rawName.toLowerCase() === `heading ${level}`)?.id;
+    this.snapshot();
+    const p = { runs: [], props: id ? { styleId: id } : {} };
+    if (this.tracking) p.props.markIns = this.newRev();
+    if (id && this.stylesEditable()) this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), id, true));
+    this.model.paragraphs.splice(at, 0, p);
+    this.shiftAnchors(at, 1);
+    this.goToBodyParaAfterEdit(at);
+    return true;
+  }
+  /** Exclui o título e todo o conteúdo dele (tabelas incluídas). */
+  deleteHeading(index) {
+    if (!this.toBody() || this.locked()) return false;
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h) return false;
+    const n = this.model.paragraphs.length;
+    const [s, e] = headingSpan(this.bodyLevels(heads), h.para);
+    this.snapshot();
+    if (this.tracking) {
+      this.selection = { anchor: { para: s, offset: 0 }, focus: { para: e - 1, offset: paraLength(this.model.paragraphs[e - 1]) } };
+      this.deleteSelection();
+      this.refresh();
+      return true;
+    }
+    this.tableAnchors = this.tableAnchors.filter((a) => !(a.beforePara > s && a.beforePara <= e && (e < n || a.beforePara < e)));
+    const len2 = e - s;
+    this.model.paragraphs.splice(s, len2);
+    if (!this.model.paragraphs.length) this.model.paragraphs.push({ runs: [], props: {} });
+    for (const a of this.tableAnchors) if (a.beforePara > s) a.beforePara = Math.max(s, a.beforePara - len2);
+    this.floatImages = this.floatImages.filter((f) => f.para < s || f.para >= e);
+    for (const f of this.floatImages) if (f.para >= e) f.para -= len2;
+    for (const [k, v] of this.bookmarkParas) if (v >= e) this.bookmarkParas.set(k, v - len2);
+    else if (v >= s) this.bookmarkParas.set(k, s);
+    this.goToBodyParaAfterEdit(Math.min(s, this.model.paragraphs.length - 1));
+    return true;
+  }
+  /** Seleciona o título e o conteúdo dele. */
+  selectHeading(index) {
+    const heads = this.getHeadings();
+    const h = heads[index];
+    if (!h || !this.toBody()) return;
+    const [s, e] = headingSpan(this.bodyLevels(heads), h.para);
+    const last = this.model.paragraphs[e - 1];
+    this.selection = { anchor: { para: s, offset: 0 }, focus: { para: e - 1, offset: paraLength(last) } };
+    this.refreshSelection();
+    this.revealCaret(false);
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  // ── busca do Painel de Navegação (Resultados) ──
+  searchHits = /* @__PURE__ */ new Map();
+  searchList = [];
+  searchCurrent = -1;
+  /** Procura no corpo e nas tabelas (a busca do Painel de Navegação): devolve
+   *  as ocorrências com o trecho em volta, a página e o título da seção, e
+   *  realça todas na tela (adorno, fora do PDF). Texto vazio limpa. */
+  search(text, opts = {}) {
+    this.searchHits.clear();
+    this.searchList = [];
+    this.searchCurrent = -1;
+    const b = this.bodyState();
+    if (!text || !b.model) {
+      this.paint();
+      return [];
+    }
+    const heads = this.getHeadings();
+    const pageOf = (p, off) => {
+      if (!this.eng) return -1;
+      let best = -1;
+      for (const l of this.eng.lines) if (l.para === p && l.line.start <= off) best = l.page;
+      return best;
+    };
+    const add = (p, loc, bodyPara) => {
+      const full = paraText(p);
+      for (const s of findInText(full, text, opts)) {
+        const e = s + text.length;
+        if (this.overlapsDeleted(p, s, e)) continue;
+        const sn = matchSnippet(full, s, e);
+        let heading = -1;
+        for (const h of heads) {
+          if (h.para <= bodyPara) heading = h.index;
+          else break;
+        }
+        this.searchList.push({ index: this.searchList.length, start: s, end: e, ...sn, page: pageOf(p, s), heading, inTable: loc.kind === "cell", para: p, loc });
+        const l = this.searchHits.get(p) ?? [];
+        l.push([s, e]);
+        this.searchHits.set(p, l);
+      }
+    };
+    const cells = (t, anchor, path, bodyPara) => {
+      t.rows.forEach((row, r) => {
+        let c = row.trPr?.gridBefore ?? 0;
+        for (const cell of row.cells) {
+          const hops = [...path, { r, c }];
+          cell.paragraphs.forEach((p, k) => add(p, { kind: "cell", anchor, hops, para: k }, bodyPara));
+          const bl = cell.blocks ?? [];
+          bl.forEach((blk, bi) => {
+            if (blk.type === "table") cells(blk, anchor, [...path, { r, c, b: bi }], bodyPara);
+          });
+          c += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+        }
+      });
+    };
+    const ps = b.model.paragraphs;
+    for (let i = 0; i <= ps.length; i++) {
+      b.tableAnchors.forEach((a, ai) => {
+        if (a.beforePara === i) cells(a.table, ai, [], i - 0.5);
+      });
+      if (i < ps.length) add(ps[i], { kind: "body", para: i }, i);
+    }
+    this.searchShow = opts.highlight !== false;
+    this.paint();
+    return this.searchList.map(({ para: _p, loc: _l, ...r }) => r);
+  }
+  searchShow = true;
+  overlapsDeleted(p, s, e) {
+    let at = 0;
+    for (const r of p.runs) {
+      const a = at, z = at + r.text.length;
+      at = z;
+      if (r.props.del && a < e && z > s) return true;
+    }
+    return false;
+  }
+  /** Limpa a busca (e o realce). */
+  clearSearch() {
+    this.search("");
+  }
+  /** Seleciona a ocorrência `index` da última busca (entra na célula se preciso) e rola até ela. */
+  goToSearchResult(index) {
+    const m = this.searchList[index];
+    if (!m) return false;
+    this.searchCurrent = index;
+    if (m.loc.kind === "body") {
+      if (!this.toBody()) return false;
+      this.goToBodyPara(m.loc.para, m.start, m.end, false);
+      return true;
+    }
+    if (this.hfEdit || this.tbEdit || this.noteEdit) this.toBody();
+    if (!this.enterCell(m.loc.anchor, m.loc.hops, { para: m.loc.para, offset: m.start })) return false;
+    this.selection = { anchor: { para: m.loc.para, offset: m.start }, focus: { para: m.loc.para, offset: m.end } };
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Realce das ocorrências da busca (adorno de tela, como o "Realçar tudo" do Word). */
+  paintSearchHits(ctx, pg) {
+    if (!this.searchShow || !this.searchHits.size || !this.eng) return;
+    ctx.save();
+    ctx.fillStyle = this.pageDark ? "rgba(255, 213, 0, 0.45)" : "rgba(255, 230, 0, 0.6)";
+    ctx.globalCompositeOperation = this.pageDark ? "screen" : "multiply";
+    for (const l of this.eng.lines) {
+      if (l.page !== pg || !l.para) continue;
+      const hits = this.searchHits.get(l.para);
+      if (!hits) continue;
+      for (const [s, e] of hits) {
+        if (e <= l.line.start || s >= l.line.end) continue;
+        const cs = (l.line.chars ?? []).filter((c) => c.o >= s && c.o < e);
+        if (!cs.length) continue;
+        const x0 = Math.min(...cs.map((c) => c.x)), x1 = Math.max(...cs.map((c) => c.x + c.w));
+        ctx.fillRect(x0, l.line.y, x1 - x0, l.line.height);
+      }
+    }
+    ctx.restore();
+  }
+  /** Desenha a página `page` do layout de impressão num canvas (miniatura da aba
+   *  Páginas), com `cssWidth` px de largura. false fora do layout de impressão. */
+  paintPageThumbnail(page, canvas, cssWidth) {
+    const p = this.eng?.result.pages[page];
+    if (!p) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / p.widthTw;
+    const w = Math.max(1, Math.round(p.widthTw * scale * dpr)), h = Math.max(1, Math.round(p.heightTw * scale * dpr));
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = `${Math.round(p.widthTw * scale)}px`;
+    canvas.style.height = `${Math.round(p.heightTw * scale)}px`;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = p.background ? `#${p.background}` : this.pageDark ? "#1e1e1e" : "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    paintItems(ctx, p.items, this.enginePaintEnv(), {});
+    return true;
+  }
+  /** Número de páginas do layout de impressão (0 nas outras visões). */
+  layoutPageCount() {
+    return this.eng?.result.pages.length ?? 0;
+  }
+  /** Vai para a página `page` (índice 0): o topo dela no alto da área visível. */
+  goToPage(page) {
+    const c = this.canvases[page];
+    if (!c) return;
+    const bar = this.topbarEl.offsetHeight + (this.shadowRoot?.querySelector(".uw-hruler")?.offsetHeight ?? 0);
+    cancelAnimationFrame(this.scrollAnim);
+    this.scrollTop = Math.max(0, c.offsetTop - bar - 8);
+    const first = this.eng?.lines.find((l) => l.page === page && l.loc.kind === "body");
+    if (first && first.loc.kind === "body" && !this.hfEdit && !this.tbEdit) {
+      if (this.cellEdit) this.exitCell();
+      this.selection = { anchor: { para: first.loc.para, offset: first.line.start }, focus: { para: first.loc.para, offset: first.line.start } };
+      this.refreshSelection();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+    }
+  }
+  // ── Linhas de Grade (Exibir > Mostrar): a grade de desenho do documento, só na tela ──
+  docGrid = false;
+  /** Mostra a grade do documento (Exibir > Linhas de Grade). Não vai para o arquivo. */
+  showGridlines(on) {
+    if (this.docGrid === on) return;
+    this.docGrid = on;
+    this.paint();
+    this.chromeSync?.();
+  }
+  gridlinesShown() {
+    return this.docGrid;
+  }
+  gridCache = null;
+  paintDocGrid(ctx, pg, scale) {
+    if (!this.docGrid || !this.eng) return;
+    const page = this.eng.result.pages[pg];
+    const sp = this.sectionOfPage(pg)?.sectPr;
+    if (!page || !sp) return;
+    const xml = this.pkg?.getPartText("word/settings.xml");
+    if (!this.gridCache || this.gridCache.xml !== xml) this.gridCache = { xml, grid: drawingGridOf(xml) };
+    const g = this.gridCache.grid;
+    const box = { x0: sp.marginLeftTwips, y0: sp.marginTopTwips, x1: page.widthTw - sp.marginRightTwips, y1: page.heightTw - sp.marginBottomTwips };
+    const origin = g.fromMargins ? { x: box.x0, y: box.y0 } : { x: g.originX, y: g.originY };
+    const { xs, ys } = gridLines(g, box, origin);
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.14)";
+    ctx.lineWidth = 1 / scale;
+    ctx.beginPath();
+    for (const x of xs) {
+      ctx.moveTo(x, box.y0);
+      ctx.lineTo(x, box.y1);
+    }
+    for (const y of ys) {
+      ctx.moveTo(box.x0, y);
+      ctx.lineTo(box.x1, y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
   paintTableSel(ctx, pg) {
     const ts = this.tableSel;
@@ -23618,35 +24439,34 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
   }
-  finishTableDrag(d, ev) {
-    const dx = Math.round(d.x - d.sx), dy = Math.round(d.y - d.sy);
-    if (d.kind === "col") {
-      if (Math.abs(dx) < 2) {
-        this.paint();
-        return;
-      }
-      this.editTableAt(d.anchor, d.path, (t) => {
-        const g = t.gridColsTwips, b = d.boundary;
+  /** Divisa de coluna (fronteira `boundary` da grade) ou base da linha `boundary`
+   *  andando `delta` twips — a borda arrastada no documento ou na régua: as duas
+   *  colunas vizinhas trocam largura (a última alarga a tabela; a borda esquerda
+   *  mexe no recuo); a linha ganha altura mínima. false = deslocamento nulo. */
+  resizeTableEdge(kind, anchor, path, boundary, delta) {
+    if (Math.abs(delta) < 2) return false;
+    if (kind === "col") {
+      return this.editTableAt(anchor, [...path], (t) => {
+        const g = t.gridColsTwips, b = boundary;
         if (b > 0 && b < g.length) {
-          const l = g[b - 1] + dx, r = g[b] - dx;
+          const l = g[b - 1] + delta, r = g[b] - delta;
           table_ops_exports.setColumnWidth(t, b - 1, b - 1, l);
           table_ops_exports.setColumnWidth(t, b, b, r);
-        } else if (b === g.length) table_ops_exports.setColumnWidth(t, b - 1, b - 1, g[b - 1] + dx);
+        } else if (b === g.length) table_ops_exports.setColumnWidth(t, b - 1, b - 1, g[b - 1] + delta);
         else {
           const ind = t.tblPr?.tblInd?.type === "dxa" ? t.tblPr.tblInd.w : 0;
-          table_ops_exports.setTableProps(t, { tblInd: ind + dx ? { w: ind + dx, type: "dxa" } : void 0 });
-          table_ops_exports.setColumnWidth(t, 0, 0, g[0] - dx);
+          table_ops_exports.setTableProps(t, { tblInd: ind + delta ? { w: ind + delta, type: "dxa" } : void 0 });
+          table_ops_exports.setColumnWidth(t, 0, 0, g[0] - delta);
         }
       });
-      return;
     }
-    if (d.kind === "row") {
-      if (Math.abs(dy) < 2) {
-        this.paint();
-        return;
-      }
-      const h = this.rowHeights(d.anchor, d.path, d.boundary, d.boundary)[0] ?? 0;
-      this.editTableAt(d.anchor, d.path, (t) => table_ops_exports.setRowHeight(t, d.boundary, d.boundary, Math.max(100, Math.round(h + dy)), "atLeast"));
+    const h = this.rowHeights(anchor, path, boundary, boundary)[0] ?? 0;
+    return this.editTableAt(anchor, [...path], (t) => table_ops_exports.setRowHeight(t, boundary, boundary, Math.max(100, Math.round(h + delta)), "atLeast"));
+  }
+  finishTableDrag(d, ev) {
+    const dx = Math.round(d.x - d.sx), dy = Math.round(d.y - d.sy);
+    if (d.kind === "col" || d.kind === "row") {
+      if (!this.resizeTableEdge(d.kind, d.anchor, d.path, d.boundary, d.kind === "col" ? dx : dy)) this.paint();
       return;
     }
     if (d.kind === "move") {
@@ -25722,7 +26542,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const spans = this.buildSpans({ runs, props: p.props }, { skipFloating: true });
       const { lines, charAdvances } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
-        tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs
+        tabStops: legacyTabs(p.props.tabStops) ?? defaultTabs
       });
       const spanStart = [];
       let acc = 0;
@@ -26089,7 +26909,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-AZKKFYTW.js");
+  const { appFor } = await import("./chunks/chrome-app-MIIDGLHY.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

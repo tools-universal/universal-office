@@ -3088,13 +3088,12 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
-  if (ppr.tabs) {
-    const stops = ppr.tabs.filter((t) => t.pos > 0 && t.val !== "clear" && t.val !== "bar").map((t) => ({
+  if (ppr.tabs?.length) {
+    props.tabStops = ppr.tabs.map((t) => ({
       posTwips: t.pos,
-      align: t.val === "right" ? "right" : "left",
-      leader: t.leader === "dot" ? "dot" : void 0
+      align: t.val,
+      ...t.leader && t.leader !== "none" ? { leader: t.leader } : {}
     }));
-    if (stops.length) props.tabStops = stops;
   }
   if (ppr.pBdr) {
     props.boxBorder = true;
@@ -20381,7 +20380,7 @@ var Engine = class {
           const put = (l) => {
             paintLine(this.ctx, items, l, x2, y);
             this.paintInlineDrawings(items, l, x2, y, ps);
-            lines.push(lineRecord(`${ref}/b${bi}`, p, l, x2, y));
+            lines.push(lineRecord(`${ref}/b${bi}`, p, l, x2, y, width));
             lh = Math.max(lh, l.height);
           };
           put(line);
@@ -20836,7 +20835,7 @@ var Engine = class {
         if (this.cur.geom.lnNum && !p.ppr.suppressLineNumbers) this.paintLineNumber(f.frameX, f.y + f.line.baseline);
         paintLine(this.ctx, this.cur.body, f.line, f.frameX, f.y);
         this.paintInlineDrawings(this.cur.body, f.line, f.frameX, f.y, this.cur);
-        this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y));
+        this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y, this.colFrame().w));
       }
       const last = frag[frag.length - 1];
       let bottom = last.y + last.line.height;
@@ -22386,7 +22385,13 @@ function alignPos(align, offset, base, span, size, pct, pageSpan, e0 = 0, e1 = 0
   if (pct !== void 0) return base + pct / 1e5 * pageSpan;
   return base + (offset ?? 0);
 }
-function lineRecord(ref, p, line, frameX, top) {
+var PFMT = /* @__PURE__ */ new WeakMap();
+var pfmtOf = (p) => {
+  let f = PFMT.get(p);
+  if (!f) PFMT.set(p, f = { left: p.indLeft, right: p.indRight, firstLine: p.firstLine, tabs: p.tabs });
+  return f;
+};
+function lineRecord(ref, p, line, frameX, top, frameW) {
   const gs = p.glyphs;
   const first = gs[line.start];
   const lastG = gs[Math.max(line.start, line.end - 1)];
@@ -22396,17 +22401,20 @@ function lineRecord(ref, p, line, frameX, top) {
   const rb = p.revBars;
   const firstLine = line.start === 0, lastLine = line.end >= gs.length;
   const rev2 = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a, b, hidden]) => hidden ? a <= end && b >= start : a < end && b > start));
+  const x2 = frameX + line.xStart;
   return {
     ref,
     start,
     end,
-    x: frameX + line.xStart,
+    x: x2,
     y: top,
     height: line.height,
     baseline: top + line.baseline,
     width: line.width,
     chars,
-    ...rev2 ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}
+    ...rev2 ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {},
+    // régua do editor: o quadro (relativo a x) e os recuos/tabulações efetivos
+    ...frameW !== void 0 ? { frame: { l: frameX - x2, r: frameX + frameW - x2 }, pfmt: pfmtOf(p) } : {}
   };
 }
 function revisionBarItems(lines, x2, color) {

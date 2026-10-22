@@ -2806,13 +2806,12 @@ function paraPropsFromPPr(ppr) {
     if (ppr.spacing.before !== void 0) props.spaceBeforeTwips = ppr.spacing.before;
   }
   if (ppr.shd?.fill && ppr.shd.fill !== "auto") props.shadingHex = ppr.shd.fill;
-  if (ppr.tabs) {
-    const stops = ppr.tabs.filter((t) => t.pos > 0 && t.val !== "clear" && t.val !== "bar").map((t) => ({
+  if (ppr.tabs?.length) {
+    props.tabStops = ppr.tabs.map((t) => ({
       posTwips: t.pos,
-      align: t.val === "right" ? "right" : "left",
-      leader: t.leader === "dot" ? "dot" : void 0
+      align: t.val,
+      ...t.leader && t.leader !== "none" ? { leader: t.leader } : {}
     }));
-    if (stops.length) props.tabStops = stops;
   }
   if (ppr.pBdr) {
     props.boxBorder = true;
