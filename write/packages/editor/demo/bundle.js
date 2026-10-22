@@ -9,13 +9,14 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-CM2EVFAB.js";
+} from "./chunks/chunk-RJ6W7YOR.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
   DEFAULT_RUN_PROPS,
   DocxPackage,
   SORT_MERGED_ERROR,
+  acceptRevisions,
   addStylesXml,
   applyParaProps,
   applyRunProps,
@@ -28,6 +29,7 @@ import {
   clearPara,
   clearParaFormatting,
   clearRunFormatting,
+  collectRevisions,
   columnWidths,
   columnsFor,
   columnsPresetOf,
@@ -39,6 +41,8 @@ import {
   dropStyle,
   editBaseProps,
   ensureTableStyle,
+  finalBlocks,
+  finalParagraphs,
   formulaInstr,
   formulaResultText,
   hasParaChanges,
@@ -51,12 +55,15 @@ import {
   markSectionBreaks,
   maxColumns,
   mergeWithPrevious,
+  newRevision,
   newStyleXml,
   normalizeRange,
   onBrowserLangChange,
+  paraFormatting,
   paraLength,
   paraPropsFromPPr,
   paraText,
+  paragraphHasRevisions,
   parseSortDate,
   parseSortNumber,
   patchStylePPr,
@@ -71,6 +78,10 @@ import {
   readStyleIndex,
   readStyleSheet,
   readStylesXml,
+  readTrackRevisions,
+  rejectRevisions,
+  revisionAt,
+  revisionAuthors,
   runPropsFromRPr,
   sectionIndexAt,
   sectionRanges,
@@ -79,6 +90,7 @@ import {
   setOrientation,
   sortParagraphsOrder,
   sortTable,
+  spanScope,
   splitParagraph,
   styleIdByName,
   styleIdFromName,
@@ -86,15 +98,38 @@ import {
   styleRaw,
   table_ops_exports,
   themeHex,
+  trackApplyParaProps,
+  trackApplyRunProps,
+  trackDelete,
+  trackInsertRun,
+  trackInsertText,
+  trackSplitParagraph,
   uiLang,
   unzlibSync,
+  withoutRevisions,
   writeDocument,
   zipSync,
   zlibSync
-} from "./chunks/chunk-7Y5VBLLD.js";
+} from "./chunks/chunk-IP6LSAL6.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
+function finalExportDoc(doc) {
+  const { paras, index } = finalParagraphs(doc.paragraphs);
+  const notes = (m) => m && new Map([...m].map(([k, v]) => [k, finalParagraphs(v).paras]));
+  return {
+    ...doc,
+    paragraphs: paras,
+    ...doc.tableAnchors ? {
+      tableAnchors: doc.tableAnchors.map((a) => ({
+        beforePara: a.beforePara < doc.paragraphs.length ? index[a.beforePara] : paras.length,
+        table: finalBlocks([a.table])[0]
+      }))
+    } : {},
+    ...doc.footnotes ? { footnotes: notes(doc.footnotes) } : {},
+    ...doc.endnotes ? { endnotes: notes(doc.endnotes) } : {}
+  };
+}
 function orderedBlocks(doc) {
   const out = [];
   const byPara = /* @__PURE__ */ new Map();
@@ -358,6 +393,7 @@ sup.uw-note a { text-decoration: none; }
 hr { border: none; border-top: 1px solid #ccc; margin: 2rem 0 .5rem; }
 `;
 function toHtml(doc, opts = {}) {
+  doc = finalExportDoc(doc);
   const ctx = {
     comments: new Map((doc.comments ?? []).map((c) => [c.id, c])),
     usedComments: /* @__PURE__ */ new Set(),
@@ -452,6 +488,7 @@ function tableMd(t, ctx) {
   return md;
 }
 function toMarkdown(doc, opts = {}) {
+  doc = finalExportDoc(doc);
   const ctx = {
     comments: new Map((doc.comments ?? []).map((c) => [c.id, c])),
     footnotes: doc.footnotes ?? /* @__PURE__ */ new Map(),
@@ -760,9 +797,9 @@ function applyLigatures(g, gids, feats) {
         next.push(out[i]);
         continue;
       }
-      let len = out[i].len;
-      for (let k = 0; k < hit.rest.length; k++) len += out[i + 1 + k].len;
-      next.push({ gid: hit.lig, len });
+      let len2 = out[i].len;
+      for (let k = 0; k < hit.rest.length; k++) len2 += out[i + 1 + k].len;
+      next.push({ gid: hit.lig, len: len2 });
       i += hit.rest.length;
     }
     out = next;
@@ -2999,6 +3036,137 @@ var NumberingState = class _NumberingState {
   }
 };
 
+// ../docx-layout/src/revisions.ts
+var AUTHOR_PALETTE = [
+  "D13438",
+  "0078D4",
+  "5C2E91",
+  "498205",
+  "CC3595",
+  "7160E8",
+  "038387",
+  "6D5700",
+  "CF0F1F",
+  "4E6AED",
+  "B146C2",
+  "394146",
+  "0B6A0B",
+  "CA5010",
+  "750B1C",
+  "5D5A58",
+  "881798",
+  "69797E",
+  "005B70",
+  "8E562E"
+];
+var MOVE_COLOR = "2C6234";
+var BAR_COLOR = "000000";
+var SIMPLE_BAR_COLOR = "C00000";
+var BAR_WIDTH = 14.4;
+function authorColor(order, author) {
+  const i = order.indexOf(author);
+  return AUTHOR_PALETTE[(i < 0 ? order.length : i) % AUTHOR_PALETTE.length];
+}
+function barX(marginLeft) {
+  return Math.max(268.8, marginLeft >= 1440 ? marginLeft - 720 : marginLeft / 2);
+}
+var RevisionDisplay = class {
+  mode;
+  insDel;
+  fmt;
+  authors;
+  order;
+  colors;
+  constructor(view, docOrder) {
+    this.mode = view?.mode ?? "final";
+    this.insDel = view?.insDel ?? true;
+    this.fmt = view?.formatting ?? true;
+    this.authors = view?.authors ? new Set(view.authors) : null;
+    this.order = [...view?.order ?? docOrder];
+    this.colors = view?.colors ?? {};
+  }
+  /** A marcação desta revisão aparece (modo 'all'/'simple', tipo e autor ligados)? */
+  shown(r, kind) {
+    if (!r) return false;
+    if (kind === "insDel" ? !this.insDel : !this.fmt) return false;
+    return !this.authors || this.authors.has(r.author);
+  }
+  color(author) {
+    return this.colors[author] ?? authorColor(this.order, author);
+  }
+  /** O run aparece? Marcado? (texto inserido/excluído) */
+  run(run) {
+    const { ins, del } = run.props;
+    if (!ins && !del) return null;
+    if (this.mode === "original") return ins ? "hide" : null;
+    const marks = this.mode === "all";
+    if (del) {
+      if (!marks || !this.shown(del, "insDel")) return "hide";
+      return { color: del.move ? MOVE_COLOR : this.color(del.author), kind: "del", move: !!del.move };
+    }
+    if (!marks || !this.shown(ins, "insDel")) return null;
+    return { color: ins.move ? MOVE_COLOR : this.color(ins.author), kind: "ins", move: !!ins.move };
+  }
+  /** rPr direto a desenhar: no modo Original, o de antes da formatação controlada. */
+  directRPr(run) {
+    const f = run.props.fmt;
+    if (this.mode !== "original" || !f) return directRPr(run);
+    const c = run.rpr?.change;
+    if (c && c.author === f.author && c.date === f.date && JSON.stringify(runPropsFromRPr(c.rPr)) === JSON.stringify(f.old)) return { ...c.rPr };
+    const p = run.props;
+    return directRPr({ ...run, props: { ...f.old, ...p.src !== void 0 ? { src: p.src } : {}, ...p.link ? { link: p.link } : {} } });
+  }
+  /** Parágrafo a diagramar: no modo Original, com a formatação de antes. */
+  paragraph(para) {
+    const f = para.props.pfmt;
+    if (this.mode !== "original" || !f) return para;
+    const c = para.ppr?.change;
+    const meta = { ...para.props.src !== void 0 ? { src: para.props.src } : {}, ...para.props.sectionBreak ? { sectionBreak: para.props.sectionBreak } : {} };
+    if (c && c.author === f.author && c.date === f.date && JSON.stringify(paraPropsFromPPr(c.pPr)) === JSON.stringify(f.old)) {
+      const ppr = { ...c.pPr, ...para.ppr?.rPr ? { rPr: para.ppr.rPr } : {} };
+      return { ...para, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
+    }
+    return { ...para, ppr: directPPr({ ...para, props: { ...f.old, ...meta } }), props: { ...f.old, ...meta } };
+  }
+  /** A marca deste parágrafo some (o texto vai para o seguinte) nesta visão? */
+  markGone(para) {
+    const { markDel, markIns } = para.props;
+    if (this.mode === "original") return !!markIns;
+    if (!markDel) return false;
+    return this.mode !== "all" || !this.shown(markDel, "insDel");
+  }
+  /** A revisão pede barra nesta visão? (texto, formatação, marca) */
+  barFor(r, kind) {
+    if (!r || this.mode !== "all" && this.mode !== "simple") return false;
+    if (this.mode === "simple") return kind === "fmt" ? this.fmt : this.insDel;
+    return this.shown(r, kind);
+  }
+  /** Cor das barras (null = sem barras). */
+  barColor() {
+    return this.mode === "all" ? BAR_COLOR : this.mode === "simple" ? SIMPLE_BAR_COLOR : null;
+  }
+};
+var REV_JOINS = /* @__PURE__ */ Symbol("rev-joins");
+function joinDeleted(carried, next) {
+  const out = { ...next, runs: [...carried, ...next.runs] };
+  out[REV_JOINS] = [carried.reduce((n, r) => n + r.text.length, 0)];
+  return out;
+}
+function revisionRanges(rd, para) {
+  if (!rd.barColor()) return null;
+  const ranges = [];
+  let acc = 0;
+  for (const r of para.runs) {
+    const rs = acc;
+    acc += r.text.length;
+    if (rd.barFor(r.props.ins, "insDel") || rd.barFor(r.props.del, "insDel") || rd.barFor(r.props.fmt, "fmt")) ranges.push([rs, acc, rd.run(r) === "hide"]);
+  }
+  if (rd.mode === "simple") for (const k of para[REV_JOINS] ?? []) ranges.push([k, k, true]);
+  const whole = rd.barFor(para.props.pfmt, "fmt");
+  const mark = rd.barFor(para.props.markIns, "insDel") || rd.barFor(para.props.markDel, "insDel");
+  return ranges.length || whole || mark ? { ranges, whole, mark } : null;
+}
+
 // ../docx-layout/src/context.ts
 var DocContext = class {
   constructor(fmt2, provider, opts = {}) {
@@ -3008,6 +3176,7 @@ var DocContext = class {
     this.faces = new FaceResolver(provider, fmt2.fontTable, void 0, fontOfSlot(ddFonts, "ascii", fmt2.theme) ?? fmt2.theme.minor.latin);
     this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {} };
     this.numbering = new NumberingState(fmt2.numbering, fmt2.styles.styles, this.opts.lang);
+    this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
   fmt;
   resolver;
@@ -3015,6 +3184,8 @@ var DocContext = class {
   numbering;
   warnings = /* @__PURE__ */ new Set();
   opts;
+  /** como as revisões aparecem (modo, filtros, cores) */
+  rev;
   warn(msg) {
     this.warnings.add(msg);
   }
@@ -3975,16 +4146,18 @@ function resolvePPr(ctx, para, env) {
   ppr.numPr = numPr;
   return { ppr, styleId, styleRPr: st.rPr };
 }
-function paraVisibility(ctx, para, env) {
+function paraVisibility(ctx, para0, env) {
+  const para = ctx.rev.paragraph(para0);
   const { ppr, styleRPr } = resolvePPr(ctx, para, env);
   const dd = ctx.resolver.docDefaults;
   const runRPr = (rpr) => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(para, env).some(({ run }) => !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === "checkBox" || run.custom || run.ptab || run.noteRef) && !hidden(runRPr(directRPr(run))));
+  const visible = displayRuns(para, env).some(({ run }) => !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === "checkBox" || run.custom || run.ptab || run.noteRef) && ctx.rev.run(run) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run))));
   return { markHidden, visible };
 }
-function prepareParagraph(ctx, para, env0) {
+function prepareParagraph(ctx, para0, env0) {
+  const para = ctx.rev.paragraph(para0);
   const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
   const shd = ppr.shd;
   const paraFill = shadingFill(shd, ctx.fmt.theme);
@@ -4129,11 +4302,22 @@ function prepareParagraph(ctx, para, env0) {
     flushSeg();
   };
   for (const { run, idx, offset } of displayRuns(para, env)) {
-    const direct = directRPr(run);
+    const rev = ctx.rev.run(run);
+    if (rev === "hide") continue;
+    const direct = ctx.rev.directRPr(run);
     if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
     const style = resolveRunStyle(ctx, rpr, env, run.props.link);
     if (style.hidden) continue;
+    if (rev) {
+      style.color = rev.color;
+      style.autoColor = false;
+      if (rev.kind === "ins") style.underline = { val: rev.move ? "double" : "single" };
+      else {
+        style.strike = !rev.move;
+        style.dstrike = rev.move;
+      }
+    }
     if (run.image || run.shape || run.group || run.textbox) {
       const floating = run.image?.floating ?? run.shape?.floating ?? run.group?.floating ?? run.textbox?.floating;
       const face = faceFor(ctx, rpr, 32, style);
@@ -4319,6 +4503,7 @@ function prepareParagraph(ctx, para, env0) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
   }
+  const revBars = revisionRanges(ctx.rev, para);
   return {
     para,
     ppr,
@@ -4327,6 +4512,7 @@ function prepareParagraph(ctx, para, env0) {
     markFace,
     glyphs,
     marker,
+    ...revBars ? { revBars } : {},
     indLeft: ind.left ?? 0,
     indRight: ind.right ?? 0,
     firstLine,
@@ -4526,7 +4712,7 @@ var LineBreaker = class {
     let hyphAt = -1, hyphW = 0, endedHyphen = false;
     const closePending = () => {
       if (!pendTab) return;
-      const pt = placed[pendTab.idx];
+      const pt2 = placed[pendTab.idx];
       const segW = x - pendTab.segStart;
       let shift = 0;
       const avail2 = pendTab.pos - pendTab.startX;
@@ -4536,7 +4722,7 @@ var LineBreaker = class {
         const dx2 = pendTab.decimalSeen ? pendTab.decimalX - pendTab.segStart : segW;
         shift = Math.max(0, avail2 - dx2);
       }
-      pt.w = shift;
+      pt2.w = shift;
       for (let k = pendTab.idx + 1; k < placed.length; k++) placed[k].x += shift;
       x += shift;
       if (contentEnd > pendTab.segStart) contentEnd += shift;
@@ -5591,8 +5777,8 @@ var EmfPlusPlayer = class {
           const id = flags & 255, srcUnit = dv.getInt32(d + 4, true);
           const src = [f32(d + 8), f32(d + 12), f32(d + 16), f32(d + 20)];
           if (flags & 2048) break;
-          const pt = (k) => flags & 16384 ? [dv.getInt16(d + 28 + k * 4, true), dv.getInt16(d + 30 + k * 4, true)] : [f32(d + 28 + k * 8), f32(d + 32 + k * 8)];
-          this.draw(id, srcUnit, src, pt(0), pt(1), pt(2));
+          const pt2 = (k) => flags & 16384 ? [dv.getInt16(d + 28 + k * 4, true), dv.getInt16(d + 30 + k * 4, true)] : [f32(d + 28 + k * 8), f32(d + 32 + k * 8)];
+          this.draw(id, srcUnit, src, pt2(0), pt2(1), pt2(2));
           break;
         }
         case 16426:
@@ -6183,13 +6369,13 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
 }
 function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
   const h = Math.max(60, w * 3), period = h * 2, lw = Math.max(0.5, w / 20 / 1.5);
-  const len = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+  const len2 = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
   const waves = double ? [-h / 4, h / 4] : [0];
   for (const off of waves) {
     const cmds = [];
-    for (let s = 0; s <= len + 0.01; s += period / 2) {
+    for (let s = 0; s <= len2 + 0.01; s += period / 2) {
       const d = (Math.round(s / (period / 2)) % 2 ? 1 : -1) * (h / (double ? 4 : 2));
-      const a = Math.min(s, len);
+      const a = Math.min(s, len2);
       cmds.push(horizontal ? { op: cmds.length ? "L" : "M", x: Math.min(x1, x2) + a, y: y1 + off + d } : { op: cmds.length ? "L" : "M", x: x1 + off + d, y: Math.min(y1, y2) + a });
     }
     out.push({ t: "path", cmds, stroke: { color, widthPt: lw } });
@@ -7688,9 +7874,9 @@ function gradientGeometry(g, box, pathBox) {
     dx *= b.h;
     dy *= b.w;
   }
-  const len = Math.hypot(dx, dy) || 1;
-  dx /= len;
-  dy /= len;
+  const len2 = Math.hypot(dx, dy) || 1;
+  dx /= len2;
+  dy /= len2;
   const proj = [[-b.w / 2, -b.h / 2], [b.w / 2, -b.h / 2], [-b.w / 2, b.h / 2], [b.w / 2, b.h / 2]].map(([px, py]) => px * dx + py * dy);
   const t0 = Math.min(...proj), t1 = Math.max(...proj);
   const [x0, y0] = rotPt(cx + dx * t0, cy + dy * t0);
@@ -7893,6 +8079,7 @@ function liftFrames(blocks, stops) {
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
 var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
+  if (opts.revisions && opts.revisions.mode !== "final" && !opts.revisions.order) opts = { ...opts, revisions: { ...opts.revisions, order: revisionAuthors(full0) } };
   const fmt2 = full0.formatting ?? emptyFormatting();
   const lifted = liftFrames(full0.blocks, new Set(full0.sections.map((s) => s.blockEnd)));
   const full = lifted === full0.blocks ? full0 : { ...full0, blocks: lifted };
@@ -8196,6 +8383,11 @@ var Engine = class {
       const pbItems = pb ? this.pageBorders(ps, pb) : [];
       const pbBack = pb?.zOrder === "back";
       ps.page.items = [...hfLayer, ...pbBack ? pbItems : [], ...cullOffPage([...zItems([...bB, ...lb.back]), ...lb.keep, ...zItems([...bF, ...lb.front])], ps.page.widthTw, ps.page.heightTw), ...pbBack ? [] : pbItems];
+      const barColor = this.ctx.rev.barColor();
+      if (barColor && ps.page.lines.some((l) => l.rev)) {
+        const ml = this.full.sections[ps.geom.index]?.sectPr.marginLeftTwips ?? 1701;
+        ps.page.items.push(...revisionBarItems(ps.page.lines, barX(ml), barColor));
+      }
       ps.page.hfItems = hfLayer.length;
       if (bg && bg.toUpperCase() !== "FFFFFF" && bg !== "auto") ps.page.background = bg;
       return ps.page;
@@ -8595,12 +8787,12 @@ var Engine = class {
           }
           return;
         }
-        if (b.paragraph.ppr?.markDeleted && !join && bi < n - 1 && blocks[bi + 1].type === "paragraph") {
+        if (this.ctx.rev.markGone(b.paragraph) && !join && bi < n - 1 && blocks[bi + 1].type === "paragraph") {
           delRuns = [...delRuns ?? [], ...b.paragraph.runs];
           return;
         }
-        if (b.paragraph.ppr?.markDeleted && !b.paragraph.runs.length && !join && !delRuns) return;
-        const merged = delRuns ? { ...b.paragraph, runs: [...delRuns, ...b.paragraph.runs] } : b.paragraph;
+        if (this.ctx.rev.markGone(b.paragraph) && this.noShownRuns(b.paragraph) && !join && !delRuns) return;
+        const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
         const para = join ? this.joinHidden(join, merged, env) : merged;
         const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {} });
@@ -9022,6 +9214,10 @@ var Engine = class {
     else delete ppr.rPr;
     return { ...join.para, ppr, runs: [...join.para.runs, ...next.runs] };
   }
+  /** Nenhum run aparece nesta visão (todo o texto excluído — ou parágrafo vazio). */
+  noShownRuns(p) {
+    return p.runs.every((r) => this.ctx.rev.run(r) === "hide");
+  }
   placeParagraph(para0, ref, blockIdx, g) {
     if (FRAME_SKIP.has(para0)) {
       const carry = FRAME_CARRY.get(para0);
@@ -9031,15 +9227,15 @@ var Engine = class {
       }
       return;
     }
-    if (para0.ppr?.markDeleted && !this.pendingJoin && blockIdx < g.blocks[1] && this.full.blocks[blockIdx + 1]?.type === "paragraph") {
+    if (this.ctx.rev.markGone(para0) && !this.pendingJoin && blockIdx < g.blocks[1] && this.full.blocks[blockIdx + 1]?.type === "paragraph") {
       this.pendingDel = [...this.pendingDel ?? [], ...para0.runs];
       return;
     }
-    if (para0.ppr?.markDeleted && !para0.runs.length && !this.pendingJoin && !this.pendingDel) return;
+    if (this.ctx.rev.markGone(para0) && this.noShownRuns(para0) && !this.pendingJoin && !this.pendingDel) return;
     const join = this.pendingJoin;
     this.pendingJoin = null;
     const env = { field: this.fieldValue(this.cur) };
-    const merged = this.pendingDel ? { ...para0, runs: [...this.pendingDel, ...para0.runs] } : para0;
+    const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
     const para = join ? this.joinHidden(join, merged, env) : merged;
     const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
@@ -9435,10 +9631,10 @@ var Engine = class {
       if (!para) continue;
       let off = 0;
       for (const r of para.runs) {
-        const len = r.text.length;
+        const len2 = r.text.length;
         const id = r.noteRef?.kind === "footnote" ? r.noteRef.id : void 0;
-        if (id !== void 0 && off + Math.max(len, 1) > l.start && off < Math.max(l.end, l.start + 1) && !ids.includes(id) && !this.cur.notes.some((n) => n.id === id)) ids.push(id);
-        off += len;
+        if (id !== void 0 && off + Math.max(len2, 1) > l.start && off < Math.max(l.end, l.start + 1) && !ids.includes(id) && !this.cur.notes.some((n) => n.id === id)) ids.push(id);
+        off += len2;
       }
     }
     return ids;
@@ -10573,6 +10769,9 @@ function lineRecord(ref, p, line, frameX, top) {
   const start = first ? first.offset : 0;
   const end = lastG ? lastG.offset + (lastG.ch.length || 1) : start;
   const chars = line.placed.filter((pg) => pg.g.kind !== "pb" && pg.g.kind !== "cb" && !pg.g.autoHyphen).map((pg) => ({ o: pg.g.offset, x: frameX + pg.x, w: pg.w }));
+  const rb = p.revBars;
+  const firstLine = line.start === 0, lastLine = line.end >= gs.length;
+  const rev = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a, b, hidden]) => hidden ? a <= end && b >= start : a < end && b > start));
   return {
     ref,
     start,
@@ -10582,8 +10781,24 @@ function lineRecord(ref, p, line, frameX, top) {
     height: line.height,
     baseline: top + line.baseline,
     width: line.width,
-    chars
+    chars,
+    ...rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}
   };
+}
+function revisionBarItems(lines, x, color) {
+  const all = [...lines].sort((a, b) => a.y - b.y);
+  const segs = [];
+  all.forEach((l, i) => {
+    if (!l.rev) return;
+    const prevBottom = i > 0 ? all[i - 1].y + all[i - 1].height : -Infinity;
+    const nextTop = i + 1 < all.length ? all[i + 1].y : Infinity;
+    const top = Math.max(l.y - l.rev.before, Math.min(l.y, prevBottom));
+    const bottom = Math.min(l.y + l.height + l.rev.after, Math.max(l.y + l.height, nextTop));
+    const last = segs[segs.length - 1];
+    if (last && top <= last[1] + 20) last[1] = Math.max(last[1], bottom);
+    else segs.push([top, bottom]);
+  });
+  return segs.map(([y0, y1]) => ({ t: "rect", x, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color }));
 }
 function cullOffPage(items, pageW, pageH) {
   const stack = [];
@@ -10702,7 +10917,7 @@ function jpegInfo(b) {
       i += 2;
       continue;
     }
-    const len = b[i + 2] << 8 | b[i + 3];
+    const len2 = b[i + 2] << 8 | b[i + 3];
     if (m === 238 && b[i + 4] === 65 && b[i + 5] === 100) adobe = true;
     if (m >= 192 && m <= 207 && m !== 196 && m !== 200 && m !== 204) {
       if (i + 9 >= b.length) return null;
@@ -10711,7 +10926,7 @@ function jpegInfo(b) {
       const components = b[i + 9];
       return { width, height, components, adobe };
     }
-    i += 2 + len;
+    i += 2 + len2;
   }
   return null;
 }
@@ -10725,9 +10940,9 @@ function decodePng(b) {
   let trns = null;
   const idat = [];
   while (pos + 8 <= b.length) {
-    const len = dv.getUint32(pos);
+    const len2 = dv.getUint32(pos);
     const type = String.fromCharCode(b[pos + 4], b[pos + 5], b[pos + 6], b[pos + 7]);
-    const data = b.subarray(pos + 8, pos + 8 + len);
+    const data = b.subarray(pos + 8, pos + 8 + len2);
     if (type === "IHDR") {
       width = dv.getUint32(pos + 8);
       height = dv.getUint32(pos + 12);
@@ -10738,7 +10953,7 @@ function decodePng(b) {
     else if (type === "tRNS") trns = data;
     else if (type === "IDAT") idat.push(data);
     else if (type === "IEND") break;
-    pos += 12 + len;
+    pos += 12 + len2;
   }
   if (!width || !height) return null;
   let total = 0;
@@ -11190,8 +11405,8 @@ function decodeTiff(b) {
       const tx = i % tilesAcross * tw, ty = Math.floor(i / tilesAcross) * th;
       for (let y = 0; y < th && ty + y < height; y++) {
         const dst = (ty + y) * rowBytes + Math.floor(tx * spp * bits / 8);
-        const len = Math.min(tileRow, rowBytes - Math.floor(tx * spp * bits / 8));
-        raw.set(d.subarray(y * tileRow, y * tileRow + len), dst);
+        const len2 = Math.min(tileRow, rowBytes - Math.floor(tx * spp * bits / 8));
+        raw.set(d.subarray(y * tileRow, y * tileRow + len2), dst);
       }
     });
   }
@@ -12341,6 +12556,99 @@ function writeStylesPart(pkg, xml) {
   }
 }
 
+// src/revisions.ts
+var DEFAULT_MARKUP = {
+  insertionsDeletions: true,
+  formatting: true,
+  comments: true,
+  balloons: "mixed",
+  authors: null
+};
+var COLOR_NAMES = {
+  C00000: ["Dark Red", "Vermelho Escuro"],
+  FF0000: ["Red", "Vermelho"],
+  FFC000: ["Orange", "Laranja"],
+  FFFF00: ["Yellow", "Amarelo"],
+  "92D050": ["Light Green", "Verde Claro"],
+  "00B050": ["Green", "Verde"],
+  "00B0F0": ["Light Blue", "Azul Claro"],
+  "0070C0": ["Blue", "Azul"],
+  "002060": ["Dark Blue", "Azul Escuro"],
+  "7030A0": ["Purple", "Roxo"],
+  "000000": ["Black", "Preto"],
+  FFFFFF: ["White", "Branco"]
+};
+var len = (tw, lang) => lang === "pt" ? `${(Math.round(tw / 1440 * 2.54 * 100) / 100).toLocaleString("pt-BR")} cm` : `${Math.round(tw / 1440 * 100) / 100}"`;
+var pt = (v, lang) => `${lang === "pt" ? String(v).replace(".", ",") : v} pt`;
+function runParts(old, now, lang) {
+  const en = lang === "en";
+  const font = [];
+  const rest = [];
+  if (!!now.bold !== !!old.bold) font.push(now.bold ? en ? "Bold" : "Negrito" : en ? "Not Bold" : "N\xE3o Negrito");
+  if (!!now.italic !== !!old.italic) font.push(now.italic ? en ? "Italic" : "It\xE1lico" : en ? "Not Italic" : "N\xE3o It\xE1lico");
+  if (now.szHalfPt !== old.szHalfPt && now.szHalfPt !== void 0) font.push(pt(now.szHalfPt / 2, lang));
+  if (now.fontAscii !== old.fontAscii && now.fontAscii) font.push(`${en ? "(Default)" : "(Padr\xE3o)"} ${now.fontAscii}`);
+  if (!!now.underline !== !!old.underline || now.underlineStyle !== old.underlineStyle) rest.push(now.underline ? en ? "Underline" : "Sublinhado" : en ? "No underline" : "Sem sublinhado");
+  if (!!now.strike !== !!old.strike) rest.push(now.strike ? en ? "Strikethrough" : "Tachado" : en ? "Not Strikethrough" : "N\xE3o Tachado");
+  if (!!now.doubleStrike !== !!old.doubleStrike) rest.push(now.doubleStrike ? en ? "Double strikethrough" : "Tachado duplo" : en ? "Not Double strikethrough" : "N\xE3o Tachado duplo");
+  if (now.vertAlign !== old.vertAlign) {
+    rest.push(now.vertAlign === "superscript" ? en ? "Superscript" : "Sobrescrito" : now.vertAlign === "subscript" ? en ? "Subscript" : "Subscrito" : en ? "Not Superscript/ Subscript" : "N\xE3o Sobrescrito/ Subscrito");
+  }
+  if (!!now.allCaps !== !!old.allCaps) rest.push(now.allCaps ? en ? "All caps" : "Todas em Mai\xFAsculas" : en ? "Not All caps" : "N\xE3o Todas em Mai\xFAsculas");
+  if (!!now.smallCaps !== !!old.smallCaps) rest.push(now.smallCaps ? en ? "Small caps" : "Versalete" : en ? "Not Small caps" : "N\xE3o Versalete");
+  if (now.color !== old.color) {
+    const c = (now.color ?? "").toUpperCase();
+    const name = COLOR_NAMES[c]?.[en ? 0 : 1];
+    const rgb3 = c.length === 6 ? [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16)) : null;
+    const label = !c ? en ? "Auto" : "Autom\xE1tica" : name ?? (rgb3 ? en ? `Custom Color(RGB(${rgb3.join(",")}))` : `Cor Personalizada(RGB(${rgb3.join(";")}))` : c);
+    rest.push(`${en ? "Font color" : "Cor da fonte"}: ${label}`);
+  }
+  if (now.highlight !== old.highlight) rest.push(now.highlight ? en ? "Highlight" : "Realce" : en ? "Not Highlight" : "Sem realce");
+  if ((now.charSpacingTwips ?? 0) !== (old.charSpacingTwips ?? 0)) {
+    const v = (now.charSpacingTwips ?? 0) / 20;
+    rest.push(v === 0 ? en ? "Not Expanded by / Condensed by" : "N\xE3o Expandido por / Condensado por" : v > 0 ? `${en ? "Expanded by" : "Expandido por"}  ${pt(v, lang)}` : `${en ? "Condensed by" : "Condensado por"}  ${pt(-v, lang)}`);
+  }
+  return [...font.length ? [`${en ? "Font" : "Fonte"}: ${font.join(", ")}`] : [], ...rest];
+}
+function paraParts(old, now, lang, styleName) {
+  const en = lang === "en";
+  const out = [];
+  if (now.styleId !== old.styleId) out.push(now.styleId ? styleName(now.styleId) : "Normal");
+  if (now.numbering?.kind !== old.numbering?.kind) {
+    out.push(!now.numbering ? en ? "No bullets or numbering" : "Sem marcadores ou numera\xE7\xE3o" : now.numbering.kind === "bullet" ? en ? "Bulleted" : "Com marcadores" : en ? "Numbered" : "Numerada");
+  }
+  if ((now.alignment ?? "left") !== (old.alignment ?? "left")) {
+    const a = now.alignment ?? "left";
+    out.push(en ? { left: "Left", center: "Centered", right: "Right", both: "Justified" }[a] : { left: "\xC0 esquerda", center: "Centralizado", right: "\xC0 direita", both: "Justificado" }[a]);
+  }
+  const ind = [];
+  if ((now.indentLeftTwips ?? 0) !== (old.indentLeftTwips ?? 0) || (now.indentFirstLineTwips ?? 0) < 0 && now.indentFirstLineTwips !== old.indentFirstLineTwips) {
+    ind.push(`${en ? "Left" : "\xC0 esquerda"}:  ${len(now.indentLeftTwips ?? 0, lang)}`);
+  }
+  if ((now.indentFirstLineTwips ?? 0) !== (old.indentFirstLineTwips ?? 0)) {
+    const f = now.indentFirstLineTwips ?? 0;
+    ind.push(f < 0 ? `${en ? "Hanging" : "Deslocamento"}:  ${len(-f, lang)}` : `${en ? "First line" : "Primeira linha"}:  ${len(f, lang)}`);
+  }
+  if (ind.length) out.push(`${en ? "Indent" : "Recuo"}: ${ind.join(", ")}`);
+  if ((now.indentRightTwips ?? 0) !== (old.indentRightTwips ?? 0)) out.push(`${en ? "Right" : "\xC0 direita"}:  ${len(now.indentRightTwips ?? 0, lang)}`);
+  if (now.spaceBeforeTwips !== old.spaceBeforeTwips) out.push(`${en ? "Space Before" : "Espa\xE7o Antes"}:  ${pt((now.spaceBeforeTwips ?? 0) / 20, lang)}`);
+  if (now.spaceAfterTwips !== old.spaceAfterTwips) out.push(`${en ? "Space After" : "Espa\xE7o Depois de"}:  ${pt((now.spaceAfterTwips ?? 0) / 20, lang)}`);
+  if (now.lineTwentieths !== old.lineTwentieths) {
+    const l = now.lineTwentieths ?? 240;
+    const v = l === 240 ? en ? "single" : "simples" : l === 480 ? en ? "Double" : "Duplo" : `${en ? l / 240 : String(l / 240).replace(".", ",")} ${en ? "lines" : "linhas"}`;
+    out.push(`${en ? "Line spacing" : "Espa\xE7amento entre linhas"}:  ${v}`);
+  }
+  if (now.shadingHex !== old.shadingHex) out.push(en ? "Pattern: Clear" : "Padr\xE3o: Transparente");
+  if (JSON.stringify(now.borders ?? null) !== JSON.stringify(old.borders ?? null) || !!now.boxBorder !== !!old.boxBorder) out.push(en ? "Border" : "Borda");
+  if (!!now.pageBreakBefore !== !!old.pageBreakBefore) out.push(now.pageBreakBefore ? en ? "Page break before" : "Quebra de p\xE1gina antes" : en ? "No page break before" : "Sem quebra de p\xE1gina antes");
+  return out;
+}
+function formatDescription(s, lang, styleName = (id) => id) {
+  if (s.kind !== "format" && s.kind !== "paraFormat" || !s.old || !s.now) return "";
+  const parts = s.kind === "format" ? runParts(s.old, s.now, lang) : paraParts(s.old, s.now, lang, styleName);
+  return `${lang === "en" ? "Formatted" : "Formatado"}: ${parts.join(", ")}`;
+}
+
 // ../../../sheet/packages/calc/src/collation.ts
 var SPACE = 10;
 var PUNCT = '!"#$%&()*,./:;?@[\\]^_`{|}~';
@@ -12605,7 +12913,9 @@ function guardRuns(model, lo, hi, op) {
     for (const r of paras[i].runs) {
       const key = MARK3 + n++;
       orig.set(key, { run: r, font: r.props.fontAscii });
-      r.props = { ...r.props, fontAscii: key };
+      const f = r.props.fmt;
+      const fmt2 = f && f.old.fontAscii === r.props.fontAscii ? { fmt: { ...f, old: { ...f.old, fontAscii: key } } } : {};
+      r.props = { ...r.props, fontAscii: key, ...fmt2 };
     }
   }
   try {
@@ -12626,6 +12936,14 @@ function setFont(r, font) {
 }
 function restore(p, orig) {
   for (const r of p.runs) {
+    const old = r.props.fmt?.old;
+    if (old?.fontAscii?.startsWith(MARK3)) {
+      const font = orig.get(old.fontAscii)?.font;
+      const o2 = { ...old };
+      if (font === void 0) delete o2.fontAscii;
+      else o2.fontAscii = font;
+      r.props = { ...r.props, fmt: { ...r.props.fmt, old: o2 } };
+    }
     const key = r.props.fontAscii;
     if (!key?.startsWith(MARK3)) continue;
     const o = orig.get(key);
@@ -12757,7 +13075,7 @@ var LangResolver = class {
     };
   }
 };
-var skipRun = (r) => !!(r.field || r.fieldResult || r.noteRef || r.custom || r.image || r.textbox || r.shape || r.group || r.math || r.props.isMath || r.formField);
+var skipRun = (r) => !!(r.field || r.fieldResult || r.noteRef || r.custom || r.image || r.textbox || r.shape || r.group || r.math || r.props.isMath || r.formField || r.props.del);
 function spellSpans(para, langs) {
   const full = para.runs.map((r) => r.text).join("");
   if (!/\p{L}/u.test(full)) return [];
@@ -13272,6 +13590,28 @@ function guessSortType(texts) {
 }
 var RPR_REF = /* @__PURE__ */ Symbol("uw-rpr");
 var RPR_EDITED = /* @__PURE__ */ Symbol("uw-rpr-edited");
+var CLEARED_RUN = {
+  ...DEFAULT_RUN_PROPS,
+  szHalfPt: void 0,
+  color: void 0,
+  highlight: void 0,
+  fontAscii: void 0,
+  vertAlign: void 0,
+  charSpacingTwips: void 0,
+  charStyle: void 0
+};
+var CLEARED_PARA = {
+  numbering: void 0,
+  alignment: void 0,
+  spaceBeforeTwips: void 0,
+  spaceAfterTwips: void 0,
+  lineTwentieths: void 0,
+  indentLeftTwips: void 0,
+  indentRightTwips: void 0,
+  indentFirstLineTwips: void 0,
+  borders: void 0,
+  shadingHex: void 0
+};
 var insertText2 = (m, pos, text, props) => guardRuns(m, pos.para, pos.para, () => insertText(m, pos, text, props));
 var insertRun2 = (m, pos, run) => guardRuns(m, pos.para, pos.para, () => insertRun(m, pos, run));
 var deleteRange2 = (m, range) => {
@@ -13283,6 +13623,17 @@ var mergeWithPrevious2 = (m, para) => guardRuns(m, para - 1, para, () => mergeWi
 var applyRunProps2 = (m, range, patch) => {
   const r = normalizeRange(range);
   guardRuns(m, r.start.para, r.end.para, () => applyRunProps(m, range, patch));
+};
+var trackInsertText2 = (m, pos, text, rev, props) => guardRuns(m, pos.para, pos.para, () => trackInsertText(m, pos, text, rev, props));
+var trackInsertRun2 = (m, pos, run, rev) => guardRuns(m, pos.para, pos.para, () => trackInsertRun(m, pos, run, rev));
+var trackSplitParagraph2 = (m, pos, rev) => guardRuns(m, pos.para, pos.para, () => trackSplitParagraph(m, pos, rev));
+var trackDelete2 = (m, range, rev) => {
+  const r = normalizeRange(range);
+  return guardRuns(m, r.start.para, r.end.para, () => trackDelete(m, range, rev));
+};
+var trackApplyRunProps2 = (m, range, patch, rev) => {
+  const r = normalizeRange(range);
+  guardRuns(m, r.start.para, r.end.para, () => trackApplyRunProps(m, range, patch, rev));
 };
 var cssFamily = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
 function collapseCustomChars(line, para) {
@@ -13599,7 +13950,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-OIQADPIG.js");
+    const { setupChrome } = await import("./chunks/chrome-CFD22DDY.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -13636,7 +13987,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-OIQADPIG.js").then((m) => {
+      void import("./chunks/chrome-CFD22DDY.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -13804,7 +14155,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: deleted, focus: deleted };
     }
     const props = { ...this.pendingProps ?? this.currentProps() };
-    const pos = insertRun2(this.model, this.selection.focus, {
+    const pos = this.insertWholeRun(this.selection.focus, {
       text: "\uFFFC",
       props,
       custom: { type, data, fallbackText }
@@ -13872,6 +14223,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
     this.loadedFormat = "docx";
+    this.tracking = readTrackRevisions(this.pkg);
     this.installFullDoc();
     void this.registerEmbeddedFonts(this.pkg);
   }
@@ -13923,6 +14275,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.docStyles = new DocStyles(null);
     this.loadedBytes = null;
     this.loadedFormat = "odt";
+    this.tracking = false;
     this.installFullDoc();
   }
   /**
@@ -14078,6 +14431,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.editsSinceLoad = 0;
+    this.revAuthors = revisionAuthors(this.fullDoc);
     this.fullDoc.sources?.baseline();
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-protected", {
@@ -14095,6 +14449,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText("word/styles.xml") ?? null);
+    this.tracking = false;
     this.installFullDoc();
   }
   setDarkPage(dark) {
@@ -14482,8 +14837,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const cur = (this.pendingProps ?? this.currentProps()).vertAlign;
     this.formatRuns({ vertAlign: cur === kind ? void 0 : kind });
   }
-  setFontSize(pt) {
-    this.formatRuns({ szHalfPt: Math.round(pt * 2) });
+  setFontSize(pt2) {
+    this.formatRuns({ szHalfPt: Math.round(pt2 * 2) });
   }
   growFont(delta) {
     const cur = (this.pendingProps ?? this.currentProps()).szHalfPt ?? 22;
@@ -14668,14 +15023,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   clearFormatting() {
     if (!this.model || this.locked()) return;
     this.snapshot();
-    if (this.hasSelection()) clearRunFormatting(this.model, this.range(), { charStyle: void 0 });
-    else this.pendingProps = { ...DEFAULT_RUN_PROPS };
-    clearParaFormatting(this.model, this.range());
-    const { start, end } = normalizeRange(this.range());
-    for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi].props.styleId;
+    if (this.tracking) this.clearFormattingTracked();
+    else {
+      if (this.hasSelection()) clearRunFormatting(this.model, this.range(), { charStyle: void 0 });
+      else this.pendingProps = { ...DEFAULT_RUN_PROPS };
+      clearParaFormatting(this.model, this.range());
+      const { start, end } = normalizeRange(this.range());
+      for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi].props.styleId;
+    }
     this.refresh();
     this.onSelectionChange?.();
     this.chromeSync?.();
+  }
+  /** Limpar Toda a Formatação com o controle ligado: as mesmas mudanças, como revisões de
+   *  formatação (a revisão guarda as props; o w:rPr/w:pPr cru fica). */
+  clearFormattingTracked() {
+    if (this.hasSelection()) this.applyRun(this.range(), CLEARED_RUN);
+    else this.pendingProps = { ...DEFAULT_RUN_PROPS };
+    this.applyPara(this.range(), { ...CLEARED_PARA, styleId: void 0 });
   }
   changeCase(mode) {
     if (!this.model || !this.hasSelection() || this.locked()) return;
@@ -14709,7 +15074,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       applyRunProps2(this.model, this.range(), { link: url || void 0 });
     } else if (url) {
       const start = this.selection.focus;
-      const pos = insertText2(this.model, start, url);
+      const pos = this.insertTyped(start, url);
       applyRunProps2(this.model, { start, end: pos }, { link: url });
       this.selection = { anchor: pos, focus: pos };
     }
@@ -14852,6 +15217,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi];
       if (!p) continue;
+      if (this.tracking) {
+        const rev = this.newRev();
+        const at = { start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } };
+        trackApplyParaProps(this.model, at, { ...CLEARED_PARA, styleId: id }, rev);
+        const runs2 = p.runs.filter((rn) => !rn.props.del);
+        const patch = {};
+        if (runs2.length) for (const key of RUN_KEYS) {
+          const first = runs2[0].props[key];
+          if (first !== void 0 && runs2.every((rn) => rn.props[key] === first)) patch[key] = key in DEFAULT_RUN_PROPS ? DEFAULT_RUN_PROPS[key] : void 0;
+        }
+        if (Object.keys(patch).length) trackApplyRunProps2(this.model, { start: { para: pi, offset: 0 }, end: { para: pi, offset: paraLength(p) } }, patch, rev);
+        continue;
+      }
       clearPara(p);
       p.props.styleId = id;
       const runs = p.runs;
@@ -14872,7 +15250,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.pendingProps = { ...DEFAULT_RUN_PROPS, ...id ? { charStyle: id } : {} };
       return;
     }
-    clearRunFormatting(this.model, r, { charStyle: id });
+    if (this.tracking) this.applyRun(r, { ...CLEARED_RUN, charStyle: id });
+    else clearRunFormatting(this.model, r, { charStyle: id });
     this.ensureStyleUsed(id);
   }
   /** Palavra sob o cursor ([letras/dígitos]); `space` inclui os espaços depois
@@ -15263,8 +15642,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const { run, para } = this.painterProps;
     this.painterProps = null;
     this.snapshot();
-    if (this.hasSelection()) applyRunProps2(this.model, this.range(), run);
-    applyParaProps(this.model, this.range(), para);
+    if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run));
+    this.applyPara(this.range(), paraFormatting(para));
     this.refresh();
   }
   // localizar / substituir
@@ -15301,12 +15680,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const text = paraText(this.model.paragraphs[pi]).toLowerCase();
         const idx = text.indexOf(needle.toLowerCase(), from);
         if (idx < 0) break;
-        const pos = deleteRange2(this.model, {
-          start: { para: pi, offset: idx },
-          end: { para: pi, offset: idx + needle.length }
-        });
-        insertText2(this.model, pos, replacement);
-        from = idx + replacement.length;
+        const range = { start: { para: pi, offset: idx }, end: { para: pi, offset: idx + needle.length } };
+        if (this.rangeHasDeleted(range)) {
+          from = idx + 1;
+          continue;
+        }
+        if (this.tracking) {
+          const pos = this.trackedDelete(range, "end");
+          this.insertTyped(pos, replacement);
+          from = pos.offset + replacement.length;
+        } else {
+          const pos = deleteRange2(this.model, range);
+          insertText2(this.model, pos, replacement);
+          from = idx + replacement.length;
+        }
         count++;
       }
     }
@@ -15468,7 +15855,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     clip.paras.forEach((cp, i) => {
       if (i > 0) {
         this.shiftAnchors(pos.para, 1);
-        pos = splitParagraph2(this.model, pos);
+        pos = this.splitAt(pos);
         for (const t of clip.tables ?? []) {
           if (t.before !== i || !body) continue;
           let at = this.tableAnchors.findIndex((a) => a.beforePara > pos.para);
@@ -15476,7 +15863,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           this.tableAnchors.splice(at, 0, { beforePara: pos.para, table: table_ops_exports.cloneTable(t.table) });
         }
       }
-      for (const run of cp.runs) if (run.text) pos = insertText2(this.model, pos, run.text, { ...run.props });
+      for (const run of cp.runs) if (run.text) pos = this.insertTyped(pos, run.text, withoutRevisions(run.props));
     });
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -15495,9 +15882,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     paras.forEach((part, i) => {
       if (i > 0) {
         this.shiftAnchors(pos.para, 1);
-        pos = splitParagraph2(this.model, pos);
+        pos = this.splitAt(pos);
       }
-      if (part) pos = insertText2(this.model, pos, part);
+      if (part) pos = this.insertTyped(pos, part);
     });
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -15743,7 +16130,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (offset <= re || ri === p.runs.length) {
         const fieldRun = {
           text: display,
-          props: { ...run ? run.props : DEFAULT_RUN_PROPS, ...extraProps },
+          props: { ...this.newRunProps(run?.props), ...extraProps },
           field: instr
         };
         if (!run) p.runs.push(fieldRun);
@@ -15912,7 +16299,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return null;
   }
   /** Comenta a seleção atual. Retorna o id (ou null sem seleção). */
-  addComment(text, author = "You") {
+  addComment(text, author = this.author) {
     if (!this.model || !this.hasSelection() || !text.trim() || this.locked()) return null;
     if (!this.fullDoc) {
       this.fullDoc = {
@@ -15966,6 +16353,382 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         acc += run.text.length;
       }
     }
+  }
+  // ───────────────────────── controle de alterações ─────────────────────────
+  // Regras de edição/aceitar/rejeitar: docx-core (revisions.ts, medidas no
+  // Word); exibição (modos, cores, barras): docx-layout (revisions.ts).
+  tracking = false;
+  markupMode = "all";
+  markup = { ...DEFAULT_MARKUP };
+  /** autores na ordem de encontro (cor da paleta): os do documento, depois os novos */
+  revAuthors = [];
+  authorName = "";
+  /** Nome do autor das revisões e dos comentários novos: o atributo `author`, a
+   *  propriedade ou — sem nenhum dos dois — "Author"/"Autor" no idioma da interface. */
+  get author() {
+    return this.getAttribute("author") || this.authorName || (uiLang(this) === "pt" ? "Autor" : "Author");
+  }
+  set author(v) {
+    this.authorName = v ?? "";
+  }
+  /** O autor foi informado (atributo ou propriedade)? Sem ele a interface pergunta. */
+  hasAuthor() {
+    return !!(this.getAttribute("author") || this.authorName);
+  }
+  /** Liga/desliga o controle de alterações (sem argumento: alterna). Gravado no
+   *  .docx (w:trackRevisions): o documento abre como foi salvo. */
+  toggleTrackChanges(on) {
+    const next = on ?? !this.tracking;
+    if (next === this.tracking) return;
+    this.tracking = next;
+    this.editsSinceLoad++;
+    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.dispatchEvent(new CustomEvent("uw-track-changes", { detail: { on: next } }));
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  isTrackingChanges() {
+    return this.tracking;
+  }
+  /** Exibir para Revisão: 'simple' (Marcação Simples), 'all' (Todas as Marcações),
+   *  'none' (Sem Marcação) ou 'original'. O PDF e a impressão seguem o modo. */
+  setMarkupMode(mode) {
+    if (mode === this.markupMode) return;
+    this.markupMode = mode;
+    this.selection = { anchor: this.canonPos(this.selection.anchor), focus: this.canonPos(this.selection.focus) };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-markup", { detail: { mode } }));
+  }
+  getMarkupMode() {
+    return this.markupMode;
+  }
+  /** Mostrar Marcação (tipos, balões, pessoas específicas). */
+  setMarkupOptions(opts) {
+    this.markup = { ...this.markup, ...opts };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-markup", { detail: { mode: this.markupMode } }));
+  }
+  getMarkupOptions() {
+    return { ...this.markup, authors: this.markup.authors ? [...this.markup.authors] : null };
+  }
+  /** Autores com revisões no documento (e os que revisaram nesta sessão). */
+  revisionAuthors() {
+    const now = new Set(this.revisionSpans().map((r) => r.span.author));
+    return this.revAuthors.filter((a) => now.has(a));
+  }
+  /** Cor da marcação de um autor (RRGGBB) — a mesma do texto e da barra. */
+  authorColor(author) {
+    return authorColor(this.revAuthors, author);
+  }
+  /** Visão do motor para o modo atual. */
+  revisionView() {
+    return {
+      mode: this.markupMode === "none" ? "final" : this.markupMode,
+      insDel: this.markup.insertionsDeletions,
+      formatting: this.markup.formatting,
+      authors: this.markup.authors,
+      order: this.revAuthors
+    };
+  }
+  revDisplayCache = null;
+  revDisplay() {
+    const v = this.revisionView();
+    const key = JSON.stringify(v);
+    if (this.revDisplayCache?.key !== key) this.revDisplayCache = { key, rd: new RevisionDisplay(v, this.revAuthors) };
+    return this.revDisplayCache.rd;
+  }
+  layoutOpts() {
+    return { ...ENGINE_LAYOUT_OPTS, revisions: this.revisionView() };
+  }
+  /** Autoria de uma revisão feita agora (e o autor entra na ordem de cores). */
+  newRev() {
+    const r = newRevision(this.author);
+    if (!this.revAuthors.includes(r.author)) this.revAuthors.push(r.author);
+    return r;
+  }
+  /** O caractere em `offset` está escondido nesta visão (excluído na final/simples,
+   *  inserido na original)? */
+  hiddenChar(p, offset) {
+    if (!p || this.markupMode === "all" && this.markup.insertionsDeletions && !this.markup.authors) return false;
+    let acc = 0;
+    for (const r of p.runs) {
+      if (offset < acc + r.text.length) return offset >= acc && this.revDisplay().run(r) === "hide";
+      acc += r.text.length;
+    }
+    return false;
+  }
+  /** Posição canônica do cursor: a primeira das posições visualmente iguais
+   *  (texto escondido logo antes dela é pulado). */
+  canonPos(pos) {
+    const p = this.model?.paragraphs[pos.para];
+    let k = pos.offset;
+    while (k > 0 && this.hiddenChar(p, k - 1)) k--;
+    return k === pos.offset ? pos : { para: pos.para, offset: k };
+  }
+  /** Revisões do modelo ativo (corpo, célula, cabeçalho…), na ordem do texto. */
+  activeSpans() {
+    return this.model ? collectRevisions(this.model.paragraphs) : [];
+  }
+  /** Revisões de todo o documento, com o parágrafo de cada uma (balões, painel). */
+  revisionSpans() {
+    const out = [];
+    const add = (list2, story, owner) => {
+      for (const span of collectRevisions(list2)) out.push({ span, para: list2[span.para], story, list: list2, idx: span.para, owner });
+    };
+    const body = this.bodyState();
+    const anchors = [...body.tableAnchors].sort((a, b) => a.beforePara - b.beforePara);
+    const cells = (t) => {
+      for (const r of t.rows) for (const c of r.cells) {
+        add(c.paragraphs, "table", { cell: c });
+        c.tables.forEach(cells);
+      }
+    };
+    let ai = 0;
+    const list = body.model.paragraphs;
+    for (const span of collectRevisions(list)) {
+      for (; ai < anchors.length && anchors[ai].beforePara <= span.para; ai++) cells(anchors[ai].table);
+      out.push({ span, para: list[span.para], story: "body", list, idx: span.para, owner: {} });
+    }
+    for (; ai < anchors.length; ai++) cells(anchors[ai].table);
+    const seen = /* @__PURE__ */ new Set();
+    for (const sec of this.fullDoc?.sections ?? []) {
+      for (const [set, refs, story] of [[sec.headers, sec.headerRefs, "header"], [sec.footers, sec.footerRefs, "footer"]]) {
+        for (const ref of refs) {
+          const ps = set[ref.type];
+          if (ps && !seen.has(ps)) {
+            seen.add(ps);
+            add(ps, story, { hfPath: ref.path });
+          }
+        }
+      }
+    }
+    return out;
+  }
+  /** Aceita a revisão de índice `index` (a ordem de getRevisions). */
+  acceptRevisionAt(index) {
+    return this.resolveEntry(index, true);
+  }
+  /** Rejeita a revisão de índice `index` (a ordem de getRevisions). */
+  rejectRevisionAt(index) {
+    return this.resolveEntry(index, false);
+  }
+  resolveEntry(index, accept) {
+    if (!this.model || this.locked()) return false;
+    const e = this.revisionSpans()[index];
+    if (!e) return false;
+    const active = e.list === this.model.paragraphs;
+    this.snapshot(!active);
+    const changed = this.applyRevisionScope(e.list, spanScope({ ...e.span, para: e.idx }), accept, e.story === "body");
+    if (!changed) {
+      this.undoStack.pop();
+      return false;
+    }
+    if (e.owner.cell) e.owner.cell.blocks = reconcileBlocks(e.owner.cell.blocks, e.owner.cell.paragraphs, false);
+    if (e.owner.hfPath) this.dirtyHf.add(e.owner.hfPath);
+    this.selection = { anchor: this.clampPos(this.selection.anchor), focus: this.clampPos(this.selection.focus) };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-revisions-changed"));
+    return true;
+  }
+  /** Seleciona a revisão de índice `index` (no corpo) ou rola até ela. */
+  selectRevision(index) {
+    const e = this.revisionSpans()[index];
+    if (!e || !this.model) return false;
+    if (e.story === "body" && e.list === this.model.paragraphs) {
+      const a = { para: e.idx, offset: e.span.start };
+      const b = this.spanEndPos(e.span);
+      this.selection = { anchor: a, focus: b };
+      this.pendingProps = null;
+      this.refreshSelection();
+      this.scrollToSelection();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    const at = this.revisionAnchors().find((x) => x.index === index);
+    if (at) this.scrollTo({ top: Math.max(0, at.topPx - this.clientHeight / 3), behavior: "smooth" });
+    return !!at;
+  }
+  /** A revisão no cursor (para o menu de contexto), com o índice de getRevisions. */
+  revisionAtCaret() {
+    if (!this.model) return null;
+    const all = this.revisionSpans();
+    const span = revisionAt(this.activeSpans(), this.selection.focus);
+    if (!span) return null;
+    const index = all.findIndex((e) => e.list === this.model.paragraphs && e.idx === span.para && e.span.kind === span.kind && e.span.start === span.start && e.span.end === span.end);
+    return index < 0 ? null : { ...this.getRevisions()[index], index };
+  }
+  /** Revisões do documento (Painel de Revisão), na ordem do texto. */
+  getRevisions() {
+    const lang = uiLang(this) === "pt" ? "pt" : "en";
+    const names = new Map(this.paragraphStyles().map((s) => [s.id, s.name]));
+    return this.revisionSpans().map(({ span: s, story }) => ({
+      kind: s.kind,
+      author: s.author,
+      ...s.date ? { date: s.date } : {},
+      ...s.dateUtc ? { dateUtc: s.dateUtc } : {},
+      ...s.move ? { move: true } : {},
+      ...s.mark ? { mark: true } : {},
+      text: s.text,
+      ...s.kind === "format" || s.kind === "paraFormat" ? { description: formatDescription(s, lang, (id) => names.get(id) ?? id) } : {},
+      story,
+      color: this.authorColor(s.author)
+    }));
+  }
+  /** Aceita a revisão do cursor (ou as da seleção) e vai para a próxima, como o
+   *  botão Aceitar do Word. Sem revisão no cursor: só vai para a próxima. */
+  acceptChange(opts = {}) {
+    return this.resolveChange(true, opts.moveNext ?? true);
+  }
+  /** Rejeita a revisão do cursor (ou as da seleção) e vai para a próxima. */
+  rejectChange(opts = {}) {
+    return this.resolveChange(false, opts.moveNext ?? true);
+  }
+  resolveChange(accept, moveNext) {
+    if (!this.model || this.locked()) return false;
+    let scope;
+    if (this.hasSelection()) scope = { range: this.range() };
+    else {
+      const span = revisionAt(this.activeSpans(), this.selection.focus);
+      if (!span) return moveNext ? this.nextChange() : false;
+      scope = spanScope(span);
+    }
+    this.snapshot();
+    const at = normalizeRange(this.range()).start;
+    const changed = this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
+    if (!changed) {
+      this.undoStack.pop();
+      return moveNext ? this.nextChange() : false;
+    }
+    const pos = this.clampPos(at);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-revisions-changed"));
+    if (moveNext) this.nextChange();
+    return true;
+  }
+  /** Aceita todas as revisões (as mostradas, com `shown`; e para o controle, com
+   *  `stopTracking`) — corpo, tabelas, cabeçalhos e rodapés. */
+  acceptAllChanges(opts = {}) {
+    return this.resolveAll(true, opts);
+  }
+  /** Rejeita todas as revisões (ver acceptAllChanges). */
+  rejectAllChanges(opts = {}) {
+    return this.resolveAll(false, opts);
+  }
+  resolveAll(accept, opts) {
+    if (!this.model || this.locked()) return 0;
+    const n = this.revisionSpans().length;
+    if (opts.stopTracking) this.toggleTrackChanges(false);
+    if (!n) return 0;
+    if (this.cellEdit) this.exitCell();
+    if (this.tbEdit) this.exitTextbox();
+    if (this.hfEdit) this.exitHeaderFooter();
+    const scope = opts.shown ? this.shownScope() : {};
+    this.snapshot(true);
+    this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
+    const cells = (t) => {
+      for (const row of t.rows) for (const cell of row.cells) {
+        if (this.applyRevisionScope(cell.paragraphs, scope, accept, false)) cell.blocks = reconcileBlocks(cell.blocks, cell.paragraphs, false);
+        cell.tables.forEach(cells);
+      }
+    };
+    for (const a of this.tableAnchors) cells(a.table);
+    for (const s of this.fullDoc?.sections ?? []) {
+      for (const [set, refs] of [[s.headers, s.headerRefs], [s.footers, s.footerRefs]]) {
+        for (const ref of refs) {
+          const ps = set[ref.type];
+          if (ps && this.applyRevisionScope(ps, scope, accept, false)) this.dirtyHf.add(ref.path);
+        }
+      }
+    }
+    this.selection = { anchor: this.clampPos(this.selection.anchor), focus: this.clampPos(this.selection.focus) };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-revisions-changed"));
+    return n - this.revisionSpans().length;
+  }
+  /** Escopo "as mostradas": os tipos e os autores ligados em Mostrar Marcação. */
+  shownScope() {
+    const kinds = /* @__PURE__ */ new Set();
+    if (this.markup.insertionsDeletions) {
+      kinds.add("insert");
+      kinds.add("delete");
+    }
+    if (this.markup.formatting) {
+      kinds.add("format");
+      kinds.add("paraFormat");
+    }
+    return { kinds, ...this.markup.authors ? { authors: new Set(this.markup.authors) } : {} };
+  }
+  /** Aceita/rejeita num parágrafo da lista; no corpo, as âncoras acompanham a junção. */
+  applyRevisionScope(paras, scope, accept, body) {
+    const fn = accept ? acceptRevisions : rejectRevisions;
+    const onMerge = body && paras === this.model?.paragraphs && !this.cellEdit && !this.hfEdit && !this.tbEdit ? (removed) => this.shiftAnchors(removed - 1, -1) : void 0;
+    const lo = 0, hi = paras.length - 1;
+    return guardRuns({ paragraphs: paras, sectPr: this.model.sectPr }, lo, hi, () => fn(paras, scope, onMerge));
+  }
+  clampPos(p) {
+    const paras = this.model.paragraphs;
+    const para = Math.min(p.para, paras.length - 1);
+    return this.canonPos({ para, offset: Math.min(para === p.para ? p.offset : 0, paraLength(paras[para])) });
+  }
+  /** Seleciona a próxima revisão depois do cursor (recomeça do início). */
+  nextChange() {
+    return this.stepChange(1);
+  }
+  /** Seleciona a revisão anterior ao cursor (recomeça do fim). */
+  previousChange() {
+    return this.stepChange(-1);
+  }
+  stepChange(dir) {
+    if (!this.model) return false;
+    const spans = this.activeSpans();
+    if (!spans.length) return false;
+    const { start } = normalizeRange(this.range());
+    const sel = this.hasSelection();
+    const at = (s) => comparePos({ para: s.para, offset: s.start }, start);
+    const target = dir === 1 ? spans.find((s) => sel ? at(s) > 0 : at(s) >= 0) ?? spans[0] : [...spans].reverse().find((s) => at(s) < 0) ?? spans[spans.length - 1];
+    const a = { para: target.para, offset: target.start };
+    const b = this.spanEndPos(target);
+    this.selection = { anchor: a, focus: b };
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.scrollToSelection();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Rola até o começo da seleção, a um terço da altura visível (abaixo das barras). */
+  scrollToSelection() {
+    const line = this.lineOf(this.selection.anchor);
+    const canvas = line ? this.canvases[line.page] : void 0;
+    if (!line || !canvas) {
+      this.scrollCaretIntoView();
+      return;
+    }
+    this.animateScrollTo(Math.max(0, canvas.offsetTop + line.yTwips * PX_PER_TWIP * this.zoom - this.clientHeight / 3));
+  }
+  /** Fim da seleção de uma revisão: com a marca de parágrafo, o começo do seguinte. */
+  spanEndPos(s) {
+    const p = s.endPara ?? s.para;
+    return s.mark && p + 1 < this.model.paragraphs.length ? { para: p + 1, offset: 0 } : { para: p, offset: s.end };
+  }
+  /** Posição (px, no espaço de rolagem) de cada revisão do documento — balões. */
+  revisionAnchors() {
+    const out = [];
+    if (!this.eng) return out;
+    const scale = PX_PER_TWIP * this.zoom;
+    this.revisionSpans().forEach(({ span, para }, index) => {
+      for (const el of this.eng.lines) {
+        if (el.para !== para) continue;
+        if (!span.mark && span.kind !== "paraFormat" && (el.line.end < span.start || el.line.start > Math.max(span.start, span.end - 1))) continue;
+        const canvas = this.canvases[el.page];
+        if (!canvas) break;
+        out.push({ index, topPx: canvas.offsetTop + el.line.y * scale, heightPx: el.line.height * scale, page: el.page });
+        break;
+      }
+    });
+    return out;
   }
   selectAll() {
     if (!this.model) return;
@@ -16065,7 +16828,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (offset <= re || ri === p.runs.length) {
         const imageRun = {
           text: "\uFFFC",
-          props: run ? { ...run.props } : { ...DEFAULT_RUN_PROPS },
+          props: this.newRunProps(run?.props),
           image: { data: copy, ext, widthTwips: w, heightTwips: h, ...obj ? { ole: obj.ole } : {} }
         };
         if (!run) {
@@ -16196,7 +16959,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : void 0,
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
       blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : void 0,
-      sources: this.fullDoc?.sources
+      sources: this.fullDoc?.sources,
+      trackRevisions: this.tracking
     });
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
     addStylesXml(pkg, this.pendingTableStyles);
@@ -16462,7 +17226,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.hasSelection()) {
       this.snapshot();
       if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
-      applyRunProps2(this.model, this.range(), patch);
+      this.applyRun(this.range(), patch);
       this.refresh();
     } else {
       this.pendingProps = { ...this.pendingProps ?? this.currentProps(), ...patch };
@@ -16473,14 +17237,44 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   formatPara(patch) {
     if (!this.model || this.locked()) return;
     this.snapshot();
-    applyParaProps(this.model, this.range(), patch);
+    this.applyPara(this.range(), patch);
     this.refresh();
+  }
+  /** Props de um run novo (campo, imagem): as do vizinho sem as revisões dele;
+   *  com o controle ligado, inserção da autoria. */
+  newRunProps(base) {
+    return { ...withoutRevisions(base ?? DEFAULT_RUN_PROPS), ...this.tracking ? { ins: this.newRev() } : {} };
+  }
+  /** Algum caractere do intervalo está excluído em revisão? */
+  rangeHasDeleted(range) {
+    const { start, end } = normalizeRange(range);
+    for (let pi = start.para; pi <= end.para; pi++) {
+      let acc = 0;
+      for (const r of this.model.paragraphs[pi].runs) {
+        const rs = acc;
+        acc += r.text.length;
+        const from = pi === start.para ? start.offset : 0, to = pi === end.para ? end.offset : Infinity;
+        if (r.props.del && rs < to && acc > from) return true;
+      }
+    }
+    return false;
+  }
+  /** Formata runs (com o controle ligado vira w:rPrChange). */
+  applyRun(range, patch) {
+    if (this.tracking) trackApplyRunProps2(this.model, range, patch, this.newRev());
+    else applyRunProps2(this.model, range, patch);
+  }
+  /** Formata parágrafos (com o controle ligado vira w:pPrChange). */
+  applyPara(range, patch) {
+    if (this.tracking) trackApplyParaProps(this.model, range, patch, this.newRev());
+    else applyParaProps(this.model, range, patch);
   }
   // imagens são imutáveis: o snapshot guarda só um índice no pool em vez
   // dos bytes (senão JSON.stringify estoura com docs de 50MB de mídia)
   imgPool = [];
   imgPoolIdx = /* @__PURE__ */ new WeakMap();
-  stringifyState() {
+  /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre). */
+  stringifyState(deep = false) {
     const own3 = this.hfEdit || this.tbEdit;
     const ce = own3 ? null : this.cellEdit;
     if (ce?.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
@@ -16489,6 +17283,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       s: ce ? ce.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
+      // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
+      ...deep ? {
+        hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even])
+      } : {},
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: own3 ? void 0 : {
@@ -16523,11 +17321,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  .docx regravado pelo modelo de edição ainda não preserva tudo). */
   editsSinceLoad = 0;
   loadedBytes = null;
-  snapshot() {
+  snapshot(deep = false) {
     if (!this.model) return;
     this.editsSinceLoad++;
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
-    this.undoStack.push(this.stringifyState());
+    this.undoStack.push(this.stringifyState(deep));
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
     if (!this.quietChange) {
@@ -16537,8 +17335,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   popHistory(from, to) {
     if (!this.model || from.length === 0) return;
     this.floatSel = null;
-    to.push(this.stringifyState());
     const state = this.parseState(from.pop());
+    to.push(this.stringifyState(!!state.hf));
+    if (state.hf) {
+      state.hf.forEach((sets, si) => {
+        const sec = this.fullDoc?.sections[si];
+        if (!sec) return;
+        const slots = [[sec.headers, "default"], [sec.headers, "first"], [sec.headers, "even"], [sec.footers, "default"], [sec.footers, "first"], [sec.footers, "even"]];
+        slots.forEach(([set, k], j) => {
+          const cur = set[k], old = sets[j];
+          if (cur && old) cur.splice(0, cur.length, ...old);
+        });
+        for (const r of [...sec.headerRefs, ...sec.footerRefs]) this.dirtyHf.add(r.path);
+      });
+    }
     if (this.hfEdit || this.tbEdit) {
       const linked = this.model.paragraphs;
       linked.splice(0, linked.length, ...state.m.paragraphs);
@@ -16576,6 +17386,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** deleteRange com ajuste de âncoras de tabela/seção. */
   deleteSelection() {
+    if (this.tracking) return this.trackedDelete(this.range(), "end");
     const { start, end } = normalizeRange(this.range());
     const delta = end.para - start.para;
     if (delta > 0 && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
@@ -16584,6 +17395,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const pos = deleteRange2(this.model, this.range());
     if (delta > 0) this.shiftAnchors(start.para, -delta);
     return pos;
+  }
+  /** Apaga com o controle ligado (o texto fica, excluído); as âncoras acompanham
+   *  as marcas inseridas pela mesma autoria que somem de verdade. Devolve onde o
+   *  cursor fica: no começo (Backspace) ou no fim do trecho (Delete, digitar por cima). */
+  trackedDelete(range, caret) {
+    const r = trackDelete2(this.model, range, this.newRev());
+    for (const removed of r.merged) this.shiftAnchors(removed - 1, -1);
+    return this.canonPos(caret === "start" ? r.start : r.end);
+  }
+  /** Insere texto (com o controle ligado, como inserção da autoria). */
+  insertTyped(pos, text, props) {
+    return this.tracking ? trackInsertText2(this.model, pos, text, this.newRev(), props) : insertText2(this.model, pos, text, props);
+  }
+  /** Insere um run inteiro (imagem, campo, quebra…), controlado se ligado. */
+  insertWholeRun(pos, run) {
+    return this.tracking ? trackInsertRun2(this.model, pos, run, this.newRev()) : insertRun2(this.model, pos, run);
+  }
+  /** Enter (com o controle ligado, a marca nova entra como inserção). */
+  splitAt(pos) {
+    return this.tracking ? trackSplitParagraph2(this.model, pos, this.newRev()) : splitParagraph2(this.model, pos);
   }
   type(text) {
     if (!this.model || this.locked()) return;
@@ -16602,7 +17433,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos2, focus: pos2 };
     }
     const props = this.pendingProps ?? void 0;
-    const pos = insertText2(this.model, this.selection.focus, text, props);
+    const pos = this.insertTyped(this.selection.focus, text, props);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -16618,7 +17449,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     const at = this.selection.focus.para;
     const atEnd = this.selection.focus.offset >= paraLength(this.model.paragraphs[at]);
-    const pos = splitParagraph2(this.model, this.selection.focus);
+    const pos = this.splitAt(this.selection.focus);
     this.shiftAnchors(at, 1);
     if (atEnd) this.applyNextStyle(this.model.paragraphs[at], this.model.paragraphs[at + 1]);
     this.selection = { anchor: pos, focus: pos };
@@ -16627,6 +17458,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   pressBackspace() {
     if (!this.model || this.locked()) return;
+    if (this.tracking && !this.hasSelection()) {
+      this.trackedKey(-1);
+      return;
+    }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
@@ -16642,9 +17477,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         });
         this.selection = { anchor: pos, focus: pos };
       } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
-        const len = paraLength(prev);
+        const len2 = paraLength(prev);
         let pos;
-        if (len > 0) pos = deleteRange2(this.model, { start: { para: para - 1, offset: len - 1 }, end: { para: para - 1, offset: len } });
+        if (len2 > 0) pos = deleteRange2(this.model, { start: { para: para - 1, offset: len2 - 1 }, end: { para: para - 1, offset: len2 } });
         else if (para > 1) {
           pos = mergeWithPrevious2(this.model, para - 1);
           this.shiftAnchors(para - 2, -1);
@@ -16664,6 +17499,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   pressDelete() {
     if (!this.model || this.locked()) return;
+    if (this.tracking && !this.hasSelection()) {
+      this.trackedKey(1);
+      return;
+    }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset < paraLength(this.model.paragraphs[this.selection.focus.para]))) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
@@ -16671,8 +17510,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para, offset } = this.selection.focus;
-      const len = paraLength(this.model.paragraphs[para]);
-      if (offset < len) {
+      const len2 = paraLength(this.model.paragraphs[para]);
+      if (offset < len2) {
         deleteRange2(this.model, { start: { para, offset }, end: { para, offset: offset + 1 } });
       } else if (para < this.model.paragraphs.length - 1) {
         mergeWithPrevious2(this.model, para + 1);
@@ -16682,6 +17521,76 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     this.refresh();
+  }
+  /**
+   * Backspace (-1) / Delete (1) sem seleção com o controle ligado (medido no Word):
+   * o caractere vira exclusão — o cursor fica antes dele (Backspace) ou passa por
+   * ele (Delete); sobre texto já excluído só anda (escondido: é pulado); na marca
+   * de parágrafo, a marca é excluída.
+   */
+  trackedKey(dir) {
+    const paras = this.model.paragraphs;
+    const { para } = this.selection.focus;
+    let k = this.selection.focus.offset;
+    const p = paras[para];
+    const len2 = paraLength(p);
+    const deleted = (i) => {
+      let acc = 0;
+      for (const r of p.runs) {
+        if (i < acc + r.text.length) return i >= acc && !!r.props.del;
+        acc += r.text.length;
+      }
+      return false;
+    };
+    const go = (pos2) => {
+      const c = this.canonPos(pos2);
+      this.selection = { anchor: c, focus: c };
+      this.refreshSelection();
+      this.scrollCaretIntoView();
+    };
+    if (dir < 0) {
+      if (k > 0 && deleted(k - 1) && !this.hiddenChar(p, k - 1)) {
+        go({ para, offset: k - 1 });
+        return;
+      }
+      while (k > 0 && this.hiddenChar(p, k - 1)) k--;
+    } else {
+      if (k < len2 && deleted(k) && !this.hiddenChar(p, k)) {
+        go({ para, offset: k + 1 });
+        return;
+      }
+      while (k < len2 && this.hiddenChar(p, k)) k++;
+    }
+    let range;
+    if (dir < 0 && k > 0) range = { start: { para, offset: k - 1 }, end: { para, offset: k } };
+    else if (dir > 0 && k < len2) range = { start: { para, offset: k }, end: { para, offset: k + 1 } };
+    else if (dir < 0 && para > 0) {
+      const prev = paras[para - 1];
+      const pl = paraLength(prev);
+      if (prev.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+        if (pl > 0) range = { start: { para: para - 1, offset: pl - 1 }, end: { para: para - 1, offset: pl } };
+        else if (para > 1 && !paras[para - 2].props.markDel) range = { start: { para: para - 2, offset: paraLength(paras[para - 2]) }, end: { para: para - 1, offset: 0 } };
+        else return;
+      } else {
+        if (prev.props.markDel) {
+          go({ para: para - 1, offset: pl });
+          return;
+        }
+        range = { start: { para: para - 1, offset: pl }, end: { para, offset: 0 } };
+      }
+    } else if (dir > 0 && para < paras.length - 1) {
+      if (p.props.markDel) {
+        go({ para: para + 1, offset: 0 });
+        return;
+      }
+      range = { start: { para, offset: len2 }, end: { para: para + 1, offset: 0 } };
+    } else return;
+    this.snapshot();
+    if (range.start.para === range.end.para) this.noteParaEdit(para);
+    const pos = this.trackedDelete(range, dir < 0 ? "start" : "end");
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.scrollCaretIntoView();
   }
   /** Próxima fronteira de palavra a partir do caret. */
   moveWord(dir, extend) {
@@ -16725,7 +17634,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
-    const pos = deleteRange2(this.model, this.range());
+    const pos = this.tracking ? this.trackedDelete(this.range(), dir < 0 ? "start" : "end") : deleteRange2(this.model, this.range());
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
   }
@@ -16736,15 +17645,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     let { para, offset } = this.selection.focus;
-    const len = (i) => paraLength(this.model.paragraphs[i]);
+    const len2 = (i) => paraLength(this.model.paragraphs[i]);
+    const hid = (i, o) => this.hiddenChar(this.model.paragraphs[i], o);
     if (dir === "left") {
-      if (offset > 0) offset--;
-      else if (para > 0) {
+      if (offset > 0) {
+        offset--;
+        while (offset > 0 && hid(para, offset - 1)) offset--;
+      } else if (para > 0) {
         para--;
-        offset = len(para);
+        offset = len2(para);
       }
     } else if (dir === "right") {
-      if (offset < len(para)) offset++;
+      while (offset < len2(para) && hid(para, offset)) offset++;
+      if (offset < len2(para)) offset++;
       else if (para < this.model.paragraphs.length - 1) {
         para++;
         offset = 0;
@@ -16766,7 +17679,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
     }
-    const focus = { para, offset };
+    const focus = this.canonPos({ para, offset });
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.pendingProps = null;
     this.refreshSelection();
@@ -16950,10 +17863,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       window.addEventListener("mousemove", move);
       window.addEventListener("mouseup", up);
       if (e.detail === 3 && this.model) {
-        const len = paraLength(this.model.paragraphs[hit.para]);
+        const len2 = paraLength(this.model.paragraphs[hit.para]);
         this.selection = {
           anchor: { para: hit.para, offset: 0 },
-          focus: { para: hit.para, offset: len }
+          focus: { para: hit.para, offset: len2 }
         };
         this.refreshSelection();
       }
@@ -18930,6 +19843,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.chromeSync?.();
   }
   hitTest(e) {
+    const p = this.hitTestRaw(e);
+    return p && this.canonPos(p);
+  }
+  hitTestRaw(e) {
     if (!this.model) return null;
     let order = [...this.canvases.keys()];
     order.sort((a, b) => {
@@ -19193,7 +20110,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.syncRunRPr(this.model.paragraphs);
       const doc = this.liveEngineDoc();
       const t1 = performance.now();
-      const result = layoutDocument(doc.full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
+      const result = layoutDocument(doc.full, this.liveFontProvider(), this.layoutOpts());
       const t2 = performance.now();
       this.installEngineResult(doc, result);
       this.engineStats = { ...this.engineStats, buildMs: t1 - t0, layoutMs: t2 - t1, pages: result.pages.length, mode: "full" };
@@ -19225,6 +20142,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fastHint = null;
     this.fastTable = null;
     if (!this.eng || !this.model || this.forceLegacy || this.hfEdit) return;
+    if ((this.markupMode === "all" || this.markupMode === "simple") && (this.tracking || this.model.paragraphs[pi] && paragraphHasRevisions(this.model.paragraphs[pi]))) return;
     try {
       if (this.cellEdit) this.fastTable = { anchor: this.cellEdit.anchor, before: this.fastBeforeTable(this.cellEdit.anchor) };
       else this.fastHint = { para: pi, before: this.fastBefore(pi) };
@@ -19335,7 +20253,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }],
       bookmarks: /* @__PURE__ */ new Map()
     };
-    return layoutDocument(full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
+    return layoutDocument(full, this.liveFontProvider(), this.layoutOpts());
   }
   /** Confere (antes da edição) que o parágrafo isolado reproduz o layout real. */
   fastBefore(pi) {
@@ -19421,14 +20339,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const loc = { kind: "body", para: h.para };
     let k = eng.lines.findIndex((el) => el.page === b.page && el.line.ref === b.ref);
     if (k >= 0) eng.lines.splice(k, lines.length, ...lines.map((line) => ({ line, page: b.page, loc, para })));
-    const len = paraLength(para);
+    const len2 = paraLength(para);
     this.layoutCache[h.para] = {
       spans: [],
       charAdvances: [],
       spanCharStart: [],
       lines: lines.map((l, i) => ({
         para: h.para,
-        rich: { start: i === 0 ? 0 : Math.min(len, l.start), end: i === lines.length - 1 ? len : Math.min(len, l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+        rich: { start: i === 0 ? 0 : Math.min(len2, l.start), end: i === lines.length - 1 ? len2 : Math.min(len2, l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
         page: b.page,
         xTwips: l.x,
         yTwips: l.y,
@@ -19478,8 +20396,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (!pl) continue;
       const l = el.line;
       if (pl.lines.some((x) => x.rich.start === l.start && x.rich.end === l.end)) continue;
-      const len = paraLength(paras[pi]);
-      const clamp = (o) => Math.max(0, Math.min(len, o));
+      const len2 = paraLength(paras[pi]);
+      const clamp = (o) => Math.max(0, Math.min(len2, o));
       pl.lines.push({
         para: pi,
         rich: { start: clamp(l.start), end: clamp(l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
@@ -19874,8 +20792,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const para = this.model.paragraphs[m.para];
     if (!para || paraText(para).slice(m.start, m.end) !== m.word) return false;
     this.snapshot();
-    const pos = deleteRange2(this.model, { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } });
-    const end = insertText2(this.model, pos, text);
+    const range = { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } };
+    const pos = this.tracking ? this.trackedDelete(range, "end") : deleteRange2(this.model, range);
+    const end = this.insertTyped(pos, text);
     this.selection = { anchor: end, focus: end };
     this.refresh();
     return true;
@@ -21032,8 +21951,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const id = Object.keys(sheet.styles)[0];
     if (!id) return;
     const f = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles, [id]: sheet.styles[id] } } };
-    const pt = uiLang(this) === "pt";
-    const sample = pt ? [["", "Jan", "Fev", "Mar", "Total"], ["Leste", "7", "7", "5", "19"], ["Oeste", "6", "4", "7", "17"], ["Sul", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]] : [["", "Jan", "Feb", "Mar", "Total"], ["East", "7", "7", "5", "19"], ["West", "6", "4", "7", "17"], ["South", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]];
+    const pt2 = uiLang(this) === "pt";
+    const sample = pt2 ? [["", "Jan", "Fev", "Mar", "Total"], ["Leste", "7", "7", "5", "19"], ["Oeste", "6", "4", "7", "17"], ["Sul", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]] : [["", "Jan", "Feb", "Mar", "Total"], ["East", "7", "7", "5", "19"], ["West", "6", "4", "7", "17"], ["South", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]];
     this.paintStyleThumb(canvas, f, id, look, sample);
   }
   /** Tabela 5 × 5 com o estilo `id`, diagramada e pintada no canvas (miniatura/prévia). */
@@ -21218,8 +22137,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Insere uma Tabela Rápida no cursor (como Inserir Tabela, já com conteúdo e estilo). */
   async insertQuickTable(id) {
     if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
-    const pt = uiLang(this) === "pt";
-    const tr = (en, p) => pt ? p : en;
+    const pt2 = uiLang(this) === "pt";
+    const tr = (en, p) => pt2 ? p : en;
     let rows;
     let style;
     let merge = [];
@@ -21227,8 +22146,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       case "calendar": {
         const now = /* @__PURE__ */ new Date();
         const y = now.getFullYear(), mo = now.getMonth();
-        const month = new Intl.DateTimeFormat(pt ? "pt-BR" : "en-US", { month: "long", year: "numeric" }).format(now);
-        const days = pt ? ["D", "S", "T", "Q", "Q", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
+        const month = new Intl.DateTimeFormat(pt2 ? "pt-BR" : "en-US", { month: "long", year: "numeric" }).format(now);
+        const days = pt2 ? ["D", "S", "T", "Q", "Q", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
         const first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
         rows = [[month.charAt(0).toUpperCase() + month.slice(1), "", "", "", "", "", ""], days];
         let week = Array(7).fill("");
@@ -22887,7 +23806,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
       const run = para.runs[span.runIndex ?? seg.spanIndex];
-      const props = run?.props;
+      const rv = run?.props.del ?? run?.props.ins;
+      const props = run && rv && this.markupMode !== "original" ? { ...run.props, color: this.authorColor(rv.author), ...run.props.del ? { strike: true } : { underline: true, underlineStyle: void 0 } } : run?.props;
       if (run?.custom) {
         const family2 = this.familyFor(span.family);
         const fontPx2 = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
@@ -23111,7 +24031,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     const layout = () => {
       const prov = withEmbeddedFonts(this.engineFontProvider(missing), embedded, (b) => new SfntFont(b));
-      return layoutDocument(full, prov, ENGINE_LAYOUT_OPTS);
+      return layoutDocument(full, prov, this.layoutOpts());
     };
     const missing = /* @__PURE__ */ new Map();
     let res = layout();
@@ -24156,7 +25076,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-DMQHD2PA.js");
+  const { appFor } = await import("./chunks/chrome-app-AVGZ67N4.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 
@@ -24198,6 +25118,7 @@ if (bridge) {
     setTitle: (t) => {
       document.title = `${t} \u2014 Write`;
     },
+    userName: bridge.userName ? () => bridge.userName() : void 0,
     // janela sem moldura (titleBarOverlay): a linha de título reserva os controles
     windowControlsOverlay: true
   };

@@ -4,8 +4,9 @@ import {
   applyTheme,
   bindHostFonts,
   hostOf,
-  isDark
-} from "./chunk-JPZMO3EI.js";
+  isDark,
+  originStore
+} from "./chunk-X5ZQATMH.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -31,7 +32,7 @@ import {
   symbol,
   themePaletteColors,
   toggleMenu
-} from "./chunk-CM2EVFAB.js";
+} from "./chunk-RJ6W7YOR.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
@@ -39,8 +40,9 @@ import {
   patchTableStyleXml,
   pickLabels,
   readStyleSheet,
-  retitleTableStyleXml
-} from "./chunk-7Y5VBLLD.js";
+  retitleTableStyleXml,
+  uiLang
+} from "./chunk-IP6LSAL6.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -2116,6 +2118,11 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const run = () => ctl.state().run;
   const para = () => ctl.state().para;
   const L4 = app.ui.L;
+  const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
+  const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
+  const resolved = (n5, accept) => {
+    ctl.flash(accept ? L4.revAccepted(Number(n5) || 0) : L4.revRejected(Number(n5) || 0));
+  };
   const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
   const section3 = () => typeof api["getSection"] === "function" ? call("getSection") : null;
@@ -2286,11 +2293,33 @@ function registerWriteCommands(reg, ed, app, ctl) {
     { id: "wordCount", label: { en: "Word count", pt: "Contar Palavras" }, icon: "numbers", shortcut: "Ctrl+Shift+G", run: () => ctl.wordCount() },
     { id: "spelling", label: { en: "Spelling & grammar", pt: "Ortografia e gram\xE1tica" }, icon: "spellcheck", shortcut: "F7", supports: has("nextMisspelling"), run: () => ctl.spelling(), isEnabled: canEdit3 },
     { id: "spellAsYouType", label: { en: "Check spelling as you type", pt: "Verificar ortografia ao digitar" }, icon: "spellcheck", supports: has("toggleSpellCheck"), run: () => call("toggleSpellCheck"), isChecked: () => typeof api["spellCheckEnabled"] === "function" && !!call("spellCheckEnabled") },
-    edit({ id: "trackChanges", label: { en: "Track changes", pt: "Controlar altera\xE7\xF5es" }, icon: "track_changes", shortcut: "Ctrl+Shift+E", supports: has("toggleTrackChanges"), run: () => call("toggleTrackChanges"), isChecked: () => typeof api["isTrackingChanges"] === "function" && !!call("isTrackingChanges") }),
-    edit({ id: "change:accept", label: { en: "Accept", pt: "Aceitar" }, icon: "check_circle", supports: has("acceptChange"), run: () => call("acceptChange") }),
-    edit({ id: "change:reject", label: { en: "Reject", pt: "Rejeitar" }, icon: "cancel", supports: has("rejectChange"), run: () => call("rejectChange") }),
-    edit({ id: "change:acceptAll", label: { en: "Accept all changes", pt: "Aceitar todas as altera\xE7\xF5es" }, icon: "done_all", supports: has("acceptAllChanges"), run: () => call("acceptAllChanges") }),
-    edit({ id: "change:rejectAll", label: { en: "Reject all changes", pt: "Rejeitar todas as altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => call("rejectAllChanges") }),
+    // controle de alterações (rótulos do Word 365 pt-BR, guia Revisão)
+    edit({ id: "trackChanges", label: { en: "Track Changes", pt: "Controlar Altera\xE7\xF5es" }, icon: "track_changes", shortcut: "Ctrl+Shift+E", supports: has("toggleTrackChanges"), run: () => ctl.trackChanges(), isChecked: () => typeof api["isTrackingChanges"] === "function" && !!call("isTrackingChanges") }),
+    ...[["simple", "Simple Markup", "Marca\xE7\xE3o Simples"], ["all", "All Markup", "Todas as Marca\xE7\xF5es"], ["none", "No Markup", "Sem Marca\xE7\xE3o"], ["original", "Original", "Original"]].map(([m2, en, pt]) => ({ id: `markup:${m2}`, label: { en, pt }, supports: has("setMarkupMode"), run: () => call("setMarkupMode", m2), isChecked: () => typeof api["getMarkupMode"] === "function" && call("getMarkupMode") === m2 })),
+    ...[["insdel", "Insertions and Deletions", "Inser\xE7\xF5es e Exclus\xF5es", "insertionsDeletions"], ["formatting", "Formatting", "Formata\xE7\xE3o", "formatting"]].map(([k2, en, pt, opt]) => ({ id: `show:${k2}`, label: { en, pt }, supports: has("setMarkupOptions"), run: () => call("setMarkupOptions", { [opt]: !markup()[opt] }), isChecked: () => !!markup()[opt] })),
+    ...[["revisions", "Show Revisions in Balloons", "Mostrar Revis\xF5es em Bal\xF5es"], ["inline", "Show All Revisions Inline", "Mostrar Todas as Revis\xF5es Embutidas"], ["mixed", "Show Only Comments and Formatting in Balloons", "Mostrar Somente Coment\xE1rios e Formata\xE7\xE3o em Bal\xF5es"]].map(([b3, en, pt]) => ({ id: `balloons:${b3}`, label: { en, pt }, supports: has("setMarkupOptions"), run: () => call("setMarkupOptions", { balloons: b3 }), isChecked: () => markup().balloons === b3 })),
+    { id: "people:all", label: { en: "All Reviewers", pt: "Todos os Revisores" }, supports: has("setMarkupOptions"), run: () => call("setMarkupOptions", { authors: markup().authors ? null : [] }), isChecked: () => !markup().authors },
+    { id: "reviewPane", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "view_column", supports: has("getRevisions"), run: () => ctl.reviewPane(), isChecked: () => !!ctl.reviewPaneOpen() },
+    { id: "reviewPane:vertical", label: { en: "Reviewing Pane Vertical\u2026", pt: "Painel de Revis\xE3o Vertical..." }, supports: has("getRevisions"), run: () => ctl.reviewPane("vertical"), isChecked: () => ctl.reviewPaneOpen() === "vertical" },
+    { id: "reviewPane:horizontal", label: { en: "Reviewing Pane Horizontal\u2026", pt: "Painel de Revis\xE3o Horizontal..." }, supports: has("getRevisions"), run: () => ctl.reviewPane("horizontal"), isChecked: () => ctl.reviewPaneOpen() === "horizontal" },
+    edit({ id: "change:accept", label: { en: "Accept", pt: "Aceitar" }, tip: { en: "Accept and Move to Next", pt: "Aceitar e Mover para a Pr\xF3xima" }, icon: "check_circle", supports: has("acceptChange"), run: () => call("acceptChange"), isEnabled: hasRevisions }),
+    edit({ id: "change:acceptNext", label: { en: "Accept and Move to Next", pt: "Aceitar e Mover para a Pr\xF3xima" }, icon: "check_circle", supports: has("acceptChange"), run: () => call("acceptChange"), isEnabled: hasRevisions }),
+    edit({ id: "change:acceptOne", label: { en: "Accept This Change", pt: "Aceitar Esta Altera\xE7\xE3o" }, supports: has("acceptChange"), run: () => call("acceptChange", { moveNext: false }), isEnabled: hasRevisions }),
+    edit({ id: "change:acceptShown", label: { en: "Accept All Changes Shown", pt: "Aceitar Todas as Altera\xE7\xF5es Mostradas" }, supports: has("acceptAllChanges"), run: () => resolved(call("acceptAllChanges", { shown: true }), true), isEnabled: hasRevisions }),
+    edit({ id: "change:acceptAll", label: { en: "Accept All Changes", pt: "Aceitar Todas as Altera\xE7\xF5es" }, icon: "done_all", supports: has("acceptAllChanges"), run: () => resolved(call("acceptAllChanges"), true), isEnabled: hasRevisions }),
+    edit({ id: "change:acceptAllStop", label: { en: "Accept All Changes and Stop Tracking", pt: "Aceitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("acceptAllChanges"), run: () => resolved(call("acceptAllChanges", { stopTracking: true }), true) }),
+    edit({ id: "change:reject", label: { en: "Reject", pt: "Rejeitar" }, tip: { en: "Reject and Move to Next", pt: "Rejeitar e Mover para a Pr\xF3xima" }, icon: "cancel", supports: has("rejectChange"), run: () => call("rejectChange"), isEnabled: hasRevisions }),
+    edit({ id: "change:rejectNext", label: { en: "Reject and Move to Next", pt: "Rejeitar e Mover para a Pr\xF3xima" }, icon: "cancel", supports: has("rejectChange"), run: () => call("rejectChange"), isEnabled: hasRevisions }),
+    edit({ id: "change:rejectOne", label: { en: "Reject Change", pt: "Rejeitar Altera\xE7\xE3o" }, supports: has("rejectChange"), run: () => call("rejectChange", { moveNext: false }), isEnabled: hasRevisions }),
+    edit({ id: "change:rejectShown", label: { en: "Reject All Changes Shown", pt: "Rejeitar Todas as Altera\xE7\xF5es Mostradas" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { shown: true }), false), isEnabled: hasRevisions }),
+    edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
+    edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
+    { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
+      if (!call("previousChange")) ctl.flash(L4.noMoreRevisions);
+    }, isEnabled: hasRevisions },
+    { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
+      if (!call("nextChange")) ctl.flash(L4.noMoreRevisions);
+    }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
     edit({ id: "image:delete", label: { en: "Delete image", pt: "Excluir imagem" }, icon: "delete", supports: has("deleteSelectedImage"), run: () => call("deleteSelectedImage") }),
@@ -2339,12 +2368,22 @@ async function linkDialog(env) {
   const v2 = url.trim();
   env.ed.setLink(v2 && v2 !== "https://" ? v2 : void 0);
 }
+async function authorDialog(env) {
+  if (env.ed.hasAuthor()) return true;
+  const L4 = env.app.ui.L;
+  const name = await promptDialog({ title: L4.authorTitle, label: L4.authorText, ok: L4.authorOk, layer: env.layer, lang: env.lang });
+  if (!name?.trim()) return false;
+  env.ed.author = name.trim();
+  originStore.set("uw-author", env.ed.author);
+  return true;
+}
 async function commentDialog(env) {
   const L4 = env.app.ui.L;
   if (!env.ed.selectedText()) {
     env.app.ui.flash(L4.selectToComment);
     return;
   }
+  if (!await authorDialog(env)) return;
   const text = await promptDialog({ title: L4.commentTitle, label: L4.commentText, multiline: true, ok: L4.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
   env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L4.selectToComment : L4.commentAdded);
@@ -2828,6 +2867,475 @@ async function spellingDialog(env) {
   });
   await h3.result;
 }
+
+// src/chrome-panels.ts
+var FindPanel = class {
+  constructor(ed, app, layer) {
+    this.ed = ed;
+    this.app = app;
+    const L4 = app.ui.L;
+    const el6 = document.createElement("div");
+    el6.className = "uw-find";
+    el6.setAttribute("role", "dialog");
+    el6.setAttribute("aria-label", L4.findTitle);
+    el6.setAttribute("part", "find");
+    el6.hidden = true;
+    el6.innerHTML = `
+      <div class="uw-find-head"><strong></strong>
+        <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
+      <input type="text" data-a="find:text" />
+      <input type="text" data-a="find:replace" />
+      <div class="uw-find-actions"><span class="uw-find-msg"></span>
+        <button type="button" class="uo-pill" data-a="find:next"></button>
+        <button type="button" class="uo-pill" data-a="find:one"></button>
+        <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
+    el6.querySelector("strong").textContent = L4.findTitle;
+    this.find = el6.querySelector('[data-a="find:text"]');
+    this.repl = el6.querySelector('[data-a="find:replace"]');
+    this.msg = el6.querySelector(".uw-find-msg");
+    this.find.placeholder = L4.find;
+    this.repl.placeholder = L4.replaceWith;
+    const b3 = (id, label, fn) => {
+      const x2 = el6.querySelector(`[data-a="find:${id}"]`);
+      x2.textContent = label;
+      x2.addEventListener("click", fn);
+    };
+    b3("next", L4.findNext, () => this.next());
+    b3("one", L4.replace, () => this.replaceOne());
+    b3("all", L4.replaceAll, () => this.replaceAll());
+    el6.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
+    for (const i5 of [this.find, this.repl]) {
+      i5.addEventListener("keydown", (e6) => {
+        if (e6.key === "Escape") {
+          e6.preventDefault();
+          this.close();
+        }
+        if (e6.key === "Enter") {
+          e6.preventDefault();
+          if (i5 === this.repl && e6.ctrlKey) this.replaceAll();
+          else this.next();
+        }
+      });
+    }
+    this.find.addEventListener("input", () => {
+      this.msg.textContent = "";
+      this.find.classList.remove("uw-miss");
+    });
+    layer.appendChild(el6);
+    this.el = el6;
+  }
+  ed;
+  app;
+  el;
+  find;
+  repl;
+  msg;
+  get isOpen() {
+    return !this.el.hidden;
+  }
+  open(replace, top) {
+    this.el.hidden = false;
+    this.el.style.top = `${Math.max(8, top)}px`;
+    const editable = !this.ed.isProtected();
+    for (const x2 of this.el.querySelectorAll('[data-a="find:replace"],[data-a="find:one"],[data-a="find:all"]')) x2.hidden = !editable;
+    const sel4 = this.ed.selectedText();
+    if (sel4 && !sel4.includes("\n") && sel4.length < 200) this.find.value = sel4;
+    const t5 = replace && editable ? this.repl : this.find;
+    t5.focus();
+    t5.select();
+  }
+  close() {
+    this.el.hidden = true;
+    this.ed.focusEditor();
+  }
+  next() {
+    const ok = !!this.find.value && this.ed.findNext(this.find.value);
+    this.find.classList.toggle("uw-miss", !ok && !!this.find.value);
+    this.msg.textContent = ok || !this.find.value ? "" : this.app.ui.L.notFound;
+    return ok;
+  }
+  replaceOne() {
+    const needle = this.find.value;
+    if (!needle) return;
+    if (this.ed.selectedText().toLowerCase() === needle.toLowerCase()) this.ed.pasteText(this.repl.value);
+    this.next();
+  }
+  replaceAll() {
+    if (!this.find.value) return;
+    const n5 = this.ed.replaceAll(this.find.value, this.repl.value);
+    this.msg.textContent = n5 ? this.app.ui.L.replaced(n5) : this.app.ui.L.notFound;
+  }
+};
+var CommentCards = class {
+  constructor(ed, app, root, after) {
+    this.ed = ed;
+    this.app = app;
+    this.after = after;
+    const el6 = document.createElement("div");
+    el6.className = "uw-comments";
+    el6.setAttribute("part", "comments");
+    for (const t5 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
+      el6.addEventListener(t5, (e6) => {
+        if (t5 !== "wheel") e6.stopPropagation();
+      }, { passive: t5 === "wheel" });
+    }
+    root.appendChild(el6);
+    this.el = el6;
+  }
+  ed;
+  app;
+  after;
+  el;
+  raf = 0;
+  schedule() {
+    if (this.raf) return;
+    this.raf = requestAnimationFrame(() => {
+      this.raf = 0;
+      this.render();
+    });
+  }
+  destroy() {
+    cancelAnimationFrame(this.raf);
+    this.el.remove();
+    this.ed.classList.remove("uw-has-comments");
+  }
+  render() {
+    const pages = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
+    const print = this.ed.getView() === "print";
+    const L4 = this.app.ui.L;
+    const mode = this.ed.getMarkupMode();
+    const mk = this.ed.getMarkupOptions();
+    const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
+    const anchors = revs.length ? this.ed.revisionAnchors() : [];
+    const balloons = anchors.filter((a3) => {
+      const r5 = revs[a3.index];
+      if (r5.kind === "format" || r5.kind === "paraFormat") return mk.formatting && (!mk.authors || mk.authors.includes(r5.author));
+      return mk.balloons === "revisions" && r5.kind === "delete" && mk.insertionsDeletions && (!mk.authors || mk.authors.includes(r5.author));
+    });
+    const all = this.app.commentsVisible && mk.comments && print ? this.ed.getComments() : [];
+    const pageW = Math.max(
+      0,
+      ...all.map((c4) => pages[this.ed.commentAnchorPx(c4.id)?.page ?? -1]?.offsetWidth ?? 0),
+      ...balloons.map((a3) => pages[a3.page]?.offsetWidth ?? 0)
+    );
+    const room = this.ed.clientWidth >= pageW + 300 + 48;
+    const comments = room ? all : [];
+    const shown = room ? balloons : [];
+    this.ed.classList.toggle("uw-has-comments", comments.length + shown.length > 0);
+    const active = new Set(this.app.activeCommentIds);
+    this.el.replaceChildren();
+    if (!comments.length && !shown.length) return;
+    const placed = [];
+    for (const c4 of comments) {
+      const a3 = this.ed.commentAnchorPx(c4.id);
+      const page = a3 ? pages[a3.page] : void 0;
+      if (!a3 || !page) continue;
+      const card = document.createElement("div");
+      card.className = `uw-card${active.has(c4.id) ? " active" : ""}`;
+      card.dataset["commentId"] = String(c4.id);
+      card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L4.deleteComment}">${symbol("delete")}</button></div>
+        <div class="txt"></div>`;
+      card.querySelector(".who").textContent = c4.author ?? L4.anonymous;
+      card.querySelector(".txt").textContent = c4.text;
+      card.querySelector("button").addEventListener("click", (e6) => {
+        e6.stopPropagation();
+        if (this.ed.isProtected()) return;
+        this.ed.removeComment(c4.id);
+        this.after();
+      });
+      card.addEventListener("click", () => {
+        this.app.activeCommentIds = [c4.id];
+        this.ed.goToComment(c4.id);
+        this.render();
+        this.after();
+      });
+      card.style.left = `${page.offsetLeft + page.offsetWidth + 24}px`;
+      this.el.appendChild(card);
+      placed.push({ card, ideal: a3.topPx });
+    }
+    for (const a3 of shown) {
+      const r5 = revs[a3.index];
+      const page = pages[a3.page];
+      if (!page) continue;
+      const card = document.createElement("div");
+      card.className = "uw-card uw-rev-card";
+      card.style.setProperty("--uw-rev", `#${r5.color}`);
+      card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L4.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L4.revReject}">${symbol("close")}</button></div>
+        <div class="txt"></div>`;
+      card.querySelector(".who").textContent = r5.author;
+      card.querySelector(".when").textContent = revisionTime(r5.date, uiLang(this.ed));
+      const txt = card.querySelector(".txt");
+      if (r5.description) {
+        const [head, ...rest] = r5.description.split(": ");
+        txt.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
+      } else {
+        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L4.revParaDeleted : L4.revDeleted}: ` }), r5.text);
+      }
+      const [acc, rej] = card.querySelectorAll("button");
+      acc.addEventListener("click", (e6) => {
+        e6.stopPropagation();
+        if (this.ed.acceptRevisionAt(a3.index)) this.after();
+      });
+      rej.addEventListener("click", (e6) => {
+        e6.stopPropagation();
+        if (this.ed.rejectRevisionAt(a3.index)) this.after();
+      });
+      card.addEventListener("click", () => {
+        this.ed.selectRevision(a3.index);
+        this.after();
+      });
+      card.style.left = `${page.offsetLeft + page.offsetWidth + 24}px`;
+      this.el.appendChild(card);
+      placed.push({ card, ideal: a3.topPx });
+    }
+    placed.sort((x2, y3) => x2.ideal - y3.ideal);
+    let bottom = -Infinity;
+    for (const p3 of placed) {
+      const top = Math.max(p3.ideal, bottom + 8);
+      p3.card.style.top = `${top}px`;
+      p3.card.classList.toggle("anchored", Math.abs(top - p3.ideal) <= 6);
+      bottom = top + (p3.card.offsetHeight || 56);
+    }
+  }
+};
+function revisionTime(date, lang) {
+  const m2 = date ? /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(date) : null;
+  if (!m2) return "";
+  const d3 = new Date(+m2[1], +m2[2] - 1, +m2[3], +m2[4], +m2[5]);
+  return d3.toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { dateStyle: "short", timeStyle: "short" });
+}
+var StatusBar = class {
+  constructor(ed, app, container, ctx) {
+    this.ed = ed;
+    this.app = app;
+    const bar = document.createElement("div");
+    bar.className = "uw-status-bar";
+    bar.setAttribute("part", "statusbar");
+    this.status = document.createElement("span");
+    this.status.className = "uw-status";
+    this.status.dataset["a"] = "status";
+    this.status.setAttribute("role", "status");
+    const sp = document.createElement("span");
+    sp.className = "uo-spacer";
+    bar.append(this.status, sp);
+    const views = document.createElement("span");
+    views.className = "uw-views";
+    for (const id of ["view:print", "view:web", "view:read", "focus"]) {
+      const r5 = renderItem(id, ctx);
+      views.appendChild(r5.el);
+      this.items.push(r5);
+    }
+    bar.appendChild(views);
+    const zo = renderItem("zoomout", ctx);
+    this.slider = document.createElement("input");
+    this.slider.type = "range";
+    this.slider.min = "10";
+    this.slider.max = "500";
+    this.slider.step = "5";
+    this.slider.className = "uw-zoom-slider";
+    this.slider.dataset["a"] = "zoom:slider";
+    this.slider.title = ctx.registry.text({ en: "Zoom (Ctrl+scroll on the document)", pt: "Zoom (Ctrl+rolagem no documento)" });
+    this.slider.addEventListener("input", () => ed.setZoom(Number(this.slider.value) / 100));
+    this.slider.addEventListener("change", () => ctx.after());
+    const zi = renderItem("zoomin", ctx);
+    const pct = document.createElement("button");
+    pct.type = "button";
+    pct.className = "uo-btn uw-zoom-pct";
+    pct.dataset["a"] = "zoom";
+    pct.title = ctx.registry.text({ en: "Zoom", pt: "Zoom" });
+    pct.addEventListener("mousedown", (e6) => e6.preventDefault());
+    pct.addEventListener("click", (e6) => {
+      e6.stopPropagation();
+      toggleMenu(pct, () => ZOOMS.map((z2) => ({
+        label: `${z2}%`,
+        checked: Math.round(ed.getZoom() * 100) === z2,
+        onClick: () => {
+          ed.setZoom(z2 / 100);
+          ctx.after();
+        }
+      })), ctx);
+    });
+    this.items.push(zo, zi, { el: pct, visible: () => true, sync: () => {
+      pct.textContent = `${Math.round(ed.getZoom() * 100)}%`;
+    } });
+    bar.append(zo.el, this.slider, zi.el, pct);
+    container.appendChild(bar);
+  }
+  ed;
+  app;
+  status;
+  slider;
+  items = [];
+  flashTimer = 0;
+  flashing = false;
+  flash(msg) {
+    window.clearTimeout(this.flashTimer);
+    if (!msg) {
+      this.flashing = false;
+      this.sync();
+      return;
+    }
+    this.flashing = true;
+    this.status.textContent = msg;
+    this.flashTimer = window.setTimeout(() => {
+      this.flashing = false;
+      this.sync();
+    }, 2400);
+  }
+  sync() {
+    if (!this.flashing) {
+      const s4 = this.ed.stats();
+      this.status.textContent = this.app.ui.L.status(s4.page, s4.pages, s4.words);
+    }
+    for (const r5 of this.items) r5.sync();
+    if (this.ed.getRootNode() && document.activeElement !== this.slider) this.slider.value = String(Math.round(this.ed.getZoom() * 100));
+  }
+};
+
+// src/chrome-review.ts
+var ReviewPane = class {
+  constructor(ed, app, env, after) {
+    this.ed = ed;
+    this.app = app;
+    this.env = env;
+    this.after = after;
+  }
+  ed;
+  app;
+  env;
+  after;
+  dir = null;
+  pane = null;
+  raf = 0;
+  open(dir) {
+    this.close();
+    this.dir = dir;
+    const body = document.createElement("div");
+    body.className = "uw-review";
+    const pane = openPane({
+      id: "revisions",
+      title: this.app.ui.L.revPane,
+      lang: this.env.lang,
+      layer: this.env.layer,
+      frame: this.env.frame,
+      dock: dir === "vertical" ? "left" : "bottom",
+      width: 300,
+      height: 220,
+      body,
+      // fechado pelo ×: o painel não volta na próxima abertura
+      onClose: () => {
+        if (this.pane !== pane) return;
+        this.pane = null;
+        this.dir = null;
+        this.ed.classList.remove("uw-review-v", "uw-review-h");
+        this.app.prefs.set("reviewPane", "");
+        this.after();
+      }
+    });
+    pane.el.setAttribute("part", "pane review-pane");
+    this.pane = pane;
+    this.ed.classList.toggle("uw-review-v", dir === "vertical");
+    this.ed.classList.toggle("uw-review-h", dir === "horizontal");
+    this.render();
+  }
+  close() {
+    const pane = this.pane;
+    this.pane = null;
+    this.dir = null;
+    pane?.close();
+    this.ed.classList.remove("uw-review-v", "uw-review-h");
+  }
+  destroy() {
+    cancelAnimationFrame(this.raf);
+    this.close();
+  }
+  schedule() {
+    if (!this.dir || this.raf) return;
+    this.raf = requestAnimationFrame(() => {
+      this.raf = 0;
+      this.render();
+    });
+  }
+  /** Reposiciona (a área entre as barras mudou). */
+  place() {
+    this.pane?.place();
+  }
+  render() {
+    const pane = this.pane;
+    if (!pane) return;
+    pane.place();
+    const L4 = this.app.ui.L;
+    const lang = uiLang(this.ed);
+    const revs = this.ed.getRevisions();
+    const comments = this.app.commentsVisible ? this.ed.getComments() : [];
+    const n5 = { ins: 0, del: 0, move: 0, fmt: 0 };
+    for (const r5 of revs) {
+      if (r5.move) n5.move++;
+      else if (r5.kind === "insert") n5.ins++;
+      else if (r5.kind === "delete") n5.del++;
+      else n5.fmt++;
+    }
+    pane.setTitle(`${L4.revPane}: ${L4.revCount(revs.length)}`);
+    const sum = document.createElement("div");
+    sum.className = "uw-review-sum";
+    sum.textContent = [`${L4.revInsertions}: ${n5.ins}`, `${L4.revDeletions}: ${n5.del}`, `${L4.revMoves}: ${n5.move}`, `${L4.revFormatting}: ${n5.fmt}`, `${L4.revComments}: ${comments.length}`].join(" \xB7 ");
+    const list = document.createElement("ul");
+    list.className = "uw-review-list";
+    revs.forEach((r5, i5) => {
+      const li = document.createElement("li");
+      li.className = "uw-rev";
+      li.style.setProperty("--uw-rev", `#${r5.color}`);
+      const what = r5.move ? r5.kind === "delete" ? L4.revMovedFrom : L4.revMovedTo : r5.kind === "insert" ? r5.mark ? L4.revParaInserted : L4.revInserted : r5.kind === "delete" ? r5.mark ? L4.revParaDeleted : L4.revDeleted : L4.revFormatted;
+      li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
+        <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
+      li.querySelector(".who").textContent = r5.author;
+      li.querySelector(".what").textContent = what;
+      li.querySelector(".when").textContent = revisionTime(r5.date, lang);
+      li.querySelector(".txt").textContent = r5.description ? r5.description.replace(/^[^:]*:\s*/, "") : r5.text;
+      const [acc, rej] = li.querySelectorAll("button");
+      acc.title = L4.revAccept;
+      rej.title = L4.revReject;
+      acc.addEventListener("click", (e6) => {
+        e6.stopPropagation();
+        if (this.ed.acceptRevisionAt(i5)) this.after();
+      });
+      rej.addEventListener("click", (e6) => {
+        e6.stopPropagation();
+        if (this.ed.rejectRevisionAt(i5)) this.after();
+      });
+      li.addEventListener("click", () => {
+        this.ed.selectRevision(i5);
+        this.after();
+      });
+      list.appendChild(li);
+    });
+    for (const c4 of comments) {
+      const li = document.createElement("li");
+      li.className = "uw-rev uw-rev-comment";
+      li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
+      li.querySelector(".who").textContent = c4.author ?? L4.anonymous;
+      li.querySelector(".what").textContent = L4.revComments;
+      li.querySelector(".txt").textContent = c4.text;
+      li.addEventListener("click", () => {
+        this.app.activeCommentIds = [c4.id];
+        this.ed.goToComment(c4.id);
+        this.after();
+      });
+      list.appendChild(li);
+    }
+    if (!revs.length && !comments.length) {
+      const li = document.createElement("li");
+      li.className = "uw-rev-empty";
+      li.textContent = L4.revNone;
+      list.appendChild(li);
+    }
+    pane.body.replaceChildren(sum, list);
+  }
+};
 
 // src/chrome-table-style.ts
 var tr3 = (lang, en, pt) => pickLabels(lang, { en, pt });
@@ -3803,7 +4311,38 @@ var LABELS = {
     automatic: "Automatic",
     noColor: "No color",
     moreColors: "More colors\u2026",
-    rows: (r5, c4) => `${c4} \xD7 ${r5} table`
+    rows: (r5, c4) => `${c4} \xD7 ${r5} table`,
+    authorTitle: "Your name",
+    authorText: "Name shown on your changes and comments",
+    authorOk: "OK",
+    trackOn: "Track Changes on",
+    trackOff: "Track Changes off",
+    revPane: "Revisions",
+    revCount: (n5) => `${n5} revision${n5 === 1 ? "" : "s"}`,
+    revNone: "No revisions",
+    revInserted: "Inserted",
+    revDeleted: "Deleted",
+    revFormatted: "Formatted",
+    revMovedFrom: "Moved (from)",
+    revMovedTo: "Moved (to)",
+    revParaInserted: "Inserted paragraph",
+    revParaDeleted: "Deleted paragraph",
+    revInsertions: "Insertions",
+    revDeletions: "Deletions",
+    revMoves: "Moves",
+    revFormatting: "Formatting",
+    revComments: "Comments",
+    revAccept: "Accept",
+    revReject: "Reject",
+    acceptAt: (k2) => `Accept ${k2}`,
+    rejectAt: (k2) => `Reject ${k2}`,
+    kInsertion: "Insertion",
+    kDeletion: "Deletion",
+    kFormat: "Formatting Change",
+    kMove: "Move",
+    revAccepted: (n5) => `${n5} change${n5 === 1 ? "" : "s"} accepted`,
+    revRejected: (n5) => `${n5} change${n5 === 1 ? "" : "s"} rejected`,
+    noMoreRevisions: "The document contains no revisions"
   },
   pt: {
     untitled: "Documento sem t\xEDtulo",
@@ -3889,7 +4428,38 @@ var LABELS = {
     automatic: "Autom\xE1tico",
     noColor: "Sem cor",
     moreColors: "Mais cores\u2026",
-    rows: (r5, c4) => `Tabela ${c4} \xD7 ${r5}`
+    rows: (r5, c4) => `Tabela ${c4} \xD7 ${r5}`,
+    authorTitle: "Seu nome",
+    authorText: "Nome que aparece nas suas altera\xE7\xF5es e coment\xE1rios",
+    authorOk: "OK",
+    trackOn: "Controle de Altera\xE7\xF5es ativado",
+    trackOff: "Controle de Altera\xE7\xF5es desativado",
+    revPane: "Revis\xF5es",
+    revCount: (n5) => `${n5} ${n5 === 1 ? "revis\xE3o" : "revis\xF5es"}`,
+    revNone: "Nenhuma revis\xE3o",
+    revInserted: "Inserido",
+    revDeleted: "Exclu\xEDdo",
+    revFormatted: "Formatado",
+    revMovedFrom: "Movido (de)",
+    revMovedTo: "Movido (para)",
+    revParaInserted: "Par\xE1grafo inserido",
+    revParaDeleted: "Par\xE1grafo exclu\xEDdo",
+    revInsertions: "Inser\xE7\xF5es",
+    revDeletions: "Exclus\xF5es",
+    revMoves: "Movimenta\xE7\xF5es",
+    revFormatting: "Formata\xE7\xE3o",
+    revComments: "Coment\xE1rios",
+    revAccept: "Aceitar",
+    revReject: "Rejeitar",
+    acceptAt: (k2) => `Aceitar ${k2}`,
+    rejectAt: (k2) => `Rejeitar ${k2}`,
+    kInsertion: "Inser\xE7\xE3o",
+    kDeletion: "Exclus\xE3o",
+    kFormat: "Altera\xE7\xE3o de Formata\xE7\xE3o",
+    kMove: "Movimenta\xE7\xE3o",
+    revAccepted: (n5) => `${n5} ${n5 === 1 ? "altera\xE7\xE3o aceita" : "altera\xE7\xF5es aceitas"}`,
+    revRejected: (n5) => `${n5} ${n5 === 1 ? "altera\xE7\xE3o rejeitada" : "altera\xE7\xF5es rejeitadas"}`,
+    noMoreRevisions: "O documento n\xE3o cont\xE9m revis\xF5es"
   }
 };
 
@@ -4460,13 +5030,61 @@ function menus(env, ctx) {
       "-",
       "dlg:pageBorders"
     ], "page"),
-    trackChanges: sub({ en: "Track changes", pt: "Controlar altera\xE7\xF5es" }, "track_changes", () => ["trackChanges", "-", "change:accept", "change:reject", "change:acceptAll", "change:rejectAll"], "tracking"),
+    trackChanges: sub({ en: "Track Changes", pt: "Controlar Altera\xE7\xF5es" }, "track_changes", () => [
+      "trackChanges",
+      "-",
+      sub({ en: "Display for Review", pt: "Exibir para Revis\xE3o" }, "visibility", markupModes, "markupMode"),
+      sub({ en: "Show Markup", pt: "Mostrar Marca\xE7\xE3o" }, "notes", () => showMarkup(env, ctx), "showMarkup"),
+      "reviewPane",
+      "-",
+      "change:prev",
+      "change:next",
+      "-",
+      sub({ en: "Accept", pt: "Aceitar" }, "check_circle", acceptItems, "acceptMenu"),
+      sub({ en: "Reject", pt: "Rejeitar" }, "cancel", rejectItems, "rejectMenu")
+    ], "tracking"),
     comments: sub({ en: "Comments", pt: "Coment\xE1rios" }, "comment", () => ["comment", "comment:prev", "comment:next", "comment:delete", "comment:deleteAll", "-", "comments"], "commentsMenu"),
     table: { ...sub({ en: "Table", pt: "Tabela" }, "table", () => tableMenu(env, ctx), "tableMenu"), hidden: typeof env.ed.insertTable !== "function" }
   };
 }
 var breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
 var columnsMenu = () => ["columns:one", "columns:two", "columns:three", "columns:left", "columns:right", "-", "dlg:columns"];
+var markupModes = () => ["markup:simple", "markup:all", "markup:none", "markup:original"];
+var acceptItems = () => ["change:acceptNext", "change:acceptOne", "change:acceptShown", "change:acceptAll", "change:acceptAllStop"];
+var rejectItems = () => ["change:rejectNext", "change:rejectOne", "change:rejectShown", "change:rejectAll", "change:rejectAllStop"];
+var MODE_LABELS = {
+  simple: { en: "Simple Markup", pt: "Marca\xE7\xE3o Simples" },
+  all: { en: "All Markup", pt: "Todas as Marca\xE7\xF5es" },
+  none: { en: "No Markup", pt: "Sem Marca\xE7\xE3o" },
+  original: { en: "Original", pt: "Original" }
+};
+function showMarkup(env, ctx) {
+  const ed = env.ed;
+  const people = () => {
+    const all = ed.revisionAuthors();
+    const sel4 = ed.getMarkupOptions().authors;
+    return ["people:all", "-", ...all.map((a3) => ({
+      id: `people:${a3}`,
+      label: a3,
+      swatch: `#${ed.authorColor(a3)}`,
+      checked: !sel4 || sel4.includes(a3),
+      onClick: () => {
+        const cur = ed.getMarkupOptions().authors ?? all;
+        const next = cur.includes(a3) ? cur.filter((x2) => x2 !== a3) : [...cur, a3];
+        ed.setMarkupOptions({ authors: all.every((x2) => next.includes(x2)) ? null : next });
+        ctx.after();
+      }
+    }))];
+  };
+  return [
+    "comments",
+    "show:insdel",
+    "show:formatting",
+    "-",
+    { id: "balloons", label: { en: "Balloons", pt: "Bal\xF5es" }, submenu: () => ["balloons:revisions", "balloons:inline", "balloons:mixed"] },
+    { id: "people", label: { en: "Specific People", pt: "Pessoas Espec\xEDficas" }, submenu: people }
+  ];
+}
 var fileMenu = (m2) => [
   "new",
   "open",
@@ -4655,7 +5273,19 @@ function ribbonLayout(env, ctx) {
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "changes", label: L3("Changes", "Altera\xE7\xF5es"), icon: "track_changes", prio: 4, cells: [large("trackChanges"), large("change:accept"), large("change:reject")] },
+          { id: "tracking", label: L3("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+            large("trackChanges"),
+            { rows: [
+              [{ menu: markupModes, id: "markupMode", label: L3("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L3("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
+            ] }
+          ] },
+          { id: "changes", label: L3("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+            { split: "change:accept", menu: acceptItems, size: "large" },
+            { split: "change:reject", menu: rejectItems, size: "large" },
+            { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
+          ] },
           { id: "document", label: L3("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large("compare"), large("enableEditing")] }
         ]
       },
@@ -4712,274 +5342,6 @@ function ribbonLayout(env, ctx) {
     ]
   };
 }
-
-// src/chrome-panels.ts
-var FindPanel = class {
-  constructor(ed, app, layer) {
-    this.ed = ed;
-    this.app = app;
-    const L4 = app.ui.L;
-    const el6 = document.createElement("div");
-    el6.className = "uw-find";
-    el6.setAttribute("role", "dialog");
-    el6.setAttribute("aria-label", L4.findTitle);
-    el6.setAttribute("part", "find");
-    el6.hidden = true;
-    el6.innerHTML = `
-      <div class="uw-find-head"><strong></strong>
-        <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
-      <input type="text" data-a="find:text" />
-      <input type="text" data-a="find:replace" />
-      <div class="uw-find-actions"><span class="uw-find-msg"></span>
-        <button type="button" class="uo-pill" data-a="find:next"></button>
-        <button type="button" class="uo-pill" data-a="find:one"></button>
-        <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-    el6.querySelector("strong").textContent = L4.findTitle;
-    this.find = el6.querySelector('[data-a="find:text"]');
-    this.repl = el6.querySelector('[data-a="find:replace"]');
-    this.msg = el6.querySelector(".uw-find-msg");
-    this.find.placeholder = L4.find;
-    this.repl.placeholder = L4.replaceWith;
-    const b3 = (id, label, fn) => {
-      const x2 = el6.querySelector(`[data-a="find:${id}"]`);
-      x2.textContent = label;
-      x2.addEventListener("click", fn);
-    };
-    b3("next", L4.findNext, () => this.next());
-    b3("one", L4.replace, () => this.replaceOne());
-    b3("all", L4.replaceAll, () => this.replaceAll());
-    el6.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
-    for (const i5 of [this.find, this.repl]) {
-      i5.addEventListener("keydown", (e6) => {
-        if (e6.key === "Escape") {
-          e6.preventDefault();
-          this.close();
-        }
-        if (e6.key === "Enter") {
-          e6.preventDefault();
-          if (i5 === this.repl && e6.ctrlKey) this.replaceAll();
-          else this.next();
-        }
-      });
-    }
-    this.find.addEventListener("input", () => {
-      this.msg.textContent = "";
-      this.find.classList.remove("uw-miss");
-    });
-    layer.appendChild(el6);
-    this.el = el6;
-  }
-  ed;
-  app;
-  el;
-  find;
-  repl;
-  msg;
-  get isOpen() {
-    return !this.el.hidden;
-  }
-  open(replace, top) {
-    this.el.hidden = false;
-    this.el.style.top = `${Math.max(8, top)}px`;
-    const editable = !this.ed.isProtected();
-    for (const x2 of this.el.querySelectorAll('[data-a="find:replace"],[data-a="find:one"],[data-a="find:all"]')) x2.hidden = !editable;
-    const sel4 = this.ed.selectedText();
-    if (sel4 && !sel4.includes("\n") && sel4.length < 200) this.find.value = sel4;
-    const t5 = replace && editable ? this.repl : this.find;
-    t5.focus();
-    t5.select();
-  }
-  close() {
-    this.el.hidden = true;
-    this.ed.focusEditor();
-  }
-  next() {
-    const ok = !!this.find.value && this.ed.findNext(this.find.value);
-    this.find.classList.toggle("uw-miss", !ok && !!this.find.value);
-    this.msg.textContent = ok || !this.find.value ? "" : this.app.ui.L.notFound;
-    return ok;
-  }
-  replaceOne() {
-    const needle = this.find.value;
-    if (!needle) return;
-    if (this.ed.selectedText().toLowerCase() === needle.toLowerCase()) this.ed.pasteText(this.repl.value);
-    this.next();
-  }
-  replaceAll() {
-    if (!this.find.value) return;
-    const n5 = this.ed.replaceAll(this.find.value, this.repl.value);
-    this.msg.textContent = n5 ? this.app.ui.L.replaced(n5) : this.app.ui.L.notFound;
-  }
-};
-var CommentCards = class {
-  constructor(ed, app, root, after) {
-    this.ed = ed;
-    this.app = app;
-    this.after = after;
-    const el6 = document.createElement("div");
-    el6.className = "uw-comments";
-    el6.setAttribute("part", "comments");
-    for (const t5 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-      el6.addEventListener(t5, (e6) => {
-        if (t5 !== "wheel") e6.stopPropagation();
-      }, { passive: t5 === "wheel" });
-    }
-    root.appendChild(el6);
-    this.el = el6;
-  }
-  ed;
-  app;
-  after;
-  el;
-  raf = 0;
-  schedule() {
-    if (this.raf) return;
-    this.raf = requestAnimationFrame(() => {
-      this.raf = 0;
-      this.render();
-    });
-  }
-  destroy() {
-    cancelAnimationFrame(this.raf);
-    this.el.remove();
-    this.ed.classList.remove("uw-has-comments");
-  }
-  render() {
-    const pages = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
-    const all = this.app.commentsVisible && this.ed.getView() === "print" ? this.ed.getComments() : [];
-    const pageW = Math.max(0, ...all.map((c4) => pages[this.ed.commentAnchorPx(c4.id)?.page ?? -1]?.offsetWidth ?? 0));
-    const comments = this.ed.clientWidth >= pageW + 300 + 48 ? all : [];
-    this.ed.classList.toggle("uw-has-comments", comments.length > 0);
-    const L4 = this.app.ui.L;
-    const active = new Set(this.app.activeCommentIds);
-    this.el.replaceChildren();
-    if (!comments.length) return;
-    const placed = [];
-    for (const c4 of comments) {
-      const a3 = this.ed.commentAnchorPx(c4.id);
-      const page = a3 ? pages[a3.page] : void 0;
-      if (!a3 || !page) continue;
-      const card = document.createElement("div");
-      card.className = `uw-card${active.has(c4.id) ? " active" : ""}`;
-      card.dataset["commentId"] = String(c4.id);
-      card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L4.deleteComment}">${symbol("delete")}</button></div>
-        <div class="txt"></div>`;
-      card.querySelector(".who").textContent = c4.author ?? L4.anonymous;
-      card.querySelector(".txt").textContent = c4.text;
-      card.querySelector("button").addEventListener("click", (e6) => {
-        e6.stopPropagation();
-        if (this.ed.isProtected()) return;
-        this.ed.removeComment(c4.id);
-        this.after();
-      });
-      card.addEventListener("click", () => {
-        this.app.activeCommentIds = [c4.id];
-        this.ed.goToComment(c4.id);
-        this.render();
-        this.after();
-      });
-      card.style.left = `${page.offsetLeft + page.offsetWidth + 24}px`;
-      this.el.appendChild(card);
-      placed.push({ card, ideal: a3.topPx });
-    }
-    placed.sort((x2, y3) => x2.ideal - y3.ideal);
-    let bottom = -Infinity;
-    for (const p3 of placed) {
-      const top = Math.max(p3.ideal, bottom + 8);
-      p3.card.style.top = `${top}px`;
-      p3.card.classList.toggle("anchored", Math.abs(top - p3.ideal) <= 6);
-      bottom = top + (p3.card.offsetHeight || 56);
-    }
-  }
-};
-var StatusBar = class {
-  constructor(ed, app, container, ctx) {
-    this.ed = ed;
-    this.app = app;
-    const bar = document.createElement("div");
-    bar.className = "uw-status-bar";
-    bar.setAttribute("part", "statusbar");
-    this.status = document.createElement("span");
-    this.status.className = "uw-status";
-    this.status.dataset["a"] = "status";
-    this.status.setAttribute("role", "status");
-    const sp = document.createElement("span");
-    sp.className = "uo-spacer";
-    bar.append(this.status, sp);
-    const views = document.createElement("span");
-    views.className = "uw-views";
-    for (const id of ["view:print", "view:web", "view:read", "focus"]) {
-      const r5 = renderItem(id, ctx);
-      views.appendChild(r5.el);
-      this.items.push(r5);
-    }
-    bar.appendChild(views);
-    const zo = renderItem("zoomout", ctx);
-    this.slider = document.createElement("input");
-    this.slider.type = "range";
-    this.slider.min = "10";
-    this.slider.max = "500";
-    this.slider.step = "5";
-    this.slider.className = "uw-zoom-slider";
-    this.slider.dataset["a"] = "zoom:slider";
-    this.slider.title = ctx.registry.text({ en: "Zoom (Ctrl+scroll on the document)", pt: "Zoom (Ctrl+rolagem no documento)" });
-    this.slider.addEventListener("input", () => ed.setZoom(Number(this.slider.value) / 100));
-    this.slider.addEventListener("change", () => ctx.after());
-    const zi = renderItem("zoomin", ctx);
-    const pct = document.createElement("button");
-    pct.type = "button";
-    pct.className = "uo-btn uw-zoom-pct";
-    pct.dataset["a"] = "zoom";
-    pct.title = ctx.registry.text({ en: "Zoom", pt: "Zoom" });
-    pct.addEventListener("mousedown", (e6) => e6.preventDefault());
-    pct.addEventListener("click", (e6) => {
-      e6.stopPropagation();
-      toggleMenu(pct, () => ZOOMS.map((z2) => ({
-        label: `${z2}%`,
-        checked: Math.round(ed.getZoom() * 100) === z2,
-        onClick: () => {
-          ed.setZoom(z2 / 100);
-          ctx.after();
-        }
-      })), ctx);
-    });
-    this.items.push(zo, zi, { el: pct, visible: () => true, sync: () => {
-      pct.textContent = `${Math.round(ed.getZoom() * 100)}%`;
-    } });
-    bar.append(zo.el, this.slider, zi.el, pct);
-    container.appendChild(bar);
-  }
-  ed;
-  app;
-  status;
-  slider;
-  items = [];
-  flashTimer = 0;
-  flashing = false;
-  flash(msg) {
-    window.clearTimeout(this.flashTimer);
-    if (!msg) {
-      this.flashing = false;
-      this.sync();
-      return;
-    }
-    this.flashing = true;
-    this.status.textContent = msg;
-    this.flashTimer = window.setTimeout(() => {
-      this.flashing = false;
-      this.sync();
-    }, 2400);
-  }
-  sync() {
-    if (!this.flashing) {
-      const s4 = this.ed.stats();
-      this.status.textContent = this.app.ui.L.status(s4.page, s4.pages, s4.words);
-    }
-    for (const r5 of this.items) r5.sync();
-    if (this.ed.getRootNode() && document.activeElement !== this.slider) this.slider.value = String(Math.round(this.ed.getZoom() * 100));
-  }
-};
 
 // src/chrome-styles.ts
 var T2 = {
@@ -6281,6 +6643,31 @@ var CHROME_CSS = (
 .uw-card .uo-ic { width: 16px; height: 16px; }
 .uw-card .txt { white-space: pre-wrap; word-break: break-word; }
 
+/* bal\xF5es de revis\xE3o: o cart\xE3o dos coment\xE1rios, na cor do autor */
+.uw-rev-card::before { background: var(--uw-rev); }
+.uw-rev-card.anchored::after { border-top-color: var(--uw-rev); }
+.uw-card .when { flex: 1 1 auto; margin-left: 6px; font-size: 11px; opacity: .7; white-space: nowrap; }
+.uw-rev-card .txt b { font-weight: 600; }
+
+/* Painel de Revis\xE3o (painel das barras: vertical \xE0 esquerda; horizontal acima da barra de status) */
+:host(.uw-review-v) .pages { padding-left: 304px; justify-content: safe center; }
+:host(.uw-review-h) .pages { padding-bottom: 224px; }
+.uw-review.uo-pane-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; font-size: 13px; }
+.uw-review-sum { flex: none; padding: 0 16px 8px; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); border-bottom: 1px solid var(--u-color-outline-variant, #c4c6d0); }
+.uw-review-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1 1 auto; min-height: 0; }
+.uw-rev { padding: 6px 8px 6px 12px; cursor: pointer; border-left: 3px solid var(--uw-rev, rgba(255,187,0,.6)); margin: 2px 6px; border-radius: 4px; }
+.uw-rev:hover { background: var(--u-color-surface-container-high, #e9e7ec); }
+.uw-rev-head { display: flex; align-items: center; gap: 6px; }
+.uw-rev-head .who { font-weight: 600; font-size: 12px; }
+.uw-rev-head .what { font-size: 12px; color: var(--uw-rev, inherit); }
+.uw-rev-head .gap { flex: 1 1 auto; }
+.uw-rev .when { font-size: 11px; opacity: .7; }
+.uw-rev-head .uo-btn { height: 22px; min-width: 22px; visibility: hidden; }
+.uw-rev:hover .uo-btn { visibility: visible; }
+.uw-rev .uo-ic { width: 16px; height: 16px; }
+.uw-rev .txt { white-space: pre-wrap; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.uw-rev-empty { padding: 12px; color: var(--u-color-on-surface-variant, #44474f); }
+
 /* comparar */
 .uw-compare { display: none; }
 :host(.uw-comparing) .uw-compare { display: flex; flex-direction: column; }
@@ -6359,6 +6746,9 @@ var WriteChrome = class {
       this.protbar = this.makeProtectedBar();
       topEl.appendChild(this.protbar);
       this.cards = new CommentCards(ed, app, this.root, () => this.after());
+      this.review = new ReviewPane(ed, app, { layer: this.layer, frame: () => this.docFrame(), lang: opts.lang }, () => this.after());
+      const pane = app.prefs.get("reviewPane");
+      if (pane === "vertical" || pane === "horizontal") this.review.open(pane);
       this.bindDocumentFeatures();
     }
     if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
@@ -6381,6 +6771,14 @@ var WriteChrome = class {
       }, { signal: this.ac.signal });
     }
     this.ac.signal.addEventListener("abort", () => mo.disconnect());
+    if (!ed.hasAuthor()) {
+      void Promise.resolve(hostOf(ed)?.userName?.()).then((n5) => {
+        if (ed.hasAuthor()) return;
+        const name = n5 || originStore.get("uw-author");
+        if (name) ed.author = name;
+      }, () => {
+      });
+    }
     void ed.listAvailableFonts().then((f3) => {
       this.families = f3;
     });
@@ -6401,6 +6799,7 @@ var WriteChrome = class {
   bar = null;
   status = null;
   cards = null;
+  review = null;
   find = null;
   styles = null;
   protbar = null;
@@ -6461,10 +6860,31 @@ var WriteChrome = class {
         this.app.prefs.set("toolbar", m2);
         this.ed.setAttribute("toolbar", m2);
       },
+      trackChanges: () => {
+        void (async () => {
+          if (!this.ed.isTrackingChanges() && !await authorDialog(d3())) return;
+          this.ed.toggleTrackChanges();
+          this.flash(this.ed.isTrackingChanges() ? this.L.trackOn : this.L.trackOff);
+          this.after();
+        })();
+      },
+      reviewPane: (dir) => {
+        const r5 = this.review;
+        if (!r5) return;
+        if (!dir && r5.dir) r5.close();
+        else {
+          r5.close();
+          r5.open(dir ?? "vertical");
+        }
+        this.app.prefs.set("reviewPane", r5.dir ?? "");
+        this.cards?.schedule();
+      },
+      reviewPaneOpen: () => this.review?.dir ?? false,
       toggleComments: () => {
         this.app.commentsVisible = !this.app.commentsVisible;
         this.app.prefs.set("comments", this.app.commentsVisible ? "1" : "0");
         this.cards?.render();
+        this.review?.schedule();
       },
       requestFonts: () => this.requestFonts(),
       flash: (m2) => this.flash(m2),
@@ -6521,8 +6941,10 @@ var WriteChrome = class {
     this.bar?.sync();
     this.status?.sync();
     this.styles?.sync();
+    this.review?.place();
   }
-  /** Área do documento entre as barras (o painel lateral acopla à direita, sem cobrir a rolagem). */
+  /** Área do documento entre as barras (os painéis acoplam nela — Estilos à direita, sem
+   *  cobrir a rolagem; Revisão à esquerda ou embaixo). */
   docFrame() {
     const r5 = this.ed.getBoundingClientRect();
     const top = this.topEl.getBoundingClientRect(), bot = this.bottomEl.getBoundingClientRect();
@@ -6544,6 +6966,7 @@ var WriteChrome = class {
     this.styles?.close();
     this.bar?.destroy();
     this.cards?.destroy();
+    this.review?.destroy();
     this.layer.replaceChildren();
     this.root.querySelector(".uw-compare")?.remove();
     this.topEl.classList.remove("uo-wco");
@@ -6626,7 +7049,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-LARTVSKM.js");
+    await import("./src-RQGTPAWK.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
@@ -6698,7 +7121,9 @@ var WriteChrome = class {
     }, { signal, passive: true });
     if (this.cards) {
       const cards = this.cards;
-      for (const t5 of ["uw-comments-changed", "uw-change", "uw-zoom", "uw-ready", "uw-protected"]) ed.addEventListener(t5, () => cards.schedule(), { signal });
+      for (const t5 of ["uw-comments-changed", "uw-change", "uw-zoom", "uw-ready", "uw-protected", "uw-markup", "uw-revisions-changed"]) ed.addEventListener(t5, () => cards.schedule(), { signal });
+      const review = this.review;
+      if (review) for (const t5 of ["uw-comments-changed", "uw-change", "uw-ready", "uw-protected", "uw-markup", "uw-revisions-changed", "uw-track-changes"]) ed.addEventListener(t5, () => review.schedule(), { signal });
       const cro = new ResizeObserver(() => cards.schedule());
       cro.observe(ed);
       signal.addEventListener("abort", () => cro.disconnect());
@@ -6708,6 +7133,12 @@ var WriteChrome = class {
         this.sync();
       }), { signal });
     }
+    const pro = new ResizeObserver(() => {
+      this.review?.place();
+      this.styles?.sync();
+    });
+    for (const t5 of [this.topEl, this.bottomEl, ed]) pro.observe(t5);
+    signal.addEventListener("abort", () => pro.disconnect());
     document.addEventListener("fullscreenchange", () => {
       if (!document.fullscreenElement && ed.classList.contains("uw-focus")) {
         ed.classList.remove("uw-focus");
@@ -6783,9 +7214,24 @@ var WriteChrome = class {
       const open = (pre) => {
         openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
       };
+      const rv = typeof ed.revisionAtCaret === "function" ? ed.revisionAtCaret() : null;
+      const revItems = rv ? (() => {
+        const k2 = rv.move ? this.L.kMove : rv.kind === "insert" ? this.L.kInsertion : rv.kind === "delete" ? this.L.kDeletion : this.L.kFormat;
+        return [
+          { icon: "check_circle", label: this.L.acceptAt(k2), onClick: () => {
+            ed.acceptRevisionAt(rv.index);
+            this.after();
+          } },
+          { icon: "cancel", label: this.L.rejectAt(k2), onClick: () => {
+            ed.rejectRevisionAt(rv.index);
+            this.after();
+          } },
+          "-"
+        ];
+      })() : [];
       const m2 = ed.spellingAtCaret();
       if (!m2) {
-        open([]);
+        open(revItems);
         return;
       }
       void ed.spellingSuggestions(m2).then((sug) => {
@@ -6800,9 +7246,10 @@ var WriteChrome = class {
           { icon: "library_add", label: { en: "Add to Dictionary", pt: "Adicionar ao dicion\xE1rio" }, onClick: () => {
             void ed.addToDictionary(m2.word);
           } },
-          "-"
+          "-",
+          ...revItems
         ]);
-      }, () => open([]));
+      }, () => open(revItems));
     }, { signal });
     const overlay = document.createElement("div");
     overlay.className = "uw-drop";

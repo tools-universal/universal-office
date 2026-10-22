@@ -4,11 +4,11 @@ import {
   isOdt,
   openDialog,
   showToast
-} from "./chunk-CM2EVFAB.js";
+} from "./chunk-RJ6W7YOR.js";
 import {
   pickLabels,
   uiLang
-} from "./chunk-7Y5VBLLD.js";
+} from "./chunk-IP6LSAL6.js";
 
 // ../../../shared/ui/src/font-embedding-dialog.ts
 var LABELS = {
@@ -3842,6 +3842,7 @@ export {
   ACCENTS,
   isDark,
   applyTheme,
+  originStore,
   download,
   WriteApp,
   appFor

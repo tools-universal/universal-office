@@ -67,7 +67,7 @@ Estado: `—` a fazer · `em curso` · `feito`.
 | Frente | Inclui | Estado |
 |---|---|---|
 | Tabela | ◐ inserir; desenhar; converter texto↔tabela; Design da Tabela (estilos, sombreamento, bordas); Layout (dimensionar, distribuir, alinhar na célula, direção do texto, repetir cabeçalho, fórmula) | feito |
-| Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | em curso |
+| Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | feito |
 | Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | em curso |
 | Seções e colunas | ◐ quebra de seção e de coluna; Colunas | feito |
 | Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | feito |

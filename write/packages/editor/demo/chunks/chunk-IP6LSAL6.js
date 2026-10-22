@@ -1338,6 +1338,13 @@ function firstChild(el3, name) {
 }
 
 // ../docx-core/src/ooxml/props.ts
+function readRevisionInfo(el3) {
+  const info = { author: el3.attrs["w:author"] ?? "" };
+  if (el3.attrs["w:date"]) info.date = el3.attrs["w:date"];
+  if (el3.attrs["w16du:dateUtc"]) info.dateUtc = el3.attrs["w16du:dateUtc"];
+  if (el3.name === "w:moveFrom" || el3.name === "w:moveTo") info.move = true;
+  return info;
+}
 var int = (v) => {
   if (v === void 0 || v === "") return void 0;
   const n = parseInt(v, 10);
@@ -1504,6 +1511,9 @@ function readRPr(rPr) {
       }
       case "w14:ligatures":
         p.ligatures = el3.attrs["w14:val"] ?? "standard";
+        break;
+      case "w:rPrChange":
+        p.change = { ...readRevisionInfo(el3), rPr: readRPr(firstChild(el3, "w:rPr")) ?? {} };
         break;
       case "w14:shadow": {
         const emu = (k) => (parseInt(el3.attrs[k] ?? "0", 10) || 0) / 12700;
@@ -1752,7 +1762,15 @@ function readPPr(pPr) {
       }
       case "w:rPr":
         p.rPr = readRPr(el3);
-        if (childElements(el3).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
+        for (const c of childElements(el3)) {
+          if (c.name === "w:del" || c.name === "w:moveFrom") {
+            p.markDeleted = true;
+            p.markDel = readRevisionInfo(c);
+          } else if (c.name === "w:ins" || c.name === "w:moveTo") p.markIns = readRevisionInfo(c);
+        }
+        break;
+      case "w:pPrChange":
+        p.change = { ...readRevisionInfo(el3), pPr: readPPr(firstChild(el3, "w:pPr")) ?? {} };
         break;
     }
   }
@@ -2529,7 +2547,16 @@ function runPropsFromRPr(rpr) {
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
+  if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
+}
+function revInfo(r) {
+  return {
+    author: r.author,
+    ...r.date !== void 0 ? { date: r.date } : {},
+    ...r.dateUtc !== void 0 ? { dateUtc: r.dateUtc } : {},
+    ...r.move ? { move: true } : {}
+  };
 }
 function editBaseProps(run, rpr) {
   const base = runPropsFromRPr(rpr);
@@ -2592,6 +2619,9 @@ function paraPropsFromPPr(ppr) {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
+  if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
+  if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
+  if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
 function findDeep2(el3, name) {
@@ -2613,7 +2643,7 @@ function tagObjectRuns(list, from, el3) {
   if (!list) return;
   for (let i2 = from; i2 < list.length; i2++) list[i2][OBJ_EL] = i2 === from ? el3 : true;
 }
-var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
+var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep2(pic, "a:blip");
@@ -3220,12 +3250,20 @@ function readRunsInto(runs, container, ctx, inherit) {
         break;
       }
       case "w:smartTag":
-      case "w:ins":
-      case "w:moveTo":
       case "w:customXml":
       case "w:dir":
       case "w:bdo":
         readRunsInto(runs, child, ctx, inherit);
+        break;
+      // revisões: o texto inserido E o excluído ficam no modelo, marcados nas props
+      // (a visão final esconde o excluído — motor de layout)
+      case "w:ins":
+      case "w:moveTo":
+        readRunsInto(runs, child, ctx, { ...inherit, ins: readRevisionInfo(child) });
+        break;
+      case "w:del":
+      case "w:moveFrom":
+        readRunsInto(runs, child, ctx, { ...inherit, del: readRevisionInfo(child) });
         break;
     }
   }
@@ -3319,6 +3357,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   const make = (text2, extra) => {
     const props = { ...rProps };
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
+    if (inherit?.ins) props.ins = inherit.ins;
+    if (inherit?.del) props.del = inherit.del;
     const run = { text: text2, props, ...inherit?.field ? { field: inherit.field } : {}, ...extra };
     if (rpr) run.rpr = rpr;
     setRPrEl(run, rPrEl);
@@ -3341,7 +3381,13 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       flush();
       const type = child.attrs["w:fldCharType"];
       if (type === "begin") {
-        const frame = { instr: "", phase: "instr", runs: [], crossed: false, props: { ...rProps } };
+        const frame = {
+          instr: "",
+          phase: "instr",
+          runs: [],
+          crossed: false,
+          props: { ...rProps, ...inherit?.ins ? { ins: inherit.ins } : {}, ...inherit?.del ? { del: inherit.del } : {} }
+        };
         if (rpr) frame.rpr = rpr;
         if (rPrEl) frame.rPrEl = rPrEl;
         const ff = firstChild(child, "w:ffData");
@@ -3376,13 +3422,14 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       }
       continue;
     }
-    if (child.name === "w:instrText") {
+    if (child.name === "w:instrText" || child.name === "w:delInstrText") {
       const top = stack[stack.length - 1];
       if (top && top.phase === "instr") top.instr += textContentOf(child);
       continue;
     }
     switch (child.name) {
       case "w:t":
+      case "w:delText":
         text += child.children.filter((c) => typeof c === "string").join("").replace(/\u00AD/g, "\u2011").replace(/\r\n|[\r\n]/g, " ");
         break;
       case "w:tab":
@@ -4387,8 +4434,853 @@ var patchTblPrEx = (raw, cur) => patch(raw, cur, readTblPr, TBLPR_GEN, TBLPREX_O
 var patchTrPr = (raw, cur) => patch(raw, cur, readTrPr, TRPR_GEN, TRPR_ORDER);
 var patchTcPr = (raw, cur) => patch(raw, cur, readTcPr, TCPR_GEN, TCPR_ORDER, void 0, true);
 
-// ../docx-core/src/lossless.ts
+// ../docx-core/src/model-ops.ts
+var paraText = (p) => p.runs.map((r) => r.text).join("");
+var paraLength = (p) => p.runs.reduce((s, r) => s + r.text.length, 0);
+function comparePos(a, b) {
+  return a.para !== b.para ? a.para - b.para : a.offset - b.offset;
+}
+function normalizeRange(r) {
+  return comparePos(r.start, r.end) <= 0 ? r : { start: r.end, end: r.start };
+}
+var sameRPr = (a, b) => a.rpr === b.rpr || JSON.stringify(a.rpr ?? null) === JSON.stringify(b.rpr ?? null);
+var textExtras = (run) => ({
+  ...run.field ? { field: run.field } : {},
+  ...run.rpr ? { rpr: run.rpr } : {},
+  ...run.symFont ? { symFont: run.symFont } : {},
+  ...run.inToc ? { inToc: run.inToc } : {}
+});
+var sameProps = (a, b) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.underlineStyle === b.underlineStyle && a.underlineColor === b.underlineColor && a.strike === b.strike && a.doubleStrike === b.doubleStrike && a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt && a.color === b.color && a.highlight === b.highlight && a.fontAscii === b.fontAscii && a.allCaps === b.allCaps && a.smallCaps === b.smallCaps && // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
+a.src === b.src && sameComments(a.commentIds, b.commentIds) && // revisões: só a mesma (autor, data, movimentação) se funde — o Word grava um w:ins por autoria
+sameJson(a.ins, b.ins) && sameJson(a.del, b.del) && sameJson(a.fmt, b.fmt);
+var sameJson = (a, b) => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+var sameComments = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((v, i2) => v === b[i2]);
+};
+var isSpecial = (r) => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab);
+function normalizeParagraph(p) {
+  const out = [];
+  for (const run of p.runs) {
+    if (run.text.length === 0 && !isSpecial(run)) continue;
+    const last = out[out.length - 1];
+    if (last && !isSpecial(last) && !isSpecial(run) && sameProps(last.props, run.props) && sameRPr(last, run) && !last.fieldResult && !run.fieldResult && last.field === run.field) {
+      last.text += run.text;
+    } else {
+      out.push({ ...run, props: { ...run.props } });
+    }
+  }
+  p.runs = out;
+}
+function splitAt(p, offset) {
+  let acc = 0;
+  for (let i2 = 0; i2 < p.runs.length; i2++) {
+    const run = p.runs[i2];
+    if (offset === acc) return i2;
+    if (offset < acc + run.text.length) {
+      const extras = textExtras(run);
+      const head = { ...extras, text: run.text.slice(0, offset - acc), props: { ...run.props } };
+      const tail = { ...extras, text: run.text.slice(offset - acc), props: { ...run.props } };
+      p.runs.splice(i2, 1, head, tail);
+      return i2 + 1;
+    }
+    acc += run.text.length;
+  }
+  return p.runs.length;
+}
+function propsAt(model, pos) {
+  const p = model.paragraphs[pos.para];
+  if (!p || p.runs.length === 0) return { ...DEFAULT_RUN_PROPS };
+  let acc = 0;
+  for (const run of p.runs) {
+    if (pos.offset <= acc + run.text.length) return withoutRevisions(run.props);
+    acc += run.text.length;
+  }
+  return withoutRevisions(p.runs[p.runs.length - 1].props);
+}
+function withoutRevisions(props) {
+  const out = { ...props };
+  delete out.ins;
+  delete out.del;
+  delete out.fmt;
+  return out;
+}
+function rprAt(model, pos) {
+  const p = model.paragraphs[pos.para];
+  if (!p || p.runs.length === 0) return void 0;
+  let acc = 0;
+  for (const run of p.runs) {
+    if (pos.offset <= acc + run.text.length && !isSpecial(run)) return run.rpr;
+    acc += run.text.length;
+  }
+  for (let i2 = p.runs.length - 1; i2 >= 0; i2--) if (!isSpecial(p.runs[i2])) return p.runs[i2].rpr;
+  return void 0;
+}
+function insertText(model, pos, text, props) {
+  const p = model.paragraphs[pos.para];
+  const effective = props ?? propsAt(model, pos);
+  const rpr = rprAt(model, pos);
+  const idx = splitAt(p, pos.offset);
+  p.runs.splice(idx, 0, { text, props: { ...effective }, ...rpr ? { rpr } : {} });
+  normalizeParagraph(p);
+  return { para: pos.para, offset: pos.offset + text.length };
+}
+function insertRun(model, pos, run) {
+  const p = model.paragraphs[pos.para];
+  const idx = splitAt(p, pos.offset);
+  p.runs.splice(idx, 0, { ...run, props: { ...run.props } });
+  normalizeParagraph(p);
+  return { para: pos.para, offset: pos.offset + run.text.length };
+}
+function splitParagraph(model, pos) {
+  const p = model.paragraphs[pos.para];
+  const idx = splitAt(p, pos.offset);
+  const tailRuns = p.runs.slice(idx);
+  p.runs = p.runs.slice(0, idx);
+  const tail = { runs: tailRuns, props: { ...p.props } };
+  if (p.ppr) tail.ppr = p.ppr;
+  if (p.pprEdited) tail.pprEdited = true;
+  if (p.props.sectionBreak) {
+    p.props = { ...p.props };
+    delete p.props.sectionBreak;
+  }
+  if (p.props.markIns || p.props.markDel) {
+    p.props = { ...p.props };
+    delete p.props.markIns;
+    delete p.props.markDel;
+  }
+  model.paragraphs.splice(pos.para + 1, 0, tail);
+  normalizeParagraph(p);
+  normalizeParagraph(tail);
+  return { para: pos.para + 1, offset: 0 };
+}
+function deleteRange(model, range) {
+  const { start, end } = normalizeRange(range);
+  if (start.para === end.para) {
+    const p = model.paragraphs[start.para];
+    rebuildDelete(p, start.offset, end.offset);
+    normalizeParagraph(p);
+    return start;
+  }
+  const first = model.paragraphs[start.para];
+  const last = model.paragraphs[end.para];
+  rebuildDelete(first, start.offset, paraLength(first));
+  rebuildDelete(last, 0, end.offset);
+  first.runs = [...first.runs, ...last.runs];
+  first.props = { ...last.props };
+  if (last.ppr) first.ppr = last.ppr;
+  else delete first.ppr;
+  model.paragraphs.splice(start.para + 1, end.para - start.para);
+  normalizeParagraph(first);
+  return start;
+}
+function rebuildDelete(p, from, to) {
+  const out = [];
+  let acc = 0;
+  for (const run of p.runs) {
+    const rs = acc;
+    const re = acc + run.text.length;
+    acc = re;
+    const keepHead = run.text.slice(0, Math.max(0, Math.min(from, re) - rs));
+    const keepTail = re > to ? run.text.slice(Math.max(0, to - rs)) : "";
+    const text = keepHead + keepTail;
+    if (text.length > 0) {
+      const intact = text.length === run.text.length;
+      out.push(intact ? { ...run, text } : { ...textExtras(run), text, props: run.props });
+    }
+  }
+  p.runs = out;
+}
+function mergeWithPrevious(model, para) {
+  const prev = model.paragraphs[para - 1];
+  const cur = model.paragraphs[para];
+  const offset = paraLength(prev);
+  prev.runs = [...prev.runs, ...cur.runs];
+  prev.props = { ...cur.props };
+  if (cur.ppr) prev.ppr = cur.ppr;
+  else delete prev.ppr;
+  if (cur.pprEdited) prev.pprEdited = true;
+  else delete prev.pprEdited;
+  model.paragraphs.splice(para, 1);
+  normalizeParagraph(prev);
+  return { para: para - 1, offset };
+}
+function applyRunProps(model, range, patch2) {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = model.paragraphs[pi];
+    const from = pi === start.para ? start.offset : 0;
+    const to = pi === end.para ? end.offset : paraLength(p);
+    if (to <= from) continue;
+    splitAt(p, to);
+    const i1 = splitAt(p, from);
+    let acc = 0;
+    for (let ri = 0; ri < p.runs.length; ri++) {
+      const rs = acc;
+      acc += p.runs[ri].text.length;
+      if (ri < i1) continue;
+      if (rs >= to) break;
+      Object.assign(p.runs[ri].props, patch2);
+    }
+    normalizeParagraph(p);
+  }
+}
+function applyParaProps(model, range, patch2) {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) {
+    Object.assign(model.paragraphs[pi].props, patch2);
+  }
+}
+function clearRunFormatting(model, range, opts = {}) {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = model.paragraphs[pi];
+    const from = pi === start.para ? start.offset : 0;
+    const to = pi === end.para ? end.offset : paraLength(p);
+    if (to <= from) continue;
+    splitAt(p, to);
+    const i1 = splitAt(p, from);
+    let acc = 0;
+    for (let ri = 0; ri < p.runs.length; ri++) {
+      const rs = acc;
+      acc += p.runs[ri].text.length;
+      if (ri < i1) continue;
+      if (rs >= to) break;
+      clearRun(p.runs[ri], opts);
+    }
+    normalizeParagraph(p);
+  }
+}
+function clearRun(run, opts = {}) {
+  const rpr = clearedRPr(run.rpr, opts.fields);
+  const old = run.props;
+  const base = editBaseProps({ ...run, rpr }, rpr);
+  const next = opts.fields ? { ...old } : { ...base };
+  if (opts.fields) for (const k of opts.fields) next[k] = base[k];
+  for (const k of ["src", "link", "isMath", "commentIds"]) {
+    if (old[k] !== void 0) next[k] = old[k];
+  }
+  if (opts.charStyle !== null && opts.charStyle !== void 0) next.charStyle = opts.charStyle;
+  else if (opts.charStyle === void 0 && !opts.fields) delete next.charStyle;
+  else if (opts.charStyle === null) {
+    if (old.charStyle !== void 0) next.charStyle = old.charStyle;
+    else delete next.charStyle;
+  }
+  run.rpr = rpr;
+  run.rprEdited = true;
+  run.props = next;
+}
+function clearParaFormatting(model, range) {
+  const { start, end } = normalizeRange(range);
+  for (let pi = start.para; pi <= end.para; pi++) clearPara(model.paragraphs[pi]);
+}
+function clearPara(p) {
+  const ppr = clearedPPr(p.ppr);
+  const old = p.props;
+  const next = { ...paraPropsFromPPr(ppr) };
+  if (old.styleId !== void 0) next.styleId = old.styleId;
+  else delete next.styleId;
+  for (const k of ["src", "sectionBreak", "tocInstr", "tocEntry"]) {
+    if (old[k] !== void 0) next[k] = old[k];
+  }
+  p.ppr = ppr;
+  p.pprEdited = true;
+  p.props = next;
+}
+
+// ../docx-core/src/revisions.ts
+function newRevision(author, now = /* @__PURE__ */ new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const local = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00Z`;
+  const utc = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:00Z`;
+  return { author, date: local, dateUtc: utc };
+}
+var json = (v) => JSON.stringify(v ?? null);
+var same = (a, b) => a === b || json(a) === json(b);
+var RUN_META = ["src", "link", "commentIds", "isMath", "ins", "del", "fmt"];
+var PARA_META = ["src", "fmtSrc", "sectionBreak", "markIns", "markDel", "pfmt", "tocInstr", "tocEntry"];
+function runFormatting(p) {
+  const out = { ...p };
+  for (const k of RUN_META) delete out[k];
+  return out;
+}
+function paraFormatting(p) {
+  const out = { ...p };
+  for (const k of PARA_META) delete out[k];
+  return out;
+}
+var runMeta = (p) => {
+  const out = {};
+  for (const k of RUN_META) if (p[k] !== void 0) out[k] = p[k];
+  return out;
+};
+var paraMeta = (p) => {
+  const out = {};
+  for (const k of PARA_META) if (p[k] !== void 0) out[k] = p[k];
+  return out;
+};
+var isDeletedRun = (r) => !!r.props.del;
+function finalRuns(p) {
+  return p.runs.some(isDeletedRun) ? p.runs.filter((r) => !r.props.del) : p.runs;
+}
+function finalParagraphs(paras) {
+  const out = [];
+  const index = [];
+  let carry = [];
+  paras.forEach((p, i2) => {
+    const own2 = finalRuns(p);
+    const runs = carry.length ? [...carry, ...own2] : own2;
+    index[i2] = out.length;
+    if (p.props.markDel && i2 < paras.length - 1) {
+      carry = runs;
+      return;
+    }
+    carry = [];
+    out.push(runs === p.runs ? p : { ...p, runs });
+  });
+  return { paras: out, index };
+}
+function finalBlocks(blocks) {
+  const out = [];
+  let run = [];
+  const flush = () => {
+    if (!run.length) return;
+    for (const paragraph of finalParagraphs(run).paras) out.push({ type: "paragraph", paragraph });
+    run = [];
+  };
+  for (const b of blocks) {
+    if (b.type === "paragraph") {
+      run.push(b.paragraph);
+      continue;
+    }
+    flush();
+    out.push({
+      ...b,
+      rows: b.rows.map((row) => ({
+        ...row,
+        cells: row.cells.map((cell) => ({
+          ...cell,
+          paragraphs: finalParagraphs(cell.paragraphs).paras,
+          ...cell.blocks ? { blocks: finalBlocks(cell.blocks) } : {}
+        }))
+      }))
+    });
+  }
+  flush();
+  return out;
+}
+function paragraphHasRevisions(p) {
+  return !!(p.props.markIns || p.props.markDel || p.props.pfmt) || p.runs.some((r) => !!(r.props.ins || r.props.del || r.props.fmt));
+}
+var hasLiveText = (p) => p.runs.some((r) => !r.props.del && r.text.length > 0);
+var KIND_ORDER = { paraFormat: 0, delete: 1, insert: 2, format: 3 };
+function collectRevisions(paras) {
+  const out = [];
+  paras.forEach((p, pi) => {
+    const len = paraLength(p);
+    if (p.props.pfmt) {
+      const f = p.props.pfmt;
+      out.push({ kind: "paraFormat", ...revInfo(f), para: pi, start: 0, end: len, text: p.runs.map((r) => r.text).join(""), old: f.old, now: paraFormatting(p.props) });
+    }
+    const open = {};
+    const close = (k) => {
+      const o = open[k];
+      if (o) {
+        out.push(o.span);
+        delete open[k];
+      }
+    };
+    let acc = 0;
+    for (const r of p.runs) {
+      const rs = acc;
+      acc += r.text.length;
+      const aspects = [
+        ["insert", r.props.ins, json(r.props.ins)],
+        ["delete", r.props.del, json(r.props.del)],
+        ["format", r.props.fmt, r.props.fmt ? json([revInfo(r.props.fmt), r.props.fmt.old, runFormatting(r.props)]) : ""]
+      ];
+      for (const [k, rev2, key] of aspects) {
+        if (!rev2) {
+          close(k);
+          continue;
+        }
+        const o = open[k];
+        if (o && o.key === key && o.span.end === rs) {
+          o.span.end = acc;
+          o.span.text += r.text;
+          continue;
+        }
+        close(k);
+        const span = { kind: k, ...revInfo(rev2), para: pi, start: rs, end: acc, text: r.text };
+        if (k === "format") {
+          span.old = rev2.old;
+          span.now = runFormatting(r.props);
+        }
+        open[k] = { span, key };
+      }
+    }
+    close("delete");
+    close("insert");
+    close("format");
+    if (p.props.markIns) out.push({ kind: "insert", mark: true, ...revInfo(p.props.markIns), para: pi, start: len, end: len, text: "" });
+    if (p.props.markDel) out.push({ kind: "delete", mark: true, ...revInfo(p.props.markDel), para: pi, start: len, end: len, text: "" });
+  });
+  out.sort((a, b) => a.para - b.para || a.start - b.start || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+  const merged = [];
+  for (const s of out) {
+    const last = merged[merged.length - 1];
+    if (last && (s.kind === "insert" || s.kind === "delete") && last.kind === s.kind && same(revInfo(last), revInfo(s))) {
+      const lp = last.endPara ?? last.para;
+      const joins = last.mark ? s.para === lp + 1 && s.start === 0 : s.mark && s.para === lp && last.end === s.start;
+      if (joins) {
+        if (last.mark) last.text += "\n";
+        last.text += s.text;
+        last.endPara = s.para;
+        last.end = s.end;
+        if (s.mark) last.mark = true;
+        else delete last.mark;
+        continue;
+      }
+    }
+    merged.push(s);
+  }
+  return merged;
+}
+var spanEnd = (s) => ({ para: s.endPara ?? s.para, offset: s.mark ? s.end + 1 : s.end });
+function revisionAt(spans, pos) {
+  const cmp = (a, b) => a.para - b.para || a.offset - b.offset;
+  const text = spans.filter((s) => s.kind !== "paraFormat");
+  return text.find((s) => cmp({ para: s.para, offset: s.start }, pos) <= 0 && cmp(pos, spanEnd(s)) < 0) ?? text.find((s) => cmp(pos, { para: s.endPara ?? s.para, offset: s.end }) === 0) ?? spans.find((s) => s.para === pos.para && s.kind === "paraFormat");
+}
+function spanScope(s) {
+  return {
+    range: { start: { para: s.para, offset: s.start }, end: spanEnd(s) },
+    kinds: /* @__PURE__ */ new Set([s.kind]),
+    authors: /* @__PURE__ */ new Set([s.author]),
+    ...s.kind === "paraFormat" ? {} : { runsOnly: true }
+  };
+}
+function acceptRevisions(paras, scope = {}, onMerge) {
+  return applyRevisions(paras, scope, true, onMerge);
+}
+function rejectRevisions(paras, scope = {}, onMerge) {
+  return applyRevisions(paras, scope, false, onMerge);
+}
+function applyRevisions(paras, scope, accept, onMerge) {
+  const kindOk = (k) => !scope.kinds || scope.kinds.has(k);
+  const ok = (k, rev2) => !!rev2 && kindOk(k) && (!scope.authors || scope.authors.has(rev2.author));
+  const range = scope.range ? normalizeRange(scope.range) : null;
+  let changed = false;
+  for (let i2 = paras.length - 1; i2 >= 0; i2--) {
+    const p = paras[i2];
+    const len = paraLength(p);
+    let from = 0, to = len, markIn = true;
+    if (range) {
+      if (i2 < range.start.para || i2 > range.end.para) continue;
+      from = i2 === range.start.para ? range.start.offset : 0;
+      to = i2 === range.end.para ? Math.min(range.end.offset, len) : len;
+      markIn = range.end.para > i2 || range.end.offset > len;
+    }
+    if (to > from && applyRuns(p, from, to, accept, ok)) changed = true;
+    const pf = p.props.pfmt;
+    if (pf && !scope.runsOnly && ok("paraFormat", pf)) {
+      changed = true;
+      if (accept) {
+        p.props = { ...p.props };
+        delete p.props.pfmt;
+      } else rejectParaFormat(p);
+    }
+    if (!markIn) continue;
+    const last = i2 === paras.length - 1;
+    const mi = p.props.markIns, md = p.props.markDel;
+    if (md && ok("delete", md)) {
+      changed = true;
+      if (accept && !last) {
+        mergeNext(paras, i2);
+        onMerge?.(i2 + 1);
+        continue;
+      }
+      p.props = { ...p.props };
+      delete p.props.markDel;
+      if (p.ppr?.markDeleted) {
+        p.ppr = { ...p.ppr };
+        delete p.ppr.markDeleted;
+        delete p.ppr.markDel;
+      }
+    }
+    if (mi && ok("insert", mi)) {
+      changed = true;
+      if (!accept && !last) {
+        mergeNext(paras, i2);
+        onMerge?.(i2 + 1);
+        continue;
+      }
+      p.props = { ...p.props };
+      delete p.props.markIns;
+    }
+  }
+  return changed;
+}
+function mergeNext(paras, i2) {
+  const p = paras[i2], next = paras[i2 + 1];
+  p.runs = [...p.runs, ...next.runs];
+  p.props = { ...next.props };
+  if (next.ppr) p.ppr = next.ppr;
+  else delete p.ppr;
+  paras.splice(i2 + 1, 1);
+  normalizeParagraph(p);
+}
+function applyRuns(p, from, to, accept, ok) {
+  splitAt(p, to);
+  splitAt(p, from);
+  let changed = false;
+  const out = [];
+  let acc = 0;
+  for (const run of p.runs) {
+    const rs = acc;
+    acc += run.text.length;
+    const inside = run.text.length ? rs >= from && acc <= to : rs >= from && rs < to;
+    if (!inside) {
+      out.push(run);
+      continue;
+    }
+    let r = run;
+    if (ok("format", r.props.fmt)) {
+      changed = true;
+      if (accept) {
+        r = { ...r, props: { ...r.props } };
+        delete r.props.fmt;
+      } else r = rejectRunFormat(r);
+    }
+    if (ok("delete", r.props.del)) {
+      changed = true;
+      if (accept) continue;
+      r = { ...r, props: { ...r.props } };
+      delete r.props.del;
+    }
+    if (ok("insert", r.props.ins)) {
+      changed = true;
+      if (!accept) continue;
+      r = { ...r, props: { ...r.props } };
+      delete r.props.ins;
+    }
+    out.push(r);
+  }
+  p.runs = out;
+  normalizeParagraph(p);
+  return changed;
+}
+function fileFormatChange(run) {
+  const c = run.rpr?.change;
+  return !!c && !!run.props.fmt && same(revInfo(c), revInfo(run.props.fmt)) && same(runPropsFromRPr(c.rPr), run.props.fmt.old);
+}
+function rejectRunFormat(run) {
+  const fmt = run.props.fmt;
+  const meta = runMeta(run.props);
+  delete meta.fmt;
+  if (fileFormatChange(run)) {
+    const rpr = { ...run.rpr.change.rPr };
+    const out = { ...run, rpr };
+    out.props = { ...withoutRevisions(editBaseProps(out, rpr)), ...meta };
+    return out;
+  }
+  return { ...run, props: { ...fmt.old, ...meta } };
+}
+function rejectParaFormat(p) {
+  const pf = p.props.pfmt;
+  const meta = paraMeta(p.props);
+  delete meta.pfmt;
+  const c = p.ppr?.change;
+  if (c && same(revInfo(c), revInfo(pf)) && same(paraFormatting(paraPropsFromPPr(c.pPr)), pf.old)) {
+    const cur = p.ppr;
+    p.ppr = {
+      ...c.pPr,
+      ...cur.rPr ? { rPr: cur.rPr } : {},
+      ...cur.markDeleted ? { markDeleted: true } : {},
+      ...cur.markDel ? { markDel: cur.markDel } : {},
+      ...cur.markIns ? { markIns: cur.markIns } : {}
+    };
+  }
+  p.props = { ...pf.old, ...meta };
+}
+function trackInsertText(model, pos, text, rev2, props) {
+  const base = withoutRevisions(props ?? propsAt(model, pos));
+  return insertText(model, pos, text, { ...base, ins: rev2 });
+}
+function trackInsertRun(model, pos, run, rev2) {
+  return insertRun(model, pos, { ...run, props: { ...withoutRevisions(run.props), ins: rev2 } });
+}
+function trackSplitParagraph(model, pos, rev2) {
+  const out = splitParagraph(model, pos);
+  const first = model.paragraphs[pos.para];
+  first.props = { ...first.props, markIns: rev2 };
+  return out;
+}
+function trackDelete(model, range, rev2) {
+  const { start, end } = normalizeRange(range);
+  const paras = model.paragraphs;
+  const merged = [];
+  let endPara = end.para, endOffset = end.offset;
+  for (let i2 = end.para; i2 >= start.para; i2--) {
+    const p = paras[i2];
+    const from = i2 === start.para ? start.offset : 0;
+    const to = i2 === end.para ? end.offset : paraLength(p);
+    if (to > from) {
+      const removed = deleteRuns(p, from, to, rev2);
+      if (i2 === end.para) endOffset -= removed;
+    }
+    if (i2 === end.para || i2 >= paras.length - 1) continue;
+    if (p.props.markDel) continue;
+    if (p.props.markIns && p.props.markIns.author === rev2.author) {
+      const len = paraLength(p);
+      const next2 = paras[i2 + 1];
+      p.runs = [...p.runs, ...next2.runs];
+      p.props = { ...next2.props };
+      if (next2.ppr) p.ppr = next2.ppr;
+      else delete p.ppr;
+      paras.splice(i2 + 1, 1);
+      normalizeParagraph(p);
+      merged.push(i2 + 1);
+      if (endPara === i2 + 1) {
+        endPara = i2;
+        endOffset += len;
+      } else if (endPara > i2 + 1) endPara--;
+      continue;
+    }
+    p.props = { ...p.props, markDel: rev2 };
+    const next = paras[i2 + 1];
+    if (hasLiveText(p) && !same(paraFormatting(next.props), paraFormatting(p.props))) {
+      const old = next.props.pfmt?.old ?? paraFormatting(next.props);
+      next.props = { ...paraMeta(next.props), ...paraFormatting(p.props), pfmt: next.props.pfmt ?? { ...rev2, old } };
+      if (same(paraFormatting(next.props), next.props.pfmt.old)) delete next.props.pfmt;
+    }
+  }
+  return { start, end: { para: endPara, offset: Math.max(0, endOffset) }, merged };
+}
+function deleteRuns(p, from, to, rev2) {
+  splitAt(p, to);
+  splitAt(p, from);
+  const out = [];
+  let acc = 0, removed = 0;
+  for (const run of p.runs) {
+    const rs = acc;
+    acc += run.text.length;
+    const inside = run.text.length ? rs >= from && acc <= to : rs >= from && rs < to;
+    if (!inside || run.props.del) {
+      out.push(run);
+      continue;
+    }
+    if (run.props.ins && run.props.ins.author === rev2.author && !run.props.ins.move) {
+      removed += run.text.length;
+      continue;
+    }
+    out.push({ ...run, props: { ...run.props, del: rev2 } });
+  }
+  p.runs = out;
+  normalizeParagraph(p);
+  return removed;
+}
+function trackApplyRunProps(model, range, patch2, rev2) {
+  const { start, end } = normalizeRange(range);
+  const formatting = Object.keys(patch2).some((k) => !RUN_META.includes(k));
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = model.paragraphs[pi];
+    const from = pi === start.para ? start.offset : 0;
+    const to = pi === end.para ? end.offset : paraLength(p);
+    if (to <= from) continue;
+    splitAt(p, to);
+    splitAt(p, from);
+    let acc = 0;
+    for (let ri = 0; ri < p.runs.length; ri++) {
+      const run = p.runs[ri];
+      const rs = acc;
+      acc += run.text.length;
+      if (rs < from || acc > to || !run.text.length) continue;
+      const before = runFormatting(run.props);
+      const props = { ...run.props, ...patch2 };
+      if (formatting) {
+        const after = runFormatting(props);
+        if (props.fmt) {
+          if (same(after, props.fmt.old)) delete props.fmt;
+        } else if (!same(before, after)) props.fmt = { ...rev2, old: before };
+      }
+      p.runs[ri] = { ...run, props };
+    }
+    normalizeParagraph(p);
+  }
+}
+function trackApplyParaProps(model, range, patch2, rev2) {
+  const { start, end } = normalizeRange(range);
+  const formatting = Object.keys(patch2).some((k) => !PARA_META.includes(k));
+  for (let pi = start.para; pi <= end.para; pi++) {
+    const p = model.paragraphs[pi];
+    const before = paraFormatting(p.props);
+    const props = { ...p.props, ...patch2 };
+    if (formatting) {
+      const after = paraFormatting(props);
+      if (props.pfmt) {
+        if (same(after, props.pfmt.old)) delete props.pfmt;
+      } else if (!same(before, after)) props.pfmt = { ...rev2, old: before };
+    }
+    p.props = props;
+  }
+}
+function revisionAuthors(full) {
+  const seen = /* @__PURE__ */ new Set();
+  const add = (r) => {
+    if (r && !seen.has(r.author)) seen.add(r.author);
+  };
+  const para = (p) => {
+    add(p.props.pfmt);
+    for (const r of p.runs) {
+      add(r.props.del);
+      add(r.props.ins);
+      add(r.props.fmt);
+      if (r.textbox?.blocks) blocks(r.textbox.blocks);
+      else if (r.textbox?.paras) r.textbox.paras.forEach(para);
+    }
+    add(p.props.markIns);
+    add(p.props.markDel);
+  };
+  const blocks = (bs) => {
+    for (const b of bs) {
+      if (b.type === "paragraph") para(b.paragraph);
+      else for (const row of b.rows) for (const cell of row.cells) blocks(cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })));
+    }
+  };
+  blocks(full.blocks);
+  for (const s of full.sections) {
+    for (const set of [s.headerBlocks, s.footerBlocks]) for (const k of ["default", "first", "even"]) {
+      const b = set?.[k];
+      if (b) blocks(b);
+    }
+  }
+  for (const m of [full.footnoteBlocks, full.endnoteBlocks]) for (const b of m?.values() ?? []) blocks(b);
+  return [...seen];
+}
+
+// ../docx-core/src/rev-xml.ts
+var BEFORE_TRACK = /* @__PURE__ */ new Set([
+  "w:writeProtection",
+  "w:view",
+  "w:zoom",
+  "w:removePersonalInformation",
+  "w:removeDateAndTime",
+  "w:doNotDisplayPageBoundaries",
+  "w:displayBackgroundShape",
+  "w:printPostScriptOverText",
+  "w:printFractionalCharacterWidth",
+  "w:printFormsData",
+  "w:embedTrueTypeFonts",
+  "w:embedSystemFonts",
+  "w:saveSubsetFonts",
+  "w:saveFormsData",
+  "w:mirrorMargins",
+  "w:alignBordersAndEdges",
+  "w:bordersDoNotSurroundHeader",
+  "w:bordersDoNotSurroundFooter",
+  "w:gutterAtTop",
+  "w:hideSpellingErrors",
+  "w:hideGrammaticalErrors",
+  "w:activeWritingStyle",
+  "w:proofState",
+  "w:formsDesign",
+  "w:attachedTemplate",
+  "w:linkStyles",
+  "w:stylePaneFormatFilter",
+  "w:stylePaneSortMethod",
+  "w:documentType",
+  "w:mailMerge",
+  "w:revisionView"
+]);
+function readTrackRevisions(pkg) {
+  const xml = pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml")) ?? "";
+  const m = /<w:trackRevisions\b([^>]*?)\/?>/.exec(xml);
+  return !!m && !/w:val="(?:false|0|off)"/.test(m[1]);
+}
+function writeTrackRevisions(pkg, on) {
+  if (readTrackRevisions(pkg) === on) return;
+  let path = partByRelType(pkg, "settings", "");
+  let xml = path ? pkg.getPartText(path) : void 0;
+  if (!xml) {
+    if (!on) return;
+    path = "word/settings.xml";
+    xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:settings>';
+    const relsPath = "word/_rels/document.xml.rels";
+    const rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    pkg.setPartText(relsPath, rels.replace("</Relationships>", () => '<Relationship Id="rIdWnSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>'));
+    const ct = pkg.getPartText("[Content_Types].xml");
+    if (ct && !ct.includes("/word/settings.xml")) {
+      pkg.setPartText("[Content_Types].xml", ct.replace("</Types>", () => '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>'));
+    }
+  }
+  xml = xml.replace(/<w:trackRevisions\b[^>]*?(?:\/>|>[\s\S]*?<\/w:trackRevisions>)/g, "");
+  if (on) {
+    const root = parseXml(xml, { positions: true });
+    let at = -1;
+    if (root.cs === root.e) {
+      const open = xml.slice(root.s, root.e).replace(/\s*\/>$/, ">");
+      xml = xml.slice(0, root.s) + open + "<w:trackRevisions/></w:settings>" + xml.slice(root.e);
+    } else {
+      at = root.cs;
+      for (const k of childElements(root)) if (BEFORE_TRACK.has(k.name)) at = Math.max(at, k.e);
+      xml = xml.slice(0, at) + "<w:trackRevisions/>" + xml.slice(at);
+    }
+  }
+  pkg.setPartText(path, xml);
+}
+var W16DU_NS = "http://schemas.microsoft.com/office/word/2023/wordml/word16du";
+var MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 var esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var nextId = 1;
+var usedUtc = false;
+function beginRevisionIds(...xmls) {
+  let max2 = 0;
+  for (const x2 of xmls) {
+    if (!x2) continue;
+    for (const m of x2.matchAll(/\bw:id="(-?\d+)"/g)) max2 = Math.max(max2, Number(m[1]));
+  }
+  nextId = max2 + 1;
+  usedUtc = false;
+}
+function takeUsedDateUtc() {
+  const u = usedUtc;
+  usedUtc = false;
+  return u;
+}
+function revisionAttrs(r) {
+  let a = ` w:id="${nextId++}" w:author="${esc2(r.author)}"`;
+  if (r.date) a += ` w:date="${esc2(r.date)}"`;
+  if (r.dateUtc) {
+    a += ` w16du:dateUtc="${esc2(r.dateUtc)}"`;
+    usedUtc = true;
+  }
+  return a;
+}
+function markRevisionXml(kind, r) {
+  const tag = r.move ? kind === "ins" ? "w:moveTo" : "w:moveFrom" : `w:${kind}`;
+  return `<${tag}${revisionAttrs(r)}/>`;
+}
+function wrapRevision(kind, r, inner) {
+  const tag = r.move ? kind === "ins" ? "w:moveTo" : "w:moveFrom" : `w:${kind}`;
+  return `<${tag}${revisionAttrs(r)}>${inner}</${tag}>`;
+}
+function ensureRevisionNamespaces(open, rootName) {
+  const at = open.indexOf(`<${rootName}`);
+  if (at < 0) return open;
+  const end = open.indexOf(">", at);
+  let tag = open.slice(at, end);
+  if (!/\sxmlns:w16du=/.test(tag)) tag += ` xmlns:w16du="${W16DU_NS}"`;
+  if (!/\sxmlns:mc=/.test(tag)) tag += ` xmlns:mc="${MC_NS}"`;
+  const ign = /\smc:Ignorable="([^"]*)"/.exec(tag);
+  if (!ign) tag += ' mc:Ignorable="w16du"';
+  else if (!ign[1].split(/\s+/).includes("w16du")) tag = tag.replace(ign[0], () => ` mc:Ignorable="${ign[1] ? `${ign[1]} ` : ""}w16du"`);
+  return open.slice(0, at) + tag + open.slice(end);
+}
+
+// ../docx-core/src/lossless.ts
+var esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 var RPR_ORDER = [
   "w:rStyle",
   "w:rFonts",
@@ -4524,7 +5416,7 @@ function setKid2(kids, order2, name, xml) {
 }
 function withAttrs(raw, name, changes) {
   if (!raw) {
-    const attrs4 = Object.entries(changes).filter(([, v]) => v !== void 0).map(([k, v]) => ` ${k}="${esc2(String(v))}"`).join("");
+    const attrs4 = Object.entries(changes).filter(([, v]) => v !== void 0).map(([k, v]) => ` ${k}="${esc3(String(v))}"`).join("");
     return `<${name}${attrs4}/>`;
   }
   const m = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
@@ -4532,8 +5424,8 @@ function withAttrs(raw, name, changes) {
   for (const [k, v] of Object.entries(changes)) {
     const re = new RegExp(`\\s${k.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
     if (v === void 0) attrs3 = attrs3.replace(re, "");
-    else if (re.test(attrs3)) attrs3 = attrs3.replace(re, () => ` ${k}="${esc2(String(v))}"`);
-    else attrs3 += ` ${k}="${esc2(String(v))}"`;
+    else if (re.test(attrs3)) attrs3 = attrs3.replace(re, () => ` ${k}="${esc3(String(v))}"`);
+    else attrs3 += ` ${k}="${esc3(String(v))}"`;
   }
   return `<${m[1]}${attrs3}${m[3]}>${raw.slice(m[0].length)}`;
 }
@@ -4542,8 +5434,8 @@ var onOff3 = (name, v) => v ? `<${name}/>` : `<${name} w:val="0"/>`;
 var join = (open, kids, close) => kids.length ? open + kids.map((k) => k.raw).join("") + close : "";
 function rPrFromProps(p, linkAware = true) {
   const rpr = [];
-  if (p.charStyle) rpr.push(`<w:rStyle w:val="${esc2(p.charStyle)}"/>`);
-  if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc2(p.fontAscii)}" w:hAnsi="${esc2(p.fontAscii)}" w:cs="${esc2(p.fontAscii)}"/>`);
+  if (p.charStyle) rpr.push(`<w:rStyle w:val="${esc3(p.charStyle)}"/>`);
+  if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc3(p.fontAscii)}" w:hAnsi="${esc3(p.fontAscii)}" w:cs="${esc3(p.fontAscii)}"/>`);
   if (p.bold) rpr.push("<w:b/>");
   if (p.italic) rpr.push("<w:i/>");
   if (p.allCaps) rpr.push("<w:caps/>");
@@ -4551,14 +5443,15 @@ function rPrFromProps(p, linkAware = true) {
   if (p.strike) rpr.push("<w:strike/>");
   if (p.doubleStrike) rpr.push("<w:dstrike/>");
   const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
-  if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc2(p.color)}"/>`);
+  if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc3(p.color)}"/>`);
   if (p.charSpacingTwips) rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
   if (p.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p.szHalfPt}"/><w:szCs w:val="${p.szHalfPt}"/>`);
-  if (p.highlight) rpr.push(`<w:highlight w:val="${esc2(p.highlight)}"/>`);
+  if (p.highlight) rpr.push(`<w:highlight w:val="${esc3(p.highlight)}"/>`);
   if (p.underline && !linkLook) {
-    rpr.push(`<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc2(p.underlineColor)}"` : ""}/>`);
+    rpr.push(`<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc3(p.underlineColor)}"` : ""}/>`);
   }
   if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
+  if (p.fmt) rpr.push(`<w:rPrChange${revisionAttrs(p.fmt)}>${wrapIn("w:rPr", innerOf(rPrFromProps(p.fmt.old, linkAware)))}</w:rPrChange>`);
   return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
 }
 var RPR_FIELD = {
@@ -4661,12 +5554,29 @@ function dropCleared(kids, map, cur) {
   }
   return n > 0;
 }
+var wrapIn = (tag, inner) => inner ? `<${tag}>${inner}</${tag}>` : `<${tag}/>`;
+function innerOf(xml) {
+  if (!xml) return "";
+  const a = xml.indexOf(">");
+  if (xml[a - 1] === "/") return "";
+  return xml.slice(a + 1, xml.lastIndexOf("</"));
+}
+function changeRPrRaw(kids) {
+  const k = kids.find((x2) => x2.name === "w:rPrChange");
+  if (!k) return void 0;
+  const inner = splitElement(k.raw).kids.find((x2) => x2.name === "w:rPr");
+  return inner ? { raw: inner.raw, el: inner.el } : { raw: "<w:rPr/>", el: { name: "w:rPr", attrs: {}, children: [] } };
+}
 function patchRPr(raw, run) {
   const p = run.props;
   if (raw === void 0) return rPrFromProps(p);
   const { open, close, kids, el: el3 } = splitElement(raw);
   const edited = run.rprEdited && run.rpr ? run.rpr : void 0;
   const base = editBaseProps(run, edited ?? readRPr(el3));
+  if (base.fmt && !p.fmt) {
+    const old = changeRPrRaw(kids);
+    if (old && sameJson2(runFormatting(p), runFormatting(editBaseProps(run, readRPr(old.el))))) return patchRPr(old.raw, run);
+  }
   let changed = edited ? dropCleared(kids, RPR_FIELD, edited) : false;
   const set = (name, xml) => {
     changed = true;
@@ -4681,7 +5591,7 @@ function patchRPr(raw, run) {
     set("w:iCs", onOff3("w:iCs", p.italic));
   }
   if (p.underline !== base.underline || p.underlineStyle !== base.underlineStyle || p.underlineColor !== base.underlineColor) {
-    set("w:u", p.underline ? `<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc2(p.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
+    set("w:u", p.underline ? `<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc3(p.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
   }
   if (p.strike !== base.strike) set("w:strike", onOff3("w:strike", p.strike));
   if (!!p.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff3("w:dstrike", !!p.doubleStrike));
@@ -4692,8 +5602,8 @@ function patchRPr(raw, run) {
     set("w:sz", p.szHalfPt === void 0 ? null : `<w:sz w:val="${p.szHalfPt}"/>`);
     set("w:szCs", p.szHalfPt === void 0 ? null : `<w:szCs w:val="${p.szHalfPt}"/>`);
   }
-  if (p.color !== base.color) set("w:color", p.color === void 0 ? null : `<w:color w:val="${esc2(p.color)}"/>`);
-  if (p.highlight !== base.highlight) set("w:highlight", p.highlight === void 0 ? null : `<w:highlight w:val="${esc2(p.highlight)}"/>`);
+  if (p.color !== base.color) set("w:color", p.color === void 0 ? null : `<w:color w:val="${esc3(p.color)}"/>`);
+  if (p.highlight !== base.highlight) set("w:highlight", p.highlight === void 0 ? null : `<w:highlight w:val="${esc3(p.highlight)}"/>`);
   if (p.fontAscii !== base.fontAscii) {
     set("w:rFonts", p.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
       "w:ascii": p.fontAscii,
@@ -4704,17 +5614,26 @@ function patchRPr(raw, run) {
       "w:cstheme": void 0
     }));
   }
-  if (p.charStyle !== base.charStyle) set("w:rStyle", p.charStyle ? `<w:rStyle w:val="${esc2(p.charStyle)}"/>` : null);
+  if (p.charStyle !== base.charStyle) set("w:rStyle", p.charStyle ? `<w:rStyle w:val="${esc3(p.charStyle)}"/>` : null);
   if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set("w:spacing", p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
   }
+  if (!sameJson2(p.fmt, base.fmt)) {
+    if (!p.fmt) set("w:rPrChange", null);
+    else {
+      const rest = kids.filter((k) => k.name !== "w:rPrChange");
+      const before = rest.length ? patchRPr(join(open, rest, close), { ...run, props: { ...p.fmt.old, ...p.link ? { link: p.link } : {} } }) : rPrFromProps(p.fmt.old);
+      set("w:rPrChange", `<w:rPrChange${revisionAttrs(p.fmt)}>${wrapIn("w:rPr", innerOf(before))}</w:rPrChange>`);
+    }
+  }
   return changed ? join(open, kids, close) : raw;
 }
-var eq = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+var sameJson2 = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+var eq = sameJson2;
 var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
 function pprBits(pp, ids) {
   const out = {};
-  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc2(pp.styleId)}"/>` : null;
+  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc3(pp.styleId)}"/>` : null;
   out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
   out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`).join("") + "</w:tabs>" : null;
   out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
@@ -4722,14 +5641,14 @@ function pprBits(pp, ids) {
     let inner = "";
     for (const side of ["top", "left", "bottom", "right"]) {
       const e = pp.borders[side];
-      if (e) inner += `<w:${side} w:val="${esc2(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc2(e.color) : "auto"}"/>`;
+      if (e) inner += `<w:${side} w:val="${esc3(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc3(e.color) : "auto"}"/>`;
     }
     out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
   } else if (pp.boxBorder) {
     const b = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
     out["w:pBdr"] = `<w:pBdr>${b("top")}${b("left")}${b("bottom")}${b("right")}</w:pBdr>`;
   } else out["w:pBdr"] = null;
-  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc2(pp.shadingHex)}"/>` : null;
+  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc3(pp.shadingHex)}"/>` : null;
   return out;
 }
 function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
@@ -4761,8 +5680,25 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  const mark = markXml(pp);
+  if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
   if (sectPrXml) ppr.push(sectPrXml);
-  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering };
+  if (pp.pfmt) ppr.push(pPrChangeXml(pp, pPrFromProps(pp.pfmt.old, "", ids).xml));
+  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering || !!pp.pfmt?.old.numbering };
+}
+function markXml(pp) {
+  return (pp.markIns ? markRevisionXml("ins", pp.markIns) : "") + (pp.markDel ? markRevisionXml("del", pp.markDel) : "");
+}
+function pPrChangeXml(pp, oldPPr) {
+  return `<w:pPrChange${revisionAttrs(pp.pfmt)}>${wrapIn("w:pPr", innerOf(oldPPr))}</w:pPrChange>`;
+}
+var MARK_REVS = /* @__PURE__ */ new Set(["w:ins", "w:del", "w:moveFrom", "w:moveTo"]);
+function markRPr(raw, pp) {
+  const mark = markXml(pp);
+  if (!raw) return mark ? `<w:rPr>${mark}</w:rPr>` : null;
+  const { open, close, kids } = splitElement(raw);
+  const rest = kids.filter((k) => !MARK_REVS.has(k.name)).map((k) => k.raw).join("");
+  return mark || rest ? `${open}${mark}${rest}${close}` : null;
 }
 function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   const p = para.props;
@@ -4770,6 +5706,18 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   const { open, close, kids, el: el3 } = splitElement(raw);
   const edited = para.pprEdited && para.ppr ? para.ppr : void 0;
   const base = paraPropsFromPPr(edited ?? readPPr(el3));
+  if (base.pfmt && !p.pfmt) {
+    const ch = kids.find((k) => k.name === "w:pPrChange");
+    const old = ch && splitElement(ch.raw).kids.find((k) => k.name === "w:pPr");
+    const oldEl = old?.el ?? { name: "w:pPr", attrs: {}, children: [] };
+    if (ch && sameJson2(paraFormatting(p), paraFormatting(paraPropsFromPPr(readPPr(oldEl))))) {
+      const oldKids = old ? splitElement(old.raw).kids : [];
+      const keep = kids.filter((k) => k.name === "w:rPr" || k.name === "w:sectPr");
+      const all = [...oldKids, ...keep];
+      if (!all.length) return pPrFromProps(p, sect ?? "", ids);
+      return patchPPr(`<w:pPr>${all.map((k) => k.raw).join("")}</w:pPr>`, para, sect, ids);
+    }
+  }
   let changed = edited ? dropCleared(kids, PPR_FIELD, edited) : false;
   let genNumbering = false;
   const set = (name, xml) => {
@@ -4831,6 +5779,16 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
     const cur = kidRaw(kids, "w:sectPr");
     if ((sect ?? "") !== cur) set("w:sectPr", sect);
   }
+  if (!sameJson2(p.markIns, base.markIns) || !sameJson2(p.markDel, base.markDel)) set("w:rPr", markRPr(kidRaw(kids, "w:rPr"), p));
+  if (!sameJson2(p.pfmt, base.pfmt)) {
+    if (!p.pfmt) set("w:pPrChange", null);
+    else {
+      const rest = kids.filter((k) => k.name !== "w:rPr" && k.name !== "w:sectPr" && k.name !== "w:pPrChange");
+      const before = rest.length ? patchPPr(join(open, rest, close), { runs: [], props: p.pfmt.old }, void 0, ids) : pPrFromProps(p.pfmt.old, "", ids);
+      if (before.genNumbering) genNumbering = true;
+      set("w:pPrChange", pPrChangeXml(p, before.xml));
+    }
+  }
   return { xml: changed ? join(open, kids, close) : raw, genNumbering };
 }
 function colsXml(cols, raw) {
@@ -4842,7 +5800,7 @@ function colsXml(cols, raw) {
   const el3 = raw ? splitElement(raw).el : void 0;
   const sep = el3?.attrs["w:sep"];
   const space = el3?.attrs["w:space"] ?? "708";
-  return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc2(space)}"/>`;
+  return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc3(space)}"/>`;
 }
 function patchSectPr(raw, cur, refs) {
   const { open, close, kids, el: el3 } = splitElement(raw);
@@ -5553,247 +6511,6 @@ function readEmbeddedFonts(pkg) {
   return out;
 }
 
-// ../docx-core/src/model-ops.ts
-var paraText = (p) => p.runs.map((r) => r.text).join("");
-var paraLength = (p) => p.runs.reduce((s, r) => s + r.text.length, 0);
-function comparePos(a, b) {
-  return a.para !== b.para ? a.para - b.para : a.offset - b.offset;
-}
-function normalizeRange(r) {
-  return comparePos(r.start, r.end) <= 0 ? r : { start: r.end, end: r.start };
-}
-var sameRPr = (a, b) => a.rpr === b.rpr || JSON.stringify(a.rpr ?? null) === JSON.stringify(b.rpr ?? null);
-var textExtras = (run) => ({
-  ...run.field ? { field: run.field } : {},
-  ...run.rpr ? { rpr: run.rpr } : {},
-  ...run.symFont ? { symFont: run.symFont } : {},
-  ...run.inToc ? { inToc: run.inToc } : {}
-});
-var sameProps = (a, b) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.underlineStyle === b.underlineStyle && a.underlineColor === b.underlineColor && a.strike === b.strike && a.doubleStrike === b.doubleStrike && a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt && a.color === b.color && a.highlight === b.highlight && a.fontAscii === b.fontAscii && a.allCaps === b.allCaps && a.smallCaps === b.smallCaps && // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
-a.src === b.src && sameComments(a.commentIds, b.commentIds);
-var sameComments = (a, b) => {
-  if (a === b) return true;
-  if (!a || !b || a.length !== b.length) return false;
-  return a.every((v, i2) => v === b[i2]);
-};
-var isSpecial = (r) => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab);
-function normalizeParagraph(p) {
-  const out = [];
-  for (const run of p.runs) {
-    if (run.text.length === 0 && !isSpecial(run)) continue;
-    const last = out[out.length - 1];
-    if (last && !isSpecial(last) && !isSpecial(run) && sameProps(last.props, run.props) && sameRPr(last, run) && !last.fieldResult && !run.fieldResult && last.field === run.field) {
-      last.text += run.text;
-    } else {
-      out.push({ ...run, props: { ...run.props } });
-    }
-  }
-  p.runs = out;
-}
-function splitAt(p, offset) {
-  let acc = 0;
-  for (let i2 = 0; i2 < p.runs.length; i2++) {
-    const run = p.runs[i2];
-    if (offset === acc) return i2;
-    if (offset < acc + run.text.length) {
-      const extras = textExtras(run);
-      const head = { ...extras, text: run.text.slice(0, offset - acc), props: { ...run.props } };
-      const tail = { ...extras, text: run.text.slice(offset - acc), props: { ...run.props } };
-      p.runs.splice(i2, 1, head, tail);
-      return i2 + 1;
-    }
-    acc += run.text.length;
-  }
-  return p.runs.length;
-}
-function propsAt(model, pos) {
-  const p = model.paragraphs[pos.para];
-  if (!p || p.runs.length === 0) return { ...DEFAULT_RUN_PROPS };
-  let acc = 0;
-  for (const run of p.runs) {
-    if (pos.offset <= acc + run.text.length) return { ...run.props };
-    acc += run.text.length;
-  }
-  return { ...p.runs[p.runs.length - 1].props };
-}
-function rprAt(model, pos) {
-  const p = model.paragraphs[pos.para];
-  if (!p || p.runs.length === 0) return void 0;
-  let acc = 0;
-  for (const run of p.runs) {
-    if (pos.offset <= acc + run.text.length && !isSpecial(run)) return run.rpr;
-    acc += run.text.length;
-  }
-  for (let i2 = p.runs.length - 1; i2 >= 0; i2--) if (!isSpecial(p.runs[i2])) return p.runs[i2].rpr;
-  return void 0;
-}
-function insertText(model, pos, text, props) {
-  const p = model.paragraphs[pos.para];
-  const effective = props ?? propsAt(model, pos);
-  const rpr = rprAt(model, pos);
-  const idx = splitAt(p, pos.offset);
-  p.runs.splice(idx, 0, { text, props: { ...effective }, ...rpr ? { rpr } : {} });
-  normalizeParagraph(p);
-  return { para: pos.para, offset: pos.offset + text.length };
-}
-function insertRun(model, pos, run) {
-  const p = model.paragraphs[pos.para];
-  const idx = splitAt(p, pos.offset);
-  p.runs.splice(idx, 0, { ...run, props: { ...run.props } });
-  normalizeParagraph(p);
-  return { para: pos.para, offset: pos.offset + run.text.length };
-}
-function splitParagraph(model, pos) {
-  const p = model.paragraphs[pos.para];
-  const idx = splitAt(p, pos.offset);
-  const tailRuns = p.runs.slice(idx);
-  p.runs = p.runs.slice(0, idx);
-  const tail = { runs: tailRuns, props: { ...p.props } };
-  if (p.ppr) tail.ppr = p.ppr;
-  if (p.pprEdited) tail.pprEdited = true;
-  if (p.props.sectionBreak) {
-    p.props = { ...p.props };
-    delete p.props.sectionBreak;
-  }
-  model.paragraphs.splice(pos.para + 1, 0, tail);
-  normalizeParagraph(p);
-  normalizeParagraph(tail);
-  return { para: pos.para + 1, offset: 0 };
-}
-function deleteRange(model, range) {
-  const { start, end } = normalizeRange(range);
-  if (start.para === end.para) {
-    const p = model.paragraphs[start.para];
-    rebuildDelete(p, start.offset, end.offset);
-    normalizeParagraph(p);
-    return start;
-  }
-  const first = model.paragraphs[start.para];
-  const last = model.paragraphs[end.para];
-  rebuildDelete(first, start.offset, paraLength(first));
-  rebuildDelete(last, 0, end.offset);
-  first.runs = [...first.runs, ...last.runs];
-  first.props = { ...last.props };
-  if (last.ppr) first.ppr = last.ppr;
-  else delete first.ppr;
-  model.paragraphs.splice(start.para + 1, end.para - start.para);
-  normalizeParagraph(first);
-  return start;
-}
-function rebuildDelete(p, from, to) {
-  const out = [];
-  let acc = 0;
-  for (const run of p.runs) {
-    const rs = acc;
-    const re = acc + run.text.length;
-    acc = re;
-    const keepHead = run.text.slice(0, Math.max(0, Math.min(from, re) - rs));
-    const keepTail = re > to ? run.text.slice(Math.max(0, to - rs)) : "";
-    const text = keepHead + keepTail;
-    if (text.length > 0) {
-      const intact = text.length === run.text.length;
-      out.push(intact ? { ...run, text } : { ...textExtras(run), text, props: run.props });
-    }
-  }
-  p.runs = out;
-}
-function mergeWithPrevious(model, para) {
-  const prev = model.paragraphs[para - 1];
-  const cur = model.paragraphs[para];
-  const offset = paraLength(prev);
-  prev.runs = [...prev.runs, ...cur.runs];
-  prev.props = { ...cur.props };
-  if (cur.ppr) prev.ppr = cur.ppr;
-  else delete prev.ppr;
-  if (cur.pprEdited) prev.pprEdited = true;
-  else delete prev.pprEdited;
-  model.paragraphs.splice(para, 1);
-  normalizeParagraph(prev);
-  return { para: para - 1, offset };
-}
-function applyRunProps(model, range, patch2) {
-  const { start, end } = normalizeRange(range);
-  for (let pi = start.para; pi <= end.para; pi++) {
-    const p = model.paragraphs[pi];
-    const from = pi === start.para ? start.offset : 0;
-    const to = pi === end.para ? end.offset : paraLength(p);
-    if (to <= from) continue;
-    splitAt(p, to);
-    const i1 = splitAt(p, from);
-    let acc = 0;
-    for (let ri = 0; ri < p.runs.length; ri++) {
-      const rs = acc;
-      acc += p.runs[ri].text.length;
-      if (ri < i1) continue;
-      if (rs >= to) break;
-      Object.assign(p.runs[ri].props, patch2);
-    }
-    normalizeParagraph(p);
-  }
-}
-function applyParaProps(model, range, patch2) {
-  const { start, end } = normalizeRange(range);
-  for (let pi = start.para; pi <= end.para; pi++) {
-    Object.assign(model.paragraphs[pi].props, patch2);
-  }
-}
-function clearRunFormatting(model, range, opts = {}) {
-  const { start, end } = normalizeRange(range);
-  for (let pi = start.para; pi <= end.para; pi++) {
-    const p = model.paragraphs[pi];
-    const from = pi === start.para ? start.offset : 0;
-    const to = pi === end.para ? end.offset : paraLength(p);
-    if (to <= from) continue;
-    splitAt(p, to);
-    const i1 = splitAt(p, from);
-    let acc = 0;
-    for (let ri = 0; ri < p.runs.length; ri++) {
-      const rs = acc;
-      acc += p.runs[ri].text.length;
-      if (ri < i1) continue;
-      if (rs >= to) break;
-      clearRun(p.runs[ri], opts);
-    }
-    normalizeParagraph(p);
-  }
-}
-function clearRun(run, opts = {}) {
-  const rpr = clearedRPr(run.rpr, opts.fields);
-  const old = run.props;
-  const base = editBaseProps({ ...run, rpr }, rpr);
-  const next = opts.fields ? { ...old } : { ...base };
-  if (opts.fields) for (const k of opts.fields) next[k] = base[k];
-  for (const k of ["src", "link", "isMath", "commentIds"]) {
-    if (old[k] !== void 0) next[k] = old[k];
-  }
-  if (opts.charStyle !== null && opts.charStyle !== void 0) next.charStyle = opts.charStyle;
-  else if (opts.charStyle === void 0 && !opts.fields) delete next.charStyle;
-  else if (opts.charStyle === null) {
-    if (old.charStyle !== void 0) next.charStyle = old.charStyle;
-    else delete next.charStyle;
-  }
-  run.rpr = rpr;
-  run.rprEdited = true;
-  run.props = next;
-}
-function clearParaFormatting(model, range) {
-  const { start, end } = normalizeRange(range);
-  for (let pi = start.para; pi <= end.para; pi++) clearPara(model.paragraphs[pi]);
-}
-function clearPara(p) {
-  const ppr = clearedPPr(p.ppr);
-  const old = p.props;
-  const next = { ...paraPropsFromPPr(ppr) };
-  if (old.styleId !== void 0) next.styleId = old.styleId;
-  else delete next.styleId;
-  for (const k of ["src", "sectionBreak", "tocInstr", "tocEntry"]) {
-    if (old[k] !== void 0) next[k] = old[k];
-  }
-  p.ppr = ppr;
-  p.pprEdited = true;
-  p.props = next;
-}
-
 // ../docx-core/src/section-ops.ts
 var COLUMN_SPACE_DEFAULT = 708;
 var COLUMN_MIN_WIDTH = 720;
@@ -5908,8 +6625,8 @@ function setOrientation(sp, orientation) {
 }
 
 // ../docx-core/src/serialize.ts
-var esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-var escAttr = (s) => esc3(s).replace(/"/g, "&quot;");
+var esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var escAttr = (s) => esc4(s).replace(/"/g, "&quot;");
 var mediaOut = [];
 var drawingId = 0;
 var active = null;
@@ -6014,7 +6731,8 @@ function rPrXml(run) {
   const src = active && sid !== void 0 ? active.store.runs.get(sid) : void 0;
   return src ? patchRPr(src.rPr, run) : rPrFromProps(run.props, active !== null);
 }
-function textXml(text) {
+function textXml(text, deleted = false) {
+  const t = deleted ? "w:delText" : "w:t";
   const parts = [];
   for (const seg of text.split(/(\t|\n|\f|\u000B|\u2011|\u00AD|\u2028)/)) {
     if (seg === "	") parts.push("<w:tab/>");
@@ -6026,7 +6744,7 @@ function textXml(text) {
     else if (seg === "\u2028") parts.push('<w:br w:clear="all"/>');
     else if (seg.length > 0) {
       const space = seg !== seg.trim() ? ' xml:space="preserve"' : "";
-      parts.push(`<w:t${space}>${esc3(seg)}</w:t>`);
+      parts.push(`<${t}${space}>${esc4(seg)}</${t}>`);
     }
   }
   return parts.join("");
@@ -6037,9 +6755,9 @@ function runXml(run) {
     if (!/^[a-zA-Z0-9._-]+$/.test(type)) {
       throw new Error(`tipo de inline customizado inv\xE1lido: ${type}`);
     }
-    const json = JSON.stringify(run.custom.data);
-    if (json === void 0) throw new Error(`dados do inline "${type}" n\xE3o s\xE3o serializ\xE1veis em JSON`);
-    const tag = `wordnext:inline:${type}:${encodeURIComponent(json)}`;
+    const json2 = JSON.stringify(run.custom.data);
+    if (json2 === void 0) throw new Error(`dados do inline "${type}" n\xE3o s\xE3o serializ\xE1veis em JSON`);
+    const tag = `wordnext:inline:${type}:${encodeURIComponent(json2)}`;
     const fallbackRun = {
       text: run.custom.fallbackText,
       props: run.props
@@ -6083,18 +6801,49 @@ function runXml(run) {
     return `<w:r>${rpr}<w:sym w:font="${escAttr(run.symFont)}" w:char="${hex2}"/></w:r>`;
   }
   if (active && (run.math || run.props.isMath)) {
-    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc3(run.text)}</m:t></m:r></m:oMath>`;
+    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc4(run.text)}</m:t></m:r></m:oMath>`;
   }
-  return `<w:r>${rpr}${textXml(run.text)}</w:r>`;
+  return `<w:r>${rpr}${textXml(run.text, !!run.props.del)}</w:r>`;
 }
 function fieldOrRunXml(r) {
-  if (r.field && /^\s*=/.test(r.field)) return formulaFieldXml(r);
-  return r.field && !(active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field)) ? `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>` : runXml(r);
+  if (!r.field || active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field)) return runXml(r);
+  if (!r.props.ins && !r.props.del) {
+    if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
+    return `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`;
+  }
+  const rpr = rPrXml(r);
+  const ch = (type) => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
+  const it = r.props.del ? "w:delInstrText" : "w:instrText";
+  return ch("begin") + `<w:r>${rpr}<${it} xml:space="preserve">${esc4(r.field)}</${it}></w:r>` + ch("separate") + runXml(r) + ch("end");
+}
+var revKey = (r) => JSON.stringify(r ?? null);
+function revisionRuns(items) {
+  const plain2 = (xs) => xs.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join("");
+  const dels = (xs) => {
+    let out2 = "";
+    for (let i2 = 0; i2 < xs.length; ) {
+      const d = xs[i2].run.props.del;
+      let j = i2 + 1;
+      while (j < xs.length && revKey(xs[j].run.props.del) === revKey(d)) j++;
+      out2 += d ? wrapRevision("del", d, plain2(xs.slice(i2, j))) : plain2(xs.slice(i2, j));
+      i2 = j;
+    }
+    return out2;
+  };
+  let out = "";
+  for (let i2 = 0; i2 < items.length; ) {
+    const ins = items[i2].run.props.ins;
+    let j = i2 + 1;
+    while (j < items.length && revKey(items[j].run.props.ins) === revKey(ins)) j++;
+    out += ins ? wrapRevision("ins", ins, dels(items.slice(i2, j))) : dels(items.slice(i2, j));
+    i2 = j;
+  }
+  return out;
 }
 function formulaFieldXml(r) {
   const rpr = rPrXml(r);
   const wrap = (inner, pr = rpr) => `<w:r>${pr}${inner}</w:r>`;
-  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc3(r.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
+  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc4(r.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
 }
 function withNoProof(rpr) {
   if (!rpr || rpr === "<w:rPr/>") return "<w:rPr><w:noProof/></w:rPr>";
@@ -6129,16 +6878,15 @@ function genRuns(items, inWrapper = false) {
   while (i2 < items.length) {
     const link = active && !inWrapper ? items[i2].run.props.link : void 0;
     if (!link) {
-      const it = items[i2++];
-      out.push(it.before + fieldOrRunXml(it.run) + it.after);
+      let j2 = i2 + 1;
+      while (j2 < items.length && !(active && !inWrapper && items[j2].run.props.link)) j2++;
+      out.push(revisionRuns(items.slice(i2, j2)));
+      i2 = j2;
       continue;
     }
     let j = i2;
-    let inner = "";
-    while (j < items.length && items[j].run.props.link === link) {
-      const it = items[j++];
-      inner += it.before + fieldOrRunXml(it.run) + it.after;
-    }
+    while (j < items.length && items[j].run.props.link === link) j++;
+    const inner = revisionRuns(items.slice(i2, j));
     const attr = link.startsWith("#") ? ` w:anchor="${escAttr(link.slice(1))}"` : (() => {
       const id = linkRelId(link);
       return id ? ` r:id="${id}"` : "";
@@ -6288,7 +7036,7 @@ function paraXmlRuns(para) {
   if (!active || !src) {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i2) => ({ run, before: marks.before[i2], after: marks.after[i2] }));
-    if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(""));
+    if (!active) return paraXmlInner(para, revisionRuns(items));
     const fmt = para.props.fmtSrc !== void 0 ? active.store.paras.get(para.props.fmtSrc) : void 0;
     if (fmt) {
       const ppr3 = patchPPr(fmt.pPr, para, paraSectPr(para, fmt.pPr), active.numIds);
@@ -6361,6 +7109,13 @@ function paraXmlInner(para, runsXml) {
     ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  const mark = (pp.markIns ? markRevisionXml("ins", pp.markIns) : "") + (pp.markDel ? markRevisionXml("del", pp.markDel) : "");
+  if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
+  if (pp.pfmt) {
+    const old = paraXmlInner({ runs: [], props: pp.pfmt.old }, "");
+    const inner2 = /^<w:p><w:pPr>([\s\S]*)<\/w:pPr><\/w:p>$/.exec(old)?.[1] ?? "";
+    ppr.push(`<w:pPrChange${revisionAttrs(pp.pfmt)}>${inner2 ? `<w:pPr>${inner2}</w:pPr>` : "<w:pPr/>"}</w:pPrChange>`);
+  }
   const inner = (ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "") + runsXml;
   return `<w:p>${inner}</w:p>`;
 }
@@ -6535,12 +7290,16 @@ function serializeBlocks(blocks, sectPr, hfRefs = []) {
   const bodyRefs = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
   const body = blocks.map(blockXml).join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>${body}${sect}</w:body></w:document>`;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<w:document ${W_NS}>`, "w:document") + `<w:body>${body}${sect}</w:body></w:document>`;
 }
 function serializeDocument(model, hfRefs = []) {
   const bodyRefs = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>` + model.paragraphs.map(paraXml).join("") + sect + "</w:body></w:document>";
+  const body = model.paragraphs.map(paraXml).join("");
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<w:document ${W_NS}>`, "w:document") + `<w:body>${body}${sect}</w:body></w:document>`;
+}
+function revRoot(open, rootName) {
+  return takeUsedDateUtc() ? ensureRevisionNamespaces(open, rootName) : open;
 }
 function withNamespaces(open, rootName) {
   const at = open.indexOf(`<${rootName}`);
@@ -6591,9 +7350,11 @@ function mergeNumbering(xml, ids) {
 var W_NS_HF = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 function serializeHfPart(kind, paragraphs) {
   const tag = kind === "header" ? "w:hdr" : "w:ftr";
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${tag} ${W_NS_HF}>` + paragraphs.map(paraXml).join("") + `</${tag}>`;
+  takeUsedDateUtc();
+  const body = paragraphs.map(paraXml).join("");
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + revRoot(`<${tag} ${W_NS_HF}>`, tag) + body + `</${tag}>`;
 }
-var commentXml = (c) => `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc3(c.text)}</w:t></w:r></w:p></w:comment>`;
+var commentXml = (c) => `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc4(c.text)}</w:t></w:r></w:p></w:comment>`;
 function patchComments(pkg, comments) {
   const xml = pkg.getPartText("word/comments.xml");
   const want = new Map(comments.map((c) => [c.id, c]));
@@ -6640,9 +7401,11 @@ function writeDocument(pkg, model, hfParts = [], opts = {}) {
     store.beginSave();
     store.genNumIds ??= freeNumIds(pkg.getPartText("word/numbering.xml"));
   }
+  beginRevisionIds(...pkg.partNames().filter((p) => /^word\/(?:document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml$/.test(p)).map((p) => pkg.getPartText(p)));
   active = store ? { store, pkg, relsPath: "word/_rels/document.xml.rels", claimed: /* @__PURE__ */ new Set(), genNumbering: false, claimedSegs: /* @__PURE__ */ new Set(), remaining: /* @__PURE__ */ new Map(), paraRuns: [], emittedObj: /* @__PURE__ */ new Set(), numIds: store.genNumIds } : null;
   try {
     writeParts(pkg, model, hfParts, opts, store);
+    if (opts.trackRevisions !== void 0) writeTrackRevisions(pkg, opts.trackRevisions);
   } finally {
     active = null;
   }
@@ -6690,7 +7453,10 @@ function writeParts(pkg, model, hfParts, opts, store) {
         if (active && story2) {
           active.relsPath = `word/_rels/${hf.path.split("/").pop()}.rels`;
           const blocks = hf.blocks ?? hf.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
-          const xml = withNamespaces(story2.open, hf.kind === "header" ? "w:hdr" : "w:ftr") + storyBlocksXml(story2, blocks, store) + story2.close;
+          const root = hf.kind === "header" ? "w:hdr" : "w:ftr";
+          takeUsedDateUtc();
+          const body = storyBlocksXml(story2, blocks, store);
+          const xml = revRoot(withNamespaces(story2.open, root), root) + body + story2.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
           active.relsPath = relsPath2;
         } else {
@@ -6726,7 +7492,9 @@ function writeParts(pkg, model, hfParts, opts, store) {
     const blocks = opts.blocks ?? model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
     const refs = bodyRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
     const sect = story.sectPr ? patchSectPr(story.sectPr, model.sectPr, refs) : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
-    const xml = withNamespaces(story.open, "w:document") + storyBlocksXml(story, blocks, store) + sect + story.close;
+    takeUsedDateUtc();
+    const body = storyBlocksXml(story, blocks, store);
+    const xml = revRoot(withNamespaces(story.open, "w:document"), "w:document") + body + sect + story.close;
     pkg.setPartText("word/document.xml", dropCommentMarks(xml, gone));
   } else {
     pkg.setPartText(
@@ -6954,7 +7722,7 @@ function blankDocxPackage() {
 }
 
 // ../docx-core/src/style-sheet.ts
-var esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var esc5 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 var STYLE_ORDER = [
   "w:name",
   "w:aliases",
@@ -7150,7 +7918,7 @@ function styleIdFromName(name, taken) {
   for (let i2 = 0; ; i2++) if (!taken.has(`${base}${i2}`)) return `${base}${i2}`;
 }
 function newStyleXml(o) {
-  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc4(o.id)}"><w:name w:val="${esc4(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc4(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc4(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc4(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
+  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc5(o.id)}"><w:name w:val="${esc5(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc5(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc5(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc5(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
 }
 function patchStyleXml(raw, h) {
   const { open, close, kids } = splitElement(raw);
@@ -7159,7 +7927,7 @@ function patchStyleXml(raw, h) {
   const set = (n, xml) => setKid2(kids, STYLE_ORDER, n, xml);
   const v = (n, x2) => {
     if (x2 === void 0) return;
-    set(n, x2 === null ? null : `<${n} w:val="${esc4(x2)}"/>`);
+    set(n, x2 === null ? null : `<${n} w:val="${esc5(x2)}"/>`);
   };
   if (h.name !== void 0) v("w:name", h.name);
   v("w:aliases", h.aliases);
@@ -7204,7 +7972,7 @@ function patchStyleRPr(raw, f) {
       let x2 = cur;
       for (const [theme, plain2] of [["w:asciiTheme", "w:ascii"], ["w:hAnsiTheme", "w:hAnsi"]]) {
         const re = new RegExp(`\\s${theme}="[^"]*"`);
-        if (re.test(x2) && !new RegExp(`\\s${plain2}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain2}="${esc4(f.fontAscii)}"`);
+        if (re.test(x2) && !new RegExp(`\\s${plain2}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain2}="${esc5(f.fontAscii)}"`);
       }
       set("w:rFonts", withAttrs(x2, "w:rFonts", {
         "w:ascii": f.fontAscii,
@@ -7219,7 +7987,7 @@ function patchStyleRPr(raw, f) {
   tog("w:caps", f.allCaps);
   tog("w:smallCaps", f.smallCaps);
   tog("w:strike", f.strike);
-  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc4(f.color)}"/>`);
+  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc5(f.color)}"/>`);
   if (f.charSpacingTwips !== void 0) set("w:spacing", f.charSpacingTwips === null ? null : `<w:spacing w:val="${f.charSpacingTwips}"/>`);
   if (f.szHalfPt !== void 0) set("w:sz", f.szHalfPt === null ? null : `<w:sz w:val="${f.szHalfPt}"/>`);
   if (f.underline !== void 0) set("w:u", f.underline === null ? null : `<w:u w:val="${f.underline ? "single" : "none"}"/>`);
@@ -7284,9 +8052,9 @@ function builtinDisplayName(name, lang) {
 }
 function builtinXml(xml, opts = {}) {
   let out = xml;
-  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc4(opts.id)}"`);
+  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc5(opts.id)}"`);
   for (const [from, to] of Object.entries(opts.refs ?? {})) {
-    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc4(to) + b);
+    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc5(to) + b);
   }
   if (opts.used && /<w:unhideWhenUsed\/>/.test(out)) out = out.replace("<w:semiHidden/>", "");
   return out;
@@ -10616,10 +11384,10 @@ var TAB_TLC = [void 0, "dot", "hyphen", "underscore", "heavy", "middleDot", void
 function tabsXml(base, final, cleared = []) {
   const b = base ?? [];
   const f = final ?? [];
-  const same = (x3, y) => x3.pos === y.pos && x3.jc === y.jc && x3.tlc === y.tlc;
-  const clearPos = new Set(b.filter((x3) => !f.some((y) => same(x3, y))).map((x3) => x3.pos));
+  const same2 = (x3, y) => x3.pos === y.pos && x3.jc === y.jc && x3.tlc === y.tlc;
+  const clearPos = new Set(b.filter((x3) => !f.some((y) => same2(x3, y))).map((x3) => x3.pos));
   for (const p of cleared) if (!f.some((y) => y.pos === p)) clearPos.add(p);
-  const adds = f.filter((y) => !b.some((x3) => same(x3, y)));
+  const adds = f.filter((y) => !b.some((x3) => same2(x3, y)));
   if (!clearPos.size && !adds.length) return "";
   let x2 = "";
   for (const c of [...clearPos].sort((p, q) => p - q)) if (!adds.some((a) => a.pos === c)) x2 += el("w:tab", { "w:val": "clear", "w:pos": c });
@@ -12318,11 +13086,11 @@ var DocxWriter = class {
     const r = this.r;
     const styleRes = r.styles.resolve(p.pap.istd);
     const markChp = this.chpFor(p, p.cpEnd - 1);
-    const markRPr = this.revisionMark(markChp.chp) + rPrInner(markChp.chp, markChp.touched, this.propCtx);
+    const markRPr2 = this.revisionMark(markChp.chp) + rPrInner(markChp.chp, markChp.touched, this.propCtx);
     const pPr = pPrInner(p.pap, p.touched, this.propCtx, {
       baseTabs: styleRes.pap.tabs,
       numId: this.numIdOf,
-      rPr: markRPr || void 0,
+      rPr: markRPr2 || void 0,
       sectPr
     });
     const runs = this.renderRuns(p, ctx);
@@ -14183,9 +14951,9 @@ function setBorders(t, rect, kind, spec, o = {}) {
     for (const s of ["top", "left", "bottom", "right", "insideH", "insideV"]) {
       if (!on(s)) continue;
       const st = o.styleBorders?.[s];
-      const same = st && st.val === want.val && (st.sz ?? 0) === (want.sz ?? 0) && (st.color ?? "auto") === (want.color ?? "auto");
+      const same2 = st && st.val === want.val && (st.sz ?? 0) === (want.sz ?? 0) && (st.color ?? "auto") === (want.color ?? "auto");
       const styleNone = !st || st.val === "none" || st.val === "nil";
-      if (same || styleNone && (want.val === "none" || want.val === "nil")) delete tb[s];
+      if (same2 || styleNone && (want.val === "none" || want.val === "nil")) delete tb[s];
       else tb[s] = clone(want);
     }
     setTableProps(t, { tblBorders: Object.keys(tb).length ? tb : void 0 });
@@ -14838,7 +15606,7 @@ var TSPR_ORDER = ["w:pPr", "w:rPr", "w:tblPr", "w:trPr", "w:tcPr"];
 var TBLPR_ORDER2 = ["w:tblStyle", "w:tblpPr", "w:tblOverlap", "w:bidiVisual", "w:tblStyleRowBandSize", "w:tblStyleColBandSize", "w:tblW", "w:jc", "w:tblCellSpacing", "w:tblInd", "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook"];
 var TCPR_ORDER2 = ["w:cnfStyle", "w:tcW", "w:gridSpan", "w:hMerge", "w:vMerge", "w:tcBorders", "w:shd", "w:noWrap", "w:tcMar", "w:textDirection", "w:tcFitText", "w:vAlign", "w:hideMark"];
 var SIDES2 = ["top", "left", "bottom", "right", "insideH", "insideV"];
-var esc5 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var esc6 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 function el2(raw, tag) {
   return raw ? splitElement(raw) : { open: `<${tag}>`, close: `</${tag}>`, kids: [] };
 }
@@ -14856,7 +15624,7 @@ function patchBorderSet(raw, tag, b) {
 function patchTcPr2(raw, f, bordersHere) {
   const o = el2(raw, "w:tcPr");
   if (bordersHere && f.borders && Object.keys(f.borders).length) setKid2(o.kids, TCPR_ORDER2, "w:tcBorders", patchBorderSet(kid(o.kids, "w:tcBorders"), "w:tcBorders", f.borders) || null);
-  if (f.fill !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:shd", f.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc5(f.fill)}"/>`);
+  if (f.fill !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:shd", f.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc6(f.fill)}"/>`);
   if (f.vAlign !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:vAlign", f.vAlign === null || f.vAlign === "top" ? null : `<w:vAlign w:val="${f.vAlign}"/>`);
   return join2(o);
 }
@@ -14905,12 +15673,12 @@ function patchTableStyleXml(raw, cond, f) {
   return o.open + o.kids.map((k) => k.raw).join("") + o.close;
 }
 function newTableStyleXml(o) {
-  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc5(o.id)}"><w:name w:val="${esc5(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc5(o.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
+  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc6(o.id)}"><w:name w:val="${esc6(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc6(o.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
 }
 function retitleTableStyleXml(raw, h) {
   const o = splitElement(raw);
-  if (h.name !== void 0) setKid2(o.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc5(h.name)}"/>`);
-  if (h.basedOn !== void 0) setKid2(o.kids, STYLE_ORDER, "w:basedOn", h.basedOn ? `<w:basedOn w:val="${esc5(h.basedOn)}"/>` : null);
+  if (h.name !== void 0) setKid2(o.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc6(h.name)}"/>`);
+  if (h.basedOn !== void 0) setKid2(o.kids, STYLE_ORDER, "w:basedOn", h.basedOn ? `<w:basedOn w:val="${esc6(h.basedOn)}"/>` : null);
   return o.open + o.kids.map((k) => k.raw).join("") + o.close;
 }
 
@@ -15103,13 +15871,12 @@ export {
   paraPropsFromPPr,
   readStyleSheet,
   readStylesXml,
-  markSectionBreaks,
-  readFullDocument,
   paraText,
   paraLength,
   comparePos,
   normalizeRange,
   propsAt,
+  withoutRevisions,
   insertText,
   insertRun,
   splitParagraph,
@@ -15120,6 +15887,26 @@ export {
   clearRunFormatting,
   clearParaFormatting,
   clearPara,
+  newRevision,
+  paraFormatting,
+  finalParagraphs,
+  finalBlocks,
+  paragraphHasRevisions,
+  collectRevisions,
+  revisionAt,
+  spanScope,
+  acceptRevisions,
+  rejectRevisions,
+  trackInsertText,
+  trackInsertRun,
+  trackSplitParagraph,
+  trackDelete,
+  trackApplyRunProps,
+  trackApplyParaProps,
+  revisionAuthors,
+  readTrackRevisions,
+  markSectionBreaks,
+  readFullDocument,
   COLUMN_SPACE_DEFAULT,
   sectionRanges,
   sectionIndexAt,

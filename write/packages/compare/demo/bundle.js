@@ -1228,6 +1228,13 @@ function firstChild(el, name) {
 }
 
 // ../docx-core/src/ooxml/props.ts
+function readRevisionInfo(el) {
+  const info = { author: el.attrs["w:author"] ?? "" };
+  if (el.attrs["w:date"]) info.date = el.attrs["w:date"];
+  if (el.attrs["w16du:dateUtc"]) info.dateUtc = el.attrs["w16du:dateUtc"];
+  if (el.name === "w:moveFrom" || el.name === "w:moveTo") info.move = true;
+  return info;
+}
 var int = (v) => {
   if (v === void 0 || v === "") return void 0;
   const n = parseInt(v, 10);
@@ -1394,6 +1401,9 @@ function readRPr(rPr) {
       }
       case "w14:ligatures":
         p.ligatures = el.attrs["w14:val"] ?? "standard";
+        break;
+      case "w:rPrChange":
+        p.change = { ...readRevisionInfo(el), rPr: readRPr(firstChild(el, "w:rPr")) ?? {} };
         break;
       case "w14:shadow": {
         const emu = (k) => (parseInt(el.attrs[k] ?? "0", 10) || 0) / 12700;
@@ -1642,7 +1652,15 @@ function readPPr(pPr) {
       }
       case "w:rPr":
         p.rPr = readRPr(el);
-        if (childElements(el).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
+        for (const c of childElements(el)) {
+          if (c.name === "w:del" || c.name === "w:moveFrom") {
+            p.markDeleted = true;
+            p.markDel = readRevisionInfo(c);
+          } else if (c.name === "w:ins" || c.name === "w:moveTo") p.markIns = readRevisionInfo(c);
+        }
+        break;
+      case "w:pPrChange":
+        p.change = { ...readRevisionInfo(el), pPr: readPPr(firstChild(el, "w:pPr")) ?? {} };
         break;
     }
   }
@@ -2419,7 +2437,16 @@ function runPropsFromRPr(rpr) {
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
+  if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
+}
+function revInfo(r) {
+  return {
+    author: r.author,
+    ...r.date !== void 0 ? { date: r.date } : {},
+    ...r.dateUtc !== void 0 ? { dateUtc: r.dateUtc } : {},
+    ...r.move ? { move: true } : {}
+  };
 }
 function paraPropsFromPPr(ppr) {
   const props = {};
@@ -2471,6 +2498,9 @@ function paraPropsFromPPr(ppr) {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
+  if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
+  if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
+  if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
 function findDeep2(el, name) {
@@ -2492,7 +2522,7 @@ function tagObjectRuns(list, from, el) {
   if (!list) return;
   for (let i2 = from; i2 < list.length; i2++) list[i2][OBJ_EL] = i2 === from ? el : true;
 }
-var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
+var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep2(pic, "a:blip");
@@ -3099,12 +3129,20 @@ function readRunsInto(runs, container, ctx, inherit) {
         break;
       }
       case "w:smartTag":
-      case "w:ins":
-      case "w:moveTo":
       case "w:customXml":
       case "w:dir":
       case "w:bdo":
         readRunsInto(runs, child, ctx, inherit);
+        break;
+      // revisões: o texto inserido E o excluído ficam no modelo, marcados nas props
+      // (a visão final esconde o excluído — motor de layout)
+      case "w:ins":
+      case "w:moveTo":
+        readRunsInto(runs, child, ctx, { ...inherit, ins: readRevisionInfo(child) });
+        break;
+      case "w:del":
+      case "w:moveFrom":
+        readRunsInto(runs, child, ctx, { ...inherit, del: readRevisionInfo(child) });
         break;
     }
   }
@@ -3198,6 +3236,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   const make = (text2, extra) => {
     const props = { ...rProps };
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
+    if (inherit?.ins) props.ins = inherit.ins;
+    if (inherit?.del) props.del = inherit.del;
     const run = { text: text2, props, ...inherit?.field ? { field: inherit.field } : {}, ...extra };
     if (rpr) run.rpr = rpr;
     setRPrEl(run, rPrEl);
@@ -3220,7 +3260,13 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       flush();
       const type = child.attrs["w:fldCharType"];
       if (type === "begin") {
-        const frame2 = { instr: "", phase: "instr", runs: [], crossed: false, props: { ...rProps } };
+        const frame2 = {
+          instr: "",
+          phase: "instr",
+          runs: [],
+          crossed: false,
+          props: { ...rProps, ...inherit?.ins ? { ins: inherit.ins } : {}, ...inherit?.del ? { del: inherit.del } : {} }
+        };
         if (rpr) frame2.rpr = rpr;
         if (rPrEl) frame2.rPrEl = rPrEl;
         const ff = firstChild(child, "w:ffData");
@@ -3255,13 +3301,14 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       }
       continue;
     }
-    if (child.name === "w:instrText") {
+    if (child.name === "w:instrText" || child.name === "w:delInstrText") {
       const top = stack[stack.length - 1];
       if (top && top.phase === "instr") top.instr += textContentOf(child);
       continue;
     }
     switch (child.name) {
       case "w:t":
+      case "w:delText":
         text += child.children.filter((c) => typeof c === "string").join("").replace(/\u00AD/g, "\u2011").replace(/\r\n|[\r\n]/g, " ");
         break;
       case "w:tab":
@@ -4010,6 +4057,61 @@ function readStylesXml(xml) {
   return out;
 }
 
+// ../docx-core/src/model-ops.ts
+var paraText = (p) => p.runs.map((r) => r.text).join("");
+
+// ../docx-core/src/revisions.ts
+var isDeletedRun = (r) => !!r.props.del;
+function finalRuns(p) {
+  return p.runs.some(isDeletedRun) ? p.runs.filter((r) => !r.props.del) : p.runs;
+}
+function finalParagraphs(paras) {
+  const out = [];
+  const index = [];
+  let carry = [];
+  paras.forEach((p, i2) => {
+    const own2 = finalRuns(p);
+    const runs = carry.length ? [...carry, ...own2] : own2;
+    index[i2] = out.length;
+    if (p.props.markDel && i2 < paras.length - 1) {
+      carry = runs;
+      return;
+    }
+    carry = [];
+    out.push(runs === p.runs ? p : { ...p, runs });
+  });
+  return { paras: out, index };
+}
+function finalBlocks(blocks) {
+  const out = [];
+  let run = [];
+  const flush = () => {
+    if (!run.length) return;
+    for (const paragraph of finalParagraphs(run).paras) out.push({ type: "paragraph", paragraph });
+    run = [];
+  };
+  for (const b of blocks) {
+    if (b.type === "paragraph") {
+      run.push(b.paragraph);
+      continue;
+    }
+    flush();
+    out.push({
+      ...b,
+      rows: b.rows.map((row) => ({
+        ...row,
+        cells: row.cells.map((cell) => ({
+          ...cell,
+          paragraphs: finalParagraphs(cell.paragraphs).paras,
+          ...cell.blocks ? { blocks: finalBlocks(cell.blocks) } : {}
+        }))
+      }))
+    });
+  }
+  flush();
+  return out;
+}
+
 // ../docx-core/src/lossless.ts
 function splitElement(raw) {
   const el = parseXml(raw, { positions: true });
@@ -4612,9 +4714,6 @@ function readSectionProps(sectEl) {
   if (firstChild(sectEl, "w:noEndnote")) out.noEndnote = true;
   return out;
 }
-
-// ../docx-core/src/model-ops.ts
-var paraText = (p) => p.runs.map((r) => r.text).join("");
 
 // src/myers.ts
 function myersDiff(n, m, eq) {
@@ -5241,7 +5340,7 @@ function diffBlocks(aBlocks, bBlocks, opts = {}) {
   return { edits, stats };
 }
 function diffDocuments(a, b, opts = {}) {
-  return diffBlocks(a.blocks, b.blocks, opts);
+  return diffBlocks(finalBlocks(a.blocks), finalBlocks(b.blocks), opts);
 }
 
 // ../../../shared/ui/dist/i18n.js
@@ -5538,6 +5637,8 @@ var UniversalWriteDiffElement = class extends Base {
   }
   /** Compara dois documentos já parseados. */
   loadDocuments(aDoc, bDoc, opts = {}) {
+    aDoc = { ...aDoc, blocks: finalBlocks(aDoc.blocks) };
+    bDoc = { ...bDoc, blocks: finalBlocks(bDoc.blocks) };
     this._aDoc = aDoc;
     this._bDoc = bDoc;
     if (opts.leftLabel !== void 0) this.setAttribute("left-label", opts.leftLabel);

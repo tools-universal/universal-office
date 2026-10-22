@@ -1499,6 +1499,13 @@ function readEmbeddedFonts(pkg) {
 }
 
 // ../docx-core/src/ooxml/props.ts
+function readRevisionInfo(el2) {
+  const info = { author: el2.attrs["w:author"] ?? "" };
+  if (el2.attrs["w:date"]) info.date = el2.attrs["w:date"];
+  if (el2.attrs["w16du:dateUtc"]) info.dateUtc = el2.attrs["w16du:dateUtc"];
+  if (el2.name === "w:moveFrom" || el2.name === "w:moveTo") info.move = true;
+  return info;
+}
 var int = (v) => {
   if (v === void 0 || v === "") return void 0;
   const n = parseInt(v, 10);
@@ -1665,6 +1672,9 @@ function readRPr(rPr) {
       }
       case "w14:ligatures":
         p.ligatures = el2.attrs["w14:val"] ?? "standard";
+        break;
+      case "w:rPrChange":
+        p.change = { ...readRevisionInfo(el2), rPr: readRPr(firstChild(el2, "w:rPr")) ?? {} };
         break;
       case "w14:shadow": {
         const emu = (k) => (parseInt(el2.attrs[k] ?? "0", 10) || 0) / 12700;
@@ -1913,7 +1923,15 @@ function readPPr(pPr) {
       }
       case "w:rPr":
         p.rPr = readRPr(el2);
-        if (childElements(el2).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
+        for (const c of childElements(el2)) {
+          if (c.name === "w:del" || c.name === "w:moveFrom") {
+            p.markDeleted = true;
+            p.markDel = readRevisionInfo(c);
+          } else if (c.name === "w:ins" || c.name === "w:moveTo") p.markIns = readRevisionInfo(c);
+        }
+        break;
+      case "w:pPrChange":
+        p.change = { ...readRevisionInfo(el2), pPr: readPPr(firstChild(el2, "w:pPr")) ?? {} };
         break;
     }
   }
@@ -2690,7 +2708,16 @@ function runPropsFromRPr(rpr) {
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
+  if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
+}
+function revInfo(r) {
+  return {
+    author: r.author,
+    ...r.date !== void 0 ? { date: r.date } : {},
+    ...r.dateUtc !== void 0 ? { dateUtc: r.dateUtc } : {},
+    ...r.move ? { move: true } : {}
+  };
 }
 function editBaseProps(run, rpr) {
   const base = runPropsFromRPr(rpr);
@@ -2753,6 +2780,9 @@ function paraPropsFromPPr(ppr) {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
+  if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
+  if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
+  if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
 function findDeep2(el2, name) {
@@ -2774,7 +2804,7 @@ function tagObjectRuns(list2, from, el2) {
   if (!list2) return;
   for (let i2 = from; i2 < list2.length; i2++) list2[i2][OBJ_EL] = i2 === from ? el2 : true;
 }
-var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
+var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep2(pic, "a:blip");
@@ -3381,12 +3411,20 @@ function readRunsInto(runs, container, ctx, inherit) {
         break;
       }
       case "w:smartTag":
-      case "w:ins":
-      case "w:moveTo":
       case "w:customXml":
       case "w:dir":
       case "w:bdo":
         readRunsInto(runs, child, ctx, inherit);
+        break;
+      // revisões: o texto inserido E o excluído ficam no modelo, marcados nas props
+      // (a visão final esconde o excluído — motor de layout)
+      case "w:ins":
+      case "w:moveTo":
+        readRunsInto(runs, child, ctx, { ...inherit, ins: readRevisionInfo(child) });
+        break;
+      case "w:del":
+      case "w:moveFrom":
+        readRunsInto(runs, child, ctx, { ...inherit, del: readRevisionInfo(child) });
         break;
     }
   }
@@ -3480,6 +3518,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   const make = (text2, extra) => {
     const props = { ...rProps };
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
+    if (inherit?.ins) props.ins = inherit.ins;
+    if (inherit?.del) props.del = inherit.del;
     const run = { text: text2, props, ...inherit?.field ? { field: inherit.field } : {}, ...extra };
     if (rpr) run.rpr = rpr;
     setRPrEl(run, rPrEl);
@@ -3502,7 +3542,13 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       flush();
       const type = child.attrs["w:fldCharType"];
       if (type === "begin") {
-        const frame = { instr: "", phase: "instr", runs: [], crossed: false, props: { ...rProps } };
+        const frame = {
+          instr: "",
+          phase: "instr",
+          runs: [],
+          crossed: false,
+          props: { ...rProps, ...inherit?.ins ? { ins: inherit.ins } : {}, ...inherit?.del ? { del: inherit.del } : {} }
+        };
         if (rpr) frame.rpr = rpr;
         if (rPrEl) frame.rPrEl = rPrEl;
         const ff = firstChild(child, "w:ffData");
@@ -3537,13 +3583,14 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       }
       continue;
     }
-    if (child.name === "w:instrText") {
+    if (child.name === "w:instrText" || child.name === "w:delInstrText") {
       const top = stack[stack.length - 1];
       if (top && top.phase === "instr") top.instr += textContentOf(child);
       continue;
     }
     switch (child.name) {
       case "w:t":
+      case "w:delText":
         text += child.children.filter((c) => typeof c === "string").join("").replace(/\u00AD/g, "\u2011").replace(/\r\n|[\r\n]/g, " ");
         break;
       case "w:tab":
@@ -4290,6 +4337,41 @@ function readStylesXml(xml) {
   for (const id of raw.keys()) resolve(id, /* @__PURE__ */ new Set());
   out.set("docDefaults", { para: { ...defPara }, run: { ...defRun } });
   return out;
+}
+
+// ../docx-core/src/revisions.ts
+function revisionAuthors(full) {
+  const seen = /* @__PURE__ */ new Set();
+  const add = (r) => {
+    if (r && !seen.has(r.author)) seen.add(r.author);
+  };
+  const para = (p) => {
+    add(p.props.pfmt);
+    for (const r of p.runs) {
+      add(r.props.del);
+      add(r.props.ins);
+      add(r.props.fmt);
+      if (r.textbox?.blocks) blocks(r.textbox.blocks);
+      else if (r.textbox?.paras) r.textbox.paras.forEach(para);
+    }
+    add(p.props.markIns);
+    add(p.props.markDel);
+  };
+  const blocks = (bs) => {
+    for (const b of bs) {
+      if (b.type === "paragraph") para(b.paragraph);
+      else for (const row of b.rows) for (const cell of row.cells) blocks(cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })));
+    }
+  };
+  blocks(full.blocks);
+  for (const s of full.sections) {
+    for (const set of [s.headerBlocks, s.footerBlocks]) for (const k of ["default", "first", "even"]) {
+      const b = set?.[k];
+      if (b) blocks(b);
+    }
+  }
+  for (const m of [full.footnoteBlocks, full.endnoteBlocks]) for (const b of m?.values() ?? []) blocks(b);
+  return [...seen];
 }
 
 // ../docx-core/src/lossless.ts
@@ -14241,6 +14323,137 @@ var NumberingState = class _NumberingState {
   }
 };
 
+// ../docx-layout/src/revisions.ts
+var AUTHOR_PALETTE = [
+  "D13438",
+  "0078D4",
+  "5C2E91",
+  "498205",
+  "CC3595",
+  "7160E8",
+  "038387",
+  "6D5700",
+  "CF0F1F",
+  "4E6AED",
+  "B146C2",
+  "394146",
+  "0B6A0B",
+  "CA5010",
+  "750B1C",
+  "5D5A58",
+  "881798",
+  "69797E",
+  "005B70",
+  "8E562E"
+];
+var MOVE_COLOR = "2C6234";
+var BAR_COLOR = "000000";
+var SIMPLE_BAR_COLOR = "C00000";
+var BAR_WIDTH = 14.4;
+function authorColor(order, author) {
+  const i2 = order.indexOf(author);
+  return AUTHOR_PALETTE[(i2 < 0 ? order.length : i2) % AUTHOR_PALETTE.length];
+}
+function barX(marginLeft) {
+  return Math.max(268.8, marginLeft >= 1440 ? marginLeft - 720 : marginLeft / 2);
+}
+var RevisionDisplay = class {
+  mode;
+  insDel;
+  fmt;
+  authors;
+  order;
+  colors;
+  constructor(view, docOrder) {
+    this.mode = view?.mode ?? "final";
+    this.insDel = view?.insDel ?? true;
+    this.fmt = view?.formatting ?? true;
+    this.authors = view?.authors ? new Set(view.authors) : null;
+    this.order = [...view?.order ?? docOrder];
+    this.colors = view?.colors ?? {};
+  }
+  /** A marcação desta revisão aparece (modo 'all'/'simple', tipo e autor ligados)? */
+  shown(r, kind) {
+    if (!r) return false;
+    if (kind === "insDel" ? !this.insDel : !this.fmt) return false;
+    return !this.authors || this.authors.has(r.author);
+  }
+  color(author) {
+    return this.colors[author] ?? authorColor(this.order, author);
+  }
+  /** O run aparece? Marcado? (texto inserido/excluído) */
+  run(run) {
+    const { ins, del } = run.props;
+    if (!ins && !del) return null;
+    if (this.mode === "original") return ins ? "hide" : null;
+    const marks = this.mode === "all";
+    if (del) {
+      if (!marks || !this.shown(del, "insDel")) return "hide";
+      return { color: del.move ? MOVE_COLOR : this.color(del.author), kind: "del", move: !!del.move };
+    }
+    if (!marks || !this.shown(ins, "insDel")) return null;
+    return { color: ins.move ? MOVE_COLOR : this.color(ins.author), kind: "ins", move: !!ins.move };
+  }
+  /** rPr direto a desenhar: no modo Original, o de antes da formatação controlada. */
+  directRPr(run) {
+    const f = run.props.fmt;
+    if (this.mode !== "original" || !f) return directRPr(run);
+    const c = run.rpr?.change;
+    if (c && c.author === f.author && c.date === f.date && JSON.stringify(runPropsFromRPr(c.rPr)) === JSON.stringify(f.old)) return { ...c.rPr };
+    const p = run.props;
+    return directRPr({ ...run, props: { ...f.old, ...p.src !== void 0 ? { src: p.src } : {}, ...p.link ? { link: p.link } : {} } });
+  }
+  /** Parágrafo a diagramar: no modo Original, com a formatação de antes. */
+  paragraph(para) {
+    const f = para.props.pfmt;
+    if (this.mode !== "original" || !f) return para;
+    const c = para.ppr?.change;
+    const meta = { ...para.props.src !== void 0 ? { src: para.props.src } : {}, ...para.props.sectionBreak ? { sectionBreak: para.props.sectionBreak } : {} };
+    if (c && c.author === f.author && c.date === f.date && JSON.stringify(paraPropsFromPPr(c.pPr)) === JSON.stringify(f.old)) {
+      const ppr = { ...c.pPr, ...para.ppr?.rPr ? { rPr: para.ppr.rPr } : {} };
+      return { ...para, ppr, props: { ...paraPropsFromPPr(ppr), ...meta } };
+    }
+    return { ...para, ppr: directPPr({ ...para, props: { ...f.old, ...meta } }), props: { ...f.old, ...meta } };
+  }
+  /** A marca deste parágrafo some (o texto vai para o seguinte) nesta visão? */
+  markGone(para) {
+    const { markDel, markIns } = para.props;
+    if (this.mode === "original") return !!markIns;
+    if (!markDel) return false;
+    return this.mode !== "all" || !this.shown(markDel, "insDel");
+  }
+  /** A revisão pede barra nesta visão? (texto, formatação, marca) */
+  barFor(r, kind) {
+    if (!r || this.mode !== "all" && this.mode !== "simple") return false;
+    if (this.mode === "simple") return kind === "fmt" ? this.fmt : this.insDel;
+    return this.shown(r, kind);
+  }
+  /** Cor das barras (null = sem barras). */
+  barColor() {
+    return this.mode === "all" ? BAR_COLOR : this.mode === "simple" ? SIMPLE_BAR_COLOR : null;
+  }
+};
+var REV_JOINS = /* @__PURE__ */ Symbol("rev-joins");
+function joinDeleted(carried, next) {
+  const out = { ...next, runs: [...carried, ...next.runs] };
+  out[REV_JOINS] = [carried.reduce((n, r) => n + r.text.length, 0)];
+  return out;
+}
+function revisionRanges(rd, para) {
+  if (!rd.barColor()) return null;
+  const ranges = [];
+  let acc = 0;
+  for (const r of para.runs) {
+    const rs = acc;
+    acc += r.text.length;
+    if (rd.barFor(r.props.ins, "insDel") || rd.barFor(r.props.del, "insDel") || rd.barFor(r.props.fmt, "fmt")) ranges.push([rs, acc, rd.run(r) === "hide"]);
+  }
+  if (rd.mode === "simple") for (const k of para[REV_JOINS] ?? []) ranges.push([k, k, true]);
+  const whole = rd.barFor(para.props.pfmt, "fmt");
+  const mark = rd.barFor(para.props.markIns, "insDel") || rd.barFor(para.props.markDel, "insDel");
+  return ranges.length || whole || mark ? { ranges, whole, mark } : null;
+}
+
 // ../docx-layout/src/context.ts
 var DocContext = class {
   constructor(fmt2, provider, opts = {}) {
@@ -14250,6 +14463,7 @@ var DocContext = class {
     this.faces = new FaceResolver(provider, fmt2.fontTable, void 0, fontOfSlot(ddFonts, "ascii", fmt2.theme) ?? fmt2.theme.minor.latin);
     this.opts = { advanceEm: opts.advanceEm ?? "nominal", advanceRound: opts.advanceRound ?? "word", justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? "pt-BR", now: opts.now ?? /* @__PURE__ */ new Date(), ...opts.onWordFit ? { onWordFit: opts.onWordFit } : {}, hyphenation: opts.hyphenation ?? true, ...opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {} };
     this.numbering = new NumberingState(fmt2.numbering, fmt2.styles.styles, this.opts.lang);
+    this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
   fmt;
   resolver;
@@ -14257,6 +14471,8 @@ var DocContext = class {
   numbering;
   warnings = /* @__PURE__ */ new Set();
   opts;
+  /** como as revisões aparecem (modo, filtros, cores) */
+  rev;
   warn(msg) {
     this.warnings.add(msg);
   }
@@ -15217,16 +15433,18 @@ function resolvePPr(ctx, para, env) {
   ppr.numPr = numPr;
   return { ppr, styleId, styleRPr: st.rPr };
 }
-function paraVisibility(ctx, para, env) {
+function paraVisibility(ctx, para0, env) {
+  const para = ctx.rev.paragraph(para0);
   const { ppr, styleRPr } = resolvePPr(ctx, para, env);
   const dd = ctx.resolver.docDefaults;
   const runRPr = (rpr) => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(para, env).some(({ run }) => !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === "checkBox" || run.custom || run.ptab || run.noteRef) && !hidden(runRPr(directRPr(run))));
+  const visible = displayRuns(para, env).some(({ run }) => !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === "checkBox" || run.custom || run.ptab || run.noteRef) && ctx.rev.run(run) !== "hide" && !hidden(runRPr(ctx.rev.directRPr(run))));
   return { markHidden, visible };
 }
-function prepareParagraph(ctx, para, env0) {
+function prepareParagraph(ctx, para0, env0) {
+  const para = ctx.rev.paragraph(para0);
   const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
   const shd = ppr.shd;
   const paraFill = shadingFill(shd, ctx.fmt.theme);
@@ -15371,11 +15589,22 @@ function prepareParagraph(ctx, para, env0) {
     flushSeg();
   };
   for (const { run, idx, offset } of displayRuns(para, env)) {
-    const direct = directRPr(run);
+    const rev2 = ctx.rev.run(run);
+    if (rev2 === "hide") continue;
+    const direct = ctx.rev.directRPr(run);
     if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
     const style = resolveRunStyle(ctx, rpr, env, run.props.link);
     if (style.hidden) continue;
+    if (rev2) {
+      style.color = rev2.color;
+      style.autoColor = false;
+      if (rev2.kind === "ins") style.underline = { val: rev2.move ? "double" : "single" };
+      else {
+        style.strike = !rev2.move;
+        style.dstrike = rev2.move;
+      }
+    }
     if (run.image || run.shape || run.group || run.textbox) {
       const floating = run.image?.floating ?? run.shape?.floating ?? run.group?.floating ?? run.textbox?.floating;
       const face = faceFor(ctx, rpr, 32, style);
@@ -15561,6 +15790,7 @@ function prepareParagraph(ctx, para, env0) {
     jc = mathJc === "left" ? "left" : mathJc === "right" ? "right" : "center";
     firstLine = 0;
   }
+  const revBars = revisionRanges(ctx.rev, para);
   return {
     para,
     ppr,
@@ -15569,6 +15799,7 @@ function prepareParagraph(ctx, para, env0) {
     markFace,
     glyphs,
     marker,
+    ...revBars ? { revBars } : {},
     indLeft: ind.left ?? 0,
     indRight: ind.right ?? 0,
     firstLine,
@@ -19135,6 +19366,7 @@ function liftFrames(blocks, stops) {
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
 var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
+  if (opts.revisions && opts.revisions.mode !== "final" && !opts.revisions.order) opts = { ...opts, revisions: { ...opts.revisions, order: revisionAuthors(full0) } };
   const fmt2 = full0.formatting ?? emptyFormatting();
   const lifted = liftFrames(full0.blocks, new Set(full0.sections.map((s) => s.blockEnd)));
   const full = lifted === full0.blocks ? full0 : { ...full0, blocks: lifted };
@@ -19438,6 +19670,11 @@ var Engine = class {
       const pbItems = pb ? this.pageBorders(ps, pb) : [];
       const pbBack = pb?.zOrder === "back";
       ps.page.items = [...hfLayer, ...pbBack ? pbItems : [], ...cullOffPage([...zItems([...bB, ...lb.back]), ...lb.keep, ...zItems([...bF, ...lb.front])], ps.page.widthTw, ps.page.heightTw), ...pbBack ? [] : pbItems];
+      const barColor = this.ctx.rev.barColor();
+      if (barColor && ps.page.lines.some((l) => l.rev)) {
+        const ml = this.full.sections[ps.geom.index]?.sectPr.marginLeftTwips ?? 1701;
+        ps.page.items.push(...revisionBarItems(ps.page.lines, barX(ml), barColor));
+      }
       ps.page.hfItems = hfLayer.length;
       if (bg && bg.toUpperCase() !== "FFFFFF" && bg !== "auto") ps.page.background = bg;
       return ps.page;
@@ -19837,12 +20074,12 @@ var Engine = class {
           }
           return;
         }
-        if (b.paragraph.ppr?.markDeleted && !join && bi < n - 1 && blocks[bi + 1].type === "paragraph") {
+        if (this.ctx.rev.markGone(b.paragraph) && !join && bi < n - 1 && blocks[bi + 1].type === "paragraph") {
           delRuns = [...delRuns ?? [], ...b.paragraph.runs];
           return;
         }
-        if (b.paragraph.ppr?.markDeleted && !b.paragraph.runs.length && !join && !delRuns) return;
-        const merged = delRuns ? { ...b.paragraph, runs: [...delRuns, ...b.paragraph.runs] } : b.paragraph;
+        if (this.ctx.rev.markGone(b.paragraph) && this.noShownRuns(b.paragraph) && !join && !delRuns) return;
+        const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
         const para = join ? this.joinHidden(join, merged, env) : merged;
         const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join ? { numbering: false } : {} });
@@ -20264,6 +20501,10 @@ var Engine = class {
     else delete ppr.rPr;
     return { ...join.para, ppr, runs: [...join.para.runs, ...next.runs] };
   }
+  /** Nenhum run aparece nesta visão (todo o texto excluído — ou parágrafo vazio). */
+  noShownRuns(p) {
+    return p.runs.every((r) => this.ctx.rev.run(r) === "hide");
+  }
   placeParagraph(para0, ref, blockIdx, g) {
     if (FRAME_SKIP.has(para0)) {
       const carry = FRAME_CARRY.get(para0);
@@ -20273,15 +20514,15 @@ var Engine = class {
       }
       return;
     }
-    if (para0.ppr?.markDeleted && !this.pendingJoin && blockIdx < g.blocks[1] && this.full.blocks[blockIdx + 1]?.type === "paragraph") {
+    if (this.ctx.rev.markGone(para0) && !this.pendingJoin && blockIdx < g.blocks[1] && this.full.blocks[blockIdx + 1]?.type === "paragraph") {
       this.pendingDel = [...this.pendingDel ?? [], ...para0.runs];
       return;
     }
-    if (para0.ppr?.markDeleted && !para0.runs.length && !this.pendingJoin && !this.pendingDel) return;
+    if (this.ctx.rev.markGone(para0) && this.noShownRuns(para0) && !this.pendingJoin && !this.pendingDel) return;
     const join = this.pendingJoin;
     this.pendingJoin = null;
     const env = { field: this.fieldValue(this.cur) };
-    const merged = this.pendingDel ? { ...para0, runs: [...this.pendingDel, ...para0.runs] } : para0;
+    const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
     const para = join ? this.joinHidden(join, merged, env) : merged;
     const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
@@ -21815,6 +22056,9 @@ function lineRecord(ref, p, line, frameX, top) {
   const start = first ? first.offset : 0;
   const end = lastG ? lastG.offset + (lastG.ch.length || 1) : start;
   const chars = line.placed.filter((pg) => pg.g.kind !== "pb" && pg.g.kind !== "cb" && !pg.g.autoHyphen).map((pg) => ({ o: pg.g.offset, x: frameX + pg.x, w: pg.w }));
+  const rb = p.revBars;
+  const firstLine = line.start === 0, lastLine = line.end >= gs.length;
+  const rev2 = !!rb && (rb.whole || rb.mark && lastLine || rb.ranges.some(([a, b, hidden]) => hidden ? a <= end && b >= start : a < end && b > start));
   return {
     ref,
     start,
@@ -21824,8 +22068,24 @@ function lineRecord(ref, p, line, frameX, top) {
     height: line.height,
     baseline: top + line.baseline,
     width: line.width,
-    chars
+    chars,
+    ...rev2 ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}
   };
+}
+function revisionBarItems(lines, x2, color) {
+  const all = [...lines].sort((a, b) => a.y - b.y);
+  const segs = [];
+  all.forEach((l, i2) => {
+    if (!l.rev) return;
+    const prevBottom = i2 > 0 ? all[i2 - 1].y + all[i2 - 1].height : -Infinity;
+    const nextTop = i2 + 1 < all.length ? all[i2 + 1].y : Infinity;
+    const top = Math.max(l.y - l.rev.before, Math.min(l.y, prevBottom));
+    const bottom = Math.min(l.y + l.height + l.rev.after, Math.max(l.y + l.height, nextTop));
+    const last = segs[segs.length - 1];
+    if (last && top <= last[1] + 20) last[1] = Math.max(last[1], bottom);
+    else segs.push([top, bottom]);
+  });
+  return segs.map(([y0, y1]) => ({ t: "rect", x: x2, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color }));
 }
 function cullOffPage(items, pageW, pageH) {
   const stack = [];

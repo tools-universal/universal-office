@@ -1,10 +1,11 @@
 import {
   DocxPackage,
+  finalBlocks,
   onBrowserLangChange,
   paraText,
   pickLabels,
   readFullDocument
-} from "./chunk-7Y5VBLLD.js";
+} from "./chunk-IP6LSAL6.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../compare/src/myers.ts
@@ -632,7 +633,7 @@ function diffBlocks(aBlocks, bBlocks, opts = {}) {
   return { edits, stats };
 }
 function diffDocuments(a, b, opts = {}) {
-  return diffBlocks(a.blocks, b.blocks, opts);
+  return diffBlocks(finalBlocks(a.blocks), finalBlocks(b.blocks), opts);
 }
 
 // ../compare/src/universal-write-diff.ts
@@ -890,6 +891,8 @@ var UniversalWriteDiffElement = class extends Base {
   }
   /** Compara dois documentos já parseados. */
   loadDocuments(aDoc, bDoc, opts = {}) {
+    aDoc = { ...aDoc, blocks: finalBlocks(aDoc.blocks) };
+    bDoc = { ...bDoc, blocks: finalBlocks(bDoc.blocks) };
     this._aDoc = aDoc;
     this._bDoc = bDoc;
     if (opts.leftLabel !== void 0) this.setAttribute("left-label", opts.leftLabel);

@@ -2,12 +2,13 @@ import {
   DEFAULT_RUN_PROPS,
   DEFAULT_UI_LANG,
   childElements,
+  finalBlocks,
   firstChild,
   parseXml,
   pickLabels,
   unzipSync,
   zipSync
-} from "./chunk-7Y5VBLLD.js";
+} from "./chunk-IP6LSAL6.js";
 
 // ../docx-core/src/odf/zip.ts
 var OdfPackage = class _OdfPackage {
@@ -632,6 +633,7 @@ function manifestXml(pictures) {
   return `<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3"><manifest:file-entry manifest:full-path="/" manifest:version="1.3" manifest:media-type="${MIMETYPE}"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>` + picEntries + `</manifest:manifest>`;
 }
 function writeOdt(doc, options = {}) {
+  doc = { ...doc, blocks: finalBlocks(doc.blocks) };
   const ctx = {
     paraStyles: /* @__PURE__ */ new Map(),
     runStyles: /* @__PURE__ */ new Map(),
@@ -4766,6 +4768,8 @@ var BAR_CSS = (
   font-family: var(--uo-font, "Segoe UI", system-ui, -apple-system, sans-serif); font-size: 13.5px; color: ${ON};
   background: ${SURFACE}; border-left: 1px solid ${OUTLINE_VAR}; box-shadow: -4px 0 16px ${SHADOW}; box-sizing: border-box;
 }
+.uo-pane[data-dock="left"] { border-left: 0; border-right: 1px solid ${OUTLINE_VAR}; box-shadow: 4px 0 16px ${SHADOW}; }
+.uo-pane[data-dock="bottom"] { border-left: 0; border-top: 1px solid ${OUTLINE_VAR}; box-shadow: 0 -4px 16px ${SHADOW}; }
 .uo-pane * { box-sizing: border-box; }
 .uo-pane [hidden] { display: none !important; }
 .uo-pane-head { display: flex; align-items: center; gap: 8px; padding: 10px 6px 6px 16px; flex: none; }
@@ -4920,12 +4924,15 @@ function openPane(o) {
   const L = pickLabels(lang, LABELS2);
   const txt2 = (l) => typeof l === "string" ? l : pickLabels(lang, l);
   const width = o.width ?? 300;
+  const height = o.height ?? 220;
+  const dock = o.dock ?? "right";
   const el = document.createElement("aside");
   el.className = "uo-pane";
   el.dataset["pane"] = o.id;
+  el.dataset["dock"] = dock;
   el.setAttribute("part", "pane");
   el.setAttribute("role", "complementary");
-  el.style.width = `${width}px`;
+  if (dock !== "bottom") el.style.width = `${width}px`;
   const head = document.createElement("div");
   head.className = "uo-pane-head";
   const title = document.createElement("span");
@@ -4950,9 +4957,18 @@ function openPane(o) {
   o.layer.appendChild(el);
   const place2 = () => {
     const r = o.frame();
-    el.style.top = `${Math.max(0, r.top)}px`;
-    el.style.height = `${Math.max(120, Math.min(r.bottom, window.innerHeight) - Math.max(0, r.top))}px`;
-    el.style.left = `${Math.max(0, r.right - width)}px`;
+    const top = Math.max(0, r.top), bottom = Math.min(r.bottom, window.innerHeight);
+    if (dock === "bottom") {
+      const h = Math.min(height, Math.max(120, bottom - top));
+      el.style.top = `${bottom - h}px`;
+      el.style.height = `${h}px`;
+      el.style.left = `${Math.max(0, r.left)}px`;
+      el.style.width = `${r.width}px`;
+      return;
+    }
+    el.style.top = `${top}px`;
+    el.style.height = `${Math.max(120, bottom - top)}px`;
+    el.style.left = `${Math.max(0, dock === "left" ? r.left : r.right - width)}px`;
   };
   let open2 = true;
   const onWin = () => place2();
