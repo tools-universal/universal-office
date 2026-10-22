@@ -1,10 +1,11 @@
 import { BORDER_DASHES } from './tree.js';
 import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from './pdf-writer/index.js';
 import type { InlineImage } from '@universal-office/docx-core';
-import type { LayoutResult, PageItem, PathCmdTw } from './tree.js';
+import type { LayoutResult, PageItem, PathCmdTw, ImageItem } from './tree.js';
+import { paintPicturePdf, type PdfPictureEnv } from './pdf-picture.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, type GradGeom } from './geometry.js';
 import { isSymbolFont, type FontFace } from './fonts.js';
-import { applyImageEffects, decodeRaster, effectDecode, jpegInfo } from './images.js';
+import { applyImageEffects, applyPictureAdjust, decodeRaster, effectDecode, jpegInfo } from './images.js';
 
 /**
  * Pinta a árvore de layout num PDF (o mesmo desenho do canvas): glifos
@@ -85,10 +86,71 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
     return h;
   };
 
+  // Formato da Imagem: os pixels (com os ajustes de cor) quando dá para decodificar
+  const rgbaOf = (it: ImageItem): { data: Uint8Array; width: number; height: number } | null => {
+    const img = it.image;
+    let r: { data: Uint8Array; width: number; height: number } | null = null;
+    try {
+      const jp = jpegInfo(img.data);
+      const d = jp ? null : decodeRaster(img.data);
+      if (d) r = { data: new Uint8Array(d.data), width: d.width, height: d.height };
+      else {
+        const ext = opts.decodeImage?.(img);
+        if (ext) r = { data: new Uint8Array(ext.rgba), width: ext.width, height: ext.height };
+      }
+    } catch { r = null; }
+    if (!r) return null;
+    if (img.effects) applyImageEffects(r.data, img.effects);
+    if (it.pic) applyPictureAdjust(r.data, it.pic);
+    return r;
+  };
+  const adjusted = new Map<string, PdfImage | null>();
+  const pictureEnv = (it: ImageItem): PdfPictureEnv => {
+    const look = it.pic;
+    const needPixels = !!(look && (look.alpha !== undefined || look.duotone || look.clrChange));
+    return {
+      image: () => {
+        if (!needPixels) return imageFor(it.image);
+        const key = JSON.stringify([look?.alpha, look?.duotone, look?.clrChange]);
+        let byImg = adjustedFor.get(it.image);
+        if (!byImg) { byImg = new Map(); adjustedFor.set(it.image, byImg); }
+        if (byImg.has(key)) return byImg.get(key) ?? null;
+        const r = rgbaOf(it);
+        const h = r ? doc.embedRgba(r.data, r.width, r.height) : imageFor(it.image);
+        byImg.set(key, h);
+        return h;
+      },
+      rgba: () => rgbaOf(it),
+      masked: (alpha, mw, mh) => {
+        const jp = jpegInfo(it.image.data);
+        if (jp && !needPixels) {
+          const fx = it.image.effects;
+          const dec = fx ? effectDecode(fx, jp.components) : null;
+          if (!fx || dec) return doc.embedJpeg(it.image.data, jp.width, jp.height, jp.components, jp.adobe, dec ?? undefined, { alpha, width: mw, height: mh });
+        }
+        const r = rgbaOf(it);
+        if (!r) return imageFor(it.image);
+        // a máscara (na resolução dela) multiplica o alfa da imagem
+        for (let y = 0; y < r.height; y++) {
+          const my = Math.min(mh - 1, Math.floor(((y + 0.5) / r.height) * mh));
+          for (let x = 0; x < r.width; x++) {
+            const mx = Math.min(mw - 1, Math.floor(((x + 0.5) / r.width) * mw));
+            const k = (y * r.width + x) * 4 + 3;
+            r.data[k] = Math.round((r.data[k]! * alpha[my * mw + mx]!) / 255);
+          }
+        }
+        return doc.embedRgba(r.data, r.width, r.height);
+      },
+      embedRgba: (d, w, h) => doc.embedRgba(d, w, h),
+    };
+  };
+  const adjustedFor = new Map<InlineImage, Map<string, PdfImage | null>>();
+  void adjusted;
+
   for (const lp of result.pages) {
     const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt));
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv);
   }
   return doc.build();
 }
@@ -166,6 +228,7 @@ function paintItem(
   page: PdfPage, it: PageItem,
   fontFor: (f: FontFace, pua?: boolean) => EmbeddedFont | null, imageFor: (i: InlineImage) => PdfImage | null,
   shade: (g: GradGeom, samples: Uint8Array) => PdfShading,
+  pictureEnv?: (it: ImageItem) => PdfPictureEnv,
 ): void {
   switch (it.t) {
     case 'glyphs': {
@@ -213,6 +276,8 @@ function paintItem(
       return;
     }
     case 'image': {
+      // Formato da Imagem (e recorte girado): a composição no referencial da imagem
+      if (pictureEnv && (it.pic || (it.crop && (it.rot || it.flipH || it.flipV)))) { paintPicturePdf(page, it, pictureEnv(it)); return; }
       const h = imageFor(it.image);
       if (!h) return;
       let x = it.x / T, y = it.y / T, w = it.w / T, hh = it.h / T;

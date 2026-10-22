@@ -11,7 +11,7 @@ import {
   gaussianBlur, type Mask, type PathSeg,
 } from '@universal-office/drawingml';
 import type { ImageItem, PictureLook } from './tree.js';
-import { applyImageEffects } from './images.js';
+import { applyImageEffects, applyPictureAdjust } from './images.js';
 
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -36,7 +36,8 @@ const cache = new WeakMap<object, Map<string, Layer>>();
 
 /** Precisa do pintor da imagem formatada? (senão o caminho rápido de sempre) */
 export function needsPicturePainter(it: ImageItem): boolean {
-  return !!it.pic || !!it.image.effects;
+  // (recorte com giro/espelho também: o quadro visível gira junto com a imagem)
+  return !!it.pic || !!it.image.effects || !!(it.crop && (it.crop.l || it.crop.t || it.crop.r || it.crop.b) && (it.rot || it.flipH || it.flipV));
 }
 
 const DASH: Record<string, number[]> = {
@@ -132,23 +133,7 @@ function adjustedBitmap(it: ImageItem, bmp: CanvasImageSource & { width: number;
   const img = x.getImageData(0, 0, c.width, c.height);
   const d = img.data as unknown as Uint8Array;
   if (fx) applyImageEffects(d, fx);
-  if (look?.clrChange) {
-    // cor transparente: a cor exata (tolerância de arredondamento do JPEG)
-    const [fr, fg, fb] = rgb(look.clrChange.from), [tr, tg, tb] = rgb(look.clrChange.to);
-    const ta = Math.round(look.clrChange.toAlpha * 255);
-    for (let i = 0; i < d.length; i += 4) {
-      if (Math.abs(d[i]! - fr) <= 2 && Math.abs(d[i + 1]! - fg) <= 2 && Math.abs(d[i + 2]! - fb) <= 2) { d[i] = tr; d[i + 1] = tg; d[i + 2] = tb; d[i + 3] = Math.round((d[i + 3]! * ta) / 255); }
-    }
-  }
-  if (look?.duotone) {
-    // tom duplo: luminância (Rec. 709) entre as duas cores
-    const [a, b] = look.duotone.map(rgb) as [[number, number, number], [number, number, number]];
-    for (let i = 0; i < d.length; i += 4) {
-      const t = (0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]!) / 255;
-      d[i] = Math.round(a[0] + (b[0] - a[0]) * t); d[i + 1] = Math.round(a[1] + (b[1] - a[1]) * t); d[i + 2] = Math.round(a[2] + (b[2] - a[2]) * t);
-    }
-  }
-  if (look?.alpha !== undefined) for (let i = 3; i < d.length; i += 4) d[i] = Math.round(d[i]! * look.alpha);
+  if (look) applyPictureAdjust(d, look);
   x.putImageData(img, 0, 0);
   m.set(key, c);
   return c;

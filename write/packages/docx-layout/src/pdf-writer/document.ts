@@ -207,6 +207,25 @@ export class PdfPage {
     this.content.str('Q\n');
   }
 
+  /** Empilha um recorte por caminho (até popClip); `evenOdd` = regra par-ímpar. */
+  pushClipPath(cmds: readonly PathCmd[], evenOdd = false): void {
+    let s = 'q\n';
+    for (const cmd of cmds) {
+      if (cmd.op === 'M') s += `${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} m\n`;
+      else if (cmd.op === 'L') s += `${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} l\n`;
+      else if (cmd.op === 'C') s += `${fmt(cmd.x1)} ${fmt(this.fromTop(cmd.y1))} ${fmt(cmd.x2)} ${fmt(this.fromTop(cmd.y2))} ${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} c\n`;
+      else s += 'h\n';
+    }
+    this.content.str(`${s}${evenOdd ? 'W*' : 'W'} n\n`);
+  }
+
+  /** Imagem pela matriz (a b c d e f) que leva o quadrado unitário à página (y a
+   *  partir do TOPO; (0,0) = canto de cima à esquerda da imagem). */
+  drawImageMatrix(img: PdfImage, a: number, b: number, c: number, d: number, e: number, f: number): void {
+    const H = this.heightPt;
+    this.content.str(`q\n${fmt(a)} ${fmt(-b)} ${fmt(-c)} ${fmt(d)} ${fmt(c + e)} ${fmt(H - d - f)} cm\n/${img.resourceName} Do\nQ\n`);
+  }
+
   /** Empilha uma transformação afim (matriz cm, em pt) até popClip(). */
   pushTransform(a: number, b: number, c: number, d: number, e: number, f: number): void {
     this.content.str(`q\n${fmt(a)} ${fmt(b)} ${fmt(c)} ${fmt(d)} ${fmt(e)} ${fmt(f)} cm\n`);
@@ -259,14 +278,19 @@ export class PdfDocument {
   }
 
   /** Embute um JPEG (baseline) diretamente via DCTDecode. */
-  embedJpeg(bytes: Uint8Array, widthPx: number, heightPx: number, components = 3, adobeInverted = false, decodeArr?: readonly number[]): PdfImage {
+  embedJpeg(bytes: Uint8Array, widthPx: number, heightPx: number, components = 3, adobeInverted = false, decodeArr?: readonly number[],
+    /** máscara suave (alfa de 8 bits, em qualquer resolução: cobre a imagem inteira) */
+    smask?: { alpha: Uint8Array; width: number; height: number }): PdfImage {
     const cs = components === 1 ? '/DeviceGray' : components === 4 ? '/DeviceCMYK' : '/DeviceRGB';
     // decodeArr: reta por componente (brilho/contraste sem decodificar o JPEG)
     const decode = components === 4 && adobeInverted ? ' /Decode [1 0 1 0 1 0 1 0]'
       : decodeArr?.length ? ` /Decode [${decodeArr.map(fmt).join(' ')}]` : '';
+    const sm = smask
+      ? ` /SMask ${this.writer.addStream(`/Type /XObject /Subtype /Image /Width ${smask.width} /Height ${smask.height} /ColorSpace /DeviceGray /BitsPerComponent 8`, smask.alpha)} 0 R`
+      : '';
     const objNum = this.writer.addStream(
       `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} ` +
-        `/ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode${decode}`,
+        `/ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode${decode}${sm}`,
       bytes,
       { allowCompress: false }, // já comprimido
     );

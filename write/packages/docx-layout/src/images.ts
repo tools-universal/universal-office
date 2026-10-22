@@ -554,3 +554,33 @@ export function effectDecode(fx: ImageEffects, components: number): number[] | n
   const d = [ln.off, ln.off + ln.slope];
   return components === 1 ? d : [...d, ...d, ...d];
 }
+
+/**
+ * Ajustes do a:blip que o Word aplica aos pixels além de a:lum/cinza/preto e
+ * branco (RGBA, no lugar): cor transparente (a:clrChange: a cor exata, com a
+ * folga do arredondamento do JPEG), tom duplo (luminância Rec. 709 entre as duas
+ * cores) e transparência (a:alphaModFix).
+ */
+export function applyPictureAdjust(
+  d: Uint8Array | Uint8ClampedArray,
+  o: { alpha?: number; duotone?: [string, string]; clrChange?: { from: string; to: string; toAlpha: number } },
+): void {
+  const hex = (s: string): [number, number, number] => [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  if (o.clrChange) {
+    const [fr, fg, fb] = hex(o.clrChange.from), [tr, tg, tb] = hex(o.clrChange.to);
+    const ta = Math.round(o.clrChange.toAlpha * 255);
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i]! - fr) <= 2 && Math.abs(d[i + 1]! - fg) <= 2 && Math.abs(d[i + 2]! - fb) <= 2) {
+        d[i] = tr; d[i + 1] = tg; d[i + 2] = tb; d[i + 3] = Math.round((d[i + 3]! * ta) / 255);
+      }
+    }
+  }
+  if (o.duotone) {
+    const [a, b] = [hex(o.duotone[0]), hex(o.duotone[1])];
+    for (let i = 0; i < d.length; i += 4) {
+      const t = (0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]!) / 255;
+      d[i] = Math.round(a[0] + (b[0] - a[0]) * t); d[i + 1] = Math.round(a[1] + (b[1] - a[1]) * t); d[i + 2] = Math.round(a[2] + (b[2] - a[2]) * t);
+    }
+  }
+  if (o.alpha !== undefined) for (let i = 3; i < d.length; i += 4) d[i] = Math.round(d[i]! * o.alpha);
+}
