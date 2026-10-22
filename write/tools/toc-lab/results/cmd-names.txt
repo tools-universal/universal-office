@@ -1,0 +1,50 @@
+nao TOCAddText
+nao TocAddText
+nao AddTextToTOC
+nao AddText
+nao TableOfContentsAddText
+nao TableOfContentsAddTextGallery
+nao ReferencesAddText
+nao AddToTOC
+nao TOCLevel1
+nao TocLevel1
+nao TOCAddTextLevel1
+nao TocAddTextLevel1
+nao AddTextLevel1
+nao TableOfContentsLevel1
+nao DoNotShowInTOC
+nao TOCDoNotShow
+nao TocDoNotShow
+nao TOCNotShow
+SIM OutlineLevel -> [OutlineLevel]
+nao OutlineLevel1
+nao OutlineLevelBodyText
+nao BodyTextLevel
+SIM UpdateTableOfContents -> [UpdateTableOfContents]
+nao UpdateTableOfContentsFull
+SIM UpdateTOC -> [UpdateToc]
+SIM UpdateTOCFull -> [UpdateTocFull]
+nao TOCUpdate
+SIM UpdateToc -> [UpdateToc]
+nao TableOfContentsUpdate
+SIM RemoveTableOfContents -> [RemoveTableOfContents]
+SIM MarkTableOfContentsEntry -> [MarkTableOfContentsEntry]
+SIM InsertTableOfContents -> [InsertTableOfContents]
+nao TableOfContents
+nao TableOfContentsMenu
+nao TableOfContentsGallery
+SIM GoToTableOfContents -> [GotoTableOfContents]
+SIM GotoTableOfContents -> [GotoTableOfContents]
+nao CreateTableOfContentsFromSelection
+SIM SaveTableOfContentsBlock -> [SaveTableOfContentsBlock]
+nao TableOfContentsSaveSelection
+SIM InsertIndexAndTables -> [InsertIndexAndTables]
+nao InsertTOC
+SIM ShowLevel -> [ShowLevel]
+nao OutlineShowLevel
+SIM OutlinePromoteHeading1 -> [OutlinePromoteHeading1]
+nao OutlineDemoteToBodyText
+SIM ApplyHeading1 -> [ApplyHeading1]
+SIM ApplyHeading2 -> [ApplyHeading2]
+SIM ApplyHeading3 -> [ApplyHeading3]
+nao ApplyHeading4
