@@ -9,6 +9,7 @@ import type { TableDialogKind } from './chrome-table-dialogs.js';
 import { registerTableCommands } from './chrome-table.js';
 import { registerHfCommands } from './chrome-hf.js';
 import { registerPictureCommands } from './chrome-picture.js';
+import { registerPageCommands } from './chrome-page.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
@@ -73,6 +74,8 @@ export interface ChromeCtl {
   hfDialog(kind: 'pageNumbers' | 'dateTime' | 'alignTab' | 'options'): void;
   /** diálogos da frente Links e referências (Indicador, Referência Cruzada, Legenda, Índice de Ilustrações) */
   refsDialog(kind: 'bookmark' | 'crossref' | 'caption' | 'tof'): void;
+  /** diálogos do Plano de Fundo da Página (chrome-page.ts): Efeitos de Preenchimento, Marca-d'Água Personalizada */
+  pageBgDialog(kind: 'fill' | 'watermark'): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -252,8 +255,6 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'dlg:paragraph', label: { en: 'Paragraph…', pt: 'Parágrafo…' }, tip: { en: 'Paragraph settings', pt: 'Configurações de parágrafo' }, icon: 'format_textdirection_l_to_r', run: () => ctl.paragraphDialog() }),
     edit({ id: 'dlg:tabs', label: { en: 'Tabs…', pt: 'Tabulação…' }, tip: { en: 'Tab stops of the paragraph and the default tab stop', pt: 'Tabulações do parágrafo e a tabulação padrão' }, icon: 'keyboard_tab', supports: has('setTabStops'), run: () => ctl.tabsDialog() }),
     edit({ id: 'dlg:page', label: { en: 'Page setup…', pt: 'Configurar página…' }, icon: 'settings', run: () => ctl.pageDialog() }),
-    edit({ id: 'pageColor', label: { en: 'Page Color', pt: 'Cor da Página' }, icon: 'format_color_fill', supports: has('setPageColor'), run: () => call('setPageColor') }),
-    edit({ id: 'watermark', label: { en: 'Watermark', pt: 'Marca d’Água' }, icon: 'branding_watermark', supports: has('setWatermark'), run: () => call('setWatermark') }),
     edit({ id: 'hyphenation', label: { en: 'Hyphenation', pt: 'Hifenização' }, icon: 'horizontal_rule', supports: has('setHyphenation'), run: () => call('setHyphenation') }),
 
     // ── Revisão ──
@@ -305,6 +306,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerHfCommands(reg, ed, app, ctl);
   registerPictureCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
+  registerPageCommands(reg, ed, app, ctl);
 
   function stepComment(dir: 1 | -1): void {
     const cs = ed.getComments();

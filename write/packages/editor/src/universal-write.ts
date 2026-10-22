@@ -834,26 +834,35 @@ class Registry implements FontRegistry {
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
   register(family: string, variant: FontVariant, font: LayoutFont): void {
     (this.sets[family] ??= {})[variant] = font;
+    this.lower = undefined;
     this.version++;
   }
   has(family: string): boolean {
-    return this.sets[family] !== undefined || this.sets[family.split(' ')[0]!] !== undefined;
+    return this.get(family) !== undefined || this.get(family.split(' ')[0]!) !== undefined;
   }
   families(): string[] {
     return Object.keys(this.sets);
   }
   delete(family: string): void {
     delete this.sets[family];
+    this.lower = undefined;
     this.version++;
   }
+  /** nome em minúsculas → nome registrado (o Word ignora maiúsculas no nome da fonte:
+   *  a galeria de marcas-d'água grava font-family "calibri") */
+  private lower: Map<string, string> | undefined;
   get(family: string): Partial<Record<FontVariant, LayoutFont>> | undefined {
-    return this.sets[family];
+    const s = this.sets[family];
+    if (s) return s;
+    this.lower ??= new Map(Object.keys(this.sets).map((k) => [k.toLowerCase(), k]));
+    const k = this.lower.get(family.toLowerCase());
+    return k === undefined ? undefined : this.sets[k];
   }
   resolve(family: string | undefined, variant: FontVariant): LayoutFont {
     // tenta o nome COMPLETO ("Lato Black"), depois a base ("Lato"), depois o padrão.
-    if (family && !this.sets[family]) this.onMiss?.(family);
+    if (family && !this.get(family)) this.onMiss?.(family);
     const requested = family
-      ? (this.sets[family] ?? this.sets[family.split(' ')[0]!])
+      ? (this.get(family) ?? this.get(family.split(' ')[0]!))
       : undefined;
     if (family && requested && !requested[variant]) this.onMissVariant?.(family, variant);
     const def = this.sets[DEFAULT_FONT] ?? this.sets['Aptos']!;

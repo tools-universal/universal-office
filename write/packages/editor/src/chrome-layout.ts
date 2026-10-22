@@ -12,6 +12,7 @@ import {
 import { tableDesignGroups, tableFormatMenu, tableLayoutGroups, tableMenu } from './chrome-table.js';
 import { docInfoMenu, hfGalleryMenu, hfToolsGroups, pageNumberMenu } from './chrome-hf.js';
 import { pictureCompactGroup, pictureFormatGroups, pictureMenu } from './chrome-picture.js';
+import { coverPageMenu, pageColorMenu, watermarkMenu } from './chrome-page.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -43,6 +44,13 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     symbols: sub({ en: 'Special characters', pt: 'Caracteres especiais' }, 'special_character', () => symbolMenu(env, ctx), 'symbols'),
     breaks: sub({ en: 'Break', pt: 'Quebra' }, 'insert_page_break', breaksMenu, 'breaks'),
     columns: sub({ en: 'Columns', pt: 'Colunas' }, 'view_column_2', columnsMenu, 'columns'),
+    cover: { ...sub({ en: 'Cover page', pt: 'Folha de rosto' }, 'auto_stories', () => coverPageMenu(env, ctx), 'cover:menu'), hidden: typeof (env.ed as unknown as { insertCoverPage?: unknown }).insertCoverPage !== 'function' },
+    // Plano de Fundo da Página (guia Design da ribbon)
+    background: { ...sub({ en: 'Page background', pt: 'Plano de fundo da página' }, 'format_color_fill', () => [
+      sub({ en: 'Watermark', pt: 'Marca-d\'água' }, 'branding_watermark', () => watermarkMenu(env, ctx), 'watermark:menu'),
+      sub({ en: 'Page color', pt: 'Cor da página' }, 'format_color_fill', () => pageColorMenu(env, ctx), 'pageColor:menu'),
+      'dlg:pageBorders',
+    ], 'background'), hidden: typeof (env.ed as unknown as { setPageColor?: unknown }).setPageColor !== 'function' },
     // Cabeçalho, Rodapé e Número de Página com as galerias de modelos; opções e vínculo no diálogo
     hf: sub({ en: 'Headers & footers', pt: 'Cabeçalhos e rodapés' }, 'call_to_action', () => [
       sub({ en: 'Header', pt: 'Cabeçalho' }, 'vertical_align_top', () => hfGalleryMenu(env, ctx, 'header'), 'hf:headerMenu'),
@@ -138,8 +146,8 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
-      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
+      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', 'textbox', m.symbols] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -218,6 +226,8 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
       {
         id: 'insert', label: L('Insert', 'Inserir'), groups: [
           { id: 'pages', label: L('Pages', 'Páginas'), icon: 'insert_page_break', prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: 'cover:menu', label: L('Cover Page', 'Folha de Rosto'), icon: 'auto_stories', size: 'large', supports: has('insertCoverPage') },
+            large('blankPage'),
             large('pagebreak'),
             { menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', size: 'large', supports: has('insertSectionBreak') },
           ] },
@@ -240,13 +250,24 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
         ],
       },
       {
+        // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
+        // Documento (temas, conjuntos de estilos) entra quando chegar
+        id: 'design', label: L('Design', 'Design'), groups: [
+          { id: 'background', label: L('Page Background', 'Plano de Fundo da Página'), icon: 'format_color_fill', prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: 'watermark:menu', label: L('Watermark', 'Marca-d\'Água'), icon: 'branding_watermark', size: 'large', supports: has('setWatermark') },
+            { menu: () => pageColorMenu(env, ctx), id: 'pageColor:menu', label: L('Page Color', 'Cor da Página'), icon: 'format_color_fill', size: 'large', supports: has('setPageColor') },
+            { cmd: 'dlg:pageBorders', size: 'large' },
+          ] },
+        ],
+      },
+      {
         id: 'layout', label: L('Layout', 'Layout'), groups: [
           { id: 'pagesetup', label: L('Page Setup', 'Configurar Página'), icon: 'description', prio: 6, launcher: 'dlg:page', cells: [
             { menu: () => marginsMenu(env, ctx), id: 'margins', label: L('Margins', 'Margens'), icon: 'margin', size: 'large' },
             { menu: () => orientationMenu(env, ctx), id: 'orientation', label: L('Orientation', 'Orientação'), icon: 'crop_rotate', size: 'large' },
             { menu: () => sizeMenu(env, ctx), id: 'pageSize', label: L('Size', 'Tamanho'), icon: 'aspect_ratio', size: 'large' },
             { menu: columnsMenu, id: 'columns', label: L('Columns', 'Colunas'), icon: 'view_column_2', size: 'large', supports: has('setColumns') },
-            { rows: [[{ menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', showLabel: true }], ['hyphenation'], [{ cmd: 'dlg:pageBorders', label: true }]] },
+            { rows: [[{ menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', showLabel: true }], ['hyphenation']] },
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_indent_increase', prio: 5, launcher: 'dlg:paragraph', cells: [
             { menu: () => paragraphSpacingMenu(env, ctx), id: 'pspacing', label: L('Paragraph Spacing', 'Espaçamento entre Parágrafos'), icon: 'format_line_spacing', size: 'large' },
@@ -255,9 +276,6 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
               [{ menu: () => specialIndentMenu(env, ctx), id: 'specialIndent', label: L('Special indent', 'Recuo especial'), icon: 'format_indent_increase', showLabel: true }],
               [{ menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: L('Spacing', 'Espaçamento'), icon: 'format_line_spacing', showLabel: true }],
             ] },
-          ] },
-          { id: 'background', label: L('Page Background', 'Plano de Fundo da Página'), icon: 'format_color_fill', prio: 4, cells: [
-            { cmd: 'pageColor', size: 'large' }, { cmd: 'watermark', size: 'large' },
           ] },
         ],
       },

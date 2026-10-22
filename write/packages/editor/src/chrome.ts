@@ -28,6 +28,7 @@ import { PictureUI, pictureLayoutDialog, pictureCompressDialog } from './chrome-
 import { pictureContextItems } from './chrome-picture.js';
 import { tableContextItems } from './chrome-table.js';
 import { alignTabDialog, dateTimeDialog, hfOptionsDialog, pageNumberFormatDialog } from './chrome-hf.js';
+import { pageFillDialog, watermarkDialog } from './chrome-page.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
 import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
@@ -532,6 +533,7 @@ class WriteChrome {
         const dlg = { pageNumbers: pageNumberFormatDialog, dateTime: dateTimeDialog, alignTab: alignTabDialog, options: hfOptionsDialog }[kind];
         void dlg(d()).then(() => this.after());
       },
+      pageBgDialog: (kind) => { void (kind === 'fill' ? pageFillDialog : watermarkDialog)(d()).then(() => this.after()); },
       pictureDialogOpen: (kind) => (kind === 'selection' ? !!this.pictures?.selectionOpen : kind === 'alt' ? !!this.pictures?.altOpen : kind.startsWith('format:') ? !!this.pictures?.formatOpen : false),
       pictureDialog: (kind) => {
         if (kind === 'alt') this.pictures?.toggleAlt();

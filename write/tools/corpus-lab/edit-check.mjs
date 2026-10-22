@@ -1381,6 +1381,14 @@ if (want('page')) {
   check('page: watermark() lê a marca atual', wm?.kind === 'text' && wm.layout === 'diagonal' && wm.semitransparent && /CONFIDEN/.test(wm.text), wm);
   const items = await js('return e.eng.result.pages[0].items.filter((i) => i.t === "glyphs" && i.asPath && i.alpha !== undefined).length;');
   check('page: o motor desenha a marca (curvas com alfa real)', items > 0, items);
+  // a galeria grava font-family "calibri" (minúsculas): o nome não diferencia maiúsculas,
+  // então a face é a da Calibri (ou a Carlito), não a substituta de família ausente (Cambria)
+  let wmFace = null;
+  for (let i = 0; i < 25 && !/calibri|carlito/i.test(wmFace ?? ''); i++) {
+    wmFace = await js('const g = e.eng.result.pages[0].items.find((i) => i.t === "glyphs" && i.asPath && i.alpha !== undefined); return g ? g.face.key : null;');
+    if (!/calibri|carlito/i.test(wmFace ?? '')) await page.waitForTimeout(200);
+  }
+  check('page: marca da galeria ("calibri") usa a Calibri/Carlito', /calibri|carlito/i.test(wmFace ?? ''), wmFace);
   // personalizada: texto 72 pt horizontal opaco, vermelho
   await js('e.setWatermark({ kind: "text", text: "RASCUNHO", font: "Carlito", sizePt: 72, color: "C00000", semitransparent: false, layout: "horizontal" });');
   const hx2 = await parts(hdrs);
