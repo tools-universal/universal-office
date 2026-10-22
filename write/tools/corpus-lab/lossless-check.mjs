@@ -30,6 +30,10 @@
 // --refs: indicador novo num parágrafo, referência cruzada REF h a ele, legenda
 // com SEQ num parágrafo novo e hiperlink com Dica de Tela → o XML relê, o
 // indicador e os campos saem como o Word grava, nada se perde.
+// --pictures: Formato da Imagem na 1ª imagem DrawingML do corpo (como o editor:
+// XML cirúrgico + effectExtent) — giro, contorno, sombra, corte em elipse,
+// transparência, texto alt e quebra/posição → só o parágrafo dela muda, o
+// desenho relê com tudo e os outros desenhos saem crus.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -90,6 +94,7 @@ const noteRaws = (xml, tag) => new Map([...(xml ?? '').matchAll(new RegExp(`<w:$
 const navMode = args.includes('--nav');
 // --hf: cabeçalho e rodapé (ver editHf)
 const hfMode = args.includes('--hf');
+const picturesMode = args.includes('--pictures');
 const layout = navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
 
 function* walk(dir) {
@@ -536,6 +541,33 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     // --hf: cabeçalho e rodapé como o editor (frente Cabeçalho e rodapé)
     const hfEdit = hfMode ? editHf(b, model) : null;
     if (hfEdit) secEdits += hfEdit.secEdits;
+    // --pictures: a 1ª imagem com XML DrawingML do corpo (fora dos parágrafos já editados)
+    let picEdit = null;
+    if (picturesMode) {
+      const hit = ps.flatMap((p) => p.runs.filter((r) => r.image?.rawDrawingXml && r.image.format && !r.image.ole).map((r) => [p, r])).find(([p]) => !edited.includes(p));
+      if (hit) {
+        const [p, r] = hit;
+        const img = r.image;
+        const f = img.format;
+        const black = { kind: 'prstClr', val: 'black', mods: [['alpha', 40000]] };
+        const ch = {
+          rot: 15 * 60000, geom: { prst: 'ellipse' },
+          line: { w: 19050, fill: { kind: 'srgbClr', val: 'C00000' } },
+          shadow: { kind: 'outer', blurRad: 50800, dist: 38100, dir: 2700000, algn: 'tl', rotWithShape: false, color: black },
+          blipFx: { ...(({ a14: _a, ...x }) => x)(f.blip), alphaModFix: 70000 },
+          descr: 'Imagem editada (lossless)',
+          ...(f.inline ? { wrap: 'square', at: { x: 0, y: 0 }, newRelativeHeight: 251659264 } : { posH: { relativeFrom: 'margin', align: 'center' } }),
+        };
+        let x = core.patchPicture(img.rawDrawingXml, ch);
+        const pf = core.readPictureFormat(x);
+        if (pf) x = core.patchPicture(x, { effectExtent: { l: 19050, t: 19050, r: 57150, b: 57150 } });
+        img.rawDrawingXml = x;
+        img.edited = true;
+        core.syncImageFromXml(img);
+        edited.push(p);
+        picEdit = { wasInline: f.inline };
+      }
+    }
     const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
@@ -604,6 +636,25 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (!rf.bookmarks.has('RefLossless') || !rf.bookmarkEnds?.has('RefLossless')) res.issues.push('refs-unread-bookmark');
       res.refs = true;
     }
+    if (picEdit) {
+      // o desenho editado relê com o que foi pedido (e só ele mudou: a contagem de changed acima)
+      const rf = readFullDocument(re);
+      const pics = paras(rf.blocks).flatMap((p) => p.runs.filter((r) => r.image?.format?.docPr.descr === 'Imagem editada (lossless)').map((r) => r.image));
+      const im = pics[0];
+      if (!im) res.issues.push('pictures-unread');
+      else {
+        const g = im.format;
+        if (g.rot !== 15 * 60000) res.issues.push('pictures-rot');
+        if (g.geom !== 'ellipse') res.issues.push('pictures-geom');
+        if (g.line?.w !== 19050) res.issues.push('pictures-line');
+        if (g.effects.shadow?.kind !== 'outer') res.issues.push('pictures-shadow');
+        if (g.blip.alphaModFix !== 70000) res.issues.push('pictures-alpha');
+        if (picEdit.wasInline && g.inline) res.issues.push('pictures-wrap');
+        if (!picEdit.wasInline && g.posH?.align !== 'center') res.issues.push('pictures-pos');
+        if (!im.data?.length) res.issues.push('pictures-media');
+      }
+      res.pictures = true;
+    }
     if (tblEdit) {
       if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
       if (!xml.includes('<w:pgBorders')) res.issues.push('tables-no-pgborders');
@@ -644,7 +695,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));

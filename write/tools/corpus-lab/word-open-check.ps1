@@ -18,6 +18,8 @@
 # da o texto do indicador; legenda SEQ Figura num paragrafo novo; hiperlink com Dica de Tela).
 # -Toc: saida do edit-check --only toccorpus (sumario atualizado pelo editor): o Word
 # atualiza o MESMO sumario e as entradas (texto sem o numero da pagina) tem de bater.
+# -Pictures: saida do lossless-check --pictures (a imagem com texto alt "Imagem editada
+# (lossless)": o Word tem de ve-la flutuante, girada 15 graus, com o texto alt).
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -28,7 +30,8 @@ param(
   [switch]$Nav,
   [switch]$Hf,
   [switch]$Refs,
-  [switch]$Toc
+  [switch]$Toc,
+  [switch]$Pictures
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -149,6 +152,20 @@ foreach ($row in $rows) {
           }
           foreach ($h in $d.Hyperlinks) { if ([string]$h.ScreenTip -eq 'Dica Lossless') { $script:tip = $true } }
         }
+        if ($Pictures) {
+          $script:pic = 'no-picture'
+          foreach ($sh in $d.Shapes) {
+            try {
+              if ([string]$sh.AlternativeText -eq 'Imagem editada (lossless)') {
+                if ([math]::Abs([double]$sh.Rotation - 15) -lt 0.5) { $script:pic = 'ok' } else { $script:pic = 'pic-rot ' + $sh.Rotation }
+                break
+              }
+            } catch { }
+          }
+          if ($script:pic -eq 'no-picture') {
+            foreach ($ish in $d.InlineShapes) { try { if ([string]$ish.AlternativeText -eq 'Imagem editada (lossless)') { $script:pic = 'pic-inline' } } catch { } }
+          }
+        }
         $script:fe = $d.Footnotes.Count; $script:ee = $d.Endnotes.Count
         $script:noteText = ''
         if ($Notes) {
@@ -164,7 +181,8 @@ foreach ($row in $rows) {
     if ($Toc) { $script:hasEdit = $true }
     $slack = 1
     if ($Sections -or $Refs) { $slack = 2 }
-    if (-not $script:hasEdit) { $status = 'no-edit' }
+    if ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }
+    elseif (-not $script:hasEdit) { $status = 'no-edit' }
     elseif ($Toc -and -not $script:tocSame) { $status = 'toc-differs'; $detail += $script:tocInfo }
     elseif ($Toc) { $status = 'ok' }
     elseif ($Refs -and -not $script:bm) { $status = 'no-bookmark' }

@@ -252,6 +252,40 @@ Cells, Cell Margins, Table Properties (Table · Row · Column · Cell · Alt Tex
 with Positioning and Options), Sort, Formula, Borders and Shading (Borders ·
 Page Border · Shading), and New/Modify Table Style.
 
+## Pictures
+
+Pictures follow Word's rules (measured against Word): the XML each operation
+writes, the wrap and position it keeps, how effects and adjustments are drawn on
+the page and in the PDF. Every operation is one undo step and edits only the
+picture's own XML (everything else in it is kept byte for byte). Click a picture
+to select it: round handles resize (corners keep the aspect ratio when it is
+locked, Shift inverts, Ctrl resizes from the center), the handle above rotates
+(Shift snaps to 15°), dragging moves it (an inline picture moves in the text),
+the arrow keys nudge a floating one and Delete removes it.
+
+| Area | Methods |
+|---|---|
+| State | `selectedImage()` → `{ inline, wrap, widthPt, heightPt, rotation, altText, decorative, naturalPt, lockAspect, moveWithText, format }` (`format` is the parsed picture: wrap, position, crop, geometry, line, effects, 3-D, `a:blip` adjustments), `selectedImagePreview(w, h)`, `deleteSelectedImage()` |
+| Wrap and position | `setImageWrap('inline' \| 'square' \| 'tight' \| 'through' \| 'topAndBottom' \| 'behind' \| 'front')` (Tight/Through on a picture with transparency generate the contour polygon, like Word), `setImagePosition('inline' \| '<top\|center\|bottom>-<left\|center\|right>')`, `setImageMoveWithText(on)`, `setImageLockAnchor(on)`, `setImageLayout({ wrap, wrapText, distPt, posH, posV, lockAnchor, allowOverlap, layoutInCell, widthPt, heightPt, relWidth, relHeight, lockAspect, rotation, moveWithText })` (the Layout dialog), `startEditWrapPoints()` · `endEditWrapPoints()` · `editingWrapPoints()` (drag a point, Ctrl+click adds or removes one) |
+| Arrange | `arrangeImage('front' \| 'back' \| 'forward' \| 'backward' \| 'frontOfText' \| 'behindText')`, `alignImage('left' \| 'center' \| 'right' \| 'top' \| 'middle' \| 'bottom', 'margin' \| 'page')` and `imageAlignTo`, `rotateImage(±90)`, `flipImage('h' \| 'v')`, `setImageRotation(deg)`, `setImageSize({ widthPt, heightPt })`; Selection Pane: `selectionPaneItems()`, `selectPaneItem(key)`, `renamePaneItem(key, name)`, `setPaneItemHidden(key \| null, hidden)` (a hidden floating picture is not drawn and text does not wrap around it) |
+| Crop | `startImageCrop()` · `endImageCrop()` · `croppingImage()` (black crop handles; drag inside to move the picture in the frame), `setImageCrop({ l, t, r, b })`, `cropImageFillFit('fill' \| 'fit')`, `cropImageToAspect(w, h)`, `cropImageToShape(prst)` (any DrawingML preset shape) |
+| Picture styles | `setImageBorder({ color, weightPt, dash })`, `setImageEffect('shadow' \| 'reflection' \| 'glow' \| 'softEdge' \| 'bevel' \| 'rotation', preset \| null)`, `setImageFormat({ line, shadow, reflection, glow, softEdge, threeD })` (exact values, the Format Picture pane), `resolveDmlColor(color)` |
+| Adjust | `setImageAdjust({ sharpen, bright, contrast, saturation, temperature })` (Office 2010 corrections: the picture is processed like Word and the original kept in the `a14:imgLayer`), `setImageRecolor(preset \| color)`, `setImageTransparency(percent)`, `setImageTransparentColor(hex \| null)` · `startTransparentColorPick()`, `changeImage(bytes, ext)` · `changeImageFromFile()` · `changeImageFromClipboard()`, `resetImage(size?)`, `compressImages({ ppi, deleteCropped, all })` |
+| Accessibility | `setImageAltText({ text, title, decorative })` |
+
+With `topbar`, the ribbon shows the contextual **Picture Format** tab (Adjust ·
+Picture Styles · Accessibility · Arrange · Size) when a picture is selected; the
+compact bar has a Picture group and Format › Picture. Galleries preview each
+choice on the picture itself (corrections, color, transparency, effects). Panes:
+Format Picture (Fill & Line · Effects · Layout & Properties · Picture), Alt Text
+and Selection. Dialogs: Layout (Position · Text Wrapping · Size) and Compress
+Pictures. Effects (shadow, reflection, glow, soft edges, bevel) are drawn with
+Word's measured models on the canvas and written to the PDF like Word does
+(each effect as an RGBA image with a soft mask). Not included: Remove
+Background, Artistic Effects (kept when present in the file), Picture Layout,
+online pictures and icons, and drawing 3-D rotation (it is kept and saved, but
+the picture is drawn flat).
+
 ## Styles
 
 The document's `styles.xml` is edited in place: each operation rewrites only

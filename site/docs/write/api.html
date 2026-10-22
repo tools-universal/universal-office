@@ -286,6 +286,45 @@ editor.host = {
         </tbody>
       </table>
 
+      <h2 id="pictures">Pictures</h2>
+      <p>
+        Pictures follow Word&rsquo;s rules (measured against Word): the XML each operation writes, the wrap and
+        position it keeps, how effects and adjustments are drawn on the page and in the PDF. Every operation is one
+        undo step and edits only the picture&rsquo;s own XML. With the mouse: round handles resize (corners keep the
+        aspect ratio when it is locked, Shift inverts, Ctrl from the center), the handle above rotates (Shift: 15&deg;
+        steps), dragging moves (an inline picture moves in the text), arrows nudge a floating picture, Delete removes
+        it. With <code>topbar</code>: the contextual <strong>Picture Format</strong> tab (Adjust &middot; Picture
+        Styles &middot; Accessibility &middot; Arrange &middot; Size), the compact bar&rsquo;s Picture group, Format
+        &rsaquo; Picture, the context menu, the Format Picture, Alt Text and Selection panes and the Layout and
+        Compress Pictures dialogs.
+      </p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>selectedImage(): ImageState | null</code></td><td><code>{ inline, wrap, widthPt, heightPt, rotation, altText, decorative, naturalPt, lockAspect, moveWithText, format }</code> &mdash; <code>format</code> is the parsed picture (wrap, position, crop, geometry, line, effects, 3-D, <code>a:blip</code> adjustments). <code>selectedImagePreview(w, h)</code> returns the original pixels for gallery previews; <code>deleteSelectedImage()</code>.</td></tr>
+          <tr><td><code>setImageWrap(kind)</code></td><td><code>'inline' | 'square' | 'tight' | 'through' | 'topAndBottom' | 'behind' | 'front'</code>. From inline the picture stays where it was (offset from the column and the paragraph). Tight/Through on a picture with transparency generate its contour like Word; text then wraps along the contour line by line.</td></tr>
+          <tr><td><code>setImagePosition(preset) &middot; setImageMoveWithText(on) &middot; setImageLockAnchor(on)</code></td><td>Position gallery: <code>'inline'</code> or <code>'&lt;top|center|bottom&gt;-&lt;left|center|right&gt;'</code> (Square wrap, aligned to the margin). Move with Text / Fix Position on Page keep the picture in place.</td></tr>
+          <tr><td><code>setImageLayout(o)</code></td><td>The Layout dialog in one step: <code>{ wrap, wrapText, distPt, posH, posV, lockAnchor, allowOverlap, layoutInCell, widthPt, heightPt, relWidth, relHeight, lockAspect, rotation, moveWithText }</code>; positions by alignment, absolute offset or percentage, relative to margin, page, column, character, paragraph or line.</td></tr>
+          <tr><td><code>startEditWrapPoints() &middot; endEditWrapPoints() &middot; editingWrapPoints()</code></td><td>Edit Wrap Points: drag a point, Ctrl+click an edge to add one, Ctrl+click a point to remove it (<code>edited="1"</code>). Square becomes Tight, like Word.</td></tr>
+          <tr><td><code>arrangeImage(op) &middot; alignImage(kind, relativeTo?) &middot; imageAlignTo</code></td><td>Order: <code>'front' | 'back' | 'forward' | 'backward' | 'frontOfText' | 'behindText'</code>. Align: <code>'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'</code> relative to <code>'margin'</code> (default) or <code>'page'</code>.</td></tr>
+          <tr><td><code>setImageSize({ widthPt, heightPt }) &middot; setImageRotation(deg) &middot; rotateImage(&plusmn;90) &middot; flipImage('h' | 'v')</code></td><td>Size, rotation and flips; the effect margin (<code>wp:effectExtent</code>) is recalculated like Word.</td></tr>
+          <tr><td><code>selectionPaneItems() &middot; selectPaneItem(key) &middot; renamePaneItem(key, name) &middot; setPaneItemHidden(key | null, hidden)</code></td><td>Selection Pane: the floating pictures from front to back. A hidden floating picture is not drawn and text does not wrap around it (an inline one stays, like Word).</td></tr>
+          <tr><td><code>startImageCrop() &middot; endImageCrop() &middot; croppingImage()</code></td><td>Crop mode: black crop handles on the frame, the whole picture dimmed around it; drag inside to move the picture in the frame. Esc, Enter or a click outside ends it.</td></tr>
+          <tr><td><code>setImageCrop({ l, t, r, b }) &middot; cropImageFillFit('fill' | 'fit') &middot; cropImageToAspect(w, h) &middot; cropImageToShape(prst)</code></td><td>Free crop in fractions of the whole picture (negative = margin), Fill/Fit, aspect ratio, and Crop to Shape with any DrawingML preset.</td></tr>
+          <tr><td><code>setImageBorder({ color, weightPt, dash }) &middot; setImageEffect(kind, preset | null) &middot; setImageFormat(o)</code></td><td>Picture Border and Picture Effects (<code>'shadow' | 'reflection' | 'glow' | 'softEdge' | 'bevel' | 'rotation'</code>, Word&rsquo;s presets); <code>setImageFormat({ line, shadow, reflection, glow, softEdge, threeD })</code> sets exact values (the Format Picture pane). <code>resolveDmlColor(color)</code> resolves a DrawingML color with the document theme.</td></tr>
+          <tr><td><code>setImageAdjust({ sharpen, bright, contrast, saturation, temperature }): Promise</code></td><td>Corrections and Color (Office 2010 adjustments): the picture is processed like Word (models measured against the image Word writes) and the original is kept in the <code>a14:imgLayer</code>.</td></tr>
+          <tr><td><code>setImageRecolor(preset | color) &middot; setImageTransparency(percent) &middot; setImageTransparentColor(hex | null) &middot; startTransparentColorPick()</code></td><td>Recolor (grayscale, sepia, washout, black and white, theme dark/light variations, More Variations), picture transparency and Set Transparent Color (the next click on the picture picks it).</td></tr>
+          <tr><td><code>changeImage(bytes, ext) &middot; changeImageFromFile() &middot; changeImageFromClipboard() &middot; resetImage(size?) &middot; compressImages({ ppi, deleteCropped, all })</code></td><td>Change Picture keeps the formatting and the width; Reset Picture (and Size); Compress Pictures resamples to the resolution and can drop cropped areas.</td></tr>
+          <tr><td><code>setImageAltText({ text, title, decorative })</code></td><td>Alt text on <code>wp:docPr</code> and <code>pic:cNvPr</code>; Mark as decorative.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Shadows, reflection, glow, soft edges and bevels are drawn with models measured against Word, on the canvas
+        and in the PDF (each effect as an RGBA image with a soft mask, like Word). Not included: Remove Background,
+        Artistic Effects (kept when present in the file), Picture Layout, online pictures and icons; 3-D rotation is
+        kept and saved but drawn flat.
+      </p>
+
       <h2 id="clipboard">Clipboard, find and replace</h2>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
