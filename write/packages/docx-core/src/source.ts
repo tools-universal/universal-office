@@ -172,6 +172,12 @@ export class SourceStore {
   readonly tcs = new Map<number, CellSource>();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   readonly stories = new Map<string, StorySource>();
+  /** Conteúdo de caixa de texto (w:txbxContent) com algo além de w:p/w:tbl (sdt/
+   *  customXml de bloco): os filhos como grupos — a caixa editada reembrulha como o
+   *  corpo. */
+  readonly txbx = new WeakMap<object, StoryGroup[]>();
+  readonly txbxGroups: StoryGroup[][] = [];
+  addTextboxGroups(tb: object, groups: StoryGroup[]): void { this.txbx.set(tb, groups); this.txbxGroups.push(groups); }
   /** Por caminho da parte de notas (word/footnotes.xml, word/endnotes.xml). */
   readonly noteParts = new Map<string, NotesPartSource>();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
@@ -276,6 +282,7 @@ export class SourceStore {
     };
     for (const s of this.stories.values()) if (inGroups(s.groups)) return true;
     for (const c of this.tcs.values()) if (inGroups(c.groups)) return true;
+    for (const g of this.txbxGroups) if (inGroups(g)) return true;
     const sids = new Set(around.map((r) => r?.props.src).filter((x): x is number => x !== undefined));
     return !!sids.size && !!this.paras.get(id)?.segs.some((s) => plainTextSdt(s.wrapOpen) && s.sids.some((x) => sids.has(x)));
   }

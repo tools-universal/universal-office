@@ -3,7 +3,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readShapeFormat, patchShape, vmlFallback, newTextboxDrawingXml, txbxContentOf, type DmlColor } from '../src/index.js';
+import { readShapeFormat, patchShape, vmlFallback, newTextboxDrawingXml, txbxContentOf, parseXml, type DmlColor } from '../src/index.js';
+import { vmlTextboxToDrawing } from '../src/vml-shape.js';
 import { SHAPE_STYLE_PRESETS } from '../../../../shared/drawingml/src/shape-styles.js';
 
 const RES = join(__dirname, '..', '..', '..', 'tools', 'textbox-lab', 'results');
@@ -91,5 +92,33 @@ describe('caixa de texto nova (newTextboxDrawingXml)', () => {
       fill: { kind: 'none' }, content: '<w:p><w:r><w:t>Texto da caixa de teste</w:t></w:r></w:p>',
     });
     expect(ids(d)).toBe(ids(lab('default').drawing));
+  });
+});
+
+describe('caixa só em VML (modo de compatibilidade 12): o wps equivalente', () => {
+  const vml = (name: string) => {
+    const x = unpretty(readFileSync(join(RES, `${name}.xml`), 'utf8'));
+    const pict = parseXml(/<w:pict[\s\S]*?<\/w:pict>/.exec(x)![0]);
+    const el = pict.children.find((k) => typeof k !== 'string' && k.name !== 'v:shapetype') as Parameters<typeof vmlTextboxToDrawing>[0];
+    return readShapeFormat(vmlTextboxToDrawing(el, 7)!)!;
+  };
+  it('posição, tamanho e quebra padrão', () => {
+    const f = vml('c12-default');
+    expect(f.cx).toBe(180 * 12700);
+    expect(f.posH).toMatchObject({ relativeFrom: 'column', offset: 100 * 12700 });
+    expect(f.wrap).toBe('front');
+    expect(f.line?.w).toBe(9525);
+  });
+  it('preenchimento com transparência', () => expect(vml('c12-fill').fill).toEqual({ kind: 'solid', color: { kind: 'srgbClr', val: '3399FF', mods: [['alpha', 75000]] } }));
+  it('degradê de duas cores', () => expect(vml('c12-grad').fill).toMatchObject({ kind: 'gradient', stops: [{ color: { val: 'FF0000' } }, { color: { val: '0000FF' } }] }));
+  it('contorno', () => expect(vml('c12-line').line).toMatchObject({ w: 38100, fill: { val: 'FF0000' }, dash: 'dash' }));
+  it('sem preenchimento e sem contorno', () => { const f = vml('c12-noline'); expect(f.fill.kind).toBe('none'); expect(f.line?.fill).toBeNull(); });
+  it('margens e alinhamento', () => expect(vml('c12-margins').body).toMatchObject({ lIns: 127000, tIns: 38100, rIns: 152400, bIns: 50800, anchor: 'ctr' }));
+  it('ajustar ao texto e direção', () => { expect(vml('c12-autosize').body?.autofit).toBe('shape'); expect(vml('c12-orient').body?.vert).toBe('vert'); });
+  it('quebra quadrada, oculta com nome, cantos arredondados', () => {
+    expect(vml('c12-wrap').wrap).toBe('square');
+    const h = vml('c12-hidden');
+    expect(h.docPr).toMatchObject({ name: 'Minha caixa', hidden: true });
+    expect(vml('c12-shape').geom).toBe('roundRect');
   });
 });

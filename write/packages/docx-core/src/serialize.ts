@@ -2,8 +2,8 @@ import { DocxPackage } from './package.js';
 import { parseXml, childElements } from './xml.js';
 import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage, type DrawingTextbox } from './document.js';
 import { forEachTextbox, type TableBlock, type TableBorders, type Block } from './fulldoc.js';
-import { textboxAlternateContent } from './shape-xml.js';
-import { readTheme } from './ooxml/parts.js';
+import { textboxAlternateContent, vmlFallback } from './shape-xml.js';
+import { readTheme, readSettings } from './ooxml/parts.js';
 import type { DmlColor } from './picture-xml.js';
 import type { ShapeStyle } from './drawing.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
@@ -214,8 +214,16 @@ function pictureXml(img: InlineImage, source?: string): string {
 /** Reemite o <w:drawing> CRU trocando o conteúdo de CADA <w:txbxContent> pelos
  *  parágrafos (possivelmente editados). Preserva shape/âncora/fill do original;
  *  campos (PAGE/NUMPAGES) voltam como fldSimple via paraXml. */
-function drawingWithParas(rawDrawingXml: string, paras: Paragraph[], blocks?: Block[]): string {
-  const inner = blocks?.length ? blocks.map(blockXml).join('') : paras.map(paraXml).join('');
+/** Conteúdo (w:txbxContent) de uma caixa de texto: sem perdas, os envoltórios sdt/
+ *  customXml de bloco que ela tinha voltam (os grupos lidos, como a célula). */
+function txbxInner(tb: Pick<DrawingTextbox, 'paras' | 'blocks'>): string {
+  const groups = active?.store.txbx.get(tb);
+  if (groups && tb.blocks?.length) return groupsXml(groups, tb.blocks, active!.store);
+  return (tb.blocks?.length ? tb.blocks.map(blockXml) : tb.paras.map(paraXml)).join('');
+}
+
+function drawingWithParas(rawDrawingXml: string, paras: Paragraph[], blocks?: Block[], tb?: DrawingTextbox): string {
+  const inner = tb ? txbxInner(tb) : blocks?.length ? blocks.map(blockXml).join('') : paras.map(paraXml).join('');
   return rawDrawingXml.replace(
     /<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g,
     (m) => `${/^<w:txbxContent\b[^>]*>/.exec(m)![0]}${inner}</w:txbxContent>`,
@@ -232,6 +240,16 @@ let shapeTheme: Record<string, string> = { dk1: '000000', lt1: 'FFFFFF', dk2: '0
 let chainNext = new Map<DrawingTextbox, string>();
 /** o:spid das formas refeitas (acima dos que o Word costuma usar) */
 let vmlSpid = 4096;
+/** Documento em modo de compatibilidade do Word 2007 ou anterior (compatibilityMode ≤ 12):
+ *  sem formas wps — a caixa/forma refeita sai só em VML, como o Word grava (oráculo c12-*). */
+let vmlOnly = false;
+
+/** A forma refeita: wps + VML de reserva (mc:AlternateContent) ou, no modo de
+ *  compatibilidade, só o VML. */
+function shapeOut(drawing: string, inner: string, o: Parameters<typeof textboxAlternateContent>[2], vml = false): string {
+  if (!vmlOnly && !vml) return textboxAlternateContent(drawing, inner, o);
+  return vmlFallback(drawing, inner, o).replace(/^<mc:Fallback>/, '').replace(/<\/mc:Fallback>$/, '');
+}
 
 const docPrName = (raw: string | undefined): string | undefined => (raw ? /<wp:docPr\b[^>]*\bname="([^"]*)"/.exec(raw)?.[1] : undefined);
 
@@ -282,14 +300,15 @@ function shapeColor(c: DmlColor): string {
 function editedShapeXml(run: Run): string {
   const tb = run.textbox;
   if (tb?.rawDrawingXml) {
-    const inner = tb.link ? '' : (tb.blocks?.length ? tb.blocks.map(blockXml) : tb.paras.map(paraXml)).join('');
+    const inner = tb.link ? '' : txbxInner(tb);
     const raw = fillMedia(tb.rawDrawingXml, tb.shape);
-    const drawing = tb.link ? patchDrawingGeometry(raw, tb) : drawingWithParas(patchDrawingGeometry(raw, tb), tb.paras, tb.blocks);
+    const drawing = tb.link ? patchDrawingGeometry(raw, tb) : drawingWithParas(patchDrawingGeometry(raw, tb), tb.paras, tb.blocks, tb);
     const next = chainNext.get(tb);
-    return textboxAlternateContent(drawing, inner || (tb.link ? '' : '<w:p/>'), { color: shapeColor, spid: ++vmlSpid, ...(next ? { next } : {}) });
+    // caixa que veio só em VML: continua VML (o Word mantém a forma legada)
+    return shapeOut(drawing, inner || (tb.link ? '' : '<w:p/>'), { color: shapeColor, spid: ++vmlSpid, ...(next ? { next } : {}) }, !!tb.vml);
   }
   const sh = run.shape;
-  if (sh?.rawDrawingXml) return textboxAlternateContent(fillMedia(sh.rawDrawingXml, sh.style), '', { color: shapeColor, spid: ++vmlSpid });
+  if (sh?.rawDrawingXml) return shapeOut(fillMedia(sh.rawDrawingXml, sh.style), '', { color: shapeColor, spid: ++vmlSpid });
   return '';
 }
 
@@ -367,7 +386,8 @@ function objectXml(run: Run): string | undefined {
     if (run.image?.rawDrawingXml) return `<w:r>${rpr}${pictureXml(run.image)}</w:r>`;
     if (run.image) return `<w:r>${drawingXml(run)}</w:r>`;
     if (run.textbox?.rawDrawingXml) {
-      return `<w:r>${rpr}${drawingWithParas(patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox), run.textbox.paras, run.textbox.blocks)}</w:r>`;
+      if (run.textbox.vml) return `<w:r>${rpr}${onceShape(run.textbox, editedShapeXml(run))}</w:r>`;
+      return `<w:r>${rpr}${drawingWithParas(patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox), run.textbox.paras, run.textbox.blocks, run.textbox)}</w:r>`;
     }
     return run.textbox ? '' : undefined;
   }
@@ -391,7 +411,7 @@ function objectXml(run: Run): string | undefined {
   // caixas de texto do objeto na ordem do XML: runs-caixa e itens de grupo
   const boxes = members.flatMap((r) => (r.textbox ? [r.textbox] : (r.group?.items ?? []).flatMap((it) => (it.run.textbox ? [it.run.textbox] : []))));
   if (boxes.length) {
-    const inners = boxes.map((b) => (b.blocks?.length ? b.blocks.map(blockXml) : b.paras.map(paraXml)).join(''));
+    const inners = boxes.map((b) => txbxInner(b));
     const total = (xml.match(/<w:txbxContent\b/g) ?? []).length;
     // 1 caixa: todas as ocorrências (mc:Choice + VML de reserva); n caixas: na ordem
     // (e de novo na reserva); contagem que não fecha: o texto fica como estava
@@ -507,6 +527,7 @@ function runXml(run: Run): string {
   // o <w:txbxContent> pelos parágrafos (possivelmente editados). Sem o cru (caixa
   // criada por nós), emite nada — evitando XML de shape inválido.
   if (run.textbox) {
+    if (run.textbox.rawDrawingXml && run.textbox.vml) return `<w:r>${rPrXml(run)}${onceShape(run.textbox, editedShapeXml(run))}</w:r>`;
     if (run.textbox.rawDrawingXml) {
       const geo = patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox);
       return `<w:r>${drawingWithParas(geo, run.textbox.paras)}</w:r>`;
@@ -1470,6 +1491,7 @@ export function writeDocument(
   drawingId = 0;
   vmlSpid = 4096;
   emittedShapes = new WeakSet();
+  vmlOnly = readSettings(pkg.getPartText('word/settings.xml')).compatibilityMode <= 12;
   // cores do tema (VML de reserva das caixas/formas refeitas)
   const th = readTheme(pkg.getPartText('word/theme/theme1.xml'));
   if (Object.keys(th.colors).length) shapeTheme = { ...shapeTheme, ...th.colors };

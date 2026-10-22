@@ -40,6 +40,11 @@
 // "Cover Pages" + Primeira Página Diferente na 1ª seção) → o w:background e o
 // displayBackgroundShape relêem, os outros cabeçalhos/rodapés saem byte a byte e
 // só o sdt novo e o sectPr da 1ª seção mudam no corpo.
+// --textboxes: Formato da Forma na 1ª caixa de texto DrawingML do corpo (texto
+// digitado nela, preenchimento, contorno, alinhamento vertical, margem e texto alt — o
+// VML de reserva refeito como o Word) e uma caixa NOVA (o XML do Desenhar Caixa de
+// Texto) noutro parágrafo → só os dois parágrafos mudam, as caixas releem com tudo e
+// as outras saem cruas.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -113,6 +118,7 @@ const covers = pageMode ? await (async () => {
   return import(pathToFileURL(outfile).href);
 })() : null;
 const layout =navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
+const textboxesMode = args.includes('--textboxes');
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -644,6 +650,52 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         picEdit = { wasInline: f.inline };
       }
     }
+    // --textboxes: a 1ª caixa wps do corpo (fora dos parágrafos já editados; numa cadeia, a 1ª
+    // dela) e uma caixa nova noutro parágrafo
+    let tbxEdit = null;
+    if (textboxesMode) {
+      // (caixa só em VML também: o wps equivalente, gravada de volta em VML)
+      const hit = ps.flatMap((p) => p.runs.filter((r) => r.textbox?.rawDrawingXml && /<wps:wsp\b/.test(r.textbox.rawDrawingXml) && !r.textbox.link && r.textbox.paras.length).map((r) => [p, r])).find(([p]) => !edited.includes(p));
+      const host = cands.map((c) => c[0]).find((p) => !edited.includes(p) && (!hit || p !== hit[0]));
+      if (hit && host) {
+        const [p, r] = hit;
+        const tb = r.textbox;
+        // texto digitado no começo do 1º parágrafo da caixa (o run dele leva a formatação)
+        const tp = tb.paras[0];
+        const run0 = tp.runs.find((x) => !x.field && !x.image && !x.textbox && !x.noteRef && !x.custom) ?? null;
+        if (run0) run0.text = 'TBX ' + run0.text; else tp.runs.unshift({ text: 'TBX ', props: { ...core.DEFAULT_RUN_PROPS } });
+        if (tb.blocks) tb.blocks = core.reconcileBlocks ? core.reconcileBlocks(tb.blocks, tb.paras, true) : tb.blocks;
+        const ch = {
+          fill: { kind: 'solid', color: { kind: 'schemeClr', val: 'accent2', mods: [['lumMod', 40000], ['lumOff', 60000]] } },
+          outline: { w: 19050, fill: { kind: 'srgbClr', val: 'C00000' } },
+          body: { anchor: 'ctr', lIns: 127000 },
+          descr: 'Caixa editada (lossless)',
+        };
+        tb.rawDrawingXml = core.patchShape(tb.rawDrawingXml, ch);
+        tb.edited = true;
+        core.syncShapeFromXml(r);
+        edited.push(p);
+        // caixa nova (Desenhar Caixa de Texto): ancorada no começo de outro parágrafo
+        let maxId = 0;
+        for (const m of orig.documentXml().matchAll(/<wp:docPr\b[^>]*?\bid="(\d+)"/g)) maxId = Math.max(maxId, Number(m[1]));
+        const id = maxId >= 0x7ffffff0 ? 0x10000 + n : maxId + 1;
+        const drawing = core.newTextboxDrawingXml({
+          id, name: `Caixa de Texto ${id}`, cx: 1828800, cy: 457200, relativeHeight: 251659264 + n,
+          posH: { relativeFrom: 'column', offset: 1270000 }, posV: { relativeFrom: 'paragraph', offset: 63500 },
+          fill: core.NEW_TEXTBOX_FILL, line: core.NEW_TEXTBOX_LINE,
+          content: '<w:p><w:r><w:t>Caixa nova lossless</w:t></w:r></w:p>',
+        });
+        const read = core.readHeaderFooterPart(b.pkg, 'word/uw-template.xml', undefined, core.hfPartXml('header', `<w:p><w:r><w:rPr><w:noProof/></w:rPr>${drawing}</w:r></w:p>`));
+        const nr = read?.paras[0]?.runs.find((x) => x.textbox);
+        if (nr) {
+          nr.textbox.edited = true;
+          nr.props = { ...core.DEFAULT_RUN_PROPS, noProof: true };
+          host.runs.splice(core.insertIndex(host, 0), 0, nr);
+          edited.push(host);
+        }
+        tbxEdit = { added: !!nr, id, vml: !!tb.vml };
+      }
+    }
     // --page: por último (a folha de rosto entra antes dos parágrafos já editados)
     const pageEdit = pageMode ? editPage(b, n) : null;
     const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false, pageEdit ?? undefined);
@@ -758,6 +810,34 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       res.pictures = true;
     }
+    if (tbxEdit) {
+      // a caixa editada relê com o que foi pedido, o VML de reserva tem o texto novo e a
+      // caixa nova entrou (com o seu VML)
+      const rf = readFullDocument(re);
+      const boxes = [];
+      core.forEachTextbox(rf.blocks, (t) => boxes.push(t));
+      const ed1 = boxes.find((t) => (t.rawDrawingXml ?? '').includes('Caixa editada (lossless)'));
+      if (!ed1) res.issues.push('textboxes-unread');
+      else {
+        const f = core.readShapeFormat(ed1.rawDrawingXml);
+        if (f?.fill.kind !== 'solid' || (!tbxEdit.vml && f.fill.color.val !== 'accent2')) res.issues.push('textboxes-fill');
+        if (f?.line?.w !== 19050) res.issues.push('textboxes-line');
+        if (f?.body?.anchor !== 'ctr' || f.body.lIns !== 127000) res.issues.push('textboxes-body');
+        if (!ed1.paras.map(text).join('\n').includes('TBX')) res.issues.push('textboxes-text');
+      }
+      const ac = [...xml.matchAll(/<mc:AlternateContent>[\s\S]*?<\/mc:AlternateContent>/g)].map((m) => m[0]);
+      if (tbxEdit.vml) {
+        // caixa que veio em VML: volta só em VML (sem wps para ela)
+        const picts = [...xml.matchAll(/<w:pict\b[\s\S]*?<\/w:pict>/g)].map((m) => m[0]);
+        if (!picts.some((x) => x.includes('Caixa editada (lossless)') && /<v:textbox[\s\S]*TBX/.test(x))) res.issues.push('textboxes-vml');
+        if (ac.some((x) => x.includes('Caixa editada (lossless)'))) res.issues.push('textboxes-vml-became-wps');
+      } else if (!ac.some((x) => x.includes('Caixa editada (lossless)') && /<mc:Fallback>[\s\S]*<v:textbox[\s\S]*TBX/.test(x))) res.issues.push('textboxes-vml');
+      if (tbxEdit.added) {
+        if (!boxes.some((t) => t.paras.map(text).join('') === 'Caixa nova lossless')) res.issues.push('textboxes-new-unread');
+        if (!ac.some((x) => x.includes('Caixa nova lossless') && x.includes('<v:textbox'))) res.issues.push('textboxes-new-vml');
+      }
+      res.textboxes = true;
+    }
     if (tblEdit) {
       if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
       if (!xml.includes('<w:pgBorders')) res.issues.push('tables-no-pgborders');
@@ -798,7 +878,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));

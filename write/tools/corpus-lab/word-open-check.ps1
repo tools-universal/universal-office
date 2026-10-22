@@ -23,6 +23,9 @@
 # -Page: saida do lossless-check --page (Cor da Pagina: o tipo do preenchimento que o Word
 # ve - cor 1, padrao 2, gradiente 3; marca-d'agua PowerPlusWaterMarkObject num cabecalho;
 # folha de rosto: Primeira Pagina Diferente na 1a secao e o titulo no inicio; colunas 3 a 5).
+# -Textboxes: saida do lossless-check --textboxes (a caixa com texto alt "Caixa editada
+# (lossless)": o texto comeca com TBX, alinhada ao meio, contorno de 1,5 pt; e a caixa
+# nova com o texto "Caixa nova lossless").
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -35,7 +38,8 @@ param(
   [switch]$Refs,
   [switch]$Toc,
   [switch]$Pictures,
-  [switch]$Page
+  [switch]$Page,
+  [switch]$Textboxes
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -188,6 +192,23 @@ foreach ($row in $rows) {
             foreach ($ish in $d.InlineShapes) { try { if ([string]$ish.AlternativeText -eq 'Imagem editada (lossless)') { $script:pic = 'pic-inline' } } catch { } }
           }
         }
+        if ($Textboxes) {
+          $script:tbx = 'no-textbox'; $script:tbxNew = $false
+          foreach ($sh in $d.Shapes) {
+            try {
+              if ([string]$sh.AlternativeText -eq 'Caixa editada (lossless)') {
+                $tx = [string]$sh.TextFrame.TextRange.Text
+                if (-not $tx.Contains('TBX')) { $script:tbx = 'tbx-text' }
+                elseif ($sh.TextFrame.VerticalAnchor -ne 3) { $script:tbx = 'tbx-anchor ' + $sh.TextFrame.VerticalAnchor }
+                elseif ([math]::Abs([double]$sh.Line.Weight - 1.5) -gt 0.05) { $script:tbx = 'tbx-line ' + $sh.Line.Weight }
+                else { $script:tbx = 'ok' }
+              }
+              if ($sh.TextFrame.HasText -and ([string]$sh.TextFrame.TextRange.Text).StartsWith('Caixa nova lossless')) { $script:tbxNew = $true }
+            } catch { }
+          }
+          if ($script:tbx -eq 'ok' -and -not $script:tbxNew) { $script:tbx = 'tbx-new' }
+          $script:hasEdit = $true
+        }
         $script:fe = $d.Footnotes.Count; $script:ee = $d.Endnotes.Count
         $script:noteText = ''
         if ($Notes) {
@@ -203,6 +224,7 @@ foreach ($row in $rows) {
     if ($Toc) { $script:hasEdit = $true }
     $slack = 1
     if ($Sections -or $Refs) { $slack = 2 }
+    if ($Textboxes) { $slack = 2 }
     if ($Page -and $parts.Count -ge 5) {
       # cor 1 (solido), padrao 2, gradiente 3; a folha de rosto acrescenta paragrafos ao corpo
       $wantFill = @{ 'color' = 1; 'pattern' = 2; 'gradient' = 3 }[$parts[2]]
@@ -217,6 +239,7 @@ foreach ($row in $rows) {
       elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
     }
     elseif ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }
+    elseif ($Textboxes -and $script:tbx -ne 'ok') { $status = $script:tbx }
     elseif (-not $script:hasEdit) { $status = 'no-edit' }
     elseif ($Toc -and -not $script:tocSame) { $status = 'toc-differs'; $detail += $script:tocInfo }
     elseif ($Toc) { $status = 'ok' }

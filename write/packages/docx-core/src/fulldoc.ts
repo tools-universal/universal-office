@@ -238,6 +238,21 @@ function unwrapRaw(el: XmlElement, name: string, skip: readonly string[], xml: s
 
 const wrapOf = (w: Wrapped): { pre?: WrapSeg[]; post?: WrapSeg[] } => ({ ...(w.pre.length ? { pre: w.pre } : {}), ...(w.post.length ? { post: w.post } : {}) });
 
+/** Blocos de um container e, sem perdas, os filhos dele como grupos quando há algo além
+ *  de w:p/w:tbl (sdt/customXml de bloco) — o conteúdo de caixa de texto, como a célula. */
+function readBlocksGrouped(container: XmlElement, ctx: ReadContext): { blocks: Block[]; groups?: StoryGroup[] } {
+  const xml = ctx.sources && container.s !== undefined ? ctx.sourceXml : undefined;
+  const kids = xml !== undefined ? childElements(container) : [];
+  if (xml === undefined || !kids.some((k) => k.name !== 'w:p' && k.name !== 'w:tbl')) return { blocks: readBlocksOf(container, ctx) };
+  const blocks: Block[] = [], groups: StoryGroup[] = [];
+  for (const k of kids) {
+    const produced = readBlocksOf({ name: container.name, attrs: {}, children: [k] }, ctx);
+    groups.push(groupOf(xml, k, produced, ctx.sources!));
+    blocks.push(...produced);
+  }
+  return { blocks, groups };
+}
+
 /** Blocos (w:p / w:tbl) de um container, na ordem, atravessando sdt/customXml. */
 export function readBlocksOf(container: XmlElement, ctx: ReadContext): Block[] {
   const out: Block[] = [];
@@ -457,6 +472,7 @@ export function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: Sou
   const partName = path.split('/').pop()!;
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  ctx.readBlocksGrouped = readBlocksGrouped;
   let blocks: Block[];
   if (!store) blocks = readBlocksOf(root, ctx);
   else {
@@ -524,6 +540,7 @@ function readNotesPart(
   const partName = path.split('/').pop()!;
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
+  ctx.readBlocksGrouped = readBlocksGrouped;
   // com fontes: cada nota vira uma história (filhos de topo → blocos), como um
   // cabeçalho; os separadores ficam crus
   const part: NotesPartSource | undefined = store ? { open: xml.slice(0, root.cs), close: xml.slice(root.ce), items: [], refsAtLoad: new Set() } : undefined;
@@ -592,6 +609,7 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
   if (!body) throw new Error('w:document sem w:body');
   const ctx = buildReadContext(pkg, 'word/_rels/document.xml.rels');
   ctx.readBlocks = readBlocksOf;
+  ctx.readBlocksGrouped = readBlocksGrouped;
   const story = store ? storyOf(docXml, body) : undefined;
   if (store) {
     ctx.sources = store;

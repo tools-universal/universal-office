@@ -1,4 +1,5 @@
 import { DocxPackage } from './package.js';
+import { vmlTextboxToDrawing, vmlSingleTextbox } from './vml-shape.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
 import { readRPr, readPPr, readBorder, readRevisionInfo, type RPr, type PPr, type BorderSpec, type RevisionInfo, type TabAlign } from './ooxml/props.js';
 import { readNoteProps, type NoteProps } from './ooxml/parts.js';
@@ -782,6 +783,9 @@ export interface ReadContext {
   /** Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
    *  injetado pelo leitor do documento completo (fulldoc). */
   readBlocks?: (container: XmlElement, ctx: ReadContext) => import('./fulldoc.js').Block[];
+  /** Como readBlocks, com os filhos do container como grupos (sem perdas: sdt/customXml
+   *  de bloco dentro da caixa de texto) — injetado pelo fulldoc. */
+  readBlocksGrouped?: (container: XmlElement, ctx: ReadContext) => { blocks: import('./fulldoc.js').Block[]; groups?: import('./source.js').StoryGroup[] };
   /** Salvamento sem perdas: onde guardar as fatias cruas e o XML da parte
    *  (lido com `positions`). */
   sources?: SourceStore;
@@ -840,8 +844,10 @@ function bodyPrOf(tb: DrawingTextbox, bodyPr: XmlElement | undefined): void {
 
 function textboxBlocks(txbx: XmlElement, ctx: ReadContext, tb: DrawingTextbox): void {
   if (ctx.readBlocks) {
-    const blocks = ctx.readBlocks(txbx, ctx);
+    const read = ctx.readBlocksGrouped ? ctx.readBlocksGrouped(txbx, ctx) : { blocks: ctx.readBlocks(txbx, ctx) };
+    const blocks = read.blocks;
     tb.blocks = blocks;
+    if (read.groups && ctx.sources) ctx.sources.addTextboxGroups(tb, read.groups);
     // parágrafos do modelo de edição: os do nível de cima + os das células
     const paras: Paragraph[] = [];
     const walk = (bs: import('./fulldoc.js').Block[]) => {
@@ -1207,7 +1213,8 @@ export function syncShapeFromXml(run: Pick<Run, 'textbox' | 'shape' | 'group'>):
   const src = (fresh?.textbox ?? fresh?.shape) as unknown as Record<string, unknown> | undefined;
   if (!src) return;
   const dst = obj as unknown as Record<string, unknown>;
-  const keep = new Set(['paras', 'blocks', 'rawDrawingXml', 'edited', 'vml', 'vmlId', 'vmlNext']);
+  // (caixa que veio em VML: a cadeia é a do VML — mso-next-textbox —, não a do wps equivalente)
+  const keep = new Set(['paras', 'blocks', 'rawDrawingXml', 'edited', 'vml', 'vmlId', 'vmlNext', ...((obj as DrawingTextbox).vml ? ['story', 'link'] : [])]);
   // preenchimento de imagem: os bytes não vêm do XML (a mídia é do pacote)
   const blip = (obj as DrawingTextbox).shape?.blip ?? (obj as DrawingShape).style?.blip;
   for (const k of new Set([...Object.keys(dst), ...Object.keys(src)])) {
@@ -1342,6 +1349,12 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
         if (next) tb.vmlNext = next.replace(/^#/, '');
         const sh = vmlShapeStyle(el, 'rect');
         if (sh.fill || sh.line) tb.shape = sh;
+        // a caixa VML sozinha no w:pict: o wps equivalente (Formato da Forma; a gravação
+        // devolve só VML)
+        if (!inGroup && vmlSingleTextbox(container) === el) {
+          const raw = vmlTextboxToDrawing(el, 1 + (parseInt((el.attrs['o:spid'] ?? '').replace(/\D/g, ''), 10) || 0));
+          if (raw) tb.rawDrawingXml = raw;
+        }
         run = { text: OBJ, textbox: tb };
       } else {
         const tag = el.name.replace(/^v:/, '');
