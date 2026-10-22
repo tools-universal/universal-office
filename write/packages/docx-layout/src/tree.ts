@@ -235,6 +235,11 @@ export interface PlacedObject {
   /** referências do posicionamento (twips de página): coluna, topo do parágrafo
    *  âncora e a geometria da página — o editor converte posições entre elas */
   frame?: ObjectFrame;
+  /** caixa de texto: as linhas do conteúdo (refs "txbx/bN…" nos blocos da 1ª caixa da
+   *  cadeia, no referencial do texto) e a matriz texto → página (deslocamento das
+   *  margens e do alinhamento vertical; giro da caixa; texto vertical) — o editor edita
+   *  o texto da caixa por elas */
+  content?: { lines: LaidOutLine[]; xf: [number, number, number, number, number, number] };
 }
 
 export interface ObjectFrame {

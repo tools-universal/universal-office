@@ -209,6 +209,30 @@ w.ed = {
     return { x: r.left + xTw * s, y: r.top + yTw * s };
   },
 
+  /** Objetos flutuantes que o motor posicionou (todas as páginas): retângulo, tipo e,
+   *  nas caixas de texto, o texto da caixa, a história/vínculo e as linhas de conteúdo. */
+  objects(): { page: number; x: number; y: number; w: number; h: number; hf: boolean; kind: string; text?: string; story?: number; link?: number; lines?: number }[] {
+    const e = need() as El & { eng: { result: { pages: { objects?: { run: { text: string; image?: unknown; textbox?: { paras: { runs: { text: string }[] }[]; story?: number; link?: { id: number } } }; x: number; y: number; w: number; h: number; hf: boolean; content?: { lines: unknown[] } }[] }[] } } };
+    const list: { page: number; x: number; y: number; w: number; h: number; hf: boolean; kind: string; text?: string; story?: number; link?: number; lines?: number }[] = [];
+    e.eng.result.pages.forEach((p, page) => {
+      for (const o of p.objects ?? []) {
+        const tb = o.run.textbox;
+        list.push({
+          page, x: o.x, y: o.y, w: o.w, h: o.h, hf: o.hf, kind: tb ? 'textbox' : o.run.image ? 'image' : 'shape',
+          ...(tb ? { text: tb.paras.map(paraText).join('\n'), story: tb.story, link: tb.link?.id, lines: o.content?.lines.length ?? 0 } : {}),
+        });
+      }
+    });
+    return list;
+  },
+
+  /** Ponto da tela numa fração (fx, fy) do objeto i de objects(). */
+  objectClient(i: number, fx = 0.5, fy = 0.5): { x: number; y: number } | null {
+    const o = (w.ed as { objects: () => { page: number; x: number; y: number; w: number; h: number }[] }).objects()[i];
+    if (!o) return null;
+    return (w.ed as { client: (p: number, x: number, y: number) => { x: number; y: number } }).client(o.page, o.x + o.w * fx, o.y + o.h * fy);
+  },
+
   /** Ponto da tela do caractere `offset` do parágrafo pi (meio da linha). */
   clientAt(pi: number, offset: number): { x: number; y: number } | null {
     const e = need();

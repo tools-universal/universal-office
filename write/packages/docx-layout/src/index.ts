@@ -3,7 +3,8 @@
 // @universal-office/layout e @universal-office/pdf.
 export * from './typography/index.js';
 export * from './pdf-writer/index.js';
-export { layoutDocument } from './engine.js';
+export { layoutDocument, tbFrame, tbContentPlacement, verticalMatrix, type TbFrame, type TbRot } from './engine.js';
+export { indexChains, type TextboxChain } from './chain.js';
 export { DocContext, emptyFormatting, directRPr, directPPr, type LayoutOptions } from './context.js';
 export { FaceResolver, faceMetrics, deviceEmPt, parsePostScriptName, withEmbeddedFonts, type FontFace, type FontProvider, type FaceMetrics, type EmbeddedFace } from './fonts.js';
 export { StyleResolver, cascadeRPr, mergePPr, mergeRPr, resolveColor, resolveDrawingColor, fontOfSlot } from './resolve.js';

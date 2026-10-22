@@ -3375,6 +3375,7 @@ class Engine {
       run, x, y, w, h, layer: behind ? 'behind' : 'front', hf: this.inHf,
       frame: { colX, colW, paraTop: paraRef ?? paraTop, pageW: g.pageW, pageH: g.pageH, marL: g.marL, marR: g.marR, marT: g.marT, marB: g.marB, bodyTop: Math.max(g.marT, ps.bodyTop ?? g.marT) },
     };
+    if (run.textbox && tbContent) obj.content = tbContentPlacement(run.textbox, this.ctx.fmt.theme, x, y, w, h, tbContent);
     (ps.page.objects ??= []).push(obj);
     // moldura no cabeçalho/rodapé: vai no fluxo — no PDF do Word o texto dela vem
     // na ordem da linha: antes do parágrafo âncora se está no começo dela
@@ -3882,6 +3883,46 @@ function cullOffPage(items: PageItem[], pageW: number, pageH: number): PageItem[
 }
 
 /** Rotação (graus, horário na tela) em torno de (cx, cy) — matriz de XformItem. */
+type M6 = [number, number, number, number, number, number];
+const mulM = (m: M6, n: M6): M6 => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+
+/**
+ * Linhas do conteúdo de uma caixa de texto no referencial do texto e a matriz que as
+ * leva à página — a MESMA colocação da pintura (paintObject/verticalContent): margens,
+ * alinhamento vertical, giro da caixa (sem "não girar o texto") e texto vertical (no
+ * mongolianVert cada linha vai para o lado oposto). O editor edita a caixa por elas.
+ */
+export function tbContentPlacement(
+  tb: DrawingTextbox & { shape?: { rot?: number } }, theme: { lineWidthsPt?: number[] } | undefined, x: number, y: number, w: number, h: number, c: CellContent,
+): { lines: LaidOutLine[]; xf: M6 } {
+  const fr = tbFrame(tb, theme, w, h);
+  const ins = fr.ins;
+  const rot = tb.upright ? 0 : tb.rot ?? tb.shape?.rot ?? 0;
+  const around: M6 = rot ? rotation(x + w / 2, y + h / 2, rot) : [1, 0, 0, 1, 0, 0];
+  if (tb.wordArt) return { lines: [], xf: around };
+  if (!fr.rot) {
+    let dy = ins.t;
+    const free = h - ins.t - ins.b - c.height;
+    if (tb.vAnchor === 'ctr' && free > 0) dy += free / 2;
+    else if (tb.vAnchor === 'b' && free > 0) dy += free;
+    return { lines: c.lines, xf: mulM(around, [1, 0, 0, 1, x + ins.l, y + dy]) };
+  }
+  // vertical: o mesmo deslocamento por faixa da pintura (passo maior; −90 espelhado)
+  const lh = w;
+  let dy = ins.t;
+  const free = lh - ins.t - ins.b - verticalHeight(c);
+  if (tb.vAnchor === 'ctr' && free > 0) dy += free / 2;
+  else if (tb.vAnchor === 'b' && free > 0) dy += free;
+  const bands = verticalBands(c);
+  const lines = c.lines.map((l) => {
+    const b = bands.find((q) => Math.abs(q.y0 - l.y) < 0.01);
+    const add = b?.add ?? 0;
+    const sh = fr.rot === -90 ? lh - (dy + l.y + add + l.height) - l.y : dy + add;
+    return { ...l, x: l.x + ins.l, y: l.y + sh, baseline: l.baseline + sh, ...(l.chars ? { chars: l.chars.map((q) => ({ ...q, x: q.x + ins.l })) } : {}) };
+  });
+  return { lines, xf: mulM(around, verticalMatrix(fr.rot, x, y, w, h)) };
+}
+
 function rotation(cx: number, cy: number, deg: number): [number, number, number, number, number, number] {
   const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
   return [c, s, -s, c, cx - cx * c + cy * s, cy - cx * s - cy * c];

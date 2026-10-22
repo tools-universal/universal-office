@@ -134,6 +134,7 @@ import {
   type WatermarkInfo,
   type WatermarkGalleryItem,
   type StoryGroup,
+  forEachTextbox,
 } from '@universal-office/docx-core';
 import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
@@ -459,6 +460,19 @@ const HIGHLIGHTS: Record<string, string> = {
   blue: '#0000ff', red: '#ff0000', darkYellow: '#808000', lightGray: '#c0c0c0',
 };
 
+/** Linha do motor deslocada (conteúdo de caixa de texto → página). */
+function shiftEngLine(l: LaidOutLine, dx: number, dy: number): LaidOutLine {
+  return { ...l, x: l.x + dx, y: l.y + dy, baseline: l.baseline + dy, ...(l.chars ? { chars: l.chars.map((c) => ({ ...c, x: c.x + dx })) } : {}) };
+}
+
+/** Ponto do referencial do texto (linha com `xf`) na página, e o inverso. */
+const xfApply = (m: readonly number[], x: number, y: number): [number, number] => [m[0]! * x + m[2]! * y + m[4]!, m[1]! * x + m[3]! * y + m[5]!];
+function xfInvert(m: readonly number[], x: number, y: number): [number, number] {
+  const det = m[0]! * m[3]! - m[1]! * m[2]!;
+  const dx = x - m[4]!, dy = y - m[5]!;
+  return [(m[3]! * dx - m[2]! * dy) / det, (-m[1]! * dx + m[0]! * dy) / det];
+}
+
 interface LaidLine {
   para: number;
   rich: RichLine;
@@ -471,6 +485,9 @@ interface LaidLine {
   justifyExtraPerSpace: number;
   /** linha do MOTOR (visão de impressão): cursor/clique pelos caracteres dela */
   eng?: LaidOutLine;
+  /** caixa de texto girada ou com texto vertical: as coordenadas da linha são as do
+   *  texto e esta matriz as leva à página (twips) */
+  xf?: [number, number, number, number, number, number];
 }
 
 /** Refs de cabeçalho/rodapé de uma seção no modelo (sectionBreak ou bodyRefs). */
@@ -1861,7 +1878,12 @@ export class UniversalWriteElement extends HTMLElement {
   // INTERNOS da caixa, posicionados no retângulo ancorado. Pode empilhar sobre
   // a edição de HF (a caixa mora no header/footer) ou sair direto do corpo.
   private tbEdit: {
+    /** run da caixa cujo conteúdo é o modelo (a 1ª da cadeia, se vinculada) */
     hostRun: Run;
+    /** run da caixa em foco (alças, retângulo) — a clicada, na cadeia */
+    focusRun: Run;
+    /** caixas da cadeia vinculada, em ordem (a 1ª é a do hostRun) */
+    chain?: DrawingTextbox[];
     rectTwips: { x: number; y: number; w: number; h: number };
     pageIdx: number;
   } | null = null;
@@ -1871,8 +1893,6 @@ export class UniversalWriteElement extends HTMLElement {
     sectionStarts: { startPara: number; section: Section }[];
     floatImages: FloatImage[];
     selection: { anchor: DocPosition; focus: DocPosition };
-    undoStack: string[];
-    redoStack: string[];
     pageCount: number;
     pageSections: number[];
   } | null = null;
@@ -2012,19 +2032,23 @@ export class UniversalWriteElement extends HTMLElement {
     if (!silent) this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: false } }));
   }
 
-  /** Entra na edição do conteúdo de uma caixa de texto flutuante. hostRun é o
-   *  run que carrega `.textbox`; rectTwips é o retângulo ancorado (coords de
-   *  página, twips); caret opcional posiciona o cursor no ponto do clique. */
+  /** Entra na edição do conteúdo de uma caixa de texto. `focusRun` é o run que
+   *  carrega a caixa clicada (numa cadeia vinculada, o conteúdo é o da 1ª caixa);
+   *  rectTwips é o retângulo dela (coords de página, twips); caret opcional
+   *  posiciona o cursor. Desfazer: a pilha é a do documento (medido: uma só). */
   private enterTextbox(
-    hostRun: Run,
+    focusRun: Run,
     rectTwips: { x: number; y: number; w: number; h: number },
     pageIdx: number,
     caret?: DocPosition,
   ): void {
-    if (!this.model || !hostRun.textbox || this.tbEdit || this.locked()) return;
+    if (!this.model || !focusRun.textbox || this.tbEdit || this.locked()) return;
     if (this.cellEdit) { this.exitCell(); this.refreshSelection(); }
     this.floatSel = null;
-    const tb = hostRun.textbox;
+    // cadeia vinculada: o conteúdo (o modelo da edição) é o da 1ª caixa
+    const chain = this.textboxChain(focusRun.textbox);
+    const hostRun = (chain && this.runOfTextbox(chain[0]!)) || focusRun;
+    const tb = hostRun.textbox!;
     // materializa campos (PAGE/NUMPAGES/DATE) p/ ficarem visíveis e editáveis;
     // o .field é preservado para o salvar (ver serialização de campo).
     for (const p of tb.paras) {
@@ -2037,26 +2061,26 @@ export class UniversalWriteElement extends HTMLElement {
         }
       }
     }
-    // fundo = render ATUAL (corpo, ou HF em edição) capturado cheio, MAS sem o
-    // texto DESTA caixa (senão o texto antigo "fantasma" apareceria por baixo do
-    // texto ao vivo). Na pintura fica esmaecido; a caixa ativa é reposta em foco.
-    this.tbSnapshotSuppress = hostRun;
-    this.paint();
-    this.tbSnapshotSuppress = null;
-    this.tbBgSnapshots = this.canvases.map((c) => {
-      const snap = document.createElement('canvas');
-      snap.width = c.width; snap.height = c.height;
-      if (c.width > 1) snap.getContext('2d')!.drawImage(c, 0, 0);
-      return snap;
-    });
+    // layout legado: fundo = render ATUAL (corpo, ou HF em edição) capturado cheio,
+    // MAS sem o texto DESTA caixa (senão o texto antigo "fantasma" apareceria por
+    // baixo do texto ao vivo). Com o motor, a caixa é diagramada no lugar (nada esmaece).
+    if (!this.engineCanRun()) {
+      this.tbSnapshotSuppress = hostRun;
+      this.paint();
+      this.tbSnapshotSuppress = null;
+      this.tbBgSnapshots = this.canvases.map((c) => {
+        const snap = document.createElement('canvas');
+        snap.width = c.width; snap.height = c.height;
+        if (c.width > 1) snap.getContext('2d')!.drawImage(c, 0, 0);
+        return snap;
+      });
+    }
     this.savedForTb = {
       model: this.model,
       tableAnchors: this.tableAnchors,
       sectionStarts: this.sectionStarts,
       floatImages: this.floatImages,
       selection: this.selection,
-      undoStack: this.undoStack,
-      redoStack: this.redoStack,
       pageCount: this.pageCount,
       pageSections: [...this.pageSections],
     };
@@ -2066,11 +2090,9 @@ export class UniversalWriteElement extends HTMLElement {
     this.tableAnchors = [];
     this.sectionStarts = [];
     this.floatImages = [];
-    this.tbEdit = { hostRun, rectTwips, pageIdx };
+    this.tbEdit = { hostRun, focusRun, ...(chain ? { chain } : {}), rectTwips, pageIdx };
     const start = caret ?? { para: 0, offset: 0 };
     this.selection = { anchor: start, focus: start };
-    this.undoStack = [];
-    this.redoStack = [];
     // caixa dentro de HF: garante que a parte do HF será regravada no save
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
     this.refresh();
@@ -2078,7 +2100,74 @@ export class UniversalWriteElement extends HTMLElement {
     this.dispatchEvent(new CustomEvent('uw-tbmode', { detail: { active: true } }));
   }
 
-  exitTextbox(): void {
+  /** Blocos do corpo (com as tabelas), do estado vivo. */
+  private bodyBlocks(): Block[] {
+    const b = this.bodyState();
+    const body: Block[] = [];
+    b.model.paragraphs.forEach((paragraph, pi) => {
+      for (const a of b.tableAnchors) if (a.beforePara === pi) body.push(a.table);
+      body.push({ type: 'paragraph', paragraph });
+    });
+    for (const a of b.tableAnchors) if (a.beforePara >= b.model.paragraphs.length) body.push(a.table);
+    return body;
+  }
+
+  /** Runs das caixas de texto do contexto de fora da caixa (o corpo, ou a parte de
+   *  cabeçalho/rodapé em edição — `model` é o modelo dela), na ordem do documento:
+   *  a pilha de desfazer guarda a caixa em edição pela ordem nesta lista. */
+  private contextTextboxRuns(model: DocumentModel): Run[] {
+    const blocks: Block[] = this.hfEdit
+      ? model.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph }))
+      : this.bodyBlocks();
+    const runs: Run[] = [];
+    forEachTextbox(blocks, (_t, r) => runs.push(r));
+    return runs;
+  }
+
+  /** Blocos da história em que a caixa mora (corpo — com as tabelas — ou a parte de
+   *  cabeçalho/rodapé), do estado vivo. */
+  private storyBlocksOf(tb: DrawingTextbox): Block[] {
+    const body = this.bodyBlocks();
+    let found = false;
+    forEachTextbox(body, (t) => { if (t === tb) found = true; });
+    if (found) return body;
+    for (const s of this.fullDoc?.sections ?? []) {
+      for (const set of [s.headers, s.footers]) {
+        for (const paras of Object.values(set) as (Paragraph[] | undefined)[]) {
+          if (!paras) continue;
+          const bs: Block[] = paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+          let hit = false;
+          forEachTextbox(bs, (t) => { if (t === tb) hit = true; });
+          if (hit) return bs;
+        }
+      }
+    }
+    return body;
+  }
+
+  /** Caixas da cadeia vinculada da caixa (a 1ª primeiro), ou undefined. */
+  private textboxChain(tb: DrawingTextbox): DrawingTextbox[] | undefined {
+    if (tb.story === undefined && !tb.link) return undefined;
+    const blocks = this.storyBlocksOf(tb);
+    const heads = new Map<number, DrawingTextbox>();
+    const links: DrawingTextbox[] = [];
+    forEachTextbox(blocks, (t) => { if (t.link) links.push(t); else if (t.story !== undefined && !heads.has(t.story)) heads.set(t.story, t); });
+    const id = tb.link ? tb.link.id : tb.story!;
+    const head = heads.get(id);
+    const ms = links.filter((l) => l.link!.id === id).sort((a, b) => a.link!.seq - b.link!.seq);
+    return head && ms.length ? [head, ...ms] : undefined;
+  }
+
+  /** Run que carrega a caixa (na história dela). */
+  private runOfTextbox(tb: DrawingTextbox): Run | undefined {
+    let out: Run | undefined;
+    forEachTextbox(this.storyBlocksOf(tb), (t, r) => { if (t === tb) out = r; });
+    return out;
+  }
+
+  /** Sai da edição da caixa (`silent`: sem rediagramar — desfazer/refazer, que
+   *  rediagrama depois de restaurar). */
+  exitTextbox(silent = false): void {
     if (!this.tbEdit || !this.savedForTb) return;
     // a caixa pode ter ganho/perdido parágrafos: os blocos (que o motor lê) acompanham
     const tbx = this.tbEdit.hostRun.textbox;
@@ -2089,11 +2178,9 @@ export class UniversalWriteElement extends HTMLElement {
     this.sectionStarts = this.savedForTb.sectionStarts;
     this.floatImages = this.savedForTb.floatImages;
     this.selection = this.savedForTb.selection;
-    this.undoStack = this.savedForTb.undoStack;
-    this.redoStack = this.savedForTb.redoStack;
     this.savedForTb = null;
     this.tbEdit = null;
-    this.refresh();
+    if (!silent) this.refresh();
     this.dispatchEvent(new CustomEvent('uw-tbmode', { detail: { active: false } }));
   }
 
@@ -5818,12 +5905,26 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre).
    *  `parts`: conteúdo de partes de cabeçalho/rodapé (chave "kind:rId") que o passo muda. */
-  private stringifyState(deep = false, parts: readonly string[] = []): string {
-    // a caixa de texto tem pilha própria (o modelo é o dela); corpo, célula de
-    // tabela, nota e cabeçalho/rodapé dividem a do documento: o estado leva o
-    // corpo, as TABELAS e a célula ativa (desfazer uma operação de tabela, ou
-    // texto digitado numa célula depois de sair dela, como no Word)
-    const own = this.tbEdit;
+  private stringifyState(deep = false, parts: readonly string[] = [], extra?: Record<string, unknown>): string {
+    // caixa de texto em edição: a pilha é a do documento (medido: uma só) — o estado é
+    // o de fora da caixa (o corpo, ou a parte do cabeçalho; o texto da caixa vai junto,
+    // dentro do run dela) e a caixa em edição com o cursor (para voltar a ela)
+    if (this.tbEdit && this.savedForTb) {
+      const te = this.tbEdit, sb = this.savedForTb;
+      const cur = { model: this.model, selection: this.selection, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts, floatImages: this.floatImages };
+      const runs = this.contextTextboxRuns(sb.model);
+      const info = { h: runs.indexOf(te.hostRun), f: runs.indexOf(te.focusRun), pg: te.pageIdx, s: this.selection };
+      this.tbEdit = null;
+      this.model = sb.model; this.selection = sb.selection; this.tableAnchors = sb.tableAnchors; this.sectionStarts = sb.sectionStarts; this.floatImages = sb.floatImages;
+      try { return this.stringifyState(deep, parts, { ...extra, te: info }); } finally {
+        this.tbEdit = te;
+        this.model = cur.model; this.selection = cur.selection; this.tableAnchors = cur.tableAnchors; this.sectionStarts = cur.sectionStarts; this.floatImages = cur.floatImages;
+      }
+    }
+    // corpo, célula de tabela, nota e cabeçalho/rodapé dividem a pilha do documento:
+    // o estado leva o corpo, as TABELAS e a célula ativa (desfazer uma operação de
+    // tabela, ou texto digitado numa célula depois de sair dela, como no Word)
+    const own = null as unknown;
     const ce = own ? null : this.cellEdit;
     // (na nota, idem: o corpo e, à parte, a nota)
     const ne = own ? null : this.noteEdit;
@@ -5870,6 +5971,7 @@ export class UniversalWriteElement extends HTMLElement {
       nt: ne ? { k: ne.kind, id: ne.id, p: this.model!.paragraphs, s: this.selection } : undefined,
       // opções de nota do documento (settings)
       np: own ? undefined : this.noteSettings,
+      ...extra,
     }, (key, value) => {
       if (value instanceof Uint8Array) {
         let idx = this.imgPoolIdx.get(value);
@@ -5896,6 +5998,7 @@ export class UniversalWriteElement extends HTMLElement {
     nt?: { k: NoteKind; id: number; p: Paragraph[]; s: { anchor: DocPosition; focus: DocPosition } };
     nb?: [NoteKind, number, Paragraph[]][];
     np?: { footnote?: NoteProps; endnote?: NoteProps };
+    te?: { h: number; f: number; pg: number; s: { anchor: DocPosition; focus: DocPosition } };
     hp?: { k: string; b: Block[]; s: { anchor: DocPosition; focus: DocPosition } };
     hx?: [string, Block[]][];
     eo?: boolean;
@@ -5931,20 +6034,28 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model || from.length === 0) return;
     this.floatSel = null; // o modelo é recriado → referência de run fica obsoleta
     const state = this.parseState(from.pop()!);
+    const partKeys = [...(state.hp ? [state.hp.k] : []), ...(state.hx ?? []).map(([k]) => k)];
+    // caixa de texto em edição: o estado de agora (com ela) vai para a outra pilha e o
+    // passo volta de fora dela; se ele foi dado numa caixa, entra nela de novo (no fim)
+    let pushed = false;
+    if (this.tbEdit) {
+      to.push(this.stringifyState(!!state.hf, partKeys));
+      pushed = true;
+      this.exitTextbox(true);
+    }
     // corpo, notas e cabeçalho/rodapé dividem a pilha (como no Word). Cabeçalho:
     // o passo volta sem trocar de modo (oráculo hf-lab h02/h03) — no modo
     // cabeçalho, sai e volta à mesma página depois (a parte exibida pode mudar)
     const hf = this.hfEdit && !this.tbEdit
       ? { kind: this.hfEdit.kind, page: this.hfActivePage, key: `${this.hfEdit.kind}:${this.hfEdit.rid}`, sel: this.selection }
       : null;
-    const partKeys = [...(state.hp ? [state.hp.k] : []), ...(state.hx ?? []).map(([k]) => k)];
     // o passo dado numa nota leva o cursor até ela antes de voltar o estado — o
     // refazer guarda o texto dela (oráculo notes-lab, fn-undo)
     if (!this.hfEdit && !this.tbEdit && state.nt) {
       const ne = this.noteEdit;
       if (ne?.kind !== state.nt.k || ne?.id !== state.nt.id) this.enterNote(state.nt.k, state.nt.id, 'end');
     }
-    to.push(this.stringifyState(!!state.hf, partKeys));
+    if (!pushed) to.push(this.stringifyState(!!state.hf, partKeys));
     if (hf) this.exitHeaderFooter(true, false);
     // aceitar/rejeitar todas: os cabeçalhos/rodapés voltam no lugar
     if (state.hf) {
@@ -5959,14 +6070,7 @@ export class UniversalWriteElement extends HTMLElement {
         for (const r of [...sec.headerRefs, ...sec.footerRefs]) this.dirtyHf.add(r.path);
       });
     }
-    if (this.tbEdit) {
-      // caixa de texto: o array de parágrafos É o do documento (a caixa) —
-      // restaura no lugar para não desligá-lo
-      const linked = this.model.paragraphs;
-      linked.splice(0, linked.length, ...state.m.paragraphs);
-      this.model = { ...state.m, paragraphs: linked };
-      this.selection = state.s;
-    } else {
+    {
       const wasCell = !!this.cellEdit;
       const wasNote = this.noteEdit;
       this.cellEdit = null;
@@ -6014,11 +6118,9 @@ export class UniversalWriteElement extends HTMLElement {
     if (state.dt !== undefined && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
     this.restorePageBackground(state.bg, state.bgd);
     // cabeçalhos/rodapés que o passo mudou (a parte em edição e as outras)
-    if (!this.tbEdit) {
-      for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
-      if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
-      if (state.eo !== undefined && state.eo !== this.evenOddHeaders()) this.setEvenOddFlag(state.eo);
-    }
+    for (const [k, b] of state.hx ?? []) this.restoreHfPart(k, b);
+    if (state.hp) this.restoreHfPart(state.hp.k, state.hp.b);
+    if (state.eo !== undefined && state.eo !== this.evenOddHeaders()) this.setEvenOddFlag(state.eo);
     if (hf && !this.noteEdit && !this.cellEdit) {
       // de volta ao cabeçalho/rodapé da mesma página (diagramada já com o estado
       // de volta); o cursor do passo, se for a mesma parte
@@ -6030,6 +6132,23 @@ export class UniversalWriteElement extends HTMLElement {
       if (!this.hfEdit) this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: false } }));
     }
     this.refresh();
+    // passo dado dentro de uma caixa de texto: volta à edição dela com o cursor de então
+    if (state.te) this.reenterTextbox(state.te);
+  }
+
+  /** Volta à edição da caixa (ordem dela na história do contexto atual) depois de um
+   *  desfazer/refazer — a mesma página, o cursor de então. */
+  private reenterTextbox(te: { h: number; f: number; pg: number; s: { anchor: DocPosition; focus: DocPosition } }): void {
+    if (!this.model) return;
+    const runs = this.contextTextboxRuns(this.model);
+    const focus = runs[te.f] ?? runs[te.h];
+    if (!focus?.textbox) return;
+    const o = this.engObjectOf(focus, this.hfEdit ? te.pg : undefined);
+    this.enterTextbox(focus, o ? { x: o.x, y: o.y, w: o.w, h: o.h } : { x: 0, y: 0, w: focus.textbox.widthTwips, h: focus.textbox.heightTwips }, o?.page ?? te.pg);
+    if (this.tbEdit) {
+      this.selection = this.clampSel(te.s);
+      this.refresh();
+    }
   }
 
   /** Seleção dentro do modelo atual (parágrafos/offsets existentes). */
@@ -9494,6 +9613,33 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model) return null;
     const inHf = !!this.hfEdit;
     const scale = PX_PER_TWIP * this.zoom;
+    // motor: os objetos que ele posicionou (corpo, células, cabeçalho em edição), girados
+    // com a forma; o de cima ganha (à frente do texto, depois a ordem z)
+    if (this.eng) {
+      const mine = new Set(this.contextTextboxRuns(this.tbEdit && this.savedForTb ? this.savedForTb.model : this.model));
+      let best: { hostRun: Run; rect: { x: number; y: number; w: number; h: number }; page: number } | null = null;
+      let bestZ = -Infinity;
+      this.eng.result.pages.forEach((page, pg) => {
+        if (inHf && pg !== this.hfActivePage) return;
+        const cv = this.canvases[pg];
+        if (!cv) return;
+        const cr = cv.getBoundingClientRect();
+        if (e.clientY < cr.top || e.clientY > cr.bottom || e.clientX < cr.left || e.clientX > cr.right) return;
+        const xT = (e.clientX - cr.left) / scale, yT = (e.clientY - cr.top) / scale;
+        for (const o of page.objects ?? []) {
+          const tb = o.run.textbox;
+          if (!tb || !o.content || o.hf !== inHf || !mine.has(o.run)) continue;
+          const rot = ((tb.rot ?? 0) * Math.PI) / 180;
+          const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+          const dx = xT - cx, dy = yT - cy;
+          const lx = dx * Math.cos(rot) + dy * Math.sin(rot), ly = -dx * Math.sin(rot) + dy * Math.cos(rot);
+          if (Math.abs(lx) > o.w / 2 || Math.abs(ly) > o.h / 2) continue;
+          const z = (o.layer === 'front' ? 2 ** 40 : 0) + (tb.anchor?.relativeHeight ?? 0);
+          if (z >= bestZ) { bestZ = z; best = { hostRun: o.run, rect: { x: o.x, y: o.y, w: o.w, h: o.h }, page: pg }; }
+        }
+      });
+      return best;
+    }
     const paras = this.model.paragraphs;
     for (let pi = 0; pi < paras.length; pi++) {
       for (const r of paras[pi]!.runs) {
@@ -9706,11 +9852,13 @@ export class UniversalWriteElement extends HTMLElement {
    *  selecionada (floatSel). Assim o redimensionamento coexiste com a edição. */
   private activeFloat(): FloatHandle | null {
     if (this.tbEdit) {
-      const tb = this.tbEdit.hostRun.textbox;
+      // a caixa em foco (a clicada, numa cadeia vinculada), girada com a forma
+      const tb = this.tbEdit.focusRun.textbox;
       if (!tb) return null;
+      const rot = tb.upright ? 0 : tb.rot ?? 0;
       return {
-        run: this.tbEdit.hostRun, obj: tb, kind: 'textbox',
-        page: this.tbEdit.pageIdx, rect: { ...this.tbEdit.rectTwips },
+        run: this.tbEdit.focusRun, obj: tb, kind: 'textbox',
+        page: this.tbEdit.pageIdx, rect: { ...this.tbEdit.rectTwips }, ...(rot ? { rot } : {}),
       };
     }
     return this.selectedFloat();
@@ -9795,7 +9943,7 @@ export class UniversalWriteElement extends HTMLElement {
     const scale = PX_PER_TWIP * this.zoom;
     const obj = h.obj;
     // caixa em edição: o retângulo na tela (tbEdit.rectTwips) é a referência.
-    const editingTb = this.tbEdit && obj === this.tbEdit.hostRun.textbox ? this.tbEdit : null;
+    const editingTb = this.tbEdit && obj === this.tbEdit.focusRun.textbox ? this.tbEdit : null;
     const pic = h.kind === 'image' && !editingTb && (obj as InlineImage).format ? (obj as InlineImage) : null;
     if (h.inline && mode === 'move') { this.startInlineDrag(e, h); return; }
     this.snapshot(); // undo + marca HF sujo
@@ -11155,15 +11303,19 @@ export class UniversalWriteElement extends HTMLElement {
         // motor: linhas lado a lado (células de tabela, colunas) — a faixa
         // vertical manda, depois a distância horizontal
         let bestD = Infinity;
+        let bestX = xT;
         for (const line of this.allLines()) {
           if (line.page !== pg) continue;
           const l = line.eng;
+          // caixa girada/vertical: o ponto no referencial do texto
+          const [px, py] = line.xf ? xfInvert(line.xf, xT, yT) : [xT, yT];
           const x0 = l?.x ?? line.xTwips, x1 = x0 + (l?.width ?? 0);
-          const dy = yT < line.yTwips ? line.yTwips - yT : yT > line.yTwips + line.heightTwips ? yT - line.yTwips - line.heightTwips : 0;
-          const dx = xT < x0 ? x0 - xT : xT > x1 ? xT - x1 : 0;
+          const dy = py < line.yTwips ? line.yTwips - py : py > line.yTwips + line.heightTwips ? py - line.yTwips - line.heightTwips : 0;
+          const dx = px < x0 ? x0 - px : px > x1 ? px - x1 : 0;
           const d = dy * 4 + dx;
-          if (d < bestD) { bestD = d; best = line; }
+          if (d < bestD) { bestD = d; best = line; bestX = px; }
         }
+        if (best) return { para: best.para, offset: this.hitLineX(best, bestX) };
       } else {
         for (const line of this.allLines()) {
           if (line.page !== pg) continue;
@@ -11251,8 +11403,14 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** O motor diagrama e pinta o canvas agora? */
   private engineActive(): boolean {
+    return this.engineCanRun();
+  }
+
+  /** O motor pode diagramar agora? (a caixa de texto em edição também vai por ele:
+   *  o texto dela é diagramado no lugar, como no PDF) */
+  private engineCanRun(): boolean {
     return !this.legacyRequested() && !this.engineFailed && this.forceLegacy === 0 && !!this.model && !!this.fonts
-      && (this.view === 'print' || this.view === 'read') && !this.tbEdit;
+      && (this.view === 'print' || this.view === 'read');
   }
 
   /** Exportações que leem o layout legado (XPS, PDF de reserva) o refazem
@@ -11448,8 +11606,9 @@ export class UniversalWriteElement extends HTMLElement {
   private noteParaEdit(pi: number): void {
     this.fastHint = null;
     this.fastTable = null;
-    // cabeçalho/rodapé: repete em várias páginas — layout completo
-    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit || this.noteEdit) return;
+    // cabeçalho/rodapé: repete em várias páginas — layout completo; caixa de texto:
+    // o conteúdo é do objeto (ajuste da altura, cadeia) — layout completo
+    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit || this.noteEdit || this.tbEdit) return;
     // revisões com barra de alteração (o layout isolado não refaz as barras da página)
     if ((this.markupMode === 'all' || this.markupMode === 'simple')
       && (this.tracking || (this.model.paragraphs[pi] && paragraphHasRevisions(this.model.paragraphs[pi]!)))) return;
@@ -11668,6 +11827,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.eng || !this.model) return;
     const paras = this.model!.paragraphs;
     this.layoutCache = paras.map(() => ({ spans: [], charAdvances: [], lines: [], spanCharStart: [] }));
+    // caixa de texto em edição: as linhas do conteúdo de cada caixa da cadeia
+    if (this.tbEdit) { this.rebuildTextboxLines(); return; }
     const ce = this.cellEdit;
     const blocksOfCell = ce ? cellBlocks(ce.cell) : [];
     // cabeçalho/rodapé em edição: as linhas dele na página ativa (a parte se
@@ -11708,6 +11869,55 @@ export class UniversalWriteElement extends HTMLElement {
       });
     }
     // o parágrafo inteiro é coberto pelas suas linhas (texto oculto no começo/fim)
+    paras.forEach((p, pi) => {
+      const ls = this.layoutCache[pi]!.lines;
+      if (!ls.length) return;
+      ls[0]!.rich.start = 0;
+      ls[ls.length - 1]!.rich.end = paraLength(p);
+    });
+  }
+
+  /**
+   * Linhas da caixa de texto em edição (e das caixas vinculadas a ela) a partir dos
+   * objetos que o motor posicionou: refs "txbx/bN…" nos blocos da 1ª caixa da cadeia;
+   * a matriz de cada caixa leva as coordenadas do texto à página (sem giro: as linhas
+   * já vão em coordenadas de página). No cabeçalho/rodapé, a página da edição.
+   */
+  private rebuildTextboxLines(): void {
+    const te = this.tbEdit!;
+    const paras = this.model!.paragraphs;
+    const head = te.hostRun.textbox!;
+    const members = new Set<DrawingTextbox>(te.chain ?? [head]);
+    const blocks: Block[] = head.blocks ?? head.paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+    const pages = this.eng!.result.pages;
+    let rect: { x: number; y: number; w: number; h: number } | null = null;
+    pages.forEach((page, pg) => {
+      if (this.hfEdit && pg !== te.pageIdx) return;
+      for (const o of page.objects ?? []) {
+        const t = o.run.textbox;
+        if (!t || !members.has(t) || !o.content) continue;
+        if (o.run === te.focusRun && pg === te.pageIdx) rect = { x: o.x, y: o.y, w: o.w, h: o.h };
+        const [a, b, c, d, e, f] = o.content.xf;
+        const plain = Math.abs(a - 1) < 1e-9 && Math.abs(d - 1) < 1e-9 && Math.abs(b) < 1e-9 && Math.abs(c) < 1e-9;
+        for (const l0 of o.content.lines) {
+          const para = paragraphAtPath(blocks, l0.ref.split('/').slice(1));
+          const pi = para ? paras.indexOf(para) : -1;
+          const pl = pi >= 0 ? this.layoutCache[pi] : undefined;
+          if (!pl) continue;
+          const l = plain ? shiftEngLine(l0, e, f) : l0;
+          if (pl.lines.some((x) => x.rich.start === l.start && x.rich.end === l.end && x.page === pg)) continue;
+          const len = paraLength(paras[pi]!);
+          const clamp = (v: number) => Math.max(0, Math.min(len, v));
+          pl.lines.push({
+            para: pi,
+            rich: { start: clamp(l.start), end: clamp(l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+            page: pg, xTwips: l.x, yTwips: l.y, heightTwips: l.height, baselineTwips: l.baseline,
+            justifyExtraPerSpace: 0, eng: l, ...(plain ? {} : { xf: o.content.xf }),
+          });
+        }
+      }
+    });
+    if (rect) te.rectTwips = rect;
     paras.forEach((p, pi) => {
       const ls = this.layoutCache[pi]!.lines;
       if (!ls.length) return;
@@ -12895,7 +13105,10 @@ export class UniversalWriteElement extends HTMLElement {
         if (to <= from && !past) continue;
         const x1 = this.caretX({ para: pi, offset: from }, line);
         const x2 = this.caretX({ para: pi, offset: to }, line) + (past ? 80 : 0);
+        // caixa girada/vertical: no referencial do texto
+        if (line.xf) { ctx.save(); ctx.transform(...line.xf); }
         ctx.fillRect(x1, line.yTwips, Math.max(0, x2 - x1), line.heightTwips);
+        if (line.xf) ctx.restore();
       }
     }
   }
@@ -16109,9 +16322,20 @@ export class UniversalWriteElement extends HTMLElement {
         const ctx = ctxs[cpg];
         if (ctx) {
           const scale = scales[cpg]!;
-          const x = this.caretX(this.selection.focus, line) * scale;
           ctx.fillStyle = this.pageDark ? '#e8eaed' : '#000';
-          ctx.fillRect(x, line.yTwips * scale, Math.max(1, dpr), line.heightTwips * scale);
+          if (line.xf) {
+            // caixa girada/vertical: o traço do caret no referencial do texto
+            const cx = this.caretX(this.selection.focus, line);
+            const [ax, ay] = xfApply(line.xf, cx, line.yTwips), [bx, by] = xfApply(line.xf, cx, line.yTwips + line.heightTwips);
+            ctx.save();
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = Math.max(1, dpr);
+            ctx.beginPath(); ctx.moveTo(ax * scale, ay * scale); ctx.lineTo(bx * scale, by * scale); ctx.stroke();
+            ctx.restore();
+          } else {
+            const x = this.caretX(this.selection.focus, line) * scale;
+            ctx.fillRect(x, line.yTwips * scale, Math.max(1, dpr), line.heightTwips * scale);
+          }
         }
       }
     }

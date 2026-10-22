@@ -118,7 +118,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,page,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,page,textbox,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -1249,6 +1249,74 @@ if (want('refs')) {
   ];
   xml = await docXml();
   check('no controle de texto: referência, hiperlink, legenda e índice não fazem nada', refused.every((x) => x === false) && !/fldChar|fldSimple|w:hyperlink/.test(xml), refused);
+}
+
+if (want('textbox')) {
+  // ───────────── caixa de texto: editar o texto no lugar (motor), vinculadas, desfazer ─────────────
+  const LK = '/write/packages/docx-layout/test/oracle/txbxlink/lk-basic.docx';
+  let r = await ev('open', LK);
+  let objs = await ev('objects');
+  const ia = objs.findIndex((o) => o.kind === 'textbox' && o.story !== undefined);
+  const ib = objs.findIndex((o) => o.kind === 'textbox' && o.link !== undefined);
+  check('caixas vinculadas: a 1ª e a seguinte com linhas de conteúdo', r.engine && ia >= 0 && ib >= 0 && objs[ia].lines > 0 && objs[ib].lines > 0, objs.map((o) => ({ k: o.kind, s: o.story, l: o.link, n: o.lines })));
+  // clique no meio da 1ª caixa → edição do texto, caret no ponto
+  let p = await ev('objectClient', ia, 0.5, 0.3);
+  await page.mouse.click(p.x, p.y);
+  let s = await st();
+  check('clique na caixa entra na edição do texto', s.tb && s.paras >= 3, { tb: s.tb, paras: s.paras, sel: s.sel });
+  let cg = await ev('caretVsGlyphs');
+  check('caixa: cursor = x dos glifos (as duas caixas da cadeia)', cg.checked > 100 && cg.bad.length === 0, cg);
+  let c = await ev('caret');
+  check('caixa: caret sobre um glifo desenhado', c?.glyphAt, c);
+  const t0 = await ev('text', s.sel.focus.para);
+  const off = s.sel.focus.offset;
+  await page.keyboard.type('XYZ');
+  const t1 = await ev('text', s.sel.focus.para);
+  check('caixa: digitar insere no texto da caixa', t1 === t0.slice(0, off) + 'XYZ' + t0.slice(off), t1.slice(Math.max(0, off - 5), off + 8));
+  objs = await ev('objects');
+  check('caixa: o texto digitado está no modelo da 1ª caixa', objs[ia].text.includes('XYZ'));
+  cg = await ev('caretVsGlyphs');
+  check('caixa: cursor = glifos depois da digitação', cg.bad.length === 0, cg);
+  // clique na caixa seguinte: mesma história, cursor no texto que continua nela
+  p = await ev('objectClient', ib, 0.5, 0.2);
+  await page.mouse.click(p.x, p.y);
+  s = await st();
+  c = await ev('caret');
+  const objsB = await ev('objects');
+  check('clique na caixa vinculada: mesma história, caret na caixa seguinte', s.tb && c && c.y >= objsB[ib].y - 20 && c.y <= objsB[ib].y + objsB[ib].h, { tb: s.tb, c, box: objsB[ib] });
+  // desfazer dentro da caixa volta o texto e fica nela
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  s = await st();
+  check('Ctrl+Z na caixa desfaz a digitação e continua editando a caixa', s.tb && !(await ev('objects'))[ia].text.includes('X'), { tb: s.tb });
+  await page.keyboard.press('Escape');
+  s = await st();
+  check('Esc sai da caixa', !s.tb, { tb: s.tb });
+  await page.keyboard.press('Control+y');
+  s = await st();
+  check('Ctrl+Y fora da caixa refaz e volta a ela', s.tb && (await ev('objects'))[ia].text.includes('X'), { tb: s.tb });
+  await page.keyboard.press('Control+y');
+  await page.keyboard.press('Control+y');
+  await page.keyboard.press('Escape');
+  const xml = await ev('savedPart', 'word/document.xml');
+  const txbx = xml.match(/<wps:txbx[\s\S]*?<\/wps:txbx>/g) ?? [];
+  check('salvar: o texto editado vai no wps:txbx da 1ª caixa', txbx.length === 1 && txbx[0].includes('XYZ') && /<wps:txbx id="1">/.test(txbx[0]), txbx.map((x) => x.length));
+  check('salvar: a seguinte continua vinculada (linkedTxbx sem conteúdo)', /<wps:linkedTxbx id="1" seq="1"\/>/.test(xml));
+
+  // caixa com texto vertical: digitar entra no texto (o desenho é girado)
+  r = await ev('open', '/write/packages/docx-layout/test/oracle/txbxvert/tv-vert.docx');
+  objs = await ev('objects');
+  const iv = objs.findIndex((o) => o.kind === 'textbox');
+  p = await ev('objectClient', iv, 0.5, 0.5);
+  await page.mouse.click(p.x, p.y);
+  s = await st();
+  await page.keyboard.type('Q');
+  objs = await ev('objects');
+  check('caixa vertical: clique entra e digitar vai para o texto', s.tb && objs[iv].text.includes('Q'), { tb: s.tb });
+  await page.keyboard.press('Control+z');
+  objs = await ev('objects');
+  check('caixa vertical: desfazer', !objs[iv].text.includes('Q'));
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────
