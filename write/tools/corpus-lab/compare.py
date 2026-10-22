@@ -3,8 +3,14 @@
 Fontes de comparação (por documento, em LAB_DIR):
   word/<id>/text.json, word/<id>/p<N>.png     — extraídos do PDF do Word (cache)
   <tag>/<id>/canvas-p<N>.png                   — canvas do <universal-write> (run-ours)
-  <tag>/<id>/js.pdf                            — exportPdf() JS (run-ours)
+  <tag>/<id>/js.pdf                            — exportPdf() JS (run-ours: bytes
+                                                 originais; run-engine: motor)
+  <tag>/<id>/live.pdf                          — exportPdf() do estado vivo do
+                                                 editor (run-ours), o que o canvas pinta
   <tag>/<id>/net.pdf                           — DocxPdf .NET (run-net)
+
+--source canvas: pixels do canvas e texto do live.pdf (do js.pdf se não há);
+--source live: texto e pixels do live.pdf.
 
 Métricas:
   pages_w / pages_o       nº de páginas
@@ -18,7 +24,7 @@ Métricas:
   pix_f1                  sobreposição de tinta (96 dpi, tolerância 1 px)
   first_div               primeira linha do Word sem par (página, texto curto)
 
-Uso: python -I compare.py <tag> [--source canvas|js|net] [--only id,id] [--workers 8]
+Uso: python -I compare.py <tag> [--source canvas|live|js|net] [--only id,id] [--workers 8]
 Saída: LAB_DIR/report/<tag>-<source>.json (+ .csv)
 """
 import csv
@@ -233,6 +239,9 @@ def compare_doc(args):
             return res
         res['fonts'] = info.get('fonts')
         pdf = os.path.join(odir, 'net.pdf' if source == 'net' else 'js.pdf')
+        live = os.path.join(odir, 'live.pdf')
+        if source == 'live' or (source == 'canvas' and os.path.exists(live)):
+            pdf = live
         if os.path.exists(pdf):
             res.update(compare_text(w, pdf_data(pdf)))
         else:

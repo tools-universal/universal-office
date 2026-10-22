@@ -1,15 +1,19 @@
 // Roda o <universal-write> (headless, Playwright) sobre o corpus e grava, por
 // documento, em LAB_DIR/ours/<id>/:
 //   canvas-p<N>.png  — página N do canvas a 96 dpi
-//   js.pdf           — exportPdf() (mesmo layout do canvas)
+//   js.pdf           — exportPdf() do documento sem edições: lê os bytes
+//                      ORIGINAIS (o caminho do motor puro, run-engine)
+//   live.pdf         — exportPdf() do estado VIVO (o modelo de edição → motor):
+//                      o mesmo documento que o canvas pinta
 //   info.json        — páginas, fontes resolvidas (origem), tempos, erros
 //
 // Fontes do SO pela ponte do host (system-fonts.cjs), como no shell Electron.
 // Sem janelas: Chromium headless.
 //
 // Uso: node tools/corpus-lab/run-ours.mjs [--only id,id] [--tenant N] [--limit N]
-//        [--from N] [--workers 4] [--no-canvas] [--no-pdf] [--force] [--tag nome]
+//        [--from N] [--workers 4] [--no-canvas] [--no-pdf] [--no-live] [--force] [--tag nome]
 //        [--electron]   (runtime do shell Electron, janelas ocultas)
+//        [--markup none] [--probe sonda.js]
 import { build } from 'esbuild';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
@@ -32,9 +36,16 @@ const WORKERS = Number(opt('workers', 4));
 const TAG = opt('tag', 'ours');
 const DOC_TIMEOUT = Number(opt('timeout', 180_000));
 const outRoot = join(LAB_DIR, TAG);
+// --markup none|simple|all|original: modo de exibição das revisões (as referências
+// do corpus são o PDF do Word "sem marcação"; o editor abre em Todas as Marcações)
+const MARKUP = opt('markup', undefined);
+// --probe arquivo.js: expressão avaliada na página depois de abrir (window.lab.el()
+// é o elemento); o resultado vai para info.probe
+const PROBE = opt('probe') ? readFileSync(opt('probe'), 'utf8') : undefined;
 
 // ── bundle do harness ──
-const buildDir = join(LAB_DIR, '.harness');
+// (uma pasta por tag: duas rodadas em paralelo, de worktrees diferentes, não se pisam)
+const buildDir = join(LAB_DIR, '.harness', TAG);
 mkdirSync(buildDir, { recursive: true });
 const ed = join(writeRoot, 'packages');
 await build({
@@ -149,6 +160,8 @@ async function newPage() {
   const page = ELECTRON ? await electronPage() : await context.newPage();
   page.on('pageerror', (e) => { page.__errors?.push(String(e).slice(0, 300)); });
   page.on('console', (m) => { if (m.type() === 'warning' || m.type() === 'error') page.__errors?.push(`[${m.type()}] ${m.text()}`.slice(0, 600)); });
+  // o console do 404 não diz o endereço
+  page.on('response', (r) => { if (r.status() >= 400) page.__errors?.push(`[http ${r.status()}] ${r.url().replace(base, '')}`.slice(0, 300)); });
   await page.goto(`${base}/__lab/harness.html`);
   await page.waitForFunction(() => !!window.lab);
   return page;
@@ -161,6 +174,16 @@ function wordPdfDate(pdfPath) {
     const m = /\/CreationDate\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(head);
     return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : undefined;
   } catch { return undefined; }
+}
+
+/** Grava o último PDF da página em trechos (string do V8 tem limite de ~512 MB). */
+async function savePdf(page, size, path) {
+  const CH = 48 << 20;
+  const parts = [];
+  for (let off = 0; off < size; off += CH) {
+    parts.push(Buffer.from(await page.evaluate(([o, n]) => window.lab.pdfChunk(o, n), [off, CH]), 'base64'));
+  }
+  writeFileSync(path, Buffer.concat(parts));
 }
 
 let done = 0;
@@ -193,8 +216,9 @@ async function worker() {
       }, when ? when.getTime() : null);
       const ts = Date.now();
       try {
-        const r = await withTimeout(page.evaluate((u) => window.lab.open(u), `/__doc/${encodeURIComponent(d.id)}`), DOC_TIMEOUT, 'open');
+        const r = await withTimeout(page.evaluate(([u, m]) => window.lab.open(u, m), [`/__doc/${encodeURIComponent(d.id)}`, MARKUP]), DOC_TIMEOUT, 'open');
         Object.assign(info, { pages: r.pages, fonts: r.fonts, openMs: r.ms });
+        if (PROBE) info.probe = await withTimeout(page.evaluate(PROBE), DOC_TIMEOUT, 'probe').catch((e) => `erro: ${e?.message ?? e}`);
         if (!flag('no-canvas')) {
           const tc = Date.now();
           for (let i = 0; i < r.pages; i++) {
@@ -206,11 +230,21 @@ async function worker() {
         if (!flag('no-pdf')) {
           const tp = Date.now();
           try {
-            const b64 = await withTimeout(page.evaluate(() => window.lab.pdf()), DOC_TIMEOUT, 'pdf');
-            writeFileSync(join(dir, 'js.pdf'), Buffer.from(b64, 'base64'));
+            const size = await withTimeout(page.evaluate(() => window.lab.pdf()), DOC_TIMEOUT, 'pdf');
+            await savePdf(page, size, join(dir, 'js.pdf'));
             info.pdfMs = Date.now() - tp;
           } catch (e) {
             info.pdfError = String(e?.message ?? e).slice(0, 500);
+          }
+        }
+        if (!flag('no-live')) {
+          const tp = Date.now();
+          try {
+            const size = await withTimeout(page.evaluate(() => window.lab.livePdf()), DOC_TIMEOUT, 'live');
+            await savePdf(page, size, join(dir, 'live.pdf'));
+            info.liveMs = Date.now() - tp;
+          } catch (e) {
+            info.liveError = String(e?.message ?? e).slice(0, 500);
           }
         }
         info.status = 'ok';

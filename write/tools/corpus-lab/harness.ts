@@ -45,6 +45,7 @@ interface Internals {
 }
 
 let el: (UniversalWriteElement & Internals) | null = null;
+let lastPdf: Uint8Array | null = null;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function bytesToBase64(b: Uint8Array): string {
@@ -55,8 +56,13 @@ function bytesToBase64(b: Uint8Array): string {
 }
 
 w.lab = {
-  /** Abre o documento; devolve nº de páginas e as fontes (pedida → origem). */
-  async open(url: string): Promise<{ pages: number; fonts: Record<string, string>; ms: number }> {
+  /** O elemento aberto (sondas do run-ours --probe). */
+  el: () => el,
+
+  /** Abre o documento; devolve nº de páginas e as fontes (pedida → origem).
+   *  `markup`: modo de exibição das revisões (os PDFs de referência do corpus
+   *  são "sem marcação"); editor sem setMarkupMode: ignorado. */
+  async open(url: string, markup?: string): Promise<{ pages: number; fonts: Record<string, string>; ms: number }> {
     const t0 = performance.now();
     document.body.replaceChildren();
     el = document.createElement('universal-write') as UniversalWriteElement & Internals;
@@ -67,6 +73,8 @@ w.lab = {
     await el.initialize();
     const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
     el.load(bytes, 'auto', { protected: false });
+    const setMarkup = (el as unknown as { setMarkupMode?: (m: string) => void }).setMarkupMode;
+    if (markup && setMarkup) setMarkup.call(el, markup);
     // fontes embutidas (async), resolvedor do host e refresh enfileirado
     for (let i = 0; i < 3; i++) {
       await sleep(30);
@@ -91,8 +99,28 @@ w.lab = {
     return el.pageImageForPrint(i);
   },
 
-  async pdf(): Promise<string> {
+  /** Exporta o PDF e guarda os bytes; devolve o tamanho (os bytes vêm por pdfChunk:
+   *  um PDF de centenas de MB não cabe numa string só). */
+  async pdf(): Promise<number> {
     if (!el) throw new Error('nada aberto');
-    return bytesToBase64(await el.exportPdf());
+    lastPdf = await el.exportPdf();
+    return lastPdf.length;
+  },
+
+  /** Trecho [off, off+len) do último PDF, em base64. */
+  pdfChunk(off: number, len: number): string {
+    if (!lastPdf) throw new Error('sem PDF');
+    return bytesToBase64(lastPdf.subarray(off, off + len));
+  },
+
+  /** PDF do estado VIVO do editor — o documento que o CANVAS pinta, montado do
+   *  modelo de edição. O exportPdf() de um documento sem edições usa os bytes
+   *  originais (o mesmo caminho do motor puro), então não vê erro do modelo. */
+  async livePdf(): Promise<number> {
+    if (!el) throw new Error('nada aberto');
+    const e = el as unknown as { editsSinceLoad: number };
+    const was = e.editsSinceLoad;
+    e.editsSinceLoad = Math.max(1, was);
+    try { lastPdf = await el.exportPdf(); return lastPdf.length; } finally { e.editsSinceLoad = was; }
   },
 };
