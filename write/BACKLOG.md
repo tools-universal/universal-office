@@ -35,7 +35,13 @@ próprio worktree.
    de `shared/ui`; widget que faltar entra lá (serve ao Slides e ao Sheet). Sem
    "Word"/"Google" nos textos da interface.
 7. **Testes** — vitest da API e do modelo, caso do oráculo, conferência no
-   navegador (en e pt, barra larga e estreita), suíte do editor verde.
+   navegador (en e pt, barra larga e estreita), suíte do editor verde e a
+   **varredura do EDITOR no corpus** (~7 min): `run-ours.mjs --tag <frente>
+   --workers 6 --markup none`, `compare.py <frente> --source live` e
+   `--source canvas`, e `report-diff.py` contra a linha de base (memória
+   `editor-corpus-sweep.md`). Nenhum documento pode piorar sem explicação;
+   o motor puro (`run-engine` + `--source js`) sozinho não pega erro do
+   caminho do editor.
 8. **Docs** — README do produto (API nova) e `site/docs/write/api.html`.
 9. **Entrega** — commits no branch do worktree, SEM os bundles versionados
    (`*/demo/bundle.js`, `*/demo/chunks/`, `site/assets/universal-office.js`);
