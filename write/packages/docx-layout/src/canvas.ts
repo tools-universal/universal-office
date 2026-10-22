@@ -131,9 +131,19 @@ export function paintItems(
           w = n.x + n.w - it.x;
           i++;
         }
+        let x = it.x, y = it.y, h = it.h;
+        // retângulo fino (borda de tabela/parágrafo de 0,5 pt): o mesmo ajuste das
+        // linhas — largura inteira ≥ 1 px no centro do pixel, senão o
+        // antisserrilhado o espalha em 2 px claros (uma borda só, sem a pintura
+        // dupla das células vizinhas, ficava cinza-clara)
+        const m = ctx.getTransform();
+        if (m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0) {
+          [x, w] = snapThin(x, w, m.a, m.e);
+          [y, h] = snapThin(y, h, m.d, m.f);
+        }
         ctx.globalAlpha = base * (it.alpha ?? 1);
         ctx.fillStyle = env.color(it.fill);
-        ctx.fillRect(it.x, it.y, w, it.h);
+        ctx.fillRect(x, y, w, h);
         ctx.globalAlpha = base;
         break;
       }
@@ -234,6 +244,16 @@ export function paintItems(
   }
   while (depth-- > 0) ctx.restore();
   ctx.restore();
+}
+
+/** Faixa [v, v+len) (twips) com menos de 3 px de dispositivo (escala `s`, deslocamento
+ *  `o`): largura inteira ≥ 1 px, centrada onde estava e alinhada à grade de pixels. */
+export function snapThin(v: number, len: number, s: number, o: number): [number, number] {
+  const dev = len * s;
+  if (!(dev > 0 && dev < 3)) return [v, len];
+  const dw = Math.max(1, Math.round(dev));
+  const start = Math.round((v + len / 2) * s + o - dw / 2);
+  return [(start - o) / s, dw / s];
 }
 
 function paintGlyphs(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: EnginePaintEnv): void {
