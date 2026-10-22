@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  DocxPackage, readFullDocument, writeDocument, tableOps as T,
+  DocxPackage, readFullDocument, writeDocument, tableOps as T, parseXml,
   type TableBlock, type Block, type DocumentModel, type Paragraph,
 } from '../src/index.js';
 
@@ -371,6 +371,64 @@ describe('gravação sem perdas de tabela editada', () => {
     const xml = w.save();
     expect((xml.match(/<w:tbl>/g) ?? []).length + (xml.match(/<w:tbl /g) ?? []).length).toBe(2);
     expect(rowsOf(xml)).toEqual(orig);
+  });
+
+  // corpus (pastas 191, 89, 278): sdt de bloco na célula, sdt em volta da célula e da
+  // linha, indicadores soltos no w:tr — a tabela editada não pode perdê-los
+  describe('envoltórios e marcas dentro da tabela', () => {
+    const cellP = (t: string): string => `<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${t}</w:t></w:r></w:p></w:tc>`;
+    const sdt = (id: number, inner: string): string => `<w:sdt><w:sdtPr><w:id w:val="${id}"/></w:sdtPr><w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
+    function synth(rows: string[]) {
+      const doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+        + `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/></w:tblPr><w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid>${rows.join('')}</w:tbl><w:p/>`
+        + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>';
+      const pkg = DocxPackage.empty();
+      pkg.setPartText('word/document.xml', doc);
+      const full = readFullDocument(pkg, { sources: true });
+      full.sources!.baseline();
+      const t = full.blocks.find((b): b is TableBlock => b.type === 'table')!;
+      const save = (): string => {
+        const paragraphs = full.blocks.filter((b): b is Extract<Block, { type: 'paragraph' }> => b.type === 'paragraph').map((b) => b.paragraph);
+        writeDocument(pkg, { paragraphs, sectPr: full.sections[0]!.sectPr }, [], { blocks: full.blocks, sources: full.sources });
+        return pkg.documentXml();
+      };
+      return { t, save };
+    }
+
+    it('sdt de bloco na célula e indicadores entre os parágrafos dela', () => {
+      const tc = `<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/></w:tcPr>${sdt(7, '<w:p><w:r><w:t>campo</w:t></w:r></w:p>')}<w:bookmarkStart w:id="3" w:name="m"/><w:p><w:r><w:t>b</w:t></w:r></w:p><w:bookmarkEnd w:id="3"/></w:tc>`;
+      const s = synth([`<w:tr>${tc}${cellP('x')}</w:tr>`, `<w:tr>${cellP('c')}${cellP('d')}</w:tr>`]);
+      T.setTableProps(s.t, { tblStyle: 'X' });
+      const xml = s.save();
+      expect(xml).toContain(tc);
+      // a célula editada (texto novo) reembrulha o parágrafo dentro do sdt
+      s.t.rows[0]!.cells[0]!.paragraphs[0]!.runs[0]!.text = 'novo';
+      expect(s.save()).toContain('<w:sdtContent><w:p><w:r><w:t>novo</w:t></w:r></w:p></w:sdtContent></w:sdt><w:bookmarkStart w:id="3" w:name="m"/>');
+    });
+
+    it('sdt em volta da célula (aninhado) e da linha; indicadores soltos no w:tr', () => {
+      const r0 = `<w:tr><w:bookmarkStart w:id="1" w:name="a"/>${sdt(1, sdt(2, cellP('a')))}${cellP('b')}<w:bookmarkEnd w:id="1"/></w:tr>`;
+      const r1 = sdt(3, `<w:tr>${cellP('c')}${cellP('d')}</w:tr>`);
+      const r2 = `<w:tr>${cellP('e')}${cellP('f')}</w:tr>`;
+      const s = synth([r0, r1, r2]);
+      T.setTableProps(s.t, { tblStyle: 'X' });
+      expect(s.save()).toContain(r0 + r1 + r2);
+      // linha nova no meio: os envoltórios das outras continuam
+      T.insertRows(s.t, R(2, 0, 2, 1), 'below');
+      const xml = s.save();
+      expect(xml).toContain(r0 + r1 + r2);
+      expect((xml.match(/<w:tr>/g) ?? []).length).toBe(4);
+    });
+
+    it('envoltório de várias linhas partido pela edição: sai sem ele (XML válido), as linhas ficam', () => {
+      const s = synth([sdt(9, `<w:tr>${cellP('a')}${cellP('b')}</w:tr><w:tr>${cellP('c')}${cellP('d')}</w:tr>`), `<w:tr>${cellP('e')}${cellP('f')}</w:tr>`]);
+      T.deleteRows(s.t, 1, 1);
+      const xml = s.save();
+      expect(xml).not.toContain('<w:sdt>');
+      expect(xml).not.toContain('</w:sdtContent>');
+      expect(rowsOf(xml)).toHaveLength(2);
+      expect(() => parseXml(xml)).not.toThrow();
+    });
   });
 });
 

@@ -12,6 +12,9 @@
 //   3. estilos: modifica o estilo do 1º parágrafo editado (tamanho) e cria um
 //      vinculado (par Char) aplicado a outro → o styles.xml relê, os outros
 //      w:style saem byte a byte e o novo estilo chega ao parágrafo.
+// --tables: também edita a 1ª tabela do corpo como o editor (linha nova com
+// texto e campo de fórmula, mescla, sombreamento, largura preferida, estilo de
+// tabela novo) e põe bordas de página → só ela e o sectPr do corpo mudam.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -34,6 +37,7 @@ const only = opt('--only');
 const show = opt('--show');
 // --sections: além das edições de texto, quebra de seção + colunas + quebra de coluna + paisagem
 const sectionsMode = args.includes('--sections');
+const tablesMode = args.includes('--tables');
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -213,6 +217,43 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       edited.push(sc[0]);
       styleEdit = { target: raw ? target : null, id, tw, ids: idx.styles.map((x) => x.id) };
     }
+    // --tables: a 1ª tabela do corpo com 2+ linhas e 2+ colunas
+    let tblEdit = null;
+    if (tablesMode) {
+      const t = b.full.blocks.find((x) => x.type === 'table' && x.rows.length >= 2 && x.gridColsTwips.length >= 2);
+      if (t) {
+        const T = core.tableOps;
+        const nCols = T.mapTable(t).nCols;
+        const nr = T.insertRows(t, { r1: 0, c1: 0, r2: 0, c2: 0 }, 'below', 1);
+        // (a linha nova continua as mesclas verticais de cima: o texto vai na 1ª célula visível)
+        const vis = T.mapTable(t).rows[nr.r1].filter((x) => x.cell.tcPr?.vMerge !== 'continue');
+        const g = vis[0] ?? T.cellAt(T.mapTable(t), nr.r1, 0);
+        const para = g.cell.paragraphs[0];
+        const rp = para.runs[0]?.props ?? para.props.runProps ?? {};
+        para.runs = [{ text: 'XYZ ', props: { ...rp } }, { text: '0', props: { ...rp }, field: '=SUM(ABOVE) \\# "0,00"' }];
+        if (vis[1] && vis[1].col === g.col + g.span) {
+          const both = { r1: nr.r1, c1: g.col, r2: nr.r1, c2: vis[1].col };
+          if (T.canMerge(t, both)) T.mergeCells(t, both);
+        }
+        T.setShading(t, { r1: 0, c1: 0, r2: 0, c2: nCols - 1 }, { val: 'clear', color: 'auto', fill: 'FFF2CC' });
+        T.setPreferredWidth(t, { type: 'pct', w: 5000 }, 9000);
+        const sx1 = b.pkg.getPartText(stylesPath);
+        let tsId = null;
+        if (sx1) {
+          const taken = new Set(readStyleIndex(sx1).styles.map((x) => x.id));
+          tsId = styleIdFromName('Tabela Lossless', taken);
+          let raw = core.newTableStyleXml({ id: tsId, name: 'Tabela Lossless' });
+          raw = core.patchTableStyleXml(raw, 'wholeTable', { borders: { top: { val: 'single', sz: 4, color: '4472C4' }, bottom: { val: 'single', sz: 4, color: '4472C4' }, insideH: { val: 'single', sz: 4, color: '4472C4' } } });
+          raw = core.patchTableStyleXml(raw, 'firstRow', { bold: true, fill: 'D9E2F3' });
+          b.pkg.setPartText(stylesPath, putStyle(sx1, tsId, raw));
+          T.setTableProps(t, { tblStyle: tsId });
+        }
+        const last = b.full.sections[b.full.sections.length - 1];
+        const side = { val: 'double', sz: 4, space: 24, color: 'auto' };
+        last.sectPr.pgBorders = { offsetFrom: 'page', top: side, left: side, bottom: side, right: side };
+        tblEdit = { tsId };
+      }
+    }
     const out = sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
@@ -225,14 +266,24 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     const changed = kb.filter((k) => !ka.includes(k)).length;
     res.edits = edited.length;
     res.changedKids = changed;
-    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits;
+    // (--tables: a tabela e o sectPr do corpo)
+    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits + (tblEdit ? 2 : 0);
     if (changed > allowed) res.issues.push(`changed:${changed}>${allowed}`);
     if (!xml.includes('XYZ') && cands[0]) res.issues.push('missing-edit');
+    if (tblEdit) {
+      if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
+      if (!xml.includes('<w:pgBorders')) res.issues.push('tables-no-pgborders');
+      if (!xml.includes('w:fill="FFF2CC"')) res.issues.push('tables-no-shading');
+      if (tblEdit.tsId && !xml.includes(`<w:tblStyle w:val="${tblEdit.tsId}"/>`)) res.issues.push('tables-style-not-applied');
+      if (tblEdit.tsId && !re.getPartText(stylesPath)?.includes(`w:styleId="${tblEdit.tsId}"`)) res.issues.push('tables-style-missing');
+      res.tables = true;
+    }
     if (styleEdit) {
       const sa = orig.getPartText(stylesPath), sb = re.getPartText(stylesPath);
       const map = (x) => new Map(readStyleIndex(x).styles.map((s) => [s.id, x.slice(s.start, s.end)]));
       const ma = map(sa), mb = map(sb);
       const moved = styleEdit.ids.filter((i) => i !== styleEdit.target && ma.get(i) !== mb.get(i));
+      if (tblEdit?.tsId && !mb.get(tblEdit.tsId)) res.issues.push('tables-style-unread');
       if (moved.length) res.issues.push(`styles-changed:${moved.slice(0, 3).join(',')}`);
       if (!mb.get(styleEdit.id) || !mb.get(styleEdit.tw)) res.issues.push('styles-missing-new');
       if (!xml.includes(`<w:pStyle w:val="${styleEdit.id}"/>`)) res.issues.push('styles-not-applied');
@@ -240,7 +291,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && cands[0] && (!sectionsMode || secEdits > 0)) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit)) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
   }

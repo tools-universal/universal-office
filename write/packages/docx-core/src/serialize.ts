@@ -1,7 +1,7 @@
 import { DocxPackage } from './package.js';
 import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
-import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource } from './source.js';
+import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
 import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 import {
   patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
@@ -716,25 +716,45 @@ export function tableXml(t: TableBlock): string {
   return `<w:tbl>${legacyOrTypedTblPr(t)}${gridXml(t)}${rowsXml(t)}</w:tbl>`;
 }
 
+/** Linhas/células com o cru em volta (WrapSeg) — os envoltórios só se o aninhamento
+ *  continua certo depois da edição (linha excluída, movida…); as marcas soltas sempre. */
+function wrappedXml(items: { pre?: WrapSeg[]; post?: WrapSeg[]; xml: string }[]): string {
+  const stack: number[] = [];
+  let ok = true;
+  for (const it of items) {
+    for (const s of [...(it.pre ?? []), ...(it.post ?? [])]) {
+      if (s.open !== undefined) stack.push(s.open);
+      else if (s.close !== undefined && stack.pop() !== s.close) ok = false;
+    }
+  }
+  if (stack.length) ok = false;
+  const segs = (ss?: WrapSeg[]): string => (ss ?? []).filter((s) => ok || (s.open === undefined && s.close === undefined)).map((s) => s.raw).join('');
+  return items.map((it) => segs(it.pre) + it.xml + segs(it.post)).join('');
+}
+
 function rowsXml(t: TableBlock): string {
   const store = active?.store;
-  return t.rows.map((row) => {
+  return wrappedXml(t.rows.map((row) => {
     const rs = store && row.src !== undefined ? store.trs.get(row.src) : undefined;
     // a 1ª cópia de uma linha leva a abertura original (w14:paraId é único)
     const rowOwner = rs !== undefined && !active!.claimed.has(row.src!);
     if (rs) active!.claimed.add(row.src!);
     const ex = rs?.tblPrEx !== undefined ? patchTblPrEx(rs.tblPrEx, row.tblPrEx) : (row.tblPrEx ? tblPrExTyped(row.tblPrEx) : '');
     const trPr = rs?.trPr !== undefined ? patchTrPr(rs.trPr, row.trPr) : (row.trPr ? trPrTyped(row.trPr) : '');
-    const cells = row.cells.map((cell) => {
+    const cells = wrappedXml(row.cells.map((cell) => {
       const cs = store && cell.src !== undefined ? store.tcs.get(cell.src) : undefined;
       const cellOwner = cs !== undefined && !active!.claimed.has(cell.src!);
       if (cs) active!.claimed.add(cell.src!);
       const tcPr = cs?.tcPr !== undefined ? patchTcPr(cs.tcPr, cell.tcPr)
         : cell.tcPr ? tcPrTyped(cell.tcPr) : cs ? '' : tcPrXml(cell);
-      return `${cellOwner ? cs!.open : '<w:tc>'}${tcPr}${cellBodyXml(cell)}</w:tc>`;
-    }).join('');
-    return `${rowOwner ? rs!.open : '<w:tr>'}${ex}${trPr}${cells}</w:tr>`;
-  }).join('');
+      // célula com grupos (sdt de bloco, marcas): só a 1ª cópia (a outra é colada)
+      const body = cellOwner && cs!.groups && cell.blocks?.length ? groupsXml(cs!.groups, cell.blocks, store!) : cellBodyXml(cell);
+      const xml = `${cellOwner ? cs!.open : '<w:tc>'}${tcPr}${body}</w:tc>`;
+      return cellOwner ? { pre: cs!.pre, post: cs!.post, xml } : { xml };
+    }));
+    const xml = `${rowOwner ? rs!.open : '<w:tr>'}${ex}${trPr}${cells}</w:tr>`;
+    return rowOwner ? { pre: rs!.pre, post: rs!.post, xml } : { xml };
+  }));
 }
 
 /** Tabela sem w:tblPr de origem: das props tipadas (tabela criada pelo

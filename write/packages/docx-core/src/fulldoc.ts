@@ -13,7 +13,7 @@ import {
 import { readStyles, type StylesMap } from './styles.js';
 import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
 import { readDocFormatting, type DocFormatting } from './ooxml/parts.js';
-import { SourceStore, type StoryGroup, type StorySource } from './source.js';
+import { SourceStore, type StoryGroup, type StorySource, type WrapSeg } from './source.js';
 
 /**
  * Modelo completo do documento: blocos (parágrafos E tabelas), seções
@@ -194,6 +194,42 @@ function unwrap(el: XmlElement, name: string): XmlElement[] {
   return out;
 }
 
+/** Linha/célula achada atravessando sdt/customXml, com o cru em volta (WrapSeg). */
+interface Wrapped { el: XmlElement; pre: WrapSeg[]; post: WrapSeg[] }
+
+let wrapIds = 0;
+
+/** Como unwrap, guardando o cru em volta de cada elemento: marcas soltas antes
+ *  dele e as aberturas/fechos dos envoltórios (os filhos em `skip` são do pai). */
+function unwrapRaw(el: XmlElement, name: string, skip: readonly string[], xml: string): Wrapped[] {
+  const out: Wrapped[] = [];
+  let pending: WrapSeg[] = [];
+  const walk = (container: XmlElement, top: boolean): void => {
+    for (const c of childElements(container)) {
+      if (c.name === name) { out.push({ el: c, pre: pending, post: [] }); pending = []; continue; }
+      if (top ? skip.includes(c.name) : container.name === 'w:customXml' && c.name.endsWith('Pr')) continue;
+      const content = c.name === 'w:sdt' ? firstChild(c, 'w:sdtContent') : c.name === 'w:customXml' ? c : undefined;
+      if (content && content.cs !== undefined && content.cs !== content.e) {
+        let start = content.cs;
+        if (content === c) for (const k of childElements(c)) { if (k.name.endsWith('Pr')) start = k.e!; else break; }
+        const id = ++wrapIds;
+        const before = pending, n0 = out.length;
+        pending = [...before, { raw: xml.slice(c.s, start), open: id }];
+        walk(content, false);
+        if (out.length > n0) { out[out.length - 1]!.post.push(...pending, { raw: xml.slice(content.ce, c.e), close: id }); pending = []; }
+        else pending = [...before, { raw: xml.slice(c.s, c.e) }];
+        continue;
+      }
+      pending.push({ raw: xml.slice(c.s, c.e) });
+    }
+  };
+  walk(el, true);
+  if (pending.length && out.length) out[out.length - 1]!.post.push(...pending);
+  return out;
+}
+
+const wrapOf = (w: Wrapped): { pre?: WrapSeg[]; post?: WrapSeg[] } => ({ ...(w.pre.length ? { pre: w.pre } : {}), ...(w.post.length ? { post: w.post } : {}) });
+
 /** Blocos (w:p / w:tbl) de um container, na ordem, atravessando sdt/customXml. */
 export function readBlocksOf(container: XmlElement, ctx: ReadContext): Block[] {
   const out: Block[] = [];
@@ -219,15 +255,31 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
   const tblPrEl = firstChild(tblEl, 'w:tblPr');
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, 'w:tblBorders'), true);
   const rows: TableRow[] = [];
-  for (const trEl of unwrap(tblEl, 'w:tr')) {
+  const wrapped = (parent: XmlElement, name: string, skip: readonly string[]): Wrapped[] =>
+    xml !== undefined ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el) => ({ el, pre: [], post: [] }));
+  for (const trW of wrapped(tblEl, 'w:tr', ['w:tblPr', 'w:tblGrid'])) {
+    const trEl = trW.el;
     const cells: TableCell[] = [];
-    for (const tcEl of unwrap(trEl, 'w:tc')) {
+    for (const tcWr of wrapped(trEl, 'w:tc', ['w:trPr', 'w:tblPrEx'])) {
+      const tcEl = tcWr.el;
       const tcPrEl = firstChild(tcEl, 'w:tcPr');
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, 'w:shd')?.attrs['w:fill'];
       const tcW = tcPrEl && firstChild(tcPrEl, 'w:tcW');
       const cellBorders = readBorderSet(tcPrEl && firstChild(tcPrEl, 'w:tcBorders'), true);
-      const blocks = readBlocksOf(tcEl, ctx);
+      // conteúdo com sdt/customXml de bloco ou marcas entre parágrafos: cada filho vira
+      // um grupo (como no corpo), para a célula editada não perder os envoltórios
+      const kids = xml !== undefined ? childElements(tcEl).filter((k) => k.name !== 'w:tcPr') : [];
+      const groups = kids.some((k) => k.name !== 'w:p' && k.name !== 'w:tbl') ? [] as StoryGroup[] : undefined;
+      let blocks: Block[];
+      if (groups) {
+        blocks = [];
+        for (const k of kids) {
+          const produced = readBlocksOf({ name: tcEl.name, attrs: {}, children: [k] }, ctx);
+          groups.push(groupOf(xml!, k, produced, ctx.sources!));
+          blocks.push(...produced);
+        }
+      } else blocks = readBlocksOf(tcEl, ctx);
       if (!blocks.some((bl) => bl.type === 'paragraph')) blocks.push({ type: 'paragraph', paragraph: { runs: [], props: {} } });
       const paragraphs = blocks.filter((bl): bl is ParagraphBlock => bl.type === 'paragraph').map((bl) => bl.paragraph);
       const tables = blocks.filter((bl): bl is TableBlock => bl.type === 'table');
@@ -244,7 +296,7 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
       if (tcPr) cell.tcPr = tcPr;
       if (xml !== undefined) {
         const tcPrRaw = slice(tcPrEl);
-        ctx.sources!.addCell(cell, { open: openOf(tcEl), ...(tcPrRaw ? { tcPr: tcPrRaw } : {}) });
+        ctx.sources!.addCell(cell, { open: openOf(tcEl), ...(tcPrRaw ? { tcPr: tcPrRaw } : {}), ...(groups ? { groups } : {}), ...wrapOf(tcWr) });
       }
       cells.push(cell);
     }
@@ -257,7 +309,7 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
       if (xml !== undefined) {
         const trPrRaw = slice(firstChild(trEl, 'w:trPr'));
         const exRaw = slice(firstChild(trEl, 'w:tblPrEx'));
-        ctx.sources!.addRow(row, { open: openOf(trEl), ...(trPrRaw ? { trPr: trPrRaw } : {}), ...(exRaw ? { tblPrEx: exRaw } : {}) });
+        ctx.sources!.addRow(row, { open: openOf(trEl), ...(trPrRaw ? { trPr: trPrRaw } : {}), ...(exRaw ? { tblPrEx: exRaw } : {}), ...wrapOf(trW) });
       }
       rows.push(row);
     }

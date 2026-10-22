@@ -67,6 +67,15 @@ export interface TableSource {
   sig?: number;
 }
 
+/** Pedaço cru em volta de uma linha/célula: marca solta entre elas (indicador,
+ *  permissão…) ou a abertura/o fecho de um w:sdt/w:customXml que as envolve
+ *  (`open`/`close` = id do envoltório, para conferir o aninhamento ao gravar). */
+export interface WrapSeg {
+  raw: string;
+  open?: number;
+  close?: number;
+}
+
 /** Linha de tabela lida (`TableRow.src`): a fonte acompanha a LINHA, não o
  *  índice — inserir/excluir linhas não troca o trPr de lugar. */
 export interface RowSource {
@@ -74,12 +83,22 @@ export interface RowSource {
   open: string;
   trPr?: string;
   tblPrEx?: string;
+  /** o que vem antes/depois do w:tr no w:tbl (sdt de linha, indicadores) */
+  pre?: WrapSeg[];
+  post?: WrapSeg[];
 }
 
 /** Célula lida (`TableCell.src`). */
 export interface CellSource {
   open: string;
   tcPr?: string;
+  /** Filhos do conteúdo da célula como grupos (só quando há algo além de w:p/w:tbl:
+   *  sdt/customXml de bloco, indicadores entre parágrafos…) — célula editada
+   *  reembrulha como o corpo. */
+  groups?: StoryGroup[];
+  /** o que vem antes/depois do w:tc no w:tr (sdt de célula, indicadores) */
+  pre?: WrapSeg[];
+  post?: WrapSeg[];
 }
 
 /** Filho de topo de uma parte (corpo, cabeçalho…) e os blocos que produziu. */
