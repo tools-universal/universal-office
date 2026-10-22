@@ -6,6 +6,7 @@ import { dialogTabs, openDialog, openPane, paneOpen, pickLabels, symbol, type Ui
 import type { PicWrapKind } from '@universal-office/docx-core';
 import type { ImageLayoutInput, UniversalWriteElement } from './universal-write.js';
 import type { DialogEnv } from './chrome-dialogs.js';
+import { toggleFormatPane, type FormatTab } from './chrome-picture-pane.js';
 
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'style'>> & { style?: string };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] => {
@@ -280,11 +281,21 @@ export class PictureUI {
   constructor(private readonly env: PictureUIEnv) {}
 
   private sel: { sync(): void } | null = null;
+  private fmt: { sync(): void; show(tab: FormatTab): void } | null = null;
+  private fmtTab: FormatTab = 'line';
 
   get altOpen(): boolean { return !!this.alt; }
   get selectionOpen(): boolean { return !!this.sel; }
+  get formatOpen(): boolean { return !!this.fmt; }
 
-  sync(): void { this.alt?.sync(); this.sel?.sync(); }
+  sync(): void { this.alt?.sync(); this.sel?.sync(); this.fmt?.sync(); }
+
+  /** Painel Formatar Imagem na guia pedida (aberto em outra guia: troca de guia). */
+  toggleFormat(tab: FormatTab): void {
+    if (this.fmt && this.fmtTab !== tab) { this.fmtTab = tab; this.fmt.show(tab); return; }
+    this.fmtTab = tab;
+    this.fmt = toggleFormatPane(this.env, tab, () => { this.fmt = null; this.env.ed.classList.remove('uw-has-pane'); this.env.after(); });
+  }
 
   /** Painel de Seleção: as imagens flutuantes da frente para trás — clicar seleciona,
    *  duplo clique renomeia, o olho mostra/oculta; Mostrar/Ocultar Tudo e as setas

@@ -100,6 +100,7 @@ import {
   builtinStyle,
   type TabLeader,
   readPictureFormat,
+  dmlColorSpec,
   patchPicture,
   DEFAULT_WRAP_POLYGON,
   syncImageFromXml,
@@ -109,6 +110,8 @@ import {
   type PicWrapKind,
   type PicPos,
   type PicLine,
+  type PicShadow,
+  type PicReflection,
   type Pic3D,
   type DmlColor,
 } from '@universal-office/docx-core';
@@ -166,7 +169,7 @@ import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting, numberedItems, formatNumber,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
-  RevisionDisplay, authorColor, type RevisionView, formatWordDate,
+  RevisionDisplay, authorColor, type RevisionView, formatWordDate, resolveDrawingColor,
 } from '@universal-office/docx-layout';
 import {
   hfTemplates, hfTemplateXml, galleryKind, placeholderText, hfBandLabel, sameAsPreviousLabel, DATE_TIME_FORMATS,
@@ -10164,13 +10167,20 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Texto Alt: descrição e "Marcar como decorativa". */
-  setImageAltText(o: { text?: string; decorative?: boolean }): void {
+  setImageAltText(o: { text?: string; title?: string; decorative?: boolean }): void {
     this.editPicture((f) => {
       const ch: PictureChange = {};
       if (o.text !== undefined && o.text !== (f.docPr.descr ?? '')) ch.descr = o.text;
+      if (o.title !== undefined && o.title !== (f.docPr.title ?? '')) ch.title = o.title;
       if (o.decorative !== undefined && o.decorative !== !!f.docPr.decorative) ch.decorative = o.decorative;
       return Object.keys(ch).length ? ch : null;
     });
+  }
+
+  /** Cor DrawingML (tema do documento + modificadores) → RRGGBB, como o desenho. */
+  resolveDmlColor(c: DmlColor): string | undefined {
+    const theme = this.fullDoc?.formatting?.theme ?? { ...emptyFormatting().theme, colors: this.documentThemeColors() };
+    return resolveDrawingColor(dmlColorSpec(c).spec, Object.keys(theme.colors).length ? theme : { ...theme, colors: this.documentThemeColors() });
   }
 
   /** Avançar/Recuar: ordem entre os flutuantes (relativeHeight) e frente/trás do texto. */
@@ -10222,7 +10232,14 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Efeitos de Imagem: aplica a predefinição `preset` (ids de picture-ops) do tipo,
    *  ou tira o efeito (null = "Sem Sombra", "Sem Reflexo"…). */
-  setImageEffect(kind: 'shadow' | 'reflection' | 'glow' | 'softEdge' | 'bevel' | 'rotation', preset: string | null): void {
+/** Formatar Imagem (painel): valores exatos do contorno, sombra, reflexo,
+   *  brilho, bordas suaves e 3D (EMU/60000 avos de grau, como o XML; null tira,
+   *  ausente fica). */
+  setImageFormat(o: { line?: PicLine | null; shadow?: PicShadow | null; reflection?: PicReflection | null; glow?: { rad: number; color: DmlColor } | null; softEdge?: number | null; threeD?: Pic3D | null }): void {
+    this.editPicture(() => (Object.keys(o).length ? { ...o } : null));
+  }
+
+    setImageEffect(kind: 'shadow' | 'reflection' | 'glow' | 'softEdge' | 'bevel' | 'rotation', preset: string | null): void {
     this.editPicture((f) => {
       switch (kind) {
         case 'shadow': {

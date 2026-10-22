@@ -16,7 +16,7 @@ import { CROP_SHAPES, POSITION_PRESETS, ASPECT_RATIOS, SHADOW_PRESETS, REFLECTIO
 const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
 
 /** Diálogos e painéis da imagem (chrome-picture-dialogs.ts). */
-export type PictureDialogKind = 'layout:position' | 'layout:wrap' | 'layout:size' | 'alt' | 'compress' | 'selection';
+export type PictureDialogKind = 'layout:position' | 'layout:wrap' | 'layout:size' | 'alt' | 'compress' | 'selection' | 'format:line' | 'format:effects' | 'format:layout' | 'format:picture';
 
 const WRAPS: [PicWrapKind, string, string, string][] = [
   ['inline', 'In Line with Text', 'Alinhado ao Texto', 'format_align_left'],
@@ -99,6 +99,11 @@ export function registerPictureCommands(reg: CommandRegistry, ed: UniversalWrite
       id: `pic:align:to:${k}`, label: k === 'page' ? L('Align to Page', 'Alinhar à Página') : L('Align to Margin', 'Alinhar à Margem'), supports: has('alignImage'),
       isChecked: () => (ed as unknown as { imageAlignTo?: string }).imageAlignTo === k, run: () => { ed.imageAlignTo = k; },
     })),
+    // ── Formatar Imagem (painel) ──
+    { id: 'pic:format', label: L('Format Picture…', 'Formatar Imagem...'), icon: 'tune', supports: has('setImageFormat'), isEnabled: on, run: () => ctl.pictureDialog('format:line') },
+    ...(['line', 'effects', 'layout', 'picture'] as const).map((t): Command => ({ id: `pic:format:${t}`, label: L('Format Picture…', 'Formatar Imagem...'), icon: 'tune', supports: has('setImageFormat'), isEnabled: on, run: () => ctl.pictureDialog(`format:${t}`) })),
+    { id: 'pic:fx:options', label: L('Effect Options…', 'Opções de Efeitos...'), icon: 'tune', supports: has('setImageFormat'), isEnabled: on, run: () => ctl.pictureDialog('format:effects') },
+    { id: 'pic:adjust:options', label: L('Picture Options…', 'Opções de Imagem...'), icon: 'tune', supports: has('setImageFormat'), isEnabled: on, run: () => ctl.pictureDialog('format:picture') },
     // ── Acessibilidade ──
     p({ id: 'pic:alt', label: L('Alt Text', 'Texto Alt'), tip: L('Alt Text: describe the picture for people who use screen readers', 'Texto Alt: descreva a imagem para quem usa leitor de tela'), icon: 'accessibility_new', supports: has('setImageAltText'), run: () => ctl.pictureDialog('alt') }),
   ];
@@ -231,7 +236,7 @@ export function pictureFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[]
   const has = (m: string) => (): boolean => typeof (env.ed as unknown as Record<string, unknown>)[m] === 'function';
   return [
     { id: 'pic-adjust', label: L('Adjust', 'Ajustar'), icon: 'tune', prio: 4, cells: adjustCells(env, ctx) },
-    { id: 'pic-styles', label: L('Picture Styles', 'Estilos de Imagem'), icon: 'photo_frame', prio: 5, cells: [
+    { id: 'pic-styles', label: L('Picture Styles', 'Estilos de Imagem'), icon: 'photo_frame', prio: 5, launcher: 'pic:format:effects', cells: [
       { rows: [
         [{ menu: () => borderMenu(env, ctx), id: 'pic:border', label: L('Picture Border', 'Borda da Imagem'), icon: 'border_color', showLabel: true, supports: has('setImageBorder') }],
         [{ menu: () => effectsMenu(env, ctx), id: 'pic:effects', label: L('Picture Effects', 'Efeitos de Imagem'), icon: 'auto_awesome', showLabel: true, supports: has('setImageEffect') }],
@@ -316,7 +321,7 @@ export function pictureContextItems(): MenuEntry[] {
     { id: 'pic:ctx:back', label: L('Send to Back', 'Enviar para Trás'), icon: 'flip_to_back', submenu: ['pic:back', 'pic:backward', 'pic:behindText'] },
     '-', changeSubmenu, 'link',
     { id: 'pic:ctx:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', submenu: wrapMenu },
-    'pic:alt', 'pic:layout', '-', 'image:delete',
+    'pic:alt', 'pic:layout', 'pic:format', '-', 'image:delete',
   ];
 }
 
@@ -445,7 +450,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     const r = fx()?.reflection;
     return r ? REFLECTION_PRESETS.find((p) => JSON.stringify(p.reflection) === JSON.stringify(r))?.id : 'none';
   };
-  return [
+  const items: MenuItem[] = [
     {
       id: 'pic:fx:shadow', label: L('Shadow', 'Sombra'), icon: 'filter_none',
       submenu: () => [{
@@ -517,4 +522,16 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       }],
     },
   ];
+  // "Opções de …" no fim de cada submenu: o painel Formatar Imagem › Efeitos
+  const OPT: Record<string, [string, string]> = {
+    'pic:fx:shadow': ['Shadow Options…', 'Opções de Sombra...'], 'pic:fx:reflection': ['Reflection Options…', 'Opções de Reflexo...'],
+    'pic:fx:glow': ['Glow Options…', 'Opções de Brilho...'], 'pic:fx:soft': ['Soft Edges Options…', 'Opções de Bordas Suaves...'],
+    'pic:fx:bevel': ['3-D Options…', 'Opções 3D...'], 'pic:fx:rot3d': ['3-D Rotation Options…', 'Opções de Rotação 3D...'],
+  };
+  return items.map((it) => {
+    const o = it.id ? OPT[it.id] : undefined;
+    const sub = it.submenu;
+    if (!o || typeof sub !== 'function') return it;
+    return { ...it, submenu: () => [...sub(), '-', { id: `${it.id}:options`, label: L(o[0], o[1]), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:effects') }] };
+  });
 }

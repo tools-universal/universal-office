@@ -117,6 +117,18 @@ if (scenario === 'selpane') {
   await page.waitForTimeout(400);
   await shot('align');
 }
+if (scenario === 'fmtpane') {
+  const tab = opt('--tab', 'effects');
+  await page.evaluate((t) => document.querySelector('universal-write').shadowRoot.querySelector(`[data-a="pic:format:${t}"]`)?.click(), tab);
+  await page.waitForTimeout(500);
+  if (tab === 'effects') {
+    await page.evaluate(() => document.querySelector('universal-write').setImageEffect('shadow', 'outer-br'));
+    await page.waitForTimeout(1500);
+  }
+  await shot(tab);
+  console.log('formato:', JSON.stringify(await page.evaluate(() => document.querySelector('universal-write').selectedImage()?.format.effects)));
+  console.log('item:', JSON.stringify(await page.evaluate(() => { const wn = document.querySelector('universal-write'); const it = wn.eng?.result.pages[0].items.find((i) => i.t === 'image'); return it ? { pic: it.pic, x: it.x, w: it.w, img: !!it.image } : 'sem motor'; })));
+}
 if (scenario === 'rotate') {
   // alça de girar: 22 px acima do meio da borda de cima
   const hx = c.x, hy = c.y - c.h / 2 - 22;

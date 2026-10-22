@@ -532,10 +532,11 @@ class WriteChrome {
         const dlg = { pageNumbers: pageNumberFormatDialog, dateTime: dateTimeDialog, alignTab: alignTabDialog, options: hfOptionsDialog }[kind];
         void dlg(d()).then(() => this.after());
       },
-      pictureDialogOpen: (kind) => (kind === 'selection' ? !!this.pictures?.selectionOpen : kind === 'alt' ? !!this.pictures?.altOpen : false),
+      pictureDialogOpen: (kind) => (kind === 'selection' ? !!this.pictures?.selectionOpen : kind === 'alt' ? !!this.pictures?.altOpen : kind.startsWith('format:') ? !!this.pictures?.formatOpen : false),
       pictureDialog: (kind) => {
         if (kind === 'alt') this.pictures?.toggleAlt();
         else if (kind === 'selection') this.pictures?.toggleSelection();
+        else if (kind.startsWith('format:')) this.pictures?.toggleFormat(kind.slice(7) as 'line' | 'effects' | 'layout' | 'picture');
         else if (kind === 'compress') void pictureCompressDialog(d()).then(() => this.after());
         else void pictureLayoutDialog(d(), kind.slice(7) as 'position' | 'wrap' | 'size').then(() => this.after());
       },

@@ -88,7 +88,7 @@ export function correctionsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       const [k, x, y] = id.split(':');
       void (k === 'sh' ? ed.setImageAdjust({ sharpen: Number(x) }) : ed.setImageAdjust({ bright: Number(x), contrast: Number(y) })).then(() => ctx.after());
     }, sel, 5),
-  }];
+  }, '-', { id: 'pic:corrections:options', label: L('Picture Corrections Options…', 'Opções de Correções de Imagem...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') }];
 }
 
 /** Cor: Saturação (7), Tom (7), Recolorir (21), Mais Variações e Definir Cor Transparente. */
@@ -129,6 +129,7 @@ export function colorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       }],
     },
     'pic:transparentColor',
+    { id: 'pic:color:options', label: L('Picture Color Options…', 'Opções de Cor da Imagem...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') },
   ];
 }
 
@@ -141,7 +142,7 @@ export function transparencyMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     content: grid(env, ctx, [
       { items: TRANSPARENCY_PRESETS.map((v) => ({ id: `t:${v}`, label: L(`Transparency: ${v}%`, `Transparência: ${v}%`) })) },
     ], (id) => (d) => applyBlipFx(d, { alphaModFix: (100 - Number(id.slice(2))) * 1000 }, theme), (id) => ed.setImageTransparency(Number(id.slice(2))), sel, 7),
-  }];
+  }, '-', { id: 'pic:transparency:options', label: L('Picture Transparency Options…', 'Opções de Transparência da Imagem...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') }];
 }
 
 /** Células do grupo Ajustar (ribbon). */
