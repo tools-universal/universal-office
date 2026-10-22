@@ -3,7 +3,7 @@ import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, 
 import type { InlineImage } from '@universal-office/docx-core';
 import type { LayoutResult, LayoutPage, PageItem, PathCmdTw, ImageItem } from './tree.js';
 import { gradientTileRgba, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
-import { paintPicturePdf, type PdfPictureEnv } from './pdf-picture.js';
+import { paintPicturePdf, paintShapeEffectsPdf, type PdfPictureEnv } from './pdf-picture.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, patternRaster, blipTiles, isRectGradient, rectGradientRaster, type GradGeom } from './geometry.js';
 import { isSymbolFont, type FontFace } from './fonts.js';
 import { applyImageEffects, applyPictureAdjust, decodeRaster, effectDecode, jpegInfo, imagePixelSize } from './images.js';
@@ -305,6 +305,11 @@ function paintItem(
       return;
     }
     case 'shape': {
+      // Efeitos de Forma: rasters dos efeitos em volta do corpo vetorial
+      if (it.fx && embedRgba && it.style.geom !== 'line') {
+        paintShapeEffectsPdf(page, it, embedRgba, () => paintItem(page, { ...it, fx: undefined, shadow: undefined }, fontFor, imageFor, shade, pictureEnv, embedRgba));
+        return;
+      }
       const st = it.style;
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : undefined;
       const stroke = it.stroke && /^[0-9A-Fa-f]{6}$/.test(it.stroke.color)

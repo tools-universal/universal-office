@@ -10,7 +10,7 @@ import {
   presetOutline, flattenPath, fillPolygons, newMask, outerShadowMask, innerShadowMask, glowMask, softEdgeMask, reflectionAlpha,
   gaussianBlur, shadeBevel, type Mask, type PathSeg,
 } from '@universal-office/drawingml';
-import type { ImageItem, PictureLook } from './tree.js';
+import type { ImageItem, PictureLook, ShapeItem } from './tree.js';
 import { applyImageEffects, applyPictureAdjust } from './images.js';
 
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
@@ -263,6 +263,106 @@ function buildLayer(it: ImageItem, bmp: CanvasImageSource & { width: number; hei
   }
   o.drawImage(shape, 0, 0);
   return { c: out, x0: bb.x0, y0: bb.y0, ppt };
+}
+
+/**
+ * Forma com Efeitos de Forma no canvas: o corpo (preenchimento e contorno, desenhado por
+ * `drawBody` no referencial da forma, antes do giro) numa camada; a silhueta é o alfa do
+ * corpo; sombra interna e bordas suaves sobre ele; sombra externa, brilho e reflexo
+ * atrás — os mesmos modelos das imagens. `drawBody(c, s)`: desenha com 1 twip = `s` px,
+ * a forma no canto (0, 0).
+ */
+const shapeCache = new Map<string, Layer>();
+export function paintShapeEffects(ctx: CanvasRenderingContext2D, it: ShapeItem, drawBody: (c: Ctx2D, scale: number) => void): void {
+  const fx = it.fx ?? {};
+  const m0 = ctx.getTransform();
+  let ppt = Math.max(0.5, Math.min(8, Math.hypot(m0.a, m0.b) * 20));
+  const w = it.w / 20, h = it.h / 20;
+  const lw = it.stroke?.widthPt ?? 0;
+  const look: PictureLook = { ...fx, ...(lw ? { line: { color: '000000', alpha: 1, widthPt: lw / 2 } } : {}) };
+  const key = JSON.stringify([it.style, it.fill, it.stroke, it.grad, it.pattern, fx, it.w, it.h, it.blip ? it.blip.image.data.length : 0, Math.round(ppt * 50)]);
+  let layer = shapeCache.get(key);
+  if (!layer) {
+    const bb = bounds(look, w, h);
+    const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+    if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+    const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+    const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+    // o corpo
+    const body = canvas(W, H);
+    const bc = ctx2d(body);
+    bc.translate(ox, oy);
+    drawBody(bc, ppt / 20);
+    bc.setTransform(1, 0, 0, 1, 0, 0);
+    const sil = newMask(W, H);
+    {
+      const d = bc.getImageData(0, 0, W, H).data;
+      for (let i = 0; i < sil.a.length; i++) sil.a[i] = d[i * 4 + 3]! / 255;
+    }
+    const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+    const s = fx.shadow;
+    if (s?.kind === 'inner') {
+      const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+      bc.globalCompositeOperation = 'source-atop';
+      bc.drawImage(maskToCanvas(m, s.color, s.alpha) as CanvasImageSource, 0, 0);
+      bc.globalCompositeOperation = 'source-over';
+    }
+    if (fx.softEdgePt) {
+      const m = softEdgeMask(sil, fx.softEdgePt, ppt);
+      const img = bc.getImageData(0, 0, W, H);
+      for (let i = 0; i < m.a.length; i++) img.data[i * 4 + 3] = Math.round(img.data[i * 4 + 3]! * m.a[i]!);
+      bc.putImageData(img, 0, 0);
+    }
+    const out = canvas(W, H);
+    const o = ctx2d(out);
+    if (s?.kind === 'outer') {
+      const dir = s.rotWithShape === false || s.rotWithShape === undefined ? s.dirDeg - (it.style.rot ?? 0) : s.dirDeg;
+      const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+      o.drawImage(maskToCanvas(m, s.color, s.alpha) as CanvasImageSource, 0, 0);
+    }
+    if (fx.glow) o.drawImage(maskToCanvas(glowMask(sil, fx.glow.radPt, ppt), fx.glow.color, fx.glow.alpha) as CanvasImageSource, 0, 0);
+    const r = fx.reflection;
+    if (r) {
+      const rc = canvas(W, H), rx = ctx2d(rc);
+      const a = (r.dirDeg * Math.PI) / 180;
+      const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+      rx.translate(dx, 2 * (oy + h * ppt) + dy);
+      rx.scale(1, -1);
+      rx.drawImage(body as CanvasImageSource, 0, 0);
+      rx.setTransform(1, 0, 0, 1, 0, 0);
+      const img = rx.getImageData(0, 0, W, H);
+      const top = oy + h * ppt + dy;
+      for (let y = 0; y < H; y++) {
+        const t = (y + 0.5 - top) / (h * ppt);
+        const al = t < 0 ? 0 : reflectionAlpha(t, r);
+        for (let x = 0; x < W; x++) img.data[(y * W + x) * 4 + 3] = Math.round(img.data[(y * W + x) * 4 + 3]! * al);
+      }
+      if (r.blurPt > 0) {
+        const ch = [0, 1, 2, 3].map((k) => {
+          const m = newMask(W, H);
+          for (let i = 0; i < m.a.length; i++) m.a[i] = (k === 3 ? img.data[i * 4 + 3]! : img.data[i * 4 + k]! * img.data[i * 4 + 3]! / 255) / 255;
+          return gaussianBlur(m, (r.blurPt / 3) * ppt).a;
+        });
+        for (let i = 0; i < W * H; i++) {
+          const al = ch[3]![i]!;
+          img.data[i * 4 + 3] = Math.round(al * 255);
+          for (let k = 0; k < 3; k++) img.data[i * 4 + k] = al > 0 ? Math.round((ch[k]![i]! / al) * 255) : 0;
+        }
+      }
+      rx.putImageData(img, 0, 0);
+      o.drawImage(rc as CanvasImageSource, 0, 0);
+    }
+    o.drawImage(body as CanvasImageSource, 0, 0);
+    layer = { c: out, x0: bb.x0, y0: bb.y0, ppt };
+    if (shapeCache.size > 32) shapeCache.clear();
+    shapeCache.set(key, layer);
+  }
+  ctx.save();
+  ctx.translate(it.x + it.w / 2, it.y + it.h / 2);
+  if (it.style.rot) ctx.rotate((it.style.rot * Math.PI) / 180);
+  const sc = 20 / layer.ppt;
+  ctx.drawImage(layer.c as CanvasImageSource, layer.x0 * 20 - it.w / 2, layer.y0 * 20 - it.h / 2, layer.c.width * sc, layer.c.height * sc);
+  ctx.restore();
 }
 
 /** Desenha a imagem formatada no contexto (espaço de TWIPS, como paintItems). */

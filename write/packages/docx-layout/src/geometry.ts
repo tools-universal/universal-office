@@ -386,9 +386,26 @@ export function withThemeStyles(s: ShapeStyle, theme: Theme): ShapeStyle {
 }
 
 /** Degradê, padrão, imagem e sombra de um ShapeStyle com as cores do tema resolvidas (itens 'shape'). */
-export function shapeExtras(s0: ShapeStyle, theme: Theme): Pick<ShapeItem, 'grad' | 'shadow' | 'pattern' | 'blip'> {
+export function shapeExtras(s0: ShapeStyle, theme: Theme): Pick<ShapeItem, 'grad' | 'shadow' | 'pattern' | 'blip' | 'fx'> {
   const s = withThemeStyles(s0, theme);
-  const out: Pick<ShapeItem, 'grad' | 'shadow' | 'pattern' | 'blip'> = {};
+  const out: Pick<ShapeItem, 'grad' | 'shadow' | 'pattern' | 'blip' | 'fx'> = {};
+  if (s.fx) {
+    const f = s.fx, c = (x: string): string => resolveDrawingColor(x, theme) ?? '000000';
+    const fx: NonNullable<ShapeItem['fx']> = {};
+    if (f.inner) fx.shadow = { kind: 'inner', color: c(f.inner.color), alpha: f.inner.alpha, blurPt: f.inner.blurPt, distPt: f.inner.distPt, dirDeg: f.inner.dirDeg };
+    else if (f.outer) {
+      const o = f.outer;
+      fx.shadow = {
+        kind: 'outer', color: c(o.color), alpha: o.alpha, blurPt: o.blurPt, distPt: o.distPt, dirDeg: o.dirDeg,
+        ...(o.sx !== undefined ? { sx: o.sx } : {}), ...(o.sy !== undefined ? { sy: o.sy } : {}), ...(o.kxDeg ? { kxDeg: o.kxDeg } : {}), ...(o.kyDeg ? { kyDeg: o.kyDeg } : {}),
+        ...(o.algn ? { algn: o.algn } : {}), ...(o.rotWithShape !== undefined ? { rotWithShape: o.rotWithShape } : {}),
+      };
+    }
+    if (f.glow) fx.glow = { color: c(f.glow.color), alpha: f.glow.alpha, radPt: f.glow.radPt };
+    if (f.softEdgePt) fx.softEdgePt = f.softEdgePt;
+    if (f.reflection) fx.reflection = { ...f.reflection };
+    if (Object.keys(fx).length) out.fx = fx;
+  }
   if (s.pattern) {
     out.pattern = { prst: s.pattern.prst, fg: resolveDrawingColor(s.pattern.fg, theme) ?? '000000', bg: resolveDrawingColor(s.pattern.bg, theme) ?? 'FFFFFF' };
   }

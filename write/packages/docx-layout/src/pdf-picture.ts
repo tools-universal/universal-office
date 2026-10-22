@@ -8,9 +8,9 @@
  */
 import {
   presetOutline, flattenPath, fillPolygons, newMask, outerShadowMask, innerShadowMask, glowMask, softEdgeMask, reflectionAlpha,
-  gaussianBlur, shadeBevel, type Mask, type PathSeg, type Affine,
+  gaussianBlur, shadeBevel, morph, type Mask, type PathSeg, type Affine,
 } from '@universal-office/drawingml';
-import type { ImageItem, PictureLook } from './tree.js';
+import type { ImageItem, PictureLook, ShapeItem } from './tree.js';
 import type { PdfImage, PdfPage, PathCmd } from './pdf-writer/document.js';
 
 const T = 20;
@@ -83,6 +83,82 @@ function bounds(look: PictureLook, w: number, h: number): { x0: number; y0: numb
     grow(dx - r.blurPt - lw, h + dy - r.blurPt, w + dx + r.blurPt + lw, 2 * h + dy + r.blurPt + lw);
   }
   return { x0, y0, x1, y1 };
+}
+
+/**
+ * Forma com Efeitos de Forma no PDF: o corpo continua vetorial (`drawBody`), os efeitos
+ * vão como rasters RGBA (como o Word grava os efeitos): sombra externa e brilho atrás,
+ * reflexo (a silhueta na cor do preenchimento, espelhada com o degradê), sombra interna
+ * por cima. Com bordas suaves o corpo vira raster (a cor do preenchimento com a máscara).
+ */
+export function paintShapeEffectsPdf(page: PdfPage, it: ShapeItem, embedRgba: (data: Uint8Array, w: number, h: number) => PdfImage, drawBody: () => void): void {
+  const fx = it.fx ?? {};
+  const st = it.style;
+  const w = it.w / T, h = it.h / T;
+  const rot = ((st.rot ?? 0) * Math.PI) / 180, cos = Math.cos(rot), sin = Math.sin(rot);
+  const cx = it.x / T + w / 2, cy = it.y / T + h / 2;
+  const M: Affine = [cos, sin, -sin, cos, cx - (cos * w) / 2 + (sin * h) / 2, cy - (sin * w) / 2 - (cos * h) / 2];
+  const rectMatrix = (x: number, y: number, rw: number, rh: number): Affine =>
+    [M[0] * rw, M[1] * rw, M[2] * rh, M[3] * rh, M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
+  const draw = (img: PdfImage, m: Affine): void => page.drawImageMatrix(img, m[0], m[1], m[2], m[3], m[4], m[5]);
+  const look: PictureLook = { ...fx, geom: { prst: st.geom === 'custom' ? 'rect' : st.geom, ...(st.adj ? { adj: st.adj } : {}) } };
+  const bb = bounds(look, w, h);
+  let ppt = PPT;
+  const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;
+  if (area > 8e6) ppt *= Math.sqrt(8e6 / area);
+  const W = Math.max(1, Math.ceil((bb.x1 - bb.x0) * ppt)), H = Math.max(1, Math.ceil((bb.y1 - bb.y0) * ppt));
+  const ox = -bb.x0 * ppt, oy = -bb.y0 * ppt;
+  const subs = shapeSubs(look, w, h, !!st.flipH, !!st.flipV);
+  const area0 = fillPolygons(newMask(W, H), flattenPath(subs, [ppt, 0, 0, ppt, ox, oy], 0.35));
+  // a silhueta é o que a forma pinta: a área (com preenchimento) ou só o anel do contorno
+  // (sem preenchimento — o brilho e a sombra seguem a linha, como no Word)
+  const filled = !!(it.fill || it.grad || it.pattern || it.blip);
+  const lwPx = (it.stroke?.widthPt ?? 0) * ppt;
+  let sil = area0;
+  if (!filled && lwPx > 0) {
+    const r = Math.max(1, lwPx / 2);
+    const outer = morph(area0, r), inner = morph(area0, -r);
+    sil = newMask(W, H);
+    for (let i = 0; i < sil.a.length; i++) sil.a[i] = Math.max(0, outer.a[i]! - inner.a[i]!);
+  }
+  const box = { x: ox, y: oy, w: w * ppt, h: h * ppt };
+  const layerMatrix = rectMatrix(bb.x0, bb.y0, W / ppt, H / ppt);
+  const fillHex = it.fill ?? it.grad?.stops[0]?.color ?? it.pattern?.fg ?? it.stroke?.color ?? 'FFFFFF';
+  const s = fx.shadow;
+  if (s?.kind === 'outer') {
+    const dir = s.rotWithShape ? s.dirDeg : s.dirDeg - (st.rot ?? 0);
+    const m = outerShadowMask(sil, box, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: dir, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt);
+    draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
+  if (fx.glow) draw(embedRgba(colored(glowMask(sil, fx.glow.radPt, ppt), fx.glow.color, fx.glow.alpha), W, H), layerMatrix);
+  const soft = fx.softEdgePt ? softEdgeMask(sil, fx.softEdgePt, ppt) : null;
+  const r = fx.reflection;
+  if (r) {
+    // a silhueta (com as bordas suaves) espelhada em volta da borda de baixo, com o degradê
+    const a = (r.dirDeg * Math.PI) / 180;
+    const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+    let m = newMask(W, H);
+    const src = soft ?? sil;
+    const top = oy + h * ppt + dy;
+    for (let y = 0; y < H; y++) {
+      const sy = Math.round(2 * (oy + h * ppt) + dy - y - 1);
+      const t = (y + 0.5 - top) / (h * ppt);
+      const al = t < 0 ? 0 : reflectionAlpha(t, r);
+      if (sy < 0 || sy >= H || al <= 0) continue;
+      for (let x = 0; x < W; x++) {
+        const sx = Math.round(x - dx);
+        if (sx >= 0 && sx < W) m.a[y * W + x] = src.a[sy * W + sx]! * al;
+      }
+    }
+    if (r.blurPt > 0) m = gaussianBlur(m, (r.blurPt / 3) * ppt);
+    draw(embedRgba(colored(m, fillHex, 1), W, H), layerMatrix);
+  }
+  if (soft) draw(embedRgba(colored(soft, fillHex, st.fillAlpha ?? 1), W, H), layerMatrix);
+  else drawBody();
+  if (s?.kind === 'inner') {
+    const m = innerShadowMask(sil, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg }, ppt);
+    draw(embedRgba(colored(m, s.color, s.alpha), W, H), layerMatrix);
+  }
 }
 
 /** Desenha a imagem formatada no PDF. */

@@ -85,6 +85,59 @@ export interface ShapeStyle {
   fillRef?: { idx: number; color: string };
   /** wps:style/a:effectRef idx ≥ 1 (efeito do tema) com a cor */
   effectRef?: { idx: number; color: string };
+  /** Efeitos de Forma além da sombra simples (a:effectLst): brilho, bordas suaves, sombra
+   *  interna, reflexo e a sombra externa com escala/inclinação — medidas em pt e graus,
+   *  cores RRGGBB ou @esquema|mods (o motor resolve), como os efeitos das imagens */
+  fx?: ShapeFx;
+}
+
+export interface ShapeFx {
+  outer?: { blurPt: number; distPt: number; dirDeg: number; color: string; alpha: number; sx?: number; sy?: number; kxDeg?: number; kyDeg?: number; algn?: string; rotWithShape?: boolean };
+  inner?: { blurPt: number; distPt: number; dirDeg: number; color: string; alpha: number };
+  glow?: { radPt: number; color: string; alpha: number };
+  softEdgePt?: number;
+  reflection?: { blurPt: number; stA: number; stPos: number; endA: number; endPos: number; distPt: number; dirDeg: number; sy: number; algn?: string; rotWithShape?: boolean };
+}
+
+/** a:effectLst → os efeitos que o desenho simples (sombra deslocada) não cobre. */
+function readShapeFx(eff: XmlElement): ShapeFx | undefined {
+  const num = (v: string | undefined, d = 0): number => { const n = parseInt(v ?? '', 10); return Number.isFinite(n) ? n : d; };
+  const pt = (v: string | undefined): number => num(v) / 12700;
+  const deg = (v: string | undefined): number => num(v) / 60000;
+  const fx: ShapeFx = {};
+  const glow = firstChild(eff, 'a:glow');
+  const gc = glow && srgbOf(glow);
+  if (glow && gc) fx.glow = { radPt: pt(glow.attrs['rad']), color: gc.hex, alpha: gc.alpha ?? 1 };
+  const se = firstChild(eff, 'a:softEdge');
+  if (se && num(se.attrs['rad']) > 0) fx.softEdgePt = pt(se.attrs['rad']);
+  const inner = firstChild(eff, 'a:innerShdw');
+  const ic = inner && srgbOf(inner);
+  if (inner && ic) fx.inner = { blurPt: pt(inner.attrs['blurRad']), distPt: pt(inner.attrs['dist']), dirDeg: deg(inner.attrs['dir']), color: ic.hex, alpha: ic.alpha ?? 1 };
+  const refl = firstChild(eff, 'a:reflection');
+  if (refl) {
+    const a = refl.attrs;
+    fx.reflection = {
+      blurPt: pt(a['blurRad']), stA: num(a['stA'], 100000) / 100000, stPos: num(a['stPos'], 0) / 100000, endA: num(a['endA'], 0) / 100000, endPos: num(a['endPos'], 100000) / 100000,
+      distPt: pt(a['dist']), dirDeg: deg(a['dir']), sy: num(a['sy'], 100000) / 100000,
+      ...(a['algn'] ? { algn: a['algn'] } : {}), ...(a['rotWithShape'] !== undefined ? { rotWithShape: a['rotWithShape'] === '1' || a['rotWithShape'] === 'true' } : {}),
+    };
+  }
+  // sombra externa com escala/inclinação (Perspectiva) — a simples continua no `shadow`
+  const out = firstChild(eff, 'a:outerShdw');
+  const oc = out && srgbOf(out);
+  if (out && oc) {
+    const a = out.attrs;
+    const sx = num(a['sx'], 100000), sy = num(a['sy'], 100000), kx = num(a['kx']), ky = num(a['ky']);
+    if (sx !== 100000 || sy !== 100000 || kx || ky || Object.keys(fx).length) {
+      fx.outer = {
+        blurPt: pt(a['blurRad']), distPt: pt(a['dist']), dirDeg: deg(a['dir']), color: oc.hex, alpha: oc.alpha ?? 1,
+        ...(sx !== 100000 ? { sx: sx / 100000 } : {}), ...(sy !== 100000 ? { sy: sy / 100000 } : {}),
+        ...(kx ? { kxDeg: kx / 60000 } : {}), ...(ky ? { kyDeg: ky / 60000 } : {}),
+        algn: a['algn'] ?? 'b', rotWithShape: a['rotWithShape'] !== '0' && a['rotWithShape'] !== 'false',
+      };
+    }
+  }
+  return Object.keys(fx).length ? fx : undefined;
 }
 
 export const EMU_PER_TWIP_D = 635;
@@ -306,7 +359,9 @@ export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): Sh
     if (c) st.effectRef = { idx: effIdx, color: c.hex };
   }
   const eff = firstChild(spPr, 'a:effectLst');
-  const shd = eff && firstChild(eff, 'a:outerShdw');
+  const shapeFx = eff ? readShapeFx(eff) : undefined;
+  if (shapeFx) st.fx = shapeFx;
+  const shd = eff && !shapeFx?.outer ? firstChild(eff, 'a:outerShdw') : undefined;
   if (shd) {
     const c = srgbOf(shd);
     const dist = (parseInt(shd.attrs['dist'] ?? '0', 10) || 0) / EMU_PER_TWIP_D;

@@ -1,6 +1,6 @@
 import type { InlineImage } from '@universal-office/docx-core';
 import { BORDER_DASHES } from './tree.js';
-import { needsPicturePainter, paintPicture } from './canvas-picture.js';
+import { needsPicturePainter, paintPicture, paintShapeEffects } from './canvas-picture.js';
 import type { PageItem, GlyphRunItem, ShapeItem, LayoutPage, PathCmdTw } from './tree.js';
 import { gradientTileRgba, gradientTilePx, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, patternRaster, blipTiles, isRectGradient, rectGradientRaster } from './geometry.js';
@@ -318,6 +318,12 @@ function strokeWith(ctx: CanvasRenderingContext2D, color: string, widthPt: numbe
  * contorno e a sombra externa (cópia deslocada, sem desfoque, como no PDF).
  */
 function paintShape(ctx: CanvasRenderingContext2D, it: ShapeItem, env: EnginePaintEnv, base: number): void {
+  // Efeitos de Forma: o corpo numa camada (no referencial da forma) com os efeitos
+  if (it.fx && it.style.geom !== 'line') {
+    const local: ShapeItem = { ...it, x: 0, y: 0, style: { ...it.style, rot: 0 }, fx: undefined, shadow: undefined };
+    paintShapeEffects(ctx, it, (c, s) => { c.scale(s, s); paintShape(c as CanvasRenderingContext2D, local, env, 1); });
+    return;
+  }
   const st = it.style;
   const fill = it.fill && HEX6.test(it.fill) ? env.color(it.fill) : undefined;
   const stroke = it.stroke && HEX6.test(it.stroke.color) ? it.stroke : undefined;
