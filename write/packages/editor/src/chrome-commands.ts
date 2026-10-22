@@ -10,6 +10,7 @@ import { registerTableCommands } from './chrome-table.js';
 import { registerHfCommands } from './chrome-hf.js';
 import { registerPictureCommands } from './chrome-picture.js';
 import { registerPageCommands } from './chrome-page.js';
+import { registerShapeCommands } from './chrome-shape.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
@@ -305,6 +306,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerTableCommands(reg, ed, app, ctl);
   registerHfCommands(reg, ed, app, ctl);
   registerPictureCommands(reg, ed, app, ctl);
+  registerShapeCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
 

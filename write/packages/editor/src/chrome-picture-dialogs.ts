@@ -64,7 +64,8 @@ const WRAP_STYLES = (lang: UiLang): [PicWrapKind, string][] => [
 /** Diálogo Layout: Posição, Quebra Automática de Texto e Tamanho. */
 export async function pictureLayoutDialog(env: DialogEnv, tab: 'position' | 'wrap' | 'size'): Promise<void> {
   const { ed, lang } = env;
-  const st = ed.selectedImage();
+  // a imagem ou a forma/caixa selecionada (as mesmas opções de Layout)
+  const st = (ed.selectedImage() ?? ed.selectedShape()) as (ReturnType<UniversalWriteElement['selectedImage']> & { naturalPt?: unknown }) | null;
   if (!st) return;
   const f = st.format;
   const pt = (emu: number): number => emu / 12700;
@@ -243,7 +244,7 @@ export async function pictureLayoutDialog(env: DialogEnv, tab: 'position' | 'wra
   if (lockAsp.input.checked !== st.lockAspect) o.lockAspect = lockAsp.input.checked;
   const rot = numOf(rotIn.value);
   if (rot !== undefined && Math.abs(rot - st.rotation) > 0.01) o.rotation = rot;
-  ed.setImageLayout(o);
+  if (ed.selectedImage()) ed.setImageLayout(o); else ed.setShapeLayout(o);
 }
 
 /** Compactar Imagens: opções e resolução (a "padrão" do documento é 220 ppi;
@@ -383,11 +384,11 @@ export class PictureUI {
     text.dataset['a'] = 'pic:alt:text';
     const deco = check('decorative', tr(lang, 'Mark as decorative', 'Marcar como decorativa'), false);
     const note = el('p', { textContent: tr(lang, 'Decorative objects add visual interest but aren’t informative (e.g., stylistic borders). People using screen readers won’t hear these.', 'Objetos decorativos acrescentam interesse visual, mas não são informativos (por exemplo, bordas estilísticas). Quem usa leitor de tela não os ouvirá.'), style: 'margin:4px 0 0;font-size:12px;opacity:.75' });
-    const empty = el('p', { textContent: tr(lang, 'Select a picture to add alt text.', 'Selecione uma imagem para adicionar o texto alt.'), style: 'margin:0;font-size:13px;opacity:.75' });
+    const empty = el('p', { textContent: tr(lang, 'Select a picture or shape to add alt text.', 'Selecione uma imagem ou forma para adicionar o texto alt.'), style: 'margin:0;font-size:13px;opacity:.75' });
     const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px;padding:4px' }, intro, text, deco.el, note, empty);
     let last: object | null = null;
     const sync = (): void => {
-      const st = ed.selectedImage();
+      const st = ed.selectedImage() ?? ed.selectedShape();
       empty.hidden = !!st;
       intro.hidden = text.hidden = deco.el.hidden = note.hidden = !st;
       const off = !st || ed.isProtected();
@@ -401,8 +402,9 @@ export class PictureUI {
       }
       text.disabled = off || deco.input.checked;
     };
-    text.addEventListener('change', () => { ed.setImageAltText({ text: text.value }); });
-    deco.input.addEventListener('change', () => { ed.setImageAltText({ decorative: deco.input.checked }); sync(); });
+    const setAlt = (o: { text?: string; decorative?: boolean }): void => { if (ed.selectedImage()) ed.setImageAltText(o); else ed.setShapeAltText(o); };
+    text.addEventListener('change', () => { setAlt({ text: text.value }); });
+    deco.input.addEventListener('change', () => { setAlt({ decorative: deco.input.checked }); sync(); });
     openPane({
       id: 'pic-alt', title: { en: 'Alt Text', pt: 'Texto Alt' }, lang, layer: this.env.layer, frame: this.env.frame, width: 300, body,
       onClose: () => { this.alt = null; ed.classList.remove('uw-has-pane'); this.env.after(); },

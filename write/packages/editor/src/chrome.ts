@@ -26,6 +26,7 @@ import { bindHostFonts, hostOf } from './chrome-host.js';
 import { tableDialog } from './chrome-table-dialogs.js';
 import { PictureUI, pictureLayoutDialog, pictureCompressDialog } from './chrome-picture-dialogs.js';
 import { pictureContextItems } from './chrome-picture.js';
+import { shapeContextItems } from './chrome-shape.js';
 import { tableContextItems } from './chrome-table.js';
 import { alignTabDialog, dateTimeDialog, hfOptionsDialog, pageNumberFormatDialog } from './chrome-hf.js';
 import { pageFillDialog, watermarkDialog } from './chrome-page.js';
@@ -853,6 +854,12 @@ class WriteChrome {
       // imagem selecionada (clique direito nela): o menu da imagem, como o Word
       if (typeof ed.selectedImage === 'function' && ed.selectedImage()) {
         openMenu(pictureContextItems(), at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+        return;
+      }
+      // forma/caixa selecionada (não o texto dela): o menu da forma
+      const shp = typeof ed.selectedShape === 'function' ? ed.selectedShape() : null;
+      if (shp && !shp.editingText) {
+        openMenu(shapeContextItems(), at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
         return;
       }
       const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', ...(ed.getTableState() ? tableContextItems() : []), 'bold', 'italic', 'underline', '-',

@@ -5840,7 +5840,8 @@ export class UniversalWriteElement extends HTMLElement {
     let words = 0, chars = 0;
     // na nota, conta o texto do documento (o da nota fica de fora, como no Word)
     const ne = this.noteEdit;
-    const model = ne ? ne.saved.model : this.model;
+    // (na caixa de texto em edição, idem: o texto de fora dela)
+    const model = ne ? ne.saved.model : this.tbEdit && this.savedForTb ? this.savedForTb.model : this.model;
     if (model) {
       for (const p of model.paragraphs) {
         const t = this.plainTextSlice(p, 0, paraLength(p));
@@ -6294,11 +6295,16 @@ export class UniversalWriteElement extends HTMLElement {
     // células selecionadas: o Word limpa o conteúdo e digita na 1ª
     if (this.tableSel) { this.clearSelectedCells(false); this.tableSel = null; }
     else if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
+    // digitar por cima de uma seleção: o texto novo fica com a formatação do 1º
+    // caractere selecionado (como no Word — o texto de exemplo das caixas, inclusive)
+    let replaced: RunProps | undefined;
     if (this.hasSelection()) {
+      const st = normalizeRange(this.range()).start;
+      replaced = propsAt(this.model, { para: st.para, offset: st.offset + 1 });
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const props = this.pendingProps ?? this.propsAfterNoteRef();
+    const props = this.pendingProps ?? this.propsAfterNoteRef() ?? replaced;
     const pos = this.insertTyped(this.selection.focus, text, props);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
@@ -10934,6 +10940,19 @@ export class UniversalWriteElement extends HTMLElement {
   arrangeShape(op: 'front' | 'back' | 'forward' | 'backward' | 'frontOfText' | 'behindText'): void { if (!this.drawRun()?.image) this.arrangeImage(op); }
   /** Diálogo Layout (Posição, Quebra Automática de Texto, Tamanho) num passo de desfazer. */
   setShapeLayout(o: ImageLayoutInput): void { if (!this.drawRun()?.image) this.setImageLayout(o); }
+  /** Editar Texto: a caixa de texto selecionada passa a editar o texto (cursor no fim). */
+  editSelectedTextbox(): boolean {
+    const run = this.floatSel;
+    if (!run?.textbox || this.locked()) return false;
+    const h = this.selectedFloat();
+    const paras = (this.textboxChain(run.textbox)?.[0] ?? run.textbox).paras;
+    const last = Math.max(0, paras.length - 1);
+    this.floatSel = null;
+    this.enterTextbox(run, h ? h.rect : { x: 0, y: 0, w: run.textbox.widthTwips, h: run.textbox.heightTwips }, h?.page ?? 0, { para: last, offset: paras[last] ? paraLength(paras[last]!) : 0 });
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return !!this.tbEdit;
+  }
+
   /** Exclui a forma/caixa/grupo selecionado (a caixa em edição também). */
   deleteSelectedShape(): void {
     const run = this.drawRun();

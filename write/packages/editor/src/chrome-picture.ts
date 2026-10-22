@@ -132,7 +132,7 @@ export const positionMenu = (): MenuEntry[] => [
 export const rotateMenu = (): MenuEntry[] => ['pic:rotate:right', 'pic:rotate:left', 'pic:flip:v', 'pic:flip:h', '-', 'pic:rotate:more'];
 
 /** Miniatura de uma forma predefinida (contorno oficial do DrawingML). */
-function shapeThumb(tile: HTMLElement, prst: string): void {
+export function shapeThumb(tile: HTMLElement, prst: string): void {
   const W = 26, H = 22, dpr = Math.max(1, window.devicePixelRatio || 1);
   const c = document.createElement('canvas');
   c.width = W * dpr; c.height = H * dpr;
@@ -420,11 +420,13 @@ function borderMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   ];
 }
 
-function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
+/** Efeitos de Imagem — ou de Forma (`shape`): as mesmas predefinições. */
+export function effectsMenu(env: WidgetEnv, ctx: BarContext, shape = false): MenuEntry[] {
   const ed = env.ed;
+  const setFx = (kind: Parameters<UniversalWriteElement['setImageEffect']>[0], preset: string | null): void => (shape ? ed.setShapeEffect(kind, preset) : ed.setImageEffect(kind, preset));
   const t = (l: Lbl): string => ctx.registry.text(l);
   const base = accentOf(env);
-  const fx = () => ed.selectedImage()?.format.effects;
+  const fx = () => (shape ? ed.selectedShape()?.format.effects : ed.selectedImage()?.format.effects);
   const grid = (sections: { label?: Lbl; items: GalleryItem[] }[], look: (id: string) => PictureLook | null, pick: (id: string) => void, selected: string | undefined, cols: number) => (close: () => void): HTMLElement =>
     tileGrid({
       sections, tile: { w: 64, h: 56 }, cols, text: t, close, ...(selected ? { selected } : {}),
@@ -459,7 +461,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
           { label: L('Outer', 'Externa'), items: SHADOW_PRESETS.filter((p) => p.group === 'outer').map((p) => ({ id: p.id, label: p.label })) },
           { label: L('Inner', 'Interna'), items: SHADOW_PRESETS.filter((p) => p.group === 'inner').map((p) => ({ id: p.id, label: p.label })) },
           { label: L('Perspective', 'Perspectiva'), items: SHADOW_PRESETS.filter((p) => p.group === 'persp').map((p) => ({ id: p.id, label: p.label })) },
-        ], shadowLook, (id) => ed.setImageEffect('shadow', id === 'none' ? null : id), curShadow(), 3),
+        ], shadowLook, (id) => setFx('shadow', id === 'none' ? null : id), curShadow(), 3),
       }],
     },
     {
@@ -473,7 +475,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
           if (!p) return null;
           const r = p.reflection;
           return { reflection: { blurPt: (r.blurRad ?? 0) / 12700, stA: (r.stA ?? 100000) / 100000, stPos: 0, endA: (r.endA ?? 0) / 100000, endPos: (r.endPos ?? 100000) / 100000, distPt: (r.dist ?? 0) / 12700, dirDeg: 90, sy: -1 } };
-        }, (id) => ed.setImageEffect('reflection', id === 'none' ? null : id), curRefl(), 3),
+        }, (id) => setFx('reflection', id === 'none' ? null : id), curRefl(), 3),
       }],
     },
     {
@@ -489,7 +491,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
         ], (id) => {
           const m = /^glow-(\d+)-(\d)$/.exec(id);
           return m ? { glow: { color: accentOf(env, Number(m[2])), alpha: 0.4, radPt: GLOW_SIZES[Number(m[1])]! / 12700 / 1.6 } } : null;
-        }, (id) => ed.setImageEffect('glow', id === 'none' ? null : id), undefined, 6),
+        }, (id) => setFx('glow', id === 'none' ? null : id), undefined, 6),
       }],
     },
     {
@@ -498,7 +500,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
         content: grid([
           { label: L('No Soft Edges', 'Sem Bordas Suaves'), items: [none('No Soft Edges', 'Sem Bordas Suaves')] },
           { label: L('Soft Edge Variations', 'Variações de Bordas Suaves'), items: SOFT_EDGE_PRESETS.map((v) => ({ id: String(v), label: L(`${v / 12700} Point`, `${String(v / 12700).replace('.', ',')} Ponto`) })) },
-        ], (id) => (id === 'none' ? null : { softEdgePt: Number(id) / 12700 / 2.5 }), (id) => ed.setImageEffect('softEdge', id === 'none' ? null : id), fx()?.softEdge ? String(fx()!.softEdge) : 'none', 3),
+        ], (id) => (id === 'none' ? null : { softEdgePt: Number(id) / 12700 / 2.5 }), (id) => setFx('softEdge', id === 'none' ? null : id), fx()?.softEdge ? String(fx()!.softEdge) : 'none', 3),
       }],
     },
     {
@@ -507,7 +509,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
         content: grid([
           { label: L('No Bevel', 'Sem Bisel'), items: [none('No Bevel', 'Sem Bisel')] },
           { label: L('Bevel', 'Bisel'), items: BEVEL_PRESETS.map((p) => ({ id: p.prst, label: p.label })) },
-        ], () => null, (id) => ed.setImageEffect('bevel', id === 'none' ? null : id), undefined, 4),
+        ], () => null, (id) => setFx('bevel', id === 'none' ? null : id), undefined, 4),
       }],
     },
     {
@@ -518,7 +520,7 @@ function effectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
           { label: L('Parallel', 'Paralelo'), items: ROTATION_PRESETS.filter((p) => p.group === 'parallel').map((p) => ({ id: p.prst, label: p.label })) },
           { label: L('Perspective', 'Perspectiva'), items: ROTATION_PRESETS.filter((p) => p.group === 'perspective').map((p) => ({ id: p.prst, label: p.label })) },
           { label: L('Oblique', 'Oblíqua'), items: ROTATION_PRESETS.filter((p) => p.group === 'oblique').map((p) => ({ id: p.prst, label: p.label })) },
-        ], () => null, (id) => ed.setImageEffect('rotation', id === 'none' ? null : id), undefined, 4),
+        ], () => null, (id) => setFx('rotation', id === 'none' ? null : id), undefined, 4),
       }],
     },
   ];

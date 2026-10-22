@@ -114,8 +114,8 @@ export function textboxTemplateSpec(id: string, env: { accent: string; lang: 'en
         posH: { relativeFrom: 'margin', align: 'right' }, posV: { relativeFrom: 'paragraph', offset: 0 },
         wrap: 'square', fill: { kind: 'none' }, line: null,
         body: { lIns: 182880, tIns: 182880, rIns: 182880, bIns: 182880, autofit: 'shape' },
-        content: para(run(t.quote, `<w:i/><w:iCs/>${ACCENT(env.accent)}${sz(28)}`), `<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${env.accent}" w:themeColor="accent1"/></w:pBdr><w:spacing w:after="120"/>`)
-          + para(run(t.source, sz(18)), `<w:jc w:val="right"/>`),
+        content: para(run(t.quote, `<w:i/><w:iCs/>${ACCENT(env.accent)}${sz(28)}`), `<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${env.accent}" w:themeColor="accent1"/></w:pBdr><w:spacing w:after="120"/>`, `<w:i/><w:iCs/>${ACCENT(env.accent)}${sz(28)}`)
+          + para(run(t.source, sz(18)), `<w:jc w:val="right"/>`, sz(18)),
       };
     case 'sidebarRight':
     case 'sidebarLeft': {
@@ -126,8 +126,8 @@ export function textboxTemplateSpec(id: string, env: { accent: string; lang: 'en
         posH: { relativeFrom: 'page', align: right ? 'right' : 'left' }, posV: { relativeFrom: 'page', align: 'top' },
         wrap: 'square', fill: { kind: 'solid', color: accent() }, line: null,
         body: { lIns: 228600, tIns: 914400, rIns: 228600, bIns: 457200, autofit: 'none' },
-        content: para(run(t.title, `<w:b/><w:bCs/>${WHITE}${sz(32)}`), '<w:spacing w:after="240"/>')
-          + para(run(t.side, `${WHITE}${sz(22)}`)),
+        content: para(run(t.title, `<w:b/><w:bCs/>${WHITE}${sz(32)}`), '<w:spacing w:after="240"/>', `<w:b/><w:bCs/>${WHITE}${sz(32)}`)
+          + para(run(t.side, `${WHITE}${sz(22)}`), '', `${WHITE}${sz(22)}`),
       };
     }
     case 'band':
@@ -138,7 +138,7 @@ export function textboxTemplateSpec(id: string, env: { accent: string; lang: 'en
         wrap: 'topAndBottom', fill: { kind: 'solid', color: { kind: 'schemeClr', val: 'accent1', mods: [['lumMod', 20000], ['lumOff', 80000]] } },
         line: null,
         body: { lIns: pad * 2, tIns: pad, rIns: pad * 2, bIns: pad, autofit: 'shape' },
-        content: para(run(t.title, `<w:b/><w:bCs/>${ACCENT(env.accent)}${sz(26)}`), '<w:spacing w:after="60"/>') + para(run(t.body)),
+        content: para(run(t.title, `<w:b/><w:bCs/>${ACCENT(env.accent)}${sz(26)}`), '<w:spacing w:after="60"/>', `<w:b/><w:bCs/>${ACCENT(env.accent)}${sz(26)}`) + para(run(t.body)),
       };
     case 'note':
       return {
@@ -147,7 +147,7 @@ export function textboxTemplateSpec(id: string, env: { accent: string; lang: 'en
         wrap: 'square', fill: { kind: 'solid', color: { kind: 'schemeClr', val: 'accent4', mods: [['lumMod', 20000], ['lumOff', 80000]] } },
         line: { w: 12700, fill: { kind: 'schemeClr', val: 'accent4' } },
         body: { lIns: 91440, tIns: 91440, rIns: 91440, bIns: 91440, autofit: 'shape' },
-        content: para(run(t.note, `<w:b/><w:bCs/>${sz(20)}`), '<w:spacing w:after="60"/>') + para(run(t.body, sz(18))),
+        content: para(run(t.note, `<w:b/><w:bCs/>${sz(20)}`), '<w:spacing w:after="60"/>', `<w:b/><w:bCs/>${sz(20)}`) + para(run(t.body, sz(18)), '', sz(18)),
       };
   }
   return null;

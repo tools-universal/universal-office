@@ -13,6 +13,7 @@ import { tableDesignGroups, tableFormatMenu, tableLayoutGroups, tableMenu } from
 import { docInfoMenu, hfGalleryMenu, hfToolsGroups, pageNumberMenu } from './chrome-hf.js';
 import { pictureCompactGroup, pictureFormatGroups, pictureMenu } from './chrome-picture.js';
 import { coverPageMenu, pageColorMenu, watermarkMenu } from './chrome-page.js';
+import { shapeCompactGroup, shapeFormatGroups, shapeMenu, textboxMenu } from './chrome-shape.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -146,8 +147,8 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
-      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
+      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -168,6 +169,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
         'list:bullet', 'list:decimal', 'outdent', 'indent', 'clear',
       ] },
       pictureCompactGroup(env, ctx),
+      shapeCompactGroup(env, ctx),
       { id: 'extras', label: { en: 'More tools', pt: 'Mais ferramentas' }, icon: 'more_horiz', prio: 0, items: [
         'strike', 'sub', 'sup',
         { menu: caseMenu, id: 'case', label: { en: 'Change case', pt: 'Maiúsculas e minúsculas' }, icon: 'match_case' },
@@ -244,7 +246,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             { menu: () => pageNumberMenu(env, ctx), id: 'hf:pgnumMenu', label: L('Page Number', 'Número de Página'), icon: 'numbers', size: 'large' },
           ] },
           { id: 'text', label: L('Text', 'Texto'), icon: 'text_fields', prio: 3, cells: [
-            large('textbox'),
+            { menu: () => textboxMenu(env, ctx), id: 'textbox:menu', label: L('Text Box', 'Caixa de Texto'), icon: 'text_fields', size: 'large', supports: has('insertTextbox') },
             { rows: [[{ cmd: 'dlg:dateTime', label: true }], [{ menu: () => symbolMenu(env, ctx), id: 'symbols', label: L('Symbol', 'Símbolo'), icon: 'special_character', showLabel: true }]] },
           ] },
         ],
@@ -367,6 +369,14 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           return typeof f === 'function' && !!f.call(env.ed);
         },
         groups: pictureFormatGroups(env, ctx),
+      },
+      {
+        id: 'shape-tools', label: L('Shape Format', 'Formato da Forma'),
+        contextual: () => {
+          const f = (env.ed as unknown as { selectedShape?: () => unknown }).selectedShape;
+          return typeof f === 'function' && !!f.call(env.ed);
+        },
+        groups: shapeFormatGroups(env, ctx),
       },
     ],
   };
