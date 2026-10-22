@@ -703,6 +703,8 @@ public sealed class FullDocument
     public List<string> BookmarkOrder = new();
     /// <summary>Posição de cada bookmark no texto do parágrafo onde começa (Run.Text concatenado).</summary>
     public Dictionary<string, int>? BookmarkOffsets;
+    /// <summary>Onde cada bookmark termina (w:bookmarkEnd): bloco e posição no texto do parágrafo — REF pelo trecho.</summary>
+    public Dictionary<string, (int Block, int Offset)>? BookmarkEnds;
     /// <summary>Estilos/numeração/tema/configurações/fontes CRUS — motor de layout.</summary>
     public DocFormatting? Formatting;
     /// <summary>Notas como blocos (tabelas preservadas).</summary>

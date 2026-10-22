@@ -112,8 +112,11 @@ public sealed class NumberMarker
     public double Ilvl;
     /// <summary>id da lista (contador) — p/ depuração.</summary>
     public string ListKey = "";
+    /// <summary>contexto completo (REF \w): os textos dos níveis acima que o do item não cita,
+    /// de fora para dentro, e o do item por último (oráculo refs-lab, rn-letter: "2." + "b)")</summary>
+    public List<string>? Parts;
     /// <summary>só os números do marcador (do 1º ao último %n do texto do nível) — o
-    /// número de capítulo do campo PAGE (w:chapStyle).</summary>
+    /// número de capítulo do campo PAGE (w:chapStyle) e o STYLEREF \s.</summary>
     public string? Chapter;
 }
 
@@ -244,26 +247,43 @@ public sealed class NumberingState
             if (r is null || ilvl < r) c[d] = null;
         }
         string lvlText = lvl.LvlTextNull == true ? "" : (lvl.LvlText ?? "");
+        string Fill(string t, NumLevel own) => PctRe.Replace(t, m =>
+        {
+            int l = m.Groups[1].Value[0] - '1';
+            var n = c[l];
+            double v = n is { Real: true } ? n.Value.V : LvlStart(l);
+            string fmt = own.IsLgl == true && l != il ? "decimal" : (Level(numId, l)?.NumFmt ?? "decimal");
+            return NumberFormat.FormatNumber(v, fmt == "bullet" ? "decimal" : fmt, _lang);
+        });
         string text;
         string? chapter = null;
         if (lvl.NumFmt == "bullet") text = lvlText;
         else
         {
-            string Subst(string s) => PctRe.Replace(s, m =>
-            {
-                int l = m.Groups[1].Value[0] - '1';
-                var n = c[l];
-                double v = n is { Real: true } ? n.Value.V : LvlStart(l);
-                string fmt = lvl.IsLgl == true && l != il ? "decimal" : (Level(numId, l)?.NumFmt ?? "decimal");
-                return NumberFormat.FormatNumber(v, fmt == "bullet" ? "decimal" : fmt, _lang);
-            });
-            text = Subst(lvlText);
-            // número de capítulo (PAGE com w:chapStyle): do 1º ao último espaço reservado
-            // do texto do nível — "Capítulo %1" → "I", "%1.%2" → "1.1" (oráculo hfopts)
+            text = Fill(lvlText, lvl);
+            // número de capítulo (PAGE com w:chapStyle) e STYLEREF \s: do 1º ao último
+            // espaço reservado do texto do nível — "Capítulo %1" → "I", "%1.%2" → "1.1"
+            // (oráculos hfopts e refs-lab)
             var first = PctRe.Match(lvlText);
             int b = lvlText.LastIndexOf('%');
-            if (first.Success && b >= first.Index) chapter = Subst(lvlText.Substring(first.Index, Math.Min(lvlText.Length, b + 2) - first.Index));
+            if (first.Success && b >= first.Index) chapter = Fill(lvlText.Substring(first.Index, Math.Min(lvlText.Length, b + 2) - first.Index), lvl);
         }
-        return new NumberMarker { Text = text, Level = lvl, NumId = numId, Ilvl = ilvl, ListKey = key, Chapter = chapter };
+        var outp = new NumberMarker { Text = text, Level = lvl, NumId = numId, Ilvl = ilvl, ListKey = key, Chapter = chapter };
+        if (lvl.NumFmt != "bullet")
+        {
+            List<int> Refs(string t) => PctRe.Matches(t).Select(m => m.Groups[1].Value[0] - '1').ToList();
+            var parts = new List<string> { text };
+            var cited = new HashSet<int>(Refs(lvlText));
+            for (int l = il - 1; l >= 0 && !cited.Contains(l); l--)
+            {
+                var pl = Level(numId, l);
+                if (pl is null || pl.NumFmt == "bullet") break;
+                string pt = pl.LvlTextNull == true ? "" : (pl.LvlText ?? "");
+                parts.Insert(0, Fill(pt, pl));
+                foreach (var x in Refs(pt)) cited.Add(x);
+            }
+            outp.Parts = parts;
+        }
+        return outp;
     }
 }

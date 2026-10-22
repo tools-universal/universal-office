@@ -1,0 +1,32 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 173.77,
+"size": 11.04,
+"text": "Antes:abaixoHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 234.28,
+"size": 11.04,
+"text": "MesmoabaixoalvoacimaHxg"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 176.77,
+"size": 11.04,
+"text": "Depois:acimaHxg"
+}
+],
+"objs": []
+}
+]
+}

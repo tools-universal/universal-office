@@ -371,11 +371,12 @@ class Engine {
    * dele, na ordem do documento (oráculo refs-lab, xr-*-pos, xr-before). Sem a
    * posição do campo (cabeçalho, caixa), mantém o cache.
    */
-  private positionWord(bm: string, block?: number): string | undefined {
+  private positionWord(bm: string, block?: number, at?: number): string | undefined {
     const b = this.full.bookmarks?.get(bm);
     if (b === undefined || block === undefined || block < 0) return undefined;
-    // por parágrafo: no mesmo parágrafo é "acima" mesmo antes do indicador (oráculo rp-same)
-    const below = block < b;
+    // no mesmo parágrafo vale a posição: antes do indicador é "abaixo" (oráculo refs, ref-pos)
+    const off = this.full.bookmarkOffsets?.get(bm) ?? 0;
+    const below = block < b || (block === b && at !== undefined && at < off);
     const pt = /^pt/i.test(this.ctx.opts.lang);
     return below ? (pt ? 'abaixo' : 'below') : (pt ? 'acima' : 'above');
   }
@@ -384,7 +385,7 @@ class Engine {
   private noteRefValue(instr: string, block?: number, at?: number): string | undefined {
     const bm = instr.trim().split(/\s+/)[1];
     if (!bm) return undefined;
-    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block);
+    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block, at);
     const b = this.full.bookmarks?.get(bm);
     const blk = b !== undefined ? this.full.blocks[b] : undefined;
     if (!blk || blk.type !== 'paragraph') return undefined;
@@ -406,11 +407,10 @@ class Engine {
   /** REF indicador: o texto do trecho do indicador (sem o fim conhecido, o parágrafo
    *  dele); \n \r \w = número do parágrafo; \p = acima/abaixo. */
   private refValue(instr: string, block?: number, at?: number): string | undefined {
-    void at;
     const tok = instr.trim().split(/\s+/);
     const bm = tok[1];
     if (!bm) return undefined;
-    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block);
+    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block, at);
     if (/\\[nrw]\b/i.test(instr)) {
       // número do parágrafo: o Word recalcula na exportação; sem os pontos finais,
       // e "0" se o parágrafo do indicador não é numerado (oráculo numbering3, ref-num).

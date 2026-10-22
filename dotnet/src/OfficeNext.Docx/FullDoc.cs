@@ -254,12 +254,17 @@ public static class FullDocReader
         var bookmarks = new Dictionary<string, int>(StringComparer.Ordinal);
         var bookmarkOrder = new List<string>();
         var bookmarkOffsets = new Dictionary<string, int>(StringComparer.Ordinal);
+        var bookmarkEnds = new Dictionary<string, (int Block, int Offset)>(StringComparer.Ordinal);
         ctx.OnBookmark = (name, offset) =>
         {
             if (bookmarks.ContainsKey(name)) return;
             bookmarks[name] = blocksAll.Count;
             bookmarkOffsets[name] = offset;
             bookmarkOrder.Add(name);
+        };
+        ctx.OnBookmarkEnd = (name, offset) =>
+        {
+            if (!bookmarkEnds.ContainsKey(name)) bookmarkEnds[name] = (blocksAll.Count, offset);
         };
         int sectionStart = 0;
 
@@ -350,6 +355,7 @@ public static class FullDocReader
             Bookmarks = bookmarks,
             BookmarkOrder = bookmarkOrder,
             BookmarkOffsets = bookmarkOffsets,
+            BookmarkEnds = bookmarkEnds,
             Formatting = OoxmlParts.ReadDocFormatting(pkg),
             FootnoteBlocks = footnoteBlocks,
             EndnoteBlocks = endnoteBlocks,

@@ -162,7 +162,9 @@ public sealed class ParaEnv
     public PPr? TablePPr;
     public RPr? TableRPr;
     /// <summary>valor dos campos dinâmicos (PAGE, NUMPAGES…)</summary>
-    public Func<string, string?, string?>? Field;
+    /// <summary>valor dos campos dinâmicos; o 3º argumento = posição do campo no texto
+    /// do parágrafo (REF \p: acima/abaixo)</summary>
+    public Func<string, string?, int?, string?>? Field;
     /// <summary>numerar (false no cabeçalho reaproveitado em cada página)</summary>
     public bool? Numbering;
     /// <summary>cor de fundo escura (cor automática vira branco)</summary>
@@ -613,7 +615,7 @@ public static class Para
         return HangBase + HangClose + HangQuotes + (ZhTradRe.IsMatch(ea) ? "" : "%");
     }
 
-    private static readonly string[] DynFields = { "PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE" };
+    private static readonly string[] DynFields = { "PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "NOTEREF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE" };
     private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
     private static readonly Regex FormTextRe = new(@"^\s*FORMTEXT(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     /// <summary>campo do número da própria nota (FOOTNOTEREF_MARK / ENDNOTEREF_MARK)</summary>
@@ -624,14 +626,15 @@ public static class Para
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Run, Run> GluedField = new();
 
     /// <summary>Texto exibido de um campo (resultado em cache ou valor dinâmico).</summary>
-    private static List<Run>? FieldRuns(Run run, ParaEnv env)
+    private static List<Run>? FieldRuns(Run run, ParaEnv env, int? at = null)
     {
         string instr = (run.Field ?? "").Trim();
         string name = Js.ToUpper(WsRe.Split(instr)[0]);
-        // o Word recalcula estes campos ao imprimir/exportar (oráculo fields)
-        if (DynFields.Contains(name) || name.EndsWith("_MARK", StringComparison.Ordinal))
+        // o Word recalcula estes campos ao imprimir/exportar (oráculo fields); STYLEREF só
+        // no corpo (no cabeçalho depende da página — fica o resultado em cache)
+        if (DynFields.Contains(name) || name.EndsWith("_MARK", StringComparison.Ordinal) || (name == "STYLEREF" && !env.Hf))
         {
-            string? v = env.Field?.Invoke(name, instr);
+            string? v = env.Field?.Invoke(name, instr, at);
             if (v is not null)
             {
                 var b = run.FieldResult?.FirstOrDefault(r => r.Image is null && r.Textbox is null) ?? run;
@@ -648,7 +651,7 @@ public static class Para
             // campos aninhados no resultado (PAGEREF dentro do TOC) também são avaliados
             if (!run.FieldResult.Any(r => r.Field is not null)) return run.FieldResult;
             return run.FieldResult.SelectMany(r => r.Field is not null
-                ? (FieldRuns(r, env) ?? (r.Text.Length > 0 ? new List<Run> { r } : new List<Run>()))
+                ? (FieldRuns(r, env, at) ?? (r.Text.Length > 0 ? new List<Run> { r } : new List<Run>()))
                 : new List<Run> { r }).ToList();
         }
         return null;
@@ -681,7 +684,7 @@ public static class Para
             }
             else if (run.Field is not null)
             {
-                var fr = FieldRuns(run, env);
+                var fr = FieldRuns(run, env, (int)offset);
                 if (fr is not null) { foreach (var r in fr) outp.Add((r, idx, offset)); }
                 else if (run.Text.Length > 0) outp.Add((run, idx, offset));
             }

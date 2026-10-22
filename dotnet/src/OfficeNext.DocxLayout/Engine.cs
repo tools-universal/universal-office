@@ -45,6 +45,9 @@ public static class LayoutEngine
         // notas de rodapé "reiniciar a cada página": a marca depende da página onde a nota
         // saiu — a passada seguinte usa as da anterior
         Dictionary<string, string>? noteMarks = null;
+        // NOTEREF: a marca da nota referida (ela pode vir depois do campo — a passada
+        // seguinte usa as marcas da anterior)
+        var noteRefs = new Dictionary<string, string>(StringComparer.Ordinal);
         DocContext NewCtx()
         {
             var c = new DocContext(fmt, provider, opts);
@@ -56,10 +59,11 @@ public static class LayoutEngine
         Engine? last = null;
         for (int pass = 0; pass < 5; pass++)
         {
-            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables) { ChaptersGuess = chaps };
+            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables, null, noteRefs) { ChaptersGuess = chaps };
             result = eng.Run();
             last = eng;
             var newMarks = eng.UsedPageRef ? eng.BookmarkPages() : marks;
+            var newNoteRefs = eng.UsedNoteRef ? eng.Ctx.AllNoteMarks() : noteRefs;
             var newLate = eng.LateFound.Count > 0 ? MergeLate(late, eng.LateFound) : late;
             var newLateTables = lateTables;
             if (eng.LateTablesFound.Count > 0)
@@ -70,12 +74,14 @@ public static class LayoutEngine
             var fix = eng.NoteMarkFix();
             var newChaps = eng.UsedChapter ? eng.ChapterIndex() : chaps;
             bool stable = (!eng.UsedNumPages || result.Pages.Count == total)
-                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables) && fix is null
+                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && (!eng.UsedNoteRef || SameMap(newNoteRefs, noteRefs))
+                && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables) && fix is null
                 && (!eng.UsedChapter || SameChapters(newChaps, chaps));
             if (stable) break;
             chaps = newChaps;
             total = result.Pages.Count;
             marks = newMarks;
+            noteRefs = newNoteRefs;
             lateTables = newLateTables;
             late = newLate;
             if (fix is not null) noteMarks = fix;
@@ -86,7 +92,7 @@ public static class LayoutEngine
         var balance = new Dictionary<int, BalanceSpec>();
         Engine RunWith(Dictionary<int, BalanceSpec> bal)
         {
-            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables, bal) { ChaptersGuess = chaps };
+            var eng = new Engine(NewCtx(), full, total, marks, late, lateTables, bal, noteRefs) { ChaptersGuess = chaps };
             result = eng.Run();
             return eng;
         }
@@ -341,9 +347,12 @@ internal sealed class Engine
     public Engine(DocContext ctx, FullDocument full, double totalPagesGuess, Dictionary<string, string>? marksGuess = null, Dictionary<int, List<Run>>? lateFloats = null,
         Dictionary<int, LateTable>? lateTables = null,
         /* colunas equilibradas: seção → página e altura (busca em LayoutDocument) */
-        Dictionary<int, BalanceSpec>? balance = null)
+        Dictionary<int, BalanceSpec>? balance = null,
+        /* marcas das notas (passada anterior) — NOTEREF para nota que vem depois */
+        Dictionary<string, string>? noteRefGuess = null)
     {
         _ctx = ctx;
+        _noteRefGuess = noteRefGuess ?? new Dictionary<string, string>(StringComparer.Ordinal);
         _full = full;
         _totalPagesGuess = totalPagesGuess;
         _marksGuess = marksGuess ?? new Dictionary<string, string>(StringComparer.Ordinal);
@@ -353,6 +362,10 @@ internal sealed class Engine
     }
 
     private readonly Dictionary<int, BalanceSpec> _balance;
+    private readonly Dictionary<string, string> _noteRefGuess;
+    public bool UsedNoteRef;
+    /// <summary>o contexto da passada (as marcas das notas vão para a seguinte)</summary>
+    public DocContext Ctx => _ctx;
     /// <summary>seções de várias colunas seguidas de seção contínua: o que ocupam na última página</summary>
     public Dictionary<int, BalanceInfo> BalanceFound = new();
     /// <summary>alturas usadas pelas colunas já encerradas na porção da seção nesta página</summary>
@@ -381,6 +394,13 @@ internal sealed class Engine
     private static readonly Regex SeqC = new(@"\\c(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex SeqH = new(@"\\h(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex SeqFmt = new(@"\\\*\s*([A-Za-z0-9_]+)", RegexOptions.CultureInvariant);
+    private static readonly Regex SeqS = new(@"\\s\s*(\d)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex RefSwitchW = new(@"\\w(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex RefSwitchD = new(@"\\d\s+""([^""]*)""", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex StyleRefN = new(@"^\s*STYLEREF\s+""?([1-9])""?", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex StyleRefSn = new(@"\\[sn](?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex StyleRefS = new(@"\\s(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex HeadingName = new(@"^heading ([1-9])$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex RefSwitchP = new(@"\\p(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex RefSwitchNum = new(@"\\[nrw](?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex RefWs = new("[\t\n\f\u000B]", RegexOptions.CultureInvariant);
@@ -397,6 +417,13 @@ internal sealed class Engine
         var tok = SplitWs(instr);
         string? id = tok.Length > 1 ? Js.ToLower(tok[1]) : null;
         if (string.IsNullOrEmpty(id) || id.StartsWith('\\')) return null;
+        // \s n zera o contador se houve título de nível ≤ n desde a última vez que ele
+        // contou (oráculo refs-lab, sr-*: um título 2 não zera o \s 1)
+        var sm = SeqS.Match(instr);
+        int reset = sm.Success ? sm.Groups[1].Value[0] - '0' : 0;
+        int since = _ctx.SeqHeads.TryGetValue(id, out var sh) ? sh : 0;
+        if (reset > 0 && _ctx.Heads.Skip(since).Any(l => l <= reset)) _ctx.SeqCounters[id] = 0;
+        _ctx.SeqHeads[id] = _ctx.Heads.Count;
         double v = _ctx.SeqCounters.TryGetValue(id, out var cv) ? cv : 0;
         var r = SeqR.Match(instr);
         if (r.Success) v = Js.ParseInt(r.Groups[1].Value);
@@ -417,43 +444,139 @@ internal sealed class Engine
         return NumberFormat.FormatNumber(v, mapped, _ctx.Opts.Lang);
     }
 
-    /// <summary>REF indicador: o texto do parágrafo do indicador (os do sumário cobrem o título inteiro).</summary>
-    private string? RefValue(string instr)
+    /// <summary>"acima"/"abaixo" (REF/NOTEREF \p): o campo vem depois do indicador ou antes dele,
+    /// na ordem do documento; no mesmo parágrafo vale a posição (oráculo refs, ref-pos). Sem a
+    /// posição do campo (cabeçalho, caixa), mantém o cache.</summary>
+    private string? PositionWord(string bm, int? block, int? at)
+    {
+        if (!_full.Bookmarks.TryGetValue(bm, out var b) || block is not { } fb || fb < 0) return null;
+        int off = _full.BookmarkOffsets is not null && _full.BookmarkOffsets.TryGetValue(bm, out var o) ? o : 0;
+        bool below = fb < b || (fb == b && at is { } a && a < off);
+        bool pt = _ctx.Opts.Lang.StartsWith("pt", StringComparison.OrdinalIgnoreCase);
+        return below ? (pt ? "abaixo" : "below") : (pt ? "acima" : "above");
+    }
+
+    /// <summary>NOTEREF indicador: a marca da nota cuja referência está no trecho do indicador.</summary>
+    private string? NoteRefValue(string instr, int? block, int? at)
     {
         var tok = SplitWs(instr);
         string? bm = tok.Length > 1 ? tok[1] : null;
-        if (string.IsNullOrEmpty(bm) || RefSwitchP.IsMatch(instr)) return null; // posição (acima/abaixo): mantém o cache
+        if (string.IsNullOrEmpty(bm)) return null;
+        if (RefSwitchP.IsMatch(instr)) return PositionWord(bm, block, at);
+        if (!_full.Bookmarks.TryGetValue(bm, out var b) || b < 0 || b >= _full.Blocks.Count || _full.Blocks[b] is not ParagraphBlock pb) return null;
+        int from = _full.BookmarkOffsets is not null && _full.BookmarkOffsets.TryGetValue(bm, out var fo) ? fo : 0;
+        double to = _full.BookmarkEnds is not null && _full.BookmarkEnds.TryGetValue(bm, out var en) && en.Block == b ? en.Offset : double.PositiveInfinity;
+        int acc = 0;
+        foreach (var r in pb.Paragraph.Runs)
+        {
+            int rs = acc;
+            acc += r.Text.Length;
+            if (r.NoteRef is null || r.NoteRef.Custom || rs < from || rs > to || (rs == to && to > from)) continue;
+            UsedNoteRef = true;
+            string kind = r.NoteRef.Kind;
+            int id = r.NoteRef.Id;
+            return _ctx.NoteMarkOf(kind, id) ?? (_noteRefGuess.TryGetValue($"{kind[0]}{id}", out var g) ? g : null);
+        }
+        return null;
+    }
+
+    /// <summary>Nível N do estilo de título interno do parágrafo ("heading N" — o próprio
+    /// estilo, como o STYLEREF procura), 0 = outro estilo.</summary>
+    private int HeadingStyleLevel(Paragraph p)
+    {
+        string? id = p.Props.StyleId ?? p.Ppr?.PStyle;
+        string? name = id is not null ? _ctx.Fmt.Styles.Styles[id]?.Name : null;
+        var m = name is not null ? HeadingName.Match(name) : null;
+        return m is { Success: true } ? m.Groups[1].Value[0] - '0' : 0;
+    }
+
+    /// <summary>STYLEREF n [\s|\n] no corpo: o título de nível n mais próximo ANTES do campo
+    /// (no próprio parágrafo inclusive); sem nenhum, o primeiro depois (oráculo refs-lab,
+    /// sr-*). Sem switch: o texto do título; \n: o número (sem ponto final; "0" sem número);
+    /// \s: só os números ("Cap %1" → "1"). Sem título desse nível: a mensagem de erro do Word.</summary>
+    private string? StyleRefValue(string instr, int? block)
+    {
+        var nm = StyleRefN.Match(instr);
+        if (!nm.Success || block is not { } fb || fb < 0) return null;
+        int n = nm.Groups[1].Value[0] - '0';
+        var blocks = _full.Blocks;
+        bool At(int i) => i >= 0 && i < blocks.Count && blocks[i] is ParagraphBlock pb && HeadingStyleLevel(pb.Paragraph) == n;
+        int hit = -1;
+        for (int i = Math.Min(fb, blocks.Count - 1); i >= 0 && hit < 0; i--) if (At(i)) hit = i;
+        for (int i = fb + 1; i < blocks.Count && hit < 0; i++) if (At(i)) hit = i;
+        if (hit < 0) return _ctx.Opts.Lang.StartsWith("pt", StringComparison.OrdinalIgnoreCase) ? "Erro! Nenhum texto com o estilo especificado foi encontrado no documento." : "Error! No text of specified style in document.";
+        var p = ((ParagraphBlock)blocks[hit]).Paragraph;
+        if (StyleRefSn.IsMatch(instr))
+        {
+            var m = ListNumberOf(hit);
+            if (m is null || !Js.Truthy(m.Text)) return "0";
+            return (StyleRefS.IsMatch(instr) ? (m.Level.NumFmt == "bullet" ? m.Text : (m.Chapter ?? "")) : m.Text).TrimEnd('.');
+        }
+        string t = string.Concat(p.Runs.Select(x => x.Image is not null || x.Textbox is not null || x.Shape is not null || x.Group is not null ? "" : x.Text));
+        return RefWs.Replace(t, " ").Trim();
+    }
+
+    /// <summary>REF indicador: o texto do trecho do indicador (sem o fim conhecido, o parágrafo
+    /// dele); \n \r \w = número do parágrafo; \p = acima/abaixo.</summary>
+    private string? RefValue(string instr, int? block = null, int? at = null)
+    {
+        var tok = SplitWs(instr);
+        string? bm = tok.Length > 1 ? tok[1] : null;
+        if (string.IsNullOrEmpty(bm)) return null;
+        if (RefSwitchP.IsMatch(instr)) return PositionWord(bm, block, at);
         if (RefSwitchNum.IsMatch(instr))
         {
             // número do parágrafo: o Word recalcula na exportação; sem os pontos finais,
-            // e "0" se o parágrafo do indicador não é numerado (oráculo numbering3, ref-num)
+            // e "0" se o parágrafo do indicador não é numerado (oráculo numbering3, ref-num).
+            // \w = contexto completo (os níveis acima que o número não cita, \d entre eles);
+            // \n e \r (de fora da lista) = o número do nível (oráculo refs-lab, rn-*)
             if (!_full.Bookmarks.TryGetValue(bm, out var bi) || bi < 0 || bi >= _full.Blocks.Count || _full.Blocks[bi] is not ParagraphBlock) return null;
-            string? t = ListNumberOf(bi);
-            return Js.Truthy(t) ? t!.TrimEnd('.') : "0";
+            var m = ListNumberOf(bi);
+            if (m is null || !Js.Truthy(m.Text)) return "0";
+            var dm = RefSwitchD.Match(instr);
+            string t = RefSwitchW.IsMatch(instr) && m.Parts is not null ? string.Join(dm.Success ? dm.Groups[1].Value : "", m.Parts) : m.Text;
+            return t.TrimEnd('.');
         }
         if (!_full.Bookmarks.TryGetValue(bm, out var b)) return null;
         var blk = b >= 0 && b < _full.Blocks.Count ? _full.Blocks[b] : null;
         if (blk is not ParagraphBlock pb) return null;
+        if (_full.BookmarkEnds is not null && _full.BookmarkEnds.TryGetValue(bm, out var en) && en.Block == b
+            && _full.BookmarkOffsets is not null && _full.BookmarkOffsets.TryGetValue(bm, out var from))
+        {
+            // o trecho exato (campos pelo resultado em cache: "Figura 1 - Gráfico")
+            var sb = new System.Text.StringBuilder();
+            int acc = 0;
+            foreach (var x in pb.Paragraph.Runs)
+            {
+                int rs = acc;
+                acc += x.Text.Length;
+                if (x.Image is not null || x.Textbox is not null || x.Shape is not null || x.Group is not null) continue;
+                int a = Math.Max(0, from - rs), z = Math.Max(0, en.Offset - rs);
+                if (z > x.Text.Length) z = x.Text.Length;
+                if (a < z) sb.Append(x.Text, a, z - a);
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
+        }
         string text = string.Concat(pb.Paragraph.Runs.Select(x => Js.Truthy(x.Field) || x.Image is not null || x.Textbox is not null ? "" : x.Text));
         text = RefWs.Replace(text, " ").Trim();
         return text.Length > 0 ? text : null;
     }
 
     /// <summary>texto do número de lista de cada parágrafo do corpo (bloco → texto), na ordem do documento</summary>
-    private Dictionary<int, string>? _listTexts;
+    private Dictionary<int, NumberMarker?>? _listTexts;
 
-    private string? ListNumberOf(int block)
+    private NumberMarker? ListNumberOf(int block)
     {
         if (_listTexts is null)
         {
-            var outp = new Dictionary<int, string>();
+            var outp = new Dictionary<int, NumberMarker?>();
             var saved = _ctx.Numbering;
             var st = new NumberingState(_ctx.Fmt.Numbering, _ctx.Fmt.Styles.Styles, _ctx.Opts.Lang);
             _ctx.Numbering = st;
-            string Num(Paragraph para)
+            NumberMarker? Num(Paragraph para)
             {
                 var n = Para.ResolvePPr(_ctx, para, new ParaEnv()).Ppr.NumPr;
-                return (n?.NumId is { } nid && nid != 0 && !double.IsNaN(nid) ? st.Next(nid, n.Ilvl ?? 0)?.Text : null) ?? "";
+                return n?.NumId is { } nid && nid != 0 && !double.IsNaN(nid) ? st.Next(nid, n.Ilvl ?? 0) : null;
             }
             void Visit(Block b)
             {
@@ -1056,7 +1179,8 @@ internal sealed class Engine
 
     // ───────────────────────── cabeçalho / rodapé ─────────────────────────
 
-    private Func<string, string?, string?> FieldValue(PageState ps) => (name, instr) =>
+    /// <summary>Valor dos campos dinâmicos; `block` = bloco do corpo onde o campo está (REF \p).</summary>
+    private Func<string, string?, int?, string?> FieldValue(PageState ps, int? block = null) => (name, instr, at) =>
     {
         if (name == "PAGEREF")
         {
@@ -1068,7 +1192,9 @@ internal sealed class Engine
         if (name == "SEQ") return SeqValue(instr ?? "");
         // número da própria nota de fim (w:endnoteRef) no fluxo das notas de fim
         if (name == "ENDNOTEREF_MARK" && _curEndnote is { } ce) return _ctx.NoteMarkOf("endnote", ce) ?? "";
-        if (name == "REF") return RefValue(instr ?? "");
+        if (name == "REF") return RefValue(instr ?? "", block, at);
+        if (name == "NOTEREF") return NoteRefValue(instr ?? "", block, at);
+        if (name == "STYLEREF") return StyleRefValue(instr ?? "", block);
         if (name == "PAGE")
         {
             string num = NumberFormat.FormatNumber(ps.Page.Number, ps.Geom.PgFmt ?? "decimal", _ctx.Opts.Lang);
@@ -1905,7 +2031,7 @@ internal sealed class Engine
         if (_ctx.Rev.MarkGone(para0) && NoShownRuns(para0) && _pendingJoin is null && _pendingDel is null) return;
         var join = _pendingJoin;
         _pendingJoin = null;
-        var env = new ParaEnv { Field = FieldValue(_cur) };
+        var env = new ParaEnv { Field = FieldValue(_cur, blockIdx) };
         var merged = _pendingDel is not null ? RevisionLayout.JoinDeleted(_pendingDel, para0) : para0;
         _pendingDel = null;
         var para = join is not null ? JoinHidden(join, merged, env) : merged;
@@ -1917,6 +2043,9 @@ internal sealed class Engine
         if (p.Marker?.Chapter is { } chapter && p.StyleId is { } sid
             && _ctx.Fmt.Styles.Styles[sid] is { } hst && HeadingNameRe.Match(hst.Name ?? "") is { Success: true } hm)
             _headingMarks[reference] = (hm.Groups[1].Value[0] - '0', chapter);
+        // título (estilo "heading N") diagramado: SEQ \s n dos parágrafos seguintes zera
+        int hl = HeadingStyleLevel(para0);
+        if (hl > 0) _ctx.Heads.Add(hl);
         // texto oculto (oráculo hidden): parágrafo de marca oculta sem conteúdo visível
         // não ocupa nada (nem linha nem espaçamento); com conteúdo visível, junta-se ao
         // seguinte, com as propriedades do 1º (JoinHidden). O último da seção (quebra) fica como está.
@@ -2464,7 +2593,7 @@ internal sealed class Engine
             {
                 c = LayoutStatic(blocks, g.MarL, w, new ParaEnv
                 {
-                    Field = (name, _) => name == "FOOTNOTEREF_MARK" ? mark : FieldValue(_cur)(name, null),
+                    Field = (name, _, _) => name == "FOOTNOTEREF_MARK" ? mark : FieldValue(_cur)(name, null, null),
                 }, $"fn{Js.Str(id)}");
             }
             finally { _ctx.Numbering = saved; }

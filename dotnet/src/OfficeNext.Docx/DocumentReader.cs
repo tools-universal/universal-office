@@ -32,6 +32,10 @@ public sealed class ReadContext
     /// <summary>Bookmark visto: nome e posição no texto do parágrafo (Run.Text
     /// concatenado) — PAGEREF depois de quebra de página no meio do parágrafo.</summary>
     public Action<string, int>? OnBookmark;
+    /// <summary>Fim de um indicador (w:bookmarkEnd) visto — a mesma posição de OnBookmark.</summary>
+    public Action<string, int>? OnBookmarkEnd;
+    /// <summary>w:id → nome dos indicadores abertos na parte (o w:bookmarkEnd só traz o id).</summary>
+    public Dictionary<int, string>? BookmarkIds;
     /// <summary>Pilha de campos complexos abertos (atravessa runs e parágrafos).</summary>
     public List<FieldFrame>? FieldStack;
     /// <summary>Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
@@ -933,14 +937,17 @@ public static class DocumentReader
                     ctx.RemoveActiveComment(JsNumber.ParseIntOr(child.Attr("w:id") ?? "-1", -1));
                     break;
                 case "w:bookmarkStart":
+                case "w:bookmarkEnd":
                     {
-                        string? name = child.Attr("w:name");
-                        if (Js.Truthy(name))
-                        {
-                            int offset = 0;
-                            foreach (var r in runs) offset += r.Text.Length;
-                            ctx.OnBookmark?.Invoke(name!, offset);
-                        }
+                        bool end = child.Name == "w:bookmarkEnd";
+                        bool hasId = int.TryParse(child.Attr("w:id") ?? "", System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int id);
+                        ctx.BookmarkIds ??= new Dictionary<int, string>();
+                        string? name = end ? (hasId && ctx.BookmarkIds.TryGetValue(id, out var nm) ? nm : null) : child.Attr("w:name");
+                        if (!Js.Truthy(name)) break;
+                        int offset = 0;
+                        foreach (var r in runs) offset += r.Text.Length;
+                        if (end) { ctx.BookmarkIds.Remove(id); ctx.OnBookmarkEnd?.Invoke(name!, offset); }
+                        else { if (hasId) ctx.BookmarkIds[id] = name!; ctx.OnBookmark?.Invoke(name!, offset); }
                         break;
                     }
                 case "w:r":

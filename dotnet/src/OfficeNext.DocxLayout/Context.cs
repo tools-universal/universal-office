@@ -84,6 +84,10 @@ public sealed class FlowState
 {
     public NumberingState Numbering = null!;
     public Dictionary<string, double> Seq = null!;
+    /// <summary>níveis dos títulos ("heading N") já diagramados, na ordem; e, por SEQ, quantos
+    /// títulos havia na última vez em que ele contou (\s n reinicia — oráculo refs-lab, sr-*)</summary>
+    public List<int> Heads = null!;
+    public Dictionary<string, int> SeqHeads = null!;
     public NoteFlow Notes = null!;
 }
 
@@ -177,11 +181,15 @@ public sealed class DocContext
     public Dictionary<string, string>? NoteMarkOverride;
     /// <summary>contadores dos campos SEQ (ordem do documento)</summary>
     public Dictionary<string, double> SeqCounters = new(StringComparer.Ordinal);
+    /// <summary>títulos diagramados (níveis) e o ponto de cada SEQ — ver FlowState</summary>
+    public List<int> Heads = new();
+    public Dictionary<string, int> SeqHeads = new(StringComparer.Ordinal);
 
     /// <summary>Fotografia do estado que avança com o conteúdo.</summary>
     public FlowState SaveFlow() => new()
     {
         Numbering = Numbering.Clone(), Seq = new Dictionary<string, double>(SeqCounters, StringComparer.Ordinal),
+        Heads = new List<int>(Heads), SeqHeads = new Dictionary<string, int>(SeqHeads, StringComparer.Ordinal),
         Notes = _notes.Clone(),
     };
 
@@ -190,6 +198,8 @@ public sealed class DocContext
     {
         Numbering = s.Numbering.Clone();
         SeqCounters = new Dictionary<string, double>(s.Seq, StringComparer.Ordinal);
+        Heads = new List<int>(s.Heads);
+        SeqHeads = new Dictionary<string, int>(s.SeqHeads, StringComparer.Ordinal);
         _notes = s.Notes.Clone();
     }
 
@@ -239,6 +249,15 @@ public sealed class DocContext
 
     /// <summary>Marca já atribuída (sem numerar).</summary>
     public string? NoteMarkOf(string kind, int id) => _notes.Marks(kind).TryGetValue(id, out var m) ? m : null;
+
+    /// <summary>Todas as marcas atribuídas ("f&lt;id&gt;"/"e&lt;id&gt;") — NOTEREF na passada seguinte.</summary>
+    public Dictionary<string, string> AllNoteMarks()
+    {
+        var outp = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var kv in _notes.FootnoteMarks) outp[$"f{kv.Key}"] = kv.Value;
+        foreach (var kv in _notes.EndnoteMarks) outp[$"e{kv.Key}"] = kv.Value;
+        return outp;
+    }
 
     /// <summary>Notas de fim referenciadas até aqui (ordem da 1ª referência).</summary>
     public IReadOnlyList<int> EndnoteOrder => _notes.EndnoteOrder;

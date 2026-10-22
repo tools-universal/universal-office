@@ -1,0 +1,32 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 207.78,
+"size": 11.04,
+"text": "AlfabetagamadeltaHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 205.29,
+"size": 11.04,
+"text": "Figura1-Legendaresto"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 307.72,
+"size": 11.04,
+"text": "R1:[betagama]R2:[Figura1-Legenda]Hxg"
+}
+],
+"objs": []
+}
+]
+}
