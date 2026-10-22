@@ -547,6 +547,30 @@ if (want('hf')) {
   s = await st();
   check('rodapé alto (acima da margem inferior) entra em edição pelo clique no texto dele', s.hf && tall.y < tall.marginLine, { hf: s.hf, y: tall.y, margem: tall.marginLine });
   await page.keyboard.press('Escape');
+
+  // imprimir logo depois de abrir: a figura dentro de um GRUPO no cabeçalho não é
+  // run.image do modelo — printPages decodifica o que o motor desenha (antes saía
+  // sem ela; varredura do editor no corpus, 2026-10-22). Abrir e imprimir na mesma
+  // avaliação: a decodificação disparada pela 1ª pintura ainda está em curso.
+  const { cases: hgCases } = await import(new URL('../layout-oracle/cases/hfgroup.mjs', import.meta.url).href);
+  const hg = hgCases.find((c) => c.name === 'hg-notitle');
+  const blue = await page.evaluate(async (b64) => {
+    await window.ed.openBase64(b64);
+    const [url] = await document.querySelector('universal-write').printPages();
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0);
+    // faixa do grupo: 595 × 93,75 pt no topo da página, imagem sólida (20, 20, 160)
+    const d = x.getImageData(0, 0, img.width, Math.round(img.height * 0.1)).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 60 && d[i + 1] < 60 && d[i + 2] > 120) n++;
+    return { n, of: d.length / 4 };
+  }, Buffer.from(hg.docx).toString('base64'));
+  check('imprimir logo depois de abrir leva a figura do grupo do cabeçalho', blue.n > blue.of * 0.5, blue);
 }
 
 // ───────────── cabeçalho e rodapé: opções, vincular, modelos (frente Cabeçalho e rodapé) ─────────────

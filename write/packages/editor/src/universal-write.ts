@@ -6001,42 +6001,60 @@ export class UniversalWriteElement extends HTMLElement {
     const cached = this.bitmaps.get(img);
     if (cached === 'loading') return null;
     if (cached) return cached;
-    this.bitmaps.set(img, 'loading');
-    // Preferir a versão VETORIAL (asvg:svgBlip), como o Word: rasteriza o SVG
-    // em alta resolução em vez de esticar o PNG de fallback (que pixeliza).
-    if (img.svg) { this.rasterizeSvg(img); return null; }
-    const copy = new Uint8Array(img.data);
-    void createImageBitmap(new Blob([copy.buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }))
-      .then((bmp) => { this.bitmaps.set(img, bmp); this.imagesVersion++; this.paint(); })
-      .catch(() => this.bitmaps.set(img, undefined as never));
+    void this.decodeImage(img).then((ok) => { if (ok) this.paint(); });
     return null;
   }
 
+  /** Decodifica a imagem no cache de bitmaps (o SVG, se houver, rasterizado);
+   *  `true` se um bitmap novo entrou. Uma decodificação por imagem: quem chega
+   *  com ela em curso espera a mesma; a que termina depois de a imagem trocar
+   *  de bytes (Alterar Imagem, ajustes) é descartada. */
+  private decodeImage(img: { data: Uint8Array; ext: string; svg?: Uint8Array; widthTwips?: number; heightTwips?: number }): Promise<boolean> {
+    const cached = this.bitmaps.get(img);
+    if (cached && cached !== 'loading') return Promise.resolve(false);
+    const { data, svg } = img;
+    const cur = this.decoding.get(img);
+    if (cur && cur.data === data && cur.svg === svg) return cur.p;
+    this.bitmaps.set(img, 'loading');
+    // Preferir a versão VETORIAL (asvg:svgBlip), como o Word: rasteriza o SVG
+    // em alta resolução em vez de esticar o PNG de fallback (que pixeliza).
+    const bmp: Promise<ImageBitmap> = svg ? this.rasterizeSvg(img)
+      : createImageBitmap(new Blob([new Uint8Array(data).buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }));
+    const same = (): boolean => img.data === data && img.svg === svg;
+    const p: Promise<boolean> = bmp.then(
+      (b) => { if (!same()) return false; this.bitmaps.set(img, b); this.imagesVersion++; return true; },
+      () => { if (same()) this.bitmaps.set(img, undefined as never); return false; },
+    ).finally(() => { if (this.decoding.get(img)?.p === p) this.decoding.delete(img); });
+    this.decoding.set(img, { data, svg, p });
+    return p;
+  }
+  private decoding = new WeakMap<object, { data: Uint8Array; svg?: Uint8Array; p: Promise<boolean> }>();
+
   /** Rasteriza um SVG (asvg:svgBlip) num bitmap com supersampling, para o
    *  desenho ficar nítido no zoom/DPI do editor — como o vetor do Word. */
-  private rasterizeSvg(img: { svg?: Uint8Array; widthTwips?: number; heightTwips?: number }): void {
+  private rasterizeSvg(img: { svg?: Uint8Array; widthTwips?: number; heightTwips?: number }): Promise<ImageBitmap> {
     const text = new TextDecoder().decode(img.svg!);
     const url = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
     const el = new Image();
-    el.onload = () => {
-      try {
-        const SS = 3; // supersample
-        const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el.width) * PX_PER_TWIP * SS)));
-        const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el.height) * PX_PER_TWIP * SS)));
-        const oc = document.createElement('canvas');
-        oc.width = wPx; oc.height = hPx;
-        const octx = oc.getContext('2d')!;
-        octx.imageSmoothingEnabled = true;
-        octx.imageSmoothingQuality = 'high';
-        octx.drawImage(el, 0, 0, wPx, hPx);
-        void createImageBitmap(oc)
-          .then((bmp) => { this.bitmaps.set(img as object, bmp); this.imagesVersion++; this.paint(); })
-          .catch(() => this.bitmaps.set(img as object, undefined as never));
-      } catch { this.bitmaps.set(img as object, undefined as never); }
-      URL.revokeObjectURL(url);
-    };
-    el.onerror = () => { this.bitmaps.set(img as object, undefined as never); URL.revokeObjectURL(url); };
-    el.src = url;
+    return new Promise<ImageBitmap>((resolve, reject) => {
+      el.onload = () => {
+        try {
+          const SS = 3; // supersample
+          const wPx = Math.min(4096, Math.max(1, Math.round((img.widthTwips ?? el.width) * PX_PER_TWIP * SS)));
+          const hPx = Math.min(4096, Math.max(1, Math.round((img.heightTwips ?? el.height) * PX_PER_TWIP * SS)));
+          const oc = document.createElement('canvas');
+          oc.width = wPx; oc.height = hPx;
+          const octx = oc.getContext('2d')!;
+          octx.imageSmoothingEnabled = true;
+          octx.imageSmoothingQuality = 'high';
+          octx.drawImage(el, 0, 0, wPx, hPx);
+          createImageBitmap(oc).then(resolve, reject);
+        } catch (e) { reject(e); }
+        URL.revokeObjectURL(url);
+      };
+      el.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      el.src = url;
+    });
   }
 
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
@@ -18710,18 +18728,27 @@ export class UniversalWriteElement extends HTMLElement {
     return out;
   }
 
-  /** Garante que todas as imagens estejam decodificadas (createImageBitmap é async). */
+  /** Imagens que o layout do motor pinta: as dos runs e também as que não são
+   *  run.image do modelo (figura dentro de grupo/caixa, preenchimento de forma,
+   *  fundo da página, EMF/WMF). */
+  private engineImages(): { data: Uint8Array; ext: string }[] {
+    const out: { data: Uint8Array; ext: string }[] = [];
+    for (const p of this.eng?.result.pages ?? []) {
+      if (p.backgroundFill?.image) out.push(p.backgroundFill.image);
+      for (const it of p.items) {
+        if (it.t === 'image') out.push(it.image);
+        else if (it.t === 'shape' && it.blip) out.push(it.blip.image);
+      }
+    }
+    return out;
+  }
+
+  /** Garante que todas as imagens estejam decodificadas (createImageBitmap é async)
+   *  — antes de imprimir/exportar páginas que nunca foram pintadas. */
   private async ensureImagesDecoded(): Promise<void> {
-    await Promise.all(this.collectImages().map(async (img) => {
-      const cached = this.bitmaps.get(img);
-      if (cached && cached !== 'loading') return;
-      try {
-        const copy = new Uint8Array(img.data);
-        const bmp = await createImageBitmap(new Blob([copy.buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }));
-        this.bitmaps.set(img, bmp);
-        this.imagesVersion++;
-      } catch { /* imagem inválida: vira placeholder no PDF */ }
-    }));
+    const all = new Set([...this.collectImages(), ...this.engineImages()]);
+    // imagem inválida: vira placeholder
+    await Promise.all([...all].map((img) => this.decodeImage(img)));
   }
 
   /** Coloca os glifos de `text` em sequência usando NOSSOS advances (snap-free). */
