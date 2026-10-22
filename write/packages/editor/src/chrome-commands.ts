@@ -153,7 +153,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'field:date', label: { en: 'Date', pt: 'Data' }, tip: { en: 'Insert date field', pt: 'Inserir campo de data' }, icon: 'calendar_today', run: () => ed.insertField('DATE') }),
     edit({ id: 'header', label: { en: 'Header', pt: 'Cabeçalho' }, icon: 'vertical_align_top', run: () => ed.enterHeaderFooter('header') }),
     edit({ id: 'footer', label: { en: 'Footer', pt: 'Rodapé' }, icon: 'vertical_align_bottom', run: () => ed.enterHeaderFooter('footer') }),
-    { id: 'hf:close', label: { en: 'Close Header and Footer', pt: 'Fechar Cabeçalho e Rodapé' }, icon: 'close', run: () => ed.exitHeaderFooter() },
+    { id: 'hf:close', label: { en: 'Close Header and Footer', pt: 'Fechar Cabeçalho e Rodapé' }, icon: 'close', run: () => ed.exitHeaderFooter(), isEnabled: () => ed.editingHeaderFooter() !== null },
     edit({ id: 'toc', label: { en: 'Update table of contents', pt: 'Atualizar sumário' }, icon: 'toc', run: () => ctl.flash(ed.updateToc() ? L.tocUpdated : L.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: 'footnote', label: { en: 'Footnote', pt: 'Nota de rodapé' }, tip: { en: 'Insert footnote', pt: 'Inserir nota de rodapé' }, icon: 'notes', shortcut: 'Ctrl+Alt+F', supports: has('insertFootnote'), isEnabled: () => ed.canInsertNote(), run: () => call('insertFootnote') }),
