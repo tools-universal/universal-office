@@ -4548,6 +4548,10 @@ export class UniversalWriteElement extends HTMLElement {
       }
       if (ctrl && (k === 'Home' || k === 'End')) {
         e.preventDefault();
+        // numa célula: início/fim do DOCUMENTO, como o Word (com Shift, só dentro da célula)
+        if (this.cellEdit && !e.shiftKey) {
+          while (this.cellEdit) this.exitCell();
+        }
         if (!this.model) return;
         const lastP = this.model.paragraphs.length - 1;
         const focus = k === 'Home'
