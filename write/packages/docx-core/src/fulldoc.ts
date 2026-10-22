@@ -124,6 +124,8 @@ export interface FullDocument {
   bookmarks: Map<string, number>;
   /** Posição de cada bookmark no texto do parágrafo onde começa (run.text concatenado). */
   bookmarkOffsets?: Map<string, number>;
+  /** Onde cada bookmark termina (w:bookmarkEnd): bloco e posição no texto do parágrafo — REF pelo trecho. */
+  bookmarkEnds?: Map<string, { block: number; offset: number }>;
   /** Estilos/numeração/tema/configurações/fontes CRUS — motor de layout. */
   formatting?: DocFormatting;
   /** Notas como blocos (tabelas preservadas). */
@@ -554,8 +556,12 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
   const sections: Section[] = [];
   const bookmarks = new Map<string, number>();
   const bookmarkOffsets = new Map<string, number>();
+  const bookmarkEnds = new Map<string, { block: number; offset: number }>();
   ctx.onBookmark = (name, offset) => {
     if (!bookmarks.has(name)) { bookmarks.set(name, blocks.length); bookmarkOffsets.set(name, offset); }
+  };
+  ctx.onBookmarkEnd = (name, offset) => {
+    if (!bookmarkEnds.has(name)) bookmarkEnds.set(name, { block: blocks.length, offset });
   };
   let sectionStart = 0;
 
@@ -649,6 +655,7 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
+    bookmarkEnds,
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,

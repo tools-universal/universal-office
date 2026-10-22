@@ -40,6 +40,12 @@ export interface RunProps {
   charSpacingTwips?: number;
   /** URL do w:hyperlink que envolve o run. */
   link?: string;
+  /** w:hyperlink w:tooltip (Dica de Tela). */
+  linkTip?: string;
+  /** w:noProof — o resultado de campo que o Word grava (PAGEREF, SEQ, entradas de índice). */
+  noProof?: boolean;
+  /** w:webHidden — número de página das entradas de sumário/índice. */
+  webHidden?: boolean;
   /** Estilo de caractere (w:rStyle) — vinculado aplicado em parte do parágrafo usa o par "…Char". */
   charStyle?: string;
   /** Run veio de m:oMath (render fallback em itálico). */
@@ -307,7 +313,31 @@ export interface Run {
   /** Equação de exibição (m:oMathPara) estruturada para o layout — text guarda o
    *  texto achatado (edição/salvamento). */
   math?: MathZone;
+  /** Marca de indicador (w:bookmarkStart / w:bookmarkEnd) — run de largura zero
+   *  (text ''), só no modelo do editor (leitura com fontes): acompanha as edições
+   *  e volta cru quando intacta. O motor de layout a ignora. */
+  bookmark?: BookmarkMark;
+  /** Início de um campo complexo que atravessa parágrafos (sumário, índice de
+   *  ilustrações): a instrução. Run de largura zero; o resultado são os runs que
+   *  seguem, até o `fieldEnd` correspondente. */
+  fieldBegin?: string;
+  /** Fim (w:fldChar end) de um campo que atravessa parágrafos — largura zero. */
+  fieldEnd?: boolean;
+  /** Campo lido cujo resultado continua nos parágrafos seguintes (o pedaço deste
+   *  parágrafo é o `fieldResult`; o fim é um run `fieldEnd` adiante). */
+  fieldOpen?: boolean;
 }
+
+/** Marca de indicador: o w:id (único entre os indicadores do documento) e o nome. */
+export interface BookmarkMark {
+  id: number;
+  name: string;
+  /** w:bookmarkEnd (senão w:bookmarkStart). */
+  end?: boolean;
+}
+
+/** Run de largura zero que só marca uma posição (indicador, começo/fim de campo). */
+export const isMarkRun = (r: Run): boolean => !!(r.bookmark || r.fieldBegin !== undefined || r.fieldEnd);
 
 /** Grupo de objetos: cada item com retângulo relativo ao canto do grupo. */
 export interface DrawingGroup {
@@ -370,6 +400,8 @@ export interface ParaProps {
   borders?: ParagraphBorders;
   /** w:pageBreakBefore. */
   pageBreakBefore?: boolean;
+  /** w:keepNext (manter com o próximo — legenda acima/abaixo do objeto). */
+  keepNext?: boolean;
   /** w:framePr w:dropCap — letra capitular sobreposta ao parágrafo seguinte. */
   dropCap?: boolean;
   /** Id da fonte XML original do parágrafo (source.ts) — salvamento sem perdas. */
@@ -625,6 +657,7 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
     if (Object.keys(borders).length > 0) props.borders = borders;
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
+  if (ppr.keepNext) props.keepNext = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== 'none') props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
@@ -689,6 +722,10 @@ export interface ReadContext {
   /** Bookmarks vistos (nome → preenchido pelo chamador com o índice); `offset` =
    *  posição no texto do parágrafo (run.text concatenado) — PAGEREF depois de quebra. */
   onBookmark?: (name: string, offset: number) => void;
+  /** Fim de um indicador (w:bookmarkEnd) visto — a mesma posição de `onBookmark`. */
+  onBookmarkEnd?: (name: string, offset: number) => void;
+  /** w:id → nome dos indicadores abertos na parte (o w:bookmarkEnd só traz o id). */
+  bookmarkIds?: Map<number, string>;
   /** Pilha de campos complexos abertos (atravessa runs e parágrafos). */
   fieldStack?: FieldFrame[];
   /** XML de uma parte ligada pelo r:id (alvo relativo a word/) — desenho do SmartArt */
@@ -1233,7 +1270,12 @@ const isObjectRun = (r: Run): boolean => !!(r.image || r.textbox || r.shape || r
 /** Fecha o campo do topo da pilha, emitindo o run achatado (texto + runs formatados). */
 function closeField(ctx: ReadContext, runs: Run[]): void {
   const f = ctx.fieldStack!.pop()!;
-  if (f.crossed) return;
+  if (f.crossed) {
+    // modelo do editor: o fim de um campo que atravessou parágrafos (sumário) vira
+    // uma marca de largura zero — atualizar o campo sabe até onde ele vai
+    if (ctx.sources) runTarget(ctx, runs)?.push({ text: '', props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true });
+    return;
+  }
   const textRuns = f.runs.filter((r) => !isObjectRun(r));
   const text = textRuns.map((r) => r.text).join('');
   const first = textRuns[0] ?? f.runs[0];
@@ -1254,7 +1296,7 @@ function closeField(ctx: ReadContext, runs: Run[]): void {
 }
 
 /** O que um envoltório passa aos runs de dentro (hyperlink, campo, revisão). */
-interface RunInherit { link?: string; field?: string; ins?: RevisionInfo; del?: RevisionInfo }
+interface RunInherit { link?: string; tip?: string; field?: string; ins?: RevisionInfo; del?: RevisionInfo }
 
 /** Lê os runs de um container (w:r diretos, w:hyperlink, m:oMath, w:fldSimple…). */
 function readRunsInto(
@@ -1271,9 +1313,24 @@ function readRunsInto(
       case 'w:commentRangeEnd':
         ctx.activeComments?.delete(parseInt(child.attrs['w:id'] ?? '-1', 10));
         break;
-      case 'w:bookmarkStart': {
-        const name = child.attrs['w:name'];
-        if (name) ctx.onBookmark?.(name, runs.reduce((n, r) => n + r.text.length, 0));
+      case 'w:bookmarkStart':
+      case 'w:bookmarkEnd': {
+        const end = child.name === 'w:bookmarkEnd';
+        const id = parseInt(child.attrs['w:id'] ?? '', 10);
+        ctx.bookmarkIds ??= new Map();
+        const name = end ? ctx.bookmarkIds.get(id) : child.attrs['w:name'];
+        if (!name) break;
+        const at = runs.reduce((n, r) => n + r.text.length, 0);
+        if (end) { ctx.bookmarkIds.delete(id); ctx.onBookmarkEnd?.(name, at); }
+        else { if (Number.isFinite(id)) ctx.bookmarkIds.set(id, name); ctx.onBookmark?.(name, at); }
+        // modelo do editor: a marca vira um run de largura zero (fora de campo; os
+        // indicadores de coluna de tabela — w:colFirst — ficam crus)
+        const top = ctx.fieldStack?.[ctx.fieldStack.length - 1];
+        if (ctx.sources && Number.isFinite(id) && (!top || top.crossed) && child.attrs['w:colFirst'] === undefined) {
+          // (dentro de um hiperlink leva o alvo: o envoltório o reembrulha junto)
+          const link = inherit?.link ? { link: inherit.link, ...(inherit.tip ? { linkTip: inherit.tip } : {}) } : {};
+          runs.push({ text: '', props: { ...DEFAULT_RUN_PROPS, ...link }, bookmark: { id, name, ...(end ? { end: true } : {}) } });
+        }
         break;
       }
       case 'w:r':
@@ -1283,7 +1340,8 @@ function readRunsInto(
         const rid = child.attrs['r:id'];
         const anchor = child.attrs['w:anchor'];
         const link = (rid && ctx.resolveLink(rid)) || (anchor ? `#${anchor}` : undefined);
-        readRunsInto(runs, child, ctx, { ...inherit, link });
+        const tip = child.attrs['w:tooltip'];
+        readRunsInto(runs, child, ctx, { ...inherit, link, ...(tip ? { tip } : {}) });
         break;
       }
       case 'w:fldSimple': {
@@ -1453,6 +1511,7 @@ function readSingleRun(
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
+    if (inherit.tip) rProps.linkTip = inherit.tip;
     rProps.underline = true;
     rProps.color ??= '0563C1';
   }
@@ -1689,15 +1748,18 @@ export function readParagraph(pEl: XmlElement, ctx: ReadContext): Paragraph {
   for (let i = stack.length - 1; i >= 0; i--) {
     const f = stack[i]!;
     if (f.phase !== 'result' || f.crossed) continue;
-    if (i === stack.length - 1 && f.runs.length) {
+    // (no modelo do editor o começo vira run mesmo sem resultado neste parágrafo:
+    // atualizar o campo acha o começo e o tira)
+    if (i === stack.length - 1 && (f.runs.length || ctx.sources)) {
       const textRuns = f.runs.filter((r) => !isObjectRun(r));
       const first = textRuns[0] ?? f.runs[0];
       const run: Run = {
         text: textRuns.map((r) => r.text).join(''),
         props: { ...(first?.props ?? f.props) },
         field: ` ${f.instr.trim()} `,
-        fieldResult: f.runs,
+        fieldOpen: true,
       };
+      if (f.runs.length) run.fieldResult = f.runs;
       const rpr = first?.rpr ?? f.rpr;
       if (rpr) run.rpr = rpr;
       runs.push(run);
@@ -1728,7 +1790,10 @@ function captureParagraph(
   if (last && last.to < para.runs.length) { last.to = para.runs.length; last.seg.open = true; }
   let objHead = 0;
   for (const { seg, from, to } of segs) {
-    if (seg.wrapOpen !== undefined && seg.raw.startsWith('<w:hyperlink')) seg.link = para.runs[from]?.props.link ?? '';
+    if (seg.wrapOpen !== undefined && seg.raw.startsWith('<w:hyperlink')) {
+      seg.link = para.runs[from]?.props.link ?? '';
+      seg.tip = para.runs[from]?.props.linkTip ?? '';
+    }
     for (let i = from; i < to; i++) {
       const run = para.runs[i]!;
       const sid = store.id();

@@ -1,6 +1,6 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements } from './xml.js';
-import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
+import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
@@ -250,7 +250,27 @@ function textXml(text: string, deleted = false): string {
   return parts.join('');
 }
 
+/** w:fldChar num run (começo/separação/fim de campo complexo). */
+const fldCharXml = (rpr: string, type: 'begin' | 'separate' | 'end'): string => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
+
+/** Marcas de largura zero do modelo do editor: indicador e começo/fim de campo
+ *  que atravessa parágrafos (como o Word grava — oráculo refs-lab). */
+function markXml(run: Run): string | undefined {
+  if (run.bookmark) {
+    const b = run.bookmark;
+    return b.end ? `<w:bookmarkEnd w:id="${b.id}"/>` : `<w:bookmarkStart w:id="${b.id}" w:name="${escAttr(b.name)}"/>`;
+  }
+  if (run.fieldBegin !== undefined) {
+    const rpr = rPrXml(run);
+    return fldCharXml(rpr, 'begin') + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc(run.fieldBegin)}</w:instrText></w:r>` + fldCharXml(rpr, 'separate');
+  }
+  if (run.fieldEnd) return fldCharXml(rPrXml(run), 'end');
+  return undefined;
+}
+
 function runXml(run: Run): string {
+  const mark = markXml(run);
+  if (mark !== undefined) return mark;
   if (run.custom) {
     const type = run.custom.type;
     if (!/^[a-zA-Z0-9._-]+$/.test(type)) {
@@ -328,12 +348,28 @@ function fieldOrRunXml(r: Run): string {
   if (!r.field || (active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))) return runXml(r);
   if (!r.props.ins && !r.props.del) {
     if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
-    return `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`;
+    // o Word grava na forma complexa o campo com hiperlink (\h) e o resultado com
+    // mais de uma formatação; o resto como w:fldSimple (oráculo refs-lab, xr-*)
+    const result = fieldResultXml(r);
+    if (/\\h\b/i.test(r.field) || (r.props.src === undefined && (r.fieldResult?.length ?? 0) > 1)) {
+      const rpr = rPrXml(r);
+      return fldCharXml(rpr, 'begin') + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc(r.field)}</w:instrText></w:r>` +
+        fldCharXml(rpr, 'separate') + result + fldCharXml(rpr, 'end');
+    }
+    return `<w:fldSimple w:instr="${escAttr(r.field)}">${result}</w:fldSimple>`;
   }
   const rpr = rPrXml(r);
   const ch = (type: string): string => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
   const it = r.props.del ? 'w:delInstrText' : 'w:instrText';
   return ch('begin') + `<w:r>${rpr}<${it} xml:space="preserve">${esc(r.field)}</${it}></w:r>` + ch('separate') + runXml(r) + ch('end');
+}
+
+/** Resultado de um campo: o lido sai como o run achatado (com o rPr de origem); o
+ *  criado no editor, pelos runs formatados do resultado (REF copia a formatação
+ *  direta do trecho; PAGEREF/SEQ levam w:noProof — oráculo refs-lab). */
+function fieldResultXml(r: Run): string {
+  if (r.props.src !== undefined || !r.fieldResult?.length) return runXml(r);
+  return r.fieldResult.map((x) => runXml(x)).join('');
 }
 
 const revKey = (r: unknown): string => JSON.stringify(r ?? null);
@@ -422,13 +458,23 @@ function genRuns(items: { run: Run; before: string; after: string }[], inWrapper
       continue;
     }
     let j = i;
-    while (j < items.length && items[j]!.run.props.link === link) j++;
+    // (uma marca de largura zero — indicador — no meio do hiperlink fica dentro dele)
+    const sameLink = (k: number): boolean => {
+      for (let m = k; m < items.length; m++) {
+        if (items[m]!.run.props.link === link) return true;
+        if (!isMarkRun(items[m]!.run)) return false;
+      }
+      return false;
+    };
+    while (j < items.length && sameLink(j)) j++;
     const inner = revisionRuns(items.slice(i, j));
+    const tip = items[i]!.run.props.linkTip;
     const attr = link.startsWith('#') ? ` w:anchor="${escAttr(link.slice(1))}"` : (() => {
       const id = linkRelId(link);
       return id ? ` r:id="${id}"` : '';
     })();
-    out.push(attr ? `<w:hyperlink${attr} w:history="1">${inner}</w:hyperlink>` : inner);
+    // w:tooltip (Dica de Tela) antes de w:history, como o Word grava (oráculo refs-lab, hl-*)
+    out.push(attr ? `<w:hyperlink${attr}${tip ? ` w:tooltip="${escAttr(tip)}"` : ''} w:history="1">${inner}</w:hyperlink>` : inner);
     i = j;
   }
   return out.join('');
@@ -538,13 +584,14 @@ function runsLossless(para: Paragraph, src: ParaSource, pid: number, last: boole
         continue;
       }
       flushZero(loc[0]);
-      if (g.wrapOpen !== undefined && (g.link === undefined || r.props.link === g.link)) {
+      const sameWrap = (x: Run): boolean => g.link === undefined || (x.props.link === g.link && (x.props.linkTip ?? '') === (g.tip ?? ''));
+      if (g.wrapOpen !== undefined && sameWrap(r)) {
         // contêiner (sdt, hyperlink, revisão…) com conteúdo mudado: reembrulha os
         // runs dele que seguem juntos
         const own = new Set(g.sids);
         let j = i;
         while (j < cur.length && cur[j]!.props.src !== undefined && own.has(cur[j]!.props.src!)
-          && (g.link === undefined || cur[j]!.props.link === g.link)) j++;
+          && sameWrap(cur[j]!)) j++;
         flushGen();
         out += g.wrapOpen + genRuns(cur.slice(i, j).map((run, k) => ({ run, before: marks.before[i + k]!, after: marks.after[i + k]! })), true) + g.wrapClose;
         take(loc[0]);
@@ -618,6 +665,7 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
   const pp = para.props;
   const ppr: string[] = [];
   if (pp.styleId) ppr.push(`<w:pStyle w:val="${escAttr(pp.styleId)}"/>`);
+  if (pp.keepNext) ppr.push('<w:keepNext/>');
   // quebra de seção: sectPr DENTRO do pPr (encerra a seção neste parágrafo)
   if (pp.sectionBreak) {
     const refs = [...pp.sectionBreak.headerRefs, ...pp.sectionBreak.footerRefs];

@@ -69,13 +69,16 @@ export function formatNumber(n: number, fmt: string | undefined, lang = 'pt-BR')
 
 export interface NumberMarker {
   text: string;
+  /** contexto completo (REF \w): os textos dos níveis acima que o do item não cita,
+   *  de fora para dentro, e o do item por último (oráculo refs-lab, rn-letter: "2." + "b)") */
+  parts?: string[];
   level: NumLevel;
   numId: number;
   ilvl: number;
   /** id da lista (contador) — p/ depuração. */
   listKey: string;
   /** só os números do marcador (do 1º ao último %n do texto do nível) — o
-   *  número de capítulo do campo PAGE (w:chapStyle). */
+   *  número de capítulo do campo PAGE (w:chapStyle) e o STYLEREF \s. */
   chapter?: string;
 }
 
@@ -194,23 +197,38 @@ export class NumberingState {
       if (r === undefined || ilvl < r) c[d] = undefined;
     }
     const lvlText = lvl.lvlTextNull ? '' : (lvl.lvlText ?? '');
+    const fill = (t: string, own: NumLevel): string => t.replace(/%([1-9])/g, (_, k: string) => {
+      const l = parseInt(k, 10) - 1;
+      const n = c![l];
+      const v = n?.real ? n.v : lvlStart(l);
+      const fmt = own.isLgl && l !== ilvl ? 'decimal' : (this.level(numId, l)?.numFmt ?? 'decimal');
+      return formatNumber(v, fmt === 'bullet' ? 'decimal' : fmt, this.lang);
+    });
     let text: string;
     let chapter: string | undefined;
     if (lvl.numFmt === 'bullet') text = lvlText;
     else {
-      const subst = (s: string): string => s.replace(/%([1-9])/g, (_, k: string) => {
-        const l = parseInt(k, 10) - 1;
-        const n = c![l];
-        const v = n?.real ? n.v : lvlStart(l);
-        const fmt = lvl.isLgl && l !== ilvl ? 'decimal' : (this.level(numId, l)?.numFmt ?? 'decimal');
-        return formatNumber(v, fmt === 'bullet' ? 'decimal' : fmt, this.lang);
-      });
-      text = subst(lvlText);
-      // número de capítulo (PAGE com w:chapStyle): do 1º ao último espaço reservado
-      // do texto do nível — "Capítulo %1" → "I", "%1.%2" → "1.1" (oráculo hfopts)
+      text = fill(lvlText, lvl);
+      // número de capítulo (PAGE com w:chapStyle) e STYLEREF \s: do 1º ao último
+      // espaço reservado do texto do nível — "Capítulo %1" → "I", "%1.%2" → "1.1"
+      // (oráculos hfopts e refs-lab)
       const a = lvlText.search(/%[1-9]/), b = lvlText.lastIndexOf('%');
-      if (a >= 0 && b >= a) chapter = subst(lvlText.slice(a, b + 2));
+      if (a >= 0 && b >= a) chapter = fill(lvlText.slice(a, b + 2), lvl);
     }
-    return { text, level: lvl, numId, ilvl, listKey: key, ...(chapter !== undefined ? { chapter } : {}) };
+    const out: NumberMarker = { text, level: lvl, numId, ilvl, listKey: key, ...(chapter !== undefined ? { chapter } : {}) };
+    if (lvl.numFmt !== 'bullet') {
+      const refs = (t: string): number[] => [...t.matchAll(/%([1-9])/g)].map((m) => +m[1]! - 1);
+      const parts = [text];
+      let cited = new Set(refs(lvlText));
+      for (let l = ilvl - 1; l >= 0 && !cited.has(l); l--) {
+        const pl = this.level(numId, l);
+        const pt = pl?.lvlTextNull ? '' : (pl?.lvlText ?? '');
+        if (!pl || pl.numFmt === 'bullet') break;
+        parts.unshift(fill(pt, pl));
+        cited = new Set([...cited, ...refs(pt)]);
+      }
+      out.parts = parts;
+    }
+    return out;
   }
 }

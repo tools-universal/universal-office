@@ -2,6 +2,7 @@ import { clearedRPr, clearedPPr } from './lossless.js';
 import {
   DEFAULT_RUN_PROPS,
   editBaseProps,
+  isMarkRun,
   paraPropsFromPPr,
   type DocumentModel,
   type Paragraph,
@@ -50,6 +51,7 @@ const sameRPr = (a: Run, b: Run): boolean => a.rpr === b.rpr || JSON.stringify(a
 /** Extras de TEXTO que acompanham cada pedaço de um run dividido. */
 const textExtras = (run: Run): Partial<Run> => ({
   ...(run.field ? { field: run.field } : {}),
+  ...(run.fieldOpen ? { fieldOpen: true } : {}),
   ...(run.rpr ? { rpr: run.rpr } : {}),
   ...(run.symFont ? { symFont: run.symFont } : {}),
   ...(run.inToc ? { inToc: run.inToc } : {}),
@@ -62,6 +64,7 @@ const sameProps = (a: RunProps, b: RunProps): boolean =>
   a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt &&
   a.color === b.color && a.highlight === b.highlight && a.fontAscii === b.fontAscii &&
   a.allCaps === b.allCaps && a.smallCaps === b.smallCaps &&
+  a.link === b.link && a.linkTip === b.linkTip && a.charStyle === b.charStyle && !!a.noProof === !!b.noProof && !!a.webHidden === !!b.webHidden &&
   // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
   a.src === b.src &&
   sameComments(a.commentIds, b.commentIds) &&
@@ -78,7 +81,7 @@ const sameComments = (a?: number[], b?: number[]): boolean => {
 
 /** Funde runs adjacentes idênticos e remove vazios.
  *  Runs especiais (imagem/campo/nota) nunca se fundem e preservam extras. */
-const isSpecial = (r: Run): boolean => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab);
+const isSpecial = (r: Run): boolean => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab) || isMarkRun(r);
 
 export function normalizeParagraph(p: Paragraph): void {
   const out: Run[] = [];
@@ -118,13 +121,27 @@ export function splitAt(p: Paragraph, offset: number): number {
  *  controlada sai comum (medido no Word) — com o controle ligado, quem insere põe a dele. */
 export function propsAt(model: DocumentModel, pos: DocPosition): RunProps {
   const p = model.paragraphs[pos.para];
-  if (!p || p.runs.length === 0) return { ...DEFAULT_RUN_PROPS };
+  // (marcas de largura zero — indicador, começo/fim de campo — não têm formatação)
+  const runs = p?.runs.filter((r) => !isMarkRun(r)) ?? [];
+  if (!runs.length) return { ...DEFAULT_RUN_PROPS };
   let acc = 0;
-  for (const run of p.runs) {
+  for (const run of runs) {
     if (pos.offset <= acc + run.text.length) return withoutRevisions(run.props);
     acc += run.text.length;
   }
-  return withoutRevisions(p.runs[p.runs.length - 1]!.props);
+  return withoutRevisions(runs[runs.length - 1]!.props);
+}
+
+/**
+ * Índice onde um run novo entra na posição `offset`: o texto digitado fica DEPOIS
+ * das marcas de indicador e do fim de campo que estão ali (no começo do indicador
+ * entra nele; no fim, fica fora; no de ponto, depois dele — oráculo refs-lab,
+ * bm-type-*), e antes do começo de um campo.
+ */
+export function insertIndex(p: Paragraph, offset: number): number {
+  let idx = splitAt(p, offset);
+  while (idx < p.runs.length && (p.runs[idx]!.bookmark || p.runs[idx]!.fieldEnd)) idx++;
+  return idx;
 }
 
 /** Cópia das props sem as marcas de revisão (ins/del/fmt). */
@@ -159,7 +176,7 @@ export function insertText(
   const effective = props ?? propsAt(model, pos);
   // o texto novo herda a formatação tipada (rPr) do run vizinho, como herda as props
   const rpr = rprAt(model, pos);
-  const idx = splitAt(p, pos.offset);
+  const idx = insertIndex(p, pos.offset);
   p.runs.splice(idx, 0, { text, props: { ...effective }, ...(rpr ? { rpr } : {}) });
   normalizeParagraph(p);
   return { para: pos.para, offset: pos.offset + text.length };
@@ -168,7 +185,7 @@ export function insertText(
 /** Insere um run completo sem perder metadados especiais (imagem/campo/plugin). */
 export function insertRun(model: DocumentModel, pos: DocPosition, run: Run): DocPosition {
   const p = model.paragraphs[pos.para]!;
-  const idx = splitAt(p, pos.offset);
+  const idx = insertIndex(p, pos.offset);
   p.runs.splice(idx, 0, { ...run, props: { ...run.props } });
   normalizeParagraph(p);
   return { para: pos.para, offset: pos.offset + run.text.length };
@@ -176,7 +193,9 @@ export function insertRun(model: DocumentModel, pos: DocPosition, run: Run): Doc
 
 export function splitParagraph(model: DocumentModel, pos: DocPosition): DocPosition {
   const p = model.paragraphs[pos.para]!;
-  const idx = splitAt(p, pos.offset);
+  // marcas de indicador no ponto ficam na 1ª metade (Enter no começo do indicador
+  // leva a marca ¶ para dentro dele — oráculo refs-lab, bm-enter-*)
+  const idx = insertIndex(p, pos.offset);
   const tailRuns = p.runs.slice(idx);
   p.runs = p.runs.slice(0, idx);
   // app de referência: o parágrafo NOVO fica com a primeira metade (¶ novo inserido);
@@ -197,33 +216,105 @@ export function splitParagraph(model: DocumentModel, pos: DocPosition): DocPosit
 
 export function deleteRange(model: DocumentModel, range: DocRange): DocPosition {
   const { start, end } = normalizeRange(range);
+  const doomed = doomedMarks(model, start, end);
   if (start.para === end.para) {
     const p = model.paragraphs[start.para]!;
-    rebuildDelete(p, start.offset, end.offset);
+    rebuildDelete(p, start.offset, end.offset, doomed);
+    dropDoomed(model, doomed);
     normalizeParagraph(p);
     return start;
   }
   const first = model.paragraphs[start.para]!;
   const last = model.paragraphs[end.para]!;
-  rebuildDelete(first, start.offset, paraLength(first));
-  rebuildDelete(last, 0, end.offset);
+  rebuildDelete(first, start.offset, paraLength(first), doomed);
+  // marcas que sobrevivem nos parágrafos do meio ficam no ponto da exclusão
+  const kept: Run[] = [];
+  for (let pi = start.para + 1; pi < end.para; pi++) {
+    for (const r of model.paragraphs[pi]!.runs) if ((isMarkRun(r) || (r.text.length === 0 && isSpecial(r))) && !doomed.has(r)) kept.push(r);
+  }
+  rebuildDelete(last, 0, end.offset, doomed);
   // herda props do ÚLTIMO parágrafo (identidade na marca ¶ final — FINDINGS 009)
-  first.runs = [...first.runs, ...last.runs];
+  first.runs = [...first.runs, ...kept, ...last.runs];
   first.props = { ...last.props };
   if (last.ppr) first.ppr = last.ppr; else delete first.ppr;
   model.paragraphs.splice(start.para + 1, end.para - start.para);
+  dropDoomed(model, doomed);
   normalizeParagraph(first);
   return start;
 }
 
-/** Remove [from,to) reconstruindo os runs (mais simples e à prova de índice). */
-function rebuildDelete(p: Paragraph, from: number, to: number): void {
+const cmpPos = (a: DocPosition, b: DocPosition): number => comparePos(a, b);
+
+/**
+ * Marcas que somem junto com o trecho [start, end] (oráculo refs-lab, bm-del-*):
+ *  - indicador com o trecho inteiro dentro da exclusão (o de ponto, só se estiver
+ *    estritamente dentro — Backspace logo depois dele o mantém);
+ *  - campo que atravessa parágrafos cujo começo sai: o fim vai junto (o campo
+ *    vira texto); fim sem o começo fica (não deixa o campo aberto).
+ * As demais marcas do trecho ficam no ponto da exclusão.
+ */
+function doomedMarks(model: DocumentModel, start: DocPosition, end: DocPosition): Set<Run> {
+  const out = new Set<Run>();
+  if (cmpPos(start, end) >= 0) return out;
+  const starts = new Map<number, { run: Run; at: DocPosition }>();
+  const fields: { run: Run; at: DocPosition; begin: boolean }[] = [];
+  model.paragraphs.forEach((p, para) => {
+    let offset = 0;
+    for (const r of p.runs) {
+      const at = { para, offset };
+      if (r.bookmark) {
+        if (!r.bookmark.end) starts.set(r.bookmark.id, { run: r, at });
+        else {
+          const s = starts.get(r.bookmark.id);
+          if (s) {
+            const inside = (x: DocPosition): boolean => cmpPos(x, start) >= 0 && cmpPos(x, end) <= 0;
+            const point = cmpPos(s.at, at) === 0;
+            if (point ? cmpPos(at, start) > 0 && cmpPos(at, end) < 0 : inside(s.at) && inside(at)) { out.add(s.run); out.add(r); }
+          }
+        }
+      } else if (r.fieldBegin !== undefined || r.fieldOpen) fields.push({ run: r, at, begin: true });
+      else if (r.fieldEnd) fields.push({ run: r, at, begin: false });
+      offset += r.text.length;
+    }
+  });
+  // pares começo/fim de campo (pilha); começo apagado leva o fim junto
+  const stack: { run: Run; at: DocPosition }[] = [];
+  for (const f of fields) {
+    if (f.begin) { stack.push(f); continue; }
+    const b = stack.pop();
+    if (!b || cmpPos(b.at, start) < 0) continue;
+    // começo lido (run com o pedaço do resultado): sai se o texto dele sai inteiro;
+    // começo criado (marca): sai se o campo inteiro está no trecho
+    const gone = b.run.text.length > 0
+      ? cmpPos({ para: b.at.para, offset: b.at.offset + b.run.text.length }, end) <= 0
+      : cmpPos(f.at, end) <= 0;
+    if (gone) { out.add(b.run); out.add(f.run); }
+  }
+  return out;
+}
+
+/** Tira do modelo as marcas condenadas que ficaram fora do trecho (fim de campo adiante). */
+function dropDoomed(model: DocumentModel, doomed: ReadonlySet<Run>): void {
+  if (!doomed.size) return;
+  for (const p of model.paragraphs) {
+    if (p.runs.some((r) => doomed.has(r))) p.runs = p.runs.filter((r) => !doomed.has(r));
+  }
+}
+
+/** Remove [from,to) reconstruindo os runs (mais simples e à prova de índice).
+ *  Marcas de largura zero no trecho ficam (no ponto da exclusão), menos as condenadas. */
+function rebuildDelete(p: Paragraph, from: number, to: number, doomed?: ReadonlySet<Run>): void {
   const out: Run[] = [];
   let acc = 0;
   for (const run of p.runs) {
     const rs = acc;
     const re = acc + run.text.length;
     acc = re;
+    // (vale também para run especial vazio — começo de campo lido sem resultado aqui)
+    if (isMarkRun(run) || (run.text.length === 0 && isSpecial(run))) {
+      if (!doomed?.has(run)) out.push(run);
+      continue;
+    }
     const keepHead = run.text.slice(0, Math.max(0, Math.min(from, re) - rs));
     const keepTail = re > to ? run.text.slice(Math.max(0, to - rs)) : '';
     const text = keepHead + keepTail;

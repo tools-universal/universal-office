@@ -114,6 +114,8 @@ export function rPrFromProps(p: RunProps, linkAware = true): string {
   if (p.smallCaps) rpr.push('<w:smallCaps/>');
   if (p.strike) rpr.push('<w:strike/>');
   if (p.doubleStrike) rpr.push('<w:dstrike/>');
+  if (p.noProof) rpr.push('<w:noProof/>');
+  if (p.webHidden) rpr.push('<w:webHidden/>');
   // hyperlink: o leitor força cor/sublinhado nas props — não é formatação (oráculo hlink)
   const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
   if (p.color && !(linkAware && p.link && p.color === '0563C1')) rpr.push(`<w:color w:val="${esc(p.color)}"/>`);
@@ -264,6 +266,7 @@ export const DEFAULT_NUM_IDS: GenNumIds = { bullet: 1001, decimal: 1002 };
 function pprBits(pp: ParaProps, ids: GenNumIds): Record<string, string | null> {
   const out: Record<string, string | null> = {};
   out['w:pStyle'] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
+  out['w:keepNext'] = pp.keepNext ? '<w:keepNext/>' : null;
   out['w:pageBreakBefore'] = pp.pageBreakBefore ? '<w:pageBreakBefore/>' : null;
   out['w:tabs'] = pp.tabStops?.length
     ? '<w:tabs>' + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ''} w:pos="${t.posTwips}"/>`).join('') + '</w:tabs>'
@@ -295,6 +298,7 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
   const ppr: string[] = [];
   const add = (name: string): void => { const x = bits[name]; if (x) ppr.push(x); };
   add('w:pStyle');
+  add('w:keepNext');
   add('w:pageBreakBefore');
   add('w:numPr');
   add('w:pBdr');
@@ -375,6 +379,7 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   const bits = pprBits(p, ids);
   if (p.styleId !== base.styleId) set('w:pStyle', bits['w:pStyle']!);
   if (!!p.pageBreakBefore !== !!base.pageBreakBefore) set('w:pageBreakBefore', p.pageBreakBefore ? '<w:pageBreakBefore/>' : '<w:pageBreakBefore w:val="0"/>');
+  if (!!p.keepNext !== !!base.keepNext) set('w:keepNext', p.keepNext ? '<w:keepNext/>' : '<w:keepNext w:val="0"/>');
   if (!eq(p.tabStops, base.tabStops)) set('w:tabs', bits['w:tabs']!);
   if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set('w:pBdr', bits['w:pBdr']!);
   if (p.shadingHex !== base.shadingHex) set('w:shd', bits['w:shd']!);

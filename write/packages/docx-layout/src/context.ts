@@ -32,6 +32,9 @@ export interface LayoutOptions {
   hyphenationLanguages?: string[];
   /** exibição das revisões (controle de alterações) — padrão: visão final, sem marcas */
   revisions?: RevisionView;
+  /** cada valor de campo dinâmico calculado (o último de cada run vale) — o editor
+   *  grava o resultado em cache ao atualizar os campos (F9) */
+  onField?: (run: Run, value: string) => void;
 }
 
 /** Dados de uma decisão de quebra (twips): para medir a regra do Word no corpus. */
@@ -60,6 +63,10 @@ export interface WordFitInfo {
 export interface FlowState {
   numbering: NumberingState;
   seq: Map<string, number>;
+  /** níveis dos títulos ("heading N") já diagramados, na ordem; e, por SEQ, quantos
+   *  títulos havia na última vez em que ele contou (\s n reinicia — oráculo refs-lab, sr-*) */
+  heads: number[];
+  seqHeads: Map<string, number>;
   notes: NoteFlow;
 }
 
@@ -90,7 +97,7 @@ export class DocContext {
   readonly faces: FaceResolver;
   numbering: NumberingState;
   readonly warnings = new Set<string>();
-  readonly opts: Required<Omit<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'revisions'>> & Pick<LayoutOptions, 'onWordFit' | 'hyphenationLanguages'>;
+  readonly opts: Required<Omit<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'revisions' | 'onField'>> & Pick<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'onField'>;
   /** como as revisões aparecem (modo, filtros, cores) */
   readonly rev: RevisionDisplay;
 
@@ -98,7 +105,7 @@ export class DocContext {
     this.resolver = new StyleResolver(fmt);
     const ddFonts = fmt.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt.fontTable, undefined, fontOfSlot(ddFonts, 'ascii', fmt.theme) ?? fmt.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'word', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}) };
+    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'word', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}), ...(opts.onField ? { onField: opts.onField } : {}) };
     this.numbering = new NumberingState(fmt.numbering, fmt.styles.styles, this.opts.lang);
     this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
@@ -116,16 +123,21 @@ export class DocContext {
   noteMarkOverride?: Map<string, string>;
   /** contadores dos campos SEQ (ordem do documento) */
   seqCounters = new Map<string, number>();
+  /** títulos diagramados (níveis) e o ponto de cada SEQ — ver FlowState */
+  heads: number[] = [];
+  seqHeads = new Map<string, number>();
 
   /** Fotografia do estado que avança com o conteúdo. */
   saveFlow(): FlowState {
-    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), notes: cloneNotes(this.notes) };
+    return { numbering: this.numbering.clone(), seq: new Map(this.seqCounters), heads: [...this.heads], seqHeads: new Map(this.seqHeads), notes: cloneNotes(this.notes) };
   }
 
   /** Volta ao estado fotografado (a fotografia continua reutilizável). */
   restoreFlow(s: FlowState): void {
     this.numbering = s.numbering.clone();
     this.seqCounters = new Map(s.seq);
+    this.heads = [...s.heads];
+    this.seqHeads = new Map(s.seqHeads);
     this.notes = cloneNotes(s.notes);
   }
 
@@ -167,6 +179,14 @@ export class DocContext {
   /** Marca já atribuída (sem numerar). */
   noteMarkOf(kind: 'footnote' | 'endnote', id: number): string | undefined {
     return this.notes.marks[kind].get(id);
+  }
+
+  /** Todas as marcas atribuídas ("f<id>"/"e<id>") — NOTEREF na passada seguinte. */
+  allNoteMarks(): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const [id, m] of this.notes.marks.footnote) out.set(`f${id}`, m);
+    for (const [id, m] of this.notes.marks.endnote) out.set(`e${id}`, m);
+    return out;
   }
 
   /** Notas de fim referenciadas até aqui (ordem da 1ª referência). */
@@ -293,5 +313,6 @@ export function directPPr(para: Paragraph): PPr {
     base.tabs = (p.tabStops ?? []).map((t) => ({ val: t.align, pos: t.posTwips, ...(t.leader ? { leader: t.leader } : {}) }));
   }
   if (!!p.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p.pageBreakBefore;
+  if (!!p.keepNext !== !!orig.keepNext) base.keepNext = !!p.keepNext;
   return base;
 }

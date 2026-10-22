@@ -4,7 +4,7 @@ import type {
 import { runPropsFromRPr, paraPropsFromPPr, revisionAuthors } from '@universal-office/docx-core';
 import { DocContext, emptyFormatting, directPPr, type LayoutOptions, type FlowState, type NoteNumbering } from './context.js';
 import { faceMetrics, type FontProvider } from './fonts.js';
-import { prepareParagraph, resolvePPr, isDark, paraVisibility, type PreparedPara, type ParaEnv } from './para.js';
+import { prepareParagraph, resolvePPr, isDark, paraVisibility, isMarkRun, type PreparedPara, type ParaEnv } from './para.js';
 import { LineBreaker, type Line } from './lines.js';
 import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.js';
 import { dateFieldValue } from './datefmt.js';
@@ -13,7 +13,7 @@ import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, LineParaFormat, P
 import { BAR_WIDTH, barX, joinDeleted } from './revisions.js';
 import { resolveColor, resolveDrawingColor, shadingFill } from './resolve.js';
 import { formatNumber } from './numbering.js';
-import { NumberingState } from './numbering.js';
+import { NumberingState, type NumberMarker } from './numbering.js';
 import { isEmf, renderEmf } from './emf.js';
 import { isWmf, renderWmf } from './wmf.js';
 import { groupChild, shapeExtras } from './geometry.js';
@@ -161,6 +161,9 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
   // notas de rodapé "reiniciar a cada página": a marca depende da página onde a nota
   // saiu — a passada seguinte usa as da anterior
   let noteMarks: Map<string, string> | undefined;
+  // NOTEREF: a marca da nota referida (ela pode vir depois do campo — a passada
+  // seguinte usa as marcas da anterior)
+  let noteRefs = new Map<string, string>();
   const newCtx = (): DocContext => {
     const c = new DocContext(fmt, provider, opts);
     if (noteMarks) c.noteMarkOverride = noteMarks;
@@ -170,22 +173,25 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
   let chaps: ChapterIndex = new Map();
   let last: Engine | null = null;
   for (let pass = 0; pass < 5; pass++) {
-    const eng = new Engine(newCtx(), full, total, marks, late, lateTables);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, new Map(), noteRefs);
     eng.chaptersGuess = chaps;
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
+    const newNoteRefs = eng.usedNoteRef ? eng.ctx.allNoteMarks() : noteRefs;
     const newLate = eng.lateFound.size ? mergeLate(late, eng.lateFound) : late;
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
     const fix = eng.noteMarkFix();
     const newChaps = eng.usedChapter ? eng.chapterIndex() : chaps;
     const stable = (!eng.usedNumPages || result.pages.length === total)
-      && (!eng.usedPageRef || sameMap(newMarks, marks)) && newLate === late && newLateTables === lateTables && !fix
+      && (!eng.usedPageRef || sameMap(newMarks, marks)) && (!eng.usedNoteRef || sameMap(newNoteRefs, noteRefs))
+      && newLate === late && newLateTables === lateTables && !fix
       && (!eng.usedChapter || sameChapters(newChaps, chaps));
     if (stable) break;
     chaps = newChaps;
     total = result.pages.length;
     marks = newMarks;
+    noteRefs = newNoteRefs;
     late = newLate;
     lateTables = newLateTables;
     if (fix) noteMarks = fix;
@@ -195,7 +201,7 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
   // enchido em sequência, ainda cabe nas colunas da página (oráculo colbal)
   const balance = new Map<number, BalanceSpec>();
   const runWith = (bal: Map<number, BalanceSpec>): Engine => {
-    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal);
+    const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal, noteRefs);
     eng.chaptersGuess = chaps;
     result = eng.run();
     return eng;
@@ -309,7 +315,11 @@ class Engine {
     readonly lateTables: Map<number, LateTable> = new Map(),
     /** colunas equilibradas: seção → página e altura (busca em layoutDocument) */
     readonly balance: Map<number, BalanceSpec> = new Map(),
+    /** marcas das notas (passada anterior) — NOTEREF para nota que vem depois */
+    readonly noteRefGuess: Map<string, string> = new Map(),
   ) {}
+
+  usedNoteRef = false;
 
   /** seções de várias colunas seguidas de seção contínua: o que ocupam na última página */
   balanceFound = new Map<number, BalanceInfo>();
@@ -334,11 +344,17 @@ class Engine {
   /** tabelas tardias (início da página) que partiram: a âncora vai para a continuação */
   private lateSplit = new Set<number>();
 
-  /** SEQ id [\* formato] [\r n] [\c] [\h] — contadores na ordem do documento. */
+  /** SEQ id [\* formato] [\r n] [\c] [\h] [\s n] — contadores na ordem do documento;
+   *  \s n zera o contador se houve título de nível ≤ n desde a última vez que ele
+   *  contou (oráculo refs-lab, sr-*: um título 2 não zera o \s 1). */
   private seqValue(instr: string): string | undefined {
     const tok = instr.trim().split(/\s+/);
     const id = tok[1]?.toLowerCase();
     if (!id || id.startsWith('\\')) return undefined;
+    const reset = parseInt(/\\s\s*(\d)/i.exec(instr)?.[1] ?? '', 10);
+    const since = this.ctx.seqHeads.get(id) ?? 0;
+    if (reset && this.ctx.heads.slice(since).some((l) => l <= reset)) this.ctx.seqCounters.set(id, 0);
+    this.ctx.seqHeads.set(id, this.ctx.heads.length);
     let v = this.ctx.seqCounters.get(id) ?? 0;
     const r = /\\r\s*(\d+)/i.exec(instr);
     if (r) v = parseInt(r[1]!, 10);
@@ -350,37 +366,95 @@ class Engine {
     return formatNumber(v, map[fmt] ?? 'decimal', this.ctx.opts.lang);
   }
 
-  /** REF indicador: o texto do parágrafo do indicador (os do sumário cobrem o título inteiro). */
-  private refValue(instr: string): string | undefined {
+  /**
+   * "acima"/"abaixo" (REF/NOTEREF \p): o campo vem depois do indicador ou antes
+   * dele, na ordem do documento (oráculo refs-lab, xr-*-pos, xr-before). Sem a
+   * posição do campo (cabeçalho, caixa), mantém o cache.
+   */
+  private positionWord(bm: string, block?: number): string | undefined {
+    const b = this.full.bookmarks?.get(bm);
+    if (b === undefined || block === undefined || block < 0) return undefined;
+    // por parágrafo: no mesmo parágrafo é "acima" mesmo antes do indicador (oráculo rp-same)
+    const below = block < b;
+    const pt = /^pt/i.test(this.ctx.opts.lang);
+    return below ? (pt ? 'abaixo' : 'below') : (pt ? 'acima' : 'above');
+  }
+
+  /** NOTEREF indicador: a marca da nota cuja referência está no trecho do indicador. */
+  private noteRefValue(instr: string, block?: number, at?: number): string | undefined {
+    const bm = instr.trim().split(/\s+/)[1];
+    if (!bm) return undefined;
+    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block);
+    const b = this.full.bookmarks?.get(bm);
+    const blk = b !== undefined ? this.full.blocks[b] : undefined;
+    if (!blk || blk.type !== 'paragraph') return undefined;
+    const from = this.full.bookmarkOffsets?.get(bm) ?? 0;
+    const end = this.full.bookmarkEnds?.get(bm);
+    const to = end && end.block === b ? end.offset : Infinity;
+    let acc = 0;
+    for (const r of blk.paragraph.runs) {
+      const rs = acc;
+      acc += r.text.length;
+      if (!r.noteRef || r.noteRef.custom || rs < from || rs > to || (rs === to && to > from)) continue;
+      this.usedNoteRef = true;
+      const { kind, id } = r.noteRef;
+      return this.ctx.noteMarkOf(kind, id) ?? this.noteRefGuess.get(`${kind[0]}${id}`);
+    }
+    return undefined;
+  }
+
+  /** REF indicador: o texto do trecho do indicador (sem o fim conhecido, o parágrafo
+   *  dele); \n \r \w = número do parágrafo; \p = acima/abaixo. */
+  private refValue(instr: string, block?: number, at?: number): string | undefined {
+    void at;
     const tok = instr.trim().split(/\s+/);
     const bm = tok[1];
-    if (!bm || /\\p\b/i.test(instr)) return undefined; // posição (acima/abaixo): mantém o cache
+    if (!bm) return undefined;
+    if (/\\p\b/i.test(instr)) return this.positionWord(bm, block);
     if (/\\[nrw]\b/i.test(instr)) {
       // número do parágrafo: o Word recalcula na exportação; sem os pontos finais,
-      // e "0" se o parágrafo do indicador não é numerado (oráculo numbering3, ref-num)
+      // e "0" se o parágrafo do indicador não é numerado (oráculo numbering3, ref-num).
+      // \w = contexto completo (os níveis acima que o número não cita, \d entre eles);
+      // \n e \r (de fora da lista) = o número do nível (oráculo refs-lab, rn-*)
       const bi = this.full.bookmarks?.get(bm);
       if (bi === undefined || this.full.blocks[bi]?.type !== 'paragraph') return undefined;
-      const t = this.listNumberOf(bi);
-      return t ? t.replace(/\.+$/, '') : '0';
+      const m = this.listNumberOf(bi);
+      if (!m?.text) return '0';
+      const sep = /\\d\s+"([^"]*)"/i.exec(instr)?.[1];
+      const t = /\\w\b/i.test(instr) && m.parts ? m.parts.join(sep ?? '') : m.text;
+      return t.replace(/\.+$/, '');
     }
     const b = this.full.bookmarks?.get(bm);
     const blk = b !== undefined ? this.full.blocks[b] : undefined;
     if (!blk || blk.type !== 'paragraph') return undefined;
+    const end = this.full.bookmarkEnds?.get(bm);
+    const from = this.full.bookmarkOffsets?.get(bm);
+    if (end && from !== undefined && end.block === b) {
+      // o trecho exato (campos pelo resultado em cache: "Figura 1 - Gráfico")
+      let text = '', acc = 0;
+      for (const x of blk.paragraph.runs) {
+        const rs = acc;
+        acc += x.text.length;
+        if (x.image || x.textbox || x.shape || x.group) continue;
+        text += x.text.slice(Math.max(0, from - rs), Math.max(0, end.offset - rs));
+      }
+      return text || undefined;
+    }
     const text = blk.paragraph.runs.map((x) => (x.field || x.image || x.textbox ? '' : x.text)).join('').replace(/[\t\n\f\u000B]/g, ' ').trim();
     return text || undefined;
   }
 
-  /** texto do número de lista de cada parágrafo do corpo (bloco → texto), na ordem do documento */
-  private listTexts?: Map<number, string>;
-  private listNumberOf(block: number): string | undefined {
+  /** número de lista de cada parágrafo do corpo (bloco → marcador), na ordem do documento */
+  private listTexts?: Map<number, NumberMarker | null>;
+  private listNumberOf(block: number): NumberMarker | null | undefined {
     if (!this.listTexts) {
-      const out = new Map<number, string>();
+      const out = new Map<number, NumberMarker | null>();
       const saved = this.ctx.numbering;
       const st = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
       this.ctx.numbering = st;
-      const num = (para: Paragraph): string => {
+      const num = (para: Paragraph): NumberMarker | null => {
         const n = resolvePPr(this.ctx, para, {}).ppr.numPr;
-        return (n?.numId ? st.next(n.numId, n.ilvl ?? 0)?.text : undefined) ?? '';
+        return n?.numId ? st.next(n.numId, n.ilvl ?? 0) : null;
       };
       const visit = (b: Block): void => {
         if (b.type === 'paragraph') { num(b.paragraph); return; }
@@ -394,6 +468,40 @@ class Engine {
       this.listTexts = out;
     }
     return this.listTexts.get(block);
+  }
+
+  /** Nível N do estilo de título interno do parágrafo ("heading N" — o próprio
+   *  estilo, como o STYLEREF procura), 0 = outro estilo. */
+  private headingStyleLevel(p: Paragraph): number {
+    const id = p.props.styleId ?? p.ppr?.pStyle;
+    const name = id ? this.ctx.fmt.styles.styles[id]?.name : undefined;
+    const m = name ? /^heading ([1-9])$/i.exec(name) : null;
+    return m ? +m[1]! : 0;
+  }
+
+  /**
+   * STYLEREF n [\s|\n] no corpo: o título de nível n mais próximo ANTES do campo
+   * (no próprio parágrafo inclusive); sem nenhum, o primeiro depois (oráculo
+   * refs-lab, sr-*). Sem switch: o texto do título; \n: o número (sem ponto
+   * final; "0" sem número); \s: só os números ("Cap %1" → "1"). Sem título
+   * desse nível: a mensagem de erro do Word.
+   */
+  private styleRefValue(instr: string, block?: number): string | undefined {
+    const n = parseInt(/^\s*STYLEREF\s+"?([1-9])"?/i.exec(instr)?.[1] ?? '', 10);
+    if (!n || block === undefined || block < 0) return undefined;
+    const blocks = this.full.blocks;
+    const at = (i: number): boolean => { const b = blocks[i]; return b?.type === 'paragraph' && this.headingStyleLevel(b.paragraph) === n; };
+    let hit = -1;
+    for (let i = Math.min(block, blocks.length - 1); i >= 0 && hit < 0; i--) if (at(i)) hit = i;
+    for (let i = block + 1; i < blocks.length && hit < 0; i++) if (at(i)) hit = i;
+    if (hit < 0) return /^pt/i.test(this.ctx.opts.lang) ? 'Erro! Nenhum texto com o estilo especificado foi encontrado no documento.' : 'Error! No text of specified style in document.';
+    const p = (blocks[hit] as Extract<Block, { type: 'paragraph' }>).paragraph;
+    if (/\\[sn]\b/i.test(instr)) {
+      const m = this.listNumberOf(hit);
+      if (!m?.text) return '0';
+      return (/\\s\b/i.test(instr) ? (m.level.numFmt === 'bullet' ? m.text : (m.chapter ?? '')) : m.text).replace(/\.+$/, '');
+    }
+    return p.runs.map((x) => (x.image || x.textbox || x.shape || x.group ? '' : x.text)).join('').replace(/[\t\n\f\u000B]/g, ' ').trim();
   }
 
   /**
@@ -873,8 +981,9 @@ class Engine {
 
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
 
-  private fieldValue(ps: PageState): (name: string, instr?: string) => string | undefined {
-    return (name: string, instr?: string) => {
+  /** Valor dos campos dinâmicos; `block` = bloco do corpo onde o campo está (REF \p). */
+  private fieldValue(ps: PageState, block?: number): (name: string, instr?: string, at?: number) => string | undefined {
+    return (name: string, instr?: string, at?: number) => {
       if (name === 'PAGEREF') {
         this.usedPageRef = true;
         const bm = (instr ?? '').trim().split(/\s+/)[1];
@@ -883,7 +992,9 @@ class Engine {
       if (name === 'SEQ') return this.seqValue(instr ?? '');
       // número da própria nota de fim (w:endnoteRef) no fluxo das notas de fim
       if (name === 'ENDNOTEREF_MARK' && this.curEndnote !== undefined) return this.ctx.noteMarkOf('endnote', this.curEndnote) ?? '';
-      if (name === 'REF') return this.refValue(instr ?? '');
+      if (name === 'REF') return this.refValue(instr ?? '', block, at);
+      if (name === 'NOTEREF') return this.noteRefValue(instr ?? '', block, at);
+      if (name === 'STYLEREF') return this.styleRefValue(instr ?? '', block);
       if (name === 'PAGE') {
         const num = formatNumber(ps.page.number, ps.geom.pgFmt ?? 'decimal', this.ctx.opts.lang);
         const chap = ps.geom.chap ? this.chapterOf(ps.geom.chap.level, this.pages.indexOf(ps)) : undefined;
@@ -1490,7 +1601,7 @@ class Engine {
 
   /** Nenhum run aparece nesta visão (todo o texto excluído — ou parágrafo vazio). */
   private noShownRuns(p: Paragraph): boolean {
-    return p.runs.every((r) => this.ctx.rev.run(r) === 'hide');
+    return p.runs.every((r) => isMarkRun(r) || this.ctx.rev.run(r) === 'hide');
   }
 
   private placeParagraph(para0: Paragraph, ref: string, blockIdx: number, g: SectGeom): void {
@@ -1511,7 +1622,7 @@ class Engine {
     if (this.ctx.rev.markGone(para0) && this.noShownRuns(para0) && !this.pendingJoin && !this.pendingDel) return;
     const join = this.pendingJoin;
     this.pendingJoin = null;
-    const env: ParaEnv = { field: this.fieldValue(this.cur) };
+    const env: ParaEnv = { field: this.fieldValue(this.cur, blockIdx) };
     const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
     const para = join ? this.joinHidden(join, merged, env) : merged;
@@ -1522,6 +1633,9 @@ class Engine {
       const lv = /^heading ([1-9])$/i.exec(this.ctx.fmt.styles.styles[p.styleId]?.name ?? '')?.[1];
       if (lv) this.headingMarks.set(ref, { level: +lv, text: p.marker.chapter });
     }
+    // título (estilo "heading N") diagramado: SEQ \s n dos parágrafos seguintes zera
+    const hl = this.headingStyleLevel(para0);
+    if (hl) this.ctx.heads.push(hl);
     // texto oculto (oráculo hidden): parágrafo de marca oculta sem conteúdo visível
     // não ocupa nada (nem linha nem espaçamento); com conteúdo visível, junta-se ao
     // seguinte, com as propriedades do 1º (joinHidden). O último da seção (quebra) fica como está.

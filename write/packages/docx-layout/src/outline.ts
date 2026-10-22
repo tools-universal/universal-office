@@ -93,3 +93,37 @@ export function documentOutline(full: FullDocument, opts: { lang?: string } = {}
   walk(full.blocks, true);
   return out;
 }
+
+/** Parágrafo numerado do corpo (lista do diálogo Referência Cruzada, "Item numerado"). */
+export interface NumberedItem {
+  /** índice do bloco em `full.blocks` */
+  block: number;
+  /** nível da lista (0–8) */
+  ilvl: number;
+  /** o número como aparece ("1.", "a)") */
+  number: string;
+  /** texto do parágrafo */
+  text: string;
+}
+
+/** Parágrafos do CORPO (fora de tabela) com numeração que não é marcador, na ordem
+ *  do documento — a numeração avança como no desenho (células incluídas). */
+export function numberedItems(full: FullDocument, opts: { lang?: string } = {}): NumberedItem[] {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const out: NumberedItem[] = [];
+  const walk = (blocks: readonly Block[], top: boolean): void => {
+    blocks.forEach((b, i) => {
+      if (b.type === 'table') {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell), false);
+        return;
+      }
+      const n = resolvePPr(ctx, b.paragraph, {}).ppr.numPr;
+      const m = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0) : null;
+      if (!top || !m || m.level.numFmt === 'bullet' || !m.text) return;
+      const text = headingText(b.paragraph);
+      if (text) out.push({ block: i, ilvl: m.ilvl, number: m.text, text });
+    });
+  };
+  walk(full.blocks, true);
+  return out;
+}

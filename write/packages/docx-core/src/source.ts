@@ -32,6 +32,8 @@ export interface SegSource {
   wrapClose?: string;
   /** w:hyperlink: o alvo lido (o envoltório só vale enquanto ele não mudar). */
   link?: string;
+  /** w:hyperlink: a Dica de Tela lida (idem). */
+  tip?: string;
 }
 
 export interface ParaSource {

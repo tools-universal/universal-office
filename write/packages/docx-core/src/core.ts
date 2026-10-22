@@ -34,6 +34,8 @@ export {
   revInfo,
   type FormatChange,
   type ParaFormatChange,
+  isMarkRun,
+  type BookmarkMark,
 } from './document.js';
 export * from './ooxml/props.js';
 export * from './ooxml/parts.js';
@@ -86,6 +88,8 @@ export {
   type DocPosition,
   type DocRange,
   withoutRevisions,
+  insertIndex,
+  splitAt,
 } from './model-ops.js';
 export {
   sectionRanges, sectionIndexAt, sectionSectPr, sectionRefs, insertSectionBreak, insertPageBreakParagraph, columnsFor, presetColumns,

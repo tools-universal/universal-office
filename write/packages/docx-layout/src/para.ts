@@ -146,8 +146,9 @@ export interface ParaEnv {
   /** pPr/rPr do estilo de tabela (condicionais já mesclados) para parágrafos em células */
   tablePPr?: PPr;
   tableRPr?: RPr;
-  /** valor dos campos dinâmicos (PAGE, NUMPAGES…) */
-  field?: (name: string, instr?: string) => string | undefined;
+  /** valor dos campos dinâmicos (PAGE, NUMPAGES…); `at` = posição do campo no
+   *  texto do parágrafo (REF \p: acima/abaixo) */
+  field?: (name: string, instr?: string, at?: number) => string | undefined;
   /** numerar (false no cabeçalho reaproveitado em cada página) */
   numbering?: boolean;
   /** cor de fundo escura (cor automática vira branco) */
@@ -496,13 +497,16 @@ function kernTwips(ctx: DocContext, face: FontFace, cp: number, next: number, si
 }
 
 /** Texto exibido de um campo (resultado em cache ou valor dinâmico). */
-function fieldRuns(run: Run, env: ParaEnv): Run[] | null {
+function fieldRuns(ctx: DocContext, run: Run, env: ParaEnv, at?: number): Run[] | null {
   const instr = (run.field ?? '').trim();
   const name = instr.split(/\s+/)[0]?.toUpperCase() ?? '';
   // o Word recalcula estes campos ao imprimir/exportar (oráculo fields)
-  if (['PAGE', 'NUMPAGES', 'SECTIONPAGES', 'SECTION', 'PAGEREF', 'SEQ', 'REF', 'DATE', 'TIME', 'SAVEDATE', 'CREATEDATE', 'PRINTDATE'].includes(name) || name.endsWith('_MARK')) {
-    const v = env.field?.(name, instr);
+  if (['PAGE', 'NUMPAGES', 'SECTIONPAGES', 'SECTION', 'PAGEREF', 'SEQ', 'REF', 'NOTEREF', 'DATE', 'TIME', 'SAVEDATE', 'CREATEDATE', 'PRINTDATE'].includes(name) || name.endsWith('_MARK')
+    // STYLEREF: só no corpo (no cabeçalho depende da página — fica o resultado em cache)
+    || (name === 'STYLEREF' && !env.hf)) {
+    const v = env.field?.(name, instr, at);
     if (v !== undefined) {
+      ctx.opts.onField?.(run, v);
       const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
       const out: Run = { ...base, text: v, field: undefined, fieldResult: undefined };
       if (env.hf && name === 'PAGE') GLUED_FIELD.add(out);
@@ -512,16 +516,21 @@ function fieldRuns(run: Run, env: ParaEnv): Run[] | null {
   if (run.fieldResult?.length) {
     // campos aninhados no resultado (PAGEREF dentro do TOC) também são avaliados
     if (!run.fieldResult.some((r) => r.field !== undefined)) return run.fieldResult;
-    return run.fieldResult.flatMap((r) => (r.field !== undefined ? fieldRuns(r, env) ?? (r.text ? [r] : []) : [r]));
+    return run.fieldResult.flatMap((r) => (r.field !== undefined ? fieldRuns(ctx, r, env, at) ?? (r.text ? [r] : []) : [r]));
   }
   return null;
 }
 
+/** Marca de largura zero do modelo do editor (indicador, começo/fim de campo que
+ *  atravessa parágrafos): não desenha nada. */
+export const isMarkRun = (r: Run): boolean => !!(r.bookmark || r.fieldBegin !== undefined || r.fieldEnd);
+
 /** Expande runs de campo no conteúdo exibido. */
-function displayRuns(para: Paragraph, env: ParaEnv): { run: Run; idx: number; offset: number }[] {
+function displayRuns(ctx: DocContext, para: Paragraph, env: ParaEnv): { run: Run; idx: number; offset: number }[] {
   const out: { run: Run; idx: number; offset: number }[] = [];
   let offset = 0;
   para.runs.forEach((run, idx) => {
+    if (isMarkRun(run)) return;
     if (run.formField?.type === 'checkBox') out.push({ run, idx, offset });
     else if (run.formField?.type === 'dropDown' && run.formField.entries) {
       // FORMDROPDOWN: o Word mostra a entrada escolhida com a formatação do
@@ -529,7 +538,7 @@ function displayRuns(para: Paragraph, env: ParaEnv): { run: Run; idx: number; of
       const text = run.formField.entries[run.formField.selected ?? 0] ?? '';
       if (text) out.push({ run: { ...run, text, field: undefined, fieldResult: undefined, formField: undefined }, idx, offset });
     } else if (run.field !== undefined) {
-      const fr = fieldRuns(run, env);
+      const fr = fieldRuns(ctx, run, env, offset);
       if (fr) { for (const r of fr) out.push({ run: r, idx, offset }); }
       else if (run.text) out.push({ run, idx, offset });
     } else out.push({ run, idx, offset });
@@ -654,7 +663,7 @@ export function paraVisibility(ctx: DocContext, para0: Paragraph, env: ParaEnv):
   const runRPr = (rpr: RPr): RPr => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const hidden = (rpr: RPr) => !!rpr.vanish || !!rpr.specVanish;
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
-  const visible = displayRuns(para, env).some(({ run }) =>
+  const visible = displayRuns(ctx, para, env).some(({ run }) =>
     !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === 'checkBox' || run.custom || run.ptab || run.noteRef)
     && ctx.rev.run(run) !== 'hide' && !hidden(runRPr(ctx.rev.directRPr(run))));
   return { markHidden, visible };
@@ -825,7 +834,7 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
 
   /** nota de rodapé de marca personalizada: vai no 1º glifo da marca (texto seguinte) */
   let pendingNote: number | undefined;
-  for (const { run, idx, offset } of displayRuns(para, env)) {
+  for (const { run, idx, offset } of displayRuns(ctx, para, env)) {
     // revisões: o texto que a visão esconde (excluído na final, inserido na
     // original) sai como o oculto — sem glifo, offsets intactos
     const rev = ctx.rev.run(run);
