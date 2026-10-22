@@ -12,6 +12,7 @@ export {
   type Run,
   type RunProps,
   type ParaProps,
+  type BlockSdt,
   type ParaTabStop,
   type TabLeader,
   type NumberingProps,

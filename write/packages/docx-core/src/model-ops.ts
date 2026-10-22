@@ -444,7 +444,7 @@ export function clearPara(p: Paragraph): void {
   const old = p.props;
   const next: ParaProps = { ...paraPropsFromPPr(ppr) };
   if (old.styleId !== undefined) next.styleId = old.styleId; else delete next.styleId;
-  for (const k of ['src', 'sectionBreak', 'tocInstr', 'tocEntry'] as const) {
+  for (const k of ['src', 'sectionBreak', 'tocInstr', 'tocEntry', 'blockSdt'] as const) {
     if (old[k] !== undefined) (next as Record<string, unknown>)[k] = old[k];
   }
   p.ppr = ppr;

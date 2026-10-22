@@ -38,7 +38,7 @@ const same = (a: unknown, b: unknown): boolean => a === b || json(a) === json(b)
 /** Campos de RunProps que não são formatação (origem, link, comentário, revisão). */
 const RUN_META = ['src', 'link', 'commentIds', 'isMath', 'ins', 'del', 'fmt'] as const;
 /** Campos de ParaProps que não são formatação. */
-const PARA_META = ['src', 'fmtSrc', 'sectionBreak', 'markIns', 'markDel', 'pfmt', 'tocInstr', 'tocEntry'] as const;
+const PARA_META = ['src', 'fmtSrc', 'sectionBreak', 'markIns', 'markDel', 'pfmt', 'tocInstr', 'tocEntry', 'blockSdt'] as const;
 
 /** Só a formatação de um run (o que um w:rPrChange guarda). */
 export function runFormatting(p: RunProps): RunProps {

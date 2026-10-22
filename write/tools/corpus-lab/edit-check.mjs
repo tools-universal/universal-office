@@ -118,7 +118,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,page,textbox,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,refs,toc,page,textbox,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -1476,6 +1476,131 @@ if (want('textbox')) {
   const hx = Object.entries(parts).filter(([k]) => k.includes('header')).map(([, v]) => v ?? '').join('');
   objs = await ev('objects');
   check('caixa no cabeçalho: edita no lugar e grava na parte do cabeçalho (wps + VML)', ok && inHf && /<wps:txbx>[\s\S]*Caixa do cabecalho/.test(hx) && /<v:textbox[\s\S]*Caixa do cabecalho/.test(hx) && !(parts['word/document.xml'] ?? '').includes('Caixa do cabecalho') && objs.some((o) => o.hf && o.text === 'Caixa do cabecalho'), { ok, inHf, hx: hx.length });
+}
+
+// ───────────── Sumário: galeria, personalizado, atualizar, remover, Adicionar Texto, TC (frente Sumário) ─────────────
+// Fatos do Word em write/tools/toc-lab (memória word-toc-oracle-facts).
+if (want('toc')) {
+  // --save-toc <pasta>: grava os .docx intermediários (conferência no Word: write/tools/toc-lab/open-check.ps1)
+  const saveDir = opt('save-toc');
+  const saveDoc = async (name) => { if (!saveDir) return; mkdirSync(saveDir, { recursive: true }); writeFileSync(join(saveDir, `${name}.docx`), Buffer.from(await ev('saveBase64'), 'base64')); };
+  const W = (fn, ...a) => page.evaluate(({ fn, a }) => { const e = document.querySelector('universal-write'); return e[fn](...a); }, { fn, a });
+  const docXml = () => ev('savedPart', 'word/document.xml');
+  const sdtCount = (x) => (x.match(/<w:docPartGallery w:val="Table of Contents"\/>/g) ?? []).length;
+  const tocInstrs = (x) => [...x.matchAll(/<w:instrText[^>]*>( TOC [^<]*)<\/w:instrText>/g)].map((m) => m[1]);
+  const tocMarks = (x) => [...x.matchAll(/w:name="(_Toc\d+)"/g)].map((m) => m[1]);
+  await ev('blank');
+  await W('type', 'Antes'); await W('pressEnter');
+  await W('pressEnter');
+  await W('type', 'Um'); await W('applyStyle', 'Ttulo1'); await W('pressEnter');
+  await W('type', 'Texto.'); await W('pressEnter');
+  await W('type', 'Dois'); await W('applyStyle', 'Ttulo2'); await W('pressEnter');
+  await W('type', 'Fim.');
+  // ── galeria: Sumário Automático no parágrafo vazio (fica no lugar dele — oráculo bb-1)
+  await ev('select', 1, 0);
+  check('galeria: insertTocTemplate("auto2")', await call('insertTocTemplate', 'auto2'));
+  let xml = await docXml();
+  let body = xml.slice(xml.indexOf('<w:body>'));
+  check('XML: controle de conteúdo do sumário (docPartObj, docPartGallery, docPartUnique) como o Word',
+    sdtCount(xml) === 1 && /<w:sdt><w:sdtPr><w:id w:val="-?\d+"\/><w:docPartObj><w:docPartGallery w:val="Table of Contents"\/><w:docPartUnique\/><\/w:docPartObj><\/w:sdtPr><w:sdtContent>/.test(xml),
+    body.slice(0, 400));
+  const inSdt = body.slice(body.indexOf('<w:sdtContent>'), body.indexOf('</w:sdtContent>'));
+  check('título no estilo Cabeçalho do Sumário (TOCHeading) e o campo dentro do controle',
+    /<w:pStyle w:val="CabealhodoSumrio"\/>/.test(inSdt) && tocInstrs(inSdt).join() === ' TOC \\o "1-3" \\h \\z \\u ' && /w:fldCharType="end"/.test(inSdt), inSdt.slice(0, 600));
+  const sty = await ev('savedPart', 'word/styles.xml');
+  check('estilos TOC Heading e toc 1/toc 2 gravados', /w:name w:val="TOC Heading"/.test(sty) && /w:name w:val="toc 1"/.test(sty) && /w:name w:val="toc 2"/.test(sty));
+  check('entradas: hiperlink para _Toc nos títulos, tab direita com pontilhado, PAGEREF',
+    /<w:hyperlink w:anchor="_Toc\d+" w:history="1">/.test(inSdt) && /<w:tab w:val="right" w:leader="dot" w:pos="\d+"\/>/.test(inSdt) && /PAGEREF _Toc\d+ \\h/.test(inSdt) && tocMarks(xml).length === 2);
+  check('o parágrafo vazio deu lugar ao sumário; o texto segue depois', /<\/w:sdt><w:p><w:pPr><w:pStyle w:val="Ttulo1"\/>/.test(body), body.slice(body.indexOf('</w:sdt>'), body.indexOf('</w:sdt>') + 120));
+  check('hasTableOfContents', await call('hasTableOfContents'));
+  let ps = await ev('paras');
+  const head = ps.findIndex((p) => p.style === 'CabealhodoSumrio');
+  await ev('select', head, 1);
+  check('cursor no título: inTableOfContents (controle)', await call('inTableOfContents'));
+  // ── outro modelo da galeria SUBSTITUI (docPartUnique)
+  check('galeria de novo: substitui (Automático 1)', await call('insertTocTemplate', 'auto1'));
+  xml = await docXml();
+  check('um controle só, com o título do modelo 1', sdtCount(xml) === 1 && /CabealhodoSumrio"\/><\/w:pPr><w:r><w:t>(Conteúdo|Contents)<\/w:t>/.test(xml));
+  await saveDoc('toc-gallery');
+  // ── atualizar só os números: o texto editado fica, o título novo não entra, os _Toc são os mesmos
+  ps = await ev('paras');
+  let e1 = ps.findIndex((p) => p.text.startsWith('Um') && p.style === 'Sumrio1');
+  await ev('select', e1, 1); await W('type', 'X');
+  const marks0 = tocMarks(await docXml());
+  const dois = (await ev('paras')).findIndex((p) => p.style === 'Ttulo2');
+  await ev('select', dois, 0); await call('insertPageBreak');
+  const fim = (await ev('paras')).length - 1;
+  await ev('select', fim, 4); await W('pressEnter'); await W('type', 'Tres'); await W('applyStyle', 'Ttulo1');
+  check('Atualizar Sumário: só os números', await call('updateToc', 'pages'));
+  ps = await ev('paras');
+  const entries = ps.filter((p) => /^Sumrio/.test(p.style ?? ''));
+  check('só números: texto editado mantido, sem a entrada nova, página do Dois = 2',
+    entries.some((p) => p.text.startsWith('UXm')) && !entries.some((p) => p.text.includes('Tres')) && entries.some((p) => /^Dois\t2$/.test(p.text)), entries.map((p) => p.text));
+  check('só números: os mesmos _Toc', JSON.stringify(tocMarks(await docXml())) === JSON.stringify(marks0));
+  check('Atualizar Sumário: o índice inteiro', await call('updateToc', 'all'));
+  ps = await ev('paras');
+  const ent2 = ps.filter((p) => /^Sumrio/.test(p.style ?? '')).map((p) => p.text);
+  check('inteiro: entradas refeitas (sem o X, com Tres) e _Toc novos', !ent2.some((t) => t.startsWith('UXm')) && ent2.some((t) => t.startsWith('Tres')) && !tocMarks(await docXml()).some((m) => marks0.includes(m)), ent2);
+  check('ainda dentro do controle', sdtCount(await docXml()) === 1);
+  // ── Adicionar Texto
+  const txt = ps.findIndex((p) => p.text === 'Texto.');
+  await ev('select', txt, 2);
+  check('Adicionar Texto: parágrafo Normal = Não Mostrar (0)', (await call('getTocLevel')) === 0);
+  await call('setTocLevel', 2);
+  ps = await ev('paras');
+  check('Nível 2 num parágrafo Normal aplica o Título 2', ps[txt].style === 'Ttulo2' && (await call('getTocLevel')) === 2, ps[txt]);
+  await call('setTocLevel', 0);
+  ps = await ev('paras');
+  check('Não Mostrar num título volta para Normal', !ps[txt].style || ps[txt].style === 'Normal', ps[txt]);
+  // ── Marcar Entrada de Sumário (TC)
+  const last = ps.length - 1;
+  await ev('select', last, (await ev('text', last)).length);
+  check('Marcar Entrada de Sumário (TC)', await call('markTocEntry', { text: 'Entrada TC', level: 2 }));
+  xml = await docXml();
+  check('TC como o Word grava: begin/instr/end, sem separate (oráculo tc-mark)',
+    /<w:fldChar w:fldCharType="begin"\/><\/w:r><w:r><w:instrText xml:space="preserve"> TC "Entrada TC" \\f C \\l "2" <\/w:instrText><\/w:r><w:r><w:fldChar w:fldCharType="end"\/>/.test(xml), xml.match(/.{0,120}TC "Entrada.{0,160}/)?.[0]);
+  // ── Sumário Personalizado: substitui, com os campos TC
+  await ev('select', head + 2, 1);
+  check('Sumário Personalizado com campos TC (\\f), substituindo', await call('insertTableOfContents', { fields: true, levels: 3 }, true));
+  xml = await docXml();
+  check('instrução \\o "1-3" \\f \\h \\z \\u e a entrada do TC', tocInstrs(xml).join() === ' TOC \\o "1-3" \\f \\h \\z \\u ' && (await ev('paras')).some((p) => /^Sumrio2/.test(p.style ?? '') && p.text.startsWith('Entrada TC')), tocInstrs(xml));
+  const opts0 = await call('getTableOfContentsOptions');
+  check('getTableOfContentsOptions lê o campo', opts0 && opts0.fields === true && opts0.levels === 3 && opts0.hyperlinks === true && opts0.leader === 'dot', opts0);
+  await call('insertTableOfContents', { pageNumbers: false, hyperlinks: false, levels: 2, leader: 'hyphen' }, true);
+  xml = await docXml();
+  check('sem números (\\n), sem hiperlinks, 2 níveis, preenchimento hífen',
+    tocInstrs(xml).join() === ' TOC \\o "1-2" \\n \\z \\u ' && !/<w:hyperlink w:anchor="_Toc/.test(xml) && /w:leader="hyphen"/.test(xml), tocInstrs(xml));
+  await call('insertTableOfContents', { rightAlign: false, format: 'classic' }, true);
+  xml = await docXml();
+  const sty2 = await ev('savedPart', 'word/styles.xml');
+  check('sem alinhar à direita (\\p " ") e formato Clássico nos estilos toc',
+    tocInstrs(xml).join() === ' TOC \\o "1-3" \\p " " \\h \\z \\u ' && /w:name w:val="toc 1"\/>[\s\S]*?<w:caps\/>[\s\S]*?<\/w:style>/.test(sty2.slice(sty2.indexOf('w:name w:val="toc 1"') - 80, sty2.indexOf('w:name w:val="toc 2"'))), tocInstrs(xml));
+  await saveDoc('toc-custom');
+  // ── Remover Sumário: o controle inteiro (com o título) e os _Toc
+  check('Remover Sumário', await call('removeTableOfContents'));
+  xml = await docXml();
+  check('removido: sem controle, sem campo TOC, sem _Toc', sdtCount(xml) === 0 && tocInstrs(xml).length === 0 && tocMarks(xml).length === 0 && !/CabealhodoSumrio/.test(xml.slice(xml.indexOf('<w:body>'))));
+  await call('undo');
+  check('desfazer volta o sumário (um passo)', sdtCount(await docXml()) === 1);
+  // ── Sumário Manual e sumário vazio
+  await ev('blank');
+  await W('type', 'Sem titulos.'); await W('pressEnter');
+  check('galeria num documento sem títulos', await call('insertTocTemplate', 'auto2'));
+  xml = await docXml();
+  check('sem títulos: o aviso num parágrafo só, o campo começa e acaba nele (oráculo bb-1-empty)',
+    /<w:instrText xml:space="preserve"> TOC \\o "1-3" \\h \\z \\u <\/w:instrText><\/w:r><w:r><w:fldChar w:fldCharType="separate"\/><\/w:r><w:r><w:rPr><w:b\/><w:noProof\/><\/w:rPr><w:t>(Nenhuma entrada de sumário foi encontrada\.|No table of contents entries found\.)<\/w:t><\/w:r><w:r><w:fldChar w:fldCharType="end"\/><\/w:r><\/w:p><\/w:sdtContent>/.test(xml),
+    xml.match(/.{0,200}TOC \\o.{0,500}/)?.[0]);
+  check('Sumário Manual substitui', await call('insertTocTemplate', 'manual'));
+  xml = await docXml();
+  check('Manual: 6 entradas com w:ptab (alinhamento à direita, pontilhado), sem campo', sdtCount(xml) === 1 && (xml.match(/<w:ptab w:relativeTo="margin" w:alignment="right" w:leader="dot"\/>/g) ?? []).length === 6 && !tocInstrs(xml).length, (xml.match(/w:ptab/g) ?? []).length);
+  await saveDoc('toc-manual');
+  // ── reabrir: o controle continua (lido pela fonte), Enter no fim fica dentro, atualizar mantém
+  await ev('openBase64', await ev('saveBase64'));
+  ps = await ev('paras');
+  const lastIn = ps.map((p) => !!p.props.blockSdt).lastIndexOf(true);
+  await ev('select', lastIn, (await ev('text', lastIn)).length); await W('pressEnter'); await W('type', 'Dentro');
+  xml = await docXml();
+  check('reaberto: Enter no último parágrafo do controle fica dentro dele', sdtCount(xml) === 1 && /Dentro<\/w:t><\/w:r><\/w:p><\/w:sdtContent><\/w:sdt>/.test(xml), xml.match(/.{0,200}<\/w:sdtContent>/)?.[0]);
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────

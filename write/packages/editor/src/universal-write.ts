@@ -20,6 +20,7 @@ import {
   type DocRange,
   type RunProps,
   type ParaProps,
+  type BlockSdt,
   type Paragraph,
   type SectPr,
   type PageBorders,
@@ -169,6 +170,11 @@ import {
   type CaptionOptions, type CaptionNumbering, type TableOfFiguresOptions, type TofFormat, type LinkInfo, type HyperlinkOptions,
   type TocField, type TocOptions, type TocSource, type TocLook,
 } from './references.js';
+import {
+  TOC_TEMPLATES, TOC_AUTO_INSTR, MANUAL_LEVELS, manualPlaceholder, isTocSdt, tocSdtPr, tocFormatStyle, parseTcInstr, tcInstr, tcInToc,
+  tocOptionsFrom, dialogOptionsFrom, addTextPlan,
+  type TocTemplateId, type TocFormat, type TableOfContentsOptions,
+} from './toc.js';
 import {
   DocStyles, listStyles, styleLook, ensureDefined, resolveStyleId, createStyleXml, modifyStyleXml, renameStyleXml, deleteStyleXml, setQuickXml, displayName,
   type StyleInfo, type StyleLook, type StyleFilter, type CreateStyleOptions, type ModifyStyleOptions,
@@ -4197,8 +4203,10 @@ export class UniversalWriteElement extends HTMLElement {
    * Atualizar campos (F9 = os da seleção, como o Word; "Atualizar campos" = todos):
    * sumários e índices de ilustrações refeitos, fórmulas de tabela recalculadas e
    * o resultado em cache de REF/PAGEREF/NOTEREF/SEQ/STYLEREF. Devolve quantos mudaram.
+   * `toc` = como atualizar os sumários: 'pages' (só os números de página, como a
+   * pergunta do Word) ou 'all' (o índice inteiro).
    */
-  updateFields(scope: 'selection' | 'all' = 'all'): number {
+  updateFields(scope: 'selection' | 'all' = 'all', toc: 'pages' | 'all' = 'all'): number {
     if (!this.model || this.locked()) return 0;
     const work = this.formulaWork(scope === 'selection' ? this.fieldRunsInSelection() : undefined);
     const tocs = this.tocFields().filter((t) => scope === 'all' || this.tocInSelection(t));
@@ -4208,8 +4216,10 @@ export class UniversalWriteElement extends HTMLElement {
     this.quietChange = false;
     for (const w of work) { w.run.text = w.text; delete w.run.fieldResult; }
     let n = work.length;
-    for (const t of tocs.reverse()) if (this.rebuildToc(t)) n++;
-    n += this.refreshFieldCache(scope === 'selection' && !tocs.length ? this.fieldRunsInSelection() : undefined);
+    if (toc === 'all') for (const t of tocs.reverse()) { if (this.rebuildToc(t)) n++; }
+    const only = scope === 'selection' && (!tocs.length || toc === 'pages') ? this.fieldRunsInSelection() : undefined;
+    if (only && toc === 'pages') for (const t of tocs) for (const r of this.tocPageRuns(t)) only.add(r);
+    n += this.refreshFieldCache(only);
     if (!n) { this.undoStack.pop(); return 0; }
     // o texto do resultado mudou de tamanho: o cursor fica dentro do parágrafo
     const ps = this.model.paragraphs;
@@ -4325,8 +4335,8 @@ export class UniversalWriteElement extends HTMLElement {
     }
     const styleLevel = new Map<string, number>();
     for (const s of o.styles ?? []) {
-      const meta = this.docStyles.byName(s.style) ?? this.docStyles.meta(s.style);
-      if (meta) styleLevel.set(meta.id, s.level);
+      const id = this.tocStyleId(s.style);
+      if (id) styleLevel.set(id, s.level);
     }
     for (const h of all) {
       const p = h.paragraph;
@@ -4336,12 +4346,37 @@ export class UniversalWriteElement extends HTMLElement {
       if (sid && styleLevel.has(sid)) level = styleLevel.get(sid)!;
       else if (h.level && o.outline && this.isHeadingStyle(sid, h.level) && h.level >= o.outline[0] && h.level <= o.outline[1]) level = h.level;
       else if (h.level && o.outlineLevels && h.level >= (o.outline?.[0] ?? 1) && h.level <= (o.outline?.[1] ?? 9)) level = h.level;
-      if (!level) continue;
       const text = paraText(p).replace(/[\t\n\f\u000B]/g, ' ').trim();
-      if (!text) continue;
-      out.push({ level, text, ...(h.number ? { number: h.number } : {}), page: this.pageLabelOf(p), bookmark: mark(p) });
+      if (level && text) out.push({ level, text, ...(h.number ? { number: h.number } : {}), page: this.pageLabelOf(p), bookmark: mark(p) });
+      // campos TC do parágrafo (\f): o _Toc em volta do campo (o Word o põe dentro da
+      // instrução, que o modelo não divide — oráculo toc-fields)
+      if (!o.fields) continue;
+      let acc = 0;
+      for (const r of p.runs) {
+        const at = acc;
+        acc += r.text.length;
+        const tc = parseTcInstr(r.field);
+        if (!tc || !tcInToc(o, tc)) continue;
+        const hp = host.get(p);
+        const bm = hp ? this.refBookmark(hp.paras, hp.idx, at, at + r.text.length, '_Toc') : '';
+        out.push({ level: tc.level, text: tc.text, page: this.pageLabelOf(p), bookmark: bm, ...(tc.noPage ? { noPage: true } : {}) });
+      }
     }
     return out;
+  }
+
+  /** Estilo do \t pelo nome: o w:name, o nome de exibição (o Word grava o do idioma
+   *  dele — "Título;1", oráculo toc-styles) ou o id. */
+  private tocStyleId(name: string): string | undefined {
+    const ds = this.docStyles;
+    const m = ds.byName(name) ?? ds.meta(name);
+    if (m) return m.id;
+    const k = name.trim().toLowerCase();
+    for (const s of ds.index().styles) {
+      if (s.type !== 'paragraph') continue;
+      if (displayName(s, 'pt').toLowerCase() === k || displayName(s, 'en').toLowerCase() === k) return s.id;
+    }
+    return undefined;
   }
 
   /** O estilo do parágrafo é (ou herda de) um título interno do nível? (\o sem \u) */
@@ -4430,33 +4465,48 @@ export class UniversalWriteElement extends HTMLElement {
   private tocOrEmpty(o: TocOptions, sources: TocSource[], look: TocLook): Paragraph[] {
     if (sources.length) return tocEntryParagraphs(o, sources, look);
     const msg = pickLabels(this, o.caption !== undefined ? TOF_EMPTY : TOC_EMPTY);
-    return [{ runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} }];
+    const p: Paragraph = { runs: [{ text: msg, props: { ...DEFAULT_RUN_PROPS, bold: true, noProof: true } }], props: {} };
+    this.emptyTocParas.add(p);
+    return [p];
   }
+
+  /** o parágrafo do aviso "Nenhuma entrada…" (o campo começa e acaba nele) */
+  private emptyTocParas = new WeakSet<Paragraph>();
 
   /**
    * Monta os parágrafos do campo TOC como o Word (oráculo tof-cursor-*): com texto
    * antes do começo, o começo fica no fim desse parágrafo e as entradas vêm em
    * parágrafos novos; senão o começo abre a 1ª entrada (no parágrafo de origem). O
-   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele.
+   * fim abre o parágrafo SEGUINTE às entradas, com o que vinha depois dele. Sem
+   * entradas o campo cabe num parágrafo só, com o aviso (oráculo tof-empty,
+   * bb-1-empty). Dentro do controle do sumário as entradas ficam nele.
    */
   private tocParagraphs(bp: Paragraph, ep: Paragraph, before: Run[], begin: Run, entries: Paragraph[], after: Run[], same: boolean): Paragraph[] {
     const out: Paragraph[] = [];
     const lead = before.some((r) => r.text || r.image || r.field);
+    const sdt = bp.props.blockSdt;
     const endProps: Paragraph['props'] = { ...ep.props };
     if (same) delete endProps.src;
     const first = { ...bp.props };
     delete first.sectionBreak;
+    const inSdt = (p: Paragraph): Paragraph => { if (sdt) p.props = { ...p.props, blockSdt: sdt }; return p; };
+    const empty = !lead && entries.length === 1 && this.emptyTocParas.has(entries[0]!);
     if (lead) {
       bp.runs = [...before, begin];
       bp.props = first;
-      out.push(bp, ...entries);
+      out.push(bp, ...entries.map(inSdt));
     } else {
       const e0 = entries[0]!;
-      bp.runs = [...before, begin, ...e0.runs];
-      bp.props = { ...e0.props, ...(first.src !== undefined ? { src: first.src } : {}) };
+      // vazio: o fim do campo logo depois do aviso, no mesmo parágrafo
+      const endRun = empty && after[0]?.fieldEnd ? after.shift()! : undefined;
+      bp.runs = [...before, begin, ...e0.runs, ...(endRun ? [endRun] : [])];
+      bp.props = { ...e0.props, ...(first.src !== undefined ? { src: first.src } : {}), ...(sdt ? { blockSdt: sdt } : {}) };
       delete bp.ppr;
       bp.pprEdited = true;
-      out.push(bp, ...entries.slice(1));
+      out.push(bp, ...entries.slice(1).map(inSdt));
+      // e o parágrafo do fim some se só tinha o fim do campo
+      const rest = after.some((r) => r.text || r.image || r.field || r.fieldBegin !== undefined || r.fieldEnd || r.bookmark || r.textbox || r.shape || r.group);
+      if (endRun && !rest && !(same ? endProps : ep.props).sectionBreak) return out;
     }
     if (same) out.push({ runs: after, props: endProps, ...(ep.ppr ? { ppr: ep.ppr } : {}) });
     else { ep.runs = after; out.push(ep); }
@@ -4548,21 +4598,549 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /**
-   * Atualiza os sumários (campos TOC com títulos) como o Word: entradas com
-   * hiperlink para _Toc ocultos nos títulos e PAGEREF, estilos Sumário N. A
-   * inserção do sumário é da frente Sumário, que reaproveita este motor.
+   * Atualizar Sumário, com a escolha da pergunta do Word: 'pages' refaz só os
+   * números de página das entradas (o texto editado nelas fica e os _Toc são os
+   * mesmos — oráculo bb-update-pages); 'all' refaz o índice inteiro com o mesmo
+   * motor (entradas com hiperlink para _Toc novos e PAGEREF, estilos Sumário N —
+   * bb-update-all). Vale para o sumário do cursor; fora de um, para todos os
+   * campos TOC (sumários e índices de ilustrações).
    */
-  updateToc(): boolean {
+  updateToc(mode: 'pages' | 'all' = 'all'): boolean {
     if (!this.model || this.locked()) return false;
-    const list = this.tocFields();
+    const at = this.tocAtCaret();
+    const list = at ? [at] : this.tocFields();
     if (!list.length) return false;
     this.quietChange = true;
     this.snapshot();
     this.quietChange = false;
-    for (const t of [...list].reverse()) this.rebuildToc(t);
+    if (mode === 'pages') {
+      const runs = new Set<Run>();
+      for (const t of list) for (const r of this.tocPageRuns(t)) runs.add(r);
+      this.refreshFieldCache(runs);
+    } else {
+      for (const t of [...list].reverse()) this.rebuildToc(t);
+      this.refreshFieldCache();
+    }
+    this.refresh();
+    return true;
+  }
+
+  // ── sumário (frente Sumário): galeria, Sumário Personalizado, Remover, Adicionar
+  //    Texto, campos TC e o controle de conteúdo. Regras em toc.ts; fatos do Word
+  //    em write/tools/toc-lab (memória word-toc-oracle-facts).
+
+  /** Campos TOC de sumário (sem os índices de ilustrações). */
+  private tocTables(): TocField[] {
+    return this.tocFields().filter((t) => parseTocInstr(t.instr).caption === undefined);
+  }
+
+  /** Parágrafos [a, b] do controle de conteúdo do sumário que contém o parágrafo `pi` do corpo. */
+  private tocSdtRange(pi: number): [number, number] | null {
+    if (this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return null;
+    const ps = this.model!.paragraphs;
+    const s = ps[pi]?.props.blockSdt;
+    if (!isTocSdt(s)) return null;
+    let a = pi, b = pi;
+    while (a > 0 && ps[a - 1]!.props.blockSdt?.key === s!.key) a--;
+    while (b + 1 < ps.length && ps[b + 1]!.props.blockSdt?.key === s!.key) b++;
+    return [a, b];
+  }
+
+  /** O 1º controle de conteúdo de sumário do corpo. */
+  private firstTocSdt(): [number, number] | null {
+    const ps = this.bodyModel().paragraphs;
+    const i = ps.findIndex((p) => isTocSdt(p.props.blockSdt));
+    return i < 0 || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit ? null : this.tocSdtRange(i);
+  }
+
+  /** O sumário do cursor: o campo que contém a seleção ou o do controle de conteúdo
+   *  em que o cursor está (no título dele, por exemplo). */
+  private tocAtCaret(): TocField | undefined {
+    if (!this.model || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return undefined;
+    const all = this.tocTables();
+    const hit = all.find((t) => this.tocInSelection(t));
+    if (hit) return hit;
+    const r = this.tocSdtRange(this.selection.focus.para);
+    return r ? all.find((t) => t.begin >= r[0] && t.begin <= r[1]) : undefined;
+  }
+
+  /** Runs PAGEREF das entradas de um campo TOC (Atualizar só os números). */
+  private tocPageRuns(t: TocField): Run[] {
+    const ps = this.bodyModel().paragraphs;
+    const out: Run[] = [];
+    const last = t.end < 0 ? t.begin : t.end;
+    const take = (r: Run): void => { if (/^\s*PAGEREF\b/i.test(r.field ?? '')) out.push(r); for (const x of r.fieldResult ?? []) take(x); };
+    for (let pi = t.begin; pi <= last; pi++) for (const r of ps[pi]?.runs ?? []) take(r);
+    return out;
+  }
+
+  /** Há sumário no documento (campo ou controle — o Manual não tem campo)? */
+  hasTableOfContents(): boolean {
+    if (!this.model) return false;
+    return this.tocTables().length > 0 || this.firstTocSdt() !== null;
+  }
+
+  /** O cursor está num sumário (campo ou controle)? */
+  inTableOfContents(): boolean {
+    if (!this.model) return false;
+    return !!this.tocAtCaret() || !!this.tocSdtRange(this.selection.focus.para);
+  }
+
+  /** Modelos da galeria Sumário, com o nome no idioma da interface. */
+  tocTemplates(): { id: TocTemplateId; name: string }[] {
+    return TOC_TEMPLATES.map((t) => ({ id: t.id, name: pickLabels(this, t.name) }));
+  }
+
+  /** w:id novo de controle de conteúdo (inteiro de 32 bits com sinal, como o Word). */
+  private newSdtId(): number {
+    const n = Math.floor(Math.random() * 0x7fffffff) || 1;
+    return Math.random() < 0.5 ? -n : n;
+  }
+
+  /**
+   * Onde entra um bloco novo da galeria: a seleção sai; num parágrafo vazio o bloco
+   * fica no lugar dele (oráculo bb-1); no começo, antes; no fim, depois; no meio
+   * do texto, o parágrafo é dividido. Devolve o índice do parágrafo.
+   */
+  private blockInsertPoint(): number {
+    if (this.hasSelection()) { const p = this.deleteSelection(); this.selection = { anchor: p, focus: p }; }
+    const ps = this.model!.paragraphs;
+    const pos = this.selection.focus;
+    const p = ps[pos.para]!;
+    const len = paraLength(p);
+    const bare = !len && !p.props.sectionBreak && !p.runs.some((r) => r.bookmark || r.fieldBegin !== undefined || r.fieldEnd);
+    if (bare) { ps.splice(pos.para, 1); this.shiftAnchors(pos.para, -1); return pos.para; }
+    if (pos.offset <= 0) return pos.para;
+    if (pos.offset >= len) return pos.para + 1;
+    coreSplitParagraph(this.model!, pos);
+    this.shiftAnchors(pos.para, 1);
+    return pos.para + 1;
+  }
+
+  /** Tira os parágrafos [a, b] do corpo (e os _Toc que só as entradas usavam). */
+  private dropBodyParas(a: number, b: number): void {
+    const ps = this.model!.paragraphs;
+    const old: Run[] = [];
+    for (let i = a; i <= b; i++) old.push(...ps[i]!.runs);
+    this.dropOldTocMarks(old);
+    ps.splice(a, b - a + 1);
+    this.shiftAnchors(a, -(b - a + 1));
+  }
+
+  /** Entradas do Sumário Manual (oráculo bb-3): Sumário 1–3, espaço reservado,
+   *  tabulação de alinhamento à direita com pontilhado e o número; nível 1 em
+   *  negrito, recuo direto 216/446 nos níveis 2 e 3. */
+  private manualTocParas(lang: 'en' | 'pt', sdt: BlockSdt | undefined, styleOf: (name: string) => string = (n) => this.builtinStyleId(n)): Paragraph[] {
+    return MANUAL_LEVELS.map((level, i) => {
+      const bold = level === 1 ? { bold: true } : {};
+      const runs: Run[] = [
+        { text: manualPlaceholder(lang, level), props: { ...DEFAULT_RUN_PROPS, ...bold } },
+        { text: '\t', props: { ...DEFAULT_RUN_PROPS }, ptab: { alignment: 'right', relativeTo: 'margin', leader: 'dot' } },
+        { text: String(i + 1), props: { ...DEFAULT_RUN_PROPS, ...bold } },
+      ];
+      const ind = level === 2 ? 216 : level === 3 ? 446 : undefined;
+      return { runs, props: { styleId: styleOf(`toc ${level}`), ...(ind ? { indentLeftTwips: ind } : {}), ...(sdt ? { blockSdt: sdt } : {}) } };
+    });
+  }
+
+  /**
+   * Miniatura de um modelo da galeria Sumário (o motor desenha): o título e três
+   * entradas com os estilos do documento (os que faltam, pela definição interna —
+   * sem gravá-los no documento).
+   */
+  paintTocTemplate(id: TocTemplateId, canvas: HTMLCanvasElement, cssWidth: number): boolean {
+    const tpl = TOC_TEMPLATES.find((t) => t.id === id);
+    if (!tpl || !this.model || !this.fonts) return false;
+    const lang = uiLang(this);
+    const ds = this.docStyles;
+    let xml = ds.base();
+    const styleOf = (name: string): string => {
+      const b = builtinStyle(name);
+      const sid = resolveStyleId(xml, b ? /w:styleId="([^"]*)"/.exec(b.xml)?.[1] ?? name : name);
+      xml = ensureDefined(ds, xml, sid, true);
+      return sid;
+    };
+    const sp: SectPr = { ...this.sect() };
+    delete sp.pgBorders;
+    const width = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+    const head: Paragraph = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: styleOf('TOC Heading') } };
+    const entries: Paragraph[] = tpl.manual ? this.manualTocParas(lang, undefined, styleOf).slice(0, 3) : [1, 2, 3].map((level) => ({
+      runs: [
+        { text: lang === 'pt' ? `Título ${level}` : `Heading ${level}`, props: { ...DEFAULT_RUN_PROPS } },
+        { text: '\t', props: { ...DEFAULT_RUN_PROPS } },
+        { text: '1', props: { ...DEFAULT_RUN_PROPS } },
+      ],
+      props: { styleId: styleOf(`toc ${level}`), tabStops: [{ posTwips: width - 10, align: 'right', leader: 'dot' }] },
+    }));
+    const paras = [head, ...entries];
+    const full = {
+      ...(this.fullDoc ?? {}),
+      blocks: paras.map((paragraph) => ({ type: 'paragraph', paragraph })),
+      sections: [{ sectPr: sp, blockStart: 0, blockEnd: paras.length - 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks: {}, footerBlocks: {} }],
+      footnotes: new Map(), endnotes: new Map(), comments: [], bookmarks: new Map(),
+      formatting: { ...(this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()), styles: readStyleSheet(xml) },
+    } as unknown as FullDocument;
+    let page: LayoutPage | undefined;
+    try { page = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: undefined }).pages[0]; } catch { return false; }
+    if (!page?.lines.length) return false;
+    const top = Math.max(0, Math.min(...page.lines.map((l) => l.y)) - 160);
+    const bottom = Math.max(...page.lines.map((l) => l.y + l.height)) + 160;
+    const left = Math.max(0, sp.marginLeftTwips - 240), right = Math.min(page.widthTw, page.widthTw - sp.marginRightTwips + 240);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = cssWidth / (right - left);
+    canvas.width = Math.max(1, Math.round((right - left) * scale * dpr));
+    canvas.height = Math.max(1, Math.round((bottom - top) * scale * dpr));
+    canvas.style.width = `${Math.round((right - left) * scale)}px`;
+    canvas.style.height = `${Math.round((bottom - top) * scale)}px`;
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = this.pageDark ? '#1e1e1e' : '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, -left * scale * dpr, -top * scale * dpr);
+    paintItems(ctx, page.items, this.enginePaintEnv(), {});
+    return true;
+  }
+
+  /**
+   * Insere um modelo da galeria Sumário: o controle de conteúdo do sumário
+   * (docPartGallery "Table of Contents", docPartUnique), o título no estilo
+   * Cabeçalho do Sumário e o campo `TOC \o "1-3" \h \z \u` (ou as entradas do
+   * Manual). Um sumário da galeria por documento: o que já houver é substituído.
+   * Um passo de desfazer.
+   */
+  insertTocTemplate(id: TocTemplateId): boolean {
+    const tpl = TOC_TEMPLATES.find((t) => t.id === id);
+    if (!tpl || !this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    this.snapshot();
+    const ps = this.model.paragraphs;
+    const old = this.firstTocSdt();
+    let at: number;
+    if (old) { at = old[0]; this.dropBodyParas(old[0], old[1]); }
+    else at = this.blockInsertPoint();
+    const lang = uiLang(this);
+    const sdt: BlockSdt = { key: `t${this.newSdtId()}`, gallery: 'Table of Contents', pr: tocSdtPr(this.newSdtId()) };
+    const heading: Paragraph = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: this.builtinStyleId('TOC Heading'), blockSdt: sdt } };
+    let body: Paragraph[];
+    if (tpl.manual) body = this.manualTocParas(lang, sdt);
+    else {
+      const o = parseTocInstr(TOC_AUTO_INSTR);
+      const entries = this.tocOrEmpty(o, this.tocSources(o, null), this.tocLook(o, undefined, 'dot'));
+      const bp: Paragraph = { runs: [], props: { blockSdt: sdt } };
+      const begin: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldBegin: TOC_AUTO_INSTR };
+      const end: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+      body = this.tocParagraphs(bp, bp, [], begin, entries, [end], true);
+    }
+    const built = [heading, ...body];
+    // o corpo não acaba no controle: um parágrafo depois dele (como o Word)
+    if (at >= ps.length) built.push({ runs: [], props: {} });
+    ps.splice(at, 0, ...built);
+    this.shiftAnchors(at, built.length);
+    // o cursor fica no parágrafo depois do sumário
+    const next = Math.min(at + built.length, ps.length - 1);
+    const pos = next === at + built.length ? { para: next, offset: 0 } : { para: next, offset: paraLength(ps[next]!) };
+    this.selection = { anchor: pos, focus: pos };
     this.refreshFieldCache();
     this.refresh();
     return true;
+  }
+
+  /** Opções do sumário do cursor (ou do 1º) — o diálogo Sumário Personalizado abre com elas. */
+  getTableOfContentsOptions(): TableOfContentsOptions | null {
+    const t = this.tocAtCaret() ?? this.tocTables()[0];
+    if (!t) return null;
+    const d = dialogOptionsFrom(parseTocInstr(t.instr));
+    const ps = this.bodyModel().paragraphs;
+    const tab = [ps[t.begin], ps[t.begin + 1]].find((p) => p?.props.tabStops?.some((x) => x.align === 'right'))?.props.tabStops?.find((x) => x.align === 'right');
+    d.leader = tab ? tab.leader ?? 'none' : 'dot';
+    return d;
+  }
+
+  /**
+   * Sumário Personalizado: grava o campo com as opções do diálogo (`\o "1-N"`, `\n`,
+   * `\p " "`, `\h`, `\z`, `\t`, `\u`, `\f` — oráculo toc-*), o preenchimento na
+   * tabulação das entradas e o formato nos estilos Sumário 1–9. `replace`: true =
+   * substitui o sumário do cursor (ou o 1º), como o "Sim" da pergunta do Word;
+   * false = insere outro no cursor; omitido = substitui o do cursor, se houver.
+   */
+  insertTableOfContents(opts: TableOfContentsOptions = {}, replace?: boolean): boolean {
+    if (!this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    const o = tocOptionsFrom(opts);
+    const leader = opts.leader ?? 'dot';
+    const old = replace === false ? undefined : this.tocAtCaret() ?? (replace ? this.tocTables()[0] : undefined);
+    this.snapshot();
+    if (opts.format) this.applyTocFormat(opts.format, opts.levels ?? 3);
+    if (old) {
+      this.rebuildToc({ ...old, instr: tocInstr(o) }, leader);
+      this.refreshFieldCache();
+      this.refresh();
+      return true;
+    }
+    this.insertTocField(o, leader);
+    return true;
+  }
+
+  /** Campo TOC novo no cursor, como o Word (oráculo tof-cursor-*: o campo começa
+   *  no cursor, o fim abre o parágrafo seguinte às entradas; o cursor fica nele). */
+  private insertTocField(o: TocOptions, leader: TabLeader | 'none'): void {
+    if (this.hasSelection()) { const p = this.deleteSelection(); this.selection = { anchor: p, focus: p }; }
+    const ps = this.model!.paragraphs;
+    const at = this.selection.focus;
+    const p = ps[at.para]!;
+    const idx = insertIndex(p, at.offset);
+    const before = p.runs.slice(0, idx), after = p.runs.slice(idx);
+    const sources = this.tocSources(o, null);
+    const entries = this.tocOrEmpty(o, sources, this.tocLook(o, undefined, leader));
+    const begin: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldBegin: tocInstr(o) };
+    const end: Run = { text: '', props: { ...DEFAULT_RUN_PROPS }, fieldEnd: true };
+    const built = this.tocParagraphs(p, p, before, begin, entries, [end, ...after], true);
+    ps.splice(at.para, 1, ...built);
+    this.shiftAnchors(at.para, built.length - 1);
+    const endAt = { para: at.para + built.length - 1, offset: 0 };
+    this.selection = { anchor: endAt, focus: endAt };
+    this.refreshFieldCache();
+    this.refresh();
+  }
+
+  /** Formatos do diálogo: o pPr/rPr de cada estilo "toc N" (os níveis mostrados e os
+   *  já definidos — oráculo toc-format*); "Do modelo" volta à definição interna. */
+  private applyTocFormat(f: TocFormat, levels: number): void {
+    if (!this.stylesEditable()) return;
+    for (let n = 1; n <= 9; n++) {
+      const name = `toc ${n}`;
+      const defined = !!this.docStyles.byName(name);
+      if (n > levels && !defined) continue;
+      if (f === 'template' && !defined) continue;
+      const id = this.builtinStyleId(name);
+      const raw = styleRaw(this.docStyles.base(), id);
+      if (!raw) continue;
+      const fm = tocFormatStyle(f, n);
+      this.commitStyles(putStyle(this.docStyles.base(), id, patchStyleXml(raw, { pPr: `<w:pPr>${fm.pPr}</w:pPr>`, rPr: fm.rPr ? `<w:rPr>${fm.rPr}</w:rPr>` : null })));
+    }
+  }
+
+  /**
+   * Remover Sumário (o comando interno RemoveTableOfContents, medido): o controle
+   * de conteúdo inteiro, com o título, ou o campo; os _Toc que só as entradas
+   * usavam saem dos títulos. O do cursor ou o 1º do documento. Um passo de desfazer.
+   */
+  removeTableOfContents(): boolean {
+    if (!this.model || this.locked() || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return false;
+    const ps = this.model.paragraphs;
+    const t = this.tocAtCaret();
+    let range = this.tocSdtRange(this.selection.focus.para);
+    let field = range ? undefined : t;
+    if (!range && !field) {
+      const s = this.firstTocSdt(), f = this.tocTables()[0];
+      if (s && (!f || s[0] <= f.begin)) range = s; else field = f;
+    }
+    if (!range && !field) return false;
+    this.snapshot();
+    let at: number;
+    if (range) { at = range[0]; this.dropBodyParas(range[0], range[1]); }
+    else {
+      const f = field!;
+      const last = f.end < 0 ? f.begin : f.end;
+      const bp = ps[f.begin]!, ep = ps[last]!;
+      const bi = bp.runs.indexOf(f.beginRun), ei = f.endRun ? ep.runs.indexOf(f.endRun) : -1;
+      const lead = bi > 0 ? bp.runs.slice(0, bi) : [];
+      const tail = ei >= 0 ? ep.runs.slice(ei + 1) : [];
+      const old: Run[] = [];
+      for (let i = f.begin; i <= last; i++) old.push(...ps[i]!.runs);
+      this.dropOldTocMarks(old);
+      const keep: Paragraph[] = [];
+      const hasLead = lead.some((r) => r.text || r.image || r.field || r.bookmark);
+      if (f.begin === last) keep.push({ ...bp, runs: [...lead, ...tail] });
+      else {
+        if (hasLead) keep.push({ ...bp, runs: lead });
+        if (tail.length || ep.props.sectionBreak) keep.push({ ...ep, runs: tail });
+      }
+      ps.splice(f.begin, last - f.begin + 1, ...keep);
+      this.shiftAnchors(f.begin, keep.length - (last - f.begin + 1));
+      at = f.begin + (keep.length > 1 ? 1 : 0);
+    }
+    if (!ps.length) ps.push({ runs: [], props: {} });
+    const pi = Math.min(at, ps.length - 1);
+    this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+    this.refresh();
+    return true;
+  }
+
+  /** Nível do parágrafo do cursor no sumário (Adicionar Texto: 0 = Não Mostrar no Sumário). */
+  getTocLevel(): number {
+    if (!this.model || this.hfEdit || this.tbEdit || this.noteEdit) return 0;
+    const p = this.model.paragraphs[this.selection.focus.para];
+    if (!p) return 0;
+    if (this.cellEdit) return 0;
+    return outlineParagraphs(this.liveEngineDoc().full).find((h) => h.paragraph === p)?.level ?? 0;
+  }
+
+  /** O estilo do parágrafo para Adicionar Texto: Normal, título interno ou outro. */
+  private addTextKind(p: Paragraph): 'normal' | 'heading' | 'other' {
+    const ds = this.docStyles;
+    const id = p.props.styleId ?? p.ppr?.pStyle;
+    if (!id || id === ds.defaultParagraph()) return 'normal';
+    return /^heading [1-9]$/i.test(ds.meta(id)?.name ?? '') ? 'heading' : 'other';
+  }
+
+  /**
+   * Adicionar Texto (0 = Não Mostrar no Sumário; 1–9 = Nível N) nos parágrafos da
+   * seleção — regra de toc.ts (addTextPlan): Título N ou Normal nos parágrafos
+   * Normal/de título, só o nível de tópico nos de outro estilo. Um passo de desfazer.
+   */
+  setTocLevel(level: number): void {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.noteEdit) return;
+    const lv = Math.max(0, Math.min(9, Math.round(level)));
+    this.snapshot();
+    const { start, end } = normalizeRange(this.range());
+    const keep = this.selection;
+    const now = new Map<Paragraph, number>();
+    for (const h of outlineParagraphs(this.liveEngineDoc().full)) now.set(h.paragraph, h.level);
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      if (!p) continue;
+      const plan = addTextPlan(lv, this.addTextKind(p));
+      if (plan.heading || plan.normal) {
+        this.selection = { anchor: { para: pi, offset: 0 }, focus: { para: pi, offset: 0 } };
+        this.applyStyleCore(plan.heading ? this.builtinStyleId(`heading ${plan.heading}`) : undefined);
+      } else if (plan.outline !== undefined) {
+        // fora dos títulos: só o nível de tópico direto (9 = corpo do texto)
+        if (plan.outline === null && !now.get(p)) continue;
+        const v = plan.outline === null ? 9 : plan.outline - 1;
+        p.props = { ...p.props, outlineLvl: v };
+        p.ppr = { ...(p.ppr ?? {}), outlineLvl: v };
+      }
+    }
+    this.selection = keep;
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /**
+   * Marcar Entrada de Sumário (Alt+Shift+O): o campo TC no fim da seleção (ou no
+   * cursor), como o Word grava — ` TC "texto" \f C \l "N" ` (oráculo tc-mark,
+   * tc-mark-sel). O sumário o lê com "Campos de entrada de índice" (\f).
+   */
+  markTocEntry(opts: { text: string; identifier?: string; level?: number }): boolean {
+    if (!this.model || this.locked() || !opts.text.trim() || this.hfEdit || this.tbEdit || !this.canInsertField()) return false;
+    this.snapshot();
+    const { end } = normalizeRange(this.range());
+    const base = this.newRunProps(this.pendingProps ?? this.currentProps());
+    const run: Run = { text: '', props: { ...base }, field: tcInstr({ text: opts.text, id: opts.identifier, level: opts.level }) };
+    const pos = coreInsertRun(this.model, end, run);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    return true;
+  }
+
+  /** Texto sugerido para Marcar Entrada de Sumário: a seleção (sem quebras). */
+  tocEntrySuggestion(): string {
+    return this.selectedText().replace(/[\r\n\t\u000B\f]+/g, ' ').trim();
+  }
+
+  /**
+   * Pede a atualização do sumário: a barra cancela o `uw-toc-update` e faz a
+   * pergunta do Word (só os números ou o índice inteiro); sem barra, o índice
+   * inteiro. `scope` 'caret' = o sumário (botão do controle, comando); 'selection'
+   * = F9 com um sumário na seleção.
+   */
+  private requestTocUpdate(scope: 'caret' | 'selection'): void {
+    const ev = new CustomEvent('uw-toc-update', { cancelable: true, detail: { scope } });
+    if (!this.dispatchEvent(ev)) return;
+    if (scope === 'caret') this.updateToc('all'); else this.updateFields('selection');
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  // ── controle de conteúdo do sumário na tela (adorno do editor, como o Word: a
+  //    moldura e a aba com o menu da galeria e "Atualizar Sumário…" quando o cursor
+  //    está nele — nunca no PDF, na impressão ou no viewer)
+
+  private tocMeasure: CanvasRenderingContext2D | null = null;
+
+  /** Moldura por página (twips) do controle do sumário com o cursor dentro. */
+  private tocControlBoxes(): { pg: number; x: number; y: number; w: number; h: number }[] {
+    if (!this.model || !this.eng || this.printRender || this.hfCapturing || this.view !== 'print' || this.cellEdit || this.noteEdit || this.hfEdit || this.tbEdit) return [];
+    const r = this.tocSdtRange(this.selection.focus.para);
+    if (!r) return [];
+    const by = new Map<number, { y0: number; y1: number }>();
+    for (let pi = r[0]; pi <= r[1]; pi++) {
+      for (const l of this.layoutCache[pi]?.lines ?? []) {
+        const b = by.get(l.page);
+        const y0 = l.yTwips, y1 = l.yTwips + l.heightTwips;
+        by.set(l.page, b ? { y0: Math.min(b.y0, y0), y1: Math.max(b.y1, y1) } : { y0, y1 });
+      }
+    }
+    return [...by].sort((a, b) => a[0] - b[0]).map(([pg, b]) => {
+      const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
+      const x = sp.marginLeftTwips;
+      return { pg, x, y: b.y0, w: sp.pageWidthTwips - sp.marginRightTwips - x, h: b.y1 - b.y0 };
+    });
+  }
+
+  /** A aba do controle (em cima, à esquerda da 1ª moldura): o botão do menu e o
+   *  "Atualizar Sumário…", em twips da página. */
+  private tocTabGeom(): { pg: number; pad: number; th: number; fs: number; label: string; menu: [number, number, number, number]; update: [number, number, number, number] } | null {
+    const b = this.tocControlBoxes()[0];
+    if (!b) return null;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const pad = 3 * px, th = 20 * px, fs = 11.5 * px;
+    const label = pickLabels(this, { en: 'Update Table…', pt: 'Atualizar Sumário…' });
+    this.tocMeasure ??= document.createElement('canvas').getContext('2d');
+    let tw = label.length * fs * 0.55;
+    if (this.tocMeasure) { this.tocMeasure.font = `400 ${fs}px ${DEFAULT_FONT_CSS}`; tw = this.tocMeasure.measureText(label).width; }
+    const x0 = b.x - pad, y0 = b.y - pad - th;
+    return { pg: b.pg, pad, th, fs, label, menu: [x0, y0, th, th], update: [x0 + th, y0, tw + 14 * px, th] };
+  }
+
+  private paintTocControl(ctx: CanvasRenderingContext2D, pg: number): void {
+    const boxes = this.tocControlBoxes();
+    const b = boxes.find((x) => x.pg === pg);
+    if (!b) return;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const dark = this.pageDark;
+    const line = dark ? '#5f6b7a' : '#a9bcd0', bg = dark ? '#2b3138' : '#eef3f8', ink = dark ? '#e3e3e3' : '#3c4043';
+    ctx.save();
+    ctx.lineWidth = px;
+    ctx.strokeStyle = line;
+    const pad = 3 * px;
+    ctx.strokeRect(b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad);
+    const g = boxes[0] === b ? this.tocTabGeom() : null;
+    if (g) {
+      for (const r of [g.menu, g.update]) { ctx.fillStyle = bg; ctx.fillRect(...r); ctx.strokeRect(...r); }
+      // ícone do menu: uma página com linhas (o sumário)
+      const [mx, my, mw] = g.menu;
+      ctx.strokeStyle = ink;
+      ctx.beginPath();
+      const lines = [[0.25, 0.3, 0.75], [0.33, 0.45, 0.75], [0.33, 0.6, 0.75], [0.25, 0.75, 0.75]] as const;
+      for (const [x1, y, x2] of lines) { ctx.moveTo(mx + mw * x1, my + mw * y); ctx.lineTo(mx + mw * x2, my + mw * y); }
+      ctx.stroke();
+      ctx.fillStyle = ink;
+      ctx.font = `400 ${g.fs}px ${DEFAULT_FONT_CSS}`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(g.label, g.update[0] + 7 * px, g.update[1] + g.th / 2);
+    }
+    ctx.restore();
+  }
+
+  /** Clique na aba do controle do sumário: o menu (a barra abre a galeria) ou
+   *  Atualizar Sumário. */
+  private tocTabMouseDown(e: MouseEvent): boolean {
+    if (e.button !== 0) return false;
+    const g = this.tocTabGeom();
+    const p = g ? this.engPoint(e) : null;
+    if (!g || !p || p.pg !== g.pg) return false;
+    const inR = (r: [number, number, number, number]): boolean => p.x >= r[0] && p.x <= r[0] + r[2] && p.y >= r[1] && p.y <= r[1] + r[3];
+    if (inR(g.update)) {
+      e.preventDefault();
+      if (!this.locked()) this.requestTocUpdate('caret');
+      return true;
+    }
+    if (inR(g.menu)) {
+      e.preventDefault();
+      this.dispatchEvent(new CustomEvent('uw-toc-menu', { detail: { x: e.clientX, y: e.clientY } }));
+      return true;
+    }
+    return false;
   }
 
   // ── legendas
@@ -6651,6 +7229,8 @@ export class UniversalWriteElement extends HTMLElement {
       }
       // tabelas: ferramenta ativa (pincel, borracha, lápis), alças e divisas
       if (this.tableMouseDown(e)) return;
+      // aba do controle de conteúdo do sumário (menu, Atualizar Sumário)
+      if (this.tocTabMouseDown(e)) return;
       // objetos flutuantes + entrada em caixa de texto (CLIQUE ÚNICO):
       if (e.button === 0 && !this.protectedMode) {
         // Desenhar Caixa de Texto e Criar Vínculo: o clique é do modo
@@ -7007,7 +7587,9 @@ export class UniversalWriteElement extends HTMLElement {
       // F9: atualiza os campos da seleção (como o Word; Ctrl+A, F9 = todos)
       if (k === 'F9' && !ctrl && !e.altKey && !e.shiftKey) {
         e.preventDefault();
-        this.updateFields('selection');
+        // sumário na seleção: a pergunta do Word (só os números ou o índice inteiro)
+        if (this.tocFields().some((t) => this.tocInSelection(t))) this.requestTocUpdate('selection');
+        else this.updateFields('selection');
         this.onSelectionChange?.(); this.chromeSync?.();
         return;
       }
@@ -13035,6 +13617,7 @@ export class UniversalWriteElement extends HTMLElement {
         // imagem em linha selecionada: só as alças (sem o realce do caractere dela)
         else if (hasSel && !picSel) this.paintEngineSelection(ctx, i, sel);
         this.paintTableAdorners(ctx, i);
+        this.paintTocControl(ctx, i);
         ctx.restore();
       }
       return ctx;

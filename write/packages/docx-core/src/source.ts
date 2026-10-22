@@ -113,6 +113,9 @@ export interface StoryGroup {
   wrapClose?: string;
   /** Filhos de topo do conteúdo do envoltório (sdt dentro de sdt…). */
   inner?: StoryGroup[];
+  /** w:sdt de bloco com docPartObj: a `key` da marca ParaProps.blockSdt dos parágrafos
+   *  (blocos novos com a mesma marca logo depois do grupo ficam dentro dele). */
+  sdtKey?: string;
 }
 
 export interface StorySource {

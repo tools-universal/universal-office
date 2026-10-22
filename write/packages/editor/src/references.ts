@@ -265,10 +265,16 @@ export interface TocOptions {
   /** \c "Rótulo" (com rótulo e número) ou \a "Rótulo" (só o texto) */
   caption?: string;
   includeLabel?: boolean;
+  /** \f [id]: entradas dos campos TC (sem id = os TC sem \f ou com \f C) */
+  fields?: boolean;
+  fieldId?: string;
+  /** \l "a-b": níveis dos campos TC */
+  fieldLevels?: [number, number];
   /** \h */
   hyperlinks?: boolean;
-  /** \n (sem números de página) */
+  /** \n (sem números de página); com intervalo, só nesses níveis (\n "2-3") */
   noPageNumbers?: boolean;
+  noPageLevels?: [number, number];
   /** \p "x": separador no lugar da tabulação (sem alinhar à direita) */
   separator?: string;
   /** \z: some com os números no modo Web */
@@ -293,20 +299,31 @@ export function parseTocInstr(instr: string): TocOptions {
   const c = q('c'), a = q('a');
   if (c !== undefined) { o.caption = c; o.includeLabel = true; }
   else if (a !== undefined) { o.caption = a; o.includeLabel = false; }
+  const range = (v: string | undefined): [number, number] | undefined => {
+    const m = /(\d)\s*-\s*(\d)/.exec(v ?? '');
+    return m ? [+m[1]!, +m[2]!] : undefined;
+  };
+  const f = /\\f(?:\s+(?:"([^"]*)"|([^\s\\"]+)))?/i.exec(instr);
+  if (f) { o.fields = true; const id = f[1] ?? f[2]; if (id) o.fieldId = id; }
+  const l = range(q('l'));
+  if (l) o.fieldLevels = l;
   if (has('h')) o.hyperlinks = true;
-  if (has('n')) o.noPageNumbers = true;
+  if (has('n')) { const r = range(q('n')); if (r) o.noPageLevels = r; else o.noPageNumbers = true; }
   const p = q('p');
   if (p !== undefined) o.separator = p;
   if (has('z')) o.hideInWeb = true;
   return o;
 }
 
-/** Instrução na ordem em que o Word grava (oráculo tof-*, toc-*):
- *  `TOC \o "1-3" \n \p " " \h \z \c "Figura" \u`. */
+/** Instrução na ordem em que o Word grava (oráculo tof-*, toc-*, toc-lab):
+ *  `TOC \o "1-3" \f x \l "1-2" \n "2-3" \p " " \h \z \c "Figura" \t "…" \u`. */
 export function tocInstr(o: TocOptions): string {
   const parts: string[] = ['TOC'];
   if (o.outline) parts.push(`\\o "${o.outline[0]}-${o.outline[1]}"`);
-  if (o.noPageNumbers) parts.push('\\n');
+  if (o.fields) parts.push(o.fieldId ? `\\f ${/[\s"]/.test(o.fieldId) ? `"${o.fieldId}"` : o.fieldId}` : '\\f');
+  if (o.fieldLevels) parts.push(`\\l "${o.fieldLevels[0]}-${o.fieldLevels[1]}"`);
+  if (o.noPageLevels) parts.push(`\\n "${o.noPageLevels[0]}-${o.noPageLevels[1]}"`);
+  else if (o.noPageNumbers) parts.push('\\n');
   if (o.separator !== undefined) parts.push(`\\p "${o.separator}"`);
   if (o.hyperlinks) parts.push('\\h');
   if (o.hideInWeb) parts.push('\\z');
@@ -330,6 +347,8 @@ export interface TocSource {
   bookmark: string;
   /** formatação direta do texto (copiada) */
   runs?: Run[];
+  /** sem número de página (TC com \n; nível no \n "a-b" do campo — oráculo toc-tc-n, toc-n-range) */
+  noPage?: boolean;
 }
 
 export interface TocLook {
@@ -361,7 +380,8 @@ export function tocEntryParagraphs(o: TocOptions, sources: readonly TocSource[],
     }
     const text = s.text.replace(/[\t\n\f\u000B\r]/g, ' ');
     runs.push({ text, props: { ...base, ...(o.hyperlinks ? { charStyle: look.hyperlinkStyle } : {}) }, inToc: true });
-    if (!o.noPageNumbers) {
+    const lv = o.noPageLevels;
+    if (!o.noPageNumbers && !s.noPage && !(lv && s.level >= lv[0] && s.level <= lv[1])) {
       runs.push({ text: o.separator ?? '\t', props: { ...base, ...web }, inToc: true });
       const instr = ` PAGEREF ${s.bookmark} \\h `;
       runs.push({ text: s.page, props: { ...base, ...web }, field: instr, fieldResult: [{ text: s.page, props: { ...base, ...web } }], inToc: true });

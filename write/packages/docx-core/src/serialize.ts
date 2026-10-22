@@ -1,6 +1,6 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements } from './xml.js';
-import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage, type DrawingTextbox } from './document.js';
+import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage, type DrawingTextbox, type BlockSdt } from './document.js';
 import { forEachTextbox, type TableBlock, type TableBorders, type Block } from './fulldoc.js';
 import { textboxAlternateContent, vmlFallback } from './shape-xml.js';
 import { readTheme, readSettings } from './ooxml/parts.js';
@@ -567,6 +567,12 @@ function fieldOrRunXml(r: Run): string {
   if (!r.field || (active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))) return runXml(r);
   if (!r.props.ins && !r.props.del) {
     if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
+    // campo de marcação sem resultado (TC/XE/RD): começo, instrução e fim, sem o
+    // separador — como "Marcar Entrada de Sumário" grava (oráculo toc-lab, tc-mark)
+    if (/^\s*(TC|XE|RD)\b/i.test(r.field) && !r.text && !r.fieldResult?.length) {
+      const rpr = rPrXml(r);
+      return fldCharXml(rpr, 'begin') + `<w:r>${rpr}<w:instrText xml:space="preserve">${esc(r.field)}</w:instrText></w:r>` + fldCharXml(rpr, 'end');
+    }
     // o Word grava na forma complexa o campo com hiperlink (\h) e o resultado com
     // mais de uma formatação; o resto como w:fldSimple (oráculo refs-lab, xr-*)
     const result = fieldResultXml(r);
@@ -1109,6 +1115,33 @@ function tcPrXml(cell: TableBlock['rows'][number]['cells'][number]): string {
 
 const blockXml = (b: Block): string => (b.type === 'table' ? tableXml(b) : paraXml(b.paragraph));
 const blockId = (b: Block): number | undefined => (b.type === 'table' ? b.src : b.paragraph.props.src);
+const sdtOf = (b: Block | undefined): BlockSdt | undefined => (b?.type === 'paragraph' ? b.paragraph.props.blockSdt : undefined);
+
+/** Fim (exclusivo) da sequência de blocos de `from` em diante com a marca de
+ *  controle de bloco `key`. */
+function sdtRunEnd(blocks: Block[], from: number, key: string): number {
+  let j = from;
+  while (j < blocks.length && sdtOf(blocks[j])?.key === key) j++;
+  return j;
+}
+
+/** Controle de conteúdo de bloco NOVO (marca com o w:sdtPr cru): os blocos
+ *  consecutivos com a mesma key saem dentro de um w:sdt. */
+const newSdtXml = (pr: string, inner: string): string => `<w:sdt>${pr}<w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
+
+/** Blocos sem fonte, com os controles de bloco novos embrulhados. */
+function blocksXml(blocks: Block[]): string {
+  let out = '';
+  for (let i = 0; i < blocks.length;) {
+    const s = sdtOf(blocks[i]);
+    if (s?.pr) {
+      const j = sdtRunEnd(blocks, i, s.key);
+      out += newSdtXml(s.pr, blocks.slice(i, j).map(blockXml).join(''));
+      i = j;
+    } else out += blockXml(blocks[i++]!);
+  }
+  return out;
+}
 
 /**
  * Blocos de uma parte com a fonte original: cada filho de topo intacto (todos
@@ -1212,6 +1245,9 @@ function groupsXml(groups: StoryGroup[], blocks: Block[], store: SourceStore): s
       const g = groups[gi]!;
       let ok = g.blocks[0] === id && i + g.blocks.length <= blocks.length;
       for (let k = 0; ok && k < g.blocks.length; k++) ok = blockId(blocks[i + k]!) === g.blocks[k] && pristine(blocks[i + k]!);
+      // bloco novo do mesmo controle logo depois (Enter no último parágrafo): reembrulha
+      const trailing = (k: number): boolean => !!g.sdtKey && k < blocks.length && blockId(blocks[k]!) === undefined && sdtOf(blocks[k])?.key === g.sdtKey;
+      if (ok && trailing(i + g.blocks.length)) ok = false;
       flushZero(gi);
       if (ok) {
         for (const bid of g.blocks) active!.claimed.add(bid);
@@ -1232,6 +1268,8 @@ function groupsXml(groups: StoryGroup[], blocks: Block[], store: SourceStore): s
           let k = j;
           while (k < blocks.length && blockId(blocks[k]!) === undefined) k++;
           if (k > j && k < blocks.length && inGroup(k)) { j = k; continue; }
+          // e os novos do mesmo controle de bloco logo depois do último
+          if (trailing(j)) { j++; continue; }
           break;
         }
         const inner = blocks.slice(i, j);
@@ -1240,6 +1278,14 @@ function groupsXml(groups: StoryGroup[], blocks: Block[], store: SourceStore): s
         i = j;
         continue;
       }
+    }
+    const s = sdtOf(b);
+    if (s?.pr) {
+      // controle de bloco novo (sumário da galeria): os blocos dele num w:sdt
+      const j = sdtRunEnd(blocks, i + 1, s.key);
+      out += newSdtXml(s.pr, blocks.slice(i, j).map(blockXml).join(''));
+      i = j;
+      continue;
     }
     out += blockXml(b);
     i++;
@@ -1273,7 +1319,7 @@ export function serializeBlocks(blocks: Block[], sectPr: SectPr, hfRefs: HfPartI
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
   beginShapeContext(blocks);
-  const body = blocks.map(blockXml).join('') + sect;
+  const body = blocksXml(blocks) + sect;
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}${drawingNsAttrs(body)}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`
@@ -1284,7 +1330,7 @@ export function serializeDocument(model: DocumentModel, hfRefs: HfPartInfo[] = [
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
   beginShapeContext(model.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
-  const body = model.paragraphs.map(paraXml).join('') + sect;
+  const body = blocksXml(model.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph }))) + sect;
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     revRoot(`<w:document ${W_NS}${body.includes('<w15:') ? W15_NS : ''}${drawingNsAttrs(body)}>`, 'w:document') + `<w:body>${body}</w:body></w:document>`

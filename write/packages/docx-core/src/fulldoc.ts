@@ -6,6 +6,7 @@ import {
   buildReadContext,
   readBorderEdge,
   type Paragraph,
+  type BlockSdt,
   type SectPr,
   type ReadContext,
   type BorderEdge,
@@ -380,6 +381,27 @@ export function blockSrc(b: Block): number | undefined {
   return b.type === 'paragraph' ? b.paragraph.props.src : b.src;
 }
 
+let blockSdtKeys = 0;
+
+/** sdt de bloco com docPartObj (sumário, folha de rosto…): a marca ParaProps.blockSdt
+ *  nos parágrafos e a key no grupo da fonte (só no caminho do editor). */
+function markBlockSdt(child: XmlElement, g: StoryGroup, produced: Block[]): void {
+  const gallery = child.name === 'w:sdt' ? docPartGallery(child) : undefined;
+  if (gallery === undefined) return;
+  const sdt: BlockSdt = { key: `s${++blockSdtKeys}`, ...(gallery ? { gallery } : {}) };
+  g.sdtKey = sdt.key;
+  for (const b of produced) if (b.type === 'paragraph') b.paragraph.props.blockSdt = sdt;
+}
+
+/** w:docPartGallery de um w:sdt de bloco com w:docPartObj ("" sem galeria;
+ *  undefined se não é um docPartObj). */
+function docPartGallery(sdt: XmlElement): string | undefined {
+  const pr = firstChild(sdt, 'w:sdtPr');
+  const obj = pr && firstChild(pr, 'w:docPartObj');
+  if (!obj) return undefined;
+  return firstChild(obj, 'w:docPartGallery')?.attrs['w:val'] ?? '';
+}
+
 /** Abre a captura de uma parte: container cujos filhos de topo viram grupos. */
 function storyOf(xml: string, container: XmlElement): StorySource {
   return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
@@ -519,7 +541,9 @@ export function readBodyFragment(pkg: DocxPackage, store: SourceStore | undefine
   const blocks: Block[] = [];
   for (const c of childElements(body)) {
     const produced = readBlocksOf({ name: body.name, attrs: {}, children: [c] }, ctx);
-    groups.push(groupOf(xml, c, produced, store));
+    const g = groupOf(xml, c, produced, store);
+    markBlockSdt(c, g, produced);
+    groups.push(g);
     blocks.push(...produced);
   }
   return { blocks, groups };
@@ -726,7 +750,11 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
     }
     if (story) {
       if (child.name === 'w:sectPr' && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
-      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store!));
+      else {
+        const g = groupOf(docXml, child, blocks.slice(before), store!);
+        markBlockSdt(child, g, blocks.slice(before));
+        story.groups.push(g);
+      }
     }
   }
   if (sections.length === 0) {

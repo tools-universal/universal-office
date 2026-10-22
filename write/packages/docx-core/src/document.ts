@@ -419,6 +419,19 @@ export interface ParaTabStop {
 }
 export type TabLeader = 'dot' | 'hyphen' | 'underscore' | 'heavy' | 'middleDot';
 
+/**
+ * w:sdt de bloco com w:docPartObj (sumário, folha de rosto, bibliografia…) em
+ * volta de parágrafos do corpo. `key` junta os parágrafos do mesmo controle (o
+ * Enter dentro dele leva a marca junto); `pr` (o w:sdtPr cru) só existe no
+ * controle NOVO do editor — o lido do arquivo sai pelo envoltório da fonte.
+ */
+export interface BlockSdt {
+  key: string;
+  /** w:docPartGallery ("Table of Contents", "Cover Pages"…) */
+  gallery?: string;
+  pr?: string;
+}
+
 export interface ParaProps {
   alignment?: 'left' | 'center' | 'right' | 'both';
   styleId?: string;
@@ -452,10 +465,14 @@ export interface ParaProps {
   pageBreakBefore?: boolean;
   /** w:keepNext (manter com o próximo — legenda acima/abaixo do objeto). */
   keepNext?: boolean;
+  /** w:outlineLvl direto (0–8 = Nível 1–9; 9 = corpo do texto) — Adicionar Texto. */
+  outlineLvl?: number;
   /** w:framePr w:dropCap — letra capitular sobreposta ao parágrafo seguinte. */
   dropCap?: boolean;
   /** Id da fonte XML original do parágrafo (source.ts) — salvamento sem perdas. */
   src?: number;
+  /** Controle de conteúdo de BLOCO que contém o parágrafo (só no modelo do editor). */
+  blockSdt?: BlockSdt;
   /** Parágrafo NOVO com a formatação copiada de um lido (célula de linha/coluna
    *  inserida, como o Word faz): o w:pPr sai do cru dele com as diferenças —
    *  sem os runs nem os marcadores dele. */
@@ -708,6 +725,7 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.keepNext) props.keepNext = true;
+  if (ppr.outlineLvl !== undefined) props.outlineLvl = ppr.outlineLvl;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== 'none') props.dropCap = true;
   if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
   if (ppr.markDel) props.markDel = revInfo(ppr.markDel);

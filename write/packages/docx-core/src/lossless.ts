@@ -320,6 +320,7 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
     ppr.push(`<w:ind${attrs}/>`);
   }
   if (pp.alignment && pp.alignment !== 'left') ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (pp.outlineLvl !== undefined) ppr.push(`<w:outlineLvl w:val="${pp.outlineLvl}"/>`);
   const mark = markXml(pp);
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
   if (sectPrXml) ppr.push(sectPrXml);
@@ -414,6 +415,7 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
     set('w:spacing', withAttrs(kidRaw(kids, 'w:spacing'), 'w:spacing', ch));
   }
   if (p.alignment !== base.alignment) set('w:jc', p.alignment ? `<w:jc w:val="${p.alignment}"/>` : null);
+  if (p.outlineLvl !== base.outlineLvl) set('w:outlineLvl', p.outlineLvl !== undefined ? `<w:outlineLvl w:val="${p.outlineLvl}"/>` : null);
   if (sect !== undefined) {
     const cur = kidRaw(kids, 'w:sectPr');
     if ((sect ?? '') !== cur) set('w:sectPr', sect);
