@@ -4428,8 +4428,8 @@ internal sealed class Engine
             var stroke = s.Line is not null
                 ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null }
                 : null;
-            var (sGrad, sShadow, sPattern, sBlip) = Geometry.ShapeExtras(s, theme);
-            outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line, Grad = sGrad, Shadow = sShadow, Pattern = sPattern, Blip = sBlip });
+            var (sGrad, sShadow, sPattern, sBlip, sFx) = Geometry.ShapeExtras(s, theme);
+            outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line, Grad = sGrad, Shadow = sShadow, Pattern = sPattern, Blip = sBlip, Fx = sFx });
         }
         else if (run.Textbox is not null)
         {
@@ -4441,8 +4441,8 @@ internal sealed class Engine
                 // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
                 double? lw = s.Line?.Ref is { } tref && tref != 0 ? ThemeLineWidth(tref) ?? s.Line.WidthPt : s.Line?.WidthPt;
                 var stroke = s.Line is not null ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null } : null;
-                var (tGrad, tShadow, tPattern, tBlip) = Geometry.ShapeExtras(s, theme);
-                outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Grad = tGrad, Shadow = tShadow, Pattern = tPattern, Blip = tBlip });
+                var (tGrad, tShadow, tPattern, tBlip, tFx) = Geometry.ShapeExtras(s, theme);
+                outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Grad = tGrad, Shadow = tShadow, Pattern = tPattern, Blip = tBlip, Fx = tFx });
             }
             if (tbContent is not null)
             {

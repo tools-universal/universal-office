@@ -417,6 +417,18 @@ public static class PdfRenderer
                 }
             case ShapeItem it:
                 {
+                    // Efeitos de Forma: rasters dos efeitos em volta do corpo vetorial
+                    if (it.Fx is not null && embedRgba is not null && it.Style.Geom != "line")
+                    {
+                        PdfPicture.PaintShapeEffectsPdf(page, it, embedRgba, () =>
+                        {
+                            var body = (ShapeItem)it.ShallowClone();
+                            body.Fx = null;
+                            body.Shadow = null;
+                            PaintItem(page, body, fontFor, imageFor, shade, pictureEnv, embedRgba);
+                        });
+                        return;
+                    }
                     var st = it.Style;
                     PdfColor? fill = it.Fill is not null && Hex6.IsMatch(it.Fill) ? HexColor(it.Fill) : null;
                     var stroke = StrokeOf(it.Stroke, validate: true);

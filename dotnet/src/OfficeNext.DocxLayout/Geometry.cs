@@ -495,13 +495,43 @@ public static class Geometry
         return outp;
     }
 
-    /// <summary>Degradê, padrão, imagem e sombra de um ShapeStyle com as cores do tema resolvidas (itens 'shape').</summary>
-    public static (GradFill? Grad, ShapeShadow? Shadow, ShapePattern? Pattern, ShapeBlip? Blip) ShapeExtras(ShapeStyle s0, Theme theme)
+    /// <summary>Degradê, padrão, imagem, sombra e Efeitos de Forma de um ShapeStyle com as cores do
+    /// tema resolvidas (itens 'shape').</summary>
+    public static (GradFill? Grad, ShapeShadow? Shadow, ShapePattern? Pattern, ShapeBlip? Blip, PictureLook? Fx) ShapeExtras(ShapeStyle s0, Theme theme)
     {
         var s = WithThemeStyles(s0, theme);
         GradFill? grad = null;
         ShapeShadow? shadow = null;
         ShapePattern? pattern = null;
+        PictureLook? fxOut = null;
+        if (s.Fx is { } f)
+        {
+            string C(string x) => Resolve.ResolveDrawingColor(x, theme) ?? "000000";
+            var fx = new PictureLook();
+            if (f.Inner is { } fi) fx.Shadow = new PicShadowLook { Kind = "inner", Color = C(fi.Color), Alpha = fi.Alpha, BlurPt = fi.BlurPt, DistPt = fi.DistPt, DirDeg = fi.DirDeg };
+            else if (f.Outer is { } o)
+            {
+                fx.Shadow = new PicShadowLook
+                {
+                    Kind = "outer", Color = C(o.Color), Alpha = o.Alpha, BlurPt = o.BlurPt, DistPt = o.DistPt, DirDeg = o.DirDeg,
+                    Sx = o.Sx, Sy = o.Sy,
+                    KxDeg = o.KxDeg is { } kx && kx != 0 && !double.IsNaN(kx) ? kx : null,
+                    KyDeg = o.KyDeg is { } ky && ky != 0 && !double.IsNaN(ky) ? ky : null,
+                    Algn = Js.Truthy(o.Algn) ? o.Algn : null, RotWithShape = o.RotWithShape,
+                };
+            }
+            if (f.Glow is { } gl) fx.Glow = new PicGlowLook { Color = C(gl.Color), Alpha = gl.Alpha, RadPt = gl.RadPt };
+            if (f.SoftEdgePt is { } se && se != 0 && !double.IsNaN(se)) fx.SoftEdgePt = se;
+            if (f.Reflection is { } r)
+            {
+                fx.Reflection = new PicReflectionLook
+                {
+                    BlurPt = r.BlurPt, StA = r.StA, StPos = r.StPos, EndA = r.EndA, EndPos = r.EndPos, DistPt = r.DistPt, DirDeg = r.DirDeg, Sy = r.Sy,
+                    Algn = r.Algn, RotWithShape = r.RotWithShape,
+                };
+            }
+            if (fx.Shadow is not null || fx.Glow is not null || fx.SoftEdgePt is not null || fx.Reflection is not null) fxOut = fx;
+        }
         if (s.Pattern is { } pt)
         {
             pattern = new ShapePattern { Prst = pt.Prst, Fg = Resolve.ResolveDrawingColor(pt.Fg, theme) ?? "000000", Bg = Resolve.ResolveDrawingColor(pt.Bg, theme) ?? "FFFFFF" };
@@ -525,7 +555,7 @@ public static class Geometry
             string? c = Resolve.ResolveDrawingColor(sh.Color, theme);
             if (c is not null) shadow = new ShapeShadow { Dx = sh.Dx, Dy = sh.Dy, Color = c, Alpha = sh.Alpha, Blur = sh.Blur };
         }
-        return (grad, shadow, pattern, blip);
+        return (grad, shadow, pattern, blip, fxOut);
     }
 
     // ───────────────────────── grupos girados/espelhados ─────────────────────────

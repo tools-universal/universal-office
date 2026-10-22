@@ -62,6 +62,52 @@ public static class LayoutDump
         if (v is null) w.WriteNull(name); else w.WriteBoolean(name, v.Value);
     }
 
+    private static void Shadow(Utf8JsonWriter w, PicShadowLook? s)
+    {
+        if (s is null) { w.WriteNull("shadow"); return; }
+        w.WriteStartObject("shadow");
+        w.WriteString("kind", s.Kind);
+        w.WriteString("color", s.Color);
+        Num(w, "alpha", s.Alpha, 1e4);
+        Num(w, "blur", s.BlurPt);
+        Num(w, "dist", s.DistPt);
+        Num(w, "dir", s.DirDeg);
+        OptR4(w, "sx", s.Sx);
+        OptR4(w, "sy", s.Sy);
+        OptR(w, "kx", s.KxDeg);
+        OptR(w, "ky", s.KyDeg);
+        OptStr(w, "algn", s.Algn);
+        OptBool(w, "rotWithShape", s.RotWithShape);
+        w.WriteEndObject();
+    }
+
+    private static void Glow(Utf8JsonWriter w, PicGlowLook? g)
+    {
+        if (g is null) { w.WriteNull("glow"); return; }
+        w.WriteStartObject("glow");
+        w.WriteString("color", g.Color);
+        Num(w, "alpha", g.Alpha, 1e4);
+        Num(w, "rad", g.RadPt);
+        w.WriteEndObject();
+    }
+
+    private static void Reflection(Utf8JsonWriter w, PicReflectionLook? r)
+    {
+        if (r is null) { w.WriteNull("reflection"); return; }
+        w.WriteStartObject("reflection");
+        Num(w, "blur", r.BlurPt);
+        Num(w, "stA", r.StA, 1e4);
+        Num(w, "stPos", r.StPos, 1e4);
+        Num(w, "endA", r.EndA, 1e4);
+        Num(w, "endPos", r.EndPos, 1e4);
+        Num(w, "dist", r.DistPt);
+        Num(w, "dir", r.DirDeg);
+        Num(w, "sy", r.Sy, 1e4);
+        OptStr(w, "algn", r.Algn);
+        OptBool(w, "rotWithShape", r.RotWithShape);
+        w.WriteEndObject();
+    }
+
     /// <summary>Formato da Imagem (PictureLook) — chaves fixas, null = ausente; frações a 0,0001.</summary>
     private static void Pic(Utf8JsonWriter w, PictureLook p)
     {
@@ -93,33 +139,8 @@ public static class LayoutDump
             OptStr(w, "join", ln.Join);
             w.WriteEndObject();
         }
-        if (p.Shadow is not { } s) w.WriteNull("shadow");
-        else
-        {
-            w.WriteStartObject("shadow");
-            w.WriteString("kind", s.Kind);
-            w.WriteString("color", s.Color);
-            Num(w, "alpha", s.Alpha, 1e4);
-            Num(w, "blur", s.BlurPt);
-            Num(w, "dist", s.DistPt);
-            Num(w, "dir", s.DirDeg);
-            OptR4(w, "sx", s.Sx);
-            OptR4(w, "sy", s.Sy);
-            OptR(w, "kx", s.KxDeg);
-            OptR(w, "ky", s.KyDeg);
-            OptStr(w, "algn", s.Algn);
-            OptBool(w, "rotWithShape", s.RotWithShape);
-            w.WriteEndObject();
-        }
-        if (p.Glow is not { } g) w.WriteNull("glow");
-        else
-        {
-            w.WriteStartObject("glow");
-            w.WriteString("color", g.Color);
-            Num(w, "alpha", g.Alpha, 1e4);
-            Num(w, "rad", g.RadPt);
-            w.WriteEndObject();
-        }
+        Shadow(w, p.Shadow);
+        Glow(w, p.Glow);
         OptR(w, "softEdge", p.SoftEdgePt);
         if (p.Bevel is not { } bv) w.WriteNull("bevel");
         else
@@ -133,22 +154,7 @@ public static class LayoutDump
             OptStr(w, "material", bv.Material);
             w.WriteEndObject();
         }
-        if (p.Reflection is not { } r) w.WriteNull("reflection");
-        else
-        {
-            w.WriteStartObject("reflection");
-            Num(w, "blur", r.BlurPt);
-            Num(w, "stA", r.StA, 1e4);
-            Num(w, "stPos", r.StPos, 1e4);
-            Num(w, "endA", r.EndA, 1e4);
-            Num(w, "endPos", r.EndPos, 1e4);
-            Num(w, "dist", r.DistPt);
-            Num(w, "dir", r.DirDeg);
-            Num(w, "sy", r.Sy, 1e4);
-            OptStr(w, "algn", r.Algn);
-            OptBool(w, "rotWithShape", r.RotWithShape);
-            w.WriteEndObject();
-        }
+        Reflection(w, p.Reflection);
         OptR4(w, "alpha", p.Alpha);
         if (p.Duotone is not { } du) w.WriteNull("duotone");
         else
@@ -265,6 +271,16 @@ public static class LayoutDump
                         w.WriteEndObject();
                     }
                     OptR4(w, "alpha", bl.Alpha);
+                    w.WriteEndObject();
+                }
+                // Efeitos de Forma: só nos itens que os têm (chaves fixas, null = ausente)
+                if (sh.Fx is { } fx)
+                {
+                    w.WriteStartObject("fx");
+                    Shadow(w, fx.Shadow);
+                    Glow(w, fx.Glow);
+                    OptR(w, "softEdge", fx.SoftEdgePt);
+                    Reflection(w, fx.Reflection);
                     w.WriteEndObject();
                 }
                 break;

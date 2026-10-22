@@ -195,6 +195,11 @@ public sealed class ShapeItem : PageItem
     public ShapePattern? Pattern;
     /// <summary>imagem (a:blipFill): esticada no quadro ou em mosaico (a:tile)</summary>
     public ShapeBlip? Blip;
+    /// <summary>Efeitos de Forma (cores resolvidas): sombra externa com escala/inclinação ou interna,
+    /// brilho, bordas suaves e reflexo — os modelos dos efeitos das imagens, sobre a silhueta
+    /// da forma (corpo e contorno). O Pick&lt;PictureLook, 'shadow' | 'glow' | 'softEdgePt' |
+    /// 'reflection'&gt; do JS: só esses campos vêm preenchidos.</summary>
+    public PictureLook? Fx;
 }
 
 /// <summary>Degradê (a:gradFill): paradas (pos 0..1), a:lin (ângulo, scaled), rotWithShape, a:path.</summary>

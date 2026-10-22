@@ -101,7 +101,9 @@ export function paintShapeEffectsPdf(page: PdfPage, it: ShapeItem, embedRgba: (d
   const rectMatrix = (x: number, y: number, rw: number, rh: number): Affine =>
     [M[0] * rw, M[1] * rw, M[2] * rh, M[3] * rh, M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
   const draw = (img: PdfImage, m: Affine): void => page.drawImageMatrix(img, m[0], m[1], m[2], m[3], m[4], m[5]);
-  const look: PictureLook = { ...fx, geom: { prst: st.geom === 'custom' ? 'rect' : st.geom, ...(st.adj ? { adj: st.adj } : {}) } };
+  // (o contorno é centrado na borda: a camada leva a metade de fora)
+  const lw0 = it.stroke?.widthPt ?? 0;
+  const look: PictureLook = { ...fx, geom: { prst: st.geom === 'custom' ? 'rect' : st.geom, ...(st.adj ? { adj: st.adj } : {}) }, ...(lw0 ? { line: { color: '000000', alpha: 1, widthPt: lw0 / 2 } } : {}) };
   const bb = bounds(look, w, h);
   let ppt = PPT;
   const area = (bb.x1 - bb.x0) * (bb.y1 - bb.y0) * ppt * ppt;

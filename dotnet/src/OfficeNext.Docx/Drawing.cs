@@ -115,6 +115,50 @@ public sealed class ShapeShadow
     public double? Blur;
 }
 
+/// <summary>Efeitos de Forma além da sombra simples (a:effectLst): brilho, bordas suaves, sombra
+/// interna, reflexo e a sombra externa com escala/inclinação — medidas em pt e graus, cores
+/// RRGGBB ou @esquema|mods (o motor resolve), como os efeitos das imagens. Porta do ShapeFx de
+/// docx-core/src/drawing.ts.</summary>
+public sealed class ShapeFx
+{
+    public ShapeFxShadow? Outer;
+    public ShapeFxShadow? Inner;
+    public ShapeFxGlow? Glow;
+    public double? SoftEdgePt;
+    public ShapeFxReflection? Reflection;
+
+    /// <summary>Object.keys(fx).length do JS (quantos efeitos há).</summary>
+    public int Count => (Outer is null ? 0 : 1) + (Inner is null ? 0 : 1) + (Glow is null ? 0 : 1) + (SoftEdgePt is null ? 0 : 1) + (Reflection is null ? 0 : 1);
+}
+
+/// <summary>Sombra do ShapeFx (pt e graus): a externa pode ter escala/inclinação (Perspectiva),
+/// alinhamento e rotWithShape; a interna só desfoque, distância e direção.</summary>
+public sealed class ShapeFxShadow
+{
+    public double BlurPt, DistPt, DirDeg;
+    public string Color = "000000";
+    public double Alpha = 1;
+    public double? Sx, Sy, KxDeg, KyDeg;
+    public string? Algn;
+    public bool? RotWithShape;
+}
+
+/// <summary>Brilho do ShapeFx (raio em pt).</summary>
+public sealed class ShapeFxGlow
+{
+    public double RadPt;
+    public string Color = "000000";
+    public double Alpha = 1;
+}
+
+/// <summary>Reflexo do ShapeFx (pt, graus; alfas/posições/escala em frações).</summary>
+public sealed class ShapeFxReflection
+{
+    public double BlurPt, StA, StPos, EndA, EndPos, DistPt, DirDeg, Sy;
+    public string? Algn;
+    public bool? RotWithShape;
+}
+
 /// <summary>Comando de um caminho de a:custGeom já em números (unidades do caminho; ângulos em graus).
 /// Op: M | L (X, Y) · C | Q (Pts) · A (WR, HR, St, Sw) · Z.</summary>
 public sealed class CustCmd
@@ -169,6 +213,10 @@ public sealed class ShapeStyle
     public StyleRef? FillRef;
     /// <summary>wps:style/a:effectRef idx ≥ 1 (efeito do tema) com a cor</summary>
     public StyleRef? EffectRef;
+    /// <summary>Efeitos de Forma além da sombra simples (a:effectLst): brilho, bordas suaves, sombra
+    /// interna, reflexo e a sombra externa com escala/inclinação (com outro efeito, qualquer
+    /// sombra externa vem aqui e não em <see cref="Shadow"/>)</summary>
+    public ShapeFx? Fx;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public ShapeStyle ShallowClone() => (ShapeStyle)MemberwiseClone();
@@ -376,6 +424,53 @@ public static class DrawingReader
         return (outHex, alpha);
     }
 
+    /// <summary>a:effectLst → os efeitos que o desenho simples (sombra deslocada) não cobre.</summary>
+    private static ShapeFx? ReadShapeFx(XmlElement eff)
+    {
+        // parseInt(v ?? '', 10) com recuo d quando não é finito
+        static double Num(string? v, double d = 0) { double n = Js.ParseInt(v ?? ""); return double.IsFinite(n) ? n : d; }
+        static double Pt(string? v) => Num(v) / 12700;
+        static double Deg(string? v) => Num(v) / 60000;
+        var fx = new ShapeFx();
+        var glow = FirstChild(eff, "a:glow");
+        if (glow is not null && SrgbOf(glow) is { } gc) fx.Glow = new ShapeFxGlow { RadPt = Pt(glow.Attr("rad")), Color = gc.Hex, Alpha = gc.Alpha ?? 1 };
+        var se = FirstChild(eff, "a:softEdge");
+        if (se is not null && Num(se.Attr("rad")) > 0) fx.SoftEdgePt = Pt(se.Attr("rad"));
+        var inner = FirstChild(eff, "a:innerShdw");
+        if (inner is not null && SrgbOf(inner) is { } ic)
+            fx.Inner = new ShapeFxShadow { BlurPt = Pt(inner.Attr("blurRad")), DistPt = Pt(inner.Attr("dist")), DirDeg = Deg(inner.Attr("dir")), Color = ic.Hex, Alpha = ic.Alpha ?? 1 };
+        var refl = FirstChild(eff, "a:reflection");
+        if (refl is not null)
+        {
+            fx.Reflection = new ShapeFxReflection
+            {
+                BlurPt = Pt(refl.Attr("blurRad")), StA = Num(refl.Attr("stA"), 100000) / 100000, StPos = Num(refl.Attr("stPos"), 0) / 100000,
+                EndA = Num(refl.Attr("endA"), 0) / 100000, EndPos = Num(refl.Attr("endPos"), 100000) / 100000,
+                DistPt = Pt(refl.Attr("dist")), DirDeg = Deg(refl.Attr("dir")), Sy = Num(refl.Attr("sy"), 100000) / 100000,
+                Algn = Js.Truthy(refl.Attr("algn")) ? refl.Attr("algn") : null,
+                RotWithShape = refl.Attr("rotWithShape") is { } rws ? rws is "1" or "true" : null,
+            };
+        }
+        // sombra externa com escala/inclinação (Perspectiva) — a simples continua no Shadow
+        var outer = FirstChild(eff, "a:outerShdw");
+        if (outer is not null && SrgbOf(outer) is { } oc)
+        {
+            double sx = Num(outer.Attr("sx"), 100000), sy = Num(outer.Attr("sy"), 100000), kx = Num(outer.Attr("kx")), ky = Num(outer.Attr("ky"));
+            if (sx != 100000 || sy != 100000 || kx != 0 || ky != 0 || fx.Count > 0)
+            {
+                string? rws = outer.Attr("rotWithShape");
+                fx.Outer = new ShapeFxShadow
+                {
+                    BlurPt = Pt(outer.Attr("blurRad")), DistPt = Pt(outer.Attr("dist")), DirDeg = Deg(outer.Attr("dir")), Color = oc.Hex, Alpha = oc.Alpha ?? 1,
+                    Sx = sx != 100000 ? sx / 100000 : null, Sy = sy != 100000 ? sy / 100000 : null,
+                    KxDeg = kx != 0 ? kx / 60000 : null, KyDeg = ky != 0 ? ky / 60000 : null,
+                    Algn = outer.Attr("algn") ?? "b", RotWithShape = rws != "0" && rws != "false",
+                };
+            }
+        }
+        return fx.Count > 0 ? fx : null;
+    }
+
     /// <summary>Estilo de forma de um wps:spPr / pic:spPr (preenchimento, contorno, geometria).</summary>
     public static ShapeStyle ReadSpPr(XmlElement? spPr, XmlElement? styleEl = null)
     {
@@ -475,7 +570,9 @@ public static class DrawingReader
             if (c is not null) st.EffectRef = new StyleRef { Idx = effIdx, Color = c.Value.Hex };
         }
         var eff = FirstChild(spPr, "a:effectLst");
-        var shd = eff is not null ? FirstChild(eff, "a:outerShdw") : null;
+        var shapeFx = eff is not null ? ReadShapeFx(eff) : null;
+        if (shapeFx is not null) st.Fx = shapeFx;
+        var shd = eff is not null && shapeFx?.Outer is null ? FirstChild(eff, "a:outerShdw") : null;
         if (shd is not null)
         {
             var c = SrgbOf(shd);

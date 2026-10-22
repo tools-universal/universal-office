@@ -113,6 +113,99 @@ public static class PdfPicture
 
     private static bool Nz(double? v) => v is { } x && x != 0 && !double.IsNaN(x);
 
+    /// <summary>
+    /// Forma com Efeitos de Forma no PDF: o corpo continua vetorial (<paramref name="drawBody"/>),
+    /// os efeitos vão como rasters RGBA (como o Word grava os efeitos): sombra externa e brilho
+    /// atrás, reflexo (a silhueta na cor do preenchimento, espelhada com o degradê), sombra
+    /// interna por cima (só com preenchimento: sem ele o Word não a mostra). Com bordas suaves o
+    /// corpo vira raster (a cor do preenchimento com a máscara). Porta de paintShapeEffectsPdf.
+    /// </summary>
+    public static void PaintShapeEffectsPdf(PdfPage page, ShapeItem it, Func<byte[], int, int, PdfImage> embedRgba, Action drawBody)
+    {
+        var fx = it.Fx ?? new PictureLook();
+        var st = it.Style;
+        double w = it.W / T, h = it.H / T;
+        double rotDeg = st.Rot ?? 0;
+        double rot = (rotDeg * Math.PI) / 180, cos = Math.Cos(rot), sin = Math.Sin(rot);
+        double cx = it.X / T + w / 2, cy = it.Y / T + h / 2;
+        var M = new Affine(cos, sin, -sin, cos, cx - (cos * w) / 2 + (sin * h) / 2, cy - (sin * w) / 2 - (cos * h) / 2);
+        Affine RectMatrix(double x, double y, double rw, double rh) =>
+            new(M.A * rw, M.B * rw, M.C * rh, M.D * rh, M.A * x + M.C * y + M.E, M.B * x + M.D * y + M.F);
+        void Draw(PdfImage img, Affine m) => page.DrawImageMatrix(img, m.A, m.B, m.C, m.D, m.E, m.F);
+        // (o contorno é centrado na borda: a camada leva a metade de fora)
+        double lw0 = it.Stroke?.WidthPt ?? 0;
+        var look = new PictureLook
+        {
+            Shadow = fx.Shadow, Glow = fx.Glow, SoftEdgePt = fx.SoftEdgePt, Reflection = fx.Reflection,
+            Geom = new PicGeomLook { Prst = st.Geom == "custom" ? "rect" : st.Geom, Adj = st.Adj },
+            Line = lw0 != 0 ? new PicLineLook { Color = "000000", Alpha = 1, WidthPt = lw0 / 2 } : null,
+        };
+        var bb = Bounds(look, w, h);
+        double ppt = PPT;
+        double area = (bb.X1 - bb.X0) * (bb.Y1 - bb.Y0) * ppt * ppt;
+        if (area > 8e6) ppt *= Math.Sqrt(8e6 / area);
+        int W = (int)Math.Max(1, Math.Ceiling((bb.X1 - bb.X0) * ppt)), H = (int)Math.Max(1, Math.Ceiling((bb.Y1 - bb.Y0) * ppt));
+        double ox = -bb.X0 * ppt, oy = -bb.Y0 * ppt;
+        var subs = ShapeSubs(look, w, h, st.FlipH == true, st.FlipV == true);
+        var area0 = Raster.FillPolygons(Raster.NewMask(W, H), Raster.FlattenPath(subs, new Affine(ppt, 0, 0, ppt, ox, oy), 0.35));
+        // a silhueta é o que a forma pinta: a área (com preenchimento) ou só o anel do contorno
+        // (sem preenchimento — o brilho e a sombra seguem a linha, como no Word)
+        bool filled = !string.IsNullOrEmpty(it.Fill) || it.Grad is not null || it.Pattern is not null || it.Blip is not null;
+        double lwPx = (it.Stroke?.WidthPt ?? 0) * ppt;
+        var sil = area0;
+        if (!filled && lwPx > 0)
+        {
+            double rr = Math.Max(1, lwPx / 2);
+            Mask outer = Raster.Morph(area0, rr), inner = Raster.Morph(area0, -rr);
+            sil = Raster.NewMask(W, H);
+            for (int i = 0; i < sil.A.Length; i++) sil.A[i] = (float)Math.Max(0, (double)outer.A[i] - (double)inner.A[i]);
+        }
+        var box = new Box(ox, oy, w * ppt, h * ppt);
+        var layerMatrix = RectMatrix(bb.X0, bb.Y0, W / ppt, H / ppt);
+        string fillHex = it.Fill ?? (it.Grad is { Stops.Count: > 0 } g ? g.Stops[0].Color : null) ?? it.Pattern?.Fg ?? it.Stroke?.Color ?? "FFFFFF";
+        var s = fx.Shadow;
+        if (s?.Kind == "outer")
+        {
+            double dir = s.RotWithShape == true ? s.DirDeg : s.DirDeg - rotDeg;
+            var m = Effects.OuterShadowMask(sil, box, new ShadowSpec(s.BlurPt, s.DistPt, dir, s.Sx, s.Sy, s.KxDeg, s.KyDeg, s.Algn), ppt);
+            Draw(embedRgba(Colored(m, s.Color, s.Alpha), W, H), layerMatrix);
+        }
+        if (fx.Glow is { } glow) Draw(embedRgba(Colored(Effects.GlowMask(sil, glow.RadPt, ppt), glow.Color, glow.Alpha), W, H), layerMatrix);
+        var soft = Nz(fx.SoftEdgePt) ? Effects.SoftEdgeMask(sil, fx.SoftEdgePt!.Value, ppt) : null;
+        var r = fx.Reflection;
+        if (r is not null)
+        {
+            // a silhueta (com as bordas suaves) espelhada em volta da borda de baixo, com o degradê
+            double a = (r.DirDeg * Math.PI) / 180;
+            double dx = r.DistPt * Math.Cos(a) * ppt, dy = r.DistPt * Math.Sin(a) * ppt;
+            var m = Raster.NewMask(W, H);
+            var src = soft ?? sil;
+            double top = oy + h * ppt + dy;
+            for (int y = 0; y < H; y++)
+            {
+                double sy = OfficeNext.Core.JsNumber.Round(2 * (oy + h * ppt) + dy - y - 1);
+                double t = (y + 0.5 - top) / (h * ppt);
+                double al = t < 0 ? 0 : Effects.ReflectionAlpha(t, r.StA, r.StPos, r.EndA, r.EndPos);
+                if (sy < 0 || sy >= H || al <= 0) continue;
+                int syi = (int)sy;
+                for (int x = 0; x < W; x++)
+                {
+                    double sx = OfficeNext.Core.JsNumber.Round(x - dx);
+                    if (sx >= 0 && sx < W) m.A[y * W + x] = (float)(src.A[syi * W + (int)sx] * al);
+                }
+            }
+            if (r.BlurPt > 0) m = Raster.GaussianBlur(m, (r.BlurPt / 3) * ppt);
+            Draw(embedRgba(Colored(m, fillHex, 1), W, H), layerMatrix);
+        }
+        if (soft is not null) Draw(embedRgba(Colored(soft, fillHex, st.FillAlpha ?? 1), W, H), layerMatrix);
+        else drawBody();
+        if (s?.Kind == "inner" && filled)
+        {
+            var m = Effects.InnerShadowMask(sil, s.BlurPt, s.DistPt, s.DirDeg, ppt);
+            Draw(embedRgba(Colored(m, s.Color, s.Alpha), W, H), layerMatrix);
+        }
+    }
+
     /// <summary>Desenha a imagem formatada no PDF.</summary>
     public static void PaintPicturePdf(PdfPage page, ImageItem it, PdfPictureEnv env)
     {

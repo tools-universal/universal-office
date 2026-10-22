@@ -6,8 +6,9 @@
 // de padrão (a:pattFill), imagem esticada e em mosaico (a:blipFill + a:tile, alfa,
 // alinhamento ctr), Estilos de Forma (fillRef 3 + effectRef 3 + fontRef lt1; fillRef 1
 // escuro com fontRef dk1; bgFillStyle 1003 com padrão do tema), degradê "Do Centro"
-// (a:path rect) e formas predefinidas com texto (roundRect com ajuste, ellipse,
-// wedgeRectCallout, hexagon) — página 1; na 2: caixa EM LINHA vertical com padrão,
+// (a:path rect), formas predefinidas com texto (roundRect com ajuste, ellipse,
+// wedgeRectCallout, hexagon) e Efeitos de Forma (brilho sem preenchimento, bordas suaves,
+// sombra interna, reflexo, sombra com perspectiva girada) — página 1; na 2: caixa EM LINHA vertical com padrão,
 // grupo em linha com uma cadeia vinculada e uma caixa vertical, e caixas VML
 // (mso-next-textbox, layout-flow vertical, v-text-anchor).
 // A imagem é gerada aqui (xadrez 24 × 16, sem direitos de terceiros); o texto usa Arial
@@ -108,6 +109,21 @@ const floats = [
   box({ x: 180, y: 520, w: 110, h: 80, prst: 'ellipse', content: txt(10, 19) }),
   box({ x: 300, y: 520, w: 110, h: 70, prst: 'wedgeRectCallout', content: txt(10, 20) }),
   box({ x: 420, y: 520, w: 110, h: 70, prst: 'hexagon', content: txt(10, 21) }),
+  // Efeitos de Forma (a:effectLst → ShapeItem.fx): brilho numa caixa SEM preenchimento (a
+  // silhueta é o anel do contorno) com uma sombra externa simples (com outro efeito vai para o
+  // fx), bordas suaves, sombra interna, reflexo e sombra com perspectiva (sx/sy/kx) numa caixa
+  // girada com rotWithShape="0"
+  box({ x: 60, y: 625, w: 85, h: 50, line: '<a:ln w="19050"><a:solidFill><a:srgbClr val="C00000"/></a:solidFill></a:ln>'
+    + `<a:effectLst><a:glow rad="101600">${sc('accent6', '<a:alpha val="60000"/>')}</a:glow><a:outerShdw blurRad="50800" dist="38100" dir="2700000" algn="tl" rotWithShape="0"><a:prstClr val="black"><a:alpha val="40000"/></a:prstClr></a:outerShdw></a:effectLst>`, content: txt(6, 40) }),
+  box({ x: 165, y: 625, w: 85, h: 50, fill: `<a:solidFill>${sc('accent1', '<a:lumMod val="75000"/>')}</a:solidFill>`, line: `${noLine}<a:effectLst><a:softEdge rad="63500"/></a:effectLst>`, content: txt(6, 41, '<w:color w:val="FFFFFF"/>') }),
+  box({ x: 270, y: 625, w: 85, h: 50, fill: '<a:solidFill><a:srgbClr val="FFF2CC"/></a:solidFill>', line: '<a:ln w="9525"><a:solidFill><a:srgbClr val="7F6000"/></a:solidFill></a:ln>'
+    + '<a:effectLst><a:innerShdw blurRad="63500" dist="50800" dir="13500000"><a:prstClr val="black"><a:alpha val="50000"/></a:prstClr></a:innerShdw></a:effectLst>', content: txt(6, 42) }),
+  box({ x: 375, y: 625, w: 85, h: 50, fill: '<a:solidFill><a:srgbClr val="5B9BD5"/></a:solidFill>', line: noLine
+    + '<a:effectLst><a:reflection blurRad="6350" stA="52000" endA="300" endPos="35000" dist="12700" dir="5400000" sy="-100000" algn="bl" rotWithShape="0"/></a:effectLst>', content: txt(6, 43) }),
+  box({ x: 480, y: 625, w: 85, h: 50, fill: '<a:solidFill><a:srgbClr val="E2F0D9"/></a:solidFill>',
+    line: '<a:ln w="9525"><a:solidFill><a:srgbClr val="385723"/></a:solidFill></a:ln>'
+    + '<a:effectLst><a:outerShdw blurRad="76200" dist="12700" dir="18900000" sy="23000" kx="-1200000" algn="bl" rotWithShape="0"><a:prstClr val="black"><a:alpha val="20000"/></a:prstClr></a:outerShdw></a:effectLst>', content: txt(6, 44) })
+    .replace('<a:xfrm>', '<a:xfrm rot="600000">'),
 ].join('');
 
 // ───────── página 2: em linha, grupo e VML ─────────

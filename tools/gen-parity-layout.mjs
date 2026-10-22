@@ -17,7 +17,8 @@
 // imagem com Formato da Imagem leva `pic` (forma, contorno, efeitos e ajustes do
 // a:blip, cores resolvidas; frações como sx/stA a 0,0001); as demais não têm a chave.
 // forma com padrão (a:pattFill) leva `pattern` (prst, cores resolvidas) e com imagem/textura
-// (a:blipFill) `blip` (ext, bytes, a:tile, alfa) — idem, só quando há; xform leva op e a
+// (a:blipFill) `blip` (ext, bytes, a:tile, alfa) e com Efeitos de Forma `fx` (sombra, brilho,
+// bordas suaves e reflexo como no `pic`) — idem, só quando há; xform leva op e a
 // matriz (6 números a 0,0001).
 // números arredondados a 0,01 (recorte e alfas a 0,0001), -0 → 0; ordem de
 // chaves fixa; um item / uma linha de texto por linha do arquivo (diff
@@ -79,6 +80,37 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
   /** número opcional a 0,01: ausente → null sem aviso */
   const optR = (v, field) => (v === undefined || v === null ? null : r(v, field));
   const optBool = (v, field) => (v === undefined || v === null ? null : bool(v, field));
+  // sombra, brilho e reflexo de um PictureLook (Formato da Imagem e Efeitos de Forma); `pre`
+  // só nomeia o campo nos avisos
+  const shadowOf = (s, pre) => (s
+    ? {
+      kind: str(s.kind, `${pre}.shadow.kind`), color: str(s.color, `${pre}.shadow.color`), alpha: r4(s.alpha, `${pre}.shadow.alpha`),
+      blur: r(s.blurPt, `${pre}.shadow.blurPt`), dist: r(s.distPt, `${pre}.shadow.distPt`), dir: r(s.dirDeg, `${pre}.shadow.dirDeg`),
+      sx: optR4(s.sx, `${pre}.shadow.sx`), sy: optR4(s.sy, `${pre}.shadow.sy`),
+      kx: optR(s.kxDeg, `${pre}.shadow.kxDeg`), ky: optR(s.kyDeg, `${pre}.shadow.kyDeg`),
+      algn: optStr(s.algn, `${pre}.shadow.algn`), rotWithShape: optBool(s.rotWithShape, `${pre}.shadow.rotWithShape`),
+    }
+    : null);
+  const glowOf = (g, pre) => (g
+    ? { color: str(g.color, `${pre}.glow.color`), alpha: r4(g.alpha, `${pre}.glow.alpha`), rad: r(g.radPt, `${pre}.glow.radPt`) }
+    : null);
+  const reflectionOf = (x, pre) => (x
+    ? {
+      blur: r(x.blurPt, `${pre}.reflection.blurPt`), stA: r4(x.stA, `${pre}.reflection.stA`),
+      stPos: r4(x.stPos, `${pre}.reflection.stPos`), endA: r4(x.endA, `${pre}.reflection.endA`),
+      endPos: r4(x.endPos, `${pre}.reflection.endPos`), dist: r(x.distPt, `${pre}.reflection.distPt`),
+      dir: r(x.dirDeg, `${pre}.reflection.dirDeg`), sy: r4(x.sy, `${pre}.reflection.sy`),
+      algn: optStr(x.algn, `${pre}.reflection.algn`), rotWithShape: optBool(x.rotWithShape, `${pre}.reflection.rotWithShape`),
+    }
+    : null);
+  // Efeitos de Forma (ShapeItem.fx): sombra, brilho, bordas suaves e reflexo — só nos itens
+  // que os têm; chaves fixas, null = ausente
+  const shapeFx = (f) => ({
+    shadow: shadowOf(f.shadow, 'fx'),
+    glow: glowOf(f.glow, 'fx'),
+    softEdge: optR(f.softEdgePt, 'fx.softEdgePt'),
+    reflection: reflectionOf(f.reflection, 'fx'),
+  });
   // Formato da Imagem (PictureLook): forma, contorno, efeitos e ajustes do a:blip — só
   // nos itens que o têm (as demais imagens ficam como antes); chaves fixas, null = ausente
   const pic = (p) => ({
@@ -95,18 +127,8 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
         cap: optStr(p.line.cap, 'pic.line.cap'), join: optStr(p.line.join, 'pic.line.join'),
       }
       : null,
-    shadow: p.shadow
-      ? {
-        kind: str(p.shadow.kind, 'pic.shadow.kind'), color: str(p.shadow.color, 'pic.shadow.color'), alpha: r4(p.shadow.alpha, 'pic.shadow.alpha'),
-        blur: r(p.shadow.blurPt, 'pic.shadow.blurPt'), dist: r(p.shadow.distPt, 'pic.shadow.distPt'), dir: r(p.shadow.dirDeg, 'pic.shadow.dirDeg'),
-        sx: optR4(p.shadow.sx, 'pic.shadow.sx'), sy: optR4(p.shadow.sy, 'pic.shadow.sy'),
-        kx: optR(p.shadow.kxDeg, 'pic.shadow.kxDeg'), ky: optR(p.shadow.kyDeg, 'pic.shadow.kyDeg'),
-        algn: optStr(p.shadow.algn, 'pic.shadow.algn'), rotWithShape: optBool(p.shadow.rotWithShape, 'pic.shadow.rotWithShape'),
-      }
-      : null,
-    glow: p.glow
-      ? { color: str(p.glow.color, 'pic.glow.color'), alpha: r4(p.glow.alpha, 'pic.glow.alpha'), rad: r(p.glow.radPt, 'pic.glow.radPt') }
-      : null,
+    shadow: shadowOf(p.shadow, 'pic'),
+    glow: glowOf(p.glow, 'pic'),
     softEdge: optR(p.softEdgePt, 'pic.softEdgePt'),
     bevel: p.bevel
       ? {
@@ -114,15 +136,7 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
         rig: optStr(p.bevel.rig, 'pic.bevel.rig'), dir: optStr(p.bevel.dir, 'pic.bevel.dir'), material: optStr(p.bevel.material, 'pic.bevel.material'),
       }
       : null,
-    reflection: p.reflection
-      ? {
-        blur: r(p.reflection.blurPt, 'pic.reflection.blurPt'), stA: r4(p.reflection.stA, 'pic.reflection.stA'),
-        stPos: r4(p.reflection.stPos, 'pic.reflection.stPos'), endA: r4(p.reflection.endA, 'pic.reflection.endA'),
-        endPos: r4(p.reflection.endPos, 'pic.reflection.endPos'), dist: r(p.reflection.distPt, 'pic.reflection.distPt'),
-        dir: r(p.reflection.dirDeg, 'pic.reflection.dirDeg'), sy: r4(p.reflection.sy, 'pic.reflection.sy'),
-        algn: optStr(p.reflection.algn, 'pic.reflection.algn'), rotWithShape: optBool(p.reflection.rotWithShape, 'pic.reflection.rotWithShape'),
-      }
-      : null,
+    reflection: reflectionOf(p.reflection, 'pic'),
     alpha: optR4(p.alpha, 'pic.alpha'),
     duotone: p.duotone ? [str(p.duotone[0], 'pic.duotone.0'), str(p.duotone[1], 'pic.duotone.1')] : null,
     clrChange: p.clrChange
@@ -206,6 +220,8 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
           // padrão (a:pattFill) e imagem/textura (a:blipFill): só nos itens que os têm
           ...(it.pattern ? { pattern: { prst: str(it.pattern.prst, 'pattern.prst'), fg: str(it.pattern.fg, 'pattern.fg'), bg: str(it.pattern.bg, 'pattern.bg') } } : {}),
           ...(it.blip ? { blip: blip(it.blip) } : {}),
+          // Efeitos de Forma (brilho, bordas suaves, sombra interna/perspectiva, reflexo): idem
+          ...(it.fx ? { fx: shapeFx(it.fx) } : {}),
         };
       }
       case 'path':
