@@ -1,3 +1,5 @@
+import "./chunk-WSFCRVEQ.js";
+
 // ../../../shared/spell/src/dicts/pt-BR.ts
 var aff = `\uFEFFSET UTF-8
 FLAG UTF-8

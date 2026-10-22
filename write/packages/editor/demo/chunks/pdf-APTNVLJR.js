@@ -1,3 +1,5 @@
+import "./chunk-WSFCRVEQ.js";
+
 // ../../../vendor/office-converter/node_modules/pdfjs-dist/legacy/build/pdf.mjs
 var __webpack_modules__ = {
   /***/

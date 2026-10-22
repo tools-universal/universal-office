@@ -2,24 +2,29 @@ import {
   DEFAULT_EMBEDDING,
   FontResolver,
   METRIC_SUBSTITUTES,
+  openDialog,
   planFontEmbedding,
   readDocxEmbedding,
   readOdt,
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-BNKIUIN4.js";
+} from "./chunks/chunk-CM2EVFAB.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
   DEFAULT_RUN_PROPS,
   DocxPackage,
+  SORT_MERGED_ERROR,
+  addStylesXml,
   applyParaProps,
   applyRunProps,
   blankDocxPackage,
   builtinDisplayName,
   builtinStyles,
   builtinXml,
+  canSortTable,
+  cellText,
   clearPara,
   clearParaFormatting,
   clearRunFormatting,
@@ -29,15 +34,20 @@ import {
   comparePos,
   contentWidth,
   convertDocToDocx,
+  defaultFormula,
   deleteRange,
   dropStyle,
   editBaseProps,
+  ensureTableStyle,
+  formulaInstr,
+  formulaResultText,
   hasParaChanges,
   hasRunChanges,
   insertRun,
   insertSectionBreak,
   insertText,
   isWordBinary,
+  loadBuiltinTableStyles,
   markSectionBreaks,
   maxColumns,
   mergeWithPrevious,
@@ -47,6 +57,8 @@ import {
   paraLength,
   paraPropsFromPPr,
   paraText,
+  parseSortDate,
+  parseSortNumber,
   patchStylePPr,
   patchStyleRPr,
   patchStyleXml,
@@ -65,16 +77,22 @@ import {
   sectionSectPr,
   setLatentQFormat,
   setOrientation,
+  sortParagraphsOrder,
+  sortTable,
   splitParagraph,
+  styleIdByName,
   styleIdFromName,
   styleKid,
   styleRaw,
+  table_ops_exports,
+  themeHex,
   uiLang,
   unzlibSync,
   writeDocument,
   zipSync,
   zlibSync
-} from "./chunks/chunk-3EKOH2QB.js";
+} from "./chunks/chunk-7Y5VBLLD.js";
+import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
 function orderedBlocks(doc) {
@@ -412,12 +430,12 @@ function inlineRuns(runs, ctx) {
   }
   return s;
 }
-function cellText(cell, ctx) {
+function cellText2(cell, ctx) {
   const inner = cell.paragraphs.map((p) => inlineRuns(p.runs, ctx)).join("<br>");
   return inner.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 function tableMd(t, ctx) {
-  const rows = t.rows.map((r) => r.cells.map((c) => cellText(c, ctx)));
+  const rows = t.rows.map((r) => r.cells.map((c) => cellText2(c, ctx)));
   if (!rows.length) return "";
   const cols = Math.max(...rows.map((r) => r.length));
   const pad2 = (r) => {
@@ -1493,13 +1511,13 @@ var Hyphenator = class {
 
 // ../docx-layout/src/typography/hyphen/index.ts
 var LOADERS = {
-  pt: () => import("./chunks/pt-IG6JKBCN.js"),
-  "en-us": () => import("./chunks/en-us-4QOSESD6.js"),
-  es: () => import("./chunks/es-KND3FC66.js"),
-  fr: () => import("./chunks/fr-LYGJKNKT.js"),
-  "de-1996": () => import("./chunks/de-1996-UKMLCX3X.js"),
-  it: () => import("./chunks/it-GLONI5PH.js"),
-  nl: () => import("./chunks/nl-HH37VB2G.js")
+  pt: () => import("./chunks/pt-SOV6P63W.js"),
+  "en-us": () => import("./chunks/en-us-VQLEPFOP.js"),
+  es: () => import("./chunks/es-7AJJTOLW.js"),
+  fr: () => import("./chunks/fr-24H6HF66.js"),
+  "de-1996": () => import("./chunks/de-1996-B6RFDIMK.js"),
+  it: () => import("./chunks/it-XDEXL37H.js"),
+  nl: () => import("./chunks/nl-FXXCLWPJ.js")
 };
 function hyphenationPatternId(lang) {
   if (!lang) return void 0;
@@ -2400,20 +2418,29 @@ function toHex(r, g, b) {
   return (c(r) + c(g) + c(b)).toUpperCase();
 }
 function applyTintShade(hex, tint, shade) {
-  let [r, g, b] = rgb(hex);
-  if (shade) {
-    const s = parseInt(shade, 16) / 255;
-    r *= s;
-    g *= s;
-    b *= s;
+  if (!tint && !shade) return hex.toUpperCase();
+  const [r, g, b] = rgb(hex).map((v) => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) / 6;
   }
+  if (shade) l *= parseInt(shade, 16) / 255;
   if (tint) {
     const t = parseInt(tint, 16) / 255;
-    r = 255 - (255 - r) * t;
-    g = 255 - (255 - g) * t;
-    b = 255 - (255 - b) * t;
+    l = l * t + 1 - t;
   }
-  return toHex(r, g, b);
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const ch = (x) => {
+    if (x < 0) x += 1;
+    if (x > 1) x -= 1;
+    const v = x < 1 / 6 ? p + (q - p) * 6 * x : x < 1 / 2 ? q : x < 2 / 3 ? p + (q - p) * (2 / 3 - x) * 6 : p;
+    return Math.floor(v * 255);
+  };
+  return toHex(ch(h + 1 / 3), ch(h), ch(h - 1 / 3));
 }
 function resolveColor(spec, theme) {
   if (!spec) return void 0;
@@ -2425,6 +2452,36 @@ function resolveColor(spec, theme) {
   const v = spec.val;
   if (!v || v === "auto") return void 0;
   return /^[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : void 0;
+}
+var SHD_COVER = {
+  horzStripe: 0.5,
+  vertStripe: 0.5,
+  reverseDiagStripe: 0.5,
+  diagStripe: 0.5,
+  horzCross: 0.5,
+  diagCross: 0.75,
+  thinHorzStripe: 0.25,
+  thinVertStripe: 0.25,
+  thinReverseDiagStripe: 0.25,
+  thinDiagStripe: 0.25,
+  thinHorzCross: 0.4375,
+  thinDiagCross: 0.4375,
+  pct12: 0.125,
+  pct37: 0.375,
+  pct62: 0.625,
+  pct87: 0.875
+};
+function shadingFill(shd, theme) {
+  if (!shd || shd.val === "nil") return void 0;
+  const fg = () => resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
+  if (shd.val === "solid") return fg();
+  const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
+  const v = shd.val ?? "clear";
+  const cover = own(SHD_COVER, v) ?? (/^pct\d+$/.test(v) ? parseInt(v.slice(3), 10) / 100 : void 0);
+  if (cover === void 0) return fill;
+  const f = fg(), bg = fill ?? "FFFFFF";
+  const mix = (i) => Math.round(parseInt(bg.slice(i, i + 2), 16) * (1 - cover) + parseInt(f.slice(i, i + 2), 16) * cover);
+  return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 function resolveDrawingColor(spec, theme) {
   if (!spec) return void 0;
@@ -3574,7 +3631,7 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const tf = rpr.textFill;
   const color = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
   const u = rpr.u && rpr.u.val !== "none" && rpr.u.val !== "" ? { val: rpr.u.val, ...rpr.u.color && rpr.u.color !== "auto" ? { color: rpr.u.color } : {} } : void 0;
-  const shd = rpr.shd?.fill && rpr.shd.fill !== "auto" ? rpr.shd.fill : void 0;
+  const shd = shadingFill(rpr.shd, theme);
   const style = {
     rpr,
     sizePt,
@@ -3747,7 +3804,7 @@ function ligFeatures(v) {
   return out;
 }
 function applyLigatures2(ctx, glyphs) {
-  const keyOf2 = (g) => {
+  const keyOf3 = (g) => {
     const r = g.style.rpr;
     return `${r.lang?.val ?? ""}|${r.w ?? 100}|${g.style.shift}|${r.ligatures ?? ""}|${r.spacing ?? 0}`;
   };
@@ -3760,11 +3817,11 @@ function applyLigatures2(ctx, glyphs) {
       k++;
       continue;
     }
-    const key = keyOf2(g0);
+    const key = keyOf3(g0);
     let e = k + 1;
     while (e < glyphs.length) {
       const q = glyphs[e];
-      if (q.kind !== "char" || q.face !== g0.face || q.sizePt !== g0.sizePt || q.runIdx !== g0.runIdx && keyOf2(q) !== key) break;
+      if (q.kind !== "char" || q.face !== g0.face || q.sizePt !== g0.sizePt || q.runIdx !== g0.runIdx && keyOf3(q) !== key) break;
       e++;
     }
     if (e - k >= 2) {
@@ -3930,7 +3987,7 @@ function paraVisibility(ctx, para, env) {
 function prepareParagraph(ctx, para, env0) {
   const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
   const shd = ppr.shd;
-  const paraFill = shd?.fill && shd.fill !== "auto" ? shd.fill : shd?.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, ctx.fmt.theme) : void 0;
+  const paraFill = shadingFill(shd, ctx.fmt.theme);
   const env = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
   const dd = ctx.resolver.docDefaults;
   const settings = ctx.fmt.settings;
@@ -6010,18 +6067,93 @@ var BORDER_SINGLE_LIKE = /* @__PURE__ */ new Set(["single", "thick", "dotted", "
 function borderWidth(b) {
   if (!b || b.val === "none" || b.val === "nil") return 0;
   const tw = Math.floor(Math.max(1, b.sz ?? 4) * 2.5 + 1e-9);
-  if (b.val === "double") return tw * 3;
-  if (b.val === "thinThickSmallGap" || b.val === "thickThinSmallGap") return tw + 40;
-  return tw;
+  switch (b.val) {
+    case "double":
+      return tw * 3;
+    case "thinThickSmallGap":
+    case "thickThinSmallGap":
+      return tw + 40;
+    // as outras compostas: a soma das faixas que o Word desenha (sonda de bordas do table-lab)
+    case "triple":
+      return tw * 5;
+    case "thinThickThinSmallGap":
+      return tw + 58;
+    case "thinThickMediumGap":
+    case "thickThinMediumGap":
+      return tw * 2;
+    case "thinThickThinMediumGap":
+      return tw * 3;
+    case "thinThickLargeGap":
+    case "thickThinLargeGap":
+      return tw + 43;
+    case "thinThickThinLargeGap":
+      return tw * 2 + 58;
+    case "threeDEmboss":
+    case "threeDEngrave":
+      return tw + 2 * Math.max(14, Math.floor(tw / 2));
+    default:
+      return tw;
+  }
 }
+function borderBands(val, w) {
+  const q = (x) => Math.max(2.4, Math.floor(x / 2.4 + 1e-9) * 2.4);
+  const thin = 14.4, half = q(w / 2), thick = 28.8, gap = (t) => ({ t });
+  const ink = (t) => ({ t, c: "ink" });
+  switch (val) {
+    case "double":
+      return [ink(w), gap(w), ink(w)];
+    case "triple":
+      return [ink(w), gap(w), ink(w), gap(w), ink(w)];
+    case "thinThickSmallGap":
+      return [ink(w), gap(thin), ink(thin)];
+    case "thickThinSmallGap":
+      return [ink(thin), gap(thin), ink(w)];
+    case "thinThickThinSmallGap":
+      return [ink(thin), gap(thin), ink(w), gap(thin), ink(thin)];
+    case "thinThickMediumGap":
+      return [ink(w), gap(half), ink(half)];
+    case "thickThinMediumGap":
+      return [ink(half), gap(half), ink(w)];
+    case "thinThickThinMediumGap":
+      return [ink(half), gap(half), ink(w), gap(half), ink(half)];
+    case "thinThickLargeGap":
+      return [ink(thick), gap(w), ink(thin)];
+    case "thickThinLargeGap":
+      return [ink(thin), gap(w), ink(thick)];
+    case "thinThickThinLargeGap":
+      return [ink(thin), gap(w), ink(thick), gap(w), ink(thin)];
+    case "threeDEmboss": {
+      const t = Math.max(thin, half);
+      return [{ t, c: "light" }, { t: w, c: "mid" }, { t, c: "ink" }];
+    }
+    case "threeDEngrave": {
+      const t = Math.max(thin, half);
+      return [{ t, c: "ink" }, { t: w, c: "mid" }, { t, c: "light" }];
+    }
+    default:
+      return [ink(w)];
+  }
+}
+var toWhite = (hex, f) => {
+  const n = parseInt(hex, 16);
+  return [n >> 16 & 255, n >> 8 & 255, n & 255].map((v) => Math.round(v + (255 - v) * f).toString(16).padStart(2, "0")).join("").toUpperCase();
+};
+var BORDER_DASH = {
+  dotted: "bdrDot",
+  dashed: "bdrDash",
+  dotDash: "bdrDashDot",
+  dotDotDash: "bdrDashDotDot",
+  dashSmallGap: "bdrDashSmall",
+  dashDotStroked: "bdrDashDot"
+};
 function borderPaintWidth(b) {
   return Math.max(1, Math.floor(Math.max(2, b.sz ?? 4) * 25 / 24 + 1e-9)) * 2.4;
 }
-function paintBorder(ctx, out, b, x1, y1, x2, y2) {
+function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   if (!b || b.val === "none" || b.val === "nil") return;
   const color = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const w = borderPaintWidth(b);
-  const dash = b.val === "dotted" ? "dotted" : b.val === "dashed" || b.val === "dashSmallGap" ? "dashed" : b.val === "dotDash" ? "dashDot" : b.val === "dotDotDash" ? "dashDotDot" : void 0;
+  const dash = BORDER_DASH[b.val];
   if (dash) {
     out.push({ t: "line", x1, y1, x2, y2, color, widthPt: w / 20, dash });
     return;
@@ -6031,15 +6163,40 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2) {
     return;
   }
   const horizontal = Math.abs(y2 - y1) < Math.abs(x2 - x1);
-  const bands = b.val === "double" ? [[-1.5 * w, -0.5 * w], [0.5 * w, 1.5 * w]] : [[-0.5 * w, 0.5 * w]];
-  for (const [a, z] of bands) {
-    if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + a, w: Math.abs(x2 - x1), h: z - a, fill: color });
-    else out.push({ t: "rect", x: x1 + a, y: Math.min(y1, y2), w: z - a, h: Math.abs(y2 - y1), fill: color });
+  if (b.val === "wave" || b.val === "doubleWave") {
+    paintWave(out, b.val === "doubleWave", color, w, horizontal, x1, y1, x2, y2);
+    return;
+  }
+  const bands = borderBands(b.val, w);
+  const total = bands.reduce((s, x) => s + x.t, 0);
+  const flip = outer === "bottom" || outer === "right";
+  let pos = -total / 2;
+  for (const band of flip ? [...bands].reverse() : bands) {
+    if (band.c) {
+      const fill = band.c === "light" ? toWhite(color, 192 / 255) : band.c === "mid" ? toWhite(color, 96 / 255) : color;
+      if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band.t, fill });
+      else out.push({ t: "rect", x: x1 + pos, y: Math.min(y1, y2), w: band.t, h: Math.abs(y2 - y1), fill });
+    }
+    pos += band.t;
   }
   void BORDER_SINGLE_LIKE;
 }
+function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
+  const h = Math.max(60, w * 3), period = h * 2, lw = Math.max(0.5, w / 20 / 1.5);
+  const len = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+  const waves = double ? [-h / 4, h / 4] : [0];
+  for (const off of waves) {
+    const cmds = [];
+    for (let s = 0; s <= len + 0.01; s += period / 2) {
+      const d = (Math.round(s / (period / 2)) % 2 ? 1 : -1) * (h / (double ? 4 : 2));
+      const a = Math.min(s, len);
+      cmds.push(horizontal ? { op: cmds.length ? "L" : "M", x: Math.min(x1, x2) + a, y: y1 + off + d } : { op: cmds.length ? "L" : "M", x: x1 + off + d, y: Math.min(y1, y2) + a });
+    }
+    out.push({ t: "path", cmds, stroke: { color, widthPt: lw } });
+  }
+}
 function paintParaBox(ctx, out, p, pBdr, left, right, top, bottom, drawTop, drawBottom, between = false) {
-  const fill = p.ppr.shd?.fill && p.ppr.shd.fill !== "auto" ? p.ppr.shd.fill : p.ppr.shd?.themeFill ? resolveColor({ themeColor: p.ppr.shd.themeFill, themeTint: p.ppr.shd.themeFillTint, themeShade: p.ppr.shd.themeFillShade }, ctx.fmt.theme) : void 0;
+  const fill = shadingFill(p.ppr.shd, ctx.fmt.theme);
   const EXT = 29;
   const bl = pBdr?.left, br = pBdr?.right;
   const padL = bl && bl.val !== "none" && bl.val !== "nil" ? (bl.space ?? 0) * 20 : 0;
@@ -6234,15 +6391,33 @@ function splitContent(c, availContent) {
   const a = { items: [], lines: [], height: cut, ...w };
   const b = { items: [], lines: [], height: Math.max(0, c.height - cutB), ...w };
   const keyY = (it) => it.t === "line" ? Math.min(it.y1, it.y2) : it.t === "clip" ? it.y ?? 0 : it.t === "xform" ? it.m?.[5] ?? 0 : it.t === "path" ? Math.min(...it.cmds.map((c2) => c2.op === "Z" ? Infinity : c2.y)) : it.y;
+  const moved = /* @__PURE__ */ new Map();
   for (const it of c.items) {
     const y = it.t === "glyphs" ? it.y : keyY(it);
     if (y < cut) a.items.push(it);
-    else b.items.push(shiftItem(it, -cutB));
+    else {
+      const s = shiftItem(it, -cutB);
+      moved.set(it, s);
+      b.items.push(s);
+    }
   }
   for (const l of c.lines) {
     if (l.y < cut) a.lines.push(l);
-    else b.lines.push({ ...l, y: l.y - cutB, baseline: l.baseline - cutB });
+    else {
+      const s = { ...l, y: l.y - cutB, baseline: l.baseline - cutB };
+      moved.set(l, s);
+      b.lines.push(s);
+    }
   }
+  const na = (c.nest ?? []).filter((n) => n.top < cut);
+  const nb = (c.nest ?? []).filter((n) => n.top >= cut).map((n) => ({
+    top: n.top - cutB,
+    row: n.row,
+    items: n.items.map((it) => moved.get(it) ?? it),
+    lines: n.lines.map((l) => moved.get(l) ?? l)
+  }));
+  if (na.length) a.nest = na;
+  if (nb.length) b.nest = nb;
   return [a, b];
 }
 function itemTop(it) {
@@ -6274,8 +6449,9 @@ function splitAtNest(c, nr, [p0, p1]) {
     }
   }
   const p0Items = [...p0.items, ...p0.borderItems].map((it) => shiftItem(it, nr.top));
+  const p0Lines = p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top }));
   aItems.push(...p0Items);
-  aLines.push(...p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top })));
+  aLines.push(...p0Lines);
   const p1Items = [...p1.items, ...p1.borderItems];
   const p1Lines = p1.lines.map((l) => ({ ...l }));
   bItems.unshift(...p1Items);
@@ -6287,7 +6463,7 @@ function splitAtNest(c, nr, [p0, p1]) {
     items: n.items.map((it) => moved.get(it) ?? it),
     lines: n.lines.map((l) => moved.get(l) ?? l)
   }));
-  const a = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, ...before.length ? { nest: before } : {} };
+  const a = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, nest: [...before, { top: nr.top, row: p0, items: p0Items, lines: p0Lines }] };
   const b = { items: bItems, lines: bLines, height: Math.max(0, c.height - end) + p1.height, ...w, nest: [{ top: 0, row: p1, items: p1Items, lines: p1Lines }, ...after] };
   return [a, b];
 }
@@ -6663,11 +6839,25 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     for (const cell of row.cells) {
       const tc = cell.tcPr ?? {};
       const span = Math.max(1, tc.gridSpan ?? cell.gridSpan ?? 1);
-      rowSlots.push({ cell, col, span, row: ri, tcPr: tc, rowSpan: 1, merged: tc.vMerge === "continue" });
+      const prev = rowSlots[rowSlots.length - 1];
+      if (tc.hMerge === "continue" && prev && prev.col + prev.span === col) {
+        prev.span += span;
+        col += span;
+        continue;
+      }
+      rowSlots.push({ cell, col, lcol: col, span, row: ri, tcPr: tc, rowSpan: 1, merged: tc.vMerge === "continue" });
       col += span;
     }
     slots.push(rowSlots);
   });
+  const rtl = !!tblPr.bidiVisual;
+  if (rtl) {
+    for (const rs of slots) {
+      for (const sl of rs) sl.col = nCols - sl.lcol - sl.span;
+      rs.reverse();
+    }
+    docGrid.reverse();
+  }
   for (let ri = 0; ri < slots.length; ri++) {
     for (const s of slots[ri]) {
       if (s.tcPr.vMerge !== "restart") continue;
@@ -6682,10 +6872,10 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const out = ["wholeTable"];
     const firstRow = look.firstRow && ri === 0 || !!table.rows[ri]?.trPr?.tblHeader && look.firstRow;
     const lastRow = look.lastRow && ri === nRows - 1;
-    const firstCol = look.firstColumn && s.col === 0;
-    const lastCol = look.lastColumn && s.col + s.span >= nCols;
+    const firstCol = look.firstColumn && s.lcol === 0;
+    const lastCol = look.lastColumn && s.lcol + s.span >= nCols;
     if (!look.noVBand) {
-      const c0 = s.col - (look.firstColumn ? 1 : 0);
+      const c0 = s.lcol - (look.firstColumn ? 1 : 0);
       if (c0 >= 0 && !(lastCol && look.lastColumn)) out.push(Math.floor(c0 / colBand) % 2 === 0 ? "band1Vert" : "band2Vert");
     }
     if (!look.noHBand) {
@@ -6715,15 +6905,18 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         pPr = mergePPr(pPr, part.pPr);
         rPr = mergeRPr(rPr, part.rPr);
       }
-      resolved.set(s, { tcPr: mergeTcPr(tcPr, s.tcPr), pPr, rPr });
+      const merged = mergeTcPr(tcPr, s.tcPr);
+      resolved.set(s, { tcPr: rtl ? { ...merged, ...merged.tcBorders ? { tcBorders: swapLR(merged.tcBorders) } : {}, ...merged.tcMar ? { tcMar: swapLR(merged.tcMar) } : {} } : merged, pPr, rPr });
     }
   }
-  const tblBorders = tblPr.tblBorders ?? {};
+  const tblBorders = (rtl ? swapLR(tblPr.tblBorders) : tblPr.tblBorders) ?? {};
+  const exBorders = (ri) => rtl ? swapLR(table.rows[ri]?.tblPrEx?.tblBorders) : table.rows[ri]?.tblPrEx?.tblBorders;
+  const cellMarOf = (m) => rtl ? swapLR(m) : m;
   const edge = (s, side) => {
     const own3 = resolved.get(s)?.tcPr.tcBorders?.[side];
     if (own3) return own3;
-    const ex = table.rows[s.row]?.tblPrEx;
-    const tb = ex?.tblBorders ? { ...tblBorders, ...ex.tblBorders } : tblBorders;
+    const exb = exBorders(s.row);
+    const tb = exb ? { ...tblBorders, ...exb } : tblBorders;
     const isOuter = side === "top" ? s.row === 0 : side === "bottom" ? s.row + s.rowSpan >= nRows : side === "left" ? s.col === 0 : s.col + s.span >= nCols;
     return isOuter ? tb[side] : side === "top" || side === "bottom" ? tb.insideH : tb.insideV;
   };
@@ -6749,7 +6942,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const sFirst = row0[0], sLast = row0[row0.length - 1];
   const marOf = (s, side) => {
     const ex = table.rows[s.row]?.tblPrEx;
-    const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? ex?.tblCellMar?.[side] ?? tblPr.tblCellMar?.[side];
+    const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? cellMarOf(ex?.tblCellMar)?.[side] ?? cellMarOf(tblPr.tblCellMar)?.[side];
     return widthTw(m, frameWidth) ?? defMar;
   };
   const bL = sFirst ? borderWidth(edge(sFirst, "left")) : 0;
@@ -6776,11 +6969,11 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const noWrap = nw && prefOf(tcW0) !== "dxa";
       const floorW = nw && prefOf(tcW0) === "dxa" ? tcW0.w : 0;
       const tdir = resolved.get(s)?.tcPr.textDirection;
-      const vertical = tdir === "btLr" || tdir === "tbRl" || tdir === "tbRlV";
+      const vertical = !!verticalDir(tdir);
       const measure = () => {
         if (vertical) {
           const rr = resolved.get(s);
-          const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.col}`));
+          const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.lcol}`));
           const linesH = c.lines.reduce((a, l) => a + l.height, 0);
           const vh = c.lines.reduce((a, l) => a + Math.round(l.height * 37 / 36), 0) + Math.max(0, c.height - linesH);
           const w = vh + 6 + padOf(s);
@@ -6810,6 +7003,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   let x = frameX + indent + (legacy ? -effL : bL / 2);
   if (jc === "center") x = frameX + (frameWidth - width) / 2;
   else if (jc === "right" || jc === "end") x = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
+  if (rtl && !floating && jc !== "center") x = jc === "right" || jc === "end" ? frameX + (legacy ? -effL : bL / 2) : frameX + frameWidth - indent - width + (legacy ? effR : -bR / 2);
   const rowByRow = legacy && !floating && !!ctx.fmt.settings.compat["alignTablesRowByRow"];
   const rowShift = (ri) => {
     const rjc = table.rows[ri]?.trPr?.jc ?? jc;
@@ -6822,7 +7016,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const separated = !!tblPr.tblCellSpacing || table.rows.some((r) => !!r.trPr?.tblCellSpacing);
   const spRow = (ri) => widthTw(table.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, width) ?? 0;
   const spTbl = widthTw(tblPr.tblCellSpacing ?? table.rows.find((r) => r.trPr?.tblCellSpacing)?.trPr?.tblCellSpacing, width) ?? 0;
-  const outerB = (ri, side) => table.rows[ri]?.tblPrEx?.tblBorders?.[side] ?? tblBorders[side];
+  const outerB = (ri, side) => exBorders(ri)?.[side] ?? tblBorders[side];
   const sepTop = [], sepBottom = [], sepWT = [], sepWB = [];
   if (separated) {
     for (let ri = 0; ri < nRows; ri++) {
@@ -6863,7 +7057,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const bx0 = (separated ? sepB(Math.min(s.col, nCols)) + spTbl : colX[Math.min(s.col, nCols)]) + shiftR;
       const bx1 = (separated ? sepB(Math.min(s.col + s.span, nCols)) - spTbl : colX[Math.min(s.col + s.span, nCols)]) + shiftR;
       const x0r = bx0, x1r = bx1;
-      const mar = { ...tblPr.tblCellMar ?? {}, ...ex?.tblCellMar ?? {}, ...tcPr.tcMar ?? {} };
+      const mar = { ...cellMarOf(tblPr.tblCellMar) ?? {}, ...cellMarOf(ex?.tblCellMar) ?? {}, ...tcPr.tcMar ?? {} };
       const marL = Math.max(widthTw(mar.left, width) ?? defMar, separated ? 0 : borderWidth(edge(s, "left")) / 2);
       const marR = Math.max(widthTw(mar.right, width) ?? defMar, separated ? 0 : borderWidth(edge(s, "right")) / 2);
       const marT = widthTw(mar.top, width) ?? 0;
@@ -6872,13 +7066,13 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.max(wl - marL, wl / 2);
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
       const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {} };
-      const vertical = tcPr.textDirection === "btLr" || tcPr.textDirection === "tbRl" || tcPr.textDirection === "tbRlV" ? tcPr.textDirection : void 0;
+      const vertical = verticalDir(tcPr.textDirection);
       const info = { slot: s, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...vertical ? { vertical } : {} };
       if (!s.merged) {
         if (vertical) {
           if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, marT, marB, env });
         } else {
-          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.col}`);
+          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.lcol}`);
           info.content = content;
           if (s.rowSpan === 1) contentH = Math.max(contentH, content.height + marT + marB);
           else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, marT, marB, env });
@@ -6897,7 +7091,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       m.marT = rowMarT;
       m.marB = rowMarB;
     }
-    const th = row.trPr?.trHeight;
+    const th = row.trPr?.trHeight?.hRule === "auto" ? void 0 : row.trPr?.trHeight;
     let maxMar = 0, maxMarB = 0;
     for (const ci of cellInfos) {
       maxMar = Math.max(maxMar, ci.marT + ci.marB);
@@ -6907,7 +7101,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       if (!ci.vertical || ci.slot.merged || ci.slot.rowSpan !== 1) continue;
       const rowMin = th ? th.val + (th.hRule === "exact" ? maxMarB : maxMar) : 0;
       const avail = Math.max(contentH, rowMin) - ci.marT - ci.marB;
-      const c = layoutVertical(ci.slot, avail, ci.env, `${ref}/r${ri}/c${ci.slot.col}`);
+      const c = layoutVertical(ci.slot, avail, ci.env, `${ref}/r${ri}/c${ci.slot.lcol}`);
       ci.content = c;
       if (th?.hRule !== "exact") contentH = Math.max(contentH, maxLineW(c) + ci.marT + ci.marB);
     }
@@ -6936,7 +7130,14 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       if (need > spanned) h += need - spanned;
     }
     rowHeights.push(bandTop + h + bandBottom);
+    const cellBoxes = () => cellInfos.map((ci) => ({ ref: `${ref}/r${ri}/c${ci.slot.lcol}`, x: x + ci.bx0, w: ci.bx1 - ci.bx0, span: ci.slot.span }));
     const paintRow = (ch, contents, vTop, drawTop, bTop, bBottom) => {
+      const nest = [];
+      const nestOf = (c, va, marT, marB) => {
+        if (!c.nest?.length) return;
+        const dy = contentDy(c, va, ch, marT, marB, bTop);
+        for (const nr of c.nest) for (const b of nr.row.cells ?? []) nest.push({ ...b, dy: dy + nr.top + (b.dy ?? 0), h: b.h ?? nr.row.height });
+      };
       const its = [];
       const lns = [];
       const brd = [];
@@ -6969,20 +7170,23 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
           if (s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
           if (s.rowSpan === 1) {
             if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-            else if (content) placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+            else if (content) {
+              placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+              nestOf(content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ci.marT, ci.marB);
+            }
           }
           const bT = edge(s, "top"), bB = edge(s, "bottom"), bL2 = edge(s, "left"), bR2 = edge(s, "right");
-          if (drawTop && bT) paintBorder(ctx, brd, bT, x + ci.bx0, cy0 + borderWidth(bT) / 2, x + ci.bx1, cy0 + borderWidth(bT) / 2);
-          if (bBottom > 0 && bB) paintBorder(ctx, brd, bB, x + ci.bx0, cy1 - borderWidth(bB) / 2, x + ci.bx1, cy1 - borderWidth(bB) / 2);
-          if (bL2) paintBorder(ctx, brd, bL2, x + ci.bx0 + borderWidth(bL2) / 2, cy0, x + ci.bx0 + borderWidth(bL2) / 2, cy1);
-          if (bR2) paintBorder(ctx, brd, bR2, x + ci.bx1 - borderWidth(bR2) / 2, cy0, x + ci.bx1 - borderWidth(bR2) / 2, cy1);
+          if (drawTop && bT) paintBorder(ctx, brd, bT, x + ci.bx0, cy0 + borderWidth(bT) / 2, x + ci.bx1, cy0 + borderWidth(bT) / 2, "top");
+          if (bBottom > 0 && bB) paintBorder(ctx, brd, bB, x + ci.bx0, cy1 - borderWidth(bB) / 2, x + ci.bx1, cy1 - borderWidth(bB) / 2, "bottom");
+          if (bL2) paintBorder(ctx, brd, bL2, x + ci.bx0 + borderWidth(bL2) / 2, cy0, x + ci.bx0 + borderWidth(bL2) / 2, cy1, "left");
+          if (bR2) paintBorder(ctx, brd, bR2, x + ci.bx1 - borderWidth(bR2) / 2, cy0, x + ci.bx1 - borderWidth(bR2) / 2, cy1, "right");
         }
         const oL = outerB(ri, "left"), oR = outerB(ri, "right"), oT = outerB(ri, "top"), oB = outerB(ri, "bottom");
         const xl = x + g0, xr = x + gn;
-        paintBorder(ctx, brd, oL, xl, 0, xl, rh);
-        paintBorder(ctx, brd, oR, xr, 0, xr, rh);
-        if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2);
-        if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2);
+        paintBorder(ctx, brd, oL, xl, 0, xl, rh, "left");
+        paintBorder(ctx, brd, oR, xr, 0, xr, rh, "right");
+        if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2, "top");
+        if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2, "bottom");
         return {
           height: rh,
           items: its,
@@ -6991,6 +7195,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
           breakBorderItems: brk,
           cantSplit: !!trp.cantSplit,
           header: !!trp.tblHeader,
+          cells: [...cellBoxes(), ...nest],
           ...mergeAt.length ? { mergeAt } : {},
           ...rowKeepNext ? { keepNext: true } : {},
           natural: bTop + Math.min(ch, contentH) + bBottom
@@ -7006,31 +7211,36 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         if (!s.merged && s.rowSpan === 1) {
           if (fill) its.push({ t: "rect", x: x + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
           if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-          else if (content) placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+          else if (content) {
+            placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+            nestOf(content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ci.marT, ci.marB);
+          }
         }
         const tcb = ci.tcPr.tcBorders;
         const top = drawTop ? s.merged ? void 0 : topWinner(s) : edge(s, "top") ?? edge(s, "bottom");
         const nb = brd.length;
-        if (top) paintBorder(ctx, brd, top, x + ci.x0, borderWidth(top) / 2, x + ci.x1, borderWidth(top) / 2);
+        if (top) paintBorder(ctx, brd, top, x + ci.x0, borderWidth(top) / 2, x + ci.x1, borderWidth(top) / 2, "top");
         if (drawTop && ri > 0) {
           topBrd.push(...brd.slice(nb));
           const own3 = edge(s, "top");
           ownBand = Math.max(ownBand, borderWidth(own3));
-          if (own3 && !s.merged) paintBorder(ctx, ownBrd, own3, x + ci.x0, borderWidth(own3) / 2, x + ci.x1, borderWidth(own3) / 2);
+          if (own3 && !s.merged) paintBorder(ctx, ownBrd, own3, x + ci.x0, borderWidth(own3) / 2, x + ci.x1, borderWidth(own3) / 2, "top");
         }
         const bottom = edge(s, "bottom");
         const lastOfMerge = !slots[ri + 1]?.some((o) => o.col === s.col && o.merged);
         if (bBottom > 0) {
           const b = bottom ?? edge(s, "top");
-          paintBorder(ctx, brd, b, x + ci.x0, rh - bBottom + borderWidth(b) / 2, x + ci.x1, rh - bBottom + borderWidth(b) / 2);
+          paintBorder(ctx, brd, b, x + ci.x0, rh - bBottom + borderWidth(b) / 2, x + ci.x1, rh - bBottom + borderWidth(b) / 2, "bottom");
         } else if (lastOfMerge) {
           let w = bottom;
           for (const d of covering(ri + 1, s.col, s.col + s.span)) w = heavier(w, edge(d, "top"));
-          if (w) paintBorder(ctx, brk, w, x + ci.x0, rh + borderWidth(w) / 2, x + ci.x1, rh + borderWidth(w) / 2);
+          if (w) paintBorder(ctx, brk, w, x + ci.x0, rh + borderWidth(w) / 2, x + ci.x1, rh + borderWidth(w) / 2, "bottom");
         }
-        const left = edge(s, "left"), right = edge(s, "right");
-        paintBorder(ctx, brd, left, x + ci.x0, 0, x + ci.x0, rh);
-        paintBorder(ctx, brd, right, x + ci.x1, 0, x + ci.x1, rh);
+        const prev = slots[ri]?.find((o) => o.col + o.span === s.col);
+        const next = slots[ri]?.some((o) => o.col === s.col + s.span);
+        const left = prev ? heavier(edge(prev, "right"), edge(s, "left")) : edge(s, "left"), right = edge(s, "right");
+        paintBorder(ctx, brd, left, x + ci.x0, 0, x + ci.x0, rh, "left");
+        if (!next) paintBorder(ctx, brd, right, x + ci.x1, 0, x + ci.x1, rh, "right");
         if (tcb?.tl2br) paintBorder(ctx, brd, tcb.tl2br, x + ci.x0, bTop, x + ci.x1, rh - bBottom);
         if (tcb?.tr2bl) paintBorder(ctx, brd, tcb.tr2bl, x + ci.x1, bTop, x + ci.x0, rh - bBottom);
       }
@@ -7042,6 +7252,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         breakBorderItems: brk,
         cantSplit: !!trp.cantSplit,
         header: !!trp.tblHeader,
+        cells: [...cellBoxes(), ...nest],
         ...mergeAt.length ? { mergeAt } : {},
         ...rowKeepNext ? { keepNext: true } : {},
         natural: bTop + Math.min(ch, contentH) + bBottom,
@@ -7115,7 +7326,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const { marT, marB } = m;
     const top = bandTopOf(m.startRow) - rowHeights.slice(m.startRow, Math.min(endRow, rows.length - 1)).reduce((a, b) => a + b, 0);
     if (m.vertical) {
-      const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.col}`);
+      const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.lcol}`);
       paintVertical(target.items, c, m.vertical, vaOf(c, m.tcPr.vAlign), x + m.x0 + m.marL, x + m.x1 - m.marR, top + marT, top + h - marB);
     } else if (m.content) {
       const i0 = target.items.length, l0 = target.lines.length;
@@ -7129,18 +7340,16 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
 function cellFill(tcPr, theme) {
   return shdFill(tcPr.shd, theme);
 }
-function shdFill(shd, theme) {
-  if (!shd) return void 0;
-  if (shd.val === "solid") return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
-  const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
-  if (shd.val && /^pct(\d+)$/.test(shd.val)) {
-    const pct = parseInt(shd.val.slice(3), 10) / 100;
-    const fg = resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
-    const bg = fill ?? "FFFFFF";
-    const mix = (i) => Math.round(parseInt(bg.slice(i, i + 2), 16) * (1 - pct) + parseInt(fg.slice(i, i + 2), 16) * pct);
-    return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, "0")).join("").toUpperCase();
-  }
-  return fill;
+var shdFill = (shd, theme) => shadingFill(shd, theme);
+function swapLR(o) {
+  if (!o) return o;
+  const { left, right, ...rest } = o;
+  return { ...rest, ...right !== void 0 ? { left: right } : {}, ...left !== void 0 ? { right: left } : {} };
+}
+function verticalDir(td) {
+  if (td === "btLr" || td === "lr") return "btLr";
+  if (td === "tbRl" || td === "tbRlV" || td === "tbLrV" || td === "rl" || td === "rlV" || td === "lrV") return "tbRl";
+  return void 0;
 }
 function paintVertical(items, c, dir, vAlign, left, right, top, bottom) {
   const free = right - left - c.height;
@@ -7150,12 +7359,16 @@ function paintVertical(items, c, dir, vAlign, left, right, top, bottom) {
   for (const it of c.items) items.push(shiftItem(it, Math.max(0, off)));
   items.push({ t: "xform", op: "pop" });
 }
-function placeContent(items, lines, c, vAlign, rowH, marT, marB, y0 = 0) {
-  if (!c) return;
+function contentDy(c, vAlign, rowH, marT, marB, y0 = 0) {
   let dy = y0 + marT;
   const free = rowH - marT - marB - (c.alignH ?? c.height);
   if (vAlign === "center" && free > 0) dy += free / 2;
   else if (vAlign === "bottom" && free > 0) dy += free;
+  return dy;
+}
+function placeContent(items, lines, c, vAlign, rowH, marT, marB, y0 = 0) {
+  if (!c) return;
+  const dy = contentDy(c, vAlign, rowH, marT, marB, y0);
   for (const it of c.items) items.push(shiftItem(it, dy));
   for (const l of c.lines) lines.push({ ...l, y: l.y + dy, baseline: l.baseline + dy });
 }
@@ -8767,7 +8980,7 @@ var Engine = class {
   }
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
   paintBox(out, p, x, width, top, bottom, prev, at = out.length, groupedNext = false) {
-    const hasFill = !!(p.ppr.shd && (p.ppr.shd.fill && p.ppr.shd.fill !== "auto" || p.ppr.shd.themeFill));
+    const hasFill = !!shadingFill(p.ppr.shd, this.ctx.fmt.theme);
     if (!p.ppr.pBdr && !hasFill) return;
     const grouped = !!prev?.pBdrKey && prev.pBdrKey === bdrKey(p.ppr);
     const left = x + p.indLeft + Math.min(0, p.firstLine);
@@ -9790,6 +10003,7 @@ var Engine = class {
       for (const it of row.items) out.push(shiftItem(it, y - yOrigin, refX));
       for (const it of row.borderItems) out.push(shiftItem(it, y - yOrigin, refX));
       for (const l of row.lines) ps.page.lines.push({ ...l, x: l.x + refX, y: l.y + y, baseline: l.baseline + y, ...l.chars ? { chars: l.chars.map((c) => ({ ...c, x: c.x + refX })) } : {} });
+      if (row.cells && !this.inHf) for (const c of row.cells) (ps.page.cells ??= []).push({ ref: c.ref, x: c.x + refX, y: y + (c.dy ?? 0), w: c.w, h: c.h ?? row.height, span: c.span });
       y += row.height + (grow > 0.5 ? grow : 0);
       n++;
       if (cutHere) break;
@@ -9858,7 +10072,13 @@ var Engine = class {
     this.floatCarry = [];
     for (const c of carry) {
       const items = [];
-      this.emitFloatRows(c.t, c.rows, c.fp, this.cur, c.refX, this.cur.bodyTop, items, 0, true, true);
+      const hdr = [];
+      for (const r of c.t.rows) {
+        if (r.header) hdr.push(r);
+        else break;
+      }
+      const rows = hdr.length && hdr.length < c.t.rows.length && !hdr.includes(c.rows[0]) ? [...hdr, ...c.rows] : c.rows;
+      this.emitFloatRows(c.t, rows, c.fp, this.cur, c.refX, this.cur.bodyTop, items, 0, true, true);
       this.cur.front.push({ z: -1, seq: this.zSeq++, items });
     }
   }
@@ -9878,6 +10098,7 @@ var Engine = class {
     for (const it of row.items) if (!skip?.has(it)) this.cur.body.push(shiftItem(it, this.y));
     for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y));
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
+    if (row.cells && !this.inHf) for (const c of row.cells) (this.cur.page.cells ??= []).push({ ref: c.ref, x: c.x, y: this.y + (c.dy ?? 0), w: c.w, h: c.h ?? row.height, span: c.span });
     this.y += row.height;
     this.atTop = false;
     this.noteColContent(this.y);
@@ -10441,7 +10662,7 @@ function markLineH(p) {
 function scratchPage(ps) {
   return {
     ...ps,
-    page: { ...ps.page, items: [], lines: [], objects: [] },
+    page: { ...ps.page, items: [], lines: [], objects: [], cells: [] },
     behind: [],
     hf: [],
     body: [],
@@ -10452,6 +10673,15 @@ function scratchPage(ps) {
     notes: []
   };
 }
+
+// ../docx-layout/src/tree.ts
+var BORDER_DASHES = {
+  bdrDot: (w) => [w, w],
+  bdrDash: (w) => [3 * w, w],
+  bdrDashDot: (w) => [3 * w, w, w, w],
+  bdrDashDotDot: (w) => [3 * w, w, w, w, w, w],
+  bdrDashSmall: (w) => [25 * w / 6, 5 * w / 6]
+};
 
 // ../docx-layout/src/images.ts
 function jpegInfo(b) {
@@ -11234,7 +11464,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T, it.y / T, it.w / T, it.h / T, hexColor(it.fill)));
       return;
     case "line": {
-      const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : void 0;
+      const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash ? BORDER_DASHES[it.dash]?.(it.widthPt) : void 0;
       page.line(it.x1 / T, it.y1 / T, it.x2 / T, it.y2 / T, hexColor(it.color), it.widthPt, dash);
       return;
     }
@@ -11378,7 +11608,7 @@ function paintItems(ctx, items, env, opts = {}) {
       case "line": {
         if (!HEX6.test(it.color)) break;
         const w = it.widthPt;
-        const dash = it.dash === "dotted" ? [w, w * 2] : it.dash === "dashed" ? [w * 4, w * 3] : it.dash === "dashDot" ? [w * 4, w * 2, w, w * 2] : it.dash === "dashDotDot" ? [w * 4, w * 2, w, w * 2, w, w * 2] : [];
+        const dash = it.dash === "dotted" ? [w, w * 2] : it.dash === "dashed" ? [w * 4, w * 3] : it.dash === "dashDot" ? [w * 4, w * 2, w, w * 2] : it.dash === "dashDotDot" ? [w * 4, w * 2, w, w * 2, w, w * 2] : it.dash ? BORDER_DASHES[it.dash](w) : [];
         let { x1, y1, x2, y2 } = it;
         let lw = w * 20;
         const m = ctx.getTransform();
@@ -12111,6 +12341,160 @@ function writeStylesPart(pkg, xml) {
   }
 }
 
+// ../../../sheet/packages/calc/src/collation.ts
+var SPACE = 10;
+var PUNCT = '!"#$%&()*,./:;?@[\\]^_`{|}~';
+var CURRENCY = "\xA2\xA3\xA4\xA5\u20AC";
+var MATH = "+<=>\xB1\xD7\xF7\xAC";
+var MISC = "\xA7\xA9\xAE\xB0\xB5\xB6";
+var DIGIT0 = 1e3;
+var LETTER_A = 2e3;
+var OTHER = 1e5;
+var CJK2 = 4e5;
+var MARK2 = {
+  769: 2,
+  768: 3,
+  770: 4,
+  776: 5,
+  771: 6,
+  778: 7,
+  807: 8,
+  780: 9,
+  772: 10,
+  774: 11,
+  808: 12,
+  775: 13,
+  779: 14
+};
+var STROKE = 15;
+var SPECIAL = {
+  "\xAA": ["a", 1],
+  "\xBA": ["o", 1],
+  "\xF8": ["o", STROKE],
+  "\xD8": ["o", STROKE],
+  "\u0111": ["d", STROKE],
+  "\u0110": ["d", STROKE],
+  "\u0142": ["l", STROKE],
+  "\u0141": ["l", STROKE],
+  "\u0127": ["h", STROKE],
+  "\u0126": ["h", STROKE],
+  "\u0131": ["i", 1],
+  "\u0149": ["n", 40],
+  "\xDF": ["ss", 0],
+  "\u1E9E": ["ss", 0],
+  "\xE6": ["ae", 0],
+  "\xC6": ["ae", 0],
+  "\u0153": ["oe", 0],
+  "\u0152": ["oe", 0],
+  "\xB9": ["1", 1],
+  "\xB2": ["2", 1],
+  "\xB3": ["3", 1]
+};
+var charCache = /* @__PURE__ */ new Map();
+function isCjk(cp) {
+  return cp >= 13312 && cp <= 40959 || cp >= 63744 && cp <= 64255 || cp >= 131072 && cp <= 262143;
+}
+function basePrimary(ch) {
+  const cp = ch.codePointAt(0);
+  if (cp < 32 || cp === 127) return 1;
+  if (ch === " " || cp === 160 || cp >= 8192 && cp <= 8202 || cp === 12288) return SPACE;
+  if (cp >= 48 && cp <= 57) return DIGIT0 + cp - 48;
+  const lo = ch.toLowerCase();
+  const lc = lo.codePointAt(0);
+  if (lo.length === 1 && lc >= 97 && lc <= 122) return LETTER_A + lc - 97;
+  let i = PUNCT.indexOf(ch);
+  if (i >= 0) return 11 + i;
+  if ((i = CURRENCY.indexOf(ch)) >= 0) return 60 + i;
+  if ((i = MATH.indexOf(ch)) >= 0) return 70 + i;
+  if ((i = MISC.indexOf(ch)) >= 0) return 80 + i;
+  if (ch === "\xBC" || ch === "\xBD" || ch === "\xBE") return DIGIT0 + 0.5;
+  if (cp >= 161 && cp <= 191) return 40 + (cp - 161) / 100;
+  if (cp >= 8208 && cp <= 11263) return 90 + (cp - 8208) / 1e4;
+  if (isCjk(cp)) return CJK2 + cp;
+  if (lc >= 12449 && lc <= 12534) return OTHER + lc - 96;
+  return OTHER + lc;
+}
+function charElements(ch) {
+  const cp = ch.codePointAt(0);
+  const hit = charCache.get(cp);
+  if (hit !== void 0) return hit;
+  let r;
+  if (ch === "-" || ch === "'" || cp === 173 || cp === 8208 || cp === 8209) r = null;
+  else if (cp < 128 || CURRENCY.includes(ch) || MATH.includes(ch) || MISC.includes(ch) || "\xBC\xBD\xBE".includes(ch)) r = { p: [basePrimary(ch)], s: [0], t: [0] };
+  else if (SPECIAL[ch]) {
+    const [base, sec] = SPECIAL[ch];
+    r = { p: [...base].map(basePrimary), s: [...base].map((_, i) => i === 0 ? sec : 0), t: [...base].map(() => 0) };
+  } else {
+    const d = ch.normalize("NFKD");
+    const p = [], s = [], t = [];
+    const compat = cp >= 65280 && cp <= 65519;
+    for (const c of d) {
+      const ccp = c.codePointAt(0);
+      if (ccp >= 768 && ccp <= 879) {
+        if (p.length) s[s.length - 1] = s[s.length - 1] * 32 + (MARK2[ccp] ?? 20 + (ccp - 768));
+        continue;
+      }
+      p.push(basePrimary(c));
+      s.push(0);
+      const k = c.codePointAt(0);
+      t.push(k >= 12449 && k <= 12538 ? compat ? 1 : 2 : k >= 12353 && k <= 12438 ? 3 : compat ? 4 : 0);
+    }
+    if (!p.length) {
+      p.push(basePrimary(ch));
+      s.push(0);
+      t.push(0);
+    }
+    r = { p, s, t };
+  }
+  charCache.set(cp, r);
+  return r;
+}
+var keyCache = /* @__PURE__ */ new Map();
+function keyOf(text) {
+  const hit = keyCache.get(text);
+  if (hit) return hit;
+  const p = [], s = [], t = [], sp = [];
+  let pos = 0;
+  for (const ch of text) {
+    if (ch === "\xAD") continue;
+    const e = charElements(ch);
+    if (e === null) sp.push([pos, ch === "'" ? 1 : 2]);
+    else for (let i = 0; i < e.p.length; i++) {
+      p.push(e.p[i]);
+      s.push(e.s[i]);
+      t.push(e.t[i]);
+    }
+    pos++;
+  }
+  const k = { p, s, t, sp };
+  if (keyCache.size > 2e4) keyCache.clear();
+  keyCache.set(text, k);
+  return k;
+}
+function cmpSeq(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+  return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
+}
+function compareText(a, b) {
+  if (a === b) return 0;
+  const ka = keyOf(a), kb = keyOf(b);
+  const c1 = cmpSeq(ka.p, kb.p);
+  if (c1) return c1;
+  const c2 = cmpSeq(ka.s, kb.s);
+  if (c2) return c2;
+  const c3 = cmpSeq(ka.t, kb.t);
+  if (c3) return c3;
+  const x = ka.sp, y = kb.sp;
+  if (!x.length || !y.length) return x.length === y.length ? 0 : x.length ? 1 : -1;
+  const n = Math.min(x.length, y.length);
+  for (let i = 0; i < n; i++) {
+    if (x[i][0] !== y[i][0]) return x[i][0] > y[i][0] ? -1 : 1;
+    if (x[i][1] !== y[i][1]) return x[i][1] < y[i][1] ? -1 : 1;
+  }
+  return x.length === y.length ? 0 : x.length < y.length ? -1 : 1;
+}
+
 // src/xps.ts
 var PT_TO_PX = 96 / 72;
 var TWIP_TO_PX = 96 / 1440;
@@ -12210,7 +12594,7 @@ function buildXps(input) {
 }
 
 // src/edit-guard.ts
-var MARK2 = "\0uw-run:";
+var MARK3 = "\0uw-run:";
 var EXTRAS = ["image", "textbox", "shape", "group", "ptab", "fieldResult", "field", "noteRef", "custom", "symFont", "formField", "inToc"];
 function guardRuns(model, lo, hi, op) {
   const paras = model.paragraphs;
@@ -12219,7 +12603,7 @@ function guardRuns(model, lo, hi, op) {
   let n = 0;
   for (let i = a; i <= b; i++) {
     for (const r of paras[i].runs) {
-      const key = MARK2 + n++;
+      const key = MARK3 + n++;
       orig.set(key, { run: r, font: r.props.fontAscii });
       r.props = { ...r.props, fontAscii: key };
     }
@@ -12230,7 +12614,7 @@ function guardRuns(model, lo, hi, op) {
     const end = Math.min(model.paragraphs.length - 1, b + 1);
     for (let i = a; i <= end; i++) restore(model.paragraphs[i], orig);
     for (const { run, font } of orig.values()) {
-      if (run.props.fontAscii?.startsWith(MARK2)) setFont(run, font);
+      if (run.props.fontAscii?.startsWith(MARK3)) setFont(run, font);
     }
   }
 }
@@ -12243,7 +12627,7 @@ function setFont(r, font) {
 function restore(p, orig) {
   for (const r of p.runs) {
     const key = r.props.fontAscii;
-    if (!key?.startsWith(MARK2)) continue;
+    if (!key?.startsWith(MARK3)) continue;
     const o = orig.get(key);
     setFont(r, o?.font);
     if (!o) continue;
@@ -12257,6 +12641,85 @@ function restore(p, orig) {
       if (!r.inToc && o.run.inToc) r.inToc = o.run.inToc;
     }
   }
+}
+
+// src/ole-sheet.ts
+var NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+var RNS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+var XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
+function blankXlsx(lang) {
+  const pkg = DocxPackage.empty();
+  for (const p of pkg.partNames()) pkg.removePart(p);
+  pkg.setPartText("[Content_Types].xml", XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+  pkg.setPartText("_rels/.rels", XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  const name = pickLabels(lang, { en: "Sheet1", pt: "Planilha1" });
+  pkg.setPartText("xl/workbook.xml", XML + `<workbook xmlns="${NS}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  pkg.setPartText("xl/_rels/workbook.xml.rels", XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  pkg.setPartText("xl/worksheets/sheet1.xml", XML + `<worksheet xmlns="${NS}" xmlns:r="${RNS}"><dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/></worksheet>`);
+  pkg.setPartText("xl/styles.xml", XML + `<styleSheet xmlns="${NS}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  return pkg.save();
+}
+async function sheetAvailable(loader) {
+  if (customElements.get("universal-sheet")) return true;
+  if (!loader) return false;
+  try {
+    await loader();
+  } catch {
+    return false;
+  }
+  return !!customElements.get("universal-sheet");
+}
+function usedSize(el, minCols, minRows) {
+  let cols = minCols, rows = minRows;
+  for (const c of el.debugCellDisplays(60, 400)) {
+    if (!c.display) continue;
+    const m = /^([A-Z]+)(\d+)$/.exec(c.ref);
+    if (!m) continue;
+    let n = 0;
+    for (const ch of m[1]) n = n * 26 + ch.charCodeAt(0) - 64;
+    cols = Math.max(cols, n);
+    rows = Math.max(rows, +m[2]);
+  }
+  return { cols, rows };
+}
+async function previewPng(canvas, w, h) {
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+  const png = new Uint8Array(await (blob ?? new Blob()).arrayBuffer());
+  return { png, widthTwips: Math.round((w || canvas.width) * 15), heightTwips: Math.round((h || canvas.height) * 15) };
+}
+async function editSpreadsheet(layer, lang, xlsx) {
+  const el = document.createElement("universal-sheet");
+  el.setAttribute("lang", lang);
+  el.style.cssText = "display:block;width:min(820px,86vw);height:min(460px,60vh)";
+  const body = document.createElement("div");
+  body.append(el);
+  let saved = null;
+  const h = openDialog({
+    title: pickLabels(lang, { en: "Excel Spreadsheet", pt: "Planilha do Excel" }),
+    body,
+    layer,
+    lang,
+    width: 880,
+    actions: [{ id: "cancel", label: pickLabels(lang, { en: "Cancel", pt: "Cancelar" }) }, { id: "ok", label: "OK", primary: true }],
+    onAction: (id) => {
+      if (id !== "ok") return;
+      try {
+        const out = el.saveXlsx();
+        const { cols, rows } = usedSize(el, 3, 4);
+        const canvas = document.createElement("canvas");
+        const d = el.renderRegionToCanvas(0, canvas, cols, rows);
+        saved = { xlsx: out, canvas, w: d.w, h: d.h };
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
+    }
+  });
+  await new Promise((r) => requestAnimationFrame(r));
+  el.loadXlsx(xlsx);
+  if (await h.result !== "ok" || !saved) return null;
+  const s = saved;
+  return { xlsx: s.xlsx, ...await previewPng(s.canvas, s.w, s.h) };
 }
 
 // src/spell.ts
@@ -12315,7 +12778,7 @@ function spellSpans(para, langs) {
   }
   return [...byLang].map(([lang, chars]) => ({ lang, text: chars.join("") }));
 }
-var keyOf = (spans) => spans.map((s) => `${s.lang}${s.text}`).join("");
+var keyOf2 = (spans) => spans.map((s) => `${s.lang}${s.text}`).join("");
 var ParagraphSpell = class {
   constructor(engine, langs, onUpdate, delay = 120) {
     this.engine = engine;
@@ -12350,7 +12813,7 @@ var ParagraphSpell = class {
   get(para) {
     const spans = spellSpans(para, this.langs());
     if (!spans.length) return [];
-    const key = keyOf(spans);
+    const key = keyOf2(spans);
     const hit = this.byPara.get(para);
     if (hit?.key === key) return hit.list;
     const known = this.byKey.get(key);
@@ -12366,7 +12829,7 @@ var ParagraphSpell = class {
   async check(para) {
     const spans = spellSpans(para, this.langs());
     if (!spans.length) return [];
-    const key = keyOf(spans);
+    const key = keyOf2(spans);
     const hit = this.byPara.get(para);
     if (hit?.key === key) return hit.list;
     const list = await this.run(spans);
@@ -12393,7 +12856,7 @@ var ParagraphSpell = class {
         continue;
       }
       if (gen !== this.generation) return;
-      this.store(para, keyOf(spans), list);
+      this.store(para, keyOf2(spans), list);
       changed = true;
     }
     if (changed) this.onUpdate();
@@ -12482,6 +12945,7 @@ function buildEngineDoc(input) {
       const s = starts[i].section;
       secs.push({
         ...s,
+        ...withPgBorders(s),
         blockStart: a,
         blockEnd: Math.max(a - 1, b),
         headerBlocks: reconcileSet(s.headerBlocks, s.headers),
@@ -12506,6 +12970,14 @@ function buildEngineDoc(input) {
     bookmarks
   };
   return { full, origins, paraBlock, sectionMap };
+}
+function withPgBorders(s) {
+  const pb = s.sectPr.pgBorders;
+  if (pb === void 0) return {};
+  const sect = { ...s.sect ?? {} };
+  if (pb) sect.pgBorders = pb;
+  else delete sect.pgBorders;
+  return { sect };
 }
 function reconcileSet(blocks, paras) {
   const out = {};
@@ -12791,6 +13263,13 @@ var refsOfSection = (s) => ({
   headerRefs: s.headerRefs.map((r) => ({ kind: "header", type: r.type, rid: r.rid })),
   footerRefs: s.footerRefs.map((r) => ({ kind: "footer", type: r.type, rid: r.rid }))
 });
+function guessSortType(texts) {
+  const xs = texts.map((t) => t.trim()).filter(Boolean);
+  if (!xs.length) return "text";
+  if (xs.every((t) => parseSortDate(t) !== null)) return "date";
+  if (xs.every((t) => parseSortNumber(t) !== null)) return "number";
+  return "text";
+}
 var RPR_REF = /* @__PURE__ */ Symbol("uw-rpr");
 var RPR_EDITED = /* @__PURE__ */ Symbol("uw-rpr-edited");
 var insertText2 = (m, pos, text, props) => guardRuns(m, pos.para, pos.para, () => insertText(m, pos, text, props));
@@ -13120,7 +13599,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-TY5VVZXD.js");
+    const { setupChrome } = await import("./chunks/chrome-OIQADPIG.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -13157,7 +13636,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-TY5VVZXD.js").then((m) => {
+      void import("./chunks/chrome-OIQADPIG.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -13993,7 +14472,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (run.szHalfPt === void 0) {
       run.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
-    return { run, para, view: this.view, marks: this.showMarks };
+    return { run, para, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
   toggleRunProp(key) {
     const cur = this.pendingProps ?? this.currentProps();
@@ -14892,10 +15371,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       paras.push({ runs });
     }
     const text = paras.map((pp) => pp.runs.map((r) => r.text).join("")).join("\n");
-    return { text, paras };
+    const tables = this.cellEdit || this.hfEdit || this.tbEdit ? [] : this.tableAnchors.filter((a) => a.beforePara > start.para && a.beforePara <= end.para).map((a) => ({ before: a.beforePara - start.para, table: table_ops_exports.cloneTable(a.table) }));
+    return { text, paras, ...tables.length ? { tables } : {} };
   }
   /** Copia a seleção: texto p/ o sistema + cópia RICA interna (preserva origem). */
   async copy() {
+    const cells = this.cellsClip();
+    if (cells) {
+      const { text, html } = _UniversalWriteElement.tableClipText(cells.table);
+      this.richClip = { text, paras: [], cells };
+      await this.writeClipboard(text, html);
+      return;
+    }
     const t = this.selectedText();
     if (!t) return;
     this.richClip = this.extractSelection();
@@ -14906,6 +15393,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Recorta a seleção. */
   async cut() {
+    if (this.tableSel && !this.locked()) {
+      const c = this.cellsClip();
+      await this.copy();
+      if (c?.whole) this.deleteTable();
+      else if (c?.rows) this.deleteRow();
+      else {
+        this.clearSelectedCells(true);
+        this.refresh();
+      }
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return;
+    }
     if (!this.model || !this.hasSelection() || this.locked()) return;
     await this.copy();
     this.snapshot();
@@ -14922,12 +15422,25 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     try {
       const t = await navigator.clipboard?.readText();
       if (!t) return;
-      if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, "\n")) this.insertRich(this.richClip);
+      if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, "\n")) this.pasteRich(this.richClip);
       else this.pasteText(t);
       this.onSelectionChange?.();
       this.chromeSync?.();
     } catch {
     }
+  }
+  /** Cola a cópia rica: células (linhas inteiras numa tabela entram como linhas novas; senão substituem) ou parágrafos. */
+  pasteRich(clip) {
+    if (clip.cells) {
+      const inTable = !!this.tableTarget();
+      this.pasteCells(inTable && clip.cells.rows && !this.tableSel ? "rows" : "overwrite", clip.cells);
+      return;
+    }
+    this.insertRich(clip);
+  }
+  /** Há células copiadas (opções de colagem de tabela). */
+  hasCellsClip() {
+    return !!this.richClip?.cells;
   }
   /** Colar sem formatação (Ctrl+Shift+V): sempre texto plano, herdando o DESTINO. */
   async pastePlain() {
@@ -14951,8 +15464,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos2, focus: pos2 };
     }
     let pos = this.selection.focus;
+    const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
     clip.paras.forEach((cp, i) => {
-      if (i > 0) pos = splitParagraph2(this.model, pos);
+      if (i > 0) {
+        this.shiftAnchors(pos.para, 1);
+        pos = splitParagraph2(this.model, pos);
+        for (const t of clip.tables ?? []) {
+          if (t.before !== i || !body) continue;
+          let at = this.tableAnchors.findIndex((a) => a.beforePara > pos.para);
+          if (at < 0) at = this.tableAnchors.length;
+          this.tableAnchors.splice(at, 0, { beforePara: pos.para, table: table_ops_exports.cloneTable(t.table) });
+        }
+      }
       for (const run of cp.runs) if (run.text) pos = insertText2(this.model, pos, run.text, { ...run.props });
     });
     this.selection = { anchor: pos, focus: pos };
@@ -14970,7 +15493,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const paras = text.replace(/\r\n?/g, "\n").split("\n");
     let pos = this.selection.focus;
     paras.forEach((part, i) => {
-      if (i > 0) pos = splitParagraph2(this.model, pos);
+      if (i > 0) {
+        this.shiftAnchors(pos.para, 1);
+        pos = splitParagraph2(this.model, pos);
+      }
       if (part) pos = insertText2(this.model, pos, part);
     });
     this.selection = { anchor: pos, focus: pos };
@@ -15022,6 +15548,33 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         s.marginLeftTwips = opts.customMargins.left;
       }
     }
+    this.refresh();
+  }
+  // ───────────────── bordas de página ─────────────────
+  /** Seções-alvo das bordas de página: a do cursor (na célula, a da tabela) ou todas. */
+  pageBorderTargets(applyTo) {
+    const m = this.bodyModel();
+    if (applyTo === "document") return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
+    const para = this.cellEdit ? this.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0 : this.hfEdit || this.tbEdit ? 0 : normalizeRange(this.range()).start.para;
+    return [sectionSectPr(m, sectionIndexAt(m, Math.min(para, m.paragraphs.length - 1)))];
+  }
+  /** Bordas de página da seção do cursor (Bordas e Sombreamento › Borda da Página); null = nenhuma. */
+  getPageBorders() {
+    if (!this.model) return null;
+    const s = this.pageBorderTargets("section")[0];
+    const pb = s?.pgBorders === void 0 ? this.fullDoc?.sections[0]?.sect?.pgBorders : s.pgBorders;
+    return pb ? JSON.parse(JSON.stringify(pb)) : null;
+  }
+  /**
+   * Bordas de página (Caixa, Sombra, 3D, Personalizado): `null` = Nenhuma.
+   * O Word grava a Caixa como `offsetFrom="page"` com 24 pt de cada lado e
+   * linha simples de ½ pt; Sombra = `shadow` nos quatro lados.
+   */
+  setPageBorders(pb, applyTo = "document") {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    for (const s of this.pageBorderTargets(applyTo)) s.pgBorders = pb ? JSON.parse(JSON.stringify(pb)) : null;
+    this.engPageCache.clear();
     this.refresh();
   }
   // ───────────────── seções e colunas ─────────────────
@@ -15168,13 +15721,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  fldSimple e o próprio app de referência passa a atualizá-lo. */
   insertField(kind) {
     if (!this.model || this.locked()) return;
+    const display = kind === "DATE" ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : kind;
+    const instr = kind === "DATE" ? ' DATE \\@ "dd/MM/yyyy" ' : ` ${kind} `;
+    this.insertFieldRun(instr, display);
+  }
+  /** Run de campo no caret (substitui a seleção): instrução e resultado exibido. */
+  insertFieldRun(instr, display, extraProps) {
+    if (!this.model) return;
     this.snapshot();
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const display = kind === "DATE" ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : kind;
-    const instr = kind === "DATE" ? ' DATE \\@ "dd/MM/yyyy" ' : ` ${kind} `;
     const { para, offset } = this.selection.focus;
     const p = this.model.paragraphs[para];
     let acc = 0;
@@ -15185,7 +15743,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (offset <= re || ri === p.runs.length) {
         const fieldRun = {
           text: display,
-          props: run ? { ...run.props } : { ...DEFAULT_RUN_PROPS },
+          props: { ...run ? run.props : DEFAULT_RUN_PROPS, ...extraProps },
           field: instr
         };
         if (!run) p.runs.push(fieldRun);
@@ -15472,14 +16030,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     el.src = url;
   }
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
-  async insertImage(data, ext) {
+  async insertImage(data, ext, obj) {
     if (!this.model || this.locked()) return;
     const copy = new Uint8Array(data);
-    const bmp = await createImageBitmap(
-      new Blob([copy.buffer], { type: `image/${ext === "jpg" ? "jpeg" : ext}` })
-    );
-    let w = bmp.width * 15;
-    let h = bmp.height * 15;
+    let w, h;
+    if (obj) {
+      w = obj.widthTwips;
+      h = obj.heightTwips;
+    } else {
+      const bmp = await createImageBitmap(
+        new Blob([copy.buffer], { type: `image/${ext === "jpg" ? "jpeg" : ext}` })
+      );
+      w = bmp.width * 15;
+      h = bmp.height * 15;
+    }
     const maxW = this.contentWidthTwips();
     if (w > maxW) {
       h = h * maxW / w;
@@ -15502,7 +16066,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const imageRun = {
           text: "\uFFFC",
           props: run ? { ...run.props } : { ...DEFAULT_RUN_PROPS },
-          image: { data: copy, ext, widthTwips: w, heightTwips: h }
+          image: { data: copy, ext, widthTwips: w, heightTwips: h, ...obj ? { ole: obj.ole } : {} }
         };
         if (!run) {
           p.runs.push(imageRun);
@@ -15585,6 +16149,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   saveDocx() {
     if (!this.model) throw new Error("no document");
     if (this.hfEdit) this.exitHeaderFooter();
+    if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
+    const body = this.bodyState().model;
     const pkg = this.pkg ?? DocxPackage.empty();
     this.syncSections();
     const sections = this.bodyState().sectionStarts.map((s) => s.section);
@@ -15616,16 +16182,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const lastSec = sections[sections.length - 1];
     const bodyParts = lastSec ? hfParts.filter((h) => [...lastSec.headerRefs, ...lastSec.footerRefs].some((r) => r.path === h.path)) : hfParts;
     const blocks = [];
-    this.model.paragraphs.forEach((paragraph, pi) => {
+    body.paragraphs.forEach((paragraph, pi) => {
       for (const a of this.tableAnchors) {
         if (a.beforePara === pi) blocks.push(a.table);
       }
       blocks.push({ type: "paragraph", paragraph });
     });
     for (const a of this.tableAnchors) {
-      if (a.beforePara >= this.model.paragraphs.length) blocks.push(a.table);
+      if (a.beforePara >= body.paragraphs.length) blocks.push(a.table);
     }
-    const saveModel = { paragraphs: this.model.paragraphs, sectPr: lastSec?.sectPr ?? this.model.sectPr };
+    const saveModel = { paragraphs: body.paragraphs, sectPr: lastSec?.sectPr ?? body.sectPr };
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : void 0,
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
@@ -15633,6 +16199,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sources: this.fullDoc?.sources
     });
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
+    addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
   }
   /** Monta o documento de exportação a partir do estado VIVO do editor. */
@@ -15914,17 +16481,23 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   imgPool = [];
   imgPoolIdx = /* @__PURE__ */ new WeakMap();
   stringifyState() {
+    const own3 = this.hfEdit || this.tbEdit;
+    const ce = own3 ? null : this.cellEdit;
+    if (ce?.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
     return JSON.stringify({
-      m: this.model,
-      s: this.selection,
+      m: ce ? ce.saved.model : this.model,
+      s: ce ? ce.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
-      anc: this.cellEdit || this.hfEdit || this.tbEdit ? void 0 : {
+      anc: own3 ? void 0 : {
         t: this.tableAnchors.map((a) => a.beforePara),
         b: [...this.bookmarkParas]
-      }
+      },
+      tb: own3 ? void 0 : this.tableAnchors.map((a) => a.table),
+      ce: ce ? { a: ce.anchor, h: ce.hops, s: this.selection } : void 0,
+      ts: own3 ? void 0 : this.tableSel ?? void 0
     }, (key, value) => {
       if (value instanceof Uint8Array) {
         let idx = this.imgPoolIdx.get(value);
@@ -15966,18 +16539,37 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.floatSel = null;
     to.push(this.stringifyState());
     const state = this.parseState(from.pop());
-    if (this.cellEdit || this.hfEdit || this.tbEdit) {
+    if (this.hfEdit || this.tbEdit) {
       const linked = this.model.paragraphs;
       linked.splice(0, linked.length, ...state.m.paragraphs);
       this.model = { ...state.m, paragraphs: linked };
-    } else this.model = state.m;
-    this.selection = state.s;
-    if (state.anc && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
-      state.anc.t.forEach((v, i) => {
-        const a = this.tableAnchors[i];
-        if (a) a.beforePara = v;
-      });
-      this.bookmarkParas = new Map(state.anc.b);
+      this.selection = state.s;
+    } else {
+      const wasCell = !!this.cellEdit;
+      this.cellEdit = null;
+      this.model = state.m;
+      this.selection = state.s;
+      this.tableSel = state.ts ?? null;
+      if (state.anc) {
+        if (state.tb) {
+          this.tableAnchors = state.tb.map((table, i) => ({ beforePara: state.anc.t[i] ?? 0, table: table_ops_exports.relink(table) }));
+          for (const a of this.tableAnchors) this.syncTableRPr(a.table);
+        } else state.anc.t.forEach((v, i) => {
+          const a = this.tableAnchors[i];
+          if (a) a.beforePara = v;
+        });
+        this.bookmarkParas = new Map(state.anc.b);
+      }
+      if (state.ce) {
+        const t = this.tableAnchors[state.ce.a]?.table;
+        const cell = t ? resolveCell(t, state.ce.h) : null;
+        if (cell) {
+          this.cellEdit = { anchor: state.ce.a, hops: state.ce.h, cell, saved: { model: this.model, selection: this.selection } };
+          this.model = { paragraphs: cell.paragraphs, sectPr: this.model.sectPr };
+          this.selection = state.ce.s;
+        }
+      }
+      if (wasCell !== !!this.cellEdit) this.dispatchEvent(new CustomEvent("uw-cellmode", { detail: { active: !!this.cellEdit } }));
     }
     if (state.sv !== void 0 && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     this.refresh();
@@ -15986,6 +16578,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   deleteSelection() {
     const { start, end } = normalizeRange(this.range());
     const delta = end.para - start.para;
+    if (delta > 0 && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+      this.tableAnchors = this.tableAnchors.filter((a) => a.beforePara <= start.para || a.beforePara > end.para);
+    }
     const pos = deleteRange2(this.model, this.range());
     if (delta > 0) this.shiftAnchors(start.para, -delta);
     return pos;
@@ -15998,7 +16593,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     });
     if (!this.dispatchEvent(before)) return;
     this.snapshot();
-    if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
+    if (this.tableSel) {
+      this.clearSelectedCells(false);
+      this.tableSel = null;
+    } else if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
       const pos2 = this.deleteSelection();
       this.selection = { anchor: pos2, focus: pos2 };
@@ -16133,6 +16731,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   moveCaret(dir, extend) {
     if (!this.model) return;
+    if (this.tableNavigate(dir, extend)) {
+      this.pendingProps = null;
+      return;
+    }
     let { para, offset } = this.selection.focus;
     const len = (i) => paraLength(this.model.paragraphs[i]);
     if (dir === "left") {
@@ -16224,6 +16826,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     });
     this.addEventListener("mousedown", (e) => {
       if (this.eventInChrome(e)) return;
+      if (this.tableMouseDown(e)) return;
       if (e.button === 0 && !this.protectedMode) {
         const hn = this.handleAt(e);
         if (hn) {
@@ -16272,6 +16875,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           return;
         }
       }
+      if (e.button === 0 && e.shiftKey && this.cellEdit) {
+        const ce = this.cellEdit;
+        if (this.dragCellSel({ anchor: ce.anchor, hops: ce.hops }, e)) {
+          e.preventDefault();
+          this.focusEditor();
+          return;
+        }
+      }
+      if (e.button === 0 && this.tableSel && !e.shiftKey) this.tableSel = null;
       if (e.button === 0 && !e.shiftKey) this.routeEngineClick(e);
       const hit = this.hitTest(e);
       if (!hit) return;
@@ -16321,7 +16933,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = extend ? { anchor: this.selection.anchor, focus: hit } : { anchor: hit, focus: hit };
       this.pendingProps = null;
       this.refreshSelection();
+      const startCell = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((x) => ({ ...x })) } : null;
       const move = (ev) => {
+        if (startCell && this.dragCellSel(startCell, ev)) return;
         const h = this.hitTest(ev);
         if (h) {
           this.selection.focus = h;
@@ -16349,8 +16963,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const text = e.clipboardData?.getData("text/plain") ?? "";
       const plain = this.plainPasteNext;
       this.plainPasteNext = false;
-      if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, "\n")) this.insertRich(this.richClip);
-      else if (text) this.pasteText(text);
+      const html = plain ? "" : e.clipboardData?.getData("text/html") ?? "";
+      if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, "\n")) this.pasteRich(this.richClip);
+      else if (/<table[\s>]/i.test(html) && this.pasteHtmlTables(html)) {
+      } else if (text) this.pasteText(text);
       this.onSelectionChange?.();
       this.chromeSync?.();
     });
@@ -16385,6 +17001,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.style.cursor = "move";
         return;
       }
+      if (this.tableMouseMove(e)) return;
       if (this.style.cursor === "move" || this.style.cursor.endsWith("-resize")) this.style.cursor = "";
     });
     this.addEventListener("dblclick", (e) => {
@@ -16393,6 +17010,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const region = this.hfRegionAtClick(e);
         if (region && (region.kind !== this.hfEdit.kind || region.page !== this.hfActivePage)) {
           this.switchHfFocus(region.kind, region.page);
+        }
+      }
+      if (!this.tbEdit && this.model && !this.protectedMode) {
+        const ole = this.oleRunAt(e);
+        if (ole && this.canEmbedSpreadsheet()) {
+          e.preventDefault();
+          void this.editEmbeddedObject(ole);
+          return;
         }
       }
       if (!this.tbEdit && this.model && !this.protectedMode) {
@@ -16473,6 +17098,35 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.input.addEventListener("keydown", (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
       const k = e.key;
+      if (this.tableSel && this.tableSelKey(e)) return;
+      if (k === "Escape" && this.tableTool) {
+        e.preventDefault();
+        this.setTableTool(null);
+        return;
+      }
+      if (k === "F9" && !ctrl && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        this.updateFields();
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+        return;
+      }
+      if (this.cellEdit && !this.locked()) {
+        if (ctrl && e.shiftKey && k === "Enter") {
+          e.preventDefault();
+          this.splitTable();
+          this.onSelectionChange?.();
+          this.chromeSync?.();
+          return;
+        }
+        if (e.altKey && e.shiftKey && (k === "ArrowUp" || k === "ArrowDown")) {
+          e.preventDefault();
+          this.moveTableRow(k === "ArrowUp" ? -1 : 1);
+          this.onSelectionChange?.();
+          this.chromeSync?.();
+          return;
+        }
+      }
       if (ctrl) {
         if (k === "ArrowLeft" || k === "ArrowRight") {
           e.preventDefault();
@@ -16534,6 +17188,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (ctrl && (k === "Home" || k === "End")) {
         e.preventDefault();
+        if (this.cellEdit && !e.shiftKey) {
+          while (this.cellEdit) this.exitCell();
+        }
         if (!this.model) return;
         const lastP = this.model.paragraphs.length - 1;
         const focus = k === "Home" ? { para: 0, offset: 0 } : { para: lastP, offset: paraLength(this.model.paragraphs[lastP]) };
@@ -18408,6 +19065,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.engPageCache.clear();
     this.bookmarkParas = /* @__PURE__ */ new Map();
     this.cellEdit = null;
+    this.tableSel = null;
+    this.pendingTableStyles = /* @__PURE__ */ new Map();
+    this.newFormatting = null;
     this.engMissing.clear();
     this.engFontsAttempted.clear();
   }
@@ -18429,7 +19089,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
     const tb = this.tbEdit?.hostRun.textbox;
     if (tb?.blocks) tb.blocks = reconcileBlocks(tb.blocks, tb.paras, true);
-    return buildEngineDoc({
+    const doc = buildEngineDoc({
       fullDoc: this.fullDoc,
       paragraphs: b.model.paragraphs,
       tableAnchors: b.tableAnchors,
@@ -18437,6 +19097,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       sectPr: b.model.sectPr,
       bookmarkParas: this.bookmarkParas
     });
+    if (!doc.full.formatting && this.newFormatting) doc.full.formatting = this.newFormatting;
+    return doc;
   }
   /** Guarda nas props de cada run uma referência ao w:rPr ORIGINAL e, nos runs
    *  que a edição recriou sem ele (docx-core divide/refaz runs sem o rPr), o
@@ -18905,7 +19567,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   engineBase(pg, page, w, h, scale) {
     const sup = this.tbSnapshotSuppress;
     const hfMode = !!this.hfEdit;
-    const key = `${this.eng.version}.${this.eng.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}`;
+    const key = `${this.eng.version}.${this.eng.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}|${this.gridlines && !this.printRender ? 1 : 0}`;
     const hit = this.engPageCache.get(pg);
     if (hit && hit.key === key) return hit.canvas;
     const off = hit?.canvas ?? document.createElement("canvas");
@@ -18919,6 +19581,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ctx.fillRect(0, 0, w, h);
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if (this.gridlines && !this.printRender && !this.hfCapturing && page.cells?.length) this.paintGridlines(ctx, page.cells, scale);
     const env = this.enginePaintEnv();
     const n = page.items.length;
     const hf = Math.min(this.eng.hfItems[pg] ?? 0, n);
@@ -18989,7 +19652,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
         this.paintEngineSpelling(ctx, i);
-        if (hasSel) this.paintEngineSelection(ctx, i, sel);
+        if (this.tableSel) this.paintTableSel(ctx, i);
+        else if (hasSel) this.paintEngineSelection(ctx, i, sel);
+        this.paintTableAdorners(ctx, i);
         ctx.restore();
       }
       return ctx;
@@ -19000,7 +19665,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const sp = this.sectionOfPage(hp)?.sectPr ?? this.bodyState().model.sectPr;
       this.paintHfBands(ctxs[hp], scales[hp], sp, dpr, hp);
     }
-    this.paintFloatAndCaret(ctxs, scales, dpr, hasSel);
+    this.paintFloatAndCaret(ctxs, scales, dpr, hasSel || !!this.tableSel);
     this.engineStats.paintMs = performance.now() - t0;
   }
   /** Sombreamento de campo e realce de comentário (adornos de tela do Word);
@@ -19133,7 +19798,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   ensureSpell() {
     if (this.spell || this.spellLoading) return this.spell;
     this.spellLoading = true;
-    void import("./chunks/src-IYIFV3PZ.js").then(({ SpellChecker }) => {
+    void import("./chunks/src-266QOMRY.js").then(({ SpellChecker }) => {
       if (!this.isConnected) return;
       const engine = SpellChecker.shared();
       this.spellEngine = engine;
@@ -19304,6 +19969,39 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
   }
+  /** Fundo das células selecionadas (caixas do motor dentro do retângulo). */
+  /** Linhas de grade: o contorno de cada célula tracejado em azul-claro (o Word as mostra onde não há borda). */
+  paintGridlines(ctx, cells, scale) {
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? "rgba(120,170,230,0.75)" : "rgba(80,140,210,0.75)";
+    ctx.lineWidth = 1 / scale;
+    ctx.setLineDash([2 / scale, 2 / scale]);
+    ctx.beginPath();
+    for (const c of cells) ctx.rect(c.x, c.y, c.w, c.h);
+    ctx.stroke();
+    ctx.restore();
+  }
+  /** Exibir Linhas de Grade das tabelas (só na tela; não vai para o arquivo nem para o PDF). */
+  gridlines = false;
+  showTableGridlines(on) {
+    if (this.gridlines === on) return;
+    this.gridlines = on;
+    this.engPageCache.clear();
+    this.paint();
+    this.chromeSync?.();
+  }
+  tableGridlinesShown() {
+    return this.gridlines;
+  }
+  paintTableSel(ctx, pg) {
+    const ts = this.tableSel;
+    if (!ts) return;
+    ctx.fillStyle = "rgba(58,114,196,0.35)";
+    for (const b of this.tableBoxes(ts.anchor, ts.path)) {
+      if (b.pg !== pg || b.r < ts.rect.r1 || b.r > ts.rect.r2 || b.c + b.box.span - 1 < ts.rect.c1 || b.c > ts.rect.c2) continue;
+      ctx.fillRect(b.box.x, b.box.y, b.box.w, b.box.h);
+    }
+  }
   /** Fundo da seleção nas linhas do modelo em edição. */
   paintEngineSelection(ctx, pg, sel) {
     ctx.fillStyle = "rgba(58,114,196,0.35)";
@@ -19427,7 +20125,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   /** Entra na edição da célula (o modelo passa a ser os parágrafos dela). */
-  enterCell(anchor, hops, caret) {
+  enterCell(anchor, hops, caret, paint = true) {
     const t = this.tableAnchors[anchor]?.table;
     const cell = t ? resolveCell(t, hops) : null;
     if (!cell || !this.model) return false;
@@ -19442,15 +20140,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       anchor,
       hops: hops.map((h) => ({ ...h })),
       cell,
-      saved: { model: this.model, selection: this.selection, undoStack: this.undoStack, redoStack: this.redoStack }
+      saved: { model: this.model, selection: this.selection }
     };
     this.model = { paragraphs: cell.paragraphs, sectPr: this.model.sectPr };
     const start = caret ?? { para: 0, offset: 0 };
     this.selection = { anchor: start, focus: start };
     this.pendingProps = null;
-    this.undoStack = [];
-    this.redoStack = [];
-    if (this.eng) {
+    if (!paint) {
+    } else if (this.eng) {
       this.rebuildEditLines();
       this.refreshSelection();
     } else this.refresh();
@@ -19465,8 +20162,6 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.cellEdit = null;
     this.model = ce.saved.model;
     this.selection = ce.saved.selection;
-    this.undoStack = ce.saved.undoStack;
-    this.redoStack = ce.saved.redoStack;
     this.pendingProps = null;
     this.rebuildEditLines();
     this.dispatchEvent(new CustomEvent("uw-cellmode", { detail: { active: false } }));
@@ -19491,6 +20186,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const me = ce.hops[ce.hops.length - 1];
     const idx = seen.findIndex((s) => s.r === me.r && s.c === me.c);
     const next = seen[idx + dir];
+    if (idx >= 0 && !next && dir === 1 && !this.locked()) return this.tabNewRow();
     if (idx < 0 || !next) return false;
     const hops = [...prefix.map((h) => ({ ...h })), { r: next.r, c: next.c }];
     if (!this.enterCell(ce.anchor, hops)) return false;
@@ -19498,6 +20194,2150 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]) } };
     this.refreshSelection();
     return true;
+  }
+  // ───────────── tabelas: seleção de células, operações e API ─────────────
+  /** Seleção de células (retângulo da grade) — null = cursor/seleção de texto. */
+  tableSel = null;
+  /** Estilos de tabela internos acrescentados ao documento (vão para o styles.xml ao salvar). */
+  pendingTableStyles = /* @__PURE__ */ new Map();
+  /** Formatação do documento novo (sem styles.xml) — os estilos de tabela usados. */
+  newFormatting = null;
+  /** Folha de estilos que o motor lê (a do documento ou a do documento novo). */
+  formattingForTables() {
+    const f = this.fullDoc ? this.fullDoc.formatting ??= emptyFormatting() : this.newFormatting ??= emptyFormatting();
+    if (!Object.keys(f.theme.colors).length) f.theme.colors = this.documentThemeColors();
+    return f;
+  }
+  /** id do estilo de tabela (pelo nome inglês) neste documento; a definição
+   *  que faltar (interno e o Normal Table em que se baseia) entra no
+   *  styles.xml pela folha de estilos do editor (DocStyles: desfaz junto). */
+  tableStyleId(name) {
+    const pending2 = /* @__PURE__ */ new Map();
+    const id = ensureTableStyle(this.formattingForTables(), name, pending2, this.builtinTableStyles.length ? this.builtinTableStyles : void 0);
+    if (!pending2.size) return id;
+    if (this.stylesEditable() && this.docStyles.xml !== null) {
+      let xml = this.docStyles.base();
+      for (const [sid, sx] of pending2) xml = putStyle(xml, sid, sx);
+      this.commitStyles(xml);
+    } else for (const [sid, sx] of pending2) this.pendingTableStyles.set(sid, sx);
+    return id;
+  }
+  /** Tabela no fim do caminho: `path` = passos até a célula que CONTÉM a tabela (vazio = do corpo). */
+  tableAt(anchor, path) {
+    let t = this.bodyState().tableAnchors[anchor]?.table ?? null;
+    for (const h of path) {
+      if (!t) return null;
+      const cell = cellAtGrid(t, h.r, h.c);
+      const blk = cell ? cellBlocks(cell)[h.b ?? -1] : void 0;
+      t = blk?.type === "table" ? blk : null;
+    }
+    return t;
+  }
+  /** Alvo das operações de tabela: a seleção de células ou a célula do cursor. */
+  tableTarget() {
+    if (this.hfEdit || this.tbEdit || !this.model) return null;
+    const ts = this.tableSel;
+    if (ts) {
+      const table2 = this.tableAt(ts.anchor, ts.path);
+      return table2 ? { anchor: ts.anchor, path: ts.path, table: table2, rect: ts.rect } : null;
+    }
+    const ce = this.cellEdit;
+    if (!ce) return null;
+    const path = ce.hops.slice(0, -1);
+    const me = ce.hops[ce.hops.length - 1];
+    const table = this.tableAt(ce.anchor, path);
+    if (!table) return null;
+    return { anchor: ce.anchor, path, table, rect: table_ops_exports.normRect(table_ops_exports.mapTable(table), { r1: me.r, c1: me.c, r2: me.r, c2: me.c }) };
+  }
+  /** Entra na célula (linha r, coluna da grade c); cursor no início ou no fim. */
+  enterCellAt(anchor, path, r, c, atEnd = false, paint = true) {
+    const t = this.tableAt(anchor, path);
+    if (!t || !t.rows.length) return false;
+    const m = table_ops_exports.mapTable(t);
+    const ri = Math.max(0, Math.min(r, t.rows.length - 1));
+    const g = table_ops_exports.cellAt(m, ri, c) ?? m.rows[ri]?.[m.rows[ri].length - 1];
+    if (!g) return false;
+    const cell = g.cell;
+    const last = Math.max(0, cell.paragraphs.length - 1);
+    const caret = atEnd && cell.paragraphs[last] ? { para: last, offset: paraLength(cell.paragraphs[last]) } : void 0;
+    return this.enterCell(anchor, [...path.map((h) => ({ ...h })), { r: g.ri, c: g.col }], caret, paint);
+  }
+  /** Referência do motor da tabela ("b3", "b3/r0/c1/b2"…) — caixas de célula e linhas. */
+  tableRefOf(anchor, path) {
+    const eng = this.eng;
+    if (!eng) return null;
+    const bi = eng.doc.origins.findIndex((o) => o.kind === "table" && o.anchor === anchor);
+    if (bi < 0) return null;
+    return `b${bi}` + path.map((h) => `/r${h.r}/c${h.c}/b${h.b ?? 0}`).join("");
+  }
+  /** Caixas das células da tabela no layout atual: { página, linha, coluna, caixa }. */
+  tableBoxes(anchor, path) {
+    const pre = this.tableRefOf(anchor, path);
+    const out = [];
+    if (!pre || !this.eng) return out;
+    this.eng.result.pages.forEach((p, pg) => {
+      for (const box of p.cells ?? []) {
+        if (!box.ref.startsWith(pre + "/r")) continue;
+        const m = /^\/r(\d+)\/c(\d+)$/.exec(box.ref.slice(pre.length));
+        if (m) out.push({ pg, r: +m[1], c: +m[2], box });
+      }
+    });
+    return out;
+  }
+  /** Altura exibida de cada linha r1..r2 (soma das partes em cada página). */
+  rowHeights(anchor, path, r1, r2) {
+    const boxes = this.tableBoxes(anchor, path);
+    const out = [];
+    for (let r = r1; r <= r2; r++) {
+      const perPage = /* @__PURE__ */ new Map();
+      for (const b of boxes) if (b.r === r) perPage.set(b.pg, Math.max(perPage.get(b.pg) ?? 0, b.box.h));
+      out.push([...perPage.values()].reduce((a, b) => a + b, 0));
+    }
+    return out;
+  }
+  /** Executa uma operação de tabela: UM passo de desfazer, fora da célula (o
+   *  corpo é o modelo durante a operação), layout completo e o resultado. */
+  editTable(fn) {
+    if (!this.model || this.locked()) return false;
+    const tg = this.tableTarget();
+    if (!tg) return false;
+    this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    const after = fn(tg);
+    if (after === false) {
+      this.undoStack.pop();
+      this.refresh();
+      return false;
+    }
+    table_ops_exports.syncLegacy(tg.table);
+    this.afterTableEdit(tg.anchor, tg.path, after);
+    return true;
+  }
+  /** Cursor/seleção depois de uma operação de tabela. */
+  afterTableEdit(anchor, path, a) {
+    this.tableSel = null;
+    this.pendingProps = null;
+    if (a.body) {
+      if (this.cellEdit) this.exitCell();
+      this.selection = { anchor: a.body, focus: a.body };
+    } else if (a.enter) {
+      this.enterCellAt(anchor, a.enter.path, a.enter.r, a.enter.c, a.enter.end, false);
+    } else if (a.select) {
+      const r = a.select;
+      this.enterCellAt(anchor, path, r.r1, r.c1, false, false);
+      const t = this.tableAt(anchor, path);
+      const n = t ? table_ops_exports.cellsIn(table_ops_exports.mapTable(t), r).filter((g) => table_ops_exports.vMergeOf(g.cell) !== "continue").length : 0;
+      if (n > 1) this.tableSel = { anchor, path, rect: r, origin: { r: r.r1, c: r.c1 } };
+      else if (this.model) {
+        const ps = this.model.paragraphs;
+        this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]) } };
+      }
+    } else if (a.caret) {
+      this.enterCellAt(anchor, path, a.caret.r, a.caret.c, a.caret.end, false);
+    }
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Remove a tabela (do corpo ou da célula que a contém). */
+  removeTableAt(anchor, path) {
+    if (!path.length) {
+      const a = this.tableAnchors[anchor];
+      this.tableAnchors.splice(anchor, 1);
+      const body = this.model.paragraphs;
+      return { body: { para: Math.min(a.beforePara, body.length - 1), offset: 0 } };
+    }
+    const outer = this.tableAt(anchor, path.slice(0, -1));
+    const h = path[path.length - 1];
+    const cell = outer ? cellAtGrid(outer, h.r, h.c) : null;
+    if (cell) table_ops_exports.setCellContent(cell, table_ops_exports.cellContent(cell).filter((_, i) => i !== h.b));
+    return { enter: { path: path.slice(0, -1), r: h.r, c: h.c } };
+  }
+  /** Cursor logo depois da tabela (no corpo, ou na célula de fora). */
+  afterTableTarget(anchor, path) {
+    if (!path.length) {
+      const a = this.tableAnchors[anchor];
+      return { body: { para: Math.min(a.beforePara, this.model.paragraphs.length - 1), offset: 0 } };
+    }
+    const h = path[path.length - 1];
+    return { enter: { path: path.slice(0, -1), r: h.r, c: h.c, end: true } };
+  }
+  /** Recuo esquerdo efetivo do parágrafo (direto ou do estilo). */
+  paraIndent(p) {
+    return p.props.indentLeftTwips ?? this.styleOf(p)?.indentLeftTwips ?? 0;
+  }
+  /**
+   * Insere uma tabela no cursor, como o botão Inserir Tabela: estilo "Tabela com
+   * grade", colunas iguais na largura disponível e o cursor na 1ª célula. No
+   * meio de um parágrafo, ele é dividido; dentro de uma célula, a tabela fica
+   * aninhada. `autofit`/`colWidthTwips` = opções do diálogo Inserir Tabela.
+   */
+  insertTable(rows, cols, opts = {}) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return;
+    rows = Math.max(1, Math.min(32767, Math.floor(rows) || 1));
+    cols = Math.max(1, Math.min(63, Math.floor(cols) || 1));
+    this.snapshot();
+    this.tableSel = null;
+    if (this.hasSelection()) {
+      const pos = this.deleteSelection();
+      this.selection = { anchor: pos, focus: pos };
+    }
+    const styleId = this.tableStyleId("Table Grid") ?? null;
+    let { para, offset } = this.selection.focus;
+    if (offset > 0) {
+      splitParagraph2(this.model, { para, offset });
+      this.shiftAnchors(para, 1);
+      para++;
+    }
+    const ce = this.cellEdit;
+    if (ce) {
+      const me = ce.hops[ce.hops.length - 1];
+      const path = ce.hops.slice(0, -1);
+      const target = ce.cell.paragraphs[para];
+      this.exitCell();
+      const outer = this.tableAt(ce.anchor, path);
+      const g = outer ? table_ops_exports.cellAt(table_ops_exports.mapTable(outer), me.r, me.c) : void 0;
+      if (!outer || !g) return;
+      const avail = table_ops_exports.gridWidth(outer, g.col, g.span) - 216;
+      const t2 = table_ops_exports.newTable(rows, cols, { availTwips: avail, styleId, autofit: opts.autofit, colTwips: opts.colWidthTwips });
+      const blocks = [...table_ops_exports.cellContent(g.cell)];
+      let bi = blocks.findIndex((b) => b.type === "paragraph" && b.paragraph === target);
+      if (bi < 0) bi = blocks.length - 1;
+      blocks.splice(bi, 0, t2);
+      table_ops_exports.setCellContent(g.cell, blocks);
+      this.enterCellAt(ce.anchor, [...path, { r: me.r, c: me.c, b: bi }], 0, 0, false, false);
+      this.refresh();
+      return;
+    }
+    const p = this.model.paragraphs[para];
+    const ind = this.paraIndent(p);
+    const t = table_ops_exports.newTable(rows, cols, {
+      availTwips: this.contentWidthTwips() - ind,
+      indTwips: ind > 0 ? ind : void 0,
+      styleId,
+      autofit: opts.autofit,
+      colTwips: opts.colWidthTwips
+    });
+    let at = this.tableAnchors.findIndex((a) => a.beforePara > para);
+    if (at < 0) at = this.tableAnchors.length;
+    this.tableAnchors.splice(at, 0, { beforePara: para, table: t });
+    this.enterCellAt(at, [], 0, 0, false, false);
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  insertRowAbove() {
+    this.editTable((tg) => ({ select: table_ops_exports.insertRows(tg.table, tg.rect, "above") }));
+  }
+  insertRowBelow() {
+    this.editTable((tg) => ({ select: table_ops_exports.insertRows(tg.table, tg.rect, "below") }));
+  }
+  insertColumnLeft() {
+    this.editTable((tg) => ({ select: table_ops_exports.insertColumns(tg.table, tg.rect, "left") }));
+  }
+  insertColumnRight() {
+    this.editTable((tg) => ({ select: table_ops_exports.insertColumns(tg.table, tg.rect, "right") }));
+  }
+  /** Inserir Células: deslocar à direita/para baixo, ou linha/coluna inteira. */
+  insertCells(shift = "down") {
+    if (shift === "row") {
+      this.insertRowAbove();
+      return;
+    }
+    if (shift === "column") {
+      this.insertColumnLeft();
+      return;
+    }
+    this.editTable((tg) => ({ select: table_ops_exports.insertCells(tg.table, tg.rect, shift) }));
+  }
+  deleteRow() {
+    this.editTable((tg) => {
+      const { r1, r2 } = tg.rect;
+      if (!table_ops_exports.deleteRows(tg.table, r1, r2)) return this.removeTableAt(tg.anchor, tg.path);
+      return r1 < tg.table.rows.length ? { caret: { r: r1, c: 0 } } : this.afterTableTarget(tg.anchor, tg.path);
+    });
+  }
+  deleteColumn() {
+    this.editTable((tg) => {
+      if (!table_ops_exports.deleteColumns(tg.table, tg.rect.c1, tg.rect.c2)) return this.removeTableAt(tg.anchor, tg.path);
+      return { caret: { r: 0, c: Math.min(tg.rect.c1, table_ops_exports.mapTable(tg.table).nCols - 1) } };
+    });
+  }
+  deleteTable() {
+    this.editTable((tg) => this.removeTableAt(tg.anchor, tg.path));
+  }
+  /** Excluir Células: deslocar à esquerda/para cima, ou linha/coluna inteira. */
+  deleteCells(shift = "left") {
+    if (shift === "row") {
+      this.deleteRow();
+      return;
+    }
+    if (shift === "column") {
+      this.deleteColumn();
+      return;
+    }
+    this.editTable((tg) => {
+      table_ops_exports.deleteCells(tg.table, tg.rect, shift);
+      return { caret: { r: tg.rect.r1, c: tg.rect.c1 } };
+    });
+  }
+  /** Espaçamento do Normal sem o do estilo de tabela (peculiaridade medida da mescla vertical). */
+  normalSpacing() {
+    const d = this.docDefaults().para;
+    return { after: d.spaceAfterTwips, line: d.lineTwentieths };
+  }
+  mergeCells() {
+    this.editTable((tg) => {
+      if (!table_ops_exports.canMerge(tg.table, tg.rect)) return false;
+      return { select: table_ops_exports.mergeCells(tg.table, tg.rect, { normalSpacing: this.normalSpacing() }) };
+    });
+  }
+  /** Dividir Células em `cols` × `rows` (padrão do diálogo: 2 × 1, mesclar antes). */
+  splitCell(cols = 2, rows = 1, mergeFirst = true) {
+    this.editTable((tg) => ({
+      select: table_ops_exports.splitCells(tg.table, tg.rect, cols, rows, {
+        mergeFirst,
+        normalSpacing: this.normalSpacing(),
+        rowHeights: this.rowHeights(tg.anchor, tg.path, tg.rect.r1, tg.rect.r2)
+      })
+    }));
+  }
+  /** Dividir Tabela antes da linha do cursor (parágrafo vazio entre as partes;
+   *  na 1ª linha, o parágrafo entra antes da tabela, como Ctrl+Shift+Enter). */
+  splitTable() {
+    this.editTable((tg) => {
+      const r = tg.rect.r1;
+      const empty = () => ({ runs: [], props: {} });
+      if (!tg.path.length) {
+        const a = this.tableAnchors[tg.anchor];
+        const k = a.beforePara;
+        this.model.paragraphs.splice(k, 0, empty());
+        this.shiftAnchors(k - 1, 1);
+        if (r === 0) return { body: { para: k, offset: 0 } };
+        a.beforePara = k;
+        const t2 = table_ops_exports.splitTable(tg.table, r);
+        if (t2) this.tableAnchors.splice(tg.anchor + 1, 0, { beforePara: k + 1, table: t2 });
+        return { body: { para: k, offset: 0 } };
+      }
+      const h = tg.path[tg.path.length - 1];
+      const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
+      const cell = outer ? cellAtGrid(outer, h.r, h.c) : null;
+      if (!cell) return false;
+      const blocks = [...table_ops_exports.cellContent(cell)];
+      const bi = h.b ?? 0;
+      if (r === 0) blocks.splice(bi, 0, { type: "paragraph", paragraph: empty() });
+      else {
+        const t2 = table_ops_exports.splitTable(tg.table, r);
+        blocks.splice(bi + 1, 0, { type: "paragraph", paragraph: empty() }, ...t2 ? [t2] : []);
+      }
+      table_ops_exports.setCellContent(cell, blocks);
+      return { enter: { path: tg.path.slice(0, -1), r: h.r, c: h.c } };
+    });
+  }
+  /** Selecionar célula / linha / coluna / tabela (como o menu Selecionar). */
+  selectCell() {
+    this.selectTablePart("cell");
+  }
+  selectRow() {
+    this.selectTablePart("row");
+  }
+  selectColumn() {
+    this.selectTablePart("column");
+  }
+  selectTable() {
+    this.selectTablePart("table");
+  }
+  selectTablePart(which) {
+    const tg = this.tableTarget();
+    if (!tg) return;
+    const m = table_ops_exports.mapTable(tg.table);
+    let r = tg.rect;
+    if (which === "row") r = { ...r, c1: 0, c2: m.nCols - 1 };
+    else if (which === "column") r = { ...r, r1: 0, r2: tg.table.rows.length - 1 };
+    else if (which === "table") r = table_ops_exports.wholeRect(tg.table);
+    r = table_ops_exports.normRect(m, r);
+    if (!this.cellEdit) this.enterCellAt(tg.anchor, tg.path, r.r1, r.c1, false, false);
+    this.tableSel = { anchor: tg.anchor, path: tg.path, rect: r, origin: { r: r.r1, c: r.c1 } };
+    if (which === "cell" && this.model) {
+      const ps = this.model.paragraphs;
+      this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]) } };
+    }
+    this.refreshSelection();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Distribuir Linhas: as selecionadas (ou todas) com a média das alturas exibidas. */
+  distributeRows() {
+    this.editTable((tg) => {
+      let { r1, r2 } = tg.rect;
+      if (r1 === r2) {
+        r1 = 0;
+        r2 = tg.table.rows.length - 1;
+      }
+      table_ops_exports.distributeRows(tg.table, r1, r2, this.rowHeights(tg.anchor, tg.path, r1, r2));
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Distribuir Colunas: as selecionadas (com o cursor numa célula, todas). */
+  distributeColumns() {
+    this.editTable((tg) => {
+      let { c1, c2 } = tg.rect;
+      if (c1 === c2) {
+        c1 = 0;
+        c2 = table_ops_exports.mapTable(tg.table).nCols - 1;
+      }
+      table_ops_exports.distributeColumns(tg.table, c1, c2);
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Altura das linhas selecionadas (twips; 0 = automática). */
+  setRowHeight(twips, rule = "atLeast") {
+    this.editTable((tg) => {
+      table_ops_exports.setRowHeight(tg.table, tg.rect.r1, tg.rect.r2, twips, rule);
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Largura das colunas selecionadas (twips) — a tabela alarga/encolhe, como no Word. */
+  setColumnWidth(twips) {
+    if (!(twips > 0)) return;
+    this.editTable((tg) => {
+      table_ops_exports.setColumnWidth(tg.table, tg.rect.c1, tg.rect.c2, twips);
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** AutoAjuste: ao conteúdo, à janela ou largura fixa da coluna. */
+  autoFitTable(mode) {
+    this.editTable((tg) => {
+      const ind = tg.table.tblPr?.tblInd?.type === "dxa" ? tg.table.tblPr.tblInd.w : 0;
+      table_ops_exports.autoFit(tg.table, mode, this.contentWidthTwips() - ind);
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Alinhamento na célula (os 9 botões): horizontal nos parágrafos + vAlign. */
+  setCellAlignment(h, v) {
+    this.editTable((tg) => {
+      const m = table_ops_exports.mapTable(tg.table);
+      table_ops_exports.setCellProps(tg.table, tg.rect, { vAlign: v === "top" ? void 0 : v });
+      for (const g of table_ops_exports.cellsIn(m, table_ops_exports.normRect(m, tg.rect))) {
+        for (const p of g.cell.paragraphs) {
+          const st = this.styleOf(p)?.alignment ?? "left";
+          if (h === "left" && st === "left") delete p.props.alignment;
+          else p.props.alignment = h;
+        }
+      }
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Direção do texto das células: vertical acrescenta não-dividir e altura
+   *  mínima de 2 cm na linha e recuo de 0,2 cm nos parágrafos (medido). */
+  setTextDirection(dir) {
+    this.editTable((tg) => {
+      table_ops_exports.setTextDirection(tg.table, tg.rect, dir);
+      if (dir !== "lrTb") {
+        const m = table_ops_exports.mapTable(tg.table);
+        for (const g of table_ops_exports.cellsIn(m, table_ops_exports.normRect(m, tg.rect))) {
+          for (const p of g.cell.paragraphs) {
+            p.props.indentLeftTwips = 113;
+            p.props.indentRightTwips = 113;
+          }
+        }
+      }
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** O botão Direção do Texto: horizontal → para baixo (tbRl) → para cima (btLr) → horizontal. */
+  cycleTextDirection() {
+    const s = this.getTableState();
+    if (!s) return;
+    this.setTextDirection(s.textDirection === "tbRl" ? "btLr" : s.textDirection === "btLr" ? "lrTb" : "tbRl");
+  }
+  /** Repetir Linhas de Cabeçalho: liga/desliga nas linhas da 1ª até a seleção. */
+  toggleRepeatHeaderRows() {
+    this.editTable((tg) => {
+      const on = !this.getTableState()?.headerRow;
+      table_ops_exports.setRowProps(tg.table, 0, tg.rect.r2, { tblHeader: on ? true : void 0 });
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Margens padrão das células (twips), espaçamento entre células e redimensionar automaticamente. */
+  setTableCellMargins(m, spacingTwips2, autoResize) {
+    this.editTable((tg) => {
+      const w = (v) => v === void 0 ? void 0 : { w: Math.round(v), type: "dxa" };
+      const mar = { top: w(m.top), left: w(m.left), bottom: w(m.bottom), right: w(m.right) };
+      table_ops_exports.setTableProps(tg.table, { tblCellMar: Object.values(mar).some(Boolean) ? JSON.parse(JSON.stringify(mar)) : void 0 });
+      if (spacingTwips2 !== void 0) table_ops_exports.setCellSpacing(tg.table, spacingTwips2);
+      if (autoResize !== void 0) table_ops_exports.setTableProps(tg.table, { tblLayout: autoResize ? void 0 : "fixed" });
+      return { select: { ...tg.rect } };
+    });
+  }
+  /** Converter em Texto: a tabela vira parágrafos (separador: tabulação, parágrafo, ; ou outro). */
+  // ───────────────── classificar ─────────────────
+  /** O que o Classificar ordenaria agora: linhas da tabela (do cursor/seleção) ou parágrafos. */
+  sortInfo(separator) {
+    if (!this.model || this.locked()) return null;
+    const tg = this.tableTarget();
+    if (tg) {
+      const t = tg.table, m = table_ops_exports.mapTable(t);
+      const rows = this.tableSel ? [tg.rect.r1, tg.rect.r2] : [0, t.rows.length - 1];
+      const header = !!t.rows[rows[0]]?.trPr?.tblHeader;
+      const cols = Array.from({ length: m.nCols }, (_, c) => {
+        const g = table_ops_exports.cellAt(m, rows[0], c);
+        const text = g && g.col === c ? cellText(g.cell).trim() : "";
+        return { text, guess: guessSortType(t.rows.slice(rows[0] + 1, rows[1] + 1).map((_2, i) => {
+          const h = table_ops_exports.cellAt(m, rows[0] + 1 + i, c);
+          return h ? cellText(h.cell) : "";
+        })) };
+      });
+      return { kind: "table", columns: cols, header, mergeError: !canSortTable(t) };
+    }
+    const { start, end } = normalizeRange(this.range());
+    const ps = this.hasSelection() ? this.model.paragraphs.slice(start.para, end.para + 1) : this.model.paragraphs;
+    const ch = separator === "comma" ? "," : separator && typeof separator === "object" ? separator.char : "	";
+    const nf = Math.max(1, ...ps.map((p) => paraText(p).split(ch).length));
+    const field = (k) => ps.map((p) => k < 0 ? paraText(p) : paraText(p).split(ch)[k] ?? "");
+    return {
+      kind: "paragraphs",
+      header: false,
+      mergeError: false,
+      columns: nf > 1 ? Array.from({ length: nf }, (_, k) => ({ text: "", guess: guessSortType(field(k).slice(1)) })) : [{ text: "", guess: guessSortType(field(-1)) }]
+    };
+  }
+  /**
+   * Classificar: as linhas da tabela do cursor (todas, ou as da seleção de
+   * células) ou os parágrafos selecionados (sem seleção: todos). Colunas
+   * contam a partir de 0 (na tabela, colunas da grade; nos parágrafos com
+   * separador, campos). Devolve false se nada mudou ou se a tabela tem células
+   * mescladas (o Word recusa) — o evento uw-sort-error avisa.
+   */
+  sort(req) {
+    if (!this.model || this.locked() || !req.keys.length) return false;
+    const opts = {
+      keys: req.keys.map((k) => ({ col: k.column, type: k.type, desc: k.desc })),
+      caseSensitive: req.caseSensitive,
+      compare: compareText,
+      separator: req.separator
+    };
+    const tg = this.tableTarget();
+    if (tg) {
+      if (!canSortTable(tg.table)) {
+        this.dispatchEvent(new CustomEvent("uw-sort-error", { detail: { reason: "merged", message: SORT_MERGED_ERROR } }));
+        return false;
+      }
+      const sel = !!this.tableSel;
+      return this.editTable((t) => {
+        let r1 = sel ? t.rect.r1 : 0;
+        const r2 = sel ? t.rect.r2 : t.table.rows.length - 1;
+        if (req.header) r1++;
+        if (r1 >= r2) return false;
+        sortTable(t.table, r1, r2, opts);
+        return sel ? { select: { ...t.rect } } : { caret: { r: 0, c: 0 } };
+      });
+    }
+    const m = this.model;
+    const { start, end } = normalizeRange(this.range());
+    const a = this.hasSelection() ? start.para : 0;
+    const b = this.hasSelection() ? end.offset === 0 && end.para > start.para ? end.para - 1 : end.para : m.paragraphs.length - 1;
+    if (b <= a) return false;
+    if (!this.cellEdit && !this.hfEdit && !this.tbEdit && this.tableAnchors.some((t) => t.beforePara > a && t.beforePara <= b)) return false;
+    const ps = m.paragraphs.slice(a, b + 1);
+    const order = sortParagraphsOrder(ps, { ...opts, keys: opts.keys.map((k) => ({ ...k, col: req.separator ? k.col + 1 : 0 })) });
+    if (order.every((v, i) => v === i)) return false;
+    this.snapshot();
+    m.paragraphs.splice(a, ps.length, ...order.map((i) => ps[i]));
+    this.selection = { anchor: { para: a, offset: 0 }, focus: { para: b, offset: paraLength(m.paragraphs[b]) } };
+    this.refresh();
+    return true;
+  }
+  convertTableToText(separator = "tab") {
+    this.editTable((tg) => {
+      const paras = table_ops_exports.tableToText(tg.table, separator);
+      if (!paras.length) paras.push({ runs: [], props: {} });
+      for (const p of paras) this.syncRunRPr([p]);
+      if (!tg.path.length) {
+        const a = this.tableAnchors[tg.anchor];
+        const k = a.beforePara;
+        this.tableAnchors.splice(tg.anchor, 1);
+        this.model.paragraphs.splice(k, 0, ...paras);
+        this.shiftAnchors(k - 1, paras.length);
+        const last = k + paras.length - 1;
+        this.tableSel = null;
+        this.selection = { anchor: { para: k, offset: 0 }, focus: { para: last, offset: paraLength(this.model.paragraphs[last]) } };
+        return { keep: true };
+      }
+      const h = tg.path[tg.path.length - 1];
+      const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
+      const cell = outer ? cellAtGrid(outer, h.r, h.c) : null;
+      if (!cell) return false;
+      const blocks = [...table_ops_exports.cellContent(cell)];
+      blocks.splice(h.b ?? 0, 1, ...paras.map((paragraph) => ({ type: "paragraph", paragraph })));
+      table_ops_exports.setCellContent(cell, blocks);
+      return { enter: { path: tg.path.slice(0, -1), r: h.r, c: h.c } };
+    });
+  }
+  /**
+   * Converter Texto em Tabela: os parágrafos da seleção viram linhas (cortadas
+   * no separador; com separador de parágrafo, `cols` por linha). Sem separador,
+   * detecta como o diálogo (tabulação, ponto e vírgula, parágrafos). A tabela
+   * nova fica selecionada. Devolve false sem seleção no corpo.
+   */
+  convertTextToTable(opts = {}) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.cellEdit) return false;
+    const { start, end } = normalizeRange(this.range());
+    const p1 = start.para;
+    const p2 = end.offset === 0 && end.para > start.para ? end.para - 1 : end.para;
+    const paras = this.model.paragraphs.slice(p1, p2 + 1);
+    if (!paras.length) return false;
+    const sep = opts.separator ?? table_ops_exports.guessSeparator(paras);
+    this.snapshot();
+    const ind = this.paraIndent(paras[0]);
+    const t = table_ops_exports.textToTable(paras, sep, {
+      cols: opts.cols ?? (sep === "paragraph" ? 1 : table_ops_exports.columnsFor(paras, sep)),
+      availTwips: this.contentWidthTwips() - ind,
+      indTwips: ind > 0 ? ind : void 0,
+      styleId: this.tableStyleId("Table Grid") ?? null,
+      autofit: opts.autofit,
+      colTwips: opts.colWidthTwips
+    });
+    const n = p2 - p1 + 1;
+    this.model.paragraphs.splice(p1, n);
+    if (p1 >= this.model.paragraphs.length) this.model.paragraphs.push({ runs: [], props: {} });
+    for (const a of this.tableAnchors) {
+      if (a.beforePara > p1 && a.beforePara <= p2) a.beforePara = p1;
+      else if (a.beforePara > p2) a.beforePara -= n;
+    }
+    for (const s of this.sectionStarts) if (s.startPara > p2) s.startPara -= n;
+    let at = this.tableAnchors.findIndex((a) => a.beforePara > p1);
+    if (at < 0) at = this.tableAnchors.length;
+    this.tableAnchors.splice(at, 0, { beforePara: p1, table: t });
+    this.syncTableRPr(t);
+    this.afterTableEdit(at, [], { select: table_ops_exports.wholeRect(t) });
+    return true;
+  }
+  // ───────────── tabelas: Design da Tabela ─────────────
+  /** Estilos internos carregados (sob demanda). */
+  builtinTableStyles = [];
+  builtinLoad = null;
+  /**
+   * Estilos para a galeria Estilos de Tabela, na ordem do Word: os do
+   * documento que não são internos (Personalizado) e os internos — os modernos
+   * (Tabelas Simples, de Grade, de Lista) ou, em documento em modo de
+   * compatibilidade, os do Word 2010.
+   */
+  async tableStyleList() {
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    return this.tableStyleListNow();
+  }
+  /** A mesma lista, já (null enquanto os estilos internos carregam — ao
+   *  terminar, uw-styles-change avisa as barras). */
+  tableStyleListNow() {
+    if (!this.builtinTableStyles.length) {
+      this.builtinLoad ??= loadBuiltinTableStyles().then((b) => {
+        this.builtinTableStyles = b;
+        this.dispatchEvent(new CustomEvent("uw-styles-change"));
+      });
+      return null;
+    }
+    const f = this.formattingForTables();
+    const builtinNames = new Set(this.builtinTableStyles.map((b) => b.name.toLowerCase()));
+    const out = [];
+    for (const s of Object.values(f.styles.styles)) {
+      if (s.type !== "table" || !s.name || builtinNames.has(s.name.toLowerCase())) continue;
+      out.push({ name: s.name, label: { en: s.name, pt: s.name }, group: "custom", id: s.styleId });
+    }
+    const modern = (f.settings?.compatibilityMode ?? 15) >= 15;
+    const en = (n) => n.replace(/ Accent (\d)$/, " - Accent $1");
+    for (const b of this.builtinTableStyles) {
+      if (b.name === "Normal Table" || b.modern !== modern) continue;
+      const group = /^Grid Table \d/.test(b.name) ? "grid" : /^List Table/.test(b.name) ? "list" : "plain";
+      out.push({ name: b.name, label: { en: en(b.name), pt: b.local }, group, id: styleIdByName(f, b.name) });
+    }
+    const rank = (i) => {
+      if (i.group !== "plain") return 0;
+      return i.name === "Table Grid" ? 0 : i.name === "Grid Table Light" ? 1 : 2;
+    };
+    return out.sort((a, b) => a.group === b.group && a.group === "plain" ? rank(a) - rank(b) || a.name.localeCompare(b.name) : 0);
+  }
+  /** Aplica o estilo de tabela (nome inglês do w:name; null = Limpar). Como o
+   *  Word, apaga o sombreamento direto das células; a formatação do texto fica. */
+  async setTableStyle(name) {
+    if (name && !this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    this.editTable((tg) => {
+      const id = name ? this.tableStyleId(name) : void 0;
+      if (name && !id) return false;
+      table_ops_exports.setTableProps(tg.table, { tblStyle: id });
+      for (const row of tg.table.rows) {
+        if (row.trPr) delete row.trPr.cnfStyle;
+        for (const c of row.cells) if (c.tcPr) {
+          delete c.tcPr.shd;
+          delete c.tcPr.cnfStyle;
+          table_ops_exports.syncLegacyCell(c);
+        }
+      }
+      return { select: this.tableSel ? { ...tg.rect } : void 0, caret: this.tableSel ? void 0 : { r: tg.rect.r1, c: tg.rect.c1 } };
+    });
+  }
+  /** Opções de Estilo de Tabela (as caixas do Design da Tabela). */
+  setTableStyleOptions(o) {
+    this.editTable((tg) => {
+      const patch = {};
+      if (o.headerRow !== void 0) patch.firstRow = o.headerRow;
+      if (o.totalRow !== void 0) patch.lastRow = o.totalRow;
+      if (o.firstColumn !== void 0) patch.firstColumn = o.firstColumn;
+      if (o.lastColumn !== void 0) patch.lastColumn = o.lastColumn;
+      if (o.bandedRows !== void 0) patch.noHBand = !o.bandedRows;
+      if (o.bandedColumns !== void 0) patch.noVBand = !o.bandedColumns;
+      table_ops_exports.setLook(tg.table, patch);
+      for (const row of tg.table.rows) {
+        if (row.trPr) delete row.trPr.cnfStyle;
+        for (const c of row.cells) if (c.tcPr) delete c.tcPr.cnfStyle;
+      }
+      return this.keepTableSel(tg);
+    });
+  }
+  /** Cores do tema do documento (chaves do theme1.xml; sem tema, o do Office 2023) — paletas da interface. */
+  documentThemeColors() {
+    const c = (this.fullDoc?.formatting ?? this.newFormatting)?.theme?.colors ?? {};
+    return Object.keys(c).length ? { ...c } : {
+      dk1: "000000",
+      lt1: "FFFFFF",
+      dk2: "0E2841",
+      lt2: "E8E8E8",
+      accent1: "156082",
+      accent2: "E97132",
+      accent3: "196B24",
+      accent4: "0F9ED5",
+      accent5: "A02B93",
+      accent6: "4EA72E",
+      hlink: "467886",
+      folHlink: "96607D"
+    };
+  }
+  /** Mantém a seleção (de células ou o cursor) depois de uma operação que não muda a estrutura. */
+  keepTableSel(tg) {
+    return this.tableSel ? { select: { ...tg.rect } } : { caret: { r: tg.rect.r1, c: tg.rect.c1 } };
+  }
+  /**
+   * Sombreamento das células: "RRGGBB", uma cor do tema
+   * ({ themeColor: 'accent1', tint?: '33', shade?: 'BF' } — grava themeFill como
+   * o Word) ou null (Sem Cor). Tabela inteira selecionada: também o tblPr.
+   */
+  setCellShading(color, pattern, applyTo) {
+    this.editTable((tg) => {
+      let shd = null;
+      const pv = pattern && pattern.val !== "clear" ? pattern : null;
+      const pat = { val: pv?.val ?? "clear", color: pv?.color && pv.color !== "auto" ? pv.color.replace(/^#/, "").toUpperCase() : "auto" };
+      if (typeof color === "string") shd = { ...pat, fill: color.replace(/^#/, "").toUpperCase() };
+      else if (color) {
+        const f = this.formattingForTables();
+        shd = {
+          ...pat,
+          fill: themeHex(f.theme?.colors ?? {}, color.themeColor, color.tint, color.shade),
+          themeFill: color.themeColor,
+          ...color.tint ? { themeFillTint: color.tint } : {},
+          ...color.shade ? { themeFillShade: color.shade } : {}
+        };
+      } else if (pv) shd = { ...pat, fill: "auto" };
+      const whole = applyTo === "table" || applyTo === void 0 && this.isWholeTable(tg);
+      table_ops_exports.setShading(tg.table, whole ? table_ops_exports.wholeRect(tg.table) : tg.rect, shd, whole);
+      return this.keepTableSel(tg);
+    });
+  }
+  /**
+   * Bordas lado a lado (Bordas e Sombreamento): cada lado com a sua linha
+   * (null = sem borda; ausente = como está), num passo de desfazer. 'table' =
+   * a tabela toda (w:tblBorders), 'cell' = as células selecionadas.
+   */
+  setTableBorderSides(sides, applyTo = "cell") {
+    this.editTable((tg) => {
+      const whole = applyTo === "table";
+      const rect = whole ? table_ops_exports.wholeRect(tg.table) : tg.rect;
+      const style = tg.table.tblPr?.tblStyle ? this.formattingForTables().styles.styles[tg.table.tblPr.tblStyle] : void 0;
+      for (const [side, spec] of Object.entries(sides)) {
+        if (spec === void 0) continue;
+        table_ops_exports.setBorders(tg.table, rect, side, spec, { wholeTable: whole, styleBorders: style?.tblPr?.tblBorders });
+      }
+      return this.keepTableSel(tg);
+    });
+  }
+  /** Bordas do parágrafo (Bordas e Sombreamento, Aplicar a: Parágrafo); null = nenhuma. */
+  setParagraphBorders(sides) {
+    if (!sides) {
+      this.formatPara({ borders: void 0, boxBorder: void 0 });
+      return;
+    }
+    const cur = this.model?.paragraphs[this.selection.focus.para]?.props.borders ?? {};
+    const out = { ...cur };
+    for (const [side, b] of Object.entries(sides)) {
+      if (b === void 0) continue;
+      if (!b || b.val === "none" || b.val === "nil") delete out[side];
+      else out[side] = { style: b.val, sizeEighthPt: b.sz ?? 4, spacePt: b.space ?? (side === "top" || side === "bottom" ? 1 : 4), ...b.color && b.color !== "auto" ? { color: b.color } : {} };
+    }
+    this.formatPara({ borders: Object.keys(out).length ? out : void 0, boxBorder: void 0 });
+  }
+  /** Bordas do parágrafo do cursor como specs (diálogo). */
+  getParagraphBorders() {
+    const b = this.model?.paragraphs[this.selection.focus.para]?.props.borders;
+    const out = {};
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const e = b?.[side];
+      if (e) out[side] = { val: e.style, sz: e.sizeEighthPt, space: e.spacePt, color: e.color ?? "auto" };
+    }
+    return out;
+  }
+  /** A seleção cobre a tabela inteira? */
+  isWholeTable(tg) {
+    const w = table_ops_exports.wholeRect(tg.table);
+    return !!this.tableSel && tg.rect.r1 === 0 && tg.rect.c1 === 0 && tg.rect.r2 >= w.r2 && tg.rect.c2 >= w.c2;
+  }
+  /** Caneta das bordas (Estilo, Espessura e Cor da Caneta): o padrão do Word é simples, ½ pt, automática. */
+  borderPen = { val: "single", sz: 4, space: 0, color: "auto" };
+  getBorderPen() {
+    return { ...this.borderPen };
+  }
+  setBorderPen(p) {
+    this.borderPen = { ...this.borderPen, ...p };
+    this.dispatchEvent(new CustomEvent("uw-borderpen", { detail: this.getBorderPen() }));
+  }
+  /**
+   * Bordas (o menu Bordas): aplica a caneta (ou `spec`) aos lados pedidos da
+   * seleção. Tabela inteira → w:tblBorders como diferença do estilo; células
+   * → w:tcBorders nas duas células de cada aresta (medido).
+   */
+  setCellBorders(kind, spec) {
+    this.editTable((tg) => {
+      const pen = spec === void 0 ? this.borderPen : spec;
+      const whole = this.isWholeTable(tg);
+      const style = tg.table.tblPr?.tblStyle ? this.formattingForTables().styles.styles[tg.table.tblPr.tblStyle] : void 0;
+      table_ops_exports.setBorders(tg.table, tg.rect, kind, kind === "none" ? null : pen, { wholeTable: whole, styleBorders: style?.tblPr?.tblBorders });
+      return this.keepTableSel(tg);
+    });
+  }
+  /**
+   * Miniatura de um estilo de tabela (galeria): tabela 5 × 5 com as opções de
+   * estilo atuais, diagramada e pintada pelo próprio motor no canvas dado.
+   */
+  async renderTableStyleThumb(canvas, name, look) {
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    const f0 = this.formattingForTables();
+    const f = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles } } };
+    const id = ensureTableStyle(f, name, /* @__PURE__ */ new Map(), this.builtinTableStyles);
+    this.paintStyleThumb(canvas, f, id, look);
+  }
+  /**
+   * Prévia de um estilo de tabela AINDA NÃO gravado (diálogo Novo/Modificar
+   * Estilo de Tabela): o w:style cru é lido como se estivesse no documento e a
+   * tabela de amostra (com texto, como a do Word) é pintada pelo motor.
+   */
+  renderTableStyleXmlThumb(canvas, styleXml, look) {
+    const f0 = this.formattingForTables();
+    const sheet = readStyleSheet('<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' + styleXml + "</w:styles>");
+    const id = Object.keys(sheet.styles)[0];
+    if (!id) return;
+    const f = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles, [id]: sheet.styles[id] } } };
+    const pt = uiLang(this) === "pt";
+    const sample = pt ? [["", "Jan", "Fev", "Mar", "Total"], ["Leste", "7", "7", "5", "19"], ["Oeste", "6", "4", "7", "17"], ["Sul", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]] : [["", "Jan", "Feb", "Mar", "Total"], ["East", "7", "7", "5", "19"], ["West", "6", "4", "7", "17"], ["South", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]];
+    this.paintStyleThumb(canvas, f, id, look, sample);
+  }
+  /** Tabela 5 × 5 com o estilo `id`, diagramada e pintada no canvas (miniatura/prévia). */
+  paintStyleThumb(canvas, f, id, look, sample) {
+    const W = sample ? 1440 * 4 : 1440 * 1.2, rowH = sample ? 300 : 150;
+    const t = table_ops_exports.newTable(5, 5, { availTwips: W + 10, styleId: id ?? null });
+    if (look) t.tblPr.tblLook = { ...look };
+    for (const row of t.rows) row.trPr = { trHeight: { val: rowH, hRule: "exact" } };
+    sample?.forEach((row, r) => row.forEach((text, c) => {
+      const cell = t.rows[r]?.cells[c];
+      if (cell && text) table_ops_exports.setCellContent(cell, [{ type: "paragraph", paragraph: { runs: [{ text, props: { ...DEFAULT_RUN_PROPS } }], props: { spaceAfterTwips: 0, lineTwentieths: 240 } } }]);
+    }));
+    const sectPr = { pageWidthTwips: W + 240, pageHeightTwips: rowH * 5 + 1200, marginLeftTwips: 120, marginRightTwips: 120, marginTopTwips: 120, marginBottomTwips: 120 };
+    const full = {
+      blocks: [t, { type: "paragraph", paragraph: { runs: [], props: {} } }],
+      sections: [{ sectPr, blockStart: 0, blockEnd: 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [] }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      styles: /* @__PURE__ */ new Map(),
+      bookmarks: /* @__PURE__ */ new Map(),
+      formatting: f
+    };
+    const res = layoutDocument(full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
+    const page = res.pages[0];
+    const ctx = canvas.getContext("2d");
+    if (!page || !ctx) return;
+    const scale = Math.min(canvas.width / (W + 240), canvas.height / (rowH * 5 + 240));
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, -120 * scale + (canvas.width - W * scale) / 2, -120 * scale + (canvas.height - rowH * 5 * scale) / 2);
+    paintItems(ctx, page.items, this.enginePaintEnv());
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // ───────────── Novo/Modificar Estilo de Tabela ─────────────
+  /** O w:style de tabela (pelo nome inglês/w:name ou id) como está — ou como entraria (interno ainda fora do documento). */
+  async tableStyleXml(nameOrId) {
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    const f = this.formattingForTables();
+    const byId = f.styles.styles[nameOrId]?.type === "table" ? nameOrId : styleIdByName(f, nameOrId);
+    if (byId && this.docStyles.xml) {
+      const raw = styleRaw(this.docStyles.xml, byId);
+      if (raw) return { id: byId, xml: raw, inDoc: true };
+    }
+    const fc = { ...f, styles: { ...f.styles, styles: { ...f.styles.styles } } };
+    const pending2 = /* @__PURE__ */ new Map();
+    const id = ensureTableStyle(fc, nameOrId, pending2, this.builtinTableStyles);
+    if (!id) return null;
+    const xml = pending2.get(id);
+    return xml ? { id, xml, inDoc: false } : null;
+  }
+  /** Estilos de tabela do documento e internos (base do Novo Estilo): [id, nome]. */
+  tableStyleBases() {
+    const f = this.formattingForTables();
+    return Object.values(f.styles.styles).filter((s) => s.type === "table" && s.name).map((s) => ({ id: s.styleId, name: s.name }));
+  }
+  /** id livre para um estilo novo (regra do Word para o w:styleId). */
+  newTableStyleId(name) {
+    const taken = new Set(Object.keys(this.formattingForTables().styles.styles));
+    return styleIdFromName(name, taken);
+  }
+  /**
+   * Grava um estilo de tabela (novo ou modificado) no styles.xml — um passo
+   * de desfazer junto com a folha — e, com `apply`, o aplica à tabela do cursor.
+   * Os estilos de que ele depende (base interna) entram antes.
+   */
+  saveTableStyle(xml, opts = {}) {
+    if (!this.model || this.locked() || !this.stylesEditable()) return false;
+    const id = /w:styleId="([^"]+)"/.exec(xml)?.[1];
+    if (!id) return false;
+    this.snapshot();
+    if (opts.basedOnName) this.tableStyleId(opts.basedOnName);
+    this.commitStyles(putStyle(this.docStyles.base(), id, xml));
+    if (opts.apply) {
+      const tg = this.tableTarget();
+      if (tg) {
+        table_ops_exports.setTableProps(tg.table, { tblStyle: id });
+        for (const row of tg.table.rows) for (const c of row.cells) if (c.tcPr) {
+          delete c.tcPr.shd;
+          delete c.tcPr.cnfStyle;
+          table_ops_exports.syncLegacyCell(c);
+        }
+      }
+    }
+    this.refresh();
+    return true;
+  }
+  // ───────────── tabelas: mouse e teclado ─────────────
+  /** Caixa de célula do motor sob o ponteiro (tabelas do corpo). */
+  cellBoxAt(e) {
+    const eng = this.eng;
+    if (!eng) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let pg = 0; pg < this.canvases.length; pg++) {
+      const rc = this.canvases[pg].getBoundingClientRect();
+      if (e.clientY < rc.top || e.clientY > rc.bottom || e.clientX < rc.left || e.clientX > rc.right) continue;
+      const xT = (e.clientX - rc.left) / scale, yT = (e.clientY - rc.top) / scale;
+      let best = null;
+      for (const box of eng.result.pages[pg]?.cells ?? []) {
+        if (xT < box.x || xT > box.x + box.w || yT < box.y || yT > box.y + box.h) continue;
+        const loc = locateRef(box.ref + "/b0", eng.doc.origins);
+        if (loc.kind !== "cell") continue;
+        const last = loc.hops[loc.hops.length - 1];
+        if (!best || loc.hops.length > best.path.length + 1) best = { anchor: loc.anchor, path: loc.hops.slice(0, -1), r: last.r, c: last.c, box, pg };
+      }
+      return best;
+    }
+    return null;
+  }
+  // ───────────────── Planilha do Excel incorporada ─────────────────
+  /**
+   * Carregador do <universal-sheet> (produto Sheet) para a Planilha do Excel
+   * incorporada — a página o fornece (ex.: `() => import('@universal-office/sheet')`);
+   * sem ele, vale o componente já registrado na página.
+   */
+  sheetLoader = null;
+  /** Dá para inserir/editar planilhas incorporadas (o componente existe ou é carregável). */
+  canEmbedSpreadsheet() {
+    return !!customElements.get("universal-sheet") || !!this.sheetLoader;
+  }
+  /** Camada dos diálogos (a das barras; sem barras, o próprio documento). */
+  dialogLayer() {
+    return this.shadowRoot?.querySelector(".uw-layer") ?? document.body;
+  }
+  /** Inserir › Tabela › Planilha do Excel: uma pasta em branco, editada já no diálogo; OK insere o objeto. */
+  async insertSpreadsheet() {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    if (!await sheetAvailable(this.sheetLoader ?? void 0)) return false;
+    const lang = uiLang(this);
+    const sel = { ...this.selection };
+    const r = await editSpreadsheet(this.dialogLayer(), lang, blankXlsx(lang));
+    if (!r) return false;
+    this.selection = sel;
+    await this.insertImage(r.png, "png", { ole: { progId: "Excel.Sheet.12", data: r.xlsx, ext: "xlsx" }, widthTwips: r.widthTwips, heightTwips: r.heightTwips });
+    return true;
+  }
+  /** Edita a planilha incorporada (duplo clique no objeto); o objeto passa a ser gravado como novo. */
+  async editEmbeddedObject(run) {
+    const img = run.image;
+    if (!img?.ole || !/^Excel\.Sheet/i.test(img.ole.progId) || img.ole.ext !== "xlsx" || this.locked()) return false;
+    if (!await sheetAvailable(this.sheetLoader ?? void 0)) return false;
+    const r = await editSpreadsheet(this.dialogLayer(), uiLang(this), img.ole.data);
+    if (!r) return false;
+    this.snapshot();
+    img.ole = { ...img.ole, data: r.xlsx };
+    img.data = r.png;
+    img.ext = "png";
+    img.widthTwips = r.widthTwips;
+    img.heightTwips = r.heightTwips;
+    delete img.vml;
+    delete img.rawDrawingXml;
+    delete run.props.src;
+    this.bitmaps.delete(img);
+    this.refresh();
+    return true;
+  }
+  /** Run de objeto OLE sob o mouse (inline). */
+  oleRunAt(e) {
+    const pos = this.hitTest(e);
+    const p = pos && this.model?.paragraphs[pos.para];
+    if (!p) return null;
+    let acc = 0;
+    for (const run of p.runs) {
+      const end = acc + run.text.length;
+      if (run.image?.ole && (pos.offset === acc || pos.offset === end)) return run;
+      acc = end;
+    }
+    return null;
+  }
+  // ───────────────── Tabelas Rápidas ─────────────────
+  /** Tabelas Rápidas (conteúdo próprio, no idioma da interface): calendário do mês, lista tabular, matriz, com subtítulos e tabela dupla. */
+  quickTables() {
+    return [
+      { id: "calendar", label: { en: "Calendar (this month)", pt: "Calend\xE1rio (este m\xEAs)" } },
+      { id: "tabular", label: { en: "Tabular List", pt: "Lista Tabular" } },
+      { id: "matrix", label: { en: "Matrix", pt: "Matriz" } },
+      { id: "subheads", label: { en: "With Subheads", pt: "Com Subt\xEDtulos" } },
+      { id: "double", label: { en: "Double Table", pt: "Tabela Dupla" } }
+    ];
+  }
+  /** Insere uma Tabela Rápida no cursor (como Inserir Tabela, já com conteúdo e estilo). */
+  async insertQuickTable(id) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    const pt = uiLang(this) === "pt";
+    const tr = (en, p) => pt ? p : en;
+    let rows;
+    let style;
+    let merge = [];
+    switch (id) {
+      case "calendar": {
+        const now = /* @__PURE__ */ new Date();
+        const y = now.getFullYear(), mo = now.getMonth();
+        const month = new Intl.DateTimeFormat(pt ? "pt-BR" : "en-US", { month: "long", year: "numeric" }).format(now);
+        const days = pt ? ["D", "S", "T", "Q", "Q", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
+        const first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
+        rows = [[month.charAt(0).toUpperCase() + month.slice(1), "", "", "", "", "", ""], days];
+        let week = Array(7).fill("");
+        for (let d = 1, wd = first; d <= n; d++, wd++) {
+          if (wd === 7) {
+            rows.push(week);
+            week = Array(7).fill("");
+            wd = 0;
+          }
+          week[wd] = String(d);
+        }
+        rows.push(week);
+        merge = [{ r: 0, c1: 0, c2: 6 }];
+        style = "Grid Table 1 Light";
+        break;
+      }
+      case "tabular":
+        rows = [
+          [tr("Item", "Item"), tr("Needed", "Necess\xE1rio")],
+          [tr("Notebooks", "Cadernos"), "12"],
+          [tr("Pens", "Canetas"), "30"],
+          [tr("Folders", "Pastas"), "8"],
+          [tr("Sticky notes", "Blocos adesivos"), "15"],
+          [tr("Staplers", "Grampeadores"), "3"]
+        ];
+        style = "List Table 4 Accent 1";
+        break;
+      case "matrix":
+        rows = [
+          [tr("Region", "Regi\xE3o"), "T1", "T2", "T3", "T4"],
+          [tr("North", "Norte"), "120", "135", "150", "162"],
+          [tr("South", "Sul"), "98", "104", "117", "125"],
+          [tr("East", "Leste"), "143", "139", "151", "170"],
+          [tr("West", "Oeste"), "87", "96", "101", "110"]
+        ];
+        style = "Grid Table 4 Accent 1";
+        break;
+      case "subheads":
+        rows = [
+          [tr("Course", "Curso"), tr("Students", "Alunos"), tr("Change", "Varia\xE7\xE3o")],
+          [tr("Undergraduate", "Gradua\xE7\xE3o"), "", ""],
+          [tr("Engineering", "Engenharia"), "420", "+12"],
+          [tr("Design", "Design"), "185", "+4"],
+          [tr("Graduate", "P\xF3s-gradua\xE7\xE3o"), "", ""],
+          [tr("Data science", "Ci\xEAncia de dados"), "96", "+21"],
+          [tr("Management", "Gest\xE3o"), "133", "-3"],
+          [tr("Total", "Total"), "834", "+34"]
+        ];
+        style = "Plain Table 2";
+        break;
+      case "double":
+        rows = [
+          [tr("Team", "Equipe"), tr("Points", "Pontos"), "", tr("Team", "Equipe"), tr("Points", "Pontos")],
+          ["A", "18", "", "E", "12"],
+          ["B", "16", "", "F", "11"],
+          ["C", "14", "", "G", "9"],
+          ["D", "13", "", "H", "7"]
+        ];
+        style = "List Table 1 Light Accent 1";
+        break;
+      default:
+        return false;
+    }
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    this.insertTable(rows.length, rows[0].length);
+    const tg = this.tableTarget();
+    if (!tg) return false;
+    const t = tg.table;
+    const sid = this.tableStyleId(style);
+    if (sid) table_ops_exports.setTableProps(t, { tblStyle: sid });
+    if (id === "double" || id === "calendar") table_ops_exports.setLook(t, { firstColumn: false });
+    rows.forEach((row, r) => row.forEach((text, c) => {
+      const cell = t.rows[r]?.cells[c];
+      if (cell && text) table_ops_exports.setCellContent(cell, [{ type: "paragraph", paragraph: { runs: [{ text, props: { ...DEFAULT_RUN_PROPS } }], props: {} } }]);
+    }));
+    for (const mg of merge) table_ops_exports.mergeCells(t, { r1: mg.r, c1: mg.c1, r2: mg.r, c2: mg.c2 }, { normalSpacing: this.normalSpacing() });
+    if (id === "calendar") for (let r = 1; r < t.rows.length; r++) for (const c of t.rows[r].cells) for (const p of c.paragraphs) p.props.alignment = "center";
+    table_ops_exports.syncLegacy(t);
+    if (this.cellEdit) this.exitCell();
+    this.enterCellAt(tg.anchor, tg.path, 0, 0, false, false);
+    this.refresh();
+    return true;
+  }
+  // ───────────────── tabelas: área de transferência ─────────────────
+  /** Recorte da tabela selecionada (células da seleção) como tabela nova, sem as origens. */
+  cellsClip() {
+    const ts = this.tableSel;
+    const t = ts ? this.tableAt(ts.anchor, ts.path) : null;
+    if (!ts || !t) return void 0;
+    const m = table_ops_exports.mapTable(t);
+    const r = table_ops_exports.normRect(m, ts.rect);
+    const whole = table_ops_exports.wholeRect(t);
+    const sub = table_ops_exports.cloneTable(t);
+    const keep = new Set(table_ops_exports.cellsIn(m, r).map((g) => `${g.ri}:${g.ci}`));
+    sub.rows = sub.rows.slice(r.r1, r.r2 + 1).map((row, i) => {
+      const ri = r.r1 + i;
+      row.cells = row.cells.filter((_, ci) => keep.has(`${ri}:${ci}`));
+      if (row.trPr) {
+        delete row.trPr.gridBefore;
+        delete row.trPr.gridAfter;
+        delete row.trPr.wBefore;
+        delete row.trPr.wAfter;
+      }
+      return row;
+    });
+    for (const c of sub.rows[0]?.cells ?? []) if (c.tcPr?.vMerge === "continue") c.tcPr.vMerge = "restart";
+    sub.gridColsTwips = t.gridColsTwips.slice(r.c1, r.c2 + 1);
+    table_ops_exports.syncLegacy(sub);
+    return { table: sub, rows: r.c1 === 0 && r.c2 >= whole.c2, whole: r.r1 === 0 && r.c1 === 0 && r.r2 >= whole.r2 && r.c2 >= whole.c2 };
+  }
+  /** Texto e HTML de uma tabela (células por tabulação, linhas por quebra — como o Word põe no texto). */
+  static tableClipText(t) {
+    const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const text = t.rows.map((row) => row.cells.map((c) => cellText(c).replace(/\n/g, " ")).join("	")).join("\n");
+    const html = '<table border="1" style="border-collapse:collapse">' + t.rows.map((row) => "<tr>" + row.cells.map((c) => {
+      const span = (c.tcPr?.gridSpan ?? 1) > 1 ? ` colspan="${c.tcPr.gridSpan}"` : "";
+      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
+    }).join("") + "</tr>").join("") + "</table>";
+    return { text, html };
+  }
+  /** Escreve texto (+ HTML, se o navegador deixa) na área de transferência do sistema. */
+  async writeClipboard(text, html) {
+    try {
+      const CI = globalThis.ClipboardItem;
+      if (html && CI && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new CI({ "text/plain": new Blob([text], { type: "text/plain" }), "text/html": new Blob([html], { type: "text/html" }) })]);
+        return;
+      }
+      await navigator.clipboard?.writeText(text);
+    } catch {
+    }
+  }
+  /**
+   * Colar células: 'overwrite' substitui a partir da célula do cursor/seleção
+   * (cria linhas se faltar), 'rows' insere as linhas acima da linha do cursor,
+   * 'nest' aninha a tabela na célula, 'text' cola só o texto. Fora de tabela:
+   * a tabela entra no cursor ('merge'/'overwrite' viram tabela nova).
+   */
+  pasteCells(mode = "overwrite", clip = this.richClip?.cells) {
+    if (!clip || !this.model || this.locked() || this.view === "read") return false;
+    const src = clip.table;
+    if (mode === "text") {
+      this.pasteText(_UniversalWriteElement.tableClipText(src).text);
+      return true;
+    }
+    const tg = this.tableTarget();
+    if (!tg) {
+      if (this.hfEdit || this.tbEdit) {
+        this.pasteText(_UniversalWriteElement.tableClipText(src).text);
+        return true;
+      }
+      this.snapshot();
+      if (this.hasSelection()) {
+        const pos = this.deleteSelection();
+        this.selection = { anchor: pos, focus: pos };
+      }
+      let { para, offset } = this.selection.focus;
+      if (offset > 0) {
+        splitParagraph2(this.model, { para, offset });
+        this.shiftAnchors(para, 1);
+        para++;
+      }
+      let at = this.tableAnchors.findIndex((a) => a.beforePara > para);
+      if (at < 0) at = this.tableAnchors.length;
+      this.tableAnchors.splice(at, 0, { beforePara: para, table: table_ops_exports.cloneTable(src) });
+      this.enterCellAt(at, [], 0, 0, false, false);
+      this.refresh();
+      this.scrollCaretIntoView();
+      return true;
+    }
+    if (mode === "nest") {
+      return this.editTable((t) => {
+        const g = table_ops_exports.cellAt(table_ops_exports.mapTable(t.table), t.rect.r1, t.rect.c1);
+        if (!g) return false;
+        const blocks = table_ops_exports.cellContent(g.cell);
+        table_ops_exports.setCellContent(g.cell, [{ ...table_ops_exports.cloneTable(src) }, ...blocks]);
+        return { caret: { r: t.rect.r1, c: t.rect.c1 } };
+      });
+    }
+    if (mode === "rows") {
+      return this.editTable((t) => {
+        const add = table_ops_exports.cloneTable(src).rows;
+        t.table.rows.splice(t.rect.r1, 0, ...add);
+        table_ops_exports.syncLegacy(t.table);
+        return { select: { r1: t.rect.r1, c1: 0, r2: t.rect.r1 + add.length - 1, c2: table_ops_exports.mapTable(t.table).nCols - 1 } };
+      });
+    }
+    return this.editTable((t) => {
+      const sm = table_ops_exports.mapTable(src);
+      let m = table_ops_exports.mapTable(t.table);
+      const need = t.rect.r1 + src.rows.length - t.table.rows.length;
+      if (need > 0) {
+        table_ops_exports.insertRows(t.table, { r1: t.table.rows.length - 1, c1: 0, r2: t.table.rows.length - 1, c2: 0 }, "below", need);
+        m = table_ops_exports.mapTable(t.table);
+      }
+      sm.rows.forEach((gs, i) => {
+        for (const sg of gs) {
+          const dg = table_ops_exports.cellAt(m, t.rect.r1 + i, t.rect.c1 + sg.col);
+          if (!dg) continue;
+          table_ops_exports.setCellContent(dg.cell, structuredClone(table_ops_exports.cellContent(sg.cell)));
+          const shd = sg.cell.tcPr?.shd, bd = sg.cell.tcPr?.tcBorders, va = sg.cell.tcPr?.vAlign;
+          table_ops_exports.setCellProps(t.table, { r1: dg.ri, c1: dg.col, r2: dg.ri, c2: dg.col }, { shd, tcBorders: bd, vAlign: va });
+        }
+      });
+      const r2 = Math.min(t.table.rows.length - 1, t.rect.r1 + src.rows.length - 1);
+      const c2 = Math.min(m.nCols - 1, t.rect.c1 + sm.nCols - 1);
+      return { select: table_ops_exports.normRect(table_ops_exports.mapTable(t.table), { r1: t.rect.r1, c1: t.rect.c1, r2, c2 }) };
+    });
+  }
+  /** Tabelas de um HTML colado (de navegador, planilha, outro editor) → tabelas do modelo (texto por célula, colspan/rowspan). */
+  static tablesFromHtml(html, availTwips) {
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(html, "text/html");
+    } catch {
+      return [];
+    }
+    const out = [];
+    for (const tbl of [...doc.querySelectorAll("table")].filter((x) => !x.parentElement?.closest("table"))) {
+      const trs = [...tbl.querySelectorAll(":scope > tr, :scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr")];
+      if (!trs.length) continue;
+      const occ = [];
+      let nCols = 0;
+      const cells = [];
+      trs.forEach((tr, r) => {
+        occ[r] ??= [];
+        let c = 0;
+        for (const td of [...tr.children].filter((x) => x.tagName === "TD" || x.tagName === "TH")) {
+          while (occ[r][c]) c++;
+          const cs = Math.max(1, Math.min(63, parseInt(td.getAttribute("colspan") ?? "1", 10) || 1));
+          const rs = Math.max(1, parseInt(td.getAttribute("rowspan") ?? "1", 10) || 1);
+          for (let i = 0; i < rs; i++) for (let j = 0; j < cs; j++) (occ[r + i] ??= [])[c + j] = true;
+          const blocks = [...td.querySelectorAll("p, div, li")];
+          const paras = blocks.length ? blocks.map((b) => (b.textContent ?? "").replace(/\s+/g, " ").trim()) : td.innerHTML.split(/<br\s*\/?>/i).map((h) => {
+            const d = doc.createElement("div");
+            d.innerHTML = h;
+            return (d.textContent ?? "").replace(/\s+/g, " ").trim();
+          });
+          cells.push({ r, c, cs, rs, paras: paras.length ? paras : [""], bold: td.tagName === "TH" });
+          c += cs;
+          nCols = Math.max(nCols, c);
+        }
+      });
+      if (!nCols) continue;
+      const t = table_ops_exports.newTable(trs.length, nCols, { availTwips });
+      for (const x of [...cells].reverse()) {
+        if (x.cs > 1 || x.rs > 1) {
+          const rect = { r1: x.r, c1: x.c, r2: Math.min(trs.length - 1, x.r + x.rs - 1), c2: Math.min(nCols - 1, x.c + x.cs - 1) };
+          if (table_ops_exports.canMerge(t, rect)) table_ops_exports.mergeCells(t, rect, {});
+        }
+      }
+      const m = table_ops_exports.mapTable(t);
+      for (const x of cells) {
+        const g = table_ops_exports.cellAt(m, x.r, x.c);
+        if (!g) continue;
+        table_ops_exports.setCellContent(g.cell, x.paras.map((s) => ({ type: "paragraph", paragraph: { runs: s ? [{ text: s, props: x.bold ? { ...DEFAULT_RUN_PROPS, bold: true } : { ...DEFAULT_RUN_PROPS } }] : [], props: {} } })));
+      }
+      table_ops_exports.syncLegacy(t);
+      out.push(t);
+    }
+    return out;
+  }
+  /** Cola o HTML com tabela: na tabela, substitui células; fora, tabela nova. */
+  pasteHtmlTables(html) {
+    const tables = _UniversalWriteElement.tablesFromHtml(html, this.contentWidthTwips());
+    if (!tables.length) return false;
+    return this.pasteCells("overwrite", { table: tables[0], rows: true, whole: true });
+  }
+  // ───────────── tabelas: mouse (bordas, alças, pincel, borracha, lápis) ─────────────
+  /** Arrasto em curso de uma divisa (coluna/linha), da alça de mover ou da de redimensionar. */
+  tableDrag = null;
+  /** Tabela do corpo sob o mouse (mostra as alças de mover/redimensionar). */
+  tableHover = null;
+  /** Ferramenta de tabela ativa: Pincel de Bordas, Borracha ou Desenhar Tabela. */
+  tableTool = null;
+  /** Ferramenta de tabela (Pincel de Bordas, Borracha, Desenhar Tabela); null desliga (Esc também). */
+  setTableTool(tool) {
+    this.tableTool = this.tableTool === tool ? null : tool;
+    this.style.cursor = this.tableTool ? "crosshair" : "";
+    this.dispatchEvent(new CustomEvent("uw-tabletool", { detail: { tool: this.tableTool } }));
+    this.chromeSync?.();
+  }
+  getTableTool() {
+    return this.tableTool;
+  }
+  /** Ponto do evento numa página do motor (twips). */
+  engPoint(e) {
+    if (!this.eng) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let pg = 0; pg < this.canvases.length; pg++) {
+      const rc = this.canvases[pg].getBoundingClientRect();
+      if (e.clientY < rc.top || e.clientY > rc.bottom || e.clientX < rc.left || e.clientX > rc.right) continue;
+      return { pg, x: (e.clientX - rc.left) / scale, y: (e.clientY - rc.top) / scale };
+    }
+    return null;
+  }
+  /** Divisa de célula sob o mouse (até 4 px): de coluna (fronteira da grade) ou de linha (base da linha r). */
+  tableEdgeAt(e) {
+    const p = this.engPoint(e);
+    if (!p || !this.eng) return null;
+    const tol = 4 / (PX_PER_TWIP * this.zoom);
+    let best = null;
+    for (const box of this.eng.result.pages[p.pg]?.cells ?? []) {
+      const loc = locateRef(box.ref + "/b0", this.eng.doc.origins);
+      if (loc.kind !== "cell") continue;
+      const last = loc.hops[loc.hops.length - 1];
+      const base = { anchor: loc.anchor, path: loc.hops.slice(0, -1), pg: p.pg, r: last.r, c: last.c };
+      if (p.y >= box.y && p.y <= box.y + box.h) {
+        for (const [x, b] of [[box.x, last.c], [box.x + box.w, last.c + box.span]]) {
+          const d = Math.abs(p.x - x);
+          if (d <= tol && (!best || d < best.d)) best = { ...base, kind: "col", boundary: b, pos: x, d };
+        }
+      }
+      if (p.x >= box.x && p.x <= box.x + box.w) {
+        const y = box.y + box.h, d = Math.abs(p.y - y);
+        if (d <= tol && (!best || d < best.d)) best = { ...base, kind: "row", boundary: last.r, pos: y, d };
+      }
+    }
+    return best;
+  }
+  /** Caixa da tabela do corpo por página (para as alças): [primeira, última]. */
+  tableBBox(anchor) {
+    const boxes = this.tableBoxes(anchor, []);
+    if (!boxes.length) return null;
+    const pg0 = Math.min(...boxes.map((b) => b.pg)), pg1 = Math.max(...boxes.map((b) => b.pg));
+    const on0 = boxes.filter((b) => b.pg === pg0), on1 = boxes.filter((b) => b.pg === pg1);
+    return {
+      first: { pg: pg0, x: Math.min(...on0.map((b) => b.box.x)), y: Math.min(...on0.map((b) => b.box.y)) },
+      last: { pg: pg1, x: Math.max(...on1.map((b) => b.box.x + b.box.w)), y: Math.max(...on1.map((b) => b.box.y + b.box.h)) }
+    };
+  }
+  /** Alça sob o mouse da tabela em foco: mover (canto de cima à esquerda) ou redimensionar (canto de baixo à direita). */
+  tableHandleAt(e) {
+    if (this.tableHover === null) return null;
+    const bb = this.tableBBox(this.tableHover);
+    const p = this.engPoint(e);
+    if (!bb || !p) return null;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    if (p.pg === bb.first.pg && p.x >= bb.first.x - 20 * px && p.x <= bb.first.x - 4 * px && p.y >= bb.first.y - 20 * px && p.y <= bb.first.y - 4 * px) return { kind: "move", anchor: this.tableHover };
+    if (p.pg === bb.last.pg && p.x >= bb.last.x && p.x <= bb.last.x + 10 * px && p.y >= bb.last.y && p.y <= bb.last.y + 10 * px) return { kind: "size", anchor: this.tableHover };
+    return null;
+  }
+  /** Adornos de tabela na tela: alças da tabela sob o mouse e a guia do arrasto. */
+  paintTableAdorners(ctx, pg) {
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const dark = this.pageDark;
+    if (this.tableHover !== null && !this.printRender && !this.tableTool) {
+      const bb = this.tableBBox(this.tableHover);
+      if (bb) {
+        ctx.save();
+        ctx.lineWidth = px;
+        ctx.strokeStyle = dark ? "#9aa0a6" : "#5f6368";
+        ctx.fillStyle = dark ? "#303134" : "#ffffff";
+        if (bb.first.pg === pg) {
+          const x = bb.first.x - 18 * px, y = bb.first.y - 18 * px, s = 13 * px;
+          ctx.fillRect(x, y, s, s);
+          ctx.strokeRect(x, y, s, s);
+          const cx = x + s / 2, cy = y + s / 2, a = 4.5 * px;
+          ctx.beginPath();
+          ctx.moveTo(cx - a, cy);
+          ctx.lineTo(cx + a, cy);
+          ctx.moveTo(cx, cy - a);
+          ctx.lineTo(cx, cy + a);
+          ctx.stroke();
+        }
+        if (bb.last.pg === pg) {
+          const x = bb.last.x + 2 * px, y = bb.last.y + 2 * px, s = 7 * px;
+          ctx.fillRect(x, y, s, s);
+          ctx.strokeRect(x, y, s, s);
+        }
+        ctx.restore();
+      }
+    }
+    const d = this.tableDrag;
+    if (!d || d.pg !== pg) return;
+    ctx.save();
+    ctx.strokeStyle = dark ? "#8ab4f8" : "#1a73e8";
+    ctx.lineWidth = px;
+    ctx.setLineDash([3 * px, 3 * px]);
+    ctx.beginPath();
+    if (d.kind === "col") {
+      ctx.moveTo(d.x, 0);
+      ctx.lineTo(d.x, 1e5);
+    } else if (d.kind === "row") {
+      ctx.moveTo(0, d.y);
+      ctx.lineTo(1e5, d.y);
+    } else ctx.rect(Math.min(d.sx, d.x), Math.min(d.sy, d.y), Math.abs(d.x - d.sx), Math.abs(d.y - d.sy));
+    ctx.stroke();
+    ctx.restore();
+  }
+  /** Executa uma operação numa tabela dada (não a do cursor): um passo de desfazer; o cursor volta para onde estava. */
+  editTableAt(anchor, path, fn) {
+    if (!this.model || this.locked()) return false;
+    const t = this.tableAt(anchor, path);
+    if (!t) return false;
+    this.snapshot();
+    const back = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((h) => ({ ...h })), sel: this.selection } : null;
+    if (this.cellEdit) this.exitCell();
+    if (fn(t) === false) {
+      this.undoStack.pop();
+      this.refresh();
+      return false;
+    }
+    table_ops_exports.syncLegacy(t);
+    this.tableSel = null;
+    if (back && this.tableAt(back.anchor, back.hops.slice(0, -1))) {
+      const h = back.hops[back.hops.length - 1];
+      this.enterCellAt(back.anchor, back.hops.slice(0, -1), h.r, h.c, false, false);
+    }
+    this.refresh();
+    return true;
+  }
+  /** Começa o arrasto de uma divisa de coluna/linha (como no Word: as duas colunas vizinhas trocam largura; a última alarga a tabela). */
+  startTableEdgeDrag(edge, e) {
+    const t = this.tableAt(edge.anchor, edge.path);
+    if (!t) return;
+    const g = t.gridColsTwips, b = edge.boundary, MIN = 100;
+    let min = -Infinity, max = Infinity;
+    if (edge.kind === "col") {
+      if (b > 0) min = edge.pos - (g[b - 1] ?? 0) + MIN;
+      if (b < g.length) max = edge.pos + (g[b] ?? 0) - MIN;
+    } else {
+      const h = this.rowHeights(edge.anchor, edge.path, edge.boundary, edge.boundary)[0] ?? 0;
+      min = edge.pos - h + MIN;
+    }
+    this.tableDrag = { kind: edge.kind, anchor: edge.anchor, path: edge.path, boundary: b, pg: edge.pg, sx: edge.pos, sy: edge.pos, x: edge.pos, y: edge.pos, min, max };
+    this.trackTableDrag(e);
+  }
+  /** Acompanha o arrasto (guia na tela) e aplica no fim. */
+  trackTableDrag(e0) {
+    e0.preventDefault();
+    const move = (ev) => {
+      const d = this.tableDrag;
+      const p = this.engPoint(ev);
+      if (!d || !p || p.pg !== d.pg) return;
+      const clamp = (v) => Math.max(d.min ?? -Infinity, Math.min(d.max ?? Infinity, v));
+      if (d.kind === "col") d.x = clamp(p.x);
+      else if (d.kind === "row") d.y = clamp(p.y);
+      else {
+        d.x = p.x;
+        d.y = p.y;
+      }
+      this.paint();
+    };
+    const up = (ev) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const d = this.tableDrag;
+      this.tableDrag = null;
+      if (!d) return;
+      this.finishTableDrag(d, ev);
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+  finishTableDrag(d, ev) {
+    const dx = Math.round(d.x - d.sx), dy = Math.round(d.y - d.sy);
+    if (d.kind === "col") {
+      if (Math.abs(dx) < 2) {
+        this.paint();
+        return;
+      }
+      this.editTableAt(d.anchor, d.path, (t) => {
+        const g = t.gridColsTwips, b = d.boundary;
+        if (b > 0 && b < g.length) {
+          const l = g[b - 1] + dx, r = g[b] - dx;
+          table_ops_exports.setColumnWidth(t, b - 1, b - 1, l);
+          table_ops_exports.setColumnWidth(t, b, b, r);
+        } else if (b === g.length) table_ops_exports.setColumnWidth(t, b - 1, b - 1, g[b - 1] + dx);
+        else {
+          const ind = t.tblPr?.tblInd?.type === "dxa" ? t.tblPr.tblInd.w : 0;
+          table_ops_exports.setTableProps(t, { tblInd: ind + dx ? { w: ind + dx, type: "dxa" } : void 0 });
+          table_ops_exports.setColumnWidth(t, 0, 0, g[0] - dx);
+        }
+      });
+      return;
+    }
+    if (d.kind === "row") {
+      if (Math.abs(dy) < 2) {
+        this.paint();
+        return;
+      }
+      const h = this.rowHeights(d.anchor, d.path, d.boundary, d.boundary)[0] ?? 0;
+      this.editTableAt(d.anchor, d.path, (t) => table_ops_exports.setRowHeight(t, d.boundary, d.boundary, Math.max(100, Math.round(h + dy)), "atLeast"));
+      return;
+    }
+    if (d.kind === "move") {
+      if (Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+        this.enterCellAt(d.anchor, [], 0, 0, false, false);
+        this.selectTable();
+        return;
+      }
+      this.editTableAt(d.anchor, [], (t) => {
+        const pp = t.tblPr?.tblpPr;
+        const ind = t.tblPr?.tblInd?.type === "dxa" ? t.tblPr.tblInd.w : 0;
+        const x0 = pp?.tblpXSpec ? 0 : pp?.tblpX ?? ind, y0 = pp?.tblpYSpec ? 0 : pp?.tblpY ?? 0;
+        table_ops_exports.setTableProps(t, {
+          tblpPr: { leftFromText: 141, rightFromText: 141, ...pp ?? {}, vertAnchor: pp?.vertAnchor ?? "text", horzAnchor: pp?.horzAnchor, tblpX: x0 + dx, tblpY: y0 + dy, tblpXSpec: void 0, tblpYSpec: void 0 },
+          tblOverlap: t.tblPr?.tblOverlap ?? "never",
+          tblInd: void 0
+        });
+        const tp = t.tblPr.tblpPr;
+        for (const k of Object.keys(tp)) if (tp[k] === void 0) delete tp[k];
+      });
+      return;
+    }
+    if (d.kind === "size") {
+      const bb = this.tableBBox(d.anchor);
+      if (!bb || Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+        this.paint();
+        return;
+      }
+      this.editTableAt(d.anchor, [], (t) => {
+        const W = t.gridColsTwips.reduce((a, b) => a + b, 0) || 1;
+        const fx = Math.max(0.1, (W + dx) / W);
+        const g = t.gridColsTwips.slice();
+        if (dx) g.forEach((w, c) => table_ops_exports.setColumnWidth(t, c, c, Math.max(100, Math.round(w * fx))));
+        if (dy && bb.first.pg === bb.last.pg) {
+          const hs = this.rowHeights(d.anchor, [], 0, t.rows.length - 1);
+          const H = hs.reduce((a, b) => a + b, 0) || 1;
+          const fy = Math.max(0.1, (H + dy) / H);
+          hs.forEach((h, r) => table_ops_exports.setRowHeight(t, r, r, Math.max(100, Math.round(h * fy)), "atLeast"));
+        }
+      });
+      return;
+    }
+    if (d.kind === "draw") this.finishDraw(d, ev);
+  }
+  /** Clique com o Pincel de Bordas ou a Borracha: o lado mais próximo da célula sob o mouse. */
+  tableToolClick(e) {
+    const hit = this.cellBoxAt(e);
+    const p = this.engPoint(e);
+    if (!hit || !p) return false;
+    const b = hit.box;
+    const ds = [["top", Math.abs(p.y - b.y)], ["bottom", Math.abs(p.y - b.y - b.h)], ["left", Math.abs(p.x - b.x)], ["right", Math.abs(p.x - b.x - b.w)]];
+    const side = ds.sort((a, z) => a[1] - z[1])[0][0];
+    const rect = { r1: hit.r, c1: hit.c, r2: hit.r, c2: hit.c };
+    if (this.tableTool === "painter") {
+      this.editTableAt(hit.anchor, hit.path, (t) => table_ops_exports.setBorders(t, table_ops_exports.normRect(table_ops_exports.mapTable(t), rect), side, this.borderPen));
+      return true;
+    }
+    this.editTableAt(hit.anchor, hit.path, (t) => {
+      const m = table_ops_exports.mapTable(t);
+      const g = table_ops_exports.cellAt(m, hit.r, hit.c);
+      if (!g) return false;
+      const other = side === "top" ? table_ops_exports.cellAt(m, hit.r - 1, g.col) : side === "bottom" ? table_ops_exports.cellAt(m, table_ops_exports.vExtent(m, hit.r, g.col)[1] + 1, g.col) : side === "left" ? table_ops_exports.cellAt(m, hit.r, g.col - 1) : table_ops_exports.cellAt(m, hit.r, g.col + g.span);
+      if (!other) {
+        table_ops_exports.setBorders(t, table_ops_exports.normRect(m, rect), side, null);
+        return;
+      }
+      const r2 = table_ops_exports.normRect(m, { r1: Math.min(hit.r, other.ri), c1: Math.min(g.col, other.col), r2: Math.max(hit.r, other.ri), c2: Math.max(g.col + g.span - 1, other.col + other.span - 1) });
+      if (!table_ops_exports.canMerge(t, r2)) return false;
+      table_ops_exports.mergeCells(t, r2, { normalSpacing: this.normalSpacing() });
+    });
+    return true;
+  }
+  /**
+   * Lápis (Desenhar Tabela): dentro de uma célula, um traço vertical a divide
+   * em duas colunas no ponto e um horizontal em duas linhas; fora de tabela, o
+   * retângulo vira uma tabela 1 × 1 com essa largura no parágrafo do ponto.
+   */
+  finishDraw(d, ev) {
+    const w = Math.abs(d.x - d.sx), h = Math.abs(d.y - d.sy);
+    if (w < 60 && h < 60) {
+      this.paint();
+      return;
+    }
+    const startHit = this.cellBoxAtPoint(d.pg, d.sx, d.sy);
+    if (startHit) {
+      const vertical = h >= w;
+      const box = startHit.box;
+      this.editTableAt(startHit.anchor, startHit.path, (t) => {
+        const rect = { r1: startHit.r, c1: startHit.c, r2: startHit.r, c2: startHit.c };
+        const out = table_ops_exports.splitCells(t, rect, vertical ? 2 : 1, vertical ? 1 : 2, { mergeFirst: false, normalSpacing: this.normalSpacing(), rowHeights: this.rowHeights(startHit.anchor, startHit.path, startHit.r, startHit.r) });
+        if (vertical) {
+          const left = Math.max(100, Math.min(box.w - 100, Math.round((d.sx + d.x) / 2 - box.x)));
+          table_ops_exports.setCellWidth(t, { r1: out.r1, c1: out.c1, r2: out.r1, c2: out.c1 }, left);
+          table_ops_exports.setCellWidth(t, { r1: out.r1, c1: out.c1 + 1, r2: out.r1, c2: out.c1 + 1 }, Math.round(box.w - left));
+        }
+      });
+      return;
+    }
+    const pos = this.hitTest(ev);
+    if (pos && !this.cellEdit) this.selection = { anchor: pos, focus: pos };
+    this.insertTable(1, 1, { autofit: "fixed", colWidthTwips: Math.max(200, Math.round(w)) });
+    if (h > 300) {
+      const tg = this.tableTarget();
+      if (tg) this.editTableAt(tg.anchor, tg.path, (t) => table_ops_exports.setRowHeight(t, 0, 0, Math.round(h), "atLeast"));
+    }
+  }
+  /** Célula sob um ponto da página (twips). */
+  cellBoxAtPoint(pg, x, y) {
+    let best = null;
+    for (const box of this.eng?.result.pages[pg]?.cells ?? []) {
+      if (x < box.x || x > box.x + box.w || y < box.y || y > box.y + box.h) continue;
+      const loc = locateRef(box.ref + "/b0", this.eng.doc.origins);
+      if (loc.kind !== "cell") continue;
+      const last = loc.hops[loc.hops.length - 1];
+      if (!best || loc.hops.length > best.path.length + 1) best = { anchor: loc.anchor, path: loc.hops.slice(0, -1), r: last.r, c: last.c, box };
+    }
+    return best;
+  }
+  /** Mousedown das tabelas: ferramenta ativa, alças e divisas. true = tratado. */
+  tableMouseDown(e) {
+    if (e.button !== 0 || this.locked() || this.view !== "print" || this.hfEdit || this.tbEdit || !this.eng) return false;
+    if (this.tableTool === "painter" || this.tableTool === "eraser") {
+      e.preventDefault();
+      this.focusEditor();
+      this.tableToolClick(e);
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    if (this.tableTool === "draw") {
+      const p = this.engPoint(e);
+      if (!p) return false;
+      this.tableDrag = { kind: "draw", anchor: -1, path: [], boundary: 0, pg: p.pg, sx: p.x, sy: p.y, x: p.x, y: p.y };
+      this.focusEditor();
+      this.trackTableDrag(e);
+      return true;
+    }
+    const hd = this.tableHandleAt(e);
+    if (hd) {
+      const p = this.engPoint(e);
+      this.tableDrag = { kind: hd.kind, anchor: hd.anchor, path: [], boundary: 0, pg: p.pg, sx: p.x, sy: p.y, x: p.x, y: p.y };
+      this.focusEditor();
+      this.trackTableDrag(e);
+      return true;
+    }
+    const edge = this.tableEdgeAt(e);
+    if (edge) {
+      this.focusEditor();
+      this.startTableEdgeDrag(edge, e);
+      return true;
+    }
+    return false;
+  }
+  /** Mousemove das tabelas: cursor das divisas/alças e a tabela sob o mouse (alças). */
+  tableMouseMove(e) {
+    if (this.tableDrag || this.view !== "print" || this.hfEdit || !this.eng) return false;
+    if (this.tableTool) {
+      this.style.cursor = "crosshair";
+      return true;
+    }
+    const hit = this.cellBoxAt(e);
+    const hover = hit && !hit.path.length ? hit.anchor : this.tableHandleAt(e)?.anchor ?? null;
+    if (hover !== this.tableHover) {
+      this.tableHover = hover;
+      this.paint();
+    }
+    if (this.locked()) return false;
+    const hd = this.tableHandleAt(e);
+    if (hd) {
+      this.style.cursor = hd.kind === "move" ? "move" : "nwse-resize";
+      return true;
+    }
+    const edge = this.tableEdgeAt(e);
+    if (edge) {
+      this.style.cursor = edge.kind === "col" ? "col-resize" : "row-resize";
+      return true;
+    }
+    if (this.style.cursor === "col-resize" || this.style.cursor === "row-resize" || this.style.cursor === "nwse-resize" || this.style.cursor === "crosshair") this.style.cursor = "";
+    return false;
+  }
+  /** Arrasto que começou numa célula e passou para outra da mesma tabela: seleção de células. */
+  dragCellSel(start, ev) {
+    const hit = this.cellBoxAt(ev);
+    const path = start.hops.slice(0, -1);
+    const me = start.hops[start.hops.length - 1];
+    if (!hit || hit.anchor !== start.anchor || hit.path.length !== path.length || !sameHops([...hit.path, { r: 0, c: 0 }], [...path, { r: 0, c: 0 }])) return !!this.tableSel;
+    if (hit.r === me.r && hit.c === me.c) {
+      if (this.tableSel) {
+        this.tableSel = null;
+        this.refreshSelection();
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+      }
+      return false;
+    }
+    const t = this.tableAt(start.anchor, path);
+    if (!t) return false;
+    const rect = table_ops_exports.normRect(table_ops_exports.mapTable(t), { r1: Math.min(me.r, hit.r), c1: Math.min(me.c, hit.c), r2: Math.max(me.r, hit.r), c2: Math.max(me.c, hit.c) });
+    this.tableSel = { anchor: start.anchor, path, rect, origin: { r: me.r, c: me.c } };
+    this.refreshSelection();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    return true;
+  }
+  /** Limpa o conteúdo das células selecionadas (Delete; ou antes de digitar por cima). */
+  clearSelectedCells(snapshot = true) {
+    const ts = this.tableSel;
+    const t = ts ? this.tableAt(ts.anchor, ts.path) : null;
+    if (!ts || !t || this.locked()) return;
+    if (snapshot) this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    const m = table_ops_exports.mapTable(t);
+    for (const g of table_ops_exports.cellsIn(m, ts.rect)) {
+      if (table_ops_exports.vMergeOf(g.cell) === "continue") continue;
+      table_ops_exports.setCellContent(g.cell, [{ type: "paragraph", paragraph: table_ops_exports.formatLike(g.cell.paragraphs[0]) }]);
+    }
+    this.enterCellAt(ts.anchor, ts.path, ts.rect.r1, ts.rect.c1, false, false);
+  }
+  /** Teclas com células selecionadas. */
+  tableSelKey(e) {
+    const ts = this.tableSel;
+    const t = this.tableAt(ts.anchor, ts.path);
+    if (!t) {
+      this.tableSel = null;
+      return false;
+    }
+    const k = e.key;
+    const arrows = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+    if (arrows.includes(k) && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      const m = table_ops_exports.mapTable(t);
+      if (e.shiftKey) {
+        const o = ts.origin;
+        let r = o.r === ts.rect.r1 ? ts.rect.r2 : ts.rect.r1;
+        let c = o.c === ts.rect.c1 ? ts.rect.c2 : ts.rect.c1;
+        if (k === "ArrowUp") r = Math.max(0, r - 1);
+        else if (k === "ArrowDown") r = Math.min(t.rows.length - 1, r + 1);
+        else if (k === "ArrowLeft") c = Math.max(0, (table_ops_exports.cellAt(m, r, c)?.col ?? c) - 1);
+        else {
+          const g = table_ops_exports.cellAt(m, r, c);
+          c = Math.min(m.nCols - 1, g ? g.col + g.span : c + 1);
+        }
+        const rect = table_ops_exports.normRect(m, { r1: Math.min(o.r, r), c1: Math.min(o.c, c), r2: Math.max(o.r, r), c2: Math.max(o.c, c) });
+        const single = table_ops_exports.cellsIn(m, rect).filter((g) => table_ops_exports.vMergeOf(g.cell) !== "continue").length <= 1;
+        this.tableSel = single ? null : { ...ts, rect };
+      } else {
+        this.tableSel = null;
+        const end = k === "ArrowRight" || k === "ArrowDown";
+        if (this.cellEdit) this.exitCell();
+        this.enterCellAt(ts.anchor, ts.path, end ? ts.rect.r2 : ts.rect.r1, end ? ts.rect.c2 : ts.rect.c1, end, false);
+      }
+      this.refreshSelection();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    if (k === "Escape") {
+      e.preventDefault();
+      this.tableSel = null;
+      this.refreshSelection();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    if (k === "Delete" || k === "Backspace") {
+      e.preventDefault();
+      const m = table_ops_exports.mapTable(t);
+      const fullRows = ts.rect.c1 === 0 && ts.rect.c2 >= m.nCols - 1;
+      if (k === "Backspace" && fullRows) {
+        if (ts.rect.r1 === 0 && ts.rect.r2 >= t.rows.length - 1) this.deleteTable();
+        else this.deleteRow();
+      } else {
+        this.clearSelectedCells();
+        this.tableSel = ts;
+        this.refresh();
+      }
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    if (k === "Tab") {
+      this.tableSel = null;
+      return false;
+    }
+    return false;
+  }
+  /** Setas entre células e entre o corpo e as tabelas (como o Word). true = tratou. */
+  tableNavigate(dir, extend) {
+    if (dir === "home" || dir === "end" || this.hfEdit || this.tbEdit || !this.model || !this.eng) return false;
+    const pos = this.selection.focus;
+    const ps = this.model.paragraphs;
+    const line = this.lineOf(pos);
+    const lines = this.allLines();
+    const x = line ? this.caretX(pos, line) : 0;
+    const ce = this.cellEdit;
+    if (ce) {
+      const atStart = pos.para === 0 && pos.offset === 0;
+      const atEnd = pos.para === ps.length - 1 && pos.offset === paraLength(ps[pos.para]);
+      const leaving = dir === "left" && atStart || dir === "right" && atEnd || dir === "up" && (!line || lines[0] === line) || dir === "down" && (!line || lines[lines.length - 1] === line);
+      if (!leaving) return false;
+      const path = ce.hops.slice(0, -1);
+      const me = ce.hops[ce.hops.length - 1];
+      const t = this.tableAt(ce.anchor, path);
+      if (!t) return false;
+      const m = table_ops_exports.mapTable(t);
+      if (extend) {
+        const g = table_ops_exports.cellAt(m, me.r, me.c);
+        let r2 = me.r, c = me.c;
+        if (dir === "up") r2 = Math.max(0, table_ops_exports.vExtent(m, me.r, me.c)[0] - 1);
+        else if (dir === "down") r2 = Math.min(t.rows.length - 1, table_ops_exports.vExtent(m, me.r, me.c)[1] + 1);
+        else if (dir === "left") c = Math.max(0, me.c - 1);
+        else c = Math.min(m.nCols - 1, g ? g.col + g.span : me.c + 1);
+        const rect = table_ops_exports.normRect(m, { r1: Math.min(me.r, r2), c1: Math.min(me.c, c), r2: Math.max(me.r, r2), c2: Math.max(me.c, c) });
+        if (table_ops_exports.cellsIn(m, rect).filter((x2) => table_ops_exports.vMergeOf(x2.cell) !== "continue").length > 1) {
+          this.tableSel = { anchor: ce.anchor, path, rect, origin: { r: me.r, c: me.c } };
+          this.refreshSelection();
+        }
+        return true;
+      }
+      if (dir === "left" || dir === "right") {
+        const order = m.rows.flat().filter((g) => table_ops_exports.vMergeOf(g.cell) !== "continue");
+        const i = order.findIndex((g) => g.ri === me.r && g.col === me.c);
+        const nx = order[i + (dir === "right" ? 1 : -1)];
+        if (nx) {
+          this.enterCellAt(ce.anchor, path, nx.ri, nx.col, dir === "left");
+          this.scrollCaretIntoView();
+          return true;
+        }
+        return this.leaveTable(ce.anchor, path, dir === "right" ? "after" : "before");
+      }
+      const [a, b] = table_ops_exports.vExtent(m, me.r, me.c);
+      const r = dir === "down" ? b + 1 : a - 1;
+      if (r >= 0 && r < t.rows.length) {
+        this.enterRowAt(ce.anchor, path, r, x, dir === "up");
+        return true;
+      }
+      return this.leaveTable(ce.anchor, path, dir === "down" ? "after" : "before", x);
+    }
+    if (extend) return false;
+    const p = pos.para;
+    const pl = this.layoutCache[p]?.lines ?? [];
+    const lastLine = !line || pl[pl.length - 1] === line;
+    const firstLine = !line || pl[0] === line;
+    if (dir === "down" && lastLine || dir === "right" && pos.offset === paraLength(ps[p])) {
+      const ai = this.tableAnchors.findIndex((a) => a.beforePara === p + 1);
+      if (ai < 0 || p + 1 > ps.length - 1 + 1) return false;
+      if (dir === "down") this.enterRowAt(ai, [], 0, x, false);
+      else {
+        this.enterCellAt(ai, [], 0, 0);
+        this.scrollCaretIntoView();
+      }
+      return true;
+    }
+    if (dir === "up" && firstLine || dir === "left" && pos.offset === 0) {
+      let ai = -1;
+      this.tableAnchors.forEach((a, i) => {
+        if (a.beforePara === p) ai = i;
+      });
+      if (ai < 0) return false;
+      const t = this.tableAnchors[ai].table;
+      if (dir === "up") this.enterRowAt(ai, [], t.rows.length - 1, x, true);
+      else {
+        const m = table_ops_exports.mapTable(t);
+        const lastRow = m.rows[m.rows.length - 1];
+        const g = lastRow[lastRow.length - 1];
+        this.enterCellAt(ai, [], g.ri, g.col, true);
+        this.scrollCaretIntoView();
+      }
+      return true;
+    }
+    return false;
+  }
+  /** Entra na linha r da tabela na célula sob x (twips), na 1ª ou na última linha de texto dela. */
+  enterRowAt(anchor, path, r, x, fromBelow) {
+    let c = 0;
+    for (const b of this.tableBoxes(anchor, path)) if (b.r === r && x >= b.box.x && x <= b.box.x + b.box.w) {
+      c = b.c;
+      break;
+    }
+    const t = this.tableAt(anchor, path);
+    if (t && table_ops_exports.vMergeOf(table_ops_exports.cellAt(table_ops_exports.mapTable(t), r, c)?.cell ?? { paragraphs: [], tables: [], gridSpan: 1 }) === "continue") r = table_ops_exports.vExtent(table_ops_exports.mapTable(t), r, c)[0];
+    if (!this.enterCellAt(anchor, path, r, c)) return;
+    const ls = this.allLines();
+    const target = fromBelow ? ls[ls.length - 1] : ls[0];
+    if (target) {
+      const pos = { para: target.para, offset: this.hitLineX(target, x) };
+      this.selection = { anchor: pos, focus: pos };
+      this.refreshSelection();
+    }
+    this.scrollCaretIntoView();
+  }
+  /** Sai da tabela pela frente/por trás: para o parágrafo vizinho (ou a tabela vizinha). */
+  leaveTable(anchor, path, where, x) {
+    if (path.length) {
+      const h = path[path.length - 1];
+      this.enterCellAt(anchor, path.slice(0, -1), h.r, h.c, where === "after");
+      return true;
+    }
+    const a = this.tableAnchors[anchor];
+    const nb = where === "after" ? this.tableAnchors.findIndex((o, i) => i > anchor && o.beforePara === a.beforePara) : [...this.tableAnchors.keys()].reverse().find((i) => i < anchor && this.tableAnchors[i].beforePara === a.beforePara) ?? -1;
+    if (nb >= 0) {
+      const t = this.tableAnchors[nb].table;
+      if (x !== void 0) this.enterRowAt(nb, [], where === "after" ? 0 : t.rows.length - 1, x, where === "before");
+      else if (where === "after") this.enterCellAt(nb, [], 0, 0);
+      else {
+        const m = table_ops_exports.mapTable(t);
+        const g = m.rows[m.rows.length - 1].at(-1);
+        this.enterCellAt(nb, [], g.ri, g.col, true);
+      }
+      return true;
+    }
+    const para = where === "after" ? a.beforePara : a.beforePara - 1;
+    if (para < 0 || !this.cellEdit) return true;
+    this.exitCell();
+    const ps = this.model.paragraphs;
+    const p = Math.min(para, ps.length - 1);
+    let offset = where === "after" ? 0 : paraLength(ps[p]);
+    const pl = this.layoutCache[p]?.lines ?? [];
+    const line = where === "after" ? pl[0] : pl[pl.length - 1];
+    if (x !== void 0 && line) offset = this.hitLineX(line, x);
+    this.selection = { anchor: { para: p, offset }, focus: { para: p, offset } };
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    return true;
+  }
+  /** Tab na última célula: linha nova abaixo (formatação da última) e o cursor na 1ª célula dela. */
+  tabNewRow() {
+    return this.editTable((tg) => {
+      const last = tg.table.rows.length - 1;
+      const sel = table_ops_exports.insertRows(tg.table, { ...tg.rect, r1: last, r2: last }, "below", 1);
+      return { caret: { r: sel.r1, c: 0 } };
+    });
+  }
+  /** Alt+Shift+↑/↓ numa célula: move a linha (sem mesclas verticais). */
+  moveTableRow(dir) {
+    const tg = this.tableTarget();
+    if (!tg) return false;
+    const { r1, r2 } = tg.rect;
+    const to = dir < 0 ? r1 - 1 : r2 + 1;
+    if (to < 0 || to >= tg.table.rows.length) return true;
+    const m = table_ops_exports.mapTable(tg.table);
+    const merged = (r) => m.rows[r].some((g) => !!table_ops_exports.vMergeOf(g.cell));
+    for (let r = Math.min(r1, to); r <= Math.max(r2, to); r++) if (merged(r)) return true;
+    const me = this.cellEdit?.hops[this.cellEdit.hops.length - 1];
+    return this.editTable((t) => {
+      const rows = t.table.rows.splice(r1, r2 - r1 + 1);
+      t.table.rows.splice(dir < 0 ? r1 - 1 : r1 + 1, 0, ...rows);
+      return { caret: { r: (me?.r ?? r1) + dir, c: me?.c ?? 0 } };
+    });
+  }
+  /** O que o Converter Texto em Tabela daria com a seleção: separador (detectado
+   *  como o diálogo, se não vier), colunas e linhas. null numa tabela/cabeçalho. */
+  textToTableGuess(separator, cols) {
+    if (!this.model || this.cellEdit || this.hfEdit || this.tbEdit) return null;
+    const { start, end } = normalizeRange(this.range());
+    const p2 = end.offset === 0 && end.para > start.para ? end.para - 1 : end.para;
+    const paras = this.model.paragraphs.slice(start.para, p2 + 1);
+    if (!paras.length) return null;
+    const sep = separator ?? table_ops_exports.guessSeparator(paras);
+    const c = sep === "paragraph" ? Math.max(1, cols ?? 1) : table_ops_exports.columnsFor(paras, sep);
+    return { separator: sep, cols: c, rows: sep === "paragraph" ? Math.ceil(paras.length / c) : paras.length };
+  }
+  /** Estado da tabela do cursor/seleção (null fora de tabela) — barras e diálogos. */
+  // ───────────────── fórmula de tabela ─────────────────
+  /** Tabela e célula (linha, coluna da grade) do cursor, para as fórmulas. */
+  formulaEnv() {
+    const ce = this.cellEdit;
+    if (!ce || this.tableSel) return null;
+    const table = this.tableAt(ce.anchor, ce.hops.slice(0, -1));
+    const me = ce.hops[ce.hops.length - 1];
+    return table ? { table, r: me.r, c: me.c } : null;
+  }
+  /** Fórmula sugerida para a célula do cursor ("=SUM(ABOVE)", "=SUM(LEFT)" ou "="). */
+  suggestFormula() {
+    const env = this.formulaEnv();
+    return env ? defaultFormula(env.table, env.r, env.c) : "=";
+  }
+  /** Resultado que a fórmula daria na célula do cursor (sem inserir). */
+  previewFormula(formula, numberFormat) {
+    return formulaResultText(formulaInstr(formula, numberFormat), this.formulaEnv() ?? { table: { type: "table", rows: [], gridColsTwips: [] }, r: 0, c: 0 });
+  }
+  /** Insere um campo de fórmula (= …) no cursor, com o resultado já calculado.
+   *  `numberFormat` é a imagem numérica \# do Word ("#.##0,00", "0%"…). */
+  insertFormula(formula, numberFormat) {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    const f = (formula ?? this.suggestFormula()).trim();
+    if (!/^=/.test(f)) return false;
+    const instr = formulaInstr(f, numberFormat || void 0);
+    this.tableSel = null;
+    this.insertFieldRun(instr, this.previewFormula(f, numberFormat || void 0));
+    return true;
+  }
+  /** Atualiza os campos de fórmula de todas as tabelas (F9): devolve quantos mudaram. */
+  updateFields() {
+    if (!this.model || this.locked()) return 0;
+    const work = [];
+    const visit = (t) => {
+      const m = table_ops_exports.mapTable(t);
+      for (const row of m.rows) {
+        for (const g of row) {
+          for (const b of table_ops_exports.cellContent(g.cell)) {
+            if (b.type === "table") {
+              visit(b);
+              continue;
+            }
+            for (const run of b.paragraph.runs) {
+              if (!run.field || !/^\s*=/.test(run.field)) continue;
+              const text = formulaResultText(run.field, { table: t, r: g.ri, c: g.col });
+              if (text !== run.text) work.push({ run, text });
+            }
+          }
+        }
+      }
+    };
+    for (const a of this.bodyState().tableAnchors) visit(a.table);
+    if (!work.length) return 0;
+    this.snapshot();
+    for (const w of work) {
+      w.run.text = w.text;
+      delete w.run.fieldResult;
+    }
+    const ps = this.model.paragraphs;
+    const fit = (q) => ({ para: q.para, offset: Math.min(q.offset, paraLength(ps[q.para] ?? ps[0])) });
+    this.selection = { anchor: fit(this.selection.anchor), focus: fit(this.selection.focus) };
+    this.refresh();
+    return work.length;
+  }
+  getTableState() {
+    const tg = this.tableTarget();
+    if (!tg) return null;
+    const t = tg.table;
+    const m = table_ops_exports.mapTable(t);
+    const g = table_ops_exports.cellAt(m, tg.rect.r1, tg.rect.c1);
+    const tcPr = g?.cell.tcPr ?? {};
+    const rows = t.rows.slice(tg.rect.r1, tg.rect.r2 + 1);
+    const trh = rows[0]?.trPr?.trHeight;
+    const style = t.tblPr?.tblStyle;
+    return {
+      rows: t.rows.length,
+      cols: m.nCols,
+      rect: { ...tg.rect },
+      cells: !!this.tableSel,
+      nested: tg.path.length > 0,
+      canMerge: table_ops_exports.canMerge(t, tg.rect),
+      style,
+      look: { ...table_ops_exports.DEFAULT_LOOK, ...t.tblPr?.tblLook ?? {} },
+      vAlign: tcPr.vAlign ?? "top",
+      textDirection: tcPr.textDirection ?? "lrTb",
+      headerRow: t.rows.slice(0, tg.rect.r2 + 1).every((r) => !!r.trPr?.tblHeader),
+      // sem altura definida, a exibida (como a caixa Altura do Word)
+      rowHeight: trh ? { twips: trh.val, rule: trh.hRule } : { twips: this.rowHeights(tg.anchor, tg.path, tg.rect.r1, tg.rect.r1)[0] ?? 0, rule: "auto" },
+      colWidth: table_ops_exports.gridWidth(t, tg.rect.c1, tg.rect.c2 - tg.rect.c1 + 1),
+      shading: tcPr.shd?.fill && tcPr.shd.fill !== "auto" ? tcPr.shd.fill : void 0,
+      tblPr: t.tblPr ? JSON.parse(JSON.stringify(t.tblPr)) : {},
+      trPr: rows[0]?.trPr ? JSON.parse(JSON.stringify(rows[0].trPr)) : {},
+      tcPr: JSON.parse(JSON.stringify(tcPr)),
+      styleBorders: style ? JSON.parse(JSON.stringify(this.formattingForTables().styles.styles[style]?.tblPr?.tblBorders ?? {})) : void 0,
+      availTwips: this.tableAvail(tg)
+    };
+  }
+  /** Largura disponível para a tabela: coluna de texto (ou a célula de fora) menos o recuo. */
+  tableAvail(tg) {
+    const ind = tg.table.tblPr?.tblInd?.type === "dxa" ? tg.table.tblPr.tblInd.w : 0;
+    if (tg.path.length) {
+      const h = tg.path[tg.path.length - 1];
+      const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
+      const g = outer ? table_ops_exports.cellAt(table_ops_exports.mapTable(outer), h.r, h.c) : void 0;
+      if (outer && g) return table_ops_exports.gridWidth(outer, g.col, g.span) - 216 - ind;
+    }
+    return this.contentWidthTwips() - ind;
+  }
+  /** Propriedades da Tabela (guias Tabela, Linha, Coluna, Célula e Texto Alt) num passo de desfazer. */
+  setTableProperties(p) {
+    this.editTable((tg) => {
+      const t = tg.table, r = tg.rect;
+      const tb = p.table;
+      if (tb) {
+        if (tb.width !== void 0) table_ops_exports.setPreferredWidth(t, tb.width, this.tableAvail(tg));
+        if (tb.align !== void 0) table_ops_exports.setTableAlign(t, tb.align);
+        if (tb.indentTwips !== void 0) table_ops_exports.setTableProps(t, { tblInd: tb.align && tb.align !== "left" ? void 0 : tb.indentTwips ? { w: Math.round(tb.indentTwips), type: "dxa" } : void 0 });
+        if (tb.wrap === "none") table_ops_exports.setTableProps(t, { tblpPr: void 0, tblOverlap: void 0 });
+        else if (tb.wrap === "around" || tb.position) {
+          const cur = t.tblPr?.tblpPr;
+          table_ops_exports.setTableProps(t, {
+            // o Word liga "ao redor" com 0,25 cm dos lados e ancorado no texto
+            tblpPr: tb.position ?? cur ?? { leftFromText: 141, rightFromText: 141, vertAnchor: "text", tblpY: 1 },
+            tblOverlap: tb.overlap === true ? void 0 : tb.overlap === false || !cur ? "never" : t.tblPr?.tblOverlap
+          });
+        }
+        if (tb.overlap !== void 0 && t.tblPr?.tblpPr) table_ops_exports.setTableProps(t, { tblOverlap: tb.overlap ? void 0 : "never" });
+        if (tb.title !== void 0) table_ops_exports.setTableProps(t, { tblCaption: tb.title || void 0 });
+        if (tb.description !== void 0) table_ops_exports.setTableProps(t, { tblDescription: tb.description || void 0 });
+      }
+      const rw = p.row;
+      if (rw) {
+        if (rw.height !== void 0) table_ops_exports.setRowHeight(t, r.r1, r.r2, rw.height?.twips ?? 0, rw.height?.rule ?? "atLeast");
+        if (rw.allowBreak !== void 0) table_ops_exports.setRowProps(t, r.r1, r.r2, { cantSplit: rw.allowBreak ? void 0 : true });
+        if (rw.header !== void 0) table_ops_exports.setRowProps(t, 0, r.r2, { tblHeader: rw.header ? true : void 0 });
+      }
+      const cw = p.column?.width;
+      if (cw !== void 0) {
+        if (cw?.type === "pct") table_ops_exports.setColumnPct(t, r.c1, r.c2, cw.w);
+        else if (cw?.type === "dxa") table_ops_exports.setColumnWidth(t, r.c1, r.c2, cw.w);
+        else table_ops_exports.setCellProps(t, { r1: 0, c1: r.c1, r2: t.rows.length - 1, c2: r.c2 }, { tcW: { w: 0, type: "auto" } });
+      }
+      const cl = p.cell;
+      if (cl) {
+        if (cl.width !== void 0) {
+          if (cl.width?.type === "dxa") {
+            if (this.tableSel) table_ops_exports.setCellWidth(t, r, cl.width.w);
+            else table_ops_exports.setColumnWidth(t, r.c1, r.c2, cl.width.w);
+          } else table_ops_exports.setCellProps(t, r, { tcW: cl.width ?? { w: 0, type: "auto" } });
+        }
+        if (cl.vAlign !== void 0) table_ops_exports.setCellProps(t, r, { vAlign: cl.vAlign === "top" ? void 0 : cl.vAlign });
+        if (cl.margins !== void 0) {
+          const mm = cl.margins;
+          table_ops_exports.setCellProps(t, r, { tcMar: mm ? Object.fromEntries(Object.entries(mm).filter(([, v]) => v !== void 0).map(([k, v]) => [k, { w: Math.round(v), type: "dxa" }])) : void 0 });
+        }
+        if (cl.wrap !== void 0) table_ops_exports.setCellProps(t, r, { noWrap: cl.wrap ? void 0 : true });
+        if (cl.fitText !== void 0) table_ops_exports.setCellProps(t, r, { tcFitText: cl.fitText ? true : void 0 });
+      }
+      return this.keepTableSel(tg);
+    });
   }
   /** Mudou só a apresentação (zoom, tema, marcas, proteção): com o motor o
    *  layout continua válido — refaz canvases e pintura, sem diagramar. */
@@ -21316,7 +24156,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-H5KMBRXK.js");
+  const { appFor } = await import("./chunks/chrome-app-DMQHD2PA.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 
@@ -21328,6 +24168,7 @@ FontResolver.shared().configure({
 });
 var wn = document.getElementById("wn");
 wn.use(createMentionPlugin());
+wn.sheetLoader = () => import(new URL("./sheet-bundle.js", import.meta.url).href);
 if (bridge) {
   const host = {
     openFile: () => bridge.openDocx(),

@@ -1,3 +1,7 @@
+import {
+  __export
+} from "./chunk-WSFCRVEQ.js";
+
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -828,14 +832,14 @@ function unzlibSync(data, opts) {
 }
 var fltn = function(d, p, t, o) {
   for (var k in d) {
-    var val2 = d[k], n = p + k, op = o;
-    if (Array.isArray(val2))
-      op = mrg(o, val2[1]), val2 = val2[0];
-    if (ArrayBuffer.isView(val2))
-      t[n] = [val2, op];
+    var val3 = d[k], n = p + k, op = o;
+    if (Array.isArray(val3))
+      op = mrg(o, val3[1]), val3 = val3[0];
+    if (ArrayBuffer.isView(val3))
+      t[n] = [val3, op];
     else {
       t[n += "/"] = [new u8(0), op];
-      fltn(val2, n, t, o);
+      fltn(val3, n, t, o);
     }
   }
 };
@@ -1222,15 +1226,15 @@ function parseXml(xml, opts = {}) {
     const nameStart = i2;
     while (i2 < n && !/[\s/>]/.test(xml[i2])) i2++;
     let name = xml.slice(nameStart, i2);
-    let attrs2 = {};
+    let attrs3 = {};
     let ren = parentRen;
     let declares = false;
     const scope = () => {
       let own2 = null;
-      for (const k in declares ? attrs2 : {}) {
+      for (const k in declares ? attrs3 : {}) {
         if (!k.startsWith("xmlns:")) continue;
         const pfx = k.slice(6);
-        const uri = attrs2[k];
+        const uri = attrs3[k];
         const canon = Object.hasOwn(CANONICAL_PREFIX, uri) ? CANONICAL_PREFIX[uri] : void 0;
         if ((canon === void 0 || canon === pfx) && !ren.has(pfx)) continue;
         own2 ??= new Map(ren);
@@ -1241,8 +1245,8 @@ function parseXml(xml, opts = {}) {
       if (ren.size === 0) return;
       name = renamed(name, ren);
       const out = {};
-      for (const k in attrs2) out[k.startsWith("xmlns:") ? k : renamed(k, ren)] = attrs2[k];
-      attrs2 = out;
+      for (const k in attrs3) out[k.startsWith("xmlns:") ? k : renamed(k, ren)] = attrs3[k];
+      attrs3 = out;
     };
     for (; ; ) {
       while (i2 < n && /\s/.test(xml[i2])) i2++;
@@ -1250,15 +1254,15 @@ function parseXml(xml, opts = {}) {
         if (xml[i2 + 1] !== ">") error("esperava />");
         i2 += 2;
         scope();
-        const el2 = { name, attrs: attrs2, children: [] };
-        if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
+        const el3 = { name, attrs: attrs3, children: [] };
+        if (RAW_CAPTURE.has(name)) el3.raw = xml.slice(elStart, i2);
         if (pos) {
-          el2.s = elStart;
-          el2.cs = i2;
-          el2.ce = i2;
-          el2.e = i2;
+          el3.s = elStart;
+          el3.cs = i2;
+          el3.ce = i2;
+          el3.e = i2;
         }
-        return el2;
+        return el3;
       }
       if (xml[i2] === ">") {
         i2++;
@@ -1278,7 +1282,7 @@ function parseXml(xml, opts = {}) {
       const vStart = i2;
       i2 = xml.indexOf(q, i2);
       if (i2 < 0) error("aspas n\xE3o fechadas");
-      attrs2[aName] = decodeEntities(xml.slice(vStart, i2));
+      attrs3[aName] = decodeEntities(xml.slice(vStart, i2));
       if (aName.startsWith("xmlns:")) declares = true;
       i2++;
     }
@@ -1290,15 +1294,15 @@ function parseXml(xml, opts = {}) {
         const contentEnd = i2;
         const close = xml.indexOf(">", i2);
         i2 = close + 1;
-        const el2 = { name, attrs: attrs2, children: children2 };
-        if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
+        const el3 = { name, attrs: attrs3, children: children2 };
+        if (RAW_CAPTURE.has(name)) el3.raw = xml.slice(elStart, i2);
         if (pos) {
-          el2.s = elStart;
-          el2.cs = contentStart;
-          el2.ce = contentEnd;
-          el2.e = i2;
+          el3.s = elStart;
+          el3.cs = contentStart;
+          el3.ce = contentEnd;
+          el3.e = i2;
         }
-        return el2;
+        return el3;
       }
       if (xml.startsWith("<!--", i2)) {
         i2 = xml.indexOf("-->", i2) + 3;
@@ -1324,13 +1328,13 @@ function parseXml(xml, opts = {}) {
   const root = parseElement(NO_RENAMES);
   return root;
 }
-function childElements(el2, name) {
-  return el2.children.filter(
+function childElements(el3, name) {
+  return el3.children.filter(
     (c) => typeof c !== "string" && (name === void 0 || c.name === name)
   );
 }
-function firstChild(el2, name) {
-  return childElements(el2, name)[0];
+function firstChild(el3, name) {
+  return childElements(el3, name)[0];
 }
 
 // ../docx-core/src/ooxml/props.ts
@@ -1360,47 +1364,47 @@ function measureTwips(v) {
       return Math.round(n);
   }
 }
-function onOffVal(el2) {
-  const v = el2.attrs["w:val"];
+function onOffVal(el3) {
+  const v = el3.attrs["w:val"];
   return !(v === "0" || v === "false" || v === "off" || v === "none");
 }
-function colorOf(el2) {
+function colorOf(el3) {
   const c = {};
-  if (el2.attrs["w:val"] !== void 0) c.val = el2.attrs["w:val"];
-  if (el2.attrs["w:themeColor"]) c.themeColor = el2.attrs["w:themeColor"];
-  if (el2.attrs["w:themeTint"]) c.themeTint = el2.attrs["w:themeTint"];
-  if (el2.attrs["w:themeShade"]) c.themeShade = el2.attrs["w:themeShade"];
+  if (el3.attrs["w:val"] !== void 0) c.val = el3.attrs["w:val"];
+  if (el3.attrs["w:themeColor"]) c.themeColor = el3.attrs["w:themeColor"];
+  if (el3.attrs["w:themeTint"]) c.themeTint = el3.attrs["w:themeTint"];
+  if (el3.attrs["w:themeShade"]) c.themeShade = el3.attrs["w:themeShade"];
   return c;
 }
-function readBorder(el2) {
-  if (!el2) return void 0;
-  const b = { val: el2.attrs["w:val"] ?? "single" };
-  const sz = int(el2.attrs["w:sz"]);
+function readBorder(el3) {
+  if (!el3) return void 0;
+  const b = { val: el3.attrs["w:val"] ?? "single" };
+  const sz = int(el3.attrs["w:sz"]);
   if (sz !== void 0) b.sz = sz;
-  const space = int(el2.attrs["w:space"]);
+  const space = int(el3.attrs["w:space"]);
   if (space !== void 0) b.space = space;
-  if (el2.attrs["w:color"]) b.color = el2.attrs["w:color"];
-  if (el2.attrs["w:themeColor"]) b.themeColor = el2.attrs["w:themeColor"];
-  if (el2.attrs["w:themeTint"]) b.themeTint = el2.attrs["w:themeTint"];
-  if (el2.attrs["w:themeShade"]) b.themeShade = el2.attrs["w:themeShade"];
-  if (el2.attrs["w:shadow"] !== void 0) b.shadow = onOffAttr(el2.attrs["w:shadow"]);
-  if (el2.attrs["w:frame"] !== void 0) b.frame = onOffAttr(el2.attrs["w:frame"]);
+  if (el3.attrs["w:color"]) b.color = el3.attrs["w:color"];
+  if (el3.attrs["w:themeColor"]) b.themeColor = el3.attrs["w:themeColor"];
+  if (el3.attrs["w:themeTint"]) b.themeTint = el3.attrs["w:themeTint"];
+  if (el3.attrs["w:themeShade"]) b.themeShade = el3.attrs["w:themeShade"];
+  if (el3.attrs["w:shadow"] !== void 0) b.shadow = onOffAttr(el3.attrs["w:shadow"]);
+  if (el3.attrs["w:frame"] !== void 0) b.frame = onOffAttr(el3.attrs["w:frame"]);
   return b;
 }
 var onOffAttr = (v) => !(v === "0" || v === "false" || v === "off");
-function readShading(el2) {
-  if (!el2) return void 0;
+function readShading(el3) {
+  if (!el3) return void 0;
   const s = {};
   for (const k of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
-    const v = el2.attrs[`w:${k}`];
+    const v = el3.attrs[`w:${k}`];
     if (v !== void 0) s[k] = v;
   }
   return s;
 }
-function readWidth(el2) {
-  if (!el2) return void 0;
-  const type = el2.attrs["w:type"] ?? "dxa";
-  const raw = el2.attrs["w:w"] ?? "0";
+function readWidth(el3) {
+  if (!el3) return void 0;
+  const type = el3.attrs["w:type"] ?? "dxa";
+  const raw = el3.attrs["w:w"] ?? "0";
   let w;
   if (raw.endsWith("%")) w = Math.round(parseFloat(raw) * 50);
   else w = type === "dxa" ? measureTwips(raw) ?? 0 : int(raw) ?? 0;
@@ -1409,83 +1413,83 @@ function readWidth(el2) {
 function readRPr(rPr) {
   if (!rPr) return void 0;
   const p = {};
-  for (const el2 of childElements(rPr)) {
-    const val2 = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el3 of childElements(rPr)) {
+    const val3 = el3.attrs["w:val"];
+    switch (el3.name) {
       case "w:rStyle":
-        if (val2) p.rStyle = val2;
+        if (val3) p.rStyle = val3;
         break;
       case "w:rFonts": {
         const f = {};
         for (const k of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
-          const v = el2.attrs[`w:${k}`];
+          const v = el3.attrs[`w:${k}`];
           if (v !== void 0) f[k] = v;
         }
         p.rFonts = f;
         break;
       }
       case "w:b":
-        p.b = onOffVal(el2);
+        p.b = onOffVal(el3);
         break;
       case "w:bCs":
-        p.bCs = onOffVal(el2);
+        p.bCs = onOffVal(el3);
         break;
       case "w:i":
-        p.i = onOffVal(el2);
+        p.i = onOffVal(el3);
         break;
       case "w:iCs":
-        p.iCs = onOffVal(el2);
+        p.iCs = onOffVal(el3);
         break;
       case "w:caps":
-        p.caps = onOffVal(el2);
+        p.caps = onOffVal(el3);
         break;
       case "w:smallCaps":
-        p.smallCaps = onOffVal(el2);
+        p.smallCaps = onOffVal(el3);
         break;
       case "w:strike":
-        p.strike = onOffVal(el2);
+        p.strike = onOffVal(el3);
         break;
       case "w:dstrike":
-        p.dstrike = onOffVal(el2);
+        p.dstrike = onOffVal(el3);
         break;
       case "w:outline":
-        p.outline = onOffVal(el2);
+        p.outline = onOffVal(el3);
         break;
       case "w:shadow":
-        p.shadow = onOffVal(el2);
+        p.shadow = onOffVal(el3);
         break;
       case "w:emboss":
-        p.emboss = onOffVal(el2);
+        p.emboss = onOffVal(el3);
         break;
       case "w:imprint":
-        p.imprint = onOffVal(el2);
+        p.imprint = onOffVal(el3);
         break;
       case "w:vanish":
-        p.vanish = onOffVal(el2);
+        p.vanish = onOffVal(el3);
         break;
       case "w:specVanish":
-        p.specVanish = onOffVal(el2);
+        p.specVanish = onOffVal(el3);
         break;
       case "w:webHidden":
-        p.webHidden = onOffVal(el2);
+        p.webHidden = onOffVal(el3);
         break;
       case "w:noProof":
-        p.noProof = onOffVal(el2);
+        p.noProof = onOffVal(el3);
         break;
       case "w:snapToGrid":
-        p.snapToGrid = onOffVal(el2);
+        p.snapToGrid = onOffVal(el3);
         break;
       case "w:rtl":
-        p.rtl = onOffVal(el2);
+        p.rtl = onOffVal(el3);
         break;
       case "w:cs":
-        p.cs = onOffVal(el2);
+        p.cs = onOffVal(el3);
         break;
       case "w:color":
-        p.color = colorOf(el2);
+        p.color = colorOf(el3);
         break;
       case "w14:textFill": {
-        const solid = firstChild(el2, "w14:solidFill");
+        const solid = firstChild(el3, "w14:solidFill");
         const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
         if (clr) {
           const tf = {};
@@ -1495,80 +1499,80 @@ function readRPr(rPr) {
           const a = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
           if (a !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a, 10) || 0) / 1e5);
           p.textFill = tf;
-        } else if (firstChild(el2, "w14:noFill")) p.textFill = { alpha: 0 };
+        } else if (firstChild(el3, "w14:noFill")) p.textFill = { alpha: 0 };
         break;
       }
       case "w14:ligatures":
-        p.ligatures = el2.attrs["w14:val"] ?? "standard";
+        p.ligatures = el3.attrs["w14:val"] ?? "standard";
         break;
       case "w14:shadow": {
-        const emu = (k) => (parseInt(el2.attrs[k] ?? "0", 10) || 0) / 12700;
-        p.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el2.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
+        const emu = (k) => (parseInt(el3.attrs[k] ?? "0", 10) || 0) / 12700;
+        p.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el3.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
         break;
       }
       case "w14:textOutline":
-        p.textOutline = !firstChild(el2, "w14:noFill") && !!(firstChild(el2, "w14:solidFill") ?? firstChild(el2, "w14:gradFill"));
+        p.textOutline = !firstChild(el3, "w14:noFill") && !!(firstChild(el3, "w14:solidFill") ?? firstChild(el3, "w14:gradFill"));
         break;
       case "w:spacing": {
-        const n = measureTwips(val2);
+        const n = measureTwips(val3);
         if (n !== void 0) p.spacing = n;
         break;
       }
       case "w:w": {
-        const n = int(val2?.replace("%", ""));
+        const n = int(val3?.replace("%", ""));
         if (n !== void 0) p.w = n;
         break;
       }
       case "w:kern": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.kern = n;
         break;
       }
       case "w:position": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.position = n;
         break;
       }
       case "w:sz": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.sz = n;
         break;
       }
       case "w:szCs": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.szCs = n;
         break;
       }
       case "w:highlight":
-        if (val2) p.highlight = val2;
+        if (val3) p.highlight = val3;
         break;
       case "w:u": {
-        const u = { val: val2 ?? "single" };
-        if (el2.attrs["w:color"]) u.color = el2.attrs["w:color"];
-        if (el2.attrs["w:themeColor"]) u.themeColor = el2.attrs["w:themeColor"];
+        const u = { val: val3 ?? "single" };
+        if (el3.attrs["w:color"]) u.color = el3.attrs["w:color"];
+        if (el3.attrs["w:themeColor"]) u.themeColor = el3.attrs["w:themeColor"];
         p.u = u;
         break;
       }
       case "w:effect":
-        if (val2) p.effect = val2;
+        if (val3) p.effect = val3;
         break;
       case "w:bdr":
-        p.bdr = readBorder(el2);
+        p.bdr = readBorder(el3);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el3);
         break;
       case "w:vertAlign":
-        if (val2 === "superscript" || val2 === "subscript" || val2 === "baseline") p.vertAlign = val2;
+        if (val3 === "superscript" || val3 === "subscript" || val3 === "baseline") p.vertAlign = val3;
         break;
       case "w:em":
-        if (val2) p.em = val2;
+        if (val3) p.em = val3;
         break;
       case "w:lang": {
         const l = {};
-        if (el2.attrs["w:val"]) l.val = el2.attrs["w:val"];
-        if (el2.attrs["w:eastAsia"]) l.eastAsia = el2.attrs["w:eastAsia"];
-        if (el2.attrs["w:bidi"]) l.bidi = el2.attrs["w:bidi"];
+        if (el3.attrs["w:val"]) l.val = el3.attrs["w:val"];
+        if (el3.attrs["w:eastAsia"]) l.eastAsia = el3.attrs["w:eastAsia"];
+        if (el3.attrs["w:bidi"]) l.bidi = el3.attrs["w:bidi"];
         p.lang = l;
         break;
       }
@@ -1576,11 +1580,11 @@ function readRPr(rPr) {
   }
   return p;
 }
-function readPBdr(el2) {
-  if (!el2) return void 0;
+function readPBdr(el3) {
+  if (!el3) return void 0;
   const b = {};
   for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
-    const e = readBorder(firstChild(el2, `w:${side}`) ?? (side === "left" ? firstChild(el2, "w:start") : side === "right" ? firstChild(el2, "w:end") : void 0));
+    const e = readBorder(firstChild(el3, `w:${side}`) ?? (side === "left" ? firstChild(el3, "w:start") : side === "right" ? firstChild(el3, "w:end") : void 0));
     if (e) b[side] = e;
   }
   return b;
@@ -1590,92 +1594,92 @@ var LEADERS = /* @__PURE__ */ new Set(["none", "dot", "hyphen", "underscore", "h
 function readPPr(pPr) {
   if (!pPr) return void 0;
   const p = {};
-  for (const el2 of childElements(pPr)) {
-    const val2 = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el3 of childElements(pPr)) {
+    const val3 = el3.attrs["w:val"];
+    switch (el3.name) {
       case "w:pStyle":
-        if (val2) p.pStyle = val2;
+        if (val3) p.pStyle = val3;
         break;
       case "w:keepNext":
-        p.keepNext = onOffVal(el2);
+        p.keepNext = onOffVal(el3);
         break;
       case "w:keepLines":
-        p.keepLines = onOffVal(el2);
+        p.keepLines = onOffVal(el3);
         break;
       case "w:pageBreakBefore":
-        p.pageBreakBefore = onOffVal(el2);
+        p.pageBreakBefore = onOffVal(el3);
         break;
       case "w:widowControl":
-        p.widowControl = onOffVal(el2);
+        p.widowControl = onOffVal(el3);
         break;
       case "w:suppressLineNumbers":
-        p.suppressLineNumbers = onOffVal(el2);
+        p.suppressLineNumbers = onOffVal(el3);
         break;
       case "w:suppressAutoHyphens":
-        p.suppressAutoHyphens = onOffVal(el2);
+        p.suppressAutoHyphens = onOffVal(el3);
         break;
       case "w:kinsoku":
-        p.kinsoku = onOffVal(el2);
+        p.kinsoku = onOffVal(el3);
         break;
       case "w:wordWrap":
-        p.wordWrap = onOffVal(el2);
+        p.wordWrap = onOffVal(el3);
         break;
       case "w:overflowPunct":
-        p.overflowPunct = onOffVal(el2);
+        p.overflowPunct = onOffVal(el3);
         break;
       case "w:autoSpaceDE":
-        p.autoSpaceDE = onOffVal(el2);
+        p.autoSpaceDE = onOffVal(el3);
         break;
       case "w:autoSpaceDN":
-        p.autoSpaceDN = onOffVal(el2);
+        p.autoSpaceDN = onOffVal(el3);
         break;
       case "w:bidi":
-        p.bidi = onOffVal(el2);
+        p.bidi = onOffVal(el3);
         break;
       case "w:adjustRightInd":
-        p.adjustRightInd = onOffVal(el2);
+        p.adjustRightInd = onOffVal(el3);
         break;
       case "w:snapToGrid":
-        p.snapToGrid = onOffVal(el2);
+        p.snapToGrid = onOffVal(el3);
         break;
       case "w:contextualSpacing":
-        p.contextualSpacing = onOffVal(el2);
+        p.contextualSpacing = onOffVal(el3);
         break;
       case "w:mirrorIndents":
-        p.mirrorIndents = onOffVal(el2);
+        p.mirrorIndents = onOffVal(el3);
         break;
       case "w:suppressOverlap":
-        p.suppressOverlap = onOffVal(el2);
+        p.suppressOverlap = onOffVal(el3);
         break;
       case "w:jc":
-        if (val2) p.jc = val2;
+        if (val3) p.jc = val3;
         break;
       case "w:textAlignment":
-        if (val2) p.textAlignment = val2;
+        if (val3) p.textAlignment = val3;
         break;
       case "w:outlineLvl": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.outlineLvl = n;
         break;
       }
       case "w:numPr": {
         const numPr = {};
-        const numId = int(firstChild(el2, "w:numId")?.attrs["w:val"]);
-        const ilvl = int(firstChild(el2, "w:ilvl")?.attrs["w:val"]);
+        const numId = int(firstChild(el3, "w:numId")?.attrs["w:val"]);
+        const ilvl = int(firstChild(el3, "w:ilvl")?.attrs["w:val"]);
         if (numId !== void 0) numPr.numId = numId;
         if (ilvl !== void 0) numPr.ilvl = ilvl;
         p.numPr = numPr;
         break;
       }
       case "w:pBdr":
-        p.pBdr = readPBdr(el2);
+        p.pBdr = readPBdr(el3);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el3);
         break;
       case "w:tabs": {
         const tabs = [];
-        for (const t of childElements(el2, "w:tab")) {
+        for (const t of childElements(el3, "w:tab")) {
           let v = t.attrs["w:val"] ?? "left";
           if (v === "start") v = "left";
           if (v === "end") v = "right";
@@ -1692,7 +1696,7 @@ function readPPr(pPr) {
       }
       case "w:spacing": {
         const s = {};
-        const a = el2.attrs;
+        const a = el3.attrs;
         const before = measureTwips(a["w:before"]);
         if (before !== void 0) s.before = before;
         const after = measureTwips(a["w:after"]);
@@ -1712,7 +1716,7 @@ function readPPr(pPr) {
       }
       case "w:ind": {
         const s = {};
-        const a = el2.attrs;
+        const a = el3.attrs;
         const left = measureTwips(a["w:left"] ?? a["w:start"]);
         if (left !== void 0) s.left = left;
         const right = measureTwips(a["w:right"] ?? a["w:end"]);
@@ -1729,7 +1733,7 @@ function readPPr(pPr) {
         break;
       }
       case "w:framePr": {
-        const a = el2.attrs;
+        const a = el3.attrs;
         const f = {};
         const dc = a["w:dropCap"];
         if (dc === "none" || dc === "drop" || dc === "margin") f.dropCap = dc;
@@ -1747,15 +1751,15 @@ function readPPr(pPr) {
         break;
       }
       case "w:rPr":
-        p.rPr = readRPr(el2);
-        if (childElements(el2).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
+        p.rPr = readRPr(el3);
+        if (childElements(el3).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
         break;
     }
   }
   return p;
 }
-function readBorders(el2) {
-  if (!el2) return void 0;
+function readBorders(el3) {
+  if (!el3) return void 0;
   const b = {};
   const map = [
     ["top", ["w:top"]],
@@ -1769,7 +1773,7 @@ function readBorders(el2) {
   ];
   for (const [k, names] of map) {
     for (const n of names) {
-      const e = readBorder(firstChild(el2, n));
+      const e = readBorder(firstChild(el3, n));
       if (e) {
         b[k] = e;
         break;
@@ -1778,30 +1782,30 @@ function readBorders(el2) {
   }
   return b;
 }
-function readCellMar(el2) {
-  if (!el2) return void 0;
+function readCellMar(el3) {
+  if (!el3) return void 0;
   const m = {};
-  const t = readWidth(firstChild(el2, "w:top"));
+  const t = readWidth(firstChild(el3, "w:top"));
   if (t) m.top = t;
-  const l = readWidth(firstChild(el2, "w:left") ?? firstChild(el2, "w:start"));
+  const l = readWidth(firstChild(el3, "w:left") ?? firstChild(el3, "w:start"));
   if (l) m.left = l;
-  const b = readWidth(firstChild(el2, "w:bottom"));
+  const b = readWidth(firstChild(el3, "w:bottom"));
   if (b) m.bottom = b;
-  const r = readWidth(firstChild(el2, "w:right") ?? firstChild(el2, "w:end"));
+  const r = readWidth(firstChild(el3, "w:right") ?? firstChild(el3, "w:end"));
   if (r) m.right = r;
   return m;
 }
 function readTblPr(tblPr) {
   if (!tblPr) return void 0;
   const p = {};
-  for (const el2 of childElements(tblPr)) {
-    const val2 = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el3 of childElements(tblPr)) {
+    const val3 = el3.attrs["w:val"];
+    switch (el3.name) {
       case "w:tblStyle":
-        if (val2) p.tblStyle = val2;
+        if (val3) p.tblStyle = val3;
         break;
       case "w:tblpPr": {
-        const a = el2.attrs;
+        const a = el3.attrs;
         const t = {};
         for (const k of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
           const n = measureTwips(a[`w:${k}`]);
@@ -1817,47 +1821,53 @@ function readTblPr(tblPr) {
         break;
       }
       case "w:tblOverlap":
-        if (val2) p.tblOverlap = val2;
+        if (val3) p.tblOverlap = val3;
         break;
       case "w:bidiVisual":
-        p.bidiVisual = onOffVal(el2);
+        p.bidiVisual = onOffVal(el3);
         break;
       case "w:tblStyleRowBandSize": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.tblStyleRowBandSize = n;
         break;
       }
       case "w:tblStyleColBandSize": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.tblStyleColBandSize = n;
         break;
       }
       case "w:tblW":
-        p.tblW = readWidth(el2);
+        p.tblW = readWidth(el3);
         break;
       case "w:jc":
-        if (val2) p.jc = val2;
+        if (val3) p.jc = val3;
         break;
       case "w:tblCellSpacing":
-        p.tblCellSpacing = readWidth(el2);
+        p.tblCellSpacing = readWidth(el3);
         break;
       case "w:tblInd":
-        p.tblInd = readWidth(el2);
+        p.tblInd = readWidth(el3);
         break;
       case "w:tblBorders":
-        p.tblBorders = readBorders(el2);
+        p.tblBorders = readBorders(el3);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el3);
         break;
       case "w:tblLayout":
-        p.tblLayout = el2.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        p.tblLayout = el3.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        break;
+      case "w:tblCaption":
+        if (val3 !== void 0) p.tblCaption = val3;
+        break;
+      case "w:tblDescription":
+        if (val3 !== void 0) p.tblDescription = val3;
         break;
       case "w:tblCellMar":
-        p.tblCellMar = readCellMar(el2);
+        p.tblCellMar = readCellMar(el3);
         break;
       case "w:tblLook": {
-        const a = el2.attrs;
+        const a = el3.attrs;
         const look = {};
         const hex2 = parseInt(a["w:val"] ?? "", 16);
         if (Number.isFinite(hex2)) {
@@ -1881,48 +1891,48 @@ function readTblPr(tblPr) {
 function readTrPr(trPr) {
   if (!trPr) return void 0;
   const p = {};
-  for (const el2 of childElements(trPr)) {
-    const val2 = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el3 of childElements(trPr)) {
+    const val3 = el3.attrs["w:val"];
+    switch (el3.name) {
       case "w:cnfStyle":
-        if (val2) p.cnfStyle = val2;
+        if (val3) p.cnfStyle = val3;
         break;
       case "w:gridBefore": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.gridBefore = n;
         break;
       }
       case "w:gridAfter": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.gridAfter = n;
         break;
       }
       case "w:wBefore":
-        p.wBefore = readWidth(el2);
+        p.wBefore = readWidth(el3);
         break;
       case "w:wAfter":
-        p.wAfter = readWidth(el2);
+        p.wAfter = readWidth(el3);
         break;
       case "w:cantSplit":
-        p.cantSplit = onOffVal(el2);
+        p.cantSplit = onOffVal(el3);
         break;
       case "w:trHeight": {
-        const v = measureTwips(val2) ?? 0;
-        const r = el2.attrs["w:hRule"];
+        const v = measureTwips(val3) ?? 0;
+        const r = el3.attrs["w:hRule"];
         p.trHeight = { val: v, hRule: r === "exact" || r === "auto" ? r : "atLeast" };
         break;
       }
       case "w:tblHeader":
-        p.tblHeader = onOffVal(el2);
+        p.tblHeader = onOffVal(el3);
         break;
       case "w:tblCellSpacing":
-        p.tblCellSpacing = readWidth(el2);
+        p.tblCellSpacing = readWidth(el3);
         break;
       case "w:jc":
-        if (val2) p.jc = val2;
+        if (val3) p.jc = val3;
         break;
       case "w:hidden":
-        p.hidden = onOffVal(el2);
+        p.hidden = onOffVal(el3);
         break;
     }
   }
@@ -1931,49 +1941,49 @@ function readTrPr(trPr) {
 function readTcPr(tcPr) {
   if (!tcPr) return void 0;
   const p = {};
-  for (const el2 of childElements(tcPr)) {
-    const val2 = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el3 of childElements(tcPr)) {
+    const val3 = el3.attrs["w:val"];
+    switch (el3.name) {
       case "w:cnfStyle":
-        if (val2) p.cnfStyle = val2;
+        if (val3) p.cnfStyle = val3;
         break;
       case "w:tcW":
-        p.tcW = readWidth(el2);
+        p.tcW = readWidth(el3);
         break;
       case "w:gridSpan": {
-        const n = int(val2);
+        const n = int(val3);
         if (n !== void 0) p.gridSpan = n;
         break;
       }
       case "w:hMerge":
-        p.hMerge = val2 === "restart" ? "restart" : "continue";
+        p.hMerge = val3 === "restart" ? "restart" : "continue";
         break;
       case "w:vMerge":
-        p.vMerge = val2 === "restart" ? "restart" : "continue";
+        p.vMerge = val3 === "restart" ? "restart" : "continue";
         break;
       case "w:tcBorders":
-        p.tcBorders = readBorders(el2);
+        p.tcBorders = readBorders(el3);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el3);
         break;
       case "w:noWrap":
-        p.noWrap = onOffVal(el2);
+        p.noWrap = onOffVal(el3);
         break;
       case "w:tcMar":
-        p.tcMar = readCellMar(el2);
+        p.tcMar = readCellMar(el3);
         break;
       case "w:textDirection":
-        if (val2) p.textDirection = val2;
+        if (val3) p.textDirection = val3;
         break;
       case "w:tcFitText":
-        p.tcFitText = onOffVal(el2);
+        p.tcFitText = onOffVal(el3);
         break;
       case "w:vAlign":
-        if (val2 === "top" || val2 === "center" || val2 === "bottom" || val2 === "both") p.vAlign = val2;
+        if (val3 === "top" || val3 === "center" || val3 === "bottom" || val3 === "both") p.vAlign = val3;
         break;
       case "w:hideMark":
-        p.hideMark = onOffVal(el2);
+        p.hideMark = onOffVal(el3);
         break;
     }
   }
@@ -1987,27 +1997,27 @@ var emuTw = (v) => {
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? n / EMU_PER_TWIP_D : void 0;
 };
-function findDeep(el2, name) {
-  for (const c of childElements(el2)) {
+function findDeep(el3, name) {
+  for (const c of childElements(el3)) {
     if (c.name === name) return c;
     const f = findDeep(c, name);
     if (f) return f;
   }
   return void 0;
 }
-function textOf(el2) {
+function textOf(el3) {
   let s = "";
-  for (const c of el2.children) s += typeof c === "string" ? c : textOf(c);
+  for (const c of el3.children) s += typeof c === "string" ? c : textOf(c);
   return s;
 }
-function readPos(el2, defFrom) {
-  const pos = { relativeFrom: el2?.attrs["relativeFrom"] ?? defFrom };
-  if (!el2) return pos;
-  const align = firstChild(el2, "wp:align");
+function readPos(el3, defFrom) {
+  const pos = { relativeFrom: el3?.attrs["relativeFrom"] ?? defFrom };
+  if (!el3) return pos;
+  const align = firstChild(el3, "wp:align");
   if (align) pos.align = textOf(align).trim();
-  const off = firstChild(el2, "wp:posOffset");
+  const off = firstChild(el3, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
+  const pct = firstChild(el3, "wp14:pctPosHOffset") ?? firstChild(el3, "wp14:pctPosVOffset");
   if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
   return pos;
 }
@@ -2080,9 +2090,9 @@ function readWpAnchor(anchor) {
   return out;
 }
 var own = (rec, k) => rec && k !== void 0 && Object.hasOwn(rec, k) ? rec[k] : void 0;
-function srgbOf(el2, theme) {
-  if (!el2) return void 0;
-  const c = firstChild(el2, "a:srgbClr") ?? firstChild(el2, "a:schemeClr") ?? firstChild(el2, "a:sysClr") ?? firstChild(el2, "a:prstClr");
+function srgbOf(el3, theme) {
+  if (!el3) return void 0;
+  const c = firstChild(el3, "a:srgbClr") ?? firstChild(el3, "a:schemeClr") ?? firstChild(el3, "a:sysClr") ?? firstChild(el3, "a:prstClr");
   if (!c) return void 0;
   let hex2;
   if (c.name === "a:srgbClr") hex2 = c.attrs["val"];
@@ -2299,11 +2309,11 @@ function vmlColor(v) {
   }
   return own(VML_COLORS, s);
 }
-function vmlShapeStyle(el2, geom) {
+function vmlShapeStyle(el3, geom) {
   const st = { geom };
-  const a = el2.attrs;
-  const fillEl = firstChild(el2, "v:fill");
-  const strokeEl = firstChild(el2, "v:stroke");
+  const a = el3.attrs;
+  const fillEl = firstChild(el3, "v:fill");
+  const strokeEl = firstChild(el3, "v:stroke");
   const filled = a["filled"] ?? fillEl?.attrs["on"];
   if (filled !== "f" && filled !== "false") {
     const fc = vmlColor(fillEl?.attrs["color"] ?? a["fillcolor"]) ?? (a["fillcolor"] === void 0 && !fillEl ? "FFFFFF" : void 0);
@@ -2401,8 +2411,8 @@ function readCustGeom(cg, cx, cy) {
     }
   };
   for (const lst of ["a:avLst", "a:gdLst"]) {
-    const el2 = firstChild(cg, lst);
-    for (const gd of el2 ? childElements(el2, "a:gd") : []) {
+    const el3 = firstChild(cg, lst);
+    for (const gd of el3 ? childElements(el3, "a:gd") : []) {
       const name = gd.attrs["name"];
       if (name) v[name] = evalGd(gd.attrs["fmla"] ?? "val 0");
     }
@@ -2417,7 +2427,7 @@ function readCustGeom(cg, cx, cy) {
       stroke: p.attrs["stroke"] !== "0" && p.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el2) => childElements(el2, "a:pt").map((q) => [num(q.attrs["x"]), num(q.attrs["y"])]);
+    const pts = (el3) => childElements(el3, "a:pt").map((q) => [num(q.attrs["x"]), num(q.attrs["y"])]);
     for (const c of childElements(p)) {
       switch (c.name) {
         case "a:moveTo":
@@ -2459,8 +2469,8 @@ function vmlFixed(v) {
   const n = v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
   return Number.isFinite(n) ? n : void 0;
 }
-function vmlImageEffects(el2) {
-  const a = el2.attrs;
+function vmlImageEffects(el3) {
+  const a = el3.attrs;
   const fx = {};
   const gain = vmlFixed(a["gain"]), bl = vmlFixed(a["blacklevel"]);
   if (gain !== void 0 && gain !== 1) fx.gain = gain;
@@ -2485,16 +2495,16 @@ function blipImageEffects(blip) {
   return Object.keys(fx).length ? fx : void 0;
 }
 var EMU_PER_TWIP = 635;
-function readBorderEdge(el2) {
-  if (!el2) return void 0;
-  const style = el2.attrs["w:val"];
+function readBorderEdge(el3) {
+  if (!el3) return void 0;
+  const style = el3.attrs["w:val"];
   if (!style || style === "none" || style === "nil") return void 0;
-  const color = el2.attrs["w:color"];
+  const color = el3.attrs["w:color"];
   return {
     style,
-    sizeEighthPt: parseInt(el2.attrs["w:sz"] ?? "4", 10),
+    sizeEighthPt: parseInt(el3.attrs["w:sz"] ?? "4", 10),
     color: color && color !== "auto" ? color : void 0,
-    spacePt: parseInt(el2.attrs["w:space"] ?? "0", 10)
+    spacePt: parseInt(el3.attrs["w:space"] ?? "0", 10)
   };
 }
 function runPropsFromRPr(rpr) {
@@ -2503,9 +2513,9 @@ function runPropsFromRPr(rpr) {
   if (rpr.b !== void 0) p.bold = rpr.b;
   if (rpr.i !== void 0) p.italic = rpr.i;
   if (rpr.u) {
-    const val2 = rpr.u.val;
-    p.underline = val2 !== "none" && val2 !== "";
-    if (val2 === "double" || val2 === "dotted" || val2 === "dash" || val2 === "wave" || val2 === "thick") p.underlineStyle = val2;
+    const val3 = rpr.u.val;
+    p.underline = val3 !== "none" && val3 !== "";
+    if (val3 === "double" || val3 === "dotted" || val3 === "dash" || val3 === "wave" || val3 === "thick") p.underlineStyle = val3;
     if (rpr.u.color && rpr.u.color !== "auto") p.underlineColor = rpr.u.color;
   }
   if (rpr.strike !== void 0) p.strike = rpr.strike;
@@ -2584,8 +2594,8 @@ function paraPropsFromPPr(ppr) {
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   return props;
 }
-function findDeep2(el2, name) {
-  for (const c of childElements(el2)) {
+function findDeep2(el3, name) {
+  for (const c of childElements(el3)) {
     if (c.name === name) return c;
     const found = findDeep2(c, name);
     if (found) return found;
@@ -2594,14 +2604,14 @@ function findDeep2(el2, name) {
 }
 var RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
 var rPrElOf = (r) => r?.[RPR_EL];
-var setRPrEl = (r, el2) => {
-  if (el2) r[RPR_EL] = el2;
+var setRPrEl = (r, el3) => {
+  if (el3) r[RPR_EL] = el3;
 };
 var OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
 var objElOf = (r) => r[OBJ_EL];
-function tagObjectRuns(list, from, el2) {
+function tagObjectRuns(list, from, el3) {
   if (!list) return;
-  for (let i2 = from; i2 < list.length; i2++) list[i2][OBJ_EL] = i2 === from ? el2 : true;
+  for (let i2 = from; i2 < list.length; i2++) list[i2][OBJ_EL] = i2 === from ? el3 : true;
 }
 var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
@@ -2695,7 +2705,7 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   if (obj.name === "wpg:wgp" || obj.name === "wpg:grpSp" || obj.name === "wpc:wpc") {
     const grpSpPr = firstChild(obj, "wpg:grpSpPr");
     const xfrm = grpSpPr && firstChild(grpSpPr, "a:xfrm");
-    const n = (el2, k) => parseInt(el2?.attrs[k] ?? "0", 10) || 0;
+    const n = (el3, k) => parseInt(el3?.attrs[k] ?? "0", 10) || 0;
     const chOff = xfrm && firstChild(xfrm, "a:chOff");
     const chExt = xfrm && firstChild(xfrm, "a:chExt");
     const ext = xfrm && firstChild(xfrm, "a:ext");
@@ -2718,17 +2728,17 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
       if (run) items.push({ x: x2, y, w, h, run: { ...run, props: { ...DEFAULT_RUN_PROPS } } });
     }
     if (!items.length) return void 0;
-    const group = { widthTwips: wTw, heightTwips: hTw, items };
+    const group2 = { widthTwips: wTw, heightTwips: hTw, items };
     const rot = parseInt(xfrm?.attrs["rot"] ?? "0", 10);
-    if (rot) group.rot = rot / 6e4;
-    if (xfrm?.attrs["flipH"] === "1") group.flipH = true;
-    if (xfrm?.attrs["flipV"] === "1") group.flipV = true;
-    return { text: OBJ, group };
+    if (rot) group2.rot = rot / 6e4;
+    if (xfrm?.attrs["flipH"] === "1") group2.flipH = true;
+    if (xfrm?.attrs["flipV"] === "1") group2.flipV = true;
+    return { text: OBJ, group: group2 };
   }
   return void 0;
 }
-function dmlRunColor(el2) {
-  const c = el2 && (firstChild(el2, "a:srgbClr") ?? firstChild(el2, "a:sysClr") ?? firstChild(el2, "a:schemeClr") ?? firstChild(el2, "a:prstClr"));
+function dmlRunColor(el3) {
+  const c = el3 && (firstChild(el3, "a:srgbClr") ?? firstChild(el3, "a:sysClr") ?? firstChild(el3, "a:schemeClr") ?? firstChild(el3, "a:prstClr"));
   if (!c) return void 0;
   if (c.name === "a:srgbClr") return { val: (c.attrs["val"] ?? "000000").toUpperCase() };
   if (c.name === "a:sysClr") return { val: (c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
@@ -2778,7 +2788,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u && u !== "none" ? { u: { val: u === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num = (el2) => parseInt(el2?.attrs["val"] ?? "0", 10) || 0;
+  const num = (el3) => parseInt(el3?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -2843,7 +2853,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
     const c = fills.attrs["meth"] === "cycle" ? cs[i2 % cs.length] : cs[Math.min(i2, cs.length - 1)];
     txFill.set(pt.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c] }));
   }
-  const n = (el2, k) => (parseInt(el2?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
+  const n = (el3, k) => (parseInt(el3?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
   const rect = (xf) => {
     const off = firstChild(xf, "a:off"), e = firstChild(xf, "a:ext");
     return { x: n(off, "x"), y: n(off, "y"), w: n(e, "cx"), h: n(e, "cy") };
@@ -2928,23 +2938,23 @@ function readDrawingRun(drawing, ctx) {
 }
 function readVmlRuns(container, ctx, inline) {
   const out = [];
-  const shapeOf = (el2, inGroup) => {
-    const st = parseVmlStyle(el2.attrs["style"]);
+  const shapeOf = (el3, inGroup) => {
+    const st = parseVmlStyle(el3.attrs["style"]);
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w = vmlLenTwips(st["width"]) ?? 0;
     let h = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep2(el2, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep2(el3, "w10:wrap"));
     if (inGroup) {
       w = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep2(el2, "v:textpath");
+    const textpath = findDeep2(el3, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
-      const sh = vmlShapeStyle(el2, "rect");
+      const sh = vmlShapeStyle(el3, "rect");
       let color = sh.fill ?? "000000";
       const a = sh.fillAlpha;
       if (a !== void 0 && a < 1) {
@@ -2975,7 +2985,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       return run2;
     }
-    const imagedata = firstChild(el2, "v:imagedata");
+    const imagedata = firstChild(el3, "v:imagedata");
     const rid = imagedata?.attrs["r:id"] ?? imagedata?.attrs["r:pict"];
     let run;
     if (rid) {
@@ -2993,7 +3003,7 @@ function readVmlRuns(container, ctx, inline) {
       if (fx) image.effects = fx;
       run = { text: OBJ, image };
     } else {
-      const txb = firstChild(el2, "v:textbox");
+      const txb = firstChild(el3, "v:textbox");
       const content = txb && firstChild(txb, "w:txbxContent");
       if (content) {
         const tb = { paras: [], widthTwips: w, heightTwips: h, vml: true };
@@ -3003,26 +3013,26 @@ function readVmlRuns(container, ctx, inline) {
         tb.insets = { l: ins(0, 144), t: ins(1, 72), r: ins(2, 144), b: ins(3, 72) };
         const tbStyle = parseVmlStyle(txb.attrs["style"]);
         if (tbStyle["mso-fit-shape-to-text"] === "t") tb.autoFit = true;
-        if (parseVmlStyle(el2.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
-        const sh = vmlShapeStyle(el2, "rect");
+        if (parseVmlStyle(el3.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
+        const sh = vmlShapeStyle(el3, "rect");
         if (sh.fill || sh.line) tb.shape = sh;
         run = { text: OBJ, textbox: tb };
       } else {
-        const tag = el2.name.replace(/^v:/, "");
-        const type = el2.attrs["type"] ?? "";
-        const declared = el2.attrs["fillcolor"] || el2.attrs["strokecolor"] || el2.attrs["filled"] || el2.attrs["stroked"] || firstChild(el2, "v:fill") || firstChild(el2, "v:stroke");
+        const tag = el3.name.replace(/^v:/, "");
+        const type = el3.attrs["type"] ?? "";
+        const declared = el3.attrs["fillcolor"] || el3.attrs["strokecolor"] || el3.attrs["filled"] || el3.attrs["stroked"] || firstChild(el3, "v:fill") || firstChild(el3, "v:stroke");
         if (tag === "shape" && (type.includes("_x0000_t75") || !declared)) {
           return void 0;
         }
         const geom = tag === "oval" ? "ellipse" : tag === "roundrect" ? "roundRect" : tag === "line" || type.includes("_x0000_t32") ? "line" : "rect";
-        const style = vmlShapeStyle(el2, geom);
+        const style = vmlShapeStyle(el3, geom);
         if (geom === "line") delete style.fill;
         const shape = { style, widthTwips: w, heightTwips: h };
-        if (el2.attrs["o:hr"] === "t") shape.hr = true;
+        if (el3.attrs["o:hr"] === "t") shape.hr = true;
         if (tag === "line") {
           const pt = (s) => (s ?? "0,0").split(",").map((v) => vmlLenTwips(v.trim()) ?? 0);
-          const [x1 = 0, y1 = 0] = pt(el2.attrs["from"]);
-          const [x2 = 0, y2 = 0] = pt(el2.attrs["to"]);
+          const [x1 = 0, y1 = 0] = pt(el3.attrs["from"]);
+          const [x2 = 0, y2 = 0] = pt(el3.attrs["to"]);
           shape.line = { x1, y1, x2, y2 };
           shape.widthTwips = Math.abs(x2 - x1);
           shape.heightTwips = Math.abs(y2 - y1);
@@ -3046,17 +3056,17 @@ function readVmlRuns(container, ctx, inline) {
     }
     return run;
   };
-  for (const el2 of childElements(container)) {
-    if (el2.name === "v:shapetype" || el2.name.startsWith("o:") || el2.name.startsWith("w10:")) continue;
-    if (el2.name === "v:group") {
-      const st = parseVmlStyle(el2.attrs["style"]);
+  for (const el3 of childElements(container)) {
+    if (el3.name === "v:shapetype" || el3.name.startsWith("o:") || el3.name.startsWith("w10:")) continue;
+    if (el3.name === "v:group") {
+      const st = parseVmlStyle(el3.attrs["style"]);
       const w = vmlLenTwips(st["width"]) ?? 0;
       const h = vmlLenTwips(st["height"]) ?? 0;
-      const cs = (el2.attrs["coordsize"] ?? "1000,1000").split(",").map((v) => parseFloat(v) || 1e3);
-      const co = (el2.attrs["coordorigin"] ?? "0,0").split(",").map((v) => parseFloat(v) || 0);
+      const cs = (el3.attrs["coordsize"] ?? "1000,1000").split(",").map((v) => parseFloat(v) || 1e3);
+      const co = (el3.attrs["coordorigin"] ?? "0,0").split(",").map((v) => parseFloat(v) || 0);
       const sx = w / (cs[0] || 1), sy = h / (cs[1] || 1);
       const items = [];
-      for (const c of childElements(el2)) {
+      for (const c of childElements(el3)) {
         if (!c.name.startsWith("v:") || c.name === "v:shapetype") continue;
         const cst = parseVmlStyle(c.attrs["style"]);
         const r = shapeOf(c, { sx, sy });
@@ -3067,21 +3077,27 @@ function readVmlRuns(container, ctx, inline) {
         items.push({ x: x2, y, w: tgt?.widthTwips ?? 0, h: tgt?.heightTwips ?? 0, run: { ...r, props: { ...DEFAULT_RUN_PROPS } } });
       }
       if (!items.length) continue;
-      const group = { widthTwips: w, heightTwips: h, items };
-      const anchor = vmlAnchor(st, findDeep2(el2, "w10:wrap"));
+      const group2 = { widthTwips: w, heightTwips: h, items };
+      const anchor = vmlAnchor(st, findDeep2(el3, "w10:wrap"));
       if (anchor) {
-        group.floating = true;
-        group.anchor = anchor;
+        group2.floating = true;
+        group2.anchor = anchor;
       }
-      out.push({ text: OBJ, group });
+      out.push({ text: OBJ, group: group2 });
       continue;
     }
-    if (el2.name.startsWith("v:")) {
-      const r = shapeOf(el2);
+    if (el3.name.startsWith("v:")) {
+      const r = shapeOf(el3);
       if (r) {
         if (inline && r.image) {
           delete r.image.floating;
           delete r.image.anchor;
+          const oo = findDeep2(container, "o:OLEObject");
+          const rid = oo?.attrs["r:id"];
+          if (oo && rid && oo.attrs["Type"] !== "Link") {
+            const part = ctx.resolveImage(rid);
+            if (part) r.image.ole = { progId: oo.attrs["ProgID"] ?? "", data: part.data, ext: part.ext };
+          }
         }
         out.push(r);
       }
@@ -3089,9 +3105,9 @@ function readVmlRuns(container, ctx, inline) {
   }
   return out;
 }
-function textContentOf(el2) {
+function textContentOf(el3) {
   let out = "";
-  for (const c of el2.children) out += typeof c === "string" ? c : textContentOf(c);
+  for (const c of el3.children) out += typeof c === "string" ? c : textContentOf(c);
   return out;
 }
 function runTarget(ctx, runs) {
@@ -3228,8 +3244,8 @@ function parseCustomInlineTag(tag) {
     return void 0;
   }
 }
-function readMathNodes(el2, out = []) {
-  for (const c of childElements(el2)) {
+function readMathNodes(el3, out = []) {
+  for (const c of childElements(el3)) {
     switch (c.name) {
       case "m:r":
       case "w:r": {
@@ -3280,9 +3296,9 @@ function readMathNodes(el2, out = []) {
   }
   return out;
 }
-function collectMathText(el2) {
+function collectMathText(el3) {
   let out = "";
-  for (const c of el2.children) {
+  for (const c of el3.children) {
     if (typeof c === "string") continue;
     if (c.name === "m:t") out += textContentOf(c);
     else out += collectMathText(c);
@@ -3548,10 +3564,10 @@ function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
     for (let i2 = from; i2 < to; i2++) {
       const run = para.runs[i2];
       const sid = store.id();
-      const el2 = rPrElOf(run);
+      const el3 = rPrElOf(run);
       const obj = objElOf(run);
       store.runs.set(sid, {
-        ...el2 ? { rPr: xml.slice(el2.s, el2.e) } : {},
+        ...el3 ? { rPr: xml.slice(el3.s, el3.e) } : {},
         ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
       });
       if (obj && obj !== true) objHead = sid;
@@ -3568,9 +3584,9 @@ function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
     segs: segs.map((x2) => x2.seg)
   });
 }
-function collectInstrText(el2) {
+function collectInstrText(el3) {
   let out = "";
-  for (const c of el2.children) {
+  for (const c of el3.children) {
     if (typeof c === "string") continue;
     if (c.name === "w:instrText") out += textContentOf(c);
     else out += collectInstrText(c);
@@ -3603,7 +3619,7 @@ function buildReadContext(pkg, relsPath) {
       const data = pkg.getPart(path);
       if (!data) return void 0;
       const ext = path.split(".").pop()?.toLowerCase() ?? "png";
-      return { data, ext };
+      return { data, ext, path };
     },
     resolveLink: (rid) => {
       const rel = relMap.get(rid);
@@ -3617,8 +3633,8 @@ function buildReadContext(pkg, relsPath) {
     }
   };
 }
-var tw = (el2, attr, fallback) => {
-  const v = el2?.attrs[attr];
+var tw = (el3, attr, fallback) => {
+  const v = el3?.attrs[attr];
   return v === void 0 ? fallback : parseInt(v, 10);
 };
 function readSectPr(sectEl) {
@@ -3657,6 +3673,19 @@ function readSectPr(sectEl) {
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
     sect.titlePg = true;
   }
+  const pb = sectEl && firstChild(sectEl, "w:pgBorders");
+  if (pb) {
+    const out = {};
+    const of = pb.attrs["w:offsetFrom"], dp = pb.attrs["w:display"], z = pb.attrs["w:zOrder"];
+    if (of === "page" || of === "text") out.offsetFrom = of;
+    if (dp === "allPages" || dp === "firstPage" || dp === "notFirstPage") out.display = dp;
+    if (z === "front" || z === "back") out.zOrder = z;
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const b = readBorder(firstChild(pb, `w:${side}`));
+      if (b) out[side] = b;
+    }
+    sect.pgBorders = out;
+  }
   const pgNumType = sectEl && firstChild(sectEl, "w:pgNumType");
   const startAttr = pgNumType?.attrs["w:start"];
   if (startAttr !== void 0) {
@@ -3667,43 +3696,43 @@ function readSectPr(sectEl) {
 }
 
 // ../docx-core/src/styles.ts
-var onOff = (el2) => {
-  if (!el2) return void 0;
-  const v = el2.attrs["w:val"];
+var onOff = (el3) => {
+  if (!el3) return void 0;
+  const v = el3.attrs["w:val"];
   return v !== "0" && v !== "false" && v !== "none";
 };
 function readStyleRunProps(rPr) {
   const p = {};
   if (!rPr) return p;
-  for (const el2 of childElements(rPr)) {
-    const val2 = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el3 of childElements(rPr)) {
+    const val3 = el3.attrs["w:val"];
+    switch (el3.name) {
       case "w:b":
-        p.bold = onOff(el2);
+        p.bold = onOff(el3);
         break;
       case "w:i":
-        p.italic = onOff(el2);
+        p.italic = onOff(el3);
         break;
       case "w:caps":
-        p.allCaps = onOff(el2);
+        p.allCaps = onOff(el3);
         break;
       case "w:smallCaps":
-        p.smallCaps = onOff(el2);
+        p.smallCaps = onOff(el3);
         break;
       case "w:strike":
-        p.strike = onOff(el2);
+        p.strike = onOff(el3);
         break;
       case "w:sz":
-        if (val2) p.szHalfPt = parseInt(val2, 10);
+        if (val3) p.szHalfPt = parseInt(val3, 10);
         break;
       case "w:color":
-        if (val2 && val2 !== "auto") p.color = val2;
+        if (val3 && val3 !== "auto") p.color = val3;
         break;
       case "w:rFonts":
-        if (el2.attrs["w:ascii"]) p.fontAscii = el2.attrs["w:ascii"];
+        if (el3.attrs["w:ascii"]) p.fontAscii = el3.attrs["w:ascii"];
         break;
       case "w:u":
-        p.underline = val2 !== "none";
+        p.underline = val3 !== "none";
         break;
     }
   }
@@ -3804,14 +3833,14 @@ function readStyleSheet(xml) {
     const type = st.attrs["w:type"] ?? "paragraph";
     if (!id || type !== "paragraph" && type !== "character" && type !== "table" && type !== "numbering") continue;
     const def = { styleId: id, type };
-    const val2 = (n) => firstChild(st, n)?.attrs["w:val"];
-    const name = val2("w:name");
+    const val3 = (n) => firstChild(st, n)?.attrs["w:val"];
+    const name = val3("w:name");
     if (name !== void 0) def.name = name;
-    const basedOn = val2("w:basedOn");
+    const basedOn = val3("w:basedOn");
     if (basedOn) def.basedOn = basedOn;
-    const next = val2("w:next");
+    const next = val3("w:next");
     if (next) def.next = next;
-    const link = val2("w:link");
+    const link = val3("w:link");
     if (link) def.link = link;
     const d = st.attrs["w:default"];
     if (d === "1" || d === "true" || d === "on") {
@@ -3848,24 +3877,24 @@ function readStyleSheet(xml) {
   }
   return sheet;
 }
-function readLevel(el2) {
-  const ilvl = parseInt(el2.attrs["w:ilvl"] ?? "0", 10) || 0;
+function readLevel(el3) {
+  const ilvl = parseInt(el3.attrs["w:ilvl"] ?? "0", 10) || 0;
   const lvl = { ilvl };
-  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
+  const v = (n) => firstChild(el3, n)?.attrs["w:val"];
   const start = v("w:start");
   if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el2, "w:numFmt");
+  const fmtEl = firstChild(el3, "w:numFmt");
   if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
   if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
   const restart = v("w:lvlRestart");
   if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
   const ps = v("w:pStyle");
   if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el2, "w:isLgl");
+  const isLgl = firstChild(el3, "w:isLgl");
   if (isLgl) lvl.isLgl = onOffVal(isLgl);
   const suff = v("w:suff");
   if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el2, "w:lvlText");
+  const lt = firstChild(el3, "w:lvlText");
   if (lt) {
     if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
     if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
@@ -3874,9 +3903,9 @@ function readLevel(el2) {
   if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
   const jc = v("w:lvlJc");
   if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el2, "w:pPr"));
+  const pPr = readPPr(firstChild(el3, "w:pPr"));
   if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el2, "w:rPr"));
+  const rPr = readRPr(firstChild(el3, "w:rPr"));
   if (rPr) lvl.rPr = rPr;
   return lvl;
 }
@@ -3953,16 +3982,16 @@ function readTheme(xml) {
   };
   const fontScheme = find(root, "a:fontScheme");
   for (const [key, tag] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el2 = fontScheme && firstChild(fontScheme, tag);
-    if (!el2) continue;
+    const el3 = fontScheme && firstChild(fontScheme, tag);
+    if (!el3) continue;
     const set = theme[key];
-    const latin = firstChild(el2, "a:latin")?.attrs["typeface"];
+    const latin = firstChild(el3, "a:latin")?.attrs["typeface"];
     if (latin) set.latin = latin;
-    const ea = firstChild(el2, "a:ea")?.attrs["typeface"];
+    const ea = firstChild(el3, "a:ea")?.attrs["typeface"];
     if (ea) set.ea = ea;
-    const cs = firstChild(el2, "a:cs")?.attrs["typeface"];
+    const cs = firstChild(el3, "a:cs")?.attrs["typeface"];
     if (cs) set.cs = cs;
-    for (const f of childElements(el2, "a:font")) {
+    for (const f of childElements(el3, "a:font")) {
       if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
     }
   }
@@ -4074,7 +4103,7 @@ function readFontTable(xml) {
     const sig = firstChild(f, "w:sig");
     if (sig) {
       info.sig = {};
-      for (const [k, val2] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val2;
+      for (const [k, val3] of Object.entries(sig.attrs)) info.sig[k.replace(/^w:/, "")] = val3;
     }
     out[name] = info;
   }
@@ -4102,8 +4131,264 @@ function readDocFormatting(pkg) {
   };
 }
 
-// ../docx-core/src/lossless.ts
+// ../docx-core/src/table-xml.ts
 var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var attrs = (pairs) => pairs.filter(([, v]) => v !== void 0).map(([k, v]) => ` w:${k}="${esc(String(v))}"`).join("");
+var TBLPR_ORDER = [
+  "w:tblStyle",
+  "w:tblpPr",
+  "w:tblOverlap",
+  "w:bidiVisual",
+  "w:tblStyleRowBandSize",
+  "w:tblStyleColBandSize",
+  "w:tblW",
+  "w:jc",
+  "w:tblCellSpacing",
+  "w:tblInd",
+  "w:tblBorders",
+  "w:shd",
+  "w:tblLayout",
+  "w:tblCellMar",
+  "w:tblLook",
+  "w:tblCaption",
+  "w:tblDescription",
+  "w:tblPrChange"
+];
+var TBLPREX_ORDER = [
+  "w:tblW",
+  "w:jc",
+  "w:tblCellSpacing",
+  "w:tblInd",
+  "w:tblBorders",
+  "w:shd",
+  "w:tblLayout",
+  "w:tblCellMar",
+  "w:tblLook",
+  "w:tblPrExChange"
+];
+var TRPR_ORDER = [
+  "w:cnfStyle",
+  "w:divId",
+  "w:gridBefore",
+  "w:gridAfter",
+  "w:wBefore",
+  "w:wAfter",
+  "w:cantSplit",
+  "w:trHeight",
+  "w:tblHeader",
+  "w:tblCellSpacing",
+  "w:jc",
+  "w:hidden",
+  "w:ins",
+  "w:del",
+  "w:trPrChange"
+];
+var TCPR_ORDER = [
+  "w:cnfStyle",
+  "w:tcW",
+  "w:gridSpan",
+  "w:hMerge",
+  "w:vMerge",
+  "w:tcBorders",
+  "w:shd",
+  "w:noWrap",
+  "w:tcMar",
+  "w:textDirection",
+  "w:tcFitText",
+  "w:vAlign",
+  "w:hideMark",
+  "w:headers",
+  "w:cellIns",
+  "w:cellDel",
+  "w:cellMerge",
+  "w:tcPrChange"
+];
+function borderXml(tag, b) {
+  return `<w:${tag}${attrs([
+    ["val", b.val],
+    ["sz", b.sz],
+    ["space", b.space ?? (b.val === "nil" ? void 0 : 0)],
+    ["color", b.color ?? (b.val === "nil" ? void 0 : "auto")],
+    ["themeColor", b.themeColor],
+    ["themeTint", b.themeTint],
+    ["themeShade", b.themeShade],
+    ["shadow", b.shadow === void 0 ? void 0 : b.shadow ? 1 : 0],
+    ["frame", b.frame === void 0 ? void 0 : b.frame ? 1 : 0]
+  ])}/>`;
+}
+function pgBordersXml(pb) {
+  if (!pb) return null;
+  const inner = ["top", "left", "bottom", "right"].map((s) => pb[s] ? borderXml(s, pb[s]) : "").join("");
+  if (!inner) return null;
+  return `<w:pgBorders${attrs([["zOrder", pb.zOrder], ["display", pb.display], ["offsetFrom", pb.offsetFrom]])}>${inner}</w:pgBorders>`;
+}
+var SIDES = ["top", "left", "bottom", "right", "insideH", "insideV", "tl2br", "tr2bl"];
+function bordersXml(tag, b) {
+  const inner = SIDES.map((s) => b[s] ? borderXml(s, b[s]) : "").join("");
+  return inner ? `<w:${tag}>${inner}</w:${tag}>` : "";
+}
+function shdXml(s) {
+  return `<w:shd${attrs([
+    ["val", s.val ?? "clear"],
+    ["color", s.color ?? "auto"],
+    ["themeColor", s.themeColor],
+    ["fill", s.fill],
+    ["themeFill", s.themeFill],
+    ["themeFillTint", s.themeFillTint],
+    ["themeFillShade", s.themeFillShade]
+  ])}/>`;
+}
+var widthXml = (tag, w) => `<w:${tag}${attrs([["w", w.w], ["type", w.type]])}/>`;
+function marXml(tag, m) {
+  const inner = ["top", "left", "bottom", "right"].map((k) => m[k] ? widthXml(k, m[k]) : "").join("");
+  return inner ? `<w:${tag}>${inner}</w:${tag}>` : "";
+}
+function lookXml(l) {
+  const bits2 = (l.firstRow ? 32 : 0) | (l.lastRow ? 64 : 0) | (l.firstColumn ? 128 : 0) | (l.lastColumn ? 256 : 0) | (l.noHBand ? 512 : 0) | (l.noVBand ? 1024 : 0);
+  const b = (v) => v ? 1 : 0;
+  return `<w:tblLook w:val="${bits2.toString(16).toUpperCase().padStart(4, "0")}" w:firstRow="${b(l.firstRow)}" w:lastRow="${b(l.lastRow)}" w:firstColumn="${b(l.firstColumn)}" w:lastColumn="${b(l.lastColumn)}" w:noHBand="${b(l.noHBand)}" w:noVBand="${b(l.noVBand)}"/>`;
+}
+function tblpPrXml(p) {
+  return `<w:tblpPr${attrs([
+    ["leftFromText", p.leftFromText],
+    ["rightFromText", p.rightFromText],
+    ["topFromText", p.topFromText],
+    ["bottomFromText", p.bottomFromText],
+    ["vertAnchor", p.vertAnchor],
+    ["horzAnchor", p.horzAnchor],
+    ["tblpXSpec", p.tblpXSpec],
+    ["tblpX", p.tblpX],
+    ["tblpYSpec", p.tblpYSpec],
+    ["tblpY", p.tblpY]
+  ])}/>`;
+}
+var onOff2 = (tag, v) => v ? `<w:${tag}/>` : `<w:${tag} w:val="0"/>`;
+var val = (tag, v) => `<w:${tag} w:val="${esc(String(v))}"/>`;
+var TBLPR_GEN = {
+  tblStyle: ["w:tblStyle", (v) => val("tblStyle", v)],
+  tblpPr: ["w:tblpPr", tblpPrXml],
+  tblOverlap: ["w:tblOverlap", (v) => val("tblOverlap", v)],
+  bidiVisual: ["w:bidiVisual", (v) => onOff2("bidiVisual", v)],
+  tblStyleRowBandSize: ["w:tblStyleRowBandSize", (v) => val("tblStyleRowBandSize", v)],
+  tblStyleColBandSize: ["w:tblStyleColBandSize", (v) => val("tblStyleColBandSize", v)],
+  tblW: ["w:tblW", (v) => widthXml("tblW", v)],
+  jc: ["w:jc", (v) => val("jc", v)],
+  tblCellSpacing: ["w:tblCellSpacing", (v) => widthXml("tblCellSpacing", v)],
+  tblInd: ["w:tblInd", (v) => widthXml("tblInd", v)],
+  tblBorders: ["w:tblBorders", (v) => bordersXml("tblBorders", v)],
+  shd: ["w:shd", shdXml],
+  tblLayout: ["w:tblLayout", (v) => `<w:tblLayout w:type="${v}"/>`],
+  tblCellMar: ["w:tblCellMar", (v) => marXml("tblCellMar", v)],
+  tblLook: ["w:tblLook", lookXml],
+  tblCaption: ["w:tblCaption", (v) => val("tblCaption", v)],
+  tblDescription: ["w:tblDescription", (v) => val("tblDescription", v)]
+};
+var TRPR_GEN = {
+  cnfStyle: ["w:cnfStyle", (v) => val("cnfStyle", v)],
+  gridBefore: ["w:gridBefore", (v) => val("gridBefore", v)],
+  gridAfter: ["w:gridAfter", (v) => val("gridAfter", v)],
+  wBefore: ["w:wBefore", (v) => widthXml("wBefore", v)],
+  wAfter: ["w:wAfter", (v) => widthXml("wAfter", v)],
+  cantSplit: ["w:cantSplit", (v) => onOff2("cantSplit", v)],
+  // o Word grava hRule ANTES de val; "atLeast" é o padrão (sem hRule)
+  trHeight: ["w:trHeight", (v) => `<w:trHeight${v.hRule === "atLeast" ? "" : ` w:hRule="${v.hRule}"`} w:val="${v.val}"/>`],
+  tblHeader: ["w:tblHeader", (v) => onOff2("tblHeader", v)],
+  tblCellSpacing: ["w:tblCellSpacing", (v) => widthXml("tblCellSpacing", v)],
+  jc: ["w:jc", (v) => val("jc", v)],
+  hidden: ["w:hidden", (v) => onOff2("hidden", v)]
+};
+var TCPR_GEN = {
+  cnfStyle: ["w:cnfStyle", (v) => val("cnfStyle", v)],
+  tcW: ["w:tcW", (v) => widthXml("tcW", v)],
+  gridSpan: ["w:gridSpan", (v) => val("gridSpan", v)],
+  hMerge: ["w:hMerge", (v) => v === "restart" ? val("hMerge", "restart") : "<w:hMerge/>"],
+  vMerge: ["w:vMerge", (v) => v === "restart" ? val("vMerge", "restart") : "<w:vMerge/>"],
+  tcBorders: ["w:tcBorders", (v) => bordersXml("tcBorders", v)],
+  shd: ["w:shd", shdXml],
+  noWrap: ["w:noWrap", (v) => onOff2("noWrap", v)],
+  tcMar: ["w:tcMar", (v) => marXml("tcMar", v)],
+  textDirection: ["w:textDirection", (v) => val("textDirection", v)],
+  tcFitText: ["w:tcFitText", (v) => onOff2("tcFitText", v)],
+  vAlign: ["w:vAlign", (v) => val("vAlign", v)],
+  hideMark: ["w:hideMark", (v) => onOff2("hideMark", v)]
+};
+var EX_KEYS = /* @__PURE__ */ new Set(["tblW", "jc", "tblCellSpacing", "tblInd", "tblBorders", "shd", "tblLayout", "tblCellMar", "tblLook"]);
+function genAll(p, gen, order2, only) {
+  const parts = [];
+  for (const k of Object.keys(gen)) {
+    if (only && !only.has(k)) continue;
+    const v = p[k];
+    if (v === void 0 || v === null) continue;
+    const [name, f] = gen[k];
+    parts.push([order2.indexOf(name), f(v)]);
+  }
+  return parts.sort((a, b) => a[0] - b[0]).map((x2) => x2[1]).join("");
+}
+var tblPrXml = (p) => `<w:tblPr>${genAll(p, TBLPR_GEN, TBLPR_ORDER)}</w:tblPr>`;
+var tblPrExXml = (p) => {
+  const inner = genAll(p, TBLPR_GEN, TBLPREX_ORDER, EX_KEYS);
+  return inner ? `<w:tblPrEx>${inner}</w:tblPrEx>` : "";
+};
+var trPrXml = (p) => {
+  const inner = genAll(p, TRPR_GEN, TRPR_ORDER);
+  return inner ? `<w:trPr>${inner}</w:trPr>` : "";
+};
+var tcPrXml = (p) => `<w:tcPr>${genAll(p, TCPR_GEN, TCPR_ORDER)}</w:tcPr>`;
+function deepEq(a, b) {
+  if (a === b) return true;
+  if (a === void 0 || b === void 0 || a === null || b === null) return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a).filter((k) => a[k] !== void 0);
+  const kb = Object.keys(b).filter((k) => b[k] !== void 0);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => deepEq(a[k], b[k]));
+}
+function setKid(kids, order2, name, xml) {
+  const at = kids.findIndex((k) => k.name === name);
+  for (let i2 = kids.length - 1; i2 >= 0; i2--) if (kids[i2].name === name && i2 !== at) kids.splice(i2, 1);
+  if (at >= 0) {
+    if (xml === null || xml === "") kids.splice(at, 1);
+    else kids[at] = { name, raw: xml };
+    return;
+  }
+  if (xml === null || xml === "") return;
+  const rank = order2.indexOf(name);
+  let pos = kids.length;
+  for (let i2 = 0; i2 < kids.length; i2++) {
+    const r = order2.indexOf(kids[i2].name);
+    if (r > rank) {
+      pos = i2;
+      break;
+    }
+  }
+  kids.splice(pos, 0, { name, raw: xml });
+}
+function patch(raw, cur, read, gen, order2, keys, emptyOk = false) {
+  const { open, close, kids: k0, el: el3 } = splitElement(raw);
+  const base = read(el3) ?? {};
+  const now = cur ?? {};
+  const kids = k0.map((k) => ({ name: k.name, raw: k.raw }));
+  let changed = false;
+  for (const k of Object.keys(gen)) {
+    if (keys && !keys.has(k)) continue;
+    if (deepEq(base[k], now[k])) continue;
+    changed = true;
+    const [name, f] = gen[k];
+    const v = now[k];
+    setKid(kids, order2, name, v === void 0 || v === null ? null : f(v));
+  }
+  if (!changed) return raw;
+  if (!kids.length && !emptyOk) return "";
+  return open + kids.map((x2) => x2.raw).join("") + close;
+}
+var patchTblPr = (raw, cur) => patch(raw, cur, readTblPr, TBLPR_GEN, TBLPR_ORDER, void 0, true);
+var patchTblPrEx = (raw, cur) => patch(raw, cur, readTblPr, TBLPR_GEN, TBLPREX_ORDER, EX_KEYS);
+var patchTrPr = (raw, cur) => patch(raw, cur, readTrPr, TRPR_GEN, TRPR_ORDER);
+var patchTcPr = (raw, cur) => patch(raw, cur, readTcPr, TCPR_GEN, TCPR_ORDER, void 0, true);
+
+// ../docx-core/src/lossless.ts
+var esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 var RPR_ORDER = [
   "w:rStyle",
   "w:rFonts",
@@ -4209,15 +4494,15 @@ var SECT_ORDER = [
   "w:sectPrChange"
 ];
 function splitElement(raw) {
-  const el2 = parseXml(raw, { positions: true });
-  if (el2.cs === el2.e) {
+  const el3 = parseXml(raw, { positions: true });
+  if (el3.cs === el3.e) {
     const open = raw.replace(/\s*\/>\s*$/, ">");
-    return { open, close: `</${el2.name}>`, kids: [], el: el2 };
+    return { open, close: `</${el3.name}>`, kids: [], el: el3 };
   }
-  const kids = childElements(el2).map((k) => ({ name: k.name, raw: raw.slice(k.s, k.e), el: k }));
-  return { open: raw.slice(0, el2.cs), close: raw.slice(el2.ce), kids, el: el2 };
+  const kids = childElements(el3).map((k) => ({ name: k.name, raw: raw.slice(k.s, k.e), el: k }));
+  return { open: raw.slice(0, el3.cs), close: raw.slice(el3.ce), kids, el: el3 };
 }
-function setKid(kids, order, name, xml) {
+function setKid2(kids, order2, name, xml) {
   const at = kids.findIndex((k) => k.name === name);
   for (let i2 = kids.length - 1; i2 >= 0; i2--) if (kids[i2].name === name && i2 !== at) kids.splice(i2, 1);
   if (at >= 0) {
@@ -4226,10 +4511,10 @@ function setKid(kids, order, name, xml) {
     return;
   }
   if (xml === null) return;
-  const rank = order.indexOf(name);
+  const rank = order2.indexOf(name);
   let pos = kids.length;
   for (let i2 = 0; i2 < kids.length; i2++) {
-    const r = order.indexOf(kids[i2].name);
+    const r = order2.indexOf(kids[i2].name);
     if (r > rank) {
       pos = i2;
       break;
@@ -4239,26 +4524,26 @@ function setKid(kids, order, name, xml) {
 }
 function withAttrs(raw, name, changes) {
   if (!raw) {
-    const attrs3 = Object.entries(changes).filter(([, v]) => v !== void 0).map(([k, v]) => ` ${k}="${esc(String(v))}"`).join("");
-    return `<${name}${attrs3}/>`;
+    const attrs4 = Object.entries(changes).filter(([, v]) => v !== void 0).map(([k, v]) => ` ${k}="${esc2(String(v))}"`).join("");
+    return `<${name}${attrs4}/>`;
   }
   const m = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
-  let attrs2 = m[2];
+  let attrs3 = m[2];
   for (const [k, v] of Object.entries(changes)) {
     const re = new RegExp(`\\s${k.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
-    if (v === void 0) attrs2 = attrs2.replace(re, "");
-    else if (re.test(attrs2)) attrs2 = attrs2.replace(re, () => ` ${k}="${esc(String(v))}"`);
-    else attrs2 += ` ${k}="${esc(String(v))}"`;
+    if (v === void 0) attrs3 = attrs3.replace(re, "");
+    else if (re.test(attrs3)) attrs3 = attrs3.replace(re, () => ` ${k}="${esc2(String(v))}"`);
+    else attrs3 += ` ${k}="${esc2(String(v))}"`;
   }
-  return `<${m[1]}${attrs2}${m[3]}>${raw.slice(m[0].length)}`;
+  return `<${m[1]}${attrs3}${m[3]}>${raw.slice(m[0].length)}`;
 }
 var kidRaw = (kids, name) => kids.find((k) => k.name === name)?.raw ?? "";
-var onOff2 = (name, v) => v ? `<${name}/>` : `<${name} w:val="0"/>`;
+var onOff3 = (name, v) => v ? `<${name}/>` : `<${name} w:val="0"/>`;
 var join = (open, kids, close) => kids.length ? open + kids.map((k) => k.raw).join("") + close : "";
 function rPrFromProps(p, linkAware = true) {
   const rpr = [];
-  if (p.charStyle) rpr.push(`<w:rStyle w:val="${esc(p.charStyle)}"/>`);
-  if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p.fontAscii)}" w:hAnsi="${esc(p.fontAscii)}" w:cs="${esc(p.fontAscii)}"/>`);
+  if (p.charStyle) rpr.push(`<w:rStyle w:val="${esc2(p.charStyle)}"/>`);
+  if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc2(p.fontAscii)}" w:hAnsi="${esc2(p.fontAscii)}" w:cs="${esc2(p.fontAscii)}"/>`);
   if (p.bold) rpr.push("<w:b/>");
   if (p.italic) rpr.push("<w:i/>");
   if (p.allCaps) rpr.push("<w:caps/>");
@@ -4266,12 +4551,12 @@ function rPrFromProps(p, linkAware = true) {
   if (p.strike) rpr.push("<w:strike/>");
   if (p.doubleStrike) rpr.push("<w:dstrike/>");
   const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
-  if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc(p.color)}"/>`);
+  if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc2(p.color)}"/>`);
   if (p.charSpacingTwips) rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
   if (p.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p.szHalfPt}"/><w:szCs w:val="${p.szHalfPt}"/>`);
-  if (p.highlight) rpr.push(`<w:highlight w:val="${esc(p.highlight)}"/>`);
+  if (p.highlight) rpr.push(`<w:highlight w:val="${esc2(p.highlight)}"/>`);
   if (p.underline && !linkLook) {
-    rpr.push(`<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ""}/>`);
+    rpr.push(`<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc2(p.underlineColor)}"` : ""}/>`);
   }
   if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
   return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
@@ -4379,36 +4664,36 @@ function dropCleared(kids, map, cur) {
 function patchRPr(raw, run) {
   const p = run.props;
   if (raw === void 0) return rPrFromProps(p);
-  const { open, close, kids, el: el2 } = splitElement(raw);
+  const { open, close, kids, el: el3 } = splitElement(raw);
   const edited = run.rprEdited && run.rpr ? run.rpr : void 0;
-  const base = editBaseProps(run, edited ?? readRPr(el2));
+  const base = editBaseProps(run, edited ?? readRPr(el3));
   let changed = edited ? dropCleared(kids, RPR_FIELD, edited) : false;
   const set = (name, xml) => {
     changed = true;
-    setKid(kids, RPR_ORDER, name, xml);
+    setKid2(kids, RPR_ORDER, name, xml);
   };
   if (p.bold !== base.bold) {
-    set("w:b", onOff2("w:b", p.bold));
-    set("w:bCs", onOff2("w:bCs", p.bold));
+    set("w:b", onOff3("w:b", p.bold));
+    set("w:bCs", onOff3("w:bCs", p.bold));
   }
   if (p.italic !== base.italic) {
-    set("w:i", onOff2("w:i", p.italic));
-    set("w:iCs", onOff2("w:iCs", p.italic));
+    set("w:i", onOff3("w:i", p.italic));
+    set("w:iCs", onOff3("w:iCs", p.italic));
   }
   if (p.underline !== base.underline || p.underlineStyle !== base.underlineStyle || p.underlineColor !== base.underlineColor) {
-    set("w:u", p.underline ? `<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
+    set("w:u", p.underline ? `<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc2(p.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
   }
-  if (p.strike !== base.strike) set("w:strike", onOff2("w:strike", p.strike));
-  if (!!p.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff2("w:dstrike", !!p.doubleStrike));
-  if (p.allCaps !== base.allCaps) set("w:caps", onOff2("w:caps", p.allCaps));
-  if (p.smallCaps !== base.smallCaps) set("w:smallCaps", onOff2("w:smallCaps", p.smallCaps));
+  if (p.strike !== base.strike) set("w:strike", onOff3("w:strike", p.strike));
+  if (!!p.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff3("w:dstrike", !!p.doubleStrike));
+  if (p.allCaps !== base.allCaps) set("w:caps", onOff3("w:caps", p.allCaps));
+  if (p.smallCaps !== base.smallCaps) set("w:smallCaps", onOff3("w:smallCaps", p.smallCaps));
   if (p.vertAlign !== base.vertAlign) set("w:vertAlign", `<w:vertAlign w:val="${p.vertAlign ?? "baseline"}"/>`);
   if (p.szHalfPt !== base.szHalfPt) {
     set("w:sz", p.szHalfPt === void 0 ? null : `<w:sz w:val="${p.szHalfPt}"/>`);
     set("w:szCs", p.szHalfPt === void 0 ? null : `<w:szCs w:val="${p.szHalfPt}"/>`);
   }
-  if (p.color !== base.color) set("w:color", p.color === void 0 ? null : `<w:color w:val="${esc(p.color)}"/>`);
-  if (p.highlight !== base.highlight) set("w:highlight", p.highlight === void 0 ? null : `<w:highlight w:val="${esc(p.highlight)}"/>`);
+  if (p.color !== base.color) set("w:color", p.color === void 0 ? null : `<w:color w:val="${esc2(p.color)}"/>`);
+  if (p.highlight !== base.highlight) set("w:highlight", p.highlight === void 0 ? null : `<w:highlight w:val="${esc2(p.highlight)}"/>`);
   if (p.fontAscii !== base.fontAscii) {
     set("w:rFonts", p.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
       "w:ascii": p.fontAscii,
@@ -4419,7 +4704,7 @@ function patchRPr(raw, run) {
       "w:cstheme": void 0
     }));
   }
-  if (p.charStyle !== base.charStyle) set("w:rStyle", p.charStyle ? `<w:rStyle w:val="${esc(p.charStyle)}"/>` : null);
+  if (p.charStyle !== base.charStyle) set("w:rStyle", p.charStyle ? `<w:rStyle w:val="${esc2(p.charStyle)}"/>` : null);
   if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set("w:spacing", p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
   }
@@ -4429,7 +4714,7 @@ var eq = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
 function pprBits(pp, ids) {
   const out = {};
-  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
+  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc2(pp.styleId)}"/>` : null;
   out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
   out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`).join("") + "</w:tabs>" : null;
   out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
@@ -4437,14 +4722,14 @@ function pprBits(pp, ids) {
     let inner = "";
     for (const side of ["top", "left", "bottom", "right"]) {
       const e = pp.borders[side];
-      if (e) inner += `<w:${side} w:val="${esc(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc(e.color) : "auto"}"/>`;
+      if (e) inner += `<w:${side} w:val="${esc2(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc2(e.color) : "auto"}"/>`;
     }
     out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
   } else if (pp.boxBorder) {
     const b = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
     out["w:pBdr"] = `<w:pBdr>${b("top")}${b("left")}${b("bottom")}${b("right")}</w:pBdr>`;
   } else out["w:pBdr"] = null;
-  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc(pp.shadingHex)}"/>` : null;
+  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc2(pp.shadingHex)}"/>` : null;
   return out;
 }
 function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
@@ -4467,13 +4752,13 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
   if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
-    let attrs2 = "";
-    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
+    let attrs3 = "";
+    if (pp.indentLeftTwips) attrs3 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips) attrs3 += ` w:right="${pp.indentRightTwips}"`;
     if (pp.indentFirstLineTwips) {
-      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+      attrs3 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
     }
-    ppr.push(`<w:ind${attrs2}/>`);
+    ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
   if (sectPrXml) ppr.push(sectPrXml);
@@ -4482,14 +4767,14 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
 function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   const p = para.props;
   if (raw === void 0) return pPrFromProps(p, sect ?? "", ids);
-  const { open, close, kids, el: el2 } = splitElement(raw);
+  const { open, close, kids, el: el3 } = splitElement(raw);
   const edited = para.pprEdited && para.ppr ? para.ppr : void 0;
-  const base = paraPropsFromPPr(edited ?? readPPr(el2));
+  const base = paraPropsFromPPr(edited ?? readPPr(el3));
   let changed = edited ? dropCleared(kids, PPR_FIELD, edited) : false;
   let genNumbering = false;
   const set = (name, xml) => {
     changed = true;
-    setKid(kids, PPR_ORDER, name, xml);
+    setKid2(kids, PPR_ORDER, name, xml);
   };
   const bits2 = pprBits(p, ids);
   if (p.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
@@ -4498,7 +4783,7 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
   if (p.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
   if (!eq(p.numbering, base.numbering)) {
-    const numPr = el2.children.find((c) => typeof c !== "string" && c.name === "w:numPr");
+    const numPr = el3.children.find((c) => typeof c !== "string" && c.name === "w:numPr");
     const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
     if (!p.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
     else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p.numbering.kind) {
@@ -4554,18 +4839,18 @@ function colsXml(cols, raw) {
     if (!cols.widths?.length) return `${head}/>`;
     return `${head} w:equalWidth="0">${cols.widths.map((c) => `<w:col w:w="${c.widthTwips}" w:space="${c.spaceTwips}"/>`).join("")}</w:cols>`;
   }
-  const el2 = raw ? splitElement(raw).el : void 0;
-  const sep = el2?.attrs["w:sep"];
-  const space = el2?.attrs["w:space"] ?? "708";
-  return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc(space)}"/>`;
+  const el3 = raw ? splitElement(raw).el : void 0;
+  const sep = el3?.attrs["w:sep"];
+  const space = el3?.attrs["w:space"] ?? "708";
+  return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc2(space)}"/>`;
 }
 function patchSectPr(raw, cur, refs) {
-  const { open, close, kids, el: el2 } = splitElement(raw);
-  const base = readSectPr(el2);
+  const { open, close, kids, el: el3 } = splitElement(raw);
+  const base = readSectPr(el3);
   let changed = false;
   const set = (name, xml) => {
     changed = true;
-    setKid(kids, SECT_ORDER, name, xml);
+    setKid2(kids, SECT_ORDER, name, xml);
   };
   if (refs) {
     const now = kids.filter((k) => k.name === "w:headerReference" || k.name === "w:footerReference").map((k) => `${k.name}|${k.el.attrs["w:type"] ?? "default"}|${k.el.attrs["r:id"]}`).sort().join(",");
@@ -4603,6 +4888,7 @@ function patchSectPr(raw, cur, refs) {
   }
   if (!eq(cur.cols, base.cols)) set("w:cols", colsXml(cur.cols, kidRaw(kids, "w:cols") || void 0));
   if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
+  if (cur.pgBorders !== void 0 && !eq(cur.pgBorders ?? void 0, base.pgBorders ?? void 0)) set("w:pgBorders", pgBordersXml(cur.pgBorders));
   if (cur.pgNumStart !== base.pgNumStart) {
     set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
   }
@@ -4635,6 +4921,8 @@ var SourceStore = class {
   paras = /* @__PURE__ */ new Map();
   runs = /* @__PURE__ */ new Map();
   tables = /* @__PURE__ */ new Map();
+  trs = /* @__PURE__ */ new Map();
+  tcs = /* @__PURE__ */ new Map();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   stories = /* @__PURE__ */ new Map();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
@@ -4671,6 +4959,18 @@ var SourceStore = class {
     this.tables.set(id, src);
     t.src = id;
     this.tableRefs.push(t);
+    return id;
+  }
+  addRow(row, src) {
+    const id = this.id();
+    this.trs.set(id, src);
+    row.src = id;
+    return id;
+  }
+  addCell(cell, src) {
+    const id = this.id();
+    this.tcs.set(id, src);
+    cell.src = id;
     return id;
   }
   /** Linha de base: chamada pelo hospedeiro DEPOIS de instalar o documento
@@ -4731,13 +5031,13 @@ function tableSig(t) {
 }
 
 // ../docx-core/src/fulldoc.ts
-function readBorderSet(el2, inside) {
-  if (!el2) return void 0;
+function readBorderSet(el3, inside) {
+  if (!el3) return void 0;
   const out = {};
   const sides = inside ? ["top", "left", "bottom", "right", "insideH", "insideV"] : ["top", "left", "bottom", "right"];
   let any = false;
   for (const side of sides) {
-    const edge = readBorderEdge(firstChild(el2, `w:${side}`));
+    const edge = readBorderEdge(firstChild(el3, `w:${side}`));
     if (edge) {
       out[side] = edge;
       any = true;
@@ -4745,9 +5045,9 @@ function readBorderSet(el2, inside) {
   }
   return any ? out : void 0;
 }
-function unwrap(el2, name) {
+function unwrap(el3, name) {
   const out = [];
-  for (const c of childElements(el2)) {
+  for (const c of childElements(el3)) {
     if (c.name === name) out.push(c);
     else if (c.name === "w:sdt") {
       const content = firstChild(c, "w:sdtContent");
@@ -4756,6 +5056,43 @@ function unwrap(el2, name) {
   }
   return out;
 }
+var wrapIds = 0;
+function unwrapRaw(el3, name, skip, xml) {
+  const out = [];
+  let pending = [];
+  const walk = (container, top) => {
+    for (const c of childElements(container)) {
+      if (c.name === name) {
+        out.push({ el: c, pre: pending, post: [] });
+        pending = [];
+        continue;
+      }
+      if (top ? skip.includes(c.name) : container.name === "w:customXml" && c.name.endsWith("Pr")) continue;
+      const content = c.name === "w:sdt" ? firstChild(c, "w:sdtContent") : c.name === "w:customXml" ? c : void 0;
+      if (content && content.cs !== void 0 && content.cs !== content.e) {
+        let start = content.cs;
+        if (content === c) for (const k of childElements(c)) {
+          if (k.name.endsWith("Pr")) start = k.e;
+          else break;
+        }
+        const id = ++wrapIds;
+        const before = pending, n0 = out.length;
+        pending = [...before, { raw: xml.slice(c.s, start), open: id }];
+        walk(content, false);
+        if (out.length > n0) {
+          out[out.length - 1].post.push(...pending, { raw: xml.slice(content.ce, c.e), close: id });
+          pending = [];
+        } else pending = [...before, { raw: xml.slice(c.s, c.e) }];
+        continue;
+      }
+      pending.push({ raw: xml.slice(c.s, c.e) });
+    }
+  };
+  walk(el3, true);
+  if (pending.length && out.length) out[out.length - 1].post.push(...pending);
+  return out;
+}
+var wrapOf = (w) => ({ ...w.pre.length ? { pre: w.pre } : {}, ...w.post.length ? { post: w.post } : {} });
 function readBlocksOf(container, ctx) {
   const out = [];
   for (const c of childElements(container)) {
@@ -4770,28 +5107,35 @@ function readBlocksOf(container, ctx) {
 }
 function readTable(tblEl, ctx) {
   const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
-  const slice = (el2) => el2 && xml !== void 0 ? xml.slice(el2.s, el2.e) : void 0;
-  const openOf = (el2) => xml.slice(el2.s, el2.cs === el2.e ? el2.e : el2.cs).replace(/\s*\/>$/, ">");
-  const srcRows = [];
+  const slice = (el3) => el3 && xml !== void 0 ? xml.slice(el3.s, el3.e) : void 0;
+  const openOf = (el3) => xml.slice(el3.s, el3.cs === el3.e ? el3.e : el3.cs).replace(/\s*\/>$/, ">");
   const grid = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid ? childElements(grid, "w:gridCol").map((c) => parseInt(c.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, "w:tblBorders"), true);
   const rows = [];
-  for (const trEl of unwrap(tblEl, "w:tr")) {
+  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el3) => ({ el: el3, pre: [], post: [] }));
+  for (const trW of wrapped(tblEl, "w:tr", ["w:tblPr", "w:tblGrid"])) {
+    const trEl = trW.el;
     const cells = [];
-    const srcCells = [];
-    for (const tcEl of unwrap(trEl, "w:tc")) {
-      if (xml !== void 0) {
-        const tcPrRaw = slice(firstChild(tcEl, "w:tcPr"));
-        srcCells.push({ open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {} });
-      }
+    for (const tcWr of wrapped(trEl, "w:tc", ["w:trPr", "w:tblPrEx"])) {
+      const tcEl = tcWr.el;
       const tcPrEl = firstChild(tcEl, "w:tcPr");
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, "w:shd")?.attrs["w:fill"];
       const tcW = tcPrEl && firstChild(tcPrEl, "w:tcW");
       const cellBorders = readBorderSet(tcPrEl && firstChild(tcPrEl, "w:tcBorders"), true);
-      const blocks = readBlocksOf(tcEl, ctx);
+      const kids = xml !== void 0 ? childElements(tcEl).filter((k) => k.name !== "w:tcPr") : [];
+      const groups = kids.some((k) => k.name !== "w:p" && k.name !== "w:tbl") ? [] : void 0;
+      let blocks;
+      if (groups) {
+        blocks = [];
+        for (const k of kids) {
+          const produced = readBlocksOf({ name: tcEl.name, attrs: {}, children: [k] }, ctx);
+          groups.push(groupOf(xml, k, produced, ctx.sources));
+          blocks.push(...produced);
+        }
+      } else blocks = readBlocksOf(tcEl, ctx);
       if (!blocks.some((bl) => bl.type === "paragraph")) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
       const paragraphs = blocks.filter((bl) => bl.type === "paragraph").map((bl) => bl.paragraph);
       const tables = blocks.filter((bl) => bl.type === "table");
@@ -4805,19 +5149,23 @@ function readTable(tblEl, ctx) {
         blocks
       };
       if (tcPr) cell.tcPr = tcPr;
+      if (xml !== void 0) {
+        const tcPrRaw = slice(tcPrEl);
+        ctx.sources.addCell(cell, { open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {}, ...groups ? { groups } : {}, ...wrapOf(tcWr) });
+      }
       cells.push(cell);
     }
     if (cells.length > 0) {
-      if (xml !== void 0) {
-        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
-        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
-        srcRows.push({ open: openOf(trEl), cells: srcCells, ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {} });
-      }
       const row = { cells };
       const trPr = readTrPr(firstChild(trEl, "w:trPr"));
       if (trPr) row.trPr = trPr;
       const ex = readTblPr(firstChild(trEl, "w:tblPrEx"));
       if (ex) row.tblPrEx = ex;
+      if (xml !== void 0) {
+        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
+        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
+        ctx.sources.addRow(row, { open: openOf(trEl), ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {}, ...wrapOf(trW) });
+      }
       rows.push(row);
     }
   }
@@ -4831,7 +5179,6 @@ function readTable(tblEl, ctx) {
       raw: xml.slice(tblEl.s, tblEl.e),
       at: tblEl.s,
       open: openOf(tblEl),
-      rows: srcRows,
       ...tblPrRaw ? { tblPr: tblPrRaw } : {},
       ...gridRaw ? { tblGrid: gridRaw } : {}
     });
@@ -5364,7 +5711,7 @@ function mergeWithPrevious(model, para) {
   normalizeParagraph(prev);
   return { para: para - 1, offset };
 }
-function applyRunProps(model, range, patch) {
+function applyRunProps(model, range, patch2) {
   const { start, end } = normalizeRange(range);
   for (let pi = start.para; pi <= end.para; pi++) {
     const p = model.paragraphs[pi];
@@ -5379,15 +5726,15 @@ function applyRunProps(model, range, patch) {
       acc += p.runs[ri].text.length;
       if (ri < i1) continue;
       if (rs >= to) break;
-      Object.assign(p.runs[ri].props, patch);
+      Object.assign(p.runs[ri].props, patch2);
     }
     normalizeParagraph(p);
   }
 }
-function applyParaProps(model, range, patch) {
+function applyParaProps(model, range, patch2) {
   const { start, end } = normalizeRange(range);
   for (let pi = start.para; pi <= end.para; pi++) {
-    Object.assign(model.paragraphs[pi].props, patch);
+    Object.assign(model.paragraphs[pi].props, patch2);
   }
 }
 function clearRunFormatting(model, range, opts = {}) {
@@ -5497,11 +5844,11 @@ function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
 var contentWidth = (sp) => sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
 var maxColumns = (sp) => Math.max(1, Math.floor(contentWidth(sp) / COLUMN_MIN_WIDTH));
 function columnsFor(sp, spec) {
-  const W2 = contentWidth(sp);
+  const W3 = contentWidth(sp);
   const n = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp)));
   if (n < 2) return void 0;
   let space = Math.max(0, Math.round(spec.spaceTwips ?? sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT));
-  if ((W2 - space * (n - 1)) / n < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W2 - n * COLUMN_MIN_WIDTH) / (n - 1)));
+  if ((W3 - space * (n - 1)) / n < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W3 - n * COLUMN_MIN_WIDTH) / (n - 1)));
   const cols = { count: n, spaceTwips: space, sep: !!spec.sep };
   if (spec.widths && spec.widths.length >= n) {
     cols.widths = spec.widths.slice(0, n).map((c, i2) => ({
@@ -5517,9 +5864,9 @@ function presetColumns(sp, preset) {
   const space = sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT;
   if (preset === "one") return { count: 1, sep };
   if (preset === "two" || preset === "three") return { count: preset === "two" ? 2 : 3, spaceTwips: space, sep };
-  const W2 = contentWidth(sp);
-  const narrow = Math.round((W2 - 2 * space) / 3);
-  const wide = W2 - narrow - space;
+  const W3 = contentWidth(sp);
+  const narrow = Math.round((W3 - 2 * space) / 3);
+  const wide = W3 - narrow - space;
   const ws = preset === "left" ? [narrow, wide] : [wide, narrow];
   return { count: 2, spaceTwips: space, sep, widths: ws.map((w) => ({ widthTwips: w, spaceTwips: space })) };
 }
@@ -5536,10 +5883,10 @@ function columnsPresetOf(sp) {
 }
 function columnWidths(sp) {
   const c = sp.cols;
-  const W2 = contentWidth(sp);
-  if (!c || c.count < 2) return [{ widthTwips: W2, spaceTwips: 0 }];
+  const W3 = contentWidth(sp);
+  if (!c || c.count < 2) return [{ widthTwips: W3, spaceTwips: 0 }];
   if (c.widths) return c.widths.map((w2) => ({ ...w2 }));
-  const w = Math.round((W2 - c.spaceTwips * (c.count - 1)) / c.count);
+  const w = Math.round((W3 - c.spaceTwips * (c.count - 1)) / c.count);
   return Array.from({ length: c.count }, (_, i2) => ({ widthTwips: w, spaceTwips: i2 < c.count - 1 ? c.spaceTwips : 0 }));
 }
 function setOrientation(sp, orientation) {
@@ -5561,8 +5908,8 @@ function setOrientation(sp, orientation) {
 }
 
 // ../docx-core/src/serialize.ts
-var esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-var escAttr = (s) => esc2(s).replace(/"/g, "&quot;");
+var esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var escAttr = (s) => esc3(s).replace(/"/g, "&quot;");
 var mediaOut = [];
 var drawingId = 0;
 var active = null;
@@ -5574,6 +5921,23 @@ function drawingXml(run) {
   const cx = Math.round(img.widthTwips * EMU_PER_TWIP);
   const cy = Math.round(img.heightTwips * EMU_PER_TWIP);
   return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Imagem ${n}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="Imagem ${n}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
+}
+var REL_PACKAGE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package";
+var OLE_MIME = {
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+};
+function oleObjectXml(run) {
+  const img = run.image, ole = img.ole;
+  const n = ++drawingId;
+  const ridImg = `rIdWnImg${n}`, ridOle = `rIdWnOle${n}`;
+  mediaOut.push({ rid: ridImg, path: `word/media/wnimage${n}.${img.ext}`, data: img.data, ext: img.ext });
+  mediaOut.push({ rid: ridOle, path: `word/embeddings/wnobject${n}.${ole.ext}`, data: ole.data, ext: ole.ext, relType: REL_PACKAGE, mime: OLE_MIME[ole.ext] ?? "application/octet-stream" });
+  const w = Math.round(img.widthTwips / 2) / 10, h = Math.round(img.heightTwips / 2) / 10;
+  const shape = `_x0000_i${1025 + n}`;
+  const objId = `_${String(18e8 + n * 7919).slice(0, 10)}`;
+  return `<w:object xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" w:dxaOrig="${Math.round(img.widthTwips)}" w:dyaOrig="${Math.round(img.heightTwips)}"><v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype><v:shape id="${shape}" type="#_x0000_t75" style="width:${w}pt;height:${h}pt" o:ole=""><v:imagedata r:id="${ridImg}" o:title=""/></v:shape><o:OLEObject Type="Embed" ProgID="${escAttr(ole.progId)}" ShapeID="${shape}" DrawAspect="Content" ObjectID="${objId}" r:id="${ridOle}"/></w:object>`;
 }
 function patchDrawingGeometry(raw, obj) {
   const cx = Math.round(obj.widthTwips * EMU_PER_TWIP);
@@ -5605,6 +5969,7 @@ function objectXml(run) {
   const head = headSid !== void 0 ? lossless.store.runs.get(headSid) : void 0;
   const rpr = rPrXml(run);
   if (!head?.obj) {
+    if (run.image?.ole && !run.image.rawDrawingXml) return `<w:r>${rpr}${oleObjectXml(run)}</w:r>`;
     if (run.image?.rawDrawingXml) return `<w:r>${rpr}${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
     if (run.image) return `<w:r>${drawingXml(run)}</w:r>`;
     if (run.textbox?.rawDrawingXml) {
@@ -5661,7 +6026,7 @@ function textXml(text) {
     else if (seg === "\u2028") parts.push('<w:br w:clear="all"/>');
     else if (seg.length > 0) {
       const space = seg !== seg.trim() ? ' xml:space="preserve"' : "";
-      parts.push(`<w:t${space}>${esc2(seg)}</w:t>`);
+      parts.push(`<w:t${space}>${esc3(seg)}</w:t>`);
     }
   }
   return parts.join("");
@@ -5689,6 +6054,7 @@ function runXml(run) {
     if (run.image.rawDrawingXml) {
       return `<w:r>${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
     }
+    if (run.image.ole) return `<w:r>${oleObjectXml(run)}</w:r>`;
     return `<w:r>${drawingXml(run)}</w:r>`;
   }
   if (run.textbox) {
@@ -5717,12 +6083,25 @@ function runXml(run) {
     return `<w:r>${rpr}<w:sym w:font="${escAttr(run.symFont)}" w:char="${hex2}"/></w:r>`;
   }
   if (active && (run.math || run.props.isMath)) {
-    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc2(run.text)}</m:t></m:r></m:oMath>`;
+    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc3(run.text)}</m:t></m:r></m:oMath>`;
   }
   return `<w:r>${rpr}${textXml(run.text)}</w:r>`;
 }
 function fieldOrRunXml(r) {
+  if (r.field && /^\s*=/.test(r.field)) return formulaFieldXml(r);
   return r.field && !(active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field)) ? `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>` : runXml(r);
+}
+function formulaFieldXml(r) {
+  const rpr = rPrXml(r);
+  const wrap = (inner, pr = rpr) => `<w:r>${pr}${inner}</w:r>`;
+  return wrap('<w:fldChar w:fldCharType="begin"/>') + wrap(`<w:instrText xml:space="preserve">${esc3(r.field)}</w:instrText>`) + wrap('<w:fldChar w:fldCharType="separate"/>') + wrap(textXml(r.text), withNoProof(rpr)) + wrap('<w:fldChar w:fldCharType="end"/>');
+}
+function withNoProof(rpr) {
+  if (!rpr || rpr === "<w:rPr/>") return "<w:rPr><w:noProof/></w:rPr>";
+  if (/<w:noProof\b/.test(rpr)) return rpr;
+  const m = /<w:(snapToGrid|vanish|webHidden|color|spacing|w|kern|position|sz|szCs|highlight|u|effect|bdr|shd|fitText|vertAlign|rtl|cs|em|lang|eastAsianLayout|specVanish|oMath|rPrChange)\b/.exec(rpr);
+  const at = m ? m.index : rpr.lastIndexOf("</w:rPr>");
+  return rpr.slice(0, at) + "<w:noProof/>" + rpr.slice(at);
 }
 function linkRelId(url) {
   if (!active) return void 0;
@@ -5910,6 +6289,12 @@ function paraXmlRuns(para) {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i2) => ({ run, before: marks.before[i2], after: marks.after[i2] }));
     if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(""));
+    const fmt = para.props.fmtSrc !== void 0 ? active.store.paras.get(para.props.fmtSrc) : void 0;
+    if (fmt) {
+      const ppr3 = patchPPr(fmt.pPr, para, paraSectPr(para, fmt.pPr), active.numIds);
+      if (ppr3.genNumbering) active.genNumbering = true;
+      return `<w:p>${ppr3.xml}${genRuns(items)}</w:p>`;
+    }
     const ppr2 = pPrFromProps(para.props, para.props.sectionBreak ? sectionBreakXml(para.props.sectionBreak) : "", active.numIds);
     if (ppr2.genNumbering) active.genNumbering = true;
     return `<w:p>${ppr2.xml}${genRuns(items)}</w:p>`;
@@ -5967,13 +6352,13 @@ function paraXmlInner(para, runsXml) {
     ppr.push(`<w:spacing${before}${after}${line}/>`);
   }
   if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
-    let attrs2 = "";
-    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
+    let attrs3 = "";
+    if (pp.indentLeftTwips) attrs3 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips) attrs3 += ` w:right="${pp.indentRightTwips}"`;
     if (pp.indentFirstLineTwips) {
-      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+      attrs3 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
     }
-    ppr.push(`<w:ind${attrs2}/>`);
+    ppr.push(`<w:ind${attrs3}/>`);
   }
   if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
   const inner = (ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "") + runsXml;
@@ -5987,16 +6372,17 @@ function sectPrInner(s, refs = []) {
   const cols = s.cols ? colsXml(s.cols) : "";
   const titlePg = s.titlePg ? "<w:titlePg/>" : "";
   const pgNumType = s.pgNumStart !== void 0 ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : "";
-  return `${refsXml}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgNumType}${cols}${titlePg}`;
+  const pgBorders = pgBordersXml(s.pgBorders) ?? "";
+  return `${refsXml}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgBorders}${pgNumType}${cols}${titlePg}`;
 }
-function borderXml(tag, e) {
+function borderXml2(tag, e) {
   return `<w:${tag} w:val="${escAttr(e.style)}" w:sz="${e.sizeEighthPt}" w:space="0" w:color="${e.color ? escAttr(e.color) : "auto"}"/>`;
 }
 function borderSetXml(wrap, b, sides) {
   let inner = "";
   for (const side of sides) {
     const e = b[side];
-    if (e) inner += borderXml(side, e);
+    if (e) inner += borderXml2(side, e);
   }
   return inner ? `<w:${wrap}>${inner}</w:${wrap}>` : "";
 }
@@ -6013,30 +6399,53 @@ function tableXml(t) {
     active.claimed.add(t.src);
     if (owner && active.store.tablePristine(t)) return src.raw;
     const sameGrid = src.tblGrid !== void 0 && gridOf(src.tblGrid) === t.gridColsTwips.join(",");
-    const rows2 = t.rows.map((row, ri) => {
-      const sr = src.rows[ri];
-      const sameShape = sr !== void 0 && sr.cells.length === row.cells.length;
-      const cells = row.cells.map((cell, ci) => {
-        const sc = sameShape ? sr.cells[ci] : void 0;
-        return sc ? `${sc.open}${sc.tcPr ?? ""}${cellBodyXml(cell)}</w:tc>` : `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`;
-      }).join("");
-      return sameShape ? `${sr.open}${sr.tblPrEx ?? ""}${sr.trPr ?? ""}${cells}</w:tr>` : `<w:tr>${cells}</w:tr>`;
-    }).join("");
-    return `${src.open}${src.tblPr ?? tblPrXml(t)}${sameGrid ? src.tblGrid : gridXml(t)}${rows2}</w:tbl>`;
+    const tblPr = src.tblPr !== void 0 ? patchTblPr(src.tblPr, t.tblPr) : legacyOrTypedTblPr(t);
+    return `${owner ? src.open : "<w:tbl>"}${tblPr}${sameGrid ? src.tblGrid : gridXml(t)}${rowsXml(t)}</w:tbl>`;
   }
-  const rows = t.rows.map((row) => {
-    const cells = row.cells.map((cell) => `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`).join("");
-    return `<w:tr>${cells}</w:tr>`;
-  }).join("");
-  return `<w:tbl>${tblPrXml(t)}${gridXml(t)}${rows}</w:tbl>`;
+  return `<w:tbl>${legacyOrTypedTblPr(t)}${gridXml(t)}${rowsXml(t)}</w:tbl>`;
 }
+function wrappedXml(items) {
+  const stack = [];
+  let ok = true;
+  for (const it of items) {
+    for (const s of [...it.pre ?? [], ...it.post ?? []]) {
+      if (s.open !== void 0) stack.push(s.open);
+      else if (s.close !== void 0 && stack.pop() !== s.close) ok = false;
+    }
+  }
+  if (stack.length) ok = false;
+  const segs = (ss) => (ss ?? []).filter((s) => ok || s.open === void 0 && s.close === void 0).map((s) => s.raw).join("");
+  return items.map((it) => segs(it.pre) + it.xml + segs(it.post)).join("");
+}
+function rowsXml(t) {
+  const store = active?.store;
+  return wrappedXml(t.rows.map((row) => {
+    const rs = store && row.src !== void 0 ? store.trs.get(row.src) : void 0;
+    const rowOwner = rs !== void 0 && !active.claimed.has(row.src);
+    if (rs) active.claimed.add(row.src);
+    const ex = rs?.tblPrEx !== void 0 ? patchTblPrEx(rs.tblPrEx, row.tblPrEx) : row.tblPrEx ? tblPrExXml(row.tblPrEx) : "";
+    const trPr = rs?.trPr !== void 0 ? patchTrPr(rs.trPr, row.trPr) : row.trPr ? trPrXml(row.trPr) : "";
+    const cells = wrappedXml(row.cells.map((cell) => {
+      const cs = store && cell.src !== void 0 ? store.tcs.get(cell.src) : void 0;
+      const cellOwner = cs !== void 0 && !active.claimed.has(cell.src);
+      if (cs) active.claimed.add(cell.src);
+      const tcPr = cs?.tcPr !== void 0 ? patchTcPr(cs.tcPr, cell.tcPr) : cell.tcPr ? tcPrXml(cell.tcPr) : cs ? "" : tcPrXml2(cell);
+      const body = cellOwner && cs.groups && cell.blocks?.length ? groupsXml(cs.groups, cell.blocks, store) : cellBodyXml(cell);
+      const xml2 = `${cellOwner ? cs.open : "<w:tc>"}${tcPr}${body}</w:tc>`;
+      return cellOwner ? { pre: cs.pre, post: cs.post, xml: xml2 } : { xml: xml2 };
+    }));
+    const xml = `${rowOwner ? rs.open : "<w:tr>"}${ex}${trPr}${cells}</w:tr>`;
+    return rowOwner ? { pre: rs.pre, post: rs.post, xml } : { xml };
+  }));
+}
+var legacyOrTypedTblPr = (t) => t.tblPr ? tblPrXml(t.tblPr) : tblPrXml2(t);
 var gridOf = (raw) => [...raw.matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)].map((m) => m[1]).join(",");
-function tblPrXml(t) {
+function tblPrXml2(t) {
   const total = t.gridColsTwips.reduce((a, b) => a + b, 0) || void 0;
   return "<w:tblPr>" + (total ? `<w:tblW w:w="${total}" w:type="dxa"/>` : "") + (t.borders ? borderSetXml("tblBorders", t.borders, TBL_SIDES) : "") + "</w:tblPr>";
 }
 var gridXml = (t) => `<w:tblGrid>${t.gridColsTwips.map((w) => `<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
-function tcPrXml(cell) {
+function tcPrXml2(cell) {
   return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
 }
 var blockXml = (b) => b.type === "table" ? tableXml(b) : paraXml(b.paragraph);
@@ -6184,7 +6593,7 @@ function serializeHfPart(kind, paragraphs) {
   const tag = kind === "header" ? "w:hdr" : "w:ftr";
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${tag} ${W_NS_HF}>` + paragraphs.map(paraXml).join("") + `</${tag}>`;
 }
-var commentXml = (c) => `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc2(c.text)}</w:t></w:r></w:p></w:comment>`;
+var commentXml = (c) => `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc3(c.text)}</w:t></w:r></w:p></w:comment>`;
 function patchComments(pkg, comments) {
   const xml = pkg.getPartText("word/comments.xml");
   const want = new Map(comments.map((c) => [c.id, c]));
@@ -6344,9 +6753,10 @@ function writeParts(pkg, model, hfParts, opts, store) {
     };
     const existingMedia = pkg.partNames().filter((p) => p.startsWith("word/media/"));
     const exts = /* @__PURE__ */ new Set();
+    const mimes = /* @__PURE__ */ new Map();
     for (const m of mediaOut) {
-      let target = `media/${m.path.split("/").pop()}`;
-      const dup = existingMedia.find((p) => sameBytes(pkg.getPart(p), m.data));
+      let target = m.path.replace(/^word\//, "");
+      const dup = m.relType ? void 0 : existingMedia.find((p) => sameBytes(pkg.getPart(p), m.data));
       if (dup) {
         target = dup.replace(/^word\//, "");
       } else {
@@ -6355,13 +6765,14 @@ function writeParts(pkg, model, hfParts, opts, store) {
       if (!rels2.includes(`"${m.rid}"`)) {
         rels2 = rels2.replace(
           "</Relationships>",
-          `<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`
+          `<Relationship Id="${m.rid}" Type="${m.relType ?? "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"}" Target="${target}"/></Relationships>`
         );
       }
       exts.add(m.ext);
+      if (m.mime) mimes.set(m.ext, m.mime);
     }
     for (const ext of exts) {
-      const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+      const mime = mimes.get(ext) ?? (ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "emf" ? "image/x-emf" : `image/${ext}`);
       if (ct2 && !ct2.includes(`Extension="${ext}"`)) {
         ct2 = ct2.replace("</Types>", `<Default Extension="${ext}" ContentType="${mime}"/></Types>`);
       }
@@ -6543,7 +6954,7 @@ function blankDocxPackage() {
 }
 
 // ../docx-core/src/style-sheet.ts
-var esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 var STYLE_ORDER = [
   "w:name",
   "w:aliases",
@@ -6648,9 +7059,9 @@ var PPR_ORDER2 = [
   "w:sectPr",
   "w:pPrChange"
 ];
-var val = (el2, n) => firstChild(el2, n)?.attrs["w:val"];
-var onOff3 = (el2, n) => {
-  const k = firstChild(el2, n);
+var val2 = (el3, n) => firstChild(el3, n)?.attrs["w:val"];
+var onOff4 = (el3, n) => {
+  const k = firstChild(el3, n);
   if (!k) return false;
   const v = k.attrs["w:val"];
   return v === void 0 || v !== "0" && v !== "false" && v !== "off";
@@ -6665,23 +7076,23 @@ function readStyleIndex(xml) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
     const type = st.attrs["w:type"] ?? "paragraph";
-    const prio = val(st, "w:uiPriority");
+    const prio = val2(st, "w:uiPriority");
     styles.push({
       id,
       type,
-      name: val(st, "w:name") ?? id,
-      aliases: val(st, "w:aliases"),
+      name: val2(st, "w:name") ?? id,
+      aliases: val2(st, "w:aliases"),
       custom: truthy(st.attrs["w:customStyle"]),
       isDefault: truthy(st.attrs["w:default"]),
-      basedOn: val(st, "w:basedOn"),
-      next: val(st, "w:next"),
-      link: val(st, "w:link"),
-      autoRedefine: onOff3(st, "w:autoRedefine"),
-      hidden: onOff3(st, "w:hidden"),
+      basedOn: val2(st, "w:basedOn"),
+      next: val2(st, "w:next"),
+      link: val2(st, "w:link"),
+      autoRedefine: onOff4(st, "w:autoRedefine"),
+      hidden: onOff4(st, "w:hidden"),
       uiPriority: prio !== void 0 ? parseInt(prio, 10) || 0 : 0,
-      semiHidden: onOff3(st, "w:semiHidden"),
-      unhideWhenUsed: onOff3(st, "w:unhideWhenUsed"),
-      qFormat: onOff3(st, "w:qFormat"),
+      semiHidden: onOff4(st, "w:semiHidden"),
+      unhideWhenUsed: onOff4(st, "w:unhideWhenUsed"),
+      qFormat: onOff4(st, "w:qFormat"),
       start: st.s,
       end: st.e
     });
@@ -6739,16 +7150,16 @@ function styleIdFromName(name, taken) {
   for (let i2 = 0; ; i2++) if (!taken.has(`${base}${i2}`)) return `${base}${i2}`;
 }
 function newStyleXml(o) {
-  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc3(o.id)}"><w:name w:val="${esc3(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc3(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc3(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc3(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
+  return `<w:style w:type="${o.type}"${o.custom ? ' w:customStyle="1"' : ""} w:styleId="${esc4(o.id)}"><w:name w:val="${esc4(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc4(o.basedOn)}"/>` : "") + (o.next ? `<w:next w:val="${esc4(o.next)}"/>` : "") + (o.link ? `<w:link w:val="${esc4(o.link)}"/>` : "") + (o.autoRedefine ? "<w:autoRedefine/>" : "") + (o.uiPriority !== void 0 ? `<w:uiPriority w:val="${o.uiPriority}"/>` : "") + (o.semiHidden ? "<w:semiHidden/>" : "") + (o.unhideWhenUsed ? "<w:unhideWhenUsed/>" : "") + (o.qFormat ? "<w:qFormat/>" : "") + (o.pPr ?? "") + (o.rPr ?? "") + "</w:style>";
 }
 function patchStyleXml(raw, h) {
   const { open, close, kids } = splitElement(raw);
   let head = open;
   if (h.styleId !== void 0) head = withAttrs(head, "w:style", { "w:styleId": h.styleId });
-  const set = (n, xml) => setKid(kids, STYLE_ORDER, n, xml);
+  const set = (n, xml) => setKid2(kids, STYLE_ORDER, n, xml);
   const v = (n, x2) => {
     if (x2 === void 0) return;
-    set(n, x2 === null ? null : `<${n} w:val="${esc3(x2)}"/>`);
+    set(n, x2 === null ? null : `<${n} w:val="${esc4(x2)}"/>`);
   };
   if (h.name !== void 0) v("w:name", h.name);
   v("w:aliases", h.aliases);
@@ -6779,7 +7190,7 @@ var joinKids = (o) => o.kids.length ? o.open + o.kids.map((k) => k.raw).join("")
 var kidRaw2 = (kids, n) => kids.find((k) => k.name === n)?.raw ?? "";
 function patchStyleRPr(raw, f) {
   const o = split(raw, "w:rPr");
-  const set = (n, xml) => setKid(o.kids, RPR_ORDER2, n, xml);
+  const set = (n, xml) => setKid2(o.kids, RPR_ORDER2, n, xml);
   const tog = (n, v) => {
     if (v === void 0) return;
     set(n, v === null ? null : v ? `<${n}/>` : `<${n} w:val="0"/>`);
@@ -6791,9 +7202,9 @@ function patchStyleRPr(raw, f) {
       set("w:rFonts", /\sw:/.test(x2) ? x2 : null);
     } else {
       let x2 = cur;
-      for (const [theme, plain] of [["w:asciiTheme", "w:ascii"], ["w:hAnsiTheme", "w:hAnsi"]]) {
+      for (const [theme, plain2] of [["w:asciiTheme", "w:ascii"], ["w:hAnsiTheme", "w:hAnsi"]]) {
         const re = new RegExp(`\\s${theme}="[^"]*"`);
-        if (re.test(x2) && !new RegExp(`\\s${plain}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain}="${esc3(f.fontAscii)}"`);
+        if (re.test(x2) && !new RegExp(`\\s${plain2}="`).test(x2)) x2 = x2.replace(re, () => ` ${plain2}="${esc4(f.fontAscii)}"`);
       }
       set("w:rFonts", withAttrs(x2, "w:rFonts", {
         "w:ascii": f.fontAscii,
@@ -6808,7 +7219,7 @@ function patchStyleRPr(raw, f) {
   tog("w:caps", f.allCaps);
   tog("w:smallCaps", f.smallCaps);
   tog("w:strike", f.strike);
-  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc3(f.color)}"/>`);
+  if (f.color !== void 0) set("w:color", f.color === null ? null : `<w:color w:val="${esc4(f.color)}"/>`);
   if (f.charSpacingTwips !== void 0) set("w:spacing", f.charSpacingTwips === null ? null : `<w:spacing w:val="${f.charSpacingTwips}"/>`);
   if (f.szHalfPt !== void 0) set("w:sz", f.szHalfPt === null ? null : `<w:sz w:val="${f.szHalfPt}"/>`);
   if (f.underline !== void 0) set("w:u", f.underline === null ? null : `<w:u w:val="${f.underline ? "single" : "none"}"/>`);
@@ -6816,7 +7227,7 @@ function patchStyleRPr(raw, f) {
 }
 function patchStylePPr(raw, f) {
   const o = split(raw, "w:pPr");
-  const set = (n, xml) => setKid(o.kids, PPR_ORDER2, n, xml);
+  const set = (n, xml) => setKid2(o.kids, PPR_ORDER2, n, xml);
   if (f.alignment !== void 0) set("w:jc", f.alignment === null ? null : `<w:jc w:val="${f.alignment}"/>`);
   if (f.spaceBeforeTwips !== void 0 || f.spaceAfterTwips !== void 0 || f.lineTwentieths !== void 0) {
     const n = (v) => v === null ? void 0 : v;
@@ -6873,9 +7284,9 @@ function builtinDisplayName(name, lang) {
 }
 function builtinXml(xml, opts = {}) {
   let out = xml;
-  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc3(opts.id)}"`);
+  if (opts.id) out = out.replace(/w:styleId="[^"]*"/, () => `w:styleId="${esc4(opts.id)}"`);
   for (const [from, to] of Object.entries(opts.refs ?? {})) {
-    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc3(to) + b);
+    out = out.replace(new RegExp(`(<w:(?:basedOn|next|link) w:val=")${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(")`, "g"), (_m, a, b) => a + esc4(to) + b);
   }
   if (opts.used && /<w:unhideWhenUsed\/>/.test(out)) out = out.replace("<w:semiHidden/>", "");
   return out;
@@ -7753,18 +8164,18 @@ var MAX_GROUP_DEPTH = 64;
 function readSpgrContainer(rec, depth = 0) {
   const kids = children(rec);
   const first = kids[0];
-  const group = first && first.type === OA.SpContainer ? readSpContainer(first) : { spid: 0, type: 0, flags: FSP.group, props: /* @__PURE__ */ new Map() };
-  group.children = [];
+  const group2 = first && first.type === OA.SpContainer ? readSpContainer(first) : { spid: 0, type: 0, flags: FSP.group, props: /* @__PURE__ */ new Map() };
+  group2.children = [];
   for (const c of kids.slice(first && first.type === OA.SpContainer ? 1 : 0)) {
     if (c.type === OA.SpContainer) {
       const s = readSpContainer(c);
-      if (!(s.flags & FSP.deleted)) group.children.push(s);
+      if (!(s.flags & FSP.deleted)) group2.children.push(s);
     } else if (c.type === OA.SpgrContainer && depth < MAX_GROUP_DEPTH) {
       const g = readSpgrContainer(c, depth + 1);
-      if (!(g.flags & FSP.deleted)) group.children.push(g);
+      if (!(g.flags & FSP.deleted)) group2.children.push(g);
     }
   }
-  return group;
+  return group2;
 }
 function indexDrawing(dg, into) {
   for (const c of children(dg)) {
@@ -7928,9 +8339,9 @@ function withPlaceableHeader(wmf, b, inch) {
   v.setInt16(10, b.r, true);
   v.setInt16(12, b.b, true);
   v.setUint16(14, Math.max(1, Math.min(65535, inch)), true);
-  let sum = 0;
-  for (let i2 = 0; i2 < 10; i2++) sum ^= v.getUint16(i2 * 2, true);
-  v.setUint16(20, sum, true);
+  let sum2 = 0;
+  for (let i2 = 0; i2 < 10; i2++) sum2 ^= v.getUint16(i2 * 2, true);
+  v.setUint16(20, sum2, true);
   out.set(wmf, 22);
   return out;
 }
@@ -9860,7 +10271,7 @@ function escText(s) {
 function escAttr2(s) {
   return escText(s).replace(/"/g, "&quot;");
 }
-function attrs(obj) {
+function attrs2(obj) {
   let out = "";
   for (const [k, v] of Object.entries(obj)) {
     if (v === void 0 || v === null || v === false) continue;
@@ -9869,7 +10280,7 @@ function attrs(obj) {
   return out;
 }
 function el(name, a = {}, content = "") {
-  return content ? `<${name}${attrs(a)}>${content}</${name}>` : `<${name}${attrs(a)}/>`;
+  return content ? `<${name}${attrs2(a)}>${content}</${name}>` : `<${name}${attrs2(a)}/>`;
 }
 var XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
 var NS = {
@@ -9891,7 +10302,7 @@ var NS = {
   ct: "http://schemas.openxmlformats.org/package/2006/content-types",
   relType: "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 };
-var CONTENT_NS = attrs({
+var CONTENT_NS = attrs2({
   "xmlns:wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
   "xmlns:mc": NS.mc,
   "xmlns:o": NS.o,
@@ -9946,10 +10357,10 @@ var BRC_TYPE = {
 };
 function brcXml(name, b) {
   if (!b) return el(name, { "w:val": "nil" });
-  const val2 = BRC_TYPE[b.type] ?? "single";
-  if (val2 === "none" || val2 === "nil") return el(name, { "w:val": val2 === "none" && b.width === 0 ? "nil" : val2 });
+  const val3 = BRC_TYPE[b.type] ?? "single";
+  if (val3 === "none" || val3 === "nil") return el(name, { "w:val": val3 === "none" && b.width === 0 ? "nil" : val3 });
   return el(name, {
-    "w:val": val2,
+    "w:val": val3,
     "w:sz": b.width,
     "w:space": b.space,
     "w:color": hex(b.color),
@@ -9997,11 +10408,11 @@ var SHD_PAT = {
   60: "pct95",
   65535: "nil"
 };
-function shdXml(s) {
+function shdXml2(s) {
   if (!s) return "";
-  const val2 = SHD_PAT[s.pat] ?? "clear";
-  if (val2 === "nil") return el("w:shd", { "w:val": "nil" });
-  return el("w:shd", { "w:val": val2, "w:color": hex(s.fore), "w:fill": hex(s.back) });
+  const val3 = SHD_PAT[s.pat] ?? "clear";
+  if (val3 === "nil") return el("w:shd", { "w:val": "nil" });
+  return el("w:shd", { "w:val": val3, "w:color": hex(s.fore), "w:fill": hex(s.back) });
 }
 var KUL = {
   0: "none",
@@ -10130,7 +10541,7 @@ function fontName(ctx, ftc) {
   if (ftc === void 0) return void 0;
   return ctx.fonts[ftc]?.name;
 }
-var onOff4 = (name, v) => v === void 0 ? "" : v ? `<${name}/>` : `<${name} w:val="0"/>`;
+var onOff5 = (name, v) => v === void 0 ? "" : v ? `<${name}/>` : `<${name} w:val="0"/>`;
 function rPrInner(chp, touched, ctx, withStyle = true) {
   const t = (k) => touched.has(k);
   let x2 = "";
@@ -10147,21 +10558,21 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
       "w:hint": t("idctHint") ? chp.idctHint === 1 ? "eastAsia" : chp.idctHint === 2 ? "cs" : void 0 : void 0
     });
   }
-  if (t("bold")) x2 += onOff4("w:b", chp.bold);
-  if (t("boldBi")) x2 += onOff4("w:bCs", chp.boldBi);
-  if (t("italic")) x2 += onOff4("w:i", chp.italic);
-  if (t("italicBi")) x2 += onOff4("w:iCs", chp.italicBi);
-  if (t("caps")) x2 += onOff4("w:caps", chp.caps);
-  if (t("smallCaps")) x2 += onOff4("w:smallCaps", chp.smallCaps);
-  if (t("strike")) x2 += onOff4("w:strike", chp.strike);
-  if (t("dstrike")) x2 += onOff4("w:dstrike", chp.dstrike);
-  if (t("outline")) x2 += onOff4("w:outline", chp.outline);
-  if (t("shadow")) x2 += onOff4("w:shadow", chp.shadow);
-  if (t("emboss")) x2 += onOff4("w:emboss", chp.emboss);
-  if (t("imprint")) x2 += onOff4("w:imprint", chp.imprint);
-  if (t("noProof")) x2 += onOff4("w:noProof", chp.noProof);
-  if (t("vanish")) x2 += onOff4("w:vanish", chp.vanish);
-  if (t("webHidden")) x2 += onOff4("w:webHidden", chp.webHidden);
+  if (t("bold")) x2 += onOff5("w:b", chp.bold);
+  if (t("boldBi")) x2 += onOff5("w:bCs", chp.boldBi);
+  if (t("italic")) x2 += onOff5("w:i", chp.italic);
+  if (t("italicBi")) x2 += onOff5("w:iCs", chp.italicBi);
+  if (t("caps")) x2 += onOff5("w:caps", chp.caps);
+  if (t("smallCaps")) x2 += onOff5("w:smallCaps", chp.smallCaps);
+  if (t("strike")) x2 += onOff5("w:strike", chp.strike);
+  if (t("dstrike")) x2 += onOff5("w:dstrike", chp.dstrike);
+  if (t("outline")) x2 += onOff5("w:outline", chp.outline);
+  if (t("shadow")) x2 += onOff5("w:shadow", chp.shadow);
+  if (t("emboss")) x2 += onOff5("w:emboss", chp.emboss);
+  if (t("imprint")) x2 += onOff5("w:imprint", chp.imprint);
+  if (t("noProof")) x2 += onOff5("w:noProof", chp.noProof);
+  if (t("vanish")) x2 += onOff5("w:vanish", chp.vanish);
+  if (t("webHidden")) x2 += onOff5("w:webHidden", chp.webHidden);
   if (t("cv") || t("ico")) {
     const c = t("cv") && chp.cv !== void 0 ? chp.cv : icoColor(chp.ico ?? 0);
     x2 += el("w:color", { "w:val": hex(c) });
@@ -10179,10 +10590,10 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
     x2 += el("w:u", a);
   }
   if (t("brc")) x2 += brcXml("w:bdr", chp.brc);
-  if (t("shd")) x2 += shdXml(chp.shd);
+  if (t("shd")) x2 += shdXml2(chp.shd);
   if (t("iss")) x2 += el("w:vertAlign", { "w:val": chp.iss === 1 ? "superscript" : chp.iss === 2 ? "subscript" : "baseline" });
-  if (t("rtl")) x2 += onOff4("w:rtl", chp.rtl);
-  if (t("cs")) x2 += onOff4("w:cs", chp.cs);
+  if (t("rtl")) x2 += onOff5("w:rtl", chp.rtl);
+  if (t("cs")) x2 += onOff5("w:cs", chp.cs);
   if (t("kcd")) x2 += el("w:em", { "w:val": ["none", "dot", "comma", "circle", "underDot"][chp.kcd ?? 0] ?? "none" });
   if (t("lid") || t("lidFE") || t("lidBi")) {
     const a = {
@@ -10192,7 +10603,7 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
     };
     if (a["w:val"] || a["w:eastAsia"] || a["w:bidi"]) x2 += el("w:lang", a);
   }
-  if (t("specVanish")) x2 += onOff4("w:specVanish", chp.specVanish);
+  if (t("specVanish")) x2 += onOff5("w:specVanish", chp.specVanish);
   return x2;
 }
 var JC = ["left", "center", "right", "both", "distribute", "mediumKashida", "both", "highKashida", "lowKashida", "thaiDistribute"];
@@ -10222,11 +10633,11 @@ function pPrInner(pap, touched, ctx, o = {}) {
     const id = ctx.styleId(pap.istd);
     if (id) x2 += el("w:pStyle", { "w:val": id });
   }
-  if (t("keepFollow")) x2 += onOff4("w:keepNext", pap.keepFollow);
-  if (t("keep")) x2 += onOff4("w:keepLines", pap.keep);
-  if (t("pageBreakBefore")) x2 += onOff4("w:pageBreakBefore", pap.pageBreakBefore);
+  if (t("keepFollow")) x2 += onOff5("w:keepNext", pap.keepFollow);
+  if (t("keep")) x2 += onOff5("w:keepLines", pap.keep);
+  if (t("pageBreakBefore")) x2 += onOff5("w:pageBreakBefore", pap.pageBreakBefore);
   x2 += framePrXml(pap, touched);
-  if (t("widowControl")) x2 += onOff4("w:widowControl", pap.widowControl);
+  if (t("widowControl")) x2 += onOff5("w:widowControl", pap.widowControl);
   if (t("ilfo") || t("ilvl")) {
     const ilfo = pap.ilfo ?? 0;
     const numId = ilfo === 0 || ilfo === -2047 ? 0 : o.numId ? o.numId(Math.abs(ilfo)) : Math.abs(ilfo);
@@ -10235,21 +10646,21 @@ function pPrInner(pap, touched, ctx, o = {}) {
     n += el("w:numId", { "w:val": numId });
     x2 += `<w:numPr>${n}</w:numPr>`;
   }
-  if (t("noLineNumb")) x2 += onOff4("w:suppressLineNumbers", pap.noLineNumb);
+  if (t("noLineNumb")) x2 += onOff5("w:suppressLineNumbers", pap.noLineNumb);
   const bdr = ["brcTop", "brcLeft", "brcBottom", "brcRight", "brcBetween", "brcBar"].filter((k) => t(k)).map((k) => brcXml(`w:${{ brcTop: "top", brcLeft: "left", brcBottom: "bottom", brcRight: "right", brcBetween: "between", brcBar: "bar" }[k]}`, pap[k])).join("");
   if (bdr) x2 += `<w:pBdr>${bdr}</w:pBdr>`;
-  if (t("shd")) x2 += shdXml(pap.shd);
+  if (t("shd")) x2 += shdXml2(pap.shd);
   if (t("tabs")) x2 += tabsXml(o.baseTabs, pap.tabs, pap.tabsCleared);
-  if (t("noAutoHyph")) x2 += onOff4("w:suppressAutoHyphens", pap.noAutoHyph);
-  if (t("kinsoku")) x2 += onOff4("w:kinsoku", pap.kinsoku);
-  if (t("wordWrap")) x2 += onOff4("w:wordWrap", pap.wordWrap);
-  if (t("overflowPunct")) x2 += onOff4("w:overflowPunct", pap.overflowPunct);
-  if (t("topLinePunct")) x2 += onOff4("w:topLinePunct", pap.topLinePunct);
-  if (t("autoSpaceDE")) x2 += onOff4("w:autoSpaceDE", pap.autoSpaceDE);
-  if (t("autoSpaceDN")) x2 += onOff4("w:autoSpaceDN", pap.autoSpaceDN);
-  if (t("bidi")) x2 += onOff4("w:bidi", pap.bidi);
-  if (t("adjustRight")) x2 += onOff4("w:adjustRightInd", pap.adjustRight);
-  if (t("usePgsuSettings")) x2 += onOff4("w:snapToGrid", pap.usePgsuSettings);
+  if (t("noAutoHyph")) x2 += onOff5("w:suppressAutoHyphens", pap.noAutoHyph);
+  if (t("kinsoku")) x2 += onOff5("w:kinsoku", pap.kinsoku);
+  if (t("wordWrap")) x2 += onOff5("w:wordWrap", pap.wordWrap);
+  if (t("overflowPunct")) x2 += onOff5("w:overflowPunct", pap.overflowPunct);
+  if (t("topLinePunct")) x2 += onOff5("w:topLinePunct", pap.topLinePunct);
+  if (t("autoSpaceDE")) x2 += onOff5("w:autoSpaceDE", pap.autoSpaceDE);
+  if (t("autoSpaceDN")) x2 += onOff5("w:autoSpaceDN", pap.autoSpaceDN);
+  if (t("bidi")) x2 += onOff5("w:bidi", pap.bidi);
+  if (t("adjustRight")) x2 += onOff5("w:adjustRightInd", pap.adjustRight);
+  if (t("usePgsuSettings")) x2 += onOff5("w:snapToGrid", pap.usePgsuSettings);
   if (t("dyaBefore") || t("dyaAfter") || t("lineSpacing") || t("beforeAuto") || t("afterAuto") || t("dylBefore") || t("dylAfter")) {
     const ls = pap.lineSpacing;
     x2 += el("w:spacing", {
@@ -10281,8 +10692,8 @@ function pPrInner(pap, touched, ctx, o = {}) {
     }
     x2 += el("w:ind", a);
   }
-  if (t("contextualSpacing")) x2 += onOff4("w:contextualSpacing", pap.contextualSpacing);
-  if (t("mirrorIndents")) x2 += onOff4("w:mirrorIndents", pap.mirrorIndents);
+  if (t("contextualSpacing")) x2 += onOff5("w:contextualSpacing", pap.contextualSpacing);
+  if (t("mirrorIndents")) x2 += onOff5("w:mirrorIndents", pap.mirrorIndents);
   if (t("jc")) x2 += el("w:jc", { "w:val": jcVal(pap.jc) });
   if (t("wAlignFont")) x2 += el("w:textAlignment", { "w:val": ["top", "center", "baseline", "bottom", "auto"][pap.wAlignFont ?? 4] ?? "auto" });
   if (t("outLvl") && pap.outLvl !== void 0 && pap.outLvl <= 9) x2 += el("w:outlineLvl", { "w:val": pap.outLvl });
@@ -10325,9 +10736,9 @@ function framePrXml(pap, touched) {
   if (yAlign[ya]) a["w:yAlign"] = yAlign[ya];
   else if (ya) a["w:y"] = ya;
   if (pap.frameLocked) a["w:anchorLock"] = "1";
-  const order = ["w:dropCap", "w:lines", "w:w", "w:h", "w:hRule", "w:hSpace", "w:vSpace", "w:wrap", "w:vAnchor", "w:hAnchor", "w:x", "w:xAlign", "w:y", "w:yAlign", "w:anchorLock"];
+  const order2 = ["w:dropCap", "w:lines", "w:w", "w:h", "w:hRule", "w:hSpace", "w:vSpace", "w:wrap", "w:vAnchor", "w:hAnchor", "w:x", "w:xAlign", "w:y", "w:yAlign", "w:anchorLock"];
   const sorted = {};
-  for (const k of order) if (a[k] !== void 0) sorted[k] = a[k];
+  for (const k of order2) if (a[k] !== void 0) sorted[k] = a[k];
   return el("w:framePr", sorted);
 }
 var NFC = {
@@ -10658,7 +11069,7 @@ function buildSettings(r, o) {
   if (o.endnotes) x2 += '<w:endnotePr><w:endnote w:id="-1"/><w:endnote w:id="0"/></w:endnotePr>';
   x2 += compatXml(dop, feLayout);
   if (!dop.includeSubdocsInStats) x2 += "<w:doNotIncludeSubdocsInStats/>";
-  return `${XML_DECL}<w:settings${attrs({ "xmlns:w": NS.w, "xmlns:r": NS.r, "xmlns:m": NS.m })}>${x2}</w:settings>`;
+  return `${XML_DECL}<w:settings${attrs2({ "xmlns:w": NS.w, "xmlns:r": NS.r, "xmlns:m": NS.m })}>${x2}</w:settings>`;
 }
 
 // ../docx-core/src/doc/styles-xml.ts
@@ -10903,9 +11314,9 @@ function styleName(st) {
 function styleIdMap(styles) {
   const ids = /* @__PURE__ */ new Map();
   const used = /* @__PURE__ */ new Set();
-  const order = [...styles.filter(Boolean)];
-  order.sort((a, b) => (a.sti < STI_NAMES.length ? 0 : 1) - (b.sti < STI_NAMES.length ? 0 : 1) || a.istd - b.istd);
-  for (const st of order) {
+  const order2 = [...styles.filter(Boolean)];
+  order2.sort((a, b) => (a.sti < STI_NAMES.length ? 0 : 1) - (b.sti < STI_NAMES.length ? 0 : 1) || a.istd - b.istd);
+  for (const st of order2) {
     let base = st.sti < STI_NAMES.length || STI_EXTRA[st.sti] ? englishId(styleName(st)) : (st.name || "").replace(/[^A-Za-z0-9-]/g, "");
     let id = base;
     if (!base) {
@@ -10970,7 +11381,7 @@ function tableStylePr(st) {
     const sides = ["top", "left", "bottom", "right", "insideH", "insideV"];
     x2 += `<w:tblBorders>${sides.map((s) => brcXml(`w:${s}`, tap.borders[s])).join("")}</w:tblBorders>`;
   }
-  if (tap.shdTable) x2 += shdXml(tap.shdTable);
+  if (tap.shdTable) x2 += shdXml2(tap.shdTable);
   const p = tap.padding;
   if (p.top !== void 0 || p.left !== void 0 || p.bottom !== void 0 || p.right !== void 0) {
     let m = "";
@@ -11010,7 +11421,7 @@ function buildStyles(r, ctx, ids, numIdOf) {
     x2 += `<w:style w:type="table" w:default="1" w:styleId="${freeId("TableNormal")}"><w:name w:val="Normal Table"/><w:semiHidden/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>`;
   }
   if (!has(107, 4)) x2 += `<w:style w:type="numbering" w:default="1" w:styleId="${freeId("NoList")}"><w:name w:val="No List"/><w:semiHidden/></w:style>`;
-  return `${XML_DECL}<w:styles${attrs({ "xmlns:w": NS.w, "xmlns:r": NS.r })}>${x2}</w:styles>`;
+  return `${XML_DECL}<w:styles${attrs2({ "xmlns:w": NS.w, "xmlns:r": NS.r })}>${x2}</w:styles>`;
 }
 
 // ../docx-core/src/doc/pictures.ts
@@ -11394,9 +11805,9 @@ function presetFor(spt, adjust, w, h) {
     if (any) {
       const dflt2 = DML_DEFAULTS[def.prst] ?? [];
       vals.forEach((v, i2) => {
-        const val2 = v ?? dflt2[i2];
-        if (val2 === void 0) return;
-        out.av.push({ name: vals.length === 1 ? "adj" : `adj${i2 + 1}`, val: Math.round(val2) });
+        const val3 = v ?? dflt2[i2];
+        if (val3 === void 0) return;
+        out.av.push({ name: vals.length === 1 ? "adj" : `adj${i2 + 1}`, val: Math.round(val3) });
       });
     }
   }
@@ -12007,7 +12418,7 @@ var DocxWriter = class {
           }
         } else if (c === 19 && links.has(cp)) {
           link = links.get(cp);
-          if (!link.unwrap) out.raw(`<w:hyperlink${attrs({ "r:id": link.rid, "w:anchor": link.anchor, "w:tooltip": link.tooltip, "w:tgtFrame": link.target, "w:history": "1" })}>`);
+          if (!link.unwrap) out.raw(`<w:hyperlink${attrs2({ "r:id": link.rid, "w:anchor": link.anchor, "w:tooltip": link.tooltip, "w:tgtFrame": link.target, "w:history": "1" })}>`);
           continue;
         }
         if (c === 19) {
@@ -12535,13 +12946,13 @@ var DocxWriter = class {
     }
     if (tap.bidi) x2 += "<w:bidiVisual/>";
     const tw2 = centeredW !== void 0 && tap.tableWidth?.fts === 3 && tap.tableWidth.w > centeredW ? { fts: 3, w: centeredW } : tap.tableWidth;
-    x2 += widthXml("w:tblW", tw2) || el("w:tblW", { "w:w": 0, "w:type": "auto" });
+    x2 += widthXml2("w:tblW", tw2) || el("w:tblW", { "w:w": 0, "w:type": "auto" });
     if (tap.jc) x2 += el("w:jc", { "w:val": ["left", "center", "right"][tap.jc] ?? "left" });
     if (tap.spacing) x2 += el("w:tblCellSpacing", { "w:w": tap.spacing, "w:type": "dxa" });
     const ind = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tableIndent(tap);
     if (ind !== void 0 && ind !== 0 && (!tap.jc || tap.jc === 1)) x2 += el("w:tblInd", { "w:w": ind, "w:type": "dxa" });
-    if (tap.bordersSet && !allNone(tap.borders)) x2 += `<w:tblBorders>${bordersXml(tap.borders, true)}</w:tblBorders>`;
-    if (tap.shdTable) x2 += shdXml(tap.shdTable);
+    if (tap.bordersSet && !allNone(tap.borders)) x2 += `<w:tblBorders>${bordersXml2(tap.borders, true)}</w:tblBorders>`;
+    if (tap.shdTable) x2 += shdXml2(tap.shdTable);
     if (tap.autofit === false || tap.autofit === void 0) x2 += '<w:tblLayout w:type="fixed"/>';
     const mar = cellMargins(tap);
     if (mar) x2 += `<w:tblCellMar>${mar}</w:tblCellMar>`;
@@ -12561,7 +12972,7 @@ var DocxWriter = class {
   tblPrExXml(tap, first) {
     let x2 = "";
     if (tap === first) return "";
-    if (tap.bordersSet && JSON.stringify(tap.borders) !== JSON.stringify(first.borders)) x2 += `<w:tblBorders>${bordersXml(tap.borders, true)}</w:tblBorders>`;
+    if (tap.bordersSet && JSON.stringify(tap.borders) !== JSON.stringify(first.borders)) x2 += `<w:tblBorders>${bordersXml2(tap.borders, true)}</w:tblBorders>`;
     const mar = cellMargins(tap);
     if (mar && mar !== cellMargins(first)) x2 += `<w:tblCellMar>${mar}</w:tblCellMar>`;
     return x2;
@@ -12570,7 +12981,7 @@ var DocxWriter = class {
     const tc = tap.tcs[i2];
     let x2 = "";
     if (tc && tc.ftsWidth === 1) x2 += el("w:tcW", { "w:w": 0, "w:type": "auto" });
-    else if (tc && tc.ftsWidth) x2 += widthXml("w:tcW", { fts: tc.ftsWidth, w: tc.wWidth });
+    else if (tc && tc.ftsWidth) x2 += widthXml2("w:tcW", { fts: tc.ftsWidth, w: tc.wWidth });
     else x2 += el("w:tcW", { "w:w": Math.max(0, width), "w:type": "dxa" });
     if (gridSpan > 1) x2 += el("w:gridSpan", { "w:val": gridSpan });
     if (tc?.vertMerge) x2 += tc.vertMerge === 3 || tc.vertMerge === 2 ? '<w:vMerge w:val="restart"/>' : "<w:vMerge/>";
@@ -12585,7 +12996,7 @@ var DocxWriter = class {
       if (b) x2 += `<w:tcBorders>${b}</w:tcBorders>`;
     }
     const shd = cellShd(tap, i2);
-    if (shd) x2 += shdXml(shd);
+    if (shd) x2 += shdXml2(shd);
     if (tc?.noWrap) x2 += "<w:noWrap/>";
     if (tc && (tc.mar.top !== void 0 || tc.mar.left !== void 0 || tc.mar.bottom !== void 0 || tc.mar.right !== void 0)) {
       let m = "";
@@ -12656,12 +13067,12 @@ function notePr(pos, nfc, start, rnc, endnote) {
   if (rnc) x2 += el("w:numRestart", { "w:val": ["continuous", "eachSect", "eachPage"][rnc] ?? "continuous" });
   return x2;
 }
-function widthXml(name, w) {
+function widthXml2(name, w) {
   if (!w || !w.fts) return "";
   const type = ["nil", "auto", "pct", "dxa"][w.fts & 3] ?? "dxa";
   return el(name, { "w:w": w.fts === 1 ? 0 : w.w, "w:type": type });
 }
-function bordersXml(b, inside) {
+function bordersXml2(b, inside) {
   const sides = inside ? ["top", "left", "bottom", "right", "insideH", "insideV"] : ["top", "left", "bottom", "right"];
   return sides.map((s) => brcXml(`w:${s}`, b[s])).join("");
 }
@@ -12868,7 +13279,7 @@ var RunBuf = class {
     this.openWrap = wrap;
     if (wrap) {
       const [kind, author, date] = wrap.split("|");
-      this.parts.push(`<w:${kind}${attrs({ "w:id": this.ids.next++, "w:author": author, "w:date": date || void 0 })}>`);
+      this.parts.push(`<w:${kind}${attrs2({ "w:id": this.ids.next++, "w:author": author, "w:date": date || void 0 })}>`);
     }
   }
   begin(rPr, wrap) {
@@ -12942,6 +13353,1707 @@ function convertDocToDocx(bytes, options = {}) {
   }
 }
 
+// ../docx-core/src/table-ops.ts
+var table_ops_exports = {};
+__export(table_ops_exports, {
+  DEFAULT_LOOK: () => DEFAULT_LOOK,
+  NO_BORDER: () => NO_BORDER,
+  autoFit: () => autoFit,
+  canMerge: () => canMerge,
+  cellAt: () => cellAt,
+  cellContent: () => cellContent,
+  cellEmpty: () => cellEmpty,
+  cellsIn: () => cellsIn,
+  cloneTable: () => cloneTable,
+  columnsFor: () => columnsFor2,
+  deleteCells: () => deleteCells,
+  deleteColumns: () => deleteColumns,
+  deleteRows: () => deleteRows,
+  describe: () => describe,
+  distributeColumns: () => distributeColumns,
+  distributeRows: () => distributeRows,
+  emptyPara: () => emptyPara,
+  equalWidths: () => equalWidths,
+  formatLike: () => formatLike,
+  gridWidth: () => gridWidth,
+  guessSeparator: () => guessSeparator,
+  insertCells: () => insertCells,
+  insertColumns: () => insertColumns,
+  insertRows: () => insertRows,
+  mapTable: () => mapTable,
+  mergeCells: () => mergeCells,
+  newTable: () => newTable,
+  normRect: () => normRect,
+  paraEmpty: () => paraEmpty,
+  relink: () => relink,
+  setBorders: () => setBorders,
+  setCellContent: () => setCellContent,
+  setCellProps: () => setCellProps,
+  setCellSpacing: () => setCellSpacing,
+  setCellWidth: () => setCellWidth,
+  setColumnPct: () => setColumnPct,
+  setColumnWidth: () => setColumnWidth,
+  setLook: () => setLook,
+  setPreferredWidth: () => setPreferredWidth,
+  setRowHeight: () => setRowHeight,
+  setRowProps: () => setRowProps,
+  setShading: () => setShading,
+  setTableAlign: () => setTableAlign,
+  setTableProps: () => setTableProps,
+  setTextDirection: () => setTextDirection,
+  spanOf: () => spanOf,
+  splitCells: () => splitCells,
+  splitTable: () => splitTable,
+  syncLegacy: () => syncLegacy,
+  syncLegacyCell: () => syncLegacyCell,
+  tableToText: () => tableToText,
+  textToTable: () => textToTable,
+  vExtent: () => vExtent,
+  vMergeOf: () => vMergeOf,
+  wholeRect: () => wholeRect
+});
+var clone = (v) => v === void 0 ? v : JSON.parse(JSON.stringify(v));
+var spanOf = (c) => Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1);
+var vMergeOf = (c) => c.tcPr?.vMerge;
+function mapTable(t) {
+  let nCols = t.gridColsTwips.length;
+  const rows = t.rows.map((row, ri) => {
+    let col = row.trPr?.gridBefore ?? 0;
+    return row.cells.map((cell, ci) => {
+      const g = { ri, ci, cell, col, span: spanOf(cell) };
+      col += g.span;
+      nCols = Math.max(nCols, col);
+      return g;
+    });
+  });
+  return { rows, nCols };
+}
+function cellAt(m, r, c) {
+  return m.rows[r]?.find((g) => g.col <= c && c < g.col + g.span);
+}
+function vExtent(m, r, c) {
+  const g = cellAt(m, r, c);
+  if (!g) return [r, r];
+  let r1 = r;
+  if (vMergeOf(g.cell) === "continue") {
+    while (r1 > 0) {
+      const up = cellAt(m, r1 - 1, g.col);
+      if (!up || up.col !== g.col || !vMergeOf(up.cell)) break;
+      r1--;
+      if (vMergeOf(up.cell) === "restart") break;
+    }
+  }
+  let r2 = r;
+  if (vMergeOf(g.cell)) {
+    while (r2 + 1 < m.rows.length) {
+      const dn = cellAt(m, r2 + 1, g.col);
+      if (!dn || dn.col !== g.col || vMergeOf(dn.cell) !== "continue") break;
+      r2++;
+    }
+  }
+  return [r1, r2];
+}
+function normRect(m, rect) {
+  let { r1, c1, r2, c2 } = rect;
+  r1 = Math.max(0, Math.min(r1, r2));
+  r2 = Math.min(m.rows.length - 1, Math.max(rect.r1, r2));
+  c1 = Math.max(0, Math.min(c1, c2));
+  c2 = Math.max(rect.c1, c2);
+  for (let guard = 0; guard < 50; guard++) {
+    let changed = false;
+    for (let r = r1; r <= r2; r++) {
+      for (const g of m.rows[r] ?? []) {
+        if (g.col + g.span - 1 < c1 || g.col > c2) continue;
+        if (g.col < c1) {
+          c1 = g.col;
+          changed = true;
+        }
+        if (g.col + g.span - 1 > c2) {
+          c2 = g.col + g.span - 1;
+          changed = true;
+        }
+        const [a, b] = vExtent(m, r, g.col);
+        if (a < r1) {
+          r1 = a;
+          changed = true;
+        }
+        if (b > r2) {
+          r2 = b;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+  return { r1, c1, r2, c2 };
+}
+function cellsIn(m, rect) {
+  const out = [];
+  for (let r = rect.r1; r <= rect.r2; r++) {
+    for (const g of m.rows[r] ?? []) if (g.col <= rect.c2 && g.col + g.span - 1 >= rect.c1) out.push(g);
+  }
+  return out;
+}
+var wholeRect = (t) => ({ r1: 0, c1: 0, r2: t.rows.length - 1, c2: Math.max(0, mapTable(t).nCols - 1) });
+var edgeOf = (b) => b && b.val !== "nil" && b.val !== "none" ? { style: b.val, sizeEighthPt: b.sz ?? 0, ...b.color && b.color !== "auto" ? { color: b.color } : {}, spacePt: b.space ?? 0 } : void 0;
+function legacyBorders(b, sides) {
+  if (!b) return void 0;
+  const out = {};
+  let any = false;
+  for (const s of sides) {
+    const e = edgeOf(b[s]);
+    if (e) {
+      out[s] = e;
+      any = true;
+    }
+  }
+  return any ? out : void 0;
+}
+function syncLegacyCell(cell) {
+  const p = cell.tcPr;
+  cell.gridSpan = Math.max(1, p?.gridSpan ?? 1);
+  cell.widthTwips = p?.tcW?.type === "dxa" ? p.tcW.w : void 0;
+  const fill = p?.shd?.fill;
+  cell.shadingHex = fill && fill !== "auto" ? fill : void 0;
+  cell.borders = legacyBorders(p?.tcBorders, ["top", "left", "bottom", "right"]);
+  if (cell.widthTwips === void 0) delete cell.widthTwips;
+  if (cell.shadingHex === void 0) delete cell.shadingHex;
+  if (cell.borders === void 0) delete cell.borders;
+}
+function syncLegacy(t) {
+  t.borders = legacyBorders(t.tblPr?.tblBorders, ["top", "left", "bottom", "right", "insideH", "insideV"]);
+  if (t.borders === void 0) delete t.borders;
+  for (const row of t.rows) for (const cell of row.cells) syncLegacyCell(cell);
+}
+var emptyPara = () => ({ runs: [], props: {} });
+function cellContent(cell) {
+  if (cell.blocks?.length) return cell.blocks;
+  return [
+    ...cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })),
+    ...cell.tables
+  ];
+}
+function setCellContent(cell, blocks) {
+  if (!blocks.some((b) => b.type === "paragraph")) blocks = [...blocks, { type: "paragraph", paragraph: emptyPara() }];
+  if (blocks[blocks.length - 1].type !== "paragraph") blocks = [...blocks, { type: "paragraph", paragraph: emptyPara() }];
+  cell.blocks = blocks;
+  cell.paragraphs = blocks.filter((b) => b.type === "paragraph").map((b) => b.paragraph);
+  cell.tables = blocks.filter((b) => b.type === "table");
+}
+var runHasContent = (r) => r.text.length > 0 || !!(r.image || r.textbox || r.shape || r.group || r.noteRef || r.field || r.custom || r.math);
+var paraEmpty = (p) => !p.runs.some(runHasContent);
+var cellEmpty = (cell) => cellContent(cell).every((b) => b.type === "paragraph" && paraEmpty(b.paragraph));
+function formatLike(p) {
+  if (!p) return emptyPara();
+  const props = clone(p.props);
+  const fmt = props.src ?? props.fmtSrc;
+  delete props.src;
+  delete props.tocEntry;
+  delete props.tocInstr;
+  delete props.sectionBreak;
+  if (fmt !== void 0) props.fmtSrc = fmt;
+  else delete props.fmtSrc;
+  const out = { runs: [], props };
+  if (p.ppr) out.ppr = clone(p.ppr);
+  return out;
+}
+var lastPara = (cell) => cell.paragraphs[cell.paragraphs.length - 1];
+function cellLike(src, keepTcPr, widthTw) {
+  const tcPr = keepTcPr && src?.tcPr ? clone(src.tcPr) : {};
+  delete tcPr.vMerge;
+  delete tcPr.hMerge;
+  delete tcPr.cnfStyle;
+  delete tcPr.gridSpan;
+  tcPr.tcW = src?.tcPr?.tcW && src.tcPr.tcW.type !== "dxa" && keepTcPr ? clone(src.tcPr.tcW) : { w: widthTw, type: "dxa" };
+  const paragraph = formatLike(src ? lastPara(src) : void 0);
+  const cell = { paragraphs: [paragraph], tables: [], gridSpan: 1, tcPr, blocks: [{ type: "paragraph", paragraph }] };
+  syncLegacyCell(cell);
+  return cell;
+}
+var sum = (a) => a.reduce((x2, y) => x2 + y, 0);
+function gridWidth(t, c, span) {
+  let w = 0;
+  for (let i2 = c; i2 < c + span; i2++) w += t.gridColsTwips[i2] ?? 0;
+  return w;
+}
+function currentWidths(t) {
+  const m = mapTable(t);
+  return t.rows.map((row, ri) => {
+    const before = row.trPr?.gridBefore ? gridWidth(t, 0, row.trPr.gridBefore) : 0;
+    const cells = m.rows[ri].map((g) => ({ cell: g.cell, w: dxaW(g.cell) || gridWidth(t, g.col, g.span) || 0 }));
+    const end = (m.rows[ri].at(-1)?.col ?? 0) + (m.rows[ri].at(-1)?.span ?? 0);
+    const after = row.trPr?.gridAfter ? gridWidth(t, end, row.trPr.gridAfter) : 0;
+    return { before, cells, after };
+  });
+}
+var dxaW = (c) => c.tcPr?.tcW?.type === "dxa" ? c.tcPr.tcW.w : c.widthTwips;
+function rebuildGrid(t, rows, tol = 3) {
+  const edges = [0];
+  for (const r of rows) {
+    let x2 = r.before;
+    if (r.before > 0) edges.push(x2);
+    for (const c of r.cells) {
+      x2 += c.w;
+      edges.push(x2);
+    }
+    if (r.after > 0) edges.push(x2 + r.after);
+  }
+  edges.sort((a, b) => a - b);
+  const uniq = [0];
+  let first = 0;
+  for (const e of edges) {
+    if (e - first > tol) {
+      uniq.push(e);
+      first = e;
+    } else if (uniq.length > 1) uniq[uniq.length - 1] = e;
+  }
+  const snap = (x2) => {
+    let best = 0;
+    for (let i2 = 0; i2 < uniq.length; i2++) if (Math.abs(uniq[i2] - x2) < Math.abs(uniq[best] - x2)) best = i2;
+    return best;
+  };
+  t.gridColsTwips = uniq.slice(1).map((e, i2) => e - uniq[i2]);
+  rows.forEach((r, ri) => {
+    const row = t.rows[ri];
+    let x2 = r.before;
+    const b = snap(x2);
+    if (b > 0) {
+      row.trPr = { ...row.trPr ?? {}, gridBefore: b, wBefore: { w: r.before, type: "dxa" } };
+    } else if (row.trPr) {
+      delete row.trPr.gridBefore;
+      delete row.trPr.wBefore;
+    }
+    let ci = b;
+    for (const c of r.cells) {
+      x2 += c.w;
+      const e = Math.max(ci + 1, snap(x2));
+      const span = e - ci;
+      const tcPr = c.cell.tcPr ??= {};
+      if (span > 1) tcPr.gridSpan = span;
+      else delete tcPr.gridSpan;
+      if (!tcPr.tcW || tcPr.tcW.type === "dxa" || tcPr.tcW.type === "nil") tcPr.tcW = { w: Math.round(c.w), type: "dxa" };
+      syncLegacyCell(c.cell);
+      ci = e;
+    }
+    const total = uniq.length - 1;
+    if (r.after > 0 && ci < total) {
+      row.trPr = { ...row.trPr ?? {}, gridAfter: total - ci, wAfter: { w: r.after, type: "dxa" } };
+    } else if (row.trPr) {
+      delete row.trPr.gridAfter;
+      delete row.trPr.wAfter;
+    }
+    if (row.trPr && !Object.keys(row.trPr).length) delete row.trPr;
+  });
+}
+function widenTblW(t, rows) {
+  const w = Math.max(...rows.map((r) => r.before + sum(r.cells.map((c) => c.w)) + r.after));
+  const tw2 = t.tblPr?.tblW;
+  if (tw2?.type === "pct") return;
+  (t.tblPr ??= {}).tblW = { w: Math.round(w), type: "dxa" };
+}
+var DEFAULT_LOOK = { firstRow: true, lastRow: false, firstColumn: true, lastColumn: false, noHBand: false, noVBand: true };
+function equalWidths(total, n) {
+  const base = Math.floor(total / n);
+  const rem = total - base * n;
+  return Array.from({ length: n }, (_, i2) => base + (i2 >= n - rem ? 1 : 0));
+}
+function newTable(rows, cols, o) {
+  rows = Math.max(1, Math.floor(rows));
+  cols = Math.max(1, Math.floor(cols));
+  const widths = o.colTwips ? Array(cols).fill(Math.round(o.colTwips)) : equalWidths(Math.max(cols, Math.round(o.availTwips) - 10), cols);
+  const pref = o.colTwips ? widths : equalWidths(Math.max(cols, Math.round(o.prefTwips ?? o.availTwips + (o.indTwips ?? 0)) - 10), cols);
+  const total = sum(pref);
+  const pct = pref.map((w) => Math.round(w / total * 5e3));
+  const tblPr = {};
+  if (o.styleId !== null) tblPr.tblStyle = o.styleId ?? "Tabelacomgrade";
+  tblPr.tblW = o.autofit === "window" ? { w: 5e3, type: "pct" } : { w: 0, type: "auto" };
+  if (o.indTwips) tblPr.tblInd = { w: Math.round(o.indTwips), type: "dxa" };
+  tblPr.tblLook = { ...DEFAULT_LOOK };
+  const mk = () => ({
+    cells: widths.map((w, i2) => {
+      const paragraph = o.para?.() ?? emptyPara();
+      const tcW = o.autofit === "content" ? { w: 0, type: "auto" } : o.autofit === "window" ? { w: pct[i2], type: "pct" } : { w: pref[i2] ?? w, type: "dxa" };
+      const cell = { paragraphs: [paragraph], tables: [], gridSpan: 1, tcPr: { tcW }, blocks: [{ type: "paragraph", paragraph }] };
+      syncLegacyCell(cell);
+      return cell;
+    })
+  });
+  const t = { type: "table", rows: Array.from({ length: rows }, mk), gridColsTwips: widths, tblPr };
+  syncLegacy(t);
+  return t;
+}
+function rowLike(src) {
+  const row = { cells: src.cells.map((c) => cellLike(c, true, dxaW(c) ?? 0)) };
+  src.cells.forEach((c, i2) => {
+    const n = row.cells[i2];
+    if (c.tcPr?.gridSpan) n.tcPr.gridSpan = c.tcPr.gridSpan;
+    if (c.tcPr?.tcW) n.tcPr.tcW = clone(c.tcPr.tcW);
+    if (c.tcPr?.vMerge) n.tcPr.vMerge = c.tcPr.vMerge;
+    syncLegacyCell(n);
+  });
+  if (src.trPr) row.trPr = clone(src.trPr);
+  if (src.tblPrEx) row.tblPrEx = clone(src.tblPrEx);
+  return row;
+}
+function insertRows(t, rect, where, count = rect.r2 - rect.r1 + 1) {
+  const ref = where === "above" ? rect.r1 : rect.r2;
+  const at = where === "above" ? rect.r1 : rect.r2 + 1;
+  const src = t.rows[ref];
+  const news = Array.from({ length: count }, () => rowLike(src));
+  t.rows.splice(at, 0, ...news);
+  const m = mapTable(t);
+  for (let r = at; r < at + count; r++) {
+    for (const g of m.rows[r]) {
+      if (!g.cell.tcPr?.vMerge) continue;
+      const up = r > 0 ? cellAt(m, r - 1, g.col) : void 0;
+      const dn = cellAt(m, at + count, g.col);
+      const inside = up && up.col === g.col && vMergeOf(up.cell) && dn && dn.col === g.col && vMergeOf(dn.cell) === "continue";
+      if (inside) g.cell.tcPr.vMerge = "continue";
+      else delete g.cell.tcPr.vMerge;
+    }
+  }
+  return { r1: at, c1: 0, r2: at + count - 1, c2: Math.max(0, m.nCols - 1) };
+}
+function deleteRows(t, r1, r2) {
+  const m = mapTable(t);
+  if (r2 + 1 < t.rows.length) {
+    for (const g of m.rows[r2 + 1]) {
+      if (vMergeOf(g.cell) !== "continue") continue;
+      const [a] = vExtent(m, r2 + 1, g.col);
+      if (a >= r1) g.cell.tcPr.vMerge = "restart";
+    }
+  }
+  t.rows.splice(r1, r2 - r1 + 1);
+  return t.rows.length > 0;
+}
+function insertColumns(t, rect, where, count = rect.c2 - rect.c1 + 1) {
+  const m = mapTable(t);
+  const widths = currentWidths(t);
+  const created = /* @__PURE__ */ new Set();
+  t.rows.forEach((row, ri) => {
+    const cells = m.rows[ri];
+    if (!cells.length) return;
+    let idx;
+    if (where === "left") {
+      const g = cells.find((x2) => x2.col + x2.span - 1 >= rect.c1) ?? cells[cells.length - 1];
+      idx = g.ci;
+    } else {
+      const g = [...cells].reverse().find((x2) => x2.col <= rect.c2) ?? cells[0];
+      idx = g.ci + 1;
+    }
+    const right = row.cells[idx];
+    const left = row.cells[idx - 1];
+    const model = right ?? left;
+    const edge = !right || !left;
+    const w = widths[ri].cells.find((c) => c.cell === model)?.w ?? 0;
+    const news = Array.from({ length: count }, () => cellLike(model, edge, w));
+    news.forEach((c) => created.add(c));
+    row.cells.splice(idx, 0, ...news);
+    widths[ri].cells.splice(idx, 0, ...news.map((cell) => ({ cell, w })));
+  });
+  rebuildGrid(t, widths);
+  widenTblW(t, widths);
+  return rectOf(t, created);
+}
+function rectOf(t, cells) {
+  let r1 = Infinity, r2 = -1, c1 = Infinity, c2 = -1;
+  for (const gs of mapTable(t).rows) for (const g of gs) {
+    if (!cells.has(g.cell)) continue;
+    r1 = Math.min(r1, g.ri);
+    r2 = Math.max(r2, g.ri);
+    c1 = Math.min(c1, g.col);
+    c2 = Math.max(c2, g.col + g.span - 1);
+  }
+  return r2 < 0 ? { r1: 0, c1: 0, r2: 0, c2: 0 } : { r1, c1, r2, c2 };
+}
+function deleteColumns(t, c1, c2) {
+  const m = mapTable(t);
+  const widths = currentWidths(t);
+  t.rows.forEach((row, ri) => {
+    const keep = [];
+    for (const g of m.rows[ri]) {
+      const a = g.col, b = g.col + g.span - 1;
+      const w = widths[ri].cells.find((c) => c.cell === g.cell).w;
+      if (a >= c1 && b <= c2) continue;
+      const overlap = Math.max(0, Math.min(b, c2) - Math.max(a, c1) + 1);
+      keep.push({ cell: g.cell, w: overlap ? w - gridWidth(t, Math.max(a, c1), overlap) : w });
+    }
+    row.cells = keep.map((k) => k.cell);
+    widths[ri].cells = keep;
+  });
+  for (let ri = t.rows.length - 1; ri >= 0; ri--) {
+    if (!t.rows[ri].cells.length) {
+      t.rows.splice(ri, 1);
+      widths.splice(ri, 1);
+    }
+  }
+  if (!t.rows.length) return false;
+  rebuildGrid(t, widths);
+  if (t.tblPr?.tblW?.type === "dxa") widenTblW(t, widths);
+  return true;
+}
+function deleteCells(t, rect, shift) {
+  const m = mapTable(t);
+  if (shift === "left") {
+    const widths = currentWidths(t);
+    for (let r = rect.r1; r <= rect.r2; r++) {
+      const gone = m.rows[r].filter((g) => g.col >= rect.c1 && g.col + g.span - 1 <= rect.c2);
+      const goneW = sum(gone.map((g) => widths[r].cells.find((c) => c.cell === g.cell).w));
+      t.rows[r].cells = t.rows[r].cells.filter((c) => !gone.some((g) => g.cell === c));
+      widths[r].cells = widths[r].cells.filter((c) => !gone.some((g) => g.cell === c.cell));
+      widths[r].after += goneW;
+    }
+    rebuildGrid(t, widths);
+    return;
+  }
+  const h = rect.r2 - rect.r1 + 1;
+  for (let c = rect.c1; c <= rect.c2; c++) {
+    const col = [];
+    for (let r = rect.r1; r < t.rows.length; r++) {
+      const g = cellAt(m, r, c);
+      if (g && g.col === c) col.push(g.cell);
+    }
+    for (let i2 = 0; i2 < col.length; i2++) {
+      const from = col[i2 + h];
+      setCellContent(col[i2], from ? cellContent(from) : [{ type: "paragraph", paragraph: formatLike(lastPara(col[i2])) }]);
+    }
+  }
+}
+function insertCells(t, rect, shift) {
+  const m = mapTable(t);
+  if (shift === "right") {
+    const widths = currentWidths(t);
+    let addW = 0;
+    for (let r = rect.r1; r <= rect.r2; r++) {
+      const gs = m.rows[r].filter((g) => g.col >= rect.c1 && g.col + g.span - 1 <= rect.c2);
+      if (!gs.length) continue;
+      const idx = gs[0].ci;
+      const news = gs.map((g) => {
+        const w = widths[r].cells.find((c) => c.cell === g.cell).w;
+        return { cell: cellLike(g.cell, false, w), w };
+      });
+      addW = Math.max(addW, sum(news.map((n) => n.w)));
+      t.rows[r].cells.splice(idx, 0, ...news.map((n) => n.cell));
+      widths[r].cells.splice(idx, 0, ...news);
+    }
+    for (let r = 0; r < t.rows.length; r++) if (r < rect.r1 || r > rect.r2) widths[r].after += addW;
+    rebuildGrid(t, widths);
+    widenTblW(t, widths);
+    return rect;
+  }
+  const h = rect.r2 - rect.r1 + 1;
+  const last = t.rows[t.rows.length - 1];
+  for (let i2 = 0; i2 < h; i2++) t.rows.push(rowLike(last));
+  const m2 = mapTable(t);
+  for (let c = rect.c1; c <= rect.c2; c++) {
+    const col = [];
+    for (let r = rect.r1; r < t.rows.length; r++) {
+      const g = cellAt(m2, r, c);
+      if (g && g.col === c) col.push(g.cell);
+    }
+    for (let i2 = col.length - 1; i2 >= 0; i2--) {
+      const from = col[i2 - h];
+      setCellContent(col[i2], from ? cellContent(from) : [{ type: "paragraph", paragraph: formatLike(lastPara(col[i2])) }]);
+    }
+  }
+  return rect;
+}
+function canMerge(t, rect) {
+  const m = mapTable(t);
+  const r = normRect(m, rect);
+  return cellsIn(m, r).filter((g) => vMergeOf(g.cell) !== "continue").length > 1;
+}
+function mergeCells(t, rect, o = {}) {
+  const m = mapTable(t);
+  const rr = normRect(m, rect);
+  const widths = currentWidths(t);
+  const span = rr.c2 - rr.c1 + 1;
+  const top = cellAt(m, rr.r1, rr.c1);
+  const W3 = sum(widths[rr.r1].cells.filter((c) => m.rows[rr.r1].some((g) => g.cell === c.cell && g.col >= rr.c1 && g.col + g.span - 1 <= rr.c2)).map((c) => c.w)) || gridWidth(t, rr.c1, span);
+  const moved = [];
+  const own2 = cellEmpty(top.cell) ? [] : cellContent(top.cell);
+  let lastMoved;
+  for (let r = rr.r1; r <= rr.r2; r++) {
+    for (const g of m.rows[r]) {
+      if (g.col < rr.c1 || g.col > rr.c2 || g.cell === top.cell || vMergeOf(g.cell) === "continue") continue;
+      if (cellEmpty(g.cell)) continue;
+      const bl = cellContent(g.cell);
+      moved.push(...bl);
+      if (r > rr.r1) {
+        const lp = [...bl].reverse().find((b) => b.type === "paragraph");
+        if (lp?.type === "paragraph") lastMoved = lp.paragraph;
+      } else lastMoved = void 0;
+    }
+  }
+  const contPara = /* @__PURE__ */ new Map();
+  for (let r = rr.r1 + 1; r <= rr.r2; r++) {
+    const g = m.rows[r].find((x2) => x2.col >= rr.c1 && x2.col + x2.span - 1 <= rr.c2);
+    if (g) contPara.set(r, formatLike(lastPara(g.cell)));
+  }
+  const content = [...own2, ...moved];
+  setCellContent(top.cell, content.length ? content : [{ type: "paragraph", paragraph: formatLike(lastPara(top.cell)) }]);
+  const normal = o.normalSpacing;
+  if (normal && rr.r2 > rr.r1 && lastMoved) applySpacing(lastMoved, normal);
+  for (let r = rr.r1; r <= rr.r2; r++) {
+    const row = t.rows[r];
+    const gs = m.rows[r].filter((g) => g.col >= rr.c1 && g.col + g.span - 1 <= rr.c2);
+    if (!gs.length) continue;
+    const keep = r === rr.r1 ? top.cell : gs[0].cell;
+    const tcPr = keep.tcPr ??= {};
+    if (span > 1) tcPr.gridSpan = span;
+    else delete tcPr.gridSpan;
+    tcPr.tcW = { w: W3, type: tcPr.tcW?.type === "pct" ? "dxa" : "dxa" };
+    if (rr.r2 > rr.r1) tcPr.vMerge = r === rr.r1 ? "restart" : "continue";
+    if (r > rr.r1) {
+      const p = contPara.get(r) ?? formatLike(lastPara(keep));
+      if (normal && r < rr.r2) applySpacing(p, normal);
+      setCellContent(keep, [{ type: "paragraph", paragraph: p }]);
+    }
+    row.cells = row.cells.filter((c) => c === keep || !gs.some((g) => g.cell === c));
+    const wr = widths[r];
+    const at = wr.cells.findIndex((c) => gs.some((g) => g.cell === c.cell));
+    wr.cells = wr.cells.filter((c) => !gs.some((g) => g.cell === c.cell));
+    wr.cells.splice(at, 0, { cell: keep, w: W3 });
+    syncLegacyCell(keep);
+  }
+  rebuildGrid(t, widths);
+  return { r1: rr.r1, c1: rr.c1, r2: rr.r2, c2: rr.c2 };
+}
+function applySpacing(p, s) {
+  if (s.after !== void 0) p.props.spaceAfterTwips = s.after;
+  if (s.line !== void 0) p.props.lineTwentieths = s.line;
+}
+function distribute(blocks, n) {
+  const out = Array.from({ length: n }, () => []);
+  if (blocks.length <= n) blocks.forEach((b, i2) => out[i2].push(b));
+  else {
+    const extra = blocks.length - n + 1;
+    out[0].push(...blocks.slice(0, extra));
+    blocks.slice(extra).forEach((b, i2) => out[i2 + 1].push(b));
+  }
+  return out;
+}
+function splitCells(t, rect, cols, rows, o = {}) {
+  cols = Math.max(1, Math.floor(cols));
+  rows = Math.max(1, Math.floor(rows));
+  let rr = normRect(mapTable(t), rect);
+  if ((o.mergeFirst ?? true) && canMerge(t, rr)) rr = mergeCells(t, rr, { normalSpacing: o.normalSpacing });
+  const m = mapTable(t);
+  const widths = currentWidths(t);
+  const created = [];
+  for (let r = rr.r2; r >= rr.r1; r--) {
+    const gs = m.rows[r].filter((g) => g.col >= rr.c1 && g.col + g.span - 1 <= rr.c2 && vMergeOf(g.cell) !== "continue");
+    if (!gs.length) continue;
+    const row = t.rows[r];
+    const wr = widths[r];
+    const pieces = /* @__PURE__ */ new Map();
+    for (const g of gs) {
+      const W3 = wr.cells.find((c) => c.cell === g.cell).w;
+      const ws = equalWidths(W3, cols);
+      const parts = distribute(cellContent(g.cell), cols);
+      const cells = ws.map((w, i2) => {
+        const c = i2 === 0 ? g.cell : cellLike(g.cell, true, w);
+        const tcPr = c.tcPr ??= {};
+        delete tcPr.gridSpan;
+        delete tcPr.vMerge;
+        tcPr.tcW = { w, type: "dxa" };
+        if (i2 === 0 || parts[i2].length) setCellContent(c, parts[i2].length ? parts[i2] : [{ type: "paragraph", paragraph: formatLike(lastPara(g.cell)) }]);
+        syncLegacyCell(c);
+        return c;
+      });
+      pieces.set(g.cell, cells);
+      created.push(...cells);
+      const at = row.cells.indexOf(g.cell);
+      row.cells.splice(at, 1, ...cells);
+      const wi = wr.cells.findIndex((c) => c.cell === g.cell);
+      wr.cells.splice(wi, 1, ...cells.map((cell, i2) => ({ cell, w: ws[i2] })));
+    }
+    if (rows > 1) {
+      for (const c of row.cells) {
+        if (created.includes(c)) continue;
+        const tcPr = c.tcPr ??= {};
+        if (!tcPr.vMerge) tcPr.vMerge = "restart";
+      }
+      const h = o.rowHeights?.[r - rr.r1];
+      const each = h ? Math.floor(h / rows) : void 0;
+      if (each) row.trPr = { ...row.trPr ?? {}, trHeight: { val: each, hRule: "atLeast" } };
+      const extra = [];
+      const extraW = [];
+      for (let k = 1; k < rows; k++) {
+        const nr = { cells: [] };
+        const nw = { before: wr.before, cells: [], after: wr.after };
+        for (const c of row.cells) {
+          const w = wr.cells.find((x2) => x2.cell === c).w;
+          let n;
+          if (created.includes(c)) {
+            n = cellLike(c, true, w);
+            created.push(n);
+          } else {
+            n = cellLike(c, true, w);
+            n.tcPr.vMerge = "continue";
+            if (c.tcPr?.gridSpan) n.tcPr.gridSpan = c.tcPr.gridSpan;
+            syncLegacyCell(n);
+          }
+          nr.cells.push(n);
+          nw.cells.push({ cell: n, w });
+        }
+        if (row.trPr) nr.trPr = clone(row.trPr);
+        if (row.tblPrEx) nr.tblPrEx = clone(row.tblPrEx);
+        extra.push(nr);
+        extraW.push(nw);
+      }
+      t.rows.splice(r + 1, 0, ...extra);
+      widths.splice(r + 1, 0, ...extraW);
+    }
+  }
+  rebuildGrid(t, widths);
+  return created.length ? rectOf(t, new Set(created)) : rr;
+}
+function splitTable(t, r) {
+  if (r <= 0 || r >= t.rows.length) return null;
+  const rows = t.rows.splice(r);
+  const t2 = { type: "table", rows, gridColsTwips: [...t.gridColsTwips] };
+  if (t.tblPr) t2.tblPr = clone(t.tblPr);
+  if (t.borders) t2.borders = clone(t.borders);
+  const m = mapTable(t2);
+  for (const g of m.rows[0] ?? []) if (vMergeOf(g.cell) === "continue") g.cell.tcPr.vMerge = "restart";
+  const m1 = mapTable(t);
+  for (const g of m1.rows[m1.rows.length - 1] ?? []) {
+    if (vMergeOf(g.cell) === "restart") delete g.cell.tcPr.vMerge;
+  }
+  return t2;
+}
+function setRowHeight(t, r1, r2, twips, rule = "atLeast") {
+  for (let r = r1; r <= r2; r++) {
+    const row = t.rows[r];
+    if (twips > 0) row.trPr = { ...row.trPr ?? {}, trHeight: { val: Math.round(twips), hRule: rule } };
+    else if (row.trPr) {
+      delete row.trPr.trHeight;
+      if (!Object.keys(row.trPr).length) delete row.trPr;
+    }
+  }
+}
+function distributeRows(t, r1, r2, heights) {
+  const n = r2 - r1 + 1;
+  const avg = Math.round(sum(heights.slice(0, n)) / n);
+  setRowHeight(t, r1, r2, avg, "atLeast");
+}
+function setColumnWidth(t, c1, c2, twips) {
+  const m = mapTable(t);
+  const widths = currentWidths(t);
+  const old = t.gridColsTwips.slice();
+  const nw = old.map((w, i2) => i2 >= c1 && i2 <= c2 ? Math.round(twips) : w);
+  t.rows.forEach((_, ri) => {
+    for (const g of m.rows[ri]) {
+      const c = widths[ri].cells.find((x2) => x2.cell === g.cell);
+      let w = 0;
+      for (let i2 = g.col; i2 < g.col + g.span; i2++) w += nw[i2] ?? 0;
+      c.w = w;
+    }
+  });
+  rebuildGrid(t, widths);
+  if (t.tblPr?.tblW?.type === "dxa") widenTblW(t, widths);
+}
+function setCellWidth(t, rect, twips) {
+  const m = mapTable(t);
+  const r = normRect(m, rect);
+  const widths = currentWidths(t);
+  for (const g of cellsIn(m, r)) {
+    const c = widths[g.ri].cells.find((x2) => x2.cell === g.cell);
+    if (c) c.w = Math.round(twips);
+  }
+  rebuildGrid(t, widths);
+  if (t.tblPr?.tblW?.type === "dxa") widenTblW(t, widths);
+}
+function setPreferredWidth(t, w, availTwips) {
+  if (!w || w.type === "auto" || w.type === "nil" || !(w.w > 0)) {
+    setTableProps(t, { tblW: { w: 0, type: "auto" } });
+    return;
+  }
+  setTableProps(t, { tblW: { w: Math.round(w.w), type: w.type } });
+  const total = sum(t.gridColsTwips) || 1;
+  const target = w.type === "pct" ? (availTwips - 10) * w.w / 5e3 : w.w;
+  t.gridColsTwips = t.gridColsTwips.map((x2) => Math.round(x2 / total * target));
+}
+function setColumnPct(t, c1, c2, pct50) {
+  const m = mapTable(t);
+  for (const g of cellsIn(m, { r1: 0, c1, r2: t.rows.length - 1, c2 })) {
+    (g.cell.tcPr ??= {}).tcW = { w: Math.round(pct50), type: "pct" };
+    syncLegacyCell(g.cell);
+  }
+  const total = sum(t.gridColsTwips) || 1;
+  for (let c = c1; c <= c2 && c < t.gridColsTwips.length; c++) t.gridColsTwips[c] = Math.round(total * pct50 / 5e3 / (c2 - c1 + 1));
+}
+function distributeColumns(t, c1, c2) {
+  const n = c2 - c1 + 1;
+  const avg = Math.round(gridWidth(t, c1, n) / n);
+  setColumnWidth(t, c1, c2, avg);
+}
+function autoFit(t, mode, availTwips) {
+  const tblPr = t.tblPr ??= {};
+  const m = mapTable(t);
+  const total = sum(t.gridColsTwips) || 1;
+  if (mode === "content") {
+    delete tblPr.tblLayout;
+    tblPr.tblW = { w: 0, type: "auto" };
+    for (const row of t.rows) for (const c of row.cells) {
+      (c.tcPr ??= {}).tcW = { w: 0, type: "auto" };
+      syncLegacyCell(c);
+    }
+    return;
+  }
+  if (mode === "window") {
+    delete tblPr.tblLayout;
+    tblPr.tblW = { w: 5e3, type: "pct" };
+    for (const gs of m.rows) for (const g of gs) {
+      (g.cell.tcPr ??= {}).tcW = { w: Math.round(gridWidth(t, g.col, g.span) / total * 5e3), type: "pct" };
+      syncLegacyCell(g.cell);
+    }
+    if (availTwips) {
+      const W3 = Math.max(1, availTwips - 10);
+      t.gridColsTwips = t.gridColsTwips.map((w) => Math.round(w / total * W3));
+    }
+    return;
+  }
+  tblPr.tblLayout = "fixed";
+  for (const gs of m.rows) for (const g of gs) {
+    (g.cell.tcPr ??= {}).tcW = { w: gridWidth(t, g.col, g.span), type: "dxa" };
+    syncLegacyCell(g.cell);
+  }
+}
+function setCellProps(t, rect, patch2) {
+  const m = mapTable(t);
+  for (const g of cellsIn(m, normRect(m, rect))) {
+    const tcPr = g.cell.tcPr ??= {};
+    for (const [k, v] of Object.entries(patch2)) {
+      if (v === void 0) delete tcPr[k];
+      else tcPr[k] = clone(v);
+    }
+    syncLegacyCell(g.cell);
+  }
+}
+function setRowProps(t, r1, r2, patch2) {
+  for (let r = r1; r <= r2; r++) {
+    const row = t.rows[r];
+    const trPr = row.trPr ??= {};
+    for (const [k, v] of Object.entries(patch2)) {
+      if (v === void 0) delete trPr[k];
+      else trPr[k] = clone(v);
+    }
+    if (!Object.keys(trPr).length) delete row.trPr;
+  }
+}
+function setTableProps(t, patch2) {
+  const tblPr = t.tblPr ??= {};
+  for (const [k, v] of Object.entries(patch2)) {
+    if (v === void 0) delete tblPr[k];
+    else tblPr[k] = clone(v);
+  }
+  syncLegacy(t);
+}
+function setTableAlign(t, jc) {
+  setTableProps(t, { jc: jc === "left" ? void 0 : jc });
+  setRowProps(t, 0, t.rows.length - 1, { jc: jc === "left" ? void 0 : jc });
+}
+function setCellSpacing(t, twips) {
+  const v = twips && twips > 0 ? { w: Math.round(twips / 2), type: "dxa" } : void 0;
+  setTableProps(t, { tblCellSpacing: v });
+  setRowProps(t, 0, t.rows.length - 1, { tblCellSpacing: v });
+}
+function setTextDirection(t, rect, dir) {
+  setCellProps(t, rect, { textDirection: dir && dir !== "lrTb" ? dir : void 0 });
+  if (!dir || dir === "lrTb" || dir === "lrTbV") return;
+  const rr = normRect(mapTable(t), rect);
+  for (let r = rr.r1; r <= rr.r2; r++) {
+    const row = t.rows[r];
+    const trPr = row.trPr ??= {};
+    trPr.cantSplit = true;
+    if (!trPr.trHeight || trPr.trHeight.hRule !== "exact" && trPr.trHeight.val < 1134) trPr.trHeight = { val: 1134, hRule: "atLeast" };
+  }
+}
+var NO_BORDER = { val: "nil" };
+function setBorders(t, rect, kind, spec, o = {}) {
+  const m = mapTable(t);
+  const rr = normRect(m, rect);
+  const sides = sidesOf(kind);
+  const on = (s) => kind === "none" || sides.includes(s);
+  if (o.wholeTable) {
+    const tb = { ...t.tblPr?.tblBorders ?? {} };
+    const want = kind === "none" ? { val: "none", sz: 0, space: 0, color: "auto" } : spec ?? { val: "none", sz: 0, space: 0, color: "auto" };
+    for (const s of ["top", "left", "bottom", "right", "insideH", "insideV"]) {
+      if (!on(s)) continue;
+      const st = o.styleBorders?.[s];
+      const same = st && st.val === want.val && (st.sz ?? 0) === (want.sz ?? 0) && (st.color ?? "auto") === (want.color ?? "auto");
+      const styleNone = !st || st.val === "none" || st.val === "nil";
+      if (same || styleNone && (want.val === "none" || want.val === "nil")) delete tb[s];
+      else tb[s] = clone(want);
+    }
+    setTableProps(t, { tblBorders: Object.keys(tb).length ? tb : void 0 });
+    for (const gs of m.rows) for (const g of gs) {
+      const cb = g.cell.tcPr?.tcBorders;
+      if (!cb) continue;
+      for (const s of ["top", "left", "bottom", "right"]) if (on(s) || on("inside" + (s === "top" || s === "bottom" ? "H" : "V"))) delete cb[s];
+      if (!Object.keys(cb).length) delete g.cell.tcPr.tcBorders;
+      syncLegacyCell(g.cell);
+    }
+    return;
+  }
+  const val3 = kind === "none" || !spec ? NO_BORDER : spec;
+  const setSide = (cell, s, b) => {
+    const tcPr = cell.tcPr ??= {};
+    (tcPr.tcBorders ??= {})[s] = clone(b);
+    syncLegacyCell(cell);
+  };
+  for (const g of cellsIn(m, rr)) {
+    const top = g.ri === rr.r1, bottom = g.ri === rr.r2 || vExtent(m, g.ri, g.col)[1] >= rr.r2;
+    const left = g.col === rr.c1, right = g.col + g.span - 1 === rr.c2;
+    const want = [
+      ["top", top ? on("top") : on("insideH")],
+      ["bottom", bottom ? on("bottom") : on("insideH")],
+      ["left", left ? on("left") : on("insideV")],
+      ["right", right ? on("right") : on("insideV")],
+      ["tl2br", on("tl2br")],
+      ["tr2bl", on("tr2bl")]
+    ];
+    for (const [s, yes] of want) {
+      if (!yes) continue;
+      if ((s === "tl2br" || s === "tr2bl") && kind === "none") {
+        setSide(g.cell, s, NO_BORDER);
+        continue;
+      }
+      if ((s === "tl2br" || s === "tr2bl") && !sides.includes(s)) continue;
+      setSide(g.cell, s, val3);
+      const nb = s === "top" ? cellAt(m, g.ri - 1, g.col) : s === "bottom" ? cellAt(m, vExtent(m, g.ri, g.col)[1] + 1, g.col) : s === "left" ? cellAt(m, g.ri, g.col - 1) : s === "right" ? cellAt(m, g.ri, g.col + g.span) : void 0;
+      const opp = { top: "bottom", bottom: "top", left: "right", right: "left" }[s];
+      if (nb && opp && !cellsIn(m, rr).includes(nb)) setSide(nb.cell, opp, val3);
+    }
+  }
+}
+function sidesOf(kind) {
+  switch (kind) {
+    case "all":
+      return ["top", "left", "bottom", "right", "insideH", "insideV"];
+    case "outside":
+      return ["top", "left", "bottom", "right"];
+    case "inside":
+      return ["insideH", "insideV"];
+    case "none":
+      return ["top", "left", "bottom", "right", "insideH", "insideV"];
+    default:
+      return [kind];
+  }
+}
+function setShading(t, rect, shd, wholeTable = false) {
+  setCellProps(t, rect, { shd: shd ?? void 0 });
+  if (wholeTable) setTableProps(t, { shd: shd ?? void 0 });
+}
+function setLook(t, patch2) {
+  const look = { ...DEFAULT_LOOK, ...t.tblPr?.tblLook ?? {}, ...patch2 };
+  setTableProps(t, { tblLook: look });
+}
+var sepChar = (s) => s === "tab" ? "	" : s === "semicolon" ? ";" : s === "comma" ? "," : s === "paragraph" ? null : s.char;
+function splitRuns(p, ch) {
+  const out = [[]];
+  for (const r of p.runs) {
+    if (r.image || r.textbox || r.shape || r.group || r.field || r.custom || r.math || r.noteRef || !r.text.includes(ch)) {
+      out[out.length - 1].push(r);
+      continue;
+    }
+    const parts = r.text.split(ch);
+    parts.forEach((txt, i2) => {
+      if (i2 > 0) out.push([]);
+      if (txt) out[out.length - 1].push({ ...r, text: txt, props: { ...r.props } });
+    });
+  }
+  return out;
+}
+function guessSeparator(paras) {
+  const txt = paras.map((p) => p.runs.map((r) => r.text).join(""));
+  if (txt.some((s) => s.includes("	"))) return "tab";
+  if (txt.some((s) => s.includes(";"))) return "semicolon";
+  return "paragraph";
+}
+function columnsFor2(paras, sep) {
+  const ch = sepChar(sep);
+  if (ch === null) return 1;
+  return Math.max(1, ...paras.map((p) => p.runs.map((r) => r.text).join("").split(ch).length));
+}
+function textToTable(paras, sep, o) {
+  const ch = sepChar(sep);
+  let rowsContent;
+  if (ch === null) {
+    const cols2 = Math.max(1, o.cols ?? 1);
+    rowsContent = [];
+    for (let i2 = 0; i2 < paras.length; i2 += cols2) rowsContent.push(paras.slice(i2, i2 + cols2));
+  } else {
+    rowsContent = paras.map((p) => splitRuns(p, ch).map((runs) => ({ runs, props: cleanProps(p), ...p.ppr ? { ppr: clone(p.ppr) } : {} })));
+  }
+  const cols = Math.max(o.cols ?? 1, ...rowsContent.map((r) => r.length));
+  const t = newTable(rowsContent.length, cols, o);
+  rowsContent.forEach((cells, ri) => {
+    cells.forEach((p, ci) => {
+      const cell = t.rows[ri].cells[ci];
+      setCellContent(cell, [{ type: "paragraph", paragraph: p }]);
+    });
+  });
+  return t;
+}
+var cleanProps = (p) => {
+  const props = { ...p.props };
+  delete props.src;
+  delete props.sectionBreak;
+  return props;
+};
+function tableToText(t, sep) {
+  const ch = sepChar(sep);
+  const out = [];
+  const m = mapTable(t);
+  const flat = (cell) => cellContent(cell).flatMap((b) => b.type === "paragraph" ? [b.paragraph] : tableToText(b, sep));
+  t.rows.forEach((_, ri) => {
+    const cells = m.rows[ri].filter((g) => vMergeOf(g.cell) !== "continue");
+    if (ch === null) {
+      for (const g of cells) for (const p2 of flat(g.cell)) out.push({ ...p2, props: { ...p2.props } });
+      return;
+    }
+    const first = flat(cells[0]?.cell ?? { paragraphs: [emptyPara()], tables: [], gridSpan: 1 })[0] ?? emptyPara();
+    const runs = [];
+    cells.forEach((g, i2) => {
+      const ps = flat(g.cell);
+      ps.forEach((p2, k) => {
+        if (k > 0) runs.push({ text: " ", props: { ...p2.runs[0]?.props ?? {} } });
+        runs.push(...p2.runs.map((r) => ({ ...r, props: { ...r.props } })));
+      });
+      if (i2 < cells.length - 1) runs.push({ text: ch, props: { ...ps.at(-1)?.runs.at(-1)?.props ?? first.runs[0]?.props ?? {} } });
+    });
+    const props = { ...first.props };
+    if (ch === "	") {
+      let x2 = 0;
+      const stops = [];
+      for (const g of cells.slice(0, -1)) {
+        x2 += gridWidth(t, g.col, g.span);
+        stops.push({ posTwips: x2 + 113, align: "left" });
+      }
+      props.tabStops = stops;
+      props.indentLeftTwips = 113;
+    }
+    const p = { runs: runs.filter((r) => r.text !== "" || runHasContent(r)), props };
+    if (first.ppr) p.ppr = clone(first.ppr);
+    normalizeParagraph(p);
+    out.push(p);
+  });
+  return out;
+}
+function relink(t) {
+  for (const row of t.rows) {
+    for (const cell of row.cells) {
+      if (!cell.blocks?.length) {
+        cell.tables.forEach(relink);
+        continue;
+      }
+      let k = 0;
+      cell.blocks = cell.blocks.map((b) => {
+        if (b.type === "table") return relink(b);
+        const p = cell.paragraphs[k++];
+        return p ? { type: "paragraph", paragraph: p } : b;
+      });
+      if (k < cell.paragraphs.length) for (const p of cell.paragraphs.slice(k)) cell.blocks.push({ type: "paragraph", paragraph: p });
+      cell.tables = cell.blocks.filter((b) => b.type === "table");
+    }
+  }
+  return t;
+}
+function cloneTable(t) {
+  const c = clone(t);
+  delete c.src;
+  for (const r of c.rows) {
+    delete r.src;
+    for (const cell of r.cells) delete cell.src;
+  }
+  return c;
+}
+function describe(t) {
+  const m = mapTable(t);
+  return m.rows.map((gs) => gs.map((g) => {
+    const txt = cellContent(g.cell).map((b) => b.type === "paragraph" ? b.paragraph.runs.map((r) => r.text).join("") : "[T]").join("/");
+    return `${g.col}${g.span > 1 ? `+${g.span}` : ""}${g.cell.tcPr?.vMerge ? g.cell.tcPr.vMerge === "restart" ? "V" : "v" : ""}:${txt}`;
+  }).join(" | ")).join("\n");
+}
+
+// ../docx-core/src/table-formula.ts
+var cellText = (cell) => cellContent(cell).map((b) => b.type === "paragraph" ? b.paragraph.runs.map((r) => r.text).join("") : "").join("\n");
+function parseCellNumber(text) {
+  const m = /^\s*(R\$|US\$|\$|€|£)?\s*(\(?)([-+]?)(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?(\)?)\s*(%?)/.exec(text);
+  if (!m) return null;
+  const int2 = m[4].replace(/\./g, "");
+  const dec = m[5] ?? "";
+  let n = parseFloat(`${int2}${dec ? "." + dec : ""}`);
+  if (m[3] === "-" || m[2] === "(" && m[6] === ")") n = -n;
+  return { n, decimals: dec.length, thousands: m[4].includes("."), ...m[1] ? { prefix: m[1] + " " } : {}, ...m[7] ? { suffix: "%" } : {} };
+}
+var FxError = class extends Error {
+};
+var FORMULA_ERRORS = {
+  divZero: "!Divis\xE3o por zero",
+  unexpectedEnd: "!Fim imprevisto da f\xF3rmula",
+  syntax: "!Erro de sintaxe",
+  missingOperator: "!Operador ausente",
+  undefinedBookmark: "!Indicador n\xE3o definido"
+};
+var FUNCS = ["ABS", "AND", "AVERAGE", "COUNT", "DEFINED", "FALSE", "IF", "INT", "MAX", "MIN", "MOD", "NOT", "OR", "PRODUCT", "ROUND", "SIGN", "SUM", "TRUE"];
+var FORMULA_FUNCTIONS = FUNCS;
+function evaluateFormula(formula, env) {
+  const src = formula.replace(/^\s*=/, "");
+  const m = mapTable(env.table);
+  const fmt = { n: 0, decimals: 0, thousands: false };
+  const seen = (x2) => {
+    fmt.decimals = Math.max(fmt.decimals, x2.decimals);
+    fmt.thousands ||= x2.thousands;
+    if (x2.prefix && !fmt.prefix) fmt.prefix = x2.prefix;
+    if (x2.suffix && !fmt.suffix) fmt.suffix = x2.suffix;
+    return x2.n;
+  };
+  const toks = tokenize(src);
+  let i2 = 0;
+  const peek = () => toks[i2];
+  const next = () => {
+    const t = toks[i2++];
+    if (t === void 0) throw new FxError(FORMULA_ERRORS.unexpectedEnd);
+    return t;
+  };
+  const expect = (t) => {
+    if (next() !== t) throw new FxError(FORMULA_ERRORS.syntax);
+  };
+  const num = (v) => {
+    if (v.kind === "num") return v.v;
+    if (v.v.length !== 1) throw new FxError(FORMULA_ERRORS.syntax);
+    return v.v[0];
+  };
+  const flat = (vs) => vs.flatMap((v) => v.kind === "num" ? [v.v] : v.v);
+  const comparison = () => {
+    let a = additive();
+    const op = peek();
+    if (op && ["=", "<", ">", "<=", ">=", "<>"].includes(op)) {
+      i2++;
+      const b = num(additive()), x2 = num(a);
+      const r = op === "=" ? x2 === b : op === "<" ? x2 < b : op === ">" ? x2 > b : op === "<=" ? x2 <= b : op === ">=" ? x2 >= b : x2 !== b;
+      a = { kind: "num", v: r ? 1 : 0 };
+    }
+    return a;
+  };
+  const additive = () => {
+    let a = term();
+    while (peek() === "+" || peek() === "-") {
+      const op = next();
+      const b = num(term());
+      a = { kind: "num", v: op === "+" ? num(a) + b : num(a) - b };
+    }
+    return a;
+  };
+  const term = () => {
+    let a = power();
+    while (peek() === "*" || peek() === "/") {
+      const op = next();
+      const b = num(power());
+      if (op === "/" && b === 0) throw new FxError(FORMULA_ERRORS.divZero);
+      a = { kind: "num", v: op === "*" ? num(a) * b : num(a) / b };
+    }
+    return a;
+  };
+  const power = () => {
+    let a = unary();
+    while (peek() === "^") {
+      next();
+      a = { kind: "num", v: Math.pow(num(a), num(unary())) };
+    }
+    return a;
+  };
+  const unary = () => {
+    if (peek() === "-") {
+      next();
+      return { kind: "num", v: -num(unary()) };
+    }
+    if (peek() === "+") {
+      next();
+      return unary();
+    }
+    let v = primary();
+    while (peek() === "%") {
+      next();
+      v = { kind: "num", v: num(v) / 100 };
+    }
+    return v;
+  };
+  const primary = () => {
+    const t = next();
+    if (t === "(") {
+      const v = comparison();
+      expect(")");
+      return v;
+    }
+    if (/^\d/.test(t)) return { kind: "num", v: parseFloat(t.replace(/\./g, "").replace(",", ".")) };
+    const up = t.toUpperCase();
+    if (up === "TRUE") return { kind: "num", v: 1 };
+    if (up === "FALSE") return { kind: "num", v: 0 };
+    if (["ABOVE", "BELOW", "LEFT", "RIGHT"].includes(up)) return { kind: "list", v: directional(m, env, up).map(seen) };
+    if (FUNCS.includes(up) && peek() === "(") {
+      next();
+      const args = [];
+      if (peek() !== ")") {
+        args.push(comparison());
+        while (peek() === ";") {
+          next();
+          args.push(comparison());
+        }
+      }
+      expect(")");
+      return { kind: "num", v: call(up, args) };
+    }
+    const ref = /^([A-Za-z]{1,2})(\d+)$/.exec(t);
+    if (ref) {
+      let r2 = ref;
+      if (peek() === ":") {
+        next();
+        const t2 = next();
+        const m2 = /^([A-Za-z]{1,2})(\d+)$/.exec(t2);
+        if (!m2) throw new FxError(FORMULA_ERRORS.syntax);
+        r2 = m2;
+      }
+      const c1 = colIndex(ref[1]), c2 = colIndex(r2[1]), w1 = +ref[2] - 1, w2 = +r2[2] - 1;
+      const vals = [];
+      for (let row = Math.min(w1, w2); row <= Math.max(w1, w2); row++) {
+        for (let ci = Math.min(c1, c2); ci <= Math.max(c1, c2); ci++) {
+          const cell = env.table.rows[row]?.cells[ci];
+          const x2 = cell ? parseCellNumber(cellText(cell)) : null;
+          if (x2) vals.push(seen(x2));
+          else if (ref === r2) vals.push(0);
+        }
+      }
+      return ref === r2 ? { kind: "num", v: vals[0] ?? 0 } : { kind: "list", v: vals };
+    }
+    if (env.bookmarks?.has(t)) return { kind: "num", v: env.bookmarks.get(t) };
+    throw new FxError(env.bookmarks ? FORMULA_ERRORS.undefinedBookmark : FORMULA_ERRORS.syntax);
+  };
+  const call = (f, args) => {
+    const xs = flat(args);
+    const one = (k) => num(args[k] ?? { kind: "num", v: 0 });
+    switch (f) {
+      case "ABS":
+        return Math.abs(one(0));
+      case "AND":
+        return one(0) && one(1) ? 1 : 0;
+      case "OR":
+        return one(0) || one(1) ? 1 : 0;
+      case "NOT":
+        return one(0) ? 0 : 1;
+      case "AVERAGE":
+        if (!xs.length) throw new FxError(FORMULA_ERRORS.divZero);
+        return xs.reduce((a, b) => a + b, 0) / xs.length;
+      case "COUNT":
+        return xs.length;
+      case "DEFINED":
+        return 1;
+      case "IF":
+        return one(0) ? one(1) : one(2);
+      case "INT":
+        return Math.trunc(one(0));
+      case "MAX":
+        return xs.length ? Math.max(...xs) : 0;
+      case "MIN":
+        return xs.length ? Math.min(...xs) : 0;
+      case "MOD": {
+        const b = one(1);
+        if (b === 0) throw new FxError(FORMULA_ERRORS.divZero);
+        return one(0) % b;
+      }
+      case "PRODUCT":
+        return xs.reduce((a, b) => a * b, 1);
+      case "ROUND": {
+        const d = Math.trunc(one(1));
+        const p = Math.pow(10, d);
+        const v = one(0) * p;
+        return Math.sign(v) * Math.round(Math.abs(v)) / p;
+      }
+      case "SIGN":
+        return Math.sign(one(0));
+      case "SUM":
+        return xs.reduce((a, b) => a + b, 0);
+      case "TRUE":
+        return 1;
+      case "FALSE":
+        return 0;
+    }
+    throw new FxError(FORMULA_ERRORS.syntax);
+  };
+  try {
+    if (!toks.length) throw new FxError(FORMULA_ERRORS.unexpectedEnd);
+    const v = comparison();
+    if (i2 < toks.length) throw new FxError(FORMULA_ERRORS.missingOperator);
+    const value = v.kind === "num" ? v.v : v.v.reduce((a, b) => a + b, 0);
+    return { value, fmt };
+  } catch (e) {
+    if (e instanceof FxError) return { error: e.message };
+    throw e;
+  }
+}
+function tokenize(s) {
+  const out = [];
+  const re = /\s*(<=|>=|<>|\d[\d.]*(?:,\d+)?|[A-Za-z_][A-Za-z_0-9]*|[-+*/^%()=<>;:])/y;
+  let m;
+  while (re.lastIndex < s.length && (m = re.exec(s))) out.push(m[1]);
+  if (re.lastIndex < s.trimEnd().length) out.push("\0");
+  return out;
+}
+var colIndex = (letters) => {
+  let n = 0;
+  for (const ch of letters.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+};
+function directional(m, env, dir) {
+  const out = [];
+  const me = cellAt(m, env.r, env.c);
+  let r = env.r, c = me?.col ?? env.c;
+  for (; ; ) {
+    if (dir === "ABOVE") r--;
+    else if (dir === "BELOW") r++;
+    else if (dir === "LEFT") {
+      const g2 = cellAt(m, r, c - 1);
+      if (!g2) break;
+      c = g2.col;
+    } else {
+      const g2 = cellAt(m, r, c + (cellAt(m, r, c)?.span ?? 1));
+      if (!g2) break;
+      c = g2.col;
+    }
+    const g = cellAt(m, r, c);
+    if (!g || r < 0 || r >= m.rows.length) break;
+    if (vMergeOf(g.cell) === "continue") continue;
+    const x2 = parseCellNumber(cellText(g.cell));
+    if (!x2) break;
+    out.push(x2);
+  }
+  return out;
+}
+var group = (digits, sep) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+var roundAway = (v, d) => {
+  const p = Math.pow(10, d);
+  return Math.sign(v) * Math.round(Math.abs(v) * p + 1e-9) / p;
+};
+function formatFormulaResult(v, fmt) {
+  const cap = fmt.prefix ? Math.max(2, fmt.decimals) : Math.max(2, fmt.decimals);
+  let d = 0;
+  while (d < cap && Math.abs(roundAway(v, d) - v) > 1e-9) d++;
+  if (fmt.prefix) d = Math.max(d, fmt.decimals);
+  const r = roundAway(v, d);
+  const [ip, dp] = Math.abs(r).toFixed(d).split(".");
+  const body = (fmt.thousands ? group(ip, ".") : ip) + (dp ? "," + dp : "");
+  return `${r < 0 ? "-" : ""}${fmt.prefix ?? ""}${body}${fmt.suffix ?? ""}`;
+}
+function formatPicture(v, picture) {
+  const secs = splitSections(picture);
+  let pic = secs[0];
+  let x2 = v;
+  if (v < 0 && secs[1] !== void 0) {
+    pic = secs[1];
+    x2 = -v;
+  } else if (v === 0 && secs[2] !== void 0) pic = secs[2];
+  pic = pic.replace(/^'(.*)'$/, "$1");
+  const comma = pic.indexOf(",");
+  const intPic = comma >= 0 ? pic.slice(0, comma) : pic;
+  const decPic = comma >= 0 ? pic.slice(comma + 1) : "";
+  const nDec = (decPic.match(/[0#x]/g) ?? []).length;
+  const r = roundAway(Math.abs(x2), nDec);
+  const [ip, dp = ""] = r.toFixed(nDec).split(".");
+  let digits = ip === "0" && /#/.test(intPic) && !/0/.test(intPic) ? "" : ip;
+  const chars = [...intPic];
+  const out = [];
+  const firstPh = chars.findIndex((ch) => ch === "0" || ch === "#" || ch === "x");
+  const grouping = /[0#x]\.[0#x]/.test(intPic);
+  for (let k = chars.length - 1; k >= 0; k--) {
+    const ch = chars[k];
+    if (ch === "0" || ch === "#" || ch === "x") {
+      const d = digits.length ? digits[digits.length - 1] : void 0;
+      digits = digits.slice(0, -1);
+      if (k === firstPh && digits.length) {
+        const all = digits + (d ?? "");
+        out.unshift(grouping ? group(all, ".") : all);
+        digits = "";
+        continue;
+      }
+      out.unshift(d ?? (ch === "0" ? "0" : ch === "#" ? " " : ""));
+    } else if (ch === ".") {
+      const left = digits.length > 0;
+      if (left) out.unshift(".");
+    } else out.unshift(ch);
+  }
+  let dec = "";
+  let di = 0;
+  for (const ch of decPic) {
+    if (ch === "0" || ch === "#" || ch === "x") {
+      dec += dp[di] ?? (ch === "0" ? "0" : " ");
+      di++;
+    } else dec += ch;
+  }
+  const neg = x2 < 0 && secs[1] === void 0 ? "-" : "";
+  return neg + out.join("") + (comma >= 0 ? "," + dec : "");
+}
+function splitSections(p) {
+  const out = [];
+  let cur = "", q = false;
+  for (const ch of p) {
+    if (ch === "'") q = !q;
+    if (ch === ";" && !q) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+function defaultFormula(table, r, c) {
+  const m = mapTable(table);
+  const env = { table, r, c };
+  if (directional(m, env, "ABOVE").length) return "=SUM(ABOVE)";
+  if (directional(m, env, "LEFT").length) return "=SUM(LEFT)";
+  return "=";
+}
+var formulaInstr = (formula, picture) => ` ${formula.trim()}${picture ? ` \\# "${picture}"` : ""} `;
+function parseFormulaInstr(instr) {
+  const m = /^\s*(=[^\\]*?)\s*(?:\\#\s*"([^"]*)"|\\#\s*(\S+))?\s*$/.exec(instr);
+  if (!m) return null;
+  return { formula: m[1].trim(), ...m[2] ?? m[3] ? { picture: m[2] ?? m[3] } : {} };
+}
+function formulaResultText(instr, env) {
+  const p = parseFormulaInstr(instr);
+  if (!p) return FORMULA_ERRORS.syntax;
+  const r = evaluateFormula(p.formula, env);
+  if ("error" in r) return r.error;
+  return p.picture ? formatPicture(r.value, p.picture) : formatFormulaResult(r.value, r.fmt);
+}
+
+// ../docx-core/src/table-sort.ts
+var SORT_MERGED_ERROR = { en: "Cannot sort a table that contains merged cells.", pt: "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas." };
+var defaultCollator = null;
+var intlCompare = (a, b) => {
+  defaultCollator ??= new Intl.Collator("pt-BR", { sensitivity: "accent", numeric: false });
+  return defaultCollator.compare(a, b);
+};
+function caseCompare(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i2 = 0; i2 < n; i2++) {
+    const x2 = a[i2], y = b[i2];
+    if (x2 === y) continue;
+    const xl = x2 === x2.toLowerCase() && x2 !== x2.toUpperCase();
+    const yl = y === y.toLowerCase() && y !== y.toUpperCase();
+    if (xl !== yl && x2.toLowerCase() === y.toLowerCase()) return xl ? -1 : 1;
+  }
+  return 0;
+}
+function parseSortDate(text) {
+  const s = text.trim();
+  let d, m, y;
+  let r = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  if (r) {
+    y = +r[1];
+    m = +r[2];
+    d = +r[3];
+  } else {
+    r = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(s);
+    if (!r) return null;
+    d = +r[1];
+    m = +r[2];
+    y = +r[3];
+    if (r[3].length === 2) y += y < 30 ? 2e3 : 1900;
+  }
+  if (m < 1 || m > 12 || d < 1 || d > new Date(Date.UTC(y, m, 0)).getUTCDate()) return null;
+  return Date.UTC(y, m - 1, d);
+}
+function parseSortNumber(text) {
+  const x2 = parseCellNumber(text);
+  if (!x2) return null;
+  return x2.suffix === "%" ? x2.n / 100 : x2.n;
+}
+function keyValue(text, type) {
+  if (type === "number") return { s: text, v: parseSortNumber(text) };
+  if (type === "date") return { s: text, v: parseSortDate(text) };
+  return { s: text, v: null };
+}
+function order(n, fields, o) {
+  const cmp = o.compare ?? intlCompare;
+  const vals = Array.from({ length: n }, (_, i2) => fields(i2).map((t, k) => keyValue(t, o.keys[k].type)));
+  const idx = Array.from({ length: n }, (_, i2) => i2);
+  const one = (a, b, key) => {
+    if (key.type === "text") {
+      const ea = a.s.trim() === "", eb = b.s.trim() === "";
+      let c2 = ea || eb ? ea === eb ? 0 : ea ? -1 : 1 : cmp(a.s, b.s);
+      if (!c2 && o.caseSensitive) c2 = caseCompare(a.s, b.s);
+      return key.desc ? -c2 : c2;
+    }
+    if (a.v === null || b.v === null) {
+      if (a.v === null && b.v === null) return 0;
+      return a.v === null !== !!key.desc ? -1 : 1;
+    }
+    const c = a.v === b.v ? 0 : a.v < b.v ? -1 : 1;
+    return key.desc ? -c : c;
+  };
+  idx.sort((i2, j) => {
+    for (let k = 0; k < o.keys.length; k++) {
+      const c = one(vals[i2][k], vals[j][k], o.keys[k]);
+      if (c) return c;
+    }
+    return i2 - j;
+  });
+  return idx;
+}
+function canSortTable(t) {
+  return t.rows.every((row) => row.cells.every((c) => spanOf(c) === 1 && !vMergeOf(c) && !c.tcPr?.hMerge));
+}
+function sortTable(t, r1, r2, o) {
+  if (!canSortTable(t) || !o.keys.length) return false;
+  const m = mapTable(t);
+  const rows = t.rows.slice(r1, r2 + 1);
+  const text = (ri, col) => {
+    const g = m.rows[r1 + ri]?.find((x2) => x2.col <= col && col < x2.col + x2.span);
+    return g ? cellText(g.cell).replace(/\n/g, " ") : "";
+  };
+  const idx = order(rows.length, (i2) => o.keys.map((k) => text(i2, k.col)), o);
+  const sorted = idx.map((i2) => rows[i2]);
+  t.rows.splice(r1, rows.length, ...sorted);
+  return true;
+}
+var plain = (p) => p.runs.map((r) => r.text).join("");
+function sortParagraphsOrder(paras, o) {
+  const sep = o.separator ?? "tab";
+  const ch = sep === "tab" ? "	" : sep === "comma" ? "," : sep.char || "	";
+  return order(paras.length, (i2) => {
+    const s = plain(paras[i2]);
+    const parts = s.split(ch);
+    return o.keys.map((k) => k.col <= 0 ? s : (parts[k.col - 1] ?? "").trim());
+  }, o);
+}
+
+// ../docx-core/src/table-style-edit.ts
+var TABLE_STYLE_CONDS = ["wholeTable", "firstRow", "lastRow", "firstCol", "lastCol", "band1Horz", "band2Horz", "band1Vert", "band2Vert", "nwCell", "neCell", "swCell", "seCell"];
+var COND_ORDER = ["wholeTable", "firstRow", "lastRow", "firstCol", "lastCol", "band1Vert", "band2Vert", "band1Horz", "band2Horz", "neCell", "nwCell", "seCell", "swCell"];
+var TSPR_ORDER = ["w:pPr", "w:rPr", "w:tblPr", "w:trPr", "w:tcPr"];
+var TBLPR_ORDER2 = ["w:tblStyle", "w:tblpPr", "w:tblOverlap", "w:bidiVisual", "w:tblStyleRowBandSize", "w:tblStyleColBandSize", "w:tblW", "w:jc", "w:tblCellSpacing", "w:tblInd", "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook"];
+var TCPR_ORDER2 = ["w:cnfStyle", "w:tcW", "w:gridSpan", "w:hMerge", "w:vMerge", "w:tcBorders", "w:shd", "w:noWrap", "w:tcMar", "w:textDirection", "w:tcFitText", "w:vAlign", "w:hideMark"];
+var SIDES2 = ["top", "left", "bottom", "right", "insideH", "insideV"];
+var esc5 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function el2(raw, tag) {
+  return raw ? splitElement(raw) : { open: `<${tag}>`, close: `</${tag}>`, kids: [] };
+}
+var join2 = (o) => o.kids.length ? o.open + o.kids.map((k) => k.raw).join("") + o.close : "";
+var kid = (kids, n) => kids.find((k) => k.name === n)?.raw;
+function patchBorderSet(raw, tag, b) {
+  const o = el2(raw, tag);
+  for (const s of SIDES2) {
+    if (!(s in b)) continue;
+    const spec = b[s];
+    setKid2(o.kids, SIDES2.map((x2) => `w:${x2}`), `w:${s}`, spec ? borderXml(s, spec) : borderXml(s, { val: "nil" }));
+  }
+  return join2(o);
+}
+function patchTcPr2(raw, f, bordersHere) {
+  const o = el2(raw, "w:tcPr");
+  if (bordersHere && f.borders && Object.keys(f.borders).length) setKid2(o.kids, TCPR_ORDER2, "w:tcBorders", patchBorderSet(kid(o.kids, "w:tcBorders"), "w:tcBorders", f.borders) || null);
+  if (f.fill !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:shd", f.fill === null ? null : `<w:shd w:val="clear" w:color="auto" w:fill="${esc5(f.fill)}"/>`);
+  if (f.vAlign !== void 0) setKid2(o.kids, TCPR_ORDER2, "w:vAlign", f.vAlign === null || f.vAlign === "top" ? null : `<w:vAlign w:val="${f.vAlign}"/>`);
+  return join2(o);
+}
+function patchParts(kids, order2, f, whole) {
+  const set = (n, xml) => setKid2(kids, order2, n, xml || null);
+  const pf = {};
+  for (const k of ["alignment", "spaceBeforeTwips", "spaceAfterTwips", "lineTwentieths", "indentLeftTwips", "indentRightTwips", "indentFirstLineTwips"]) if (f[k] !== void 0) pf[k] = f[k];
+  const rf = {};
+  for (const k of ["fontAscii", "szHalfPt", "bold", "italic", "underline", "strike", "allCaps", "smallCaps", "color", "charSpacingTwips"]) if (f[k] !== void 0) rf[k] = f[k];
+  if (Object.keys(pf).length) set("w:pPr", patchStylePPr(kid(kids, "w:pPr"), pf));
+  if (Object.keys(rf).length) set("w:rPr", patchStyleRPr(kid(kids, "w:rPr"), rf));
+  if (whole && f.borders && Object.keys(f.borders).length) {
+    const t = el2(kid(kids, "w:tblPr"), "w:tblPr");
+    setKid2(t.kids, TBLPR_ORDER2, "w:tblBorders", patchBorderSet(kid(t.kids, "w:tblBorders"), "w:tblBorders", f.borders) || null);
+    set("w:tblPr", join2(t));
+  }
+  if (f.fill !== void 0 || f.vAlign !== void 0 || !whole && f.borders && Object.keys(f.borders).length) {
+    set("w:tcPr", patchTcPr2(kid(kids, "w:tcPr"), f, !whole));
+  }
+}
+function patchTableStyleXml(raw, cond, f) {
+  const o = splitElement(raw);
+  if (cond === "wholeTable") {
+    patchParts(o.kids, STYLE_ORDER, f, true);
+    return join2(o) || raw;
+  }
+  const i2 = o.kids.findIndex((k) => k.name === "w:tblStylePr" && k.el.attrs["w:type"] === cond);
+  const cur = i2 >= 0 ? splitElement(o.kids[i2].raw) : { open: `<w:tblStylePr w:type="${cond}">`, close: "</w:tblStylePr>", kids: [] };
+  patchParts(cur.kids, TSPR_ORDER, f, false);
+  const xml = cur.kids.length ? cur.open + cur.kids.map((k) => k.raw).join("") + cur.close : null;
+  if (i2 >= 0) {
+    if (xml === null) o.kids.splice(i2, 1);
+    else o.kids[i2] = { name: "w:tblStylePr", raw: xml, el: o.kids[i2].el };
+  } else if (xml !== null) {
+    const rank = COND_ORDER.indexOf(cond);
+    let at = o.kids.length;
+    for (let k = 0; k < o.kids.length; k++) {
+      const kd = o.kids[k];
+      if (kd.name === "w:tblStylePr" && COND_ORDER.indexOf(kd.el.attrs["w:type"] ?? "") > rank) {
+        at = k;
+        break;
+      }
+    }
+    o.kids.splice(at, 0, { name: "w:tblStylePr", raw: xml, el: { name: "w:tblStylePr", attrs: { "w:type": cond }, children: [] } });
+  }
+  return o.open + o.kids.map((k) => k.raw).join("") + o.close;
+}
+function newTableStyleXml(o) {
+  return `<w:style w:type="table" w:customStyle="1" w:styleId="${esc5(o.id)}"><w:name w:val="${esc5(o.name)}"/>` + (o.basedOn ? `<w:basedOn w:val="${esc5(o.basedOn)}"/>` : "") + '<w:uiPriority w:val="99"/></w:style>';
+}
+function retitleTableStyleXml(raw, h) {
+  const o = splitElement(raw);
+  if (h.name !== void 0) setKid2(o.kids, STYLE_ORDER, "w:name", `<w:name w:val="${esc5(h.name)}"/>`);
+  if (h.basedOn !== void 0) setKid2(o.kids, STYLE_ORDER, "w:basedOn", h.basedOn ? `<w:basedOn w:val="${esc5(h.basedOn)}"/>` : null);
+  return o.open + o.kids.map((k) => k.raw).join("") + o.close;
+}
+
+// ../docx-core/src/table-styles.ts
+var W2 = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+var CORE_TABLE_STYLES = {
+  "Normal Table": {
+    id: "Tabelanormal",
+    local: "Tabela normal",
+    xml: '<w:style w:type="table" w:default="1" w:styleId="Tabelanormal"><w:name w:val="Normal Table"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>'
+  },
+  "Table Grid": {
+    id: "Tabelacomgrade",
+    local: "Tabela com grade",
+    xml: '<w:style w:type="table" w:styleId="Tabelacomgrade"><w:name w:val="Table Grid"/><w:basedOn w:val="Tabelanormal"/><w:uiPriority w:val="39"/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/></w:tblBorders></w:tblPr></w:style>'
+  }
+};
+var localStyleId = (local) => local.replace(/[^A-Za-z0-9-]/g, "");
+var builtinCache = null;
+function loadBuiltinTableStyles() {
+  return builtinCache ??= import("./table-styles-builtin-OZBWU3UI.js").then(({ BUILTIN_TABLE_STYLES }) => {
+    const out = [];
+    for (const s of BUILTIN_TABLE_STYLES) {
+      for (const a of s.accents ?? [null]) {
+        const sub = (x2) => a === null ? x2 : x2.replace(/\{A\}/g, String(a));
+        const local = sub(s.local);
+        const id = localStyleId(local);
+        out.push({ name: sub(s.name), local, id, modern: !!s.modern, xml: sub(s.xml).replace("{ID}", id) });
+      }
+    }
+    return out;
+  });
+}
+var THEME_KEY = {
+  text1: "dk1",
+  background1: "lt1",
+  text2: "dk2",
+  background2: "lt2",
+  dark1: "dk1",
+  light1: "lt1",
+  dark2: "dk2",
+  light2: "lt2",
+  hyperlink: "hlink",
+  followedHyperlink: "folHlink"
+};
+var OFFICE_THEME = {
+  dk1: "000000",
+  lt1: "FFFFFF",
+  dk2: "0E2841",
+  lt2: "E8E8E8",
+  accent1: "156082",
+  accent2: "E97132",
+  accent3: "196B24",
+  accent4: "0F9ED5",
+  accent5: "A02B93",
+  accent6: "4EA72E",
+  hlink: "467886",
+  folHlink: "96607D"
+};
+function themeHex(colors, themeColor, tint, shade) {
+  const key = THEME_KEY[themeColor] ?? themeColor;
+  const base = colors[key] ?? OFFICE_THEME[key] ?? "000000";
+  if (!tint && !shade) return base.toUpperCase();
+  const [r, g, b] = [0, 2, 4].map((i2) => parseInt(base.slice(i2, i2 + 2), 16) / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) / 6;
+  }
+  if (shade) l *= parseInt(shade, 16) / 255;
+  if (tint) {
+    const t = parseInt(tint, 16) / 255;
+    l = l * t + 1 - t;
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const ch = (x2) => {
+    if (x2 < 0) x2 += 1;
+    if (x2 > 1) x2 -= 1;
+    const v = x2 < 1 / 6 ? p + (q - p) * 6 * x2 : x2 < 1 / 2 ? q : x2 < 2 / 3 ? p + (q - p) * (2 / 3 - x2) * 6 : p;
+    return Math.max(0, Math.min(255, Math.floor(v * 255))).toString(16).padStart(2, "0");
+  };
+  return (ch(h + 1 / 3) + ch(h) + ch(h - 1 / 3)).toUpperCase();
+}
+function materializeStyleXml(xml, colors) {
+  const attr = (tag, name) => new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1];
+  return xml.replace(/w:color="~"([^/>]*)/g, (_m, rest) => `w:color="${themeHex(colors, attr(rest, "w:themeColor") ?? "text1", attr(rest, "w:themeTint"), attr(rest, "w:themeShade"))}"${rest}`).replace(/w:fill="~"([^/>]*)/g, (_m, rest) => `w:fill="${themeHex(colors, attr(rest, "w:themeFill") ?? "background1", attr(rest, "w:themeFillTint"), attr(rest, "w:themeFillShade"))}"${rest}`);
+}
+function styleDefOf(xml) {
+  const sheet = readStyleSheet(`<w:styles ${W2}>${xml}</w:styles>`);
+  return Object.values(sheet.styles)[0];
+}
+function styleIdByName(f, name) {
+  const n = name.toLowerCase();
+  for (const s of Object.values(f?.styles.styles ?? {})) if (s.type === "table" && s.name?.toLowerCase() === n) return s.styleId;
+  return void 0;
+}
+function ensureTableStyle(f, name, pending, builtins2 = []) {
+  const have = styleIdByName(f, name);
+  if (have) return have;
+  const d = CORE_TABLE_STYLES[name] ?? builtins2.find((b) => b.name === name);
+  if (!d) return void 0;
+  let xml = materializeStyleXml(d.xml, f.theme?.colors ?? {});
+  let id = d.id;
+  while (f.styles.styles[id]) id += "1";
+  if (id !== d.id) xml = xml.replace(`w:styleId="${d.id}"`, () => `w:styleId="${id}"`);
+  if (name !== "Normal Table") {
+    const baseId = styleIdByName(f, "Normal Table") ?? ensureTableStyle(f, "Normal Table", pending, builtins2);
+    if (baseId) xml = xml.replace(/<w:basedOn w:val="[^"]*"\/>/, () => `<w:basedOn w:val="${baseId}"/>`);
+  }
+  const def = styleDefOf(xml);
+  if (!def) return void 0;
+  f.styles.styles[def.styleId] = def;
+  if (def.isDefault && !f.styles.defaults.table) f.styles.defaults.table = def.styleId;
+  pending.set(def.styleId, xml);
+  return def.styleId;
+}
+function addStylesXml(pkg, styles) {
+  const list = [...styles];
+  if (!list.length) return;
+  const path = "word/styles.xml";
+  let xml = pkg.getPartText(path);
+  if (!xml) {
+    xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ${W2}></w:styles>`;
+    const ct = pkg.getPartText("[Content_Types].xml");
+    if (ct && !ct.includes("/word/styles.xml")) {
+      pkg.setPartText("[Content_Types].xml", ct.replace("</Types>", () => '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'));
+    }
+    const relsPath = "word/_rels/document.xml.rels";
+    const rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    if (!rels.includes('relationships/styles"')) {
+      let n = 1;
+      while (rels.includes(`Id="rId${n}"`)) n++;
+      pkg.setPartText(relsPath, rels.replace("</Relationships>", () => `<Relationship Id="rId${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`));
+    }
+  }
+  const add = list.filter(([id]) => !new RegExp(`w:styleId="${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`).test(xml)).map(([, x2]) => x2).join("");
+  if (!add) return;
+  pkg.setPartText(path, xml.replace(/<\/w:styles>\s*$/, () => `${add}</w:styles>`));
+}
+
 // ../../../shared/ui/src/i18n.ts
 var DEFAULT_UI_LANG = "en";
 function matchUiLang(tag) {
@@ -12959,8 +15071,8 @@ function browserUiLang() {
   }
   return DEFAULT_UI_LANG;
 }
-function uiLang(el2) {
-  const forced = el2?.getAttribute("lang");
+function uiLang(el3) {
+  const forced = el3?.getAttribute("lang");
   if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
   return browserUiLang();
 }
@@ -13041,6 +15153,27 @@ export {
   builtinXml,
   isWordBinary,
   convertDocToDocx,
+  table_ops_exports,
+  cellText,
+  FORMULA_FUNCTIONS,
+  defaultFormula,
+  formulaInstr,
+  formulaResultText,
+  SORT_MERGED_ERROR,
+  parseSortDate,
+  parseSortNumber,
+  canSortTable,
+  sortTable,
+  sortParagraphsOrder,
+  TABLE_STYLE_CONDS,
+  patchTableStyleXml,
+  newTableStyleXml,
+  retitleTableStyleXml,
+  loadBuiltinTableStyles,
+  themeHex,
+  styleIdByName,
+  ensureTableStyle,
+  addStylesXml,
   DEFAULT_UI_LANG,
   uiLang,
   pickLabels,

@@ -1,3 +1,5 @@
+import "./chunk-WSFCRVEQ.js";
+
 // ../../../shared/spell/src/engine.ts
 function spellEngineMain(scope) {
   let mod = null;
@@ -276,8 +278,8 @@ function memoryStore(initial = []) {
 
 // ../../../shared/spell/src/checker.ts
 var BUILTIN_LOADERS = {
-  "pt-BR": () => import("./pt-BR-V5I6GCCG.js"),
-  "en-US": () => import("./en-US-PQMBO54H.js")
+  "pt-BR": () => import("./pt-BR-MDO4FTZM.js"),
+  "en-US": () => import("./en-US-HMQJ5NHZ.js")
 };
 var CACHE_MAX = 5e4;
 var WORKER_INIT_TIMEOUT_MS = 15e3;
@@ -541,7 +543,7 @@ var SpellChecker = class _SpellChecker {
     return p;
   }
   async startEngine() {
-    const wasm = await import("./wasm-VL5SUBMS.js");
+    const wasm = await import("./wasm-HQG3SV6L.js");
     const init = { op: "init", glue: wasm.glue, wasmBase64: wasm.wasmBase64 };
     if (this.opts.worker !== false) {
       const wt = (this.opts.workerFactory ?? workerTransport)();

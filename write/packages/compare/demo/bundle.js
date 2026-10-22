@@ -1747,6 +1747,12 @@ function readTblPr(tblPr) {
       case "w:tblLayout":
         p.tblLayout = el.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
         break;
+      case "w:tblCaption":
+        if (val !== void 0) p.tblCaption = val;
+        break;
+      case "w:tblDescription":
+        if (val !== void 0) p.tblDescription = val;
+        break;
       case "w:tblCellMar":
         p.tblCellMar = readCellMar(el);
         break;
@@ -2965,6 +2971,12 @@ function readVmlRuns(container, ctx, inline) {
         if (inline && r.image) {
           delete r.image.floating;
           delete r.image.anchor;
+          const oo = findDeep2(container, "o:OLEObject");
+          const rid = oo?.attrs["r:id"];
+          if (oo && rid && oo.attrs["Type"] !== "Link") {
+            const part = ctx.resolveImage(rid);
+            if (part) r.image.ole = { progId: oo.attrs["ProgID"] ?? "", data: part.data, ext: part.ext };
+          }
         }
         out.push(r);
       }
@@ -3486,7 +3498,7 @@ function buildReadContext(pkg, relsPath) {
       const data = pkg.getPart(path);
       if (!data) return void 0;
       const ext = path.split(".").pop()?.toLowerCase() ?? "png";
-      return { data, ext };
+      return { data, ext, path };
     },
     resolveLink: (rid) => {
       const rel = relMap.get(rid);
@@ -3539,6 +3551,19 @@ function readSectPr(sectEl) {
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
     sect.titlePg = true;
+  }
+  const pb = sectEl && firstChild(sectEl, "w:pgBorders");
+  if (pb) {
+    const out = {};
+    const of = pb.attrs["w:offsetFrom"], dp = pb.attrs["w:display"], z = pb.attrs["w:zOrder"];
+    if (of === "page" || of === "text") out.offsetFrom = of;
+    if (dp === "allPages" || dp === "firstPage" || dp === "notFirstPage") out.display = dp;
+    if (z === "front" || z === "back") out.zOrder = z;
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const b = readBorder(firstChild(pb, `w:${side}`));
+      if (b) out[side] = b;
+    }
+    sect.pgBorders = out;
   }
   const pgNumType = sectEl && firstChild(sectEl, "w:pgNumType");
   const startAttr = pgNumType?.attrs["w:start"];
@@ -4022,6 +4047,8 @@ var SourceStore = class {
   paras = /* @__PURE__ */ new Map();
   runs = /* @__PURE__ */ new Map();
   tables = /* @__PURE__ */ new Map();
+  trs = /* @__PURE__ */ new Map();
+  tcs = /* @__PURE__ */ new Map();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   stories = /* @__PURE__ */ new Map();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
@@ -4058,6 +4085,18 @@ var SourceStore = class {
     this.tables.set(id, src);
     t.src = id;
     this.tableRefs.push(t);
+    return id;
+  }
+  addRow(row, src) {
+    const id = this.id();
+    this.trs.set(id, src);
+    row.src = id;
+    return id;
+  }
+  addCell(cell, src) {
+    const id = this.id();
+    this.tcs.set(id, src);
+    cell.src = id;
     return id;
   }
   /** Linha de base: chamada pelo hospedeiro DEPOIS de instalar o documento
@@ -4143,6 +4182,43 @@ function unwrap(el, name) {
   }
   return out;
 }
+var wrapIds = 0;
+function unwrapRaw(el, name, skip, xml) {
+  const out = [];
+  let pending = [];
+  const walk = (container, top) => {
+    for (const c of childElements(container)) {
+      if (c.name === name) {
+        out.push({ el: c, pre: pending, post: [] });
+        pending = [];
+        continue;
+      }
+      if (top ? skip.includes(c.name) : container.name === "w:customXml" && c.name.endsWith("Pr")) continue;
+      const content = c.name === "w:sdt" ? firstChild(c, "w:sdtContent") : c.name === "w:customXml" ? c : void 0;
+      if (content && content.cs !== void 0 && content.cs !== content.e) {
+        let start = content.cs;
+        if (content === c) for (const k of childElements(c)) {
+          if (k.name.endsWith("Pr")) start = k.e;
+          else break;
+        }
+        const id = ++wrapIds;
+        const before = pending, n0 = out.length;
+        pending = [...before, { raw: xml.slice(c.s, start), open: id }];
+        walk(content, false);
+        if (out.length > n0) {
+          out[out.length - 1].post.push(...pending, { raw: xml.slice(content.ce, c.e), close: id });
+          pending = [];
+        } else pending = [...before, { raw: xml.slice(c.s, c.e) }];
+        continue;
+      }
+      pending.push({ raw: xml.slice(c.s, c.e) });
+    }
+  };
+  walk(el, true);
+  if (pending.length && out.length) out[out.length - 1].post.push(...pending);
+  return out;
+}
+var wrapOf = (w) => ({ ...w.pre.length ? { pre: w.pre } : {}, ...w.post.length ? { post: w.post } : {} });
 function readBlocksOf(container, ctx) {
   const out = [];
   for (const c of childElements(container)) {
@@ -4159,26 +4235,33 @@ function readTable(tblEl, ctx) {
   const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
   const slice = (el) => el && xml !== void 0 ? xml.slice(el.s, el.e) : void 0;
   const openOf = (el) => xml.slice(el.s, el.cs === el.e ? el.e : el.cs).replace(/\s*\/>$/, ">");
-  const srcRows = [];
   const grid = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid ? childElements(grid, "w:gridCol").map((c) => parseInt(c.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, "w:tblBorders"), true);
   const rows = [];
-  for (const trEl of unwrap(tblEl, "w:tr")) {
+  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el) => ({ el, pre: [], post: [] }));
+  for (const trW of wrapped(tblEl, "w:tr", ["w:tblPr", "w:tblGrid"])) {
+    const trEl = trW.el;
     const cells = [];
-    const srcCells = [];
-    for (const tcEl of unwrap(trEl, "w:tc")) {
-      if (xml !== void 0) {
-        const tcPrRaw = slice(firstChild(tcEl, "w:tcPr"));
-        srcCells.push({ open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {} });
-      }
+    for (const tcWr of wrapped(trEl, "w:tc", ["w:trPr", "w:tblPrEx"])) {
+      const tcEl = tcWr.el;
       const tcPrEl = firstChild(tcEl, "w:tcPr");
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, "w:shd")?.attrs["w:fill"];
       const tcW = tcPrEl && firstChild(tcPrEl, "w:tcW");
       const cellBorders = readBorderSet(tcPrEl && firstChild(tcPrEl, "w:tcBorders"), true);
-      const blocks = readBlocksOf(tcEl, ctx);
+      const kids = xml !== void 0 ? childElements(tcEl).filter((k) => k.name !== "w:tcPr") : [];
+      const groups = kids.some((k) => k.name !== "w:p" && k.name !== "w:tbl") ? [] : void 0;
+      let blocks;
+      if (groups) {
+        blocks = [];
+        for (const k of kids) {
+          const produced = readBlocksOf({ name: tcEl.name, attrs: {}, children: [k] }, ctx);
+          groups.push(groupOf(xml, k, produced, ctx.sources));
+          blocks.push(...produced);
+        }
+      } else blocks = readBlocksOf(tcEl, ctx);
       if (!blocks.some((bl) => bl.type === "paragraph")) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
       const paragraphs = blocks.filter((bl) => bl.type === "paragraph").map((bl) => bl.paragraph);
       const tables = blocks.filter((bl) => bl.type === "table");
@@ -4192,19 +4275,23 @@ function readTable(tblEl, ctx) {
         blocks
       };
       if (tcPr) cell.tcPr = tcPr;
+      if (xml !== void 0) {
+        const tcPrRaw = slice(tcPrEl);
+        ctx.sources.addCell(cell, { open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {}, ...groups ? { groups } : {}, ...wrapOf(tcWr) });
+      }
       cells.push(cell);
     }
     if (cells.length > 0) {
-      if (xml !== void 0) {
-        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
-        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
-        srcRows.push({ open: openOf(trEl), cells: srcCells, ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {} });
-      }
       const row = { cells };
       const trPr = readTrPr(firstChild(trEl, "w:trPr"));
       if (trPr) row.trPr = trPr;
       const ex = readTblPr(firstChild(trEl, "w:tblPrEx"));
       if (ex) row.tblPrEx = ex;
+      if (xml !== void 0) {
+        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
+        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
+        ctx.sources.addRow(row, { open: openOf(trEl), ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {}, ...wrapOf(trW) });
+      }
       rows.push(row);
     }
   }
@@ -4218,7 +4305,6 @@ function readTable(tblEl, ctx) {
       raw: xml.slice(tblEl.s, tblEl.e),
       at: tblEl.s,
       open: openOf(tblEl),
-      rows: srcRows,
       ...tblPrRaw ? { tblPr: tblPrRaw } : {},
       ...gridRaw ? { tblGrid: gridRaw } : {}
     });

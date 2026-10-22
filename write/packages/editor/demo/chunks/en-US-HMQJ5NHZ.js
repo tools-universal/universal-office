@@ -1,3 +1,5 @@
+import "./chunk-WSFCRVEQ.js";
+
 // ../../../shared/spell/src/dicts/en-US.ts
 var aff = `# 2024-01-29 (Marco A.G.Pinto)
 # - Fix: apostrophe handling, by adding: WORDCHARS 0123456789\u2019 to the .aff.

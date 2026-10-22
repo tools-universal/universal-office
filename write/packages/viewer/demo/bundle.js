@@ -2018,6 +2018,12 @@ function readTblPr(tblPr) {
       case "w:tblLayout":
         p.tblLayout = el2.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
         break;
+      case "w:tblCaption":
+        if (val !== void 0) p.tblCaption = val;
+        break;
+      case "w:tblDescription":
+        if (val !== void 0) p.tblDescription = val;
+        break;
       case "w:tblCellMar":
         p.tblCellMar = readCellMar(el2);
         break;
@@ -3247,6 +3253,12 @@ function readVmlRuns(container, ctx, inline) {
         if (inline && r.image) {
           delete r.image.floating;
           delete r.image.anchor;
+          const oo = findDeep2(container, "o:OLEObject");
+          const rid = oo?.attrs["r:id"];
+          if (oo && rid && oo.attrs["Type"] !== "Link") {
+            const part = ctx.resolveImage(rid);
+            if (part) r.image.ole = { progId: oo.attrs["ProgID"] ?? "", data: part.data, ext: part.ext };
+          }
         }
         out.push(r);
       }
@@ -3768,7 +3780,7 @@ function buildReadContext(pkg, relsPath) {
       const data8 = pkg.getPart(path);
       if (!data8) return void 0;
       const ext = path.split(".").pop()?.toLowerCase() ?? "png";
-      return { data: data8, ext };
+      return { data: data8, ext, path };
     },
     resolveLink: (rid) => {
       const rel = relMap.get(rid);
@@ -3821,6 +3833,19 @@ function readSectPr(sectEl) {
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
     sect.titlePg = true;
+  }
+  const pb = sectEl && firstChild(sectEl, "w:pgBorders");
+  if (pb) {
+    const out = {};
+    const of = pb.attrs["w:offsetFrom"], dp = pb.attrs["w:display"], z = pb.attrs["w:zOrder"];
+    if (of === "page" || of === "text") out.offsetFrom = of;
+    if (dp === "allPages" || dp === "firstPage" || dp === "notFirstPage") out.display = dp;
+    if (z === "front" || z === "back") out.zOrder = z;
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const b = readBorder(firstChild(pb, `w:${side}`));
+      if (b) out[side] = b;
+    }
+    sect.pgBorders = out;
   }
   const pgNumType = sectEl && firstChild(sectEl, "w:pgNumType");
   const startAttr = pgNumType?.attrs["w:start"];
@@ -4304,6 +4329,8 @@ var SourceStore = class {
   paras = /* @__PURE__ */ new Map();
   runs = /* @__PURE__ */ new Map();
   tables = /* @__PURE__ */ new Map();
+  trs = /* @__PURE__ */ new Map();
+  tcs = /* @__PURE__ */ new Map();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   stories = /* @__PURE__ */ new Map();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
@@ -4340,6 +4367,18 @@ var SourceStore = class {
     this.tables.set(id, src);
     t.src = id;
     this.tableRefs.push(t);
+    return id;
+  }
+  addRow(row, src) {
+    const id = this.id();
+    this.trs.set(id, src);
+    row.src = id;
+    return id;
+  }
+  addCell(cell, src) {
+    const id = this.id();
+    this.tcs.set(id, src);
+    cell.src = id;
     return id;
   }
   /** Linha de base: chamada pelo hospedeiro DEPOIS de instalar o documento
@@ -4425,6 +4464,43 @@ function unwrap(el2, name) {
   }
   return out;
 }
+var wrapIds = 0;
+function unwrapRaw(el2, name, skip, xml) {
+  const out = [];
+  let pending2 = [];
+  const walk = (container, top) => {
+    for (const c of childElements(container)) {
+      if (c.name === name) {
+        out.push({ el: c, pre: pending2, post: [] });
+        pending2 = [];
+        continue;
+      }
+      if (top ? skip.includes(c.name) : container.name === "w:customXml" && c.name.endsWith("Pr")) continue;
+      const content = c.name === "w:sdt" ? firstChild(c, "w:sdtContent") : c.name === "w:customXml" ? c : void 0;
+      if (content && content.cs !== void 0 && content.cs !== content.e) {
+        let start = content.cs;
+        if (content === c) for (const k of childElements(c)) {
+          if (k.name.endsWith("Pr")) start = k.e;
+          else break;
+        }
+        const id = ++wrapIds;
+        const before = pending2, n0 = out.length;
+        pending2 = [...before, { raw: xml.slice(c.s, start), open: id }];
+        walk(content, false);
+        if (out.length > n0) {
+          out[out.length - 1].post.push(...pending2, { raw: xml.slice(content.ce, c.e), close: id });
+          pending2 = [];
+        } else pending2 = [...before, { raw: xml.slice(c.s, c.e) }];
+        continue;
+      }
+      pending2.push({ raw: xml.slice(c.s, c.e) });
+    }
+  };
+  walk(el2, true);
+  if (pending2.length && out.length) out[out.length - 1].post.push(...pending2);
+  return out;
+}
+var wrapOf = (w) => ({ ...w.pre.length ? { pre: w.pre } : {}, ...w.post.length ? { post: w.post } : {} });
 function readBlocksOf(container, ctx) {
   const out = [];
   for (const c of childElements(container)) {
@@ -4441,26 +4517,33 @@ function readTable(tblEl, ctx) {
   const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
   const slice = (el2) => el2 && xml !== void 0 ? xml.slice(el2.s, el2.e) : void 0;
   const openOf = (el2) => xml.slice(el2.s, el2.cs === el2.e ? el2.e : el2.cs).replace(/\s*\/>$/, ">");
-  const srcRows = [];
   const grid = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid ? childElements(grid, "w:gridCol").map((c) => parseInt(c.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
   const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, "w:tblBorders"), true);
   const rows = [];
-  for (const trEl of unwrap(tblEl, "w:tr")) {
+  const wrapped = (parent, name, skip) => xml !== void 0 ? unwrapRaw(parent, name, skip, xml) : unwrap(parent, name).map((el2) => ({ el: el2, pre: [], post: [] }));
+  for (const trW of wrapped(tblEl, "w:tr", ["w:tblPr", "w:tblGrid"])) {
+    const trEl = trW.el;
     const cells = [];
-    const srcCells = [];
-    for (const tcEl of unwrap(trEl, "w:tc")) {
-      if (xml !== void 0) {
-        const tcPrRaw = slice(firstChild(tcEl, "w:tcPr"));
-        srcCells.push({ open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {} });
-      }
+    for (const tcWr of wrapped(trEl, "w:tc", ["w:trPr", "w:tblPrEx"])) {
+      const tcEl = tcWr.el;
       const tcPrEl = firstChild(tcEl, "w:tcPr");
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, "w:shd")?.attrs["w:fill"];
       const tcW = tcPrEl && firstChild(tcPrEl, "w:tcW");
       const cellBorders = readBorderSet(tcPrEl && firstChild(tcPrEl, "w:tcBorders"), true);
-      const blocks = readBlocksOf(tcEl, ctx);
+      const kids = xml !== void 0 ? childElements(tcEl).filter((k) => k.name !== "w:tcPr") : [];
+      const groups = kids.some((k) => k.name !== "w:p" && k.name !== "w:tbl") ? [] : void 0;
+      let blocks;
+      if (groups) {
+        blocks = [];
+        for (const k of kids) {
+          const produced = readBlocksOf({ name: tcEl.name, attrs: {}, children: [k] }, ctx);
+          groups.push(groupOf(xml, k, produced, ctx.sources));
+          blocks.push(...produced);
+        }
+      } else blocks = readBlocksOf(tcEl, ctx);
       if (!blocks.some((bl) => bl.type === "paragraph")) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
       const paragraphs = blocks.filter((bl) => bl.type === "paragraph").map((bl) => bl.paragraph);
       const tables = blocks.filter((bl) => bl.type === "table");
@@ -4474,19 +4557,23 @@ function readTable(tblEl, ctx) {
         blocks
       };
       if (tcPr) cell.tcPr = tcPr;
+      if (xml !== void 0) {
+        const tcPrRaw = slice(tcPrEl);
+        ctx.sources.addCell(cell, { open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {}, ...groups ? { groups } : {}, ...wrapOf(tcWr) });
+      }
       cells.push(cell);
     }
     if (cells.length > 0) {
-      if (xml !== void 0) {
-        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
-        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
-        srcRows.push({ open: openOf(trEl), cells: srcCells, ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {} });
-      }
       const row = { cells };
       const trPr = readTrPr(firstChild(trEl, "w:trPr"));
       if (trPr) row.trPr = trPr;
       const ex = readTblPr(firstChild(trEl, "w:tblPrEx"));
       if (ex) row.tblPrEx = ex;
+      if (xml !== void 0) {
+        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
+        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
+        ctx.sources.addRow(row, { open: openOf(trEl), ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {}, ...wrapOf(trW) });
+      }
       rows.push(row);
     }
   }
@@ -4500,7 +4587,6 @@ function readTable(tblEl, ctx) {
       raw: xml.slice(tblEl.s, tblEl.e),
       at: tblEl.s,
       open: openOf(tblEl),
-      rows: srcRows,
       ...tblPrRaw ? { tblPr: tblPrRaw } : {},
       ...gridRaw ? { tblGrid: gridRaw } : {}
     });
@@ -13574,20 +13660,29 @@ function toHex(r, g, b) {
   return (c(r) + c(g) + c(b)).toUpperCase();
 }
 function applyTintShade(hex2, tint, shade) {
-  let [r, g, b] = rgb(hex2);
-  if (shade) {
-    const s = parseInt(shade, 16) / 255;
-    r *= s;
-    g *= s;
-    b *= s;
+  if (!tint && !shade) return hex2.toUpperCase();
+  const [r, g, b] = rgb(hex2).map((v) => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) / 6;
   }
+  if (shade) l *= parseInt(shade, 16) / 255;
   if (tint) {
     const t = parseInt(tint, 16) / 255;
-    r = 255 - (255 - r) * t;
-    g = 255 - (255 - g) * t;
-    b = 255 - (255 - b) * t;
+    l = l * t + 1 - t;
   }
-  return toHex(r, g, b);
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const ch = (x2) => {
+    if (x2 < 0) x2 += 1;
+    if (x2 > 1) x2 -= 1;
+    const v = x2 < 1 / 6 ? p + (q - p) * 6 * x2 : x2 < 1 / 2 ? q : x2 < 2 / 3 ? p + (q - p) * (2 / 3 - x2) * 6 : p;
+    return Math.floor(v * 255);
+  };
+  return toHex(ch(h + 1 / 3), ch(h), ch(h - 1 / 3));
 }
 function resolveColor(spec, theme) {
   if (!spec) return void 0;
@@ -13599,6 +13694,36 @@ function resolveColor(spec, theme) {
   const v = spec.val;
   if (!v || v === "auto") return void 0;
   return /^[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : void 0;
+}
+var SHD_COVER = {
+  horzStripe: 0.5,
+  vertStripe: 0.5,
+  reverseDiagStripe: 0.5,
+  diagStripe: 0.5,
+  horzCross: 0.5,
+  diagCross: 0.75,
+  thinHorzStripe: 0.25,
+  thinVertStripe: 0.25,
+  thinReverseDiagStripe: 0.25,
+  thinDiagStripe: 0.25,
+  thinHorzCross: 0.4375,
+  thinDiagCross: 0.4375,
+  pct12: 0.125,
+  pct37: 0.375,
+  pct62: 0.625,
+  pct87: 0.875
+};
+function shadingFill(shd, theme) {
+  if (!shd || shd.val === "nil") return void 0;
+  const fg = () => resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
+  if (shd.val === "solid") return fg();
+  const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
+  const v = shd.val ?? "clear";
+  const cover = own2(SHD_COVER, v) ?? (/^pct\d+$/.test(v) ? parseInt(v.slice(3), 10) / 100 : void 0);
+  if (cover === void 0) return fill;
+  const f = fg(), bg = fill ?? "FFFFFF";
+  const mix = (i2) => Math.round(parseInt(bg.slice(i2, i2 + 2), 16) * (1 - cover) + parseInt(f.slice(i2, i2 + 2), 16) * cover);
+  return [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 function resolveDrawingColor(spec, theme) {
   if (!spec) return void 0;
@@ -14748,7 +14873,7 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const tf = rpr.textFill;
   const color = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
   const u = rpr.u && rpr.u.val !== "none" && rpr.u.val !== "" ? { val: rpr.u.val, ...rpr.u.color && rpr.u.color !== "auto" ? { color: rpr.u.color } : {} } : void 0;
-  const shd = rpr.shd?.fill && rpr.shd.fill !== "auto" ? rpr.shd.fill : void 0;
+  const shd = shadingFill(rpr.shd, theme);
   const style = {
     rpr,
     sizePt,
@@ -15104,7 +15229,7 @@ function paraVisibility(ctx, para, env) {
 function prepareParagraph(ctx, para, env0) {
   const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
   const shd = ppr.shd;
-  const paraFill = shd?.fill && shd.fill !== "auto" ? shd.fill : shd?.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, ctx.fmt.theme) : void 0;
+  const paraFill = shadingFill(shd, ctx.fmt.theme);
   const env = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
   const dd = ctx.resolver.docDefaults;
   const settings = ctx.fmt.settings;
@@ -17184,18 +17309,93 @@ var BORDER_SINGLE_LIKE = /* @__PURE__ */ new Set(["single", "thick", "dotted", "
 function borderWidth(b) {
   if (!b || b.val === "none" || b.val === "nil") return 0;
   const tw2 = Math.floor(Math.max(1, b.sz ?? 4) * 2.5 + 1e-9);
-  if (b.val === "double") return tw2 * 3;
-  if (b.val === "thinThickSmallGap" || b.val === "thickThinSmallGap") return tw2 + 40;
-  return tw2;
+  switch (b.val) {
+    case "double":
+      return tw2 * 3;
+    case "thinThickSmallGap":
+    case "thickThinSmallGap":
+      return tw2 + 40;
+    // as outras compostas: a soma das faixas que o Word desenha (sonda de bordas do table-lab)
+    case "triple":
+      return tw2 * 5;
+    case "thinThickThinSmallGap":
+      return tw2 + 58;
+    case "thinThickMediumGap":
+    case "thickThinMediumGap":
+      return tw2 * 2;
+    case "thinThickThinMediumGap":
+      return tw2 * 3;
+    case "thinThickLargeGap":
+    case "thickThinLargeGap":
+      return tw2 + 43;
+    case "thinThickThinLargeGap":
+      return tw2 * 2 + 58;
+    case "threeDEmboss":
+    case "threeDEngrave":
+      return tw2 + 2 * Math.max(14, Math.floor(tw2 / 2));
+    default:
+      return tw2;
+  }
 }
+function borderBands(val, w) {
+  const q = (x2) => Math.max(2.4, Math.floor(x2 / 2.4 + 1e-9) * 2.4);
+  const thin = 14.4, half = q(w / 2), thick = 28.8, gap = (t) => ({ t });
+  const ink = (t) => ({ t, c: "ink" });
+  switch (val) {
+    case "double":
+      return [ink(w), gap(w), ink(w)];
+    case "triple":
+      return [ink(w), gap(w), ink(w), gap(w), ink(w)];
+    case "thinThickSmallGap":
+      return [ink(w), gap(thin), ink(thin)];
+    case "thickThinSmallGap":
+      return [ink(thin), gap(thin), ink(w)];
+    case "thinThickThinSmallGap":
+      return [ink(thin), gap(thin), ink(w), gap(thin), ink(thin)];
+    case "thinThickMediumGap":
+      return [ink(w), gap(half), ink(half)];
+    case "thickThinMediumGap":
+      return [ink(half), gap(half), ink(w)];
+    case "thinThickThinMediumGap":
+      return [ink(half), gap(half), ink(w), gap(half), ink(half)];
+    case "thinThickLargeGap":
+      return [ink(thick), gap(w), ink(thin)];
+    case "thickThinLargeGap":
+      return [ink(thin), gap(w), ink(thick)];
+    case "thinThickThinLargeGap":
+      return [ink(thin), gap(w), ink(thick), gap(w), ink(thin)];
+    case "threeDEmboss": {
+      const t = Math.max(thin, half);
+      return [{ t, c: "light" }, { t: w, c: "mid" }, { t, c: "ink" }];
+    }
+    case "threeDEngrave": {
+      const t = Math.max(thin, half);
+      return [{ t, c: "ink" }, { t: w, c: "mid" }, { t, c: "light" }];
+    }
+    default:
+      return [ink(w)];
+  }
+}
+var toWhite = (hex2, f) => {
+  const n = parseInt(hex2, 16);
+  return [n >> 16 & 255, n >> 8 & 255, n & 255].map((v) => Math.round(v + (255 - v) * f).toString(16).padStart(2, "0")).join("").toUpperCase();
+};
+var BORDER_DASH = {
+  dotted: "bdrDot",
+  dashed: "bdrDash",
+  dotDash: "bdrDashDot",
+  dotDotDash: "bdrDashDotDot",
+  dashSmallGap: "bdrDashSmall",
+  dashDotStroked: "bdrDashDot"
+};
 function borderPaintWidth(b) {
   return Math.max(1, Math.floor(Math.max(2, b.sz ?? 4) * 25 / 24 + 1e-9)) * 2.4;
 }
-function paintBorder(ctx, out, b, x1, y1, x2, y2) {
+function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   if (!b || b.val === "none" || b.val === "nil") return;
   const color = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? "000000";
   const w = borderPaintWidth(b);
-  const dash = b.val === "dotted" ? "dotted" : b.val === "dashed" || b.val === "dashSmallGap" ? "dashed" : b.val === "dotDash" ? "dashDot" : b.val === "dotDotDash" ? "dashDotDot" : void 0;
+  const dash = BORDER_DASH[b.val];
   if (dash) {
     out.push({ t: "line", x1, y1, x2, y2, color, widthPt: w / 20, dash });
     return;
@@ -17205,15 +17405,40 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2) {
     return;
   }
   const horizontal = Math.abs(y2 - y1) < Math.abs(x2 - x1);
-  const bands = b.val === "double" ? [[-1.5 * w, -0.5 * w], [0.5 * w, 1.5 * w]] : [[-0.5 * w, 0.5 * w]];
-  for (const [a, z] of bands) {
-    if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + a, w: Math.abs(x2 - x1), h: z - a, fill: color });
-    else out.push({ t: "rect", x: x1 + a, y: Math.min(y1, y2), w: z - a, h: Math.abs(y2 - y1), fill: color });
+  if (b.val === "wave" || b.val === "doubleWave") {
+    paintWave(out, b.val === "doubleWave", color, w, horizontal, x1, y1, x2, y2);
+    return;
+  }
+  const bands = borderBands(b.val, w);
+  const total = bands.reduce((s, x3) => s + x3.t, 0);
+  const flip = outer === "bottom" || outer === "right";
+  let pos = -total / 2;
+  for (const band of flip ? [...bands].reverse() : bands) {
+    if (band.c) {
+      const fill = band.c === "light" ? toWhite(color, 192 / 255) : band.c === "mid" ? toWhite(color, 96 / 255) : color;
+      if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band.t, fill });
+      else out.push({ t: "rect", x: x1 + pos, y: Math.min(y1, y2), w: band.t, h: Math.abs(y2 - y1), fill });
+    }
+    pos += band.t;
   }
   void BORDER_SINGLE_LIKE;
 }
+function paintWave(out, double, color, w, horizontal, x1, y1, x2, y2) {
+  const h = Math.max(60, w * 3), period = h * 2, lw = Math.max(0.5, w / 20 / 1.5);
+  const len = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+  const waves = double ? [-h / 4, h / 4] : [0];
+  for (const off of waves) {
+    const cmds = [];
+    for (let s = 0; s <= len + 0.01; s += period / 2) {
+      const d = (Math.round(s / (period / 2)) % 2 ? 1 : -1) * (h / (double ? 4 : 2));
+      const a = Math.min(s, len);
+      cmds.push(horizontal ? { op: cmds.length ? "L" : "M", x: Math.min(x1, x2) + a, y: y1 + off + d } : { op: cmds.length ? "L" : "M", x: x1 + off + d, y: Math.min(y1, y2) + a });
+    }
+    out.push({ t: "path", cmds, stroke: { color, widthPt: lw } });
+  }
+}
 function paintParaBox(ctx, out, p, pBdr, left, right, top, bottom, drawTop, drawBottom, between = false) {
-  const fill = p.ppr.shd?.fill && p.ppr.shd.fill !== "auto" ? p.ppr.shd.fill : p.ppr.shd?.themeFill ? resolveColor({ themeColor: p.ppr.shd.themeFill, themeTint: p.ppr.shd.themeFillTint, themeShade: p.ppr.shd.themeFillShade }, ctx.fmt.theme) : void 0;
+  const fill = shadingFill(p.ppr.shd, ctx.fmt.theme);
   const EXT = 29;
   const bl = pBdr?.left, br = pBdr?.right;
   const padL = bl && bl.val !== "none" && bl.val !== "nil" ? (bl.space ?? 0) * 20 : 0;
@@ -17408,15 +17633,33 @@ function splitContent(c, availContent) {
   const a = { items: [], lines: [], height: cut, ...w };
   const b = { items: [], lines: [], height: Math.max(0, c.height - cutB), ...w };
   const keyY = (it) => it.t === "line" ? Math.min(it.y1, it.y2) : it.t === "clip" ? it.y ?? 0 : it.t === "xform" ? it.m?.[5] ?? 0 : it.t === "path" ? Math.min(...it.cmds.map((c2) => c2.op === "Z" ? Infinity : c2.y)) : it.y;
+  const moved = /* @__PURE__ */ new Map();
   for (const it of c.items) {
     const y = it.t === "glyphs" ? it.y : keyY(it);
     if (y < cut) a.items.push(it);
-    else b.items.push(shiftItem(it, -cutB));
+    else {
+      const s = shiftItem(it, -cutB);
+      moved.set(it, s);
+      b.items.push(s);
+    }
   }
   for (const l of c.lines) {
     if (l.y < cut) a.lines.push(l);
-    else b.lines.push({ ...l, y: l.y - cutB, baseline: l.baseline - cutB });
+    else {
+      const s = { ...l, y: l.y - cutB, baseline: l.baseline - cutB };
+      moved.set(l, s);
+      b.lines.push(s);
+    }
   }
+  const na = (c.nest ?? []).filter((n) => n.top < cut);
+  const nb = (c.nest ?? []).filter((n) => n.top >= cut).map((n) => ({
+    top: n.top - cutB,
+    row: n.row,
+    items: n.items.map((it) => moved.get(it) ?? it),
+    lines: n.lines.map((l) => moved.get(l) ?? l)
+  }));
+  if (na.length) a.nest = na;
+  if (nb.length) b.nest = nb;
   return [a, b];
 }
 function itemTop(it) {
@@ -17448,8 +17691,9 @@ function splitAtNest(c, nr, [p0, p1]) {
     }
   }
   const p0Items = [...p0.items, ...p0.borderItems].map((it) => shiftItem(it, nr.top));
+  const p0Lines = p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top }));
   aItems.push(...p0Items);
-  aLines.push(...p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top })));
+  aLines.push(...p0Lines);
   const p1Items = [...p1.items, ...p1.borderItems];
   const p1Lines = p1.lines.map((l) => ({ ...l }));
   bItems.unshift(...p1Items);
@@ -17461,7 +17705,7 @@ function splitAtNest(c, nr, [p0, p1]) {
     items: n.items.map((it) => moved.get(it) ?? it),
     lines: n.lines.map((l) => moved.get(l) ?? l)
   }));
-  const a = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, ...before.length ? { nest: before } : {} };
+  const a = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, nest: [...before, { top: nr.top, row: p0, items: p0Items, lines: p0Lines }] };
   const b = { items: bItems, lines: bLines, height: Math.max(0, c.height - end) + p1.height, ...w, nest: [{ top: 0, row: p1, items: p1Items, lines: p1Lines }, ...after] };
   return [a, b];
 }
@@ -17837,11 +18081,25 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     for (const cell of row.cells) {
       const tc = cell.tcPr ?? {};
       const span = Math.max(1, tc.gridSpan ?? cell.gridSpan ?? 1);
-      rowSlots.push({ cell, col, span, row: ri, tcPr: tc, rowSpan: 1, merged: tc.vMerge === "continue" });
+      const prev = rowSlots[rowSlots.length - 1];
+      if (tc.hMerge === "continue" && prev && prev.col + prev.span === col) {
+        prev.span += span;
+        col += span;
+        continue;
+      }
+      rowSlots.push({ cell, col, lcol: col, span, row: ri, tcPr: tc, rowSpan: 1, merged: tc.vMerge === "continue" });
       col += span;
     }
     slots.push(rowSlots);
   });
+  const rtl = !!tblPr.bidiVisual;
+  if (rtl) {
+    for (const rs of slots) {
+      for (const sl of rs) sl.col = nCols - sl.lcol - sl.span;
+      rs.reverse();
+    }
+    docGrid.reverse();
+  }
   for (let ri = 0; ri < slots.length; ri++) {
     for (const s of slots[ri]) {
       if (s.tcPr.vMerge !== "restart") continue;
@@ -17856,10 +18114,10 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const out = ["wholeTable"];
     const firstRow = look.firstRow && ri === 0 || !!table.rows[ri]?.trPr?.tblHeader && look.firstRow;
     const lastRow = look.lastRow && ri === nRows - 1;
-    const firstCol = look.firstColumn && s.col === 0;
-    const lastCol = look.lastColumn && s.col + s.span >= nCols;
+    const firstCol = look.firstColumn && s.lcol === 0;
+    const lastCol = look.lastColumn && s.lcol + s.span >= nCols;
     if (!look.noVBand) {
-      const c0 = s.col - (look.firstColumn ? 1 : 0);
+      const c0 = s.lcol - (look.firstColumn ? 1 : 0);
       if (c0 >= 0 && !(lastCol && look.lastColumn)) out.push(Math.floor(c0 / colBand) % 2 === 0 ? "band1Vert" : "band2Vert");
     }
     if (!look.noHBand) {
@@ -17889,15 +18147,18 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         pPr = mergePPr(pPr, part.pPr);
         rPr = mergeRPr(rPr, part.rPr);
       }
-      resolved.set(s, { tcPr: mergeTcPr(tcPr, s.tcPr), pPr, rPr });
+      const merged = mergeTcPr(tcPr, s.tcPr);
+      resolved.set(s, { tcPr: rtl ? { ...merged, ...merged.tcBorders ? { tcBorders: swapLR(merged.tcBorders) } : {}, ...merged.tcMar ? { tcMar: swapLR(merged.tcMar) } : {} } : merged, pPr, rPr });
     }
   }
-  const tblBorders = tblPr.tblBorders ?? {};
+  const tblBorders = (rtl ? swapLR(tblPr.tblBorders) : tblPr.tblBorders) ?? {};
+  const exBorders = (ri) => rtl ? swapLR(table.rows[ri]?.tblPrEx?.tblBorders) : table.rows[ri]?.tblPrEx?.tblBorders;
+  const cellMarOf = (m) => rtl ? swapLR(m) : m;
   const edge = (s, side) => {
     const own4 = resolved.get(s)?.tcPr.tcBorders?.[side];
     if (own4) return own4;
-    const ex = table.rows[s.row]?.tblPrEx;
-    const tb = ex?.tblBorders ? { ...tblBorders, ...ex.tblBorders } : tblBorders;
+    const exb = exBorders(s.row);
+    const tb = exb ? { ...tblBorders, ...exb } : tblBorders;
     const isOuter = side === "top" ? s.row === 0 : side === "bottom" ? s.row + s.rowSpan >= nRows : side === "left" ? s.col === 0 : s.col + s.span >= nCols;
     return isOuter ? tb[side] : side === "top" || side === "bottom" ? tb.insideH : tb.insideV;
   };
@@ -17923,7 +18184,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const sFirst = row0[0], sLast = row0[row0.length - 1];
   const marOf = (s, side) => {
     const ex = table.rows[s.row]?.tblPrEx;
-    const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? ex?.tblCellMar?.[side] ?? tblPr.tblCellMar?.[side];
+    const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? cellMarOf(ex?.tblCellMar)?.[side] ?? cellMarOf(tblPr.tblCellMar)?.[side];
     return widthTw(m, frameWidth) ?? defMar;
   };
   const bL = sFirst ? borderWidth(edge(sFirst, "left")) : 0;
@@ -17950,11 +18211,11 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const noWrap = nw && prefOf(tcW0) !== "dxa";
       const floorW = nw && prefOf(tcW0) === "dxa" ? tcW0.w : 0;
       const tdir = resolved.get(s)?.tcPr.textDirection;
-      const vertical = tdir === "btLr" || tdir === "tbRl" || tdir === "tbRlV";
+      const vertical = !!verticalDir(tdir);
       const measure2 = () => {
         if (vertical) {
           const rr = resolved.get(s);
-          const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.col}`));
+          const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.lcol}`));
           const linesH = c.lines.reduce((a, l) => a + l.height, 0);
           const vh = c.lines.reduce((a, l) => a + Math.round(l.height * 37 / 36), 0) + Math.max(0, c.height - linesH);
           const w = vh + 6 + padOf(s);
@@ -17984,6 +18245,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   let x2 = frameX + indent + (legacy ? -effL : bL / 2);
   if (jc === "center") x2 = frameX + (frameWidth - width) / 2;
   else if (jc === "right" || jc === "end") x2 = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
+  if (rtl && !floating && jc !== "center") x2 = jc === "right" || jc === "end" ? frameX + (legacy ? -effL : bL / 2) : frameX + frameWidth - indent - width + (legacy ? effR : -bR / 2);
   const rowByRow = legacy && !floating && !!ctx.fmt.settings.compat["alignTablesRowByRow"];
   const rowShift = (ri) => {
     const rjc = table.rows[ri]?.trPr?.jc ?? jc;
@@ -17996,7 +18258,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const separated = !!tblPr.tblCellSpacing || table.rows.some((r) => !!r.trPr?.tblCellSpacing);
   const spRow = (ri) => widthTw(table.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, width) ?? 0;
   const spTbl = widthTw(tblPr.tblCellSpacing ?? table.rows.find((r) => r.trPr?.tblCellSpacing)?.trPr?.tblCellSpacing, width) ?? 0;
-  const outerB = (ri, side) => table.rows[ri]?.tblPrEx?.tblBorders?.[side] ?? tblBorders[side];
+  const outerB = (ri, side) => exBorders(ri)?.[side] ?? tblBorders[side];
   const sepTop = [], sepBottom = [], sepWT = [], sepWB = [];
   if (separated) {
     for (let ri = 0; ri < nRows; ri++) {
@@ -18037,7 +18299,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const bx0 = (separated ? sepB(Math.min(s.col, nCols)) + spTbl : colX[Math.min(s.col, nCols)]) + shiftR;
       const bx1 = (separated ? sepB(Math.min(s.col + s.span, nCols)) - spTbl : colX[Math.min(s.col + s.span, nCols)]) + shiftR;
       const x0r = bx0, x1r = bx1;
-      const mar = { ...tblPr.tblCellMar ?? {}, ...ex?.tblCellMar ?? {}, ...tcPr.tcMar ?? {} };
+      const mar = { ...cellMarOf(tblPr.tblCellMar) ?? {}, ...cellMarOf(ex?.tblCellMar) ?? {}, ...tcPr.tcMar ?? {} };
       const marL = Math.max(widthTw(mar.left, width) ?? defMar, separated ? 0 : borderWidth(edge(s, "left")) / 2);
       const marR = Math.max(widthTw(mar.right, width) ?? defMar, separated ? 0 : borderWidth(edge(s, "right")) / 2);
       const marT = widthTw(mar.top, width) ?? 0;
@@ -18046,13 +18308,13 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.max(wl - marL, wl / 2);
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
       const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {} };
-      const vertical = tcPr.textDirection === "btLr" || tcPr.textDirection === "tbRl" || tcPr.textDirection === "tbRlV" ? tcPr.textDirection : void 0;
+      const vertical = verticalDir(tcPr.textDirection);
       const info = { slot: s, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...vertical ? { vertical } : {} };
       if (!s.merged) {
         if (vertical) {
           if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, marT, marB, env });
         } else {
-          const content = layoutCell(s.cell, x2 + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.col}`);
+          const content = layoutCell(s.cell, x2 + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.lcol}`);
           info.content = content;
           if (s.rowSpan === 1) contentH = Math.max(contentH, content.height + marT + marB);
           else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, marT, marB, env });
@@ -18071,7 +18333,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       m.marT = rowMarT;
       m.marB = rowMarB;
     }
-    const th = row.trPr?.trHeight;
+    const th = row.trPr?.trHeight?.hRule === "auto" ? void 0 : row.trPr?.trHeight;
     let maxMar = 0, maxMarB = 0;
     for (const ci of cellInfos) {
       maxMar = Math.max(maxMar, ci.marT + ci.marB);
@@ -18081,7 +18343,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       if (!ci.vertical || ci.slot.merged || ci.slot.rowSpan !== 1) continue;
       const rowMin = th ? th.val + (th.hRule === "exact" ? maxMarB : maxMar) : 0;
       const avail = Math.max(contentH, rowMin) - ci.marT - ci.marB;
-      const c = layoutVertical(ci.slot, avail, ci.env, `${ref}/r${ri}/c${ci.slot.col}`);
+      const c = layoutVertical(ci.slot, avail, ci.env, `${ref}/r${ri}/c${ci.slot.lcol}`);
       ci.content = c;
       if (th?.hRule !== "exact") contentH = Math.max(contentH, maxLineW(c) + ci.marT + ci.marB);
     }
@@ -18110,7 +18372,14 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       if (need > spanned) h += need - spanned;
     }
     rowHeights.push(bandTop + h + bandBottom);
+    const cellBoxes = () => cellInfos.map((ci) => ({ ref: `${ref}/r${ri}/c${ci.slot.lcol}`, x: x2 + ci.bx0, w: ci.bx1 - ci.bx0, span: ci.slot.span }));
     const paintRow = (ch, contents, vTop, drawTop, bTop, bBottom) => {
+      const nest = [];
+      const nestOf = (c, va, marT, marB) => {
+        if (!c.nest?.length) return;
+        const dy = contentDy(c, va, ch, marT, marB, bTop);
+        for (const nr of c.nest) for (const b of nr.row.cells ?? []) nest.push({ ...b, dy: dy + nr.top + (b.dy ?? 0), h: b.h ?? nr.row.height });
+      };
       const its = [];
       const lns = [];
       const brd = [];
@@ -18143,20 +18412,23 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
           if (s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
           if (s.rowSpan === 1) {
             if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x2 + ci.x0 + ci.marL, x2 + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-            else if (content) placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+            else if (content) {
+              placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+              nestOf(content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ci.marT, ci.marB);
+            }
           }
           const bT = edge(s, "top"), bB = edge(s, "bottom"), bL2 = edge(s, "left"), bR2 = edge(s, "right");
-          if (drawTop && bT) paintBorder(ctx, brd, bT, x2 + ci.bx0, cy0 + borderWidth(bT) / 2, x2 + ci.bx1, cy0 + borderWidth(bT) / 2);
-          if (bBottom > 0 && bB) paintBorder(ctx, brd, bB, x2 + ci.bx0, cy1 - borderWidth(bB) / 2, x2 + ci.bx1, cy1 - borderWidth(bB) / 2);
-          if (bL2) paintBorder(ctx, brd, bL2, x2 + ci.bx0 + borderWidth(bL2) / 2, cy0, x2 + ci.bx0 + borderWidth(bL2) / 2, cy1);
-          if (bR2) paintBorder(ctx, brd, bR2, x2 + ci.bx1 - borderWidth(bR2) / 2, cy0, x2 + ci.bx1 - borderWidth(bR2) / 2, cy1);
+          if (drawTop && bT) paintBorder(ctx, brd, bT, x2 + ci.bx0, cy0 + borderWidth(bT) / 2, x2 + ci.bx1, cy0 + borderWidth(bT) / 2, "top");
+          if (bBottom > 0 && bB) paintBorder(ctx, brd, bB, x2 + ci.bx0, cy1 - borderWidth(bB) / 2, x2 + ci.bx1, cy1 - borderWidth(bB) / 2, "bottom");
+          if (bL2) paintBorder(ctx, brd, bL2, x2 + ci.bx0 + borderWidth(bL2) / 2, cy0, x2 + ci.bx0 + borderWidth(bL2) / 2, cy1, "left");
+          if (bR2) paintBorder(ctx, brd, bR2, x2 + ci.bx1 - borderWidth(bR2) / 2, cy0, x2 + ci.bx1 - borderWidth(bR2) / 2, cy1, "right");
         }
         const oL = outerB(ri, "left"), oR = outerB(ri, "right"), oT = outerB(ri, "top"), oB = outerB(ri, "bottom");
         const xl = x2 + g0, xr = x2 + gn;
-        paintBorder(ctx, brd, oL, xl, 0, xl, rh);
-        paintBorder(ctx, brd, oR, xr, 0, xr, rh);
-        if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2);
-        if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2);
+        paintBorder(ctx, brd, oL, xl, 0, xl, rh, "left");
+        paintBorder(ctx, brd, oR, xr, 0, xr, rh, "right");
+        if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2, "top");
+        if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2, "bottom");
         return {
           height: rh,
           items: its,
@@ -18165,6 +18437,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
           breakBorderItems: brk,
           cantSplit: !!trp.cantSplit,
           header: !!trp.tblHeader,
+          cells: [...cellBoxes(), ...nest],
           ...mergeAt.length ? { mergeAt } : {},
           ...rowKeepNext ? { keepNext: true } : {},
           natural: bTop + Math.min(ch, contentH) + bBottom
@@ -18180,31 +18453,36 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         if (!s.merged && s.rowSpan === 1) {
           if (fill) its.push({ t: "rect", x: x2 + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
           if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x2 + ci.x0 + ci.marL, x2 + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-          else if (content) placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+          else if (content) {
+            placeContent(its, lns, content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
+            nestOf(content, vTop ? "top" : vaOf(content, ci.tcPr.vAlign), ci.marT, ci.marB);
+          }
         }
         const tcb = ci.tcPr.tcBorders;
         const top = drawTop ? s.merged ? void 0 : topWinner(s) : edge(s, "top") ?? edge(s, "bottom");
         const nb = brd.length;
-        if (top) paintBorder(ctx, brd, top, x2 + ci.x0, borderWidth(top) / 2, x2 + ci.x1, borderWidth(top) / 2);
+        if (top) paintBorder(ctx, brd, top, x2 + ci.x0, borderWidth(top) / 2, x2 + ci.x1, borderWidth(top) / 2, "top");
         if (drawTop && ri > 0) {
           topBrd.push(...brd.slice(nb));
           const own4 = edge(s, "top");
           ownBand = Math.max(ownBand, borderWidth(own4));
-          if (own4 && !s.merged) paintBorder(ctx, ownBrd, own4, x2 + ci.x0, borderWidth(own4) / 2, x2 + ci.x1, borderWidth(own4) / 2);
+          if (own4 && !s.merged) paintBorder(ctx, ownBrd, own4, x2 + ci.x0, borderWidth(own4) / 2, x2 + ci.x1, borderWidth(own4) / 2, "top");
         }
         const bottom = edge(s, "bottom");
         const lastOfMerge = !slots[ri + 1]?.some((o) => o.col === s.col && o.merged);
         if (bBottom > 0) {
           const b = bottom ?? edge(s, "top");
-          paintBorder(ctx, brd, b, x2 + ci.x0, rh - bBottom + borderWidth(b) / 2, x2 + ci.x1, rh - bBottom + borderWidth(b) / 2);
+          paintBorder(ctx, brd, b, x2 + ci.x0, rh - bBottom + borderWidth(b) / 2, x2 + ci.x1, rh - bBottom + borderWidth(b) / 2, "bottom");
         } else if (lastOfMerge) {
           let w = bottom;
           for (const d of covering(ri + 1, s.col, s.col + s.span)) w = heavier(w, edge(d, "top"));
-          if (w) paintBorder(ctx, brk, w, x2 + ci.x0, rh + borderWidth(w) / 2, x2 + ci.x1, rh + borderWidth(w) / 2);
+          if (w) paintBorder(ctx, brk, w, x2 + ci.x0, rh + borderWidth(w) / 2, x2 + ci.x1, rh + borderWidth(w) / 2, "bottom");
         }
-        const left = edge(s, "left"), right = edge(s, "right");
-        paintBorder(ctx, brd, left, x2 + ci.x0, 0, x2 + ci.x0, rh);
-        paintBorder(ctx, brd, right, x2 + ci.x1, 0, x2 + ci.x1, rh);
+        const prev = slots[ri]?.find((o) => o.col + o.span === s.col);
+        const next = slots[ri]?.some((o) => o.col === s.col + s.span);
+        const left = prev ? heavier(edge(prev, "right"), edge(s, "left")) : edge(s, "left"), right = edge(s, "right");
+        paintBorder(ctx, brd, left, x2 + ci.x0, 0, x2 + ci.x0, rh, "left");
+        if (!next) paintBorder(ctx, brd, right, x2 + ci.x1, 0, x2 + ci.x1, rh, "right");
         if (tcb?.tl2br) paintBorder(ctx, brd, tcb.tl2br, x2 + ci.x0, bTop, x2 + ci.x1, rh - bBottom);
         if (tcb?.tr2bl) paintBorder(ctx, brd, tcb.tr2bl, x2 + ci.x1, bTop, x2 + ci.x0, rh - bBottom);
       }
@@ -18216,6 +18494,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         breakBorderItems: brk,
         cantSplit: !!trp.cantSplit,
         header: !!trp.tblHeader,
+        cells: [...cellBoxes(), ...nest],
         ...mergeAt.length ? { mergeAt } : {},
         ...rowKeepNext ? { keepNext: true } : {},
         natural: bTop + Math.min(ch, contentH) + bBottom,
@@ -18289,7 +18568,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const { marT, marB } = m;
     const top = bandTopOf(m.startRow) - rowHeights.slice(m.startRow, Math.min(endRow, rows.length - 1)).reduce((a, b) => a + b, 0);
     if (m.vertical) {
-      const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.col}`);
+      const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.lcol}`);
       paintVertical(target.items, c, m.vertical, vaOf(c, m.tcPr.vAlign), x2 + m.x0 + m.marL, x2 + m.x1 - m.marR, top + marT, top + h - marB);
     } else if (m.content) {
       const i0 = target.items.length, l0 = target.lines.length;
@@ -18303,18 +18582,16 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
 function cellFill(tcPr, theme) {
   return shdFill(tcPr.shd, theme);
 }
-function shdFill(shd, theme) {
-  if (!shd) return void 0;
-  if (shd.val === "solid") return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
-  const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
-  if (shd.val && /^pct(\d+)$/.test(shd.val)) {
-    const pct = parseInt(shd.val.slice(3), 10) / 100;
-    const fg = resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
-    const bg = fill ?? "FFFFFF";
-    const mix = (i2) => Math.round(parseInt(bg.slice(i2, i2 + 2), 16) * (1 - pct) + parseInt(fg.slice(i2, i2 + 2), 16) * pct);
-    return [0, 2, 4].map((i2) => mix(i2).toString(16).padStart(2, "0")).join("").toUpperCase();
-  }
-  return fill;
+var shdFill = (shd, theme) => shadingFill(shd, theme);
+function swapLR(o) {
+  if (!o) return o;
+  const { left, right, ...rest } = o;
+  return { ...rest, ...right !== void 0 ? { left: right } : {}, ...left !== void 0 ? { right: left } : {} };
+}
+function verticalDir(td2) {
+  if (td2 === "btLr" || td2 === "lr") return "btLr";
+  if (td2 === "tbRl" || td2 === "tbRlV" || td2 === "tbLrV" || td2 === "rl" || td2 === "rlV" || td2 === "lrV") return "tbRl";
+  return void 0;
 }
 function paintVertical(items, c, dir, vAlign, left, right, top, bottom) {
   const free = right - left - c.height;
@@ -18324,12 +18601,16 @@ function paintVertical(items, c, dir, vAlign, left, right, top, bottom) {
   for (const it of c.items) items.push(shiftItem(it, Math.max(0, off)));
   items.push({ t: "xform", op: "pop" });
 }
-function placeContent(items, lines, c, vAlign, rowH, marT, marB, y0 = 0) {
-  if (!c) return;
+function contentDy(c, vAlign, rowH, marT, marB, y0 = 0) {
   let dy = y0 + marT;
   const free = rowH - marT - marB - (c.alignH ?? c.height);
   if (vAlign === "center" && free > 0) dy += free / 2;
   else if (vAlign === "bottom" && free > 0) dy += free;
+  return dy;
+}
+function placeContent(items, lines, c, vAlign, rowH, marT, marB, y0 = 0) {
+  if (!c) return;
+  const dy = contentDy(c, vAlign, rowH, marT, marB, y0);
   for (const it of c.items) items.push(shiftItem(it, dy));
   for (const l of c.lines) lines.push({ ...l, y: l.y + dy, baseline: l.baseline + dy });
 }
@@ -19941,7 +20222,7 @@ var Engine = class {
   }
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
   paintBox(out, p, x2, width, top, bottom, prev, at = out.length, groupedNext = false) {
-    const hasFill = !!(p.ppr.shd && (p.ppr.shd.fill && p.ppr.shd.fill !== "auto" || p.ppr.shd.themeFill));
+    const hasFill = !!shadingFill(p.ppr.shd, this.ctx.fmt.theme);
     if (!p.ppr.pBdr && !hasFill) return;
     const grouped = !!prev?.pBdrKey && prev.pBdrKey === bdrKey(p.ppr);
     const left = x2 + p.indLeft + Math.min(0, p.firstLine);
@@ -20964,6 +21245,7 @@ var Engine = class {
       for (const it of row.items) out.push(shiftItem(it, y - yOrigin, refX));
       for (const it of row.borderItems) out.push(shiftItem(it, y - yOrigin, refX));
       for (const l of row.lines) ps.page.lines.push({ ...l, x: l.x + refX, y: l.y + y, baseline: l.baseline + y, ...l.chars ? { chars: l.chars.map((c) => ({ ...c, x: c.x + refX })) } : {} });
+      if (row.cells && !this.inHf) for (const c of row.cells) (ps.page.cells ??= []).push({ ref: c.ref, x: c.x + refX, y: y + (c.dy ?? 0), w: c.w, h: c.h ?? row.height, span: c.span });
       y += row.height + (grow > 0.5 ? grow : 0);
       n++;
       if (cutHere) break;
@@ -21032,7 +21314,13 @@ var Engine = class {
     this.floatCarry = [];
     for (const c of carry) {
       const items = [];
-      this.emitFloatRows(c.t, c.rows, c.fp, this.cur, c.refX, this.cur.bodyTop, items, 0, true, true);
+      const hdr = [];
+      for (const r of c.t.rows) {
+        if (r.header) hdr.push(r);
+        else break;
+      }
+      const rows = hdr.length && hdr.length < c.t.rows.length && !hdr.includes(c.rows[0]) ? [...hdr, ...c.rows] : c.rows;
+      this.emitFloatRows(c.t, rows, c.fp, this.cur, c.refX, this.cur.bodyTop, items, 0, true, true);
       this.cur.front.push({ z: -1, seq: this.zSeq++, items });
     }
   }
@@ -21052,6 +21340,7 @@ var Engine = class {
     for (const it of row.items) if (!skip?.has(it)) this.cur.body.push(shiftItem(it, this.y));
     for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y));
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
+    if (row.cells && !this.inHf) for (const c of row.cells) (this.cur.page.cells ??= []).push({ ref: c.ref, x: c.x, y: this.y + (c.dy ?? 0), w: c.w, h: c.h ?? row.height, span: c.span });
     this.y += row.height;
     this.atTop = false;
     this.noteColContent(this.y);
@@ -21615,7 +21904,7 @@ function markLineH(p) {
 function scratchPage(ps) {
   return {
     ...ps,
-    page: { ...ps.page, items: [], lines: [], objects: [] },
+    page: { ...ps.page, items: [], lines: [], objects: [], cells: [] },
     behind: [],
     hf: [],
     body: [],
@@ -21626,6 +21915,15 @@ function scratchPage(ps) {
     notes: []
   };
 }
+
+// ../docx-layout/src/tree.ts
+var BORDER_DASHES = {
+  bdrDot: (w) => [w, w],
+  bdrDash: (w) => [3 * w, w],
+  bdrDashDot: (w) => [3 * w, w, w, w],
+  bdrDashDotDot: (w) => [3 * w, w, w, w, w, w],
+  bdrDashSmall: (w) => [25 * w / 6, 5 * w / 6]
+};
 
 // ../docx-layout/src/images.ts
 function jpegInfo(b) {
@@ -22408,7 +22706,7 @@ function paintItem(page, it, fontFor, imageFor, shade) {
       page.withAlpha(it.alpha, void 0, () => page.fillRect(it.x / T, it.y / T, it.w / T, it.h / T, hexColor(it.fill)));
       return;
     case "line": {
-      const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : void 0;
+      const dash = it.dash === "dotted" ? [it.widthPt, it.widthPt * 2] : it.dash === "dashed" ? [it.widthPt * 4, it.widthPt * 3] : it.dash === "dashDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === "dashDotDot" ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash ? BORDER_DASHES[it.dash]?.(it.widthPt) : void 0;
       page.line(it.x1 / T, it.y1 / T, it.x2 / T, it.y2 / T, hexColor(it.color), it.widthPt, dash);
       return;
     }
@@ -22552,7 +22850,7 @@ function paintItems(ctx, items, env, opts = {}) {
       case "line": {
         if (!HEX6.test(it.color)) break;
         const w = it.widthPt;
-        const dash = it.dash === "dotted" ? [w, w * 2] : it.dash === "dashed" ? [w * 4, w * 3] : it.dash === "dashDot" ? [w * 4, w * 2, w, w * 2] : it.dash === "dashDotDot" ? [w * 4, w * 2, w, w * 2, w, w * 2] : [];
+        const dash = it.dash === "dotted" ? [w, w * 2] : it.dash === "dashed" ? [w * 4, w * 3] : it.dash === "dashDot" ? [w * 4, w * 2, w, w * 2] : it.dash === "dashDotDot" ? [w * 4, w * 2, w, w * 2, w, w * 2] : it.dash ? BORDER_DASHES[it.dash](w) : [];
         let { x1, y1, x2, y2 } = it;
         let lw = w * 20;
         const m = ctx.getTransform();
