@@ -47,6 +47,7 @@ export const PRODUCTS = {
 const INTERNAL = {
   '@universal-office/fonts': 'shared/fonts/src/index.ts',
   '@universal-office/charts': 'shared/charts/src/index.ts',
+  '@universal-office/drawingml': 'shared/drawingml/src/index.ts',
   '@universal-office/ui': 'shared/ui/src/index.ts',
   '@universal-office/spell': 'shared/spell/src/index.ts',
   '@universal-office/docx-core': 'write/packages/docx-core/src/index.ts',

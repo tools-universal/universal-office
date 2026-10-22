@@ -1,6 +1,5 @@
 import { parseXml, childElements, firstChild, lastChild, fillAlphaEl, textContent, descend, type XmlElement } from './xml.js';
-import type { PathSeg } from './geometry.js';
-import { customGuides, arcToSeg } from './preset-engine.js';
+import { customGuides, arcToSeg, type PathSeg } from '@universal-office/drawingml';
 import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
 import { patternDensity } from './patterns.js';
 import { diagramFallbackShapes, type DgmStyle } from './diagram-fallback.js';

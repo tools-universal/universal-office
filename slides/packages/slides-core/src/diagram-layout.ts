@@ -15,7 +15,7 @@
 import { childElements, firstChild, textContent, type XmlElement } from './xml.js';
 import { measureApprox, lineFactor } from './diagram-metrics.js';
 import { colorFromDml } from './theme.js';
-import { presetGuides } from './preset-engine.js';
+import { presetGuides } from '@universal-office/drawingml';
 import type { Theme } from './model.js';
 
 /** Largura (EMU) de `text` no tamanho `sizePt`. */

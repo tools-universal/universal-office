@@ -1,0 +1,21 @@
+{
+  "name": "@universal-office/drawingml",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "description": "DrawingML sem DOM — as formas predefinidas (presetShapeDefinitions), a luz do 3D e os efeitos de imagem (sombra, brilho, bordas suaves, reflexo, bisel, perspectiva, ajustes de cor) em RGBA — um motor só para Slides, Sheet e Write",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

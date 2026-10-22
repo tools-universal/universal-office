@@ -134,7 +134,7 @@ describe('presetPath — geometrias preset (spec 03 F)', () => {
 
 describe('retângulo de texto do preset (<a:rect> oficial)', () => {
   it('elipse: caixa inscrita (≈ 14,6% de cada lado); triângulo: metade de baixo; rect: nenhum', async () => {
-    const { presetTextRect } = await import('../src/preset-engine.js');
+    const { presetTextRect } = await import('@universal-office/drawingml');
     const e = presetTextRect('ellipse', 1000, 500)!;
     expect(e.l).toBeCloseTo(1000 * (0.5 - Math.SQRT1_2 / 2), 0);
     expect(e.b).toBeCloseTo(500 * (0.5 + Math.SQRT1_2 / 2), 0);

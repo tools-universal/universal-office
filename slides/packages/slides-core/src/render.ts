@@ -13,14 +13,12 @@
 import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartModel, type ChartSel, type ChartImage } from './chart-engine.js';
 import { imageDpi, tilePattern } from '@universal-office/charts';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
-import { presetPath } from './geometry.js';
-import { presetTextRect } from './preset-engine.js';
+import { presetPath, presetTextRect, lightTable, lightAt, lightFace, bevelPhi, type PathSeg } from '@universal-office/drawingml';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type TableCell, type TableLine, type Run, type ImageRef, type ImageFx } from './model.js';
 import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
 import { patternRows } from './patterns.js';
 import { paintWarpedText, type WarpLine } from './text-warp.js';
-import { lightTable, lightAt, lightFace, bevelPhi } from './light3d.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
 export const DEFAULT_TITLE_PT = 40;
@@ -1193,7 +1191,7 @@ function obliqueOffset(prst: string | undefined): [number, number] | undefined {
 /** Contorno da geometria achatado em polígonos (coordenadas da caixa x,y,w,h). */
 function outlinePolys(sh: Shape, x: number, y: number, w: number, h: number): [number, number][][] {
   const out: [number, number][][] = [];
-  const segsTo = (subs: import('./geometry.js').PathSeg[][], ox: number, oy: number, sx: number, sy: number): void => {
+  const segsTo = (subs: PathSeg[][], ox: number, oy: number, sx: number, sy: number): void => {
     for (const sub of subs) {
       let cur: [number, number][] = [], px = 0, py = 0;
       const push = (X: number, Y: number): void => { cur.push([ox + X * sx, oy + Y * sy]); px = X; py = Y; };
@@ -1390,7 +1388,7 @@ function applyBevel(ctx: CanvasRenderingContext2D, sh: Shape, x: number, y: numb
 function shapePath(
   ctx: CanvasRenderingContext2D, geom: string | undefined,
   x: number, y: number, w: number, h: number,
-  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[] },
+  custGeom?: { w: number; h: number; subs: PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[] },
   adj?: number[],
   adjNames?: string[],
   /** Só os subcaminhos que PREENCHEM (`fill`) ou que têm CONTORNO (`stroke`); ausente = todos. */
@@ -1529,7 +1527,7 @@ function paintArrowhead(ctx: CanvasRenderingContext2D, type: string, px: number,
 /** Constrói subpaths de PathSeg no contexto (offset x,y + escala sx,sy). */
 function drawSegs(
   ctx: CanvasRenderingContext2D,
-  subs: import('./geometry.js').PathSeg[][],
+  subs: PathSeg[][],
   x: number, y: number, sx: number, sy: number,
 ): void {
   for (const sub of subs) {

@@ -38,8 +38,7 @@ export {
   type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine,
   type TextLayoutResult, type LayoutTextOptions,
 } from './text-layout.js';
-export { presetPath, type PresetPath, type Pt, type PathSeg } from './geometry.js';
-export { evalPreset, hasPresetDef, type PresetGeometry } from './preset-engine.js';
+export { presetPath, type PresetPath, type Pt, type PathSeg, evalPreset, hasPresetDef, type PresetGeometry } from '@universal-office/drawingml';
 export { eotToSfnt, looksLikeEot } from './eot.js';
 export {
   readEmbeddedFonts, collectDeckTypefaces, deobfuscateFont,

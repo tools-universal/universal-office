@@ -56,6 +56,7 @@ await build({
   alias: {
     '@universal-office/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
     '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
+    '@universal-office/drawingml': join(slidesRoot, '..', 'shared', 'drawingml', 'src', 'index.ts'),
   },
 });
 writeFileSync(join(work, 'harness.html'), readFileSync(join(here, 'harness.html'), 'utf8')
