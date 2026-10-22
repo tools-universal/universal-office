@@ -319,7 +319,7 @@ export function pictureContextItems(): MenuEntry[] {
     'cut', 'copy', 'paste', '-',
     { id: 'pic:ctx:front', label: L('Bring to Front', 'Trazer para a Frente'), icon: 'flip_to_front', submenu: ['pic:front', 'pic:forward', 'pic:frontOfText'] },
     { id: 'pic:ctx:back', label: L('Send to Back', 'Enviar para Trás'), icon: 'flip_to_back', submenu: ['pic:back', 'pic:backward', 'pic:behindText'] },
-    '-', changeSubmenu, 'link',
+    '-', changeSubmenu, 'link', 'caption',
     { id: 'pic:ctx:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', submenu: wrapMenu },
     'pic:alt', 'pic:layout', 'pic:format', '-', 'image:delete',
   ];
