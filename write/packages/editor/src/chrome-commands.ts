@@ -10,6 +10,7 @@ import { registerTableCommands } from './chrome-table.js';
 import { registerHfCommands } from './chrome-hf.js';
 import { registerPictureCommands } from './chrome-picture.js';
 import { registerPageCommands } from './chrome-page.js';
+import { registerTocCommands, type TocDialogKind } from './chrome-toc.js';
 import { registerShapeCommands } from './chrome-shape.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 
@@ -75,6 +76,8 @@ export interface ChromeCtl {
   hfDialog(kind: 'pageNumbers' | 'dateTime' | 'alignTab' | 'options'): void;
   /** diálogos da frente Links e referências (Indicador, Referência Cruzada, Legenda, Índice de Ilustrações) */
   refsDialog(kind: 'bookmark' | 'crossref' | 'caption' | 'tof'): void;
+  /** diálogos do Sumário (chrome-toc.ts): Sumário Personalizado, a pergunta de Atualizar, Marcar Entrada */
+  tocDialog(kind: TocDialogKind, scope?: 'caret' | 'selection'): void;
   /** diálogos do Plano de Fundo da Página (chrome-page.ts): Efeitos de Preenchimento, Marca-d'Água Personalizada */
   pageBgDialog(kind: 'fill' | 'watermark'): void;
 }
@@ -167,7 +170,6 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'header', label: { en: 'Header', pt: 'Cabeçalho' }, icon: 'vertical_align_top', run: () => ed.enterHeaderFooter('header') }),
     edit({ id: 'footer', label: { en: 'Footer', pt: 'Rodapé' }, icon: 'vertical_align_bottom', run: () => ed.enterHeaderFooter('footer') }),
     { id: 'hf:close', label: { en: 'Close Header and Footer', pt: 'Fechar Cabeçalho e Rodapé' }, icon: 'close', run: () => ed.exitHeaderFooter(), isEnabled: () => ed.editingHeaderFooter() !== null },
-    edit({ id: 'toc', label: { en: 'Update table of contents', pt: 'Atualizar sumário' }, icon: 'toc', run: () => ctl.flash(ed.updateToc() ? L.tocUpdated : L.noToc) }),
     // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: 'footnote', label: { en: 'Footnote', pt: 'Nota de rodapé' }, tip: { en: 'Insert footnote', pt: 'Inserir nota de rodapé' }, icon: 'notes', shortcut: 'Ctrl+Alt+F', supports: has('insertFootnote'), isEnabled: () => ed.canInsertNote(), run: () => call('insertFootnote') }),
     edit({ id: 'endnote', label: { en: 'Endnote', pt: 'Nota de fim' }, tip: { en: 'Insert endnote', pt: 'Inserir nota de fim' }, icon: 'short_text', shortcut: 'Ctrl+Alt+D', supports: has('insertEndnote'), isEnabled: () => ed.canInsertNote(), run: () => call('insertEndnote') }),
@@ -309,6 +311,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerShapeCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
+  registerTocCommands(reg, ed, app, ctl);
 
   function stepComment(dir: 1 | -1): void {
     const cs = ed.getComments();

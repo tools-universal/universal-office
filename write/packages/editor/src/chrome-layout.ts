@@ -13,6 +13,7 @@ import { tableDesignGroups, tableFormatMenu, tableLayoutGroups, tableMenu } from
 import { docInfoMenu, hfGalleryMenu, hfToolsGroups, pageNumberMenu } from './chrome-hf.js';
 import { pictureCompactGroup, pictureFormatGroups, pictureMenu } from './chrome-picture.js';
 import { coverPageMenu, pageColorMenu, watermarkMenu } from './chrome-page.js';
+import { addTextMenu, tocGalleryMenu } from './chrome-toc.js';
 import { shapeCompactGroup, shapeFormatGroups, shapeMenu, textboxMenu } from './chrome-shape.js';
 import { ZOOMS } from './chrome-commands.js';
 
@@ -42,6 +43,9 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     accent: sub({ en: 'Accent color', pt: 'Cor de destaque' }, 'palette', () => accentMenu(env, ctx), 'accent'),
     toolbar: sub({ en: 'Toolbar', pt: 'Barra de ferramentas' }, 'toolbar', () => ['toolbar:compact', 'toolbar:ribbon', '-', 'statusbar'], 'toolbar'),
     fields: sub({ en: 'Field', pt: 'Campo' }, 'data_object', fieldsMenu, 'fields'),
+    // Sumário: a galeria, Adicionar Texto (com Marcar Entrada) e Atualizar
+    toc: sub({ en: 'Table of contents', pt: 'Sumário' }, 'toc', () => [...tocGalleryMenu(env, ctx), '-',
+      sub({ en: 'Add text', pt: 'Adicionar texto' }, 'playlist_add', () => addTextMenu(env), 'toc:addText'), 'toc'], 'toc:sub'),
     symbols: sub({ en: 'Special characters', pt: 'Caracteres especiais' }, 'special_character', () => symbolMenu(env, ctx), 'symbols'),
     breaks: sub({ en: 'Break', pt: 'Quebra' }, 'insert_page_break', breaksMenu, 'breaks'),
     columns: sub({ en: 'Columns', pt: 'Colunas' }, 'view_column_2', columnsMenu, 'columns'),
@@ -147,7 +151,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
-      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
+      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, m.toc, '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
@@ -285,7 +289,14 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: 'references', label: L('References', 'Referências'), groups: [
-          { id: 'toc', label: L('Table of Contents', 'Sumário'), icon: 'toc', prio: 4, cells: [large('toc')] },
+          // Sumário (como no Word): a galeria com Personalizado/Remover, Adicionar Texto e Atualizar
+          { id: 'toc', label: L('Table of Contents', 'Sumário'), icon: 'toc', prio: 4, cells: [
+            { menu: () => tocGalleryMenu(env, ctx), id: 'toc:menu', label: L('Table of Contents', 'Sumário'), icon: 'toc', size: 'large', supports: has('insertTocTemplate') },
+            { rows: [
+              [{ menu: () => addTextMenu(env), id: 'toc:addText', label: L('Add Text', 'Adicionar Texto'), icon: 'playlist_add', showLabel: true, supports: has('setTocLevel') }],
+              [{ cmd: 'toc', label: true }],
+            ] },
+          ] },
           { id: 'footnotes', label: L('Footnotes', 'Notas de Rodapé'), icon: 'notes', prio: 6, launcher: 'dlg:notes', cells: [
             large('footnote'),
             { rows: [

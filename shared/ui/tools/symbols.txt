@@ -265,3 +265,4 @@ horizontal_distribute
 vertical_distribute
 select
 gradient
+playlist_add

@@ -4762,7 +4762,10 @@ export class UniversalWriteElement extends HTMLElement {
     };
     const sp: SectPr = { ...this.sect() };
     delete sp.pgBorders;
-    const width = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+    delete sp.cols;
+    // coluna estreita (~8,5 cm): o texto da miniatura fica legível na galeria
+    const width = 4800;
+    sp.pageWidthTwips = sp.marginLeftTwips + sp.marginRightTwips + width;
     const head: Paragraph = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: styleOf('TOC Heading') } };
     const entries: Paragraph[] = tpl.manual ? this.manualTocParas(lang, undefined, styleOf).slice(0, 3) : [1, 2, 3].map((level) => ({
       runs: [

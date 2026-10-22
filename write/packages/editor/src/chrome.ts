@@ -17,6 +17,7 @@ import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
 import { refsDialog, hyperlinkDialog, type RefsEnv } from './chrome-refs.js';
+import { tocDialog, tocGalleryMenu, type TocEnv } from './chrome-toc.js';
 import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, fontDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
@@ -453,6 +454,11 @@ class WriteChrome {
     };
   }
 
+  /** Ambiente dos diálogos do Sumário (Modificar estilo pela barra). */
+  private tocEnv(): TocEnv {
+    return { ed: this.ed, layer: this.layer, lang: this.lang, flash: (m) => this.flash(m), modifyStyle: (id) => { void this.styles?.styleDialog('modify', id); } };
+  }
+
   private ctl(): ChromeCtl {
     const d = (): DialogEnv => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
     return {
@@ -477,6 +483,7 @@ class WriteChrome {
       comment: () => { void commentDialog(d()).then(() => this.after()); },
       link: () => { void hyperlinkDialog(this.refsEnv()).then(() => this.after()); },
       refsDialog: (kind) => { void refsDialog(this.refsEnv(), kind).then(() => this.after()); },
+      tocDialog: (kind, scope) => { void tocDialog(this.tocEnv(), kind, scope).then(() => this.after()); },
       image: () => this.pickImage(),
       fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
@@ -844,6 +851,16 @@ class WriteChrome {
       const mine = last?.isConnected ? last === ed : document.querySelectorAll('universal-write[topbar]').length === 1;
       if (mine) run(e, id);
     }, { signal });
+
+    // sumário: a pergunta de Atualizar (aba do controle, F9) e o menu da aba (a galeria)
+    ed.addEventListener('uw-toc-update', ((e: CustomEvent<{ scope: 'caret' | 'selection' }>) => {
+      e.preventDefault();
+      void tocDialog(this.tocEnv(), 'update', e.detail.scope).then(() => this.after());
+    }) as EventListener, { signal });
+    ed.addEventListener('uw-toc-menu', ((e: CustomEvent<{ x: number; y: number }>) => {
+      const env: WidgetEnv = { ed, app: this.app, ctl: this.ctl(), root: this.root, ...(this.styles ? { styles: this.styles } : {}) };
+      openMenu(tocGalleryMenu(env, this.ctx), { x: e.detail.x, y: e.detail.y }, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+    }) as EventListener, { signal });
 
     // menu de contexto
     ed.addEventListener('contextmenu', (e) => {
