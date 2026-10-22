@@ -772,6 +772,13 @@ if (want('notes')) {
   // a marca da nota e o espaço vêm antes do texto (como o Word grava)
   const txt = await ev('text', 0);
   check('nota nova: marca + espaço + texto', txt === '￼ Primeira nota', txt);
+  // a contagem de palavras da barra de status, na nota, é a do texto do documento
+  const wc = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    const body = e.bodyModel().paragraphs.map((p) => p.runs.filter((r) => !r.noteRef).map((r) => r.text).join('')).join(' ');
+    return { stats: e.stats().words, body: (body.match(/\S+/g) ?? []).length };
+  });
+  check('na nota, a contagem de palavras é a do documento', wc.stats === wc.body, wc);
   // clique no corpo sai da nota; clique na nota volta
   let p = await ev('clientOfRef', /^b2$/);
   await page.mouse.click(p.x, p.y);

@@ -4343,8 +4343,11 @@ export class UniversalWriteElement extends HTMLElement {
   /** Estatísticas para a barra de status (como a do app de referência). */
   stats(): { pages: number; words: number; chars: number; paragraph: number; page: number } {
     let words = 0, chars = 0;
-    if (this.model) {
-      for (const p of this.model.paragraphs) {
+    // na nota, conta o texto do documento (o da nota fica de fora, como no Word)
+    const ne = this.noteEdit;
+    const model = ne ? ne.saved.model : this.model;
+    if (model) {
+      for (const p of model.paragraphs) {
         const t = this.plainTextSlice(p, 0, paraLength(p));
         chars += t.length;
         words += (t.match(/\S+/g) ?? []).length;
@@ -4355,7 +4358,7 @@ export class UniversalWriteElement extends HTMLElement {
       page: this.currentPage(),
       words,
       chars,
-      paragraph: this.selection.focus.para + 1,
+      paragraph: (ne ? ne.saved.selection : this.selection).focus.para + 1,
     };
   }
 
