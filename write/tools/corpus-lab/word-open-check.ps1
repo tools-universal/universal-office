@@ -87,6 +87,8 @@ foreach ($row in $rows) {
           try { $null = $d.Styles.Item('Tabela Lossless'); $script:tstyle = $true } catch { }
         }
         if ($Hf) {
+          # documento protegido (formularios): o COM nao le o PageSetup (como no -Nav)
+          $script:prot = ($d.ProtectionType -ne -1)
           # opcoes da ultima secao, pares/impares e o vinculo das secoes desvinculada/vinculada
           $ls = $d.Sections.Item($d.Sections.Count)
           $script:hfTp = [int]$ls.PageSetup.DifferentFirstPageHeaderFooter
@@ -127,6 +129,7 @@ foreach ($row in $rows) {
       elseif (-not $script:pgb) { $status = 'no-page-borders' }
       elseif (-not $script:tstyle) { $status = 'no-table-style' }
     }
+    elseif ($Hf -and $script:prot) { $status = 'ok-protected' }
     elseif ($Hf) {
       $wantTp = 0; if ($parts.Count -ge 3 -and $parts[2] -eq '1') { $wantTp = -1 }
       if ($script:hfTp -ne $wantTp) { $status = 'hf-titlepg' }

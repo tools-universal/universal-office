@@ -1,0 +1,154 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 420.89,
+"x0": 549.46,
+"x1": 554.19,
+"size": 12.0,
+"text": "1"
+},
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 493.3,
+"size": 11.04,
+"text": "Pagina1Hxg.Empresasegurançaoperaçãonãodocumentooanáliseserviçoárea"
+},
+{
+"y": 94.94,
+"x0": 85.1,
+"x1": 499.28,
+"size": 11.04,
+"text": "execuçãoprocessoparaqualidadeaprovaçãogestãocontroleresponsávelconforme"
+},
+{
+"y": 108.62,
+"x0": 85.1,
+"x1": 457.6,
+"size": 11.04,
+"text": "comregistroúltimotécnicaseráclienteumaquerelatórioprazoatendimento"
+},
+{
+"y": 122.18,
+"x0": 85.1,
+"x1": 408.93,
+"size": 11.04,
+"text": "informaçãoasemàperíododadoscontratoprocedimentoosdeé."
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 534.77,
+"y0": 402.95,
+"x1": 570.77,
+"y1": 438.95
+}
+]
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 420.89,
+"x0": 549.46,
+"x1": 555.53,
+"size": 12.0,
+"text": "2"
+},
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 495.06,
+"size": 11.04,
+"text": "Pagina2Hxg.Aprovaçãogestãocontroleresponsávelconformecomregistroúltimo"
+},
+{
+"y": 94.94,
+"x0": 85.1,
+"x1": 501.67,
+"size": 11.04,
+"text": "técnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoasemàperíodo"
+},
+{
+"y": 108.62,
+"x0": 85.1,
+"x1": 503.64,
+"size": 11.04,
+"text": "dadoscontratoprocedimentoosdeéempresasegurançaoperaçãonãodocumentoo"
+},
+{
+"y": 122.18,
+"x0": 85.1,
+"x1": 358.59,
+"size": 11.04,
+"text": "análiseserviçoáreaexecuçãoprocessoparaqualidade."
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 534.77,
+"y0": 402.95,
+"x1": 570.77,
+"y1": 438.95
+}
+]
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 420.89,
+"x0": 549.46,
+"x1": 555.62,
+"size": 12.0,
+"text": "3"
+},
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 484.06,
+"size": 11.04,
+"text": "Pagina3Hxg.Análiseserviçoáreaexecuçãoprocessoparaqualidadeaprovação"
+},
+{
+"y": 94.94,
+"x0": 85.1,
+"x1": 488.72,
+"size": 11.04,
+"text": "gestãocontroleresponsávelconformecomregistroúltimotécnicaseráclienteuma"
+},
+{
+"y": 108.62,
+"x0": 85.1,
+"x1": 455.81,
+"size": 11.04,
+"text": "querelatórioprazoatendimentoinformaçãoasemàperíododadoscontrato"
+},
+{
+"y": 122.18,
+"x0": 85.1,
+"x1": 430.26,
+"size": 11.04,
+"text": "procedimentoosdeéempresasegurançaoperaçãonãodocumentoo."
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 534.77,
+"y0": 402.95,
+"x1": 570.77,
+"y1": 438.95
+}
+]
+}
+]
+}
