@@ -1,0 +1,12 @@
+{
+    "name":  "ln-cont-over",
+    "extra":  {
+                  "ln":  {
+                             "active":  -1,
+                             "restart":  0,
+                             "start":  3,
+                             "countBy":  5,
+                             "dist":  28.35
+                         }
+              }
+}

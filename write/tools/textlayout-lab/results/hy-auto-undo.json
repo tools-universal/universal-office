@@ -1,0 +1,9 @@
+{
+    "name":  "hy-auto-undo",
+    "extra":  {
+                  "before":  true,
+                  "undoReturned":  true,
+                  "after":  false,
+                  "text":  "abc\r"
+              }
+}

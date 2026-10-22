@@ -1,0 +1,12 @@
+{
+    "name":  "ln-off",
+    "extra":  {
+                  "ln":  {
+                             "active":  0,
+                             "restart":  1,
+                             "start":  3,
+                             "countBy":  1,
+                             "dist":  28.35
+                         }
+              }
+}

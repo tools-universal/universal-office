@@ -36,6 +36,9 @@ export interface GlyphRunItem {
    *  quadro; line = identidade da linha (os runs da mesma linha saem juntos).
    *  O Word não grava a linha que fica inteira fora da página (cullOffPage). */
   lineBox?: { asc: number; desc: number; lead: number; line: number };
+  /** número de linha (w:lnNumType): vai para o PDF mesmo fora da página (oráculo
+   *  lnnum2/ln-dist-wide) */
+  lineNum?: boolean;
   /** glifos COLORIDOS (COLR, ex.: Segoe UI Emoji): curvas por camada, nas
    *  cores da paleta — o Word também não grava texto extraível para eles */
   colr?: boolean;

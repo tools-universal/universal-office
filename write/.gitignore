@@ -26,3 +26,5 @@ tools/nav-lab/.out/
 tools/image-lab/.out/
 # Oráculo da caixa de texto — idem
 tools/textbox-lab/.out/
+# Oráculo do layout do texto (hifenização, números de linha) — idem
+tools/textlayout-lab/.out/

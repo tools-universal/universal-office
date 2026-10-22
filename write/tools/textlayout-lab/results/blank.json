@@ -1,0 +1,32 @@
+{
+    "name":  "blank",
+    "extra":  {
+                  "hy":  {
+                             "auto":  false,
+                             "caps":  true,
+                             "zone":  9999999,
+                             "limit":  0
+                         },
+                  "ln":  {
+                             "active":  0,
+                             "restart":  2,
+                             "start":  1,
+                             "countBy":  1,
+                             "dist":  0
+                         },
+                  "widow":  -1,
+                  "pressed":  {
+                                  "HyphenationNone":  true,
+                                  "HyphenationAutomatic":  false,
+                                  "LineNumbersContinuous":  false,
+                                  "LineNumbersNone":  "ERR",
+                                  "LineNumbersOff":  true,
+                                  "LineNumbersRestartPage":  "ERR",
+                                  "LineNumbersRestartSection":  "ERR",
+                                  "LineNumbersRestartEachPage":  "ERR",
+                                  "LineNumbersRestartEachSection":  "ERR",
+                                  "LineNumbersSuppressForCurrentParagraph":  "ERR",
+                                  "LineNumbersSuppress":  false
+                              }
+              }
+}

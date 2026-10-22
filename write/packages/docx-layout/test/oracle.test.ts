@@ -34,7 +34,7 @@ const DY_TOL: Record<string, number> = { vertalign: 0.6, notes: 0.65, fnsep: 0.6
  *  não grava no PDF: fora da página, sem preenchimento, curvas…). */
 const STRICT = new Set(['hidetext', 'emfrop', 'txbxscale']);
 /** Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt). */
-const DX_TOL: Record<string, number> = { tblpct: 0.6, tblw: 0.6, formtext: 0.6, spacerun: 0.6, numtabind: 0.6, tallwrap: 0.6, numstyind: 0.6, tblsp: 0.6, nowrap: 0.6, tblvert: 0.6, tblnum: 0.6, fejust: 0.6, tblpctmin: 0.6, tblindctr: 0.6, txbxctr: 0.6, txbxln: 0.6, tbinset: 0.3, ftcellmar: 0.3, omath: 0.6, tblbdmin: 0.6, sckmix: 0.6, rowjc: 0.6, wmftext: 0.6, cellwrap: 0.3, txrect: 0.3, tblmincol: 0.6, felead: 0.6, feknown: 0.6, fehangcomp: 0.6, glyphfb: 0.6, anctrail: 0.3, cellout: 0.3, brfirst: 0.6 };
+const DX_TOL: Record<string, number> = { tblpct: 0.6, tblw: 0.6, formtext: 0.6, spacerun: 0.6, numtabind: 0.6, tallwrap: 0.6, numstyind: 0.6, tblsp: 0.6, nowrap: 0.6, tblvert: 0.6, tblnum: 0.6, fejust: 0.6, tblpctmin: 0.6, tblindctr: 0.6, txbxctr: 0.6, txbxln: 0.6, tbinset: 0.3, ftcellmar: 0.3, omath: 0.6, tblbdmin: 0.6, sckmix: 0.6, rowjc: 0.6, wmftext: 0.6, cellwrap: 0.3, txrect: 0.3, tblmincol: 0.6, felead: 0.6, feknown: 0.6, fehangcomp: 0.6, glyphfb: 0.6, anctrail: 0.3, cellout: 0.3, brfirst: 0.6, lnnum: 0.6, lnnum2: 0.6, lnnum3: 0.6 };
 
 /** Grupos em que a contagem de pontos do preenchimento de tab é comparada exata. */
 const EXACT_LEADERS = new Set(['tdhalfpx', 'tdend']);
@@ -47,6 +47,21 @@ const CHAR_ONLY = new Set(['supraise']);
  *  texto (coluna 1 do texto, coluna 1 das notas, coluna 2…). Compara com as linhas ordenadas por coluna e altura. */
 const ORDERLESS = new Set(['en-cols', 'sect-cols2']);
 const byColumn = (d: OracleDoc): OracleDoc => ({ pages: d.pages.map((p) => ({ ...p, lines: [...p.lines].sort((a, b) => Math.round(a.x0 / 100) - Math.round(b.x0 / 100) || a.y - b.y) })) });
+/** Grupos em que o número de linha e o texto da mesma linha saem em ordem variável no
+ *  PDF do Word (o número depois do texto na linha com referência de nota ou recuo
+ *  negativo — oráculo lnnum2): os pedaços da mesma baseline juntam-se em ordem de x
+ *  dos dois lados (a posição de cada linha continua conferida). */
+const BY_BASELINE = new Set(['lnnum2']);
+const byBaseline = (d: OracleDoc): OracleDoc => ({ pages: d.pages.map((p) => {
+  const out: typeof p.lines = [];
+  for (const l of p.lines) {
+    const same = out.find((o) => Math.abs(o.y - l.y) <= 0.3);
+    if (!same) { out.push({ ...l }); continue; }
+    const parts = [same, l].sort((a, b) => a.x0 - b.x0);
+    Object.assign(same, { x0: parts[0]!.x0, x1: Math.max(same.x1, l.x1), size: Math.max(same.size, l.size), text: parts[0]!.text + parts[1]!.text });
+  }
+  return { ...p, lines: out };
+}) });
 
 const groups = existsSync(oracleDir) ? readdirSync(oracleDir).filter((g) => !CHAR_ONLY.has(g)) : [];
 for (const g of groups) {
@@ -66,7 +81,9 @@ for (const g of groups) {
         const orderless = ORDERLESS.has(f.replace(/\.docx$/, ''));
         // texto girado (caixa vertical): a extração separa as linhas giradas (vlines)
         const vw = word.pages.some((p) => (p as { vlines?: unknown }).vlines);
-        const r = orderless ? compareLines(byColumn(word), byColumn(engineLines(res))) : compareLines(word, engineLines(res, vw), EXACT_LEADERS.has(g));
+        const r = orderless ? compareLines(byColumn(word), byColumn(engineLines(res)))
+          : BY_BASELINE.has(g) ? compareLines(byBaseline(word), byBaseline(engineLines(res)))
+            : compareLines(word, engineLines(res, vw), EXACT_LEADERS.has(g));
         if (vw) {
           const vr = compareVLines(word.pages.map((p) => (p as { vlines?: OracleVLine[] }).vlines ?? []), engineVLines(res));
           expect(vr.matched, `linhas giradas casadas (1ª diferença: ${vr.firstDiff})`).toBe(vr.n);

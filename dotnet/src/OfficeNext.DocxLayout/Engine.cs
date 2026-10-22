@@ -967,7 +967,9 @@ internal sealed class Engine
         var ln = s.Sect?.LnNumType;
         if (ln is not null)
         {
-            g.LnNum = (Math.Max(1, ln.CountBy ?? 1), ln.Start ?? 0, ln.Restart ?? "newPage", ln.Distance ?? 360);
+            // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
+            double dist = (ln.Distance ?? 0) > 0 ? ln.Distance!.Value : cols.Count > 1 ? 180 : 360;
+            g.LnNum = (Math.Max(1, ln.CountBy ?? 1), ln.Start ?? 0, ln.Restart ?? "newPage", dist);
         }
         return g;
     }
@@ -1942,7 +1944,8 @@ internal sealed class Engine
                 }
                 continue;
             }
-            if (it is not GlyphRunItem g || g.Glyphs.Count == 0) continue;
+            // (o número de linha fica mesmo fora da página — oráculo lnnum2/ln-dist-wide)
+            if (it is not GlyphRunItem g || g.Glyphs.Count == 0 || g.LineNum) continue;
             double em = g.SizePt * 20;
             double asc = g.LineBox?.Asc ?? em, desc = g.LineBox?.Desc ?? em * 0.3, lead = g.LineBox?.Lead ?? 0;
             double x0 = double.PositiveInfinity, x1 = double.NegativeInfinity;
@@ -2013,17 +2016,25 @@ internal sealed class Engine
     }
 
     /// <summary>
-    /// Número da linha (w:lnNumType) — medido no Word (oráculo lnnum): só linhas
-    /// do corpo (tabela e parágrafo com suppressLineNumbers não contam), vazio
-    /// conta; o 1º número é start+1; alinhado à direita em (coluna − distância,
-    /// auto = 360tw), mesma baseline, estilo Normal + "Line Number".
+    /// Número da linha (w:lnNumType) — medido no Word (oráculos lnnum, lnnum2, lnnum3):
+    /// só linhas do corpo (tabela, caixa de texto, quadro, nota e parágrafo com
+    /// suppressLineNumbers não contam), vazio conta; alinhado à direita em (coluna −
+    /// distância), mesma baseline, estilo Normal + "Line Number"; fora da página também
+    /// vai para o PDF. A contagem recomeça (1º número = start+1) na 1ª linha numerada
+    /// depois de uma seção SEM numeração (ou do início), na 1ª linha de uma seção
+    /// newSection e na 1ª linha de uma página nova numa seção newPage; senão continua a
+    /// da seção anterior (o start da seção que continua é ignorado), mesmo de uma seção
+    /// newPage na mesma página.
     /// </summary>
     private void PaintLineNumber(double colX, double baseline)
     {
         var ln = _cur.Geom.LnNum!.Value;
-        bool restart = ln.Restart == "continuous" ? _lnSect < 0
-            : ln.Restart == "newSection" ? _lnSect != _cur.Geom.Index
-                : !ReferenceEquals(_lnPage, _cur);
+        int idx = _cur.Geom.Index;
+        bool newSect = _lnSect != idx;
+        bool fresh = _lnSect < 0 || (newSect && !(idx > 0 && idx - 1 < _geoms.Count && _geoms[idx - 1].LnNum is not null));
+        bool restart = fresh
+            || (ln.Restart == "newSection" && newSect)
+            || (ln.Restart == "newPage" && !ReferenceEquals(_lnPage, _cur));
         if (restart) _lnCount = ln.Start;
         _lnPage = _cur;
         _lnSect = _cur.Geom.Index;
@@ -2040,7 +2051,10 @@ internal sealed class Engine
         var np = Para.PrepareParagraph(_ctx, para, new ParaEnv { Numbering = false });
         var line = new LineBreaker(_ctx, np).Next(new LineFrame(0, 20000));
         double x = colX - ln.Distance - line.Width;
+        int at = _cur.Body.Count;
         Paint.PaintLine(_ctx, _cur.Body, line, x, baseline - line.Baseline);
+        for (int k = at; k < _cur.Body.Count; k++)
+            if (_cur.Body[k] is GlyphRunItem gr) gr.LineNum = true;
     }
 
     /// <summary>Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado).</summary>

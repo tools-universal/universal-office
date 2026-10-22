@@ -1,0 +1,16 @@
+{
+    "name":  "ln-pressed-mixed",
+    "extra":  {
+                  "pressed":  {
+                                  "LineNumbersContinuous":  false,
+                                  "LineNumbersNone":  "ERR",
+                                  "LineNumbersOff":  false,
+                                  "LineNumbersRestartPage":  "ERR",
+                                  "LineNumbersRestartSection":  "ERR",
+                                  "LineNumbersRestartEachPage":  "ERR",
+                                  "LineNumbersRestartEachSection":  "ERR",
+                                  "LineNumbersSuppressForCurrentParagraph":  "ERR",
+                                  "LineNumbersSuppress":  false
+                              }
+              }
+}

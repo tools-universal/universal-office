@@ -1,0 +1,28 @@
+{
+    "name":  "ln-scope-sel",
+    "extra":  {
+                  "ln":  [
+                             {
+                                 "active":  -1,
+                                 "restart":  0,
+                                 "start":  1,
+                                 "countBy":  1,
+                                 "dist":  0
+                             },
+                             {
+                                 "active":  -1,
+                                 "restart":  0,
+                                 "start":  1,
+                                 "countBy":  1,
+                                 "dist":  0
+                             },
+                             {
+                                 "active":  0,
+                                 "restart":  2,
+                                 "start":  1,
+                                 "countBy":  1,
+                                 "dist":  0
+                             }
+                         ]
+              }
+}

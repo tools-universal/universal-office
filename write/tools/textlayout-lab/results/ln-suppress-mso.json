@@ -1,0 +1,13 @@
+{
+    "name":  "ln-suppress-mso",
+    "extra":  {
+                  "sup":  [
+                              -1,
+                              0,
+                              0
+                          ],
+                  "pressed":  {
+                                  "LineNumbersSuppress":  true
+                              }
+              }
+}

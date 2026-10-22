@@ -1,0 +1,11 @@
+{
+    "name":  "ln-suppress-off",
+    "extra":  {
+                  "enabledBefore":  true,
+                  "sup":  [
+                              -1,
+                              0,
+                              0
+                          ]
+              }
+}

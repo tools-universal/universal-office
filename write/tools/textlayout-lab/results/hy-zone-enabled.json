@@ -1,0 +1,23 @@
+{
+    "name":  "hy-zone-enabled",
+    "extra":  {
+                  "m15":  {
+                              "auto":  false,
+                              "caps":  true,
+                              "zone":  9999999,
+                              "limit":  0
+                          },
+                  "m14":  {
+                              "auto":  false,
+                              "caps":  true,
+                              "zone":  9999999,
+                              "limit":  0
+                          },
+                  "back15":  {
+                                 "auto":  false,
+                                 "caps":  true,
+                                 "zone":  9999999,
+                                 "limit":  0
+                             }
+              }
+}

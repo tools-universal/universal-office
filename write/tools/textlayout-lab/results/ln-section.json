@@ -1,0 +1,23 @@
+{
+    "name":  "ln-section",
+    "extra":  {
+                  "ln":  {
+                             "active":  -1,
+                             "restart":  1,
+                             "start":  1,
+                             "countBy":  1,
+                             "dist":  0
+                         },
+                  "pressed":  {
+                                  "LineNumbersContinuous":  false,
+                                  "LineNumbersNone":  "ERR",
+                                  "LineNumbersOff":  false,
+                                  "LineNumbersRestartPage":  "ERR",
+                                  "LineNumbersRestartSection":  "ERR",
+                                  "LineNumbersRestartEachPage":  "ERR",
+                                  "LineNumbersRestartEachSection":  "ERR",
+                                  "LineNumbersSuppressForCurrentParagraph":  "ERR",
+                                  "LineNumbersSuppress":  false
+                              }
+              }
+}

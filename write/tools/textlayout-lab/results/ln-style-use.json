@@ -1,0 +1,9 @@
+{
+    "name":  "ln-style-use",
+    "extra":  {
+                  "name":  "Número de linha",
+                  "type":  2,
+                  "inUse":  true,
+                  "base":  "Fonte parág. padrão"
+              }
+}

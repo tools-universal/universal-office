@@ -1,0 +1,13 @@
+{
+    "name":  "hy-none-shy",
+    "extra":  {
+                  "hy":  {
+                             "auto":  false,
+                             "caps":  true,
+                             "zone":  9999999,
+                             "limit":  0
+                         },
+                  "text":  "hife\u001fnizacao manual\r",
+                  "len":  20
+              }
+}

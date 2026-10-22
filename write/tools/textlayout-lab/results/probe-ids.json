@@ -1,0 +1,200 @@
+{
+    "name":  "probe-ids",
+    "extra":  {
+                  "LineNumbersMenu":  {
+                                          "label":  "Números de Linha",
+                                          "tip":  "Mostrar Números de Linha",
+                                          "super":  "Fazer referência a linhas específicas no documento com rapidez e facilidade, usando números de linha na margem."
+                                      },
+                  "LineNumbersContinuous":  {
+                                                "label":  "Contínuo",
+                                                "tip":  "Contínuo",
+                                                "super":  null
+                                            },
+                  "LineNumbersNone":  {
+                                          "label":  "ERR",
+                                          "tip":  "",
+                                          "super":  ""
+                                      },
+                  "LineNumbersOff":  {
+                                         "label":  "Nenhum",
+                                         "tip":  "Nenhum",
+                                         "super":  null
+                                     },
+                  "LineNumbersRestartPage":  {
+                                                 "label":  "ERR",
+                                                 "tip":  "",
+                                                 "super":  ""
+                                             },
+                  "LineNumbersRestartSection":  {
+                                                    "label":  "ERR",
+                                                    "tip":  "",
+                                                    "super":  ""
+                                                },
+                  "LineNumbersRestartEachPage":  {
+                                                     "label":  "ERR",
+                                                     "tip":  "",
+                                                     "super":  ""
+                                                 },
+                  "LineNumbersRestartEachSection":  {
+                                                        "label":  "ERR",
+                                                        "tip":  "",
+                                                        "super":  ""
+                                                    },
+                  "LineNumbersEachPage":  {
+                                              "label":  "ERR",
+                                              "tip":  "",
+                                              "super":  ""
+                                          },
+                  "LineNumbersEachSection":  {
+                                                 "label":  "ERR",
+                                                 "tip":  "",
+                                                 "super":  ""
+                                             },
+                  "LineNumbersPerPage":  {
+                                             "label":  "ERR",
+                                             "tip":  "",
+                                             "super":  ""
+                                         },
+                  "LineNumbersPerSection":  {
+                                                "label":  "ERR",
+                                                "tip":  "",
+                                                "super":  ""
+                                            },
+                  "LineNumbersRestartEveryPage":  {
+                                                      "label":  "ERR",
+                                                      "tip":  "",
+                                                      "super":  ""
+                                                  },
+                  "LineNumbersRestartEverySection":  {
+                                                         "label":  "ERR",
+                                                         "tip":  "",
+                                                         "super":  ""
+                                                     },
+                  "LineNumbersRestartOnEachPage":  {
+                                                       "label":  "ERR",
+                                                       "tip":  "",
+                                                       "super":  ""
+                                                   },
+                  "LineNumbersRestartOnEachSection":  {
+                                                          "label":  "ERR",
+                                                          "tip":  "",
+                                                          "super":  ""
+                                                      },
+                  "LineNumbersSuppress":  {
+                                              "label":  "Suprimir no Parágrafo Atual",
+                                              "tip":  "Suprimir no Parágrafo Atual",
+                                              "super":  null
+                                          },
+                  "LineNumbersSuppressForCurrentParagraph":  {
+                                                                 "label":  "ERR",
+                                                                 "tip":  "",
+                                                                 "super":  ""
+                                                             },
+                  "LineNumbersSuppressCurrentParagraph":  {
+                                                              "label":  "ERR",
+                                                              "tip":  "",
+                                                              "super":  ""
+                                                          },
+                  "LineNumbersSuppressForParagraph":  {
+                                                          "label":  "ERR",
+                                                          "tip":  "",
+                                                          "super":  ""
+                                                      },
+                  "SuppressLineNumbers":  {
+                                              "label":  "ERR",
+                                              "tip":  "",
+                                              "super":  ""
+                                          },
+                  "LineNumbersOptions":  {
+                                             "label":  "ERR",
+                                             "tip":  "",
+                                             "super":  ""
+                                         },
+                  "LineNumberingOptions":  {
+                                               "label":  "ERR",
+                                               "tip":  "",
+                                               "super":  ""
+                                           },
+                  "LineNumberOptions":  {
+                                            "label":  "ERR",
+                                            "tip":  "",
+                                            "super":  ""
+                                        },
+                  "LineNumbersMoreOptions":  {
+                                                 "label":  "ERR",
+                                                 "tip":  "",
+                                                 "super":  ""
+                                             },
+                  "LineNumbersDialog":  {
+                                            "label":  "ERR",
+                                            "tip":  "",
+                                            "super":  ""
+                                        },
+                  "LineNumbering":  {
+                                        "label":  "ERR",
+                                        "tip":  "",
+                                        "super":  ""
+                                    },
+                  "LineNumbers":  {
+                                      "label":  "ERR",
+                                      "tip":  "",
+                                      "super":  ""
+                                  },
+                  "HyphenationMenu":  {
+                                          "label":  "Hifenização",
+                                          "tip":  "Alterar Hifenização",
+                                          "super":  "Quando uma palavra fica sem espaço, o Word normalmente a move para a próxima linha. Quando você ativa a hifenização, o Word quebra a palavra.\n\nDa mesma forma que vemos em livros e revistas, a hifenização ajuda a criar um espaçamento mais uniforme e economiza espaço no documento."
+                                      },
+                  "HyphenationNone":  {
+                                          "label":  "Nenhuma",
+                                          "tip":  "Desativa a Hifenização Automática",
+                                          "super":  null
+                                      },
+                  "HyphenationAutomatic":  {
+                                               "label":  "Automático",
+                                               "tip":  "Ativa a Hifenização Automática",
+                                               "super":  null
+                                           },
+                  "HyphenationManual":  {
+                                            "label":  "Manual",
+                                            "tip":  "Hifenização Manual",
+                                            "super":  null
+                                        },
+                  "HyphenationOptions":  {
+                                             "label":  "Opções de Hifenização...",
+                                             "tip":  "Opções de Hifenização...",
+                                             "super":  "Alterar o comportamento de hifenização do texto selecionado."
+                                         },
+                  "ParagraphIndentLeft":  {
+                                              "label":  "À Esquerda:",
+                                              "tip":  "Recuar à Esquerda",
+                                              "super":  "Escolher o quanto distanciar o parágrafo da margem esquerda.\n\nPara alterar as margens do documento inteiro, clique no botão Margens."
+                                          },
+                  "ParagraphIndentRight":  {
+                                               "label":  "À Direita:",
+                                               "tip":  "Recuar à Direita",
+                                               "super":  "Escolher o quanto distanciar o parágrafo da margem direita.\n\nPara alterar as margens do documento inteiro, clique no botão Margens."
+                                           },
+                  "ParagraphSpacingBefore":  {
+                                                 "label":  "Antes:",
+                                                 "tip":  "Espaçamento Antes",
+                                                 "super":  "Mude o espaço exibido acima dos parágrafos selecionados.\n\nPara aplicar o mesmo espaçamento a todo o documento, use as opções de Espaçamento de Parágrafo na guia Design."
+                                             },
+                  "ParagraphSpacingAfter":  {
+                                                "label":  "Depois:",
+                                                "tip":  "Espaçamento Depois",
+                                                "super":  "Mude o espaço exibido abaixo dos parágrafos selecionados.\n\nPara aplicar o mesmo espaçamento a todo o documento, use as opções de Espaçamento de Parágrafo na guia Design."
+                                            },
+                  "ParagraphSpacingMenu":  {
+                                               "label":  "ERR",
+                                               "tip":  "",
+                                               "super":  ""
+                                           },
+                  "ParagraphSpacingGallery":  {
+                                                  "label":  "ERR",
+                                                  "tip":  "",
+                                                  "super":  ""
+                                              }
+              }
+}

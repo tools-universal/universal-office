@@ -52,6 +52,9 @@ public sealed class GlyphRunItem : PageItem
     /// quadro; Line = identidade da linha (os runs da mesma linha saem juntos).
     /// O Word não grava a linha que fica inteira fora da página (CullOffPage).</summary>
     public LineBoxInfo? LineBox;
+    /// <summary>número de linha (w:lnNumType): vai para o PDF mesmo fora da página
+    /// (oráculo lnnum2/ln-dist-wide)</summary>
+    public bool LineNum;
     /// <summary>glifos COLORIDOS (COLR, ex.: Segoe UI Emoji): curvas por camada, nas
     /// cores da paleta — o Word também não grava texto extraível para eles</summary>
     public bool Colr;

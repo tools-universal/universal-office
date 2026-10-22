@@ -803,7 +803,8 @@ class Engine {
         countBy: Math.max(1, s.sect.lnNumType.countBy ?? 1),
         start: s.sect.lnNumType.start ?? 0,
         restart: s.sect.lnNumType.restart ?? 'newPage',
-        distance: s.sect.lnNumType.distance ?? 360,
+        // "Automático" (sem w:distance ou 0): 1/4" numa coluna, 1/8" em várias (oráculo lnnum2)
+        distance: (s.sect.lnNumType.distance ?? 0) > 0 ? s.sect.lnNumType.distance! : cols.length > 1 ? 180 : 360,
       } } : {}),
     };
   }
@@ -1573,16 +1574,24 @@ class Engine {
   }
 
   /**
-   * Número da linha (w:lnNumType) — medido no Word (oráculo lnnum): só linhas
-   * do corpo (tabela e parágrafo com suppressLineNumbers não contam), vazio
-   * conta; o 1º número é start+1; alinhado à direita em (coluna − distância,
-   * auto = 360tw), mesma baseline, estilo Normal + "Line Number".
+   * Número da linha (w:lnNumType) — medido no Word (oráculos lnnum, lnnum2, lnnum3):
+   * só linhas do corpo (tabela, caixa de texto, quadro, nota e parágrafo com
+   * suppressLineNumbers não contam), vazio conta; alinhado à direita em (coluna −
+   * distância), mesma baseline, estilo Normal + "Line Number"; fora da página também
+   * vai para o PDF. A contagem recomeça (1º número = start+1) na 1ª linha numerada
+   * depois de uma seção SEM numeração (ou do início), na 1ª linha de uma seção
+   * newSection e na 1ª linha de uma página nova numa seção newPage; senão continua a
+   * da seção anterior (o start da seção que continua é ignorado), mesmo de uma seção
+   * newPage na mesma página.
    */
   private paintLineNumber(colX: number, baseline: number): void {
     const ln = this.cur.geom.lnNum!;
-    const restart = ln.restart === 'continuous' ? this.lnSect < 0
-      : ln.restart === 'newSection' ? this.lnSect !== this.cur.geom.index
-        : this.lnPage !== this.cur;
+    const idx = this.cur.geom.index;
+    const newSect = this.lnSect !== idx;
+    const fresh = this.lnSect < 0 || (newSect && !this.geoms[idx - 1]?.lnNum);
+    const restart = fresh
+      || (ln.restart === 'newSection' && newSect)
+      || (ln.restart === 'newPage' && this.lnPage !== this.cur);
     if (restart) this.lnCount = ln.start;
     this.lnPage = this.cur;
     this.lnSect = this.cur.geom.index;
@@ -1595,7 +1604,12 @@ class Engine {
     const np = prepareParagraph(this.ctx, para, { numbering: false });
     const line = new LineBreaker(this.ctx, np).next({ left: 0, right: 20000 });
     const x = colX - ln.distance - line.width;
+    const at = this.cur.body.length;
     paintLine(this.ctx, this.cur.body, line, x, baseline - line.baseline);
+    for (let k = at; k < this.cur.body.length; k++) {
+      const it = this.cur.body[k]!;
+      if (it.t === 'glyphs') it.lineNum = true;
+    }
   }
 
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
@@ -3878,7 +3892,8 @@ function cullOffPage(items: PageItem[], pageW: number, pageH: number): PageItem[
       } else if (it.op === 'pop') m = stack.pop() ?? null;
       continue;
     }
-    if (it.t !== 'glyphs' || !it.glyphs.length) continue;
+    // (o número de linha fica mesmo fora da página — oráculo lnnum2/ln-dist-wide)
+    if (it.t !== 'glyphs' || !it.glyphs.length || it.lineNum) continue;
     const em = it.sizePt * 20;
     const box = it.lineBox ?? { asc: em, desc: em * 0.3, lead: 0 };
     let x0 = Infinity, x1 = -Infinity;

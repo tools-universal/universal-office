@@ -1,0 +1,520 @@
+<w:body>
+  <w:p>
+    <w:pPr>
+      <w:suppressAutoHyphens/>
+    </w:pPr>
+    <w:r>
+      <w:t>um dois tres</w:t>
+    </w:r>
+  </w:p>
+  <w:p>
+    <w:r>
+      <w:t>quatro cinco</w:t>
+    </w:r>
+  </w:p>
+  <w:p>
+    <w:r>
+      <w:t>seis sete</w:t>
+    </w:r>
+  </w:p>
+  <w:sectPr>
+    <w:pgSz w:w="11906" w:h="16838"/>
+    <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+    <w:cols w:space="708"/>
+    <w:docGrid w:linePitch="360"/>
+  </w:sectPr>
+</w:body>
+
+<!-- settings.xml × blank -->
+(igual)
+
+<!-- styles.xml × blank -->
++ <w:style w:type="paragraph" w:styleId="Ttulo1">
+  <w:name w:val="heading 1"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo1Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="360" w:after="80"/>
+    <w:outlineLvl w:val="0"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:sz w:val="40"/>
+    <w:szCs w:val="40"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo2">
+  <w:name w:val="heading 2"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo2Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="160" w:after="80"/>
+    <w:outlineLvl w:val="1"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:sz w:val="32"/>
+    <w:szCs w:val="32"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo3">
+  <w:name w:val="heading 3"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo3Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="160" w:after="80"/>
+    <w:outlineLvl w:val="2"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:sz w:val="28"/>
+    <w:szCs w:val="28"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo4">
+  <w:name w:val="heading 4"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo4Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="80" w:after="40"/>
+    <w:outlineLvl w:val="3"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo5">
+  <w:name w:val="heading 5"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo5Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="80" w:after="40"/>
+    <w:outlineLvl w:val="4"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo6">
+  <w:name w:val="heading 6"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo6Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="40" w:after="0"/>
+    <w:outlineLvl w:val="5"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo7">
+  <w:name w:val="heading 7"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo7Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:before="40" w:after="0"/>
+    <w:outlineLvl w:val="6"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo8">
+  <w:name w:val="heading 8"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo8Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:after="0"/>
+    <w:outlineLvl w:val="7"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo9">
+  <w:name w:val="heading 9"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Ttulo9Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:after="0"/>
+    <w:outlineLvl w:val="8"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo1Char">
+  <w:name w:val="Título 1 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo1"/>
+  <w:uiPriority w:val="9"/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:sz w:val="40"/>
+    <w:szCs w:val="40"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo2Char">
+  <w:name w:val="Título 2 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo2"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:sz w:val="32"/>
+    <w:szCs w:val="32"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo3Char">
+  <w:name w:val="Título 3 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo3"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:sz w:val="28"/>
+    <w:szCs w:val="28"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo4Char">
+  <w:name w:val="Título 4 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo4"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo5Char">
+  <w:name w:val="Título 5 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo5"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo6Char">
+  <w:name w:val="Título 6 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo6"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo7Char">
+  <w:name w:val="Título 7 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo7"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo8Char">
+  <w:name w:val="Título 8 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo8"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="Ttulo9Char">
+  <w:name w:val="Título 9 Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo9"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="272727" w:themeColor="text1" w:themeTint="D8"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Ttulo">
+  <w:name w:val="Title"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="TtuloChar"/>
+  <w:uiPriority w:val="10"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:spacing w:after="80" w:line="240" w:lineRule="auto"/>
+    <w:contextualSpacing/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>
+    <w:spacing w:val="-10"/>
+    <w:kern w:val="28"/>
+    <w:sz w:val="56"/>
+    <w:szCs w:val="56"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="TtuloChar">
+  <w:name w:val="Título Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Ttulo"/>
+  <w:uiPriority w:val="10"/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:asciiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:hAnsiTheme="majorHAnsi" w:cstheme="majorBidi"/>
+    <w:spacing w:val="-10"/>
+    <w:kern w:val="28"/>
+    <w:sz w:val="56"/>
+    <w:szCs w:val="56"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Subttulo">
+  <w:name w:val="Subtitle"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="SubttuloChar"/>
+  <w:uiPriority w:val="11"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:numPr>
+      <w:ilvl w:val="1"/>
+    </w:numPr>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>
+    <w:spacing w:val="15"/>
+    <w:sz w:val="28"/>
+    <w:szCs w:val="28"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="SubttuloChar">
+  <w:name w:val="Subtítulo Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Subttulo"/>
+  <w:uiPriority w:val="11"/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:color w:val="595959" w:themeColor="text1" w:themeTint="A6"/>
+    <w:spacing w:val="15"/>
+    <w:sz w:val="28"/>
+    <w:szCs w:val="28"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="Citao">
+  <w:name w:val="Quote"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="CitaoChar"/>
+  <w:uiPriority w:val="29"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:spacing w:before="160"/>
+    <w:jc w:val="center"/>
+  </w:pPr>
+  <w:rPr>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="CitaoChar">
+  <w:name w:val="Citação Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="Citao"/>
+  <w:uiPriority w:val="29"/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="404040" w:themeColor="text1" w:themeTint="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="PargrafodaLista">
+  <w:name w:val="List Paragraph"/>
+  <w:basedOn w:val="Normal"/>
+  <w:uiPriority w:val="34"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:ind w:left="720"/>
+    <w:contextualSpacing/>
+  </w:pPr>
+</w:style>
++ <w:style w:type="character" w:styleId="nfaseIntensa">
+  <w:name w:val="Intense Emphasis"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:uiPriority w:val="21"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="paragraph" w:styleId="CitaoIntensa">
+  <w:name w:val="Intense Quote"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="CitaoIntensaChar"/>
+  <w:uiPriority w:val="30"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:pPr>
+    <w:pBdr>
+      <w:top w:val="single" w:sz="4" w:space="10" w:color="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+      <w:bottom w:val="single" w:sz="4" w:space="10" w:color="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    </w:pBdr>
+    <w:spacing w:before="360" w:after="360"/>
+    <w:ind w:left="864" w:right="864"/>
+    <w:jc w:val="center"/>
+  </w:pPr>
+  <w:rPr>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:customStyle="1" w:styleId="CitaoIntensaChar">
+  <w:name w:val="Citação Intensa Char"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:link w:val="CitaoIntensa"/>
+  <w:uiPriority w:val="30"/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:i/>
+    <w:iCs/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+  </w:rPr>
+</w:style>
++ <w:style w:type="character" w:styleId="RefernciaIntensa">
+  <w:name w:val="Intense Reference"/>
+  <w:basedOn w:val="Fontepargpadro"/>
+  <w:uiPriority w:val="32"/>
+  <w:qFormat/>
+  <w:rsid w:val="00431D06"/>
+  <w:rPr>
+    <w:b/>
+    <w:bCs/>
+    <w:smallCaps/>
+    <w:color w:val="0F4761" w:themeColor="accent1" w:themeShade="BF"/>
+    <w:spacing w:val="5"/>
+  </w:rPr>
+</w:style>

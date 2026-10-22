@@ -84,6 +84,15 @@ export function compareVLines(word: OracleVLine[][], ours: OracleVLine[][]): { n
   return { n, matched, maxDx, maxDy, ...(firstDiff ? { firstDiff } : {}) };
 }
 
+type GlyphsRun = Extract<LayoutResult['pages'][number]['items'][number], { t: 'glyphs' }>;
+/** Avanço (pt) do caractere no item de glifos (0 sem a métrica). */
+function glyphAdvancePt(it: GlyphsRun, cp: number): number {
+  try {
+    const f = it.face.font;
+    return (f.advanceWidth(f.glyphId(cp)) * it.sizePt * (it.scaleX ?? 1)) / f.metrics.unitsPerEm;
+  } catch { return 0; }
+}
+
 /** Linhas da árvore de layout (pt), agrupando glifos por baseline na ordem dos itens.
  *  `skipRotated`: glifos em xform girado ficam de fora (vão em engineVLines). */
 export function engineLines(res: LayoutResult, skipRotated = false): OracleDoc {
@@ -113,12 +122,16 @@ export function engineLines(res: LayoutResult, skipRotated = false): OracleDoc {
           // corpo como no PDF (múltiplo de 0,12 pt: 10 → 9,96), que decide a tolerância da extração
           const size = Math.round(it.sizePt / 0.12) * 0.12;
           const tol = Math.max(1, 0.3 * size);
+          // borda direita como a do pdfium (caixa do caractere): o avanço do glifo — o
+          // número de linha seguido de texto recuado para a esquerda dele (recuo
+          // negativo) abre outra linha na extração (oráculo lnnum2/ln-indent)
+          const right = x + Math.max(1, glyphAdvancePt(it, g.cp));
           if (cur && Math.abs(y - cur.y) <= tol && x >= cur.x1 - tol * 2) {
             cur.text += ch;
-            cur.x1 = Math.max(cur.x1, x + 1);
+            cur.x1 = Math.max(cur.x1, right);
             cur.size = Math.max(cur.size, size);
           } else {
-            cur = { y, x0: x, x1: x + 1, size, text: ch };
+            cur = { y, x0: x, x1: right, size, text: ch };
             lines.push(cur);
           }
           lastCp[lines.length - 1] = g.cp;

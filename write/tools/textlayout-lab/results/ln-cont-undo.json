@@ -1,0 +1,21 @@
+{
+    "name":  "ln-cont-undo",
+    "extra":  {
+                  "before":  {
+                                 "active":  -1,
+                                 "restart":  0,
+                                 "start":  1,
+                                 "countBy":  1,
+                                 "dist":  0
+                             },
+                  "undoReturned":  true,
+                  "after":  {
+                                "active":  0,
+                                "restart":  2,
+                                "start":  1,
+                                "countBy":  1,
+                                "dist":  0
+                            },
+                  "text":  "um dois tres\rquatro cinco\rseis sete\r"
+              }
+}

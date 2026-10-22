@@ -1,0 +1,15 @@
+{
+    "name":  "hy-auto",
+    "extra":  {
+                  "hy":  {
+                             "auto":  true,
+                             "caps":  true,
+                             "zone":  9999999,
+                             "limit":  0
+                         },
+                  "pressed":  {
+                                  "HyphenationNone":  false,
+                                  "HyphenationAutomatic":  true
+                              }
+              }
+}

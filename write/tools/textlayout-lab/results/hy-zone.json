@@ -1,0 +1,11 @@
+{
+    "name":  "hy-zone",
+    "extra":  {
+                  "hy":  {
+                             "auto":  false,
+                             "caps":  true,
+                             "zone":  9999999,
+                             "limit":  0
+                         }
+              }
+}

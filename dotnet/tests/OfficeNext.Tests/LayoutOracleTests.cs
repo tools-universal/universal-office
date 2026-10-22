@@ -85,7 +85,7 @@ public class LayoutOracleTests
     /// não grava no PDF: fora da página, sem preenchimento, curvas…).</summary>
     private static readonly HashSet<string> Strict = new(StringComparer.Ordinal) { "hidetext", "emfrop", "txbxscale" };
     /// <summary>Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt).</summary>
-    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3, ["omath"] = 0.6, ["tblbdmin"] = 0.6, ["sckmix"] = 0.6, ["rowjc"] = 0.6, ["wmftext"] = 0.6, ["cellwrap"] = 0.3, ["txrect"] = 0.3, ["tblmincol"] = 0.6, ["felead"] = 0.6, ["feknown"] = 0.6, ["fehangcomp"] = 0.6, ["glyphfb"] = 0.6, ["anctrail"] = 0.3, ["cellout"] = 0.3, ["brfirst"] = 0.6 };
+    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3, ["omath"] = 0.6, ["tblbdmin"] = 0.6, ["sckmix"] = 0.6, ["rowjc"] = 0.6, ["wmftext"] = 0.6, ["cellwrap"] = 0.3, ["txrect"] = 0.3, ["tblmincol"] = 0.6, ["felead"] = 0.6, ["feknown"] = 0.6, ["fehangcomp"] = 0.6, ["glyphfb"] = 0.6, ["anctrail"] = 0.3, ["cellout"] = 0.3, ["brfirst"] = 0.6, ["lnnum"] = 0.6, ["lnnum2"] = 0.6, ["lnnum3"] = 0.6 };
     /// <summary>Grupos em que a contagem de pontos do preenchimento de tab é comparada exata.</summary>
     private static readonly HashSet<string> ExactLeaders = new(StringComparer.Ordinal) { "tdhalfpx", "tdend" };
     /// <summary>Casos em que a ORDEM das linhas no PDF não é a do motor: o Word emite as colunas da
@@ -99,6 +99,29 @@ public class LayoutOracleTests
         {
             W = p.W, H = p.H, Objs = p.Objs,
             Lines = p.Lines.OrderBy(l => OfficeNext.Docx.Js.Round(l.X0 / 100)).ThenBy(l => l.Y).ToList(),
+        }).ToList(),
+    };
+
+    /// <summary>Grupos em que o número de linha e o texto da mesma linha saem em ordem variável no
+    /// PDF do Word (o número depois do texto na linha com referência de nota ou recuo
+    /// negativo — oráculo lnnum2): os pedaços da mesma baseline juntam-se em ordem de x
+    /// dos dois lados (a posição de cada linha continua conferida).</summary>
+    private static readonly HashSet<string> ByBaselineGroups = new(StringComparer.Ordinal) { "lnnum2" };
+
+    private static OracleCompare.ODoc ByBaseline(OracleCompare.ODoc d) => new()
+    {
+        Pages = d.Pages.Select(p =>
+        {
+            var outp = new List<OracleCompare.OLine>();
+            foreach (var l in p.Lines)
+            {
+                var same = outp.FirstOrDefault(o => Math.Abs(o.Y - l.Y) <= 0.3);
+                if (same is null) { outp.Add(new OracleCompare.OLine { Y = l.Y, X0 = l.X0, X1 = l.X1, Size = l.Size, Text = l.Text }); continue; }
+                var (a, b) = l.X0 < same.X0 ? (l, same) : (same, l);
+                string text = a.Text + b.Text;
+                same.X0 = a.X0; same.X1 = Math.Max(same.X1, l.X1); same.Size = Math.Max(same.Size, l.Size); same.Text = text;
+            }
+            return new OracleCompare.OPage { W = p.W, H = p.H, Objs = p.Objs, Lines = outp };
         }).ToList(),
     };
 
@@ -119,7 +142,9 @@ public class LayoutOracleTests
         bool vw = word.Pages.Any(p => p.VLines is not null);
         var r = orderless
             ? OracleCompare.CompareLines(ByColumn(word), ByColumn(OracleCompare.EngineLines(res)))
-            : OracleCompare.CompareLines(word, OracleCompare.EngineLines(res, vw), ExactLeaders.Contains(g));
+            : ByBaselineGroups.Contains(g)
+                ? OracleCompare.CompareLines(ByBaseline(word), ByBaseline(OracleCompare.EngineLines(res)))
+                : OracleCompare.CompareLines(word, OracleCompare.EngineLines(res, vw), ExactLeaders.Contains(g));
         _out.WriteLine($"páginas W/O {r.PagesW}/{r.PagesO}, linhas {r.Matched}/{r.LinesW}, mesma página {r.SamePage}, Δy máx {r.MaxDy:0.###} pt");
         if (vw)
         {
@@ -352,6 +377,18 @@ internal static class OracleCompare
 
     /// <summary>Linhas da árvore de layout (pt), agrupando glifos por baseline na ordem dos itens.
     /// <paramref name="skipRotated"/>: glifos em xform girado ficam de fora (vão em EngineVLines).</summary>
+    /// <summary>Avanço (pt) do caractere no item de glifos (0 sem a métrica).</summary>
+    private static double GlyphAdvancePt(GlyphRunItem it, int cp)
+    {
+        try
+        {
+            var f = it.Face.Font;
+            double upm = f.Metrics.UnitsPerEm != 0 ? f.Metrics.UnitsPerEm : 1000;
+            return f.AdvanceWidth(f.GlyphId(cp)) * it.SizePt * (it.ScaleX ?? 1) / upm;
+        }
+        catch { return 0; }
+    }
+
     public static ODoc EngineLines(LayoutResult res, bool skipRotated = false)
     {
         var outp = new ODoc();
@@ -385,15 +422,19 @@ internal static class OracleCompare
                     // corpo como no PDF (múltiplo de 0,12 pt: 10 → 9,96), que decide a tolerância da extração
                     double size = OfficeNext.Core.JsNumber.Round(it.SizePt / 0.12) * 0.12;
                     double tol = Math.Max(1, 0.3 * size);
+                    // borda direita como a do pdfium (caixa do caractere): o avanço do glifo — o
+                    // número de linha seguido de texto recuado para a esquerda dele (recuo
+                    // negativo) abre outra linha na extração (oráculo lnnum2/ln-indent)
+                    double right = x + Math.Max(1, GlyphAdvancePt(it, g.Cp));
                     if (cur is not null && Math.Abs(y - cur.Y) <= tol && x >= cur.X1 - tol * 2)
                     {
                         cur.Text += ch;
-                        cur.X1 = Math.Max(cur.X1, x + 1);
+                        cur.X1 = Math.Max(cur.X1, right);
                         cur.Size = Math.Max(cur.Size, size);
                     }
                     else
                     {
-                        cur = new OLine { Y = y, X0 = x, X1 = x + 1, Size = size, Text = ch };
+                        cur = new OLine { Y = y, X0 = x, X1 = right, Size = size, Text = ch };
                         lines.Add(cur);
                         lastCp.Add(0);
                     }
