@@ -130,7 +130,8 @@ foreach ($row in $rows) {
           $script:tocNew = $txt.Contains('Entrada lossless TOC') -and $d.TablesOfContents.Count -gt 0
           $script:tocEnter = $txt.Contains('TOCNOVO')
           $script:tcOk = $false
-          foreach ($f in $d.Fields) { if ($f.Type -eq 9 -and ([string]$f.Code.Text).Contains('Entrada lossless')) { $script:tcOk = $true; break } }
+          # (paragrafo em "Todas em maiusculas": o Code.Text vem em caixa alta)
+          foreach ($f in $d.Fields) { if ($f.Type -eq 9 -and ([string]$f.Code.Text).ToUpper().Contains('ENTRADA LOSSLESS')) { $script:tcOk = $true; break } }
         }
         if ($Toc) {
           $script:tocSame = $false; $script:tocInfo = ''
