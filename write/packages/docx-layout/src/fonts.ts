@@ -27,6 +27,10 @@ export interface FontFace {
   /** negrito/itálico SINTÉTICO (a família não tem a variante). */
   synthBold?: boolean;
   synthItalic?: boolean;
+  /** a família pedida NÃO está instalada: esta é a substituta métrico-compatível
+   *  que o hospedeiro pôs no lugar (navegador: Liberation Sans por "Arial Unicode
+   *  MS"). A regra do Word para família ausente que vem antes dela ainda vale. */
+  standIn?: boolean;
 }
 
 export interface FontProvider {
@@ -257,6 +261,8 @@ export class FaceResolver {
       const a2 = own(ALIASES, ps.family.toLowerCase()) ?? ps.family;
       tries.push({ family: a2, bold: bold || !!ps.bold, italic: italic || !!ps.italic });
     }
+    // até aqui: o que o Word põe no lugar DESTE nome (escrita do Leste Asiático, FontSubstitutes)
+    const mappedEnd = tries.length;
     const info = own(this.fontTable, fam);
     if (info?.altName) for (const alt of info.altName.split(/[,;]/)) tries.push({ family: alt.trim(), bold, italic });
     const symbolic = info?.charset === '02' || info?.family === 'decorative';
@@ -273,10 +279,22 @@ export class FaceResolver {
     void this.docDefault;
     tries.push({ family: genericFor(info), bold, italic });
     for (const fb of this.fallbacks) tries.push({ family: fb, bold, italic });
-    for (const t of tries) {
+    for (let i = 0; i < tries.length; i++) {
+      const t = tries[i]!;
       if (!t.family) continue;
       const face = this.provider.face(t.family, t.bold, t.italic);
-      if (face) return face;
+      if (!face) continue;
+      // a família pedida veio como substituta do hospedeiro (não está instalada): o
+      // que o Word põe no lugar dela vem antes — a fonte da escrita do Leste Asiático
+      // do fontTable, os nomes mapeados (corpus: "Arial Unicode MS" charset 80 →
+      // Yu Gothic); sem nenhum deles, a substituta métrico-compatível
+      if (i === 0 && face.standIn) {
+        for (const c of tries.slice(1, mappedEnd)) {
+          const f = c.family ? this.provider.face(c.family, c.bold, c.italic) : null;
+          if (f && !f.standIn) return f;
+        }
+      }
+      return face;
     }
     throw new Error(`nenhuma fonte disponível para "${fam}"`);
   }

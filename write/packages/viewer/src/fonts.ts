@@ -102,12 +102,13 @@ export class ViewerFonts {
   private face(family: string, bold: boolean, italic: boolean): EngineFontFace | null {
     const want = variantOf(bold, italic);
     const order = [...new Set<FontVariant>([want, bold ? 'bold' : 'regular', italic ? 'italic' : 'regular', 'regular'])];
-    const mk = (fam: string, font: SfntFont, bytes: Uint8Array, v: FontVariant): EngineFontFace => {
+    const mk = (fam: string, font: SfntFont, bytes: Uint8Array, v: FontVariant, standIn = false): EngineFontFace => {
       const vb = v === 'bold' || v === 'boldItalic', vi = v === 'italic' || v === 'boldItalic';
       return {
         key: `${fam}|${v}`, family: fam, font, bytes, bold, italic,
         ...(bold && !vb ? { synthBold: true } : {}),
         ...(italic && !vi ? { synthItalic: true } : {}),
+        ...(standIn ? { standIn: true } : {}),
       };
     };
     const a = this.assets.get(family.toLowerCase());
@@ -130,7 +131,9 @@ export class ViewerFonts {
         if (!b2) { if (sub) this.note(sub, v); continue; }
         bytes = b2; fam = sub!;
       }
-      try { return mk(fam, this.sfnt(bytes), bytes, v); } catch { /* arquivo ilegível */ }
+      // família ausente trocada pela métrico-compatível: o motor ainda aplica antes a
+      // regra do Word para família ausente (escrita do Leste Asiático do fontTable…)
+      try { return mk(fam, this.sfnt(bytes), bytes, v, r.source === 'substitute'); } catch { /* arquivo ilegível */ }
     }
     return null;
   }

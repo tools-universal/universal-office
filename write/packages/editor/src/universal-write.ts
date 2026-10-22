@@ -18302,10 +18302,15 @@ export class UniversalWriteElement extends HTMLElement {
               font = f2; file = file2; fam = sub!;
             }
             const vb = v === 'bold' || v === 'boldItalic', vi = v === 'italic' || v === 'boldItalic';
+            // família ausente que o resolvedor trocou pela métrico-compatível: o motor
+            // ainda aplica antes a regra do Word para família ausente (ex.: escrita do
+            // Leste Asiático do fontTable), como no provedor sem a família
+            const standIn = !this.loadedFamilyNames.has(family) && this.fontResolver.getWithFile(family)?.source === 'substitute';
             out = {
               key: `${fam}|${v}`, family: fam, font, bytes: file.bytes, bold, italic,
               ...(bold && !vb ? { synthBold: true } : {}),
               ...(italic && !vi ? { synthItalic: true } : {}),
+              ...(standIn ? { standIn: true } : {}),
             };
             const css = file.name === DEFAULT_FONT ? DEFAULT_FONT_CSS : `${cssFamily(file.name)}, ${DEFAULT_FONT_CSS}`;
             this.engFaceCss.set(out, { family: css, weight: vb ? 700 : 400, italic: vi });
