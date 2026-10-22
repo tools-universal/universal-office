@@ -35,9 +35,9 @@ export function formatWordDate(d: Date, picture: string, lang = 'pt-BR'): string
     }
     const lower = picture.slice(i, i + 5).toLowerCase();
     if (lower === 'am/pm') {
-      const pm = d.getHours() >= 12;
-      const s = pm ? 'pm' : 'am';
-      out += picture[i] === 'A' ? s.toUpperCase() : s;
+      // o designador do idioma, em qualquer caixa da imagem: "PM" em inglês, vazio
+      // em pt-BR (o Windows não tem AM/PM no pt-BR) — oráculo hf-lab, datetime-formats
+      out += L === EN ? (d.getHours() >= 12 ? 'PM' : 'AM') : '';
       i += 5;
       continue;
     }

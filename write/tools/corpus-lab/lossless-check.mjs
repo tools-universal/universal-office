@@ -23,6 +23,10 @@
 // padrão de 1 cm, margem esquerda da última seção e a seção de um título
 // arrastada para antes da irmã anterior (os blocos mudam de lugar sem mudar o
 // XML) → o XML relê e os títulos saem na ordem nova.
+// --hf: cabeçalho e rodapé como o editor — Primeira Página Diferente trocada,
+// distâncias, numeração i, ii… a partir de 3 na última seção; Pares e Ímpares;
+// desvincula (cópia) e vincula (a parte sai) cabeçalhos de seções; número de
+// página da galeria no rodapé da 1ª seção → as outras partes saem byte a byte.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -80,6 +84,8 @@ function noteStyles(pkg, kind) {
 /** Cada w:footnote / w:endnote cru por id. */
 const noteRaws = (xml, tag) => new Map([...(xml ?? '').matchAll(new RegExp(`<w:${tag}\\b[^>]*?w:id="(-?\\d+)"[\\s\\S]*?</w:${tag}>`, 'g'))].map((m) => [m[1], m[0]]));
 const navMode = args.includes('--nav');
+// --hf: cabeçalho e rodapé (ver editHf)
+const hfMode = args.includes('--hf');
 const layout = navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
 
 function* walk(dir) {
@@ -146,6 +152,125 @@ function saveModel(pkg, full, model) {
     sources: full.sources,
     notes: notesOf(full),
   });
+  return pkg.save();
+}
+
+// ── --hf: cabeçalho e rodapé como o editor (regras do Word em write/tools/hf-lab) ──
+
+/** headerN.xml / rIdN livres (como o editor e o Word). */
+function freeHfTarget(pkg, parts, kind) {
+  const used = new Set([...pkg.partNames(), ...[...parts.values()].map((p) => p.path)]);
+  let n = 1;
+  while (used.has(`word/${kind}${n}.xml`)) n++;
+  const rels = pkg.getPartText('word/_rels/document.xml.rels') ?? '';
+  const rids = new Set([...rels.matchAll(/\bId="([^"]+)"/g)].map((m) => m[1]).concat([...parts.keys()]));
+  let m = 1;
+  while (rids.has(`rId${m}`)) m++;
+  return { rid: `rId${m}`, path: `word/${kind}${n}.xml` };
+}
+
+const HF_FIELD = '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE   \\* MERGEFORMAT </w:instrText></w:r>'
+  + '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:noProof/></w:rPr><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+/** número de página da galeria Fim da Página (estrutura do Word: sdt docPartObj) */
+const HF_TEMPLATE = '<w:sdt><w:sdtPr><w:id w:val="123456789"/><w:docPartObj><w:docPartGallery w:val="Page Numbers (Bottom of Page)"/><w:docPartUnique/></w:docPartObj></w:sdtPr>'
+  + `<w:sdtContent><w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:t xml:space="preserve">Pagina </w:t></w:r>${HF_FIELD}</w:p><w:p/></w:sdtContent></w:sdt>`;
+
+/** Edita como o editor: última seção com Primeira Página Diferente trocada, distâncias
+ *  2 cm / 1,5 cm e numeração i, ii… a partir de 3; Pares e Ímpares no documento;
+ *  desvincula o cabeçalho padrão da 1ª seção k>0 que o herda (cópia da parte);
+ *  vincula o da 1ª seção k>0 que tem o próprio (a parte sai do pacote); número de
+ *  página da galeria no rodapé padrão da 1ª seção (troca o conteúdo da parte). */
+function editHf(b, model) {
+  const { pkg, full } = b;
+  const store = full.sources;
+  const last = full.sections[full.sections.length - 1];
+  model.sectPr = last.sectPr;
+  model.bodyRefs = { headerRefs: last.headerRefs.map((r) => ({ kind: 'header', type: r.type, rid: r.rid })), footerRefs: last.footerRefs.map((r) => ({ kind: 'footer', type: r.type, rid: r.rid })) };
+  const ranges = core.sectionRanges(model);
+  const holder = (k) => core.sectionRefs(model, k);
+  const parts = new Map();
+  for (const s of full.sections) {
+    for (const [kind, refs, set, blocks] of [['header', s.headerRefs, s.headers, s.headerBlocks], ['footer', s.footerRefs, s.footers, s.footerBlocks]]) {
+      for (const r of refs) if (!parts.has(r.rid)) parts.set(r.rid, { kind, path: r.path, paragraphs: set[r.type], blocks: blocks?.[r.type], dirty: false });
+    }
+  }
+  const ed = { secEdits: 1, parts, titlePg: false, unlink: null, relink: null, tpl: null };
+  const sp = model.sectPr;
+  if (sp.titlePg) delete sp.titlePg; else sp.titlePg = true;
+  ed.titlePg = !!sp.titlePg;
+  sp.headerDistanceTwips = 1134;
+  sp.footerDistanceTwips = 850;
+  sp.pgNumFmt = 'lowerRoman';
+  sp.pgNumStart = 3;
+  core.writeEvenAndOddHeaders(pkg, true);
+  const ptext = (ps) => (ps ?? []).map(text).join('\n');
+  for (let k = 1; k < ranges.length; k++) {
+    const own = holder(k).headerRefs.some((r) => r.type === 'default');
+    if (!own && !ed.unlink) {
+      let src = null;
+      for (let s = k - 1; s >= 0 && !src; s--) src = holder(s).headerRefs.find((r) => r.type === 'default') ?? null;
+      const sp0 = src && parts.get(src.rid);
+      if (!sp0?.paragraphs || !pkg.getPart(sp0.path)) continue;
+      const target = freeHfTarget(pkg, parts, 'header');
+      const rels = pkg.getPartText(`word/_rels/${sp0.path.split('/').pop()}.rels`);
+      if (rels) pkg.setPartText(`word/_rels/${target.path.split('/').pop()}.rels`, rels);
+      const xml = core.copyHfPartXml(pkg.getPartText(sp0.path), () => 1 + Math.floor(Math.random() * 0x7ffffffe));
+      const read = core.readHeaderFooterPart(pkg, target.path, store, xml);
+      store.baseline();
+      parts.set(target.rid, { kind: 'header', path: target.path, paragraphs: read.paras, blocks: read.blocks, dirty: false });
+      holder(k).headerRefs.push({ kind: 'header', type: 'default', rid: target.rid });
+      ed.unlink = { sec: k, path: target.path, text: ptext(read.paras) };
+      if (k < ranges.length - 1) ed.secEdits += 1;
+    } else if (own && !ed.relink && k !== ed.unlink?.sec) {
+      const list = holder(k).headerRefs;
+      const [r] = list.splice(list.findIndex((x) => x.type === 'default'), 1);
+      ed.relink = { sec: k, rid: r.rid, path: parts.get(r.rid)?.path };
+      if (k < ranges.length - 1) ed.secEdits += 1;
+    }
+  }
+  const fr = holder(0).footerRefs.find((r) => r.type === 'default');
+  const fp = fr && parts.get(fr.rid);
+  if (fp?.paragraphs) {
+    const read = core.readHeaderFooterPart(pkg, fp.path, store, core.hfPartXml('footer', HF_TEMPLATE));
+    store.baseline();
+    Object.assign(fp, { paragraphs: read.paras, blocks: read.blocks, dirty: true });
+    ed.tpl = { path: fp.path };
+  } else {
+    const target = freeHfTarget(pkg, parts, 'footer');
+    const read = core.readHeaderFooterPart(pkg, target.path, store, core.hfPartXml('footer', HF_TEMPLATE));
+    store.baseline();
+    parts.set(target.rid, { kind: 'footer', path: target.path, paragraphs: read.paras, blocks: read.blocks, dirty: false });
+    holder(0).footerRefs.push({ kind: 'footer', type: 'default', rid: target.rid });
+    ed.tpl = { path: target.path };
+    if (ranges.length > 1) ed.secEdits += 1;
+  }
+  return ed;
+}
+
+/** Salva como o editor: as partes que as refs do MODELO usam; a vinculada sai. */
+function saveHf(pkg, full, model, ed) {
+  const hfParts = [];
+  const seen = new Set();
+  const holders = core.sectionRanges(model).map((_, k) => core.sectionRefs(model, k));
+  for (const h of holders) {
+    for (const r of [...h.headerRefs, ...h.footerRefs]) {
+      const p = ed.parts.get(r.rid);
+      if (!p?.paragraphs || seen.has(p.path)) continue;
+      seen.add(p.path);
+      hfParts.push({ kind: p.kind, type: r.type, rid: r.rid, path: p.path, paragraphs: p.paragraphs, blocks: p.blocks, dirty: p.dirty });
+    }
+  }
+  writeDocument(pkg, { paragraphs: model.paragraphs, sectPr: model.sectPr }, hfParts, {
+    comments: full.comments.length ? full.comments : undefined,
+    bodySectRefs: [...model.bodyRefs.headerRefs, ...model.bodyRefs.footerRefs],
+    blocks: full.blocks,
+    sources: full.sources,
+    notes: notesOf(full),
+  });
+  if (ed.relink) {
+    ed.relink.still = holders.some((h) => [...h.headerRefs, ...h.footerRefs].some((r) => r.rid === ed.relink.rid));
+    if (!ed.relink.still) core.dropUnusedHfParts(pkg, new Set([ed.relink.rid]));
+  }
   return pkg.save();
 }
 
@@ -367,7 +492,10 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       navEdit = { move };
     }
-    const out = sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
+    // --hf: cabeçalho e rodapé como o editor (frente Cabeçalho e rodapé)
+    const hfEdit = hfMode ? editHf(b, model) : null;
+    if (hfEdit) secEdits += hfEdit.secEdits;
+    const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
     readFullDocument(re); // relê
@@ -399,6 +527,32 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
         res.navMove = true;
       }
       res.nav = true;
+    }
+    if (hfEdit) {
+      if (!(re.getPartText('word/settings.xml') ?? '').includes('<w:evenAndOddHeaders/>')) res.issues.push('hf-evenodd');
+      const rf = readFullDocument(re);
+      const ls = rf.sections[rf.sections.length - 1].sectPr;
+      if (!!ls.titlePg !== hfEdit.titlePg) res.issues.push('hf-titlepg');
+      if (ls.pgNumFmt !== 'lowerRoman' || ls.pgNumStart !== 3) res.issues.push('hf-pgnum');
+      if (ls.headerDistanceTwips !== 1134 || ls.footerDistanceTwips !== 850) res.issues.push('hf-dist');
+      const pt = (ps) => (ps ?? []).map(text).join('\n');
+      if (hfEdit.unlink) {
+        const s = rf.sections[hfEdit.unlink.sec];
+        if (!s?.headerRefs.some((r) => r.type === 'default' && r.path === hfEdit.unlink.path)) res.issues.push('hf-unlink-ref');
+        else if (pt(s.headers.default) !== hfEdit.unlink.text) res.issues.push('hf-unlink-text');
+      }
+      if (hfEdit.relink) {
+        if (rf.sections[hfEdit.relink.sec]?.headerRefs.some((r) => r.type === 'default' && r.path === hfEdit.relink.path)) res.issues.push('hf-relink-ref');
+        if (!hfEdit.relink.still && hfEdit.relink.path && re.getPart(hfEdit.relink.path)) res.issues.push('hf-relink-part');
+      }
+      const tx = re.getPartText(hfEdit.tpl.path) ?? '';
+      if (!tx.includes('Page Numbers (Bottom of Page)') || !/<w:instrText[^>]*> PAGE /.test(tx)) res.issues.push('hf-template');
+      // as outras partes de cabeçalho/rodapé saem byte a byte
+      for (const part of orig.partNames()) {
+        if (!/^word\/(?:header|footer)\d*\.xml$/.test(part) || part === hfEdit.tpl.path || part === hfEdit.relink?.path) continue;
+        if (re.getPart(part) && re.getPartText(part) !== orig.getPartText(part)) res.issues.push(`hf-part-changed:${part}`);
+      }
+      res.hf = { titlePg: hfEdit.titlePg, unlink: hfEdit.unlink?.sec ?? -1, relink: hfEdit.relink?.sec ?? -1 };
     }
     if (tblEdit) {
       if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
@@ -440,10 +594,12 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));
+      // --hf: Primeira Página Diferente esperada e as seções desvinculada/vinculada (word-open-check -Hf)
+      if (res.hf) res.hfCols = [res.hf.titlePg ? 1 : 0, res.hf.unlink, res.hf.relink];
     }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
@@ -458,7 +614,7 @@ mkdirSync(join(LAB_DIR, 'report'), { recursive: true });
 writeFileSync(join(LAB_DIR, 'report', 'lossless.json'), JSON.stringify(results, null, 1));
 if (outDir) {
   writeFileSync(join(outDir, 'manifest.tsv'),
-    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}`).join('\n'), 'utf8');
+    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}`).join('\n'), 'utf8');
 }
 const bad = results.filter((r) => !r.ok);
 const kinds = {};

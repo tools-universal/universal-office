@@ -234,17 +234,19 @@ export function sameAsPreviousLabel(lang: 'en' | 'pt'): string {
  * Formatos do diálogo Data e Hora por idioma (imagem do campo \@ do Word). A
  * lista do diálogo do Word não sai pelo COM (só abrindo o diálogo — memória
  * no-desktop-screen-capture); estes seguem as convenções de cada idioma e o
- * resultado de cada um foi conferido no Word pelo InsertDateTime.
+ * resultado de cada um foi conferido no Word (campo QUOTE com @, oráculo hf-lab
+ * datetime-formats). Sem horas de 12 em pt-BR: o Windows não tem AM/PM no pt-BR
+ * (o Word escreve "2:07 ").
  */
 export const DATE_TIME_FORMATS: Record<'en' | 'pt', string[]> = {
   pt: [
     'dd/MM/yyyy', "dddd, d' de 'MMMM' de 'yyyy", "d' de 'MMMM' de 'yyyy", 'dd/MM/yy', 'yyyy-MM-dd', 'd-MMM-yy',
     'dd.MM.yyyy', 'd MMM. yy', "d' de 'MMMM' de 'yy", "MMMM' de 'yy", 'MMM-yy', 'dd/MM/yyyy HH:mm', 'dd/MM/yyyy HH:mm:ss',
-    'h:mm am/pm', 'h:mm:ss am/pm', 'HH:mm', 'HH:mm:ss',
+    'HH:mm', 'HH:mm:ss',
   ],
   en: [
     'M/d/yyyy', 'dddd, MMMM d, yyyy', 'MMMM d, yyyy', 'M/d/yy', 'yyyy-MM-dd', 'd-MMM-yy', 'M.d.yyyy', 'MMM. d, yy',
-    'd MMMM yyyy', 'MMMM yy', 'MMM-yy', 'M/d/yyyy h:mm am/pm', 'M/d/yyyy h:mm:ss am/pm', 'h:mm am/pm', 'h:mm:ss am/pm',
+    'd MMMM yyyy', 'MMMM yy', 'MMM-yy', 'M/d/yyyy h:mm AM/PM', 'M/d/yyyy h:mm:ss AM/PM', 'h:mm AM/PM', 'h:mm:ss AM/PM',
     'HH:mm', 'HH:mm:ss',
   ],
 };

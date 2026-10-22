@@ -4217,7 +4217,22 @@ export class UniversalWriteElement extends HTMLElement {
 
   saveDocx(): Uint8Array {
     if (!this.model) throw new Error('no document');
-    if (this.hfEdit) this.exitHeaderFooter(); // salva sempre a partir do corpo
+    // salva sempre a partir do corpo; no cabeçalho/rodapé, volta para a mesma parte
+    // e cursor depois (salvar — e o salvamento automático — não tira da edição)
+    const hf = this.hfEdit && !this.tbEdit ? { kind: this.hfEdit.kind, page: this.hfActivePage, sel: this.selection } : null;
+    if (this.hfEdit) this.exitHeaderFooter(true);
+    try { return this.saveDocxBody(); } finally {
+      if (hf) {
+        this.enterHeaderFooter(hf.kind, hf.page, true);
+        if (this.hfEdit) this.selection = this.clampSel(hf.sel);
+        else this.dispatchEvent(new CustomEvent('uw-hfmode', { detail: { active: false } }));
+        this.refresh();
+      }
+    }
+  }
+
+  private saveDocxBody(): Uint8Array {
+    if (!this.model) throw new Error('no document');
     // na célula de tabela (ou na nota) o modelo é o DELA: o corpo vem de bodyState
     if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
     this.syncNoteEdit();

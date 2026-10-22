@@ -1,0 +1,36 @@
+1046	dd/MM/yyyy	05/02/2026
+1046	dddd, d' de 'MMMM' de 'yyyy	quinta-feira, 5 de fevereiro de 2026
+1046	d' de 'MMMM' de 'yyyy	5 de fevereiro de 2026
+1046	dd/MM/yy	05/02/26
+1046	yyyy-MM-dd	2026-02-05
+1046	d-MMM-yy	5-fev-26
+1046	dd.MM.yyyy	05.02.2026
+1046	d MMM. yy	5 fev. 26
+1046	d' de 'MMMM' de 'yy	5 de fevereiro de 26
+1046	MMMM' de 'yy	fevereiro de 26
+1046	MMM-yy	fev-26
+1046	dd/MM/yyyy HH:mm	05/02/2026 14:07
+1046	dd/MM/yyyy HH:mm:ss	05/02/2026 14:07:09
+1046	h:mm am/pm	2:07 
+1046	h:mm AM/PM	2:07 
+1046	h:mm:ss AM/PM	2:07:09 
+1046	HH:mm	14:07
+1046	HH:mm:ss	14:07:09
+1033	M/d/yyyy	5/2/2026
+1033	dddd, MMMM d, yyyy	Saturday, May 2, 2026
+1033	MMMM d, yyyy	May 2, 2026
+1033	M/d/yy	5/2/26
+1033	yyyy-MM-dd	2026-05-02
+1033	d-MMM-yy	2-May-26
+1033	M.d.yyyy	5.2.2026
+1033	MMM. d, yy	May. 2, 26
+1033	d MMMM yyyy	2 May 2026
+1033	MMMM yy	May 26
+1033	MMM-yy	May-26
+1033	M/d/yyyy h:mm am/pm	5/2/2026 2:07 PM
+1033	M/d/yyyy h:mm AM/PM	5/2/2026 2:07 PM
+1033	M/d/yyyy h:mm:ss AM/PM	5/2/2026 2:07:09 PM
+1033	h:mm AM/PM	2:07 PM
+1033	h:mm:ss AM/PM	2:07:09 PM
+1033	HH:mm	14:07
+1033	HH:mm:ss	14:07:09

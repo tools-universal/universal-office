@@ -335,12 +335,37 @@ editor.host = {
       </table>
 
       <h2 id="hf">Header and footer</h2>
+      <p>
+        With <code>topbar</code>, editing a header or footer shows the <strong>Header &amp; Footer</strong> tab of the ribbon
+        (the compact bar has the same under Insert &rsaquo; Headers &amp; footers): galleries of built-in designs for the
+        header, the footer and page numbers (top or bottom of the page, page margin, current position), Date &amp; Time,
+        Document Info, Go to Header/Footer, Previous/Next, Link to Previous, Different First Page, Different Odd &amp; Even
+        Pages, Show Document Text, the distances from the page edge and Insert Alignment Tab. Each page shows the name of its
+        part (&ldquo;First Page Header -Section 2-&rdquo;) and &ldquo;Same as Previous&rdquo; when it comes from the previous
+        section. What is written follows Word: unlinking copies the inherited part into a new part of the section (pictures
+        included), linking removes the section's part from the file, page numbers from the galleries are kept in the block
+        Remove Page Numbers finds, <em>Update automatically</em> inserts a <code>TIME</code> field. Text, headers/footers and
+        these options share one undo history; saving keeps the header or footer in editing.
+      </p>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>enterHeaderFooter(kind, activePage?)</code></td><td>Enters editing of a page's <code>'header' | 'footer'</code>.</td></tr>
           <tr><td><code>exitHeaderFooter()</code></td><td>Leaves editing and returns to the document body.</td></tr>
           <tr><td><code>editingHeaderFooter()</code></td><td>Returns <code>'header' | 'footer' | null</code>.</td></tr>
+          <tr><td><code>getHeaderFooterOptions(): HeaderFooterOptions | null</code></td><td>Options of the section at the caret (or of the page being edited): <code>{ section, sectionCount, page, part: { kind, type: 'default' | 'first' | 'even' } | null, differentFirstPage, differentOddEven, headerDistance, footerDistance, linkToPrevious, documentTextShown }</code> (distances in twips).</td></tr>
+          <tr><td><code>setDifferentFirstPage(on)</code> / <code>setDifferentOddEven(on)</code></td><td>Different First Page (<code>w:titlePg</code>, per section) / Different Odd &amp; Even Pages (<code>w:evenAndOddHeaders</code>, for the document). One undo step; in editing, the caret moves to the part the page now shows.</td></tr>
+          <tr><td><code>setHeaderFooterDistance({ header?, footer? })</code></td><td>Distance of the header from the top and of the footer from the bottom of the page (twips), for the section.</td></tr>
+          <tr><td><code>setLinkToPrevious(on, kind?)</code></td><td>Link to Previous for the part being edited (sections after the first).</td></tr>
+          <tr><td><code>goToHeaderFooter(kind?)</code> / <code>nextHeaderFooter()</code> / <code>previousHeaderFooter()</code></td><td>Go to Header/Footer; Next/Previous in Word's order (per section: first page, even page, then the other pages).</td></tr>
+          <tr><td><code>showDocumentText(on)</code> / <code>documentTextShown()</code></td><td>Show Document Text while editing a header or footer (screen only).</td></tr>
+          <tr><td><code>headerFooterTemplates(gallery)</code> / <code>insertHeaderFooterTemplate(gallery, id)</code></td><td>Designs of a gallery (<code>'header' | 'footer' | 'pageTop' | 'pageBottom' | 'pageMargin' | 'pageCurrent'</code>) as <code>{ id, name }[]</code> and inserting one: header, footer and top/bottom/margin page numbers replace the content of the part shown on the page; <code>'pageCurrent'</code> inserts at the caret.</td></tr>
+          <tr><td><code>paintHeaderFooterTemplate(gallery, id, canvas, cssWidth): boolean</code></td><td>Draws the thumbnail of a design with the layout engine.</td></tr>
+          <tr><td><code>removeHeaderFooter(kind)</code> / <code>removePageNumbers()</code></td><td>Remove Header/Footer (empties the part of the page at the caret) / Remove Page Numbers (gallery page numbers of that page's header and footer).</td></tr>
+          <tr><td><code>getPageNumberFormat()</code> / <code>setPageNumberFormat({ format?, chapter?, start? })</code></td><td>Format Page Numbers of the section: <code>format</code> (<code>decimal</code>, <code>numberInDash</code>, <code>lowerLetter</code>, <code>upperLetter</code>, <code>lowerRoman</code>, <code>upperRoman</code>), <code>chapter: { level, separator } | null</code> (the number of the last heading of that level on or before the page, e.g. <code>1-3</code>) and <code>start</code> (<code>null</code> = continue from the previous section).</td></tr>
+          <tr><td><code>dateTimeFormats(lang?)</code> / <code>insertDateTime(pattern, update?, lang?)</code></td><td>Date &amp; Time formats of the language (<code>{ pattern, sample }[]</code>) and insertion (<code>update</code> = a <code>TIME</code> field).</td></tr>
+          <tr><td><code>insertDocumentInfo(kind, fileName?)</code></td><td>Author, document title, file name or file path as fields (<code>AUTHOR</code>, <code>TITLE</code>, <code>FILENAME</code>).</td></tr>
+          <tr><td><code>insertAlignmentTab(alignment, relativeTo?, leader?)</code></td><td>Alignment tab (<code>w:ptab</code>): <code>'left' | 'center' | 'right'</code>, relative to the <code>'margin'</code> or the <code>'indent'</code>.</td></tr>
         </tbody>
       </table>
 

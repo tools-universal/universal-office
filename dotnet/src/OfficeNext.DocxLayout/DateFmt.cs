@@ -54,8 +54,9 @@ public static class DateFmt
             string lower = picture.Substring(i, Math.Min(5, picture.Length - i)).ToLowerInvariant();
             if (lower == "am/pm")
             {
-                string s = d.Hour >= 12 ? "pm" : "am";
-                outp.Append(c == 'A' ? s.ToUpperInvariant() : s);
+                // o designador do idioma, em qualquer caixa da imagem: "PM" em inglês,
+                // vazio em pt-BR (o Windows não tem AM/PM no pt-BR) — oráculo hf-lab
+                outp.Append(ReferenceEquals(L, EN) ? (d.Hour >= 12 ? "PM" : "AM") : "");
                 i += 5;
                 continue;
             }

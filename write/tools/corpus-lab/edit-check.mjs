@@ -117,7 +117,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,fuzz,sections,notes,nav,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,hfopts,fuzz,sections,notes,nav,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -546,6 +546,91 @@ if (want('hf')) {
   s = await st();
   check('rodapé alto (acima da margem inferior) entra em edição pelo clique no texto dele', s.hf && tall.y < tall.marginLine, { hf: s.hf, y: tall.y, margem: tall.marginLine });
   await page.keyboard.press('Escape');
+}
+
+// ───────────── cabeçalho e rodapé: opções, vincular, modelos (frente Cabeçalho e rodapé) ─────────────
+if (want('hfopts')) {
+  const E = 'document.querySelector("universal-write")';
+  const js = (body) => page.evaluate(`(() => { const e = ${E}; ${body} })()`);
+  // 2 seções; a 2ª com titlePg e parte própria só no padrão (a "first" herdada)
+  await ev('open', '/write/packages/docx-layout/test/oracle/hfopts/ln-own-default.docx');
+  let hdr = await ev('hfText', 'hdr');
+  check('hfopts: o documento abre com o cabeçalho de cada página (capa herdada na seção 2)', hdr.length >= 4 && hdr[2].includes('S1primeira') && hdr[3].includes('S2proprio'), hdr);
+  // seção 2, página 3 (capa da seção): cabeçalho "first" herdado → vinculado
+  await js('e.enterHeaderFooter("header", 2);');
+  let o = await js('return e.getHeaderFooterOptions();');
+  check('hfopts: na capa da seção 2 a parte é a "first" e está vinculada', o.section === 1 && o.part?.type === 'first' && o.linkToPrevious === true && o.differentFirstPage, o);
+  await js('e.setLinkToPrevious(false); e.type("NOVO ");');
+  hdr = await ev('hfText', 'hdr');
+  check('hfopts: desvincular copia a capa herdada e a edição vale só na seção 2', hdr[2].startsWith('NOVO') && hdr[0].includes('S1primeira') && !hdr[0].includes('NOVO'), hdr);
+  o = await js('return e.getHeaderFooterOptions();');
+  check('hfopts: depois de desvincular, Vincular ao Anterior desligado', o.linkToPrevious === false, o);
+  let xml = await page.evaluate(() => window.ed.savedParts(['word/document.xml', 'word/_rels/document.xml.rels']));
+  const lastSect = (x) => x.slice(x.lastIndexOf('<w:sectPr'));
+  check('hfopts: o sectPr da seção 2 ganha a ref "first", a parte nova entra nas rels e o modo cabeçalho continua depois de salvar',
+    /<w:headerReference w:type="first" r:id="rId\d+"\/>/.test(lastSect(xml['word/document.xml'])) && /Target="header\d+\.xml"/.test(xml['word/_rels/document.xml.rels'])
+    && (await js('return e.editingHeaderFooter();')) === 'header', null);
+  // desfazer (Ctrl+Z) volta o texto e depois o vínculo, no modo cabeçalho
+  await js('e.undo(); e.undo();');
+  o = await js('return e.getHeaderFooterOptions();');
+  hdr = await ev('hfText', 'hdr');
+  check('hfopts: desfazer volta o texto e o vínculo (pilha única)', o.linkToPrevious === true && !hdr[2].includes('NOVO') && hdr[2].includes('S1primeira'), { o, hdr: hdr[2] });
+  await js('e.redo(); e.redo();');
+  hdr = await ev('hfText', 'hdr');
+  check('hfopts: refazer devolve a parte desvinculada com o texto', hdr[2].startsWith('NOVO'), hdr[2]);
+  // vincular de novo: a parte da seção sai
+  await js('e.setLinkToPrevious(true);');
+  hdr = await ev('hfText', 'hdr');
+  xml = await page.evaluate(() => window.ed.savedParts(['word/document.xml']));
+  check('hfopts: vincular volta a capa da seção 1 e tira a ref', hdr[2].includes('S1primeira') && !/<w:headerReference w:type="first"/.test(lastSect(xml['word/document.xml'])), hdr[2]);
+  // Anterior/Próximo pela ordem do Word
+  await js('e.exitHeaderFooter(); e.enterHeaderFooter("header", 0);');
+  const seq = await js(`const out = [];
+    for (let i = 0; i < 5; i++) { const x = e.getHeaderFooterOptions(); out.push(x.section + ':' + x.part.type); e.nextHeaderFooter(); }
+    return out;`);
+  check('hfopts: Próximo na ordem do Word (capa → padrão, por seção) e para no fim', seq.join(',') === '0:first,0:default,1:first,1:default,1:default', seq);
+  await js('e.exitHeaderFooter();');
+
+  // Primeira Página Diferente, Pares e Ímpares, distâncias e número de página num documento novo
+  await ev('blank');
+  await js('for (let i = 0; i < 3; i++) { e.type("Pagina " + (i + 1)); e.insertPageBreak(); } e.type("Pagina 4");');
+  await js('e.enterHeaderFooter("header", 0); e.type("CAB");');
+  await js('e.setDifferentFirstPage(true);');
+  o = await js('return e.getHeaderFooterOptions();');
+  hdr = await ev('hfText', 'hdr');
+  check('hfopts: Primeira Página Diferente — a capa fica sem cabeçalho e o cursor vai para a parte dela', o.differentFirstPage && o.part.type === 'first' && hdr[0] === '' && hdr[1].includes('CAB'), { o: o.part, hdr });
+  await js('e.exitHeaderFooter(); e.enterHeaderFooter("header", 1); e.setDifferentOddEven(true);');
+  hdr = await ev('hfText', 'hdr');
+  check('hfopts: Pares e Ímpares — a página par (2) fica sem cabeçalho, a ímpar (3) mantém', hdr[1] === '' && hdr[2].includes('CAB'), hdr);
+  xml = await page.evaluate(() => window.ed.savedParts(['word/document.xml', 'word/settings.xml']));
+  check('hfopts: XML como o Word — <w:titlePg/> no sectPr e <w:evenAndOddHeaders/> nas settings', xml['word/document.xml'].includes('<w:titlePg/>') && xml['word/settings.xml'].includes('<w:evenAndOddHeaders/>'), null);
+  await js('e.setHeaderFooterDistance({ header: 1134, footer: 850 });');
+  const hy = await js('const l = e.eng.lines.find((x) => x.loc.kind === "hf" && x.loc.which === "hdr" && x.page === 2); return l ? l.line.y : -1;');
+  check('hfopts: distância do cabeçalho de 2 cm (1134 tw) move o cabeçalho', hy >= 1134 && hy < 1134 + 300, hy);
+  // número de página da galeria + formato
+  await js('e.exitHeaderFooter(); e.insertHeaderFooterTemplate("pageBottom", "plainCenter");');
+  let ftr = await ev('hfText', 'ftr');
+  check('hfopts: Fim da Página › Número simples — o rodapé mostra o número de cada página', ftr[1] === '2' && ftr[3] === '4', ftr);
+  await js('e.setPageNumberFormat({ format: "lowerRoman", start: 3 });');
+  ftr = await ev('hfText', 'ftr');
+  check('hfopts: Formatar Números de Página (i, ii… a partir de 3; capa e pares sem rodapé)', ftr[1] === 'iv' && ftr[3] === 'vi', ftr);
+  xml = await page.evaluate(() => window.ed.savedParts(['word/document.xml']));
+  check('hfopts: pgNumType como o Word', xml['word/document.xml'].includes('<w:pgNumType w:fmt="lowerRoman" w:start="3"/>'), null);
+  await js('e.removePageNumbers();');
+  ftr = await ev('hfText', 'ftr');
+  check('hfopts: Remover Números de Página tira o número da galeria', ftr.every((t) => t === ''), ftr);
+  // desfazer no CORPO volta o rodapé sem entrar nele (Word)
+  await js('e.exitHeaderFooter(); e.undo();');
+  ftr = await ev('hfText', 'ftr');
+  const mode = await js('return e.editingHeaderFooter();');
+  check('hfopts: desfazer no corpo volta o número de página e fica no corpo', mode === null && ftr[1] === 'iv', { mode, ftr });
+  // Remover Cabeçalho e Mostrar Texto do Documento
+  await js('e.enterHeaderFooter("header", 2); e.removeHeaderFooter("header");');
+  hdr = await ev('hfText', 'hdr');
+  check('hfopts: Remover Cabeçalho esvazia a parte da página', hdr[2] === '', hdr);
+  await js('e.showDocumentText(false);');
+  check('hfopts: Mostrar Texto do Documento desligado', (await js('return e.documentTextShown();')) === false, null);
+  await js('e.showDocumentText(true); e.exitHeaderFooter();');
 }
 
 // depuração: --eval arquivo.js (corpo de função async; recebe `ed`, `el` e `page`)

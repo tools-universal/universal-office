@@ -210,7 +210,7 @@ and moves created by editing (cut and paste becomes a deletion plus an insertion
 | Comments | `getComments()`, `addComment(text, author = this.author)`, `removeComment(id)`, `goToComment(id)` |
 | Track changes | `toggleTrackChanges(on?)`, `isTrackingChanges()`, `author` (property), `hasAuthor()`, `acceptChange({ moveNext })`, `rejectChange({ moveNext })`, `acceptAllChanges({ shown, stopTracking })` / `rejectAllChanges(…)` → count, `nextChange()`, `previousChange()`, `getRevisions()` → `{ kind, author, date, dateUtc, text, description, mark, move, story, color }[]`, `acceptRevisionAt(i)`, `rejectRevisionAt(i)`, `selectRevision(i)`, `revisionAtCaret()`, `revisionAuthors()`, `authorColor(name)` |
 | Markup | `setMarkupMode('simple' \| 'all' \| 'none' \| 'original')`, `getMarkupMode()`, `setMarkupOptions({ insertionsDeletions, formatting, comments, balloons: 'revisions' \| 'inline' \| 'mixed', authors })`, `getMarkupOptions()` |
-| Headers/footers | `enterHeaderFooter('header' \| 'footer')`, `exitHeaderFooter()` |
+| Headers/footers | `enterHeaderFooter('header' \| 'footer')`, `exitHeaderFooter()` — options, galleries and page numbers in [Headers and footers](#headers-and-footers) |
 | View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
 | State | `stats()` → `{ pages, words, chars, page, paragraph }`, `getSelectionState()`, `currentPage()`, `focusEditor()` |
 
@@ -316,6 +316,55 @@ The ribbon has a **References** tab (Table of Contents; Footnotes: insert
 footnote/endnote, the Next Footnote menu, Show Notes and the **Footnote and
 Endnote** dialog, with Convert…); the compact bar has them under Insert ›
 Notes. Right-click inside a note for Go to Reference, Convert and the options.
+
+## Headers and footers
+
+Double-click the top or bottom margin (or use Insert › Header / Footer) to edit
+the header or footer of that page; the ribbon shows the **Header & Footer** tab:
+
+- **Header**, **Footer** and **Page Number** galleries with built-in designs
+  (blank, three columns, centered title, title and author, color band, accent;
+  page numbers at the top or bottom of the page, in the page margin or at the
+  current position — "Page X of Y", brackets, accent rule…). Choosing a header,
+  footer or top/bottom page number replaces the content of the part shown on
+  that page, as in Word; page numbers from the galleries are kept in a block
+  that **Remove Page Numbers** finds (Word's own page numbers too).
+- **Date & Time** (formats of the language; *Update automatically* inserts a
+  `TIME` field as Word does), **Document Info** (author, title, file name and
+  path as fields), **Format Page Numbers** (format, chapter number from a
+  numbered heading style, continue or start at), **Insert Alignment Tab**.
+- **Navigation**: Go to Header / Go to Footer, Previous / Next (by section:
+  first page, even page, then the other pages — Word's order) and **Link to
+  Previous**: turning it off copies the inherited header or footer into a new
+  part of the section (pictures included); turning it on removes the section's
+  own part, which then leaves the file.
+- **Options**: Different First Page (`w:titlePg`, per section), Different Odd &
+  Even Pages (`w:evenAndOddHeaders`, for the document) and Show Document Text.
+- **Position**: distance of the header from the top and of the footer from the
+  bottom of the page (centimeters with `lang="pt"`, inches otherwise).
+
+While editing, each page shows the name of its part ("First Page Header
+-Section 2-", "Even Page Footer"…) and "Same as Previous" when it comes from
+the previous section. Undo is one history for the text, the headers/footers
+and these options: undoing a header step from the body changes the header
+without entering it. Saving keeps you in the header or footer. The compact
+bar has all of it under Insert › Headers & footers, with the options in the
+**Header & footer options** dialog.
+
+| Method | Description |
+|---|---|
+| `enterHeaderFooter(kind, page?)` · `exitHeaderFooter()` · `editingHeaderFooter()` | Edit the header or footer shown on a page (0-based) · back to the body · `'header'`, `'footer'` or `null`. |
+| `getHeaderFooterOptions()` | `HeaderFooterOptions` of the section at the caret (or of the page being edited): `section`, `sectionCount`, `page`, `part` (`{ kind, type: 'default' \| 'first' \| 'even' }` while editing), `differentFirstPage`, `differentOddEven`, `headerDistance`, `footerDistance` (twips), `linkToPrevious`, `documentTextShown`. |
+| `setDifferentFirstPage(on)` · `setDifferentOddEven(on)` · `setHeaderFooterDistance({ header?, footer? })` | The options, one undo step each; in header/footer editing the caret goes to the part the page now shows. |
+| `setLinkToPrevious(on, kind?)` | Link to Previous for the part being edited (sections after the first). |
+| `goToHeaderFooter(kind?)` · `nextHeaderFooter()` · `previousHeaderFooter()` | Go to Header/Footer; Next/Previous. |
+| `showDocumentText(on)` · `documentTextShown()` | Show Document Text (screen only). |
+| `headerFooterTemplates(gallery)` · `insertHeaderFooterTemplate(gallery, id)` · `paintHeaderFooterTemplate(gallery, id, canvas, cssWidth)` | The gallery designs (`gallery`: `'header'` · `'footer'` · `'pageTop'` · `'pageBottom'` · `'pageMargin'` · `'pageCurrent'`), insert one, draw its thumbnail with the layout engine. |
+| `removeHeaderFooter(kind)` · `removePageNumbers()` | Remove Header/Footer (empties the part of the page at the caret) · Remove Page Numbers. |
+| `getPageNumberFormat()` · `setPageNumberFormat({ format?, chapter?, start? })` | `PageNumberFormat` of the section: `format` (`decimal`, `numberInDash`, `lowerLetter`, `upperLetter`, `lowerRoman`, `upperRoman`), `chapter` (`{ level: 1–9, separator: 'hyphen' \| 'period' \| 'colon' \| 'emDash' \| 'enDash' }` or `null`), `start` (`null` = continue). The page number shows the number of the last heading of that level on or before the page (`1-3`). |
+| `dateTimeFormats(lang?)` · `insertDateTime(pattern, update?, lang?)` | Date & Time formats (`{ pattern, sample }[]`) and insertion. |
+| `insertDocumentInfo('author' \| 'title' \| 'fileName' \| 'filePath', fileName?)` | Document Info fields (`AUTHOR`, `TITLE`, `FILENAME`). |
+| `insertAlignmentTab('left' \| 'center' \| 'right', relativeTo?, leader?)` | Alignment tab (`w:ptab`) relative to the margin or the indent. |
 
 ## Navigation
 

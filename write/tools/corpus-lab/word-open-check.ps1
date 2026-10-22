@@ -11,6 +11,9 @@
 # -Nav: saida do lossless-check --nav (recuo esquerdo 1134/deslocamento 567, tabulacoes
 # centralizada 2835 e decimal 5669, tabulacao padrao 567 e a ordem do titulo arrastado:
 # colunas 3 e 4 do manifest).
+# -Hf: saida do lossless-check --hf (ultima secao com Primeira Pagina Diferente
+# trocada, distancias 2 / 1,5 cm, numeracao i, ii... a partir de 3, pares e impares;
+# secoes desvinculada e vinculada: colunas 3 a 5 do manifest).
 param(
   [Parameter(Mandatory = $true)][string]$Dir,
   [int]$Limit = 100000,
@@ -18,7 +21,8 @@ param(
   [switch]$Sections,
   [switch]$Tables,
   [switch]$Notes,
-  [switch]$Nav
+  [switch]$Nav,
+  [switch]$Hf
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -82,6 +86,21 @@ foreach ($row in $rows) {
           $script:tstyle = $false
           try { $null = $d.Styles.Item('Tabela Lossless'); $script:tstyle = $true } catch { }
         }
+        if ($Hf) {
+          # opcoes da ultima secao, pares/impares e o vinculo das secoes desvinculada/vinculada
+          $ls = $d.Sections.Item($d.Sections.Count)
+          $script:hfTp = [int]$ls.PageSetup.DifferentFirstPageHeaderFooter
+          $script:hfEo = [int]$ls.PageSetup.OddAndEvenPagesHeaderFooter
+          $script:hfHd = [double]$ls.PageSetup.HeaderDistance; $script:hfFd = [double]$ls.PageSetup.FooterDistance
+          $pn = $ls.Headers.Item(1).PageNumbers
+          $script:hfPn = "$($pn.NumberStyle)/$($pn.RestartNumberingAtSection)/$($pn.StartingNumber)"
+          $script:hfUn = $true; $script:hfRe = $true
+          if ($parts.Count -ge 5) {
+            $u = [int]$parts[3]; $r = [int]$parts[4]
+            if ($u -ge 0 -and $u + 1 -le $d.Sections.Count) { $script:hfUn = -not $d.Sections.Item($u + 1).Headers.Item(1).LinkToPrevious }
+            if ($r -ge 0 -and $r + 1 -le $d.Sections.Count) { $script:hfRe = [bool]$d.Sections.Item($r + 1).Headers.Item(1).LinkToPrevious }
+          }
+        }
         $script:fe = $d.Footnotes.Count; $script:ee = $d.Endnotes.Count
         $script:noteText = ''
         if ($Notes) {
@@ -107,6 +126,17 @@ foreach ($row in $rows) {
       elseif (-not $script:formula) { $status = 'no-formula' }
       elseif (-not $script:pgb) { $status = 'no-page-borders' }
       elseif (-not $script:tstyle) { $status = 'no-table-style' }
+    }
+    elseif ($Hf) {
+      $wantTp = 0; if ($parts.Count -ge 3 -and $parts[2] -eq '1') { $wantTp = -1 }
+      if ($script:hfTp -ne $wantTp) { $status = 'hf-titlepg' }
+      elseif ($script:hfEo -ne -1) { $status = 'hf-evenodd' }
+      elseif ([math]::Abs($script:hfHd - 56.7) -gt 0.1 -or [math]::Abs($script:hfFd - 42.5) -gt 0.1) { $status = 'hf-distance' }
+      elseif ($script:hfPn -ne '2/True/3') { $status = 'hf-pgnum' }
+      elseif (-not $script:hfUn) { $status = 'hf-unlink' }
+      elseif (-not $script:hfRe) { $status = 'hf-relink' }
+      elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
+      $detail += " hf $($script:hfTp)/$($script:hfEo)/$($script:hfPn)"
     }
     elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
     elseif ($Sections -and $script:se -ne $script:so + 1) { $status = 'section-count' }
