@@ -5,6 +5,7 @@ import { forEachTextbox, type TableBlock, type TableBorders, type Block } from '
 import { textboxAlternateContent } from './shape-xml.js';
 import { readTheme } from './ooxml/parts.js';
 import type { DmlColor } from './picture-xml.js';
+import type { ShapeStyle } from './drawing.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
 import { HF_NS } from './hf-ops.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource, type WrapSeg } from './source.js';
@@ -282,13 +283,23 @@ function editedShapeXml(run: Run): string {
   const tb = run.textbox;
   if (tb?.rawDrawingXml) {
     const inner = tb.link ? '' : (tb.blocks?.length ? tb.blocks.map(blockXml) : tb.paras.map(paraXml)).join('');
-    const drawing = tb.link ? patchDrawingGeometry(tb.rawDrawingXml, tb) : drawingWithParas(patchDrawingGeometry(tb.rawDrawingXml, tb), tb.paras, tb.blocks);
+    const raw = fillMedia(tb.rawDrawingXml, tb.shape);
+    const drawing = tb.link ? patchDrawingGeometry(raw, tb) : drawingWithParas(patchDrawingGeometry(raw, tb), tb.paras, tb.blocks);
     const next = chainNext.get(tb);
     return textboxAlternateContent(drawing, inner || (tb.link ? '' : '<w:p/>'), { color: shapeColor, spid: ++vmlSpid, ...(next ? { next } : {}) });
   }
   const sh = run.shape;
-  if (sh?.rawDrawingXml) return textboxAlternateContent(sh.rawDrawingXml, '', { color: shapeColor, spid: ++vmlSpid });
+  if (sh?.rawDrawingXml) return textboxAlternateContent(fillMedia(sh.rawDrawingXml, sh.style), '', { color: shapeColor, spid: ++vmlSpid });
   return '';
+}
+
+/** Preenchimento com imagem novo (Formato da Forma › Imagem/Textura): a mídia entra na
+ *  parte em gravação e o r:embed provisório vira a rel dela. */
+function fillMedia(raw: string, st: ShapeStyle | undefined): string {
+  const img = st?.blip?.image;
+  if (!img || !raw.includes('r:embed="uw:fill"')) return raw;
+  const rid = mediaRelId(img.data, img.ext);
+  return raw.replace(/r:embed="uw:fill"/g, () => `r:embed="${rid}"`);
 }
 
 /** Objeto refeito já emitido nesta gravação (cópia colada): sai com ids de desenho novos. */

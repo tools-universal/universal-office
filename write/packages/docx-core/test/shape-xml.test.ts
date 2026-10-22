@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readShapeFormat, patchShape, vmlFallback, newTextboxDrawingXml, txbxContentOf, type DmlColor } from '../src/index.js';
+import { SHAPE_STYLE_PRESETS } from '../../../../shared/drawingml/src/shape-styles.js';
 
 const RES = join(__dirname, '..', '..', '..', 'tools', 'textbox-lab', 'results');
 const unpretty = (s: string): string => s.replace(/<!--[\s\S]*?-->\n?/g, '').replace(/>\n\s*</g, '><').trim();
@@ -55,9 +56,18 @@ describe('caixa de texto: edição como o Word (patchShape)', () => {
     ['hidden', { hidden: true }],
     ['alt', { descr: 'Descricao da caixa', title: 'Titulo da caixa' }],
     ['line-theme', { line: { w: 19050, fill: { kind: 'schemeClr', val: 'accent1' } } }],
+    ['line-none', { outline: null }],
+    ['line-rgb', { outline: { w: 38100, fill: { kind: 'srgbClr', val: 'FF0000' }, dash: 'dash' } }],
   ];
   for (const [name, ch] of cases) {
     it(name, () => expect(ids(patchShape(base, ch))).toBe(ids(lab(name).drawing)));
+  }
+  // galeria Estilos de Forma (tabela gerada dos mesmos resultados)
+  for (const n of [1, 8, 16, 22, 36, 43, 50, 57, 64, 71, 77]) {
+    it(`estilo de forma ${n}`, () => {
+      const [spPr, style] = SHAPE_STYLE_PRESETS[n - 1]!;
+      expect(ids(patchShape(base, { stylePreset: { spPr, style } }))).toBe(ids(lab(`style-${n}`).drawing));
+    });
   }
 });
 

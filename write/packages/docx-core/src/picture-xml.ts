@@ -296,6 +296,8 @@ export interface Parts {
   pic: XmlElement | undefined;
   /** forma/caixa de texto (wps:wsp) — o spPr dela faz o papel do pic:spPr */
   wsp: XmlElement | undefined;
+  /** grupo (wpg:wgp) — o wpg:grpSpPr faz o papel do spPr (giro, espelho, tamanho) */
+  wgp?: XmlElement | undefined;
   spPr: XmlElement | undefined;
   blipFill: XmlElement | undefined;
   blip: XmlElement | undefined;
@@ -309,10 +311,11 @@ export function partsOf(raw: string): Parts {
   const gd = findDeep(container, 'a:graphicData');
   const pic = gd && firstChild(gd, 'pic:pic');
   const wsp = !pic && gd ? firstChild(gd, 'wps:wsp') : undefined;
-  const spPr = pic ? firstChild(pic, 'pic:spPr') : wsp && firstChild(wsp, 'wps:spPr');
+  const wgp = !pic && !wsp && gd ? firstChild(gd, 'wpg:wgp') : undefined;
+  const spPr = pic ? firstChild(pic, 'pic:spPr') : wsp ? firstChild(wsp, 'wps:spPr') : wgp && firstChild(wgp, 'wpg:grpSpPr');
   const blipFill = pic && firstChild(pic, 'pic:blipFill');
   const blip = blipFill && firstChild(blipFill, 'a:blip');
-  return { root, container, pic, wsp, spPr, blipFill, blip };
+  return { root, container, pic, wsp, wgp, spPr, blipFill, blip };
 }
 
 function readPos(el: XmlElement | undefined): PicPos | undefined {
@@ -466,8 +469,9 @@ function readBlip(blip: XmlElement | undefined): PicBlipFx {
 export function readPictureFormat(raw: string, opts: { anyShape?: boolean } = {}): PictureFormat | undefined {
   let p: Parts;
   try { p = partsOf(raw); } catch { return undefined; }
-  // (anyShape: as partes comuns de uma forma wps — âncora, docPr, xfrm, contorno, efeitos)
-  if (!p.pic && !(opts.anyShape && p.wsp)) return undefined;
+  // (anyShape: as partes comuns de uma forma wps ou de um grupo wpg — âncora, docPr, xfrm,
+  // contorno, efeitos)
+  if (!p.pic && !(opts.anyShape && (p.wsp || p.wgp))) return undefined;
   rawSrc = raw;
   const c = p.container;
   const inline = c.name === 'wp:inline';
@@ -944,7 +948,7 @@ function patchDecorative(raw: string, on: boolean): string {
 
 function patchPic(raw: string, ch: PictureChange): string {
   const p = partsOf(raw);
-  if (!p.pic && !p.wsp) return raw;
+  if (!p.pic && !p.wsp && !p.wgp) return raw;
   const patch = new XmlPatch(raw);
   const sp = p.spPr;
   if (sp) {

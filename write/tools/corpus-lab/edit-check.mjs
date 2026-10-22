@@ -1299,7 +1299,7 @@ if (want('textbox')) {
   await page.keyboard.press('Control+y');
   await page.keyboard.press('Control+y');
   await page.keyboard.press('Escape');
-  const xml = await ev('savedPart', 'word/document.xml');
+  let xml = await ev('savedPart', 'word/document.xml');
   const txbx = xml.match(/<wps:txbx[\s\S]*?<\/wps:txbx>/g) ?? [];
   check('salvar: o texto editado vai no wps:txbx da 1ª caixa', txbx.length === 1 && txbx[0].includes('XYZ') && /<wps:txbx id="1">/.test(txbx[0]), txbx.map((x) => x.length));
   check('salvar: a seguinte continua vinculada (linkedTxbx sem conteúdo)', /<wps:linkedTxbx id="1" seq="1"\/>/.test(xml));
@@ -1317,6 +1317,129 @@ if (want('textbox')) {
   await page.keyboard.press('Control+z');
   objs = await ev('objects');
   check('caixa vertical: desfazer', !objs[iv].text.includes('Q'));
+
+  // ───────────── Inserir › Caixa de Texto, Formato da Forma, desenhar, vincular ─────────────
+  r = await ev('blank');
+  await page.keyboard.type('Primeiro paragrafo do documento.');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Segundo paragrafo.');
+  let ok = await call('insertTextbox', 'simple');
+  s = await st();
+  let sel = await call('selectedShape');
+  check('inserir caixa (modelo simples): fica editando com o texto de exemplo selecionado', ok && s.tb && sel?.kind === 'textbox' && sel.editingText && s.sel.focus.offset > 20 && s.sel.anchor.offset === 0, { tb: s.tb, sel: s.sel });
+  await page.keyboard.type('Ola caixa');
+  objs = await ev('objects');
+  const it = objs.findIndex((o) => o.kind === 'textbox');
+  check('digitar troca o texto de exemplo', objs[it]?.text === 'Ola caixa', objs[it]?.text);
+  await page.keyboard.press('Escape');
+  s = await st();
+  sel = await call('selectedShape');
+  check('Esc no texto seleciona a forma (Formato da Forma)', !s.tb && sel?.kind === 'textbox' && !sel.editingText, { tb: s.tb, sel: sel && { kind: sel.kind, editing: sel.editingText } });
+  await call('setShapeFill', { kind: 'schemeClr', val: 'accent2' });
+  await call('setShapeOutline', { color: null });
+  await call('setTextboxOptions', { anchor: 'ctr', marginsPt: { l: 10 } });
+  await call('changeShape', 'roundRect');
+  sel = await call('selectedShape');
+  check('Formato da Forma: preenchimento, sem contorno, alinhamento, margem, forma', sel.format.fill?.color?.val === 'accent2' && sel.format.line?.fill === null && sel.text.anchor === 'ctr' && Math.abs(sel.text.marginsPt.l - 10) < 0.01 && sel.geometry === 'roundRect', { fill: sel.format.fill, line: sel.format.line, text: sel.text, g: sel.geometry });
+  await call('setShapeStyle', 16);
+  sel = await call('selectedShape');
+  check('Estilos de Forma: o estilo 16 reconhecido', sel.styleIndex === 16, sel.styleIndex);
+  await page.keyboard.press('Control+z');
+  sel = await call('selectedShape');
+  check('desfazer o estilo volta o preenchimento', sel?.styleIndex === 0 && sel.format.fill?.color?.val === 'accent2', sel && { st: sel.styleIndex, fill: sel.format.fill });
+  // digitar com a forma selecionada entra no texto (no fim)
+  await page.keyboard.type('!');
+  objs = await ev('objects');
+  s = await st();
+  check('digitar com a caixa selecionada acrescenta no fim do texto', s.tb && objs[it].text === 'Ola caixa!', { tb: s.tb, t: objs[it].text });
+  await page.keyboard.press('Escape');
+  xml = await ev('savedPart', 'word/document.xml');
+  check('salvar: caixa nova em mc:AlternateContent (wps + VML de reserva) com o texto', /<mc:Choice Requires="wps">[\s\S]*Ola caixa![\s\S]*<mc:Fallback>[\s\S]*<v:textbox[\s\S]*Ola caixa!/.test(xml));
+  check('salvar: forma, alinhamento, margem e preenchimento no XML', /prst="roundRect"/.test(xml) && /anchor="ctr"/.test(xml) && /lIns="127000"/.test(xml) && /<a:schemeClr val="accent2"\/>/.test(xml) && /a14:hiddenLine/.test(xml));
+  check('salvar: nome "Text Box N"/"Caixa de Texto N" e noProof no run', /<wp:docPr id="(\d+)" name="(Text Box|Caixa de Texto) \1"/.test(xml) && /<w:noProof\/><\/w:rPr><mc:AlternateContent>/.test(xml));
+  // a borda seleciona a forma; o miolo edita
+  objs = await ev('objects');
+  const tbx = (o) => o.kind === 'textbox';
+  const ob = objs.find(tbx);
+  const near = (list, o) => list.find((q) => tbx(q) && Math.abs(q.x - o.x) < 60 && Math.abs(q.y - o.y) < 60);
+  p = await ev('client', ob.page, ob.x + ob.w / 2, ob.y + 2);
+  await page.mouse.click(p.x, p.y);
+  s = await st();
+  sel = await call('selectedShape');
+  check('clique na borda seleciona a forma', !s.tb && sel?.kind === 'textbox', { tb: s.tb, sel: !!sel, ob });
+  p = await ev('client', ob.page, ob.x + ob.w / 2, ob.y + ob.h / 2);
+  await page.mouse.click(p.x, p.y);
+  s = await st();
+  check('clique no miolo edita o texto', s.tb);
+  await page.keyboard.press('Escape');
+  // arrastar a borda move (posição no XML)
+  const x0 = /<wp:positionH relativeFrom="margin"><wp:align>center<\/wp:align>/.test(xml);
+  p = await ev('client', ob.page, ob.x + 2, ob.y + ob.h / 2);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 40, p.y + 30, { steps: 4 });
+  await page.mouse.up();
+  objs = await ev('objects');
+  const moved = objs.find(tbx);
+  xml = await ev('savedPart', 'word/document.xml');
+  check('arrastar a borda move a caixa (posição relativa à margem vira deslocamento)', x0 && Math.abs(moved.x - ob.x - 40 * 15) < 40 && /<wp:positionH relativeFrom="margin"><wp:posOffset>/.test(xml), { dx: moved.x - ob.x });
+  const A = moved;
+
+  // Desenhar Caixa de Texto: arrasto na página
+  await call('drawTextbox');
+  p = await ev('client', 0, 1800, 9000);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 150, p.y + 60, { steps: 4 });
+  await page.mouse.up();
+  s = await st();
+  objs = await ev('objects');
+  const B = near(objs, { x: 1800, y: 9000 });
+  check('desenhar caixa: arrasto cria a caixa (no tamanho) e fica editando', s.tb && B && Math.abs(B.w - 150 * 15) < 30 && Math.abs(B.h - 60 * 15) < 30, B);
+  await page.keyboard.type('B');
+  await page.keyboard.press('Escape');
+  await call('drawTextbox');
+  p = await ev('client', 0, 6000, 9000);
+  await page.mouse.click(p.x, p.y);
+  objs = await ev('objects');
+  const C = near(objs, { x: 6000, y: 9000 });
+  check('desenhar caixa: um clique faz 1 pol × 1 pol', C && Math.abs(C.w - 1440) < 2 && Math.abs(C.h - 1440) < 2, C);
+  await page.keyboard.press('Escape');
+  // Criar Vínculo: da 1ª para a caixa vazia (a com texto é recusada)
+  const clickBorder = async (o) => { const q = await ev('client', o.page, o.x + o.w / 2, o.y + 2); await page.mouse.click(q.x, q.y); };
+  const clickIn = async (o) => { const q = await ev('client', o.page, o.x + o.w / 2, o.y + o.h / 2); await page.mouse.click(q.x, q.y); };
+  await clickBorder(A);
+  ok = await call('createTextboxLink');
+  const blockedP = page.evaluate(() => new Promise((res) => { document.querySelector('universal-write').addEventListener('uw-blocked', (e) => res(e.detail.reason), { once: true }); setTimeout(() => res(null), 2000); }));
+  await clickIn(B);
+  check('Criar Vínculo: caixa com texto recusada (aviso)', ok && (await blockedP) === 'linkTargetNotEmpty', { ok });
+  await clickBorder(A);
+  await call('createTextboxLink');
+  await clickIn(C);
+  xml = await ev('savedPart', 'word/document.xml');
+  check('Criar Vínculo: a 1ª vira wps:txbx id e a vazia linkedTxbx (VML mso-next-textbox)', /<wps:txbx id="1">/.test(xml) && /<wps:linkedTxbx id="1" seq="1"\/>/.test(xml) && /mso-next-textbox:#/.test(xml));
+  await clickBorder(A);
+  sel = await call('selectedShape');
+  ok = await call('breakTextboxLink');
+  xml = await ev('savedPart', 'word/document.xml');
+  check('Quebrar Vínculo: as duas voltam a wps:txbx sem id', sel?.link?.next && ok && !/<wps:txbx id=/.test(xml) && !/linkedTxbx/.test(xml), { link: sel?.link, ok });
+  // Painel de Seleção: as caixas aparecem; ocultar/renomear
+  let items = await call('selectionPaneItems');
+  check('Painel de Seleção lista as caixas de texto', items.filter((i) => i.kind === 'textbox').length === 3, items);
+  await call('renamePaneItem', items[0].key, 'Minha caixa');
+  await call('setPaneItemHidden', items[0].key, true);
+  items = await call('selectionPaneItems');
+  objs = await ev('objects');
+  check('Painel de Seleção: renomear e ocultar (oculta sai da página)', items.some((i) => i.name === 'Minha caixa' && i.hidden) && objs.filter((o) => o.kind === 'textbox').length === 2, items);
+  // Delete na forma selecionada e desfazer
+  await call('setPaneItemHidden', null, false);
+  objs = await ev('objects');
+  const nBefore = objs.length;
+  await clickBorder(objs.find(tbx));
+  await page.keyboard.press('Delete');
+  const nDel = (await ev('objects')).length;
+  await page.keyboard.press('Control+z');
+  check('Delete exclui a forma e desfazer volta', nDel === nBefore - 1 && (await ev('objects')).length === nBefore, { nBefore, nDel });
 }
 
 // ───────────── sumários do corpus atualizados pelo editor (fora do padrão) ─────────────

@@ -233,6 +233,16 @@ w.ed = {
     return (w.ed as { client: (p: number, x: number, y: number) => { x: number; y: number } }).client(o.page, o.x + o.w * fx, o.y + o.h * fy);
   },
 
+  /** Depuração: o que o editor acha sob um ponto da tela (caixa, objeto, borda). */
+  probe(x: number, y: number): Record<string, unknown> {
+    const e = need() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    const ev = { clientX: x, clientY: y } as MouseEvent;
+    const tb = e['hitTextbox']!.call(e, ev) as { rect: unknown; page: number; hostRun: { textbox?: { rot?: number } } } | null;
+    const fl = e['hitFloat']!.call(e, ev) as { kind: string; rect: unknown } | null;
+    const border = tb ? e['onObjectBorder']!.call(e, ev, { page: tb.page, rect: tb.rect, rot: tb.hostRun.textbox?.rot }) : null;
+    return { tb: tb && tb.rect, fl: fl && { kind: fl.kind, rect: fl.rect }, border };
+  },
+
   /** Ponto da tela do caractere `offset` do parágrafo pi (meio da linha). */
   clientAt(pi: number, offset: number): { x: number; y: number } | null {
     const e = need();

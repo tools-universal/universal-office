@@ -10,7 +10,8 @@
  *   square, margens 91440/45720, numCol 1, spcCol 0, rtlCol 0, fromWordArt 0, anchor
  *   t, anchorCtr 0, forceAA 0, compatLnSpc 1) + a:prstTxWarp textNoShape +
  *   a:noAutofit; dentro de mc:AlternateContent com o VML de reserva;
- * - sem contorno: a:ln com a:noFill e a14:hiddenLine no extLst (a linha anterior);
+ * - sem contorno: a:ln com a:noFill e o a14:hiddenLine (a linha anterior) no a:extLst
+ *   do spPr (oráculo line-none);
  * - Estilos de Forma: wps:style (lnRef/fillRef/effectRef/fontRef) e o spPr sem
  *   preenchimento e com <a:ln/> (1–42) ou com o preenchimento/contorno explícito
  *   (predefinições 43–77);
@@ -76,12 +77,18 @@ export interface ShapeFormat extends Omit<PictureFormat, 'blip' | 'srcRect' | 'e
 
 export interface ShapeChange extends PictureChange {
   fill?: ShapeFill;
+  /** contorno da forma (null = Sem Contorno, como o Word: noFill + a14:hiddenLine) — no
+   *  lugar do `line` da imagem */
+  outline?: PicLine | null;
   /** troca o wps:style (null tira) */
   style?: ShapeStyleRefs | null;
   body?: Partial<TextboxBody>;
   /** vínculo: a caixa vira a 1ª da cadeia (id) ou uma seguinte (linkedTxbx), ou
    *  volta a ter conteúdo próprio (null: wps:txbx sem id com `content`) */
   story?: { kind: 'txbx'; id?: number; content?: string } | { kind: 'linked'; id: number; seq: number };
+  /** Estilos de Forma: os filhos do spPr depois da geometria (preenchimento e contorno,
+   *  como o Word grava o estilo) e o wps:style — SHAPE_STYLE_PRESETS do drawingml */
+  stylePreset?: { spPr: string; style: string };
 }
 
 const int = (v: string | undefined, d = 0): number => {
@@ -235,6 +242,8 @@ const WSP_ORDER = ['wps:cNvPr', 'wps:cNvSpPr', 'wps:cNvCnPr', 'wps:nvPr', 'wps:s
 export function patchShape(raw: string, ch: ShapeChange): string {
   // âncora, quebra, posição, tamanho, docPr, travas, xfrm, contorno, efeitos, 3D: os da imagem
   let xml = patchPicture(raw, ch);
+  if (ch.stylePreset) xml = patchStylePreset(xml, ch.stylePreset);
+  if (ch.outline !== undefined) xml = patchOutline(xml, ch.outline, readPictureFormat(raw, { anyShape: true })?.line);
   if (ch.fill !== undefined) xml = patchFill(xml, ch.fill);
   if (ch.style !== undefined) xml = patchStyle(xml, ch.style);
   if (ch.body) xml = patchBody(xml, ch.body);
@@ -253,6 +262,23 @@ function patchFill(raw: string, f: ShapeFill): string {
     patch.replace(cur[0]!, xml);
     for (const k of cur.slice(1)) patch.remove(k);
   } else if (xml) patch.insertChild(sp, 'a:solidFill', xml, SPPR_ORDER);
+  return patch.apply();
+}
+
+/** Estilo de Forma: troca preenchimento e contorno do spPr pelos do estilo (os efeitos
+ *  e o 3D ficam) e o wps:style. */
+function patchStylePreset(raw: string, sp: { spPr: string; style: string }): string {
+  const p = partsOf(raw);
+  if (!p.wsp || !p.spPr) return raw;
+  const patch = new XmlPatch(raw);
+  const kids = childElements(p.spPr);
+  const old = kids.filter((k) => FILL_NAMES.includes(k.name) || k.name === 'a:ln');
+  for (const k of old) patch.remove(k);
+  const geom = kids.filter((k) => k.name === 'a:xfrm' || k.name === 'a:prstGeom' || k.name === 'a:custGeom').pop();
+  if (geom) patch.insertAt(geom.e!, sp.spPr);
+  else if (p.spPr.cs === p.spPr.e) patch.setContent(p.spPr, sp.spPr);
+  else patch.insertAt(p.spPr.cs!, sp.spPr);
+  patch.putChild(p.wsp, 'wps:style', sp.style, WSP_ORDER);
   return patch.apply();
 }
 
@@ -325,6 +351,9 @@ export interface NewTextboxOptions {
   line?: PicLine | null;
   /** spPr extra (a:effectLst…) depois do contorno */
   spPrExtra?: string;
+  /** os filhos do spPr depois da forma prontos (a caixa padrão do tema, a:txDef) — no
+   *  lugar de fill/line/spPrExtra */
+  spPrRaw?: string;
   geom?: { prst: string; adj?: Record<string, number> };
   style?: ShapeStyleRefs;
   body?: Partial<TextboxBody>;
@@ -367,7 +396,7 @@ export function newTextboxDrawingXml(o: NewTextboxOptions): string {
     + `<wp:docPr id="${o.id}" name="${escAttr(o.name)}"/><wp:cNvGraphicFramePr/>`
     + '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
     + '<wps:wsp><wps:cNvSpPr txBox="1"/>'
-    + `<wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${geom.prst}"><a:avLst${adj ? `>${adj}</a:avLst>` : '/>'}</a:prstGeom>${fill}${ln}${o.spPrExtra ?? ''}</wps:spPr>`
+    + `<wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${geom.prst}"><a:avLst${adj ? `>${adj}</a:avLst>` : '/>'}</a:prstGeom>${o.spPrRaw ?? `${fill}${ln}${o.spPrExtra ?? ''}`}</wps:spPr>`
     + (o.style ? styleRefsXml(o.style) : '')
     + story
     + bodyPrXml({ ...DEFAULT_TEXTBOX_BODY, ...(o.body ?? {}) })
@@ -392,11 +421,42 @@ function picLineXmlLocal(l: PicLine): string {
   return inner ? `<a:ln${attrs}>${inner}</a:ln>` : `<a:ln${attrs}/>`;
 }
 
-/** Sem contorno, como o Word grava: a:noFill + a14:hiddenLine com a linha anterior. */
-export function hiddenLineXml(prev: PicLine | null | undefined): string {
+const HIDDEN_LINE_URI = '{91240B29-F687-4F45-9708-019B960494DF}';
+
+/** Sem contorno, como o Word grava (oráculo line-none): o a:ln com a:noFill (e a
+ *  largura anterior) e, no a:extLst do spPr, o a14:hiddenLine com a linha anterior. */
+export function hiddenLineXml(prev: PicLine | null | undefined): { ln: string; ext: string } {
   const w = prev?.w !== undefined ? ` w="${Math.round(prev.w)}"` : '';
   const fill = prev?.fill ? `<a:solidFill>${dmlColorXml(prev.fill)}</a:solidFill>` : '<a:solidFill><a:prstClr val="black"/></a:solidFill>';
-  return `<a:ln${w}><a:noFill/><a:extLst><a:ext uri="{91240B29-F687-4F45-9708-019B960494DF}"><a14:hiddenLine xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"${w}>${fill}</a14:hiddenLine></a:ext></a:extLst></a:ln>`;
+  return {
+    ln: `<a:ln${w}><a:noFill/></a:ln>`,
+    ext: `<a:ext uri="${HIDDEN_LINE_URI}"><a14:hiddenLine xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"${w}>${fill}</a14:hiddenLine></a:ext>`,
+  };
+}
+
+/** Contorno da forma: a linha nova (o a14:hiddenLine sai) ou "Sem Contorno" com o
+ *  hiddenLine guardando a anterior. */
+function patchOutline(raw: string, line: PicLine | null, prev: PicLine | null | undefined): string {
+  const p = partsOf(raw);
+  const sp = p.spPr;
+  if (!sp) return raw;
+  const patch = new XmlPatch(raw);
+  const ext = firstChild(sp, 'a:extLst');
+  const hid = ext && childElements(ext, 'a:ext').find((e) => e.attrs['uri'] === HIDDEN_LINE_URI);
+  if (line === null) {
+    const h = hiddenLineXml(prev && prev.fill !== null ? prev : { w: prev?.w ?? 6350 });
+    patch.putChild(sp, 'a:ln', h.ln, SPPR_ORDER);
+    if (hid) patch.replace(hid, h.ext);
+    else if (ext) patch.insertAt(ext.ce!, h.ext);
+    else patch.insertChild(sp, 'a:extLst', `<a:extLst>${h.ext}</a:extLst>`, SPPR_ORDER);
+  } else {
+    patch.putChild(sp, 'a:ln', picLineXmlLocal(line), SPPR_ORDER);
+    if (hid) {
+      if (childElements(ext!).length === 1) patch.remove(ext!);
+      else patch.remove(hid);
+    }
+  }
+  return patch.apply();
 }
 
 // ───────────────────────── VML de reserva ─────────────────────────

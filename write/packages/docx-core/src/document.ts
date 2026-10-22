@@ -1194,7 +1194,8 @@ export function syncImageFromXml(img: InlineImage): void {
  * de uma edição do Formato da Forma): tamanho, âncora, quebra, preenchimento,
  * contorno, margens, direção, vínculo… O conteúdo (parágrafos/blocos) e o XML ficam.
  */
-export function syncShapeFromXml(run: Pick<Run, 'textbox' | 'shape'>): void {
+export function syncShapeFromXml(run: Pick<Run, 'textbox' | 'shape' | 'group'>): void {
+  if (run.group && !run.textbox && !run.shape) { syncGroupFromXml(run.group); return; }
   const obj = run.textbox ?? run.shape;
   const raw = obj?.rawDrawingXml;
   if (!obj || !raw) return;
@@ -1217,6 +1218,34 @@ export function syncShapeFromXml(run: Pick<Run, 'textbox' | 'shape'>): void {
   if (blip) {
     const st = run.textbox ? run.textbox.shape : run.shape?.style;
     if (st && !st.blip && /<a:blipFill\b/.test(raw)) st.blip = blip;
+  }
+}
+
+/** Grupo (wpg:wgp): âncora, tamanho, giro/espelho e oculto relidos do XML; os filhos
+ *  (com o texto editado das caixas) ficam, na escala do tamanho novo. */
+function syncGroupFromXml(g: DrawingGroup): void {
+  const raw = g.rawDrawingXml;
+  if (!raw) return;
+  let root: XmlElement;
+  try { root = parseXml(raw); } catch { return; }
+  root.raw = raw;
+  const ctx = { resolveImage: () => undefined, resolveLink: () => undefined } as unknown as ReadContext;
+  const fresh = readDrawingRun(root, ctx)?.group;
+  if (!fresh) return;
+  const sx = g.widthTwips ? fresh.widthTwips / g.widthTwips : 1, sy = g.heightTwips ? fresh.heightTwips / g.heightTwips : 1;
+  if (sx !== 1 || sy !== 1) {
+    for (const it of g.items) {
+      it.x *= sx; it.y *= sy; it.w *= sx; it.h *= sy;
+      const o = it.run.textbox ?? it.run.shape ?? it.run.image;
+      if (o) { o.widthTwips *= sx; o.heightTwips *= sy; }
+    }
+  }
+  const dst = g as unknown as Record<string, unknown>, src = fresh as unknown as Record<string, unknown>;
+  const keep = new Set(['items', 'rawDrawingXml', 'edited']);
+  for (const k of new Set([...Object.keys(dst), ...Object.keys(src)])) {
+    if (keep.has(k)) continue;
+    if (src[k] === undefined) delete dst[k];
+    else dst[k] = src[k];
   }
 }
 

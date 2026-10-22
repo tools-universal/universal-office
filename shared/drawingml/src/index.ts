@@ -20,3 +20,5 @@ export { wrapContour } from './contour.js';
 // - padrões predefinidos (a:pattFill prst / os 48 do Preenchimento do Word): bitmaps 8×8
 export { PRESET_PATTERNS, patternDensity, patternRows } from './patterns.js';
 export { shadeBevel, type BevelSpec } from './bevel.js';
+// - galeria Estilos de Forma (77, medida no Word): spPr + wps:style de cada uma
+export { SHAPE_STYLE_PRESETS } from './shape-styles.js';
