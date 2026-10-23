@@ -81,3 +81,25 @@ describe('DocNumbering', () => {
     expect(sameLevelFormat(a, parseLevel(libraryLevels(NUMBER_LIBRARY[1]!, PT)[0]!))).toBe(false);
   });
 });
+
+describe('marcador de imagem (oráculo home-lab exp-picbullet)', () => {
+  it('w:numPicBullet com o VML do Word antes dos w:abstractNum; a imagem vai para o pacote ao salvar', async () => {
+    const { DocxPackage, readNumbering } = await import('@universal-office/docx-core');
+    const n = new DocNumbering(null);
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    n.addList(libraryLevels(BULLET_LIBRARY[0]!, PT), { multiLevelType: 'hybridMultilevel' });
+    const id = n.addPicBullet({ data: png, ext: 'png' }, 30, 22.5, 'quadro');
+    expect(id).toBe(0);
+    expect(n.xml).toMatch(/<w:numPicBullet w:numPicBulletId="0"><w:pict><v:shapetype id="_x0000_t75"[\s\S]*?<v:shape id="_x0000_i1025" type="#_x0000_t75" style="width:30pt;height:22.5pt" o:bullet="t"><v:imagedata r:id="rIdUwPb1" o:title="quadro"\/><\/v:shape><\/w:pict><\/w:numPicBullet><w:abstractNum /);
+    // o 2º não repete o v:shapetype
+    expect(n.addPicBullet({ data: png, ext: 'png' }, 10, 10)).toBe(1);
+    expect(n.xml!.match(/_x0000_t75" coordsize/g)).toHaveLength(1);
+    // o motor lê a imagem pela relação
+    expect(n.parsed().picBullets[0]?.image?.data).toBe(png);
+    expect(readNumbering(n.xml!).picBullets[0]).toMatchObject({ rid: 'rIdUwPb1', widthPt: 30, heightPt: 22.5 });
+    const pkg = DocxPackage.empty();
+    n.writeImages(pkg, 'word/numbering.xml');
+    expect(pkg.getPartText('word/_rels/numbering.xml.rels')).toContain('<Relationship Id="rIdUwPb1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/uwbullet1.png"/>');
+    expect(pkg.getPart('word/media/uwbullet1.png')).toBe(png);
+  });
+});

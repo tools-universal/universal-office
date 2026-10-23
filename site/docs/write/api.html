@@ -359,13 +359,77 @@ editor.host = {
         own Text Box gallery designs and textures; 3-D rotation is kept and saved but drawn flat.
       </p>
 
+      <h2 id="home">Home tab: font, lists, clipboard, text effects, editing</h2>
+      <p>
+        What the Home tab of the built-in bars does, as public methods. The behavior was measured
+        in Word (Office 365, pt-BR) &mdash; the XML each command writes and how the page is drawn.
+      </p>
+      <h3 id="home-font">Font</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>setFontFormat(f)</code></td><td>Several character properties at once: <code>{ fontFamily, sizePt, bold, italic, underline, underlineColor, color, strike, doubleStrike, superscript, subscript, allCaps, smallCaps, hidden, scalePct, spacingTwips, positionHalfPt, kernMinHalfPt }</code> (the Font dialog).</td></tr>
+          <tr><td><code>setUnderline(style)</code> / <code>toggleUnderline(style?)</code> / <code>setUnderlineColor(c)</code></td><td>The 17 underline styles of Word (<code>'single' | 'words' | 'double' | 'thick' | 'dotted' | 'wave' | …</code>), drawn as Word draws them; color as hex or theme color.</td></tr>
+          <tr><td><code>setColor(c)</code></td><td>Hex (<code>'C00000'</code>) or a theme color <code>{ themeColor: 'accent1', tint?, shade? }</code>.</td></tr>
+          <tr><td><code>changeCase(mode)</code></td><td><code>'upper' | 'lower' | 'sentence' | 'title' | 'toggle' | 'next'</code> (Shift+F3 cycles).</td></tr>
+          <tr><td><code>setDefaultFont(f)</code></td><td>Font › Set As Default: writes the document defaults.</td></tr>
+          <tr><td><code>copyFormat(sticky?)</code> / <code>cancelFormatPainter()</code></td><td>Format Painter; <code>sticky</code> = double-click (stays on until Esc).</td></tr>
+          <tr><td><code>paragraphBorderPreset(kind)</code> / <code>setParagraphBorders(sides)</code> / <code>insertHorizontalLine()</code></td><td>The Borders button and Horizontal Line.</td></tr>
+        </tbody>
+      </table>
+      <h3 id="home-lists">Lists</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>applyListLibrary(kind, index)</code> / <code>applyMultilevelLibrary(index)</code></td><td>Bullet, numbering and multilevel libraries (the items of Word); <code>null</code> = None.</td></tr>
+          <tr><td><code>listInfo()</code> / <code>documentLists()</code> / <code>listLibrary(kind)</code></td><td>The caret's list, the lists of the document, the library items.</td></tr>
+          <tr><td><code>setListLevel(ilvl)</code> / <code>changeListLevel(delta)</code></td><td>Change List Level (Tab / Shift+Tab at the start of an item).</td></tr>
+          <tr><td><code>restartNumbering(start?)</code> / <code>continueNumbering()</code> / <code>setNumberingValue(o)</code></td><td>Restart at 1, Continue Numbering, Set Numbering Value.</td></tr>
+          <tr><td><code>defineListLevel(o)</code></td><td>Define New Bullet / Number Format: <code>{ bullet?, picture?, numFmt?, lvlText?, start?, align?, font?, bold?, italic?, sizePt?, color? }</code>. <code>picture: { data, ext, name? }</code> writes a picture bullet (<code>w:numPicBullet</code>), drawn at the level's size − 2 pt.</td></tr>
+          <tr><td><code>defineMultilevelList(levels, o?)</code> / <code>createListStyle(name, levels)</code> / <code>applyListStyle(id)</code> / <code>modifyListStyle(id, levels)</code></td><td>Multilevel lists linked to headings and list styles.</td></tr>
+        </tbody>
+      </table>
+      <h3 id="home-clipboard">Clipboard and paste options</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>paste(mode?)</code> / <code>repaste(mode, list?)</code> / <code>pasteOptions()</code></td><td>Keep Source Formatting (<code>'keep'</code>), Merge (<code>'merge'</code>), Picture, Keep Text Only (<code>'text'</code>); lists: Continue / New List. The floating "(Ctrl)" button uses these.</td></tr>
+          <tr><td><code>pasteSpecial(format, { link? })</code> / <code>pasteSpecialFormats()</code></td><td>Paste Special (<code>'rtf' | 'text' | 'html' | 'unicode' | 'picture' | 'image'</code>) and Paste Link (a <code>LINK</code> field to the source, when the host gives the file path).</td></tr>
+          <tr><td><code>clipboardItems()</code> / <code>pasteClipboardItem(id)</code> / <code>pasteAllClipboardItems()</code> / <code>removeClipboardItem(id)</code> / <code>clearClipboardItems()</code> / <code>onClipboardChange(f)</code></td><td>The Clipboard pane (the last 24 items, shared by the editors of the page).</td></tr>
+        </tbody>
+      </table>
+      <h3 id="home-effects">Text effects and typography</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>textEffects()</code> / <code>setTextEffects(patch)</code></td><td>The <code>w14</code> effects of the selection: <code>fill</code> (solid, gradient, none), <code>outline</code>, <code>shadow</code>, <code>reflection</code>, <code>glow</code>; <code>null</code> removes one. <code>w14:alpha</code> is transparency (60% → 60000).</td></tr>
+          <tr><td><code>applyTextEffectPreset(index)</code></td><td>The gallery of the Text Effects button (<code>null</code> = clear).</td></tr>
+          <tr><td><code>setTextGradient({ angleDeg, light })</code></td><td>Font Color › Gradient.</td></tr>
+          <tr><td><code>setOpenType(patch)</code></td><td><code>{ ligatures, numForm, numSpacing, stylisticSets, cntxtAlts }</code> &mdash; laid out with the font's GSUB (ligatures, old-style/tabular figures, stylistic sets).</td></tr>
+        </tbody>
+      </table>
+      <h3 id="home-editing">Find, replace, go to and selection</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>findNextMatch(q, o?)</code></td><td>Selects the next occurrence; <code>o.direction</code> <code>'all' | 'down' | 'up'</code> (<code>wrapped</code> = continued from the start). <code>q</code>: <code>{ text, matchCase, wholeWord, wildcards, soundsLike, allForms, prefix, suffix, ignorePunct, ignoreSpace, format }</code> &mdash; Word's special characters (<code>^p ^t ^l ^m ^? ^# ^$ ^w …</code>) and wildcards (<code>? * @ {n;m} &lt; &gt; [ ] ( )</code>).</td></tr>
+          <tr><td><code>replaceMatch(q, text, o?)</code> / <code>replaceAllMatches(q, text, o?)</code></td><td>Replace / Replace All (one undo step). Without match case the new text follows the case of the found one; it takes the formatting of the first found character plus <code>o.replaceFormat</code>; <code>^&amp;</code>, <code>^c</code> and <code>\1</code> (wildcards) in the new text.</td></tr>
+          <tr><td><code>countMatches(q)</code> / <code>highlightMatches(q)</code> / <code>clearSearch()</code></td><td>Reading Highlight (screen only, never in the PDF).</td></tr>
+          <tr><td><code>selectAllMatches(q, { within? })</code></td><td>Find In › Main Document / Current Selection: all occurrences as a non-contiguous selection.</td></tr>
+          <tr><td><code>goTo(what, target?)</code></td><td>Go To: <code>'page' | 'section' | 'line' | 'bookmark' | 'comment' | 'footnote' | 'endnote' | 'field' | 'table' | 'graphic' | 'equation' | 'object' | 'heading'</code>; target = number, <code>'+2'</code>/<code>'-1'</code> or a name.</td></tr>
+          <tr><td><code>getSelectionRanges()</code> / <code>setSelectionRanges(ranges)</code></td><td>Non-contiguous selection (Ctrl+drag; Ctrl+click = sentence): character and paragraph formatting apply to every range; Delete and Cut remove them all.</td></tr>
+          <tr><td><code>selectSimilarFormatting()</code></td><td>Select › Select Text with Similar Formatting.</td></tr>
+          <tr><td><code>setSelectObjectsMode(on)</code> / <code>selectPaneItems(keys)</code> / <code>selectedObjectCount()</code> / <code>alignObjects(kind)</code></td><td>Select Objects (lasso over the page, Shift/Ctrl+click), several drawing objects moved, deleted and aligned/distributed together.</td></tr>
+        </tbody>
+      </table>
+
       <h2 id="clipboard">Clipboard, find and replace</h2>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>copy()</code> / <code>cut()</code> / <code>paste()</code></td><td>Async; keep a rich clipboard internally.</td></tr>
           <tr><td><code>pastePlain()</code></td><td>Pastes as plain text, without formatting.</td></tr>
-          <tr><td><code>findNext(needle): boolean</code></td><td>Selects the next occurrence (case-insensitive); <code>true</code> if found. For the Navigation Pane search (all matches, options, highlight) see <a href="#nav-pane"><code>search()</code></a>.</td></tr>
+          <tr><td><code>findNext(needle): boolean</code></td><td>Selects the next occurrence (case-insensitive); <code>true</code> if found. With Word's options (wildcards, special characters, formatting) see <a href="#home-editing">Find, replace, go to and selection</a>. For the Navigation Pane search (all matches, options, highlight) see <a href="#nav-pane"><code>search()</code></a>.</td></tr>
           <tr><td><code>replaceAll(needle, replacement): number</code></td><td>Replaces all occurrences; returns the count.</td></tr>
         </tbody>
       </table>

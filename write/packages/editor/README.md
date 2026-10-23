@@ -214,6 +214,40 @@ and moves created by editing (cut and paste becomes a deletion plus an insertion
 | View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
 | State | `stats()` → `{ pages, words, chars, page, paragraph }`, `getSelectionState()`, `currentPage()`, `focusEditor()` |
 
+## Home tab
+
+The Home tab of the built-in bars, as public methods (behavior measured in Word):
+
+```js
+// Font: Word's 17 underline styles, theme colors, change case, Font dialog
+editor.setFontFormat({ fontFamily: 'Georgia', sizePt: 14, underline: 'wave', underlineColor: 'C00000' });
+editor.changeCase('title');
+
+// Lists: the libraries, multilevel lists linked to headings, list styles, picture bullets
+editor.applyListLibrary('bullet', 0);
+editor.defineListLevel({ picture: { data: pngBytes, ext: 'png' } });
+
+// Clipboard: paste options (Keep Source / Merge / Picture / Keep Text Only), Paste Special,
+// the Clipboard pane (24 items)
+await editor.paste('merge');
+
+// Text effects and typography (w14): glow, shadow, reflection, outline, gradient fill, OpenType
+editor.setTextEffects({ glow: { rad: 63500, color: { scheme: 'accent1', mods: [['alpha', 60000]] } } });
+editor.setOpenType({ ligatures: 'standard', numForm: 'oldStyle' });
+
+// Editing: Find and Replace with Word's options, special characters and wildcards; Go To
+editor.replaceAllMatches({ text: '(<[A-Z][a-z]@>) (<[A-Z][a-z]@>)', wildcards: true }, '\\2, \\1');
+editor.goTo('page', '3');
+
+// Selection: non-contiguous ranges, Select Text with Similar Formatting, Select Objects
+editor.selectAllMatches({ text: 'draft', wholeWord: true });
+editor.setFontFormat({ bold: true }); // applies to every selected range
+```
+
+Find options: `matchCase`, `wholeWord`, `wildcards`, `soundsLike`, `allForms`, `prefix`,
+`suffix`, `ignorePunct`, `ignoreSpace`, `format`. Without `matchCase` the new text follows the
+case of the found text (as in Word).
+
 ## Tables
 
 Tables follow Word's rules (measured against Word): what each operation does
