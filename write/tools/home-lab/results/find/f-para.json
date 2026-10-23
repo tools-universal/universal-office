@@ -1,0 +1,16 @@
+{
+    "ok":  true,
+    "text":  "X\rtres\r",
+    "paras":  [
+                  {
+                      "text":  "X\r",
+                      "align":  2,
+                      "style":  "Normal"
+                  },
+                  {
+                      "text":  "tres\r",
+                      "align":  0,
+                      "style":  "Normal"
+                  }
+              ]
+}

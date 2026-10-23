@@ -1,0 +1,18 @@
+{
+    "r1-bye":  "BYE bye Bye bye Bye\r",
+    "c1-bye":  "HELLO bye Hello hELLO HeLLo\r",
+    "f1-bye":  "BYE bye Bye\r",
+    "r2-Bye":  "BYE Bye Bye Bye Bye\r",
+    "c2-Bye":  "HELLO Bye Hello hELLO HeLLo\r",
+    "f2-Bye":  "BYE Bye Bye\r",
+    "r3-BYE":  "BYE BYE BYE BYE BYE\r",
+    "c3-BYE":  "HELLO BYE Hello hELLO HeLLo\r",
+    "f3-BYE":  "BYE BYE BYE\r",
+    "r4-bYe":  "BYE bYe BYe bYe BYe\r",
+    "c4-bYe":  "HELLO bYe Hello hELLO HeLLo\r",
+    "f4-bYe":  "BYE bYe BYe\r",
+    "two-words":  "GOOD BYE\r",
+    "title-two":  "Good bye\r",
+    "single-upper":  "XY\r",
+    "upper-num":  "2X\r"
+}

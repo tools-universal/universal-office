@@ -343,7 +343,7 @@ export class PictureUI {
         eye.addEventListener('mousedown', (e) => e.preventDefault());
         eye.addEventListener('click', (e) => { e.stopPropagation(); ed.setPaneItemHidden(it.key, !it.hidden); this.env.after(); sync(); });
         row.addEventListener('mousedown', (e) => e.preventDefault());
-        row.addEventListener('click', () => { ed.selectPaneItem(it.key); this.env.after(); sync(); });
+        row.addEventListener('click', (e) => { ed.selectPaneItem(it.key, e.ctrlKey || e.shiftKey); this.env.after(); sync(); });
         row.addEventListener('dblclick', () => {
           if (off) return;
           editing = true;

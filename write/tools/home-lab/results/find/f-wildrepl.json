@@ -1,0 +1,8 @@
+{
+    "swap":  "Smith, John; Jones, Mary\r",
+    "amp":  "the [fox] and the dog\r",
+    "ampWild":  "the \u003cfox\u003e and the dog\r",
+    "date":  "23/10/2024\r",
+    "lazy":  "XXX\r",
+    "caret":  "^1 ^2\r"
+}

@@ -1,0 +1,21 @@
+{
+    "ok":  true,
+    "text":  "a\rb\rc\r",
+    "paras":  [
+                  {
+                      "text":  "a\r",
+                      "align":  1,
+                      "style":  "Normal"
+                  },
+                  {
+                      "text":  "b\r",
+                      "align":  1,
+                      "style":  "Normal"
+                  },
+                  {
+                      "text":  "c\r",
+                      "align":  1,
+                      "style":  "Normal"
+                  }
+              ]
+}

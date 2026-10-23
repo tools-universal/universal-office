@@ -158,6 +158,7 @@ import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
 import { caseMapped } from './text-case.js';
 import { htmlToParas } from './paste-html.js';
+import { storyText, findAll, compileQuery, adaptCase, expandReplacement, foundText, posOf, FindError, type FindQuery, type FindFormat, type StoryText, type FindHit, type FindEnv } from './find-engine.js';
 import { TEXT_EFFECT_GALLERY, textGradient } from './text-effects-presets.js';
 import { DocNumbering, libraryLevels, levelIndent, parseLevel, sameLevelFormat, type ListLocale } from './numbering-store.js';
 import { BULLET_LIBRARY, NUMBER_LIBRARY, MULTILEVEL_LIBRARY } from './list-library.js';
@@ -354,6 +355,19 @@ export type { TabStopInfo, IndentInfo, FindOptions } from './navigation.js';
 export type {
   LineNumberMode, LineNumberingInfo, LineNumberingOptions, ParagraphFlow, TightWrap, ParagraphLayoutInfo, HyphenationInfo, ManualHyphenation,
 } from './text-layout.js';
+export type { FindQuery, FindFormat } from './find-engine.js';
+
+/** Opções de uma busca do Localizar e Substituir. */
+export interface FindRunOptions {
+  /** Pesquisar: Abaixo, Acima ou Tudo (dá a volta) */
+  direction?: 'all' | 'down' | 'up';
+  /** Localizar em: o documento (corpo e tabelas) ou a seleção atual */
+  within?: 'document' | 'selection';
+}
+export interface FindOutcome { found: boolean; wrapped?: boolean; error?: string }
+/** Ir para: o que procurar. */
+export type GoToWhat = 'page' | 'section' | 'line' | 'bookmark' | 'comment' | 'footnote' | 'endnote' | 'field' | 'table' | 'graphic' | 'equation' | 'object' | 'heading';
+type FindStory = { kind: 'body'; first: number; paras: Paragraph[] } | { kind: 'cell'; anchor: number; hops: CellHop[]; paras: Paragraph[] };
 export type { HfGallery } from './hf-templates.js';
 
 /** Opções de cabeçalho/rodapé da seção do cursor (getHeaderFooterOptions). Twips. */
@@ -2680,9 +2694,8 @@ export class UniversalWriteElement extends HTMLElement {
       return;
     }
     this.snapshot();
-    const { start, end } = normalizeRange(this.range());
     const segs: { range: DocRange; props: RunProps }[] = [];
-    for (let pi = start.para; pi <= end.para; pi++) {
+    for (const { start, end } of [normalizeRange(this.range()), ...this.extras()]) for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi]!;
       const from = pi === start.para ? start.offset : 0, to = pi === end.para ? end.offset : paraLength(p);
       let acc = 0;
@@ -2695,7 +2708,7 @@ export class UniversalWriteElement extends HTMLElement {
         else segs.push({ range: { start: { para: pi, offset: s }, end: { para: pi, offset: e } }, props: r.props });
       }
     }
-    for (const sg of segs) this.applyRun(sg.range, fn(sg.props));
+    for (const sg of segs) this.applyRunOne(sg.range, fn(sg.props));
     this.refresh();
   }
 
@@ -3144,10 +3157,9 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Parágrafos da seleção (índices no modelo atual). */
   private selectedParas(): number[] {
-    const { start, end } = normalizeRange(this.range());
-    const out: number[] = [];
-    for (let i = start.para; i <= end.para; i++) out.push(i);
-    return out;
+    const set = new Set<number>();
+    for (const { start, end } of [normalizeRange(this.range()), ...this.extras()]) for (let i = start.para; i <= end.para; i++) set.add(i);
+    return [...set].sort((a, b) => a - b);
   }
 
   private setParaAt(pi: number, patch: Partial<ParaProps>): void {
@@ -4378,6 +4390,25 @@ export class UniversalWriteElement extends HTMLElement {
       await this.writeClipboard(text, html);
       return;
     }
+    // seleção não contígua: os trechos em ordem, um parágrafo cada
+    const more = this.extras();
+    if (more.length) {
+      const main = this.selection;
+      const texts: string[] = [];
+      const paras: ClipPara[] = [];
+      for (const r of this.getSelectionRanges()) {
+        this.selection = { anchor: r.start, focus: r.end };
+        texts.push(this.selectedText());
+        const c = this.extractSelection();
+        if (c) paras.push(...c.paras);
+      }
+      this.selection = main;
+      const mc: RichClip = { text: texts.join('\n'), paras, doc: this.docToken };
+      this.richClip = mc;
+      this.rememberClip(mc);
+      await this.writeClipboard(mc.text, this.clipHtml(mc));
+      return;
+    }
     const t = this.selectedText();
     const clip = this.extractSelection();
     // (só uma referência de nota ou um objeto selecionado: não tem texto, mas cola)
@@ -4430,7 +4461,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model || !this.hasSelection() || this.locked()) return;
     await this.copy();
     this.snapshot();
-    const pos = this.deleteSelection();
+    const pos = this.deleteSelectedRanges();
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
     this.onSelectionChange?.(); this.chromeSync?.();
@@ -8248,13 +8279,388 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Formata runs (com o controle ligado vira w:rPrChange). */
   private applyRun(range: DocRange, patch: Partial<RunProps>): void {
+    // seleção não contígua: a mesma formatação em todos os trechos
+    const more = this.isMainRange(range) ? [...this.extras()] : [];
+    this.applyRunOne(range, patch);
+    for (const r of more) this.applyRunOne(r, patch);
+  }
+  private applyRunOne(range: DocRange, patch: Partial<RunProps>): void {
     if (this.tracking) trackApplyRunProps(this.model!, range, patch, this.newRev());
     else applyRunProps(this.model!, range, patch);
   }
   /** Formata parágrafos (com o controle ligado vira w:pPrChange). */
   private applyPara(range: DocRange, patch: Partial<ParaProps>): void {
+    const more = this.isMainRange(range) ? [...this.extras()] : [];
+    this.applyParaOne(range, patch);
+    for (const r of more) this.applyParaOne(r, patch);
+  }
+  private applyParaOne(range: DocRange, patch: Partial<ParaProps>): void {
     if (this.tracking) trackApplyParaProps(this.model!, range, patch, this.newRev());
     else applyParaProps(this.model!, range, patch);
+  }
+
+  // ───────────── seleção não contígua (Ctrl+arrastar, formatação semelhante, localizar tudo) ─────────────
+
+  /** Trechos selecionados além da seleção principal (no modelo em edição). Valem enquanto a
+   *  seleção principal for o MESMO objeto (`extraBase`): qualquer outra seleção os desfaz. */
+  private extraSel: DocRange[] = [];
+  private extraBase: { anchor: DocPosition; focus: DocPosition } | null = null;
+
+  private extras(): DocRange[] {
+    if (this.extraSel.length && this.selection !== this.extraBase) { this.extraSel = []; this.extraBase = null; }
+    return this.extraSel;
+  }
+
+  private setExtraSelection(ranges: DocRange[]): void {
+    this.extraSel = ranges.map((r) => normalizeRange(r)).filter((r) => comparePos(r.start, r.end) !== 0);
+    this.extraBase = this.extraSel.length ? this.selection : null;
+  }
+
+  private isMainRange(range: DocRange): boolean {
+    const a = normalizeRange(range), b = normalizeRange(this.range());
+    return comparePos(a.start, b.start) === 0 && comparePos(a.end, b.end) === 0;
+  }
+
+  /** Todos os trechos selecionados (os acrescentados e o principal), na ordem do documento. */
+  getSelectionRanges(): DocRange[] {
+    const main = normalizeRange(this.range());
+    return [...this.extras(), main].sort((a, b) => comparePos(a.start, b.start));
+  }
+
+  /** Seleciona vários trechos de uma vez (o último é o principal). Só no modelo em edição. */
+  setSelectionRanges(ranges: DocRange[]): void {
+    if (!this.model || !ranges.length) return;
+    const ps = this.model.paragraphs;
+    const ok = (p: DocPosition): boolean => p.para >= 0 && p.para < ps.length && p.offset >= 0 && p.offset <= paraLength(ps[p.para]!);
+    const rs = ranges.filter((r) => ok(r.start) && ok(r.end));
+    if (!rs.length) return;
+    const main = rs[rs.length - 1]!;
+    this.floatSel = null;
+    this.selection = { anchor: main.start, focus: main.end };
+    this.setExtraSelection(rs.slice(0, -1));
+    this.refreshSelection();
+  }
+
+  /** Exclui todos os trechos selecionados (Delete/Backspace e Recortar com seleção não
+   *  contígua): de trás para frente; o cursor fica no começo do primeiro. */
+  private deleteSelectedRanges(): DocPosition {
+    const more = this.extras();
+    if (!more.length) return this.deleteSelection();
+    const all = [...more, normalizeRange(this.range())].sort((a, b) => comparePos(b.start, a.start));
+    this.extraSel = []; this.extraBase = null;
+    let pos = all[all.length - 1]!.start;
+    for (const r of all) { this.selection = { anchor: r.start, focus: r.end }; pos = this.deleteSelection(); }
+    return pos;
+  }
+
+  /** Frase em volta da posição (Ctrl+clique): do fim da anterior ao fim desta com os espaços. */
+  private sentenceRangeAt(pos: DocPosition): DocRange {
+    const text = paraText(this.model!.paragraphs[pos.para]!);
+    let s = pos.offset;
+    while (s > 0 && !/[.!?]/.test(text[s - 1]!)) s--;
+    while (s < pos.offset && /\s/.test(text[s]!)) s++;
+    let e = pos.offset;
+    while (e < text.length && !/[.!?]/.test(text[e]!)) e++;
+    while (e < text.length && /[.!?"”')\]]/.test(text[e]!)) e++;
+    while (e < text.length && text[e] === ' ') e++;
+    return { start: { para: pos.para, offset: s }, end: { para: pos.para, offset: e } };
+  }
+
+  /**
+   * Selecionar › Selecionar Texto com Formatação Semelhante: todo o texto do corpo com a
+   * mesma formatação de caractere (e o mesmo estilo de parágrafo) do início da seleção — uma
+   * seleção não contígua. Devolve quantos trechos.
+   */
+  selectSimilarFormatting(): number {
+    if (!this.model || this.tbEdit || this.noteEdit || this.hfEdit) return 0;
+    const { start } = normalizeRange(this.range());
+    const p0 = this.model.paragraphs[start.para];
+    if (!p0) return 0;
+    const ref = this.hasSelection() ? propsAt(this.model, { para: start.para, offset: start.offset + 1 }) : (this.pendingProps ?? this.currentProps());
+    const pstyle = (p: Paragraph): string => p.props.styleId ?? p.ppr?.pStyle ?? '';
+    const key = (p: RunProps, para: Paragraph): string => JSON.stringify([
+      !!p.bold, !!p.italic, !!p.underline, p.underlineStyle ?? '', !!p.strike, !!p.doubleStrike, (p.fontAscii ?? '').toLowerCase(),
+      p.szHalfPt ?? 0, (p.color ?? '').toUpperCase(), p.highlight ?? '', p.charStyle ?? '', !!p.allCaps, !!p.smallCaps, p.vertAlign ?? '', pstyle(para),
+    ]);
+    const want = key(ref, p0);
+    const out: DocRange[] = [];
+    this.model.paragraphs.forEach((p, pi) => {
+      let off = 0;
+      for (const r of p.runs) {
+        const n = r.text.length, a = off;
+        off += n;
+        if (!n || r.props.del || r.noteRef || r.image || r.shape || r.group || r.textbox || key(r.props, p) !== want) continue;
+        const last = out[out.length - 1];
+        if (last && last.end.para === pi && last.end.offset === a) last.end = { para: pi, offset: a + n };
+        else out.push({ start: { para: pi, offset: a }, end: { para: pi, offset: a + n } });
+      }
+    });
+    if (!out.length) return 0;
+    // o trecho da seleção original fica como o principal
+    const k = Math.max(0, out.findIndex((r) => comparePos(r.start, start) <= 0 && comparePos(start, r.end) <= 0));
+    const main = out.splice(k, 1)[0]!;
+    this.floatSel = null;
+    this.selection = { anchor: main.start, focus: main.end };
+    this.setExtraSelection(out);
+    this.refreshSelection();
+    return out.length + 1;
+  }
+
+  // ───────────── Selecionar Objetos e vários objetos selecionados ─────────────
+
+  /** Objetos de desenho selecionados além do `floatSel` (Shift/Ctrl+clique, laço). */
+  private floatMulti: Run[] = [];
+  private selectObjectsOn = false;
+  /** laço em andamento (página e retângulo em twips) */
+  private lasso: { page: number; x: number; y: number; w: number; h: number } | null = null;
+  /** arrasto de vários objetos: o deslocamento atual (twips) */
+  private multiDrag: { dx: number; dy: number } | null = null;
+
+  /** Selecionar › Selecionar Objetos: o arrasto na página seleciona os objetos de desenho
+   *  inteiros dentro do laço (também os atrás do texto); Esc sai. */
+  setSelectObjectsMode(on: boolean): void {
+    this.selectObjectsOn = on;
+    this.lasso = null;
+    this.style.cursor = on ? 'default' : '';
+    this.dispatchEvent(new CustomEvent('uw-select-objects', { detail: { active: on } }));
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+  isSelectObjectsMode(): boolean { return this.selectObjectsOn; }
+
+  /** Os objetos de desenho selecionados (o principal primeiro). */
+  private selectedFloats(): FloatHandle[] {
+    if (!this.floatSel) return [];
+    const all = this.enumFloats();
+    const runs = [this.floatSel, ...this.floatMulti.filter((r) => r !== this.floatSel)];
+    return runs.map((r) => all.find((h) => h.run === r)).filter((h): h is FloatHandle => !!h);
+  }
+
+  /** Quantos objetos de desenho estão selecionados. */
+  selectedObjectCount(): number { return this.floatSel ? this.selectedFloats().length || 1 : 0; }
+
+  /** Acrescenta/tira um objeto da seleção (Shift/Ctrl+clique). */
+  private toggleFloatInSelection(run: Run): void {
+    if (!this.floatSel) { this.floatSel = run; this.floatMulti = []; return; }
+    if (run === this.floatSel) {
+      const rest = this.floatMulti.filter((r) => r !== run);
+      this.floatSel = rest.shift() ?? null;
+      this.floatMulti = rest;
+      return;
+    }
+    if (this.floatMulti.includes(run)) this.floatMulti = this.floatMulti.filter((r) => r !== run);
+    else this.floatMulti = [...this.floatMulti, run];
+  }
+
+  /** Seleciona os objetos inteiros dentro do retângulo (twips, na página). */
+  private selectFloatsIn(page: number, r: { x: number; y: number; w: number; h: number }, add: boolean): void {
+    const inside = this.enumFloats().filter((h) => h.page === page && h.rect.x >= r.x && h.rect.y >= r.y && h.rect.x + h.rect.w <= r.x + r.w && h.rect.y + h.rect.h <= r.y + r.h);
+    const runs = [...(add && this.floatSel ? [this.floatSel, ...this.floatMulti] : []), ...inside.map((h) => h.run)];
+    const uniq = [...new Set(runs)];
+    this.floatSel = uniq[0] ?? null;
+    this.floatMulti = uniq.slice(1);
+  }
+
+  /** Vários passos de edição viram UM no desfazer (o 1º estado guardado fica). */
+  private oneUndo(fn: () => void): void {
+    const n = this.undoStack.length;
+    fn();
+    if (this.undoStack.length > n + 1) this.undoStack.splice(n + 1);
+  }
+
+  /** Move um objeto flutuante (twips), mantendo as referências da posição. */
+  private moveFloatBy(h: FloatHandle, dx: number, dy: number): void {
+    const obj = h.obj;
+    const fr = this.engObjectFrame(h.run);
+    const fmt = UniversalWriteElement.rawOf(h.run) ? this.formatOf(h.run) : undefined;
+    if (fmt && fr) {
+      const ph = this.posFor(fmt.posH, 'h', h.rect.x + dx, fr), pv = this.posFor(fmt.posV, 'v', h.rect.y + dy, fr);
+      this.applyDrawingXml(h.run, this.patchDrawing(h.run, { ...(dx && ph ? { posH: ph } : {}), ...(dy && pv ? { posV: pv } : {}) }), false);
+    } else {
+      obj.offsetXTwips = (obj.offsetXTwips ?? 0) + dx;
+      obj.offsetYTwips = (obj.offsetYTwips ?? 0) + dy;
+      if (this.eng) this.moveAnchorTo(obj, h.rect.x + dx, h.rect.y + dy);
+    }
+  }
+
+  /** Move todos os objetos selecionados (setas, arrasto). */
+  private moveSelectedFloatsBy(dx: number, dy: number): void {
+    const hs = this.selectedFloats().filter((h) => !h.inline);
+    if (!hs.length || (!dx && !dy) || this.locked()) return;
+    this.snapshot();
+    this.oneUndo(() => { for (const h of hs) this.moveFloatBy(h, dx, dy); });
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-change'));
+  }
+
+  /** Exclui todos os objetos selecionados (um passo de desfazer). */
+  private deleteSelectedFloats(): void {
+    const runs = [this.floatSel, ...this.floatMulti].filter((r): r is Run => !!r);
+    this.floatMulti = [];
+    if (runs.length <= 1) { this.deleteSelectedFloat(); return; }
+    this.oneUndo(() => { for (const r of runs) { this.floatSel = r; if (this.selectedFloat()) this.deleteSelectedFloat(); } });
+    this.floatSel = null;
+    this.refresh();
+  }
+
+  /**
+   * Alinhar com vários objetos selecionados (Alinhar Objetos Selecionados): as bordas/centros
+   * vão à do grupo (esquerda = a menor, direita = a maior, centro = o meio da caixa de todos);
+   * Distribuir na Horizontal/Vertical deixa os vãos iguais. Com um só, alinha à margem/página.
+   */
+  alignObjects(kind: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distributeH' | 'distributeV'): void {
+    const hs = this.selectedFloats().filter((h) => !h.inline);
+    if (hs.length < 2) { if (kind !== 'distributeH' && kind !== 'distributeV') this.alignShape(kind); return; }
+    if (this.locked()) return;
+    const L = Math.min(...hs.map((h) => h.rect.x)), R = Math.max(...hs.map((h) => h.rect.x + h.rect.w));
+    const T = Math.min(...hs.map((h) => h.rect.y)), B = Math.max(...hs.map((h) => h.rect.y + h.rect.h));
+    const moves = new Map<FloatHandle, [number, number]>();
+    if (kind === 'distributeH' || kind === 'distributeV') {
+      const hor = kind === 'distributeH';
+      const sorted = [...hs].sort((a, b) => (hor ? a.rect.x - b.rect.x : a.rect.y - b.rect.y));
+      const total = sorted.reduce((s, h) => s + (hor ? h.rect.w : h.rect.h), 0);
+      const gap = ((hor ? R - L : B - T) - total) / Math.max(1, sorted.length - 1);
+      let at = hor ? L : T;
+      for (const h of sorted) {
+        moves.set(h, hor ? [Math.round(at - h.rect.x), 0] : [0, Math.round(at - h.rect.y)]);
+        at += (hor ? h.rect.w : h.rect.h) + gap;
+      }
+    } else {
+      for (const h of hs) {
+        const r = h.rect;
+        const dx = kind === 'left' ? L - r.x : kind === 'right' ? R - (r.x + r.w) : kind === 'center' ? (L + R) / 2 - (r.x + r.w / 2) : 0;
+        const dy = kind === 'top' ? T - r.y : kind === 'bottom' ? B - (r.y + r.h) : kind === 'middle' ? (T + B) / 2 - (r.y + r.h / 2) : 0;
+        moves.set(h, [Math.round(dx), Math.round(dy)]);
+      }
+    }
+    this.snapshot();
+    this.oneUndo(() => { for (const [h, [dx, dy]] of moves) if (dx || dy) this.moveFloatBy(h, dx, dy); });
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-change'));
+  }
+
+  /** Contorno tracejado dos objetos selecionados além do principal, o laço e a prévia do
+   *  arrasto de vários (adornos de tela). */
+  private paintMultiSelection(ctx: CanvasRenderingContext2D, pg: number): void {
+    const lw = 15;
+    if (this.floatMulti.length || this.multiDrag) {
+      const d = this.multiDrag ?? { dx: 0, dy: 0 };
+      for (const h of this.selectedFloats()) {
+        if (h.page !== pg) continue;
+        ctx.save();
+        ctx.strokeStyle = '#3a72c4';
+        ctx.lineWidth = lw;
+        ctx.setLineDash([60, 40]);
+        ctx.strokeRect(h.rect.x + d.dx, h.rect.y + d.dy, h.rect.w, h.rect.h);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffffff';
+        for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+          const cx = h.rect.x + d.dx + x * h.rect.w, cy = h.rect.y + d.dy + y * h.rect.h;
+          ctx.fillRect(cx - 50, cy - 50, 100, 100);
+          ctx.strokeRect(cx - 50, cy - 50, 100, 100);
+        }
+        ctx.restore();
+      }
+    }
+    if (this.lasso && this.lasso.page === pg) {
+      const r = this.lasso;
+      ctx.save();
+      ctx.fillStyle = 'rgba(58,114,196,0.12)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = '#3a72c4';
+      ctx.lineWidth = lw;
+      ctx.setLineDash([45, 30]);
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      ctx.restore();
+    }
+  }
+
+  /** Ponto do evento em twips na página (layout de impressão) ou null. */
+  private pagePointTw(e: MouseEvent): { page: number; x: number; y: number } | null {
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let i = 0; i < this.canvases.length; i++) {
+      const c = this.canvases[i]!;
+      const r = c.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        return { page: i, x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+      }
+    }
+    return null;
+  }
+
+  /** Clique/arrasto no modo Selecionar Objetos (e o arrasto de vários objetos): true = tratado. */
+  private selectObjectsMouseDown(e: MouseEvent): boolean {
+    if (e.button !== 0 || !this.eng || this.view !== 'print') return false;
+    const fh = this.hitFloat(e);
+    const many = this.floatSel && this.floatMulti.length > 0;
+    // Shift/Ctrl+clique num objeto: acrescenta/tira da seleção (como no Word)
+    if (fh && (e.shiftKey || e.ctrlKey) && (this.floatSel || this.selectObjectsOn)) {
+      e.preventDefault();
+      if (this.tbEdit) this.exitTextbox();
+      this.toggleFloatInSelection(fh.run);
+      this.focusEditor();
+      this.refreshSelection();
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    // arrastar um dos vários selecionados: move todos
+    if (fh && many && (fh.run === this.floatSel || this.floatMulti.includes(fh.run))) {
+      e.preventDefault();
+      this.focusEditor();
+      const scale = PX_PER_TWIP * this.zoom;
+      const x0 = e.clientX, y0 = e.clientY;
+      this.multiDrag = { dx: 0, dy: 0 };
+      const move = (ev: MouseEvent): void => { this.multiDrag = { dx: Math.round((ev.clientX - x0) / scale), dy: Math.round((ev.clientY - y0) / scale) }; this.paint(); };
+      const up = (): void => {
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+        const d = this.multiDrag;
+        this.multiDrag = null;
+        if (d && (Math.abs(d.dx) > 30 || Math.abs(d.dy) > 30)) this.moveSelectedFloatsBy(d.dx, d.dy);
+        else this.paint();
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+      return true;
+    }
+    if (!this.selectObjectsOn) return false;
+    e.preventDefault();
+    this.focusEditor();
+    if (fh) {
+      // no modo: o clique só seleciona (não entra no texto da caixa); arrastar move
+      if (this.tbEdit) this.exitTextbox();
+      this.floatSel = fh.run;
+      this.floatMulti = [];
+      this.refreshSelection();
+      this.startFloatDrag(e, 'move', '');
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    // laço
+    const p0 = this.pagePointTw(e);
+    if (!p0) return true;
+    if (this.tbEdit) this.exitTextbox();
+    const add = e.shiftKey || e.ctrlKey;
+    if (!add) { this.floatSel = null; this.floatMulti = []; }
+    this.lasso = { page: p0.page, x: p0.x, y: p0.y, w: 0, h: 0 };
+    const move = (ev: MouseEvent): void => {
+      const p = this.pagePointTw(ev);
+      if (!p || p.page !== p0.page || !this.lasso) return;
+      this.lasso = { page: p0.page, x: Math.min(p0.x, p.x), y: Math.min(p0.y, p.y), w: Math.abs(p.x - p0.x), h: Math.abs(p.y - p0.y) };
+      this.paint();
+    };
+    const up = (): void => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      const l = this.lasso;
+      this.lasso = null;
+      if (l && l.w > 20 && l.h > 20) this.selectFloatsIn(l.page, l, add);
+      this.refreshSelection();
+      this.onSelectionChange?.(); this.chromeSync?.();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    this.paint();
+    return true;
   }
 
   // imagens são imutáveis: o snapshot guarda só um índice no pool em vez
@@ -8640,7 +9046,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
-      const pos = this.deleteSelection();
+      const pos = this.deleteSelectedRanges();
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para, offset } = this.selection.focus;
@@ -8676,7 +9082,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset < paraLength(this.model.paragraphs[this.selection.focus.para]!))) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
-      const pos = this.deleteSelection();
+      const pos = this.deleteSelectedRanges();
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para, offset } = this.selection.focus;
@@ -8898,6 +9304,9 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.tableMouseDown(e)) return;
       // aba do controle de conteúdo do sumário (menu, Atualizar Sumário)
       if (this.tocTabMouseDown(e)) return;
+      // Selecionar Objetos (laço), Shift/Ctrl+clique em objetos e arrasto de vários
+      if (!this.protectedMode && this.selectObjectsMouseDown(e)) return;
+      if (e.button === 0 && !e.shiftKey && !e.ctrlKey) this.floatMulti = [];
       // objetos flutuantes + entrada em caixa de texto (CLIQUE ÚNICO):
       if (e.button === 0 && !this.protectedMode) {
         // Desenhar Caixa de Texto e Criar Vínculo: o clique é do modo
@@ -9047,9 +9456,14 @@ export class UniversalWriteElement extends HTMLElement {
       this.focusEditor();
       e.preventDefault();
       const extend = e.shiftKey;
+      // Ctrl: acrescenta um trecho à seleção (seleção não contígua, como o Word); sem
+      // arrastar, a frase do clique
+      const adding = e.ctrlKey && !extend && e.detail === 1 && !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit;
+      const kept = adding ? [...this.extras(), ...(this.hasSelection() ? [normalizeRange(this.range())] : [])] : [];
       this.selection = extend
         ? { anchor: this.selection.anchor, focus: hit }
         : { anchor: hit, focus: hit };
+      if (adding) this.setExtraSelection(kept);
       this.pendingProps = null;
       this.refreshSelection();
       // arrasto que começa numa célula e passa para outra: seleção de células
@@ -9062,6 +9476,12 @@ export class UniversalWriteElement extends HTMLElement {
       const up = () => {
         window.removeEventListener('mousemove', move);
         window.removeEventListener('mouseup', up);
+        if (adding && !this.hasSelection() && this.model) {
+          const r = this.sentenceRangeAt(hit);
+          this.selection.anchor = r.start;
+          this.selection.focus = r.end;
+          this.refreshSelection();
+        }
         if (this.painterProps) this.applyPainter();
       };
       window.addEventListener('mousemove', move);
@@ -9384,6 +9804,7 @@ export class UniversalWriteElement extends HTMLElement {
         return;
       }
       if (k === 'Escape' && this.painterProps) { e.preventDefault(); this.cancelFormatPainter(); return; }
+      if (k === 'Escape' && this.selectObjectsOn && !this.floatSel) { e.preventDefault(); this.setSelectObjectsMode(false); return; }
       if (k === 'Escape' && (this.drawMode || this.linkFrom)) { e.preventDefault(); this.cancelDrawTextbox(); this.cancelTextboxLink(); return; }
       // objeto flutuante selecionado: Esc desseleciona, Del remove, setas nudge
       if (this.floatSel && !this.tbEdit && this.selectedFloat()) {
@@ -9400,8 +9821,14 @@ export class UniversalWriteElement extends HTMLElement {
         }
         if ((k === 'Escape' || k === 'Enter') && this.croppingImage()) { e.preventDefault(); this.endImageCrop(); return; }
         if ((k === 'Escape' || k === 'Enter') && this.editingWrapPoints()) { e.preventDefault(); this.endEditWrapPoints(); return; }
-        if (k === 'Escape') { e.preventDefault(); this.floatSel = null; if (inline) { const f = normalizeRange(this.range()).end; this.selection = { anchor: f, focus: f }; } this.refreshSelection(); this.chromeSync?.(); return; }
-        if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.deleteSelectedFloat(); return; }
+        if (k === 'Escape') { e.preventDefault(); this.floatSel = null; this.floatMulti = []; if (this.selectObjectsOn) this.setSelectObjectsMode(false); if (inline) { const f = normalizeRange(this.range()).end; this.selection = { anchor: f, focus: f }; } this.refreshSelection(); this.chromeSync?.(); return; }
+        if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.deleteSelectedFloats(); return; }
+        if (!inline && this.floatMulti.length && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown')) {
+          e.preventDefault();
+          const step = e.ctrlKey ? 15 : 90;
+          this.moveSelectedFloatsBy(k === 'ArrowLeft' ? -step : k === 'ArrowRight' ? step : 0, k === 'ArrowUp' ? -step : k === 'ArrowDown' ? step : 0);
+          return;
+        }
         if (!inline && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown')) {
           e.preventDefault();
           const h = this.selectedFloat();
@@ -13947,7 +14374,7 @@ export class UniversalWriteElement extends HTMLElement {
     const cur = this.floatSel ?? this.tbEdit?.focusRun ?? null;
     this.paneRuns().forEach(({ run: r, key, f }) => {
       out.push({
-        key, name: f.docPr.name ?? '', hidden: !!f.docPr.hidden, selected: cur === r,
+        key, name: f.docPr.name ?? '', hidden: !!f.docPr.hidden, selected: cur === r || (!!this.floatSel && this.floatMulti.includes(r)),
         kind: r.image ? 'image' : r.textbox ? 'textbox' : r.group ? 'group' : 'shape', z: f.relativeHeight ?? 0,
       });
     });
@@ -13975,14 +14402,26 @@ export class UniversalWriteElement extends HTMLElement {
     return this.paneRuns().find((x) => x.key === key)?.run ?? null;
   }
 
-  /** Seleciona o objeto da lista (oculto também: sem alças na página). */
-  selectPaneItem(key: string): void {
+  /** Seleciona o objeto da lista (oculto também: sem alças na página); `add` (Ctrl/Shift+clique)
+   *  acrescenta/tira da seleção de vários objetos. */
+  selectPaneItem(key: string, add = false): void {
     const r = this.paneRun(key);
     if (!r) return;
     this.endImageCrop();
     this.endEditWrapPoints();
     if (this.tbEdit) this.exitTextbox();
-    this.floatSel = r;
+    if (add) this.toggleFloatInSelection(r);
+    else { this.floatSel = r; this.floatMulti = []; }
+    this.refreshSelection();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Seleciona vários objetos de desenho de uma vez (chaves do Painel de Seleção). */
+  selectPaneItems(keys: string[]): void {
+    const runs = keys.map((k) => this.paneRun(k)).filter((r): r is Run => !!r);
+    if (this.tbEdit) this.exitTextbox();
+    this.floatSel = runs[0] ?? null;
+    this.floatMulti = runs.slice(1);
     this.refreshSelection();
     this.onSelectionChange?.(); this.chromeSync?.();
   }
@@ -14012,6 +14451,8 @@ export class UniversalWriteElement extends HTMLElement {
    *  botão grava `<wp:align>` relativo a elas (medido: align-ui-left). Só imagens
    *  flutuantes. */
   alignImage(kind: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', relativeTo?: 'margin' | 'page'): void {
+    // vários objetos selecionados: um em relação aos outros (Alinhar Objetos Selecionados)
+    if (!relativeTo && this.selectedFloats().filter((h) => !h.inline).length > 1) { this.alignObjects(kind); return; }
     const run = this.drawRun();
     if (!run || this.formatOf(run)!.inline) return;
     const rel = relativeTo ?? this.imageAlignTo;
@@ -15322,6 +15763,8 @@ export class UniversalWriteElement extends HTMLElement {
         if (this.tableSel) this.paintTableSel(ctx, i);
         // imagem em linha selecionada: só as alças (sem o realce do caractere dela)
         else if (hasSel && !picSel) this.paintEngineSelection(ctx, i, sel);
+        if (!this.tableSel) for (const r of this.extras()) this.paintEngineSelection(ctx, i, r);
+        this.paintMultiSelection(ctx, i);
         this.paintTableAdorners(ctx, i);
         this.paintTocControl(ctx, i);
         ctx.restore();
@@ -16541,6 +16984,495 @@ export class UniversalWriteElement extends HTMLElement {
     this.scrollCaretIntoView();
     this.onSelectionChange?.(); this.chromeSync?.();
     return true;
+  }
+
+  // ───────────────────────── Localizar e Substituir / Ir para ─────────────────────────
+
+  /** Histórias da busca na ordem do documento: trechos do corpo entre tabelas e as células
+   *  (aninhadas também). Um ¶ procurado só atravessa parágrafos da mesma história. */
+  private findStories(): FindStory[] {
+    const b = this.bodyState();
+    const out: FindStory[] = [];
+    if (!b.model) return out;
+    const cells = (t: TableBlock, anchor: number, path: CellHop[]): void => {
+      t.rows.forEach((row, r) => {
+        let c = row.trPr?.gridBefore ?? 0;
+        for (const cell of row.cells) {
+          const hops = [...path, { r, c }];
+          if (cell.paragraphs.length) out.push({ kind: 'cell', anchor, hops, paras: cell.paragraphs });
+          (cell.blocks ?? []).forEach((blk, bi) => { if (blk.type === 'table') cells(blk, anchor, [...path, { r, c, b: bi }]); });
+          c += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+        }
+      });
+    };
+    const ps = b.model.paragraphs;
+    let seg = 0;
+    for (let i = 0; i <= ps.length; i++) {
+      const here = b.tableAnchors.map((a, ai) => ({ a, ai })).filter((x) => x.a.beforePara === i);
+      if (here.length || i === ps.length) {
+        if (i > seg) out.push({ kind: 'body', first: seg, paras: ps.slice(seg, i) });
+        seg = i;
+        for (const { a, ai } of here) cells(a.table, ai, []);
+      }
+    }
+    return out;
+  }
+
+  /** Ambiente da busca: idioma efetivo (todas as formas) e estilo de parágrafo. */
+  private findEnv(): FindEnv {
+    const langs = this.spellLangResolver();
+    return {
+      lang: (r: Run, p: Paragraph) => langs.run(r, p).lang,
+      paraStyle: (p: Paragraph) => p.props.styleId ?? p.ppr?.pStyle ?? 'Normal',
+    };
+  }
+
+  /** História e índice do texto onde está o cursor (início e fim da seleção). */
+  private findCursor(stories: FindStory[], texts: StoryText[]): { story: number; from: number; to: number } {
+    const { start, end } = normalizeRange(this.range());
+    const at = (si: number, para: number, s: DocPosition, e: DocPosition): { story: number; from: number; to: number } => {
+      const st = texts[si]!;
+      const g = (p: DocPosition): number => (st.starts[p.para - para] ?? st.text.length) + p.offset;
+      return { story: si, from: g(s), to: g(e) };
+    };
+    if (this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
+      const ce = this.cellEdit;
+      const si = stories.findIndex((s) => s.kind === 'cell' && s.anchor === ce.anchor && JSON.stringify(s.hops) === JSON.stringify(ce.hops));
+      if (si >= 0) return at(si, 0, start, end);
+    }
+    if (!this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
+      const si = stories.findIndex((s) => s.kind === 'body' && start.para >= s.first && start.para < s.first + s.paras.length);
+      if (si >= 0) {
+        const s = stories[si] as Extract<FindStory, { kind: 'body' }>;
+        // o fim pode estar noutra história (seleção que passa por uma tabela): fica no fim desta
+        const e2 = end.para < s.first + s.paras.length ? end : { para: s.first + s.paras.length - 1, offset: paraLength(s.paras[s.paras.length - 1]!) };
+        return at(si, s.first, start, e2);
+      }
+    }
+    return { story: 0, from: 0, to: 0 };
+  }
+
+  /** Seleciona uma ocorrência (entra na célula se preciso) e rola até ela. */
+  private selectFindHit(story: FindStory, st: StoryText, h: FindHit): void {
+    const a = posOf(st, h.start);
+    const b = posOf(st, h.end);
+    const lastP = st.paras.length - 1;
+    if (b.para === lastP && b.offset > paraLength(st.paras[lastP]!)) b.offset = paraLength(st.paras[lastP]!);
+    this.floatSel = null;
+    if (story.kind === 'body') {
+      if (!this.toBody()) return;
+      this.selection = { anchor: { para: story.first + a.para, offset: a.offset }, focus: { para: story.first + b.para, offset: b.offset } };
+    } else {
+      if (this.hfEdit || this.tbEdit || this.noteEdit) this.toBody();
+      if (!this.enterCell(story.anchor, story.hops, { para: a.para, offset: a.offset })) return;
+      this.selection = { anchor: { para: a.para, offset: a.offset }, focus: b };
+    }
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Verifica o texto procurado: mensagem do padrão inválido ou null. */
+  private findQueryError(q: FindQuery): string | null {
+    try { compileQuery(q); return null; } catch (e) {
+      if (e instanceof FindError) return e.code === 'pattern'
+        ? this.findMsg('O texto em "Localizar" contém uma expressão não válida para o padrão coincidente.', 'The Find What text contains a Pattern Match expression which is not valid.')
+        : this.findMsg(`"${e.message}" não é um caractere especial válido para a caixa Localizar.`, `"${e.message}" is not a valid special character for the Find What box.`);
+      return String(e);
+    }
+  }
+  private findMsg(pt: string, en: string): string { return /^pt\b/i.test(this.getAttribute('lang') ?? navigator.language ?? '') ? pt : en; }
+
+  /**
+   * Localizar (Localizar e Substituir › Localizar Próxima): seleciona a próxima ocorrência a
+   * partir da seleção — para baixo, para cima ou em tudo (dá a volta, `wrapped`). Vale no corpo
+   * e nas tabelas. Opções e especiais como no Word (find-engine.ts, medidos).
+   */
+  findNextMatch(q: FindQuery, o: FindRunOptions = {}): FindOutcome {
+    const err = this.findQueryError(q);
+    if (err) return { found: false, error: err };
+    const stories = this.findStories();
+    if (!stories.length) return { found: false };
+    const env = this.findEnv();
+    const texts = stories.map((s) => storyText(s.paras));
+    const cur = this.findCursor(stories, texts);
+    const dir = o.direction ?? 'all';
+    const all = (si: number): FindHit[] => findAll(texts[si]!, q, env);
+    const n = stories.length;
+    if (dir !== 'up') {
+      for (let k = 0; k < n; k++) {
+        const si = cur.story + k;
+        if (si >= n) break;
+        const h = all(si).find((x) => k > 0 || x.start >= cur.to || (x.start >= cur.from && cur.from === cur.to && x.end > cur.from));
+        if (h) { this.selectFindHit(stories[si]!, texts[si]!, h); return { found: true }; }
+      }
+      if (dir === 'all') {
+        for (let si = 0; si <= cur.story; si++) {
+          const h = all(si).find((x) => si < cur.story || x.start < cur.to);
+          if (h) { this.selectFindHit(stories[si]!, texts[si]!, h); return { found: true, wrapped: true }; }
+        }
+      }
+      return { found: false };
+    }
+    for (let si = cur.story; si >= 0; si--) {
+      const hs = all(si).filter((x) => si < cur.story || x.end <= cur.from);
+      const h = hs[hs.length - 1];
+      if (h) { this.selectFindHit(stories[si]!, texts[si]!, h); return { found: true }; }
+    }
+    return { found: false };
+  }
+
+  /** Quantas ocorrências há (corpo e tabelas; ou só na seleção). */
+  countMatches(q: FindQuery, o: FindRunOptions = {}): number {
+    if (this.findQueryError(q)) return 0;
+    return this.collectMatches(q, o).reduce((s, x) => s + x.hits.length, 0);
+  }
+
+  /** As ocorrências por história (só na seleção: a história do cursor, dentro dela). */
+  private collectMatches(q: FindQuery, o: FindRunOptions): { story: FindStory; st: StoryText; hits: FindHit[] }[] {
+    const stories = this.findStories();
+    const env = this.findEnv();
+    const texts = stories.map((s) => storyText(s.paras));
+    if (o.within === 'selection') {
+      if (!this.hasSelection()) return [];
+      const cur = this.findCursor(stories, texts);
+      const st = texts[cur.story];
+      if (!st) return [];
+      return [{ story: stories[cur.story]!, st, hits: findAll(st, q, env).filter((h) => h.start >= cur.from && h.end <= cur.to) }];
+    }
+    return stories.map((story, i) => ({ story, st: texts[i]!, hits: findAll(texts[i]!, q, env) }));
+  }
+
+  /** Realce de Leitura › Realçar Tudo: realça todas as ocorrências (adorno de tela); devolve
+   *  quantas. `clearSearch()` limpa. */
+  highlightMatches(q: FindQuery, o: FindRunOptions = {}): number {
+    this.searchHits.clear();
+    this.searchList = [];
+    if (this.findQueryError(q)) { this.paint(); return 0; }
+    let n = 0;
+    for (const { st, hits } of this.collectMatches(q, o)) {
+      for (const h of hits) {
+        n++;
+        const a = posOf(st, h.start), b = posOf(st, h.end);
+        for (let p = a.para; p <= b.para; p++) {
+          const para = st.paras[p]!;
+          const s = p === a.para ? a.offset : 0, e = p === b.para ? b.offset : paraLength(para);
+          if (e <= s) continue;
+          const l = this.searchHits.get(para) ?? [];
+          l.push([s, e]);
+          this.searchHits.set(para, l);
+        }
+      }
+    }
+    this.searchShow = true;
+    this.paint();
+    return n;
+  }
+
+  /** Localizar em › Documento Principal (ou Seleção Atual): seleciona TODAS as ocorrências do
+   *  corpo (seleção não contígua, como o Word); devolve quantas. As das tabelas só contam. */
+  selectAllMatches(q: FindQuery, o: FindRunOptions = {}): number {
+    if (this.findQueryError(q)) return 0;
+    const ranges: DocRange[] = [];
+    let cellOnly: { story: FindStory; st: StoryText; h: FindHit } | null = null;
+    for (const { story, st, hits } of this.collectMatches(q, o)) {
+      for (const h of hits) {
+        if (story.kind !== 'body') { cellOnly ??= { story, st, h }; continue; }
+        const a = posOf(st, h.start), b = posOf(st, h.end);
+        ranges.push({ start: { para: story.first + a.para, offset: a.offset }, end: { para: story.first + b.para, offset: Math.min(b.offset, paraLength(st.paras[b.para]!)) } });
+      }
+    }
+    if (!ranges.length) {
+      if (cellOnly) { this.selectFindHit(cellOnly.story, cellOnly.st, cellOnly.h); return 1; }
+      return 0;
+    }
+    if (!this.toBody()) return 0;
+    const main = ranges.pop()!;
+    this.floatSel = null;
+    this.selection = { anchor: main.start, focus: main.end };
+    this.setExtraSelection(ranges);
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    return ranges.length + 1;
+  }
+
+  /** Formatação da substituição → props de run. */
+  private static findFormatPatch(f: FindFormat | undefined): Partial<RunProps> {
+    if (!f) return {};
+    const p: Partial<RunProps> = {};
+    if (f.bold !== undefined) p.bold = f.bold;
+    if (f.italic !== undefined) p.italic = f.italic;
+    if (f.underline !== undefined) p.underline = f.underline;
+    if (f.strike !== undefined) p.strike = f.strike;
+    if (f.doubleStrike !== undefined) p.doubleStrike = f.doubleStrike;
+    if (f.allCaps !== undefined) p.allCaps = f.allCaps;
+    if (f.smallCaps !== undefined) p.smallCaps = f.smallCaps;
+    if (f.hidden !== undefined) p.hidden = f.hidden;
+    if (f.vertAlign !== undefined) p.vertAlign = f.vertAlign ?? undefined;
+    if (f.font !== undefined) p.fontAscii = f.font;
+    if (f.sizePt !== undefined) p.szHalfPt = Math.round(f.sizePt * 2);
+    if (f.color !== undefined) p.color = f.color.toUpperCase();
+    // realce: a cor padrão do realce (amarelo — medido: Options.DefaultHighlightColorIndex 7)
+    if (f.highlight !== undefined) p.highlight = f.highlight ? 'yellow' : undefined;
+    if (f.charStyle !== undefined) p.charStyle = f.charStyle || undefined;
+    return p;
+  }
+
+  /** Troca UMA ocorrência no modelo em edição (corpo ou célula); devolve o fim do texto novo. */
+  private replaceRange(range: DocRange, found: string, groups: string[] | undefined, q: FindQuery, repl: string, rf?: FindFormat): DocPosition {
+    const { start, end } = normalizeRange(range);
+    const patch = UniversalWriteElement.findFormatPatch(rf);
+    // só formatação (os dois textos vazios): a formatação nova no trecho
+    if (!q.text && !repl) {
+      if (Object.keys(patch).length) this.applyRunOne({ start, end }, patch);
+      if (rf?.paraStyle) for (let p = start.para; p <= end.para; p++) this.setParaStyleAt(p, rf.paraStyle);
+      return end;
+    }
+    // o texto novo leva a formatação do 1º caractere encontrado (+ a da substituição)
+    const first: RunProps = comparePos(start, end) !== 0 ? { ...propsAt(this.model!, { para: start.para, offset: start.offset + 1 }) } : { ...this.currentProps() };
+    let text = expandReplacement(repl, found, groups, !!q.wildcards, this.clipboardText());
+    if (!q.matchCase && !q.wildcards) text = adaptCase(found, text);
+    this.selection = { anchor: start, focus: end };
+    let pos = comparePos(start, end) !== 0 ? this.deleteSelection() : start;
+    const props = { ...withoutRevisions(first), ...patch } as RunProps;
+    const p0 = pos.para;
+    text.split('\r').forEach((part, i) => {
+      if (i > 0) { this.shiftAnchors(pos.para, 1); pos = this.splitAt(pos); }
+      if (part) pos = this.insertTyped(pos, part, props);
+    });
+    if (rf?.paraStyle) for (let p = p0; p <= pos.para; p++) this.setParaStyleAt(p, rf.paraStyle);
+    return pos;
+  }
+
+  /** Estilo de parágrafo de um parágrafo do modelo em edição (substituir com estilo). */
+  private setParaStyleAt(para: number, styleId: string): void {
+    const len = paraLength(this.model!.paragraphs[para]!);
+    this.applyPara({ start: { para, offset: 0 }, end: { para, offset: len } }, { styleId });
+  }
+
+  /** Texto da área de transferência (^c): o último recorte/cópia do editor. */
+  private clipboardText(): string {
+    return OFFICE_CLIPBOARD.clip?.text ?? '';
+  }
+
+  /**
+   * Substituir: se a seleção é uma ocorrência, troca-a (texto, especiais, caixa adaptada,
+   * formatação) e vai à próxima; senão só localiza. `replaceFormat`: a formatação do texto novo.
+   */
+  replaceMatch(q: FindQuery, replacement: string, o: FindRunOptions & { replaceFormat?: FindFormat } = {}): FindOutcome & { replaced: boolean } {
+    const err = this.findQueryError(q);
+    if (err) return { found: false, replaced: false, error: err };
+    if (this.locked() || this.isProtected()) return { found: false, replaced: false };
+    const stories = this.findStories();
+    const texts = stories.map((s) => storyText(s.paras));
+    const cur = this.findCursor(stories, texts);
+    const st = texts[cur.story];
+    const hit = st && this.hasSelection() ? findAll(st, q, this.findEnv()).find((h) => h.start === cur.from && h.end === cur.to) : undefined;
+    if (!hit || !st) return { ...this.findNextMatch(q, o), replaced: false };
+    this.snapshot();
+    const range = normalizeRange(this.range());
+    const pos = this.replaceRange(range, foundText(st, hit), hit.groups, q, replacement, o.replaceFormat);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    const next = this.findNextMatch(q, o);
+    if (!next.found) { this.selection = { anchor: pos, focus: pos }; this.refreshSelection(); }
+    return { ...next, replaced: true };
+  }
+
+  /**
+   * Substituir Tudo (corpo e tabelas, ou só na seleção): um passo de desfazer; o texto novo
+   * não é procurado de novo. Devolve quantas trocou (ou o erro do padrão).
+   */
+  replaceAllMatches(q: FindQuery, replacement: string, o: FindRunOptions & { replaceFormat?: FindFormat } = {}): { count: number; error?: string } {
+    const err = this.findQueryError(q);
+    if (err) return { count: 0, error: err };
+    if (this.locked() || this.isProtected()) return { count: 0 };
+    const groups = this.collectMatches(q, o).filter((g) => g.hits.length);
+    if (!groups.length) return { count: 0 };
+    const keep = { cell: this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops } : null, sel: this.selection };
+    this.snapshot();
+    let count = 0;
+    {
+      // de trás para frente: as posições anteriores (e os índices das histórias) não mudam
+      for (const { story, st, hits } of [...groups].reverse()) {
+        if (story.kind === 'body') { this.toBody(); } else {
+          if (this.hfEdit || this.tbEdit || this.noteEdit) this.toBody();
+          if (!this.enterCell(story.anchor, story.hops, { para: 0, offset: 0 }, false)) continue;
+        }
+        const base = story.kind === 'body' ? story.first : 0;
+        for (const h of [...hits].reverse()) {
+          const a = posOf(st, h.start), b = posOf(st, h.end);
+          const lastP = st.paras.length - 1;
+          if (b.para === lastP && b.offset > paraLength(st.paras[lastP]!)) b.offset = paraLength(st.paras[lastP]!);
+          this.replaceRange({ start: { para: base + a.para, offset: a.offset }, end: { para: base + b.para, offset: b.offset } }, foundText(st, h), h.groups, q, replacement, o.replaceFormat);
+          count++;
+        }
+        if (story.kind === 'cell') this.exitCell();
+      }
+    }
+    // de volta onde estava (a posição pode ter mudado de tamanho: fica no limite)
+    this.toBody();
+    if (keep.cell) this.enterCell(keep.cell.anchor, keep.cell.hops, { para: 0, offset: 0 }, false);
+    const clamp = (p: DocPosition): DocPosition => {
+      const ps = this.model!.paragraphs;
+      const para = Math.min(p.para, ps.length - 1);
+      return { para, offset: Math.min(p.offset, paraLength(ps[para]!)) };
+    };
+    const c = clamp(keep.sel.focus);
+    this.selection = { anchor: c, focus: c };
+    this.refresh();
+    return { count };
+  }
+
+  /**
+   * Ir para (Localizar e Substituir › Ir para, Ctrl+G/F5): página, seção, linha, indicador,
+   * comentário, nota de rodapé/fim, campo, tabela, gráfico, equação, objeto ou título. `target`:
+   * número ("5"), deslocamento ("+2", "-1"), vazio = o próximo; no indicador o nome; no campo o
+   * nome do campo (vazio = qualquer); no comentário o revisor (vazio = qualquer).
+   */
+  goTo(what: GoToWhat, target = ''): boolean {
+    if (!this.model) return false;
+    const t = target.trim();
+    const rel = /^[+-]\d*$/.test(t) ? (t.length > 1 ? parseInt(t, 10) : t[0] === '-' ? -1 : 1) : t === '' ? 1 : null;
+    const abs = rel === null && /^\d+$/.test(t) ? parseInt(t, 10) : null;
+    /** posição na lista ordenada: o n-ésimo (abs) ou relativo ao atual (`cur` = índice do atual
+     *  ou −0,5 entre itens) */
+    const pick = <T>(list: T[], cur: number): T | undefined => {
+      if (!list.length) return undefined;
+      if (abs !== null) return list[Math.min(list.length, Math.max(1, abs)) - 1];
+      const r = rel ?? 1;
+      const i = r > 0 ? Math.floor(cur) + r : Math.ceil(cur) + r;
+      return list[Math.min(list.length - 1, Math.max(0, i))];
+    };
+    const body = this.bodyState();
+    const focus = this.cellEdit ? { para: body.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0, offset: 0 } : this.selection.focus;
+    /** índice do item atual numa lista de posições do corpo (−0,5: entre dois) */
+    const curIn = (ps: DocPosition[]): number => {
+      let k = -0.5;
+      for (let i = 0; i < ps.length; i++) {
+        const c = comparePos(ps[i]!, focus);
+        if (c === 0) return i;
+        if (c < 0) k = i + 0.5;
+      }
+      return k === -0.5 ? -1 + 0.5 : k;
+    };
+    const caretTo = (p: DocPosition, sel?: DocPosition): boolean => {
+      if (!this.toBody()) return false;
+      this.floatSel = null;
+      this.selection = { anchor: p, focus: sel ?? p };
+      this.pendingProps = null;
+      this.refreshSelection();
+      this.revealCaret(true);
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    };
+    switch (what) {
+      case 'page': {
+        const n = this.eng?.result.pages.length ?? this.pageCount;
+        if (!n) return false;
+        const cur = this.currentPageOfCaret();
+        const page = abs !== null ? Math.min(n, Math.max(1, abs)) - 1 : Math.min(n - 1, Math.max(0, cur + (rel ?? 1)));
+        this.goToPage(page);
+        return true;
+      }
+      case 'line': {
+        const lines = (this.eng?.lines ?? []).filter((l) => l.loc.kind === 'body');
+        if (!lines.length) return false;
+        const ci = lines.findIndex((l) => l.loc.kind === 'body' && l.loc.para === focus.para && focus.offset >= l.line.start && (focus.offset < l.line.end || l === lines.filter((x) => x.loc.kind === 'body' && x.loc.para === focus.para).pop()));
+        const l = pick(lines, ci < 0 ? -0.5 : ci);
+        return !!l && l.loc.kind === 'body' && caretTo({ para: l.loc.para, offset: l.line.start });
+      }
+      case 'section': {
+        const starts = body.sectionStarts.map((s) => ({ para: s.startPara, offset: 0 }));
+        const p = pick(starts, curIn(starts));
+        return !!p && caretTo(p);
+      }
+      case 'heading': {
+        const hs = this.getHeadings();
+        const ps = hs.map((h) => ({ para: h.para, offset: 0 }));
+        const p = pick(ps, curIn(ps));
+        return !!p && caretTo(p);
+      }
+      case 'bookmark': {
+        if (!t) return false;
+        return this.goToBookmark(t);
+      }
+      case 'comment': {
+        const out: { id: number; pos: DocPosition }[] = [];
+        const seen = new Set<number>();
+        const byAuthor = new Map(this.getComments().map((c) => [c.id, c.author ?? '']));
+        body.model.paragraphs.forEach((p, pi) => {
+          let off = 0;
+          for (const r of p.runs) {
+            for (const id of r.props.commentIds ?? []) {
+              if (seen.has(id)) continue;
+              seen.add(id);
+              if (rel === null && abs === null && t && byAuthor.get(id) !== t) continue;
+              out.push({ id, pos: { para: pi, offset: off } });
+            }
+            off += r.text.length;
+          }
+        });
+        const c = pick(out, curIn(out.map((x) => x.pos)));
+        if (!c) return false;
+        this.toBody();
+        this.goToComment(c.id);
+        return true;
+      }
+      case 'footnote': case 'endnote': {
+        const out: { id: number; pos: DocPosition }[] = [];
+        body.model.paragraphs.forEach((p, pi) => {
+          let off = 0;
+          for (const r of p.runs) {
+            if (r.noteRef?.kind === what) out.push({ id: r.noteRef.id, pos: { para: pi, offset: off } });
+            off += r.text.length;
+          }
+        });
+        const n = pick(out, curIn(out.map((x) => x.pos)));
+        return !!n && caretTo(n.pos);
+      }
+      case 'field': case 'table': case 'graphic': case 'equation': case 'object': {
+        const out: DocPosition[] = [];
+        if (what === 'table') {
+          const tabs = body.tableAnchors.map((a, ai) => ({ a, ai })).sort((x, y) => x.a.beforePara - y.a.beforePara);
+          const ps = tabs.map((x) => ({ para: x.a.beforePara, offset: 0 }));
+          const k = pick(tabs, curIn(ps));
+          if (!k) return false;
+          this.toBody();
+          if (!this.enterCell(k.ai, [{ r: 0, c: k.a.table.rows[0]?.trPr?.gridBefore ?? 0 }], { para: 0, offset: 0 })) return false;
+          this.revealCaret(true);
+          this.onSelectionChange?.(); this.chromeSync?.();
+          return true;
+        }
+        const name = rel === null && abs === null ? t.toUpperCase() : '';
+        body.model.paragraphs.forEach((p, pi) => {
+          let off = 0;
+          for (const r of p.runs) {
+            const instr = r.field ?? r.fieldBegin;
+            const isField = !!(r.field || r.fieldBegin || r.fieldResult || r.formField);
+            const ok = what === 'field' ? isField && (!name || (instr ?? '').trim().split(/\s+/)[0]?.toUpperCase() === name)
+              : what === 'graphic' ? !!(r.image || r.shape || r.group) && !r.image?.ole
+              : what === 'equation' ? !!(r.math || r.props.isMath)
+              : !!r.image?.ole;
+            if (ok && !(out.length && comparePos(out[out.length - 1]!, { para: pi, offset: off }) === 0)) out.push({ para: pi, offset: off });
+            off += r.text.length;
+          }
+        });
+        const p = pick(out, curIn(out));
+        if (!p) return false;
+        // gráfico/objeto/campo: o item fica selecionado (o caractere dele)
+        const len = (() => { let o = 0; for (const r of body.model.paragraphs[p.para]!.runs) { if (o === p.offset) return r.text.length; o += r.text.length; } return 0; })();
+        return caretTo(p, what === 'field' ? undefined : { para: p.para, offset: p.offset + len });
+      }
+    }
+    return false;
+  }
+
+  /** Página do cursor (índice). */
+  private currentPageOfCaret(): number {
+    const line = this.lineOf(this.selection.focus);
+    return line?.page ?? this.currentPage();
   }
 
   /** Realce das ocorrências da busca (adorno de tela, como o "Realçar tudo" do Word). */

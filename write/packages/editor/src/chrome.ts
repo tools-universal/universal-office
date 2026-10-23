@@ -22,6 +22,7 @@ import { fontDialog } from './chrome-font.js';
 import { openListDialog, listContextItems } from './chrome-lists.js';
 import { ClipboardUI } from './chrome-clipboard.js';
 import { openTextEffectsPane } from './chrome-effects.js';
+import { FindReplaceDialog } from './chrome-find.js';
 import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
@@ -38,7 +39,7 @@ import { pageFillDialog, watermarkDialog } from './chrome-page.js';
 import { hyphenationDialog, manualHyphenationDialog } from './chrome-textlayout.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
-import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
+import { CommentCards, StatusBar } from './chrome-panels.js';
 import { applyTheme, isDark } from './chrome-theme.js';
 import type { WidgetEnv } from './chrome-widgets.js';
 import { StylesUI } from './chrome-styles.js';
@@ -320,7 +321,6 @@ class WriteChrome {
   private review: ReviewPane | null = null;
   private nav: NavPane | null = null;
   private ruler: RulerUI | null = null;
-  private find: FindPanel | null = null;
   private styles: StylesUI | null = null;
   private pictures: PictureUI | null = null;
   private clipboardUI: ClipboardUI | null = null;
@@ -499,6 +499,10 @@ class WriteChrome {
       fontDialog: () => { void fontDialog(d(), this.families, () => this.ctl().textEffectsPane()).then(() => this.after()); },
       listDialog: (kind) => { void openListDialog(d(), this.families, kind).then(() => this.after()); },
       clipboard: (kind) => { void this.clipboardUI?.run(kind).then(() => this.after()); },
+      findDialog: (tab) => {
+        this.findDlg ??= new FindReplaceDialog({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, after: () => this.after() });
+        this.findDlg.open(tab);
+      },
       textEffectsPane: () => { this.fxPane = openTextEffectsPane({ ed: this.ed, lang: this.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() }); this.after(); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: (tab) => { void pageDialog(d(), tab).then(() => this.after()); },
@@ -684,11 +688,9 @@ class WriteChrome {
 
   // ───── localizar ─────
   private openFind(replace: boolean): void {
-    this.find ??= new FindPanel(this.ed, this.app, this.layer);
-    if (!this.find.el.isConnected) this.layer.appendChild(this.find.el);
-    const r = this.topEl.getBoundingClientRect();
-    this.find.open(replace, Math.max(r.bottom, this.ed.getBoundingClientRect().top) + 8);
+    this.ctl().findDialog(replace ? 'replace' : 'find');
   }
+  private findDlg: FindReplaceDialog | null = null;
 
   // ───── imagem ─────
   private pickImage(): void {

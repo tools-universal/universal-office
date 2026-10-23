@@ -117,7 +117,7 @@ const ALIGNS: ['left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', string
 ];
 
 /** Alinhar (menu): os 6 alinhamentos e a referência (página ou margem). */
-export const alignMenu = (): MenuEntry[] => [...ALIGNS.slice(0, 3).map(([k]) => `pic:align:${k}`), '-', ...ALIGNS.slice(3).map(([k]) => `pic:align:${k}`), '-', 'pic:align:to:page', 'pic:align:to:margin'];
+export const alignMenu = (): MenuEntry[] => [...ALIGNS.slice(0, 3).map(([k]) => `pic:align:${k}`), '-', ...ALIGNS.slice(3).map(([k]) => `pic:align:${k}`), '-', 'shp:distribute:h', 'shp:distribute:v', '-', 'pic:align:to:page', 'pic:align:to:margin'];
 
 /** Quebra de Texto Automática (menu). */
 export const wrapMenu = (): MenuEntry[] => [

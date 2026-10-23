@@ -2016,6 +2016,71 @@ if (want('home')) {
   x = await doc();
   check('efeitos: Limpar Formatação tira os efeitos e a tipografia OpenType', !/<w14:/.test(x), x.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0]);
   await saveDoc('home-effects');
+  // ───── Localizar e Substituir, Ir para, seleção não contígua (write/tools/home-lab exp-find.ps1) ─────
+  // (o editor não funde os pedaços de runs de origem — guardRuns —: o texto corrido junta os w:t)
+  const flat = (xml) => xml.replace(/<\/w:t><\/w:r><w:r><w:t(?: xml:space="preserve")?>/g, '');
+  await ev('blank');
+  await js('e.type("HELLO hello Hello"); e.replaceAllMatches({ text: "hello" }, "bye");');
+  x = await doc();
+  check('substituir: a caixa do texto novo segue a do encontrado (BYE bye Bye)', /<w:t>BYE bye Bye<\/w:t>/.test(flat(x)), x.match(/<w:body>[\s\S]{0,300}/)?.[0]);
+  await js('e.undo(); e.selectAll(); e.pasteText("abc def ghi"); e.setSelection({ para: 0, offset: 2 }, { para: 0, offset: 3 }); e.setFontFormat({ bold: true }); e.setSelection({ para: 0, offset: 4 }, { para: 0, offset: 5 }); e.setFontFormat({ italic: true }); e.replaceAllMatches({ text: "c d" }, "XYZ");');
+  x = await doc();
+  check('substituir: o texto novo leva a formatação do 1º caractere encontrado (negrito)', /<w:rPr><w:b\/><\/w:rPr><w:t>XYZ<\/w:t>/.test(x) && /<w:t>ef ghi<\/w:t>/.test(x), x.match(/<w:p>[\s\S]*?<\/w:p>/)?.[0]);
+  await js('e.selectAll(); e.pasteText("um dois tres dois"); e.setSelection({ para: 0, offset: 3 }, { para: 0, offset: 7 }); e.setFontFormat({ bold: true }); e.replaceAllMatches({ text: "", format: { bold: true } }, "", { replaceFormat: { italic: true } });');
+  x = await doc();
+  check('substituir formatação: negrito → itálico soma os dois (b + i)', /<w:rPr><w:b\/><w:i\/><\/w:rPr><w:t>dois<\/w:t>/.test(x), x.match(/<w:p>[\s\S]*?<\/w:p>/)?.[0]);
+  await js('e.replaceAllMatches({ text: "tres" }, "^&", { replaceFormat: { highlight: true } });');
+  x = await doc();
+  check('substituir com Realce: w:highlight yellow (a cor padrão do realce)', /<w:highlight w:val="yellow"\/><\/w:rPr><w:t>tres<\/w:t>/.test(x), x.match(/<w:r><w:rPr>(?:(?!<\/w:r>)[\s\S])*tres[\s\S]*?<\/w:r>/)?.[0]);
+  await ev('blank');
+  await js('e.type("um"); e.pressEnter(); e.type("dois"); e.pressEnter(); e.type("tres"); e.setSelection({ para: 0, offset: 0 }); e.setAlignment("center"); e.setSelection({ para: 1, offset: 0 }); e.setAlignment("right"); e.replaceAllMatches({ text: "um^pdois" }, "X");');
+  x = await doc(); ps = paraXml(x);
+  check('^p: o parágrafo que sobra leva o formato do último (direita)', ps.length === 2 && /<w:jc w:val="right"\/>/.test(ps[0]) && /<w:t>X<\/w:t>/.test(ps[0]), ps);
+  await ev('blank');
+  await js('e.type("a;b;c"); e.setAlignment("center"); e.replaceAllMatches({ text: ";" }, "^p");');
+  x = await doc(); ps = paraXml(x);
+  check('substituir por ^p: parágrafos novos com o formato do original (centralizados)', ps.length === 3 && ps.every((p) => /<w:jc w:val="center"\/>/.test(p)), ps);
+  await ev('blank');
+  await js('e.type("John Smith; Mary Jones"); e.replaceAllMatches({ text: "(<[A-Z][a-z]@>) (<[A-Z][a-z]@>)", wildcards: true }, "\\\\2, \\\\1");');
+  x = await doc();
+  check('curingas: (<[A-Z][a-z]@>) (…) → \\2, \\1', /<w:t>Smith, John; Jones, Mary<\/w:t>/.test(flat(x)), x.match(/<w:t>[^<]*/)?.[0]);
+  check('curinga inválido: a mensagem do Word, nada muda', /padrão|Pattern/.test((await js('return e.replaceAllMatches({ text: "[z-a]", wildcards: true }, "x").error;')) ?? ''), null);
+  await ev('blank');
+  await js('e.type("alfa beta alfa"); e.pressEnter(); e.type("gama alfa"); e.setSelection({ para: 0, offset: 0 });');
+  const f1 = await js('const r = e.findNextMatch({ text: "alfa", wholeWord: true }); return [r.found, e.selectedText()];');
+  const f2 = await js('e.findNextMatch({ text: "alfa" }); const r = e.findNextMatch({ text: "alfa" }); return [r.found, JSON.stringify(e.getSelectionRanges())];');
+  const f3 = await js('const r = e.findNextMatch({ text: "alfa" }); return [r.found, r.wrapped ?? false];');
+  check('Localizar Próxima: seleciona, avança e dá a volta no fim (Tudo)', f1[0] && f1[1] === 'alfa' && f2[0] && /"para":1/.test(f2[1]) && f3[0] && f3[1] === true, [f1, f2, f3]);
+  check('Localizar acima: a anterior', (await js('e.setSelection({ para: 1, offset: 9 }); e.findNextMatch({ text: "alfa" }, { direction: "up" }); return JSON.stringify(e.getSelectionRanges());')).includes('"para":1,"offset":5'), null);
+  check('contar ocorrências', (await js('return e.countMatches({ text: "alfa" });')) === 3, null);
+  const nsel = await js('return e.selectAllMatches({ text: "alfa" });');
+  await js('e.setFontFormat({ bold: true });');
+  x = await doc();
+  check('Localizar em › Documento Principal: seleção não contígua das 3; o Negrito vale para todas', nsel === 3 && (x.match(/<w:b\/><\/w:rPr><w:t>alfa<\/w:t>/g) ?? []).length === 3, [nsel, (x.match(/<w:b\/>/g) ?? []).length]);
+  const nsim = await js('e.setSelection({ para: 1, offset: 6 }, { para: 1, offset: 7 }); return e.selectSimilarFormatting();');
+  check('Selecionar Texto com Formatação Semelhante: os trechos em negrito', nsim === 3 && (await js('return e.getSelectionRanges().length;')) === 3, nsim);
+  await js('e.pressDelete();');
+  x = await doc();
+  check('Delete com seleção não contígua apaga todos os trechos', !/alfa/.test(x) && /beta/.test(x) && /gama/.test(x), x.match(/<w:body>[\s\S]{0,400}/)?.[0]);
+  await ev('blank');
+  await js('for (let i = 1; i <= 30; i++) { e.type("Linha " + i); e.pressEnter(); } e.setSelection({ para: 0, offset: 0 });');
+  check('Ir para › Linha 12 e +3 (relativo)', (await js('e.goTo("line", "12"); const a = e.getSelectionRanges()[0].start.para; e.goTo("line", "+3"); return [a, e.getSelectionRanges()[0].start.para];')).join() === '11,14', null);
+  check('Ir para › Página: sem a página não faz nada; Título/Seção existem', (await js('return [e.goTo("page", "1"), e.goTo("section", "1")];')).join() === 'true,true', null);
+  await saveDoc('home-find');
+  // Selecionar Objetos: duas caixas, Alinhar à Esquerda entre elas (Alinhar Objetos Selecionados)
+  await ev('blank');
+  await js('e.type("Texto"); e.insertTextbox("simple"); e.exitTextbox?.(); e.setSelection({ para: 0, offset: 0 }); e.insertTextbox("simple");');
+  const keys = await js('const it = e.selectionPaneItems(); return it.map((i) => i.key);');
+  check('Painel de Seleção: duas caixas', keys.length === 2, keys);
+  if (keys.length === 2) {
+    await js(`e.selectPaneItem(${JSON.stringify(keys[1])}); e.alignShape("right"); e.selectPaneItems(${JSON.stringify(keys)});`);
+    const xs0 = await js('return e.eng.result.pages[0].objects.map((o) => Math.round(o.x));');
+    check('vários objetos selecionados (Painel de Seleção, Ctrl+clique)', (await js('return e.selectedObjectCount();')) === 2 && (await js('return e.selectionPaneItems().filter((i) => i.selected).length;')) === 2, null);
+    await js('e.alignObjects("left");');
+    const xs = await js('return e.eng.result.pages[0].objects.map((o) => Math.round(o.x));');
+    check('Alinhar à Esquerda com dois objetos: as bordas esquerdas iguais', xs.length === 2 && Math.abs(xs[0] - xs[1]) <= 1 && Math.abs(xs0[0] - xs0[1]) > 100, [xs0, xs]);
+  }
+  await saveDoc('home-objects');
 }
 
 if (want('page')) {

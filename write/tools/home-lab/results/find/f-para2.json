@@ -1,0 +1,11 @@
+{
+    "ok":  true,
+    "text":  "um / dois / tres / \r",
+    "paras":  [
+                  {
+                      "text":  "um / dois / tres / \r",
+                      "align":  0,
+                      "style":  "Normal"
+                  }
+              ]
+}

@@ -18,6 +18,7 @@ import { registerHomeCommands, colorFromPick, pickHex } from './chrome-home.js';
 import { registerListCommands } from './chrome-lists.js';
 import { registerClipboardCommands } from './chrome-clipboard.js';
 import { registerEffectsCommands } from './chrome-effects.js';
+import { registerFindCommands } from './chrome-find.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -94,6 +95,8 @@ export interface ChromeCtl {
   clipboard(kind: import('./chrome-clipboard.js').ClipboardUiKind): void;
   /** painel Formatar Efeitos de Texto (chrome-effects.ts) */
   textEffectsPane(): void;
+  /** diálogo Localizar e Substituir (chrome-find.ts), na aba pedida */
+  findDialog(tab: import('./chrome-find.js').FindTab): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -339,6 +342,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerListCommands(reg, ed, app, ctl);
   registerClipboardCommands(reg, ed, app, ctl);
   registerEffectsCommands(reg, ed, app, ctl);
+  registerFindCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
   registerTextLayoutCommands(reg, ed, app, ctl);
 

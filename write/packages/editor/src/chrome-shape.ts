@@ -93,6 +93,9 @@ export function registerShapeCommands(reg: CommandRegistry, ed: UniversalWriteEl
     s({ id: 'shp:flip:h', label: L('Flip Horizontal', 'Inverter Horizontalmente'), icon: 'flip', supports: has('flipShape'), run: () => ed.flipShape('h') }),
     s({ id: 'shp:rotate:more', label: L('More Rotation Options…', 'Mais Opções de Rotação...'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:size') }),
     ...ALIGNS.map(([k, en, pt, icon]): Command => s({ id: `shp:align:${k}`, label: L(en, pt), icon, supports: has('alignShape'), isEnabled: floating, run: () => ed.alignShape(k) })),
+    // vários objetos selecionados (Selecionar Objetos, Shift+clique): vãos iguais entre eles
+    s({ id: 'shp:distribute:h', label: L('Distribute Horizontally', 'Distribuir na Horizontal'), icon: 'horizontal_distribute', supports: has('alignObjects'), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects('distributeH') }),
+    s({ id: 'shp:distribute:v', label: L('Distribute Vertically', 'Distribuir na Vertical'), icon: 'vertical_distribute', supports: has('alignObjects'), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects('distributeV') }),
     s({ id: 'shp:layout', label: L('Layout Options…', 'Layout...'), icon: 'aspect_ratio', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:size') }),
     // ── Texto ──
     ...DIRS.map(([k, en, pt, icon]): Command => s({ id: `shp:dir:${k}`, label: L(en, pt), icon, supports: has('setTextboxOptions'), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k }), isChecked: () => shp()?.text?.direction === k })),
@@ -126,7 +129,7 @@ function positionIcon(v: 'top' | 'center' | 'bottom', h: 'left' | 'center' | 'ri
 export const shapeWrapMenu = (): MenuEntry[] => [...WRAPS.map(([k]) => `shp:wrap:${k}`), '-', 'shp:wrap:moveWithText', 'shp:wrap:fixOnPage', '-', 'shp:wrap:more'];
 export const shapePositionMenu = (): MenuEntry[] => ['shp:pos:inline', '-', ...POSITION_PRESETS.map((q) => `shp:pos:${q.id}`), '-', 'shp:pos:more'];
 export const shapeRotateMenu = (): MenuEntry[] => ['shp:rotate:right', 'shp:rotate:left', 'shp:flip:v', 'shp:flip:h', '-', 'shp:rotate:more'];
-export const shapeAlignMenu = (): MenuEntry[] => [...ALIGNS.slice(0, 3).map(([k]) => `shp:align:${k}`), '-', ...ALIGNS.slice(3).map(([k]) => `shp:align:${k}`), '-', 'pic:align:to:page', 'pic:align:to:margin'];
+export const shapeAlignMenu = (): MenuEntry[] => [...ALIGNS.slice(0, 3).map(([k]) => `shp:align:${k}`), '-', ...ALIGNS.slice(3).map(([k]) => `shp:align:${k}`), '-', 'shp:distribute:h', 'shp:distribute:v', '-', 'pic:align:to:page', 'pic:align:to:margin'];
 const dirMenu = (): MenuEntry[] => [...DIRS.map(([k]) => `shp:dir:${k}`), '-', 'shp:textOptions'];
 const anchorMenu = (): MenuEntry[] => [...ANCHORS.map(([k]) => `shp:anchor:${k}`), '-', 'shp:textOptions'];
 

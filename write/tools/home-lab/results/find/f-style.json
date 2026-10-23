@@ -1,0 +1,30 @@
+{
+    "hits":  [
+                 [
+                     3,
+                     8,
+                     "dois\r"
+                 ]
+             ],
+    "repl":  {
+                 "ok":  true,
+                 "text":  "um\rdois\rTRES\r",
+                 "paras":  [
+                               {
+                                   "text":  "um\r",
+                                   "align":  0,
+                                   "style":  "Normal"
+                               },
+                               {
+                                   "text":  "dois\r",
+                                   "align":  0,
+                                   "style":  "Normal"
+                               },
+                               {
+                                   "text":  "TRES\r",
+                                   "align":  0,
+                                   "style":  "Título 2"
+                               }
+                           ]
+             }
+}

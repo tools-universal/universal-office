@@ -204,5 +204,53 @@ if (script === 'effects') {
   await shot('effects-pane');
 }
 
+if (script === 'find') {
+  await run(`ed.focusEditor(); ed.selectAll(); ed.pasteText("Alfa beta gama. Delta alfa zeta.\\nOutra linha com alfa e Alfa.");`);
+  await run(`ed.setSelection({ para: 0, offset: 0 }, { para: 0, offset: 4 }); ed.setFontFormat({ bold: true });`);
+  // seleção não contígua (Localizar em › Documento Principal)
+  await run(`ed.selectAllMatches({ text: "alfa" });`);
+  await page.waitForTimeout(400);
+  await shot('find-multisel');
+  await clickText(['Substituir', 'Replace']);
+  await page.waitForTimeout(500);
+  await shot('find-replace-tab');
+  await clickText(['Mais >>', 'More >>']);
+  await page.waitForTimeout(300);
+  await shot('find-more');
+  await clickText(['Especial ▾', 'Special ▾']);
+  await page.waitForTimeout(300);
+  await shot('find-special');
+  await page.keyboard.press('Escape');
+  await clickText(['Ir para', 'Go To']);
+  await page.waitForTimeout(300);
+  await shot('find-goto');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => { const b = [...document.querySelector('universal-write').shadowRoot.querySelectorAll('button')].find((x) => /^(Selecionar|Select)$/.test(x.getAttribute('aria-label') ?? '')); b?.click(); });
+  await page.waitForTimeout(400);
+  await shot('find-select-menu');
+}
+
+if (script === 'objects') {
+  await run(`ed.focusEditor(); ed.selectAll(); ed.pasteText("Texto do documento com duas caixas."); ed.insertTextbox("simple"); ed.exitTextbox?.(); ed.setSelection({ para: 0, offset: 0 }); ed.insertTextbox("simple"); ed.exitTextbox?.();`);
+  await run(`const k = ed.selectionPaneItems().map((i) => i.key); ed.selectPaneItem(k[1]); ed.alignShape("right"); ed.selectPaneItem(k[0]); ed.alignShape("left");`);
+  await page.waitForTimeout(500);
+  await run(`ed.setSelectObjectsMode(true);`);
+  // laço de canto a canto da página
+  const box = await page.evaluate(() => { const c = document.querySelector('universal-write').shadowRoot.querySelector('canvas.page'); const r = c.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+  await page.mouse.move(box.x + 20, box.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.w / 2, box.y + box.h / 3, { steps: 5 });
+  await shot('objects-lasso');
+  await page.mouse.move(box.x + box.w - 20, box.y + box.h / 2, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  console.log('objetos selecionados:', await run('return ed.selectedObjectCount();'));
+  await shot('objects-multi');
+  await run('ed.alignObjects("top");');
+  await page.waitForTimeout(400);
+  await shot('objects-aligned');
+}
+
 console.log(logs.length ? `ERROS:\n${logs.join('\n')}` : 'sem erros no console');
 await browser.close();

@@ -21,6 +21,7 @@ import { fontColorMenu, homeBordersMenu, underlineMenu } from './chrome-home.js'
 import { listMenu, multilevelMenu } from './chrome-lists.js';
 import { pasteMenu } from './chrome-clipboard.js';
 import { textEffectsMenu } from './chrome-effects.js';
+import { findMenu, selectMenu } from './chrome-find.js';
 
 /** Submenus compartilhados pelas duas barras. */
 function menus(env: WidgetEnv, ctx: BarContext) {
@@ -164,7 +165,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
     trailing: [saveWidget(env)],
     menus: [
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
-      { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', 'paste:special', 'paste:defaults', 'clipboard:pane', '-', 'selectAll', '-', 'find', 'replace'] },
+      { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', 'paste:special', 'paste:defaults', 'clipboard:pane', '-', 'selectAll', 'select:objects', 'select:similar', '-', 'find', 'find:advanced', 'replace', 'goto'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, m.toc, '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.underline, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, m.borders, 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
@@ -247,7 +248,8 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             ? [env.styles.galleryItem()]
             : [{ rows: [[styleWidget(env, 150)]] }] },
           { id: 'editing', label: L('Editing', 'Edição'), icon: 'search', prio: 4, cells: [
-            { rows: [[{ cmd: 'find', label: true }], [{ cmd: 'replace', label: true }], [{ cmd: 'selectAll', label: true }]] },
+            { rows: [[{ split: 'find', menu: findMenu, label: true }], [{ cmd: 'replace', label: true }],
+              [{ menu: selectMenu, id: 'select:menu', label: L('Select', 'Selecionar'), icon: 'select_all', showLabel: true }]] },
           ] },
         ],
       },

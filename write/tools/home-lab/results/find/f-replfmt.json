@@ -1,0 +1,11 @@
+{
+    "ok":  true,
+    "text":  "abXYZef ghi\r",
+    "paras":  [
+                  {
+                      "text":  "abXYZef ghi\r",
+                      "align":  0,
+                      "style":  "Normal"
+                  }
+              ]
+}
