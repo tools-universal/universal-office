@@ -4,11 +4,11 @@ import {
   isOdt,
   openDialog,
   showToast
-} from "./chunk-HQOG44SJ.js";
+} from "./chunk-UC6Y52LZ.js";
 import {
   pickLabels,
   uiLang
-} from "./chunk-FUFLN7IJ.js";
+} from "./chunk-C7GS7HND.js";
 
 // ../../../shared/ui/src/font-embedding-dialog.ts
 var LABELS = {
@@ -3370,6 +3370,8 @@ var WriteApp = class _WriteApp {
   lastTableShading = { themeColor: "accent1", tint: "33" };
   lastTableShadingCss = "#C1E4F5";
   lastTableBorder = "all";
+  /** último item do botão Bordas da Página Inicial (Borda Inferior de início, como o Word) */
+  lastHomeBorder = "bottom";
   fileHandle = null;
   /** onde o host guarda o documento aberto/salvo por ele (Electron: caminho) */
   hostPath = null;

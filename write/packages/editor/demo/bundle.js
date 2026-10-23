@@ -15,6 +15,7 @@ import {
   SfntFont,
   StyleResolver,
   TEXTBOX_TEMPLATES,
+  TEXT_EFFECT_GALLERY,
   TOC_AUTO_INSTR,
   TOC_TEMPLATES,
   TWIPS_PER_PT,
@@ -60,6 +61,7 @@ import {
   lineNumberingFromOptions,
   lineNumberingInfo,
   lineNumberingOn,
+  listItemValues,
   loadHyphenation,
   manualPlaceholder,
   manualPoints,
@@ -80,6 +82,7 @@ import {
   spacingDirect,
   tcInToc,
   tcInstr,
+  textGradient,
   textboxTemplateSpec,
   themeTintShade,
   tocFormatStyle,
@@ -90,7 +93,7 @@ import {
   wordAround,
   wrapContour,
   zFor
-} from "./chunks/chunk-TNKC5L6H.js";
+} from "./chunks/chunk-3Q6VWSSC.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -101,7 +104,7 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-HQOG44SJ.js";
+} from "./chunks/chunk-UC6Y52LZ.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -177,6 +180,7 @@ import {
   noteMarkField,
   noteRefIds,
   noteRefRun,
+  numberingImages,
   onBrowserLangChange,
   pageNumberGroupIds,
   paraFormatting,
@@ -185,6 +189,7 @@ import {
   paragraphHasRevisions,
   parseSortDate,
   parseSortNumber,
+  partByRelType,
   patchPicture,
   patchSettingsNotes,
   patchShape,
@@ -201,6 +206,7 @@ import {
   readEmbeddedFonts,
   readFullDocument,
   readHeaderFooterPart,
+  readNumbering,
   readPictureFormat,
   readShapeFormat,
   readStyleIndex,
@@ -211,6 +217,7 @@ import {
   rejectRevisions,
   revisionAt,
   revisionAuthors,
+  runFormatting,
   sectionIndexAt,
   sectionRanges,
   sectionRefs,
@@ -247,9 +254,10 @@ import {
   writeDocument,
   writeEvenAndOddHeaders,
   writeHyphenationSettings,
+  writeNumberingPart,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-FUFLN7IJ.js";
+} from "./chunks/chunk-C7GS7HND.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -789,6 +797,1517 @@ function coverXml(id, env) {
   }
   return open + body + close;
 }
+
+// src/text-case.ts
+function caseMapped(text, mode) {
+  const up = (c) => {
+    const u = c.toUpperCase();
+    return u.length === c.length ? u : c;
+  };
+  const low = (c) => {
+    const l = c.toLowerCase();
+    return l.length === c.length ? l : c;
+  };
+  const chars = [...text];
+  const out = [];
+  let sentence = true;
+  let wordStart = true;
+  for (const c of chars) {
+    const letter = c.toLowerCase() !== c.toUpperCase();
+    switch (mode) {
+      case "upper":
+        out.push(up(c));
+        break;
+      case "lower":
+        out.push(low(c));
+        break;
+      case "toggle":
+        out.push(c === c.toUpperCase() ? low(c) : up(c));
+        break;
+      case "title":
+        out.push(wordStart && letter ? up(c) : low(c));
+        break;
+      case "sentence":
+        out.push(sentence && letter ? up(c) : low(c));
+        break;
+    }
+    if (mode === "sentence") {
+      if (c === "." || c === "!" || c === "?" || c === "\n") sentence = true;
+      else if (letter || /\d/.test(c)) sentence = false;
+    }
+    wordStart = /\s/.test(c);
+  }
+  return out.join("");
+}
+
+// src/paste-html.ts
+var BLOCK = /* @__PURE__ */ new Set([
+  "P",
+  "DIV",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "LI",
+  "PRE",
+  "BLOCKQUOTE",
+  "TR",
+  "UL",
+  "OL",
+  "TABLE",
+  "THEAD",
+  "TBODY",
+  "SECTION",
+  "ARTICLE",
+  "HEADER",
+  "FOOTER",
+  "MAIN",
+  "ASIDE",
+  "NAV",
+  "DD",
+  "DT",
+  "DL",
+  "FIGURE",
+  "FIGCAPTION",
+  "ADDRESS",
+  "HR",
+  "CENTER"
+]);
+var SKIP = /* @__PURE__ */ new Set(["SCRIPT", "STYLE", "HEAD", "TITLE", "META", "LINK", "TEMPLATE", "NOSCRIPT", "svg", "SVG"]);
+var NAMED = {
+  black: "000000",
+  white: "FFFFFF",
+  red: "FF0000",
+  green: "008000",
+  blue: "0000FF",
+  yellow: "FFFF00",
+  gray: "808080",
+  grey: "808080",
+  silver: "C0C0C0",
+  maroon: "800000",
+  navy: "000080",
+  purple: "800080",
+  teal: "008080",
+  olive: "808000",
+  orange: "FFA500",
+  lime: "00FF00",
+  aqua: "00FFFF",
+  fuchsia: "FF00FF"
+};
+function cssColor(v) {
+  const s = v.trim().toLowerCase();
+  if (!s || s === "inherit" || s === "initial" || s === "transparent" || s === "currentcolor") return void 0;
+  let m = /^#([0-9a-f]{3})$/.exec(s);
+  if (m) return m[1].split("").map((c) => c + c).join("").toUpperCase();
+  m = /^#([0-9a-f]{6})/.exec(s);
+  if (m) return m[1].toUpperCase();
+  m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+%?))?\s*\)$/.exec(s);
+  if (m) {
+    if (m[4] !== void 0 && parseFloat(m[4]) === 0) return void 0;
+    return [m[1], m[2], m[3]].map((x) => Math.min(255, Number(x)).toString(16).padStart(2, "0")).join("").toUpperCase();
+  }
+  return NAMED[s];
+}
+function cssSizeHalfPt(v) {
+  const s = v.trim().toLowerCase();
+  const kw = { "xx-small": 7.5, "x-small": 7.5, small: 10, medium: 12, large: 13.5, "x-large": 18, "xx-large": 24 };
+  if (kw[s] !== void 0) return Math.round(kw[s] * 2);
+  const m = /^([\d.]+)(pt|px)$/.exec(s);
+  if (!m) return void 0;
+  const pt2 = m[2] === "pt" ? parseFloat(m[1]) : parseFloat(m[1]) * 0.75;
+  return pt2 > 0 && pt2 < 1640 ? Math.round(pt2 * 2) : void 0;
+}
+function cssFamily(v) {
+  for (const f of v.split(",")) {
+    const n = f.trim().replace(/^["']|["']$/g, "");
+    if (n && !/^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-\w+|-apple-system|blinkmacsystemfont|inherit|initial)$/i.test(n)) return n;
+  }
+  return void 0;
+}
+var FONT_SIZES = [0, 15, 20, 24, 27, 36, 48, 72];
+function elementProps(el, base) {
+  const p = { ...base };
+  switch (el.tagName) {
+    case "B":
+    case "STRONG":
+      p.bold = true;
+      break;
+    case "I":
+    case "EM":
+    case "CITE":
+    case "DFN":
+    case "VAR":
+      p.italic = true;
+      break;
+    case "U":
+    case "INS":
+      p.underline = true;
+      break;
+    case "S":
+    case "STRIKE":
+    case "DEL":
+      p.strike = true;
+      break;
+    case "SUB":
+      p.vertAlign = "subscript";
+      break;
+    case "SUP":
+      p.vertAlign = "superscript";
+      break;
+    case "CODE":
+    case "KBD":
+    case "SAMP":
+    case "TT":
+      p.fontAscii = "Courier New";
+      break;
+    case "FONT": {
+      const face = el.getAttribute("face");
+      if (face) {
+        const f = cssFamily(face);
+        if (f) p.fontAscii = f;
+      }
+      const color2 = el.getAttribute("color");
+      if (color2) {
+        const c = cssColor(color2);
+        if (c) p.color = c;
+      }
+      const size = Number(el.getAttribute("size"));
+      if (size >= 1 && size <= 7) p.szHalfPt = FONT_SIZES[size];
+      break;
+    }
+    case "A": {
+      const href = el.getAttribute("href");
+      if (href && !href.startsWith("#") && !/^javascript:/i.test(href)) p.link = href;
+      break;
+    }
+  }
+  const st = el.style;
+  if (st) {
+    const fw = st.fontWeight;
+    if (fw) p.bold = fw === "bold" || fw === "bolder" || Number(fw) >= 600;
+    if (st.fontStyle) p.italic = st.fontStyle === "italic" || st.fontStyle === "oblique";
+    const td = st.textDecorationLine || st.textDecoration;
+    if (td) {
+      if (/underline/.test(td)) p.underline = true;
+      else if (/none/.test(td)) p.underline = false;
+      if (/line-through/.test(td)) p.strike = true;
+    }
+    if (st.color) {
+      const c = cssColor(st.color);
+      if (c) p.color = c;
+    }
+    if (st.fontFamily) {
+      const f = cssFamily(st.fontFamily);
+      if (f) p.fontAscii = f;
+    }
+    if (st.fontSize) {
+      const s = cssSizeHalfPt(st.fontSize);
+      if (s) p.szHalfPt = s;
+    }
+    const va = st.verticalAlign;
+    if (va === "super") p.vertAlign = "superscript";
+    else if (va === "sub") p.vertAlign = "subscript";
+    if (st.textTransform === "uppercase") p.allCaps = true;
+    if (st.fontVariant === "small-caps" || st.fontVariantCaps === "small-caps") p.smallCaps = true;
+  }
+  return p;
+}
+function decodeDataUrl(src) {
+  const m = /^data:image\/(png|jpe?g|gif|bmp|webp);base64,([\s\S]+)$/i.exec(src);
+  if (!m) return null;
+  try {
+    const bin = atob(m[2].replace(/\s+/g, ""));
+    const data = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);
+    const ext = m[1].toLowerCase().replace("jpeg", "jpg");
+    return { data, ext };
+  } catch {
+    return null;
+  }
+}
+function fragmentOf(html) {
+  const a = html.indexOf("<!--StartFragment-->"), b = html.indexOf("<!--EndFragment-->");
+  return a >= 0 && b > a ? html.slice(a + 20, b) : html;
+}
+function htmlToParas(html) {
+  const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${fragmentOf(html)}</body></html>`, "text/html");
+  const out = [];
+  let cur = null;
+  let listKey = 0;
+  const lists = [];
+  const open = (o = {}) => {
+    cur = { runs: [], ...o };
+    out.push(cur);
+    return cur;
+  };
+  const close = () => {
+    cur = null;
+  };
+  const ensure = (ctx) => cur ?? open(ctx.block);
+  const text = (raw, ctx) => {
+    let t = ctx.pre ? raw.replace(/\r\n?/g, "\n") : raw.replace(/[ \t\r\n\f]+/g, " ");
+    if (!ctx.pre) {
+      const p = cur;
+      const prev = p?.runs[p.runs.length - 1]?.text ?? "";
+      if (!p || !p.runs.length || /[ \n]$/.test(prev)) t = t.replace(/^ +/, "");
+    }
+    if (!t) return;
+    if (ctx.pre && t.includes("\n")) {
+      const parts = t.split("\n");
+      parts.forEach((part, i) => {
+        if (i > 0) {
+          close();
+          open(ctx.block);
+        }
+        if (part) ensure(ctx).runs.push({ text: part, props: ctx.props, ...ctx.blockBold ? { blockBold: true } : {} });
+      });
+      return;
+    }
+    ensure(ctx).runs.push({ text: t, props: ctx.props, ...ctx.blockBold ? { blockBold: true } : {} });
+  };
+  const walk = (node, ctx) => {
+    if (node.nodeType === 3) {
+      text(node.nodeValue ?? "", ctx);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const el = node;
+    const tag = el.tagName.toUpperCase();
+    if (SKIP.has(tag) || SKIP.has(el.tagName)) return;
+    if (el.style?.display === "none") return;
+    if (tag === "BR") {
+      ensure(ctx).runs.push({ text: "\n", props: ctx.props });
+      return;
+    }
+    if (tag === "IMG") {
+      const img = decodeDataUrl(el.getAttribute("src") ?? "");
+      if (img) {
+        const w = Number(el.getAttribute("width")) || void 0, h2 = Number(el.getAttribute("height")) || void 0;
+        ensure(ctx).runs.push({ text: "", props: ctx.props, image: { ...img, ...w ? { wPx: w } : {}, ...h2 ? { hPx: h2 } : {} } });
+      }
+      return;
+    }
+    if (tag === "HR") {
+      close();
+      return;
+    }
+    let props = elementProps(el, ctx.props);
+    if (!BLOCK.has(tag)) {
+      for (const c of el.childNodes) walk(c, { ...ctx, props });
+      return;
+    }
+    if (tag === "UL" || tag === "OL") {
+      if (!lists.length) listKey++;
+      lists.push({ ordered: tag === "OL", key: listKey });
+      close();
+      for (const c of el.childNodes) walk(c, { ...ctx, props });
+      lists.pop();
+      close();
+      return;
+    }
+    const st = el.style;
+    const ta = st?.textAlign || el.getAttribute("align") || (tag === "CENTER" ? "center" : "");
+    const align = ta === "center" ? "center" : ta === "right" || ta === "end" ? "right" : ta === "justify" ? "both" : ta === "left" || ta === "start" ? "left" : ctx.block.align;
+    const block = { ...align ? { align } : {} };
+    const h = /^H([1-6])$/.exec(tag);
+    let blockBold = ctx.blockBold;
+    if (h) {
+      block.heading = Number(h[1]);
+      blockBold = true;
+    }
+    if (tag === "PRE") {
+      block.pre = true;
+      props = { ...props, fontAscii: props.fontAscii ?? "Courier New" };
+    }
+    if (tag === "LI") {
+      const l = lists[lists.length - 1];
+      if (l) block.list = { ordered: l.ordered, level: Math.min(8, lists.length - 1), key: l.key };
+    }
+    if (tag === "P" || tag === "DIV" || tag === "BLOCKQUOTE" || tag === "ADDRESS" || tag === "DD" || tag === "DT" || tag === "FIGCAPTION") block.web = true;
+    if (tag === "TR") {
+      close();
+      const p = open({ ...block });
+      let first = true;
+      for (const cell of el.children) {
+        if (!first) p.runs.push({ text: "	", props });
+        first = false;
+        const inner2 = { props: elementProps(cell, props), pre: false, block: {}, ...cell.tagName === "TH" ? { blockBold: true } : {} };
+        cur = p;
+        for (const c of cell.childNodes) walk(c, inner2);
+        cur = p;
+      }
+      close();
+      return;
+    }
+    close();
+    const inner = { props, pre: ctx.pre || !!block.pre, block: { ...block }, ...blockBold ? { blockBold } : {} };
+    if (block.list) open(inner.block);
+    for (const c of el.childNodes) walk(c, inner);
+    close();
+  };
+  walk(doc.body, { props: {}, pre: false, block: {} });
+  return out.filter((p) => p.list || p.runs.some((r) => r.image || r.text.replace(/\s+/g, "")));
+}
+
+// src/find-engine.ts
+var FindError = class extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+  code;
+};
+var PARA = "\r";
+var SECT = "";
+var FOOTNOTE = "";
+var ENDNOTE = "";
+var GRAPHIC = "";
+var DELETED = "\0";
+function storyText(paras) {
+  let text = "";
+  const starts = [];
+  const runs = [];
+  for (const p of paras) {
+    starts.push(text.length);
+    for (const r of p.runs) {
+      const n = r.text.length;
+      if (!n) continue;
+      let t = r.text;
+      if (r.props.del) t = DELETED.repeat(n);
+      else if (r.noteRef) t = (r.noteRef.kind === "endnote" ? ENDNOTE : FOOTNOTE).repeat(n);
+      else if (r.image || r.shape || r.group || r.textbox) t = GRAPHIC.repeat(n);
+      else if (r.custom) t = "\uFFFC".repeat(n);
+      text += t;
+      for (let k = 0; k < n; k++) runs.push(r);
+    }
+    text += p.props.sectionBreak ? SECT : PARA;
+    runs.push(null);
+  }
+  return { text, starts, paras, runs };
+}
+function posOf(st, g) {
+  let lo = 0, hi = st.starts.length - 1;
+  while (lo < hi) {
+    const mid = lo + hi + 1 >> 1;
+    if (st.starts[mid] <= g) lo = mid;
+    else hi = mid - 1;
+  }
+  return { para: lo, offset: g - st.starts[lo] };
+}
+var esc2 = (c) => c.replace(/[\\^$.*+?()[\]{}|/-]/g, (m) => `\\${m}`);
+var CP1252 = { 128: 8364, 130: 8218, 131: 402, 132: 8222, 133: 8230, 134: 8224, 135: 8225, 136: 710, 137: 8240, 138: 352, 139: 8249, 140: 338, 142: 381, 145: 8216, 146: 8217, 147: 8220, 148: 8221, 149: 8226, 150: 8211, 151: 8212, 152: 732, 153: 8482, 154: 353, 155: 8250, 156: 339, 158: 382, 159: 376 };
+function special(code, wild) {
+  const c = code[0];
+  if (c === void 0) return null;
+  const num = /^(u?)(\d{1,5})/.exec(code);
+  if (num) {
+    let n = parseInt(num[2], 10);
+    if (!num[1] && num[2].startsWith("0") && CP1252[n]) n = CP1252[n];
+    if (n === 13) return { re: `[${PARA}${SECT}]`, consumed: num[0].length };
+    if (n === 12) return { re: "\\f", consumed: num[0].length };
+    if (n === 11) return { re: "[\\n\\u2028]", consumed: num[0].length };
+    if (n === 14) return { re: "\\u000B", consumed: num[0].length };
+    if (n === 30) return { re: "\\u2011", consumed: num[0].length };
+    if (n === 31) return { re: "\\u00AD", consumed: num[0].length };
+    return { re: esc2(String.fromCodePoint(n)), consumed: num[0].length };
+  }
+  const table = {
+    p: PARA,
+    t: "\\t",
+    l: "[\\n\\u2028]",
+    m: "\\f",
+    n: "\\u000B",
+    b: SECT,
+    s: "\\u00A0",
+    "-": "\\u00AD",
+    "~": "\\u2011",
+    "+": "\\u2014",
+    "=": "\\u2013",
+    f: FOOTNOTE,
+    e: ENDNOTE,
+    g: GRAPHIC,
+    "^": "\\^"
+  };
+  if (table[c] !== void 0) return { re: table[c], consumed: 1 };
+  if (!wild) {
+    if (c === "w") return { re: "[ \\t\\u00A0]+", consumed: 1 };
+    if (c === "?") return { re: `[^${PARA}${SECT}\\u00AD${DELETED}]`, consumed: 1 };
+    if (c === "#") return { re: "[0-9]", consumed: 1 };
+    if (c === "$") return { re: "\\p{L}", consumed: 1 };
+  }
+  return null;
+}
+var WORD = "[\\p{L}\\p{N}]";
+function plainTokens(text) {
+  const out = [];
+  for (let i = 0; i < text.length; ) {
+    const ch = text[i];
+    if (ch === "^") {
+      const sp = special(text.slice(i + 1), false);
+      if (!sp) throw new FindError("special", `^${text[i + 1] ?? ""}`);
+      out.push({ re: sp.re });
+      i += 1 + sp.consumed;
+      continue;
+    }
+    const cp = text.codePointAt(i);
+    const s = String.fromCodePoint(cp);
+    out.push({ re: esc2(s), lit: s });
+    i += s.length;
+  }
+  return out;
+}
+function wildcardRegex(pat) {
+  const atoms = [];
+  let depth = 0;
+  const fail = () => {
+    throw new FindError("pattern", pat);
+  };
+  for (let i = 0; i < pat.length; ) {
+    const ch = pat[i];
+    if (ch === "\\") {
+      const nx = pat[i + 1];
+      if (nx === void 0) fail();
+      atoms.push(esc2(nx));
+      i += 2;
+    } else if (ch === "?") {
+      atoms.push("[^]");
+      i++;
+    } else if (ch === "*") {
+      atoms.push("[^]*?");
+      i++;
+    } else if (ch === "@") {
+      const last = atoms.pop();
+      if (last === void 0 || /^\(\?[<!=]/.test(last)) fail();
+      atoms.push(`(?:${last})+?`);
+      i++;
+    } else if (ch === "{") {
+      const m = /^\{(\d+)(?:([,;])(\d*))?\}/.exec(pat.slice(i));
+      const last = atoms.pop();
+      if (!m || last === void 0) fail();
+      const lo = m[1], hi = m[2] ? m[3] ?? "" : lo;
+      if (hi !== "" && parseInt(hi, 10) < parseInt(lo, 10)) fail();
+      atoms.push(`(?:${last}){${lo}${m[2] ? `,${hi}` : ""}}`);
+      i += m[0].length;
+    } else if (ch === "<") {
+      atoms.push(`(?<!${WORD})(?=${WORD})`);
+      i++;
+    } else if (ch === ">") {
+      atoms.push(`(?<=${WORD})(?!${WORD})`);
+      i++;
+    } else if (ch === "[") {
+      const end = pat.indexOf("]", i + 2);
+      if (end < 0) fail();
+      let body = pat.slice(i + 1, end);
+      let neg = false;
+      if (body.startsWith("!")) {
+        neg = true;
+        body = body.slice(1);
+      }
+      if (!body) fail();
+      let cls = "";
+      for (let k = 0; k < body.length; k++) {
+        let c = body[k];
+        if (c === "\\" && k + 1 < body.length) c = body[++k];
+        if (body[k + 1] === "-" && k + 2 < body.length) {
+          const to = body[k + 2];
+          if (to < c) fail();
+          cls += `${esc2(c)}-${esc2(to)}`;
+          k += 2;
+        } else cls += esc2(c);
+      }
+      atoms.push(`[${neg ? "^" : ""}${cls}]`);
+      i = end + 1;
+    } else if (ch === "(") {
+      depth++;
+      atoms.push("(");
+      i++;
+    } else if (ch === ")") {
+      if (!depth) fail();
+      depth--;
+      let k = atoms.length - 1, open = 0;
+      for (; k >= 0; k--) {
+        if (atoms[k] === ")") open++;
+        if (atoms[k] === "(") {
+          if (!open) break;
+          open--;
+        }
+      }
+      const grp = `(${atoms.slice(k + 1).join("")})`;
+      atoms.splice(k, atoms.length - k, grp);
+      i++;
+    } else if (ch === "^") {
+      const sp = special(pat.slice(i + 1), true);
+      if (!sp) fail();
+      atoms.push(sp.re);
+      i += 1 + sp.consumed;
+    } else {
+      const s = String.fromCodePoint(pat.codePointAt(i));
+      atoms.push(esc2(s));
+      i += s.length;
+    }
+  }
+  if (depth) fail();
+  return atoms.join("");
+}
+function compileQuery(q) {
+  if (!q.text || !q.wildcards && q.text === "^d") return null;
+  if (q.wildcards) return new RegExp(wildcardRegex(q.text), "gu");
+  if ((q.soundsLike || q.allForms) && /^[\p{L}']+$/u.test(q.text)) return null;
+  const toks = plainTokens(q.text);
+  const fill = q.ignorePunct && q.ignoreSpace ? "[\\p{P} \\t]*" : q.ignorePunct ? "\\p{P}*" : q.ignoreSpace ? "[ \\t]*" : "";
+  let body = "";
+  toks.forEach((t, k) => {
+    const isPunct = t.lit !== void 0 && /\p{P}/u.test(t.lit);
+    const isSpace = t.lit === " ";
+    if (k > 0 && fill && !isPunct && !isSpace && !(toks[k - 1].lit === " ")) body += fill;
+    body += isSpace && q.ignoreSpace ? " +" : t.re;
+  });
+  const hasSpace = /\s/.test(q.text);
+  if (q.wholeWord && !hasSpace) body = `(?<!${WORD})(?:${body})(?!${WORD})`;
+  else {
+    if (q.prefix) body = `(?<!${WORD})(?:${body})`;
+    if (q.suffix) body = `(?:${body})(?![\\p{L}\\p{N}'\u2019])`;
+  }
+  return new RegExp(body, q.matchCase ? "gu" : "giu");
+}
+function runMatches(r, f) {
+  const p = r.props;
+  if (f.bold !== void 0 && !!p.bold !== f.bold) return false;
+  if (f.italic !== void 0 && !!p.italic !== f.italic) return false;
+  if (f.underline !== void 0 && !!p.underline !== f.underline) return false;
+  if (f.strike !== void 0 && !!p.strike !== f.strike) return false;
+  if (f.doubleStrike !== void 0 && !!p.doubleStrike !== f.doubleStrike) return false;
+  if (f.allCaps !== void 0 && !!p.allCaps !== f.allCaps) return false;
+  if (f.smallCaps !== void 0 && !!p.smallCaps !== f.smallCaps) return false;
+  if (f.hidden !== void 0 && !!p.hidden !== f.hidden) return false;
+  if (f.vertAlign !== void 0 && (p.vertAlign ?? null) !== f.vertAlign) return false;
+  if (f.font !== void 0 && (p.fontAscii ?? "").toLowerCase() !== f.font.toLowerCase()) return false;
+  if (f.sizePt !== void 0 && (p.szHalfPt ?? 22) !== Math.round(f.sizePt * 2)) return false;
+  if (f.color !== void 0 && (p.color ?? "000000").toUpperCase() !== f.color.toUpperCase()) return false;
+  if (f.highlight !== void 0 && !!(p.highlight && p.highlight !== "none") !== f.highlight) return false;
+  if (f.charStyle !== void 0 && (p.charStyle ?? "") !== f.charStyle) return false;
+  return true;
+}
+var hasRunFormat = (f) => !!f && Object.entries(f).some(([k, v]) => k !== "paraStyle" && v !== void 0);
+function metaphone(word) {
+  let w = word.toUpperCase().replace(/[^A-Z]/g, "");
+  if (!w) return "";
+  if (/^(KN|GN|PN|AE|WR)/.test(w)) w = w.slice(1);
+  if (w[0] === "X") w = `S${w.slice(1)}`;
+  if (w.startsWith("WH")) w = `W${w.slice(2)}`;
+  const V = (c) => !!c && "AEIOU".includes(c);
+  let out = "";
+  for (let i = 0; i < w.length; i++) {
+    const c = w[i], prev = w[i - 1], next = w[i + 1], next2 = w[i + 2];
+    if (c === prev && c !== "C") continue;
+    switch (c) {
+      case "A":
+      case "E":
+      case "I":
+      case "O":
+      case "U":
+        if (i === 0) out += c;
+        break;
+      case "B":
+        if (!(prev === "M" && i === w.length - 1)) out += "B";
+        break;
+      case "C":
+        if (next === "I" && next2 === "A") out += "X";
+        else if (next === "H") {
+          out += prev === "S" ? "K" : "X";
+          i++;
+        } else if (next === "I" || next === "E" || next === "Y") {
+          if (prev !== "S") out += "S";
+        } else out += "K";
+        break;
+      case "D":
+        if (next === "G" && (next2 === "E" || next2 === "Y" || next2 === "I")) {
+          out += "J";
+          i++;
+        } else out += "T";
+        break;
+      case "G":
+        if (next === "H" && !(i + 2 >= w.length || V(next2))) break;
+        if (next === "N" && (i + 2 === w.length || w[i + 2] === "E" && w[i + 3] === "D" && i + 4 === w.length)) break;
+        if (prev === "G") break;
+        out += next === "I" || next === "E" || next === "Y" ? "J" : "K";
+        if (next === "H") i++;
+        break;
+      case "H":
+        if (V(next) && !"CSPTG".includes(prev ?? "")) out += "H";
+        break;
+      case "K":
+        if (prev !== "C") out += "K";
+        break;
+      case "P":
+        if (next === "H") {
+          out += "F";
+          i++;
+        } else out += "P";
+        break;
+      case "Q":
+        out += "K";
+        break;
+      case "S":
+        if (next === "H") {
+          out += "X";
+          i++;
+        } else if (next === "I" && (next2 === "O" || next2 === "A")) out += "X";
+        else out += "S";
+        break;
+      case "T":
+        if (next === "I" && (next2 === "O" || next2 === "A")) out += "X";
+        else if (next === "H") {
+          out += "0";
+          i++;
+        } else if (!(next === "C" && next2 === "H")) out += "T";
+        break;
+      case "V":
+        out += "F";
+        break;
+      case "W":
+      case "Y":
+        if (V(next)) out += c;
+        break;
+      case "X":
+        out += "KS";
+        break;
+      case "Z":
+        out += "S";
+        break;
+      default:
+        out += c;
+    }
+  }
+  return out;
+}
+var IRREGULAR = [
+  "be am is are was were been being",
+  "have has had having",
+  "do does did done doing",
+  "go goes went gone going",
+  "sit sits sat sitting",
+  "run runs ran running",
+  "eat eats ate eaten eating",
+  "see sees saw seen seeing",
+  "come comes came coming",
+  "take takes took taken taking",
+  "make makes made making",
+  "get gets got gotten getting",
+  "give gives gave given giving",
+  "know knows knew known knowing",
+  "think thinks thought thinking",
+  "write writes wrote written writing",
+  "speak speaks spoke spoken speaking",
+  "buy buys bought buying",
+  "bring brings brought bringing",
+  "begin begins began begun beginning",
+  "swim swims swam swum swimming",
+  "drink drinks drank drunk drinking",
+  "sing sings sang sung singing",
+  "fly flies flew flown flying",
+  "drive drives drove driven driving",
+  "ride rides rode ridden riding",
+  "find finds found finding",
+  "tell tells told telling",
+  "say says said saying",
+  "pay pays paid paying",
+  "leave leaves left leaving",
+  "feel feels felt feeling",
+  "keep keeps kept keeping",
+  "meet meets met meeting",
+  "stand stands stood standing",
+  "understand understands understood understanding",
+  "teach teaches taught teaching",
+  "catch catches caught catching",
+  "fall falls fell fallen falling",
+  "forget forgets forgot forgotten forgetting",
+  "choose chooses chose chosen choosing",
+  "break breaks broke broken breaking",
+  "wear wears wore worn wearing",
+  "grow grows grew grown growing",
+  "draw draws drew drawn drawing",
+  "show shows showed shown showing",
+  "lie lies lay lain lying",
+  "die dies died dying",
+  "mouse mice",
+  "man men",
+  "woman women",
+  "child children",
+  "foot feet",
+  "tooth teeth",
+  "goose geese",
+  "person people",
+  "good better best",
+  "bad worse worst",
+  "far farther further farthest furthest",
+  "little less least",
+  "many more most"
+].map((l) => l.split(" "));
+var VOWEL = /[aeiou]/;
+function regularForms(root) {
+  const out = [root];
+  const last = root.slice(-1), prev = root.slice(-2, -1);
+  if (/(s|x|z|ch|sh)$/.test(root)) out.push(`${root}es`);
+  else if (last === "y" && !VOWEL.test(prev)) out.push(`${root.slice(0, -1)}ies`);
+  else out.push(`${root}s`);
+  const cvc = root.length <= 4 && /[^aeiou][aeiou][bcdfgklmnprstvz]$/.test(root);
+  const stem = cvc ? root + last : root;
+  if (last === "e") out.push(`${root}d`, `${root.slice(0, -1)}ing`, `${root}r`, `${root}st`);
+  else if (last === "y" && !VOWEL.test(prev)) out.push(`${root.slice(0, -1)}ied`, `${root}ing`, `${root.slice(0, -1)}ier`, `${root.slice(0, -1)}iest`);
+  else out.push(`${stem}ed`, `${stem}ing`, `${stem}er`, `${stem}est`);
+  return out;
+}
+function rootsOf(w) {
+  const out = /* @__PURE__ */ new Set([w]);
+  const add = (s) => {
+    if (s.length >= 2) out.add(s);
+  };
+  if (w.endsWith("ies")) add(`${w.slice(0, -3)}y`);
+  if (w.endsWith("es")) add(w.slice(0, -2));
+  if (w.endsWith("s")) add(w.slice(0, -1));
+  for (const suf of ["ed", "ing", "er", "est"]) {
+    if (!w.endsWith(suf)) continue;
+    const b = w.slice(0, -suf.length);
+    add(b);
+    add(`${b}e`);
+    if (b.endsWith("i")) add(`${b.slice(0, -1)}y`);
+    if (b.length >= 3 && b.at(-1) === b.at(-2)) add(b.slice(0, -1));
+  }
+  return [...out];
+}
+function wordForms(word) {
+  const w = word.toLowerCase();
+  const out = /* @__PURE__ */ new Set([w]);
+  for (const fam of IRREGULAR) if (fam.includes(w)) for (const f of fam) out.add(f);
+  if (out.size > 1) return out;
+  for (const r of rootsOf(w)) for (const f of regularForms(r)) out.add(f);
+  return out;
+}
+function findAll(st, q, env = {}) {
+  const f = q.format;
+  const fmtRuns = hasRunFormat(f);
+  const paraOk = (g) => {
+    if (!f?.paraStyle) return true;
+    const p = st.paras[posOf(st, g).para];
+    return (env.paraStyle?.(p) ?? p.props.styleId) === f.paraStyle;
+  };
+  const charOk = (g) => {
+    if (!paraOk(g)) return false;
+    if (!fmtRuns) return true;
+    const r = st.runs[g];
+    if (!r) return true;
+    return runMatches(r, f);
+  };
+  const out = [];
+  if (!q.text) {
+    if (!f || !fmtRuns && !f.paraStyle) return out;
+    let s = -1;
+    for (let g = 0; g <= st.text.length; g++) {
+      const ok = g < st.text.length && st.text[g] !== DELETED && (fmtRuns ? !!st.runs[g] && charOk(g) : paraOk(g));
+      if (ok && s < 0) s = g;
+      if (!ok && s >= 0) {
+        out.push({ start: s, end: g });
+        s = -1;
+      }
+    }
+    return out;
+  }
+  if (!q.wildcards && q.text === "^d") {
+    let g0 = -1;
+    for (let g = 0; g <= st.text.length; g++) {
+      const r = g < st.text.length ? st.runs[g] : null;
+      const isField = !!r && !!(r.field || r.fieldResult || r.fieldBegin || r.formField);
+      if (isField && (g0 < 0 || st.runs[g - 1] !== r)) {
+        if (g0 >= 0) out.push({ start: g0, end: g });
+        g0 = g;
+      } else if (!isField && g0 >= 0) {
+        out.push({ start: g0, end: g });
+        g0 = -1;
+      }
+    }
+    return out.filter((h) => {
+      for (let g = h.start; g < h.end; g++) if (!charOk(g)) return false;
+      return true;
+    });
+  }
+  const re = compileQuery(q);
+  if (!re) {
+    const key = q.soundsLike ? metaphone(q.text) : "";
+    const forms = q.allForms ? wordForms(q.text) : null;
+    const wre = /[\p{L}'’]+/gu;
+    for (let m = wre.exec(st.text); m; m = wre.exec(st.text)) {
+      const w = m[0].replace(/['’]+$/, "");
+      if (!w) continue;
+      let ok;
+      if (forms) {
+        const r = st.runs[m.index];
+        const p = st.paras[posOf(st, m.index).para];
+        const en = !r || !env.lang ? true : /^en\b/i.test(env.lang(r, p));
+        ok = en ? forms.has(w.toLowerCase()) : w.toLowerCase() === q.text.toLowerCase();
+      } else ok = metaphone(w) === key;
+      if (!ok) continue;
+      let good = true;
+      for (let g = m.index; g < m.index + w.length; g++) if (!charOk(g)) {
+        good = false;
+        break;
+      }
+      if (good) out.push({ start: m.index, end: m.index + w.length });
+    }
+    return out;
+  }
+  for (let m = re.exec(st.text); m; m = re.exec(st.text)) {
+    if (m[0].length === 0) {
+      re.lastIndex++;
+      continue;
+    }
+    const s = m.index, e = s + m[0].length;
+    let good = true;
+    for (let g = s; g < e; g++) if (st.text[g] === DELETED || !charOk(g)) {
+      good = false;
+      break;
+    }
+    if (!good) continue;
+    out.push({ start: s, end: e, ...m.length > 1 ? { groups: m.slice(1).map((x) => x ?? "") } : {} });
+  }
+  return out;
+}
+function adaptCase(found, repl) {
+  const letters = found.replace(/[^\p{L}]/gu, "");
+  if (!letters) return repl;
+  if (letters === letters.toLocaleUpperCase("pt-BR") && letters !== letters.toLocaleLowerCase("pt-BR")) return repl.toLocaleUpperCase("pt-BR");
+  const first = letters[0];
+  if (first === first.toLocaleUpperCase("pt-BR") && first !== first.toLocaleLowerCase("pt-BR")) {
+    const i = repl.search(/\p{L}/u);
+    return i < 0 ? repl : repl.slice(0, i) + repl[i].toLocaleUpperCase("pt-BR") + repl.slice(i + 1);
+  }
+  return repl;
+}
+function expandReplacement(repl, found, groups, wildcards, clipboard = "") {
+  let out = "";
+  for (let i = 0; i < repl.length; ) {
+    const ch = repl[i];
+    if (ch === "\\" && wildcards) {
+      const d = repl[i + 1];
+      if (d && /[1-9]/.test(d)) {
+        out += groups?.[Number(d) - 1] ?? "";
+        i += 2;
+        continue;
+      }
+      if (d !== void 0) {
+        out += d;
+        i += 2;
+        continue;
+      }
+    }
+    if (ch === "^") {
+      const c = repl[i + 1];
+      const map = { p: "\r", t: "	", l: "\n", m: "\f", n: "\v", s: "\xA0", "-": "\xAD", "~": "\u2011", "+": "\u2014", "=": "\u2013", "^": "^" };
+      if (c === "&") {
+        out += found;
+        i += 2;
+        continue;
+      }
+      if (c === "c") {
+        out += clipboard;
+        i += 2;
+        continue;
+      }
+      if (c !== void 0 && map[c] !== void 0) {
+        out += map[c];
+        i += 2;
+        continue;
+      }
+      const num = /^(u?)(\d{1,5})/.exec(repl.slice(i + 1));
+      if (num) {
+        let n = parseInt(num[2], 10);
+        if (!num[1] && num[2].startsWith("0") && CP1252[n]) n = CP1252[n];
+        out += n === 13 ? "\r" : n === 11 ? "\n" : n === 12 ? "\f" : n === 9 ? "	" : String.fromCodePoint(n);
+        i += 1 + num[0].length;
+        continue;
+      }
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+var foundText = (st, h) => st.text.slice(h.start, h.end).replace(/\u001D/g, "\r");
+
+// src/numbering-store.ts
+var ROOT_OPEN = '<w:numbering xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" mc:Ignorable="w14 w15">';
+var PART_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
+var SHAPETYPE_75 = '<v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype>';
+var NS = {
+  v: "urn:schemas-microsoft-com:vml",
+  o: "urn:schemas-microsoft-com:office:office",
+  r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+};
+var IMG_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+var hex8 = () => Math.floor(Math.random() * 4294967295).toString(16).toUpperCase().padStart(8, "0");
+function libraryLevels(def, loc) {
+  return def.levels.map((l) => l.replace(/\{LCID\}/g, loc.lcid).replace(/\{H(\d)\}/g, (_m, n) => loc.heading(Number(n))).replace(/\{ARTICLE\}/g, loc.article).replace(/\{SECTION\}/g, loc.section).replace(/\{CHAPTER\}/g, loc.chapter));
+}
+var DocNumbering = class {
+  /** versões do texto da parte (null = o documento não tem numeração); o desfazer guarda só o índice */
+  versions;
+  v = 0;
+  cache = null;
+  /** imagens da parte (marcadores de imagem): r:id → bytes; `fresh` = criada no editor (vai para o pacote ao salvar) */
+  images = /* @__PURE__ */ new Map();
+  constructor(xml, images) {
+    this.versions = [xml ?? null];
+    if (images) for (const [k, v] of images) this.images.set(k, v);
+  }
+  /** texto atual da parte */
+  get xml() {
+    return this.versions[this.v] ?? null;
+  }
+  get version() {
+    return this.v;
+  }
+  /** a parte mudou desde que abriu (só então é regravada) */
+  get dirty() {
+    return this.xml !== this.versions[0];
+  }
+  /** volta a uma versão (desfazer/refazer); true se mudou */
+  restore(v) {
+    if (v === this.v || v < 0 || v >= this.versions.length) return false;
+    this.v = v;
+    return true;
+  }
+  /** A numeração lida (o motor de layout usa esta). */
+  parsed() {
+    if (this.cache?.xml !== this.xml) {
+      const parsed = readNumbering(this.xml ?? void 0);
+      for (const pb of Object.values(parsed.picBullets)) {
+        const im = pb.rid ? this.images.get(pb.rid) : void 0;
+        if (im) pb.image = { data: im.data, ext: im.ext };
+      }
+      this.cache = { xml: this.xml, parsed };
+    }
+    return this.cache.parsed;
+  }
+  /**
+   * Marcador de imagem novo (w:numPicBullet com o VML que o Word grava: v:shape o:bullet com o
+   * tamanho natural e v:imagedata pela relação da parte — oráculo home-lab picbullet). Devolve
+   * o w:numPicBulletId.
+   */
+  addPicBullet(img, wPt, hPt, title = "bullet") {
+    let xml = this.ensure();
+    const ids = [...xml.matchAll(/<w:numPicBullet\b[^>]*\bw:numPicBulletId="(\d+)"/g)].map((m) => parseInt(m[1], 10));
+    const id = ids.length ? Math.max(...ids) + 1 : 0;
+    let n = 1;
+    while (this.images.has(`rIdUwPb${n}`) || xml.includes(`"rIdUwPb${n}"`)) n++;
+    const rid = `rIdUwPb${n}`;
+    this.images.set(rid, { ...img, fresh: true });
+    const open = /<w:numbering\b[^>]*>/.exec(xml)[0];
+    let open2 = open;
+    for (const [p, uri] of Object.entries(NS)) if (!new RegExp(`\\bxmlns:${p}=`).test(open2)) open2 = open2.replace(/>$/, ` xmlns:${p}="${uri}">`);
+    if (open2 !== open) xml = xml.replace(open, () => open2);
+    const num = (v) => String(Math.round(v * 100) / 100);
+    const esc4 = (t) => t.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const pb = `<w:numPicBullet w:numPicBulletId="${id}"><w:pict>${xml.includes('id="_x0000_t75"') ? "" : SHAPETYPE_75}<v:shape id="_x0000_i${1025 + id}" type="#_x0000_t75" style="width:${num(wPt)}pt;height:${num(hPt)}pt" o:bullet="t"><v:imagedata r:id="${rid}" o:title="${esc4(title)}"/></v:shape></w:pict></w:numPicBullet>`;
+    const lastPb = xml.lastIndexOf("</w:numPicBullet>");
+    const at = lastPb >= 0 ? lastPb + "</w:numPicBullet>".length : xml.indexOf(open2) + open2.length;
+    this.set(xml.slice(0, at) + pb + xml.slice(at));
+    return id;
+  }
+  /** Grava as imagens novas que a numeração usa: a mídia, a relação da parte e o tipo. */
+  writeImages(pkg, partPath) {
+    const xml = this.xml ?? "";
+    const used = [...this.images].filter(([rid, im]) => im.fresh && xml.includes(`r:id="${rid}"`));
+    if (!used.length) return;
+    const slash = partPath.lastIndexOf("/");
+    const relsPath = `${partPath.slice(0, slash + 1)}_rels/${partPath.slice(slash + 1)}.rels`;
+    let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    let ct = pkg.getPartText("[Content_Types].xml");
+    for (const [rid, im] of used) {
+      if (rels.includes(`Id="${rid}"`)) continue;
+      const ext = im.ext === "jpg" ? "jpeg" : im.ext;
+      let k = 1;
+      while (pkg.getPart(`word/media/uwbullet${k}.${ext}`)) k++;
+      pkg.setPart(`word/media/uwbullet${k}.${ext}`, im.data);
+      rels = rels.replace("</Relationships>", () => `<Relationship Id="${rid}" Type="${IMG_TYPE}" Target="media/uwbullet${k}.${ext}"/></Relationships>`);
+      if (ct && !new RegExp(`Extension="${ext}"`, "i").test(ct)) ct = ct.replace("</Types>", () => `<Default Extension="${ext}" ContentType="image/${ext}"/></Types>`);
+    }
+    pkg.setPartText(relsPath, rels);
+    if (ct) pkg.setPartText("[Content_Types].xml", ct);
+  }
+  ensure() {
+    return this.xml ?? `${PART_HEAD}${ROOT_OPEN}</w:numbering>`;
+  }
+  set(xml) {
+    if (xml === this.xml) return;
+    this.versions.push(xml);
+    this.v = this.versions.length - 1;
+  }
+  /** w:abstractNum cru pelo id. */
+  abstractXml(id) {
+    return new RegExp(`<w:abstractNum\\b[^>]*\\bw:abstractNumId="${id}"[^>]*>[\\s\\S]*?</w:abstractNum>`).exec(this.xml ?? "")?.[0];
+  }
+  /** w:num cru pelo numId. */
+  numXml(numId) {
+    return new RegExp(`<w:num\\b[^>]*\\bw:numId="${numId}"[^>]*(?:/>|>[\\s\\S]*?</w:num>)`).exec(this.xml ?? "")?.[0];
+  }
+  /** numId do w:numPr de um estilo de numeração (o editor liga à folha de estilos). */
+  styleNum = () => void 0;
+  /** abstractNum efetivo de uma lista: segue o w:numStyleLink até o do estilo de lista
+   *  (w:styleLink), como o motor. */
+  abstractOf(numId) {
+    const p = this.parsed();
+    let n = p.nums[numId];
+    for (let d = 0; n && d < 4; d++) {
+      const link = p.abstractNums[n.abstractNumId]?.numStyleLink;
+      const to = link ? this.styleNum(link) : void 0;
+      const next = to !== void 0 && to !== n.numId ? p.nums[to] : void 0;
+      if (!next) return n.abstractNumId;
+      n = next;
+    }
+    return n?.abstractNumId;
+  }
+  /** Nível efetivo de uma lista (o lvlOverride/lvl do w:num por cima do abstractNum). */
+  level(numId, ilvl) {
+    const n = this.parsed().nums[numId];
+    if (!n) return void 0;
+    const ov = n.overrides[ilvl]?.lvl;
+    if (ov) return ov;
+    const absId = this.abstractOf(numId);
+    return absId !== void 0 ? this.parsed().abstractNums[absId]?.levels[ilvl] : void 0;
+  }
+  nextId(attr) {
+    const re = attr === "w:abstractNumId" ? /<w:abstractNum\b[^>]*\bw:abstractNumId="(\d+)"/g : /<w:num\b[^>]*\bw:numId="(\d+)"/g;
+    let max = attr === "w:abstractNumId" ? -1 : 0;
+    for (const m of (this.xml ?? "").matchAll(re)) max = Math.max(max, Number(m[1]));
+    return max + 1;
+  }
+  /**
+   * Lista nova: w:abstractNum (nsid e tmpl sorteados, como o Word; os modelos de títulos
+   * têm tmpl fixo) + w:num. Devolve o numId.
+   */
+  addList(levels, o) {
+    const absId = this.nextId("w:abstractNumId");
+    const w15 = /\sxmlns:w15="/.test(this.ensure()) ? ' w15:restartNumberingAfterBreak="0"' : "";
+    const abs = `<w:abstractNum w:abstractNumId="${absId}"${w15}><w:nsid w:val="${hex8()}"/><w:multiLevelType w:val="${o.multiLevelType}"/><w:tmpl w:val="${o.tmpl ?? hex8()}"/>${o.styleLink ? `<w:styleLink w:val="${o.styleLink}"/>` : ""}${o.numStyleLink ? `<w:numStyleLink w:val="${o.numStyleLink}"/>` : ""}${levels.join("")}</w:abstractNum>`;
+    this.insertAbstract(abs);
+    return this.addNum(absId);
+  }
+  /** w:num novo para um abstractNum (com w:lvlOverride, se pedido). */
+  addNum(absId, overrides = "") {
+    const numId = this.nextId("w:numId");
+    const num = `<w:num w:numId="${numId}"><w:abstractNumId w:val="${absId}"/>${overrides}</w:num>`;
+    let x = this.ensure();
+    const tail = x.search(/<w:numIdMacAtCleanup\b|<\/w:numbering>\s*$/);
+    x = x.slice(0, tail) + num + x.slice(tail);
+    this.set(x);
+    return numId;
+  }
+  /** Cópia de um abstractNum (nsid novo, mesmo tmpl; os w:tplc viram FFFFFFFF) — Reiniciar
+   *  em 1 do Word (medido: cmd-NumberingRestart). */
+  copyAbstract(absId) {
+    const raw = this.abstractXml(absId);
+    if (!raw) return void 0;
+    const id = this.nextId("w:abstractNumId");
+    const copy = raw.replace(/w:abstractNumId="\d+"/, `w:abstractNumId="${id}"`).replace(/<w:nsid w:val="[0-9A-Fa-f]+"\/>/, `<w:nsid w:val="${hex8()}"/>`).replace(/(<w:lvl\b[^>]*?) w:tplc="[0-9A-Fa-f]+"/g, '$1 w:tplc="FFFFFFFF"');
+    this.insertAbstract(copy);
+    return id;
+  }
+  /** w:abstractNum de outro documento (colar): id e nsid novos; sem o vínculo a estilo de
+   *  lista dele (o estilo pode não existir aqui). Devolve o id. */
+  importAbstract(raw) {
+    const id = this.nextId("w:abstractNumId");
+    const w15 = /\sxmlns:w15="/.test(this.ensure());
+    const abs = raw.replace(/<w:abstractNum\b[^>]*>/, `<w:abstractNum w:abstractNumId="${id}"${w15 ? ' w15:restartNumberingAfterBreak="0"' : ""}>`).replace(/<w:nsid w:val="[0-9A-Fa-f]+"\/>/, `<w:nsid w:val="${hex8()}"/>`).replace(/<w:(?:styleLink|numStyleLink) w:val="[^"]*"\/>/g, "");
+    this.insertAbstract(abs);
+    return id;
+  }
+  insertAbstract(abs) {
+    let x = this.ensure();
+    const at = x.search(/<w:num\b|<w:numIdMacAtCleanup\b|<\/w:numbering>\s*$/);
+    x = x.slice(0, at) + abs + x.slice(at);
+    this.set(x);
+  }
+  /** Troca o w:lvl `ilvl` do abstractNum (o nível já formatado como o Word grava). */
+  setLevel(absId, ilvl, lvl) {
+    const raw = this.abstractXml(absId);
+    if (!raw) return;
+    const re = new RegExp(`<w:lvl\\b[^>]*\\bw:ilvl="${ilvl}"[^>]*>[\\s\\S]*?</w:lvl>`);
+    const next = re.test(raw) ? raw.replace(re, () => lvl) : raw.replace(/<\/w:abstractNum>$/, () => `${lvl}</w:abstractNum>`);
+    this.replaceAbstract(absId, raw, next);
+  }
+  /** Troca todos os níveis do abstractNum (formato da biblioteca de vários níveis). */
+  setLevels(absId, levels, o = {}) {
+    const raw = this.abstractXml(absId);
+    if (!raw) return;
+    let next = raw.replace(/<w:lvl\b[\s\S]*<\/w:lvl>/, () => levels.join(""));
+    if (o.multiLevelType) next = next.replace(/<w:multiLevelType w:val="\w+"\/>/, () => `<w:multiLevelType w:val="${o.multiLevelType}"/>`);
+    if (o.tmpl) next = next.replace(/<w:tmpl w:val="[0-9A-Fa-f]+"\/>/, () => `<w:tmpl w:val="${o.tmpl}"/>`);
+    this.replaceAbstract(absId, raw, next);
+  }
+  /** XML cru de um nível do abstractNum. */
+  levelXml(absId, ilvl) {
+    const raw = this.abstractXml(absId);
+    return raw ? new RegExp(`<w:lvl\\b[^>]*\\bw:ilvl="${ilvl}"[^>]*>[\\s\\S]*?</w:lvl>`).exec(raw)?.[0] : void 0;
+  }
+  replaceAbstract(absId, raw, next) {
+    if (raw === next) return;
+    const x = this.xml;
+    const at = x.indexOf(raw);
+    if (at < 0) return;
+    this.set(x.slice(0, at) + next + x.slice(at + raw.length));
+    void absId;
+  }
+  /**
+   * O texto a gravar: níveis sem parágrafo ficam w:tentative="1" (como o Word grava) — só
+   * nos abstractNum que o editor criou/mudou (`touched`); os de origem saem crus.
+   */
+  withTentative(touched, used) {
+    if (!this.xml || !touched.size) return this.xml;
+    let x = this.xml;
+    for (const absId of touched) {
+      const raw = new RegExp(`<w:abstractNum\\b[^>]*\\bw:abstractNumId="${absId}"[^>]*>[\\s\\S]*?</w:abstractNum>`).exec(x)?.[0];
+      if (!raw) continue;
+      if (!/hybridMultilevel/.test(raw)) continue;
+      const u = used.get(absId) ?? /* @__PURE__ */ new Set();
+      const next = raw.replace(/<w:lvl\b([^>]*)>/g, (_m, attrs) => {
+        const ilvl = Number(/w:ilvl="(\d+)"/.exec(attrs)?.[1] ?? 0);
+        const clean = attrs.replace(/ w:tentative="1"/, "");
+        return u.has(ilvl) ? `<w:lvl${clean}>` : `<w:lvl${clean} w:tentative="1">`;
+      });
+      if (next !== raw) x = x.replace(raw, () => next);
+    }
+    return x;
+  }
+};
+function parseLevel(lvl) {
+  const levels = readNumbering(`<w:numbering><w:abstractNum w:abstractNumId="0">${lvl}</w:abstractNum></w:numbering>`).abstractNums[0]?.levels;
+  return levels ? Object.values(levels)[0] : void 0;
+}
+function sameLevelFormat(a, b) {
+  if (!a || !b) return false;
+  return (a.numFmt ?? "decimal") === (b.numFmt ?? "decimal") && (a.lvlText ?? "") === (b.lvlText ?? "") && (a.rPr?.rFonts?.ascii ?? "") === (b.rPr?.rFonts?.ascii ?? "") && a.lvlPicBulletId === b.lvlPicBulletId;
+}
+function levelIndent(l) {
+  const ind = l?.pPr?.ind;
+  return { left: ind?.left ?? 0, hanging: ind?.hanging ?? (ind?.firstLine !== void 0 ? -ind.firstLine : 0) };
+}
+
+// src/list-library.ts
+var BULLET_LIBRARY = [
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="6480" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="6480" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="6480" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0009"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF076"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="6480" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}000B"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0D8"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="6480" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}000D"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0FC"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}0001"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0003"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="o"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}0005"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="6480" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  }
+];
+var NUMBER_LIBRARY = [
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0011"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0013"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:lvlText w:val="%1."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="720" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0015"><w:start w:val="1"/><w:numFmt w:val="upperLetter"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0017"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%1)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "hybridMultilevel",
+    levels: [
+      '<w:lvl w:ilvl="0" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%1."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="2160" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%6."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="4320" w:hanging="180"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6" w:tplc="{LCID}000F"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7" w:tplc="{LCID}0019"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8" w:tplc="{LCID}001B"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="6480" w:hanging="180"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  }
+];
+var MULTILEVEL_LIBRARY = [
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}001D",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1080" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="(%4)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="(%5)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1800" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="(%6)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2520" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%9."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3240" w:hanging="360"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}001F",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="792" w:hanging="432"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1224" w:hanging="504"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3.%4."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1728" w:hanging="648"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3.%4.%5."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2232" w:hanging="792"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2736" w:hanging="936"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6.%7."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3240" w:hanging="1080"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6.%7.%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3744" w:hanging="1224"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6.%7.%8.%9."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:hanging="1440"/></w:pPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}0021",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF076"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0D8"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1080" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A8"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1800" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0D8"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2520" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0A8"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3240" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>'
+    ],
+    linked: false
+  },
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}0023",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:pStyle w:val="{H1}"/><w:lvlText w:val="{ARTICLE} %1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimalZero"/><w:pStyle w:val="{H2}"/><w:isLgl/><w:lvlText w:val="{SECTION} %1.%2"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:pStyle w:val="{H3}"/><w:lvlText w:val="(%3)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="432"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:pStyle w:val="{H4}"/><w:lvlText w:val="(%4)"/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="864" w:hanging="144"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H5}"/><w:lvlText w:val="%5)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1008" w:hanging="432"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:pStyle w:val="{H6}"/><w:lvlText w:val="%6)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1152" w:hanging="432"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:pStyle w:val="{H7}"/><w:lvlText w:val="%7)"/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="1296" w:hanging="288"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:pStyle w:val="{H8}"/><w:lvlText w:val="%8."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="432"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:pStyle w:val="{H9}"/><w:lvlText w:val="%9."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="1584" w:hanging="144"/></w:pPr></w:lvl>'
+    ],
+    linked: true
+  },
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}0025",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H1}"/><w:lvlText w:val="%1"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="432" w:hanging="432"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H2}"/><w:lvlText w:val="%1.%2"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="576" w:hanging="576"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H3}"/><w:lvlText w:val="%1.%2.%3"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="720"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H4}"/><w:lvlText w:val="%1.%2.%3.%4"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="864" w:hanging="864"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H5}"/><w:lvlText w:val="%1.%2.%3.%4.%5"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1008" w:hanging="1008"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H6}"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1152" w:hanging="1152"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H7}"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6.%7"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1296" w:hanging="1296"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H8}"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6.%7.%8"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="1440"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H9}"/><w:lvlText w:val="%1.%2.%3.%4.%5.%6.%7.%8.%9"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1584" w:hanging="1584"/></w:pPr></w:lvl>'
+    ],
+    linked: true
+  },
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}0027",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:pStyle w:val="{H1}"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="upperLetter"/><w:pStyle w:val="{H2}"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H3}"/><w:lvlText w:val="%3."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:pStyle w:val="{H4}"/><w:lvlText w:val="%4)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H5}"/><w:lvlText w:val="(%5)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2880" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:pStyle w:val="{H6}"/><w:lvlText w:val="(%6)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="3600" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:pStyle w:val="{H7}"/><w:lvlText w:val="(%7)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="4320" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:pStyle w:val="{H8}"/><w:lvlText w:val="(%8)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5040" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:pStyle w:val="{H9}"/><w:lvlText w:val="(%9)"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="5760" w:firstLine="0"/></w:pPr></w:lvl>'
+    ],
+    linked: true
+  },
+  {
+    multiLevelType: "multilevel",
+    tmpl: "{LCID}0029",
+    levels: [
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="{H1}"/><w:suff w:val="space"/><w:lvlText w:val="{CHAPTER} %1"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H2}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H3}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="3"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H4}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="4"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H5}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="5"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H6}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="6"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H7}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="7"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H8}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>',
+      '<w:lvl w:ilvl="8"><w:start w:val="1"/><w:numFmt w:val="none"/><w:pStyle w:val="{H9}"/><w:suff w:val="nothing"/><w:lvlText w:val=""/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr></w:lvl>'
+    ],
+    linked: true
+  }
+];
 
 // src/notes.ts
 var NOTE_DEFAULTS = {
@@ -1685,11 +3204,11 @@ function hfTemplates(gallery) {
 function galleryKind(gallery) {
   return gallery === "footer" || gallery === "pageBottom" ? "footer" : gallery === "pageCurrent" ? null : "header";
 }
-var esc2 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc2(text)}</w:t></w:r>`;
+var esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var run = (text, rPr = "") => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${esc3(text)}</w:t></w:r>`;
 var field = (instr, shown, rPr = "") => {
   const r = rPr ? `<w:rPr>${rPr}</w:rPr>` : "";
-  return `<w:r>${r}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r}<w:instrText xml:space="preserve"> ${esc2(instr)} </w:instrText></w:r><w:r>${r}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc2(shown)}</w:t></w:r><w:r>${r}<w:fldChar w:fldCharType="end"/></w:r>`;
+  return `<w:r>${r}<w:fldChar w:fldCharType="begin"/></w:r><w:r>${r}<w:instrText xml:space="preserve"> ${esc3(instr)} </w:instrText></w:r><w:r>${r}<w:fldChar w:fldCharType="separate"/></w:r><w:r>${rPr ? `<w:rPr>${rPr}<w:noProof/></w:rPr>` : "<w:rPr><w:noProof/></w:rPr>"}<w:t>${esc3(shown)}</w:t></w:r><w:r>${r}<w:fldChar w:fldCharType="end"/></w:r>`;
 };
 var page = (rPr = "") => field("PAGE   \\* MERGEFORMAT", "1", rPr);
 var pages = (rPr = "") => field("NUMPAGES   \\* MERGEFORMAT", "1", rPr);
@@ -1700,7 +3219,7 @@ function placeholderText(lang) {
   return lang === "pt" ? "[Digite aqui]" : "[Type here]";
 }
 function para2(env, body, pPr = "") {
-  const style = env.styleId ? `<w:pStyle w:val="${esc2(env.styleId)}"/>` : "";
+  const style = env.styleId ? `<w:pStyle w:val="${esc3(env.styleId)}"/>` : "";
   return `<w:p><w:pPr>${style}${pPr}</w:pPr>${body}</w:p>`;
 }
 function pageNumberSdt(env, gallery, inner) {
@@ -2370,7 +3889,7 @@ function restore(p, orig) {
 }
 
 // src/ole-sheet.ts
-var NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+var NS2 = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 var RNS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 var XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
 function blankXlsx(lang) {
@@ -2379,10 +3898,10 @@ function blankXlsx(lang) {
   pkg.setPartText("[Content_Types].xml", XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
   pkg.setPartText("_rels/.rels", XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
   const name = pickLabels(lang, { en: "Sheet1", pt: "Planilha1" });
-  pkg.setPartText("xl/workbook.xml", XML + `<workbook xmlns="${NS}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  pkg.setPartText("xl/workbook.xml", XML + `<workbook xmlns="${NS2}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   pkg.setPartText("xl/_rels/workbook.xml.rels", XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
-  pkg.setPartText("xl/worksheets/sheet1.xml", XML + `<worksheet xmlns="${NS}" xmlns:r="${RNS}"><dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/></worksheet>`);
-  pkg.setPartText("xl/styles.xml", XML + `<styleSheet xmlns="${NS}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  pkg.setPartText("xl/worksheets/sheet1.xml", XML + `<worksheet xmlns="${NS2}" xmlns:r="${RNS}"><dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/></worksheet>`);
+  pkg.setPartText("xl/styles.xml", XML + `<styleSheet xmlns="${NS2}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
   return pkg.save();
 }
 async function sheetAvailable(loader) {
@@ -3063,6 +4582,46 @@ var refsOfSection = (s) => ({
   headerRefs: s.headerRefs.map((r) => ({ kind: "header", type: r.type, rid: r.rid })),
   footerRefs: s.footerRefs.map((r) => ({ kind: "footer", type: r.type, rid: r.rid }))
 });
+var OFFICE_CLIPBOARD = {
+  clip: null,
+  ring: [],
+  seq: 0,
+  listeners: /* @__PURE__ */ new Set()
+};
+function clipMark(p) {
+  const m = paraFormatting(p);
+  delete m.dropCap;
+  return m;
+}
+function clipText(c) {
+  const ps = c.paras.length > 1 && !c.paras[c.paras.length - 1].runs.length ? c.paras.slice(0, -1) : c.paras;
+  return ps.map((p) => (p.marker ? `${p.marker}	` : "") + p.runs.map((r) => r.text).join("")).join("\n");
+}
+function htmlListLevels(ordered) {
+  return Array.from({ length: 9 }, (_v, i) => {
+    const ind = 720 * (i + 1);
+    const ppr = `<w:pPr><w:tabs><w:tab w:val="num" w:pos="${ind}"/></w:tabs><w:ind w:left="${ind}" w:hanging="360"/></w:pPr>`;
+    if (ordered) return `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%${i + 1}."/><w:lvlJc w:val="left"/>${ppr}</w:lvl>`;
+    const [ch, font] = i === 0 ? ["\uF0B7", "Symbol"] : i === 1 ? ["o", "Courier New"] : ["\uF0A7", "Wingdings"];
+    return `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="${ch}"/><w:lvlJc w:val="left"/>${ppr}<w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:hint="default"/><w:sz w:val="20"/></w:rPr></w:lvl>`;
+  });
+}
+function imageSize(b) {
+  if (b.length > 24 && b[0] === 137 && b[1] === 80) return { w: (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, h: (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0 };
+  if (b.length > 10 && b[0] === 71 && b[1] === 73) return { w: b[6] | b[7] << 8, h: b[8] | b[9] << 8 };
+  if (b[0] === 255 && b[1] === 216) {
+    for (let i = 2; i + 9 < b.length; ) {
+      if (b[i] !== 255) {
+        i++;
+        continue;
+      }
+      const m = b[i + 1], len2 = b[i + 2] << 8 | b[i + 3];
+      if (m >= 192 && m <= 207 && m !== 196 && m !== 200 && m !== 204) return { h: b[i + 5] << 8 | b[i + 6], w: b[i + 7] << 8 | b[i + 8] };
+      i += 2 + len2;
+    }
+  }
+  return null;
+}
 function guessSortType(texts) {
   const xs = texts.map((t) => t.trim()).filter(Boolean);
   if (!xs.length) return "text";
@@ -3117,7 +4676,7 @@ var trackApplyRunProps2 = (m, range, patch, rev) => {
   const r = normalizeRange(range);
   guardRuns(m, r.start.para, r.end.para, () => trackApplyRunProps(m, range, patch, rev));
 };
-var cssFamily = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var cssFamily2 = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
 var legacyTabs = (stops) => {
   const out = (stops ?? []).flatMap((t) => t.align === "left" || t.align === "center" || t.align === "right" || t.align === "decimal" ? [{ posTwips: t.posTwips, align: t.align === "decimal" ? "right" : t.align, ...t.leader ? { leader: "dot" } : {} }] : []);
   return out.length ? out : void 0;
@@ -3332,9 +4891,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   // formatação aplicada antes de digitar
   plainPasteNext = false;
   // próximo paste (Ctrl+Shift+V) cola sem formatação
-  // clipboard RICO interno (o sistema só guarda texto): casado por texto, usado
-  // pelo "Colar" para preservar a formatação dos runs da ORIGEM.
-  richClip = null;
+  // clipboard RICO interno (o sistema só guarda texto e HTML): casado por texto, usado
+  // pelo "Colar" para preservar a formatação dos runs da ORIGEM. Da página toda, como a
+  // Área de Transferência do Office: colar em outro <universal-write> também o usa.
+  get richClip() {
+    return OFFICE_CLIPBOARD.clip;
+  }
+  set richClip(c) {
+    OFFICE_CLIPBOARD.clip = c;
+  }
+  /** identidade do documento aberto (colar no mesmo documento × entre documentos) */
+  docToken = {};
   onSelectionChange = null;
   /** Fontes em memória usadas pela inicialização automática, sem fetch/backend. */
   fontAssets;
@@ -3445,7 +5012,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-X5AMXTEJ.js");
+    const { setupChrome } = await import("./chunks/chrome-6O6WAW3U.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -3482,7 +5049,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-X5AMXTEJ.js").then((m) => {
+      void import("./chunks/chrome-6O6WAW3U.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -3717,6 +5284,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
+    this.resetNumbering(this.pkg.getPartText(partByRelType(this.pkg, "numbering", "word/numbering.xml")) ?? null, numberingImages(this.pkg));
     this.loadedFormat = "docx";
     this.tracking = readTrackRevisions(this.pkg);
     this.installFullDoc();
@@ -3768,6 +5336,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readOdt(bytes);
     this.docStyles = new DocStyles(null);
+    this.resetNumbering(null);
     this.loadedBytes = null;
     this.loadedFormat = "odt";
     this.tracking = false;
@@ -3865,6 +5434,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   installFullDoc() {
     if (!this.fullDoc) throw new Error("installFullDoc without fullDoc");
     this.resetEngineState();
+    this.docToken = {};
+    this.lastPaste = null;
     const paragraphs = [];
     this.tableAnchors = [];
     const paraOfBlock = [];
@@ -3965,6 +5536,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText("word/styles.xml") ?? null);
+    this.resetNumbering(this.pkg.getPartText("word/numbering.xml") ?? null, numberingImages(this.pkg));
     this.tracking = false;
     this.installFullDoc();
   }
@@ -4415,6 +5987,27 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.refreshView();
     return this.showMarks;
   }
+  /** Seleção atual do texto (parágrafo do corpo, ou do cabeçalho/caixa/célula em edição, e
+   *  deslocamento em caracteres): âncora e foco. */
+  getSelection() {
+    return { anchor: { ...this.selection.anchor }, focus: { ...this.selection.focus } };
+  }
+  /** Seleciona do `anchor` ao `focus` (sem `focus`: põe o cursor em `anchor`); as posições
+   *  são limitadas ao texto existente. */
+  setSelection(anchor, focus = anchor) {
+    if (!this.model) return;
+    const clamp = (p) => {
+      const para3 = Math.max(0, Math.min(this.model.paragraphs.length - 1, Math.floor(p.para)));
+      return { para: para3, offset: Math.max(0, Math.min(paraLength(this.model.paragraphs[para3]), Math.floor(p.offset))) };
+    };
+    this.selection = { anchor: clamp(anchor), focus: clamp(focus) };
+    this.pendingProps = null;
+    this.floatSel = null;
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
   getSelectionState() {
     const run2 = { ...this.pendingProps ?? this.currentProps() };
     const p = this.model?.paragraphs[this.selection.focus.para];
@@ -4430,8 +6023,200 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return { run: run2, para: para3, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
   toggleRunProp(key) {
+    if (key === "underline") {
+      this.toggleUnderline();
+      return;
+    }
     const cur = this.pendingProps ?? this.currentProps();
-    this.formatRuns({ [key]: !cur[key] });
+    const on = !cur[key];
+    this.formatRuns({ [key]: on, ...on && key === "strike" ? { doubleStrike: false } : on && key === "doubleStrike" ? { strike: false } : {} });
+  }
+  // ───────────────────────── Fonte: sublinhado, cores, maiúsculas ─────────────────────────
+  // Regras medidas no Word (write/tools/home-lab; memórias word-underline-facts e word-home-font-facts).
+  /** Estilo do botão Sublinhado: o último escolhido na sessão (simples de início), como o Word. */
+  ulButton = "single";
+  /** O estilo que o botão Sublinhado (Ctrl+U) aplica. */
+  underlineButtonStyle() {
+    return this.ulButton;
+  }
+  /** Sublinhado da seleção (ou do que vai ser digitado): um dos 17 estilos do w:u ou 'none'.
+   *  Escolher um estilo o torna o do botão. */
+  setUnderline(style) {
+    if (style !== "none") this.ulButton = style;
+    this.formatRuns(style === "none" ? { underline: false } : { underline: true, underlineStyle: style === "single" ? void 0 : style });
+  }
+  /** Botão Sublinhado (Ctrl+U): tira quando TODA a seleção já tem o estilo do botão; senão
+   *  aplica esse estilo (medido: sobre duplo ou misto, o Word põe o simples). */
+  toggleUnderline(style = this.ulButton) {
+    const all = this.selectionEvery((p) => p.underline && (p.underlineStyle ?? "single") === style);
+    this.formatRuns(all ? { underline: false } : { underline: true, underlineStyle: style === "single" ? void 0 : style });
+  }
+  /** Cor do sublinhado: RRGGBB, cor do tema ({ themeColor, tint | shade }, como a paleta) ou
+   *  null = Automática (a do texto). Texto sem sublinhado recebe o do botão. */
+  setUnderlineColor(color2) {
+    const c = color2 === null ? null : this.colorPick(color2);
+    const cur = this.pendingProps ?? this.currentProps();
+    this.formatRuns({
+      underlineColor: c?.hex,
+      underlineTheme: c?.theme,
+      ...cur.underline ? {} : { underline: true, underlineStyle: this.ulButton === "single" ? void 0 : this.ulButton }
+    });
+  }
+  /** RRGGBB ou cor do tema → hex resolvido + atributos do tema (w:themeColor/Tint/Shade). */
+  colorPick(color2) {
+    if (typeof color2 === "string") return { hex: color2.replace(/^#/, "").toUpperCase() };
+    const theme = (this.fullDoc?.formatting ?? this.newFormatting ?? emptyFormatting()).theme;
+    const ts = themeTintShade(color2);
+    const colors = Object.fromEntries(Object.entries(theme?.colors ?? {}).map(([k, v]) => [k, String(v).replace(/^#/, "")]));
+    return {
+      hex: themeHex(colors, color2.themeColor, ts.themeTint, ts.themeShade),
+      theme: { themeColor: color2.themeColor, ...ts.themeTint ? { tint: ts.themeTint } : {}, ...ts.themeShade ? { shade: ts.themeShade } : {} }
+    };
+  }
+  /** Todo o texto da seleção (ou o ponto de digitação) satisfaz o predicado? */
+  selectionEvery(pred) {
+    if (!this.model || !this.hasSelection()) return pred(this.pendingProps ?? this.currentProps());
+    const { start, end } = normalizeRange(this.range());
+    let any = false;
+    for (let pi = start.para; pi <= end.para; pi++) {
+      let acc = 0;
+      for (const run2 of this.model.paragraphs[pi].runs) {
+        const rs = acc, re = acc + run2.text.length;
+        acc = re;
+        const from = pi === start.para ? Math.max(start.offset, rs) : rs;
+        const to = pi === end.para ? Math.min(end.offset, re) : re;
+        if (to <= from || !run2.text) continue;
+        any = true;
+        if (!pred(run2.props)) return false;
+      }
+    }
+    return any || pred(this.currentProps());
+  }
+  /**
+   * Formatação de caractere de uma vez (diálogo Fonte), num só passo de desfazer:
+   * só os campos presentes mudam. Cores aceitam RRGGBB, cor do tema ou null (Automática).
+   */
+  // ───────────────────────── Efeitos de Texto e Tipografia (w14) ─────────────────────────
+  // O XML segue o que o Word grava (write/tools/home-lab exp-effects*.ps1); o desenho usa os
+  // efeitos em raster de @universal-office/drawingml (docx-layout textfx.ts).
+  /** Efeitos e tipografia do cursor (o 1º caractere da seleção). */
+  textEffects() {
+    const p = this.pendingProps ?? this.currentProps();
+    return { ...p.textFx ? { fx: structuredClone(p.textFx) } : {}, ...p.openType ? { ot: { ...p.openType } } : {} };
+  }
+  /** Muda partes dos efeitos de texto da seleção (cada trecho mantém as outras): null
+   *  tira a parte (Sem Contorno, Sem Sombra…). Um passo de desfazer. */
+  setTextEffects(patch) {
+    this.mapRunProps((p) => {
+      const fx = { ...p.textFx ?? {} };
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === void 0) delete fx[k];
+        else fx[k] = structuredClone(v);
+      }
+      return { textFx: Object.keys(fx).length ? fx : void 0 };
+    }, (p) => JSON.stringify(p.textFx ?? null));
+  }
+  /** Um modelo da galeria Efeitos de Texto (substitui os efeitos; null = sem efeitos). */
+  applyTextEffectPreset(index) {
+    const pr = index === null ? null : TEXT_EFFECT_GALLERY[index];
+    if (index !== null && !pr) return;
+    this.mapRunProps(() => ({ textFx: pr ? structuredClone(pr.fx) : void 0 }), () => "");
+  }
+  /** Tipografia OpenType da seleção (ligaduras, números, conjuntos estilísticos,
+   *  alternativas contextuais): null tira a opção. */
+  setOpenType(patch) {
+    this.mapRunProps((p) => {
+      const ot = { ...p.openType ?? {} };
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === void 0 || v === "default" || Array.isArray(v) && !v.length || v === false) delete ot[k];
+        else ot[k] = v;
+      }
+      return { openType: Object.keys(ot).length ? ot : void 0 };
+    }, (p) => JSON.stringify(p.openType ?? null));
+  }
+  /** Cor da Fonte › Gradiente: da cor do texto (ou do tema) para a variação clara/escura
+   *  na direção dada; null tira o degradê. */
+  setTextGradient(v) {
+    this.mapRunProps((p) => {
+      const fx = { ...p.textFx ?? {} };
+      if (!v) delete fx.fill;
+      else {
+        const base = p.colorTheme ? { scheme: themeToW14(p.colorTheme.themeColor) } : { rgb: (p.color ?? "000000").toUpperCase() };
+        fx.fill = textGradient(base, v.angleDeg, v.light);
+      }
+      return { textFx: Object.keys(fx).length ? fx : void 0 };
+    }, (p) => JSON.stringify([p.textFx ?? null, p.color, p.colorTheme]));
+  }
+  /** Aplica uma mudança que depende da formatação de cada trecho da seleção (os trechos
+   *  iguais pela chave vão juntos); sem seleção vale para o que se digitar. */
+  mapRunProps(fn, key) {
+    if (!this.model || this.locked()) return;
+    if (!this.hasSelection()) {
+      const cur = this.pendingProps ?? this.currentProps();
+      this.pendingProps = { ...cur, ...fn(cur) };
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return;
+    }
+    this.snapshot();
+    const segs = [];
+    for (const { start, end } of [normalizeRange(this.range()), ...this.extras()]) for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      const from = pi === start.para ? start.offset : 0, to = pi === end.para ? end.offset : paraLength(p);
+      let acc = 0;
+      for (const r of p.runs) {
+        const rs = acc, re = acc + r.text.length;
+        acc = re;
+        const s = Math.max(from, rs), e = Math.min(to, re);
+        if (e <= s) continue;
+        const last = segs[segs.length - 1];
+        if (last && last.range.end.para === pi && last.range.end.offset === s && key(last.props) === key(r.props)) last.range.end = { para: pi, offset: e };
+        else segs.push({ range: { start: { para: pi, offset: s }, end: { para: pi, offset: e } }, props: r.props });
+      }
+    }
+    for (const sg of segs) this.applyRunOne(sg.range, fn(sg.props));
+    this.refresh();
+  }
+  setFontFormat(f) {
+    const patch = {};
+    if (f.fontFamily !== void 0) {
+      void this.ensureFontLoaded(f.fontFamily);
+      patch.fontAscii = f.fontFamily;
+    }
+    if (f.sizePt !== void 0) patch.szHalfPt = Math.round(f.sizePt * 2);
+    if (f.bold !== void 0) patch.bold = f.bold;
+    if (f.italic !== void 0) patch.italic = f.italic;
+    if (f.underline !== void 0) {
+      if (f.underline === "none") patch.underline = false;
+      else {
+        patch.underline = true;
+        patch.underlineStyle = f.underline === "single" ? void 0 : f.underline;
+        this.ulButton = f.underline;
+      }
+    }
+    if (f.underlineColor !== void 0) {
+      const c = f.underlineColor === null ? null : this.colorPick(f.underlineColor);
+      patch.underlineColor = c?.hex;
+      patch.underlineTheme = c?.theme;
+    }
+    if (f.color !== void 0) {
+      const c = f.color === null ? null : this.colorPick(f.color);
+      patch.color = c?.hex;
+      patch.colorTheme = c?.theme;
+    }
+    if (f.strike !== void 0) patch.strike = f.strike;
+    if (f.doubleStrike !== void 0) patch.doubleStrike = f.doubleStrike;
+    if (f.superscript !== void 0 || f.subscript !== void 0) {
+      patch.vertAlign = f.superscript ? "superscript" : f.subscript ? "subscript" : void 0;
+    }
+    if (f.smallCaps !== void 0) patch.smallCaps = f.smallCaps;
+    if (f.allCaps !== void 0) patch.allCaps = f.allCaps;
+    if (f.hidden !== void 0) patch.hidden = f.hidden;
+    if (f.scalePct !== void 0) patch.scalePct = f.scalePct === 100 ? void 0 : f.scalePct;
+    if (f.spacingTwips !== void 0) patch.charSpacingTwips = f.spacingTwips || void 0;
+    if (f.positionHalfPt !== void 0) patch.positionHalfPt = f.positionHalfPt || void 0;
+    if (f.kernMinHalfPt !== void 0) patch.kernHalfPt = f.kernMinHalfPt || void 0;
+    if (Object.keys(patch).length) this.formatRuns(patch);
   }
   toggleVertAlign(kind) {
     const cur = (this.pendingProps ?? this.currentProps()).vertAlign;
@@ -4611,8 +6396,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (this.model) this.refresh();
     });
   }
-  setColor(hex) {
-    this.formatRuns({ color: hex });
+  /** Cor da fonte: RRGGBB, cor do tema ({ themeColor, tint | shade }, como a paleta) ou
+   *  undefined = Automática. */
+  setColor(color2) {
+    const c = color2 === void 0 ? void 0 : this.colorPick(color2);
+    this.formatRuns({ color: c?.hex, colorTheme: c?.theme });
   }
   setHighlight(name) {
     this.formatRuns({ highlight: name });
@@ -4642,10 +6430,31 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     else this.pendingProps = { ...DEFAULT_RUN_PROPS };
     this.applyPara(this.range(), { ...CLEARED_PARA, styleId: void 0 });
   }
+  /**
+   * Maiúsculas e Minúsculas (como o Word, medido): 'sentence' = Primeira letra da frase
+   * em maiúscula (depois de . ! ?), o resto minúsculo; 'title' = Colocar Cada Palavra em
+   * Maiúscula; 'toggle' = aLTERNAR; 'next' = Shift+F3 (sem minúsculas → minúsculas;
+   * 1ª letra maiúscula → MAIÚSCULAS; senão frase, se há . ! ?, ou título). Mudar o caso
+   * tira o "Todas em maiúsculas" (w:caps) do trecho.
+   */
   changeCase(mode) {
     if (!this.model || !this.hasSelection() || this.locked()) return;
-    this.snapshot();
     const { start, end } = normalizeRange(this.range());
+    const parts = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const t = paraText(this.model.paragraphs[pi]);
+      parts.push(t.slice(pi === start.para ? start.offset : 0, pi === end.para ? end.offset : t.length));
+    }
+    const all = parts.join("\n");
+    if (mode === "next") {
+      const first = [...all].find((ch) => ch.toLowerCase() !== ch.toUpperCase());
+      if (all === all.toUpperCase()) mode = "lower";
+      else if (first && first === first.toUpperCase()) mode = "upper";
+      else mode = /[.!?]/.test(all) ? "sentence" : "title";
+    }
+    const out = caseMapped(all, mode);
+    this.snapshot();
+    let k = 0;
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi];
       let acc = 0;
@@ -4656,11 +6465,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const from = pi === start.para ? Math.max(start.offset, rs) : rs;
         const to = pi === end.para ? Math.min(end.offset, re) : re;
         if (to <= from) continue;
-        const seg = run2.text.slice(from - rs, to - rs);
-        const tx = mode === "upper" ? seg.toUpperCase() : seg.toLowerCase();
-        run2.text = run2.text.slice(0, from - rs) + tx + run2.text.slice(to - rs);
+        run2.text = run2.text.slice(0, from - rs) + out.slice(k, k + (to - from)) + run2.text.slice(to - rs);
+        k += to - from;
       }
+      k++;
     }
+    this.applyRun(this.range(), { allCaps: false });
     this.refresh();
   }
   setAlignment(a) {
@@ -4680,14 +6490,602 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     this.refresh();
   }
-  toggleList(kind) {
-    const cur = this.model?.paragraphs[this.selection.focus.para]?.props.numbering;
-    this.formatPara({
-      numbering: cur?.kind === kind ? void 0 : { kind, ilvl: 0 },
-      indentLeftTwips: cur?.kind === kind ? void 0 : 720
-    });
+  // ───────────────────────── listas (Marcadores, Numeração, Vários Níveis) ─────────────────────────
+  // O word/numbering.xml é editado sem perdas por DocNumbering (numbering-store.ts); as regras
+  // são as do Word medidas em write/tools/home-lab (exp-lists/listkeys/listcmds.ps1).
+  /** Numeração do documento (a parte editável; o desfazer guarda a versão). */
+  numbering = new DocNumbering(null);
+  /** abstractNum que o editor criou ou mudou (os níveis sem parágrafo viram w:tentative) */
+  numTouched = /* @__PURE__ */ new Set();
+  /** item da biblioteca usado por último em cada botão (o botão dividido aplica este) */
+  lastBullet = 0;
+  lastNumber = 0;
+  resetNumbering(xml, images) {
+    this.numbering = new DocNumbering(xml, images);
+    this.numbering.styleNum = (id) => this.docStyles.sheet().styles[id]?.pPr?.numPr?.numId;
+    this.numTouched = /* @__PURE__ */ new Set();
   }
+  /** O motor passa a usar a numeração atual. */
+  syncNumbering() {
+    const numbering = this.numbering.parsed();
+    if (this.fullDoc) this.fullDoc.formatting = { ...this.fullDoc.formatting ?? emptyFormatting(), numbering };
+    else this.newFormatting = { ...this.newFormatting ?? emptyFormatting(), numbering };
+    this.engPageCache.clear();
+  }
+  /** Texto da numeração a gravar (níveis sem parágrafo nas listas novas: w:tentative). */
+  numberingOut(blocks, hfParts) {
+    const used = /* @__PURE__ */ new Map();
+    const see = (p) => {
+      const n = p.props.numbering;
+      const abs = n?.numId ? this.numbering.abstractOf(n.numId) : void 0;
+      if (abs === void 0) return;
+      let s = used.get(abs);
+      if (!s) used.set(abs, s = /* @__PURE__ */ new Set());
+      s.add(n.ilvl);
+    };
+    for (const p of flattenBlocks(blocks)) see(p);
+    for (const h of hfParts) for (const p of h.blocks ? flattenBlocks(h.blocks) : h.paragraphs) see(p);
+    return this.numbering.withTentative(this.numTouched, used) ?? "";
+  }
+  /** Idioma das bibliotecas: LCID dos w:tplc, títulos do documento, textos. */
+  listLocale() {
+    const pt2 = uiLang(this) === "pt";
+    const all = this.listStyles("all");
+    return {
+      lcid: pt2 ? "0416" : "0409",
+      heading: (n) => all.find((s) => s.rawName.toLowerCase() === `heading ${n}`)?.id ?? `Heading${n}`,
+      article: pt2 ? "Artigo" : "Article",
+      section: pt2 ? "Se\xE7\xE3o" : "Section",
+      chapter: pt2 ? "Cap\xEDtulo" : "Chapter"
+    };
+  }
+  /** styleId de um estilo interno pelo nome em inglês (definido ou latente), sem defini-lo. */
+  builtinIdOf(name) {
+    return this.listStyles("all").find((s) => s.rawName.toLowerCase() === name)?.id;
+  }
+  /** O estilo interno passa a definido e visível no styles.xml (como ao usá-lo); o .odt
+   *  não tem folha editável. */
+  useBuiltinStyle(name) {
+    return this.stylesEditable() ? this.builtinStyleId(name) : void 0;
+  }
+  /** Lista do parágrafo: a direta (w:numPr; numId 0 = nenhuma) ou a do estilo (títulos
+   *  vinculados); null fora de lista. numId −1/−2 = lista sem definição (marcador/número
+   *  de .odt, colagem) — o motor desenha a sintética. */
+  paraNum(p) {
+    const n = p.props.numbering;
+    if (n) {
+      const numId = n.numId ?? (n.kind === "decimal" ? -2 : -1);
+      return numId ? { numId, ilvl: n.ilvl, fromStyle: false } : null;
+    }
+    const styles = this.docStyles.sheet().styles;
+    let ilvl;
+    let id = p.props.styleId ?? this.docStyles.defaultParagraph();
+    for (let guard = 0; id && guard < 20; guard++) {
+      const np = styles[id]?.pPr?.numPr;
+      if (np) {
+        ilvl ??= np.ilvl;
+        if (np.numId !== void 0) return np.numId ? { numId: np.numId, ilvl: ilvl ?? 0, fromStyle: true } : null;
+      }
+      id = styles[id]?.basedOn;
+    }
+    return null;
+  }
+  paraNumId(p) {
+    return this.paraNum(p)?.numId ?? 0;
+  }
+  /** Lista e nível do parágrafo do cursor (galerias e diálogos); null fora de lista. */
+  listInfo() {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const n = p ? this.paraNum(p) : null;
+    if (!p || !n) return null;
+    const numId = n.numId;
+    const absId = numId > 0 ? this.numbering.abstractOf(numId) : void 0;
+    const abs = absId !== void 0 ? this.numbering.parsed().abstractNums[absId] : void 0;
+    const lvl = numId > 0 ? this.numbering.level(numId, n.ilvl) : void 0;
+    const levels = abs ? Object.values(abs.levels).sort((a, b) => a.ilvl - b.ilvl).map(listLevelSpec) : [];
+    return {
+      numId,
+      ilvl: n.ilvl,
+      absId: absId ?? -1,
+      kind: lvl ? lvl.numFmt === "bullet" ? "bullet" : "number" : numId === -1 ? "bullet" : "number",
+      level: lvl ? listLevelSpec(lvl) : void 0,
+      multilevel: levels.some((l) => l.ilvl > 0 && /%[1-9]/.test(l.lvlText) && (l.lvlText.match(/%[1-9]/g)?.length ?? 0) > 1),
+      levels
+    };
+  }
+  /** Os modelos de uma biblioteca (galerias Marcadores, Numeração, Lista de Vários Níveis),
+   *  no idioma da interface — os 9 níveis de cada um. */
+  listLibrary(kind) {
+    const lib = kind === "bullet" ? BULLET_LIBRARY : kind === "number" ? NUMBER_LIBRARY : MULTILEVEL_LIBRARY;
+    const loc = this.listLocale();
+    return lib.map((d) => libraryLevels(d, loc).map((x) => parseLevel(x)).filter((l) => !!l).map(listLevelSpec));
+  }
+  /** Listas usadas no documento (seções "Formatos do Documento" das galerias), na ordem. */
+  documentLists() {
+    if (!this.model) return [];
+    const seen = /* @__PURE__ */ new Set();
+    const out = [];
+    for (const p of this.bodyModel().paragraphs) {
+      const id = this.paraNumId(p);
+      if (id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      const absId = this.numbering.abstractOf(id);
+      const abs = absId !== void 0 ? this.numbering.parsed().abstractNums[absId] : void 0;
+      const l0 = this.numbering.level(id, 0);
+      if (!abs || !l0) continue;
+      const levels = Object.values(abs.levels).sort((a, b) => a.ilvl - b.ilvl).map(listLevelSpec);
+      out.push({ numId: id, kind: l0.numFmt === "bullet" ? "bullet" : "number", level: listLevelSpec(l0), levels });
+    }
+    return out;
+  }
+  /** Parágrafos da seleção (índices no modelo atual). */
+  selectedParas() {
+    const set = /* @__PURE__ */ new Set();
+    for (const { start, end } of [normalizeRange(this.range()), ...this.extras()]) for (let i = start.para; i <= end.para; i++) set.add(i);
+    return [...set].sort((a, b) => a - b);
+  }
+  setParaAt(pi, patch) {
+    const at = { para: pi, offset: 0 };
+    this.applyPara({ start: at, end: at }, patch);
+  }
+  /**
+   * Aplica um item da Biblioteca de Marcadores ('bullet') ou de Numeração ('number') à
+   * seleção, como o Word (medido): seleção toda numa lista → o nível dela muda de formato
+   * na lista inteira; senão lista nova (hybridMultilevel de 9 níveis) — ou a lista logo
+   * acima, se tem o mesmo formato — e os parágrafos no estilo Normal passam a "Parágrafo
+   * da Lista". `index` null = Nenhum (tira a lista).
+   */
+  applyListLibrary(kind, index) {
+    if (!this.model || this.locked()) return;
+    if (index === null) {
+      this.removeList();
+      return;
+    }
+    const def = (kind === "bullet" ? BULLET_LIBRARY : NUMBER_LIBRARY)[index];
+    if (!def) return;
+    if (kind === "bullet") this.lastBullet = index;
+    else this.lastNumber = index;
+    const loc = this.listLocale();
+    const levels = libraryLevels(def, loc);
+    this.snapshot();
+    const paras = this.selectedParas();
+    const ids = new Set(paras.map((i) => this.paraNumId(this.model.paragraphs[i])));
+    const one = ids.size === 1 ? [...ids][0] : 0;
+    const absId = one > 0 ? this.numbering.abstractOf(one) : void 0;
+    if (absId !== void 0) {
+      for (const ilvl of new Set(paras.map((i) => this.paraNum(this.model.paragraphs[i]).ilvl))) {
+        const cur = this.numbering.levelXml(absId, ilvl);
+        let lvl = levels[0].replace(/w:ilvl="\d+"/, `w:ilvl="${ilvl}"`);
+        const ind = cur && /<w:ind\b[^>]*\/>/.exec(cur)?.[0];
+        if (ind) lvl = lvl.replace(/<w:ind\b[^>]*\/>/, () => ind);
+        this.numbering.setLevel(absId, ilvl, lvl);
+      }
+      this.numTouched.add(absId);
+    } else {
+      let an = null;
+      for (let k = paras[0] - 1; k >= 0 && !an; k--) an = this.paraNum(this.model.paragraphs[k]);
+      let numId = 0;
+      if (an && an.numId > 0 && !an.fromStyle && sameLevelFormat(this.numbering.level(an.numId, an.ilvl), parseLevel(levels[0]))) numId = an.numId;
+      if (!numId) numId = this.newList(levels, def.multiLevelType, def.tmpl?.replace("{LCID}", loc.lcid));
+      this.putList(paras, numId, kind === "bullet" ? "bullet" : "decimal");
+    }
+    this.syncNumbering();
+    this.refresh();
+  }
+  newList(levels, multiLevelType, tmpl) {
+    const numId = this.numbering.addList(levels, { multiLevelType, ...tmpl ? { tmpl } : {} });
+    const absId = this.numbering.abstractOf(numId);
+    if (absId !== void 0) this.numTouched.add(absId);
+    return numId;
+  }
+  /** Os parágrafos entram na lista (no nível que já tinham numa lista; senão 0);
+   *  Normal → Parágrafo da Lista (os outros estilos ficam, como no Word). */
+  putList(paras, numId, kind) {
+    const lp = this.useBuiltinStyle("list paragraph");
+    const def = this.docStyles.defaultParagraph();
+    for (const pi of paras) {
+      const p = this.model.paragraphs[pi];
+      const ilvl = this.paraNum(p)?.ilvl ?? 0;
+      const patch = { numbering: { kind, ilvl, numId } };
+      if (lp && (!p.props.styleId || p.props.styleId === def)) patch.styleId = lp;
+      this.setParaAt(pi, patch);
+    }
+  }
+  /** Tira a lista dos parágrafos da seleção (botão de novo, Nenhum): o número sai e o
+   *  Parágrafo da Lista volta a Normal; estilo numerado (título vinculado) → numId 0. */
+  removeList() {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    const lp = this.builtinIdOf("list paragraph");
+    for (const pi of this.selectedParas()) {
+      const p = this.model.paragraphs[pi];
+      const styled = this.styleNumbered(p.props.styleId);
+      if (!p.props.numbering && !styled) continue;
+      const patch = { numbering: styled ? { kind: "decimal", ilvl: 0, numId: 0 } : void 0 };
+      if (lp && p.props.styleId === lp) patch.styleId = void 0;
+      this.setParaAt(pi, patch);
+    }
+    this.refresh();
+  }
+  /** O estilo de parágrafo traz numeração (w:numPr no estilo — títulos vinculados)? */
+  styleNumbered(styleId) {
+    const raw = styleId && this.docStyles.xml ? styleRaw(this.docStyles.xml, styleId) : void 0;
+    return !!raw && /<w:numPr>[\s\S]*?<w:numId w:val="[1-9]\d*"/.test(raw);
+  }
+  /** Botões Marcadores/Numeração: liga com o último item da biblioteca usado; se toda a
+   *  seleção já é lista desse tipo, tira. */
+  toggleList(kind) {
+    if (!this.model) return;
+    const bullet = kind === "bullet";
+    const all = this.selectedParas().every((pi) => {
+      const n = this.paraNum(this.model.paragraphs[pi]);
+      if (!n) return false;
+      const l = n.numId > 0 ? this.numbering.level(n.numId, n.ilvl) : void 0;
+      return (l ? l.numFmt === "bullet" : n.numId === -1) === bullet;
+    });
+    if (all) this.removeList();
+    else this.applyListLibrary(bullet ? "bullet" : "number", bullet ? this.lastBullet : this.lastNumber);
+  }
+  /**
+   * Lista de Vários Níveis da biblioteca: na lista atual troca os 9 níveis; senão lista
+   * nova. Os modelos ligados a títulos (Artigo/Seção, 1 Título 1…) vão para os estilos
+   * Título 1–9 (w:numPr no estilo, como o Word) e os parágrafos ficam com o título do nível.
+   */
+  applyMultilevelLibrary(index) {
+    if (!this.model || this.locked()) return;
+    if (index === null) {
+      this.removeList();
+      return;
+    }
+    const def = MULTILEVEL_LIBRARY[index];
+    if (!def) return;
+    const loc = this.listLocale();
+    this.applyLevelsXml(libraryLevels(def, loc), def.multiLevelType, def.tmpl?.replace("{LCID}", loc.lcid), def.linked);
+  }
+  /** Aplica uma lista com estes níveis (galerias "Listas no Documento Atual" e "Usados
+   *  Recentemente"): na lista do cursor troca os níveis; senão lista nova. */
+  applyListLevels(levels) {
+    if (!this.model || this.locked() || !levels.length) return;
+    const linked = levels.some((l) => !!l.pStyle);
+    const multi = linked || levels.some((l) => (l.lvlText.match(/%[1-9]/g)?.length ?? 0) > 1);
+    this.applyLevelsXml(levels.map(levelXmlOf), multi ? "multilevel" : "hybridMultilevel", void 0, linked);
+  }
+  applyLevelsXml(levels, multiLevelType, tmpl, linked) {
+    const loc = this.listLocale();
+    this.snapshot();
+    const paras = this.selectedParas();
+    const cur = this.listInfo();
+    let numId;
+    if (cur && cur.absId >= 0 && !linked) {
+      this.numbering.setLevels(cur.absId, levels, { multiLevelType, ...tmpl ? { tmpl } : {} });
+      this.numTouched.add(cur.absId);
+      numId = cur.numId;
+    } else numId = this.newList(levels, multiLevelType, tmpl);
+    if (linked) {
+      for (let n = 1; n <= 9; n++) this.linkHeadingStyle(n, numId);
+      for (const pi of paras) {
+        const p = this.model.paragraphs[pi];
+        const ilvl = this.paraNum(p)?.ilvl ?? this.headingLevel(p.props.styleId) ?? 0;
+        this.setParaAt(pi, { numbering: void 0, styleId: loc.heading(ilvl + 1) });
+      }
+    } else this.putList(paras, numId, this.numbering.level(numId, 0)?.numFmt === "bullet" ? "bullet" : "decimal");
+    this.syncNumbering();
+    this.refresh();
+  }
+  /** Nível (0–8) de um estilo de título pelo nome interno. */
+  headingLevel(styleId) {
+    if (!styleId) return void 0;
+    const s = this.listStyles("all").find((x) => x.id === styleId);
+    const m = s && /^heading (\d)$/i.exec(s.rawName);
+    return m ? Number(m[1]) - 1 : void 0;
+  }
+  /** Põe a lista no estilo Título n: w:numPr no pPr do estilo (Título 1 só o numId), como o Word grava. */
+  linkHeadingStyle(n, numId) {
+    const id = this.useBuiltinStyle(`heading ${n}`);
+    const xml = this.docStyles.xml;
+    const raw = id && xml ? styleRaw(xml, id) : void 0;
+    if (!id || !xml || !raw) return;
+    const numPr = n === 1 ? `<w:numPr><w:numId w:val="${numId}"/></w:numPr>` : `<w:numPr><w:ilvl w:val="${n - 1}"/><w:numId w:val="${numId}"/></w:numPr>`;
+    let next;
+    if (/<w:numPr>[\s\S]*?<\/w:numPr>/.test(raw)) next = raw.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, () => numPr);
+    else if (/<w:pPr>/.test(raw)) next = raw.replace(/<w:pPr>((?:<w:(?:pStyle|keepNext|keepLines|pageBreakBefore|framePr|widowControl)\b[^>]*\/>)*)/, (_m, pre) => `<w:pPr>${pre}${numPr}`);
+    else next = raw.replace(/<w:rPr>|<w:tblPr>|<\/w:style>/, (t) => `<w:pPr>${numPr}</w:pPr>${t}`);
+    if (next !== raw) this.commitStyles(putStyle(xml, id, next));
+  }
+  /** Alterar Nível da Lista (0–8) dos itens da seleção (nível vinculado a estilo troca o estilo). */
+  setListLevel(ilvl) {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    for (const pi of this.selectedParas()) this.paraListLevel(pi, ilvl);
+    this.refresh();
+  }
+  paraListLevel(pi, ilvl) {
+    const p = this.model.paragraphs[pi];
+    const n = this.paraNum(p);
+    if (!n) return;
+    const lv = Math.max(0, Math.min(8, Math.round(ilvl)));
+    const pStyle = n.numId > 0 ? this.numbering.level(n.numId, lv)?.pStyle : void 0;
+    if (n.fromStyle) {
+      if (pStyle) this.setParaAt(pi, { styleId: pStyle });
+      return;
+    }
+    this.setParaAt(pi, { numbering: { ...p.props.numbering, ilvl: lv }, ...pStyle ? { styleId: pStyle } : {} });
+  }
+  /**
+   * Tab / Aumentar Recuo num item de lista (+1) e Shift+Tab / Diminuir Recuo (−1): o nível
+   * muda; no 1º item da lista o Tab desloca a LISTA TODA até a próxima tabulação padrão
+   * (medido: o número vai de 360 a 708). false se o cursor não está num item.
+   */
+  changeListLevel(delta) {
+    if (!this.model || this.locked()) return false;
+    const paras = this.selectedParas().filter((pi2) => this.paraNumId(this.model.paragraphs[pi2]) !== 0);
+    if (!paras.length) return false;
+    const pi = paras[0];
+    const n = this.paraNum(this.model.paragraphs[pi]);
+    const id = n.numId;
+    const absId = id > 0 ? this.numbering.abstractOf(id) : void 0;
+    const firstOfList = !this.model.paragraphs.slice(0, pi).some((q) => this.paraNumId(q) === id);
+    this.snapshot();
+    if (delta > 0 && firstOfList && absId !== void 0 && n.ilvl === 0) {
+      const ind = levelIndent(this.numbering.level(id, 0));
+      const pos = ind.left - ind.hanging;
+      const tab = this.defaultTabStop();
+      const shift = (Math.floor(pos / tab) + 1) * tab - pos;
+      for (let k = 0; k <= 8; k++) {
+        const raw = this.numbering.levelXml(absId, k);
+        if (raw) this.numbering.setLevel(absId, k, raw.replace(/(<w:ind\b[^>]*\bw:left=")(\d+)(")/, (_m, a, v, b) => `${a}${Number(v) + shift}${b}`));
+      }
+      this.numTouched.add(absId);
+      this.syncNumbering();
+    } else {
+      for (const k of paras) this.paraListLevel(k, this.paraNum(this.model.paragraphs[k]).ilvl + delta);
+    }
+    this.refresh();
+    return true;
+  }
+  /** Reiniciar em 1 (e Definir Valor › Iniciar nova lista): abstractNum novo (cópia, nsid
+   *  novo) e w:num novo para o item e os seguintes da lista (medido: NumberingRestart). */
+  restartNumbering(start) {
+    if (!this.model || this.locked()) return;
+    const pi = this.selection.focus.para;
+    const n = this.paraNum(this.model.paragraphs[pi]);
+    const id = n?.numId ?? 0;
+    const absId = id > 0 ? this.numbering.abstractOf(id) : void 0;
+    if (absId === void 0 || !n) return;
+    this.snapshot();
+    const copy = this.numbering.copyAbstract(absId);
+    if (start !== void 0) {
+      const raw = this.numbering.levelXml(copy, n.ilvl);
+      const s = `<w:start w:val="${Math.max(0, Math.round(start))}"/>`;
+      if (raw) this.numbering.setLevel(copy, n.ilvl, /<w:start\b/.test(raw) ? raw.replace(/<w:start w:val="-?\d+"\/>/, () => s) : raw.replace(/^<w:lvl\b[^>]*>/, (t) => t + s));
+    }
+    this.numTouched.add(copy);
+    this.retargetList(pi, id, this.numbering.addNum(copy));
+    this.syncNumbering();
+    this.refresh();
+  }
+  /** Continuar Numeração: o item e os seguintes passam à lista anterior de mesmo formato.
+   *  false se não há lista anterior compatível. */
+  continueNumbering() {
+    if (!this.model || this.locked()) return false;
+    const pi = this.selection.focus.para;
+    const target = this.previousList(pi);
+    if (!target) return false;
+    this.snapshot();
+    this.retargetList(pi, this.paraNumId(this.model.paragraphs[pi]), target);
+    this.refresh();
+    return true;
+  }
+  /** Lista anterior (antes de `pi`) com o mesmo formato do nível do item; 0 se nenhuma. */
+  previousList(pi) {
+    const n = this.paraNum(this.model.paragraphs[pi]);
+    if (!n || n.numId <= 0) return 0;
+    const lvl = this.numbering.level(n.numId, n.ilvl);
+    for (let k = pi - 1; k >= 0; k--) {
+      const qid = this.paraNumId(this.model.paragraphs[k]);
+      if (qid > 0 && qid !== n.numId && sameLevelFormat(this.numbering.level(qid, n.ilvl), lvl)) return qid;
+    }
+    return 0;
+  }
+  /** Itens de `from` em diante da lista `oldId` passam a `newId` (o numerado pelo estilo
+   *  ganha w:numPr próprio). */
+  retargetList(from, oldId, newId) {
+    for (let k = from; k < this.model.paragraphs.length; k++) {
+      const q = this.model.paragraphs[k];
+      const n = this.paraNum(q);
+      if (n?.numId === oldId) this.setParaAt(k, { numbering: { kind: q.props.numbering?.kind ?? "decimal", ilvl: n.ilvl, numId: newId } });
+    }
+  }
+  /** Estado do diálogo Definir Valor de Numeração no item do cursor (null em marcador). */
+  numberingValueInfo() {
+    const info = this.listInfo();
+    if (!info || info.kind === "bullet" || !this.model) return null;
+    const pi = this.selection.focus.para;
+    const p = this.model.paragraphs[pi];
+    const value = this.fullDoc ? listItemValues(this.liveEngineDoc().full).get(p)?.value : void 0;
+    return { canContinue: !!this.previousList(pi), value: value ?? info.level?.start ?? 1, numFmt: info.level?.numFmt ?? "decimal" };
+  }
+  /** Definir Valor de Numeração: 'new' = iniciar nova lista no valor; 'continue' = continuar
+   *  a lista anterior (com `value`: w:num novo do mesmo abstract com w:startOverride). */
+  setNumberingValue(o) {
+    if (!this.model || this.locked()) return;
+    if (o.mode === "new") {
+      this.restartNumbering(o.value ?? 1);
+      return;
+    }
+    const pi = this.selection.focus.para;
+    const n = this.paraNum(this.model.paragraphs[pi]);
+    if (!n || n.numId <= 0) return;
+    const id = n.numId;
+    const target = this.previousList(pi);
+    this.snapshot();
+    let numId = target || id;
+    if (o.value !== void 0) {
+      const absId = this.numbering.abstractOf(numId);
+      if (absId === void 0) return;
+      const ov = `<w:lvlOverride w:ilvl="${n.ilvl}"><w:startOverride w:val="${Math.max(0, Math.round(o.value))}"/></w:lvlOverride>`;
+      numId = this.numbering.addNum(absId, ov);
+    }
+    this.retargetList(pi, id, numId);
+    this.syncNumbering();
+    this.refresh();
+  }
+  /**
+   * Definir Novo Marcador / Definir Novo Formato de Número: o nível do item (ou lista nova)
+   * com o caractere do marcador, ou o formato e o texto do número, a formatação dele e o
+   * alinhamento. Sem w:tplc (formato próprio, como o Word grava).
+   */
+  defineListLevel(o) {
+    if (!this.model || this.locked() || o.bullet === void 0 && !o.numFmt && !o.picture) return;
+    if (o.picture && o.bullet === void 0) o = { ...o, bullet: "\uF0B7", font: o.font ?? "Symbol" };
+    const had = this.listInfo();
+    if (!had || had.absId < 0) this.applyListLibrary(o.bullet !== void 0 ? "bullet" : "number", 0);
+    else this.snapshot();
+    const cur = this.listInfo();
+    if (!cur || cur.absId < 0) return;
+    const raw = this.numbering.levelXml(cur.absId, cur.ilvl) ?? "";
+    const ind = /<w:ind\b[^>]*\/>/.exec(raw)?.[0] ?? `<w:ind w:left="${720 * (cur.ilvl + 1)}" w:hanging="360"/>`;
+    const bullet = o.bullet !== void 0;
+    let picId;
+    if (o.picture) {
+      const px = imageSize(o.picture.data);
+      const wPt = (px?.w ?? 96) * 0.75, hPt = (px?.h ?? 96) * 0.75;
+      picId = this.numbering.addPicBullet(o.picture, wPt, hPt, o.picture.name ?? "bullet");
+    }
+    const lvl = `<w:lvl w:ilvl="${cur.ilvl}"><w:start w:val="${bullet ? 1 : Math.max(0, Math.round(o.start ?? cur.level?.start ?? 1))}"/><w:numFmt w:val="${bullet ? "bullet" : escAttr(o.numFmt)}"/><w:lvlText w:val="${escAttr(bullet ? o.bullet : o.lvlText ?? `%${cur.ilvl + 1}.`)}"/>` + (picId !== void 0 ? `<w:lvlPicBulletId w:val="${picId}"/>` : "") + `<w:lvlJc w:val="${o.align ?? "left"}"/><w:pPr>${ind}</w:pPr>${levelRPrXml(o)}</w:lvl>`;
+    this.numbering.setLevel(cur.absId, cur.ilvl, lvl);
+    this.numTouched.add(cur.absId);
+    this.syncNumbering();
+    this.refresh();
+  }
+  /**
+   * Definir Nova Lista de Vários Níveis: os níveis dados (os que faltam ficam como estão) na
+   * lista do cursor ('list', padrão) ou numa lista nova a partir do item ('forward'). Nível
+   * vinculado a um estilo de título leva a lista para o estilo (como o Word).
+   */
+  defineMultilevelList(levels, o = {}) {
+    if (!this.model || this.locked()) return;
+    const had = this.listInfo();
+    if (!had || had.absId < 0) this.applyMultilevelLibrary(0);
+    else this.snapshot();
+    const cur = this.listInfo();
+    if (!cur || cur.absId < 0) return;
+    let absId = cur.absId, numId = cur.numId;
+    if (o.applyTo === "forward" && had && had.absId >= 0) {
+      absId = this.numbering.copyAbstract(cur.absId);
+      numId = this.numbering.addNum(absId);
+      this.retargetList(this.selection.focus.para, cur.numId, numId);
+    }
+    for (const l of levels) {
+      this.numbering.setLevel(absId, l.ilvl, levelXmlOf(l));
+      const n = l.pStyle ? this.headingLevel(l.pStyle) : void 0;
+      if (n !== void 0) this.linkHeadingStyle(n + 1, numId);
+    }
+    const abs = this.numbering.abstractXml(absId);
+    if (abs && levels.some((l) => l.pStyle)) this.numbering.setLevels(absId, [...abs.matchAll(/<w:lvl\b[^>]*>[\s\S]*?<\/w:lvl>/g)].map((m) => m[0]), { multiLevelType: "multilevel" });
+    this.numTouched.add(absId);
+    this.syncNumbering();
+    this.refresh();
+  }
+  /** Estilos de lista do documento (galeria Lista de Vários Níveis › Estilos de Lista). */
+  listStylesInDocument() {
+    const out = [];
+    for (const s of Object.values(this.docStyles.sheet().styles)) {
+      const numId = s.type === "numbering" ? s.pPr?.numPr?.numId : void 0;
+      const absId = numId ? this.numbering.abstractOf(numId) : void 0;
+      const abs = absId !== void 0 ? this.numbering.parsed().abstractNums[absId] : void 0;
+      if (!numId || !abs) continue;
+      out.push({ id: s.styleId, name: s.name ?? s.styleId, numId, levels: Object.values(abs.levels).sort((a, b) => a.ilvl - b.ilvl).map(listLevelSpec) });
+    }
+    return out;
+  }
+  /**
+   * Definir Novo Estilo de Lista (medido no Word: ls-define/ls-apply-template): w:style
+   * w:type="numbering" baseado em Sem Lista, com o w:num do estilo no w:numPr, e o
+   * w:abstractNum de vários níveis com w:styleLink (o modelo "1) a) i)" do Word, com os
+   * níveis dados por cima). `apply` (padrão) aplica à seleção como a galeria. Devolve o styleId.
+   */
+  createListStyle(name, levels = [], o = {}) {
+    const nm = name.trim();
+    if (!this.model || this.locked() || !this.stylesEditable() || !nm || this.styleNameTaken(nm)) return void 0;
+    this.snapshot();
+    const loc = this.listLocale();
+    const def = MULTILEVEL_LIBRARY[0];
+    const lvls = libraryLevels(def, loc);
+    for (const l of levels) if (l.ilvl >= 0 && l.ilvl <= 8) lvls[l.ilvl] = levelXmlOf(l);
+    const id = styleIdFromName(nm, new Set(this.listStyles("all").map((s) => s.id)));
+    const numId = this.numbering.addList(lvls, { multiLevelType: "multilevel", ...levels.length ? {} : { tmpl: def.tmpl?.replace("{LCID}", loc.lcid) }, styleLink: id });
+    const noList = this.docStyles.sheet().defaults.numbering ?? this.builtinStyleId("No List");
+    const xml = `<w:style w:type="numbering" w:customStyle="1" w:styleId="${escAttr(id)}"><w:name w:val="${escAttr(nm)}"/>` + (noList ? `<w:basedOn w:val="${escAttr(noList)}"/>` : "") + `<w:pPr><w:numPr><w:numId w:val="${numId}"/></w:numPr></w:pPr></w:style>`;
+    this.commitStyles(putStyle(this.docStyles.base(), id, xml));
+    if (o.apply !== false) this.linkListStyle(id);
+    this.syncNumbering();
+    this.refresh();
+    return id;
+  }
+  /** Aplica um estilo de lista à seleção (galeria): w:abstractNum só com w:numStyleLink
+   *  (mesmo w:tmpl do estilo) + w:num novo; Normal → Parágrafo da Lista (medido). */
+  applyListStyle(styleId) {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    this.linkListStyle(styleId);
+    this.syncNumbering();
+    this.refresh();
+  }
+  linkListStyle(styleId) {
+    const own = this.docStyles.sheet().styles[styleId]?.pPr?.numPr?.numId;
+    const absId = own ? this.numbering.abstractOf(own) : void 0;
+    if (absId === void 0) return;
+    const tmpl = /<w:tmpl w:val="([0-9A-Fa-f]{8})"\/>/.exec(this.numbering.abstractXml(absId) ?? "")?.[1];
+    const numId = this.numbering.addList([], { multiLevelType: "multilevel", ...tmpl ? { tmpl } : {}, numStyleLink: styleId });
+    const bullet = this.numbering.level(numId, 0)?.numFmt === "bullet";
+    this.putList(this.selectedParas(), numId, bullet ? "bullet" : "decimal");
+  }
+  /** Modificar um estilo de lista: os níveis dados no w:abstractNum dele (todas as listas
+   *  que o usam mudam, como no Word: ls-modify). */
+  modifyListStyle(styleId, levels) {
+    const own = this.docStyles.sheet().styles[styleId]?.pPr?.numPr?.numId;
+    const absId = own ? this.numbering.abstractOf(own) : void 0;
+    if (!this.model || this.locked() || absId === void 0) return;
+    this.snapshot();
+    for (const l of levels) this.numbering.setLevel(absId, l.ilvl, levelXmlOf(l));
+    this.syncNumbering();
+    this.refresh();
+  }
+  /** Enter num item VAZIO (medido): nível 2+ sobe um nível; nível 1 sai da lista (Normal). */
+  listEnterOnEmpty() {
+    const p = this.model.paragraphs[this.selection.focus.para];
+    const n = this.paraNum(p);
+    if (!n || paraLength(p) > 0 || this.hasSelection()) return false;
+    if (n.ilvl > 0) this.setListLevel(n.ilvl - 1);
+    else this.removeList();
+    return true;
+  }
+  /**
+   * Backspace no início (medido): item de lista → sai o número e fica o Parágrafo da Lista
+   * (o texto não anda); Parágrafo da Lista sem número → Normal com recuo de 360 (onde estava
+   * o número); esse recuo → sai. false fora disso (Backspace normal).
+   */
+  listBackspaceAtStart() {
+    const { para: para3, offset } = this.selection.focus;
+    if (offset !== 0 || this.hasSelection()) return false;
+    const p = this.model.paragraphs[para3];
+    const lp = this.builtinIdOf("list paragraph");
+    let patch = null;
+    if (this.paraNum(p)) patch = { numbering: this.styleNumbered(p.props.styleId) ? { kind: "decimal", ilvl: 0, numId: 0 } : void 0 };
+    else if (lp && p.props.styleId === lp && !p.props.indentLeftTwips) patch = { styleId: void 0, indentLeftTwips: 360 };
+    else if (p.props.indentLeftTwips === 360 && !p.props.indentFirstLineTwips && !p.props.styleId && this.listBackspaceTrail === para3) patch = { indentLeftTwips: void 0 };
+    if (!patch) return false;
+    this.snapshot();
+    this.setParaAt(para3, patch);
+    this.listBackspaceTrail = para3;
+    this.refresh();
+    return true;
+  }
+  /** parágrafo em que a sequência de Backspace da lista está (o 3º só tira o recuo dele) */
+  listBackspaceTrail = -1;
   indent(delta) {
+    if (this.changeListLevel(delta)) return;
     const p = this.model?.paragraphs[this.selection.focus.para];
     const cur = p?.props.indentLeftTwips ?? 0;
     this.formatPara({ indentLeftTwips: Math.max(0, cur + delta * 720) || void 0 });
@@ -4748,6 +7146,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!css) void this.ensureFontLoaded(family);
     return css ?? { family: DEFAULT_FONT_CSS, weight: bold ? 700 : 400, italic };
   }
+  /** Como a tela mostra um marcador/número (galerias e diálogos de lista): o texto na face
+   *  com que o canvas o desenha; caractere de fonte de símbolo (F0xx) sem a fonte → o
+   *  equivalente Unicode (a lista continua com o caractere e a fonte originais). */
+  markerPreview(text, font) {
+    const cp = text.codePointAt(0) ?? 0;
+    const pua = cp >= 61440 && cp <= 61695;
+    const face = font && this.fonts ? this.liveFontProvider().face(font, false, false) : null;
+    const has = !!face && (face.font.glyphId(cp) !== 0 || pua && face.font.glyphId(cp - 61440) !== 0);
+    if (font && has) return { text, css: `"${this.canvasFont(font).family}"` };
+    if (font) void this.ensureFontLoaded(font);
+    const uni = pua || font && /^(symbol|wingdings)$/i.test(font) ? SYMBOL_UNICODE[`${(font ?? "").toLowerCase()}:${(cp & 255).toString(16)}`] : void 0;
+    return { text: uni ?? (pua ? "\u2022" : text), css: `"${this.canvasFont("Calibri").family}"` };
+  }
   /** Versão da folha de estilos (muda a cada criar/modificar/excluir/desfazer). */
   stylesVersion() {
     return this.docStyles.version;
@@ -4806,13 +7217,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       "underline",
       "underlineStyle",
       "underlineColor",
+      "underlineTheme",
+      "colorTheme",
       "strike",
       "doubleStrike",
       "allCaps",
       "smallCaps",
       "vertAlign",
       "highlight",
-      "charSpacingTwips"
+      "charSpacingTwips",
+      "hidden",
+      "scalePct",
+      "positionHalfPt",
+      "kernHalfPt"
     ];
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi];
@@ -4938,6 +7355,27 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.onSelectionChange?.();
     this.chromeSync?.();
     return true;
+  }
+  /**
+   * "Definir como Padrão" do diálogo Fonte (medido: SetAsTemplateDefault grava a
+   * fonte no rPr do estilo PADRÃO de parágrafo — o Normal —, não no w:docDefaults):
+   * fonte, tamanho, estilo, cor e efeitos do diálogo entram no Normal.
+   */
+  setDefaultFont(f) {
+    if (!this.stylesEditable()) return false;
+    const format = {};
+    if (f.fontFamily !== void 0) format.fontAscii = f.fontFamily;
+    if (f.sizePt !== void 0) format.szHalfPt = Math.round(f.sizePt * 2);
+    if (f.bold !== void 0) format.bold = f.bold;
+    if (f.italic !== void 0) format.italic = f.italic;
+    if (f.underline !== void 0) format.underline = f.underline !== "none";
+    if (f.strike !== void 0) format.strike = f.strike;
+    if (f.allCaps !== void 0) format.allCaps = f.allCaps;
+    if (f.smallCaps !== void 0) format.smallCaps = f.smallCaps;
+    if (f.color !== void 0) format.color = f.color === null ? null : this.colorPick(f.color).hex;
+    if (f.spacingTwips !== void 0) format.charSpacingTwips = f.spacingTwips || null;
+    if (f.fontFamily !== void 0) void this.ensureFontLoaded(f.fontFamily);
+    return this.modifyStyle(this.docStyles.defaultParagraph(), { format });
   }
   /** "Atualizar <estilo> para Corresponder à Seleção": a formatação direta do
    *  parágrafo atual (a de parágrafo e a de caractere uniforme) entra no estilo
@@ -5227,23 +7665,43 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   // pincel de formatação
   painterProps = null;
-  copyFormat() {
+  /** pincel travado (duplo clique no botão, como o Word): segue ativo até Esc ou outro clique */
+  painterLock = false;
+  /** Pincel de Formatação: copia a formatação do cursor/seleção; `sticky` = duplo clique
+   *  (fica ativo para vários trechos até Esc ou cancelFormatPainter). */
+  copyFormat(sticky = false) {
     if (!this.model) return;
     this.painterProps = {
-      run: this.currentProps(),
-      para: { ...this.model.paragraphs[this.selection.focus.para].props }
+      // só formatação: a origem, o link, os comentários e as revisões não se copiam
+      run: runFormatting(this.currentProps()),
+      para: paraFormatting({ ...this.model.paragraphs[this.selection.focus.para].props })
     };
+    this.painterLock = sticky;
+    this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   painterActive() {
     return this.painterProps !== null;
   }
+  /** O pincel está travado (duplo clique)? */
+  painterSticky() {
+    return this.painterProps !== null && this.painterLock;
+  }
+  /** Desliga o pincel (Esc). */
+  cancelFormatPainter() {
+    if (!this.painterProps) return;
+    this.painterProps = null;
+    this.painterLock = false;
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
   applyPainter() {
     if (!this.painterProps || !this.model) return;
     const { run: run2, para: para3 } = this.painterProps;
-    this.painterProps = null;
+    if (!this.painterLock) this.painterProps = null;
     this.snapshot();
-    if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run2));
-    this.applyPara(this.range(), paraFormatting(para3));
+    if (this.hasSelection()) this.applyRun(this.range(), run2);
+    this.applyPara(this.range(), para3);
     this.refresh();
   }
   // localizar / substituir
@@ -5336,11 +7794,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const before = pos.para < end.para || pos.para === end.para && pos.offset <= end.offset;
     return after && before;
   }
-  /** Extrai a seleção como parágrafos de runs (com props) — base do clipboard rico. */
+  /** Extrai a seleção como parágrafos de runs (com props) — base do clipboard rico. Cada
+   *  parágrafo cuja marca (¶) foi copiada leva a formatação dela (`mark`), e o número da
+   *  lista como texto (Manter Somente Texto) — como o Word. */
   extractSelection() {
     if (!this.model || !this.hasSelection()) return null;
     const { start, end } = normalizeRange(this.range());
     const paras = [];
+    const markers = this.listMarkersOf(start.para, end.para);
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi];
       const from = pi === start.para ? start.offset : 0;
@@ -5352,18 +7813,51 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         acc = re;
         const s = Math.max(from, rs), e = Math.min(to, re);
         const nb = run2.noteRef && this.fullDoc ? noteBlocks(this.fullDoc, run2.noteRef.kind, run2.noteRef.id) : void 0;
-        if (e > s) runs.push({
+        if (e <= s) continue;
+        if (run2.image || run2.shape || run2.textbox || run2.group) {
+          runs.push({ text: "", props: { ...run2.props }, obj: _UniversalWriteElement.cloneDrawingRun(run2) });
+          continue;
+        }
+        runs.push({
           text: run2.custom ? run2.custom.fallbackText : run2.noteRef ? "" : run2.text.slice(s - rs, e - rs),
           props: { ...run2.props },
           ...run2.noteRef ? { noteRef: { ...run2.noteRef }, note: cloneBlocks(nb ?? []) } : {}
         });
       }
-      paras.push({ runs });
+      const mk = markers.get(pi);
+      paras.push({ runs, ...pi < end.para ? { mark: clipMark(p.props) } : {}, ...mk && from === 0 ? { marker: mk } : {} });
     }
     const text = paras.map((pp) => pp.runs.map((r) => r.text).join("")).join("\n");
     const tables = this.cellEdit || this.hfEdit || this.tbEdit ? [] : this.tableAnchors.filter((a) => a.beforePara > start.para && a.beforePara <= end.para).map((a) => ({ before: a.beforePara - start.para, table: table_ops_exports.cloneTable(a.table) }));
-    return { text, paras, ...tables.length ? { tables } : {} };
+    const lists = {};
+    for (const cp of paras) {
+      const id = cp.mark?.numbering?.numId;
+      const absId = id && id > 0 ? this.numbering.abstractOf(id) : void 0;
+      const raw = absId !== void 0 ? this.numbering.abstractXml(absId) : void 0;
+      if (id && raw) lists[id] = raw;
+    }
+    const src = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit ? { el: new WeakRef(this), range: { start: { ...start }, end: { ...end } } } : void 0;
+    return { text, paras, ...tables.length ? { tables } : {}, doc: this.docToken, ...this.documentPath ? { path: this.documentPath } : {}, ...Object.keys(lists).length ? { lists } : {}, ...src ? { src } : {} };
   }
+  /** Texto do número de cada parágrafo de lista do intervalo (pelo motor). */
+  listMarkersOf(from, to) {
+    const out = /* @__PURE__ */ new Map();
+    if (!this.model || !this.fullDoc) return out;
+    let any = false;
+    for (let i = from; i <= to && !any; i++) any = !!this.paraNum(this.model.paragraphs[i]);
+    if (!any) return out;
+    try {
+      const vals = listItemValues(this.liveEngineDoc().full);
+      for (let i = from; i <= to; i++) {
+        const m = vals.get(this.model.paragraphs[i]);
+        if (m?.text) out.set(i, m.text);
+      }
+    } catch {
+    }
+    return out;
+  }
+  /** Caminho do documento no hospedeiro (Colar Vínculo grava o campo LINK com ele). */
+  documentPath;
   /** Cópia profunda do run de um objeto de desenho (os bytes das imagens são os mesmos). */
   static cloneDrawingRun(r) {
     return structuredClone(r);
@@ -5372,7 +7866,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   async copy() {
     const fs = this.floatSel;
     if (fs && !this.tbEdit && (fs.textbox || fs.shape || fs.group || fs.image?.floating) && _UniversalWriteElement.rawOf(fs)) {
-      this.richClip = { text: "", paras: [], drawing: _UniversalWriteElement.cloneDrawingRun(fs) };
+      this.richClip = { text: "", paras: [], drawing: _UniversalWriteElement.cloneDrawingRun(fs), doc: this.docToken };
+      this.rememberClip(this.richClip);
       try {
         await navigator.clipboard?.writeText("");
       } catch {
@@ -5382,18 +7877,56 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const cells = this.cellsClip();
     if (cells) {
       const { text, html } = _UniversalWriteElement.tableClipText(cells.table);
-      this.richClip = { text, paras: [], cells };
+      this.richClip = { text, paras: [], cells, doc: this.docToken };
+      this.rememberClip(this.richClip);
       await this.writeClipboard(text, html);
+      return;
+    }
+    const more = this.extras();
+    if (more.length) {
+      const main = this.selection;
+      const texts = [];
+      const paras = [];
+      for (const r of this.getSelectionRanges()) {
+        this.selection = { anchor: r.start, focus: r.end };
+        texts.push(this.selectedText());
+        const c = this.extractSelection();
+        if (c) paras.push(...c.paras);
+      }
+      this.selection = main;
+      const mc = { text: texts.join("\n"), paras, doc: this.docToken };
+      this.richClip = mc;
+      this.rememberClip(mc);
+      await this.writeClipboard(mc.text, this.clipHtml(mc));
       return;
     }
     const t = this.selectedText();
     const clip = this.extractSelection();
-    if (!t && !clip?.paras.some((p) => p.runs.some((r) => r.noteRef))) return;
+    if (!t && !clip?.paras.some((p) => p.runs.some((r) => r.noteRef || r.obj))) return;
     this.richClip = clip;
+    if (clip) this.rememberClip(clip);
+    await this.writeClipboard(t, clip ? this.clipHtml(clip) : void 0);
+  }
+  /** HTML da cópia (para outros programas): os parágrafos com a formatação direta. */
+  clipHtml(clip) {
     try {
-      await navigator.clipboard?.writeText(t);
+      const paragraphs = clip.paras.map((cp) => ({
+        props: { ...cp.mark ?? {} },
+        runs: cp.runs.map((r) => r.obj ? { ...r.obj } : { text: r.text, props: r.props })
+      }));
+      return toHtml({ paragraphs }, { fullDocument: false });
     } catch {
+      return void 0;
     }
+  }
+  /** Guarda a cópia na Área de Transferência do Office (os 24 últimos itens, da página). */
+  rememberClip(clip) {
+    const ring = OFFICE_CLIPBOARD.ring;
+    const dup = ring.findIndex((x) => x.clip === clip || x.clip.text === clip.text && !clip.drawing && !x.clip.drawing && x.clip.text);
+    if (dup >= 0) ring.splice(dup, 1);
+    ring.unshift({ id: ++OFFICE_CLIPBOARD.seq, clip, at: Date.now() });
+    if (ring.length > 24) ring.length = 24;
+    for (const f of OFFICE_CLIPBOARD.listeners) f();
   }
   /** Recorta a seleção. */
   async cut() {
@@ -5419,35 +7952,138 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model || !this.hasSelection() || this.locked()) return;
     await this.copy();
     this.snapshot();
-    const pos = this.deleteSelection();
+    const pos = this.deleteSelectedRanges();
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
     this.onSelectionChange?.();
     this.chromeSync?.();
   }
-  /** Colar (Ctrl+V): respeita a formatação da ORIGEM (rico) quando o texto do
-   * sistema ainda casa com a cópia interna; senão cola texto externo herdando o destino. */
-  async paste() {
+  // ───────────────────────── colar (Área de Transferência) ─────────────────────────
+  // Opções de colagem medidas no Word (write/tools/home-lab exp-paste.ps1; memória
+  // word-paste-facts): Manter Formatação Original, Mesclar Formatação, Manter Somente
+  // Texto, Imagem; as de lista (Continuar Lista, Nova Lista, Mesclar/Não Mesclar).
+  /** Padrões do Colar (Opções › Avançado do Word): no mesmo documento, entre documentos e
+   *  de outros programas ('default' = o do Word para HTML: estilos do destino onde casam). */
+  pasteDefaults = { within: "keep", between: "keep", other: "default" };
+  /** A última colagem (para o botão Opções de Colagem refazê-la de outro jeito). */
+  lastPaste = null;
+  /** Colar (Ctrl+V / botão Colar): lê a área de transferência (texto, HTML, imagem) e cola
+   *  com a opção pedida — sem ela, a padrão de cada origem. */
+  async paste(mode) {
     if (this.locked()) return;
+    const data = await this.readClipboard();
+    if (data) this.pasteData(data, mode);
+  }
+  /** Conteúdo da área de transferência do sistema (+ a cópia rica, se ainda é ela). */
+  async readClipboard() {
+    const d = { text: "" };
     try {
-      const t = await navigator.clipboard?.readText();
-      if (!t && this.richClip?.drawing) {
-        this.pasteDrawing(this.richClip.drawing);
-        return;
-      }
-      if (!t && this.richClip?.text === "" && this.richClip.paras.some((p) => p.runs.some((r) => r.noteRef))) {
-        this.insertRich(this.richClip);
+      const cb = navigator.clipboard;
+      if (cb?.read) {
+        for (const it of await cb.read()) {
+          if (it.types.includes("text/plain")) d.text = await (await it.getType("text/plain")).text();
+          if (it.types.includes("text/html")) d.html = await (await it.getType("text/html")).text();
+          const img = it.types.find((t) => /^image\/(png|jpeg|gif|bmp|webp)$/.test(t));
+          if (img) d.image = { data: new Uint8Array(await (await it.getType(img)).arrayBuffer()), ext: img.slice(6).replace("jpeg", "jpg") };
+        }
+      } else d.text = await cb?.readText() ?? "";
+    } catch {
+      if (!this.richClip) return null;
+      d.text = this.richClip.text;
+    }
+    return this.withRich(d);
+  }
+  /** A cópia rica vale se o texto do sistema ainda é o dela (o Windows normaliza \r\n). */
+  withRich(d) {
+    const clip = this.richClip;
+    const t = d.text.replace(/\r\n?/g, "\n");
+    if (clip && (clip.text === t || !t && !d.html && !d.image && (clip.drawing || clip.paras.some((p) => p.runs.some((r) => r.noteRef || r.obj))))) d.rich = clip;
+    return d;
+  }
+  /** De onde veio o que se cola: o mesmo documento, outro documento do editor, outro programa. */
+  pasteSource(d) {
+    return d.rich ? d.rich.doc === this.docToken ? "within" : "between" : "other";
+  }
+  /** Opções de colagem do que está na área de transferência agora (o botão e o menu Colar). */
+  pasteOptions(d = this.lastPaste?.data ?? null) {
+    if (!d || d === this.lastPaste?.data && this.undoStack.length !== this.lastPaste.depth + 1) return { modes: [], list: [] };
+    const rich = d.rich;
+    const modes = rich?.cells || rich?.drawing ? ["keep"] : d.image && !d.text && !rich ? ["keep"] : ["keep", "merge", "picture", "text"];
+    const lp = this.lastPaste;
+    const hasList = !!rich?.paras.some((p) => p.mark?.numbering);
+    const list = !hasList ? [] : lp?.data === d && lp.list && (lp.list === "merge" || lp.list === "nomerge") ? ["merge", "nomerge"] : ["continue", "new"];
+    return { modes, list, ...lp?.data === d ? { current: lp.mode, currentList: lp.list } : {} };
+  }
+  /** Refaz a última colagem com outra opção (botão Opções de Colagem: K, M, T, U; listas). */
+  repaste(mode, list) {
+    const lp = this.lastPaste;
+    if (!lp || this.locked() || this.undoStack.length !== lp.depth + 1) return;
+    this.undo();
+    this.pasteData(lp.data, mode, list ?? null);
+  }
+  /** Cola os dados com a opção pedida (sem ela, a padrão da origem). */
+  pasteData(d, mode, list = null) {
+    if (!this.model || this.locked() || this.view === "read") return;
+    const m = mode ?? this.pasteDefaults[this.pasteSource(d)];
+    const depth = this.undoStack.length;
+    const rich = d.rich;
+    let r = null;
+    if (rich?.drawing && m !== "text") {
+      this.pasteDrawing(rich.drawing);
+      this.lastPaste = null;
+      return;
+    }
+    if (rich?.cells && m !== "text") {
+      this.pasteRich(rich);
+      this.lastPaste = null;
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return;
+    }
+    if (m === "picture") {
+      void this.pastePicture(d);
+      return;
+    }
+    if (m === "text") r = this.pasteTextOnly(rich ? clipText(rich) : d.text);
+    else if (rich) r = this.insertClip(rich.paras, { mode: m === "merge" ? "merge" : "keep", tables: rich.tables, from: rich });
+    else if (d.html && !/^\s*$/.test(d.html)) {
+      if (/<table[\s>]/i.test(d.html) && !/<(?:p|h[1-6]|li|div)[\s>]/i.test(d.html.replace(/<table[\s\S]*?<\/table>/gi, "")) && this.pasteHtmlTables(d.html)) {
+        this.lastPaste = null;
         this.onSelectionChange?.();
         this.chromeSync?.();
         return;
       }
-      if (!t) return;
-      if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, "\n")) this.pasteRich(this.richClip);
-      else this.pasteText(t);
-      this.onSelectionChange?.();
-      this.chromeSync?.();
-    } catch {
-    }
+      r = this.insertClip(this.htmlClipParas(d.html, m), { mode: m === "merge" ? "merge" : "keep" });
+    } else if (d.image) {
+      void this.insertImage(d.image.data, d.image.ext);
+      this.lastPaste = null;
+      return;
+    } else if (d.text) r = this.pasteTextOnly(d.text);
+    if (!r) return;
+    const applied = m !== "text" && rich ? this.listPaste(r, list) : null;
+    this.lastPaste = { data: d, mode: m, list: applied, depth, ...r };
+    this.syncNumbering();
+    this.refresh();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+    this.dispatchEvent(new CustomEvent("uw-pasted", { detail: this.pasteOptions(d) }));
+  }
+  /** Onde fica o botão Opções de Colagem: o canto do fim da colagem (coordenadas da tela). */
+  pasteButtonRect() {
+    const lp = this.lastPaste;
+    if (!lp) return null;
+    const c = this.caretRectAt(lp.end);
+    return c ? { x: c.x + 4, y: c.y + c.h + 2 } : null;
+  }
+  /** Retângulo do cursor numa posição (coordenadas da tela); null fora da tela. */
+  caretRectAt(pos) {
+    const line = this.lineOf(pos);
+    const canvas = line ? this.canvases[line.page] : void 0;
+    if (!line || !canvas) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    const rc = canvas.getBoundingClientRect();
+    return { x: rc.left + this.caretX(pos, line) * scale, y: rc.top + line.yTwips * scale, h: line.heightTwips * scale };
   }
   /** Cola o objeto de desenho copiado: uma cópia nova (id e nome de desenho novos), ancorada
    *  no parágrafo do cursor na mesma posição relativa, e fica selecionada. */
@@ -5484,35 +8120,63 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   hasCellsClip() {
     return !!this.richClip?.cells;
   }
-  /** Colar sem formatação (Ctrl+Shift+V): sempre texto plano, herdando o DESTINO. */
+  /** Colar sem formatação (Ctrl+Shift+V): Manter Somente Texto. */
   async pastePlain() {
-    if (this.locked()) return;
-    try {
-      const t = await navigator.clipboard?.readText();
-      if (t) {
-        this.pasteText(t);
-        this.onSelectionChange?.();
-        this.chromeSync?.();
-      }
-    } catch {
-    }
+    await this.paste("text");
   }
-  /** Insere os parágrafos/runs ricos preservando os props de cada run (origem). */
+  /** Insere a cópia rica como está (Manter Formatação Original). */
   insertRich(clip) {
-    if (!this.model || this.view === "read") return;
+    this.insertClip(clip.paras, { mode: "keep", tables: clip.tables, from: clip });
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /**
+   * Insere parágrafos de uma cópia (interna ou de HTML) no cursor, como o Word: Manter
+   * ('keep') leva a formatação de cada trecho e, nos parágrafos cuja marca (¶) veio junto,
+   * a formatação deles — o parágrafo do destino fica com a dele no fim; Mesclar ('merge')
+   * dá a formatação do destino com a ênfase (negrito, itálico, sublinhado) e as listas da
+   * origem. Um trecho de uma linha ganha o espaço que faltar entre palavras (recortar e
+   * colar inteligente). Um passo de desfazer; devolve o intervalo colado.
+   */
+  insertClip(paras, o) {
+    if (!this.model || !paras.length) return null;
     this.snapshot();
     if (this.hasSelection()) {
-      const pos2 = this.deleteSelection();
-      this.selection = { anchor: pos2, focus: pos2 };
+      const p0 = this.deleteSelection();
+      this.selection = { anchor: p0, focus: p0 };
     }
     let pos = this.selection.focus;
+    const start = { ...pos };
+    const destRun = withoutRevisions(this.pendingProps ?? this.currentProps());
     const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
-    const notesOk = clip.paras.some((p) => p.runs.some((r) => r.noteRef)) && this.canInsertNote();
-    clip.paras.forEach((cp, i) => {
+    const notesOk = paras.some((p) => p.runs.some((r) => r.noteRef)) && this.canInsertNote();
+    const ctx = { other: !!o.from && o.from.doc !== this.docToken, lists: o.from?.lists, numMap: /* @__PURE__ */ new Map(), htmlLists: /* @__PURE__ */ new Map() };
+    const hyper = o.mode === "merge" && paras.some((p) => p.runs.some((r) => r.props.link)) ? this.builtinStyleId("Hyperlink") : void 0;
+    const propsOf = (r) => o.mode === "merge" ? {
+      ...destRun,
+      bold: !!(r.props.bold || r.blockBold),
+      italic: !!r.props.italic,
+      underline: !!r.props.underline,
+      underlineStyle: r.props.underline ? r.props.underlineStyle : void 0,
+      ...r.props.link ? { link: r.props.link, ...hyper ? { charStyle: hyper } : {} } : {}
+    } : withoutRevisions(r.props);
+    const marked = [];
+    const single = paras.length === 1 && !paras[0].mark ? paras[0].runs : null;
+    const firstText = single?.find((r) => r.text)?.text ?? "";
+    if (single && firstText && /^[\p{L}\p{N}]/u.test(firstText) && /[\p{L}\p{N}.,;:!?)\]}"'”’]$/u.test(this.charBefore(pos))) {
+      pos = this.insertTyped(pos, " ", o.mode === "merge" ? propsOf(single.find((r) => r.text)) : withoutRevisions(single.find((r) => r.text).props));
+    }
+    paras.forEach((cp, i) => {
       if (i > 0) {
+        const prev = paras[i - 1];
         this.shiftAnchors(pos.para, 1);
         pos = this.splitAt(pos);
-        for (const t of clip.tables ?? []) {
+        const patch = this.pasteMark(prev, o.mode, ctx, this.model.paragraphs[pos.para - 1].props);
+        if (patch) {
+          this.setParaAt(pos.para - 1, patch);
+          marked.push(pos.para - 1);
+        }
+        for (const t of o.tables ?? []) {
           if (t.before !== i || !body) continue;
           let at = this.tableAnchors.findIndex((a) => a.beforePara > pos.para);
           if (at < 0) at = this.tableAnchors.length;
@@ -5525,16 +8189,128 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const id = nextNoteId(this.fullDoc, run2.noteRef.kind);
           setNoteBlocks(this.fullDoc, run2.noteRef.kind, id, cloneBlocks(run2.note ?? []));
           pos = this.insertWholeRun(pos, { text: NOTE_REF_TEXT, props: withoutRevisions(run2.props), noteRef: { ...run2.noteRef, id } });
-        } else if (run2.text) pos = this.insertTyped(pos, run2.text, withoutRevisions(run2.props));
+        } else if (run2.obj) {
+          const r = this.freshDrawingRun(run2.obj);
+          if (r) pos = this.insertWholeRun(pos, r);
+        } else if (run2.text) pos = this.insertTyped(pos, run2.text, propsOf(run2));
       }
     });
+    const lastText = single ? [...single].reverse().find((r) => r.text)?.text ?? "" : "";
+    if (single && lastText && /[\p{L}\p{N}]$/u.test(lastText) && /^[\p{L}\p{N}]/u.test(this.charAfter(pos))) {
+      this.insertTyped(pos, " ", o.mode === "merge" ? destRun : withoutRevisions(single[single.length - 1].props));
+    }
     this.selection = { anchor: pos, focus: pos };
-    this.refresh();
-    this.scrollCaretIntoView();
+    return { start, end: pos, first: start.para, last: pos.para, marked };
+  }
+  /** Caractere antes/depois de uma posição no parágrafo ('' na borda). */
+  charBefore(pos) {
+    const t = this.model.paragraphs[pos.para].runs.map((r) => r.text).join("");
+    return pos.offset > 0 ? t[pos.offset - 1] ?? "" : "";
+  }
+  charAfter(pos) {
+    const t = this.model.paragraphs[pos.para].runs.map((r) => r.text).join("");
+    return t[pos.offset] ?? "";
+  }
+  /** A formatação que a marca copiada dá ao parágrafo que ela fecha (null: fica a do destino). */
+  pasteMark(cp, mode, ctx, left) {
+    let numbering = cp.mark?.numbering;
+    if (cp.htmlList) numbering = this.htmlListNumbering(cp.htmlList, ctx);
+    else if (numbering?.numId && numbering.numId > 0 && ctx.other) {
+      let id = ctx.numMap.get(numbering.numId);
+      if (id === void 0) {
+        const raw = ctx.lists?.[numbering.numId];
+        const absId = raw ? this.numbering.importAbstract(raw) : void 0;
+        id = absId !== void 0 ? this.numbering.addNum(absId) : 0;
+        if (absId !== void 0) this.numTouched.add(absId);
+        ctx.numMap.set(numbering.numId, id);
+      }
+      numbering = id ? { ...numbering, numId: id } : void 0;
+    }
+    if (mode === "merge") return numbering ? { numbering } : null;
+    if (!cp.mark) return null;
+    const patch = {};
+    for (const k of /* @__PURE__ */ new Set([...Object.keys(paraFormatting(left)), ...Object.keys(cp.mark)])) patch[k] = cp.mark[k];
+    patch.numbering = numbering;
+    return patch;
+  }
+  /** Lista de um HTML colado (ul/ol): uma lista nova por lista de topo, como o Word
+   *  (vários níveis com tabulação no número; medido: html-K). */
+  htmlListNumbering(l, ctx) {
+    const key = `${l.ordered ? "o" : "u"}${l.key}`;
+    let numId = ctx.htmlLists.get(key);
+    if (numId === void 0) {
+      numId = this.numbering.addList(htmlListLevels(l.ordered), { multiLevelType: "multilevel" });
+      const absId = this.numbering.abstractOf(numId);
+      if (absId !== void 0) this.numTouched.add(absId);
+      ctx.htmlLists.set(key, numId);
+    }
+    return { kind: l.ordered ? "decimal" : "bullet", ilvl: l.level, numId };
+  }
+  /** Um objeto copiado entra com id e nome de desenho novos. */
+  freshDrawingRun(src) {
+    const run2 = _UniversalWriteElement.cloneDrawingRun(src);
+    const obj = run2.textbox ?? run2.shape ?? run2.group ?? run2.image;
+    if (!obj) return null;
+    if (obj.rawDrawingXml) {
+      const id = this.nextDrawingId();
+      obj.rawDrawingXml = obj.rawDrawingXml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a) => `${a}${id}"`);
+      obj.edited = true;
+    }
+    return run2;
+  }
+  /**
+   * Listas coladas (opções do Word, medidas: list-*): fora de uma lista o padrão é Nova
+   * Lista (abstractNum copiado + w:num novo); dentro dela (ou logo depois), Mesclar.
+   * Continuar Lista junta à lista anterior de mesmo formato; Não Mesclar Lista faz dos
+   * itens colados — e dos que vêm depois na lista — uma lista nova.
+   */
+  listPaste(r, mode) {
+    const paras = this.model.paragraphs;
+    const marked = r.marked.filter((k) => (paras[k]?.props.numbering?.numId ?? 0) > 0);
+    if (!marked.length) return null;
+    const ids = new Set(marked.map((k) => paras[k].props.numbering.numId));
+    const first = marked[0], last = marked[marked.length - 1];
+    const before = first > 0 ? this.paraNum(paras[first - 1]) : null;
+    const after = last + 1 < paras.length ? this.paraNum(paras[last + 1]) : null;
+    const inside = !!before && ids.has(before.numId) || !!after && ids.has(after.numId) && !marked.includes(last + 1);
+    const m = mode ?? (inside ? "merge" : "new");
+    if (m === "merge") return m;
+    for (const id of ids) {
+      const absId = this.numbering.abstractOf(id);
+      if (absId === void 0) continue;
+      let to = 0;
+      if (m === "continue") {
+        const lvl = this.numbering.level(id, 0);
+        for (let k = first - 1; k >= 0 && !to; k--) {
+          const q = this.paraNum(paras[k]);
+          if (q && q.numId > 0 && sameLevelFormat(this.numbering.level(q.numId, 0), lvl)) to = q.numId;
+        }
+        if (!to) continue;
+      } else {
+        const copy = this.numbering.copyAbstract(absId);
+        this.numTouched.add(copy);
+        to = this.numbering.addNum(copy);
+      }
+      const upto = m === "nomerge" ? paras.length - 1 : last;
+      for (let k = first; k <= upto; k++) {
+        const q = paras[k];
+        if (q.props.numbering?.numId !== id) continue;
+        if (k > last && m === "nomerge" && !after) break;
+        this.setParaAt(k, { numbering: { ...q.props.numbering, numId: to } });
+      }
+    }
+    return m;
   }
   /** Cola texto plano (\n divide parágrafos) HERDANDO a formatação do destino (props do caret). */
   pasteText(text) {
-    if (!this.model || this.view === "read" || !text) return;
+    if (!this.pasteTextOnly(text)) return;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Manter Somente Texto: o texto com a formatação do destino; o último pedaço entra no
+   *  parágrafo do cursor (medido: same-T). */
+  pasteTextOnly(text) {
+    if (!this.model || this.view === "read" || !text) return null;
     this.snapshot();
     if (this.hasSelection()) {
       const pos2 = this.deleteSelection();
@@ -5542,6 +8318,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     const paras = text.replace(/\r\n?/g, "\n").split("\n");
     let pos = this.selection.focus;
+    const start = { ...pos };
     paras.forEach((part, i) => {
       if (i > 0) {
         this.shiftAnchors(pos.para, 1);
@@ -5550,8 +8327,278 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (part) pos = this.insertTyped(pos, part);
     });
     this.selection = { anchor: pos, focus: pos };
+    return { start, end: pos, first: start.para, last: pos.para, marked: [] };
+  }
+  /** Parágrafos de um HTML colado conforme a opção: Manter (formatação direta, a base do
+   *  HTML: Times New Roman 12, espaçamento automático; medido: html-K), padrão (Título N e
+   *  Normal (Web) do documento; html-0) ou Mesclar (ênfase; html-M). */
+  htmlClipParas(html, mode) {
+    const src = htmlToParas(html);
+    const keep = mode === "keep";
+    const web = mode === "default" ? this.builtinStyleId("Normal (Web)") : void 0;
+    const hyper = src.some((p) => p.runs.some((r) => r.props.link)) && mode === "default" ? this.builtinStyleId("Hyperlink") : void 0;
+    const HEAD_HALFPT = [48, 36, 27, 24, 20, 15];
+    return src.map((hp) => {
+      const base = keep ? { fontAscii: "Times New Roman", szHalfPt: hp.heading ? HEAD_HALFPT[hp.heading - 1] : 24, ...hp.heading ? { bold: true } : {} } : {};
+      const runs = hp.runs.map((r) => {
+        if (r.image) {
+          const run2 = this.htmlImageRun(r.image);
+          return { text: "", props: { ...DEFAULT_RUN_PROPS }, ...run2 ? { obj: run2 } : {} };
+        }
+        const props = { ...DEFAULT_RUN_PROPS, ...base, ...r.props };
+        if (keep && r.props.link) {
+          props.color ??= "0000FF";
+          if (r.props.underline === void 0) props.underline = true;
+        }
+        if (!keep && r.props.link && hyper) props.charStyle = hyper;
+        return { text: r.text, props, ...r.blockBold ? { blockBold: true } : {} };
+      });
+      const mark2 = {};
+      if (hp.align && hp.align !== "left") mark2.alignment = hp.align;
+      const auto = () => {
+        mark2.spaceBeforeTwips = 100;
+        mark2.spaceAfterTwips = 100;
+        mark2.spaceBeforeAuto = true;
+        mark2.spaceAfterAuto = true;
+        mark2.lineTwentieths = 240;
+      };
+      if (keep) {
+        auto();
+        if (hp.heading) mark2.outlineLvl = hp.heading - 1;
+      } else if (mode === "default") {
+        if (hp.heading) mark2.styleId = this.builtinStyleId(`heading ${hp.heading}`);
+        else if (hp.list) auto();
+        else if (web) mark2.styleId = web;
+      }
+      return { runs, mark: mark2, ...hp.list ? { htmlList: hp.list } : {} };
+    }).concat([{ runs: [] }]);
+  }
+  /** Imagem de um HTML colado (data:) como imagem em linha. */
+  htmlImageRun(img) {
+    const size = imageSize(img.data);
+    let w = (img.wPx ?? size?.w ?? 96) * 15, h = (img.hPx ?? (size && img.wPx ? size.h * img.wPx / size.w : size?.h) ?? 96) * 15;
+    const maxW = this.contentWidthTwips();
+    if (w > maxW) {
+      h = h * maxW / w;
+      w = maxW;
+    }
+    return this.newImageRun(img.data, img.ext, w, h, { ...DEFAULT_RUN_PROPS });
+  }
+  /** Run de imagem em linha nova, com o XML que o Word grava ao inserir. */
+  newImageRun(data, ext, w, h, props) {
+    const id = 1 + Math.floor(Math.random() * 2e9);
+    const n = 1 + this.model.paragraphs.reduce((k, q) => k + q.runs.filter((r) => r.image).length, 0);
+    const image = { data: new Uint8Array(data), ext, widthTwips: w, heightTwips: h };
+    image.rawDrawingXml = newPictureXml({ id, name: `Imagem ${n}`, rid: "uw:media", cx: Math.round(w * 635), cy: Math.round(h * 635) });
+    image.edited = true;
+    syncImageFromXml(image);
+    return { text: "\uFFFC", props: this.newRunProps(props), image };
+  }
+  /** Insere uma imagem em linha com o tamanho dado (twips; cabe na largura do texto). */
+  insertImageSized(data, ext, w, h) {
+    if (!this.model || this.locked()) return;
+    const maxW = this.contentWidthTwips();
+    if (w > maxW) {
+      h = h * maxW / w;
+      w = maxW;
+    }
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p0 = this.deleteSelection();
+      this.selection = { anchor: p0, focus: p0 };
+    }
+    const run2 = this.newImageRun(data, ext, w, h, this.pendingProps ?? this.currentProps());
+    const pos = this.insertWholeRun(this.selection.focus, run2);
+    this.selection = { anchor: pos, focus: pos };
     this.refresh();
-    this.scrollCaretIntoView();
+  }
+  /** Colar como Imagem: o que está na área de transferência desenhado pelo motor (PNG,
+   *  em linha, do tamanho do texto). */
+  async pastePicture(d) {
+    const paras = d.rich ? d.rich.paras : d.html ? this.htmlClipParas(d.html, "keep") : d.text.split(/\r\n?|\n/).map((t) => ({ runs: [{ text: t, props: withoutRevisions(this.currentProps()) }] }));
+    const png = await this.renderClipPng(paras);
+    if (!png) return;
+    const depth = this.undoStack.length;
+    const start = { ...normalizeRange(this.range()).start };
+    this.insertImageSized(png.data, "png", png.w, png.h);
+    const end = this.selection.focus;
+    this.lastPaste = { data: d, mode: "picture", list: null, depth, start, end, first: start.para, last: end.para, marked: [] };
+    this.dispatchEvent(new CustomEvent("uw-pasted", { detail: this.pasteOptions(d) }));
+  }
+  /** Desenha parágrafos de cópia com o motor (largura do texto da página) e devolve o PNG. */
+  async renderClipPng(paras) {
+    if (!this.fonts) return null;
+    const blocks = paras.map((cp) => ({
+      props: { ...cp.mark ?? {} },
+      runs: cp.runs.flatMap((r) => r.obj ? [r.obj] : r.text ? [{ text: r.text, props: r.props }] : [])
+    }));
+    const sp = { ...this.sect() };
+    delete sp.pgBorders;
+    delete sp.cols;
+    sp.pageHeightTwips = Math.max(sp.pageHeightTwips, 31680);
+    const full = {
+      ...this.fullDoc ?? {},
+      blocks: blocks.map((paragraph) => ({ type: "paragraph", paragraph })),
+      sections: [{ sectPr: sp, blockStart: 0, blockEnd: blocks.length - 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks: {}, footerBlocks: {} }],
+      footnotes: /* @__PURE__ */ new Map(),
+      endnotes: /* @__PURE__ */ new Map(),
+      comments: [],
+      bookmarks: /* @__PURE__ */ new Map()
+    };
+    let page2;
+    try {
+      page2 = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: void 0 }).pages[0];
+    } catch {
+      return null;
+    }
+    if (!page2?.lines.length) return null;
+    const top = Math.min(...page2.lines.map((l) => l.y)), bottom = Math.max(...page2.lines.map((l) => l.y + l.height));
+    const left = sp.marginLeftTwips, right = page2.widthTw - sp.marginRightTwips;
+    const scale = PX_PER_TWIP * 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round((right - left) * scale));
+    canvas.height = Math.max(1, Math.round((bottom - top) * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
+    paintItems(ctx, page2.items, this.enginePaintEnv(), {});
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    if (!blob) return null;
+    return { data: new Uint8Array(await blob.arrayBuffer()), w: right - left, h: bottom - top };
+  }
+  /**
+   * Colar Especial (Ctrl+Alt+V): os formatos do que está na área de transferência, como
+   * os do diálogo do Word (Texto Formatado (RTF), Texto não formatado, Imagem, Formato HTML,
+   * Texto Unicode não formatado), e se dá para Colar Vínculo (a cópia é deste editor e o
+   * documento de origem tem caminho no hospedeiro).
+   */
+  async pasteSpecialFormats() {
+    const d = await this.readClipboard();
+    this.specialData = d;
+    if (!d) return { formats: [], link: false, source: "" };
+    const f = [];
+    if (d.rich && !d.rich.cells && !d.rich.drawing) f.push("rtf", "text", "picture", "html", "unicode");
+    else if (d.html) f.push("html", "text", "unicode", "picture");
+    else if (d.text) f.push("text", "unicode");
+    if (d.image) f.push("image");
+    const link = !!d.rich?.path && !!d.rich.src && !d.rich.cells && !d.rich.drawing;
+    return { formats: f, link, source: d.rich?.path ?? "" };
+  }
+  specialData = null;
+  /** Cola no formato pedido do Colar Especial (com `link`: o campo LINK do Word, medido:
+   *  special-link-rtf/-text — a origem ganha o indicador OLE_LINKn). */
+  async pasteSpecial(format, o = {}) {
+    if (this.locked()) return;
+    const d = this.specialData ?? await this.readClipboard();
+    this.specialData = null;
+    if (!d) return;
+    if (o.link && d.rich?.path && d.rich.src && (format === "rtf" || format === "html" || format === "text" || format === "unicode")) {
+      this.pasteLink(d.rich, format === "text" || format === "unicode");
+      return;
+    }
+    switch (format) {
+      case "rtf":
+        this.pasteData(d, "keep");
+        break;
+      case "html":
+        this.pasteData(d.rich ? d : { ...d, rich: void 0 }, d.rich ? "keep" : "default");
+        break;
+      case "text":
+      case "unicode":
+        this.pasteData(d, "text");
+        break;
+      case "picture":
+        this.pasteData(d, "picture");
+        break;
+      case "image":
+        if (d.image) void this.insertImage(d.image.data, d.image.ext);
+        break;
+    }
+  }
+  /** Colar Vínculo: campo LINK com o caminho do documento de origem e o indicador OLE_LINKn
+   *  que marca o trecho lá; o resultado é a cópia formatada (\r) ou o texto (\t). */
+  pasteLink(clip, text) {
+    const src = clip.src?.el.deref();
+    if (!this.model || !clip.path || !src?.model) return;
+    const name = src.addLinkSourceBookmark(clip);
+    if (!name) return;
+    const instr = ` LINK Word.Document.12 "${clip.path.replace(/\\/g, "\\\\")}" "${name}" \\a ${text ? "\\t" : "\\r"} `;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p0 = this.deleteSelection();
+      this.selection = { anchor: p0, focus: p0 };
+    }
+    const props = withoutRevisions(this.pendingProps ?? this.currentProps());
+    let pos = this.insertWholeRun(this.selection.focus, { text: "", props, fieldBegin: instr });
+    this.selection = { anchor: pos, focus: pos };
+    const depth = this.undoStack.length;
+    const r = text ? this.pasteTextOnly(clipText(clip)) : this.insertClip(clip.paras, { mode: "keep", from: clip });
+    while (this.undoStack.length > depth) this.undoStack.pop();
+    pos = r?.end ?? pos;
+    pos = this.insertWholeRun(pos, { text: "", props, fieldEnd: true });
+    this.selection = { anchor: pos, focus: pos };
+    this.lastPaste = null;
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Marca o trecho copiado com o indicador OLE_LINKn (origem do Colar Vínculo); null se o
+   *  trecho mudou desde a cópia. */
+  addLinkSourceBookmark(clip) {
+    if (!this.model || !clip.src || clip.doc !== this.docToken) return null;
+    const { start, end } = clip.src.range;
+    const paras = this.bodyModel().paragraphs;
+    if (end.para >= paras.length) return null;
+    const now = Array.from({ length: end.para - start.para + 1 }, (_v, i) => {
+      const p = paras[start.para + i];
+      const t = p.runs.map((x) => x.custom ? x.custom.fallbackText : x.noteRef ? "" : x.text).join("");
+      return t.slice(i === 0 ? start.offset : 0, start.para + i === end.para ? end.offset : void 0);
+    }).join("\n");
+    if (now !== clip.text) return null;
+    const taken = new Set(bookmarksIn(paras).map((b) => b.name));
+    let n = 1;
+    while (taken.has(`OLE_LINK${n}`)) n++;
+    const name = `OLE_LINK${n}`;
+    addBookmarkMarks(paras, name, this.newBookmarkId(), start, end);
+    this.engPageCache.clear();
+    return name;
+  }
+  // ── Área de Transferência do Office (painel: os 24 últimos itens copiados) ──
+  /** Itens copiados (do mais novo ao mais antigo), com o texto para o painel. */
+  clipboardItems() {
+    return OFFICE_CLIPBOARD.ring.map((x) => ({
+      id: x.id,
+      at: x.at,
+      text: x.clip.text,
+      kind: x.clip.drawing ? "drawing" : x.clip.cells ? "table" : !x.clip.text && x.clip.paras.some((p) => p.runs.some((r) => r.obj)) ? "image" : "text"
+    }));
+  }
+  /** Cola um item do painel (como foi copiado). */
+  pasteClipboardItem(id, mode) {
+    const it = OFFICE_CLIPBOARD.ring.find((x) => x.id === id);
+    if (it) this.pasteData({ text: it.clip.text, rich: it.clip }, mode);
+  }
+  /** Colar Tudo: os itens, do mais antigo ao mais novo, em sequência. */
+  pasteAllClipboardItems() {
+    for (const it of [...OFFICE_CLIPBOARD.ring].reverse()) this.pasteData({ text: it.clip.text, rich: it.clip });
+  }
+  removeClipboardItem(id) {
+    const i = OFFICE_CLIPBOARD.ring.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    OFFICE_CLIPBOARD.ring.splice(i, 1);
+    for (const f of OFFICE_CLIPBOARD.listeners) f();
+  }
+  clearClipboardItems() {
+    OFFICE_CLIPBOARD.ring.length = 0;
+    for (const f of OFFICE_CLIPBOARD.listeners) f();
+  }
+  /** Avisa quando os itens mudam; devolve a função que para de avisar. */
+  onClipboardChange(f) {
+    OFFICE_CLIPBOARD.listeners.add(f);
+    return () => {
+      OFFICE_CLIPBOARD.listeners.delete(f);
+    };
   }
   toggleBorder() {
     const p = this.model?.paragraphs[this.selection.focus.para]?.props;
@@ -8396,6 +11443,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (a.beforePara >= body.paragraphs.length) blocks.push(a.table);
     }
     const saveModel = { paragraphs: body.paragraphs, sectPr: lastSec?.sectPr ?? body.sectPr };
+    if (this.numbering.dirty && this.numbering.xml) {
+      writeNumberingPart(pkg, this.numberingOut(blocks, hfParts));
+      this.numbering.writeImages(pkg, partByRelType(pkg, "numbering", "word/numbering.xml"));
+    }
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : void 0,
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
@@ -8737,13 +11788,410 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Formata runs (com o controle ligado vira w:rPrChange). */
   applyRun(range, patch) {
+    const more = this.isMainRange(range) ? [...this.extras()] : [];
+    this.applyRunOne(range, patch);
+    for (const r of more) this.applyRunOne(r, patch);
+  }
+  applyRunOne(range, patch) {
     if (this.tracking) trackApplyRunProps2(this.model, range, patch, this.newRev());
     else applyRunProps2(this.model, range, patch);
   }
   /** Formata parágrafos (com o controle ligado vira w:pPrChange). */
   applyPara(range, patch) {
+    const more = this.isMainRange(range) ? [...this.extras()] : [];
+    this.applyParaOne(range, patch);
+    for (const r of more) this.applyParaOne(r, patch);
+  }
+  applyParaOne(range, patch) {
     if (this.tracking) trackApplyParaProps(this.model, range, patch, this.newRev());
     else applyParaProps(this.model, range, patch);
+  }
+  // ───────────── seleção não contígua (Ctrl+arrastar, formatação semelhante, localizar tudo) ─────────────
+  /** Trechos selecionados além da seleção principal (no modelo em edição). Valem enquanto a
+   *  seleção principal for o MESMO objeto (`extraBase`): qualquer outra seleção os desfaz. */
+  extraSel = [];
+  extraBase = null;
+  extras() {
+    if (this.extraSel.length && this.selection !== this.extraBase) {
+      this.extraSel = [];
+      this.extraBase = null;
+    }
+    return this.extraSel;
+  }
+  setExtraSelection(ranges) {
+    this.extraSel = ranges.map((r) => normalizeRange(r)).filter((r) => comparePos(r.start, r.end) !== 0);
+    this.extraBase = this.extraSel.length ? this.selection : null;
+  }
+  isMainRange(range) {
+    const a = normalizeRange(range), b = normalizeRange(this.range());
+    return comparePos(a.start, b.start) === 0 && comparePos(a.end, b.end) === 0;
+  }
+  /** Todos os trechos selecionados (os acrescentados e o principal), na ordem do documento. */
+  getSelectionRanges() {
+    const main = normalizeRange(this.range());
+    return [...this.extras(), main].sort((a, b) => comparePos(a.start, b.start));
+  }
+  /** Seleciona vários trechos de uma vez (o último é o principal). Só no modelo em edição. */
+  setSelectionRanges(ranges) {
+    if (!this.model || !ranges.length) return;
+    const ps = this.model.paragraphs;
+    const ok = (p) => p.para >= 0 && p.para < ps.length && p.offset >= 0 && p.offset <= paraLength(ps[p.para]);
+    const rs = ranges.filter((r) => ok(r.start) && ok(r.end));
+    if (!rs.length) return;
+    const main = rs[rs.length - 1];
+    this.floatSel = null;
+    this.selection = { anchor: main.start, focus: main.end };
+    this.setExtraSelection(rs.slice(0, -1));
+    this.refreshSelection();
+  }
+  /** Exclui todos os trechos selecionados (Delete/Backspace e Recortar com seleção não
+   *  contígua): de trás para frente; o cursor fica no começo do primeiro. */
+  deleteSelectedRanges() {
+    const more = this.extras();
+    if (!more.length) return this.deleteSelection();
+    const all = [...more, normalizeRange(this.range())].sort((a, b) => comparePos(b.start, a.start));
+    this.extraSel = [];
+    this.extraBase = null;
+    let pos = all[all.length - 1].start;
+    for (const r of all) {
+      this.selection = { anchor: r.start, focus: r.end };
+      pos = this.deleteSelection();
+    }
+    return pos;
+  }
+  /** Frase em volta da posição (Ctrl+clique): do fim da anterior ao fim desta com os espaços. */
+  sentenceRangeAt(pos) {
+    const text = paraText(this.model.paragraphs[pos.para]);
+    let s = pos.offset;
+    while (s > 0 && !/[.!?]/.test(text[s - 1])) s--;
+    while (s < pos.offset && /\s/.test(text[s])) s++;
+    let e = pos.offset;
+    while (e < text.length && !/[.!?]/.test(text[e])) e++;
+    while (e < text.length && /[.!?"”')\]]/.test(text[e])) e++;
+    while (e < text.length && text[e] === " ") e++;
+    return { start: { para: pos.para, offset: s }, end: { para: pos.para, offset: e } };
+  }
+  /**
+   * Selecionar › Selecionar Texto com Formatação Semelhante: todo o texto do corpo com a
+   * mesma formatação de caractere (e o mesmo estilo de parágrafo) do início da seleção — uma
+   * seleção não contígua. Devolve quantos trechos.
+   */
+  selectSimilarFormatting() {
+    if (!this.model || this.tbEdit || this.noteEdit || this.hfEdit) return 0;
+    const { start } = normalizeRange(this.range());
+    const p0 = this.model.paragraphs[start.para];
+    if (!p0) return 0;
+    const ref = this.hasSelection() ? propsAt(this.model, { para: start.para, offset: start.offset + 1 }) : this.pendingProps ?? this.currentProps();
+    const pstyle = (p) => p.props.styleId ?? p.ppr?.pStyle ?? "";
+    const key = (p, para3) => JSON.stringify([
+      !!p.bold,
+      !!p.italic,
+      !!p.underline,
+      p.underlineStyle ?? "",
+      !!p.strike,
+      !!p.doubleStrike,
+      (p.fontAscii ?? "").toLowerCase(),
+      p.szHalfPt ?? 0,
+      (p.color ?? "").toUpperCase(),
+      p.highlight ?? "",
+      p.charStyle ?? "",
+      !!p.allCaps,
+      !!p.smallCaps,
+      p.vertAlign ?? "",
+      pstyle(para3)
+    ]);
+    const want = key(ref, p0);
+    const out = [];
+    this.model.paragraphs.forEach((p, pi) => {
+      let off = 0;
+      for (const r of p.runs) {
+        const n = r.text.length, a = off;
+        off += n;
+        if (!n || r.props.del || r.noteRef || r.image || r.shape || r.group || r.textbox || key(r.props, p) !== want) continue;
+        const last = out[out.length - 1];
+        if (last && last.end.para === pi && last.end.offset === a) last.end = { para: pi, offset: a + n };
+        else out.push({ start: { para: pi, offset: a }, end: { para: pi, offset: a + n } });
+      }
+    });
+    if (!out.length) return 0;
+    const k = Math.max(0, out.findIndex((r) => comparePos(r.start, start) <= 0 && comparePos(start, r.end) <= 0));
+    const main = out.splice(k, 1)[0];
+    this.floatSel = null;
+    this.selection = { anchor: main.start, focus: main.end };
+    this.setExtraSelection(out);
+    this.refreshSelection();
+    return out.length + 1;
+  }
+  // ───────────── Selecionar Objetos e vários objetos selecionados ─────────────
+  /** Objetos de desenho selecionados além do `floatSel` (Shift/Ctrl+clique, laço). */
+  floatMulti = [];
+  selectObjectsOn = false;
+  /** laço em andamento (página e retângulo em twips) */
+  lasso = null;
+  /** arrasto de vários objetos: o deslocamento atual (twips) */
+  multiDrag = null;
+  /** Selecionar › Selecionar Objetos: o arrasto na página seleciona os objetos de desenho
+   *  inteiros dentro do laço (também os atrás do texto); Esc sai. */
+  setSelectObjectsMode(on) {
+    this.selectObjectsOn = on;
+    this.lasso = null;
+    this.style.cursor = on ? "default" : "";
+    this.dispatchEvent(new CustomEvent("uw-select-objects", { detail: { active: on } }));
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  isSelectObjectsMode() {
+    return this.selectObjectsOn;
+  }
+  /** Os objetos de desenho selecionados (o principal primeiro). */
+  selectedFloats() {
+    if (!this.floatSel) return [];
+    const all = this.enumFloats();
+    const runs = [this.floatSel, ...this.floatMulti.filter((r) => r !== this.floatSel)];
+    return runs.map((r) => all.find((h) => h.run === r)).filter((h) => !!h);
+  }
+  /** Quantos objetos de desenho estão selecionados. */
+  selectedObjectCount() {
+    return this.floatSel ? this.selectedFloats().length || 1 : 0;
+  }
+  /** Acrescenta/tira um objeto da seleção (Shift/Ctrl+clique). */
+  toggleFloatInSelection(run2) {
+    if (!this.floatSel) {
+      this.floatSel = run2;
+      this.floatMulti = [];
+      return;
+    }
+    if (run2 === this.floatSel) {
+      const rest = this.floatMulti.filter((r) => r !== run2);
+      this.floatSel = rest.shift() ?? null;
+      this.floatMulti = rest;
+      return;
+    }
+    if (this.floatMulti.includes(run2)) this.floatMulti = this.floatMulti.filter((r) => r !== run2);
+    else this.floatMulti = [...this.floatMulti, run2];
+  }
+  /** Seleciona os objetos inteiros dentro do retângulo (twips, na página). */
+  selectFloatsIn(page2, r, add) {
+    const inside = this.enumFloats().filter((h) => h.page === page2 && h.rect.x >= r.x && h.rect.y >= r.y && h.rect.x + h.rect.w <= r.x + r.w && h.rect.y + h.rect.h <= r.y + r.h);
+    const runs = [...add && this.floatSel ? [this.floatSel, ...this.floatMulti] : [], ...inside.map((h) => h.run)];
+    const uniq = [...new Set(runs)];
+    this.floatSel = uniq[0] ?? null;
+    this.floatMulti = uniq.slice(1);
+  }
+  /** Vários passos de edição viram UM no desfazer (o 1º estado guardado fica). */
+  oneUndo(fn) {
+    const n = this.undoStack.length;
+    fn();
+    if (this.undoStack.length > n + 1) this.undoStack.splice(n + 1);
+  }
+  /** Move um objeto flutuante (twips), mantendo as referências da posição. */
+  moveFloatBy(h, dx, dy) {
+    const obj = h.obj;
+    const fr = this.engObjectFrame(h.run);
+    const fmt = _UniversalWriteElement.rawOf(h.run) ? this.formatOf(h.run) : void 0;
+    if (fmt && fr) {
+      const ph = this.posFor(fmt.posH, "h", h.rect.x + dx, fr), pv = this.posFor(fmt.posV, "v", h.rect.y + dy, fr);
+      this.applyDrawingXml(h.run, this.patchDrawing(h.run, { ...dx && ph ? { posH: ph } : {}, ...dy && pv ? { posV: pv } : {} }), false);
+    } else {
+      obj.offsetXTwips = (obj.offsetXTwips ?? 0) + dx;
+      obj.offsetYTwips = (obj.offsetYTwips ?? 0) + dy;
+      if (this.eng) this.moveAnchorTo(obj, h.rect.x + dx, h.rect.y + dy);
+    }
+  }
+  /** Move todos os objetos selecionados (setas, arrasto). */
+  moveSelectedFloatsBy(dx, dy) {
+    const hs = this.selectedFloats().filter((h) => !h.inline);
+    if (!hs.length || !dx && !dy || this.locked()) return;
+    this.snapshot();
+    this.oneUndo(() => {
+      for (const h of hs) this.moveFloatBy(h, dx, dy);
+    });
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-change"));
+  }
+  /** Exclui todos os objetos selecionados (um passo de desfazer). */
+  deleteSelectedFloats() {
+    const runs = [this.floatSel, ...this.floatMulti].filter((r) => !!r);
+    this.floatMulti = [];
+    if (runs.length <= 1) {
+      this.deleteSelectedFloat();
+      return;
+    }
+    this.oneUndo(() => {
+      for (const r of runs) {
+        this.floatSel = r;
+        if (this.selectedFloat()) this.deleteSelectedFloat();
+      }
+    });
+    this.floatSel = null;
+    this.refresh();
+  }
+  /**
+   * Alinhar com vários objetos selecionados (Alinhar Objetos Selecionados): as bordas/centros
+   * vão à do grupo (esquerda = a menor, direita = a maior, centro = o meio da caixa de todos);
+   * Distribuir na Horizontal/Vertical deixa os vãos iguais. Com um só, alinha à margem/página.
+   */
+  alignObjects(kind) {
+    const hs = this.selectedFloats().filter((h) => !h.inline);
+    if (hs.length < 2) {
+      if (kind !== "distributeH" && kind !== "distributeV") this.alignShape(kind);
+      return;
+    }
+    if (this.locked()) return;
+    const L = Math.min(...hs.map((h) => h.rect.x)), R = Math.max(...hs.map((h) => h.rect.x + h.rect.w));
+    const T2 = Math.min(...hs.map((h) => h.rect.y)), B = Math.max(...hs.map((h) => h.rect.y + h.rect.h));
+    const moves = /* @__PURE__ */ new Map();
+    if (kind === "distributeH" || kind === "distributeV") {
+      const hor = kind === "distributeH";
+      const sorted = [...hs].sort((a, b) => hor ? a.rect.x - b.rect.x : a.rect.y - b.rect.y);
+      const total = sorted.reduce((s, h) => s + (hor ? h.rect.w : h.rect.h), 0);
+      const gap = ((hor ? R - L : B - T2) - total) / Math.max(1, sorted.length - 1);
+      let at = hor ? L : T2;
+      for (const h of sorted) {
+        moves.set(h, hor ? [Math.round(at - h.rect.x), 0] : [0, Math.round(at - h.rect.y)]);
+        at += (hor ? h.rect.w : h.rect.h) + gap;
+      }
+    } else {
+      for (const h of hs) {
+        const r = h.rect;
+        const dx = kind === "left" ? L - r.x : kind === "right" ? R - (r.x + r.w) : kind === "center" ? (L + R) / 2 - (r.x + r.w / 2) : 0;
+        const dy = kind === "top" ? T2 - r.y : kind === "bottom" ? B - (r.y + r.h) : kind === "middle" ? (T2 + B) / 2 - (r.y + r.h / 2) : 0;
+        moves.set(h, [Math.round(dx), Math.round(dy)]);
+      }
+    }
+    this.snapshot();
+    this.oneUndo(() => {
+      for (const [h, [dx, dy]] of moves) if (dx || dy) this.moveFloatBy(h, dx, dy);
+    });
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-change"));
+  }
+  /** Contorno tracejado dos objetos selecionados além do principal, o laço e a prévia do
+   *  arrasto de vários (adornos de tela). */
+  paintMultiSelection(ctx, pg) {
+    const lw = 15;
+    if (this.floatMulti.length || this.multiDrag) {
+      const d = this.multiDrag ?? { dx: 0, dy: 0 };
+      for (const h of this.selectedFloats()) {
+        if (h.page !== pg) continue;
+        ctx.save();
+        ctx.strokeStyle = "#3a72c4";
+        ctx.lineWidth = lw;
+        ctx.setLineDash([60, 40]);
+        ctx.strokeRect(h.rect.x + d.dx, h.rect.y + d.dy, h.rect.w, h.rect.h);
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#ffffff";
+        for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+          const cx = h.rect.x + d.dx + x * h.rect.w, cy = h.rect.y + d.dy + y * h.rect.h;
+          ctx.fillRect(cx - 50, cy - 50, 100, 100);
+          ctx.strokeRect(cx - 50, cy - 50, 100, 100);
+        }
+        ctx.restore();
+      }
+    }
+    if (this.lasso && this.lasso.page === pg) {
+      const r = this.lasso;
+      ctx.save();
+      ctx.fillStyle = "rgba(58,114,196,0.12)";
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = "#3a72c4";
+      ctx.lineWidth = lw;
+      ctx.setLineDash([45, 30]);
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      ctx.restore();
+    }
+  }
+  /** Ponto do evento em twips na página (layout de impressão) ou null. */
+  pagePointTw(e) {
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let i = 0; i < this.canvases.length; i++) {
+      const c = this.canvases[i];
+      const r = c.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        return { page: i, x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+      }
+    }
+    return null;
+  }
+  /** Clique/arrasto no modo Selecionar Objetos (e o arrasto de vários objetos): true = tratado. */
+  selectObjectsMouseDown(e) {
+    if (e.button !== 0 || !this.eng || this.view !== "print") return false;
+    const fh = this.hitFloat(e);
+    const many = this.floatSel && this.floatMulti.length > 0;
+    if (fh && (e.shiftKey || e.ctrlKey) && (this.floatSel || this.selectObjectsOn)) {
+      e.preventDefault();
+      if (this.tbEdit) this.exitTextbox();
+      this.toggleFloatInSelection(fh.run);
+      this.focusEditor();
+      this.refreshSelection();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    if (fh && many && (fh.run === this.floatSel || this.floatMulti.includes(fh.run))) {
+      e.preventDefault();
+      this.focusEditor();
+      const scale = PX_PER_TWIP * this.zoom;
+      const x0 = e.clientX, y0 = e.clientY;
+      this.multiDrag = { dx: 0, dy: 0 };
+      const move2 = (ev) => {
+        this.multiDrag = { dx: Math.round((ev.clientX - x0) / scale), dy: Math.round((ev.clientY - y0) / scale) };
+        this.paint();
+      };
+      const up2 = () => {
+        window.removeEventListener("mousemove", move2);
+        window.removeEventListener("mouseup", up2);
+        const d = this.multiDrag;
+        this.multiDrag = null;
+        if (d && (Math.abs(d.dx) > 30 || Math.abs(d.dy) > 30)) this.moveSelectedFloatsBy(d.dx, d.dy);
+        else this.paint();
+      };
+      window.addEventListener("mousemove", move2);
+      window.addEventListener("mouseup", up2);
+      return true;
+    }
+    if (!this.selectObjectsOn) return false;
+    e.preventDefault();
+    this.focusEditor();
+    if (fh) {
+      if (this.tbEdit) this.exitTextbox();
+      this.floatSel = fh.run;
+      this.floatMulti = [];
+      this.refreshSelection();
+      this.startFloatDrag(e, "move", "");
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    }
+    const p0 = this.pagePointTw(e);
+    if (!p0) return true;
+    if (this.tbEdit) this.exitTextbox();
+    const add = e.shiftKey || e.ctrlKey;
+    if (!add) {
+      this.floatSel = null;
+      this.floatMulti = [];
+    }
+    this.lasso = { page: p0.page, x: p0.x, y: p0.y, w: 0, h: 0 };
+    const move = (ev) => {
+      const p = this.pagePointTw(ev);
+      if (!p || p.page !== p0.page || !this.lasso) return;
+      this.lasso = { page: p0.page, x: Math.min(p0.x, p.x), y: Math.min(p0.y, p.y), w: Math.abs(p.x - p0.x), h: Math.abs(p.y - p0.y) };
+      this.paint();
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const l = this.lasso;
+      this.lasso = null;
+      if (l && l.w > 20 && l.h > 20) this.selectFloatsIn(l.page, l, add);
+      this.refreshSelection();
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    this.paint();
+    return true;
   }
   // imagens são imutáveis: o snapshot guarda só um índice no pool em vez
   // dos bytes (senão JSON.stringify estoura com docs de 50MB de mídia)
@@ -8793,6 +12241,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       eo: this.evenOddHeaders(),
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
+      // versão da numeração (as versões ficam em DocNumbering)
+      nv: this.numbering.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
       // opções de hifenização (settings)
@@ -8933,6 +12383,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     if (state.sv !== void 0 && this.docStyles.restore(state.sv)) this.syncStyleSheet();
+    if (state.nv !== void 0 && this.numbering.restore(state.nv)) this.syncNumbering();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== void 0 && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
     if (state.hy && JSON.stringify(state.hy) !== JSON.stringify(this.hyphenationSettings())) this.applyHyphenation(state.hy);
@@ -9044,6 +12495,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   pressEnter() {
     if (!this.model || this.locked()) return;
+    if (this.listEnterOnEmpty()) {
+      this.scrollCaretIntoView();
+      return;
+    }
     this.snapshot();
     if (this.hasSelection()) {
       const pos2 = this.deleteSelection();
@@ -9069,6 +12524,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         return;
       }
     }
+    if (this.listBackspaceAtStart()) return;
     if (this.tracking && !this.hasSelection()) {
       this.trackedKey(-1);
       return;
@@ -9076,7 +12532,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
-      const pos = this.deleteSelection();
+      const pos = this.deleteSelectedRanges();
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para: para3, offset } = this.selection.focus;
@@ -9117,7 +12573,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset < paraLength(this.model.paragraphs[this.selection.focus.para]))) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
-      const pos = this.deleteSelection();
+      const pos = this.deleteSelectedRanges();
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para: para3, offset } = this.selection.focus;
@@ -9361,6 +12817,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       if (this.tableMouseDown(e)) return;
       if (this.tocTabMouseDown(e)) return;
+      if (!this.protectedMode && this.selectObjectsMouseDown(e)) return;
+      if (e.button === 0 && !e.shiftKey && !e.ctrlKey) this.floatMulti = [];
       if (e.button === 0 && !this.protectedMode) {
         if (this.drawMouseDown(e) || this.linkMouseDown(e)) {
           this.focusEditor();
@@ -9522,7 +12980,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.focusEditor();
       e.preventDefault();
       const extend = e.shiftKey;
+      const adding = e.ctrlKey && !extend && e.detail === 1 && !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit;
+      const kept = adding ? [...this.extras(), ...this.hasSelection() ? [normalizeRange(this.range())] : []] : [];
       this.selection = extend ? { anchor: this.selection.anchor, focus: hit } : { anchor: hit, focus: hit };
+      if (adding) this.setExtraSelection(kept);
       this.pendingProps = null;
       this.refreshSelection();
       const startCell = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((x) => ({ ...x })) } : null;
@@ -9537,6 +12998,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const up = () => {
         window.removeEventListener("mousemove", move);
         window.removeEventListener("mouseup", up);
+        if (adding && !this.hasSelection() && this.model) {
+          const r = this.sentenceRangeAt(hit);
+          this.selection.anchor = r.start;
+          this.selection.focus = r.end;
+          this.refreshSelection();
+        }
         if (this.painterProps) this.applyPainter();
       };
       window.addEventListener("mousemove", move);
@@ -9550,18 +13017,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.refreshSelection();
       }
     });
+    let ctrlAlone = false;
+    this.input.addEventListener("keydown", (e) => {
+      ctrlAlone = e.key === "Control" && !e.repeat && !e.shiftKey && !e.altKey;
+    }, true);
+    this.input.addEventListener("keyup", (e) => {
+      if (e.key !== "Control" || !ctrlAlone) return;
+      ctrlAlone = false;
+      if (this.pasteOptions().modes.length) this.dispatchEvent(new CustomEvent("uw-paste-options", { detail: this.pasteOptions() }));
+    });
     this.input.addEventListener("paste", (e) => {
       e.preventDefault();
-      const text = e.clipboardData?.getData("text/plain") ?? "";
+      const cd = e.clipboardData;
       const plain = this.plainPasteNext;
       this.plainPasteNext = false;
-      const html = plain ? "" : e.clipboardData?.getData("text/html") ?? "";
-      if (!plain && !text && this.richClip?.drawing) this.pasteDrawing(this.richClip.drawing);
-      else if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, "\n")) this.pasteRich(this.richClip);
-      else if (/<table[\s>]/i.test(html) && this.pasteHtmlTables(html)) {
-      } else if (text) this.pasteText(text);
-      this.onSelectionChange?.();
-      this.chromeSync?.();
+      const d = { text: cd?.getData("text/plain") ?? "" };
+      const html = cd?.getData("text/html") ?? "";
+      if (html) d.html = html;
+      const file = cd ? [...cd.files].find((x) => /^image\/(png|jpeg|gif|bmp|webp)$/.test(x.type)) : void 0;
+      if (file && !d.text && !html) {
+        void file.arrayBuffer().then((b) => this.pasteData({ text: "", image: { data: new Uint8Array(b), ext: file.type.slice(6).replace("jpeg", "jpg") } }));
+        return;
+      }
+      this.pasteData(this.withRich(d), plain ? "text" : void 0);
     });
     this.addEventListener("mousemove", (e) => {
       if (this.view !== "print" || this.hfEdit || !this.model) return;
@@ -9753,6 +13231,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           return;
         }
       }
+      if (ctrl && e.shiftKey && !e.altKey && !this.locked()) {
+        const sh = {
+          KeyD: () => this.toggleUnderline("double"),
+          KeyW: () => this.toggleUnderline("words"),
+          KeyH: () => this.toggleRunProp("hidden"),
+          KeyK: () => this.toggleRunProp("smallCaps"),
+          KeyA: () => this.toggleRunProp("allCaps")
+        }[e.code];
+        if (sh) {
+          e.preventDefault();
+          sh();
+          this.onSelectionChange?.();
+          this.chromeSync?.();
+          return;
+        }
+      }
+      if (k === "F3" && e.shiftKey && !ctrl && !e.altKey && !this.locked()) {
+        e.preventDefault();
+        this.changeCase("next");
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+        return;
+      }
       if (ctrl && e.altKey && !e.shiftKey && (k.toLowerCase() === "f" || k.toLowerCase() === "d")) {
         e.preventDefault();
         if (k.toLowerCase() === "f") this.insertFootnote();
@@ -9784,6 +13285,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (k.toLowerCase() === "x") {
           e.preventDefault();
           void this.cut();
+          return;
+        }
+        if (k.toLowerCase() === "v" && e.altKey && e.code === "KeyV") {
+          e.preventDefault();
+          this.dispatchEvent(new CustomEvent("uw-paste-special"));
           return;
         }
         if (k.toLowerCase() === "v") {
@@ -9844,15 +13350,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           return;
         }
         const para3 = this.model?.paragraphs[this.selection.focus.para];
-        if (para3?.props.numbering && this.selection.focus.offset === 0) {
-          const lvl = Math.max(0, Math.min(2, para3.props.numbering.ilvl + (e.shiftKey ? -1 : 1)));
-          this.formatPara({
-            numbering: { ...para3.props.numbering, ilvl: lvl },
-            indentLeftTwips: 720 * (lvl + 1)
-          });
+        const multi = this.selection.anchor.para !== this.selection.focus.para;
+        if (para3 && this.paraNum(para3) && (multi || normalizeRange(this.range()).start.offset === 0) && this.changeListLevel(e.shiftKey ? -1 : 1)) {
         } else if (!e.shiftKey) this.type("	");
         this.onSelectionChange?.();
         this.chromeSync?.();
+        return;
+      }
+      if (k === "Escape" && this.painterProps) {
+        e.preventDefault();
+        this.cancelFormatPainter();
+        return;
+      }
+      if (k === "Escape" && this.selectObjectsOn && !this.floatSel) {
+        e.preventDefault();
+        this.setSelectObjectsMode(false);
         return;
       }
       if (k === "Escape" && (this.drawMode || this.linkFrom)) {
@@ -9885,6 +13397,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (k === "Escape") {
           e.preventDefault();
           this.floatSel = null;
+          this.floatMulti = [];
+          if (this.selectObjectsOn) this.setSelectObjectsMode(false);
           if (inline) {
             const f = normalizeRange(this.range()).end;
             this.selection = { anchor: f, focus: f };
@@ -9895,7 +13409,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
         if (k === "Delete" || k === "Backspace") {
           e.preventDefault();
-          this.deleteSelectedFloat();
+          this.deleteSelectedFloats();
+          return;
+        }
+        if (!inline && this.floatMulti.length && (k === "ArrowLeft" || k === "ArrowRight" || k === "ArrowUp" || k === "ArrowDown")) {
+          e.preventDefault();
+          const step = e.ctrlKey ? 15 : 90;
+          this.moveSelectedFloatsBy(k === "ArrowLeft" ? -step : k === "ArrowRight" ? step : 0, k === "ArrowUp" ? -step : k === "ArrowDown" ? step : 0);
           return;
         }
         if (!inline && (k === "ArrowLeft" || k === "ArrowRight" || k === "ArrowUp" || k === "ArrowDown")) {
@@ -14342,7 +17862,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         key,
         name: f.docPr.name ?? "",
         hidden: !!f.docPr.hidden,
-        selected: cur === r,
+        selected: cur === r || !!this.floatSel && this.floatMulti.includes(r),
         kind: r.image ? "image" : r.textbox ? "textbox" : r.group ? "group" : "shape",
         z: f.relativeHeight ?? 0
       });
@@ -14368,14 +17888,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   paneRun(key) {
     return this.paneRuns().find((x) => x.key === key)?.run ?? null;
   }
-  /** Seleciona o objeto da lista (oculto também: sem alças na página). */
-  selectPaneItem(key) {
+  /** Seleciona o objeto da lista (oculto também: sem alças na página); `add` (Ctrl/Shift+clique)
+   *  acrescenta/tira da seleção de vários objetos. */
+  selectPaneItem(key, add = false) {
     const r = this.paneRun(key);
     if (!r) return;
     this.endImageCrop();
     this.endEditWrapPoints();
     if (this.tbEdit) this.exitTextbox();
-    this.floatSel = r;
+    if (add) this.toggleFloatInSelection(r);
+    else {
+      this.floatSel = r;
+      this.floatMulti = [];
+    }
+    this.refreshSelection();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Seleciona vários objetos de desenho de uma vez (chaves do Painel de Seleção). */
+  selectPaneItems(keys) {
+    const runs = keys.map((k) => this.paneRun(k)).filter((r) => !!r);
+    if (this.tbEdit) this.exitTextbox();
+    this.floatSel = runs[0] ?? null;
+    this.floatMulti = runs.slice(1);
     this.refreshSelection();
     this.onSelectionChange?.();
     this.chromeSync?.();
@@ -14403,6 +17938,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  botão grava `<wp:align>` relativo a elas (medido: align-ui-left). Só imagens
    *  flutuantes. */
   alignImage(kind, relativeTo) {
+    if (!relativeTo && this.selectedFloats().filter((h) => !h.inline).length > 1) {
+      this.alignObjects(kind);
+      return;
+    }
     const run2 = this.drawRun();
     if (!run2 || this.formatOf(run2).inline) return;
     const rel = relativeTo ?? this.imageAlignTo;
@@ -15612,7 +19151,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   enginePaintEnv() {
     return {
       fontOf: (face) => this.engFaceCss.get(face) ?? {
-        family: `${cssFamily(face.family)}, ${DEFAULT_FONT_CSS}`,
+        family: `${cssFamily2(face.family)}, ${DEFAULT_FONT_CSS}`,
         weight: face.bold && !face.synthBold ? 700 : 400,
         italic: face.italic && !face.synthItalic
       },
@@ -15719,6 +19258,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.paintSearchHits(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
         else if (hasSel && !picSel) this.paintEngineSelection(ctx, i, sel);
+        if (!this.tableSel) for (const r of this.extras()) this.paintEngineSelection(ctx, i, r);
+        this.paintMultiSelection(ctx, i);
         this.paintTableAdorners(ctx, i);
         this.paintTocControl(ctx, i);
         ctx.restore();
@@ -16944,6 +20485,509 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.onSelectionChange?.();
     this.chromeSync?.();
     return true;
+  }
+  // ───────────────────────── Localizar e Substituir / Ir para ─────────────────────────
+  /** Histórias da busca na ordem do documento: trechos do corpo entre tabelas e as células
+   *  (aninhadas também). Um ¶ procurado só atravessa parágrafos da mesma história. */
+  findStories() {
+    const b = this.bodyState();
+    const out = [];
+    if (!b.model) return out;
+    const cells = (t, anchor, path) => {
+      t.rows.forEach((row, r) => {
+        let c = row.trPr?.gridBefore ?? 0;
+        for (const cell of row.cells) {
+          const hops = [...path, { r, c }];
+          if (cell.paragraphs.length) out.push({ kind: "cell", anchor, hops, paras: cell.paragraphs });
+          (cell.blocks ?? []).forEach((blk, bi) => {
+            if (blk.type === "table") cells(blk, anchor, [...path, { r, c, b: bi }]);
+          });
+          c += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+        }
+      });
+    };
+    const ps = b.model.paragraphs;
+    let seg = 0;
+    for (let i = 0; i <= ps.length; i++) {
+      const here = b.tableAnchors.map((a, ai) => ({ a, ai })).filter((x) => x.a.beforePara === i);
+      if (here.length || i === ps.length) {
+        if (i > seg) out.push({ kind: "body", first: seg, paras: ps.slice(seg, i) });
+        seg = i;
+        for (const { a, ai } of here) cells(a.table, ai, []);
+      }
+    }
+    return out;
+  }
+  /** Ambiente da busca: idioma efetivo (todas as formas) e estilo de parágrafo. */
+  findEnv() {
+    const langs = this.spellLangResolver();
+    return {
+      lang: (r, p) => langs.run(r, p).lang,
+      paraStyle: (p) => p.props.styleId ?? p.ppr?.pStyle ?? "Normal"
+    };
+  }
+  /** História e índice do texto onde está o cursor (início e fim da seleção). */
+  findCursor(stories, texts) {
+    const { start, end } = normalizeRange(this.range());
+    const at = (si, para3, s, e) => {
+      const st = texts[si];
+      const g = (p) => (st.starts[p.para - para3] ?? st.text.length) + p.offset;
+      return { story: si, from: g(s), to: g(e) };
+    };
+    if (this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
+      const ce = this.cellEdit;
+      const si = stories.findIndex((s) => s.kind === "cell" && s.anchor === ce.anchor && JSON.stringify(s.hops) === JSON.stringify(ce.hops));
+      if (si >= 0) return at(si, 0, start, end);
+    }
+    if (!this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit) {
+      const si = stories.findIndex((s) => s.kind === "body" && start.para >= s.first && start.para < s.first + s.paras.length);
+      if (si >= 0) {
+        const s = stories[si];
+        const e2 = end.para < s.first + s.paras.length ? end : { para: s.first + s.paras.length - 1, offset: paraLength(s.paras[s.paras.length - 1]) };
+        return at(si, s.first, start, e2);
+      }
+    }
+    return { story: 0, from: 0, to: 0 };
+  }
+  /** Seleciona uma ocorrência (entra na célula se preciso) e rola até ela. */
+  selectFindHit(story, st, h) {
+    const a = posOf(st, h.start);
+    const b = posOf(st, h.end);
+    const lastP = st.paras.length - 1;
+    if (b.para === lastP && b.offset > paraLength(st.paras[lastP])) b.offset = paraLength(st.paras[lastP]);
+    this.floatSel = null;
+    if (story.kind === "body") {
+      if (!this.toBody()) return;
+      this.selection = { anchor: { para: story.first + a.para, offset: a.offset }, focus: { para: story.first + b.para, offset: b.offset } };
+    } else {
+      if (this.hfEdit || this.tbEdit || this.noteEdit) this.toBody();
+      if (!this.enterCell(story.anchor, story.hops, { para: a.para, offset: a.offset })) return;
+      this.selection = { anchor: { para: a.para, offset: a.offset }, focus: b };
+    }
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Verifica o texto procurado: mensagem do padrão inválido ou null. */
+  findQueryError(q) {
+    try {
+      compileQuery(q);
+      return null;
+    } catch (e) {
+      if (e instanceof FindError) return e.code === "pattern" ? this.findMsg('O texto em "Localizar" cont\xE9m uma express\xE3o n\xE3o v\xE1lida para o padr\xE3o coincidente.', "The Find What text contains a Pattern Match expression which is not valid.") : this.findMsg(`"${e.message}" n\xE3o \xE9 um caractere especial v\xE1lido para a caixa Localizar.`, `"${e.message}" is not a valid special character for the Find What box.`);
+      return String(e);
+    }
+  }
+  findMsg(pt2, en) {
+    return /^pt\b/i.test(this.getAttribute("lang") ?? navigator.language ?? "") ? pt2 : en;
+  }
+  /**
+   * Localizar (Localizar e Substituir › Localizar Próxima): seleciona a próxima ocorrência a
+   * partir da seleção — para baixo, para cima ou em tudo (dá a volta, `wrapped`). Vale no corpo
+   * e nas tabelas. Opções e especiais como no Word (find-engine.ts, medidos).
+   */
+  findNextMatch(q, o = {}) {
+    const err = this.findQueryError(q);
+    if (err) return { found: false, error: err };
+    const stories = this.findStories();
+    if (!stories.length) return { found: false };
+    const env = this.findEnv();
+    const texts = stories.map((s) => storyText(s.paras));
+    const cur = this.findCursor(stories, texts);
+    const dir = o.direction ?? "all";
+    const all = (si) => findAll(texts[si], q, env);
+    const n = stories.length;
+    if (dir !== "up") {
+      for (let k = 0; k < n; k++) {
+        const si = cur.story + k;
+        if (si >= n) break;
+        const h = all(si).find((x) => k > 0 || x.start >= cur.to || x.start >= cur.from && cur.from === cur.to && x.end > cur.from);
+        if (h) {
+          this.selectFindHit(stories[si], texts[si], h);
+          return { found: true };
+        }
+      }
+      if (dir === "all") {
+        for (let si = 0; si <= cur.story; si++) {
+          const h = all(si).find((x) => si < cur.story || x.start < cur.to);
+          if (h) {
+            this.selectFindHit(stories[si], texts[si], h);
+            return { found: true, wrapped: true };
+          }
+        }
+      }
+      return { found: false };
+    }
+    for (let si = cur.story; si >= 0; si--) {
+      const hs = all(si).filter((x) => si < cur.story || x.end <= cur.from);
+      const h = hs[hs.length - 1];
+      if (h) {
+        this.selectFindHit(stories[si], texts[si], h);
+        return { found: true };
+      }
+    }
+    return { found: false };
+  }
+  /** Quantas ocorrências há (corpo e tabelas; ou só na seleção). */
+  countMatches(q, o = {}) {
+    if (this.findQueryError(q)) return 0;
+    return this.collectMatches(q, o).reduce((s, x) => s + x.hits.length, 0);
+  }
+  /** As ocorrências por história (só na seleção: a história do cursor, dentro dela). */
+  collectMatches(q, o) {
+    const stories = this.findStories();
+    const env = this.findEnv();
+    const texts = stories.map((s) => storyText(s.paras));
+    if (o.within === "selection") {
+      if (!this.hasSelection()) return [];
+      const cur = this.findCursor(stories, texts);
+      const st = texts[cur.story];
+      if (!st) return [];
+      return [{ story: stories[cur.story], st, hits: findAll(st, q, env).filter((h) => h.start >= cur.from && h.end <= cur.to) }];
+    }
+    return stories.map((story, i) => ({ story, st: texts[i], hits: findAll(texts[i], q, env) }));
+  }
+  /** Realce de Leitura › Realçar Tudo: realça todas as ocorrências (adorno de tela); devolve
+   *  quantas. `clearSearch()` limpa. */
+  highlightMatches(q, o = {}) {
+    this.searchHits.clear();
+    this.searchList = [];
+    if (this.findQueryError(q)) {
+      this.paint();
+      return 0;
+    }
+    let n = 0;
+    for (const { st, hits } of this.collectMatches(q, o)) {
+      for (const h of hits) {
+        n++;
+        const a = posOf(st, h.start), b = posOf(st, h.end);
+        for (let p = a.para; p <= b.para; p++) {
+          const para3 = st.paras[p];
+          const s = p === a.para ? a.offset : 0, e = p === b.para ? b.offset : paraLength(para3);
+          if (e <= s) continue;
+          const l = this.searchHits.get(para3) ?? [];
+          l.push([s, e]);
+          this.searchHits.set(para3, l);
+        }
+      }
+    }
+    this.searchShow = true;
+    this.paint();
+    return n;
+  }
+  /** Localizar em › Documento Principal (ou Seleção Atual): seleciona TODAS as ocorrências do
+   *  corpo (seleção não contígua, como o Word); devolve quantas. As das tabelas só contam. */
+  selectAllMatches(q, o = {}) {
+    if (this.findQueryError(q)) return 0;
+    const ranges = [];
+    let cellOnly = null;
+    for (const { story, st, hits } of this.collectMatches(q, o)) {
+      for (const h of hits) {
+        if (story.kind !== "body") {
+          cellOnly ??= { story, st, h };
+          continue;
+        }
+        const a = posOf(st, h.start), b = posOf(st, h.end);
+        ranges.push({ start: { para: story.first + a.para, offset: a.offset }, end: { para: story.first + b.para, offset: Math.min(b.offset, paraLength(st.paras[b.para])) } });
+      }
+    }
+    if (!ranges.length) {
+      if (cellOnly) {
+        this.selectFindHit(cellOnly.story, cellOnly.st, cellOnly.h);
+        return 1;
+      }
+      return 0;
+    }
+    if (!this.toBody()) return 0;
+    const main = ranges.pop();
+    this.floatSel = null;
+    this.selection = { anchor: main.start, focus: main.end };
+    this.setExtraSelection(ranges);
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    return ranges.length + 1;
+  }
+  /** Formatação da substituição → props de run. */
+  static findFormatPatch(f) {
+    if (!f) return {};
+    const p = {};
+    if (f.bold !== void 0) p.bold = f.bold;
+    if (f.italic !== void 0) p.italic = f.italic;
+    if (f.underline !== void 0) p.underline = f.underline;
+    if (f.strike !== void 0) p.strike = f.strike;
+    if (f.doubleStrike !== void 0) p.doubleStrike = f.doubleStrike;
+    if (f.allCaps !== void 0) p.allCaps = f.allCaps;
+    if (f.smallCaps !== void 0) p.smallCaps = f.smallCaps;
+    if (f.hidden !== void 0) p.hidden = f.hidden;
+    if (f.vertAlign !== void 0) p.vertAlign = f.vertAlign ?? void 0;
+    if (f.font !== void 0) p.fontAscii = f.font;
+    if (f.sizePt !== void 0) p.szHalfPt = Math.round(f.sizePt * 2);
+    if (f.color !== void 0) p.color = f.color.toUpperCase();
+    if (f.highlight !== void 0) p.highlight = f.highlight ? "yellow" : void 0;
+    if (f.charStyle !== void 0) p.charStyle = f.charStyle || void 0;
+    return p;
+  }
+  /** Troca UMA ocorrência no modelo em edição (corpo ou célula); devolve o fim do texto novo. */
+  replaceRange(range, found, groups, q, repl, rf) {
+    const { start, end } = normalizeRange(range);
+    const patch = _UniversalWriteElement.findFormatPatch(rf);
+    if (!q.text && !repl) {
+      if (Object.keys(patch).length) this.applyRunOne({ start, end }, patch);
+      if (rf?.paraStyle) for (let p = start.para; p <= end.para; p++) this.setParaStyleAt(p, rf.paraStyle);
+      return end;
+    }
+    const first = comparePos(start, end) !== 0 ? { ...propsAt(this.model, { para: start.para, offset: start.offset + 1 }) } : { ...this.currentProps() };
+    let text = expandReplacement(repl, found, groups, !!q.wildcards, this.clipboardText());
+    if (!q.matchCase && !q.wildcards) text = adaptCase(found, text);
+    this.selection = { anchor: start, focus: end };
+    let pos = comparePos(start, end) !== 0 ? this.deleteSelection() : start;
+    const props = { ...withoutRevisions(first), ...patch };
+    const p0 = pos.para;
+    text.split("\r").forEach((part, i) => {
+      if (i > 0) {
+        this.shiftAnchors(pos.para, 1);
+        pos = this.splitAt(pos);
+      }
+      if (part) pos = this.insertTyped(pos, part, props);
+    });
+    if (rf?.paraStyle) for (let p = p0; p <= pos.para; p++) this.setParaStyleAt(p, rf.paraStyle);
+    return pos;
+  }
+  /** Estilo de parágrafo de um parágrafo do modelo em edição (substituir com estilo). */
+  setParaStyleAt(para3, styleId) {
+    const len2 = paraLength(this.model.paragraphs[para3]);
+    this.applyPara({ start: { para: para3, offset: 0 }, end: { para: para3, offset: len2 } }, { styleId });
+  }
+  /** Texto da área de transferência (^c): o último recorte/cópia do editor. */
+  clipboardText() {
+    return OFFICE_CLIPBOARD.clip?.text ?? "";
+  }
+  /**
+   * Substituir: se a seleção é uma ocorrência, troca-a (texto, especiais, caixa adaptada,
+   * formatação) e vai à próxima; senão só localiza. `replaceFormat`: a formatação do texto novo.
+   */
+  replaceMatch(q, replacement, o = {}) {
+    const err = this.findQueryError(q);
+    if (err) return { found: false, replaced: false, error: err };
+    if (this.locked() || this.isProtected()) return { found: false, replaced: false };
+    const stories = this.findStories();
+    const texts = stories.map((s) => storyText(s.paras));
+    const cur = this.findCursor(stories, texts);
+    const st = texts[cur.story];
+    const hit = st && this.hasSelection() ? findAll(st, q, this.findEnv()).find((h) => h.start === cur.from && h.end === cur.to) : void 0;
+    if (!hit || !st) return { ...this.findNextMatch(q, o), replaced: false };
+    this.snapshot();
+    const range = normalizeRange(this.range());
+    const pos = this.replaceRange(range, foundText(st, hit), hit.groups, q, replacement, o.replaceFormat);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    const next = this.findNextMatch(q, o);
+    if (!next.found) {
+      this.selection = { anchor: pos, focus: pos };
+      this.refreshSelection();
+    }
+    return { ...next, replaced: true };
+  }
+  /**
+   * Substituir Tudo (corpo e tabelas, ou só na seleção): um passo de desfazer; o texto novo
+   * não é procurado de novo. Devolve quantas trocou (ou o erro do padrão).
+   */
+  replaceAllMatches(q, replacement, o = {}) {
+    const err = this.findQueryError(q);
+    if (err) return { count: 0, error: err };
+    if (this.locked() || this.isProtected()) return { count: 0 };
+    const groups = this.collectMatches(q, o).filter((g) => g.hits.length);
+    if (!groups.length) return { count: 0 };
+    const keep = { cell: this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops } : null, sel: this.selection };
+    this.snapshot();
+    let count = 0;
+    {
+      for (const { story, st, hits } of [...groups].reverse()) {
+        if (story.kind === "body") {
+          this.toBody();
+        } else {
+          if (this.hfEdit || this.tbEdit || this.noteEdit) this.toBody();
+          if (!this.enterCell(story.anchor, story.hops, { para: 0, offset: 0 }, false)) continue;
+        }
+        const base = story.kind === "body" ? story.first : 0;
+        for (const h of [...hits].reverse()) {
+          const a = posOf(st, h.start), b = posOf(st, h.end);
+          const lastP = st.paras.length - 1;
+          if (b.para === lastP && b.offset > paraLength(st.paras[lastP])) b.offset = paraLength(st.paras[lastP]);
+          this.replaceRange({ start: { para: base + a.para, offset: a.offset }, end: { para: base + b.para, offset: b.offset } }, foundText(st, h), h.groups, q, replacement, o.replaceFormat);
+          count++;
+        }
+        if (story.kind === "cell") this.exitCell();
+      }
+    }
+    this.toBody();
+    if (keep.cell) this.enterCell(keep.cell.anchor, keep.cell.hops, { para: 0, offset: 0 }, false);
+    const clamp = (p) => {
+      const ps = this.model.paragraphs;
+      const para3 = Math.min(p.para, ps.length - 1);
+      return { para: para3, offset: Math.min(p.offset, paraLength(ps[para3])) };
+    };
+    const c = clamp(keep.sel.focus);
+    this.selection = { anchor: c, focus: c };
+    this.refresh();
+    return { count };
+  }
+  /**
+   * Ir para (Localizar e Substituir › Ir para, Ctrl+G/F5): página, seção, linha, indicador,
+   * comentário, nota de rodapé/fim, campo, tabela, gráfico, equação, objeto ou título. `target`:
+   * número ("5"), deslocamento ("+2", "-1"), vazio = o próximo; no indicador o nome; no campo o
+   * nome do campo (vazio = qualquer); no comentário o revisor (vazio = qualquer).
+   */
+  goTo(what, target = "") {
+    if (!this.model) return false;
+    const t = target.trim();
+    const rel = /^[+-]\d*$/.test(t) ? t.length > 1 ? parseInt(t, 10) : t[0] === "-" ? -1 : 1 : t === "" ? 1 : null;
+    const abs = rel === null && /^\d+$/.test(t) ? parseInt(t, 10) : null;
+    const pick = (list, cur) => {
+      if (!list.length) return void 0;
+      if (abs !== null) return list[Math.min(list.length, Math.max(1, abs)) - 1];
+      const r = rel ?? 1;
+      const i = r > 0 ? Math.floor(cur) + r : Math.ceil(cur) + r;
+      return list[Math.min(list.length - 1, Math.max(0, i))];
+    };
+    const body = this.bodyState();
+    const focus = this.cellEdit ? { para: body.tableAnchors[this.cellEdit.anchor]?.beforePara ?? 0, offset: 0 } : this.selection.focus;
+    const curIn = (ps) => {
+      let k = -0.5;
+      for (let i = 0; i < ps.length; i++) {
+        const c = comparePos(ps[i], focus);
+        if (c === 0) return i;
+        if (c < 0) k = i + 0.5;
+      }
+      return k === -0.5 ? -1 + 0.5 : k;
+    };
+    const caretTo = (p, sel) => {
+      if (!this.toBody()) return false;
+      this.floatSel = null;
+      this.selection = { anchor: p, focus: sel ?? p };
+      this.pendingProps = null;
+      this.refreshSelection();
+      this.revealCaret(true);
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      return true;
+    };
+    switch (what) {
+      case "page": {
+        const n = this.eng?.result.pages.length ?? this.pageCount;
+        if (!n) return false;
+        const cur = this.currentPageOfCaret();
+        const page2 = abs !== null ? Math.min(n, Math.max(1, abs)) - 1 : Math.min(n - 1, Math.max(0, cur + (rel ?? 1)));
+        this.goToPage(page2);
+        return true;
+      }
+      case "line": {
+        const lines = (this.eng?.lines ?? []).filter((l2) => l2.loc.kind === "body");
+        if (!lines.length) return false;
+        const ci = lines.findIndex((l2) => l2.loc.kind === "body" && l2.loc.para === focus.para && focus.offset >= l2.line.start && (focus.offset < l2.line.end || l2 === lines.filter((x) => x.loc.kind === "body" && x.loc.para === focus.para).pop()));
+        const l = pick(lines, ci < 0 ? -0.5 : ci);
+        return !!l && l.loc.kind === "body" && caretTo({ para: l.loc.para, offset: l.line.start });
+      }
+      case "section": {
+        const starts = body.sectionStarts.map((s) => ({ para: s.startPara, offset: 0 }));
+        const p = pick(starts, curIn(starts));
+        return !!p && caretTo(p);
+      }
+      case "heading": {
+        const hs = this.getHeadings();
+        const ps = hs.map((h) => ({ para: h.para, offset: 0 }));
+        const p = pick(ps, curIn(ps));
+        return !!p && caretTo(p);
+      }
+      case "bookmark": {
+        if (!t) return false;
+        return this.goToBookmark(t);
+      }
+      case "comment": {
+        const out = [];
+        const seen = /* @__PURE__ */ new Set();
+        const byAuthor = new Map(this.getComments().map((c2) => [c2.id, c2.author ?? ""]));
+        body.model.paragraphs.forEach((p, pi) => {
+          let off = 0;
+          for (const r of p.runs) {
+            for (const id of r.props.commentIds ?? []) {
+              if (seen.has(id)) continue;
+              seen.add(id);
+              if (rel === null && abs === null && t && byAuthor.get(id) !== t) continue;
+              out.push({ id, pos: { para: pi, offset: off } });
+            }
+            off += r.text.length;
+          }
+        });
+        const c = pick(out, curIn(out.map((x) => x.pos)));
+        if (!c) return false;
+        this.toBody();
+        this.goToComment(c.id);
+        return true;
+      }
+      case "footnote":
+      case "endnote": {
+        const out = [];
+        body.model.paragraphs.forEach((p, pi) => {
+          let off = 0;
+          for (const r of p.runs) {
+            if (r.noteRef?.kind === what) out.push({ id: r.noteRef.id, pos: { para: pi, offset: off } });
+            off += r.text.length;
+          }
+        });
+        const n = pick(out, curIn(out.map((x) => x.pos)));
+        return !!n && caretTo(n.pos);
+      }
+      case "field":
+      case "table":
+      case "graphic":
+      case "equation":
+      case "object": {
+        const out = [];
+        if (what === "table") {
+          const tabs = body.tableAnchors.map((a, ai) => ({ a, ai })).sort((x, y) => x.a.beforePara - y.a.beforePara);
+          const ps = tabs.map((x) => ({ para: x.a.beforePara, offset: 0 }));
+          const k = pick(tabs, curIn(ps));
+          if (!k) return false;
+          this.toBody();
+          if (!this.enterCell(k.ai, [{ r: 0, c: k.a.table.rows[0]?.trPr?.gridBefore ?? 0 }], { para: 0, offset: 0 })) return false;
+          this.revealCaret(true);
+          this.onSelectionChange?.();
+          this.chromeSync?.();
+          return true;
+        }
+        const name = rel === null && abs === null ? t.toUpperCase() : "";
+        body.model.paragraphs.forEach((p2, pi) => {
+          let off = 0;
+          for (const r of p2.runs) {
+            const instr = r.field ?? r.fieldBegin;
+            const isField = !!(r.field || r.fieldBegin || r.fieldResult || r.formField);
+            const ok = what === "field" ? isField && (!name || (instr ?? "").trim().split(/\s+/)[0]?.toUpperCase() === name) : what === "graphic" ? !!(r.image || r.shape || r.group) && !r.image?.ole : what === "equation" ? !!(r.math || r.props.isMath) : !!r.image?.ole;
+            if (ok && !(out.length && comparePos(out[out.length - 1], { para: pi, offset: off }) === 0)) out.push({ para: pi, offset: off });
+            off += r.text.length;
+          }
+        });
+        const p = pick(out, curIn(out));
+        if (!p) return false;
+        const len2 = (() => {
+          let o = 0;
+          for (const r of body.model.paragraphs[p.para].runs) {
+            if (o === p.offset) return r.text.length;
+            o += r.text.length;
+          }
+          return 0;
+        })();
+        return caretTo(p, what === "field" ? void 0 : { para: p.para, offset: p.offset + len2 });
+      }
+    }
+    return false;
+  }
+  /** Página do cursor (índice). */
+  currentPageOfCaret() {
+    const line = this.lineOf(this.selection.focus);
+    return line?.page ?? this.currentPage();
   }
   /** Realce das ocorrências da busca (adorno de tela, como o "Realçar tudo" do Word). */
   paintSearchHits(ctx, pg) {
@@ -18574,11 +22618,95 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
     this.formatPara({ borders: Object.keys(out).length ? out : void 0, boxBorder: void 0 });
   }
+  /**
+   * Botão Bordas da Página Inicial nos parágrafos da seleção (medido no Word): cada item
+   * liga os lados dele (simples, ½ pt, automática; afastamento 1 pt em cima/embaixo/entre e
+   * 4 pt dos lados) ou, se TODOS os parágrafos já os têm, tira; 'none' tira tudo; 'inside'
+   * e 'insideH' = entre parágrafos (w:between); 'insideV' = barra (w:bar).
+   */
+  paragraphBorderPreset(kind) {
+    if (!this.model || this.locked()) return;
+    if (kind === "none") {
+      this.setParagraphBorders(null);
+      return;
+    }
+    const sides = {
+      bottom: ["bottom"],
+      top: ["top"],
+      left: ["left"],
+      right: ["right"],
+      all: ["top", "left", "bottom", "right", "between"],
+      outside: ["top", "left", "bottom", "right"],
+      inside: ["between"],
+      insideH: ["between"],
+      insideV: ["bar"]
+    }[kind];
+    const { start, end } = normalizeRange(this.range());
+    const paras = this.model.paragraphs.slice(start.para, end.para + 1);
+    const has = paras.every((p) => sides.every((s) => !!p.props.borders?.[s]));
+    this.snapshot();
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi];
+      const out = { ...p.props.borders ?? {} };
+      for (const s of sides) {
+        if (has) delete out[s];
+        else out[s] = { style: "single", sizeEighthPt: 4, spacePt: s === "left" || s === "right" ? 4 : s === "bar" ? 0 : 1 };
+      }
+      const at = { para: pi, offset: 0 };
+      this.applyPara({ start: at, end: at }, { borders: Object.keys(out).length ? out : void 0, boxBorder: void 0 });
+    }
+    this.refresh();
+  }
+  /** Quais lados de borda TODOS os parágrafos da seleção têm (estado do botão Bordas). */
+  paragraphBorderSides() {
+    if (!this.model) return [];
+    const { start, end } = normalizeRange(this.range());
+    const paras = this.model.paragraphs.slice(start.para, end.para + 1);
+    return ["top", "left", "bottom", "right", "between", "bar"].filter((s) => paras.every((p) => !!p.props.borders?.[s]));
+  }
+  /**
+   * Linha Horizontal (botão Bordas): substitui a seleção pela linha que o Word insere —
+   * `<w:pict><v:rect style="width:0;height:1.5pt" o:hralign="center" o:hrstd="t" o:hr="t"
+   * fillcolor="#a0a0a0" stroked="f"/></w:pict>` — num parágrafo próprio.
+   */
+  insertHorizontalLine() {
+    if (!this.model || this.locked() || !this.canInsertField()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const pos2 = this.deleteSelection();
+      this.selection = { anchor: pos2, focus: pos2 };
+    }
+    let pos = this.selection.focus;
+    const p = this.model.paragraphs[pos.para];
+    if (pos.offset > 0) {
+      this.shiftAnchors(pos.para, 1);
+      pos = this.splitAt(pos);
+    }
+    const run2 = this.hrRun(p.runs[insertIndex(p, pos.offset)]?.props ?? this.currentProps());
+    const target = this.model.paragraphs[pos.para];
+    if (paraLength(target) > 0) {
+      this.shiftAnchors(pos.para, 1);
+      this.splitAt(pos);
+    }
+    this.model.paragraphs[pos.para].runs.splice(0, 0, run2);
+    const next = Math.min(pos.para + 1, this.model.paragraphs.length - 1);
+    this.selection = { anchor: { para: next, offset: 0 }, focus: { para: next, offset: 0 } };
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Run da linha horizontal VML (o mesmo XML do Word; o leitor o reconhece como o:hr). */
+  hrRun(props) {
+    const xml = '<w:pict><v:rect id="_x0000_i1025" style="width:0;height:1.5pt" o:hralign="center" o:hrstd="t" o:hr="t" fillcolor="#a0a0a0" stroked="f"/></w:pict>';
+    const p = this.newRunProps(props);
+    delete p.src;
+    return { text: "\uFFFC", props: p, shape: { style: { fill: "A0A0A0" }, widthTwips: 0, heightTwips: 30, hr: true, hrAlign: "center", rawVml: xml } };
+  }
   /** Bordas do parágrafo do cursor como specs (diálogo). */
   getParagraphBorders() {
     const b = this.model?.paragraphs[this.selection.focus.para]?.props.borders;
     const out = {};
-    for (const side of ["top", "left", "bottom", "right"]) {
+    for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
       const e = b?.[side];
       if (e) out[side] = { val: e.style, sz: e.sizeEighthPt, space: e.spacePt, color: e.color ?? "auto" };
     }
@@ -18943,11 +23071,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Texto e HTML de uma tabela (células por tabulação, linhas por quebra — como o Word põe no texto). */
   static tableClipText(t) {
-    const esc3 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc4 = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const text = t.rows.map((row) => row.cells.map((c) => cellText(c).replace(/\n/g, " ")).join("	")).join("\n");
     const html = '<table border="1" style="border-collapse:collapse">' + t.rows.map((row) => "<tr>" + row.cells.map((c) => {
       const span = (c.tcPr?.gridSpan ?? 1) > 1 ? ` colspan="${c.tcPr.gridSpan}"` : "";
-      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc3(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
+      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc4(p.runs.map((r) => r.text).join(""))}</p>`).join("")}</td>`;
     }).join("") + "</tr>").join("") + "</table>";
     return { text, html };
   }
@@ -20788,7 +24916,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               ...italic && !vi ? { synthItalic: true } : {},
               ...standIn ? { standIn: true } : {}
             };
-            const css = file.name === DEFAULT_FONT ? DEFAULT_FONT_CSS : `${cssFamily(file.name)}, ${DEFAULT_FONT_CSS}`;
+            const css = file.name === DEFAULT_FONT ? DEFAULT_FONT_CSS : `${cssFamily2(file.name)}, ${DEFAULT_FONT_CSS}`;
             this.engFaceCss.set(out, { family: css, weight: vb ? 700 : 400, italic: vi });
             break;
           }
@@ -21538,6 +25666,77 @@ customElements.define("universal-write", UniversalWriteElement);
 function bgKey(bg) {
   return JSON.stringify(bg, (_k, v) => v instanceof Uint8Array ? `#${v.length}:${v[0]}:${v[v.length >> 1]}:${v[v.length - 1]}` : v);
 }
+function themeToW14(t) {
+  const m = { text1: "tx1", text2: "tx2", background1: "bg1", background2: "bg2", dark1: "tx1", light1: "bg1", dark2: "tx2", light2: "bg2", hyperlink: "hlink", followedHyperlink: "folHlink" };
+  return m[t] ?? t;
+}
+var SYMBOL_UNICODE = {
+  "symbol:b7": "\u2022",
+  "symbol:a8": "\u2666",
+  "symbol:a7": "\u2663",
+  "symbol:a9": "\u2665",
+  "symbol:aa": "\u2660",
+  "symbol:de": "\u21D2",
+  "symbol:ae": "\u2192",
+  "symbol:e0": "\u25CA",
+  "symbol:2d": "\u2212",
+  "symbol:b0": "\xB0",
+  "symbol:d7": "\u22C5",
+  "symbol:b4": "\xD7",
+  "wingdings:a7": "\u25AA",
+  "wingdings:76": "\u2756",
+  "wingdings:d8": "\u27A2",
+  "wingdings:fc": "\u2713",
+  "wingdings:6e": "\u25A0",
+  "wingdings:71": "\u2751",
+  "wingdings:6c": "\u25CF",
+  "wingdings:77": "\u2B25",
+  "wingdings:a8": "\u25FB",
+  "wingdings:46": "\u261E",
+  "wingdings:4a": "\u263A",
+  "wingdings:e8": "\u2794",
+  "wingdings:f0": "\u21E8",
+  "wingdings:9f": "\u2022",
+  "wingdings:a1": "\u25CB",
+  "wingdings:fb": "\u2717",
+  "wingdings:fe": "\u2611",
+  "wingdings:6f": "\u25A1",
+  "wingdings:75": "\u25C6",
+  "wingdings:aa": "\u2726"
+};
+function listLevelSpec(l) {
+  const ind = l.pPr?.ind;
+  const jc = l.lvlJc === "center" || l.lvlJc === "right" ? l.lvlJc : l.lvlJc === "end" ? "right" : "left";
+  const tab = l.pPr?.tabs?.find((t) => t.val === "num");
+  return {
+    ilvl: l.ilvl,
+    numFmt: l.numFmt ?? "decimal",
+    lvlText: l.lvlTextNull ? "" : l.lvlText ?? "",
+    ...l.rPr?.rFonts?.ascii ? { font: l.rPr.rFonts.ascii } : {},
+    ...l.rPr?.b ? { bold: true } : {},
+    ...l.rPr?.i ? { italic: true } : {},
+    ...l.rPr?.sz ? { sizePt: l.rPr.sz / 2 } : {},
+    ...l.rPr?.color?.val && l.rPr.color.val !== "auto" ? { color: l.rPr.color.val.toUpperCase() } : {},
+    start: l.start ?? (l.numFmt === "bullet" ? 1 : 0),
+    ...l.pStyle ? { pStyle: l.pStyle } : {},
+    indLeft: ind?.left ?? 0,
+    hanging: ind?.hanging ?? (ind?.firstLine !== void 0 ? -ind.firstLine : 0),
+    jc,
+    suff: l.suff ?? "tab",
+    ...tab ? { tabPos: tab.pos } : {},
+    ...l.isLgl ? { isLgl: true } : {},
+    ...l.lvlRestart !== void 0 ? { lvlRestart: l.lvlRestart } : {}
+  };
+}
+var escAttr = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function levelXmlOf(l) {
+  const ind = l.hanging >= 0 ? `<w:ind w:left="${Math.round(l.indLeft)}" w:hanging="${Math.round(l.hanging)}"/>` : `<w:ind w:left="${Math.round(l.indLeft)}" w:firstLine="${Math.round(-l.hanging)}"/>`;
+  return `<w:lvl w:ilvl="${l.ilvl}"><w:start w:val="${l.start ?? 1}"/><w:numFmt w:val="${escAttr(l.numFmt)}"/>` + (l.lvlRestart !== void 0 ? `<w:lvlRestart w:val="${l.lvlRestart}"/>` : "") + (l.pStyle ? `<w:pStyle w:val="${escAttr(l.pStyle)}"/>` : "") + (l.isLgl ? "<w:isLgl/>" : "") + (l.suff && l.suff !== "tab" ? `<w:suff w:val="${l.suff}"/>` : "") + `<w:lvlText w:val="${escAttr(l.lvlText)}"/><w:lvlJc w:val="${l.jc ?? "left"}"/><w:pPr>` + (l.tabPos !== void 0 ? `<w:tabs><w:tab w:val="num" w:pos="${Math.round(l.tabPos)}"/></w:tabs>` : "") + `${ind}</w:pPr>` + levelRPrXml(l) + "</w:lvl>";
+}
+function levelRPrXml(l) {
+  const x = (l.font ? `<w:rFonts w:ascii="${escAttr(l.font)}" w:hAnsi="${escAttr(l.font)}" w:hint="default"/>` : "") + (l.bold ? "<w:b/>" : "") + (l.italic ? "<w:i/>" : "") + (l.color && /^[0-9A-Fa-f]{6}$/.test(l.color) ? `<w:color w:val="${l.color.toUpperCase()}"/>` : "") + (l.sizePt ? `<w:sz w:val="${Math.round(l.sizePt * 2)}"/>` : "");
+  return x ? `<w:rPr>${x}</w:rPr>` : "";
+}
 
 // src/mention-plugin.ts
 var LABELS = {
@@ -21785,7 +25984,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-GA4WTEYD.js");
+  const { appFor } = await import("./chunks/chrome-app-JCJLSAF4.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

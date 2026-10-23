@@ -1,6 +1,6 @@
 import {
   subsetTrueType
-} from "./chunk-HQOG44SJ.js";
+} from "./chunk-UC6Y52LZ.js";
 import {
   DEFAULT_RUN_PROPS,
   WORD_PATTERNS,
@@ -15,7 +15,7 @@ import {
   runPropsFromRPr,
   unzlibSync,
   zlibSync
-} from "./chunk-FUFLN7IJ.js";
+} from "./chunk-C7GS7HND.js";
 
 // ../../../shared/drawingml/src/preset-defs.ts
 var PRESET_DEFS = {
@@ -1392,7 +1392,7 @@ function shadeBevel(rgba, sil, b) {
   for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) dist[r * W + c] = pd[(r + 1) * (W + 2) + c + 1];
   const sm = gaussianBlur({ w: W, h: H, a: dist }, 1.2).a;
   const hw = b.h / b.w;
-  const L = new Float32Array(4), face = new Float32Array(4);
+  const L2 = new Float32Array(4), face = new Float32Array(4);
   if (wt) {
     const o = 24 * 25 * 2 - 2;
     face[0] = face[1] = face[2] = wt[o] * 0.02;
@@ -1409,12 +1409,12 @@ function shadeBevel(rgba, sil, b) {
         const gx = g(c + 1, r - 1) + 2 * g(c + 1, r) + g(c + 1, r + 1) - g(c - 1, r - 1) - 2 * g(c - 1, r) - g(c - 1, r + 1);
         const gy = g(c - 1, r + 1) + 2 * g(c, r + 1) + g(c + 1, r + 1) - g(c - 1, r - 1) - 2 * g(c, r - 1) - g(c + 1, r - 1);
         const th = Math.atan2(-gy, -gx) * 180 / Math.PI;
-        if (wt) wordLight(wt, th, d / b.w, L);
+        if (wt) wordLight(wt, th, d / b.w, L2);
         else {
           const ph = bevelPhi(b.prst, d / b.w, hw);
-          lightAt(tab, b.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L);
+          lightAt(tab, b.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L2);
         }
-        lt = L;
+        lt = L2;
       }
       const o = i * 4;
       for (let k = 0; k < 3; k++) {
@@ -1425,6 +1425,141 @@ function shadeBevel(rgba, sil, b) {
     }
   }
 }
+
+// src/text-effects-presets.ts
+var L = (en, pt) => ({ en, pt });
+var scheme = (s, ...mods) => ({ scheme: s, ...mods.length ? { mods } : {} });
+var rgb = (v, ...mods) => ({ rgb: v, ...mods.length ? { mods } : {} });
+var solid = (c) => ({ type: "solid", color: c });
+var shadow = (blurRad, dist, dir, algn, transp, o = {}) => ({ blurRad, dist, dir, sx: 1e5, sy: 1e5, kx: 0, ky: 0, algn, color: rgb("000000", ["alpha", transp]), ...o });
+var TEXT_SHADOW_PRESETS = [
+  { id: "outer-br", group: "outer", label: L("Offset: Bottom Right", "Deslocamento: Inferior Direito"), shadow: shadow(50800, 38100, 27e5, "tl", 6e4) },
+  { id: "outer-b", group: "outer", label: L("Offset: Bottom", "Deslocamento: Inferior"), shadow: shadow(50800, 38100, 54e5, "t", 6e4) },
+  { id: "outer-bl", group: "outer", label: L("Offset: Bottom Left", "Deslocamento: Inferior Esquerdo"), shadow: shadow(50800, 38100, 81e5, "tr", 6e4) },
+  { id: "outer-r", group: "outer", label: L("Offset: Right", "Deslocamento: Direita"), shadow: shadow(50800, 38100, 0, "l", 6e4) },
+  { id: "outer-c", group: "outer", label: L("Offset: Center", "Deslocamento: Centro"), shadow: shadow(63500, 0, 0, "ctr", 6e4, { sx: 102e3, sy: 102e3 }) },
+  { id: "outer-l", group: "outer", label: L("Offset: Left", "Deslocamento: Esquerda"), shadow: shadow(50800, 38100, 108e5, "r", 6e4) },
+  { id: "outer-tr", group: "outer", label: L("Offset: Top Right", "Deslocamento: Superior Direito"), shadow: shadow(50800, 38100, 189e5, "bl", 6e4) },
+  { id: "outer-t", group: "outer", label: L("Offset: Top", "Deslocamento: Superior"), shadow: shadow(50800, 38100, 162e5, "b", 6e4) },
+  { id: "outer-tl", group: "outer", label: L("Offset: Top Left", "Deslocamento: Superior Esquerdo"), shadow: shadow(50800, 38100, 135e5, "br", 6e4) },
+  { id: "persp-ul", group: "persp", label: L("Perspective: Upper Left", "Perspectiva: Superior Esquerda"), shadow: shadow(76200, 310007, 768e4, "ctr", 8e4, { sy: 3e4, kx: 1300200 }) },
+  { id: "persp-ur", group: "persp", label: L("Perspective: Upper Right", "Perspectiva: Superior Direita"), shadow: shadow(76200, 200025, 15e6, "bl", 8e4, { sy: 3e4, kx: -18e5 }) },
+  { id: "persp-below", group: "persp", label: L("Perspective: Below", "Perspectiva: Abaixo"), shadow: shadow(76200, 38100, 54e5, "b", 8e4, { sy: -2e4 }) },
+  { id: "persp-ll", group: "persp", label: L("Perspective: Lower Left", "Perspectiva: Inferior Esquerda"), shadow: shadow(76200, 0, 15e5, "bl", 8e4, { sy: -3e4, kx: 800400 }) },
+  { id: "persp-lr", group: "persp", label: L("Perspective: Lower Right", "Perspectiva: Inferior Direita"), shadow: shadow(76200, 0, 2000400, "bl", 8e4, { sy: -3e4, kx: -800400 }) }
+];
+var refl = (stA, endA, endPos, dist) => ({ blurRad: 6350, stA, stPos: 0, endA, endPos, dist, dir: 54e5, fadeDir: 54e5, sx: 1e5, sy: -1e5, kx: 0, ky: 0, algn: "bl" });
+var TEXT_REFLECTION_PRESETS = [
+  { id: "tight-touch", label: L("Tight Reflection: Touching", "Reflexo Justo: Encostado"), reflection: refl(55e3, 300, 45500, 0) },
+  { id: "half-touch", label: L("Half Reflection: Touching", "Meio Reflexo: Encostado"), reflection: refl(6e4, 900, 58e3, 0) },
+  { id: "full-touch", label: L("Full Reflection: Touching", "Reflexo Total: Encostado"), reflection: refl(55e3, 50, 85e3, 0) },
+  { id: "tight-4", label: L("Tight Reflection: 4 pt offset", "Reflexo Justo: Deslocamento de 4 pt"), reflection: refl(5e4, 300, 5e4, 29997) },
+  { id: "half-4", label: L("Half Reflection: 4 pt offset", "Meio Reflexo: Deslocamento de 4 pt"), reflection: refl(6e4, 900, 6e4, 29997) },
+  { id: "full-4", label: L("Full Reflection: 4 pt offset", "Reflexo Total: Deslocamento de 4 pt"), reflection: refl(55e3, 50, 85e3, 29997) },
+  { id: "tight-8", label: L("Tight Reflection: 8 pt offset", "Reflexo Justo: Deslocamento de 8 pt"), reflection: refl(5e4, 300, 5e4, 60007) },
+  { id: "half-8", label: L("Half Reflection: 8 pt offset", "Meio Reflexo: Deslocamento de 8 pt"), reflection: refl(6e5, 900, 6e4, 60007) },
+  { id: "full-8", label: L("Full Reflection: 8 pt offset", "Reflexo Total: Deslocamento de 8 pt"), reflection: refl(55e3, 50, 85e3, 60007) }
+];
+var TEXT_GLOW_SIZES = [63500, 101600, 139700, 228600];
+var textGlow = (rad, color2) => ({ rad, color: { ...color2, mods: [...(color2.mods ?? []).filter(([k]) => k !== "alpha"), ["alpha", 6e4]] } });
+var OUTLINE_WEIGHTS = [0.25, 0.5, 0.75, 1, 1.5, 2.25, 3, 4.5, 6];
+var OUTLINE_DASHES = [
+  ["solid", L("Solid", "S\xF3lido")],
+  ["sysDot", L("Round Dot", "Ponto Arredondado")],
+  ["sysDash", L("Square Dot", "Ponto Quadrado")],
+  ["dash", L("Dash", "Tra\xE7o")],
+  ["dashDot", L("Dash Dot", "Tra\xE7o Ponto")],
+  ["lgDash", L("Long Dash", "Tra\xE7o Longo")],
+  ["lgDashDot", L("Long Dash Dot", "Tra\xE7o Longo Ponto")],
+  ["lgDashDotDot", L("Long Dash Dot Dot", "Tra\xE7o Longo Ponto Ponto")]
+];
+var outline = (c, wPt = 0.75, dash = "solid") => ({ w: Math.round(wPt * 12700), cap: "flat", cmpd: "sng", algn: "ctr", fill: solid(c), dash, join: "round" });
+var GRADIENT_DIRECTIONS = [
+  [90, L("Linear Down", "Linear para Baixo")],
+  [0, L("Linear Right", "Linear \xE0 Direita")],
+  [270, L("Linear Up", "Linear para Cima")],
+  [180, L("Linear Left", "Linear \xE0 Esquerda")]
+];
+function textGradient(color2, angleDeg, light) {
+  const other = { ...color2, mods: [...color2.mods ?? [], ...light ? [["lumMod", 2e4], ["lumOff", 8e4]] : [["lumMod", 5e4]]] };
+  return { type: "grad", stops: [{ pos: 0, color: color2 }, { pos: 1e5, color: other }], lin: { ang: Math.round(angleDeg * 6e4), scaled: false } };
+}
+var TEXT_EFFECT_GALLERY = [
+  {
+    label: L("Fill: Black, Text color 1; Shadow", "Preenchimento: Preto, Cor do texto 1; Sombra"),
+    fx: { fill: solid(scheme("tx1")), shadow: { blurRad: 38100, dist: 19050, dir: 27e5, sx: 1e5, sy: 1e5, kx: 0, ky: 0, algn: "tl", color: scheme("dk1", ["alpha", 6e4]) } }
+  },
+  {
+    label: L("Fill: Blue, Accent color 1; Shadow", "Preenchimento: Azul, Cor de destaque 1; Sombra"),
+    fx: { fill: solid(scheme("accent1")), shadow: { blurRad: 38100, dist: 19050, dir: 27e5, sx: 1e5, sy: 1e5, kx: 0, ky: 0, algn: "tl", color: scheme("dk1", ["alpha", 6e4]) } }
+  },
+  {
+    label: L("Fill: Orange, Accent color 2; Outline: Orange, Accent color 2", "Preenchimento: Laranja, Cor de destaque 2; Contorno: Laranja, Cor de destaque 2"),
+    fx: { fill: solid(scheme("bg1")), outline: outline(scheme("accent2"), 0.75) }
+  },
+  {
+    label: L("Fill: White; Outline: Blue, Accent color 1; Glow: Blue, Accent color 1", "Preenchimento: Branco; Contorno: Azul, Cor de destaque 1; Brilho: Azul, Cor de destaque 1"),
+    fx: { fill: solid(scheme("bg1")), outline: outline(scheme("accent1"), 0.5), glow: textGlow(63500, scheme("accent1")) }
+  },
+  {
+    label: L("Fill: Gold, Accent color 4; Soft Bevel", "Preenchimento: Dourado, Cor de destaque 4; Bisel Suave"),
+    fx: { fill: solid(scheme("accent4")), props3d: '<w14:props3d w14:extrusionH="0" w14:contourW="0" w14:prstMaterial="none"><w14:bevelT w14:w="38100" w14:h="38100" w14:prst="softRound"/></w14:props3d>' }
+  },
+  {
+    label: L("Gradient Fill: Gray", "Preenchimento Gradiente: Cinza"),
+    fx: { fill: { type: "grad", stops: [{ pos: 0, color: scheme("tx1", ["lumMod", 65e3], ["lumOff", 35e3]) }, { pos: 1e5, color: scheme("tx1") }], lin: { ang: 54e5, scaled: false } } }
+  },
+  {
+    label: L("Gradient Fill: Blue, Accent color 1; Reflection", "Preenchimento Gradiente: Azul, Cor de destaque 1; Reflexo"),
+    fx: { fill: textGradient(scheme("accent1"), 90, false), reflection: refl(55e3, 300, 45500, 0) }
+  },
+  {
+    label: L("Fill: White; Outline: Orange, Accent color 2; Glow: Orange, Accent color 2", "Preenchimento: Branco; Contorno: Laranja, Cor de destaque 2; Brilho: Laranja, Cor de destaque 2"),
+    fx: { fill: solid(scheme("bg1")), outline: outline(scheme("accent2"), 0.5), glow: textGlow(63500, scheme("accent2")) }
+  },
+  {
+    label: L("Fill: Black, Text color 1; Outline: White; Glow: Black", "Preenchimento: Preto, Cor do texto 1; Contorno: Branco; Brilho: Preto"),
+    fx: { fill: solid(scheme("tx1")), outline: outline(scheme("bg1"), 0.5), glow: textGlow(101600, scheme("tx1")) }
+  },
+  {
+    label: L("Fill: Blue, Accent color 1; Shadow; Reflection", "Preenchimento: Azul, Cor de destaque 1; Sombra; Reflexo"),
+    fx: { fill: solid(scheme("accent1")), shadow: TEXT_SHADOW_PRESETS[0].shadow, reflection: refl(55e3, 300, 45500, 0) }
+  },
+  {
+    label: L("Fill: White; Outline: Gray", "Preenchimento: Branco; Contorno: Cinza"),
+    fx: { fill: solid(scheme("bg1")), outline: outline(scheme("tx1", ["lumMod", 5e4], ["lumOff", 5e4]), 1) }
+  },
+  {
+    label: L("Fill: Green, Accent color 6; Glow", "Preenchimento: Verde, Cor de destaque 6; Brilho"),
+    fx: { fill: solid(scheme("accent6")), glow: textGlow(101600, scheme("accent6")) }
+  },
+  {
+    label: L("Fill: Gray-50%, Accent color 3; Sharp Bevel", "Preenchimento: Cinza-50%, Cor de destaque 3; Bisel Agudo"),
+    fx: { fill: solid(scheme("accent3")), props3d: '<w14:props3d w14:extrusionH="0" w14:contourW="0" w14:prstMaterial="none"><w14:bevelT w14:w="38100" w14:h="38100" w14:prst="angle"/></w14:props3d>' }
+  },
+  {
+    label: L("Gradient Fill: Gold, Accent color 4; Outline: Gold", "Preenchimento Gradiente: Dourado, Cor de destaque 4; Contorno: Dourado"),
+    fx: { fill: textGradient(scheme("accent4"), 90, true), outline: outline(scheme("accent4"), 0.5) }
+  },
+  {
+    label: L("Fill: Light Blue, Background color 2; Inner Shadow", "Preenchimento: Azul Claro, Cor do plano de fundo 2; Sombra"),
+    fx: { fill: solid(scheme("bg2", ["lumMod", 75e3])), shadow: TEXT_SHADOW_PRESETS[1].shadow }
+  }
+];
+var NUMBER_STYLES_OT = [
+  { id: "default", label: L("Default", "Padr\xE3o"), numForm: "default", numSpacing: "default" },
+  { id: "propLining", label: L("Proportional Lining", "Alinhado Proporcional"), numForm: "lining", numSpacing: "proportional" },
+  { id: "propOld", label: L("Proportional Old-style", "Estilo Antigo Proporcional"), numForm: "oldStyle", numSpacing: "proportional" },
+  { id: "tabLining", label: L("Tabular Lining", "Alinhado Tabular"), numForm: "lining", numSpacing: "tabular" },
+  { id: "tabOld", label: L("Tabular Old-style", "Estilo Antigo Tabular"), numForm: "oldStyle", numSpacing: "tabular" }
+];
+var LIGATURE_OPTIONS = [
+  { val: "none", label: L("None", "Nenhuma") },
+  { val: "standard", label: L("Standard Only", "Somente Padr\xE3o") },
+  { val: "standardContextual", label: L("Standard and Contextual", "Padr\xE3o e Contextual") },
+  { val: "historicalDiscretional", label: L("Historical and Discretionary", "Hist\xF3rica e Discricion\xE1ria") },
+  { val: "all", label: L("All", "Todas") }
+];
 
 // src/page-design.ts
 var GRADIENT_VARIANTS = {
@@ -1501,8 +1636,8 @@ var up = (v) => v <= 0.5 ? 0 : Math.ceil(v / STEP - 1e-6) * STEP;
 function effectExtentOf(f) {
   const { cx, cy } = f;
   let l = 0, t = 0, r = 0, b = 0;
-  const grow = (L, T4, R, B2) => {
-    l = Math.max(l, L);
+  const grow = (L2, T4, R, B2) => {
+    l = Math.max(l, L2);
     t = Math.max(t, T4);
     r = Math.max(r, R);
     b = Math.max(b, B2);
@@ -1797,7 +1932,7 @@ var SHADOW_PRESETS = [
   { id: "persp-ll", group: "persp", label: { en: "Perspective: Lower Left", pt: "Perspectiva: Inferior Esquerda" }, shadow: { kind: "outer", blurRad: 76200, dist: 12700, dir: 81e5, sy: -23e3, kx: 800400, algn: "br", color: black(2e4) } },
   { id: "persp-lr", group: "persp", label: { en: "Perspective: Lower Right", pt: "Perspectiva: Inferior Direita" }, shadow: { kind: "outer", blurRad: 76200, dist: 12700, dir: 27e5, sy: -23e3, kx: -800400, algn: "bl", color: black(2e4) } }
 ];
-var refl = (stA, endA, endPos, dist) => ({
+var refl2 = (stA, endA, endPos, dist) => ({
   blurRad: 6350,
   stA,
   endA,
@@ -1809,15 +1944,15 @@ var refl = (stA, endA, endPos, dist) => ({
   rotWithShape: false
 });
 var REFLECTION_PRESETS = [
-  { id: "tight-touch", label: { en: "Tight Reflection: Touching", pt: "Reflexo Justo: Encostado" }, reflection: refl(52e3, 300, 35e3) },
-  { id: "half-touch", label: { en: "Half Reflection: Touching", pt: "Meio Reflexo: Encostado" }, reflection: refl(5e4, 300, 55e3) },
-  { id: "full-touch", label: { en: "Full Reflection: Touching", pt: "Reflexo Total: Encostado" }, reflection: refl(5e4, 300, 9e4) },
-  { id: "tight-4", label: { en: "Tight Reflection: 4 pt offset", pt: "Reflexo Justo: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 38500, 50800) },
-  { id: "half-4", label: { en: "Half Reflection: 4 pt offset", pt: "Meio Reflexo: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 55500, 50800) },
-  { id: "full-4", label: { en: "Full Reflection: 4 pt offset", pt: "Reflexo Total: Deslocamento de 4 pt" }, reflection: refl(5e4, 300, 9e4, 50800) },
-  { id: "tight-8", label: { en: "Tight Reflection: 8 pt offset", pt: "Reflexo Justo: Deslocamento de 8 pt" }, reflection: refl(5e4, 275, 4e4, 101600) },
-  { id: "half-8", label: { en: "Half Reflection: 8 pt offset", pt: "Meio Reflexo: Deslocamento de 8 pt" }, reflection: refl(5e4, 300, 55500, 101600) },
-  { id: "full-8", label: { en: "Full Reflection: 8 pt offset", pt: "Reflexo Total: Deslocamento de 8 pt" }, reflection: refl(5e4, 295, 92e3, 101600) }
+  { id: "tight-touch", label: { en: "Tight Reflection: Touching", pt: "Reflexo Justo: Encostado" }, reflection: refl2(52e3, 300, 35e3) },
+  { id: "half-touch", label: { en: "Half Reflection: Touching", pt: "Meio Reflexo: Encostado" }, reflection: refl2(5e4, 300, 55e3) },
+  { id: "full-touch", label: { en: "Full Reflection: Touching", pt: "Reflexo Total: Encostado" }, reflection: refl2(5e4, 300, 9e4) },
+  { id: "tight-4", label: { en: "Tight Reflection: 4 pt offset", pt: "Reflexo Justo: Deslocamento de 4 pt" }, reflection: refl2(5e4, 300, 38500, 50800) },
+  { id: "half-4", label: { en: "Half Reflection: 4 pt offset", pt: "Meio Reflexo: Deslocamento de 4 pt" }, reflection: refl2(5e4, 300, 55500, 50800) },
+  { id: "full-4", label: { en: "Full Reflection: 4 pt offset", pt: "Reflexo Total: Deslocamento de 4 pt" }, reflection: refl2(5e4, 300, 9e4, 50800) },
+  { id: "tight-8", label: { en: "Tight Reflection: 8 pt offset", pt: "Reflexo Justo: Deslocamento de 8 pt" }, reflection: refl2(5e4, 275, 4e4, 101600) },
+  { id: "half-8", label: { en: "Half Reflection: 8 pt offset", pt: "Meio Reflexo: Deslocamento de 8 pt" }, reflection: refl2(5e4, 300, 55500, 101600) },
+  { id: "full-8", label: { en: "Full Reflection: 8 pt offset", pt: "Reflexo Total: Deslocamento de 8 pt" }, reflection: refl2(5e4, 295, 92e3, 101600) }
 ];
 var SOFT_EDGE_PRESETS = [12700, 31750, 63500, 127e3, 317500, 635e3];
 var GLOW_SIZES = [63500, 101600, 139700, 228600];
@@ -1875,8 +2010,8 @@ var TEMPERATURE_PRESETS = [4700, 5300, 5900, 6500, 7200, 8800, 11200];
 var SHARPEN_PRESETS = [-5e4, -25e3, 0, 25e3, 5e4];
 var BRIGHT_CONTRAST_STEPS = [-4e4, -2e4, 0, 2e4, 4e4];
 var TRANSPARENCY_PRESETS = [0, 15, 30, 50, 65, 80, 95];
-var scheme = (val, mods = []) => ({ kind: "schemeClr", val, ...mods.length ? { mods } : {} });
-var darkOf = (val) => scheme(val, [["shade", 45e3], ["satMod", 135e3]]);
+var scheme2 = (val, mods = []) => ({ kind: "schemeClr", val, ...mods.length ? { mods } : {} });
+var darkOf = (val) => scheme2(val, [["shade", 45e3], ["satMod", 135e3]]);
 var RECOLOR_PRESETS = [
   { id: "none", group: "mode", label: { en: "No Recolor", pt: "Sem Recolorir" }, fx: {} },
   { id: "grayscale", group: "mode", label: { en: "Grayscale", pt: "Escala de Cinza" }, fx: { grayscl: true } },
@@ -2359,6 +2494,7 @@ function parseGsubLigatures(view, off) {
   const lookupList = off + u16(off + 8);
   const features = /* @__PURE__ */ new Map();
   const lookups = /* @__PURE__ */ new Map();
+  const singles = /* @__PURE__ */ new Map();
   let latn = -1, dflt = -1;
   for (let i = 0, n = u16(scriptList); i < n; i++) {
     const rec = scriptList + 2 + i * 6;
@@ -2395,12 +2531,22 @@ function parseGsubLigatures(view, off) {
     const lo = lookupList + u16(lookupList + 2 + li * 2);
     const type = u16(lo);
     const map = /* @__PURE__ */ new Map();
+    const one = /* @__PURE__ */ new Map();
     for (let s = 0, ns = u16(lo + 4); s < ns; s++) {
       let so = lo + u16(lo + 6 + s * 2);
       let t = type;
       if (t === 7) {
         t = u16(so + 2);
         so += u32(so + 4);
+      }
+      if (t === 1) {
+        const fmt2 = u16(so);
+        const cov2 = coverage(so + u16(so + 2));
+        if (fmt2 === 1) {
+          const d = view.getInt16(so + 4);
+          for (const g of cov2) one.set(g, g + d & 65535);
+        } else if (fmt2 === 2) for (let k = 0, n = u16(so + 4); k < n && k < cov2.length; k++) one.set(cov2[k], u16(so + 6 + k * 2));
+        continue;
       }
       if (t !== 4 || u16(so) !== 1) continue;
       const cov = coverage(so + u16(so + 2));
@@ -2418,13 +2564,19 @@ function parseGsubLigatures(view, off) {
       }
     }
     if (map.size) lookups.set(li, map);
+    if (one.size) singles.set(li, one);
   }
-  return { features, lookups };
+  return { features, lookups, singles };
 }
 function applyLigatures(g, gids, feats) {
   let out = gids.map((gid) => ({ gid, len: 1 }));
   const idx = [...new Set(feats.flatMap((f) => g.features.get(f) ?? []))].sort((a, b) => a - b);
   for (const li of idx) {
+    const sg = g.singles?.get(li);
+    if (sg) {
+      out = out.map((o) => o.len === 1 && sg.has(o.gid) ? { gid: sg.get(o.gid), len: 1 } : o);
+      continue;
+    }
     const lk = g.lookups.get(li);
     if (!lk) continue;
     const next = [];
@@ -2517,6 +2669,37 @@ var SfntFont = class {
       }
     }
   }
+  vdmxTab;
+  /** VDMX, grupo da razão 1:1 (ou a que vale para todas): yMax/yMin no em em pixels. */
+  vdmx(ppem) {
+    if (this.vdmxTab === void 0) {
+      this.vdmxTab = null;
+      const t = this.tables.get("VDMX");
+      if (t) {
+        try {
+          const v = this.view, o = t.offset;
+          const nRatios = v.getUint16(o + 4);
+          for (let i = 0; i < nRatios; i++) {
+            const r = o + 6 + i * 4;
+            const x = v.getUint8(r + 1), y0 = v.getUint8(r + 2), y1 = v.getUint8(r + 3);
+            if (!(x === 0 || y0 <= x && x <= y1)) continue;
+            const g = o + v.getUint16(o + 6 + nRatios * 4 + i * 2);
+            const recs = v.getUint16(g);
+            const tab = /* @__PURE__ */ new Map();
+            for (let k = 0; k < recs; k++) {
+              const e = g + 4 + k * 6;
+              tab.set(v.getUint16(e), { yMax: v.getInt16(e + 2), yMin: v.getInt16(e + 4) });
+            }
+            this.vdmxTab = tab;
+            break;
+          }
+        } catch {
+          this.vdmxTab = null;
+        }
+      }
+    }
+    return this.vdmxTab?.get(ppem);
+  }
   kernMap;
   /** PairPos formato 2: ajuste contra a classe 0 do 2º glifo, por 1º glifo */
   kernClass0 = /* @__PURE__ */ new Map();
@@ -2576,7 +2759,7 @@ var SfntFont = class {
       }
     }
     const g = this.gsub;
-    if (!g || !g.lookups.size || !features.some((f) => (g.features.get(f) ?? []).some((li) => g.lookups.has(li)))) return null;
+    if (!g || !(g.lookups.size || g.singles?.size) || !features.some((f) => (g.features.get(f) ?? []).some((li) => g.lookups.has(li) || !!g.singles?.has(li)))) return null;
     return applyLigatures(g, gids, features);
   }
   req(tag) {
@@ -3754,13 +3937,13 @@ var PdfDocument = class {
    * transparência preservam o recorte no PDF.
    */
   embedRgba(rgba, widthPx, heightPx) {
-    const rgb4 = new Uint8Array(widthPx * heightPx * 3);
+    const rgb5 = new Uint8Array(widthPx * heightPx * 3);
     const alpha = new Uint8Array(widthPx * heightPx);
     let hasAlpha = false;
     for (let i = 0, j = 0, k = 0; i < rgba.length; i += 4, j += 3, k++) {
-      rgb4[j] = rgba[i];
-      rgb4[j + 1] = rgba[i + 1];
-      rgb4[j + 2] = rgba[i + 2];
+      rgb5[j] = rgba[i];
+      rgb5[j + 1] = rgba[i + 1];
+      rgb5[j + 2] = rgba[i + 2];
       const a = rgba[i + 3];
       alpha[k] = a;
       if (a !== 255) hasAlpha = true;
@@ -3775,7 +3958,7 @@ var PdfDocument = class {
     }
     const objNum = this.writer.addStream(
       `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8${smask}`,
-      rgb4
+      rgb5
     );
     const handle = { resourceName: `Im${this.images.length}`, objNum };
     this.images.push({ handle, objNum });
@@ -3872,6 +4055,8 @@ function mergeRPr(base, over) {
   const f = mergeRFonts(base.rFonts, over.rFonts);
   if (f) out.rFonts = f;
   if (base.lang && over.lang) out.lang = { ...base.lang, ...over.lang };
+  if (base.fx && over.fx) out.fx = { ...base.fx, ...over.fx };
+  if (base.ot && over.ot) out.ot = { ...base.ot, ...over.ot };
   return out;
 }
 function mergeTabs(base, over) {
@@ -4112,7 +4297,7 @@ var THEME_ALIAS = {
   tx2: "dk2",
   bg2: "lt2"
 };
-function rgb(hex) {
+function rgb2(hex) {
   return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 }
 function toHex(r, g, b) {
@@ -4121,7 +4306,7 @@ function toHex(r, g, b) {
 }
 function applyTintShade(hex, tint, shade) {
   if (!tint && !shade) return hex.toUpperCase();
-  const [r, g, b] = rgb(hex).map((v) => v / 255);
+  const [r, g, b] = rgb2(hex).map((v) => v / 255);
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
   let l = (mx + mn) / 2;
   let h = 0, s = 0;
@@ -4196,7 +4381,7 @@ function resolveDrawingColor(spec, theme) {
     const n = v === void 0 || v === "undefined" ? void 0 : parseInt(v, 10);
     return [k, n !== void 0 && Number.isFinite(n) ? n : void 0];
   });
-  const [r, g, b] = applyColorMods(rgb(hex).map((v) => v / 255), list);
+  const [r, g, b] = applyColorMods(rgb2(hex).map((v) => v / 255), list);
   return toHex(r * 255, g * 255, b * 255);
 }
 
@@ -4677,7 +4862,7 @@ var NumberingState = class _NumberingState {
       const a2 = lvlText.search(/%[1-9]/), b = lvlText.lastIndexOf("%");
       if (a2 >= 0 && b >= a2) chapter = fill(lvlText.slice(a2, b + 2), lvl);
     }
-    const out = { text, level: lvl, numId, ilvl, listKey: key, ...chapter !== void 0 ? { chapter } : {} };
+    const out = { text, level: lvl, numId, ilvl, value: c[ilvl].v, listKey: key, ...chapter !== void 0 ? { chapter } : {} };
     if (lvl.numFmt !== "bullet") {
       const refs = (t) => [...t.matchAll(/%([1-9])/g)].map((m) => +m[1] - 1);
       const parts = [text];
@@ -4819,6 +5004,34 @@ function emptyFormatting() {
   };
 }
 var eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function setFx(base, fx) {
+  delete base.textFill;
+  delete base.textOutline;
+  delete base.textShadow;
+  if (!fx) {
+    delete base.fx;
+    return;
+  }
+  base.fx = fx;
+  const f = fx.fill;
+  if (f?.type === "none") base.textFill = { alpha: 0 };
+  else if (f?.type === "solid") {
+    const a = f.color.mods?.find(([k]) => k === "alpha")?.[1];
+    base.textFill = { ...f.color.rgb ? { color: f.color.rgb } : {}, ...f.color.scheme ? { themeColor: f.color.scheme } : {}, ...a !== void 0 ? { alpha: Math.max(0, 1 - a / 1e5) } : {} };
+  }
+  if (fx.outline?.fill && fx.outline.fill.type !== "none") base.textOutline = true;
+  if (fx.shadow) base.textShadow = { blur: fx.shadow.blurRad / 12700, dist: fx.shadow.dist / 12700, dir: fx.shadow.dir / 6e4 };
+}
+function setOt(base, ot) {
+  if (!ot) {
+    delete base.ot;
+    delete base.ligatures;
+    return;
+  }
+  base.ot = ot;
+  if (ot.ligatures) base.ligatures = ot.ligatures;
+  else delete base.ligatures;
+}
 function directRPr(run2) {
   const base = run2.rpr ? { ...run2.rpr } : {};
   const p = run2.props;
@@ -4826,24 +5039,45 @@ function directRPr(run2) {
   if (!run2.rpr) {
     if (p.bold) base.b = true;
     if (p.italic) base.i = true;
-    if (p.underline && !(p.link && !p.underlineStyle && !p.underlineColor)) base.u = { val: p.underlineStyle ?? "single", ...p.underlineColor ? { color: p.underlineColor } : {} };
+    if (p.underline && !(p.link && !p.underlineStyle && !p.underlineColor)) base.u = uSpec(p);
     if (p.strike) base.strike = true;
     if (p.doubleStrike) base.dstrike = true;
     if (p.allCaps) base.caps = true;
     if (p.smallCaps) base.smallCaps = true;
     if (p.vertAlign && p.vertAlign !== orig.vertAlign) base.vertAlign = p.vertAlign;
     if (p.szHalfPt !== void 0) base.sz = p.szHalfPt;
-    if (p.color && !(p.link && p.color === "0563C1")) base.color = { val: p.color };
+    if (p.color && !(p.link && p.color === "0563C1" && !p.colorTheme)) base.color = colorSpec(p);
+    if (p.hidden) base.vanish = true;
+    if (p.scalePct !== void 0 && p.scalePct !== 100) base.w = p.scalePct;
+    if (p.positionHalfPt) base.position = p.positionHalfPt;
+    if (p.kernHalfPt) base.kern = p.kernHalfPt;
     if (p.highlight) base.highlight = p.highlight;
     if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
     if (p.charStyle) base.rStyle = p.charStyle;
+    if (p.textFx) setFx(base, p.textFx);
+    if (p.openType) setOt(base, p.openType);
     return base;
   }
+  if (!eq(p.textFx, orig.textFx)) setFx(base, p.textFx);
+  if (!eq(p.openType, orig.openType)) setOt(base, p.openType);
   if (p.bold !== orig.bold) base.b = p.bold;
   if (p.italic !== orig.italic) base.i = p.italic;
-  if (p.underline !== orig.underline || p.underlineStyle !== orig.underlineStyle || p.underlineColor !== orig.underlineColor) {
-    base.u = p.underline ? { val: p.underlineStyle ?? "single", ...p.underlineColor ? { color: p.underlineColor } : {} } : { val: "none" };
+  if (p.underline !== orig.underline || p.underlineStyle !== orig.underlineStyle || p.underlineColor !== orig.underlineColor || !eq(p.underlineTheme, orig.underlineTheme)) {
+    base.u = p.underline ? uSpec(p) : { val: "none" };
+  }
+  if (!!p.hidden !== !!orig.hidden) base.vanish = !!p.hidden;
+  if ((p.scalePct ?? 100) !== (orig.scalePct ?? 100)) {
+    if (p.scalePct === void 0) delete base.w;
+    else base.w = p.scalePct;
+  }
+  if ((p.positionHalfPt ?? 0) !== (orig.positionHalfPt ?? 0)) {
+    if (!p.positionHalfPt) delete base.position;
+    else base.position = p.positionHalfPt;
+  }
+  if ((p.kernHalfPt ?? 0) !== (orig.kernHalfPt ?? 0)) {
+    if (!p.kernHalfPt) delete base.kern;
+    else base.kern = p.kernHalfPt;
   }
   if (p.strike !== orig.strike) base.strike = p.strike;
   if (p.doubleStrike !== orig.doubleStrike) base.dstrike = !!p.doubleStrike;
@@ -4854,9 +5088,9 @@ function directRPr(run2) {
     if (p.szHalfPt === void 0) delete base.sz;
     else base.sz = p.szHalfPt;
   }
-  if (p.color !== orig.color) {
+  if (p.color !== orig.color || !eq(p.colorTheme, orig.colorTheme)) {
     if (p.color === void 0) delete base.color;
-    else base.color = { val: p.color };
+    else base.color = colorSpec(p);
   }
   if (p.highlight !== orig.highlight) {
     if (p.highlight === void 0) delete base.highlight;
@@ -4876,6 +5110,15 @@ function directRPr(run2) {
   }
   return base;
 }
+var uSpec = (p) => ({
+  val: p.underlineStyle ?? "single",
+  ...p.underlineColor ? { color: p.underlineColor } : {},
+  ...p.underlineTheme ? { themeColor: p.underlineTheme.themeColor, ...p.underlineTheme.tint ? { themeTint: p.underlineTheme.tint } : {}, ...p.underlineTheme.shade ? { themeShade: p.underlineTheme.shade } : {} } : {}
+});
+var colorSpec = (p) => ({
+  val: p.color,
+  ...p.colorTheme ? { themeColor: p.colorTheme.themeColor, ...p.colorTheme.tint ? { themeTint: p.colorTheme.tint } : {}, ...p.colorTheme.shade ? { themeShade: p.colorTheme.shade } : {} } : {}
+});
 function directPPr(para2) {
   const base = para2.ppr ? { ...para2.ppr } : {};
   const p = para2.props;
@@ -4890,6 +5133,7 @@ function directPPr(para2) {
   }
   if (!eq(p.numbering, orig.numbering)) {
     if (!p.numbering) base.numPr = { numId: 0 };
+    else if (p.numbering.numId !== void 0) base.numPr = { numId: p.numbering.numId, ilvl: p.numbering.ilvl };
     else if (para2.ppr?.numPr?.numId) base.numPr = { ...para2.ppr.numPr, ilvl: p.numbering.ilvl };
     else base.numPr = { numId: p.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p.numbering.ilvl };
   }
@@ -4944,7 +5188,7 @@ function directPPr(para2) {
     if (!p.borders) delete base.pBdr;
     else {
       base.pBdr = {};
-      for (const side of ["top", "left", "bottom", "right"]) {
+      for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
         const e = p.borders[side];
         if (e) base.pBdr[side] = { val: e.style, sz: e.sizeEighthPt, space: e.spacePt, ...e.color ? { color: e.color } : {} };
       }
@@ -5095,6 +5339,210 @@ function revisionRanges(rd, para2) {
   const whole = rd.barFor(para2.props.pfmt, "fmt");
   const mark = rd.barFor(para2.props.markIns, "insDel") || rd.barFor(para2.props.markDel, "insDel");
   return ranges.length || whole || mark ? { ranges, whole, mark } : null;
+}
+
+// ../docx-layout/src/textfx.ts
+var EMU_PT = 12700;
+var ANG = 6e4;
+function fxColor(c, theme, fallback = "000000") {
+  const mods = (c.mods ?? []).filter(([k]) => k !== "alpha");
+  const a = c.mods?.find(([k]) => k === "alpha")?.[1];
+  const spec = (c.scheme ? `@${c.scheme}` : c.rgb ?? fallback) + (mods.length ? `|${mods.map(([k, v]) => `${k}=${v}`).join(",")}` : "");
+  return { hex: resolveDrawingColor(spec, theme) ?? fallback, alpha: a !== void 0 ? Math.max(0, Math.min(1, 1 - a / 1e5)) : 1 };
+}
+function fillOf(f, theme, text) {
+  if (f.type === "none") return { kind: "none" };
+  if (f.type === "solid") {
+    const c = fxColor(f.color, theme, text);
+    return { kind: "solid", hex: c.hex, alpha: c.alpha };
+  }
+  const stops = f.stops.map((s) => {
+    const c = fxColor(s.color, theme, text);
+    return { pos: s.pos / 1e5, hex: c.hex, alpha: c.alpha };
+  }).sort((a, b) => a.pos - b.pos);
+  return {
+    kind: "grad",
+    stops,
+    angleDeg: (f.lin?.ang ?? 54e5) / ANG,
+    scaled: !!f.lin?.scaled,
+    ...f.path ? { path: f.path.kind, fillTo: { l: f.path.l / 1e5, t: f.path.t / 1e5, r: f.path.r / 1e5, b: f.path.b / 1e5 } } : {}
+  };
+}
+var CAP = { rnd: "round", sq: "square", flat: "butt" };
+function resolveTextFx(fx, theme, text) {
+  if (!fx) return void 0;
+  const out = {};
+  if (fx.fill && fx.fill.type !== "solid") out.fill = fillOf(fx.fill, theme, text);
+  const o = fx.outline;
+  if (o && o.fill && o.fill.type !== "none") {
+    out.outline = { widthPt: (o.w ?? 9525) / EMU_PT, fill: fillOf(o.fill, theme, text), ...o.dash && o.dash !== "solid" ? { dash: o.dash } : {}, cap: CAP[o.cap ?? "flat"] ?? "butt", join: o.join === "round" ? "round" : o.join === "bevel" ? "bevel" : "miter" };
+    if (out.outline.widthPt <= 0) delete out.outline;
+  }
+  if (fx.shadow) {
+    const s = fx.shadow, c = fxColor(s.color, theme);
+    if (s.sx !== 0 && s.sy !== 0) out.shadow = { blurPt: s.blurRad / EMU_PT, distPt: s.dist / EMU_PT, dirDeg: s.dir / ANG, sx: s.sx / 1e5, sy: s.sy / 1e5, kxDeg: s.kx / ANG, kyDeg: s.ky / ANG, algn: s.algn, hex: c.hex, alpha: c.alpha };
+  }
+  if (fx.glow && fx.glow.rad > 0) {
+    const c = fxColor(fx.glow.color, theme);
+    out.glow = { radPt: fx.glow.rad / EMU_PT, hex: c.hex, alpha: c.alpha };
+  }
+  if (fx.reflection) {
+    const r = fx.reflection;
+    out.reflection = { blurPt: r.blurRad / EMU_PT, stA: r.stA / 1e5, stPos: r.stPos / 1e5, endA: r.endA / 1e5, endPos: r.endPos / 1e5, distPt: r.dist / EMU_PT, dirDeg: r.dir / ANG, algn: r.algn };
+  }
+  return Object.keys(out).length ? out : void 0;
+}
+function gradOf(f) {
+  return { stops: f.stops.map((s) => ({ pos: s.pos, color: s.hex })), angleDeg: f.angleDeg, scaled: f.scaled, ...f.path ? { path: f.path } : {}, ...f.fillTo ? { fillTo: f.fillTo } : {} };
+}
+function fxMarginPt(fx, textHPt) {
+  let m = (fx.outline?.widthPt ?? 0) / 2 + 1;
+  if (fx.glow) m = Math.max(m, fx.glow.radPt * 1.2);
+  let b = m;
+  if (fx.shadow) {
+    const a = fx.shadow.dirDeg * Math.PI / 180;
+    m = Math.max(m, fx.shadow.blurPt + Math.abs(fx.shadow.distPt * Math.cos(a)) + textHPt * Math.abs(fx.shadow.sx - 1));
+    b = Math.max(b, fx.shadow.blurPt + Math.abs(fx.shadow.distPt * Math.sin(a)) + textHPt * Math.abs(fx.shadow.sy - 1), m);
+  }
+  if (fx.reflection) b = Math.max(b, textHPt + fx.reflection.distPt + fx.reflection.blurPt + 2);
+  return { l: m, t: m, r: m, b };
+}
+function runBox(it) {
+  const f = it.face.font;
+  const upem = f.metrics.unitsPerEm || 1e3;
+  const k = it.sizePt * 20 / upem;
+  const last = it.glyphs[it.glyphs.length - 1];
+  const lastAdv = f.advanceWidth(last.gid ?? f.glyphId(last.cp)) * k * (it.scaleX ?? 1);
+  const asc = (f.metrics.ascender ?? upem * 0.8) * k, desc = Math.abs(f.metrics.descender ?? -upem * 0.2) * k;
+  const x = it.glyphs[0].x;
+  return { x, y: it.y - asc, w: Math.max(1, last.x + lastAdv - x), h: asc + desc };
+}
+function runOutlineSegs(it) {
+  const f = it.face.font;
+  if (!f.glyphOutline) return null;
+  const upem = f.metrics.unitsPerEm || 1e3;
+  const s = it.sizePt * 20 / upem, sx = s * (it.scaleX ?? 1);
+  const skew = it.synthItalic ? 0.21 : 0;
+  const subs = [];
+  for (const g of it.glyphs) {
+    const ol = f.glyphOutline(g.gid ?? f.glyphId(g.cp));
+    if (!ol) continue;
+    const X = (x, y) => g.x + x * sx + skew * y * s;
+    const Y = (y) => it.y - y * s;
+    let cur = [];
+    for (const c of ol) {
+      if (c.op === "M") {
+        if (cur.length) subs.push(cur);
+        cur = [{ c: "M", x: X(c.x, c.y), y: Y(c.y) }];
+      } else if (c.op === "L") cur.push({ c: "L", x: X(c.x, c.y), y: Y(c.y) });
+      else if (c.op === "Q") cur.push({ c: "Q", x1: X(c.cx, c.cy), y1: Y(c.cy), x: X(c.x, c.y), y: Y(c.y) });
+    }
+    if (cur.length) subs.push(cur);
+  }
+  return subs;
+}
+function fxLayers(it, fx, ppt, textHex) {
+  if (!fx.shadow && !fx.glow && !fx.reflection) return null;
+  const subs = runOutlineSegs(it);
+  if (!subs) return null;
+  const box = runBox(it);
+  const mg = fxMarginPt(fx, box.h / 20);
+  const x0 = box.x - mg.l * 20, y0 = box.y - mg.t * 20;
+  const W = Math.max(1, Math.ceil((box.w / 20 + mg.l + mg.r) * ppt)), H = Math.max(1, Math.ceil((box.h / 20 + mg.t + mg.b) * ppt));
+  if (W * H > 24e6) return null;
+  const tw = ppt / 20;
+  let sil = fillPolygons(newMask(W, H), flattenPath(subs, [tw, 0, 0, tw, -x0 * tw, -y0 * tw], 0.35));
+  if (fx.outline) {
+    const r = fx.outline.widthPt / 2 * ppt;
+    if (r >= 0.5) sil = dilate(sil, r);
+  }
+  const bx = { x: (box.x - x0) * tw, y: (box.y - y0) * tw, w: box.w * tw, h: box.h * tw };
+  const rgba = new Float32Array(W * H * 4);
+  const over = (m, hex, alpha) => {
+    const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+    for (let i = 0; i < m.a.length; i++) {
+      const a = Math.max(0, Math.min(1, m.a[i] * alpha));
+      if (a <= 0) continue;
+      const k = i * 4, da = rgba[k + 3], oa = a + da * (1 - a);
+      rgba[k] = (r * a + rgba[k] * da * (1 - a)) / oa;
+      rgba[k + 1] = (g * a + rgba[k + 1] * da * (1 - a)) / oa;
+      rgba[k + 2] = (b * a + rgba[k + 2] * da * (1 - a)) / oa;
+      rgba[k + 3] = oa;
+    }
+  };
+  if (fx.reflection) {
+    const r = fx.reflection;
+    const a = r.dirDeg * Math.PI / 180;
+    const dx = r.distPt * Math.cos(a) * ppt, dy = r.distPt * Math.sin(a) * ppt;
+    let m = newMask(W, H);
+    const bottom = bx.y + bx.h;
+    for (let y = 0; y < H; y++) {
+      const sy = Math.round(2 * bottom + dy - y - 1);
+      const t = (y + 0.5 - (bottom + dy)) / bx.h;
+      const al = t < 0 ? 0 : reflectionAlpha(t, r);
+      if (sy < 0 || sy >= H || al <= 0) continue;
+      for (let x = 0; x < W; x++) {
+        const sx = Math.round(x - dx);
+        if (sx >= 0 && sx < W) m.a[y * W + x] = sil.a[sy * W + sx] * al;
+      }
+    }
+    if (r.blurPt > 0) m = gaussianBlur(m, r.blurPt / 3 * ppt);
+    over(m, textHex, 1);
+  }
+  if (fx.shadow) {
+    const s = fx.shadow;
+    over(outerShadowMask(sil, bx, { blurPt: s.blurPt, distPt: s.distPt, dirDeg: s.dirDeg, sx: s.sx, sy: s.sy, kxDeg: s.kxDeg, kyDeg: s.kyDeg, algn: s.algn }, ppt), s.hex, s.alpha);
+  }
+  if (fx.glow) over(glowMask(sil, fx.glow.radPt, ppt), fx.glow.hex, fx.glow.alpha);
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < rgba.length; i++) data[i] = i % 4 === 3 ? Math.round(rgba[i] * 255) : Math.round(rgba[i]);
+  return { data, w: W, h: H, x0, y0 };
+}
+function dilate(m, r) {
+  const R = Math.ceil(r);
+  const out = newMask(m.w, m.h);
+  const offs = [];
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (dx * dx + dy * dy <= r * r) offs.push([dx, dy]);
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+    let v = 0;
+    for (const [dx, dy] of offs) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= m.w || yy >= m.h) continue;
+      const a = m.a[yy * m.w + xx];
+      if (a > v) {
+        v = a;
+        if (v >= 1) break;
+      }
+    }
+    out.a[y * m.w + x] = v;
+  }
+  return out;
+}
+function dashPattern(dash) {
+  switch (dash) {
+    case "dot":
+      return [1, 1];
+    case "sysDot":
+      return [1, 1];
+    case "sysDash":
+      return [3, 1];
+    case "dash":
+      return [4, 3];
+    case "dashDot":
+      return [4, 3, 1, 3];
+    case "lgDash":
+      return [8, 3];
+    case "lgDashDot":
+      return [8, 3, 1, 3];
+    case "lgDashDotDot":
+      return [8, 3, 1, 3, 1, 3];
+    case "sysDashDot":
+      return [3, 1, 1, 1];
+    case "sysDashDotDot":
+      return [3, 1, 1, 1, 1, 1];
+    default:
+      return [];
+  }
 }
 
 // ../docx-layout/src/math.ts
@@ -5351,7 +5799,8 @@ function resolveRunStyle(ctx, rpr, env, link) {
   const shift = (rpr.position ?? 0) * 10;
   const tf = rpr.textFill;
   const color2 = (tf && (tf.color ?? (tf.themeColor ? resolveColor({ themeColor: tf.themeColor }, theme) : void 0))) ?? resolveColor(rpr.color, theme);
-  const u = rpr.u && rpr.u.val !== "none" && rpr.u.val !== "" ? { val: rpr.u.val, ...rpr.u.color && rpr.u.color !== "auto" ? { color: rpr.u.color } : {} } : void 0;
+  const uColor = rpr.u ? resolveColor({ val: rpr.u.color, themeColor: rpr.u.themeColor, themeTint: rpr.u.themeTint, themeShade: rpr.u.themeShade }, theme) : void 0;
+  const u = rpr.u && rpr.u.val !== "none" && rpr.u.val !== "" ? { val: rpr.u.val, ...uColor ? { color: uColor } : {} } : void 0;
   const shd = shadingFill(rpr.shd, theme);
   const style = {
     rpr,
@@ -5371,6 +5820,19 @@ function resolveRunStyle(ctx, rpr, env, link) {
     ...rpr.textOutline ? { outline: true } : {},
     ...link ? { link } : {}
   };
+  if (rpr.fx?.fill?.type === "solid") {
+    const c = fxColor(rpr.fx.fill.color, theme, style.color);
+    style.color = c.hex;
+    if (c.alpha < 1) style.alpha = c.alpha;
+    else delete style.alpha;
+  }
+  const fx = resolveTextFx(rpr.fx, theme, style.color);
+  if (fx) {
+    style.fx = fx;
+    style.fxKey = JSON.stringify(fx);
+    if (fx.fill?.kind === "grad" && fx.fill.stops[0]) style.color = fx.fill.stops[0].hex;
+    if (fx.fill?.kind === "none") style.alpha = 0;
+  }
   if (va === "superscript" || va === "subscript") {
     const face = faceFor(ctx, rpr, 65, style);
     style.shift += va === "superscript" ? superscriptRaiseFor(face.family, faceMetrics(face.font), sz3, sizePt) * 20 : -subscriptDropPt(face.family, sz3) * 20;
@@ -5514,6 +5976,17 @@ function glyphAdvTwips(ctx, face, gid, sizePt) {
   if (ctx.opts.advanceRound === "word" && ctx.opts.advanceEm !== "device") return wordWidth(f.advanceWidth(gid), sizePt, f.metrics.unitsPerEm);
   return roundAdvance(ctx, f.advanceWidth(gid) * emOf(ctx, sizePt) * 20 / f.metrics.unitsPerEm);
 }
+function otFeatures(ot) {
+  if (!ot) return [];
+  const out = [];
+  if (ot.numForm === "oldStyle") out.push("onum");
+  else if (ot.numForm === "lining") out.push("lnum");
+  if (ot.numSpacing === "tabular") out.push("tnum");
+  else if (ot.numSpacing === "proportional") out.push("pnum");
+  for (const n of ot.stylisticSets ?? []) out.push(`ss${String(n).padStart(2, "0")}`);
+  if (ot.cntxtAlts) out.push("calt");
+  return out;
+}
 function ligFeatures(v) {
   if (!v || v === "none") return [];
   if (v === "all") return ["liga", "clig", "hlig", "dlig"];
@@ -5527,12 +6000,12 @@ function ligFeatures(v) {
 function applyLigatures2(ctx, glyphs) {
   const keyOf = (g) => {
     const r = g.style.rpr;
-    return `${r.lang?.val ?? ""}|${r.w ?? 100}|${g.style.shift}|${r.ligatures ?? ""}|${r.spacing ?? 0}`;
+    return `${r.lang?.val ?? ""}|${r.w ?? 100}|${g.style.shift}|${r.ligatures ?? ""}|${r.spacing ?? 0}|${JSON.stringify(r.ot ?? null)}`;
   };
   for (let k = 0; k < glyphs.length; ) {
     const g0 = glyphs[k];
     const rpr = g0.style.rpr;
-    const feats = g0.kind === "char" && !rpr.spacing ? ligFeatures(rpr.ligatures) : [];
+    const feats = g0.kind === "char" ? [...!rpr.spacing ? ligFeatures(rpr.ligatures) : [], ...otFeatures(rpr.ot)] : [];
     const ligate = g0.face.font.ligate;
     if (!feats.length || !ligate) {
       k++;
@@ -5545,11 +6018,17 @@ function applyLigatures2(ctx, glyphs) {
       if (q.kind !== "char" || q.face !== g0.face || q.sizePt !== g0.sizePt || q.runIdx !== g0.runIdx && keyOf(q) !== key) break;
       e++;
     }
-    if (e - k >= 2) {
+    if (e - k >= 1) {
       const f = g0.face.font;
       const groups = ligate.call(f, glyphs.slice(k, e).map((q) => f.glyphId(q.cp)), feats);
       let pos = k;
       for (const grp of groups ?? []) {
+        if (grp.len === 1 && grp.gid !== f.glyphId(glyphs[pos].cp)) {
+          const q = glyphs[pos];
+          const w = q.style.rpr.w && q.style.rpr.w !== 100 ? q.style.rpr.w / 100 : 1;
+          q.adv += (glyphAdvTwips(ctx, q.face, grp.gid, q.sizePt) - glyphAdvTwips(ctx, q.face, f.glyphId(q.cp), q.sizePt)) * w;
+          q.subGid = grp.gid;
+        }
         if (grp.len > 1) {
           const first = glyphs[pos], last = glyphs[pos + grp.len - 1];
           let sum = 0;
@@ -6048,7 +6527,17 @@ function prepareParagraph(ctx, para0, env0) {
       const ms = resolveRunStyle(ctx, mrpr, env);
       const mg = [];
       let w = 0;
-      for (const ch of Array.from(nm.text)) {
+      const pb = nm.level.lvlPicBulletId !== void 0 ? ctx.fmt.numbering.picBullets?.[nm.level.lvlPicBulletId] : void 0;
+      if (pb?.image) {
+        const hTw = Math.max(1, ms.sizePt - 2) * 20;
+        const ratio = pb.widthPt && pb.heightPt ? pb.widthPt / pb.heightPt : 1;
+        const wTw = hTw * ratio;
+        const face = faceFor(ctx, mrpr, 65, ms);
+        const run2 = { text: "\uFFFC", props: { bold: false, italic: false, underline: false, strike: false, allCaps: false, smallCaps: false }, image: { data: pb.image.data, ext: pb.image.ext, widthTwips: wTw, heightTwips: hTw } };
+        mg.push({ kind: "obj", ch: "\uFFFC", cp: 65532, face, style: { ...ms, shift: 0 }, adv: wTw, asc: hTw, desc: 0, offset: -1, runIdx: -1, breakAfter: false, sizePt: ms.sizePt, obj: run2 });
+        w += wTw;
+      }
+      for (const ch of pb?.image ? [] : Array.from(nm.text)) {
         const cp = ch.codePointAt(0);
         const face = faceFor(ctx, mrpr, cp, ms);
         const m = faceMetrics(notdefPua(face, cp) ? faceFor(ctx, mrpr, 65, ms).font : face.font);
@@ -6937,7 +7426,7 @@ var EN = {
 };
 var pad = (n, w) => String(n).padStart(w, "0");
 function formatWordDate(d, picture, lang = "pt-BR") {
-  const L = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L2 = lang.toLowerCase().startsWith("en") ? EN : PT;
   let out = "";
   let i = 0;
   const run2 = (ch) => {
@@ -6955,19 +7444,19 @@ function formatWordDate(d, picture, lang = "pt-BR") {
     }
     const lower = picture.slice(i, i + 5).toLowerCase();
     if (lower === "am/pm") {
-      out += L === EN ? d.getHours() >= 12 ? "PM" : "AM" : "";
+      out += L2 === EN ? d.getHours() >= 12 ? "PM" : "AM" : "";
       i += 5;
       continue;
     }
     if (c === "d" || c === "D") {
       const n = run2(c);
-      out += n >= 4 ? L.days[d.getDay()] : n === 3 ? L.daysShort[d.getDay()] : n === 2 ? pad(d.getDate(), 2) : String(d.getDate());
+      out += n >= 4 ? L2.days[d.getDay()] : n === 3 ? L2.daysShort[d.getDay()] : n === 2 ? pad(d.getDate(), 2) : String(d.getDate());
       i += n;
       continue;
     }
     if (c === "M") {
       const n = run2(c);
-      out += n >= 4 ? L.months[d.getMonth()] : n === 3 ? L.monthsShort[d.getMonth()] : n === 2 ? pad(d.getMonth() + 1, 2) : String(d.getMonth() + 1);
+      out += n >= 4 ? L2.months[d.getMonth()] : n === 3 ? L2.monthsShort[d.getMonth()] : n === 2 ? pad(d.getMonth() + 1, 2) : String(d.getMonth() + 1);
       i += n;
       continue;
     }
@@ -7009,9 +7498,9 @@ function formatWordDate(d, picture, lang = "pt-BR") {
 }
 function dateFieldValue(instr, now, lang = "pt-BR") {
   const name = instr.trim().split(/\s+/)[0].toUpperCase();
-  const L = lang.toLowerCase().startsWith("en") ? EN : PT;
+  const L2 = lang.toLowerCase().startsWith("en") ? EN : PT;
   const m = /\\@\s*(?:"([^"]*)"|(\S+))/.exec(instr);
-  const picture = m ? m[1] ?? m[2] ?? "" : name === "TIME" ? L.time : L.date;
+  const picture = m ? m[1] ?? m[2] ?? "" : name === "TIME" ? L2.time : L2.date;
   let v = formatWordDate(now, picture, lang);
   const fmt2 = /\\\*\s*(\w+)/g;
   let f;
@@ -8273,13 +8762,14 @@ var LineBreaker = class {
       ...clearAfter ? { clear: true } : {},
       ...gapTab ? { gapTab } : {},
       ...spanned ? { spanned: true } : {},
+      ...placed.some((pg) => pg.g.hr !== void 0) ? { hrFrame: { left: frame.left, right: frame.right } } : {},
       last
     };
   }
 };
 
 // ../docx-layout/src/picture.ts
-var EMU_PT = 12700;
+var EMU_PT2 = 12700;
 function color(c, theme) {
   if (!c) return void 0;
   const { spec, alpha } = dmlColorSpec(c);
@@ -8295,7 +8785,7 @@ function pictureLook(im, theme) {
   if (ln && ln.fill) {
     const c = color(ln.fill, theme);
     if (c) {
-      out.line = { color: c.color, alpha: c.alpha, widthPt: (ln.w ?? 9525) / EMU_PT };
+      out.line = { color: c.color, alpha: c.alpha, widthPt: (ln.w ?? 9525) / EMU_PT2 };
       if (ln.dash && ln.dash !== "solid") out.line.dash = ln.dash;
       if (ln.cmpd && ln.cmpd !== "sng") out.line.cmpd = ln.cmpd;
       if (ln.cap) out.line.cap = ln.cap;
@@ -8311,8 +8801,8 @@ function pictureLook(im, theme) {
         kind: s.kind,
         color: c.color,
         alpha: c.alpha,
-        blurPt: (s.blurRad ?? 0) / EMU_PT,
-        distPt: (s.dist ?? 0) / EMU_PT,
+        blurPt: (s.blurRad ?? 0) / EMU_PT2,
+        distPt: (s.dist ?? 0) / EMU_PT2,
         dirDeg: (s.dir ?? 0) / 6e4,
         ...s.sx !== void 0 ? { sx: s.sx / 1e5 } : {},
         ...s.sy !== void 0 ? { sy: s.sy / 1e5 } : {},
@@ -8325,14 +8815,14 @@ function pictureLook(im, theme) {
   }
   if (fx.glow) {
     const c = color(fx.glow.color, theme);
-    if (c) out.glow = { color: c.color, alpha: c.alpha, radPt: fx.glow.rad / EMU_PT };
+    if (c) out.glow = { color: c.color, alpha: c.alpha, radPt: fx.glow.rad / EMU_PT2 };
   }
-  if (fx.softEdge) out.softEdgePt = fx.softEdge / EMU_PT;
+  if (fx.softEdge) out.softEdgePt = fx.softEdge / EMU_PT2;
   const td = f.threeD;
   if (td?.bevelT && (!td.camera || td.camera.prst === "orthographicFront") && !td.camera?.rot) {
     out.bevel = {
-      wPt: (td.bevelT.w ?? 76200) / EMU_PT,
-      hPt: (td.bevelT.h ?? 76200) / EMU_PT,
+      wPt: (td.bevelT.w ?? 76200) / EMU_PT2,
+      hPt: (td.bevelT.h ?? 76200) / EMU_PT2,
       ...td.bevelT.prst ? { prst: td.bevelT.prst } : {},
       ...td.lightRig ? { rig: td.lightRig.rig, dir: td.lightRig.dir } : {},
       ...td.prstMaterial ? { material: td.prstMaterial } : {}
@@ -8341,12 +8831,12 @@ function pictureLook(im, theme) {
   const r = fx.reflection;
   if (r) {
     out.reflection = {
-      blurPt: (r.blurRad ?? 0) / EMU_PT,
+      blurPt: (r.blurRad ?? 0) / EMU_PT2,
       stA: (r.stA ?? 1e5) / 1e5,
       stPos: (r.stPos ?? 0) / 1e5,
       endA: (r.endA ?? 0) / 1e5,
       endPos: (r.endPos ?? 1e5) / 1e5,
-      distPt: (r.dist ?? 0) / EMU_PT,
+      distPt: (r.dist ?? 0) / EMU_PT2,
       dirDeg: (r.dir ?? 54e5) / 6e4,
       sy: (r.sy ?? 1e5) / 1e5,
       ...r.algn ? { algn: r.algn } : {},
@@ -8373,6 +8863,176 @@ function applyBlipFx(d, b, theme) {
   const fx = blipFxImageEffects(b);
   if (fx) applyImageEffects(d, fx);
   applyPictureAdjust(d, blipLook(b, theme));
+}
+
+// ../docx-layout/src/underline.ts
+var PX = 2.4;
+function ulMetrics(face, sizePt) {
+  const f = face.font, fm = f.metrics, m = faceMetrics(f);
+  const upm = fm.unitsPerEm || 1e3;
+  const em = Math.round(sizePt * 600 / 72);
+  const P = Math.round(m.underlinePos * em);
+  const T4 = Math.max(1, Math.round(m.underlineThick * em));
+  const vd = f.vdmx?.(em);
+  const desc = fm.usWinDescent > 0 ? fm.usWinDescent : Math.max(0, -fm.descender);
+  const L2 = vd ? -vd.yMin : Math.round(desc * em / upm);
+  return { P, T: T4, L: L2 };
+}
+function ulGeometry({ P: P0, T: T4, L: L2 }) {
+  const P = P0 + T4 > L2 ? Math.max(0, L2 - T4) : P0;
+  let Td = Math.floor(T4 / 2 + 0.5);
+  let top1 = Math.ceil(P / 2);
+  let top2 = Math.max(P + T4 - Td, top1 + Td + 8);
+  const over = top2 + Td - L2;
+  if (over > 0) {
+    top1 -= over;
+    top2 -= over;
+  }
+  if (top1 < 0) {
+    top1 = 0;
+    Td = Math.max(1, Math.min(Td, Math.floor((L2 - 8) / 2)));
+    top2 = L2 - Td;
+  }
+  const B2 = Math.floor((top1 + top2 + Td) / 2) - 1;
+  return { P, T: T4, Td, top1, top2, B: B2 };
+}
+var PATTERNS = {
+  dotted: [12, 12],
+  dottedHeavy: [12, 12],
+  dash: [33, 16],
+  dashedHeavy: [33, 16],
+  dashLong: [66, 33],
+  dashLongHeavy: [66, 33],
+  dotDash: [25, 8, 8, 8],
+  dashDotHeavy: [25, 8, 8, 8],
+  dotDotDash: [18, 6, 6, 6, 6, 6],
+  dashDotDotHeavy: [18, 6, 6, 6, 6, 6]
+};
+var HEAVY = /* @__PURE__ */ new Set(["thick", "dottedHeavy", "dashedHeavy", "dashLongHeavy", "dashDotHeavy", "dashDotDotHeavy"]);
+var HALF_WAVE = 24;
+function paintUnderlines(out, all, frameX, baseY) {
+  let lastContent = -1;
+  all.forEach((pg, k) => {
+    if (pg.g.kind !== "space" && pg.g.kind !== "lb" && pg.g.kind !== "pb") lastContent = k;
+  });
+  const groups = [];
+  let cur = null;
+  let curEnd = 0;
+  all.forEach((pg, k) => {
+    const g = pg.g, u = g.style.underline;
+    const words = u?.val === "words";
+    const on = k <= lastContent && !!u && u.val !== "none" && pg.w > 0 && g.kind !== "lb" && g.kind !== "pb" && !(words && (g.kind === "space" || g.kind === "tab"));
+    if (!on) {
+      cur = null;
+      return;
+    }
+    const low = g.style.shift < 0 ? g.style.shift : null;
+    const x = frameX + pg.x;
+    if (cur && cur.val === u.val && cur.low === low && Math.abs(curEnd - x) < 1) cur.items.push(pg);
+    else {
+      cur = { val: u.val, low, items: [pg] };
+      groups.push(cur);
+    }
+    curEnd = x + pg.w;
+  });
+  for (const gr of groups) {
+    let shift;
+    let weigh;
+    if (gr.low !== null) {
+      shift = gr.low;
+      weigh = gr.items;
+    } else {
+      const base = gr.items.filter((pg) => pg.g.style.shift === 0);
+      if (base.length) {
+        shift = 0;
+        weigh = base;
+      } else {
+        shift = Math.min(...gr.items.map((pg) => pg.g.style.shift));
+        weigh = gr.items.filter((pg) => pg.g.style.shift === shift);
+      }
+    }
+    let sw = 0, sp2 = 0, st = 0, sl = 0;
+    const cache2 = /* @__PURE__ */ new Map();
+    for (const pg of weigh) {
+      const key = `${pg.g.face.key}|${pg.g.style.sizePt}`;
+      let m = cache2.get(key);
+      if (!m) {
+        m = ulMetrics(pg.g.face, pg.g.style.sizePt);
+        cache2.set(key, m);
+      }
+      sw += pg.w;
+      sp2 += pg.w * m.P;
+      st += pg.w * m.T;
+      sl += pg.w * m.L;
+    }
+    if (sw <= 0) continue;
+    const geo = ulGeometry({ P: Math.round(sp2 / sw), T: Math.round(st / sw), L: Math.round(sl / sw) });
+    const y0 = baseY - shift;
+    const segs = [];
+    for (const pg of gr.items) {
+      const x = frameX + pg.x;
+      const color2 = pg.g.style.underline.color ?? pg.g.style.color;
+      const last = segs[segs.length - 1];
+      if (last && last.color === color2 && Math.abs(last.x1 - x) < 1) last.x1 = x + pg.w;
+      else segs.push({ x0: x, x1: x + pg.w, color: color2 });
+    }
+    for (const s of segs) paintStyle(out, gr.val, geo, s, y0);
+  }
+}
+function band(out, s, y0, top, h, pattern) {
+  const y = y0 + top * PX, hh = h * PX;
+  if (!pattern) {
+    out.push({ t: "rect", x: s.x0, y, w: s.x1 - s.x0, h: hh, fill: s.color });
+    return;
+  }
+  let x = s.x0, i = 0;
+  while (x < s.x1 - 0.01) {
+    const len = pattern[i % pattern.length] * PX;
+    if (i % 2 === 0) out.push({ t: "rect", x, y, w: Math.min(len, s.x1 - x), h: hh, fill: s.color });
+    x += len;
+    i++;
+  }
+}
+function wave(out, s, yTop, yBot, widthPt) {
+  const cmds = [];
+  let k = Math.floor(s.x0 / (2 * HALF_WAVE)) * 2;
+  let x = k * HALF_WAVE;
+  cmds.push({ op: "M", x, y: yTop });
+  while (x < s.x1) {
+    const up2 = k % 2 === 0;
+    const y1 = up2 ? yTop : yBot, y2 = up2 ? yBot : yTop;
+    cmds.push({ op: "C", x1: x + HALF_WAVE / 2, y1, x2: x + HALF_WAVE / 2, y2, x: x + HALF_WAVE, y: y2 });
+    x += HALF_WAVE;
+    k++;
+  }
+  const pad2 = widthPt * 20;
+  out.push({ t: "clip", op: "push", x: s.x0, y: yTop - pad2 - HALF_WAVE, w: s.x1 - s.x0, h: yBot - yTop + 2 * pad2 + 2 * HALF_WAVE });
+  out.push({ t: "path", cmds, stroke: { color: s.color, widthPt } });
+  out.push({ t: "clip", op: "pop" });
+}
+function paintStyle(out, val, g, s, y0) {
+  switch (val) {
+    case "double":
+      band(out, s, y0, g.top1, g.Td);
+      band(out, s, y0, g.top2, g.Td);
+      return;
+    case "wave":
+    case "wavyHeavy":
+      wave(out, s, y0 + g.top1 * PX, y0 + g.B * PX, val === "wavyHeavy" ? 0.96 : 0.24);
+      return;
+    case "wavyDouble": {
+      const a = Math.floor((g.B - g.top1) / 2) - 1;
+      wave(out, s, y0 + g.top1 * PX, y0 + (g.top1 + a) * PX, 0.24);
+      wave(out, s, y0 + (g.B - a) * PX, y0 + g.B * PX, 0.24);
+      return;
+    }
+    default: {
+      const heavy = HEAVY.has(val);
+      const top = heavy ? g.top1 : g.P;
+      const h = heavy ? g.top2 - g.top1 : g.T;
+      band(out, s, y0, top, h, PATTERNS[val]);
+    }
+  }
 }
 
 // ../docx-layout/src/emf.ts
@@ -9328,18 +9988,19 @@ function paintLine(ctx, out, line, frameX, top) {
       flush();
       if (g.kind === "tab" && pg.leader) paintLeader(ctx, out, pg, frameX, baseY, all);
       if (g.kind === "obj" && g.obj && g.adv > 0) paintInlineObject(ctx, out, g, frameX + pg.x, baseY);
+      if (g.kind === "obj" && g.hr !== void 0 && g.obj?.shape && line.hrFrame) paintHr(out, g, frameX, line.hrFrame, baseY);
       if (g.kind === "box" && g.box) paintCheckBox(out, g, frameX + pg.x, baseY);
       continue;
     }
     if (g.cp >= 65024 && g.cp <= 65039) continue;
     if (g.cp >= 8192 && g.cp <= 8202 || g.cp === 12288) continue;
     const st = g.style;
-    if (st.alpha === 0 && !st.outline) {
+    if (st.alpha === 0 && !st.outline && !st.fx?.outline && !st.fx?.glow && !st.fx?.shadow && !st.fx?.reflection) {
       flush();
       continue;
     }
     const colr = !!g.face.font.hasColorGlyphs?.() && !!g.face.font.colorLayers?.(g.face.font.glyphId(g.cp));
-    const key = `${g.face.key}|${g.face.synthBold ? 1 : 0}${g.face.synthItalic ? 1 : 0}|${g.sizePt}|${st.color}|${st.shift}|${st.rpr.w ?? 100}|${st.alpha ?? 1}|${colr ? "c" : ""}`;
+    const key = `${g.face.key}|${g.face.synthBold ? 1 : 0}${g.face.synthItalic ? 1 : 0}|${g.sizePt}|${st.color}|${st.shift}|${st.rpr.w ?? 100}|${st.alpha ?? 1}|${colr ? "c" : ""}|${st.fxKey ?? ""}|${g.subGid !== void 0 ? "g" : ""}`;
     if (key !== runKey) {
       flush();
       runKey = key;
@@ -9358,11 +10019,14 @@ function paintLine(ctx, out, line, frameX, top) {
         // semitransparente: o Word desenha CURVAS, não texto (oráculo hidetext/tf-alpha50)
         ...st.alpha !== void 0 && st.alpha > 0 && st.alpha < 1 ? { asPath: true } : {},
         lineBox: { asc: line.baseline - st.shift, desc: line.height - line.baseline + st.shift, lead: pg.x, line: lineId },
-        ...colr ? { asPath: true, colr: true } : {}
+        ...colr ? { asPath: true, colr: true } : {},
+        ...st.fx ? { fx: st.fx } : {},
+        // glifo trocado (OpenType): sem caractere no PDF — em curvas, como o WordArt
+        ...g.subGid !== void 0 ? { asPath: true } : {}
       };
     }
     const cp = g.kind === "shy" ? 45 : g.cp;
-    run2.glyphs.push({ cp, x: frameX + pg.x });
+    run2.glyphs.push({ cp, x: frameX + pg.x, ...g.subGid !== void 0 ? { gid: g.subGid } : {} });
     run2.text += String.fromCodePoint(cp);
   }
   flush();
@@ -9495,6 +10159,24 @@ function paintInlineObject(ctx, out, g, x0, baseY0) {
     out.push({ t: "shape", x, y: baseY - shift - s.heightTwips, w: s.widthTwips, h: s.heightTwips, style: s.style });
   }
 }
+function paintHr(out, g, frameX, fr, baseY) {
+  const sh = g.obj.shape;
+  const avail = fr.right - fr.left;
+  let w = sh.hrPct ? avail * sh.hrPct / 1e3 : sh.widthTwips > 0 ? Math.min(sh.widthTwips, avail) : avail;
+  if (w <= 0) w = avail;
+  const x0 = frameX + fr.left + (sh.hrAlign === "left" ? 0 : sh.hrAlign === "right" ? avail - w : (avail - w) / 2);
+  const m = faceMetrics(g.face.font);
+  const bottom = baseY - g.style.shift + m.descent * g.sizePt * 20 - 50;
+  const h = g.hr ?? sh.heightTwips;
+  const fill = sh.style.fill ?? "A0A0A0";
+  out.push({ t: "rect", x: x0, y: bottom - h, w, h, fill });
+  if (sh.hrNoShade || h < 10 || w < 10) return;
+  const e = 4.8;
+  out.push({ t: "rect", x: x0, y: bottom - h, w, h: e, fill });
+  out.push({ t: "rect", x: x0, y: bottom - h + e, w: e, h: h - 2 * e, fill });
+  out.push({ t: "rect", x: x0, y: bottom - e, w, h: e, fill: "E3E3E3" });
+  out.push({ t: "rect", x: x0 + w - e, y: bottom - h + e, w: e, h: h - 2 * e, fill: "E3E3E3" });
+}
 function paintDecorations(out, all, frameX, baseY, line) {
   const segs = (pred) => {
     const res = [];
@@ -9519,19 +10201,7 @@ function paintDecorations(out, all, frameX, baseY, line) {
     if (cur) res.push(cur);
     return res;
   };
-  for (const s of segs((g) => !!g.style.underline && g.style.underline.val !== "none")) {
-    const st = s.g.style;
-    const m = faceMetrics(s.g.face.font);
-    const sz3 = st.sizePt * 20;
-    const y = baseY - st.shift + m.underlinePos * sz3;
-    const w = Math.max(0.5, m.underlineThick * st.sizePt);
-    const color2 = st.underline.color ?? st.color;
-    const val = st.underline.val;
-    if (val === "words" && s.g.kind === "space") continue;
-    const dash = val.startsWith("dotted") ? "dotted" : val.startsWith("dash") ? "dashed" : void 0;
-    out.push({ t: "line", x1: s.x0, y1: y, x2: s.x1, y2: y, color: color2, widthPt: val === "thick" ? w * 2 : w, ...dash ? { dash } : {} });
-    if (val === "double") out.push({ t: "line", x1: s.x0, y1: y + w * 20 * 2, x2: s.x1, y2: y + w * 20 * 2, color: color2, widthPt: w });
-  }
+  paintUnderlines(out, all, frameX, baseY);
   for (const s of segs((g) => g.style.strike || g.style.dstrike)) {
     const st = s.g.style;
     const m = faceMetrics(s.g.face.font);
@@ -9650,13 +10320,13 @@ function paintBorder(ctx, out, b, x1, y1, x2, y2, outer) {
   const total = bands.reduce((s, x) => s + x.t, 0);
   const flip = outer === "bottom" || outer === "right";
   let pos = -total / 2;
-  for (const band of flip ? [...bands].reverse() : bands) {
-    if (band.c) {
-      const fill = band.c === "light" ? toWhite(color2, 192 / 255) : band.c === "mid" ? toWhite(color2, 96 / 255) : color2;
-      if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band.t, fill });
-      else out.push({ t: "rect", x: x1 + pos, y: Math.min(y1, y2), w: band.t, h: Math.abs(y2 - y1), fill });
+  for (const band2 of flip ? [...bands].reverse() : bands) {
+    if (band2.c) {
+      const fill = band2.c === "light" ? toWhite(color2, 192 / 255) : band2.c === "mid" ? toWhite(color2, 96 / 255) : color2;
+      if (horizontal) out.push({ t: "rect", x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band2.t, fill });
+      else out.push({ t: "rect", x: x1 + pos, y: Math.min(y1, y2), w: band2.t, h: Math.abs(y2 - y1), fill });
     }
-    pos += band.t;
+    pos += band2.t;
   }
   void BORDER_SINGLE_LIKE;
 }
@@ -10297,7 +10967,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     if (s.row > 0) for (const u of covering(s.row - 1, s.col, s.col + s.span)) w = heavier(w, edge(u, "bottom"));
     return heavier(w, edge(s, "top"));
   };
-  const band = [];
+  const band2 = [];
   for (let k = 0; k <= nRows; k++) {
     let m = 0;
     if (k === nRows) for (const s of slots[nRows - 1] ?? []) m = Math.max(m, borderWidth(edge(s, "bottom")));
@@ -10305,7 +10975,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       if (!s.merged) m = Math.max(m, borderWidth(topWinner(s)));
       else for (const u of covering(k - 1, s.col, s.col + s.span)) m = Math.max(m, borderWidth(edge(u, "bottom")));
     }
-    band.push(m);
+    band2.push(m);
   }
   const legacy = ctx.fmt.settings.compatibilityMode < 15 && !/\/r\d+\/c\d+/.test(ref);
   const row0 = slots[0] ?? [];
@@ -10402,8 +11072,8 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       sepBottom.push(wB + sp2 + (ri === nRows - 1 ? sp2 + borderWidth(outerB(ri, "bottom")) : 0));
     }
   }
-  const bandTopOf = (ri) => separated ? sepTop[ri] : band[ri];
-  const bandBottomOf = (ri) => separated ? sepBottom[ri] : ri === nRows - 1 ? band[nRows] : 0;
+  const bandTopOf = (ri) => separated ? sepTop[ri] : band2[ri];
+  const bandBottomOf = (ri) => separated ? sepBottom[ri] : ri === nRows - 1 ? band2[nRows] : 0;
   const g0 = colX[0], gn = colX[nCols];
   const sepB = (i) => i <= 0 ? g0 + spTbl : i >= nCols ? gn - spTbl : colX[i];
   const rows = [];
@@ -11074,6 +11744,8 @@ var Engine = class {
    *  espaço = colapso(depois, antes) − depois (oráculo tocref-sectgap). null = suprime */
   topGapPrevAfter = null;
   prev = null;
+  /** pé da última caixa de parágrafo pintada (grupos de bordas) */
+  lastBox = null;
   firstInDoc = true;
   usedNumPages = false;
   geoms = [];
@@ -11998,7 +12670,7 @@ var Engine = class {
         const groupedNext = this.groupsWithNext(p, blocks[bi + 1], env);
         const bandB = this.borderBottomExtent(p, groupedNext);
         y += bandB;
-        this.paintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
+        this.paintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext, items);
         if (ps && !hfWrap && !cellAnch) this.placeFloats(p, ps, x + this.staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
         if (cellAnch) items.push(...cellAnch);
         let after = p.afterAuto ? lastInCell && !hfFlow ? 0 : 280 : p.spaceAfter;
@@ -12010,7 +12682,7 @@ var Engine = class {
           widow: this.ctx.fmt.settings.compatibilityMode >= 15 && (p.widowControl || p.ppr.widowControl === void 0)
         };
         paras.set(`${ref}/b${bi}`, lastPara);
-        prev = { after, afterAuto: p.afterAuto, ...p.styleId ? { styleId: p.styleId } : {}, contextual: p.contextual, ...p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr) } : {} };
+        prev = { after, afterAuto: p.afterAuto, ...p.styleId ? { styleId: p.styleId } : {}, contextual: p.contextual, ...p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr), boxBottom: y, boxPage: items } : {} };
       } else if (b.rows.every((r) => isHiddenRow(this.ctx, r))) {
       } else if (b.tblPr?.tblpPr && b.tblPr.tblpPr.tblpYSpec !== "inline" && !hfFlow && this.inCell) {
         const fp = b.tblPr.tblpPr;
@@ -12276,10 +12948,12 @@ var Engine = class {
     }
   }
   /** Sombreamento/bordas do parágrafo — inseridos em `at` (antes do texto já pintado). */
-  paintBox(out, p, x, width, top, bottom, prev, at = out.length, groupedNext = false) {
+  paintBox(out, p, x, width, top, bottom, prev, at = out.length, groupedNext = false, page) {
     const hasFill = !!shadingFill(p.ppr.shd, this.ctx.fmt.theme);
+    this.lastBox = { bottom, page };
     if (!p.ppr.pBdr && !hasFill) return;
     const grouped = !!prev?.pBdrKey && prev.pBdrKey === bdrKey(p.ppr);
+    if (grouped && prev.boxBottom !== void 0 && prev.boxPage === page && prev.boxBottom < top) top = prev.boxBottom;
     const left = x + p.indLeft + Math.min(0, p.firstLine);
     const right = x + width - p.indRight;
     const box = [];
@@ -12464,7 +13138,7 @@ var Engine = class {
       let bottom = last.y + last.line.height;
       this.noteColContent(bottom);
       if (isLast) bottom += this.borderBottomExtent(p, groupedNext);
-      this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext);
+      this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext, this.cur);
       frag = [];
     };
     this.y += this.borderTopExtent(p, this.prev);
@@ -12708,7 +13382,8 @@ var Engine = class {
       ...list ? { list } : {},
       ...p.styleId ? { styleId: p.styleId } : {},
       contextual: p.contextual,
-      ...p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr) } : {}
+      ...p.ppr.pBdr ? { pBdr: p.ppr.pBdr, pBdrKey: bdrKey(p.ppr) } : {},
+      ...p.ppr.pBdr && this.lastBox ? { boxBottom: this.lastBox.bottom, boxPage: this.lastBox.page } : {}
     };
   }
   // ───────────────────────── notas de rodapé ─────────────────────────
@@ -13571,10 +14246,10 @@ var Engine = class {
       if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
       let parts;
       if (f.poly) {
-        const band = polyBandIntervals(f.poly, y, y + lineH);
-        if (!band.length) continue;
-        const hull = [[band[0][0], band[band.length - 1][1]]];
-        parts = (f.wrap === "through" ? band : hull).map(([a, b]) => [a - f.distL - frameX, b + f.distR - frameX]);
+        const band2 = polyBandIntervals(f.poly, y, y + lineH);
+        if (!band2.length) continue;
+        const hull = [[band2[0][0], band2[band2.length - 1][1]]];
+        parts = (f.wrap === "through" ? band2 : hull).map(([a, b]) => [a - f.distL - frameX, b + f.distR - frameX]);
       }
       const fl = parts ? parts[0][0] : f.x - f.distL - frameX, fr = parts ? parts[parts.length - 1][1] : f.x + f.w + f.distR - frameX;
       if (fr <= tl || fl >= tr) continue;
@@ -13652,8 +14327,8 @@ var Engine = class {
     const theme = this.ctx.fmt.theme;
     const fc = tb.fontColor ? resolveDrawingColor(tb.fontColor, theme) : void 0;
     const s = tb.shape;
-    const solid = s && !s.gradient && !s.pattern && !s.blip && !s.fillRef ? s.fill : void 0;
-    return { darkBackground: isDark(resolveDrawingColor(solid, theme)), ...fc ? { defaultColor: fc } : {} };
+    const solid2 = s && !s.gradient && !s.pattern && !s.blip && !s.fillRef ? s.fill : void 0;
+    return { darkBackground: isDark(resolveDrawingColor(solid2, theme)), ...fc ? { defaultColor: fc } : {} };
   }
   /** cadeias de caixas vinculadas (montadas na 1ª caixa que precisa) */
   chains = null;
@@ -14460,10 +15135,10 @@ function shapeSubs(look, w, h, flipH, flipV) {
     }
   }));
 }
-var rgb2 = (hex) => [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+var rgb3 = (hex) => [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 function colored(m, hex, alpha) {
   const out = new Uint8Array(m.w * m.h * 4);
-  const [r, g, b] = rgb2(hex);
+  const [r, g, b] = rgb3(hex);
   for (let i = 0; i < m.a.length; i++) {
     out[i * 4] = r;
     out[i * 4 + 1] = g;
@@ -14700,7 +15375,7 @@ function paintPicturePdf(page, it, env) {
     outer.push({ op: "Z" });
     page.pushClipPath([...outer, ...cmds(polysLocal)], true);
     const dash = ln.dash ? DASH[ln.dash]?.map((v) => v * ln.widthPt) : void 0;
-    page.withAlpha(void 0, ln.alpha < 1 ? ln.alpha : void 0, () => page.path(cmds(polysLocal), void 0, { color: rgb2(ln.color).map((v) => v / 255), widthPt: 2 * ln.widthPt, ...dash ? { dash } : {} }));
+    page.withAlpha(void 0, ln.alpha < 1 ? ln.alpha : void 0, () => page.path(cmds(polysLocal), void 0, { color: rgb3(ln.color).map((v) => v / 255), widthPt: 2 * ln.widthPt, ...dash ? { dash } : {} }));
     page.popClip();
   }
   void gaussianBlur;
@@ -14876,6 +15551,48 @@ function outlineInto(cmds, font, gid, ox, base, sx, s, skew) {
   }
   return true;
 }
+var FX_PPT = 200 / 72;
+function runPathCmds(it) {
+  const font = it.face.font;
+  if (!font.glyphOutline) return null;
+  const upm = font.metrics.unitsPerEm;
+  const sc = it.sizePt / upm, sx = sc * (it.scaleX ?? 1);
+  const skew = it.synthItalic ? 0.2 : 0;
+  const cmds = [];
+  for (const g of it.glyphs) outlineInto(cmds, font, g.gid ?? font.glyphId(g.cp), g.x / T3, it.y / T3, sx, sc, skew);
+  return cmds;
+}
+function paintGlyphsFxPdf(page, it, drawPlain, shade, embedRgba) {
+  const fx = it.fx;
+  if (embedRgba && (fx.shadow || fx.glow || fx.reflection)) {
+    const L2 = fxLayers(it, fx, FX_PPT, it.color);
+    if (L2) page.drawImage(embedRgba(new Uint8Array(L2.data.buffer), L2.w, L2.h), L2.x0 / T3, L2.y0 / T3, L2.w / FX_PPT, L2.h / FX_PPT);
+  }
+  const fill = fx.fill;
+  if (fill?.kind === "grad") {
+    const cmds = runPathCmds(it);
+    if (cmds) {
+      const b = runBox(it);
+      const box = { x: b.x / T3, y: b.y / T3, w: b.w / T3, h: b.h / T3 };
+      const g = gradientGeometry2(gradOf(fill), box, { x0: box.x, y0: box.y, x1: box.x + box.w, y1: box.y + box.h });
+      const sh = shade(g, gradientSamples(fill.stops.map((st) => ({ pos: st.pos, color: st.hex })), fill.path ? 256 : 512));
+      page.withAlpha(fill.stops[0]?.alpha !== void 0 && fill.stops[0].alpha < 1 ? fill.stops[0].alpha : void 0, void 0, () => page.fillShaded(cmds, sh));
+    }
+  } else if (fill?.kind !== "none") {
+    const a = fill?.kind === "solid" ? fill.alpha : it.alpha;
+    drawPlain({ ...it, fx: void 0, ...fill?.kind === "solid" ? { color: fill.hex } : {}, ...a !== void 0 && a < 1 ? { alpha: a, asPath: true } : {} });
+  }
+  const o = fx.outline;
+  if (o && o.fill.kind !== "none") {
+    const cmds = runPathCmds(it);
+    if (cmds) {
+      const color2 = o.fill.kind === "solid" ? o.fill.hex : o.fill.stops[0]?.hex ?? it.color;
+      const a = o.fill.kind === "solid" ? o.fill.alpha : 1;
+      const dash = dashPattern(o.dash).map((d) => d * o.widthPt);
+      page.withAlpha(void 0, a < 1 ? a : void 0, () => page.path(cmds, void 0, { color: hexColor(color2), widthPt: o.widthPt, ...dash.length ? { dash } : {} }));
+    }
+  }
+}
 function glyphsAsPath(page, it) {
   const font = it.face.font;
   if (!font.glyphOutline) return false;
@@ -14888,12 +15605,12 @@ function glyphsAsPath(page, it) {
     const gid = g.gid ?? font.glyphId(g.cp);
     const layers = it.colr ? font.colorLayers?.(gid) : null;
     if (layers) {
-      for (const L of layers) {
+      for (const L2 of layers) {
         const lc = [];
-        if (!outlineInto(lc, font, L.glyphId, g.x / T3, base, sx, s, skew)) continue;
+        if (!outlineInto(lc, font, L2.glyphId, g.x / T3, base, sx, s, skew)) continue;
         if (!lc.length) continue;
-        const a = L.alpha * (it.alpha ?? 1);
-        page.withAlpha(a < 1 ? a : void 0, void 0, () => page.path(lc, hexColor(L.color ?? it.color)));
+        const a = L2.alpha * (it.alpha ?? 1);
+        page.withAlpha(a < 1 ? a : void 0, void 0, () => page.path(lc, hexColor(L2.color ?? it.color)));
       }
       continue;
     }
@@ -14926,6 +15643,10 @@ function glyphsAsPath(page, it) {
 function paintItem(page, it, fontFor, imageFor, shade, pictureEnv, embedRgba) {
   switch (it.t) {
     case "glyphs": {
+      if (it.fx) {
+        paintGlyphsFxPdf(page, it, (x) => paintItem(page, x, fontFor, imageFor, shade, pictureEnv, embedRgba), shade, embedRgba);
+        return;
+      }
       if (it.asPath && glyphsAsPath(page, it)) return;
       const ef = fontFor(it.face);
       if (!ef) return;
@@ -15227,12 +15948,12 @@ function tracePath(c, polys) {
     c.closePath();
   }
 }
-var rgb3 = (hex) => [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+var rgb4 = (hex) => [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 function maskToCanvas(m, hex, alpha) {
   const c = canvas(m.w, m.h);
   const x = ctx2d(c);
   const img = x.createImageData(m.w, m.h);
-  const [r, g, b] = rgb3(hex);
+  const [r, g, b] = rgb4(hex);
   for (let i = 0; i < m.a.length; i++) {
     const k = i * 4;
     img.data[k] = r;
@@ -15508,8 +16229,8 @@ function rgbaCanvas(rgba, w, h) {
 function paintPageBackground(ctx, page, env, opts) {
   const show = !opts.screen || !!page.backgroundShow;
   const f = show ? page.backgroundFill : void 0;
-  const solid = show && page.background && !(f && (f.type === "frame" || f.type === "tile")) ? `#${page.background}` : f && (f.type === "frame" || f.type === "tile") ? "#ffffff" : opts.paper;
-  ctx.fillStyle = solid;
+  const solid2 = show && page.background && !(f && (f.type === "frame" || f.type === "tile")) ? `#${page.background}` : f && (f.type === "frame" || f.type === "tile") ? "#ffffff" : opts.paper;
+  ctx.fillStyle = solid2;
   ctx.fillRect(0, 0, page.widthTw, page.heightTw);
   if (!f) return;
   const tile = pageFillTileTw(f, opts.devicePxTw, opts.devicePxTw);
@@ -15563,6 +16284,10 @@ function paintItems(ctx, items, env, opts = {}) {
     const it = items[i];
     switch (it.t) {
       case "glyphs":
+        if (it.fx) {
+          paintGlyphsFx(ctx, it, env, base);
+          break;
+        }
         if (it.alpha !== void 0) ctx.globalAlpha = base * it.alpha;
         paintGlyphs(ctx, it, env);
         ctx.globalAlpha = base;
@@ -15707,12 +16432,57 @@ function snapThin(v, len, s, o) {
   const start = Math.round((v + len / 2) * s + o - dw / 2);
   return [(start - o) / s, dw / s];
 }
-function paintGlyphs(ctx, it, env) {
-  if (!it.glyphs.length || !HEX6.test(it.color)) return;
+var fxCache = /* @__PURE__ */ new WeakMap();
+function paintGlyphsFx(ctx, it, env, base) {
+  const fx = it.fx;
+  if (!it.glyphs.length) return;
+  const m = ctx.getTransform();
+  const ppt = Math.max(0.5, Math.hypot(m.a, m.b) * 20);
+  if (fx.shadow || fx.glow || fx.reflection) {
+    let c = fxCache.get(it);
+    if (!c || Math.abs(c.ppt - ppt) > 0.01) {
+      const L2 = fxLayers(it, fx, ppt, it.color);
+      c = L2 ? { ppt, img: rgbaCanvas(new Uint8Array(L2.data.buffer), L2.w, L2.h), x0: L2.x0, y0: L2.y0, w: L2.w, h: L2.h } : { ppt, img: null, x0: 0, y0: 0, w: 0, h: 0 };
+      fxCache.set(it, c);
+    }
+    if (c.img) {
+      ctx.globalAlpha = base;
+      ctx.drawImage(c.img, c.x0, c.y0, c.w / ppt * 20, c.h / ppt * 20);
+    }
+  }
+  const box = runBox(it);
+  const paintOf = (f) => {
+    if (f.kind === "none") return null;
+    if (f.kind === "solid") return env.color(f.hex);
+    const g = gradientGeometry2(gradOf(f), box, { x0: box.x, y0: box.y, x1: box.x + box.w, y1: box.y + box.h });
+    const cg = g.kind === "axial" ? ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1) : ctx.createRadialGradient(g.x0, g.y0, 0, g.x0, g.y0, g.r);
+    for (const st of f.stops) cg.addColorStop(Math.max(0, Math.min(1, st.pos)), env.color(st.hex));
+    return cg;
+  };
+  const fill = fx.fill ? paintOf(fx.fill) : HEX6.test(it.color) ? env.color(it.color) : null;
+  const fillAlpha = fx.fill?.kind === "solid" ? fx.fill.alpha : fx.fill?.kind === "grad" ? fx.fill.stops[0]?.alpha ?? 1 : it.alpha ?? 1;
+  if (fill && fillAlpha > 0) {
+    ctx.globalAlpha = base * fillAlpha;
+    paintGlyphs(ctx, it, env, { fill });
+  }
+  const o = fx.outline;
+  if (o) {
+    const stroke = paintOf(o.fill);
+    const a = o.fill.kind === "solid" ? o.fill.alpha : 1;
+    if (stroke && a > 0) {
+      ctx.globalAlpha = base * a;
+      const w = Math.max(o.widthPt * 20, 1 / Math.max(1e-6, Math.hypot(m.a, m.b)));
+      paintGlyphs(ctx, it, env, { stroke: { style: stroke, width: w, dash: dashPattern(o.dash).map((d) => d * w), cap: o.cap, join: o.join } });
+    }
+  }
+  ctx.globalAlpha = base;
+}
+function paintGlyphs(ctx, it, env, mode) {
+  if (!it.glyphs.length || !mode && !HEX6.test(it.color)) return;
   const f = env.fontOf(it.face);
   const font = it.face.font;
   ctx.font = `${f.italic ? "italic " : ""}${f.weight} ${it.sizePt * 20}px ${f.family}`;
-  const color2 = env.color(it.color);
+  const color2 = mode?.fill ?? (mode?.stroke ? "transparent" : env.color(it.color));
   ctx.fillStyle = color2;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
@@ -15720,6 +16490,13 @@ function paintGlyphs(ctx, it, env) {
     ctx.strokeStyle = color2;
     ctx.lineWidth = it.sizePt / 35 * 20;
     ctx.lineJoin = "miter";
+  }
+  if (mode?.stroke) {
+    ctx.strokeStyle = mode.stroke.style;
+    ctx.lineWidth = mode.stroke.width;
+    ctx.lineJoin = mode.stroke.join;
+    ctx.lineCap = mode.stroke.cap;
+    ctx.setLineDash(mode.stroke.dash);
   }
   const sx = it.scaleX ?? 1;
   const skew = it.synthItalic ? -0.21 : 0;
@@ -15731,6 +16508,23 @@ function paintGlyphs(ctx, it, env) {
   const adv = (cp) => font.advanceWidth(font.glyphId(cp)) * it.sizePt * 20 / upem;
   for (let i = 0; i < gl.length; i++) {
     const g = gl[i];
+    if (g.gid !== void 0 && font.glyphOutline) {
+      const ol = font.glyphOutline(g.gid);
+      if (ol) {
+        const s = it.sizePt * 20 / upem, gx = s * sx;
+        const k = it.synthItalic ? 0.21 : 0;
+        ctx.beginPath();
+        for (const c of ol) {
+          if (c.op === "M") ctx.moveTo(g.x + c.x * gx + k * c.y * s, it.y - c.y * s);
+          else if (c.op === "L") ctx.lineTo(g.x + c.x * gx + k * c.y * s, it.y - c.y * s);
+          else if (c.op === "Q") ctx.quadraticCurveTo(g.x + c.cx * gx + k * c.cy * s, it.y - c.cy * s, g.x + c.x * gx + k * c.y * s, it.y - c.y * s);
+          else ctx.closePath();
+        }
+        if (mode?.stroke) ctx.stroke();
+        else ctx.fill();
+        continue;
+      }
+    }
     let cp = g.cp;
     if (cp >= 61440 && cp <= 61695 && font.glyphId(cp) === 0 && font.glyphId(cp - 61440) !== 0) cp -= 61440;
     let ch = String.fromCodePoint(cp);
@@ -15743,18 +16537,20 @@ function paintGlyphs(ctx, it, env) {
         i++;
       }
     }
+    const sk = mode?.stroke;
     if (plain) {
-      ctx.fillText(ch, g.x, it.y);
-      if (it.synthBold) ctx.strokeText(ch, g.x, it.y);
+      if (!sk) ctx.fillText(ch, g.x, it.y);
+      if (it.synthBold || sk) ctx.strokeText(ch, g.x, it.y);
     } else {
       ctx.save();
       ctx.translate(g.x, it.y);
       ctx.transform(sx, 0, skew, 1, 0, 0);
-      ctx.fillText(ch, 0, 0);
-      if (it.synthBold) ctx.strokeText(ch, 0, 0);
+      if (!sk) ctx.fillText(ch, 0, 0);
+      if (it.synthBold || sk) ctx.strokeText(ch, 0, 0);
       ctx.restore();
     }
   }
+  if (mode?.stroke) ctx.setLineDash([]);
 }
 function batchable(cp) {
   return cp >= 32 && cp < 768 || cp >= 880 && cp < 1424 || cp >= 8192 && cp < 8304 && cp !== 8204 && cp !== 8205 || cp >= 8352 && cp < 8400;
@@ -16047,6 +16843,23 @@ function documentOutline(full, opts = {}) {
   walk(full.blocks, true);
   return out;
 }
+function listItemValues(full, opts = {}) {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const out = /* @__PURE__ */ new Map();
+  const walk = (blocks) => {
+    for (const b of blocks) {
+      if (b.type === "table") {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell));
+        continue;
+      }
+      const n = resolvePPr(ctx, b.paragraph, {}).ppr.numPr;
+      const m = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0) : null;
+      if (m) out.set(b.paragraph, { value: m.value ?? 0, text: m.text });
+    }
+  };
+  walk(full.blocks);
+  return out;
+}
 function numberedItems(full, opts = {}) {
   const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
   const out = [];
@@ -16201,6 +17014,18 @@ export {
   PRESET_PATTERNS,
   patternRows,
   SHAPE_STYLE_PRESETS,
+  TEXT_SHADOW_PRESETS,
+  TEXT_REFLECTION_PRESETS,
+  TEXT_GLOW_SIZES,
+  textGlow,
+  OUTLINE_WEIGHTS,
+  OUTLINE_DASHES,
+  outline,
+  GRADIENT_DIRECTIONS,
+  textGradient,
+  TEXT_EFFECT_GALLERY,
+  NUMBER_STYLES_OT,
+  LIGATURE_OPTIONS,
   GRADIENT_VARIANTS,
   gradientGeometry,
   GRADIENT_PRESETS,
@@ -16286,6 +17111,7 @@ export {
   cellBlocks,
   paragraphAtPath,
   documentOutline,
+  listItemValues,
   numberedItems,
   outlineParagraphs,
   inheritedPPr,

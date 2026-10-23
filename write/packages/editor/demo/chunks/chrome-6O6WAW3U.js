@@ -6,19 +6,24 @@ import {
   hostOf,
   isDark,
   originStore
-} from "./chunk-RVN7KSAK.js";
+} from "./chunk-D3LF3KBI.js";
 import {
   ASPECT_RATIOS,
   BEVEL_PRESETS,
   BRIGHT_CONTRAST_STEPS,
   CROP_SHAPES,
   GLOW_SIZES,
+  GRADIENT_DIRECTIONS,
   GRADIENT_PRESETS,
   GRADIENT_VARIANTS,
   HYPHENATION_LIMITS,
+  LIGATURE_OPTIONS,
   LINE_DASHES,
   LINE_NUMBER_LIMITS,
   LINE_WEIGHTS_PT,
+  NUMBER_STYLES_OT,
+  OUTLINE_DASHES,
+  OUTLINE_WEIGHTS,
   PARAGRAPH_LAYOUT_LIMITS,
   POSITION_PRESETS,
   PRESET_PATTERNS,
@@ -31,6 +36,10 @@ import {
   SHARPEN_PRESETS,
   SOFT_EDGE_PRESETS,
   TEMPERATURE_PRESETS,
+  TEXT_EFFECT_GALLERY,
+  TEXT_GLOW_SIZES,
+  TEXT_REFLECTION_PRESETS,
+  TEXT_SHADOW_PRESETS,
   TOC_FORMATS,
   TRANSPARENCY_PRESETS,
   adjustBrightnessContrast,
@@ -38,16 +47,19 @@ import {
   adjustSharpen,
   adjustTemperature,
   applyBlipFx,
+  formatNumber,
   glowPreset,
   gradientGeometry,
   gradientTileRgba,
+  outline,
   paintPicture,
   patternRgba,
   patternRows,
   presetOutline,
+  textGlow,
   textboxTemplateSpec,
   tocFormatStyle
-} from "./chunk-TNKC5L6H.js";
+} from "./chunk-3Q6VWSSC.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -80,7 +92,7 @@ import {
   themePaletteColors,
   tileGrid,
   toggleMenu
-} from "./chunk-HQOG44SJ.js";
+} from "./chunk-UC6Y52LZ.js";
 import {
   FORMULA_FUNCTIONS,
   TABLE_STYLE_CONDS,
@@ -93,7 +105,7 @@ import {
   resolveColor2,
   retitleTableStyleXml,
   uiLang
-} from "./chunk-FUFLN7IJ.js";
+} from "./chunk-C7GS7HND.js";
 import "./chunk-WSFCRVEQ.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
@@ -1069,16 +1081,16 @@ function colorButton(env, value, autoLabel) {
   };
   const swatch = el("span", { style: "display:inline-block;width:28px;height:14px;border:1px solid currentColor;border-radius:2px" });
   const text = el("span", {});
-  const btn2 = el("button", { type: "button", className: "uo-pill", style: "display:inline-flex;align-items:center;gap:8px;min-width:150px" }, swatch, text, "\u25BE");
+  const btn3 = el("button", { type: "button", className: "uo-pill", style: "display:inline-flex;align-items:center;gap:8px;min-width:150px" }, swatch, text, "\u25BE");
   const paint = () => {
     const auto = cur.hex === "auto";
     swatch.style.background = auto ? "transparent" : `#${cur.hex}`;
     text.textContent = auto ? autoLabel : `#${cur.hex}`;
   };
   paint();
-  btn2.addEventListener("click", (e6) => {
+  btn3.addEventListener("click", (e6) => {
     e6.stopPropagation();
-    const r5 = btn2.getBoundingClientRect();
+    const r5 = btn3.getBoundingClientRect();
     const colors = env.ed.documentThemeColors();
     openMenu([
       { id: "clr:auto", label: autoLabel, icon: "format_color_reset", onClick: () => {
@@ -1102,7 +1114,7 @@ function colorButton(env, value, autoLabel) {
       }
     ], { x: r5.left, y: r5.bottom + 2 }, { lang: env.lang, layer: env.layer });
   });
-  return { el: btn2, value: () => cur, onChange: (f3) => {
+  return { el: btn3, value: () => cur, onChange: (f3) => {
     changed = f3;
   } };
 }
@@ -2273,7 +2285,7 @@ function distanceWidget(env, which) {
       input.inputMode = "decimal";
       input.style.width = "64px";
       input.setAttribute("aria-label", title);
-      const fmt = (tw) => `${(Math.round(tw / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 })} ${u3.name}`;
+      const fmt2 = (tw) => `${(Math.round(tw / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 })} ${u3.name}`;
       const apply = () => {
         const n5 = parseFloat(input.value.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
         if (Number.isFinite(n5) && n5 >= 0) env.ed.setHeaderFooterDistance({ [which]: Math.round(n5 * u3.tw) });
@@ -2292,7 +2304,7 @@ function distanceWidget(env, which) {
         el: wrap,
         sync: () => {
           const o6 = env.ed.getHeaderFooterOptions();
-          if (o6 && env.root.activeElement !== input) input.value = fmt(which === "header" ? o6.headerDistance : o6.footerDistance);
+          if (o6 && env.root.activeElement !== input) input.value = fmt2(which === "header" ? o6.headerDistance : o6.footerDistance);
           input.disabled = env.app.comparing || env.ed.isProtected();
         }
       };
@@ -2345,7 +2357,7 @@ async function pageNumberFormatDialog(env) {
   const lang = env.lang, ed = env.ed;
   const f3 = ed.getPageNumberFormat();
   if (!f3) return;
-  const fmt = select("fmt", [
+  const fmt2 = select("fmt", [
     ["decimal", "1, 2, 3, \u2026"],
     ["numberInDash", "- 1 -, - 2 -, - 3 -, \u2026"],
     ["lowerLetter", "a, b, c, \u2026"],
@@ -2379,7 +2391,7 @@ async function pageNumberFormatDialog(env) {
   const body = el2(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el2("div", { className: "uo-dialog-grid" }, el2("span", {}, tr2(lang, "Number format", "Formato do n\xFAmero")), fmt),
+    el2("div", { className: "uo-dialog-grid" }, el2("span", {}, tr2(lang, "Number format", "Formato do n\xFAmero")), fmt2),
     chap,
     el2(
       "div",
@@ -2405,7 +2417,7 @@ async function pageNumberFormatDialog(env) {
   if (await h3.result !== "ok") return;
   const n5 = Math.max(0, Math.round(Number(start.value) || 0));
   ed.setPageNumberFormat({
-    format: fmt.value,
+    format: fmt2.value,
     chapter: chapIn.checked ? { level: Number(level.value), separator: sep.value } : null,
     start: startR.querySelector("input").checked ? n5 : null
   });
@@ -2490,15 +2502,15 @@ async function hfOptionsDialog(env) {
   const o6 = ed.getHeaderFooterOptions();
   if (!o6) return;
   const u3 = lang === "pt" ? { tw: 1440 / 2.54, name: "cm" } : { tw: 1440, name: '"' };
-  const fmt = (tw) => (Math.round(tw / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
+  const fmt2 = (tw) => (Math.round(tw / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
   const parse = (v2) => {
     const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
     return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
   };
   const first = check("first", tr2(lang, "Different first page", "Primeira p\xE1gina diferente"), o6.differentFirstPage);
   const oddEven = check("oddEven", tr2(lang, "Different odd & even pages", "P\xE1ginas pares e \xEDmpares diferentes"), o6.differentOddEven);
-  const hd = el2("input", { type: "text", name: "hd", value: fmt(o6.headerDistance), inputMode: "decimal", style: "width:80px" });
-  const fd = el2("input", { type: "text", name: "fd", value: fmt(o6.footerDistance), inputMode: "decimal", style: "width:80px" });
+  const hd = el2("input", { type: "text", name: "hd", value: fmt2(o6.headerDistance), inputMode: "decimal", style: "width:80px" });
+  const fd = el2("input", { type: "text", name: "fd", value: fmt2(o6.footerDistance), inputMode: "decimal", style: "width:80px" });
   const unit = (i5) => el2("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
   const body = el2(
     "div",
@@ -2822,7 +2834,7 @@ var ALIGNS = [
   ["middle", "Align Middle", "Alinhar ao Meio", "align_vertical_center"],
   ["bottom", "Align Bottom", "Alinhar Parte Inferior", "align_vertical_bottom"]
 ];
-var alignMenu = () => [...ALIGNS.slice(0, 3).map(([k2]) => `pic:align:${k2}`), "-", ...ALIGNS.slice(3).map(([k2]) => `pic:align:${k2}`), "-", "pic:align:to:page", "pic:align:to:margin"];
+var alignMenu = () => [...ALIGNS.slice(0, 3).map(([k2]) => `pic:align:${k2}`), "-", ...ALIGNS.slice(3).map(([k2]) => `pic:align:${k2}`), "-", "shp:distribute:h", "shp:distribute:v", "-", "pic:align:to:page", "pic:align:to:margin"];
 var wrapMenu = () => [
   ...WRAPS.map(([k2]) => `pic:wrap:${k2}`),
   "-",
@@ -3678,15 +3690,15 @@ async function pageFillDialog(env) {
   const imgPane = (kind) => {
     const prev = el3("img", { alt: "", style: "max-width:280px;max-height:180px;border:1px solid rgba(127,127,127,.4);display:none" });
     const name = el3("span", { style: "font-size:12px;opacity:.85" });
-    const btn2 = el3("button", { type: "button", className: "uo-pill", textContent: kind === "texture" ? tr3(lang, "Other Texture\u2026", "Outra Textura\u2026") : tr3(lang, "Select Picture\u2026", "Selecionar Imagem\u2026") });
-    btn2.addEventListener("click", () => pickImage((file) => {
+    const btn3 = el3("button", { type: "button", className: "uo-pill", textContent: kind === "texture" ? tr3(lang, "Other Texture\u2026", "Outra Textura\u2026") : tr3(lang, "Select Picture\u2026", "Selecionar Imagem\u2026") });
+    btn3.addEventListener("click", () => pickImage((file) => {
       files[kind] = file;
       name.textContent = file.name;
       prev.src = URL.createObjectURL(new Blob([file.data.slice().buffer]));
       prev.style.display = "block";
     }));
     const note = kind === "texture" ? tr3(lang, "The image repeats across the page at its natural size.", "A imagem se repete pela p\xE1gina no tamanho natural.") : tr3(lang, "The picture repeats across the page, as in the desktop app.", "A imagem se repete pela p\xE1gina, como no aplicativo de mesa.");
-    return el3("div", { style: "display:flex;flex-direction:column;gap:10px;align-items:flex-start" }, btn2, name, prev, el3("span", { style: "font-size:12px;opacity:.7" }, note));
+    return el3("div", { style: "display:flex;flex-direction:column;gap:10px;align-items:flex-start" }, btn3, name, prev, el3("span", { style: "font-size:12px;opacity:.7" }, note));
   };
   const tabs = dialogTabs([
     { id: "gradient", label: tr3(lang, "Gradient", "Gradiente"), body: gradBody },
@@ -3972,7 +3984,7 @@ async function replaceQuestion(env) {
 async function optionsDialog(env, cur) {
   const t5 = T2(env), ed = env.ed;
   const useStyles = check3(t5("Styles", "Estilos"), cur.useStyles !== false);
-  const outline = check3(t5("Outline levels", "N\xEDveis de t\xF3picos"), cur.outlineLevels !== false);
+  const outline2 = check3(t5("Outline levels", "N\xEDveis de t\xF3picos"), cur.outlineLevels !== false);
   const fields = check3(t5("Table entry fields", "Campos de entrada de \xEDndice"), !!cur.fields);
   const levels = cur.levels ?? 3;
   const styles2 = ed.listStyles("document").filter((s4) => s4.kind !== "character");
@@ -3998,7 +4010,7 @@ async function optionsDialog(env, cur) {
       r5.input.value = hd && hd <= 3 ? String(hd) : "";
     }
     useStyles.input.checked = true;
-    outline.input.checked = true;
+    outline2.input.checked = true;
     fields.input.checked = false;
   });
   const body = el4(
@@ -4008,7 +4020,7 @@ async function optionsDialog(env, cur) {
     useStyles.box,
     el4("div", { style: "display:flex;justify-content:space-between;font-size:12px;opacity:.75;padding:0 4px" }, el4("span", {}, t5("Available styles:", "Estilos dispon\xEDveis:")), el4("span", {}, t5("TOC level:", "N\xEDvel do sum\xE1rio:"))),
     list,
-    outline.box,
+    outline2.box,
     fields.box,
     el4("div", {}, reset)
   );
@@ -4028,7 +4040,7 @@ async function optionsDialog(env, cur) {
   return {
     ...cur,
     useStyles: useStyles.input.checked,
-    outlineLevels: outline.input.checked,
+    outlineLevels: outline2.input.checked,
     fields: fields.input.checked,
     levels: k2 || levels,
     styles: extra.map((x2) => ({ style: x2.s.name, level: x2.level }))
@@ -4083,10 +4095,10 @@ async function customTocDialog(env) {
     print.replaceChildren(...Array.from({ length: show }, (_2, i5) => {
       const st = tocFormatStyle(f3, i5 + 1);
       const css = `padding-left:${/w:left="(\d+)"/.exec(st.pPr)?.[1] ? +/w:left="(\d+)"/.exec(st.pPr)[1] / 20 : 0}px;${/<w:b\/>/.test(st.rPr) ? "font-weight:700;" : ""}${/<w:i\/>/.test(st.rPr) ? "font-style:italic;" : ""}${/<w:caps\/>/.test(st.rPr) ? "text-transform:uppercase;" : ""}${/<w:smallCaps\/>/.test(st.rPr) ? "font-variant:small-caps;" : ""}${/w:jc w:val="center"/.test(st.pPr) ? "justify-content:center;" : ""}`;
-      const row2 = el4("div", { style: `display:flex;gap:4px;white-space:nowrap;${css}` }, el4("span", {}, t5(`Heading ${i5 + 1}`, `T\xEDtulo ${i5 + 1}`)));
-      if (pages.input.checked && right.input.checked) row2.append(el4("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el4("span", {}, String(i5 * 2 + 1)));
-      else if (pages.input.checked) row2.append(el4("span", {}, String(i5 * 2 + 1)));
-      return row2;
+      const row3 = el4("div", { style: `display:flex;gap:4px;white-space:nowrap;${css}` }, el4("span", {}, t5(`Heading ${i5 + 1}`, `T\xEDtulo ${i5 + 1}`)));
+      if (pages.input.checked && right.input.checked) row3.append(el4("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el4("span", {}, String(i5 * 2 + 1)));
+      else if (pages.input.checked) row3.append(el4("span", {}, String(i5 * 2 + 1)));
+      return row3;
     }));
     web.replaceChildren(...Array.from({ length: show }, (_2, i5) => el4("div", { style: `padding-left:${i5 * 11}px;${links.input.checked ? "color:#0563c1;text-decoration:underline" : ""}` }, t5(`Heading ${i5 + 1}`, `T\xEDtulo ${i5 + 1}`))));
     right.input.disabled = !pages.input.checked;
@@ -4478,9 +4490,9 @@ async function lineNumbersDialog(env, cur) {
   const unit = indentUnit(lang);
   const autoTxt = tr4(lang, "Auto", "Autom\xE1tico");
   const [onL, onI] = check4("on", tr4(lang, "Add line numbering", "Adicionar numera\xE7\xE3o de linha"), cur.on);
-  const num2 = (name, v2, [lo, hi]) => el5("input", { type: "number", name, value: String(v2), min: String(lo), max: String(hi), step: "1", style: "width:110px" });
-  const start = num2("start", cur.startAt, LINE_NUMBER_LIMITS.startAt);
-  const count = num2("count", cur.countBy, LINE_NUMBER_LIMITS.countBy);
+  const num3 = (name, v2, [lo, hi]) => el5("input", { type: "number", name, value: String(v2), min: String(lo), max: String(hi), step: "1", style: "width:110px" });
+  const start = num3("start", cur.startAt, LINE_NUMBER_LIMITS.startAt);
+  const count = num3("count", cur.countBy, LINE_NUMBER_LIMITS.countBy);
   const dist = el5("input", { type: "text", name: "distance", inputMode: "decimal", value: cur.distanceTwips ? formatMeasure(cur.distanceTwips, unit, lang) : autoTxt, style: "width:110px" });
   dist.addEventListener("focus", () => dist.select());
   const restart = el5(
@@ -4619,6 +4631,9 @@ function registerShapeCommands(reg, ed, app, ctl) {
     s4({ id: "shp:flip:h", label: L9("Flip Horizontal", "Inverter Horizontalmente"), icon: "flip", supports: has("flipShape"), run: () => ed.flipShape("h") }),
     s4({ id: "shp:rotate:more", label: L9("More Rotation Options\u2026", "Mais Op\xE7\xF5es de Rota\xE7\xE3o..."), icon: "tune", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
     ...ALIGNS2.map(([k2, en, pt, icon]) => s4({ id: `shp:align:${k2}`, label: L9(en, pt), icon, supports: has("alignShape"), isEnabled: floating, run: () => ed.alignShape(k2) })),
+    // vários objetos selecionados (Selecionar Objetos, Shift+clique): vãos iguais entre eles
+    s4({ id: "shp:distribute:h", label: L9("Distribute Horizontally", "Distribuir na Horizontal"), icon: "horizontal_distribute", supports: has("alignObjects"), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects("distributeH") }),
+    s4({ id: "shp:distribute:v", label: L9("Distribute Vertically", "Distribuir na Vertical"), icon: "vertical_distribute", supports: has("alignObjects"), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects("distributeV") }),
     s4({ id: "shp:layout", label: L9("Layout Options\u2026", "Layout..."), icon: "aspect_ratio", supports: has("setShapeLayout"), run: () => ctl.pictureDialog("layout:size") }),
     // ── Texto ──
     ...DIRS.map(([k2, en, pt, icon]) => s4({ id: `shp:dir:${k2}`, label: L9(en, pt), icon, supports: has("setTextboxOptions"), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k2 }), isChecked: () => shp()?.text?.direction === k2 })),
@@ -4654,7 +4669,7 @@ function positionIcon2(v2, h3) {
 var shapeWrapMenu = () => [...WRAPS2.map(([k2]) => `shp:wrap:${k2}`), "-", "shp:wrap:moveWithText", "shp:wrap:fixOnPage", "-", "shp:wrap:more"];
 var shapePositionMenu = () => ["shp:pos:inline", "-", ...POSITION_PRESETS.map((q) => `shp:pos:${q.id}`), "-", "shp:pos:more"];
 var shapeRotateMenu = () => ["shp:rotate:right", "shp:rotate:left", "shp:flip:v", "shp:flip:h", "-", "shp:rotate:more"];
-var shapeAlignMenu = () => [...ALIGNS2.slice(0, 3).map(([k2]) => `shp:align:${k2}`), "-", ...ALIGNS2.slice(3).map(([k2]) => `shp:align:${k2}`), "-", "pic:align:to:page", "pic:align:to:margin"];
+var shapeAlignMenu = () => [...ALIGNS2.slice(0, 3).map(([k2]) => `shp:align:${k2}`), "-", ...ALIGNS2.slice(3).map(([k2]) => `shp:align:${k2}`), "-", "shp:distribute:h", "shp:distribute:v", "-", "pic:align:to:page", "pic:align:to:margin"];
 var dirMenu = () => [...DIRS.map(([k2]) => `shp:dir:${k2}`), "-", "shp:textOptions"];
 var anchorMenu = () => [...ANCHORS.map(([k2]) => `shp:anchor:${k2}`), "-", "shp:textOptions"];
 function colorIn(xml) {
@@ -5193,6 +5208,2508 @@ function shapeContextItems() {
   ];
 }
 
+// src/chrome-effects.ts
+var L10 = (en, pt) => ({ en, pt });
+var tr5 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var el6 = (tag, props = {}, ...kids) => {
+  const { style, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (style) e6.style.cssText = style;
+  e6.append(...kids);
+  return e6;
+};
+function fxColorOf(value, colors) {
+  const p3 = parseThemePick(value, colors);
+  if (!p3) return { rgb: value.replace(/^#/, "").toUpperCase() };
+  const slot = { text1: "tx1", background1: "bg1", text2: "tx2", background2: "bg2", dark1: "tx1", light1: "bg1", dark2: "tx2", light2: "bg2" };
+  const mods = [];
+  const frac = (h3) => h3 ? 1 - parseInt(h3, 16) / 255 : void 0;
+  const tint = frac(p3.tint), shade = frac(p3.shade);
+  if (tint !== void 0) {
+    mods.push(["lumMod", Math.round((1 - tint) * 1e5)], ["lumOff", Math.round(tint * 1e5)]);
+  }
+  if (shade !== void 0) mods.push(["lumMod", Math.round((1 - shade) * 1e5)]);
+  return { scheme: slot[p3.themeColor] ?? p3.themeColor, ...mods.length ? { mods } : {} };
+}
+function fxCss(fx, colors) {
+  const hex = (c4) => {
+    const base = c4.rgb ?? colors[{ tx1: "dk1", bg1: "lt1", tx2: "dk2", bg2: "lt2" }[c4.scheme ?? ""] ?? c4.scheme ?? ""] ?? "000000";
+    return `#${base}`;
+  };
+  const alpha = (c4) => {
+    const a3 = c4.mods?.find(([k2]) => k2 === "alpha")?.[1];
+    return a3 !== void 0 ? 1 - a3 / 1e5 : 1;
+  };
+  const rgba = (c4) => {
+    const h3 = hex(c4).slice(1);
+    return `rgba(${parseInt(h3.slice(0, 2), 16)},${parseInt(h3.slice(2, 4), 16)},${parseInt(h3.slice(4, 6), 16)},${alpha(c4)})`;
+  };
+  let css = "";
+  const f3 = fx.fill;
+  if (f3?.type === "solid") css += `color:${rgba(f3.color)};`;
+  else if (f3?.type === "grad") css += `background:linear-gradient(${(f3.lin?.ang ?? 54e5) / 6e4 + 90}deg,${f3.stops.map((s4) => `${rgba(s4.color)} ${s4.pos / 1e3}%`).join(",")});-webkit-background-clip:text;background-clip:text;color:transparent;`;
+  else if (f3?.type === "none") css += "color:transparent;";
+  if (fx.outline?.fill?.type === "solid") css += `-webkit-text-stroke:${Math.max(0.5, (fx.outline.w ?? 9525) / 12700)}px ${rgba(fx.outline.fill.color)};`;
+  const shadows = [];
+  if (fx.shadow) {
+    const a3 = fx.shadow.dir / 6e4 * (Math.PI / 180), d3 = fx.shadow.dist / 12700 * 1.3;
+    shadows.push(`${(Math.cos(a3) * d3).toFixed(1)}px ${(Math.sin(a3) * d3).toFixed(1)}px ${(fx.shadow.blurRad / 12700).toFixed(1)}px ${rgba(fx.shadow.color)}`);
+  }
+  if (fx.glow) shadows.push(`0 0 ${(fx.glow.rad / 12700).toFixed(1)}px ${rgba(fx.glow.color)}`, `0 0 ${(fx.glow.rad / 25400).toFixed(1)}px ${rgba(fx.glow.color)}`);
+  if (shadows.length) css += `text-shadow:${shadows.join(",")};`;
+  return css;
+}
+function textEffectsMenu(env, ctx) {
+  const ed = env.ed;
+  const colors = ed.documentThemeColors();
+  const after = () => ctx.after();
+  return [
+    {
+      content: (close) => tileGrid({
+        sections: [{ items: TEXT_EFFECT_GALLERY.map((p3, i5) => ({ id: String(i5), label: p3.label })) }],
+        tile: { w: 44, h: 44 },
+        cols: 5,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        render: (b3, it) => {
+          const p3 = TEXT_EFFECT_GALLERY[Number(it.id)];
+          b3.replaceChildren(el6("span", { textContent: "A", style: `font:700 30px/1 Georgia, 'Times New Roman', serif;${fxCss(p3.fx, colors)}` }));
+        },
+        onPick: (id) => {
+          ed.applyTextEffectPreset(Number(id));
+          after();
+        }
+      })
+    },
+    "-",
+    { id: "fx:outlineMenu", label: L10("Outline", "Contorno"), icon: "border_color", submenu: () => outlineMenu2(env, ctx) },
+    { id: "fx:shadowMenu", label: L10("Shadow", "Sombra"), icon: "opacity", submenu: () => shadowMenu(env, ctx) },
+    { id: "fx:reflectionMenu", label: L10("Reflection", "Reflexo"), icon: "flip", submenu: () => reflectionMenu(env, ctx) },
+    { id: "fx:glowMenu", label: L10("Glow", "Brilho"), icon: "auto_awesome", submenu: () => glowMenu(env, ctx) },
+    { id: "fx:numberMenu", label: L10("Number Styles", "Estilos de N\xFAmero"), icon: "numbers", submenu: () => numberStylesMenu(env, ctx) },
+    { id: "fx:ligatureMenu", label: L10("Ligatures", "Ligaduras"), icon: "text_fields", submenu: () => ligaturesMenu(env, ctx) },
+    { id: "fx:setsMenu", label: L10("Stylistic Sets", "Conjuntos Estil\xEDsticos"), icon: "format_shapes", submenu: () => stylisticSetsMenu(env, ctx) }
+  ];
+}
+function paletteGrid(env, ctx, onPick) {
+  const colors = env.ed.documentThemeColors();
+  return {
+    content: (close) => {
+      const box = el6("div", { className: "uw-palette" });
+      const h3 = (t5) => el6("div", { className: "uo-tiles-h", textContent: t5 });
+      box.append(
+        h3(ctx.registry.text(L10("Theme Colors", "Cores do Tema"))),
+        colorGrid({ colors: themePaletteColors(colors), columns: 10, close, onPick: (v2) => {
+          onPick(fxColorOf(v2, colors));
+          ctx.after();
+        } }),
+        h3(ctx.registry.text(L10("Standard Colors", "Cores Padr\xE3o"))),
+        colorGrid({ colors: STANDARD_COLORS.map((x2) => ({ value: x2, css: `#${x2}` })), columns: 10, close, onPick: (v2) => {
+          onPick(fxColorOf(v2, colors));
+          ctx.after();
+        } })
+      );
+      return box;
+    }
+  };
+}
+function outlineMenu2(env, ctx) {
+  const ed = env.ed;
+  const cur = () => ed.textEffects().fx?.outline;
+  const color = () => cur()?.fill?.type === "solid" ? cur().fill.color : { scheme: "accent1" };
+  return [
+    paletteGrid(env, ctx, (c4) => ed.setTextEffects({ outline: outline(c4, (cur()?.w ?? 9525) / 12700, cur()?.dash ?? "solid") })),
+    { id: "fx:noOutline", label: L10("No Outline", "Sem Contorno"), icon: "format_color_reset", onClick: () => {
+      ed.setTextEffects({ outline: null });
+      ctx.after();
+    } },
+    { id: "fx:weight", label: L10("Weight", "Espessura"), icon: "line_weight", submenu: () => OUTLINE_WEIGHTS.map((w2) => ({
+      id: `fx:w:${w2}`,
+      label: `${String(w2).replace(".", ctx.registry.text(L10(".", ",")))} pt`,
+      checked: Math.abs((cur()?.w ?? -1) / 12700 - w2) < 0.01,
+      onClick: () => {
+        ed.setTextEffects({ outline: outline(color(), w2, cur()?.dash ?? "solid") });
+        ctx.after();
+      }
+    })) },
+    { id: "fx:dashes", label: L10("Dashes", "Tra\xE7os"), icon: "line_style", submenu: () => OUTLINE_DASHES.map(([d3, lbl]) => ({
+      id: `fx:d:${d3}`,
+      label: lbl,
+      checked: (cur()?.dash ?? "") === d3,
+      onClick: () => {
+        ed.setTextEffects({ outline: outline(color(), (cur()?.w ?? 9525) / 12700, d3) });
+        ctx.after();
+      }
+    })) }
+  ];
+}
+function shadowMenu(env, ctx) {
+  const ed = env.ed;
+  const cur = JSON.stringify(ed.textEffects().fx?.shadow ?? null);
+  const grid2 = (group2, label) => ({ label, items: TEXT_SHADOW_PRESETS.filter((p3) => p3.group === group2).map((p3) => ({ id: p3.id, label: p3.label })) });
+  return [
+    { id: "fx:noShadow", label: L10("No Shadow", "Sem Sombra"), icon: "cancel", checked: cur === "null", onClick: () => {
+      ed.setTextEffects({ shadow: null });
+      ctx.after();
+    } },
+    {
+      content: (close) => tileGrid({
+        sections: [grid2("outer", L10("Outer", "Externa")), grid2("persp", L10("Perspective", "Perspectiva"))],
+        tile: { w: 44, h: 44 },
+        cols: 3,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        selected: TEXT_SHADOW_PRESETS.find((p3) => JSON.stringify(p3.shadow) === cur)?.id,
+        render: (b3, it) => {
+          const p3 = TEXT_SHADOW_PRESETS.find((x2) => x2.id === it.id);
+          b3.replaceChildren(el6("span", { textContent: "A", style: `font:700 28px/1 Georgia, serif;${fxCss({ shadow: p3.shadow }, ed.documentThemeColors())}` }));
+        },
+        onPick: (id) => {
+          ed.setTextEffects({ shadow: TEXT_SHADOW_PRESETS.find((p3) => p3.id === id).shadow });
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    "fx:pane"
+  ];
+}
+function reflectionMenu(env, ctx) {
+  const ed = env.ed;
+  const cur = JSON.stringify(ed.textEffects().fx?.reflection ?? null);
+  return [
+    { id: "fx:noReflection", label: L10("No Reflection", "Sem Reflexo"), icon: "cancel", checked: cur === "null", onClick: () => {
+      ed.setTextEffects({ reflection: null });
+      ctx.after();
+    } },
+    {
+      content: (close) => tileGrid({
+        sections: [{ label: L10("Reflection Variations", "Varia\xE7\xF5es de Reflexo"), items: TEXT_REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: p3.label })) }],
+        tile: { w: 52, h: 52 },
+        cols: 3,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        selected: TEXT_REFLECTION_PRESETS.find((p3) => JSON.stringify(p3.reflection) === cur)?.id,
+        render: (b3, it) => {
+          const p3 = TEXT_REFLECTION_PRESETS.find((x2) => x2.id === it.id);
+          const gap = p3.reflection.dist / 12700 * 0.6;
+          const size = Math.round(p3.reflection.endPos / 1e5 * 100);
+          b3.replaceChildren(el6("span", { textContent: "A", style: `font:700 24px/1 Georgia, serif;-webkit-box-reflect:below ${gap.toFixed(1)}px linear-gradient(transparent ${100 - size}%, rgba(0,0,0,.45))` }));
+        },
+        onPick: (id) => {
+          ed.setTextEffects({ reflection: TEXT_REFLECTION_PRESETS.find((p3) => p3.id === id).reflection });
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    "fx:pane"
+  ];
+}
+function glowMenu(env, ctx) {
+  const ed = env.ed;
+  const cur = JSON.stringify(ed.textEffects().fx?.glow ?? null);
+  const items = TEXT_GLOW_SIZES.flatMap((rad) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `${rad}:${a3}`, label: L10(`Glow: ${rad / 12700} pt; Accent color ${a3}`, `Brilho: ${String(rad / 12700).replace(".", ",")} pt; Cor de destaque ${a3}`) })));
+  const glowOf = (id) => {
+    const [rad, a3] = id.split(":").map(Number);
+    return textGlow(rad, { scheme: `accent${a3}` });
+  };
+  return [
+    { id: "fx:noGlow", label: L10("No Glow", "Sem Brilho"), icon: "cancel", checked: cur === "null", onClick: () => {
+      ed.setTextEffects({ glow: null });
+      ctx.after();
+    } },
+    {
+      content: (close) => tileGrid({
+        sections: [{ label: L10("Glow Variations", "Varia\xE7\xF5es de Brilho"), items }],
+        tile: { w: 40, h: 40 },
+        cols: 6,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        selected: items.find((x2) => JSON.stringify(glowOf(x2.id)) === cur)?.id,
+        render: (b3, it) => {
+          b3.replaceChildren(el6("span", { textContent: "A", style: `font:700 22px/1 Georgia, serif;${fxCss({ glow: glowOf(it.id) }, ed.documentThemeColors())}` }));
+        },
+        onPick: (id) => {
+          ed.setTextEffects({ glow: glowOf(id) });
+          ctx.after();
+        }
+      })
+    },
+    { id: "fx:glowColors", label: L10("More Glow Colors", "Mais Cores de Brilho"), icon: "palette", submenu: () => [paletteGrid(env, ctx, (c4) => ed.setTextEffects({ glow: textGlow(ed.textEffects().fx?.glow?.rad ?? 101600, c4) }))] },
+    "-",
+    "fx:pane"
+  ];
+}
+function numberStylesMenu(env, ctx) {
+  const ed = env.ed;
+  const ot = ed.textEffects().ot ?? {};
+  return NUMBER_STYLES_OT.map((n5) => ({
+    id: `fx:num:${n5.id}`,
+    label: n5.label,
+    checked: (ot.numForm ?? "default") === n5.numForm && (ot.numSpacing ?? "default") === n5.numSpacing,
+    onClick: () => {
+      ed.setOpenType({ numForm: n5.numForm === "default" ? null : n5.numForm, numSpacing: n5.numSpacing === "default" ? null : n5.numSpacing });
+      ctx.after();
+    }
+  }));
+}
+function ligaturesMenu(env, ctx) {
+  const ed = env.ed;
+  const cur = ed.textEffects().ot?.ligatures ?? "none";
+  return LIGATURE_OPTIONS.map((o6) => ({
+    id: `fx:lig:${o6.val}`,
+    label: o6.label,
+    checked: cur === o6.val,
+    onClick: () => {
+      ed.setOpenType({ ligatures: o6.val === "none" ? null : o6.val });
+      ctx.after();
+    }
+  }));
+}
+function stylisticSetsMenu(env, ctx) {
+  const ed = env.ed;
+  const cur = ed.textEffects().ot?.stylisticSets ?? [];
+  return [
+    { id: "fx:ss:0", label: L10("Default", "Padr\xE3o"), checked: !cur.length, onClick: () => {
+      ed.setOpenType({ stylisticSets: null });
+      ctx.after();
+    } },
+    { content: (close) => tileGrid({
+      sections: [{ label: L10("Individual", "Individual"), items: Array.from({ length: 20 }, (_v, i5) => ({ id: String(i5 + 1), label: L10(`Set ${i5 + 1}`, `Conjunto ${i5 + 1}`) })) }],
+      tile: { w: 40, h: 28 },
+      cols: 5,
+      close,
+      text: (l3) => ctx.registry.text(l3),
+      selected: cur.length === 1 ? String(cur[0]) : void 0,
+      render: (b3, it) => {
+        b3.replaceChildren(el6("span", { textContent: it.id, style: "font-size:12px" }));
+      },
+      onPick: (id) => {
+        ed.setOpenType({ stylisticSets: [Number(id)] });
+        ctx.after();
+      }
+    }) }
+  ];
+}
+function fontGradientMenu(env, ctx) {
+  const ed = env.ed;
+  const items = (light) => GRADIENT_DIRECTIONS.map(([ang, l3]) => ({ id: `${light ? "l" : "d"}:${ang}`, label: l3 }));
+  const color = env.ctl.state().run.color;
+  return [
+    { id: "fx:noGradient", label: L10("No Gradient", "Nenhum Gradiente"), icon: "cancel", onClick: () => {
+      ed.setTextGradient(null);
+      ctx.after();
+    } },
+    {
+      content: (close) => tileGrid({
+        sections: [{ label: L10("Light Variations", "Varia\xE7\xF5es Claras"), items: items(true) }, { label: L10("Dark Variations", "Varia\xE7\xF5es Escuras"), items: items(false) }],
+        tile: { w: 44, h: 44 },
+        cols: 4,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        render: (b3, it) => {
+          const [k2, ang] = it.id.split(":");
+          const c4 = `#${color && /^[0-9A-Fa-f]{6}$/.test(color) ? color : "1F4E79"}`;
+          const other = k2 === "l" ? `color-mix(in srgb, ${c4} 20%, white)` : `color-mix(in srgb, ${c4} 50%, black)`;
+          b3.replaceChildren(el6("span", { style: `display:block;width:30px;height:30px;border-radius:3px;background:linear-gradient(${Number(ang) + 90}deg, ${c4}, ${other})` }));
+        },
+        onPick: (id) => {
+          const [k2, ang] = id.split(":");
+          ed.setTextGradient({ angleDeg: Number(ang), light: k2 === "l" });
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    "fx:pane"
+  ];
+}
+function registerEffectsCommands(reg, ed, app, ctl) {
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const has = (m2) => () => typeof ed[m2] === "function";
+  const cmds = [
+    { id: "fx:pane", label: L10("Text Effects Options\u2026", "Op\xE7\xF5es de Efeitos de Texto..."), icon: "auto_awesome", supports: has("setTextEffects"), isEnabled: canEdit3, isChecked: () => !!paneOpen("uw-texteffects"), run: () => ctl.textEffectsPane() }
+  ];
+  reg.add(...cmds);
+}
+function openTextEffectsPane(o6) {
+  const { ed, lang } = o6;
+  const cur = paneOpen("uw-texteffects");
+  if (cur) {
+    cur.close();
+    return null;
+  }
+  const num3 = (v2, step = 0.5, min = 0, max = 200) => el6("input", { type: "number", value: String(Math.round(v2 * 100) / 100), step: String(step), min: String(min), max: String(max), style: "width:70px" });
+  const colorIn2 = (hex) => el6("input", { type: "color", value: `#${hex}`, style: "width:44px;height:24px;padding:0" });
+  const sel4 = (opts, v2) => {
+    const s4 = el6("select", { style: "min-width:120px" });
+    for (const [k2, t6] of opts) s4.append(el6("option", { value: k2, textContent: t6 }));
+    s4.value = v2;
+    return s4;
+  };
+  const row3 = (label, ...kids) => el6("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px" }, el6("span", { textContent: label, style: "font-size:12px" }), el6("span", { style: "display:flex;gap:6px;align-items:center" }, ...kids));
+  const section4 = (title, ...kids) => el6("details", { open: true, style: "border-bottom:1px solid color-mix(in srgb, currentColor 15%, transparent);padding:4px 0" }, el6("summary", { textContent: title, style: "font-weight:600;cursor:pointer" }), el6("div", { style: "display:flex;flex-direction:column;gap:6px;padding:6px 2px" }, ...kids));
+  const hexOf2 = (c4) => c4?.rgb ?? "000000";
+  const transOf = (c4) => (c4?.mods?.find(([k2]) => k2 === "alpha")?.[1] ?? 0) / 1e3;
+  const withT = (hex, t6) => ({ rgb: hex.replace("#", "").toUpperCase(), ...t6 > 0 ? { mods: [["alpha", Math.round(t6 * 1e3)]] } : {} });
+  const fx = () => ed.textEffects().fx ?? {};
+  const fillKind = sel4([["auto", tr5(lang, "Automatic", "Autom\xE1tico")], ["none", tr5(lang, "No fill", "Sem preenchimento")], ["solid", tr5(lang, "Solid fill", "Preenchimento s\xF3lido")], ["grad", tr5(lang, "Gradient fill", "Preenchimento gradiente")]], "auto");
+  const fillColor = colorIn2("000000"), fillColor2 = colorIn2("FFFFFF");
+  const fillT = num3(0, 1, 0, 100), gradAngle = num3(90, 15, 0, 359);
+  const lineKind = sel4([["none", tr5(lang, "No line", "Sem linha")], ["solid", tr5(lang, "Solid line", "Linha s\xF3lida")]], "none");
+  const lineColor = colorIn2("000000"), lineT = num3(0, 1, 0, 100), lineW = num3(0.75, 0.25, 0.25, 20);
+  const lineDash = sel4(OUTLINE_DASHES.map(([d3, l3]) => [d3, pickLabels(lang, l3)]), "solid");
+  const shOn = el6("input", { type: "checkbox" });
+  const shColor = colorIn2("000000"), shT = num3(60, 1, 0, 100), shBlur = num3(4, 0.5, 0, 100), shAng = num3(45, 1, 0, 359), shDist = num3(3, 0.5, 0, 200);
+  const rfOn = el6("input", { type: "checkbox" });
+  const rfT = num3(45, 1, 0, 100), rfSize = num3(45, 1, 1, 100), rfBlur = num3(0.5, 0.5, 0, 100), rfDist = num3(0, 0.5, 0, 100);
+  const glOn = el6("input", { type: "checkbox" });
+  const glColor = colorIn2("4472C4"), glSize = num3(8, 1, 0, 150), glT = num3(60, 1, 0, 100);
+  const threeD = el6("div", { style: "font-size:12px;opacity:.75" });
+  const load = () => {
+    const f3 = fx();
+    fillKind.value = f3.fill?.type === "grad" ? "grad" : f3.fill?.type === "solid" ? "solid" : f3.fill?.type === "none" ? "none" : "auto";
+    if (f3.fill?.type === "solid") {
+      fillColor.value = `#${hexOf2(f3.fill.color)}`;
+      fillT.value = String(transOf(f3.fill.color));
+    }
+    if (f3.fill?.type === "grad") {
+      fillColor.value = `#${hexOf2(f3.fill.stops[0]?.color)}`;
+      fillColor2.value = `#${hexOf2(f3.fill.stops[f3.fill.stops.length - 1]?.color)}`;
+      gradAngle.value = String((f3.fill.lin?.ang ?? 54e5) / 6e4);
+    }
+    const ol = f3.outline;
+    lineKind.value = ol?.fill?.type === "solid" ? "solid" : "none";
+    if (ol?.fill?.type === "solid") {
+      lineColor.value = `#${hexOf2(ol.fill.color)}`;
+      lineT.value = String(transOf(ol.fill.color));
+    }
+    if (ol?.w !== void 0) lineW.value = String(ol.w / 12700);
+    lineDash.value = ol?.dash ?? "solid";
+    shOn.checked = !!f3.shadow;
+    if (f3.shadow) {
+      shColor.value = `#${hexOf2(f3.shadow.color)}`;
+      shT.value = String(transOf(f3.shadow.color));
+      shBlur.value = String(f3.shadow.blurRad / 12700);
+      shAng.value = String(f3.shadow.dir / 6e4);
+      shDist.value = String(f3.shadow.dist / 12700);
+    }
+    rfOn.checked = !!f3.reflection;
+    if (f3.reflection) {
+      rfT.value = String(Math.round(100 - f3.reflection.stA / 1e3));
+      rfSize.value = String(Math.round(f3.reflection.endPos / 1e3));
+      rfBlur.value = String(f3.reflection.blurRad / 12700);
+      rfDist.value = String(f3.reflection.dist / 12700);
+    }
+    glOn.checked = !!f3.glow;
+    if (f3.glow) {
+      glColor.value = `#${hexOf2(f3.glow.color)}`;
+      glSize.value = String(f3.glow.rad / 12700);
+      glT.value = String(transOf(f3.glow.color));
+    }
+    threeD.textContent = f3.props3d || f3.scene3d ? tr5(lang, "3-D format kept (drawn flat).", "Formato 3D preservado (desenhado plano).") : "";
+  };
+  const n5 = (i5) => Number(i5.value) || 0;
+  const apply = (part) => {
+    if (part === "fill") {
+      const k2 = fillKind.value;
+      ed.setTextEffects({ fill: k2 === "auto" ? null : k2 === "none" ? { type: "none" } : k2 === "solid" ? { type: "solid", color: withT(fillColor.value, n5(fillT)) } : { type: "grad", stops: [{ pos: 0, color: withT(fillColor.value, n5(fillT)) }, { pos: 1e5, color: withT(fillColor2.value, n5(fillT)) }], lin: { ang: Math.round(n5(gradAngle) * 6e4), scaled: false } } });
+    } else if (part === "outline") {
+      ed.setTextEffects({ outline: lineKind.value === "none" ? null : { ...outline(withT(lineColor.value, n5(lineT)), n5(lineW), lineDash.value) } });
+    } else if (part === "shadow") {
+      ed.setTextEffects({ shadow: !shOn.checked ? null : { blurRad: Math.round(n5(shBlur) * 12700), dist: Math.round(n5(shDist) * 12700), dir: Math.round(n5(shAng) * 6e4), sx: 1e5, sy: 1e5, kx: 0, ky: 0, algn: "tl", color: withT(shColor.value, n5(shT)) } });
+    } else if (part === "reflection") {
+      ed.setTextEffects({ reflection: !rfOn.checked ? null : { blurRad: Math.round(n5(rfBlur) * 12700), stA: Math.round((100 - n5(rfT)) * 1e3), stPos: 0, endA: 300, endPos: Math.round(n5(rfSize) * 1e3), dist: Math.round(n5(rfDist) * 12700), dir: 54e5, fadeDir: 54e5, sx: 1e5, sy: -1e5, kx: 0, ky: 0, algn: "bl" } });
+    } else {
+      ed.setTextEffects({ glow: !glOn.checked ? null : { rad: Math.round(n5(glSize) * 12700), color: withT(glColor.value, n5(glT)) } });
+    }
+    o6.after();
+  };
+  for (const x2 of [fillKind, fillColor, fillColor2, fillT, gradAngle]) x2.addEventListener("change", () => apply("fill"));
+  for (const x2 of [lineKind, lineColor, lineT, lineW, lineDash]) x2.addEventListener("change", () => apply("outline"));
+  for (const x2 of [shOn, shColor, shT, shBlur, shAng, shDist]) x2.addEventListener("change", () => apply("shadow"));
+  for (const x2 of [rfOn, rfT, rfSize, rfBlur, rfDist]) x2.addEventListener("change", () => apply("reflection"));
+  for (const x2 of [glOn, glColor, glSize, glT]) x2.addEventListener("change", () => apply("glow"));
+  const t5 = (en, pt) => tr5(lang, en, pt);
+  const body = el6(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:4px;padding:4px;font-size:13px" },
+    section4(t5("Text Fill", "Preenchimento do Texto"), row3(t5("Fill", "Preenchimento"), fillKind), row3(t5("Color", "Cor"), fillColor, fillColor2), row3(t5("Transparency (%)", "Transpar\xEAncia (%)"), fillT), row3(t5("Gradient angle (\xB0)", "\xC2ngulo do gradiente (\xB0)"), gradAngle)),
+    section4(t5("Text Outline", "Contorno do Texto"), row3(t5("Line", "Linha"), lineKind), row3(t5("Color", "Cor"), lineColor), row3(t5("Transparency (%)", "Transpar\xEAncia (%)"), lineT), row3(t5("Width (pt)", "Largura (pt)"), lineW), row3(t5("Dash type", "Tipo de tra\xE7o"), lineDash)),
+    section4(t5("Shadow", "Sombra"), row3(t5("Shadow", "Sombra"), shOn), row3(t5("Color", "Cor"), shColor), row3(t5("Transparency (%)", "Transpar\xEAncia (%)"), shT), row3(t5("Blur (pt)", "Desfoque (pt)"), shBlur), row3(t5("Angle (\xB0)", "\xC2ngulo (\xB0)"), shAng), row3(t5("Distance (pt)", "Dist\xE2ncia (pt)"), shDist)),
+    section4(t5("Reflection", "Reflexo"), row3(t5("Reflection", "Reflexo"), rfOn), row3(t5("Transparency (%)", "Transpar\xEAncia (%)"), rfT), row3(t5("Size (%)", "Tamanho (%)"), rfSize), row3(t5("Blur (pt)", "Desfoque (pt)"), rfBlur), row3(t5("Distance (pt)", "Dist\xE2ncia (pt)"), rfDist)),
+    section4(t5("Glow", "Brilho"), row3(t5("Glow", "Brilho"), glOn), row3(t5("Color", "Cor"), glColor), row3(t5("Size (pt)", "Tamanho (pt)"), glSize), row3(t5("Transparency (%)", "Transpar\xEAncia (%)"), glT)),
+    section4(t5("3-D Format", "Formato 3D"), threeD)
+  );
+  load();
+  openPane({ id: "uw-texteffects", title: L10("Format Text Effects", "Formatar Efeitos de Texto"), lang, layer: o6.layer, frame: o6.frame, width: 300, body, onClose: () => {
+    ed.classList.remove("uw-has-pane");
+    o6.after();
+  } });
+  ed.classList.add("uw-has-pane");
+  return { sync: () => {
+    const a3 = document.activeElement;
+    if (!a3 || !body.contains(a3)) load();
+  } };
+}
+
+// src/chrome-home.ts
+var L11 = (en, pt) => ({ en, pt });
+var UNDERLINE_MENU = [
+  ["single", L11("Underline", "Sublinhado")],
+  ["double", L11("Double underline", "Sublinhado duplo")],
+  ["thick", L11("Thick underline", "Sublinhado grosso")],
+  ["dotted", L11("Dotted underline", "Sublinhado pontilhado")],
+  ["dash", L11("Dashed underline", "Sublinhado tracejado")],
+  ["dotDash", L11("Dot-dash underline", "Sublinhado tra\xE7o-ponto")],
+  ["dotDotDash", L11("Dot-dot-dash underline", "Sublinhado tra\xE7o-ponto-ponto")],
+  ["wave", L11("Wave underline", "Sublinhado ondulado")]
+];
+var UNDERLINE_ALL = [
+  ["single", L11("Single", "Simples")],
+  ["words", L11("Words only", "Somente palavras")],
+  ["double", L11("Double", "Duplo")],
+  ["thick", L11("Thick", "Grosso")],
+  ["dotted", L11("Dotted", "Pontilhado")],
+  ["dottedHeavy", L11("Dotted heavy", "Pontilhado grosso")],
+  ["dash", L11("Dashed", "Tracejado")],
+  ["dashedHeavy", L11("Dashed heavy", "Tracejado grosso")],
+  ["dashLong", L11("Long dashed", "Tracejado longo")],
+  ["dashLongHeavy", L11("Long dashed heavy", "Tracejado longo grosso")],
+  ["dotDash", L11("Dot dash", "Tra\xE7o-ponto")],
+  ["dashDotHeavy", L11("Dot dash heavy", "Tra\xE7o-ponto grosso")],
+  ["dotDotDash", L11("Dot dot dash", "Tra\xE7o-ponto-ponto")],
+  ["dashDotDotHeavy", L11("Dot dot dash heavy", "Tra\xE7o-ponto-ponto grosso")],
+  ["wave", L11("Wave", "Ondulado")],
+  ["wavyHeavy", L11("Wave heavy", "Ondulado grosso")],
+  ["wavyDouble", L11("Double wave", "Ondulado duplo")]
+];
+function underlineSampleSvg(style, w2 = 132, h3 = 14, color = "currentColor") {
+  const y3 = Math.round(h3 / 2) + 0.5;
+  const ln = (yy, sw, dash2 = "") => `<line x1="2" y1="${yy}" x2="${w2 - 2}" y2="${yy}" stroke="${color}" stroke-width="${sw}"${dash2 ? ` stroke-dasharray="${dash2}"` : ""}/>`;
+  const wave = (yy, amp, sw) => {
+    let d3 = `M2 ${yy}`;
+    for (let x2 = 2, up = true; x2 < w2 - 2; x2 += 3, up = !up) d3 += ` Q${x2 + 1.5} ${up ? yy - amp * 2 : yy + amp * 2} ${x2 + 3} ${yy}`;
+    return `<path d="${d3}" fill="none" stroke="${color}" stroke-width="${sw}"/>`;
+  };
+  const heavy = /Heavy$|^thick$/.test(style) ? 2.5 : 1;
+  const dash = {
+    dotted: "1.5 1.5",
+    dottedHeavy: "2.5 2.5",
+    dash: "4 2",
+    dashedHeavy: "4 2",
+    dashLong: "8 4",
+    dashLongHeavy: "8 4",
+    dotDash: "4 1.5 1.5 1.5",
+    dashDotHeavy: "4 1.5 1.5 1.5",
+    dotDotDash: "3 1.2 1.2 1.2 1.2 1.2",
+    dashDotDotHeavy: "3 1.2 1.2 1.2 1.2 1.2"
+  };
+  let body;
+  switch (style) {
+    case "double":
+      body = ln(y3 - 1.5, 1) + ln(y3 + 1.5, 1);
+      break;
+    case "wave":
+      body = wave(y3, 1, 1);
+      break;
+    case "wavyHeavy":
+      body = wave(y3, 1, 2);
+      break;
+    case "wavyDouble":
+      body = wave(y3 - 2, 0.8, 0.9) + wave(y3 + 2, 0.8, 0.9);
+      break;
+    case "words":
+      body = `<line x1="2" y1="${y3}" x2="${w2 * 0.42}" y2="${y3}" stroke="${color}"/><line x1="${w2 * 0.52}" y1="${y3}" x2="${w2 - 2}" y2="${y3}" stroke="${color}"/>`;
+      break;
+    default:
+      body = ln(y3, heavy, dash[style] ?? "");
+  }
+  return `<svg width="${w2}" height="${h3}" viewBox="0 0 ${w2} ${h3}" aria-hidden="true">${body}</svg>`;
+}
+function colorFromPick(value, colors) {
+  const p3 = parseThemePick(value, colors);
+  if (!p3) return value.toUpperCase();
+  const frac = (h3) => h3 ? Math.round((1 - parseInt(h3, 16) / 255) * 100) / 100 : void 0;
+  const tint = frac(p3.tint), shade = frac(p3.shade);
+  return { themeColor: p3.themeColor, ...tint !== void 0 ? { tint } : {}, ...shade !== void 0 ? { shade } : {} };
+}
+function pickHex(value, colors) {
+  return parseThemePick(value, colors)?.hex ?? value.toUpperCase();
+}
+function paletteMenu(env, ctx, o6) {
+  const L0 = env.app.ui.L;
+  const colors = env.ed.documentThemeColors();
+  return [
+    { id: "palette:auto", label: o6.autoLabel, swatch: "#000000", onClick: () => {
+      o6.onAuto();
+      ctx.after();
+    } },
+    { content: (close) => {
+      const box = document.createElement("div");
+      box.className = "uw-palette";
+      const h3 = (txt) => {
+        const d3 = document.createElement("div");
+        d3.className = "uo-tiles-h";
+        d3.textContent = txt;
+        return d3;
+      };
+      box.append(
+        h3(ctx.registry.text(L11("Theme Colors", "Cores do Tema"))),
+        colorGrid({ colors: themePaletteColors(colors), columns: 10, close, selected: o6.selected, onPick: (v2) => {
+          o6.onPick(v2);
+          ctx.after();
+        } }),
+        h3(ctx.registry.text(L11("Standard Colors", "Cores Padr\xE3o"))),
+        colorGrid({ colors: STANDARD_COLORS.map((x2) => ({ value: x2, css: `#${x2}` })), columns: 10, close, selected: o6.selected, onPick: (v2) => {
+          o6.onPick(v2);
+          ctx.after();
+        } })
+      );
+      return box;
+    } },
+    {
+      icon: "palette",
+      label: L0.moreColors,
+      onClick: () => {
+        const input = document.createElement("input");
+        input.type = "color";
+        input.style.cssText = "position:fixed;left:-100px;top:0;opacity:0";
+        ctx.layer.appendChild(input);
+        input.addEventListener("change", () => {
+          o6.onPick(input.value.slice(1).toUpperCase());
+          input.remove();
+          ctx.after();
+        });
+        input.addEventListener("blur", () => setTimeout(() => input.remove(), 1e3));
+        input.click();
+      }
+    }
+  ];
+}
+function fontColorMenu(env, ctx) {
+  const colors = env.ed.documentThemeColors();
+  return [
+    ...paletteMenu(env, ctx, {
+      autoLabel: env.app.ui.L.automatic,
+      selected: env.ctl.state().run.color,
+      onAuto: () => env.ed.setColor(void 0),
+      onPick: (v2) => {
+        env.app.lastColor = v2;
+        env.ed.setColor(colorFromPick(v2, colors));
+      }
+    }),
+    ...typeof env.ed.setTextGradient === "function" ? [{ id: "color:gradient", label: L11("Gradient", "Gradiente"), icon: "gradient", submenu: () => fontGradientMenu(env, ctx) }] : []
+  ];
+}
+function underlineMenu(env, ctx) {
+  const run = env.ctl.state().run;
+  const cur = run.underline ? run.underlineStyle ?? "single" : void 0;
+  return [
+    {
+      content: (close) => tileGrid({
+        sections: [{ items: UNDERLINE_MENU.map(([id, label]) => ({ id, label })) }],
+        tile: { w: 150, h: 24 },
+        cols: 1,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        selected: cur,
+        render: (tile, it) => {
+          tile.innerHTML = underlineSampleSvg(it.id);
+        },
+        onPick: (id) => {
+          env.ed.setUnderline(id);
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    "underline:more",
+    { id: "underline:color", label: L11("Underline Color", "Cor do Sublinhado"), icon: "format_color_text", submenu: () => underlineColorMenu(env, ctx) }
+  ];
+}
+function underlineColorMenu(env, ctx) {
+  const colors = env.ed.documentThemeColors();
+  return paletteMenu(env, ctx, {
+    autoLabel: env.app.ui.L.automatic,
+    selected: env.ctl.state().run.underlineColor,
+    onAuto: () => env.ed.setUnderlineColor(null),
+    onPick: (v2) => env.ed.setUnderlineColor(colorFromPick(v2, colors))
+  });
+}
+var homeBordersMenu = () => [
+  ...BORDERS.map(([k2]) => `home:border:${k2}`),
+  "-",
+  "home:hrule",
+  "table:draw",
+  "view:gridlines",
+  "-",
+  "dlg:borders"
+];
+function registerHomeCommands(reg, ed, app, ctl) {
+  const api = ed;
+  const has = (m2) => () => typeof api[m2] === "function";
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const e6 = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
+  const inCell = () => ed.editingTableCell();
+  const cmds = [
+    e6({ id: "underline:more", label: L11("More Underlines\u2026", "Mais Sublinhados..."), icon: "format_underlined", supports: has("setFontFormat"), run: () => ctl.fontDialog() }),
+    // Maiúsculas e Minúsculas (Shift+F3 alterna — o editor trata a tecla)
+    e6({ id: "case:sentence", label: L11("Sentence case.", "Primeira letra da frase em mai\xFAscula."), run: () => ed.changeCase("sentence") }),
+    e6({ id: "case:title", label: L11("Capitalize Each Word", "Colocar Cada Palavra em Mai\xFAscula"), run: () => ed.changeCase("title") }),
+    e6({ id: "case:toggle", label: L11("tOGGLE cASE", "aLTERNAR mAI\xDASC./mIN\xDASC."), run: () => ed.changeCase("toggle") }),
+    e6({ id: "case:next", label: L11("Change Case", "Mai\xFAsculas e Min\xFAsculas"), icon: "match_case", shortcut: "Shift+F3", run: () => ed.changeCase("next") }),
+    // botão Bordas: o último item escolhido fica no botão (Borda Inferior de início)
+    ...BORDERS.map(([kind, en, pt, icon]) => e6({
+      id: `home:border:${kind}`,
+      label: L11(en, pt),
+      icon,
+      supports: has("paragraphBorderPreset"),
+      // diagonais só nas células (o Word as desabilita fora de tabela)
+      isEnabled: () => inCell() || kind !== "tl2br" && kind !== "tr2bl",
+      isChecked: () => !inCell() && borderOn(ed, kind),
+      run: () => {
+        app.lastHomeBorder = kind;
+        applyBorder(ed, kind);
+      }
+    })),
+    e6({ id: "home:borders", label: L11("Borders", "Bordas"), icon: "border_bottom", supports: has("paragraphBorderPreset"), run: () => applyBorder(ed, app.lastHomeBorder) }),
+    e6({ id: "home:hrule", label: L11("Horizontal Line", "Linha Horizontal"), icon: "horizontal_rule", supports: has("insertHorizontalLine"), run: () => ed.insertHorizontalLine() })
+  ];
+  reg.add(...cmds);
+}
+function applyBorder(ed, kind) {
+  if (ed.editingTableCell()) {
+    ed.setCellBorders(kind);
+    return;
+  }
+  if (kind === "tl2br" || kind === "tr2bl") return;
+  ed.paragraphBorderPreset(kind);
+}
+function borderOn(ed, kind) {
+  const s4 = new Set(ed.paragraphBorderSides());
+  switch (kind) {
+    case "bottom":
+    case "top":
+    case "left":
+    case "right":
+      return s4.has(kind);
+    case "all":
+      return ["top", "left", "bottom", "right", "between"].every((x2) => s4.has(x2));
+    case "outside":
+      return ["top", "left", "bottom", "right"].every((x2) => s4.has(x2));
+    case "inside":
+    case "insideH":
+      return s4.has("between");
+    case "insideV":
+      return s4.has("bar");
+    default:
+      return false;
+  }
+}
+
+// src/chrome-lists.ts
+var L12 = (en, pt) => ({ en, pt });
+var tr6 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var el7 = (tag, props = {}, ...kids) => {
+  const { style, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (style) e6.style.cssText = style;
+  e6.append(...kids);
+  return e6;
+};
+var select3 = (opts, value) => {
+  const s4 = el7("select", { style: "width:auto;min-width:120px" });
+  for (const [v2, t5] of opts) s4.append(el7("option", { value: v2, textContent: t5 }));
+  s4.value = value;
+  return s4;
+};
+var row = (...kids) => el7("div", { style: "display:flex;align-items:center;gap:8px" }, ...kids);
+var group = (title, ...kids) => el7(
+  "fieldset",
+  { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:6px 10px;display:flex;flex-direction:column;gap:8px" },
+  el7("legend", { textContent: title }),
+  ...kids
+);
+var cmText = (lang, tw) => (Math.round(tw / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
+var cmInput = (lang, tw) => el7("input", { type: "text", inputMode: "decimal", value: `${cmText(lang, tw)} cm`, style: "width:90px" });
+var twOf = (s4) => {
+  const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
+};
+var NUMBER_STYLES = [
+  ["decimal", L12("1, 2, 3, ...", "1, 2, 3, ...")],
+  ["upperRoman", L12("I, II, III, ...", "I, II, III, ...")],
+  ["lowerRoman", L12("i, ii, iii, ...", "i, ii, iii, ...")],
+  ["upperLetter", L12("A, B, C, ...", "A, B, C, ...")],
+  ["lowerLetter", L12("a, b, c, ...", "a, b, c, ...")],
+  ["ordinal", L12("1st, 2nd, 3rd, ...", "1\xBA, 2\xBA, 3\xBA, ...")],
+  ["cardinalText", L12("One, Two, Three, ...", "Um, Dois, Tr\xEAs, ...")],
+  ["ordinalText", L12("First, Second, Third, ...", "Primeiro, Segundo, Terceiro, ...")],
+  ["decimalZero", L12("01, 02, 03, ...", "01, 02, 03, ...")],
+  ["none", L12("(none)", "(nenhum)")]
+];
+var docLang = (lang) => lang === "pt" ? "pt-BR" : "en-US";
+function markerText(levels, ilvl, values, lang) {
+  const lvl = levels.find((l3) => l3.ilvl === ilvl);
+  if (!lvl) return "";
+  if (lvl.numFmt === "bullet") return lvl.lvlText;
+  return lvl.lvlText.replace(/%([1-9])/g, (_m, k2) => {
+    const i5 = Number(k2) - 1;
+    const src = levels.find((l3) => l3.ilvl === i5);
+    const fmt2 = lvl.isLgl && i5 !== ilvl ? "decimal" : src?.numFmt ?? "decimal";
+    return formatNumber(values[i5] ?? src?.start ?? 1, fmt2 === "bullet" ? "decimal" : fmt2, docLang(lang));
+  });
+}
+function markerSpan(ed, text, lvl, sizePx) {
+  const p3 = lvl?.numFmt === "bullet" ? ed.markerPreview(text, lvl.font) : { text, css: lvl?.font ? `"${ed.canvasFont(lvl.font).family}"` : "inherit" };
+  return el7("span", { textContent: p3.text, style: `font-family:${p3.css};font-size:${sizePx}px;line-height:1;white-space:pre${lvl?.bold ? ";font-weight:700" : ""}${lvl?.italic ? ";font-style:italic" : ""}${lvl?.color ? `;color:#${lvl.color}` : ""}` });
+}
+var bar = (w2) => el7("span", { style: `display:inline-block;height:2px;width:${w2};background:color-mix(in srgb, currentColor 35%, transparent);border-radius:1px` });
+function listTile(ed, levels, kind, lang) {
+  const box = el7("div", { style: "width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:9px;padding:6px 8px;box-sizing:border-box;overflow:hidden" });
+  if (kind === "bullet") {
+    box.style.alignItems = "center";
+    const l0 = levels.find((l3) => l3.ilvl === 0);
+    box.append(markerSpan(ed, l0?.lvlText ?? "", l0, 22));
+    return box;
+  }
+  const rows = kind === "number" ? [[0, 1], [0, 2], [0, 3]] : [[0, 1], [1, 1], [2, 1]];
+  for (const [ilvl, v2] of rows) {
+    const lvl = levels.find((l3) => l3.ilvl === ilvl);
+    const values = [1, 1, 1, 1, 1, 1, 1, 1, 1];
+    values[ilvl] = v2;
+    const txt = markerText(levels, ilvl, values, lang);
+    box.append(el7(
+      "div",
+      { style: `display:flex;align-items:center;gap:4px;padding-left:${kind === "multi" ? ilvl * 9 : 0}px` },
+      markerSpan(ed, txt, lvl, 10),
+      bar("100%")
+    ));
+  }
+  return box;
+}
+var NONE = "__none";
+var noneTile = (lang, small = false) => el7("div", { textContent: tr6(lang, "None", "Nenhum"), style: `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:${small ? 9 : 12}px` });
+function recents(app, kind) {
+  const a3 = app;
+  return (a3.listRecents ??= {})[kind] ??= [];
+}
+function rememberList(app, kind, levels) {
+  const r5 = recents(app, kind);
+  const key = (x2) => JSON.stringify(x2[0] ?? {});
+  const i5 = r5.findIndex((x2) => key(x2) === key(levels));
+  if (i5 >= 0) r5.splice(i5, 1);
+  r5.unshift(levels);
+  if (r5.length > 7) r5.length = 7;
+}
+var formatOf = (l3) => ({
+  ...l3.numFmt === "bullet" ? { bullet: l3.lvlText } : { numFmt: l3.numFmt, lvlText: l3.lvlText.replace(/%[1-9]/g, "%1") },
+  align: l3.jc ?? "left",
+  ...l3.font ? { font: l3.font } : {},
+  ...l3.bold ? { bold: true } : {},
+  ...l3.italic ? { italic: true } : {},
+  ...l3.sizePt ? { sizePt: l3.sizePt } : {},
+  ...l3.color ? { color: l3.color } : {}
+});
+function listMenu(env, ctx, kind) {
+  const ed = env.ed, lang = langOf(ctx);
+  const lib = ed.listLibrary(kind);
+  const docs = ed.documentLists().filter((d3) => d3.kind === kind).map((d3) => d3.levels);
+  const rec = recents(env.app, kind);
+  const all = /* @__PURE__ */ new Map();
+  const sec = (prefix, lists) => lists.map((lv, i5) => {
+    const id = `${prefix}${i5}`;
+    all.set(id, lv);
+    const l0 = lv.find((l3) => l3.ilvl === 0);
+    return { id, label: L12(l0?.lvlText ?? "", l0?.lvlText ?? "") };
+  });
+  const tile = kind === "bullet" ? { w: 44, h: 44 } : { w: 80, h: 80 };
+  return [
+    {
+      content: (close) => tileGrid({
+        sections: [
+          { label: kind === "bullet" ? L12("Recently Used Bullets", "Marcadores Usados Recentemente") : L12("Recently Used Number Formats", "Formatos de N\xFAmero Usados Recentemente"), items: sec("r", rec) },
+          { label: kind === "bullet" ? L12("Bullet Library", "Biblioteca de Marcadores") : L12("Numbering Library", "Biblioteca de Numera\xE7\xE3o"), items: [{ id: NONE, label: L12("None", "Nenhum") }, ...sec("l", lib)] },
+          { label: kind === "bullet" ? L12("Document Bullets", "Marcadores do Documento") : L12("Document Number Formats", "Formatos de N\xFAmero do Documento"), items: sec("d", docs) }
+        ],
+        tile,
+        cols: kind === "bullet" ? 7 : 3,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        render: (b3, it) => {
+          b3.replaceChildren(it.id === NONE ? noneTile(lang, kind === "bullet") : listTile(ed, all.get(it.id), kind, lang));
+        },
+        onPick: (id) => {
+          if (id === NONE) ed.removeList();
+          else if (id.startsWith("l")) {
+            ed.applyListLibrary(kind, Number(id.slice(1)));
+            rememberList(env.app, kind, all.get(id));
+          } else {
+            const lv = all.get(id);
+            ed.defineListLevel(formatOf(lv[0]));
+            rememberList(env.app, kind, lv);
+          }
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    { id: "list:levelMenu", label: L12("Change List Level", "Alterar N\xEDvel da Lista"), icon: "format_indent_increase", disabled: !ed.listInfo(), submenu: () => levelMenu(env, ctx) },
+    kind === "bullet" ? "list:defineBullet" : "list:defineNumber",
+    ...kind === "number" ? ["list:setValue"] : []
+  ];
+}
+function multilevelMenu(env, ctx) {
+  const ed = env.ed, lang = langOf(ctx);
+  const info = ed.listInfo();
+  const all = /* @__PURE__ */ new Map();
+  const put = (id, lv, label) => {
+    all.set(id, lv);
+    return { id, label: L12(label, label) };
+  };
+  const cur = info && info.levels.length ? [put("c", info.levels, tr6(lang, "Current List", "Lista Atual"))] : [];
+  const lib = ed.listLibrary("multilevel").map((lv, i5) => put(`l${i5}`, lv, markerText(lv, 0, [1], lang)));
+  const docs = ed.documentLists().map((d3, i5) => put(`d${i5}`, d3.levels, markerText(d3.levels, 0, [1], lang)));
+  const styles2 = ed.listStylesInDocument().map((s4) => put(`s:${s4.id}`, s4.levels, s4.name));
+  return [
+    {
+      content: (close) => tileGrid({
+        sections: [
+          { label: L12("Current List", "Lista Atual"), items: cur },
+          { label: L12("List Library", "Biblioteca de Listas"), items: [{ id: NONE, label: L12("None", "Nenhum") }, ...lib] },
+          { label: L12("Lists in Current Documents", "Listas nos Documentos Atuais"), items: docs },
+          { label: L12("List Styles", "Estilos de Lista"), items: styles2 }
+        ],
+        tile: { w: 80, h: 80 },
+        cols: 3,
+        close,
+        text: (l3) => ctx.registry.text(l3),
+        render: (b3, it) => {
+          b3.replaceChildren(it.id === NONE ? noneTile(lang) : listTile(ed, all.get(it.id), "multi", lang));
+        },
+        onPick: (id) => {
+          if (id === NONE) ed.removeList();
+          else if (id === "c") {
+          } else if (id.startsWith("l")) ed.applyMultilevelLibrary(Number(id.slice(1)));
+          else if (id.startsWith("s:")) ed.applyListStyle(id.slice(2));
+          else ed.applyListLevels(all.get(id));
+          ctx.after();
+        }
+      })
+    },
+    "-",
+    { id: "list:levelMenu", label: L12("Change List Level", "Alterar N\xEDvel da Lista"), icon: "format_indent_increase", disabled: !info, submenu: () => levelMenu(env, ctx) },
+    "list:defineMultilevel",
+    "list:defineStyle"
+  ];
+}
+function levelMenu(env, ctx) {
+  const ed = env.ed, lang = langOf(ctx);
+  const info = ed.listInfo();
+  if (!info) return [];
+  const levels = info.levels;
+  return [{
+    content: (close) => tileGrid({
+      sections: [{ items: levels.map((l3) => ({ id: String(l3.ilvl), label: L12(`Level ${l3.ilvl + 1}`, `N\xEDvel ${l3.ilvl + 1}`) })) }],
+      tile: { w: 220, h: 24 },
+      cols: 1,
+      close,
+      text: (l3) => ctx.registry.text(l3),
+      selected: String(info.ilvl),
+      render: (b3, it) => {
+        const ilvl = Number(it.id);
+        const lvl = levels.find((l3) => l3.ilvl === ilvl);
+        b3.replaceChildren(el7(
+          "div",
+          { style: `display:flex;align-items:center;gap:6px;width:100%;padding-left:${6 + ilvl * 12}px;box-sizing:border-box` },
+          markerSpan(ed, markerText(levels, ilvl, [1, 1, 1, 1, 1, 1, 1, 1, 1], lang), lvl, 12),
+          bar("60%")
+        ));
+      },
+      onPick: (id) => {
+        ed.setListLevel(Number(id));
+        ctx.after();
+      }
+    })
+  }];
+}
+var langOf = (ctx) => ctx.registry.text(L12("en", "pt")) === "pt" ? "pt" : "en";
+function registerListCommands(reg, ed, app, ctl) {
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const has = (m2) => () => typeof ed[m2] === "function";
+  const inList = () => canEdit3() && !!ed.listInfo();
+  const numbered = () => canEdit3() && ed.listInfo()?.kind === "number";
+  const cmds = [
+    { id: "list:defineBullet", label: L12("Define New Bullet\u2026", "Definir Novo Marcador..."), supports: has("defineListLevel"), isEnabled: canEdit3, run: () => ctl.listDialog("bullet") },
+    { id: "list:defineNumber", label: L12("Define New Number Format\u2026", "Definir Novo Formato de N\xFAmero..."), supports: has("defineListLevel"), isEnabled: canEdit3, run: () => ctl.listDialog("number") },
+    { id: "list:setValue", label: L12("Set Numbering Value\u2026", "Definir Valor de Numera\xE7\xE3o..."), icon: "numbers", supports: has("setNumberingValue"), isEnabled: numbered, run: () => ctl.listDialog("value") },
+    { id: "list:defineMultilevel", label: L12("Define New Multilevel List\u2026", "Definir Nova Lista de V\xE1rios N\xEDveis..."), supports: has("defineMultilevelList"), isEnabled: canEdit3, run: () => ctl.listDialog("multilevel") },
+    { id: "list:defineStyle", label: L12("Define New List Style\u2026", "Definir Novo Estilo de Lista..."), supports: has("createListStyle"), isEnabled: canEdit3, run: () => ctl.listDialog("style") },
+    { id: "list:indents", label: L12("Adjust List Indents\u2026", "Ajustar Recuos da Lista..."), icon: "format_indent_increase", supports: has("defineMultilevelList"), isEnabled: inList, run: () => ctl.listDialog("indents") },
+    { id: "list:restart", label: L12("Restart at 1", "Reiniciar em 1"), icon: "restart_alt", supports: has("restartNumbering"), isEnabled: numbered, run: () => ed.restartNumbering() },
+    { id: "list:continue", label: L12("Continue Numbering", "Continuar Numera\xE7\xE3o"), icon: "arrow_forward", supports: has("continueNumbering"), isEnabled: numbered, run: () => {
+      ed.continueNumbering();
+    } }
+  ];
+  reg.add(...cmds);
+}
+async function openListDialog(env, families, kind) {
+  switch (kind) {
+    case "bullet":
+      return bulletDialog(env, families);
+    case "number":
+      return numberDialog(env, families);
+    case "value":
+      return valueDialog(env);
+    case "multilevel":
+      return multilevelDialog(env, families, false);
+    case "indents":
+      return indentsDialog(env);
+    case "style":
+      return multilevelDialog(env, families, true);
+  }
+}
+async function ask(env, title, body, width = 420) {
+  const h3 = openDialog({
+    title,
+    body,
+    layer: env.layer,
+    lang: env.lang,
+    width,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  return await h3.result === "ok";
+}
+async function markFontDialog(env, families, cur) {
+  const lang = env.lang;
+  const fams = cur.font && !families.includes(cur.font) ? [cur.font, ...families] : families;
+  const font = select3([["", tr6(lang, "(same as text)", "(a do texto)")], ...fams.map((f3) => [f3, f3])], cur.font ?? "");
+  const style = select3(
+    [["r", tr6(lang, "Regular", "Normal")], ["i", tr6(lang, "Italic", "It\xE1lico")], ["b", tr6(lang, "Bold", "Negrito")], ["bi", tr6(lang, "Bold Italic", "Negrito It\xE1lico")]],
+    `${cur.bold ? "b" : ""}${cur.italic ? "i" : ""}` || "r"
+  );
+  const size = el7("input", { type: "text", inputMode: "decimal", value: cur.sizePt ? String(cur.sizePt).replace(".", tr6(lang, ".", ",")) : "", placeholder: tr6(lang, "(text)", "(do texto)"), style: "width:80px" });
+  const pick = cur.color ? { hex: cur.color } : { hex: "auto" };
+  const color = colorButton(env, pick, env.app.ui.L.automatic);
+  const body = el7(
+    "div",
+    { style: "display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center" },
+    tr6(lang, "Font:", "Fonte:"),
+    font,
+    tr6(lang, "Font style:", "Estilo da fonte:"),
+    style,
+    tr6(lang, "Size:", "Tamanho:"),
+    size,
+    tr6(lang, "Font color:", "Cor da fonte:"),
+    color.el
+  );
+  if (!await ask(env, tr6(lang, "Font", "Fonte"), body, 380)) return null;
+  const sz = parseFloat(size.value.replace(",", "."));
+  const c4 = color.value();
+  return {
+    ...font.value ? { font: font.value } : {},
+    ...style.value.includes("b") ? { bold: true } : {},
+    ...style.value.includes("i") ? { italic: true } : {},
+    ...Number.isFinite(sz) && sz >= 1 && sz <= 1638 ? { sizePt: Math.round(sz * 2) / 2 } : {},
+    ...c4.hex !== "auto" ? { color: c4.hex.toUpperCase() } : {}
+  };
+}
+var SYMBOL_FONTS = ["Symbol", "Wingdings", "Wingdings 2", "Wingdings 3", "Webdings"];
+var TEXT_RANGES = [[33, 126], [161, 383], [8208, 8250], [8592, 8703], [8704, 8959], [9632, 9727], [9728, 9983], [9984, 10175]];
+async function symbolDialog(env, families, cur) {
+  const lang = env.lang, ed = env.ed;
+  const fonts = [...SYMBOL_FONTS, ...families.filter((f3) => !SYMBOL_FONTS.includes(f3))];
+  const font = select3(fonts.map((f3) => [f3, f3]), cur.font && fonts.includes(cur.font) ? cur.font : "Symbol");
+  const grid2 = el7("div", { style: "display:grid;grid-template-columns:repeat(16, 28px);gap:2px;max-height:260px;overflow:auto;padding:2px", tabIndex: 0 });
+  const code = el7("input", { type: "text", style: "width:80px" });
+  let chosen = cur.char;
+  const paint = () => {
+    const f3 = font.value;
+    const sym = SYMBOL_FONTS.includes(f3);
+    const cps = [];
+    if (sym) for (let c4 = 61472; c4 <= 61695; c4++) cps.push(c4);
+    else for (const [a3, b3] of TEXT_RANGES) for (let c4 = a3; c4 <= b3; c4++) cps.push(c4);
+    const css = `"${f3}", ${ed.canvasFont(f3).family === f3 ? "" : `"${ed.canvasFont(f3).family}", `}sans-serif`;
+    grid2.replaceChildren(...cps.map((cp) => {
+      const ch = String.fromCodePoint(cp);
+      const b3 = el7("button", {
+        type: "button",
+        textContent: ch,
+        title: `U+${cp.toString(16).toUpperCase().padStart(4, "0")}`,
+        style: `width:28px;height:28px;padding:0;font-family:${css};font-size:16px;line-height:1;border:1px solid color-mix(in srgb, currentColor 20%, transparent);border-radius:3px;background:transparent;color:inherit${ch === chosen ? ";outline:2px solid var(--uo-accent, #1a73e8)" : ""}`
+      });
+      b3.dataset["cp"] = String(cp);
+      b3.addEventListener("click", () => {
+        chosen = ch;
+        code.value = cp.toString(16).toUpperCase();
+        for (const x2 of grid2.children) x2.style.outline = "";
+        b3.style.outline = "2px solid var(--uo-accent, #1a73e8)";
+      });
+      b3.addEventListener("dblclick", () => {
+        chosen = ch;
+        h3.close("ok");
+      });
+      return b3;
+    }));
+  };
+  code.addEventListener("change", () => {
+    const cp = parseInt(code.value, 16);
+    if (Number.isFinite(cp) && cp > 31 && cp <= 1114111) {
+      chosen = String.fromCodePoint(cp);
+      paint();
+    }
+  });
+  font.addEventListener("change", paint);
+  void ed.ensureFontLoaded(font.value);
+  code.value = (chosen.codePointAt(0) ?? 0).toString(16).toUpperCase();
+  paint();
+  const body = el7("div", { style: "display:flex;flex-direction:column;gap:10px" }, row(tr6(lang, "Font:", "Fonte:"), font), grid2, row(tr6(lang, "Character code:", "C\xF3digo do caractere:"), code));
+  const h3 = openDialog({
+    title: tr6(lang, "Symbol", "S\xEDmbolo"),
+    body,
+    layer: env.layer,
+    lang,
+    width: 540,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+  });
+  return await h3.result === "ok" && chosen ? { char: chosen, font: font.value } : null;
+}
+function levelPreview(ed, lang, levels, ilvl) {
+  const box = el7("div", { style: "height:120px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:4px;padding:10px 16px;display:flex;flex-direction:column;gap:10px;overflow:hidden;background:#fff;color:#000" });
+  const paint = () => {
+    const lv = levels(), k2 = ilvl();
+    const lvl = lv.find((l3) => l3.ilvl === k2);
+    box.replaceChildren(...[1, 2, 3].map((v2) => {
+      const values = [1, 1, 1, 1, 1, 1, 1, 1, 1];
+      values[k2] = (lvl?.start ?? 1) + v2 - 1;
+      const jc = lvl?.jc ?? "left";
+      const mk = markerSpan(ed, markerText(lv, k2, values, lang), lvl, 13);
+      const cell = el7("span", { style: `display:inline-flex;justify-content:${jc === "right" ? "flex-end" : jc === "center" ? "center" : "flex-start"};width:36px;flex:none` }, mk);
+      return el7("div", { style: "display:flex;align-items:center;gap:8px" }, cell, bar("100%"));
+    }));
+  };
+  paint();
+  return { el: box, paint };
+}
+function startLevel(ed, kind) {
+  const info = ed.listInfo();
+  if (info?.level && info.level.numFmt === "bullet" === (kind === "bullet")) return { levels: info.levels.map((l3) => ({ ...l3 })), ilvl: info.ilvl };
+  return { levels: (ed.listLibrary(kind)[0] ?? []).map((l3) => ({ ...l3 })), ilvl: info?.ilvl ?? 0 };
+}
+var ALIGNS3 = (lang) => [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Centered", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]];
+async function bulletDialog(env, families) {
+  const lang = env.lang, ed = env.ed;
+  const st = startLevel(ed, "bullet");
+  const lvl = () => st.levels.find((l4) => l4.ilvl === st.ilvl) ?? (st.levels[st.ilvl] = { ilvl: st.ilvl, numFmt: "bullet", lvlText: "\u2022", indLeft: 720, hanging: 360 });
+  const align = select3(ALIGNS3(lang), lvl().jc ?? "left");
+  const prev = levelPreview(ed, lang, () => st.levels, () => st.ilvl);
+  const symBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Symbol...", "S\xEDmbolo...") });
+  const fontBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Font...", "Fonte...") });
+  const picBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Picture...", "Imagem...") });
+  const thumb = el7("img", { alt: "", style: "height:24px;max-width:48px;object-fit:contain;display:none" });
+  let picture = null;
+  picBtn.addEventListener("click", () => {
+    const input = Object.assign(document.createElement("input"), { type: "file", accept: "image/png,image/jpeg,image/gif" });
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const ext = { "image/jpeg": "jpeg", "image/gif": "gif" }[file.type] ?? "png";
+      picture = { data: new Uint8Array(await file.arrayBuffer()), ext, name: file.name.replace(/\.[^.]+$/, "") };
+      thumb.src = URL.createObjectURL(file);
+      thumb.style.display = "";
+    });
+    input.click();
+  });
+  symBtn.addEventListener("click", async () => {
+    const r5 = await symbolDialog(env, families, { char: lvl().lvlText, font: lvl().font });
+    if (r5) {
+      Object.assign(lvl(), { lvlText: r5.char, font: r5.font });
+      picture = null;
+      thumb.style.display = "none";
+      prev.paint();
+    }
+  });
+  fontBtn.addEventListener("click", async () => {
+    const r5 = await markFontDialog(env, families, lvl());
+    if (r5) {
+      const l4 = lvl();
+      delete l4.bold;
+      delete l4.italic;
+      delete l4.sizePt;
+      delete l4.color;
+      Object.assign(l4, r5);
+      prev.paint();
+    }
+  });
+  align.addEventListener("change", () => {
+    lvl().jc = align.value;
+    prev.paint();
+  });
+  const body = el7(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:12px" },
+    group(tr6(lang, "Bullet character", "Caractere de marcador"), row(symBtn, picBtn, fontBtn, thumb)),
+    row(tr6(lang, "Alignment:", "Alinhamento:"), align),
+    group(tr6(lang, "Preview", "Visualiza\xE7\xE3o"), prev.el)
+  );
+  if (!await ask(env, tr6(lang, "Define New Bullet", "Definir Novo Marcador"), body)) return;
+  const l3 = lvl();
+  const f3 = { ...picture ? { picture } : { bullet: l3.lvlText }, align: align.value, ...l3.font ? { font: l3.font } : {}, ...l3.bold ? { bold: true } : {}, ...l3.italic ? { italic: true } : {}, ...l3.sizePt ? { sizePt: l3.sizePt } : {}, ...l3.color ? { color: l3.color } : {} };
+  ed.defineListLevel(f3);
+  rememberList(env.app, "bullet", [{ ...l3, jc: f3.align }]);
+}
+async function numberDialog(env, families) {
+  const lang = env.lang, ed = env.ed;
+  const st = startLevel(ed, "number");
+  const k2 = st.ilvl;
+  const lvl = () => st.levels.find((l4) => l4.ilvl === k2) ?? (st.levels[k2] = { ilvl: k2, numFmt: "decimal", lvlText: `%${k2 + 1}.`, indLeft: 720 * (k2 + 1), hanging: 360 });
+  const cur = lvl();
+  const style = select3(NUMBER_STYLES.map(([v2, l4]) => [v2, pickLabels(lang, l4)]), NUMBER_STYLES.some(([v2]) => v2 === cur.numFmt) ? cur.numFmt : "decimal");
+  const sample = () => style.value === "none" ? "" : formatNumber(1, style.value, docLang(lang));
+  const toText = (lvlText) => lvlText.replace(new RegExp(`%${k2 + 1}`), () => sample());
+  const fmt2 = el7("input", { type: "text", value: toText(cur.lvlText), style: "width:180px" });
+  const fromText = () => {
+    const s4 = sample();
+    const i5 = s4 ? fmt2.value.indexOf(s4) : -1;
+    return i5 < 0 ? `${fmt2.value}%${k2 + 1}` : `${fmt2.value.slice(0, i5)}%${k2 + 1}${fmt2.value.slice(i5 + s4.length)}`;
+  };
+  const align = select3(ALIGNS3(lang), cur.jc ?? "left");
+  const prev = levelPreview(ed, lang, () => st.levels, () => k2);
+  const fontBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Font...", "Fonte...") });
+  let lastSample = sample();
+  style.addEventListener("change", () => {
+    const s4 = sample();
+    fmt2.value = lastSample && fmt2.value.includes(lastSample) ? fmt2.value.replace(lastSample, () => s4) : `${s4}${fmt2.value}`;
+    lastSample = s4;
+    Object.assign(lvl(), { numFmt: style.value, lvlText: fromText() });
+    prev.paint();
+  });
+  fmt2.addEventListener("input", () => {
+    lvl().lvlText = fromText();
+    prev.paint();
+  });
+  align.addEventListener("change", () => {
+    lvl().jc = align.value;
+    prev.paint();
+  });
+  fontBtn.addEventListener("click", async () => {
+    const r5 = await markFontDialog(env, families, lvl());
+    if (r5) {
+      const l4 = lvl();
+      delete l4.font;
+      delete l4.bold;
+      delete l4.italic;
+      delete l4.sizePt;
+      delete l4.color;
+      Object.assign(l4, r5);
+      prev.paint();
+    }
+  });
+  const body = el7(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:12px" },
+    group(
+      tr6(lang, "Number format", "Formato de n\xFAmero"),
+      row(tr6(lang, "Number style:", "Estilo de n\xFAmero:"), style, fontBtn),
+      row(tr6(lang, "Number format:", "Formato de n\xFAmero:"), fmt2)
+    ),
+    row(tr6(lang, "Alignment:", "Alinhamento:"), align),
+    group(tr6(lang, "Preview", "Visualiza\xE7\xE3o"), prev.el)
+  );
+  if (!await ask(env, tr6(lang, "Define New Number Format", "Definir Novo Formato de N\xFAmero"), body)) return;
+  const l3 = lvl();
+  ed.defineListLevel({
+    numFmt: style.value,
+    lvlText: fromText(),
+    align: align.value,
+    start: l3.start ?? 1,
+    ...l3.font ? { font: l3.font } : {},
+    ...l3.bold ? { bold: true } : {},
+    ...l3.italic ? { italic: true } : {},
+    ...l3.sizePt ? { sizePt: l3.sizePt } : {},
+    ...l3.color ? { color: l3.color } : {}
+  });
+  rememberList(env.app, "number", [{ ...l3, numFmt: style.value, lvlText: fromText(), jc: align.value }]);
+}
+async function valueDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const info = ed.numberingValueInfo();
+  if (!info) return;
+  const radio6 = (v3, label, on) => {
+    const input = el7("input", { type: "radio", name: "uw-numval", value: v3, checked: on });
+    return { el: el7("label", { className: "uo-check" }, input, label), input };
+  };
+  const fresh = radio6("new", tr6(lang, "Start new list", "Iniciar nova lista"), true);
+  const cont = radio6("continue", tr6(lang, "Continue from previous list", "Continuar a partir da lista anterior"), false);
+  cont.input.disabled = !info.canContinue;
+  const adv = el7("input", { type: "checkbox" });
+  const advL = el7("label", { className: "uo-check", style: "margin-left:22px" }, adv, tr6(lang, "Advance value (skip numbers)", "Avan\xE7ar valor (ignorar n\xFAmeros)"));
+  const value = el7("input", { type: "number", min: "0", max: "32767", step: "1", value: String(info.value), style: "width:90px" });
+  const prev = el7("span", {});
+  const paint = () => {
+    adv.disabled = !cont.input.checked;
+    value.disabled = cont.input.checked && !adv.checked;
+    const v3 = Math.max(0, Math.round(Number(value.value) || 0));
+    prev.textContent = formatNumber(v3, info.numFmt, docLang(lang));
+  };
+  for (const x2 of [fresh.input, cont.input, adv]) x2.addEventListener("change", paint);
+  value.addEventListener("input", paint);
+  paint();
+  const body = el7(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px" },
+    fresh.el,
+    cont.el,
+    advL,
+    row(tr6(lang, "Set value to:", "Definir valor como:"), value),
+    row(tr6(lang, "Preview:", "Visualiza\xE7\xE3o:"), prev)
+  );
+  if (!await ask(env, tr6(lang, "Set Numbering Value", "Definir Valor de Numera\xE7\xE3o"), body, 380)) return;
+  const v2 = Math.max(0, Math.round(Number(value.value) || 0));
+  if (fresh.input.checked) ed.setNumberingValue({ mode: "new", value: v2 });
+  else ed.setNumberingValue({ mode: "continue", ...adv.checked ? { value: v2 } : {} });
+}
+async function indentsDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const info = ed.listInfo();
+  const lvl = info?.level;
+  if (!info || !lvl) return;
+  const numPos = cmInput(lang, lvl.indLeft - lvl.hanging);
+  const textPos = cmInput(lang, lvl.indLeft);
+  const follow = select3([["tab", tr6(lang, "Tab character", "Caractere de tabula\xE7\xE3o")], ["space", tr6(lang, "Space", "Espa\xE7o")], ["nothing", tr6(lang, "Nothing", "Nada")]], lvl.suff ?? "tab");
+  const tabOn = el7("input", { type: "checkbox", checked: lvl.tabPos !== void 0 });
+  const tabAt = cmInput(lang, lvl.tabPos ?? lvl.indLeft);
+  const body = el7(
+    "div",
+    { style: "display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center" },
+    tr6(lang, "Bullet position:", "Posi\xE7\xE3o do marcador:"),
+    numPos,
+    tr6(lang, "Text indent:", "Recuo do texto:"),
+    textPos,
+    tr6(lang, "Follow number with:", "Seguir n\xFAmero com:"),
+    follow,
+    el7("label", { className: "uo-check" }, tabOn, tr6(lang, "Add tab stop at:", "Adicionar parada de tabula\xE7\xE3o em:")),
+    tabAt
+  );
+  if (!await ask(env, tr6(lang, "Adjust List Indents", "Ajustar Recuos da Lista"), body, 420)) return;
+  const np = twOf(numPos.value) ?? lvl.indLeft - lvl.hanging, tp = twOf(textPos.value) ?? lvl.indLeft;
+  const tab = tabOn.checked ? twOf(tabAt.value) : void 0;
+  const { tabPos: _old, ...rest } = lvl;
+  ed.defineMultilevelList([{ ...rest, indLeft: tp, hanging: tp - np, suff: follow.value, ...tab !== void 0 ? { tabPos: tab } : {} }]);
+}
+async function multilevelDialog(env, families, asStyle) {
+  const lang = env.lang, ed = env.ed;
+  const info = ed.listInfo();
+  const base = info && info.levels.length >= 9 && !asStyle ? info.levels : ed.listLibrary("multilevel")[0] ?? [];
+  const levels = base.map((l3) => ({ ...l3 }));
+  let k2 = info && !asStyle ? info.ilvl : 0;
+  const lv = () => levels.find((l3) => l3.ilvl === k2);
+  const headings = ed.listStyles("all").filter((s4) => /^heading [1-9]$/i.test(s4.rawName));
+  const name = el7("input", { type: "text", value: "", style: "width:220px" });
+  const levelList = el7("select", { size: 9, style: "width:56px;height:180px" });
+  for (let i5 = 0; i5 < 9; i5++) levelList.append(el7("option", { value: String(i5), textContent: String(i5 + 1) }));
+  const prev = el7("div", { style: "flex:1;height:180px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:4px;padding:6px 10px;overflow:hidden;background:#fff;color:#000;font-size:11px;display:flex;flex-direction:column;gap:3px" });
+  const fmt2 = el7("input", { type: "text", style: "width:200px" });
+  const style = select3([...NUMBER_STYLES.map(([v2, l3]) => [v2, pickLabels(lang, l3)]), ["bullet", tr6(lang, "Bullet: \u2022", "Marcador: \u2022")]], "decimal");
+  const include = select3([["", ""]], "");
+  const fontBtn = el7("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Font...", "Fonte...") });
+  const start = el7("input", { type: "number", min: "0", max: "32767", step: "1", style: "width:80px" });
+  const restartOn = el7("input", { type: "checkbox" });
+  const restartAfter = select3([["0", ""]], "0");
+  const legal = el7("input", { type: "checkbox" });
+  const link = select3([["", tr6(lang, "(no style)", "(sem estilo)")], ...headings.map((s4) => [s4.id, s4.name])], "");
+  const jc = select3(ALIGNS3(lang), "left");
+  const alignedAt = cmInput(lang, 0);
+  const indentAt = cmInput(lang, 0);
+  const follow = select3([["tab", tr6(lang, "Tab character", "Caractere de tabula\xE7\xE3o")], ["space", tr6(lang, "Space", "Espa\xE7o")], ["nothing", tr6(lang, "Nothing", "Nada")]], "tab");
+  const tabOn = el7("input", { type: "checkbox" });
+  const tabAt = cmInput(lang, 0);
+  const applyTo = select3([["list", tr6(lang, "Whole list", "Lista inteira")], ["forward", tr6(lang, "This point forward", "Deste ponto em diante")]], "list");
+  const sampleOf = (fmtId) => fmtId === "bullet" ? "\u2022" : fmtId === "none" ? "" : formatNumber(1, fmtId, docLang(lang));
+  const sampleFor = (l3, i5) => sampleOf(l3.isLgl && i5 !== l3.ilvl ? "decimal" : levels.find((x2) => x2.ilvl === i5)?.numFmt ?? "decimal");
+  const tokensOf = (l3) => l3.lvlText.split(/(%[1-9])/).filter(Boolean).map((s4) => /^%[1-9]$/.test(s4) ? Number(s4[1]) - 1 : s4);
+  const toField = (l3) => l3.numFmt === "bullet" ? l3.lvlText : tokensOf(l3).map((t5) => typeof t5 === "number" ? sampleFor(l3, t5) : t5).join("");
+  const fromField = (l3) => {
+    if (l3.numFmt === "bullet") return fmt2.value || "\u2022";
+    const order = tokensOf(l3).filter((t5) => typeof t5 === "number");
+    if (!order.includes(l3.ilvl)) order.push(l3.ilvl);
+    let at = 0, res = "";
+    for (const i5 of order) {
+      const s4 = sampleFor(l3, i5);
+      const p3 = s4 ? fmt2.value.indexOf(s4, at) : -1;
+      if (p3 < 0) continue;
+      res += fmt2.value.slice(at, p3) + `%${i5 + 1}`;
+      at = p3 + s4.length;
+    }
+    res += fmt2.value.slice(at);
+    return /%[1-9]/.test(res) ? res : `%${l3.ilvl + 1}${res}`;
+  };
+  const paintPrev = () => {
+    const counts = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const rows = [];
+    for (let i5 = 0; i5 < 9; i5++) {
+      counts[i5] += 1;
+      for (let d3 = i5 + 1; d3 < 9; d3++) counts[d3] = 0;
+      const vals = counts.map((c4, j) => c4 || (levels.find((x2) => x2.ilvl === j)?.start ?? 1));
+      const l3 = levels.find((x2) => x2.ilvl === i5);
+      if (!l3) continue;
+      const txt = markerText(levels, i5, vals, lang);
+      const left = Math.max(0, (l3.indLeft - l3.hanging) / 1440 * 96 * 0.5);
+      const r5 = el7("div", { style: `display:flex;align-items:center;gap:4px;padding-left:${left}px;${i5 === k2 ? "font-weight:700" : ""}` }, markerSpan(ed, txt, l3, 11), bar("100%"));
+      rows.push(r5);
+    }
+    prev.replaceChildren(...rows);
+  };
+  const load = () => {
+    const l3 = lv();
+    levelList.value = String(k2);
+    fmt2.value = toField(l3);
+    style.value = NUMBER_STYLES.some(([v2]) => v2 === l3.numFmt) || l3.numFmt === "bullet" ? l3.numFmt : "decimal";
+    include.replaceChildren(el7("option", { value: "", textContent: "" }), ...Array.from({ length: k2 }, (_v, i5) => el7("option", { value: String(i5), textContent: tr6(lang, `Level ${i5 + 1}`, `N\xEDvel ${i5 + 1}`) })));
+    include.disabled = k2 === 0 || l3.numFmt === "bullet";
+    start.value = String(l3.start ?? 1);
+    restartAfter.replaceChildren(...Array.from({ length: k2 }, (_v, i5) => el7("option", { value: String(i5 + 1), textContent: tr6(lang, `Level ${i5 + 1}`, `N\xEDvel ${i5 + 1}`) })));
+    restartOn.checked = k2 > 0 && l3.lvlRestart !== 0;
+    restartOn.disabled = k2 === 0;
+    restartAfter.value = String(l3.lvlRestart && l3.lvlRestart > 0 ? l3.lvlRestart : k2);
+    restartAfter.disabled = !restartOn.checked;
+    legal.checked = !!l3.isLgl;
+    link.value = l3.pStyle ?? "";
+    jc.value = l3.jc ?? "left";
+    alignedAt.value = `${cmText(lang, l3.indLeft - l3.hanging)} cm`;
+    indentAt.value = `${cmText(lang, l3.indLeft)} cm`;
+    follow.value = l3.suff ?? "tab";
+    tabOn.checked = l3.tabPos !== void 0;
+    tabAt.value = `${cmText(lang, l3.tabPos ?? l3.indLeft)} cm`;
+    paintPrev();
+  };
+  const store = () => {
+    const l3 = lv();
+    l3.numFmt = style.value;
+    l3.lvlText = fromField(l3);
+    l3.start = Math.max(0, Math.round(Number(start.value) || 0));
+    if (k2 > 0) {
+      if (restartOn.checked) {
+        const r5 = Number(restartAfter.value);
+        if (r5 === k2) delete l3.lvlRestart;
+        else l3.lvlRestart = r5;
+      } else l3.lvlRestart = 0;
+    }
+    if (legal.checked) l3.isLgl = true;
+    else delete l3.isLgl;
+    if (link.value) l3.pStyle = link.value;
+    else delete l3.pStyle;
+    l3.jc = jc.value;
+    const at = twOf(alignedAt.value), ti = twOf(indentAt.value);
+    if (ti !== void 0) l3.indLeft = ti;
+    if (at !== void 0) l3.hanging = l3.indLeft - at;
+    l3.suff = follow.value;
+    const tp = tabOn.checked ? twOf(tabAt.value) : void 0;
+    if (tp !== void 0) l3.tabPos = tp;
+    else delete l3.tabPos;
+    paintPrev();
+  };
+  levelList.addEventListener("change", () => {
+    store();
+    k2 = Number(levelList.value);
+    load();
+  });
+  style.addEventListener("change", () => {
+    const l3 = lv();
+    const before = sampleOf(l3.numFmt);
+    l3.numFmt = style.value;
+    if (style.value === "bullet") {
+      l3.lvlText = "\u2022";
+      delete l3.font;
+      fmt2.value = "\u2022";
+    } else if (before && fmt2.value.includes(before)) fmt2.value = fmt2.value.replace(before, () => sampleOf(style.value));
+    store();
+  });
+  include.addEventListener("change", () => {
+    if (!include.value) return;
+    const i5 = Number(include.value);
+    const pos = fmt2.selectionStart ?? 0;
+    store();
+    const l3 = lv();
+    const out = [];
+    let acc = 0, done = false;
+    for (const t5 of tokensOf(l3)) {
+      const len = typeof t5 === "number" ? sampleFor(l3, t5).length : t5.length;
+      if (!done && pos <= acc + len) {
+        if (typeof t5 === "number") out.push(...pos === acc ? [i5, t5] : [t5, i5]);
+        else out.push(t5.slice(0, pos - acc), i5, t5.slice(pos - acc));
+        done = true;
+      } else out.push(t5);
+      acc += len;
+    }
+    if (!done) out.push(i5);
+    l3.lvlText = out.map((t5) => typeof t5 === "number" ? `%${t5 + 1}` : t5).join("");
+    fmt2.value = toField(l3);
+    include.value = "";
+    paintPrev();
+  });
+  restartOn.addEventListener("change", () => {
+    restartAfter.disabled = !restartOn.checked;
+    store();
+  });
+  for (const x2 of [fmt2, start, alignedAt, indentAt, tabAt]) x2.addEventListener("change", store);
+  for (const x2 of [restartAfter, legal, link, jc, follow, tabOn]) x2.addEventListener("change", store);
+  fontBtn.addEventListener("click", async () => {
+    const r5 = await markFontDialog(env, families, lv());
+    if (r5) {
+      const l3 = lv();
+      delete l3.font;
+      delete l3.bold;
+      delete l3.italic;
+      delete l3.sizePt;
+      delete l3.color;
+      Object.assign(l3, r5);
+      paintPrev();
+    }
+  });
+  const setAll = el7("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Set for All Levels...", "Definir para Todos os N\xEDveis...") });
+  setAll.addEventListener("click", () => {
+    store();
+    const l0 = levels.find((x2) => x2.ilvl === 0), l1 = levels.find((x2) => x2.ilvl === 1) ?? l0;
+    const step = Math.max(0, l1.indLeft - l0.indLeft) || 360;
+    for (const l3 of levels) {
+      l3.indLeft = l0.indLeft + l3.ilvl * step;
+      l3.hanging = l0.hanging;
+    }
+    load();
+  });
+  load();
+  for (const s4 of [style, include, restartAfter, link, jc, follow, applyTo]) s4.style.width = "170px";
+  fmt2.style.width = "150px";
+  const grid2 = (...kids) => el7("div", { style: "display:grid;grid-template-columns:auto auto auto auto;gap:6px 10px;align-items:center;justify-content:start" }, ...kids);
+  const span2 = (n5) => el7("div", { style: "grid-column:span 2;display:flex;align-items:center;gap:8px" }, n5);
+  levelList.style.height = "204px";
+  prev.style.height = "204px";
+  const body = el7(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px;font-size:13px" },
+    ...asStyle ? [row(tr6(lang, "Name:", "Nome:"), name)] : [],
+    el7("div", { style: "display:flex;gap:10px" }, el7("div", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Level:", "N\xEDvel:"), levelList), prev),
+    group(
+      tr6(lang, "Number format", "Formato de n\xFAmero"),
+      grid2(
+        tr6(lang, "Enter formatting for number:", "Digite a formata\xE7\xE3o do n\xFAmero:"),
+        fmt2,
+        span2(fontBtn),
+        tr6(lang, "Number style for this level:", "Estilo de n\xFAmero para este n\xEDvel:"),
+        style,
+        tr6(lang, "Include level number from:", "Incluir n\xFAmero de n\xEDvel de:"),
+        include,
+        tr6(lang, "Start at:", "Iniciar em:"),
+        start,
+        el7("label", { className: "uo-check" }, restartOn, tr6(lang, "Restart list after:", "Reiniciar lista ap\xF3s:")),
+        restartAfter,
+        span2(el7("label", { className: "uo-check" }, legal, tr6(lang, "Legal style numbering", "Numera\xE7\xE3o no estilo legal"))),
+        tr6(lang, "Link level to style:", "Vincular n\xEDvel ao estilo:"),
+        link
+      )
+    ),
+    group(
+      tr6(lang, "Position", "Posi\xE7\xE3o"),
+      grid2(
+        tr6(lang, "Number alignment:", "Alinhamento do n\xFAmero:"),
+        jc,
+        tr6(lang, "Aligned at:", "Alinhado em:"),
+        alignedAt,
+        tr6(lang, "Text indent at:", "Recuo do texto em:"),
+        indentAt,
+        span2(setAll),
+        tr6(lang, "Follow number with:", "Seguir n\xFAmero com:"),
+        follow,
+        el7("label", { className: "uo-check" }, tabOn, tr6(lang, "Add tab stop at:", "Adicionar parada de tabula\xE7\xE3o em:")),
+        tabAt
+      )
+    ),
+    ...asStyle || !info ? [] : [row(tr6(lang, "Apply changes to:", "Aplicar altera\xE7\xF5es a:"), applyTo)]
+  );
+  const title = asStyle ? tr6(lang, "Define New List Style", "Definir Novo Estilo de Lista") : tr6(lang, "Define new Multilevel list", "Definir nova Lista de V\xE1rios N\xEDveis");
+  for (; ; ) {
+    if (!await ask(env, title, body, 720)) return;
+    store();
+    if (!asStyle) {
+      ed.defineMultilevelList(levels, { applyTo: applyTo.value });
+      return;
+    }
+    const nm = name.value.trim();
+    if (nm && ed.createListStyle(nm, levels)) return;
+    name.focus();
+    name.style.outline = "2px solid #d93025";
+  }
+}
+function listContextItems(ed) {
+  const info = ed.listInfo();
+  if (!info) return [];
+  return info.kind === "number" ? ["list:indents", "-", "list:restart", "list:continue", "list:setValue"] : ["list:indents"];
+}
+
+// src/chrome-clipboard.ts
+var L13 = (en, pt) => ({ en, pt });
+var tr7 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var el8 = (tag, props = {}, ...kids) => {
+  const { style, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (style) e6.style.cssText = style;
+  e6.append(...kids);
+  return e6;
+};
+var PASTE_MODES = {
+  keep: { label: L13("Keep Source Formatting (K)", "Manter Formata\xE7\xE3o Original (K)"), icon: "content_paste", key: "k" },
+  merge: { label: L13("Merge Formatting (M)", "Mesclar Formata\xE7\xE3o (M)"), icon: "format_paint", key: "m" },
+  picture: { label: L13("Picture (U)", "Imagem (U)"), icon: "image", key: "u" },
+  text: { label: L13("Keep Text Only (T)", "Manter Somente Texto (T)"), icon: "text_fields", key: "t" }
+};
+var LIST_PASTE = {
+  continue: { label: L13("Continue List (C)", "Continuar Lista (C)"), icon: "format_list_numbered", key: "c" },
+  new: { label: L13("New List (N)", "Nova Lista (N)"), icon: "restart_alt", key: "n" },
+  merge: { label: L13("Merge List (M)", "Mesclar Lista (M)"), icon: "format_list_numbered", key: "m" },
+  nomerge: { label: L13("Don't Merge List (N)", "N\xE3o Mesclar Lista (N)"), icon: "restart_alt", key: "n" }
+};
+function optionItems(ed, after, afterPaste) {
+  const o6 = ed.pasteOptions();
+  const out = [];
+  const modes = afterPaste ? o6.modes.filter((m2) => m2 !== "default") : ["keep", "merge", "picture", "text"];
+  for (const m2 of modes) {
+    const d3 = PASTE_MODES[m2];
+    out.push({ id: `paste:opt:${m2}`, label: d3.label, icon: d3.icon, checked: afterPaste && o6.current === m2, onClick: () => {
+      if (afterPaste) ed.repaste(m2);
+      else void ed.paste(m2).then(after);
+      after();
+    } });
+  }
+  if (afterPaste && o6.list.length) {
+    out.push("-");
+    for (const l3 of o6.list) {
+      const d3 = LIST_PASTE[l3];
+      out.push({ id: `paste:list:${l3}`, label: d3.label, icon: d3.icon, checked: o6.currentList === l3, onClick: () => {
+        ed.repaste(o6.current ?? "keep", l3);
+        after();
+      } });
+    }
+  }
+  return out;
+}
+function pasteMenu(env, ctx) {
+  return [
+    { content: () => optionStrip(env.ed, ctx), id: "paste:strip" },
+    "-",
+    "paste:special",
+    "paste:defaults"
+  ];
+}
+function optionStrip(ed, ctx) {
+  const box = el8("div", { style: "display:flex;flex-direction:column;gap:4px;padding:4px 10px" });
+  box.append(el8("div", { className: "uo-tiles-h", textContent: ctx.registry.text(L13("Paste Options:", "Op\xE7\xF5es de Colagem:")) }));
+  const row3 = el8("div", { style: "display:flex;gap:4px" });
+  for (const m2 of ["keep", "merge", "picture", "text"]) {
+    const d3 = PASTE_MODES[m2];
+    const b3 = el8("button", { type: "button", className: "uo-btn", title: ctx.registry.text(d3.label), style: "width:34px;height:34px" });
+    b3.setAttribute("aria-label", ctx.registry.text(d3.label));
+    b3.dataset["a"] = `paste:opt:${m2}`;
+    b3.innerHTML = symbol(d3.icon);
+    b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+    b3.addEventListener("click", () => {
+      void ed.paste(m2).then(() => ctx.after());
+    });
+    row3.append(b3);
+  }
+  box.append(row3);
+  return box;
+}
+function registerClipboardCommands(reg, ed, app, ctl) {
+  const canEdit3 = () => !app.comparing && !ed.isProtected();
+  const has = (m2) => () => typeof ed[m2] === "function";
+  const cmds = [
+    ...["keep", "merge", "picture", "text"].map((m2) => ({
+      id: `paste:${m2}`,
+      label: PASTE_MODES[m2].label,
+      icon: PASTE_MODES[m2].icon,
+      supports: has("repaste"),
+      isEnabled: canEdit3,
+      run: () => ed.paste(m2)
+    })),
+    { id: "paste:special", label: L13("Paste Special\u2026", "Colar Especial..."), icon: "content_paste_go", shortcut: "Ctrl+Alt+V", supports: has("pasteSpecial"), isEnabled: canEdit3, run: () => ctl.clipboard("special") },
+    { id: "paste:defaults", label: L13("Set Default Paste\u2026", "Definir Colagem Padr\xE3o..."), icon: "settings", supports: has("repaste"), run: () => ctl.clipboard("defaults") },
+    { id: "clipboard:pane", label: L13("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", supports: has("clipboardItems"), isChecked: () => !!paneOpen("uw-clipboard"), run: () => ctl.clipboard("pane") }
+  ];
+  reg.add(...cmds);
+}
+var ClipboardUI = class {
+  constructor(env) {
+    this.env = env;
+    const { ed, signal } = env;
+    signal.addEventListener("abort", () => {
+      this.hideButton();
+      this.off?.();
+    });
+    const saved = env.app.prefs.get("pasteDefaults");
+    if (saved) {
+      try {
+        Object.assign(ed.pasteDefaults, JSON.parse(saved));
+      } catch {
+      }
+    }
+    ed.addEventListener("uw-pasted", () => this.showButton(), { signal });
+    ed.addEventListener("uw-paste-options", () => this.openOptions(), { signal });
+    ed.addEventListener("uw-paste-special", () => {
+      void this.special();
+    }, { signal });
+  }
+  env;
+  btn = null;
+  off = null;
+  /** O botão some quando a colagem não dá mais para refazer (outra edição). */
+  sync() {
+    if (this.btn && !this.env.ed.pasteOptions().modes.length) this.hideButton();
+    else if (this.btn) this.placeButton();
+  }
+  showButton() {
+    const o6 = this.env.ed.pasteOptions();
+    if (!o6.modes.length) {
+      this.hideButton();
+      return;
+    }
+    if (!this.btn) {
+      const b3 = el8("button", { type: "button", className: "uo-btn uw-paste-btn", style: "position:fixed;z-index:30;height:24px;min-width:34px;padding:0 4px;border-radius:4px;border:1px solid color-mix(in srgb, currentColor 30%, transparent);background:var(--uo-surface, #fff);display:inline-flex;align-items:center;gap:2px;box-shadow:0 1px 3px rgba(0,0,0,.2)" });
+      b3.innerHTML = `${symbol("content_paste")}<span style="font-size:11px">(Ctrl)</span>`;
+      b3.title = tr7(this.env.lang, "Paste Options", "Op\xE7\xF5es de Colagem");
+      b3.setAttribute("aria-label", b3.title);
+      b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+      b3.addEventListener("click", () => this.openOptions());
+      this.env.layer.append(b3);
+      this.btn = b3;
+    }
+    this.placeButton();
+  }
+  placeButton() {
+    const r5 = this.env.ed.pasteButtonRect();
+    if (!r5 || !this.btn) {
+      this.btn && (this.btn.style.display = "none");
+      return;
+    }
+    this.btn.style.display = "";
+    this.btn.style.left = `${Math.round(r5.x)}px`;
+    this.btn.style.top = `${Math.round(r5.y)}px`;
+  }
+  hideButton() {
+    this.btn?.remove();
+    this.btn = null;
+  }
+  /** Menu das opções (clique no botão ou Ctrl): as teclas K, M, T, U (e C/N das listas) escolhem. */
+  openOptions() {
+    const { ed, lang, layer } = this.env;
+    if (!this.btn) this.showButton();
+    const r5 = this.btn?.getBoundingClientRect() ?? ed.getBoundingClientRect();
+    const items = optionItems(ed, () => this.env.after(), true);
+    openMenu(items, { x: r5.left, y: r5.bottom + 2 }, { lang, layer, onClose: () => {
+      window.removeEventListener("keydown", keys, true);
+      this.env.after();
+    } });
+    const o6 = ed.pasteOptions();
+    const keys = (e6) => {
+      const k2 = e6.key.toLowerCase();
+      const m2 = Object.keys(PASTE_MODES).find((x2) => PASTE_MODES[x2].key === k2 && o6.modes.includes(x2));
+      const l3 = o6.list.find((x2) => LIST_PASTE[x2].key === k2 && !(k2 === "m" && m2));
+      if (!m2 && !l3) return;
+      e6.preventDefault();
+      e6.stopPropagation();
+      closeMenus();
+      if (l3) ed.repaste(o6.current ?? "keep", l3);
+      else if (m2) ed.repaste(m2);
+      this.env.after();
+    };
+    window.addEventListener("keydown", keys, true);
+  }
+  async run(kind) {
+    if (kind === "special") await this.special();
+    else if (kind === "defaults") await this.defaults();
+    else this.togglePane();
+  }
+  /** Colar Especial: Colar / Colar vínculo e os formatos do que está copiado. */
+  async special() {
+    const { ed, lang } = this.env;
+    const info = await ed.pasteSpecialFormats();
+    if (!info.formats.length) return;
+    const NAMES = {
+      rtf: ["Formatted Text (RTF)", "Texto Formatado (RTF)"],
+      text: ["Unformatted Text", "Texto n\xE3o formatado"],
+      picture: ["Picture (PNG)", "Imagem (PNG)"],
+      html: ["HTML Format", "Formato HTML"],
+      unicode: ["Unformatted Unicode Text", "Texto Unicode n\xE3o formatado"],
+      image: ["Bitmap", "Bitmap"]
+    };
+    const HINTS = {
+      rtf: ["Inserts the contents of the Clipboard as text with font and table formatting.", "Insere o conte\xFAdo da \xC1rea de Transfer\xEAncia como texto com formata\xE7\xE3o de fonte e tabela."],
+      text: ["Inserts the contents of the Clipboard as text without any formatting.", "Insere o conte\xFAdo da \xC1rea de Transfer\xEAncia como texto sem nenhuma formata\xE7\xE3o."],
+      picture: ["Inserts the contents of the Clipboard as a picture.", "Insere o conte\xFAdo da \xC1rea de Transfer\xEAncia como uma imagem."],
+      html: ["Inserts the contents of the Clipboard as HTML Format.", "Insere o conte\xFAdo da \xC1rea de Transfer\xEAncia como Formato HTML."],
+      unicode: ["Inserts the contents of the Clipboard as text without any formatting.", "Insere o conte\xFAdo da \xC1rea de Transfer\xEAncia como texto sem nenhuma formata\xE7\xE3o."],
+      image: ["Inserts the contents of the Clipboard as a picture.", "Insere o conte\xFAdo da \xC1rea de Transfer\xEAncia como uma imagem."]
+    };
+    const radio6 = (v2, label, on, disabled = false) => {
+      const input = el8("input", { type: "radio", name: "uw-pspec", value: v2, checked: on, disabled });
+      return { el: el8("label", { className: "uo-check" }, input, label), input };
+    };
+    const paste = radio6("paste", tr7(lang, "Paste:", "Colar:"), true);
+    const link = radio6("link", tr7(lang, "Paste link:", "Colar v\xEDnculo:"), false, !info.link);
+    const list = el8("select", { size: Math.max(4, info.formats.length), style: "width:100%;height:auto" });
+    for (const f3 of info.formats) list.append(el8("option", { value: f3, textContent: tr7(lang, NAMES[f3][0], NAMES[f3][1]) }));
+    list.value = info.formats[0];
+    const hint = el8("div", { style: "font-size:12px;opacity:.85;min-height:32px" });
+    const src = el8("div", { style: "font-size:12px;opacity:.85;word-break:break-all", textContent: info.source ? `${tr7(lang, "Source:", "Origem:")} ${info.source}` : "" });
+    const sync = () => {
+      for (const op of list.options) op.disabled = link.input.checked && !["rtf", "html", "text", "unicode"].includes(op.value);
+      if (list.selectedOptions[0]?.disabled) list.value = "rtf";
+      const f3 = list.value;
+      hint.textContent = HINTS[f3] ? tr7(lang, HINTS[f3][0], HINTS[f3][1]) : "";
+    };
+    list.addEventListener("change", sync);
+    paste.input.addEventListener("change", sync);
+    link.input.addEventListener("change", sync);
+    list.addEventListener("dblclick", () => h3.close("ok"));
+    sync();
+    const body = el8(
+      "div",
+      { style: "display:flex;gap:16px" },
+      el8("div", { style: "display:flex;flex-direction:column;gap:10px;min-width:130px" }, src, paste.el, link.el),
+      el8("div", { style: "display:flex;flex-direction:column;gap:8px;flex:1" }, tr7(lang, "As:", "Como:"), list, hint)
+    );
+    const h3 = openDialog({
+      title: tr7(lang, "Paste Special", "Colar Especial"),
+      body,
+      layer: this.env.layer,
+      lang,
+      width: 520,
+      actions: [{ id: "cancel", label: this.env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+    });
+    if (await h3.result !== "ok") return;
+    await ed.pasteSpecial(list.value, { link: link.input.checked });
+    this.env.after();
+  }
+  /** Definir Colagem Padrão (Opções › Avançado › Recortar, copiar e colar do Word). */
+  async defaults() {
+    const { ed, lang } = this.env;
+    const opts = [["keep", tr7(lang, "Keep Source Formatting (Default)", "Manter Formata\xE7\xE3o Original (Padr\xE3o)")], ["merge", tr7(lang, "Merge Formatting", "Mesclar Formata\xE7\xE3o")], ["text", tr7(lang, "Keep Text Only", "Manter Somente Texto")]];
+    const sel4 = (v2, extra = []) => {
+      const s4 = el8("select", { style: "min-width:260px" });
+      for (const [k2, t5] of [...extra, ...opts]) s4.append(el8("option", { value: k2, textContent: t5 }));
+      s4.value = v2;
+      return s4;
+    };
+    const within = sel4(ed.pasteDefaults.within), between = sel4(ed.pasteDefaults.between);
+    const other = sel4(ed.pasteDefaults.other, [["default", tr7(lang, "Use Destination Styles (Default)", "Usar Estilos de Destino (Padr\xE3o)")]]);
+    const body = el8(
+      "div",
+      { style: "display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center" },
+      tr7(lang, "Pasting within the same document:", "Colar no mesmo documento:"),
+      within,
+      tr7(lang, "Pasting between documents:", "Colar entre documentos:"),
+      between,
+      tr7(lang, "Pasting from other programs:", "Colar de outros programas:"),
+      other
+    );
+    const h3 = openDialog({
+      title: tr7(lang, "Cut, copy, and paste", "Recortar, copiar e colar"),
+      body,
+      layer: this.env.layer,
+      lang,
+      width: 560,
+      actions: [{ id: "cancel", label: this.env.app.ui.L.cancel }, { id: "ok", label: "OK", primary: true }]
+    });
+    if (await h3.result !== "ok") return;
+    ed.pasteDefaults = { within: within.value, between: between.value, other: other.value };
+    this.env.app.prefs.set("pasteDefaults", JSON.stringify(ed.pasteDefaults));
+  }
+  get paneIsOpen() {
+    return !!paneOpen("uw-clipboard");
+  }
+  /** Painel Área de Transferência: os itens copiados (o mais novo em cima), Colar Tudo, Limpar Tudo. */
+  togglePane() {
+    const { ed, lang } = this.env;
+    const cur = paneOpen("uw-clipboard");
+    if (cur) {
+      cur.close();
+      return;
+    }
+    const count = el8("div", { style: "font-size:12px;opacity:.8" });
+    const all = el8("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Paste All", "Colar Tudo") });
+    const clear = el8("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Clear All", "Limpar Tudo") });
+    const list = el8("div", { style: "display:flex;flex-direction:column;gap:6px;overflow:auto" });
+    const hint = el8("div", { style: "font-size:12px;opacity:.75", textContent: tr7(lang, "Click an item to paste.", "Clique em um item para colar.") });
+    const body = el8("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px;height:100%;box-sizing:border-box" }, count, el8("div", { style: "display:flex;gap:8px" }, all, clear), hint, list);
+    all.addEventListener("click", () => {
+      ed.pasteAllClipboardItems();
+      this.env.after();
+    });
+    clear.addEventListener("click", () => {
+      ed.clearClipboardItems();
+    });
+    const render = () => {
+      const items = ed.clipboardItems();
+      count.textContent = tr7(lang, `${items.length} of 24 - Clipboard`, `${items.length} de 24 - \xC1rea de Transfer\xEAncia`);
+      all.disabled = clear.disabled = !items.length;
+      hint.textContent = items.length ? tr7(lang, "Click an item to paste.", "Clique em um item para colar.") : tr7(lang, "The Clipboard is empty. Copy or cut to collect items.", "A \xC1rea de Transfer\xEAncia est\xE1 vazia. Copie ou recorte para coletar itens.");
+      list.replaceChildren(...items.map((it) => {
+        const ico = it.kind === "table" ? "table" : it.kind === "drawing" || it.kind === "image" ? "image" : "content_copy";
+        const txt = it.text.replace(/\s+/g, " ").trim() || tr7(lang, it.kind === "drawing" || it.kind === "image" ? "(picture)" : "(item)", it.kind === "drawing" || it.kind === "image" ? "(imagem)" : "(item)");
+        const b3 = el8("button", { type: "button", className: "uo-btn uw-clip-item", title: txt.slice(0, 300), style: "display:flex;align-items:flex-start;gap:8px;text-align:left;width:100%;height:auto;padding:6px;border:1px solid color-mix(in srgb, currentColor 18%, transparent);border-radius:6px" });
+        b3.innerHTML = symbol(ico);
+        b3.append(el8("span", { textContent: txt.length > 120 ? `${txt.slice(0, 120)}\u2026` : txt, style: "flex:1;font-size:12px;line-height:1.35;overflow:hidden" }));
+        b3.dataset["id"] = String(it.id);
+        b3.addEventListener("mousedown", (e6) => e6.preventDefault());
+        b3.addEventListener("click", () => {
+          ed.pasteClipboardItem(it.id);
+          this.env.after();
+        });
+        b3.addEventListener("contextmenu", (e6) => {
+          e6.preventDefault();
+          openMenu([
+            { id: "clip:paste", label: L13("Paste", "Colar"), icon: "content_paste", onClick: () => {
+              ed.pasteClipboardItem(it.id);
+              this.env.after();
+            } },
+            { id: "clip:delete", label: L13("Delete", "Excluir"), icon: "delete", onClick: () => ed.removeClipboardItem(it.id) }
+          ], { x: e6.clientX, y: e6.clientY }, { lang, layer: this.env.layer });
+        });
+        return b3;
+      }));
+    };
+    this.off?.();
+    this.off = ed.onClipboardChange(render);
+    render();
+    openPane({
+      id: "uw-clipboard",
+      title: L13("Clipboard", "\xC1rea de Transfer\xEAncia"),
+      lang,
+      layer: this.env.layer,
+      frame: this.env.frame,
+      dock: "left",
+      width: 280,
+      body,
+      onClose: () => {
+        this.off?.();
+        this.off = null;
+        ed.classList.remove("uw-has-pane");
+        this.env.after();
+      }
+    });
+    ed.classList.add("uw-has-pane");
+  }
+};
+
+// src/chrome-find.ts
+var tr8 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var memo = { find: "", repl: "", more: false, dir: "all", opts: {}, findFmt: {}, replFmt: {}, gotoWhat: "page" };
+var GOTO = [
+  ["page", "Page", "P\xE1gina", "Enter page number:", "Insira o n\xFAmero da p\xE1gina:"],
+  ["section", "Section", "Se\xE7\xE3o", "Enter section number:", "Insira o n\xFAmero da se\xE7\xE3o:"],
+  ["line", "Line", "Linha", "Enter line number:", "Insira o n\xFAmero da linha:"],
+  ["bookmark", "Bookmark", "Indicador", "Enter bookmark name:", "Insira o nome do indicador:"],
+  ["comment", "Comment", "Coment\xE1rio", "Enter reviewer\u2019s name:", "Insira o nome do revisor:"],
+  ["footnote", "Footnote", "Nota de Rodap\xE9", "Enter footnote number:", "Insira o n\xFAmero da nota de rodap\xE9:"],
+  ["endnote", "Endnote", "Nota de Fim", "Enter endnote number:", "Insira o n\xFAmero da nota de fim:"],
+  ["field", "Field", "Campo", "Enter field name:", "Insira o nome do campo:"],
+  ["table", "Table", "Tabela", "Enter table number:", "Insira o n\xFAmero da tabela:"],
+  ["graphic", "Graphic", "Gr\xE1fico", "Enter graphic number:", "Insira o n\xFAmero do gr\xE1fico:"],
+  ["equation", "Equation", "Equa\xE7\xE3o", "Enter equation number:", "Insira o n\xFAmero da equa\xE7\xE3o:"],
+  ["object", "Object", "Objeto", "Enter object number:", "Insira o n\xFAmero do objeto:"],
+  ["heading", "Heading", "T\xEDtulo", "Enter heading number:", "Insira o n\xFAmero do t\xEDtulo:"]
+];
+var SPECIAL_FIND = [
+  ["^p", "Paragraph Mark", "Marca de Par\xE1grafo"],
+  ["^t", "Tab Character", "Caractere de Tabula\xE7\xE3o"],
+  ["^?", "Any Character", "Qualquer Caractere"],
+  ["^#", "Any Digit", "Qualquer D\xEDgito"],
+  ["^$", "Any Letter", "Qualquer Letra"],
+  ["^^", "Caret Character", "Caractere Circunflexo"],
+  ["^e", "Endnote Mark", "Marca de Nota de Fim"],
+  ["^d", "Field", "Campo"],
+  ["^f", "Footnote Mark", "Marca de Nota de Rodap\xE9"],
+  ["^g", "Graphic", "Gr\xE1fico"],
+  ["^l", "Manual Line Break", "Quebra de Linha Manual"],
+  ["^m", "Manual Page Break", "Quebra de P\xE1gina Manual"],
+  ["^~", "Nonbreaking Hyphen", "H\xEDfen Incondicional"],
+  ["^s", "Nonbreaking Space", "Espa\xE7o Incondicional"],
+  ["^-", "Optional Hyphen", "H\xEDfen Opcional"],
+  ["^b", "Section Break", "Quebra de Se\xE7\xE3o"],
+  ["^w", "White Space", "Espa\xE7o em Branco"],
+  ["^+", "Em Dash", "Travess\xE3o"],
+  ["^=", "En Dash", "Tra\xE7o"],
+  ["^n", "Column Break", "Quebra de Coluna"]
+];
+var SPECIAL_WILD = [
+  ["?", "Any Character", "Qualquer Caractere"],
+  ["[-]", "Character in Range", "Caractere no Intervalo"],
+  ["<", "Beginning of Word", "In\xEDcio da Palavra"],
+  [">", "End of Word", "Fim da Palavra"],
+  ["()", "Expression", "Express\xE3o"],
+  ["[!]", "Not", "Diferente de"],
+  ["{,}", "Num Occurrences", "N\xFAmero de Ocorr\xEAncias"],
+  ["@", "Previous 1 or More", "Item Anterior 1 ou Mais"],
+  ["*", "0 or More Characters", "0 ou Mais Caracteres"],
+  ["^t", "Tab Character", "Caractere de Tabula\xE7\xE3o"],
+  ["^^", "Caret Character", "Caractere Circunflexo"],
+  ["^13", "Paragraph Mark", "Marca de Par\xE1grafo"],
+  ["^l", "Manual Line Break", "Quebra de Linha Manual"],
+  ["^m", "Manual Page Break", "Quebra de P\xE1gina Manual"],
+  ["^s", "Nonbreaking Space", "Espa\xE7o Incondicional"]
+];
+var SPECIAL_REPL = [
+  ["^p", "Paragraph Mark", "Marca de Par\xE1grafo"],
+  ["^t", "Tab Character", "Caractere de Tabula\xE7\xE3o"],
+  ["^^", "Caret Character", "Caractere Circunflexo"],
+  ["^c", "Clipboard Contents", "Conte\xFAdo da \xC1rea de Transfer\xEAncia"],
+  ["^&", "Find What Text", "Conte\xFAdo de Localizar"],
+  ["^l", "Manual Line Break", "Quebra de Linha Manual"],
+  ["^m", "Manual Page Break", "Quebra de P\xE1gina Manual"],
+  ["^n", "Column Break", "Quebra de Coluna"],
+  ["^~", "Nonbreaking Hyphen", "H\xEDfen Incondicional"],
+  ["^s", "Nonbreaking Space", "Espa\xE7o Incondicional"],
+  ["^-", "Optional Hyphen", "H\xEDfen Opcional"],
+  ["^+", "Em Dash", "Travess\xE3o"],
+  ["^=", "En Dash", "Tra\xE7o"]
+];
+var el9 = (tag, props = {}, ...kids) => {
+  const { style, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (style) e6.style.cssText = style;
+  e6.append(...kids);
+  return e6;
+};
+var btn = (label, primary = false) => el9("button", { type: "button", className: primary ? "uo-pill uo-pill-primary" : "uo-pill", textContent: label });
+var check5 = (label, on) => {
+  const input = el9("input", { type: "checkbox", checked: on });
+  return { el: el9("label", { className: "uo-check", style: "display:flex;align-items:center;gap:6px" }, input, label), input };
+};
+function formatSummary(f3, lang) {
+  const out = [];
+  const yn = (v2, on, off) => {
+    if (v2 !== void 0) out.push(v2 ? on : off);
+  };
+  if (f3.font) out.push(f3.font);
+  if (f3.sizePt) out.push(`${f3.sizePt} pt`);
+  yn(f3.bold, tr8(lang, "Bold", "Negrito"), tr8(lang, "Not Bold", "Sem Negrito"));
+  yn(f3.italic, tr8(lang, "Italic", "It\xE1lico"), tr8(lang, "Not Italic", "Sem It\xE1lico"));
+  yn(f3.underline, tr8(lang, "Underline", "Sublinhado"), tr8(lang, "No underline", "Sem sublinhado"));
+  yn(f3.strike, tr8(lang, "Strikethrough", "Tachado"), tr8(lang, "Not Strikethrough", "Sem Tachado"));
+  yn(f3.allCaps, tr8(lang, "All caps", "Todas em mai\xFAsculas"), tr8(lang, "Not All caps", "Sem Todas em mai\xFAsculas"));
+  yn(f3.smallCaps, tr8(lang, "Small caps", "Versalete"), tr8(lang, "Not Small caps", "Sem Versalete"));
+  yn(f3.hidden, tr8(lang, "Hidden", "Oculto"), tr8(lang, "Not Hidden", "Sem Oculto"));
+  if (f3.vertAlign) out.push(f3.vertAlign === "superscript" ? tr8(lang, "Superscript", "Sobrescrito") : tr8(lang, "Subscript", "Subscrito"));
+  if (f3.color) out.push(`${tr8(lang, "Font color", "Cor da fonte")}: #${f3.color}`);
+  yn(f3.highlight, tr8(lang, "Highlight", "Realce"), tr8(lang, "Not Highlight", "Sem Realce"));
+  if (f3.paraStyle) out.push(`${tr8(lang, "Style", "Estilo")}: ${f3.paraStyle}`);
+  if (f3.charStyle) out.push(`${tr8(lang, "Style", "Estilo")}: ${f3.charStyle}`);
+  return out.join(", ");
+}
+var FindReplaceDialog = class {
+  constructor(env) {
+    this.env = env;
+  }
+  env;
+  handle = null;
+  tab = "find";
+  active = "find";
+  get isOpen() {
+    return !!this.handle;
+  }
+  close() {
+    this.handle?.close(null);
+    this.handle = null;
+  }
+  open(tab) {
+    const { ed, lang } = this.env;
+    const sel4 = ed.selectedText();
+    if (sel4 && !sel4.includes("\n") && sel4.length < 256 && tab !== "goto") memo.find = sel4;
+    if (this.handle) {
+      this.show(tab);
+      return;
+    }
+    const body = this.build();
+    this.handle = openDialog({ title: tr8(lang, "Find and Replace", "Localizar e Substituir"), body, actions: [], modal: false, layer: this.env.layer, lang, width: 680 });
+    const d3 = this.handle.el;
+    d3.style.position = "fixed";
+    d3.style.margin = "0";
+    d3.style.top = "96px";
+    d3.style.left = "max(8px, calc(50% - 340px))";
+    d3.style.zIndex = "20";
+    void this.handle.result.then(() => {
+      this.handle = null;
+      ed.focusEditor();
+    });
+    this.show(tab);
+  }
+  // ───── montagem ─────
+  els;
+  build() {
+    const { ed, lang } = this.env;
+    const T5 = (en, pt) => tr8(lang, en, pt);
+    const root = el9("div", { className: "uw-findrep", style: "display:flex;flex-direction:column;gap:10px;min-width:480px" });
+    const tabBar = el9("div", { role: "tablist", style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ccc)" });
+    const mkTab = (id, label) => {
+      const b3 = el9("button", { type: "button", className: "uo-btn", textContent: label, role: "tab", style: "padding:6px 12px;border-radius:6px 6px 0 0" });
+      b3.addEventListener("click", () => this.show(id));
+      tabBar.append(b3);
+      return b3;
+    };
+    const tabs = { find: mkTab("find", T5("Find", "Localizar")), replace: mkTab("replace", T5("Replace", "Substituir")), goto: mkTab("goto", T5("Go To", "Ir para")) };
+    const find = el9("input", { type: "text", value: memo.find, style: "flex:1;min-width:0", ariaLabel: T5("Find what", "Localizar") });
+    const repl = el9("input", { type: "text", value: memo.repl, style: "flex:1;min-width:0", ariaLabel: T5("Replace with", "Substituir por") });
+    find.addEventListener("focus", () => {
+      this.active = "find";
+    });
+    repl.addEventListener("focus", () => {
+      this.active = "repl";
+    });
+    find.addEventListener("input", () => {
+      memo.find = find.value;
+      this.setStatus("");
+    });
+    repl.addEventListener("input", () => {
+      memo.repl = repl.value;
+    });
+    const findFmt = el9("div", { style: "font-size:12px;opacity:.8;min-height:14px" });
+    const replFmt = el9("div", { style: "font-size:12px;opacity:.8;min-height:14px" });
+    const lab = (t5) => el9("span", { textContent: t5, style: "width:110px;flex:none" });
+    const findRow = el9(
+      "div",
+      { style: "display:flex;flex-direction:column;gap:2px" },
+      el9("div", { style: "display:flex;align-items:center;gap:8px" }, lab(T5("Find what:", "Localizar:")), find),
+      el9("div", { style: "padding-left:118px" }, findFmt)
+    );
+    const replRow = el9(
+      "div",
+      { style: "display:flex;flex-direction:column;gap:2px" },
+      el9("div", { style: "display:flex;align-items:center;gap:8px" }, lab(T5("Replace with:", "Substituir por:")), repl),
+      el9("div", { style: "padding-left:118px" }, replFmt)
+    );
+    const C2 = (k2, en, pt) => {
+      const c4 = check5(T5(en, pt), !!memo.opts[k2]);
+      c4.input.addEventListener("change", () => {
+        memo.opts[k2] = c4.input.checked;
+        this.syncOpts();
+      });
+      checks[k2] = c4.input;
+      return c4.el;
+    };
+    const checks = {};
+    const dir = el9("select", {});
+    for (const [v2, en, pt] of [["all", "All", "Tudo"], ["down", "Down", "Abaixo"], ["up", "Up", "Acima"]]) dir.append(el9("option", { value: v2, textContent: T5(en, pt) }));
+    dir.value = memo.dir;
+    dir.addEventListener("change", () => {
+      memo.dir = dir.value;
+    });
+    const formatBtn = btn(`${T5("Format", "Formatar")} \u25BE`);
+    formatBtn.addEventListener("click", () => this.formatMenu(formatBtn));
+    const specialBtn = btn(`${T5("Special", "Especial")} \u25BE`);
+    specialBtn.addEventListener("click", () => this.specialMenu(specialBtn));
+    const noFmtBtn = btn(T5("No Formatting", "Sem Formata\xE7\xE3o"));
+    noFmtBtn.addEventListener("click", () => {
+      if (this.active === "repl" && this.tab === "replace") memo.replFmt = {};
+      else memo.findFmt = {};
+      this.syncFormat();
+    });
+    const more = el9(
+      "div",
+      { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--uo-outline-variant,#ccc);padding-top:8px" },
+      el9("strong", { textContent: T5("Search Options", "Op\xE7\xF5es de pesquisa") }),
+      el9("div", { style: "display:flex;align-items:center;gap:8px" }, el9("span", { textContent: T5("Search:", "Pesquisar:") }), dir),
+      el9(
+        "div",
+        { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 16px" },
+        C2("matchCase", "Match case", "Diferenciar mai\xFAsculas e min\xFAsculas"),
+        C2("prefix", "Match prefix", "Coincidir prefixo"),
+        C2("wholeWord", "Find whole words only", "Localizar apenas palavras inteiras"),
+        C2("suffix", "Match suffix", "Coincidir sufixo"),
+        C2("wildcards", "Use wildcards", "Usar caracteres curinga"),
+        el9("span"),
+        C2("soundsLike", "Sounds like (English)", "Semelhantes (Ingl\xEAs)"),
+        C2("ignorePunct", "Ignore punctuation characters", "Ignorar caracteres de pontua\xE7\xE3o"),
+        C2("allForms", "Find all word forms (English)", "Todas as formas da palavra (Ingl\xEAs)"),
+        C2("ignoreSpace", "Ignore white-space characters", "Ignorar espa\xE7os em branco")
+      ),
+      el9("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, formatBtn, specialBtn, noFmtBtn)
+    );
+    more.hidden = !memo.more;
+    const moreBtn = btn(memo.more ? T5("<< Less", "<< Menos") : T5("More >>", "Mais >>"));
+    moreBtn.addEventListener("click", () => {
+      memo.more = !memo.more;
+      more.hidden = !memo.more;
+      moreBtn.textContent = memo.more ? T5("<< Less", "<< Menos") : T5("More >>", "Mais >>");
+    });
+    const status = el9("div", { role: "status", style: "font-size:13px;min-height:18px" });
+    const readBtn = btn(`${T5("Reading Highlight", "Realce de Leitura")} \u25BE`);
+    readBtn.addEventListener("click", () => openMenu([
+      { id: "hl:all", label: { en: "Highlight All", pt: "Real\xE7ar Tudo" }, onClick: () => this.highlightAll() },
+      { id: "hl:clear", label: { en: "Clear Highlighting", pt: "Limpar Realce" }, onClick: () => {
+        ed.clearSearch();
+        this.setStatus("");
+      } }
+    ], { anchor: readBtn, side: "below" }, { lang, layer: this.env.layer }));
+    const inBtn = btn(`${T5("Find In", "Localizar em")} \u25BE`);
+    inBtn.addEventListener("click", () => openMenu([
+      { id: "in:sel", label: { en: "Current Selection", pt: "Sele\xE7\xE3o Atual" }, disabled: !ed.selectedText(), onClick: () => this.findIn("selection") },
+      { id: "in:main", label: { en: "Main Document", pt: "Documento Principal" }, onClick: () => this.findIn("document") }
+    ], { anchor: inBtn, side: "below" }, { lang, layer: this.env.layer }));
+    const nextBtn = btn(T5("Find Next", "Localizar Pr\xF3xima"), true);
+    nextBtn.addEventListener("click", () => this.findNext());
+    const replOne = btn(T5("Replace", "Substituir"));
+    replOne.addEventListener("click", () => this.replaceOne());
+    const replAll = btn(T5("Replace All", "Substituir Tudo"));
+    replAll.addEventListener("click", () => this.replaceAll());
+    const cancel = btn(T5("Cancel", "Cancelar"));
+    cancel.addEventListener("click", () => this.close());
+    const findBtns = el9("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, readBtn, inBtn);
+    const replBtns = el9("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, replOne, replAll);
+    const footer = el9(
+      "div",
+      { style: "display:flex;gap:6px;flex-wrap:wrap;justify-content:space-between;align-items:center" },
+      el9("div", { style: "display:flex;gap:6px" }, moreBtn),
+      el9("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, findBtns, replBtns, nextBtn, cancel)
+    );
+    const findPane = el9("div", { style: "display:flex;flex-direction:column;gap:8px" }, findRow, replRow, status, footer, more);
+    for (const i5 of [find, repl]) {
+      i5.addEventListener("keydown", (e6) => {
+        if (e6.key === "Enter") {
+          e6.preventDefault();
+          e6.stopPropagation();
+          if (i5 === repl && e6.ctrlKey) this.replaceAll();
+          else this.findNext();
+        }
+      });
+    }
+    const gotoList = el9("select", { size: 8, style: "width:180px;height:180px" });
+    for (const [v2, en, pt] of GOTO) gotoList.append(el9("option", { value: v2, textContent: T5(en, pt) }));
+    gotoList.value = memo.gotoWhat;
+    const gotoLabel = el9("span", {});
+    const gotoData = el9("datalist", { id: `uw-goto-${Math.random().toString(36).slice(2)}` });
+    const gotoInput = el9("input", { type: "text", style: "width:100%" });
+    gotoInput.setAttribute("list", gotoData.id);
+    const prevBtn = btn(T5("Previous", "Anterior"));
+    const gotoNext = btn(T5("Next", "Avan\xE7ar"), true);
+    const gotoClose = btn(T5("Close", "Fechar"));
+    gotoClose.addEventListener("click", () => this.close());
+    const gotoStatus = el9("div", { role: "status", style: "font-size:13px;min-height:18px" });
+    const syncGoto = () => {
+      const w2 = gotoList.value;
+      memo.gotoWhat = w2;
+      const g2 = GOTO.find((x2) => x2[0] === w2);
+      gotoLabel.textContent = T5(g2[3], g2[4]);
+      gotoData.replaceChildren();
+      const opts = w2 === "bookmark" ? ed.getBookmarks().map((b3) => b3.name) : w2 === "comment" ? [...new Set(ed.getComments().map((c4) => c4.author ?? "").filter(Boolean))] : w2 === "field" ? ["PAGE", "NUMPAGES", "DATE", "TIME", "TOC", "REF", "PAGEREF", "HYPERLINK", "SEQ", "STYLEREF", "FILENAME", "AUTHOR"] : [];
+      for (const o6 of opts) gotoData.append(el9("option", { value: o6 }));
+      gotoNext.textContent = gotoInput.value.trim() && !/^[+-]/.test(gotoInput.value.trim()) ? T5("Go To", "Ir para") : T5("Next", "Avan\xE7ar");
+      prevBtn.disabled = w2 === "bookmark";
+      gotoStatus.textContent = "";
+    };
+    gotoList.addEventListener("change", syncGoto);
+    gotoInput.addEventListener("input", syncGoto);
+    const go = (target) => {
+      const ok = ed.goTo(gotoList.value, target);
+      gotoStatus.textContent = ok ? "" : T5("The item could not be found.", "O item n\xE3o foi encontrado.");
+      this.env.after();
+    };
+    gotoNext.addEventListener("click", () => go(gotoInput.value));
+    prevBtn.addEventListener("click", () => go("-1"));
+    gotoInput.addEventListener("keydown", (e6) => {
+      if (e6.key === "Enter") {
+        e6.preventDefault();
+        e6.stopPropagation();
+        go(gotoInput.value);
+      }
+    });
+    const gotoPane = el9(
+      "div",
+      { style: "display:flex;flex-direction:column;gap:8px" },
+      el9(
+        "div",
+        { style: "display:flex;gap:12px" },
+        el9("label", { style: "display:flex;flex-direction:column;gap:4px" }, T5("Go to what:", "Ir para:"), gotoList),
+        el9(
+          "div",
+          { style: "flex:1;display:flex;flex-direction:column;gap:4px" },
+          gotoLabel,
+          gotoInput,
+          gotoData,
+          el9("div", { style: "font-size:12px;opacity:.8", textContent: T5("Enter + and - to move relative to the current location. Example: +4 will move forward four items.", "Digite + e - para mover-se em rela\xE7\xE3o \xE0 posi\xE7\xE3o atual. Exemplo: +4 avan\xE7ar\xE1 quatro itens.") })
+        )
+      ),
+      gotoStatus,
+      el9("div", { style: "display:flex;gap:6px;justify-content:flex-end" }, prevBtn, gotoNext, gotoClose)
+    );
+    root.append(tabBar, findPane, gotoPane);
+    this.els = { tabs, findRow, replRow, gotoPane, findPane, find, repl, findFmt, replFmt, more, moreBtn, status, replBtns, findBtns, checks, dir, gotoList, gotoInput, gotoLabel, gotoNext, gotoData };
+    syncGoto();
+    this.syncOpts();
+    this.syncFormat();
+    return root;
+  }
+  show(tab) {
+    this.tab = tab;
+    const e6 = this.els;
+    for (const [k2, b3] of Object.entries(e6.tabs)) {
+      const on = k2 === tab;
+      b3.setAttribute("aria-selected", String(on));
+      b3.style.fontWeight = on ? "600" : "";
+      b3.style.borderBottom = on ? "2px solid var(--uo-primary,#3a72c4)" : "2px solid transparent";
+    }
+    e6.findPane.hidden = tab === "goto";
+    e6.gotoPane.hidden = tab !== "goto";
+    const replace = tab === "replace" && !this.env.ed.isProtected();
+    e6.replRow.hidden = !replace;
+    e6.replBtns.hidden = !replace;
+    e6.findBtns.hidden = replace;
+    e6.find.value = memo.find;
+    const focus = tab === "goto" ? e6.gotoInput : e6.find;
+    queueMicrotask(() => {
+      focus.focus();
+      focus.select();
+    });
+  }
+  /** Semelhantes / todas as formas / curingas se excluem (o Word desmarca os outros). */
+  syncOpts() {
+    const c4 = this.els.checks, o6 = memo.opts;
+    if (o6.wildcards) {
+      o6.soundsLike = false;
+      o6.allForms = false;
+      o6.matchCase = false;
+      o6.wholeWord = false;
+    }
+    if (o6.soundsLike) o6.allForms = false;
+    for (const [k2, i5] of Object.entries(c4)) i5.checked = !!o6[k2];
+    for (const k2 of ["matchCase", "wholeWord", "prefix", "suffix", "ignorePunct", "ignoreSpace", "soundsLike", "allForms"]) {
+      const i5 = c4[k2];
+      if (i5) i5.disabled = !!o6.wildcards || (k2 === "matchCase" || k2 === "wholeWord" || k2 === "prefix" || k2 === "suffix" || k2 === "ignorePunct" || k2 === "ignoreSpace" || k2 === "allForms") && !!o6.soundsLike || k2 !== "allForms" && k2 !== "soundsLike" && !!o6.allForms && k2 !== "matchCase";
+    }
+  }
+  syncFormat() {
+    const lang = this.env.lang;
+    const f3 = formatSummary(memo.findFmt, lang), r5 = formatSummary(memo.replFmt, lang);
+    this.els.findFmt.textContent = f3 ? `${tr8(lang, "Format:", "Formato:")} ${f3}` : "";
+    this.els.replFmt.textContent = r5 ? `${tr8(lang, "Format:", "Formato:")} ${r5}` : "";
+    const optsTxt = Object.entries(memo.opts).filter(([, v2]) => v2).length;
+    this.els.moreBtn.title = optsTxt ? tr8(lang, `${optsTxt} options on`, `${optsTxt} op\xE7\xF5es ligadas`) : "";
+  }
+  query() {
+    const f3 = memo.findFmt;
+    return { text: this.els.find.value, ...memo.opts, ...Object.keys(f3).length ? { format: f3 } : {} };
+  }
+  runOpts() {
+    return { direction: memo.dir };
+  }
+  setStatus(msg) {
+    this.els.status.textContent = msg;
+  }
+  ready() {
+    const q = this.query();
+    if (!q.text && !q.format) {
+      this.els.find.focus();
+      return false;
+    }
+    memo.find = q.text;
+    return true;
+  }
+  findNext() {
+    if (!this.ready()) return;
+    const { lang } = this.env;
+    const r5 = this.env.ed.findNextMatch(this.query(), this.runOpts());
+    this.setStatus(r5.error ?? (r5.found ? r5.wrapped ? tr8(lang, "Search continued from the beginning of the document.", "A pesquisa continuou do in\xEDcio do documento.") : "" : tr8(lang, "Finished searching the document. The search item was not found.", "A pesquisa no documento terminou. O item n\xE3o foi encontrado.")));
+    this.env.after();
+  }
+  replaceOne() {
+    if (!this.ready()) return;
+    memo.repl = this.els.repl.value;
+    const r5 = this.env.ed.replaceMatch(this.query(), memo.repl, { ...this.runOpts(), ...Object.keys(memo.replFmt).length ? { replaceFormat: memo.replFmt } : {} });
+    const lang = this.env.lang;
+    this.setStatus(r5.error ?? (r5.found ? "" : tr8(lang, "Finished searching the document. The search item was not found.", "A pesquisa no documento terminou. O item n\xE3o foi encontrado.")));
+    this.env.after();
+  }
+  replaceAll() {
+    if (!this.ready()) return;
+    memo.repl = this.els.repl.value;
+    const r5 = this.env.ed.replaceAllMatches(this.query(), memo.repl, { ...Object.keys(memo.replFmt).length ? { replaceFormat: memo.replFmt } : {} });
+    const lang = this.env.lang;
+    this.setStatus(r5.error ?? (r5.count ? tr8(lang, `All done. We made ${r5.count} replacements.`, `Conclu\xEDdo. Fizemos ${r5.count} substitui\xE7\xF5es.`) : tr8(lang, "We couldn\u2019t find what you were looking for.", "N\xE3o encontramos o que voc\xEA estava procurando.")));
+    this.env.after();
+  }
+  highlightAll() {
+    if (!this.ready()) return;
+    const n5 = this.env.ed.highlightMatches(this.query());
+    this.setStatus(tr8(this.env.lang, `${n5} items were found matching this criteria.`, `Foram encontrados ${n5} itens que correspondem a esse crit\xE9rio.`));
+  }
+  findIn(within) {
+    if (!this.ready()) return;
+    const n5 = this.env.ed.selectAllMatches(this.query(), { within });
+    this.setStatus(tr8(this.env.lang, `${n5} items were found matching this criteria.`, `Foram encontrados ${n5} itens que correspondem a esse crit\xE9rio.`));
+    this.env.after();
+  }
+  // ───── Formatar e Especial ─────
+  target() {
+    return this.active === "repl" && this.tab === "replace" ? { input: this.els.repl, fmt: "replFmt" } : { input: this.els.find, fmt: "findFmt" };
+  }
+  formatMenu(anchor) {
+    const { lang } = this.env;
+    const t5 = this.target();
+    const f3 = memo[t5.fmt];
+    const hl = f3.highlight;
+    openMenu([
+      { id: "fmt:font", label: { en: "Font\u2026", pt: "Fonte\u2026" }, onClick: () => void this.fontFormat(t5.fmt) },
+      { id: "fmt:style", label: { en: "Style\u2026", pt: "Estilo\u2026" }, onClick: () => void this.styleFormat(t5.fmt) },
+      // Realce: realce → sem realce → indiferente (como o Word)
+      { id: "fmt:hl", label: { en: "Highlight", pt: "Realce" }, checked: hl !== void 0, onClick: () => {
+        const next = { ...f3 };
+        if (hl === void 0) next.highlight = true;
+        else if (hl) next.highlight = false;
+        else delete next.highlight;
+        memo[t5.fmt] = next;
+        this.syncFormat();
+      } }
+    ], { anchor, side: "below" }, { lang, layer: this.env.layer });
+  }
+  specialMenu(anchor) {
+    const t5 = this.target();
+    const list = t5.fmt === "replFmt" ? memo.opts.wildcards ? [["\\n", "Find What Expression", "Express\xE3o Localizada"], ...SPECIAL_REPL] : SPECIAL_REPL : memo.opts.wildcards ? SPECIAL_WILD : SPECIAL_FIND;
+    const items = list.map(([code, en, pt]) => ({ id: `sp:${code}`, label: { en, pt }, onClick: () => {
+      const i5 = t5.input;
+      const s4 = i5.selectionStart ?? i5.value.length, e6 = i5.selectionEnd ?? i5.value.length;
+      const ins = code === "\\n" ? "\\1" : code;
+      i5.value = i5.value.slice(0, s4) + ins + i5.value.slice(e6);
+      i5.focus();
+      i5.setSelectionRange(s4 + ins.length, s4 + ins.length);
+      if (t5.fmt === "findFmt") memo.find = i5.value;
+      else memo.repl = i5.value;
+    } }));
+    openMenu(items, { anchor, side: "below" }, { lang: this.env.lang, layer: this.env.layer });
+  }
+  /** Formatar › Fonte: cada atributo "indiferente", sim ou não. */
+  async fontFormat(which) {
+    const { lang } = this.env;
+    const T5 = (en, pt) => tr8(lang, en, pt);
+    const f3 = { ...memo[which] };
+    const tri = (v2) => v2 === void 0 ? "" : v2 ? "1" : "0";
+    const triSel = (label, v2) => {
+      const s4 = el9("select", {});
+      for (const [k2, en, pt] of [["", "(any)", "(qualquer)"], ["1", "Yes", "Sim"], ["0", "No", "N\xE3o"]]) s4.append(el9("option", { value: k2, textContent: T5(en, pt) }));
+      s4.value = tri(v2);
+      return { row: el9("label", { style: "display:flex;justify-content:space-between;gap:8px;align-items:center" }, label, s4), get: () => s4.value === "" ? void 0 : s4.value === "1" };
+    };
+    const font = el9("input", { type: "text", value: f3.font ?? "" });
+    const size = el9("input", { type: "number", value: f3.sizePt ? String(f3.sizePt) : "", min: "1", max: "1638", step: "0.5", style: "width:80px" });
+    const color = el9("input", { type: "text", value: f3.color ?? "", placeholder: "RRGGBB", style: "width:90px" });
+    const fields = {
+      bold: triSel(T5("Bold", "Negrito"), f3.bold),
+      italic: triSel(T5("Italic", "It\xE1lico"), f3.italic),
+      underline: triSel(T5("Underline", "Sublinhado"), f3.underline),
+      strike: triSel(T5("Strikethrough", "Tachado"), f3.strike),
+      allCaps: triSel(T5("All caps", "Todas em mai\xFAsculas"), f3.allCaps),
+      smallCaps: triSel(T5("Small caps", "Versalete"), f3.smallCaps),
+      hidden: triSel(T5("Hidden", "Oculto"), f3.hidden)
+    };
+    const va = el9("select", {});
+    for (const [k2, en, pt] of [["", "(any)", "(qualquer)"], ["superscript", "Superscript", "Sobrescrito"], ["subscript", "Subscript", "Subscrito"]]) va.append(el9("option", { value: k2, textContent: T5(en, pt) }));
+    va.value = f3.vertAlign ?? "";
+    const body = el9(
+      "div",
+      { style: "display:flex;flex-direction:column;gap:8px;min-width:320px" },
+      el9("label", { style: "display:flex;justify-content:space-between;gap:8px;align-items:center" }, T5("Font:", "Fonte:"), font),
+      el9("label", { style: "display:flex;justify-content:space-between;gap:8px;align-items:center" }, T5("Size:", "Tamanho:"), size),
+      el9("label", { style: "display:flex;justify-content:space-between;gap:8px;align-items:center" }, T5("Font color:", "Cor da fonte:"), color),
+      ...Object.values(fields).map((x2) => x2.row),
+      el9("label", { style: "display:flex;justify-content:space-between;gap:8px;align-items:center" }, T5("Position:", "Posi\xE7\xE3o:"), va)
+    );
+    const h3 = openDialog({
+      title: which === "findFmt" ? T5("Find Font", "Localizar Fonte") : T5("Replace Font", "Substituir Fonte"),
+      body,
+      layer: this.env.layer,
+      lang,
+      actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar" } }, { id: "ok", label: "OK", primary: true }]
+    });
+    if (await h3.result !== "ok") return;
+    const out = { ...f3.highlight !== void 0 ? { highlight: f3.highlight } : {}, ...f3.paraStyle ? { paraStyle: f3.paraStyle } : {}, ...f3.charStyle ? { charStyle: f3.charStyle } : {} };
+    if (font.value.trim()) out.font = font.value.trim();
+    const sz = parseFloat(size.value.replace(",", "."));
+    if (Number.isFinite(sz) && sz > 0) out.sizePt = sz;
+    const hex = color.value.trim().replace(/^#/, "");
+    if (/^[0-9a-f]{6}$/i.test(hex)) out.color = hex.toUpperCase();
+    for (const [k2, x2] of Object.entries(fields)) {
+      const v2 = x2.get();
+      if (v2 !== void 0) out[k2] = v2;
+    }
+    if (va.value) out.vertAlign = va.value;
+    memo[which] = out;
+    this.syncFormat();
+  }
+  /** Formatar › Estilo: o estilo procurado (ou o da substituição). */
+  async styleFormat(which) {
+    const { ed, lang } = this.env;
+    const T5 = (en, pt) => tr8(lang, en, pt);
+    const styles2 = ed.listStyles("all");
+    const sel4 = el9("select", { size: 12, style: "width:100%" });
+    for (const s4 of styles2) sel4.append(el9("option", { value: `${s4.kind}:${s4.id}`, textContent: s4.name }));
+    const f3 = memo[which];
+    const cur = f3.paraStyle ? styles2.find((s4) => s4.id === f3.paraStyle) : f3.charStyle ? styles2.find((s4) => s4.id === f3.charStyle) : void 0;
+    if (cur) sel4.value = `${cur.kind}:${cur.id}`;
+    const h3 = openDialog({
+      title: which === "findFmt" ? T5("Find Style", "Localizar Estilo") : T5("Replace Style", "Substituir Estilo"),
+      body: el9("div", { style: "min-width:300px" }, sel4),
+      layer: this.env.layer,
+      lang,
+      actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar" } }, { id: "ok", label: "OK", primary: true }]
+    });
+    if (await h3.result !== "ok" || !sel4.value) return;
+    const [kind, id] = [sel4.value.slice(0, sel4.value.indexOf(":")), sel4.value.slice(sel4.value.indexOf(":") + 1)];
+    const next = { ...f3 };
+    delete next.paraStyle;
+    delete next.charStyle;
+    if (kind === "character") next.charStyle = id;
+    else next.paraStyle = id;
+    memo[which] = next;
+    this.syncFormat();
+  }
+};
+function findMenu() {
+  return ["find", "find:advanced", "goto"];
+}
+function selectMenu2() {
+  return ["selectAll", "select:objects", "select:similar", "pic:selectionPane"];
+}
+function registerFindCommands(reg, ed, app, ctl) {
+  const has = (m2) => () => typeof ed[m2] === "function";
+  const notComparing = () => !app.comparing;
+  reg.add(
+    { id: "find:advanced", label: { en: "Advanced Find\u2026", pt: "Localiza\xE7\xE3o Avan\xE7ada\u2026" }, icon: "search", supports: has("findNextMatch"), isEnabled: notComparing, run: () => ctl.findDialog("find") },
+    { id: "goto", label: { en: "Go To\u2026", pt: "Ir para\u2026" }, icon: "arrow_forward", shortcut: "Ctrl+G", supports: has("goTo"), isEnabled: notComparing, run: () => ctl.findDialog("goto") },
+    { id: "goto:f5", label: { en: "Go To\u2026", pt: "Ir para\u2026" }, icon: "arrow_forward", shortcut: "F5", supports: has("goTo"), isEnabled: notComparing, run: () => ctl.findDialog("goto") },
+    {
+      id: "select:objects",
+      label: { en: "Select Objects", pt: "Selecionar Objetos" },
+      icon: "select",
+      supports: has("setSelectObjectsMode"),
+      isEnabled: () => !app.comparing,
+      isChecked: () => ed.isSelectObjectsMode(),
+      run: () => {
+        ed.setSelectObjectsMode(!ed.isSelectObjectsMode());
+      }
+    },
+    {
+      id: "select:similar",
+      label: { en: "Select Text with Similar Formatting", pt: "Selecionar Texto com Formata\xE7\xE3o Semelhante" },
+      icon: "select_all",
+      supports: has("selectSimilarFormatting"),
+      isEnabled: notComparing,
+      run: () => {
+        ed.selectSimilarFormatting();
+      }
+    }
+  );
+}
+
 // src/chrome-commands.ts
 var ZOOMS = [50, 75, 90, 100, 125, 150, 200];
 function registerWriteCommands(reg, ed, app, ctl) {
@@ -5203,11 +7720,12 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const notComparing = () => !app.comparing;
   const run = () => ctl.state().run;
   const para = () => ctl.state().para;
-  const L12 = app.ui.L;
+  const L16 = app.ui.L;
+  let painterClick = 0;
   const markup = () => typeof api["getMarkupOptions"] === "function" ? call("getMarkupOptions") : { insertionsDeletions: true, formatting: true, balloons: "mixed", authors: null };
   const hasRevisions = () => typeof api["getRevisions"] === "function" && call("getRevisions").length > 0;
   const resolved = (n5, accept) => {
-    ctl.flash(accept ? L12.revAccepted(Number(n5) || 0) : L12.revRejected(Number(n5) || 0));
+    ctl.flash(accept ? L16.revAccepted(Number(n5) || 0) : L16.revRejected(Number(n5) || 0));
   };
   const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit3() && c4.isEnabled() : canEdit3 });
   const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
@@ -5236,7 +7754,21 @@ function registerWriteCommands(reg, ed, app, ctl) {
     { id: "selectAll", label: { en: "Select all", pt: "Selecionar tudo" }, icon: "select_all", shortcut: "Ctrl+A", run: () => ed.selectAll(), isEnabled: notComparing },
     { id: "find", label: { en: "Find", pt: "Localizar" }, icon: "search", shortcut: "Ctrl+F", run: () => ctl.find(false), isEnabled: notComparing },
     { id: "replace", label: { en: "Replace", pt: "Substituir" }, icon: "find_replace", shortcut: "Ctrl+H", run: () => ctl.find(true), isEnabled: canEdit3 },
-    edit({ id: "painter", label: { en: "Format Painter", pt: "Pincel de Formata\xE7\xE3o" }, icon: "format_paint", run: () => ed.copyFormat(), isChecked: () => ed.painterActive() }),
+    // Pincel: um clique = uma vez; duplo clique trava (até Esc ou outro clique) — como o Word
+    edit({
+      id: "painter",
+      label: { en: "Format Painter", pt: "Pincel de Formata\xE7\xE3o" },
+      tip: { en: "Format Painter (double-click to apply to several places; Esc ends)", pt: "Pincel de Formata\xE7\xE3o (clique duplo para aplicar em v\xE1rios lugares; Esc encerra)" },
+      icon: "format_paint",
+      run: () => {
+        const now = Date.now();
+        if (now - painterClick < 450 && ed.painterActive()) ed.copyFormat(true);
+        else if (ed.painterActive()) ed.cancelFormatPainter();
+        else ed.copyFormat();
+        painterClick = now;
+      },
+      isChecked: () => ed.painterActive()
+    }),
     // ── Exibir ──
     ...["print", "web", "read", "outline", "draft"].map((v2) => ({
       id: `view:${v2}`,
@@ -5318,7 +7850,7 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "caption", label: { en: "Insert Caption", pt: "Inserir Legenda" }, tip: { en: "Add a numbered caption to a picture, table or equation", pt: "Adicionar uma legenda numerada a imagem, tabela ou equa\xE7\xE3o" }, icon: "subtitles", supports: has("insertCaption"), isEnabled: () => !!ed.captionTarget() || ed.canInsertField(), run: () => ctl.refsDialog("caption") }),
     edit({ id: "tof", label: { en: "Insert Table of Figures", pt: "Inserir \xCDndice de Ilustra\xE7\xF5es" }, tip: { en: "List of the captions of a label", pt: "Lista das legendas de um r\xF3tulo" }, icon: "list_alt", supports: has("insertTableOfFigures"), isEnabled: () => ed.canInsertField(), run: () => ctl.refsDialog("tof") }),
     edit({ id: "tof:update", label: { en: "Update Table", pt: "Atualizar Tabela" }, tip: { en: "Update the table of figures", pt: "Atualizar o \xEDndice de ilustra\xE7\xF5es" }, icon: "autorenew", supports: has("updateTableOfFigures"), run: () => {
-      if (!ed.updateTableOfFigures()) ctl.flash(L12.noTof);
+      if (!ed.updateTableOfFigures()) ctl.flash(L16.noTof);
     } }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
     // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
@@ -5356,17 +7888,19 @@ function registerWriteCommands(reg, ed, app, ctl) {
     // ── Formatar: fonte ──
     edit({ id: "bold", label: { en: "Bold", pt: "Negrito" }, icon: "format_bold", shortcut: "Ctrl+B", run: () => ed.toggleRunProp("bold"), isChecked: () => !!run().bold }),
     edit({ id: "italic", label: { en: "Italic", pt: "It\xE1lico" }, icon: "format_italic", shortcut: "Ctrl+I", run: () => ed.toggleRunProp("italic"), isChecked: () => !!run().italic }),
-    edit({ id: "underline", label: { en: "Underline", pt: "Sublinhado" }, icon: "format_underlined", shortcut: "Ctrl+U", run: () => ed.toggleRunProp("underline"), isChecked: () => !!run().underline }),
+    edit({ id: "underline", label: { en: "Underline", pt: "Sublinhado" }, icon: "format_underlined", shortcut: "Ctrl+U", run: () => ed.toggleUnderline(), isChecked: () => !!run().underline }),
+    edit({ id: "doubleStrike", label: { en: "Double strikethrough", pt: "Tachado duplo" }, icon: "format_strikethrough", run: () => ed.toggleRunProp("doubleStrike"), isChecked: () => !!run().doubleStrike }),
+    edit({ id: "hidden", label: { en: "Hidden", pt: "Oculto" }, icon: "visibility_off", shortcut: "Ctrl+Shift+H", run: () => ed.toggleRunProp("hidden"), isChecked: () => !!run().hidden }),
     edit({ id: "strike", label: { en: "Strikethrough", pt: "Tachado" }, icon: "format_strikethrough", run: () => ed.toggleRunProp("strike"), isChecked: () => !!run().strike }),
     edit({ id: "sup", label: { en: "Superscript", pt: "Sobrescrito" }, icon: "superscript", shortcut: "Ctrl+Shift+=", run: () => ed.toggleVertAlign("superscript"), isChecked: () => run().vertAlign === "superscript" }),
     edit({ id: "sub", label: { en: "Subscript", pt: "Subscrito" }, icon: "subscript", shortcut: "Ctrl+=", run: () => ed.toggleVertAlign("subscript"), isChecked: () => run().vertAlign === "subscript" }),
-    edit({ id: "allCaps", label: { en: "All caps", pt: "Todas em mai\xFAsculas" }, icon: "uppercase", run: () => ed.toggleRunProp("allCaps"), isChecked: () => !!run().allCaps }),
-    edit({ id: "smallCaps", label: { en: "Small caps", pt: "Versalete" }, icon: "match_case", run: () => ed.toggleRunProp("smallCaps"), isChecked: () => !!run().smallCaps }),
+    edit({ id: "allCaps", label: { en: "All caps", pt: "Todas em mai\xFAsculas" }, icon: "uppercase", shortcut: "Ctrl+Shift+A", run: () => ed.toggleRunProp("allCaps"), isChecked: () => !!run().allCaps }),
+    edit({ id: "smallCaps", label: { en: "Small caps", pt: "Versalete" }, icon: "match_case", shortcut: "Ctrl+Shift+K", run: () => ed.toggleRunProp("smallCaps"), isChecked: () => !!run().smallCaps }),
     edit({ id: "case:upper", label: { en: "UPPERCASE", pt: "MAI\xDASCULAS" }, run: () => ed.changeCase("upper") }),
     edit({ id: "case:lower", label: { en: "lowercase", pt: "min\xFAsculas" }, run: () => ed.changeCase("lower") }),
     edit({ id: "grow", label: { en: "Increase font size", pt: "Aumentar Fonte" }, icon: "text_increase", shortcut: "Ctrl+]", run: () => ed.growFont(1) }),
     edit({ id: "shrink", label: { en: "Decrease font size", pt: "Diminuir Fonte" }, icon: "text_decrease", shortcut: "Ctrl+[", run: () => ed.growFont(-1) }),
-    edit({ id: "color", label: { en: "Font color", pt: "Cor da Fonte" }, icon: "format_color_text", run: () => ed.setColor(app.lastColor), color: () => `#${app.lastColor}` }),
+    edit({ id: "color", label: { en: "Font color", pt: "Cor da Fonte" }, icon: "format_color_text", run: () => ed.setColor(colorFromPick(app.lastColor, ed.documentThemeColors())), color: () => `#${pickHex(app.lastColor, ed.documentThemeColors())}` }),
     edit({ id: "highlight", label: { en: "Text highlight color", pt: "Cor do Realce do Texto" }, icon: "format_ink_highlighter", run: () => ed.setHighlight(app.lastHighlight), color: () => HL_CSS[app.lastHighlight] }),
     edit({ id: "clear", label: { en: "Clear All Formatting", pt: "Limpar Toda a Formata\xE7\xE3o" }, icon: "format_clear", run: () => ed.clearFormatting() }),
     edit({ id: "dlg:font", label: { en: "Font\u2026", pt: "Fonte\u2026" }, tip: { en: "Font settings", pt: "Configura\xE7\xF5es de fonte" }, icon: "text_format", shortcut: "Ctrl+D", run: () => ctl.fontDialog() }),
@@ -5401,8 +7935,8 @@ function registerWriteCommands(reg, ed, app, ctl) {
       run: () => ed.setAlignment(a3),
       isChecked: () => (para().alignment ?? "left") === a3
     })),
-    edit({ id: "list:bullet", label: { en: "Bullets", pt: "Marcadores" }, icon: "format_list_bulleted", run: () => ed.toggleList("bullet"), isChecked: () => para().numbering?.kind === "bullet" }),
-    edit({ id: "list:decimal", label: { en: "Numbering", pt: "Numera\xE7\xE3o" }, icon: "format_list_numbered", run: () => ed.toggleList("decimal"), isChecked: () => para().numbering?.kind === "decimal" }),
+    edit({ id: "list:bullet", label: { en: "Bullets", pt: "Marcadores" }, icon: "format_list_bulleted", run: () => ed.toggleList("bullet"), isChecked: () => ed.listInfo()?.kind === "bullet" }),
+    edit({ id: "list:decimal", label: { en: "Numbering", pt: "Numera\xE7\xE3o" }, icon: "format_list_numbered", run: () => ed.toggleList("decimal"), isChecked: () => ed.listInfo()?.kind === "number" }),
     edit({ id: "outdent", label: { en: "Decrease indent", pt: "Diminuir Recuo" }, icon: "format_indent_decrease", run: () => ed.indent(-1) }),
     edit({ id: "indent", label: { en: "Increase indent", pt: "Aumentar Recuo" }, icon: "format_indent_increase", run: () => ed.indent(1) }),
     edit({ id: "shading", label: { en: "Shading", pt: "Sombreamento" }, icon: "format_color_fill", run: () => ed.setShading(app.lastShading), color: () => `#${app.lastShading}` }),
@@ -5446,10 +7980,10 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "change:rejectAll", label: { en: "Reject All Changes", pt: "Rejeitar Todas as Altera\xE7\xF5es" }, icon: "remove_done", supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges"), false), isEnabled: hasRevisions }),
     edit({ id: "change:rejectAllStop", label: { en: "Reject All Changes and Stop Tracking", pt: "Rejeitar Todas as Altera\xE7\xF5es e Parar o Controle" }, supports: has("rejectAllChanges"), run: () => resolved(call("rejectAllChanges", { stopTracking: true }), false) }),
     { id: "change:prev", label: { en: "Previous", pt: "Anterior" }, tip: { en: "Previous Change", pt: "Altera\xE7\xE3o Anterior" }, icon: "navigate_before", supports: has("previousChange"), run: () => {
-      if (!call("previousChange")) ctl.flash(L12.noMoreRevisions);
+      if (!call("previousChange")) ctl.flash(L16.noMoreRevisions);
     }, isEnabled: hasRevisions },
     { id: "change:next", label: { en: "Next", pt: "Pr\xF3ximo" }, tip: { en: "Next Change", pt: "Pr\xF3xima Altera\xE7\xE3o" }, icon: "navigate_next", supports: has("nextChange"), run: () => {
-      if (!call("nextChange")) ctl.flash(L12.noMoreRevisions);
+      if (!call("nextChange")) ctl.flash(L16.noMoreRevisions);
     }, isEnabled: hasRevisions },
     edit({ id: "mailmerge", label: { en: "Start Mail Merge", pt: "Iniciar Mala Direta" }, icon: "mail", supports: has("startMailMerge"), run: () => call("startMailMerge") }),
     edit({ id: "mergefield", label: { en: "Insert Merge Field", pt: "Inserir Campo de Mesclagem" }, icon: "data_object", supports: has("insertMergeField"), run: () => call("insertMergeField") }),
@@ -5466,6 +8000,11 @@ function registerWriteCommands(reg, ed, app, ctl) {
   registerShapeCommands(reg, ed, app, ctl);
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
+  registerHomeCommands(reg, ed, app, ctl);
+  registerListCommands(reg, ed, app, ctl);
+  registerClipboardCommands(reg, ed, app, ctl);
+  registerEffectsCommands(reg, ed, app, ctl);
+  registerFindCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
   registerTextLayoutCommands(reg, ed, app, ctl);
   function stepComment(dir) {
@@ -5480,27 +8019,27 @@ function registerWriteCommands(reg, ed, app, ctl) {
 var HL_CSS = Object.fromEntries(HIGHLIGHT_COLORS.map((h3) => [h3.value, h3.css]));
 
 // src/chrome-refs.ts
-var el6 = (tag, props = {}, ...kids) => {
+var el10 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
   e6.append(...kids);
   return e6;
 };
-var select3 = (opts, value) => {
-  const s4 = el6("select");
-  for (const [v2, t5] of opts) s4.append(el6("option", { value: v2, textContent: t5 }));
+var select4 = (opts, value) => {
+  const s4 = el10("select");
+  for (const [v2, t5] of opts) s4.append(el10("option", { value: v2, textContent: t5 }));
   s4.value = value;
   return s4;
 };
-var check5 = (label, on) => {
-  const input = el6("input", { type: "checkbox", checked: on });
-  return { box: el6("label", { className: "uo-check" }, input, label), input };
+var check6 = (label, on) => {
+  const input = el10("input", { type: "checkbox", checked: on });
+  return { box: el10("label", { className: "uo-check" }, input, label), input };
 };
-var field = (label, ...kids) => el6("label", { className: "uo-field" }, el6("span", {}, label), ...kids);
-var button2 = (label) => el6("button", { type: "button", className: "uo-pill", textContent: label });
+var field = (label, ...kids) => el10("label", { className: "uo-field" }, el10("span", {}, label), ...kids);
+var button2 = (label) => el10("button", { type: "button", className: "uo-pill", textContent: label });
 function listBox(height = 180) {
-  const box = el6("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
+  const box = el10("div", { tabIndex: 0, style: `height:${height}px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px;font-size:13px` });
   box.setAttribute("role", "listbox");
   let items = [];
   let cur;
@@ -5538,7 +8077,7 @@ function listBox(height = 180) {
       rows.length = 0;
       box.replaceChildren(...list.map((it) => {
         const head = it.id.startsWith("#");
-        const r5 = el6("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
+        const r5 = el10("div", { textContent: it.text, title: it.text.trim(), style: `padding:3px 6px;border-radius:4px;white-space:pre;overflow:hidden;text-overflow:ellipsis;${head ? "font-weight:600;opacity:.8" : "cursor:pointer"}` });
         r5.setAttribute("role", head ? "presentation" : "option");
         if (!head) {
           r5.addEventListener("click", () => {
@@ -5569,28 +8108,28 @@ function listBox(height = 180) {
 var T3 = (env) => (en, pt) => pickLabels(env.lang, { en, pt });
 async function bookmarkDialog(env) {
   const t5 = T3(env), ed = env.ed;
-  const name = el6("input", { type: "text", maxLength: 40, spellcheck: false });
+  const name = el10("input", { type: "text", maxLength: 40, spellcheck: false });
   const list = listBox(170);
-  const byName = el6("input", { type: "radio", name: "bmsort", checked: true });
-  const byLoc = el6("input", { type: "radio", name: "bmsort" });
-  const hidden = check5(t5("Hidden bookmarks", "Indicadores ocultos"), false);
-  const show = check5(t5("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
+  const byName = el10("input", { type: "radio", name: "bmsort", checked: true });
+  const byLoc = el10("input", { type: "radio", name: "bmsort" });
+  const hidden = check6(t5("Hidden bookmarks", "Indicadores ocultos"), false);
+  const show = check6(t5("Show bookmarks", "Mostrar indicadores"), ed.bookmarksShown());
   const fill = (keep) => {
     const bms = ed.getBookmarks({ hidden: hidden.input.checked, sort: byLoc.checked ? "location" : "name" });
     list.set(bms.map((b3) => ({ id: b3.name, text: b3.name })), keep ?? null);
     sync();
   };
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:340px" },
     field(t5("Bookmark name:", "Nome do indicador:"), name),
     list.el,
-    el6(
+    el10(
       "div",
       { style: "display:flex;gap:14px;align-items:center;font-size:13px" },
       t5("Sort by:", "Classificar por:"),
-      el6("label", { className: "uo-check" }, byName, t5("Name", "Nome")),
-      el6("label", { className: "uo-check" }, byLoc, t5("Location", "Local"))
+      el10("label", { className: "uo-check" }, byName, t5("Name", "Nome")),
+      el10("label", { className: "uo-check" }, byLoc, t5("Location", "Local"))
     ),
     hidden.box,
     show.box
@@ -5625,13 +8164,13 @@ async function bookmarkDialog(env) {
       return true;
     }
   });
-  const btn2 = (id) => h3.el.querySelector(`[data-action="${id}"]`);
+  const btn3 = (id) => h3.el.querySelector(`[data-action="${id}"]`);
   function sync() {
     const n5 = name.value.trim();
     const exists = !!n5 && ed.hasBookmark(n5);
-    btn2("add").disabled = !ed.validBookmarkName(n5);
-    btn2("goto").disabled = !exists;
-    btn2("delete").disabled = !exists;
+    btn3("add").disabled = !ed.validBookmarkName(n5);
+    btn3("goto").disabled = !exists;
+    btn3("delete").disabled = !exists;
   }
   list.onChange(() => {
     name.value = list.value() ?? "";
@@ -5689,14 +8228,14 @@ async function crossRefDialog(env) {
     ["endnote", t5("Endnote", "Nota de fim")],
     ...labels.map((l3) => [`caption:${l3}`, l3])
   ];
-  const type = select3(types, "heading");
-  const kind = el6("select");
-  const link = check5(t5("Insert as hyperlink", "Inserir como hiperlink"), true);
-  const pos = check5(t5("Include above/below", "Incluir acima/abaixo"), false);
-  const sep = el6("input", { type: "text", maxLength: 5, style: "width:60px" });
-  const sepBox = check5(t5("Separate numbers with", "Separar n\xFAmeros com"), false);
+  const type = select4(types, "heading");
+  const kind = el10("select");
+  const link = check6(t5("Insert as hyperlink", "Inserir como hiperlink"), true);
+  const pos = check6(t5("Include above/below", "Incluir acima/abaixo"), false);
+  const sep = el10("input", { type: "text", maxLength: 5, style: "width:60px" });
+  const sepBox = check6(t5("Separate numbers with", "Separar n\xFAmeros com"), false);
   const list = listBox(200);
-  const forWhich = el6("span");
+  const forWhich = el10("span");
   const cur = () => {
     const v2 = type.value;
     return v2.startsWith("caption:") ? { type: "caption", label: v2.slice(8) } : { type: v2 };
@@ -5721,7 +8260,7 @@ async function crossRefDialog(env) {
     const c4 = cur();
     const kinds = ed.crossReferenceKinds(c4.type);
     const keep = kinds.includes(kind.value) ? kind.value : kinds[0];
-    kind.replaceChildren(...kinds.map((k2) => el6("option", { value: k2, textContent: KIND_LABEL(t5, c4.type, k2) })));
+    kind.replaceChildren(...kinds.map((k2) => el10("option", { value: k2, textContent: KIND_LABEL(t5, c4.type, k2) })));
     kind.value = keep;
     forWhich.textContent = forLabel(c4);
     list.set(ed.getCrossReferenceItems(c4.type, c4.label));
@@ -5737,18 +8276,18 @@ async function crossRefDialog(env) {
   type.addEventListener("change", refill);
   kind.addEventListener("change", syncOpts);
   sepBox.input.addEventListener("change", syncOpts);
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:420px" },
-    el6(
+    el10(
       "div",
       { style: "display:grid;grid-template-columns:1fr 1fr;gap:10px" },
       field(t5("Reference type:", "Tipo de refer\xEAncia:"), type),
       field(t5("Insert reference to:", "Inserir refer\xEAncia para:"), kind)
     ),
-    el6("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
-    el6("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
-    el6("div", { style: "font-size:13px" }, forWhich),
+    el10("div", { style: "display:flex;gap:16px;flex-wrap:wrap;align-items:center" }, link.box, pos.box),
+    el10("div", { style: "display:flex;gap:8px;align-items:center" }, sepBox.box, sep),
+    el10("div", { style: "font-size:13px" }, forWhich),
     list.el
   );
   const insert = () => {
@@ -5792,10 +8331,10 @@ var FORMATS = [["ARABIC", "1, 2, 3, \u2026"], ["alphabetic", "a, b, c, \u2026"],
 async function numberingDialog(env, label) {
   const t5 = T3(env), ed = env.ed;
   const cur = ed.getCaptionNumbering(label);
-  const fmt = select3(FORMATS, cur.format);
-  const chap = check5(t5("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
-  const levels = select3(Array.from({ length: 9 }, (_2, i5) => [String(i5 + 1), t5(`Heading ${i5 + 1}`, `T\xEDtulo ${i5 + 1}`)]), String(cur.chapter?.level ?? 1));
-  const seps = select3([
+  const fmt2 = select4(FORMATS, cur.format);
+  const chap = check6(t5("Include chapter number", "Incluir n\xFAmero do cap\xEDtulo"), !!cur.chapter);
+  const levels = select4(Array.from({ length: 9 }, (_2, i5) => [String(i5 + 1), t5(`Heading ${i5 + 1}`, `T\xEDtulo ${i5 + 1}`)]), String(cur.chapter?.level ?? 1));
+  const seps = select4([
     ["hyphen", t5("- (hyphen)", "- (h\xEDfen)")],
     ["period", t5(". (period)", ". (ponto)")],
     ["colon", t5(": (colon)", ": (dois-pontos)")],
@@ -5808,14 +8347,14 @@ async function numberingDialog(env, label) {
   };
   chap.input.addEventListener("change", sync);
   sync();
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
-    field(t5("Format:", "Formato:"), fmt),
+    field(t5("Format:", "Formato:"), fmt2),
     chap.box,
     field(t5("Chapter starts with style:", "Cap\xEDtulo come\xE7a com estilo:"), levels),
     field(t5("Use separator:", "Usar separador:"), seps),
-    el6("div", { style: "font-size:12px;opacity:.75" }, t5("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
+    el10("div", { style: "font-size:12px;opacity:.75" }, t5("Examples: 1-1, 1.A", "Exemplos: 1-1, 1.A"))
   );
   const h3 = openDialog({
     title: t5("Caption Numbering", "Numera\xE7\xE3o de Legenda"),
@@ -5826,7 +8365,7 @@ async function numberingDialog(env, label) {
     actions: [{ id: "cancel", label: t5("Cancel", "Cancelar") }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
-  const n5 = { format: fmt.value, ...chap.input.checked ? { chapter: { level: +levels.value, separator: seps.value } } : {} };
+  const n5 = { format: fmt2.value, ...chap.input.checked ? { chapter: { level: +levels.value, separator: seps.value } } : {} };
   ed.setCaptionNumbering(label, n5);
   env.saveCaptionSettings?.();
 }
@@ -5834,19 +8373,19 @@ async function autoCaptionDialog(env) {
   const t5 = T3(env), ed = env.ed;
   const cur = ed.getAutoCaption()?.table;
   const labels = ed.getCaptionLabels();
-  const on = check5(t5("Table", "Tabela"), !!cur);
-  const label = select3(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
-  const pos = select3([["above", t5("Above item", "Acima do item")], ["below", t5("Below item", "Abaixo do item")]], cur?.position ?? "above");
+  const on = check6(t5("Table", "Tabela"), !!cur);
+  const label = select4(labels.map((l3) => [l3.name, l3.name]), cur?.label ?? labels.find((l3) => l3.position === "above")?.name ?? labels[0].name);
+  const pos = select4([["above", t5("Above item", "Acima do item")], ["below", t5("Below item", "Abaixo do item")]], cur?.position ?? "above");
   const sync = () => {
     label.disabled = !on.input.checked;
     pos.disabled = !on.input.checked;
   };
   on.input.addEventListener("change", sync);
   sync();
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:320px" },
-    el6("div", { style: "font-size:13px" }, t5("Add caption when inserting:", "Adicionar legenda ao inserir:")),
+    el10("div", { style: "font-size:13px" }, t5("Add caption when inserting:", "Adicionar legenda ao inserir:")),
     on.box,
     field(t5("Use label:", "Usar r\xF3tulo:"), label),
     field(t5("Position:", "Posi\xE7\xE3o:"), pos)
@@ -5867,16 +8406,16 @@ async function captionDialog(env) {
   const t5 = T3(env), ed = env.ed;
   const target = ed.captionTarget();
   const labels = () => ed.getCaptionLabels();
-  const labelSel = el6("select");
+  const labelSel = el10("select");
   const fillLabels = (keep) => {
-    labelSel.replaceChildren(...labels().map((l3) => el6("option", { value: l3.name, textContent: l3.name })));
+    labelSel.replaceChildren(...labels().map((l3) => el10("option", { value: l3.name, textContent: l3.name })));
     labelSel.value = keep && labels().some((l3) => l3.name === keep) ? keep : (target === "table" ? labels().find((l3) => l3.position === "above")?.name : void 0) ?? labels()[0].name;
   };
   fillLabels();
-  const pos = select3([["above", t5("Above selected item", "Acima do item selecionado")], ["below", t5("Below selected item", "Abaixo do item selecionado")]], "below");
+  const pos = select4([["above", t5("Above selected item", "Acima do item selecionado")], ["below", t5("Below selected item", "Abaixo do item selecionado")]], "below");
   pos.disabled = !target;
-  const excl = check5(t5("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
-  const caption = el6("input", { type: "text" });
+  const excl = check6(t5("Exclude label from caption", "Excluir r\xF3tulo da legenda"), false);
+  const caption = el10("input", { type: "text" });
   let prefix = "";
   const syncPrefix = () => {
     const l3 = labelSel.value;
@@ -5919,14 +8458,14 @@ async function captionDialog(env) {
   autoBtn.addEventListener("click", () => {
     void autoCaptionDialog(env);
   });
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:400px" },
     field(t5("Caption:", "Legenda:"), caption),
-    el6("strong", { style: "font-size:13px" }, t5("Options", "Op\xE7\xF5es")),
-    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t5("Label:", "R\xF3tulo:")), labelSel, el6("span", {}, t5("Position:", "Posi\xE7\xE3o:")), pos),
+    el10("strong", { style: "font-size:13px" }, t5("Options", "Op\xE7\xF5es")),
+    el10("div", { className: "uo-dialog-grid" }, el10("span", {}, t5("Label:", "R\xF3tulo:")), labelSel, el10("span", {}, t5("Position:", "Posi\xE7\xE3o:")), pos),
     excl.box,
-    el6("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
+    el10("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, newBtn, delBtn, numBtn, autoBtn)
   );
   syncPrefix();
   const h3 = openDialog({
@@ -5949,11 +8488,11 @@ async function tofDialog(env) {
   const t5 = T3(env), ed = env.ed;
   const cur = ed.getTableOfFiguresOptions();
   const labels = ed.getCaptionLabels();
-  const pages = check5(t5("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
-  const right = check5(t5("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
-  const leader = select3([["none", t5("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
-  const links = check5(t5("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
-  const format = select3([
+  const pages = check6(t5("Show page numbers", "Mostrar n\xFAmeros de p\xE1gina"), cur?.pageNumbers ?? true);
+  const right = check6(t5("Right align page numbers", "Alinhar n\xFAmeros de p\xE1gina \xE0 direita"), cur?.rightAlign ?? true);
+  const leader = select4([["none", t5("(none)", "(nenhum)")], ["dot", "......."], ["hyphen", "-------"], ["underscore", "_______"]], cur?.leader ?? "dot");
+  const links = check6(t5("Use hyperlinks instead of page numbers", "Usar hiperlinks em vez de n\xFAmeros de p\xE1gina"), cur?.hyperlinks ?? true);
+  const format = select4([
     ["template", t5("From template", "Do modelo")],
     ["classic", t5("Classic", "Cl\xE1ssico")],
     ["distinctive", t5("Distinctive", "Elegante")],
@@ -5961,18 +8500,18 @@ async function tofDialog(env) {
     ["formal", t5("Formal", "Formal")],
     ["simple", t5("Simple", "Simples")]
   ], "template");
-  const label = select3([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
-  const incl = check5(t5("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
-  const preview2 = el6("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
+  const label = select4([...labels.map((l3) => [l3.name, l3.name])], cur?.label ?? labels[0].name);
+  const incl = check6(t5("Include label and number", "Incluir r\xF3tulo e n\xFAmero"), cur?.includeLabel ?? true);
+  const preview2 = el10("div", { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:8px 10px;font-size:12px;min-height:70px;display:flex;flex-direction:column;gap:2px" });
   const paint = () => {
     const lab = label.value;
     const lead = { none: " ", dot: ".", hyphen: "-", underscore: "_" }[leader.value] ?? ".";
     preview2.replaceChildren(...[1, 2, 3, 4].map((n5) => {
       const txt = `${incl.input.checked ? `${lab} ${n5}: ` : ""}${t5("Text", "Texto")}`;
-      const row2 = el6("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el6("span", {}, txt));
-      if (pages.input.checked && right.input.checked) row2.append(el6("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el6("span", {}, String(n5 * 2 - 1)));
-      else if (pages.input.checked) row2.append(el6("span", {}, String(n5 * 2 - 1)));
-      return row2;
+      const row3 = el10("div", { style: "display:flex;gap:4px;white-space:nowrap" }, el10("span", {}, txt));
+      if (pages.input.checked && right.input.checked) row3.append(el10("span", { style: "flex:1;overflow:hidden;opacity:.7", textContent: lead.repeat(200) }), el10("span", {}, String(n5 * 2 - 1)));
+      else if (pages.input.checked) row3.append(el10("span", {}, String(n5 * 2 - 1)));
+      return row3;
     }));
     right.input.disabled = !pages.input.checked;
     leader.disabled = !pages.input.checked || !right.input.checked;
@@ -5982,19 +8521,19 @@ async function tofDialog(env) {
   paint();
   const modify = button2(t5("Modify\u2026", "Modificar\u2026"));
   modify.addEventListener("click", () => env.modifyStyle?.(ed.ensureBuiltinStyle("table of figures")));
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:440px" },
-    el6("strong", { style: "font-size:13px" }, t5("Print Preview", "Visualizar Impress\xE3o")),
+    el10("strong", { style: "font-size:13px" }, t5("Print Preview", "Visualizar Impress\xE3o")),
     preview2,
     pages.box,
     right.box,
     field(t5("Tab leader:", "Preenchimento de tabula\xE7\xE3o:"), leader),
     links.box,
-    el6("strong", { style: "font-size:13px" }, t5("General", "Geral")),
-    el6("div", { className: "uo-dialog-grid" }, el6("span", {}, t5("Formats:", "Formatos:")), format, el6("span", {}, t5("Caption label:", "Nome da legenda:")), label),
+    el10("strong", { style: "font-size:13px" }, t5("General", "Geral")),
+    el10("div", { className: "uo-dialog-grid" }, el10("span", {}, t5("Formats:", "Formatos:")), format, el10("span", {}, t5("Caption label:", "Nome da legenda:")), label),
     incl.box,
-    el6("div", {}, modify)
+    el10("div", {}, modify)
   );
   const h3 = openDialog({
     title: t5("Table of Figures", "\xCDndice de Ilustra\xE7\xF5es"),
@@ -6021,12 +8560,12 @@ async function hyperlinkDialog(env) {
   const t5 = T3(env), ed = env.ed;
   const cur = ed.getLink();
   const sel4 = ed.selectedText();
-  const display = el6("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
-  const tip = el6("input", { type: "text", value: cur?.tip ?? "" });
+  const display = el10("input", { type: "text", value: cur?.text ?? sel4 ?? "" });
+  const tip = el10("input", { type: "text", value: cur?.tip ?? "" });
   const isMail = !!cur?.address?.startsWith("mailto:");
-  const address = el6("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
-  const mail = el6("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
-  const subject = el6("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
+  const address = el10("input", { type: "text", value: cur?.address && !isMail ? cur.address : "https://", spellcheck: false });
+  const mail = el10("input", { type: "text", value: isMail ? decodeURIComponent(cur.address.slice(7).split("?")[0]) : "", spellcheck: false });
+  const subject = el10("input", { type: "text", value: isMail ? decodeURIComponent(/[?&]subject=([^&]*)/i.exec(cur.address)?.[1] ?? "") : "" });
   const targets = ed.getLinkTargets();
   const place = listBox(220);
   const items = [
@@ -6038,16 +8577,16 @@ async function hyperlinkDialog(env) {
   ];
   place.set(items.map((x2, i5) => ({ id: x2.id || `#sec${i5}`, text: x2.text })), cur?.anchor && items.some((x2) => x2.id === cur.anchor) ? cur.anchor : "_top");
   const panes = {
-    web: el6("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("Address:", "Endere\xE7o:"), address)),
-    place: el6("div", { style: "display:flex;flex-direction:column;gap:6px" }, el6("span", { style: "font-size:13px" }, t5("Select a place in this document:", "Selecione um local neste documento:")), place.el),
-    mail: el6("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("E-mail address:", "Endere\xE7o de email:"), mail), field(t5("Subject:", "Assunto:"), subject))
+    web: el10("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("Address:", "Endere\xE7o:"), address)),
+    place: el10("div", { style: "display:flex;flex-direction:column;gap:6px" }, el10("span", { style: "font-size:13px" }, t5("Select a place in this document:", "Selecione um local neste documento:")), place.el),
+    mail: el10("div", { style: "display:flex;flex-direction:column;gap:10px" }, field(t5("E-mail address:", "Endere\xE7o de email:"), mail), field(t5("Subject:", "Assunto:"), subject))
   };
   const tabs = dialogTabs([
     { id: "web", label: t5("Existing File or Web Page", "P\xE1gina da Web ou arquivo"), body: panes.web },
     { id: "place", label: t5("Place in This Document", "Colocar neste documento"), body: panes.place },
     { id: "mail", label: t5("E-mail Address", "Endere\xE7o de email"), body: panes.mail }
   ], cur?.anchor ? "place" : isMail ? "mail" : "web");
-  const body = el6(
+  const body = el10(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px;min-width:460px" },
     field(t5("Text to display:", "Texto para exibi\xE7\xE3o:"), display),
@@ -6105,9 +8644,332 @@ function refsDialog(env, kind) {
   }
 }
 
+// src/chrome-font.ts
+var el11 = (tag, props = {}, ...kids) => {
+  const { style, ...rest } = props;
+  const e6 = Object.assign(document.createElement(tag), rest);
+  if (style) e6.style.cssText = style;
+  e6.append(...kids);
+  return e6;
+};
+var tr9 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var select5 = (opts, value) => {
+  const s4 = el11("select", {});
+  for (const [v2, t5] of opts) s4.append(el11("option", { value: v2, textContent: t5 }));
+  s4.value = value;
+  return s4;
+};
+var check7 = (label, on) => {
+  const input = el11("input", { type: "checkbox", checked: on });
+  return { el: el11("label", { className: "uo-check" }, input, label), input };
+};
+var num = (v2) => parseFloat(v2.replace(/\s|pt|%/gi, "").replace(",", "."));
+var fmt = (n5, lang) => (Math.round(n5 * 10) / 10).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 1 });
+var SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+var SCALES = [200, 150, 100, 90, 80, 66, 50, 33];
+var apiColor = (p3) => {
+  if (p3.hex === "auto") return null;
+  if (!p3.themeColor) return p3.hex;
+  const frac = (h3) => h3 ? Math.round((1 - parseInt(h3, 16) / 255) * 100) / 100 : void 0;
+  const tint = frac(p3.tint), shade = frac(p3.shade);
+  return { themeColor: p3.themeColor, ...tint !== void 0 ? { tint } : {}, ...shade !== void 0 ? { shade } : {} };
+};
+async function fontDialog(env, families, openTextEffects) {
+  const lang = env.lang, L16 = env.app.ui.L, ed = env.ed;
+  const r5 = env.state().run;
+  const curFont = r5.fontAscii ?? "";
+  const fams = curFont && !families.includes(curFont) ? [curFont, ...families] : families;
+  const font = el11("input", { value: curFont, style: "width:100%" });
+  const fontList = el11("select", { size: 6, style: "width:100%;height:118px" });
+  for (const f4 of fams) fontList.append(el11("option", { value: f4, textContent: f4 }));
+  fontList.value = curFont;
+  fontList.addEventListener("change", () => {
+    font.value = fontList.value;
+    preview2();
+  });
+  font.addEventListener("input", () => {
+    const m2 = fams.find((f4) => f4.toLowerCase().startsWith(font.value.toLowerCase()));
+    if (m2) fontList.value = m2;
+    preview2();
+  });
+  const styleNames2 = [["r", tr9(lang, "Regular", "Normal")], ["i", tr9(lang, "Italic", "It\xE1lico")], ["b", tr9(lang, "Bold", "Negrito")], ["bi", tr9(lang, "Bold Italic", "Negrito It\xE1lico")]];
+  const styleCur = `${r5.bold ? "b" : ""}${r5.italic ? "i" : ""}` || "r";
+  const fstyle = el11("select", { size: 4, style: "width:100%;height:146px" });
+  for (const [v2, t5] of styleNames2) fstyle.append(el11("option", { value: v2, textContent: t5 }));
+  fstyle.value = styleCur;
+  const curSize = (r5.szHalfPt ?? 22) / 2;
+  const size = el11("input", { value: fmt(curSize, lang), style: "width:100%" });
+  const sizeList = el11("select", { size: 4, style: "width:100%;height:118px" });
+  for (const s4 of SIZES) sizeList.append(el11("option", { value: String(s4), textContent: fmt(s4, lang) }));
+  sizeList.value = String(curSize);
+  sizeList.addEventListener("change", () => {
+    size.value = fmt(+sizeList.value, lang);
+    preview2();
+  });
+  size.addEventListener("input", preview2);
+  fstyle.addEventListener("change", preview2);
+  const colorPick = r5.color ? { hex: r5.color, ...r5.colorTheme ? { themeColor: r5.colorTheme.themeColor, tint: r5.colorTheme.tint, shade: r5.colorTheme.shade } : {} } : { hex: "auto" };
+  const color = colorButton(env, colorPick, L16.automatic);
+  const ulCur = r5.underline ? r5.underlineStyle ?? "single" : "none";
+  const ul = select5([["none", tr9(lang, "(none)", "(nenhum)")], ...UNDERLINE_ALL.map(([v2, l3]) => [v2, pickLabels(lang, l3)])], ulCur);
+  const ulPick = r5.underlineColor ? { hex: r5.underlineColor, ...r5.underlineTheme ? { themeColor: r5.underlineTheme.themeColor, tint: r5.underlineTheme.tint, shade: r5.underlineTheme.shade } : {} } : { hex: "auto" };
+  const ulColor = colorButton(env, ulPick, L16.automatic);
+  const syncUl = () => {
+    ulColor.el.disabled = ul.value === "none";
+    preview2();
+  };
+  ul.addEventListener("change", syncUl);
+  color.onChange(preview2);
+  ulColor.onChange(preview2);
+  const fx = {
+    strike: check7(tr9(lang, "Strikethrough", "Tachado"), !!r5.strike),
+    dstrike: check7(tr9(lang, "Double strikethrough", "Tachado duplo"), !!r5.doubleStrike),
+    sup: check7(tr9(lang, "Superscript", "Sobrescrito"), r5.vertAlign === "superscript"),
+    sub: check7(tr9(lang, "Subscript", "Subscrito"), r5.vertAlign === "subscript"),
+    small: check7(tr9(lang, "Small caps", "Versalete"), !!r5.smallCaps),
+    caps: check7(tr9(lang, "All caps", "Todas em mai\xFAsculas"), !!r5.allCaps),
+    hidden: check7(tr9(lang, "Hidden", "Oculto"), !!r5.hidden)
+  };
+  const excl = (a3, b3) => {
+    a3.addEventListener("change", () => {
+      if (a3.checked) b3.checked = false;
+      preview2();
+    });
+    b3.addEventListener("change", () => {
+      if (b3.checked) a3.checked = false;
+      preview2();
+    });
+  };
+  excl(fx.strike.input, fx.dstrike.input);
+  excl(fx.sup.input, fx.sub.input);
+  excl(fx.small.input, fx.caps.input);
+  fx.hidden.input.addEventListener("change", preview2);
+  const col = (label, ...kids) => el11("label", { style: "display:flex;flex-direction:column;gap:4px;min-width:0" }, label, ...kids);
+  const fontTab = el11(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:12px" },
+    el11(
+      "div",
+      { style: "display:grid;grid-template-columns:2fr 1.2fr 0.8fr;gap:10px" },
+      col(tr9(lang, "Font:", "Fonte:"), font, fontList),
+      col(tr9(lang, "Font style:", "Estilo da fonte:"), fstyle),
+      col(tr9(lang, "Size:", "Tamanho:"), size, sizeList)
+    ),
+    el11(
+      "div",
+      { style: "display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end" },
+      col(tr9(lang, "Font color:", "Cor da fonte:"), color.el),
+      col(tr9(lang, "Underline style:", "Estilo de sublinhado:"), ul),
+      col(tr9(lang, "Underline color:", "Cor do sublinhado:"), ulColor.el)
+    ),
+    el11(
+      "fieldset",
+      { style: "border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:6px 10px" },
+      el11("legend", {}, tr9(lang, "Effects", "Efeitos")),
+      el11(
+        "div",
+        { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 16px" },
+        fx.strike.el,
+        fx.small.el,
+        fx.dstrike.el,
+        fx.caps.el,
+        fx.sup.el,
+        fx.hidden.el,
+        fx.sub.el
+      )
+    )
+  );
+  const scale = el11("input", { value: `${r5.scalePct ?? 100}%`, style: "width:90px" });
+  scale.setAttribute("list", "uw-font-scales");
+  const scales = el11("datalist", { id: "uw-font-scales" });
+  for (const s4 of SCALES) scales.append(el11("option", { value: `${s4}%` }));
+  const sp = r5.charSpacingTwips ?? 0;
+  const spacing = select5([["normal", "Normal"], ["expanded", tr9(lang, "Expanded", "Expandido")], ["condensed", tr9(lang, "Condensed", "Condensado")]], sp > 0 ? "expanded" : sp < 0 ? "condensed" : "normal");
+  const spBy = el11("input", { value: sp ? fmt(Math.abs(sp) / 20, lang) : "", style: "width:70px" });
+  const pos = r5.positionHalfPt ?? 0;
+  const position = select5([["normal", "Normal"], ["raised", tr9(lang, "Raised", "Elevado")], ["lowered", tr9(lang, "Lowered", "Rebaixado")]], pos > 0 ? "raised" : pos < 0 ? "lowered" : "normal");
+  const posBy = el11("input", { value: pos ? fmt(Math.abs(pos) / 2, lang) : "", style: "width:70px" });
+  const kern = r5.kernHalfPt ?? 0;
+  const kernOn = check7(tr9(lang, "Kerning for fonts:", "Kerning de fontes:"), kern > 0);
+  const kernBy = el11("input", { value: fmt(kern > 0 ? kern / 2 : curSize, lang), style: "width:70px", disabled: kern <= 0 });
+  spacing.addEventListener("change", () => {
+    spBy.disabled = spacing.value === "normal";
+    spBy.value = spacing.value === "normal" ? "" : spBy.value || fmt(1, lang);
+    preview2();
+  });
+  position.addEventListener("change", () => {
+    posBy.disabled = position.value === "normal";
+    posBy.value = position.value === "normal" ? "" : posBy.value || fmt(3, lang);
+    preview2();
+  });
+  kernOn.input.addEventListener("change", () => {
+    kernBy.disabled = !kernOn.input.checked;
+  });
+  spBy.disabled = spacing.value === "normal";
+  posBy.disabled = position.value === "normal";
+  for (const i5 of [scale, spBy, posBy]) i5.addEventListener("input", preview2);
+  const row3 = (label, ...kids) => el11("div", { style: "display:flex;align-items:center;gap:8px" }, el11("span", { style: "min-width:110px" }, label), ...kids);
+  const advTab = el11(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:10px" },
+    el11("strong", {}, tr9(lang, "Character Spacing", "Espa\xE7amento de caracteres")),
+    row3(tr9(lang, "Scale:", "Escala:"), scale, scales),
+    row3(tr9(lang, "Spacing:", "Espa\xE7amento:"), spacing, tr9(lang, "By:", "Por:"), spBy, "pt"),
+    row3(tr9(lang, "Position:", "Posi\xE7\xE3o:"), position, tr9(lang, "By:", "Por:"), posBy, "pt"),
+    el11("div", { style: "display:flex;align-items:center;gap:8px" }, kernOn.el, kernBy, tr9(lang, "Points and above", "Pontos e acima"))
+  );
+  const ot0 = typeof ed.textEffects === "function" ? ed.textEffects().ot ?? {} : {};
+  const lig = select5([
+    ["none", tr9(lang, "None", "Nenhuma")],
+    ["standard", tr9(lang, "Standard Only", "Somente Padr\xE3o")],
+    ["standardContextual", tr9(lang, "Standard and Contextual", "Padr\xE3o e Contextual")],
+    ["historicalDiscretional", tr9(lang, "Historical and Discretionary", "Hist\xF3rica e Discricion\xE1ria")],
+    ["all", tr9(lang, "All", "Todas")]
+  ], ot0.ligatures ?? "none");
+  const numSp = select5([["default", tr9(lang, "Default", "Padr\xE3o")], ["proportional", tr9(lang, "Proportional", "Proporcional")], ["tabular", tr9(lang, "Tabular", "Tabular")]], ot0.numSpacing ?? "default");
+  const numFm = select5([["default", tr9(lang, "Default", "Padr\xE3o")], ["lining", tr9(lang, "Lining", "Alinhado")], ["oldStyle", tr9(lang, "Old-style", "Estilo Antigo")]], ot0.numForm ?? "default");
+  const sets = select5([["0", tr9(lang, "Default", "Padr\xE3o")], ...Array.from({ length: 20 }, (_v, i5) => [String(i5 + 1), String(i5 + 1)])], String(ot0.stylisticSets?.[0] ?? 0));
+  const calt = check7(tr9(lang, "Use Contextual Alternates", "Usar Alternativas Contextuais"), !!ot0.cntxtAlts);
+  if (typeof ed.setOpenType === "function") advTab.append(
+    el11("strong", { style: "margin-top:6px" }, tr9(lang, "OpenType Features", "Recursos OpenType")),
+    row3(tr9(lang, "Ligatures:", "Ligaduras:"), lig),
+    row3(tr9(lang, "Number spacing:", "Espa\xE7amento de n\xFAmeros:"), numSp),
+    row3(tr9(lang, "Number forms:", "Formas de n\xFAmeros:"), numFm),
+    row3(tr9(lang, "Stylistic sets:", "Conjuntos estil\xEDsticos:"), sets),
+    calt.el
+  );
+  const sample = el11("div", { style: "height:56px;display:flex;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;overflow:hidden;background:#fff;color:#000" });
+  const sampleText = el11("span", {});
+  sample.append(sampleText);
+  function preview2() {
+    const fam2 = font.value || curFont;
+    const css = ed.canvasFont(fam2, fstyle.value.includes("b"), fstyle.value.includes("i"));
+    const sz2 = num(size.value);
+    sampleText.textContent = fam2 || tr9(lang, "Sample", "Exemplo");
+    const st = sampleText.style;
+    st.fontFamily = `"${css.family}"`;
+    st.fontWeight = String(css.weight);
+    st.fontStyle = css.italic ? "italic" : "normal";
+    st.fontSize = `${Math.min(Math.max(Number.isFinite(sz2) ? sz2 : 11, 6), 36)}pt`;
+    const c5 = color.value();
+    st.color = c5.hex === "auto" ? "#000" : `#${c5.hex}`;
+    const lines = [];
+    if (ul.value !== "none") lines.push("underline");
+    if (fx.strike.input.checked || fx.dstrike.input.checked) lines.push("line-through");
+    st.textDecorationLine = lines.join(" ") || "none";
+    st.textDecorationStyle = /^double/.test(ul.value) || fx.dstrike.input.checked ? "double" : /^dot/.test(ul.value) ? "dotted" : /^dash/.test(ul.value) ? "dashed" : /^wav/.test(ul.value) ? "wavy" : "solid";
+    const uc2 = ulColor.value();
+    st.textDecorationColor = uc2.hex === "auto" ? "currentColor" : `#${uc2.hex}`;
+    st.textDecorationThickness = /Heavy$|^thick$/.test(ul.value) ? "2px" : "auto";
+    st.fontVariant = fx.small.input.checked ? "small-caps" : "normal";
+    st.textTransform = fx.caps.input.checked ? "uppercase" : "none";
+    st.verticalAlign = fx.sup.input.checked ? "super" : fx.sub.input.checked ? "sub" : "baseline";
+    st.opacity = fx.hidden.input.checked ? "0.4" : "1";
+    const sc2 = num(scale.value);
+    st.display = "inline-block";
+    st.transform = Number.isFinite(sc2) && sc2 !== 100 ? `scaleX(${sc2 / 100})` : "";
+    const by = num(spBy.value);
+    st.letterSpacing = spacing.value === "normal" || !Number.isFinite(by) ? "normal" : `${spacing.value === "condensed" ? -by : by}pt`;
+  }
+  syncUl();
+  const tabs = dialogTabs([
+    { id: "font", label: tr9(lang, "Font", "Fonte"), body: fontTab },
+    { id: "advanced", label: tr9(lang, "Advanced", "Avan\xE7ado"), body: advTab }
+  ], "font");
+  const body = el11(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:12px" },
+    tabs.el,
+    el11("div", { style: "display:flex;flex-direction:column;gap:4px" }, tr9(lang, "Preview", "Visualiza\xE7\xE3o"), sample)
+  );
+  const h3 = openDialog({
+    title: tr9(lang, "Font", "Fonte"),
+    body,
+    layer: env.layer,
+    lang,
+    width: 560,
+    actions: [
+      ...typeof ed.setDefaultFont === "function" && !ed.isProtected() ? [{ id: "default", label: tr9(lang, "Set As Default", "Definir como Padr\xE3o") }] : [],
+      ...openTextEffects && !ed.isProtected() ? [{ id: "effects", label: tr9(lang, "Text Effects...", "Efeitos de Texto...") }] : [],
+      { id: "cancel", label: L16.cancel },
+      { id: "ok", label: "OK", primary: true }
+    ]
+  });
+  const res = await h3.result;
+  if (res === "default") {
+    setAsDefault();
+    return;
+  }
+  if (res === "effects") {
+    openTextEffects?.();
+    return;
+  }
+  if (res !== "ok") return;
+  const f3 = {};
+  const fam = font.value.trim();
+  if (fam && fam !== curFont) f3.fontFamily = fam;
+  if (fstyle.value !== styleCur) {
+    f3.bold = fstyle.value.includes("b");
+    f3.italic = fstyle.value.includes("i");
+  }
+  const sz = num(size.value);
+  if (Number.isFinite(sz) && sz >= 1 && sz <= 1638 && Math.round(sz * 2) !== (r5.szHalfPt ?? 22)) f3.sizePt = Math.round(sz * 2) / 2;
+  const c4 = color.value();
+  if (JSON.stringify(c4) !== JSON.stringify(colorPick)) f3.color = apiColor(c4);
+  if (ul.value !== ulCur) f3.underline = ul.value;
+  const uc = ulColor.value();
+  if (JSON.stringify(uc) !== JSON.stringify(ulPick) && ul.value !== "none") f3.underlineColor = apiColor(uc);
+  if (fx.strike.input.checked !== !!r5.strike) f3.strike = fx.strike.input.checked;
+  if (fx.dstrike.input.checked !== !!r5.doubleStrike) f3.doubleStrike = fx.dstrike.input.checked;
+  if (fx.sup.input.checked !== (r5.vertAlign === "superscript") || fx.sub.input.checked !== (r5.vertAlign === "subscript")) {
+    f3.superscript = fx.sup.input.checked;
+    f3.subscript = fx.sub.input.checked;
+  }
+  if (fx.small.input.checked !== !!r5.smallCaps) f3.smallCaps = fx.small.input.checked;
+  if (fx.caps.input.checked !== !!r5.allCaps) f3.allCaps = fx.caps.input.checked;
+  if (fx.hidden.input.checked !== !!r5.hidden) f3.hidden = fx.hidden.input.checked;
+  const sc = num(scale.value);
+  if (Number.isFinite(sc) && sc >= 1 && sc <= 600 && Math.round(sc) !== (r5.scalePct ?? 100)) f3.scalePct = Math.round(sc);
+  const spv = spacing.value === "normal" ? 0 : Math.round((Number.isFinite(num(spBy.value)) ? num(spBy.value) : 0) * 20) * (spacing.value === "condensed" ? -1 : 1);
+  if (spv !== sp) f3.spacingTwips = spv;
+  const pv = position.value === "normal" ? 0 : Math.round((Number.isFinite(num(posBy.value)) ? num(posBy.value) : 0) * 2) * (position.value === "lowered" ? -1 : 1);
+  if (pv !== pos) f3.positionHalfPt = pv;
+  const kv = kernOn.input.checked ? Math.max(1, Math.round((Number.isFinite(num(kernBy.value)) ? num(kernBy.value) : curSize) * 2)) : 0;
+  if (kv !== kern) f3.kernMinHalfPt = kv;
+  if (Object.keys(f3).length) ed.setFontFormat(f3);
+  if (typeof ed.setOpenType === "function") {
+    const ot = {};
+    if (lig.value !== (ot0.ligatures ?? "none")) ot.ligatures = lig.value === "none" ? null : lig.value;
+    if (numSp.value !== (ot0.numSpacing ?? "default")) ot.numSpacing = numSp.value === "default" ? null : numSp.value;
+    if (numFm.value !== (ot0.numForm ?? "default")) ot.numForm = numFm.value === "default" ? null : numFm.value;
+    if (sets.value !== String(ot0.stylisticSets?.[0] ?? 0)) ot.stylisticSets = sets.value === "0" ? null : [Number(sets.value)];
+    if (calt.input.checked !== !!ot0.cntxtAlts) ot.cntxtAlts = calt.input.checked || null;
+    if (Object.keys(ot).length) ed.setOpenType(ot);
+  }
+  function setAsDefault() {
+    const def = ed.listStyles("all").find((x2) => x2.isDefault && x2.kind !== "character");
+    const look = def ? ed.styleFormatting(def.id) : null;
+    const d3 = {};
+    const fam2 = font.value.trim() || curFont;
+    if (!look || fam2 !== look.fontFamily) d3.fontFamily = fam2;
+    const sz2 = num(size.value);
+    if (Number.isFinite(sz2) && (!look || Math.abs(sz2 - look.sizePt) > 0.01)) d3.sizePt = sz2;
+    const b3 = fstyle.value.includes("b"), i5 = fstyle.value.includes("i");
+    if (!look || b3 !== look.bold) d3.bold = b3;
+    if (!look || i5 !== look.italic) d3.italic = i5;
+    const c5 = color.value();
+    if (c5.hex !== "auto" && (!look || c5.hex.toUpperCase() !== (look.color ?? "").toUpperCase())) d3.color = apiColor(c5);
+    if (!look || ul.value !== "none" !== look.underline) d3.underline = ul.value;
+    if (!look || fx.strike.input.checked !== look.strike) d3.strike = fx.strike.input.checked;
+    if (!look || fx.caps.input.checked !== look.allCaps) d3.allCaps = fx.caps.input.checked;
+    if (!look || fx.small.input.checked !== look.smallCaps) d3.smallCaps = fx.small.input.checked;
+    if (Object.keys(d3).length) ed.setDefaultFont(d3);
+  }
+}
+
 // src/chrome-table-style.ts
-var tr5 = (lang, en, pt) => pickLabels(lang, { en, pt });
-var el7 = (tag, props = {}, ...kids) => {
+var tr10 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var el12 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
@@ -6115,8 +8977,8 @@ var el7 = (tag, props = {}, ...kids) => {
   return e6;
 };
 var sel2 = (name, opts, value, style = "") => {
-  const s4 = el7("select", { name, style });
-  for (const [v2, t5] of opts) s4.append(el7("option", { value: v2, selected: v2 === value }, t5));
+  const s4 = el12("select", { name, style });
+  for (const [v2, t5] of opts) s4.append(el12("option", { value: v2, selected: v2 === value }, t5));
   return s4;
 };
 var COND_LABELS = {
@@ -6162,25 +9024,25 @@ async function tableStyleDialog(env, mode, nameOrId) {
     if (!cur) return;
     draft = cur.xml;
   } else {
-    const name2 = tr5(lang, "Style1", "Estilo1");
+    const name2 = tr10(lang, "Style1", "Estilo1");
     draft = newTableStyleXml({ id: ed.newTableStyleId(name2), name: name2, basedOn: normalId });
   }
   const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
   const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? "";
-  const name = el7("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
-  const base = sel2("ts-base", [["", tr5(lang, "(no style)", "(sem estilo)")], ...bases.map((b3) => [b3.id, b3.name])], headBase, "width:100%");
-  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c5) => [c5, tr5(lang, ...COND_LABELS[c5])]), "wholeTable", "width:100%");
-  const font = el7("input", { type: "text", name: "ts-font", placeholder: tr5(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
-  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr5(lang, ".", ","))])], "", "width:70px");
-  const tog = (label, title) => el7("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
-  const bBtn = tog("B", tr5(lang, "Bold", "Negrito")), iBtn = tog("I", tr5(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr5(lang, "Underline", "Sublinhado"));
+  const name = el12("input", { type: "text", name: "ts-name", value: headName, style: "width:100%" });
+  const base = sel2("ts-base", [["", tr10(lang, "(no style)", "(sem estilo)")], ...bases.map((b3) => [b3.id, b3.name])], headBase, "width:100%");
+  const cond = sel2("ts-cond", TABLE_STYLE_CONDS.map((c5) => [c5, tr10(lang, ...COND_LABELS[c5])]), "wholeTable", "width:100%");
+  const font = el12("input", { type: "text", name: "ts-font", placeholder: tr10(lang, "(theme font)", "(fonte do tema)"), style: "width:150px" });
+  const size = sel2("ts-size", [["", "\u2014"], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n5) => [String(n5 * 2), String(n5).replace(".", tr10(lang, ".", ","))])], "", "width:70px");
+  const tog = (label, title) => el12("button", { type: "button", className: "uo-pill", textContent: label, title, style: "min-width:36px;padding:4px 10px" });
+  const bBtn = tog("B", tr10(lang, "Bold", "Negrito")), iBtn = tog("I", tr10(lang, "Italic", "It\xE1lico")), uBtn = tog("U", tr10(lang, "Underline", "Sublinhado"));
   bBtn.style.fontWeight = "700";
   iBtn.style.fontStyle = "italic";
   uBtn.style.textDecoration = "underline";
-  const color = el7("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
-  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt]) => [v2, tr5(lang, en, pt)]), "single");
+  const color = el12("input", { type: "color", name: "ts-color", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bStyle = sel2("ts-bstyle", BORDER_STYLES.map(([v2, en, pt]) => [v2, tr10(lang, en, pt)]), "single");
   const bWidth = sel2("ts-bwidth", BORDER_WIDTHS.map(([sz, t5]) => [String(sz), `${t5} pt`]), "4");
-  const bColor = el7("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const bColor = el12("input", { type: "color", name: "ts-bcolor", value: "#000000", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const sideBtns = [
     ["top", "Top", "Superior"],
     ["bottom", "Bottom", "Inferior"],
@@ -6191,26 +9053,26 @@ async function tableStyleDialog(env, mode, nameOrId) {
     ["none", "None", "Nenhuma"],
     ["all", "All", "Todas"]
   ].map(([s4, en, pt]) => {
-    const b3 = el7("button", { type: "button", className: "uo-pill", textContent: tr5(lang, en, pt), style: "padding:3px 9px" });
+    const b3 = el12("button", { type: "button", className: "uo-pill", textContent: tr10(lang, en, pt), style: "padding:3px 9px" });
     b3.dataset["side"] = s4;
     return b3;
   });
-  const fillOn = el7("input", { type: "checkbox", name: "ts-fill-on" });
-  const fill = el7("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
+  const fillOn = el12("input", { type: "checkbox", name: "ts-fill-on" });
+  const fill = el12("input", { type: "color", name: "ts-fill", value: "#ffffff", style: "width:40px;height:28px;padding:0;border:0;background:none" });
   const align = sel2("ts-align", [
     ["", "\u2014"],
-    ["left|top", tr5(lang, "Top left", "Em cima, \xE0 esquerda")],
-    ["center|top", tr5(lang, "Top center", "Em cima, centralizado")],
-    ["right|top", tr5(lang, "Top right", "Em cima, \xE0 direita")],
-    ["left|center", tr5(lang, "Center left", "No centro, \xE0 esquerda")],
-    ["center|center", tr5(lang, "Center", "No centro")],
-    ["right|center", tr5(lang, "Center right", "No centro, \xE0 direita")],
-    ["left|bottom", tr5(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
-    ["center|bottom", tr5(lang, "Bottom center", "Embaixo, centralizado")],
-    ["right|bottom", tr5(lang, "Bottom right", "Embaixo, \xE0 direita")]
+    ["left|top", tr10(lang, "Top left", "Em cima, \xE0 esquerda")],
+    ["center|top", tr10(lang, "Top center", "Em cima, centralizado")],
+    ["right|top", tr10(lang, "Top right", "Em cima, \xE0 direita")],
+    ["left|center", tr10(lang, "Center left", "No centro, \xE0 esquerda")],
+    ["center|center", tr10(lang, "Center", "No centro")],
+    ["right|center", tr10(lang, "Center right", "No centro, \xE0 direita")],
+    ["left|bottom", tr10(lang, "Bottom left", "Embaixo, \xE0 esquerda")],
+    ["center|bottom", tr10(lang, "Bottom center", "Embaixo, centralizado")],
+    ["right|bottom", tr10(lang, "Bottom right", "Embaixo, \xE0 direita")]
   ], "");
   const dpr = window.devicePixelRatio || 1;
-  const cv = el7("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
+  const cv = el12("canvas", { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: "width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff" });
   const c4 = () => cond.value;
   const sync = () => {
     const st = condState(draft, c4());
@@ -6260,24 +9122,24 @@ async function tableStyleDialog(env, mode, nameOrId) {
     draft = retitleTableStyleXml(draft, { basedOn: base.value || null });
     sync();
   });
-  const row2 = (...kids) => el7("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-  const lbl = (t5, ctl) => el7("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t5, ctl);
-  const body = el7(
+  const row3 = (...kids) => el12("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+  const lbl = (t5, ctl) => el12("label", { style: "display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px" }, t5, ctl);
+  const body = el12(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el7("strong", {}, tr5(lang, "Properties", "Propriedades")),
-    row2(lbl(tr5(lang, "Name:", "Nome:"), name), lbl(tr5(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr5(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr5(lang, "Style based on:", "Estilo baseado em:"), base)),
-    el7("strong", {}, tr5(lang, "Formatting", "Formata\xE7\xE3o")),
-    lbl(tr5(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
-    row2(font, size, bBtn, iBtn, uBtn, el7("span", {}, tr5(lang, "Color", "Cor")), color),
-    row2(bStyle, bWidth, bColor, ...sideBtns),
-    row2(el7("label", { className: "uo-check" }, fillOn, tr5(lang, "Fill", "Preenchimento")), fill, el7("span", {}, tr5(lang, "Alignment", "Alinhamento")), align),
+    el12("strong", {}, tr10(lang, "Properties", "Propriedades")),
+    row3(lbl(tr10(lang, "Name:", "Nome:"), name), lbl(tr10(lang, "Style type:", "Tipo de estilo:"), sel2("ts-type", [["table", tr10(lang, "Table", "Tabela")]], "table", "width:100%")), lbl(tr10(lang, "Style based on:", "Estilo baseado em:"), base)),
+    el12("strong", {}, tr10(lang, "Formatting", "Formata\xE7\xE3o")),
+    lbl(tr10(lang, "Apply formatting to:", "Aplicar formata\xE7\xE3o a:"), cond),
+    row3(font, size, bBtn, iBtn, uBtn, el12("span", {}, tr10(lang, "Color", "Cor")), color),
+    row3(bStyle, bWidth, bColor, ...sideBtns),
+    row3(el12("label", { className: "uo-check" }, fillOn, tr10(lang, "Fill", "Preenchimento")), fill, el12("span", {}, tr10(lang, "Alignment", "Alinhamento")), align),
     cv,
-    el7("label", { className: "uo-check" }, el7("input", { type: "radio", name: "ts-where", checked: true }), tr5(lang, "Only in this document", "Somente neste documento"))
+    el12("label", { className: "uo-check" }, el12("input", { type: "radio", name: "ts-where", checked: true }), tr10(lang, "Only in this document", "Somente neste documento"))
   );
   sync();
   const h3 = openDialog({
-    title: mode === "new" ? tr5(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr5(lang, "Modify Style", "Modificar Estilo"),
+    title: mode === "new" ? tr10(lang, "Create New Style from Formatting", "Criar Novo Estilo a partir da Formata\xE7\xE3o") : tr10(lang, "Modify Style", "Modificar Estilo"),
     body,
     layer: env.layer,
     lang,
@@ -6297,46 +9159,46 @@ async function tableStyleDialog(env, mode, nameOrId) {
 
 // src/chrome-table-dialogs.ts
 var NUMBER_FORMATS = ["#.##0", "#.##0,00", "R$ #.##0,00;(R$ #.##0,00)", "0", "0%", "0,00", "0,00%"];
-var el8 = (tag, props = {}, ...kids) => {
+var el13 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
   e6.append(...kids);
   return e6;
 };
-var tr6 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var tr11 = (lang, en, pt) => pickLabels(lang, { en, pt });
 function radios(name, opts, value) {
-  const box = el8("div", { style: "display:flex;flex-direction:column;gap:6px" });
+  const box = el13("div", { style: "display:flex;flex-direction:column;gap:6px" });
   for (const [v2, t5] of opts) {
-    const i5 = el8("input", { type: "radio", name, value: v2, checked: v2 === value });
-    box.append(el8("label", { className: "uo-check" }, i5, t5));
+    const i5 = el13("input", { type: "radio", name, value: v2, checked: v2 === value });
+    box.append(el13("label", { className: "uo-check" }, i5, t5));
   }
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
-var num = (name, value, min = 1, max = 63) => el8("input", { type: "number", name, min: String(min), max: String(max), step: "1", value: String(value) });
-var cmText = (lang, tw) => (Math.round(tw / 1440 * 254) / 100).toFixed(2).replace(".", tr6(lang, ".", ","));
-var cmInput = (lang, name, tw) => el8("input", { type: "text", name, inputMode: "decimal", value: `${cmText(lang, tw)} cm`, style: "width:96px" });
-var twOf = (s4) => {
+var num2 = (name, value, min = 1, max = 63) => el13("input", { type: "number", name, min: String(min), max: String(max), step: "1", value: String(value) });
+var cmText2 = (lang, tw) => (Math.round(tw / 1440 * 254) / 100).toFixed(2).replace(".", tr11(lang, ".", ","));
+var cmInput2 = (lang, name, tw) => el13("input", { type: "text", name, inputMode: "decimal", value: `${cmText2(lang, tw)} cm`, style: "width:96px" });
+var twOf2 = (s4) => {
   const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n5) ? Math.round(n5 / 2.54 * 1440) : void 0;
 };
-var section2 = (title, ...kids) => el8("div", { style: "display:flex;flex-direction:column;gap:8px" }, el8("strong", {}, title), ...kids);
-async function ask(env, title, body, width = 400) {
-  const L12 = env.app.ui.L;
+var section2 = (title, ...kids) => el13("div", { style: "display:flex;flex-direction:column;gap:8px" }, el13("strong", {}, title), ...kids);
+async function ask2(env, title, body, width = 400) {
+  const L16 = env.app.ui.L;
   const h3 = openDialog({
     title,
     body,
     layer: env.layer,
     lang: env.lang,
     width,
-    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   return await h3.result === "ok";
 }
 function separatorPicker(lang, name, value, other, paraLabel) {
-  const opts = [["paragraph", paraLabel], ["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr6(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr6(lang, "Other:", "Outro:")]];
+  const opts = [["paragraph", paraLabel], ["tab", tr11(lang, "Tabs", "Tabula\xE7\xF5es")], ["semicolon", tr11(lang, "Semicolons", "Ponto e v\xEDrgula")], ["other", tr11(lang, "Other:", "Outro:")]];
   const r5 = radios(name, opts, value);
-  const otherIn = el8("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
+  const otherIn = el13("input", { type: "text", name: `${name}-other`, maxLength: 1, value: other, style: "width:40px;margin-left:8px" });
   r5.el.lastElementChild.append(otherIn);
   otherIn.addEventListener("input", () => {
     r5.el.querySelector('input[value="other"]').checked = true;
@@ -6349,16 +9211,16 @@ function separatorPicker(lang, name, value, other, paraLabel) {
 }
 function autofitPicker(lang, value, colTw) {
   const r5 = radios("autofit", [
-    ["fixed", tr6(lang, "Fixed column width:", "Largura fixa da coluna:")],
-    ["content", tr6(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
-    ["window", tr6(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
+    ["fixed", tr11(lang, "Fixed column width:", "Largura fixa da coluna:")],
+    ["content", tr11(lang, "AutoFit to contents", "AutoAjuste ao conte\xFAdo")],
+    ["window", tr11(lang, "AutoFit to window", "AutoAjustar \xE0 janela")]
   ], value);
-  const auto = tr6(lang, "Auto", "Autom\xE1tico");
-  const w2 = el8("input", { type: "text", name: "colw", value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
+  const auto = tr11(lang, "Auto", "Autom\xE1tico");
+  const w2 = el13("input", { type: "text", name: "colw", value: colTw ? `${cmText2(lang, colTw)} cm` : auto, style: "width:120px;margin-left:8px" });
   r5.el.firstElementChild.append(w2);
   const read = () => {
     const a3 = r5.value();
-    const tw = a3 === "fixed" && w2.value.trim() !== auto ? twOf(w2.value) : void 0;
+    const tw = a3 === "fixed" && w2.value.trim() !== auto ? twOf2(w2.value) : void 0;
     return { autofit: a3, ...tw && tw > 0 ? { colWidthTwips: tw } : {} };
   };
   return { el: r5.el, read };
@@ -6368,33 +9230,33 @@ async function tableDialog(env, kind, arg) {
   switch (kind) {
     case "insert": {
       const mem = env.app.prefs.get("tableDims")?.split("x").map(Number);
-      const cols = num("cols", mem?.[0] || 5), rows = num("rows", mem?.[1] || 2, 1, 32767);
+      const cols = num2("cols", mem?.[0] || 5), rows = num2("rows", mem?.[1] || 2, 1, 32767);
       const af = autofitPicker(lang, "fixed");
-      const remember = el8("input", { type: "checkbox", name: "remember", checked: !!mem });
-      const body = el8(
+      const remember = el13("input", { type: "checkbox", name: "remember", checked: !!mem });
+      const body = el13(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Table size", "Tamanho da tabela"), el8(
+        section2(tr11(lang, "Table size", "Tamanho da tabela"), el13(
           "div",
           { className: "uo-dialog-grid" },
-          el8("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el13("span", {}, tr11(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el8("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el13("span", {}, tr11(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         )),
-        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        el8("label", { className: "uo-check" }, remember, tr6(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
+        section2(tr11(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        el13("label", { className: "uo-check" }, remember, tr11(lang, "Remember dimensions for new tables", "Lembrar dimens\xF5es para novas tabelas"))
       );
-      if (!await ask(env, tr6(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
+      if (!await ask2(env, tr11(lang, "Insert Table", "Inserir Tabela"), body, 420)) return;
       const c4 = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r5 = Math.max(1, parseInt(rows.value, 10) || 1);
       env.app.prefs.set("tableDims", remember.checked ? `${c4}x${r5}` : "");
       ed.insertTable(r5, c4, af.read());
       return;
     }
     case "fromText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraphs", "Par\xE1grafos"));
-      const cols = num("cols", 2);
-      const rowsOut = el8("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr11(lang, "Paragraphs", "Par\xE1grafos"));
+      const cols = num2("cols", 2);
+      const rowsOut = el13("input", { type: "number", name: "rows", readOnly: true, value: "1", style: "opacity:.7" });
       const af = autofitPicker(lang, "fixed");
       const guess = ed.textToTableGuess();
       if (guess) {
@@ -6411,71 +9273,71 @@ async function tableDialog(env, kind, arg) {
       };
       sep.el.addEventListener("change", recount);
       cols.addEventListener("input", recount);
-      const body = el8(
+      const body = el13(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Table size", "Tamanho da tabela"), el8(
+        section2(tr11(lang, "Table size", "Tamanho da tabela"), el13(
           "div",
           { className: "uo-dialog-grid" },
-          el8("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el13("span", {}, tr11(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el8("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el13("span", {}, tr11(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rowsOut
         )),
-        section2(tr6(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
-        section2(tr6(lang, "Separate text at", "Separar texto em"), sep.el)
+        section2(tr11(lang, "AutoFit behavior", "Comportamento de AutoAjuste"), af.el),
+        section2(tr11(lang, "Separate text at", "Separar texto em"), sep.el)
       );
-      if (!await ask(env, tr6(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
+      if (!await ask2(env, tr11(lang, "Convert Text to Table", "Converter Texto em Tabela"), body, 420)) return;
       ed.convertTextToTable({ separator: sep.read(), cols: parseInt(cols.value, 10) || 1, ...af.read() });
       return;
     }
     case "toText": {
-      const sep = separatorPicker(lang, "sep", "tab", "-", tr6(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
-      const body = section2(tr6(lang, "Separate text with", "Separar texto com"), sep.el);
-      if (!await ask(env, tr6(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
+      const sep = separatorPicker(lang, "sep", "tab", "-", tr11(lang, "Paragraph marks", "Marcas de par\xE1grafo"));
+      const body = section2(tr11(lang, "Separate text with", "Separar texto com"), sep.el);
+      if (!await ask2(env, tr11(lang, "Convert Table To Text", "Converter Tabela em Texto"), body, 360)) return;
       ed.convertTableToText(sep.read());
       return;
     }
     case "insertCells": {
       const r5 = radios("shift", [
-        ["right", tr6(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
-        ["down", tr6(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
-        ["row", tr6(lang, "Insert entire row", "Inserir linha inteira")],
-        ["column", tr6(lang, "Insert entire column", "Inserir coluna inteira")]
+        ["right", tr11(lang, "Shift cells right", "Deslocar c\xE9lulas para a direita")],
+        ["down", tr11(lang, "Shift cells down", "Deslocar c\xE9lulas para baixo")],
+        ["row", tr11(lang, "Insert entire row", "Inserir linha inteira")],
+        ["column", tr11(lang, "Insert entire column", "Inserir coluna inteira")]
       ], "down");
-      if (!await ask(env, tr6(lang, "Insert Cells", "Inserir C\xE9lulas"), r5.el, 340)) return;
+      if (!await ask2(env, tr11(lang, "Insert Cells", "Inserir C\xE9lulas"), r5.el, 340)) return;
       ed.insertCells(r5.value());
       return;
     }
     case "deleteCells": {
       const r5 = radios("shift", [
-        ["left", tr6(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
-        ["up", tr6(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
-        ["row", tr6(lang, "Delete entire row", "Excluir linha inteira")],
-        ["column", tr6(lang, "Delete entire column", "Excluir coluna inteira")]
+        ["left", tr11(lang, "Shift cells left", "Deslocar c\xE9lulas para a esquerda")],
+        ["up", tr11(lang, "Shift cells up", "Deslocar c\xE9lulas para cima")],
+        ["row", tr11(lang, "Delete entire row", "Excluir linha inteira")],
+        ["column", tr11(lang, "Delete entire column", "Excluir coluna inteira")]
       ], "left");
-      if (!await ask(env, tr6(lang, "Delete Cells", "Excluir C\xE9lulas"), r5.el, 340)) return;
+      if (!await ask2(env, tr11(lang, "Delete Cells", "Excluir C\xE9lulas"), r5.el, 340)) return;
       ed.deleteCells(r5.value());
       return;
     }
     case "split": {
       const s4 = ed.getTableState();
-      const cols = num("cols", 2), rows = num("rows", 1, 1, 32767);
-      const merge = el8("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
-      const body = el8(
+      const cols = num2("cols", 2), rows = num2("rows", 1, 1, 32767);
+      const merge = el13("input", { type: "checkbox", name: "merge", checked: true, disabled: !s4?.canMerge });
+      const body = el13(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        el8(
+        el13(
           "div",
           { className: "uo-dialog-grid" },
-          el8("span", {}, tr6(lang, "Number of columns:", "N\xFAmero de colunas:")),
+          el13("span", {}, tr11(lang, "Number of columns:", "N\xFAmero de colunas:")),
           cols,
-          el8("span", {}, tr6(lang, "Number of rows:", "N\xFAmero de linhas:")),
+          el13("span", {}, tr11(lang, "Number of rows:", "N\xFAmero de linhas:")),
           rows
         ),
-        el8("label", { className: "uo-check" }, merge, tr6(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
+        el13("label", { className: "uo-check" }, merge, tr11(lang, "Merge cells before split", "Mesclar c\xE9lulas antes de dividir"))
       );
-      if (!await ask(env, tr6(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
+      if (!await ask2(env, tr11(lang, "Split Cells", "Dividir C\xE9lulas"), body, 340)) return;
       ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
       return;
     }
@@ -6483,37 +9345,37 @@ async function tableDialog(env, kind, arg) {
       const s4 = ed.getTableState();
       const mar = s4?.tblPr.tblCellMar ?? {};
       const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
-      const top = cmInput(lang, "top", w2(mar.top)), bottom = cmInput(lang, "bottom", w2(mar.bottom));
-      const left = cmInput(lang, "left", w2(mar.left, 108)), right = cmInput(lang, "right", w2(mar.right, 108));
+      const top = cmInput2(lang, "top", w2(mar.top)), bottom = cmInput2(lang, "bottom", w2(mar.bottom));
+      const left = cmInput2(lang, "left", w2(mar.left, 108)), right = cmInput2(lang, "right", w2(mar.right, 108));
       const spTw = s4?.tblPr.tblCellSpacing?.type === "dxa" ? s4.tblPr.tblCellSpacing.w * 2 : 0;
-      const allow = el8("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
-      const spacing = cmInput(lang, "spacing", spTw);
-      const resize = el8("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
-      const body = el8(
+      const allow = el13("input", { type: "checkbox", name: "allow", checked: spTw > 0 });
+      const spacing = cmInput2(lang, "spacing", spTw);
+      const resize = el13("input", { type: "checkbox", name: "resize", checked: s4?.tblPr.tblLayout !== "fixed" });
+      const body = el13(
         "div",
         { style: "display:flex;flex-direction:column;gap:14px" },
-        section2(tr6(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el8(
+        section2(tr11(lang, "Default cell margins", "Margens padr\xE3o da c\xE9lula"), el13(
           "div",
           { className: "uo-dialog-grid" },
-          el8("span", {}, tr6(lang, "Top:", "Superior:")),
+          el13("span", {}, tr11(lang, "Top:", "Superior:")),
           top,
-          el8("span", {}, tr6(lang, "Left:", "Esquerda:")),
+          el13("span", {}, tr11(lang, "Left:", "Esquerda:")),
           left,
-          el8("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+          el13("span", {}, tr11(lang, "Bottom:", "Inferior:")),
           bottom,
-          el8("span", {}, tr6(lang, "Right:", "Direita:")),
+          el13("span", {}, tr11(lang, "Right:", "Direita:")),
           right
         )),
         section2(
-          tr6(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
-          el8("div", { style: "display:flex;align-items:center;gap:8px" }, el8("label", { className: "uo-check" }, allow, tr6(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
+          tr11(lang, "Default cell spacing", "Espa\xE7amento padr\xE3o entre c\xE9lulas"),
+          el13("div", { style: "display:flex;align-items:center;gap:8px" }, el13("label", { className: "uo-check" }, allow, tr11(lang, "Allow spacing between cells", "Permitir espa\xE7amento entre c\xE9lulas")), spacing)
         ),
-        section2(tr6(lang, "Options", "Op\xE7\xF5es"), el8("label", { className: "uo-check" }, resize, tr6(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
+        section2(tr11(lang, "Options", "Op\xE7\xF5es"), el13("label", { className: "uo-check" }, resize, tr11(lang, "Automatically resize to fit contents", "Redimensionar automaticamente para ajustar conte\xFAdo")))
       );
-      if (!await ask(env, tr6(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
+      if (!await ask2(env, tr11(lang, "Table Options", "Op\xE7\xF5es de Tabela"), body, 440)) return;
       ed.setTableCellMargins(
-        { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
-        allow.checked ? twOf(spacing.value) ?? 0 : 0,
+        { top: twOf2(top.value), left: twOf2(left.value), bottom: twOf2(bottom.value), right: twOf2(right.value) },
+        allow.checked ? twOf2(spacing.value) ?? 0 : 0,
         resize.checked
       );
       return;
@@ -6537,23 +9399,23 @@ async function tableDialog(env, kind, arg) {
     case "properties:alt":
       return propertiesDialog(env, kind === "properties" ? "table" : kind.slice(11));
     case "formula": {
-      const formula = el8("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
-      const fmt = el8("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
-      const fmtList = el8(
+      const formula = el13("input", { type: "text", name: "formula", value: ed.suggestFormula(), style: "width:100%;box-sizing:border-box" });
+      const fmt2 = el13("input", { type: "text", name: "format", value: "", style: "flex:1;min-width:0" });
+      const fmtList = el13(
         "select",
         { name: "format-list", style: "width:28px" },
-        el8("option", { value: "" }, ""),
-        ...NUMBER_FORMATS.map((f3) => el8("option", { value: f3 }, f3))
+        el13("option", { value: "" }, ""),
+        ...NUMBER_FORMATS.map((f3) => el13("option", { value: f3 }, f3))
       );
       fmtList.addEventListener("change", () => {
-        fmt.value = fmtList.value;
+        fmt2.value = fmtList.value;
         fmtList.value = "";
       });
-      const fn = el8(
+      const fn = el13(
         "select",
         { name: "function" },
-        el8("option", { value: "" }, tr6(lang, "Paste function", "Colar fun\xE7\xE3o")),
-        ...FORMULA_FUNCTIONS.map((f3) => el8("option", { value: f3 }, f3))
+        el13("option", { value: "" }, tr11(lang, "Paste function", "Colar fun\xE7\xE3o")),
+        ...FORMULA_FUNCTIONS.map((f3) => el13("option", { value: f3 }, f3))
       );
       fn.addEventListener("change", () => {
         if (!fn.value) return;
@@ -6564,57 +9426,57 @@ async function tableDialog(env, kind, arg) {
         formula.setSelectionRange(a3 + ins.length - 1, a3 + ins.length - 1);
         fn.value = "";
       });
-      const body = el8(
+      const body = el13(
         "div",
         { style: "display:flex;flex-direction:column;gap:12px" },
-        el8("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Formula:", "F\xF3rmula:"), formula),
-        el8(
+        el13("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr11(lang, "Formula:", "F\xF3rmula:"), formula),
+        el13(
           "label",
           { style: "display:flex;flex-direction:column;gap:4px" },
-          tr6(lang, "Number format:", "Formato do n\xFAmero:"),
-          el8("div", { style: "display:flex;gap:4px" }, fmt, fmtList)
+          tr11(lang, "Number format:", "Formato do n\xFAmero:"),
+          el13("div", { style: "display:flex;gap:4px" }, fmt2, fmtList)
         ),
-        el8("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
+        el13("div", { style: "display:flex;gap:8px;align-items:center" }, fn)
       );
       queueMicrotask(() => {
         formula.focus();
         formula.setSelectionRange(formula.value.length, formula.value.length);
       });
-      if (!await ask(env, tr6(lang, "Formula", "F\xF3rmula"), body, 380)) return;
-      ed.insertFormula(formula.value, fmt.value.trim() || void 0);
+      if (!await ask2(env, tr11(lang, "Formula", "F\xF3rmula"), body, 380)) return;
+      ed.insertFormula(formula.value, fmt2.value.trim() || void 0);
       return;
     }
   }
 }
 var sel3 = (name, opts, value) => {
-  const s4 = el8("select", { name });
-  for (const [v2, t5] of opts) s4.append(el8("option", { value: v2, selected: v2 === value }, t5));
+  const s4 = el13("select", { name });
+  for (const [v2, t5] of opts) s4.append(el13("option", { value: v2, selected: v2 === value }, t5));
   return s4;
 };
-var line = (...kids) => el8("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-var check6 = (name, on, label) => {
-  const box = el8("input", { type: "checkbox", name, checked: on });
-  return { el: el8("label", { className: "uo-check" }, box, label), box };
+var line = (...kids) => el13("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+var check8 = (name, on, label) => {
+  const box = el13("input", { type: "checkbox", name, checked: on });
+  return { el: el13("label", { className: "uo-check" }, box, label), box };
 };
 function radiosRow(name, opts, value) {
-  const box = el8("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
-  for (const [v2, t5] of opts) box.append(el8("label", { className: "uo-check" }, el8("input", { type: "radio", name, value: v2, checked: v2 === value }), t5));
+  const box = el13("div", { style: "display:flex;gap:14px;flex-wrap:wrap" });
+  for (const [v2, t5] of opts) box.append(el13("label", { className: "uo-check" }, el13("input", { type: "radio", name, value: v2, checked: v2 === value }), t5));
   return { el: box, value: () => box.querySelector(`input[name="${name}"]:checked`)?.value ?? value };
 }
 function widthField(lang, name, w2, defTw) {
   const on = !!w2 && (w2.type === "dxa" || w2.type === "pct") && w2.w > 0;
-  const c4 = check6(`${name}-on`, on, tr6(lang, "Preferred width:", "Largura preferencial:"));
-  const unit = sel3(`${name}-unit`, [["dxa", tr6(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr6(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
-  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr6(lang, ".", ","));
-  const val = el8("input", {
+  const c4 = check8(`${name}-on`, on, tr11(lang, "Preferred width:", "Largura preferencial:"));
+  const unit = sel3(`${name}-unit`, [["dxa", tr11(lang, "Centimeters", "Cent\xEDmetros")], ["pct", tr11(lang, "Percent", "Porcentagem")]], w2?.type === "pct" ? "pct" : "dxa");
+  const pctText2 = (v2) => `${Math.round(v2 / 50 * 10) / 10}%`.replace(".", tr11(lang, ".", ","));
+  const val = el13("input", {
     type: "text",
     name,
     inputMode: "decimal",
     style: "width:96px",
-    value: w2?.type === "pct" ? pctText2(w2.w) : `${cmText(lang, on && w2 ? w2.w : defTw)} cm`
+    value: w2?.type === "pct" ? pctText2(w2.w) : `${cmText2(lang, on && w2 ? w2.w : defTw)} cm`
   });
   unit.addEventListener("change", () => {
-    val.value = unit.value === "pct" ? "100%" : `${cmText(lang, defTw)} cm`;
+    val.value = unit.value === "pct" ? "100%" : `${cmText2(lang, defTw)} cm`;
   });
   const sync = () => {
     val.disabled = unit.disabled = !c4.box.checked;
@@ -6627,10 +9489,10 @@ function widthField(lang, name, w2, defTw) {
       const n5 = parseFloat(val.value.replace(",", ".").replace(/[^0-9.]/g, ""));
       return Number.isFinite(n5) && n5 > 0 ? { w: Math.round(n5 * 50), type: "pct" } : null;
     }
-    const tw = twOf(val.value);
+    const tw = twOf2(val.value);
     return tw && tw > 0 ? { w: tw, type: "dxa" } : null;
   };
-  return { el: line(c4.el, val, el8("span", {}, tr6(lang, "Measure in:", "Medir em:")), unit), read };
+  return { el: line(c4.el, val, el13("span", {}, tr11(lang, "Measure in:", "Medir em:")), unit), read };
 }
 async function propertiesDialog(env, tab) {
   const lang = env.lang, ed = env.ed;
@@ -6639,17 +9501,17 @@ async function propertiesDialog(env, tab) {
   const t5 = s4.tblPr, rp = s4.trPr, cp = s4.tcPr;
   const tWidth = widthField(lang, "tw", t5.tblW, s4.availTwips);
   const curAlign = t5.jc === "center" || t5.jc === "right" ? t5.jc : "left";
-  const align = radiosRow("talign", [["left", tr6(lang, "Left", "Esquerda")], ["center", tr6(lang, "Center", "Centralizado")], ["right", tr6(lang, "Right", "Direita")]], curAlign);
-  const indent = cmInput(lang, "tind", t5.tblInd?.type === "dxa" ? t5.tblInd.w : 0);
+  const align = radiosRow("talign", [["left", tr11(lang, "Left", "Esquerda")], ["center", tr11(lang, "Center", "Centralizado")], ["right", tr11(lang, "Right", "Direita")]], curAlign);
+  const indent = cmInput2(lang, "tind", t5.tblInd?.type === "dxa" ? t5.tblInd.w : 0);
   const syncInd = () => {
     indent.disabled = align.value() !== "left";
   };
   align.el.addEventListener("change", syncInd);
   syncInd();
-  const wrap = radiosRow("twrap", [["none", tr6(lang, "None", "Nenhuma")], ["around", tr6(lang, "Around", "Ao redor")]], t5.tblpPr ? "around" : "none");
+  const wrap = radiosRow("twrap", [["none", tr11(lang, "None", "Nenhuma")], ["around", tr11(lang, "Around", "Ao redor")]], t5.tblpPr ? "around" : "none");
   let position = t5.tblpPr ? { ...t5.tblpPr } : void 0;
   let overlap;
-  const posBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Positioning\u2026", "Posicionamento\u2026") });
+  const posBtn = el13("button", { type: "button", className: "uo-pill", textContent: tr11(lang, "Positioning\u2026", "Posicionamento\u2026") });
   const syncWrap = () => {
     posBtn.disabled = wrap.value() !== "around";
   };
@@ -6664,73 +9526,73 @@ async function propertiesDialog(env, tab) {
       }
     });
   });
-  const optBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const optBtn = el13("button", { type: "button", className: "uo-pill", textContent: tr11(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   optBtn.addEventListener("click", () => {
     void tableDialog(env, "margins");
   });
-  const tableTab = el8(
+  const tableTab = el13(
     "div",
     {},
-    section2(tr6(lang, "Size", "Tamanho"), tWidth.el),
-    section2(tr6(lang, "Alignment", "Alinhamento"), line(align.el, el8("span", {}, tr6(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
-    section2(tr6(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
-    el8("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
+    section2(tr11(lang, "Size", "Tamanho"), tWidth.el),
+    section2(tr11(lang, "Alignment", "Alinhamento"), line(align.el, el13("span", {}, tr11(lang, "Indent from left:", "Recuo \xE0 esquerda:")), indent)),
+    section2(tr11(lang, "Text wrapping", "Quebra autom\xE1tica de texto"), line(wrap.el, posBtn)),
+    el13("div", { style: "display:flex;justify-content:flex-end;gap:8px" }, optBtn)
   );
-  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr6(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr6(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
-  const hOn = check6("rh-on", !!rp.trHeight, tr6(lang, "Specify height:", "Especificar altura:"));
-  const hVal = cmInput(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
-  const hRule = sel3("rh-rule", [["atLeast", tr6(lang, "At least", "Pelo menos")], ["exact", tr6(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
+  const rowsLabel = s4.rect.r1 === s4.rect.r2 ? tr11(lang, `Row ${s4.rect.r1 + 1}:`, `Linha ${s4.rect.r1 + 1}:`) : tr11(lang, `Rows ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`, `Linhas ${s4.rect.r1 + 1}-${s4.rect.r2 + 1}:`);
+  const hOn = check8("rh-on", !!rp.trHeight, tr11(lang, "Specify height:", "Especificar altura:"));
+  const hVal = cmInput2(lang, "rh", rp.trHeight?.val ?? s4.rowHeight?.twips ?? 0);
+  const hRule = sel3("rh-rule", [["atLeast", tr11(lang, "At least", "Pelo menos")], ["exact", tr11(lang, "Exactly", "Exatamente")]], rp.trHeight?.hRule === "exact" ? "exact" : "atLeast");
   const syncH = () => {
     hVal.disabled = hRule.disabled = !hOn.box.checked;
   };
   hOn.box.addEventListener("change", syncH);
   syncH();
-  const brk = check6("r-break", !rp.cantSplit, tr6(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
-  const hdr = check6("r-header", !!rp.tblHeader, tr6(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
-  const rowTab = el8(
+  const brk = check8("r-break", !rp.cantSplit, tr11(lang, "Allow row to break across pages", "Permitir quebra de linha entre p\xE1ginas"));
+  const hdr = check8("r-header", !!rp.tblHeader, tr11(lang, "Repeat as header row at the top of each page", "Repetir como linha de cabe\xE7alho na parte superior de cada p\xE1gina"));
+  const rowTab = el13(
     "div",
     {},
-    el8("strong", {}, rowsLabel),
-    section2(tr6(lang, "Size", "Tamanho"), line(hOn.el, hVal, el8("span", {}, tr6(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
-    section2(tr6(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
+    el13("strong", {}, rowsLabel),
+    section2(tr11(lang, "Size", "Tamanho"), line(hOn.el, hVal, el13("span", {}, tr11(lang, "Row height is:", "A altura da linha \xE9:")), hRule)),
+    section2(tr11(lang, "Options", "Op\xE7\xF5es"), brk.el, hdr.el)
   );
-  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr6(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr6(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
+  const colsLabel = s4.rect.c1 === s4.rect.c2 ? tr11(lang, `Column ${s4.rect.c1 + 1}:`, `Coluna ${s4.rect.c1 + 1}:`) : tr11(lang, `Columns ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`, `Colunas ${s4.rect.c1 + 1}-${s4.rect.c2 + 1}:`);
   const tcW = cp.tcW?.type === "dxa" || cp.tcW?.type === "pct" ? cp.tcW : void 0;
   const cWidth = widthField(lang, "cw", tcW, s4.colWidth);
-  const colTab = el8("div", {}, el8("strong", {}, colsLabel), section2(tr6(lang, "Size", "Tamanho"), cWidth.el));
+  const colTab = el13("div", {}, el13("strong", {}, colsLabel), section2(tr11(lang, "Size", "Tamanho"), cWidth.el));
   const kWidth = widthField(lang, "kw", tcW, s4.colWidth);
   const curV = cp.vAlign === "center" || cp.vAlign === "bottom" ? cp.vAlign : "top";
-  const vAlign = radiosRow("kva", [["top", tr6(lang, "Top", "Superior")], ["center", tr6(lang, "Center", "Centralizado")], ["bottom", tr6(lang, "Bottom", "Inferior")]], curV);
+  const vAlign = radiosRow("kva", [["top", tr11(lang, "Top", "Superior")], ["center", tr11(lang, "Center", "Centralizado")], ["bottom", tr11(lang, "Bottom", "Inferior")]], curV);
   let cellOpts;
-  const cellBtn = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const cellBtn = el13("button", { type: "button", className: "uo-pill", textContent: tr11(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   cellBtn.addEventListener("click", () => {
     void cellOptionsDialog(env, cp, t5).then((r5) => {
       if (r5) cellOpts = r5;
     });
   });
-  const cellTab = el8(
+  const cellTab = el13(
     "div",
     {},
-    section2(tr6(lang, "Size", "Tamanho"), kWidth.el),
-    section2(tr6(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
-    el8("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
+    section2(tr11(lang, "Size", "Tamanho"), kWidth.el),
+    section2(tr11(lang, "Vertical alignment", "Alinhamento vertical"), vAlign.el),
+    el13("div", { style: "display:flex;justify-content:flex-end" }, cellBtn)
   );
-  const title = el8("input", { type: "text", name: "alt-title", value: t5.tblCaption ?? "", style: "width:100%" });
-  const descr = el8("textarea", { name: "alt-descr", value: t5.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
-  const altTab = el8(
+  const title = el13("input", { type: "text", name: "alt-title", value: t5.tblCaption ?? "", style: "width:100%" });
+  const descr = el13("textarea", { name: "alt-descr", value: t5.tblDescription ?? "", rows: 5, style: "width:100%;resize:vertical;font:inherit" });
+  const altTab = el13(
     "div",
     {},
-    el8("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Title", "T\xEDtulo"), title),
-    el8("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr6(lang, "Description", "Descri\xE7\xE3o"), descr)
+    el13("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr11(lang, "Title", "T\xEDtulo"), title),
+    el13("label", { style: "display:flex;flex-direction:column;gap:4px" }, tr11(lang, "Description", "Descri\xE7\xE3o"), descr)
   );
   const tabs = dialogTabs([
-    { id: "table", label: tr6(lang, "Table", "Tabela"), body: tableTab },
-    { id: "row", label: tr6(lang, "Row", "Linha"), body: rowTab },
-    { id: "column", label: tr6(lang, "Column", "Coluna"), body: colTab },
-    { id: "cell", label: tr6(lang, "Cell", "C\xE9lula"), body: cellTab },
-    { id: "alt", label: tr6(lang, "Alt Text", "Texto Alt"), body: altTab }
+    { id: "table", label: tr11(lang, "Table", "Tabela"), body: tableTab },
+    { id: "row", label: tr11(lang, "Row", "Linha"), body: rowTab },
+    { id: "column", label: tr11(lang, "Column", "Coluna"), body: colTab },
+    { id: "cell", label: tr11(lang, "Cell", "C\xE9lula"), body: cellTab },
+    { id: "alt", label: tr11(lang, "Alt Text", "Texto Alt"), body: altTab }
   ], tab);
-  if (!await ask(env, tr6(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
+  if (!await ask2(env, tr11(lang, "Table Properties", "Propriedades da Tabela"), tabs.el, 540)) return;
   const sameW = (a3, b3) => a3 === null ? !b3 || b3.type === "auto" || b3.type === "nil" || !b3.w : !!b3 && a3.type === b3.type && a3.w === b3.w;
   const out = {};
   const tb = {};
@@ -6738,7 +9600,7 @@ async function propertiesDialog(env, tab) {
   if (!sameW(tw, t5.tblW)) tb.width = tw;
   const al = align.value();
   if (al !== curAlign) tb.align = al;
-  const ind = twOf(indent.value) ?? 0;
+  const ind = twOf2(indent.value) ?? 0;
   if (al === "left" && ind !== (t5.tblInd?.type === "dxa" ? t5.tblInd.w : 0)) tb.indentTwips = ind;
   const wr = wrap.value();
   if (wr !== (t5.tblpPr ? "around" : "none")) tb.wrap = wr;
@@ -6748,7 +9610,7 @@ async function propertiesDialog(env, tab) {
   if (descr.value !== (t5.tblDescription ?? "")) tb.description = descr.value;
   if (Object.keys(tb).length) out.table = tb;
   const rw = {};
-  const hTw = twOf(hVal.value) ?? 0;
+  const hTw = twOf2(hVal.value) ?? 0;
   const hNew = hOn.box.checked && hTw > 0 ? { twips: hTw, rule: hRule.value } : null;
   const hOld = rp.trHeight ? { twips: rp.trHeight.val, rule: rp.trHeight.hRule === "exact" ? "exact" : "atLeast" } : null;
   if (JSON.stringify(hNew) !== JSON.stringify(hOld)) rw.height = hNew;
@@ -6773,72 +9635,72 @@ async function propertiesDialog(env, tab) {
 async function positioningDialog(env, pos, overlap) {
   const lang = env.lang;
   const hSpecs = [
-    ["left", tr6(lang, "Left", "Esquerda")],
-    ["center", tr6(lang, "Center", "Centralizado")],
-    ["right", tr6(lang, "Right", "Direita")],
-    ["inside", tr6(lang, "Inside", "Interna")],
-    ["outside", tr6(lang, "Outside", "Externa")]
+    ["left", tr11(lang, "Left", "Esquerda")],
+    ["center", tr11(lang, "Center", "Centralizado")],
+    ["right", tr11(lang, "Right", "Direita")],
+    ["inside", tr11(lang, "Inside", "Interna")],
+    ["outside", tr11(lang, "Outside", "Externa")]
   ];
   const vSpecs = [
-    ["top", tr6(lang, "Top", "Superior")],
-    ["center", tr6(lang, "Center", "Centralizado")],
-    ["bottom", tr6(lang, "Bottom", "Inferior")],
-    ["inside", tr6(lang, "Inside", "Interna")],
-    ["outside", tr6(lang, "Outside", "Externa")]
+    ["top", tr11(lang, "Top", "Superior")],
+    ["center", tr11(lang, "Center", "Centralizado")],
+    ["bottom", tr11(lang, "Bottom", "Inferior")],
+    ["inside", tr11(lang, "Inside", "Interna")],
+    ["outside", tr11(lang, "Outside", "Externa")]
   ];
   const combo = (name, specs, spec, tw) => {
-    const input = el8("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText(lang, tw ?? 0)} cm` });
-    const list = el8("select", { name: `${name}-list`, style: "width:28px" }, el8("option", { value: "" }, ""), ...specs.map(([v3, x2]) => el8("option", { value: v3 }, x2)));
+    const input = el13("input", { type: "text", name, style: "width:120px", value: spec ? specs.find(([v3]) => v3 === spec)?.[1] ?? spec : `${cmText2(lang, tw ?? 0)} cm` });
+    const list = el13("select", { name: `${name}-list`, style: "width:28px" }, el13("option", { value: "" }, ""), ...specs.map(([v3, x2]) => el13("option", { value: v3 }, x2)));
     list.addEventListener("change", () => {
       if (list.value) input.value = specs.find(([v3]) => v3 === list.value)[1];
       list.value = "";
     });
     const read = () => {
       const hit = specs.find(([, x2]) => x2.toLowerCase() === input.value.trim().toLowerCase());
-      return hit ? { spec: hit[0] } : { tw: twOf(input.value) ?? 0 };
+      return hit ? { spec: hit[0] } : { tw: twOf2(input.value) ?? 0 };
     };
-    return { el: el8("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
+    return { el: el13("span", { style: "display:inline-flex;gap:4px" }, input, list), read };
   };
   const hPos = combo("hpos", hSpecs, pos.tblpXSpec, pos.tblpX);
-  const hRel = sel3("hrel", [["text", tr6(lang, "Column", "Coluna")], ["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
+  const hRel = sel3("hrel", [["text", tr11(lang, "Column", "Coluna")], ["margin", tr11(lang, "Margin", "Margem")], ["page", tr11(lang, "Page", "P\xE1gina")]], pos.horzAnchor ?? "text");
   const vPos = combo("vpos", vSpecs, pos.tblpYSpec, pos.tblpY);
-  const vRel = sel3("vrel", [["margin", tr6(lang, "Margin", "Margem")], ["page", tr6(lang, "Page", "P\xE1gina")], ["text", tr6(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
-  const top = cmInput(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput(lang, "dbottom", pos.bottomFromText ?? 0);
-  const left = cmInput(lang, "dleft", pos.leftFromText ?? 0), right = cmInput(lang, "dright", pos.rightFromText ?? 0);
-  const move = check6("move", (pos.vertAnchor ?? "text") === "text", tr6(lang, "Move with text", "Mover com texto"));
+  const vRel = sel3("vrel", [["margin", tr11(lang, "Margin", "Margem")], ["page", tr11(lang, "Page", "P\xE1gina")], ["text", tr11(lang, "Paragraph", "Par\xE1grafo")]], pos.vertAnchor ?? "text");
+  const top = cmInput2(lang, "dtop", pos.topFromText ?? 0), bottom = cmInput2(lang, "dbottom", pos.bottomFromText ?? 0);
+  const left = cmInput2(lang, "dleft", pos.leftFromText ?? 0), right = cmInput2(lang, "dright", pos.rightFromText ?? 0);
+  const move = check8("move", (pos.vertAnchor ?? "text") === "text", tr11(lang, "Move with text", "Mover com texto"));
   move.box.addEventListener("change", () => {
     vRel.value = move.box.checked ? "text" : "margin";
   });
   vRel.addEventListener("change", () => {
     move.box.checked = vRel.value === "text";
   });
-  const ov = check6("overlap", overlap, tr6(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
-  const grid2 = (...kids) => el8("div", { className: "uo-dialog-grid" }, ...kids);
-  const body = el8(
+  const ov = check8("overlap", overlap, tr11(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"));
+  const grid2 = (...kids) => el13("div", { className: "uo-dialog-grid" }, ...kids);
+  const body = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr6(lang, "Horizontal", "Horizontal"), grid2(el8("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el8("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
-    section2(tr6(lang, "Vertical", "Vertical"), grid2(el8("span", {}, tr6(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el8("span", {}, tr6(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
-    section2(tr6(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
-      el8("span", {}, tr6(lang, "Top:", "Superior:")),
+    section2(tr11(lang, "Horizontal", "Horizontal"), grid2(el13("span", {}, tr11(lang, "Position:", "Posi\xE7\xE3o:")), hPos.el, el13("span", {}, tr11(lang, "Relative to:", "Em rela\xE7\xE3o a:")), hRel)),
+    section2(tr11(lang, "Vertical", "Vertical"), grid2(el13("span", {}, tr11(lang, "Position:", "Posi\xE7\xE3o:")), vPos.el, el13("span", {}, tr11(lang, "Relative to:", "Em rela\xE7\xE3o a:")), vRel)),
+    section2(tr11(lang, "Distance from surrounding text", "Dist\xE2ncia do texto ao redor"), grid2(
+      el13("span", {}, tr11(lang, "Top:", "Superior:")),
       top,
-      el8("span", {}, tr6(lang, "Left:", "Esquerda:")),
+      el13("span", {}, tr11(lang, "Left:", "Esquerda:")),
       left,
-      el8("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+      el13("span", {}, tr11(lang, "Bottom:", "Inferior:")),
       bottom,
-      el8("span", {}, tr6(lang, "Right:", "Direita:")),
+      el13("span", {}, tr11(lang, "Right:", "Direita:")),
       right
     )),
-    section2(tr6(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
+    section2(tr11(lang, "Options", "Op\xE7\xF5es"), move.el, ov.el)
   );
-  if (!await ask(env, tr6(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
+  if (!await ask2(env, tr11(lang, "Table Positioning", "Posicionamento da Tabela"), body, 440)) return null;
   const h3 = hPos.read(), v2 = vPos.read();
   const nz = (x2) => x2 ? x2 : void 0;
   const out = {
-    leftFromText: nz(twOf(left.value)),
-    rightFromText: nz(twOf(right.value)),
-    topFromText: nz(twOf(top.value)),
-    bottomFromText: nz(twOf(bottom.value)),
+    leftFromText: nz(twOf2(left.value)),
+    rightFromText: nz(twOf2(right.value)),
+    topFromText: nz(twOf2(top.value)),
+    bottomFromText: nz(twOf2(bottom.value)),
     vertAnchor: vRel.value,
     horzAnchor: hRel.value === "text" ? void 0 : hRel.value,
     tblpXSpec: h3.spec,
@@ -6854,37 +9716,37 @@ async function cellOptionsDialog(env, cp, t5) {
   const tm = t5.tblCellMar ?? {};
   const w2 = (v2, d3 = 0) => v2?.type === "dxa" ? v2.w : d3;
   const own = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
-  const same = check6("same", !own, tr6(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
+  const same = check8("same", !own, tr11(lang, "Same as the whole table", "Igual \xE0 tabela inteira"));
   const m2 = cp.tcMar ?? {};
-  const top = cmInput(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
-  const left = cmInput(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput(lang, "right", w2(m2.right, w2(tm.right, 108)));
+  const top = cmInput2(lang, "top", w2(m2.top, w2(tm.top))), bottom = cmInput2(lang, "bottom", w2(m2.bottom, w2(tm.bottom)));
+  const left = cmInput2(lang, "left", w2(m2.left, w2(tm.left, 108))), right = cmInput2(lang, "right", w2(m2.right, w2(tm.right, 108)));
   const syncM = () => {
     for (const i5 of [top, bottom, left, right]) i5.disabled = same.box.checked;
   };
   same.box.addEventListener("change", syncM);
   syncM();
-  const wrap = check6("wrap", !cp.noWrap, tr6(lang, "Wrap text", "Quebrar texto automaticamente"));
-  const fit = check6("fit", !!cp.tcFitText, tr6(lang, "Fit text", "Ajustar texto"));
-  const body = el8(
+  const wrap = check8("wrap", !cp.noWrap, tr11(lang, "Wrap text", "Quebrar texto automaticamente"));
+  const fit = check8("fit", !!cp.tcFitText, tr11(lang, "Fit text", "Ajustar texto"));
+  const body = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    section2(tr6(lang, "Cell margins", "Margens da c\xE9lula"), same.el, el8(
+    section2(tr11(lang, "Cell margins", "Margens da c\xE9lula"), same.el, el13(
       "div",
       { className: "uo-dialog-grid" },
-      el8("span", {}, tr6(lang, "Top:", "Superior:")),
+      el13("span", {}, tr11(lang, "Top:", "Superior:")),
       top,
-      el8("span", {}, tr6(lang, "Left:", "Esquerda:")),
+      el13("span", {}, tr11(lang, "Left:", "Esquerda:")),
       left,
-      el8("span", {}, tr6(lang, "Bottom:", "Inferior:")),
+      el13("span", {}, tr11(lang, "Bottom:", "Inferior:")),
       bottom,
-      el8("span", {}, tr6(lang, "Right:", "Direita:")),
+      el13("span", {}, tr11(lang, "Right:", "Direita:")),
       right
     )),
-    section2(tr6(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
+    section2(tr11(lang, "Options", "Op\xE7\xF5es"), wrap.el, fit.el)
   );
-  if (!await ask(env, tr6(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
+  if (!await ask2(env, tr11(lang, "Cell Options", "Op\xE7\xF5es da C\xE9lula"), body, 400)) return null;
   return {
-    margins: same.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
+    margins: same.box.checked ? null : { top: twOf2(top.value), left: twOf2(left.value), bottom: twOf2(bottom.value), right: twOf2(right.value) },
     wrap: wrap.box.checked,
     fitText: fit.box.checked
   };
@@ -6897,30 +9759,30 @@ async function sortDialog(env) {
   if (!info) return;
   if (info.mergeError) {
     const h3 = openDialog({
-      title: tr6(lang, "Sort", "Classificar"),
+      title: tr11(lang, "Sort", "Classificar"),
       icon: "warning",
       layer: env.layer,
       lang,
-      body: tr6(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
+      body: tr11(lang, "Cannot sort a table that contains merged cells.", "N\xE3o \xE9 poss\xEDvel classificar uma tabela que cont\xE9m c\xE9lulas mescladas.")
     });
     await h3.result;
     return;
   }
-  const types = [["text", tr6(lang, "Text", "Texto")], ["number", tr6(lang, "Number", "N\xFAmero")], ["date", tr6(lang, "Date", "Data")]];
-  const none = tr6(lang, "(none)", "(nenhum)");
-  const header = radiosRow("hdr", [["yes", tr6(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr6(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
+  const types = [["text", tr11(lang, "Text", "Texto")], ["number", tr11(lang, "Number", "N\xFAmero")], ["date", tr11(lang, "Date", "Data")]];
+  const none = tr11(lang, "(none)", "(nenhum)");
+  const header = radiosRow("hdr", [["yes", tr11(lang, "Header row", "Linha de cabe\xE7alho")], ["no", tr11(lang, "No header row", "Nenhuma linha de cabe\xE7alho")]], info.header ? "yes" : "no");
   const isHeader = () => header.value() === "yes";
   const labels = () => info.columns.map((c4, i5) => {
-    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr6(lang, "Paragraphs", "Par\xE1grafos") : tr6(lang, `Field ${i5 + 1}`, `Campo ${i5 + 1}`);
-    return isHeader() && c4.text ? c4.text : tr6(lang, `Column ${i5 + 1}`, `Coluna ${i5 + 1}`);
+    if (info.kind === "paragraphs") return info.columns.length === 1 ? tr11(lang, "Paragraphs", "Par\xE1grafos") : tr11(lang, `Field ${i5 + 1}`, `Campo ${i5 + 1}`);
+    return isHeader() && c4.text ? c4.text : tr11(lang, `Column ${i5 + 1}`, `Coluna ${i5 + 1}`);
   });
   const keyRow = (n5) => {
-    const col = el8("select", { name: `k${n5}-col`, style: "min-width:160px" });
+    const col = el13("select", { name: `k${n5}-col`, style: "min-width:160px" });
     const type = sel3(`k${n5}-type`, types, "text");
-    const dir = radiosRow(`k${n5}-dir`, [["asc", tr6(lang, "Ascending", "Crescente")], ["desc", tr6(lang, "Descending", "Decrescente")]], "asc");
+    const dir = radiosRow(`k${n5}-dir`, [["asc", tr11(lang, "Ascending", "Crescente")], ["desc", tr11(lang, "Descending", "Decrescente")]], "asc");
     const fill = () => {
       const cur = col.value;
-      col.replaceChildren(...n5 > 0 ? [el8("option", { value: "" }, none)] : [], ...labels().map((l3, i5) => el8("option", { value: String(i5) }, l3)));
+      col.replaceChildren(...n5 > 0 ? [el13("option", { value: "" }, none)] : [], ...labels().map((l3, i5) => el13("option", { value: String(i5) }, l3)));
       col.value = cur && [...col.options].some((o6) => o6.value === cur) ? cur : n5 > 0 ? "" : "0";
     };
     const sync = () => {
@@ -6938,9 +9800,9 @@ async function sortDialog(env) {
       guess();
       sync();
     });
-    const title = n5 === 0 ? tr6(lang, "Sort by", "Classificar por") : tr6(lang, "Then by", "E depois por");
+    const title = n5 === 0 ? tr11(lang, "Sort by", "Classificar por") : tr11(lang, "Then by", "E depois por");
     return {
-      el: section2(title, line(col, el8("span", {}, tr6(lang, "Type:", "Tipo:")), type), dir.el),
+      el: section2(title, line(col, el13("span", {}, tr11(lang, "Type:", "Tipo:")), type), dir.el),
       fill: () => {
         fill();
         sync();
@@ -6950,7 +9812,7 @@ async function sortDialog(env) {
   };
   const keys = [keyRow(0), keyRow(1), keyRow(2)];
   header.el.addEventListener("change", () => keys.forEach((k2) => k2.fill()));
-  const opts = el8("button", { type: "button", className: "uo-pill", textContent: tr6(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
+  const opts = el13("button", { type: "button", className: "uo-pill", textContent: tr11(lang, "Options\u2026", "Op\xE7\xF5es\u2026") });
   opts.addEventListener("click", () => {
     void sortOptionsDialog(env, info.kind === "paragraphs", separator, caseSensitive).then((r5) => {
       if (!r5) return;
@@ -6960,142 +9822,77 @@ async function sortDialog(env) {
       keys.forEach((k2) => k2.fill());
     });
   });
-  const body = el8(
+  const body = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
     ...keys.map((k2) => k2.el),
-    section2(tr6(lang, "My list has", "Minha lista tem"), header.el),
-    el8("div", { style: "display:flex;justify-content:flex-end" }, opts)
+    section2(tr11(lang, "My list has", "Minha lista tem"), header.el),
+    el13("div", { style: "display:flex;justify-content:flex-end" }, opts)
   );
-  if (!await ask(env, tr6(lang, "Sort", "Classificar"), body, 460)) return;
+  if (!await ask2(env, tr11(lang, "Sort", "Classificar"), body, 460)) return;
   const ks = keys.map((k2) => k2.read()).filter((k2) => !!k2);
   if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
 }
 async function sortOptionsDialog(env, paragraphs, sep, cs) {
   const lang = env.lang;
   const cur = sep === void 0 ? "tab" : typeof sep === "string" ? sep : "other";
-  const r5 = radiosRow("ssep", [["tab", tr6(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr6(lang, "Commas", "V\xEDrgulas")], ["other", tr6(lang, "Other:", "Outro:")]], cur);
-  const other = el8("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
+  const r5 = radiosRow("ssep", [["tab", tr11(lang, "Tabs", "Tabula\xE7\xF5es")], ["comma", tr11(lang, "Commas", "V\xEDrgulas")], ["other", tr11(lang, "Other:", "Outro:")]], cur);
+  const other = el13("input", { type: "text", name: "ssep-other", maxLength: 1, value: typeof sep === "object" ? sep.char : "", style: "width:40px" });
   other.addEventListener("input", () => {
     r5.el.querySelector('input[value="other"]').checked = true;
   });
-  const use = check6("fields", sep !== void 0, tr6(lang, "Sort by fields", "Classificar por campos"));
-  const csBox = check6("case", cs, tr6(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
-  const body = el8(
+  const use = check8("fields", sep !== void 0, tr11(lang, "Sort by fields", "Classificar por campos"));
+  const csBox = check8("case", cs, tr11(lang, "Case sensitive", "Diferenciar mai\xFAsculas de min\xFAsculas"));
+  const body = el13(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    ...paragraphs ? [section2(tr6(lang, "Separate fields at", "Separar campos em"), use.el, line(r5.el, other))] : [],
-    section2(tr6(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
+    ...paragraphs ? [section2(tr11(lang, "Separate fields at", "Separar campos em"), use.el, line(r5.el, other))] : [],
+    section2(tr11(lang, "Sort options", "Op\xE7\xF5es de classifica\xE7\xE3o"), csBox.el)
   );
-  if (!await ask(env, tr6(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
+  if (!await ask2(env, tr11(lang, "Sort Options", "Op\xE7\xF5es de Classifica\xE7\xE3o"), body, 380)) return null;
   const v2 = r5.value();
   const separator = !paragraphs || !use.box.checked ? void 0 : v2 === "other" ? { char: other.value || "-" } : v2;
   return { separator, caseSensitive: csBox.box.checked };
 }
 
 // src/chrome-dialogs.ts
-var el9 = (tag, props = {}, ...kids) => {
+var el14 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
   e6.append(...kids);
   return e6;
 };
-var select4 = (name, opts, value) => {
-  const s4 = el9("select", { name });
-  for (const [v2, t5] of opts) s4.append(el9("option", { value: v2, textContent: t5 }));
+var select6 = (name, opts, value) => {
+  const s4 = el14("select", { name });
+  for (const [v2, t5] of opts) s4.append(el14("option", { value: v2, textContent: t5 }));
   s4.value = value;
   return s4;
 };
-var check7 = (name, label, on) => {
-  const i5 = el9("input", { type: "checkbox", name, checked: on });
-  return el9("label", { className: "uo-check" }, i5, label);
+var check9 = (name, label, on) => {
+  const i5 = el14("input", { type: "checkbox", name, checked: on });
+  return el14("label", { className: "uo-check" }, i5, label);
 };
-var tr7 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var tr12 = (lang, en, pt) => pickLabels(lang, { en, pt });
 async function authorDialog(env) {
   if (env.ed.hasAuthor()) return true;
-  const L12 = env.app.ui.L;
-  const name = await promptDialog({ title: L12.authorTitle, label: L12.authorText, ok: L12.authorOk, layer: env.layer, lang: env.lang });
+  const L16 = env.app.ui.L;
+  const name = await promptDialog({ title: L16.authorTitle, label: L16.authorText, ok: L16.authorOk, layer: env.layer, lang: env.lang });
   if (!name?.trim()) return false;
   env.ed.author = name.trim();
   originStore.set("uw-author", env.ed.author);
   return true;
 }
 async function commentDialog(env) {
-  const L12 = env.app.ui.L;
+  const L16 = env.app.ui.L;
   if (!env.ed.selectedText()) {
-    env.app.ui.flash(L12.selectToComment);
+    env.app.ui.flash(L16.selectToComment);
     return;
   }
   if (!await authorDialog(env)) return;
-  const text = await promptDialog({ title: L12.commentTitle, label: L12.commentText, multiline: true, ok: L12.commentAdd, layer: env.layer, lang: env.lang });
+  const text = await promptDialog({ title: L16.commentTitle, label: L16.commentText, multiline: true, ok: L16.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
-  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L12.selectToComment : L12.commentAdded);
-}
-async function fontDialog(env, families) {
-  const L12 = env.app.ui.L, lang = env.lang;
-  const r5 = env.state().run;
-  const cur = r5.fontAscii ?? "";
-  const fams = cur && !families.includes(cur) ? [cur, ...families] : families;
-  const font = select4("font", fams.map((f3) => [f3, f3]), cur);
-  const size = el9("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String((r5.szHalfPt ?? 22) / 2) });
-  const color = el9("input", { type: "color", name: "color", value: `#${r5.color && /^[0-9a-f]{6}$/i.test(r5.color) ? r5.color : "000000"}` });
-  color.style.cssText = "width:48px;height:32px;padding:2px;border-radius:8px";
-  const spacing = select4("spacing", [
-    ["0", "Normal"],
-    ["20", tr7(lang, "Expanded 1 pt", "Expandido 1 pt")],
-    ["40", tr7(lang, "Expanded 2 pt", "Expandido 2 pt")],
-    ["-10", tr7(lang, "Condensed 0.5 pt", "Condensado 0,5 pt")],
-    ["-20", tr7(lang, "Condensed 1 pt", "Condensado 1 pt")]
-  ], String(r5.charSpacingTwips ?? 0));
-  const flags = {
-    bold: [tr7(lang, "Bold", "Negrito"), !!r5.bold],
-    italic: [tr7(lang, "Italic", "It\xE1lico"), !!r5.italic],
-    underline: [tr7(lang, "Underline", "Sublinhado"), !!r5.underline],
-    strike: [tr7(lang, "Strikethrough", "Tachado"), !!r5.strike],
-    sup: [tr7(lang, "Superscript", "Sobrescrito"), r5.vertAlign === "superscript"],
-    sub: [tr7(lang, "Subscript", "Subscrito"), r5.vertAlign === "subscript"],
-    allCaps: [tr7(lang, "All caps", "Todas em mai\xFAsculas"), !!r5.allCaps],
-    smallCaps: [tr7(lang, "Small caps", "Versalete"), !!r5.smallCaps]
-  };
-  const grid2 = el9(
-    "div",
-    { className: "uo-dialog-grid" },
-    el9("span", {}, L12.fontDlg),
-    font,
-    el9("span", {}, L12.size),
-    size,
-    el9("span", {}, L12.color),
-    color,
-    el9("span", {}, L12.charSpacing),
-    spacing
-  );
-  const fx = el9("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:8px 16px" });
-  for (const [k2, [label, on]] of Object.entries(flags)) fx.append(check7(k2, label, on));
-  const body = el9("div", { style: "display:flex;flex-direction:column;gap:14px" }, grid2, el9("strong", {}, L12.effects), fx);
-  const h3 = openDialog({
-    title: L12.fontDlg,
-    body,
-    layer: env.layer,
-    lang,
-    width: 440,
-    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
-  });
-  if (await h3.result !== "ok") return;
-  const ed = env.ed;
-  const box = (k2) => fx.querySelector(`input[name="${k2}"]`).checked;
-  if (font.value && font.value !== cur) ed.setFontFamily(font.value);
-  const sz = parseFloat(size.value);
-  if (sz > 0 && sz * 2 !== r5.szHalfPt) ed.setFontSize(sz);
-  const hex = color.value.slice(1).toUpperCase();
-  if (hex !== (r5.color ?? "000000").toUpperCase()) ed.setColor(hex);
-  for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) {
-    if (box(k2) !== flags[k2][1]) ed.toggleRunProp(k2);
-  }
-  if (box("sup") !== flags.sup[1]) ed.toggleVertAlign("superscript");
-  else if (box("sub") !== flags.sub[1]) ed.toggleVertAlign("subscript");
-  const cs = Number(spacing.value);
-  if (cs !== (r5.charSpacingTwips ?? 0)) ed.setCharSpacing(cs || void 0);
+  env.app.ui.flash(env.ed.addComment(text.trim()) === null ? L16.selectToComment : L16.commentAdded);
 }
 var unitOf = (lang) => lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
 var fmtUnit = (tw, u3, lang) => (Math.round(tw / u3.tw * 100) / 100).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", { maximumFractionDigits: 2 });
@@ -7103,25 +9900,25 @@ var parseUnit = (v2, u3) => {
   const n5 = parseFloat(v2.replace(/\s|cm|"|pol|in/gi, "").replace(",", "."));
   return Number.isFinite(n5) ? Math.round(n5 * u3.tw) : NaN;
 };
-var unitInput = (name, tw, u3, lang, min) => el9("input", { type: "text", name, value: fmtUnit(tw, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
+var unitInput = (name, tw, u3, lang, min) => el14("input", { type: "text", name, value: fmtUnit(tw, u3, lang), inputMode: "decimal", style: "width:96px", ...min !== void 0 ? { dataset: { min: String(min) } } : {} });
 async function paragraphDialog(env, tab = "indents") {
-  const L12 = env.app.ui.L, lang = env.lang;
+  const L16 = env.app.ui.L, lang = env.lang;
   const p3 = env.state().para;
   const u3 = unitOf(lang);
   const ind = env.ed.getParagraphIndents();
   const lay = typeof env.ed.getParagraphLayout === "function" ? env.ed.getParagraphLayout() : null;
-  const align = select4("align", [
-    ["left", tr7(lang, "Left", "Esquerda")],
-    ["center", tr7(lang, "Centered", "Centralizada")],
-    ["right", tr7(lang, "Right", "Direita")],
-    ["both", tr7(lang, "Justified", "Justificada")]
+  const align = select6("align", [
+    ["left", tr12(lang, "Left", "Esquerda")],
+    ["center", tr12(lang, "Centered", "Centralizada")],
+    ["right", tr12(lang, "Right", "Direita")],
+    ["both", tr12(lang, "Justified", "Justificada")]
   ], p3.alignment ?? "left");
   const left = unitInput("left", ind.left, u3, lang);
   const right = unitInput("right", ind.right, u3, lang);
-  const special = select4("special", [
-    ["none", tr7(lang, "(none)", "(nenhum)")],
-    ["firstLine", tr7(lang, "First line", "Primeira linha")],
-    ["hanging", tr7(lang, "Hanging", "Deslocamento")]
+  const special = select6("special", [
+    ["none", tr12(lang, "(none)", "(nenhum)")],
+    ["firstLine", tr12(lang, "First line", "Primeira linha")],
+    ["hanging", tr12(lang, "Hanging", "Deslocamento")]
   ], !ind.firstLine ? "none" : ind.firstLine > 0 ? "firstLine" : "hanging");
   const by = unitInput("by", Math.abs(ind.firstLine), u3, lang);
   const syncBy = () => {
@@ -7134,79 +9931,79 @@ async function paragraphDialog(env, tab = "indents") {
     by.value = "";
     by.disabled = true;
   }
-  const autoTxt = tr7(lang, "Auto", "Autom\xE1tico");
+  const autoTxt = tr12(lang, "Auto", "Autom\xE1tico");
   const spText = (v2) => v2 === null || v2 === void 0 ? "" : v2 === "auto" ? autoTxt : formatMeasure(v2, "pt", lang);
-  const before = el9("input", { type: "text", name: "before", inputMode: "decimal", style: "width:96px", value: spText(lay ? lay.before : p3.spaceBeforeTwips ?? 0) });
-  const after = el9("input", { type: "text", name: "after", inputMode: "decimal", style: "width:96px", value: spText(lay ? lay.after : p3.spaceAfterTwips ?? 0) });
+  const before = el14("input", { type: "text", name: "before", inputMode: "decimal", style: "width:96px", value: spText(lay ? lay.before : p3.spaceBeforeTwips ?? 0) });
+  const after = el14("input", { type: "text", name: "after", inputMode: "decimal", style: "width:96px", value: spText(lay ? lay.after : p3.spaceAfterTwips ?? 0) });
   const spStart = { before: before.value, after: after.value };
-  const dec = tr7(lang, ".", ",");
-  const line2 = select4(
+  const dec = tr12(lang, ".", ",");
+  const line2 = select6(
     "line",
     [["240", `1${dec}0`], ["259", `1${dec}08`], ["276", `1${dec}15`], ["360", `1${dec}5`], ["480", `2${dec}0`]],
     String(p3.lineTwentieths ?? 259)
   );
-  const withUnit = (i5) => el9("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
-  const grid2 = el9(
+  const withUnit = (i5) => el14("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
+  const grid2 = el14(
     "div",
     { className: "uo-dialog-grid" },
-    el9("span", {}, L12.alignment),
+    el14("span", {}, L16.alignment),
     align,
-    el9("span", {}, tr7(lang, "Left indent", "Recuo \xE0 esquerda")),
+    el14("span", {}, tr12(lang, "Left indent", "Recuo \xE0 esquerda")),
     withUnit(left),
-    el9("span", {}, tr7(lang, "Right indent", "Recuo \xE0 direita")),
+    el14("span", {}, tr12(lang, "Right indent", "Recuo \xE0 direita")),
     withUnit(right),
-    el9("span", {}, L12.specialIndent),
-    el9("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
-    el9("span", {}, L12.before),
+    el14("span", {}, L16.specialIndent),
+    el14("span", { style: "display:flex;gap:6px;align-items:center" }, special, withUnit(by)),
+    el14("span", {}, L16.before),
     before,
-    el9("span", {}, L12.after),
+    el14("span", {}, L16.after),
     after,
-    el9("span", {}, L12.lineSpacing),
+    el14("span", {}, L16.lineSpacing),
     line2
   );
   const flow = typeof env.ed.getParagraphFlow === "function" ? env.ed.getParagraphFlow() : null;
   const flag = (name, label) => {
     const v2 = flow?.[name];
-    const i5 = el9("input", { type: "checkbox", name, checked: !!v2 });
+    const i5 = el14("input", { type: "checkbox", name, checked: !!v2 });
     if (v2 === null) i5.indeterminate = true;
     i5.addEventListener("change", () => {
       i5.dataset["touched"] = "1";
     });
-    return el9("label", { className: "uo-check" }, i5, label);
+    return el14("label", { className: "uo-check" }, i5, label);
   };
-  const tight = select4("tight", [
-    ["none", tr7(lang, "None", "Nenhum")],
-    ["allLines", tr7(lang, "All", "Todas")],
-    ["firstAndLastLine", tr7(lang, "First and last lines", "Primeira e \xFAltima linhas")],
-    ["firstLineOnly", tr7(lang, "First line only", "Somente primeira linha")],
-    ["lastLineOnly", tr7(lang, "Last line only", "Somente \xFAltima linha")]
+  const tight = select6("tight", [
+    ["none", tr12(lang, "None", "Nenhum")],
+    ["allLines", tr12(lang, "All", "Todas")],
+    ["firstAndLastLine", tr12(lang, "First and last lines", "Primeira e \xFAltima linhas")],
+    ["firstLineOnly", tr12(lang, "First line only", "Somente primeira linha")],
+    ["lastLineOnly", tr12(lang, "Last line only", "Somente \xFAltima linha")]
   ], flow?.textboxTightWrap ?? "");
   if (!flow?.textboxTightWrap) tight.selectedIndex = -1;
-  const breaks = el9(
+  const breaks = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:8px" },
-    el9("strong", {}, tr7(lang, "Pagination", "Pagina\xE7\xE3o")),
-    flag("widowControl", tr7(lang, "Widow/Orphan control", "Controle de linhas \xF3rf\xE3s/vi\xFAvas")),
-    flag("keepNext", tr7(lang, "Keep with next", "Manter com o pr\xF3ximo")),
-    flag("keepLines", tr7(lang, "Keep lines together", "Manter linhas juntas")),
-    flag("pageBreakBefore", tr7(lang, "Page break before", "Quebrar p\xE1gina antes")),
-    el9("strong", { style: "margin-top:6px" }, tr7(lang, "Formatting exceptions", "Exce\xE7\xF5es de formata\xE7\xE3o")),
-    flag("suppressLineNumbers", tr7(lang, "Suppress line numbers", "Suprimir n\xFAmeros de linha")),
-    flag("suppressAutoHyphens", tr7(lang, "Don't hyphenate", "N\xE3o hifenizar")),
-    el9("strong", { style: "margin-top:6px" }, tr7(lang, "Textbox options", "Op\xE7\xF5es de caixa de texto")),
-    el9("div", { className: "uo-dialog-grid" }, el9("span", {}, tr7(lang, "Tight wrap:", "Ajuste r\xEDgido:")), tight)
+    el14("strong", {}, tr12(lang, "Pagination", "Pagina\xE7\xE3o")),
+    flag("widowControl", tr12(lang, "Widow/Orphan control", "Controle de linhas \xF3rf\xE3s/vi\xFAvas")),
+    flag("keepNext", tr12(lang, "Keep with next", "Manter com o pr\xF3ximo")),
+    flag("keepLines", tr12(lang, "Keep lines together", "Manter linhas juntas")),
+    flag("pageBreakBefore", tr12(lang, "Page break before", "Quebrar p\xE1gina antes")),
+    el14("strong", { style: "margin-top:6px" }, tr12(lang, "Formatting exceptions", "Exce\xE7\xF5es de formata\xE7\xE3o")),
+    flag("suppressLineNumbers", tr12(lang, "Suppress line numbers", "Suprimir n\xFAmeros de linha")),
+    flag("suppressAutoHyphens", tr12(lang, "Don't hyphenate", "N\xE3o hifenizar")),
+    el14("strong", { style: "margin-top:6px" }, tr12(lang, "Textbox options", "Op\xE7\xF5es de caixa de texto")),
+    el14("div", { className: "uo-dialog-grid" }, el14("span", {}, tr12(lang, "Tight wrap:", "Ajuste r\xEDgido:")), tight)
   );
   const tabs = dialogTabs([
-    { id: "indents", label: tr7(lang, "Indents and Spacing", "Recuos e espa\xE7amento"), body: grid2 },
-    { id: "breaks", label: tr7(lang, "Line and Page Breaks", "Quebras de linha e de p\xE1gina"), body: breaks }
+    { id: "indents", label: tr12(lang, "Indents and Spacing", "Recuos e espa\xE7amento"), body: grid2 },
+    { id: "breaks", label: tr12(lang, "Line and Page Breaks", "Quebras de linha e de p\xE1gina"), body: breaks }
   ], tab);
   const h3 = openDialog({
-    title: L12.paraDlg,
+    title: L16.paraDlg,
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "tabs", label: tr7(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
+    actions: [{ id: "tabs", label: tr12(lang, "Tabs\u2026", "Tabula\xE7\xE3o\u2026") }, { id: "cancel", label: L16.cancel }, { id: "ok", label: L16.apply, primary: true }]
   });
   const res = await h3.result;
   if (res !== "ok" && res !== "tabs") return;
@@ -7247,41 +10044,41 @@ async function paragraphDialog(env, tab = "indents") {
   if (res === "tabs") await tabsDialog(env);
 }
 async function tabsDialog(env) {
-  const lang = env.lang, ed = env.ed, L12 = env.app.ui.L;
+  const lang = env.lang, ed = env.ed, L16 = env.app.ui.L;
   const u3 = unitOf(lang);
   const cur = ed.getTabStops();
   let tabs = cur.tabs.map((t5) => ({ ...t5 }));
   const cleared = [];
-  const pos = el9("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
-  pos.setAttribute("aria-label", tr7(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
-  const list = el9("select", { name: "list", size: 6, style: "width:100%;height:132px" });
+  const pos = el14("input", { type: "text", name: "pos", inputMode: "decimal", style: "width:100%" });
+  pos.setAttribute("aria-label", tr12(lang, "Tab stop position", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o"));
+  const list = el14("select", { name: "list", size: 6, style: "width:100%;height:132px" });
   const def = unitInput("default", cur.defaultTabTwips, u3, lang);
-  const clearedEl = el9("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
+  const clearedEl = el14("div", { style: "font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)" });
   const radios2 = (name, opts, value) => {
-    const box = el9("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
+    const box = el14("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px 12px" });
     for (const [v2, t5] of opts) {
-      const i5 = el9("input", { type: "radio", name, value: v2, checked: v2 === value });
-      box.append(el9("label", { className: "uo-check" }, i5, t5));
+      const i5 = el14("input", { type: "radio", name, value: v2, checked: v2 === value });
+      box.append(el14("label", { className: "uo-check" }, i5, t5));
     }
     return box;
   };
   const alignBox = radios2("align", [
-    ["left", tr7(lang, "Left", "Esquerdo")],
-    ["center", tr7(lang, "Center", "Centralizado")],
-    ["right", tr7(lang, "Right", "Direito")],
-    ["decimal", tr7(lang, "Decimal", "Decimal")],
-    ["bar", tr7(lang, "Bar", "Barra")]
+    ["left", tr12(lang, "Left", "Esquerdo")],
+    ["center", tr12(lang, "Center", "Centralizado")],
+    ["right", tr12(lang, "Right", "Direito")],
+    ["decimal", tr12(lang, "Decimal", "Decimal")],
+    ["bar", tr12(lang, "Bar", "Barra")]
   ], "left");
-  const leaderBox = radios2("leader", [["", tr7(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
+  const leaderBox = radios2("leader", [["", tr12(lang, "1 None", "1 Nenhum")], ["dot", "2 ......."], ["hyphen", "3 -------"], ["underscore", "4 _______"]], "");
   const val = (name) => alignBox.parentElement?.querySelector(`input[name="${name}"]:checked`)?.value ?? body.querySelector(`input[name="${name}"]:checked`)?.value ?? "";
   const setRadio = (name, v2) => {
     for (const i5 of body.querySelectorAll(`input[name="${name}"]`)) i5.checked = i5.value === v2;
   };
   const render = (keep) => {
     tabs.sort((a3, b3) => a3.pos - b3.pos);
-    list.replaceChildren(...tabs.map((t5) => el9("option", { value: String(t5.pos), textContent: `${fmtUnit(t5.pos, u3, lang)} ${u3.name}` })));
+    list.replaceChildren(...tabs.map((t5) => el14("option", { value: String(t5.pos), textContent: `${fmtUnit(t5.pos, u3, lang)} ${u3.name}` })));
     if (keep !== void 0) list.value = String(keep);
-    clearedEl.textContent = cleared.length ? `${tr7(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x2) => `${fmtUnit(x2, u3, lang)} ${u3.name}`).join("; ")}` : "";
+    clearedEl.textContent = cleared.length ? `${tr12(lang, "Tab stops to be cleared:", "Tabula\xE7\xF5es a serem limpas:")} ${cleared.map((x2) => `${fmtUnit(x2, u3, lang)} ${u3.name}`).join("; ")}` : "";
   };
   list.addEventListener("change", () => {
     const t5 = tabs.find((x2) => String(x2.pos) === list.value);
@@ -7290,9 +10087,9 @@ async function tabsDialog(env) {
     setRadio("align", t5.align);
     setRadio("leader", t5.leader === "dot" || t5.leader === "hyphen" || t5.leader === "underscore" ? t5.leader : "");
   });
-  const setBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Set", "Definir") });
-  const clrBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Clear", "Limpar") });
-  const allBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Clear All", "Limpar Tudo") });
+  const setBtn = el14("button", { type: "button", className: "uo-pill", textContent: tr12(lang, "Set", "Definir") });
+  const clrBtn = el14("button", { type: "button", className: "uo-pill", textContent: tr12(lang, "Clear", "Limpar") });
+  const allBtn = el14("button", { type: "button", className: "uo-pill", textContent: tr12(lang, "Clear All", "Limpar Tudo") });
   const define = () => {
     const p3 = parseUnit(pos.value, u3);
     if (!Number.isFinite(p3)) return false;
@@ -7329,29 +10126,29 @@ async function tabsDialog(env) {
       define();
     }
   });
-  const left = el9(
+  const left = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0" },
-    el9("span", {}, tr7(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
+    el14("span", {}, tr12(lang, "Tab stop position:", "Posi\xE7\xE3o da parada de tabula\xE7\xE3o:")),
     pos,
     list
   );
-  const right = el9(
+  const right = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:6px;flex:1 1 0" },
-    el9("span", {}, tr7(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
-    el9("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
+    el14("span", {}, tr12(lang, "Default tab stops:", "Paradas de tabula\xE7\xE3o padr\xE3o:")),
+    el14("span", { style: "display:flex;gap:4px;align-items:center" }, def, u3.name),
     clearedEl
   );
-  const body = el9(
+  const body = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    el9("div", { style: "display:flex;gap:16px" }, left, right),
-    el9("strong", {}, tr7(lang, "Alignment", "Alinhamento")),
+    el14("div", { style: "display:flex;gap:16px" }, left, right),
+    el14("strong", {}, tr12(lang, "Alignment", "Alinhamento")),
     alignBox,
-    el9("strong", {}, tr7(lang, "Leader", "Preenchimento")),
+    el14("strong", {}, tr12(lang, "Leader", "Preenchimento")),
     leaderBox,
-    el9("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
+    el14("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, setBtn, clrBtn, allBtn)
   );
   render();
   if (tabs[0]) {
@@ -7359,12 +10156,12 @@ async function tabsDialog(env) {
     list.dispatchEvent(new Event("change"));
   }
   const h3 = openDialog({
-    title: tr7(lang, "Tabs", "Tabula\xE7\xE3o"),
+    title: tr12(lang, "Tabs", "Tabula\xE7\xE3o"),
     body,
     layer: env.layer,
     lang,
     width: 460,
-    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
+    actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: L16.apply, primary: true }]
   });
   setTimeout(() => pos.focus(), 0);
   if (await h3.result !== "ok") return;
@@ -7374,18 +10171,18 @@ async function tabsDialog(env) {
   const same = JSON.stringify(tabs) === JSON.stringify(cur.tabs.map((t5) => ({ ...t5 })).sort((a3, b3) => a3.pos - b3.pos));
   if (!same) ed.setTabStops(tabs);
 }
-var applyToSelect = (lang, hasSel, value) => select4("applyTo", [
-  ["section", tr7(lang, "This section", "Esta se\xE7\xE3o")],
-  ["forward", tr7(lang, "This point forward", "Deste ponto em diante")],
-  ["document", tr7(lang, "Whole document", "No documento inteiro")],
-  ...hasSel ? [["selection", tr7(lang, "Selected text", "Texto selecionado")]] : []
+var applyToSelect = (lang, hasSel, value) => select6("applyTo", [
+  ["section", tr12(lang, "This section", "Esta se\xE7\xE3o")],
+  ["forward", tr12(lang, "This point forward", "Deste ponto em diante")],
+  ["document", tr12(lang, "Whole document", "No documento inteiro")],
+  ...hasSel ? [["selection", tr12(lang, "Selected text", "Texto selecionado")]] : []
 ], value);
 async function pageDialog(env, tab = "margins") {
-  const L12 = env.app.ui.L, lang = env.lang, ed = env.ed;
+  const L16 = env.app.ui.L, lang = env.lang, ed = env.ed;
   const u3 = unitOf(lang);
-  const orient = select4("orientation", [["portrait", tr7(lang, "Portrait", "Retrato")], ["landscape", tr7(lang, "Landscape", "Paisagem")]], "portrait");
-  const size = select4("size", [["A4", "A4"], ["Letter", tr7(lang, "Letter", "Carta")]], "A4");
-  const margins = select4("margins", [["normal", "Normal"], ["narrow", tr7(lang, "Narrow", "Estreita")], ["wide", tr7(lang, "Wide", "Larga")], ["custom", tr7(lang, "Custom", "Personalizadas")]], "normal");
+  const orient = select6("orientation", [["portrait", tr12(lang, "Portrait", "Retrato")], ["landscape", tr12(lang, "Landscape", "Paisagem")]], "portrait");
+  const size = select6("size", [["A4", "A4"], ["Letter", tr12(lang, "Letter", "Carta")]], "A4");
+  const margins = select6("margins", [["normal", "Normal"], ["narrow", tr12(lang, "Narrow", "Estreita")], ["wide", tr12(lang, "Wide", "Larga")], ["custom", tr12(lang, "Custom", "Personalizadas")]], "normal");
   const s4 = ed.getSection();
   const cm = s4 ? { ...s4.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
   if (s4) {
@@ -7402,43 +10199,43 @@ async function pageDialog(env, tab = "margins") {
   });
   const start = { orientation: orient.value, size: size.value, margins: margins.value };
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
-  const withUnit = (i5) => el9("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
-  const marginsTab = el9(
+  const withUnit = (i5) => el14("span", { style: "display:flex;gap:4px;align-items:center" }, i5, u3.name);
+  const marginsTab = el14(
     "div",
     { className: "uo-dialog-grid" },
-    el9("span", {}, L12.margins),
+    el14("span", {}, L16.margins),
     margins,
-    el9("span", {}, tr7(lang, "Top", "Superior")),
+    el14("span", {}, tr12(lang, "Top", "Superior")),
     withUnit(mt),
-    el9("span", {}, tr7(lang, "Bottom", "Inferior")),
+    el14("span", {}, tr12(lang, "Bottom", "Inferior")),
     withUnit(mb),
-    el9("span", {}, tr7(lang, "Left", "Esquerda")),
+    el14("span", {}, tr12(lang, "Left", "Esquerda")),
     withUnit(ml),
-    el9("span", {}, tr7(lang, "Right", "Direita")),
+    el14("span", {}, tr12(lang, "Right", "Direita")),
     withUnit(mr),
-    el9("span", {}, L12.orientation),
+    el14("span", {}, L16.orientation),
     orient
   );
-  const paperTab = el9("div", { className: "uo-dialog-grid" }, el9("span", {}, L12.paper), size);
+  const paperTab = el14("div", { className: "uo-dialog-grid" }, el14("span", {}, L16.paper), size);
   const startType = s4?.type ?? "nextPage";
-  const sectStart = select4("sectionStart", [
-    ["continuous", tr7(lang, "Continuous", "Cont\xEDnuo")],
-    ["nextColumn", tr7(lang, "New column", "Nova coluna")],
-    ["nextPage", tr7(lang, "New page", "Nova p\xE1gina")],
-    ["evenPage", tr7(lang, "Even page", "P\xE1gina par")],
-    ["oddPage", tr7(lang, "Odd page", "P\xE1gina \xEDmpar")]
+  const sectStart = select6("sectionStart", [
+    ["continuous", tr12(lang, "Continuous", "Cont\xEDnuo")],
+    ["nextColumn", tr12(lang, "New column", "Nova coluna")],
+    ["nextPage", tr12(lang, "New page", "Nova p\xE1gina")],
+    ["evenPage", tr12(lang, "Even page", "P\xE1gina par")],
+    ["oddPage", tr12(lang, "Odd page", "P\xE1gina \xEDmpar")]
   ], startType);
   const hf = typeof ed.getHeaderFooterOptions === "function" ? ed.getHeaderFooterOptions() : null;
-  const oddEven = check7("oddEven", tr7(lang, "Different odd and even", "Diferentes em p\xE1ginas pares e \xEDmpares"), !!hf?.differentOddEven);
-  const firstPage = check7("firstPage", tr7(lang, "Different first page", "Diferente na primeira p\xE1gina"), !!hf?.differentFirstPage);
+  const oddEven = check9("oddEven", tr12(lang, "Different odd and even", "Diferentes em p\xE1ginas pares e \xEDmpares"), !!hf?.differentOddEven);
+  const firstPage = check9("firstPage", tr12(lang, "Different first page", "Diferente na primeira p\xE1gina"), !!hf?.differentFirstPage);
   const hdr = unitInput("header", hf?.headerDistance ?? 708, u3, lang), ftr = unitInput("footer", hf?.footerDistance ?? 708, u3, lang);
   const hfStart = { header: hdr.value, footer: ftr.value };
   const vStart = s4?.verticalAlignment ?? "top";
-  const valign = select4("valign", [
-    ["top", tr7(lang, "Top", "Superior")],
-    ["center", tr7(lang, "Center", "Centralizado")],
-    ["both", tr7(lang, "Justified", "Justificado")],
-    ["bottom", tr7(lang, "Bottom", "Inferior")]
+  const valign = select6("valign", [
+    ["top", tr12(lang, "Top", "Superior")],
+    ["center", tr12(lang, "Center", "Centralizado")],
+    ["both", tr12(lang, "Justified", "Justificado")],
+    ["bottom", tr12(lang, "Bottom", "Inferior")]
   ], vStart);
   const lnInfo = s4?.lineNumbering;
   let lnOpts = {
@@ -7449,7 +10246,7 @@ async function pageDialog(env, tab = "margins") {
     restart: lnInfo?.mode === "continuous" ? "continuous" : lnInfo?.mode === "section" ? "section" : "page"
   };
   let lnChanged = false;
-  const lnBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Line Numbers\u2026", "N\xFAmeros de Linha\u2026") });
+  const lnBtn = el14("button", { type: "button", className: "uo-pill", textContent: tr12(lang, "Line Numbers\u2026", "N\xFAmeros de Linha\u2026") });
   lnBtn.addEventListener("click", () => {
     void lineNumbersDialog(env, lnOpts).then((r5) => {
       if (r5) {
@@ -7458,50 +10255,50 @@ async function pageDialog(env, tab = "margins") {
       }
     });
   });
-  const bordersBtn = el9("button", { type: "button", className: "uo-pill", textContent: tr7(lang, "Borders\u2026", "Bordas\u2026") });
+  const bordersBtn = el14("button", { type: "button", className: "uo-pill", textContent: tr12(lang, "Borders\u2026", "Bordas\u2026") });
   bordersBtn.addEventListener("click", () => {
     void tableDialog(env, "pageBorders");
   });
-  const layoutTab = el9(
+  const layoutTab = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:10px" },
-    el9("strong", {}, tr7(lang, "Section", "Se\xE7\xE3o")),
-    el9("div", { className: "uo-dialog-grid" }, el9("span", {}, tr7(lang, "Section start:", "In\xEDcio da se\xE7\xE3o:")), sectStart),
-    el9("strong", {}, tr7(lang, "Headers and footers", "Cabe\xE7alhos e rodap\xE9s")),
+    el14("strong", {}, tr12(lang, "Section", "Se\xE7\xE3o")),
+    el14("div", { className: "uo-dialog-grid" }, el14("span", {}, tr12(lang, "Section start:", "In\xEDcio da se\xE7\xE3o:")), sectStart),
+    el14("strong", {}, tr12(lang, "Headers and footers", "Cabe\xE7alhos e rodap\xE9s")),
     oddEven,
     firstPage,
-    el9(
+    el14(
       "div",
       { className: "uo-dialog-grid" },
-      el9("span", {}, tr7(lang, "From edge: Header:", "Da borda: Cabe\xE7alho:")),
+      el14("span", {}, tr12(lang, "From edge: Header:", "Da borda: Cabe\xE7alho:")),
       withUnit(hdr),
-      el9("span", {}, tr7(lang, "Footer:", "Rodap\xE9:")),
+      el14("span", {}, tr12(lang, "Footer:", "Rodap\xE9:")),
       withUnit(ftr)
     ),
-    el9("strong", {}, tr7(lang, "Page", "P\xE1gina")),
-    el9("div", { className: "uo-dialog-grid" }, el9("span", {}, tr7(lang, "Vertical alignment:", "Alinhamento vertical:")), valign),
-    el9("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, lnBtn, bordersBtn)
+    el14("strong", {}, tr12(lang, "Page", "P\xE1gina")),
+    el14("div", { className: "uo-dialog-grid" }, el14("span", {}, tr12(lang, "Vertical alignment:", "Alinhamento vertical:")), valign),
+    el14("div", { style: "display:flex;gap:8px;justify-content:flex-end" }, lnBtn, bordersBtn)
   );
   for (const i5 of [hdr, ftr]) i5.disabled = !hf;
   oddEven.querySelector("input").disabled = firstPage.querySelector("input").disabled = !hf;
   const tabs = dialogTabs([
-    { id: "margins", label: tr7(lang, "Margins", "Margens"), body: marginsTab },
-    { id: "paper", label: tr7(lang, "Paper", "Papel"), body: paperTab },
-    { id: "layout", label: tr7(lang, "Layout", "Layout"), body: layoutTab }
+    { id: "margins", label: tr12(lang, "Margins", "Margens"), body: marginsTab },
+    { id: "paper", label: tr12(lang, "Paper", "Papel"), body: paperTab },
+    { id: "layout", label: tr12(lang, "Layout", "Layout"), body: layoutTab }
   ], tab);
-  const body = el9(
+  const body = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     tabs.el,
-    el9("div", { className: "uo-dialog-grid" }, el9("span", {}, tr7(lang, "Apply to", "Aplicar a")), applyTo)
+    el14("div", { className: "uo-dialog-grid" }, el14("span", {}, tr12(lang, "Apply to", "Aplicar a")), applyTo)
   );
   const h3 = openDialog({
-    title: L12.pageDlg,
+    title: L16.pageDlg,
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.apply, primary: true }]
+    actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: L16.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const all = applyTo.value !== "section";
@@ -7530,7 +10327,7 @@ async function columnsDialog(env) {
   if (!s4) return;
   const W = s4.columns.contentWidthTwips;
   const unit = lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
-  const fmt = (tw) => String(Math.round(tw / unit.tw * 100) / 100);
+  const fmt2 = (tw) => String(Math.round(tw / unit.tw * 100) / 100);
   const parse = (v2) => Math.round(parseFloat(v2.replace(",", ".")) * unit.tw);
   const MIN = 720;
   const st = {
@@ -7546,10 +10343,10 @@ async function columnsDialog(env) {
     const w2 = Math.round((W - st.space * (n5 - 1)) / n5);
     st.widths = Array.from({ length: n5 }, (_2, i5) => ({ widthTwips: w2, spaceTwips: i5 < n5 - 1 ? st.space : 0 }));
   };
-  const presets = el9("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const presets = el14("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
   const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
   const presetBtns = PRESETS.map(([id, en, pt, n5]) => {
-    const b3 = el9("button", { type: "button", textContent: tr7(lang, en, pt), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    const b3 = el14("button", { type: "button", textContent: tr12(lang, en, pt), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
     b3.addEventListener("click", () => {
       st.count = n5;
       if (id === "left" || id === "right") {
@@ -7566,13 +10363,13 @@ async function columnsDialog(env) {
     presets.append(b3);
     return [id, b3];
   });
-  const count = el9("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
-  const sep = check7("sep", tr7(lang, "Line between", "Linha entre colunas"), st.sep);
-  const equal = check7("equal", tr7(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
-  const rows = el9("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const count = el14("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check9("sep", tr12(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check9("equal", tr12(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el14("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
-  const newCol = check7("newCol", tr7(lang, "Start new column", "Iniciar nova coluna"), false);
-  const preview2 = el9("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const newCol = check9("newCol", tr12(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview2 = el14("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
   const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
   function render() {
     count.value = String(st.count);
@@ -7586,22 +10383,22 @@ async function columnsDialog(env) {
       b3.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
       b3.setAttribute("aria-pressed", String(on));
     }
-    rows.replaceChildren(el9("strong", {}, "#"), el9("strong", {}, tr7(lang, "Width", "Largura")), el9("strong", {}, tr7(lang, "Spacing", "Espa\xE7amento")));
+    rows.replaceChildren(el14("strong", {}, "#"), el14("strong", {}, tr12(lang, "Width", "Largura")), el14("strong", {}, tr12(lang, "Spacing", "Espa\xE7amento")));
     st.widths.slice(0, Math.max(1, st.count)).forEach((c4, i5) => {
       const last = i5 === st.count - 1;
-      const wIn = el9("input", { type: "number", step: unit.step, min: "0", value: fmt(c4.widthTwips), disabled: st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
-      const sIn = el9("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt(c4.spaceTwips), disabled: last || st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
-      wIn.setAttribute("aria-label", `${tr7(lang, "Width", "Largura")} ${i5 + 1}`);
-      sIn.setAttribute("aria-label", `${tr7(lang, "Spacing", "Espa\xE7amento")} ${i5 + 1}`);
+      const wIn = el14("input", { type: "number", step: unit.step, min: "0", value: fmt2(c4.widthTwips), disabled: st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
+      const sIn = el14("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c4.spaceTwips), disabled: last || st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
+      wIn.setAttribute("aria-label", `${tr12(lang, "Width", "Largura")} ${i5 + 1}`);
+      sIn.setAttribute("aria-label", `${tr12(lang, "Spacing", "Espa\xE7amento")} ${i5 + 1}`);
       wIn.addEventListener("change", () => setWidth(i5, parse(wIn.value)));
       sIn.addEventListener("change", () => setSpace(i5, parse(sIn.value)));
-      rows.append(el9("span", {}, `${i5 + 1}:`), el9("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el9("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+      rows.append(el14("span", {}, `${i5 + 1}:`), el14("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el14("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
     });
     preview2.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c4, i5) => {
-      const col = el9("div", { style: `flex:${c4.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      const col = el14("div", { style: `flex:${c4.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
       if (i5 === st.count - 1) return [col];
-      const gap = el9("div", { style: `flex:${Math.max(1, c4.spaceTwips)} 0 0;display:flex;justify-content:center` });
-      if (box("sep").checked) gap.append(el9("div", { style: "width:1px;background:currentColor" }));
+      const gap = el14("div", { style: `flex:${Math.max(1, c4.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el14("div", { style: "width:1px;background:currentColor" }));
       return [col, gap];
     }));
   }
@@ -7670,27 +10467,27 @@ async function columnsDialog(env) {
     equalize();
   }
   render();
-  const body = el9(
+  const body = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el9("strong", {}, tr7(lang, "Presets", "Predefini\xE7\xF5es")),
+    el14("strong", {}, tr12(lang, "Presets", "Predefini\xE7\xF5es")),
     presets,
-    el9(
+    el14(
       "div",
       { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
-      el9("label", { style: "display:flex;gap:8px;align-items:center" }, tr7(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      el14("label", { style: "display:flex;gap:8px;align-items:center" }, tr12(lang, "Number of columns", "N\xFAmero de colunas"), count),
       sep
     ),
-    el9("strong", {}, tr7(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    el14("strong", {}, tr12(lang, "Width and spacing", "Largura e espa\xE7amento")),
     rows,
     equal,
-    el9("div", { className: "uo-dialog-grid" }, el9("span", {}, tr7(lang, "Apply to", "Aplicar a")), applyTo),
+    el14("div", { className: "uo-dialog-grid" }, el14("span", {}, tr12(lang, "Apply to", "Aplicar a")), applyTo),
     newCol,
-    el9("strong", {}, tr7(lang, "Preview", "Visualiza\xE7\xE3o")),
+    el14("strong", {}, tr12(lang, "Preview", "Visualiza\xE7\xE3o")),
     preview2
   );
   const h3 = openDialog({
-    title: tr7(lang, "Columns", "Colunas"),
+    title: tr12(lang, "Columns", "Colunas"),
     icon: "view_column_2",
     body,
     layer: env.layer,
@@ -7709,20 +10506,20 @@ async function columnsDialog(env) {
   });
 }
 function wordCountDialog(env) {
-  const L12 = env.app.ui.L;
+  const L16 = env.app.ui.L;
   const s4 = env.ed.stats();
-  const fmt = (n5) => n5.toLocaleString(tr7(env.lang, "en-US", "pt-BR"));
-  const grid2 = el9(
+  const fmt2 = (n5) => n5.toLocaleString(tr12(env.lang, "en-US", "pt-BR"));
+  const grid2 = el14(
     "div",
     { className: "uo-dialog-grid" },
-    el9("span", {}, L12.pages),
-    el9("strong", {}, fmt(s4.pages)),
-    el9("span", {}, L12.words),
-    el9("strong", {}, fmt(s4.words)),
-    el9("span", {}, L12.chars),
-    el9("strong", {}, fmt(s4.chars))
+    el14("span", {}, L16.pages),
+    el14("strong", {}, fmt2(s4.pages)),
+    el14("span", {}, L16.words),
+    el14("strong", {}, fmt2(s4.words)),
+    el14("span", {}, L16.chars),
+    el14("strong", {}, fmt2(s4.chars))
   );
-  openDialog({ title: L12.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
+  openDialog({ title: L16.wordCountTitle, body: grid2, layer: env.layer, lang: env.lang, width: 320 });
 }
 var SHORTCUTS = [
   ["Ctrl+O", "Open", "Abrir"],
@@ -7745,20 +10542,20 @@ var SHORTCUTS = [
   ["Ctrl+scroll", "Zoom", "Zoom"]
 ];
 function shortcutsDialog(env) {
-  const grid2 = el9("div", { className: "uo-dialog-grid" });
+  const grid2 = el14("div", { className: "uo-dialog-grid" });
   grid2.style.gridTemplateColumns = "auto 1fr";
   for (const [k2, en, pt] of SHORTCUTS) {
-    grid2.append(el9("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el9("span", {}, tr7(env.lang, en, pt)));
+    grid2.append(el14("kbd", { style: "font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap" }, k2), el14("span", {}, tr12(env.lang, en, pt)));
   }
   openDialog({ title: env.app.ui.L.shortcutsTitle, body: grid2, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
-  const L12 = env.app.ui.L;
-  openDialog({ title: L12.aboutTitle, icon: "info", body: L12.aboutText, layer: env.layer, lang: env.lang, width: 400 });
+  const L16 = env.app.ui.L;
+  openDialog({ title: L16.aboutTitle, icon: "info", body: L16.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
 async function spellingDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const done = tr7(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
+  const done = tr12(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
   const skip = /* @__PURE__ */ new Set();
   const always = /* @__PURE__ */ new Map();
   let cur = await ed.nextMisspelling(skip);
@@ -7766,18 +10563,18 @@ async function spellingDialog(env) {
     env.app.ui.flash(done);
     return;
   }
-  const word = el9("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
-  const info = el9("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
-  const list = el9("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
+  const word = el14("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
+  const info = el14("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
+  const list = el14("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
   const show = async (m2) => {
     word.textContent = m2.word;
-    info.textContent = tr7(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
+    info.textContent = tr12(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
     const sug = await ed.spellingSuggestions(m2, 8);
-    list.replaceChildren(...sug.length ? sug.map((x2) => el9("option", { value: x2, textContent: x2 })) : [el9("option", { value: "", disabled: true, textContent: tr7(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
+    list.replaceChildren(...sug.length ? sug.map((x2) => el14("option", { value: x2, textContent: x2 })) : [el14("option", { value: "", disabled: true, textContent: tr12(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
     list.selectedIndex = sug.length ? 0 : -1;
   };
   await show(cur);
-  const body = el9("div", {}, word, info, el9("div", { style: "font-size:12px;margin-bottom:4px" }, tr7(lang, "Suggestions", "Sugest\xF5es")), list);
+  const body = el14("div", {}, word, info, el14("div", { style: "font-size:12px;margin-bottom:4px" }, tr12(lang, "Suggestions", "Sugest\xF5es")), list);
   const next = async () => {
     cur = await ed.nextMisspelling(skip);
     while (cur && always.has(cur.word)) {
@@ -7814,7 +10611,7 @@ async function spellingDialog(env) {
     void step("change");
   });
   const h3 = openDialog({
-    title: tr7(lang, "Spelling", "Ortografia"),
+    title: tr12(lang, "Spelling", "Ortografia"),
     icon: "spellcheck",
     body,
     layer: env.layer,
@@ -7835,19 +10632,19 @@ async function spellingDialog(env) {
   });
   await h3.result;
 }
-var radio4 = (name, value, label, on) => el9("label", { className: "uo-check" }, el9("input", { type: "radio", name, value, checked: on }), label);
+var radio4 = (name, value, label, on) => el14("label", { className: "uo-check" }, el14("input", { type: "radio", name, value, checked: on }), label);
 async function notesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T5 = (en, pt) => tr7(lang, en, pt);
+  const T5 = (en, pt) => tr12(lang, en, pt);
   let kind = ed.editingNote()?.kind ?? "footnote";
   const st = { footnote: ed.getNoteOptions("footnote"), endnote: ed.getNoteOptions("endnote") };
   const fnRadio = radio4("kind", "footnote", T5("Footnotes:", "Notas de rodap\xE9:"), kind === "footnote");
   const enRadio = radio4("kind", "endnote", T5("Endnotes:", "Notas de fim:"), kind === "endnote");
-  const fnPos = select4("fnPos", [["pageBottom", T5("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T5("Below text", "Abaixo do texto")]], st.footnote.position);
-  const enPos = select4("enPos", [["docEnd", T5("End of document", "Fim do documento")], ["sectEnd", T5("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
-  const convert = el9("button", { type: "button", className: "uo-pill", textContent: T5("Convert\u2026", "Converter\u2026") });
-  const columns = select4("columns", [["0", T5("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T5("1 column", "1 coluna")], ["2", T5("2 columns", "2 colunas")], ["3", T5("3 columns", "3 colunas")], ["4", T5("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
-  const format = select4("format", [
+  const fnPos = select6("fnPos", [["pageBottom", T5("Bottom of page", "Fim da p\xE1gina")], ["beneathText", T5("Below text", "Abaixo do texto")]], st.footnote.position);
+  const enPos = select6("enPos", [["docEnd", T5("End of document", "Fim do documento")], ["sectEnd", T5("End of section", "Fim da se\xE7\xE3o")]], st.endnote.position);
+  const convert = el14("button", { type: "button", className: "uo-pill", textContent: T5("Convert\u2026", "Converter\u2026") });
+  const columns = select6("columns", [["0", T5("Match section layout", "Coincidir layout de se\xE7\xE3o")], ["1", T5("1 column", "1 coluna")], ["2", T5("2 columns", "2 colunas")], ["3", T5("3 columns", "3 colunas")], ["4", T5("4 columns", "4 colunas")]], String(st.footnote.columns ?? 0));
+  const format = select6("format", [
     ["decimal", "1, 2, 3, \u2026"],
     ["lowerLetter", "a, b, c, \u2026"],
     ["upperLetter", "A, B, C, \u2026"],
@@ -7855,20 +10652,20 @@ async function notesDialog(env) {
     ["upperRoman", "I, II, III, \u2026"],
     ["chicago", "*, \u2020, \u2021, \xA7, \u2026"]
   ], st[kind].numberFormat);
-  const mark = el9("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
+  const mark = el14("input", { type: "text", name: "mark", maxLength: 10, style: "width:72px" });
   mark.setAttribute("aria-label", T5("Custom mark", "Marca personalizada"));
-  const symbols = el9("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
+  const symbols = el14("div", { style: "display:flex;gap:4px;flex-wrap:wrap" });
   for (const ch of ["*", "\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "#", "\u203B", "\xB9", "\xB2", "\xB3"]) {
-    const b3 = el9("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
+    const b3 = el14("button", { type: "button", className: "uo-btn", textContent: ch, title: ch, style: "min-width:28px;font:inherit" });
     b3.addEventListener("click", () => {
       mark.value += ch;
       mark.focus();
     });
     symbols.append(b3);
   }
-  const startAt = el9("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
-  const restart = select4("restart", [["continuous", T5("Continuous", "Cont\xEDnua")], ["eachSect", T5("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T5("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
-  const scope = select4("scope", [["document", T5("Whole document", "Todo o documento")], ["section", T5("This section", "Esta se\xE7\xE3o")]], "document");
+  const startAt = el14("input", { type: "number", name: "startAt", min: "1", step: "1", value: String(st[kind].startAt), style: "width:72px" });
+  const restart = select6("restart", [["continuous", T5("Continuous", "Cont\xEDnua")], ["eachSect", T5("Restart each section", "Reiniciar a cada se\xE7\xE3o")], ["eachPage", T5("Restart each page", "Reiniciar a cada p\xE1gina")]], st[kind].restart);
+  const scope = select6("scope", [["document", T5("Whole document", "Todo o documento")], ["section", T5("This section", "Esta se\xE7\xE3o")]], "document");
   const show = () => {
     format.value = st[kind].numberFormat;
     startAt.value = String(st[kind].startAt);
@@ -7898,18 +10695,18 @@ async function notesDialog(env) {
     startAt.disabled = restart.value !== "continuous";
   });
   show();
-  const grid2 = (...rows) => el9("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el9("span", {}, label), el9("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
-  const body = el9(
+  const grid2 = (...rows) => el14("div", { className: "uo-dialog-grid" }, ...rows.flatMap(([label, ...kids]) => [el14("span", {}, label), el14("span", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, ...kids)]));
+  const body = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:14px" },
-    el9("strong", {}, T5("Location", "Local")),
-    el9("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
-    el9("div", {}, convert),
-    el9("strong", {}, T5("Footnote layout", "Layout de nota de rodap\xE9")),
+    el14("strong", {}, T5("Location", "Local")),
+    el14("div", { className: "uo-dialog-grid" }, fnRadio, fnPos, enRadio, enPos),
+    el14("div", {}, convert),
+    el14("strong", {}, T5("Footnote layout", "Layout de nota de rodap\xE9")),
     grid2([T5("Columns:", "Colunas:"), columns]),
-    el9("strong", {}, T5("Format", "Formato")),
+    el14("strong", {}, T5("Format", "Formato")),
     grid2([T5("Number format:", "Formato do n\xFAmero:"), format], [T5("Custom mark:", "Marca personalizada:"), mark], [T5("Symbol:", "S\xEDmbolo:"), symbols], [T5("Start at:", "Iniciar em:"), startAt], [T5("Numbering:", "Numera\xE7\xE3o:"), restart]),
-    el9("strong", {}, T5("Apply changes", "Aplicar altera\xE7\xF5es")),
+    el14("strong", {}, T5("Apply changes", "Aplicar altera\xE7\xF5es")),
     grid2([T5("Apply changes to:", "Aplicar altera\xE7\xF5es a:"), scope])
   );
   convert.addEventListener("click", () => {
@@ -7943,7 +10740,7 @@ async function notesDialog(env) {
 }
 async function convertNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T5 = (en, pt) => tr7(lang, en, pt);
+  const T5 = (en, pt) => tr12(lang, en, pt);
   const nf = ed.noteCount("footnote"), ne = ed.noteCount("endnote");
   const opts = [
     ["toEndnotes", T5("Convert all footnotes to endnotes", "Converter todas as notas de rodap\xE9 em notas de fim"), nf > 0],
@@ -7951,7 +10748,7 @@ async function convertNotesDialog(env) {
     ["swap", T5("Swap footnotes and endnotes", "Trocar notas de rodap\xE9 e notas de fim"), nf > 0 && ne > 0]
   ];
   const first = opts.find((o6) => o6[2])?.[0];
-  const body = el9("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
+  const body = el14("div", { style: "display:flex;flex-direction:column;gap:8px" }, ...opts.map(([v3, label, on]) => {
     const r5 = radio4("convert", v3, label, v3 === first);
     r5.querySelector("input").disabled = !on;
     return r5;
@@ -7971,15 +10768,15 @@ async function convertNotesDialog(env) {
 }
 async function showNotesDialog(env) {
   const lang = env.lang, ed = env.ed;
-  const T5 = (en, pt) => tr7(lang, en, pt);
+  const T5 = (en, pt) => tr12(lang, en, pt);
   if (ed.editingNote() || !ed.noteCount("footnote") || !ed.noteCount("endnote")) {
     ed.showNotes();
     return;
   }
-  const body = el9(
+  const body = el14(
     "div",
     { style: "display:flex;flex-direction:column;gap:8px" },
-    el9("span", {}, T5("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
+    el14("span", {}, T5("This document contains both footnotes and endnotes. Which do you want to view?", "Este documento cont\xE9m notas de rodap\xE9 e notas de fim. Qual \xE1rea voc\xEA deseja exibir?")),
     radio4("area", "footnote", T5("View footnote area", "Exibir \xE1rea de notas de rodap\xE9"), true),
     radio4("area", "endnote", T5("View endnote area", "Exibir \xE1rea de notas de fim"), false)
   );
@@ -8076,7 +10873,7 @@ var LABELS = {
     expand: "Expandir"
   }
 };
-var el10 = (tag, cls, text) => {
+var el15 = (tag, cls, text) => {
   const e6 = document.createElement(tag);
   if (cls) e6.className = cls;
   if (text !== void 0) e6.textContent = text;
@@ -8170,20 +10967,20 @@ var NavPane = class {
     });
   }
   build() {
-    const L12 = this.L;
-    const body = el10("div", "uw-nav");
-    const box = el10("div", "uw-nav-search");
-    const ic = el10("span", "uw-nav-search-ic");
+    const L16 = this.L;
+    const body = el15("div", "uw-nav");
+    const box = el15("div", "uw-nav-search");
+    const ic = el15("span", "uw-nav-search-ic");
     ic.innerHTML = symbol("search");
-    this.input = el10("input", "uw-nav-input");
+    this.input = el15("input", "uw-nav-input");
     this.input.type = "search";
-    this.input.placeholder = L12.search;
-    this.input.setAttribute("aria-label", L12.search);
+    this.input.placeholder = L16.search;
+    this.input.setAttribute("aria-label", L16.search);
     this.input.dataset["a"] = "nav:search";
-    const optBtn = el10("button", "uo-btn uw-nav-opt");
+    const optBtn = el15("button", "uo-btn uw-nav-opt");
     optBtn.type = "button";
-    optBtn.title = L12.options;
-    optBtn.setAttribute("aria-label", L12.options);
+    optBtn.title = L16.options;
+    optBtn.setAttribute("aria-label", L16.options);
     optBtn.dataset["a"] = "nav:options";
     optBtn.innerHTML = symbol("arrow_drop_down");
     optBtn.addEventListener("click", () => this.optionsMenu(optBtn));
@@ -8205,27 +11002,27 @@ var NavPane = class {
         } else this.env.ed.focusEditor();
       }
     });
-    const st = el10("div", "uw-nav-status");
-    this.status = el10("span", "uw-nav-count");
-    const prev = el10("button", "uo-btn uw-nav-step");
+    const st = el15("div", "uw-nav-status");
+    this.status = el15("span", "uw-nav-count");
+    const prev = el15("button", "uo-btn uw-nav-step");
     prev.type = "button";
-    prev.title = L12.prev;
-    prev.setAttribute("aria-label", L12.prev);
+    prev.title = L16.prev;
+    prev.setAttribute("aria-label", L16.prev);
     prev.innerHTML = symbol("keyboard_arrow_up");
     prev.dataset["a"] = "nav:prev";
     prev.addEventListener("click", () => this.step(-1));
-    const next = el10("button", "uo-btn uw-nav-step");
+    const next = el15("button", "uo-btn uw-nav-step");
     next.type = "button";
-    next.title = L12.next;
-    next.setAttribute("aria-label", L12.next);
+    next.title = L16.next;
+    next.setAttribute("aria-label", L16.next);
     next.innerHTML = symbol("keyboard_arrow_down");
     next.dataset["a"] = "nav:next";
     next.addEventListener("click", () => this.step(1));
     st.append(this.status, prev, next);
-    const tabs = el10("div", "uw-nav-tabs");
+    const tabs = el15("div", "uw-nav-tabs");
     tabs.setAttribute("role", "tablist");
     for (const t5 of ["headings", "pages", "results"]) {
-      const b3 = el10("button", "uw-nav-tab", L12[t5]);
+      const b3 = el15("button", "uw-nav-tab", L16[t5]);
       b3.type = "button";
       b3.setAttribute("role", "tab");
       b3.dataset["a"] = `nav:tab:${t5}`;
@@ -8236,11 +11033,11 @@ var NavPane = class {
       this.tabs.set(t5, b3);
       tabs.appendChild(b3);
     }
-    this.bodyEl = el10("div", "uw-nav-body");
+    this.bodyEl = el15("div", "uw-nav-body");
     body.append(box, st, tabs, this.bodyEl);
     const pane = openPane({
       id: "navigation",
-      title: L12.title,
+      title: L16.title,
       lang: this.env.lang,
       layer: this.env.layer,
       frame: this.env.frame,
@@ -8267,7 +11064,7 @@ var NavPane = class {
     this.env.app.prefs.set("navPane", "1");
   }
   optionsMenu(anchor) {
-    const L12 = this.L;
+    const L16 = this.L;
     const flag = (k2, label) => ({
       id: `nav:${k2}`,
       label,
@@ -8278,13 +11075,13 @@ var NavPane = class {
       }
     });
     openMenu([
-      flag("matchCase", L12.matchCase),
-      flag("wholeWord", L12.wholeWord),
-      flag("highlight", L12.highlight),
-      flag("incremental", L12.incremental),
+      flag("matchCase", L16.matchCase),
+      flag("wholeWord", L16.wholeWord),
+      flag("highlight", L16.highlight),
+      flag("incremental", L16.incremental),
       { sep: true },
-      { id: "nav:replace", label: L12.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
-      { id: "nav:clear", label: L12.clear, icon: "close", onClick: () => {
+      { id: "nav:replace", label: L16.replace, icon: "find_replace", onClick: () => this.env.replace(), disabled: this.env.ed.isProtected() },
+      { id: "nav:clear", label: L16.clear, icon: "close", onClick: () => {
         this.input.value = "";
         this.runSearch(true);
       }, disabled: !this.query }
@@ -8308,7 +11105,7 @@ var NavPane = class {
   }
   refresh() {
     if (!this.pane) return;
-    const L12 = this.L;
+    const L16 = this.L;
     const ed = this.env.ed;
     this.pane.place();
     this.heads = ed.getHeadings();
@@ -8318,7 +11115,7 @@ var NavPane = class {
     }
     const n5 = this.results.length;
     this.status.parentElement.hidden = !this.query;
-    this.status.textContent = !this.query ? "" : !n5 ? L12.results0 : this.current >= 0 ? L12.result(this.current + 1, n5) : L12.resultsN(n5);
+    this.status.textContent = !this.query ? "" : !n5 ? L16.results0 : this.current >= 0 ? L16.result(this.current + 1, n5) : L16.resultsN(n5);
     for (const b3 of this.status.parentElement.querySelectorAll("button")) b3.disabled = !n5;
     if (this.tab === "headings") this.renderHeadings();
     else if (this.tab === "pages") this.renderPages();
@@ -8346,13 +11143,13 @@ var NavPane = class {
     return roots;
   }
   renderHeadings() {
-    const L12 = this.L;
+    const L16 = this.L;
     const ed = this.env.ed;
-    const list = el10("div", "uw-nav-tree");
+    const list = el15("div", "uw-nav-tree");
     list.setAttribute("role", "tree");
     if (!this.heads.length) {
       this.treeSig = "";
-      this.bodyEl.replaceChildren(el10("p", "uw-nav-empty", L12.noHeadings));
+      this.bodyEl.replaceChildren(el15("p", "uw-nav-empty", L16.noHeadings));
       return;
     }
     const cur = ed.currentHeading(this.heads);
@@ -8366,25 +11163,25 @@ var NavPane = class {
       return;
     }
     this.treeSig = sig;
-    const row2 = (node, depth) => {
+    const row3 = (node, depth) => {
       const h3 = node.h;
       if (h3.level > this.maxLevel) return;
       const kids = node.kids.filter((k2) => k2.h.level <= this.maxLevel);
       const key = this.keyOf(h3);
       const closed = this.collapsed.has(key);
-      const r5 = el10("div", "uw-nav-row");
+      const r5 = el15("div", "uw-nav-row");
       r5.setAttribute("role", "treeitem");
       r5.dataset["index"] = String(h3.index);
       r5.style.paddingLeft = `${4 + depth * 14}px`;
       r5.classList.toggle("uo-on", h3.index === cur);
       r5.classList.toggle("uw-nav-hit", hit.has(h3.index));
       if (kids.length) r5.setAttribute("aria-expanded", String(!closed));
-      const tw = el10("button", "uw-nav-twisty");
+      const tw = el15("button", "uw-nav-twisty");
       tw.type = "button";
       tw.tabIndex = -1;
       if (kids.length) {
         tw.innerHTML = symbol(closed ? "chevron_right" : "expand_more");
-        tw.title = closed ? L12.expand : L12.collapse;
+        tw.title = closed ? L16.expand : L16.collapse;
         tw.addEventListener("click", (e6) => {
           e6.stopPropagation();
           if (closed) this.collapsed.delete(key);
@@ -8392,7 +11189,7 @@ var NavPane = class {
           this.refresh();
         });
       } else tw.classList.add("uw-nav-leaf");
-      const label = el10("span", "uw-nav-label", h3.text);
+      const label = el15("span", "uw-nav-label", h3.text);
       label.title = h3.text;
       r5.append(tw, label);
       r5.addEventListener("click", () => {
@@ -8418,9 +11215,9 @@ var NavPane = class {
         });
       }
       list.appendChild(r5);
-      if (!closed) for (const k2 of kids) row2(k2, depth + 1);
+      if (!closed) for (const k2 of kids) row3(k2, depth + 1);
     };
-    for (const n5 of this.tree()) row2(n5, 0);
+    for (const n5 of this.tree()) row3(n5, 0);
     list.addEventListener("dragover", (e6) => {
       if (this.dragFrom < 0) return;
       e6.preventDefault();
@@ -8469,7 +11266,7 @@ var NavPane = class {
     this.bodyEl.querySelector(".uw-nav-tree")?.classList.remove("uw-nav-drop-end");
   }
   headingMenu(h3, x2, y3) {
-    const L12 = this.L;
+    const L16 = this.L;
     const ed = this.env.ed;
     const ro = ed.isProtected();
     const done = (ok) => {
@@ -8477,52 +11274,52 @@ var NavPane = class {
       this.refresh();
     };
     const levels = () => [
-      { id: "nav:levels:all", label: L12.all, checked: this.maxLevel === 9, onClick: () => {
+      { id: "nav:levels:all", label: L16.all, checked: this.maxLevel === 9, onClick: () => {
         this.maxLevel = 9;
         this.refresh();
       } },
-      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L12.level(n5), checked: this.maxLevel === n5, onClick: () => {
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n5) => ({ id: `nav:levels:${n5}`, label: L16.level(n5), checked: this.maxLevel === n5, onClick: () => {
         this.maxLevel = n5;
         this.refresh();
       } }))
     ];
     openMenu([
-      { id: "nav:promote", label: L12.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
-      { id: "nav:demote", label: L12.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
+      { id: "nav:promote", label: L16.promote, icon: "arrow_back", disabled: ro || h3.level <= 1, onClick: () => done(ed.promoteHeading(h3.index)) },
+      { id: "nav:demote", label: L16.demote, icon: "arrow_forward", disabled: ro || h3.level >= 9, onClick: () => done(ed.demoteHeading(h3.index)) },
       { sep: true },
-      { id: "nav:newBefore", label: L12.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
-      { id: "nav:newAfter", label: L12.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
-      { id: "nav:newSub", label: L12.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
-      { id: "nav:delete", label: L12.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
+      { id: "nav:newBefore", label: L16.newBefore, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "before")) },
+      { id: "nav:newAfter", label: L16.newAfter, disabled: ro, onClick: () => done(ed.insertHeading(h3.index, "after")) },
+      { id: "nav:newSub", label: L16.newSub, disabled: ro || h3.level >= 9, onClick: () => done(ed.insertHeading(h3.index, "sub")) },
+      { id: "nav:delete", label: L16.del, icon: "delete", disabled: ro, onClick: () => done(ed.deleteHeading(h3.index)) },
       { sep: true },
-      { id: "nav:select", label: L12.select, icon: "select_all", onClick: () => {
+      { id: "nav:select", label: L16.select, icon: "select_all", onClick: () => {
         ed.selectHeading(h3.index);
         this.env.after();
       } },
       { sep: true },
-      { id: "nav:expandAll", label: L12.expandAll, icon: "unfold_more", onClick: () => {
+      { id: "nav:expandAll", label: L16.expandAll, icon: "unfold_more", onClick: () => {
         this.collapsed.clear();
         this.refresh();
       } },
-      { id: "nav:collapseAll", label: L12.collapseAll, icon: "unfold_less", onClick: () => {
+      { id: "nav:collapseAll", label: L16.collapseAll, icon: "unfold_less", onClick: () => {
         for (const x3 of this.heads) this.collapsed.add(this.keyOf(x3));
         this.refresh();
       } },
-      { id: "nav:levels", label: L12.showLevels, submenu: levels }
+      { id: "nav:levels", label: L16.showLevels, submenu: levels }
     ], { x: x2, y: y3 }, { layer: this.env.layer, lang: this.env.lang });
   }
   // ───── Páginas ─────
   renderPages() {
-    const L12 = this.L;
+    const L16 = this.L;
     const ed = this.env.ed;
     const total = ed.layoutPageCount();
     if (!total) {
-      this.bodyEl.replaceChildren(el10("p", "uw-nav-empty", L12.noPages));
+      this.bodyEl.replaceChildren(el15("p", "uw-nav-empty", L16.noPages));
       return;
     }
     const only = this.query ? new Set(this.results.map((r5) => r5.page).filter((p3) => p3 >= 0)) : null;
     if (only && !only.size) {
-      this.bodyEl.replaceChildren(el10("p", "uw-nav-empty", L12.noMatch));
+      this.bodyEl.replaceChildren(el15("p", "uw-nav-empty", L16.noMatch));
       return;
     }
     const cur = ed.currentPage() - 1;
@@ -8530,7 +11327,7 @@ var NavPane = class {
     const want = [...Array(total).keys()].filter((i5) => !only || only.has(i5));
     const sig = want.join(",");
     if (!grid2 || grid2.dataset["sig"] !== sig) {
-      grid2 = el10("div", "uw-nav-pages");
+      grid2 = el15("div", "uw-nav-pages");
       grid2.dataset["sig"] = sig;
       this.io?.disconnect();
       this.thumbs.clear();
@@ -8538,14 +11335,14 @@ var NavPane = class {
         for (const e6 of ents) if (e6.isIntersecting) this.paintThumb(+e6.target.dataset["page"]);
       }, { root: this.bodyEl, rootMargin: "200px" });
       for (const i5 of want) {
-        const item = el10("button", "uw-nav-page");
+        const item = el15("button", "uw-nav-page");
         item.type = "button";
         item.dataset["page"] = String(i5);
         item.dataset["a"] = `nav:page:${i5 + 1}`;
-        item.title = L12.page(i5 + 1);
-        const c4 = el10("canvas", "uw-nav-thumb");
-        const num2 = el10("span", "uw-nav-pnum", String(i5 + 1));
-        item.append(c4, num2);
+        item.title = L16.page(i5 + 1);
+        const c4 = el15("canvas", "uw-nav-thumb");
+        const num3 = el15("span", "uw-nav-pnum", String(i5 + 1));
+        item.append(c4, num3);
         item.addEventListener("click", () => {
           ed.goToPage(i5);
           this.refresh();
@@ -8570,24 +11367,24 @@ var NavPane = class {
   }
   // ───── Resultados ─────
   renderResults() {
-    const L12 = this.L;
+    const L16 = this.L;
     if (!this.query) {
-      this.bodyEl.replaceChildren(el10("p", "uw-nav-empty", L12.noSearch));
+      this.bodyEl.replaceChildren(el15("p", "uw-nav-empty", L16.noSearch));
       return;
     }
     if (!this.results.length) {
-      this.bodyEl.replaceChildren(el10("p", "uw-nav-empty", L12.noMatch));
+      this.bodyEl.replaceChildren(el15("p", "uw-nav-empty", L16.noMatch));
       return;
     }
-    const list = el10("div", "uw-nav-results");
+    const list = el15("div", "uw-nav-results");
     list.setAttribute("role", "list");
     for (const r5 of this.results) {
-      const b3 = el10("button", "uw-nav-result");
+      const b3 = el15("button", "uw-nav-result");
       b3.type = "button";
       b3.setAttribute("role", "listitem");
       b3.dataset["a"] = `nav:result:${r5.index + 1}`;
       b3.classList.toggle("uo-on", r5.index === this.current);
-      b3.append(document.createTextNode(r5.before), el10("strong", void 0, r5.match), document.createTextNode(r5.after));
+      b3.append(document.createTextNode(r5.before), el15("strong", void 0, r5.match), document.createTextNode(r5.after));
       b3.addEventListener("click", () => {
         this.current = r5.index;
         this.env.ed.goToSearchResult(r5.index);
@@ -8601,25 +11398,25 @@ var NavPane = class {
 };
 
 // src/chrome-ruler.ts
-var L10 = (en, pt) => ({ en, pt });
+var L14 = (en, pt) => ({ en, pt });
 var TIPS = {
-  firstLine: L10("First Line Indent", "Recuo da Primeira Linha"),
-  hanging: L10("Hanging Indent", "Recuo Deslocado"),
-  left: L10("Left Indent", "Recuo \xE0 Esquerda"),
-  right: L10("Right Indent", "Recuo \xE0 Direita"),
-  marginL: L10("Left Margin", "Margem Esquerda"),
-  marginR: L10("Right Margin", "Margem Direita"),
-  marginT: L10("Top Margin", "Margem Superior"),
-  marginB: L10("Bottom Margin", "Margem Inferior"),
-  column: L10("Move Column", "Mover Coluna"),
-  cell: L10("Move Table Column", "Mover Coluna da Tabela"),
-  row: L10("Adjust Table Row", "Ajustar Linha da Tabela"),
+  firstLine: L14("First Line Indent", "Recuo da Primeira Linha"),
+  hanging: L14("Hanging Indent", "Recuo Deslocado"),
+  left: L14("Left Indent", "Recuo \xE0 Esquerda"),
+  right: L14("Right Indent", "Recuo \xE0 Direita"),
+  marginL: L14("Left Margin", "Margem Esquerda"),
+  marginR: L14("Right Margin", "Margem Direita"),
+  marginT: L14("Top Margin", "Margem Superior"),
+  marginB: L14("Bottom Margin", "Margem Inferior"),
+  column: L14("Move Column", "Mover Coluna"),
+  cell: L14("Move Table Column", "Mover Coluna da Tabela"),
+  row: L14("Adjust Table Row", "Ajustar Linha da Tabela"),
   tab: {
-    left: L10("Left Tab", "Tabula\xE7\xE3o Esquerda"),
-    center: L10("Center Tab", "Tabula\xE7\xE3o Centralizada"),
-    right: L10("Right Tab", "Tabula\xE7\xE3o Direita"),
-    decimal: L10("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
-    bar: L10("Bar Tab", "Barra de Tabula\xE7\xE3o")
+    left: L14("Left Tab", "Tabula\xE7\xE3o Esquerda"),
+    center: L14("Center Tab", "Tabula\xE7\xE3o Centralizada"),
+    right: L14("Right Tab", "Tabula\xE7\xE3o Direita"),
+    decimal: L14("Decimal Tab", "Tabula\xE7\xE3o Decimal"),
+    bar: L14("Bar Tab", "Barra de Tabula\xE7\xE3o")
   }
 };
 var MIN_TEXT = 720;
@@ -8649,7 +11446,7 @@ var RulerUI = class {
     this.guide = document.createElement("div");
     this.guide.className = "uw-ruler-guide";
     this.guide.hidden = true;
-    for (const el14 of [this.h.el, this.vbox]) el14.addEventListener("mousedown", (e6) => e6.preventDefault());
+    for (const el19 of [this.h.el, this.vbox]) el19.addEventListener("mousedown", (e6) => e6.preventDefault());
   }
   env;
   h;
@@ -8902,118 +11699,21 @@ var RulerUI = class {
 };
 
 // src/chrome-panels.ts
-var FindPanel = class {
-  constructor(ed, app, layer) {
-    this.ed = ed;
-    this.app = app;
-    const L12 = app.ui.L;
-    const el14 = document.createElement("div");
-    el14.className = "uw-find";
-    el14.setAttribute("role", "dialog");
-    el14.setAttribute("aria-label", L12.findTitle);
-    el14.setAttribute("part", "find");
-    el14.hidden = true;
-    el14.innerHTML = `
-      <div class="uw-find-head"><strong></strong>
-        <button type="button" class="uo-btn" data-a="find:close">${symbol("close")}</button></div>
-      <input type="text" data-a="find:text" />
-      <input type="text" data-a="find:replace" />
-      <div class="uw-find-actions"><span class="uw-find-msg"></span>
-        <button type="button" class="uo-pill" data-a="find:next"></button>
-        <button type="button" class="uo-pill" data-a="find:one"></button>
-        <button type="button" class="uo-pill uo-pill-primary" data-a="find:all"></button></div>`;
-    el14.querySelector("strong").textContent = L12.findTitle;
-    this.find = el14.querySelector('[data-a="find:text"]');
-    this.repl = el14.querySelector('[data-a="find:replace"]');
-    this.msg = el14.querySelector(".uw-find-msg");
-    this.find.placeholder = L12.find;
-    this.repl.placeholder = L12.replaceWith;
-    const b3 = (id, label, fn) => {
-      const x2 = el14.querySelector(`[data-a="find:${id}"]`);
-      x2.textContent = label;
-      x2.addEventListener("click", fn);
-    };
-    b3("next", L12.findNext, () => this.next());
-    b3("one", L12.replace, () => this.replaceOne());
-    b3("all", L12.replaceAll, () => this.replaceAll());
-    el14.querySelector('[data-a="find:close"]').addEventListener("click", () => this.close());
-    for (const i5 of [this.find, this.repl]) {
-      i5.addEventListener("keydown", (e6) => {
-        if (e6.key === "Escape") {
-          e6.preventDefault();
-          this.close();
-        }
-        if (e6.key === "Enter") {
-          e6.preventDefault();
-          if (i5 === this.repl && e6.ctrlKey) this.replaceAll();
-          else this.next();
-        }
-      });
-    }
-    this.find.addEventListener("input", () => {
-      this.msg.textContent = "";
-      this.find.classList.remove("uw-miss");
-    });
-    layer.appendChild(el14);
-    this.el = el14;
-  }
-  ed;
-  app;
-  el;
-  find;
-  repl;
-  msg;
-  get isOpen() {
-    return !this.el.hidden;
-  }
-  open(replace, top) {
-    this.el.hidden = false;
-    this.el.style.top = `${Math.max(8, top)}px`;
-    const editable = !this.ed.isProtected();
-    for (const x2 of this.el.querySelectorAll('[data-a="find:replace"],[data-a="find:one"],[data-a="find:all"]')) x2.hidden = !editable;
-    const sel4 = this.ed.selectedText();
-    if (sel4 && !sel4.includes("\n") && sel4.length < 200) this.find.value = sel4;
-    const t5 = replace && editable ? this.repl : this.find;
-    t5.focus();
-    t5.select();
-  }
-  close() {
-    this.el.hidden = true;
-    this.ed.focusEditor();
-  }
-  next() {
-    const ok = !!this.find.value && this.ed.findNext(this.find.value);
-    this.find.classList.toggle("uw-miss", !ok && !!this.find.value);
-    this.msg.textContent = ok || !this.find.value ? "" : this.app.ui.L.notFound;
-    return ok;
-  }
-  replaceOne() {
-    const needle = this.find.value;
-    if (!needle) return;
-    if (this.ed.selectedText().toLowerCase() === needle.toLowerCase()) this.ed.pasteText(this.repl.value);
-    this.next();
-  }
-  replaceAll() {
-    if (!this.find.value) return;
-    const n5 = this.ed.replaceAll(this.find.value, this.repl.value);
-    this.msg.textContent = n5 ? this.app.ui.L.replaced(n5) : this.app.ui.L.notFound;
-  }
-};
 var CommentCards = class {
   constructor(ed, app, root, after) {
     this.ed = ed;
     this.app = app;
     this.after = after;
-    const el14 = document.createElement("div");
-    el14.className = "uw-comments";
-    el14.setAttribute("part", "comments");
+    const el19 = document.createElement("div");
+    el19.className = "uw-comments";
+    el19.setAttribute("part", "comments");
     for (const t5 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
-      el14.addEventListener(t5, (e6) => {
+      el19.addEventListener(t5, (e6) => {
         if (t5 !== "wheel") e6.stopPropagation();
       }, { passive: t5 === "wheel" });
     }
-    root.appendChild(el14);
-    this.el = el14;
+    root.appendChild(el19);
+    this.el = el19;
   }
   ed;
   app;
@@ -9035,7 +11735,7 @@ var CommentCards = class {
   render() {
     const pages = [...this.ed.shadowRoot?.querySelectorAll("canvas.page") ?? []];
     const print = this.ed.getView() === "print";
-    const L12 = this.app.ui.L;
+    const L16 = this.app.ui.L;
     const mode = this.ed.getMarkupMode();
     const mk = this.ed.getMarkupOptions();
     const revs = print && mode === "all" && mk.balloons !== "inline" ? this.ed.getRevisions() : [];
@@ -9067,9 +11767,9 @@ var CommentCards = class {
       card.className = `uw-card${active.has(c4.id) ? " active" : ""}`;
       card.dataset["commentId"] = String(c4.id);
       card.innerHTML = `<div class="uw-card-head"><span class="who"></span>
-        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L12.deleteComment}">${symbol("delete")}</button></div>
+        <button type="button" class="uo-btn" data-a="comment:delete:${c4.id}" title="${L16.deleteComment}">${symbol("delete")}</button></div>
         <div class="txt"></div>`;
-      card.querySelector(".who").textContent = c4.author ?? L12.anonymous;
+      card.querySelector(".who").textContent = c4.author ?? L16.anonymous;
       card.querySelector(".txt").textContent = c4.text;
       card.querySelector("button").addEventListener("click", (e6) => {
         e6.stopPropagation();
@@ -9095,8 +11795,8 @@ var CommentCards = class {
       card.className = "uw-card uw-rev-card";
       card.style.setProperty("--uw-rev", `#${r5.color}`);
       card.innerHTML = `<div class="uw-card-head"><span class="who"></span><span class="when"></span>
-        <button type="button" class="uo-btn" data-a="rev:accept" title="${L12.revAccept}">${symbol("check")}</button>
-        <button type="button" class="uo-btn" data-a="rev:reject" title="${L12.revReject}">${symbol("close")}</button></div>
+        <button type="button" class="uo-btn" data-a="rev:accept" title="${L16.revAccept}">${symbol("check")}</button>
+        <button type="button" class="uo-btn" data-a="rev:reject" title="${L16.revReject}">${symbol("close")}</button></div>
         <div class="txt"></div>`;
       card.querySelector(".who").textContent = r5.author;
       card.querySelector(".when").textContent = revisionTime(r5.date, uiLang(this.ed));
@@ -9105,7 +11805,7 @@ var CommentCards = class {
         const [head, ...rest] = r5.description.split(": ");
         txt.append(Object.assign(document.createElement("b"), { textContent: `${head}: ` }), rest.join(": "));
       } else {
-        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L12.revParaDeleted : L12.revDeleted}: ` }), r5.text);
+        txt.append(Object.assign(document.createElement("b"), { textContent: `${r5.mark ? L16.revParaDeleted : L16.revDeleted}: ` }), r5.text);
       }
       const [acc, rej] = card.querySelectorAll("button");
       acc.addEventListener("click", (e6) => {
@@ -9144,16 +11844,16 @@ var StatusBar = class {
   constructor(ed, app, container, ctx) {
     this.ed = ed;
     this.app = app;
-    const bar = document.createElement("div");
-    bar.className = "uw-status-bar";
-    bar.setAttribute("part", "statusbar");
+    const bar2 = document.createElement("div");
+    bar2.className = "uw-status-bar";
+    bar2.setAttribute("part", "statusbar");
     this.status = document.createElement("span");
     this.status.className = "uw-status";
     this.status.dataset["a"] = "status";
     this.status.setAttribute("role", "status");
     const sp = document.createElement("span");
     sp.className = "uo-spacer";
-    bar.append(this.status, sp);
+    bar2.append(this.status, sp);
     const views = document.createElement("span");
     views.className = "uw-views";
     for (const id of ["view:print", "view:web", "view:read", "focus"]) {
@@ -9161,7 +11861,7 @@ var StatusBar = class {
       views.appendChild(r5.el);
       this.items.push(r5);
     }
-    bar.appendChild(views);
+    bar2.appendChild(views);
     const zo = renderItem("zoomout", ctx);
     this.slider = document.createElement("input");
     this.slider.type = "range";
@@ -9194,8 +11894,8 @@ var StatusBar = class {
     this.items.push(zo, zi, { el: pct, visible: () => true, sync: () => {
       pct.textContent = `${Math.round(ed.getZoom() * 100)}%`;
     } });
-    bar.append(zo.el, this.slider, zi.el, pct);
-    container.appendChild(bar);
+    bar2.append(zo.el, this.slider, zi.el, pct);
+    container.appendChild(bar2);
   }
   ed;
   app;
@@ -9300,7 +12000,7 @@ var ReviewPane = class {
     const pane = this.pane;
     if (!pane) return;
     pane.place();
-    const L12 = this.app.ui.L;
+    const L16 = this.app.ui.L;
     const lang = uiLang(this.ed);
     const revs = this.ed.getRevisions();
     const comments = this.app.commentsVisible ? this.ed.getComments() : [];
@@ -9311,17 +12011,17 @@ var ReviewPane = class {
       else if (r5.kind === "delete") n5.del++;
       else n5.fmt++;
     }
-    pane.setTitle(`${L12.revPane}: ${L12.revCount(revs.length)}`);
+    pane.setTitle(`${L16.revPane}: ${L16.revCount(revs.length)}`);
     const sum = document.createElement("div");
     sum.className = "uw-review-sum";
-    sum.textContent = [`${L12.revInsertions}: ${n5.ins}`, `${L12.revDeletions}: ${n5.del}`, `${L12.revMoves}: ${n5.move}`, `${L12.revFormatting}: ${n5.fmt}`, `${L12.revComments}: ${comments.length}`].join(" \xB7 ");
+    sum.textContent = [`${L16.revInsertions}: ${n5.ins}`, `${L16.revDeletions}: ${n5.del}`, `${L16.revMoves}: ${n5.move}`, `${L16.revFormatting}: ${n5.fmt}`, `${L16.revComments}: ${comments.length}`].join(" \xB7 ");
     const list = document.createElement("ul");
     list.className = "uw-review-list";
     revs.forEach((r5, i5) => {
       const li = document.createElement("li");
       li.className = "uw-rev";
       li.style.setProperty("--uw-rev", `#${r5.color}`);
-      const what = r5.move ? r5.kind === "delete" ? L12.revMovedFrom : L12.revMovedTo : r5.kind === "insert" ? r5.mark ? L12.revParaInserted : L12.revInserted : r5.kind === "delete" ? r5.mark ? L12.revParaDeleted : L12.revDeleted : L12.revFormatted;
+      const what = r5.move ? r5.kind === "delete" ? L16.revMovedFrom : L16.revMovedTo : r5.kind === "insert" ? r5.mark ? L16.revParaInserted : L16.revInserted : r5.kind === "delete" ? r5.mark ? L16.revParaDeleted : L16.revDeleted : L16.revFormatted;
       li.innerHTML = `<div class="uw-rev-head"><span class="who"></span><span class="what"></span><span class="gap"></span>
         <button type="button" class="uo-btn" data-a="rev:accept">${symbol("check")}</button>
         <button type="button" class="uo-btn" data-a="rev:reject">${symbol("close")}</button></div><div class="when"></div><div class="txt"></div>`;
@@ -9330,8 +12030,8 @@ var ReviewPane = class {
       li.querySelector(".when").textContent = revisionTime(r5.date, lang);
       li.querySelector(".txt").textContent = r5.description ? r5.description.replace(/^[^:]*:\s*/, "") : r5.text;
       const [acc, rej] = li.querySelectorAll("button");
-      acc.title = L12.revAccept;
-      rej.title = L12.revReject;
+      acc.title = L16.revAccept;
+      rej.title = L16.revReject;
       acc.addEventListener("click", (e6) => {
         e6.stopPropagation();
         if (this.ed.acceptRevisionAt(i5)) this.after();
@@ -9350,8 +12050,8 @@ var ReviewPane = class {
       const li = document.createElement("li");
       li.className = "uw-rev uw-rev-comment";
       li.innerHTML = '<div class="uw-rev-head"><span class="who"></span><span class="what"></span></div><div class="txt"></div>';
-      li.querySelector(".who").textContent = c4.author ?? L12.anonymous;
-      li.querySelector(".what").textContent = L12.revComments;
+      li.querySelector(".who").textContent = c4.author ?? L16.anonymous;
+      li.querySelector(".what").textContent = L16.revComments;
       li.querySelector(".txt").textContent = c4.text;
       li.addEventListener("click", () => {
         this.app.activeCommentIds = [c4.id];
@@ -9363,7 +12063,7 @@ var ReviewPane = class {
     if (!revs.length && !comments.length) {
       const li = document.createElement("li");
       li.className = "uw-rev-empty";
-      li.textContent = L12.revNone;
+      li.textContent = L16.revNone;
       list.appendChild(li);
     }
     pane.body.replaceChildren(sum, list);
@@ -9371,7 +12071,7 @@ var ReviewPane = class {
 };
 
 // src/chrome-picture-pane.ts
-var el11 = (tag, props = {}, ...kids) => {
+var el16 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
@@ -9385,24 +12085,24 @@ var withAlpha = (c4, pct) => ({ ...c4, mods: [...(c4.mods ?? []).filter((m2) => 
 var noAlpha = (c4) => ({ ...c4, mods: (c4.mods ?? []).filter((m2) => m2[0] !== "alpha") });
 function toggleFormatPane(env, tab, onClose) {
   const { ed, lang } = env;
-  const tr9 = (en, pt2) => pickLabels(lang, { en, pt: pt2 });
+  const tr14 = (en, pt2) => pickLabels(lang, { en, pt: pt2 });
   const cur = paneOpen("pic-format");
   if (cur) {
     cur.close();
     return null;
   }
   const shape = !ed.selectedImage() && typeof ed.selectedShape === "function" && !!ed.selectedShape();
-  const fmt = () => ed.selectedImage()?.format ?? null;
+  const fmt2 = () => ed.selectedImage()?.format ?? null;
   const sfmt = () => ed.selectedShape()?.format ?? null;
-  const anyFmt = () => shape ? sfmt() : fmt();
+  const anyFmt = () => shape ? sfmt() : fmt2();
   const off = () => !(shape ? ed.selectedShape() : ed.selectedImage()) || ed.isProtected();
   const setFormat = (o6) => shape ? ed.setShapeFormat(o6) : ed.setImageFormat(o6);
   const setEffect = (k2, id) => shape ? ed.setShapeEffect(k2, id) : ed.setImageEffect(k2, id);
   const setAlt = (o6) => shape ? ed.setShapeAltText(o6) : ed.setImageAltText(o6);
   const syncers = [];
-  const dec = tr9(".", ",");
-  const num2 = (label, unit, get, set, o6 = {}) => {
-    const input = el11("input", { type: "text", inputMode: "decimal", style: "width:76px" });
+  const dec = tr14(".", ",");
+  const num3 = (label, unit, get, set, o6 = {}) => {
+    const input = el16("input", { type: "text", inputMode: "decimal", style: "width:76px" });
     input.setAttribute("aria-label", label);
     const digits = o6.digits ?? 1;
     const show2 = () => {
@@ -9433,8 +12133,8 @@ function toggleFormatPane(env, tab, onClose) {
       env.after();
       sync();
     };
-    const up = el11("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
-    const dn = el11("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const up = el16("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
+    const dn = el16("button", { type: "button", className: "uo-btn", style: "width:18px;height:13px;min-width:0;padding:0" });
     up.innerHTML = symbol("keyboard_arrow_up");
     dn.innerHTML = symbol("keyboard_arrow_down");
     for (const [b3, d3] of [[up, 1], [dn, -1]]) {
@@ -9442,12 +12142,12 @@ function toggleFormatPane(env, tab, onClose) {
       b3.addEventListener("click", () => step(d3));
     }
     syncers.push(show2);
-    return row2(label, el11("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el11("span", { style: "display:inline-flex;flex-direction:column" }, up, dn)));
+    return row3(label, el16("span", { style: "display:inline-flex;align-items:center;gap:2px" }, input, el16("span", { style: "display:inline-flex;flex-direction:column" }, up, dn)));
   };
   const choice = (label, opts, get, set) => {
-    const s4 = el11("select", { style: "max-width:150px" });
+    const s4 = el16("select", { style: "max-width:150px" });
     s4.setAttribute("aria-label", label);
-    for (const [v2, t5] of opts) s4.append(el11("option", { value: v2, textContent: t5 }));
+    for (const [v2, t5] of opts) s4.append(el16("option", { value: v2, textContent: t5 }));
     s4.addEventListener("change", () => {
       set(s4.value);
       env.after();
@@ -9458,12 +12158,12 @@ function toggleFormatPane(env, tab, onClose) {
       s4.value = v2 ?? "";
       s4.disabled = off();
     });
-    return row2(label, s4);
+    return row3(label, s4);
   };
   const color = (label, get, set) => {
-    const b3 = el11("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+    const b3 = el16("button", { type: "button", className: "uo-btn", style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
     b3.setAttribute("aria-label", label);
-    const chip = el11("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
+    const chip = el16("span", { style: "width:18px;height:14px;border:1px solid var(--uo-outline,#888);border-radius:3px;display:inline-block" });
     b3.append(chip);
     b3.insertAdjacentHTML("beforeend", symbol("arrow_drop_down"));
     b3.addEventListener("mousedown", (e6) => e6.preventDefault());
@@ -9488,15 +12188,15 @@ function toggleFormatPane(env, tab, onClose) {
       chip.style.background = hex ? `#${hex}` : "transparent";
       b3.disabled = off();
     });
-    return row2(label, b3);
+    return row3(label, b3);
   };
-  const row2 = (label, ctl) => el11("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el11("span", { textContent: label }), ctl);
+  const row3 = (label, ctl) => el16("label", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px" }, el16("span", { textContent: label }), ctl);
   const section4 = (title2, open, ...kids) => {
-    const d3 = el11("details", { open, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el11("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
-    d3.append(el11("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
+    const d3 = el16("details", { open, style: "border-bottom:1px solid var(--uo-outline-variant,#ddd);padding:4px 0" }, el16("summary", { textContent: title2, style: "font-weight:600;font-size:13px;cursor:pointer;padding:4px 0" }));
+    d3.append(el16("div", { style: "display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 12px" }, ...kids));
     return d3;
   };
-  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr9("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i5) => [i5.id, i5.label])], () => "", (v2) => {
+  const presetRow = (label, items, set, noneLabel) => choice(label, [["", tr14("(choose)", "(escolher)")], ["none", noneLabel], ...items.map((i5) => [i5.id, i5.label])], () => "", (v2) => {
     if (v2) set(v2 === "none" ? null : v2);
   });
   const line2 = () => anyFmt()?.line ?? void 0;
@@ -9526,7 +12226,7 @@ function toggleFormatPane(env, tab, onClose) {
     ed.setShapeFill({ ...base, ...ch });
   };
   const pickPicture = (tile) => {
-    const inp = el11("input", { type: "file", accept: "image/*" });
+    const inp = el16("input", { type: "file", accept: "image/*" });
     inp.addEventListener("change", () => {
       const f3 = inp.files?.[0];
       if (f3) void f3.arrayBuffer().then((b3) => ed.setShapePictureFill(new Uint8Array(b3), (f3.name.split(".").pop() || "png").toLowerCase(), tile)).then(() => {
@@ -9537,11 +12237,11 @@ function toggleFormatPane(env, tab, onClose) {
     inp.click();
   };
   const fillSection = section4(
-    tr9("Fill", "Preenchimento"),
+    tr14("Fill", "Preenchimento"),
     true,
     choice(
-      tr9("Fill", "Preenchimento"),
-      [["none", tr9("No fill", "Sem preenchimento")], ["solid", tr9("Solid fill", "Preenchimento s\xF3lido")], ["gradient", tr9("Gradient fill", "Preenchimento gradiente")], ["picture", tr9("Picture or texture fill", "Preenchimento com imagem ou textura")], ["pattern", tr9("Pattern fill", "Preenchimento de padr\xE3o")], ["style", tr9("Automatic", "Autom\xE1tico")]],
+      tr14("Fill", "Preenchimento"),
+      [["none", tr14("No fill", "Sem preenchimento")], ["solid", tr14("Solid fill", "Preenchimento s\xF3lido")], ["gradient", tr14("Gradient fill", "Preenchimento gradiente")], ["picture", tr14("Picture or texture fill", "Preenchimento com imagem ou textura")], ["pattern", tr14("Pattern fill", "Preenchimento de padr\xE3o")], ["style", tr14("Automatic", "Autom\xE1tico")]],
       () => {
         const k2 = fill()?.kind;
         return k2 === "raw" ? "picture" : k2;
@@ -9555,25 +12255,25 @@ function toggleFormatPane(env, tab, onClose) {
         else pickPicture(false);
       }
     ),
-    color(tr9("Color", "Cor"), () => fillColor(), (c4) => {
+    color(tr14("Color", "Cor"), () => fillColor(), (c4) => {
       const f3 = fill();
       if (f3?.kind === "pattern") setPatt({ fg: c4 });
       else ed.setShapeFill({ kind: "solid", color: withAlpha(c4, alphaOf(fillColor())) });
     }),
-    num2(tr9("Transparency", "Transpar\xEAncia"), "%", () => {
+    num3(tr14("Transparency", "Transpar\xEAncia"), "%", () => {
       const f3 = fill();
       return f3?.kind === "solid" ? 100 - alphaOf(f3.color) : void 0;
     }, (v2) => {
       const f3 = fill();
       if (f3?.kind === "solid") ed.setShapeFill({ kind: "solid", color: withAlpha(noAlpha(f3.color), 100 - v2) });
     }, { min: 0, max: 100 }),
-    choice(tr9("Preset gradients", "Gradientes predefinidos"), [["", tr9("(choose)", "(escolher)")], ...ed.shapeGradientVariations().map((g2) => [g2.id, g2.id])], () => "", (v2) => {
+    choice(tr14("Preset gradients", "Gradientes predefinidos"), [["", tr14("(choose)", "(escolher)")], ...ed.shapeGradientVariations().map((g2) => [g2.id, g2.id])], () => "", (v2) => {
       const g2 = ed.shapeGradientVariations().find((x2) => x2.id === v2);
       if (g2) ed.setShapeFill(g2.fill);
     }),
     choice(
-      tr9("Gradient type", "Tipo de gradiente"),
-      [["linear", tr9("Linear", "Linear")], ["circle", tr9("Radial", "Radial")], ["rect", tr9("Rectangular", "Retangular")], ["shape", tr9("Path", "Caminho")]],
+      tr14("Gradient type", "Tipo de gradiente"),
+      [["linear", tr14("Linear", "Linear")], ["circle", tr14("Radial", "Radial")], ["rect", tr14("Rectangular", "Retangular")], ["shape", tr14("Path", "Caminho")]],
       () => {
         const g2 = grad();
         return g2 ? g2.path ? g2.path.path : "linear" : void 0;
@@ -9587,45 +12287,45 @@ function toggleFormatPane(env, tab, onClose) {
         setGrad(v2 === "linear" ? { ...rest, lin: { ang: 54e5, scaled: true } } : { ...rest, path: { path: v2, fillToRect: { l: 5e4, t: 5e4, r: 5e4, b: 5e4 } } });
       }
     ),
-    num2(tr9("Angle", "\xC2ngulo"), "\xB0", () => {
+    num3(tr14("Angle", "\xC2ngulo"), "\xB0", () => {
       const g2 = grad();
       return g2?.lin ? g2.lin.ang / ANG : void 0;
     }, (v2) => {
       const g2 = grad();
       if (g2?.lin) setGrad({ lin: { ...g2.lin, ang: Math.round((v2 % 360 + 360) % 360 * ANG) } });
     }, { min: 0, max: 359.9 }),
-    choice(tr9("Pattern", "Padr\xE3o"), Object.keys(PRESET_PATTERNS).map((k2) => [k2, k2]), () => patt()?.prst, (v2) => setPatt({ prst: v2 })),
-    color(tr9("Background", "Plano de fundo"), () => patt()?.bg, (c4) => setPatt({ bg: c4 })),
-    row2(tr9("Picture source", "Fonte da imagem"), el11(
+    choice(tr14("Pattern", "Padr\xE3o"), Object.keys(PRESET_PATTERNS).map((k2) => [k2, k2]), () => patt()?.prst, (v2) => setPatt({ prst: v2 })),
+    color(tr14("Background", "Plano de fundo"), () => patt()?.bg, (c4) => setPatt({ bg: c4 })),
+    row3(tr14("Picture source", "Fonte da imagem"), el16(
       "span",
       { style: "display:inline-flex;gap:4px" },
       (() => {
-        const b3 = el11("button", { type: "button", className: "uo-btn", textContent: tr9("Insert\u2026", "Inserir...") });
+        const b3 = el16("button", { type: "button", className: "uo-btn", textContent: tr14("Insert\u2026", "Inserir...") });
         b3.addEventListener("click", () => pickPicture(false));
         return b3;
       })(),
       (() => {
-        const b3 = el11("button", { type: "button", className: "uo-btn", textContent: tr9("Texture\u2026", "Textura...") });
+        const b3 = el16("button", { type: "button", className: "uo-btn", textContent: tr14("Texture\u2026", "Textura...") });
         b3.addEventListener("click", () => pickPicture(true));
         return b3;
       })()
     ))
   );
-  const lineTab = el11(
+  const lineTab = el16(
     "div",
     {},
     ...shape ? [fillSection] : [],
     section4(
-      tr9("Line", "Linha"),
+      tr14("Line", "Linha"),
       true,
-      choice(tr9("Line", "Linha"), [["none", tr9("No line", "Sem linha")], ["solid", tr9("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? setFormat({ line: shape ? null : { ...line2() ?? {}, fill: null } }) : setLine({})),
-      color(tr9("Color", "Cor"), () => line2()?.fill ?? void 0, (c4) => setLine({ fill: withAlpha(c4, alphaOf(line2()?.fill ?? void 0)) })),
-      num2(tr9("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
-      num2(tr9("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
-      choice(tr9("Compound type", "Tipo composto"), [["sng", tr9("Single", "Simples")], ["dbl", tr9("Double", "Duplo")], ["thickThin", tr9("Thick Thin", "Grosso Fino")], ["thinThick", tr9("Thin Thick", "Fino Grosso")], ["tri", tr9("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
-      choice(tr9("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
-      choice(tr9("Cap type", "Tipo de extremidade"), [["sq", tr9("Square", "Quadrado")], ["rnd", tr9("Round", "Arredondado")], ["flat", tr9("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
-      choice(tr9("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr9("Round", "Arredondada")], ["bevel", tr9("Bevel", "Chanfrada")], ["miter", tr9("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
+      choice(tr14("Line", "Linha"), [["none", tr14("No line", "Sem linha")], ["solid", tr14("Solid line", "Linha s\xF3lida")]], () => line2()?.fill ? "solid" : "none", (v2) => v2 === "none" ? setFormat({ line: shape ? null : { ...line2() ?? {}, fill: null } }) : setLine({})),
+      color(tr14("Color", "Cor"), () => line2()?.fill ?? void 0, (c4) => setLine({ fill: withAlpha(c4, alphaOf(line2()?.fill ?? void 0)) })),
+      num3(tr14("Transparency", "Transpar\xEAncia"), "%", () => line2()?.fill ? 100 - alphaOf(line2().fill) : void 0, (v2) => line2()?.fill && setLine({ fill: withAlpha(line2().fill, 100 - v2) }), { min: 0, max: 100 }),
+      num3(tr14("Width", "Largura"), "pt", () => line2()?.fill ? (line2().w ?? 9525) / EMU_PT : void 0, (v2) => setLine({ w: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584, step: 0.25, digits: 2 }),
+      choice(tr14("Compound type", "Tipo composto"), [["sng", tr14("Single", "Simples")], ["dbl", tr14("Double", "Duplo")], ["thickThin", tr14("Thick Thin", "Grosso Fino")], ["thinThick", tr14("Thin Thick", "Fino Grosso")], ["tri", tr14("Triple", "Triplo")]], () => line2()?.cmpd ?? "sng", (v2) => setLine({ cmpd: v2 })),
+      choice(tr14("Dash type", "Tipo de tra\xE7o"), LINE_DASHES.map((d3) => [d3.val, pickLabels(lang, d3.label)]), () => line2()?.dash ?? "solid", (v2) => setLine({ dash: v2 === "solid" ? void 0 : v2 })),
+      choice(tr14("Cap type", "Tipo de extremidade"), [["sq", tr14("Square", "Quadrado")], ["rnd", tr14("Round", "Arredondado")], ["flat", tr14("Flat", "Plano")]], () => line2()?.cap ?? "flat", (v2) => setLine({ cap: v2 })),
+      choice(tr14("Join type", "Tipo de jun\xE7\xE3o"), [["round", tr14("Round", "Arredondada")], ["bevel", tr14("Bevel", "Chanfrada")], ["miter", tr14("Miter", "Malhete")]], () => line2()?.join ?? "round", (v2) => setLine({ join: v2 }))
     )
   );
   const fx = () => anyFmt()?.effects;
@@ -9649,77 +12349,77 @@ function toggleFormatPane(env, tab, onClose) {
     const base = td() ?? { camera: { prst: "orthographicFront" }, lightRig: { rig: "threePt", dir: "t" } };
     setFormat({ threeD: { ...base, ...ch } });
   };
-  const bevelOpts = [["", tr9("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b3) => [b3.prst, pickLabels(lang, b3.label)])];
+  const bevelOpts = [["", tr14("No Bevel", "Sem Bisel")], ...BEVEL_PRESETS.map((b3) => [b3.prst, pickLabels(lang, b3.label)])];
   const bevel = (which, title2) => [
     choice(title2, bevelOpts, () => td()?.[which] ? td()[which].prst ?? "circle" : "", (v2) => setTd({ [which]: v2 ? { ...td()?.[which] ?? {}, prst: v2 === "circle" ? void 0 : v2 } : void 0 })),
-    num2(tr9("Width", "Largura"), "pt", () => td()?.[which] ? (td()[which].w ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, w: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 }),
-    num2(tr9("Height", "Altura"), "pt", () => td()?.[which] ? (td()[which].h ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, h: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 })
+    num3(tr14("Width", "Largura"), "pt", () => td()?.[which] ? (td()[which].w ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, w: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 }),
+    num3(tr14("Height", "Altura"), "pt", () => td()?.[which] ? (td()[which].h ?? 76200) / EMU_PT : void 0, (v2) => setTd({ [which]: { ...td()?.[which] ?? {}, h: Math.round(v2 * EMU_PT) } }), { min: 0, max: 1584, step: 1 })
   ];
   const rot = () => td()?.camera?.rot ?? { lat: 0, lon: 0, rev: 0 };
   const setRot = (k2, deg) => {
     const cam = td()?.camera ?? { prst: "orthographicFront" };
     setTd({ camera: { ...cam, rot: { ...rot(), [k2]: Math.round((deg % 360 + 360) % 360 * ANG) } } });
   };
-  const effectsTab = el11(
+  const effectsTab = el16(
     "div",
     {},
     section4(
-      tr9("Shadow", "Sombra"),
+      tr14("Shadow", "Sombra"),
       true,
-      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("shadow", id), tr9("No Shadow", "Sem Sombra")),
-      color(tr9("Color", "Cor"), () => sh()?.color, (c4) => setSh({ color: withAlpha(c4, alphaOf(sh()?.color)) })),
-      num2(tr9("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
-      num2(tr9("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
-      num2(tr9("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
-      num2(tr9("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
-      num2(tr9("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 200 })
+      presetRow(tr14("Presets", "Predefini\xE7\xF5es"), SHADOW_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("shadow", id), tr14("No Shadow", "Sem Sombra")),
+      color(tr14("Color", "Cor"), () => sh()?.color, (c4) => setSh({ color: withAlpha(c4, alphaOf(sh()?.color)) })),
+      num3(tr14("Transparency", "Transpar\xEAncia"), "%", () => sh() ? 100 - alphaOf(sh().color) : void 0, (v2) => sh() && setSh({ color: withAlpha(noAlpha(sh().color), 100 - v2) }), { min: 0, max: 100 }),
+      num3(tr14("Size", "Tamanho"), "%", () => sh() ? (sh().sx ?? 1e5) / 1e3 : void 0, (v2) => setSh({ sx: Math.round(v2 * 1e3), sy: Math.round(v2 * 1e3) }), { min: 1, max: 200 }),
+      num3(tr14("Blur", "Desfoque"), "pt", () => sh() ? (sh().blurRad ?? 0) / EMU_PT : void 0, (v2) => setSh({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
+      num3(tr14("Angle", "\xC2ngulo"), "\xB0", () => sh() ? (sh().dir ?? 0) / ANG : void 0, (v2) => setSh({ dir: Math.round((v2 % 360 + 360) % 360 * ANG) }), { min: 0, max: 359.9 }),
+      num3(tr14("Distance", "Dist\xE2ncia"), "pt", () => sh() ? (sh().dist ?? 0) / EMU_PT : void 0, (v2) => setSh({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 200 })
     ),
     section4(
-      tr9("Reflection", "Reflexo"),
+      tr14("Reflection", "Reflexo"),
       false,
-      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("reflection", id), tr9("No Reflection", "Sem Reflexo")),
-      num2(tr9("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
-      num2(tr9("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
-      num2(tr9("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
-      num2(tr9("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 })
+      presetRow(tr14("Presets", "Predefini\xE7\xF5es"), REFLECTION_PRESETS.map((p3) => ({ id: p3.id, label: pickLabels(lang, p3.label) })), (id) => setEffect("reflection", id), tr14("No Reflection", "Sem Reflexo")),
+      num3(tr14("Transparency", "Transpar\xEAncia"), "%", () => rf() ? 100 - (rf().stA ?? 1e5) / 1e3 : void 0, (v2) => setRf({ stA: Math.round((100 - v2) * 1e3) }), { min: 0, max: 100 }),
+      num3(tr14("Size", "Tamanho"), "%", () => rf() ? (rf().endPos ?? 1e5) / 1e3 : void 0, (v2) => setRf({ endPos: Math.round(v2 * 1e3) }), { min: 1, max: 100 }),
+      num3(tr14("Blur", "Desfoque"), "pt", () => rf() ? (rf().blurRad ?? 0) / EMU_PT : void 0, (v2) => setRf({ blurRad: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 }),
+      num3(tr14("Distance", "Dist\xE2ncia"), "pt", () => rf() ? (rf().dist ?? 0) / EMU_PT : void 0, (v2) => setRf({ dist: Math.round(v2 * EMU_PT) }), { min: 0, max: 100 })
     ),
     section4(
-      tr9("Glow", "Brilho"),
+      tr14("Glow", "Brilho"),
       false,
-      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r5, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r5 / EMU_PT} pt, ${tr9("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => setEffect("glow", id), tr9("No Glow", "Sem Brilho")),
-      color(tr9("Color", "Cor"), () => gl()?.color, (c4) => setGl({ color: withAlpha(c4, alphaOf(gl()?.color)) })),
-      num2(tr9("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT) }), { min: 0, max: 150 }),
-      num2(tr9("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
+      presetRow(tr14("Presets", "Predefini\xE7\xF5es"), GLOW_SIZES.flatMap((r5, si) => [1, 2, 3, 4, 5, 6].map((a3) => ({ id: `glow-${si}-${a3}`, label: `${r5 / EMU_PT} pt, ${tr14("Accent color", "Cor de \xEAnfase")} ${a3}` }))), (id) => setEffect("glow", id), tr14("No Glow", "Sem Brilho")),
+      color(tr14("Color", "Cor"), () => gl()?.color, (c4) => setGl({ color: withAlpha(c4, alphaOf(gl()?.color)) })),
+      num3(tr14("Size", "Tamanho"), "pt", () => gl() ? gl().rad / EMU_PT : void 0, (v2) => setGl({ rad: Math.round(v2 * EMU_PT) }), { min: 0, max: 150 }),
+      num3(tr14("Transparency", "Transpar\xEAncia"), "%", () => gl() ? 100 - alphaOf(gl().color) : void 0, (v2) => gl() && setGl({ color: withAlpha(noAlpha(gl().color), 100 - v2) }), { min: 0, max: 100 })
     ),
     section4(
-      tr9("Soft Edges", "Bordas Suaves"),
+      tr14("Soft Edges", "Bordas Suaves"),
       false,
-      num2(tr9("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT : 0, (v2) => setFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT) : null }), { min: 0, max: 100 })
+      num3(tr14("Size", "Tamanho"), "pt", () => fx()?.softEdge !== void 0 ? fx().softEdge / EMU_PT : 0, (v2) => setFormat({ softEdge: v2 > 0 ? Math.round(v2 * EMU_PT) : null }), { min: 0, max: 100 })
     ),
     section4(
-      tr9("3-D Format", "Formato 3D"),
+      tr14("3-D Format", "Formato 3D"),
       false,
-      ...bevel("bevelT", tr9("Top bevel", "Bisel superior")),
-      ...bevel("bevelB", tr9("Bottom bevel", "Bisel inferior")),
-      color(tr9("Depth color", "Cor da profundidade"), () => td()?.extrusionClr, (c4) => setTd({ extrusionClr: c4 })),
-      num2(tr9("Depth size", "Tamanho da profundidade"), "pt", () => (td()?.extrusionH ?? 0) / EMU_PT, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
-      color(tr9("Contour color", "Cor do contorno"), () => td()?.contourClr, (c4) => setTd({ contourClr: c4 })),
-      num2(tr9("Contour size", "Tamanho do contorno"), "pt", () => (td()?.contourW ?? 0) / EMU_PT, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
-      choice(tr9("Material", "Material"), [["warmMatte", tr9("Warm Matte", "Fosco Quente")], ["matte", tr9("Matte", "Fosco")], ["plastic", tr9("Plastic", "Pl\xE1stico")], ["metal", tr9("Metal", "Metal")], ["dkEdge", tr9("Dark Edge", "Borda Escura")], ["softEdge", tr9("Soft Edge", "Borda Suave")], ["flat", tr9("Flat", "Plano")], ["legacyWireframe", tr9("Wire Frame", "Estrutura de Arame")], ["powder", tr9("Powder", "P\xF3")], ["translucentPowder", tr9("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr9("Clear", "Transparente")], ["softmetal", tr9("Soft Metal", "Metal Suave")]], () => td()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
-      choice(tr9("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr9("Three Point", "Tr\xEAs Pontos")], ["balanced", tr9("Balanced", "Balanceado")], ["soft", tr9("Soft", "Suave")], ["harsh", tr9("Harsh", "Forte")], ["flood", tr9("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr9("Contrasting", "Contrastante")], ["morning", tr9("Morning", "Manh\xE3")], ["sunrise", tr9("Sunrise", "Nascer do Sol")], ["sunset", tr9("Sunset", "P\xF4r do Sol")], ["chilly", tr9("Chilly", "Frio")], ["freezing", tr9("Freezing", "Congelante")], ["flat", tr9("Flat", "Plano")], ["twoPt", tr9("Two Point", "Dois Pontos")], ["glow", tr9("Glow", "Brilho")], ["brightRoom", tr9("Bright Room", "Sala Iluminada")]], () => td()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td()?.lightRig ?? { dir: "t" }, rig: v2 } }))
+      ...bevel("bevelT", tr14("Top bevel", "Bisel superior")),
+      ...bevel("bevelB", tr14("Bottom bevel", "Bisel inferior")),
+      color(tr14("Depth color", "Cor da profundidade"), () => td()?.extrusionClr, (c4) => setTd({ extrusionClr: c4 })),
+      num3(tr14("Depth size", "Tamanho da profundidade"), "pt", () => (td()?.extrusionH ?? 0) / EMU_PT, (v2) => setTd({ extrusionH: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
+      color(tr14("Contour color", "Cor do contorno"), () => td()?.contourClr, (c4) => setTd({ contourClr: c4 })),
+      num3(tr14("Contour size", "Tamanho do contorno"), "pt", () => (td()?.contourW ?? 0) / EMU_PT, (v2) => setTd({ contourW: Math.round(v2 * EMU_PT) }), { min: 0, max: 1584 }),
+      choice(tr14("Material", "Material"), [["warmMatte", tr14("Warm Matte", "Fosco Quente")], ["matte", tr14("Matte", "Fosco")], ["plastic", tr14("Plastic", "Pl\xE1stico")], ["metal", tr14("Metal", "Metal")], ["dkEdge", tr14("Dark Edge", "Borda Escura")], ["softEdge", tr14("Soft Edge", "Borda Suave")], ["flat", tr14("Flat", "Plano")], ["legacyWireframe", tr14("Wire Frame", "Estrutura de Arame")], ["powder", tr14("Powder", "P\xF3")], ["translucentPowder", tr14("Translucent Powder", "P\xF3 Transl\xFAcido")], ["clear", tr14("Clear", "Transparente")], ["softmetal", tr14("Soft Metal", "Metal Suave")]], () => td()?.prstMaterial ?? "warmMatte", (v2) => setTd({ prstMaterial: v2 })),
+      choice(tr14("Lighting", "Ilumina\xE7\xE3o"), [["threePt", tr14("Three Point", "Tr\xEAs Pontos")], ["balanced", tr14("Balanced", "Balanceado")], ["soft", tr14("Soft", "Suave")], ["harsh", tr14("Harsh", "Forte")], ["flood", tr14("Flood", "Inunda\xE7\xE3o")], ["contrasting", tr14("Contrasting", "Contrastante")], ["morning", tr14("Morning", "Manh\xE3")], ["sunrise", tr14("Sunrise", "Nascer do Sol")], ["sunset", tr14("Sunset", "P\xF4r do Sol")], ["chilly", tr14("Chilly", "Frio")], ["freezing", tr14("Freezing", "Congelante")], ["flat", tr14("Flat", "Plano")], ["twoPt", tr14("Two Point", "Dois Pontos")], ["glow", tr14("Glow", "Brilho")], ["brightRoom", tr14("Bright Room", "Sala Iluminada")]], () => td()?.lightRig?.rig ?? "threePt", (v2) => setTd({ lightRig: { ...td()?.lightRig ?? { dir: "t" }, rig: v2 } }))
     ),
     section4(
-      tr9("3-D Rotation", "Rota\xE7\xE3o 3D"),
+      tr14("3-D Rotation", "Rota\xE7\xE3o 3D"),
       false,
-      presetRow(tr9("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => setEffect("rotation", id), tr9("No Rotation", "Sem Rota\xE7\xE3o")),
-      num2(tr9("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
-      num2(tr9("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
-      num2(tr9("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
-      num2(tr9("Perspective", "Perspectiva"), "\xB0", () => (td()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
+      presetRow(tr14("Presets", "Predefini\xE7\xF5es"), ROTATION_PRESETS.map((p3) => ({ id: p3.prst, label: pickLabels(lang, p3.label) })), (id) => setEffect("rotation", id), tr14("No Rotation", "Sem Rota\xE7\xE3o")),
+      num3(tr14("X Rotation", "Rota\xE7\xE3o X"), "\xB0", () => rot().lon / ANG, (v2) => setRot("lon", v2), { min: 0, max: 359.9 }),
+      num3(tr14("Y Rotation", "Rota\xE7\xE3o Y"), "\xB0", () => rot().lat / ANG, (v2) => setRot("lat", v2), { min: 0, max: 359.9 }),
+      num3(tr14("Z Rotation", "Rota\xE7\xE3o Z"), "\xB0", () => rot().rev / ANG, (v2) => setRot("rev", v2), { min: 0, max: 359.9 }),
+      num3(tr14("Perspective", "Perspectiva"), "\xB0", () => (td()?.camera?.fov ?? 0) / ANG, (v2) => setTd({ camera: { ...td()?.camera ?? { prst: "perspectiveFront" }, fov: Math.round(v2 * ANG) } }), { min: 0, max: 120 })
     )
   );
-  const title = el11("input", { type: "text", style: "width:100%;box-sizing:border-box" });
-  const descr = el11("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
+  const title = el16("input", { type: "text", style: "width:100%;box-sizing:border-box" });
+  const descr = el16("textarea", { rows: 4, style: "width:100%;box-sizing:border-box;resize:vertical" });
   title.addEventListener("change", () => {
     setAlt({ title: title.value });
     env.after();
@@ -9739,8 +12439,8 @@ function toggleFormatPane(env, tab, onClose) {
     title.disabled = descr.disabled = off();
   });
   const tx = () => ed.selectedShape()?.text;
-  const check9 = (label, get, set) => {
-    const i5 = el11("input", { type: "checkbox" });
+  const check11 = (label, get, set) => {
+    const i5 = el16("input", { type: "checkbox" });
     i5.addEventListener("change", () => {
       set(i5.checked);
       env.after();
@@ -9750,34 +12450,34 @@ function toggleFormatPane(env, tab, onClose) {
       i5.checked = !!get();
       i5.disabled = off() || !tx();
     });
-    return el11("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i5, label);
+    return el16("label", { style: "display:flex;align-items:center;gap:6px;font-size:13px" }, i5, label);
   };
   const textSection = section4(
-    tr9("Text Box", "Caixa de Texto"),
+    tr14("Text Box", "Caixa de Texto"),
     true,
-    choice(tr9("Vertical alignment", "Alinhamento vertical"), [["t", tr9("Top", "Superior")], ["ctr", tr9("Middle", "Meio")], ["b", tr9("Bottom", "Inferior")]], () => tx()?.anchor, (v2) => ed.setTextboxOptions({ anchor: v2 })),
-    choice(tr9("Text direction", "Dire\xE7\xE3o do texto"), [["horz", tr9("Horizontal", "Horizontal")], ["vert", tr9("Rotate all text 90\xB0", "Girar todo o texto 90\xB0")], ["vert270", tr9("Rotate all text 270\xB0", "Girar todo o texto 270\xB0")], ["eaVert", tr9("Stacked (East Asian)", "Empilhado (Leste Asi\xE1tico)")], ["wordArtVert", tr9("Stacked", "Empilhado")]], () => tx()?.direction, (v2) => ed.setTextboxOptions({ direction: v2 })),
-    check9(tr9("Do not rotate text", "N\xE3o girar o texto"), () => tx()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
-    check9(tr9("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
-    num2(tr9("Left margin", "Margem esquerda"), "cm", () => tx() ? tx().marginsPt.l / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { l: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    num2(tr9("Right margin", "Margem direita"), "cm", () => tx() ? tx().marginsPt.r / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { r: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    num2(tr9("Top margin", "Margem superior"), "cm", () => tx() ? tx().marginsPt.t / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { t: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    num2(tr9("Bottom margin", "Margem inferior"), "cm", () => tx() ? tx().marginsPt.b / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { b: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
-    check9(tr9("Wrap text in shape", "Quebrar texto na forma"), () => tx()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
+    choice(tr14("Vertical alignment", "Alinhamento vertical"), [["t", tr14("Top", "Superior")], ["ctr", tr14("Middle", "Meio")], ["b", tr14("Bottom", "Inferior")]], () => tx()?.anchor, (v2) => ed.setTextboxOptions({ anchor: v2 })),
+    choice(tr14("Text direction", "Dire\xE7\xE3o do texto"), [["horz", tr14("Horizontal", "Horizontal")], ["vert", tr14("Rotate all text 90\xB0", "Girar todo o texto 90\xB0")], ["vert270", tr14("Rotate all text 270\xB0", "Girar todo o texto 270\xB0")], ["eaVert", tr14("Stacked (East Asian)", "Empilhado (Leste Asi\xE1tico)")], ["wordArtVert", tr14("Stacked", "Empilhado")]], () => tx()?.direction, (v2) => ed.setTextboxOptions({ direction: v2 })),
+    check11(tr14("Do not rotate text", "N\xE3o girar o texto"), () => tx()?.upright, (v2) => ed.setTextboxOptions({ upright: v2 })),
+    check11(tr14("Resize shape to fit text", "Redimensionar a forma para ajustar o texto"), () => tx()?.autofit === "shape", (v2) => ed.setTextboxOptions({ autofit: v2 ? "shape" : "none" })),
+    num3(tr14("Left margin", "Margem esquerda"), "cm", () => tx() ? tx().marginsPt.l / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { l: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num3(tr14("Right margin", "Margem direita"), "cm", () => tx() ? tx().marginsPt.r / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { r: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num3(tr14("Top margin", "Margem superior"), "cm", () => tx() ? tx().marginsPt.t / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { t: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    num3(tr14("Bottom margin", "Margem inferior"), "cm", () => tx() ? tx().marginsPt.b / 72 * 2.54 : void 0, (v2) => ed.setTextboxOptions({ marginsPt: { b: v2 / 2.54 * 72 } }), { min: 0, step: 0.1, digits: 2 }),
+    check11(tr14("Wrap text in shape", "Quebrar texto na forma"), () => tx()?.wrap, (v2) => ed.setTextboxOptions({ wrap: v2 }))
   );
-  const layoutTab = el11(
+  const layoutTab = el16(
     "div",
     {},
     ...shape ? [textSection] : [],
     section4(
-      tr9("Alt Text", "Texto Alt"),
+      tr14("Alt Text", "Texto Alt"),
       true,
-      el11("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr9("Title", "T\xEDtulo"), title),
-      el11("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr9("Description", "Descri\xE7\xE3o"), descr)
+      el16("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr14("Title", "T\xEDtulo"), title),
+      el16("label", { style: "display:flex;flex-direction:column;gap:4px;font-size:13px" }, tr14("Description", "Descri\xE7\xE3o"), descr)
     )
   );
-  const a14 = () => fmt()?.blip.a14;
-  const cropRect = () => fmt()?.srcRect ?? { l: 0, t: 0, r: 0, b: 0 };
+  const a14 = () => fmt2()?.blip.a14;
+  const cropRect = () => fmt2()?.srcRect ?? { l: 0, t: 0, r: 0, b: 0 };
   const cm = (pt2) => pt2 / 72 * 2.54;
   const pt = (c4) => c4 / 2.54 * 72;
   const geo = () => {
@@ -9793,95 +12493,95 @@ function toggleFormatPane(env, tab, onClose) {
     const t5 = (o6.fh / 2 - o6.oy - o6.h / 2) / o6.fh, b3 = (o6.fh / 2 + o6.oy - o6.h / 2) / o6.fh;
     ed.setImageCrop({ l: l3, t: t5, r: r5, b: b3 });
   };
-  const pictureTab = el11(
+  const pictureTab = el16(
     "div",
     {},
     section4(
-      tr9("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
+      tr14("Picture Corrections", "Corre\xE7\xF5es de Imagem"),
       true,
-      num2(tr9("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
+      num3(tr14("Sharpness", "Nitidez"), "%", () => (a14()?.sharpen ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ sharpen: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num2(tr9("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
+      num3(tr14("Brightness", "Brilho"), "%", () => (a14()?.bright ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ bright: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 }),
-      num2(tr9("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
+      num3(tr14("Contrast", "Contraste"), "%", () => (a14()?.contrast ?? 0) / 1e3, (v2) => void ed.setImageAdjust({ contrast: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: -100, max: 100 })
     ),
     section4(
-      tr9("Picture Color", "Cor da Imagem"),
+      tr14("Picture Color", "Cor da Imagem"),
       false,
-      num2(tr9("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
+      num3(tr14("Saturation", "Satura\xE7\xE3o"), "%", () => (a14()?.saturation ?? 1e5) / 1e3, (v2) => void ed.setImageAdjust({ saturation: v2 / 100 }).then(() => {
         env.after();
         sync();
       }), { min: 0, max: 400 }),
-      num2(tr9("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
+      num3(tr14("Temperature", "Temperatura"), "K", () => a14()?.colorTemp ?? 6500, (v2) => void ed.setImageAdjust({ temperature: v2 }).then(() => {
         env.after();
         sync();
       }), { min: 1500, max: 11500, step: 100, digits: 0 })
     ),
     section4(
-      tr9("Picture Transparency", "Transpar\xEAncia da Imagem"),
+      tr14("Picture Transparency", "Transpar\xEAncia da Imagem"),
       false,
-      num2(tr9("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
+      num3(tr14("Transparency", "Transpar\xEAncia"), "%", () => 100 - (fmt2()?.blip.alphaModFix ?? 1e5) / 1e3, (v2) => ed.setImageTransparency(v2), { min: 0, max: 100 })
     ),
     section4(
-      tr9("Crop", "Cortar"),
+      tr14("Crop", "Cortar"),
       false,
-      el11("div", { textContent: tr9("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
-      num2(tr9("Width", "Largura"), "cm", () => {
+      el16("div", { textContent: tr14("Picture position", "Posi\xE7\xE3o da imagem"), style: "font-size:12px;opacity:.75" }),
+      num3(tr14("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fw) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fw: pt(v2), fh: g2.fh * (pt(v2) / g2.fw) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num2(tr9("Height", "Altura"), "cm", () => {
+      num3(tr14("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.fh) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, fh: pt(v2), fw: g2.fw * (pt(v2) / g2.fh) });
       }, { min: 0.01, step: 0.1, digits: 2 }),
-      num2(tr9("Offset X", "Deslocamento X"), "cm", () => {
+      num3(tr14("Offset X", "Deslocamento X"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.ox) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, ox: pt(v2) });
       }, { step: 0.1, digits: 2 }),
-      num2(tr9("Offset Y", "Deslocamento Y"), "cm", () => {
+      num3(tr14("Offset Y", "Deslocamento Y"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.oy) : void 0;
       }, (v2) => {
         const g2 = geo();
         if (g2) setCropFrom({ ...g2, oy: pt(v2) });
       }, { step: 0.1, digits: 2 }),
-      el11("div", { textContent: tr9("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
-      num2(tr9("Width", "Largura"), "cm", () => {
+      el16("div", { textContent: tr14("Crop position", "Posi\xE7\xE3o do corte"), style: "font-size:12px;opacity:.75" }),
+      num3(tr14("Width", "Largura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.w) : void 0;
       }, (v2) => ed.setImageSize({ widthPt: pt(v2), heightPt: ed.selectedImage().heightPt }), { min: 0.01, step: 0.1, digits: 2 }),
-      num2(tr9("Height", "Altura"), "cm", () => {
+      num3(tr14("Height", "Altura"), "cm", () => {
         const g2 = geo();
         return g2 ? cm(g2.h) : void 0;
       }, (v2) => ed.setImageSize({ heightPt: pt(v2), widthPt: ed.selectedImage().widthPt }), { min: 0.01, step: 0.1, digits: 2 })
     )
   );
   const tabs = [
-    ["line", tr9("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
-    ["effects", tr9("Effects", "Efeitos"), "auto_awesome", effectsTab],
-    ["layout", tr9("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
-    ...shape ? [] : [["picture", tr9("Picture", "Imagem"), "image", pictureTab]]
+    ["line", tr14("Fill & Line", "Preenchimento e Linha"), "format_color_fill", lineTab],
+    ["effects", tr14("Effects", "Efeitos"), "auto_awesome", effectsTab],
+    ["layout", tr14("Layout & Properties", "Layout e Propriedades"), "aspect_ratio", layoutTab],
+    ...shape ? [] : [["picture", tr14("Picture", "Imagem"), "image", pictureTab]]
   ];
-  const head = el11("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
+  const head = el16("div", { style: "display:flex;gap:4px;border-bottom:1px solid var(--uo-outline-variant,#ddd);padding-bottom:6px" });
   head.setAttribute("role", "tablist");
   const btns = tabs.map(([id, label, icon, panel]) => {
-    const b3 = el11("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
+    const b3 = el16("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:4px 8px" });
     b3.innerHTML = symbol(icon);
     b3.setAttribute("role", "tab");
     b3.setAttribute("aria-label", label);
@@ -9891,8 +12591,8 @@ function toggleFormatPane(env, tab, onClose) {
     panel.setAttribute("role", "tabpanel");
     return b3;
   });
-  const empty = el11("p", { textContent: shape ? tr9("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr9("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
-  const body = el11("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t5) => t5[3]));
+  const empty = el16("p", { textContent: shape ? tr14("Select a shape to format it.", "Selecione uma forma para format\xE1-la.") : tr14("Select a picture to format it.", "Selecione uma imagem para format\xE1-la."), style: "margin:0;font-size:13px;opacity:.75" });
+  const body = el16("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, head, empty, ...tabs.map((t5) => t5[3]));
   head.append(...btns);
   const show = (id) => {
     tabs.forEach(([tid, , , panel], i5) => {
@@ -9913,25 +12613,25 @@ function toggleFormatPane(env, tab, onClose) {
 }
 
 // src/chrome-picture-dialogs.ts
-var el12 = (tag, props = {}, ...kids) => {
+var el17 = (tag, props = {}, ...kids) => {
   const { style, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (style) e6.style.cssText = style;
   e6.append(...kids);
   return e6;
 };
-var tr8 = (lang, en, pt) => pickLabels(lang, { en, pt });
-var select5 = (name, opts, value) => {
-  const s4 = el12("select", { name });
-  for (const [v2, t5] of opts) s4.append(el12("option", { value: v2, textContent: t5 }));
+var tr13 = (lang, en, pt) => pickLabels(lang, { en, pt });
+var select7 = (name, opts, value) => {
+  const s4 = el17("select", { name });
+  for (const [v2, t5] of opts) s4.append(el17("option", { value: v2, textContent: t5 }));
   s4.value = opts.some(([v2]) => v2 === value) ? value : opts[0]?.[0] ?? "";
   return s4;
 };
-var check8 = (name, label, on) => {
-  const input = el12("input", { type: "checkbox", name, checked: on });
-  return { el: el12("label", { className: "uo-check" }, input, label), input };
+var check10 = (name, label, on) => {
+  const input = el17("input", { type: "checkbox", name, checked: on });
+  return { el: el17("label", { className: "uo-check" }, input, label), input };
 };
-var cmText2 = (lang, pt) => `${(Math.round(pt / 72 * 254) / 100).toFixed(2).replace(".", tr8(lang, ".", ","))} cm`;
+var cmText3 = (lang, pt) => `${(Math.round(pt / 72 * 254) / 100).toFixed(2).replace(".", tr13(lang, ".", ","))} cm`;
 var ptOf = (s4) => {
   const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n5) ? n5 / 2.54 * 72 : void 0;
@@ -9940,41 +12640,41 @@ var numOf = (s4) => {
   const n5 = parseFloat(s4.replace(",", ".").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n5) ? n5 : void 0;
 };
-var cmInput2 = (lang, name, pt) => el12("input", { type: "text", name, inputMode: "decimal", value: cmText2(lang, pt), style: "width:92px" });
-var row = (...kids) => el12("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
-var section3 = (title, ...kids) => el12("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el12("legend", { textContent: title }), ...kids);
+var cmInput3 = (lang, name, pt) => el17("input", { type: "text", name, inputMode: "decimal", value: cmText3(lang, pt), style: "width:92px" });
+var row2 = (...kids) => el17("div", { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" }, ...kids);
+var section3 = (title, ...kids) => el17("fieldset", { style: "display:flex;flex-direction:column;gap:8px;border:1px solid var(--uo-outline-variant,#ccc);border-radius:8px;padding:8px 12px" }, el17("legend", { textContent: title }), ...kids);
 var radio5 = (name, value, label, on) => {
-  const input = el12("input", { type: "radio", name, value, checked: on });
-  return { el: el12("label", { className: "uo-check" }, input, label), input };
+  const input = el17("input", { type: "radio", name, value, checked: on });
+  return { el: el17("label", { className: "uo-check" }, input, label), input };
 };
 var H_REFS = (lang) => [
-  ["margin", tr8(lang, "Margin", "Margem")],
-  ["page", tr8(lang, "Page", "P\xE1gina")],
-  ["column", tr8(lang, "Column", "Coluna")],
-  ["character", tr8(lang, "Character", "Caractere")],
-  ["leftMargin", tr8(lang, "Left Margin", "Margem Esquerda")],
-  ["rightMargin", tr8(lang, "Right Margin", "Margem Direita")],
-  ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")],
-  ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]
+  ["margin", tr13(lang, "Margin", "Margem")],
+  ["page", tr13(lang, "Page", "P\xE1gina")],
+  ["column", tr13(lang, "Column", "Coluna")],
+  ["character", tr13(lang, "Character", "Caractere")],
+  ["leftMargin", tr13(lang, "Left Margin", "Margem Esquerda")],
+  ["rightMargin", tr13(lang, "Right Margin", "Margem Direita")],
+  ["insideMargin", tr13(lang, "Inside Margin", "Margem Interna")],
+  ["outsideMargin", tr13(lang, "Outside Margin", "Margem Externa")]
 ];
 var V_REFS = (lang) => [
-  ["margin", tr8(lang, "Margin", "Margem")],
-  ["page", tr8(lang, "Page", "P\xE1gina")],
-  ["paragraph", tr8(lang, "Paragraph", "Par\xE1grafo")],
-  ["line", tr8(lang, "Line", "Linha")],
-  ["topMargin", tr8(lang, "Top Margin", "Margem Superior")],
-  ["bottomMargin", tr8(lang, "Bottom Margin", "Margem Inferior")],
-  ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")],
-  ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]
+  ["margin", tr13(lang, "Margin", "Margem")],
+  ["page", tr13(lang, "Page", "P\xE1gina")],
+  ["paragraph", tr13(lang, "Paragraph", "Par\xE1grafo")],
+  ["line", tr13(lang, "Line", "Linha")],
+  ["topMargin", tr13(lang, "Top Margin", "Margem Superior")],
+  ["bottomMargin", tr13(lang, "Bottom Margin", "Margem Inferior")],
+  ["insideMargin", tr13(lang, "Inside Margin", "Margem Interna")],
+  ["outsideMargin", tr13(lang, "Outside Margin", "Margem Externa")]
 ];
 var WRAP_STYLES = (lang) => [
-  ["inline", tr8(lang, "In line with text", "Alinhado ao texto")],
-  ["square", tr8(lang, "Square", "Quadrado")],
-  ["tight", tr8(lang, "Tight", "Comprimido")],
-  ["through", tr8(lang, "Through", "Atrav\xE9s")],
-  ["topAndBottom", tr8(lang, "Top and bottom", "Superior e inferior")],
-  ["behind", tr8(lang, "Behind text", "Atr\xE1s do texto")],
-  ["front", tr8(lang, "In front of text", "Na frente do texto")]
+  ["inline", tr13(lang, "In line with text", "Alinhado ao texto")],
+  ["square", tr13(lang, "Square", "Quadrado")],
+  ["tight", tr13(lang, "Tight", "Comprimido")],
+  ["through", tr13(lang, "Through", "Atrav\xE9s")],
+  ["topAndBottom", tr13(lang, "Top and bottom", "Superior e inferior")],
+  ["behind", tr13(lang, "Behind text", "Atr\xE1s do texto")],
+  ["front", tr13(lang, "In front of text", "Na frente do texto")]
 ];
 async function pictureLayoutDialog(env, tab) {
   const { ed, lang } = env;
@@ -9986,49 +12686,49 @@ async function pictureLayoutDialog(env, tab) {
   const ph = f3.posH, pv = f3.posV;
   const hMode = !ph ? "abs" : ph.align === "inside" || ph.align === "outside" ? "book" : ph.align !== void 0 ? "align" : ph.pct !== void 0 ? "rel" : "abs";
   const vMode = !pv ? "abs" : pv.align !== void 0 ? "align" : pv.pct !== void 0 ? "rel" : "abs";
-  const hAlign = select5("hAlign", [["left", tr8(lang, "Left", "Esquerda")], ["center", tr8(lang, "Centered", "Centralizado")], ["right", tr8(lang, "Right", "Direita")]], ph?.align ?? "left");
-  const hAlignRef = select5("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hBook = select5("hBook", [["inside", tr8(lang, "Inside", "Interna")], ["outside", tr8(lang, "Outside", "Externa")]], ph?.align ?? "inside");
-  const hBookRef = select5("hBookRef", [["margin", tr8(lang, "Margin", "Margem")], ["page", tr8(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
-  const hAbs = cmInput2(lang, "hAbs", pt(ph?.offset ?? 0));
-  const hAbsRef = select5("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
-  const hRel = el12("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const hRelRef = select5("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
-  const vAlign = select5("vAlign", [["top", tr8(lang, "Top", "Superior")], ["center", tr8(lang, "Centered", "Centralizado")], ["bottom", tr8(lang, "Bottom", "Inferior")], ["inside", tr8(lang, "Inside", "Interna")], ["outside", tr8(lang, "Outside", "Externa")]], pv?.align ?? "top");
-  const vAlignRef = select5("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
-  const vAbs = cmInput2(lang, "vAbs", pt(pv?.offset ?? 0));
-  const vAbsRef = select5("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
-  const vRel = el12("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const vRelRef = select5("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
-  const hR = { align: radio5("h", "align", tr8(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio5("h", "book", tr8(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio5("h", "abs", tr8(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio5("h", "rel", tr8(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
-  const vR = { align: radio5("v", "align", tr8(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio5("v", "abs", tr8(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio5("v", "rel", tr8(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
-  const moveWith = check8("moveWith", tr8(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
-  const lockAnchor = check8("lockAnchor", tr8(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
-  const overlap = check8("overlap", tr8(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
-  const inCell = check8("inCell", tr8(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
-  const rel = tr8(lang, "relative to", "relativo a");
-  const posBody = el12(
+  const hAlign = select7("hAlign", [["left", tr13(lang, "Left", "Esquerda")], ["center", tr13(lang, "Centered", "Centralizado")], ["right", tr13(lang, "Right", "Direita")]], ph?.align ?? "left");
+  const hAlignRef = select7("hAlignRef", H_REFS(lang), ph?.relativeFrom ?? "column");
+  const hBook = select7("hBook", [["inside", tr13(lang, "Inside", "Interna")], ["outside", tr13(lang, "Outside", "Externa")]], ph?.align ?? "inside");
+  const hBookRef = select7("hBookRef", [["margin", tr13(lang, "Margin", "Margem")], ["page", tr13(lang, "Page", "P\xE1gina")]], ph?.relativeFrom ?? "margin");
+  const hAbs = cmInput3(lang, "hAbs", pt(ph?.offset ?? 0));
+  const hAbsRef = select7("hAbsRef", H_REFS(lang), ph?.relativeFrom ?? "column");
+  const hRel = el17("input", { type: "text", name: "hRel", value: `${(ph?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const hRelRef = select7("hRelRef", H_REFS(lang).filter(([k2]) => k2 !== "column" && k2 !== "character"), ph?.relativeFrom ?? "margin");
+  const vAlign = select7("vAlign", [["top", tr13(lang, "Top", "Superior")], ["center", tr13(lang, "Centered", "Centralizado")], ["bottom", tr13(lang, "Bottom", "Inferior")], ["inside", tr13(lang, "Inside", "Interna")], ["outside", tr13(lang, "Outside", "Externa")]], pv?.align ?? "top");
+  const vAlignRef = select7("vAlignRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph"), pv?.relativeFrom ?? "margin");
+  const vAbs = cmInput3(lang, "vAbs", pt(pv?.offset ?? 0));
+  const vAbsRef = select7("vAbsRef", V_REFS(lang), pv?.relativeFrom ?? "paragraph");
+  const vRel = el17("input", { type: "text", name: "vRel", value: `${(pv?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const vRelRef = select7("vRelRef", V_REFS(lang).filter(([k2]) => k2 !== "paragraph" && k2 !== "line"), pv?.relativeFrom ?? "margin");
+  const hR = { align: radio5("h", "align", tr13(lang, "Alignment", "Alinhamento"), hMode === "align"), book: radio5("h", "book", tr13(lang, "Book layout", "Layout do livro"), hMode === "book"), abs: radio5("h", "abs", tr13(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), hMode === "abs"), rel: radio5("h", "rel", tr13(lang, "Relative position", "Posi\xE7\xE3o relativa"), hMode === "rel") };
+  const vR = { align: radio5("v", "align", tr13(lang, "Alignment", "Alinhamento"), vMode === "align"), abs: radio5("v", "abs", tr13(lang, "Absolute position", "Posi\xE7\xE3o absoluta"), vMode === "abs"), rel: radio5("v", "rel", tr13(lang, "Relative position", "Posi\xE7\xE3o relativa"), vMode === "rel") };
+  const moveWith = check10("moveWith", tr13(lang, "Move object with text", "Mover objeto com texto"), st.moveWithText);
+  const lockAnchor = check10("lockAnchor", tr13(lang, "Lock anchor", "Bloquear \xE2ncora"), f3.locked);
+  const overlap = check10("overlap", tr13(lang, "Allow overlap", "Permitir sobreposi\xE7\xE3o"), f3.allowOverlap);
+  const inCell = check10("inCell", tr13(lang, "Layout in table cell", "Layout na c\xE9lula da tabela"), f3.layoutInCell);
+  const rel = tr13(lang, "relative to", "relativo a");
+  const posBody = el17(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
     section3(
-      tr8(lang, "Horizontal", "Horizontal"),
-      row(hR.align.el, hAlign, rel, hAlignRef),
-      row(hR.book.el, hBook, tr8(lang, "of", "de"), hBookRef),
-      row(hR.abs.el, hAbs, tr8(lang, "to the right of", "\xE0 direita de"), hAbsRef),
-      row(hR.rel.el, hRel, rel, hRelRef)
+      tr13(lang, "Horizontal", "Horizontal"),
+      row2(hR.align.el, hAlign, rel, hAlignRef),
+      row2(hR.book.el, hBook, tr13(lang, "of", "de"), hBookRef),
+      row2(hR.abs.el, hAbs, tr13(lang, "to the right of", "\xE0 direita de"), hAbsRef),
+      row2(hR.rel.el, hRel, rel, hRelRef)
     ),
     section3(
-      tr8(lang, "Vertical", "Vertical"),
-      row(vR.align.el, vAlign, rel, vAlignRef),
-      row(vR.abs.el, vAbs, tr8(lang, "below", "abaixo de"), vAbsRef),
-      row(vR.rel.el, vRel, rel, vRelRef)
+      tr13(lang, "Vertical", "Vertical"),
+      row2(vR.align.el, vAlign, rel, vAlignRef),
+      row2(vR.abs.el, vAbs, tr13(lang, "below", "abaixo de"), vAbsRef),
+      row2(vR.rel.el, vRel, rel, vRelRef)
     ),
-    section3(tr8(lang, "Options", "Op\xE7\xF5es"), row(moveWith.el, overlap.el), row(lockAnchor.el, inCell.el))
+    section3(tr13(lang, "Options", "Op\xE7\xF5es"), row2(moveWith.el, overlap.el), row2(lockAnchor.el, inCell.el))
   );
   for (const i5 of posBody.querySelectorAll("input,select")) i5.disabled = !anchored;
   const wrapR = WRAP_STYLES(lang).map(([k2, t5]) => ({ k: k2, ...radio5("wrap", k2, t5, f3.wrap === k2) }));
-  const sides = [["bothSides", tr8(lang, "Both sides", "Ambos os lados")], ["left", tr8(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr8(lang, "Right only", "Somente \xE0 direita")], ["largest", tr8(lang, "Largest only", "Somente no maior")]].map(([k2, t5]) => ({ k: k2, ...radio5("side", k2, t5, f3.wrapText === k2) }));
-  const dT = cmInput2(lang, "dT", pt(f3.dist.t)), dB = cmInput2(lang, "dB", pt(f3.dist.b)), dL = cmInput2(lang, "dL", pt(f3.dist.l)), dR = cmInput2(lang, "dR", pt(f3.dist.r));
+  const sides = [["bothSides", tr13(lang, "Both sides", "Ambos os lados")], ["left", tr13(lang, "Left only", "Somente \xE0 esquerda")], ["right", tr13(lang, "Right only", "Somente \xE0 direita")], ["largest", tr13(lang, "Largest only", "Somente no maior")]].map(([k2, t5]) => ({ k: k2, ...radio5("side", k2, t5, f3.wrapText === k2) }));
+  const dT = cmInput3(lang, "dT", pt(f3.dist.t)), dB = cmInput3(lang, "dB", pt(f3.dist.b)), dL = cmInput3(lang, "dL", pt(f3.dist.l)), dR = cmInput3(lang, "dR", pt(f3.dist.r));
   const syncWrap = () => {
     const w2 = wrapR.find((r5) => r5.input.checked)?.k ?? f3.wrap;
     const sideOk = w2 === "square" || w2 === "tight" || w2 === "through";
@@ -10038,34 +12738,34 @@ async function pictureLayoutDialog(env, tab) {
   };
   for (const r5 of wrapR) r5.input.addEventListener("change", syncWrap);
   syncWrap();
-  const wrapBody = el12(
+  const wrapBody = el17(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr8(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el12("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r5) => r5.el))),
-    section3(tr8(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row(...sides.map((s4) => s4.el))),
+    section3(tr13(lang, "Wrapping style", "Estilo de quebra autom\xE1tica"), el17("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:6px" }, ...wrapR.map((r5) => r5.el))),
+    section3(tr13(lang, "Wrap text", "Quebra autom\xE1tica de texto"), row2(...sides.map((s4) => s4.el))),
     section3(
-      tr8(lang, "Distance from text", "Dist\xE2ncia do texto"),
-      row(tr8(lang, "Top", "Superior"), dT, tr8(lang, "Left", "Esquerda"), dL),
-      row(tr8(lang, "Bottom", "Inferior"), dB, tr8(lang, "Right", "Direita"), dR)
+      tr13(lang, "Distance from text", "Dist\xE2ncia do texto"),
+      row2(tr13(lang, "Top", "Superior"), dT, tr13(lang, "Left", "Esquerda"), dL),
+      row2(tr13(lang, "Bottom", "Inferior"), dB, tr13(lang, "Right", "Direita"), dR)
     )
   );
   const nat = st.naturalPt;
-  const hAbsSz = cmInput2(lang, "hAbsSz", st.heightPt), wAbsSz = cmInput2(lang, "wAbsSz", st.widthPt);
+  const hAbsSz = cmInput3(lang, "hAbsSz", st.heightPt), wAbsSz = cmInput3(lang, "wAbsSz", st.widthPt);
   const relV = f3.sizeRelV?.pct ? f3.sizeRelV : null, relH = f3.sizeRelH?.pct ? f3.sizeRelH : null;
-  const hRelSz = el12("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const wRelSz = el12("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
-  const sizeRefsV = [["margin", tr8(lang, "Margin", "Margem")], ["page", tr8(lang, "Page", "P\xE1gina")], ["topMargin", tr8(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr8(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]];
-  const sizeRefsH = [["margin", tr8(lang, "Margin", "Margem")], ["page", tr8(lang, "Page", "P\xE1gina")], ["leftMargin", tr8(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr8(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr8(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr8(lang, "Outside Margin", "Margem Externa")]];
-  const hRelRefSz = select5("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
-  const wRelRefSz = select5("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
-  const szH = { abs: radio5("szh", "abs", tr8(lang, "Absolute", "Absoluta"), !relV), rel: radio5("szh", "rel", tr8(lang, "Relative", "Relativa"), !!relV) };
-  const szW = { abs: radio5("szw", "abs", tr8(lang, "Absolute", "Absoluta"), !relH), rel: radio5("szw", "rel", tr8(lang, "Relative", "Relativa"), !!relH) };
-  const rotIn = el12("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
-  const relOrig = check8("relOrig", tr8(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
-  const lockAsp = check8("lockAsp", tr8(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
+  const hRelSz = el17("input", { type: "text", name: "hRelSz", value: `${(relV?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const wRelSz = el17("input", { type: "text", name: "wRelSz", value: `${(relH?.pct ?? 0) / 1e3}%`, style: "width:72px" });
+  const sizeRefsV = [["margin", tr13(lang, "Margin", "Margem")], ["page", tr13(lang, "Page", "P\xE1gina")], ["topMargin", tr13(lang, "Top Margin", "Margem Superior")], ["bottomMargin", tr13(lang, "Bottom Margin", "Margem Inferior")], ["insideMargin", tr13(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr13(lang, "Outside Margin", "Margem Externa")]];
+  const sizeRefsH = [["margin", tr13(lang, "Margin", "Margem")], ["page", tr13(lang, "Page", "P\xE1gina")], ["leftMargin", tr13(lang, "Left Margin", "Margem Esquerda")], ["rightMargin", tr13(lang, "Right Margin", "Margem Direita")], ["insideMargin", tr13(lang, "Inside Margin", "Margem Interna")], ["outsideMargin", tr13(lang, "Outside Margin", "Margem Externa")]];
+  const hRelRefSz = select7("hRelRefSz", sizeRefsV, relV?.relativeFrom ?? "margin");
+  const wRelRefSz = select7("wRelRefSz", sizeRefsH, relH?.relativeFrom ?? "margin");
+  const szH = { abs: radio5("szh", "abs", tr13(lang, "Absolute", "Absoluta"), !relV), rel: radio5("szh", "rel", tr13(lang, "Relative", "Relativa"), !!relV) };
+  const szW = { abs: radio5("szw", "abs", tr13(lang, "Absolute", "Absoluta"), !relH), rel: radio5("szw", "rel", tr13(lang, "Relative", "Relativa"), !!relH) };
+  const rotIn = el17("input", { type: "number", name: "rot", min: "-3600", max: "3600", step: "1", value: String(Math.round(st.rotation * 10) / 10), style: "width:80px" });
+  const relOrig = check10("relOrig", tr13(lang, "Relative to original picture size", "Relativo ao tamanho original da imagem"), !!nat);
+  const lockAsp = check10("lockAsp", tr13(lang, "Lock aspect ratio", "Bloquear propor\xE7\xE3o"), st.lockAspect);
   const base = () => relOrig.input.checked && nat ? nat : { w: st.widthPt, h: st.heightPt };
-  const scH = el12("input", { type: "text", name: "scH", value: "", style: "width:72px" });
-  const scW = el12("input", { type: "text", name: "scW", value: "", style: "width:72px" });
+  const scH = el17("input", { type: "text", name: "scH", value: "", style: "width:72px" });
+  const scW = el17("input", { type: "text", name: "scW", value: "", style: "width:72px" });
   const showScale = () => {
     const b3 = base();
     const h4 = ptOf(hAbsSz.value) ?? st.heightPt, w2 = ptOf(wAbsSz.value) ?? st.widthPt;
@@ -10076,60 +12776,60 @@ async function pictureLayoutDialog(env, tab) {
   relOrig.input.addEventListener("change", showScale);
   hAbsSz.addEventListener("change", () => {
     const h4 = ptOf(hAbsSz.value);
-    if (h4 !== void 0 && lockAsp.input.checked && st.heightPt) wAbsSz.value = cmText2(lang, st.widthPt * h4 / st.heightPt);
+    if (h4 !== void 0 && lockAsp.input.checked && st.heightPt) wAbsSz.value = cmText3(lang, st.widthPt * h4 / st.heightPt);
     showScale();
   });
   wAbsSz.addEventListener("change", () => {
     const w2 = ptOf(wAbsSz.value);
-    if (w2 !== void 0 && lockAsp.input.checked && st.widthPt) hAbsSz.value = cmText2(lang, st.heightPt * w2 / st.widthPt);
+    if (w2 !== void 0 && lockAsp.input.checked && st.widthPt) hAbsSz.value = cmText3(lang, st.heightPt * w2 / st.widthPt);
     showScale();
   });
   const fromScale = (which) => {
     const b3 = base();
     const p3 = numOf((which === "h" ? scH : scW).value);
     if (p3 === void 0) return;
-    if (which === "h" || lockAsp.input.checked) hAbsSz.value = cmText2(lang, b3.h * p3 / 100);
-    if (which === "w" || lockAsp.input.checked) wAbsSz.value = cmText2(lang, b3.w * p3 / 100);
+    if (which === "h" || lockAsp.input.checked) hAbsSz.value = cmText3(lang, b3.h * p3 / 100);
+    if (which === "w" || lockAsp.input.checked) wAbsSz.value = cmText3(lang, b3.w * p3 / 100);
     showScale();
   };
   scH.addEventListener("change", () => fromScale("h"));
   scW.addEventListener("change", () => fromScale("w"));
-  const reset = el12("button", { type: "button", className: "uo-btn", textContent: tr8(lang, "Reset", "Redefinir"), disabled: !nat });
+  const reset = el17("button", { type: "button", className: "uo-btn", textContent: tr13(lang, "Reset", "Redefinir"), disabled: !nat });
   reset.addEventListener("click", () => {
     if (!nat) return;
-    hAbsSz.value = cmText2(lang, nat.h);
-    wAbsSz.value = cmText2(lang, nat.w);
+    hAbsSz.value = cmText3(lang, nat.h);
+    wAbsSz.value = cmText3(lang, nat.w);
     rotIn.value = "0";
     szH.abs.input.checked = szW.abs.input.checked = true;
     showScale();
   });
   for (const i5 of [hRelSz, hRelRefSz, wRelSz, wRelRefSz, szH.rel.input, szW.rel.input]) i5.disabled = !anchored;
-  const sizeBody = el12(
+  const sizeBody = el17(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr8(lang, "Height", "Altura"), row(szH.abs.el, hAbsSz), row(szH.rel.el, hRelSz, rel, hRelRefSz)),
-    section3(tr8(lang, "Width", "Largura"), row(szW.abs.el, wAbsSz), row(szW.rel.el, wRelSz, rel, wRelRefSz)),
-    section3(tr8(lang, "Rotate", "Girar"), row(tr8(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
-    section3(tr8(lang, "Scale", "Escala"), row(tr8(lang, "Height:", "Altura:"), scH, tr8(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
-    section3(tr8(lang, "Original size", "Tamanho original"), row(
-      el12("span", { textContent: `${tr8(lang, "Height:", "Altura:")} ${nat ? cmText2(lang, nat.h) : "\u2014"}` }),
-      el12("span", { textContent: `${tr8(lang, "Width:", "Largura:")} ${nat ? cmText2(lang, nat.w) : "\u2014"}` }),
+    section3(tr13(lang, "Height", "Altura"), row2(szH.abs.el, hAbsSz), row2(szH.rel.el, hRelSz, rel, hRelRefSz)),
+    section3(tr13(lang, "Width", "Largura"), row2(szW.abs.el, wAbsSz), row2(szW.rel.el, wRelSz, rel, wRelRefSz)),
+    section3(tr13(lang, "Rotate", "Girar"), row2(tr13(lang, "Rotation:", "Rota\xE7\xE3o:"), rotIn, "\xB0")),
+    section3(tr13(lang, "Scale", "Escala"), row2(tr13(lang, "Height:", "Altura:"), scH, tr13(lang, "Width:", "Largura:"), scW), lockAsp.el, relOrig.el),
+    section3(tr13(lang, "Original size", "Tamanho original"), row2(
+      el17("span", { textContent: `${tr13(lang, "Height:", "Altura:")} ${nat ? cmText3(lang, nat.h) : "\u2014"}` }),
+      el17("span", { textContent: `${tr13(lang, "Width:", "Largura:")} ${nat ? cmText3(lang, nat.w) : "\u2014"}` }),
       reset
     ))
   );
   const tabs = dialogTabs([
-    { id: "position", label: tr8(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
-    { id: "wrap", label: tr8(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
-    { id: "size", label: tr8(lang, "Size", "Tamanho"), body: sizeBody }
+    { id: "position", label: tr13(lang, "Position", "Posi\xE7\xE3o"), body: posBody },
+    { id: "wrap", label: tr13(lang, "Text Wrapping", "Quebra Autom\xE1tica de Texto"), body: wrapBody },
+    { id: "size", label: tr13(lang, "Size", "Tamanho"), body: sizeBody }
   ], tab);
-  const L12 = env.app.ui.L;
+  const L16 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr8(lang, "Layout", "Layout"),
+    title: tr13(lang, "Layout", "Layout"),
     body: tabs.el,
     layer: env.layer,
     lang,
     width: 560,
-    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const o6 = {};
@@ -10177,8 +12877,8 @@ async function pictureLayoutDialog(env, tab) {
 async function pictureCompressDialog(env) {
   const { ed, lang } = env;
   if (!ed.selectedImage()) return;
-  const only = check8("only", tr8(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
-  const crop = check8("crop", tr8(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
+  const only = check10("only", tr13(lang, "Apply only to this picture", "Aplicar somente a esta imagem"), true);
+  const crop = check10("crop", tr13(lang, "Delete cropped areas of pictures", "Excluir \xE1reas cortadas de imagens"), true);
   const RES = [
     ["hifi", Infinity, "High fidelity: preserves quality of the original picture", "Alta fidelidade: preserva a qualidade da imagem original"],
     ["hd", 330, "HD (330 ppi): good quality for high-definition (HD) displays", "HD (330 ppi): boa qualidade para monitores de alta defini\xE7\xE3o (HD)"],
@@ -10187,21 +12887,21 @@ async function pictureCompressDialog(env) {
     ["email", 96, "E-mail (96 ppi): minimize document size for sharing", "Email (96 ppi): minimizar o tamanho do documento para compartilhamento"],
     ["default", 220, "Use default resolution", "Usar a resolu\xE7\xE3o padr\xE3o"]
   ];
-  const res = RES.map(([k2, ppi2, en, pt]) => ({ ppi: ppi2, ...radio5("res", k2, tr8(lang, en, pt), k2 === "default") }));
-  const body = el12(
+  const res = RES.map(([k2, ppi2, en, pt]) => ({ ppi: ppi2, ...radio5("res", k2, tr13(lang, en, pt), k2 === "default") }));
+  const body = el17(
     "div",
     { style: "display:flex;flex-direction:column;gap:12px" },
-    section3(tr8(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
-    section3(tr8(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r5) => r5.el))
+    section3(tr13(lang, "Compression options:", "Op\xE7\xF5es de compacta\xE7\xE3o:"), only.el, crop.el),
+    section3(tr13(lang, "Resolution:", "Resolu\xE7\xE3o:"), ...res.map((r5) => r5.el))
   );
-  const L12 = env.app.ui.L;
+  const L16 = env.app.ui.L;
   const h3 = openDialog({
-    title: tr8(lang, "Compress Pictures", "Compactar Imagens"),
+    title: tr13(lang, "Compress Pictures", "Compactar Imagens"),
     body,
     layer: env.layer,
     lang,
     width: 480,
-    actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: "OK", primary: true }]
+    actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: "OK", primary: true }]
   });
   if (await h3.result !== "ok") return;
   const ppi = res.find((r5) => r5.input.checked)?.ppi ?? 220;
@@ -10254,8 +12954,8 @@ var PictureUI = class {
       cur.close();
       return;
     }
-    const btn2 = (label, icon, run) => {
-      const b3 = el12("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
+    const btn3 = (label, icon, run) => {
+      const b3 = el17("button", { type: "button", className: "uo-btn", title: label, style: "min-width:0;padding:2px 6px;display:inline-flex;align-items:center;gap:4px" });
       b3.innerHTML = symbol(icon) + (icon === "keyboard_arrow_up" || icon === "keyboard_arrow_down" ? "" : `<span>${label}</span>`);
       b3.setAttribute("aria-label", label);
       b3.addEventListener("mousedown", (e6) => e6.preventDefault());
@@ -10266,15 +12966,15 @@ var PictureUI = class {
       });
       return b3;
     };
-    const showAll = btn2(tr8(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
-    const hideAll = btn2(tr8(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
-    const up = btn2(tr8(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
-    const down = btn2(tr8(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
-    const bar = el12("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el12("span", { style: "flex:1" }), up, down);
-    const list = el12("div", { style: "display:flex;flex-direction:column;gap:1px" });
+    const showAll = btn3(tr13(lang, "Show All", "Mostrar Tudo"), "visibility", () => ed.setPaneItemHidden(null, false));
+    const hideAll = btn3(tr13(lang, "Hide All", "Ocultar Tudo"), "visibility_off", () => ed.setPaneItemHidden(null, true));
+    const up = btn3(tr13(lang, "Bring Forward", "Avan\xE7ar"), "keyboard_arrow_up", () => ed.arrangeImage("forward"));
+    const down = btn3(tr13(lang, "Send Backward", "Recuar"), "keyboard_arrow_down", () => ed.arrangeImage("backward"));
+    const bar2 = el17("div", { style: "display:flex;gap:4px;align-items:center;flex-wrap:wrap" }, showAll, hideAll, el17("span", { style: "flex:1" }), up, down);
+    const list = el17("div", { style: "display:flex;flex-direction:column;gap:1px" });
     list.setAttribute("role", "listbox");
-    const empty = el12("p", { textContent: tr8(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
-    const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar, list, empty);
+    const empty = el17("p", { textContent: tr13(lang, "There are no floating objects in this document.", "N\xE3o h\xE1 objetos flutuantes neste documento."), style: "margin:0;font-size:13px;opacity:.75" });
+    const body = el17("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, bar2, list, empty);
     let editing = false;
     const sync = () => {
       if (editing) return;
@@ -10285,12 +12985,12 @@ var PictureUI = class {
       const sel4 = items.find((i5) => i5.selected);
       up.disabled = down.disabled = off || !sel4;
       list.replaceChildren(...items.map((it) => {
-        const row2 = el12("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
-        row2.setAttribute("role", "option");
-        row2.setAttribute("aria-selected", String(it.selected));
-        row2.dataset["key"] = it.key;
-        const name = el12("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
-        const eye = el12("button", { type: "button", className: "uo-btn", title: it.hidden ? tr8(lang, "Show", "Mostrar") : tr8(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
+        const row3 = el17("div", { className: "uo-sel-row", style: `display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:default;${it.selected ? "background:var(--uo-secondary-container,#d3e3fd);" : ""}${it.hidden ? "opacity:.55;" : ""}` });
+        row3.setAttribute("role", "option");
+        row3.setAttribute("aria-selected", String(it.selected));
+        row3.dataset["key"] = it.key;
+        const name = el17("span", { textContent: it.name || "\u2014", style: "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px" });
+        const eye = el17("button", { type: "button", className: "uo-btn", title: it.hidden ? tr13(lang, "Show", "Mostrar") : tr13(lang, "Hide", "Ocultar"), style: "min-width:0;padding:2px" });
         eye.innerHTML = symbol(it.hidden ? "visibility_off" : "visibility");
         eye.disabled = off;
         eye.addEventListener("mousedown", (e6) => e6.preventDefault());
@@ -10300,16 +13000,16 @@ var PictureUI = class {
           this.env.after();
           sync();
         });
-        row2.addEventListener("mousedown", (e6) => e6.preventDefault());
-        row2.addEventListener("click", () => {
-          ed.selectPaneItem(it.key);
+        row3.addEventListener("mousedown", (e6) => e6.preventDefault());
+        row3.addEventListener("click", (e6) => {
+          ed.selectPaneItem(it.key, e6.ctrlKey || e6.shiftKey);
           this.env.after();
           sync();
         });
-        row2.addEventListener("dblclick", () => {
+        row3.addEventListener("dblclick", () => {
           if (off) return;
           editing = true;
-          const input = el12("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
+          const input = el17("input", { type: "text", value: it.name, style: "flex:1;font-size:13px;min-width:0" });
           const done = (ok) => {
             if (!editing) return;
             editing = false;
@@ -10327,8 +13027,8 @@ var PictureUI = class {
           input.focus();
           input.select();
         });
-        row2.append(name, eye);
-        return row2;
+        row3.append(name, eye);
+        return row3;
       }));
     };
     openPane({
@@ -10357,13 +13057,13 @@ var PictureUI = class {
       cur.close();
       return;
     }
-    const intro = el12("p", { textContent: tr8(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
-    const text = el12("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
+    const intro = el17("p", { textContent: tr13(lang, "How would you describe this object and its context to someone who is blind or has low vision?", "Como voc\xEA descreveria este objeto e seu contexto para algu\xE9m que \xE9 cego ou tem baixa vis\xE3o?"), style: "margin:0 0 8px;font-size:13px" });
+    const text = el17("textarea", { rows: 6, style: "width:100%;box-sizing:border-box;resize:vertical" });
     text.dataset["a"] = "pic:alt:text";
-    const deco = check8("decorative", tr8(lang, "Mark as decorative", "Marcar como decorativa"), false);
-    const note = el12("p", { textContent: tr8(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
-    const empty = el12("p", { textContent: tr8(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
-    const body = el12("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
+    const deco = check10("decorative", tr13(lang, "Mark as decorative", "Marcar como decorativa"), false);
+    const note = el17("p", { textContent: tr13(lang, "Decorative objects add visual interest but aren\u2019t informative (e.g., stylistic borders). People using screen readers won\u2019t hear these.", "Objetos decorativos acrescentam interesse visual, mas n\xE3o s\xE3o informativos (por exemplo, bordas estil\xEDsticas). Quem usa leitor de tela n\xE3o os ouvir\xE1."), style: "margin:4px 0 0;font-size:12px;opacity:.75" });
+    const empty = el17("p", { textContent: tr13(lang, "Select a picture or shape to add alt text.", "Selecione uma imagem ou forma para adicionar o texto alt."), style: "margin:0;font-size:13px;opacity:.75" });
+    const body = el17("div", { style: "display:flex;flex-direction:column;gap:8px;padding:4px" }, intro, text, deco.el, note, empty);
     let last = null;
     const sync = () => {
       const st = ed.selectedImage() ?? ed.selectedShape();
@@ -10418,7 +13118,7 @@ var LABELS2 = {
     docTitle: "Document title",
     decimal: ".",
     status: (page, pages, words) => `Page ${page} of ${pages} \xB7 ${words} word${words === 1 ? "" : "s"}`,
-    saved: (fmt) => `Saved \u2713 (${fmt})`,
+    saved: (fmt2) => `Saved \u2713 (${fmt2})`,
     autosaved: "Autosaved \u2713",
     autosavePending: "Autosave pending \u2014 save once to choose the file",
     autosaveOff: "Autosave off",
@@ -10536,7 +13236,7 @@ var LABELS2 = {
     docTitle: "T\xEDtulo do documento",
     decimal: ",",
     status: (page, pages, words) => `P\xE1gina ${page} de ${pages} \xB7 ${words} palavra${words === 1 ? "" : "s"}`,
-    saved: (fmt) => `Salvo \u2713 (${fmt})`,
+    saved: (fmt2) => `Salvo \u2713 (${fmt2})`,
     autosaved: "Salvamento autom\xE1tico \u2713",
     autosavePending: "Salvamento autom\xE1tico pendente \u2014 salve uma vez para escolher o arquivo",
     autosaveOff: "Salvamento autom\xE1tico desligado",
@@ -10652,7 +13352,7 @@ var LABELS2 = {
 };
 
 // src/chrome-widgets.ts
-function btn(cls, id, title) {
+function btn2(cls, id, title) {
   const b3 = document.createElement("button");
   b3.type = "button";
   b3.className = cls;
@@ -10694,7 +13394,7 @@ var titleWidget = (env) => ({
 });
 var saveWidget = (env) => ({
   widget: (ctx) => {
-    const b3 = btn("uo-pill uo-pill-primary", "save", ctx.registry.tooltip("save"));
+    const b3 = btn2("uo-pill uo-pill-primary", "save", ctx.registry.tooltip("save"));
     b3.innerHTML = `${symbol("save")}<span></span>`;
     const span = b3.querySelector("span");
     b3.addEventListener("click", () => {
@@ -10711,7 +13411,7 @@ var saveWidget = (env) => ({
 });
 var styleWidget = (env, width = 120) => ({
   widget: (ctx) => {
-    const b3 = btn("uo-btn uo-drop uo-combo", "style", t4(ctx, { en: "Paragraph style", pt: "Estilo de par\xE1grafo" }));
+    const b3 = btn2("uo-btn uo-drop uo-combo", "style", t4(ctx, { en: "Paragraph style", pt: "Estilo de par\xE1grafo" }));
     b3.style.width = `${width}px`;
     b3.innerHTML = `<span class="uo-drop-text"></span><span class="uo-chev">${symbol("arrow_drop_down")}</span>`;
     const text = b3.querySelector(".uo-drop-text");
@@ -10750,7 +13450,7 @@ var styleWidget = (env, width = 120) => ({
 });
 var fontWidget = (env, width = 130) => ({
   widget: (ctx) => {
-    const b3 = btn("uo-btn uo-drop uo-combo", "font", t4(ctx, { en: "Font", pt: "Fonte" }));
+    const b3 = btn2("uo-btn uo-drop uo-combo", "font", t4(ctx, { en: "Font", pt: "Fonte" }));
     b3.style.width = `${width}px`;
     b3.innerHTML = `<span class="uo-drop-text"></span><span class="uo-chev">${symbol("arrow_drop_down")}</span>`;
     const text = b3.querySelector(".uo-drop-text");
@@ -10791,7 +13491,7 @@ var fontWidget = (env, width = 130) => ({
     };
   }
 });
-var SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+var SIZES2 = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 var sizeWidget = (env, variant) => ({
   widget: (ctx) => {
     const wrap = document.createElement("span");
@@ -10818,14 +13518,14 @@ var sizeWidget = (env, variant) => ({
     });
     input.addEventListener("focus", () => input.select());
     const dec = ctx.registry.text({ en: ".", pt: "," });
-    const fmt = (n5) => String(n5).replace(".", dec);
+    const fmt2 = (n5) => String(n5).replace(".", dec);
     if (variant === "steppers") {
-      const minus = btn("uo-btn", "shrink", ctx.registry.tooltip("shrink"));
+      const minus = btn2("uo-btn", "shrink", ctx.registry.tooltip("shrink"));
       minus.innerHTML = symbol("remove");
       minus.addEventListener("click", () => {
         void ctx.registry.run("shrink");
       });
-      const plus = btn("uo-btn", "grow", ctx.registry.tooltip("grow"));
+      const plus = btn2("uo-btn", "grow", ctx.registry.tooltip("grow"));
       plus.innerHTML = symbol("add");
       plus.addEventListener("click", () => {
         void ctx.registry.run("grow");
@@ -10833,13 +13533,13 @@ var sizeWidget = (env, variant) => ({
       wrap.append(minus, input, plus);
     } else {
       input.style.width = "44px";
-      const drop = btn("uo-btn uo-split-arrow", "size:menu", input.title);
+      const drop = btn2("uo-btn uo-split-arrow", "size:menu", input.title);
       drop.innerHTML = symbol("arrow_drop_down");
       drop.addEventListener("click", (e6) => {
         e6.stopPropagation();
-        toggleMenu(drop, () => SIZES.map((s4) => ({
-          label: fmt(s4),
-          checked: input.value === fmt(s4),
+        toggleMenu(drop, () => SIZES2.map((s4) => ({
+          label: fmt2(s4),
+          checked: input.value === fmt2(s4),
           onClick: () => {
             env.ed.setFontSize(s4);
             ctx.after();
@@ -10852,9 +13552,9 @@ var sizeWidget = (env, variant) => ({
       el: wrap,
       sync: () => {
         const half = env.ctl.state().run.szHalfPt;
-        if (half && env.root.activeElement !== input) input.value = fmt(half / 2);
+        if (half && env.root.activeElement !== input) input.value = fmt2(half / 2);
         const ok = canEdit(env);
-        for (const el14 of wrap.querySelectorAll("input,button")) el14.disabled = !ok;
+        for (const el19 of wrap.querySelectorAll("input,button")) el19.disabled = !ok;
       }
     };
   }
@@ -10891,24 +13591,8 @@ var moreColors = (ctx, label, onPick) => ({
     input.click();
   }
 });
-var colorMenu2 = (env, ctx) => {
-  const L12 = env.app.ui.L;
-  const pick = (hex) => {
-    env.app.lastColor = hex;
-    env.ed.setColor(hex);
-    ctx.after();
-  };
-  return [
-    { id: "color:auto", label: L12.automatic, swatch: "#000000", onClick: () => {
-      env.ed.setColor(void 0);
-      ctx.after();
-    } },
-    { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().run.color, onPick: pick, close }) },
-    moreColors(ctx, L12.moreColors, pick)
-  ];
-};
 var highlightMenu = (env, ctx) => {
-  const L12 = env.app.ui.L;
+  const L16 = env.app.ui.L;
   return [
     { content: (close) => colorGrid({
       colors: HIGHLIGHT_COLORS.map((h3) => ({ value: h3.value, css: h3.css, title: ctx.registry.text(h3.label) })),
@@ -10921,14 +13605,14 @@ var highlightMenu = (env, ctx) => {
       },
       close
     }) },
-    { id: "highlight:none", label: L12.noColor, swatch: "", onClick: () => {
+    { id: "highlight:none", label: L16.noColor, swatch: "", onClick: () => {
       env.ed.setHighlight(void 0);
       ctx.after();
     } }
   ];
 };
 var shadingMenu = (env, ctx) => {
-  const L12 = env.app.ui.L;
+  const L16 = env.app.ui.L;
   const pick = (hex) => {
     env.app.lastShading = hex;
     env.ed.setShading(hex);
@@ -10936,11 +13620,11 @@ var shadingMenu = (env, ctx) => {
   };
   return [
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: h3, css: `#${h3}` })), selected: env.ctl.state().para.shadingHex, onPick: pick, close }) },
-    { id: "shading:none", label: L12.noColor, swatch: "", onClick: () => {
+    { id: "shading:none", label: L16.noColor, swatch: "", onClick: () => {
       env.ed.setShading(void 0);
       ctx.after();
     } },
-    moreColors(ctx, L12.moreColors, pick)
+    moreColors(ctx, L16.moreColors, pick)
   ];
 };
 var lineSpacingMenu = (env, ctx) => {
@@ -11053,7 +13737,7 @@ var marginsMenu = (env, ctx) => [
   "-",
   "dlg:page"
 ];
-var caseMenu = () => ["case:upper", "case:lower", "-", "allCaps", "smallCaps"];
+var caseMenu = () => ["case:sentence", "case:lower", "case:upper", "case:title", "case:toggle"];
 var fieldsMenu = () => ["field:page", "field:numpages", "field:date", "-", "fields:update"];
 var SYMBOL_CHARS = "\xA9\xAE\u2122\xA7\xB6\u20AC\xA3\xA5\xA2\xB0\xB1\xD7\xF7\u2260\u2264\u2265\u2248\u221E\xB5\u2013\u2014\u2026\u201C\u201D\u2018\u2019\xAB\xBB\u2022\xB7\u2020\u2021\u2192\u2190\u2191\u2193\u2713\u2717\xBD\xBC\xBE\u03B1\u03B2\u03C0\u03A9\u03A3";
 var symbolMenu = (env, ctx) => [{
@@ -11148,7 +13832,7 @@ function menus(env, ctx) {
       env.app.autosaveMinutes = n5;
     }
   }));
-  const recents = () => env.app.recents.map((r5) => ({
+  const recents2 = () => env.app.recents.map((r5) => ({
     id: `recent:${r5.name}`,
     label: r5.name,
     icon: "description",
@@ -11167,7 +13851,7 @@ function menus(env, ctx) {
   }));
   return {
     exportAs: sub({ en: "Download", pt: "Baixar" }, "download", () => ["export:pdf", "export:odt", "export:html", "export:md", "export:xps"], "export"),
-    recent: sub({ en: "Open recent", pt: "Abrir recente" }, "history", recents, "recent"),
+    recent: sub({ en: "Open recent", pt: "Abrir recente" }, "history", recents2, "recent"),
     autosave: sub({ en: "Autosave", pt: "Salvamento autom\xE1tico" }, "autorenew", autosave, "autosave"),
     zoomItems: () => [...zoom(), "-", "zoomin", "zoomout"],
     zoom: sub({ en: "Zoom", pt: "Zoom" }, "zoom_in", () => [...zoom(), "-", "zoomin", "zoomout"], "zoom"),
@@ -11213,8 +13897,26 @@ function menus(env, ctx) {
       "-",
       "hf:close"
     ], "hf"),
-    text: sub({ en: "Text", pt: "Texto" }, "format_bold", () => ["bold", "italic", "underline", "strike", "sup", "sub", "-", "grow", "shrink", "-", "allCaps", "smallCaps", "case:upper", "case:lower"], "text"),
-    color: sub({ en: "Font color", pt: "Cor da fonte" }, "format_color_text", () => colorMenu2(env, ctx), "color"),
+    text: sub({ en: "Text", pt: "Texto" }, "format_bold", () => [
+      "bold",
+      "italic",
+      "underline",
+      "strike",
+      "doubleStrike",
+      "sup",
+      "sub",
+      "-",
+      "grow",
+      "shrink",
+      "-",
+      "allCaps",
+      "smallCaps",
+      "hidden",
+      { id: "caseSub", label: { en: "Change case", pt: "Mai\xFAsculas e min\xFAsculas" }, icon: "match_case", submenu: caseMenu }
+    ], "text"),
+    color: sub({ en: "Font color", pt: "Cor da fonte" }, "format_color_text", () => fontColorMenu(env, ctx), "color"),
+    underline: sub({ en: "Underline", pt: "Sublinhado" }, "format_underlined", () => underlineMenu(env, ctx), "underlineMenu"),
+    borders: sub({ en: "Borders", pt: "Bordas" }, "border_bottom", homeBordersMenu, "homeBorders"),
     highlight: sub({ en: "Highlight color", pt: "Cor do realce" }, "format_ink_highlighter", () => highlightMenu(env, ctx), "highlightMenu"),
     styles: sub({ en: "Paragraph styles", pt: "Estilos de par\xE1grafo" }, "style", () => {
       const cur = env.ctl.state().para.styleId || "Normal";
@@ -11242,7 +13944,17 @@ function menus(env, ctx) {
       sub({ en: "Special indent", pt: "Recuo especial" }, void 0, () => specialIndentMenu(env, ctx), "specialIndent")
     ], "align"),
     spacing: sub({ en: "Line & paragraph spacing", pt: "Espa\xE7amento entre linhas e par\xE1grafos" }, "format_line_spacing", () => lineSpacingMenu(env, ctx), "spacing"),
-    lists: sub({ en: "Bullets & numbering", pt: "Marcadores e numera\xE7\xE3o" }, "format_list_bulleted", () => ["list:bullet", "list:decimal"], "lists"),
+    lists: sub({ en: "Bullets & numbering", pt: "Marcadores e numera\xE7\xE3o" }, "format_list_bulleted", () => [
+      { id: "list:bulletMenu", label: { en: "Bullets", pt: "Marcadores" }, icon: "format_list_bulleted", submenu: () => listMenu(env, ctx, "bullet") },
+      { id: "list:numberMenu", label: { en: "Numbering", pt: "Numera\xE7\xE3o" }, icon: "format_list_numbered", submenu: () => listMenu(env, ctx, "number") },
+      { id: "list:multiMenu", label: { en: "Multilevel List", pt: "Lista de V\xE1rios N\xEDveis" }, icon: "list_alt", submenu: () => multilevelMenu(env, ctx) },
+      "-",
+      "list:defineBullet",
+      "list:defineNumber",
+      "list:setValue",
+      "list:defineMultilevel",
+      "list:defineStyle"
+    ], "lists"),
     shading: sub({ en: "Paragraph shading", pt: "Sombreamento do par\xE1grafo" }, "format_color_fill", () => shadingMenu(env, ctx), "shadingMenu"),
     charSpacing: sub({ en: "Character spacing", pt: "Espa\xE7amento entre caracteres" }, "format_letter_spacing", () => charSpacingMenu(env, ctx), "charSpacing"),
     page: sub({ en: "Page setup", pt: "Configurar p\xE1gina" }, "description", () => [
@@ -11332,10 +14044,10 @@ function compactLayout(env, ctx) {
     trailing: [saveWidget(env)],
     menus: [
       { id: "file", label: { en: "File", pt: "Arquivo" }, items: () => fileMenu(m2) },
-      { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
+      { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "paste:special", "paste:defaults", "clipboard:pane", "-", "selectAll", "select:objects", "select:similar", "-", "find", "find:advanced", "replace", "goto"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "view:outline", "view:draft", "focus", "-", "view:ruler", "view:gridlines", "view:navpane", "view:bookmarks", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", m2.table, "link", "comment", "-", m2.cover, "blankPage", m2.breaks, m2.hf, m2.fields, m2.toc, "-", "footnote", "endnote", m2.notes, "bookmark", "crossref", "caption", "tof", "tof:update", { id: "textbox:sub", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", submenu: () => textboxMenu(env, ctx) }, m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.underline, m2.color, m2.highlight, m2.styles, m2.styleTools, "-", m2.align, m2.spacing, m2.lists, m2.shading, m2.borders, "dlg:borders", m2.charSpacing, "-", tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), "-", m2.page, m2.background, m2.columns, "-", "dlg:font", "dlg:paragraph", "dlg:tabs", "-", "clear", "style:clearChar", "style:clearPara"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "sort", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", m2.hyphenation, m2.lineNumbers, "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -11347,9 +14059,10 @@ function compactLayout(env, ctx) {
       { id: "format", label: { en: "Formatting", pt: "Formata\xE7\xE3o" }, icon: "format_bold", prio: 9, items: [
         "bold",
         "italic",
-        "underline",
-        { split: "color", menu: () => colorMenu2(env, ctx) },
-        { split: "highlight", menu: () => highlightMenu(env, ctx) }
+        { split: "underline", menu: () => underlineMenu(env, ctx) },
+        { split: "color", menu: () => fontColorMenu(env, ctx) },
+        { split: "highlight", menu: () => highlightMenu(env, ctx) },
+        { menu: () => textEffectsMenu(env, ctx), id: "fx:menu", label: { en: "Text Effects and Typography", pt: "Efeitos de Texto e Tipografia" }, icon: "format_color_text" }
       ] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, icon: "link", prio: 5, items: ["link", "comment", "image", { menu: () => tableMenu(env, ctx), id: "table:menu", label: { en: "Table", pt: "Tabela" }, icon: "table", supports: () => typeof env.ed.insertTable === "function" }] },
       { id: "para", label: { en: "Paragraph", pt: "Par\xE1grafo" }, icon: "format_align_left", prio: 6, items: [
@@ -11358,8 +14071,9 @@ function compactLayout(env, ctx) {
         "align:right",
         "align:both",
         { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: { en: "Line & paragraph spacing", pt: "Espa\xE7amento entre linhas e par\xE1grafos" }, icon: "format_line_spacing" },
-        "list:bullet",
-        "list:decimal",
+        { split: "list:bullet", menu: () => listMenu(env, ctx, "bullet") },
+        { split: "list:decimal", menu: () => listMenu(env, ctx, "number") },
+        { menu: () => multilevelMenu(env, ctx), id: "list:multi", label: { en: "Multilevel List", pt: "Lista de V\xE1rios N\xEDveis" }, icon: "list_alt" },
         "outdent",
         "indent",
         "clear"
@@ -11372,7 +14086,7 @@ function compactLayout(env, ctx) {
         "sup",
         { menu: caseMenu, id: "case", label: { en: "Change case", pt: "Mai\xFAsculas e min\xFAsculas" }, icon: "match_case" },
         { split: "shading", menu: () => shadingMenu(env, ctx) },
-        "borders",
+        { split: "home:borders", menu: homeBordersMenu },
         "marks",
         { menu: () => charSpacingMenu(env, ctx), id: "charSpacing", label: { en: "Character spacing", pt: "Espa\xE7amento entre caracteres" }, icon: "format_letter_spacing" },
         { menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: { en: "Special indent", pt: "Recuo especial" }, icon: "format_indent_increase" },
@@ -11384,7 +14098,7 @@ function compactLayout(env, ctx) {
     ]
   };
 }
-var L11 = (en, pt) => ({ en, pt });
+var L15 = (en, pt) => ({ en, pt });
 var large3 = (cmd) => ({ cmd, size: "large" });
 function ribbonLayout(env, ctx) {
   const m2 = menus(env, ctx);
@@ -11393,67 +14107,79 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L11("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L15("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L11("Home", "P\xE1gina Inicial"),
+        label: L15("Home", "P\xE1gina Inicial"),
         groups: [
-          { id: "clipboard", label: L11("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
-            { split: "paste", size: "large", menu: ["paste", "pastePlain"] },
+          { id: "clipboard", label: L15("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, launcher: "clipboard:pane", cells: [
+            { split: "paste", size: "large", menu: () => pasteMenu(env, ctx) },
             { rows: [["cut"], ["copy"], ["painter"]] }
           ] },
-          { id: "font", label: L11("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
+          { id: "font", label: L15("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L11("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
-              ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu2(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L15("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              ["bold", "italic", { split: "underline", menu: () => underlineMenu(env, ctx) }, "strike", "sub", "sup", { menu: () => textEffectsMenu(env, ctx), id: "fx:menu", label: L15("Text Effects and Typography", "Efeitos de Texto e Tipografia"), icon: "format_color_text" }, { split: "highlight", menu: () => highlightMenu(env, ctx) }, { split: "color", menu: () => fontColorMenu(env, ctx) }]
             ] }
           ] },
-          { id: "paragraph", label: L11("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
+          { id: "paragraph", label: L15("Paragraph", "Par\xE1grafo"), icon: "format_align_left", prio: 7, launcher: "dlg:paragraph", cells: [
             { rows: [
-              ["list:bullet", "list:decimal", "outdent", "indent", "sort", "marks"],
+              [
+                { split: "list:bullet", menu: () => listMenu(env, ctx, "bullet") },
+                { split: "list:decimal", menu: () => listMenu(env, ctx, "number") },
+                { menu: () => multilevelMenu(env, ctx), id: "list:multi", label: L15("Multilevel List", "Lista de V\xE1rios N\xEDveis"), icon: "list_alt" },
+                "outdent",
+                "indent",
+                "sort",
+                "marks"
+              ],
               [
                 "align:left",
                 "align:center",
                 "align:right",
                 "align:both",
-                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L11("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
+                { menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L15("Line & paragraph spacing", "Espa\xE7amento entre linhas e par\xE1grafos"), icon: "format_line_spacing" },
                 { split: "shading", menu: () => shadingMenu(env, ctx) },
-                "borders"
+                { split: "home:borders", menu: homeBordersMenu }
               ]
             ] }
           ] },
           // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
-          { id: "styles", label: L11("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
-          { id: "editing", label: L11("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
-            { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
+          { id: "styles", label: L15("Styles", "Estilos"), icon: "style", prio: 5, launcher: "styles:pane", cells: env.styles ? [env.styles.galleryItem()] : [{ rows: [[styleWidget(env, 150)]] }] },
+          { id: "editing", label: L15("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
+            { rows: [
+              [{ split: "find", menu: findMenu, label: true }],
+              [{ cmd: "replace", label: true }],
+              [{ menu: selectMenu2, id: "select:menu", label: L15("Select", "Selecionar"), icon: "select_all", showLabel: true }]
+            ] }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L11("Insert", "Inserir"),
+        label: L15("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L11("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
-            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L11("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
+          { id: "pages", label: L15("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            { menu: () => coverPageMenu(env, ctx), id: "cover:menu", label: L15("Cover Page", "Folha de Rosto"), icon: "auto_stories", size: "large", supports: has("insertCoverPage") },
             large3("blankPage"),
             large3("pagebreak"),
-            { menu: breaksMenu, id: "breaks", label: L11("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+            { menu: breaksMenu, id: "breaks", label: L15("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
           ] },
-          { id: "objects", label: L11("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
-            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L11("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+          { id: "objects", label: L15("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L15("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large3("image")
           ] },
           // Links (Link, Indicador, Referência Cruzada) e Comentários, como no Word
-          { id: "links", label: L11("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
-          { id: "comments", label: L11("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
-          { id: "hf", label: L11("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
-            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L11("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
-            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L11("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
-            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L11("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
+          { id: "links", label: L15("Links", "Links"), icon: "link", prio: 5, cells: [large3("link"), large3("bookmark"), large3("crossref")] },
+          { id: "comments", label: L15("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 4, cells: [large3("comment")] },
+          { id: "hf", label: L15("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
+            { menu: () => hfGalleryMenu(env, ctx, "header"), id: "hf:headerMenu", label: L15("Header", "Cabe\xE7alho"), icon: "vertical_align_top", size: "large" },
+            { menu: () => hfGalleryMenu(env, ctx, "footer"), id: "hf:footerMenu", label: L15("Footer", "Rodap\xE9"), icon: "vertical_align_bottom", size: "large" },
+            { menu: () => pageNumberMenu(env, ctx), id: "hf:pgnumMenu", label: L15("Page Number", "N\xFAmero de P\xE1gina"), icon: "numbers", size: "large" }
           ] },
-          { id: "text", label: L11("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
-            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L11("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
-            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L11("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
+          { id: "text", label: L15("Text", "Texto"), icon: "text_fields", prio: 3, cells: [
+            { menu: () => textboxMenu(env, ctx), id: "textbox:menu", label: L15("Text Box", "Caixa de Texto"), icon: "text_fields", size: "large", supports: has("insertTextbox") },
+            { rows: [[{ cmd: "dlg:dateTime", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L15("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
           ] }
         ]
       },
@@ -11461,60 +14187,60 @@ function ribbonLayout(env, ctx) {
         // guia Design (como no Word): por ora só o Plano de Fundo da Página; Formatação do
         // Documento (temas, conjuntos de estilos) entra quando chegar
         id: "design",
-        label: L11("Design", "Design"),
+        label: L15("Design", "Design"),
         groups: [
-          { id: "docformat", label: L11("Document Formatting", "Formata\xE7\xE3o do Documento"), icon: "format_line_spacing", prio: 3, cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L11("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" }
+          { id: "docformat", label: L15("Document Formatting", "Formata\xE7\xE3o do Documento"), icon: "format_line_spacing", prio: 3, cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L15("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" }
           ] },
-          { id: "background", label: L11("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L11("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
-            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L11("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
+          { id: "background", label: L15("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { menu: () => watermarkMenu(env, ctx), id: "watermark:menu", label: L15("Watermark", "Marca-d'\xC1gua"), icon: "branding_watermark", size: "large", supports: has("setWatermark") },
+            { menu: () => pageColorMenu(env, ctx), id: "pageColor:menu", label: L15("Page Color", "Cor da P\xE1gina"), icon: "format_color_fill", size: "large", supports: has("setPageColor") },
             { cmd: "dlg:pageBorders", size: "large" }
           ] }
         ]
       },
       {
         id: "layout",
-        label: L11("Layout", "Layout"),
+        label: L15("Layout", "Layout"),
         groups: [
-          { id: "pagesetup", label: L11("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
-            { menu: () => marginsMenu(env, ctx), id: "margins", label: L11("Margins", "Margens"), icon: "margin", size: "large" },
-            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L11("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
-            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L11("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: columnsMenu, id: "columns", label: L11("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+          { id: "pagesetup", label: L15("Page Setup", "Configurar P\xE1gina"), icon: "description", prio: 6, launcher: "dlg:page", cells: [
+            { menu: () => marginsMenu(env, ctx), id: "margins", label: L15("Margins", "Margens"), icon: "margin", size: "large" },
+            { menu: () => orientationMenu(env, ctx), id: "orientation", label: L15("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
+            { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L15("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
+            { menu: columnsMenu, id: "columns", label: L15("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
             { rows: [
-              [{ menu: breaksMenu, id: "breaks", label: L11("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }],
-              [{ menu: lineNumbersMenu, id: "lineNumbers", label: L11("Line Numbers", "N\xFAmeros de Linha"), icon: "format_list_numbered", showLabel: true, supports: has("setLineNumbering") }],
-              [{ menu: hyphenationMenu, id: "hyphenation", label: L11("Hyphenation", "Hifeniza\xE7\xE3o"), icon: "horizontal_rule", showLabel: true, supports: has("setHyphenation") }]
+              [{ menu: breaksMenu, id: "breaks", label: L15("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }],
+              [{ menu: lineNumbersMenu, id: "lineNumbers", label: L15("Line Numbers", "N\xFAmeros de Linha"), icon: "format_list_numbered", showLabel: true, supports: has("setLineNumbering") }],
+              [{ menu: hyphenationMenu, id: "hyphenation", label: L15("Hyphenation", "Hifeniza\xE7\xE3o"), icon: "horizontal_rule", showLabel: true, supports: has("setHyphenation") }]
             ] }
           ] },
           // Recuar (À Esquerda/À Direita) e Espaçamento (Antes/Depois) em caixas numéricas, como no Word
-          { id: "paragraph", label: L11("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: paragraphLayoutCells(env) }
+          { id: "paragraph", label: L15("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: paragraphLayoutCells(env) }
         ]
       },
       {
         // guia Referências (como no Word): Sumário e Notas de Rodapé; Links, Citações e
         // Índice entram aqui quando chegarem
         id: "references",
-        label: L11("References", "Refer\xEAncias"),
+        label: L15("References", "Refer\xEAncias"),
         groups: [
           // Sumário (como no Word): a galeria com Personalizado/Remover, Adicionar Texto e Atualizar
-          { id: "toc", label: L11("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [
-            { menu: () => tocGalleryMenu(env, ctx), id: "toc:menu", label: L11("Table of Contents", "Sum\xE1rio"), icon: "toc", size: "large", supports: has("insertTocTemplate") },
+          { id: "toc", label: L15("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 4, cells: [
+            { menu: () => tocGalleryMenu(env, ctx), id: "toc:menu", label: L15("Table of Contents", "Sum\xE1rio"), icon: "toc", size: "large", supports: has("insertTocTemplate") },
             { rows: [
-              [{ menu: () => addTextMenu(env), id: "toc:addText", label: L11("Add Text", "Adicionar Texto"), icon: "playlist_add", showLabel: true, supports: has("setTocLevel") }],
+              [{ menu: () => addTextMenu(env), id: "toc:addText", label: L15("Add Text", "Adicionar Texto"), icon: "playlist_add", showLabel: true, supports: has("setTocLevel") }],
               [{ cmd: "toc", label: true }]
             ] }
           ] },
-          { id: "footnotes", label: L11("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
+          { id: "footnotes", label: L15("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 6, launcher: "dlg:notes", cells: [
             large3("footnote"),
             { rows: [
               [{ cmd: "endnote", label: true }],
-              [{ menu: noteNavMenu, id: "note:nav", label: L11("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
+              [{ menu: noteNavMenu, id: "note:nav", label: L15("Next Footnote", "Pr\xF3xima Nota de Rodap\xE9"), icon: "keyboard_arrow_down", showLabel: true, supports: has("nextNote") }],
               [{ cmd: "note:show", label: true }]
             ] }
           ] },
-          { id: "captions", label: L11("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
+          { id: "captions", label: L15("Captions", "Legendas"), icon: "subtitles", prio: 5, cells: [
             large3("caption"),
             { rows: [[{ cmd: "tof", label: true }], [{ cmd: "tof:update", label: true }], [{ cmd: "crossref", label: true }]] }
           ] }
@@ -11522,86 +14248,86 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "mailings",
-        label: L11("Mailings", "Correspond\xEAncias"),
+        label: L15("Mailings", "Correspond\xEAncias"),
         groups: [
-          { id: "merge", label: L11("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
+          { id: "merge", label: L15("Mail Merge", "Mala Direta"), icon: "mail", prio: 5, cells: [large3("mailmerge"), large3("mergefield")] }
         ]
       },
       {
         id: "review",
-        label: L11("Review", "Revis\xE3o"),
+        label: L15("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L11("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
-          { id: "comments", label: L11("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
+          { id: "proofing", label: L15("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large3("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
+          { id: "comments", label: L15("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large3("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L11("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
+          { id: "tracking", label: L15("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [
             large3("trackChanges"),
             { rows: [
-              [{ menu: markupModes, id: "markupMode", label: L11("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
-              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L11("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
+              [{ menu: markupModes, id: "markupMode", label: L15("Display for Review", "Exibir para Revis\xE3o"), icon: "visibility", text: () => MODE_LABELS[env.ed.getMarkupMode()][ctx.lang], supports: () => typeof env.ed.setMarkupMode === "function" }],
+              [{ menu: () => showMarkup(env, ctx), id: "showMarkup", label: L15("Show Markup", "Mostrar Marca\xE7\xE3o"), icon: "notes", showLabel: true, supports: () => typeof env.ed.setMarkupOptions === "function" }],
               [{ cmd: "reviewPane", label: true }, { menu: () => ["reviewPane:vertical", "reviewPane:horizontal"], id: "reviewPaneDir", label: { en: "Reviewing Pane", pt: "Painel de Revis\xE3o" }, icon: "arrow_drop_down", supports: () => typeof env.ed.getRevisions === "function" }]
             ] }
           ] },
-          { id: "changes", label: L11("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
+          { id: "changes", label: L15("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 4, cells: [
             { split: "change:accept", menu: acceptItems, size: "large" },
             { split: "change:reject", menu: rejectItems, size: "large" },
             { rows: [[{ cmd: "change:prev", label: true }], [{ cmd: "change:next", label: true }]] }
           ] },
-          { id: "document", label: L11("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
+          { id: "document", label: L15("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large3("compare"), large3("enableEditing")] }
         ]
       },
       {
         id: "view",
-        label: L11("View", "Exibir"),
+        label: L15("View", "Exibir"),
         groups: [
-          { id: "views", label: L11("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
+          { id: "views", label: L15("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [
             large3("view:read"),
             large3("view:print"),
             large3("view:web"),
             { rows: [[{ cmd: "view:outline", label: true }], [{ cmd: "view:draft", label: true }]] },
             large3("focus")
           ] },
-          { id: "show", label: L11("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
+          { id: "show", label: L15("Show", "Mostrar"), icon: "visibility", prio: 4, cells: [
             { rows: [[{ cmd: "view:ruler", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:navpane", label: true }]] },
             { rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] },
             { rows: [[{ cmd: "view:bookmarks", label: true }]] }
           ] },
-          { id: "zoom", label: L11("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
-            { menu: m2.zoomItems, id: "zoom", label: L11("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+          { id: "zoom", label: L15("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
+            { menu: m2.zoomItems, id: "zoom", label: L15("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
             large3("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "appearance", label: L11("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env, ctx), id: "theme", label: L11("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L11("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L11("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L15("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env, ctx), id: "theme", label: L15("Theme", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L15("Accent", "Destaque"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L15("Toolbar", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "hf-tools",
-        label: L11("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
+        label: L15("Header & Footer", "Cabe\xE7alho e Rodap\xE9"),
         contextual: () => env.ed.editingHeaderFooter() !== null,
         groups: hfToolsGroups(env, ctx)
       },
       {
         id: "table-design",
-        label: L11("Table Design", "Design da Tabela"),
+        label: L15("Table Design", "Design da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableDesignGroups(env, ctx)
       },
       {
         id: "table-layout",
-        label: L11("Table Layout", "Layout da Tabela"),
+        label: L15("Table Layout", "Layout da Tabela"),
         contextual: () => env.ed.editingTableCell(),
         groups: tableLayoutGroups(env)
       },
       {
         id: "image-tools",
-        label: L11("Picture Format", "Formato da Imagem"),
+        label: L15("Picture Format", "Formato da Imagem"),
         contextual: () => {
           const f3 = env.ed.selectedImage;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -11610,7 +14336,7 @@ function ribbonLayout(env, ctx) {
       },
       {
         id: "shape-tools",
-        label: L11("Shape Format", "Formato da Forma"),
+        label: L15("Shape Format", "Formato da Forma"),
         contextual: () => {
           const f3 = env.ed.selectedShape;
           return typeof f3 === "function" && !!f3.call(env.ed);
@@ -11967,40 +14693,40 @@ function styleNames(env) {
   return new Map(env.ed.listStyles("all").map((s4) => [s4.id, s4.name]));
 }
 function galleryMenu(env, ui, s4) {
-  const L12 = pickLabels(env.lang, T4);
+  const L16 = pickLabels(env.lang, T4);
   const ok = canEdit2(env);
   const out = [
-    { id: "style:update", icon: "refresh", label: L12.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
+    { id: "style:update", icon: "refresh", label: L16.update(s4.name), disabled: !ok || s4.kind === "character", onClick: () => {
       env.ed.updateStyleFromSelection(s4.id);
       env.after();
     } },
-    { id: "style:modify", icon: "edit", label: L12.modifyDots, disabled: !ok, onClick: () => {
+    { id: "style:modify", icon: "edit", label: L16.modifyDots, disabled: !ok, onClick: () => {
       void ui.styleDialog("modify", s4.id);
     } },
-    { id: "style:rename", icon: "drive_file_rename_outline", label: L12.rename, disabled: !ok, onClick: () => {
+    { id: "style:rename", icon: "drive_file_rename_outline", label: L16.rename, disabled: !ok, onClick: () => {
       void ui.rename(s4);
     } },
-    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L12.removeFromGallery, disabled: !ok, onClick: () => {
+    s4.quick ? { id: "style:ungallery", icon: "bookmark_remove", label: L16.removeFromGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, false);
       env.after();
-    } } : { id: "style:togallery", icon: "bookmark_add", label: L12.addGallery, disabled: !ok, onClick: () => {
+    } } : { id: "style:togallery", icon: "bookmark_add", label: L16.addGallery, disabled: !ok, onClick: () => {
       env.ed.setStyleInGallery(s4.id, true);
       env.after();
     } }
   ];
   if (!s4.builtIn) {
-    out.push("-", { id: "style:delete", icon: "delete", label: L12.del(s4.name), disabled: !ok, onClick: () => {
+    out.push("-", { id: "style:delete", icon: "delete", label: L16.del(s4.name), disabled: !ok, onClick: () => {
       void ui.remove(s4);
     } });
   }
   return out;
 }
-var colorName = (hex, L12) => hex ? `#${hex}` : L12.auto;
+var colorName = (hex, L16) => hex ? `#${hex}` : L16.auto;
 function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
-  const L12 = pickLabels(env.lang, T4);
+  const L16 = pickLabels(env.lang, T4);
   if (!look) return s4.name;
   const parts = [];
-  const d3 = L12.d;
+  const d3 = L16.d;
   parts.push(`${d3.font(look.fontFamily)}, ${d3.pt(look.sizePt)}`);
   if (look.bold) parts.push(d3.bold);
   if (look.italic) parts.push(d3.italic);
@@ -12008,15 +14734,15 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
   if (look.strike) parts.push(d3.strike);
   if (look.allCaps) parts.push(d3.caps);
   if (look.smallCaps) parts.push(d3.smallCaps);
-  if (look.color) parts.push(d3.color(colorName(look.color, L12)));
+  if (look.color) parts.push(d3.color(colorName(look.color, L16)));
   if (s4.kind !== "character") {
-    if (look.alignment !== "left") parts.push({ center: L12.center, right: L12.right, both: L12.justify }[look.alignment]);
-    if (look.lineTwentieths !== void 0) parts.push(d3.line(L12.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
+    if (look.alignment !== "left") parts.push({ center: L16.center, right: L16.right, both: L16.justify }[look.alignment]);
+    if (look.lineTwentieths !== void 0) parts.push(d3.line(L16.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
     if (look.spaceBeforeTwips) parts.push(d3.before(ptOf2(look.spaceBeforeTwips)));
     if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d3.after(ptOf2(look.spaceAfterTwips)));
     if (look.indentLeftTwips) parts.push(d3.indent(`${cmOf(look.indentLeftTwips, env.lang === "pt" ? "," : ".")} cm`));
   }
-  parts.push(d3.style(L12.kind[s4.kind]));
+  parts.push(d3.style(L16.kind[s4.kind]));
   if (s4.quick) parts.push(d3.gallery);
   parts.push(d3.priority(s4.priority + 1));
   const nm = names ?? styleNames(env);
@@ -12027,13 +14753,13 @@ function describeStyle(env, s4, look = env.ed.styleFormatting(s4.id), names) {
 ${parts.join(", ")}`;
 }
 function describeDirect(env, run, para) {
-  const L12 = pickLabels(env.lang, T4);
-  const d3 = L12.d;
+  const L16 = pickLabels(env.lang, T4);
+  const d3 = L16.d;
   const parts = [];
   if (para) {
     const a3 = para["alignment"];
-    if (a3) parts.push({ left: L12.left, center: L12.center, right: L12.right, both: L12.justify }[a3] ?? a3);
-    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L12.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
+    if (a3) parts.push({ left: L16.left, center: L16.center, right: L16.right, both: L16.justify }[a3] ?? a3);
+    if (para["lineTwentieths"] !== void 0) parts.push(d3.line(L16.lines[para["lineTwentieths"]] ?? String(para["lineTwentieths"])));
     if (para["spaceBeforeTwips"] !== void 0) parts.push(d3.before(ptOf2(para["spaceBeforeTwips"])));
     if (para["spaceAfterTwips"] !== void 0) parts.push(d3.after(ptOf2(para["spaceAfterTwips"])));
     if (para["indentLeftTwips"] !== void 0) parts.push(d3.indent(`${cmOf(para["indentLeftTwips"], env.lang === "pt" ? "," : ".")} cm`));
@@ -12051,14 +14777,14 @@ function describeDirect(env, run, para) {
     if (run["strike"] || run["doubleStrike"]) parts.push(d3.strike);
     if (run["allCaps"]) parts.push(d3.caps);
     if (run["smallCaps"]) parts.push(d3.smallCaps);
-    if (run["color"]) parts.push(d3.color(colorName(run["color"], L12)));
+    if (run["color"]) parts.push(d3.color(colorName(run["color"], L16)));
     if (run["highlight"]) parts.push(d3.highlight);
     if (run["vertAlign"]) parts.push(run["vertAlign"] === "superscript" ? d3.sup : d3.sub);
     if (run["charSpacingTwips"]) parts.push(d3.spacing(d3.pt(ptOf2(run["charSpacingTwips"]))));
   }
-  return parts.length ? parts.join(", ") : L12.noDirect;
+  return parts.length ? parts.join(", ") : L16.noDirect;
 }
-var el13 = (tag, props = {}, ...kids) => {
+var el18 = (tag, props = {}, ...kids) => {
   const { cls, ...rest } = props;
   const e6 = Object.assign(document.createElement(tag), rest);
   if (cls) e6.className = cls;
@@ -12142,11 +14868,11 @@ var StylesUI = class {
       return;
     }
     const { env } = this;
-    const L12 = this.L;
-    const body = el13("div", { cls: "uw-styles" });
+    const L16 = this.L;
+    const body = el18("div", { cls: "uw-styles" });
     const sel4 = (name, opts2, v2, on) => {
-      const s4 = el13("select", { name });
-      for (const [k2, t5] of opts2) s4.append(el13("option", { value: k2, textContent: t5 }));
+      const s4 = el18("select", { name });
+      for (const [k2, t5] of opts2) s4.append(el18("option", { value: k2, textContent: t5 }));
       s4.value = v2;
       s4.addEventListener("change", () => {
         on(s4.value);
@@ -12155,12 +14881,12 @@ var StylesUI = class {
       });
       return s4;
     };
-    const opts = el13(
+    const opts = el18(
       "div",
       { cls: "uw-styles-opts" },
       sel4(
         "filter",
-        [["recommended", L12.recommended], ["inUse", L12.inUse], ["document", L12.inDoc], ["all", L12.all]],
+        [["recommended", L16.recommended], ["inUse", L16.inUse], ["document", L16.inDoc], ["all", L16.all]],
         this.filter,
         (v2) => {
           this.filter = v2;
@@ -12169,7 +14895,7 @@ var StylesUI = class {
       ),
       sel4(
         "sort",
-        [["prio", L12.asRecommended], ["alpha", L12.alphabetical]],
+        [["prio", L16.asRecommended], ["alpha", L16.alphabetical]],
         this.alpha ? "alpha" : "prio",
         (v2) => {
           this.alpha = v2 === "alpha";
@@ -12177,19 +14903,19 @@ var StylesUI = class {
         }
       )
     );
-    const prev = el13("input", { type: "checkbox", checked: this.preview });
+    const prev = el18("input", { type: "checkbox", checked: this.preview });
     prev.addEventListener("change", () => {
       this.preview = prev.checked;
       env.app.prefs.set("stylesPreview", prev.checked ? "1" : "");
       this.lastKey = "";
       this.renderList();
     });
-    this.listEl = el13("div", { cls: "uw-styles-list" });
+    this.listEl = el18("div", { cls: "uw-styles-list" });
     this.listEl.setAttribute("role", "listbox");
-    body.append(opts, this.listEl, el13("label", { cls: "uo-check uw-styles-prev" }, prev, L12.preview));
-    const foot = el13("div");
-    const btn2 = (icon, label, a3, fn) => {
-      const b3 = el13("button", { type: "button", cls: "uo-btn", title: label });
+    body.append(opts, this.listEl, el18("label", { cls: "uo-check uw-styles-prev" }, prev, L16.preview));
+    const foot = el18("div");
+    const btn3 = (icon, label, a3, fn) => {
+      const b3 = el18("button", { type: "button", cls: "uo-btn", title: label });
       b3.dataset["a"] = a3;
       b3.setAttribute("aria-label", label);
       b3.innerHTML = symbol(icon);
@@ -12197,14 +14923,14 @@ var StylesUI = class {
       return b3;
     };
     foot.append(
-      btn2("add", L12.newStyle, "styles:new", () => {
+      btn3("add", L16.newStyle, "styles:new", () => {
         void this.styleDialog("new");
       }),
-      btn2("manage_search", L12.inspector, "styles:inspector", () => this.toggleInspector())
+      btn3("manage_search", L16.inspector, "styles:inspector", () => this.toggleInspector())
     );
     this.pane = openPane({
       id: "styles",
-      title: L12.pane,
+      title: L16.pane,
       lang: env.lang,
       layer: env.layer,
       width: 280,
@@ -12237,22 +14963,22 @@ var StylesUI = class {
     const ok = canEdit2(env);
     const names = styleNames(env);
     box.replaceChildren(...list.map((s4) => {
-      const row2 = el13("div", { cls: "uw-style-row" });
-      row2.dataset["id"] = s4.id;
-      row2.setAttribute("role", "option");
-      row2.title = describeStyle(env, s4, void 0, names);
+      const row3 = el18("div", { cls: "uw-style-row" });
+      row3.dataset["id"] = s4.id;
+      row3.setAttribute("role", "option");
+      row3.title = describeStyle(env, s4, void 0, names);
       const on = s4.id === cur.character || s4.id === cur.paragraph && !list.some((x2) => x2.id === cur.character);
-      row2.classList.toggle("uo-on", on);
-      row2.setAttribute("aria-selected", String(on));
-      const name = el13("span", { cls: "uw-style-name" });
+      row3.classList.toggle("uo-on", on);
+      row3.setAttribute("aria-selected", String(on));
+      const name = el18("span", { cls: "uw-style-name" });
       if (this.preview) {
         const look = env.ed.styleFormatting(s4.id);
         const cv = document.createElement("canvas");
         if (look) drawSample(cv, env.ed, look, { text: s4.name, w: 190, h: 24, maxPx: 18, minPx: 9, autoColor: getComputedStyle(box).color });
         name.append(cv);
       } else name.textContent = s4.name;
-      const mark = el13("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
-      const more = el13("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
+      const mark = el18("span", { cls: "uw-style-kind", textContent: { paragraph: "\xB6", character: "a", linked: "\xB6a" }[s4.kind] });
+      const more = el18("button", { type: "button", cls: "uo-btn uw-style-more", title: this.L.modifyDots });
       more.innerHTML = symbol("arrow_drop_down");
       more.addEventListener("mousedown", (e6) => e6.preventDefault());
       more.addEventListener("click", (e6) => {
@@ -12260,19 +14986,19 @@ var StylesUI = class {
         const r5 = more.getBoundingClientRect();
         openMenu(galleryMenu(env, this, s4), { x: r5.left, y: r5.bottom }, { lang: env.lang, layer: env.layer, onClose: () => env.after() });
       });
-      row2.append(name, mark, more);
-      row2.addEventListener("mousedown", (e6) => e6.preventDefault());
-      row2.addEventListener("click", () => {
+      row3.append(name, mark, more);
+      row3.addEventListener("mousedown", (e6) => e6.preventDefault());
+      row3.addEventListener("click", () => {
         if (ok) {
           env.ed.applyStyle(s4.id);
           env.after();
         }
       });
-      row2.addEventListener("contextmenu", (e6) => {
+      row3.addEventListener("contextmenu", (e6) => {
         e6.preventDefault();
         openMenu(galleryMenu(env, this, s4), { x: e6.clientX, y: e6.clientY }, { lang: env.lang, layer: env.layer, onClose: () => env.after() });
       });
-      return row2;
+      return row3;
     }));
   }
   // ── inspetor ──
@@ -12282,10 +15008,10 @@ var StylesUI = class {
       return;
     }
     const { env } = this;
-    const L12 = this.L;
-    const body = el13("div", { cls: "uw-insp" });
-    const row2 = (value, icon, tip, a3, fn) => {
-      const b3 = el13("button", { type: "button", cls: "uo-btn", title: tip });
+    const L16 = this.L;
+    const body = el18("div", { cls: "uw-insp" });
+    const row3 = (value, icon, tip, a3, fn) => {
+      const b3 = el18("button", { type: "button", cls: "uo-btn", title: tip });
       b3.dataset["a"] = a3;
       b3.setAttribute("aria-label", tip);
       b3.innerHTML = symbol(icon);
@@ -12294,39 +15020,39 @@ var StylesUI = class {
         fn();
         env.after();
       });
-      return el13("div", { cls: "uw-insp-row" }, value, b3);
+      return el18("div", { cls: "uw-insp-row" }, value, b3);
     };
-    const box = () => el13("div", { cls: "uw-insp-val" });
+    const box = () => el18("div", { cls: "uw-insp-val" });
     const r5 = { pStyle: box(), pDirect: box(), tStyle: box(), tDirect: box() };
     body.append(
-      el13("div", { cls: "uw-insp-h", textContent: L12.paraFmt }),
-      row2(r5.pStyle, "format_clear", L12.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
-      row2(r5.pDirect, "format_clear", L12.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
-      el13("div", { cls: "uw-insp-h", textContent: L12.textFmt }),
-      row2(r5.tStyle, "format_clear", L12.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
-      row2(r5.tDirect, "format_clear", L12.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
+      el18("div", { cls: "uw-insp-h", textContent: L16.paraFmt }),
+      row3(r5.pStyle, "format_clear", L16.resetPara, "insp:resetPara", () => env.ed.clearParagraphStyle()),
+      row3(r5.pDirect, "format_clear", L16.clearParaFmt, "insp:clearPara", () => env.ed.clearParagraphFormatting()),
+      el18("div", { cls: "uw-insp-h", textContent: L16.textFmt }),
+      row3(r5.tStyle, "format_clear", L16.clearCharStyle, "insp:clearCharStyle", () => env.ed.clearCharacterStyle()),
+      row3(r5.tDirect, "format_clear", L16.clearCharFmt, "insp:clearChar", () => env.ed.clearCharacterFormatting())
     );
     this.inspRows = r5;
-    const foot = el13("div");
+    const foot = el18("div");
     const pill = (label, a3, fn) => {
-      const b3 = el13("button", { type: "button", cls: "uo-pill", textContent: label });
+      const b3 = el18("button", { type: "button", cls: "uo-pill", textContent: label });
       b3.dataset["a"] = a3;
       b3.addEventListener("mousedown", (e6) => e6.preventDefault());
       b3.addEventListener("click", fn);
       return b3;
     };
     foot.append(
-      pill(L12.newStyle, "insp:new", () => {
+      pill(L16.newStyle, "insp:new", () => {
         void this.styleDialog("new");
       }),
-      pill(L12.clearAll, "insp:clearAll", () => {
+      pill(L16.clearAll, "insp:clearAll", () => {
         env.ed.clearFormatting();
         env.after();
       })
     );
     this.inspector = openPane({
       id: "styleInspector",
-      title: L12.inspector,
+      title: L16.inspector,
       lang: env.lang,
       layer: env.layer,
       width: 300,
@@ -12378,31 +15104,31 @@ var StylesUI = class {
   /** "Criar um Estilo" (galeria): nome + visualização; Modificar… abre o completo. */
   async quickCreate() {
     const { env } = this;
-    const L12 = this.L;
+    const L16 = this.L;
     if (!canEdit2(env)) return;
-    const input = el13("input", { type: "text", value: this.freeName() });
+    const input = el18("input", { type: "text", value: this.freeName() });
     const look = this.selectionLook();
     const cv = document.createElement("canvas");
     if (look) drawSample(cv, env.ed, look, { text: SAMPLE2, w: 360, h: 56, maxPx: 30, paper: true, align: true });
-    const msg = el13("div", { cls: "uw-style-msg" });
-    const body = el13("div", { cls: "uw-style-quick" }, el13("label", { cls: "uo-field" }, el13("span", { textContent: L12.name }), input), cv, msg);
+    const msg = el18("div", { cls: "uw-style-msg" });
+    const body = el18("div", { cls: "uw-style-quick" }, el18("label", { cls: "uo-field" }, el18("span", { textContent: L16.name }), input), cv, msg);
     let action = null;
     const h3 = openDialog({
-      title: L12.newStyleTitle,
+      title: L16.newStyleTitle,
       body,
       layer: env.layer,
       lang: env.lang,
       width: 420,
-      actions: [{ id: "modify", label: L12.modify }, { id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }],
+      actions: [{ id: "modify", label: L16.modify }, { id: "cancel", label: L16.cancel }, { id: "ok", label: L16.ok, primary: true }],
       onAction: (id) => {
         if (id === "cancel") return true;
         const name = input.value.trim();
         if (!name) {
-          msg.textContent = L12.empty;
+          msg.textContent = L16.empty;
           return false;
         }
         if (env.ed.listStyles("all").some((s4) => s4.name.toLowerCase() === name.toLowerCase())) {
-          msg.textContent = L12.nameTaken;
+          msg.textContent = L16.nameTaken;
           return false;
         }
         return true;
@@ -12433,7 +15159,7 @@ var StylesUI = class {
   async styleDialog(mode, id, presetName) {
     const { env } = this;
     const ed = env.ed;
-    const L12 = this.L;
+    const L16 = this.L;
     if (!canEdit2(env)) return;
     const all = ed.listStyles("all");
     const info = id ? all.find((s4) => s4.id === id) : void 0;
@@ -12445,25 +15171,25 @@ var StylesUI = class {
     if (!startLook) return;
     const start = draftOf(startLook);
     const draft = { ...start };
-    const nameIn = el13("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
-    const typeSel = el13("select", { name: "type" });
-    for (const [k2, t5] of [["linked", L12.linked], ["paragraph", L12.paragraph], ["character", L12.character]]) typeSel.append(el13("option", { value: k2, textContent: t5 }));
+    const nameIn = el18("input", { type: "text", value: info?.name ?? presetName ?? this.freeName() });
+    const typeSel = el18("select", { name: "type" });
+    for (const [k2, t5] of [["linked", L16.linked], ["paragraph", L16.paragraph], ["character", L16.character]]) typeSel.append(el18("option", { value: k2, textContent: t5 }));
     typeSel.value = kind;
     typeSel.disabled = mode === "modify";
-    const baseSel = el13("select", { name: "basedOn" });
-    const nextSel = el13("select", { name: "next" });
+    const baseSel = el18("select", { name: "basedOn" });
+    const nextSel = el18("select", { name: "next" });
     const fillBases = () => {
       baseSel.replaceChildren();
       nextSel.replaceChildren();
       const paraStyles = all.filter((s4) => s4.kind !== "character" && s4.id !== id);
       const charStyles = all.filter((s4) => s4.kind !== "paragraph" && s4.id !== id);
       const opts = kind === "character" ? charStyles : paraStyles;
-      if (kind === "character") baseSel.append(el13("option", { value: "", textContent: L12.none }));
-      for (const s4 of opts) baseSel.append(el13("option", { value: s4.id, textContent: s4.name }));
+      if (kind === "character") baseSel.append(el18("option", { value: "", textContent: L16.none }));
+      for (const s4 of opts) baseSel.append(el18("option", { value: s4.id, textContent: s4.name }));
       baseSel.value = info?.basedOn ?? (kind === "character" ? "" : cur);
       if (kind !== "character") {
-        nextSel.append(el13("option", { value: "", textContent: nameIn.value.trim() || L12.none }));
-        for (const s4 of paraStyles) nextSel.append(el13("option", { value: s4.id, textContent: s4.name }));
+        nextSel.append(el18("option", { value: "", textContent: nameIn.value.trim() || L16.none }));
+        for (const s4 of paraStyles) nextSel.append(el18("option", { value: s4.id, textContent: s4.name }));
         nextSel.value = info?.next && info.next !== id ? info.next : "";
       }
       nextSel.disabled = kind === "character";
@@ -12475,13 +15201,13 @@ var StylesUI = class {
       refresh();
     });
     const families = await ed.listAvailableFonts();
-    const fontSel = el13("select", { name: "font" });
-    for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el13("option", { value: f3, textContent: f3 }));
+    const fontSel = el18("select", { name: "font" });
+    for (const f3 of draft.fontAscii && !families.includes(draft.fontAscii) ? [draft.fontAscii, ...families] : families) fontSel.append(el18("option", { value: f3, textContent: f3 }));
     fontSel.value = draft.fontAscii;
-    const sizeIn = el13("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
+    const sizeIn = el18("input", { type: "number", name: "size", min: "1", max: "1638", step: "0.5", value: String(draft.szHalfPt / 2) });
     sizeIn.style.width = "64px";
     const tog = (k2, icon, tip) => {
-      const b3 = el13("button", { type: "button", cls: "uo-btn", title: tip });
+      const b3 = el18("button", { type: "button", cls: "uo-btn", title: tip });
       b3.dataset["a"] = `dlg:${k2}`;
       b3.innerHTML = symbol(icon);
       const upd = () => {
@@ -12496,10 +15222,10 @@ var StylesUI = class {
       upd();
       return b3;
     };
-    const colorIn2 = el13("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
+    const colorIn2 = el18("input", { type: "color", name: "color", value: `#${draft.color ?? "000000"}` });
     colorIn2.style.cssText = "width:40px;height:30px;padding:2px;border-radius:8px";
     const alignBtns = ["left", "center", "right", "both"].map((a3) => {
-      const b3 = el13("button", { type: "button", cls: "uo-btn", title: { left: L12.left, center: L12.center, right: L12.right, both: L12.justify }[a3] });
+      const b3 = el18("button", { type: "button", cls: "uo-btn", title: { left: L16.left, center: L16.center, right: L16.right, both: L16.justify }[a3] });
       b3.dataset["a"] = `dlg:align:${a3}`;
       b3.innerHTML = symbol(a3 === "both" ? "format_align_justify" : `format_align_${a3}`);
       b3.addEventListener("click", () => {
@@ -12511,20 +15237,20 @@ var StylesUI = class {
     });
     const syncAlign = () => alignBtns.forEach((b3, i5) => b3.classList.toggle("uo-on", ["left", "center", "right", "both"][i5] === draft.alignment));
     syncAlign();
-    const lineSel = el13("select", { name: "line" });
-    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el13("option", { value: String(v2), textContent: L12.lines[v2] }));
+    const lineSel = el18("select", { name: "line" });
+    for (const v2 of [240, 259, 276, 360, 480]) lineSel.append(el18("option", { value: String(v2), textContent: L16.lines[v2] }));
     if (draft.lineTwentieths !== void 0 && ![240, 259, 276, 360, 480].includes(draft.lineTwentieths)) {
-      lineSel.append(el13("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
+      lineSel.append(el18("option", { value: String(draft.lineTwentieths), textContent: (draft.lineTwentieths / 240).toFixed(2).replace(".", dec) }));
     }
     lineSel.value = String(draft.lineTwentieths ?? 240);
-    const num2 = (v2, step, name2) => {
-      const i5 = el13("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
+    const num3 = (v2, step, name2) => {
+      const i5 = el18("input", { type: "number", name: name2, min: "0", step, value: String(v2) });
       i5.style.width = "72px";
       return i5;
     };
-    const beforeIn = num2(ptOf2(draft.spaceBeforeTwips), "6", "before");
-    const afterIn = num2(ptOf2(draft.spaceAfterTwips), "6", "after");
-    const indentIn = num2(Math.round(draft.indentLeftTwips / 567 * 100) / 100, "0.25", "indentLeft");
+    const beforeIn = num3(ptOf2(draft.spaceBeforeTwips), "6", "before");
+    const afterIn = num3(ptOf2(draft.spaceAfterTwips), "6", "after");
+    const indentIn = num3(Math.round(draft.indentLeftTwips / 567 * 100) / 100, "0.25", "indentLeft");
     const read = () => {
       draft.fontAscii = fontSel.value;
       const sz = parseFloat(sizeIn.value.replace(",", "."));
@@ -12540,16 +15266,16 @@ var StylesUI = class {
       read();
       refresh();
     });
-    const formatBtn = el13("button", { type: "button", cls: "uo-pill", textContent: `${L12.format} \u25BE` });
+    const formatBtn = el18("button", { type: "button", cls: "uo-pill", textContent: `${L16.format} \u25BE` });
     formatBtn.dataset["a"] = "dlg:format";
     formatBtn.addEventListener("click", (e6) => {
       e6.stopPropagation();
       const r5 = formatBtn.getBoundingClientRect();
       openMenu([
-        { id: "dlg:format:font", icon: "text_format", label: L12.fontDots, onClick: () => {
+        { id: "dlg:format:font", icon: "text_format", label: L16.fontDots, onClick: () => {
           void this.fontSub(draft).then(refresh);
         } },
-        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L12.paraDots, disabled: kind === "character", onClick: () => {
+        { id: "dlg:format:para", icon: "format_textdirection_l_to_r", label: L16.paraDots, disabled: kind === "character", onClick: () => {
           void this.paraSub(draft).then(() => {
             syncAlign();
             beforeIn.value = String(ptOf2(draft.spaceBeforeTwips));
@@ -12563,13 +15289,13 @@ var StylesUI = class {
     });
     const cv = document.createElement("canvas");
     cv.className = "uw-style-prev";
-    const desc = el13("div", { cls: "uw-style-desc" });
-    const quick = el13("input", { type: "checkbox", checked: info?.quick ?? true });
-    const auto = el13("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
-    const msg = el13("div", { cls: "uw-style-msg" });
+    const desc = el18("div", { cls: "uw-style-desc" });
+    const quick = el18("input", { type: "checkbox", checked: info?.quick ?? true });
+    const auto = el18("input", { type: "checkbox", checked: info?.autoUpdate ?? false });
+    const msg = el18("div", { cls: "uw-style-msg" });
     const refresh = () => {
       const look = lookOfDraft(draft, startLook);
-      drawPreview(cv, ed, look, L12, kind);
+      drawPreview(cv, ed, look, L16, kind);
       const fake = {
         id: id ?? "",
         name: nameIn.value.trim() || "\u2026",
@@ -12595,78 +15321,78 @@ var StylesUI = class {
       refresh();
     });
     for (const i5 of [baseSel, nextSel, quick, auto]) i5.addEventListener("change", refresh);
-    const grid2 = el13(
+    const grid2 = el18(
       "div",
       { cls: "uo-dialog-grid" },
-      el13("span", { textContent: L12.name }),
+      el18("span", { textContent: L16.name }),
       nameIn,
-      el13("span", { textContent: L12.type }),
+      el18("span", { textContent: L16.type }),
       typeSel,
-      el13("span", { textContent: L12.basedOn }),
+      el18("span", { textContent: L16.basedOn }),
       baseSel,
-      el13("span", { textContent: L12.next }),
+      el18("span", { textContent: L16.next }),
       nextSel
     );
-    const fmtRow1 = el13(
+    const fmtRow1 = el18(
       "div",
       { cls: "uw-style-fmt" },
       fontSel,
       sizeIn,
-      tog("bold", "format_bold", L12.bold),
-      tog("italic", "format_italic", L12.italic),
-      tog("underline", "format_underlined", L12.underline),
+      tog("bold", "format_bold", L16.bold),
+      tog("italic", "format_italic", L16.italic),
+      tog("underline", "format_underlined", L16.underline),
       colorIn2
     );
-    const fmtRow2 = el13("div", { cls: "uw-style-fmt" }, ...alignBtns, el13("span", { textContent: L12.lineSpacing }), lineSel);
-    const fmtRow3 = el13(
+    const fmtRow2 = el18("div", { cls: "uw-style-fmt" }, ...alignBtns, el18("span", { textContent: L16.lineSpacing }), lineSel);
+    const fmtRow3 = el18(
       "div",
       { cls: "uw-style-fmt" },
-      el13("span", { textContent: L12.before }),
+      el18("span", { textContent: L16.before }),
       beforeIn,
-      el13("span", { textContent: L12.after }),
+      el18("span", { textContent: L16.after }),
       afterIn,
-      el13("span", { textContent: L12.indentLeft }),
+      el18("span", { textContent: L16.indentLeft }),
       indentIn
     );
-    const checks = el13(
+    const checks = el18(
       "div",
       { cls: "uw-style-checks" },
-      el13("label", { cls: "uo-check" }, quick, L12.addToGallery),
-      el13("label", { cls: "uo-check" }, auto, L12.autoUpdate)
+      el18("label", { cls: "uo-check" }, quick, L16.addToGallery),
+      el18("label", { cls: "uo-check" }, auto, L16.autoUpdate)
     );
-    const body = el13(
+    const body = el18(
       "div",
       { cls: "uw-style-dlg" },
-      el13("strong", { textContent: L12.properties }),
+      el18("strong", { textContent: L16.properties }),
       grid2,
-      el13("strong", { textContent: L12.formatting }),
+      el18("strong", { textContent: L16.formatting }),
       fmtRow1,
       fmtRow2,
       fmtRow3,
       cv,
       desc,
       checks,
-      el13("div", {}, formatBtn),
+      el18("div", {}, formatBtn),
       msg
     );
     refresh();
     const h3 = openDialog({
-      title: mode === "new" ? L12.newStyleTitle : L12.modifyTitle,
+      title: mode === "new" ? L16.newStyleTitle : L16.modifyTitle,
       body,
       layer: env.layer,
       lang: env.lang,
       width: 560,
-      actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }],
+      actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: L16.ok, primary: true }],
       onAction: (a3) => {
         if (a3 !== "ok") return true;
         read();
         const name2 = nameIn.value.trim();
         if (!name2) {
-          msg.textContent = L12.empty;
+          msg.textContent = L16.empty;
           return false;
         }
         if (all.some((s4) => s4.id !== id && s4.name.toLowerCase() === name2.toLowerCase())) {
-          msg.textContent = L12.nameTaken;
+          msg.textContent = L16.nameTaken;
           return false;
         }
         return true;
@@ -12693,79 +15419,79 @@ var StylesUI = class {
   }
   /** Formatar › Fonte… (rascunho do estilo). */
   async fontSub(d3) {
-    const L12 = this.L;
+    const L16 = this.L;
     const box = (k2, label) => {
-      const i5 = el13("input", { type: "checkbox", checked: !!d3[k2] });
+      const i5 = el18("input", { type: "checkbox", checked: !!d3[k2] });
       i5.name = k2;
-      return el13("label", { cls: "uo-check" }, i5, label);
+      return el18("label", { cls: "uo-check" }, i5, label);
     };
-    const spacing = el13("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf2(d3.charSpacingTwips)) });
-    const body = el13(
+    const spacing = el18("input", { type: "number", name: "charSpacing", step: "0.5", value: String(ptOf2(d3.charSpacingTwips)) });
+    const body = el18(
       "div",
       { cls: "uw-style-sub" },
-      el13(
+      el18(
         "div",
         { cls: "uw-style-fx" },
-        box("bold", L12.bold),
-        box("italic", L12.italic),
-        box("underline", L12.underline),
-        box("strike", L12.strike),
-        box("allCaps", L12.caps),
-        box("smallCaps", L12.smallCaps)
+        box("bold", L16.bold),
+        box("italic", L16.italic),
+        box("underline", L16.underline),
+        box("strike", L16.strike),
+        box("allCaps", L16.caps),
+        box("smallCaps", L16.smallCaps)
       ),
-      el13("label", { cls: "uo-field" }, el13("span", { textContent: `${L12.charSpacing} (pt)` }), spacing)
+      el18("label", { cls: "uo-field" }, el18("span", { textContent: `${L16.charSpacing} (pt)` }), spacing)
     );
-    const h3 = openDialog({ title: L12.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }] });
+    const h3 = openDialog({ title: L16.font, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: L16.ok, primary: true }] });
     if (await h3.result !== "ok") return;
     for (const k2 of ["bold", "italic", "underline", "strike", "allCaps", "smallCaps"]) d3[k2] = body.querySelector(`input[name="${k2}"]`).checked;
     d3.charSpacingTwips = Math.round(Number(spacing.value.replace(",", ".")) * 20) || 0;
   }
   /** Formatar › Parágrafo… (recuos à direita e especial). */
   async paraSub(d3) {
-    const L12 = this.L;
-    const right = el13("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
-    const special = el13("select", { name: "special" });
-    for (const [k2, t5] of [["none", L12.none], ["firstLine", L12.firstLine], ["hanging", L12.hanging]]) special.append(el13("option", { value: k2, textContent: t5 }));
+    const L16 = this.L;
+    const right = el18("input", { type: "number", name: "indentRight", min: "0", step: "0.25", value: String(Math.round(d3.indentRightTwips / 567 * 100) / 100) });
+    const special = el18("select", { name: "special" });
+    for (const [k2, t5] of [["none", L16.none], ["firstLine", L16.firstLine], ["hanging", L16.hanging]]) special.append(el18("option", { value: k2, textContent: t5 }));
     special.value = !d3.indentFirstLineTwips ? "none" : d3.indentFirstLineTwips > 0 ? "firstLine" : "hanging";
-    const by = el13("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
-    const body = el13(
+    const by = el18("input", { type: "number", name: "by", min: "0", step: "0.25", value: String(Math.round(Math.abs(d3.indentFirstLineTwips) / 567 * 100) / 100 || 1.25) });
+    const body = el18(
       "div",
       { cls: "uo-dialog-grid" },
-      el13("span", { textContent: L12.indentRight }),
+      el18("span", { textContent: L16.indentRight }),
       right,
-      el13("span", { textContent: L12.special }),
+      el18("span", { textContent: L16.special }),
       special,
-      el13("span", { textContent: L12.by }),
+      el18("span", { textContent: L16.by }),
       by
     );
-    const h3 = openDialog({ title: L12.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.ok, primary: true }] });
+    const h3 = openDialog({ title: L16.paragraph, body, layer: this.env.layer, lang: this.env.lang, width: 380, actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: L16.ok, primary: true }] });
     if (await h3.result !== "ok") return;
     d3.indentRightTwips = Math.round(Number(right.value.replace(",", ".")) * 567) || 0;
     const v2 = Math.round(Number(by.value.replace(",", ".")) * 567) || 0;
     d3.indentFirstLineTwips = special.value === "none" ? 0 : special.value === "firstLine" ? v2 : -v2;
   }
   async rename(s4) {
-    const L12 = this.L;
-    const v2 = await promptDialog({ title: L12.renameTitle, label: L12.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
+    const L16 = this.L;
+    const v2 = await promptDialog({ title: L16.renameTitle, label: L16.name, value: s4.name, layer: this.env.layer, lang: this.env.lang });
     if (v2 === null || !v2.trim() || v2.trim() === s4.name) return;
-    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L12.nameTaken);
+    if (!this.env.ed.renameStyle(s4.id, v2.trim())) this.env.app.ui?.flash(L16.nameTaken);
     this.env.after();
   }
   async remove(s4) {
-    const L12 = this.L;
+    const L16 = this.L;
     const h3 = openDialog({
-      title: L12.del(s4.name).replace(/…$/, ""),
-      body: L12.delConfirm(s4.name),
+      title: L16.del(s4.name).replace(/…$/, ""),
+      body: L16.delConfirm(s4.name),
       layer: this.env.layer,
       lang: this.env.lang,
       icon: "delete",
-      actions: [{ id: "cancel", label: L12.cancel }, { id: "ok", label: L12.delete, primary: true }]
+      actions: [{ id: "cancel", label: L16.cancel }, { id: "ok", label: L16.delete, primary: true }]
     });
     if (await h3.result === "ok") this.env.ed.deleteStyle(s4.id);
     this.env.after();
   }
 };
-function drawPreview(cv, ed, look, L12, kind) {
+function drawPreview(cv, ed, look, L16, kind) {
   const W = 508, H2 = 96;
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   cv.width = W * dpr;
@@ -12779,13 +15505,13 @@ function drawPreview(cv, ed, look, L12, kind) {
   c4.fillRect(0, 0, W, H2);
   c4.fillStyle = "#a0a0a0";
   c4.font = "9px sans-serif";
-  c4.fillText(L12.prevPara, 8, 14);
+  c4.fillText(L16.prevPara, 8, 14);
   const inner = document.createElement("canvas");
-  drawSample(inner, ed, look, { text: kind === "character" ? L12.sample.split(" ").slice(0, 4).join(" ") : L12.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
+  drawSample(inner, ed, look, { text: kind === "character" ? L16.sample.split(" ").slice(0, 4).join(" ") : L16.sample, w: W - 16, h: 46, maxPx: 28, minPx: 8, align: kind !== "character" });
   c4.drawImage(inner, 8, 22, W - 16, 46);
   c4.fillStyle = "#a0a0a0";
   c4.font = "9px sans-serif";
-  c4.fillText(L12.prevPara, 8, 84);
+  c4.fillText(L16.prevPara, 8, 84);
 }
 
 // src/chrome.ts
@@ -13021,7 +15747,32 @@ var CHROME_CSS = (
 .uw-drop[hidden] { display: none; }
 `
 );
-var EDITOR_KEYS = /* @__PURE__ */ new Set(["Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+B", "Ctrl+I", "Ctrl+U", "Ctrl+E", "Ctrl+L", "Ctrl+R", "Ctrl+J", "Ctrl+Enter", "Ctrl+Alt+F", "Ctrl+Alt+D"]);
+var EDITOR_KEYS = /* @__PURE__ */ new Set([
+  "Ctrl+C",
+  "Ctrl+X",
+  "Ctrl+V",
+  "Ctrl+Shift+V",
+  "Ctrl+Z",
+  "Ctrl+Y",
+  "Ctrl+A",
+  "Ctrl+B",
+  "Ctrl+I",
+  "Ctrl+U",
+  "Ctrl+E",
+  "Ctrl+L",
+  "Ctrl+R",
+  "Ctrl+J",
+  "Ctrl+Enter",
+  "Ctrl+Alt+F",
+  "Ctrl+Alt+D",
+  "Ctrl+Shift+D",
+  "Ctrl+Shift+W",
+  "Ctrl+Shift+H",
+  "Ctrl+Shift+K",
+  "Ctrl+Shift+A",
+  "Shift+F3",
+  "Ctrl+Alt+V"
+]);
 var APP_SHORTCUTS = /* @__PURE__ */ new Set(["open", "save", "saveAs", "print", "find", "replace"]);
 var lastFocused = null;
 function isField(t5) {
@@ -13077,6 +15828,16 @@ var WriteChrome = class {
     this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
     this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     this.pictures = new PictureUI({ ed, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
+    this.clipboardUI = new ClipboardUI({
+      ed,
+      app,
+      lang: opts.lang,
+      layer: this.layer,
+      frame: () => this.docFrame(),
+      after: () => this.after(),
+      dialog: () => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() }),
+      signal: this.ac.signal
+    });
     registerWriteCommands(this.reg, ed, app, this.ctl());
     const env = { ed, app, ctl: this.ctl(), root: this.root, styles: this.styles };
     topEl.replaceChildren();
@@ -13168,9 +15929,11 @@ var WriteChrome = class {
   review = null;
   nav = null;
   ruler = null;
-  find = null;
   styles = null;
   pictures = null;
+  clipboardUI = null;
+  /** painel Formatar Efeitos de Texto aberto (recarrega com a seleção) */
+  fxPane = null;
   protbar = null;
   stateCache = null;
   families = [];
@@ -13254,7 +16017,21 @@ var WriteChrome = class {
       },
       image: () => this.pickImage(),
       fontDialog: () => {
-        void fontDialog(d3(), this.families).then(() => this.after());
+        void fontDialog(d3(), this.families, () => this.ctl().textEffectsPane()).then(() => this.after());
+      },
+      listDialog: (kind) => {
+        void openListDialog(d3(), this.families, kind).then(() => this.after());
+      },
+      clipboard: (kind) => {
+        void this.clipboardUI?.run(kind).then(() => this.after());
+      },
+      findDialog: (tab) => {
+        this.findDlg ??= new FindReplaceDialog({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, after: () => this.after() });
+        this.findDlg.open(tab);
+      },
+      textEffectsPane: () => {
+        this.fxPane = openTextEffectsPane({ ed: this.ed, lang: this.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
+        this.after();
       },
       paragraphDialog: () => {
         void paragraphDialog(d3()).then(() => this.after());
@@ -13391,6 +16168,8 @@ var WriteChrome = class {
     this.status?.sync();
     this.styles?.sync();
     this.pictures?.sync();
+    this.clipboardUI?.sync();
+    this.fxPane?.sync();
     this.review?.place();
     this.nav?.schedule();
     this.ruler?.schedule();
@@ -13440,30 +16219,28 @@ var WriteChrome = class {
   }
   // ───── Modo Protegido ─────
   makeProtectedBar() {
-    const el14 = document.createElement("div");
-    el14.className = "uw-protbar";
-    el14.setAttribute("part", "protected-bar");
-    el14.setAttribute("role", "alert");
-    el14.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+    const el19 = document.createElement("div");
+    el19.className = "uw-protbar";
+    el19.setAttribute("part", "protected-bar");
+    el19.setAttribute("role", "alert");
+    el19.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
       <span><b></b> \u2014 </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-    el14.querySelector("b").textContent = this.L.protectedTitle;
-    el14.querySelector("span").append(this.L.protectedText);
-    const b3 = el14.querySelector("button");
+    el19.querySelector("b").textContent = this.L.protectedTitle;
+    el19.querySelector("span").append(this.L.protectedText);
+    const b3 = el19.querySelector("button");
     b3.textContent = this.L.enableEditing;
     b3.addEventListener("click", () => {
       this.app.enableEditing();
       this.after();
     });
-    el14.hidden = true;
-    return el14;
+    el19.hidden = true;
+    return el19;
   }
   // ───── localizar ─────
   openFind(replace) {
-    this.find ??= new FindPanel(this.ed, this.app, this.layer);
-    if (!this.find.el.isConnected) this.layer.appendChild(this.find.el);
-    const r5 = this.topEl.getBoundingClientRect();
-    this.find.open(replace, Math.max(r5.bottom, this.ed.getBoundingClientRect().top) + 8);
+    this.ctl().findDialog(replace ? "replace" : "find");
   }
+  findDlg = null;
   // ───── imagem ─────
   pickImage() {
     const input = Object.assign(document.createElement("input"), { type: "file", accept: "image/png,image/jpeg,image/gif,image/webp,image/bmp" });
@@ -13512,7 +16289,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-BEEE5IBP.js");
+    await import("./src-B5N6ER4S.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
@@ -13694,6 +16471,7 @@ var WriteChrome = class {
         "-",
         "list:bullet",
         "list:decimal",
+        ...listContextItems(ed),
         "-",
         "find",
         "selectAll"

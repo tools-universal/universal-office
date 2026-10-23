@@ -1236,18 +1236,18 @@ function textContent(el) {
 
 // ../docx-core/src/drawing.ts
 function readShapeFx(eff) {
-  const num2 = (v, d = 0) => {
+  const num3 = (v, d = 0) => {
     const n = parseInt(v ?? "", 10);
     return Number.isFinite(n) ? n : d;
   };
-  const pt = (v) => num2(v) / 12700;
-  const deg = (v) => num2(v) / 6e4;
+  const pt = (v) => num3(v) / 12700;
+  const deg = (v) => num3(v) / 6e4;
   const fx = {};
   const glow = firstChild(eff, "a:glow");
   const gc = glow && srgbOf(glow);
   if (glow && gc) fx.glow = { radPt: pt(glow.attrs["rad"]), color: gc.hex, alpha: gc.alpha ?? 1 };
   const se = firstChild(eff, "a:softEdge");
-  if (se && num2(se.attrs["rad"]) > 0) fx.softEdgePt = pt(se.attrs["rad"]);
+  if (se && num3(se.attrs["rad"]) > 0) fx.softEdgePt = pt(se.attrs["rad"]);
   const inner = firstChild(eff, "a:innerShdw");
   const ic = inner && srgbOf(inner);
   if (inner && ic) fx.inner = { blurPt: pt(inner.attrs["blurRad"]), distPt: pt(inner.attrs["dist"]), dirDeg: deg(inner.attrs["dir"]), color: ic.hex, alpha: ic.alpha ?? 1 };
@@ -1256,13 +1256,13 @@ function readShapeFx(eff) {
     const a = refl.attrs;
     fx.reflection = {
       blurPt: pt(a["blurRad"]),
-      stA: num2(a["stA"], 1e5) / 1e5,
-      stPos: num2(a["stPos"], 0) / 1e5,
-      endA: num2(a["endA"], 0) / 1e5,
-      endPos: num2(a["endPos"], 1e5) / 1e5,
+      stA: num3(a["stA"], 1e5) / 1e5,
+      stPos: num3(a["stPos"], 0) / 1e5,
+      endA: num3(a["endA"], 0) / 1e5,
+      endPos: num3(a["endPos"], 1e5) / 1e5,
       distPt: pt(a["dist"]),
       dirDeg: deg(a["dir"]),
-      sy: num2(a["sy"], 1e5) / 1e5,
+      sy: num3(a["sy"], 1e5) / 1e5,
       ...a["algn"] ? { algn: a["algn"] } : {},
       ...a["rotWithShape"] !== void 0 ? { rotWithShape: a["rotWithShape"] === "1" || a["rotWithShape"] === "true" } : {}
     };
@@ -1271,7 +1271,7 @@ function readShapeFx(eff) {
   const oc = out && srgbOf(out);
   if (out && oc) {
     const a = out.attrs;
-    const sx = num2(a["sx"], 1e5), sy = num2(a["sy"], 1e5), kx = num2(a["kx"]), ky = num2(a["ky"]);
+    const sx = num3(a["sx"], 1e5), sy = num3(a["sy"], 1e5), kx = num3(a["kx"]), ky = num3(a["ky"]);
     if (sx !== 1e5 || sy !== 1e5 || kx || ky || Object.keys(fx).length) {
       fx.outer = {
         blurPt: pt(a["blurRad"]),
@@ -1700,7 +1700,7 @@ function readCustGeom(cg, cx, cy) {
     v[`hd${k}`] = h / k;
     v[`ssd${k}`] = ss / k;
   }
-  const num2 = (s) => {
+  const num3 = (s) => {
     if (s === void 0) return 0;
     const n = Number(s);
     return Number.isFinite(n) ? n : own(v, s) ?? 0;
@@ -1708,7 +1708,7 @@ function readCustGeom(cg, cx, cy) {
   const rad = (a) => a / 6e4 * (Math.PI / 180);
   const evalGd = (f) => {
     const [op, ...a] = f.trim().split(/\s+/);
-    const [x2 = 0, y = 0, z = 0] = a.map(num2);
+    const [x2 = 0, y = 0, z = 0] = a.map(num3);
     switch (op) {
       case "*/":
         return z ? x2 * y / z : 0;
@@ -1759,13 +1759,13 @@ function readCustGeom(cg, cx, cy) {
   const pl = firstChild(cg, "a:pathLst");
   for (const p of pl ? childElements(pl, "a:path") : []) {
     const path = {
-      w: num2(p.attrs["w"]) || w,
-      h: num2(p.attrs["h"]) || h,
+      w: num3(p.attrs["w"]) || w,
+      h: num3(p.attrs["h"]) || h,
       fill: p.attrs["fill"] !== "none",
       stroke: p.attrs["stroke"] !== "0" && p.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el) => childElements(el, "a:pt").map((q) => [num2(q.attrs["x"]), num2(q.attrs["y"])]);
+    const pts = (el) => childElements(el, "a:pt").map((q) => [num3(q.attrs["x"]), num3(q.attrs["y"])]);
     for (const c of childElements(p)) {
       switch (c.name) {
         case "a:moveTo":
@@ -1781,7 +1781,7 @@ function readCustGeom(cg, cx, cy) {
           path.cmds.push({ op: "Q", pts: pts(c) });
           break;
         case "a:arcTo":
-          path.cmds.push({ op: "A", wR: num2(c.attrs["wR"]), hR: num2(c.attrs["hR"]), st: num2(c.attrs["stAng"]) / 6e4, sw: num2(c.attrs["swAng"]) / 6e4 });
+          path.cmds.push({ op: "A", wR: num3(c.attrs["wR"]), hR: num3(c.attrs["hR"]), st: num3(c.attrs["stAng"]) / 6e4, sw: num3(c.attrs["swAng"]) / 6e4 });
           break;
         case "a:close":
           path.cmds.push({ op: "Z" });
@@ -2900,6 +2900,133 @@ function vmlSingleTextbox(pict) {
   return shapes.length === 1 && firstChild(shapes[0], "v:textbox") ? shapes[0] : void 0;
 }
 
+// ../docx-core/src/text-effects.ts
+var W14 = (a, k) => a.attrs[`w14:${k}`];
+var num2 = (v, d = 0) => {
+  const n = parseInt(v ?? "", 10);
+  return Number.isFinite(n) ? n : d;
+};
+function readColor(el) {
+  const c = el && (firstChild(el, "w14:srgbClr") ?? firstChild(el, "w14:schemeClr"));
+  if (!c) return void 0;
+  const out = c.name === "w14:srgbClr" ? { rgb: (W14(c, "val") ?? "000000").toUpperCase() } : { scheme: W14(c, "val") ?? "tx1" };
+  const mods = childElements(c).map((m) => [m.name.slice(4), num2(W14(m, "val"))]);
+  if (mods.length) out.mods = mods;
+  return out;
+}
+function readFill(el) {
+  if (!el) return void 0;
+  if (firstChild(el, "w14:noFill")) return { type: "none" };
+  const solid = firstChild(el, "w14:solidFill");
+  if (solid) {
+    const color = readColor(solid);
+    return color ? { type: "solid", color } : void 0;
+  }
+  const g = firstChild(el, "w14:gradFill");
+  if (!g) return void 0;
+  const stops = childElements(firstChild(g, "w14:gsLst") ?? g, "w14:gs").map((s) => ({ pos: num2(W14(s, "pos")), color: readColor(s) })).filter((s) => !!s.color);
+  const lin = firstChild(g, "w14:lin");
+  const path = firstChild(g, "w14:path");
+  const fr = path && firstChild(path, "w14:fillToRect");
+  return {
+    type: "grad",
+    stops,
+    ...lin ? { lin: { ang: num2(W14(lin, "ang")), scaled: W14(lin, "scaled") === "1" || W14(lin, "scaled") === "true" } } : {},
+    ...path ? { path: { kind: W14(path, "path") ?? "circle", l: num2(fr && W14(fr, "l")), t: num2(fr && W14(fr, "t")), r: num2(fr && W14(fr, "r")), b: num2(fr && W14(fr, "b")) } } : {}
+  };
+}
+function readTextEffects(rPr, raw = elementXml) {
+  const fx = {};
+  const ot = {};
+  for (const el of childElements(rPr)) {
+    switch (el.name) {
+      case "w14:glow": {
+        const color = readColor(el);
+        if (color) fx.glow = { rad: num2(W14(el, "rad")), color };
+        break;
+      }
+      case "w14:shadow": {
+        const color = readColor(el);
+        if (color) fx.shadow = { blurRad: num2(W14(el, "blurRad")), dist: num2(W14(el, "dist")), dir: num2(W14(el, "dir")), sx: num2(W14(el, "sx"), 1e5), sy: num2(W14(el, "sy"), 1e5), kx: num2(W14(el, "kx")), ky: num2(W14(el, "ky")), algn: W14(el, "algn") ?? "b", color };
+        break;
+      }
+      case "w14:reflection":
+        fx.reflection = {
+          blurRad: num2(W14(el, "blurRad")),
+          stA: num2(W14(el, "stA"), 1e5),
+          stPos: num2(W14(el, "stPos")),
+          endA: num2(W14(el, "endA")),
+          endPos: num2(W14(el, "endPos"), 1e5),
+          dist: num2(W14(el, "dist")),
+          dir: num2(W14(el, "dir")),
+          fadeDir: num2(W14(el, "fadeDir"), 54e5),
+          sx: num2(W14(el, "sx"), 1e5),
+          sy: num2(W14(el, "sy"), 1e5),
+          kx: num2(W14(el, "kx")),
+          ky: num2(W14(el, "ky")),
+          algn: W14(el, "algn") ?? "b"
+        };
+        break;
+      case "w14:textOutline": {
+        const o = {};
+        if (W14(el, "w") !== void 0) o.w = num2(W14(el, "w"));
+        if (W14(el, "cap")) o.cap = W14(el, "cap");
+        if (W14(el, "cmpd")) o.cmpd = W14(el, "cmpd");
+        if (W14(el, "algn")) o.algn = W14(el, "algn");
+        const f = readFill(el);
+        if (f) o.fill = f;
+        const d = firstChild(el, "w14:prstDash");
+        if (d) o.dash = W14(d, "val") ?? "solid";
+        if (firstChild(el, "w14:round")) o.join = "round";
+        else if (firstChild(el, "w14:bevel")) o.join = "bevel";
+        else {
+          const m = firstChild(el, "w14:miter");
+          if (m) {
+            o.join = "miter";
+            if (W14(m, "lim")) o.miterLim = num2(W14(m, "lim"));
+          }
+        }
+        fx.outline = o;
+        break;
+      }
+      case "w14:textFill": {
+        const f = readFill(el);
+        if (f) fx.fill = f;
+        break;
+      }
+      case "w14:scene3d":
+        fx.scene3d = raw(el);
+        break;
+      case "w14:props3d":
+        fx.props3d = raw(el);
+        break;
+      case "w14:ligatures":
+        ot.ligatures = W14(el, "val") ?? "standard";
+        break;
+      case "w14:numForm":
+        ot.numForm = W14(el, "val") ?? "default";
+        break;
+      case "w14:numSpacing":
+        ot.numSpacing = W14(el, "val") ?? "default";
+        break;
+      case "w14:stylisticSets":
+        ot.stylisticSets = childElements(el, "w14:styleSet").map((s) => num2(W14(s, "id"))).filter((n) => n >= 1 && n <= 20);
+        break;
+      case "w14:cntxtAlts":
+        ot.cntxtAlts = W14(el, "val") !== "0" && W14(el, "val") !== "false";
+        break;
+    }
+  }
+  return { ...Object.keys(fx).length ? { fx } : {}, ...Object.keys(ot).length ? { ot } : {} };
+}
+var escX = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function elementXml(el) {
+  if (el.raw) return el.raw;
+  const attrs = Object.entries(el.attrs).map(([k, v]) => ` ${k}="${escX(v)}"`).join("");
+  const kids = el.children.map((c) => typeof c === "string" ? escX(c) : elementXml(c)).join("");
+  return kids ? `<${el.name}${attrs}>${kids}</${el.name}>` : `<${el.name}${attrs}/>`;
+}
+
 // ../docx-core/src/ooxml/props.ts
 function readRevisionInfo(el) {
   const info = { author: el.attrs["w:author"] ?? "" };
@@ -3123,6 +3250,8 @@ function readRPr(rPr) {
         const u = { val: val ?? "single" };
         if (el.attrs["w:color"]) u.color = el.attrs["w:color"];
         if (el.attrs["w:themeColor"]) u.themeColor = el.attrs["w:themeColor"];
+        if (el.attrs["w:themeTint"]) u.themeTint = el.attrs["w:themeTint"];
+        if (el.attrs["w:themeShade"]) u.themeShade = el.attrs["w:themeShade"];
         p.u = u;
         break;
       }
@@ -3151,6 +3280,9 @@ function readRPr(rPr) {
       }
     }
   }
+  const te2 = readTextEffects(rPr);
+  if (te2.fx) p.fx = te2.fx;
+  if (te2.ot) p.ot = te2.ot;
   return p;
 }
 function readPBdr(el) {
@@ -3635,6 +3767,13 @@ function readStyleSheet(xml) {
   }
   return sheet;
 }
+function vmlLenPt(style, prop) {
+  const m = new RegExp(`(?:^|;)\\s*${prop}:\\s*([0-9.]+)\\s*(pt|in|px|cm|mm|pc)?`).exec(style);
+  if (!m) return void 0;
+  const v = parseFloat(m[1]);
+  const k = { pt: 1, in: 72, px: 0.75, cm: 72 / 2.54, mm: 72 / 25.4, pc: 12 }[m[2] ?? "px"] ?? 1;
+  return Number.isFinite(v) ? v * k : void 0;
+}
 function readLevel(el) {
   const ilvl = parseInt(el.attrs["w:ilvl"] ?? "0", 10) || 0;
   const lvl = { ilvl };
@@ -3688,10 +3827,10 @@ function readNumbering(xml) {
     if (rid) bullet.rid = rid;
     const shape = find(pb, "v:shape");
     const style = shape?.attrs["style"] ?? "";
-    const w = /width:\s*([0-9.]+)pt/.exec(style);
-    const h = /height:\s*([0-9.]+)pt/.exec(style);
-    if (w) bullet.widthPt = parseFloat(w[1]);
-    if (h) bullet.heightPt = parseFloat(h[1]);
+    const w = vmlLenPt(style, "width");
+    const h = vmlLenPt(style, "height");
+    if (w !== void 0) bullet.widthPt = w;
+    if (h !== void 0) bullet.heightPt = h;
     out.picBullets[id] = bullet;
   }
   for (const an of childElements(root, "w:abstractNum")) {
@@ -3709,11 +3848,11 @@ function readNumbering(xml) {
     }
     out.abstractNums[id] = a;
   }
-  for (const num2 of childElements(root, "w:num")) {
-    const numId = parseInt(num2.attrs["w:numId"] ?? "-1", 10);
-    const abs = parseInt(firstChild(num2, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
+  for (const num3 of childElements(root, "w:num")) {
+    const numId = parseInt(num3.attrs["w:numId"] ?? "-1", 10);
+    const abs = parseInt(firstChild(num3, "w:abstractNumId")?.attrs["w:val"] ?? "-1", 10);
     const inst = { numId, abstractNumId: abs, overrides: {} };
-    for (const ov of childElements(num2, "w:lvlOverride")) {
+    for (const ov of childElements(num3, "w:lvlOverride")) {
       const ilvl = parseInt(ov.attrs["w:ilvl"] ?? "0", 10) || 0;
       const o = {};
       const so = firstChild(ov, "w:startOverride")?.attrs["w:val"];
@@ -3904,10 +4043,40 @@ function partByRelType(pkg, type, fallback) {
   }
   return fallback;
 }
+function numberingImages(pkg) {
+  const out = /* @__PURE__ */ new Map();
+  const part = partByRelType(pkg, "numbering", "word/numbering.xml");
+  const slash = part.lastIndexOf("/");
+  const dir = part.slice(0, slash + 1);
+  const rels = pkg.getPartText(`${dir}_rels/${part.slice(slash + 1)}.rels`);
+  if (!rels) return out;
+  for (const rel of childElements(parseXml(rels), "Relationship")) {
+    const id = rel.attrs["Id"], target = rel.attrs["Target"];
+    if (!id || !target || rel.attrs["TargetMode"] === "External" || !(rel.attrs["Type"] ?? "").endsWith("/image")) continue;
+    const segs = (target.startsWith("/") ? target.slice(1) : dir + target).split("/");
+    const path = [];
+    for (const g of segs) {
+      if (g === "..") path.pop();
+      else if (g && g !== ".") path.push(g);
+    }
+    const data = pkg.getPart(path.join("/"));
+    if (!data) continue;
+    out.set(id, { data, ext: (/\.([a-z0-9]+)$/i.exec(target)?.[1] ?? "png").toLowerCase() });
+  }
+  return out;
+}
 function readDocFormatting(pkg) {
+  const numbering = readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml")));
+  if (Object.keys(numbering.picBullets).length) {
+    const imgs = numberingImages(pkg);
+    for (const pb of Object.values(numbering.picBullets)) {
+      const im = pb.rid ? imgs.get(pb.rid) : void 0;
+      if (im) pb.image = im;
+    }
+  }
   return {
     styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, "styles", "word/styles.xml"))),
-    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, "numbering", "word/numbering.xml"))),
+    numbering,
     theme: readTheme(pkg.getPartText(partByRelType(pkg, "theme", "word/theme/theme1.xml"))),
     settings: readSettings(pkg.getPartText(partByRelType(pkg, "settings", "word/settings.xml"))),
     fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, "fontTable", "word/fontTable.xml")))
@@ -3915,6 +4084,25 @@ function readDocFormatting(pkg) {
 }
 
 // ../docx-core/src/document.ts
+var UNDERLINE_STYLES = [
+  "single",
+  "words",
+  "double",
+  "thick",
+  "dotted",
+  "dottedHeavy",
+  "dash",
+  "dashedHeavy",
+  "dashLong",
+  "dashLongHeavy",
+  "dotDash",
+  "dashDotHeavy",
+  "dotDotDash",
+  "dashDotDotHeavy",
+  "wave",
+  "wavyHeavy",
+  "wavyDouble"
+];
 var DEFAULT_RUN_PROPS = {
   bold: false,
   italic: false,
@@ -3981,9 +4169,17 @@ function runPropsFromRPr(rpr) {
   if (rpr.u) {
     const val = rpr.u.val;
     p.underline = val !== "none" && val !== "";
-    if (val === "double" || val === "dotted" || val === "dash" || val === "wave" || val === "thick") p.underlineStyle = val;
+    if (val !== "single" && UNDERLINE_STYLES.includes(val)) p.underlineStyle = val;
     if (rpr.u.color && rpr.u.color !== "auto") p.underlineColor = rpr.u.color;
+    const ut = themeRefOf(rpr.u);
+    if (ut) p.underlineTheme = ut;
   }
+  const ct = rpr.color && themeRefOf(rpr.color);
+  if (ct) p.colorTheme = ct;
+  if (rpr.vanish !== void 0) p.hidden = rpr.vanish;
+  if (rpr.w !== void 0 && rpr.w !== 100) p.scalePct = rpr.w;
+  if (rpr.position) p.positionHalfPt = rpr.position;
+  if (rpr.kern) p.kernHalfPt = rpr.kern;
   if (rpr.strike !== void 0) p.strike = rpr.strike;
   if (rpr.dstrike !== void 0) p.doubleStrike = rpr.dstrike;
   if (rpr.caps !== void 0) p.allCaps = rpr.caps;
@@ -3995,8 +4191,14 @@ function runPropsFromRPr(rpr) {
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
+  if (rpr.fx) p.textFx = rpr.fx;
+  if (rpr.ot) p.openType = rpr.ot;
   if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
+}
+function themeRefOf(c) {
+  if (!c.themeColor) return void 0;
+  return { themeColor: c.themeColor, ...c.themeTint ? { tint: c.themeTint } : {}, ...c.themeShade ? { shade: c.themeShade } : {} };
 }
 function revInfo(r) {
   return {
@@ -4018,7 +4220,7 @@ function paraPropsFromPPr(ppr) {
   if (ppr.pStyle !== void 0) props.styleId = ppr.pStyle;
   if (ppr.numPr) {
     const numId = ppr.numPr.numId ?? 0;
-    props.numbering = { kind: numId === 1002 ? "decimal" : "bullet", ilvl: ppr.numPr.ilvl ?? 0 };
+    props.numbering = { kind: numId === 1002 ? "decimal" : "bullet", ilvl: ppr.numPr.ilvl ?? 0, numId };
   }
   if (ppr.ind) {
     if (ppr.ind.left !== void 0) props.indentLeftTwips = ppr.ind.left;
@@ -4044,7 +4246,7 @@ function paraPropsFromPPr(ppr) {
   if (ppr.pBdr) {
     props.boxBorder = true;
     const borders = {};
-    for (const side of ["top", "left", "bottom", "right"]) {
+    for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
       const b = ppr.pBdr[side];
       if (!b || b.val === "none" || b.val === "nil") continue;
       borders[side] = {
@@ -4294,7 +4496,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u && u !== "none" ? { u: { val: u === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num2 = (el) => parseInt(el?.attrs["val"] ?? "0", 10) || 0;
+  const num3 = (el) => parseInt(el?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -4315,7 +4517,7 @@ function dmlParagraphs(body, styleEl, txFill) {
     const gap = (tag) => {
       const e = pPr && firstChild(pPr, tag);
       const pts = e && firstChild(e, "a:spcPts"), pct2 = e && firstChild(e, "a:spcPct");
-      return pts ? Math.round(num2(pts) / 5) : pct2 ? Math.round(num2(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
+      return pts ? Math.round(num3(pts) / 5) : pct2 ? Math.round(num3(pct2) / 1e5 * 1.2 * szPt * 20) : 0;
     };
     const ln2 = pPr && firstChild(pPr, "a:lnSpc");
     const lnPct = ln2 && firstChild(ln2, "a:spcPct"), lnPts = ln2 && firstChild(ln2, "a:spcPts");
@@ -4327,7 +4529,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       spacing: {
         before: k === 0 && !edges ? 0 : gap("a:spcBef"),
         after: k === aps.length - 1 && !edges ? 0 : gap("a:spcAft"),
-        ...lnPts ? { line: Math.round(num2(lnPts) / 5), lineRule: "exact" } : { line: lnPct ? Math.round(240 * num2(lnPct) / 1e5) : 240, lineRule: "auto" }
+        ...lnPts ? { line: Math.round(num3(lnPts) / 5), lineRule: "exact" } : { line: lnPct ? Math.round(240 * num3(lnPct) / 1e5) : 240, lineRule: "auto" }
       },
       ind: { left: emu2("marL"), right: 0, ...indent < 0 ? { hanging: -indent } : { firstLine: indent } },
       contextualSpacing: false,
@@ -4552,7 +4754,13 @@ function readVmlRuns(container, ctx, inline) {
         const style = vmlShapeStyle(el, geom);
         if (geom === "line") delete style.fill;
         const shape = { style, widthTwips: w, heightTwips: h };
-        if (el.attrs["o:hr"] === "t") shape.hr = true;
+        if (el.attrs["o:hr"] === "t") {
+          shape.hr = true;
+          const pct2 = parseInt(el.attrs["o:hrpct"] ?? "", 10);
+          if (pct2 > 0) shape.hrPct = pct2;
+          if (el.attrs["o:hrnoshade"] === "t") shape.hrNoShade = true;
+          if (el.attrs["o:hralign"]) shape.hrAlign = el.attrs["o:hralign"];
+        }
         if (tag === "line") {
           const pt = (s) => (s ?? "0,0").split(",").map((v) => vmlLenTwips(v.trim()) ?? 0);
           const [x1 = 0, y1 = 0] = pt(el.attrs["from"]);
@@ -4824,8 +5032,8 @@ function readMathNodes(el, out = []) {
       case "m:f": {
         const fPr = firstChild(c, "m:fPr");
         const type = fPr ? firstChild(fPr, "m:type")?.attrs["m:val"] : void 0;
-        const num2 = firstChild(c, "m:num"), den = firstChild(c, "m:den");
-        out.push({ t: "f", num: num2 ? readMathNodes(num2) : [], den: den ? readMathNodes(den) : [], ...type ? { type } : {} });
+        const num3 = firstChild(c, "m:num"), den = firstChild(c, "m:den");
+        out.push({ t: "f", num: num3 ? readMathNodes(num3) : [], den: den ? readMathNodes(den) : [], ...type ? { type } : {} });
         break;
       }
       case "m:d": {
@@ -5221,17 +5429,17 @@ function readSectPr(sectEl) {
   };
   const type = sectEl && firstChild(sectEl, "w:type")?.attrs["w:val"];
   if (type === "continuous" || type === "evenPage" || type === "oddPage" || type === "nextColumn") sect.type = type;
-  const num2 = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
-  if (num2 > 1) {
+  const num3 = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
+  if (num3 > 1) {
     sect.cols = {
-      count: num2,
+      count: num3,
       spaceTwips: parseInt(colsEl.attrs["w:space"] ?? "720", 10),
       sep: colsEl.attrs["w:sep"] === "true" || colsEl.attrs["w:sep"] === "1"
     };
     const eq = colsEl.attrs["w:equalWidth"];
     const defs = childElements(colsEl, "w:col");
-    if ((eq === "0" || eq === "false") && defs.length >= num2) {
-      sect.cols.widths = defs.slice(0, num2).map((c) => ({
+    if ((eq === "0" || eq === "false") && defs.length >= num3) {
+      sect.cols.widths = defs.slice(0, num3).map((c) => ({
         widthTwips: parseInt(c.attrs["w:w"] ?? "0", 10) || 0,
         spaceTwips: parseInt(c.attrs["w:space"] ?? "0", 10) || 0
       }));
@@ -5276,12 +5484,12 @@ function readSectPr(sectEl) {
   if (fnCols !== void 0 && parseInt(fnCols, 10) > 0) sect.footnoteColumns = parseInt(fnCols, 10);
   const ln2 = sectEl && firstChild(sectEl, "w:lnNumType");
   if (ln2) {
-    const num3 = (k) => {
+    const num4 = (k) => {
       const n = parseInt(ln2.attrs[k] ?? "", 10);
       return Number.isNaN(n) ? void 0 : n;
     };
     const out = {};
-    const cb = num3("w:countBy"), st = num3("w:start"), di = num3("w:distance");
+    const cb = num4("w:countBy"), st = num4("w:start"), di = num4("w:distance");
     if (cb !== void 0) out.countBy = cb;
     if (st !== void 0) out.start = st;
     if (di !== void 0) out.distance = di;
