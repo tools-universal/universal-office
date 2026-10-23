@@ -294,7 +294,7 @@ function pprBits(pp: ParaProps, ids: GenNumIds): Record<string, string | null> {
     ? '<w:tabs>' + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ''} w:pos="${t.posTwips}"/>`).join('') + '</w:tabs>'
     : null;
   out['w:numPr'] = pp.numbering
-    ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === 'decimal' ? ids.decimal : ids.bullet}"/></w:numPr>`
+    ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.numId ?? (pp.numbering.kind === 'decimal' ? ids.decimal : ids.bullet)}"/></w:numPr>`
     : null;
   if (pp.borders) {
     let inner = '';
@@ -355,7 +355,8 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
   if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
   if (sectPrXml) ppr.push(sectPrXml);
   if (pp.pfmt) ppr.push(pPrChangeXml(pp, pPrFromProps(pp.pfmt.old, '', ids).xml));
-  return { xml: ppr.length ? `<w:pPr>${ppr.join('')}</w:pPr>` : '', genNumbering: !!pp.numbering || !!pp.pfmt?.old.numbering };
+  // (listas com numId real: a definição é do editor, não as geradas 1001/1002)
+  return { xml: ppr.length ? `<w:pPr>${ppr.join('')}</w:pPr>` : '', genNumbering: (!!pp.numbering && pp.numbering.numId === undefined) || (!!pp.pfmt?.old.numbering && pp.pfmt.old.numbering.numId === undefined) };
 }
 
 /** Revisões da marca de parágrafo (filhos de w:pPr/w:rPr, os primeiros de CT_ParaRPr). */
@@ -419,7 +420,8 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   if (!eq(p.numbering, base.numbering)) {
     const numPr = el.children.find((c): c is XmlElement => typeof c !== 'string' && c.name === 'w:numPr');
     const numId = numPr && childElements(numPr, 'w:numId')[0]?.attrs['w:val'];
-    if (!p.numbering) set('w:numPr', '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
+    if (!p.numbering) set('w:numPr', null);
+    else if (p.numbering.numId !== undefined) set('w:numPr', `<w:numPr><w:ilvl w:val="${p.numbering.ilvl}"/><w:numId w:val="${p.numbering.numId}"/></w:numPr>`);
     else if (numId && numId !== '0' && base.numbering && base.numbering.kind === p.numbering.kind) {
       set('w:numPr', `<w:numPr><w:ilvl w:val="${p.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
     } else { set('w:numPr', bits['w:numPr']!); genNumbering = true; }

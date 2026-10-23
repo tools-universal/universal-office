@@ -15,6 +15,7 @@ import { registerTextLayoutCommands, type TextLayoutDialogKind } from './chrome-
 import { registerShapeCommands } from './chrome-shape.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 import { registerHomeCommands, colorFromPick, pickHex } from './chrome-home.js';
+import { registerListCommands } from './chrome-lists.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -85,6 +86,8 @@ export interface ChromeCtl {
   tocDialog(kind: TocDialogKind, scope?: 'caret' | 'selection'): void;
   /** diálogos do Plano de Fundo da Página (chrome-page.ts): Efeitos de Preenchimento, Marca-d'Água Personalizada */
   pageBgDialog(kind: 'fill' | 'watermark'): void;
+  /** diálogos de listas (chrome-lists.ts): Definir Novo Marcador/Formato de Número/Valor/Vários Níveis/Estilo de Lista, Ajustar Recuos */
+  listDialog(kind: import('./chrome-lists.js').ListDialogKind): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -265,8 +268,8 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
         id: `align:${a}`, label: { en, pt }, icon: a === 'both' ? 'format_align_justify' : `format_align_${a}`, shortcut: sc,
         run: () => ed.setAlignment(a), isChecked: () => (para().alignment ?? 'left') === a,
       })),
-    edit({ id: 'list:bullet', label: { en: 'Bullets', pt: 'Marcadores' }, icon: 'format_list_bulleted', run: () => ed.toggleList('bullet'), isChecked: () => para().numbering?.kind === 'bullet' }),
-    edit({ id: 'list:decimal', label: { en: 'Numbering', pt: 'Numeração' }, icon: 'format_list_numbered', run: () => ed.toggleList('decimal'), isChecked: () => para().numbering?.kind === 'decimal' }),
+    edit({ id: 'list:bullet', label: { en: 'Bullets', pt: 'Marcadores' }, icon: 'format_list_bulleted', run: () => ed.toggleList('bullet'), isChecked: () => ed.listInfo()?.kind === 'bullet' }),
+    edit({ id: 'list:decimal', label: { en: 'Numbering', pt: 'Numeração' }, icon: 'format_list_numbered', run: () => ed.toggleList('decimal'), isChecked: () => ed.listInfo()?.kind === 'number' }),
     edit({ id: 'outdent', label: { en: 'Decrease indent', pt: 'Diminuir Recuo' }, icon: 'format_indent_decrease', run: () => ed.indent(-1) }),
     edit({ id: 'indent', label: { en: 'Increase indent', pt: 'Aumentar Recuo' }, icon: 'format_indent_increase', run: () => ed.indent(1) }),
     edit({ id: 'shading', label: { en: 'Shading', pt: 'Sombreamento' }, icon: 'format_color_fill', run: () => ed.setShading(app.lastShading), color: () => `#${app.lastShading}` }),
@@ -327,6 +330,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerPictureAdjustCommands(reg, ed, app, ctl);
   registerPageCommands(reg, ed, app, ctl);
   registerHomeCommands(reg, ed, app, ctl);
+  registerListCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
   registerTextLayoutCommands(reg, ed, app, ctl);
 

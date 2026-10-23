@@ -438,9 +438,11 @@ export interface DrawingGroup {
 export const EMU_PER_TWIP = 635;
 
 export interface NumberingProps {
-  /** v1: bullet ou decimal (numId 1001/1002 gerados por nós). */
+  /** legado: bullet ou decimal (numId 1001/1002 gerados por nós) quando não há numId */
   kind: 'bullet' | 'decimal';
   ilvl: number;
+  /** w:numId da lista no numbering.xml (0 = sem lista, por cima do estilo) */
+  numId?: number;
 }
 
 /** Tabulação do parágrafo (w:tab): tipo, posição e preenchimento. */
@@ -773,7 +775,7 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
   if (ppr.pStyle !== undefined) props.styleId = ppr.pStyle;
   if (ppr.numPr) {
     const numId = ppr.numPr.numId ?? 0;
-    props.numbering = { kind: numId === 1002 ? 'decimal' : 'bullet', ilvl: ppr.numPr.ilvl ?? 0 };
+    props.numbering = { kind: numId === 1002 ? 'decimal' : 'bullet', ilvl: ppr.numPr.ilvl ?? 0, numId };
   }
   if (ppr.ind) {
     if (ppr.ind.left !== undefined) props.indentLeftTwips = ppr.ind.left;

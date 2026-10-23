@@ -54,7 +54,8 @@ if (!argv.includes('--extract-only')) {
 const wanted = only ? new Set(only.split(',')) : null;
 // estilos do documento em branco (para --styles mostrar só os acrescentados)
 let blankStyles = null;
-const styleIds = (xml) => new Map([...xml.matchAll(/<w:style\b[^>]*w:styleId="([^"]+)"[^>]*>[\s\S]*?<\/w:style>/g)].map((m) => [m[1], m[0]]));
+// (o w:rsid de cada estilo muda a cada sessão do Word: fora da comparação)
+const styleIds = (xml) => new Map([...xml.matchAll(/<w:style\b[^>]*w:styleId="([^"]+)"[^>]*>[\s\S]*?<\/w:style>/g)].map((m) => [m[1], m[0].replace(/<w:rsid w:val="[^"]*"\/>/g, '')]));
 for (const f of readdirSync(outDir).filter((x) => x.endsWith('.docx'))) {
   const name = f.slice(0, -5);
   if (wanted && !wanted.has(name)) continue;

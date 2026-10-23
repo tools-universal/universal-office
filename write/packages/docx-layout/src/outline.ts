@@ -106,6 +106,26 @@ export interface NumberedItem {
   text: string;
 }
 
+/** Valor do contador de cada item de lista (corpo e células), como no desenho —
+ *  o diálogo Definir Valor de Numeração começa nele. */
+export function listItemValues(full: FullDocument, opts: { lang?: string } = {}): Map<Paragraph, number> {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const out = new Map<Paragraph, number>();
+  const walk = (blocks: readonly Block[]): void => {
+    for (const b of blocks) {
+      if (b.type === 'table') {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks(cell));
+        continue;
+      }
+      const n = resolvePPr(ctx, b.paragraph, {}).ppr.numPr;
+      const m = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0) : null;
+      if (m?.value !== undefined) out.set(b.paragraph, m.value);
+    }
+  };
+  walk(full.blocks);
+  return out;
+}
+
 /** Parágrafos do CORPO (fora de tabela) com numeração que não é marcador, na ordem
  *  do documento — a numeração avança como no desenho (células incluídas). */
 export function numberedItems(full: FullDocument, opts: { lang?: string } = {}): NumberedItem[] {

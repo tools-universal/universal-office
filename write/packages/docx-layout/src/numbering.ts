@@ -75,6 +75,8 @@ export interface NumberMarker {
   level: NumLevel;
   numId: number;
   ilvl: number;
+  /** valor do contador do nível (Definir Valor de Numeração) */
+  value?: number;
   /** id da lista (contador) — p/ depuração. */
   listKey: string;
   /** só os números do marcador (do 1º ao último %n do texto do nível) — o
@@ -215,7 +217,7 @@ export class NumberingState {
       const a = lvlText.search(/%[1-9]/), b = lvlText.lastIndexOf('%');
       if (a >= 0 && b >= a) chapter = fill(lvlText.slice(a, b + 2), lvl);
     }
-    const out: NumberMarker = { text, level: lvl, numId, ilvl, listKey: key, ...(chapter !== undefined ? { chapter } : {}) };
+    const out: NumberMarker = { text, level: lvl, numId, ilvl, value: c[ilvl]!.v, listKey: key, ...(chapter !== undefined ? { chapter } : {}) };
     if (lvl.numFmt !== 'bullet') {
       const refs = (t: string): number[] => [...t.matchAll(/%([1-9])/g)].map((m) => +m[1]! - 1);
       const parts = [text];

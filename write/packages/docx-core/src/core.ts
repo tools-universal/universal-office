@@ -150,6 +150,7 @@ export {
   serializeBlocks,
   tableXml,
   writeDocument,
+  writeNumberingPart,
   serializeHfPart,
   type HfPartInfo,
   type WriteOptions,

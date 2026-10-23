@@ -1816,6 +1816,101 @@ if (want('home')) {
   const normal = /<w:style w:type="paragraph" w:default="1"[^>]*>[\s\S]*?<\/w:style>/.exec(sx)?.[0] ?? '';
   check('home: Definir como Padrão grava fonte e tamanho no Normal', /<w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"\/>/.test(normal) && /<w:sz w:val="28"\/>/.test(normal), normal.slice(0, 300));
   await saveDoc('home-font');
+
+  // ───── listas (write/tools/home-lab exp-lists/listkeys/listcmds/liststyle; memória word-lists-facts) ─────
+  const parts = async (...n) => page.evaluate((ns) => window.ed.savedParts(ns), n);
+  const numx = async () => (await parts('word/numbering.xml'))['word/numbering.xml'] ?? '';
+  const pPrOf = (xml, text) => { const m = new RegExp(`<w:p>(?:(?!<w:p>)[\\s\\S])*?<w:t>${text}</w:t>`).exec(xml); return m ? (/<w:pPr>[\s\S]*?<\/w:pPr>/.exec(m[0])?.[0] ?? '') : null; };
+  const item = (n) => `<w:pPr><w:pStyle w:val="PargrafodaLista"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="${n}"/></w:numPr></w:pPr>`;
+  await ev('blank');
+  await js('e.type("Um"); e.pressEnter(); e.type("Dois"); e.pressEnter(); e.type("Texto"); e.pressEnter(); e.type("Tres");');
+  await js('e.setSelection({ para: 0, offset: 0 }, { para: 1, offset: 2 }); e.applyListLibrary("number", 0);');
+  x = await doc();
+  let nx = await numx();
+  check('lista: Numeração grava Parágrafo da Lista + numPr (sem recuo direto), como o Word', pPrOf(x, 'Um') === item(1) && pPrOf(x, 'Dois') === item(1), pPrOf(x, 'Um'));
+  check('lista: abstractNum hybridMultilevel com nsid/tmpl, w15 e os níveis sem uso tentativos',
+    /<w:abstractNum w:abstractNumId="0" w15:restartNumberingAfterBreak="0"><w:nsid w:val="[0-9A-F]{8}"\/><w:multiLevelType w:val="hybridMultilevel"\/><w:tmpl w:val="[0-9A-F]{8}"\/><w:lvl w:ilvl="0" w:tplc="0[0-9A-F]{3}000F"><w:start w:val="1"\/><w:numFmt w:val="decimal"\/><w:lvlText w:val="%1\."\/>/.test(nx)
+      && (nx.match(/w:tentative="1"/g) ?? []).length === 8 && /<w:num w:numId="1"><w:abstractNumId w:val="0"\/><\/w:num>/.test(nx), nx.slice(0, 400));
+  check('lista: o motor desenha "1." e "2."', (await items('i.t === "glyphs" && (i.text.startsWith("1.") || i.text.startsWith("2."))')) === 2,
+    await js('return e.eng.result.pages[0].items.filter((i) => i.t === "glyphs").map((i) => i.text);'));
+  // a lista anterior com o mesmo formato continua, mesmo com texto no meio (two-lists-gap)
+  await js('e.setSelection({ para: 3, offset: 1 }); e.applyListLibrary("number", 0);');
+  x = await doc();
+  check('lista: Numeração depois de texto continua a lista anterior (mesmo numId)', pPrOf(x, 'Tres') === item(1), pPrOf(x, 'Tres'));
+  check('lista: o 3º item é "3."', (await items('i.t === "glyphs" && i.text.startsWith("3.")')) === 1, null);
+  // Tab no início de um item (não o 1º): nível 2; Shift+Tab volta
+  await js('e.setSelection({ para: 1, offset: 0 }); e.focusEditor();');
+  await page.keyboard.press('Tab');
+  x = await doc();
+  check('lista: Tab no início do item desce um nível (ilvl 1)', /<w:ilvl w:val="1"\/>/.test(pPrOf(x, 'Dois') ?? ''), pPrOf(x, 'Dois'));
+  await page.keyboard.press('Shift+Tab');
+  x = await doc();
+  check('lista: Shift+Tab sobe o nível', pPrOf(x, 'Dois') === item(1), pPrOf(x, 'Dois'));
+  // Tab no 1º item: a lista inteira vai para a próxima tabulação padrão (720 → 1068)
+  await js('e.setSelection({ para: 0, offset: 0 }); e.focusEditor();');
+  await page.keyboard.press('Tab');
+  nx = await numx();
+  check('lista: Tab no 1º item desloca a lista toda (w:left 720→1068, 1440→1788)', /<w:ind w:left="1068" w:hanging="360"\/>/.test(nx) && /<w:ind w:left="1788" w:hanging="360"\/>/.test(nx), nx.match(/<w:ind [^>]*>/g)?.slice(0, 2));
+  await js('e.undo();');
+  nx = await numx();
+  check('lista: desfazer volta a numeração', /<w:ind w:left="720" w:hanging="360"\/>/.test(nx) && !/1068/.test(nx), null);
+  // Reiniciar em 1 / Continuar Numeração (NumberingRestart: cópia com tplc FFFFFFFF + w:num novo)
+  await js('e.setSelection({ para: 3, offset: 0 }); e.restartNumbering();');
+  x = await doc(); nx = await numx();
+  check('lista: Reiniciar em 1 = abstractNum copiado (tplc FFFFFFFF) + w:num novo do item em diante',
+    pPrOf(x, 'Tres') === item(2) && /<w:abstractNum w:abstractNumId="1"[^>]*><w:nsid w:val="[0-9A-F]{8}"\/><w:multiLevelType w:val="hybridMultilevel"\/><w:tmpl w:val="[0-9A-F]{8}"\/><w:lvl w:ilvl="0" w:tplc="FFFFFFFF">/.test(nx), pPrOf(x, 'Tres'));
+  check('lista: depois de reiniciar o item é "1." de novo', (await items('i.t === "glyphs" && i.text.startsWith("1.")')) === 2, null);
+  await js('e.continueNumbering();');
+  x = await doc();
+  check('lista: Continuar Numeração volta à lista anterior', pPrOf(x, 'Tres') === item(1), pPrOf(x, 'Tres'));
+  await js('e.setNumberingValue({ mode: "new", value: 5 });');
+  check('lista: Definir Valor de Numeração (nova lista em 5) → "5."', (await items('i.t === "glyphs" && i.text.startsWith("5.")')) === 1 && (await js('return e.numberingValueInfo().value;')) === 5, null);
+  // Enter num item vazio sai da lista (Normal); Backspace no início: sai o número, depois o estilo (recuo 360), depois o recuo
+  await js('e.setSelection({ para: 1, offset: 4 }); e.pressEnter();');
+  x = await doc();
+  check('lista: Enter no fim de um item cria outro item', (await js('return e.listInfo()?.numId;')) === 1, null);
+  await js('e.pressEnter();');
+  x = await doc();
+  check('lista: Enter num item vazio do nível 1 tira da lista (parágrafo Normal)', /<w:t>Dois<\/w:t><\/w:r><\/w:p><w:p(?:\/>|><\/w:p>)/.test(x), x.slice(x.indexOf('Dois') - 20, x.indexOf('Dois') + 80));
+  await js('e.undo(); e.undo(); e.setSelection({ para: 1, offset: 0 }); e.focusEditor();');
+  await page.keyboard.press('Backspace');
+  x = await doc();
+  check('lista: Backspace no início tira o número e mantém o Parágrafo da Lista', pPrOf(x, 'Dois') === '<w:pPr><w:pStyle w:val="PargrafodaLista"/></w:pPr>', pPrOf(x, 'Dois'));
+  await page.keyboard.press('Backspace');
+  x = await doc();
+  check('lista: 2º Backspace → Normal com recuo de 360', pPrOf(x, 'Dois') === '<w:pPr><w:ind w:left="360"/></w:pPr>', pPrOf(x, 'Dois'));
+  await page.keyboard.press('Backspace');
+  x = await doc();
+  check('lista: 3º Backspace tira o recuo (o texto continua no parágrafo)', pPrOf(x, 'Dois') === '' && /<w:t>Um<\/w:t>/.test(x), pPrOf(x, 'Dois'));
+  // marcadores: Definir Novo Marcador (Wingdings, sem tplc); o botão tira a lista
+  await js('e.setSelection({ para: 2, offset: 0 }); e.applyListLibrary("bullet", 0);');
+  nx = await numx();
+  check('lista: Marcadores grava o • da Symbol (F0B7) com tplc', /<w:lvl w:ilvl="0" w:tplc="0[0-9A-F]{3}0001"><w:start w:val="1"\/><w:numFmt w:val="bullet"\/><w:lvlText w:val="\uF0B7"\/>/.test(nx), null);
+  await js('e.defineListLevel({ bullet: "\\uF076", font: "Wingdings" });');
+  nx = await numx();
+  check('lista: Definir Novo Marcador grava o caractere e a fonte, sem tplc',
+    /<w:lvl w:ilvl="0"><w:start w:val="1"\/><w:numFmt w:val="bullet"\/><w:lvlText w:val="\uF076"\/><w:lvlJc w:val="left"\/><w:pPr><w:ind w:left="720" w:hanging="360"\/><\/w:pPr><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings" w:hint="default"\/><\/w:rPr><\/w:lvl>/.test(nx), null);
+  await js('e.toggleList("bullet");');
+  x = await doc();
+  check('lista: o botão Marcadores de novo tira a lista e o estilo', pPrOf(x, 'Texto') === '', pPrOf(x, 'Texto'));
+  // vários níveis ligados aos títulos: o w:numPr vai para os estilos Título 1–9 (como o Word)
+  await js('e.setSelection({ para: 0, offset: 0 }); e.applyMultilevelLibrary(4);');
+  x = await doc();
+  const sx2 = (await parts('word/styles.xml'))['word/styles.xml'] ?? '';
+  const t1 = /<w:style [^>]*w:styleId="Ttulo1"[^>]*>[\s\S]*?<\/w:style>/.exec(sx2)?.[0] ?? '';
+  const t2 = /<w:style [^>]*w:styleId="Ttulo2"[^>]*>[\s\S]*?<\/w:style>/.exec(sx2)?.[0] ?? '';
+  check('lista: vários níveis "1 Título 1" põe o parágrafo no Título 1 (sem numPr direto)', pPrOf(x, 'Um') === '<w:pPr><w:pStyle w:val="Ttulo1"/></w:pPr>', pPrOf(x, 'Um'));
+  check('lista: Título 1 ganha <w:numPr><w:numId/>; Título 2 o ilvl 1', /<w:numPr><w:numId w:val="\d+"\/><\/w:numPr>/.test(t1) && /<w:numPr><w:ilvl w:val="1"\/><w:numId w:val="\d+"\/><\/w:numPr>/.test(t2), t1.slice(0, 300));
+  // estilo de lista: w:style numbering + styleLink; aplicado = abstractNum com numStyleLink (ls-apply-template)
+  await js('e.setSelection({ para: 2, offset: 0 }); e.createListStyle("Minha Lista");');
+  nx = await numx();
+  const sx3 = (await parts('word/styles.xml'))['word/styles.xml'] ?? '';
+  check('lista: Definir Novo Estilo de Lista grava o w:style numbering (Sem Lista + numPr) e o styleLink',
+    /<w:style w:type="numbering" w:customStyle="1" w:styleId="MinhaLista"><w:name w:val="Minha Lista"\/><w:basedOn w:val="Semlista"\/><w:pPr><w:numPr><w:numId w:val="\d+"\/><\/w:numPr><\/w:pPr><\/w:style>/.test(sx3)
+      && /<w:styleLink w:val="MinhaLista"\/><w:lvl w:ilvl="0"><w:start w:val="1"\/><w:numFmt w:val="decimal"\/><w:lvlText w:val="%1\)"\/>/.test(nx), /<w:style w:type="numbering"[\s\S]*?<\/w:style>/.exec(sx3)?.[0]);
+  check('lista: o estilo aplicado = abstractNum só com numStyleLink + w:num novo', /<w:multiLevelType w:val="multilevel"\/><w:tmpl w:val="[0-9A-F]{8}"\/><w:numStyleLink w:val="MinhaLista"\/><\/w:abstractNum>/.test(nx), null);
+  check('lista: o motor numera pelo estilo de lista ("1)")', (await items('i.t === "glyphs" && i.text.startsWith("1)")')) === 1, null);
+  await saveDoc('home-lists');
 }
 
 if (want('page')) {

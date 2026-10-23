@@ -1,0 +1,32 @@
+{
+    "err":  "",
+    "paras":  [
+                  {
+                      "text":  "Um",
+                      "type":  2,
+                      "lvl":  1,
+                      "str":  "",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  },
+                  {
+                      "text":  "Dois",
+                      "type":  2,
+                      "lvl":  1,
+                      "str":  "",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  },
+                  {
+                      "text":  "Tres",
+                      "type":  0,
+                      "lvl":  1,
+                      "str":  "",
+                      "style":  "Normal",
+                      "left":  0,
+                      "first":  0
+                  }
+              ]
+}

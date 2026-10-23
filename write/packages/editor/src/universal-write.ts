@@ -157,6 +157,8 @@ import {
 import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
 import { caseMapped } from './text-case.js';
+import { DocNumbering, libraryLevels, levelIndent, parseLevel, sameLevelFormat, type ListLocale } from './numbering-store.js';
+import { BULLET_LIBRARY, NUMBER_LIBRARY, MULTILEVEL_LIBRARY } from './list-library.js';
 import { pageFillFrom, themeTintShade, GRADIENT_PRESETS, GRADIENT_VARIANTS, type PageFillInput, type PageBackgroundInfo, type ThemeColorRef, type GradientStyle } from './page-design.js';
 import { effectExtentOf, zFor, fillFitCrop, aspectCrop, Z_FIRST, SHADOW_PRESETS, REFLECTION_PRESETS, GLOW_SIZES, glowPreset, bevel3D, RECOLOR_PRESETS } from './picture-ops.js';
 import { adjustSaturation, adjustTemperature, adjustSharpen, adjustBrightnessContrast, wrapContour, SHAPE_STYLE_PRESETS } from '@universal-office/drawingml';
@@ -239,13 +241,13 @@ import { compareText } from '@universal-office/collation';
 import type { PlacedCell, ObjectFrame } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, paintPageBackground, imagePixelInfo, type EnginePaintEnv } from '@universal-office/docx-layout';
-import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr } from '@universal-office/docx-layout';
+import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr, listItemValues } from '@universal-office/docx-layout';
 import {
   tabInfo, tabsDirect, indentsDirect, dedupeTabs, headingSpan, moveMap, findInText, matchSnippet, drawingGridOf, gridLines,
   type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
 } from './navigation.js';
 import { guardRuns } from './edit-guard.js';
-import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, type HyphenationSettings } from '@universal-office/docx-core';
+import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, partByRelType, writeNumberingPart, type HyphenationSettings, type NumLevel } from '@universal-office/docx-core';
 import {
   lineNumberingInfo, lineNumberingOn, withLineNumberMode, lineNumberingFromOptions, flowValue, flowDirect, spacingDirect, common,
   wordAround, manualPoints, offsetAfterLetters, FLOW_FLAGS, HYPHENATION_LIMITS, PARAGRAPH_LAYOUT_LIMITS,
@@ -1626,6 +1628,7 @@ export class UniversalWriteElement extends HTMLElement {
     // com a fonte XML original: o salvar devolve cru tudo o que não for editado
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
+    this.resetNumbering(this.pkg.getPartText(partByRelType(this.pkg, 'numbering', 'word/numbering.xml')) ?? null);
     this.loadedFormat = 'docx';
     // controle de alterações: o documento abre como foi salvo (w:trackRevisions)
     this.tracking = readTrackRevisions(this.pkg);
@@ -1673,6 +1676,9 @@ export class UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readOdt(bytes);
     this.docStyles = new DocStyles(null);
+    // (as listas do .odt chegam só com o tipo — o motor sintetiza 1001/1002; as novas
+    // ganham definição aqui, e o .odt grava só o tipo)
+    this.resetNumbering(null);
     this.loadedBytes = null;
     this.loadedFormat = 'odt';
     this.tracking = false;
@@ -1879,6 +1885,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText('word/styles.xml') ?? null);
+    this.resetNumbering(this.pkg.getPartText('word/numbering.xml') ?? null);
     this.tracking = false;
     this.installFullDoc();
   }
@@ -2806,14 +2813,633 @@ export class UniversalWriteElement extends HTMLElement {
     }
     this.refresh();
   }
-  toggleList(kind: 'bullet' | 'decimal'): void {
-    const cur = this.model?.paragraphs[this.selection.focus.para]?.props.numbering;
-    this.formatPara({
-      numbering: cur?.kind === kind ? undefined : { kind, ilvl: 0 },
-      indentLeftTwips: cur?.kind === kind ? undefined : 720,
-    });
+  // ───────────────────────── listas (Marcadores, Numeração, Vários Níveis) ─────────────────────────
+  // O word/numbering.xml é editado sem perdas por DocNumbering (numbering-store.ts); as regras
+  // são as do Word medidas em write/tools/home-lab (exp-lists/listkeys/listcmds.ps1).
+
+  /** Numeração do documento (a parte editável; o desfazer guarda a versão). */
+  private numbering = new DocNumbering(null);
+  /** abstractNum que o editor criou ou mudou (os níveis sem parágrafo viram w:tentative) */
+  private numTouched = new Set<number>();
+  /** item da biblioteca usado por último em cada botão (o botão dividido aplica este) */
+  private lastBullet = 0;
+  private lastNumber = 0;
+
+  private resetNumbering(xml: string | null): void {
+    this.numbering = new DocNumbering(xml);
+    this.numbering.styleNum = (id) => this.docStyles.sheet().styles[id]?.pPr?.numPr?.numId;
+    this.numTouched = new Set();
   }
+
+  /** O motor passa a usar a numeração atual. */
+  private syncNumbering(): void {
+    const numbering = this.numbering.parsed();
+    if (this.fullDoc) this.fullDoc.formatting = { ...(this.fullDoc.formatting ?? emptyFormatting()), numbering };
+    else this.newFormatting = { ...(this.newFormatting ?? emptyFormatting()), numbering };
+    this.engPageCache.clear();
+  }
+
+  /** Texto da numeração a gravar (níveis sem parágrafo nas listas novas: w:tentative). */
+  private numberingOut(blocks: Block[], hfParts: HfPartInfo[]): string {
+    const used = new Map<number, Set<number>>();
+    const see = (p: Paragraph): void => {
+      const n = p.props.numbering;
+      const abs = n?.numId ? this.numbering.abstractOf(n.numId) : undefined;
+      if (abs === undefined) return;
+      let s = used.get(abs);
+      if (!s) used.set(abs, s = new Set());
+      s.add(n!.ilvl);
+    };
+    for (const p of flattenBlocks(blocks)) see(p);
+    for (const h of hfParts) for (const p of h.blocks ? flattenBlocks(h.blocks) : h.paragraphs) see(p);
+    return this.numbering.withTentative(this.numTouched, used) ?? '';
+  }
+
+  /** Idioma das bibliotecas: LCID dos w:tplc, títulos do documento, textos. */
+  private listLocale(): ListLocale {
+    const pt = uiLang(this) === 'pt';
+    const all = this.listStyles('all');
+    return {
+      lcid: pt ? '0416' : '0409',
+      heading: (n) => all.find((s) => s.rawName.toLowerCase() === `heading ${n}`)?.id ?? `Heading${n}`,
+      article: pt ? 'Artigo' : 'Article', section: pt ? 'Seção' : 'Section', chapter: pt ? 'Capítulo' : 'Chapter',
+    };
+  }
+
+  /** styleId de um estilo interno pelo nome em inglês (definido ou latente), sem defini-lo. */
+  private builtinIdOf(name: string): string | undefined {
+    return this.listStyles('all').find((s) => s.rawName.toLowerCase() === name)?.id;
+  }
+
+  /** O estilo interno passa a definido e visível no styles.xml (como ao usá-lo); o .odt
+   *  não tem folha editável. */
+  private useBuiltinStyle(name: string): string | undefined {
+    return this.stylesEditable() ? this.builtinStyleId(name) : undefined;
+  }
+
+  /** Lista do parágrafo: a direta (w:numPr; numId 0 = nenhuma) ou a do estilo (títulos
+   *  vinculados); null fora de lista. numId −1/−2 = lista sem definição (marcador/número
+   *  de .odt, colagem) — o motor desenha a sintética. */
+  private paraNum(p: Paragraph): ParaNum | null {
+    const n = p.props.numbering;
+    if (n) {
+      const numId = n.numId ?? (n.kind === 'decimal' ? -2 : -1);
+      return numId ? { numId, ilvl: n.ilvl, fromStyle: false } : null;
+    }
+    const styles = this.docStyles.sheet().styles;
+    let ilvl: number | undefined;
+    let id: string | undefined = p.props.styleId ?? this.docStyles.defaultParagraph();
+    for (let guard = 0; id && guard < 20; guard++) {
+      const np = styles[id]?.pPr?.numPr;
+      if (np) {
+        ilvl ??= np.ilvl;
+        if (np.numId !== undefined) return np.numId ? { numId: np.numId, ilvl: ilvl ?? 0, fromStyle: true } : null;
+      }
+      id = styles[id]?.basedOn;
+    }
+    return null;
+  }
+  private paraNumId(p: Paragraph): number { return this.paraNum(p)?.numId ?? 0; }
+
+  /** Lista e nível do parágrafo do cursor (galerias e diálogos); null fora de lista. */
+  listInfo(): ListInfo | null {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const n = p ? this.paraNum(p) : null;
+    if (!p || !n) return null;
+    const numId = n.numId;
+    const absId = numId > 0 ? this.numbering.abstractOf(numId) : undefined;
+    const abs = absId !== undefined ? this.numbering.parsed().abstractNums[absId] : undefined;
+    const lvl = numId > 0 ? this.numbering.level(numId, n.ilvl) : undefined;
+    const levels = abs ? Object.values(abs.levels).sort((a, b) => a.ilvl - b.ilvl).map(listLevelSpec) : [];
+    return {
+      numId, ilvl: n.ilvl, absId: absId ?? -1,
+      kind: lvl ? (lvl.numFmt === 'bullet' ? 'bullet' : 'number') : numId === -1 ? 'bullet' : 'number',
+      level: lvl ? listLevelSpec(lvl) : undefined,
+      multilevel: levels.some((l) => l.ilvl > 0 && /%[1-9]/.test(l.lvlText) && (l.lvlText.match(/%[1-9]/g)?.length ?? 0) > 1),
+      levels,
+    };
+  }
+
+  /** Os modelos de uma biblioteca (galerias Marcadores, Numeração, Lista de Vários Níveis),
+   *  no idioma da interface — os 9 níveis de cada um. */
+  listLibrary(kind: 'bullet' | 'number' | 'multilevel'): ListLevelSpec[][] {
+    const lib = kind === 'bullet' ? BULLET_LIBRARY : kind === 'number' ? NUMBER_LIBRARY : MULTILEVEL_LIBRARY;
+    const loc = this.listLocale();
+    return lib.map((d) => libraryLevels(d, loc).map((x) => parseLevel(x)).filter((l): l is NumLevel => !!l).map(listLevelSpec));
+  }
+
+  /** Listas usadas no documento (seções "Formatos do Documento" das galerias), na ordem. */
+  documentLists(): DocumentListInfo[] {
+    if (!this.model) return [];
+    const seen = new Set<number>();
+    const out: DocumentListInfo[] = [];
+    for (const p of this.bodyModel().paragraphs) {
+      const id = this.paraNumId(p);
+      if (id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      const absId = this.numbering.abstractOf(id);
+      const abs = absId !== undefined ? this.numbering.parsed().abstractNums[absId] : undefined;
+      const l0 = this.numbering.level(id, 0);
+      if (!abs || !l0) continue;
+      const levels = Object.values(abs.levels).sort((a, b) => a.ilvl - b.ilvl).map(listLevelSpec);
+      out.push({ numId: id, kind: l0.numFmt === 'bullet' ? 'bullet' : 'number', level: listLevelSpec(l0), levels });
+    }
+    return out;
+  }
+
+  /** Parágrafos da seleção (índices no modelo atual). */
+  private selectedParas(): number[] {
+    const { start, end } = normalizeRange(this.range());
+    const out: number[] = [];
+    for (let i = start.para; i <= end.para; i++) out.push(i);
+    return out;
+  }
+
+  private setParaAt(pi: number, patch: Partial<ParaProps>): void {
+    const at = { para: pi, offset: 0 };
+    this.applyPara({ start: at, end: at }, patch);
+  }
+
+  /**
+   * Aplica um item da Biblioteca de Marcadores ('bullet') ou de Numeração ('number') à
+   * seleção, como o Word (medido): seleção toda numa lista → o nível dela muda de formato
+   * na lista inteira; senão lista nova (hybridMultilevel de 9 níveis) — ou a lista logo
+   * acima, se tem o mesmo formato — e os parágrafos no estilo Normal passam a "Parágrafo
+   * da Lista". `index` null = Nenhum (tira a lista).
+   */
+  applyListLibrary(kind: 'bullet' | 'number', index: number | null): void {
+    if (!this.model || this.locked()) return;
+    if (index === null) { this.removeList(); return; }
+    const def = (kind === 'bullet' ? BULLET_LIBRARY : NUMBER_LIBRARY)[index];
+    if (!def) return;
+    if (kind === 'bullet') this.lastBullet = index; else this.lastNumber = index;
+    const loc = this.listLocale();
+    const levels = libraryLevels(def, loc);
+    this.snapshot();
+    const paras = this.selectedParas();
+    const ids = new Set(paras.map((i) => this.paraNumId(this.model!.paragraphs[i]!)));
+    const one = ids.size === 1 ? [...ids][0]! : 0;
+    const absId = one > 0 ? this.numbering.abstractOf(one) : undefined;
+    if (absId !== undefined) {
+      // a seleção está numa lista: os níveis dela mudam de formato (na lista toda); o
+      // recuo é o do nível que está ali
+      for (const ilvl of new Set(paras.map((i) => this.paraNum(this.model!.paragraphs[i]!)!.ilvl))) {
+        const cur = this.numbering.levelXml(absId, ilvl);
+        let lvl = levels[0]!.replace(/w:ilvl="\d+"/, `w:ilvl="${ilvl}"`);
+        const ind = cur && /<w:ind\b[^>]*\/>/.exec(cur)?.[0];
+        if (ind) lvl = lvl.replace(/<w:ind\b[^>]*\/>/, () => ind);
+        this.numbering.setLevel(absId, ilvl, lvl);
+      }
+      this.numTouched.add(absId);
+    } else {
+      // a lista anterior mais próxima (mesmo com texto no meio — medido: two-lists-gap)
+      // continua se tem o mesmo formato
+      let an: ParaNum | null = null;
+      for (let k = paras[0]! - 1; k >= 0 && !an; k--) an = this.paraNum(this.model.paragraphs[k]!);
+      let numId = 0;
+      if (an && an.numId > 0 && !an.fromStyle && sameLevelFormat(this.numbering.level(an.numId, an.ilvl), parseLevel(levels[0]!))) numId = an.numId;
+      if (!numId) numId = this.newList(levels, def.multiLevelType, def.tmpl?.replace('{LCID}', loc.lcid));
+      this.putList(paras, numId, kind === 'bullet' ? 'bullet' : 'decimal');
+    }
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  private newList(levels: string[], multiLevelType: string, tmpl?: string): number {
+    const numId = this.numbering.addList(levels, { multiLevelType, ...(tmpl ? { tmpl } : {}) });
+    const absId = this.numbering.abstractOf(numId);
+    if (absId !== undefined) this.numTouched.add(absId);
+    return numId;
+  }
+
+  /** Os parágrafos entram na lista (no nível que já tinham numa lista; senão 0);
+   *  Normal → Parágrafo da Lista (os outros estilos ficam, como no Word). */
+  private putList(paras: number[], numId: number, kind: 'bullet' | 'decimal'): void {
+    const lp = this.useBuiltinStyle('list paragraph');
+    const def = this.docStyles.defaultParagraph();
+    for (const pi of paras) {
+      const p = this.model!.paragraphs[pi]!;
+      const ilvl = this.paraNum(p)?.ilvl ?? 0;
+      const patch: Partial<ParaProps> = { numbering: { kind, ilvl, numId } };
+      if (lp && (!p.props.styleId || p.props.styleId === def)) patch.styleId = lp;
+      this.setParaAt(pi, patch);
+    }
+  }
+
+  /** Tira a lista dos parágrafos da seleção (botão de novo, Nenhum): o número sai e o
+   *  Parágrafo da Lista volta a Normal; estilo numerado (título vinculado) → numId 0. */
+  removeList(): void {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    const lp = this.builtinIdOf('list paragraph');
+    for (const pi of this.selectedParas()) {
+      const p = this.model.paragraphs[pi]!;
+      const styled = this.styleNumbered(p.props.styleId);
+      if (!p.props.numbering && !styled) continue;
+      const patch: Partial<ParaProps> = { numbering: styled ? { kind: 'decimal', ilvl: 0, numId: 0 } : undefined };
+      if (lp && p.props.styleId === lp) patch.styleId = undefined;
+      this.setParaAt(pi, patch);
+    }
+    this.refresh();
+  }
+
+  /** O estilo de parágrafo traz numeração (w:numPr no estilo — títulos vinculados)? */
+  private styleNumbered(styleId: string | undefined): boolean {
+    const raw = styleId && this.docStyles.xml ? styleRaw(this.docStyles.xml, styleId) : undefined;
+    return !!raw && /<w:numPr>[\s\S]*?<w:numId w:val="[1-9]\d*"/.test(raw);
+  }
+
+  /** Botões Marcadores/Numeração: liga com o último item da biblioteca usado; se toda a
+   *  seleção já é lista desse tipo, tira. */
+  toggleList(kind: 'bullet' | 'decimal'): void {
+    if (!this.model) return;
+    const bullet = kind === 'bullet';
+    const all = this.selectedParas().every((pi) => {
+      const n = this.paraNum(this.model!.paragraphs[pi]!);
+      if (!n) return false;
+      const l = n.numId > 0 ? this.numbering.level(n.numId, n.ilvl) : undefined;
+      return (l ? l.numFmt === 'bullet' : n.numId === -1) === bullet;
+    });
+    if (all) this.removeList();
+    else this.applyListLibrary(bullet ? 'bullet' : 'number', bullet ? this.lastBullet : this.lastNumber);
+  }
+
+  /**
+   * Lista de Vários Níveis da biblioteca: na lista atual troca os 9 níveis; senão lista
+   * nova. Os modelos ligados a títulos (Artigo/Seção, 1 Título 1…) vão para os estilos
+   * Título 1–9 (w:numPr no estilo, como o Word) e os parágrafos ficam com o título do nível.
+   */
+  applyMultilevelLibrary(index: number | null): void {
+    if (!this.model || this.locked()) return;
+    if (index === null) { this.removeList(); return; }
+    const def = MULTILEVEL_LIBRARY[index];
+    if (!def) return;
+    const loc = this.listLocale();
+    this.applyLevelsXml(libraryLevels(def, loc), def.multiLevelType, def.tmpl?.replace('{LCID}', loc.lcid), def.linked);
+  }
+
+  /** Aplica uma lista com estes níveis (galerias "Listas no Documento Atual" e "Usados
+   *  Recentemente"): na lista do cursor troca os níveis; senão lista nova. */
+  applyListLevels(levels: ListLevelSpec[]): void {
+    if (!this.model || this.locked() || !levels.length) return;
+    const linked = levels.some((l) => !!l.pStyle);
+    const multi = linked || levels.some((l) => (l.lvlText.match(/%[1-9]/g)?.length ?? 0) > 1);
+    this.applyLevelsXml(levels.map(levelXmlOf), multi ? 'multilevel' : 'hybridMultilevel', undefined, linked);
+  }
+
+  private applyLevelsXml(levels: string[], multiLevelType: string, tmpl: string | undefined, linked: boolean): void {
+    const loc = this.listLocale();
+    this.snapshot();
+    const paras = this.selectedParas();
+    const cur = this.listInfo();
+    let numId: number;
+    if (cur && cur.absId >= 0 && !linked) {
+      this.numbering.setLevels(cur.absId, levels, { multiLevelType, ...(tmpl ? { tmpl } : {}) });
+      this.numTouched.add(cur.absId);
+      numId = cur.numId;
+    } else numId = this.newList(levels, multiLevelType, tmpl);
+    if (linked) {
+      for (let n = 1; n <= 9; n++) this.linkHeadingStyle(n, numId);
+      for (const pi of paras) {
+        const p = this.model!.paragraphs[pi]!;
+        const ilvl = this.paraNum(p)?.ilvl ?? this.headingLevel(p.props.styleId) ?? 0;
+        // o número vem do estilo do título (o parágrafo fica só com o estilo)
+        this.setParaAt(pi, { numbering: undefined, styleId: loc.heading(ilvl + 1) });
+      }
+    } else this.putList(paras, numId, this.numbering.level(numId, 0)?.numFmt === 'bullet' ? 'bullet' : 'decimal');
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  /** Nível (0–8) de um estilo de título pelo nome interno. */
+  private headingLevel(styleId: string | undefined): number | undefined {
+    if (!styleId) return undefined;
+    const s = this.listStyles('all').find((x) => x.id === styleId);
+    const m = s && /^heading (\d)$/i.exec(s.rawName);
+    return m ? Number(m[1]) - 1 : undefined;
+  }
+
+  /** Põe a lista no estilo Título n: w:numPr no pPr do estilo (Título 1 só o numId), como o Word grava. */
+  private linkHeadingStyle(n: number, numId: number): void {
+    const id = this.useBuiltinStyle(`heading ${n}`);
+    const xml = this.docStyles.xml;
+    const raw = id && xml ? styleRaw(xml, id) : undefined;
+    if (!id || !xml || !raw) return;
+    const numPr = n === 1 ? `<w:numPr><w:numId w:val="${numId}"/></w:numPr>` : `<w:numPr><w:ilvl w:val="${n - 1}"/><w:numId w:val="${numId}"/></w:numPr>`;
+    let next: string;
+    if (/<w:numPr>[\s\S]*?<\/w:numPr>/.test(raw)) next = raw.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, () => numPr);
+    // CT_PPrBase: pStyle, keepNext, keepLines, pageBreakBefore, framePr, widowControl, numPr…
+    else if (/<w:pPr>/.test(raw)) next = raw.replace(/<w:pPr>((?:<w:(?:pStyle|keepNext|keepLines|pageBreakBefore|framePr|widowControl)\b[^>]*\/>)*)/, (_m, pre: string) => `<w:pPr>${pre}${numPr}`);
+    else next = raw.replace(/<w:rPr>|<w:tblPr>|<\/w:style>/, (t) => `<w:pPr>${numPr}</w:pPr>${t}`);
+    if (next !== raw) this.commitStyles(putStyle(xml, id, next));
+  }
+
+  /** Alterar Nível da Lista (0–8) dos itens da seleção (nível vinculado a estilo troca o estilo). */
+  setListLevel(ilvl: number): void {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    for (const pi of this.selectedParas()) this.paraListLevel(pi, ilvl);
+    this.refresh();
+  }
+
+  private paraListLevel(pi: number, ilvl: number): void {
+    const p = this.model!.paragraphs[pi]!;
+    const n = this.paraNum(p);
+    if (!n) return;
+    const lv = Math.max(0, Math.min(8, Math.round(ilvl)));
+    const pStyle = n.numId > 0 ? this.numbering.level(n.numId, lv)?.pStyle : undefined;
+    // nível vinculado a um estilo (Título N): o parágrafo troca de estilo; numerado pelo
+    // estilo, fica só com ele
+    if (n.fromStyle) { if (pStyle) this.setParaAt(pi, { styleId: pStyle }); return; }
+    this.setParaAt(pi, { numbering: { ...p.props.numbering!, ilvl: lv }, ...(pStyle ? { styleId: pStyle } : {}) });
+  }
+
+  /**
+   * Tab / Aumentar Recuo num item de lista (+1) e Shift+Tab / Diminuir Recuo (−1): o nível
+   * muda; no 1º item da lista o Tab desloca a LISTA TODA até a próxima tabulação padrão
+   * (medido: o número vai de 360 a 708). false se o cursor não está num item.
+   */
+  changeListLevel(delta: 1 | -1): boolean {
+    if (!this.model || this.locked()) return false;
+    const paras = this.selectedParas().filter((pi) => this.paraNumId(this.model!.paragraphs[pi]!) !== 0);
+    if (!paras.length) return false;
+    const pi = paras[0]!;
+    const n = this.paraNum(this.model.paragraphs[pi]!)!;
+    const id = n.numId;
+    const absId = id > 0 ? this.numbering.abstractOf(id) : undefined;
+    const firstOfList = !this.model.paragraphs.slice(0, pi).some((q) => this.paraNumId(q) === id);
+    this.snapshot();
+    if (delta > 0 && firstOfList && absId !== undefined && n.ilvl === 0) {
+      const ind = levelIndent(this.numbering.level(id, 0));
+      const pos = ind.left - ind.hanging;
+      const tab = this.defaultTabStop();
+      const shift = (Math.floor(pos / tab) + 1) * tab - pos;
+      for (let k = 0; k <= 8; k++) {
+        const raw = this.numbering.levelXml(absId, k);
+        if (raw) this.numbering.setLevel(absId, k, raw.replace(/(<w:ind\b[^>]*\bw:left=")(\d+)(")/, (_m, a: string, v: string, b: string) => `${a}${Number(v) + shift}${b}`));
+      }
+      this.numTouched.add(absId);
+      this.syncNumbering();
+    } else {
+      for (const k of paras) this.paraListLevel(k, this.paraNum(this.model.paragraphs[k]!)!.ilvl + delta);
+    }
+    this.refresh();
+    return true;
+  }
+
+  /** Reiniciar em 1 (e Definir Valor › Iniciar nova lista): abstractNum novo (cópia, nsid
+   *  novo) e w:num novo para o item e os seguintes da lista (medido: NumberingRestart). */
+  restartNumbering(start?: number): void {
+    if (!this.model || this.locked()) return;
+    const pi = this.selection.focus.para;
+    const n = this.paraNum(this.model.paragraphs[pi]!);
+    const id = n?.numId ?? 0;
+    const absId = id > 0 ? this.numbering.abstractOf(id) : undefined;
+    if (absId === undefined || !n) return;
+    this.snapshot();
+    const copy = this.numbering.copyAbstract(absId)!;
+    if (start !== undefined) {
+      // valor inicial: o nível ganha o w:start
+      const raw = this.numbering.levelXml(copy, n.ilvl);
+      const s = `<w:start w:val="${Math.max(0, Math.round(start))}"/>`;
+      if (raw) this.numbering.setLevel(copy, n.ilvl, /<w:start\b/.test(raw) ? raw.replace(/<w:start w:val="-?\d+"\/>/, () => s) : raw.replace(/^<w:lvl\b[^>]*>/, (t) => t + s));
+    }
+    this.numTouched.add(copy);
+    this.retargetList(pi, id, this.numbering.addNum(copy));
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  /** Continuar Numeração: o item e os seguintes passam à lista anterior de mesmo formato.
+   *  false se não há lista anterior compatível. */
+  continueNumbering(): boolean {
+    if (!this.model || this.locked()) return false;
+    const pi = this.selection.focus.para;
+    const target = this.previousList(pi);
+    if (!target) return false;
+    this.snapshot();
+    this.retargetList(pi, this.paraNumId(this.model.paragraphs[pi]!), target);
+    this.refresh();
+    return true;
+  }
+
+  /** Lista anterior (antes de `pi`) com o mesmo formato do nível do item; 0 se nenhuma. */
+  private previousList(pi: number): number {
+    const n = this.paraNum(this.model!.paragraphs[pi]!);
+    if (!n || n.numId <= 0) return 0;
+    const lvl = this.numbering.level(n.numId, n.ilvl);
+    for (let k = pi - 1; k >= 0; k--) {
+      const qid = this.paraNumId(this.model!.paragraphs[k]!);
+      if (qid > 0 && qid !== n.numId && sameLevelFormat(this.numbering.level(qid, n.ilvl), lvl)) return qid;
+    }
+    return 0;
+  }
+
+  /** Itens de `from` em diante da lista `oldId` passam a `newId` (o numerado pelo estilo
+   *  ganha w:numPr próprio). */
+  private retargetList(from: number, oldId: number, newId: number): void {
+    for (let k = from; k < this.model!.paragraphs.length; k++) {
+      const q = this.model!.paragraphs[k]!;
+      const n = this.paraNum(q);
+      if (n?.numId === oldId) this.setParaAt(k, { numbering: { kind: q.props.numbering?.kind ?? 'decimal', ilvl: n.ilvl, numId: newId } });
+    }
+  }
+
+  /** Estado do diálogo Definir Valor de Numeração no item do cursor (null em marcador). */
+  numberingValueInfo(): { canContinue: boolean; value: number; numFmt: string } | null {
+    const info = this.listInfo();
+    if (!info || info.kind === 'bullet' || !this.model) return null;
+    const pi = this.selection.focus.para;
+    const p = this.model.paragraphs[pi]!;
+    const value = this.fullDoc ? listItemValues(this.liveEngineDoc().full).get(p) : undefined;
+    return { canContinue: !!this.previousList(pi), value: value ?? info.level?.start ?? 1, numFmt: info.level?.numFmt ?? 'decimal' };
+  }
+
+  /** Definir Valor de Numeração: 'new' = iniciar nova lista no valor; 'continue' = continuar
+   *  a lista anterior (com `value`: w:num novo do mesmo abstract com w:startOverride). */
+  setNumberingValue(o: { mode: 'new' | 'continue'; value?: number }): void {
+    if (!this.model || this.locked()) return;
+    if (o.mode === 'new') { this.restartNumbering(o.value ?? 1); return; }
+    const pi = this.selection.focus.para;
+    const n = this.paraNum(this.model.paragraphs[pi]!);
+    if (!n || n.numId <= 0) return;
+    const id = n.numId;
+    const target = this.previousList(pi);
+    this.snapshot();
+    let numId = target || id;
+    if (o.value !== undefined) {
+      const absId = this.numbering.abstractOf(numId);
+      if (absId === undefined) return;
+      const ov = `<w:lvlOverride w:ilvl="${n.ilvl}"><w:startOverride w:val="${Math.max(0, Math.round(o.value))}"/></w:lvlOverride>`;
+      numId = this.numbering.addNum(absId, ov);
+    }
+    this.retargetList(pi, id, numId);
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  /**
+   * Definir Novo Marcador / Definir Novo Formato de Número: o nível do item (ou lista nova)
+   * com o caractere do marcador, ou o formato e o texto do número, a formatação dele e o
+   * alinhamento. Sem w:tplc (formato próprio, como o Word grava).
+   */
+  defineListLevel(o: ListLevelFormat): void {
+    if (!this.model || this.locked() || (o.bullet === undefined && !o.numFmt)) return;
+    const had = this.listInfo();
+    if (!had || had.absId < 0) this.applyListLibrary(o.bullet !== undefined ? 'bullet' : 'number', 0);
+    else this.snapshot();
+    const cur = this.listInfo();
+    if (!cur || cur.absId < 0) return;
+    const raw = this.numbering.levelXml(cur.absId, cur.ilvl) ?? '';
+    const ind = /<w:ind\b[^>]*\/>/.exec(raw)?.[0] ?? `<w:ind w:left="${720 * (cur.ilvl + 1)}" w:hanging="360"/>`;
+    const bullet = o.bullet !== undefined;
+    const lvl = `<w:lvl w:ilvl="${cur.ilvl}"><w:start w:val="${bullet ? 1 : Math.max(0, Math.round(o.start ?? cur.level?.start ?? 1))}"/>`
+      + `<w:numFmt w:val="${bullet ? 'bullet' : escAttr(o.numFmt!)}"/><w:lvlText w:val="${escAttr(bullet ? o.bullet! : o.lvlText ?? `%${cur.ilvl + 1}.`)}"/>`
+      + `<w:lvlJc w:val="${o.align ?? 'left'}"/><w:pPr>${ind}</w:pPr>${levelRPrXml(o)}</w:lvl>`;
+    this.numbering.setLevel(cur.absId, cur.ilvl, lvl);
+    this.numTouched.add(cur.absId);
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  /**
+   * Definir Nova Lista de Vários Níveis: os níveis dados (os que faltam ficam como estão) na
+   * lista do cursor ('list', padrão) ou numa lista nova a partir do item ('forward'). Nível
+   * vinculado a um estilo de título leva a lista para o estilo (como o Word).
+   */
+  defineMultilevelList(levels: ListLevelSpec[], o: { applyTo?: 'list' | 'forward' } = {}): void {
+    if (!this.model || this.locked()) return;
+    const had = this.listInfo();
+    if (!had || had.absId < 0) this.applyMultilevelLibrary(0);
+    else this.snapshot();
+    const cur = this.listInfo();
+    if (!cur || cur.absId < 0) return;
+    let absId = cur.absId, numId = cur.numId;
+    if (o.applyTo === 'forward' && had && had.absId >= 0) {
+      absId = this.numbering.copyAbstract(cur.absId)!;
+      numId = this.numbering.addNum(absId);
+      this.retargetList(this.selection.focus.para, cur.numId, numId);
+    }
+    for (const l of levels) {
+      this.numbering.setLevel(absId, l.ilvl, levelXmlOf(l));
+      const n = l.pStyle ? this.headingLevel(l.pStyle) : undefined;
+      if (n !== undefined) this.linkHeadingStyle(n + 1, numId);
+    }
+    // lista de vários níveis (o Word grava multilevel quando o modelo é dele)
+    const abs = this.numbering.abstractXml(absId);
+    if (abs && levels.some((l) => l.pStyle)) this.numbering.setLevels(absId, [...abs.matchAll(/<w:lvl\b[^>]*>[\s\S]*?<\/w:lvl>/g)].map((m) => m[0]), { multiLevelType: 'multilevel' });
+    this.numTouched.add(absId);
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  /** Estilos de lista do documento (galeria Lista de Vários Níveis › Estilos de Lista). */
+  listStylesInDocument(): { id: string; name: string; numId: number; levels: ListLevelSpec[] }[] {
+    const out: { id: string; name: string; numId: number; levels: ListLevelSpec[] }[] = [];
+    for (const s of Object.values(this.docStyles.sheet().styles)) {
+      const numId = s.type === 'numbering' ? s.pPr?.numPr?.numId : undefined;
+      const absId = numId ? this.numbering.abstractOf(numId) : undefined;
+      const abs = absId !== undefined ? this.numbering.parsed().abstractNums[absId] : undefined;
+      if (!numId || !abs) continue;
+      out.push({ id: s.styleId, name: s.name ?? s.styleId, numId, levels: Object.values(abs.levels).sort((a, b) => a.ilvl - b.ilvl).map(listLevelSpec) });
+    }
+    return out;
+  }
+
+  /**
+   * Definir Novo Estilo de Lista (medido no Word: ls-define/ls-apply-template): w:style
+   * w:type="numbering" baseado em Sem Lista, com o w:num do estilo no w:numPr, e o
+   * w:abstractNum de vários níveis com w:styleLink (o modelo "1) a) i)" do Word, com os
+   * níveis dados por cima). `apply` (padrão) aplica à seleção como a galeria. Devolve o styleId.
+   */
+  createListStyle(name: string, levels: ListLevelSpec[] = [], o: { apply?: boolean } = {}): string | undefined {
+    const nm = name.trim();
+    if (!this.model || this.locked() || !this.stylesEditable() || !nm || this.styleNameTaken(nm)) return undefined;
+    this.snapshot();
+    const loc = this.listLocale();
+    const def = MULTILEVEL_LIBRARY[0]!;
+    const lvls = libraryLevels(def, loc);
+    for (const l of levels) if (l.ilvl >= 0 && l.ilvl <= 8) lvls[l.ilvl] = levelXmlOf(l);
+    const id = styleIdFromName(nm, new Set(this.listStyles('all').map((s) => s.id)));
+    const numId = this.numbering.addList(lvls, { multiLevelType: 'multilevel', ...(levels.length ? {} : { tmpl: def.tmpl?.replace('{LCID}', loc.lcid) }), styleLink: id });
+    const noList = this.docStyles.sheet().defaults.numbering ?? this.builtinStyleId('No List');
+    const xml = `<w:style w:type="numbering" w:customStyle="1" w:styleId="${escAttr(id)}"><w:name w:val="${escAttr(nm)}"/>`
+      + (noList ? `<w:basedOn w:val="${escAttr(noList)}"/>` : '') + `<w:pPr><w:numPr><w:numId w:val="${numId}"/></w:numPr></w:pPr></w:style>`;
+    this.commitStyles(putStyle(this.docStyles.base(), id, xml));
+    if (o.apply !== false) this.linkListStyle(id);
+    this.syncNumbering();
+    this.refresh();
+    return id;
+  }
+
+  /** Aplica um estilo de lista à seleção (galeria): w:abstractNum só com w:numStyleLink
+   *  (mesmo w:tmpl do estilo) + w:num novo; Normal → Parágrafo da Lista (medido). */
+  applyListStyle(styleId: string): void {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    this.linkListStyle(styleId);
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  private linkListStyle(styleId: string): void {
+    const own = this.docStyles.sheet().styles[styleId]?.pPr?.numPr?.numId;
+    const absId = own ? this.numbering.abstractOf(own) : undefined;
+    if (absId === undefined) return;
+    const tmpl = /<w:tmpl w:val="([0-9A-Fa-f]{8})"\/>/.exec(this.numbering.abstractXml(absId) ?? '')?.[1];
+    const numId = this.numbering.addList([], { multiLevelType: 'multilevel', ...(tmpl ? { tmpl } : {}), numStyleLink: styleId });
+    const bullet = this.numbering.level(numId, 0)?.numFmt === 'bullet';
+    this.putList(this.selectedParas(), numId, bullet ? 'bullet' : 'decimal');
+  }
+
+  /** Modificar um estilo de lista: os níveis dados no w:abstractNum dele (todas as listas
+   *  que o usam mudam, como no Word: ls-modify). */
+  modifyListStyle(styleId: string, levels: ListLevelSpec[]): void {
+    const own = this.docStyles.sheet().styles[styleId]?.pPr?.numPr?.numId;
+    const absId = own ? this.numbering.abstractOf(own) : undefined;
+    if (!this.model || this.locked() || absId === undefined) return;
+    this.snapshot();
+    for (const l of levels) this.numbering.setLevel(absId, l.ilvl, levelXmlOf(l));
+    this.syncNumbering();
+    this.refresh();
+  }
+
+  /** Enter num item VAZIO (medido): nível 2+ sobe um nível; nível 1 sai da lista (Normal). */
+  private listEnterOnEmpty(): boolean {
+    const p = this.model!.paragraphs[this.selection.focus.para]!;
+    const n = this.paraNum(p);
+    if (!n || paraLength(p) > 0 || this.hasSelection()) return false;
+    if (n.ilvl > 0) this.setListLevel(n.ilvl - 1);
+    else this.removeList();
+    return true;
+  }
+
+  /**
+   * Backspace no início (medido): item de lista → sai o número e fica o Parágrafo da Lista
+   * (o texto não anda); Parágrafo da Lista sem número → Normal com recuo de 360 (onde estava
+   * o número); esse recuo → sai. false fora disso (Backspace normal).
+   */
+  private listBackspaceAtStart(): boolean {
+    const { para, offset } = this.selection.focus;
+    if (offset !== 0 || this.hasSelection()) return false;
+    const p = this.model!.paragraphs[para]!;
+    const lp = this.builtinIdOf('list paragraph');
+    let patch: Partial<ParaProps> | null = null;
+    if (this.paraNum(p)) patch = { numbering: this.styleNumbered(p.props.styleId) ? { kind: 'decimal', ilvl: 0, numId: 0 } : undefined };
+    else if (lp && p.props.styleId === lp && !p.props.indentLeftTwips) patch = { styleId: undefined, indentLeftTwips: 360 };
+    else if (p.props.indentLeftTwips === 360 && !p.props.indentFirstLineTwips && !p.props.styleId && this.listBackspaceTrail === para) patch = { indentLeftTwips: undefined };
+    if (!patch) return false;
+    this.snapshot();
+    this.setParaAt(para, patch);
+    this.listBackspaceTrail = para;
+    this.refresh();
+    return true;
+  }
+  /** parágrafo em que a sequência de Backspace da lista está (o 3º só tira o recuo dele) */
+  private listBackspaceTrail = -1;
+
   indent(delta: 1 | -1): void {
+    if (this.changeListLevel(delta)) return;
     const p = this.model?.paragraphs[this.selection.focus.para];
     const cur = p?.props.indentLeftTwips ?? 0;
     this.formatPara({ indentLeftTwips: Math.max(0, cur + delta * 720) || undefined });
@@ -2864,6 +3490,20 @@ export class UniversalWriteElement extends HTMLElement {
     const css = face ? this.engFaceCss.get(face) : undefined;
     if (!css) void this.ensureFontLoaded(family);
     return css ?? { family: DEFAULT_FONT_CSS, weight: bold ? 700 : 400, italic };
+  }
+
+  /** Como a tela mostra um marcador/número (galerias e diálogos de lista): o texto na face
+   *  com que o canvas o desenha; caractere de fonte de símbolo (F0xx) sem a fonte → o
+   *  equivalente Unicode (a lista continua com o caractere e a fonte originais). */
+  markerPreview(text: string, font?: string): { text: string; css: string } {
+    const cp = text.codePointAt(0) ?? 0;
+    const pua = cp >= 0xf000 && cp <= 0xf0ff;
+    const face = font && this.fonts ? this.liveFontProvider().face(font, false, false) : null;
+    const has = !!face && (face.font.glyphId(cp) !== 0 || (pua && face.font.glyphId(cp - 0xf000) !== 0));
+    if (font && has) return { text, css: `"${this.canvasFont(font).family}"` };
+    if (font) void this.ensureFontLoaded(font);
+    const uni = pua || (font && /^(symbol|wingdings)$/i.test(font)) ? SYMBOL_UNICODE[`${(font ?? '').toLowerCase()}:${(cp & 0xff).toString(16)}`] : undefined;
+    return { text: uni ?? (pua ? '•' : text), css: `"${this.canvasFont('Calibri').family}"` };
   }
 
   /** Versão da folha de estilos (muda a cada criar/modificar/excluir/desfazer). */
@@ -6496,6 +7136,10 @@ export class UniversalWriteElement extends HTMLElement {
     // body sectPr = ÚLTIMA seção (paisagem do catálogo mora aqui)
     const saveModel: DocumentModel = { paragraphs: body.paragraphs, sectPr: lastSec?.sectPr ?? body.sectPr };
 
+    // numeração: só regrava a parte se o editor mexeu (antes do corpo: as listas
+    // geradas 1001/1002 dos parágrafos sem numId se juntam a ela)
+    if (this.numbering.dirty && this.numbering.xml) writeNumberingPart(pkg, this.numberingOut(blocks, hfParts));
+
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : undefined,
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
@@ -6912,6 +7556,8 @@ export class UniversalWriteElement extends HTMLElement {
       eo: this.evenOddHeaders(),
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
+      // versão da numeração (as versões ficam em DocNumbering)
+      nv: this.numbering.version,
       // tabulação padrão (diálogo Tabulação)
       dt: this.defaultTabStop(),
       // opções de hifenização (settings)
@@ -6960,6 +7606,7 @@ export class UniversalWriteElement extends HTMLElement {
     s: { anchor: DocPosition; focus: DocPosition };
     anc?: { t: number[]; b: [string, number][] };
     sv?: number;
+    nv?: number;
     dt?: number;
     hy?: HyphenationSettings;
     tb?: TableBlock[];
@@ -7086,6 +7733,7 @@ export class UniversalWriteElement extends HTMLElement {
       }
     }
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
+    if (state.nv !== undefined && this.numbering.restore(state.nv)) this.syncNumbering();
     if (state.np) this.noteSettings = state.np;
     if (state.dt !== undefined && state.dt !== this.defaultTabStop()) this.applyDefaultTab(state.dt);
     if (state.hy && JSON.stringify(state.hy) !== JSON.stringify(this.hyphenationSettings())) this.applyHyphenation(state.hy);
@@ -7206,6 +7854,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private pressEnter(): void {
     if (!this.model || this.locked()) return;
+    if (this.listEnterOnEmpty()) { this.scrollCaretIntoView(); return; }
     this.snapshot();
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
@@ -7236,6 +7885,8 @@ export class UniversalWriteElement extends HTMLElement {
         return;
       }
     }
+    // no início de um item de lista: o número sai antes (sequência medida no Word)
+    if (this.listBackspaceAtStart()) return;
     if (this.tracking && !this.hasSelection()) { this.trackedKey(-1); return; }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
@@ -7960,13 +8611,11 @@ export class UniversalWriteElement extends HTMLElement {
           return;
         }
         const para = this.model?.paragraphs[this.selection.focus.para];
-        // Tab no início de item de lista muda o nível (comportamento do app de referência)
-        if (para?.props.numbering && this.selection.focus.offset === 0) {
-          const lvl = Math.max(0, Math.min(2, para.props.numbering.ilvl + (e.shiftKey ? -1 : 1)));
-          this.formatPara({
-            numbering: { ...para.props.numbering, ilvl: lvl },
-            indentLeftTwips: 720 * (lvl + 1),
-          });
+        // Tab no início de item de lista (ou com vários itens selecionados) muda o nível;
+        // no 1º item desloca a lista (medido no Word)
+        const multi = this.selection.anchor.para !== this.selection.focus.para;
+        if (para && this.paraNum(para) && (multi || normalizeRange(this.range()).start.offset === 0) && this.changeListLevel(e.shiftKey ? -1 : 1)) {
+          // (feito)
         } else if (!e.shiftKey) this.type('\t');
         this.onSelectionChange?.(); this.chromeSync?.();
         return;
@@ -19872,3 +20521,136 @@ export interface FontFormat {
 
 /** Lado de borda de parágrafo (w:pBdr): os quatro, entre parágrafos e a barra vertical. */
 export type ParaBorderSide = 'top' | 'left' | 'bottom' | 'right' | 'between' | 'bar';
+
+/** Lista de um parágrafo (numId −1/−2 = sintética, sem definição). */
+interface ParaNum { numId: number; ilvl: number; fromStyle: boolean }
+
+/** Um nível de lista (w:lvl) — diálogos Definir Nova Lista de Vários Níveis/Formato. */
+export interface ListLevelSpec {
+  /** 0–8 */
+  ilvl: number;
+  /** w:numFmt: decimal, upperRoman, lowerLetter, bullet, decimalZero, ordinal… */
+  numFmt: string;
+  /** texto do nível ("%1.", "%1.%2."); no marcador, o caractere */
+  lvlText: string;
+  /** fonte do número/marcador (Symbol, Wingdings…) */
+  font?: string;
+  /** formatação do número (botão Fonte… dos diálogos) */
+  bold?: boolean;
+  italic?: boolean;
+  sizePt?: number;
+  /** cor "RRGGBB" */
+  color?: string;
+  start?: number;
+  /** estilo vinculado ao nível (Título 1…) */
+  pStyle?: string;
+  /** recuo do texto (twips) */
+  indLeft: number;
+  /** deslocamento do número para a esquerda (twips; negativo = primeira linha) */
+  hanging: number;
+  jc?: 'left' | 'center' | 'right';
+  /** o que segue o número */
+  suff?: 'tab' | 'space' | 'nothing';
+  /** tabulação depois do número (twips) */
+  tabPos?: number;
+  /** numeração legal (os níveis acima em algarismos) */
+  isLgl?: boolean;
+  /** reinicia após o nível (1–9; 0 = nunca) */
+  lvlRestart?: number;
+}
+
+/** Equivalentes Unicode dos marcadores comuns das fontes de símbolo ("fonte:código" em hex,
+ *  só para a prévia quando a fonte falta). */
+const SYMBOL_UNICODE: Record<string, string> = {
+  'symbol:b7': '•', 'symbol:a8': '♦', 'symbol:a7': '♣', 'symbol:a9': '♥', 'symbol:aa': '♠', 'symbol:de': '⇒',
+  'symbol:ae': '→', 'symbol:e0': '◊', 'symbol:2d': '−', 'symbol:b0': '°', 'symbol:d7': '⋅', 'symbol:b4': '×',
+  'wingdings:a7': '▪', 'wingdings:76': '❖', 'wingdings:d8': '➢', 'wingdings:fc': '✓', 'wingdings:6e': '■',
+  'wingdings:71': '❑', 'wingdings:6c': '●', 'wingdings:77': '⬥', 'wingdings:a8': '◻', 'wingdings:46': '☞',
+  'wingdings:4a': '☺', 'wingdings:e8': '➔', 'wingdings:f0': '⇨', 'wingdings:9f': '•', 'wingdings:a1': '○',
+  'wingdings:fb': '✗', 'wingdings:fe': '☑', 'wingdings:6f': '□', 'wingdings:75': '◆', 'wingdings:aa': '✦',
+};
+
+/** Definir Novo Marcador / Formato de Número (defineListLevel). */
+export interface ListLevelFormat {
+  /** marcador: o caractere */
+  bullet?: string;
+  /** número: w:numFmt (decimal, upperRoman, lowerLetter…) e o texto ("%1.") */
+  numFmt?: string;
+  lvlText?: string;
+  start?: number;
+  align?: 'left' | 'center' | 'right';
+  /** formatação do marcador/número */
+  font?: string;
+  bold?: boolean;
+  italic?: boolean;
+  sizePt?: number;
+  /** "RRGGBB" */
+  color?: string;
+}
+
+/** A lista do cursor (listInfo). */
+export interface ListInfo {
+  numId: number;
+  /** nível do item */
+  ilvl: number;
+  /** abstractNum da lista (−1 = sem definição: marcador/número sintético) */
+  absId: number;
+  kind: 'bullet' | 'number';
+  /** o nível do item */
+  level?: ListLevelSpec;
+  /** níveis encadeados ("1.1.") */
+  multilevel: boolean;
+  levels: ListLevelSpec[];
+}
+
+/** Lista usada no documento (galerias, seção "Formatos do Documento"). */
+export interface DocumentListInfo {
+  numId: number;
+  kind: 'bullet' | 'number';
+  level: ListLevelSpec;
+  levels: ListLevelSpec[];
+}
+
+function listLevelSpec(l: NumLevel): ListLevelSpec {
+  const ind = l.pPr?.ind;
+  const jc = l.lvlJc === 'center' || l.lvlJc === 'right' ? l.lvlJc : l.lvlJc === 'end' ? 'right' : 'left';
+  const tab = l.pPr?.tabs?.find((t) => t.val === 'num');
+  return {
+    ilvl: l.ilvl, numFmt: l.numFmt ?? 'decimal', lvlText: l.lvlTextNull ? '' : (l.lvlText ?? ''),
+    ...(l.rPr?.rFonts?.ascii ? { font: l.rPr.rFonts.ascii } : {}),
+    ...(l.rPr?.b ? { bold: true } : {}), ...(l.rPr?.i ? { italic: true } : {}),
+    ...(l.rPr?.sz ? { sizePt: l.rPr.sz / 2 } : {}),
+    ...(l.rPr?.color?.val && l.rPr.color.val !== 'auto' ? { color: l.rPr.color.val.toUpperCase() } : {}),
+    start: l.start ?? (l.numFmt === 'bullet' ? 1 : 0),
+    ...(l.pStyle ? { pStyle: l.pStyle } : {}),
+    indLeft: ind?.left ?? 0, hanging: ind?.hanging ?? (ind?.firstLine !== undefined ? -ind.firstLine : 0),
+    jc, suff: l.suff ?? 'tab',
+    ...(tab ? { tabPos: tab.pos } : {}),
+    ...(l.isLgl ? { isLgl: true } : {}),
+    ...(l.lvlRestart !== undefined ? { lvlRestart: l.lvlRestart } : {}),
+  };
+}
+
+const escAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** O w:lvl de um nível, na ordem do esquema (CT_Lvl) e como o Word o grava. */
+function levelXmlOf(l: ListLevelSpec): string {
+  const ind = l.hanging >= 0 ? `<w:ind w:left="${Math.round(l.indLeft)}" w:hanging="${Math.round(l.hanging)}"/>`
+    : `<w:ind w:left="${Math.round(l.indLeft)}" w:firstLine="${Math.round(-l.hanging)}"/>`;
+  return `<w:lvl w:ilvl="${l.ilvl}"><w:start w:val="${l.start ?? 1}"/><w:numFmt w:val="${escAttr(l.numFmt)}"/>`
+    + (l.lvlRestart !== undefined ? `<w:lvlRestart w:val="${l.lvlRestart}"/>` : '')
+    + (l.pStyle ? `<w:pStyle w:val="${escAttr(l.pStyle)}"/>` : '') + (l.isLgl ? '<w:isLgl/>' : '')
+    + (l.suff && l.suff !== 'tab' ? `<w:suff w:val="${l.suff}"/>` : '')
+    + `<w:lvlText w:val="${escAttr(l.lvlText)}"/><w:lvlJc w:val="${l.jc ?? 'left'}"/><w:pPr>`
+    + (l.tabPos !== undefined ? `<w:tabs><w:tab w:val="num" w:pos="${Math.round(l.tabPos)}"/></w:tabs>` : '') + `${ind}</w:pPr>`
+    + levelRPrXml(l) + '</w:lvl>';
+}
+
+/** w:rPr do número/marcador (ordem do CT_RPr); vazio sem formatação. */
+function levelRPrXml(l: Pick<ListLevelSpec, 'font' | 'bold' | 'italic' | 'sizePt' | 'color'>): string {
+  const x = (l.font ? `<w:rFonts w:ascii="${escAttr(l.font)}" w:hAnsi="${escAttr(l.font)}" w:hint="default"/>` : '')
+    + (l.bold ? '<w:b/>' : '') + (l.italic ? '<w:i/>' : '')
+    + (l.color && /^[0-9A-Fa-f]{6}$/.test(l.color) ? `<w:color w:val="${l.color.toUpperCase()}"/>` : '')
+    + (l.sizePt ? `<w:sz w:val="${Math.round(l.sizePt * 2)}"/>` : '');
+  return x ? `<w:rPr>${x}</w:rPr>` : '';
+}

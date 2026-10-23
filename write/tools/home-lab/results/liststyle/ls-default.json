@@ -1,0 +1,57 @@
+{
+    "name":  "Lista Teste",
+    "type":  4,
+    "levels":  [
+                   {
+                       "NumberFormat":  "%1)",
+                       "NumberStyle":  0,
+                       "NumberPosition":  0,
+                       "TextPosition":  18,
+                       "TabPosition":  9999999,
+                       "Alignment":  0,
+                       "TrailingCharacter":  0,
+                       "StartAt":  1,
+                       "ResetOnHigher":  0,
+                       "LinkedStyle":  "",
+                       "font":  {
+                                    "name":  "",
+                                    "size":  9999999,
+                                    "bold":  9999999
+                                }
+                   },
+                   {
+                       "NumberFormat":  "%2)",
+                       "NumberStyle":  4,
+                       "NumberPosition":  18,
+                       "TextPosition":  36,
+                       "TabPosition":  9999999,
+                       "Alignment":  0,
+                       "TrailingCharacter":  0,
+                       "StartAt":  1,
+                       "ResetOnHigher":  1,
+                       "LinkedStyle":  "",
+                       "font":  {
+                                    "name":  "",
+                                    "size":  9999999,
+                                    "bold":  9999999
+                                }
+                   },
+                   {
+                       "NumberFormat":  "%3)",
+                       "NumberStyle":  2,
+                       "NumberPosition":  36,
+                       "TextPosition":  54,
+                       "TabPosition":  9999999,
+                       "Alignment":  0,
+                       "TrailingCharacter":  0,
+                       "StartAt":  1,
+                       "ResetOnHigher":  2,
+                       "LinkedStyle":  "",
+                       "font":  {
+                                    "name":  "",
+                                    "size":  9999999,
+                                    "bold":  9999999
+                                }
+                   }
+               ]
+}

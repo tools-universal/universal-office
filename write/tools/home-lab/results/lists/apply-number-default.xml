@@ -1,0 +1,63 @@
+<!-- document.xml (corpo) -->
+<w:p>
+  <w:r>
+    <w:t>Primeiro item</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:pPr>
+    <w:pStyle w:val="PargrafodaLista"/>
+    <w:numPr>
+      <w:ilvl w:val="0"/>
+      <w:numId w:val="1"/>
+    </w:numPr>
+  </w:pPr>
+  <w:r>
+    <w:t>Segundo item</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:pPr>
+    <w:pStyle w:val="PargrafodaLista"/>
+    <w:numPr>
+      <w:ilvl w:val="0"/>
+      <w:numId w:val="1"/>
+    </w:numPr>
+  </w:pPr>
+  <w:r>
+    <w:t>Terceiro item</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:r>
+    <w:t>Quarto item</w:t>
+  </w:r>
+</w:p>
+<w:sectPr>
+  <w:pgSz w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+  <w:cols w:space="708"/>
+  <w:docGrid w:linePitch="360"/>
+</w:sectPr>
+
+<!-- numbering.xml -->
+
+<w:numbering>
+  <w:abstractNum w:abstractNumId="0">
+    <w:nsid w:val="25432CF8"/>
+    <w:multiLevelType w:val="singleLevel"/>
+    <w:tmpl w:val="0416000F"/>
+    <w:lvl w:ilvl="0">
+      <w:start w:val="1"/>
+      <w:numFmt w:val="decimal"/>
+      <w:lvlText w:val="%1."/>
+      <w:lvlJc w:val="left"/>
+      <w:pPr>
+        <w:ind w:left="720" w:hanging="360"/>
+      </w:pPr>
+    </w:lvl>
+  </w:abstractNum>
+  <w:num w:numId="1" w16cid:durableId="1756626974">
+    <w:abstractNumId w:val="0"/>
+  </w:num>
+</w:numbering>

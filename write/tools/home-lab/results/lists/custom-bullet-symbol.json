@@ -1,0 +1,21 @@
+{
+    "lv":  {
+               "NumberFormat":  "",
+               "NumberStyle":  23,
+               "NumberPosition":  18,
+               "TextPosition":  36,
+               "TabPosition":  9999999,
+               "Alignment":  0,
+               "TrailingCharacter":  0,
+               "StartAt":  1,
+               "ResetOnHigher":  0,
+               "LinkedStyle":  "",
+               "font":  {
+                            "name":  "Wingdings",
+                            "size":  9999999,
+                            "bold":  9999999,
+                            "color":  9999999
+                        },
+               "codes":  "F076"
+           }
+}

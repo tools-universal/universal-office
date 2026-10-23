@@ -96,5 +96,45 @@ if (script === 'font') {
   await page.keyboard.press('Escape');
 }
 
+if (script === 'lists') {
+  const lines = lang === 'pt' ? ['Primeiro item', 'Segundo item', 'Terceiro item', 'Texto comum', 'Quarto item'] : ['First item', 'Second item', 'Third item', 'Plain text', 'Fourth item'];
+  await run(`ed.focusEditor(); ed.pasteText(${JSON.stringify(lines.join('\n'))});`);
+  await page.waitForTimeout(400);
+  await run(`ed.setSelection({ para: 0, offset: 0 }, { para: 2, offset: 3 }); ed.applyListLibrary('number', 0); ed.setSelection({ para: 1, offset: 0 }); ed.setListLevel(1); ed.setSelection({ para: 4, offset: 0 }); ed.applyListLibrary('bullet', 4);`);
+  await page.waitForTimeout(500);
+  await shot('doc-lists');
+  const openSplit = async (label) => page.evaluate((re) => {
+    const r = document.querySelector('universal-write').shadowRoot;
+    const b = [...r.querySelectorAll('button')].find((x) => new RegExp(re).test(x.getAttribute('aria-label') ?? x.title ?? '') && (x.classList.contains('uo-split-arrow') || x.getAttribute('aria-haspopup')));
+    b?.click();
+    return !!b;
+  }, label);
+  for (const [name, re] of [['bullets-menu', '^(Marcadores|Bullets)'], ['numbering-menu', '^(Numeração|Numbering)'], ['multilevel-menu', '^(Lista de Vários Níveis|Multilevel List)']]) {
+    await run(`ed.setSelection({ para: 0, offset: 0 });`);
+    if (!await openSplit(re)) console.log('não achei', name);
+    await page.waitForTimeout(500);
+    await shot(name);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  }
+  // os diálogos pelos itens dos menus
+  for (const [name, menu, item, para] of [
+    ['dlg-bullet', '^(Marcadores|Bullets)', ['Definir Novo Marcador...', 'Define New Bullet…'], 4],
+    ['dlg-number', '^(Numeração|Numbering)', ['Definir Novo Formato de Número...', 'Define New Number Format…'], 2],
+    ['dlg-value', '^(Numeração|Numbering)', ['Definir Valor de Numeração...', 'Set Numbering Value…'], 2],
+    ['dlg-multilevel', '^(Lista de Vários Níveis|Multilevel List)', ['Definir Nova Lista de Vários Níveis...', 'Define New Multilevel List…'], 2],
+    ['dlg-style', '^(Lista de Vários Níveis|Multilevel List)', ['Definir Novo Estilo de Lista...', 'Define New List Style…'], 2],
+  ]) {
+    await run(`ed.setSelection({ para: ${para}, offset: 0 });`);
+    if (!await openSplit(menu)) console.log('não achei', name);
+    await page.waitForTimeout(400);
+    await clickText(item);
+    await page.waitForTimeout(600);
+    await shot(name);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+}
+
 console.log(logs.length ? `ERROS:\n${logs.join('\n')}` : 'sem erros no console');
 await browser.close();

@@ -19,6 +19,7 @@ import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
 import { refsDialog, hyperlinkDialog, type RefsEnv } from './chrome-refs.js';
 import { tocDialog, tocGalleryMenu, type TocEnv } from './chrome-toc.js';
 import { fontDialog } from './chrome-font.js';
+import { openListDialog, listContextItems } from './chrome-lists.js';
 import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
@@ -489,6 +490,7 @@ class WriteChrome {
       tocDialog: (kind, scope) => { void tocDialog(this.tocEnv(), kind, scope).then(() => this.after()); },
       image: () => this.pickImage(),
       fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
+      listDialog: (kind) => { void openListDialog(d(), this.families, kind).then(() => this.after()); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: (tab) => { void pageDialog(d(), tab).then(() => this.after()); },
       textLayoutDialog: (kind) => {
@@ -887,7 +889,7 @@ class WriteChrome {
         return;
       }
       const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', ...(ed.getTableState() ? tableContextItems() : []), 'bold', 'italic', 'underline', '-',
-        'link', 'comment', '-', 'list:bullet', 'list:decimal', '-', 'find', 'selectAll'];
+        'link', 'comment', '-', 'list:bullet', 'list:decimal', ...listContextItems(ed), '-', 'find', 'selectAll'];
       // dentro de uma nota: ir para a referência, converter e as opções (como o Word)
       const noteItems: MenuEntry[] = ed.editingNote() ? ['note:goRef', 'note:toEndnote', 'note:toFootnote', 'dlg:notes', '-'] : [];
       const open = (pre: MenuEntry[]): void => {

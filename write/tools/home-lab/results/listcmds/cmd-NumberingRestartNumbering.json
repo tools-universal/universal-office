@@ -1,0 +1,33 @@
+{
+    "cmd":  {
+                "id":  "NumberingRestartNumbering",
+                "enabled":  null,
+                "err":  "noid"
+            },
+    "paras":  [
+                  {
+                      "text":  "Um",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "1."
+                  },
+                  {
+                      "text":  "Dois",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "2."
+                  },
+                  {
+                      "text":  "Tres",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "3."
+                  },
+                  {
+                      "text":  "Quatro",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "4."
+                  }
+              ]
+}

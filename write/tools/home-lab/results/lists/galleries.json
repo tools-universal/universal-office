@@ -1,0 +1,1639 @@
+{
+    "g1":  [
+               {
+                   "index":  1,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Symbol",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0B7"
+                                  }
+                              ]
+               },
+               {
+                   "index":  2,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "o",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Courier New",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "006F"
+                                  }
+                              ]
+               },
+               {
+                   "index":  3,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0A7"
+                                  }
+                              ]
+               },
+               {
+                   "index":  4,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  249,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Symbol",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0B7"
+                                  }
+                              ]
+               },
+               {
+                   "index":  5,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F076"
+                                  }
+                              ]
+               },
+               {
+                   "index":  6,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0D8"
+                                  }
+                              ]
+               },
+               {
+                   "index":  7,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0FC"
+                                  }
+                              ]
+               }
+           ],
+    "g2":  [
+               {
+                   "index":  1,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  2,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1)",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 0029"
+                                  }
+                              ]
+               },
+               {
+                   "index":  3,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  1,
+                                      "NumberPosition":  27,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  2,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  4,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  3,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  5,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 0029"
+                                  }
+                              ]
+               },
+               {
+                   "index":  6,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  7,
+                   "outline":  false,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  2,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  }
+                              ]
+               }
+           ],
+    "g3":  [
+               {
+                   "index":  1,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1)",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  18,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%2)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0032 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%3)",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  36,
+                                      "TextPosition":  54,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0033 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%4)",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  54,
+                                      "TextPosition":  72,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0034 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%5)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  72,
+                                      "TextPosition":  90,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0035 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%6)",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  90,
+                                      "TextPosition":  108,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0036 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%7.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  108,
+                                      "TextPosition":  126,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0037 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%8.",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  126,
+                                      "TextPosition":  144,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0038 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%9.",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  144,
+                                      "TextPosition":  162,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0039 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  2,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  18,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  39.6,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  36,
+                                      "TextPosition":  61.2,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  54,
+                                      "TextPosition":  86.4,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  72,
+                                      "TextPosition":  111.6,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  90,
+                                      "TextPosition":  136.8,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.%7.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  108,
+                                      "TextPosition":  162,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E 0025 0037 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.%7.%8.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  126,
+                                      "TextPosition":  187.2,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E 0025 0037 002E 0025 0038 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.%7.%8.%9.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  144,
+                                      "TextPosition":  216,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E 0025 0037 002E 0025 0038 002E 0025 0039 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  3,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  18,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F076"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  18,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0D8"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  36,
+                                      "TextPosition":  54,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0A7"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  54,
+                                      "TextPosition":  72,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Symbol",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0B7"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  72,
+                                      "TextPosition":  90,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Symbol",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0A8"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  90,
+                                      "TextPosition":  108,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0D8"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  108,
+                                      "TextPosition":  126,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Wingdings",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0A7"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  126,
+                                      "TextPosition":  144,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Symbol",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0B7"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  23,
+                                      "NumberPosition":  144,
+                                      "TextPosition":  162,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "",
+                                      "font":  {
+                                                   "name":  "Symbol",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "F0A8"
+                                  }
+                              ]
+               },
+               {
+                   "index":  4,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "Artigo %1.",
+                                      "NumberStyle":  1,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "Título 1",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0041 0072 0074 0069 0067 006F 0020 0025 0031 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "Seção %1.%2",
+                                      "NumberStyle":  254,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "Título 2",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0053 0065 00E7 00E3 006F 0020 0025 0031 002E 0025 0032"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%3)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  14.4,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "Título 3",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0033 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%4)",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  36,
+                                      "TextPosition":  43.2,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  2,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "Título 4",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0034 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%5)",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  28.8,
+                                      "TextPosition":  50.4,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "Título 5",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0035 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%6)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  36,
+                                      "TextPosition":  57.6,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "Título 6",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0036 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%7)",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  50.4,
+                                      "TextPosition":  64.8,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  2,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "Título 7",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0037 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "%8.",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  50.4,
+                                      "TextPosition":  72,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "Título 8",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0038 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%9.",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  72,
+                                      "TextPosition":  79.2,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  2,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "Título 9",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0039 002E"
+                                  }
+                              ]
+               },
+               {
+                   "index":  5,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  21.6,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "Título 1",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  28.8,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "Título 2",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "Título 3",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  43.2,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "Título 4",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  50.4,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "Título 5",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  57.6,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "Título 6",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.%7",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  64.8,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "Título 7",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E 0025 0037"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.%7.%8",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  72,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "Título 8",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E 0025 0037 002E 0025 0038"
+                                  },
+                                  {
+                                      "NumberFormat":  "%1.%2.%3.%4.%5.%6.%7.%8.%9",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  79.2,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "Título 9",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E 0025 0032 002E 0025 0033 002E 0025 0034 002E 0025 0035 002E 0025 0036 002E 0025 0037 002E 0025 0038 002E 0025 0039"
+                                  }
+                              ]
+               },
+               {
+                   "index":  6,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "%1.",
+                                      "NumberStyle":  1,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "Título 1",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0031 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%2.",
+                                      "NumberStyle":  3,
+                                      "NumberPosition":  36,
+                                      "TextPosition":  36,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "Título 2",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0032 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%3.",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  72,
+                                      "TextPosition":  72,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "Título 3",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0033 002E"
+                                  },
+                                  {
+                                      "NumberFormat":  "%4)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  108,
+                                      "TextPosition":  108,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "Título 4",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0025 0034 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%5)",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  144,
+                                      "TextPosition":  144,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "Título 5",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0035 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%6)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  180,
+                                      "TextPosition":  180,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "Título 6",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0036 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%7)",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  216,
+                                      "TextPosition":  216,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "Título 7",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0037 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%8)",
+                                      "NumberStyle":  4,
+                                      "NumberPosition":  252,
+                                      "TextPosition":  252,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "Título 8",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0038 0029"
+                                  },
+                                  {
+                                      "NumberFormat":  "(%9)",
+                                      "NumberStyle":  2,
+                                      "NumberPosition":  288,
+                                      "TextPosition":  288,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  0,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "Título 9",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0028 0025 0039 0029"
+                                  }
+                              ]
+               },
+               {
+                   "index":  7,
+                   "outline":  true,
+                   "name":  "",
+                   "modified":  false,
+                   "levels":  [
+                                  {
+                                      "NumberFormat":  "Capítulo %1",
+                                      "NumberStyle":  0,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  1,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  0,
+                                      "LinkedStyle":  "Título 1",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  "0043 0061 0070 00ED 0074 0075 006C 006F 0020 0025 0031"
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  1,
+                                      "LinkedStyle":  "Título 2",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  2,
+                                      "LinkedStyle":  "Título 3",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  3,
+                                      "LinkedStyle":  "Título 4",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  4,
+                                      "LinkedStyle":  "Título 5",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  5,
+                                      "LinkedStyle":  "Título 6",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  6,
+                                      "LinkedStyle":  "Título 7",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  7,
+                                      "LinkedStyle":  "Título 8",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  },
+                                  {
+                                      "NumberFormat":  "",
+                                      "NumberStyle":  255,
+                                      "NumberPosition":  0,
+                                      "TextPosition":  0,
+                                      "TabPosition":  9999999,
+                                      "Alignment":  0,
+                                      "TrailingCharacter":  2,
+                                      "StartAt":  1,
+                                      "ResetOnHigher":  8,
+                                      "LinkedStyle":  "Título 9",
+                                      "font":  {
+                                                   "name":  "",
+                                                   "size":  9999999,
+                                                   "bold":  9999999,
+                                                   "color":  9999999
+                                               },
+                                      "codes":  ""
+                                  }
+                              ]
+               }
+           ]
+}

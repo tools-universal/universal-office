@@ -1,0 +1,23 @@
+{
+    "focusKept":  true,
+    "paras":  [
+                  {
+                      "text":  "Item um",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "1.",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  },
+                  {
+                      "text":  "Item dois",
+                      "type":  3,
+                      "lvl":  4,
+                      "str":  "1.",
+                      "style":  "Parágrafo da Lista",
+                      "left":  144,
+                      "first":  -18
+                  }
+              ]
+}

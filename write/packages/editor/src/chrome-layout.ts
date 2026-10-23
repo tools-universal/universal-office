@@ -18,6 +18,7 @@ import { shapeCompactGroup, shapeFormatGroups, shapeMenu, textboxMenu } from './
 import { hyphenationMenu, lineNumbersMenu, paragraphLayoutCells } from './chrome-textlayout.js';
 import { ZOOMS } from './chrome-commands.js';
 import { fontColorMenu, homeBordersMenu, underlineMenu } from './chrome-home.js';
+import { listMenu, multilevelMenu } from './chrome-lists.js';
 
 /** Submenus compartilhados pelas duas barras. */
 function menus(env: WidgetEnv, ctx: BarContext) {
@@ -87,7 +88,11 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     align: sub({ en: 'Align & indent', pt: 'Alinhar e recuar' }, 'format_align_left', () => ['align:left', 'align:center', 'align:right', 'align:both', '-', 'indent', 'outdent', '-',
       sub({ en: 'Special indent', pt: 'Recuo especial' }, undefined, () => specialIndentMenu(env, ctx), 'specialIndent')], 'align'),
     spacing: sub({ en: 'Line & paragraph spacing', pt: 'Espaçamento entre linhas e parágrafos' }, 'format_line_spacing', () => lineSpacingMenu(env, ctx), 'spacing'),
-    lists: sub({ en: 'Bullets & numbering', pt: 'Marcadores e numeração' }, 'format_list_bulleted', () => ['list:bullet', 'list:decimal'], 'lists'),
+    lists: sub({ en: 'Bullets & numbering', pt: 'Marcadores e numeração' }, 'format_list_bulleted', () => [
+      { id: 'list:bulletMenu', label: { en: 'Bullets', pt: 'Marcadores' }, icon: 'format_list_bulleted', submenu: () => listMenu(env, ctx, 'bullet') },
+      { id: 'list:numberMenu', label: { en: 'Numbering', pt: 'Numeração' }, icon: 'format_list_numbered', submenu: () => listMenu(env, ctx, 'number') },
+      { id: 'list:multiMenu', label: { en: 'Multilevel List', pt: 'Lista de Vários Níveis' }, icon: 'list_alt', submenu: () => multilevelMenu(env, ctx) },
+      '-', 'list:defineBullet', 'list:defineNumber', 'list:setValue', 'list:defineMultilevel', 'list:defineStyle'], 'lists'),
     shading: sub({ en: 'Paragraph shading', pt: 'Sombreamento do parágrafo' }, 'format_color_fill', () => shadingMenu(env, ctx), 'shadingMenu'),
     charSpacing: sub({ en: 'Character spacing', pt: 'Espaçamento entre caracteres' }, 'format_letter_spacing', () => charSpacingMenu(env, ctx), 'charSpacing'),
     page: sub({ en: 'Page setup', pt: 'Configurar página' }, 'description', () => [
@@ -179,7 +184,10 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'para', label: { en: 'Paragraph', pt: 'Parágrafo' }, icon: 'format_align_left', prio: 6, items: [
         'align:left', 'align:center', 'align:right', 'align:both',
         { menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: { en: 'Line & paragraph spacing', pt: 'Espaçamento entre linhas e parágrafos' }, icon: 'format_line_spacing' },
-        'list:bullet', 'list:decimal', 'outdent', 'indent', 'clear',
+        { split: 'list:bullet', menu: () => listMenu(env, ctx, 'bullet') },
+        { split: 'list:decimal', menu: () => listMenu(env, ctx, 'number') },
+        { menu: () => multilevelMenu(env, ctx), id: 'list:multi', label: { en: 'Multilevel List', pt: 'Lista de Vários Níveis' }, icon: 'list_alt' },
+        'outdent', 'indent', 'clear',
       ] },
       pictureCompactGroup(env, ctx),
       shapeCompactGroup(env, ctx),
@@ -223,7 +231,9 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_align_left', prio: 7, launcher: 'dlg:paragraph', cells: [
             { rows: [
-              ['list:bullet', 'list:decimal', 'outdent', 'indent', 'sort', 'marks'],
+              [{ split: 'list:bullet', menu: () => listMenu(env, ctx, 'bullet') }, { split: 'list:decimal', menu: () => listMenu(env, ctx, 'number') },
+                { menu: () => multilevelMenu(env, ctx), id: 'list:multi', label: L('Multilevel List', 'Lista de Vários Níveis'), icon: 'list_alt' },
+                'outdent', 'indent', 'sort', 'marks'],
               ['align:left', 'align:center', 'align:right', 'align:both',
                 { menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: L('Line & paragraph spacing', 'Espaçamento entre linhas e parágrafos'), icon: 'format_line_spacing' },
                 { split: 'shading', menu: () => shadingMenu(env, ctx) }, { split: 'home:borders', menu: homeBordersMenu }],

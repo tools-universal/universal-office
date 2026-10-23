@@ -298,6 +298,7 @@ export function directPPr(para: Paragraph): PPr {
   if (p.styleId !== orig.styleId) { if (p.styleId) base.pStyle = p.styleId; else delete base.pStyle; }
   if (!eq(p.numbering, orig.numbering)) {
     if (!p.numbering) base.numPr = { numId: 0 };
+    else if (p.numbering.numId !== undefined) base.numPr = { numId: p.numbering.numId, ilvl: p.numbering.ilvl };
     else if (para.ppr?.numPr?.numId) base.numPr = { ...para.ppr.numPr, ilvl: p.numbering.ilvl };
     else base.numPr = { numId: p.numbering.kind === 'decimal' ? 1002 : 1001, ilvl: p.numbering.ilvl };
   }

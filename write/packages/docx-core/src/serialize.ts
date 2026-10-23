@@ -3,7 +3,7 @@ import { parseXml, childElements } from './xml.js';
 import { EMU_PER_TWIP, isMarkRun, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge, type InlineImage, type DrawingTextbox, type BlockSdt } from './document.js';
 import { forEachTextbox, type TableBlock, type TableBorders, type Block } from './fulldoc.js';
 import { textboxAlternateContent, vmlFallback } from './shape-xml.js';
-import { readTheme, readSettings } from './ooxml/parts.js';
+import { readTheme, readSettings, partByRelType } from './ooxml/parts.js';
 import type { DmlColor } from './picture-xml.js';
 import type { ShapeStyle } from './drawing.js';
 import { NOTE_REF_TEXT, notePropsXml, emptyNotesPart, ensureNoteParts, type NoteKind } from './notes.js';
@@ -910,7 +910,7 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
     ).join('') + '</w:tabs>');
   }
   if (pp.numbering) {
-    const numId = pp.numbering.kind === 'decimal' ? 1002 : 1001;
+    const numId = pp.numbering.numId ?? (pp.numbering.kind === 'decimal' ? 1002 : 1001);
     ppr.push(`<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
   }
   flag('w:suppressLineNumbers', pp.suppressLineNumbers);
@@ -1739,13 +1739,20 @@ function writeParts(
     if (ct) pkg.setPartText('[Content_Types].xml', ct);
   }
 
-  const hasLists = active ? active.genNumbering : model.paragraphs.some((p) => p.props.numbering);
+  const hasLists = active ? active.genNumbering : model.paragraphs.some((p) => p.props.numbering && p.props.numbering.numId === undefined);
   if (!hasLists) return;
 
   const existing = pkg.getPartText('word/numbering.xml');
   const ids = active?.numIds ?? DEFAULT_NUM_IDS;
-  pkg.setPartText('word/numbering.xml', existing ? mergeNumbering(existing, ids) : numberingXml(ids));
+  writeNumberingPart(pkg, existing ? mergeNumbering(existing, ids) : numberingXml(ids));
+}
 
+/** Grava o word/numbering.xml (e a relação e o tipo de conteúdo, se faltarem). */
+export function writeNumberingPart(pkg: DocxPackage, xml: string): void {
+  // parte com outro nome no pacote (relação do document.xml): é ela que se regrava
+  const at = partByRelType(pkg, 'numbering', 'word/numbering.xml');
+  if (at !== 'word/numbering.xml' && pkg.getPart(at)) { pkg.setPartText(at, xml); return; }
+  pkg.setPartText('word/numbering.xml', xml);
   const relsPath = 'word/_rels/document.xml.rels';
   let rels = pkg.getPartText(relsPath) ??
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +

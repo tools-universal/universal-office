@@ -1,0 +1,49 @@
+{
+    "paras":  [
+                  {
+                      "text":  "Um",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "1.",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  },
+                  {
+                      "text":  "Dois",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "2.",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  },
+                  {
+                      "text":  "Texto",
+                      "type":  0,
+                      "lvl":  1,
+                      "str":  "",
+                      "style":  "Normal",
+                      "left":  0,
+                      "first":  0
+                  },
+                  {
+                      "text":  "Tres",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "3.",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  },
+                  {
+                      "text":  "Quatro",
+                      "type":  3,
+                      "lvl":  1,
+                      "str":  "4.",
+                      "style":  "Parágrafo da Lista",
+                      "left":  36,
+                      "first":  -18
+                  }
+              ]
+}
