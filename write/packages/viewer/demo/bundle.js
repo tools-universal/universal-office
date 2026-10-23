@@ -30161,6 +30161,13 @@ var DocumentControls = class {
 
 // src/universal-document-viewer.ts
 var LAYOUT_OPTS = { hyphenationLanguages: ["pt-BR", "en", "es"] };
+var PACKAGE_FONTS = (() => {
+  try {
+    return new URL("./fonts", import.meta.url).href;
+  } catch {
+    return null;
+  }
+})();
 var hyphenationLangs = (full) => documentHyphenationLanguages(full).filter((l) => {
   const x2 = l.toLowerCase();
   return LAYOUT_OPTS.hyphenationLanguages.some((y) => {
@@ -30540,7 +30547,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   async relayout(seq = this.loadSeq) {
     const full = this.full;
     if (!full) return;
-    await this.fonts.loadAssets(this.getAttribute("fonts"));
+    await this.fonts.loadAssets(this.getAttribute("fonts") ?? PACKAGE_FONTS);
     try {
       await loadHyphenation(hyphenationLangs(full));
     } catch {

@@ -41,7 +41,7 @@ Give the element a size with CSS — it fills its box.
 | Attribute | Values | Description |
 |---|---|---|
 | `src` | URL | Document to fetch and show (same origin or CORS). Reloads when changed. |
-| `fonts` | URL | Folder with the open fonts (the package's `fonts/`). Read once, on the first layout. |
+| `fonts` | URL | Folder with the open fonts. Default: the package's own `fonts/`, next to `index.js` — set it only when you serve the fonts from somewhere else (or when the bundle is loaded from a `blob:`/`data:` URL). Read once, on the first layout. |
 | `view` | `print` (default) · `read` · `web` | Initial view. |
 | `zoom` | `page-width` (default) · `page-fit` · number or `%` | Initial zoom, e.g. `125` or `125%` (10–800%). |
 | `noselect` | boolean | Turns off text selection. |

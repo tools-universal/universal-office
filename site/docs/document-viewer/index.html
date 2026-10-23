@@ -103,7 +103,7 @@
 <thead><tr><th>Attribute</th><th>Values</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>src</code></td><td>URL</td><td>Document to fetch and show (same origin or CORS). Reloads when changed.</td></tr>
-<tr><td><code>fonts</code></td><td>URL</td><td>Folder with the open fonts (the package's <code>fonts/</code>). Read once, on the first layout.</td></tr>
+<tr><td><code>fonts</code></td><td>URL</td><td>Folder with the open fonts. Default: the package's own <code>fonts/</code>, next to <code>index.js</code> — set it only when you serve the fonts from somewhere else (or when the bundle is loaded from a <code>blob:</code>/<code>data:</code> URL). Read once, on the first layout.</td></tr>
 <tr><td><code>view</code></td><td><code>print</code> (default) · <code>read</code> · <code>web</code></td><td>Initial view.</td></tr>
 <tr><td><code>zoom</code></td><td><code>page-width</code> (default) · <code>page-fit</code> · number or <code>%</code></td><td>Initial zoom, e.g. <code>125</code> or <code>125%</code> (10–800%).</td></tr>
 <tr><td><code>noselect</code></td><td>boolean</td><td>Turns off text selection.</td></tr>

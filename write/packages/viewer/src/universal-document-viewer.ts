@@ -21,6 +21,12 @@ import {
 
 /** Mesmas opções de layout do editor (ENGINE_LAYOUT_OPTS em universal-write.ts). */
 const LAYOUT_OPTS: LayoutOptions = { hyphenationLanguages: ['pt-BR', 'en', 'es'] };
+/** Sem o atributo `fonts`: a pasta `fonts/` que o pacote publicado traz ao lado do
+ *  index.js — sem ela o motor não tem arquivo de fonte para medir, a página fica em
+ *  branco e o PDF/impressão falham. Origem blob:/data: não resolve URL relativa: sem base. */
+const PACKAGE_FONTS = ((): string | null => {
+  try { return new URL('./fonts', import.meta.url).href; } catch { return null; }
+})();
 const hyphenationLangs = (full: FullDocument): string[] =>
   documentHyphenationLanguages(full).filter((l) => {
     const x = l.toLowerCase();
@@ -446,7 +452,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   private async relayout(seq = this.loadSeq): Promise<void> {
     const full = this.full;
     if (!full) return;
-    await this.fonts.loadAssets(this.getAttribute('fonts'));
+    await this.fonts.loadAssets(this.getAttribute('fonts') ?? PACKAGE_FONTS);
     try { await loadHyphenation(hyphenationLangs(full)); } catch { /* sem padrões: sem hifenização */ }
     for (let pass = 0; pass < 4; pass++) {
       if (seq !== this.loadSeq || this.full !== full) return;
