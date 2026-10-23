@@ -1,0 +1,46 @@
+{
+    "paras":  [
+                  {
+                      "text":  "Titulo origem\r",
+                      "style":  "Título 1",
+                      "font":  "Aptos Display",
+                      "size":  20,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Texto negrito fim\r",
+                      "style":  "Normal",
+                      "font":  "Georgia",
+                      "size":  14,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Destino:\r",
+                      "style":  "Normal",
+                      "font":  "Verdana",
+                      "size":  10,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Titulo origem\r",
+                      "style":  "Normal",
+                      "font":  "Verdana",
+                      "size":  10,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Texto negrito fim\r",
+                      "style":  "Normal",
+                      "font":  "Verdana",
+                      "size":  10,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "\r",
+                      "style":  "Normal",
+                      "font":  "Verdana",
+                      "size":  10,
+                      "list":  ""
+                  }
+              ]
+}

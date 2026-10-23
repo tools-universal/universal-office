@@ -1,0 +1,81 @@
+{
+    "paras":  [
+                  {
+                      "text":  "Titulo origem\r",
+                      "style":  "Título 1",
+                      "font":  "Aptos Display",
+                      "size":  20,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Texto negrito fim\r",
+                      "style":  "Normal",
+                      "font":  "Georgia",
+                      "size":  14,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Destino:\r",
+                      "style":  "Normal",
+                      "font":  "Verdana",
+                      "size":  10,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Titulo HTML\r",
+                      "style":  "Normal",
+                      "font":  "Times New Roman",
+                      "size":  24,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "Um negrito italico sublinhado vermelho link\r",
+                      "style":  "Normal",
+                      "font":  "",
+                      "size":  9999999,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "item A\r",
+                      "style":  "Normal",
+                      "font":  "Times New Roman",
+                      "size":  12,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "item B\r",
+                      "style":  "Normal",
+                      "font":  "Times New Roman",
+                      "size":  12,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "um\r",
+                      "style":  "Normal",
+                      "font":  "Times New Roman",
+                      "size":  12,
+                      "list":  "1."
+                  },
+                  {
+                      "text":  "dois\r",
+                      "style":  "Normal",
+                      "font":  "Times New Roman",
+                      "size":  12,
+                      "list":  "2."
+                  },
+                  {
+                      "text":  "centro\r",
+                      "style":  "Normal",
+                      "font":  "Times New Roman",
+                      "size":  12,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "\r",
+                      "style":  "Normal",
+                      "font":  "Verdana",
+                      "size":  10,
+                      "list":  ""
+                  }
+              ]
+}

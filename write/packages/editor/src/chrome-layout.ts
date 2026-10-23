@@ -19,6 +19,7 @@ import { hyphenationMenu, lineNumbersMenu, paragraphLayoutCells } from './chrome
 import { ZOOMS } from './chrome-commands.js';
 import { fontColorMenu, homeBordersMenu, underlineMenu } from './chrome-home.js';
 import { listMenu, multilevelMenu } from './chrome-lists.js';
+import { pasteMenu } from './chrome-clipboard.js';
 
 /** Submenus compartilhados pelas duas barras. */
 function menus(env: WidgetEnv, ctx: BarContext) {
@@ -162,7 +163,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
     trailing: [saveWidget(env)],
     menus: [
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
-      { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
+      { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', 'paste:special', 'paste:defaults', 'clipboard:pane', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'view:outline', 'view:draft', 'focus', '-', 'view:ruler', 'view:gridlines', 'view:navpane', 'view:bookmarks', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.cover, 'blankPage', m.breaks, m.hf, m.fields, m.toc, '-', 'footnote', 'endnote', m.notes, 'bookmark', 'crossref', 'caption', 'tof', 'tof:update', { id: 'textbox:sub', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', submenu: () => textboxMenu(env, ctx) }, m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.underline, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, m.borders, 'dlg:borders', m.charSpacing, '-', tableFormatMenu(), pictureMenu(env, ctx), shapeMenu(env, ctx), '-', m.page, m.background, m.columns, '-', 'dlg:font', 'dlg:paragraph', 'dlg:tabs', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
@@ -219,8 +220,8 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
       { id: 'file', label: L('File', 'Arquivo'), groups: [], menu: () => fileMenu(m) },
       {
         id: 'home', label: L('Home', 'Página Inicial'), groups: [
-          { id: 'clipboard', label: L('Clipboard', 'Área de Transferência'), icon: 'content_paste', prio: 3, cells: [
-            { split: 'paste', size: 'large', menu: ['paste', 'pastePlain'] },
+          { id: 'clipboard', label: L('Clipboard', 'Área de Transferência'), icon: 'content_paste', prio: 3, launcher: 'clipboard:pane', cells: [
+            { split: 'paste', size: 'large', menu: () => pasteMenu(env, ctx) },
             { rows: [['cut'], ['copy'], ['painter']] },
           ] },
           { id: 'font', label: L('Font', 'Fonte'), icon: 'text_format', prio: 8, launcher: 'dlg:font', cells: [

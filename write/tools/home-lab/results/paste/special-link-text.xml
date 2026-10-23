@@ -1,0 +1,105 @@
+<!-- document.xml (corpo) -->
+<w:p>
+  <w:pPr>
+    <w:pStyle w:val="Ttulo1"/>
+  </w:pPr>
+  <w:r>
+    <w:t>Titulo origem</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"/>
+      <w:color w:val="FF0000"/>
+      <w:sz w:val="28"/>
+    </w:rPr>
+  </w:pPr>
+  <w:bookmarkStart w:id="0" w:name="OLE_LINK2"/>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"/>
+      <w:color w:val="FF0000"/>
+      <w:sz w:val="28"/>
+    </w:rPr>
+    <w:t xml:space="preserve">Texto </w:t>
+  </w:r>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"/>
+      <w:b/>
+      <w:color w:val="FF0000"/>
+      <w:sz w:val="28"/>
+    </w:rPr>
+    <w:t>negrito</w:t>
+  </w:r>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"/>
+      <w:color w:val="FF0000"/>
+      <w:sz w:val="28"/>
+    </w:rPr>
+    <w:t xml:space="preserve"> fim</w:t>
+  </w:r>
+</w:p>
+<w:bookmarkEnd w:id="0"/>
+<w:p>
+  <w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+  </w:pPr>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+    <w:t>Destino:</w:t>
+  </w:r>
+</w:p>
+<w:p>
+  <w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+  </w:pPr>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+    <w:fldChar w:fldCharType="begin"/>
+  </w:r>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+    <w:instrText xml:space="preserve"> LINK Word.Document.12 "C:\\Users\\erich\\AppData\\Local\\Temp\\home-lab-pastelink-src.docx" "OLE_LINK2" \a \t </w:instrText>
+  </w:r>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+    <w:fldChar w:fldCharType="separate"/>
+  </w:r>
+  <w:r>
+    <w:t>Texto negrito fim</w:t>
+  </w:r>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+    <w:fldChar w:fldCharType="end"/>
+  </w:r>
+</w:p>
+<w:sectPr>
+  <w:pgSz w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+  <w:cols w:space="708"/>
+  <w:docGrid w:linePitch="360"/>
+</w:sectPr>

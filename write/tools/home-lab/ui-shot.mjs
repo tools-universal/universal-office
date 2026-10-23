@@ -23,6 +23,7 @@ mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, locale: lang === 'pt' ? 'pt-BR' : 'en-US' });
+await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://localhost:8099' });
 const logs = [];
 page.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) logs.push(m.text()); });
 page.on('pageerror', (e) => logs.push(String(e.stack ?? e)));
@@ -134,6 +135,39 @@ if (script === 'lists') {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   }
+}
+
+if (script === 'clipboard') {
+  const lines = lang === 'pt' ? ['Titulo de exemplo', 'Texto com negrito e cor', 'Destino'] : ['Sample heading', 'Text with bold and color', 'Target'];
+  await run(`ed.focusEditor(); ed.pasteText(${JSON.stringify(lines.join('\n'))});`);
+  await run(`ed.setSelection({ para: 1, offset: 0 }, { para: 1, offset: 9 }); ed.setFontFormat({ bold: true, color: 'C00000' });`);
+  // copia o 1º e o 2º parágrafos e cola no começo do 3º: o botão Opções de Colagem aparece
+  await run(`ed.setSelection({ para: 0, offset: 0 }, { para: 2, offset: 0 }); await ed.copy(); ed.setSelection({ para: 2, offset: 0 }); await ed.paste();`);
+  await page.waitForTimeout(500);
+  await shot('paste-button');
+  await page.keyboard.down('Control'); await page.keyboard.up('Control');
+  await page.waitForTimeout(400);
+  await shot('paste-options-menu');
+  await page.keyboard.press('KeyM');
+  await page.waitForTimeout(400);
+  await shot('paste-merged');
+  // menu do botão Colar
+  await page.evaluate(() => { const r = document.querySelector('universal-write').shadowRoot; const b = [...r.querySelectorAll('button')].find((x) => /^(Colar|Paste)$/.test(x.getAttribute('aria-label') ?? '') && x.classList.contains('uo-split-arrow')); b?.click(); });
+  await page.waitForTimeout(400);
+  await shot('paste-menu');
+  await page.keyboard.press('Escape');
+  // Colar Especial e o painel
+  await run(`ed.setSelection({ para: 0, offset: 0 }, { para: 0, offset: 6 }); await ed.copy(); ed.setSelection({ para: 4, offset: 0 });`);
+  await page.keyboard.press('Control+Alt+KeyV');
+  await page.waitForTimeout(700);
+  await shot('paste-special');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await clickText(['Área de Transferência', 'Clipboard']);
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { const r = document.querySelector('universal-write').shadowRoot; r.querySelector('[data-a="clipboard:pane"], .uo-launcher[data-cmd="clipboard:pane"]')?.click(); });
+  await page.waitForTimeout(600);
+  await shot('clipboard-pane');
 }
 
 console.log(logs.length ? `ERROS:\n${logs.join('\n')}` : 'sem erros no console');

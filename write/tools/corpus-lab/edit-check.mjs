@@ -1911,6 +1911,82 @@ if (want('home')) {
   check('lista: o estilo aplicado = abstractNum só com numStyleLink + w:num novo', /<w:multiLevelType w:val="multilevel"\/><w:tmpl w:val="[0-9A-F]{8}"\/><w:numStyleLink w:val="MinhaLista"\/><\/w:abstractNum>/.test(nx), null);
   check('lista: o motor numera pelo estilo de lista ("1)")', (await items('i.t === "glyphs" && i.text.startsWith("1)")')) === 1, null);
   await saveDoc('home-lists');
+
+  // ───── colar (write/tools/home-lab exp-paste.ps1; memória word-paste-facts) ─────
+  const bodyOf = (xml) => xml.slice(xml.indexOf('<w:body>') + 8, xml.lastIndexOf('<w:sectPr'));
+  const paraXml = (xml) => bodyOf(xml).match(/<w:p>[\s\S]*?<\/w:p>|<w:p\/>/g) ?? [];
+  const base = `e.type("Titulo origem"); e.pressEnter(); e.type("Texto negrito fim"); e.pressEnter(); e.type("Destino:"); e.pressEnter(); e.type("Fim");
+    e.setSelection({ para: 0, offset: 0 }); e.applyStyle(e.listStyles("all").find((s) => s.rawName === "heading 1").id);
+    e.setSelection({ para: 1, offset: 0 }, { para: 1, offset: 17 }); e.setFontFormat({ fontFamily: "Georgia", sizePt: 14, color: "FF0000" });
+    e.setSelection({ para: 1, offset: 6 }, { para: 1, offset: 13 }); e.setFontFormat({ bold: true });
+    e.setSelection({ para: 2, offset: 0 }, { para: 3, offset: 3 }); e.setFontFormat({ fontFamily: "Verdana", sizePt: 10 });`;
+  await ev('blank');
+  await js(base);
+  // os dois primeiros parágrafos (com as marcas) copiados e colados no começo de "Fim"
+  await js('e.setSelection({ para: 0, offset: 0 }, { para: 2, offset: 0 }); await e.copy(); e.setSelection({ para: 3, offset: 0 }); await e.paste("keep");');
+  x = await doc();
+  let ps = paraXml(x);
+  check('colar: Manter Formatação Original leva o estilo da marca (Título 1) e a formatação dos trechos',
+    ps.length === 6 && /<w:pStyle w:val="Ttulo1"\/>/.test(ps[3]) && /Georgia[^>]*\/><w:b\/>(?:(?!<\/w:rPr>)[\s\S])*<w:color w:val="FF0000"\/>(?:(?!<\/w:rPr>)[\s\S])*<w:sz w:val="28"\/>[\s\S]*?<w:t>negrito/.test(ps[4]) && /<w:t>Fim<\/w:t>/.test(ps[5]), ps.slice(3));
+  check('colar: o botão Opções de Colagem oferece K, M, U, T', JSON.stringify((await js('return e.pasteOptions();')).modes) === '["keep","merge","picture","text"]', await js('return e.pasteOptions();'));
+  await js('e.repaste("merge");');
+  x = await doc(); ps = paraXml(x);
+  check('colar: Mesclar dá a formatação do destino (Verdana 10, sem Título 1) e mantém o negrito',
+    ps.length === 6 && !/pStyle/.test(ps[3]) && /Verdana[^>]*\/><w:b\/>(?:(?!<\/w:rPr>)[\s\S])*<w:sz w:val="20"\/>[\s\S]*?<w:t>negrito/.test(ps[4]) && !/Georgia|FF0000/.test(ps[3] + ps[4]), ps.slice(3));
+  await js('e.repaste("text");');
+  x = await doc(); ps = paraXml(x);
+  check('colar: Manter Somente Texto — o último pedaço entra no parágrafo do destino (5 parágrafos)',
+    ps.length === 5 && /<w:t>Titulo origem<\/w:t>/.test(ps[3]) && /<w:t>Texto negrito fimFim<\/w:t>/.test(ps[4]) && !/<w:b\/>|Georgia/.test(ps[3] + ps[4]), ps.slice(3));
+  // uma palavra (sem marca) depois de "Destino:" ganha o espaço (recortar e colar inteligente)
+  await js('e.undo(); e.setSelection({ para: 1, offset: 6 }, { para: 1, offset: 13 }); await e.copy(); e.setSelection({ para: 2, offset: 8 }); await e.paste("keep");');
+  check('colar: palavra colada depois de "Destino:" ganha o espaço entre as palavras', (await ev('text', 2)) === 'Destino: negrito', await ev('text', 2));
+  // HTML de outro programa: o padrão usa Título 1, Normal (Web), listas e Hyperlink (html-0)
+  const HTML = '<h1>Titulo HTML</h1><p>Um <b>negrito</b> <i>italico</i> <u>sublinhado</u> <span style="color:#c00000;font-family:Georgia;font-size:14pt">vermelho</span> <a href="https://example.com/">link</a></p><ul><li>item A</li><li>item B</li></ul><ol><li>um</li><li>dois</li></ol><p style="text-align:center">centro</p>';
+  await ev('blank');
+  await js(`e.pasteData({ text: "Titulo HTML", html: ${JSON.stringify(HTML)} });`);
+  x = await doc(); ps = paraXml(x);
+  const sx4 = (await parts('word/styles.xml'))['word/styles.xml'] ?? '';
+  await saveDoc('home-paste-html');
+  check('colar HTML (padrão): h1 → Título 1, p → Normal (Web), link com o estilo Hyperlink',
+    /<w:pStyle w:val="Ttulo1"\/>[\s\S]*<w:t>Titulo HTML/.test(ps[0]) && /<w:pStyle w:val="NormalWeb"\/>/.test(ps[1]) && /<w:rStyle w:val="Hyperlink"\/>/.test(x) && /w:styleId="NormalWeb"/.test(sx4), ps.slice(0, 2));
+  check('colar HTML (padrão): span com cor/fonte/tamanho vira formatação direta; centro = w:jc',
+    /Georgia[^>]*\/><w:color w:val="C00000"\/><w:sz w:val="28"\/>[\s\S]*?<w:t>vermelho/.test(x) && /<w:pStyle w:val="NormalWeb"\/><w:jc w:val="center"\/><\/w:pPr><w:r><w:t>centro/.test(x), null);
+  nx = await numx();
+  check('colar HTML: ul e ol viram duas listas de vários níveis (tabulação no número, como o Word)',
+    (x.match(/<w:numId w:val="1"\/>/g) ?? []).length === 2 && (x.match(/<w:numId w:val="2"\/>/g) ?? []).length === 2 && /<w:multiLevelType w:val="multilevel"\/>[\s\S]*?<w:tabs><w:tab w:val="num" w:pos="720"\/><\/w:tabs><w:ind w:left="720" w:hanging="360"\/>/.test(nx), null);
+  await js('e.repaste("keep");');
+  x = await doc(); ps = paraXml(x);
+  check('colar HTML (Manter): Times New Roman 12, h1 24 pt negrito com nível de tópico, espaçamento automático',
+    /<w:spacing w:before="100" w:beforeAutospacing="1" w:after="100" w:afterAutospacing="1" w:line="240" w:lineRule="auto"\/>/.test(ps[0]) && /<w:outlineLvl w:val="0"\/>/.test(ps[0])
+      && /Times New Roman[^>]*\/><w:b\/>(?:(?!<\/w:rPr>)[\s\S])*<w:sz w:val="48"\/>[\s\S]*?<w:t>Titulo HTML/.test(ps[0]), ps[0]);
+  await js('e.repaste("merge");');
+  x = await doc(); ps = paraXml(x);
+  check('colar HTML (Mesclar): sem estilos nem fontes; h1 só negrito; listas ficam', !/pStyle|Times|Georgia/.test(ps.slice(0, 3).join('')) && /<w:b\/><\/w:rPr><w:t>Titulo HTML/.test(ps[0]) && /<w:numPr>/.test(x), ps.slice(0, 2));
+  // listas: colar itens depois de texto = Nova Lista (cópia do abstractNum); Continuar Lista junta
+  await ev('blank');
+  await js('e.type("Um"); e.pressEnter(); e.type("Dois"); e.pressEnter(); e.type("Texto"); e.pressEnter(); e.setSelection({ para: 0, offset: 0 }, { para: 1, offset: 4 }); e.applyListLibrary("number", 0);');
+  await js('e.setSelection({ para: 0, offset: 0 }, { para: 2, offset: 0 }); await e.copy(); e.setSelection({ para: 3, offset: 0 }); await e.paste("keep");');
+  x = await doc(); nx = await numx();
+  check('colar lista depois de texto: Nova Lista (w:num 2, abstractNum copiado com tplc FFFFFFFF) — "1." de novo',
+    pPrOf(x.split('<w:t>Texto</w:t>')[1] ?? '', 'Um') === item(2) && /<w:abstractNum w:abstractNumId="1"[^>]*>[\s\S]*?<w:lvl w:ilvl="0" w:tplc="FFFFFFFF">/.test(nx) && (await items('i.t === "glyphs" && i.text.startsWith("1.")')) === 2, pPrOf(x.split('<w:t>Texto</w:t>')[1] ?? '', 'Um'));
+  check('colar lista: as opções são Continuar Lista e Nova Lista', JSON.stringify((await js('return e.pasteOptions();')).list) === '["continue","new"]', null);
+  await js('e.repaste("keep", "continue");');
+  x = await doc();
+  check('colar lista: Continuar Lista junta à anterior ("3.", "4.")', pPrOf(x.split('<w:t>Texto</w:t>')[1] ?? '', 'Um') === item(1) && (await items('i.t === "glyphs" && (i.text.startsWith("3.") || i.text.startsWith("4."))')) === 2, null);
+  await js('e.repaste("text");');
+  x = await doc();
+  check('colar lista como texto: o número vira texto + tabulação ("1.\\tUm")', /<w:t>1\.<\/w:t>[\s\S]{0,80}<w:tab\/><w:t>Um<\/w:t>|<w:t xml:space="preserve">1\.<\/w:t><w:tab\/><w:t>Um|1\.<\/w:t><\/w:r><w:r>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:tab\/>/.test(x), (x.split('<w:t>Texto</w:t>')[1] ?? '').slice(0, 300));
+  // como imagem: o motor desenha o trecho num PNG em linha
+  await js('e.undo(); e.setSelection({ para: 3, offset: 0 }); e.repaste?.("picture"); await e.paste("picture"); await new Promise((r) => setTimeout(r, 300));');
+  x = await doc();
+  check('colar como Imagem: PNG em linha (w:drawing wp:inline)', /<wp:inline\b[\s\S]*?<pic:pic\b/.test(x), null);
+  // Área de Transferência do Office e Colar Vínculo
+  check('área de transferência: os itens copiados ficam no painel', (await js('return e.clipboardItems().length;')) >= 3, await js('return e.clipboardItems().map((i) => i.text);'));
+  await js('e.documentPath = "C:\\\\Docs\\\\origem.docx"; e.setSelection({ para: 2, offset: 0 }, { para: 2, offset: 5 }); await e.copy(); e.setSelection({ para: 3, offset: 0 }); await e.pasteSpecialFormats(); await e.pasteSpecial("rtf", { link: true });');
+  x = await doc();
+  check('Colar Vínculo: campo LINK Word.Document.12 com o caminho e o indicador OLE_LINK1 na origem',
+    /<w:instrText xml:space="preserve"> LINK Word\.Document\.12 "C:\\\\Docs\\\\origem\.docx" "OLE_LINK1" \\a \\r <\/w:instrText>/.test(x) && /<w:bookmarkStart w:id="\d+" w:name="OLE_LINK1"\/>/.test(x), (x.match(/<w:instrText[^>]*>[^<]*/) ?? [])[0]);
+  await saveDoc('home-paste');
 }
 
 if (want('page')) {

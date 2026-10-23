@@ -1,0 +1,46 @@
+{
+    "paras":  [
+                  {
+                      "text":  "Um\r",
+                      "style":  "Parágrafo da Lista",
+                      "font":  "Aptos",
+                      "size":  11,
+                      "list":  "1."
+                  },
+                  {
+                      "text":  "Um\r",
+                      "style":  "Parágrafo da Lista",
+                      "font":  "Aptos",
+                      "size":  11,
+                      "list":  "1."
+                  },
+                  {
+                      "text":  "Dois\r",
+                      "style":  "Parágrafo da Lista",
+                      "font":  "Aptos",
+                      "size":  11,
+                      "list":  "2."
+                  },
+                  {
+                      "text":  "Dois\r",
+                      "style":  "Parágrafo da Lista",
+                      "font":  "Aptos",
+                      "size":  11,
+                      "list":  "3."
+                  },
+                  {
+                      "text":  "Texto\r",
+                      "style":  "Normal",
+                      "font":  "Aptos",
+                      "size":  11,
+                      "list":  ""
+                  },
+                  {
+                      "text":  "\r",
+                      "style":  "Normal",
+                      "font":  "Aptos",
+                      "size":  11,
+                      "list":  ""
+                  }
+              ]
+}

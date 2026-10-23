@@ -154,6 +154,18 @@ export class DocNumbering {
     return id;
   }
 
+  /** w:abstractNum de outro documento (colar): id e nsid novos; sem o vínculo a estilo de
+   *  lista dele (o estilo pode não existir aqui). Devolve o id. */
+  importAbstract(raw: string): number {
+    const id = this.nextId('w:abstractNumId');
+    const w15 = /\sxmlns:w15="/.test(this.ensure());
+    const abs = raw.replace(/<w:abstractNum\b[^>]*>/, `<w:abstractNum w:abstractNumId="${id}"${w15 ? ' w15:restartNumberingAfterBreak="0"' : ''}>`)
+      .replace(/<w:nsid w:val="[0-9A-Fa-f]+"\/>/, `<w:nsid w:val="${hex8()}"/>`)
+      .replace(/<w:(?:styleLink|numStyleLink) w:val="[^"]*"\/>/g, '');
+    this.insertAbstract(abs);
+    return id;
+  }
+
   private insertAbstract(abs: string): void {
     let x = this.ensure();
     // todo w:abstractNum vem antes dos w:num (CT_Numbering); depois dos w:numPicBullet

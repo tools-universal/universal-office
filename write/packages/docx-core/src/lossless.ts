@@ -441,6 +441,8 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips
     || p.spaceBeforeAuto !== base.spaceBeforeAuto || p.spaceAfterAuto !== base.spaceAfterAuto) {
     const ch: Record<string, string | number | undefined> = {};
+    if (!!p.spaceBeforeAuto !== !!base.spaceBeforeAuto) ch['w:beforeAutospacing'] = p.spaceBeforeAuto ? '1' : undefined;
+    if (!!p.spaceAfterAuto !== !!base.spaceAfterAuto) ch['w:afterAutospacing'] = p.spaceAfterAuto ? '1' : undefined;
     if (p.lineTwentieths !== base.lineTwentieths) {
       ch['w:line'] = p.lineTwentieths;
       ch['w:lineRule'] = p.lineTwentieths !== undefined ? 'auto' : undefined;

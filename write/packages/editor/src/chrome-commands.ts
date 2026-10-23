@@ -16,6 +16,7 @@ import { registerShapeCommands } from './chrome-shape.js';
 import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 import { registerHomeCommands, colorFromPick, pickHex } from './chrome-home.js';
 import { registerListCommands } from './chrome-lists.js';
+import { registerClipboardCommands } from './chrome-clipboard.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -88,6 +89,8 @@ export interface ChromeCtl {
   pageBgDialog(kind: 'fill' | 'watermark'): void;
   /** diálogos de listas (chrome-lists.ts): Definir Novo Marcador/Formato de Número/Valor/Vários Níveis/Estilo de Lista, Ajustar Recuos */
   listDialog(kind: import('./chrome-lists.js').ListDialogKind): void;
+  /** Área de Transferência (chrome-clipboard.ts): Colar Especial, Definir Colagem Padrão, painel */
+  clipboard(kind: import('./chrome-clipboard.js').ClipboardUiKind): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -331,6 +334,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerPageCommands(reg, ed, app, ctl);
   registerHomeCommands(reg, ed, app, ctl);
   registerListCommands(reg, ed, app, ctl);
+  registerClipboardCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
   registerTextLayoutCommands(reg, ed, app, ctl);
 

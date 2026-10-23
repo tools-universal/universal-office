@@ -20,6 +20,7 @@ import { refsDialog, hyperlinkDialog, type RefsEnv } from './chrome-refs.js';
 import { tocDialog, tocGalleryMenu, type TocEnv } from './chrome-toc.js';
 import { fontDialog } from './chrome-font.js';
 import { openListDialog, listContextItems } from './chrome-lists.js';
+import { ClipboardUI } from './chrome-clipboard.js';
 import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
@@ -279,7 +280,7 @@ type Mode = 'compact' | 'ribbon';
 
 /** Atalhos que o próprio editor já trata (não roubar). */
 const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter', 'Ctrl+Alt+F', 'Ctrl+Alt+D',
-  'Ctrl+Shift+D', 'Ctrl+Shift+W', 'Ctrl+Shift+H', 'Ctrl+Shift+K', 'Ctrl+Shift+A', 'Shift+F3']);
+  'Ctrl+Shift+D', 'Ctrl+Shift+W', 'Ctrl+Shift+H', 'Ctrl+Shift+K', 'Ctrl+Shift+A', 'Shift+F3', 'Ctrl+Alt+V']);
 
 /** Atalhos de APLICATIVO (valem até com o foco fora do documento). */
 const APP_SHORTCUTS = new Set(['open', 'save', 'saveAs', 'print', 'find', 'replace']);
@@ -321,6 +322,7 @@ class WriteChrome {
   private find: FindPanel | null = null;
   private styles: StylesUI | null = null;
   private pictures: PictureUI | null = null;
+  private clipboardUI: ClipboardUI | null = null;
   private protbar: HTMLElement | null = null;
   private stateCache: ReturnType<UniversalWriteElement['getSelectionState']> | null = null;
   private families: string[] = [];
@@ -370,6 +372,8 @@ class WriteChrome {
     this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
     this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     this.pictures = new PictureUI({ ed, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
+    this.clipboardUI = new ClipboardUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after(),
+      dialog: () => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() }), signal: this.ac.signal });
     registerWriteCommands(this.reg, ed, app, this.ctl());
 
     const env: WidgetEnv = { ed, app, ctl: this.ctl(), root: this.root, styles: this.styles };
@@ -491,6 +495,7 @@ class WriteChrome {
       image: () => this.pickImage(),
       fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
       listDialog: (kind) => { void openListDialog(d(), this.families, kind).then(() => this.after()); },
+      clipboard: (kind) => { void this.clipboardUI?.run(kind).then(() => this.after()); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: (tab) => { void pageDialog(d(), tab).then(() => this.after()); },
       textLayoutDialog: (kind) => {
@@ -601,6 +606,7 @@ class WriteChrome {
     this.status?.sync();
     this.styles?.sync();
     this.pictures?.sync();
+    this.clipboardUI?.sync();
     this.review?.place();
     this.nav?.schedule();
     this.ruler?.schedule();

@@ -106,11 +106,12 @@ export interface NumberedItem {
   text: string;
 }
 
-/** Valor do contador de cada item de lista (corpo e células), como no desenho —
- *  o diálogo Definir Valor de Numeração começa nele. */
-export function listItemValues(full: FullDocument, opts: { lang?: string } = {}): Map<Paragraph, number> {
+/** Número de cada item de lista (corpo e células), como no desenho: o valor do contador
+ *  (o diálogo Definir Valor de Numeração começa nele) e o texto do marcador (colar só o
+ *  texto leva o número como texto, como o Word). */
+export function listItemValues(full: FullDocument, opts: { lang?: string } = {}): Map<Paragraph, { value: number; text: string }> {
   const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
-  const out = new Map<Paragraph, number>();
+  const out = new Map<Paragraph, { value: number; text: string }>();
   const walk = (blocks: readonly Block[]): void => {
     for (const b of blocks) {
       if (b.type === 'table') {
@@ -119,7 +120,7 @@ export function listItemValues(full: FullDocument, opts: { lang?: string } = {})
       }
       const n = resolvePPr(ctx, b.paragraph, {}).ppr.numPr;
       const m = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0) : null;
-      if (m?.value !== undefined) out.set(b.paragraph, m.value);
+      if (m) out.set(b.paragraph, { value: m.value ?? 0, text: m.text });
     }
   };
   walk(full.blocks);

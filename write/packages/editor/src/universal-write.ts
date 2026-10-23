@@ -157,6 +157,7 @@ import {
 import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
 import { caseMapped } from './text-case.js';
+import { htmlToParas } from './paste-html.js';
 import { DocNumbering, libraryLevels, levelIndent, parseLevel, sameLevelFormat, type ListLocale } from './numbering-store.js';
 import { BULLET_LIBRARY, NUMBER_LIBRARY, MULTILEVEL_LIBRARY } from './list-library.js';
 import { pageFillFrom, themeTintShade, GRADIENT_PRESETS, GRADIENT_VARIANTS, type PageFillInput, type PageBackgroundInfo, type ThemeColorRef, type GradientStyle } from './page-design.js';
@@ -585,9 +586,101 @@ interface TableSel {
 }
 
 /** Cópia rica interna: parágrafos com as props de origem, tabelas inteiras do meio da seleção e células copiadas. */
+/** Opção de colagem: Manter Formatação Original, Mesclar Formatação, Manter Somente Texto,
+ *  Imagem; 'default' = o padrão do Word para HTML de outro programa (estilos do destino). */
+export type PasteMode = 'keep' | 'merge' | 'text' | 'picture' | 'default';
+/** Formatos do Colar Especial (os do diálogo do Word). */
+export type PasteSpecialFormat = 'rtf' | 'text' | 'picture' | 'html' | 'unicode' | 'image';
+/** Opções de colagem de listas: Continuar Lista, Nova Lista, Mesclar Lista, Não Mesclar Lista. */
+export type ListPasteMode = 'continue' | 'new' | 'merge' | 'nomerge';
+
+/** O que há na área de transferência (do sistema e a cópia rica, se ainda é ela). */
+export interface PasteData {
+  text: string;
+  html?: string;
+  image?: { data: Uint8Array; ext: string };
+  /** a cópia rica deste editor (a mesma página) */
+  rich?: RichClip;
+}
+
+/** Parágrafo de uma cópia: os trechos e, se a marca (¶) veio junto, a formatação dela. */
+interface ClipPara {
+  runs: ClipRun[];
+  mark?: ParaProps;
+  /** número da lista como texto ("1.") — Manter Somente Texto o leva */
+  marker?: string;
+  /** item de lista de HTML (vira lista nova ao colar) */
+  htmlList?: { ordered: boolean; level: number; key: number };
+}
+
+/** Intervalo colado: do cursor ao fim; `marked` = parágrafos que ganharam a marca copiada. */
+interface PasteRange { start: DocPosition; end: DocPosition; first: number; last: number; marked: number[] }
+
+interface PasteCtx {
+  /** de outro documento: listas importadas */
+  other: boolean;
+  lists?: Record<number, string>;
+  numMap: Map<number, number>;
+  htmlLists: Map<string, number>;
+}
+
+/** Área de Transferência do Office (da página): a cópia rica atual e os 24 últimos itens. */
+const OFFICE_CLIPBOARD: { clip: RichClip | null; ring: { id: number; clip: RichClip; at: number }[]; seq: number; listeners: Set<() => void> } = {
+  clip: null, ring: [], seq: 0, listeners: new Set(),
+};
+
+/** A formatação da marca de um parágrafo copiado (sem a origem nem as revisões). */
+function clipMark(p: ParaProps): ParaProps {
+  const m = paraFormatting(p);
+  delete m.dropCap;
+  return m;
+}
+
+/** Texto de uma cópia para Manter Somente Texto: o número das listas vira texto + tabulação
+ *  (medido: list-after-T). */
+function clipText(c: RichClip): string {
+  // a marca do último parágrafo não vai (o último pedaço entra no parágrafo do destino)
+  const ps = c.paras.length > 1 && !c.paras[c.paras.length - 1]!.runs.length ? c.paras.slice(0, -1) : c.paras;
+  return ps.map((p) => (p.marker ? `${p.marker}\t` : '') + p.runs.map((r) => r.text).join('')).join('\n');
+}
+
+/** Níveis da lista de um HTML colado, como o Word os cria (medido: html-K): vários níveis,
+ *  tabulação no número; ol = "%n." decimal; ul = •, o, ▪ (Symbol/Courier New/Wingdings). */
+function htmlListLevels(ordered: boolean): string[] {
+  return Array.from({ length: 9 }, (_v, i) => {
+    const ind = 720 * (i + 1);
+    const ppr = `<w:pPr><w:tabs><w:tab w:val="num" w:pos="${ind}"/></w:tabs><w:ind w:left="${ind}" w:hanging="360"/></w:pPr>`;
+    if (ordered) return `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%${i + 1}."/><w:lvlJc w:val="left"/>${ppr}</w:lvl>`;
+    const [ch, font] = i === 0 ? ['\uF0B7', 'Symbol'] : i === 1 ? ['o', 'Courier New'] : ['\uF0A7', 'Wingdings'];
+    return `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="${ch}"/><w:lvlJc w:val="left"/>${ppr}<w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:hint="default"/><w:sz w:val="20"/></w:rPr></w:lvl>`;
+  });
+}
+
+/** Largura × altura (px) de um PNG, GIF ou JPEG pelos bytes do cabeçalho. */
+function imageSize(b: Uint8Array): { w: number; h: number } | null {
+  if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50) return { w: (b[16]! << 24 | b[17]! << 16 | b[18]! << 8 | b[19]!) >>> 0, h: (b[20]! << 24 | b[21]! << 16 | b[22]! << 8 | b[23]!) >>> 0 };
+  if (b.length > 10 && b[0] === 0x47 && b[1] === 0x49) return { w: b[6]! | b[7]! << 8, h: b[8]! | b[9]! << 8 };
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    for (let i = 2; i + 9 < b.length;) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1]!, len = b[i + 2]! << 8 | b[i + 3]!;
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { h: b[i + 5]! << 8 | b[i + 6]!, w: b[i + 7]! << 8 | b[i + 8]! };
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
 interface RichClip {
   text: string;
-  paras: { runs: ClipRun[] }[];
+  paras: ClipPara[];
+  /** documento de origem (mesmo documento × entre documentos) e o caminho dele no hospedeiro */
+  doc?: object;
+  path?: string;
+  /** listas usadas (numId → w:abstractNum cru), para colar em outro documento */
+  lists?: Record<number, string>;
+  /** de onde veio (Colar Vínculo marca a origem com o indicador OLE_LINKn) */
+  src?: { el: WeakRef<object>; range: DocRange };
   /** tabelas entre os parágrafos copiados: entram antes do parágrafo `before` do recorte */
   tables?: { before: number; table: TableBlock }[];
   /** células selecionadas (como tabela nova); rows = linhas inteiras; whole = a tabela toda */
@@ -1071,7 +1164,16 @@ interface NoteRefLoc {
 }
 
 /** Run da cópia rica interna (referência de nota leva o conteúdo da nota). */
-interface ClipRun { text: string; props: RunProps; noteRef?: import('@universal-office/docx-core').NoteRef; note?: Block[] }
+interface ClipRun {
+  text: string;
+  props: RunProps;
+  noteRef?: import('@universal-office/docx-core').NoteRef;
+  note?: Block[];
+  /** imagem/forma/caixa de texto copiada (o run inteiro) */
+  obj?: Run;
+  /** negrito que vem do bloco do HTML (h1–h6): ênfase no Mesclar */
+  blockBold?: boolean;
+}
 
 interface FootnoteHit {
   page: number;
@@ -1207,9 +1309,13 @@ export class UniversalWriteElement extends HTMLElement {
   private redoStack: string[] = [];
   private pendingProps: RunProps | null = null; // formatação aplicada antes de digitar
   private plainPasteNext = false; // próximo paste (Ctrl+Shift+V) cola sem formatação
-  // clipboard RICO interno (o sistema só guarda texto): casado por texto, usado
-  // pelo "Colar" para preservar a formatação dos runs da ORIGEM.
-  private richClip: RichClip | null = null;
+  // clipboard RICO interno (o sistema só guarda texto e HTML): casado por texto, usado
+  // pelo "Colar" para preservar a formatação dos runs da ORIGEM. Da página toda, como a
+  // Área de Transferência do Office: colar em outro <universal-write> também o usa.
+  private get richClip(): RichClip | null { return OFFICE_CLIPBOARD.clip; }
+  private set richClip(c: RichClip | null) { OFFICE_CLIPBOARD.clip = c; }
+  /** identidade do documento aberto (colar no mesmo documento × entre documentos) */
+  private docToken = {};
 
   onSelectionChange: (() => void) | null = null;
 
@@ -1773,6 +1879,8 @@ export class UniversalWriteElement extends HTMLElement {
   private installFullDoc(): void {
     if (!this.fullDoc) throw new Error('installFullDoc without fullDoc');
     this.resetEngineState();
+    this.docToken = {};
+    this.lastPaste = null;
     // achatamento p/ edição: parágrafos top-level na ordem dos blocos;
     // tabelas viram âncoras "antes do parágrafo N"
     const paragraphs: Paragraph[] = [];
@@ -3251,7 +3359,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (!info || info.kind === 'bullet' || !this.model) return null;
     const pi = this.selection.focus.para;
     const p = this.model.paragraphs[pi]!;
-    const value = this.fullDoc ? listItemValues(this.liveEngineDoc().full).get(p) : undefined;
+    const value = this.fullDoc ? listItemValues(this.liveEngineDoc().full).get(p)?.value : undefined;
     return { canContinue: !!this.previousList(pi), value: value ?? info.level?.start ?? 1, numFmt: info.level?.numFmt ?? 'decimal' };
   }
 
@@ -4090,37 +4198,74 @@ export class UniversalWriteElement extends HTMLElement {
     return after && before;
   }
 
-  /** Extrai a seleção como parágrafos de runs (com props) — base do clipboard rico. */
+  /** Extrai a seleção como parágrafos de runs (com props) — base do clipboard rico. Cada
+   *  parágrafo cuja marca (¶) foi copiada leva a formatação dela (`mark`), e o número da
+   *  lista como texto (Manter Somente Texto) — como o Word. */
   private extractSelection(): RichClip | null {
     if (!this.model || !this.hasSelection()) return null;
     const { start, end } = normalizeRange(this.range());
-    const paras: { runs: ClipRun[] }[] = [];
+    const paras: ClipPara[] = [];
+    const markers = this.listMarkersOf(start.para, end.para);
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model.paragraphs[pi]!;
       const from = pi === start.para ? start.offset : 0;
       const to = pi === end.para ? end.offset : paraLength(p);
-      const runs: { text: string; props: RunProps }[] = [];
+      const runs: ClipRun[] = [];
       let acc = 0;
       for (const run of p.runs) {
         const rs = acc, re = acc + run.text.length; acc = re;
         const s = Math.max(from, rs), e = Math.min(to, re);
         // referência de nota: leva uma cópia do conteúdo (colar cria nota nova — oráculo fn-copy)
         const nb = run.noteRef && this.fullDoc ? noteBlocks(this.fullDoc, run.noteRef.kind, run.noteRef.id) : undefined;
-        if (e > s) runs.push({
+        if (e <= s) continue;
+        // imagem/forma/caixa: o run inteiro (os bytes das imagens são os mesmos)
+        if (run.image || run.shape || run.textbox || run.group) { runs.push({ text: '', props: { ...run.props }, obj: UniversalWriteElement.cloneDrawingRun(run) }); continue; }
+        runs.push({
           text: run.custom ? run.custom.fallbackText : run.noteRef ? '' : run.text.slice(s - rs, e - rs),
           props: { ...run.props },
           ...(run.noteRef ? { noteRef: { ...run.noteRef }, note: cloneBlocks(nb ?? []) } : {}),
         });
       }
-      paras.push({ runs });
+      const mk = markers.get(pi);
+      // (a marca do último parágrafo só vai se a seleção passa dela — então ele vem vazio)
+      paras.push({ runs, ...(pi < end.para ? { mark: clipMark(p.props) } : {}), ...(mk && from === 0 ? { marker: mk } : {}) });
     }
     const text = paras.map((pp) => pp.runs.map((r) => r.text).join('')).join('\n');
     // tabelas inteiras entre os parágrafos da seleção (no corpo) vão junto
     const tables = this.cellEdit || this.hfEdit || this.tbEdit ? [] : this.tableAnchors
       .filter((a) => a.beforePara > start.para && a.beforePara <= end.para)
       .map((a) => ({ before: a.beforePara - start.para, table: TOps.cloneTable(a.table) }));
-    return { text, paras, ...(tables.length ? { tables } : {}) };
+    // as listas copiadas levam a definição (colar em outro documento)
+    const lists: Record<number, string> = {};
+    for (const cp of paras) {
+      const id = cp.mark?.numbering?.numId;
+      const absId = id && id > 0 ? this.numbering.abstractOf(id) : undefined;
+      const raw = absId !== undefined ? this.numbering.abstractXml(absId) : undefined;
+      if (id && raw) lists[id] = raw;
+    }
+    const src = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit ? { el: new WeakRef(this as object), range: { start: { ...start }, end: { ...end } } } : undefined;
+    return { text, paras, ...(tables.length ? { tables } : {}), doc: this.docToken, ...(this.documentPath ? { path: this.documentPath } : {}), ...(Object.keys(lists).length ? { lists } : {}), ...(src ? { src } : {}) };
   }
+
+  /** Texto do número de cada parágrafo de lista do intervalo (pelo motor). */
+  private listMarkersOf(from: number, to: number): Map<number, string> {
+    const out = new Map<number, string>();
+    if (!this.model || !this.fullDoc) return out;
+    let any = false;
+    for (let i = from; i <= to && !any; i++) any = !!this.paraNum(this.model.paragraphs[i]!);
+    if (!any) return out;
+    try {
+      const vals = listItemValues(this.liveEngineDoc().full);
+      for (let i = from; i <= to; i++) {
+        const m = vals.get(this.model.paragraphs[i]!);
+        if (m?.text) out.set(i, m.text);
+      }
+    } catch { /* sem motor: sem números */ }
+    return out;
+  }
+
+  /** Caminho do documento no hospedeiro (Colar Vínculo grava o campo LINK com ele). */
+  documentPath: string | undefined;
 
   /** Cópia profunda do run de um objeto de desenho (os bytes das imagens são os mesmos). */
   private static cloneDrawingRun(r: Run): Run {
@@ -4132,7 +4277,8 @@ export class UniversalWriteElement extends HTMLElement {
     // objeto de desenho selecionado (não a imagem em linha, que é texto): a cópia dele
     const fs = this.floatSel;
     if (fs && !this.tbEdit && (fs.textbox || fs.shape || fs.group || fs.image?.floating) && UniversalWriteElement.rawOf(fs)) {
-      this.richClip = { text: '', paras: [], drawing: UniversalWriteElement.cloneDrawingRun(fs) };
+      this.richClip = { text: '', paras: [], drawing: UniversalWriteElement.cloneDrawingRun(fs), doc: this.docToken };
+      this.rememberClip(this.richClip);
       try { await navigator.clipboard?.writeText(''); } catch { /* sem permissão */ }
       return;
     }
@@ -4140,16 +4286,40 @@ export class UniversalWriteElement extends HTMLElement {
     const cells = this.cellsClip();
     if (cells) {
       const { text, html } = UniversalWriteElement.tableClipText(cells.table);
-      this.richClip = { text, paras: [], cells };
+      this.richClip = { text, paras: [], cells, doc: this.docToken };
+      this.rememberClip(this.richClip);
       await this.writeClipboard(text, html);
       return;
     }
     const t = this.selectedText();
     const clip = this.extractSelection();
-    // (só uma referência de nota selecionada: não tem texto, mas cola como nota nova)
-    if (!t && !clip?.paras.some((p) => p.runs.some((r) => r.noteRef))) return;
+    // (só uma referência de nota ou um objeto selecionado: não tem texto, mas cola)
+    if (!t && !clip?.paras.some((p) => p.runs.some((r) => r.noteRef || r.obj))) return;
     this.richClip = clip;
-    try { await navigator.clipboard?.writeText(t); } catch { /* sem permissão */ }
+    if (clip) this.rememberClip(clip);
+    // o sistema leva texto e HTML (outros programas, outra aba)
+    await this.writeClipboard(t, clip ? this.clipHtml(clip) : undefined);
+  }
+
+  /** HTML da cópia (para outros programas): os parágrafos com a formatação direta. */
+  private clipHtml(clip: RichClip): string | undefined {
+    try {
+      const paragraphs: Paragraph[] = clip.paras.map((cp) => ({
+        props: { ...(cp.mark ?? {}) },
+        runs: cp.runs.map((r) => (r.obj ? { ...r.obj } : { text: r.text, props: r.props })),
+      }));
+      return toHtml({ paragraphs }, { fullDocument: false });
+    } catch { return undefined; }
+  }
+
+  /** Guarda a cópia na Área de Transferência do Office (os 24 últimos itens, da página). */
+  private rememberClip(clip: RichClip): void {
+    const ring = OFFICE_CLIPBOARD.ring;
+    const dup = ring.findIndex((x) => x.clip === clip || (x.clip.text === clip.text && !clip.drawing && !x.clip.drawing && x.clip.text));
+    if (dup >= 0) ring.splice(dup, 1);
+    ring.unshift({ id: ++OFFICE_CLIPBOARD.seq, clip, at: Date.now() });
+    if (ring.length > 24) ring.length = 24;
+    for (const f of OFFICE_CLIPBOARD.listeners) f();
   }
   /** Recorta a seleção. */
   async cut(): Promise<void> {
@@ -4178,20 +4348,125 @@ export class UniversalWriteElement extends HTMLElement {
     this.refresh();
     this.onSelectionChange?.(); this.chromeSync?.();
   }
-  /** Colar (Ctrl+V): respeita a formatação da ORIGEM (rico) quando o texto do
-   * sistema ainda casa com a cópia interna; senão cola texto externo herdando o destino. */
-  async paste(): Promise<void> {
+  // ───────────────────────── colar (Área de Transferência) ─────────────────────────
+  // Opções de colagem medidas no Word (write/tools/home-lab exp-paste.ps1; memória
+  // word-paste-facts): Manter Formatação Original, Mesclar Formatação, Manter Somente
+  // Texto, Imagem; as de lista (Continuar Lista, Nova Lista, Mesclar/Não Mesclar).
+
+  /** Padrões do Colar (Opções › Avançado do Word): no mesmo documento, entre documentos e
+   *  de outros programas ('default' = o do Word para HTML: estilos do destino onde casam). */
+  pasteDefaults: { within: PasteMode; between: PasteMode; other: PasteMode } = { within: 'keep', between: 'keep', other: 'default' };
+
+  /** A última colagem (para o botão Opções de Colagem refazê-la de outro jeito). */
+  private lastPaste: (PasteRange & { data: PasteData; mode: PasteMode; list: ListPasteMode | null; depth: number }) | null = null;
+
+  /** Colar (Ctrl+V / botão Colar): lê a área de transferência (texto, HTML, imagem) e cola
+   *  com a opção pedida — sem ela, a padrão de cada origem. */
+  async paste(mode?: PasteMode): Promise<void> {
     if (this.locked()) return;
+    const data = await this.readClipboard();
+    if (data) this.pasteData(data, mode);
+  }
+
+  /** Conteúdo da área de transferência do sistema (+ a cópia rica, se ainda é ela). */
+  private async readClipboard(): Promise<PasteData | null> {
+    const d: PasteData = { text: '' };
     try {
-      const t = await navigator.clipboard?.readText();
-      if (!t && this.richClip?.drawing) { this.pasteDrawing(this.richClip.drawing); return; }
-      if (!t && this.richClip?.text === '' && this.richClip.paras.some((p) => p.runs.some((r) => r.noteRef))) { this.insertRich(this.richClip); this.onSelectionChange?.(); this.chromeSync?.(); return; }
-      if (!t) return;
-      // o clipboard do SO normaliza p/ \r\n no Windows — comparar normalizado
-      if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
-      else this.pasteText(t);
-      this.onSelectionChange?.(); this.chromeSync?.();
-    } catch { /* sem permissão de leitura */ }
+      const cb = navigator.clipboard;
+      if (cb?.read) {
+        for (const it of await cb.read()) {
+          if (it.types.includes('text/plain')) d.text = await (await it.getType('text/plain')).text();
+          if (it.types.includes('text/html')) d.html = await (await it.getType('text/html')).text();
+          const img = it.types.find((t) => /^image\/(png|jpeg|gif|bmp|webp)$/.test(t));
+          if (img) d.image = { data: new Uint8Array(await (await it.getType(img)).arrayBuffer()), ext: img.slice(6).replace('jpeg', 'jpg') };
+        }
+      } else d.text = (await cb?.readText()) ?? '';
+    } catch {
+      // sem permissão de leitura: só a cópia interna
+      if (!this.richClip) return null;
+      d.text = this.richClip.text;
+    }
+    return this.withRich(d);
+  }
+
+  /** A cópia rica vale se o texto do sistema ainda é o dela (o Windows normaliza \r\n). */
+  private withRich(d: PasteData): PasteData {
+    const clip = this.richClip;
+    const t = d.text.replace(/\r\n?/g, '\n');
+    if (clip && (clip.text === t || (!t && !d.html && !d.image && (clip.drawing || clip.paras.some((p) => p.runs.some((r) => r.noteRef || r.obj)))))) d.rich = clip;
+    return d;
+  }
+
+  /** De onde veio o que se cola: o mesmo documento, outro documento do editor, outro programa. */
+  private pasteSource(d: PasteData): 'within' | 'between' | 'other' {
+    return d.rich ? (d.rich.doc === this.docToken ? 'within' : 'between') : 'other';
+  }
+
+  /** Opções de colagem do que está na área de transferência agora (o botão e o menu Colar). */
+  pasteOptions(d: PasteData | null = this.lastPaste?.data ?? null): { modes: PasteMode[]; list: ListPasteMode[]; current?: PasteMode; currentList?: ListPasteMode | null } {
+    // depois de outra edição a colagem não se refaz mais (o botão some, como no Word)
+    if (!d || (d === this.lastPaste?.data && this.undoStack.length !== this.lastPaste.depth + 1)) return { modes: [], list: [] };
+    const rich = d.rich;
+    const modes: PasteMode[] = rich?.cells || rich?.drawing ? ['keep'] : d.image && !d.text && !rich ? ['keep'] : ['keep', 'merge', 'picture', 'text'];
+    const lp = this.lastPaste;
+    const hasList = !!rich?.paras.some((p) => p.mark?.numbering);
+    const list: ListPasteMode[] = !hasList ? [] : lp?.data === d && lp.list && (lp.list === 'merge' || lp.list === 'nomerge') ? ['merge', 'nomerge'] : ['continue', 'new'];
+    return { modes, list, ...(lp?.data === d ? { current: lp.mode, currentList: lp.list } : {}) };
+  }
+
+  /** Refaz a última colagem com outra opção (botão Opções de Colagem: K, M, T, U; listas). */
+  repaste(mode: PasteMode, list?: ListPasteMode): void {
+    const lp = this.lastPaste;
+    if (!lp || this.locked() || this.undoStack.length !== lp.depth + 1) return;
+    this.undo();
+    this.pasteData(lp.data, mode, list ?? null);
+  }
+
+  /** Cola os dados com a opção pedida (sem ela, a padrão da origem). */
+  pasteData(d: PasteData, mode?: PasteMode, list: ListPasteMode | null = null): void {
+    if (!this.model || this.locked() || this.view === 'read') return;
+    const m = mode ?? this.pasteDefaults[this.pasteSource(d)];
+    const depth = this.undoStack.length;
+    const rich = d.rich;
+    let r: PasteRange | null = null;
+    if (rich?.drawing && m !== 'text') { this.pasteDrawing(rich.drawing); this.lastPaste = null; return; }
+    if (rich?.cells && m !== 'text') { this.pasteRich(rich); this.lastPaste = null; this.onSelectionChange?.(); this.chromeSync?.(); return; }
+    if (m === 'picture') { void this.pastePicture(d); return; }
+    if (m === 'text') r = this.pasteTextOnly(rich ? clipText(rich) : d.text);
+    else if (rich) r = this.insertClip(rich.paras, { mode: m === 'merge' ? 'merge' : 'keep', tables: rich.tables, from: rich });
+    else if (d.html && !/^\s*$/.test(d.html)) {
+      if (/<table[\s>]/i.test(d.html) && !/<(?:p|h[1-6]|li|div)[\s>]/i.test(d.html.replace(/<table[\s\S]*?<\/table>/gi, '')) && this.pasteHtmlTables(d.html)) { this.lastPaste = null; this.onSelectionChange?.(); this.chromeSync?.(); return; }
+      r = this.insertClip(this.htmlClipParas(d.html, m), { mode: m === 'merge' ? 'merge' : 'keep' });
+    } else if (d.image) { void this.insertImage(d.image.data, d.image.ext); this.lastPaste = null; return; }
+    else if (d.text) r = this.pasteTextOnly(d.text);
+    if (!r) return;
+    // (listas de HTML já entram como listas novas)
+    const applied = m !== 'text' && rich ? this.listPaste(r, list) : null;
+    this.lastPaste = { data: d, mode: m, list: applied, depth, ...r };
+    this.syncNumbering();
+    this.refresh();
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    // o botão Opções de Colagem aparece no fim do que entrou
+    this.dispatchEvent(new CustomEvent('uw-pasted', { detail: this.pasteOptions(d) }));
+  }
+
+  /** Onde fica o botão Opções de Colagem: o canto do fim da colagem (coordenadas da tela). */
+  pasteButtonRect(): { x: number; y: number } | null {
+    const lp = this.lastPaste;
+    if (!lp) return null;
+    const c = this.caretRectAt(lp.end);
+    return c ? { x: c.x + 4, y: c.y + c.h + 2 } : null;
+  }
+
+  /** Retângulo do cursor numa posição (coordenadas da tela); null fora da tela. */
+  caretRectAt(pos: DocPosition): { x: number; y: number; h: number } | null {
+    const line = this.lineOf(pos);
+    const canvas = line ? this.canvases[line.page] : undefined;
+    if (!line || !canvas) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    const rc = canvas.getBoundingClientRect();
+    return { x: rc.left + this.caretX(pos, line) * scale, y: rc.top + line.yTwips * scale, h: line.heightTwips * scale };
   }
 
   /** Cola o objeto de desenho copiado: uma cópia nova (id e nome de desenho novos), ancorada
@@ -4229,30 +4504,59 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Há células copiadas (opções de colagem de tabela). */
   hasCellsClip(): boolean { return !!this.richClip?.cells; }
-  /** Colar sem formatação (Ctrl+Shift+V): sempre texto plano, herdando o DESTINO. */
-  async pastePlain(): Promise<void> {
-    if (this.locked()) return;
-    try { const t = await navigator.clipboard?.readText(); if (t) { this.pasteText(t); this.onSelectionChange?.(); this.chromeSync?.(); } }
-    catch { /* sem permissão de leitura */ }
+  /** Colar sem formatação (Ctrl+Shift+V): Manter Somente Texto. */
+  async pastePlain(): Promise<void> { await this.paste('text'); }
+
+  /** Insere a cópia rica como está (Manter Formatação Original). */
+  private insertRich(clip: RichClip): void {
+    this.insertClip(clip.paras, { mode: 'keep', tables: clip.tables, from: clip });
+    this.refresh();
+    this.scrollCaretIntoView();
   }
 
-  /** Insere os parágrafos/runs ricos preservando os props de cada run (origem). */
-  private insertRich(clip: RichClip): void {
-    if (!this.model || this.view === 'read') return;
+  /**
+   * Insere parágrafos de uma cópia (interna ou de HTML) no cursor, como o Word: Manter
+   * ('keep') leva a formatação de cada trecho e, nos parágrafos cuja marca (¶) veio junto,
+   * a formatação deles — o parágrafo do destino fica com a dele no fim; Mesclar ('merge')
+   * dá a formatação do destino com a ênfase (negrito, itálico, sublinhado) e as listas da
+   * origem. Um trecho de uma linha ganha o espaço que faltar entre palavras (recortar e
+   * colar inteligente). Um passo de desfazer; devolve o intervalo colado.
+   */
+  private insertClip(paras: ClipPara[], o: { mode: 'keep' | 'merge'; tables?: RichClip['tables']; from?: RichClip }): PasteRange | null {
+    if (!this.model || !paras.length) return null;
     this.snapshot();
     if (this.hasSelection()) {
-      const pos = this.deleteSelection();
-      this.selection = { anchor: pos, focus: pos };
+      const p0 = this.deleteSelection();
+      this.selection = { anchor: p0, focus: p0 };
     }
     let pos = this.selection.focus;
+    const start = { ...pos };
+    const destRun = withoutRevisions(this.pendingProps ?? this.currentProps());
     const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
-    const notesOk = clip.paras.some((p) => p.runs.some((r) => r.noteRef)) && this.canInsertNote();
-    clip.paras.forEach((cp, i) => {
+    const notesOk = paras.some((p) => p.runs.some((r) => r.noteRef)) && this.canInsertNote();
+    const ctx: PasteCtx = { other: !!o.from && o.from.doc !== this.docToken, lists: o.from?.lists, numMap: new Map(), htmlLists: new Map() };
+    const hyper = o.mode === 'merge' && paras.some((p) => p.runs.some((r) => r.props.link)) ? this.builtinStyleId('Hyperlink') : undefined;
+    const propsOf = (r: ClipRun): RunProps => o.mode === 'merge'
+      ? { ...destRun, bold: !!(r.props.bold || r.blockBold), italic: !!r.props.italic, underline: !!r.props.underline, underlineStyle: r.props.underline ? r.props.underlineStyle : undefined,
+        ...(r.props.link ? { link: r.props.link, ...(hyper ? { charStyle: hyper } : {}) } : {}) }
+      : withoutRevisions(r.props);
+    const marked: number[] = [];
+    // recortar e colar inteligente: um trecho sem marca ganha o espaço entre palavras
+    const single = paras.length === 1 && !paras[0]!.mark ? paras[0]!.runs : null;
+    const firstText = single?.find((r) => r.text)?.text ?? '';
+    if (single && firstText && /^[\p{L}\p{N}]/u.test(firstText) && /[\p{L}\p{N}.,;:!?)\]}"'”’]$/u.test(this.charBefore(pos))) {
+      pos = this.insertTyped(pos, ' ', o.mode === 'merge' ? propsOf(single.find((r) => r.text)!) : withoutRevisions(single.find((r) => r.text)!.props));
+    }
+    paras.forEach((cp, i) => {
       if (i > 0) {
+        const prev = paras[i - 1]!;
         this.shiftAnchors(pos.para, 1);
         pos = this.splitAt(pos);
+        // o parágrafo que a marca copiada fecha fica com a formatação dela
+        const patch = this.pasteMark(prev, o.mode, ctx, this.model!.paragraphs[pos.para - 1]!.props);
+        if (patch) { this.setParaAt(pos.para - 1, patch); marked.push(pos.para - 1); }
         // tabela que estava entre os parágrafos copiados: antes deste
-        for (const t of clip.tables ?? []) {
+        for (const t of o.tables ?? []) {
           if (t.before !== i || !body) continue;
           let at = this.tableAnchors.findIndex((a) => a.beforePara > pos.para);
           if (at < 0) at = this.tableAnchors.length;
@@ -4268,17 +4572,137 @@ export class UniversalWriteElement extends HTMLElement {
           const id = nextNoteId(this.fullDoc, run.noteRef.kind);
           setNoteBlocks(this.fullDoc, run.noteRef.kind, id, cloneBlocks(run.note ?? []));
           pos = this.insertWholeRun(pos, { text: NOTE_REF_TEXT, props: withoutRevisions(run.props), noteRef: { ...run.noteRef, id } });
-        } else if (run.text) pos = this.insertTyped(pos, run.text, withoutRevisions(run.props));
+        } else if (run.obj) {
+          const r = this.freshDrawingRun(run.obj);
+          if (r) pos = this.insertWholeRun(pos, r);
+        } else if (run.text) pos = this.insertTyped(pos, run.text, propsOf(run));
       }
     });
+    const lastText = single ? [...single].reverse().find((r) => r.text)?.text ?? '' : '';
+    if (single && lastText && /[\p{L}\p{N}]$/u.test(lastText) && /^[\p{L}\p{N}]/u.test(this.charAfter(pos))) {
+      this.insertTyped(pos, ' ', o.mode === 'merge' ? destRun : withoutRevisions(single[single.length - 1]!.props));
+    }
     this.selection = { anchor: pos, focus: pos };
-    this.refresh();
-    this.scrollCaretIntoView();
+    return { start, end: pos, first: start.para, last: pos.para, marked };
+  }
+
+  /** Caractere antes/depois de uma posição no parágrafo ('' na borda). */
+  private charBefore(pos: DocPosition): string {
+    const t = this.model!.paragraphs[pos.para]!.runs.map((r) => r.text).join('');
+    return pos.offset > 0 ? t[pos.offset - 1] ?? '' : '';
+  }
+  private charAfter(pos: DocPosition): string {
+    const t = this.model!.paragraphs[pos.para]!.runs.map((r) => r.text).join('');
+    return t[pos.offset] ?? '';
+  }
+
+  /** A formatação que a marca copiada dá ao parágrafo que ela fecha (null: fica a do destino). */
+  private pasteMark(cp: ClipPara, mode: 'keep' | 'merge', ctx: PasteCtx, left: ParaProps): Partial<ParaProps> | null {
+    let numbering = cp.mark?.numbering;
+    if (cp.htmlList) numbering = this.htmlListNumbering(cp.htmlList, ctx);
+    else if (numbering?.numId && numbering.numId > 0 && ctx.other) {
+      // lista de outro documento: a definição vem junto (abstractNum copiado, w:num novo)
+      let id = ctx.numMap.get(numbering.numId);
+      if (id === undefined) {
+        const raw = ctx.lists?.[numbering.numId];
+        const absId = raw ? this.numbering.importAbstract(raw) : undefined;
+        id = absId !== undefined ? this.numbering.addNum(absId) : 0;
+        if (absId !== undefined) this.numTouched.add(absId);
+        ctx.numMap.set(numbering.numId, id);
+      }
+      numbering = id ? { ...numbering, numId: id } : undefined;
+    }
+    if (mode === 'merge') return numbering ? { numbering } : null;
+    if (!cp.mark) return null;
+    // Manter: a formatação toda da marca no lugar da do destino
+    const patch: Partial<ParaProps> = {};
+    for (const k of new Set([...Object.keys(paraFormatting(left)), ...Object.keys(cp.mark)])) (patch as Record<string, unknown>)[k] = (cp.mark as Record<string, unknown>)[k];
+    patch.numbering = numbering;
+    return patch;
+  }
+
+  /** Lista de um HTML colado (ul/ol): uma lista nova por lista de topo, como o Word
+   *  (vários níveis com tabulação no número; medido: html-K). */
+  private htmlListNumbering(l: NonNullable<ClipPara['htmlList']>, ctx: PasteCtx): NonNullable<ParaProps['numbering']> {
+    const key = `${l.ordered ? 'o' : 'u'}${l.key}`;
+    let numId = ctx.htmlLists.get(key);
+    if (numId === undefined) {
+      numId = this.numbering.addList(htmlListLevels(l.ordered), { multiLevelType: 'multilevel' });
+      const absId = this.numbering.abstractOf(numId);
+      if (absId !== undefined) this.numTouched.add(absId);
+      ctx.htmlLists.set(key, numId);
+    }
+    return { kind: l.ordered ? 'decimal' : 'bullet', ilvl: l.level, numId };
+  }
+
+  /** Um objeto copiado entra com id e nome de desenho novos. */
+  private freshDrawingRun(src: Run): Run | null {
+    const run = UniversalWriteElement.cloneDrawingRun(src);
+    const obj = run.textbox ?? run.shape ?? run.group ?? run.image;
+    if (!obj) return null;
+    if (obj.rawDrawingXml) {
+      const id = this.nextDrawingId();
+      obj.rawDrawingXml = obj.rawDrawingXml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a: string) => `${a}${id}"`);
+      obj.edited = true;
+    }
+    return run;
+  }
+
+  /**
+   * Listas coladas (opções do Word, medidas: list-*): fora de uma lista o padrão é Nova
+   * Lista (abstractNum copiado + w:num novo); dentro dela (ou logo depois), Mesclar.
+   * Continuar Lista junta à lista anterior de mesmo formato; Não Mesclar Lista faz dos
+   * itens colados — e dos que vêm depois na lista — uma lista nova.
+   */
+  private listPaste(r: PasteRange, mode: ListPasteMode | null): ListPasteMode | null {
+    const paras = this.model!.paragraphs;
+    const marked = r.marked.filter((k) => (paras[k]?.props.numbering?.numId ?? 0) > 0);
+    if (!marked.length) return null;
+    const ids = new Set(marked.map((k) => paras[k]!.props.numbering!.numId!));
+    const first = marked[0]!, last = marked[marked.length - 1]!;
+    const before = first > 0 ? this.paraNum(paras[first - 1]!) : null;
+    const after = last + 1 < paras.length ? this.paraNum(paras[last + 1]!) : null;
+    const inside = (!!before && ids.has(before.numId)) || (!!after && ids.has(after.numId) && !marked.includes(last + 1));
+    const m: ListPasteMode = mode ?? (inside ? 'merge' : 'new');
+    if (m === 'merge') return m;
+    for (const id of ids) {
+      const absId = this.numbering.abstractOf(id);
+      if (absId === undefined) continue;
+      let to = 0;
+      if (m === 'continue') {
+        const lvl = this.numbering.level(id, 0);
+        for (let k = first - 1; k >= 0 && !to; k--) {
+          const q = this.paraNum(paras[k]!);
+          if (q && q.numId > 0 && sameLevelFormat(this.numbering.level(q.numId, 0), lvl)) to = q.numId;
+        }
+        if (!to) continue;
+      } else {
+        const copy = this.numbering.copyAbstract(absId)!;
+        this.numTouched.add(copy);
+        to = this.numbering.addNum(copy);
+      }
+      const upto = m === 'nomerge' ? paras.length - 1 : last;
+      for (let k = first; k <= upto; k++) {
+        const q = paras[k]!;
+        if (q.props.numbering?.numId !== id) continue;
+        if (k > last && m === 'nomerge' && !after) break;
+        this.setParaAt(k, { numbering: { ...q.props.numbering, numId: to } });
+      }
+    }
+    return m;
   }
 
   /** Cola texto plano (\n divide parágrafos) HERDANDO a formatação do destino (props do caret). */
   pasteText(text: string): void {
-    if (!this.model || this.view === 'read' || !text) return;
+    if (!this.pasteTextOnly(text)) return;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+
+  /** Manter Somente Texto: o texto com a formatação do destino; o último pedaço entra no
+   *  parágrafo do cursor (medido: same-T). */
+  private pasteTextOnly(text: string): PasteRange | null {
+    if (!this.model || this.view === 'read' || !text) return null;
     this.snapshot();
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
@@ -4286,13 +4710,251 @@ export class UniversalWriteElement extends HTMLElement {
     }
     const paras = text.replace(/\r\n?/g, '\n').split('\n');
     let pos = this.selection.focus;
+    const start = { ...pos };
     paras.forEach((part, i) => {
       if (i > 0) { this.shiftAnchors(pos.para, 1); pos = this.splitAt(pos); }
       if (part) pos = this.insertTyped(pos, part); // sem props ⇒ herda o destino
     });
     this.selection = { anchor: pos, focus: pos };
+    return { start, end: pos, first: start.para, last: pos.para, marked: [] };
+  }
+
+  /** Parágrafos de um HTML colado conforme a opção: Manter (formatação direta, a base do
+   *  HTML: Times New Roman 12, espaçamento automático; medido: html-K), padrão (Título N e
+   *  Normal (Web) do documento; html-0) ou Mesclar (ênfase; html-M). */
+  private htmlClipParas(html: string, mode: PasteMode): ClipPara[] {
+    const src = htmlToParas(html);
+    const keep = mode === 'keep';
+    const web = mode === 'default' ? this.builtinStyleId('Normal (Web)') : undefined;
+    const hyper = src.some((p) => p.runs.some((r) => r.props.link)) && mode === 'default' ? this.builtinStyleId('Hyperlink') : undefined;
+    const HEAD_HALFPT = [48, 36, 27, 24, 20, 15];
+    return src.map((hp): ClipPara => {
+      const base: Partial<RunProps> = keep ? { fontAscii: 'Times New Roman', szHalfPt: hp.heading ? HEAD_HALFPT[hp.heading - 1] : 24, ...(hp.heading ? { bold: true } : {}) } : {};
+      const runs: ClipRun[] = hp.runs.map((r) => {
+        if (r.image) {
+          const run = this.htmlImageRun(r.image);
+          return { text: '', props: { ...DEFAULT_RUN_PROPS }, ...(run ? { obj: run } : {}) };
+        }
+        const props: RunProps = { ...DEFAULT_RUN_PROPS, ...base, ...r.props };
+        if (keep && r.props.link) { props.color ??= '0000FF'; if (r.props.underline === undefined) props.underline = true; }
+        if (!keep && r.props.link && hyper) props.charStyle = hyper;
+        return { text: r.text, props, ...(r.blockBold ? { blockBold: true } : {}) };
+      });
+      const mark: ParaProps = {};
+      if (hp.align && hp.align !== 'left') mark.alignment = hp.align;
+      const auto = (): void => { mark.spaceBeforeTwips = 100; mark.spaceAfterTwips = 100; mark.spaceBeforeAuto = true; mark.spaceAfterAuto = true; mark.lineTwentieths = 240; };
+      if (keep) { auto(); if (hp.heading) mark.outlineLvl = hp.heading - 1; }
+      else if (mode === 'default') {
+        if (hp.heading) mark.styleId = this.builtinStyleId(`heading ${hp.heading}`);
+        else if (hp.list) auto();
+        else if (web) mark.styleId = web;
+      }
+      return { runs, mark, ...(hp.list ? { htmlList: hp.list } : {}) };
+    // todo parágrafo do HTML é inteiro (com a marca): o do destino fica depois
+    }).concat([{ runs: [] }]);
+  }
+
+  /** Imagem de um HTML colado (data:) como imagem em linha. */
+  private htmlImageRun(img: { data: Uint8Array; ext: string; wPx?: number; hPx?: number }): Run | null {
+    const size = imageSize(img.data);
+    let w = (img.wPx ?? size?.w ?? 96) * 15, h = (img.hPx ?? (size && img.wPx ? size.h * img.wPx / size.w : size?.h) ?? 96) * 15;
+    const maxW = this.contentWidthTwips();
+    if (w > maxW) { h = (h * maxW) / w; w = maxW; }
+    return this.newImageRun(img.data, img.ext, w, h, { ...DEFAULT_RUN_PROPS });
+  }
+
+  /** Run de imagem em linha nova, com o XML que o Word grava ao inserir. */
+  private newImageRun(data: Uint8Array, ext: string, w: number, h: number, props: RunProps): Run {
+    const id = 1 + Math.floor(Math.random() * 2000000000);
+    const n = 1 + this.model!.paragraphs.reduce((k, q) => k + q.runs.filter((r) => r.image).length, 0);
+    const image: InlineImage = { data: new Uint8Array(data), ext, widthTwips: w, heightTwips: h };
+    image.rawDrawingXml = newPictureXml({ id, name: `Imagem ${n}`, rid: 'uw:media', cx: Math.round(w * 635), cy: Math.round(h * 635) });
+    image.edited = true;
+    syncImageFromXml(image);
+    return { text: '￼', props: this.newRunProps(props), image };
+  }
+
+  /** Insere uma imagem em linha com o tamanho dado (twips; cabe na largura do texto). */
+  private insertImageSized(data: Uint8Array, ext: string, w: number, h: number): void {
+    if (!this.model || this.locked()) return;
+    const maxW = this.contentWidthTwips();
+    if (w > maxW) { h = (h * maxW) / w; w = maxW; }
+    this.snapshot();
+    if (this.hasSelection()) { const p0 = this.deleteSelection(); this.selection = { anchor: p0, focus: p0 }; }
+    const run = this.newImageRun(data, ext, w, h, this.pendingProps ?? this.currentProps());
+    const pos = this.insertWholeRun(this.selection.focus, run);
+    this.selection = { anchor: pos, focus: pos };
     this.refresh();
-    this.scrollCaretIntoView();
+  }
+
+  /** Colar como Imagem: o que está na área de transferência desenhado pelo motor (PNG,
+   *  em linha, do tamanho do texto). */
+  private async pastePicture(d: PasteData): Promise<void> {
+    const paras: ClipPara[] = d.rich ? d.rich.paras : d.html ? this.htmlClipParas(d.html, 'keep') : d.text.split(/\r\n?|\n/).map((t) => ({ runs: [{ text: t, props: withoutRevisions(this.currentProps()) }] }));
+    const png = await this.renderClipPng(paras);
+    if (!png) return;
+    const depth = this.undoStack.length;
+    const start = { ...normalizeRange(this.range()).start };
+    this.insertImageSized(png.data, 'png', png.w, png.h);
+    const end = this.selection.focus;
+    this.lastPaste = { data: d, mode: 'picture', list: null, depth, start, end, first: start.para, last: end.para, marked: [] };
+    this.dispatchEvent(new CustomEvent('uw-pasted', { detail: this.pasteOptions(d) }));
+  }
+
+  /** Desenha parágrafos de cópia com o motor (largura do texto da página) e devolve o PNG. */
+  private async renderClipPng(paras: ClipPara[]): Promise<{ data: Uint8Array; w: number; h: number } | null> {
+    if (!this.fonts) return null;
+    const blocks: Paragraph[] = paras.map((cp) => ({
+      props: { ...(cp.mark ?? {}) },
+      runs: cp.runs.flatMap((r): Run[] => (r.obj ? [r.obj] : r.text ? [{ text: r.text, props: r.props }] : [])),
+    }));
+    const sp: SectPr = { ...this.sect() };
+    delete sp.pgBorders;
+    delete sp.cols;
+    sp.pageHeightTwips = Math.max(sp.pageHeightTwips, 31680);
+    const full = {
+      ...(this.fullDoc ?? {}),
+      blocks: blocks.map((paragraph) => ({ type: 'paragraph', paragraph })),
+      sections: [{ sectPr: sp, blockStart: 0, blockEnd: blocks.length - 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks: {}, footerBlocks: {} }],
+      footnotes: new Map(), endnotes: new Map(), comments: [], bookmarks: new Map(),
+    } as unknown as FullDocument;
+    let page: LayoutPage | undefined;
+    try { page = layoutDocument(full, this.liveFontProvider(), { ...this.layoutOpts(), revisions: undefined }).pages[0]; } catch { return null; }
+    if (!page?.lines.length) return null;
+    const top = Math.min(...page.lines.map((l) => l.y)), bottom = Math.max(...page.lines.map((l) => l.y + l.height));
+    const left = sp.marginLeftTwips, right = page.widthTw - sp.marginRightTwips;
+    // 2 px por pixel de 96 dpi: nítido na tela e no PDF
+    const scale = PX_PER_TWIP * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round((right - left) * scale));
+    canvas.height = Math.max(1, Math.round((bottom - top) * scale));
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
+    paintItems(ctx, page.items, this.enginePaintEnv(), {});
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/png'));
+    if (!blob) return null;
+    return { data: new Uint8Array(await blob.arrayBuffer()), w: right - left, h: bottom - top };
+  }
+
+  /**
+   * Colar Especial (Ctrl+Alt+V): os formatos do que está na área de transferência, como
+   * os do diálogo do Word (Texto Formatado (RTF), Texto não formatado, Imagem, Formato HTML,
+   * Texto Unicode não formatado), e se dá para Colar Vínculo (a cópia é deste editor e o
+   * documento de origem tem caminho no hospedeiro).
+   */
+  async pasteSpecialFormats(): Promise<{ formats: PasteSpecialFormat[]; link: boolean; source: string }> {
+    const d = await this.readClipboard();
+    this.specialData = d;
+    if (!d) return { formats: [], link: false, source: '' };
+    const f: PasteSpecialFormat[] = [];
+    if (d.rich && !d.rich.cells && !d.rich.drawing) f.push('rtf', 'text', 'picture', 'html', 'unicode');
+    else if (d.html) f.push('html', 'text', 'unicode', 'picture');
+    else if (d.text) f.push('text', 'unicode');
+    if (d.image) f.push('image');
+    const link = !!d.rich?.path && !!d.rich.src && !d.rich.cells && !d.rich.drawing;
+    return { formats: f, link, source: d.rich?.path ?? '' };
+  }
+  private specialData: PasteData | null = null;
+
+  /** Cola no formato pedido do Colar Especial (com `link`: o campo LINK do Word, medido:
+   *  special-link-rtf/-text — a origem ganha o indicador OLE_LINKn). */
+  async pasteSpecial(format: PasteSpecialFormat, o: { link?: boolean } = {}): Promise<void> {
+    if (this.locked()) return;
+    const d = this.specialData ?? await this.readClipboard();
+    this.specialData = null;
+    if (!d) return;
+    if (o.link && d.rich?.path && d.rich.src && (format === 'rtf' || format === 'html' || format === 'text' || format === 'unicode')) { this.pasteLink(d.rich, format === 'text' || format === 'unicode'); return; }
+    switch (format) {
+      case 'rtf': this.pasteData(d, 'keep'); break;
+      case 'html': this.pasteData(d.rich ? d : { ...d, rich: undefined }, d.rich ? 'keep' : 'default'); break;
+      case 'text': case 'unicode': this.pasteData(d, 'text'); break;
+      case 'picture': this.pasteData(d, 'picture'); break;
+      case 'image': if (d.image) void this.insertImage(d.image.data, d.image.ext); break;
+    }
+  }
+
+  /** Colar Vínculo: campo LINK com o caminho do documento de origem e o indicador OLE_LINKn
+   *  que marca o trecho lá; o resultado é a cópia formatada (\r) ou o texto (\t). */
+  private pasteLink(clip: RichClip, text: boolean): void {
+    const src = clip.src?.el.deref() as UniversalWriteElement | undefined;
+    if (!this.model || !clip.path || !src?.model) return;
+    const name = src.addLinkSourceBookmark(clip);
+    if (!name) return;
+    const instr = ` LINK Word.Document.12 "${clip.path.replace(/\\/g, '\\\\')}" "${name}" \\a ${text ? '\\t' : '\\r'} `;
+    this.snapshot();
+    if (this.hasSelection()) { const p0 = this.deleteSelection(); this.selection = { anchor: p0, focus: p0 }; }
+    const props = withoutRevisions(this.pendingProps ?? this.currentProps());
+    let pos = this.insertWholeRun(this.selection.focus, { text: '', props, fieldBegin: instr });
+    this.selection = { anchor: pos, focus: pos };
+    // o resultado: a cópia (sem desfazer próprio — é o mesmo passo)
+    const depth = this.undoStack.length;
+    const r = text ? this.pasteTextOnly(clipText(clip)) : this.insertClip(clip.paras, { mode: 'keep', from: clip });
+    while (this.undoStack.length > depth) this.undoStack.pop();
+    pos = r?.end ?? pos;
+    pos = this.insertWholeRun(pos, { text: '', props, fieldEnd: true });
+    this.selection = { anchor: pos, focus: pos };
+    this.lastPaste = null;
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Marca o trecho copiado com o indicador OLE_LINKn (origem do Colar Vínculo); null se o
+   *  trecho mudou desde a cópia. */
+  private addLinkSourceBookmark(clip: RichClip): string | null {
+    if (!this.model || !clip.src || clip.doc !== this.docToken) return null;
+    const { start, end } = clip.src.range;
+    const paras = this.bodyModel().paragraphs;
+    if (end.para >= paras.length) return null;
+    const now = Array.from({ length: end.para - start.para + 1 }, (_v, i) => {
+      const p = paras[start.para + i]!;
+      const t = p.runs.map((x) => (x.custom ? x.custom.fallbackText : x.noteRef ? '' : x.text)).join('');
+      return t.slice(i === 0 ? start.offset : 0, start.para + i === end.para ? end.offset : undefined);
+    }).join('\n');
+    if (now !== clip.text) return null;
+    const taken = new Set(bookmarksIn(paras).map((b) => b.name));
+    let n = 1;
+    while (taken.has(`OLE_LINK${n}`)) n++;
+    const name = `OLE_LINK${n}`;
+    addBookmarkMarks(paras, name, this.newBookmarkId(), start, end);
+    this.engPageCache.clear();
+    return name;
+  }
+
+  // ── Área de Transferência do Office (painel: os 24 últimos itens copiados) ──
+
+  /** Itens copiados (do mais novo ao mais antigo), com o texto para o painel. */
+  clipboardItems(): { id: number; text: string; kind: 'text' | 'table' | 'drawing' | 'image'; at: number }[] {
+    return OFFICE_CLIPBOARD.ring.map((x) => ({
+      id: x.id, at: x.at,
+      text: x.clip.text,
+      kind: x.clip.drawing ? 'drawing' : x.clip.cells ? 'table' : !x.clip.text && x.clip.paras.some((p) => p.runs.some((r) => r.obj)) ? 'image' : 'text',
+    }));
+  }
+  /** Cola um item do painel (como foi copiado). */
+  pasteClipboardItem(id: number, mode?: PasteMode): void {
+    const it = OFFICE_CLIPBOARD.ring.find((x) => x.id === id);
+    if (it) this.pasteData({ text: it.clip.text, rich: it.clip }, mode);
+  }
+  /** Colar Tudo: os itens, do mais antigo ao mais novo, em sequência. */
+  pasteAllClipboardItems(): void {
+    for (const it of [...OFFICE_CLIPBOARD.ring].reverse()) this.pasteData({ text: it.clip.text, rich: it.clip });
+  }
+  removeClipboardItem(id: number): void {
+    const i = OFFICE_CLIPBOARD.ring.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    OFFICE_CLIPBOARD.ring.splice(i, 1);
+    for (const f of OFFICE_CLIPBOARD.listeners) f();
+  }
+  clearClipboardItems(): void {
+    OFFICE_CLIPBOARD.ring.length = 0;
+    for (const f of OFFICE_CLIPBOARD.listeners) f();
+  }
+  /** Avisa quando os itens mudam; devolve a função que para de avisar. */
+  onClipboardChange(f: () => void): () => void {
+    OFFICE_CLIPBOARD.listeners.add(f);
+    return () => { OFFICE_CLIPBOARD.listeners.delete(f); };
   }
   toggleBorder(): void {
     const p = this.model?.paragraphs[this.selection.focus.para]?.props;
@@ -8329,17 +8991,29 @@ export class UniversalWriteElement extends HTMLElement {
       }
     });
 
+    // Ctrl sozinho logo depois de colar abre as Opções de Colagem (depois K, M, T, U)
+    let ctrlAlone = false;
+    this.input.addEventListener('keydown', (e) => { ctrlAlone = e.key === 'Control' && !e.repeat && !e.shiftKey && !e.altKey; }, true);
+    this.input.addEventListener('keyup', (e) => {
+      if (e.key !== 'Control' || !ctrlAlone) return;
+      ctrlAlone = false;
+      if (this.pasteOptions().modes.length) this.dispatchEvent(new CustomEvent('uw-paste-options', { detail: this.pasteOptions() }));
+    });
     this.input.addEventListener('paste', (e) => {
       e.preventDefault();
-      const text = e.clipboardData?.getData('text/plain') ?? '';
+      const cd = e.clipboardData;
       const plain = this.plainPasteNext;
       this.plainPasteNext = false;
-      const html = plain ? '' : e.clipboardData?.getData('text/html') ?? '';
-      if (!plain && !text && this.richClip?.drawing) this.pasteDrawing(this.richClip.drawing);
-      else if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
-      else if (/<table[\s>]/i.test(html) && this.pasteHtmlTables(html)) { /* tabela do HTML */ }
-      else if (text) this.pasteText(text);
-      this.onSelectionChange?.(); this.chromeSync?.();
+      const d: PasteData = { text: cd?.getData('text/plain') ?? '' };
+      const html = cd?.getData('text/html') ?? '';
+      if (html) d.html = html;
+      // imagem copiada (captura de tela, navegador): o arquivo vem junto
+      const file = cd ? [...cd.files].find((x) => /^image\/(png|jpeg|gif|bmp|webp)$/.test(x.type)) : undefined;
+      if (file && !d.text && !html) {
+        void file.arrayBuffer().then((b) => this.pasteData({ text: '', image: { data: new Uint8Array(b), ext: file.type.slice(6).replace('jpeg', 'jpg') } }));
+        return;
+      }
+      this.pasteData(this.withRich(d), plain ? 'text' : undefined);
     });
 
     // dica de descoberta: ao passar na margem (editável), muda cursor + avisa UI
@@ -8558,7 +9232,9 @@ export class UniversalWriteElement extends HTMLElement {
         }
         if (k.toLowerCase() === 'c') { e.preventDefault(); void this.copy(); return; }
         if (k.toLowerCase() === 'x') { e.preventDefault(); void this.cut(); return; }
-        if (k.toLowerCase() === 'v') { this.plainPasteNext = e.shiftKey; return; } // Shift = colar sem formatação; evento paste cuida
+        // Ctrl+Alt+V = Colar Especial (o diálogo é da barra); Shift = colar sem formatação; evento paste cuida
+        if (k.toLowerCase() === 'v' && e.altKey && e.code === 'KeyV') { e.preventDefault(); this.dispatchEvent(new CustomEvent('uw-paste-special')); return; }
+        if (k.toLowerCase() === 'v') { this.plainPasteNext = e.shiftKey; return; }
         const map: Record<string, () => void> = {
           b: () => this.toggleRunProp('bold'),
           i: () => this.toggleRunProp('italic'),
