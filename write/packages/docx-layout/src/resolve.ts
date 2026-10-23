@@ -48,6 +48,9 @@ export function mergeRPr(base: RPr | undefined, over: RPr | undefined): RPr {
   const f = mergeRFonts(base.rFonts, over.rFonts);
   if (f) out.rFonts = f;
   if (base.lang && over.lang) out.lang = { ...base.lang, ...over.lang };
+  // cada efeito w14 (brilho, sombra, contorno…) e cada recurso OpenType é uma propriedade da cascata
+  if (base.fx && over.fx) out.fx = { ...base.fx, ...over.fx };
+  if (base.ot && over.ot) out.ot = { ...base.ot, ...over.ot };
   return out;
 }
 

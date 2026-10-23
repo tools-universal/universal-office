@@ -92,6 +92,8 @@ if (isMain) {
     ['pictures.docx', (b) => docxToPdfRef(b, aptosFonts)],
     // frente Página (tools/gen-parity-page.mjs): marca-d'água (texto e imagem) e Cor da Página
     ['page.docx', (b) => docxToPdfRef(b, aptosFonts)],
+    // Efeitos de Texto e Tipografia (tools/gen-parity-texteffects.mjs): camadas em imagem com alfa
+    ['texteffects.docx', (b) => docxToPdfRef(b, aptosFonts)],
   ];
   const oi = process.argv.indexOf('--only');
   const only = oi >= 0 ? new Set((process.argv[oi + 1] ?? '').split(',').filter(Boolean)) : null;
@@ -104,7 +106,7 @@ if (isMain) {
     }
     const bytes = new Uint8Array(readFileSync(src));
     const pdf = await run(bytes);
-    const meta = { ...pdfMeta(pdf), ...(name === 'pictures.docx' || name === 'page.docx' ? { images: pdfImageCount(pdf) } : {}), bytes: pdf.length };
+    const meta = { ...pdfMeta(pdf), ...(name === 'pictures.docx' || name === 'page.docx' || name === 'texteffects.docx' ? { images: pdfImageCount(pdf) } : {}), bytes: pdf.length };
     writeFileSync(join(expectedDir, `${name}.pdf.meta.json`), JSON.stringify(meta, null, 2) + '\n');
     mkdirSync(inspectDir, { recursive: true });
     writeFileSync(join(inspectDir, `${name}.js.pdf`), pdf);

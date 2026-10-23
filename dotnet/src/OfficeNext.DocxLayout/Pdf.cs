@@ -295,6 +295,71 @@ public static class PdfRenderer
         return true;
     }
 
+    /// <summary>Resolução da camada dos efeitos de texto no PDF (o Word grava ~200 dpi).</summary>
+    private const double FxPpt = 200.0 / 72;
+
+    /// <summary>Os contornos dos glifos do run em comandos do PDF (pt); nulo sem contornos.</summary>
+    private static List<PathCmd>? RunPathCmds(GlyphRunItem it)
+    {
+        var font = it.Face.Font;
+        if (font is not OfficeNext.Layout.SfntFont) return null;
+        double upm = font.Metrics.UnitsPerEm;
+        double sc = it.SizePt / upm, sx = sc * (it.ScaleX ?? 1);
+        double skew = it.SynthItalic ? 0.2 : 0;
+        var cmds = new List<PathCmd>();
+        foreach (var g in it.Glyphs) OutlineInto(cmds, font, TextFx.GidOf(it, g), g.X / T, it.Y / T, sx, sc, skew);
+        return cmds;
+    }
+
+    /// <summary>Run com efeitos de texto no PDF: sombra/brilho/reflexo numa imagem com alfa atrás;
+    /// o preenchimento (sólido = texto; degradê = curvas sombreadas; nenhum = só o contorno) e o
+    /// contorno em curvas por cima (como o Word: write/tools/home-lab exp-effects).</summary>
+    private static void PaintGlyphsFxPdf(PdfPage page, GlyphRunItem it, Action<PageItem> drawPlain,
+        Func<GradGeom, byte[], PdfShading> shade, Func<byte[], int, int, PdfImage>? embedRgba)
+    {
+        var fx = it.Fx!;
+        if (embedRgba is not null && (fx.Shadow is not null || fx.Glow is not null || fx.Reflection is not null))
+        {
+            if (TextFx.FxLayers(it, fx, FxPpt, it.Color) is { } L)
+                page.DrawImage(embedRgba(L.Data, L.W, L.H), L.X0 / T, L.Y0 / T, L.W / FxPpt, L.H / FxPpt);
+        }
+        var fill = fx.Fill;
+        if (fill is { Kind: "grad" })
+        {
+            var cmds = RunPathCmds(it);
+            if (cmds is not null)
+            {
+                var b = TextFx.RunBox(it);
+                double bxp = b.X / T, byp = b.Y / T, bwp = b.W / T, bhp = b.H / T;
+                var g = Geometry.GradientGeometry(TextFx.GradOf(fill), (bxp, byp, bwp, bhp, 0), (bxp, byp, bxp + bwp, byp + bhp));
+                var sh = shade(g, Geometry.GradientSamples(fill.Stops.Select(st => new GradStop { Pos = st.Pos, Color = st.Hex }).ToList(), Js.Truthy(fill.Path) ? 256 : 512));
+                double? a0 = fill.Stops.Count > 0 && fill.Stops[0].Alpha < 1 ? fill.Stops[0].Alpha : null;
+                page.WithAlpha(a0, null, () => page.FillShaded(cmds, sh));
+            }
+        }
+        else if (fill is not { Kind: "none" })
+        {
+            var plain = (GlyphRunItem)it.ShallowClone();
+            plain.Fx = null;
+            double? a = fill is { Kind: "solid" } ? fill.Alpha : it.Alpha;
+            if (fill is { Kind: "solid" }) plain.Color = fill.Hex;
+            if (a is { } av && av < 1) { plain.Alpha = av; plain.AsPath = true; }
+            drawPlain(plain);
+        }
+        var o = fx.Outline;
+        if (o is not null && o.Fill.Kind != "none")
+        {
+            var cmds = RunPathCmds(it);
+            if (cmds is not null)
+            {
+                string color = o.Fill.Kind == "solid" ? o.Fill.Hex : o.Fill.Stops.Count > 0 ? o.Fill.Stops[0].Hex : it.Color;
+                double a = o.Fill.Kind == "solid" ? o.Fill.Alpha : 1;
+                var dash = TextFx.DashPattern(o.Dash).Select(d => d * o.WidthPt).ToArray();
+                page.WithAlpha(null, a < 1 ? a : null, () => page.Path(cmds, null, new PathStroke(HexColor(color), o.WidthPt, dash.Length > 0 ? dash : null)));
+            }
+        }
+    }
+
     /// <summary>
     /// Texto como CURVAS (WordArt, texto semitransparente, caixa girada, emoji
     /// colorido): cada glifo vira o seu contorno TrueType, preenchido. false se a
@@ -310,7 +375,7 @@ public static class PdfRenderer
         var cmds = new List<PathCmd>();
         foreach (var g in it.Glyphs)
         {
-            int gid = it.ByGid ? g.Cp : font.GlyphId(g.Cp);
+            int gid = TextFx.GidOf(it, g);
             // glifo colorido (COLR): cada camada com a sua cor, na ordem da tabela
             var layers = it.Colr ? font.ColorLayers(gid) : null;
             if (layers is not null)
@@ -343,6 +408,8 @@ public static class PdfRenderer
         {
             case GlyphRunItem it:
                 {
+                    // efeitos de texto (w14): camada atrás, o texto, o contorno
+                    if (it.Fx is not null) { PaintGlyphsFxPdf(page, it, x => PaintItem(page, x, fontFor, imageFor, shade, pictureEnv, embedRgba), shade, embedRgba); return; }
                     if (it.AsPath && GlyphsAsPath(page, it)) return;
                     var ef = fontFor(it.Face, false);
                     if (ef is null) return;

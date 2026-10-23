@@ -38,6 +38,9 @@ public sealed class RunStyle
     public double? Alpha;
     /// <summary>contorno visível (w14:textOutline com preenchimento)</summary>
     public bool Outline;
+    /// <summary>efeitos de texto w14 resolvidos (degradê, contorno, sombra, brilho, reflexo) e a chave deles</summary>
+    public ResolvedTextFx? Fx;
+    public string? FxKey;
 }
 
 public enum GlyphKind { Char, Space, Nbsp, Tab, Lb, Pb, Cb, Obj, Shy, Box }
@@ -96,6 +99,8 @@ public sealed class Glyph
     /// <summary>glifo da ligadura que este caractere abre/fecha (kerning com os vizinhos)</summary>
     public int? LigStart;
     public int? LigEnd;
+    /// <summary>glifo trocado por uma substituição OpenType (onum, tnum, ss01…)</summary>
+    public int? SubGid;
     /// <summary>pontuação que pode pendurar além da margem no fim da linha</summary>
     public bool Hang;
     /// <summary>fração de equação (m:f) diagramada — o glifo é a caixa inteira (Math.cs)</summary>
@@ -255,6 +260,22 @@ public static class Para
             Outline = rpr.TextOutline == true,
             Link = Js.Truthy(link) ? link : null,
         };
+        // preenchimento sólido w14: a cor pelo DrawingML (tx1/bg1, lumMod/lumOff…) e a opacidade
+        if (rpr.Fx?.Fill is { Type: "solid" } sf)
+        {
+            var (fh, fa) = TextFx.FxColor(sf.Color ?? new FxColor(), theme, style.Color);
+            style.Color = fh;
+            style.Alpha = fa < 1 ? fa : null;
+        }
+        var fx = TextFx.ResolveTextFx(rpr.Fx, theme, style.Color);
+        if (fx is not null)
+        {
+            style.Fx = fx;
+            style.FxKey = fx.Key();
+            // degradê: a cor "do texto" (sublinhado, tachado) é a da 1ª parada
+            if (fx.Fill is { Kind: "grad" } gf && gf.Stops.Count > 0) style.Color = gf.Stops[0].Hex;
+            if (fx.Fill is { Kind: "none" }) style.Alpha = 0;
+        }
         if (va is "superscript" or "subscript")
         {
             // medido no Word (oráculo supraise): elevação/queda pela fonte do PRÓPRIO run
@@ -437,6 +458,19 @@ public static class Para
         return outp;
     }
 
+    /// <summary>Features GSUB da tipografia w14 além das ligaduras: formas e espaçamento dos números,
+    /// conjuntos estilísticos e alternativas contextuais (calt: só as substituições simples).</summary>
+    private static List<string> OtFeatures(OpenTypeProps? ot)
+    {
+        var outp = new List<string>();
+        if (ot is null) return outp;
+        if (ot.NumForm == "oldStyle") outp.Add("onum"); else if (ot.NumForm == "lining") outp.Add("lnum");
+        if (ot.NumSpacing == "tabular") outp.Add("tnum"); else if (ot.NumSpacing == "proportional") outp.Add("pnum");
+        foreach (int n in ot.StylisticSets ?? new List<int>()) outp.Add("ss" + n.ToString("00", System.Globalization.CultureInfo.InvariantCulture));
+        if (ot.CntxtAlts == true) outp.Add("calt");
+        return outp;
+    }
+
     /// <summary>
     /// Ligaduras OpenType (w14:ligatures): o Word mede o glifo da ligadura (GSUB do script
     /// latino), não a soma das letras — Calibri "tt" −73/2048 em, "ti" −15, "fi" −11; dentro
@@ -449,16 +483,18 @@ public static class Para
     {
         // runs que ligam entre si: mesma face e corpo (testados abaixo), idioma, escala,
         // posição e ligaduras — cor, sublinhado, estilo não importam (como no kerning)
-        static (string, double, double, string, double) KeyOf(Glyph g)
+        static (string, double, double, string, double, string) KeyOf(Glyph g)
         {
             var r = g.Style.Rpr;
-            return (r.Lang?.Val ?? "", r.W ?? 100, g.Style.Shift, r.Ligatures ?? "", r.Spacing ?? 0);
+            return (r.Lang?.Val ?? "", r.W ?? 100, g.Style.Shift, r.Ligatures ?? "", r.Spacing ?? 0, r.Ot?.Key() ?? "");
         }
         for (int k = 0; k < glyphs.Count;)
         {
             var g0 = glyphs[k];
             var rpr = g0.Style.Rpr;
-            var feats = g0.Kind == GlyphKind.Char && !(rpr.Spacing is { } sp0 && sp0 != 0 && !double.IsNaN(sp0)) ? LigFeatures(rpr.Ligatures) : new List<string>();
+            var feats = g0.Kind == GlyphKind.Char
+                ? (!(rpr.Spacing is { } sp0 && sp0 != 0 && !double.IsNaN(sp0)) ? LigFeatures(rpr.Ligatures) : new List<string>()).Concat(OtFeatures(rpr.Ot)).ToList()
+                : new List<string>();
             if (feats.Count == 0) { k++; continue; }
             var key = KeyOf(g0);
             int e = k + 1;
@@ -468,13 +504,22 @@ public static class Para
                 if (q.Kind != GlyphKind.Char || !ReferenceEquals(q.Face, g0.Face) || q.SizePt != g0.SizePt || (q.RunIdx != g0.RunIdx && !KeyOf(q).Equals(key))) break;
                 e++;
             }
-            if (e - k >= 2)
+            if (e - k >= 1)
             {
                 var f = g0.Face.Font;
                 var groups = f.Ligate(glyphs.GetRange(k, e - k).Select(q => f.GlyphId(q.Cp)).ToList(), feats);
                 int pos = k;
                 foreach (var grp in groups ?? new List<(int Gid, int Len)>())
                 {
+                    // substituição simples (números antigos/tabulares, conjunto estilístico): outro glifo,
+                    // com o avanço dele (o desenho usa o glifo trocado)
+                    if (grp.Len == 1 && grp.Gid != f.GlyphId(glyphs[pos].Cp))
+                    {
+                        var q = glyphs[pos];
+                        double qw = q.Style.Rpr.W is { } qrw && qrw != 0 && !double.IsNaN(qrw) && qrw != 100 ? qrw / 100 : 1;
+                        q.Adv += (GlyphAdvTwips(ctx, q.Face, grp.Gid, q.SizePt) - GlyphAdvTwips(ctx, q.Face, f.GlyphId(q.Cp), q.SizePt)) * qw;
+                        q.SubGid = grp.Gid;
+                    }
                     if (grp.Len > 1)
                     {
                         var first = glyphs[pos];

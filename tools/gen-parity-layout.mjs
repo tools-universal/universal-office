@@ -41,7 +41,7 @@ const outDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout');
 // tools/gen-parity-pictures.mjs; caixas de texto: tools/gen-parity-textboxes.mjs)
 const inputDir = join(root, 'dotnet', 'tests', 'fixtures', 'input');
 const inputOutDir = join(root, 'dotnet', 'tests', 'fixtures', 'expected', 'layout-input');
-const INPUT_CASES = ['input/pictures', 'input/page', 'input/page-pattern', 'input/page-frame', 'input/page-tile', 'input/textboxes'];
+const INPUT_CASES = ['input/pictures', 'input/page', 'input/page-pattern', 'input/page-frame', 'input/page-tile', 'input/textboxes', 'input/texteffects'];
 
 // ─────────────────────── normalização ───────────────────────
 
@@ -157,6 +157,16 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
     alpha: optR4(b.alpha, 'blip.alpha'),
   });
 
+  /** efeitos de texto w14 resolvidos (só nos runs que têm) */
+  const fxFill = (f) => (f ? { kind: str(f.kind, 'fx.fill.kind'), ...(f.kind === 'solid' ? { color: str(f.hex, 'fx.fill.hex'), alpha: r4(f.alpha, 'fx.fill.alpha') } : {}), ...(f.kind === 'grad' ? { stops: f.stops.map((st) => [r4(st.pos, 'fx.stop.pos'), str(st.hex, 'fx.stop.hex'), r4(st.alpha, 'fx.stop.alpha')]), angle: r(f.angleDeg, 'fx.fill.angleDeg'), path: f.path ?? null } : {}) } : null);
+  const textFx = (fx) => ({
+    fill: fxFill(fx.fill),
+    outline: fx.outline ? { width: r(fx.outline.widthPt, 'fx.outline.widthPt'), fill: fxFill(fx.outline.fill), dash: fx.outline.dash ?? null } : null,
+    shadow: fx.shadow ? { blur: r(fx.shadow.blurPt, 'fx.shadow.blurPt'), dist: r(fx.shadow.distPt, 'fx.shadow.distPt'), dir: r(fx.shadow.dirDeg, 'fx.shadow.dirDeg'), sx: r4(fx.shadow.sx, 'fx.shadow.sx'), sy: r4(fx.shadow.sy, 'fx.shadow.sy'), color: str(fx.shadow.hex, 'fx.shadow.hex'), alpha: r4(fx.shadow.alpha, 'fx.shadow.alpha') } : null,
+    glow: fx.glow ? { rad: r(fx.glow.radPt, 'fx.glow.radPt'), color: str(fx.glow.hex, 'fx.glow.hex'), alpha: r4(fx.glow.alpha, 'fx.glow.alpha') } : null,
+    reflection: fx.reflection ? { blur: r(fx.reflection.blurPt, 'fx.reflection.blurPt'), stA: r4(fx.reflection.stA, 'fx.reflection.stA'), endA: r4(fx.reflection.endA, 'fx.reflection.endA'), endPos: r4(fx.reflection.endPos, 'fx.reflection.endPos'), dist: r(fx.reflection.distPt, 'fx.reflection.distPt') } : null,
+  });
+
   const item = (it) => {
     switch (it.t) {
       case 'glyphs': {
@@ -174,7 +184,9 @@ export function normalizeLayout(res, onIssue = (i) => console.warn(`aviso: ${i.w
           y: r(it.y, 'y'),
           scaleX: r(it.scaleX ?? 1, 'scaleX'),
           text: str(it.text, 'text'),
-          g: (it.glyphs ?? []).map((g) => [num(g.cp, 'glyphs.cp', 1), r(g.x, 'glyphs.x')]),
+          // glifo trocado por OpenType (onum, tnum, ss01…): o gid como 3º elemento (o do EMF é o próprio cp)
+          g: (it.glyphs ?? []).map((g) => [num(g.cp, 'glyphs.cp', 1), r(g.x, 'glyphs.x'), ...(g.gid !== undefined && g.gid !== g.cp ? [num(g.gid, 'glyphs.gid', 1)] : [])]),
+          ...(it.fx ? { fx: textFx(it.fx) } : {}),
         };
       }
       case 'rect':

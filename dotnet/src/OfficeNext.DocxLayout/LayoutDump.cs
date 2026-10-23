@@ -176,6 +176,70 @@ public static class LayoutDump
         w.WriteEndObject();
     }
 
+    private static void FxFill(Utf8JsonWriter w, string name, ResolvedFill? f)
+    {
+        if (f is null) { w.WriteNull(name); return; }
+        w.WriteStartObject(name);
+        w.WriteString("kind", f.Kind);
+        if (f.Kind == "solid") { w.WriteString("color", f.Hex); Num(w, "alpha", f.Alpha, 1e4); }
+        if (f.Kind == "grad")
+        {
+            w.WriteStartArray("stops");
+            foreach (var st in f.Stops)
+            {
+                w.WriteStartArray();
+                NumV(w, st.Pos, 1e4);
+                w.WriteStringValue(st.Hex);
+                NumV(w, st.Alpha, 1e4);
+                w.WriteEndArray();
+            }
+            w.WriteEndArray();
+            Num(w, "angle", f.AngleDeg);
+            if (f.Path is null) w.WriteNull("path"); else w.WriteString("path", f.Path);
+        }
+        w.WriteEndObject();
+    }
+
+    /// <summary>Efeitos de texto w14 resolvidos (só nos runs que têm).</summary>
+    private static void TextFxDump(Utf8JsonWriter w, ResolvedTextFx fx)
+    {
+        w.WriteStartObject("fx");
+        FxFill(w, "fill", fx.Fill);
+        if (fx.Outline is { } o)
+        {
+            w.WriteStartObject("outline");
+            Num(w, "width", o.WidthPt);
+            FxFill(w, "fill", o.Fill);
+            if (o.Dash is null) w.WriteNull("dash"); else w.WriteString("dash", o.Dash);
+            w.WriteEndObject();
+        }
+        else w.WriteNull("outline");
+        if (fx.Shadow is { } s)
+        {
+            w.WriteStartObject("shadow");
+            Num(w, "blur", s.BlurPt); Num(w, "dist", s.DistPt); Num(w, "dir", s.DirDeg);
+            Num(w, "sx", s.Sx, 1e4); Num(w, "sy", s.Sy, 1e4);
+            w.WriteString("color", s.Hex); Num(w, "alpha", s.Alpha, 1e4);
+            w.WriteEndObject();
+        }
+        else w.WriteNull("shadow");
+        if (fx.Glow is { } gl)
+        {
+            w.WriteStartObject("glow");
+            Num(w, "rad", gl.RadPt); w.WriteString("color", gl.Hex); Num(w, "alpha", gl.Alpha, 1e4);
+            w.WriteEndObject();
+        }
+        else w.WriteNull("glow");
+        if (fx.Reflection is { } r)
+        {
+            w.WriteStartObject("reflection");
+            Num(w, "blur", r.BlurPt); Num(w, "stA", r.StA, 1e4); Num(w, "endA", r.EndA, 1e4); Num(w, "endPos", r.EndPos, 1e4); Num(w, "dist", r.DistPt);
+            w.WriteEndObject();
+        }
+        else w.WriteNull("reflection");
+        w.WriteEndObject();
+    }
+
     private static void Item(Utf8JsonWriter w, PageItem it)
     {
         w.WriteStartObject();
@@ -199,9 +263,12 @@ public static class LayoutDump
                     w.WriteStartArray();
                     w.WriteNumberValue(p.Cp);
                     NumV(w, p.X);
+                    // glifo trocado por OpenType (onum, tnum, ss01…)
+                    if (p.Gid is { } gd && gd != p.Cp) w.WriteNumberValue(gd);
                     w.WriteEndArray();
                 }
                 w.WriteEndArray();
+                if (g.Fx is not null) TextFxDump(w, g.Fx);
                 break;
             case RectItem r:
                 Num(w, "x", r.X); Num(w, "y", r.Y); Num(w, "w", r.W); Num(w, "h", r.H);

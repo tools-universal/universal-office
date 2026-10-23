@@ -86,11 +86,11 @@ public static class Paint
             var st = g.Style;
             // texto SEM preenchimento (w14:noFill / alpha 100%) e sem contorno: o Word
             // não desenha nem grava no PDF (oráculo hidetext/tf-nofill, tf-alpha100)
-            if (st.Alpha == 0 && !st.Outline) { Flush(); continue; }
+            if (st.Alpha == 0 && !st.Outline && st.Fx?.Outline is null && st.Fx?.Glow is null && st.Fx?.Shadow is null && st.Fx?.Reflection is null) { Flush(); continue; }
             // emoji colorido (COLR): o Word desenha as camadas coloridas, sem texto
             // extraível (oráculo hidetext/emoji)
             bool colr = g.Face.Font.HasColorGlyphs() && g.Face.Font.ColorLayers(g.Face.Font.GlyphId(g.Cp)) is not null;
-            string key = $"{g.Face.Key}|{(g.Face.SynthBold ? 1 : 0)}{(g.Face.SynthItalic ? 1 : 0)}|{Js.Str(g.SizePt)}|{st.Color}|{Js.Str(st.Shift)}|{Js.Str(st.Rpr.W ?? 100)}|{Js.Str(st.Alpha ?? 1)}|{(colr ? "c" : "")}";
+            string key = $"{g.Face.Key}|{(g.Face.SynthBold ? 1 : 0)}{(g.Face.SynthItalic ? 1 : 0)}|{Js.Str(g.SizePt)}|{st.Color}|{Js.Str(st.Shift)}|{Js.Str(st.Rpr.W ?? 100)}|{Js.Str(st.Alpha ?? 1)}|{(colr ? "c" : "")}|{st.FxKey ?? ""}|{(g.SubGid is not null ? "g" : "")}";
             if (key != runKey)
             {
                 Flush();
@@ -104,14 +104,16 @@ public static class Paint
                     Alpha = st.Alpha,
                     // semitransparente: o Word desenha CURVAS, não texto (oráculo hidetext/tf-alpha50);
                     // emoji colorido: curvas por camada
-                    AsPath = st.Alpha is { } a && a > 0 && a < 1 || colr,
+                    // glifo trocado (OpenType): sem caractere no PDF — em curvas, como o WordArt
+                    AsPath = st.Alpha is { } a && a > 0 && a < 1 || colr || g.SubGid is not null,
                     LineBox = new LineBoxInfo(line.Baseline - st.Shift, line.Height - line.Baseline + st.Shift, pg.X, lineId),
                     Colr = colr,
+                    Fx = st.Fx,
                 };
                 text = new StringBuilder();
             }
             int cp = g.Kind == GlyphKind.Shy ? 0x2d : g.Cp;
-            run!.Glyphs.Add(new GlyphPos(cp, frameX + pg.X));
+            run!.Glyphs.Add(new GlyphPos(cp, frameX + pg.X, g.SubGid));
             text!.Append(Js.FromCodePoint(cp));
         }
         Flush();

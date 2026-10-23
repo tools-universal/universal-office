@@ -1996,7 +1996,7 @@ internal sealed class Engine
             double sxg = gr.ScaleX ?? 1;
             foreach (var g in gr.Glyphs)
             {
-                var ol = font.GlyphOutline(gr.ByGid ? g.Cp : font.GlyphId(g.Cp));
+                var ol = font.GlyphOutline(TextFx.GidOf(gr, g));
                 if (ol is null) continue;
                 foreach (var c in ol)
                 {

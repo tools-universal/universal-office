@@ -18,7 +18,7 @@
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2935.27,"scaleX":1,"text":"Textocom","g":[[84,1701],[101,1835.38],[120,1957.74],[116,2067.74],[111,2128.86],[99,2312.34],[111,2422.34],[109,2544.69]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"0563C1","y":2935.27,"scaleX":1,"text":"umlink","g":[[117,2789.08],[109,2911.43],[108,3155.81],[105,3204.69],[110,3253.57],[107,3375.92]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2935.27,"scaleX":1,"text":"nomeio.","g":[[110,3547.04],[111,3669.4],[109,3852.88],[101,4036.14],[105,4158.49],[111,4207.37],[46,4329.72]]},
-        {"t":"line","x1":2789.08,"y1":2958.58,"x2":3485.92,"y2":2958.58,"color":"0563C1","width":0.81,"dash":null}
+        {"t":"rect","x":2789.08,"y":2959.27,"w":696.85,"h":16.8,"fill":"0563C1","alpha":null}
       ],
       "lines": [
         {"ref":"b0","start":0,"end":1,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":8494},

@@ -182,6 +182,15 @@ public class PdfParityTests
         AssertStructuralParity("page.docx", pdf);
     }
 
+    [Fact]
+    public void TextEffects_Docx_Pdf_Estrutural()
+    {
+        // Efeitos de Texto e Tipografia (tools/gen-parity-texteffects.mjs): brilho, sombra e
+        // reflexo em imagens com alfa atrás do texto; degradê, contorno e glifos trocados em curvas
+        byte[] pdf = DocxPdf.ToPdf(Fixtures.InputBytes("texteffects.docx"), AptosFonts());
+        AssertStructuralParity("texteffects.docx", pdf);
+    }
+
     // ───────────── unidade: writer/subset ─────────────
 
     [Fact]

@@ -197,6 +197,10 @@ public sealed class RPr
     /// <summary>w14:ligatures (Word 2010+): ligaduras OpenType — standard, contextual, historical,
     /// discretional, combinações ou all; none = desligadas</summary>
     public string? Ligatures;
+    /// <summary>efeitos de texto w14 (preenchimento, contorno, sombra, reflexo, brilho)</summary>
+    public TextEffects? Fx;
+    /// <summary>tipografia OpenType w14 (ligaduras, números, conjuntos estilísticos, alternativas)</summary>
+    public OpenTypeProps? Ot;
     /// <summary>w:rPrChange — formatação controlada: autoria e o rPr ANTERIOR.</summary>
     public RPrChange? Change;
 
@@ -235,6 +239,9 @@ public sealed class RPr
         if (over.TextOutline is not null) o.TextOutline = over.TextOutline;
         if (over.TextShadow is not null) o.TextShadow = over.TextShadow;
         if (over.Ligatures is not null) o.Ligatures = over.Ligatures;
+        // cada efeito w14 e cada recurso OpenType é uma propriedade da cascata
+        if (over.Fx is not null) o.Fx = o.Fx is null ? over.Fx : o.Fx.With(over.Fx);
+        if (over.Ot is not null) o.Ot = o.Ot is null ? over.Ot : o.Ot.With(over.Ot);
         if (over.Change is not null) o.Change = over.Change;
         return o;
     }
@@ -1135,6 +1142,9 @@ public static class OoxmlProps
                     }
             }
         }
+        var (tfx, tot) = TextEffectsReader.Read(rPr);
+        if (tfx is not null) p.Fx = tfx;
+        if (tot is not null) p.Ot = tot;
         return p;
     }
 

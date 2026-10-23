@@ -216,7 +216,9 @@ public class ImagesAndPdfRulesTests
             + EngineRulesTests.P("<w:bookmarkStart w:id=\"0\" w:name=\"alvo\"/>" + EngineRulesTests.R("Alvo") + "<w:bookmarkEnd w:id=\"0\"/>");
         var res = EngineRulesTests.Run(EngineRulesTests.Docx(body, styles: styles));
         var g = res.Pages[0].Items.OfType<GlyphRunItem>().First(x => x.Text.StartsWith("Link", StringComparison.Ordinal));
-        bool underlined = res.Pages[0].Items.OfType<LineItem>().Any(l => Math.Abs(l.Y1 - g.Y) < 100);
+        // o sublinhado sai como retângulo (Underline.cs) — ou linha, nos casos antigos
+        bool underlined = res.Pages[0].Items.OfType<LineItem>().Any(l => Math.Abs(l.Y1 - g.Y) < 100)
+            || res.Pages[0].Items.OfType<RectItem>().Any(r => r.Y >= g.Y - 20 && r.Y - g.Y < 100 && r.H < 60);
         return (g.Color, underlined);
     }
 

@@ -8,7 +8,7 @@
       "items": [
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1847.74],[116,1970.09],[101,2031.21],[115,2153.57],[72,2324.69],[120,2483.57],[103,2593.57]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"0563C1","y":1876.34,"scaleX":1,"text":"LinkestiloHxg","g":[[76,1701],[105,1823.35],[110,1872.23],[107,1994.58],[101,2165.71],[115,2288.06],[116,2398.06],[105,2459.18],[108,2508.06],[111,2556.94],[72,2740.41],[120,2899.29],[103,3009.29]]},
-        {"t":"line","x1":1701,"y1":1899.65,"x2":3131.64,"y2":1899.65,"color":"0563C1","width":0.81,"dash":null},
+        {"t":"rect","x":1701,"y":1900.34,"w":1430.64,"h":16.8,"fill":"0563C1","alpha":null},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2129.31,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1859.88],[112,1982.23],[111,2104.58],[105,2226.94],[115,2275.81],[72,2446.94],[120,2605.81],[103,2715.81]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2382.29,"scaleX":1,"text":"AlvoHxg","g":[[65,1701],[108,1847.74],[118,1896.62],[111,2006.62],[72,2190.09],[120,2348.97],[103,2458.97]]}
       ],

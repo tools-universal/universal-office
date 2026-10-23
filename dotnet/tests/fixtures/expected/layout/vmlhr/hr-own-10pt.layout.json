@@ -7,6 +7,11 @@
       "number": 1,
       "items": [
         {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1626.47,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1828.29],[116,1943.88],[101,2017.57],[115,2127.04],[72,2262.82],[120,2399.89],[103,2495.17]]},
+        {"t":"rect","x":1701,"y":1916.82,"w":8504,"h":200,"fill":"A0A0A0","alpha":null},
+        {"t":"rect","x":1701,"y":1916.82,"w":8504,"h":4.8,"fill":"A0A0A0","alpha":null},
+        {"t":"rect","x":1701,"y":1921.62,"w":4.8,"h":190.4,"fill":"A0A0A0","alpha":null},
+        {"t":"rect","x":1701,"y":2112.02,"w":8504,"h":4.8,"fill":"E3E3E3","alpha":null},
+        {"t":"rect","x":10200.2,"y":1921.62,"w":4.8,"h":190.4,"fill":"E3E3E3","alpha":null},
         {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2557.55,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1836.35],[112,1945.81],[111,2061.4],[105,2177.42],[115,2227.9],[72,2363.69],[120,2500.76],[103,2596.04]]}
       ],
       "lines": [

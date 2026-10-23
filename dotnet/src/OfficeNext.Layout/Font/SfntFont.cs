@@ -174,7 +174,7 @@ public sealed class SfntFont : ILayoutFont
             catch (Exception) { _gsub = null; }
         }
         var g = _gsub;
-        if (g is null || g.Lookups.Count == 0 || !features.Any(f => g.Features.TryGetValue(f, out var l) && l.Any(li => g.Lookups.ContainsKey(li)))) return null;
+        if (g is null || (g.Lookups.Count == 0 && g.Singles.Count == 0) || !features.Any(f => g.Features.TryGetValue(f, out var l) && l.Any(li => g.Lookups.ContainsKey(li) || g.Singles.ContainsKey(li)))) return null;
         return Gsub.ApplyLigatures(g, gids, features);
     }
 

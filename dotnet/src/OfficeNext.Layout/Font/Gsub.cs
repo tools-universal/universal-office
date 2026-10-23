@@ -17,6 +17,8 @@ internal static class Gsub
         public Dictionary<string, List<int>> Features = new(StringComparer.Ordinal);
         /// <summary>lookups de ligadura já lidos, por índice: 1º glifo → ligaduras, na ordem da fonte</summary>
         public Dictionary<int, Dictionary<int, List<LigEntry>>> Lookups = new();
+        /// <summary>lookups de substituição simples (onum, tnum, ss01…): glifo → glifo</summary>
+        public Dictionary<int, Dictionary<int, int>> Singles = new();
     }
 
     public static GsubLigatures ParseGsubLigatures(JsDataView view, long off)
@@ -75,11 +77,21 @@ internal static class Gsub
             long lo = lookupList + U16(lookupList + 2 + (long)li * 2);
             int type = U16(lo);
             var map = new Dictionary<int, List<LigEntry>>();
+            var one = new Dictionary<int, int>();
             for (int s = 0, ns = U16(lo + 4); s < ns; s++)
             {
                 long so = lo + U16(lo + 6 + (long)s * 2);
                 int t = type;
                 if (t == 7) { t = U16(so + 2); so += U32(so + 4); }
+                if (t == 1)
+                {
+                    // substituição simples: formato 1 = delta; formato 2 = lista de substitutos
+                    int fmt = U16(so);
+                    var scov = Coverage(so + U16(so + 2));
+                    if (fmt == 1) { int d = view.GetInt16(so + 4); foreach (int g in scov) one[g] = (g + d) & 0xffff; }
+                    else if (fmt == 2) for (int k = 0, n = U16(so + 4); k < n && k < scov.Count; k++) one[scov[k]] = U16(so + 6 + (long)k * 2);
+                    continue;
+                }
                 if (t != 4 || U16(so) != 1) continue;
                 var cov = Coverage(so + U16(so + 2));
                 for (int k = 0, n = U16(so + 4); k < n && k < cov.Count; k++)
@@ -98,6 +110,7 @@ internal static class Gsub
                 }
             }
             if (map.Count > 0) res.Lookups[li] = map;
+            if (one.Count > 0) res.Singles[li] = one;
         }
         return res;
     }
@@ -117,6 +130,11 @@ internal static class Gsub
         idxSet.Sort();
         foreach (int li in idxSet)
         {
+            if (g.Singles.TryGetValue(li, out var sg))
+            {
+                outp = outp.Select(o => o.Len == 1 && sg.TryGetValue(o.Gid, out int ng) ? (ng, 1) : o).ToList();
+                continue;
+            }
             if (!g.Lookups.TryGetValue(li, out var lk)) continue;
             var next = new List<(int Gid, int Len)>();
             for (int i = 0; i < outp.Count; i++)

@@ -4,7 +4,7 @@ import type {
 import { DocContext, directPPr, directRPr } from './context.js';
 import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, shadingFill, highlightHex, resolveDrawingColor, own } from './resolve.js';
 import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbolFont, type FontFace } from './fonts.js';
-import { resolveTextFx } from './textfx.js';
+import { resolveTextFx, fxColor } from './textfx.js';
 import type { NumberMarker } from './numbering.js';
 import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
 import { markHyphenation } from './hyphenate.js';
@@ -236,6 +236,12 @@ export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: 
     ...(rpr.textOutline ? { outline: true } : {}),
     ...(link ? { link } : {}),
   };
+  // preenchimento sólido w14: a cor pelo DrawingML (tx1/bg1, lumMod/lumOff…) e a opacidade
+  if (rpr.fx?.fill?.type === 'solid') {
+    const c = fxColor(rpr.fx.fill.color, theme, style.color);
+    style.color = c.hex;
+    if (c.alpha < 1) style.alpha = c.alpha; else delete style.alpha;
+  }
   const fx = resolveTextFx(rpr.fx, theme, style.color);
   if (fx) {
     style.fx = fx;

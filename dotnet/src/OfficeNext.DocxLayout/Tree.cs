@@ -16,8 +16,9 @@ public abstract class PageItem
     public PageItem ShallowClone() => (PageItem)MemberwiseClone();
 }
 
-/// <summary>Glifo posicionado: code point + x absoluto (twips).</summary>
-public readonly record struct GlyphPos(int Cp, double X);
+/// <summary>Glifo posicionado: code point + x absoluto (twips); Gid = glifo trocado por uma
+/// substituição OpenType (onum, tnum, ss01…), desenhado em curvas.</summary>
+public readonly record struct GlyphPos(int Cp, double X, int? Gid = null);
 
 public sealed class GlyphRunItem : PageItem
 {
@@ -58,6 +59,8 @@ public sealed class GlyphRunItem : PageItem
     /// <summary>glifos COLORIDOS (COLR, ex.: Segoe UI Emoji): curvas por camada, nas
     /// cores da paleta — o Word também não grava texto extraível para eles</summary>
     public bool Colr;
+    /// <summary>efeitos de texto w14 (degradê, contorno, sombra, brilho, reflexo)</summary>
+    public ResolvedTextFx? Fx;
 }
 
 /// <summary>Caixa da linha de um run de glifos (GlyphRunItem.LineBox).</summary>
