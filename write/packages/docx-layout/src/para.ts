@@ -1091,7 +1091,20 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
       const ms = resolveRunStyle(ctx, mrpr, env);
       const mg: Glyph[] = [];
       let w = 0;
-      for (const ch of Array.from(nm.text)) {
+      // marcador de imagem (w:lvlPicBulletId): a figura no lugar do caractere — altura = corpo
+      // do nível − 2 pt, largura pela proporção, o pé na linha de base; a altura entra na
+      // ascendente da linha (oráculo home-lab picbullet: 6→4, 8→6, 11→9, 14→12, 30→28, 48→46 pt)
+      const pb = nm.level.lvlPicBulletId !== undefined ? ctx.fmt.numbering.picBullets?.[nm.level.lvlPicBulletId] : undefined;
+      if (pb?.image) {
+        const hTw = Math.max(1, ms.sizePt - 2) * 20;
+        const ratio = pb.widthPt && pb.heightPt ? pb.widthPt / pb.heightPt : 1;
+        const wTw = hTw * ratio;
+        const face = faceFor(ctx, mrpr, 0x41, ms);
+        const run: Run = { text: '\uFFFC', props: { bold: false, italic: false, underline: false, strike: false, allCaps: false, smallCaps: false }, image: { data: pb.image.data, ext: pb.image.ext, widthTwips: wTw, heightTwips: hTw } };
+        mg.push({ kind: 'obj', ch: '\uFFFC', cp: 0xfffc, face, style: { ...ms, shift: 0 }, adv: wTw, asc: hTw, desc: 0, offset: -1, runIdx: -1, breakAfter: false, sizePt: ms.sizePt, obj: run });
+        w += wTw;
+      }
+      for (const ch of pb?.image ? [] : Array.from(nm.text)) {
         const cp = ch.codePointAt(0)!;
         const face = faceFor(ctx, mrpr, cp, ms);
         const m = faceMetrics(notdefPua(face, cp) ? faceFor(ctx, mrpr, 0x41, ms).font : face.font);

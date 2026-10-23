@@ -41,6 +41,8 @@ public sealed class RunStyle
     /// <summary>efeitos de texto w14 resolvidos (degradê, contorno, sombra, brilho, reflexo) e a chave deles</summary>
     public ResolvedTextFx? Fx;
     public string? FxKey;
+
+    public RunStyle Clone() => (RunStyle)MemberwiseClone();
 }
 
 public enum GlyphKind { Char, Space, Nbsp, Tab, Lb, Pb, Cb, Obj, Shy, Box }
@@ -1281,7 +1283,24 @@ public static class Para
                 var ms = ResolveRunStyle(ctx, mrpr, env);
                 var mg = new List<Glyph>();
                 double w = 0;
-                foreach (var ch in Js.CodePoints(nm.Text))
+                // marcador de imagem (w:lvlPicBulletId): a figura no lugar do caractere — altura = corpo
+                // do nível − 2 pt, largura pela proporção, o pé na linha de base; a altura entra na
+                // ascendente da linha (oráculo home-lab picbullet: 6→4, 8→6, 11→9, 14→12, 30→28, 48→46 pt)
+                PicBullet? pb = nm.Level.LvlPicBulletId is { } pbid && ctx.Fmt.Numbering.PicBullets.TryGetValue(pbid, out var pbv) ? pbv : null;
+                bool pic = pb?.ImageData is not null;
+                if (pic)
+                {
+                    double hTw = Math.Max(1, ms.SizePt - 2) * 20;
+                    double ratio = pb!.WidthPt is { } pw && pb.HeightPt is { } ph && ph != 0 ? pw / ph : 1;
+                    double wTw = hTw * ratio;
+                    var face = FaceFor(ctx, mrpr, 0x41, ms);
+                    var st = ms.Clone();
+                    st.Shift = 0;
+                    var run = new Run { Text = "\uFFFC", Image = new InlineImage { Data = pb.ImageData!, Ext = pb.ImageExt ?? "png", WidthTwips = wTw, HeightTwips = hTw } };
+                    mg.Add(new Glyph { Kind = GlyphKind.Obj, Ch = "\uFFFC", Cp = 0xfffc, Face = face, Style = st, Adv = wTw, Asc = hTw, Desc = 0, Offset = -1, RunIdx = -1, BreakAfter = false, SizePt = ms.SizePt, Obj = run });
+                    w += wTw;
+                }
+                foreach (var ch in pic ? Enumerable.Empty<string>() : Js.CodePoints(nm.Text))
                 {
                     int cp = Js.CodePointAt0(ch);
                     var face = FaceFor(ctx, mrpr, cp, ms);

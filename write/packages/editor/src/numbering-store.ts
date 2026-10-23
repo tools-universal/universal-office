@@ -2,7 +2,7 @@
 // verdade (o que não mexemos sai byte a byte); listas novas e mudanças entram como o Word
 // as grava (oráculo write/tools/home-lab exp-lists/listkeys/listcmds.ps1; memória
 // word-lists-facts). Sem DOM — testável em Node.
-import { readNumbering, type Numbering, type NumLevel } from '@universal-office/docx-core';
+import { readNumbering, type Numbering, type NumLevel, type DocxPackage } from '@universal-office/docx-core';
 import type { LibraryList } from './list-library.js';
 
 /** Raiz da parte nova (só os espaços de nomes que o conteúdo usa). */
@@ -12,6 +12,17 @@ const ROOT_OPEN = '<w:numbering xmlns:mc="http://schemas.openxmlformats.org/mark
   + 'xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" '
   + 'mc:Ignorable="w14 w15">';
 const PART_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
+
+/** O v:shapetype das imagens (o Word grava um por parte, antes do 1º marcador de imagem). */
+const SHAPETYPE_75 = '<v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f">'
+  + '<v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/>'
+  + '<v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/>'
+  + '<v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/>'
+  + '<v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype>';
+const NS: Record<string, string> = {
+  v: 'urn:schemas-microsoft-com:vml', o: 'urn:schemas-microsoft-com:office:office', r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+};
+const IMG_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 
 const hex8 = (): string => Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase().padStart(8, '0');
 
@@ -40,7 +51,13 @@ export class DocNumbering {
   private v = 0;
   private cache: { xml: string | null; parsed: Numbering } | null = null;
 
-  constructor(xml: string | null | undefined) { this.versions = [xml ?? null]; }
+  /** imagens da parte (marcadores de imagem): r:id → bytes; `fresh` = criada no editor (vai para o pacote ao salvar) */
+  readonly images = new Map<string, { data: Uint8Array; ext: string; fresh?: boolean }>();
+
+  constructor(xml: string | null | undefined, images?: ReadonlyMap<string, { data: Uint8Array; ext: string }>) {
+    this.versions = [xml ?? null];
+    if (images) for (const [k, v] of images) this.images.set(k, v);
+  }
 
   /** texto atual da parte */
   get xml(): string | null { return this.versions[this.v] ?? null; }
@@ -56,8 +73,64 @@ export class DocNumbering {
 
   /** A numeração lida (o motor de layout usa esta). */
   parsed(): Numbering {
-    if (this.cache?.xml !== this.xml) this.cache = { xml: this.xml, parsed: readNumbering(this.xml ?? undefined) };
+    if (this.cache?.xml !== this.xml) {
+      const parsed = readNumbering(this.xml ?? undefined);
+      // marcadores de imagem: os bytes pela relação da parte
+      for (const pb of Object.values(parsed.picBullets)) { const im = pb.rid ? this.images.get(pb.rid) : undefined; if (im) pb.image = { data: im.data, ext: im.ext }; }
+      this.cache = { xml: this.xml, parsed };
+    }
     return this.cache.parsed;
+  }
+
+  /**
+   * Marcador de imagem novo (w:numPicBullet com o VML que o Word grava: v:shape o:bullet com o
+   * tamanho natural e v:imagedata pela relação da parte — oráculo home-lab picbullet). Devolve
+   * o w:numPicBulletId.
+   */
+  addPicBullet(img: { data: Uint8Array; ext: string }, wPt: number, hPt: number, title = 'bullet'): number {
+    let xml = this.ensure();
+    const ids = [...xml.matchAll(/<w:numPicBullet\b[^>]*\bw:numPicBulletId="(\d+)"/g)].map((m) => parseInt(m[1]!, 10));
+    const id = ids.length ? Math.max(...ids) + 1 : 0;
+    let n = 1;
+    while (this.images.has(`rIdUwPb${n}`) || xml.includes(`"rIdUwPb${n}"`)) n++;
+    const rid = `rIdUwPb${n}`;
+    this.images.set(rid, { ...img, fresh: true });
+    // o elemento raiz precisa dos prefixos v:, o: e r:
+    const open = /<w:numbering\b[^>]*>/.exec(xml)![0];
+    let open2 = open;
+    for (const [p, uri] of Object.entries(NS)) if (!new RegExp(`\\bxmlns:${p}=`).test(open2)) open2 = open2.replace(/>$/, ` xmlns:${p}="${uri}">`);
+    if (open2 !== open) xml = xml.replace(open, () => open2);
+    const num = (v: number): string => String(Math.round(v * 100) / 100);
+    const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    const pb = `<w:numPicBullet w:numPicBulletId="${id}"><w:pict>${xml.includes('id="_x0000_t75"') ? '' : SHAPETYPE_75}`
+      + `<v:shape id="_x0000_i${1025 + id}" type="#_x0000_t75" style="width:${num(wPt)}pt;height:${num(hPt)}pt" o:bullet="t"><v:imagedata r:id="${rid}" o:title="${esc(title)}"/></v:shape></w:pict></w:numPicBullet>`;
+    // os w:numPicBullet vêm primeiro (CT_Numbering)
+    const lastPb = xml.lastIndexOf('</w:numPicBullet>');
+    const at = lastPb >= 0 ? lastPb + '</w:numPicBullet>'.length : xml.indexOf(open2) + open2.length;
+    this.set(xml.slice(0, at) + pb + xml.slice(at));
+    return id;
+  }
+
+  /** Grava as imagens novas que a numeração usa: a mídia, a relação da parte e o tipo. */
+  writeImages(pkg: DocxPackage, partPath: string): void {
+    const xml = this.xml ?? '';
+    const used = [...this.images].filter(([rid, im]) => im.fresh && xml.includes(`r:id="${rid}"`));
+    if (!used.length) return;
+    const slash = partPath.lastIndexOf('/');
+    const relsPath = `${partPath.slice(0, slash + 1)}_rels/${partPath.slice(slash + 1)}.rels`;
+    let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    let ct = pkg.getPartText('[Content_Types].xml');
+    for (const [rid, im] of used) {
+      if (rels.includes(`Id="${rid}"`)) continue;
+      const ext = im.ext === 'jpg' ? 'jpeg' : im.ext;
+      let k = 1;
+      while (pkg.getPart(`word/media/uwbullet${k}.${ext}`)) k++;
+      pkg.setPart(`word/media/uwbullet${k}.${ext}`, im.data);
+      rels = rels.replace('</Relationships>', () => `<Relationship Id="${rid}" Type="${IMG_TYPE}" Target="media/uwbullet${k}.${ext}"/></Relationships>`);
+      if (ct && !new RegExp(`Extension="${ext}"`, 'i').test(ct)) ct = ct.replace('</Types>', () => `<Default Extension="${ext}" ContentType="image/${ext}"/></Types>`);
+    }
+    pkg.setPartText(relsPath, rels);
+    if (ct) pkg.setPartText('[Content_Types].xml', ct);
   }
 
   private ensure(): string {

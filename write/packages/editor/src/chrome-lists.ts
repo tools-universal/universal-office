@@ -370,9 +370,25 @@ async function bulletDialog(env: DialogEnv, families: string[]): Promise<void> {
   const prev = levelPreview(ed, lang, () => st.levels, () => st.ilvl);
   const symBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Symbol...', 'Símbolo...') });
   const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...') });
+  // Imagem…: o arquivo vira o marcador (w:numPicBullet); a miniatura mostra o escolhido
+  const picBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Picture...', 'Imagem...') });
+  const thumb = el('img', { alt: '', style: 'height:24px;max-width:48px;object-fit:contain;display:none' });
+  let picture: { data: Uint8Array; ext: string; name: string } | null = null;
+  picBtn.addEventListener('click', () => {
+    const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/gif' });
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const ext = ({ 'image/jpeg': 'jpeg', 'image/gif': 'gif' } as Record<string, string>)[file.type] ?? 'png';
+      picture = { data: new Uint8Array(await file.arrayBuffer()), ext, name: file.name.replace(/\.[^.]+$/, '') };
+      thumb.src = URL.createObjectURL(file);
+      thumb.style.display = '';
+    });
+    input.click();
+  });
   symBtn.addEventListener('click', async () => {
     const r = await symbolDialog(env, families, { char: lvl().lvlText, font: lvl().font });
-    if (r) { Object.assign(lvl(), { lvlText: r.char, font: r.font }); prev.paint(); }
+    if (r) { Object.assign(lvl(), { lvlText: r.char, font: r.font }); picture = null; thumb.style.display = 'none'; prev.paint(); }
   });
   fontBtn.addEventListener('click', async () => {
     const r = await markFontDialog(env, families, lvl());
@@ -380,12 +396,12 @@ async function bulletDialog(env: DialogEnv, families: string[]): Promise<void> {
   });
   align.addEventListener('change', () => { lvl().jc = align.value as 'left'; prev.paint(); });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-    group(tr(lang, 'Bullet character', 'Caractere de marcador'), row(symBtn, fontBtn)),
+    group(tr(lang, 'Bullet character', 'Caractere de marcador'), row(symBtn, picBtn, fontBtn, thumb)),
     row(tr(lang, 'Alignment:', 'Alinhamento:'), align),
     group(tr(lang, 'Preview', 'Visualização'), prev.el));
   if (!await ask(env, tr(lang, 'Define New Bullet', 'Definir Novo Marcador'), body)) return;
   const l = lvl();
-  const f: ListLevelFormat = { bullet: l.lvlText, align: align.value as 'left', ...(l.font ? { font: l.font } : {}), ...(l.bold ? { bold: true } : {}), ...(l.italic ? { italic: true } : {}), ...(l.sizePt ? { sizePt: l.sizePt } : {}), ...(l.color ? { color: l.color } : {}) };
+  const f: ListLevelFormat = { ...(picture ? { picture } : { bullet: l.lvlText }), align: align.value as 'left', ...(l.font ? { font: l.font } : {}), ...(l.bold ? { bold: true } : {}), ...(l.italic ? { italic: true } : {}), ...(l.sizePt ? { sizePt: l.sizePt } : {}), ...(l.color ? { color: l.color } : {}) };
   ed.defineListLevel(f);
   rememberList(env.app, 'bullet', [{ ...l, jc: f.align }]);
 }

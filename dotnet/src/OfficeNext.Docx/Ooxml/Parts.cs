@@ -170,6 +170,9 @@ public sealed class PicBullet
     public string? Rid;
     public double? WidthPt;
     public double? HeightPt;
+    /// <summary>a imagem (resolvida pela relação da parte de numeração)</summary>
+    public byte[]? ImageData;
+    public string? ImageExt;
 }
 
 public sealed class Numbering
@@ -390,8 +393,15 @@ public static class OoxmlParts
         return lvl;
     }
 
-    private static readonly Regex WidthPtRe = new(@"width:\s*([0-9.]+)pt", RegexOptions.CultureInvariant);
-    private static readonly Regex HeightPtRe = new(@"height:\s*([0-9.]+)pt", RegexOptions.CultureInvariant);
+    /// <summary>Comprimento de estilo VML ("360pt", "5in", "480px", "2cm") em pontos.</summary>
+    private static double? VmlLenPt(string style, string prop)
+    {
+        var m = Regex.Match(style, @"(?:^|;)\s*" + prop + @":\s*([0-9.]+)\s*(pt|in|px|cm|mm|pc)?", RegexOptions.CultureInvariant);
+        if (!m.Success) return null;
+        double v = Js.ParseFloat(m.Groups[1].Value);
+        double k = (m.Groups[2].Success ? m.Groups[2].Value : "px") switch { "pt" => 1, "in" => 72, "px" => 0.75, "cm" => 72 / 2.54, "mm" => 72 / 25.4, "pc" => 12, _ => 1 };
+        return double.IsFinite(v) ? v * k : null;
+    }
 
     public static Numbering ReadNumbering(string? xml)
     {
@@ -408,10 +418,8 @@ public static class OoxmlParts
             if (Js.Truthy(rid)) bullet.Rid = rid;
             var shape = Find(pb, "v:shape");
             string style = shape?.Attr("style") ?? "";
-            var w = WidthPtRe.Match(style);
-            var h = HeightPtRe.Match(style);
-            if (w.Success) bullet.WidthPt = Js.ParseFloat(w.Groups[1].Value);
-            if (h.Success) bullet.HeightPt = Js.ParseFloat(h.Groups[1].Value);
+            if (VmlLenPt(style, "width") is { } w) bullet.WidthPt = w;
+            if (VmlLenPt(style, "height") is { } h) bullet.HeightPt = h;
             outp.PicBullets[id] = bullet;
         }
         foreach (var an in ChildElements(root, "w:abstractNum"))
@@ -642,10 +650,47 @@ public static class OoxmlParts
         return fallback;
     }
 
-    public static DocFormatting ReadDocFormatting(DocxPackage pkg) => new()
+    /// <summary>Imagens da parte de numeração (os marcadores de imagem): r:id → bytes e extensão.</summary>
+    public static Dictionary<string, (byte[] Data, string Ext)> NumberingImages(DocxPackage pkg)
+    {
+        var outp = new Dictionary<string, (byte[], string)>(StringComparer.Ordinal);
+        string part = PartByRelType(pkg, "numbering", "word/numbering.xml");
+        int slash = part.LastIndexOf('/');
+        string dir = part[..(slash + 1)];
+        string? rels = pkg.GetPartText(dir + "_rels/" + part[(slash + 1)..] + ".rels");
+        if (rels is null) return outp;
+        foreach (var rel in ChildElements(Parse(rels), "Relationship"))
+        {
+            string? id = rel.Attr("Id"), target = rel.Attr("Target");
+            if (!Js.Truthy(id) || !Js.Truthy(target) || rel.Attr("TargetMode") == "External" || !(rel.Attr("Type") ?? "").EndsWith("/image", StringComparison.Ordinal)) continue;
+            // caminho relativo à pasta da parte ("media/x.png", "../media/x.png") ou absoluto
+            var segs = (target!.StartsWith('/') ? target[1..] : dir + target).Split('/');
+            var p = new List<string>();
+            foreach (var g in segs) { if (g == "..") { if (p.Count > 0) p.RemoveAt(p.Count - 1); } else if (g.Length > 0 && g != ".") p.Add(g); }
+            var data = pkg.GetPart(string.Join('/', p));
+            if (data is null) continue;
+            var em = Regex.Match(target, @"\.([a-z0-9]+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            outp[id!] = (data, em.Success ? em.Groups[1].Value.ToLowerInvariant() : "png");
+        }
+        return outp;
+    }
+
+    public static DocFormatting ReadDocFormatting(DocxPackage pkg)
+    {
+        var numbering = ReadNumbering(pkg.GetPartText(PartByRelType(pkg, "numbering", "word/numbering.xml")));
+        if (numbering.PicBullets.Count > 0)
+        {
+            var imgs = NumberingImages(pkg);
+            foreach (var pb in numbering.PicBullets.Values)
+                if (pb.Rid is not null && imgs.TryGetValue(pb.Rid, out var im)) { pb.ImageData = im.Data; pb.ImageExt = im.Ext; }
+        }
+        return ReadDocFormattingWith(pkg, numbering);
+    }
+
+    private static DocFormatting ReadDocFormattingWith(DocxPackage pkg, Numbering numbering) => new()
     {
         Styles = ReadStyleSheet(pkg.GetPartText(PartByRelType(pkg, "styles", "word/styles.xml"))),
-        Numbering = ReadNumbering(pkg.GetPartText(PartByRelType(pkg, "numbering", "word/numbering.xml"))),
+        Numbering = numbering,
         Theme = ReadTheme(pkg.GetPartText(PartByRelType(pkg, "theme", "word/theme/theme1.xml"))),
         Settings = ReadSettings(pkg.GetPartText(PartByRelType(pkg, "settings", "word/settings.xml"))),
         FontTable = ReadFontTable(pkg.GetPartText(PartByRelType(pkg, "fontTable", "word/fontTable.xml"))),

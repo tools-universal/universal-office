@@ -250,7 +250,7 @@ import {
   type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
 } from './navigation.js';
 import { guardRuns } from './edit-guard.js';
-import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, partByRelType, writeNumberingPart, type HyphenationSettings, type NumLevel, type TextEffects, type OpenTypeProps, type FxColor } from '@universal-office/docx-core';
+import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, partByRelType, writeNumberingPart, numberingImages, type HyphenationSettings, type NumLevel, type TextEffects, type OpenTypeProps, type FxColor } from '@universal-office/docx-core';
 import {
   lineNumberingInfo, lineNumberingOn, withLineNumberMode, lineNumberingFromOptions, flowValue, flowDirect, spacingDirect, common,
   wordAround, manualPoints, offsetAfterLetters, FLOW_FLAGS, HYPHENATION_LIMITS, PARAGRAPH_LAYOUT_LIMITS,
@@ -1749,7 +1749,7 @@ export class UniversalWriteElement extends HTMLElement {
     // com a fonte XML original: o salvar devolve cru tudo o que não for editado
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
-    this.resetNumbering(this.pkg.getPartText(partByRelType(this.pkg, 'numbering', 'word/numbering.xml')) ?? null);
+    this.resetNumbering(this.pkg.getPartText(partByRelType(this.pkg, 'numbering', 'word/numbering.xml')) ?? null, numberingImages(this.pkg));
     this.loadedFormat = 'docx';
     // controle de alterações: o documento abre como foi salvo (w:trackRevisions)
     this.tracking = readTrackRevisions(this.pkg);
@@ -2008,7 +2008,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText('word/styles.xml') ?? null);
-    this.resetNumbering(this.pkg.getPartText('word/numbering.xml') ?? null);
+    this.resetNumbering(this.pkg.getPartText('word/numbering.xml') ?? null, numberingImages(this.pkg));
     this.tracking = false;
     this.installFullDoc();
   }
@@ -3033,8 +3033,8 @@ export class UniversalWriteElement extends HTMLElement {
   private lastBullet = 0;
   private lastNumber = 0;
 
-  private resetNumbering(xml: string | null): void {
-    this.numbering = new DocNumbering(xml);
+  private resetNumbering(xml: string | null, images?: ReadonlyMap<string, { data: Uint8Array; ext: string }>): void {
+    this.numbering = new DocNumbering(xml, images);
     this.numbering.styleNum = (id) => this.docStyles.sheet().styles[id]?.pPr?.numPr?.numId;
     this.numTouched = new Set();
   }
@@ -3491,7 +3491,9 @@ export class UniversalWriteElement extends HTMLElement {
    * alinhamento. Sem w:tplc (formato próprio, como o Word grava).
    */
   defineListLevel(o: ListLevelFormat): void {
-    if (!this.model || this.locked() || (o.bullet === undefined && !o.numFmt)) return;
+    if (!this.model || this.locked() || (o.bullet === undefined && !o.numFmt && !o.picture)) return;
+    // marcador de imagem: o caractere do Symbol fica de reserva (como o Word grava)
+    if (o.picture && o.bullet === undefined) o = { ...o, bullet: '\uF0B7', font: o.font ?? 'Symbol' };
     const had = this.listInfo();
     if (!had || had.absId < 0) this.applyListLibrary(o.bullet !== undefined ? 'bullet' : 'number', 0);
     else this.snapshot();
@@ -3500,8 +3502,16 @@ export class UniversalWriteElement extends HTMLElement {
     const raw = this.numbering.levelXml(cur.absId, cur.ilvl) ?? '';
     const ind = /<w:ind\b[^>]*\/>/.exec(raw)?.[0] ?? `<w:ind w:left="${720 * (cur.ilvl + 1)}" w:hanging="360"/>`;
     const bullet = o.bullet !== undefined;
+    // marcador de imagem: w:numPicBullet novo (tamanho natural da imagem, 96 dpi) e w:lvlPicBulletId
+    let picId: number | undefined;
+    if (o.picture) {
+      const px = imageSize(o.picture.data);
+      const wPt = (px?.w ?? 96) * 0.75, hPt = (px?.h ?? 96) * 0.75;
+      picId = this.numbering.addPicBullet(o.picture, wPt, hPt, o.picture.name ?? 'bullet');
+    }
     const lvl = `<w:lvl w:ilvl="${cur.ilvl}"><w:start w:val="${bullet ? 1 : Math.max(0, Math.round(o.start ?? cur.level?.start ?? 1))}"/>`
       + `<w:numFmt w:val="${bullet ? 'bullet' : escAttr(o.numFmt!)}"/><w:lvlText w:val="${escAttr(bullet ? o.bullet! : o.lvlText ?? `%${cur.ilvl + 1}.`)}"/>`
+      + (picId !== undefined ? `<w:lvlPicBulletId w:val="${picId}"/>` : '')
       + `<w:lvlJc w:val="${o.align ?? 'left'}"/><w:pPr>${ind}</w:pPr>${levelRPrXml(o)}</w:lvl>`;
     this.numbering.setLevel(cur.absId, cur.ilvl, lvl);
     this.numTouched.add(cur.absId);
@@ -7918,7 +7928,11 @@ export class UniversalWriteElement extends HTMLElement {
 
     // numeração: só regrava a parte se o editor mexeu (antes do corpo: as listas
     // geradas 1001/1002 dos parágrafos sem numId se juntam a ela)
-    if (this.numbering.dirty && this.numbering.xml) writeNumberingPart(pkg, this.numberingOut(blocks, hfParts));
+    if (this.numbering.dirty && this.numbering.xml) {
+      writeNumberingPart(pkg, this.numberingOut(blocks, hfParts));
+      // marcadores de imagem novos: a mídia e a relação da parte
+      this.numbering.writeImages(pkg, partByRelType(pkg, 'numbering', 'word/numbering.xml'));
+    }
 
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : undefined,
@@ -22275,6 +22289,8 @@ const SYMBOL_UNICODE: Record<string, string> = {
 export interface ListLevelFormat {
   /** marcador: o caractere */
   bullet?: string;
+  /** marcador de imagem (Definir Novo Marcador › Imagem): os bytes (png, jpeg, gif) e o nome */
+  picture?: { data: Uint8Array; ext: string; name?: string };
   /** número: w:numFmt (decimal, upperRoman, lowerLetter…) e o texto ("%1.") */
   numFmt?: string;
   lvlText?: string;

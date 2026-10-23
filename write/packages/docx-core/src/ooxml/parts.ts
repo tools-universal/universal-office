@@ -155,6 +155,17 @@ export interface PicBullet {
   rid?: string;
   widthPt?: number;
   heightPt?: number;
+  /** a imagem (resolvida pela relação da parte de numeração) */
+  image?: { data: Uint8Array; ext: string };
+}
+
+/** Comprimento de estilo VML ("360pt", "5in", "480px", "2cm") em pontos. */
+function vmlLenPt(style: string, prop: string): number | undefined {
+  const m = new RegExp(`(?:^|;)\\s*${prop}:\\s*([0-9.]+)\\s*(pt|in|px|cm|mm|pc)?`).exec(style);
+  if (!m) return undefined;
+  const v = parseFloat(m[1]!);
+  const k = ({ pt: 1, in: 72, px: 0.75, cm: 72 / 2.54, mm: 72 / 25.4, pc: 12 } as Record<string, number>)[m[2] ?? 'px'] ?? 1;
+  return Number.isFinite(v) ? v * k : undefined;
 }
 
 export interface Numbering {
@@ -217,10 +228,10 @@ export function readNumbering(xml: string | undefined): Numbering {
     if (rid) bullet.rid = rid;
     const shape = find(pb, 'v:shape');
     const style = shape?.attrs['style'] ?? '';
-    const w = /width:\s*([0-9.]+)pt/.exec(style);
-    const h = /height:\s*([0-9.]+)pt/.exec(style);
-    if (w) bullet.widthPt = parseFloat(w[1]!);
-    if (h) bullet.heightPt = parseFloat(h[1]!);
+    const w = vmlLenPt(style, 'width');
+    const h = vmlLenPt(style, 'height');
+    if (w !== undefined) bullet.widthPt = w;
+    if (h !== undefined) bullet.heightPt = h;
     out.picBullets[id] = bullet;
   }
   for (const an of childElements(root, 'w:abstractNum')) {
@@ -527,10 +538,37 @@ export function partByRelType(pkg: DocxPackage, type: string, fallback: string):
   return fallback;
 }
 
+/** Imagens da parte de numeração (os marcadores de imagem): r:id → bytes e extensão. */
+export function numberingImages(pkg: DocxPackage): Map<string, { data: Uint8Array; ext: string }> {
+  const out = new Map<string, { data: Uint8Array; ext: string }>();
+  const part = partByRelType(pkg, 'numbering', 'word/numbering.xml');
+  const slash = part.lastIndexOf('/');
+  const dir = part.slice(0, slash + 1);
+  const rels = pkg.getPartText(`${dir}_rels/${part.slice(slash + 1)}.rels`);
+  if (!rels) return out;
+  for (const rel of childElements(parseXml(rels), 'Relationship')) {
+    const id = rel.attrs['Id'], target = rel.attrs['Target'];
+    if (!id || !target || rel.attrs['TargetMode'] === 'External' || !(rel.attrs['Type'] ?? '').endsWith('/image')) continue;
+    // caminho relativo à pasta da parte ("media/x.png", "../media/x.png") ou absoluto
+    const segs = (target.startsWith('/') ? target.slice(1) : dir + target).split('/');
+    const path: string[] = [];
+    for (const g of segs) { if (g === '..') path.pop(); else if (g && g !== '.') path.push(g); }
+    const data = pkg.getPart(path.join('/'));
+    if (!data) continue;
+    out.set(id, { data, ext: (/\.([a-z0-9]+)$/i.exec(target)?.[1] ?? 'png').toLowerCase() });
+  }
+  return out;
+}
+
 export function readDocFormatting(pkg: DocxPackage): DocFormatting {
+  const numbering = readNumbering(pkg.getPartText(partByRelType(pkg, 'numbering', 'word/numbering.xml')));
+  if (Object.keys(numbering.picBullets).length) {
+    const imgs = numberingImages(pkg);
+    for (const pb of Object.values(numbering.picBullets)) { const im = pb.rid ? imgs.get(pb.rid) : undefined; if (im) pb.image = im; }
+  }
   return {
     styles: readStyleSheet(pkg.getPartText(partByRelType(pkg, 'styles', 'word/styles.xml'))),
-    numbering: readNumbering(pkg.getPartText(partByRelType(pkg, 'numbering', 'word/numbering.xml'))),
+    numbering,
     theme: readTheme(pkg.getPartText(partByRelType(pkg, 'theme', 'word/theme/theme1.xml'))),
     settings: readSettings(pkg.getPartText(partByRelType(pkg, 'settings', 'word/settings.xml'))),
     fontTable: readFontTable(pkg.getPartText(partByRelType(pkg, 'fontTable', 'word/fontTable.xml'))),

@@ -2081,6 +2081,23 @@ if (want('home')) {
     check('Alinhar à Esquerda com dois objetos: as bordas esquerdas iguais', xs.length === 2 && Math.abs(xs[0] - xs[1]) <= 1 && Math.abs(xs0[0] - xs0[1]) > 100, [xs0, xs]);
   }
   await saveDoc('home-objects');
+  // marcador de imagem (home-lab exp-picbullet.ps1): w:numPicBullet com o VML do Word, a imagem
+  // pela relação da numeração e a figura desenhada no lugar do caractere (altura = corpo − 2 pt)
+  await ev('blank');
+  await js('e.type("Item um"); e.pressEnter(); e.type("Item dois"); e.setSelection({ para: 0, offset: 0 }, { para: 1, offset: 2 }); e.applyListLibrary("bullet", 0);');
+  await js(`const c = document.createElement('canvas'); c.width = 40; c.height = 30; const g = c.getContext('2d'); g.fillStyle = '#c00000'; g.fillRect(0, 0, 40, 30);
+    const b64 = c.toDataURL('image/png').split(',')[1]; const data = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+    e.defineListLevel({ picture: { data, ext: 'png', name: 'quadrado' }, sizePt: 14 });`);
+  const pbp = await parts('word/numbering.xml', 'word/_rels/numbering.xml.rels', '[Content_Types].xml');
+  const pbn = pbp['word/numbering.xml'] ?? '', pbr = pbp['word/_rels/numbering.xml.rels'] ?? '';
+  const rid = /<v:imagedata r:id="([^"]+)" o:title="quadrado"\/>/.exec(pbn)?.[1];
+  check('marcador de imagem: w:numPicBullet (v:shape o:bullet, 30 × 22,5 pt) e w:lvlPicBulletId no nível',
+    /<w:numPicBullet w:numPicBulletId="0"><w:pict><v:shapetype id="_x0000_t75"[\s\S]*?<v:shape id="_x0000_i1025" type="#_x0000_t75" style="width:30pt;height:22\.5pt" o:bullet="t">/.test(pbn)
+      && /<w:lvlText w:val="\uF0B7"\/><w:lvlPicBulletId w:val="0"\/>/.test(pbn) && /<w:rFonts w:ascii="Symbol" w:hAnsi="Symbol"/.test(pbn), pbn.slice(0, 600));
+  check('marcador de imagem: a relação da numeração aponta a mídia nova (png)', !!rid && new RegExp(`Id="${rid}" Type="[^"]*/image" Target="media/uwbullet1\\.png"`).test(pbr) && /Extension="png"/.test(pbp['[Content_Types].xml'] ?? ''), pbr);
+  const pbi = await js('return e.eng.result.pages[0].items.filter((i) => i.t === "image").map((i) => [Math.round(i.w), Math.round(i.h)]);');
+  check('marcador de imagem: o motor desenha a figura com 12 pt de altura (corpo 14 − 2) e a proporção', pbi.length === 2 && pbi.every(([w, h]) => h === 240 && w === 320), pbi);
+  await saveDoc('home-picbullet');
 }
 
 if (want('page')) {

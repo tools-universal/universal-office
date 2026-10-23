@@ -18,6 +18,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const { buildDocx, docDefaults, p, r, sz } = await import(new URL('../write/tools/layout-oracle/docx-builder.mjs', import.meta.url).href);
 const { strToU8 } = await import(new URL('../sheet/node_modules/fflate/esm/index.mjs', import.meta.url).href);
+const { patternPng } = await import(new URL('../write/tools/image-lab/test-image.mjs', import.meta.url).href);
 
 const theme = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="T"><a:themeElements>'
   + '<a:clrScheme name="C"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>'
@@ -62,7 +63,20 @@ const body = [
   // tipografia OpenType
   p(run('0123456789 antigos', '<w14:numForm w14:val="oldStyle"/>') + run(' 1111 tabulares', '<w14:numSpacing w14:val="tabular"/>')),
   p(run('ag Rag ss01', '<w14:stylisticSets><w14:styleSet w14:id="1"/></w14:stylisticSets>') + run(' calt office', '<w14:ligatures w14:val="standard"/><w14:cntxtAlts/>')),
+  // marcador de imagem (w:numPicBullet, nível com 14 pt: a figura com 12 pt de altura — oráculo home-lab picbullet)
+  p(r('Item com marcador de imagem'), '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:ind w:left="720" w:hanging="360"/>'),
+  p(r('Outro item'), '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:ind w:left="720" w:hanging="360"/>'),
 ].join('');
+
+// a numeração do marcador de imagem (VML como o Word grava; a imagem pela relação da parte)
+const numbering = '<w:numPicBullet w:numPicBulletId="0"><w:pict><v:shape id="_x0000_i1025" type="#_x0000_t75" style="width:5in;height:270pt" o:bullet="t">'
+  + '<v:imagedata r:id="rIdPb1" o:title="bullet"/></v:shape></w:pict></w:numPicBullet>'
+  + '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/>'
+  + '<w:lvlText w:val="\uF0B7"/><w:lvlPicBulletId w:val="0"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>'
+  + '<w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/><w:sz w:val="28"/></w:rPr></w:lvl></w:abstractNum>'
+  + '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>';
+const numRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+  + '<Relationship Id="rIdPb1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/bullet.png"/></Relationships>';
 
 const styles = `<w:style w:type="character" w:customStyle="1" w:styleId="EfeitoBrilho"><w:name w:val="Efeito Brilho"/><w:rPr>${glow(63500, scheme('accent6', alpha(40000)))}</w:rPr></w:style>`;
 
@@ -70,7 +84,8 @@ const docx = buildDocx({
   body,
   styles,
   defaults: docDefaults({ font: 'Arial', size: 11 }),
-  extraParts: { 'word/theme/theme1.xml': strToU8(theme) },
+  numbering,
+  extraParts: { 'word/theme/theme1.xml': strToU8(theme), 'word/_rels/numbering.xml.rels': strToU8(numRels), 'word/media/bullet.png': patternPng() },
 });
 const out = join(root, 'dotnet', 'tests', 'fixtures', 'input', 'texteffects.docx');
 mkdirSync(dirname(out), { recursive: true });
