@@ -51,6 +51,12 @@
 // linha e de página + ajuste rígido + espaçamento antes Automático num parágrafo, um hífen
 // opcional (Hifenização Manual) numa palavra de outro e o estilo "Número de linha" (como o
 // Word ao ligar) → settings/sectPr/pPr como o Word grava, tudo relê.
+// --home: Página Inicial como o editor — efeitos de texto e tipografia w14 (brilho, sombra,
+// contorno, degradê, ligaduras, números estilo antigo), sublinhado ondulado com cor e realce num
+// trecho; Substituir uma palavra inteira noutro parágrafo (a caixa adaptada e a formatação do 1º
+// caractere, pelo find-engine do editor); e uma lista de marcador de IMAGEM nova
+// (w:numPicBullet com a mídia e a relação da numeração, pelo numbering-store do editor) → só os
+// parágrafos editados mudam, os w:abstractNum/w:num de antes saem byte a byte e tudo relê.
 // --out grava os editados como <n>.docx + manifest.tsv (para abrir no Word:
 // word-open-check.ps1).
 // Relatório: LAB_DIR/report/lossless.json.
@@ -128,6 +134,20 @@ const covers = pageMode ? await (async () => {
 const layout =navMode ? await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href) : null;
 const textboxesMode = args.includes('--textboxes');
 const textlayoutMode = args.includes('--textlayout');
+const homeMode = args.includes('--home');
+// o find-engine e o numbering-store do editor (sem dist): transpilados na hora
+const editorMods = homeMode ? await (async () => {
+  const { build } = await import('esbuild');
+  const outfile = join(tmpdir(), 'uw-lossless-home.mjs');
+  const entry = join(tmpdir(), 'uw-lossless-home-entry.ts');
+  const src = (p) => fileURLToPath(new URL(`../../packages/editor/src/${p}`, import.meta.url)).replace(/\\/g, '/');
+  writeFileSync(entry, `export * from '${src('find-engine.ts')}'; export { DocNumbering } from '${src('numbering-store.ts')}';`);
+  await build({ entryPoints: [entry], bundle: true, format: 'esm', outfile, logLevel: 'warning', platform: 'node',
+    alias: { '@universal-office/docx-core': fileURLToPath(new URL('../../packages/docx-core/dist/index.js', import.meta.url)) } });
+  return import(pathToFileURL(outfile).href);
+})() : null;
+/** A imagem do marcador (a do lab de imagem: gerada, sem direitos de terceiros). */
+const HOME_PNG = homeMode ? (await import(new URL('../image-lab/test-image.mjs', import.meta.url).href)).patternPng() : null;
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -782,6 +802,52 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     // --textlayout: Layout do texto (o salvar é o comum; o settings vai antes)
     const tlEdit = textlayoutMode ? editTextLayout(b, model, cands, edited) : null;
     if (tlEdit) secEdits += 1;
+    let homeEdit = null;
+    if (homeMode && cands[3] && cands[4]) {
+      const p3 = cands[3][0], p4 = cands[4][0];
+      const pi3 = ps.indexOf(p3), pi4 = ps.indexOf(p4);
+      const n3 = Math.min(text(p3).length, 12);
+      applyRunProps(model, { start: { para: pi3, offset: 0 }, end: { para: pi3, offset: n3 } }, {
+        textFx: {
+          glow: { rad: 63500, color: { scheme: 'accent1', mods: [['alpha', 60000]] } },
+          shadow: { blurRad: 38100, dist: 19050, dir: 2700000, sx: 100000, sy: 100000, kx: 0, ky: 0, algn: 'tl', color: { scheme: 'tx1', mods: [['alpha', 60000]] } },
+          outline: { w: 9525, cap: 'flat', cmpd: 'sng', algn: 'ctr', fill: { type: 'solid', color: { scheme: 'accent2' } }, dash: 'solid', join: 'round' },
+          fill: { type: 'grad', stops: [{ pos: 0, color: { scheme: 'accent1' } }, { pos: 100000, color: { scheme: 'accent1', mods: [['lumMod', 50000]] } }], lin: { ang: 5400000, scaled: false } },
+        },
+        openType: { ligatures: 'standard', numForm: 'oldStyle' },
+        underline: true, underlineStyle: 'wave', underlineColor: 'C00000', highlight: 'yellow',
+      });
+      if (!edited.includes(p3)) edited.push(p3);
+      // Substituir: a 1ª palavra (4+ letras) do parágrafo, palavra inteira
+      const fe = editorMods;
+      let replaced = null;
+      {
+        const st = fe.storyText([p4]);
+        // (a 1ª palavra que o Localizar acha: texto excluído em revisão não conta)
+        let h = null;
+        for (const m of text(p4).matchAll(/\p{L}{4,}/gu)) { h = fe.findAll(st, { text: m[0], wholeWord: true })[0] ?? null; if (h) break; }
+        if (h) {
+          const props = core.propsAt(model, { para: pi4, offset: h.start + 1 });
+          const found = text(p4).slice(h.start, h.end);
+          replaced = fe.adaptCase(found, fe.expandReplacement('lossless trocado', found, undefined, false));
+          const pos = core.deleteRange(model, { start: { para: pi4, offset: h.start }, end: { para: pi4, offset: h.end } });
+          insertText(model, pos, replaced, props);
+          if (!edited.includes(p4)) edited.push(p4);
+        }
+      }
+      // lista de marcador de imagem nova no 1º
+      const numPath = core.partByRelType(b.pkg, 'numbering', 'word/numbering.xml');
+      const numBefore = b.pkg.getPartText(numPath) ?? null;
+      const dn = new fe.DocNumbering(numBefore, core.numberingImages(b.pkg));
+      const picId = dn.addPicBullet({ data: HOME_PNG, ext: 'png' }, 30, 22.5, 'lossless');
+      const lvl = `<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\uF0B7"/><w:lvlPicBulletId w:val="${picId}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>`;
+      // (addList devolve o numId: o w:num novo já aponta o w:abstractNum novo)
+      const numId = dn.addList([lvl], { multiLevelType: 'singleLevel' });
+      p3.props = { ...p3.props, numbering: { numId, ilvl: 0 } };
+      core.writeNumberingPart(b.pkg, dn.xml);
+      dn.writeImages(b.pkg, core.partByRelType(b.pkg, 'numbering', 'word/numbering.xml'));
+      homeEdit = { numId, picId, numBefore, replaced };
+    }
     // --page: por último (a folha de rosto entra antes dos parágrafos já editados)
     const pageEdit = pageMode ? editPage(b, n) : null;
     const out = hfEdit ? saveHf(b.pkg, b.full, model, hfEdit) : sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false, pageEdit ?? undefined);
@@ -939,6 +1005,29 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       }
       res.textboxes = true;
     }
+    if (homeEdit) {
+      if (!/<w14:glow w14:rad="63500">/.test(xml) || !/<w14:textFill><w14:gradFill>/.test(xml) || !/<w14:ligatures w14:val="standard"\/><w14:numForm w14:val="oldStyle"\/>/.test(xml)) res.issues.push('home-fx');
+      // (o elemento que já existia no rPr de origem sai como estava: " />")
+      if (!/<w:u w:val="wave" w:color="C00000"\s*\/>/.test(xml) || !/<w:highlight w:val="yellow"\s*\/>/.test(xml)) res.issues.push('home-font');
+      if (homeEdit.replaced && !text(paras(readFullDocument(re).blocks).find((p) => text(p).includes(homeEdit.replaced)) ?? { runs: [] }).includes(homeEdit.replaced)) res.issues.push('home-replace');
+      const npath = core.partByRelType(re, 'numbering', 'word/numbering.xml');
+      const nx = re.getPartText(npath) ?? '';
+      if (!xml.includes(`<w:numId w:val="${homeEdit.numId}"/>`)) res.issues.push('home-numpr');
+      // cada w:num aponta um w:abstractNum que existe
+      const absIds = new Set([...nx.matchAll(/<w:abstractNum\b[^>]*\bw:abstractNumId="(\d+)"/g)].map((m) => m[1]));
+      if ([...nx.matchAll(/<w:num\b[^>]*>\s*<w:abstractNumId w:val="(\d+)"/g)].some((m) => !absIds.has(m[1]))) res.issues.push('home-num-dangling');
+      // os w:abstractNum/w:num de antes saem byte a byte
+      if (homeEdit.numBefore) {
+        const raws = (x) => [...x.matchAll(/<w:(?:abstractNum|num)\b[^>]*>[\s\S]*?<\/w:(?:abstractNum|num)>/g)].map((m) => m[0]);
+        const after = new Set(raws(nx));
+        const lost = raws(homeEdit.numBefore).filter((r) => !after.has(r));
+        if (lost.length) res.issues.push(`home-numbering-changed:${lost.length}`);
+      }
+      const back = readFullDocument(re);
+      const pb = back.formatting.numbering.picBullets[homeEdit.picId];
+      if (!pb?.image?.data?.length) res.issues.push('home-picbullet-unread');
+      res.home = true;
+    }
     if (tblEdit) {
       if (!/<w:instrText[^>]*>\s*=SUM\(ABOVE\)/.test(xml)) res.issues.push('tables-no-formula');
       if (!xml.includes('<w:pgBorders')) res.issues.push('tables-no-pgborders');
@@ -989,7 +1078,7 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       res.styles = true;
     }
     // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
-    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit) && (!tocMode || tocEdit) && (!textlayoutMode || tlEdit)) {
+    if (outDir && (cands[0] || tblEdit) && (!sectionsMode || secEdits > 0) && (!tablesMode || tblEdit) && (!navMode || navEdit) && (!hfMode || hfEdit) && (!refsMode || refEdit) && (!picturesMode || picEdit) && (!textboxesMode || tbxEdit) && (!tocMode || tocEdit) && (!textlayoutMode || tlEdit) && (!homeMode || homeEdit)) {
       mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`;
       // --nav: o título arrastado e o de antes do qual ele entrou (o word-open-check confere a ordem)
       if (navEdit?.move) res.navOrder = [navEdit.move.moved, navEdit.move.target].map((x) => x.replace(/[\t\r\n]/g, ' ').slice(0, 60));
@@ -1001,6 +1090,8 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       if (tocEdit) res.tocCols = [tocEdit.mode, tocEdit.tc ? 1 : 0];
       // --textlayout: começo do parágrafo marcado e se houve hífen opcional (word-open-check -TextLayout)
       if (res.textlayout) res.tlCols = [res.textlayout.flagged.replace(/[\t\r\n]/g, ' '), res.textlayout.shy ? 1 : 0];
+      // --home: se houve substituição (word-open-check -HomeTab)
+      if (homeEdit) res.homeCols = [homeEdit.replaced ? 1 : 0];
     }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
@@ -1015,7 +1106,7 @@ mkdirSync(join(LAB_DIR, 'report'), { recursive: true });
 writeFileSync(join(LAB_DIR, 'report', 'lossless.json'), JSON.stringify(results, null, 1));
 if (outDir) {
   writeFileSync(join(outDir, 'manifest.tsv'),
-    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}${r.tocCols ? `\t${r.tocCols.join('\t')}` : ''}${r.tlCols ? `\t${r.tlCols.join('\t')}` : ''}`).join('\n'), 'utf8');
+    results.filter((r) => r.out).map((r) => `${r.out}\t${join(CORPUS_ROOT, r.file)}${r.navOrder ? `\t${r.navOrder.join('\t')}` : ''}${r.hfCols ? `\t${r.hfCols.join('\t')}` : ''}${r.pageCols ? `\t${r.pageCols.join('\t')}` : ''}${r.tocCols ? `\t${r.tocCols.join('\t')}` : ''}${r.tlCols ? `\t${r.tlCols.join('\t')}` : ''}${r.homeCols ? `\t${r.homeCols.join('\t')}` : ''}`).join('\n'), 'utf8');
 }
 const bad = results.filter((r) => !r.ok);
 const kinds = {};

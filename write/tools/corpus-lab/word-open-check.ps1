@@ -26,6 +26,8 @@
 # -Textboxes: saida do lossless-check --textboxes (a caixa com texto alt "Caixa editada
 # (lossless)": o texto comeca com TBX, alinhada ao meio, contorno de 1,5 pt; e a caixa
 # nova com o texto "Caixa nova lossless").
+# -HomeTab: saida do lossless-check --home (o Word tem de ver o brilho e o sublinhado ondulado no
+# trecho com efeitos, a lista de marcador de imagem (ListType 6) e o texto "lossless trocado").
 # -TocEdit: saida do lossless-check --toc (coluna 3 'new' = sumario novo da galeria no
 # inicio, com "Entrada lossless TOC", que o Word tem de ver como sumario; 'enter' =
 # paragrafo TOCNOVO no fim do sumario existente; coluna 4 = 1 se ha o campo TC
@@ -50,7 +52,8 @@ param(
   [switch]$Page,
   [switch]$Textboxes,
   [switch]$TocEdit,
-  [switch]$TextLayout
+  [switch]$TextLayout,
+  [switch]$HomeTab
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\doc-lab\word-com.ps1')
@@ -130,6 +133,19 @@ foreach ($row in $rows) {
             if ($u -ge 0 -and $u + 1 -le $d.Sections.Count) { $script:hfUn = -not $d.Sections.Item($u + 1).Headers.Item(1).LinkToPrevious }
             if ($r -ge 0 -and $r + 1 -le $d.Sections.Count) { $script:hfRe = [bool]$d.Sections.Item($r + 1).Headers.Item(1).LinkToPrevious }
           }
+        }
+        if ($HomeTab) {
+          $script:homeGlow = $false; $script:homePic = $false; $script:homeWave = $false; $k = 0
+          foreach ($p in $d.Paragraphs) {
+            $k++
+            if ($k -gt 4000) { break }
+            $c = $p.Range.Characters.Item(1)
+            if (-not $script:homeGlow) { try { if ([double]$c.Font.Glow.Radius -gt 0) { $script:homeGlow = $true } } catch { } }
+            if (-not $script:homeWave -and [int]$c.Font.Underline -eq 11) { $script:homeWave = $true }
+            if (-not $script:homePic -and [int]$p.Range.ListFormat.ListType -eq 6) { $script:homePic = $true }
+            if ($script:homeGlow -and $script:homePic -and $script:homeWave) { break }
+          }
+          $script:homeRepl = ([string]$d.Content.Text).IndexOf('lossless trocado', [System.StringComparison]::OrdinalIgnoreCase) -ge 0
         }
         if ($TocEdit) {
           $txt = [string]$d.Content.Text
@@ -298,6 +314,13 @@ foreach ($row in $rows) {
       elseif ($script:tl -ne 'ok') { $status = $script:tl }
       elseif ([math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
     }
+    elseif ($HomeTab -and -not $script:hasEdit) { $status = 'no-edit' }
+    elseif ($HomeTab -and -not $script:homeGlow) { $status = 'home-glow' }
+    elseif ($HomeTab -and -not $script:homeWave) { $status = 'home-wave' }
+    elseif ($HomeTab -and -not $script:homePic) { $status = 'home-picbullet' }
+    elseif ($HomeTab -and $parts.Count -ge 3 -and $parts[2] -eq '1' -and -not $script:homeRepl) { $status = 'home-replace' }
+    elseif ($HomeTab -and [math]::Abs($script:pe - $script:po) -gt $slack) { $status = 'para-count' }
+    elseif ($HomeTab) { $status = 'ok' }
     elseif ($Pictures -and $script:pic -ne 'ok') { $status = $script:pic }
     elseif ($Textboxes -and $script:tbx -ne 'ok') { $status = $script:tbx }
     elseif (-not $script:hasEdit) { $status = 'no-edit' }
