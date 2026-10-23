@@ -1,0 +1,118 @@
+{
+  "root": "E:/UniversalWriteTest/Documents",
+  "files": 860,
+  "read": 860,
+  "docsWith": {
+    "textFill": 15,
+    "textOutline": 25,
+    "shadow": 11,
+    "reflection": 0,
+    "glow": 0,
+    "props3d": 0,
+    "scene3d": 0,
+    "ligatures": 176,
+    "numForm": 0,
+    "numSpacing": 0,
+    "stylisticSets": 0,
+    "cntxtAlts": 0
+  },
+  "distinctCombos": 12,
+  "top": [
+    {
+      "docs": 9,
+      "runs": 37,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:shadow w14:blurRad=\"38100\" w14:dist=\"19050\" w14:dir=\"2700000\" w14:sx=\"100000\" w14:sy=\"100000\" w14:kx=\"0\" w14:ky=\"0\" w14:algn=\"tl\"><w14:schemeClr w14:val=\"dk1\"><w14:alpha w14:val=\"60000\"/></w14:schemeClr></w14:shadow><w14:textOutline w14:w=\"0\" w14:cap=\"flat\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:noFill/>"
+    },
+    {
+      "docs": 7,
+      "runs": 5792,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:textOutline w14:w=\"0\" w14:cap=\"flat\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:solidFill><w14:srgbClr w14:val=\"000000\"><w14:alpha w14:val=\"95294\"/></w14:srgbClr></w14:solidFill><w14:prstDash w14:val=\"solid\"/><w14:textFill><w14:solidFill><w14:srgbClr w14:val=\"000000\"><w14:alpha w14:val=\"95294\"/></w14:srgbClr></w14:solidFill></w14:textFill>"
+    },
+    {
+      "docs": 5,
+      "runs": 5,
+      "where": [
+        "word/styles.xml"
+      ],
+      "xml": "<w14:textOutline w14:w=\"12700\" w14:cap=\"flat\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:noFill/>"
+    },
+    {
+      "docs": 3,
+      "runs": 32,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:textFill><w14:noFill/></w14:textFill>"
+    },
+    {
+      "docs": 2,
+      "runs": 2,
+      "where": [
+        "word/styles.xml"
+      ],
+      "xml": "<w14:textOutline w14:w=\"0\" w14:cap=\"flat\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:noFill/>"
+    },
+    {
+      "docs": 2,
+      "runs": 2,
+      "where": [
+        "word/styles.xml"
+      ],
+      "xml": "<w14:textFill><w14:solidFill><w14:srgbClr w14:val=\"000000\"><w14:lumMod w14:val=\"25000\"/></w14:srgbClr></w14:solidFill></w14:textFill>"
+    },
+    {
+      "docs": 1,
+      "runs": 4,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:shadow w14:blurRad=\"50800\" w14:dist=\"50800\" w14:dir=\"5400000\" w14:sx=\"0\" w14:sy=\"0\" w14:kx=\"0\" w14:ky=\"0\" w14:algn=\"ctr\"><w14:schemeClr w14:val=\"tx2\"><w14:lumMod w14:val=\"40000\"/>"
+    },
+    {
+      "docs": 1,
+      "runs": 4,
+      "where": [
+        "word/header.xml"
+      ],
+      "xml": "<w14:textFill><w14:solidFill><w14:srgbClr w14:val=\"70AD47\"><w14:alpha w14:val=\"22000\"/>"
+    },
+    {
+      "docs": 1,
+      "runs": 2,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:textOutline w14:w=\"9525\" w14:cap=\"rnd\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:solidFill><w14:schemeClr w14:val=\"bg1\"/></w14:solidFill><w14:prstDash w14:val=\"solid\"/>"
+    },
+    {
+      "docs": 1,
+      "runs": 2,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:textOutline w14:w=\"9525\" w14:cap=\"flat\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:solidFill><w14:schemeClr w14:val=\"bg1\"/></w14:solidFill><w14:prstDash w14:val=\"solid\"/>"
+    },
+    {
+      "docs": 1,
+      "runs": 4,
+      "where": [
+        "word/header.xml"
+      ],
+      "xml": "<w14:textFill><w14:solidFill><w14:schemeClr w14:val=\"accent6\"><w14:alpha w14:val=\"22000\"/>"
+    },
+    {
+      "docs": 1,
+      "runs": 1,
+      "where": [
+        "word/document.xml"
+      ],
+      "xml": "<w14:shadow w14:blurRad=\"38100\" w14:dist=\"22860\" w14:dir=\"5400000\" w14:sx=\"100000\" w14:sy=\"100000\" w14:kx=\"0\" w14:ky=\"0\" w14:algn=\"tl\"><w14:srgbClr w14:val=\"000000\"><w14:alpha w14:val=\"70000\"/></w14:srgbClr></w14:shadow><w14:textOutline w14:w=\"10160\" w14:cap=\"flat\" w14:cmpd=\"sng\" w14:algn=\"ctr\"><w14:solidFill><w14:schemeClr w14:val=\"accent5\"/></w14:solidFill><w14:prstDash w14:val=\"solid\"/><w14:textFill><w14:solidFill><w14:srgbClr w14:val=\"FFFFFF\"/></w14:solidFill></w14:textFill>"
+    }
+  ]
+}

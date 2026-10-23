@@ -13,6 +13,8 @@ export interface GsubLigatures {
   features: Map<string, number[]>;
   /** lookups de ligadura já lidos, por índice */
   lookups: Map<number, LigLookup>;
+  /** lookups de substituição simples (onum, tnum, ss01…): glifo → glifo */
+  singles?: Map<number, Map<number, number>>;
 }
 
 export function parseGsubLigatures(view: DataView, off: number): GsubLigatures {
@@ -24,6 +26,7 @@ export function parseGsubLigatures(view: DataView, off: number): GsubLigatures {
   const lookupList = off + u16(off + 8);
   const features = new Map<string, number[]>();
   const lookups = new Map<number, LigLookup>();
+  const singles = new Map<number, Map<number, number>>();
   let latn = -1, dflt = -1;
   for (let i = 0, n = u16(scriptList); i < n; i++) {
     const rec = scriptList + 2 + i * 6;
@@ -60,10 +63,19 @@ export function parseGsubLigatures(view: DataView, off: number): GsubLigatures {
     const lo = lookupList + u16(lookupList + 2 + li * 2);
     const type = u16(lo);
     const map: LigLookup = new Map();
+    const one = new Map<number, number>();
     for (let s = 0, ns = u16(lo + 4); s < ns; s++) {
       let so = lo + u16(lo + 6 + s * 2);
       let t = type;
       if (t === 7) { t = u16(so + 2); so += u32(so + 4); }
+      if (t === 1) {
+        // substituição simples: formato 1 = delta; formato 2 = lista de substitutos
+        const fmt = u16(so);
+        const cov = coverage(so + u16(so + 2));
+        if (fmt === 1) { const d = view.getInt16(so + 4); for (const g of cov) one.set(g, (g + d) & 0xffff); }
+        else if (fmt === 2) for (let k = 0, n = u16(so + 4); k < n && k < cov.length; k++) one.set(cov[k]!, u16(so + 6 + k * 2));
+        continue;
+      }
       if (t !== 4 || u16(so) !== 1) continue;
       const cov = coverage(so + u16(so + 2));
       for (let k = 0, n = u16(so + 4); k < n && k < cov.length; k++) {
@@ -80,8 +92,9 @@ export function parseGsubLigatures(view: DataView, off: number): GsubLigatures {
       }
     }
     if (map.size) lookups.set(li, map);
+    if (one.size) singles.set(li, one);
   }
-  return { features, lookups };
+  return { features, lookups, singles };
 }
 
 /**
@@ -93,6 +106,8 @@ export function applyLigatures(g: GsubLigatures, gids: number[], feats: readonly
   let out = gids.map((gid) => ({ gid, len: 1 }));
   const idx = [...new Set(feats.flatMap((f) => g.features.get(f) ?? []))].sort((a, b) => a - b);
   for (const li of idx) {
+    const sg = g.singles?.get(li);
+    if (sg) { out = out.map((o) => (o.len === 1 && sg.has(o.gid) ? { gid: sg.get(o.gid)!, len: 1 } : o)); continue; }
     const lk = g.lookups.get(li);
     if (!lk) continue;
     const next: { gid: number; len: number }[] = [];

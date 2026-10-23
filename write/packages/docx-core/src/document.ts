@@ -60,6 +60,10 @@ export interface RunProps {
   color?: string;
   /** w:highlight (nomes do app de referência: yellow, green, cyan, ...). */
   highlight?: string;
+  /** Efeitos de Texto w14 (preenchimento, contorno, sombra, reflexo, brilho, 3D). */
+  textFx?: import('./text-effects.js').TextEffects;
+  /** Tipografia OpenType w14 (ligaduras, números, conjuntos estilísticos, alternativas). */
+  openType?: import('./text-effects.js').OpenTypeProps;
   fontAscii?: string;
   allCaps: boolean;
   smallCaps: boolean;
@@ -724,6 +728,8 @@ export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== undefined && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
+  if (rpr.fx) p.textFx = rpr.fx;
+  if (rpr.ot) p.openType = rpr.ot;
   if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
 }

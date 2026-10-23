@@ -55,11 +55,11 @@ export function paintLine(
     const st = g.style;
     // texto SEM preenchimento (w14:noFill / alpha 100%) e sem contorno: o Word
     // não desenha nem grava no PDF (oráculo hidetext/tf-nofill, tf-alpha100)
-    if (st.alpha === 0 && !st.outline) { flush(); continue; }
+    if (st.alpha === 0 && !st.outline && !st.fx?.outline && !st.fx?.glow && !st.fx?.shadow && !st.fx?.reflection) { flush(); continue; }
     // emoji colorido (COLR): o Word desenha as camadas coloridas, sem texto
     // extraível (oráculo hidetext/emoji)
     const colr = !!g.face.font.hasColorGlyphs?.() && !!g.face.font.colorLayers?.(g.face.font.glyphId(g.cp));
-    const key = `${g.face.key}|${g.face.synthBold ? 1 : 0}${g.face.synthItalic ? 1 : 0}|${g.sizePt}|${st.color}|${st.shift}|${st.rpr.w ?? 100}|${st.alpha ?? 1}|${colr ? 'c' : ''}`;
+    const key = `${g.face.key}|${g.face.synthBold ? 1 : 0}${g.face.synthItalic ? 1 : 0}|${g.sizePt}|${st.color}|${st.shift}|${st.rpr.w ?? 100}|${st.alpha ?? 1}|${colr ? 'c' : ''}|${st.fxKey ?? ''}|${g.subGid !== undefined ? 'g' : ''}`;
     if (key !== runKey) {
       flush();
       runKey = key;
@@ -73,10 +73,13 @@ export function paintLine(
         ...(st.alpha !== undefined && st.alpha > 0 && st.alpha < 1 ? { asPath: true } : {}),
         lineBox: { asc: line.baseline - st.shift, desc: line.height - line.baseline + st.shift, lead: pg.x, line: lineId },
         ...(colr ? { asPath: true, colr: true } : {}),
+        ...(st.fx ? { fx: st.fx } : {}),
+        // glifo trocado (OpenType): sem caractere no PDF — em curvas, como o WordArt
+        ...(g.subGid !== undefined ? { asPath: true } : {}),
       };
     }
     const cp = g.kind === 'shy' ? 0x2d : g.cp;
-    run!.glyphs.push({ cp, x: frameX + pg.x });
+    run!.glyphs.push({ cp, x: frameX + pg.x, ...(g.subGid !== undefined ? { gid: g.subGid } : {}) });
     run!.text += String.fromCodePoint(cp);
   }
   flush();

@@ -170,5 +170,39 @@ if (script === 'clipboard') {
   await shot('clipboard-pane');
 }
 
+if (script === 'effects') {
+  const lines = ['Brilho Sombra Reflexo', 'Contorno Degradê', 'Galeria 0123456789'];
+  await run(`ed.focusEditor(); ed.pasteText(${JSON.stringify(lines.join('\n'))});`);
+  await run(`ed.setSelection({ para: 0, offset: 0 }, { para: 2, offset: 18 }); ed.setFontFormat({ sizePt: 28, bold: true });`);
+  await run(`
+    ed.setSelection({ para: 0, offset: 0 }, { para: 0, offset: 6 }); ed.setTextEffects({ glow: { rad: 101600, color: { scheme: 'accent1', mods: [['alpha', 60000]] } } });
+    ed.setSelection({ para: 0, offset: 7 }, { para: 0, offset: 13 }); ed.setTextEffects({ shadow: { blurRad: 50800, dist: 38100, dir: 2700000, sx: 100000, sy: 100000, kx: 0, ky: 0, algn: 'tl', color: { rgb: '000000', mods: [['alpha', 60000]] } } });
+    ed.setSelection({ para: 0, offset: 14 }, { para: 0, offset: 21 }); ed.setTextEffects({ reflection: { blurRad: 6350, stA: 55000, stPos: 0, endA: 300, endPos: 45500, dist: 0, dir: 5400000, fadeDir: 5400000, sx: 100000, sy: -100000, kx: 0, ky: 0, algn: 'bl' } });
+    ed.setSelection({ para: 1, offset: 0 }, { para: 1, offset: 8 }); ed.setTextEffects({ fill: { type: 'solid', color: { scheme: 'bg1' } }, outline: { w: 12700, cap: 'flat', cmpd: 'sng', algn: 'ctr', fill: { type: 'solid', color: { scheme: 'accent2' } }, dash: 'solid', join: 'round' } });
+    ed.setSelection({ para: 1, offset: 9 }, { para: 1, offset: 16 }); ed.setTextGradient({ angleDeg: 90, light: false });
+    ed.setSelection({ para: 2, offset: 0 }, { para: 2, offset: 7 }); ed.applyTextEffectPreset(3);
+    ed.setSelection({ para: 2, offset: 8 }, { para: 2, offset: 18 }); ed.setOpenType({ numForm: 'oldStyle' });
+    ed.setSelection({ para: 2, offset: 18 });
+  `);
+  await page.waitForTimeout(800);
+  await shot('doc-effects');
+  const openMenu = async (re) => page.evaluate((r) => { const root = document.querySelector('universal-write').shadowRoot; const b = [...root.querySelectorAll('button')].find((x) => new RegExp(r).test(x.getAttribute('aria-label') ?? '')); b?.click(); return !!b; }, re);
+  if (!await openMenu('^(Efeitos de Texto e Tipografia|Text Effects and Typography)$')) console.log('não achei o botão Efeitos de Texto');
+  await page.waitForTimeout(500);
+  await shot('effects-menu');
+  await clickText(['Brilho', 'Glow']);
+  await page.waitForTimeout(400);
+  await shot('effects-glow-menu');
+  await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+  await run(`ed.setSelection({ para: 0, offset: 0 }, { para: 0, offset: 6 });`);
+  await openMenu('^(Efeitos de Texto e Tipografia|Text Effects and Typography)$');
+  await page.waitForTimeout(300);
+  await clickText(['Sombra', 'Shadow']);
+  await page.waitForTimeout(300);
+  await clickText(['Opções de Efeitos de Texto...', 'Text Effects Options…']);
+  await page.waitForTimeout(600);
+  await shot('effects-pane');
+}
+
 console.log(logs.length ? `ERROS:\n${logs.join('\n')}` : 'sem erros no console');
 await browser.close();

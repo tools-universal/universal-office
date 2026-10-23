@@ -44,7 +44,7 @@ const apiColor = (p: Pick): string | ThemeColorRef | null => {
   return { themeColor: p.themeColor, ...(tint !== undefined ? { tint } : {}), ...(shade !== undefined ? { shade } : {}) };
 };
 
-export async function fontDialog(env: DialogEnv, families: string[]): Promise<void> {
+export async function fontDialog(env: DialogEnv, families: string[], openTextEffects?: () => void): Promise<void> {
   const lang = env.lang, L = env.app.ui!.L, ed = env.ed;
   const r = env.state().run;
   // ── guia Fonte ──
@@ -143,6 +143,21 @@ export async function fontDialog(env: DialogEnv, families: string[]): Promise<vo
     row(tr(lang, 'Spacing:', 'Espaçamento:'), spacing, tr(lang, 'By:', 'Por:'), spBy, 'pt'),
     row(tr(lang, 'Position:', 'Posição:'), position, tr(lang, 'By:', 'Por:'), posBy, 'pt'),
     el('div', { style: 'display:flex;align-items:center;gap:8px' }, kernOn.el, kernBy, tr(lang, 'Points and above', 'Pontos e acima')));
+  // ── Recursos OpenType ──
+  const ot0 = typeof ed.textEffects === 'function' ? ed.textEffects().ot ?? {} : {};
+  const lig = select([['none', tr(lang, 'None', 'Nenhuma')], ['standard', tr(lang, 'Standard Only', 'Somente Padrão')], ['standardContextual', tr(lang, 'Standard and Contextual', 'Padrão e Contextual')],
+    ['historicalDiscretional', tr(lang, 'Historical and Discretionary', 'Histórica e Discricionária')], ['all', tr(lang, 'All', 'Todas')]], ot0.ligatures ?? 'none');
+  const numSp = select([['default', tr(lang, 'Default', 'Padrão')], ['proportional', tr(lang, 'Proportional', 'Proporcional')], ['tabular', tr(lang, 'Tabular', 'Tabular')]], ot0.numSpacing ?? 'default');
+  const numFm = select([['default', tr(lang, 'Default', 'Padrão')], ['lining', tr(lang, 'Lining', 'Alinhado')], ['oldStyle', tr(lang, 'Old-style', 'Estilo Antigo')]], ot0.numForm ?? 'default');
+  const sets = select([['0', tr(lang, 'Default', 'Padrão')], ...Array.from({ length: 20 }, (_v, i): [string, string] => [String(i + 1), String(i + 1)])], String(ot0.stylisticSets?.[0] ?? 0));
+  const calt = check(tr(lang, 'Use Contextual Alternates', 'Usar Alternativas Contextuais'), !!ot0.cntxtAlts);
+  if (typeof ed.setOpenType === 'function') advTab.append(
+    el('strong', { style: 'margin-top:6px' }, tr(lang, 'OpenType Features', 'Recursos OpenType')),
+    row(tr(lang, 'Ligatures:', 'Ligaduras:'), lig),
+    row(tr(lang, 'Number spacing:', 'Espaçamento de números:'), numSp),
+    row(tr(lang, 'Number forms:', 'Formas de números:'), numFm),
+    row(tr(lang, 'Stylistic sets:', 'Conjuntos estilísticos:'), sets),
+    calt.el);
 
   // ── visualização (as duas guias) ──
   const sample = el('div', { style: 'height:56px;display:flex;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;overflow:hidden;background:#fff;color:#000' });
@@ -190,11 +205,13 @@ export async function fontDialog(env: DialogEnv, families: string[]): Promise<vo
     title: tr(lang, 'Font', 'Fonte'), body, layer: env.layer, lang, width: 560,
     actions: [
       ...(typeof ed.setDefaultFont === 'function' && !ed.isProtected() ? [{ id: 'default', label: tr(lang, 'Set As Default', 'Definir como Padrão') }] : []),
+      ...(openTextEffects && !ed.isProtected() ? [{ id: 'effects', label: tr(lang, 'Text Effects...', 'Efeitos de Texto...') }] : []),
       { id: 'cancel', label: L.cancel }, { id: 'ok', label: 'OK', primary: true },
     ],
   });
   const res = await h.result;
   if (res === 'default') { setAsDefault(); return; }
+  if (res === 'effects') { openTextEffects?.(); return; }
   if (res !== 'ok') return;
 
   // ── aplica só o que mudou ──
@@ -226,6 +243,16 @@ export async function fontDialog(env: DialogEnv, families: string[]): Promise<vo
   const kv = kernOn.input.checked ? Math.max(1, Math.round((Number.isFinite(num(kernBy.value)) ? num(kernBy.value) : curSize) * 2)) : 0;
   if (kv !== kern) f.kernMinHalfPt = kv;
   if (Object.keys(f).length) ed.setFontFormat(f);
+  // OpenType: só o que mudou
+  if (typeof ed.setOpenType === 'function') {
+    const ot: Parameters<typeof ed.setOpenType>[0] = {};
+    if (lig.value !== (ot0.ligatures ?? 'none')) ot.ligatures = lig.value === 'none' ? null : lig.value;
+    if (numSp.value !== (ot0.numSpacing ?? 'default')) ot.numSpacing = numSp.value === 'default' ? null : numSp.value as 'tabular';
+    if (numFm.value !== (ot0.numForm ?? 'default')) ot.numForm = numFm.value === 'default' ? null : numFm.value as 'lining';
+    if (sets.value !== String(ot0.stylisticSets?.[0] ?? 0)) ot.stylisticSets = sets.value === '0' ? null : [Number(sets.value)];
+    if (calt.input.checked !== !!ot0.cntxtAlts) ot.cntxtAlts = calt.input.checked || null;
+    if (Object.keys(ot).length) ed.setOpenType(ot);
+  }
 
   /** Definir como Padrão: o que o diálogo mostra e difere do estilo Normal entra nele (medido). */
   function setAsDefault(): void {

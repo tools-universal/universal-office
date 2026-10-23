@@ -1,0 +1,18 @@
+<!-- document.xml (corpo) -->
+<w:p>
+  <w:r>
+    <w:rPr>
+      <w:sz w:val="56"/>
+      <w14:shadow w14:blurRad="0" w14:dist="50800" w14:dir="0" w14:sx="100000" w14:sy="100000" w14:kx="0" w14:ky="0" w14:algn="tl">
+        <w14:srgbClr w14:val="000000"/>
+      </w14:shadow>
+    </w:rPr>
+    <w:t>Efeito de texto Abc 123</w:t>
+  </w:r>
+</w:p>
+<w:sectPr>
+  <w:pgSz w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+  <w:cols w:space="708"/>
+  <w:docGrid w:linePitch="360"/>
+</w:sectPr>

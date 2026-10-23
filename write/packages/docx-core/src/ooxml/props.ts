@@ -1,4 +1,5 @@
 import { childElements, firstChild, type XmlElement } from '../xml.js';
+import { readTextEffects, type TextEffects, type OpenTypeProps } from '../text-effects.js';
 
 /**
  * Propriedades OOXML de run/parágrafo/tabela em forma ESPARSA e TIPADA —
@@ -143,6 +144,10 @@ export interface RPr {
   /** w14:ligatures (Word 2010+): ligaduras OpenType — standard, contextual, historical,
    *  discretional, combinações ou all; none = desligadas */
   ligatures?: string;
+  /** efeitos de texto w14 (preenchimento, contorno, sombra, reflexo, brilho, 3D) */
+  fx?: TextEffects;
+  /** tipografia OpenType w14 (ligaduras, números, conjuntos estilísticos, alternativas) */
+  ot?: OpenTypeProps;
   /** w:rPrChange — formatação controlada: autoria e o rPr ANTERIOR. */
   change?: RevisionInfo & { rPr: RPr };
 }
@@ -524,6 +529,10 @@ export function readRPr(rPr: XmlElement | undefined): RPr | undefined {
       }
     }
   }
+  // efeitos de texto e tipografia w14, estruturados (o motor e o editor usam estes)
+  const te = readTextEffects(rPr);
+  if (te.fx) p.fx = te.fx;
+  if (te.ot) p.ot = te.ot;
   return p;
 }
 

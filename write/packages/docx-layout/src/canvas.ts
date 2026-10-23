@@ -5,6 +5,7 @@ import type { PageItem, GlyphRunItem, ShapeItem, LayoutPage, PathCmdTw } from '.
 import { gradientTileRgba, gradientTilePx, pageFillTileTw, patternRgba, type PageFillPaint } from './page-fill.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, patternRaster, blipTiles, isRectGradient, rectGradientRaster } from './geometry.js';
 import { imagePixelSize } from './images.js';
+import { fxLayers, runBox, gradOf, dashPattern, type ResolvedFill } from './textfx.js';
 import type { FontFace as EngineFontFace } from './fonts.js';
 
 /**
@@ -119,6 +120,8 @@ export function paintItems(
     const it = items[i]!;
     switch (it.t) {
       case 'glyphs':
+        // efeitos de texto (w14): a camada dos efeitos atrás, depois o texto e o contorno
+        if (it.fx) { paintGlyphsFx(ctx, it, env, base); break; }
         // texto semitransparente (w14:textFill, marca-d'água): a opacidade do run, como no PDF
         if (it.alpha !== undefined) ctx.globalAlpha = base * it.alpha;
         paintGlyphs(ctx, it, env);
@@ -261,12 +264,64 @@ export function snapThin(v: number, len: number, s: number, o: number): [number,
   return [(start - o) / s, dw / s];
 }
 
-function paintGlyphs(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: EnginePaintEnv): void {
-  if (!it.glyphs.length || !HEX6.test(it.color)) return;
+/** Camadas de efeitos já rasterizadas (por item e escala do dispositivo). */
+const fxCache = new WeakMap<GlyphRunItem, { ppt: number; img: CanvasImageSource | null; x0: number; y0: number; w: number; h: number }>();
+
+/** Run com efeitos de texto: sombra/brilho/reflexo (raster atrás), preenchimento (sólido,
+ *  degradê ou nenhum) e o contorno com espessura, tracejado, ponta e junção. */
+function paintGlyphsFx(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: EnginePaintEnv, base: number): void {
+  const fx = it.fx!;
+  if (!it.glyphs.length) return;
+  const m = ctx.getTransform();
+  const ppt = Math.max(0.5, Math.hypot(m.a, m.b) * 20);
+  if (fx.shadow || fx.glow || fx.reflection) {
+    let c = fxCache.get(it);
+    if (!c || Math.abs(c.ppt - ppt) > 0.01) {
+      const L = fxLayers(it, fx, ppt, it.color);
+      c = L ? { ppt, img: rgbaCanvas(new Uint8Array(L.data.buffer), L.w, L.h), x0: L.x0, y0: L.y0, w: L.w, h: L.h } : { ppt, img: null, x0: 0, y0: 0, w: 0, h: 0 };
+      fxCache.set(it, c);
+    }
+    if (c.img) {
+      ctx.globalAlpha = base;
+      ctx.drawImage(c.img, c.x0, c.y0, (c.w / ppt) * 20, (c.h / ppt) * 20);
+    }
+  }
+  const box = runBox(it);
+  const paintOf = (f: ResolvedFill): string | CanvasGradient | null => {
+    if (f.kind === 'none') return null;
+    if (f.kind === 'solid') return env.color(f.hex);
+    const g = gradientGeometry(gradOf(f), box, { x0: box.x, y0: box.y, x1: box.x + box.w, y1: box.y + box.h });
+    const cg = g.kind === 'axial' ? ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1) : ctx.createRadialGradient(g.x0, g.y0, 0, g.x0, g.y0, g.r);
+    for (const st of f.stops) cg.addColorStop(Math.max(0, Math.min(1, st.pos)), env.color(st.hex));
+    return cg;
+  };
+  // o preenchimento (o sólido opaco é a cor do item; com alfa, a opacidade dele)
+  const fill = fx.fill ? paintOf(fx.fill) : HEX6.test(it.color) ? env.color(it.color) : null;
+  const fillAlpha = fx.fill?.kind === 'solid' ? fx.fill.alpha : fx.fill?.kind === 'grad' ? (fx.fill.stops[0]?.alpha ?? 1) : it.alpha ?? 1;
+  if (fill && fillAlpha > 0) {
+    ctx.globalAlpha = base * fillAlpha;
+    paintGlyphs(ctx, it, env, { fill });
+  }
+  const o = fx.outline;
+  if (o) {
+    const stroke = paintOf(o.fill);
+    const a = o.fill.kind === 'solid' ? o.fill.alpha : 1;
+    if (stroke && a > 0) {
+      ctx.globalAlpha = base * a;
+      const w = Math.max(o.widthPt * 20, 1 / Math.max(1e-6, Math.hypot(m.a, m.b)));
+      paintGlyphs(ctx, it, env, { stroke: { style: stroke, width: w, dash: dashPattern(o.dash).map((d) => d * w), cap: o.cap, join: o.join } });
+    }
+  }
+  ctx.globalAlpha = base;
+}
+
+function paintGlyphs(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: EnginePaintEnv,
+  mode?: { fill?: string | CanvasGradient; stroke?: { style: string | CanvasGradient; width: number; dash: number[]; cap: CanvasLineCap; join: CanvasLineJoin } }): void {
+  if (!it.glyphs.length || (!mode && !HEX6.test(it.color))) return;
   const f = env.fontOf(it.face);
   const font = it.face.font;
   ctx.font = `${f.italic ? 'italic ' : ''}${f.weight} ${it.sizePt * 20}px ${f.family}`;
-  const color = env.color(it.color);
+  const color = mode?.fill ?? (mode?.stroke ? 'transparent' : env.color(it.color));
   ctx.fillStyle = color;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -275,6 +330,14 @@ function paintGlyphs(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: Engin
     ctx.strokeStyle = color;
     ctx.lineWidth = (it.sizePt / 35) * 20;
     ctx.lineJoin = 'miter';
+  }
+  // contorno do texto (w14:textOutline): o traço pedido
+  if (mode?.stroke) {
+    ctx.strokeStyle = mode.stroke.style;
+    ctx.lineWidth = mode.stroke.width;
+    ctx.lineJoin = mode.stroke.join;
+    ctx.lineCap = mode.stroke.cap;
+    ctx.setLineDash(mode.stroke.dash);
   }
   const sx = it.scaleX ?? 1;
   // itálico sintético: cisalhamento 0,21 (no PDF y cresce para cima)
@@ -290,6 +353,23 @@ function paintGlyphs(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: Engin
   const adv = (cp: number) => (font.advanceWidth(font.glyphId(cp)) * it.sizePt * 20) / upem;
   for (let i = 0; i < gl.length; i++) {
     const g = gl[i]!;
+    // glifo por índice (substituição OpenType, EMF): o contorno da fonte
+    if (g.gid !== undefined && font.glyphOutline) {
+      const ol = font.glyphOutline(g.gid);
+      if (ol) {
+        const s = (it.sizePt * 20) / upem, gx = s * sx;
+        const k = it.synthItalic ? 0.21 : 0;
+        ctx.beginPath();
+        for (const c of ol) {
+          if (c.op === 'M') ctx.moveTo(g.x + c.x * gx + k * c.y * s, it.y - c.y * s);
+          else if (c.op === 'L') ctx.lineTo(g.x + c.x * gx + k * c.y * s, it.y - c.y * s);
+          else if (c.op === 'Q') ctx.quadraticCurveTo(g.x + c.cx * gx + k * c.cy * s, it.y - c.cy * s, g.x + c.x * gx + k * c.y * s, it.y - c.y * s);
+          else ctx.closePath();
+        }
+        if (mode?.stroke) ctx.stroke(); else ctx.fill();
+        continue;
+      }
+    }
     let cp = g.cp;
     // símbolo legado (F0xx) numa fonte que mapeia em 0x00xx — mesmo critério do PDF
     if (cp >= 0xf000 && cp <= 0xf0ff && font.glyphId(cp) === 0 && font.glyphId(cp - 0xf000) !== 0) cp -= 0xf000;
@@ -303,18 +383,20 @@ function paintGlyphs(ctx: CanvasRenderingContext2D, it: GlyphRunItem, env: Engin
         i++;
       }
     }
+    const sk = mode?.stroke;
     if (plain) {
-      ctx.fillText(ch, g.x, it.y);
-      if (it.synthBold) ctx.strokeText(ch, g.x, it.y);
+      if (!sk) ctx.fillText(ch, g.x, it.y);
+      if (it.synthBold || sk) ctx.strokeText(ch, g.x, it.y);
     } else {
       ctx.save();
       ctx.translate(g.x, it.y);
       ctx.transform(sx, 0, skew, 1, 0, 0);
-      ctx.fillText(ch, 0, 0);
-      if (it.synthBold) ctx.strokeText(ch, 0, 0);
+      if (!sk) ctx.fillText(ch, 0, 0);
+      if (it.synthBold || sk) ctx.strokeText(ch, 0, 0);
       ctx.restore();
     }
   }
+  if (mode?.stroke) ctx.setLineDash([]);
 }
 
 /** Escritas sem composição contextual (latim, grego, cirílico, pontuação):

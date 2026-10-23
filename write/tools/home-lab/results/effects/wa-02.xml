@@ -1,0 +1,38 @@
+<!-- document.xml (corpo) -->
+<w:p>
+  <w:r>
+    <w:rPr>
+      <w:noProof/>
+    </w:rPr>
+    <w:pict w14:anchorId="46FA57D6">
+      <v:shapetype id="_x0000_t172" coordsize="21600,21600" o:spt="172" adj="12000" path="m0@0l21600,m,21600l21600@1e">
+        <v:formulas>
+          <v:f eqn="val #0"/>
+          <v:f eqn="sum 21600 0 @0"/>
+          <v:f eqn="prod #0 1 2"/>
+          <v:f eqn="sum @2 10800 0"/>
+          <v:f eqn="prod @1 1 2"/>
+          <v:f eqn="sum @4 10800 0"/>
+        </v:formulas>
+        <v:path textpathok="t" o:connecttype="custom" o:connectlocs="10800,@2;0,@3;10800,@5;21600,@4" o:connectangles="270,180,90,0"/>
+        <v:textpath on="t" fitshape="t"/>
+        <v:handles>
+          <v:h position="topLeft,#0" yrange="0,15429"/>
+        </v:handles>
+        <o:lock v:ext="edit" text="t" shapetype="t"/>
+      </v:shapetype>
+      <v:shape id="_x0000_s1026" type="#_x0000_t172" style="position:absolute;margin-left:60.75pt;margin-top:66.35pt;width:260.25pt;height:75.95pt;z-index:251658240" fillcolor="black">
+        <v:fill r:id="rId4" o:title=""/>
+        <v:stroke r:id="rId4" o:title=""/>
+        <v:shadow color="#868686"/>
+        <v:textpath style="font-family:&quot;Calibri&quot;;font-size:28pt;v-text-kern:t" trim="t" fitpath="t" string="Efeito de texto Abc 123"/>
+      </v:shape>
+    </w:pict>
+  </w:r>
+</w:p>
+<w:sectPr>
+  <w:pgSz w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+  <w:cols w:space="708"/>
+  <w:docGrid w:linePitch="360"/>
+</w:sectPr>

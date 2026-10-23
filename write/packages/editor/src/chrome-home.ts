@@ -12,6 +12,7 @@ import type { ChromeCtl } from './chrome-commands.js';
 import type { WidgetEnv } from './chrome-widgets.js';
 import type { ThemeColorRef } from './page-design.js';
 import { BORDERS } from './chrome-table.js';
+import { fontGradientMenu } from './chrome-effects.js';
 
 const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
 
@@ -110,15 +111,18 @@ function paletteMenu(env: WidgetEnv, ctx: BarContext, o: {
   ];
 }
 
-/** Cor da Fonte (botão dividido): a última cor escolhida fica no botão. */
+/** Cor da Fonte (botão dividido): a última cor escolhida fica no botão; Gradiente ›. */
 export function fontColorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const colors = env.ed.documentThemeColors();
-  return paletteMenu(env, ctx, {
-    autoLabel: env.app.ui!.L.automatic,
-    selected: env.ctl.state().run.color as string | undefined,
-    onAuto: () => env.ed.setColor(undefined),
-    onPick: (v) => { env.app.lastColor = v; env.ed.setColor(colorFromPick(v, colors)); },
-  });
+  return [
+    ...paletteMenu(env, ctx, {
+      autoLabel: env.app.ui!.L.automatic,
+      selected: env.ctl.state().run.color as string | undefined,
+      onAuto: () => env.ed.setColor(undefined),
+      onPick: (v) => { env.app.lastColor = v; env.ed.setColor(colorFromPick(v, colors)); },
+    }),
+    ...(typeof env.ed.setTextGradient === 'function' ? [{ id: 'color:gradient', label: L('Gradient', 'Gradiente'), icon: 'gradient', submenu: () => fontGradientMenu(env, ctx) }] : []),
+  ];
 }
 
 /** Menu do botão Sublinhado: os 8 estilos com amostras, Mais Sublinhados e Cor do Sublinhado. */

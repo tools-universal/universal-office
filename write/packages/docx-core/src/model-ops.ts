@@ -60,7 +60,7 @@ const textExtras = (run: Run): Partial<Run> => ({
 const sameProps = (a: RunProps, b: RunProps): boolean =>
   a.bold === b.bold && a.italic === b.italic && a.underline === b.underline &&
   a.underlineStyle === b.underlineStyle && a.underlineColor === b.underlineColor && sameJson(a.underlineTheme, b.underlineTheme) &&
-  sameJson(a.colorTheme, b.colorTheme) && !!a.hidden === !!b.hidden && (a.scalePct ?? 100) === (b.scalePct ?? 100) &&
+  sameJson(a.colorTheme, b.colorTheme) && sameJson(a.textFx, b.textFx) && sameJson(a.openType, b.openType) && !!a.hidden === !!b.hidden && (a.scalePct ?? 100) === (b.scalePct ?? 100) &&
   (a.positionHalfPt ?? 0) === (b.positionHalfPt ?? 0) && (a.kernHalfPt ?? 0) === (b.kernHalfPt ?? 0) &&
   a.strike === b.strike && a.doubleStrike === b.doubleStrike &&
   a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt &&

@@ -46,6 +46,7 @@ export {
   type BookmarkMark,
 } from './document.js';
 export * from './ooxml/props.js';
+export * from './text-effects.js';
 export * from './ooxml/parts.js';
 export type { DrawingAnchor, AnchorPos, ShapeStyle, WrapType, CustPath, CustCmd } from './drawing.js';
 export { vmlColor } from './drawing.js';

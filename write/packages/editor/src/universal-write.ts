@@ -158,6 +158,7 @@ import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
 import { caseMapped } from './text-case.js';
 import { htmlToParas } from './paste-html.js';
+import { TEXT_EFFECT_GALLERY, textGradient } from './text-effects-presets.js';
 import { DocNumbering, libraryLevels, levelIndent, parseLevel, sameLevelFormat, type ListLocale } from './numbering-store.js';
 import { BULLET_LIBRARY, NUMBER_LIBRARY, MULTILEVEL_LIBRARY } from './list-library.js';
 import { pageFillFrom, themeTintShade, GRADIENT_PRESETS, GRADIENT_VARIANTS, type PageFillInput, type PageBackgroundInfo, type ThemeColorRef, type GradientStyle } from './page-design.js';
@@ -248,7 +249,7 @@ import {
   type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
 } from './navigation.js';
 import { guardRuns } from './edit-guard.js';
-import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, partByRelType, writeNumberingPart, type HyphenationSettings, type NumLevel } from '@universal-office/docx-core';
+import { readStyleSheet, styleRaw, styleIdFromName, writeDefaultTabStop, writeHyphenationSettings, partByRelType, writeNumberingPart, type HyphenationSettings, type NumLevel, type TextEffects, type OpenTypeProps, type FxColor } from '@universal-office/docx-core';
 import {
   lineNumberingInfo, lineNumberingOn, withLineNumberMode, lineNumberingFromOptions, flowValue, flowDirect, spacingDirect, common,
   wordAround, manualPoints, offsetAfterLetters, FLOW_FLAGS, HYPHENATION_LIMITS, PARAGRAPH_LAYOUT_LIMITS,
@@ -2612,6 +2613,92 @@ export class UniversalWriteElement extends HTMLElement {
    * Formatação de caractere de uma vez (diálogo Fonte), num só passo de desfazer:
    * só os campos presentes mudam. Cores aceitam RRGGBB, cor do tema ou null (Automática).
    */
+  // ───────────────────────── Efeitos de Texto e Tipografia (w14) ─────────────────────────
+  // O XML segue o que o Word grava (write/tools/home-lab exp-effects*.ps1); o desenho usa os
+  // efeitos em raster de @universal-office/drawingml (docx-layout textfx.ts).
+
+  /** Efeitos e tipografia do cursor (o 1º caractere da seleção). */
+  textEffects(): { fx?: TextEffects; ot?: OpenTypeProps } {
+    const p = this.pendingProps ?? this.currentProps();
+    return { ...(p.textFx ? { fx: structuredClone(p.textFx) } : {}), ...(p.openType ? { ot: { ...p.openType } } : {}) };
+  }
+
+  /** Muda partes dos efeitos de texto da seleção (cada trecho mantém as outras): null
+   *  tira a parte (Sem Contorno, Sem Sombra…). Um passo de desfazer. */
+  setTextEffects(patch: { [K in keyof TextEffects]?: TextEffects[K] | null }): void {
+    this.mapRunProps((p) => {
+      const fx: TextEffects = { ...(p.textFx ?? {}) };
+      for (const [k, v] of Object.entries(patch) as [keyof TextEffects, unknown][]) {
+        if (v === null || v === undefined) delete fx[k]; else (fx as Record<string, unknown>)[k] = structuredClone(v);
+      }
+      // preenchimento sólido opaco na cor do texto é o w:color de sempre (sem w14:textFill)
+      return { textFx: Object.keys(fx).length ? fx : undefined };
+    }, (p) => JSON.stringify(p.textFx ?? null));
+  }
+
+  /** Um modelo da galeria Efeitos de Texto (substitui os efeitos; null = sem efeitos). */
+  applyTextEffectPreset(index: number | null): void {
+    const pr = index === null ? null : TEXT_EFFECT_GALLERY[index];
+    if (index !== null && !pr) return;
+    this.mapRunProps(() => ({ textFx: pr ? structuredClone(pr.fx) : undefined }), () => '');
+  }
+
+  /** Tipografia OpenType da seleção (ligaduras, números, conjuntos estilísticos,
+   *  alternativas contextuais): null tira a opção. */
+  setOpenType(patch: { [K in keyof OpenTypeProps]?: OpenTypeProps[K] | null }): void {
+    this.mapRunProps((p) => {
+      const ot: OpenTypeProps = { ...(p.openType ?? {}) };
+      for (const [k, v] of Object.entries(patch) as [keyof OpenTypeProps, unknown][]) {
+        if (v === null || v === undefined || v === 'default' || (Array.isArray(v) && !v.length) || v === false) delete ot[k]; else (ot as Record<string, unknown>)[k] = v;
+      }
+      return { openType: Object.keys(ot).length ? ot : undefined };
+    }, (p) => JSON.stringify(p.openType ?? null));
+  }
+
+  /** Cor da Fonte › Gradiente: da cor do texto (ou do tema) para a variação clara/escura
+   *  na direção dada; null tira o degradê. */
+  setTextGradient(v: { angleDeg: number; light: boolean } | null): void {
+    this.mapRunProps((p) => {
+      const fx: TextEffects = { ...(p.textFx ?? {}) };
+      if (!v) delete fx.fill;
+      else {
+        const base: FxColor = p.colorTheme ? { scheme: themeToW14(p.colorTheme.themeColor) } : { rgb: (p.color ?? '000000').toUpperCase() };
+        fx.fill = textGradient(base, v.angleDeg, v.light);
+      }
+      return { textFx: Object.keys(fx).length ? fx : undefined };
+    }, (p) => JSON.stringify([p.textFx ?? null, p.color, p.colorTheme]));
+  }
+
+  /** Aplica uma mudança que depende da formatação de cada trecho da seleção (os trechos
+   *  iguais pela chave vão juntos); sem seleção vale para o que se digitar. */
+  private mapRunProps(fn: (p: RunProps) => Partial<RunProps>, key: (p: RunProps) => string): void {
+    if (!this.model || this.locked()) return;
+    if (!this.hasSelection()) {
+      const cur = this.pendingProps ?? this.currentProps();
+      this.pendingProps = { ...cur, ...fn(cur) };
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return;
+    }
+    this.snapshot();
+    const { start, end } = normalizeRange(this.range());
+    const segs: { range: DocRange; props: RunProps }[] = [];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model.paragraphs[pi]!;
+      const from = pi === start.para ? start.offset : 0, to = pi === end.para ? end.offset : paraLength(p);
+      let acc = 0;
+      for (const r of p.runs) {
+        const rs = acc, re = acc + r.text.length; acc = re;
+        const s = Math.max(from, rs), e = Math.min(to, re);
+        if (e <= s) continue;
+        const last = segs[segs.length - 1];
+        if (last && last.range.end.para === pi && last.range.end.offset === s && key(last.props) === key(r.props)) last.range.end = { para: pi, offset: e };
+        else segs.push({ range: { start: { para: pi, offset: s }, end: { para: pi, offset: e } }, props: r.props });
+      }
+    }
+    for (const sg of segs) this.applyRun(sg.range, fn(sg.props));
+    this.refresh();
+  }
+
   setFontFormat(f: FontFormat): void {
     const patch: Partial<RunProps> = {};
     if (f.fontFamily !== undefined) { void this.ensureFontLoaded(f.fontFamily); patch.fontAscii = f.fontFamily; }
@@ -21233,6 +21320,12 @@ export interface ListLevelSpec {
   isLgl?: boolean;
   /** reinicia após o nível (1–9; 0 = nunca) */
   lvlRestart?: number;
+}
+
+/** Cor do tema do w:color (text1, accent1…) → nome do w14:schemeClr (tx1, accent1…). */
+function themeToW14(t: string): string {
+  const m: Record<string, string> = { text1: 'tx1', text2: 'tx2', background1: 'bg1', background2: 'bg2', dark1: 'tx1', light1: 'bg1', dark2: 'tx2', light2: 'bg2', hyperlink: 'hlink', followedHyperlink: 'folHlink' };
+  return m[t] ?? t;
 }
 
 /** Equivalentes Unicode dos marcadores comuns das fontes de símbolo ("fonte:código" em hex,

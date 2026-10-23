@@ -211,7 +211,7 @@ export class SfntFont implements LayoutFont {
       try { this.gsub = t ? parseGsubLigatures(this.view, t.offset) : null; } catch { this.gsub = null; }
     }
     const g = this.gsub;
-    if (!g || !g.lookups.size || !features.some((f) => (g.features.get(f) ?? []).some((li) => g.lookups.has(li)))) return null;
+    if (!g || !(g.lookups.size || g.singles?.size) || !features.some((f) => (g.features.get(f) ?? []).some((li) => g.lookups.has(li) || !!g.singles?.has(li)))) return null;
     return applyLigatures(g, gids, features);
   }
 

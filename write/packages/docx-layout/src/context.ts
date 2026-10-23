@@ -222,6 +222,26 @@ const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
  * Campos cujas props divergem do que o rPr original implica foram editados e
  * sobrepõem o rPr (semântica absoluta, como formatação direta).
  */
+/** Efeitos w14 editados no rpr do motor, com os campos antigos que o layout usa. */
+function setFx(base: RPr, fx: RPr['fx']): void {
+  delete base.textFill; delete base.textOutline; delete base.textShadow;
+  if (!fx) { delete base.fx; return; }
+  base.fx = fx;
+  const f = fx.fill;
+  if (f?.type === 'none') base.textFill = { alpha: 0 };
+  else if (f?.type === 'solid') {
+    const a = f.color.mods?.find(([k]) => k === 'alpha')?.[1];
+    base.textFill = { ...(f.color.rgb ? { color: f.color.rgb } : {}), ...(f.color.scheme ? { themeColor: f.color.scheme } : {}), ...(a !== undefined ? { alpha: Math.max(0, 1 - a / 100000) } : {}) };
+  }
+  if (fx.outline?.fill && fx.outline.fill.type !== 'none') base.textOutline = true;
+  if (fx.shadow) base.textShadow = { blur: fx.shadow.blurRad / 12700, dist: fx.shadow.dist / 12700, dir: fx.shadow.dir / 60000 };
+}
+function setOt(base: RPr, ot: RPr['ot']): void {
+  if (!ot) { delete base.ot; delete base.ligatures; return; }
+  base.ot = ot;
+  if (ot.ligatures) base.ligatures = ot.ligatures; else delete base.ligatures;
+}
+
 export function directRPr(run: Run): RPr {
   const base: RPr = run.rpr ? { ...run.rpr } : {};
   const p = run.props;
@@ -249,8 +269,12 @@ export function directRPr(run: Run): RPr {
     if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
     if (p.charStyle) base.rStyle = p.charStyle;
+    if (p.textFx) setFx(base, p.textFx);
+    if (p.openType) setOt(base, p.openType);
     return base;
   }
+  if (!eq(p.textFx, orig.textFx)) setFx(base, p.textFx);
+  if (!eq(p.openType, orig.openType)) setOt(base, p.openType);
   if (p.bold !== orig.bold) base.b = p.bold;
   if (p.italic !== orig.italic) base.i = p.italic;
   if (p.underline !== orig.underline || p.underlineStyle !== orig.underlineStyle || p.underlineColor !== orig.underlineColor || !eq(p.underlineTheme, orig.underlineTheme)) {

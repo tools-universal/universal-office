@@ -1,0 +1,107 @@
+<!-- document.xml (corpo) -->
+<w:p>
+  <w:r>
+    <w:rPr>
+      <w:noProof/>
+    </w:rPr>
+    <mc:AlternateContent>
+      <mc:Choice Requires="wps">
+        <w:drawing>
+          <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+            <wp:simplePos x="0" y="0"/>
+            <wp:positionH relativeFrom="column">
+              <wp:posOffset>-165735</wp:posOffset>
+            </wp:positionH>
+            <wp:positionV relativeFrom="paragraph">
+              <wp:posOffset>14605</wp:posOffset>
+            </wp:positionV>
+            <wp:extent cx="5080000" cy="1016000"/>
+            <wp:effectExtent l="0" t="0" r="25400" b="12700"/>
+            <wp:wrapNone/>
+            <wp:docPr id="575261794" name="Caixa de Texto 1"/>
+            <wp:cNvGraphicFramePr/>
+            <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+              <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+                <wps:wsp>
+                  <wps:cNvSpPr txBox="1"/>
+                  <wps:spPr>
+                    <a:xfrm>
+                      <a:off x="0" y="0"/>
+                      <a:ext cx="5080000" cy="1016000"/>
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                      <a:avLst/>
+                    </a:prstGeom>
+                    <a:noFill/>
+                    <a:ln w="6350">
+                      <a:solidFill>
+                        <a:prstClr val="black"/>
+                      </a:solidFill>
+                    </a:ln>
+                  </wps:spPr>
+                  <wps:txbx>
+                    <w:txbxContent>
+                      <w:p>
+                        <w:pPr>
+                          <w:rPr>
+                            <w:sz w:val="56"/>
+                          </w:rPr>
+                        </w:pPr>
+                        <w:r>
+                          <w:rPr>
+                            <w:sz w:val="56"/>
+                          </w:rPr>
+                          <w:t>Efeito de texto Abc 123</w:t>
+                        </w:r>
+                      </w:p>
+                    </w:txbxContent>
+                  </wps:txbx>
+                  <wps:bodyPr rot="0" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="t" anchorCtr="0" forceAA="0" compatLnSpc="1">
+                    <a:prstTxWarp prst="textNoShape">
+                      <a:avLst/>
+                    </a:prstTxWarp>
+                    <a:noAutofit/>
+                  </wps:bodyPr>
+                </wps:wsp>
+              </a:graphicData>
+            </a:graphic>
+          </wp:anchor>
+        </w:drawing>
+      </mc:Choice>
+      <mc:Fallback>
+        <w:pict>
+          <v:shapetype w14:anchorId="5EB4406D" id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">
+            <v:stroke joinstyle="miter"/>
+            <v:path gradientshapeok="t" o:connecttype="rect"/>
+          </v:shapetype>
+          <v:shape id="Caixa de Texto 1" o:spid="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:-13.05pt;margin-top:1.15pt;width:400pt;height:80pt;z-index:251659264;visibility:visible;mso-wrap-style:square;mso-wrap-distance-left:9pt;mso-wrap-distance-top:0;mso-wrap-distance-right:9pt;mso-wrap-distance-bottom:0;mso-position-horizontal:absolute;mso-position-horizontal-relative:text;mso-position-vertical:absolute;mso-position-vertical-relative:text;v-text-anchor:top" o:gfxdata="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&#xA;" filled="f" strokeweight=".5pt">
+            <v:fill o:detectmouseclick="t"/>
+            <v:textbox>
+              <w:txbxContent>
+                <w:p>
+                  <w:pPr>
+                    <w:rPr>
+                      <w:sz w:val="56"/>
+                    </w:rPr>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr>
+                      <w:sz w:val="56"/>
+                    </w:rPr>
+                    <w:t>Efeito de texto Abc 123</w:t>
+                  </w:r>
+                </w:p>
+              </w:txbxContent>
+            </v:textbox>
+          </v:shape>
+        </w:pict>
+      </mc:Fallback>
+    </mc:AlternateContent>
+  </w:r>
+</w:p>
+<w:sectPr>
+  <w:pgSz w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>
+  <w:cols w:space="708"/>
+  <w:docGrid w:linePitch="360"/>
+</w:sectPr>

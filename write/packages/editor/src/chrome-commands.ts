@@ -17,6 +17,7 @@ import { registerPictureAdjustCommands } from './chrome-picture-adjust.js';
 import { registerHomeCommands, colorFromPick, pickHex } from './chrome-home.js';
 import { registerListCommands } from './chrome-lists.js';
 import { registerClipboardCommands } from './chrome-clipboard.js';
+import { registerEffectsCommands } from './chrome-effects.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -91,6 +92,8 @@ export interface ChromeCtl {
   listDialog(kind: import('./chrome-lists.js').ListDialogKind): void;
   /** Área de Transferência (chrome-clipboard.ts): Colar Especial, Definir Colagem Padrão, painel */
   clipboard(kind: import('./chrome-clipboard.js').ClipboardUiKind): void;
+  /** painel Formatar Efeitos de Texto (chrome-effects.ts) */
+  textEffectsPane(): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -335,6 +338,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   registerHomeCommands(reg, ed, app, ctl);
   registerListCommands(reg, ed, app, ctl);
   registerClipboardCommands(reg, ed, app, ctl);
+  registerEffectsCommands(reg, ed, app, ctl);
   registerTocCommands(reg, ed, app, ctl);
   registerTextLayoutCommands(reg, ed, app, ctl);
 

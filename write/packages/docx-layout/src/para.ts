@@ -4,6 +4,7 @@ import type {
 import { DocContext, directPPr, directRPr } from './context.js';
 import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, shadingFill, highlightHex, resolveDrawingColor, own } from './resolve.js';
 import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbolFont, type FontFace } from './fonts.js';
+import { resolveTextFx } from './textfx.js';
 import type { NumberMarker } from './numbering.js';
 import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
 import { markHyphenation } from './hyphenate.js';
@@ -36,6 +37,9 @@ export interface RunStyle {
   alpha?: number;
   /** contorno visível (w14:textOutline com preenchimento) */
   outline?: boolean;
+  /** efeitos de texto w14 resolvidos (degradê, contorno, sombra, brilho, reflexo) e a chave deles */
+  fx?: import('./textfx.js').ResolvedTextFx;
+  fxKey?: string;
 }
 
 export type GlyphKind = 'char' | 'space' | 'nbsp' | 'tab' | 'lb' | 'pb' | 'cb' | 'obj' | 'shy' | 'box';
@@ -86,6 +90,8 @@ export interface Glyph {
   kernAdj?: number;
   /** glifo da ligadura que este caractere abre/fecha (kerning com os vizinhos) */
   ligStart?: number;
+  /** glifo trocado por uma substituição OpenType (onum, tnum, ss01…) */
+  subGid?: number;
   ligEnd?: number;
   /** pontuação que pode pendurar além da margem no fim da linha */
   hang?: boolean;
@@ -230,6 +236,14 @@ export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: 
     ...(rpr.textOutline ? { outline: true } : {}),
     ...(link ? { link } : {}),
   };
+  const fx = resolveTextFx(rpr.fx, theme, style.color);
+  if (fx) {
+    style.fx = fx;
+    style.fxKey = JSON.stringify(fx);
+    // degradê: a cor "do texto" (sublinhado, tachado) é a da 1ª parada
+    if (fx.fill?.kind === 'grad' && fx.fill.stops[0]) style.color = fx.fill.stops[0].hex;
+    if (fx.fill?.kind === 'none') style.alpha = 0;
+  }
   if (va === 'superscript' || va === 'subscript') {
     // medido no Word (oráculo supraise): elevação/queda pela fonte do PRÓPRIO run
     const face = faceFor(ctx, rpr, 0x41, style);
@@ -414,6 +428,18 @@ function glyphAdvTwips(ctx: DocContext, face: FontFace, gid: number, sizePt: num
   return roundAdvance(ctx, (f.advanceWidth(gid) * emOf(ctx, sizePt) * 20) / f.metrics.unitsPerEm);
 }
 
+/** Features GSUB da tipografia w14 além das ligaduras: formas e espaçamento dos números,
+ *  conjuntos estilísticos e alternativas contextuais (calt: só as substituições simples). */
+function otFeatures(ot: RPr['ot']): string[] {
+  if (!ot) return [];
+  const out: string[] = [];
+  if (ot.numForm === 'oldStyle') out.push('onum'); else if (ot.numForm === 'lining') out.push('lnum');
+  if (ot.numSpacing === 'tabular') out.push('tnum'); else if (ot.numSpacing === 'proportional') out.push('pnum');
+  for (const n of ot.stylisticSets ?? []) out.push(`ss${String(n).padStart(2, '0')}`);
+  if (ot.cntxtAlts) out.push('calt');
+  return out;
+}
+
 /** Features GSUB de ligadura ligadas por w14:ligatures (none, standard, contextual,
  *  historical, discretional, combinações e all). */
 function ligFeatures(v: string | undefined): string[] {
@@ -440,12 +466,12 @@ function applyLigatures(ctx: DocContext, glyphs: Glyph[]): void {
   // posição e ligaduras — cor, sublinhado, estilo não importam (como no kerning)
   const keyOf = (g: Glyph): string => {
     const r = g.style.rpr as RPr & { ligatures?: string };
-    return `${r.lang?.val ?? ''}|${r.w ?? 100}|${g.style.shift}|${r.ligatures ?? ''}|${r.spacing ?? 0}`;
+    return `${r.lang?.val ?? ''}|${r.w ?? 100}|${g.style.shift}|${r.ligatures ?? ''}|${r.spacing ?? 0}|${JSON.stringify(r.ot ?? null)}`;
   };
   for (let k = 0; k < glyphs.length;) {
     const g0 = glyphs[k]!;
     const rpr = g0.style.rpr;
-    const feats = g0.kind === 'char' && !rpr.spacing ? ligFeatures((rpr as { ligatures?: string }).ligatures) : [];
+    const feats = g0.kind === 'char' ? [...(!rpr.spacing ? ligFeatures((rpr as { ligatures?: string }).ligatures) : []), ...otFeatures(rpr.ot)] : [];
     const ligate = (g0.face.font as { ligate?: (g: number[], f: readonly string[]) => { gid: number; len: number }[] | null }).ligate;
     if (!feats.length || !ligate) { k++; continue; }
     const key = keyOf(g0);
@@ -455,11 +481,19 @@ function applyLigatures(ctx: DocContext, glyphs: Glyph[]): void {
       if (q.kind !== 'char' || q.face !== g0.face || q.sizePt !== g0.sizePt || (q.runIdx !== g0.runIdx && keyOf(q) !== key)) break;
       e++;
     }
-    if (e - k >= 2) {
+    if (e - k >= 1) {
       const f = g0.face.font;
       const groups = ligate.call(f, glyphs.slice(k, e).map((q) => f.glyphId(q.cp)), feats);
       let pos = k;
       for (const grp of groups ?? []) {
+        // substituição simples (números antigos/tabulares, conjunto estilístico): outro glifo,
+        // com o avanço dele (o desenho usa o glifo trocado)
+        if (grp.len === 1 && grp.gid !== f.glyphId(glyphs[pos]!.cp)) {
+          const q = glyphs[pos]!;
+          const w = q.style.rpr.w && q.style.rpr.w !== 100 ? q.style.rpr.w / 100 : 1;
+          q.adv += (glyphAdvTwips(ctx, q.face, grp.gid, q.sizePt) - glyphAdvTwips(ctx, q.face, f.glyphId(q.cp), q.sizePt)) * w;
+          q.subGid = grp.gid;
+        }
         if (grp.len > 1) {
           const first = glyphs[pos]!, last = glyphs[pos + grp.len - 1]!;
           let sum = 0;

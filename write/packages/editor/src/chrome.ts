@@ -21,6 +21,7 @@ import { tocDialog, tocGalleryMenu, type TocEnv } from './chrome-toc.js';
 import { fontDialog } from './chrome-font.js';
 import { openListDialog, listContextItems } from './chrome-lists.js';
 import { ClipboardUI } from './chrome-clipboard.js';
+import { openTextEffectsPane } from './chrome-effects.js';
 import { aboutDialog, authorDialog, columnsDialog, commentDialog, convertNotesDialog, linkDialog, notesDialog, pageDialog, paragraphDialog, shortcutsDialog, showNotesDialog, spellingDialog, tabsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { NavPane } from './chrome-nav.js';
 import { RulerUI } from './chrome-ruler.js';
@@ -323,6 +324,8 @@ class WriteChrome {
   private styles: StylesUI | null = null;
   private pictures: PictureUI | null = null;
   private clipboardUI: ClipboardUI | null = null;
+  /** painel Formatar Efeitos de Texto aberto (recarrega com a seleção) */
+  private fxPane: { sync: () => void } | null = null;
   private protbar: HTMLElement | null = null;
   private stateCache: ReturnType<UniversalWriteElement['getSelectionState']> | null = null;
   private families: string[] = [];
@@ -493,9 +496,10 @@ class WriteChrome {
       refsDialog: (kind) => { void refsDialog(this.refsEnv(), kind).then(() => this.after()); },
       tocDialog: (kind, scope) => { void tocDialog(this.tocEnv(), kind, scope).then(() => this.after()); },
       image: () => this.pickImage(),
-      fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
+      fontDialog: () => { void fontDialog(d(), this.families, () => this.ctl().textEffectsPane()).then(() => this.after()); },
       listDialog: (kind) => { void openListDialog(d(), this.families, kind).then(() => this.after()); },
       clipboard: (kind) => { void this.clipboardUI?.run(kind).then(() => this.after()); },
+      textEffectsPane: () => { this.fxPane = openTextEffectsPane({ ed: this.ed, lang: this.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() }); this.after(); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: (tab) => { void pageDialog(d(), tab).then(() => this.after()); },
       textLayoutDialog: (kind) => {
@@ -607,6 +611,7 @@ class WriteChrome {
     this.styles?.sync();
     this.pictures?.sync();
     this.clipboardUI?.sync();
+    this.fxPane?.sync();
     this.review?.place();
     this.nav?.schedule();
     this.ruler?.schedule();

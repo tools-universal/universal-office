@@ -6,6 +6,7 @@ import { gradientTileRgba, pageFillTileTw, patternRgba, type PageFillPaint } fro
 import { paintPicturePdf, paintShapeEffectsPdf, type PdfPictureEnv } from './pdf-picture.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, patternRaster, blipTiles, isRectGradient, rectGradientRaster, type GradGeom } from './geometry.js';
 import { isSymbolFont, type FontFace } from './fonts.js';
+import { fxLayers, runBox, gradOf, dashPattern } from './textfx.js';
 import { applyImageEffects, applyPictureAdjust, decodeRaster, effectDecode, jpegInfo, imagePixelSize } from './images.js';
 
 /**
@@ -184,6 +185,59 @@ function outlineInto(cmds: PathCmd[], font: FontFace['font'], gid: number, ox: n
   return true;
 }
 
+/** Resolução da camada dos efeitos de texto no PDF (o Word grava ~200 dpi). */
+const FX_PPT = 200 / 72;
+
+/** Os contornos dos glifos do run em comandos do PDF (pt); null sem contornos. */
+function runPathCmds(it: Extract<PageItem, { t: 'glyphs' }>): PathCmd[] | null {
+  const font = it.face.font;
+  if (!font.glyphOutline) return null;
+  const upm = font.metrics.unitsPerEm;
+  const sc = it.sizePt / upm, sx = sc * (it.scaleX ?? 1);
+  const skew = it.synthItalic ? 0.2 : 0;
+  const cmds: PathCmd[] = [];
+  for (const g of it.glyphs) outlineInto(cmds, font, g.gid ?? font.glyphId(g.cp), g.x / T, it.y / T, sx, sc, skew);
+  return cmds;
+}
+
+/** Run com efeitos de texto no PDF: sombra/brilho/reflexo numa imagem com alfa atrás;
+ *  o preenchimento (sólido = texto; degradê = curvas sombreadas; nenhum = só o contorno)
+ *  e o contorno em curvas por cima (como o Word: write/tools/home-lab exp-effects). */
+function paintGlyphsFxPdf(
+  page: PdfPage, it: Extract<PageItem, { t: 'glyphs' }>, drawPlain: (it: PageItem) => void,
+  shade: (g: GradGeom, samples: Uint8Array) => PdfShading, embedRgba?: (data: Uint8Array, w: number, h: number) => PdfImage,
+): void {
+  const fx = it.fx!;
+  if (embedRgba && (fx.shadow || fx.glow || fx.reflection)) {
+    const L = fxLayers(it, fx, FX_PPT, it.color);
+    if (L) page.drawImage(embedRgba(new Uint8Array(L.data.buffer), L.w, L.h), L.x0 / T, L.y0 / T, L.w / FX_PPT, L.h / FX_PPT);
+  }
+  const fill = fx.fill;
+  if (fill?.kind === 'grad') {
+    const cmds = runPathCmds(it);
+    if (cmds) {
+      const b = runBox(it);
+      const box = { x: b.x / T, y: b.y / T, w: b.w / T, h: b.h / T };
+      const g = gradientGeometry(gradOf(fill), box, { x0: box.x, y0: box.y, x1: box.x + box.w, y1: box.y + box.h });
+      const sh = shade(g, gradientSamples(fill.stops.map((st) => ({ pos: st.pos, color: st.hex })), fill.path ? 256 : 512));
+      page.withAlpha(fill.stops[0]?.alpha !== undefined && fill.stops[0].alpha < 1 ? fill.stops[0].alpha : undefined, undefined, () => page.fillShaded(cmds, sh));
+    }
+  } else if (fill?.kind !== 'none') {
+    const a = fill?.kind === 'solid' ? fill.alpha : it.alpha;
+    drawPlain({ ...it, fx: undefined, ...(fill?.kind === 'solid' ? { color: fill.hex } : {}), ...(a !== undefined && a < 1 ? { alpha: a, asPath: true } : {}) });
+  }
+  const o = fx.outline;
+  if (o && o.fill.kind !== 'none') {
+    const cmds = runPathCmds(it);
+    if (cmds) {
+      const color = o.fill.kind === 'solid' ? o.fill.hex : o.fill.stops[0]?.hex ?? it.color;
+      const a = o.fill.kind === 'solid' ? o.fill.alpha : 1;
+      const dash = dashPattern(o.dash).map((d) => d * o.widthPt);
+      page.withAlpha(undefined, a < 1 ? a : undefined, () => page.path(cmds, undefined, { color: hexColor(color), widthPt: o.widthPt, ...(dash.length ? { dash } : {}) }));
+    }
+  }
+}
+
 /**
  * Texto como CURVAS (WordArt): cada glifo vira o seu contorno TrueType,
  * preenchido. false se a fonte não dá contornos (CFF) — aí vai como texto.
@@ -243,6 +297,8 @@ function paintItem(
 ): void {
   switch (it.t) {
     case 'glyphs': {
+      // efeitos de texto (w14): camada atrás, o texto, o contorno
+      if (it.fx) { paintGlyphsFxPdf(page, it, (x) => paintItem(page, x, fontFor, imageFor, shade, pictureEnv, embedRgba), shade, embedRgba); return; }
       if (it.asPath && glyphsAsPath(page, it)) return;
       const ef = fontFor(it.face);
       if (!ef) return;

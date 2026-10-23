@@ -20,6 +20,7 @@ import { ZOOMS } from './chrome-commands.js';
 import { fontColorMenu, homeBordersMenu, underlineMenu } from './chrome-home.js';
 import { listMenu, multilevelMenu } from './chrome-lists.js';
 import { pasteMenu } from './chrome-clipboard.js';
+import { textEffectsMenu } from './chrome-effects.js';
 
 /** Submenus compartilhados pelas duas barras. */
 function menus(env: WidgetEnv, ctx: BarContext) {
@@ -180,6 +181,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
         { split: 'underline', menu: () => underlineMenu(env, ctx) },
         { split: 'color', menu: () => fontColorMenu(env, ctx) },
         { split: 'highlight', menu: () => highlightMenu(env, ctx) },
+        { menu: () => textEffectsMenu(env, ctx), id: 'fx:menu', label: { en: 'Text Effects and Typography', pt: 'Efeitos de Texto e Tipografia' }, icon: 'format_color_text' },
       ] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, icon: 'link', prio: 5, items: ['link', 'comment', 'image', { menu: () => tableMenu(env, ctx), id: 'table:menu', label: { en: 'Table', pt: 'Tabela' }, icon: 'table', supports: () => typeof (env.ed as unknown as { insertTable?: unknown }).insertTable === 'function' }] },
       { id: 'para', label: { en: 'Paragraph', pt: 'Parágrafo' }, icon: 'format_align_left', prio: 6, items: [
@@ -227,7 +229,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           { id: 'font', label: L('Font', 'Fonte'), icon: 'text_format', prio: 8, launcher: 'dlg:font', cells: [
             { rows: [
               [fontWidget(env, 140), sizeWidget(env, 'dropdown'), 'grow', 'shrink', { menu: caseMenu, id: 'case', label: L('Change case', 'Maiúsculas e minúsculas'), icon: 'match_case' }, 'clear'],
-              ['bold', 'italic', { split: 'underline', menu: () => underlineMenu(env, ctx) }, 'strike', 'sub', 'sup', { split: 'color', menu: () => fontColorMenu(env, ctx) }, { split: 'highlight', menu: () => highlightMenu(env, ctx) }],
+              ['bold', 'italic', { split: 'underline', menu: () => underlineMenu(env, ctx) }, 'strike', 'sub', 'sup', { menu: () => textEffectsMenu(env, ctx), id: 'fx:menu', label: L('Text Effects and Typography', 'Efeitos de Texto e Tipografia'), icon: 'format_color_text' }, { split: 'highlight', menu: () => highlightMenu(env, ctx) }, { split: 'color', menu: () => fontColorMenu(env, ctx) }],
             ] },
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_align_left', prio: 7, launcher: 'dlg:paragraph', cells: [

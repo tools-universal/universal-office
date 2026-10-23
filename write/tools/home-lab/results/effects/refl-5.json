@@ -1,0 +1,28 @@
+{
+    "glow":  {
+                 "radius":  0,
+                 "color":  0,
+                 "tr":  0
+             },
+    "refl":  {
+                 "type":  5,
+                 "size":  60,
+                 "tr":  0.4,
+                 "offset":  2.362,
+                 "blur":  0.5
+             },
+    "shadow":  {
+                   "visible":  0,
+                   "style":  1,
+                   "blur":  0,
+                   "ox":  0,
+                   "oy":  0,
+                   "tr":  0,
+                   "size":  0
+               },
+    "line":  {
+                 "visible":  0,
+                 "weight":  0
+             },
+    "err":  ""
+}

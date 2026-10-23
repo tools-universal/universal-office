@@ -42,6 +42,8 @@ export interface GlyphRunItem {
   /** glifos COLORIDOS (COLR, ex.: Segoe UI Emoji): curvas por camada, nas
    *  cores da paleta — o Word também não grava texto extraível para eles */
   colr?: boolean;
+  /** efeitos de texto w14 (degradê, contorno, sombra, brilho, reflexo) */
+  fx?: import('./textfx.js').ResolvedTextFx;
 }
 
 export interface RectItem {

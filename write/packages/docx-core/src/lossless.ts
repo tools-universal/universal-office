@@ -16,6 +16,7 @@ import { pgBordersXml } from './table-xml.js';
 import { paraFormatting, runFormatting } from './revisions.js';
 import { markRevisionXml, revisionAttrs } from './rev-xml.js';
 import { notePropsXml, sameNoteProps } from './notes.js';
+import { textEffectsXml, W14_RPR } from './text-effects.js';
 
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -26,7 +27,11 @@ const RPR_ORDER = [
   'w:outline', 'w:shadow', 'w:emboss', 'w:imprint', 'w:noProof', 'w:snapToGrid', 'w:vanish', 'w:webHidden',
   'w:color', 'w:spacing', 'w:w', 'w:kern', 'w:position', 'w:sz', 'w:szCs', 'w:highlight', 'w:u', 'w:effect',
   'w:bdr', 'w:shd', 'w:fitText', 'w:vertAlign', 'w:rtl', 'w:cs', 'w:em', 'w:lang', 'w:eastAsianLayout',
-  'w:specVanish', 'w:oMath', 'w:rPrChange',
+  'w:specVanish', 'w:oMath',
+  // extensões do Word 2010 (efeitos de texto e tipografia), na ordem do esquema w14
+  'w14:glow', 'w14:shadow', 'w14:reflection', 'w14:textOutline', 'w14:textFill', 'w14:scene3d', 'w14:props3d',
+  'w14:ligatures', 'w14:numForm', 'w14:numSpacing', 'w14:stylisticSets', 'w14:cntxtAlts',
+  'w:rPrChange',
 ];
 
 /** CT_PPr */
@@ -137,6 +142,8 @@ export function rPrFromProps(p: RunProps, linkAware = true): string {
   if (p.highlight) rpr.push(`<w:highlight w:val="${esc(p.highlight)}"/>`);
   if (p.underline && !linkLook) rpr.push(uXml(p));
   if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
+  const fx = textEffectsXml(p.textFx, p.openType);
+  if (fx) rpr.push(fx);
   // formatação controlada: o rPr de antes, por último (CT_RPr)
   if (p.fmt) rpr.push(`<w:rPrChange${revisionAttrs(p.fmt)}>${wrapIn('w:rPr', innerOf(rPrFromProps(p.fmt.old, linkAware)))}</w:rPrChange>`);
   return rpr.length ? `<w:rPr>${rpr.join('')}</w:rPr>` : '';
@@ -149,6 +156,9 @@ const RPR_FIELD: Record<string, string> = {
   'w:emboss': 'emboss', 'w:imprint': 'imprint', 'w:vanish': 'vanish', 'w:color': 'color', 'w:spacing': 'spacing', 'w:w': 'w',
   'w:kern': 'kern', 'w:position': 'position', 'w:sz': 'sz', 'w:szCs': 'szCs', 'w:highlight': 'highlight', 'w:u': 'u',
   'w:effect': 'effect', 'w:bdr': 'bdr', 'w:shd': 'shd', 'w:vertAlign': 'vertAlign', 'w:em': 'em',
+  // efeitos de texto e tipografia w14 (Limpar Formatação os tira, como o Word)
+  'w14:glow': 'fx', 'w14:shadow': 'fx', 'w14:reflection': 'fx', 'w14:textOutline': 'fx', 'w14:textFill': 'fx', 'w14:scene3d': 'fx', 'w14:props3d': 'fx',
+  'w14:ligatures': 'ot', 'w14:numForm': 'ot', 'w14:numSpacing': 'ot', 'w14:stylisticSets': 'ot', 'w14:cntxtAlts': 'ot',
 };
 /** Elemento do w:pPr ↔ campo do PPr tipado (w:pStyle/w:sectPr/w:pPrChange seguem as props). */
 const PPR_FIELD: Record<string, string> = {
@@ -166,6 +176,9 @@ export function clearedRPr(rpr: RPr | undefined, fields?: readonly (keyof RunPro
   const out: Record<string, unknown> = { ...(rpr ?? {}) };
   const drop = fields ? fields.flatMap((k) => PROP_RPR[k] ?? []) : Object.values(RPR_FIELD).filter((f) => f !== 'rStyle');
   for (const f of drop) delete out[f];
+  // (os campos antigos derivados dos mesmos elementos w14 saem junto)
+  if (!('fx' in out)) { delete out['textFill']; delete out['textOutline']; delete out['textShadow']; }
+  if (!('ot' in out)) delete out['ligatures'];
   return out as RPr;
 }
 /** Prop de edição do run ↔ campos do RPr. */
@@ -174,6 +187,7 @@ const PROP_RPR: Partial<Record<keyof RunProps, string[]>> = {
   doubleStrike: ['dstrike'], allCaps: ['caps'], smallCaps: ['smallCaps'], vertAlign: ['vertAlign'], szHalfPt: ['sz', 'szCs'],
   color: ['color'], colorTheme: ['color'], highlight: ['highlight'], fontAscii: ['rFonts'], charSpacingTwips: ['spacing'],
   hidden: ['vanish'], scalePct: ['w'], positionHalfPt: ['position'], kernHalfPt: ['kern'],
+  textFx: ['fx', 'textFill', 'textOutline', 'textShadow'], openType: ['ot', 'ligatures'],
 };
 /** ppr sem a formatação direta de parágrafo (ficam pStyle, marca ¶ e revisão). */
 export function clearedPPr(ppr: PPr | undefined): PPr {
@@ -256,6 +270,11 @@ export function patchRPr(raw: string | undefined, run: Run): string {
   if (p.charStyle !== base.charStyle) set('w:rStyle', p.charStyle ? `<w:rStyle w:val="${esc(p.charStyle)}"/>` : null);
   if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set('w:spacing', p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
+  }
+  if (!sameJson(p.textFx, base.textFx) || !sameJson(p.openType, base.openType)) {
+    // efeitos/tipografia w14: os elementos saem todos e entram os de agora, cada um no lugar
+    const now = new Map(splitElement(`<w:rPr>${textEffectsXml(p.textFx, p.openType)}</w:rPr>`).kids.map((k) => [k.name, k.raw] as const));
+    for (const n of W14_RPR) set(n, now.get(n) ?? null);
   }
   if (!sameJson(p.fmt, base.fmt)) {
     // formatação controlada nova (o rPr de antes = o cru sem a revisão, com as props
