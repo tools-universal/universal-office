@@ -46,7 +46,7 @@ Give the element a size with CSS — it fills its box.
 | `zoom` | `page-width` (default) · `page-fit` · number or `%` | Initial zoom, e.g. `125` or `125%` (10–800%). |
 | `noselect` | boolean | Turns off text selection. |
 | `nocontrols` | boolean | Removes the whole control bar. |
-| `no<item>` | boolean | Removes one control: `nonav`, `nocounter`, `nooutline`, `nothumbnails`, `nocomments`, `nozoom`, `noview`, `nodownload`, `nodownloadpdf`, `noprint`, `nofullscreen`, `noprogress`. |
+| `no<item>` | boolean | Removes one control: `nonav`, `nocounter`, `nooutline`, `nothumbnails`, `nocomments`, `nozoom`, `noview`, `nodownload`, `nodownloadpdf` (the Print button then prints directly, with no Save as PDF option), `noprint`, `nofullscreen`, `noprogress`. |
 | `lang` | `en` · `pt` | UI language. Without it: Portuguese if the browser prefers it, otherwise English. |
 
 ## Methods
@@ -61,7 +61,7 @@ Give the element a size with CSS — it fills its box.
 | `getHeadings()` · `goToHeading(i)` | Outline: `{ level, text, page }[]`. |
 | `getComments()` · `selectComment(id)` | Comments: `{ id, author, text, page }[]`. |
 | `exportPdf(): Uint8Array` | PDF of the print layout. |
-| `print()` · `download()` · `downloadPdf()` · `toggleFullscreen()` | Same as the control-bar buttons (`download()` saves the original file, `downloadPdf()` the PDF of the print layout). |
+| `print()` · `download()` · `downloadPdf()` · `toggleFullscreen()` | Same as the control-bar buttons: Download saves the original file; Print opens a menu with **Print…** and **Save as PDF** (`downloadPdf()`, the PDF of the print layout). |
 
 ```js
 const viewer = document.querySelector('universal-document-viewer');
@@ -82,7 +82,7 @@ viewer.setZoom('page-fit');
 | `udv-heading` | `{ index, level, text, page }` | An outline entry was chosen. |
 | `udv-comment` | `{ id, author, text }` | A comment was chosen. |
 | `udv-download` | `{ bytes, filename }` | Download button. **Cancelable** — call `preventDefault()` to handle the file yourself. |
-| `udv-download-pdf` | `{ pdf, filename }` | Download PDF button. **Cancelable** — call `preventDefault()` to handle the PDF yourself. |
+| `udv-download-pdf` | `{ pdf, filename }` | Save as PDF (Print menu). **Cancelable** — call `preventDefault()` to handle the PDF yourself. |
 | `udv-print` | `{ pdf }` | Print button. **Cancelable** — handle printing yourself. |
 
 ## Styling
@@ -106,7 +106,7 @@ Parts for `::part()`: `viewer`, `pages`, `page`, `nav-panel`, `nav-tab`,
 `outline`, `outline-item`, `thumbnails`, `thumbnail`, `comments`, `comment`,
 `menu`, `menu-option`, `controls`, `progress`, `progress-value`, `counter`,
 `button` and `button-<name>` (`prev`, `next`, `outline`, `thumbnails`,
-`comments`, `zoom-out`, `zoom-level`, `zoom-in`, `view`, `download`, `download-pdf`, `print`,
+`comments`, `zoom-out`, `zoom-level`, `zoom-in`, `view`, `download`, `print`,
 `fullscreen`).
 
 ```css

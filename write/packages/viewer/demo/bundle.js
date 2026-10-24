@@ -29219,8 +29219,6 @@ var ICONS = {
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
   // arquivo
   download: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
-  // o documento convertido (PDF): folha com dobra e a seta de baixar
-  "download-pdf": '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5"/><path d="M12.5 10.5v7"/><path d="M9.5 14.5l3 3 3-3"/>',
   print: '<path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
   // apresentação e tela cheia
   present: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10.5 7.5v5l4-2.5z" fill="currentColor"/>',
@@ -29917,8 +29915,10 @@ var LABELS = {
     print: "Layout de Impress\xE3o",
     web: "Layout da Web",
     download: "Baixar",
-    downloadPdf: "Baixar PDF",
     printDoc: "Imprimir",
+    printOrPdf: "Imprimir ou salvar como PDF",
+    printMenu: "Imprimir\u2026",
+    savePdf: "Salvar como PDF",
     fullscreen: "Tela cheia",
     unfullscreen: "Sair da tela cheia",
     progress: "Posi\xE7\xE3o no documento",
@@ -29948,8 +29948,10 @@ var LABELS = {
     print: "Print Layout",
     web: "Web Layout",
     download: "Download",
-    downloadPdf: "Download PDF",
     printDoc: "Print",
+    printOrPdf: "Print or save as PDF",
+    printMenu: "Print\u2026",
+    savePdf: "Save as PDF",
     fullscreen: "Full screen",
     unfullscreen: "Exit full screen",
     progress: "Position in document",
@@ -29989,8 +29991,7 @@ var DocumentControls = class {
         { name: "zoom-in", item: "zoom", icon: "zoom-in", run: r(() => this.step(1)) },
         { name: "view", item: "view", icon: "view-print", run: r(() => this.toggleViewMenu()) },
         { name: "download", item: "download", icon: "download", run: r(() => host.download()) },
-        { name: "download-pdf", item: "downloadpdf", icon: "download-pdf", run: r(() => host.downloadPdf()) },
-        { name: "print", item: "print", icon: "print", run: r(() => host.print()) },
+        { name: "print", item: "print", icon: "print", run: r(() => this.printOrMenu()) },
         { name: "fullscreen", item: "fullscreen", icon: "fullscreen", run: r(() => host.toggleFullscreen()) }
       ],
       onSeek: (f) => host.seek(f),
@@ -30073,6 +30074,19 @@ var DocumentControls = class {
       (v) => this.host.setView(v)
     );
   }
+  /** Imprimir: com o PDF liberado, menu Imprimir… / Salvar como PDF; sem (`nodownloadpdf`), imprime direto. */
+  printOrMenu() {
+    if (this.bar.isRemoved("downloadpdf")) {
+      this.host.print();
+      return;
+    }
+    const L = this.labels;
+    this.toggleMenu(
+      "print",
+      [{ value: "print", label: L.printMenu }, { value: "pdf", label: L.savePdf }],
+      (v) => v === "pdf" ? this.host.downloadPdf() : this.host.print()
+    );
+  }
   toggleMenu(button, options, pick) {
     if (!this.menu.hidden) {
       const same = this.menuFor?.button === button;
@@ -30083,11 +30097,11 @@ var DocumentControls = class {
     for (const o of options) {
       const b = document.createElement("button");
       b.type = "button";
-      b.setAttribute("role", "menuitemradio");
+      b.setAttribute("role", o.checked === void 0 ? "menuitem" : "menuitemradio");
       b.setAttribute("part", "menu-option");
       b.dataset["value"] = o.value;
       b.textContent = o.label;
-      b.setAttribute("aria-checked", String(o.checked));
+      if (o.checked !== void 0) b.setAttribute("aria-checked", String(o.checked));
       this.menu.appendChild(b);
     }
     const btn = this.bar.buttonEl(button);
@@ -30112,7 +30126,8 @@ var DocumentControls = class {
     this.bar.setLabel(this.labels.toolbar);
     if (!enabled) this.closeMenu();
     this.bar.configure(enabled, removed);
-    if (this.menuFor && this.bar.isRemoved(this.menuFor.button === "view" ? "view" : "zoom")) this.closeMenu();
+    const itemOf = { view: "view", "zoom-level": "zoom", print: "print" };
+    if (this.menuFor && (this.bar.isRemoved(itemOf[this.menuFor.button]) || this.menuFor.button === "print" && this.bar.isRemoved("downloadpdf"))) this.closeMenu();
     this.last = "";
     this.sync();
   }
@@ -30156,8 +30171,14 @@ var DocumentControls = class {
     b.setButton("zoom-in", { label: L.zoomIn });
     b.setButton("view", { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === "view" });
     b.setButton("download", { label: L.download });
-    b.setButton("download-pdf", { label: L.downloadPdf });
-    b.setButton("print", { label: L.printDoc });
+    const pdf = !b.isRemoved("downloadpdf");
+    b.setButton("print", { label: pdf ? L.printOrPdf : L.printDoc, expanded: pdf ? this.menuFor?.button === "print" : void 0 });
+    const pb = b.buttonEl("print");
+    if (pdf) pb?.setAttribute("aria-haspopup", "menu");
+    else {
+      pb?.removeAttribute("aria-haspopup");
+      pb?.removeAttribute("aria-expanded");
+    }
     b.setButton("fullscreen", { label: full ? L.unfullscreen : L.fullscreen, icon: full ? "unfullscreen" : "fullscreen" });
   }
   dispose() {

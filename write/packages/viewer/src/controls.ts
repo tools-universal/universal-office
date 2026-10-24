@@ -20,7 +20,7 @@ import { VIEW_MODES, type ViewMode } from './views.js';
  *    `--udv-panel-bg`, `--udv-comment-highlight`, `--udv-selection`, `--udv-page-gap`;
  *  - `::part()`: `controls`, `progress`, `progress-value`, `counter`, `button`,
  *    `button-<nome>` (prev, next, outline, thumbnails, comments, zoom-out,
- *    zoom-level, zoom-in, view, download, download-pdf, print, fullscreen), `menu`,
+ *    zoom-level, zoom-in, view, download, print, fullscreen), `menu`,
  *    `menu-option`, `nav-panel`, `nav-tab`, `outline`, `outline-item`,
  *    `thumbnails`, `thumbnail`, `comments`, `comment`, `pages`, `page`.
  */
@@ -85,7 +85,7 @@ const LABELS = {
     comments: 'Comentários', noHeadings: 'O documento não tem títulos.', noComments: 'Sem comentários.',
     zoomOut: 'Diminuir zoom', zoomIn: 'Aumentar zoom', zoom: 'Zoom', pageWidth: 'Largura da página', pageFit: 'Página inteira',
     view: 'Modo de exibição', read: 'Modo de Leitura', print: 'Layout de Impressão', web: 'Layout da Web',
-    download: 'Baixar', downloadPdf: 'Baixar PDF', printDoc: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
+    download: 'Baixar', printDoc: 'Imprimir', printOrPdf: 'Imprimir ou salvar como PDF', printMenu: 'Imprimir…', savePdf: 'Salvar como PDF', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
     progress: 'Posição no documento', page: 'Página', document: 'Documento', pagesArea: 'Páginas do documento',
     toolbar: 'Controles do documento',
     pageOf: (n: number, m: number) => `Página ${n} de ${m}`,
@@ -96,7 +96,7 @@ const LABELS = {
     comments: 'Comments', noHeadings: 'This document has no headings.', noComments: 'No comments.',
     zoomOut: 'Zoom out', zoomIn: 'Zoom in', zoom: 'Zoom', pageWidth: 'Page width', pageFit: 'Whole page',
     view: 'View', read: 'Read Mode', print: 'Print Layout', web: 'Web Layout',
-    download: 'Download', downloadPdf: 'Download PDF', printDoc: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
+    download: 'Download', printDoc: 'Print', printOrPdf: 'Print or save as PDF', printMenu: 'Print…', savePdf: 'Save as PDF', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
     progress: 'Position in document', page: 'Page', document: 'Document', pagesArea: 'Document pages',
     toolbar: 'Document controls',
     pageOf: (n: number, m: number) => `Page ${n} of ${m}`,
@@ -108,7 +108,8 @@ export const labelsFor = (lang: UiLang): Labels => pickLabels(lang, LABELS);
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
-interface MenuOption { value: string; label: string; checked: boolean }
+/** `checked` ausente = ação (menuitem), não escolha (menuitemradio) */
+interface MenuOption { value: string; label: string; checked?: boolean }
 
 export class DocumentControls {
   private readonly bar: ControlBar<ControlItem>;
@@ -138,8 +139,7 @@ export class DocumentControls {
         { name: 'zoom-in', item: 'zoom', icon: 'zoom-in', run: r(() => this.step(1)) },
         { name: 'view', item: 'view', icon: 'view-print', run: r(() => this.toggleViewMenu()) },
         { name: 'download', item: 'download', icon: 'download', run: r(() => host.download()) },
-        { name: 'download-pdf', item: 'downloadpdf', icon: 'download-pdf', run: r(() => host.downloadPdf()) },
-        { name: 'print', item: 'print', icon: 'print', run: r(() => host.print()) },
+        { name: 'print', item: 'print', icon: 'print', run: r(() => this.printOrMenu()) },
         { name: 'fullscreen', item: 'fullscreen', icon: 'fullscreen', run: r(() => host.toggleFullscreen()) },
       ],
       onSeek: (f) => host.seek(f),
@@ -201,6 +201,14 @@ export class DocumentControls {
       (v) => this.host.setView(v as ViewMode));
   }
 
+  /** Imprimir: com o PDF liberado, menu Imprimir… / Salvar como PDF; sem (`nodownloadpdf`), imprime direto. */
+  private printOrMenu(): void {
+    if (this.bar.isRemoved('downloadpdf')) { this.host.print(); return; }
+    const L = this.labels;
+    this.toggleMenu('print', [{ value: 'print', label: L.printMenu }, { value: 'pdf', label: L.savePdf }],
+      (v) => (v === 'pdf' ? this.host.downloadPdf() : this.host.print()));
+  }
+
   private toggleMenu(button: string, options: MenuOption[], pick: (v: string) => void): void {
     if (!this.menu.hidden) {
       const same = this.menuFor?.button === button;
@@ -211,11 +219,11 @@ export class DocumentControls {
     for (const o of options) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.setAttribute('role', 'menuitemradio');
+      b.setAttribute('role', o.checked === undefined ? 'menuitem' : 'menuitemradio');
       b.setAttribute('part', 'menu-option');
       b.dataset['value'] = o.value;
       b.textContent = o.label;
-      b.setAttribute('aria-checked', String(o.checked));
+      if (o.checked !== undefined) b.setAttribute('aria-checked', String(o.checked));
       this.menu.appendChild(b);
     }
     const btn = this.bar.buttonEl(button)!;
@@ -243,7 +251,8 @@ export class DocumentControls {
     this.bar.setLabel(this.labels.toolbar);
     if (!enabled) this.closeMenu();
     this.bar.configure(enabled, removed);
-    if (this.menuFor && this.bar.isRemoved(this.menuFor.button === 'view' ? 'view' : 'zoom')) this.closeMenu();
+    const itemOf: Record<string, ControlItem> = { view: 'view', 'zoom-level': 'zoom', print: 'print' };
+    if (this.menuFor && (this.bar.isRemoved(itemOf[this.menuFor.button]!) || (this.menuFor.button === 'print' && this.bar.isRemoved('downloadpdf')))) this.closeMenu();
     this.last = '';
     this.sync();
   }
@@ -279,8 +288,11 @@ export class DocumentControls {
     b.setButton('zoom-in', { label: L.zoomIn });
     b.setButton('view', { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === 'view' });
     b.setButton('download', { label: L.download });
-    b.setButton('download-pdf', { label: L.downloadPdf });
-    b.setButton('print', { label: L.printDoc });
+    const pdf = !b.isRemoved('downloadpdf');
+    b.setButton('print', { label: pdf ? L.printOrPdf : L.printDoc, expanded: pdf ? this.menuFor?.button === 'print' : undefined });
+    const pb = b.buttonEl('print');
+    if (pdf) pb?.setAttribute('aria-haspopup', 'menu');
+    else { pb?.removeAttribute('aria-haspopup'); pb?.removeAttribute('aria-expanded'); }
     b.setButton('fullscreen', { label: full ? L.unfullscreen : L.fullscreen, icon: full ? 'unfullscreen' : 'fullscreen' });
   }
 
