@@ -11,7 +11,7 @@ because all three use the same layout engine.
 - Side panel with page thumbnails and the document outline (headings)
 - Comments panel linked to the highlighted text
 - Selectable, searchable text (invisible text layer over the canvas)
-- Download, print and full screen; PDF export
+- Download the original file or a PDF, print and full screen; PDF export
 - Keyboard and screen-reader accessible; English and Portuguese UI
 
 ## Installation
@@ -46,7 +46,7 @@ Give the element a size with CSS — it fills its box.
 | `zoom` | `page-width` (default) · `page-fit` · number or `%` | Initial zoom, e.g. `125` or `125%` (10–800%). |
 | `noselect` | boolean | Turns off text selection. |
 | `nocontrols` | boolean | Removes the whole control bar. |
-| `no<item>` | boolean | Removes one control: `nonav`, `nocounter`, `nooutline`, `nothumbnails`, `nocomments`, `nozoom`, `noview`, `nodownload`, `noprint`, `nofullscreen`, `noprogress`. |
+| `no<item>` | boolean | Removes one control: `nonav`, `nocounter`, `nooutline`, `nothumbnails`, `nocomments`, `nozoom`, `noview`, `nodownload`, `nodownloadpdf`, `noprint`, `nofullscreen`, `noprogress`. |
 | `lang` | `en` · `pt` | UI language. Without it: Portuguese if the browser prefers it, otherwise English. |
 
 ## Methods
@@ -61,7 +61,7 @@ Give the element a size with CSS — it fills its box.
 | `getHeadings()` · `goToHeading(i)` | Outline: `{ level, text, page }[]`. |
 | `getComments()` · `selectComment(id)` | Comments: `{ id, author, text, page }[]`. |
 | `exportPdf(): Uint8Array` | PDF of the print layout. |
-| `print()` · `download()` · `toggleFullscreen()` | Same as the control-bar buttons. |
+| `print()` · `download()` · `downloadPdf()` · `toggleFullscreen()` | Same as the control-bar buttons (`download()` saves the original file, `downloadPdf()` the PDF of the print layout). |
 
 ```js
 const viewer = document.querySelector('universal-document-viewer');
@@ -82,6 +82,7 @@ viewer.setZoom('page-fit');
 | `udv-heading` | `{ index, level, text, page }` | An outline entry was chosen. |
 | `udv-comment` | `{ id, author, text }` | A comment was chosen. |
 | `udv-download` | `{ bytes, filename }` | Download button. **Cancelable** — call `preventDefault()` to handle the file yourself. |
+| `udv-download-pdf` | `{ pdf, filename }` | Download PDF button. **Cancelable** — call `preventDefault()` to handle the PDF yourself. |
 | `udv-print` | `{ pdf }` | Print button. **Cancelable** — handle printing yourself. |
 
 ## Styling
@@ -105,7 +106,7 @@ Parts for `::part()`: `viewer`, `pages`, `page`, `nav-panel`, `nav-tab`,
 `outline`, `outline-item`, `thumbnails`, `thumbnail`, `comments`, `comment`,
 `menu`, `menu-option`, `controls`, `progress`, `progress-value`, `counter`,
 `button` and `button-<name>` (`prev`, `next`, `outline`, `thumbnails`,
-`comments`, `zoom-out`, `zoom-level`, `zoom-in`, `view`, `download`, `print`,
+`comments`, `zoom-out`, `zoom-level`, `zoom-in`, `view`, `download`, `download-pdf`, `print`,
 `fullscreen`).
 
 ```css
@@ -142,4 +143,4 @@ FontResolver.shared().configure({ baseUrl: '/assets/office-fonts' });
 ## Formats
 
 Input: `.docx`, `.doc` (Word 97–2003, converted in memory). Output: PDF
-(`exportPdf`), the original file (`download`).
+(`exportPdf`, `downloadPdf`), the original file (`download`).

@@ -73,7 +73,7 @@
 <li>Side panel with page thumbnails and the document outline (headings)</li>
 <li>Comments panel linked to the highlighted text</li>
 <li>Selectable, searchable text (invisible text layer over the canvas)</li>
-<li>Download, print and full screen; PDF export</li>
+<li>Download the original file or a PDF, print and full screen; PDF export</li>
 <li>Keyboard and screen-reader accessible; English and Portuguese UI</li>
 </ul>
 
@@ -108,7 +108,7 @@
 <tr><td><code>zoom</code></td><td><code>page-width</code> (default) · <code>page-fit</code> · number or <code>%</code></td><td>Initial zoom, e.g. <code>125</code> or <code>125%</code> (10–800%).</td></tr>
 <tr><td><code>noselect</code></td><td>boolean</td><td>Turns off text selection.</td></tr>
 <tr><td><code>nocontrols</code></td><td>boolean</td><td>Removes the whole control bar.</td></tr>
-<tr><td><code>no&lt;item&gt;</code></td><td>boolean</td><td>Removes one control: <code>nonav</code>, <code>nocounter</code>, <code>nooutline</code>, <code>nothumbnails</code>, <code>nocomments</code>, <code>nozoom</code>, <code>noview</code>, <code>nodownload</code>, <code>noprint</code>, <code>nofullscreen</code>, <code>noprogress</code>.</td></tr>
+<tr><td><code>no&lt;item&gt;</code></td><td>boolean</td><td>Removes one control: <code>nonav</code>, <code>nocounter</code>, <code>nooutline</code>, <code>nothumbnails</code>, <code>nocomments</code>, <code>nozoom</code>, <code>noview</code>, <code>nodownload</code>, <code>nodownloadpdf</code>, <code>noprint</code>, <code>nofullscreen</code>, <code>noprogress</code>.</td></tr>
 <tr><td><code>lang</code></td><td><code>en</code> · <code>pt</code></td><td>UI language. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
 </tbody>
 </table>
@@ -126,7 +126,7 @@
 <tr><td><code>getHeadings()</code> · <code>goToHeading(i)</code></td><td>Outline: <code>{ level, text, page }[]</code>.</td></tr>
 <tr><td><code>getComments()</code> · <code>selectComment(id)</code></td><td>Comments: <code>{ id, author, text, page }[]</code>.</td></tr>
 <tr><td><code>exportPdf(): Uint8Array</code></td><td>PDF of the print layout.</td></tr>
-<tr><td><code>print()</code> · <code>download()</code> · <code>toggleFullscreen()</code></td><td>Same as the control-bar buttons.</td></tr>
+<tr><td><code>print()</code> · <code>download()</code> · <code>downloadPdf()</code> · <code>toggleFullscreen()</code></td><td>Same as the control-bar buttons (<code>download()</code> saves the original file, <code>downloadPdf()</code> the PDF of the print layout).</td></tr>
 </tbody>
 </table>
 
@@ -148,6 +148,7 @@ viewer.setZoom('page-fit');</code></pre>
 <tr><td><code>udv-heading</code></td><td><code>{ index, level, text, page }</code></td><td>An outline entry was chosen.</td></tr>
 <tr><td><code>udv-comment</code></td><td><code>{ id, author, text }</code></td><td>A comment was chosen.</td></tr>
 <tr><td><code>udv-download</code></td><td><code>{ bytes, filename }</code></td><td>Download button. <strong>Cancelable</strong> — call <code>preventDefault()</code> to handle the file yourself.</td></tr>
+<tr><td><code>udv-download-pdf</code></td><td><code>{ pdf, filename }</code></td><td>Download PDF button. <strong>Cancelable</strong> — call <code>preventDefault()</code> to handle the PDF yourself.</td></tr>
 <tr><td><code>udv-print</code></td><td><code>{ pdf }</code></td><td>Print button. <strong>Cancelable</strong> — handle printing yourself.</td></tr>
 </tbody>
 </table>
@@ -171,7 +172,7 @@ viewer.setZoom('page-fit');</code></pre>
 </tbody>
 </table>
 
-<p>Parts for <code>::part()</code>: <code>viewer</code>, <code>pages</code>, <code>page</code>, <code>nav-panel</code>, <code>nav-tab</code>, <code>outline</code>, <code>outline-item</code>, <code>thumbnails</code>, <code>thumbnail</code>, <code>comments</code>, <code>comment</code>, <code>menu</code>, <code>menu-option</code>, <code>controls</code>, <code>progress</code>, <code>progress-value</code>, <code>counter</code>, <code>button</code> and <code>button-&lt;name&gt;</code> (<code>prev</code>, <code>next</code>, <code>outline</code>, <code>thumbnails</code>, <code>comments</code>, <code>zoom-out</code>, <code>zoom-level</code>, <code>zoom-in</code>, <code>view</code>, <code>download</code>, <code>print</code>, <code>fullscreen</code>).</p>
+<p>Parts for <code>::part()</code>: <code>viewer</code>, <code>pages</code>, <code>page</code>, <code>nav-panel</code>, <code>nav-tab</code>, <code>outline</code>, <code>outline-item</code>, <code>thumbnails</code>, <code>thumbnail</code>, <code>comments</code>, <code>comment</code>, <code>menu</code>, <code>menu-option</code>, <code>controls</code>, <code>progress</code>, <code>progress-value</code>, <code>counter</code>, <code>button</code> and <code>button-&lt;name&gt;</code> (<code>prev</code>, <code>next</code>, <code>outline</code>, <code>thumbnails</code>, <code>comments</code>, <code>zoom-out</code>, <code>zoom-level</code>, <code>zoom-in</code>, <code>view</code>, <code>download</code>, <code>download-pdf</code>, <code>print</code>, <code>fullscreen</code>).</p>
 
 <pre><code>universal-document-viewer {
   --uo-controls-color: #ffd54f;
@@ -199,7 +200,7 @@ FontResolver.shared().configure({ baseUrl: '/assets/office-fonts' });</code></pr
 
 <h2 id="formats">Formats</h2>
 
-<p>Input: <code>.docx</code>, <code>.doc</code> (Word 97–2003, converted in memory). Output: PDF (<code>exportPdf</code>), the original file (<code>download</code>).</p>
+<p>Input: <code>.docx</code>, <code>.doc</code> (Word 97–2003, converted in memory). Output: PDF (<code>exportPdf</code>, <code>downloadPdf</code>), the original file (<code>download</code>).</p>
     </main>
   </div>
 

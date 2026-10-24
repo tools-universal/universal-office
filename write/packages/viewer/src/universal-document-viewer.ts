@@ -132,7 +132,7 @@ interface Tile { div: HTMLDivElement; canvas: HTMLCanvasElement; text: HTMLDivEl
  *
  * Controles no mesmo modelo do <universal-presentation-viewer>: visíveis por
  * padrão, `nocontrols` desliga todos, `no<item>` tira um a um (nav, counter,
- * outline, thumbnails, comments, zoom, view, download, print, fullscreen,
+ * outline, thumbnails, comments, zoom, view, download, downloadpdf, print, fullscreen,
  * progress).
  *
  * Painéis: navegação à esquerda (abas Índice — os títulos do documento, pelo
@@ -143,12 +143,12 @@ interface Tile { div: HTMLDivElement; canvas: HTMLCanvasElement; text: HTMLDivEl
  * API: atributos `src`, `fonts` (base dos arquivos de fonte), `view`, `zoom`
  * (`page-width` | `page-fit` | percentual), `noselect`, `nocontrols`, `no<item>`;
  * `loadDocx(bytes)`, `getPageCount()`, `getPageIndex()`, `goToPage(i)`,
- * `getView()`, `setView(v)`, `setZoom(z)`, `getZoom()`, `print()`, `download()`,
+ * `getView()`, `setView(v)`, `setZoom(z)`, `getZoom()`, `print()`, `download()`, `downloadPdf()`,
  * `toggleFullscreen()`, `exportPdf()`, `getHeadings()` (índice: nível, texto,
  * página), `goToHeading(i)`, `getHeadingIndex()`, `getComments()`,
  * `selectComment(id)`.
  * Eventos: `udv-loaded`, `udv-page`, `udv-view`, `udv-heading` (título atual),
- * `udv-zoom`, `udv-comment`, `udv-error`, `udv-download` e `udv-print`
+ * `udv-zoom`, `udv-comment`, `udv-error`, `udv-download`, `udv-download-pdf` e `udv-print`
  * (canceláveis: o host trata).
  */
 export class UniversalDocumentViewerElement extends HTMLElement {
@@ -1135,21 +1135,39 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   }
 
   /** Baixa o arquivo ORIGINAL: `udv-download` cancelável (bytes + nome). */
-  download(): void {
-    const bytes = this.fileBytes;
-    if (!bytes) return;
-    const doc = isWordBinary(bytes);
+  /** Nome do arquivo de origem (do `src`), ou `documento.<ext>`. */
+  private sourceName(doc: boolean): string {
     const src = this.getAttribute('src');
     let name = '';
     try { name = src ? decodeURIComponent(src.split(/[?#]/)[0]!.split('/').pop() ?? '') : ''; } catch { /* nome ilegível */ }
-    if (!/\.(docx|docm|dotx|doc|dot)$/i.test(name)) name = `documento.${doc ? 'doc' : 'docx'}`;
-    if (!this.dispatchEvent(new CustomEvent('udv-download', { cancelable: true, detail: { bytes, filename: name } }))) return;
-    const type = doc ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
+    return /\.(docx|docm|dotx|doc|dot)$/i.test(name) ? name : `documento.${doc ? 'doc' : 'docx'}`;
+  }
+
+  private save(data: Uint8Array, type: string, name: string): void {
+    const url = URL.createObjectURL(new Blob([new Uint8Array(data)], { type }));
     const a = document.createElement('a');
     a.href = url; a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /** Baixa o arquivo ORIGINAL (.docx/.doc): `udv-download` cancelável. */
+  download(): void {
+    const bytes = this.fileBytes;
+    if (!bytes) return;
+    const doc = isWordBinary(bytes);
+    const name = this.sourceName(doc);
+    if (!this.dispatchEvent(new CustomEvent('udv-download', { cancelable: true, detail: { bytes, filename: name } }))) return;
+    this.save(bytes, doc ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', name);
+  }
+
+  /** Baixa o PDF do layout de impressão (o mesmo de `print()`): `udv-download-pdf` cancelável. */
+  downloadPdf(): void {
+    if (!this.full || !this.fileBytes) return;
+    const pdf = this.exportPdf();
+    const name = this.sourceName(isWordBinary(this.fileBytes)).replace(/\.[^.]+$/, '.pdf');
+    if (!this.dispatchEvent(new CustomEvent('udv-download-pdf', { cancelable: true, detail: { pdf, filename: name } }))) return;
+    this.save(pdf, 'application/pdf', name);
   }
 
   toggleFullscreen(): void {
@@ -1236,6 +1254,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       commentsOpen: () => this.commentsOpen,
       toggleComments: () => this.setComments(!this.commentsOpen),
       download: () => this.download(),
+      downloadPdf: () => this.downloadPdf(),
       print: () => this.print(),
       isFullscreen: () => this.root.fullscreenElement === this.wrap,
       toggleFullscreen: () => this.toggleFullscreen(),

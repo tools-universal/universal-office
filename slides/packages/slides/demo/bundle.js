@@ -31230,6 +31230,8 @@ var ICONS = {
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
   // arquivo
   download: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
+  // o documento convertido (PDF): folha com dobra e a seta de baixar
+  "download-pdf": '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5"/><path d="M12.5 10.5v7"/><path d="M9.5 14.5l3 3 3-3"/>',
   print: '<path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
   // apresentação e tela cheia
   present: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10.5 7.5v5l4-2.5z" fill="currentColor"/>',

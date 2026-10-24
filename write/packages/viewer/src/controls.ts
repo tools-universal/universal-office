@@ -20,12 +20,12 @@ import { VIEW_MODES, type ViewMode } from './views.js';
  *    `--udv-panel-bg`, `--udv-comment-highlight`, `--udv-selection`, `--udv-page-gap`;
  *  - `::part()`: `controls`, `progress`, `progress-value`, `counter`, `button`,
  *    `button-<nome>` (prev, next, outline, thumbnails, comments, zoom-out,
- *    zoom-level, zoom-in, view, download, print, fullscreen), `menu`,
+ *    zoom-level, zoom-in, view, download, download-pdf, print, fullscreen), `menu`,
  *    `menu-option`, `nav-panel`, `nav-tab`, `outline`, `outline-item`,
  *    `thumbnails`, `thumbnail`, `comments`, `comment`, `pages`, `page`.
  */
 
-export const CONTROL_ITEMS = ['nav', 'counter', 'outline', 'thumbnails', 'comments', 'zoom', 'view', 'download', 'print', 'fullscreen', 'progress'] as const;
+export const CONTROL_ITEMS = ['nav', 'counter', 'outline', 'thumbnails', 'comments', 'zoom', 'view', 'download', 'downloadpdf', 'print', 'fullscreen', 'progress'] as const;
 export type ControlItem = typeof CONTROL_ITEMS[number];
 
 /** Zoom: largura da página, página inteira ou fator (1 = 100%). */
@@ -55,6 +55,8 @@ export interface ControlsHost {
   commentsOpen(): boolean;
   toggleComments(): void;
   download(): void;
+  /** PDF do layout de impressão (o mesmo que imprimir) */
+  downloadPdf(): void;
   print(): void;
   isFullscreen(): boolean;
   toggleFullscreen(): void;
@@ -83,7 +85,7 @@ const LABELS = {
     comments: 'Comentários', noHeadings: 'O documento não tem títulos.', noComments: 'Sem comentários.',
     zoomOut: 'Diminuir zoom', zoomIn: 'Aumentar zoom', zoom: 'Zoom', pageWidth: 'Largura da página', pageFit: 'Página inteira',
     view: 'Modo de exibição', read: 'Modo de Leitura', print: 'Layout de Impressão', web: 'Layout da Web',
-    download: 'Baixar', printDoc: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
+    download: 'Baixar', downloadPdf: 'Baixar PDF', printDoc: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
     progress: 'Posição no documento', page: 'Página', document: 'Documento', pagesArea: 'Páginas do documento',
     toolbar: 'Controles do documento',
     pageOf: (n: number, m: number) => `Página ${n} de ${m}`,
@@ -94,7 +96,7 @@ const LABELS = {
     comments: 'Comments', noHeadings: 'This document has no headings.', noComments: 'No comments.',
     zoomOut: 'Zoom out', zoomIn: 'Zoom in', zoom: 'Zoom', pageWidth: 'Page width', pageFit: 'Whole page',
     view: 'View', read: 'Read Mode', print: 'Print Layout', web: 'Web Layout',
-    download: 'Download', printDoc: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
+    download: 'Download', downloadPdf: 'Download PDF', printDoc: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
     progress: 'Position in document', page: 'Page', document: 'Document', pagesArea: 'Document pages',
     toolbar: 'Document controls',
     pageOf: (n: number, m: number) => `Page ${n} of ${m}`,
@@ -136,6 +138,7 @@ export class DocumentControls {
         { name: 'zoom-in', item: 'zoom', icon: 'zoom-in', run: r(() => this.step(1)) },
         { name: 'view', item: 'view', icon: 'view-print', run: r(() => this.toggleViewMenu()) },
         { name: 'download', item: 'download', icon: 'download', run: r(() => host.download()) },
+        { name: 'download-pdf', item: 'downloadpdf', icon: 'download-pdf', run: r(() => host.downloadPdf()) },
         { name: 'print', item: 'print', icon: 'print', run: r(() => host.print()) },
         { name: 'fullscreen', item: 'fullscreen', icon: 'fullscreen', run: r(() => host.toggleFullscreen()) },
       ],
@@ -276,6 +279,7 @@ export class DocumentControls {
     b.setButton('zoom-in', { label: L.zoomIn });
     b.setButton('view', { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === 'view' });
     b.setButton('download', { label: L.download });
+    b.setButton('download-pdf', { label: L.downloadPdf });
     b.setButton('print', { label: L.printDoc });
     b.setButton('fullscreen', { label: full ? L.unfullscreen : L.fullscreen, icon: full ? 'unfullscreen' : 'fullscreen' });
   }

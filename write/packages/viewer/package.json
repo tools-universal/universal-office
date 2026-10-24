@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/document-viewer",
-  "version": "0.0.1",
+  "version": "0.9.0",
   "type": "module",
   "description": "Webcomponent <universal-document-viewer> — visualização pura de .docx/.doc com a paginação e a pintura do motor do Write (sem edição)",
   "main": "dist/index.js",

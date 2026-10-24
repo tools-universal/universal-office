@@ -29219,6 +29219,8 @@ var ICONS = {
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
   // arquivo
   download: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
+  // o documento convertido (PDF): folha com dobra e a seta de baixar
+  "download-pdf": '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5"/><path d="M12.5 10.5v7"/><path d="M9.5 14.5l3 3 3-3"/>',
   print: '<path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
   // apresentação e tela cheia
   present: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10.5 7.5v5l4-2.5z" fill="currentColor"/>',
@@ -29881,7 +29883,7 @@ function readPagesPerView(widthPx) {
 }
 
 // src/controls.ts
-var CONTROL_ITEMS = ["nav", "counter", "outline", "thumbnails", "comments", "zoom", "view", "download", "print", "fullscreen", "progress"];
+var CONTROL_ITEMS = ["nav", "counter", "outline", "thumbnails", "comments", "zoom", "view", "download", "downloadpdf", "print", "fullscreen", "progress"];
 var CONTROLS_CSS = controlsCss("udv") + `
 .udv-level { width: auto; min-width: calc(var(--uoc-s) * 2.6); padding: 0 6px; font-variant-numeric: tabular-nums; }
 .udv-menu {
@@ -29915,6 +29917,7 @@ var LABELS = {
     print: "Layout de Impress\xE3o",
     web: "Layout da Web",
     download: "Baixar",
+    downloadPdf: "Baixar PDF",
     printDoc: "Imprimir",
     fullscreen: "Tela cheia",
     unfullscreen: "Sair da tela cheia",
@@ -29945,6 +29948,7 @@ var LABELS = {
     print: "Print Layout",
     web: "Web Layout",
     download: "Download",
+    downloadPdf: "Download PDF",
     printDoc: "Print",
     fullscreen: "Full screen",
     unfullscreen: "Exit full screen",
@@ -29985,6 +29989,7 @@ var DocumentControls = class {
         { name: "zoom-in", item: "zoom", icon: "zoom-in", run: r(() => this.step(1)) },
         { name: "view", item: "view", icon: "view-print", run: r(() => this.toggleViewMenu()) },
         { name: "download", item: "download", icon: "download", run: r(() => host.download()) },
+        { name: "download-pdf", item: "downloadpdf", icon: "download-pdf", run: r(() => host.downloadPdf()) },
         { name: "print", item: "print", icon: "print", run: r(() => host.print()) },
         { name: "fullscreen", item: "fullscreen", icon: "fullscreen", run: r(() => host.toggleFullscreen()) }
       ],
@@ -30151,6 +30156,7 @@ var DocumentControls = class {
     b.setButton("zoom-in", { label: L.zoomIn });
     b.setButton("view", { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === "view" });
     b.setButton("download", { label: L.download });
+    b.setButton("download-pdf", { label: L.downloadPdf });
     b.setButton("print", { label: L.printDoc });
     b.setButton("fullscreen", { label: full ? L.unfullscreen : L.fullscreen, icon: full ? "unfullscreen" : "fullscreen" });
   }
@@ -31248,25 +31254,40 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     document.body.appendChild(frame);
   }
   /** Baixa o arquivo ORIGINAL: `udv-download` cancelável (bytes + nome). */
-  download() {
-    const bytes = this.fileBytes;
-    if (!bytes) return;
-    const doc = isWordBinary(bytes);
+  /** Nome do arquivo de origem (do `src`), ou `documento.<ext>`. */
+  sourceName(doc) {
     const src = this.getAttribute("src");
     let name = "";
     try {
       name = src ? decodeURIComponent(src.split(/[?#]/)[0].split("/").pop() ?? "") : "";
     } catch {
     }
-    if (!/\.(docx|docm|dotx|doc|dot)$/i.test(name)) name = `documento.${doc ? "doc" : "docx"}`;
-    if (!this.dispatchEvent(new CustomEvent("udv-download", { cancelable: true, detail: { bytes, filename: name } }))) return;
-    const type = doc ? "application/msword" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
+    return /\.(docx|docm|dotx|doc|dot)$/i.test(name) ? name : `documento.${doc ? "doc" : "docx"}`;
+  }
+  save(data8, type, name) {
+    const url = URL.createObjectURL(new Blob([new Uint8Array(data8)], { type }));
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1e3);
+  }
+  /** Baixa o arquivo ORIGINAL (.docx/.doc): `udv-download` cancelável. */
+  download() {
+    const bytes = this.fileBytes;
+    if (!bytes) return;
+    const doc = isWordBinary(bytes);
+    const name = this.sourceName(doc);
+    if (!this.dispatchEvent(new CustomEvent("udv-download", { cancelable: true, detail: { bytes, filename: name } }))) return;
+    this.save(bytes, doc ? "application/msword" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document", name);
+  }
+  /** Baixa o PDF do layout de impressão (o mesmo de `print()`): `udv-download-pdf` cancelável. */
+  downloadPdf() {
+    if (!this.full || !this.fileBytes) return;
+    const pdf = this.exportPdf();
+    const name = this.sourceName(isWordBinary(this.fileBytes)).replace(/\.[^.]+$/, ".pdf");
+    if (!this.dispatchEvent(new CustomEvent("udv-download-pdf", { cancelable: true, detail: { pdf, filename: name } }))) return;
+    this.save(pdf, "application/pdf", name);
   }
   toggleFullscreen() {
     if (this.root.fullscreenElement === this.wrap) document.exitFullscreen().catch(() => {
@@ -31353,6 +31374,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       commentsOpen: () => this.commentsOpen,
       toggleComments: () => this.setComments(!this.commentsOpen),
       download: () => this.download(),
+      downloadPdf: () => this.downloadPdf(),
       print: () => this.print(),
       isFullscreen: () => this.root.fullscreenElement === this.wrap,
       toggleFullscreen: () => this.toggleFullscreen()
